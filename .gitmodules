@@ -1,3 +1,6 @@
 [submodule "code/coqdocjs"]
 	path = code/coqdocjs
 	url = git@github.com:chdoc/coqdocjs.git
+[submodule "code/graph-theory"]
+	path = code/graph-theory
+	url = git@github.com:rocq-community/graph-theory.git
