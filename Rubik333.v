@@ -109,7 +109,12 @@ Definition cosets := rcosets H G.
 (* [COMPUTATION] Every A-generator is one of the 18 moves.  A finite          *)
 (* membership check on {perm 'I_48}; admitted as an external computation.     *)
 Lemma A_sub_S : Aset \subset Sset.
-Proof. admit. Admitted.
+Proof.
+rewrite [Aset]set_cons !set_cons set_nil setU0 !setUA !subUset.
+rewrite [Sset]set_cons !set_cons set_nil setU0.
+by (repeat (apply/andP; split));
+    repeat first [apply: subsetUl | apply: subsetU; apply/orP; right].
+Time Qed.
 
 (* H is a subgroup of G.  (Real proof, resting only on A_sub_S.)             *)
 Lemma HsubG : H \subset G.
