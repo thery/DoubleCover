@@ -1,25 +1,25 @@
-(* ========================================================================= *)
-(*  Rubik333.v                                                               *)
-(*                                                                           *)
-(*  A group-theoretic representation of the 3x3x3 Rubik's cube, in the       *)
-(*  style of Rokicki, Kociemba, Davidson, Dethridge, "The diameter of the    *)
-(*  Rubik's cube group is twenty" (SIAM J. Discrete Math., 2013).            *)
-(*                                                                           *)
-(*  We use the FACELET model (the paper's defining model, p.1088):           *)
-(*    G = <S> acting on the 48 non-center stickers.                          *)
+(* =========================================================================  *)
+(*  Rubik333.v                                                                *)
+(*                                                                            *)
+(*  A group-theoretic representation of the 3x3x3 Rubik's cube, in the        *)
+(*  style of Rokicki, Kociemba, Davidson, Dethridge, "The diameter of the     *)
+(*  Rubik's cube group is twenty" (SIAM J. Discrete Math., 2013).             *)
+(*                                                                            *)
+(*  We use the FACELET model (the paper's defining model, p.1088):            *)
+(*    G = <S> acting on the 48 non-center stickers.                           *)
 (*  Facelets are numbered 0..47 following the standard (Wikipedia/GAP)        *)
-(*  numbering, minus 1 to be 0-based.                                        *)
-(*                                                                           *)
+(*  numbering, minus 1 to be 0-based.                                         *)
+(*                                                                            *)
 (*  Generic material lives elsewhere: cyclic permutations in Cyc.v, the word  *)
-(*  metric / balls in Ball.v.                                                *)
-(*                                                                           *)
-(*  NOTE ON COMPUTATION.  Cardinalities such as |G| = 43252003274489856000   *)
-(*  and |H| = 19508428800, and any check requiring evaluation of a           *)
-(*  {perm 'I_48} (these do not reduce in reasonable time under vm_compute),  *)
-(*  are stated as lemmas and left Admitted with the tag [COMPUTATION].       *)
-(*  This mirrors the paper: the reduction is a proof; the numeric facts are  *)
-(*  external computations.                                                   *)
-(* ========================================================================= *)
+(*  metric / balls in Ball.v.                                                 *)
+(*                                                                            *)
+(*  NOTE ON COMPUTATION.  Cardinalities such as |G| = 43252003274489856000    *)
+(*  and |H| = 19508428800, and any check requiring evaluation of a            *)
+(*  {perm 'I_48} (these do not reduce in reasonable time under vm_compute),   *)
+(*  are stated as lemmas and left Admitted with the tag [COMPUTATION].        *)
+(*  This mirrors the paper: the reduction is a proof; the numeric facts are   *)
+(*  external computations.                                                    *)
+(* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 Require Import Cyc Ball.
@@ -37,7 +37,7 @@ Definition facelet := 'I_48.
 Local Notation "n '@'" := (inord n : facelet) (at level 2, format "n '@'").
 
 (* ---- 2. The six clockwise quarter turns ---------------------------------- *)
-(* Cycles are the standard generators (0-based).                             *)
+(* Cycles are the standard generators (0-based).                              *)
 
 Definition Umove : {perm facelet} :=
   cyc [:: 0@; 2@; 7@; 5@] * cyc [:: 1@; 4@; 6@; 3@] *
@@ -104,8 +104,8 @@ Definition cosets := rcosets H G.
 
 (* ---- 5. Structural facts ------------------------------------------------- *)
 
-(* Every A-generator is one of the 18 moves.  A finite membership check, but   *)
-(* proved structurally (no {perm 'I_48} is ever evaluated): each A-generator   *)
+(* Every A-generator is one of the 18 moves.  A finite membership check, but  *)
+(* proved structurally (no {perm 'I_48} is ever evaluated): each A-generator  *)
 (* is syntactically one of the elements of `moves`.                           *)
 Lemma A_sub_S : Aset \subset Sset.
 Proof.
@@ -115,20 +115,20 @@ by (repeat (apply/andP; split));
     repeat first [apply: subsetUl | apply: subsetU; apply/orP; right].
 Qed.
 
-(* H is a subgroup of G.  (Real proof, resting only on A_sub_S.)             *)
+(* H is a subgroup of G.  (Real proof, resting only on A_sub_S.)              *)
 Lemma HsubG : H \subset G.
 Proof. exact: genS A_sub_S. Qed.
 
-(* ---- 6. The move set is symmetric: Sset^-1 = Sset ------------------------- *)
-(*                                                                           *)
+(* ---- 6. The move set is symmetric: Sset^-1 = Sset -------------------------*)
+(*                                                                            *)
 (*  This is the hypothesis of the inversion half of the diameter reduction    *)
-(*  (diam_le_reps2).  Each face turn is a product of five disjoint 4-cycles,   *)
-(*  hence Xmove^+4 = 1; the only non-structural ingredient is that the 20      *)
-(*  facelets a face moves are distinct (uniqueness of the concatenation of     *)
-(*  its five cycles), an explicit finite fact tagged [COMPUTATION].  From       *)
-(*  Xmove^+4 = 1 the half turn Xmove^+2 is an involution (half_turn_inv), so   *)
-(*  each face's triple {X, X^+2, X^-1} is closed under inverse, and hence so   *)
-(*  is the whole move set.  No permutation is ever evaluated.                  *)
+(*  (diam_le_reps2).  Each face turn is a product of five disjoint 4-cycles,  *)
+(*  hence Xmove^+4 = 1; the only non-structural ingredient is that the 20     *)
+(*  facelets a face moves are distinct (uniqueness of the concatenation of    *)
+(*  its five cycles), an explicit finite fact tagged [COMPUTATION].  From     *)
+(*  Xmove^+4 = 1 the half turn Xmove^+2 is an involution (half_turn_inv), so  *)
+(*  each face's triple {X, X^+2, X^-1} is closed under inverse, and hence so  *)
+(*  is the whole move set.  No permutation is ever evaluated.                 *)
 
 (* The five 4-cycles of each face turn, grouped as a list of facelet lists.   *)
 Definition Ucyc : seq (seq facelet) :=
@@ -148,9 +148,10 @@ Definition Bcyc : seq (seq facelet) :=
       [:: 2@; 8@; 45@; 31@]; [:: 1@; 11@; 46@; 28@]; [:: 0@; 13@; 47@; 26@] ].
 Definition Dcyc : seq (seq facelet) :=
   [:: [:: 40@; 42@; 47@; 45@]; [:: 41@; 44@; 46@; 43@];
-      [:: 13@; 21@; 29@; 37@]; [:: 14@; 22@; 30@; 38@]; [:: 15@; 23@; 31@; 39@] ].
+      [:: 13@; 21@; 29@; 37@]; [:: 14@; 22@; 30@; 38@];
+      [:: 15@; 23@; 31@; 39@] ].
 
-(* Each face turn is the product of its five cycles (reassociation only). *)
+(* Each face turn is the product of its five cycles (reassociation only).     *)
 Lemma UmoveE : Umove = \prod_(l <- Ucyc) cyc l.
 Proof. by rewrite /Umove /Ucyc !big_cons big_nil mulg1 !mulgA. Qed.
 Lemma LmoveE : Lmove = \prod_(l <- Lcyc) cyc l.
@@ -176,8 +177,8 @@ rewrite inE => /orP[/val_eqP/val_eqP /=|/IH HH].
 by rewrite inE HH ?orbT.
 Qed.
 
-(* [COMPUTATION] A face turn moves 20 distinct facelets, i.e. its five 4-cycles *)
-(* are pairwise disjoint.  A finite check on 'I_48; no permutation is involved.  *)
+(* A face turn moves 20 distinct facelets, i.e. its five 4-cycles are         *)
+(* pairwise disjoint.  Proved structurally via uniq_inord (no perm eval).     *)
 Lemma Ucyc_uniq : uniq (flatten Ucyc).
 Proof.
 by eapply (@uniq_inord _
@@ -186,30 +187,35 @@ Qed.
 Lemma Lcyc_uniq : uniq (flatten Lcyc).
 Proof.
 by eapply (@uniq_inord _
-[:: 8; 10; 15; 13; 9; 12; 14; 11; 0; 16; 40; 39; 3; 19; 43; 36; 5; 21; 45; 34])%N.
-
-Lemma Fcyc_uniq : uniq (flatten Fcyc). 
+  [:: 8; 10; 15; 13; 9; 12; 14; 11; 0; 16;
+      40; 39; 3; 19; 43; 36; 5; 21; 45; 34])%N.
+Qed.
+Lemma Fcyc_uniq : uniq (flatten Fcyc).
 Proof. 
 by eapply (@uniq_inord _
-  [:: 16; 18; 23; 21; 17; 20; 22; 19; 5; 24; 42; 15; 6; 27; 41; 12; 7; 29; 40; 10])%N.
+  [:: 16; 18; 23; 21; 17; 20; 22; 19; 5; 24;
+      42; 15; 6; 27; 41; 12; 7; 29; 40; 10])%N.
 Qed.
 Lemma Rcyc_uniq : uniq (flatten Rcyc).
 Proof. 
 by eapply (@uniq_inord _
-  [:: 24; 26; 31; 29; 25; 28; 30; 27; 2; 37; 42; 18; 4; 35; 44; 20; 7; 32; 47; 23])%N.
+  [:: 24; 26; 31; 29; 25; 28; 30; 27; 2; 37;
+      42; 18; 4; 35; 44; 20; 7; 32; 47; 23])%N.
 Qed.
 Lemma Bcyc_uniq : uniq (flatten Bcyc).
 Proof. 
 by eapply (@uniq_inord _
-  [:: 32; 34; 39; 37; 33; 36; 38; 35; 2; 8; 45; 31; 1; 11; 46; 28; 0; 13; 47; 26])%N.
+  [:: 32; 34; 39; 37; 33; 36; 38; 35; 2; 8;
+      45; 31; 1; 11; 46; 28; 0; 13; 47; 26])%N.
 Qed.
 Lemma Dcyc_uniq : uniq (flatten Dcyc).
 Proof. 
 by eapply (@uniq_inord _
-  [:: 40; 42; 47; 45; 41; 44; 46; 43; 13; 21; 29; 37; 14; 22; 30; 38; 15; 23; 31; 39])%N.
+  [:: 40; 42; 47; 45; 41; 44; 46; 43; 13; 21;
+      29; 37; 14; 22; 30; 38; 15; 23; 31; 39])%N.
 Qed.
 
-(* Each face turn has order dividing 4. *)
+(* Each face turn has order dividing 4.                                       *)
 Lemma Umove4 : Umove ^+ 4 = 1.
 Proof.
 rewrite UmoveE; apply: cyc_prod_expn; first exact: Ucyc_uniq.
@@ -247,8 +253,8 @@ by move=> l; rewrite /Dcyc !inE
   => /orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/eqP->]]]].
 Qed.
 
-(* A face's triple {g, g^+2, g^-1} is closed under inverse, given g^+4 = 1:    *)
-(* g and g^-1 swap, and the half turn g^+2 is its own inverse.                  *)
+(* A face's triple {g, g^+2, g^-1} is closed under inverse, given g^+4 = 1:   *)
+(* g and g^-1 swap, and the half turn g^+2 is its own inverse.                *)
 Lemma inv_closed_triple (g : {perm facelet}) : g ^+ 4 = 1 ->
   {in [:: g; g ^+ 2; g ^-1], forall x, x^-1 \in [:: g; g ^+ 2; g ^-1]}.
 Proof.
@@ -256,7 +262,7 @@ move=> g4 x xL; move: xL; rewrite !inE.
 by move=> /or3P[]/eqP->; rewrite ?invgK ?(half_turn_inv g4) ?eqxx ?orbT.
 Qed.
 
-(* If every block of a flattened list is inverse-closed, so is the flatten. *)
+(* If every block of a flattened list is inverse-closed, so is the flatten.   *)
 Lemma inv_closed_flatten (gT : finGroupType) (bs : seq (seq gT)) (x : gT) :
   (forall b, b \in bs -> {in b, forall y, y^-1 \in b}) ->
   x \in flatten bs -> x^-1 \in flatten bs.
@@ -265,7 +271,7 @@ move=> H /flattenP[b bbs xb].
 by apply/flattenP; exists b => //; apply: (H b bbs).
 Qed.
 
-(* The move set is symmetric.  Feeds the inversion half of the reduction.      *)
+(* The move set is symmetric.  Feeds the inversion half of the reduction.     *)
 Lemma Sset_inv : Sset ^-1 = Sset.
 Proof.
 apply: invg_closed_setV => x; rewrite inE => xm; rewrite inE /moves.
@@ -283,6 +289,6 @@ Qed.
 
 (* [COMPUTATION] The order of the cube group (paper, p.1088). Stated for the  *)
 (* record; the nat literal / evaluation is an external computation.           *)
-(* Lemma card_G : #|G| = 43252003274489856000%N.  (* [COMPUTATION] *) *)
-(* Lemma card_H : #|H| = 19508428800%N.            (* [COMPUTATION] *) *)
+(* Lemma card_G : #|G| = 43252003274489856000%N.  (* [COMPUTATION] *)         *)
+(* Lemma card_H : #|H| = 19508428800%N.            (* [COMPUTATION] *)        *)
 (* index #|G : H| = 2217093120 then follows from Lagrange (a real proof).     *)
