@@ -28,6 +28,9 @@ Variable A : finType.
 Definition cyc (s : seq A) : {perm A} :=
   if s is a0 :: rest then \prod_(a <- rest) tperm a0 a else 1%g.
 
+Lemma cyc1 a : cyc [:: a] = 1.
+Proof. by rewrite [LHS]big_nil. Qed.
+
 Lemma cyc_notin a l : a \notin l -> cyc l a = a.
 Proof.
 case: l => [|b] /=; first by rewrite permE.
@@ -58,7 +61,7 @@ rewrite big_cons !permE /= tpermD ?IH //=.
 by rewrite mem_cat negb_or inE negb_or in H3; case/and3P: H3.
 Qed.
 
-Lemma cyc_head a b l :
+Lemma cyc_tail a b l :
   uniq (a :: rcons l b) -> cyc (a :: rcons l b) b = a.
 Proof.
 rewrite /=.
@@ -68,6 +71,40 @@ rewrite !inE !in_rcons !negb_or => /and3P[/andP[? /andP[? ?]] /andP[? ?] ?].
 rewrite permE /= ifN; last by rewrite eq_sym.
 rewrite ifN ?IH ?in_rcons ?negb_or //; last by rewrite eq_sym.
 by rewrite -andbA; apply/and3P; split.
+Qed.
+
+Lemma cyc_nth a i l :
+  uniq l -> i < size l -> cyc l (nth a l i) = nth a l (i.+1 %% (size l)).
+Proof.
+move=> Hu iLl.
+move: iLl; case: (ltngtP i.+1) => // [i1Ll|iEl] _; last first.
+  rewrite iEl modnn.
+  case/lastP : l Hu iEl => // l b Hu.
+  rewrite size_rcons => [] [->].
+  rewrite nth_rcons ltnn eqxx.
+  case: l Hu => [|c l Hu]; first by rewrite [rcons _ _]/= cyc1 permE.
+  by rewrite [RHS]/= cyc_tail.
+rewrite modn_small //.
+suff lE : l = take i l ++ (nth a l i) :: nth a l i.+1 :: drop i.+2 l.
+  by rewrite [X in cyc X]lE cyc_succ // -lE.
+rewrite -{1 3 4}(@cat_take_drop  i _ l); congr (_ ++ _).
+rewrite nth_cat size_take.
+have iLl : i < size l by apply: leq_ltn_trans i1Ll.
+rewrite iLl ltnn subnn nth_cat size_take iLl ifN; last by rewrite -leqNgt.
+have -> : i.+1 - i = 1%N by rewrite subSn // subnn.
+rewrite [in LHS](drop_nth a) // [in LHS](drop_nth a) //.
+by rewrite nth_drop addn0 nth_drop addn1.
+Qed.
+
+Lemma cyc_pow_nth n a i l :
+  uniq l -> i < size l -> 
+  ((cyc l) ^+ n) (nth a l i) = nth a l ((n + i) %% (size l)).
+Proof.
+move=> lU iLs.
+elim: n => // [|n IH]; first by rewrite permE modn_small.
+rewrite expgSr permE /= IH cyc_nth //; last first.
+  by rewrite ltn_mod (leq_ltn_trans _ iLs).
+by rewrite -addn1 modnDml addnAC addn1.
 Qed.
 
 End Cyc.
@@ -120,9 +157,20 @@ rewrite big_cons; apply: commuteM; first by apply: H; rewrite inE eqxx.
 by apply: IH => j jr; apply: H; rewrite inE jr orbT.
 Qed.
 
-(* An n-cycle has order n.  [Left admitted; to be proved separately.] *)
+Lemma compE (A B C : Type) (f : A -> B) (g : B -> C) x : (g \o f) x = g (f x).
+Proof. by []. Qed.
+
+(* An n-cycle has order n.                                                    *)
 Lemma cyc_order (A : finType) (l : seq A) : uniq l -> cyc l ^+ size l = 1.
-Proof. Admitted.
+Proof.
+case: l => // a l uL.
+apply/permP => x; rewrite permE.
+have [xIl|xNIl] := boolP (x \in a :: l); last first.
+  elim: size => [|m IH]; first by rewrite expg0 permE.
+  by rewrite expgSr permE compE IH cyc_notin.
+rewrite -(nth_index a xIl) cyc_pow_nth ?index_mem //.
+by rewrite -modnDml modnn modn_small // index_mem.
+Qed.
 
 (* A product of pairwise-disjoint cycles, all of length n, has n-th power the  *)
 (* identity: the factors commute and each is killed by the n-th power.  The     *)
