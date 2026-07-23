@@ -101,4 +101,100 @@ Proof. by rewrite !ballE invg_bigcup; apply: eq_bigr => k _; rewrite invg_expg. 
 Lemma mem_ballV S g n : S^-1 = S -> (g^-1 \in ball S n) = (g \in ball S n).
 Proof. by move=> SV; rewrite -mem_invg ball_inv SV. Qed.
 
+(* ---- Reachability: ball vs the generated group --------------------------- *)
+
+(* A product of n elements of S is a word of length n, hence lies in S ^+ n.  *)
+Lemma mem_prodg_expg S n (c : 'I_n -> gT) :
+  (forall i, c i \in S) -> \prod_(i < n) c i \in S ^+ n.
+Proof.
+elim: n c => [|n IH] c cS; first by rewrite big_ord0 expg0 set1gE inE.
+rewrite big_ord_recr expgSr.
+by apply: mem_mulg; [apply: IH => i; apply: cS | apply: cS].
+Qed.
+
+(* Every element of <<S>> is reached by some finite ball (S generates). *)
+Lemma mem_gen_ball S g : g \in <<S>> -> exists n, g \in ball S n.
+Proof.
+move=> /gen_prodgP[n [c cS ->]].
+exists n; rewrite ballE; apply/bigcupP.
+by exists (Ordinal (ltnSn n)) => //; apply: mem_prodg_expg.
+Qed.
+
+(* Conversely every ball lies inside the generated group. *)
+Lemma ball_sub_gen S n : ball S n \subset <<S>>.
+Proof.
+elim: n => [|n IH]; first by rewrite /= sub1G.
+rewrite /= subUset IH /=.
+apply: subset_trans (mulgSS IH (sub_gen (subxx S))) _; rewrite mulGid.
+exact: subxx.
+Qed.
+
+(* ---- The diameter bound and its reduction to coset representatives -------- *)
+
+(* "The Cayley-diameter of <S> is at most n": every element is a word of       *)
+(* length <= n.  A covering predicate -- no minimal-length function, no giant  *)
+(* nat is ever built.                                                          *)
+Definition diam_le S n := <<S>> \subset ball S n.
+
+(* Conjugation by a symmetry that stabilises S preserves the ball-covering    *)
+(* test on a set (the set-level lift of mem_ballJ). *)
+Lemma sub_ballJ S u C n :
+  S :^ u = S -> (C :^ u \subset ball S n) = (C \subset ball S n).
+Proof.
+move=> SJ; have HB : ball S n = (ball S n) :^ u by rewrite -{1}SJ ballJ.
+by rewrite {1}HB conjSg.
+Qed.
+
+(* Inversion (when S is symmetric) likewise preserves the covering test. *)
+Lemma sub_ballV (S C : {set gT}) n :
+  S^-1 = S -> (C^-1 \subset ball S n) = (C \subset ball S n).
+Proof.
+move=> SV; have HB : ball S n = (ball S n)^-1 by rewrite ball_inv SV.
+by rewrite {1}HB invSg.
+Qed.
+
+(* If every right coset of a subgroup H <= <<S>> is within radius n, so is    *)
+(* the whole group (the cosets partition it).                                 *)
+Lemma diam_le_cover S (H : {group gT}) n :
+  H \subset <<S>> ->
+  (forall C, C \in rcosets H <<S>> -> C \subset ball S n) ->
+  diam_le S n.
+Proof.
+move=> HS cov; rewrite /diam_le -(cover_partition (rcosets_partition HS)).
+rewrite /cover; apply/bigcupsP => C CH; exact: cov.
+Qed.
+
+(* THE REDUCTION (conjugation only).  It suffices to check a set R of          *)
+(* representatives such that every coset is carried into R by some symmetry    *)
+(* stabilising S.  [The 48 spatial symmetries.]                               *)
+Lemma diam_le_reps S (H : {group gT}) (R : {set {set gT}}) n :
+  H \subset <<S>> ->
+  (forall C, C \in rcosets H <<S>> ->
+     exists2 u, S :^ u = S & C :^ u \in R) ->
+  (forall C, C \in R -> C \subset ball S n) ->
+  diam_le S n.
+Proof.
+move=> HS Hrep Hrad; apply: (diam_le_cover HS) => C CH.
+have [u SJ CuR] := Hrep C CH.
+by rewrite -(sub_ballJ C n SJ); apply: Hrad.
+Qed.
+
+(* THE REDUCTION (conjugation + inversion).  Each coset reaches a checked      *)
+(* representative by a symmetry stabilising S, possibly composed with          *)
+(* inversion.  [The 48 symmetries x the factor of 2 = 96.]  R need not consist *)
+(* of cosets: it is just the set of representatives one has verified.          *)
+Lemma diam_le_reps2 S (H : {group gT}) (R : {set {set gT}}) n :
+  H \subset <<S>> -> S^-1 = S ->
+  (forall C, C \in rcosets H <<S>> ->
+     exists2 u, S :^ u = S & (C :^ u \in R) || (C^-1 :^ u \in R)) ->
+  (forall D, D \in R -> D \subset ball S n) ->
+  diam_le S n.
+Proof.
+move=> HS SV Hrep Hrad; apply: (diam_le_cover HS) => C CH.
+have [u SJ] := Hrep C CH.
+case/orP=> DR.
+  by rewrite -(sub_ballJ C n SJ); exact: (Hrad _ DR).
+by rewrite -(sub_ballV C n SV) -(sub_ballJ (C^-1) n SJ); exact: (Hrad _ DR).
+Qed.
+
 End Ball.
