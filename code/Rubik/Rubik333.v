@@ -119,6 +119,132 @@ Qed.
 Lemma HsubG : H \subset G.
 Proof. exact: genS A_sub_S. Qed.
 
+(* ---- 6. The move set is symmetric: Sset^-1 = Sset ------------------------- *)
+(*                                                                           *)
+(*  This is the hypothesis of the inversion half of the diameter reduction    *)
+(*  (diam_le_reps2).  Each face turn is a product of five disjoint 4-cycles,   *)
+(*  hence Xmove^+4 = 1; the only non-structural ingredient is that the 20      *)
+(*  facelets a face moves are distinct (uniqueness of the concatenation of     *)
+(*  its five cycles), an explicit finite fact tagged [COMPUTATION].  From       *)
+(*  Xmove^+4 = 1 the half turn Xmove^+2 is an involution (half_turn_inv), so   *)
+(*  each face's triple {X, X^+2, X^-1} is closed under inverse, and hence so   *)
+(*  is the whole move set.  No permutation is ever evaluated.                  *)
+
+(* The five 4-cycles of each face turn, grouped as a list of facelet lists.   *)
+Definition Ucyc : seq (seq facelet) :=
+  [:: [:: 0@; 2@; 7@; 5@]; [:: 1@; 4@; 6@; 3@];
+      [:: 8@; 32@; 24@; 16@]; [:: 9@; 33@; 25@; 17@]; [:: 10@; 34@; 26@; 18@] ].
+Definition Lcyc : seq (seq facelet) :=
+  [:: [:: 8@; 10@; 15@; 13@]; [:: 9@; 12@; 14@; 11@];
+      [:: 0@; 16@; 40@; 39@]; [:: 3@; 19@; 43@; 36@]; [:: 5@; 21@; 45@; 34@] ].
+Definition Fcyc : seq (seq facelet) :=
+  [:: [:: 16@; 18@; 23@; 21@]; [:: 17@; 20@; 22@; 19@];
+      [:: 5@; 24@; 42@; 15@]; [:: 6@; 27@; 41@; 12@]; [:: 7@; 29@; 40@; 10@] ].
+Definition Rcyc : seq (seq facelet) :=
+  [:: [:: 24@; 26@; 31@; 29@]; [:: 25@; 28@; 30@; 27@];
+      [:: 2@; 37@; 42@; 18@]; [:: 4@; 35@; 44@; 20@]; [:: 7@; 32@; 47@; 23@] ].
+Definition Bcyc : seq (seq facelet) :=
+  [:: [:: 32@; 34@; 39@; 37@]; [:: 33@; 36@; 38@; 35@];
+      [:: 2@; 8@; 45@; 31@]; [:: 1@; 11@; 46@; 28@]; [:: 0@; 13@; 47@; 26@] ].
+Definition Dcyc : seq (seq facelet) :=
+  [:: [:: 40@; 42@; 47@; 45@]; [:: 41@; 44@; 46@; 43@];
+      [:: 13@; 21@; 29@; 37@]; [:: 14@; 22@; 30@; 38@]; [:: 15@; 23@; 31@; 39@] ].
+
+(* Each face turn is the product of its five cycles (reassociation only). *)
+Lemma UmoveE : Umove = \prod_(l <- Ucyc) cyc l.
+Proof. by rewrite /Umove /Ucyc !big_cons big_nil mulg1 !mulgA. Qed.
+Lemma LmoveE : Lmove = \prod_(l <- Lcyc) cyc l.
+Proof. by rewrite /Lmove /Lcyc !big_cons big_nil mulg1 !mulgA. Qed.
+Lemma FmoveE : Fmove = \prod_(l <- Fcyc) cyc l.
+Proof. by rewrite /Fmove /Fcyc !big_cons big_nil mulg1 !mulgA. Qed.
+Lemma RmoveE : Rmove = \prod_(l <- Rcyc) cyc l.
+Proof. by rewrite /Rmove /Rcyc !big_cons big_nil mulg1 !mulgA. Qed.
+Lemma BmoveE : Bmove = \prod_(l <- Bcyc) cyc l.
+Proof. by rewrite /Bmove /Bcyc !big_cons big_nil mulg1 !mulgA. Qed.
+Lemma DmoveE : Dmove = \prod_(l <- Dcyc) cyc l.
+Proof. by rewrite /Dmove /Dcyc !big_cons big_nil mulg1 !mulgA. Qed.
+
+(* [COMPUTATION] A face turn moves 20 distinct facelets, i.e. its five 4-cycles *)
+(* are pairwise disjoint.  A finite check on 'I_48; no permutation is involved.  *)
+Lemma Ucyc_uniq : uniq (flatten Ucyc). Proof. Admitted.
+Lemma Lcyc_uniq : uniq (flatten Lcyc). Proof. Admitted.
+Lemma Fcyc_uniq : uniq (flatten Fcyc). Proof. Admitted.
+Lemma Rcyc_uniq : uniq (flatten Rcyc). Proof. Admitted.
+Lemma Bcyc_uniq : uniq (flatten Bcyc). Proof. Admitted.
+Lemma Dcyc_uniq : uniq (flatten Dcyc). Proof. Admitted.
+
+(* Each face turn has order dividing 4. *)
+Lemma Umove4 : Umove ^+ 4 = 1.
+Proof.
+rewrite UmoveE; apply: cyc_prod_expn; first exact: Ucyc_uniq.
+by move=> l; rewrite /Ucyc !inE
+  => /orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/eqP->]]]].
+Qed.
+Lemma Lmove4 : Lmove ^+ 4 = 1.
+Proof.
+rewrite LmoveE; apply: cyc_prod_expn; first exact: Lcyc_uniq.
+by move=> l; rewrite /Lcyc !inE
+  => /orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/eqP->]]]].
+Qed.
+Lemma Fmove4 : Fmove ^+ 4 = 1.
+Proof.
+rewrite FmoveE; apply: cyc_prod_expn; first exact: Fcyc_uniq.
+by move=> l; rewrite /Fcyc !inE
+  => /orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/eqP->]]]].
+Qed.
+Lemma Rmove4 : Rmove ^+ 4 = 1.
+Proof.
+rewrite RmoveE; apply: cyc_prod_expn; first exact: Rcyc_uniq.
+by move=> l; rewrite /Rcyc !inE
+  => /orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/eqP->]]]].
+Qed.
+Lemma Bmove4 : Bmove ^+ 4 = 1.
+Proof.
+rewrite BmoveE; apply: cyc_prod_expn; first exact: Bcyc_uniq.
+by move=> l; rewrite /Bcyc !inE
+  => /orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/eqP->]]]].
+Qed.
+Lemma Dmove4 : Dmove ^+ 4 = 1.
+Proof.
+rewrite DmoveE; apply: cyc_prod_expn; first exact: Dcyc_uniq.
+by move=> l; rewrite /Dcyc !inE
+  => /orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/eqP->]]]].
+Qed.
+
+(* A face's triple {g, g^+2, g^-1} is closed under inverse, given g^+4 = 1:    *)
+(* g and g^-1 swap, and the half turn g^+2 is its own inverse.                  *)
+Lemma inv_closed_triple (g : {perm facelet}) : g ^+ 4 = 1 ->
+  {in [:: g; g ^+ 2; g ^-1], forall x, x^-1 \in [:: g; g ^+ 2; g ^-1]}.
+Proof.
+move=> g4 x xL; move: xL; rewrite !inE.
+by move=> /or3P[]/eqP->; rewrite ?invgK ?(half_turn_inv g4) ?eqxx ?orbT.
+Qed.
+
+(* If every block of a flattened list is inverse-closed, so is the flatten. *)
+Lemma inv_closed_flatten (gT : finGroupType) (bs : seq (seq gT)) (x : gT) :
+  (forall b, b \in bs -> {in b, forall y, y^-1 \in b}) ->
+  x \in flatten bs -> x^-1 \in flatten bs.
+Proof.
+move=> H /flattenP[b bbs xb].
+by apply/flattenP; exists b => //; apply: (H b bbs).
+Qed.
+
+(* The move set is symmetric.  Feeds the inversion half of the reduction.      *)
+Lemma Sset_inv : Sset ^-1 = Sset.
+Proof.
+apply: invg_closed_setV => x; rewrite inE => xm; rewrite inE /moves.
+apply: inv_closed_flatten; last exact: xm.
+move=> b /mapP[g gf ->]; apply: inv_closed_triple.
+move: gf; rewrite /faces !inE
+  => /orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/eqP->]]]]].
+- exact: Umove4.
+- exact: Rmove4.
+- exact: Fmove4.
+- exact: Dmove4.
+- exact: Lmove4.
+- exact: Bmove4.
+Qed.
+
 (* [COMPUTATION] The order of the cube group (paper, p.1088). Stated for the  *)
 (* record; the nat literal / evaluation is an external computation.           *)
 (* Lemma card_G : #|G| = 43252003274489856000%N.  (* [COMPUTATION] *) *)
