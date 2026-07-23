@@ -197,4 +197,23 @@ case/orP=> DR.
 by rewrite -(sub_ballV C n SV) -(sub_ballJ (C^-1) n SJ); exact: (Hrad _ DR).
 Qed.
 
+(* ---- Symmetry of a generating set --------------------------------------- *)
+
+(* A set closed under taking inverses is its own image under inversion.  Used  *)
+(* to show the Rubik move set is symmetric (S^-1 = S), the hypothesis of the   *)
+(* inversion half of the diameter reduction.                                   *)
+Lemma invg_closed_setV (S : {set gT}) :
+  {in S, forall x, x^-1 \in S} -> S^-1 = S.
+Proof.
+move=> Sinv; apply/setP => x; rewrite mem_invg.
+apply/idP/idP => xS; last exact: Sinv.
+by rewrite -(invgK x); apply: Sinv.
+Qed.
+
+(* A half turn is an involution: if g has order dividing 4 then g^+2 is its    *)
+(* own inverse.  This is what makes the half turns g^+2 stay in the move set    *)
+(* under inversion. *)
+Lemma half_turn_inv g : g ^+ 4 = 1 -> (g ^+ 2) ^-1 = g ^+ 2.
+Proof. by move=> g4; apply: (mulgI (g ^+ 2)); rewrite mulgV -expgnDr g4. Qed.
+
 End Ball.
