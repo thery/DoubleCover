@@ -164,14 +164,50 @@ Proof. by rewrite /Bmove /Bcyc !big_cons big_nil mulg1 !mulgA. Qed.
 Lemma DmoveE : Dmove = \prod_(l <- Dcyc) cyc l.
 Proof. by rewrite /Dmove /Dcyc !big_cons big_nil mulg1 !mulgA. Qed.
 
+Lemma uniq_inord n l : 
+  all (fun i => i < n.+1) l -> uniq l -> uniq ((map inord l) : seq 'I_n.+1).
+Proof.
+elim: l => //= a l IH /andP[aLn lA] /andP[aNIl lU].
+apply/andP; split; last by apply: IH.
+apply/negP => aIl; case/negP: aNIl; elim: l {IH lU} lA aIl => //= b l IH.
+case/andP=> bLn lA.
+rewrite inE => /orP[/val_eqP/val_eqP /=|/IH HH].
+  by rewrite !inordK // => /eqP->; rewrite inE eqxx.
+by rewrite inE HH ?orbT.
+Qed.
+
 (* [COMPUTATION] A face turn moves 20 distinct facelets, i.e. its five 4-cycles *)
 (* are pairwise disjoint.  A finite check on 'I_48; no permutation is involved.  *)
-Lemma Ucyc_uniq : uniq (flatten Ucyc). Proof. Admitted.
-Lemma Lcyc_uniq : uniq (flatten Lcyc). Proof. Admitted.
-Lemma Fcyc_uniq : uniq (flatten Fcyc). Proof. Admitted.
-Lemma Rcyc_uniq : uniq (flatten Rcyc). Proof. Admitted.
-Lemma Bcyc_uniq : uniq (flatten Bcyc). Proof. Admitted.
-Lemma Dcyc_uniq : uniq (flatten Dcyc). Proof. Admitted.
+Lemma Ucyc_uniq : uniq (flatten Ucyc).
+Proof.
+by eapply (@uniq_inord _
+  [::0; 2; 7; 5; 1; 4; 6; 3; 8; 32; 24; 16; 9; 33; 25; 17; 10; 34; 26; 18])%N.
+Qed.
+Lemma Lcyc_uniq : uniq (flatten Lcyc).
+Proof.
+by eapply (@uniq_inord _
+[:: 8; 10; 15; 13; 9; 12; 14; 11; 0; 16; 40; 39; 3; 19; 43; 36; 5; 21; 45; 34])%N.
+
+Lemma Fcyc_uniq : uniq (flatten Fcyc). 
+Proof. 
+by eapply (@uniq_inord _
+  [:: 16; 18; 23; 21; 17; 20; 22; 19; 5; 24; 42; 15; 6; 27; 41; 12; 7; 29; 40; 10])%N.
+Qed.
+Lemma Rcyc_uniq : uniq (flatten Rcyc).
+Proof. 
+by eapply (@uniq_inord _
+  [:: 24; 26; 31; 29; 25; 28; 30; 27; 2; 37; 42; 18; 4; 35; 44; 20; 7; 32; 47; 23])%N.
+Qed.
+Lemma Bcyc_uniq : uniq (flatten Bcyc).
+Proof. 
+by eapply (@uniq_inord _
+  [:: 32; 34; 39; 37; 33; 36; 38; 35; 2; 8; 45; 31; 1; 11; 46; 28; 0; 13; 47; 26])%N.
+Qed.
+Lemma Dcyc_uniq : uniq (flatten Dcyc).
+Proof. 
+by eapply (@uniq_inord _
+  [:: 40; 42; 47; 45; 41; 44; 46; 43; 13; 21; 29; 37; 14; 22; 30; 38; 15; 23; 31; 39])%N.
+Qed.
 
 (* Each face turn has order dividing 4. *)
 Lemma Umove4 : Umove ^+ 4 = 1.
