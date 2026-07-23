@@ -71,3 +71,72 @@ by rewrite -andbA; apply/and3P; split.
 Qed.
 
 End Cyc.
+
+(* ------------------------------------------------------------------------- *)
+(*  Order and commutation of cycles.                                          *)
+(*                                                                           *)
+(*  These let us reason about a face turn, which is a product of disjoint      *)
+(*  4-cycles, without ever evaluating a permutation: an n-cycle has order n,   *)
+(*  disjoint cycles commute, and a product of same-length disjoint cycles is   *)
+(*  killed by that length.                                                    *)
+(* ------------------------------------------------------------------------- *)
+
+(* A cycle only moves the points it lists, so its support lies in that set. *)
+Lemma cyc_on (A : finType) (l : seq A) : perm_on [set x in l] (cyc l).
+Proof.
+apply/subsetP => x; rewrite !inE.
+by move=> H; apply: contraTT H => xnl; rewrite cyc_notin // eqxx.
+Qed.
+
+(* Cycles on disjoint sets of points commute. *)
+Lemma cyc_comm (A : finType) (l1 l2 : seq A) :
+  [disjoint [set x in l1] & [set x in l2]] -> commute (cyc l1) (cyc l2).
+Proof. by move=> d; apply: perm_onC d; exact: cyc_on. Qed.
+
+(* Disjointness of the point-sets is disjointness of the underlying lists. *)
+Lemma disjoint_set_seq (A : finType) (s1 s2 : seq A) :
+  [disjoint [set x in s1] & [set x in s2]] = ~~ has (mem s1) s2.
+Proof.
+apply/idP/idP => [d|h].
+  apply/hasPn => y ys.
+  by move: d => /pred0P/(_ y); rewrite !inE ys andbT => ->.
+apply/pred0P => y; rewrite !inE.
+apply/negbTE; rewrite negb_and orbC -implybE; apply/implyP => ys2.
+by move/hasPn: h => /(_ y ys2).
+Qed.
+
+(* Two commuting elements, each of exponent n, have a product of exponent n. *)
+Lemma expgMn1 (gT : finGroupType) (s t : gT) n :
+  commute s t -> s ^+ n = 1 -> t ^+ n = 1 -> (s * t) ^+ n = 1.
+Proof. by move=> c s1 t1; rewrite expgMn // s1 t1 mulg1. Qed.
+
+(* An element commutes with a product once it commutes with each factor. *)
+Lemma commute_prod (gT : finGroupType) (I : eqType) (r : seq I)
+    (f : I -> gT) x :
+  (forall i, i \in r -> commute x (f i)) -> commute x (\prod_(i <- r) f i).
+Proof.
+elim: r => [|i r IH] H; first by rewrite big_nil /commute mulg1 mul1g.
+rewrite big_cons; apply: commuteM; first by apply: H; rewrite inE eqxx.
+by apply: IH => j jr; apply: H; rewrite inE jr orbT.
+Qed.
+
+(* An n-cycle has order n.  [Left admitted; to be proved separately.] *)
+Lemma cyc_order (A : finType) (l : seq A) : uniq l -> cyc l ^+ size l = 1.
+Proof. Admitted.
+
+(* A product of pairwise-disjoint cycles, all of length n, has n-th power the  *)
+(* identity: the factors commute and each is killed by the n-th power.  The     *)
+(* disjointness hypothesis is packaged as uniqueness of the concatenation.      *)
+Lemma cyc_prod_expn (A : finType) (ll : seq (seq A)) (n : nat) :
+  uniq (flatten ll) -> (forall l, l \in ll -> size l = n) ->
+  (\prod_(l <- ll) cyc l) ^+ n = 1.
+Proof.
+elim: ll => [|l0 ll IH] Uf Sz; first by rewrite big_nil expg1n.
+move: (Uf) => /=; rewrite cat_uniq => /and3P[Ul0 nh Uf'].
+rewrite big_cons; apply: expgMn1.
+- apply: commute_prod => l lin; apply: cyc_comm.
+  rewrite disjoint_set_seq; apply/hasPn => y yl.
+  by move/hasPn: nh; apply; apply/flattenP; exists l.
+- by rewrite -(Sz l0 (mem_head l0 ll)) (@cyc_order _ l0 Ul0).
+- by apply: IH => // l lin; apply: Sz; rewrite inE lin orbT.
+Qed.
