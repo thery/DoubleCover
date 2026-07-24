@@ -11,6 +11,7 @@ all: $(VOFILES)
 # inter-file dependencies
 Certif.vo: Data.vo
 Hrc.vo: Data.vo
+Search.vo: Cheb.vo Lefevre.vo Lefevre63.vo
 
 %.vo: %.v
 	coqc $(COQFLAGS) $<
