@@ -10,6 +10,7 @@ all: $(VOFILES)
 
 # inter-file dependencies
 Certif.vo: Data.vo
+Hrc.vo: Data.vo
 
 %.vo: %.v
 	coqc $(COQFLAGS) $<
