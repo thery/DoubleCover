@@ -88,3 +88,17 @@ Definition search63 (v : Z) (n : nat) : list Z :=
     but that is ~27413 chunks (~2.5 h with search63; ~42 days with
     search_Z), so only the single-chunk form above is run at build time. *)
 Definition x_start : Z := 4503599627370496.   (* 0.25 = 2^52 / 2^54 *)
+
+(** ** Cost of the FULL al.c interval [0.25, 0.25001) in Coq
+
+    The interval spans [x1num - x0num = 180143985095] grid points, i.e.
+    [~171981] chunks of [2^20].  At the measured per-chunk rates under
+    [vm_compute] (Z: ~132.7 s/chunk; PrimInt63: ~0.34 s/chunk, polynomial
+    entry evaluation included):
+
+      - search_Z  : ~171981 * 132.7 s  ~= 2.28e7 s  ~= 264 days (~8.7 months)
+      - search63  : ~171981 * 0.34 s   ~= 5.8e4 s   ~= 16 hours
+
+    For reference, al.c in C sweeps the whole interval in ~35 s; the gap is
+    pure vm_compute per-operation overhead (native_compute is disabled in
+    this build, which would narrow it substantially). *)
