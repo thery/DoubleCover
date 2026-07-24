@@ -6,20 +6,14 @@
     i.e. global grid position
       27413 * 2^20 + 5410 = 28744619298.
 
-    [search63 x_start 27414] scans chunks 0..27413 (each 2^20 points) and
-    returns the filter's *candidate* positions ("possible HRC"), NOT the
-    confirmed ones.  There are ~53 of them here (the flag probability per
-    point is 2E/2^63 = 2^-29, so ~27413*2^20*2^-29 ~= 53, matching al.c's
-    density of ~322 over the whole interval).  Most are false positives
-    that al.c's check() (an MPFR oracle, not run in Rocq) rejects; only the
-    two documented hard cases survive over all of [0.25,0.25001).
-
-    In the returned list:
-      - the first CANDIDATE is 301099550 (chunk 287) — reached in seconds;
-      - the first CONFIRMED hard case, 0x1.00006b1501522p-2, is at global
-        position 27413*2^20 + 5410 = 28744619298 (further down the list).
-    Distinguishing the confirmed one requires check(); the Rocq search only
-    produces the candidate list.
+    [search63 x_start 27414] (the filter) produces ~53 *candidate* positions
+    over these chunks (flag probability 2E/2^63 = 2^-29, so
+    ~27413*2^20*2^-29 ~= 53, matching al.c's density of ~322 over the whole
+    interval).  Most are false positives; [Check.screen] re-evaluates the
+    polynomial at each and keeps only the genuine hard cases (al.c's
+    check(), via Cheb instead of MPFR).  The second al.c hard case is at
+    chunk 62291 (> 27413), so over chunks 0..27413 exactly one survives:
+      screen x_start (search63 x_start 27414) = [28744619298].
 
     ** THIS IS A LONG RUN — ~27413 chunks of 2^20 points (~16% of the full
     al.c interval).  Measured:
@@ -27,8 +21,14 @@
        vm_compute      : several x slower
     Run on demand only.  Read the "...u" CPU seconds from the Time line. *)
 
-From APaulRocq Require Import Search.
+From APaulRocq Require Import Search Check.
 From Stdlib Require Import ZArith List.
 Open Scope Z_scope.
 
-Time Eval native_compute in search63 x_start 27414.
+(** Filter then check: [search63] produces the ~53 candidates and [screen]
+    keeps only the genuine hard cases (via the polynomial, no MPFR).  The
+    second al.c hard case is at chunk 62291 (> 27413), so over these chunks
+    exactly one survives:
+      = [28744619298]   (0x1.00006b1501522p-2)
+    The screen adds only ~1 s on top of the ~15.5 min filter. *)
+Time Eval native_compute in screen x_start (search63 x_start 27414).
