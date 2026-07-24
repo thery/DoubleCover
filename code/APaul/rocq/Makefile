@@ -3,7 +3,9 @@
 
 COQFLAGS := -R . APaulRocq
 
-VFILES := $(wildcard *.v)
+# Bench.v is excluded from the default build (it runs a timed workload);
+# run it on demand with `make bench`.
+VFILES := $(filter-out Bench.v, $(wildcard *.v))
 VOFILES := $(VFILES:.v=.vo)
 
 all: $(VOFILES)
@@ -16,8 +18,12 @@ Search.vo: Cheb.vo Lefevre.vo Lefevre63.vo
 %.vo: %.v
 	coqc $(COQFLAGS) $<
 
+# Cross-machine timing: prints two `Time` lines (see Bench.v for extrapolation).
+bench: Search.vo Lefevre63.vo
+	coqc $(COQFLAGS) Bench.v
+
 clean:
 	rm -f *.vo *.vok *.vos *.glob .*.aux
 	rm -rf .coq-native
 
-.PHONY: all clean
+.PHONY: all clean bench
