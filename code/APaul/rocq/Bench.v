@@ -18,17 +18,19 @@
       BENCH 3  pure polynomial evaluation: 1000 chunk entries
                full ~= T3 * (171981 / 1000)  = T3 * 172.0
 
-    ** Reference (this machine, vm_compute, native_compute disabled):
-       BENCH 1 : ~11.0 s   -> full ~= 10.5 h   (the real per-chunk cost)
-       BENCH 2 : ~2.08 s   -> ~6.2 h  (~124 ns/point, counter only)
-       BENCH 3 : ~21.0 s   -> ~1.0 h  (~21 ms/eval)
+    ** Reference (this machine):
+       [make bench]        (vm_compute):
+         BENCH 1 : ~11.0 s -> full ~10.5 h    BENCH 2 : ~2.08 s    BENCH 3 : ~21.0 s
+       [make bench-native] (native_compute, native compiler enabled here):
+         BENCH 1 : ~3.36 s -> full ~3.2 h     BENCH 2 : ~0.48 s    BENCH 3 : ~10.1 s
 
-    ** What this says: the polynomial evaluation (BENCH 3, ~0.021 s/chunk)
-    is NOT the bottleneck.  [Lefevre63.scan] now carries a primitive-int
+    ** What this says: the polynomial evaluation (BENCH 3, ~0.021 s/chunk
+    vm) is NOT the bottleneck.  [Lefevre63.scan] carries a primitive-int
     index (no [Z.succ] per step) and conses only flagged candidates, so a
-    full chunk is ~0.22 s (down from ~0.34 s), close to the bare recurrence
-    of BENCH 2 (~0.13 s/chunk).  The remaining lever is native_compute
-    (disabled here), which should speed up both the scan and the poly. *)
+    full vm chunk is ~0.22 s (down from ~0.34 s), close to the bare
+    recurrence of BENCH 2.  native_compute helps most on the Int63 scan
+    (~4.4x on BENCH 2) and ~3.5x on the full search, so use [make
+    bench-native] if your build has the native compiler. *)
 
 From APaulRocq Require Import Search.
 From APaulRocq Require Lefevre63.

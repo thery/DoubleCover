@@ -97,10 +97,11 @@ Definition x_start : Z := 4503599627370496.   (* 0.25 = 2^52 / 2^54 *)
     entry evaluation included):
 
       - search_Z  : ~171981 * 132.7 s  ~= 2.28e7 s  ~= 264 days (~8.7 months)
-      - search63  : ~171981 * 0.22 s   ~= 3.8e4 s   ~= 10.5 hours
+      - search63  : ~171981 * 0.22 s   ~= 3.8e4 s   ~= 10.5 hours  (vm_compute)
         (~0.22 s/chunk with the int-indexed Lefevre63.scan; the polynomial
          entry is only ~0.021 s of that, the rest is the 2^20-point scan)
 
-    For reference, al.c in C sweeps the whole interval in ~35 s; the gap is
-    pure vm_compute per-operation overhead (native_compute is disabled in
-    this build, which would narrow it substantially). *)
+    With native_compute (a native-compiler-enabled build; see
+    [make bench-native]) search63 is ~3.5x faster, ~0.065 s/chunk, so the
+    full interval is ~3.2 h.  For reference, al.c in C sweeps the whole
+    interval in ~35 s; the residual gap is per-operation overhead. *)
