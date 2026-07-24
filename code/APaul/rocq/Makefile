@@ -24,7 +24,7 @@ bench: Search.vo Lefevre63.vo
 	coqc $(COQFLAGS) Bench.v
 
 # Same workloads via native_compile (needs a native-compiler-enabled build).
-first-hrc: Search.vo Lefevre63.vo
+first-hrc: Search.vo Lefevre63.vo Check.vo
 	coqc $(COQFLAGS) FirstHRC.v
 
 bench-native: Search.vo Lefevre63.vo
