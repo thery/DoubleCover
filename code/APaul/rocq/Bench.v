@@ -13,8 +13,11 @@
        - pure Int63 scan, 2^24    : ~2.08 s    -> ~124 ns / point
 
     ** How to extrapolate:
-       If BENCH 1 (below) prints T1 seconds for [BENCH_CHUNKS = 50] chunks,
-       the full interval takes about
+       Each line below is a Coq [Time] measurement; read the CPU figure —
+       the "...u" (user) seconds, e.g. "19.342u" — which is machine-
+       comparable (independent of wall-clock noise).  If BENCH 1 reports
+       T1 CPU seconds for [BENCH_CHUNKS = 50] chunks, the full interval
+       takes about
          T1 * (171981 / 50) = T1 * 3439.6   seconds.
        (18.0 s here -> ~61900 s ~= 17.2 h.)
 
