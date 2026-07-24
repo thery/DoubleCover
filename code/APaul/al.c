@@ -98,9 +98,7 @@ search (double x0, double x1, int m)
 
   double h, l, s;
   double x = x0;
-  int kkk = 0;
   while (x < x1) {
-    kkk++;
     dd_exp (&h, &l, &s, x);
     double dh = h * ux, dl = l * ux; // 1st derivative, multiplied by ux
     double dd = h * ux * ux; // 2nd derivative, multiplied by ux^2
@@ -138,7 +136,6 @@ search (double x0, double x1, int m)
     if (x > x1)
       n = (x1 - x) / ux;
   }
-  printf("%i exp ", kkk);
 }
 
 /* With x0 = 0.25, x1 = 0.25001, m = 30
