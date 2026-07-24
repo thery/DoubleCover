@@ -77,8 +77,10 @@ Ltac check_table :=
 
 (** ** Checking one line
 
-    Change [start] to certify a different line. *)
-Definition start : nat := 0.
+    Change [start] to certify a different line.  Row 50 is the hard-to-round
+    case 0x1.00006b1501522p-2 (its [h] is the nearby machine number, [l] the
+    ~2^-84 residual). *)
+Definition start : nat := 50.
 
 Theorem line_correct : entry_correct (nth_entry start) target_prec.
 Proof. unfold start. check_entry. Qed.
