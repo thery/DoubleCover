@@ -11,7 +11,7 @@
 
     Three benches, with their extrapolation to the full interval:
 
-      BENCH 1  full search: 50 chunks (poly entry + Int63 list-scan)
+      BENCH 1  full search: 50 chunks (poly entry + Int63 scan)
                full ~= T1 * (171981 / 50)   = T1 * 3439.6
       BENCH 2  pure Int63 scan: 2^24 recurrence steps (counter, no list)
                full ~= T2 * (171981*2^20 / 2^24) = T2 * 10748
@@ -19,24 +19,23 @@
                full ~= T3 * (171981 / 1000)  = T3 * 172.0
 
     ** Reference (this machine, vm_compute, native_compute disabled):
-       BENCH 1 : ~18.0 s   -> full ~= 17.2 h   (the real per-chunk cost)
+       BENCH 1 : ~11.0 s   -> full ~= 10.5 h   (the real per-chunk cost)
        BENCH 2 : ~2.08 s   -> ~6.2 h  (~124 ns/point, counter only)
        BENCH 3 : ~21.0 s   -> ~1.0 h  (~21 ms/eval)
 
     ** What this says: the polynomial evaluation (BENCH 3, ~0.021 s/chunk)
-    is NOT the bottleneck; the search cost is dominated by the list-scan
-    used in [search63] (~0.34 s/chunk), which is heavier than the bare
-    recurrence of BENCH 2 (~0.13 s/chunk) because it tracks a [Z] index and
-    builds the candidate list.  So the biggest win is switching that index
-    to a primitive int (and/or enabling native_compute), not speeding up
-    the polynomial. *)
+    is NOT the bottleneck.  [Lefevre63.scan] now carries a primitive-int
+    index (no [Z.succ] per step) and conses only flagged candidates, so a
+    full chunk is ~0.22 s (down from ~0.34 s), close to the bare recurrence
+    of BENCH 2 (~0.13 s/chunk).  The remaining lever is native_compute
+    (disabled here), which should speed up both the scan and the poly. *)
 
 From APaulRocq Require Import Search.
 From APaulRocq Require Lefevre63.
 From Stdlib Require Import ZArith Uint63 List.
 Open Scope Z_scope.
 
-(** BENCH 1 — full search: 50 chunks of (polynomial entry + Int63 list-scan)
+(** BENCH 1 — full search: 50 chunks of (polynomial entry + Int63 scan)
     from 0.25.  Deterministic (no HRC in the first 50 chunks). *)
 Time Eval vm_compute in List.length (search63 4503599627370496 50).
 

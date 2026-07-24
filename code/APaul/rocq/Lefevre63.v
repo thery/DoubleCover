@@ -31,19 +31,22 @@ Open Scope Z_scope.
 Definition is_candidate (A twoE : int) : bool := (A <? twoE)%uint63.
 
 (** one step: test [A], then advance [A += B] with native mod-[2^63] wrap.
-    [B], [twoE] fixed; [i] the grid index; [acc] the flagged indices. *)
-Definition scan_step (B twoE : int) (st : int * Z * list Z) : int * Z * list Z :=
+    The grid index [i] is a primitive int too, so the loop carries no [Z]
+    (the [Z.succ] every step was the main cost); only the flagged indices
+    are kept, and they are converted to [Z] once, at the end. *)
+Definition scan_step (B twoE : int) (st : int * int * list int) : int * int * list int :=
   let '(A, i, acc) := st in
   ( (A + B)%uint63,
-    Z.succ i,
+    (i + 1)%uint63,
     if is_candidate A twoE then i :: acc else acc ).
 
 (** scan [n] points from running value [A] at index [i0]. *)
-Definition scan_from (A B twoE : int) (i0 : Z) (n : N) : list Z :=
-  let '(_, _, acc) := N.iter n (scan_step B twoE) (A, i0, @nil Z) in rev acc.
+Definition scan_from (A B twoE i0 : int) (n : N) : list Z :=
+  let '(_, _, acc) := N.iter n (scan_step B twoE) (A, i0, @nil int) in
+  List.map Uint63.to_Z (List.rev acc).
 
 (** scan a chunk of [n] points from index [0]. *)
-Definition scan (A B twoE : int) (n : N) : list Z := scan_from A B twoE 0 n.
+Definition scan (A B twoE : int) (n : N) : list Z := scan_from A B twoE 0%uint63 n.
 
 (** window width factor [2*E]. *)
 Definition window_factor : int := 2.
