@@ -173,6 +173,35 @@ rewrite (big_morph (fun g : {perm A} => g ^ s)
 by apply: eq_bigr => b _; rewrite tpermJ.
 Qed.
 
+(* Two products of cycles commute as soon as no point occurs on both sides.   *)
+(* Together with the next lemma this is how a face turn is shown to commute   *)
+(* with a turn of a disjoint layer -- structurally, no permutation is ever    *)
+(* applied to a point.                                                        *)
+Lemma commute_cyc_cat (A : finType) (ll1 ll2 : seq (seq A)) :
+  ~~ has (mem (flatten ll1)) (flatten ll2) ->
+  commute (\prod_(l <- ll1) cyc l) (\prod_(l <- ll2) cyc l).
+Proof.
+move=> nh; apply: commute_prod => l2 l2in.
+apply/esym/commute_prod => l1 l1in.
+apply: cyc_comm; rewrite disjoint_set_seq.
+apply/hasPn => y yl1; apply/negP => yl2.
+have y1 : y \in flatten ll1 by apply/flattenP; exists l1.
+have y2 : y \in flatten ll2 by apply/flattenP; exists l2.
+by case/negP: (hasPn nh y y2).
+Qed.
+
+(* Three groups of cycles with no repeated point are pairwise disjoint.  One  *)
+(* uniqueness fact hence yields the three commutations of the layers.         *)
+Lemma cat3_uniq_disj (A : eqType) (ll1 ll2 ll3 : seq (seq A)) :
+  uniq (flatten (ll1 ++ ll2 ++ ll3)) ->
+  [/\ ~~ has (mem (flatten ll1)) (flatten ll2),
+      ~~ has (mem (flatten ll1)) (flatten ll3) &
+      ~~ has (mem (flatten ll2)) (flatten ll3)].
+Proof.
+rewrite !flatten_cat !cat_uniq has_cat negb_or.
+by move=> /and3P[_ /andP[H1 H2] /and3P[_ H3 _]]; split.
+Qed.
+
 (* A uniform size for the blocks of a list of lists, as a boolean check: the  *)
 (* sizes do not depend on the points, so this one *does* compute cheaply.     *)
 Lemma all_sizeP (A : eqType) (ll : seq (seq A)) n :

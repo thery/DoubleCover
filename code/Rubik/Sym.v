@@ -18,11 +18,13 @@
 (*  stabilising Sset is preserved by products, checking the generators is     *)
 (*  enough -- we never enumerate the 48 symmetries.                           *)
 (*                                                                            *)
-(*  STRUCTURE.  Everything below is a real proof except the eighteen          *)
-(*  conjugation facts  Xmove ^ s = Ymove  (six per generator), which are      *)
-(*  genuine finite computations on {perm 'I_48}.  Following the convention    *)
-(*  of Rubik333.v they are Admitted and tagged [COMPUTATION].  They are all   *)
-(*  of the same shape, so one technique discharges all eighteen.              *)
+(*  STRUCTURE.  Everything below is a real proof except fourteen of the       *)
+(*  eighteen conjugation facts  Xmove ^ s = Ymove  (six per generator),       *)
+(*  which are genuine finite computations on {perm 'I_48}; following the      *)
+(*  convention of Rubik333.v those are Admitted and tagged [COMPUTATION].     *)
+(*  The other four -- a rotation fixes the two turns of its own axis -- are   *)
+(*  proved, by commutation.  The fourteen are all of the same shape, so one   *)
+(*  technique discharges them all.                                            *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -38,45 +40,32 @@ Local Notation "n '@'" := (inord n : facelet) (at level 2, format "n '@'").
 
 (* ---- 1. The three generating symmetries ---------------------------------- *)
 (*                                                                            *)
-(*  Sy is the quarter turn of the whole cube about the U-D axis, in the same  *)
-(*  sense as the U move: the U face turns on itself, each side face is taken  *)
-(*  to the next one (L -> B -> R -> F -> L) with its eight facelets in the    *)
-(*  same order, and the D face turns on itself the other way.                 *)
+(*  A whole-cube quarter turn is the three parallel layers turning together,  *)
+(*  which is the cubist's  y = U M D'  and  x = R M L' : the near face turns  *)
+(*  on itself, the middle slice follows it, and the far layer turns the same  *)
+(*  way in space, hence the other way as seen on its own face -- whence the   *)
+(*  inverse.  Writing the rotations this way (rather than as their twelve     *)
+(*  4-cycles) is not just shorter: it makes them visibly commute with the     *)
+(*  turns of their own axis, which settles four of the conjugation facts of   *)
+(*  section 3 outright.  Only the middle slices have to be spelt out.         *)
 
-Definition Sycyc : seq (seq facelet) :=
-  [:: [:: 0@; 2@; 7@; 5@];
-      [:: 1@; 4@; 6@; 3@];
-      [:: 8@; 32@; 24@; 16@];
-      [:: 9@; 33@; 25@; 17@];
-      [:: 10@; 34@; 26@; 18@];
-      [:: 11@; 35@; 27@; 19@];
-      [:: 12@; 36@; 28@; 20@];
-      [:: 13@; 37@; 29@; 21@];
-      [:: 14@; 38@; 30@; 22@];
-      [:: 15@; 39@; 31@; 23@];
-      [:: 40@; 45@; 47@; 42@];
-      [:: 41@; 43@; 46@; 44@] ].
+(*  The middle slice about the U-D axis, turning with U.                      *)
+Definition Midycyc : seq (seq facelet) :=
+  [:: [:: 11@; 35@; 27@; 19@]; [:: 12@; 36@; 28@; 20@] ].
 
-Definition Sy : {perm facelet} := \prod_(l <- Sycyc) cyc l.
+Definition Midy : {perm facelet} := \prod_(l <- Midycyc) cyc l.
 
-(*  Sx is the quarter turn of the whole cube about the R-L axis, in the same  *)
-(*  sense as the R move: F -> U -> B -> D -> F, R turning on itself.          *)
+(*  Sy : quarter turn of the whole cube about the U-D axis, in the sense of U.*)
+Definition Sy : {perm facelet} := Umove * Midy * Dmove ^-1.
 
-Definition Sxcyc : seq (seq facelet) :=
-  [:: [:: 0@; 39@; 40@; 16@];
-      [:: 1@; 38@; 41@; 17@];
-      [:: 2@; 37@; 42@; 18@];
-      [:: 3@; 36@; 43@; 19@];
-      [:: 4@; 35@; 44@; 20@];
-      [:: 5@; 34@; 45@; 21@];
-      [:: 6@; 33@; 46@; 22@];
-      [:: 7@; 32@; 47@; 23@];
-      [:: 8@; 13@; 15@; 10@];
-      [:: 9@; 11@; 14@; 12@];
-      [:: 24@; 26@; 31@; 29@];
-      [:: 25@; 28@; 30@; 27@] ].
+(*  The middle slice about the R-L axis, turning with R.                      *)
+Definition Midxcyc : seq (seq facelet) :=
+  [:: [:: 1@; 38@; 41@; 17@]; [:: 6@; 33@; 46@; 22@] ].
 
-Definition Sx : {perm facelet} := \prod_(l <- Sxcyc) cyc l.
+Definition Midx : {perm facelet} := \prod_(l <- Midxcyc) cyc l.
+
+(*  Sx : quarter turn of the whole cube about the R-L axis, in the sense of R.*)
+Definition Sx : {perm facelet} := Rmove * Midx * Lmove ^-1.
 
 (*  Sm is the mirror image in the plane parallel to the L and R faces: it     *)
 (*  exchanges L and R and reverses each of the other four faces left-right.   *)
@@ -108,28 +97,38 @@ Definition Smcyc : seq (seq facelet) :=
 
 Definition Sm : {perm facelet} := \prod_(l <- Smcyc) cyc l.
 
-(* ---- 2. The generators really are symmetries of the right order ---------- *)
+(* ---- 2. The three layers of an axis are disjoint --------------------------*)
 (*                                                                            *)
-(*  Each of Sy, Sx is a product of twelve disjoint 4-cycles covering all 48   *)
-(*  facelets, and Sm of twenty disjoint transpositions.  As in Rubik333.v     *)
-(*  the disjointness is uniqueness of the concatenation, proved structurally  *)
-(*  through uniq_inord -- no permutation is evaluated.                        *)
+(*  The near face, the middle slice and the far face of one axis partition    *)
+(*  the 48 facelets.  As in Rubik333.v this is uniqueness of the              *)
+(*  concatenation, proved structurally through uniq_inord -- no permutation   *)
+(*  is evaluated.  Everything about the rotations is read off it: the three   *)
+(*  layers commute, so the rotation has order 4 and fixes the turns of its    *)
+(*  own axis.                                                                 *)
 
-Lemma Sycyc_uniq : uniq (flatten Sycyc).
+Lemma UMDcyc_uniq : uniq (flatten (Ucyc ++ Midycyc ++ Dcyc)).
 Proof.
 by eapply (@uniq_inord _
-  [:: 0; 2; 7; 5; 1; 4; 6; 3; 8; 32; 24; 16; 9; 33; 25; 17;
-      10; 34; 26; 18; 11; 35; 27; 19; 12; 36; 28; 20; 13; 37; 29; 21;
-      14; 38; 30; 22; 15; 39; 31; 23; 40; 45; 47; 42; 41; 43; 46; 44])%N.
+  [:: 0; 2; 7; 5; 1; 4; 6; 3; 8; 32; 24; 16; 9; 33; 25; 17; 10; 34; 26; 18;
+      11; 35; 27; 19; 12; 36; 28; 20;
+      40; 42; 47; 45; 41; 44; 46; 43; 13; 21; 29; 37; 14; 22; 30; 38;
+      15; 23; 31; 39])%N.
 Qed.
 
-Lemma Sxcyc_uniq : uniq (flatten Sxcyc).
+Lemma RMLcyc_uniq : uniq (flatten (Rcyc ++ Midxcyc ++ Lcyc)).
 Proof.
 by eapply (@uniq_inord _
-  [:: 0; 39; 40; 16; 1; 38; 41; 17; 2; 37; 42; 18; 3; 36; 43; 19;
-      4; 35; 44; 20; 5; 34; 45; 21; 6; 33; 46; 22; 7; 32; 47; 23;
-      8; 13; 15; 10; 9; 11; 14; 12; 24; 26; 31; 29; 25; 28; 30; 27])%N.
+  [:: 24; 26; 31; 29; 25; 28; 30; 27; 2; 37; 42; 18; 4; 35; 44; 20;
+      7; 32; 47; 23; 1; 38; 41; 17; 6; 33; 46; 22;
+      8; 10; 15; 13; 9; 12; 14; 11; 0; 16; 40; 39; 3; 19; 43; 36;
+      5; 21; 45; 34])%N.
 Qed.
+
+Lemma Midycyc_uniq : uniq (flatten Midycyc).
+Proof. by eapply (@uniq_inord _ [:: 11; 35; 27; 19; 12; 36; 28; 20])%N. Qed.
+
+Lemma Midxcyc_uniq : uniq (flatten Midxcyc).
+Proof. by eapply (@uniq_inord _ [:: 1; 38; 41; 17; 6; 33; 46; 22])%N. Qed.
 
 Lemma Smcyc_uniq : uniq (flatten Smcyc).
 Proof.
@@ -139,19 +138,79 @@ by eapply (@uniq_inord _
       37; 39; 40; 42; 43; 44; 45; 47])%N.
 Qed.
 
+(* The three layers of an axis commute, being supported on disjoint points.   *)
+
+Lemma commute_UMy : commute Umove Midy.
+Proof.
+rewrite UmoveE /Midy; apply: commute_cyc_cat.
+by have [] := cat3_uniq_disj UMDcyc_uniq.
+Qed.
+
+Lemma commute_UD : commute Umove Dmove.
+Proof.
+rewrite UmoveE DmoveE; apply: commute_cyc_cat.
+by have [] := cat3_uniq_disj UMDcyc_uniq.
+Qed.
+
+Lemma commute_MyD : commute Midy Dmove.
+Proof.
+rewrite /Midy DmoveE; apply: commute_cyc_cat.
+by have [] := cat3_uniq_disj UMDcyc_uniq.
+Qed.
+
+Lemma commute_RMx : commute Rmove Midx.
+Proof.
+rewrite RmoveE /Midx; apply: commute_cyc_cat.
+by have [] := cat3_uniq_disj RMLcyc_uniq.
+Qed.
+
+Lemma commute_RL : commute Rmove Lmove.
+Proof.
+rewrite RmoveE LmoveE; apply: commute_cyc_cat.
+by have [] := cat3_uniq_disj RMLcyc_uniq.
+Qed.
+
+Lemma commute_MxL : commute Midx Lmove.
+Proof.
+rewrite /Midx LmoveE; apply: commute_cyc_cat.
+by have [] := cat3_uniq_disj RMLcyc_uniq.
+Qed.
+
+(* The middle slices are two disjoint 4-cycles, so they too have order 4;     *)
+(* a rotation, a product of three commuting such, therefore has order 4.      *)
+
+Lemma Midy4 : Midy ^+ 4 = 1.
+Proof. by apply: cyc_prod_expn; [exact: Midycyc_uniq | apply: all_sizeP]. Qed.
+
+Lemma Midx4 : Midx ^+ 4 = 1.
+Proof. by apply: cyc_prod_expn; [exact: Midxcyc_uniq | apply: all_sizeP]. Qed.
+
 Lemma Sy4 : Sy ^+ 4 = 1.
-Proof. by apply: cyc_prod_expn; [exact: Sycyc_uniq | apply: all_sizeP]. Qed.
+Proof.
+rewrite /Sy; apply: expgMn1; last by rewrite expVgn Dmove4 invg1.
+  by apply/esym/commuteM; apply/esym;
+     [exact: commuteV commute_UD | exact: commuteV commute_MyD].
+by apply: expgMn1; [exact: commute_UMy | exact: Umove4 | exact: Midy4].
+Qed.
 
 Lemma Sx4 : Sx ^+ 4 = 1.
-Proof. by apply: cyc_prod_expn; [exact: Sxcyc_uniq | apply: all_sizeP]. Qed.
+Proof.
+rewrite /Sx; apply: expgMn1; last by rewrite expVgn Lmove4 invg1.
+  by apply/esym/commuteM; apply/esym;
+     [exact: commuteV commute_RL | exact: commuteV commute_MxL].
+by apply: expgMn1; [exact: commute_RMx | exact: Rmove4 | exact: Midx4].
+Qed.
 
 Lemma Sm2 : Sm ^+ 2 = 1.
 Proof. by apply: cyc_prod_expn; [exact: Smcyc_uniq | apply: all_sizeP]. Qed.
 
 (* ---- 3. How the symmetries permute the face turns ------------------------ *)
 (*                                                                            *)
-(*  [COMPUTATION]  The eighteen facts below are the whole computational       *)
-(*  content of this file.  Each says that conjugating a face turn by a        *)
+(*  The eighteen facts below are the whole computational content of this      *)
+(*  file -- but four of them are not computational at all: a rotation fixes   *)
+(*  the two turns of its own axis, and that is a commutation, proved.  The    *)
+(*  fourteen [COMPUTATION] leaves are the ones that move a face elsewhere.    *)
+(*  Each says that conjugating a face turn by a                               *)
 (*  symmetry is again a face turn -- the face it names is the one the         *)
 (*  symmetry moves that face to, and for the mirror the sense is reversed.    *)
 (*                                                                            *)
@@ -168,22 +227,54 @@ Proof. by apply: cyc_prod_expn; [exact: Smcyc_uniq | apply: all_sizeP]. Qed.
 (*   - tabular: represent a facelet permutation by its 48-entry image table,  *)
 (*     with generic lemmas for the product and the inverse; then each fact    *)
 (*     below is one equality of two literal lists of nat, which does compute. *)
-(*  Since all eighteen have the same shape, one technique settles them all.   *)
+(*  Since all fourteen have the same shape, one technique settles them all.   *)
 
 (* -- Sy : U and D fixed, L -> B -> R -> F -> L.                              *)
-Lemma UmoveJy : Umove ^ Sy = Umove.  Admitted.  (* [COMPUTATION]              *)
+
+(* The two turns of the ROTATION'S OWN AXIS are real proofs, no computation:  *)
+(* U, the middle slice and D commute pairwise, hence each of U and D          *)
+(* commutes with their product Sy, and conjugation by something one commutes  *)
+(* with does nothing.                                                         *)
+Lemma UmoveJy : Umove ^ Sy = Umove.
+Proof.
+apply: conjg_commute; rewrite /Sy.
+apply: commuteM; last by apply: commuteV; exact: commute_UD.
+by apply: commuteM; last exact: commute_UMy.
+Qed.
+
+Lemma DmoveJy : Dmove ^ Sy = Dmove.
+Proof.
+apply: conjg_commute; rewrite /Sy.
+apply: commuteM; last by apply: commuteV.
+by apply: commuteM; [exact/esym/commute_UD | exact/esym/commute_MyD].
+Qed.
+
+(* The other four move a face somewhere else, so no commutation argument      *)
+(* reaches them.                                                              *)
 Lemma RmoveJy : Rmove ^ Sy = Fmove.  Admitted.  (* [COMPUTATION]              *)
 Lemma FmoveJy : Fmove ^ Sy = Lmove.  Admitted.  (* [COMPUTATION]              *)
-Lemma DmoveJy : Dmove ^ Sy = Dmove.  Admitted.  (* [COMPUTATION]              *)
 Lemma LmoveJy : Lmove ^ Sy = Bmove.  Admitted.  (* [COMPUTATION]              *)
 Lemma BmoveJy : Bmove ^ Sy = Rmove.  Admitted.  (* [COMPUTATION]              *)
 
 (* -- Sx : R and L fixed, F -> U -> B -> D -> F.                              *)
+
+Lemma RmoveJx : Rmove ^ Sx = Rmove.
+Proof.
+apply: conjg_commute; rewrite /Sx.
+apply: commuteM; last by apply: commuteV; exact: commute_RL.
+by apply: commuteM; last exact: commute_RMx.
+Qed.
+
+Lemma LmoveJx : Lmove ^ Sx = Lmove.
+Proof.
+apply: conjg_commute; rewrite /Sx.
+apply: commuteM; last by apply: commuteV.
+by apply: commuteM; [exact/esym/commute_RL | exact/esym/commute_MxL].
+Qed.
+
 Lemma UmoveJx : Umove ^ Sx = Bmove.  Admitted.  (* [COMPUTATION]              *)
-Lemma RmoveJx : Rmove ^ Sx = Rmove.  Admitted.  (* [COMPUTATION]              *)
 Lemma FmoveJx : Fmove ^ Sx = Umove.  Admitted.  (* [COMPUTATION]              *)
 Lemma DmoveJx : Dmove ^ Sx = Fmove.  Admitted.  (* [COMPUTATION]              *)
-Lemma LmoveJx : Lmove ^ Sx = Lmove.  Admitted.  (* [COMPUTATION]              *)
 Lemma BmoveJx : Bmove ^ Sx = Dmove.  Admitted.  (* [COMPUTATION]              *)
 
 (* -- Sm : L and R exchanged, every face turn reversed.                       *)
