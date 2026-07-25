@@ -189,12 +189,68 @@ Definition cycs_tab (ll : seq (seq nat)) : seq nat :=
   foldr (fun l t => comp_tab (cyc_tab l) t) id_tab ll.
 
 Lemma tab_ok_cyc l : all (fun i => i < n.+1) l -> uniq l -> tab_ok (cyc_tab l).
-Admitted.
+Proof.
+move=> lA lU; rewrite /tab_ok; rewrite size_map size_iota eqxx andTb.
+apply/andP; split.
+  apply/allP => /= i /mapP[/= j]; rewrite inE mem_iota add1n=> /orP[/eqP->|jL].
+    case: (boolP (0 \in _)) => iIl -> //.   
+    by apply: (allP lA); rewrite mem_nth // ltn_mod //; case: (l) iIl.
+  case: (boolP (j \in _)) => jIl -> //.
+      by apply: (allP lA); rewrite mem_nth // ltn_mod //; case: (l) jIl.
+  by case/andP: jL.
+apply/(uniqP 0) => i j; rewrite size_map size_iota //= => iLn jLn.
+rewrite !(nth_map 0, size_iota) // !nth_iota // !add0n.
+have [iIl|iNIl] := boolP (i \in _); last first.
+  have [jIl iE|//] := boolP (j \in _).
+  by case/negP : iNIl; rewrite iE mem_nth // ltn_mod; case: (l) jIl.
+have [jIl|jNIl jE] := boolP (j \in _); last first.
+  by case/negP: jNIl; rewrite -jE mem_nth // ltn_mod; case: (l) iIl.
+move=> Hn; suff : index i l = index j l by apply: index_inj.
+suff : (index i l).+1 = (index j l).+1 by case.
+suff : (index i l).+1  = (index j l).+1  %[mod size l].
+  move: iIl jIl; rewrite -!index_mem.
+  case : (ltngtP (index i l).+1 (size l)) => // [iLs|->] _.
+    rewrite modn_small //.
+    case : (ltngtP (index j l).+1 (size l)) => // [jLs|->] _.
+      by rewrite modn_small.
+    by rewrite modnn => /eqP.
+  rewrite modnn.
+  case : (ltngtP (index j l).+1 (size l)) => // jLs.
+  by rewrite modn_small //; case.
+have s_gt0 : 0 < size l by case: (l) iIl.
+by apply: (uniqP 0 lU) => //; apply: ltn_pmod.
+Qed.
 
 (* THE BRIDGE: a cycle, read off its list of points, is the table cycle.      *)
 Lemma cyc_pt l : all (fun i => i < n.+1) l -> uniq l ->
   cyc ((map inord l) : seq T) = pt (cyc_tab l).
-Admitted.
+Proof.
+move=> lA lU.
+apply/permP => /= i.
+rewrite !permE /ptg tab_ok_cyc // /ptf /cyc_tab.
+rewrite (nth_map 0) ?size_iota // nth_iota // add0n.
+have [iIl|iNIl] := boolP ((i :nat) \in l).
+  have: @inord n i \in [seq inord i  | i <- l] by apply: map_f.
+  rewrite inord_val => /(nth_index ord0) {1}<-.
+  rewrite cyc_nth //; last 2 first.
+  - by apply: uniq_inord.
+  - rewrite index_mem.
+    have <- : @inord n i = i by apply: inord_val.
+    by apply: map_f.
+  rewrite size_map.
+  suff -> : index i [seq inord i0  | i0 <- l] = index (i : nat) l.
+    by rewrite (nth_map 0) ?inord_val ?ltn_mod //; case: (l) iIl.
+  elim: (l) lA iIl => //= a l1 IH /andP[aLi lH].
+  rewrite inE => /orP[/eqP<-|/IH-> //]; first by rewrite inord_val !eqxx.
+  case: (a =P _) => [->|aDi]; first by rewrite inord_val eqxx.
+  case: (_ =P _) => // aE; case: aDi; rewrite -aE.
+  by rewrite inordK.
+rewrite cyc_notin ?inord_val //.
+apply/negP=> /mapP[j jIl iE].
+case/negP: iNIl.
+suff -> : i = inord j by rewrite inordK //; apply: (allP lA).
+by rewrite -iE.
+Qed.
 
 Lemma tab_ok_cycs ll :
   all (all (fun i => i < n.+1)) ll -> all uniq ll -> tab_ok (cycs_tab ll).
