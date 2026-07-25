@@ -253,6 +253,38 @@ by move=> l; rewrite /Dcyc !inE
   => /orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/eqP->]]]].
 Qed.
 
+(* The six face turns all have order dividing 4.                              *)
+Lemma face_order4 g : g \in faces -> g ^+ 4 = 1.
+Proof.
+rewrite /faces !inE
+  => /orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/eqP->]]]]].
+- exact: Umove4.
+- exact: Rmove4.
+- exact: Fmove4.
+- exact: Dmove4.
+- exact: Lmove4.
+exact: Bmove4.
+Qed.
+
+(* The three moves a face contributes all belong to the move set.             *)
+Lemma face_mem_Sset g : g \in faces -> g \in Sset.
+Proof.
+move=> gf; rewrite inE /moves; apply/flattenP.
+by exists [:: g; g ^+ 2; g ^-1]; [apply: map_f | rewrite !inE eqxx].
+Qed.
+
+Lemma face2_mem_Sset g : g \in faces -> g ^+ 2 \in Sset.
+Proof.
+move=> gf; rewrite inE /moves; apply/flattenP.
+by exists [:: g; g ^+ 2; g ^-1]; [apply: map_f | rewrite !inE eqxx orbT].
+Qed.
+
+Lemma faceV_mem_Sset g : g \in faces -> g ^-1 \in Sset.
+Proof.
+move=> gf; rewrite inE /moves; apply/flattenP.
+by exists [:: g; g ^+ 2; g ^-1]; [apply: map_f | rewrite !inE eqxx !orbT].
+Qed.
+
 (* A face's triple {g, g^+2, g^-1} is closed under inverse, given g^+4 = 1:   *)
 (* g and g^-1 swap, and the half turn g^+2 is its own inverse.                *)
 Lemma inv_closed_triple (g : {perm facelet}) : g ^+ 4 = 1 ->
