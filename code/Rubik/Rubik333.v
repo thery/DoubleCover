@@ -22,7 +22,7 @@
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
-Require Import Cyc Ball.
+Require Import Cyc Ball Table.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -165,17 +165,6 @@ Proof. by rewrite /Bmove /Bcyc !big_cons big_nil mulg1 !mulgA. Qed.
 Lemma DmoveE : Dmove = \prod_(l <- Dcyc) cyc l.
 Proof. by rewrite /Dmove /Dcyc !big_cons big_nil mulg1 !mulgA. Qed.
 
-Lemma uniq_inord n l : 
-  all (fun i => i < n.+1) l -> uniq l -> uniq ((map inord l) : seq 'I_n.+1).
-Proof.
-elim: l => //= a l IH /andP[aLn lA] /andP[aNIl lU].
-apply/andP; split; last by apply: IH.
-apply/negP => aIl; case/negP: aNIl; elim: l {IH lU} lA aIl => //= b l IH.
-case/andP=> bLn lA.
-rewrite inE => /orP[/val_eqP/val_eqP /=|/IH HH].
-  by rewrite !inordK // => /eqP->; rewrite inE eqxx.
-by rewrite inE HH ?orbT.
-Qed.
 
 (* A face turn moves 20 distinct facelets, i.e. its five 4-cycles are         *)
 (* pairwise disjoint.  Proved structurally via uniq_inord (no perm eval).     *)
