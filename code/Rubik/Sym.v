@@ -28,7 +28,7 @@
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
-Require Import Cyc Ball Rubik333.
+Require Import Cyc Ball Table Rubik333.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -204,7 +204,104 @@ Qed.
 Lemma Sm2 : Sm ^+ 2 = 1.
 Proof. by apply: cyc_prod_expn; [exact: Smcyc_uniq | apply: all_sizeP]. Qed.
 
-(* ---- 3. How the symmetries permute the face turns ------------------------ *)
+(* ---- 3. The moves and the symmetries as tables ----------------------------*)
+(*                                                                            *)
+(*  The facelet type is 'I_48 = 'I_47.+1, so every notion of Table.v is taken *)
+(*  at n = 47.  The cycles are repeated here as lists of nat -- the same data *)
+(*  as Ucyc..Dcyc, on the side where the kernel can compute.  Nothing is      *)
+(*  trusted about the repetition: were a nat list to disagree with its        *)
+(*  facelet counterpart, the XmoveT lemma below would simply not hold.        *)
+
+Definition Uncyc : seq (seq nat) :=
+  [:: [:: 0; 2; 7; 5]; [:: 1; 4; 6; 3]; [:: 8; 32; 24; 16];
+      [:: 9; 33; 25; 17]; [:: 10; 34; 26; 18] ]%N.
+Definition Lncyc : seq (seq nat) :=
+  [:: [:: 8; 10; 15; 13]; [:: 9; 12; 14; 11]; [:: 0; 16; 40; 39];
+      [:: 3; 19; 43; 36]; [:: 5; 21; 45; 34] ]%N.
+Definition Fncyc : seq (seq nat) :=
+  [:: [:: 16; 18; 23; 21]; [:: 17; 20; 22; 19]; [:: 5; 24; 42; 15];
+      [:: 6; 27; 41; 12]; [:: 7; 29; 40; 10] ]%N.
+Definition Rncyc : seq (seq nat) :=
+  [:: [:: 24; 26; 31; 29]; [:: 25; 28; 30; 27]; [:: 2; 37; 42; 18];
+      [:: 4; 35; 44; 20]; [:: 7; 32; 47; 23] ]%N.
+Definition Bncyc : seq (seq nat) :=
+  [:: [:: 32; 34; 39; 37]; [:: 33; 36; 38; 35]; [:: 2; 8; 45; 31];
+      [:: 1; 11; 46; 28]; [:: 0; 13; 47; 26] ]%N.
+Definition Dncyc : seq (seq nat) :=
+  [:: [:: 40; 42; 47; 45]; [:: 41; 44; 46; 43]; [:: 13; 21; 29; 37];
+      [:: 14; 22; 30; 38]; [:: 15; 23; 31; 39] ]%N.
+Definition Midyncyc : seq (seq nat) :=
+  [:: [:: 11; 35; 27; 19]; [:: 12; 36; 28; 20] ]%N.
+Definition Midxncyc : seq (seq nat) :=
+  [:: [:: 1; 38; 41; 17]; [:: 6; 33; 46; 22] ]%N.
+Definition Smncyc : seq (seq nat) :=
+  [:: [:: 0; 2]; [:: 3; 4]; [:: 5; 7]; [:: 8; 26]; [:: 9; 25]; [:: 10; 24];
+      [:: 11; 28]; [:: 12; 27]; [:: 13; 31]; [:: 14; 30]; [:: 15; 29];
+      [:: 16; 18]; [:: 19; 20]; [:: 21; 23]; [:: 32; 34]; [:: 35; 36];
+      [:: 37; 39]; [:: 40; 42]; [:: 43; 44]; [:: 45; 47] ]%N.
+
+Notation Utab := (cycs_tab 47 Uncyc).
+Notation Ltab := (cycs_tab 47 Lncyc).
+Notation Ftab := (cycs_tab 47 Fncyc).
+Notation Rtab := (cycs_tab 47 Rncyc).
+Notation Btab := (cycs_tab 47 Bncyc).
+Notation Dtab := (cycs_tab 47 Dncyc).
+Notation Midytab := (cycs_tab 47 Midyncyc).
+Notation Midxtab := (cycs_tab 47 Midxncyc).
+
+(* Each move is the permutation of its table.                                 *)
+Lemma UmoveT : Umove = pt 47 Utab.
+Proof. by rewrite UmoveE; apply: (@cycs_pt _ Uncyc). Qed.
+Lemma LmoveT : Lmove = pt 47 Ltab.
+Proof. by rewrite LmoveE; apply: (@cycs_pt _ Lncyc). Qed.
+Lemma FmoveT : Fmove = pt 47 Ftab.
+Proof. by rewrite FmoveE; apply: (@cycs_pt _ Fncyc). Qed.
+Lemma RmoveT : Rmove = pt 47 Rtab.
+Proof. by rewrite RmoveE; apply: (@cycs_pt _ Rncyc). Qed.
+Lemma BmoveT : Bmove = pt 47 Btab.
+Proof. by rewrite BmoveE; apply: (@cycs_pt _ Bncyc). Qed.
+Lemma DmoveT : Dmove = pt 47 Dtab.
+Proof. by rewrite DmoveE; apply: (@cycs_pt _ Dncyc). Qed.
+Lemma MidyT : Midy = pt 47 Midytab.
+Proof. by rewrite /Midy; apply: (@cycs_pt _ Midyncyc). Qed.
+Lemma MidxT : Midx = pt 47 Midxtab.
+Proof. by rewrite /Midx; apply: (@cycs_pt _ Midxncyc). Qed.
+Lemma SmT : Sm = pt 47 (cycs_tab 47 Smncyc).
+Proof. by rewrite /Sm; apply: (@cycs_pt _ Smncyc). Qed.
+
+(* Well-formedness of every table in play: pure computation on nat lists.     *)
+Lemma okU : tab_ok 47 Utab. Proof. by vm_compute. Qed.
+Lemma okL : tab_ok 47 Ltab. Proof. by vm_compute. Qed.
+Lemma okF : tab_ok 47 Ftab. Proof. by vm_compute. Qed.
+Lemma okR : tab_ok 47 Rtab. Proof. by vm_compute. Qed.
+Lemma okB : tab_ok 47 Btab. Proof. by vm_compute. Qed.
+Lemma okD : tab_ok 47 Dtab. Proof. by vm_compute. Qed.
+Lemma okMidy : tab_ok 47 Midytab. Proof. by vm_compute. Qed.
+Lemma okMidx : tab_ok 47 Midxtab. Proof. by vm_compute. Qed.
+
+Definition Sytab : seq nat :=
+  comp_tab (comp_tab Utab Midytab) (inv_tab 47 Dtab).
+Definition Sxtab : seq nat :=
+  comp_tab (comp_tab Rtab Midxtab) (inv_tab 47 Ltab).
+Definition Smtab : seq nat := cycs_tab 47 Smncyc.
+
+Lemma okSy : tab_ok 47 Sytab. Proof. by vm_compute. Qed.
+Lemma okSx : tab_ok 47 Sxtab. Proof. by vm_compute. Qed.
+Lemma okSm : tab_ok 47 Smtab. Proof. by vm_compute. Qed.
+
+Lemma SyT : Sy = pt 47 Sytab.
+Proof.
+rewrite /Sy UmoveT MidyT DmoveT (ptV okD).
+by rewrite (ptM okU okMidy) (ptM (tab_ok_comp okU okMidy) (tab_ok_inv okD)).
+Qed.
+
+Lemma SxT : Sx = pt 47 Sxtab.
+Proof.
+rewrite /Sx RmoveT MidxT LmoveT (ptV okL).
+by rewrite (ptM okR okMidx) (ptM (tab_ok_comp okR okMidx) (tab_ok_inv okL)).
+Qed.
+
+(* ---- 4. How the symmetries permute the face turns ------------------------ *)
 (*                                                                            *)
 (*  The eighteen facts below are the whole computational content of this      *)
 (*  file -- but four of them are not computational at all: a rotation fixes   *)
@@ -251,10 +348,26 @@ Qed.
 
 (* The other four move a face somewhere else, so no commutation argument      *)
 (* reaches them.                                                              *)
-Lemma RmoveJy : Rmove ^ Sy = Fmove.  Admitted.  (* [COMPUTATION]              *)
-Lemma FmoveJy : Fmove ^ Sy = Lmove.  Admitted.  (* [COMPUTATION]              *)
-Lemma LmoveJy : Lmove ^ Sy = Bmove.  Admitted.  (* [COMPUTATION]              *)
-Lemma BmoveJy : Bmove ^ Sy = Rmove.  Admitted.  (* [COMPUTATION]              *)
+Lemma RmoveJy : Rmove ^ Sy = Fmove.
+Proof.
+rewrite RmoveT FmoveT SyT.
+by rewrite (ptJ okR okSy); congr pt; vm_compute.
+Qed.
+Lemma FmoveJy : Fmove ^ Sy = Lmove.
+Proof.
+rewrite FmoveT LmoveT SyT.
+by rewrite (ptJ okF okSy); congr pt; vm_compute.
+Qed.
+Lemma LmoveJy : Lmove ^ Sy = Bmove.
+Proof.
+rewrite LmoveT BmoveT SyT.
+by rewrite (ptJ okL okSy); congr pt; vm_compute.
+Qed.
+Lemma BmoveJy : Bmove ^ Sy = Rmove.
+Proof.
+rewrite BmoveT RmoveT SyT.
+by rewrite (ptJ okB okSy); congr pt; vm_compute.
+Qed.
 
 (* -- Sx : R and L fixed, F -> U -> B -> D -> F.                              *)
 
@@ -272,20 +385,60 @@ apply: commuteM; last by apply: commuteV.
 by apply: commuteM; [exact/esym/commute_RL | exact/esym/commute_MxL].
 Qed.
 
-Lemma UmoveJx : Umove ^ Sx = Bmove.  Admitted.  (* [COMPUTATION]              *)
-Lemma FmoveJx : Fmove ^ Sx = Umove.  Admitted.  (* [COMPUTATION]              *)
-Lemma DmoveJx : Dmove ^ Sx = Fmove.  Admitted.  (* [COMPUTATION]              *)
-Lemma BmoveJx : Bmove ^ Sx = Dmove.  Admitted.  (* [COMPUTATION]              *)
+Lemma UmoveJx : Umove ^ Sx = Bmove.
+Proof.
+rewrite UmoveT BmoveT SxT.
+by rewrite (ptJ okU okSx); congr pt; vm_compute.
+Qed.
+Lemma FmoveJx : Fmove ^ Sx = Umove.
+Proof.
+rewrite FmoveT UmoveT SxT.
+by rewrite (ptJ okF okSx); congr pt; vm_compute.
+Qed.
+Lemma DmoveJx : Dmove ^ Sx = Fmove.
+Proof.
+rewrite DmoveT FmoveT SxT.
+by rewrite (ptJ okD okSx); congr pt; vm_compute.
+Qed.
+Lemma BmoveJx : Bmove ^ Sx = Dmove.
+Proof.
+rewrite BmoveT DmoveT SxT.
+by rewrite (ptJ okB okSx); congr pt; vm_compute.
+Qed.
 
 (* -- Sm : L and R exchanged, every face turn reversed.                       *)
-Lemma UmoveJm : Umove ^ Sm = Umove ^-1.  Admitted.  (* [COMPUTATION]          *)
-Lemma RmoveJm : Rmove ^ Sm = Lmove ^-1.  Admitted.  (* [COMPUTATION]          *)
-Lemma FmoveJm : Fmove ^ Sm = Fmove ^-1.  Admitted.  (* [COMPUTATION]          *)
-Lemma DmoveJm : Dmove ^ Sm = Dmove ^-1.  Admitted.  (* [COMPUTATION]          *)
-Lemma LmoveJm : Lmove ^ Sm = Rmove ^-1.  Admitted.  (* [COMPUTATION]          *)
-Lemma BmoveJm : Bmove ^ Sm = Bmove ^-1.  Admitted.  (* [COMPUTATION]          *)
+Lemma UmoveJm : Umove ^ Sm = Umove ^-1.
+Proof.
+rewrite UmoveT SmT (ptV okU).
+by rewrite (ptJ okU okSm); congr pt; vm_compute.
+Qed.
+Lemma RmoveJm : Rmove ^ Sm = Lmove ^-1.
+Proof.
+rewrite RmoveT LmoveT SmT (ptV okL).
+by rewrite (ptJ okR okSm); congr pt; vm_compute.
+Qed.
+Lemma FmoveJm : Fmove ^ Sm = Fmove ^-1.
+Proof.
+rewrite FmoveT SmT (ptV okF).
+by rewrite (ptJ okF okSm); congr pt; vm_compute.
+Qed.
+Lemma DmoveJm : Dmove ^ Sm = Dmove ^-1.
+Proof.
+rewrite DmoveT SmT (ptV okD).
+by rewrite (ptJ okD okSm); congr pt; vm_compute.
+Qed.
+Lemma LmoveJm : Lmove ^ Sm = Rmove ^-1.
+Proof.
+rewrite LmoveT RmoveT SmT (ptV okR).
+by rewrite (ptJ okL okSm); congr pt; vm_compute.
+Qed.
+Lemma BmoveJm : Bmove ^ Sm = Bmove ^-1.
+Proof.
+rewrite BmoveT SmT (ptV okB).
+by rewrite (ptJ okB okSm); congr pt; vm_compute.
+Qed.
 
-(* ---- 4. A symmetry of the faces is a symmetry of the move set ------------ *)
+(* ---- 5. A symmetry of the faces is a symmetry of the move set ------------ *)
 (*                                                                            *)
 (*  The move set is closed under a conjugation that permutes the six face     *)
 (*  turns, up to inverses.  The three moves a face contributes go to the      *)
@@ -358,7 +511,7 @@ apply: Sset_conj => g gf; face_case gf.
 face_wit Bmove BmoveJm.
 Qed.
 
-(* ---- 5. The symmetry group ----------------------------------------------- *)
+(* ---- 6. The symmetry group ----------------------------------------------- *)
 (*                                                                            *)
 (*  Symg is the group of the 48 symmetries of the cube, acting on facelets.   *)
 (*  Its order is not needed anywhere: what the reduction uses is that every   *)
@@ -379,3 +532,4 @@ move: xS; rewrite !inE; case/orP=> [/orP[]|] /eqP->.
 - exact: Sset_Jx.
 exact: Sset_Jm.
 Qed.
+
