@@ -160,6 +160,25 @@ Qed.
 Lemma compE (A B C : Type) (f : A -> B) (g : B -> C) x : (g \o f) x = g (f x).
 Proof. by []. Qed.
 
+(* Conjugating a cycle just relabels the points it lists.  This is the        *)
+(* symbolic counterpart of "a symmetry carries a face turn to a face turn":   *)
+(* no permutation is applied to a point, the list is mapped instead.          *)
+Lemma cycJ (A : finType) (l : seq A) (s : {perm A}) :
+  (cyc l) ^ s = cyc [seq s i | i <- l].
+Proof.
+case: l => [|a l]; first by rewrite conj1g.
+rewrite [in RHS]/= [in LHS]/= big_map.
+rewrite (big_morph (fun g : {perm A} => g ^ s)
+                   (fun x y => conjMg x y s) (conj1g s)).
+by apply: eq_bigr => b _; rewrite tpermJ.
+Qed.
+
+(* A uniform size for the blocks of a list of lists, as a boolean check: the  *)
+(* sizes do not depend on the points, so this one *does* compute cheaply.     *)
+Lemma all_sizeP (A : eqType) (ll : seq (seq A)) n :
+  all (fun l => size l == n) ll -> forall l, l \in ll -> size l = n.
+Proof. by move=> /allP H l /H /eqP. Qed.
+
 (* An n-cycle has order n.                                                    *)
 Lemma cyc_order (A : finType) (l : seq A) : uniq l -> cyc l ^+ size l = 1.
 Proof.

@@ -213,6 +213,16 @@ apply/idP/idP => xS; last exact: Sinv.
 by rewrite -(invgK x); apply: Sinv.
 Qed.
 
+(* Conjugating the set of the elements of a list maps the list.  Lets one     *)
+(* check S :^ u = S generator by generator, on the list that defines S.       *)
+Lemma conj_set_seq (l : seq gT) u :
+  [set g in l] :^ u = [set g in [seq g ^ u | g <- l]].
+Proof.
+apply/setP => x; rewrite mem_conjg !inE.
+apply/idP/idP => [xu|/mapP[g gl ->]]; last by rewrite conjgK.
+by apply/mapP; exists (x ^ u^-1) => //; rewrite conjgKV.
+Qed.
+
 (* A half turn is an involution: if g has order dividing 4 then g^+2 is its   *)
 (* own inverse.  This is what makes the half turns g^+2 stay in the move set  *)
 (* under inversion.                                                           *)
