@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -O3 -march=native -std=c11
 LDFLAGS = -lmpfr -lgmp -lm
 
-TARGETS = al record cheb
+TARGETS = al record cheb al_miss
 
 all: $(TARGETS)
 
@@ -22,3 +22,6 @@ clean:
 	rm -f $(TARGETS) *.o
 
 .PHONY: all clean
+
+al_miss: al_miss.c
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
