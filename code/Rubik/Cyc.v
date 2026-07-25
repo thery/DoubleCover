@@ -207,3 +207,82 @@ rewrite big_cons; apply: expgMn1.
 - by rewrite -(Sz l0 (mem_head l0 ll)) (@cyc_order _ l0 Ul0).
 - by apply: IH => // l lin; apply: Sz; rewrite inE lin orbT.
 Qed.
+
+(* -------------------------------------------------------------------------  *)
+(*  Rotating and reversing the list that presents a cycle.                    *)
+(*                                                                            *)
+(*  A cycle is a cyclic order: the list presenting it is determined only up   *)
+(*  to where one starts reading, and reading it backwards presents the        *)
+(*  inverse cycle.  These are the lemmas that let one recognise a conjugated  *)
+(*  cycle -- cycJ turns (cyc l) ^ s into cyc (map s l), and the image list    *)
+(*  is then typically a named cycle started elsewhere, or run the other way.  *)
+(*  Everything goes through cyc_nth, so no permutation is ever evaluated.     *)
+(* -------------------------------------------------------------------------  *)
+
+(* Rotating by one shifts the indices by one, cyclically.                     *)
+Lemma nth_rot1 (A : Type) (d : A) (l : seq A) i :
+  i < size l -> nth d (rot 1 l) i = nth d l (i.+1 %% size l).
+Proof.
+case: l => // a l /=; rewrite ltnS rot1_cons nth_rcons => iLl.
+case: ltngtP iLl => [iLl _|//|->] /=.
+- by rewrite modn_small ?ltnS.
+by rewrite modnn.
+Qed.
+
+(* Starting to read the list one step later presents the same cycle.          *)
+Lemma cyc_rot1 (A : finType) (l : seq A) : uniq l -> cyc (rot 1 l) = cyc l.
+Proof.
+move=> Ul; apply/permP => x.
+have [xl|xnl] := boolP (x \in l); last by rewrite !cyc_notin // mem_rot.
+have Ur : uniq (rot 1 l) by rewrite rot_uniq.
+have xr : x \in rot 1 l by rewrite mem_rot.
+have iL : index x l < size l by rewrite index_mem.
+have jL : index x (rot 1 l) < size l by rewrite -[size l](size_rot 1) index_mem.
+have n0 : 0 < size l by apply: leq_ltn_trans iL.
+have key : (index x (rot 1 l)).+1 %% size l = index x l.
+  apply/eqP; rewrite -(nth_uniq x _ _ Ul) ?ltn_mod //.
+  by rewrite -nth_rot1 // !nth_index.
+rewrite -{1}(nth_index x xr) cyc_nth ?size_rot //.
+rewrite nth_rot1 ?size_rot ?ltn_mod //.
+by rewrite key -[X in cyc l X](nth_index x xl) cyc_nth.
+Qed.
+
+(* Hence starting anywhere presents the same cycle.                           *)
+Lemma cyc_rot (A : finType) k (l : seq A) : uniq l -> cyc (rot k l) = cyc l.
+Proof.
+move=> Ul; elim: k => [|k IH]; first by rewrite rot0.
+have [kL|kL] := leqP k.+1 (size l); last by rewrite rot_oversize // ltnW.
+by rewrite -add1n rotD // cyc_rot1 ?rot_uniq.
+Qed.
+
+(* Reversing turns the index i into size l - i.+1.                            *)
+Lemma nth_revE (A : Type) (d : A) (l : seq A) m :
+  m < size l -> nth d (rev l) (size l - m.+1) = nth d l m.
+Proof.
+move=> mL; have n0 : 0 < size l by apply: leq_ltn_trans mL.
+rewrite nth_rev ?ltn_subrL //.
+by rewrite subnSK // subKn // ltnW.
+Qed.
+
+(* Reading the list backwards presents the inverse cycle.                     *)
+Lemma cyc_rev (A : finType) (l : seq A) : uniq l -> cyc (rev l) = (cyc l)^-1.
+Proof.
+move=> Ul; apply: (mulgI (cyc l)); rewrite mulgV.
+apply/permP => x; rewrite permM perm1.
+have [xl|xnl] := boolP (x \in l); last by rewrite !cyc_notin // mem_rev.
+have iL : index x l < size l by rewrite index_mem.
+have n0 : 0 < size l by apply: leq_ltn_trans iL.
+have mL : (index x l).+1 %% size l < size l by rewrite ltn_mod.
+have -> : cyc l x = nth x l ((index x l).+1 %% size l).
+  by rewrite -[X in cyc l X](nth_index x xl) cyc_nth.
+rewrite -(nth_revE x mL) cyc_nth ?rev_uniq ?size_rev ?ltn_subrL //.
+rewrite subnSK //.
+have [i1|i1] := ltnP (index x l) (size l).-1.
+  have i2 : (index x l).+1 < size l by rewrite -(prednK n0) ltnS.
+  by rewrite (modn_small i2) modn_small ?ltn_subrL // nth_revE ?nth_index.
+have iE : (index x l).+1 = size l.
+  by apply/eqP; rewrite eqn_leq iL /= -(prednK n0) ltnS.
+rewrite iE modnn subn0 modnn.
+have -> : 0 = size l - (index x l).+1 by rewrite iE subnn.
+by rewrite nth_revE ?nth_index.
+Qed.
