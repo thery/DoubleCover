@@ -213,6 +213,11 @@ apply/idP/idP => xS; last exact: Sinv.
 by rewrite -(invgK x); apply: Sinv.
 Qed.
 
+(* Conjugation by something one commutes with does nothing.  This is what     *)
+(* makes a face turn fixed by a whole-cube rotation about its own axis.       *)
+Lemma conjg_commute g u : commute g u -> g ^ u = g.
+Proof. by move=> c; rewrite conjgE c mulKg. Qed.
+
 (* Conjugating the set of the elements of a list maps the list.  Lets one     *)
 (* check S :^ u = S generator by generator, on the list that defines S.       *)
 Lemma conj_set_seq (l : seq gT) u :
