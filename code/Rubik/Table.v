@@ -108,6 +108,9 @@ Definition id_tab : seq nat := iota 0 n.+1.
 
 Definition comp_tab (t1 t2 : seq nat) : seq nat := [seq nth 0 t2 i | i <- t1].
 
+Fixpoint exp_tab t n := 
+  if n is n1.+1 then comp_tab t (exp_tab t n1) else id_tab.
+
 Definition inv_tab (t : seq nat) : seq nat :=
   [seq index i t | i <- iota 0 n.+1].
 
@@ -128,6 +131,12 @@ apply/and3P; split.
   by rewrite mem_nth // t2sz t1lt.
 rewrite /comp_tab map_inj_in_uniq // => a b at1 bt1 e; apply/eqP.
 by rewrite -(nth_uniq 0 _ _ t2u) ?t2sz ?t1lt // e.
+Qed.
+
+Lemma tab_ok_exp t m : tab_ok t -> tab_ok (exp_tab t m).
+Proof.
+move=> tT; elim: m => [|m IH] /=; first by apply: tab_ok_id.
+by apply: tab_ok_comp.
 Qed.
 
 Lemma tab_ok_inv t : tab_ok t -> tab_ok (inv_tab t).
@@ -155,6 +164,12 @@ move=> t1ok t2ok; have /and3P[/eqP t1sz _ _] := t1ok.
 apply/permP => i; rewrite permM !ptE ?tab_ok_comp //.
 rewrite /comp_tab (nth_map 0) ?t1sz ?ltn_ord //.
 by congr inord; congr (nth 0 t2 _); rewrite inordK ?tab_lt.
+Qed.
+
+Lemma ptX t m : tab_ok t -> pt t ^+ m = pt (exp_tab t m).
+Proof.
+move=> tT; elim: m => [|m IH] /=; first by rewrite expg0 pt1.
+by rewrite expgS // -ptM ?IH // tab_ok_exp.
 Qed.
 
 Lemma ptV t : tab_ok t -> (pt t)^-1 = pt (inv_tab t).

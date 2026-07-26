@@ -67,8 +67,39 @@ Proof. by apply: cyc_prod_expn; [exact: Spcyc_uniq | apply: all_sizeP]. Qed.
 (* explicit maneuver, for instance                                            *)
 (*     U R2 F B R B2 R U2 L B2 R U' D' R2 F R' L B2 U2 F2                     *)
 (* (a 20-move word -- the one that gives the matching upper bound).           *)
+Lemma superflipE : 
+  superflip = Umove * Rmove ^+2 * Fmove * Bmove * Rmove * Bmove ^+2 *
+          Rmove * Umove ^+2 * Lmove * Bmove ^+2 * Rmove * Umove ^-1 *
+          Dmove ^-1 * Rmove ^+2 * Fmove * Rmove ^-1 * Lmove * Bmove ^+2 *
+          Umove ^+ 2 * Fmove ^+2.
+Proof.
+rewrite UmoveT RmoveT FmoveT BmoveT LmoveT DmoveT !ptV // !ptX // !ptM //.
+rewrite /superflip /Spcyc.
+pose ll := 
+  ([:: [:: 1; 33];  [:: 3; 9]; [:: 4; 25]; [:: 6; 17]; [:: 11; 36]; 
+      [:: 12; 19]; [:: 14; 43]; [:: 20; 27]; [:: 22; 41]; [:: 28; 35];
+      [:: 30; 44];  [:: 38; 46]])%N.
+by have ->// := @cycs_pt 47%N ll.
+Qed.
+
 Lemma superflip_in_G : superflip \in G.
-Admitted.
+Proof.
+have Ui : Umove \in G.
+  by apply: (subsetP (subset_gen _)); rewrite !inE eqxx ?orbT.
+have Bi : Bmove \in G.
+  by apply: (subsetP (subset_gen _)); rewrite !inE eqxx ?orbT.
+have Ri : Rmove \in G.
+  by apply: (subsetP (subset_gen _)); rewrite !inE eqxx ?orbT.
+have Fi : Fmove \in G.
+  by apply: (subsetP (subset_gen _)); rewrite !inE eqxx ?orbT.
+have Li : Lmove \in G.
+  by apply: (subsetP (subset_gen _)); rewrite !inE eqxx ?orbT.
+have Di : Dmove \in G.
+  by apply: (subsetP (subset_gen _)); rewrite !inE eqxx ?orbT.
+rewrite superflipE.
+repeat (apply: groupM; last by first [done || apply groupX || apply: groupVr]).
+by first [done || apply groupX || apply: groupVr].
+Qed.
 
 (* [COMPUTATION] The lower-bound search: no word of length at most 19 in the  *)
 (* eighteen moves reaches the superflip.                                      *)
