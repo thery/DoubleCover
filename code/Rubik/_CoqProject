@@ -4,6 +4,7 @@ Cyc.v
 Ball.v
 Table.v
 Search.v
+Tsearch.v
 Rubik333.v
 Sym.v
 Root.v
