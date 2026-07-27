@@ -32,14 +32,20 @@ Local Notation T := 'I_n.+1.
 Lemma pt_inj t1 t2 :
   tab_ok n t1 -> tab_ok n t2 -> pt n t1 = pt n t2 -> t1 = t2.
 Proof.
-(* both tables have size n.+1 and pt reads them entry by entry, so equal      *)
-(* permutations force equal entries.                                          *)
-Admitted.
+move=> t1ok t2ok /permP pE.
+have /and3P[/eqP t1sz _ _] := t1ok; have /and3P[/eqP t2sz _ _] := t2ok.
+apply: (@eq_from_nth _ 0) => [|i]; first by rewrite t1sz t2sz.
+rewrite t1sz => iL; have := pE (Ordinal iL).
+rewrite !ptE // => /=.
+have L1 := tab_lt (Ordinal iL) t1ok; have L2 := tab_lt (Ordinal iL) t2ok.
+by move=> H; rewrite -(inordK L1) -(inordK L2) H.
+Qed.
 
 Lemma pt_eq1 t : tab_ok n t -> (pt n t == 1) = (t == id_tab n).
 Proof.
-(* pt id_tab = 1, and pt is injective on well formed tables.                  *)
-Admitted.
+move=> tok; apply/eqP/eqP => [pE|->]; last exact: pt1.
+by apply: (pt_inj tok (tab_ok_id n)); rewrite pE pt1.
+Qed.
 
 (* ---- 2. The search on tables --------------------------------------------- *)
 
@@ -64,9 +70,12 @@ Hypothesis hE : forall t, tab_ok n t -> h (pt n t) = Dt t.
 Lemma searchtE d t :
   tab_ok n t -> searcht d t = search [seq pt n mt | mt <- mts] h d (pt n t).
 Proof.
-(* induction on d: hE for the cut, pt_eq1 for the solved test, and has_map    *)
-(* with ptM for the recursive call, comp_tab t mt presenting pt t * pt mt.    *)
-Admitted.
+elim: d t => [t tok|d IH t tok] /=; rewrite hE // pt_eq1 //.
+congr (_ && (_ || _)); rewrite has_map /=.
+apply: eq_in_has => mt mtM /=.
+have mtok : tab_ok n mt by apply: (allP mtsok).
+by rewrite ptM //; apply: IH; apply: tab_ok_comp.
+Qed.
 
 (* A false answer from the computable search is a false answer from the one   *)
 (* Search.v proves sound.                                                     *)
