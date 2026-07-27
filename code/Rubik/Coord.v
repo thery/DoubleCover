@@ -72,12 +72,29 @@ End Heuristic.
 (* ---- 2. The summary itself: THE LEAVES ----------------------------------  *)
 
 (* [3a] the summary and the action of a move on it.                           *)
-Parameter Xf : Type.
-Parameter coordf : {perm facelet} -> Xf.
-Parameter actf : Xf -> {perm facelet} -> Xf.
+
+(* ANY colouring of the facelets gives a summary, and hence an admissible     *)
+(* heuristic; only the strength depends on the choice.  The real proof uses   *)
+(* the colouring whose summary is the edge orientation.                       *)
+Definition ecol (f : facelet) : bool := odd f.
+
+Definition Xf : Type := {ffun facelet -> bool}.
+
+(* The summary is read on g^-1, which is what makes it an ACTION rather than  *)
+(* a twisted product: mathcomp has (g * m) f = m (g f), so the cocycle comes  *)
+(* out on the other side.                                                     *)
+Definition coordf (g : {perm facelet}) : Xf :=
+  [ffun f => ecol f (+) ecol (g^-1 f)].
+
+Definition actf (x : Xf) (m : {perm facelet}) : Xf :=
+  [ffun f => x (m^-1 f) (+) ecol f (+) ecol (m^-1 f)].
 
 (* [3a] the equivariance: the only statement here that is not a computation.  *)
-Axiom coordfM : forall g m, coordf (g * m) = actf (coordf g) m.
+Lemma coordfM g m : coordf (g * m) = actf (coordf g) m.
+Proof.
+apply/ffunP => f; rewrite /coordf /actf !ffunE invMg permM.
+by case: (ecol f); case: (ecol (m^-1 f)); case: (ecol (g^-1 (m^-1 f))).
+Qed.
 
 (* [3c] the table, by breadth first search on Xf.  Never proved correct.      *)
 Parameter Df : Xf -> nat.
