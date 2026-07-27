@@ -1,0 +1,8 @@
+# build products
+rubik_lb
+rubik_par
+*.cmi
+*.cmx
+*.o
+# generated
+MoveTables.v

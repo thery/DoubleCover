@@ -21,9 +21,19 @@ reference the Rocq version is checked against, node for node.
 tables as a Rocq file of `int63` lists.
 
 ```
-ocamlfind ocamlopt -package unix -linkpkg -O3 rubik_lb.ml  -o rubik_lb
-ocamlfind ocamlopt -package unix -linkpkg -O3 rubik_par.ml -o rubik_par
+make                 # build both programs
+make check           # depths 1..14 on one core, a couple of minutes
+make run             # the full depth 19 search, all cores, hours
+make MoveTables.v    # the coordinate move tables, as a Rocq file
+make clean           # remove the binaries
+make distclean       # also remove the 2.2 GB pruning table
+```
 
+`make run` takes `JOBS` (default `nproc`), `DEPTH` (19) and `CAP` (9), so
+`make run JOBS=24 DEPTH=17` does what it says.  `OPT` is `-O3` and can be
+emptied for a switch without flambda.  Underneath, the programs are:
+
+```
 ./rubik_lb 14                        # depths 1..14, printing nodes and time
 ./rubik_par 19 9 build               # build the phase-1 table (cap 9) once
 seq 0 13 | xargs -P 14 -I{} ./rubik_par 19 9 {} 14
