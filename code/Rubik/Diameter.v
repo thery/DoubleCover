@@ -14,8 +14,9 @@
 (*  10^19-position search in the kernel.                                      *)
 (*                                                                            *)
 (*  Lower bound.  One position out of reach in 19 moves is enough, and the    *)
-(*  classical witness is the superflip.  That it is a cube position, and      *)
-(*  that it is not within 19 moves, are again computations [COMPUTATION].     *)
+(*  classical witness is the superflip.  That it is a cube position is        *)
+(*  proved here, by exhibiting a maneuver for it; that it is not within 19    *)
+(*  moves is again a computation [COMPUTATION].                               *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -63,42 +64,41 @@ Qed.
 Lemma superflip2 : superflip ^+ 2 = 1.
 Proof. by apply: cyc_prod_expn; [exact: Spcyc_uniq | apply: all_sizeP]. Qed.
 
-(* [COMPUTATION] The superflip is a cube position: it is the value of an      *)
-(* explicit maneuver, for instance                                            *)
+(* The superflip is the value of an explicit maneuver,                        *)
 (*     U R2 F B R B2 R U2 L B2 R U' D' R2 F R' L B2 U2 F2                     *)
-(* (a 20-move word -- the one that gives the matching upper bound).           *)
-Lemma superflipE : 
+(* (a 20-move word -- the one that gives the matching upper bound).  Both     *)
+(* sides are pushed onto tables, where the equality is one comparison of two  *)
+(* literal nat lists.  The tab_ok side conditions are closed by vm_compute    *)
+(* rather than by conversion: it takes the proof from 14s to 3s.              *)
+Lemma superflipE :
   superflip = Umove * Rmove ^+2 * Fmove * Bmove * Rmove * Bmove ^+2 *
           Rmove * Umove ^+2 * Lmove * Bmove ^+2 * Rmove * Umove ^-1 *
           Dmove ^-1 * Rmove ^+2 * Fmove * Rmove ^-1 * Lmove * Bmove ^+2 *
           Umove ^+ 2 * Fmove ^+2.
 Proof.
-rewrite UmoveT RmoveT FmoveT BmoveT LmoveT DmoveT !ptV // !ptX // !ptM //.
+rewrite UmoveT RmoveT FmoveT BmoveT LmoveT DmoveT !ptV; [|by vm_compute..].
+rewrite !ptX; [|by vm_compute..].
+rewrite !ptM; [|by vm_compute..].
 rewrite /superflip /Spcyc.
-pose ll := 
-  ([:: [:: 1; 33];  [:: 3; 9]; [:: 4; 25]; [:: 6; 17]; [:: 11; 36]; 
-      [:: 12; 19]; [:: 14; 43]; [:: 20; 27]; [:: 22; 41]; [:: 28; 35];
-      [:: 30; 44];  [:: 38; 46]])%N.
+pose ll :=
+  ([:: [:: 1; 33]; [:: 3; 9]; [:: 4; 25]; [:: 6; 17]; [:: 11; 36];
+       [:: 12; 19]; [:: 14; 43]; [:: 20; 27]; [:: 22; 41]; [:: 28; 35];
+       [:: 30; 44]; [:: 38; 46]])%N.
 by have ->// := @cycs_pt 47%N ll.
 Qed.
 
+(* Hence a cube position: the maneuver is a word in the six face turns.  The  *)
+(* face branch has to be tried BEFORE groupM -- a face turn is itself a       *)
+(* product of cycles, so groupM would happily take the word apart into its    *)
+(* 140 cycles instead of stopping at the generators.                          *)
 Lemma superflip_in_G : superflip \in G.
 Proof.
-have Ui : Umove \in G.
-  by apply: (subsetP (subset_gen _)); rewrite !inE eqxx ?orbT.
-have Bi : Bmove \in G.
-  by apply: (subsetP (subset_gen _)); rewrite !inE eqxx ?orbT.
-have Ri : Rmove \in G.
-  by apply: (subsetP (subset_gen _)); rewrite !inE eqxx ?orbT.
-have Fi : Fmove \in G.
-  by apply: (subsetP (subset_gen _)); rewrite !inE eqxx ?orbT.
-have Li : Lmove \in G.
-  by apply: (subsetP (subset_gen _)); rewrite !inE eqxx ?orbT.
-have Di : Dmove \in G.
-  by apply: (subsetP (subset_gen _)); rewrite !inE eqxx ?orbT.
+have faceG g : g \in faces -> g \in G.
+  move=> gF; apply: (subsetP (subset_gen _)); rewrite inE /moves.
+  by apply/flatten_mapP; exists g => //; rewrite !inE eqxx.
 rewrite superflipE.
-repeat (apply: groupM; last by first [done || apply groupX || apply: groupVr]).
-by first [done || apply groupX || apply: groupVr].
+by do ?[by apply: faceG; rewrite !inE eqxx ?orbT
+       | apply: groupM | apply: groupX | apply: groupVr].
 Qed.
 
 (* [COMPUTATION] The lower-bound search: no word of length at most 19 in the  *)

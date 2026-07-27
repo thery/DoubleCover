@@ -108,8 +108,8 @@ Definition id_tab : seq nat := iota 0 n.+1.
 
 Definition comp_tab (t1 t2 : seq nat) : seq nat := [seq nth 0 t2 i | i <- t1].
 
-Fixpoint exp_tab t n := 
-  if n is n1.+1 then comp_tab t (exp_tab t n1) else id_tab.
+Fixpoint exp_tab t m :=
+  if m is m1.+1 then comp_tab t (exp_tab t m1) else id_tab.
 
 Definition inv_tab (t : seq nat) : seq nat :=
   [seq index i t | i <- iota 0 n.+1].
@@ -207,11 +207,11 @@ Lemma tab_ok_cyc l : all (fun i => i < n.+1) l -> uniq l -> tab_ok (cyc_tab l).
 Proof.
 move=> lA lU; rewrite /tab_ok; rewrite size_map size_iota eqxx andTb.
 apply/andP; split.
-  apply/allP => /= i /mapP[/= j]; rewrite inE mem_iota add1n=> /orP[/eqP->|jL].
-    case: (boolP (0 \in _)) => iIl -> //.   
+  apply/allP => /= i /mapP[/= j]; rewrite inE mem_iota add1n => /orP[/eqP->|jL].
+    case: (boolP (0 \in _)) => iIl -> //.
     by apply: (allP lA); rewrite mem_nth // ltn_mod //; case: (l) iIl.
   case: (boolP (j \in _)) => jIl -> //.
-      by apply: (allP lA); rewrite mem_nth // ltn_mod //; case: (l) jIl.
+    by apply: (allP lA); rewrite mem_nth // ltn_mod //; case: (l) jIl.
   by case/andP: jL.
 apply/(uniqP 0) => i j; rewrite size_map size_iota //= => iLn jLn.
 rewrite !(nth_map 0, size_iota) // !nth_iota // !add0n.
