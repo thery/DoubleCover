@@ -264,17 +264,10 @@ have := eqP (hg (g^-1 f)); rewrite permKV => e.
 by rewrite e permK.
 Qed.
 
-(* the moves keep cubies together.  Eighteen checks, each over 48 facelets;   *)
-(* on the perm side nothing reduces, so this goes through the tables of       *)
-(* Sym.v the way mtabsE does.                                                 *)
-(* NOT EASY.  Nothing about a permutation reduces, so this has to go through
-   the tables -- it is cubtE of Coordfsi.v, which is a LATER file.  Either
-   cubtE moves here, or this lemma moves there.                             *)
-Lemma moves_cubP m : m \in Sset -> cubP m.
-Proof. Admitted.
-
-Lemma cubP_step g m : cubP g -> m \in Sset -> cubP (g * m).
-Proof. by move=> cg /moves_cubP cm; exact: cubPM. Qed.
+(* The moves keep cubies together -- moves_cubP -- but nothing about a
+   permutation reduces, so that fact has to be read on the tables and it
+   lives in Coordfsi.v with the rest of the table bridge.  So does everything
+   downstream of it: cubP_step, hfs and the search.                          *)
 
 (* an edge facelet stays an edge facelet                                      *)
 Lemma cubP_edge g f :
@@ -347,6 +340,13 @@ Qed.
 
 (* two words agreeing on the first k bits are equal, which is how every       *)
 (* equation between packed summaries is proved                               *)
+Lemma eq_packn k (f1 f2 : nat -> bool) :
+  (forall j, j < k -> f1 j = f2 j) -> packn k f1 = packn k f2.
+Proof.
+elim: k => //= k IH h; rewrite IH => [|j jL]; last by rewrite h // ltnW.
+by rewrite h.
+Qed.
+
 Lemma packn_eq k (x y : int) :
   to_nat x < 2 ^ k -> to_nat y < 2 ^ k ->
   (forall j, j < k -> nbit x j = nbit y j) -> x = y.
@@ -458,29 +458,5 @@ rewrite ltnNge leq_addr /= addKn coordfs_slice //.
 by rewrite -(ltn_add2l nedge) subnKC.
 Qed.
 
-(* ---- 9. What it gives Search.v ------------------------------------------- *)
-
-Section Heuristic.
-
-(* [3c] the table.  Item 3 replaces this by a Definition reading a packed     *)
-(* PArray, at which point Dfs0 and DfsStep become two checked computations    *)
-(* and this file has no axiom left.                                           *)
-Variable Dfs : int -> nat.
-Hypothesis Dfs0 : Dfs (coordfs 1) = 0.
-Hypothesis DfsStep : forall x m, m \in Sset -> Dfs x <= (Dfs (actfs x m)).+1.
-
-Definition hfs : {perm facelet} -> nat := hcoordg cubP coordfs Dfs.
-
-Lemma hfs0 : hfs 1 = 0.
-Proof. by apply: (hcoordg0 cubP1 Dfs0). Qed.
-
-Lemma hfsS g m : m \in Sset -> hfs g <= (hfs (g * m)).+1.
-Proof. by apply: (hcoordgS cubP_step coordfsM DfsStep). Qed.
-
-(* and hence the search of Search.v, with no condition on g                   *)
-Definition searchfs : nat -> {perm facelet} -> bool := search moves hfs.
-
-Corollary searchfsN d g : searchfs d g = false -> g \notin ball Sset d.
-Proof. exact: (@searchN _ moves Sset_inv hfs hfs0 hfsS d g). Qed.
-
-End Heuristic.
+(* Section 9, what this gives Search.v, is in Coordfsi.v: it needs
+   moves_cubP, and moves_cubP needs the tables.                              *)

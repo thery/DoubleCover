@@ -45,9 +45,6 @@ Import GroupScope.
 
 Notation arr := (PArray.array int).
 
-(* the facelet count, as Table.v takes it: tables have size n.+1 with n = 47  *)
-Definition nfacelet := 48.
-
 (* ---- 0. The two side conditions of Tabi.v, at n = 47 --------------------- *)
 
 (* Toy.v proves the same two.  When the real assembly file lands, one copy    *)
@@ -68,19 +65,19 @@ Proof. by vm_compute. Qed.
 Definition pmask : int := packn nfacelet (fun f => f \in eprim).
 Definition smask : int := packn nfacelet (fun f => f \in drop 8 eprim ++ drop 8 esec).
 
+Lemma nfacelet_dig : nfacelet <= ndigits.
+Proof. by vm_compute. Qed.
+
 (* what the masks are for: one bit test replaces the membership              *)
 Lemma bit_pmask f : f < nfacelet -> nbit pmask f = pcol (inord f).
-Proof. Admitted.
+Proof. by move=> fL; rewrite /pmask nbit_packn ?nfacelet_dig // /pcol inordK. Qed.
 
 Lemma bit_smask f : f < nfacelet -> nbit smask f = scol (inord f).
-Proof. Admitted.
+Proof. by move=> fL; rewrite /smask nbit_packn ?nfacelet_dig // /scol inordK. Qed.
 
-(* the nat level pairing, and its agreement with the one on facelets         *)
-Definition epairn (f : nat) : nat :=
-  nth f (esec ++ eprim) (index f (eprim ++ esec)).
-
+(* the pairing on facelets, read at nat level -- epairn is in Coordfs.v      *)
 Lemma epairnE f : f < nfacelet -> epair (inord f) = inord (epairn f).
-Proof. Admitted.
+Proof. by move=> fL; rewrite epairE inordK. Qed.
 
 (* ---- 2. The summary on lists --------------------------------------------- *)
 
@@ -113,6 +110,26 @@ Definition cubti (a : arr) : bool :=
                 of_nat (epairn (to_nat (PArray.get a (of_nat f)))))%uint63
       (iota 0 nfacelet).
 
+(* ---- 3b. Two bounds and one injectivity ---------------------------------- *)
+
+Lemma epairn_ltn m : m < nfacelet -> epairn m < nfacelet.
+Proof.
+move=> mL; have [mM|mN] := boolP (m \in eprim ++ esec); first by rewrite epairn_lt.
+by rewrite epairnN.
+Qed.
+
+Lemma nfacelet_nwB m : m < nfacelet -> m < nwB.
+Proof. by move=> mL; apply: leq_trans (leq_trans mL _) n47_small. Qed.
+
+(* inord is injective below the bound, which is how an equation between
+   facelets becomes an equation between naturals                             *)
+Lemma inord_eq (a b : nat) : a < nfacelet -> b < nfacelet ->
+  ((inord a : facelet) == inord b) = (a == b).
+Proof.
+move=> aL bL; apply/eqP/eqP => [e|->//].
+by rewrite -(inordK aL) e inordK.
+Qed.
+
 (* ---- 4. Arrays against lists --------------------------------------------- *)
 
 (* Both go the way ti2t_comp does: the summary is a packn over 24 indices,    *)
@@ -120,13 +137,32 @@ Definition cubti (a : arr) : bool :=
 (* already bridged by ti2t_inv.                                               *)
 
 Lemma ecoordiE u : tabi_ok 47 u -> ecoordi u = ecoordt (ti2t 47 u).
-Proof. Admitted.
+Proof.
+move=> uok; apply: eq_packn => j jL.
+have hnth i : i < nfacelet -> nth 0%N (ti2t 47 u) i = to_nat (PArray.get u (of_nat i)).
+  by move=> iL; apply: nth_ti2t.
+case: ltnP => jn.
+  by rewrite hnth ?eprim_lt // /nbit to_natK.
+have hsub : j - nedge < nedge by rewrite -(ltn_add2l nedge) subnKC.
+by rewrite hnth ?eprim_lt // /nbit to_natK.
+Qed.
 
 Lemma coordiE a : tabi_ok 47 a -> coordi a = coordt (ti2t 47 a).
-Proof. Admitted.
+Proof.
+move=> aok; rewrite /coordi /coordt ecoordiE.
+  by rewrite (ti2t_inv n47_small n47_len aok).
+by rewrite /tabi_ok (ti2t_inv n47_small n47_len aok); apply: tab_ok_inv.
+Qed.
 
 Lemma cubtiE a : tabi_ok 47 a -> cubti a = cubt (ti2t 47 a).
-Proof. Admitted.
+Proof.
+move=> aok; rewrite /cubti /cubt; apply: eq_in_all => f.
+rewrite mem_iota add0n => /andP[_ fL].
+rewrite !(@nth_ti2t 47) ?epairn_ltn //.
+have kL : epairn (to_nat (PArray.get a (of_nat f))) < nfacelet.
+  by apply: epairn_ltn; apply: (tabi_lt aok).
+by rewrite eqb_eqb -(inj_eq to_nat_inj) of_natK ?nfacelet_nwB // eq_sym.
+Qed.
 
 (* ---- 5. Lists against permutations --------------------------------------- *)
 
@@ -136,10 +172,65 @@ Proof. Admitted.
 (* into the two masks and the two sides are the same packn.                   *)
 
 Lemma coordtE t : tab_ok 47 t -> coordfs (pt 47 t) = coordt t.
-Proof. Admitted.
+Proof.
+move=> tok; have iok := tab_ok_inv tok.
+have ilt p : p < nedge -> nth 0%N (inv_tab 47 t) (nth 0%N eprim p) < nfacelet.
+  move=> pL; have /and3P[/eqP sz /allP hall _] := iok.
+  by apply: hall; rewrite mem_nth // sz eprim_lt.
+have hval p : p < nedge ->
+    inord (nth 0%N (inv_tab 47 t) (nth 0%N eprim p)) = (pt 47 t)^-1 (eprimf p).
+  by move=> pL; rewrite (ptV tok) ptE // eprimfK.
+rewrite /coordfs /coordt /ecoordt; apply: eq_packn => j jL.
+have hsub : nedge <= j -> j - nedge < nedge.
+  by move=> jn; rewrite -(ltn_add2l nedge) subnKC.
+case: ltnP => jn.
+  by rewrite /flipb -hval // -bit_pmask ?ilt.
+by rewrite /sliceb -hval ?hsub // -bit_smask ?ilt ?hsub.
+Qed.
 
 Lemma cubtE t : tab_ok 47 t -> cubP (pt 47 t) = cubt t.
-Proof. Admitted.
+Proof.
+move=> tok; have /and3P[/eqP sz /allP hall _] := tok.
+have tlt m : m < nfacelet -> nth 0%N t m < nfacelet.
+  by move=> mL; apply: hall; rewrite mem_nth // sz.
+have key m : m < nfacelet ->
+    (epair (pt 47 t (inord m)) == pt 47 t (epair (inord m)))
+      = (epairn (nth 0%N t m) == nth 0%N t (epairn m)).
+  move=> mL; have elt : epairn m < nfacelet by apply: epairn_ltn.
+  rewrite ptE // inordK // epairnE ?tlt // epairnE // ptE // inordK //.
+  by rewrite inord_eq ?epairn_ltn ?tlt.
+apply/forallP/allP => [h m|h f].
+  by rewrite mem_iota add0n => /andP[_ mL]; rewrite -key //; exact: h.
+rewrite -(inord_val f) key ?ltn_ord //.
+by apply: h; rewrite mem_iota add0n ltn_ord.
+Qed.
+
+(* ---- 5b. The guard, on the move set --------------------------------------*)
+
+(* This is why the block below lives here rather than in Coordfs.v: nothing
+   about a permutation reduces, so "the eighteen moves keep cubies together"
+   has to be read through cubtE, and cubtE is a table fact.                   *)
+
+(* the six faces, each one XmoveT away from a table and then one vm_compute *)
+Lemma cubP_faces g : g \in faces -> cubP g.
+Proof.
+have hf : all cubP faces.
+  rewrite /faces /= UmoveT RmoveT FmoveT DmoveT LmoveT BmoveT.
+  by rewrite !cubtE; vm_compute.
+by move=> gF; apply: (allP hf).
+Qed.
+
+Lemma moves_cubP m : m \in Sset -> cubP m.
+Proof.
+rewrite inE /moves => /flattenP[s /mapP[g gF ->]].
+rewrite !inE => /or3P[/eqP->|/eqP->|/eqP->].
+- exact: cubP_faces.
+- by rewrite expgS expg1; apply: cubPM; exact: cubP_faces.
+by apply: cubPV; exact: cubP_faces.
+Qed.
+
+Lemma cubP_step g m : cubP g -> m \in Sset -> cubP (g * m).
+Proof. by move=> cg /moves_cubP cm; exact: cubPM. Qed.
 
 (* ---- 6. The heuristic at each level, in the shape the searches want ------ *)
 
@@ -151,16 +242,31 @@ Variable Dfs : int -> nat.
 Hypothesis Dfs0 : Dfs (coordfs 1) = 0.
 Hypothesis DfsStep : forall x m, m \in Sset -> Dfs x <= (Dfs (actfs x m)).+1.
 
+(* what Coordfs.v's summary gives Search.v.  The guard costs nothing: hfs is
+   0 off the guarded set, so both conditions come out unconditional.         *)
+Definition hfs : {perm facelet} -> nat := hcoordg cubP coordfs Dfs.
+
+Lemma hfs0 : hfs 1 = 0.
+Proof. by apply: (hcoordg0 cubP1 Dfs0). Qed.
+
+Lemma hfsS g m : m \in Sset -> hfs g <= (hfs (g * m)).+1.
+Proof. by apply: (hcoordgS cubP_step coordfsM DfsStep). Qed.
+
+Definition searchfs : nat -> {perm facelet} -> bool := search moves hfs.
+
+Corollary searchfsN d g : searchfs d g = false -> g \notin ball Sset d.
+Proof. exact: (@searchN _ moves Sset_inv hfs hfs0 hfsS d g). Qed.
+
 (* the guard is re-read at each level rather than carried as an invariant     *)
 Definition Dt (t : seq nat) : nat := if cubt t then Dfs (coordt t) else 0.
 Definition Dti (a : arr) : nat := if cubti a then Dfs (coordi a) else 0.
 
 (* THE TWO BRIDGES, in exactly the shape searchtE and searchiE ask for.       *)
-Lemma hfsE t : tab_ok 47 t -> hfs Dfs (pt 47 t) = Dt t.
-Proof. Admitted.
+Lemma hfsE t : tab_ok 47 t -> hfs (pt 47 t) = Dt t.
+Proof. by move=> tok; rewrite /hfs /hcoordg /Dt cubtE // coordtE. Qed.
 
 Lemma DtiE a : tabi_ok 47 a -> Dti a = Dt (ti2t 47 a).
-Proof. Admitted.
+Proof. by move=> aok; rewrite /Dti /Dt cubtiE // coordiE. Qed.
 
 (* ---- 7. And hence the whole chain ---------------------------------------- *)
 
@@ -177,7 +283,7 @@ Corollary far_of_searchi d a :
   tabi_ok 47 a -> searchi 47 mtis Dti d a = false ->
   pt 47 (ti2t 47 a) \notin ball Sset d.
 Proof.
-move=> aok sE; apply: (searchfsN Dfs0 DfsStep (d := d)).
+move=> aok sE; apply: (searchfsN (d := d)).
 rewrite /searchfs mtisE.
 by apply: (searchiN n47_small n47_len mtis_ok DtiE hfsE aok sE).
 Qed.
