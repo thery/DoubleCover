@@ -107,6 +107,7 @@ Definition esec : seq nat :=
 (* the twelve positions, and the four of them in the middle slice            *)
 Definition nedge := 12.
 Definition nslice := 4.
+Definition nfacelet := 48.
 
 Definition eprimf (p : nat) : facelet := inord (nth 0%N eprim p).
 
@@ -124,27 +125,120 @@ Definition epair (f : facelet) : facelet :=
 
 Definition epos (f : facelet) : nat := index (f : nat) (eprim ++ esec) %% nedge.
 
+(* ---- 2b. Moving the data to nat ------------------------------------------ *)
+
+(* Nothing about 'I_48 reduces -- inord does not -- so every fact about the
+   twelve edges is proved by pushing it to nat, where the lists are literals
+   and vm_compute decides.  These three are the whole bridge.               *)
+
+Lemma all_iota_lt (P : nat -> bool) n i : all P (iota 0 n) -> i < n -> P i.
+Proof. by move=> /allP hP iL; apply: hP; rewrite mem_iota. Qed.
+
+Definition epairn (f : nat) : nat := nth f (esec ++ eprim) (index f (eprim ++ esec)).
+
+Lemma epairE f : epair f = inord (epairn f).
+Proof.
+rewrite /epair /epairn -{1}(inord_val f).
+have [iL|iG] := ltnP (index (f : nat) (eprim ++ esec)) (size (esec ++ eprim)).
+  by rewrite (nth_map (f : nat)).
+by rewrite !nth_default ?size_map.
+Qed.
+
+Lemma epairn_lt m : m \in eprim ++ esec -> epairn m < nfacelet.
+Proof.
+by apply: (allP (_ : all (fun m => epairn m < nfacelet) (eprim ++ esec)));
+   vm_compute.
+Qed.
+
+Lemma epairnN m : m \notin eprim ++ esec -> epairn m = m.
+Proof.
+by move=> mN; rewrite /epairn (memNindex mN) nth_default // !size_cat addnC.
+Qed.
+
+Lemma eprim_lt p : p < nedge -> nth 0%N eprim p < nfacelet.
+Proof.
+by apply: (all_iota_lt (P := fun p => nth 0%N eprim p < nfacelet) (n := nedge));
+   vm_compute.
+Qed.
+
+Lemma eprimfK p : p < nedge -> (eprimf p : nat) = nth 0%N eprim p.
+Proof. by move=> pL; rewrite /eprimf inordK // eprim_lt. Qed.
+
+Lemma epos_lt f : epos f < nedge.
+Proof. by rewrite /epos ltn_mod. Qed.
+
+(* the pairing has no fixed point on the edge facelets and is the identity
+   elsewhere, which is what says a permutation commuting with it keeps edge
+   facelets edge facelets                                                   *)
+Lemma epair_fix (f : facelet) : (epair f == f) = ((f : nat) \notin eprim ++ esec).
+Proof.
+have [fM|fN] := boolP ((f : nat) \in eprim ++ esec); last first.
+  by rewrite epairE (epairnN fN) inord_val eqxx.
+have hne : epairn (f : nat) != (f : nat).
+  by apply: (allP (_ : all (fun m => epairn m != m) (eprim ++ esec)));
+     [vm_compute | exact: fM].
+apply/negbTE; rewrite epairE; apply: contra hne => /eqP e.
+by rewrite -(inordK (epairn_lt fM)) e.
+Qed.
+
 (* ---- 3. What the data has to satisfy ------------------------------------- *)
 
 (* All four are decided by vm_compute on the two lists, once inord is out of  *)
 (* the way -- the values are literals, so each is a 24 element check.         *)
 
 Lemma epairK : involutive epair.
-Proof. Admitted.
+Proof.
+move=> f; rewrite !epairE.
+have [fM|fN] := boolP ((f : nat) \in eprim ++ esec); last first.
+  by rewrite (epairnN fN) inord_val (epairnN fN) inord_val.
+rewrite inordK ?epairn_lt // -{2}(inord_val f); congr (inord _).
+by apply/eqP;
+   apply: (allP (_ : all (fun m => epairn (epairn m) == m) (eprim ++ esec)));
+   [vm_compute | exact: fM].
+Qed.
 
 Lemma pcol_epair (f : facelet) : (f : nat) \in eprim ++ esec -> pcol (epair f) = ~~ pcol f.
-Proof. Admitted.
+Proof.
+move=> fM; rewrite /pcol epairE inordK ?epairn_lt //; apply/eqP.
+by apply: (allP (_ : all (fun m => (epairn m \in eprim) == ~~ (m \in eprim))
+                        (eprim ++ esec))); [vm_compute | exact: fM].
+Qed.
 
 Lemma scol_epair f : scol (epair f) = scol f.
-Proof. Admitted.
+Proof.
+rewrite /scol epairE.
+have [fM|fN] := boolP ((f : nat) \in eprim ++ esec); last first.
+  by rewrite (epairnN fN) inord_val.
+rewrite inordK ?epairn_lt //; apply/eqP.
+apply: (allP (_ : all (fun m => (epairn m \in drop 8 eprim ++ drop 8 esec)
+                             == (m \in drop 8 eprim ++ drop 8 esec))
+                      (eprim ++ esec))); [by vm_compute | exact: fM].
+Qed.
 
 Lemma epos_prim p : p < nedge -> epos (eprimf p) = p.
-Proof. Admitted.
+Proof.
+move=> pL; rewrite /epos eprimfK //; apply/eqP.
+by apply: (all_iota_lt (n := nedge)
+  (P := fun p => index (nth 0%N eprim p) (eprim ++ esec) %% nedge == p));
+  [vm_compute | exact: pL].
+Qed.
 
 (* an edge facelet is the primary or the secondary facelet of its position    *)
 Lemma edge_case (f : facelet) : (f : nat) \in eprim ++ esec ->
   f = eprimf (epos f) \/ f = epair (eprimf (epos f)).
-Proof. Admitted.
+Proof.
+move=> fM.
+have key : ((f : nat) == nth 0%N eprim (epos f))
+        || ((f : nat) == epairn (nth 0%N eprim (epos f))).
+  rewrite /epos.
+  apply: (allP (_ : all (fun m =>
+             (m == nth 0%N eprim (index m (eprim ++ esec) %% nedge))
+          || (m == epairn (nth 0%N eprim (index m (eprim ++ esec) %% nedge))))
+                        (eprim ++ esec))); [by vm_compute | exact: fM].
+case/orP: key => /eqP e; [left | right].
+  by rewrite /eprimf -e inord_val.
+by rewrite epairE eprimfK ?epos_lt // -e inord_val.
+Qed.
 
 (* ---- 4. The guard: permutations that keep the two facelets of an edge      *)
 (*         together --------------------------------------------------------- *)
@@ -155,17 +249,27 @@ Definition cubP (g : {perm facelet}) : bool :=
 (* It is the centraliser of an involution, so a subgroup; nothing here is     *)
 (* about the cube.                                                            *)
 Lemma cubP1 : cubP 1.
-Proof. Admitted.
+Proof. by apply/forallP => f; rewrite !perm1. Qed.
 
 Lemma cubPM g h : cubP g -> cubP h -> cubP (g * h).
-Proof. Admitted.
+Proof.
+move=> /forallP hg /forallP hh; apply/forallP => f; rewrite !permM.
+by rewrite (eqP (hh _)) (eqP (hg _)).
+Qed.
 
 Lemma cubPV g : cubP g -> cubP (g^-1).
-Proof. Admitted.
+Proof.
+move=> /forallP hg; apply/forallP => f; apply/eqP.
+have := eqP (hg (g^-1 f)); rewrite permKV => e.
+by rewrite e permK.
+Qed.
 
 (* the moves keep cubies together.  Eighteen checks, each over 48 facelets;   *)
 (* on the perm side nothing reduces, so this goes through the tables of       *)
 (* Sym.v the way mtabsE does.                                                 *)
+(* NOT EASY.  Nothing about a permutation reduces, so this has to go through
+   the tables -- it is cubtE of Coordfsi.v, which is a LATER file.  Either
+   cubtE moves here, or this lemma moves there.                             *)
 Lemma moves_cubP m : m \in Sset -> cubP m.
 Proof. Admitted.
 
@@ -175,7 +279,10 @@ Proof. by move=> cg /moves_cubP cm; exact: cubPM. Qed.
 (* an edge facelet stays an edge facelet                                      *)
 Lemma cubP_edge g f :
   cubP g -> ((g f : nat) \in eprim ++ esec) = ((f : nat) \in eprim ++ esec).
-Proof. Admitted.
+Proof.
+move=> /forallP hg; apply/negb_inj; rewrite -!epair_fix (eqP (hg f)).
+by rewrite (inj_eq (@perm_inj _ g)).
+Qed.
 
 (* ---- 5. Bits ------------------------------------------------------------- *)
 
@@ -191,19 +298,64 @@ Definition setbit (x : int) (k : nat) (b : bool) : int :=
 Fixpoint packn (k : nat) (f : nat -> bool) : int :=
   if k is k1.+1 then setbit (packn k1 f) k1 (f k1) else 0%uint63.
 
-(* the defining property, and the bound that makes the DfStep loop finite     *)
-Lemma nbit_packn k f j : j < k -> k <= ndigits -> nbit (packn k f) j = f j.
-Proof. Admitted.
+(* the bound that makes the DfStep loop finite, and the defining property     *)
+
+Lemma to_nat_lsl1 k : k < ndigits -> to_nat (lsl 1 (of_nat k)) = (2 ^ k)%N.
+Proof.
+move=> kL; rewrite to_nat_lslW to_nat_1 mul1n of_natK; last first.
+  by apply: leq_trans kL _; apply: ltnW; exact: ndigitsLwB.
+by rewrite modn_small // nwB_pow ltn_exp2l.
+Qed.
 
 Lemma packn_lt k f : k <= ndigits -> to_nat (packn k f) < 2 ^ k.
-Proof. Admitted.
+Proof.
+elim: k => [_|k IH kL] /=; first by [].
+have hX : to_nat (packn k f) < (2 ^ k.+1)%N.
+  by apply: leq_trans (IH (ltnW kL)) _; rewrite leq_exp2l.
+rewrite /setbit; case: (f k) => //.
+apply: to_nat_lor_bound => //.
+by rewrite to_nat_lsl1 // ltn_exp2l.
+Qed.
+
+Lemma nbit_packn k f j : j < k -> k <= ndigits -> nbit (packn k f) j = f j.
+Proof.
+elim: k j => [//|k IH] j jL kL /=.
+have hnw : forall m, m <= ndigits -> m < nwB.
+  by move=> m mL; apply: leq_ltn_trans mL ndigitsLwB.
+have jk' : j <= k by [].
+have kd : (of_nat k <? digits)%uint63.
+  by apply/nltbP; rewrite of_natK ?hnw //; apply: ltnW.
+have jd : (of_nat j <? digits)%uint63.
+  apply/nltbP; rewrite of_natK; first exact: leq_ltn_trans jk' kL.
+  by apply: hnw; apply: leq_trans jk' (ltnW kL).
+have [->|jk] := eqVneq j k.
+  rewrite /setbit; case: (f k).
+    by rewrite /nbit lor_spec bit_onenn // eqxx orbT.
+  rewrite /nbit; apply: (@bit_false_lt (packn k f) k (of_nat k)).
+    by rewrite of_natK ?hnw //; apply: ltnW.
+  by apply: packn_lt; apply: ltnW.
+have jltk : j < k by rewrite ltn_neqAle jk.
+rewrite /setbit; case: (f k); last by apply: IH => //; apply: ltnW.
+rewrite /nbit lor_spec bit_onenn //.
+have -> : (of_nat k == of_nat j) = false.
+  apply/eqP => e; have {}e := congr1 (fun x : int => to_nat x) e.
+  move: e; rewrite of_natK; last by apply: hnw; apply: ltnW.
+  rewrite of_natK; last by apply: hnw; apply: leq_trans jk' (ltnW kL).
+  by move=> e; move: jltk; rewrite e ltnn.
+by rewrite orbF; apply: IH => //; apply: ltnW.
+Qed.
 
 (* two words agreeing on the first k bits are equal, which is how every       *)
 (* equation between packed summaries is proved                               *)
 Lemma packn_eq k (x y : int) :
   to_nat x < 2 ^ k -> to_nat y < 2 ^ k ->
   (forall j, j < k -> nbit x j = nbit y j) -> x = y.
-Proof. Admitted.
+Proof.
+move=> hx hy h; apply: bit_ext => n.
+have [nk|nk] := ltnP (to_nat n) k.
+  by have := h _ nk; rewrite /nbit !to_natK.
+by rewrite (@bit_false_lt x k n) // (@bit_false_lt y k n).
+Qed.
 
 (* ---- 6. The summary ------------------------------------------------------ *)
 
@@ -258,9 +410,53 @@ Proof. by apply: packn_lt. Qed.
 (* true so xbit is false and the bit is copied; or it is epair (eprimf q),    *)
 (* and then pcol_epair complements the flip bit while scol_epair leaves the   *)
 (* slice bit alone.  cubP g is what lets g^-1 be pushed through epair.        *)
+(* the two halves, which is where the content is.  Each is one application of
+   edge_case: m^-1 (eprimf j) is eprimf q, and then pcol of it is true so
+   xbit is false and the bit is copied; or it is epair (eprimf q), and then
+   pcol_epair complements the flip bit while scol_epair leaves the slice bit
+   alone.  cubP g is what lets g^-1 be pushed through epair.                *)
+
+Lemma ncoord_dig : ncoord <= ndigits.
+Proof. by vm_compute. Qed.
+
+Lemma eprimf_edge q : q < nedge -> (eprimf q : nat) \in eprim ++ esec.
+Proof. by move=> qL; rewrite eprimfK // mem_cat mem_nth ?orbT //; vm_compute. Qed.
+
+Lemma pcol_eprimf q : q < nedge -> pcol (eprimf q).
+Proof. by move=> qL; rewrite /pcol eprimfK // mem_nth //; vm_compute. Qed.
+
+Lemma cubP_epairV g f : cubP g -> g^-1 (epair f) = epair (g^-1 f).
+Proof. by move=> /cubPV/forallP hg; rewrite (eqP (hg f)). Qed.
+
+(* NOT EASY (not yet done -- the two remaining pieces of the equivariance) *)
+Lemma coordfs_flip g m j :
+  cubP g -> m \in Sset -> j < nedge ->
+  flipb (g * m) j = flipb g (src m j) (+) xbit m j.
+Proof. Admitted.
+
+(* NOT EASY (not yet done) *)
+Lemma coordfs_slice g m j :
+  cubP g -> m \in Sset -> j < nedge ->
+  sliceb (g * m) j = sliceb g (src m j).
+Proof. Admitted.
+
+(* and the equivariance is the two halves, routed through the packing *)
 Lemma coordfsM g m :
   cubP g -> m \in Sset -> coordfs (g * m) = actfs (coordfs g) m.
-Proof. Admitted.
+Proof.
+move=> cg mS; apply: (@packn_eq ncoord);
+  [exact: (@packn_lt ncoord _ ncoord_dig) |
+   exact: (@packn_lt ncoord _ ncoord_dig) | ].
+have el q : src m q < nedge by rewrite /src epos_lt.
+have el1 q : src m q < ncoord.
+  by rewrite (leq_trans (el q)) // /ncoord leq_addr.
+have el2 q : nedge + src m q < ncoord by rewrite /ncoord ltn_add2l el.
+move=> j jL; rewrite /coordfs /actfs !nbit_packn ?ncoord_dig ?el1 ?el2 //.
+have [jn|jn] := ltnP j nedge.
+  by rewrite el coordfs_flip.
+rewrite ltnNge leq_addr /= addKn coordfs_slice //.
+by rewrite -(ltn_add2l nedge) subnKC.
+Qed.
 
 (* ---- 9. What it gives Search.v ------------------------------------------- *)
 
