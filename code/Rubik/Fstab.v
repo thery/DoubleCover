@@ -67,7 +67,37 @@ Proof. by move=> hf; elim: k i => //= k IH i; rewrite !IH. Qed.
    point -- the recursive call starts at i + 2 ^ k1, not at 0 -- so the
    statement below is the one to prove and all_powP is its instance at 0. *)
 
-(* NOT DONE: induct on k, split at the midpoint, exactly as get_foldi_in. *)
+(* the step of the induction: the second half starts 2 ^ k further on, and
+   that addition does not wrap                                              *)
+Lemma to_nat_addlsl i k :
+  k < ndigits -> to_nat i + (2 ^ k)%N < nwB ->
+  to_nat (i + lsl 1 (of_nat k))%uint63 = to_nat i + (2 ^ k)%N.
+Proof.
+move=> kL hb; have h2 : to_nat (lsl 1 (of_nat k)) = (2 ^ k)%N.
+  exact: to_nat_lsl1.
+by rewrite to_nat_add h2.
+Qed.
+
+(* SKELETON, body recorded rather than run: with it in place Fstab.v stops
+   compiling inside 150 s and the diverging step is not yet identified.  The
+   structure is the get_foldi_in one and every step of it is written out:
+
+     elim: k i => [|k IH] i kL hb /=.
+       (* 2 ^ 0 = 1, so to_nat i <= to_nat x < to_nat i + 1 pins x = i *)
+       move=> hf /andP[h1 h2]; rewrite expn0 addn1 ltnS in h2.
+       by have -> : x = i by apply: to_nat_inj; apply/eqP; rewrite eqn_leq h1 h2.
+     move=> /andP[hlo hhi] /andP[h1 h2].
+     have kL' : k <= ndigits by apply: ltnW.
+     have hhalf : to_nat i + 2 ^ k <= nwB.
+       by apply: leq_trans hb; rewrite leq_add2l leq_exp2l.
+     have [hlt|hge] := ltnP (to_nat x) (to_nat i + 2 ^ k).
+       by apply: (IH i) => //; rewrite h1.                    (* first half *)
+     have hi2 : to_nat (i + lsl 1 (of_nat k)) = to_nat i + 2 ^ k.
+       by apply: to_nat_addlsl => //; apply: leq_trans hb;
+          rewrite ltn_add2l ltn_exp2l.
+     apply: (IH (i + lsl 1 (of_nat k))) => //.                (* second half *)
+     - by rewrite hi2 -addnA addnn -mul2n -expnS.
+     - by rewrite hi2 hge /= -addnA addnn -mul2n -expnS.                     *)
 Lemma all_pow_gen k i f x :
   k <= ndigits -> to_nat i + (2 ^ k)%N <= nwB -> all_pow k i f ->
   to_nat i <= to_nat x < to_nat i + (2 ^ k)%N -> f x.
@@ -159,10 +189,20 @@ Definition eposn (f : nat) : nat := index f (eprim ++ esec) %% nedge.
 
 Definition mdatum := (seq nat * seq bool)%type.
 
-Definition mdat_of_tab (mt : seq nat) : mdatum :=
-  ([seq eposn (nth 0%N (inv_tab 47 mt) (nth 0%N eprim k)) | k <- iota 0 nedge],
-   [seq ~~ (nth 0%N (inv_tab 47 mt) (nth 0%N eprim k) \in eprim)
-   | k <- iota 0 nedge]).
+(* Two named definitions rather than one pair: a projection out of a literal
+   pair only reduces under /=, and /= also computes iota 0 nedge and unfolds
+   the map over it, after which nth_map_iota has nothing to match.          *)
+Definition msrc (mt : seq nat) : seq nat :=
+  [seq eposn (nth 0%N (inv_tab 47 mt) (nth 0%N eprim k)) | k <- iota 0 nedge].
+
+Definition mxbit (mt : seq nat) : seq bool :=
+  [seq ~~ (nth 0%N (inv_tab 47 mt) (nth 0%N eprim k) \in eprim)
+  | k <- iota 0 nedge].
+
+Definition mdat_of_tab (mt : seq nat) : mdatum := (msrc mt, mxbit mt).
+
+Lemma mdat_fst mt : (mdat_of_tab mt).1 = msrc mt. Proof. by []. Qed.
+Lemma mdat_snd mt : (mdat_of_tab mt).2 = mxbit mt. Proof. by []. Qed.
 
 Definition actd (x : int) (d : mdatum) : int :=
   packn ncoord
@@ -172,22 +212,31 @@ Definition actd (x : int) (d : mdatum) : int :=
 
 (* the bridge, in the shape of coordtE: ptE and ptV turn the permutation      *)
 (* reads of src and xbit into the table reads of mdat_of_tab.                 *)
-(* NOT EASY -- but only for a shape reason, and there is a fix.  The content
-   is two lines and both are one nth_map_iota away:
-
-     src  (pt mt) p = nth 0 (mdat_of_tab mt).1 p
-     xbit (pt mt) p = nth false (mdat_of_tab mt).2 p
-
-   each being ptV, ptE, eprimfK, inordK -- exactly coordtE's proof.  What
-   blocks is getting (mdat_of_tab mt).1 to show its map: /= reduces the
-   projection but also computes iota 0 nedge into a twelve element list and
-   unfolds the map over it, after which nothing matches and the rewrite
-   diverges.  THE FIX for the next round is to stop using a pair: make
-   msrc mt and mxbit mt two named Definitions, so there is no projection to
-   reduce and nth_map_iota applies directly.                                *)
+(* the bridge, in the shape of coordtE: ptE and ptV turn the permutation      *)
+(* reads of src and xbit into the table reads of msrc and mxbit.              *)
 Lemma actdE mt x :
   tab_ok 47 mt -> actfs x (pt 47 mt) = actd x (mdat_of_tab mt).
-Proof. Admitted.
+Proof.
+move=> mok; have iok := tab_ok_inv mok.
+have ilt p : p < nedge -> nth 0%N (inv_tab 47 mt) (nth 0%N eprim p) < nfacelet.
+  move=> pL; have /and3P[/eqP sz /allP hall _] := iok.
+  by apply: hall; rewrite mem_nth // sz eprim_lt.
+have hval p : p < nedge ->
+    (pt 47 mt)^-1 (eprimf p) = inord (nth 0%N (inv_tab 47 mt) (nth 0%N eprim p)).
+  by move=> pL; rewrite (ptV mok) ptE // eprimfK.
+have hsrc p : p < nedge -> src (pt 47 mt) p = nth 0%N (mdat_of_tab mt).1 p.
+  move=> pL; rewrite /src hval // /epos inordK ?ilt //.
+  by rewrite mdat_fst /msrc nth_map_iota.
+have hxb p : p < nedge -> xbit (pt 47 mt) p = nth false (mdat_of_tab mt).2 p.
+  move=> pL; rewrite /xbit hval // /pcol inordK ?ilt //.
+  by rewrite mdat_snd /mxbit nth_map_iota.
+rewrite /actfs /actd; apply: eq_packn => j jL.
+have hsub : nedge <= j -> j - nedge < nedge.
+  by move=> jn; rewrite -(ltn_add2l nedge) subnKC.
+case: ltnP => jn.
+  by rewrite hsrc // hxb.
+by rewrite hsrc ?hsub.
+Qed.
 
 (* the moves as tables, and the one fact tying them to Rubik333.moves; the    *)
 (* assembly file supplies both, as Toy.v does today.                          *)
@@ -223,6 +272,30 @@ Proof. by rewrite /check0 /Dfs coordfs1E => /eqb_correct ->; rewrite to_nat_0. Q
 
 (* x outside the summaries is Dfs_oob; inside, all_powP gives the checked     *)
 (* instance and actdE turns the move into its data.                           *)
+(* the entries are four bits, so the successor on the int side is the
+   successor on the nat side -- no wrap to worry about                       *)
+Lemma Dfsi_small x : to_nat (Dfsi x) < nwB.-1.
+Proof. Admitted.
+
+Lemma leb_incr_le a b :
+  (a <=? incr b)%uint63 -> to_nat b < nwB.-1 -> to_nat a <= (to_nat b).+1.
+Proof. Admitted.
+
+(* SKELETON, body recorded rather than run: with it in place the file stops
+   compiling inside 150 s.  The suspect is 2 ^ ncoord -- nat is unary, so
+   any step that forces it builds sixteen million successors, and the cure
+   is the one nwB already uses in ssrint63.v: make nstates an opaque
+   constant with an equation, and state Dfs_oob and this proof against it.
+
+     move=> hcheck x m mS.
+     have [hx|hx] := ltnP (to_nat x) (2 ^ ncoord); last by rewrite Dfs_oob.
+     have [mt mtM mE] : exists2 mt, mt \in mtabs & m = pt 47 mt.
+       by move: mS; rewrite inE mtabsE => /mapP[mt mtM ->]; exists mt.
+     have mtok : tab_ok 47 mt by apply: (allP mtabs_ok).
+     have hd : actfs x m = actd x (mdat_of_tab mt) by rewrite mE actdE.
+     have hall := all_powP ncoord_dig hcheck hx.
+     have := allP hall (mdat_of_tab mt) (map_f _ mtM).
+     by rewrite -hd /Dfs; apply: leb_incr_le; exact: Dfsi_small.               *)
 Lemma DfsStep_of_check :
   checkStep -> forall x m, m \in Sset -> Dfs x <= (Dfs (actfs x m)).+1.
 Proof. Admitted.

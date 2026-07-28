@@ -76,27 +76,29 @@ Qed.
 (* fixed by the 48 symmetries -- this is what buys the factor of 9.  Sym.v    *)
 (* has the conjugation on tables, so this is ptJ plus one comparison of two   *)
 (* literal lists per generator of Symg.                                       *)
-(* NOT EASY -- and only in its plumbing.  The mathematics is settled: being
-   fixed by u is a subgroup condition, so it is enough on the three
-   generators of Symg = <<[set Sy; Sx; Sm]>>, and each of those is SyT/SxT/
-   SmT then ptJ then one comparison of two literal tables, exactly the shape
-   Sym.v's Symg_stab uses.  What fights is the view chain between
-   x \in 'C[superflip], commute and superflip ^ x = superflip; commute_sym
-   will not apply where I put it.  The skeleton, for the next round:
+(* Being fixed by u is a subgroup condition, so it is enough on the three
+   generators of Symg, and each of those is SyT/SxT/SmT then ptJ then one
+   comparison of two literal tables -- the shape Sym.v's Symg_stab uses.
+   The two helpers below are pure view plumbing between x \in 'C[g],
+   commute and g ^ x = g; they are what fought, not the mathematics.       *)
+Lemma conj_fix_cent (g u : {perm facelet}) : u \in 'C[g] -> g ^ u = g.
+Proof. Admitted.
 
-     suff /subsetP H : Symg \subset 'C[superflip].
-       by move=> uS; apply/conjg_fixP; ... ; exact: H.
-     rewrite gen_subG; apply/subsetP => x xS.
-     ... reduce to superflip ^ x = superflip ...
-     move: xS; rewrite !inE; case/orP=> [/orP[]|] /eqP->.
-     - by rewrite sftabE SyT ptJ; [congr pt; vm_compute | by vm_compute..].
-     - by rewrite sftabE SxT ptJ; [congr pt; vm_compute | by vm_compute..].
-     by rewrite sftabE SmT ptJ; [congr pt; vm_compute | by vm_compute..].
+Lemma cent_conj_fix (g u : {perm facelet}) : g ^ u = g -> u \in 'C[g].
+Proof. Admitted.
 
-   Or drop centralisers and show directly that {u | superflip ^ u = superflip}
-   is a group, which avoids the views altogether.                           *)
+(* SKELETON, body recorded rather than run: apply: cent_conj_fix does not
+   fire on the generator goals and the view chain is still not right.       *)
 Lemma superflipJ u : u \in Symg -> superflip ^ u = superflip.
 Proof. Admitted.
+(*
+move=> uS; apply: conj_fix_cent; move: uS; apply: subsetP.
+rewrite gen_subG; apply/subsetP => x; rewrite !inE.
+case/orP=> [/orP[]|] /eqP->; apply: cent_conj_fix.
+- by rewrite sftabE SyT ptJ; [congr pt; vm_compute | by vm_compute..].
+- by rewrite sftabE SxT ptJ; [congr pt; vm_compute | by vm_compute..].
+by rewrite sftabE SmT ptJ; [congr pt; vm_compute | by vm_compute..].
+*)
 
 (* not solved, and not one move from solved: one and eighteen comparisons of  *)
 (* tables, through pt_eq1 of Tsearch.v                                        *)
