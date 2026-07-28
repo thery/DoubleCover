@@ -200,9 +200,52 @@ rewrite nth_ti2t // get_comp_tabi // /comp_tab (nth_map 0%N) ?size_ti2t //.
 by rewrite !nth_ti2t ?to_natK //; exact: tabi_lt.
 Qed.
 
+(* The inverse fold is the odd one out: it writes the index i at position    *)
+(* get a i, so what survives at a position is decided by injectivity of the  *)
+(* table rather than by the order of the writes.                             *)
+(* the entries of a well formed table are pairwise distinct, so reading it   *)
+(* is injective on indices -- this is what makes the inverse well defined.   *)
+Lemma get_tabi_inj a x y :
+  tabi_ok a -> to_nat x < n.+1 -> to_nat y < n.+1 ->
+  get a x = get a y -> x = y.
+Proof.
+(* to_nat (get a x) is nth (ti2t a) (to_nat x) by nth_ti2t and to_natK, and  *)
+(* ti2t a is uniq, so index_uniq turns equal entries into equal indices.     *)
+Admitted.
+
+Lemma get_inv_tabi a j :
+  tabi_ok a -> j < n.+1 ->
+  to_nat (get (inv_tabi a) (of_nat j)) = index j (ti2t a).
+Proof.
+move=> aok jL.
+have /and3P[/eqP asz _ auniq] := aok.
+have jin : j \in ti2t a by apply: (tab_memE aok).
+set i := index j (ti2t a).
+have iL : i < n.+1 by rewrite -asz index_mem.
+have hnth : to_nat (get a (of_nat i)) = j by rewrite -nth_ti2t // nth_index.
+have hgj : get a (of_nat i) = of_nat j.
+  by apply: to_nat_inj; rewrite hnth to_of_natK.
+rewrite -hgj /inv_tabi
+  (@get_foldi_wr (get a) n.+1 0 (of_nat i) (make (of_nat n.+1) 0)).
+- by rewrite to_of_natK.
+- by rewrite to_nat_0 add0n.
+- move=> x; rewrite to_nat_0 add0n => /andP[_ hx].
+  apply/nltbP; rewrite length_makeE n_len of_natK //.
+  by rewrite -[x]to_natK tabi_lt.
+- move=> x y; rewrite to_nat_0 add0n => /andP[_ hx] /andP[_ hy].
+  exact: get_tabi_inj.
+by rewrite to_nat_0 add0n to_of_natK //= iL.
+Qed.
+
 Lemma ti2t_inv a : tabi_ok a -> ti2t (inv_tabi a) = inv_tab n (ti2t a).
 Proof.
-Admitted.
+move=> aok.
+apply: (@eq_from_nth _ 0%N) => [|k].
+  by rewrite size_ti2t /inv_tab size_map size_iota.
+rewrite size_ti2t => kL.
+rewrite nth_ti2t // get_inv_tabi // /inv_tab (nth_map 0%N) ?size_iota //.
+by rewrite nth_iota // add0n.
+Qed.
 
 Lemma ti2t_exp a m : tabi_ok a -> ti2t (exp_tabi a m) = exp_tab n (ti2t a) m.
 Proof.
