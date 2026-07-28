@@ -326,25 +326,38 @@ Fixpoint searchi (d : nat) (a : arr) : bool :=
     else false)).
 
 (* THE BRIDGE FOR THE SEARCH: what runs and what is proved sound agree.       *)
+(* eq_in_has wants an eqType and arr is not one, so the guard is all rather   *)
+(* than membership.  Works for any type.                                      *)
+Lemma has_eq_all (T : Type) (P a1 a2 : T -> bool) s :
+  all P s -> (forall x, P x -> a1 x = a2 x) -> has a1 s = has a2 s.
+Proof. by elim: s => //= x s IH /andP[Px Ps] h; rewrite h // IH. Qed.
+
+(* one step of each search, with the constant kept folded: unfolding the      *)
+(* fixpoint leaves a raw fix in the goal that eq_in_has cannot match.         *)
+Lemma searchiS d a :
+  searchi d.+1 a =
+  (Dti a <= d.+1) &&
+  (eq_tabi a id_tabi || has (fun mt => searchi d (comp_tabi a mt)) mtis).
+Proof. by []. Qed.
+
+Lemma searchtS d t :
+  searcht n [seq ti2t mt | mt <- mtis] Dt d.+1 t =
+  (Dt t <= d.+1) &&
+  ((t == id_tab n) ||
+   has (fun mt => searcht n [seq ti2t mt | mt <- mtis] Dt d (comp_tab t mt))
+       [seq ti2t mt | mt <- mtis]).
+Proof. by []. Qed.
+
 Lemma searchiE d a :
   tabi_ok a -> searchi d a = searcht n [seq ti2t mt | mt <- mtis] Dt d (ti2t a).
 Proof.
-(* the same shape as searchtE in Tsearch.v: induction on d, DtiE for the cut,*)
-(* eq_tabi_id for the solved test, has_map and ti2t_comp for the recursive    *)
-(* call.  This script gets every step but the eq_in_has, which will not       *)
-(* apply here although the identical one does in Tsearch.v:                   *)
-(*                                                                            *)
-(*   elim: d a => [|d IH] a aok.                                              *)
-(*     by rewrite /searchi /searcht DtiE // eq_tabi_id //.                    *)
-(*   rewrite {1}/searchi -/searchi {1}/searcht -/searcht DtiE //              *)
-(*           eq_tabi_id //.                                                   *)
-(*   congr (_ && (_ || _)).                                                   *)
-(*   rewrite has_map; apply: eq_in_has => mt mtM.                             *)
-(*   have mtok : tabi_ok mt by apply: (allP mtis_ok).                         *)
-(*   by rewrite -ti2t_comp // IH // tabi_ok_comp.                             *)
-(*                                                                            *)
-(* Beware /= here: it unfolds ti2t and comp_tab and shreds the goal.          *)
-Admitted.
+elim: d a => [|d IH] a aok.
+  by rewrite /searchi /searcht DtiE // eq_tabi_id //.
+rewrite searchiS searchtS DtiE // eq_tabi_id //.
+congr (_ && (_ || _)).
+rewrite has_map; apply: (has_eq_all mtis_ok) => mt mtok.
+by rewrite IH ?tabi_ok_comp // ti2t_comp.
+Qed.
 
 (* and hence, composing with searchtE of Tsearch.v and searchN of Search.v,   *)
 (* a false answer from the array search is a membership fact.                 *)
