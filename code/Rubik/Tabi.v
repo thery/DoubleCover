@@ -84,8 +84,7 @@ Definition ti2t (a : arr) : seq nat :=
 Definition tabi_ok (a : arr) := tab_ok n (ti2t a).
 
 Lemma size_ti2t a : size (ti2t a) = n.+1.
-Proof.
-Admitted.
+Proof. by rewrite size_map size_iota. Qed.
 
 (* ---- 2. The operations --------------------------------------------------- *)
 

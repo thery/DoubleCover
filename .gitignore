@@ -3,3 +3,7 @@ rocq_mcp_cache_*.v
 
 # the phase-1 pruning table, 2.2 GB, rebuilt by ./rubik_par <d> <cap> build
 phase1_cap*.tbl
+
+# lia/nia caches
+.lia.cache
+.nia.cache
