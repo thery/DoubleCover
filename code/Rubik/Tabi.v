@@ -150,22 +150,55 @@ Fixpoint eqi (k : nat) (i : int) (a b : arr) : bool :=
 
 Definition eq_tabi (a b : arr) : bool := eqi n.+1 0 a b.
 
-(* ---- 3. What the operations have to satisfy ------------------------------ *)
+(* ---- 3. What the operations compute, index by index --------------------- *)
+
+(* Everything below is read through these four: the bridge is a map over    *)
+(* iota, so each ti2t equation reduces to one index, and each operation is   *)
+(* a fold, so each index reduces to one get.                                 *)
+
+(* the defining property of the bridge *)
+Lemma nth_ti2t a i :
+  i < n.+1 -> nth 0%N (ti2t a) i = to_nat (get a (of_nat i)).
+Proof.
+Admitted.
+
+(* a well formed table holds indices, which is what makes the composite      *)
+(* lookups land in range *)
+Lemma tabi_lt a i :
+  tabi_ok a -> i < n.+1 -> to_nat (get a (of_nat i)) < n.+1.
+Proof.
+Admitted.
+
+Lemma get_id_tabi i : i < n.+1 -> get id_tabi (of_nat i) = of_nat i.
+Proof.
+Admitted.
+
+Lemma get_comp_tabi a b i :
+  i < n.+1 -> get (comp_tabi a b) (of_nat i) = get b (get a (of_nat i)).
+Proof.
+Admitted.
+
+
+(* ---- 4. What the operations have to satisfy ------------------------------ *)
 
 Lemma ti2t_id : ti2t id_tabi = id_tab n.
 Proof.
-rewrite /ti2t /id_tab.
-apply: map_id_in => k.
-rewrite mem_iota add0n => /andP[_ kL].
-rewrite /id_tabi get_foldi_in; first by rewrite to_of_natK.
-- by rewrite to_nat_0 add0n.
-by rewrite to_nat_0 add0n to_of_natK //= kL.
+apply: (@eq_from_nth _ 0%N) => [|k];
+  first by rewrite size_ti2t /id_tab size_iota.
+rewrite size_ti2t => kL.
+by rewrite nth_ti2t // get_id_tabi // to_of_natK // /id_tab nth_iota.
 Qed.
 
 Lemma ti2t_comp a b :
   tabi_ok a -> tabi_ok b -> ti2t (comp_tabi a b) = comp_tab (ti2t a) (ti2t b).
 Proof.
-Admitted.
+move=> aok bok.
+apply: (@eq_from_nth _ 0%N) => [|k].
+  by rewrite size_ti2t /comp_tab size_map size_ti2t.
+rewrite size_ti2t => kL.
+rewrite nth_ti2t // get_comp_tabi // /comp_tab (nth_map 0%N) ?size_ti2t //.
+by rewrite !nth_ti2t ?to_natK //; exact: tabi_lt.
+Qed.
 
 Lemma ti2t_inv a : tabi_ok a -> ti2t (inv_tabi a) = inv_tab n (ti2t a).
 Proof.
