@@ -68,13 +68,24 @@ Notation arr := (PArray.array int).
 (* what the generated fold starts from anyway, so the shape does not change.  *)
 Definition fstab : arr := PArray.make nwordsi 0%uint63.
 
+(* Every entry is the default, so the read is 0 whatever the index: that one
+   fact is the whole file.                                                  *)
+Lemma Dfsi_fstab x : Dfsi fstab x = 0%uint63.
+Proof.
+rewrite /Dfsi /fstab get_makeE.
+have h0 k : lsr 0%uint63 k = 0%uint63.
+  by apply: to_nat_inj; rewrite to_nat_lsr to_nat_0 div0n.
+rewrite h0; apply: bit_ext => n; rewrite land_spec.
+by rewrite (@bit_false_lt 0%uint63 0 n) ?to_nat_0.
+Qed.
+
 (* ---- What Fstab.v asks of it --------------------------------------------- *)
 
 (* length_make, once nwordsi <=? max_length is known -- 2 ^ 21 against       *)
 (* 4 194 303, so it holds, but the comparison is a computation and this is a  *)
 (* skeleton.                                                                  *)
 Lemma fstab_len : PArray.length fstab = nwordsi.
-Proof. Admitted.
+Proof. by rewrite /fstab length_makeE; vm_compute. Qed.
 
 (* default_make, and nothing else                                             *)
 Lemma fstab_def : PArray.default fstab = 0%uint63.
@@ -87,10 +98,13 @@ Proof. exact: (@PArray.default_make int 0%uint63 nwordsi). Qed.
 (* go away and check0 and checkStep are proved by vm_compute instead.         *)
 
 Lemma fstab_zero x : Dfs fstab x = 0.
-Proof. Admitted.
+Proof. by rewrite /Dfs Dfsi_fstab to_nat_0. Qed.
 
 Lemma fstab_check0 : check0 fstab.
-Proof. Admitted.
+Proof. by rewrite /check0 Dfsi_fstab. Qed.
 
 Lemma fstab_checkStep mtabs : checkStep fstab mtabs.
-Proof. Admitted.
+Proof.
+rewrite /checkStep; apply: all_pow_all => x; apply/allP => d _.
+by rewrite !Dfsi_fstab.
+Qed.
