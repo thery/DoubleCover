@@ -206,21 +206,53 @@ Admitted.
 
 Lemma ti2t_exp a m : tabi_ok a -> ti2t (exp_tabi a m) = exp_tab n (ti2t a) m.
 Proof.
-Admitted.
+move=> aok; elim: m => [|m IH] /=; first exact: ti2t_id.
+have eok : tabi_ok (exp_tabi a m).
+  by rewrite /tabi_ok IH; apply: tab_ok_exp.
+by rewrite ti2t_comp // IH.
+Qed.
+
+(* eqi compares the m entries from i0 on, one by one *)
+Lemma eqiE m i0 a b :
+  to_nat i0 + m < nwB ->
+  eqi m i0 a b =
+  all (fun k => get a (of_nat k) == get b (of_nat k)) (iota (to_nat i0) m).
+Proof.
+elim: m i0 => [|m IH] i0 //= hb.
+rewrite -[(i0 + 1)%uint63]/(incr _).
+have hi : (to_nat i0).+1 < nwB.
+  by apply: leq_ltn_trans hb; rewrite addnS ltnS leq_addr.
+rewrite IH; last by rewrite to_nat_incr // addSn -addnS.
+by rewrite to_nat_incr // eqb_eqb to_natK.
+Qed.
 
 Lemma eq_tabiE a b :
   tabi_ok a -> tabi_ok b -> eq_tabi a b = (ti2t a == ti2t b).
 Proof.
-Admitted.
+move=> aok bok.
+rewrite /eq_tabi eqiE ?to_nat_0 ?add0n //.
+apply/allP/eqP => [hall|e].
+  apply: (@eq_from_nth _ 0%N) => [|k]; first by rewrite !size_ti2t.
+  rewrite size_ti2t => kL.
+  rewrite !nth_ti2t //; congr (to_nat _); apply/eqP.
+  by apply: hall; rewrite mem_iota add0n.
+move=> k; rewrite mem_iota add0n => /andP[_ kL].
+apply/eqP; apply: to_nat_inj.
+by rewrite -!nth_ti2t // e.
+Qed.
 
 (* the ones the search needs, in the form it needs them                       *)
 Lemma tabi_ok_comp a b : tabi_ok a -> tabi_ok b -> tabi_ok (comp_tabi a b).
 Proof.
-Admitted.
+by move=> aok bok; rewrite /tabi_ok ti2t_comp //; apply: tab_ok_comp.
+Qed.
 
 Lemma eq_tabi_id a : tabi_ok a -> eq_tabi a id_tabi = (ti2t a == id_tab n).
 Proof.
-Admitted.
+move=> aok.
+have iok : tabi_ok id_tabi by rewrite /tabi_ok ti2t_id; apply: tab_ok_id.
+by rewrite eq_tabiE // ti2t_id.
+Qed.
 
 (* ---- 4. The search, on arrays -------------------------------------------- *)
 
