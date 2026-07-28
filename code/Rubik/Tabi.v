@@ -42,6 +42,27 @@ Variable n : nat.
 
 Notation arr := (PArray.array int).
 
+(* the tables are indexed by int63, so n.+1 has to fit in one.  For the cube  *)
+(* n is 47.                                                                   *)
+Hypothesis n_small : BinInt.Z.lt (BinInt.Z.of_nat n.+1) wB.
+
+(* ---- 0. The array axioms, instantiated ----------------------------------- *)
+
+(* PrimArray.get is universe polymorphic and the axioms about it are not, so  *)
+(* neither apply nor rewrite can guess their type argument.  Instantiating    *)
+(* them once at int makes them usable by plain rewrite everywhere below.      *)
+
+Lemma get_setE (t : arr) (i v : int) :
+  (i <? PArray.length t)%uint63 = true -> PArray.get (PArray.set t i v) i = v.
+Proof. exact: (@PArray.get_set_same int t i v). Qed.
+
+Lemma get_set_otherE (t : arr) (i j v : int) :
+  i <> j -> PArray.get (PArray.set t i v) j = PArray.get t j.
+Proof. exact: (@PArray.get_set_other int t i j v). Qed.
+
+Lemma get_makeE (v i sz : int) : PArray.get (PArray.make sz v) i = v.
+Proof. exact: (@PArray.get_make int v sz i). Qed.
+
 (* ---- 0. nat and int63 ---------------------------------------------------- *)
 
 (* Uint63 gives to_nat and of_nat directly; neither ever runs, since ti2t     *)
@@ -49,7 +70,14 @@ Notation arr := (PArray.array int).
 
 Lemma to_natK k : (k < n.+1)%nat -> to_nat (of_nat k) = k.
 Proof.
-Admitted.
+move=> kLn.
+have kB : BinInt.Z.lt (BinInt.Z.of_nat k) wB.
+  apply: BinInt.Z.lt_trans n_small.
+  by apply/Znat.Nat2Z.inj_lt/ltP.
+have -> : to_Z (of_Z (BinInt.Z.of_nat k)) = BinInt.Z.of_nat k.
+  by rewrite -is_int //; split; [apply: Znat.Nat2Z.is_nonneg | exact: kB].
+by rewrite Znat.Nat2Z.id.
+Qed.
 
 Lemma of_natK x : (to_nat x < n.+1)%nat -> of_nat (to_nat x) = x.
 Proof.
@@ -76,6 +104,34 @@ Fixpoint foldi (k : nat) (i : int) (f : int -> arr -> arr) (a : arr) : arr :=
   | O => a
   | S k' => foldi k' (i + 1) f (f i a)
   end.
+
+(* successor, and the two shapes of fold the operations use: an index below   *)
+(* the start is untouched, an index in range gets what the fold writes.       *)
+
+Lemma to_nat_add1 i : (to_nat i).+1 <= n.+1 -> to_nat (i + 1) = (to_nat i).+1.
+Proof.
+Admitted.
+
+Lemma get_foldi_lt (g : int -> int) m i0 j a :
+  to_nat i0 + m <= n.+1 -> to_nat j < to_nat i0 ->
+  PArray.get (foldi m i0 (fun i c => PArray.set c i (g i)) a) j =
+  PArray.get a j.
+Proof.
+elim: m i0 a => [|m IH] i0 a //= hb hj.
+have h1 : (to_nat i0).+1 <= n.+1.
+  by rewrite (leq_trans _ hb) // addnS ltnS leq_addr.
+rewrite IH.
+- by rewrite get_set_otherE // => e; rewrite e ltnn in hj.
+- by rewrite to_nat_add1 // addSn -addnS.
+by rewrite to_nat_add1 // ltnS ltnW.
+Qed.
+
+Lemma get_foldi_in (g : int -> int) m i0 j a :
+  to_nat i0 + m <= n.+1 -> to_nat i0 <= to_nat j < to_nat i0 + m ->
+  PArray.get (foldi m i0 (fun i c => PArray.set c i (g i)) a) j = g j.
+Proof.
+Admitted.
+
 
 Definition id_tabi : arr :=
   foldi n.+1 0 (fun i a => PArray.set a i i) (PArray.make (of_nat n.+1) 0).
