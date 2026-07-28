@@ -78,7 +78,13 @@ Definition nperlog := 3.                (* entries per word = 2 ^ nperlog     *)
 Definition nper := (2 ^ nperlog)%N.
 Definition emask := ((2 ^ nwidth).-1)%N.    (* 15                                 *)
 Definition nstates := (2 ^ ncoord)%N.       (* 16 777 216                         *)
-Definition nwords := (nstates %/ nper)%N.   (* 2 097 152                          *)
+Definition nwordslog := (ncoord - nperlog)%N.  (* 21                              *)
+
+(* The array size is an int CONSTANT, not of_nat of a nat one.  nat is unary,
+   so of_nat (2 ^ 21) makes the kernel build two million successors the first
+   time anything has to convert it -- which unification does, silently, and
+   then the file simply never finishes compiling.                             *)
+Definition nwordsi : int := lsl 1%uint63 (of_nat nwordslog).
 
 Section Table.
 
@@ -86,7 +92,7 @@ Section Table.
 (* axiom, and the generated file -- an Eval vm_compute in a Definition, in    *)
 (* the style of bench/Store.v -- instantiates it.                             *)
 Variable fstab : arr.
-Hypothesis fstab_len : PArray.length fstab = of_nat nwords.
+Hypothesis fstab_len : PArray.length fstab = nwordsi.
 Hypothesis fstab_def : PArray.default fstab = 0%uint63.
 
 (* ---- 3. Reading it ------------------------------------------------------- *)

@@ -1,0 +1,161 @@
+(* =========================================================================  *)
+(*  Far12.v                                                                   *)
+(*                                                                            *)
+(*  superflip \notin ball Sset 12, assembled.                                 *)
+(*                                                                            *)
+(*  SKELETON.  Everything is stated; the glue lemmas are Admitted with a note *)
+(*  on how each goes, and ONE admit is the computation itself.  Nothing is    *)
+(*  run here.                                                                 *)
+(*                                                                            *)
+(*  WHAT IS BEING ASSEMBLED.  Five files, each proving its own piece:         *)
+(*                                                                            *)
+(*    Search.v    IDA star is sound                                           *)
+(*    Root.v      the first move may be taken in Sroot -- a factor of 9       *)
+(*    Coordfs.v   the flip x slice summary is equivariant                     *)
+(*    Coordfsi.v  the summary agrees on perms, lists and arrays               *)
+(*    Fstab.v     the table's two obligations are two booleans                *)
+(*    FsTable.v   a table                                                     *)
+(*                                                                            *)
+(*  and here they meet: 36 searches of depth 10 on arrays, and the theorem.   *)
+(*                                                                            *)
+(*  WHY 36 SEARCHES OF DEPTH 10 AND NOT ONE OF DEPTH 12.  ball_root2: the     *)
+(*  superflip is fixed by all 48 symmetries, so every maneuver is equivalent  *)
+(*  to one whose first move is U or U2.  Two first moves instead of eighteen  *)
+(*  is a factor of 9, and each of the 36 pairs is an independent search --    *)
+(*  one generated file each when the depth makes that worth doing.            *)
+(*                                                                            *)
+(*  WITH THE PLACEHOLDER TABLE THIS IS BRUTE FORCE.  FsTable.v's table is all *)
+(*  zeros, so the heuristic is 0 and search12 is the Toy.v search at depth 10 *)
+(*  -- around 4 . 10 ^ 11 nodes, which is not going to be run.  It is still   *)
+(*  the right thing to state: the statement does not change when the real     *)
+(*  table arrives, only the time it takes to check.                           *)
+(* =========================================================================  *)
+
+From Stdlib Require Import Uint63.
+From Stdlib Require Import -(notations) PArray.
+From mathcomp Require Import all_ssreflect all_fingroup.
+From Rubik Require Import ssrint63.
+Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
+        Coordfs Coordfsi Fstab FsTable Diameter Toy.
+
+Set Implicit Arguments.
+Unset Strict Implicit.
+Unset Printing Implicit Defensive.
+
+Import GroupScope.
+
+Notation arr := (PArray.array int).
+
+(* the search depth, and the two moves the root is split over                 *)
+Definition depth := 12.
+Definition droot := 10.                 (* depth = droot.+2                   *)
+Definition nroot := 2.                  (* size Sroot                         *)
+Definition nmoves := 18.                (* size moves                         *)
+
+(* ---- 1. The heuristic, from the table ------------------------------------ *)
+
+(* Toy.v supplies mtabs, mtis and their lemmas.  When the real run needs its  *)
+(* own file those move out of Toy.v and both read them from there.            *)
+
+Definition Dfs12 : int -> nat := Dfs fstab.
+Definition Dti12 : arr -> nat := Dti Dfs12.
+
+(* the two obligations Coordfs.v asks of a table, discharged through Fstab.v  *)
+(* by the two boolean checks rather than proved about the table itself        *)
+Lemma Dfs12_0 : Dfs12 (coordfs 1) = 0.
+Proof. Admitted.
+
+Lemma Dfs12_step x m : m \in Sset -> Dfs12 x <= (Dfs12 (actfs x m)).+1.
+Proof. Admitted.
+
+(* ---- 2. What the superflip has to satisfy -------------------------------- *)
+
+(* fixed by the 48 symmetries -- this is what buys the factor of 9.  Sym.v    *)
+(* has the conjugation on tables, so this is ptJ plus one comparison of two   *)
+(* literal lists per generator of Symg.                                       *)
+Lemma superflipJ u : u \in Symg -> superflip ^ u = superflip.
+Proof. Admitted.
+
+(* not solved, and not one move from solved: one and eighteen comparisons of  *)
+(* tables, through pt_eq1 of Tsearch.v                                        *)
+Lemma superflip_neq1 : superflip != 1.
+Proof. Admitted.
+
+Lemma superflip_move_neq1 m : m \in moves -> superflip * m != 1.
+Proof. Admitted.
+
+(* ---- 3. The 36 prefixes, as arrays ---------------------------------------- *)
+
+(* Indexed by position rather than by membership: arr is not an eqType, so    *)
+(* a \in prefixes does not even typecheck, whereas i \in iota 0 18 does.      *)
+Definition prefixi (i j : nat) : arr :=
+  comp_tabi 47 (comp_tabi 47 sfti (nth sfti mtis i)) (nth sfti mtis j).
+
+Lemma prefixi_ok i j : i < nmoves -> j < nmoves -> tabi_ok 47 (prefixi i j).
+Proof. Admitted.
+
+(* what the array at (i, j) is, as a permutation: ti2t_comp then ptM, with    *)
+(* sftiE and mtisE for the three factors                                      *)
+Lemma prefixiE i j :
+  i < nmoves -> j < nmoves ->
+  pt 47 (ti2t 47 (prefixi i j)) = superflip * nth 1 moves i * nth 1 moves j.
+Proof. Admitted.
+
+(* Sroot is the first two moves, which is why iota 0 nroot is the right index *)
+(* range for the first factor.  Both of these are size moves = 18 and one     *)
+(* nthP; they are separate lemmas because arr is not an eqType and the        *)
+(* indices, not the arrays, are what the computation below is quantified on.  *)
+Lemma SrootE : Sroot = take nroot moves.
+Proof. Admitted.
+
+Lemma moves_index m : m \in moves -> exists2 j, j < nmoves & nth 1 moves j = m.
+Proof. Admitted.
+
+Lemma root_index m : m \in Sroot -> exists2 i, i < nroot & nth 1 moves i = m.
+Proof. Admitted.
+
+(* ---- 4. THE COMPUTATION -------------------------------------------------- *)
+
+(* The one admit that is not a proof: 36 independent searches of depth 10.    *)
+(* With the real table this is                                                *)
+(*                                                                            *)
+(*     Proof. Time by vm_compute. Qed.                                        *)
+(*                                                                            *)
+(* and when it stops fitting in one file, one generated file per (i, j) with  *)
+(* vm_cast_no_check, checked by make -j and cited here.                       *)
+Lemma search12 :
+  all (fun i => all (fun j => ~~ searchi 47 mtis Dti12 droot (prefixi i j))
+                    (iota 0 nmoves))
+      (iota 0 nroot).
+Proof. Admitted.
+
+(* ---- 5. The theorem ------------------------------------------------------ *)
+
+(* one prefix is out of the ball, by Coordfsi.far_of_searchi                  *)
+Lemma prefix_far i j :
+  i < nroot -> j < nmoves ->
+  superflip * nth 1 moves i * nth 1 moves j \notin ball Sset droot.
+Proof.
+move=> iL jL; have iL' : i < nmoves by rewrite (leq_trans iL).
+rewrite -prefixiE //.
+(* the depth is given explicitly so that the term is ground before it meets
+   the goal; ball Sset ?d is a finset over {perm 'I_48} and not something to
+   leave to unification.                                                   *)
+have hs : searchi 47 mtis Dti12 droot (prefixi i j) = false.
+  (* no /= anywhere near this goal: it holds a searchi at depth 10 and simpl
+     would start unfolding the search itself.                              *)
+  have h1 : i \in iota 0 nroot by rewrite mem_iota add0n leq0n.
+  have h2 : j \in iota 0 nmoves by rewrite mem_iota add0n leq0n.
+  by apply/negbTE; move: search12 => /allP/(_ _ h1)/allP/(_ _ h2).
+exact: (far_of_searchi Dfs12_0 Dfs12_step mtis_ok mtisE
+          (d := droot) (prefixi_ok iL' jL) hs).
+Qed.
+
+Theorem superflip_far12 : superflip \notin ball Sset depth.
+Proof.
+apply: (ball_root2 superflipJ superflip_neq1 superflip_move_neq1).
+move=> m1 m2 m1R m2M.
+have [j jL <-] := moves_index m2M.
+have [i iL <-] := root_index m1R.
+exact: prefix_far.
+Qed.
