@@ -1197,6 +1197,7 @@ Proof.
 elim: m i0 a => [|m IH] i0 a //= hb hj.
 have h1 : (to_nat i0).+1 < nwB.
   by rewrite (leq_ltn_trans _ hb) // addnS ltnS leq_addr.
+rewrite -[(i0 + 1)%uint63]/(incr _).
 rewrite IH.
 - by rewrite get_set_otherE // => e; rewrite e ltnn in hj.
 - by rewrite to_nat_incr // addSn -addnS.
