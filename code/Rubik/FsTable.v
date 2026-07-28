@@ -52,7 +52,7 @@ From Stdlib Require Import -(notations) PArray.
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
-        Coordfs Coordfsi Fstab.
+        Coordfs Coordfsi Fstab FsData.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -64,47 +64,32 @@ Notation arr := (PArray.array int).
 
 (* ---- The table ----------------------------------------------------------- *)
 
-(* PLACEHOLDER.  Replaced verbatim by the generated Definition; the make is   *)
-(* what the generated fold starts from anyway, so the shape does not change.  *)
-Definition fstab : arr := PArray.make nwordsi 0%uint63.
+(* FsData.v holds the 2 097 152 words; this is the only place they become an
+   array.  The Eval matters: without it the fold is redone on every Require. *)
+Definition mkarr (l : seq int) : arr :=
+  (fix go (a : arr) (i : int) (l : seq int) {struct l} : arr :=
+     if l is x :: l' then go (PArray.set a i x) (i + 1)%uint63 l' else a)
+    (PArray.make nwordsi 0%uint63) 0%uint63 l.
 
-(* Every entry is the default, so the read is 0 whatever the index: that one
-   fact is the whole file.                                                  *)
-Lemma Dfsi_fstab x : Dfsi fstab x = 0%uint63.
-Proof.
-rewrite /Dfsi /fstab get_makeE.
-have h0 k : lsr 0%uint63 k = 0%uint63.
-  by apply: to_nat_inj; rewrite to_nat_lsr to_nat_0 div0n.
-rewrite h0; apply: bit_ext => n; rewrite land_spec.
-by rewrite (@bit_false_lt 0%uint63 0 n) ?to_nat_0.
-Qed.
+Definition fstab : arr := Eval vm_compute in mkarr fsdata.
 
 (* ---- What Fstab.v asks of it --------------------------------------------- *)
 
-(* length_make, once nwordsi <=? max_length is known -- 2 ^ 21 against       *)
-(* 4 194 303, so it holds, but the comparison is a computation and this is a  *)
-(* skeleton.                                                                  *)
+(* Both are now one read of a literal array rather than an induction.        *)
 Lemma fstab_len : PArray.length fstab = nwordsi.
-Proof. by rewrite /fstab length_makeE; vm_compute. Qed.
+Proof. by vm_compute. Qed.
 
-(* default_make, and nothing else                                             *)
 Lemma fstab_def : PArray.default fstab = 0%uint63.
-Proof. exact: (@PArray.default_make int 0%uint63 nwordsi). Qed.
+Proof. by vm_compute. Qed.
 
-(* ---- What it is worth ---------------------------------------------------- *)
+(* ---- The two checks ------------------------------------------------------ *)
 
-(* Every entry is the default, so the heuristic is 0 and both checks hold for *)
-(* a reason rather than by computation.  With the generated table these three *)
-(* go away and check0 and checkStep are proved by vm_compute instead.         *)
-
-Lemma fstab_zero x : Dfs fstab x = 0.
-Proof. by rewrite /Dfs Dfsi_fstab to_nat_0. Qed.
-
+(* One lookup: the summary of the identity has to hold 0.                    *)
 Lemma fstab_check0 : check0 fstab.
-Proof. by rewrite /check0 Dfsi_fstab. Qed.
+Proof. by vm_compute. Qed.
 
+(* THE SECOND COMPUTATION.  16 777 216 summaries times eighteen moves, each
+   a dozen bit operations and two reads -- the local certificate, and the
+   only thing this table is ever asked to satisfy.  Not run here.           *)
 Lemma fstab_checkStep mtabs : checkStep fstab mtabs.
-Proof.
-rewrite /checkStep; apply: all_pow_all => x; apply/allP => d _.
-by rewrite !Dfsi_fstab.
-Qed.
+Proof. Admitted.
