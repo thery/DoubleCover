@@ -1161,3 +1161,52 @@ by apply: bit_ext => i; rewrite !(land_spec, bit_lsr); case: nlebP.
 Qed.
 
 
+
+(* ---- arrays: the axioms instantiated, and a bounded fold ----------------- *)
+
+(* PrimArray.get is universe polymorphic and the axioms about it are not, so  *)
+(* neither apply nor rewrite can guess their type argument -- get_set_other   *)
+(* will not fire.  Instantiated once at int they are usable by plain rewrite. *)
+
+Lemma get_setE (t : array int) (i v : int) :
+  (i <? length t)%uint63 = true -> get (t.[i <- v]) i = v.
+Proof. exact: (@PArray.get_set_same int t i v). Qed.
+
+Lemma get_set_otherE (t : array int) (i j v : int) :
+  i <> j -> get (t.[i <- v]) j = get t j.
+Proof. exact: (@PArray.get_set_other int t i j v). Qed.
+
+Lemma get_makeE (v i sz : int) : get (make sz v) i = v.
+Proof. exact: (@PArray.get_make int v sz i). Qed.
+
+(* k steps from i0, writing g i at index i.  This is how a table is filled.   *)
+Fixpoint foldi (k : nat) (i : int) (f : int -> array int -> array int)
+               (a : array int) : array int :=
+  match k with
+  | O => a
+  | S k' => foldi k' (i + 1) f (f i a)
+  end.
+
+Notation setf g := (fun i c => c.[i <- g i]).
+
+(* an index below where the fold starts is untouched                          *)
+Lemma get_foldi_lt (g : int -> int) m i0 j a :
+  to_nat i0 + m < nwB -> to_nat j < to_nat i0 ->
+  get (foldi m i0 (setf g) a) j = get a j.
+Proof.
+elim: m i0 a => [|m IH] i0 a //= hb hj.
+have h1 : (to_nat i0).+1 < nwB.
+  by rewrite (leq_ltn_trans _ hb) // addnS ltnS leq_addr.
+rewrite IH.
+- by rewrite get_set_otherE // => e; rewrite e ltnn in hj.
+- by rewrite to_nat_incr // addSn -addnS.
+by rewrite to_nat_incr // ltnS ltnW.
+Qed.
+
+(* an index in range gets what the fold wrote there                           *)
+Lemma get_foldi_in (g : int -> int) m i0 j a :
+  to_nat i0 + m < nwB -> to_nat i0 + m <= to_nat (length a) ->
+  to_nat i0 <= to_nat j < to_nat i0 + m ->
+  get (foldi m i0 (setf g) a) j = g j.
+Proof.
+Admitted.
