@@ -63,26 +63,56 @@ Definition Dti12 : arr -> nat := Dti Dfs12.
 (* the two obligations Coordfs.v asks of a table, discharged through Fstab.v  *)
 (* by the two boolean checks rather than proved about the table itself        *)
 Lemma Dfs12_0 : Dfs12 (coordfs 1) = 0.
-Proof. Admitted.
+Proof. by apply: Dfs0_of_check; exact: fstab_check0. Qed.
 
 Lemma Dfs12_step x m : m \in Sset -> Dfs12 x <= (Dfs12 (actfs x m)).+1.
-Proof. Admitted.
+Proof.
+rewrite /Dfs12.
+by apply: (DfsStep_of_check fstab_len fstab_def mtabs_ok mtabsE (fstab_checkStep mtabs)).
+Qed.
 
 (* ---- 2. What the superflip has to satisfy -------------------------------- *)
 
 (* fixed by the 48 symmetries -- this is what buys the factor of 9.  Sym.v    *)
 (* has the conjugation on tables, so this is ptJ plus one comparison of two   *)
 (* literal lists per generator of Symg.                                       *)
+(* NOT EASY -- and only in its plumbing.  The mathematics is settled: being
+   fixed by u is a subgroup condition, so it is enough on the three
+   generators of Symg = <<[set Sy; Sx; Sm]>>, and each of those is SyT/SxT/
+   SmT then ptJ then one comparison of two literal tables, exactly the shape
+   Sym.v's Symg_stab uses.  What fights is the view chain between
+   x \in 'C[superflip], commute and superflip ^ x = superflip; commute_sym
+   will not apply where I put it.  The skeleton, for the next round:
+
+     suff /subsetP H : Symg \subset 'C[superflip].
+       by move=> uS; apply/conjg_fixP; ... ; exact: H.
+     rewrite gen_subG; apply/subsetP => x xS.
+     ... reduce to superflip ^ x = superflip ...
+     move: xS; rewrite !inE; case/orP=> [/orP[]|] /eqP->.
+     - by rewrite sftabE SyT ptJ; [congr pt; vm_compute | by vm_compute..].
+     - by rewrite sftabE SxT ptJ; [congr pt; vm_compute | by vm_compute..].
+     by rewrite sftabE SmT ptJ; [congr pt; vm_compute | by vm_compute..].
+
+   Or drop centralisers and show directly that {u | superflip ^ u = superflip}
+   is a group, which avoids the views altogether.                           *)
 Lemma superflipJ u : u \in Symg -> superflip ^ u = superflip.
 Proof. Admitted.
 
 (* not solved, and not one move from solved: one and eighteen comparisons of  *)
 (* tables, through pt_eq1 of Tsearch.v                                        *)
 Lemma superflip_neq1 : superflip != 1.
-Proof. Admitted.
+Proof. by rewrite sftabE pt_eq1 ?sftab_ok //; vm_compute. Qed.
 
 Lemma superflip_move_neq1 m : m \in moves -> superflip * m != 1.
-Proof. Admitted.
+Proof.
+move=> mM; have [mt mtM ->] : exists2 mt, mt \in mtabs & m = pt 47 mt.
+  by move: mM; rewrite mtabsE => /mapP[mt mtM ->]; exists mt.
+have mtok : tab_ok 47 mt by apply: (allP mtabs_ok).
+rewrite sftabE (ptM sftab_ok mtok) pt_eq1 ?tab_ok_comp //.
+have hall : all (fun mt => comp_tab sftab mt != id_tab 47) mtabs
+  by vm_compute.
+by apply: (allP hall).
+Qed.
 
 (* ---- 3. The 36 prefixes, as arrays ---------------------------------------- *)
 
@@ -92,27 +122,55 @@ Definition prefixi (i j : nat) : arr :=
   comp_tabi 47 (comp_tabi 47 sfti (nth sfti mtis i)) (nth sfti mtis j).
 
 Lemma prefixi_ok i j : i < nmoves -> j < nmoves -> tabi_ok 47 (prefixi i j).
-Proof. Admitted.
+Proof.
+have hm k : k < nmoves -> tabi_ok 47 (nth sfti mtis k).
+  by move=> kL; apply: (all_nthP sfti mtis_ok); rewrite /mtis size_map.
+move=> iL jL; rewrite /prefixi.
+apply: (tabi_ok_comp n47_small n47_len); last exact: hm.
+by apply: (tabi_ok_comp n47_small n47_len); [exact: sfti_ok | exact: hm].
+Qed.
 
 (* what the array at (i, j) is, as a permutation: ti2t_comp then ptM, with    *)
 (* sftiE and mtisE for the three factors                                      *)
+Lemma mtis_ok_nth k : k < nmoves -> tabi_ok 47 (nth sfti mtis k).
+Proof. by move=> kL; apply: (all_nthP sfti mtis_ok); rewrite /mtis size_map. Qed.
+
+Lemma nth_movesE k : k < nmoves -> nth 1 moves k = pt 47 (ti2t 47 (nth sfti mtis k)).
+Proof.
+move=> kL; rewrite mtisE (nth_map (ti2t 47 sfti)) ?size_map ?(nth_map sfti) //;
+by rewrite /mtis size_map.
+Qed.
+
 Lemma prefixiE i j :
   i < nmoves -> j < nmoves ->
   pt 47 (ti2t 47 (prefixi i j)) = superflip * nth 1 moves i * nth 1 moves j.
-Proof. Admitted.
+Proof.
+move=> iL jL; rewrite !nth_movesE // sftiE /prefixi.
+rewrite (ti2t_comp n47_small n47_len) ?mtis_ok_nth //;
+  last by apply: (tabi_ok_comp n47_small n47_len); [exact: sfti_ok|exact: mtis_ok_nth].
+rewrite (ti2t_comp n47_small n47_len) ?sfti_ok ?mtis_ok_nth //.
+rewrite -!ptM //; [exact: sfti_ok | exact: mtis_ok_nth
+                  | by apply: tab_ok_comp; [exact: sfti_ok|exact: mtis_ok_nth]
+                  | exact: mtis_ok_nth].
+Qed.
 
 (* Sroot is the first two moves, which is why iota 0 nroot is the right index *)
 (* range for the first factor.  Both of these are size moves = 18 and one     *)
 (* nthP; they are separate lemmas because arr is not an eqType and the        *)
 (* indices, not the arrays, are what the computation below is quantified on.  *)
+Lemma size_moves : size moves = nmoves.
+Proof. by []. Qed.
+
 Lemma SrootE : Sroot = take nroot moves.
-Proof. Admitted.
+Proof. by []. Qed.
 
 Lemma moves_index m : m \in moves -> exists2 j, j < nmoves & nth 1 moves j = m.
-Proof. Admitted.
+Proof.
+by move=> /(nthP (1 : {perm facelet}))[j jL jE]; exists j; rewrite // -size_moves.
+Qed.
 
 Lemma root_index m : m \in Sroot -> exists2 i, i < nroot & nth 1 moves i = m.
-Proof. Admitted.
+Proof. by rewrite /Sroot !inE => /orP[]/eqP->; [exists 0%N | exists 1%N]. Qed.
 
 (* ---- 4. THE COMPUTATION -------------------------------------------------- *)
 

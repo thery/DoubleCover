@@ -13,3 +13,9 @@ Root.v
 Coord.v
 Diameter.v
 Toy.v
+Coordfs.v
+Coordfsi.v
+Fstab.v
+FsData.v
+FsTable.v
+Far12.v
