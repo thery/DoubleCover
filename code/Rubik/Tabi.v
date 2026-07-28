@@ -209,9 +209,16 @@ Lemma get_tabi_inj a x y :
   tabi_ok a -> to_nat x < n.+1 -> to_nat y < n.+1 ->
   get a x = get a y -> x = y.
 Proof.
+move=> aok hx hy hxy.
+have /and3P[/eqP sE _ aU] := aok.
 (* to_nat (get a x) is nth (ti2t a) (to_nat x) by nth_ti2t and to_natK, and  *)
 (* ti2t a is uniq, so index_uniq turns equal entries into equal indices.     *)
-Admitted.
+have e : nth 0%N (ti2t a) (to_nat x) = nth 0%N (ti2t a) (to_nat y).
+  by rewrite !nth_ti2t ?hx ?hy; first by rewrite !to_natK ?hxy.
+apply: to_nat_inj.
+rewrite -(index_uniq 0%N (i := to_nat x) (s := ti2t a)) ?sE //.
+by rewrite e index_uniq // sE.
+Qed.
 
 Lemma get_inv_tabi a j :
   tabi_ok a -> j < n.+1 ->
