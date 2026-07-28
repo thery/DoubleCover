@@ -236,6 +236,7 @@ have s_gt0 : 0 < size l by case: (l) iIl.
 by apply: (uniqP 0 lU) => //; apply: ltn_pmod.
 Qed.
 
+
 (* THE BRIDGE: a cycle, read off its list of points, is the table cycle.      *)
 Lemma cyc_pt l : all (fun i => i < n.+1) l -> uniq l ->
   cyc ((map inord l) : seq T) = pt (cyc_tab l).

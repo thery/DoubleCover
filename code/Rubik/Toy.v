@@ -32,7 +32,7 @@ Proof. by vm_compute. Qed.
 
 Lemma mtabsE : moves = [seq pt 47 mt | mt <- mtabs].
 Proof.
-rewrite /moves /faces /mtabs /=.
+rewrite /moves /faces {1}/map /flatten /foldr /cat.
 by rewrite UmoveT RmoveT FmoveT DmoveT LmoveT BmoveT !ptX // !ptV //.
 Qed.
 
@@ -69,5 +69,9 @@ Proof.
 apply: (@searchN _ moves Sset_inv h0 (erefl _) _ 2).
   by move=> g m _.
 rewrite mtabsE sftabE.
-by apply: (searchtN mtabs_ok h0E sftab_ok); vm_compute.
+apply: (searchtN mtabs_ok h0E sftab_ok).
+Time by vm_compute.
 Qed.
+
+
+ Time Compute searcht 47 mtabs D0 4 sftab.
