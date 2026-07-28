@@ -21,15 +21,15 @@
 (*  NOTHING BELOW IS PROVED YET.  This is the skeleton: the operations, the   *)
 (*  search, and what each has to satisfy.                                     *)
 (* =========================================================================  *)
-(* PArray is imported without its notations -- ssrint.v does the same and     *)
-(* redeclares the ones it needs -- and ssrint.v brings the int63 toolbox:     *)
+(* PArray is imported without its notations -- ssrint63.v does the same and   *)
+(* redeclares the ones it needs -- and ssrint63.v brings the int63 toolbox:   *)
 (* of_natK, to_natK, to_nat_incr, to_nat_bounded, the reflect views, and int  *)
 (* as an eqType.                                                              *)
 From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From mathcomp Require Import all_ssreflect all_fingroup.
-(* qualified: mathcomp has an ssrint too, and it wins the short name          *)
-From Rubik Require Import ssrint.
+(* the name avoids mathcomp's ssrint, which would win the short name          *)
+From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch.
 
 Set Implicit Arguments.
@@ -69,7 +69,7 @@ Proof. exact: (@PArray.get_make int v sz i). Qed.
 (* ---- 0. nat and int63 ---------------------------------------------------- *)
 
 (* to_nat and of_nat, of_natK, to_natK, to_nat_incr, to_nat_bounded and the   *)
-(* reflect views all come from ssrint.v.  Nothing here ever runs: ti2t lives  *)
+(* reflect views all come from ssrint63.v.  Nothing here ever runs: ti2t      *)
 (* only inside proofs.                                                        *)
 
 Lemma to_of_natK k : k < n.+1 -> to_nat (of_nat k) = k.
