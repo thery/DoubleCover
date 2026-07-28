@@ -1234,3 +1234,67 @@ apply: IH.
 - by rewrite e1 [length _](@nlength_set int a i0 (g i0)) addSn -addnS.
 by rewrite e1 hlt /= addSn -addnS.
 Qed.
+
+(* ---- the other fold: writing the index at a computed position ----------- *)
+
+(* inv_tabi writes i at position h i, so what survives at a position is       *)
+(* decided by injectivity of h rather than by the order of the writes.        *)
+
+(* a position h never hits is untouched *)
+Lemma get_foldi_wr_miss (h : int -> int) m i0 p a :
+  to_nat i0 + m < nwB ->
+  (forall i, to_nat i0 <= to_nat i < to_nat i0 + m -> h i <> p) ->
+  get (foldi m i0 (fun i c => c.[h i <- i]) a) p = get a p.
+Proof.
+elim: m i0 a => [|m IH] i0 a //= hb hmiss.
+rewrite -[(i0 + 1)%uint63]/(incr _).
+have hi : (to_nat i0).+1 < nwB.
+  by apply: leq_ltn_trans hb; rewrite addnS ltnS leq_addr.
+have e1 : to_nat (incr i0) = (to_nat i0).+1 := to_nat_incr i0 hi.
+rewrite IH.
+- rewrite get_set_otherE //.
+  by apply: hmiss; rewrite leqnn /= addnS ltnS leq_addr.
+- by rewrite e1 addSn -addnS.
+move=> i; rewrite e1 addSn -addnS => /andP[h1 h2].
+by apply: hmiss; rewrite h2 andbT (leq_trans _ h1).
+Qed.
+
+(* a position h hits holds the index that hit it *)
+Lemma get_foldi_wr (h : int -> int) m i0 k a :
+  to_nat i0 + m < nwB ->
+  (forall i, to_nat i0 <= to_nat i < to_nat i0 + m ->
+             (h i <? length a)%uint63) ->
+  (forall i j, to_nat i0 <= to_nat i < to_nat i0 + m ->
+               to_nat i0 <= to_nat j < to_nat i0 + m -> h i = h j -> i = j) ->
+  to_nat i0 <= to_nat k < to_nat i0 + m ->
+  get (foldi m i0 (fun i c => c.[h i <- i]) a) (h k) = k.
+Proof.
+elim: m i0 a => [|m IH] i0 a /=;
+  first by move=> _ _ _ /andP[h1]; rewrite addn0 ltnNge h1.
+move=> hb hlen hinj /andP[hk1 hk2].
+rewrite -[(i0 + 1)%uint63]/(incr _).
+have hi : (to_nat i0).+1 < nwB.
+  by apply: leq_ltn_trans hb; rewrite addnS ltnS leq_addr.
+have e1 : to_nat (incr i0) = (to_nat i0).+1 := to_nat_incr i0 hi.
+have hi0r : to_nat i0 <= to_nat i0 < to_nat i0 + m.+1.
+  by rewrite leqnn /= addnS ltnS leq_addr.
+have [e|hne] := eqVneq (to_nat i0) (to_nat k).
+  have kE : k = i0 by apply: to_nat_inj.
+  rewrite kE get_foldi_wr_miss.
+  - by rewrite get_setE //; apply: hlen.
+  - by rewrite e1 addSn -addnS.
+  move=> i; rewrite e1 addSn -addnS => hir hcon.
+  have iE : i = i0.
+    apply: hinj => //; move: hir => /andP[h1 h2].
+    by rewrite h2 andbT (leq_trans _ h1).
+  by move: hir; rewrite iE ltnn.
+have hlt : to_nat i0 < to_nat k by rewrite ltn_neqAle hne.
+apply: IH.
+- by rewrite e1 addSn -addnS.
+- move=> i; rewrite e1 addSn -addnS => /andP[h1 h2].
+  rewrite [length _](@nlength_set int a (h i0) i0).
+  by apply: hlen; rewrite h2 andbT (leq_trans _ h1).
+- move=> i j; rewrite !e1 !addSn -!addnS => /andP[h1 h2] /andP[h3 h4].
+  by apply: hinj; [rewrite (ltnW h1) h2 | rewrite (ltnW h3) h4].
+by rewrite e1 hlt /= addSn -addnS.
+Qed.
