@@ -83,6 +83,10 @@ Proof. by move=> kn; apply: of_natK; exact: leq_trans kn (ltnW n_small). Qed.
 Definition ti2t (a : arr) : seq nat :=
   [seq to_nat (PArray.get a (of_nat k)) | k <- iota 0 n.+1].
 
+(* simpl must not unfold it: the search proofs use /= and would otherwise     *)
+(* turn ti2t a into its map and shred the goal.                               *)
+Arguments ti2t : simpl never.
+
 (* Well-formedness is NOT restated: it is tab_ok, read through the bridge.    *)
 Definition tabi_ok (a : arr) := tab_ok n (ti2t a).
 
@@ -129,13 +133,13 @@ Fixpoint eqi (k : nat) (i : int) (a b : arr) : bool :=
 
 Definition eq_tabi (a b : arr) : bool := eqi n.+1 0 a b.
 
-(* ---- 3. What the operations compute, index by index --------------------- *)
+(* ---- 3. What the operations compute, index by index ---------------------  *)
 
-(* Everything below is read through these four: the bridge is a map over    *)
-(* iota, so each ti2t equation reduces to one index, and each operation is   *)
-(* a fold, so each index reduces to one get.                                 *)
+(* Everything below is read through these four: the bridge is a map over      *)
+(* iota, so each ti2t equation reduces to one index, and each operation is    *)
+(* a fold, so each index reduces to one get.                                  *)
 
-(* the defining property of the bridge *)
+(* the defining property of the bridge                                        *)
 Lemma nth_ti2t a i :
   i < n.+1 -> nth 0%N (ti2t a) i = to_nat (get a (of_nat i)).
 Proof.
@@ -144,8 +148,8 @@ rewrite (nth_map 0%N); last by rewrite size_iota.
 by rewrite nth_iota // add0n.
 Qed.
 
-(* a well formed table holds indices, which is what makes the composite      *)
-(* lookups land in range *)
+(* a well formed table holds indices, which is what makes the composite       *)
+(* lookups land in range                                                      *)
 Lemma tabi_lt a i :
   tabi_ok a -> i < n.+1 -> to_nat (get a (of_nat i)) < n.+1.
 Proof.
@@ -200,19 +204,19 @@ rewrite nth_ti2t // get_comp_tabi // /comp_tab (nth_map 0%N) ?size_ti2t //.
 by rewrite !nth_ti2t ?to_natK //; exact: tabi_lt.
 Qed.
 
-(* The inverse fold is the odd one out: it writes the index i at position    *)
-(* get a i, so what survives at a position is decided by injectivity of the  *)
-(* table rather than by the order of the writes.                             *)
-(* the entries of a well formed table are pairwise distinct, so reading it   *)
-(* is injective on indices -- this is what makes the inverse well defined.   *)
+(* The inverse fold is the odd one out: it writes the index i at position     *)
+(* get a i, so what survives at a position is decided by injectivity of the   *)
+(* table rather than by the order of the writes.                              *)
+(* the entries of a well formed table are pairwise distinct, so reading it    *)
+(* is injective on indices -- this is what makes the inverse well defined.    *)
 Lemma get_tabi_inj a x y :
   tabi_ok a -> to_nat x < n.+1 -> to_nat y < n.+1 ->
   get a x = get a y -> x = y.
 Proof.
 move=> aok hx hy hxy.
 have /and3P[/eqP sE _ aU] := aok.
-(* to_nat (get a x) is nth (ti2t a) (to_nat x) by nth_ti2t and to_natK, and  *)
-(* ti2t a is uniq, so index_uniq turns equal entries into equal indices.     *)
+(* to_nat (get a x) is nth (ti2t a) (to_nat x) by nth_ti2t and to_natK, and   *)
+(* ti2t a is uniq, so index_uniq turns equal entries into equal indices.      *)
 have e : nth 0%N (ti2t a) (to_nat x) = nth 0%N (ti2t a) (to_nat y).
   by rewrite !nth_ti2t ?hx ?hy; first by rewrite !to_natK ?hxy.
 apply: to_nat_inj.
@@ -262,7 +266,7 @@ have eok : tabi_ok (exp_tabi a m).
 by rewrite ti2t_comp // IH.
 Qed.
 
-(* eqi compares the m entries from i0 on, one by one *)
+(* eqi compares the m entries from i0 on, one by one                          *)
 Lemma eqiE m i0 a b :
   to_nat i0 + m < nwB ->
   eqi m i0 a b =
@@ -325,6 +329,21 @@ Fixpoint searchi (d : nat) (a : arr) : bool :=
 Lemma searchiE d a :
   tabi_ok a -> searchi d a = searcht n [seq ti2t mt | mt <- mtis] Dt d (ti2t a).
 Proof.
+(* the same shape as searchtE in Tsearch.v: induction on d, DtiE for the cut,*)
+(* eq_tabi_id for the solved test, has_map and ti2t_comp for the recursive    *)
+(* call.  This script gets every step but the eq_in_has, which will not       *)
+(* apply here although the identical one does in Tsearch.v:                   *)
+(*                                                                            *)
+(*   elim: d a => [|d IH] a aok.                                              *)
+(*     by rewrite /searchi /searcht DtiE // eq_tabi_id //.                    *)
+(*   rewrite {1}/searchi -/searchi {1}/searcht -/searcht DtiE //              *)
+(*           eq_tabi_id //.                                                   *)
+(*   congr (_ && (_ || _)).                                                   *)
+(*   rewrite has_map; apply: eq_in_has => mt mtM.                             *)
+(*   have mtok : tabi_ok mt by apply: (allP mtis_ok).                         *)
+(*   by rewrite -ti2t_comp // IH // tabi_ok_comp.                             *)
+(*                                                                            *)
+(* Beware /= here: it unfolds ti2t and comp_tab and shreds the goal.          *)
 Admitted.
 
 (* and hence, composing with searchtE of Tsearch.v and searchN of Search.v,   *)
