@@ -235,7 +235,12 @@ let () =
     done; !h in
 
   let is_solved d =
-    let r = ref true in
+    (* the search carries the permutations, but the orientations only as
+       coordinates, so they have to be read there.  Testing h = 0 instead
+       is wrong as soon as the heuristic does not involve every coordinate:
+       with flip x slice alone, h = 0 says nothing about the corner twist,
+       and a cube with twisted corners is reported solved. *)
+    let r = ref (tw.(d).(0) = 0 && fl.(d).(0) = 0) in
     for i = 0 to 7 do if cps.(d).(i) <> i then r := false done;
     for i = 0 to 11 do if eps.(d).(i) <> i then r := false done;
     !r in

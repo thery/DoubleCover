@@ -157,6 +157,17 @@ let () =
   let mt_flip  = mk_move_table n_flip  cube_of_flip  flip  in
   let mt_slice = mk_move_table n_slice cube_of_slice slice in
 
+  (* Which quotients the heuristic reads.  "all" is the real thing; the other
+     two exist to measure what each table is worth, and they also skip the
+     build of the tables they do not use -- "fs" never allocates the 2.2 GB. *)
+  let mode = try Sys.argv.(3) with _ -> "all" in
+  let use_ts = mode <> "fs" and use_all = mode = "all" in
+  Printf.printf "heuristic: %s\n%!"
+    (match mode with
+     | "fs" -> "flip x slice only"
+     | "pairs" -> "flip x slice and twist x slice"
+     | _ -> "flip x slice, twist x slice, twist x flip x slice");
+
   Printf.printf "building pruning tables...\n%!";
   let p_fs =                        (* flip x slice *)
     bfs (n_flip * n_slice)
@@ -165,6 +176,7 @@ let () =
         for m = 0 to 17 do k (mt_flip.(f).(m) * n_slice + mt_slice.(s).(m)) done)
       0 in
   let p_ts =                        (* twist x slice *)
+    if not use_ts then Bytes.create 0 else
     bfs (n_twist * n_slice)
       (fun i k ->
         let t = i / n_slice and s = i mod n_slice in
@@ -177,11 +189,12 @@ let () =
      what keeps the build affordable -- most states sit at the last levels. *)
   let cap = try int_of_string Sys.argv.(2) with _ -> 9 in
   let n_all = n_twist * n_flip * n_slice in
-  Printf.printf "building phase-1 table (%d states, cap %d)...\n%!" n_all cap;
-  let p_all = Bytes.make n_all (Char.chr (cap + 1)) in
+  if use_all then
+    Printf.printf "building phase-1 table (%d states, cap %d)...\n%!" n_all cap;
+  let p_all = Bytes.make (if use_all then n_all else 1) (Char.chr (cap + 1)) in
   Bytes.set p_all 0 '\000';
   let t0 = Unix.gettimeofday () in
-  for cur = 0 to cap - 1 do
+  for cur = 0 to (if use_all then cap - 1 else -1) do
     let added = ref 0 in
     for t = 0 to n_twist - 1 do
       let mtt = mt_twist.(t) in
@@ -231,17 +244,26 @@ let () =
     let h = ref 0 in
     for k = 0 to 2 do
       let a = Char.code (Bytes.get p_fs (fl.(d).(k) * n_slice + sl.(d).(k))) in
-      let b = Char.code (Bytes.get p_ts (tw.(d).(k) * n_slice + sl.(d).(k))) in
-      let c = Char.code (Bytes.get p_all
-                ((tw.(d).(k) * n_flip + fl.(d).(k)) * n_slice + sl.(d).(k))) in
       if a > !h then h := a;
-      if b > !h then h := b;
-      if c > !h then h := c
+      if use_ts then begin
+        let b = Char.code (Bytes.get p_ts (tw.(d).(k) * n_slice + sl.(d).(k))) in
+        if b > !h then h := b
+      end;
+      if use_all then begin
+        let c = Char.code (Bytes.get p_all
+                  ((tw.(d).(k) * n_flip + fl.(d).(k)) * n_slice + sl.(d).(k))) in
+        if c > !h then h := c
+      end
     done;
     !h in
 
   let is_solved d =
-    let r = ref true in
+    (* the search carries the permutations, but the orientations only as
+       coordinates, so they have to be read there.  Testing h = 0 instead
+       is wrong as soon as the heuristic does not involve every coordinate:
+       with flip x slice alone, h = 0 says nothing about the corner twist,
+       and a cube with twisted corners is reported solved. *)
+    let r = ref (tw.(d).(0) = 0 && fl.(d).(0) = 0) in
     for i = 0 to 7 do if cps.(d).(i) <> i then r := false done;
     for i = 0 to 11 do if eps.(d).(i) <> i then r := false done;
     !r in
