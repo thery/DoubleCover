@@ -1179,6 +1179,10 @@ Proof. exact: (@PArray.get_set_other int t i j v). Qed.
 Lemma get_makeE (v i sz : int) : get (make sz v) i = v.
 Proof. exact: (@PArray.get_make int v sz i). Qed.
 
+Lemma length_makeE (sz v : int) :
+  length (make sz v) = if (sz <=? max_length)%uint63 then sz else max_length.
+Proof. exact: (@PArray.length_make int sz v). Qed.
+
 (* k steps from i0, writing g i at index i.  This is how a table is filled.   *)
 Fixpoint foldi (k : nat) (i : int) (f : int -> array int -> array int)
                (a : array int) : array int :=
