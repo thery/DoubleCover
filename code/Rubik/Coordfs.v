@@ -410,7 +410,7 @@ Proof. by apply: packn_lt. Qed.
 (* true so xbit is false and the bit is copied; or it is epair (eprimf q),    *)
 (* and then pcol_epair complements the flip bit while scol_epair leaves the   *)
 (* slice bit alone.  cubP g is what lets g^-1 be pushed through epair.        *)
-(* the two halves, which is where the content is.  Each is one application of
+(* the two halves, where the content is.  Each is one application of
    edge_case: m^-1 (eprimf j) is eprimf q, and then pcol of it is true so
    xbit is false and the bit is copied; or it is epair (eprimf q), and then
    pcol_epair complements the flip bit while scol_epair leaves the slice bit
@@ -428,21 +428,45 @@ Proof. by move=> qL; rewrite /pcol eprimfK // mem_nth //; vm_compute. Qed.
 Lemma cubP_epairV g f : cubP g -> g^-1 (epair f) = epair (g^-1 f).
 Proof. by move=> /cubPV/forallP hg; rewrite (eqP (hg f)). Qed.
 
-(* NOT EASY (not yet done -- the two remaining pieces of the equivariance) *)
 Lemma coordfs_flip g m j :
-  cubP g -> m \in Sset -> j < nedge ->
+  cubP g -> cubP m -> j < nedge ->
   flipb (g * m) j = flipb g (src m j) (+) xbit m j.
-Proof. Admitted.
+Proof.
+move=> cg cm jL.
+have jE : (eprimf j : nat) \in eprim ++ esec := eprimf_edge jL.
+have xE : ((m^-1 (eprimf j)) : nat) \in eprim ++ esec.
+  by rewrite (cubP_edge _ (cubPV cm)).
+rewrite /flipb /xbit /src invMg permM.
+case: (edge_case xE) => [xP|xS].
+  have hx : pcol (m^-1 (eprimf j)) by rewrite {1}xP pcol_eprimf // epos_lt.
+  by rewrite hx addbF {1}xP.
+have hx : pcol (m^-1 (eprimf j)) = false.
+  by rewrite {1}xS pcol_epair ?eprimf_edge ?epos_lt // pcol_eprimf // epos_lt.
+have gE : ((g^-1 (eprimf (epos (m^-1 (eprimf j))))) : nat) \in eprim ++ esec.
+  by rewrite (cubP_edge _ (cubPV cg)) eprimf_edge // epos_lt.
+by rewrite hx addbT {1}xS cubP_epairV // pcol_epair // negbK.
+Qed.
 
-(* NOT EASY (not yet done) *)
 Lemma coordfs_slice g m j :
-  cubP g -> m \in Sset -> j < nedge ->
+  cubP g -> cubP m -> j < nedge ->
   sliceb (g * m) j = sliceb g (src m j).
-Proof. Admitted.
+Proof.
+move=> cg cm jL.
+have jE : (eprimf j : nat) \in eprim ++ esec := eprimf_edge jL.
+have xE : ((m^-1 (eprimf j)) : nat) \in eprim ++ esec.
+  by rewrite (cubP_edge _ (cubPV cm)).
+rewrite /sliceb /src invMg permM.
+case: (edge_case xE) => [xP|xS].
+  by rewrite {1}xP.
+by rewrite {1}xS cubP_epairV // scol_epair.
+Qed.
 
 (* and the equivariance is the two halves, routed through the packing *)
+(* stated on cubP m rather than on m \in Sset: that the moves satisfy cubP is
+   a table fact and lives in Coordfsi.v, so keeping it out here leaves this
+   file about the summary alone.                                            *)
 Lemma coordfsM g m :
-  cubP g -> m \in Sset -> coordfs (g * m) = actfs (coordfs g) m.
+  cubP g -> cubP m -> coordfs (g * m) = actfs (coordfs g) m.
 Proof.
 move=> cg mS; apply: (@packn_eq ncoord);
   [exact: (@packn_lt ncoord _ ncoord_dig) |

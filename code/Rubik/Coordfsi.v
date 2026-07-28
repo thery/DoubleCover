@@ -232,6 +232,11 @@ Qed.
 Lemma cubP_step g m : cubP g -> m \in Sset -> cubP (g * m).
 Proof. by move=> cg /moves_cubP cm; exact: cubPM. Qed.
 
+(* the equivariance, with the moves known to preserve cubies                 *)
+Lemma coordfsMS g m :
+  cubP g -> m \in Sset -> coordfs (g * m) = actfs (coordfs g) m.
+Proof. by move=> cg /moves_cubP cm; apply: coordfsM. Qed.
+
 (* ---- 6. The heuristic at each level, in the shape the searches want ------ *)
 
 Section Heuristic.
@@ -250,7 +255,7 @@ Lemma hfs0 : hfs 1 = 0.
 Proof. by apply: (hcoordg0 cubP1 Dfs0). Qed.
 
 Lemma hfsS g m : m \in Sset -> hfs g <= (hfs (g * m)).+1.
-Proof. by apply: (hcoordgS cubP_step coordfsM DfsStep). Qed.
+Proof. by apply: (hcoordgS cubP_step coordfsMS DfsStep). Qed.
 
 Definition searchfs : nat -> {perm facelet} -> bool := search moves hfs.
 

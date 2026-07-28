@@ -59,11 +59,29 @@ Fixpoint all_pow (k : nat) (i : int) (f : int -> bool) : bool :=
   then all_pow k1 i f && all_pow k1 (add i (lsl 1%uint63 (of_nat k1))) f
   else f i.
 
-(* the completeness lemma: this is the only thing the loop is used for, and   *)
-(* it is the get_foldi_in pattern -- induct on k, split at the midpoint.      *)
+(* the completeness lemma.  The induction has to be on a general starting
+   point -- the recursive call starts at i + 2 ^ k1, not at 0 -- so the
+   statement below is the one to prove and all_powP is its instance at 0. *)
+
+(* NOT DONE: induct on k, split at the midpoint, exactly as get_foldi_in. *)
+Lemma all_pow_gen k i f x :
+  k <= ndigits -> to_nat i + (2 ^ k)%N <= nwB -> all_pow k i f ->
+  to_nat i <= to_nat x < to_nat i + (2 ^ k)%N -> f x.
+Proof. Admitted.
+
 Lemma all_powP k f x :
   k <= ndigits -> all_pow k 0%uint63 f -> to_nat x < (2 ^ k)%N -> f x.
-Proof. Admitted.
+Proof.
+move=> kL hall hx; apply: (all_pow_gen kL _ hall); rewrite to_nat_0 add0n //.
+by rewrite nwB_pow leq_exp2l.
+Qed.
+
+(* Reading a table built as a map over iota.  Stated for a general n on
+   purpose: with n a literal, rewriting nth_map/nth_iota makes the iota
+   compute and the whole list unfold.                                       *)
+Lemma nth_map_iota (T : Type) (d : T) (f : nat -> T) n p :
+  p < n -> nth d [seq f k | k <- iota 0 n] p = f p.
+Proof. by move=> pL; rewrite (nth_map 0%N) ?size_iota // nth_iota. Qed.
 
 (* ---- 2. How the table is packed ------------------------------------------ *)
 
@@ -108,7 +126,23 @@ Definition Dfs (x : int) : nat := to_nat (Dfsi x).
 (* be 0: it makes the certificate hold there for nothing, so the loop below   *)
 (* only has to cover the 2 ^ 24 summaries.                                    *)
 Lemma Dfs_oob x : (2 ^ ncoord)%N <= to_nat x -> Dfs x = 0.
-Proof. Admitted.
+Proof.
+move=> hx; rewrite /Dfs /Dfsi.
+have key : (2 ^ nwordslog)%N <= to_nat x %/ (2 ^ nperlog)%N.
+  rewrite leq_divRL; last by rewrite expn_gt0.
+  by rewrite -expnD /nwordslog subnK.
+have hoob : (lsr x (of_nat nperlog) <? PArray.length fstab)%uint63 = false.
+  rewrite fstab_len; apply/negbTE; apply/negP => /nltbP.
+  rewrite to_nat_lsr of_natK; last by apply: (@ltn_nwB 6).
+  rewrite /nwordsi to_nat_lsl1; last by vm_compute.
+  by rewrite ltnNge key.
+rewrite (@PArray.get_out_of_bounds int fstab _ hoob) fstab_def.
+apply/eqP; rewrite -[0]/(to_nat 0%uint63) (inj_eq to_nat_inj); apply/eqP.
+have h0 k : lsr 0%uint63 k = 0%uint63.
+  by apply: to_nat_inj; rewrite to_nat_lsr to_nat_0 div0n.
+rewrite h0; apply: bit_ext => n; rewrite land_spec.
+by rewrite (@bit_false_lt 0%uint63 0 n) ?to_nat_0.
+Qed.
 
 (* ---- 4. The move data ---------------------------------------------------- *)
 
@@ -134,6 +168,19 @@ Definition actd (x : int) (d : mdatum) : int :=
 
 (* the bridge, in the shape of coordtE: ptE and ptV turn the permutation      *)
 (* reads of src and xbit into the table reads of mdat_of_tab.                 *)
+(* NOT EASY -- but only for a shape reason, and there is a fix.  The content
+   is two lines and both are one nth_map_iota away:
+
+     src  (pt mt) p = nth 0 (mdat_of_tab mt).1 p
+     xbit (pt mt) p = nth false (mdat_of_tab mt).2 p
+
+   each being ptV, ptE, eprimfK, inordK -- exactly coordtE's proof.  What
+   blocks is getting (mdat_of_tab mt).1 to show its map: /= reduces the
+   projection but also computes iota 0 nedge into a twelve element list and
+   unfolds the map over it, after which nothing matches and the rewrite
+   diverges.  THE FIX for the next round is to stop using a pair: make
+   msrc mt and mxbit mt two named Definitions, so there is no projection to
+   reduce and nth_map_iota applies directly.                                *)
 Lemma actdE mt x :
   tab_ok 47 mt -> actfs x (pt 47 mt) = actd x (mdat_of_tab mt).
 Proof. Admitted.
@@ -151,7 +198,7 @@ Definition mdata : seq mdatum := [seq mdat_of_tab mt | mt <- mtabs].
 (* coordfs 1 does not compute, being about a permutation; the identity table  *)
 (* is its computable form, by pt1 and coordtE.                                *)
 Lemma coordfs1E : coordfs 1 = coordt (id_tab 47).
-Proof. Admitted.
+Proof. by rewrite -(coordtE (tab_ok_id 47)) pt1. Qed.
 
 Definition check0 : bool := (Dfsi (coordt (id_tab 47)) =? 0)%uint63.
 
@@ -168,7 +215,7 @@ Definition checkStep : bool :=
 (* heuristic has no axiom behind it.                                          *)
 
 Lemma Dfs0_of_check : check0 -> Dfs (coordfs 1) = 0.
-Proof. Admitted.
+Proof. by rewrite /check0 /Dfs coordfs1E => /eqb_correct ->; rewrite to_nat_0. Qed.
 
 (* x outside the summaries is Dfs_oob; inside, all_powP gives the checked     *)
 (* instance and actdE turns the move into its data.                           *)
