@@ -21,12 +21,15 @@
 (*  NOTHING BELOW IS PROVED YET.  This is the skeleton: the operations, the   *)
 (*  search, and what each has to satisfy.                                     *)
 (* =========================================================================  *)
-(* Uint63 first and mathcomp after, so mathcomp wins the names they share     *)
-(* (size).  PArray is Required but not Imported: its .[ ] notation would      *)
-(* clash with mathcomp's.                                                     *)
+(* PArray is imported without its notations -- ssrint.v does the same and     *)
+(* redeclares the ones it needs -- and ssrint.v brings the int63 toolbox:     *)
+(* of_natK, to_natK, to_nat_incr, to_nat_bounded, the reflect views, and int  *)
+(* as an eqType.                                                              *)
 From Stdlib Require Import Uint63.
-From Stdlib Require PArray.
+From Stdlib Require Import -(notations) PArray.
 From mathcomp Require Import all_ssreflect all_fingroup.
+(* qualified: mathcomp has an ssrint too, and it wins the short name          *)
+From Rubik Require Import ssrint.
 Require Import Cyc Ball Table Search Tsearch.
 
 Set Implicit Arguments.
@@ -44,7 +47,7 @@ Notation arr := (PArray.array int).
 
 (* the tables are indexed by int63, so n.+1 has to fit in one.  For the cube  *)
 (* n is 47.                                                                   *)
-Hypothesis n_small : BinInt.Z.lt (BinInt.Z.of_nat n.+1) wB.
+Hypothesis n_small : n.+1 < nwB.
 
 (* ---- 0. The array axioms, instantiated ----------------------------------- *)
 
@@ -65,23 +68,12 @@ Proof. exact: (@PArray.get_make int v sz i). Qed.
 
 (* ---- 0. nat and int63 ---------------------------------------------------- *)
 
-(* Uint63 gives to_nat and of_nat directly; neither ever runs, since ti2t     *)
-(* lives only inside proofs.                                                  *)
+(* to_nat and of_nat, of_natK, to_natK, to_nat_incr, to_nat_bounded and the   *)
+(* reflect views all come from ssrint.v.  Nothing here ever runs: ti2t lives  *)
+(* only inside proofs.                                                        *)
 
-Lemma to_natK k : (k < n.+1)%nat -> to_nat (of_nat k) = k.
-Proof.
-move=> kLn.
-have kB : BinInt.Z.lt (BinInt.Z.of_nat k) wB.
-  apply: BinInt.Z.lt_trans n_small.
-  by apply/Znat.Nat2Z.inj_lt/ltP.
-have -> : to_Z (of_Z (BinInt.Z.of_nat k)) = BinInt.Z.of_nat k.
-  by rewrite -is_int //; split; [apply: Znat.Nat2Z.is_nonneg | exact: kB].
-by rewrite Znat.Nat2Z.id.
-Qed.
-
-Lemma of_natK x : (to_nat x < n.+1)%nat -> of_nat (to_nat x) = x.
-Proof.
-Admitted.
+Lemma to_of_natK k : k < n.+1 -> to_nat (of_nat k) = k.
+Proof. by move=> kn; apply: of_natK; exact: leq_trans kn (ltnW n_small). Qed.
 
 (* ---- 1. The bridge ------------------------------------------------------- *)
 
@@ -109,8 +101,7 @@ Fixpoint foldi (k : nat) (i : int) (f : int -> arr -> arr) (a : arr) : arr :=
 (* the start is untouched, an index in range gets what the fold writes.       *)
 
 Lemma to_nat_add1 i : (to_nat i).+1 <= n.+1 -> to_nat (i + 1) = (to_nat i).+1.
-Proof.
-Admitted.
+Proof. by move=> h; apply: to_nat_incr; apply: leq_ltn_trans h n_small. Qed.
 
 Lemma get_foldi_lt (g : int -> int) m i0 j a :
   to_nat i0 + m <= n.+1 -> to_nat j < to_nat i0 ->
