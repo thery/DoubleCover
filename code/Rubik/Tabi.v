@@ -80,9 +80,14 @@ Fixpoint foldi (k : nat) (i : int) (f : int -> arr -> arr) (a : arr) : arr :=
 Definition id_tabi : arr :=
   foldi n.+1 0 (fun i a => PArray.set a i i) (PArray.make (of_nat n.+1) 0).
 
-(* (a then b): the entry at i is b at a's entry at i                          *)
+(* (a then b): the entry at i is b at a's entry at i.  It fills a FRESH       *)
+(* array rather than overwriting a: the search composes the same a with all   *)
+(* eighteen moves in a row, and PArray being persistent, an in place fold     *)
+(* would leave a behind a chain of n.+1 diffs that every sibling then has to  *)
+(* re-root through.                                                           *)
 Definition comp_tabi (a b : arr) : arr :=
-  foldi n.+1 0 (fun i c => PArray.set c i (PArray.get b (PArray.get a i))) a.
+  foldi n.+1 0 (fun i c => PArray.set c i (PArray.get b (PArray.get a i)))
+        (PArray.make (of_nat n.+1) 0).
 
 Definition inv_tabi (a : arr) : arr :=
   foldi n.+1 0 (fun i c => PArray.set c (PArray.get a i) i)
