@@ -49,6 +49,9 @@ Notation arr := (PArray.array int).
 (* n is 47.                                                                   *)
 Hypothesis n_small : n.+1 < nwB.
 
+(* and the arrays must be allocatable                                         *)
+Hypothesis n_len : (of_nat n.+1 <=? PArray.max_length)%uint63.
+
 (* ---- 0. The array axioms, instantiated ----------------------------------- *)
 
 (* PrimArray.get is universe polymorphic and the axioms about it are not, so  *)
@@ -99,30 +102,6 @@ Fixpoint foldi (k : nat) (i : int) (f : int -> arr -> arr) (a : arr) : arr :=
 (* successor, and the two shapes of fold the operations use: an index below   *)
 (* the start is untouched, an index in range gets what the fold writes.       *)
 
-Lemma to_nat_add1 i : (to_nat i).+1 <= n.+1 -> to_nat (i + 1) = (to_nat i).+1.
-Proof. by move=> h; apply: to_nat_incr; apply: leq_ltn_trans h n_small. Qed.
-
-Lemma get_foldi_lt (g : int -> int) m i0 j a :
-  to_nat i0 + m <= n.+1 -> to_nat j < to_nat i0 ->
-  PArray.get (foldi m i0 (fun i c => PArray.set c i (g i)) a) j =
-  PArray.get a j.
-Proof.
-elim: m i0 a => [|m IH] i0 a //= hb hj.
-have h1 : (to_nat i0).+1 <= n.+1.
-  by rewrite (leq_trans _ hb) // addnS ltnS leq_addr.
-rewrite IH.
-- by rewrite get_set_otherE // => e; rewrite e ltnn in hj.
-- by rewrite to_nat_add1 // addSn -addnS.
-by rewrite to_nat_add1 // ltnS ltnW.
-Qed.
-
-Lemma get_foldi_in (g : int -> int) m i0 j a :
-  to_nat i0 + m <= n.+1 -> to_nat i0 <= to_nat j < to_nat i0 + m ->
-  PArray.get (foldi m i0 (fun i c => PArray.set c i (g i)) a) j = g j.
-Proof.
-Admitted.
-
-
 Definition id_tabi : arr :=
   foldi n.+1 0 (fun i a => PArray.set a i i) (PArray.make (of_nat n.+1) 0).
 
@@ -160,23 +139,44 @@ Definition eq_tabi (a b : arr) : bool := eqi n.+1 0 a b.
 Lemma nth_ti2t a i :
   i < n.+1 -> nth 0%N (ti2t a) i = to_nat (get a (of_nat i)).
 Proof.
-Admitted.
+move=> iL; rewrite /ti2t.
+rewrite (nth_map 0%N); last by rewrite size_iota.
+by rewrite nth_iota // add0n.
+Qed.
 
 (* a well formed table holds indices, which is what makes the composite      *)
 (* lookups land in range *)
 Lemma tabi_lt a i :
   tabi_ok a -> i < n.+1 -> to_nat (get a (of_nat i)) < n.+1.
 Proof.
-Admitted.
+move=> aok iL; rewrite -nth_ti2t //.
+have /and3P[_ /allP hall _] := aok.
+by apply: hall; rewrite mem_nth // size_ti2t.
+Qed.
 
 Lemma get_id_tabi i : i < n.+1 -> get id_tabi (of_nat i) = of_nat i.
 Proof.
-Admitted.
+move=> iL.
+rewrite /id_tabi
+  (@get_foldi_in (fun j => j) n.+1 0 (of_nat i) (make (of_nat n.+1) 0)).
+- by [].
+- by rewrite to_nat_0 add0n.
+- by rewrite to_nat_0 add0n length_makeE n_len of_natK.
+by rewrite to_nat_0 add0n to_of_natK //= iL.
+Qed.
 
 Lemma get_comp_tabi a b i :
   i < n.+1 -> get (comp_tabi a b) (of_nat i) = get b (get a (of_nat i)).
 Proof.
-Admitted.
+move=> iL.
+rewrite /comp_tabi
+  (@get_foldi_in (fun j => get b (get a j)) n.+1 0 (of_nat i)
+     (make (of_nat n.+1) 0)).
+- by [].
+- by rewrite to_nat_0 add0n.
+- by rewrite to_nat_0 add0n length_makeE n_len of_natK.
+by rewrite to_nat_0 add0n to_of_natK //= iL.
+Qed.
 
 
 (* ---- 4. What the operations have to satisfy ------------------------------ *)
