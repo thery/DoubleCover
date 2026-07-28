@@ -59,6 +59,10 @@ Fixpoint all_pow (k : nat) (i : int) (f : int -> bool) : bool :=
   then all_pow k1 i f && all_pow k1 (add i (lsl 1%uint63 (of_nat k1))) f
   else f i.
 
+(* a loop over a predicate that holds everywhere holds *)
+Lemma all_pow_all k i (f : int -> bool) : (forall x, f x) -> all_pow k i f.
+Proof. by move=> hf; elim: k i => //= k IH i; rewrite !IH. Qed.
+
 (* the completeness lemma.  The induction has to be on a general starting
    point -- the recursive call starts at i + 2 ^ k1, not at 0 -- so the
    statement below is the one to prove and all_powP is its instance at 0. *)
