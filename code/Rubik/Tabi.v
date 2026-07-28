@@ -308,7 +308,43 @@ have iok : tabi_ok id_tabi by rewrite /tabi_ok ti2t_id; apply: tab_ok_id.
 by rewrite eq_tabiE // ti2t_id.
 Qed.
 
-(* ---- 4. The search, on arrays -------------------------------------------- *)
+(* ---- 5. From a list to an array ------------------------------------------ *)
+
+(* The moves and the start position are produced by Table.v as lists.  t2ti is
+   the only place a list becomes an array; it runs once, on nineteen tables of
+   n.+1 entries, and everything after it stays on arrays.                     *)
+Definition t2ti (t : seq nat) : arr :=
+  foldi n.+1 0 (fun i c => PArray.set c i (of_nat (nth 0%N t (to_nat i))))
+        (PArray.make (of_nat n.+1) 0).
+
+Lemma get_t2ti t i :
+  i < n.+1 -> get (t2ti t) (of_nat i) = of_nat (nth 0%N t i).
+Proof.
+move=> iL.
+rewrite /t2ti
+  (@get_foldi_in (fun j => of_nat (nth 0%N t (to_nat j))) n.+1 0 (of_nat i)
+     (make (of_nat n.+1) 0)).
+- by rewrite to_of_natK.
+- by rewrite to_nat_0 add0n.
+- by rewrite to_nat_0 add0n length_makeE n_len of_natK.
+by rewrite to_nat_0 add0n to_of_natK //= iL.
+Qed.
+
+(* t2ti is a section of the bridge: the list is recovered unchanged, so a fact
+   proved about a table transports to its array for free.                     *)
+Lemma ti2t_t2ti t : tab_ok n t -> ti2t (t2ti t) = t.
+Proof.
+move=> tok; have /and3P[/eqP tsz tall _] := tok.
+apply: (@eq_from_nth _ 0%N) => [|k]; first by rewrite size_ti2t tsz.
+rewrite size_ti2t => kL.
+rewrite nth_ti2t // get_t2ti // to_of_natK //.
+by apply: (allP tall); rewrite mem_nth // tsz.
+Qed.
+
+Lemma tabi_ok_t2ti t : tab_ok n t -> tabi_ok (t2ti t).
+Proof. by move=> tok; rewrite /tabi_ok ti2t_t2ti. Qed.
+
+(* ---- 6. The search, on arrays -------------------------------------------- *)
 
 (* the moves, as arrays                                                       *)
 Variable mtis : seq (arr).
@@ -359,11 +395,21 @@ rewrite has_map; apply: (has_eq_all mtis_ok) => mt mtok.
 by rewrite IH ?tabi_ok_comp // ti2t_comp.
 Qed.
 
-(* and hence, composing with searchtE of Tsearch.v and searchN of Search.v,   *)
-(* a false answer from the array search is a membership fact.                 *)
+(* and hence, composing with searchtE of Tsearch.v, a false answer from the   *)
+(* array search is a false answer from the search Search.v proves sound --    *)
+(* which searchN then turns into a membership fact.                          *)
+Variable h : {perm 'I_n.+1} -> nat.
+Hypothesis hE : forall t, tab_ok n t -> h (pt n t) = Dt t.
+
 Corollary searchiN d a :
   tabi_ok a -> searchi d a = false ->
-  searcht n [seq ti2t mt | mt <- mtis] Dt d (ti2t a) = false.
-Proof. by move=> aok; rewrite searchiE. Qed.
+  search [seq pt n mt | mt <- [seq ti2t mt | mt <- mtis]] h d (pt n (ti2t a))
+    = false.
+Proof.
+move=> aok sE; apply: (searchtN _ hE aok); last by rewrite -searchiE.
+(* allP is out: arr is not an eqType.  all_map leaves the two predicates      *)
+(* convertible, tab_ok n \o ti2t being tabi_ok by definition.                 *)
+by rewrite all_map; exact: mtis_ok.
+Qed.
 
 End Tabi.
