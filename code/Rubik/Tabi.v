@@ -154,7 +154,13 @@ Definition eq_tabi (a b : arr) : bool := eqi n.+1 0 a b.
 
 Lemma ti2t_id : ti2t id_tabi = id_tab n.
 Proof.
-Admitted.
+rewrite /ti2t /id_tab.
+apply: map_id_in => k.
+rewrite mem_iota add0n => /andP[_ kL].
+rewrite /id_tabi get_foldi_in; first by rewrite to_of_natK.
+- by rewrite to_nat_0 add0n.
+by rewrite to_nat_0 add0n to_of_natK //= kL.
+Qed.
 
 Lemma ti2t_comp a b :
   tabi_ok a -> tabi_ok b -> ti2t (comp_tabi a b) = comp_tab (ti2t a) (ti2t b).
