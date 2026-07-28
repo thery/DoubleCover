@@ -1210,4 +1210,23 @@ Lemma get_foldi_in (g : int -> int) m i0 j a :
   to_nat i0 <= to_nat j < to_nat i0 + m ->
   get (foldi m i0 (setf g) a) j = g j.
 Proof.
-Admitted.
+elim: m i0 a => [|m IH] i0 a /=;
+  first by move=> _ _ /andP[h1]; rewrite addn0 ltnNge h1.
+move=> hb hl /andP[hj1 hj2].
+rewrite -[(i0 + 1)%uint63]/(incr _).
+have hi : (to_nat i0).+1 < nwB.
+  by apply: leq_ltn_trans hb; rewrite addnS ltnS leq_addr.
+have e1 : to_nat (incr i0) = (to_nat i0).+1 := to_nat_incr i0 hi.
+have [e|hne] := eqVneq (to_nat i0) (to_nat j).
+  have jE : j = i0 by apply: to_nat_inj.
+  rewrite jE get_foldi_lt; first 1 last.
+  - by rewrite e1 addSn -addnS.
+  - by rewrite e1.
+  rewrite get_setE //.
+  by apply/nltbP; rewrite (leq_trans _ hl) // addnS ltnS leq_addr.
+have hlt : to_nat i0 < to_nat j by rewrite ltn_neqAle hne.
+apply: IH.
+- by rewrite e1 addSn -addnS.
+- by rewrite e1 [length _](@nlength_set int a i0 (g i0)) addSn -addnS.
+by rewrite e1 hlt /= addSn -addnS.
+Qed.
