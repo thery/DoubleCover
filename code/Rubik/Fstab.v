@@ -520,7 +520,7 @@ by move=> p pL; apply: msrc_lt.
 Qed.
 
 (* the moves as tables, and the one fact tying them to Rubik333.moves; the    *)
-(* assembly file supplies both, as Toy.v does today.                          *)
+(* assembly file supplies both, as Moves.v does today.                        *)
 Variable mtabs : seq (seq nat).
 Hypothesis mtabs_ok : all (tab_ok 47) mtabs.
 Hypothesis mtabsE : moves = [seq pt 47 mt | mt <- mtabs].

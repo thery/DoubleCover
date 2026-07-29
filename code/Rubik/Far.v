@@ -35,7 +35,7 @@ From Stdlib Require Import -(notations) PArray.
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
-        Coordfs Coordfsi Fstab FsTable Diameter Toy.
+        Coordfs Coordfsi Fstab FsTable Diameter Moves.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -65,8 +65,9 @@ Definition nmoves := 18.                (* size moves                         *)
 
 (* ---- 1. The heuristic, from the table ------------------------------------ *)
 
-(* Toy.v supplies mtabs, mtis and their lemmas.  When the real run needs its  *)
-(* own file those move out of Toy.v and both read them from there.            *)
+(* Moves.v supplies mtabs, mtis, sftab, sfti and their lemmas.  They used to  *)
+(* sit in Toy.v and the real run had to import the toy to reach them; they    *)
+(* have their own file now and nothing here depends on Toy.v.                 *)
 
 Definition Dfsd : int -> nat := Dfs fstab.
 Definition Dtid : arr -> nat := Dti Dfsd.

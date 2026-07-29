@@ -47,7 +47,7 @@ Notation arr := (PArray.array int).
 
 (* ---- 0. The two side conditions of Tabi.v, at n = 47 --------------------- *)
 
-(* Toy.v proves the same two.  When the real assembly file lands, one copy    *)
+(* Moves.v proves the same two; one copy should go.                           *)
 (* goes and both read it from here.                                           *)
 Lemma n47_small : 47.+1 < nwB.
 Proof. by apply: (@ltn_nwB 6). Qed.
@@ -338,7 +338,7 @@ Proof. by move=> aok; rewrite /Dti /Dt cubtiE // coordiE. Qed.
 (* ---- 7. And hence the whole chain ---------------------------------------- *)
 
 (* The moves as arrays, and the one fact tying them to Rubik333.moves; the    *)
-(* assembly file supplies both, exactly as Toy.v does today.                  *)
+(* assembly file supplies both, exactly as Moves.v does today.                *)
 Variable mtis : seq arr.
 Hypothesis mtis_ok : all (tabi_ok 47) mtis.
 Hypothesis mtisE :
