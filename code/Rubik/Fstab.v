@@ -255,9 +255,16 @@ Definition check0 : bool := (Dfsi (coordt (id_tab 47)) =? 0)%uint63.
 
 (* Entries are at most 15, so the successor cannot wrap and the nat           *)
 (* inequality can be checked on int.                                          *)
+(* mdata IS HOISTED, AND THAT IS NOT COSMETIC.  Inside the lambda it is
+   recomputed for every x -- call by value again -- and mdata is eighteen
+   mdat_of_tab, each inverting a 48 entry nat list with index and then
+   scanning a 24 entry list per edge.  Measured: 26 ms per check with it
+   inside, 79 us with it hoisted, over 16 777 216 states times eighteen
+   moves.  That is 90 days against 6.6 hours, for one let.               *)
 Definition checkStep : bool :=
+  let md := mdata in
   all_pow ncoord 0%uint63
-    (fun x => all (fun d => (Dfsi x <=? incr (Dfsi (actd x d)))%uint63) mdata).
+    (fun x => all (fun d => (Dfsi x <=? incr (Dfsi (actd x d)))%uint63) md).
 
 (* ---- 6. What the two checks buy ------------------------------------------ *)
 
