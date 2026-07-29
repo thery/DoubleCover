@@ -1,4 +1,4 @@
-# Build the Rocq certificates for the al.c hard-to-round search.
+# Build the Rocq certificates for the htr.c hard-to-round search.
 # Requires: rocq/coqc with coq-interval, coq-flocq, coq-coquelicot installed.
 
 COQFLAGS := -R . APaulRocq
@@ -20,14 +20,14 @@ Check.vo: Search.vo Cheb.vo
 	coqc $(COQFLAGS) $<
 
 # Cross-machine timing: prints the `Time` lines (see Bench.v for extrapolation).
-bench: Search.vo Lefevre63.vo
+bench: Search.vo Lefevre63.vo Check.vo
 	coqc $(COQFLAGS) Bench.v
 
 # Same workloads via native_compile (needs a native-compiler-enabled build).
 first-hrc: Search.vo Lefevre63.vo Check.vo
 	coqc $(COQFLAGS) FirstHRC.v
 
-bench-native: Search.vo Lefevre63.vo
+bench-native: Search.vo Lefevre63.vo Check.vo
 	coqc $(COQFLAGS) BenchNative.v
 
 clean:

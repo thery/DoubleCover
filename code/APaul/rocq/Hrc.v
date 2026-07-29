@@ -31,7 +31,12 @@ Definition prec53 : Z := 53.
 
 (** Required number of identical bits after the round bit (the [m] of
     [al.c]).  A row is hard-to-round when [exp x] agrees with a grid point
-    to within [2^-m_hrc]. *)
+    to within [2^-m_hrc].
+
+    This table demo keeps [al.c]'s original [m = 30]: [Data.dd_data] was
+    recorded around [0x1.00006b1501522p-2], which is hard to 30 bits but
+    not to the 35 that [htr.c] now asks for ([Search.m_hrc]).  The search
+    files use 35; here 30 is what makes row 50 the case to rediscover. *)
 Definition m_hrc : Z := 30.
 
 (** Distance (in [[0, 2^P / 2]]) from [W] to the nearest multiple of [2^P]. *)

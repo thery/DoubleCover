@@ -8,15 +8,17 @@
       - ~130 ns / point           (vs ~15.6 us / point over [Z]).
 
     ** The 63-vs-64-bit point.
-    [al.c] uses [uint64] (wraparound mod [2^64]) only because that is the
-    hardware word.  [PrimInt63] wraps mod [2^63], so we run the fixed-point
-    one bit coarser (63-bit fractions): [A + B] and [2*E] wrap natively,
-    [<?] is native.  This costs no correctness: the hard-to-round test only
-    needs the fractional distance to ~[2^-m] ulp with [m = 30], and a
-    63-bit fraction resolves to [2^-63] — a ~30-bit margin.  The extra
-    per-step coarsening is [<= 2^-63]; over a [2^20] chunk it accumulates to
-    [<= 2^-43], far inside the existing [2^-m] window, so widening [E] by a
-    negligible margin keeps the filter sound (no hard case missed).
+    [al.c]/[htr.c] use [uint64] (wraparound mod [2^64]) only because that
+    is the hardware word.  [PrimInt63] wraps mod [2^63], so we run the
+    fixed-point one bit coarser (63-bit fractions): [A + B] and [2*E] wrap
+    natively, [<?] is native.  This costs no correctness: the
+    hard-to-round test only needs the fractional distance to ~[2^-m] ulp
+    with [m = 35], and a 63-bit fraction resolves to [2^-63] — a ~28-bit
+    margin.  The extra per-step coarsening is [<= 2^-63]; over a [2^20]
+    chunk it accumulates to [<= 2^-43], far inside the window [E]
+    (~[2^-14.6] since [htr.c] widened it to cover the chunk drift), so
+    widening [E] by a negligible margin keeps the filter sound (no hard
+    case missed).
 
     This file provides the computation; the soundness proof (via the
     [Uint63] theory / [to_Z]) is future work. *)
@@ -51,7 +53,7 @@ Definition scan (A B twoE : int) (n : N) : list Z := scan_from A B twoE 0%uint63
 (** window width factor [2*E]. *)
 Definition window_factor : int := 2.
 
-(** per-chunk search matching [al.c]'s [A += E] shift and [2*E] threshold,
+(** per-chunk search matching the C code's [A += E] shift and [2*E] threshold,
     both wrapping mod [2^63] natively. *)
 Definition lefevre_chunk (Alu B E : int) (n : N) : list Z :=
   scan (Alu + E)%uint63 B (window_factor * E)%uint63 n.
