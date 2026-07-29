@@ -54,10 +54,21 @@ Notation arr := (PArray.array int).
    also throw away FsData.vo and its six minutes of parsing for nothing.
    Nothing outside the Far family depends on this file, so
 
+       ulimit -s unlimited
        rm -f Far*.vo Far*.vok Far*.vos Far*.glob .coq-native/NRubik_Far*
        make -j18
 
-   rebuilds exactly the twenty files that can have changed.                 *)
+   rebuilds exactly the twenty files that can have changed.
+
+   THE ulimit IS NOT OPTIONAL.  FsData.v is a 2 097 152 element seq int
+   literal, and loading or native compiling a list that deep recurses past
+   the default 8 MB stack; without it the build simply fails.
+
+   On -j: count the jobs, not the cores.  The certificate is sixteen files
+   and the search is eighteen, both just above the twelve physical cores of
+   the old Xeon, so -j12 pays two waves where -j18 pays one.  Drop back to
+   -j12 if memory complains -- every worker loads the table, about a
+   gigabyte each.                                                          *)
 Definition depth := 12.
 Definition droot := depth.-2.           (* depth = droot.+2                   *)
 Definition nroot := 2.                  (* size Sroot                         *)
