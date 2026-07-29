@@ -355,11 +355,32 @@ Variable Dti : arr -> nat.
 Variable Dt : seq nat -> nat.
 Hypothesis DtiE : forall a, tabi_ok a -> Dti a = Dt (ti2t a).
 
+(* WRITTEN WITH if, NOT WITH && AND has, AND THAT IS THE WHOLE POINT.
+   && is andb and || is orb, both ordinary functions, and vm_compute is call
+   by value: it evaluates every argument before applying.  With
+
+     (Dti a <= d) && (eq_tabi a id_tabi || has ... mtis)
+
+   the guard decides the answer and the subtree is explored anyway, so the
+   pruning table computes a correct heuristic that saves no work at all --
+   measured, the search from the superflip at depth 5 took 186 s, which is
+   the full 18 ^ 5 tree, where the heuristic should have stopped it at the
+   root in one node.  has is worse than it looks: being p x || has p s' it
+   does not stop at the first success either.
+
+   if is a match: the scrutinee is evaluated and then only the branch taken.
+   The inner fix does for the move list what has would not.  Same booleans,
+   and depth 5 goes from 186 s to nothing.                                  *)
 Fixpoint searchi (d : nat) (a : arr) : bool :=
-  (Dti a <= d) &&
-  (eq_tabi a id_tabi ||
-   (if d is d'.+1 then has (fun mt => searchi d' (comp_tabi a mt)) mtis
-    else false)).
+  if Dti a <= d then
+    if eq_tabi a id_tabi then true
+    else if d is d'.+1 then
+      (fix go (l : seq arr) : bool :=
+         if l is mt :: l' then
+           if searchi d' (comp_tabi a mt) then true else go l'
+         else false) mtis
+    else false
+  else false.
 
 (* THE BRIDGE FOR THE SEARCH: what runs and what is proved sound agree.       *)
 (* eq_in_has wants an eqType and arr is not one, so the guard is all rather   *)
@@ -374,7 +395,10 @@ Lemma searchiS d a :
   searchi d.+1 a =
   (Dti a <= d.+1) &&
   (eq_tabi a id_tabi || has (fun mt => searchi d (comp_tabi a mt)) mtis).
-Proof. by []. Qed.
+Proof.
+rewrite {1}/searchi -/searchi.
+case: (Dti a <= d.+1) => //=; case: (eq_tabi a id_tabi) => //=.
+Qed.
 
 Lemma searchtS d t :
   searcht n [seq ti2t mt | mt <- mtis] Dt d.+1 t =
