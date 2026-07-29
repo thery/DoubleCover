@@ -1,4 +1,4 @@
-(* =========================================================================  *)
+ (* =========================================================================  *)
 (*  Far12.v                                                                   *)
 (*                                                                            *)
 (*  superflip \notin ball Sset 12, assembled.                                 *)
@@ -48,7 +48,7 @@ Notation arr := (PArray.array int).
 
 (* the search depth, and the two moves the root is split over                 *)
 Definition depth := 12.
-Definition droot := 10.                 (* depth = droot.+2                   *)
+Definition droot := depth.-2.           (* depth = droot.+2                   *)
 Definition nroot := 2.                  (* size Sroot                         *)
 Definition nmoves := 18.                (* size moves                         *)
 
@@ -82,23 +82,22 @@ Qed.
    The two helpers below are pure view plumbing between x \in 'C[g],
    commute and g ^ x = g; they are what fought, not the mathematics.       *)
 Lemma conj_fix_cent (g u : {perm facelet}) : u \in 'C[g] -> g ^ u = g.
-Proof. Admitted.
+Proof. by move=> /cent1P comm; apply/conjg_commute/commute_sym. Qed.
 
 Lemma cent_conj_fix (g u : {perm facelet}) : g ^ u = g -> u \in 'C[g].
-Proof. Admitted.
+Proof. by move=> guEg; apply/cent1P; rewrite /commute [RHS]conjgC guEg. Qed.
 
 (* SKELETON, body recorded rather than run: apply: cent_conj_fix does not
    fire on the generator goals and the view chain is still not right.       *)
 Lemma superflipJ u : u \in Symg -> superflip ^ u = superflip.
-Proof. Admitted.
-(*
+Proof.
 move=> uS; apply: conj_fix_cent; move: uS; apply: subsetP.
-rewrite gen_subG; apply/subsetP => x; rewrite !inE.
+rewrite gen_subG; apply/subsetP => x; rewrite 5!inE.
 case/orP=> [/orP[]|] /eqP->; apply: cent_conj_fix.
 - by rewrite sftabE SyT ptJ; [congr pt; vm_compute | by vm_compute..].
 - by rewrite sftabE SxT ptJ; [congr pt; vm_compute | by vm_compute..].
 by rewrite sftabE SmT ptJ; [congr pt; vm_compute | by vm_compute..].
-*)
+Qed.
 
 (* not solved, and not one move from solved: one and eighteen comparisons of  *)
 (* tables, through pt_eq1 of Tsearch.v                                        *)
@@ -151,9 +150,12 @@ move=> iL jL; rewrite !nth_movesE // sftiE /prefixi.
 rewrite (ti2t_comp n47_small n47_len) ?mtis_ok_nth //;
   last by apply: (tabi_ok_comp n47_small n47_len); [exact: sfti_ok|exact: mtis_ok_nth].
 rewrite (ti2t_comp n47_small n47_len) ?sfti_ok ?mtis_ok_nth //.
-rewrite -!ptM //; [exact: sfti_ok | exact: mtis_ok_nth
-                  | by apply: tab_ok_comp; [exact: sfti_ok|exact: mtis_ok_nth]
-                  | exact: mtis_ok_nth].
+rewrite -[LHS]ptM //.
+- congr (_ * _); rewrite -[LHS]ptM //.
+  by apply: mtis_ok_nth.
+- apply: tab_ok_comp => //.
+  by apply: mtis_ok_nth.
+by apply: mtis_ok_nth.
 Qed.
 
 (* Sroot is the first two moves, which is why iota 0 nroot is the right index *)
@@ -187,7 +189,12 @@ Lemma search12 :
   all (fun i => all (fun j => ~~ searchi 47 mtis Dti12 droot (prefixi i j))
                     (iota 0 nmoves))
       (iota 0 nroot).
-Proof. Admitted.
+Proof.
+(*
+Time by vm_compute
+Qed.
+*)
+Admitted.
 
 (* ---- 5. The theorem ------------------------------------------------------ *)
 

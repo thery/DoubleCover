@@ -101,7 +101,24 @@ Qed.
 Lemma all_pow_gen k i f x :
   k <= ndigits -> to_nat i + (2 ^ k)%N <= nwB -> all_pow k i f ->
   to_nat i <= to_nat x < to_nat i + (2 ^ k)%N -> f x.
-Proof. Admitted.
+Proof.
+elim: k i => [|k IH] i kL hb /=.
+  (* 2 ^ 0 = 1, so to_nat i <= to_nat x < to_nat i + 1 pins x = i *)
+  move=> hf /andP[h1 h2]; rewrite expn0 addn1 ltnS in h2.
+  by have -> : x = i by apply: to_nat_inj; apply/eqP; rewrite eqn_leq h1 h2.
+move=> /andP[hlo hhi] /andP[h1 h2].
+have kL' : k <= ndigits by apply: ltnW.
+have hhalf : to_nat i + 2 ^ k <= nwB.
+  by apply: leq_trans hb; rewrite leq_add2l leq_exp2l.
+have [hlt|hge] := ltnP (to_nat x) (to_nat i + 2 ^ k).
+  by apply: (IH i) => //; rewrite h1.                    (* first half *)
+have hi2 : to_nat (i + lsl 1 (of_nat k)) = to_nat i + 2 ^ k.
+  by apply: to_nat_addlsl => //; apply: leq_trans hb;
+    rewrite ltn_add2l ltn_exp2l.
+apply: (@IH (i + lsl 1 (of_nat k))%uint63) => //.            (* second half *)
+  by rewrite hi2 -addnA addnn -mul2n -expnS.
+by rewrite hi2 hge -addnA addnn -mul2n -expnS.
+Qed.
 
 Lemma all_powP k f x :
   k <= ndigits -> all_pow k 0%uint63 f -> to_nat x < (2 ^ k)%N -> f x.
@@ -275,11 +292,22 @@ Proof. by rewrite /check0 /Dfs coordfs1E => /eqb_correct ->; rewrite to_nat_0. Q
 (* the entries are four bits, so the successor on the int side is the
    successor on the nat side -- no wrap to worry about                       *)
 Lemma Dfsi_small x : to_nat (Dfsi x) < nwB.-1.
-Proof. Admitted.
+Proof.
+rewrite /Dfsi.
+set v := (X in (X land _)%uint63); rewrite landC.
+apply: ltn_trans (_ : 2 ^ 4 < _); last first.
+rewrite -ltnS prednK; last by apply: ltn_trans ndigitsLwB.
+apply: ltn_trans ndigitsLwB => //.
+by apply: to_nat_land_bound.
+Qed.
 
 Lemma leb_incr_le a b :
   (a <=? incr b)%uint63 -> to_nat b < nwB.-1 -> to_nat a <= (to_nat b).+1.
-Proof. Admitted.
+Proof.
+move=> aLb bLwB.
+rewrite -to_nat_incr; first by apply/nlebP.
+by rewrite -[nwB]prednK // (ltn_trans _ ndigitsLwB).
+Qed.
 
 (* SKELETON, body recorded rather than run: with it in place the file stops
    compiling inside 150 s.  The suspect is 2 ^ ncoord -- nat is unary, so
@@ -298,6 +326,17 @@ Proof. Admitted.
      by rewrite -hd /Dfs; apply: leb_incr_le; exact: Dfsi_small.               *)
 Lemma DfsStep_of_check :
   checkStep -> forall x m, m \in Sset -> Dfs x <= (Dfs (actfs x m)).+1.
-Proof. Admitted.
+Proof.
+rewrite /checkStep.
+move=> hcheck x m mS.
+have [hx|hx] := ltnP (to_nat x) (2 ^ ncoord); last by rewrite Dfs_oob.
+have [mt mtM mE] : exists2 mt, mt \in mtabs & m = pt 47 mt.
+  by move: mS; rewrite inE mtabsE => /mapP[mt mtM ->]; exists mt.
+have mtok : tab_ok 47 mt by apply: (allP mtabs_ok).
+have hd : actfs x m = actd x (mdat_of_tab mt) by rewrite mE actdE.
+have hall := all_powP ncoord_dig hcheck hx.
+have F := allP hall (mdat_of_tab mt) (map_f _ mtM).
+by rewrite hd /Dfs; apply: leb_incr_le; last by exact: Dfsi_small.
+Qed.
 
 End Table.
