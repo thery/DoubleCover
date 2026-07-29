@@ -35,7 +35,7 @@ From Stdlib Require Import -(notations) PArray.
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
-        Coordfs Coordfsi Fstab FsTable Diameter Moves.
+        Coordfs Coordfsi Fstab FsTable Diameter Moves Fsmain.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -80,7 +80,7 @@ Proof. by apply: Dfs0_of_check; exact: fstab_check0. Qed.
 Lemma Dfsd_step x m : m \in Sset -> Dfsd x <= (Dfsd (actfs x m)).+1.
 Proof.
 rewrite /Dfsd.
-by apply: (DfsStep_of_check fstab_len fstab_def mtabs_ok mtabsE (fstab_checkStep mtabs)).
+by apply: (DfsStep_of_check fstab_len fstab_def mtabs_ok mtabsE fstab_checkStep).
 Qed.
 
 (* ---- 2. What the superflip has to satisfy -------------------------------- *)

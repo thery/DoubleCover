@@ -97,8 +97,21 @@ Proof. by vm_compute. Qed.
 Lemma fstab_check0 : check0 fstab.
 Proof. by vm_compute. Qed.
 
-(* THE SECOND COMPUTATION.  16 777 216 summaries times eighteen moves, each
-   a dozen bit operations and two reads -- the local certificate, and the
-   only thing this table is ever asked to satisfy.  Not run here.           *)
-Lemma fstab_checkStep mtabs : checkStep fstab mtabs.
-Proof. Admitted.
+(* THE SECOND COMPUTATION lives in Fsmain.v, not here.
+                                                                            *)
+(* It used to be admitted here as                                           *)
+(*                                                                          *)
+(*    Lemma fstab_checkStep mtabs : checkStep fstab mtabs.                   *)
+(*                                                                          *)
+(* quantified over every table list.  That is FALSE -- for                  *)
+(* mtabs = [:: comp_tab U R ] the check fails inside the first 2 ^ 20       *)
+(* coordinates, since a two move composition cuts the flip x slice          *)
+(* distance by two and breaks the local certificate -- and it was not       *)
+(* something a computation could discharge either, mtabs being a variable.  *)
+(* Far.v took it as the justification of Dfsd_step, so the depth 12         *)
+(* theorem rested on a false axiom.                                         *)
+(*                                                                          *)
+(* The honest statement is at the concrete moves, and needs Moves.v, which  *)
+(* this file must not depend on -- it would drag the move tables into the   *)
+(* 55 MB table file.  So it lives in Fsmain.v, where the sixteen slices     *)
+(* are glued.                                                               *)
