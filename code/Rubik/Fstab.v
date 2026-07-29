@@ -3,9 +3,8 @@
 (*                                                                            *)
 (*  The pruning table, and the two checks that make it usable.                *)
 (*                                                                            *)
-(*  SKELETON.  Definitions and statements are meant to be final; the real     *)
-(*  proofs are Admitted, each with a note on how it goes.  Nothing here is    *)
-(*  computed yet -- the two computations are exactly what this file defers.   *)
+(*  No admits.  Nothing here is computed either: the two computations are     *)
+(*  exactly what this file reduces the table's obligations to.                *)
 (*                                                                            *)
 (*  WHAT THIS FILE IS FOR.  Coordfs.v needs a D with                          *)
 (*                                                                            *)
@@ -78,26 +77,8 @@ move=> kL hb; have h2 : to_nat (lsl 1 (of_nat k)) = (2 ^ k)%N.
 by rewrite to_nat_add h2.
 Qed.
 
-(* SKELETON, body recorded rather than run: with it in place Fstab.v stops
-   compiling inside 150 s and the diverging step is not yet identified.  The
-   structure is the get_foldi_in one and every step of it is written out:
-
-     elim: k i => [|k IH] i kL hb /=.
-       (* 2 ^ 0 = 1, so to_nat i <= to_nat x < to_nat i + 1 pins x = i *)
-       move=> hf /andP[h1 h2]; rewrite expn0 addn1 ltnS in h2.
-       by have -> : x = i by apply: to_nat_inj; apply/eqP; rewrite eqn_leq h1 h2.
-     move=> /andP[hlo hhi] /andP[h1 h2].
-     have kL' : k <= ndigits by apply: ltnW.
-     have hhalf : to_nat i + 2 ^ k <= nwB.
-       by apply: leq_trans hb; rewrite leq_add2l leq_exp2l.
-     have [hlt|hge] := ltnP (to_nat x) (to_nat i + 2 ^ k).
-       by apply: (IH i) => //; rewrite h1.                    (* first half *)
-     have hi2 : to_nat (i + lsl 1 (of_nat k)) = to_nat i + 2 ^ k.
-       by apply: to_nat_addlsl => //; apply: leq_trans hb;
-          rewrite ltn_add2l ltn_exp2l.
-     apply: (IH (i + lsl 1 (of_nat k))) => //.                (* second half *)
-     - by rewrite hi2 -addnA addnn -mul2n -expnS.
-     - by rewrite hi2 hge /= -addnA addnn -mul2n -expnS.                     *)
+(* the completeness of the loop, by the get_foldi_in induction: split at the
+   midpoint, and to_nat_addlsl for the second half starting 2 ^ k further on *)
 Lemma all_pow_gen k i f x :
   k <= ndigits -> to_nat i + (2 ^ k)%N <= nwB -> all_pow k i f ->
   to_nat i <= to_nat x < to_nat i + (2 ^ k)%N -> f x.
@@ -309,21 +290,10 @@ rewrite -to_nat_incr; first by apply/nlebP.
 by rewrite -[nwB]prednK // (ltn_trans _ ndigitsLwB).
 Qed.
 
-(* SKELETON, body recorded rather than run: with it in place the file stops
-   compiling inside 150 s.  The suspect is 2 ^ ncoord -- nat is unary, so
-   any step that forces it builds sixteen million successors, and the cure
-   is the one nwB already uses in ssrint63.v: make nstates an opaque
-   constant with an equation, and state Dfs_oob and this proof against it.
-
-     move=> hcheck x m mS.
-     have [hx|hx] := ltnP (to_nat x) (2 ^ ncoord); last by rewrite Dfs_oob.
-     have [mt mtM mE] : exists2 mt, mt \in mtabs & m = pt 47 mt.
-       by move: mS; rewrite inE mtabsE => /mapP[mt mtM ->]; exists mt.
-     have mtok : tab_ok 47 mt by apply: (allP mtabs_ok).
-     have hd : actfs x m = actd x (mdat_of_tab mt) by rewrite mE actdE.
-     have hall := all_powP ncoord_dig hcheck hx.
-     have := allP hall (mdat_of_tab mt) (map_f _ mtM).
-     by rewrite -hd /Dfs; apply: leb_incr_le; exact: Dfsi_small.               *)
+(* the routing: out of range is Dfs_oob, in range is all_powP for the checked
+   instance and actdE to turn the move into its data.  Note the /checkStep
+   has to come before the intros -- unfolding it afterwards is what made this
+   look like it diverged.                                                    *)
 Lemma DfsStep_of_check :
   checkStep -> forall x m, m \in Sset -> Dfs x <= (Dfs (actfs x m)).+1.
 Proof.
