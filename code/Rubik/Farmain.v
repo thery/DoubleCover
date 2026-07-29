@@ -24,13 +24,24 @@ Unset Printing Implicit Defensive.
 
 Import GroupScope.
 
+(* all over iota 0 18 is an eighteen fold conjunction, but it has to be
+   unfolded with f ABSTRACT.  Unfolding it on the goal itself puts /= next to
+   a term holding a searchi, and simpl then starts unfolding the search
+   rather than the all, which does not come back.  Here f is a variable, so
+   simpl can only see all and iota, and the eighteen pieces are then plugged
+   in as opaque constants.                                                  *)
+Lemma all_iota18 (f : nat -> bool) :
+  f 0%N -> f 1%N -> f 2%N -> f 3%N -> f 4%N -> f 5%N -> f 6%N -> f 7%N -> f 8%N -> f 9%N -> f 10%N -> f 11%N -> f 12%N -> f 13%N -> f 14%N -> f 15%N -> f 16%N -> f 17%N -> all f (iota 0 18).
+Proof. by move=> h00 h01 h02 h03 h04 h05 h06 h07 h08 h09 h10 h11 h12 h13 h14 h15 h16 h17; rewrite /= h00 h01 h02 h03 h04 h05 h06 h07 h08 h09 h10 h11 h12 h13 h14 h15 h16 h17. Qed.
+
 (* the second move outermost, so that the eighteen pieces are exactly the
    eighteen conjuncts *)
 Lemma searchd :
   all (fun j => all (fun i => ~~ searchi 47 mtis Dtid droot (prefixi i j))
                     (iota 0 nroot))
       (iota 0 nmoves).
-Proof. by rewrite /nmoves /= searchd_00 searchd_01 searchd_02 searchd_03 searchd_04 searchd_05 searchd_06 searchd_07 searchd_08 searchd_09 searchd_10 searchd_11 searchd_12 searchd_13 searchd_14 searchd_15 searchd_16 searchd_17. Qed.
+Proof. by apply: all_iota18; [exact: searchd_00 | exact: searchd_01 | exact: searchd_02 | exact: searchd_03 | exact: searchd_04 | exact: searchd_05 | exact: searchd_06 | exact: searchd_07 | exact: searchd_08 | exact: searchd_09 | exact: searchd_10 | exact: searchd_11 | exact: searchd_12 | exact: searchd_13 | exact: searchd_14 | exact: searchd_15 | exact: searchd_16 | exact: searchd_17].
+Qed.
 
 (* ---- 5. The theorem ------------------------------------------------------ *)
 
