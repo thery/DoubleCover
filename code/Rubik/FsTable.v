@@ -69,10 +69,17 @@ Definition mkarr (l : seq int) : arr :=
    with "Unbound module NRubik_FsTable".  FsData.v's list compiles natively
    fine; it is the array value that it cannot do.
 
-   Without the Eval the fold is redone whenever this file is Required, which
-   is a few seconds and is the cheaper problem of the two.  TO FIX LATER:
-   either teach the build to skip native for this one file, or keep the table
-   as the list and read it through a function instead of an array.          *)
+   And the Eval was never worth much anyway, native or not.  The fold is a
+   second; the search it precedes is minutes at depth 12 and hours at depth
+   19.  It is paid once per vm_compute -- not per node, not per Require, not
+   per array access -- so even with one worker per root prefix it is 36
+   seconds against hours.  Storing the table twice to save that was the wrong
+   trade; the native failure only made us notice.
+
+   It would start to matter if the work per vm_compute were itself about a
+   second, i.e. if the search were split into thousands of tiny files.  At 36
+   prefixes we are nowhere near that, and the fix then would be bigger
+   chunks, not a second copy of the table.                                  *)
 Definition fstab : arr := mkarr fsdata.
 
 (* ---- What Fstab.v asks of it --------------------------------------------- *)
