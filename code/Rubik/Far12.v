@@ -175,59 +175,13 @@ Qed.
 Lemma root_index m : m \in Sroot -> exists2 i, i < nroot & nth 1 moves i = m.
 Proof. by rewrite /Sroot !inE => /orP[]/eqP->; [exists 0%N | exists 1%N]. Qed.
 
-(* ---- 4. THE COMPUTATION -------------------------------------------------- *)
+(* ---- 4. The computation, and where it lives ------------------------------ *)
 
-(* The one admit that is not a proof: 36 independent searches of depth 10,    *)
-(* with the real flip x slice table behind Dti12.                             *)
-(*                                                                            *)
-(* It is NOT affordable as it stands.  The heuristic is right -- Dti12 sfti   *)
-(* is 8, the value the OCaml prototype gets -- but every node pays about 196  *)
-(* of_nat and 96 scans of a 24 element nat list, all inside cubti and coordi, *)
-(* which is several thousand nat operations against the ~900 array writes the *)
-(* eighteen compositions cost.  The nat layer has to come out of Dti before   *)
-(* this line is worth running: the constants belong in int arrays and the     *)
-(* loops in an int index.                                                     *)
-(*                                                                            *)
-(* When it does run and stops fitting in one file, one generated file per     *)
-(* (i, j) with vm_cast_no_check, checked by make -j and cited here.           *)
-Lemma search12 :
-  all (fun i => all (fun j => ~~ searchi 47 mtis Dti12 droot (prefixi i j))
-                    (iota 0 nmoves))
-      (iota 0 nroot).
-Proof.
-(*
-Time by vm_compute
-Qed.
-*)
-Admitted.
+(* What is left is 36 searches of depth 10 -- two root moves times eighteen
+   second moves -- and they are independent.  They are NOT here: one
+   generated file per second move proves its own pair, and Far12main.v glues
+   the eighteen together and finishes the theorem.  See Far12main.v.
 
-(* ---- 5. The theorem ------------------------------------------------------ *)
-
-(* one prefix is out of the ball, by Coordfsi.far_of_searchi                  *)
-Lemma prefix_far i j :
-  i < nroot -> j < nmoves ->
-  superflip * nth 1 moves i * nth 1 moves j \notin ball Sset droot.
-Proof.
-move=> iL jL; have iL' : i < nmoves by rewrite (leq_trans iL).
-rewrite -prefixiE //.
-(* the depth is given explicitly so that the term is ground before it meets
-   the goal; ball Sset ?d is a finset over {perm 'I_48} and not something to
-   leave to unification.                                                   *)
-have hs : searchi 47 mtis Dti12 droot (prefixi i j) = false.
-  (* no /= anywhere near this goal: it holds a searchi at depth 10 and simpl
-     would start unfolding the search itself.                              *)
-  have h1 : i \in iota 0 nroot by rewrite mem_iota add0n leq0n.
-  have h2 : j \in iota 0 nmoves by rewrite mem_iota add0n leq0n.
-  by apply/negbTE; move: search12 => /allP/(_ _ h1)/allP/(_ _ h2).
-exact: (far_of_searchi Dfs12_0 Dfs12_step mtis_ok mtisE
-          (d := droot) (prefixi_ok iL' jL) hs).
-Qed.
-
-Theorem superflip_far12 : superflip \notin ball Sset depth.
-Proof.
-apply: (ball_root2 superflipJ superflip_neq1 superflip_move_neq1).
-move=> m1 m2 m1R m2M.
-have [j jL <-] := moves_index m2M.
-have [i iL <-] := root_index m1R.
-exact: prefix_far.
-Qed.
+   The split is by second move rather than by pair so that each file is one
+   vm_compute over two searches: eighteen files rather than thirty six, and
+   each still small enough to check on its own core.                        *)
