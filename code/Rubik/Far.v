@@ -1,7 +1,7 @@
 (* =========================================================================  *)
-(*  Far12.v                                                                   *)
+(*  Far.v                                                                   *)
 (*                                                                            *)
-(*  superflip \notin ball Sset 12, assembled.                                 *)
+(*  superflip \notin ball Sset depth, assembled.                              *)
 (*                                                                            *)
 (*  One admit, and it is the computation itself -- everything else is        *)
 (*  proved.  Nothing is run here.                                            *)
@@ -15,16 +15,16 @@
 (*    Fstab.v     the table's two obligations are two booleans                *)
 (*    FsTable.v   a table                                                     *)
 (*                                                                            *)
-(*  and here they meet: 36 searches of depth 10 on arrays, and the theorem.   *)
+(*  and here they meet: 36 searches of depth droot on arrays, and the theorem.*)
 (*                                                                            *)
-(*  WHY 36 SEARCHES OF DEPTH 10 AND NOT ONE OF DEPTH 12.  ball_root2: the     *)
+(*  WHY 36 SEARCHES OF DEPTH droot AND NOT ONE OF DEPTH depth.  ball_root2:   *)
 (*  superflip is fixed by all 48 symmetries, so every maneuver is equivalent  *)
 (*  to one whose first move is U or U2.  Two first moves instead of eighteen  *)
 (*  is a factor of 9, and each of the 36 pairs is an independent search --    *)
 (*  one generated file each when the depth makes that worth doing.            *)
 (*                                                                            *)
 (*  WITH THE PLACEHOLDER TABLE THIS IS BRUTE FORCE.  FsTable.v's table is all *)
-(*  zeros, so the heuristic is 0 and search12 is the Toy.v search at depth 10 *)
+(*  zeros, so the heuristic is 0 and searchd is the Toy.v brute force search  *)
 (*  -- around 4 . 10 ^ 11 nodes, which is not going to be run.  It is still   *)
 (*  the right thing to state: the statement does not change when the real     *)
 (*  table arrives, only the time it takes to check.                           *)
@@ -45,7 +45,12 @@ Import GroupScope.
 
 Notation arr := (PArray.array int).
 
-(* the search depth, and the two moves the root is split over                 *)
+(* THE ONE LINE TO CHANGE.  Everything below is stated in terms of depth and
+   droot, and the eighteen generated files say droot, so setting depth to 10
+   or 14 restates the theorem and every piece of it.  Only two things do not
+   follow automatically: the .vo of the pieces are cached, so make clean (or
+   at least rm Far_??.vo) after changing it; and depth must be at least 2,
+   since ball_root2 needs depth = droot.+2.                                 *)
 Definition depth := 12.
 Definition droot := depth.-2.           (* depth = droot.+2                   *)
 Definition nroot := 2.                  (* size Sroot                         *)
@@ -56,17 +61,17 @@ Definition nmoves := 18.                (* size moves                         *)
 (* Toy.v supplies mtabs, mtis and their lemmas.  When the real run needs its  *)
 (* own file those move out of Toy.v and both read them from there.            *)
 
-Definition Dfs12 : int -> nat := Dfs fstab.
-Definition Dti12 : arr -> nat := Dti Dfs12.
+Definition Dfsd : int -> nat := Dfs fstab.
+Definition Dtid : arr -> nat := Dti Dfsd.
 
 (* the two obligations Coordfs.v asks of a table, discharged through Fstab.v  *)
 (* by the two boolean checks rather than proved about the table itself        *)
-Lemma Dfs12_0 : Dfs12 (coordfs 1) = 0.
+Lemma Dfsd_0 : Dfsd (coordfs 1) = 0.
 Proof. by apply: Dfs0_of_check; exact: fstab_check0. Qed.
 
-Lemma Dfs12_step x m : m \in Sset -> Dfs12 x <= (Dfs12 (actfs x m)).+1.
+Lemma Dfsd_step x m : m \in Sset -> Dfsd x <= (Dfsd (actfs x m)).+1.
 Proof.
-rewrite /Dfs12.
+rewrite /Dfsd.
 by apply: (DfsStep_of_check fstab_len fstab_def mtabs_ok mtabsE (fstab_checkStep mtabs)).
 Qed.
 
@@ -177,10 +182,10 @@ Proof. by rewrite /Sroot !inE => /orP[]/eqP->; [exists 0%N | exists 1%N]. Qed.
 
 (* ---- 4. The computation, and where it lives ------------------------------ *)
 
-(* What is left is 36 searches of depth 10 -- two root moves times eighteen
+(* What is left is 36 searches of depth droot -- two root moves times eighteen
    second moves -- and they are independent.  They are NOT here: one
-   generated file per second move proves its own pair, and Far12main.v glues
-   the eighteen together and finishes the theorem.  See Far12main.v.
+   generated file per second move proves its own pair, and Farmain.v glues
+   the eighteen together and finishes the theorem.  See Farmain.v.
 
    The split is by second move rather than by pair so that each file is one
    vm_compute over two searches: eighteen files rather than thirty six, and
