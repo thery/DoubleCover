@@ -11,7 +11,7 @@
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
-From Rubik Require Import Tabi Coordfsi Fstab FsTable Toy Far.
+From Rubik Require Import Tabi Coordfsi Fstab FsTable Moves Far.
 
 Set Implicit Arguments.
 Unset Strict Implicit.

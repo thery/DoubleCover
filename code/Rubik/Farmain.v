@@ -14,7 +14,7 @@ From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root.
-From Rubik Require Import Coord Coordfs Coordfsi Fstab FsTable Diameter Toy.
+From Rubik Require Import Coord Coordfs Coordfsi Fstab FsTable Diameter Moves.
 From Rubik Require Import Far.
 From Rubik Require Import Far_00 Far_01 Far_02 Far_03 Far_04 Far_05 Far_06 Far_07 Far_08 Far_09 Far_10 Far_11 Far_12 Far_13 Far_14 Far_15 Far_16 Far_17.
 

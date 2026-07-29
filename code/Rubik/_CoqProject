@@ -12,6 +12,7 @@ Sym.v
 Root.v
 Coord.v
 Diameter.v
+Moves.v
 Toy.v
 Coordfs.v
 Coordfsi.v
