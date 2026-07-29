@@ -561,10 +561,20 @@ Definition check0 : bool := (Dfsi (coordt (id_tab 47)) =? 0)%uint63.
    moves.  That is 90 days against 6.6 hours, for one let.               *)
 (* actd is replaced by actf here, and mdata by mdataf: same booleans by
    actfE, ten times faster.  See 4bis.                                    *)
-Definition checkStep : bool :=
+
+(* THE PREDICATE IS NAMED, AND THAT IS NOT COSMETIC EITHER.  With the let
+   written inline under all_pow, splitting the loop for several cores needs
+   an equation between two closed all_pow ncoord terms, and proving it
+   forces conversion to commute the let past all_pow -- which unfolds the
+   loop into 2 ^ 24 conjuncts and never returns.  Named, the split is a
+   delta step: checkStep is all_pow ncoord 0 stepF by definition, and
+   Fspar.v can rewrite /checkStep and work on stepF with the loop still
+   folded.                                                               *)
+Definition stepF : int -> bool :=
   let md := mdataf in
-  all_pow ncoord 0%uint63
-    (fun x => all (fun d => (Dfsi x <=? incr (Dfsi (actf x d)))%uint63) md).
+  fun x => all (fun d => (Dfsi x <=? incr (Dfsi (actf x d)))%uint63) md.
+
+Definition checkStep : bool := all_pow ncoord 0%uint63 stepF.
 
 (* ---- 6. What the two checks buy ------------------------------------------ *)
 
