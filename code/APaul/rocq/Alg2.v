@@ -152,7 +152,29 @@ Local Notation Inf := (inf_dst M A B).
 
 (** *** Warm-up: elementary facts about the specification *)
 
+Lemma pt_lt x : Pt x < M.
+Proof. Admitted.
+
+Lemma pt0 : Pt 0 = 0.
+Proof. Admitted.
+
+(** the lattice is additive mod M *)
+Lemma ptD x y : Pt (x + y) = (Pt x + Pt y) %% M.
+Proof. Admitted.
+
 Lemma dst_lt x : Dst x < M.
+Proof. Admitted.
+
+Lemma dst0 : Dst 0 = B.
+Proof. Admitted.
+
+(** [Dst] read as a difference: this is the bridge to the geometry. *)
+Lemma dstE x : Dst x = (B + M - Pt x) %% M.
+Proof. Admitted.
+
+(** moving one lattice step to the right lowers the distance by [Pt y],
+    unless it wraps.  The workhorse for [step_d]. *)
+Lemma dstD x y : Pt y <= Dst x -> Dst (x + y) = Dst x - Pt y.
 Proof. Admitted.
 
 Lemma inf_dstS n : Inf n.+1 = minn (Dst n) (Inf n).
@@ -204,14 +226,61 @@ Lemma step_bez p q d u v :
 Proof. Admitted.
 
 (** the batched Euclid step: [k] applications of slater's [get_minS] /
-    [get_maxS] at once (Property 2 of the paper).  Induction on [k]. *)
+    [get_maxS] at once (Property 2 of the paper).  Induction on [k],
+    through the two one-step lemmas below. *)
+
+(** one point added on the left: [v] keeps realising the smallest
+    positive point, [u] moves to [u + v].  (slater: [get_maxS].) *)
+Lemma step_pt_one_lt p q u v :
+  inv p q (Dst 0) u v -> p < q -> u + v < N ->
+  (p = Pt v) /\ (q - p = M - Pt (u + v)).
+Proof. Admitted.
+
+(** one point added on the right.  (slater: [get_minS].) *)
+Lemma step_pt_one_ge p q u v :
+  inv p q (Dst 0) u v -> q <= p -> u + v < N ->
+  (p - q = Pt (v + u)) /\ (q = M - Pt u).
+Proof. Admitted.
+
 Lemma step_pt p q d u v :
   inv p q d u v -> u + v < N ->
   let: (p', q', _, u', v') := step p q d u v in
   (p' = Pt v') /\ (q' = M - Pt u').
 Proof. Admitted.
 
-(** THE hard one: the [d] update stays a genuine distance. *)
+(** THE hard one: the [d] update stays a genuine distance.
+
+    Attack it through the two branches separately.  In each, the claim is
+    that reducing [d] modulo an interval length lands on another point of
+    the configuration -- because, by Property 3 (directed reduction), the
+    points added in this step are placed at regular spacing [p] (resp.
+    [q]) going from [b] towards 0. *)
+
+(** branch [p < q]: [k = q/p] points of the configuration lie at
+    [x + j*v] for [j <= k], spaced by [p]; so [d %% p] is again a
+    distance. *)
+Lemma step_d_lt p q d u v x j :
+  inv p q d u v -> p < q -> x < u + v -> d = Dst x ->
+  j <= d %/ p -> Dst (x + j * v) = d - j * p.
+Proof. Admitted.
+
+Lemma step_d_lt_mem p q d u v :
+  inv p q d u v -> p < q -> u + v < N ->
+  exists2 x, x < u + (q %/ p) * v + v & d %% p = Dst x.
+Proof. Admitted.
+
+(** branch [q <= p]: same, spaced by [q], after one subtraction of the
+    new [p]. *)
+Lemma step_d_ge p q d u v x j :
+  inv p q d u v -> q <= p -> x < u + v -> d = Dst x ->
+  j <= d %/ q -> Dst (x + j * u) = d - j * q.
+Proof. Admitted.
+
+Lemma step_d_ge_mem p q d u v (p' := p - (p %/ q) * q) :
+  inv p q d u v -> q <= p -> u + v < N -> p' <= d ->
+  exists2 x, x < u + (v + (p %/ q) * u) & (d - p') %% q = Dst x.
+Proof. Admitted.
+
 Lemma step_d p q d u v :
   inv p q d u v -> u + v < N ->
   let: (_, _, d', u', v') := step p q d u v in
