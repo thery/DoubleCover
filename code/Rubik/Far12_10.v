@@ -21,4 +21,8 @@ Import GroupScope.
 
 Lemma searchj_10 :
   all (fun i => ~~ searchi 47 mtis Dti12 droot (prefixi i 10)) (iota 0 nroot).
-Proof. Time by vm_compute. Qed.
+(* native_cast_no_check, not "by vm_compute": the latter evaluates twice,
+   once in the tactic and once when the kernel rechecks the cast at Qed.
+   This evaluates once, and natively.  If the native compiler is not
+   available, vm_cast_no_check (erefl true) is the fallback.               *)
+Proof. Time native_cast_no_check (erefl true). Qed.
