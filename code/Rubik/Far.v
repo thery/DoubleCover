@@ -48,9 +48,16 @@ Notation arr := (PArray.array int).
 (* THE ONE LINE TO CHANGE.  Everything below is stated in terms of depth and
    droot, and the eighteen generated files say droot, so setting depth to 10
    or 14 restates the theorem and every piece of it.  Only two things do not
-   follow automatically: the .vo of the pieces are cached, so make clean (or
-   at least rm Far_??.vo) after changing it; and depth must be at least 2,
-   since ball_root2 needs depth = droot.+2.                                 *)
+   follow automatically.  First, depth must be at least 2, since ball_root2
+   needs depth = droot.+2.  Second, the pieces are compiled, so after
+   changing this line remove them -- but NOT with make clean, which would
+   also throw away FsData.vo and its six minutes of parsing for nothing.
+   Nothing outside the Far family depends on this file, so
+
+       rm -f Far*.vo Far*.vok Far*.vos Far*.glob .coq-native/NRubik_Far*
+       make -j18
+
+   rebuilds exactly the twenty files that can have changed.                 *)
 Definition depth := 12.
 Definition droot := depth.-2.           (* depth = droot.+2                   *)
 Definition nroot := 2.                  (* size Sroot                         *)
