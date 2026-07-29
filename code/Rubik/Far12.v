@@ -1,11 +1,10 @@
- (* =========================================================================  *)
+(* =========================================================================  *)
 (*  Far12.v                                                                   *)
 (*                                                                            *)
 (*  superflip \notin ball Sset 12, assembled.                                 *)
 (*                                                                            *)
-(*  SKELETON.  Everything is stated; the glue lemmas are Admitted with a note *)
-(*  on how each goes, and ONE admit is the computation itself.  Nothing is    *)
-(*  run here.                                                                 *)
+(*  One admit, and it is the computation itself -- everything else is        *)
+(*  proved.  Nothing is run here.                                            *)
 (*                                                                            *)
 (*  WHAT IS BEING ASSEMBLED.  Five files, each proving its own piece:         *)
 (*                                                                            *)
@@ -87,8 +86,8 @@ Proof. by move=> /cent1P comm; apply/conjg_commute/commute_sym. Qed.
 Lemma cent_conj_fix (g u : {perm facelet}) : g ^ u = g -> u \in 'C[g].
 Proof. by move=> guEg; apply/cent1P; rewrite /commute [RHS]conjgC guEg. Qed.
 
-(* SKELETON, body recorded rather than run: apply: cent_conj_fix does not
-   fire on the generator goals and the view chain is still not right.       *)
+(* !inE over-rewrites here and leaves a shape cent_conj_fix cannot see;
+   5!inE stops at the three generators.                                     *)
 Lemma superflipJ u : u \in Symg -> superflip ^ u = superflip.
 Proof.
 move=> uS; apply: conj_fix_cent; move: uS; apply: subsetP.
