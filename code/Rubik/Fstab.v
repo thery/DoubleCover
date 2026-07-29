@@ -236,6 +236,289 @@ case: ltnP => jn.
 by rewrite hsrc ?hsub.
 Qed.
 
+(* ---- 4bis. actf, the same function with no nat inside the loop ------------ *)
+
+(* actd is correct but slow: per bit it walks a 12 element nat list for src,   *)
+(* a 24 element bool list for xbit, and setbit does an of_nat.  Measured at    *)
+(* 79 us per check, which is 6.6 h over the 16 777 216 states.  actf keeps the *)
+(* twelve sources in an int array and the twelve xbits in one int, and indexes *)
+(* the loop by an int, so nothing in the inner loop is a nat.  Measured at     *)
+(* 8.1 us per check, which is 41 min.                                          *)
+
+Definition mdatf := (arr * int)%type.
+
+(* nedge and ncoord as ints, once, so the loop does not redo of_nat per bit *)
+Definition nedgei : int := Eval vm_compute in of_nat nedge.
+
+Definition mk_srci (mt : seq nat) : arr :=
+  mkarrn nedgei [seq of_nat v | v <- msrc mt].
+
+Definition mk_xbiti (mt : seq nat) : int :=
+  packn nedge (fun k => nth false (mxbit mt) k).
+
+Definition mdatf_of_tab (mt : seq nat) : mdatf := (mk_srci mt, mk_xbiti mt).
+
+(* packn, indexed by an int and built bottom up.  Same word, no of_nat. *)
+Fixpoint packi (k : nat) (i : int) (f : int -> bool) (acc : int) : int :=
+  if k is k1.+1 then
+    packi k1 (i + 1)%uint63 f (if f i then (acc lor lsl 1 i)%uint63 else acc)
+  else acc.
+
+Definition actf (x : int) (dp : mdatf) : int :=
+  packi ncoord 0%uint63
+    (fun p => if (p <? nedgei)%uint63
+              then bit x (PArray.get dp.1 p) (+) bit dp.2 p
+              else bit x (PArray.get dp.1 (p - nedgei)%uint63 + nedgei)%uint63)
+    0%uint63.
+
+(* ---- 4ter. the obligations that make actf equal to actd ------------------- *)
+
+(* (a) the loop.  packi only ors bits in, so every bit of acc survives and the *)
+(* bits it adds are exactly i .. i+k-1.  Generalised in i and acc, else the    *)
+(* induction has nothing to chew on: packi k.+1 0 f 0 recurses at index 1.     *)
+(* setbit with an int index, the one step of the loop *)
+Lemma nbit_lori (x i : int) (b : bool) j :
+  to_nat i < ndigits -> j < ndigits ->
+  nbit (if b then (x lor lsl 1 i)%uint63 else x) j
+  = nbit x j || ((j == to_nat i) && b).
+Proof.
+move=> hid hjd; case: b; last by rewrite andbF orbF.
+have hjw : j < nwB by apply: ltn_trans hjd ndigitsLwB.
+have hi : (i <? digits)%uint63 by apply/nltbP.
+have hj : (of_nat j <? digits)%uint63 by apply/nltbP; rewrite of_natK.
+rewrite andbT /nbit lor_spec bit_onenn //; congr (_ || _).
+apply/idP/idP => [/eqP->|/eqP->]; first by rewrite of_natK.
+by rewrite to_natK.
+Qed.
+
+Lemma nbit_packi k i f acc j :
+  j < ndigits -> to_nat i + k <= ndigits ->
+  nbit (packi k i f acc) j
+  = nbit acc j || [&& to_nat i <= j, j < to_nat i + k & f (of_nat j)].
+Proof.
+move=> hjd.
+elim: k i acc => [|k IH] i acc hb /=; first by rewrite addn0 leqNgt andbA andNb orbF.
+have hid : to_nat i < ndigits.
+  by apply: leq_trans hb; rewrite addnS ltnS leq_addr.
+have hi1 : to_nat (i + 1)%uint63 = (to_nat i).+1.
+  rewrite -[(i+1)%uint63]/(incr _) to_nat_incr //.
+  by apply: leq_ltn_trans hid ndigitsLwB.
+rewrite IH ?hi1; last by move: hb; rewrite addnS.
+rewrite nbit_lori // -orbA; congr (_ || _).
+rewrite addnS addSn.
+have [->|jne] := eqVneq j (to_nat i).
+  by rewrite ltnn leqnn ltnS leq_addr to_natK /= orbF.
+by rewrite orFb ltn_neqAle eq_sym (negPf jne).
+Qed.
+
+Lemma packi_lt k i f acc :
+  to_nat i + k <= ndigits -> to_nat acc < 2 ^ (to_nat i + k) ->
+  to_nat (packi k i f acc) < 2 ^ (to_nat i + k).
+Proof.
+elim: k i acc => [|k IH] i acc hb hacc //=.
+have hid : to_nat i < ndigits.
+  by apply: leq_trans hb; rewrite addnS ltnS leq_addr.
+have hi1 : to_nat (i + 1)%uint63 = (to_nat i).+1.
+  rewrite -[(i+1)%uint63]/(incr _) to_nat_incr //.
+  by apply: leq_ltn_trans hid ndigitsLwB.
+have hsw : to_nat i + k.+1 = to_nat (i + 1)%uint63 + k.
+  by rewrite hi1 addSn addnS.
+rewrite hsw; apply: IH; first by rewrite -hsw.
+rewrite -hsw; case: (f i) => //.
+apply: to_nat_lor_bound => //.
+rewrite -{1}(to_natK i) to_nat_lsl1 // ltn_exp2l //.
+by rewrite addnS ltnS leq_addr.
+Qed.
+
+(* (b) the two agree, by packn_eq on the k bits.  This is the payoff of (a). *)
+Lemma packiE k (f : int -> bool) :
+  k <= ndigits -> packi k 0%uint63 f 0%uint63 = packn k (fun j => f (of_nat j)).
+Proof.
+move=> hk; apply: (@packn_eq k).
+- have H := @packi_lt k 0%uint63 f 0%uint63.
+  by rewrite to_nat_0 add0n in H; apply: H => //; rewrite expn_gt0.
+- by apply: packn_lt.
+move=> j jk.
+have hjd : j < ndigits by apply: leq_trans jk hk.
+rewrite nbit_packi ?to_nat_0 ?add0n //.
+by rewrite nbit_packn // /nbit bit_0 leq0n jk /=.
+Qed.
+
+Lemma nedge_dig : nedge <= ndigits.
+Proof. by apply: leq_trans ncoord_dig; rewrite /ncoord leq_addr. Qed.
+
+(* of_nat commutes with the three operations the loop does, below nwB.  These
+   are generic int63 facts and would sit better in ssrint63.v; they are here
+   to avoid a rebuild of everything that depends on it.                    *)
+Lemma of_nat_ltbE m n : m < nwB -> n < nwB -> (of_nat m <? of_nat n)%uint63 = (m < n).
+Proof.
+move=> hm hn; apply/idP/idP => H.
+  by move/nltbP: H; rewrite !of_natK.
+by apply/nltbP; rewrite !of_natK.
+Qed.
+
+Lemma of_nat_addE m n : m + n < nwB -> (of_nat m + of_nat n)%uint63 = of_nat (m + n).
+Proof.
+move=> h.
+have hm : m < nwB by apply: leq_ltn_trans h; apply: leq_addr.
+have hn : n < nwB by apply: leq_ltn_trans h; apply: leq_addl.
+by apply: to_nat_inj; rewrite to_nat_add !of_natK.
+Qed.
+
+Lemma of_nat_subE m n : n <= m -> m < nwB -> (of_nat m - of_nat n)%uint63 = of_nat (m - n).
+Proof.
+move=> hnm hm.
+have hn : n < nwB by apply: leq_ltn_trans hm.
+have hs : m - n < nwB by apply: leq_ltn_trans hm; apply: leq_subr.
+by apply: to_nat_inj; rewrite to_nat_sub !of_natK.
+Qed.
+
+Lemma nedgeiE : nedgei = of_nat nedge. Proof. by []. Qed.
+Lemma ncoordE : ncoord = nedge + nedge. Proof. by []. Qed.
+
+(* (c) the core: actf = actd whenever the array and the packed word read back  *)
+(* as the two lists.  Deliberately stated on the READS, not on mk_srci, so it  *)
+(* needs nothing about mkarrn -- that is isolated in (d).                      *)
+Lemma actfE_gen x (dp : mdatf) (d : mdatum) :
+  (forall p, p < nedge -> PArray.get dp.1 (of_nat p) = of_nat (nth 0%N d.1 p)) ->
+  (forall p, p < nedge -> bit dp.2 (of_nat p) = nth false d.2 p) ->
+  (forall p, p < nedge -> nth 0%N d.1 p < nedge) ->
+  actf x dp = actd x d.
+(* Beware: nwB is 2^63, so a stray // on a `_ < nwB` side goal sends done off
+   computing it in unary and the file never compiles -- it looks exactly like
+   a diverging tactic.  Every such bound is discharged from hnw below.    *)
+Proof.
+move=> hget hbit hlt.
+have hnw k : k <= ndigits -> k < nwB.
+  by move=> kL; apply: leq_ltn_trans kL ndigitsLwB.
+have hnedge : nedge < nwB by apply: hnw; exact: nedge_dig.
+rewrite /actf packiE ?ncoord_dig // /actd; apply: eq_packn => j jL.
+have hjw : j < nwB by apply: hnw; apply: leq_trans (ltnW jL) ncoord_dig.
+rewrite nedgeiE of_nat_ltbE //.
+case: ltnP => jn; first by rewrite hget // hbit.
+have hjs : j - nedge < nedge.
+  by rewrite -(ltn_add2r nedge) (subnK jn) -ncoordE; exact: jL.
+have h1 : nth 0%N d.1 (j - nedge) + nedge < ncoord.
+  by rewrite ncoordE ltn_add2r; exact: hlt _ hjs.
+have hb : nth 0%N d.1 (j - nedge) + nedge < nwB.
+  by apply: hnw; apply: leq_trans (ltnW h1) ncoord_dig.
+rewrite (of_nat_subE jn hjw) (hget _ hjs) (of_nat_addE hb).
+by rewrite /nbit addnC.
+Qed.
+
+(* (d) reading back a literal built by mkarrn.  epairi and eprimi dodged this  *)
+(* by being closed terms, so 48 vm_computes did it; mk_srci mt depends on mt,  *)
+(* so the fold has to be reasoned about for real.                              *)
+(* the fold mkarrn is, named so it can be reasoned about.  Convertible with
+   mkarrn's body, hence mkarrnE by [].  Note PArray's axioms need their type
+   given explicitly -- rewrite cannot unify the universe, exact can.      *)
+Fixpoint setl (a : arr) (i : int) (l : seq int) : arr :=
+  if l is x :: l' then setl (PArray.set a i x) (i + 1)%uint63 l' else a.
+
+Lemma mkarrnE n l : mkarrn n l = setl (PArray.make n 0%uint63) 0%uint63 l.
+Proof. by []. Qed.
+
+Lemma length_setl l a i : PArray.length (setl a i l) = PArray.length a.
+Proof.
+elim: l a i => [|x l IH] a i //=.
+rewrite IH; exact: (@PArray.length_set int a i x).
+Qed.
+
+(* below the written range the fold changes nothing; this is what lets the
+   head of the list be read back after the tail has been written.        *)
+Lemma get_setl_lt l a i j :
+  to_nat i + seq.size l < nwB -> to_nat j < to_nat i ->
+  PArray.get (setl a i l) j = PArray.get a j.
+Proof.
+elim: l a i => [|x l IH] a i //= hb hj.
+have hi1 : to_nat (i + 1)%uint63 = (to_nat i).+1.
+  rewrite -[(i+1)%uint63]/(incr _) to_nat_incr //.
+  by apply: leq_ltn_trans hb; rewrite addnS ltnS leq_addr.
+have hne : i <> j by move=> e; rewrite e ltnn in hj.
+rewrite IH.
+- exact: (@PArray.get_set_other int a i j x hne).
+- by move: hb; rewrite hi1 addnS addSn.
+by rewrite hi1; apply: ltn_trans hj _.
+Qed.
+
+Lemma get_setl l a i j :
+  to_nat i + seq.size l < nwB ->
+  to_nat i <= to_nat j < to_nat i + seq.size l ->
+  to_nat i + seq.size l <= to_nat (PArray.length a) ->
+  PArray.get (setl a i l) j = nth 0%uint63 l (to_nat j - to_nat i).
+Proof.
+elim: l a i => [|x l IH] a i /=.
+  by rewrite addn0 => _ /andP[h1 h2]; rewrite ltnNge h1 in h2.
+move=> hb /andP[hlo hhi] hlen.
+have hi1 : to_nat (i + 1)%uint63 = (to_nat i).+1.
+  rewrite -[(i+1)%uint63]/(incr _) to_nat_incr //.
+  by apply: leq_ltn_trans hb; rewrite addnS ltnS leq_addr.
+have hset : PArray.length (PArray.set a i x) = PArray.length a
+  := (@PArray.length_set int a i x).
+have hbnd : to_nat i < to_nat (PArray.length a).
+  by apply: leq_trans hlen; rewrite addnS ltnS leq_addr.
+have [e|hne] := eqVneq (to_nat i) (to_nat j).
+  have -> : j = i by apply: to_nat_inj; rewrite e.
+  rewrite subnn /= get_setl_lt ?hi1 //.
+    by apply: (@PArray.get_set_same int a i x); apply/nltbP.
+  by move: hb; rewrite addnS addSn.
+have hij : to_nat i < to_nat j by rewrite ltn_neqAle hne.
+have hk : 0 < to_nat j - to_nat i by rewrite subn_gt0.
+rewrite IH ?hi1 ?hset.
+- by rewrite subnS; case: (to_nat j - to_nat i) hk => // k _.
+- by move: hb; rewrite addnS addSn.
+- by rewrite hij /=; move: hhi; rewrite addnS addSn.
+by move: hlen; rewrite addnS addSn.
+Qed.
+
+Lemma get_mkarrn (n : int) (l : seq int) (j : int) :
+  (n <=? PArray.max_length)%uint63 -> seq.size l <= to_nat n ->
+  to_nat j < seq.size l ->
+  PArray.get (mkarrn n l) j = nth 0%uint63 l (to_nat j).
+Proof.
+move=> hmax hsz hj.
+have hnwb : to_nat n < nwB by exact: to_nat_bounded.
+rewrite mkarrnE -[in RHS](subn0 (to_nat j)) -[in X in _ - X](to_nat_0).
+apply: get_setl; rewrite ?to_nat_0 ?add0n //.
+- by apply: leq_ltn_trans hsz hnwb.
+by rewrite length_makeE hmax.
+Qed.
+
+(* (e) instantiating (d) at mk_srci / mk_xbiti *)
+Lemma nedge_small : nedge < nwB.
+Proof. by apply: leq_ltn_trans ndigitsLwB; exact: nedge_dig. Qed.
+
+Lemma size_msrc mt : seq.size (msrc mt) = nedge.
+Proof. by rewrite /msrc seq.size_map seq.size_iota. Qed.
+
+Lemma get_mk_srci mt p :
+  p < nedge ->
+  PArray.get (mk_srci mt) (of_nat p) = of_nat (nth 0%N (msrc mt) p).
+Proof.
+move=> pL.
+have hp : to_nat (of_nat p) = p.
+  by apply: of_natK; apply: ltn_trans pL nedge_small.
+rewrite /mk_srci get_mkarrn ?hp ?seq.size_map ?size_msrc //.
+by rewrite (nth_map 0%N) ?size_msrc.
+Qed.
+
+Lemma bit_mk_xbiti mt p :
+  p < nedge -> bit (mk_xbiti mt) (of_nat p) = nth false (mxbit mt) p.
+Proof. by move=> pL; rewrite /mk_xbiti -/(nbit _ p) nbit_packn // nedge_dig. Qed.
+
+(* msrc lands in 0..nedge-1 by construction: eposn is a %% nedge *)
+Lemma msrc_lt mt p : p < nedge -> nth 0%N (msrc mt) p < nedge.
+Proof. by move=> pL; rewrite /msrc nth_map_iota // /eposn ltn_mod. Qed.
+
+(* (f) the bridge actually used downstream *)
+Lemma actfE mt x : actf x (mdatf_of_tab mt) = actd x (mdat_of_tab mt).
+Proof.
+apply: actfE_gen.
+- by move=> p pL; apply: get_mk_srci.
+- by move=> p pL; apply: bit_mk_xbiti.
+by move=> p pL; apply: msrc_lt.
+Qed.
+
 (* the moves as tables, and the one fact tying them to Rubik333.moves; the    *)
 (* assembly file supplies both, as Toy.v does today.                          *)
 Variable mtabs : seq (seq nat).
@@ -243,6 +526,21 @@ Hypothesis mtabs_ok : all (tab_ok 47) mtabs.
 Hypothesis mtabsE : moves = [seq pt 47 mt | mt <- mtabs].
 
 Definition mdata : seq mdatum := [seq mdat_of_tab mt | mt <- mtabs].
+
+(* the same data in the fast shape; checkStep runs on this one *)
+Definition mdataf : seq mdatf := [seq mdatf_of_tab mt | mt <- mtabs].
+
+(* mdatum is an eqType so allP applied to mdata; mdatf holds an arr, which is
+   not one, so membership is unavailable and the instance has to be taken by
+   index instead -- all_nthP, then nth_map through index mt mtabs.        *)
+Lemma all_mdataf (P : mdatf -> bool) mt :
+  all P mdataf -> mt \in mtabs -> P (mdatf_of_tab mt).
+Proof.
+move=> /(all_nthP (mdatf_of_tab [::])) H hmt.
+have hi : index mt mtabs < seq.size mtabs by rewrite index_mem.
+have := H (index mt mtabs); rewrite /mdataf seq.size_map => /(_ hi).
+by rewrite (nth_map [::]) // nth_index.
+Qed.
 
 (* ---- 5. The two checks --------------------------------------------------- *)
 
@@ -261,10 +559,12 @@ Definition check0 : bool := (Dfsi (coordt (id_tab 47)) =? 0)%uint63.
    scanning a 24 entry list per edge.  Measured: 26 ms per check with it
    inside, 79 us with it hoisted, over 16 777 216 states times eighteen
    moves.  That is 90 days against 6.6 hours, for one let.               *)
+(* actd is replaced by actf here, and mdata by mdataf: same booleans by
+   actfE, ten times faster.  See 4bis.                                    *)
 Definition checkStep : bool :=
-  let md := mdata in
+  let md := mdataf in
   all_pow ncoord 0%uint63
-    (fun x => all (fun d => (Dfsi x <=? incr (Dfsi (actd x d)))%uint63) md).
+    (fun x => all (fun d => (Dfsi x <=? incr (Dfsi (actf x d)))%uint63) md).
 
 (* ---- 6. What the two checks buy ------------------------------------------ *)
 
@@ -312,7 +612,8 @@ have [mt mtM mE] : exists2 mt, mt \in mtabs & m = pt 47 mt.
 have mtok : tab_ok 47 mt by apply: (allP mtabs_ok).
 have hd : actfs x m = actd x (mdat_of_tab mt) by rewrite mE actdE.
 have hall := all_powP ncoord_dig hcheck hx.
-have F := allP hall (mdat_of_tab mt) (map_f _ mtM).
+(* actfE turns the checked actf instance back into the actd one *)
+have F := all_mdataf hall mtM; rewrite actfE in F.
 by rewrite hd /Dfs; apply: leb_incr_le; last by exact: Dfsi_small.
 Qed.
 
