@@ -10,7 +10,7 @@
 (*      coord (g * m) = act (coord g) m                                       *)
 (*                                                                            *)
 (*  into an admissible heuristic, whatever table is put on it -- the table is *)
-(*  never proved correct, it only has to pass Df0 and DfStep.  DfStep is a    *)
+(*  never proved correct, it only has to pass Dfs0 and DfsStep.  DfsStep is a *)
 (*  statement about every element of the summary type, so that type has to be *)
 (*  ENUMERABLE BY A LOOP: a finfun will not do, an int below 2 ^ 24 will.     *)
 (*  Hence the packing, and hence the bit level reasoning below, which is the  *)

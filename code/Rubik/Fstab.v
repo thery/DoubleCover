@@ -261,9 +261,9 @@ Definition checkStep : bool :=
 
 (* ---- 6. What the two checks buy ------------------------------------------ *)
 
-(* THESE TWO ARE THE POINT OF THE FILE.  Once they are proved, a generated    *)
-(* table and two vm_compute discharge Coordfs.v's Dfs0 and DfsStep, and the   *)
-(* heuristic has no axiom behind it.                                          *)
+(* THESE TWO ARE THE POINT OF THE FILE, and they are proved.  A table that    *)
+(* passes check0 and checkStep therefore discharges Coordfs.v's Dfs0 and      *)
+(* DfsStep, and the heuristic has no axiom behind it.                         *)
 
 Lemma Dfs0_of_check : check0 -> Dfs (coordfs 1) = 0.
 Proof. by rewrite /check0 /Dfs coordfs1E => /eqb_correct ->; rewrite to_nat_0. Qed.
