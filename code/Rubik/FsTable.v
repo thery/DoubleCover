@@ -62,7 +62,18 @@ Definition mkarr (l : seq int) : arr :=
      if l is x :: l' then go (PArray.set a i x) (i + 1)%uint63 l' else a)
     (PArray.make nwordsi 0%uint63) 0%uint63 l.
 
-Definition fstab : arr := Eval vm_compute in mkarr fsdata.
+(* NO Eval vm_compute HERE, ON PURPOSE, FOR NOW.  With it, the .vo holds the
+   evaluated 2 097 152 entry array and nothing is rebuilt on Require -- which
+   is what we want -- but the native compiler then has to emit that array and
+   never produces NRubik_FsTable.cmxs, so every file requiring this one dies
+   with "Unbound module NRubik_FsTable".  FsData.v's list compiles natively
+   fine; it is the array value that it cannot do.
+
+   Without the Eval the fold is redone whenever this file is Required, which
+   is a few seconds and is the cheaper problem of the two.  TO FIX LATER:
+   either teach the build to skip native for this one file, or keep the table
+   as the list and read it through a function instead of an array.          *)
+Definition fstab : arr := mkarr fsdata.
 
 (* ---- What Fstab.v asks of it --------------------------------------------- *)
 
