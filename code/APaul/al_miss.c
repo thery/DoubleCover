@@ -16,8 +16,19 @@
 // n = 2^20, far above the window E.  al.c's Taylor term (uint64)ldexp(dd,64)
 // uses dd = exp*ux^2*n^2/2 (an *exp-value* remainder) and rounds to 0 -- it is
 // under-scaled by 2^53 relative to the phase.  Soundness needs
-// (n^2/2)*|phi''| <= E, i.e. n <= ~2^13 here (cf. Lefevre RR-4044, which uses
-// 2^15/2^13-point subintervals, not 2^20).
+// (n^2/2)*|phi''| <= E, i.e. either n <= ~2^13 (cf. Lefevre RR-4044, which
+// uses 2^15/2^13-point subintervals, not 2^20) or a window E wide enough to
+// absorb the drift.
+//
+// THE FIX (htr.c, by the author of al.c) takes the second route: it adds the
+// one missing line
+//     dd = ldexp (dd, 54 - e);
+// so the second derivative is scaled to the phase like h, l, s, dh and dl
+// already were.  Then E = floor(exp(x)*2^48) + 2^(64-m) ~= 2^48.4 and the
+// drift is covered.  Stage (3) below re-runs the very same chunk with htr.c's
+// E and shows that x_a is now flagged and found.  The price is selectivity:
+// the window goes from 2^35 to ~2^49.4, i.e. ~41 candidates per chunk instead
+// of ~0.002 (7056503 checks over [0.25,0.25001) instead of 322).
 //
 //   gcc -O3 -march=native -std=c11 al_miss.c -o al_miss -lmpfr -lgmp -lm
 #include <stdio.h>
@@ -100,7 +111,43 @@ int main(){
 
   printf(found == 0
     ? "RESULT: the filter MISSES the hard case x_a (found = 0), although it is\n"
-      "        genuinely hard and lies exactly on the grid of the chunk.\n"
-    : "RESULT: (unexpected) the filter found %lu hard case(s).\n", found);
+      "        genuinely hard and lies exactly on the grid of the chunk.\n\n"
+    : "RESULT: (unexpected) the filter found %lu hard case(s).\n\n", found);
+  unsigned long al_found = found;
+
+  // --- (3) same chunk, htr.c's corrected setup: dd is scaled to the phase ---
+  found = 0;
+  dd_exp(&h,&l,&s,x0);
+  dh = h*ux; dl = l*ux; dd = h*ux*ux;
+  h = ldexp(h,54-e); l = ldexp(l,54-e);
+  if (l >= 1.0) l -= 1.0; while (l < 0) l += 1.0;
+  s = ldexp(s,54-e);
+  lu = get_uint64(l); su = get_uint64(s); A = lu + su;
+  dh = ldexp(dh,54-e); dl = ldexp(dl,54-e);
+  dd = ldexp(dd,54-e);                       // <-- htr.c's fix
+  B = get_uint64(dh) + get_uint64(dl);
+  dd = dd/2.0*n*n;
+  uint64_t E2 = get_uint64(dd) + (1ul << (64-m));
+  A += E2;
+  uint64_t A2_at_i0 = 0, cands = 0; int flagged2_i0 = 0;
+  for (uint64_t i = 0; i < n; i++){
+    if (i == i0){ A2_at_i0 = A; flagged2_i0 = (A < 2*E2); }
+    if (A < 2*E2){ cands++; double xi = x0 + i*ux; check(xi, m); }
+    A += B;
+  }
+  printf("(3) htr.c filter (dd = ldexp(dd, 54-e) added) over the SAME chunk:\n");
+  printf("    E = %lu (2^%.1f),  window 2E = %lu\n", E2, log2((double)E2), 2*E2);
+  printf("    Taylor term get_uint64(dd) = %lu   [no longer 0]\n",
+         E2 - (1ul << (64-m)));
+  printf("    A at i0 = %lu  (= 2^%.1f)   <  2E ?  %s\n",
+         A2_at_i0, log2((double)A2_at_i0), flagged2_i0 ? "yes" : "NO");
+  printf("    => candidates in this chunk: %lu   (al.c: %lu)\n", cands, al_found);
+  printf("    => hard cases the filter FOUND in this chunk: %lu\n\n", found);
+
+  printf(found >= 1
+    ? "RESULT: with htr.c's window the same chunk FINDS x_a -- the drift is now\n"
+      "        inside E.  Cost: %lu candidates checked instead of ~0.\n"
+    : "RESULT: (unexpected) htr.c's filter also missed it (%lu candidates).\n",
+    cands);
   return 0;
 }

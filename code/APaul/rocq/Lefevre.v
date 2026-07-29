@@ -1,7 +1,7 @@
 (** * Lefèvre's search loop, in Rocq over [Z]
 
     This is the "integer half" of the MPFR/Rocq split: the inner loop of
-    [al.c]'s [search], written with [Z] arithmetic.  [al.c] runs it on
+    [al.c]/[htr.c]'s [search], written with [Z] arithmetic.  They run it on
     [uint64]s; we model the 64-bit wraparound explicitly with [mod 2^64],
     so the Rocq function computes exactly what the C loop computes.
 
@@ -70,13 +70,13 @@ Definition scan (A B twoE : Z) (n : N) : list Z := scan_from A B twoE 0 n.
     writing a bare literal. *)
 Definition window_factor : Z := 2.
 
-(** Top-level per-chunk search, matching [al.c] after its [get_uint64]
+(** Top-level per-chunk search, matching [al.c]/[htr.c] after their [get_uint64]
     conversions:
     - [Alu] = [lu + su]        (bits of [h+l+s] after the round bit),
     - [B]   = [dh + dl]        (scaled first derivative),
     - [E]   = error + window,  [n] = number of grid points.
 
-    We reproduce [al.c]'s [A += E] shift and its [2*E] threshold, both
+    We reproduce their [A += E] shift and its [2*E] threshold, both
     reduced mod [2^64]. *)
 Definition lefevre_chunk (Alu B E : Z) (n : N) : list Z :=
   scan (uwrap (Alu + E)) B (uwrap (window_factor * E)) n.
@@ -85,7 +85,7 @@ Definition lefevre_chunk (Alu B E : Z) (n : N) : list Z :=
 
     [vm_compute] runs a full [2^20]-point chunk in ~16 s here
     ([native_compute] is disabled in this build).  That is fine for
-    spot-validating single chunks against [al.c]; the full 170k-chunk
+    spot-validating single chunks against the C code; the full 170k-chunk
     search is far too large to execute in Rocq, so soundness will instead
     use the closed form of the running value ([uwrap (A + i*B)]). *)
 

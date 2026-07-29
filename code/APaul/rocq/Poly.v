@@ -27,7 +27,11 @@ Open Scope Z_scope.
 Definition xden : Z := 54.    (* grid scale: x = num / 2^xden                *)
 Definition cden : Z := 210.   (* coefficient denominator: a_j = A_j / 2^cden *)
 Definition prec53 : Z := 53.  (* binary64 significand width                   *)
-Definition m_hrc : Z := 30.   (* required identical bits after the round bit  *)
+(** Required identical bits after the round bit.  Like [Hrc.v], this local
+    demo stays at [al.c]'s original [m = 30]: the recorded region is the
+    one around [0x1.00006b1501522p-2], a 30-bit hard case.  The full search
+    ([Search.v], [Check.v]) uses [htr.c]'s [m = 35]. *)
+Definition m_hrc : Z := 30.
 
 Definition A0 : Z := 2112873046211101960745487299836695701278643019779725570912266820.
 Definition A1 : Z := 2112873046211101960745487299836695701278643019779725570912266820.

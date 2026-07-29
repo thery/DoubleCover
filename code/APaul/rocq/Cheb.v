@@ -1,6 +1,6 @@
-(** * A degree-7 polynomial approximation of exp on the al.c interval
+(** * A degree-7 polynomial approximation of exp on the search interval
 
-    [al.c]'s [main] searches [exp] over the interval
+    [htr.c]'s [main] searches [exp] over the interval
       [[0.25, 0.25001)] = [[x0num/2^54, x1num/2^54)].
     Over this interval a single degree-7 polynomial reproduces [exp] to
     better than [2^-160].  We use a *near-minimax* polynomial (Chebyshev
@@ -11,7 +11,7 @@
 
     The coefficients below are produced by [cheb.c]; here we only carry
     them and let CoqInterval certify, in a single call, that the resulting
-    polynomial is within [2^-160] of [exp] over the whole al.c interval. *)
+    polynomial is within [2^-160] of [exp] over the whole search interval. *)
 
 From Stdlib Require Import Reals ZArith.
 From Interval Require Import Tactic.
@@ -25,7 +25,7 @@ Definition xden : Z := 54.     (* binade scale: values are n / 2^54          *)
 Definition cden : Z := 220.    (* coefficient denominator: b_k = A_k / 2^cden *)
 Definition tprec : Z := 160.   (* certified accuracy: |exp - P| <= 2^-tprec   *)
 
-(** al.c search interval [[x0num/2^54, x1num/2^54)] = [[0.25, 0.25001)]. *)
+(** htr.c search interval [[x0num/2^54, x1num/2^54)] = [[0.25, 0.25001)]. *)
 Definition x0num : Z := 4503599627370496.   (* 0.25    *)
 Definition x1num : Z := 4503779771355591.   (* 0.25001 (as a double) *)
 
@@ -61,7 +61,7 @@ Definition P_R (x : R) : R :=
  + IZR A7 * (x - c_R) ^ 7) / 2 ^ 220.
 
 (** One CoqInterval call certifies the degree-7 polynomial is within
-    [2^-160] of [exp] over the entire al.c interval [[0.25, 0.25001)]. *)
+    [2^-160] of [exp] over the entire search interval [[0.25, 0.25001)]. *)
 Theorem cheb_valid :
   forall x : R, x_lo <= x <= x_hi -> Rabs (exp x - P_R x) <= / 2 ^ 160.
 Proof.

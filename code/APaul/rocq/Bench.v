@@ -5,41 +5,53 @@
     figure — the "...u" (user) seconds, e.g. "19.342u" — which is
     machine-comparable (independent of wall-clock noise).
 
-    The full al.c interval [[0.25, 0.25001)] is
+    The full search interval [[0.25, 0.25001)] is
       FULL_CHUNKS = (x1num - x0num) / 2^20 = 180143985095 / 2^20 = 171981
     chunks of 2^20 grid points  (= 2^24 * 10748 points).
 
-    Three benches, with their extrapolation to the full interval:
+    Four benches, with their extrapolation to the full interval:
 
-      BENCH 1  full search: 50 chunks (poly entry + Int63 scan)
+      BENCH 1  filter only: 50 chunks (poly entry + Int63 scan)
                full ~= T1 * (171981 / 50)   = T1 * 3439.6
       BENCH 2  pure Int63 scan: 2^24 recurrence steps (counter, no list)
                full ~= T2 * (171981*2^20 / 2^24) = T2 * 10748
       BENCH 3  pure polynomial evaluation: 1000 chunk entries
                full ~= T3 * (171981 / 1000)  = T3 * 172.0
+      BENCH 4  filter + screen: the same 50 chunks through [Check.hrc63]
+               full ~= T4 * 3439.6
 
-    ** Reference (this machine):
+    BENCH 4 minus BENCH 1 is the cost of screening: with htr.c's corrected
+    window the filter flags ~41 candidates per chunk (BENCH 1 returns
+    ~2050 over the 50 chunks), and each is re-evaluated by the polynomial.
+
+    ** Reference (this machine, user CPU seconds):
        [make bench]        (vm_compute):
-         BENCH 1 : ~11.0 s -> full ~10.5 h    BENCH 2 : ~2.08 s    BENCH 3 : ~21.0 s
-       [make bench-native] (native_compute, native compiler enabled here):
-         BENCH 1 : ~3.36 s -> full ~3.2 h     BENCH 2 : ~0.48 s    BENCH 3 : ~10.1 s
+         B1 10.95 (0.219 s/chunk)   B2 2.14   B3 4.16   B4 15.96 -> full ~15.2 h
+       [make bench-native] (native_compute):
+         B1  2.79 (0.056 s/chunk)   B2 0.26   B3 2.08   B4  4.25 -> full  ~4.1 h
 
-    ** What this says: the polynomial evaluation (BENCH 3, ~0.021 s/chunk
-    vm) is NOT the bottleneck.  [Lefevre63.scan] carries a primitive-int
-    index (no [Z.succ] per step) and conses only flagged candidates, so a
-    full vm chunk is ~0.22 s (down from ~0.34 s), close to the bare
-    recurrence of BENCH 2.  native_compute helps most on the Int63 scan
-    (~4.4x on BENCH 2) and ~3.5x on the full search, so use [make
-    bench-native] if your build has the native compiler. *)
+    ** What this says: the filter (B1) is ~2/3 of the work and the screen
+    ~1/3.  [Lefevre63.scan] carries a primitive-int index (no [Z.succ] per
+    step) and conses only flagged candidates, so it stays close to the bare
+    recurrence of BENCH 2.  Both the polynomial (B3) and the screen were
+    dominated by avoidable [Z] costs — [Z.pow] is linear in its exponent
+    and [Z.modulo] on a ~600-bit [V] is a long division — hence the named
+    scaled coefficients [Search.C0]..[C6] and the [Z.land]/[Z.shiftr] forms
+    in [Search.wA] and [Check.dist_to_grid]: together they took B4 from
+    ~15 s to ~4.2 s under native_compute.  Use [make bench-native] if your
+    build has the native compiler. *)
 
-From APaulRocq Require Import Search.
+From APaulRocq Require Import Search Check.
 From APaulRocq Require Lefevre63.
 From Stdlib Require Import ZArith Uint63 List.
 Open Scope Z_scope.
 
-(** BENCH 1 — full search: 50 chunks of (polynomial entry + Int63 scan)
-    from 0.25.  Deterministic (no HRC in the first 50 chunks). *)
-Time Eval vm_compute in List.length (search63 4503599627370496 50).
+(** Number of chunks used by BENCH 1 and BENCH 4. *)
+Definition bench_chunks : nat := 50.
+
+(** BENCH 1 — filter only: 50 chunks of (polynomial entry + Int63 scan)
+    from 0.25.  Deterministic: ~41 candidates per chunk. *)
+Time Eval vm_compute in List.length (search63 x_start bench_chunks).
 
 (** BENCH 2 — pure Int63 recurrence: 2^24 scan steps (advance + compare). *)
 Time Eval vm_compute in Lefevre63.bench 0 2654435761 1000000 (2 ^ 24).
@@ -47,3 +59,7 @@ Time Eval vm_compute in Lefevre63.bench 0 2654435761 1000000 (2 ^ 24).
 (** BENCH 3 — pure polynomial evaluation: 1000 chunk entries (no scan). *)
 Time Eval vm_compute in
   List.fold_left (fun a k => Z.add a (polyV x_start k)) (List.seq 0 1000) 0%Z.
+
+(** BENCH 4 — filter + screen over the same 50 chunks (no HRC there, so
+    the result is the empty list). *)
+Time Eval vm_compute in hrc63 x_start bench_chunks.
