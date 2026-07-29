@@ -81,6 +81,31 @@ Proof. by move=> fL; rewrite epairE inordK. Qed.
 
 (* ---- 2. The summary on lists --------------------------------------------- *)
 
+(* The guard is read at every node, so nothing in it may touch nat.  The
+   pairing goes into an int array and the loop is indexed by an int: four
+   array reads per facelet, where the nat version cost a to_nat, an of_nat
+   and two linear scans of a 24 element list.  Measured over 20 000
+   evaluations of the heuristic, 55.0 s before and 2.3 s after.            *)
+
+Definition mkarrn (n : int) (l : seq int) : arr :=
+  (fix go (a : arr) (i : int) (l : seq int) {struct l} : arr :=
+     if l is x :: l' then go (PArray.set a i x) (i + 1)%uint63 l' else a)
+    (PArray.make n 0%uint63) 0%uint63 l.
+
+Definition epairi : arr :=
+  Eval vm_compute in
+  mkarrn (of_nat nfacelet) [seq of_nat (epairn f) | f <- iota 0 nfacelet].
+
+Fixpoint alli (k : nat) (i : int) (f : int -> bool) : bool :=
+  if k is k1.+1 then f i && alli k1 (i + 1)%uint63 f else true.
+
+(* the twelve primary facelets, as ints: one array read instead of a scan of
+   a 12 element nat list plus an of_nat of a value up to 47                 *)
+Definition eprimi : arr :=
+  Eval vm_compute in
+  mkarrn (of_nat nedge) [seq of_nat (nth 0%N eprim k) | k <- iota 0 nedge].
+
+
 (* u is the INVERSE table: u f is the facelet whose sticker now sits at f,    *)
 (* which is what g^-1 f means on this side.                                   *)
 Definition ecoordt (u : seq nat) : int :=
@@ -100,28 +125,11 @@ Definition cubt (t : seq nat) : bool :=
 Definition ecoordi (u : arr) : int :=
   packn ncoord
     (fun k => if k < nedge
-              then ~~ bit pmask (PArray.get u (of_nat (nth 0%N eprim k)))
-              else bit smask (PArray.get u (of_nat (nth 0%N eprim (k - nedge))))).
+              then ~~ bit pmask (PArray.get u (PArray.get eprimi (of_nat k)))
+              else bit smask
+                     (PArray.get u (PArray.get eprimi (of_nat (k - nedge))))).
 
 Definition coordi (a : arr) : int := ecoordi (inv_tabi 47 a).
-
-(* The guard is read at every node, so nothing in it may touch nat.  The
-   pairing goes into an int array and the loop is indexed by an int: four
-   array reads per facelet, where the nat version cost a to_nat, an of_nat
-   and two linear scans of a 24 element list.  Measured over 20 000
-   evaluations of the heuristic, 55.0 s before and 2.3 s after.            *)
-
-Definition mkarrn (n : int) (l : seq int) : arr :=
-  (fix go (a : arr) (i : int) (l : seq int) {struct l} : arr :=
-     if l is x :: l' then go (PArray.set a i x) (i + 1)%uint63 l' else a)
-    (PArray.make n 0%uint63) 0%uint63 l.
-
-Definition epairi : arr :=
-  Eval vm_compute in
-  mkarrn (of_nat nfacelet) [seq of_nat (epairn f) | f <- iota 0 nfacelet].
-
-Fixpoint alli (k : nat) (i : int) (f : int -> bool) : bool :=
-  if k is k1.+1 then f i && alli k1 (i + 1)%uint63 f else true.
 
 Definition cubti (a : arr) : bool :=
   alli nfacelet 0%uint63
@@ -172,6 +180,15 @@ apply: (all_iota_lt
   (n := nfacelet)); [by vm_compute | exact: fL].
 Qed.
 
+Lemma get_eprimi k :
+  k < nedge -> PArray.get eprimi (of_nat k) = of_nat (nth 0%N eprim k).
+Proof.
+move=> kL; apply: eqb_correct.
+apply: (all_iota_lt
+  (P := fun k => (PArray.get eprimi (of_nat k) =? of_nat (nth 0%N eprim k))%uint63)
+  (n := nedge)); [by vm_compute | exact: kL].
+Qed.
+
 (* ---- 4. Arrays against lists --------------------------------------------- *)
 
 (* Both go the way ti2t_comp does: the summary is a packn over 24 indices,    *)
@@ -184,9 +201,9 @@ move=> uok; apply: eq_packn => j jL.
 have hnth i : i < nfacelet -> nth 0%N (ti2t 47 u) i = to_nat (PArray.get u (of_nat i)).
   by move=> iL; apply: nth_ti2t.
 case: ltnP => jn.
-  by rewrite hnth ?eprim_lt // /nbit to_natK.
+  by rewrite get_eprimi // hnth ?eprim_lt // /nbit to_natK.
 have hsub : j - nedge < nedge by rewrite -(ltn_add2l nedge) subnKC.
-by rewrite hnth ?eprim_lt // /nbit to_natK.
+by rewrite get_eprimi // hnth ?eprim_lt // /nbit to_natK.
 Qed.
 
 Lemma coordiE a : tabi_ok 47 a -> coordi a = coordt (ti2t 47 a).
