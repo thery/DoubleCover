@@ -348,22 +348,22 @@ Qed.
 (** one point added on the left: [v] keeps realising the smallest
     positive point, [u] moves to [u + v].  (slater: [get_maxS].) *)
 Lemma step_pt_one_lt p q u v :
-  inv p q (Dst 0) u v -> p < q -> u + v < N ->
+  inv p q (Dst 0) u v -> p < q ->
   (p = Pt v) /\ (q - p = M - Pt (u + v)).
 Proof.
 rewrite dst0.
-case => p_gt0 q_gt0 upvqE pE qE [x xLuv BE] /= pLq uvLN; split => //.
+case => p_gt0 q_gt0 upvqE pE qE [x xLuv BE] /= pLq; split => //.
 rewrite ptD modn_small; last by rewrite -ltn_subRL // -pE -qE.
 by rewrite subnDA -qE -pE.
 Qed.
 
 (** one point added on the right. *)
 Lemma step_pt_one_ge p q u v :
-  inv p q (Dst 0) u v -> q <= p -> u + v < N ->
+  inv p q (Dst 0) u v -> q <= p ->
   (p - q = Pt (v + u)) /\ (q = M - Pt u).
 Proof.
 rewrite dst0.
-case => p_gt0 q_gt0 upvqE pE qE [x xLuv BE] /= qLp uvLN; split => //.
+case => p_gt0 q_gt0 upvqE pE qE [x xLuv BE] /= qLp; split => //.
 rewrite pE qE ptD subnBA; last by rewrite ltnW // pt_lt.
 rewrite [Pt _ + _]addnC.
 suff MLuv : M <= Pt u + Pt v.
@@ -384,60 +384,57 @@ Qed.
    mathematics, just the induction that turns single steps into the
    division-based Euclid. *)
 Lemma step_pt p q d u v :
-  inv p q d u v -> u + v < N ->
+  inv p q d u v ->
   let: (p', q', _, u', v') := step p q d u v in
-  (p' = Pt v') /\ (q' = M - Pt u').
-Proof. 
-case => p_gt0 q_gt0 upvqE pE qE [x xLuv dE] uvLN.
-rewrite /step; have [pLq|qLp] := ltnP.
+  0 < p' -> 0 < q' -> (p' = Pt v') /\ (q' = M - Pt u').
+Proof.
+case => p_gt0 q_gt0 upvqE pE qE [x xLuv dE].
+rewrite /step; have [pLq|qLp] := ltnP; rewrite /= => p'_gt0 q'_gt0.
+  rewrite subn_gt0 in q'_gt0.
   suff : forall j, j <= q %/ p -> p = Pt v /\ q -  j * p = M - Pt (u + j * v).
     by move=> /(_ (q %/ p)); apply.
   elim => [|j IH jLq]; first by rewrite subn0 addn0.
   have -> :  q - j.+1 * p = q - j * p - p by rewrite mulSnr subnDA.
   have -> : u + j.+1 * v = u + j * v + v by rewrite mulSnr addnA.
-  apply: step_pt_one_lt.
-  - split => //.
-    - rewrite subn_gt0 (leq_trans _ (_ :  q %/ p * p <= _)) //.
-        by rewrite ltn_mul2r p_gt0.
-      by rewrite leq_divM.
-    - rewrite mulnDl mulnBr -addnA.
-      rewrite mulnCA -mulnA [X in _ + X]addnC subnK //.
-      rewrite mulnCA leq_mul2l.
-      by rewrite (leq_trans _ (leq_divM q p)) ?orbT // leq_mul2r ltnW ?orbT.
-    - by case: IH => //; apply: ltnW.
-    exists 0 => //.
-    by rewrite addnAC (leq_trans _ (leq_addr _ _)) // (leq_ltn_trans _ xLuv).
-  - rewrite ltn_subRL -mulSnr.
-    rewrite (leq_trans _ (leq_divM q p)) // ltn_mul2r p_gt0.
-    (* This is false*)
-    admit.
-  (* Seems false too *)
-  admit.
+  apply: step_pt_one_lt; last first.
+    rewrite ltn_subRL -mulSnr.
+    apply: leq_ltn_trans q'_gt0.
+    by rewrite leq_mul2r jLq orbT.
+  split => //.
+  - rewrite subn_gt0 (leq_trans _ (_ :  q %/ p * p <= _)) //.
+      by rewrite ltn_mul2r p_gt0.
+    by rewrite leq_divM.
+  - rewrite mulnDl mulnBr -addnA.
+    rewrite mulnCA -mulnA [X in _ + X]addnC subnK //.
+    rewrite mulnCA leq_mul2l.
+    by rewrite (leq_trans _ (leq_divM q p)) ?orbT // leq_mul2r ltnW ?orbT.
+  - by case: IH => //; apply: ltnW.
+  exists 0 => //.
+  by rewrite addnAC (leq_trans _ (leq_addr _ _)) // (leq_ltn_trans _ xLuv).
+rewrite subn_gt0 in p'_gt0.
 suff : forall j, j <= p %/ q -> p - j * q = Pt (v + j * u) /\ q = M - Pt u.
   by move=> /(_ (p %/ q)); apply.
 elim => [|j IH jLq]; first by rewrite subn0 addn0.
 have -> :  p - j.+1 * q = p - j * q - q by rewrite mulSnr subnDA.
 have -> : v + j.+1 * u = v + j * u + u by rewrite mulSnr addnA.
-apply: step_pt_one_ge.
-  - split => //.
-    - rewrite subn_gt0 (leq_trans _ (_ :  p %/ q * q <= _)) //.
-        by rewrite ltn_mul2r q_gt0.
-      by rewrite leq_divM.
-    - rewrite mulnBr mulnDl.
-      rewrite mulnCA -mulnA addnC addnBA.
-        by rewrite addnAC addnK addnC.
-      rewrite mulnCA leq_mul2l (leq_trans _ (_ :  p %/ q * q <= _)) ?orbT //.
-        by rewrite leq_mul2r ltnW // orbT.
-      by apply: leq_divM.
-    - by case: IH => //; apply: ltnW.
-    exists 0 => //.
-    by rewrite addnA (leq_trans _ (leq_addr _ _)) // (leq_ltn_trans _ xLuv).
-- rewrite leq_subRL //.
-    by rewrite -mulSnr (leq_trans _ (leq_divM p q)) // leq_mul2r jLq orbT.
+apply: step_pt_one_ge; last first.
+  rewrite leq_subRL.
+    by rewrite -mulSnr (leq_trans _ (ltnW p'_gt0)) // leq_mul2r jLq orbT.
   by rewrite (leq_trans _ (leq_divM p q)) // leq_mul2r ltnW // orbT.
-(* This seems false *)
-admit.
-Admitted.
+split => //.
+- rewrite subn_gt0 (leq_trans _ (_ :  p %/ q * q <= _)) //.
+    by rewrite ltn_mul2r q_gt0.
+  by rewrite leq_divM.
+- rewrite mulnBr mulnDl.
+  rewrite mulnCA -mulnA addnC addnBA.
+    by rewrite addnAC addnK addnC.
+  rewrite mulnCA leq_mul2l (leq_trans _ (_ :  p %/ q * q <= _)) ?orbT //.
+    by rewrite leq_mul2r ltnW // orbT.
+  by apply: leq_divM.
+- by case: IH => //; apply: ltnW.
+exists 0 => //.
+by rewrite addnA (leq_trans _ (leq_addr _ _)) // (leq_ltn_trans _ xLuv).
+Qed.
 
 (** THE hard one: the [d] update stays a genuine distance.
 
