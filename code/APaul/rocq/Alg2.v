@@ -960,10 +960,65 @@ Qed.
     In both, what remains is that EVERY index of the window is reached by
     the walk, not merely that the walk stays inside it.  That is a
     surjectivity-style claim; validate it before stating it. *)
+(** ** Top-down skeleton for the [p < q] branch
+
+    [x] ranges over the indices this step ADDS, i.e. [u+v <= x < u+k*v+v]
+    with [k = q %/ p].  Decomposition:
+
+      L1  every such [x] is [y + m*v] with [y < u+v] and [0 < m <= k]
+          (pure arithmetic: [m = (x - (u+v)) %/ v + 1]).
+      L2  at such a point, [d %% p <= Dst (y + m*v)].
+
+    L2 is the content.  Walking up the index by [v] moves the point up by
+    [p] ([dstD], proved, since [p = Pt v]), so [Dst (y + m*v) = Dst y - m*p]
+    while no wrap occurs, and [d %% p] must sit below every one of those.
+
+    ** WARNING -- [invd] AS IT STANDS IS TOO WEAK FOR L2
+
+    Measured (Python): quantifying over ALL [d0 <= Inf (u+v)] rather than
+    the algorithm's [d], L2 fails 2762 times out of 184850.  Smallest:
+    [M=24, A=9, B=6], state [p=3, q=6, u=2, v=3], where [Inf (u+v) = 3]
+    but [Inf (u+k*v+v) = 0]; taking [d0 = 1 <= 3] gives
+    [d0 %% p = 1 > 0].  So [invd_le] alone cannot prove L2.
+
+    What the algorithm's [d] additionally satisfies -- 0 counterexamples
+    over 5152 states, and it makes L2 hold in 121183 out of 121183 cases:
+
+      d = Inf (u + v)  %[mod p]
+
+    i.e. [p] divides the gap between [d] and the true closest distance.
+    NB two weaker candidates were tested and REJECTED: [d0 <= Inf (u+v)]
+    alone (above), and "[d0] is a genuine distance [Dst x0] for some
+    [x0 < M]" (1456 violations out of 152992).  Being a distance is not
+    enough; the congruence is what matters.
+
+    So closing this branch needs [invd] extended with a congruence field,
+    which is an invariant change rather than a new helper -- and the [q <= p]
+    branch will want the analogue modulo [q], to be validated separately. *)
+
+Lemma new_index_decomp k u v x :
+  0 < v -> u + v <= x -> x < u + k * v + v ->
+  exists2 m, 0 < m <= k & (x - m * v < u + v) && (m * v <= x).
+Proof. Admitted.
+
+Lemma step_invd_le_new_lt_at p q d u v y m :
+  inv p q d u v -> invd p q d u v -> u + v < N -> p < q ->
+  y < u + v -> 0 < m <= q %/ p -> d %% p <= Dst (y + m * v).
+Proof. Admitted.
+
 Lemma step_invd_le_new_lt p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N -> p < q ->
   forall x, u + v <= x < u + (q %/ p) * v + v -> d %% p <= Dst x.
-Proof. Admitted.
+Proof.
+move=> iv ivd uvLN pLq x /andP[xge xlt].
+have v_gt0 : 0 < v.
+  case: (posnP v) => // v0.
+  have [p_gt0 _ _ pE _ _] := iv.
+  by move: p_gt0; rewrite pE v0 pt0.
+have [m mk /andP[ylt myx]] := new_index_decomp v_gt0 xge xlt.
+rewrite -{1}(subnK myx).
+exact: step_invd_le_new_lt_at iv ivd uvLN pLq ylt mk.
+Qed.
 
 Lemma step_invd_le_new_ge p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N -> q <= p ->
