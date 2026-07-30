@@ -129,9 +129,17 @@ Definition pt (M A x : nat) := (A * x) %% M.
 (** distance from [pt x] up to [b], i.e. [b - a*x mod 1], scaled by [M]. *)
 Definition dst (M A B x : nat) := (B + M - pt M A x) %% M.
 
-(** [inf { b - a*x mod 1 | x < n }], scaled by [M]. *)
+(** [inf { b - a*x mod 1 | x < n }], scaled by [M].
+
+    Sealed with [nosimpl] so that [/=] never unfolds it.  Without the
+    seal, [Inf] silently expands whenever its index happens to be a
+    literal successor -- sometimes to depth two, giving nested [minn] --
+    and every proof about it then has to fold the result back with
+    [-inf_dstS].  Access it through [inf_dst0] and [inf_dstS] below. *)
 Fixpoint inf_dst (M A B n : nat) : nat :=
   if n is n1.+1 then minn (dst M A B n1) (inf_dst M A B n1) else M.
+
+Arguments inf_dst : simpl never.
 
 (** ** Algorithm 2
 
@@ -261,6 +269,10 @@ have -> : (B + M.*2 - Pt x) %% M = Dst x.
   by rewrite (leq_trans (ltnW (pt_lt _))) // leq_addr.
 by rewrite ltnNge ptLdx.
 Qed.
+
+(** the only two ways to look inside [Inf]. *)
+Lemma inf_dst0 : Inf 0 = M.
+Proof. by []. Qed.
 
 Lemma inf_dstS n : Inf n.+1 = minn (Dst n) (Inf n).
 Proof. by []. Qed.
@@ -651,10 +663,56 @@ Qed.
     which is why [-inf_dstS] appears below to fold it back.  Sealing
     [inf_dst] (Opaque, or a nosimpl wrapper) would make these proofs less
     brittle -- worth doing, but it touches the existing ones. *)
+(** The [M - A <= A] branch.  By [pt_desc] the points at indices
+    [1 .. k+1] are the descending progression [A - j*(M-A)], and index 0
+    contributes [Dst 0 = B].
+
+    The [else] case ([p' > B], so [d' = B]) is proved below: every point of
+    the progression then exceeds [B], so [dst_above] applies and
+    [B <= B + M - Pt x] reduces to [Pt x <= M].
+
+    The [then] case is what remains: [d' = (B - p') %% (M-A)] is congruent
+    mod [M-A] to [B - (A - j*(M-A))] for every [j], so [leq_mod] gives the
+    bound -- the missing step is that congruence through nat subtraction. *)
+Lemma invd_first_le_ge_then : M - A %% M <= A %% M ->
+  A - A %/ (M - A) * (M - A) <= B ->
+  forall x, x < (A %/ (M - A)).+2 ->
+  (B - (A - A %/ (M - A) * (M - A))) %% (M - A) <= Dst x.
+Proof. Admitted.
+
 Lemma invd_first_le_ge : M - A %% M <= A %% M ->
   let: (_, _, d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
   d' <= Inf (u' + v').
-Proof. Admitted.
+Proof.
+move=> qLp0.
+have Ha := am_gt0.
+have HA : A %% M = A by rewrite modn_small.
+have HB : B %% M = B by rewrite modn_small.
+have HAM : A <= M by rewrite ltnW.
+have Hq : 0 < M - A by rewrite subn_gt0.
+have Hthen := invd_first_le_ge_then qLp0.
+have qLp : M - A <= A by move: qLp0; rewrite HA.
+rewrite /step HA HB.
+rewrite ifN /=; last by rewrite -leqNgt.
+apply: le_inf_dst.
+  case: (leqP (A - A %/ (M - A) * (M - A)) B) => [_|_]; last by rewrite ltnW.
+  by rewrite (leq_trans (leq_mod _ _)) // (leq_trans (leq_subr _ _)) // ltnW.
+move=> x xLk; rewrite !muln1 !add1n in xLk.
+have Hjq : forall j, j <= A %/ (M - A) -> Pt (j + 1) = A - j * (M - A).
+  move=> j jLk; apply: pt_desc.
+  by rewrite (leq_trans _ (leq_divM A (M - A))) // leq_mul2r jLk orbT.
+case: (leqP (A - A %/ (M - A) * (M - A)) B) => [p'LB|BLp']; last first.
+  case: x xLk => [_|j jLk]; first by rewrite dst0.
+  have jk : j <= A %/ (M - A) by rewrite -ltnS.
+  have HPt : Pt j.+1 = A - j * (M - A) by rewrite -addn1 Hjq.
+  have HB2 : B < Pt j.+1.
+    by rewrite HPt (leq_trans BLp') // leq_sub2l // leq_mul2r jk orbT.
+  rewrite dst_above //.
+  rewrite leq_subRL; last by rewrite (leq_trans (ltnW (pt_lt _))) // leq_addl.
+  rewrite [Pt j.+1 + B]addnC leq_add2l.
+  exact: ltnW (pt_lt _).
+by apply: Hthen.
+Qed.
 
 Lemma invd_first_le :
   let: (_, _, d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
@@ -669,9 +727,8 @@ have Hk : (M - A) %/ A * A + A <= M.
   by rewrite -{2}(subnK HAM) leq_add2r leq_divM.
 have Hge := invd_first_le_ge.
 move: Hge; rewrite /step HA HB; case: ltnP => [pLq|qLp] /= Hge; last by apply: Hge.
-rewrite -inf_dstS add0n muln1.
 apply: le_inf_dst; first by rewrite (leq_trans (leq_mod _ _)) // ltnW.
-move=> x xLk.
+move=> x xLk; rewrite !muln1 !add1n in xLk.
 have Hk2 : A * ((M - A) %/ A + 1) <= M by rewrite mulnDr muln1 mulnC.
 apply: mod_le_dst.
 - by rewrite -HA.
