@@ -1675,108 +1675,47 @@ case: (leqP (p - p %/ q * q) d) => [_|H]; first by rewrite ltn_pmod.
 by rewrite (leq_ltn_trans (ltnW H)) // pmod ltn_pmod.
 Qed.
 
-(** The one fact the [a = u] case needs and [invx] does not yet give.  With
-    [a = u] the walk lands at [Inf (u+v) + (b+m-v)*q], so [v <= b+m] is
-    exactly what puts it at or above [Inf (u+v)], and [d' <= d = Inf (u+v)]
-    finishes.  Equivalent to "[Inf (u+v) <= Dst (y+m*u)] in the [a = u]
-    tight case", probed 1711/1711 over M in {24,32,45,48,60,64}.
+(** *** RETRACTED PROOF -- [ge_wrap_au] was FALSE.
 
-    It does NOT follow from the fields of [invx]: with [a = u] and
-    [b + m < v] the constraints only force [q <= Inf (u+v) < p], which is
-    satisfiable.  What rules it out is more three-distance structure -- the
-    same place [invx_step] lives. *)
-Lemma ge_wrap_au p q d u v y m b :
-  inv p q d u v -> invd p q d u v -> invx p q u v -> q <= p ->
-  y < u + v -> 0 < m <= p %/ q -> b <= v ->
-  Dst y = Inf (u + v) + u * p + b * q ->
-  M <= Dst y + m * q -> Dst y + m * q - M < q ->
-  v <= b + m.
-Proof. Admitted.
+    The proof merged in PR #121 split the tight case on [invx_gap]'s
+    coefficient [a] and closed [a = u] with
 
+      ge_wrap_au : ... -> Dst y = Inf (u+v) + u*p + b*q -> ... -> v <= b+m
+
+    which is FALSE as stated: 1941 violations / 4690.  The reason is that
+    [invx_gap] gives SOME decomposition, and the decomposition is not
+    unique.  For M=24, A=13 (p=2, q=1, u=11, v=2) the value [Dst y = 23]
+    is both [Inf + 11*p + 0*q] and [Inf + 10*p + 2*q].  The measurement
+    that convinced me (1711/1711) searched [a] upward and so only ever saw
+    [(10,2)] -- the [a+1 = u] case, which IS proved -- while the lemma as
+    written accepts [(11,0)], where [v <= b+m] fails.
+
+    WHAT SURVIVES, and it is most of the work:
+    - the non-tight half [q <= W], via [ge_d_lt_q];
+    - [a <= u] from [invx_gap] and [u <= a+1] derived from the wrap;
+    - the whole [a+1 = u] branch, by the congruence [W + p %% q = Inf
+      %[mod q]] turned into an equality by [W < q].  That branch needs
+      nothing new.
+
+    THE FIX is to make [invx_gap] canonical -- to hand back the
+    decomposition with MINIMAL [a] (equivalently maximal [b]):
+
+      forall a' b', a' <= u -> b' <= v ->
+        Dst y = Inf (u+v) + a'*p + b'*q -> a <= a'
+
+    With minimal [a], the [a = u] case does satisfy [v <= b+m] (1711/1711
+    measured).  The cost is that [invx_init] must then produce the minimal
+    decomposition, which its current witnesses do not always do: for
+    A = 12, M = 24 the point [Dst 0 = B] is both [(1,0)] and [(0,1)].
+
+    Until that is done this lemma is Admitted -- it is TRUE (probed
+    16705/16705), only unproved. *)
 Lemma le_ge_wrap p q d u v y m :
   inv p q d u v -> invd p q d u v -> invx p q u v -> u + v < N ->
   q <= p -> y < u + v -> 0 < m <= p %/ q -> M <= Dst y + m * q ->
   (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d)
     <= Dst (y + m * u).
-Proof.
-move=> iv ivd ix uvLN qLp yLuv mk Hw.
-have [p_gt0 q_gt0 bez _ _ _ u_gt0 v_gt0] := iv.
-rewrite (walk_ge_wrapeq iv qLp yLuv mk Hw).
-(* the non-tight half needs nothing: [d' < q <= W] *)
-case: (leqP q (Dst y + m * q - M)) => [qW|Wq].
-  by apply: leq_trans (ltnW (ge_d_lt_q p d q_gt0)) qW.
-have dI := ge_d_eq_inf iv ivd ix qLp.
-have Ip : Inf (u + v) < p.
-  by move: (invx_inf ix); rewrite /maxn ifN // -leqNgt.
-have [a [b [aLu bLv Hab]]] := invx_gap ix yLuv.
-have /andP[m_gt0 mk2] := mk.
-have mqp : m * q <= p by rewrite -leq_divRL.
-have HwA : M <= Inf (u + v) + a * p + b * q + m * q by rewrite -Hab.
-(* [a <= u] is [invx_gap]; [u <= a+1] comes from the wrap, [Inf < p] and
-   [m*q <= p].  So [a] is [u] or [u-1], and that decides the walk. *)
-have key : u * p <= a * p + (Inf (u + v) + m * q).
-  rewrite -(leq_add2r (v * q)).
-  apply: leq_trans (_ : M <= _); first by rewrite bez.
-  apply: leq_trans HwA _.
-  rewrite addnAC (addnC (Inf (u + v)) (a * p)) -[a * p + Inf (u + v) + m * q]addnA.
-  by rewrite leq_add2l leq_mul2r bLv orbT.
-have Hua : u < a + 2.
-  rewrite -(ltn_pmul2r p_gt0).
-  apply: leq_ltn_trans key _.
-  rewrite mulnDl ltn_add2l mul2n -addnn.
-  by apply: leq_ltn_trans (leq_add (leqnn _) mqp) _; rewrite ltn_add2r.
-have [aE|aE] : a.+1 = u \/ a = u.
-  case: (leqP u a) => [uLa|aLu2].
-    by right; apply/eqP; rewrite eqn_leq aLu uLa.
-  by left; apply/eqP; rewrite eqn_leq aLu2 /= -ltnS -addn2.
-- (* a + 1 = u: the walk lands exactly on [d'], by a congruence mod [q] *)
-  set I := Inf (u + v) in dI Ip Hab HwA key *.
-  set W := Dst y + m * q - M.
-  have H2 : W + (a.+1 * p + v * q) = I + a * p + b * q + m * q.
-    by rewrite aE bez -Hab /W subnK.
-  have E3 : (W + p + a * p) + v * q = (I + a * p) + (b + m) * q.
-    move: H2; rewrite mulSnr mulnDl => H2.
-    by rewrite addnA -H2 -!addnA; congr (_ + _); rewrite addnCA.
-  have pmod : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
-  have Hm1 : (W + p + a * p) %% q = (I + a * p) %% q.
-    have E4 : (W + p + a * p + v * q) %% q = (I + a * p + (b + m) * q) %% q.
-      by rewrite E3.
-    by move: E4; rewrite (addnC (W + p + a * p) (v * q)) modnMDl
-                         (addnC (I + a * p) ((b + m) * q)) modnMDl.
-  have Hm2 : (W + p) %% q = I %% q.
-    by apply/eqP; rewrite -(eqn_modDr (a * p)) Hm1.
-  have Hm3 : (W + p %% q) %% q = I %% q by rewrite modnDmr Hm2.
-  rewrite pmod dI.
-  case: (leqP (p %% q) I) => [pI|Ip'].
-    suff -> : (I - p %% q) %% q = W by [].
-    have E5 : (I - p %% q + p %% q) %% q = (W + p %% q) %% q.
-      by rewrite subnK // Hm3.
-    have E6 : (I - p %% q) %% q = W %% q.
-      by apply/eqP; rewrite -(eqn_modDr (p %% q)) E5.
-    by rewrite E6 modn_small.
-  (* [Inf < p %% q]: then [d' = Inf] and the walk lands [q - p %% q] above it *)
-  have Iq : I < q by rewrite (ltn_trans Ip') // ltn_pmod.
-  have HI : (W + p %% q) %% q = I by rewrite Hm3 modn_small.
-  have Wpq : W + p %% q < q + q.
-    by apply: leq_ltn_trans (leq_add (ltnW Wq) (leqnn (p %% q))) _;
-       rewrite ltn_add2l ltn_pmod.
-  case: (ltnP (W + p %% q) q) => [Hlt2|Hge2].
-    move: HI; rewrite modn_small // => HI2.
-    by move: Ip'; rewrite -HI2 ltnNge leq_addl.
-  have HI2 : W + p %% q - q = I.
-    by move: HI; rewrite -{1}(subnK Hge2) modnDr modn_small // ltn_subLR.
-  have HW : W + p %% q = I + q by rewrite -HI2 subnK.
-  by rewrite -(leq_add2r (p %% q)) HW leq_add2l ltnW // ltn_pmod.
-(* a = u: the walk lands at or above [d], once [v <= b + m] *)
-have Hab2 : Dst y = Inf (u + v) + u * p + b * q by rewrite Hab aE.
-suff vbm : v <= b + m.
-  apply: leq_trans (step_ge_d_le d qLp) _.
-  rewrite dI leq_subRL // Hab aE -bez.
-  set I := inf_dst _ _ _ _.
-  rewrite addnAC (addnC (u * p) I) -[I + u * p + b * q + m * q]addnA leq_add2l.
-  by rewrite -mulnDl leq_mul2r vbm orbT.
-exact: ge_wrap_au iv ivd ix qLp yLuv mk bLv Hab2 Hw Wq.
-Qed.
+Proof. Admitted.
 
 Lemma step_invd_le_new_ge_at p q d u v y m :
   inv p q d u v -> invd p q d u v -> invx p q u v -> u + v < N ->
