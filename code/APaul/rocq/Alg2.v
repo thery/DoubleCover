@@ -203,64 +203,75 @@ Local Notation Inf := (inf_dst M A B).
 
 (** *** Warm-up: elementary facts about the specification *)
 
-(* pure -- [ltn_pmod], needs [M_gt0]. *)
 Lemma pt_lt x : Pt x < M.
-Proof. Admitted.
+Proof. by rewrite ltn_mod. Qed.
 
-(* pure -- [muln0], [mod0n]. *)
 Lemma pt0 : Pt 0 = 0.
-Proof. Admitted.
+Proof. by rewrite /Pt muln0 mod0n. Qed.
 
 (** the lattice is additive mod M *)
-(* pure -- [mulnDr] then [modnDm].  Do this one first, everything about
-   the geometry is phrased with it. *)
 Lemma ptD x y : Pt (x + y) = (Pt x + Pt y) %% M.
-Proof. Admitted.
+Proof. by rewrite modnDm -mulnDr. Qed.
 
-(* pure -- [ltn_pmod]. *)
 Lemma dst_lt x : Dst x < M.
-Proof. Admitted.
+Proof. by rewrite ltn_mod. Qed.
 
-(* pure -- [pt0], then [B + M - 0 = B + M] and [modnDr], using [B_lt]. *)
 Lemma dst0 : Dst 0 = B.
-Proof. Admitted.
+Proof. by rewrite /Dst pt0 subn0 modnDr modn_small. Qed.
 
-(** [Dst] read as a difference: this is the bridge to the geometry. *)
-(* pure -- definitional, [by []].  Kept as a named lemma so the proofs
-   below never unfold [dst]. *)
 Lemma dstE x : Dst x = (B + M - Pt x) %% M.
-Proof. Admitted.
+Proof. by []. Qed.
 
 (** moving one lattice step to the right lowers the distance by [Pt y],
     unless it wraps.  The workhorse for [step_d]. *)
-(* CFrac: slater.get_minD / get_maxD
-     get_minD : `{(m + get_min n) * a} = `{m * a} + `{get_min n * a}
-   i.e. exactly "the fractional parts add when they do not wrap".
-   Scaled: [ptD] plus the fact that under [Pt y <= Dst x] the sum stays
-   below [M], so the outer [%% M] disappears.
-   Proof plan: rewrite [dstE], [ptD]; the hypothesis gives
-   [Pt x + Pt y < M] (else the distance would have wrapped), so
-   [modn_small] applies and it is [subnDA] bookkeeping.
-   PROVE THIS EARLY -- step_d_lt and step_d_ge are both iterations of it. *)
 Lemma dstD x y : Pt y <= Dst x -> Dst (x + y) = Dst x - Pt y.
-Proof. Admitted.
+Proof.
+move=> ptLdx; rewrite dstE ptD.
+have F : Pt x + Pt y < M.*2.
+  rewrite -addnn; apply: ltn_trans (_ : M + Pt y < _).
+    by rewrite ltn_add2r pt_lt.
+  by rewrite ltn_add2l pt_lt.
+have [xyLM|MLxy]:= ltnP (Pt x + Pt y) M.
+  rewrite [(Pt x + _) %% _]modn_small //.
+  rewrite subnDA modnB //; last by apply: leq_trans ptLdx (leq_mod _ _).
+  rewrite -[(B + M - Pt x) %% M]/(Dst x) ltnNge modn_small; last by apply: pt_lt.
+  by rewrite ptLdx add0n.
+have -> : (Pt x + Pt y) %% M  = Pt x + Pt y - M.
+  by rewrite -[in LHS](subnK MLxy) modnDr modn_small // ltn_subLR // addnn.
+rewrite subnCBA // addnCA addnn [Pt x + _]addnC subnDAC.
+rewrite modnB ?pt_lt //; last first.
+  rewrite leq_subRL.
+    by apply: leq_trans (ltnW _) (leq_addl _ _).
+  apply: leq_trans (ltnW (pt_lt _)) _.
+  apply: leq_trans (leq_addl _ _).
+  by rewrite -addnn leq_addr.
+rewrite ![Pt _ %% _]modn_small ?pt_lt //.
+have -> : (B + M.*2 - Pt x) %% M = Dst x.
+  have -> : B + M.*2 = M + B + M by rewrite addnAC addnn addnC.
+  rewrite subDnCA; first by rewrite modnDl addnC.
+  by rewrite (leq_trans (ltnW (pt_lt _))) // leq_addr.
+by rewrite ltnNge ptLdx.
+Qed.
 
-(* pure -- definitional, [by []]. *)
 Lemma inf_dstS n : Inf n.+1 = minn (Dst n) (Inf n).
-Proof. Admitted.
+Proof. by []. Qed.
 
 (** the infimum is a lower bound on every distance in range *)
-(* pure -- induction on [n]; [inf_dstS] then [geq_minl]/[geq_minr] and
-   [ltnS], case on [x == n]. *)
 Lemma inf_dst_le n x : x < n -> Inf n <= Dst x.
-Proof. Admitted.
+Proof.
+elim: n => // n IH; rewrite leq_eqVlt => /orP[/eqP[->]|/IH // nLx].
+  by rewrite inf_dstS geq_minl.
+apply: leq_trans nLx.
+by rewrite inf_dstS geq_minr.
+Qed.
 
 (** more points can only lower the infimum *)
-(* pure -- induction on [n - m] (or [subnK] then induction); each step is
-   [geq_minr].  Needed at the exit: the configuration has [u+v >= N]
-   points, so its infimum is below [Inf N]. *)
 Lemma inf_dst_mono m n : m <= n -> Inf n <= Inf m.
-Proof. Admitted.
+Proof.
+move=> /subnK<-; elim: (_ - _) => // k kmLm.
+by rewrite addSn inf_dstS (leq_trans _ kmLm) // geq_minr.
+Qed.
+
 
 (** *** The loop invariant
 
@@ -284,20 +295,26 @@ Record inv (p q d u v : nat) : Prop := Inv {
   inv_d   : exists2 x, x < u + v & d = Dst x
 }.
 
+Lemma am_gt0 : 0 < A %% M.
+Proof.
+have : Pt 1 != 0 by apply: pt_neq0.
+by rewrite /Pt muln1; case: (_ %% _).
+Qed.
+
 (** *** Initialisation *)
 
-(* CFrac: slater.get_min1 / (the get_max analogue)
-     get_min 1 = 1, get_max 1 = 1 -- the configuration on {0, {a}}.
-   Proof plan, field by field:
-     inv_p0/inv_q0 : from [A_lt] and [pt_neq0 1] (needs [N_gt0]);
-     inv_bez       : 1 * A + 1 * (M - A) = M, i.e. [subnKC] with [A_lt];
-     inv_pv        : [Pt 1 = A %% M], by [muln1];
-     inv_qu        : ditto;
-     inv_d         : witness [x := 0], since [dst0] gives [Dst 0 = B]
-                     and [B %% M = B] by [B_lt] -- note [0 < 1 + 1].
-   Nothing here is hard; it is the natural warm-up after [dstD]. *)
 Lemma inv_init : inv (A %% M) (M - A %% M) (B %% M) 1 1.
-Proof. Admitted.
+Proof.
+constructor => //.
+- by apply: am_gt0.
+- by rewrite ltn_subRL addn0 ltn_mod.
+- by rewrite !mul1n addnC subnK // ltnW // ltn_mod.
+- by rewrite /Pt muln1.
+- by rewrite /Pt muln1.
+- exists 0 => //.
+by rewrite dstE pt0 subn0 modnDr.
+Qed.
+
 
 (** *** One step preserves the invariant
 
@@ -315,7 +332,14 @@ Proof. Admitted.
 Lemma step_bez p q d u v :
   inv p q d u v ->
   let: (p', q', _, u', v') := step p q d u v in u' * p' + v' * q' = M.
-Proof. Admitted.
+Proof.
+case => p_gt0 q_gt0 upvqE pE qE [x xLuv dE] /=.
+rewrite /step; have [pLq|qLp] := ltnP.
+  rewrite mulnDl mulnBr addnBA; last by rewrite leq_mul2l leq_divM orbT.
+  by rewrite mulnCA mulnA addnAC addnK.
+rewrite mulnBr mulnDl addnC addnBA; last by rewrite leq_mul2l leq_divM orbT.
+by rewrite mulnCA mulnA addnAC addnK addnC.
+Qed.
 
 (** the batched Euclid step: [k] applications of slater's [get_minS] /
     [get_maxS] at once (Property 2 of the paper).  Induction on [k],
@@ -323,30 +347,32 @@ Proof. Admitted.
 
 (** one point added on the left: [v] keeps realising the smallest
     positive point, [u] moves to [u + v].  (slater: [get_maxS].) *)
-(* CFrac: slater.get_maxS
-     get_max n.+1 = if `{get_max n * a} <= `{n.+1 * a} then n.+1 else get_max n
-   Here the new point is [Pt (u + v)] and it lands in the RIGHTMOST
-   interval (that is what [p < q] encodes), so [get_max] moves to
-   [u + v] and the right gap shrinks from [q] to [q - p].
-   Proof plan: [inv_qu] gives [q = M - Pt u]; [ptD] gives
-   [Pt (u + v) = (Pt u + Pt v) %% M = Pt u + p] (no wrap, since
-   [p = Pt v < q = M - Pt u]).  Then [M - Pt (u+v) = q - p] by [subnDA].
-   The [u + v < N] hypothesis is only needed to invoke [pt_neq0]. *)
 Lemma step_pt_one_lt p q u v :
   inv p q (Dst 0) u v -> p < q -> u + v < N ->
   (p = Pt v) /\ (q - p = M - Pt (u + v)).
-Proof. Admitted.
+Proof.
+rewrite dst0.
+case => p_gt0 q_gt0 upvqE pE qE [x xLuv BE] /= pLq uvLN; split => //.
+rewrite ptD modn_small; last by rewrite -ltn_subRL // -pE -qE.
+by rewrite subnDA -qE -pE.
+Qed.
 
-(** one point added on the right.  (slater: [get_minS].) *)
-(* CFrac: slater.get_minS
-     get_min n.+1 = if `{n.+1 * a} <= `{get_min n * a} then n.+1 else get_min n
-   Mirror image of the previous one: the new point falls in the LEFTMOST
-   interval, [get_min] moves to [v + u], and the left gap shrinks from
-   [p] to [p - q].  Same proof plan with [inv_pv] in place of [inv_qu]. *)
+(** one point added on the right. *)
 Lemma step_pt_one_ge p q u v :
   inv p q (Dst 0) u v -> q <= p -> u + v < N ->
   (p - q = Pt (v + u)) /\ (q = M - Pt u).
-Proof. Admitted.
+Proof.
+rewrite dst0.
+case => p_gt0 q_gt0 upvqE pE qE [x xLuv BE] /= qLp uvLN; split => //.
+rewrite pE qE ptD subnBA; last by rewrite ltnW // pt_lt.
+rewrite [Pt _ + _]addnC.
+suff MLuv : M <= Pt u + Pt v.
+  rewrite -[in RHS](subnK MLuv) modnDr modn_small // ltn_subLR //.
+  rewrite (ltn_trans _ (_ : M + Pt v < _)) //.
+    by rewrite ltn_add2r pt_lt.
+  by rewrite ltn_add2l pt_lt.
+by rewrite -leq_subLR -pE -qE.
+Qed.
 
 (* CFrac: the two lemmas above, iterated [k] times (Property 2 of the
    paper -- "it is similar as repeating |h/l| times Property 1").
@@ -361,7 +387,57 @@ Lemma step_pt p q d u v :
   inv p q d u v -> u + v < N ->
   let: (p', q', _, u', v') := step p q d u v in
   (p' = Pt v') /\ (q' = M - Pt u').
-Proof. Admitted.
+Proof. 
+case => p_gt0 q_gt0 upvqE pE qE [x xLuv dE] uvLN.
+rewrite /step; have [pLq|qLp] := ltnP.
+  suff : forall j, j <= q %/ p -> p = Pt v /\ q -  j * p = M - Pt (u + j * v).
+    by move=> /(_ (q %/ p)); apply.
+  elim => [|j IH jLq]; first by rewrite subn0 addn0.
+  have -> :  q - j.+1 * p = q - j * p - p by rewrite mulSnr subnDA.
+  have -> : u + j.+1 * v = u + j * v + v by rewrite mulSnr addnA.
+  apply: step_pt_one_lt.
+  - split => //.
+    - rewrite subn_gt0 (leq_trans _ (_ :  q %/ p * p <= _)) //.
+        by rewrite ltn_mul2r p_gt0.
+      by rewrite leq_divM.
+    - rewrite mulnDl mulnBr -addnA.
+      rewrite mulnCA -mulnA [X in _ + X]addnC subnK //.
+      rewrite mulnCA leq_mul2l.
+      by rewrite (leq_trans _ (leq_divM q p)) ?orbT // leq_mul2r ltnW ?orbT.
+    - by case: IH => //; apply: ltnW.
+    exists 0 => //.
+    by rewrite addnAC (leq_trans _ (leq_addr _ _)) // (leq_ltn_trans _ xLuv).
+  - rewrite ltn_subRL -mulSnr.
+    rewrite (leq_trans _ (leq_divM q p)) // ltn_mul2r p_gt0.
+    (* This is false*)
+    admit.
+  (* Seems false too *)
+  admit.
+suff : forall j, j <= p %/ q -> p - j * q = Pt (v + j * u) /\ q = M - Pt u.
+  by move=> /(_ (p %/ q)); apply.
+elim => [|j IH jLq]; first by rewrite subn0 addn0.
+have -> :  p - j.+1 * q = p - j * q - q by rewrite mulSnr subnDA.
+have -> : v + j.+1 * u = v + j * u + u by rewrite mulSnr addnA.
+apply: step_pt_one_ge.
+  - split => //.
+    - rewrite subn_gt0 (leq_trans _ (_ :  p %/ q * q <= _)) //.
+        by rewrite ltn_mul2r q_gt0.
+      by rewrite leq_divM.
+    - rewrite mulnBr mulnDl.
+      rewrite mulnCA -mulnA addnC addnBA.
+        by rewrite addnAC addnK addnC.
+      rewrite mulnCA leq_mul2l (leq_trans _ (_ :  p %/ q * q <= _)) ?orbT //.
+        by rewrite leq_mul2r ltnW // orbT.
+      by apply: leq_divM.
+    - by case: IH => //; apply: ltnW.
+    exists 0 => //.
+    by rewrite addnA (leq_trans _ (leq_addr _ _)) // (leq_ltn_trans _ xLuv).
+- rewrite leq_subRL //.
+    by rewrite -mulSnr (leq_trans _ (leq_divM p q)) // leq_mul2r jLq orbT.
+  by rewrite (leq_trans _ (leq_divM p q)) // leq_mul2r ltnW // orbT.
+(* This seems false *)
+admit.
+Admitted.
 
 (** THE hard one: the [d] update stays a genuine distance.
 
