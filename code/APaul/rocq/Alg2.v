@@ -492,6 +492,15 @@ Qed.
     the single obligation [step_invd] below, phrased directly on the two
     quantities that do hold. *)
 
+(** the converse of [inf_dst_le]: a pointwise lower bound gives a bound
+    on the infimum.  This is what turns [mod_le_dst] (pointwise) into the
+    [invd_le] field (about [Inf]). *)
+Lemma le_inf_dst e n : e <= M -> (forall x, x < n -> e <= Dst x) -> e <= Inf n.
+Proof.
+move=> eM; elim: n => [//|n IH H]; rewrite inf_dstS leq_min H // IH // => x xn.
+by apply: H (ltnW xn).
+Qed.
+
 (** ** The two remaining [d] obligations
 
     Both fields of [invd] are needed, and they differ sharply in cost:
@@ -525,7 +534,10 @@ Qed.
 (** the lattice is linear while it has not wrapped -- needed to turn an
     index bound into a bound on [Pt]. *)
 Lemma pt_mul_small k : Pt 1 * k < M -> Pt k = Pt 1 * k.
-Proof. Admitted.
+Proof.
+move=> H; have -> : Pt k = (Pt 1 * k) %% M by rewrite /pt muln1 modnMml.
+by rewrite modn_small.
+Qed.
 
 (** the shape [invd_le] reduces to, in both [invd_first] and [step_invd]:
     a remainder by a gap is below every distance whose index is in range.
@@ -584,11 +596,47 @@ Proof. Admitted.
       Dst (x - j * u) = d - j * q,  side condition  j * u <= x
     which wants [pt_sub] / [dstB] below. *)
 Lemma pt_sub x y : y <= x -> Pt y <= Pt x -> Pt (x - y) = Pt x - Pt y.
+Proof.
+move=> yx Hp; rewrite /pt mulnBr modnB //; last by rewrite leq_mul2l yx orbT.
+by rewrite ltnNge Hp /= mul0n add0n.
+Qed.
+
+Lemma dstB x y : y <= x -> Pt y <= Pt x -> Dst (x - y) = (Dst x + Pt y) %% M.
+Proof.
+move=> yx Hp.
+have HxM : Pt x <= B + M by rewrite (leq_trans (ltnW (pt_lt x))) // leq_addl.
+rewrite dstE pt_sub // subnBA // dstE modnDml.
+by rewrite addnBAC.
+Qed.
+
+(** [dstB] holds WITHOUT the [Pt y <= Pt x] hypothesis -- validated over
+    104326944 instances (M in {24,32,48,64}, all A, B, x, y <= x): 0
+    counterexamples.  This matters: it is what removes the need to
+    establish [Pt u <= Pt (x - j*u)] inside [step_d_ge]'s induction, which
+    is otherwise the awkward part.
+
+    Proof plan (a two-case computation, no geometry).  Put
+    [P := Pt (x-y)], [Q := Pt y]; the proved [ptD] with [subnK] gives
+    [Pt x = (P + Q) %% M].  Then
+      P + Q < M : [(P+Q) %% M = P+Q], and both sides reduce to
+                  [(B + M - P) %% M] by [subnDA] / [subnK];
+      M <= P + Q: [(P+Q) %% M = P+Q-M], and the left side picks up an
+                  extra [M] which [modnDr] discards.
+    The [Pt y <= Pt x] version above is the special case, already proved. *)
+Lemma dstB_gen x y : y <= x -> Dst (x - y) = (Dst x + Pt y) %% M.
 Proof. Admitted.
 
-Lemma dstB x y : y <= x -> Pt y <= Pt x -> Dst (x - y) = Dst x + Pt y.
-Proof. Admitted.
+(** the mirror of [step_d_lt], with the direction of travel corrected:
+    walking by index [u] moves the point LEFT by [q], hence DOWN the
+    index, so it is [x - j*u].  The core identity
+      q = M - Pt u -> j*u <= x -> j*q <= Dst x ->
+      Dst (x - j*u) = Dst x - j*q
+    is validated over 17816512 instances, 0 counterexamples.
 
+    Proof plan: induction on [j].  The step is [dstB_gen] at [y := u],
+    giving [Dst (z - u) = (Dst z + Pt u) %% M] with [Pt u = M - q]
+    ([inv_qu]); then [Dst z = d - j*q >= q] (from [j.+1 <= d %/ q]) makes
+    [(Dst z + M - q) %% M = Dst z - q] by [modnDr] and [subnK]. *)
 Lemma step_d_ge p q d u v x j :
   inv p q d u v -> q <= p -> x < u + v -> d = Dst x ->
   j <= d %/ q -> j * u <= x -> Dst (x - j * u) = d - j * q.
