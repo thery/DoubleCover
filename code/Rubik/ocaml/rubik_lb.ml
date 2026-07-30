@@ -350,6 +350,9 @@ let () =
     !r in
 
   let opp f = (f + 3) mod 6 in
+  (* argv 4: "norules" turns the redundancy rules off, to measure them *)
+  let use_rules = not (Array.length Sys.argv > 4 && Sys.argv.(4) = "norules") in
+  Printf.printf "redundancy rules: %b\n%!" use_rules;
 
   let rec dfs d rem prev =
     nodes := Int64.add !nodes 1L;
@@ -362,7 +365,7 @@ let () =
       let m = ref 0 in
       while not !found && !m < 18 do
         let f = !m / 3 in
-        if prev >= 0 && (f = prev || (f = opp prev && f > prev)) then ()
+        if use_rules && prev >= 0 && (f = prev || (f = opp prev && f > prev)) then ()
         else begin
           let d' = d + 1 in
           let mcp = moves.(!m).cp and mep = moves.(!m).ep in
