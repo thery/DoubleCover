@@ -1149,7 +1149,8 @@ Record invx (p q u v : nat) : Prop := Invx {
      between.  Probed over M in {24,32,48}, all A, all B, every reachable
      state: 0 violations / 53120. *)
   invx_gap : forall y, y < u + v ->
-             exists a b, Dst y = Inf (u + v) + a * p + b * q
+             exists a b, [/\ a <= u, b <= v &
+                             Dst y = Inf (u + v) + a * p + b * q]
 }.
 
 (** the wrapping companion of [pt_sub]: when the order inverts, the
@@ -1213,16 +1214,17 @@ have Hinf : Inf (1 + 1) < maxn (A %% M) (M - A %% M).
     by rewrite (leq_trans _ (leq_maxr _ _)) // ltn_sub2r.
   by rewrite (leq_trans _ (leq_maxl _ _)).
 have Hgap : forall y, y < 1 + 1 ->
-    exists a b, Dst y = Inf (1 + 1) + a * (A %% M) + b * (M - A %% M).
+    exists a b, [/\ a <= 1, b <= 1 &
+                    Dst y = Inf (1 + 1) + a * (A %% M) + b * (M - A %% M)].
   move=> y; move: HI; case: (leqP A B) => [AB|AB] HI.
     have D1 : Dst 1 = B - A by rewrite dst_below Hp1.
     case: y => [|[|y]] //= _.
-      by exists 1, 0; rewrite dst0 HI HA mul1n mul0n addn0 subnK.
-    by exists 0, 0; rewrite D1 HI !mul0n !addn0.
+      by exists 1, 0; split=> //; rewrite dst0 HI HA mul1n mul0n addn0 subnK.
+    by exists 0, 0; split=> //; rewrite D1 HI !mul0n !addn0.
   have D1 : Dst 1 = B + M - A by rewrite dst_above Hp1.
   case: y => [|[|y]] //= _.
-    by exists 0, 0; rewrite dst0 HI !mul0n !addn0.
-  by exists 0, 1; rewrite D1 HI mul0n addn0 mul1n HA addnBA // ltnW.
+    by exists 0, 0; split=> //; rewrite dst0 HI !mul0n !addn0.
+  by exists 0, 1; split=> //; rewrite D1 HI mul0n addn0 mul1n HA addnBA // ltnW.
 split => //.
 - by move=> m; case: m => [|[|m]] //= _; rewrite Hp1 HA.
 - move=> m; case: m => [|[|m]] //= _; first by rewrite pt0.
@@ -1405,7 +1407,7 @@ Proof.
 move=> iv ivd ix pLq yLuv Hg.
 have [p_gt0 q_gt0 _ _ _ _ _ _] := iv.
 have [_ _ dcong] := ivd.
-have [a [b Hab]] := invx_gap ix yLuv.
+have [a [b [aLu bLv Hab]]] := invx_gap ix yLuv.
 have qdiv : q %/ p * p <= q by rewrite leq_divM.
 (* the guard says exactly [Dst y < p + q] *)
 have Hlt : Dst y < p + q.
@@ -1414,12 +1416,12 @@ have Hlt : Dst y < p + q.
     by rewrite leq_add2l leq_mul2r Hg orbT.
   apply: leq_ltn_trans (leq_add (leqnn (Dst y %% p)) qdiv) _.
   by rewrite ltn_add2r ltn_pmod.
-case: b Hab => [|[|b]] Hab.
+case: b Hab bLv => [|[|b]] Hab bLv.
 (* no [q] in the decomposition: the two residues agree outright *)
 - by rewrite Hab mul0n addn0 addnC modnMDl dcong.
 (* exactly one [q]: then [a = 0] and [Dst y %% p = Inf + q %% p] *)
 - have a0 : a = 0.
-    case: a Hab => // a Hab; move: Hlt; rewrite Hab mul1n ltnNge => /negP[].
+    case: a Hab aLu => // a Hab aLu; move: Hlt; rewrite Hab mul1n ltnNge => /negP[].
     by rewrite leq_add2r (leq_trans _ (leq_addl _ _)) // mulSnr leq_addl.
   move: Hab; rewrite a0 mul0n addn0 mul1n => Hab.
   have Hd : Dst y %/ p = q %/ p.
@@ -1621,26 +1623,58 @@ Qed.
     this; it needs [d]'s relation to the walk, i.e. [invd_cong] or [invx].
     The wrap is common, not a corner case: 16809 of 80376 instances.
 
-    Where it stands.  [ge_d_eq_inf] gives [d = Inf (u+v)] outright here, so
-    with [walk_ge_wrapeq], [invx_gap] and [inv_bez] the goal is exactly
+    Where it stands, after step 3 of the strategy was worked out and
+    measured.  Everything below is verified over M in {24,32,45,48,60,64}
+    (some counts over {..,81,100}), all A, all B, every reachable state.
 
-      d' <= Inf (u+v) + a*p + (b+m)*q - M,   M <= Inf (u+v) + a*p + (b+m)*q
+    Set [W := Dst y + m*q - M], which is [Dst (y + m*u)] by
+    [walk_ge_wrapeq], and [p' := p %% q].  The goal is [d' <= W].
 
-    i.e. it suffices that [M <= a*p + (b+m)*q + (Inf (u+v) - d')].  The
-    crude form of that -- [M <= a*p + (b+m)*q] on its own, which would
-    follow from [d' <= d] alone -- is NOT available: [invx_inf] only puts
-    the combination above [M - p], and [a = u-1, b+m = v+1] lands on
-    [M - p + q], strictly inside [(M-p, M)] whenever [q < p].
+    (1) [d' < q] always -- proved, [ge_d_lt_q].  Measured 28197/28197.
+        Hence the half [q <= W] is immediate and needs nothing else.
 
-    Two shortcuts are ruled out by measurement, so do not retry them:
-    - [d' = Inf (u'+v')] (the [ge] step computing the new closest distance
-      exactly) is FALSE: 314 violations / 5216, the step can undershoot.
-    - [Inf (u'+v') = Inf (u+v) %% (p %% q)], the mirror of the [lt] branch's
-      [inf_new_lt], is FALSE: 34 / 1384.
+    (2) The tight half is [W < q].  There [W] takes only two values:
+        [W = d'] (28103 cases) or [W = d' + p'] (1728); never anything
+        else, 29831/29831.  NB the earlier guess that [W < q] always is
+        FALSE -- the lemma quantifies over every [m], not just the first
+        one to wrap (2781/5701).
 
-    So what is left is genuinely the [Inf (u+v) - d'] margin, i.e. how far
-    [(d - p') %% q] sits below [d]; that is the shared content of this lemma
-    and [inf_cong_ge]. *)
+    (3) Which of the two is decided by the coefficient [a] of [invx_gap]:
+
+          W - d' = (a - u + 1) * p'  (mod q),   and  |W - d'| < q
+
+        [invx_gap] now carries [a <= u], and [a >= u - 1] is DERIVABLE:
+        the wrap gives [(u-a)*p <= Inf (u+v) + m*q], with
+        [Inf (u+v) < p] ([invx_inf], as [q <= p]) and
+        [m*q <= (p %/ q)*q <= p], so [(u-a-1)*p < p].  Measured
+        distribution of [a - u] over tight cases: only -1 (9624) and
+        0 (1711).
+
+    (4) [a = u] closes on the spot: then [W = Inf (u+v) + (b+m-v)*q], so
+        [Inf (u+v) <= W], and [d' <= d = Inf (u+v)] by [ge_d_eq_inf].
+        Measured: [Inf (u+v) <= W] in 1711/1711 of those cases.
+
+    (5) [a = u - 1] gives [W = d'] by the congruence in (3), both sides
+        being below [q].
+
+    What is left is the mod-[q] bookkeeping of (3) and (5), plus ruling
+    out [b + m < v] in (4).  Two shortcuts are dead and must not be
+    retried: [d' = Inf (u'+v')] is FALSE (314/5216, the step can
+    undershoot) and [d' + p' < q] is FALSE (8611/10669). *)
+
+(** the new [d] is below [q] in both branches of its conditional: the
+    [then] branch is a remainder mod [q], and the [else] branch has
+    [d < p - p %/ q * q = p %% q < q].  This is what makes the
+    non-tight half of [le_ge_wrap] trivial. *)
+Lemma ge_d_lt_q p q d : 0 < q ->
+  (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d) < q.
+Proof.
+move=> q_gt0.
+have pmod : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
+case: (leqP (p - p %/ q * q) d) => [_|H]; first by rewrite ltn_pmod.
+by rewrite (leq_ltn_trans (ltnW H)) // pmod ltn_pmod.
+Qed.
+
 Lemma le_ge_wrap p q d u v y m :
   inv p q d u v -> invd p q d u v -> invx p q u v -> u + v < N ->
   q <= p -> y < u + v -> 0 < m <= p %/ q -> M <= Dst y + m * q ->
