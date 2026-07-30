@@ -724,21 +724,38 @@ case: (leqP (p - p %/ q * q) d) => [p'Ld|dLp'].
 by rewrite (leq_trans dLp') // leq_maxl.
 Qed.
 
-(** the [invd_le] half: the real content, and the same missing lemma as
-    [invd_first]'s goal (4).  The two branches are
+(** the [invd_le] half: the real content, shared with [invd_first]'s
+    goal (4).  Both reduce to the SAME pointwise obligation.
 
-      p < q : d' = d %% p, new indices u' = u + (q %/ p)*v, v' = v.
-              [step_d_lt] (PROVED) says walking right by [p] realises
-              [d - j*p] as a distance, so the points at stake form an
-              arithmetic progression of step [p].
-      q <= p: d' = (d - p') %% q with p' = p %% q, new v' = v + (p %/ q)*u.
-              [step_d_ge] (PROVED) is the mirror, progression of step [q]
-              walking DOWN the index.
+    ** What is settled
 
-    In both, what must be shown is that reducing modulo the step lands at
-    or below the closest point -- i.e. exactly "distance to the nearest
-    element of an arithmetic progression of step g".  Formulate that once,
-    validate it, and it discharges this and [invd_first] goal (4). *)
+    - [d' <= Inf (u' + v')] holds at every step: 0 violations over 14272
+      steps (M in {32,64}, all A, B, N = M %/ g).
+    - [d' = Inf (u' + v')] is NOT universal -- equality holds in only
+      13986 of those 14272.  So the [<=] form is necessary and cannot be
+      sharpened to an equation; do not try.
+    - The route must therefore be [le_inf_dst] (proved) plus a POINTWISE
+      bound [d' <= Dst x] for every [x < u' + v'].  That is where the
+      remaining work is, and it is genuinely a universal claim -- neither
+      [step_d_lt] nor [step_d_ge] gives it, since both only EXHIBIT one
+      index realising a given distance.
+
+    ** The two branches
+
+    [p < q]: d' = d %% p, and by [step_d_lt] (proved) the points
+      [x0 + j*v], [j <= d %/ p], realise [d - j*p], so [d %% p] is the
+      last of them.  The new gaps are [p] and [q %% p].
+    [q <= p]: d' = (d - p') %% q with [p' = p %% q], and by [step_d_ge]
+      (proved) the points [x0 - j*u] realise [d - j*q], walking DOWN the
+      index.  The new gaps are [p %% q] and [q].
+
+    In both, the pointwise bound is "no point of the new configuration
+    lies strictly between [b - d'] and [b]" -- i.e. [d'] is minimal.  The
+    natural formulation is in terms of the two-length structure: every
+    point is [j*v] or [x0 - j*u] steps from a known one, so any [x] in
+    range decomposes, and its distance is [d' + (a nonneg multiple of a
+    gap)].  Formulate THAT as the shared lemma, validate it, then both
+    this and [invd_first] goal (4) follow by [le_inf_dst]. *)
 Lemma step_invd_le p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N ->
   let: (_, _, d', u', v') := step p q d u v in d' <= Inf (u' + v').
@@ -799,11 +816,37 @@ Qed.
     still running, and that should be characterised by the harness before
     anything is stated. *)
 
+(** The proof needs NO completeness statement -- Bezout on the NEW state
+    plus [N <= M %/ gcdn A M] is exactly enough.  If [q' = 0] then
+    [step_bez] degenerates to [u' * p = M], and [p %| q] forces
+    [p = gcdn p q = gcdn A M], so [u' = M %/ gcdn A M >= N], contradicting
+    [u' + v' < N].  Symmetrically for [p' = 0].  ([inv_complete], the false
+    lemma of round 3, was a wrong turn: it was never needed.) *)
 Lemma step_p_gt0 p q d u v :
   inv p q d u v -> u + v < N ->
   let: (p', q', _, u', v') := step p q d u v in
   u' + v' < N -> 0 < p' /\ 0 < q'.
-Proof. Admitted.
+Proof.
+move=> iv uvLN.
+have [p_gt0 q_gt0 bez pE qE gE] := iv.
+have Hb := step_bez iv.
+move: Hb; rewrite /step.
+have [pLq|qLp] := ltnP => /= Hb Huv; split => //.
+  case: (posnP (q - q %/ p * p)) => [q0|] //.
+  have qme : q - q %/ p * p = q %% p by rewrite {1}(divn_eq q p) addnC addnK.
+  have qmp : q %% p = 0 by rewrite -qme q0.
+  have pg : p = gcdn A M by rewrite -gE; apply/esym/gcdn_idPl; rewrite /dvdn qmp.
+  move: Hb; rewrite q0 muln0 addn0 => Hb.
+  have Hu : u + q %/ p * v = M %/ p by rewrite -Hb mulnK.
+  by move: Huv; rewrite Hu pg ltnNge (leq_trans N_le_Mg (leq_addr v _)).
+case: (posnP (p - p %/ q * q)) => [p0|] //.
+have pme : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
+have pmq : p %% q = 0 by rewrite -pme p0.
+have qg : q = gcdn A M by rewrite -gE gcdnC; apply/esym/gcdn_idPl; rewrite /dvdn pmq.
+move: Hb; rewrite p0 muln0 add0n => Hb.
+have Hv : v + p %/ q * u = M %/ q by rewrite -Hb mulnK.
+by move: Huv; rewrite Hv qg ltnNge (leq_trans N_le_Mg (leq_addl u _)).
+Qed.
 
 (* glue -- assemble [step_p_gt0], [step_bez], [step_pt], [step_d] into
    the record.  Mechanical once the four are done; write it last. *)
@@ -812,7 +855,25 @@ Lemma inv_step p q d u v :
   inv p q d u v -> u + v < N ->
   let: (p', q', d', u', v') := step p q d u v in
   u' + v' < N -> inv p' q' d' u' v'.
-Proof. Admitted.
+Proof.
+move=> iv uvLN.
+have Hg := step_p_gt0 iv uvLN.
+have Hb := step_bez iv.
+have Hpt := step_pt iv.
+have [_ _ _ _ _ gE] := iv.
+move: Hg Hb Hpt; rewrite /step.
+have [pLq|qLp] := ltnP => /= Hg Hb Hpt Huv.
+  have [Hp Hq] := Hg Huv.
+  have [Hpv Hqu] := Hpt Hp Hq.
+  split => //.
+  have -> : q - q %/ p * p = q %% p by rewrite {1}(divn_eq q p) addnC addnK.
+  by rewrite gcdn_modr.
+have [Hp Hq] := Hg Huv.
+have [Hpv Hqu] := Hpt Hp Hq.
+split => //.
+have -> : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
+by rewrite gcdnC gcdn_modr gcdnC.
+Qed.
 
 (** *** Termination *)
 
