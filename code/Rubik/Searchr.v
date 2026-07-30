@@ -43,9 +43,10 @@ Variable fc : gT -> nat.
 Variable opp : nat -> nat.
 
 Hypothesis fc_lt : forall m, m \in S -> fc m < nfc.
-Hypothesis opp_lt : forall f, f < nfc -> opp f < nfc.
 Hypothesis oppK : forall f, f < nfc -> opp (opp f) = f.
-Hypothesis opp_neq : forall f, f < nfc -> opp f != f.
+(* opp_lt and opp_neq were assumed here too and are NOT needed: nothing in
+   the file uses them, and searchrN does not depend on them.  Removed so
+   Rubik333.v is not asked for facts no proof consumes.                   *)
 
 (* THE FIRST FACT.  The moves of one face together with 1 are closed under
    product: U * U = U2, U * U2 = U', U * U' = 1.  So two consecutive moves
