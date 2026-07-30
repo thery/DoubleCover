@@ -101,27 +101,103 @@ Variable fc : {perm 'I_n.+1} -> nat.
 Hypothesis fcE : forall k, k < seq.size mts ->
   fc (pt n (nth [::] mts k)) = fcp k.
 
-(* [HARD] the analogue of Tsearch.searchtE, and the ONLY place where the
-   position/move identification actually happens -- do this one first, the
-   array level is then a copy of Tabi.searchiE.
-   SKELETON: induction on d as in searchtE; rewrite hE and pt_eq1, then
-   congr (_ && (_ || _)).  The pointwise step is now between a has over
-   POSITIONS and a has over MOVES, so it is NOT eq_in_has directly:
-     has f (iota 0 (size mts))  =  has g [seq pt n mt | mt <- mts]
-   Go through has_map and then `has_nth`-style reasoning -- k <-> nth mts k
-   is a bijection of positions onto the list, so
-     has g (map F mts) = has (fun k => g (F (nth [::] mts k))) (iota 0 (size mts))
-   is the general lemma to prove first (call it has_iota_map); it is about
-   seq only and belongs next to prodcat in Searchr.v or in a seq preamble.
-   Then fcE turns fcp k into fc of the move and the two guards coincide. *)
+(* the analogue of Tsearch.searchtE, and the only place where the
+   position/move identification happens.  The pointwise step is between a
+   has over POSITIONS and a has over MOVES: has_map strips the map on the
+   right, then has_nth_iota turns that list into its positions.  It has to
+   be AIMED at the right hand side -- has_nth_iota's pattern also matches
+   the left, where the body mentions k outside the nth, so an untargeted
+   rewrite goes the wrong way.                                            *)
 Lemma searchtrE d t p :
   tab_ok n t ->
   searchtr d t p = searchr [seq pt n mt | mt <- mts] h nfc fc opp d (pt n t) p.
-Proof. Admitted.
+Proof.
+elim: d t p => [t p tok|d IH t p tok] /=; rewrite hE // pt_eq1 //.
+congr (_ && (_ || _)).
+rewrite has_map [X in _ = X](has_nth_iota _ _ [::]).
+apply: eq_in_has => k; rewrite mem_iota => /andP[_ kL] /=.
+rewrite fcE //; congr (_ && _).
+have mtok : tab_ok n (nth [::] mts k) by apply: (allP mtsok); rewrite mem_nth.
+by rewrite (IH _ (fcp k) (tab_ok_comp tok mtok)) (ptM tok mtok).
+Qed.
 
 End TableR.
 
 (* ---- 3. The reduced search on arrays --------------------------------------*)
+
+(* has over a filtered list is has over the list with the filter conjoined *)
+Lemma has_filter_and (A : Type) (P f : A -> bool) (s : seq A) :
+  has f [seq x <- s | P x] = has (fun x => P x && f x) s.
+Proof. by elim: s => [//|x s IH] /=; case: (P x) => //=; rewrite IH. Qed.
+
+Section ArrayR.
+
+Variable n : nat.
+(* eq_tabi_id needs these two, exactly as Tabi's section does *)
+Hypothesis n_small : n.+1 < nwB.
+Hypothesis n_len : (of_nat n.+1 <=? PArray.max_length)%uint63.
+Variable mtis : seq (PArray.array int).
+Hypothesis mtis_ok : all (tabi_ok n) mtis.
+Variable Dti : PArray.array int -> nat.
+Variable Dt : seq nat -> nat.
+Hypothesis DtiE : forall a, tabi_ok n a -> Dti a = Dt (ti2t n a).
+Variable nfc : nat.
+Variable opp : nat -> nat.
+Variable fcp : nat -> nat.
+
+(* THE POSITIONS ALLOWED AFTER A MOVE OF FACE p, filtered ONCE per p rather
+   than tested per move.  That is not cosmetic: it keeps the inner loop the
+   SAME SHAPE as Tabi.searchi, so the laziness carries over for free and
+   searchirS stays definitional.  && and has are strict under vm_compute, so
+   a guard spelled `okfc0 ... && searchir ...` inside the loop would run the
+   recursive call even when the guard fails -- the 185 s bug all over again. *)
+Definition allowedr (p : nat) : seq nat :=
+  [seq k <- iota 0 (seq.size mtis) | okfc0 nfc opp p (fcp k)].
+
+Fixpoint searchir (d : nat) (a : PArray.array int) (p : nat) : bool :=
+  if Dti a <= d then
+    if eq_tabi n a (id_tabi n) then true
+    else if d is d'.+1 then
+      (fix go (l : seq nat) : bool :=
+         if l is k :: l' then
+           if searchir d' (comp_tabi n a (nth (id_tabi n) mtis k)) (fcp k)
+           then true else go l'
+         else false) (allowedr p)
+    else false
+  else false.
+
+Lemma searchirS d a p :
+  searchir d.+1 a p =
+  (Dti a <= d.+1) &&
+  (eq_tabi n a (id_tabi n) ||
+   has (fun k => searchir d (comp_tabi n a (nth (id_tabi n) mtis k)) (fcp k))
+       (allowedr p)).
+Proof.
+rewrite {1}/searchir -/searchir.
+by case: (Dti a <= d.+1) => //=; case: (eq_tabi n a (id_tabi n)) => //=.
+Qed.
+
+Lemma searchirE d a p :
+  tabi_ok n a ->
+  searchir d a p =
+  searchtr n [seq ti2t n mt | mt <- mtis] Dt nfc opp fcp d (ti2t n a) p.
+Proof.
+(* p must be generalised: the recursive call changes it to fcp k *)
+move=> aok; move: a p aok; elim: d => [|d IH] a p aok.
+  by rewrite /= DtiE // eq_tabi_id //.
+rewrite searchirS searchtrS DtiE // eq_tabi_id //.
+congr (_ && (_ || _)).
+rewrite /allowedr has_filter_and seq.size_map.
+apply: eq_in_has => k; rewrite mem_iota => /andP[_ kL].
+congr (_ && _).
+have mtok : tabi_ok n (nth (id_tabi n) mtis k).
+  by apply: (all_nthP (id_tabi n) mtis_ok).
+by rewrite (nth_map (id_tabi n)) // -ti2t_comp // IH // tabi_ok_comp.
+Qed.
+
+End ArrayR.
+
+
 
 (* [MEDIUM] a copy of Tabi.searchi with the guard added.  Not written yet
    because it must be written ONCE, correctly:
