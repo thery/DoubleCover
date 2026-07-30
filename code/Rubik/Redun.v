@@ -123,15 +123,9 @@ Definition oppf (f : nat) : nat := (f + 3) %% nfcube.
    face f sit at indices 3f, 3f+1, 3f+2.                                    *)
 Definition fcube (m : {perm facelet}) : nat := index m moves %/ 3.
 
-Lemma oppf_lt f : f < nfcube -> oppf f < nfcube.
-Proof. by move=> _; rewrite /oppf ltn_mod. Qed.
-
-Lemma oppfK f : f < nfcube -> oppf (oppf f) = f.
-Proof. by rewrite /oppf /nfcube; case: f => [|[|[|[|[|[|f]]]]]]. Qed.
-
-Lemma oppf_neq f : f < nfcube -> oppf f != f.
-Proof. by rewrite /oppf /nfcube; case: f => [|[|[|[|[|[|f]]]]]]. Qed.
-
+(* oppf_lt and oppf_neq used to live here, to discharge Searchr's opp_lt and
+   opp_neq.  Those hypotheses turned out to be unused, so both are gone --
+   two lines to restore if ever wanted.                                   *)
 Lemma fcube_lt m : m \in Sset -> fcube m < nfcube.
 Proof.
 rewrite inE => mM; rewrite /fcube /nfcube ltn_divLR //.
