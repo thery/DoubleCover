@@ -510,10 +510,17 @@ Qed.
     elementary lemmas first.  None needs CFrac. *)
 
 Lemma dst_below x : Pt x <= B -> Dst x = B - Pt x.
-Proof. Admitted.
+Proof.
+move=> H; rewrite dstE addnC -addnBA // modnDl modn_small //.
+apply: leq_ltn_trans (leq_subr _ _) B_lt.
+Qed.
 
 Lemma dst_above x : B < Pt x -> Dst x = B + M - Pt x.
-Proof. Admitted.
+Proof.
+move=> H; rewrite dstE modn_small //.
+rewrite ltn_subLR; last by rewrite (leq_trans (ltnW (pt_lt x))) // leq_addl.
+by rewrite ltn_add2r.
+Qed.
 
 (** the lattice is linear while it has not wrapped -- needed to turn an
     index bound into a bound on [Pt]. *)
@@ -526,8 +533,27 @@ Proof. Admitted.
     [dst_below] and [leq_trunc_div]; [x > d %/ g] makes the point wrap, and
     [dst_above] bounds [Dst x] below by [M - Pt x >= B %% g] as long as
     [Pt 1 * x <= B + M], which the index range provides. *)
-Lemma mod_le_dst g x : 0 < g -> g = Pt 1 -> Pt 1 * x <= B + M -> B %% g <= Dst x.
-Proof. Admitted.
+Lemma mod_le_dst g x : 0 < g -> g = Pt 1 -> Pt 1 * x <= M -> B %% g <= Dst x.
+Proof.
+move=> g_gt0 gE Hx.
+have PtE : Pt x = (g * x) %% M by rewrite gE /pt muln1 modnMml.
+have BMg : B %% g <= B by apply: leq_mod.
+case: (ltnP (g * x) M) => [gxM|Mgx].
+  have Ptx : Pt x = g * x by rewrite PtE modn_small.
+  case: (leqP (g * x) B) => [gxB|Bgx].
+    rewrite dst_below ?Ptx //.
+    have Hd : g * x <= B %/ g * g.
+      have Hx1 : x <= B %/ g by rewrite leq_divRL // mulnC.
+      by rewrite mulnC leq_mul2r Hx1 orbT.
+    have -> : B %% g = B - B %/ g * g by rewrite {2}(divn_eq B g) addnC addnK.
+    exact: leq_sub2l Hd.
+  rewrite dst_above ?Ptx //.
+  apply: leq_trans BMg _.
+  rewrite leq_subRL; last by rewrite (leq_trans (ltnW gxM)) // leq_addl.
+  by rewrite addnC leq_add2l ltnW.
+have gxE : g * x = M by apply/eqP; rewrite eqn_leq Mgx andbT gE.
+by rewrite dstE PtE gxE modnn subn0 modnDr (modn_small B_lt).
+Qed.
 
 (** the entry point: after the FIRST step, [d] satisfies [invd].
 
