@@ -674,11 +674,51 @@ Qed.
     The [then] case is what remains: [d' = (B - p') %% (M-A)] is congruent
     mod [M-A] to [B - (A - j*(M-A))] for every [j], so [leq_mod] gives the
     bound -- the missing step is that congruence through nat subtraction. *)
+(** [modnB] is available (and [pt_sub] uses it, killing its boolean term
+    with [ltnNge Hp /= mul0n add0n]), but it is not what this shape wants.
+    The clean route is ADDITIVE: with [q = M - A], [k = A %/ q] and
+    [p' = A - k*q], the identity
+
+      B - p' = (B - (A - j*q)) + (k*q - j*q)
+
+    holds for [j <= k] whenever [p' <= A - j*q <= B], and the added term is
+    [(k - j) * q] by [mulnBl] -- a multiple of the modulus.  So [modnMDl]
+    strips it and [leq_mod] finishes, with no case analysis on residues at
+    all.  Assembling the identity is just [addnBA] + [subnK] + [subnDA]. *)
 Lemma invd_first_le_ge_then : M - A %% M <= A %% M ->
   A - A %/ (M - A) * (M - A) <= B ->
   forall x, x < (A %/ (M - A)).+2 ->
   (B - (A - A %/ (M - A) * (M - A))) %% (M - A) <= Dst x.
-Proof. Admitted.
+Proof.
+move=> qLp0 p'LB x xLk.
+have HA : A %% M = A by rewrite modn_small.
+have qLp : M - A <= A by move: qLp0; rewrite HA.
+have HAM : A <= M by rewrite ltnW.
+have Hq : 0 < M - A by rewrite subn_gt0.
+have kqA : A %/ (M - A) * (M - A) <= A by rewrite leq_divM.
+case: x xLk => [_|j jLk].
+  by rewrite dst0 (leq_trans (leq_mod _ _)) // leq_subr.
+have jk : j <= A %/ (M - A) by rewrite -ltnS.
+have jqk : j * (M - A) <= A %/ (M - A) * (M - A) by rewrite leq_mul2r jk orbT.
+have jqA : j * (M - A) <= A by rewrite (leq_trans jqk).
+have HPt : Pt j.+1 = A - j * (M - A) by rewrite -addn1 pt_desc.
+have HAj : (A - A %/ (M - A) * (M - A)) + (A %/ (M - A) * (M - A) - j * (M - A))
+         = A - j * (M - A).
+  by rewrite addnBA // subnK.
+case: (leqP (A - j * (M - A)) B) => [AjLB|BLAj].
+  rewrite dst_below ?HPt //.
+  have Hs : A %/ (M - A) * (M - A) - j * (M - A)
+          <= B - (A - A %/ (M - A) * (M - A)).
+    by rewrite leq_subRL // HAj.
+  rewrite -{1}(subnK Hs) -subnDA HAj.
+  by rewrite -mulnBl addnC modnMDl leq_mod.
+rewrite dst_above ?HPt //.
+rewrite (leq_trans (ltnW (ltn_pmod _ Hq))) // leq_subRL; last first.
+  by rewrite (leq_trans (leq_subr _ _)) // (leq_trans HAM) // leq_addl.
+rewrite (leq_trans (_ : A - j * (M - A) + (M - A) <= M)) ?leq_addl //.
+apply: leq_trans (leq_add (leq_subr _ _) (leqnn (M - A))) _.
+by rewrite subnKC.
+Qed.
 
 Lemma invd_first_le_ge : M - A %% M <= A %% M ->
   let: (_, _, d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
