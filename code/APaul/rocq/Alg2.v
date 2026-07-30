@@ -784,11 +784,27 @@ rewrite Hp1 (leq_trans _ Hk2) // leq_mul2l.
 by rewrite -ltnS xLk orbT.
 Qed.
 
-(** establish the congruence at the first step. *)
+(** After the FIRST step [d] is EXACTLY the closest distance -- measured,
+    0 violations over 3696 cases -- so the congruence there is free once the
+    two inequalities are in hand.  ([invd_first_le] is the [<=] half.)
+    NB this equality is special to the first step: at later steps it fails
+    (150 violations out of 5152), which is why [invd] carries the weaker
+    congruence rather than an equation. *)
+Lemma invd_first_ge :
+  let: (_, _, d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
+  Inf (u' + v') <= d'.
+Proof. Admitted.
+
 Lemma invd_first_cong :
   let: (p', q', d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
   d' = Inf (u' + v') %[mod p'].
-Proof. Admitted.
+Proof.
+have Hle := invd_first_le.
+have Hge := invd_first_ge.
+case E: (step (A %% M) (M - A %% M) (B %% M) 1 1) => [[[[p' q'] d'] u'] v'].
+rewrite E /= in Hle Hge.
+by have -> : d' = Inf (u' + v') by apply/eqP; rewrite eqn_leq Hle Hge.
+Qed.
 
 Lemma invd_first :
   let: (p', q', d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
@@ -1206,12 +1222,33 @@ have [HM Hpt] := H.
 by apply: le_inf_dst.
 Qed.
 
-(** and preserve it. *)
+(** and preserve it.  The two branches are genuinely different: [p < q]
+    keeps the modulus ([p' = p]) so [invd_cong] transports directly, while
+    [q <= p] CHANGES it to [p %% q], so its congruence is a different
+    statement and gets its own helper. *)
+Lemma inf_cong_lt p q d u v :
+  inv p q d u v -> invd p q d u v -> u + v < N -> p < q ->
+  Inf (u + (q %/ p) * v + v) = Inf (u + v) %[mod p].
+Proof. Admitted.
+
+Lemma inf_cong_ge p q d u v :
+  inv p q d u v -> invd p q d u v -> u + v < N -> q <= p ->
+  (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d)
+    = Inf (u + (v + (p %/ q) * u)) %[mod (p - p %/ q * q)].
+Proof. Admitted.
+
 Lemma step_invd_cong p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N ->
   let: (p', q', d', u', v') := step p q d u v in
   d' = Inf (u' + v') %[mod p'].
-Proof. Admitted.
+Proof.
+move=> iv ivd uvLN.
+have [_ _ dcong] := ivd.
+have Hlt := inf_cong_lt iv ivd uvLN.
+have Hge := inf_cong_ge iv ivd uvLN.
+rewrite /step; case: ltnP => [pLq|qLp] /=; last by apply: Hge.
+by rewrite modn_mod dcong (Hlt pLq).
+Qed.
 
 Lemma step_invd p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N ->
