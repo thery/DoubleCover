@@ -1150,7 +1150,22 @@ Record invx (p q u v : nat) : Prop := Invx {
      state: 0 violations / 53120. *)
   invx_gap : forall y, y < u + v ->
              exists a b, [/\ a <= u, b <= v &
-                             Dst y = Inf (u + v) + a * p + b * q]
+                             Dst y = Inf (u + v) + a * p + b * q];
+  (* The three-distance structure in INDEX form, which is what Lefevre's
+     thesis 2.4 actually says: [u] and [v] are the NUMBER of intervals of
+     length [p], resp. [q], so the successor of the point at index [z] is
+     [z + v] across a gap [p] when [z < u], and [z - u] across a gap [q]
+     otherwise.  See doc/lefevre-these-notes.md; in slater.v these are
+     get_nextDmin/get_minD and get_nextDmax/get_maxD.
+
+     Unlike [invx_gap] this is not an existential, so the coefficients of a
+     walk are determined rather than chosen -- which is the defect that made
+     [ge_wrap_au] false.  Probed 0 violations / 2362 each.
+
+     The [%% M] in the second is needed only for the one point with
+     [Pt z = M - q], whose successor is the origin. *)
+  invx_p1  : forall z, z < u -> Pt (z + v) = Pt z + p;
+  invx_p2  : forall z, u <= z < u + v -> Pt (z - u) = (Pt z + q) %% M
 }.
 
 (** the wrapping companion of [pt_sub]: when the order inverts, the
@@ -1225,6 +1240,11 @@ have Hgap : forall y, y < 1 + 1 ->
   case: y => [|[|y]] //= _.
     by exists 0, 0; split=> //; rewrite dst0 HI !mul0n !addn0.
   by exists 0, 1; split=> //; rewrite D1 HI mul0n addn0 mul1n HA addnBA // ltnW.
+have HP1 : forall z, z < 1 -> Pt (z + 1) = Pt z + A %% M.
+  by move=> z; case: z => // _; rewrite Hp1 HA pt0.
+have HP2 : forall z, 1 <= z < 1 + 1 -> Pt (z - 1) = (Pt z + (M - A %% M)) %% M.
+  move=> z; case: z => [|[|z]] //= _.
+  by rewrite Hp1 HA pt0 subnKC ?modnn // ltnW.
 split => //.
 - by move=> m; case: m => [|[|m]] //= _; rewrite Hp1 HA.
 - move=> m; case: m => [|[|m]] //= _; first by rewrite pt0.
