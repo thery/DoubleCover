@@ -409,40 +409,66 @@ Lemma searchir_gt d a p : (Dtid a <= d) = false ->
   searchir 47 mtis Dtid nfcube oppf fcpos d a p = false.
 Proof. by case: d => [|d] h; rewrite {1}/searchir h. Qed.
 
-(* WHERE IT IS STUCK, and it is a tactic problem, not a mathematical one.
-   Folding searchz back after unfolding it -- the `-/searchz` in the usual
-   `rewrite {1}/searchz -/searchz` idiom that searchirS uses -- does not
-   return, even in this minimal goal, and neither does closing it by case
-   analysis alone.  searchir folds back fine; searchz's body carries
-   `actcd x k` twice, and that seems to be enough to make the higher order
-   match blow up.
+(* THE LOOP, NAMED.  An anonymous inner fix leaks its whole body into every
+   statement and goal that mentions it, and then congr / case / elim all have
+   to match against two copies of it -- which is the only reason this proof
+   ever looked hard.  Named, goals carry the constant goz d a x and every
+   step below is ordinary.                                                 *)
+Definition goz (d : nat) (a : arr) (x : int) : seq nat -> bool :=
+  fix go (l : seq nat) : bool :=
+    if l is k :: l' then
+      (if Dfsd (actcd x k) <= d then
+         (if searchz d (comp_tabi 47 a (nth (id_tabi 47) mtis k))
+                       (actcd x k) (fcpos k)
+          then true else go l')
+       else go l')
+    else false.
 
-   Everything ELSE in the proof is fast once arguments are given EXPLICITLY:
-     rewrite (searchirS 47 mtis Dtid nfcube oppf fcpos d a p)   7 ms
-     rewrite (DtidE2 aok ca)                                    6 ms
-   left implicit, both time out.  The base case of searchzE is proved (22 ms)
-   by splitting the two booleans rather than comparing whole terms:
-     rewrite {1}/searchz {1}/searchir (DtidE2 aok ca).
-     by case: (Dfsd (coordi a) <= 0); case: (eq_tabi 47 a (id_tabi 47)).
-
-   The inductive step needs searchzS, then it is the same shape as searchicE
-   was: induct on d, then on allowedr's list, using actcdE for the coordinate
-   step, cubti_comp for the guard, DtidE2 to swap Dtid for Dfsd, and
-   searchir_gt for the branch the pre-test prunes.                         *)
 Lemma searchzS d a x p :
   searchz d.+1 a x p =
   (Dfsd x <= d.+1) &&
-  (eq_tabi 47 a (id_tabi 47) ||
-   (fix go (l : seq nat) : bool :=
-      if l is k :: l' then
-        (if Dfsd (actcd x k) <= d then
-           (if searchz d (comp_tabi 47 a (nth (id_tabi 47) mtis k))
-                        (actcd x k) (fcpos k)
-            then true else go l')
-         else go l')
-      else false) (allowedr mtis nfcube oppf fcpos p)).
-Admitted.
+  (eq_tabi 47 a (id_tabi 47) || goz d a x (allowedr mtis nfcube oppf fcpos p)).
+Proof. by []. Qed.
 
+Lemma goz_cons d a x k l :
+  goz d a x (k :: l) =
+  if Dfsd (actcd x k) <= d then
+    (if searchz d (comp_tabi 47 a (nth (id_tabi 47) mtis k)) (actcd x k) (fcpos k)
+     then true else goz d a x l)
+  else goz d a x l.
+Proof. by []. Qed.
+
+Lemma hasE (f : nat -> bool) k l : has f (k :: l) = f k || has f l.
+Proof. by []. Qed.
+
+(* searchz computes what searchir computes, so it can replace it under the
+   invariant that a is a well formed cube -- which prefixi_cub gives at the
+   roots and cubti_comp carries down.
+   TWO TACTIC FACTS, both learned the hard way and both worth keeping:
+   arguments must be EXPLICIT (searchirS and DtidE2 are ~7 ms given
+   explicitly and do not return implicitly), and the two binary operators are
+   peeled with f_equal2 rather than congr, which tries to match the whole
+   goal.  Nothing here needs /= : simpl on these goals does not return.   *)
 Lemma searchzE d a p : tabi_ok 47 a -> cubti a ->
   searchz d a (coordi a) p = searchir 47 mtis Dtid nfcube oppf fcpos d a p.
-Admitted.
+Proof.
+elim: d a p => [|d IH] a p aok ca.
+  rewrite {1}/searchz {1}/searchir (DtidE2 aok ca).
+  by case: (Dfsd (coordi a) <= 0); case: (eq_tabi 47 a (id_tabi 47)).
+rewrite (searchirS 47 mtis Dtid nfcube oppf fcpos d a p) (DtidE2 aok ca) searchzS.
+apply: f_equal2; first by apply: refl_equal.
+apply: f_equal2; first by apply: refl_equal.
+have hall : all (fun k => k < seq.size mtis) (allowedr mtis nfcube oppf fcpos p).
+  by apply/allP => k; rewrite mem_filter mem_iota => /andP[_ /andP[_ h]].
+elim: (allowedr mtis nfcube oppf fcpos p) hall => [//|k l IHl /andP[kL hl]].
+rewrite goz_cons.
+have mtok : tabi_ok 47 (nth (id_tabi 47) mtis k)
+  by apply: (all_nthP (id_tabi 47) mtis_ok).
+have aok' := tabi_ok_comp n47_small n47_len aok mtok.
+have ca' := cubti_comp kL aok ca.
+rewrite -(actcdE kL aok ca) (IH _ (fcpos k) aok' ca') -(DtidE2 aok' ca') (IHl hl).
+case: ifP => hle; rewrite hasE.
+  by case: (searchir 47 mtis Dtid nfcube oppf fcpos d
+              (comp_tabi 47 a (nth (id_tabi 47) mtis k)) (fcpos k)).
+by rewrite (searchir_gt _ hle).
+Qed.
