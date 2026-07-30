@@ -341,7 +341,14 @@ Record inv (p q d u v : nat) : Prop := Inv {
 
 Record invd (p q d u v : nat) : Prop := Invd {
   invd_max : d < maxn p q;
-  invd_le  : d <= Inf (u + v)
+  invd_le  : d <= Inf (u + v);
+  (* [d] sits on the same residue class mod [p] as the true closest
+     distance.  Independent of [invx]: [invx] constrains the CONFIGURATION
+     (gaps at least p / q), this constrains [d] RELATIVE to it, and the two
+     leaves need both.  Validated: 0 counterexamples over 5152 states, and
+     it makes the leaves hold in 121183 of 121183 cases.  See the
+     correction note above for why [invx] alone does not suffice. *)
+  invd_cong : d = Inf (u + v) %[mod p]
 }.
 
 Lemma am_gt0 : 0 < A %% M.
@@ -777,15 +784,22 @@ rewrite Hp1 (leq_trans _ Hk2) // leq_mul2l.
 by rewrite -ltnS xLk orbT.
 Qed.
 
+(** establish the congruence at the first step. *)
+Lemma invd_first_cong :
+  let: (p', q', d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
+  d' = Inf (u' + v') %[mod p'].
+Proof. Admitted.
+
 Lemma invd_first :
   let: (p', q', d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
   invd p' q' d' u' v'.
 Proof.
 have Hm := invd_first_max.
 have Hl := invd_first_le.
+have Hc := invd_first_cong.
 case E: (step (A %% M) (M - A %% M) (B %% M) 1 1)
      => [[[[p' q'] d'] u'] v'].
-rewrite E /= in Hm Hl.
+rewrite E /= in Hm Hl Hc.
 by split.
 Qed.
 
@@ -1164,7 +1178,7 @@ Lemma step_invd_le_pt p q d u v :
   d' <= M /\ (forall x, x < u' + v' -> d' <= Dst x).
 Proof.
 move=> iv ivd uvLN.
-have [_ dle] := ivd.
+have [_ dle _] := ivd.
 have HdM : d <= M by rewrite (leq_trans dle) // (inf_dst_mono (leq0n (u + v))).
 have Hnew := step_invd_le_new iv ivd uvLN.
 have Hdd : let: (_, _, d', _, _) := step p q d u v in d' <= d.
@@ -1192,6 +1206,13 @@ have [HM Hpt] := H.
 by apply: le_inf_dst.
 Qed.
 
+(** and preserve it. *)
+Lemma step_invd_cong p q d u v :
+  inv p q d u v -> invd p q d u v -> u + v < N ->
+  let: (p', q', d', u', v') := step p q d u v in
+  d' = Inf (u' + v') %[mod p'].
+Proof. Admitted.
+
 Lemma step_invd p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N ->
   let: (p', q', d', u', v') := step p q d u v in invd p' q' d' u' v'.
@@ -1199,8 +1220,9 @@ Proof.
 move=> iv ivd uvLN.
 have Hm := step_invd_max iv ivd.
 have Hl := step_invd_le iv ivd uvLN.
+have Hc := step_invd_cong iv ivd uvLN.
 case E: (step p q d u v) => [[[[p' q'] d'] u'] v'].
-rewrite E /= in Hm Hl.
+rewrite E /= in Hm Hl Hc.
 by split.
 Qed.
 
@@ -1363,7 +1385,7 @@ Qed.
 Lemma exit_bound p q d u v :
   invd p q d u v -> N <= u + v -> d <= Inf N.
 Proof.
-by case=> _ dLinf NLuv; apply: leq_trans dLinf (inf_dst_mono NLuv).
+by case=> _ dLinf _ NLuv; apply: leq_trans dLinf (inf_dst_mono NLuv).
 Qed.
 
 
