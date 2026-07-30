@@ -601,10 +601,42 @@ Qed.
           of an arithmetic progression of step [q]", which [step_invd]
           needs too -- formulate it once, for both, and validate it before
           stating it. *)
+(** Goals (1) and (3) of the breakdown above -- the [invd_max] field in
+    both branches.  Cheap, and now proved. *)
+Lemma invd_first_max :
+  let: (p', q', d', _, _) := step (A %% M) (M - A %% M) (B %% M) 1 1 in
+  d' < maxn p' q'.
+Proof.
+have Ha := am_gt0.
+have Hq : 0 < M - A %% M by rewrite subn_gt0 ltn_mod.
+rewrite /step; case: ltnP => [pLq|qLp]; rewrite /=.
+  by rewrite (leq_trans (ltn_pmod _ Ha)) ?leq_maxl.
+case: (leqP (A %% M - A %% M %/ (M - A %% M) * (M - A %% M)) (B %% M))
+   => [p'Ld|dLp'].
+  by rewrite (leq_trans (ltn_pmod _ Hq)) ?leq_maxr.
+by rewrite (leq_trans dLp') // leq_maxl.
+Qed.
+
+(** Goals (2) and (4): the [invd_le] field.  Goal (2) is [le_inf_dst] plus
+    [mod_le_dst]; goal (4) needs the same universal bound as
+    [step_invd_le_pt].  Left as one obligation so the two are attacked
+    together. *)
+Lemma invd_first_le :
+  let: (_, _, d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
+  d' <= Inf (u' + v').
+Proof. Admitted.
+
 Lemma invd_first :
   let: (p', q', d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
   invd p' q' d' u' v'.
-Proof. Admitted.
+Proof.
+have Hm := invd_first_max.
+have Hl := invd_first_le.
+case E: (step (A %% M) (M - A %% M) (B %% M) 1 1)
+     => [[[[p' q'] d'] u'] v'].
+rewrite E /= in Hm Hl.
+by split.
+Qed.
 
 (** and [invd] is preserved.  THE hardest of the file.
 
@@ -756,10 +788,28 @@ Qed.
     range decomposes, and its distance is [d' + (a nonneg multiple of a
     gap)].  Formulate THAT as the shared lemma, validate it, then both
     this and [invd_first] goal (4) follow by [le_inf_dst]. *)
+(** The missing content, isolated.  [d' <= M] is bundled in because
+    [le_inf_dst] needs it for its [n = 0] base case; the second component
+    is the universal bound, which is the real work.  Both parts are
+    consequences of the validated [d' <= Inf (u' + v')], so this helper is
+    a faithful decomposition, not a new conjecture. *)
+Lemma step_invd_le_pt p q d u v :
+  inv p q d u v -> invd p q d u v -> u + v < N ->
+  let: (_, _, d', u', v') := step p q d u v in
+  d' <= M /\ (forall x, x < u' + v' -> d' <= Dst x).
+Proof. Admitted.
+
 Lemma step_invd_le p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N ->
   let: (_, _, d', u', v') := step p q d u v in d' <= Inf (u' + v').
-Proof. Admitted.
+Proof.
+move=> iv ivd uvLN.
+have H := step_invd_le_pt iv ivd uvLN.
+case E: (step p q d u v) => [[[[p' q'] d'] u'] v'].
+rewrite E /= in H.
+have [HM Hpt] := H.
+by apply: le_inf_dst.
+Qed.
 
 Lemma step_invd p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N ->
