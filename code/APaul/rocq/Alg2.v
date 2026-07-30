@@ -707,10 +707,54 @@ rewrite (modn_small (leq_ltn_trans H1 dM)).
 by rewrite mulSnr subnDA.
 Qed.
 
+(** [invd] splits into its two fields, which differ sharply in cost.
+    The [invd_max] half needs nothing but [ltn_pmod]: [d'] is always a
+    remainder by one of the two gaps (or, in the [else] case, is [d] with
+    the test itself giving [d < p']). *)
+Lemma step_invd_max p q d u v :
+  inv p q d u v -> invd p q d u v ->
+  let: (p', q', d', _, _) := step p q d u v in d' < maxn p' q'.
+Proof.
+move=> iv ivd.
+have [p_gt0 q_gt0 _ _ _ _] := iv.
+rewrite /step; case: ltnP => [pLq|qLp]; rewrite /=.
+  by rewrite (leq_trans (ltn_pmod _ p_gt0)) ?leq_maxl.
+case: (leqP (p - p %/ q * q) d) => [p'Ld|dLp'].
+  by rewrite (leq_trans (ltn_pmod _ q_gt0)) ?leq_maxr.
+by rewrite (leq_trans dLp') // leq_maxl.
+Qed.
+
+(** the [invd_le] half: the real content, and the same missing lemma as
+    [invd_first]'s goal (4).  The two branches are
+
+      p < q : d' = d %% p, new indices u' = u + (q %/ p)*v, v' = v.
+              [step_d_lt] (PROVED) says walking right by [p] realises
+              [d - j*p] as a distance, so the points at stake form an
+              arithmetic progression of step [p].
+      q <= p: d' = (d - p') %% q with p' = p %% q, new v' = v + (p %/ q)*u.
+              [step_d_ge] (PROVED) is the mirror, progression of step [q]
+              walking DOWN the index.
+
+    In both, what must be shown is that reducing modulo the step lands at
+    or below the closest point -- i.e. exactly "distance to the nearest
+    element of an arithmetic progression of step g".  Formulate that once,
+    validate it, and it discharges this and [invd_first] goal (4). *)
+Lemma step_invd_le p q d u v :
+  inv p q d u v -> invd p q d u v -> u + v < N ->
+  let: (_, _, d', u', v') := step p q d u v in d' <= Inf (u' + v').
+Proof. Admitted.
+
 Lemma step_invd p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N ->
   let: (p', q', d', u', v') := step p q d u v in invd p' q' d' u' v'.
-Proof. Admitted.
+Proof.
+move=> iv ivd uvLN.
+have Hm := step_invd_max iv ivd.
+have Hl := step_invd_le iv ivd uvLN.
+case E: (step p q d u v) => [[[[p' q'] d'] u'] v'].
+rewrite E /= in Hm Hl.
+by split.
+Qed.
 
 (* CFrac: slater.get_min_NZ / get_max_NZ (both indices stay nonzero)
    Proof plan: by [step_pt], [p' = Pt v'] and [q' = M - Pt u'].  If
@@ -719,64 +763,56 @@ Proof. Admitted.
    The bound [v' <= N] is where [u + v < N] is used -- check it survives
    the batched step (it does: [u' + v' <= N] after one step, because the
    loop tests [N <= u' + v'] and exits). *)
-(** The geometric content of [step_p_gt0], isolated.
+(** ** WARNING -- [inv_complete] was FALSE and is removed
 
-    Bezout alone does NOT give this: with [p = g*p0], [q = g*q0] and
-    [gcdn p0 q0 = 1], the invariant yields [u*p0 + v*q0 = M %/ g], and
-    with [q0 >= 2] that is perfectly consistent with [u + v < M %/ g].
-    So the proof must use [inv_pv] / [inv_qu] -- that [p] and [q] really
-    are the gaps of the configuration [{Pt n : n < u + v}] -- and not just
-    the equation: once the smaller gap has descended to [gcdn A M], every
-    point of the [g]-lattice is present, and there are exactly [M %/ g]
-    of them.
+    Round 3 proved [step_p_gt0] "modulo [inv_complete]":
 
-    This is the one remaining obligation behind [step_p_gt0]. *)
-Lemma inv_complete p q d u v :
-  inv p q d u v -> minn p q = gcdn A M -> u + v = M %/ gcdn A M.
-Proof. Admitted.
+      inv_complete : inv p q d u v -> minn p q = gcdn A M ->
+                     u + v = M %/ gcdn A M
+
+    That statement is false: 92 counterexamples out of 94 reachable states
+    with [minn p q = gcdn A M] (M in {32,64}).  The smallest is M=32, A=1,
+    where the INITIAL state already has [p = 1], [q = 31], [u = v = 1], so
+    [minn p q = 1 = gcdn 1 32] while [u + v = 2] and [M %/ g = 32].
+    Bezout only gives [u*p0 + v*q0 = M %/ g] with [gcdn p0 q0 = 1], and
+    [minn p q = g] merely says [minn p0 q0 = 1] -- it does not force
+    [p0 = q0 = 1], which is what completeness would need.
+
+    Worse, [step_p_gt0] itself is FALSE as it was stated.  Counterexample,
+    with [M = 32], [A = 3], [N = 32] (so [N <= M %/ gcdn A M = 32] holds):
+
+      p=3  q=29  u=1   v=1    u+v=2
+      p=3  q=2   u=10  v=1    u+v=11
+      p=1  q=2   u=10  v=11   u+v=21 < N,  and the step gives q' = 0.
+
+    So [u + v < N] does NOT keep the next [q] positive.  What is true is
+    that positivity is only needed when the loop CONTINUES: [run] returns
+    [d'] as soon as [N <= u' + v'], and [exit_bound] needs only [invd],
+    never [inv].  Hence the corrected statements below condition on
+    [u' + v' < N] rather than [u + v < N], and [run_sound] must apply
+    [inv_step] inside its recursive branch, where that is available.
+
+    Both [step_p_gt0] and [inv_step] are therefore back to Admitted --
+    their previous proofs are worthless, having gone through a false
+    lemma.  The right replacement for [inv_complete] is not a completeness
+    statement at all; it is whatever rules out [p %| q] while the loop is
+    still running, and that should be characterised by the harness before
+    anything is stated. *)
 
 Lemma step_p_gt0 p q d u v :
   inv p q d u v -> u + v < N ->
-  let: (p', q', _, _, _) := step p q d u v in 0 < p' /\ 0 < q'.
-Proof.
-move=> iv uvLN.
-have [Hp Hq Hb Hpv Hqu gE] := iv.
-rewrite /step; have [pLq|qLp] := ltnP; rewrite /=; split => //.
-- rewrite subn_gt0; case: (posnP (q %% p)) => [q0|qm].
-    have pg : p = gcdn A M by rewrite -gE; apply/esym/gcdn_idPl; rewrite /dvdn q0.
-    have := inv_complete iv; rewrite /minn ifT // pg => /(_ erefl) uvE.
-    by move: uvLN; rewrite uvE ltnNge N_le_Mg.
-  by rewrite {2}(divn_eq q p) -addn1 leq_add2l.
-rewrite subn_gt0; case: (posnP (p %% q)) => [p0|pm].
-  have qg : q = gcdn A M by rewrite -gE gcdnC; apply/esym/gcdn_idPl; rewrite /dvdn p0.
-  have mE : minn p q = q by apply/minn_idPr.
-  have := inv_complete iv; rewrite mE qg => /(_ erefl) uvE.
-  by move: uvLN; rewrite uvE ltnNge N_le_Mg.
-by rewrite {2}(divn_eq p q) -addn1 leq_add2l.
-Qed.
+  let: (p', q', _, u', v') := step p q d u v in
+  u' + v' < N -> 0 < p' /\ 0 < q'.
+Proof. Admitted.
 
 (* glue -- assemble [step_p_gt0], [step_bez], [step_pt], [step_d] into
    the record.  Mechanical once the four are done; write it last. *)
+(** conditioned as [step_p_gt0] is: only needed when the loop continues. *)
 Lemma inv_step p q d u v :
   inv p q d u v -> u + v < N ->
-  let: (p', q', d', u', v') := step p q d u v in inv p' q' d' u' v'.
-Proof.
-move=> iv uvLN.
-have Hg := step_p_gt0 iv uvLN.
-have Hb := step_bez iv.
-have Hpt := step_pt iv.
-have [_ _ _ _ _ gE] := iv.
-move: Hg Hb Hpt; rewrite /step.
-have [pLq|qLp] := ltnP => /= [] [Hp Hq] Hb Hpt.
-  have [Hpv Hqu] := Hpt Hp Hq.
-  split => //.
-  have -> : q - q %/ p * p = q %% p by rewrite {1}(divn_eq q p) addnC addnK.
-  by rewrite gcdn_modr.
-have [Hpv Hqu] := Hpt Hp Hq.
-split => //.
-have -> : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
-by rewrite gcdnC gcdn_modr gcdnC.
-Qed.
+  let: (p', q', d', u', v') := step p q d u v in
+  u' + v' < N -> inv p' q' d' u' v'.
+Proof. Admitted.
 
 (** *** Termination *)
 
@@ -855,7 +891,7 @@ rewrite /=; case E: (step p q d u v) => [[[[p' q'] d'] u'] v'].
 rewrite E /= in Hi Hd Hm.
 case: (leqP N (u' + v')) => [NLuv|uvLN'].
   exact: exit_bound Hd NLuv.
-apply: IH => //.
+apply: IH => //; first exact: Hi uvLN'.
 by rewrite -ltnS (leq_trans Hm).
 Qed.
 
@@ -876,7 +912,7 @@ case E: (step (A %% M) (M - A %% M) (B %% M) 1 1)
 rewrite E /= in Hi Hd Hm.
 case: (leqP N (u' + v')) => [NLuv|uvLN'].
   exact: exit_bound Hd NLuv.
-apply: run_sound => //.
+apply: run_sound => //; first exact: Hi uvLN'.
 by rewrite -ltnS prednK // (leq_trans Hm) // Hpq.
 Qed.
 
