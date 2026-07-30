@@ -125,7 +125,13 @@ Definition fcube (m : {perm facelet}) : nat := index m moves %/ 3.
 
 (* oppf_lt and oppf_neq used to live here, to discharge Searchr's opp_lt and
    opp_neq.  Those hypotheses turned out to be unused, so both are gone --
-   two lines to restore if ever wanted.                                   *)
+   two lines to restore if ever wanted.  oppfK is NOT dead: searchrN needs
+   it, and an earlier cleanup deleted it by accident along with its two
+   neighbours -- Redun.v still compiled, because nothing inside Redun.v uses
+   it, and only Far.v noticed.                                            *)
+Lemma oppfK f : f < nfcube -> oppf (oppf f) = f.
+Proof. by rewrite /oppf /nfcube; case: f => [|[|[|[|[|[|f]]]]]]. Qed.
+
 Lemma fcube_lt m : m \in Sset -> fcube m < nfcube.
 Proof.
 rewrite inE => mM; rewrite /fcube /nfcube ltn_divLR //.

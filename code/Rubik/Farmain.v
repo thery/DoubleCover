@@ -15,7 +15,7 @@ From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root.
 From Rubik Require Import Coord Coordfs Coordfsi Fstab FsTable Diameter Moves.
-From Rubik Require Import Far.
+From Rubik Require Import Searchr Redun Searchir Far.
 From Rubik Require Import Far_00 Far_01 Far_02 Far_03 Far_04 Far_05 Far_06 Far_07 Far_08 Far_09 Far_10 Far_11 Far_12 Far_13 Far_14 Far_15 Far_16 Far_17.
 
 Set Implicit Arguments.
@@ -37,7 +37,8 @@ Proof. by move=> h00 h01 h02 h03 h04 h05 h06 h07 h08 h09 h10 h11 h12 h13 h14 h15
 (* the second move outermost, so that the eighteen pieces are exactly the
    eighteen conjuncts *)
 Lemma searchd :
-  all (fun j => all (fun i => ~~ searchi 47 mtis Dtid droot (prefixi i j))
+  all (fun j => all (fun i => ~~ searchir 47 mtis Dtid nfcube oppf fcpos droot
+                                            (prefixi i j) nfcube)
                     (iota 0 nroot))
       (iota 0 nmoves).
 Proof. by apply: all_iota18; [exact: searchd_00 | exact: searchd_01 | exact: searchd_02 | exact: searchd_03 | exact: searchd_04 | exact: searchd_05 | exact: searchd_06 | exact: searchd_07 | exact: searchd_08 | exact: searchd_09 | exact: searchd_10 | exact: searchd_11 | exact: searchd_12 | exact: searchd_13 | exact: searchd_14 | exact: searchd_15 | exact: searchd_16 | exact: searchd_17].
@@ -55,14 +56,14 @@ rewrite -prefixiE //.
 (* the depth is given explicitly so that the term is ground before it meets
    the goal; ball Sset ?d is a finset over {perm 'I_48} and not something to
    leave to unification.                                                   *)
-have hs : searchi 47 mtis Dtid droot (prefixi i j) = false.
+have hs : searchir 47 mtis Dtid nfcube oppf fcpos droot (prefixi i j) nfcube
+        = false.
   (* no /= anywhere near this goal: it holds a searchi at depth droot and simpl
      would start unfolding the search itself.                              *)
   have h1 : i \in iota 0 nroot by rewrite mem_iota add0n leq0n.
   have h2 : j \in iota 0 nmoves by rewrite mem_iota add0n leq0n.
   by apply/negbTE; move: searchd => /allP/(_ _ h2)/allP/(_ _ h1).
-exact: (far_of_searchi Dfsd_0 Dfsd_step mtis_ok mtisE
-          (d := droot) (prefixi_ok iL' jL) hs).
+exact: (far_of_searchir (d := droot) (prefixi_ok iL' jL) hs).
 Qed.
 
 Theorem superflip_fard : superflip \notin ball Sset depth.
