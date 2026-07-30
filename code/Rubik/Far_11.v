@@ -21,8 +21,8 @@ Unset Printing Implicit Defensive.
 Import GroupScope.
 
 Lemma searchd_11 :
-  all (fun i => ~~ searchir 47 mtis Dtid nfcube oppf fcpos droot
-                              (prefixi i 11) nfcube)
+  all (fun i => ~~ searchic 47 mtis nfcube oppf fcpos Dfsd actcd droot
+                              (prefixi i 11) (coordi (prefixi i 11)) nfcube)
       (iota 0 nroot).
 (* native_cast_no_check, not "by vm_compute": the latter evaluates twice,
    once in the tactic and once when the kernel rechecks the cast at Qed.
