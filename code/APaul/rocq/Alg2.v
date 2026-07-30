@@ -1551,6 +1551,24 @@ move=> qLp; case: (leqP (p - p %/ q * q) d) => // dge.
 by apply: leq_trans (leq_mod _ _) _; rewrite leq_subr.
 Qed.
 
+(** In the [ge] branch [d] is not merely below the closest distance, it IS
+    the closest distance.  [invd_max] gives [d < maxn p q = p], [invx_inf]
+    gives [Inf (u+v) < p], and [invd_cong] makes them congruent mod [p] --
+    two values below [p], congruent mod [p], are equal.
+
+    This is special to [q <= p]: in the [lt] branch [maxn p q = q] and the
+    argument collapses (probed: 0 violations / 5216 here, 314 / 5216 there). *)
+Lemma ge_d_eq_inf p q d u v :
+  inv p q d u v -> invd p q d u v -> invx p q u v -> q <= p ->
+  d = Inf (u + v).
+Proof.
+move=> iv ivd ix qLp.
+have [dmax _ dcong] := ivd.
+have dp : d < p by move: dmax; rewrite /maxn ifN // -leqNgt.
+have ip : Inf (u + v) < p by move: (invx_inf ix); rewrite /maxn ifN // -leqNgt.
+by rewrite -(modn_small dp) dcong modn_small.
+Qed.
+
 Lemma walk_ge_nowrap p q d u v y m :
   inv p q d u v -> q <= p -> y < u + v -> 0 < m <= p %/ q ->
   Dst y + m * q < M -> Dst (y + m * u) = Dst y + m * q.
@@ -1603,19 +1621,26 @@ Qed.
     this; it needs [d]'s relation to the walk, i.e. [invd_cong] or [invx].
     The wrap is common, not a corner case: 16809 of 80376 instances.
 
-    Why [invx_gap] alone does NOT close it, unlike [mod_le_restricted].
-    With [walk_ge_wrapeq] and [inv_bez] the goal becomes
+    Where it stands.  [ge_d_eq_inf] gives [d = Inf (u+v)] outright here, so
+    with [walk_ge_wrapeq], [invx_gap] and [inv_bez] the goal is exactly
 
       d' <= Inf (u+v) + a*p + (b+m)*q - M,   M <= Inf (u+v) + a*p + (b+m)*q
 
-    and since [d' <= d <= Inf (u+v)] it would suffice that
-    [M <= a*p + (b+m)*q] on its own.  That is where it breaks: [invx_inf]
-    gives [Inf (u+v) < p] here (as [q <= p]), so the combination is only
-    known to exceed [M - p], and [a = u-1, b+m = v+1] lands on [M - p + q],
-    which is strictly inside [(M-p, M)] whenever [q < p].  So the slack
-    argument fails on a reachable shape, and what is needed is the sharper
-    [d = Inf (u+v) %[mod p]] fed through the walk -- the same ingredient
-    [inf_cong_ge] wants.  Both remaining leaves are this one gap. *)
+    i.e. it suffices that [M <= a*p + (b+m)*q + (Inf (u+v) - d')].  The
+    crude form of that -- [M <= a*p + (b+m)*q] on its own, which would
+    follow from [d' <= d] alone -- is NOT available: [invx_inf] only puts
+    the combination above [M - p], and [a = u-1, b+m = v+1] lands on
+    [M - p + q], strictly inside [(M-p, M)] whenever [q < p].
+
+    Two shortcuts are ruled out by measurement, so do not retry them:
+    - [d' = Inf (u'+v')] (the [ge] step computing the new closest distance
+      exactly) is FALSE: 314 violations / 5216, the step can undershoot.
+    - [Inf (u'+v') = Inf (u+v) %% (p %% q)], the mirror of the [lt] branch's
+      [inf_new_lt], is FALSE: 34 / 1384.
+
+    So what is left is genuinely the [Inf (u+v) - d'] margin, i.e. how far
+    [(d - p') %% q] sits below [d]; that is the shared content of this lemma
+    and [inf_cong_ge]. *)
 Lemma le_ge_wrap p q d u v y m :
   inv p q d u v -> invd p q d u v -> invx p q u v -> u + v < N ->
   q <= p -> y < u + v -> 0 < m <= p %/ q -> M <= Dst y + m * q ->
