@@ -621,10 +621,43 @@ Qed.
     [mod_le_dst]; goal (4) needs the same universal bound as
     [step_invd_le_pt].  Left as one obligation so the two are attacked
     together. *)
-Lemma invd_first_le :
+(** The [A < M - A] branch is fully covered by [mod_le_dst]: the index
+    range gives [A * x <= A * ((M-A) %/ A + 1) <= (M-A) + A = M], which is
+    exactly its side condition (and is an EQUALITY at the top index, hence
+    the [<= M] form).  Only the [M - A <= A] branch is left.
+
+    NB [Inf] unfolds under [/=] when its index is a literal successor,
+    which is why [-inf_dstS] appears below to fold it back.  Sealing
+    [inf_dst] (Opaque, or a nosimpl wrapper) would make these proofs less
+    brittle -- worth doing, but it touches the existing ones. *)
+Lemma invd_first_le_ge : M - A %% M <= A %% M ->
   let: (_, _, d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
   d' <= Inf (u' + v').
 Proof. Admitted.
+
+Lemma invd_first_le :
+  let: (_, _, d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
+  d' <= Inf (u' + v').
+Proof.
+have Ha := am_gt0.
+have HA : A %% M = A by rewrite modn_small.
+have HB : B %% M = B by rewrite modn_small.
+have Hp1 : Pt 1 = A by rewrite /pt muln1 HA.
+have HAM : A <= M by rewrite ltnW.
+have Hk : (M - A) %/ A * A + A <= M.
+  by rewrite -{2}(subnK HAM) leq_add2r leq_divM.
+have Hge := invd_first_le_ge.
+move: Hge; rewrite /step HA HB; case: ltnP => [pLq|qLp] /= Hge; last by apply: Hge.
+rewrite -inf_dstS add0n muln1.
+apply: le_inf_dst; first by rewrite (leq_trans (leq_mod _ _)) // ltnW.
+move=> x xLk.
+have Hk2 : A * ((M - A) %/ A + 1) <= M by rewrite mulnDr muln1 mulnC.
+apply: mod_le_dst.
+- by rewrite -HA.
+- by rewrite Hp1.
+rewrite Hp1 (leq_trans _ Hk2) // leq_mul2l.
+by rewrite -ltnS xLk orbT.
+Qed.
 
 Lemma invd_first :
   let: (p', q', d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
@@ -793,11 +826,37 @@ Qed.
     is the universal bound, which is the real work.  Both parts are
     consequences of the validated [d' <= Inf (u' + v')], so this helper is
     a faithful decomposition, not a new conjecture. *)
+(** Only the NEW indices can be hard.  For [x < u + v] the bound is free:
+    [d' <= d] (a remainder by a gap, or [d] itself), [d <= Inf (u+v)] by
+    [invd_le], and [Inf (u+v) <= Dst x] by [inf_dst_le].  So the whole
+    obligation reduces to the indices the step has just added. *)
+Lemma step_invd_le_new p q d u v :
+  inv p q d u v -> invd p q d u v -> u + v < N ->
+  let: (_, _, d', u', v') := step p q d u v in
+  forall x, u + v <= x < u' + v' -> d' <= Dst x.
+Proof. Admitted.
+
 Lemma step_invd_le_pt p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N ->
   let: (_, _, d', u', v') := step p q d u v in
   d' <= M /\ (forall x, x < u' + v' -> d' <= Dst x).
-Proof. Admitted.
+Proof.
+move=> iv ivd uvLN.
+have [_ dle] := ivd.
+have HdM : d <= M by rewrite (leq_trans dle) // (inf_dst_mono (leq0n (u + v))).
+have Hnew := step_invd_le_new iv ivd uvLN.
+have Hdd : let: (_, _, d', _, _) := step p q d u v in d' <= d.
+  rewrite /step; case: ltnP => /= _; first by rewrite leq_mod.
+  case: (leqP (p - p %/ q * q) d) => [_|_] //.
+  by rewrite (leq_trans (leq_mod _ _)) // leq_subr.
+case E: (step p q d u v) => [[[[p' q'] d'] u'] v'].
+rewrite E /= in Hnew Hdd.
+split; first by rewrite (leq_trans Hdd).
+move=> x xLuv.
+case: (ltnP x (u + v)) => [xold|xnew].
+  by rewrite (leq_trans Hdd) // (leq_trans dle) // inf_dst_le.
+by apply: Hnew; rewrite xnew xLuv.
+Qed.
 
 Lemma step_invd_le p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N ->
