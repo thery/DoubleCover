@@ -1183,6 +1183,21 @@ by rewrite Hp mul1n subnBA.
 Qed.
 
 (** slater.get_minB: points in index order are at least [p] apart. *)
+(** The walk primitive for the partition form of the invariant: [invx_p1]
+    iterated.  Stepping the index by [v] raises the point by [p], and the
+    guard [z + k*v <= u] keeps every intermediate index below [u], which is
+    exactly what [invx_p1] needs at each step. *)
+Lemma invx_p1_iter p q u v k z :
+  invx p q u v -> 0 < v -> z + k * v <= u -> Pt (z + k * v) = Pt z + k * p.
+Proof.
+move=> ix v_gt0; elim: k z => [z _|k IH z H]; first by rewrite mul0n !addn0.
+have -> : z + k.+1 * v = z + v + k * v by rewrite mulSnr addnA addnAC.
+have H1 : z + v + k * v <= u by rewrite -addnAC -addnA -mulSnr.
+rewrite IH // (invx_p1 ix); last first.
+  by rewrite (leq_trans _ H1) // -addnA -[X in X < _]addn0 ltn_add2l addn_gt0 v_gt0.
+by rewrite mulSnr addnA addnAC.
+Qed.
+
 Lemma pt_gap_min p q u v m1 m2 :
   invx p q u v -> m1 < m2 -> m2 < u + v -> Pt m1 <= Pt m2 ->
   p <= Pt m2 - Pt m1.
