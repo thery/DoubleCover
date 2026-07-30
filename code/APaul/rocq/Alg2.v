@@ -444,6 +444,50 @@ Qed.
     points added in this step are placed at regular spacing [p] (resp.
     [q]) going from [b] towards 0. *)
 
+(** ** ROOT CAUSE of the four remaining [d] obligations
+
+    [step_d_lt_mem], [step_d_ge_mem], [step_d] and [exit_bound] are all
+    blocked by the same defect, and it is in [inv_d], not in the proofs.
+
+    [inv_d] says only "[d] is the distance to SOME point already placed".
+    What every one of the four needs is that [d] is the distance to the
+    CLOSEST point below [b] -- i.e. [d = Inf (u + v)].  Concretely:
+
+      - [step_d_lt_mem]'s index bound needs [d %/ p <= q %/ p], i.e.
+        [d < q]: true for the closest-left distance (the gaps are [p] and
+        [q]), false for an arbitrary one.  The equation half of that lemma
+        does go through, using the now-proved [step_d_lt].
+      - [exit_bound] needs [d <= Inf N], which follows from
+        [d = Inf (u + v)] and [inf_dst_mono] with [N <= u + v].
+
+    But [d = Inf (u + v)] FAILS at [inv_init]: there [d = B = Dst 0], the
+    distance to the point 0, while [Inf 2 = minn (Dst 0) (Dst 1)] can be
+    strictly smaller.  [d] only becomes the closest-left distance after
+    the FIRST reduction -- in the [p < q] branch, [d <- B %% p] is exactly
+    the distance to the closest multiple of [p] below [b].
+
+    So the fix is structural, not a stronger [inv_init]:
+
+      - strengthen  inv_d  to  [d = Inf (u + v)]  (drop the exists2), and
+      - replace [inv_init] by "the invariant holds after one step", i.e.
+        peel the first iteration of [run] off before doing the induction.
+
+    That single change unblocks all four.  [run_sound] and
+    [lefevre_sound] are already proved against the current shape and will
+    need their entry point adjusted to the peeled form.
+
+    Skeleton for the redesign: *)
+
+Lemma inv_d_strong p q d u v : inv p q d u v -> d = Inf (u + v).
+Proof. Admitted.
+
+(** what [inv_init] should become: after the first step, [d] is the
+    closest-left distance. *)
+Lemma inv_after_first_step :
+  let: (p', q', d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
+  inv p' q' d' u' v' /\ d' = Inf (u' + v').
+Proof. Admitted.
+
 (** branch [p < q]: [k = q/p] points of the configuration lie at
     [x + j*v] for [j <= k], spaced by [p]; so [d %% p] is again a
     distance. *)
@@ -579,15 +623,12 @@ have kq_gt0 : 0 < p %/ q * q by rewrite muln_gt0 q_gt0 andbT divn_gt0.
 by rewrite ltn_add2r ltn_subrL kq_gt0 p_gt0.
 Qed.
 
-(** hence [M] units of fuel always suffice, since [p + q = M] initially. *)
-(* pure -- induction on [fuel], using [step_measure] to keep the
-   hypothesis [p' + q' <= fuel'].  The point is only that [run] stops
-   asking for fuel before it runs out, so the [else d] branch of [run] is
-   never reached; state it that way if the equation form is awkward. *)
-Lemma fuel_enough fuel p q d u v :
-  inv p q d u v -> p + q <= fuel ->
-  run fuel p q d u v N = run (p + q) p q d u v N.
-Proof. Admitted.
+(** [fuel_enough] was in the skeleton to relate an arbitrary fuel to
+    [p + q]; it turned out to be unnecessary and has been removed.
+    [run_sound] carries [p + q <= fuel] directly, and [lefevre] runs with
+    [fuel = M] while [p + q = A %% M + (M - A %% M) = M], so the
+    hypothesis is met exactly.  Nothing else referred to it. *)
+
 
 (** *** The exit, and the main result *)
 
@@ -651,14 +692,33 @@ Proof. Admitted.
 (* glue -- induction on [fuel]; at each turn either the loop exits and
    [exit_bound] applies, or [inv_step] re-establishes the invariant. *)
 Lemma run_sound fuel p q d u v :
-  inv p q d u v -> p + q <= fuel -> run fuel p q d u v N <= Inf N.
-Proof. Admitted.
+  inv p q d u v -> u + v < N -> p + q <= fuel ->
+  run fuel p q d u v N <= Inf N.
+Proof.
+elim: fuel p q d u v => [|fuel IH] p q d u v iv uvLN Lf.
+  have [p_gt0 _ _ _ _ _] := iv.
+  by move: Lf; rewrite leqn0 addn_eq0 => /andP[/eqP p0 _]; rewrite p0 in p_gt0.
+have Hi := inv_step iv uvLN.
+have Hm := step_measure iv uvLN.
+rewrite /=; case E: (step p q d u v) => [[[[p' q'] d'] u'] v'].
+rewrite E /= in Hi Hm.
+case: (leqP N (u' + v')) => [NLuv|uvLN'].
+  exact: exit_bound Hi NLuv.
+apply: IH => //.
+by rewrite -ltnS (leq_trans Hm).
+Qed.
 
 (** The algorithm returns a lower bound on the infimum. *)
 (* glue -- [run_sound] applied to [inv_init], with fuel [M] and
    [A %% M + (M - A %% M) = M] by [subnKC]. *)
-Theorem lefevre_sound : lefevre M A B N <= Inf N.
-Proof. Admitted.
+Theorem lefevre_sound : 2 < N -> lefevre M A B N <= Inf N.
+Proof.
+move=> N_gt2; rewrite /lefevre.
+apply: run_sound; first exact: inv_init.
+  by [].
+have H : A %% M <= M by rewrite ltnW // ltn_mod.
+by rewrite subnKC.
+Qed.
 
 (** The form the search actually uses: if the returned bound clears the
     threshold, there is no hard-to-round case in this sub-interval. *)
@@ -667,11 +727,11 @@ Proof. Admitted.
    writing down even while everything above is admitted: it pins the
    interface and lets Search.v/Check.v be re-plumbed against it. *)
 Corollary lefevre_test eps :
-  eps < lefevre M A B N -> forall x, x < N -> eps < Dst x.
+  2 < N -> eps < lefevre M A B N -> forall x, x < N -> eps < Dst x.
 Proof.
-move=> epsL x xLN.
+move=> N_gt2 epsL x xLN.
 apply: leq_trans epsL _.
-by apply: leq_trans lefevre_sound _; apply: inf_dst_le xLN.
+by apply: leq_trans (lefevre_sound N_gt2) _; apply: inf_dst_le xLN.
 Qed.
 
 End Theory.
