@@ -211,13 +211,82 @@ Qed.
 Lemma triple_moves f m' : f < 6 ->
   m' \in [:: (gf f) ^+ 1; (gf f) ^+ 2; (gf f) ^+ 3] ->
   m' \in moves /\ fcube m' = f.
-Proof. Admitted.
+Proof.
+move=> f6 m'M.
+have [r [r3 m'E]] : exists r, r < 3 /\ m' = (gf f) ^+ r.+1.
+  by move: m'M; rewrite !inE => /or3P[/eqP->|/eqP->|/eqP->];
+     [exists 0%N | exists 1%N | exists 2%N].
+have iL : 3 * f + r < 18.
+  by rewrite -[18]/(3 * 6)%N; apply: leq_trans (_ : 3 * f + 3 <= 3 * 6)%N;
+     [rewrite ltn_add2l | rewrite -mulnSr leq_mul2l /=].
+rewrite m'E -(nth_moves f6 r3); split.
+  by rewrite mem_nth // moves_size.
+have szi : 3 * f + r < seq.size moves by rewrite moves_size.
+by rewrite /fcube (index_uniq 1 szi uniq_moves) mulnC divnMDl //
+           (divn_small r3) addn0.
+Qed.
 
+(* fcube_lt again, but stated at 6 rather than nfcube so it composes *)
+Lemma fcube_ltS m : m \in Sset -> fcube m < 6.
+Proof.
+rewrite inE => mM; rewrite /fcube ltn_divLR //.
+have h : index m moves < seq.size moves by rewrite index_mem.
+by move: h; rewrite moves_size.
+Qed.
+
+(* Sset membership, folded.  rewrite inE on a GOAL mentioning Sset expands it
+   into an eighteen way disjunction over permutations and the proof hangs;
+   proved once here on a small goal and used as a rewrite rule instead.   *)
 Lemma fcube_close m1 m2 : m1 \in Sset -> m2 \in Sset -> fcube m1 = fcube m2 ->
   (m1 * m2 = 1) \/
   (exists2 m3, m3 \in Sset & fcube m3 = fcube m1 /\ m1 * m2 = m3).
-Proof. Admitted.
+Proof.
+have SsetE (x : {perm facelet}) : (x \in Sset) = (x \in moves).
+  by rewrite inE.
+move=> m1S m2S fE.
+have m1M : m1 \in moves by rewrite -SsetE.
+have m2M : m2 \in moves by rewrite -SsetE.
+have f6 : fcube m1 < 6 by exact: fcube_ltS.
+have t1 := moves_faceE m1M.
+have t2 := moves_faceE m2M; rewrite -fE in t2.
+case: (face_closeP (faces_ord4 f6) t1 t2) => [->|inT]; first by left.
+right; have [m3M f3E] := triple_moves f6 inT.
+exists (m1 * m2).
+- by rewrite SsetE.
+by split.
+Qed.
+
+Lemma faces_comm f : f < 6 -> commute (gf f) (gf (oppf f)).
+Proof.
+case: f => [|[|[|[|[|[|f]]]]]] // _.
+- exact: commute_UD.
+- exact: commute_RL.
+- exact: commute_FB.
+- exact: (commute_sym commute_UD).
+- exact: (commute_sym commute_RL).
+exact: (commute_sym commute_FB).
+Qed.
 
 Lemma fcube_comm m1 m2 : m1 \in Sset -> m2 \in Sset ->
   fcube m2 = oppf (fcube m1) -> m1 * m2 = m2 * m1.
-Proof. Admitted.
+Proof.
+have SsetE (x : {perm facelet}) : (x \in Sset) = (x \in moves).
+  by rewrite inE.
+move=> m1S m2S fE.
+have m1M : m1 \in moves by rewrite -SsetE.
+have m2M : m2 \in moves by rewrite -SsetE.
+have f6 : fcube m1 < 6 by exact: fcube_ltS.
+have t1 := moves_faceE m1M.
+have t2 := moves_faceE m2M; rewrite fE in t2.
+move: t1 t2; rewrite !inE => t1 t2.
+(* x and y must be ABSTRACT here: substituting m1 while the goal still
+   mentions fcube m1 builds fcube (gf (fcube m1) ^+ 1) and diverges. *)
+have key : forall f (x y : {perm facelet}), f < 6 ->
+    x \in [:: (gf f) ^+ 1; (gf f) ^+ 2; (gf f) ^+ 3] ->
+    y \in [:: (gf (oppf f)) ^+ 1; (gf (oppf f)) ^+ 2; (gf (oppf f)) ^+ 3] ->
+    x * y = y * x.
+  move=> f x y f6'; rewrite !inE.
+  move=> /or3P[/eqP->|/eqP->|/eqP->] /or3P[/eqP->|/eqP->|/eqP->];
+    by apply: commuteX2; exact: (faces_comm f6').
+by apply: (key (fcube m1)) => //; rewrite !inE.
+Qed.
