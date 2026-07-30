@@ -621,6 +621,27 @@ Qed.
     [mod_le_dst]; goal (4) needs the same universal bound as
     [step_invd_le_pt].  Left as one obligation so the two are attacked
     together. *)
+(** ** The points added in the [M - A <= A] branch
+
+    They form a DESCENDING arithmetic progression of step [M - A]:
+    [Pt (j+1) = A - j*(M-A)] for [j*(M-A) <= A].  Validated over 89101
+    instances (all [M < 200], all [A] with [M - A <= A], all [j] in
+    range): 0 counterexamples.
+
+    Proof: [A*(j+1) = (A - j*(M-A)) + j*M] once [j*(M-A) <= A], so the
+    [%% M] is [modnMDl] followed by [modn_small]. *)
+Lemma pt_desc j : j * (M - A) <= A -> Pt (j + 1) = A - j * (M - A).
+Proof.
+move=> Hj.
+have HAM : A <= M by rewrite ltnW.
+have HjM : j * M = j * (M - A) + j * A by rewrite -mulnDr subnK.
+rewrite /pt.
+have -> : A * (j + 1) = A - j * (M - A) + j * M.
+  by rewrite HjM addnA subnK // mulnDr muln1 mulnC addnC.
+rewrite addnC modnMDl modn_small //.
+by rewrite (leq_ltn_trans (leq_subr _ _)).
+Qed.
+
 (** The [A < M - A] branch is fully covered by [mod_le_dst]: the index
     range gives [A * x <= A * ((M-A) %/ A + 1) <= (M-A) + A = M], which is
     exactly its side condition (and is an EQUALITY at the top index, hence
@@ -830,11 +851,41 @@ Qed.
     [d' <= d] (a remainder by a gap, or [d] itself), [d <= Inf (u+v)] by
     [invd_le], and [Inf (u+v) <= Dst x] by [inf_dst_le].  So the whole
     obligation reduces to the indices the step has just added. *)
+(** The two branches add points of opposite orientation, so they are
+    genuinely different obligations and are split here.
+
+    [p < q]: the added indices run upward from [u+v]; the points ASCEND by
+      [p], and [step_d_lt] (proved) is the corresponding walk.
+    [q <= p]: the added indices also run upward, but the points DESCEND by
+      [q] -- [step_d_ge] (proved) walks DOWN the index.  [pt_desc] above is
+      the first-step instance of exactly this shape.
+
+    In both, what remains is that EVERY index of the window is reached by
+    the walk, not merely that the walk stays inside it.  That is a
+    surjectivity-style claim; validate it before stating it. *)
+Lemma step_invd_le_new_lt p q d u v :
+  inv p q d u v -> invd p q d u v -> u + v < N -> p < q ->
+  forall x, u + v <= x < u + (q %/ p) * v + v -> d %% p <= Dst x.
+Proof. Admitted.
+
+Lemma step_invd_le_new_ge p q d u v :
+  inv p q d u v -> invd p q d u v -> u + v < N -> q <= p ->
+  forall x, u + v <= x < u + (v + (p %/ q) * u) ->
+  (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d) <= Dst x.
+Proof. Admitted.
+
 Lemma step_invd_le_new p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N ->
   let: (_, _, d', u', v') := step p q d u v in
   forall x, u + v <= x < u' + v' -> d' <= Dst x.
-Proof. Admitted.
+Proof.
+move=> iv ivd uvLN.
+have Hlt := step_invd_le_new_lt iv ivd uvLN.
+have Hge := step_invd_le_new_ge iv ivd uvLN.
+rewrite /step; case: ltnP => [pLq|qLp] /=.
+  by apply: Hlt.
+by apply: Hge.
+Qed.
 
 Lemma step_invd_le_pt p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N ->
