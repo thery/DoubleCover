@@ -243,10 +243,15 @@ let () =
      build of the tables they do not use -- "fs" never allocates the 2.2 GB. *)
   let mode = try Sys.argv.(3) with _ -> "all" in
   let use_ts = mode <> "fs" and use_all = mode = "all" in
+  (* "tri" is the third pair, twist x flip: 2187 x 2048 = 4 478 976 entries,
+     which is smaller than the flip x slice table already shipped.  It is the
+     pair that sees the twist/flip correlation the other two miss.        *)
+  let use_tf = mode = "tri" in
   Printf.printf "heuristic: %s\n%!"
     (match mode with
      | "fs" -> "flip x slice only"
      | "pairs" -> "flip x slice and twist x slice"
+     | "tri" -> "the three pairs: flip x slice, twist x slice, twist x flip"
      | _ -> "flip x slice, twist x slice, twist x flip x slice");
 
   Printf.printf "building pruning tables...\n%!";
@@ -262,6 +267,14 @@ let () =
       (fun i k ->
         let t = i / n_slice and s = i mod n_slice in
         for m = 0 to 17 do k (mt_twist.(t).(m) * n_slice + mt_slice.(s).(m)) done)
+      0 in
+
+  let p_tf =                        (* twist x flip *)
+    if not use_tf then Bytes.create 0 else
+    bfs (n_twist * n_flip)
+      (fun i k ->
+        let t = i / n_flip and f = i mod n_flip in
+        for m = 0 to 17 do k (mt_twist.(t).(m) * n_flip + mt_flip.(f).(m)) done)
       0 in
 
   (* The full phase-1 coordinate, twist x flip x slice = 2 217 093 120 states.
@@ -329,6 +342,10 @@ let () =
       if use_ts then begin
         let b = Char.code (Bytes.get p_ts (tw.(d).(k) * n_slice + sl.(d).(k))) in
         if b > !h then h := b
+      end;
+      if use_tf then begin
+        let e = Char.code (Bytes.get p_tf (tw.(d).(k) * n_flip + fl.(d).(k))) in
+        if e > !h then h := e
       end;
       if use_all then begin
         let c = Char.code (Bytes.get p_all
