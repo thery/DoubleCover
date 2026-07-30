@@ -569,13 +569,38 @@ Qed.
 
 (** the entry point: after the FIRST step, [d] satisfies [invd].
 
-    Concretely [p = A, q = M - A, d = B, u = v = 1], so in the [p < q]
-    branch [d' = B %% A] and [u' + v' = (M-A) %/ A + 2].
-      invd_max : [B %% A < A <= maxn A q'] -- [ltn_mod] then [leq_maxl].
-      invd_le  : [mod_le_dst] at [g := A], for every [x < (M-A) %/ A + 2];
-                 the index bound gives [A * x <= B + M].
-    The [q <= p] branch is the same with the roles swapped and one
-    subtraction of [p'] first. *)
+    ** Goal breakdown (obtained interactively; [A %% M = A], [B %% M = B],
+    [Pt 1 = A]).  After [rewrite /step; case: ltnP; split] there are four
+    goals, two per branch:
+
+    [A < M - A] branch, with [k := (M - A) %/ A]:
+      (1) invd_max : B %% A < maxn A (M - A - k * A)
+          CHEAP: [B %% A < A] by [ltn_mod], then [leq_maxl].
+      (2) invd_le  : B %% A <= Inf (1 + k * 1 + 1)
+          [le_inf_dst] then [mod_le_dst] at [g := A] for each [x < k + 2].
+          Its side condition [Pt 1 * x <= M] holds because
+          [A * (k+1) = A*k + A <= (M - A) + A = M] by [leq_trunc_div] --
+          and note it is an EQUALITY at the top index, which is exactly why
+          [mod_le_dst] had to be proved with [<= M] rather than [< M].
+
+    [M - A <= A] branch, with [k := A %/ (M - A)] and
+    [p' := A - k * (M - A)]:
+      (3) invd_max : (if p' <= B then (B - p') %% (M-A) else B)
+                       < maxn p' (M - A)
+          CHEAP: in the [then] case [ltn_mod] + [leq_maxr]; in the [else]
+          case the test itself gives [B < p'], then [leq_maxl].
+      (4) invd_le  : same value <= Inf (1 + (1 + k * 1))
+          NOT covered by [mod_le_dst]: the reduced quantity is
+          [(B - p') %% (M - A)], not [B %% g].  What is true here is that
+          the points of index [0 .. k+1] are
+            0, A, A - (M-A), A - 2*(M-A), ..., A - k*(M-A) = p',
+          i.e. [{0}] together with an arithmetic progression of step
+          [M - A] running down from [A] to [p'], and [(B - p') %% (M-A)]
+          is the distance from [b] to the nearest element of it below [b].
+          So the generic lemma wanted is "distance to the nearest element
+          of an arithmetic progression of step [q]", which [step_invd]
+          needs too -- formulate it once, for both, and validate it before
+          stating it. *)
 Lemma invd_first :
   let: (p', q', d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
   invd p' q' d' u' v'.
@@ -624,7 +649,26 @@ Qed.
                   extra [M] which [modnDr] discards.
     The [Pt y <= Pt x] version above is the special case, already proved. *)
 Lemma dstB_gen x y : y <= x -> Dst (x - y) = (Dst x + Pt y) %% M.
-Proof. Admitted.
+Proof.
+move=> yx.
+have Hpx : Pt x = (Pt (x - y) + Pt y) %% M by rewrite -ptD subnK.
+have HP := pt_lt (x - y); have HQ := pt_lt y.
+rewrite dstE [in RHS]dstE modnDml Hpx.
+case: (ltnP (Pt (x - y) + Pt y) M) => H.
+  rewrite (modn_small H) subnDA subnK //.
+  by rewrite leq_subRL ?(leq_trans (ltnW HP)) ?leq_addl //
+             (leq_trans (ltnW H)) // leq_addl.
+have e2 : (Pt (x - y) + Pt y) %% M = Pt (x - y) + Pt y - M.
+  rewrite -{1}(subnK H) modnDr modn_small // ltn_subLR //.
+  apply: leq_ltn_trans (leq_add (ltnW HP) (leqnn _)) _.
+  by rewrite ltn_add2l.
+have HPB : Pt (x - y) <= B + M by rewrite (leq_trans (ltnW HP)) // leq_addl.
+rewrite e2 subnBA // subnDA subnK.
+  by rewrite -[in RHS]addnBAC // modnDr.
+rewrite leq_subRL; last by rewrite (leq_trans HPB) // leq_addr.
+apply: leq_trans (leq_add (ltnW HP) (ltnW HQ)) _.
+by rewrite leq_add2r leq_addl.
+Qed.
 
 (** the mirror of [step_d_lt], with the direction of travel corrected:
     walking by index [u] moves the point LEFT by [q], hence DOWN the
@@ -640,7 +684,28 @@ Proof. Admitted.
 Lemma step_d_ge p q d u v x j :
   inv p q d u v -> q <= p -> x < u + v -> d = Dst x ->
   j <= d %/ q -> j * u <= x -> Dst (x - j * u) = d - j * q.
-Proof. Admitted.
+Proof.
+move=> iv qLp xLuv dE.
+have [_ q_gt0 _ _ qE _] := iv.
+have Hpu : Pt u = M - q by rewrite qE subKn // ltnW // pt_lt.
+have dM : d < M by rewrite dE dst_lt.
+have qM : q <= M by rewrite qE leq_subr.
+elim: j => [|j IH jLd juLx]; first by rewrite !mul0n !subn0 dE.
+have jLd' : j <= d %/ q by apply: ltnW.
+have juLx' : j * u <= x by rewrite (leq_trans _ juLx) // leq_mul2r ltnW ?orbT.
+have Hq : j.+1 * q <= d.
+  by rewrite (leq_trans _ (leq_divM d q)) // leq_mul2r jLd orbT.
+have HqD : q <= d - j * q.
+  rewrite leq_subRL; last by rewrite (leq_trans _ Hq) // leq_mul2r leqnSn orbT.
+  by rewrite -mulSnr.
+have H1 : d - j * q - q <= d by rewrite (leq_trans (leq_subr _ _)) // leq_subr.
+have -> : x - j.+1 * u = x - j * u - u by rewrite mulSnr subnDA.
+have Hu : u <= x - j * u by rewrite leq_subRL // -mulSnr.
+rewrite dstB_gen // IH //.
+rewrite Hpu addnBA // -addnBAC // modnDr.
+rewrite (modn_small (leq_ltn_trans H1 dM)).
+by rewrite mulSnr subnDA.
+Qed.
 
 Lemma step_invd p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N ->
