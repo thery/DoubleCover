@@ -195,6 +195,78 @@ have mtok : tabi_ok n (nth (id_tabi n) mtis k).
 by rewrite (nth_map (id_tabi n)) // -ti2t_comp // IH // tabi_ok_comp.
 Qed.
 
+(* ---- 3bis. The same search, CARRYING the coordinate ----------------------- *)
+
+(* WHY.  searchir spends ~84% of a node rebuilding the coordinate from the
+   permutation: comp_tabi composes 48 entries, then Dti inverts the array and
+   repacks all 24 bits from scratch.  Measured (fresh coqc, two sizes,
+   differenced): 66.2 us/node against 5.4 us for the composition alone.  But
+   the coordinate has its own transition function -- Fstab's actf -- so it can
+   be carried alongside the array and updated in one step instead of
+   recomputed.  Same measurement with actf: 19.8 us/node, a 3.35x.
+
+   The array itself is still needed, for the goal test eq_tabi a (id_tabi n);
+   only the heuristic stops going through it.
+
+   NOTE the guard gd (cubti at the cube) does NOT appear in searchic's body,
+   only in the proof below.  Dti a is `if cubti a then Dfs (coordi a) else 0`,
+   and cubti holds all along a real search, so the fast loop can read the
+   heuristic straight off the coordinate and pay nothing per node for it.   *)
+
+Variable Dc : int -> nat.                    (* the heuristic, on coordinates *)
+Variable coord : PArray.array int -> int.
+Variable gd : PArray.array int -> bool.      (* the validity guard, cubti     *)
+Variable actc : int -> nat -> int.           (* the coordinate transition     *)
+
+(* tabi_ok is needed as well as the guard: at the cube, reading the coordinate
+   off a table (coordiE) presupposes the array is a well formed one.  Both
+   travel down the search together, tabi_ok by tabi_ok_comp and gd by
+   gd_comp.                                                                 *)
+Hypothesis DtiE2 : forall a, tabi_ok n a -> gd a -> Dti a = Dc (coord a).
+Hypothesis gd_comp : forall a k, k < seq.size mtis -> tabi_ok n a -> gd a ->
+  gd (comp_tabi n a (nth (id_tabi n) mtis k)).
+Hypothesis actcE : forall a k, k < seq.size mtis -> tabi_ok n a -> gd a ->
+  coord (comp_tabi n a (nth (id_tabi n) mtis k)) = actc (coord a) k.
+
+Fixpoint searchic (d : nat) (a : PArray.array int) (x : int) (p : nat) : bool :=
+  if Dc x <= d then
+    if eq_tabi n a (id_tabi n) then true
+    else if d is d'.+1 then
+      (fix go (l : seq nat) : bool :=
+         if l is k :: l' then
+           if searchic d' (comp_tabi n a (nth (id_tabi n) mtis k))
+                          (actc x k) (fcp k)
+           then true else go l'
+         else false) (allowedr p)
+    else false
+  else false.
+
+Lemma searchicS d a x p :
+  searchic d.+1 a x p =
+  (Dc x <= d.+1) &&
+  (eq_tabi n a (id_tabi n) ||
+   has (fun k => searchic d (comp_tabi n a (nth (id_tabi n) mtis k))
+                            (actc x k) (fcp k))
+       (allowedr p)).
+Proof.
+rewrite {1}/searchic -/searchic.
+by case: (Dc x <= d.+1) => //=; case: (eq_tabi n a (id_tabi n)) => //=.
+Qed.
+
+(* the two agree as long as the guard holds, which it does along a real
+   search -- gd_comp is what carries it down                                *)
+Lemma searchicE d a p : tabi_ok n a -> gd a ->
+  searchic d a (coord a) p = searchir d a p.
+Proof.
+move: a p; elim: d => [|d IH] a p aok ga.
+  by rewrite /searchic /searchir DtiE2.
+rewrite searchicS searchirS DtiE2 //; congr (_ && (_ || _)).
+apply: eq_in_has => k; rewrite mem_filter mem_iota => /andP[_ /andP[_ kL]].
+have mtok : tabi_ok n (nth (id_tabi n) mtis k).
+  by apply: (all_nthP (id_tabi n) mtis_ok).
+by rewrite -actcE // IH ?tabi_ok_comp // gd_comp.
+Qed.
+
 End ArrayR.
 
 
