@@ -477,6 +477,34 @@ Qed.
 Corollary searchrN d g : searchr d g nfc = false -> g \notin ball S d.
 Proof. by move=> sF; apply/negP => /ball_searchr; rewrite sF. Qed.
 
+(* ---- 5. Splitting the root, WITH the guard ---------------------------------*)
+
+(* Option A of the ball_split2 question, and it turns out Search.ball_split2
+   does not have to change at all: the split belongs at the searchr level,
+   where the guard already exists, and it is then two unfoldings of searchr
+   and no ball reasoning whatsoever.
+   Only guard respecting pairs (m1, m2) need checking, which is where the
+   redundancy factor at the TOP of the search comes from -- after a U face
+   root the guard kills faces U and D, so twelve second moves instead of
+   eighteen.  Measured cost of NOT doing this: 1.348^2 = 1.82x.          *)
+Lemma searchr_split2 d g p :
+  g != 1 ->
+  (forall m1, m1 \in Sseq -> okfc0 p (fc m1) -> g * m1 != 1) ->
+  (forall m1 m2, m1 \in Sseq -> m2 \in Sseq ->
+     okfc0 p (fc m1) -> okfc0 (fc m1) (fc m2) ->
+     searchr d (g * m1 * m2) (fc m2) = false) ->
+  searchr d.+2 g p = false.
+Proof.
+move=> g1 gm1 gmm.
+apply/negP => /andP[_]; rewrite (negbTE g1) orFb.
+case/hasP => m1 m1S /andP[ok1] /andP[_].
+rewrite (negbTE (gm1 _ m1S ok1)) orFb.
+case/hasP => m2 m2S /andP[ok2].
+(* the goal here shows searchr unfolded to its fix, so rewrite cannot match
+   it; exact does, up to conversion *)
+move=> sm; case/negP: (negbT (gmm _ _ m1S m2S ok1 ok2)); exact: sm.
+Qed.
+
 (* (d) and the sanity check that this is worth it: the rules only ever remove
    candidates, so a reduced search that fails is a search that fails.      *)
 Lemma searchr_search d g p : searchr d g p -> search Sseq h d g.

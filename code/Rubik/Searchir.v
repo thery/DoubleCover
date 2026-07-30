@@ -41,7 +41,22 @@ Definition fcpos (k : nat) : nat := k %/ 3.
    Redun.uniq_moves reads its index back as k -- exactly the step already
    used in Redun.triple_moves.                                            *)
 Lemma fcpos_moves k : k < 18 -> fcube (nth 1 moves k) = fcpos k.
-Proof. Admitted.
+Proof.
+move=> k18.
+have szk : k < seq.size moves by rewrite moves_size.
+by rewrite /fcube (index_uniq 1 szk uniq_moves).
+Qed.
+
+(* has over a list = has over its positions.  Pure seq, and the missing
+   ingredient of searchtrE.
+   NOTE the predicate is written A -> bool and NOT pred A: with pred A the
+   statement does not even elaborate here, it tries to unify A with int. *)
+Lemma has_nth_iota (A : Type) (p : A -> bool) (s : seq A) (x0 : A) :
+  has p s = has (fun k => p (nth x0 s k)) (iota 0 (seq.size s)).
+Proof.
+elim: s => [//|x s IH] /=; congr (_ || _).
+by rewrite -add1n iotaDl has_map IH.
+Qed.
 
 (* ---- 1. The reduced search on tables --------------------------------------*)
 
