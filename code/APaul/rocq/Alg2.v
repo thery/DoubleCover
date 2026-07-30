@@ -458,7 +458,17 @@ Qed.
 Lemma step_d_lt p q d u v x j :
   inv p q d u v -> p < q -> x < u + v -> d = Dst x ->
   j <= d %/ p -> Dst (x + j * v) = d - j * p.
-Proof. Admitted.
+Proof.
+move=> iv pLq xLuv dE.
+have [p_gt0 q_gt0 _ pE _ _] := iv.
+elim: j => [|j IH jLd]; first by rewrite addn0 subn0.
+have jLd' : j <= d %/ p by apply: ltnW.
+have Hj : j.+1 * p <= d.
+  by rewrite (leq_trans _ (leq_divM d p)) // leq_mul2r jLd orbT.
+have -> : x + j.+1 * v = x + j * v + v by rewrite mulSnr addnA.
+rewrite dstD; first by rewrite IH // -pE mulSnr subnDA.
+by rewrite IH // -pE leq_psubRL // -mulSnr.
+Qed.
 
 (* CFrac: slater.get_prev / get_prev_spec (the closest point on the left)
    Proof plan: take [j := d %/ p] in [step_d_lt].  Then
@@ -481,6 +491,24 @@ Proof. Admitted.
    [dstD] instance is the one where the step size is [q], not [Pt u].
    Expect this to be the fiddliest of the four -- do [step_d_lt] first
    and mirror it. *)
+(* HARD -- THE STATEMENT BELOW IS WRONG, do not try to prove it as is.
+   Walking by index [u] moves the lattice point by [Pt u = M - q], i.e.
+   LEFT by [q], so it makes the distance GROW:
+     Dst (x + u) = Dst x + q,  not  Dst x - q.
+   To reduce [d] modulo [q] one must move the point UP by [q], which is
+   the index [x - u] (since [Pt (x - u) = Pt x + q]).  So the shape is
+     Dst (x - j * u) = d - j * q,   with the side condition  j * u <= x.
+   Restate it that way, and then [step_d_ge_mem]'s witness becomes
+   [x - ((d - p') %/ q) * u] rather than [x + ...].
+   Helper skeleton for the restatement: *)
+
+Lemma pt_sub x y : y <= x -> Pt y <= Pt x -> Pt (x - y) = Pt x - Pt y.
+Proof. Admitted.
+
+(** the mirror of [dstD]: moving the point up by [Pt y] lowers [Dst]. *)
+Lemma dstB x y : y <= x -> Pt y <= Pt x -> Dst (x - y) = Dst x + Pt y.
+Proof. Admitted.
+
 Lemma step_d_ge p q d u v x j :
   inv p q d u v -> q <= p -> x < u + v -> d = Dst x ->
   j <= d %/ q -> Dst (x + j * u) = d - j * q.
@@ -542,7 +570,14 @@ Proof. Admitted.
 Lemma step_measure p q d u v :
   inv p q d u v -> u + v < N ->
   let: (p', q', _, _, _) := step p q d u v in p' + q' < p + q.
-Proof. Admitted.
+Proof.
+case => p_gt0 q_gt0 _ _ _ _ _.
+rewrite /step; have [pLq|qLp] := ltnP; rewrite /=.
+  have kp_gt0 : 0 < q %/ p * p by rewrite muln_gt0 p_gt0 andbT divn_gt0 // ltnW.
+  by rewrite ltn_add2l ltn_subrL kp_gt0 q_gt0.
+have kq_gt0 : 0 < p %/ q * q by rewrite muln_gt0 q_gt0 andbT divn_gt0.
+by rewrite ltn_add2r ltn_subrL kq_gt0 p_gt0.
+Qed.
 
 (** hence [M] units of fuel always suffice, since [p + q = M] initially. *)
 (* pure -- induction on [fuel], using [step_measure] to keep the
@@ -579,6 +614,36 @@ Proof. Admitted.
    If it fails, strengthen [inv_d] to
      exists2 x, x < minn (u + v) N & d = Dst x
    which is what the algorithm actually maintains. *)
+(* HARD -- NOT A PROOF PROBLEM: [inv] cannot support this.
+
+   Measured by vm_compute (M=32 N=8 and M=64 N=10, all A,B, every loop
+   state):  Inf (u+v) <= d <= Inf N.  Both hold, consistently, since
+   N <= u+v gives Inf (u+v) <= Inf N.
+
+   [inv_d] ("d = Dst x for some x < u+v") is exactly the LOWER side, and
+   that is the one direction [exit_bound] does NOT need.  Worse, the
+   upper side fails at initialisation: d = B = Dst 0, while
+   Inf 2 = minn (Dst 0) (Dst 1) can be strictly smaller.  So no
+   strengthening of [inv_d] that holds at [inv_init] can state
+   [d <= Inf (u+v)] either.
+
+   What the algorithm actually maintains is subtler: d is the distance to
+   the closest point on b's left among the indices REACHED SO FAR by the
+   reductions -- not among all of 0..u+v.  Candidate:
+
+     inv_d : exists2 x, x < u + v & d = Dst x
+     inv_d2 : forall y, y < N -> y is "reached" -> d <= Dst y
+
+   Settle it by extending the harness (scratchpad Probe.v) to test
+   candidate predicates at EVERY state, not just at the exit, before
+   writing any proof.  Helper skeleton for whichever shape wins: *)
+
+(** the exit really does overshoot: [u+v] only grows. *)
+Lemma step_uv_le p q d u v :
+  inv p q d u v ->
+  let: (_, _, _, u', v') := step p q d u v in u + v <= u' + v'.
+Proof. Admitted.
+
 Lemma exit_bound p q d u v :
   inv p q d u v -> N <= u + v -> d <= Inf N.
 Proof. Admitted.
@@ -603,6 +668,10 @@ Proof. Admitted.
    interface and lets Search.v/Check.v be re-plumbed against it. *)
 Corollary lefevre_test eps :
   eps < lefevre M A B N -> forall x, x < N -> eps < Dst x.
-Proof. Admitted.
+Proof.
+move=> epsL x xLN.
+apply: leq_trans epsL _.
+by apply: leq_trans lefevre_sound _; apply: inf_dst_le xLN.
+Qed.
 
 End Theory.
