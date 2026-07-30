@@ -87,6 +87,9 @@ pose ll :=
 by have ->// := @cycs_pt 47%N ll.
 Qed.
 
+Lemma in_consr (T : eqType) (x y : T) (s : seq T) : x \in s -> x \in y :: s.
+Proof. by rewrite inE => ->; rewrite orbT. Qed.
+
 (* Hence a cube position: the maneuver is a word in the six face turns.  The  *)
 (* face branch has to be tried BEFORE groupM -- a face turn is itself a       *)
 (* product of cycles, so groupM would happily take the word apart into its    *)
@@ -97,8 +100,31 @@ have faceG g : g \in faces -> g \in G.
   move=> gF; apply: (subsetP (subset_gen _)); rewrite inE /moves.
   by apply/flatten_mapP; exists g => //; rewrite !inE eqxx.
 rewrite superflipE.
-by do ?[by apply: faceG; rewrite !inE eqxx ?orbT
-       | apply: groupM | apply: groupX | apply: groupVr].
+have Ui : Umove \in G by apply/faceG/mem_head.
+have Ri : Rmove \in G by apply/faceG/in_consr/mem_head.
+have Fi : Fmove \in G by apply/faceG/in_consr/in_consr/mem_head.
+have Di : Dmove \in G by apply/faceG/in_consr/in_consr/in_consr/mem_head.
+have Li : Lmove \in G by apply/faceG/in_consr/in_consr/in_consr/in_consr/mem_head.
+have Bi : Bmove \in G by apply/faceG/in_consr/in_consr/in_consr/in_consr/in_consr/mem_head.
+apply: groupM; last by apply: groupX.
+apply: groupM; last by apply: groupX.
+apply: groupM; last by apply: groupX.
+apply: groupM; last by [].
+apply: groupM; last by apply: groupVr.
+apply: groupM; last by [].
+apply: groupM; last by apply: groupX.
+apply: groupM; last by apply: groupVr.
+apply: groupM; last by apply: groupVr.
+apply: groupM; last by [].
+apply: groupM; last by apply: groupX.
+apply: groupM; last by [].
+apply: groupM; last by apply: groupX.
+apply: groupM; last by [].
+apply: groupM; last by apply: groupX.
+apply: groupM; last by [].
+apply: groupM; last by [].
+apply: groupM; last by [].
+by apply: groupM; last by apply: groupX.
 Qed.
 
 (* [COMPUTATION] The lower-bound search: no word of length at most 19 in the  *)

@@ -45,19 +45,6 @@ modules) is the obvious win, and it is mechanical.
 
 ## 3. Full list
 
-- **27.8 s** `Rubik333.v` -- Chars 5202 - 5305 [by~~~repeat~(apply~/andP~;~spl...] 27.8 secs (27.432u,0.111s)
-- **19.444 s** `Diameter.v` -- Chars 4846 - 4952 [by~~~do~~~~~?[~by~apply~:~face...] 19.444 secs (19.215u,0.064s)
-- **14.294 s** `Far.v` -- Chars 14789 - 14827 [by~move~~=>_~ca;~rewrite~/Dtid...] 14.294 secs (12.716u,1.45s)
-- **9.288 s** `Tabi.v` -- Chars 2270 - 2326 [From~mathcomp~Require~Import~a...] 9.288 secs (8.781u,0.413s)
-- **9.132 s** `Coordfs.v` -- Chars 2351 - 2407 [From~mathcomp~Require~Import~a...] 9.132 secs (8.695u,0.356s)
-- **9.108 s** `Moves.v` -- Chars 1137 - 1193 [From~mathcomp~Require~Import~a...] 9.108 secs (8.572u,0.428s)
-- **8.883 s** `FsTable.v` -- Chars 3243 - 3299 [From~mathcomp~Require~Import~a...] 8.883 secs (8.428u,0.362s)
-- **8.786 s** `Searchir.v` -- Chars 1638 - 1694 [From~mathcomp~Require~Import~a...] 8.786 secs (8.21u,0.484s)
-- **8.758 s** `Fstab.v` -- Chars 2838 - 2894 [From~mathcomp~Require~Import~a...] 8.758 secs (8.329u,0.341s)
-- **8.569 s** `Far.v` -- Chars 2591 - 2647 [From~mathcomp~Require~Import~a...] 8.569 secs (8.129u,0.357s)
-- **8.556 s** `Fspar.v` -- Chars 1218 - 1274 [From~mathcomp~Require~Import~a...] 8.556 secs (8.137u,0.34s)
-- **8.502 s** `Toy.v` -- Chars 1137 - 1193 [From~mathcomp~Require~Import~a...] 8.502 secs (8.096u,0.333s)
-- **8.211 s** `Coordfsi.v` -- Chars 2676 - 2732 [From~mathcomp~Require~Import~a...] 8.211 secs (7.831u,0.309s)
 - **8.046 s** `Far.v` -- Chars 18162 - 18185 [rewrite~/prefixi~!e~//.] 8.046 secs (7.967u,0.01s)
 - **7.631 s** `Search.v` -- Chars 1945 - 2001 [From~mathcomp~Require~Import~a...] 7.631 secs (7.086u,0.464s)
 - **7.605 s** `Sym.v` -- Chars 2269 - 2325 [From~mathcomp~Require~Import~a...] 7.605 secs (7.116u,0.421s)

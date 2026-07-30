@@ -102,6 +102,10 @@ Definition H : {group {perm facelet}} := <<Aset>>.
 (* The partition of the cube group into the right cosets H*p.                 *)
 Definition cosets := rcosets H G.
 
+Lemma subsetU1r (T : finType) (x y : T) (A : {set T}) : 
+  [set x] \subset A -> [set x] \subset y |: A.
+Proof. by move=> xSA; apply: subsetU; apply/orP; right. Qed.
+
 (* ---- 5. Structural facts ------------------------------------------------- *)
 
 (* Every A-generator is one of the 18 moves.  A finite membership check, but  *)
@@ -111,8 +115,17 @@ Lemma A_sub_S : Aset \subset Sset.
 Proof.
 rewrite [Aset]set_cons !set_cons set_nil setU0 !setUA !subUset.
 rewrite [Sset]set_cons !set_cons set_nil setU0.
-by (repeat (apply/andP; split));
-    repeat first [apply: subsetUl | apply: subsetU; apply/orP; right].
+repeat (apply/andP; split).
+- by apply: subsetUl.
+- by apply/subsetU1r/subsetUl.
+- by do 2 apply: subsetU1r; apply: subsetUl.
+- by do 9 apply: subsetU1r; apply: subsetUl.
+- by do 10 apply: subsetU1r; apply: subsetUl.
+- by do 11 apply: subsetU1r; apply: subsetUl.
+- by do 7 apply: subsetU1r; apply: subsetUl.
+- by do 16 apply: subsetU1r; apply: subsetUl.
+- by do 13 apply: subsetU1r; apply: subsetUl.
+by do 4 apply: subsetU1r; apply: subsetUl.
 Qed.
 
 (* H is a subgroup of G.  (Real proof, resting only on A_sub_S.)              *)

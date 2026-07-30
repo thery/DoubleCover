@@ -275,13 +275,13 @@ Qed.
 Definition mdatafd : seq mdatf := Eval vm_compute in mdataf mtabs.
 
 Lemma mdatafdE : mdatafd = mdataf mtabs.
-Proof. by vm_compute. Qed.
+Proof. by vm_cast_no_check (refl_equal mdatafd). Qed.
 
 Definition actcd (x : int) (k : nat) : int :=
   actf x (nth (mdatf_of_tab [::]) mdatafd k).
 
 Lemma DtidE2 a : tabi_ok 47 a -> cubti a -> Dtid a = Dfsd (coordi a).
-Proof. by move=> _ ca; rewrite /Dtid /Dti ca. Qed.
+Proof. by move=> _ ca; rewrite /Dtid /Dti ca; apply: refl_equal. Qed.
 
 Lemma size_mtabs : seq.size mtabs = seq.size mtis.
 Proof. by rewrite -ti2t_mtis seq.size_map. Qed.
@@ -350,7 +350,8 @@ move=> iL jL.
 have e k : k < nmoves -> nth sfti mtis k = nth (id_tabi 47) mtis k.
   by move=> kL; apply: set_nth_default; rewrite size_mtis.
 have csf : cubti sfti by vm_compute.
-rewrite /prefixi !e //.
+rewrite /prefixi (e i); last by [].
+rewrite e; last by [].
 apply: cubti_comp.
 - by rewrite size_mtis.
 - apply: (tabi_ok_comp n47_small n47_len); first exact: sfti_ok.
