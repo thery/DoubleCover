@@ -256,3 +256,193 @@ have e2 : searchtr 47 [seq ti2t 47 mt | mt <- mtis] (Dt Dfsd) nfcube oppf fcpos
   by apply: (searchtrE mtsok nfcube oppf (hfsE Dfsd) fcE).
 by rewrite mtisE -e2 -e1.
 Qed.
+
+(* ---- 3ter. The same search, CARRYING the coordinate ---------------------- *)
+
+(* searchir spends ~84% of a node rebuilding the coordinate: comp_tabi
+   composes 48 entries and then Dtid inverts the array and repacks all 24 bits
+   from scratch.  Measured (fresh coqc, two sizes, differenced) 66.2 us/node
+   against 5.4 us for the composition alone; with actf, 19.8 us.  actf IS the
+   coordinate transition and checkStep already certifies it, so the coordinate
+   can be carried and stepped instead of recomputed.  The array is still
+   composed, for the goal test only.                                        *)
+
+(* EVALUATED ONCE.  mdataf mtabs is an application of a constant to an
+   argument, so the VM cannot share it: written directly here it is rebuilt on
+   every call -- eighteen mdatf, each a twelve entry array plus a twelve bit
+   pack -- about 13.5 times per node.  As a closed Definition it is a literal
+   and costs nothing per node.                                             *)
+Definition mdatafd : seq mdatf := Eval vm_compute in mdataf mtabs.
+
+Lemma mdatafdE : mdatafd = mdataf mtabs.
+Proof. by vm_compute. Qed.
+
+Definition actcd (x : int) (k : nat) : int :=
+  actf x (nth (mdatf_of_tab [::]) mdatafd k).
+
+Lemma DtidE2 a : tabi_ok 47 a -> cubti a -> Dtid a = Dfsd (coordi a).
+Proof. by move=> _ ca; rewrite /Dtid /Dti ca. Qed.
+
+Lemma size_mtabs : seq.size mtabs = seq.size mtis.
+Proof. by rewrite -ti2t_mtis seq.size_map. Qed.
+
+Lemma ti2t_nth_mtis k : k < seq.size mtis ->
+  ti2t 47 (nth (id_tabi 47) mtis k) = nth [::] mtabs k.
+Proof. by move=> kL; rewrite -ti2t_mtis (nth_map (id_tabi 47)). Qed.
+
+(* The guard travels: being a cube is closed under composing with a move.
+   Down through cubtiE to tables, cubtE to permutations, where it is cubPM --
+   and the move is a move, by mtisE.  NOTE arr is not an eqType, so the
+   membership cannot be taken in mtis; it goes through mtabs.              *)
+Lemma cubti_comp a k : k < seq.size mtis -> tabi_ok 47 a -> cubti a ->
+  cubti (comp_tabi 47 a (nth (id_tabi 47) mtis k)).
+Proof.
+move=> kL aok ca.
+have mtok : tabi_ok 47 (nth (id_tabi 47) mtis k)
+  by apply: (all_nthP (id_tabi 47) mtis_ok).
+have cok := tabi_ok_comp n47_small n47_len aok mtok.
+rewrite (cubtiE cok) (ti2t_comp n47_small n47_len aok mtok).
+rewrite -(cubtE (tab_ok_comp aok mtok)) -(ptM aok mtok).
+apply: cubPM; first by rewrite (cubtE aok) -(cubtiE aok).
+apply: moves_cubP; rewrite inE mtisE; apply/mapP.
+exists (ti2t 47 (nth (id_tabi 47) mtis k)) => //.
+have -> : ti2t 47 (nth (id_tabi 47) mtis k) = nth [::] mtabs k.
+  by rewrite -ti2t_mtis (nth_map (id_tabi 47)).
+by rewrite ti2t_mtis mem_nth.
+Qed.
+
+(* THE STEP: stepping the coordinate with actf is the same as recomputing it
+   after composing.  This is Coordfs's equivariance coordfsM, carried up
+   through actdE (actfs = actd on a table) and actfE (actd = actf on the
+   packed move data), with coordiE/coordtE moving between the three levels.
+   Every piece was already proved for the certificate; nothing new here.  *)
+Lemma actcdE a k : k < seq.size mtis -> tabi_ok 47 a -> cubti a ->
+  coordi (comp_tabi 47 a (nth (id_tabi 47) mtis k)) = actcd (coordi a) k.
+Proof.
+move=> kL aok ca; rewrite /actcd.
+have mtok : tabi_ok 47 (nth (id_tabi 47) mtis k)
+  by apply: (all_nthP (id_tabi 47) mtis_ok).
+have cok := tabi_ok_comp n47_small n47_len aok mtok.
+have hmt : ti2t 47 (nth (id_tabi 47) mtis k) = nth [::] mtabs k
+  by rewrite -ti2t_mtis (nth_map (id_tabi 47)).
+have cA : cubP (pt 47 (ti2t 47 a)) by rewrite (cubtE aok) -(cubtiE aok).
+have cM : cubP (pt 47 (ti2t 47 (nth (id_tabi 47) mtis k))).
+  apply: moves_cubP; rewrite inE mtisE; apply/mapP.
+  exists (ti2t 47 (nth (id_tabi 47) mtis k)) => //.
+  by rewrite hmt ti2t_mtis mem_nth // -ti2t_mtis seq.size_map.
+rewrite (coordiE cok) (ti2t_comp n47_small n47_len aok mtok).
+rewrite -(coordtE (tab_ok_comp aok mtok)) -(ptM aok mtok).
+rewrite (coordfsM cA cM) (actdE _ mtok) -actfE.
+rewrite (coordtE aok) -(coordiE aok).
+congr (actf _ _).
+by rewrite mdatafdE /mdataf (nth_map [::]) ?hmt // -ti2t_mtis seq.size_map.
+Qed.
+
+Lemma size_mtis : seq.size mtis = nmoves.
+Proof. by rewrite /mtis seq.size_map -(seq.size_map (pt 47)) -mtabsE moves_size. Qed.
+
+(* the 36 roots are cubes, so the guard holds where the search starts.
+   NOTE prefixi takes its nth default as sfti and cubti_comp as id_tabi 47;
+   below nmoves they agree, which is what set_nth_default says.            *)
+Lemma prefixi_cub i j : i < nmoves -> j < nmoves -> cubti (prefixi i j).
+Proof.
+move=> iL jL.
+have e k : k < nmoves -> nth sfti mtis k = nth (id_tabi 47) mtis k.
+  by move=> kL; apply: set_nth_default; rewrite size_mtis.
+have csf : cubti sfti by vm_compute.
+rewrite /prefixi !e //.
+apply: cubti_comp.
+- by rewrite size_mtis.
+- apply: (tabi_ok_comp n47_small n47_len); first exact: sfti_ok.
+  by apply: (all_nthP (id_tabi 47) mtis_ok); rewrite size_mtis.
+apply: cubti_comp.
+- by rewrite size_mtis.
+- exact: sfti_ok.
+exact: csf.
+Qed.
+
+
+(* ---- 3quater. searchz: prune the child BEFORE composing ------------------ *)
+
+(* WHY THIS IS WORTH FINISHING.  Measured on the real search, single threaded,
+   one coqc process, vm_compute, depth 9 from prefixi 0 3:
+
+       searchir   9.94 s
+       searchz    2.588 s          -- 3.84x
+
+   searchir recurses first and tests Dti a <= d INSIDE the call, so every one
+   of the ~13.5 children pays a full comp_tabi (48 writes) plus a complete 24
+   bit coordinate rebuild before being thrown away.  searchz steps the
+   coordinate with actf, tests the table on it, and composes the array ONLY
+   for children that survive.  A pruned child costs one actf and one table
+   read.
+
+   For scale: the same job at depth 12 is 0.2 s in OCaml against 21m07 CPU
+   here, and that ~6300x factors as ~90x per node times ~70x more node visits.
+   This addresses the second factor, which is the larger one.
+
+   CONCRETE ON PURPOSE.  An earlier attempt (searchic, in Searchir.v, reverted)
+   made the heuristic/coordinate/transition section Variables.  It was proved
+   correct but ran SLOWER than searchir -- the higher order parameters appear
+   to defeat whatever specialisation the VM does against a known constant.  Do
+   not re-abstract this.
+
+   mdatafd above is the other half of that lesson: mdataf mtabs is an
+   application, which the VM rebuilds on every call.                        *)
+
+Fixpoint searchz (d : nat) (a : arr) (x : int) (p : nat) : bool :=
+  if Dfsd x <= d then
+    if eq_tabi 47 a (id_tabi 47) then true
+    else if d is d'.+1 then
+      (fix go (l : seq nat) : bool :=
+         if l is k :: l' then
+           (if Dfsd (actcd x k) <= d' then
+              (if searchz d' (comp_tabi 47 a (nth (id_tabi 47) mtis k))
+                             (actcd x k) (fcpos k)
+               then true else go l')
+            else go l')
+         else false) (allowedr mtis nfcube oppf fcpos p)
+    else false
+  else false.
+
+Lemma searchir_gt d a p : (Dtid a <= d) = false ->
+  searchir 47 mtis Dtid nfcube oppf fcpos d a p = false.
+Proof. by case: d => [|d] h; rewrite {1}/searchir h. Qed.
+
+(* WHERE IT IS STUCK, and it is a tactic problem, not a mathematical one.
+   Folding searchz back after unfolding it -- the `-/searchz` in the usual
+   `rewrite {1}/searchz -/searchz` idiom that searchirS uses -- does not
+   return, even in this minimal goal, and neither does closing it by case
+   analysis alone.  searchir folds back fine; searchz's body carries
+   `actcd x k` twice, and that seems to be enough to make the higher order
+   match blow up.
+
+   Everything ELSE in the proof is fast once arguments are given EXPLICITLY:
+     rewrite (searchirS 47 mtis Dtid nfcube oppf fcpos d a p)   7 ms
+     rewrite (DtidE2 aok ca)                                    6 ms
+   left implicit, both time out.  The base case of searchzE is proved (22 ms)
+   by splitting the two booleans rather than comparing whole terms:
+     rewrite {1}/searchz {1}/searchir (DtidE2 aok ca).
+     by case: (Dfsd (coordi a) <= 0); case: (eq_tabi 47 a (id_tabi 47)).
+
+   The inductive step needs searchzS, then it is the same shape as searchicE
+   was: induct on d, then on allowedr's list, using actcdE for the coordinate
+   step, cubti_comp for the guard, DtidE2 to swap Dtid for Dfsd, and
+   searchir_gt for the branch the pre-test prunes.                         *)
+Lemma searchzS d a x p :
+  searchz d.+1 a x p =
+  (Dfsd x <= d.+1) &&
+  (eq_tabi 47 a (id_tabi 47) ||
+   (fix go (l : seq nat) : bool :=
+      if l is k :: l' then
+        (if Dfsd (actcd x k) <= d then
+           (if searchz d (comp_tabi 47 a (nth (id_tabi 47) mtis k))
+                        (actcd x k) (fcpos k)
+            then true else go l')
+         else go l')
+      else false) (allowedr mtis nfcube oppf fcpos p)).
+Admitted.
+
+Lemma searchzE d a p : tabi_ok 47 a -> cubti a ->
+  searchz d a (coordi a) p = searchir 47 mtis Dtid nfcube oppf fcpos d a p.
+Admitted.
