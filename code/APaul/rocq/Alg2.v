@@ -790,10 +790,64 @@ Qed.
     NB this equality is special to the first step: at later steps it fails
     (150 violations out of 5152), which is why [invd] carries the weaker
     congruence rather than an equation. *)
+(** The [A < M - A] branch: the witness is [B %/ A], because
+    [Dst (B %/ A) = B %% A] exactly -- the point [A * (B %/ A)] is the
+    largest multiple of [A] below [b].  Its index is in range because
+    [M = A + (M-A) = A + ((M-A)%/A)*A + (M-A)%%A < ((M-A)%/A + 2) * A]. *)
+(** The [else] case ([B < p']) is immediate: [d' = B = Dst 0].  NB the
+    rewrite must be targeted -- [dst0 : Dst 0 = B] and [Inf] itself mentions
+    [B], so a bare [-dst0] breaks the [Inf] on the left.
+
+    The [then] case needs a witness: with [k = A %/ q], [q = M - A],
+    [p' = A - k*q] and [t = (B - p') %/ q], the point at index [(k-t)+1] is
+    [A - (k-t)*q = p' + t*q] by [pt_desc], and its distance is
+    [B - (p' + t*q) = (B - p') - t*q = (B - p') %% q = d']. *)
+Lemma invd_first_ge_ge_then : M - A %% M <= A %% M ->
+  A - A %/ (M - A) * (M - A) <= B ->
+  Inf (1 + (1 + A %/ (M - A) * 1))
+    <= (B - (A - A %/ (M - A) * (M - A))) %% (M - A).
+Proof. Admitted.
+
+Lemma invd_first_ge_ge : M - A %% M <= A %% M ->
+  let: (_, _, d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
+  Inf (u' + v') <= d'.
+Proof.
+move=> qLp0.
+have Ha := am_gt0.
+have HA : A %% M = A by rewrite modn_small.
+have HB : B %% M = B by rewrite modn_small.
+have Hthen := invd_first_ge_ge_then qLp0.
+rewrite /step HA HB; rewrite ifN /=; last by rewrite -leqNgt -HA.
+case: (leqP (A - A %/ (M - A) * (M - A)) B) => [p'LB|BLp']; last first.
+  by rewrite -[X in _ <= X]dst0; apply: inf_dst_le.
+by apply: Hthen.
+Qed.
+
 Lemma invd_first_ge :
   let: (_, _, d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
   Inf (u' + v') <= d'.
-Proof. Admitted.
+Proof.
+have Ha := am_gt0.
+have HA : A %% M = A by rewrite modn_small.
+have HB : B %% M = B by rewrite modn_small.
+have Hp1 : Pt 1 = A by rewrite /pt muln1 HA.
+have Hge := invd_first_ge_ge.
+move: Hge; rewrite /step HA HB; case: ltnP => [pLq|qLp] /= Hge; last by apply: Hge.
+have HzA : A * (B %/ A) <= B by rewrite mulnC leq_divM.
+have Hz : Dst (B %/ A) = B %% A.
+  rewrite dst_below; last by rewrite pt_mul_small Hp1 // (leq_ltn_trans HzA).
+  have HPz : Pt (B %/ A) = A * (B %/ A).
+    have H : Pt 1 * (B %/ A) < M by rewrite Hp1 (leq_ltn_trans HzA).
+    by rewrite (pt_mul_small H) Hp1.
+  by rewrite HPz mulnC {1}(divn_eq B A) addKn.
+rewrite -Hz; apply: inf_dst_le.
+rewrite muln1 ltn_divLR //.
+apply: leq_trans B_lt _.
+rewrite !mulnDl mul1n -{1}(subnKC (ltnW A_lt)) {1}(divn_eq (M - A) A).
+rewrite addnA leq_add2l.
+  by apply: ltnW; rewrite ltn_mod -HA.
+by rewrite -HA.
+Qed.
 
 Lemma invd_first_cong :
   let: (p', q', d', u', v') := step (A %% M) (M - A %% M) (B %% M) 1 1 in
@@ -1150,10 +1204,120 @@ Qed.
     [invd_first] and preserve it in [step_invd].  The [q <= p] branch will
     want the analogue modulo [q], to be validated separately. *)
 
-Lemma step_invd_le_new_lt_at p q d u v y m :
-  inv p q d u v -> invd p q d u v -> u + v < N -> p < q ->
-  y < u + v -> 0 < m <= q %/ p -> d %% p <= Dst (y + m * v).
+(** ** Scaffold for the two content leaves
+
+    Both split on whether the walk WRAPS, i.e. whether [m * p <= Dst y]
+    (resp. [m * q <= Dst y]).  Not wrapping, the walk is exact and the goal
+    becomes a pure inequality about [d %% p] and [Dst y - m*p]; wrapping,
+    the distance jumps and the bound comes from [d %% p < p] instead.
+
+    NOTE, recorded so it is not retried: the tempting shortcut
+
+      le_mod_sub : 0 < p -> d = z %[mod p] -> m * p <= z -> d %% p <= z - m*p
+
+    does NOT apply here.  It would need [d = Dst y %[mod p]], but [invd_cong]
+    only gives [d = Inf (u+v) %[mod p]], and distinct [y] have distinct
+    residues.  That is why the no-wrap case keeps [inv]/[invd] as hypotheses
+    rather than reducing to bare arithmetic. *)
+
+(** NB an earlier version of this file had [step_d_lt], which is exactly
+    this statement with [d = Dst x] threaded through; several comments above
+    still call it "(PROVED)".  It was removed in the round-8 cleanup, so the
+    induction is redone here directly on [dstD].  Note [inv] does not mention
+    [d] at all, so [inv p q d1 u v -> inv p q d2 u v] -- which is why the
+    [Dst y] instance below needs no extra hypothesis. *)
+Lemma walk_lt_nowrap p q d u v y m :
+  inv p q d u v -> invd p q d u v -> p < q -> y < u + v ->
+  0 < m <= q %/ p -> m * p <= Dst y -> Dst (y + m * v) = Dst y - m * p.
+Proof.
+move=> iv ivd pLq yLuv mk Hmp.
+have [p_gt0 _ _ pE _ _] := iv.
+elim: m Hmp {mk} => [|m IH Hmp]; first by rewrite !mul0n addn0 subn0.
+have Hm : m * p <= Dst y by rewrite (leq_trans _ Hmp) // leq_mul2r leqnSn orbT.
+have -> : y + m.+1 * v = y + m * v + v by rewrite mulSnr addnA.
+rewrite dstD; first by rewrite IH // -pE mulSnr subnDA.
+by rewrite IH // -pE leq_psubRL // -mulSnr.
+Qed.
+
+(** DEAD END, recorded so it is not retried.  The natural route here is to
+    hope that [Dst y = Inf (u+v) %[mod p]] for every [y < u+v]; then
+    [Dst y - m*p] would be congruent to [d] and, being non-negative, at
+    least [d %% p].  That hope is FALSE: 4884 violations out of 22864
+    (smallest [M=24, A=13, B=0] at [p=2, q=11, u=1, v=2], where
+    [Dst 1 = 11] and [Inf (u+v) = 0]).  Distances in a two-length
+    configuration differ by sums of [p]s AND [q]s, and [q] is not a multiple
+    of [p].
+
+    So this leaf needs the configuration itself, i.e. [invx] -- which is not
+    yet among its hypotheses.  Adding it (with [invx_init] / [invx_step] as
+    the new obligations) is the next structural step. *)
+(** Split on [m] versus [Dst y %/ p]:
+
+    - [m < Dst y %/ p]: then [(m+1)*p <= Dst y], so [p <= Dst y - m*p], and
+      [d %% p < p].  No configuration knowledge needed.
+    - otherwise [m = Dst y %/ p] (using [m*p <= Dst y]), so the goal reads
+      [d %% p <= Dst y %% p], and [m <= q %/ p] hands us the side condition
+      [Dst y %/ p <= q %/ p].
+
+    That restricted residue comparison is [mod_le_restricted].  Probed on
+    M in {24,32,48}: 0 violations / 7532.  Note the UNrestricted version is
+    FALSE (2174 / 26560) -- the [Dst y %/ p <= q %/ p] guard is essential. *)
+Lemma mod_le_restricted p q d u v y :
+  inv p q d u v -> invd p q d u v -> p < q -> y < u + v ->
+  Dst y %/ p <= q %/ p -> d %% p <= Dst y %% p.
 Proof. Admitted.
+
+Lemma le_lt_nowrap p q d u v y m :
+  inv p q d u v -> invd p q d u v -> p < q -> y < u + v ->
+  0 < m <= q %/ p -> m * p <= Dst y -> d %% p <= Dst y - m * p.
+Proof.
+move=> iv ivd pLq yLuv /andP[m_gt0 mk] Hmp.
+have [p_gt0 _ _ _ _ _] := iv.
+have mdiv : m <= Dst y %/ p by rewrite leq_divRL.
+case: (ltnP m (Dst y %/ p)) => [Hlt|Hge].
+  apply: leq_trans (_ : p <= _); first by rewrite ltnW // ltn_pmod.
+  by rewrite leq_subRL // -mulSnr -leq_divRL.
+have mE : m = Dst y %/ p by apply/eqP; rewrite eqn_leq mdiv Hge.
+rewrite mE.
+have -> : Dst y - Dst y %/ p * p = Dst y %% p.
+  by rewrite {1}(divn_eq (Dst y) p) addKn.
+by apply: mod_le_restricted iv ivd pLq yLuv _; rewrite -mE.
+Qed.
+
+(** The WRAP case.  [Dst (y + m*v)] is congruent to [Dst y - m*p] mod [M],
+    and [m * p <= q < M] (from [m <= q %/ p]), so when [Dst y < m*p] the
+    walk lands one turn round:
+
+      walk_lt_wrapeq : Dst (y + m * v) = Dst y + M - m * p
+
+    -- the wrap companion of [walk_lt_nowrap], and provable the same way,
+    by induction on [m] off [dstD] / [dstB_gen].
+
+    Given it, the goal is [d %% p <= Dst y + M - m*p], where the right side
+    is at least [M - q = Pt u].  What is NOT immediate is comparing that
+    with [d %% p < p]: [p < q] does not by itself give [p <= Pt u].  So the
+    remaining inequality is where [invx] is likely needed, exactly as in
+    [le_lt_nowrap]. *)
+Lemma walk_lt_wrapeq p q d u v y m :
+  inv p q d u v -> invd p q d u v -> p < q -> y < u + v ->
+  0 < m <= q %/ p -> Dst y < m * p -> Dst (y + m * v) = Dst y + M - m * p.
+Proof. Admitted.
+
+Lemma le_lt_wrap p q d u v y m :
+  inv p q d u v -> invd p q d u v -> p < q -> y < u + v ->
+  0 < m <= q %/ p -> Dst y < m * p -> d %% p <= Dst (y + m * v).
+Proof. Admitted.
+
+Lemma step_invd_le_new_lt_at p q d u v y m :
+  inv p q d u v -> invd p q d u v -> u + v < N ->
+  p < q -> y < u + v -> 0 < m <= q %/ p -> d %% p <= Dst (y + m * v).
+Proof.
+move=> iv ivd uvLN pLq yLuv mk.
+case: (leqP (m * p) (Dst y)) => [Hmp|Hmp].
+  rewrite (walk_lt_nowrap iv ivd pLq yLuv mk Hmp).
+  exact: le_lt_nowrap iv ivd pLq yLuv mk Hmp.
+exact: le_lt_wrap iv ivd pLq yLuv mk Hmp.
+Qed.
 
 Lemma step_invd_le_new_lt p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N -> p < q ->
@@ -1169,11 +1333,75 @@ rewrite -{1}(subnK myx).
 exact: step_invd_le_new_lt_at iv ivd uvLN pLq ylt mk.
 Qed.
 
+(** the mirror.  [new_index_decomp] is reused with [u] and [v] SWAPPED:
+    its window [u + k*v + v] becomes [v + k*u + u], which is exactly this
+    branch's [u + (v + (p %/ q) * u)].  The walk then descends the index
+    ([step_d_ge]) instead of ascending. *)
+(** the [ge] branch is EASIER than its mirror, for two reasons:
+
+    - the new [d] is always [<= d] (the branch either subtracts and takes a
+      remainder, or leaves [d] alone), so we never need a congruence -- see
+      [step_ge_d_le];
+    - [q = M - Pt u], so stepping the index by [u] RAISES [Dst] by [q]:
+      [Dst (y + m*u) = Dst y + m*q] as long as it does not pass [M].
+
+    So the no-wrap half is just [d' <= d <= Inf (u+v) <= Dst y <= Dst y + m*q].
+    Only the wrap half ([M < Dst y + m*q]) has content. *)
+Lemma step_ge_d_le p q d : q <= p ->
+  (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d) <= d.
+Proof.
+move=> qLp; case: (leqP (p - p %/ q * q) d) => // dge.
+by apply: leq_trans (leq_mod _ _) _; rewrite leq_subr.
+Qed.
+
+Lemma walk_ge_nowrap p q d u v y m :
+  inv p q d u v -> q <= p -> y < u + v -> 0 < m <= p %/ q ->
+  Dst y + m * q <= M -> Dst (y + m * u) = Dst y + m * q.
+Proof. Admitted.
+
+Lemma le_ge_wrap p q d u v y m :
+  inv p q d u v -> invd p q d u v -> u + v < N ->
+  q <= p -> y < u + v -> 0 < m <= p %/ q -> M < Dst y + m * q ->
+  (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d)
+    <= Dst (y + m * u).
+Proof. Admitted.
+
+Lemma step_invd_le_new_ge_at p q d u v y m :
+  inv p q d u v -> invd p q d u v -> u + v < N ->
+  q <= p -> y < u + v -> 0 < m <= p %/ q ->
+  (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d)
+    <= Dst (y + m * u).
+Proof.
+move=> iv ivd uvLN qLp yLuv mk.
+case: (leqP (Dst y + m * q) M) => [Hw|Hw]; last first.
+  by apply: le_ge_wrap iv ivd uvLN qLp yLuv mk Hw.
+rewrite (walk_ge_nowrap iv qLp yLuv mk Hw).
+apply: leq_trans (step_ge_d_le d qLp) _.
+apply: leq_trans (leq_addr _ _).
+have [_ dle _] := ivd.
+by apply: leq_trans dle _; apply: inf_dst_le.
+Qed.
+
 Lemma step_invd_le_new_ge p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N -> q <= p ->
   forall x, u + v <= x < u + (v + (p %/ q) * u) ->
   (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d) <= Dst x.
-Proof. Admitted.
+Proof.
+move=> iv ivd uvLN qLp x /andP[xge xlt].
+(* NOT derivable from [inv] (u = 0, v = 1, q = M is a model of it);
+   but when [u = 0] the index range is empty, so [xge]/[xlt] clash. *)
+have u_gt0 : 0 < u.
+  case: (posnP u) => // u0.
+  move: xlt xge; rewrite u0 muln0 addn0 add0n => H1 H2.
+  by have := leq_ltn_trans H2 H1; rewrite ltnn.
+have xge' : v + u <= x by rewrite addnC.
+have xlt' : x < v + p %/ q * u + u by rewrite addnC.
+have [m mk /andP[ylt myx]] := new_index_decomp (k := p %/ q) u_gt0
+  (x := x) (u := v) (v := u) xge' xlt'.
+rewrite -{1}(subnK myx).
+rewrite addnC in ylt.
+exact: step_invd_le_new_ge_at iv ivd uvLN qLp ylt mk.
+Qed.
 
 Lemma step_invd_le_new p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N ->
@@ -1226,10 +1454,38 @@ Qed.
     keeps the modulus ([p' = p]) so [invd_cong] transports directly, while
     [q <= p] CHANGES it to [p %% q], so its congruence is a different
     statement and gets its own helper. *)
+(** Probed on M in {24,32,48}, all A, all B: 0 violations / 2576.  This is
+    STRONGER than the congruence [inf_cong_lt] needs, and it splits into two
+    halves of very unequal difficulty:
+
+    - [>=] is already proved.  [step_invd_le] gives [d %% p <= Inf (new)],
+      and [invd_cong] says [d %% p] IS [Inf (u+v) %% p].
+    - [<=] is the only real content: exhibit an index in the new range whose
+      distance is [Inf (u+v) %% p].  Take [y] realising [Inf (u+v)] and walk
+      [m := Inf (u+v) %/ p] steps of [v]; [walk_lt_nowrap] then gives
+      [Dst (y + m*v) = Inf (u+v) - m*p = Inf (u+v) %% p], and [y + m*v] is in
+      range because [m <= q %/ p]. *)
+Lemma inf_new_lt_le p q d u v :
+  inv p q d u v -> invd p q d u v -> u + v < N -> p < q ->
+  Inf (u + (q %/ p) * v + v) <= Inf (u + v) %% p.
+Proof. Admitted.
+
+Lemma inf_new_lt p q d u v :
+  inv p q d u v -> invd p q d u v -> u + v < N -> p < q ->
+  Inf (u + (q %/ p) * v + v) = Inf (u + v) %% p.
+Proof.
+move=> iv ivd uvLN pLq.
+have [_ _ dcong] := ivd.
+apply/eqP; rewrite eqn_leq (inf_new_lt_le iv ivd uvLN pLq) /=.
+rewrite -dcong.
+have := step_invd_le iv ivd uvLN.
+by rewrite /step pLq /=.
+Qed.
+
 Lemma inf_cong_lt p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N -> p < q ->
   Inf (u + (q %/ p) * v + v) = Inf (u + v) %[mod p].
-Proof. Admitted.
+Proof. by move=> iv ivd uvLN pLq; rewrite (inf_new_lt iv ivd uvLN pLq) modn_mod. Qed.
 
 Lemma inf_cong_ge p q d u v :
   inv p q d u v -> invd p q d u v -> u + v < N -> q <= p ->
@@ -1299,9 +1555,9 @@ Qed.
     [u' + v' < N] rather than [u + v < N], and [run_sound] must apply
     [inv_step] inside its recursive branch, where that is available.
 
-    Both [step_p_gt0] and [inv_step] are therefore back to Admitted --
-    their previous proofs are worthless, having gone through a false
-    lemma.  The right replacement for [inv_complete] is not a completeness
+    Both [step_p_gt0] and [inv_step] were rewritten against those
+    corrected statements and are now proved (their earlier proofs were
+    worthless, having gone through a false lemma).  The right replacement for [inv_complete] is not a completeness
     statement at all; it is whatever rules out [p %| q] while the loop is
     still running, and that should be characterised by the harness before
     anything is stated. *)
