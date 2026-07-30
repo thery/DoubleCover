@@ -1710,47 +1710,86 @@ case: (leqP (p - p %/ q * q) d) => [_|H]; first by rewrite ltn_pmod.
 by rewrite (leq_ltn_trans (ltnW H)) // pmod ltn_pmod.
 Qed.
 
-(** *** RETRACTED PROOF -- [ge_wrap_au] was FALSE.
+(** *** SKELETON for [le_ge_wrap], after the retraction of [ge_wrap_au].
 
-    The proof merged in PR #121 split the tight case on [invx_gap]'s
-    coefficient [a] and closed [a = u] with
+    The earlier proof (PR #121, retracted in #122) split the tight case on
+    the coefficient [a] of [invx_gap] and closed [a = u] with a lemma that
+    was FALSE: [invx_gap] is an EXISTENTIAL, its decomposition is not
+    unique, and a lemma quantifying over an arbitrary decomposition fails
+    (1941 / 4690).  The measurement that had convinced me searched [a]
+    upward and so only ever saw the minimal one.
 
-      ge_wrap_au : ... -> Dst y = Inf (u+v) + u*p + b*q -> ... -> v <= b+m
+    LESSON, worth keeping: state the leaf so that the probe can quantify
+    EXACTLY as the lemma does.  [ge_wrap_tight] below mentions no
+    decomposition at all, so there is nothing for a search to pick.
 
-    which is FALSE as stated: 1941 violations / 4690.  The reason is that
-    [invx_gap] gives SOME decomposition, and the decomposition is not
-    unique.  For M=24, A=13 (p=2, q=1, u=11, v=2) the value [Dst y = 23]
-    is both [Inf + 11*p + 0*q] and [Inf + 10*p + 2*q].  The measurement
-    that convinced me (1711/1711) searched [a] upward and so only ever saw
-    [(10,2)] -- the [a+1 = u] case, which IS proved -- while the lemma as
-    written accepts [(11,0)], where [v <= b+m] fails.
+    The whole lemma is now two halves:
 
-    WHAT SURVIVES, and it is most of the work:
-    - the non-tight half [q <= W], via [ge_d_lt_q];
-    - [a <= u] from [invx_gap] and [u <= a+1] derived from the wrap;
-    - the whole [a+1 = u] branch, by the congruence [W + p %% q = Inf
-      %[mod q]] turned into an equality by [W < q].  That branch needs
-      nothing new.
+    - [q <= W]: immediate from [ge_d_lt_q], no configuration needed.
+    - [W < q]: [ge_wrap_tight], the single remaining leaf.
 
-    THE FIX is to make [invx_gap] canonical -- to hand back the
-    decomposition with MINIMAL [a] (equivalently maximal [b]):
+    and [d' <= d = Inf (u+v)] ([step_ge_d_le], [ge_d_eq_inf]) turns either
+    disjunct of [ge_wrap_tight] into the goal. *)
 
-      forall a' b', a' <= u -> b' <= v ->
-        Dst y = Inf (u+v) + a'*p + b'*q -> a <= a'
+(** THE LEAF.  Probed 0 violations / 11335 over M in {24,32,45,48,60,64},
+    all A, all B, every reachable state, quantified exactly as stated
+    (L1_probe.py).  Of those, 3124 satisfy the left disjunct and 10701 the
+    right; they overlap.
 
-    With minimal [a], the [a = u] case does satisfy [v <= b+m] (1711/1711
-    measured).  The cost is that [invx_init] must then produce the minimal
-    decomposition, which its current witnesses do not always do: for
-    A = 12, M = 24 the point [Dst 0 = B] is both [(1,0)] and [(0,1)].
+    HOW TO PROVE IT.  The two disjuncts are the two positions [b] can have
+    relative to the walk, and with the partition form of the invariant they
+    are no longer a choice of coefficients but a fact about which interval
+    [b] lies in:
 
-    Until that is done this lemma is Admitted -- it is TRUE (probed
-    16705/16705), only unproved. *)
+    - [b] in an interval of length [q] (so [Inf (u+v) < q]): the walk lands
+      at or above [b]'s own lower endpoint, giving the LEFT disjunct.
+    - [b] in an interval of length [p]: the walk lands exactly on [d'],
+      the RIGHT disjunct.  This is the case the retracted proof called
+      [a+1 = u], and its argument SURVIVES intact -- reduce the master
+      equation mod [q], cancel, and use [W < q] to turn the congruence
+      [W + p %% q = Inf (u+v) %[mod q]] into an equality.  That part is
+      written out in the git history of PR #121 and can be lifted verbatim.
+
+    The missing ingredient is only the case distinction itself, i.e. the
+    length of [b]'s interval, which is what [invx_p1] / [invx_p2] describe
+    and what [invx_p1_iter] / [invx_p2_iter] walk. *)
+Lemma ge_wrap_tight p q d u v y m :
+  inv p q d u v -> invd p q d u v -> invx p q u v -> q <= p ->
+  y < u + v -> 0 < m <= p %/ q ->
+  M <= Dst y + m * q -> Dst y + m * q - M < q ->
+  Inf (u + v) <= Dst y + m * q - M \/
+  Dst y + m * q - M =
+    (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d).
+Proof. Admitted.
+
+(** The [q]-side walk, mirror of the proved [invx_p1_iter] and the natural
+    OFFLINE exercise: same induction, same shape, walking the [q] gaps
+    instead of the [p] gaps.  The guard [k * u <= z] is what keeps every
+    intermediate index at or above [u], which is what [invx_p2] needs.  The
+    one new step compared with [invx_p1_iter] is the [%% M]: the inductive
+    step composes [(Pt z + q) %% M] with [(_ + k * q) %% M], which is
+    [modnDml].  Nothing here is admitted downstream -- it follows from the
+    [invx_p2] field alone. *)
+Lemma invx_p2_iter p q u v k z :
+  invx p q u v -> 0 < u -> k * u <= z -> z < u + v ->
+  Pt (z - k * u) = (Pt z + k * q) %% M.
+Proof. Admitted.
+
 Lemma le_ge_wrap p q d u v y m :
   inv p q d u v -> invd p q d u v -> invx p q u v -> u + v < N ->
   q <= p -> y < u + v -> 0 < m <= p %/ q -> M <= Dst y + m * q ->
   (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d)
     <= Dst (y + m * u).
-Proof. Admitted.
+Proof.
+move=> iv ivd ix uvLN qLp yLuv mk Hw.
+have [_ q_gt0 _ _ _ _ _ _] := iv.
+rewrite (walk_ge_wrapeq iv qLp yLuv mk Hw).
+case: (leqP q (Dst y + m * q - M)) => [qW|Wq].
+  by apply: leq_trans (ltnW (ge_d_lt_q p d q_gt0)) qW.
+case: (ge_wrap_tight iv ivd ix qLp yLuv mk Hw Wq) => [IW|->] //.
+apply: leq_trans (step_ge_d_le d qLp) _.
+by rewrite (ge_d_eq_inf iv ivd ix qLp).
+Qed.
 
 Lemma step_invd_le_new_ge_at p q d u v y m :
   inv p q d u v -> invd p q d u v -> invx p q u v -> u + v < N ->
