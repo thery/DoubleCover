@@ -1000,8 +1000,17 @@ Record invx (p q u v : nat) : Prop := Invx {
 
 (** the wrapping companion of [pt_sub]: when the order inverts, the
     difference of indices lands on the far side of [M]. *)
+(** Here [modnB] IS the right tool -- unlike in [invd_first_le_ge_then],
+    where the additive route won.  The hypothesis [Pt x < Pt y] makes
+    [modnB]'s boolean term [true] (rather than killing it as in [pt_sub]),
+    so the [+ M] it contributes is exactly the wrap. *)
 Lemma pt_sub_wrap x y : y <= x -> Pt x < Pt y -> Pt (x - y) = M - (Pt y - Pt x).
-Proof. Admitted.
+Proof.
+move=> yx Hp; rewrite /pt mulnBr modnB //; last by rewrite leq_mul2l yx orbT.
+move: Hp; rewrite /pt => Hp.
+have Hle : (A * x) %% M <= (A * y) %% M by apply: ltnW.
+by rewrite Hp mul1n subnBA.
+Qed.
 
 (** slater.get_minB: points in index order are at least [p] apart. *)
 Lemma pt_gap_min p q u v m1 m2 :
@@ -1068,7 +1077,48 @@ Qed.
 Lemma new_index_decomp k u v x :
   0 < v -> u + v <= x -> x < u + k * v + v ->
   exists2 m, 0 < m <= k & (x - m * v < u + v) && (m * v <= x).
-Proof. Admitted.
+Proof.
+move=> v_gt0 xge xlt.
+set r := x - (u + v).
+have Hr : r < k * v by rewrite /r ltn_subLR // addnAC.
+have Hmv : r %/ v * v + v <= x.
+  apply: leq_trans (leq_add (leq_divM r v) (leqnn v)) _.
+  by rewrite -(subnK xge) -/r leq_add2l leq_addl.
+exists (r %/ v + 1).
+  rewrite addn1 ltn0Sn /= (ltn_divLR _ _ v_gt0) //.
+rewrite mulnDl mul1n Hmv andbT.
+have -> : x - (r %/ v * v + v) = u + r %% v.
+  rewrite -(subnK xge) -/r {1}(divn_eq r v).
+  by rewrite subnDA -addnA addKn addnA addnK addnC.
+by rewrite ltn_add2l ltn_mod.
+Qed.
+
+(** ** CORRECTION to the note in PR #108
+
+    I claimed there that the congruence field might be unnecessary "if the
+    gap lemmas give minimality directly".  That is WRONG, and the same
+    counterexample settles it: [M=24, A=9, B=6] at state
+    [p=3, q=6, u=2, v=3] is a REACHABLE state, so [invx] holds there, yet
+    [Inf (u+v) = 3] while [Inf (u+k*v+v) = 0], and [d0 = 1 <= 3] gives
+    [d0 %% p = 1 > 0].
+
+    So extremality and the congruence are independent, and BOTH are needed:
+
+      invx        constrains the CONFIGURATION (gaps are at least p / q)
+      congruence  constrains [d] relative to the configuration
+
+    The gap lemmas bound distances between two POINTS; they say nothing
+    about where [b] sits relative to them, which is what [d] measures.
+    That is the gap the congruence fills.
+
+    Remaining structural change: add to [invd] the field
+
+      invd_cong : d = Inf (u + v) %[mod p]
+
+    (validated, 0 counterexamples over 5152 states, and it makes the two
+    leaves below hold in 121183 of 121183 cases), then re-establish it in
+    [invd_first] and preserve it in [step_invd].  The [q <= p] branch will
+    want the analogue modulo [q], to be validated separately. *)
 
 Lemma step_invd_le_new_lt_at p q d u v y m :
   inv p q d u v -> invd p q d u v -> u + v < N -> p < q ->
