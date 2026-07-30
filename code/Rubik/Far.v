@@ -35,7 +35,8 @@ From Stdlib Require Import -(notations) PArray.
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
-        Coordfs Coordfsi Fstab FsTable Diameter Moves Fsmain.
+        Coordfs Coordfsi Fstab FsTable Diameter Moves Fsmain
+        Searchr Redun Searchir.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -209,3 +210,49 @@ Proof. by rewrite /Sroot !inE => /orP[]/eqP->; [exists 0%N | exists 1%N]. Qed.
    The split is by second move rather than by pair so that each file is one
    vm_compute over two searches: eighteen files rather than thirty six, and
    each still small enough to check on its own core.                        *)
+
+
+(* ---- 5. The reduced search, and why the guard stops at the prefix --------- *)
+
+(* THE SENTINEL p IS NOT A SHORTCUT, it is forced.  ball_root2 conjugates by
+   the 48 symmetries to push the first move into Sroot, which is worth a
+   factor 9; but conjugation PERMUTES THE FACES, and while the same-face half
+   of the guard survives that, the opposite-pair ordering half (smaller face
+   index first) does not.  So the pair (m1, m2) ball_root2 hands back cannot
+   be assumed guard respecting, and the continuation search must start at the
+   sentinel -- the guard then applies from the fourth move on.
+   The arithmetic says this is the right trade anyway: symmetry x sentinel is
+   9 x 72 = 648, against 1 x 131 for dropping ball_root2 and using
+   searchr_split2 instead.  Symmetry is worth more than the two levels of
+   guard, by a factor of five.                                             *)
+Lemma far_of_searchir d a :
+  tabi_ok 47 a ->
+  searchir 47 mtis Dtid nfcube oppf fcpos d a nfcube = false ->
+  pt 47 (ti2t 47 a) \notin ball Sset d.
+Proof.
+move=> aok sE.
+have fcE : forall k, k < seq.size [seq ti2t 47 mt | mt <- mtis] ->
+    fcube (pt 47 (nth [::] [seq ti2t 47 mt | mt <- mtis] k)) = fcpos k.
+  move=> k; rewrite seq.size_map => kL.
+  have kL' : k < nmoves by rewrite /mtis seq.size_map in kL.
+  by rewrite (nth_map sfti) // -nth_movesE // fcpos_moves.
+have mtsok : all (tab_ok 47) [seq ti2t 47 mt | mt <- mtis].
+  by rewrite all_map; exact: mtis_ok.
+apply: (searchrN Sset_inv (hfs0 Dfsd_0) (hfsS Dfsd_step)
+                 fcube_ltS oppfK fcube_close fcube_comm).
+(* e1 and e2 are stated FULLY INSTANTIATED on purpose.  Written as
+   rewrite -(searchtrE ...) the backward rewrite has to unify
+   [seq pt 47 mt | mt <- ?mts] against the concrete mtis, which builds
+   eighteen permutations and never returns -- a timeout, not a type error.
+   Given as closed equations both rewrites are syntactic and it takes 1.3 s. *)
+have e1 : searchir 47 mtis Dtid nfcube oppf fcpos d a nfcube
+        = searchtr 47 [seq ti2t 47 mt | mt <- mtis] (Dt Dfsd) nfcube oppf fcpos
+                   d (ti2t 47 a) nfcube.
+  by apply: (searchirE n47_small n47_len mtis_ok (DtiE Dfsd)).
+have e2 : searchtr 47 [seq ti2t 47 mt | mt <- mtis] (Dt Dfsd) nfcube oppf fcpos
+                   d (ti2t 47 a) nfcube
+        = searchr [seq pt 47 mt | mt <- [seq ti2t 47 mt | mt <- mtis]]
+                  (hfs Dfsd) nfcube fcube oppf d (pt 47 (ti2t 47 a)) nfcube.
+  by apply: (searchtrE mtsok nfcube oppf (hfsE Dfsd) fcE).
+by rewrite mtisE -e2 -e1.
+Qed.
