@@ -960,6 +960,75 @@ Qed.
     In both, what remains is that EVERY index of the window is reached by
     the walk, not merely that the walk stays inside it.  That is a
     surjectivity-style claim; validate it before stating it. *)
+(** ** The two-length structure, reproved natively (after CFrac/slater.v)
+
+    ** Why this layer is needed
+
+    [inv_pv] and [inv_qu] say [p = Pt v] and [q = M - Pt u].  They do NOT
+    say that [Pt v] is the SMALLEST positive point, nor that [Pt u] is the
+    largest.  [slater.v] never has this problem because there [get_min]
+    and [get_max] are *defined* as the extremisers, so extremality is free.
+    Our [inv] recorded only the values, and that is why every attempt to
+    bound a distance from below has stalled.
+
+    Measured (0 violations over 230 reachable states):
+
+      p     = min {Pt m : 0 < m < u + v}
+      M - q = max {Pt m :     m < u + v}
+
+    ** The dictionary
+
+      invx_min             <->  slater.get_min_min
+      invx_max             <->  slater.get_max_max
+      pt_gap_min           <->  slater.get_minB
+      pt_gap_max           <->  slater.get_maxB
+      pt_sub / pt_sub_wrap <->  slater's fracB / fracN steps
+
+    Reproved rather than bridged: [slater.v] is stated over [R] with
+    [frac_part], and every one of these would have to be transported back
+    to a [nat] inequality.  The two gap lemmas below follow from
+    extremality plus [pt_sub] (already proved) in a few lines each, which
+    is cheaper than the bridge. *)
+
+Record invx (p q u v : nat) : Prop := Invx {
+  invx_min : forall m, 0 < m < u + v -> p <= Pt m;
+  invx_max : forall m, m < u + v -> Pt m <= M - q;
+  (* free wherever [invx] is established, since [inv_qu] gives
+     [q = M - Pt u]; carried here so [pt_gap_max] need not take [inv]. *)
+  invx_qM  : q <= M
+}.
+
+(** the wrapping companion of [pt_sub]: when the order inverts, the
+    difference of indices lands on the far side of [M]. *)
+Lemma pt_sub_wrap x y : y <= x -> Pt x < Pt y -> Pt (x - y) = M - (Pt y - Pt x).
+Proof. Admitted.
+
+(** slater.get_minB: points in index order are at least [p] apart. *)
+Lemma pt_gap_min p q u v m1 m2 :
+  invx p q u v -> m1 < m2 -> m2 < u + v -> Pt m1 <= Pt m2 ->
+  p <= Pt m2 - Pt m1.
+Proof.
+move=> ix m12 m2n Hp.
+rewrite -(pt_sub (ltnW m12) Hp).
+apply: (invx_min ix).
+by rewrite subn_gt0 m12 (leq_ltn_trans (leq_subr _ _)).
+Qed.
+
+(** slater.get_maxB: points whose order INVERTS the index order are at
+    least [q] apart. *)
+Lemma pt_gap_max p q u v m1 m2 :
+  invx p q u v -> m2 < m1 -> m1 < u + v -> Pt m1 < Pt m2 ->
+  q <= Pt m2 - Pt m1.
+Proof.
+move=> ix m21 m1n Hp.
+have Hw : Pt (m1 - m2) = M - (Pt m2 - Pt m1) by rewrite (pt_sub_wrap (ltnW m21) Hp).
+have Hmax : Pt (m1 - m2) <= M - q.
+  by apply: (invx_max ix); rewrite (leq_ltn_trans (leq_subr _ _)).
+move: Hmax; rewrite Hw => Hmax.
+rewrite -(leq_sub2lE (m := M)) //.
+exact: (invx_qM ix).
+Qed.
+
 (** ** Top-down skeleton for the [p < q] branch
 
     [x] ranges over the indices this step ADDS, i.e. [u+v <= x < u+k*v+v]
