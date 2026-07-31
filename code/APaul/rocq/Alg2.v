@@ -833,6 +833,30 @@ Qed.
 Lemma pt_addv p v z : p = Pt v -> Pt z + p < M -> Pt (z + v) = Pt z + p.
 Proof. by move=> pE H; rewrite ptD -pE modn_small. Qed.
 
+(** the walk value, modulo [M] and unconditionally. *)
+Lemma pt_walk_mod p v y j : p = Pt v -> Pt (y + j * v) = (Pt y + j * p) %% M.
+Proof.
+move=> pE; rewrite ptD.
+by have -> : Pt (j * v) = (j * p) %% M;
+   [rewrite pE /pt modnMmr mulnCA | rewrite modnDmr].
+Qed.
+
+(** the walk value on the nose: [<= M] from [pt_walk_le], [<> M] from
+    [pt_neq0].  Universally quantified in [j], unlike [pt_new_lt] which
+    produces its own -- that is what [lt/p1] needs. *)
+Lemma pt_walk_value p q v y j :
+  p = Pt v -> Pt y <= M - q -> q <= M -> j * p <= q -> 0 < y + j * v <= N ->
+  Pt (y + j * v) = Pt y + j * p.
+Proof.
+move=> pE Hy qM jpq yjN.
+have HP : Pt y + j * p <= M.
+  by apply: leq_trans (leq_add Hy jpq) _; rewrite subnK.
+have Hmod : Pt (y + j * v) = (Pt y + j * p) %% M := pt_walk_mod _ _ pE.
+rewrite Hmod modn_small // ltn_neqAle HP andbT.
+apply/eqP => HE.
+by have := pt_neq0 yjN; rewrite Hmod HE modnn eqxx.
+Qed.
+
 (** [pt_addv] with only [<= M]: equality would put [Pt (z+v)] at the origin,
     which [pt_neq0] forbids below [N].  Reusable -- this "no wrap" step was
     inlined in [pt_new_lt] and is what both cases of [lt/p1] need. *)
@@ -1306,19 +1330,40 @@ apply: leq_ltn_trans (inf_new_lt_le iv ix uvN pLq) _.
 by rewrite ltn_pmod.
 Qed.
 
-(** the [Inf] shift across a [p < q] step.  Probed: the drop is ALWAYS a
-    multiple of [p] (10669/10669) and the multiplier is at most [q %/ p]
-    (10669/10669, max seen 21).  This is what [lt/gap] needs to re-express
-    an old decomposition against the NEW [Inf]. *)
+(** the [Inf] shift across a [p < q] step.  [<=] is the proved
+    [inf_new_lt_le]; only [>=] is open, and it is THE remaining content of
+    [lt/gap].  Probed: the equation holds 10669/10669, and the drop is
+    always a multiple of [p] with multiplier at most [q %/ p]. *)
+Lemma inf_new_ge_lt p q d u v :
+  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
+  Inf (u + v) %% p <= Inf (u + q %/ p * v + v).
+Proof. Admitted.
+
+Lemma inf_new_eq_lt p q d u v :
+  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
+  Inf (u + q %/ p * v + v) = Inf (u + v) %% p.
+Proof.
+move=> iv ix pLq uvN'.
+have uvN : u + v < N by rewrite (leq_ltn_trans _ uvN') // leq_add2r leq_addr.
+apply/eqP; rewrite eqn_leq (inf_new_lt_le iv ix uvN pLq) /=.
+exact: inf_new_ge_lt iv ix pLq uvN'.
+Qed.
+
 Lemma inf_shift_lt p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   exists2 c, c <= q %/ p & Inf (u + v) = Inf (u + q %/ p * v + v) + c * p.
-Proof. Admitted.
+Proof.
+move=> iv ix pLq uvN'.
+have Iq : Inf (u + v) < q by have := invx_inf ix; rewrite /maxn ifT.
+exists (Inf (u + v) %/ p); first by rewrite leq_div2r // ltnW.
+rewrite (inf_new_eq_lt iv ix pLq uvN').
+by rewrite [Inf (u + v) %% p + _]addnC -divn_eq.
+Qed.
 
 (* @INVX_STEP lt/gap -- TODO *)
-(* needs: inv, invx_gap, inf_shift_lt, pt_new_lt.  Old y: shift by
-   inf_shift_lt then trade [q = q' + k*p], giving counts
-   [a' = a + c + b*k <= u'] and [b' = b <= v'].  New y: pt_new_lt. *)
+(* needs: inv, invx_gap, inf_shift_lt (PROVED, modulo inf_new_ge_lt),
+   pt_new_lt.  Old y: shift then trade [q = q' + k*p], counts
+   [a' = a + c + b*k <= u'], [b' = b <= v'].  New y: pt_new_lt. *)
 Lemma invx_step_lt_gap p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   forall y, y < u + q %/ p * v + v ->
@@ -1326,13 +1371,34 @@ Lemma invx_step_lt_gap p q d u v :
                   Dst y = Inf (u + q %/ p * v + v) + a * p + b * (q - q %/ p * p)].
 Proof. Admitted.
 
-(* @INVX_STEP lt/p1 -- TODO *)
+(* @INVX_STEP lt/p1 -- PROVED *)
 (* wants new_index_decomp sharpened to [j < k].  alg2-notes.md 5. *)
 Lemma invx_step_lt_p1 p q d u v :
   inv p q d u v -> (forall k, k < u + v -> Pt k <= M - q) ->
   p < q -> u + q %/ p * v + v < N ->
   forall z, z < u + q %/ p * v -> Pt (z + v) = Pt z + p.
-Proof. Admitted.
+Proof.
+move=> iv Hmax pLq uvN' z zL.
+have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
+have qM : q <= M := inv_qM iv.
+have zLN : z <= N by rewrite ltnW // (ltn_trans zL) // (leq_ltn_trans _ uvN') // leq_addr.
+have zvN : 0 < z + v <= N.
+  rewrite addn_gt0 v_gt0 orbT /=.
+  by rewrite ltnW // (leq_ltn_trans _ uvN') // leq_add2r ltnW.
+apply: pt_addv_le pE zvN _.
+case: (ltnP z (u + v)) => [zold|znew].
+  by apply: leq_trans (leq_add (Hmax _ zold) (ltnW pLq)) _; rewrite subnK.
+have [j /andP[j_gt0 jk] /andP[ylt jvz]] := new_index_decomp_sharp v_gt0 znew zL.
+have jp1 : j.+1 * p <= q by rewrite -leq_divRL.
+have jpq : j * p <= q by rewrite (leq_trans _ jp1) // leq_mul2r leqnSn orbT.
+have z_gt0 : 0 < z by rewrite (leq_trans _ znew) // addn_gt0 u_gt0.
+have [_ _ _ pE2 _ _ _ _] := iv.
+have Hz : Pt z = Pt (z - j * v) + j * p.
+  rewrite -{1}(subnK jvz) (pt_walk_value pE2 (Hmax _ ylt) qM jpq) //.
+  by rewrite subnK // z_gt0 zLN.
+rewrite Hz -addnA -mulSnr.
+by apply: leq_trans (leq_add (Hmax _ ylt) jp1) _; rewrite subnK.
+Qed.
 
 (* @INVX_STEP lt/p2 -- PROVED *)
 (* needs: inv only *)
@@ -1390,18 +1456,22 @@ by rewrite Hm (leq_trans (leq_subr _ _)) // Hmax.
 Qed.
 
 (* @INVX_STEP ge/inf -- TODO *)
-(* PROBED: the goal [Inf(u'+v') < q] holds 10669/10669; Inf drops in 6432
-   cases and in EVERY one the new minimiser is a NEW index.  So the proof
-   is a witness argument, and the witness comes from the old MAXIMUM
-   distance index (the point just above b), which the walk carries across
-   b -- not from the minimiser.  Monotonicity alone does not work. *)
+(* PROBED, and the witness is identified.  Goal [Inf(u'+v') < q] holds
+   10669/10669.  Inf drops in 6432 cases; in EVERY one the new minimiser
+   is [ymax + j*u] with [ymax] the old MAXIMUM-distance index and [j >= 1]
+   (3960/3960, j=1 in 2496).  So the proof is: take [ymax], walk by [u]
+   until the walk carries [Pt] across [B] -- [j] is the least step with
+   [Dst ymax + j*q >= M] -- and that new point is within [q] below [b].
+   NEEDS: dst_max_ex (the max is attained, mirror of inf_dst_ex) and
+   walk_ge_wrapeq, both available.  Monotonicity alone does NOT work. *)
 Lemma invx_step_ge_inf p q d u v :
   inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
   Inf (u + (v + p %/ q * u)) < maxn (p - p %/ q * q) q.
 Proof. Admitted.
 
 (* @INVX_STEP ge/gap -- TODO *)
-(* mirror; likewise needs ge/inf first. *)
+(* mirror of lt/gap: [p = p' + (p %/ q)*q] and pt_new_ge.  Blocked on
+   ge/inf, which supplies the shift against the new Inf. *)
 Lemma invx_step_ge_gap p q d u v :
   inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
   forall y, y < u + (v + p %/ q * u) ->
