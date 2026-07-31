@@ -99,11 +99,25 @@ Local Notation Inf := (inf_dst M A B).
 Lemma N_le_Mg : N <= M %/ gcdn A M.
 Proof. by apply: ltnW. Qed.
 
-(** [Pt n = 0] iff [M] divides [A * n] iff [M %/ g] divides [n], by Gauss
-    after dividing both by [g = gcdn A M].  So the least positive index
-    with [Pt n = 0] is [M %/ g], which [N_lt_Mg] puts beyond [N]. *)
-Lemma pt_neq0 n : 0 < n <= N -> Pt n != 0.
+(** [Pt n = 0] iff [M %| A*n] iff [(M %/ g) %| n] by Gauss after dividing
+    both by [g = gcdn A M]; [N_lt_Mg] puts the least such [n] beyond [N].
+    Reduction done below; open only the coprimality of the two quotients
+    (mathcomp seems to have no [coprime_div_gcd]). *)
+Lemma coprime_quot : coprime (M %/ gcdn A M) (A %/ gcdn A M).
 Proof. Admitted.
+
+Lemma pt_neq0 n : 0 < n <= N -> Pt n != 0.
+Proof.
+case/andP=> n_gt0 nLN.
+have g_gt0 : 0 < gcdn A M by rewrite gcdn_gt0 M_gt0 orbT.
+apply/eqP => /eqP; rewrite /pt -/(_ %| _) => Hdvd.
+have HM : M = gcdn A M * (M %/ gcdn A M) by rewrite mulnC divnK // dvdn_gcdr.
+have HA : A = gcdn A M * (A %/ gcdn A M) by rewrite mulnC divnK // dvdn_gcdl.
+(* remaining: rewrite Hdvd through HM/HA, cancel [g] by [dvdn_pmul2l], then
+   [Gauss_dvdr coprime_quot] gives [(M %/ g) %| n]; [dvdn_leq] then
+   contradicts [n <= N < M %/ g].  The cancellation rewrite is the only
+   fiddly part -- [-mulnA] does not fire as written. *)
+Admitted.
 
 (** *** Warm-up: elementary facts about the specification *)
 
@@ -1348,13 +1362,35 @@ Qed.
     [inf_new_lt_le]; only [>=] is open, and it is THE remaining content of
     [lt/gap].  Probed: the equation holds 10669/10669, and the drop is
     always a multiple of [p] with multiplier at most [q %/ p]. *)
-(* PROBED: for NEW indices, [Dst x >= Inf (u+v) %% p] holds 111726/111726.
-   Old indices are one line ([Dst y >= Inf (u+v) >= Inf (u+v) %% p]), so
-   the content is the new-index half, via pt_new_lt and invx_gap. *)
+(** old indices: [Inf %% p <= Inf <= Dst y]. *)
+Lemma inf_ge_old p u v y : y < u + v -> Inf (u + v) %% p <= Dst y.
+Proof. by move=> yLuv; rewrite (leq_trans (leq_mod _ _)) // inf_dst_le. Qed.
+
+(** new indices.  PROBED 111726/111726.  Plan, by cases on the walk:
+    - it wraps: [Dst x >= M - j*p >= M - q >= p > Inf %% p], using
+      [p + q <= M] from [inv_bez];
+    - no wrap and [invx_gap]'s [b = 0]: then [Dst x = Dst y - j*p] is
+      congruent to [Inf] mod [p], so [Dst x >= Dst x %% p = Inf %% p] by
+      [leq_mod];
+    - no wrap and [b >= 1]: then [Dst y >= Inf + q >= Inf + j*p], so
+      [Dst x >= Inf >= Inf %% p]. *)
+Lemma inf_ge_new p q d u v x :
+  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
+  u + v <= x -> x < u + q %/ p * v + v -> Inf (u + v) %% p <= Dst x.
+Proof. Admitted.
+
 Lemma inf_new_ge_lt p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   Inf (u + v) %% p <= Inf (u + q %/ p * v + v).
-Proof. Admitted.
+Proof.
+move=> iv ix pLq uvN'.
+have [p_gt0 _ _ _ _ _ _ _] := iv.
+apply: le_inf_dst.
+  by rewrite ltnW // (leq_ltn_trans (ltnW (ltn_pmod _ p_gt0))) // (leq_ltn_trans _ (pt_lt v)) // -(inv_pv iv).
+move=> x xL; case: (ltnP x (u + v)) => [xold|xnew].
+  exact: inf_ge_old xold.
+exact: inf_ge_new iv ix pLq uvN' xnew xL.
+Qed.
 
 Lemma inf_new_eq_lt p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
@@ -1377,19 +1413,47 @@ rewrite (inf_new_eq_lt iv ix pLq uvN').
 by rewrite [Inf (u + v) %% p + _]addnC -divn_eq.
 Qed.
 
-(* @INVX_STEP lt/gap -- TODO *)
-(* needs: inv, invx_gap, inf_shift_lt (PROVED modulo inf_new_ge_lt),
-   pt_new_lt.  Old y: shift by inf_shift_lt, then trade
-   [q = q' + (q %/ p)*p], giving [a' = c + a + b*k] and [b' = b].
-   PROBED: the naive count [c + a + b*k <= u'] holds 64489/64489, worst
-   excess 0 -- the three bounds cannot be tight at once.  So the assembly
-   is writable as it stands.  New y: pt_new_lt. *)
+(* @INVX_STEP lt/gap -- PROVED *)
+(** the count bound.  NOT pure arithmetic: [c <= k], [a <= u], [b <= v]
+    separately would allow [c + a + b*k = u + k + k*v], overshooting [u']
+    by [k].  The three cannot be tight at once, and the equations say why.
+    PROBED 64489/64489, worst excess 0. *)
+Lemma lt_gap_count p q d u v y a b c :
+  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
+  y < u + v -> a <= u -> b <= v -> c <= q %/ p ->
+  Dst y = Inf (u + v) + a * p + b * q ->
+  Inf (u + v) = Inf (u + q %/ p * v + v) + c * p ->
+  c + a + b * (q %/ p) <= u + q %/ p * v.
+Proof. Admitted.
+
+(** the NEW indices: [pt_new_lt] writes [y] as [y0 + j*v] with [y0] old, so
+    the decomposition is the old one at [y0] with [j] more copies of [p].
+    The count is the same bookkeeping as [lt_gap_count]. *)
+Lemma lt_gap_new p q d u v y :
+  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
+  u + v <= y -> y < u + q %/ p * v + v ->
+  exists a b, [/\ a <= u + q %/ p * v, b <= v &
+                  Dst y = Inf (u + q %/ p * v + v) + a * p + b * (q - q %/ p * p)].
+Proof. Admitted.
+
+(* needs: inv, invx_gap, inf_shift_lt, lt_gap_count, lt_gap_new *)
 Lemma invx_step_lt_gap p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   forall y, y < u + q %/ p * v + v ->
   exists a b, [/\ a <= u + q %/ p * v, b <= v &
                   Dst y = Inf (u + q %/ p * v + v) + a * p + b * (q - q %/ p * p)].
-Proof. Admitted.
+Proof.
+move=> iv ix pLq uvN' y yL.
+have [p_gt0 q_gt0 _ _ _ _ _ _] := iv.
+have qE : q = q %/ p * p + (q - q %/ p * p) by rewrite subnKC // leq_divM.
+case: (ltnP y (u + v)) => [yold|ynew]; last first.
+  exact: lt_gap_new iv ix pLq uvN' ynew yL.
+have [c cLk Hc] := inf_shift_lt iv ix pLq uvN'.
+have [a [b [aLu bLv Hab]]] := invx_gap ix yold.
+exists (c + a + b * (q %/ p)), b; split => //.
+  exact: lt_gap_count iv ix pLq uvN' yold aLu bLv cLk Hab Hc.
+by rewrite Hab Hc [X in b * X]qE mulnDr !mulnDl mulnA -!addnA; congr (_ + _).
+Qed.
 
 (* @INVX_STEP lt/p1 -- PROVED *)
 (* wants new_index_decomp sharpened to [j < k].  alg2-notes.md 5. *)
@@ -1510,10 +1574,14 @@ rewrite -{1}(subnK Hw) modnDr modn_small // ltn_subLR //.
 by rewrite (leq_ltn_trans (leq_add (ltnW (dst_lt y)) (leqnn _))) // ltn_add2l.
 Qed.
 
-(** the crossing step, from the probe: from the MAXIMUM-distance index,
-    walking by [u] adds [q] each time and the least [j] reaching [M] lands
-    within [q] below [b].  Open only: that such a [j] exists with
-    [j <= p %/ q].  Probed: witness is [ymax + j*u], 3960/3960. *)
+(** WARNING -- this statement is SUSPECT and was written from a sketch,
+    not from a measurement.  Its key premise, [Dst ymax + (p %/ q)*q >= M],
+    holds only 6005/6701: the walk does NOT always reach [M] within
+    [p %/ q] steps.  [ge/inf] itself is true (10669/10669), so the right
+    shape is a DISJUNCTION -- either [Inf (u+v) < q] already, in which case
+    [ge/inf] is immediate by monotonicity, or the crossing happens.  Fix
+    the statement before attempting it; do not prove it as written.  (Same
+    error class as ge_wrap_au: a lemma stated stronger than measured.) *)
 Lemma ge_cross_ex p q d u v y :
   inv p q d u v -> invx p q u v -> q <= p -> y < u + v ->
   (forall z, z < u + v -> Dst z <= Dst y) ->
@@ -1541,8 +1609,9 @@ by rewrite ltn_add2r.
 Qed.
 
 (* @INVX_STEP ge/gap -- TODO *)
-(* mirror of lt/gap: [p = p' + (p %/ q)*q] and pt_new_ge.  Blocked on
-   ge/inf, which supplies the shift against the new Inf. *)
+(* mirror of lt/gap in shape only.  PROBED: the ge branch is NOT
+   symmetric -- the Inf drop is a multiple of q in just 4489/6701 steps,
+   so there is no inf_shift_ge of the lt form.  Needs its own analysis. *)
 Lemma invx_step_ge_gap p q d u v :
   inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
   forall y, y < u + (v + p %/ q * u) ->
