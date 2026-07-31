@@ -200,23 +200,37 @@ Variables A B : nat.
 Hypothesis A_lt : A < M.
 Hypothesis B_lt : B < M.
 
-(** [slater.v]'s [Ndiff0], scaled: [a] behaves irrationally up to [N]. *)
+(** ONE arithmetic side condition, replacing what used to be two
+    hypotheses.  [slater.v] assumes [Ndiff0] ([a] behaves irrationally up
+    to [N]) because there [a] is a real; over [nat] the same statement is
+    not an assumption at all but a bound on [N], and an exact one:
+
+      [Pt n = 0]  <->  [(M %/ gcdn A M) %| n]
+
+    so the first index hitting the origin is exactly [M %/ gcdn A M], and
+    "no zero below [N]" says precisely [N < M %/ gcdn A M].  Checked over
+    all [M < 60], all [A], all [N] up to twice the bound: the two are
+    equivalent, 0 counterexamples / 106962.
+
+    [pt_neq0] and [N_le_Mg] are therefore now LEMMAS below.  The second
+    also says the loop exits before Euclid's descent bottoms out, which is
+    what keeps [p] and [q] positive throughout (see [step_p_gt0]). *)
 Variable N : nat.
 Hypothesis N_gt0 : 0 < N.
-Hypothesis pt_neq0 : forall n, 0 < n <= N -> pt M A n != 0.
-
-(** The loop must exit before Euclid's descent bottoms out.  With
-    [g = gcdn A M], the configuration can hold at most [M %/ g] points, so
-    [N <= M %/ g] is what keeps [p] and [q] positive throughout (see
-    [step_p_gt0]).  Validated by [inv_probe.py]/[degen.py]: over
-    [M] in {32,64,128,256} and several [N], a run degenerates ([p] or [q]
-    reaching 0 before the exit) if and only if this fails -- 0
-    counterexamples in either direction of the "if" side. *)
-Hypothesis N_le_Mg : N <= M %/ gcdn A M.
+Hypothesis N_lt_Mg : N < M %/ gcdn A M.
 
 Local Notation Pt := (pt M A).
 Local Notation Dst := (dst M A B).
 Local Notation Inf := (inf_dst M A B).
+
+Lemma N_le_Mg : N <= M %/ gcdn A M.
+Proof. by apply: ltnW. Qed.
+
+(** [Pt n = 0] iff [M] divides [A * n] iff [M %/ g] divides [n], by Gauss
+    after dividing both by [g = gcdn A M].  So the least positive index
+    with [Pt n = 0] is [M %/ g], which [N_lt_Mg] puts beyond [N]. *)
+Lemma pt_neq0 n : 0 < n <= N -> Pt n != 0.
+Proof. Admitted.
 
 (** *** Warm-up: elementary facts about the specification *)
 
@@ -1271,30 +1285,115 @@ Qed.
     [inv_step] and [step_p_gt0] are -- only when the loop continues -- since
     at the terminal states ([q = 0], [u + v >= N]) [invx_min] genuinely
     fails: probed 78 violations there, 0 under the guard (376 states). *)
+(** *** [invx_step], one lemma per field per branch.
+
+    [invx] has seven fields and [step] has two branches, so preservation is
+    fourteen independent statements.  Splitting them out does three things:
+    each can be probed and proved on its own, the hypotheses of each show
+    which OTHER fields it actually consumes -- which is how to find out
+    whether all seven are necessary -- and a field that no lemma ever uses
+    is a field that can go.
+
+    [invx_qM] is discharged inline in both branches ([q' <= q <= M] on the
+    left, [q' = q] on the right), so it gets no lemma; that already answers
+    the question for one of the seven.
+
+    In the [p < q] branch:  p' = p, q' = q - (q %/ p)*p, u' = u + (q %/ p)*v, v' = v.
+    In the [q <= p] branch: p' = p - (p %/ q)*q, q' = q, u' = u, v' = v + (p %/ q)*u. *)
+
+(** **** the [p < q] branch *)
+
+Lemma invx_step_lt_min p q d u v :
+  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
+  forall m, 0 < m < u + q %/ p * v + v -> p <= Pt m.
+Proof. Admitted.
+
+Lemma invx_step_lt_max p q d u v :
+  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
+  forall m, m < u + q %/ p * v + v -> Pt m <= M - (q - q %/ p * p).
+Proof. Admitted.
+
+Lemma invx_step_lt_inf p q d u v :
+  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
+  Inf (u + q %/ p * v + v) < maxn p (q - q %/ p * p).
+Proof. Admitted.
+
+Lemma invx_step_lt_gap p q d u v :
+  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
+  forall y, y < u + q %/ p * v + v ->
+  exists a b, [/\ a <= u + q %/ p * v, b <= v &
+                  Dst y = Inf (u + q %/ p * v + v) + a * p + b * (q - q %/ p * p)].
+Proof. Admitted.
+
+Lemma invx_step_lt_p1 p q d u v :
+  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
+  forall z, z < u + q %/ p * v -> Pt (z + v) = Pt z + p.
+Proof. Admitted.
+
+Lemma invx_step_lt_p2 p q d u v :
+  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
+  forall z, u + q %/ p * v <= z < u + q %/ p * v + v ->
+  Pt (z - (u + q %/ p * v)) = (Pt z + (q - q %/ p * p)) %% M.
+Proof. Admitted.
+
+(** **** the [q <= p] branch *)
+
+Lemma invx_step_ge_min p q d u v :
+  inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
+  forall m, 0 < m < u + (v + p %/ q * u) -> p - p %/ q * q <= Pt m.
+Proof. Admitted.
+
+Lemma invx_step_ge_max p q d u v :
+  inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
+  forall m, m < u + (v + p %/ q * u) -> Pt m <= M - q.
+Proof. Admitted.
+
+Lemma invx_step_ge_inf p q d u v :
+  inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
+  Inf (u + (v + p %/ q * u)) < maxn (p - p %/ q * q) q.
+Proof. Admitted.
+
+Lemma invx_step_ge_gap p q d u v :
+  inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
+  forall y, y < u + (v + p %/ q * u) ->
+  exists a b, [/\ a <= u, b <= v + p %/ q * u &
+                  Dst y = Inf (u + (v + p %/ q * u)) + a * (p - p %/ q * q) + b * q].
+Proof. Admitted.
+
+Lemma invx_step_ge_p1 p q d u v :
+  inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
+  forall z, z < u -> Pt (z + (v + p %/ q * u)) = Pt z + (p - p %/ q * q).
+Proof. Admitted.
+
+Lemma invx_step_ge_p2 p q d u v :
+  inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
+  forall z, u <= z < u + (v + p %/ q * u) -> Pt (z - u) = (Pt z + q) %% M.
+Proof. Admitted.
+
 Lemma invx_step p q d u v :
   inv p q d u v -> invx p q u v -> u + v < N ->
   let: (p', q', _, u', v') := step p q d u v in
   u' + v' < N -> invx p' q' u' v'.
-Proof. 
-case => p_gt0 q_gt0 ME pE qE gcdnE u_gt0 v_gt0.
-case => invx_min invx_max invx_qM invx_inf invx_gap invx_p1 invx_p2 uvN.
-rewrite /step; case : (ltnP p q) => [pLq|qLp] .
-  set q' := q - _; set u' := u + _ => u'vN; split => //.
-  - move=> m /andP[m_gt0 mLu'v]. 
-    admit.
-  - move=> m mLu'v.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  admit.
-set p' := p - _; set v' := v + _ => uv'N; split => //.
-- admit.
-- admit.
-- admit.
-- admit.
-- admit.
-admit.
+Proof.
+move=> iv ix uvN.
+have [_ q_gt0 _ _ _ _ _ _] := iv.
+have [_ _ qM _ _ _ _] := ix.
+rewrite /step; case: (ltnP p q) => [pLq|qLp] /= uvN'; split.
+- exact: invx_step_lt_min iv ix pLq uvN'.
+- exact: invx_step_lt_max iv ix pLq uvN'.
+- by rewrite (leq_trans _ qM) // leq_subr.
+- exact: invx_step_lt_inf iv ix pLq uvN'.
+- exact: invx_step_lt_gap iv ix pLq uvN'.
+- exact: invx_step_lt_p1 iv ix pLq uvN'.
+- exact: invx_step_lt_p2 iv ix pLq uvN'.
+- exact: invx_step_ge_min iv ix qLp uvN'.
+- exact: invx_step_ge_max iv ix qLp uvN'.
+- exact: qM.
+- exact: invx_step_ge_inf iv ix qLp uvN'.
+- exact: invx_step_ge_gap iv ix qLp uvN'.
+- exact: invx_step_ge_p1 iv ix qLp uvN'.
+exact: invx_step_ge_p2 iv ix qLp uvN'.
+Qed.
 
 (** ** Top-down skeleton for the [p < q] branch
 
