@@ -1139,7 +1139,7 @@ exists n.+1 => // z; rewrite ltnS leq_eqVlt => /orP[/eqP->|zLn] //.
 by rewrite (leq_trans (Hy _ zLn)) // ltnW.
 Qed.
 
-(* @INVX_STEP HELPER sharp -- TODO *)
+(* @INVX_STEP HELPER sharp -- PROVED *)
 (** [new_index_decomp] sharpened to [j < k], cut into its arithmetic. *)
 Lemma sharp_t_lt k u v x : u + v <= x -> x < u + k * v -> x - (u + v) < (k - 1) * v.
 Proof.
