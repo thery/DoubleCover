@@ -104,7 +104,11 @@ Proof. by apply: ltnW. Qed.
     Reduction done below; open only the coprimality of the two quotients
     (mathcomp seems to have no [coprime_div_gcd]). *)
 Lemma coprime_quot : coprime (M %/ gcdn A M) (A %/ gcdn A M).
-Proof. Admitted.
+Proof.
+have g_gt0 : 0 < gcdn A M by rewrite gcdn_gt0 M_gt0 orbT.
+rewrite /coprime -(eqn_pmul2r g_gt0) mul1n muln_gcdl.
+by rewrite !divnK ?dvdn_gcdl ?dvdn_gcdr // gcdnC.
+Qed.
 
 Lemma pt_neq0 n : 0 < n <= N -> Pt n != 0.
 Proof.
@@ -113,11 +117,12 @@ have g_gt0 : 0 < gcdn A M by rewrite gcdn_gt0 M_gt0 orbT.
 apply/eqP => /eqP; rewrite /pt -/(_ %| _) => Hdvd.
 have HM : M = gcdn A M * (M %/ gcdn A M) by rewrite mulnC divnK // dvdn_gcdr.
 have HA : A = gcdn A M * (A %/ gcdn A M) by rewrite mulnC divnK // dvdn_gcdl.
-(* remaining: rewrite Hdvd through HM/HA, cancel [g] by [dvdn_pmul2l], then
-   [Gauss_dvdr coprime_quot] gives [(M %/ g) %| n]; [dvdn_leq] then
-   contradicts [n <= N < M %/ g].  The cancellation rewrite is the only
-   fiddly part -- [-mulnA] does not fire as written. *)
-Admitted.
+have Hd : (M %/ gcdn A M) %| n.
+  rewrite -(Gauss_dvdr n coprime_quot) -(dvdn_pmul2l g_gt0).
+  by rewrite mulnA -HA -HM.
+have := dvdn_leq n_gt0 Hd.
+by rewrite leqNgt (leq_ltn_trans nLN N_lt_Mg).
+Qed.
 
 (** *** Warm-up: elementary facts about the specification *)
 
@@ -698,14 +703,6 @@ move=> yx Hp; rewrite /pt mulnBr modnB //; last by rewrite leq_mul2l yx orbT.
 by rewrite ltnNge Hp /= mul0n add0n.
 Qed.
 
-Lemma dstB x y : y <= x -> Pt y <= Pt x -> Dst (x - y) = (Dst x + Pt y) %% M.
-Proof.
-move=> yx Hp.
-have HxM : Pt x <= B + M by rewrite (leq_trans (ltnW (pt_lt x))) // leq_addl.
-rewrite dstE pt_sub // subnBA // dstE modnDml.
-by rewrite addnBAC.
-Qed.
-
 (** holds without [Pt y <= Pt x]. *)
 Lemma dstB_gen x y : y <= x -> Dst (x - y) = (Dst x + Pt y) %% M.
 Proof.
@@ -908,8 +905,7 @@ Proof. by case=> _ _ _ _ -> _ _ _; apply: leq_subr. Qed.
 Record invx (p q u v : nat) : Prop := Invx {
   invx_min : forall m, 0 < m < u + v -> p <= Pt m;
   invx_max : forall m, m < u + v -> Pt m <= M - q;
-  (* free wherever [invx] is established, since [inv_qu] gives
-     [q = M - Pt u]; carried here so [pt_gap_max] need not take [inv]. *)
+  (* free wherever [invx] is established, since [inv_qu] gives [q = M - Pt u]. *)
   invx_qM  : q <= M;
   (* [b] lies in a gap, and every gap is [p] or [q], so the nearest point
      below it is within [maxn p q].  Needed by [inf_new_lt_le], whose
@@ -946,45 +942,6 @@ Qed.
     iterated.  Stepping the index by [v] raises the point by [p], and the
     guard [z + k*v <= u] keeps every intermediate index below [u], which is
     exactly what [invx_p1] needs at each step. *)
-(** the bound that feeds it. *)
-Lemma pt_walk_le q y mp : Pt y <= M - q -> q <= M -> mp <= q -> Pt y + mp <= M.
-Proof. by move=> H1 qM H2; apply: leq_trans (leq_add H1 H2) _; rewrite subnK. Qed.
-
-Lemma invx_p1_iter p q u v k z :
-  invx p q u v -> 0 < v -> z + k * v <= u -> Pt (z + k * v) = Pt z + k * p.
-Proof.
-move=> ix v_gt0; elim: k z => [z _|k IH z H]; first by rewrite mul0n !addn0.
-have -> : z + k.+1 * v = z + v + k * v by rewrite mulSnr addnA addnAC.
-have H1 : z + v + k * v <= u by rewrite -addnAC -addnA -mulSnr.
-rewrite IH // (invx_p1 ix); last first.
-  by rewrite (leq_trans _ H1) // -addnA -[X in X < _]addn0 ltn_add2l addn_gt0 v_gt0.
-by rewrite mulSnr addnA addnAC.
-Qed.
-
-Lemma pt_gap_min p q u v m1 m2 :
-  invx p q u v -> m1 < m2 -> m2 < u + v -> Pt m1 <= Pt m2 ->
-  p <= Pt m2 - Pt m1.
-Proof.
-move=> ix m12 m2n Hp.
-rewrite -(pt_sub (ltnW m12) Hp).
-apply: (invx_min ix).
-by rewrite subn_gt0 m12 (leq_ltn_trans (leq_subr _ _)).
-Qed.
-
-(** slater.get_maxB: points whose order INVERTS the index order are at
-    least [q] apart. *)
-Lemma pt_gap_max p q u v m1 m2 :
-  invx p q u v -> m2 < m1 -> m1 < u + v -> Pt m1 < Pt m2 ->
-  q <= Pt m2 - Pt m1.
-Proof.
-move=> ix m21 m1n Hp.
-have Hw : Pt (m1 - m2) = M - (Pt m2 - Pt m1) by rewrite (pt_sub_wrap (ltnW m21) Hp).
-have Hmax : Pt (m1 - m2) <= M - q.
-  by apply: (invx_max ix); rewrite (leq_ltn_trans (leq_subr _ _)).
-move: Hmax; rewrite Hw => Hmax.
-rewrite -(leq_sub2lE (m := M)) //.
-exact: (invx_qM ix).
-Qed.
 
 Lemma invx_init : invx (A %% M) (M - A %% M) 1 1.
 Proof.
@@ -1184,6 +1141,10 @@ exists ((x - (u + v)) %/ v).+1.
   by rewrite /= (sharp_j_lt_k v_gt0) // (sharp_t_lt xge).
 by rewrite sharp_hi // sharp_lo.
 Qed.
+
+(** the bound that feeds the walk: [invx_max] gives [Pt y <= M - q]. *)
+Lemma pt_walk_le q y mp : Pt y <= M - q -> q <= M -> mp <= q -> Pt y + mp <= M.
+Proof. by move=> H1 qM H2; apply: leq_trans (leq_add H1 H2) _; rewrite subnK. Qed.
 
 (* @INVX_STEP HELPER lt -- PROVED *)
 (** a new index is an old one walked up by [j] copies of [v], adding
@@ -1884,11 +1845,6 @@ Lemma ge_wrap_tight p q d u v y m :
     (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d).
 Proof. Admitted.
 
-(** the [q]-side walk, mirror of [invx_p1_iter]; one extra [modnDml]. *)
-Lemma invx_p2_iter p q u v k z :
-  invx p q u v -> 0 < u -> k * u <= z -> z < u + v ->
-  Pt (z - k * u) = (Pt z + k * q) %% M.
-Proof. Admitted.
 
 Lemma le_ge_wrap p q d u v y m :
   inv p q d u v -> invd p q d u v -> invx p q u v -> u + v < N ->
