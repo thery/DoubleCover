@@ -11,19 +11,28 @@
 (*  and the whole question is whether that fits.  It does, in ONE PArray,      *)
 (*  because of two independent reductions:                                    *)
 (*                                                                            *)
-(*  SYMMETRY.  Sym.Symg_stab says every u in Symg permutes the move set, so    *)
-(*  the distance is invariant under conjugation: d (g ^ u) = d g.  Hence only  *)
-(*  one representative per orbit need be stored.  Measured, NOT quoted -- the  *)
-(*  orbit count was computed from Sym.v's own generators Sy, Sx, Sm:           *)
+(*  SYMMETRY.  Only ONE representative per orbit need be stored.  Measured,    *)
+(*  NOT quoted -- computed from Sym.v's own generators Sy, Sx, Sm:             *)
 (*                                                                            *)
 (*     symmetry group                     48   (closure of Sy, Sx, Sm)        *)
+(*     act on the flip x slice coord      16   <-- see the warning below       *)
 (*     reachable flip x slice      1 013 760   = 2048 x 495, all of them       *)
-(*     orbits                         46 739   reduction 21.69x               *)
+(*     orbits                         64 430   reduction 15.73x               *)
 (*                                                                            *)
-(*  Kociemba folds by the sixteen symmetries that fix the UD axis and gets     *)
-(*  64 430 classes, 15.73x; 1 013 760 / 64 430 = 15.73 reproduces that, which  *)
-(*  is the check that the computation above is doing the right thing.  We can  *)
-(*  use all 48 because Symg_stab holds for all 48.                            *)
+(*  which independently reproduces Kociemba's published 64 430.                *)
+(*                                                                            *)
+(*  WHY SIXTEEN AND NOT FORTY EIGHT.  An earlier version of this file claimed  *)
+(*  all 48, on the grounds that Sym.Symg_stab makes every u in Symg permute    *)
+(*  the move set and so preserve the distance.  That argument is about the     *)
+(*  distance on the CUBE.  The fold is applied to the flip x slice COORDINATE, *)
+(*  and a u that moves the UD slice does not act on that coordinate at all:    *)
+(*  coordfs (g ^ u) is then not a function of coordfs g, so "the orbit of a    *)
+(*  coordinate" is not even well defined.  Tested directly -- for each u, over *)
+(*  540 000 pairs with coordfs a = coordfs b, is coordfs (a ^ u) =             *)
+(*  coordfs (b ^ u)?  Exactly 16 of the 48 pass.  It is also what Far.v has    *)
+(*  been telling us all along: its heuristic maxes over five views BECAUSE     *)
+(*  they differ (7, 7, 6 at the root), which could not happen if conjugation   *)
+(*  left the coordinate invariant.                                            *)
 (*                                                                            *)
 (*  CLAMP.  Two bits per entry, holding d - 8 clamped to [0, 3].  Entries      *)
 (*  below 8 never prune at the depths we search, and clamping DOWN keeps the   *)
@@ -31,13 +40,24 @@
 (*                                                                            *)
 (*  Together:                                                                  *)
 (*                                                                            *)
-(*     2187 x 46 739            = 102 218 193 entries                         *)
-(*     at 31 entries per int63  =   3 297 362 words  =  26.4 MB               *)
+(*     2187 x 64 430            = 140 908 410 entries                         *)
+(*     at 31 entries per int63  =   4 545 433 words  =  36.4 MB               *)
 (*     PArray.max_length        =   4 194 303 words                           *)
 (*                                                                            *)
-(*  so it is a SINGLE array -- no chunking, no two level reader.  With the     *)
-(*  three index tables below the total is about 35 MB per worker, against the  *)
-(*  ~1 GB each already uses, so the eighteen Far_?? workers are unaffected.    *)
+(*  which overshoots max_length by 8%, so it takes THREE chunks -- a PArray    *)
+(*  of PArrays split on the word index, w >> 21, which stays definitional.     *)
+(*                                                                            *)
+(*  For scale, against the flip x slice table we ship today:                   *)
+(*                                                                            *)
+(*                      entries      per word   words       size              *)
+(*     flip x slice   16 777 216      8         2 097 152   16.8 MB           *)
+(*     phase 1       140 908 410     31         4 545 433   36.4 MB           *)
+(*                                                                            *)
+(*  8.4x the entries but only 2.2x the memory, the 2 bit packing absorbing     *)
+(*  the rest.  Per worker that is +20 MB against the ~1 GB each already uses,  *)
+(*  so -j18 is unaffected.  The real cost is not memory but FsData.v: 25 MB    *)
+(*  of literals today, ~54 MB here, and it already compiles serially in 4-6    *)
+(*  minutes.                                                                  *)
 (*                                                                            *)
 (*  WHAT IS STILL MISSING is only the proofs and the generated data.  See the  *)
 (*  Admitted list at the bottom.                                              *)
@@ -161,22 +181,23 @@ Definition fsidx (x : int) : int :=
 (*                                                                            *)
 (*  fsclass sends each of the 1 013 760 flip x slice indices to its orbit      *)
 (*  representative together with the symmetry that gets there, packed as       *)
-(*  class * 48 + sym (46 739 * 48 < 2 ^ 22, so one int63 is ample).  The twist *)
+(*  class * 16 + sym (64 430 * 16 < 2 ^ 21, so one int63 is ample).  The twist *)
 (*  must be conjugated by the SAME symmetry, which is what twconj is for:      *)
-(*  2187 * 48 = 104 976 entries.                                              *)
+(*  2187 * 16 = 34 992 entries.                                               *)
 (* =========================================================================  *)
 
-Definition nsym   := 48.
-Definition nclass := 46739.
+(* the sixteen that ACT on the flip x slice coordinate, not all 48 of Symg *)
+Definition nsym   := 16.
+Definition nclass := 64430.
 
 Definition fsclass : arr := PArray.make (of_nat nfs) 0%uint63.            (* GENERATED *)
 Definition twconj  : arr := PArray.make (of_nat (ntwist * nsym)) 0%uint63. (* GENERATED *)
 
-(* the folded phase 1 index: 0 .. 2187 * 46739 *)
+(* the folded phase 1 index: 0 .. 2187 * 64430 *)
 Definition p1idx (tw x : int) : int :=
   let c  := PArray.get fsclass (fsidx x) in
-  let s  := Uint63.land c 63%uint63 in
-  let cl := Uint63.lsr c 6%uint63 in
+  let s  := Uint63.land c 15%uint63 in
+  let cl := Uint63.lsr c 4%uint63 in
   Uint63.add (Uint63.mul cl (of_nat ntwist))
     (PArray.get twconj (Uint63.add (Uint63.mul tw (of_nat nsym)) s)).
 
@@ -185,15 +206,27 @@ Definition p1idx (tw x : int) : int :=
 (* =========================================================================  *)
 
 Definition p1base  := 8.        (* entries hold d - p1base, clamped to [0,3] *)
-Definition p1words := 3297362.  (* ceil (2187 * 46739 / 31) *)
+Definition p1words := 4545433.  (* ceil (2187 * 64430 / 31) *)
 
-Definition p1tab : arr := PArray.make (of_nat p1words) 0%uint63.  (* GENERATED *)
+(* 4 545 433 > PArray.max_length = 4 194 303, so the table is a PArray of
+   PArrays.  The split is on the WORD index at a power of two, w >> cwlog,
+   which stays definitional -- the same trick Fspar.v's cbits uses.  Three
+   chunks: two full at 2 ^ 21 words and a short tail of 351 129. *)
+Definition cwlog  := 21.
+Definition nchunk := 3.
+
+Definition p1tabs : PArray.array arr :=                           (* GENERATED *)
+  PArray.make (of_nat nchunk) (PArray.make 1%uint63 0%uint63).
 
 Definition p1get (i : int) : int :=
   let w := Uint63.div i 31%uint63 in
   let r := Uint63.sub i (Uint63.mul w 31%uint63) in
+  let c := Uint63.lsr w (of_nat cwlog) in
+  let o := Uint63.land w (Uint63.sub (Uint63.lsl 1%uint63 (of_nat cwlog))
+                                     1%uint63) in
   Uint63.land
-    (Uint63.lsr (PArray.get p1tab w) (Uint63.mul r 2%uint63)) 3%uint63.
+    (Uint63.lsr (PArray.get (PArray.get p1tabs c) o) (Uint63.mul r 2%uint63))
+    3%uint63.
 
 (* the heuristic.  Clamping DOWN is what keeps this admissible. *)
 Definition Dp1 (tw x : int) : nat := p1base + to_nat (p1get (p1idx tw x)).
@@ -229,9 +262,15 @@ Proof. Admitted.
 
 (* -- the fold is sound: conjugate states land in the same slot ------------- *)
 
-(* this is where Sym.Symg_stab is spent, and it is what licenses folding by
-   all 48 rather than Kociemba's 16 *)
-Lemma p1idx_sym (g u : {perm facelet}) : u \in Symg ->
+(* u must not only be a symmetry (Symg_stab, so it permutes the moves and
+   preserves the distance) but must also ACT on the flip x slice coordinate,
+   which is what fspres asks: it maps slice edges to slice edges and primary
+   facelets to primary facelets.  Exactly 16 of the 48 do -- measured, and
+   dropping fspres is precisely the error the header describes. *)
+Definition fspres (u : {perm facelet}) : bool :=
+  [forall f : facelet, (scol (u f) == scol f) && (pcol (u f) == pcol f)].
+
+Lemma p1idx_sym (g u : {perm facelet}) : u \in Symg -> fspres u ->
   p1idx (coordtw (g ^ u)) (coordfs (g ^ u)) = p1idx (coordtw g) (coordfs g).
 Proof. Admitted.
 
