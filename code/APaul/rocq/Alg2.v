@@ -1111,6 +1111,20 @@ Proof. by move=> p_gt0; rewrite {1}(divn_eq q p) addnC addnK ltn_pmod. Qed.
 Lemma maxn_new_lt p q : 0 < p -> maxn p (q - q %/ p * p) = p.
 Proof. by move=> p_gt0; apply/maxn_idPl; rewrite ltnW // q'_lt_p. Qed.
 
+(** the max is attained, mirror of [inf_dst_ex]. *)
+Lemma dst_max_ex n :
+  0 < n -> exists2 y, y < n & forall z, z < n -> Dst z <= Dst y.
+Proof.
+elim: n => // [] [_ _|n IH _].
+  by exists 0 => // z; rewrite ltnS leqn0 => /eqP->.
+have [y yLn Hy] := IH isT.
+case: (leqP (Dst n.+1) (Dst y)) => [H|H].
+  exists y; first by rewrite (leq_trans yLn).
+  by move=> z; rewrite ltnS leq_eqVlt => /orP[/eqP->|zLn] //; apply: Hy.
+exists n.+1 => // z; rewrite ltnS leq_eqVlt => /orP[/eqP->|zLn] //.
+by rewrite (leq_trans (Hy _ zLn)) // ltnW.
+Qed.
+
 (* @INVX_STEP HELPER sharp -- TODO *)
 (** [new_index_decomp] sharpened to [j < k], cut into its arithmetic. *)
 Lemma sharp_t_lt k u v x : u + v <= x -> x < u + k * v -> x - (u + v) < (k - 1) * v.
@@ -1334,6 +1348,9 @@ Qed.
     [inf_new_lt_le]; only [>=] is open, and it is THE remaining content of
     [lt/gap].  Probed: the equation holds 10669/10669, and the drop is
     always a multiple of [p] with multiplier at most [q %/ p]. *)
+(* PROBED: for NEW indices, [Dst x >= Inf (u+v) %% p] holds 111726/111726.
+   Old indices are one line ([Dst y >= Inf (u+v) >= Inf (u+v) %% p]), so
+   the content is the new-index half, via pt_new_lt and invx_gap. *)
 Lemma inf_new_ge_lt p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   Inf (u + v) %% p <= Inf (u + q %/ p * v + v).
@@ -1361,9 +1378,12 @@ by rewrite [Inf (u + v) %% p + _]addnC -divn_eq.
 Qed.
 
 (* @INVX_STEP lt/gap -- TODO *)
-(* needs: inv, invx_gap, inf_shift_lt (PROVED, modulo inf_new_ge_lt),
-   pt_new_lt.  Old y: shift then trade [q = q' + k*p], counts
-   [a' = a + c + b*k <= u'], [b' = b <= v'].  New y: pt_new_lt. *)
+(* needs: inv, invx_gap, inf_shift_lt (PROVED modulo inf_new_ge_lt),
+   pt_new_lt.  Old y: shift by inf_shift_lt, then trade
+   [q = q' + (q %/ p)*p], giving [a' = c + a + b*k] and [b' = b].
+   PROBED: the naive count [c + a + b*k <= u'] holds 64489/64489, worst
+   excess 0 -- the three bounds cannot be tight at once.  So the assembly
+   is writable as it stands.  New y: pt_new_lt. *)
 Lemma invx_step_lt_gap p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   forall y, y < u + q %/ p * v + v ->
@@ -1455,7 +1475,7 @@ have [j /andP[j_gt0 jk] [/andP[y_gt0 ylt] jqP Hm]] :=
 by rewrite Hm (leq_trans (leq_subr _ _)) // Hmax.
 Qed.
 
-(* @INVX_STEP ge/inf -- TODO *)
+(* @INVX_STEP ge/inf -- PROVED *)
 (* PROBED, and the witness is identified.  Goal [Inf(u'+v') < q] holds
    10669/10669.  Inf drops in 6432 cases; in EVERY one the new minimiser
    is [ymax + j*u] with [ymax] the old MAXIMUM-distance index and [j >= 1]
@@ -1464,10 +1484,61 @@ Qed.
    [Dst ymax + j*q >= M] -- and that new point is within [q] below [b].
    NEEDS: dst_max_ex (the max is attained, mirror of inf_dst_ex) and
    walk_ge_wrapeq, both available.  Monotonicity alone does NOT work. *)
+(** the wrap companion of [walk_ge_nowrap].  [m * q <= p < M] now comes
+    from [p + q <= M] ([inv_bez] with [inv_u0]/[inv_v0]), not from the
+    no-wrap hypothesis. *)
+Lemma walk_ge_wrapeq p q d u v y m :
+  inv p q d u v -> q <= p -> y < u + v -> 0 < m <= p %/ q ->
+  M <= Dst y + m * q -> Dst (y + m * u) = Dst y + m * q - M.
+Proof.
+move=> iv qLp yLuv /andP[m_gt0 mk] Hw.
+have [p_gt0 q_gt0 bez pE qE _ u_gt0 v_gt0] := iv.
+have pqM : p + q <= M by rewrite -bez leq_add // leq_pmull.
+have mqp : m * q <= p by rewrite -leq_divRL.
+have mqM : m * q < M.
+  have pM : p < M by rewrite (leq_trans _ pqM) // -addn1 leq_add2l.
+  by rewrite (leq_ltn_trans mqp).
+have PuE : Pt u = M - q by rewrite qE subKn // ltnW // pt_lt.
+have Hpm : Pt (m * u) = M - m * q.
+  rewrite pt_muln PuE mulnBr.
+  have -> : m * M - m * q = (m - 1) * M + (M - m * q).
+    rewrite addnBA; last by apply: ltnW.
+    by rewrite subn1 -mulSnr prednK.
+  by rewrite modnMDl modn_small // ltn_subrL muln_gt0 m_gt0 q_gt0 M_gt0.
+rewrite dst_add Hpm (subnBA _ (ltnW mqM)) addnAC addnK.
+rewrite -{1}(subnK Hw) modnDr modn_small // ltn_subLR //.
+by rewrite (leq_ltn_trans (leq_add (ltnW (dst_lt y)) (leqnn _))) // ltn_add2l.
+Qed.
+
+(** the crossing step, from the probe: from the MAXIMUM-distance index,
+    walking by [u] adds [q] each time and the least [j] reaching [M] lands
+    within [q] below [b].  Open only: that such a [j] exists with
+    [j <= p %/ q].  Probed: witness is [ymax + j*u], 3960/3960. *)
+Lemma ge_cross_ex p q d u v y :
+  inv p q d u v -> invx p q u v -> q <= p -> y < u + v ->
+  (forall z, z < u + v -> Dst z <= Dst y) ->
+  exists2 j, 0 < j <= p %/ q & M <= Dst y + j * q /\ Dst y + j * q - M < q.
+Proof. Admitted.
+
 Lemma invx_step_ge_inf p q d u v :
   inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
   Inf (u + (v + p %/ q * u)) < maxn (p - p %/ q * q) q.
-Proof. Admitted.
+Proof.
+move=> iv ix qLp uvN'.
+have [p_gt0 q_gt0 _ _ _ _ u_gt0 v_gt0] := iv.
+have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
+have [y yLuv Hy] := dst_max_ex uv_gt0.
+have [j jk [Hcross Hlt]] := ge_cross_ex iv ix qLp yLuv Hy.
+have /andP[j_gt0 jk2] := jk.
+have -> : maxn (p - p %/ q * q) q = q.
+  by apply/maxn_idPr; rewrite ltnW // q'_lt_p.
+apply: leq_ltn_trans _ Hlt.
+rewrite -(walk_ge_wrapeq iv qLp yLuv jk Hcross).
+apply: inf_dst_le; rewrite addnA.
+apply: leq_ltn_trans (leq_add (leqnn y) (_ : j * u <= p %/ q * u)) _.
+  by rewrite leq_mul2r jk2 orbT.
+by rewrite ltn_add2r.
+Qed.
 
 (* @INVX_STEP ge/gap -- TODO *)
 (* mirror of lt/gap: [p = p' + (p %/ q)*q] and pt_new_ge.  Blocked on
@@ -1715,31 +1786,6 @@ have Hpm : Pt (m * u) = M - m * q.
 by rewrite dst_add Hpm (subnBA _ (ltnW mqM)) addnAC addnK modn_small.
 Qed.
 
-(** the wrap companion of [walk_ge_nowrap].  [m * q <= p < M] now comes
-    from [p + q <= M] ([inv_bez] with [inv_u0]/[inv_v0]), not from the
-    no-wrap hypothesis. *)
-Lemma walk_ge_wrapeq p q d u v y m :
-  inv p q d u v -> q <= p -> y < u + v -> 0 < m <= p %/ q ->
-  M <= Dst y + m * q -> Dst (y + m * u) = Dst y + m * q - M.
-Proof.
-move=> iv qLp yLuv /andP[m_gt0 mk] Hw.
-have [p_gt0 q_gt0 bez pE qE _ u_gt0 v_gt0] := iv.
-have pqM : p + q <= M by rewrite -bez leq_add // leq_pmull.
-have mqp : m * q <= p by rewrite -leq_divRL.
-have mqM : m * q < M.
-  have pM : p < M by rewrite (leq_trans _ pqM) // -addn1 leq_add2l.
-  by rewrite (leq_ltn_trans mqp).
-have PuE : Pt u = M - q by rewrite qE subKn // ltnW // pt_lt.
-have Hpm : Pt (m * u) = M - m * q.
-  rewrite pt_muln PuE mulnBr.
-  have -> : m * M - m * q = (m - 1) * M + (M - m * q).
-    rewrite addnBA; last by apply: ltnW.
-    by rewrite subn1 -mulSnr prednK.
-  by rewrite modnMDl modn_small // ltn_subrL muln_gt0 m_gt0 q_gt0 M_gt0.
-rewrite dst_add Hpm (subnBA _ (ltnW mqM)) addnAC addnK.
-rewrite -{1}(subnK Hw) modnDr modn_small // ltn_subLR //.
-by rewrite (leq_ltn_trans (leq_add (ltnW (dst_lt y)) (leqnn _))) // ltn_add2l.
-Qed.
 
 (** two halves: [q <= W] is [ge_d_lt_q], [W < q] is [ge_wrap_tight].
     alg2-notes.md 1-2 for what is refuted here. *)
