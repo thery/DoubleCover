@@ -1438,6 +1438,38 @@ Qed.
 
 (** **** the [p < q] branch *)
 
+(** REUSABLE: [q < M] strictly, as soon as [u <= N].  [q = M] would force
+    [Pt u = 0], which [pt_neq0] forbids.  Needed wherever a walk of total
+    length [<= q] must be shown not to reach [M]. *)
+Lemma inv_qltM p q d u v : inv p q d u v -> u <= N -> q < M.
+Proof.
+move=> iv uN.
+have [_ _ _ _ qE _ u_gt0 _] := iv.
+have qM := inv_qM iv.
+rewrite ltn_neqAle qM andbT; apply/eqP => qMe.
+have H := subnK (ltnW (pt_lt u)).
+move: H; rewrite -qE qMe => H2.
+have Hu : Pt u = 0.
+  have E0 : M + Pt u == M + 0 by rewrite addn0; apply/eqP.
+  by move: E0; rewrite eqn_add2l => /eqP.
+have uN' : 0 < u <= N by rewrite u_gt0 uN.
+by have := pt_neq0 uN'; rewrite Hu eqxx.
+Qed.
+
+(** MAXIMALLY REUSABLE for the [p < q] branch: every NEW index is an old one
+    walked up by some [j] copies of [v], and the walk simply adds [j*p] --
+    it cannot wrap, because [invx_max] caps [Pt] at [M - q] and [j*p <= q],
+    with equality excluded by [pt_neq0] (it would put [Pt m] at the origin).
+
+    [lt_min], [lt_max], [lt_p1], [lt_inf] and [lt_gap] all reduce to this. *)
+Lemma pt_new_lt p q d u v m :
+  inv p q d u v -> (forall k, k < u + v -> Pt k <= M - q) ->
+  p < q -> u + q %/ p * v + v < N ->
+  u + v <= m -> m < u + q %/ p * v + v ->
+  exists2 j, 0 < j <= q %/ p &
+    (m - j * v < u + v) /\ Pt m = Pt (m - j * v) + j * p.
+Proof. Admitted.
+
 (* DEPENDS ON: [inv], [invx_min], [invx_max] (through [pt_walk_le]) and
    [pt_neq0] -- the last to rule out the walk landing exactly on [M]. *)
 Lemma invx_step_lt_min p q d u v :
@@ -1485,16 +1517,65 @@ rewrite Hm (leq_trans _ (leq_addl _ _)) //.
 by rewrite -{1}[p]mul1n leq_mul2r j_gt0 orbT.
 Qed.
 
-Lemma invx_step_lt_max p q d u v :
-  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
-  forall m, m < u + q %/ p * v + v -> Pt m <= M - (q - q %/ p * p).
+(** MAXIMALLY REUSABLE for the [q <= p] branch, the mirror of [pt_new_lt].
+    Here a new index is an old one walked by [j] copies of [u], and since
+    [Pt u = M - q] each copy SUBTRACTS [q].  No wrap downward because
+    [invx_min] gives [p <= Pt y] and [j*q <= p %/ q * q <= p].
+
+    [ge_min] and [ge_max] are one line each from this: subtracting [j*q]
+    keeps [Pt] above [p - (p %/ q)*q = p'] and below [M - q].
+
+    NB the [y = 0] corner: [Pt 0 = 0] cannot carry the walk, so the
+    statement must either exclude it or observe that [m = j*u] with
+    [u + v <= m] forces [j >= 2] and an earlier point to be used instead.
+    That corner is why this is stated with [0 < m - j*u]. *)
+Lemma pt_new_ge p q d u v m :
+  inv p q d u v -> (forall k, 0 < k < u + v -> p <= Pt k) ->
+  q <= p -> u + (v + p %/ q * u) < N ->
+  u + v <= m -> m < u + (v + p %/ q * u) ->
+  exists2 j, 0 < j <= p %/ q &
+    [/\ 0 < m - j * u < u + v, j * q <= Pt (m - j * u) &
+        Pt m = Pt (m - j * u) - j * q].
 Proof. Admitted.
 
+(* DEPENDS ON: [inv] and [invx_max] only.  Old indices are free because
+   [q' <= q]; new ones are [pt_new_lt] plus [j*p <= k*p]. *)
+Lemma invx_step_lt_max p q d u v :
+  inv p q d u v -> (forall k, k < u + v -> Pt k <= M - q) ->
+  p < q -> u + q %/ p * v + v < N ->
+  forall m, m < u + q %/ p * v + v -> Pt m <= M - (q - q %/ p * p).
+Proof.
+move=> iv Hmax pLq uvN' m mLuv'.
+have [p_gt0 q_gt0 _ _ _ _ _ _] := iv.
+have kpq : q %/ p * p <= q by rewrite leq_divM.
+case: (ltnP m (u + v)) => [mold|mnew].
+  by rewrite (leq_trans (Hmax _ mold)) // leq_sub2l // leq_subr.
+have [j /andP[j_gt0 jk] [ylt Hm]] := pt_new_lt iv Hmax pLq uvN' mnew mLuv'.
+have jpk : j * p <= q %/ p * p by rewrite leq_mul2r jk orbT.
+have -> : M - (q - q %/ p * p) = M - q + q %/ p * p.
+  by rewrite subnBA // addnBAC // (inv_qM iv).
+by rewrite Hm leq_add // (Hmax _ ylt).
+Qed.
+
+(* SKETCH, and the harder half.  [Inf] only decreases as the range grows,
+   so [Inf (u'+v') <= Inf (u+v) < maxn p q]; the content is that it drops
+   below the NEW [maxn p' q'], which is smaller.  That is the statement
+   that [b]'s own gap gets subdivided, so it needs the gap structure, not
+   just a bound.  Note [inf_new_lt] already computes the new [Inf] in this
+   branch as [Inf (u+v) %% p]; combined with [p' = p] that should give it
+   directly -- CHECK whether [inf_new_lt] can be moved before this point,
+   since it currently lives after and depends on [step_invd_le]. *)
 Lemma invx_step_lt_inf p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   Inf (u + q %/ p * v + v) < maxn p (q - q %/ p * p).
 Proof. Admitted.
 
+(* SKETCH.  Every distance in the new range is [Inf(new) + a*p + b*q'].
+   Old indices keep their decomposition with [q = q' + k*p], trading one
+   [q] for [k] copies of [p] plus one [q']; new indices are [pt_new_lt]'s
+   [Pt y + j*p], so they gain [j] copies of [p].  The bookkeeping is on the
+   COUNTS: [a <= u'] and [b <= v'] with [u' = u + k*v], [v' = v].
+   HELPER TO ADD: the [q = q' + (q %/ p) * p] trade, as an equation. *)
 Lemma invx_step_lt_gap p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   forall y, y < u + q %/ p * v + v ->
@@ -1502,6 +1583,13 @@ Lemma invx_step_lt_gap p q d u v :
                   Dst y = Inf (u + q %/ p * v + v) + a * p + b * (q - q %/ p * p)].
 Proof. Admitted.
 
+(* SKETCH.  By [pt_addv] this is exactly [Pt z + p < M] for [z < u + k*v].
+   Old [z < u+v]: [Pt z <= M - q] ([invx_max]) and [p < q], so [Pt z + p < M].
+   New [z]: [pt_new_lt] gives [Pt z = Pt y + j*p]; the bound needs
+   [(j+1)*p <= q], i.e. [j < k], which is what [z < u + k*v] (rather than
+   [< u + k*v + v]) should yield -- a sharper form of [new_index_decomp].
+   HELPER TO ADD: [new_index_decomp] with the conclusion [j < k] under the
+   hypothesis [x < u + k*v]. *)
 Lemma invx_step_lt_p1 p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   forall z, z < u + q %/ p * v -> Pt (z + v) = Pt z + p.
@@ -1531,21 +1619,47 @@ Qed.
 
 (** **** the [q <= p] branch *)
 
+(* DEPENDS ON: [inv] and [invx_min].  Old indices: [p' <= p <= Pt m].
+   New ones: the walk subtracts [j*q <= (p %/ q)*q], so [Pt m >= p - that]. *)
 Lemma invx_step_ge_min p q d u v :
-  inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
+  inv p q d u v -> (forall k, 0 < k < u + v -> p <= Pt k) ->
+  q <= p -> u + (v + p %/ q * u) < N ->
   forall m, 0 < m < u + (v + p %/ q * u) -> p - p %/ q * q <= Pt m.
-Proof. Admitted.
+Proof.
+move=> iv Hmin qLp uvN' m /andP[m_gt0 mLuv'].
+case: (ltnP m (u + v)) => [mold|mnew].
+  by rewrite (leq_trans (leq_subr _ _)) // Hmin // m_gt0.
+have [j /andP[j_gt0 jk] [/andP[y_gt0 ylt] jqP Hm]] :=
+  pt_new_ge iv Hmin qLp uvN' mnew mLuv'.
+rewrite Hm leq_sub ?Hmin ?y_gt0 //.
+by rewrite leq_mul2r jk orbT.
+Qed.
 
+(* DEPENDS ON: [inv], [invx_min] (to run the walk) and [invx_max].  The
+   walk only SUBTRACTS, so the old bound carries over unchanged. *)
 Lemma invx_step_ge_max p q d u v :
-  inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
+  inv p q d u v -> (forall k, 0 < k < u + v -> p <= Pt k) ->
+  (forall k, k < u + v -> Pt k <= M - q) ->
+  q <= p -> u + (v + p %/ q * u) < N ->
   forall m, m < u + (v + p %/ q * u) -> Pt m <= M - q.
-Proof. Admitted.
+Proof.
+move=> iv Hmin Hmax qLp uvN' m mLuv'.
+case: (ltnP m (u + v)) => [mold|mnew]; first by apply: Hmax.
+have [j /andP[j_gt0 jk] [/andP[y_gt0 ylt] jqP Hm]] :=
+  pt_new_ge iv Hmin qLp uvN' mnew mLuv'.
+by rewrite Hm (leq_trans (leq_subr _ _)) // Hmax.
+Qed.
 
+(* SKETCH.  Mirror of [invx_step_lt_inf], and the one with no computed
+   counterpart: the [ge] analogue of [inf_new_lt] is FALSE (34/1384, see
+   the note on [inf_cong_ge]), so this needs the gap argument directly. *)
 Lemma invx_step_ge_inf p q d u v :
   inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
   Inf (u + (v + p %/ q * u)) < maxn (p - p %/ q * q) q.
 Proof. Admitted.
 
+(* SKETCH.  Mirror of [invx_step_lt_gap], with [p = p' + (p %/ q)*q] as
+   the trade and [pt_new_ge]'s [Pt y - j*q] for the new indices. *)
 Lemma invx_step_ge_gap p q d u v :
   inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
   forall y, y < u + (v + p %/ q * u) ->
@@ -1595,14 +1709,14 @@ have [_ q_gt0 _ _ _ _ _ _] := iv.
 have qM := inv_qM iv.
 rewrite /step; case: (ltnP p q) => [pLq|qLp] /= uvN'; split.
 - exact: invx_step_lt_min iv (invx_min ix) (invx_max ix) pLq uvN'.
-- exact: invx_step_lt_max iv ix pLq uvN'.
+- exact: invx_step_lt_max iv (invx_max ix) pLq uvN'.
 - by rewrite (leq_trans _ qM) // leq_subr.
 - exact: invx_step_lt_inf iv ix pLq uvN'.
 - exact: invx_step_lt_gap iv ix pLq uvN'.
 - exact: invx_step_lt_p1 iv ix pLq uvN'.
 - exact: invx_step_lt_p2 iv pLq uvN'.
-- exact: invx_step_ge_min iv ix qLp uvN'.
-- exact: invx_step_ge_max iv ix qLp uvN'.
+- exact: invx_step_ge_min iv (invx_min ix) qLp uvN'.
+- exact: invx_step_ge_max iv (invx_min ix) (invx_max ix) qLp uvN'.
 - exact: qM.
 - exact: invx_step_ge_inf iv ix qLp uvN'.
 - exact: invx_step_ge_gap iv ix qLp uvN'.
