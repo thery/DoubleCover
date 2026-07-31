@@ -925,18 +925,6 @@ Record invx (p q u v : nat) : Prop := Invx {
 
 (** the wrapping companion of [pt_sub]: when the order inverts, the
     difference of indices lands on the far side of [M]. *)
-(** Here [modnB] IS the right tool -- unlike in [invd_first_le_ge_then],
-    where the additive route won.  The hypothesis [Pt x < Pt y] makes
-    [modnB]'s boolean term [true] (rather than killing it as in [pt_sub]),
-    so the [+ M] it contributes is exactly the wrap. *)
-Lemma pt_sub_wrap x y : y <= x -> Pt x < Pt y -> Pt (x - y) = M - (Pt y - Pt x).
-Proof.
-move=> yx Hp; rewrite /pt mulnBr modnB //; last by rewrite leq_mul2l yx orbT.
-move: Hp; rewrite /pt => Hp.
-have Hle : (A * x) %% M <= (A * y) %% M by apply: ltnW.
-by rewrite Hp mul1n subnBA.
-Qed.
-
 (** slater.get_minB: points in index order are at least [p] apart. *)
 (** The walk primitive for the partition form of the invariant: [invx_p1]
     iterated.  Stepping the index by [v] raises the point by [p], and the
@@ -1450,8 +1438,11 @@ Lemma lt_gap_count p q d u v y a b c :
 Proof. Admitted.
 
 (** the NEW indices: [pt_new_lt] writes [y] as [y0 + j*v] with [y0] old, so
-    the decomposition is the old one at [y0] with [j] more copies of [p].
-    The count is the same bookkeeping as [lt_gap_count]. *)
+    the decomposition is the old one at [y0] with [j] fewer copies of [p]:
+    [a' = c + a + b*k - j], [b' = b], and [lt_gap_count] bounds [a'].
+    Open corner: nothing yet rules out [j > c + a + b*k], and there the
+    borrow fails -- one would need [q - k*p >= p], but that residue is
+    [q %% p < p].  Same crux as [lt_gap_count]. *)
 Lemma lt_gap_new p q d u v y :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   u + v <= y -> y < u + q %/ p * v + v ->
@@ -1597,20 +1588,21 @@ rewrite -{1}(subnK Hw) modnDr modn_small // ltn_subLR //.
 by rewrite (leq_ltn_trans (leq_add (ltnW (dst_lt y)) (leqnn _))) // ltn_add2l.
 Qed.
 
-(** WARNING -- this statement is SUSPECT and was written from a sketch,
-    not from a measurement.  Its key premise, [Dst ymax + (p %/ q)*q >= M],
-    holds only 6005/6701: the walk does NOT always reach [M] within
-    [p %/ q] steps.  [ge/inf] itself is true (10669/10669), so the right
-    shape is a DISJUNCTION -- either [Inf (u+v) < q] already, in which case
-    [ge/inf] is immediate by monotonicity, or the crossing happens.  Fix
-    the statement before attempting it; do not prove it as written.  (Same
-    error class as ge_wrap_au: a lemma stated stronger than measured.) *)
-Lemma ge_cross_ex p q d u v y :
-  inv p q d u v -> invx p q u v -> q <= p -> y < u + v ->
-  (forall z, z < u + v -> Dst z <= Dst y) ->
-  exists2 j, 0 < j <= p %/ q & M <= Dst y + j * q /\ Dst y + j * q - M < q.
+(** PROBED 5908/5908, in this DISJUNCTIVE form.  The earlier shape -- the
+    argmax of [Dst] always crosses [M] within [p %/ q] steps -- is false
+    (6005/6701): 1113 times the argmax needs one step more and the crossing
+    index leaves the new range.  In exactly those states [Inf (u+v) < q]
+    holds already, so [ge/inf] follows by monotonicity. *)
+Lemma ge_cross_ex p q d u v :
+  inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
+  Inf (u + v) < q \/
+  exists z j, [/\ z < u + v, 0 < j <= p %/ q,
+                  z + j * u < u + (v + p %/ q * u) &
+                  M <= Dst z + j * q /\ Dst z + j * q - M < q].
 Proof. Admitted.
 
+(* @INVX_STEP ge/inf -- PROVED *)
+(* needs: inv, invx, ge_cross_ex, walk_ge_wrapeq *)
 Lemma invx_step_ge_inf p q d u v :
   inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
   Inf (u + (v + p %/ q * u)) < maxn (p - p %/ q * q) q.
@@ -1618,17 +1610,16 @@ Proof.
 move=> iv ix qLp uvN'.
 have [p_gt0 q_gt0 _ _ _ _ u_gt0 v_gt0] := iv.
 have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
-have [y yLuv Hy] := dst_max_ex uv_gt0.
-have [j jk [Hcross Hlt]] := ge_cross_ex iv ix qLp yLuv Hy.
-have /andP[j_gt0 jk2] := jk.
 have -> : maxn (p - p %/ q * q) q = q.
   by apply/maxn_idPr; rewrite ltnW // q'_lt_p.
-apply: leq_ltn_trans _ Hlt.
-rewrite -(walk_ge_wrapeq iv qLp yLuv jk Hcross).
-apply: inf_dst_le; rewrite addnA.
-apply: leq_ltn_trans (leq_add (leqnn y) (_ : j * u <= p %/ q * u)) _.
-  by rewrite leq_mul2r jk2 orbT.
-by rewrite ltn_add2r.
+case: (ge_cross_ex iv ix qLp uvN') => [Hlt|[z [j [zL jk zin [Hcross Hlt]]]]].
+  (* the old range already has a point inside a [q]-gap *)
+  apply: leq_ltn_trans Hlt.
+  have [y yL ->] := inf_dst_ex uv_gt0.
+  by apply: inf_dst_le; rewrite (leq_trans yL) // leq_add2l leq_addr.
+(* or a walk crosses [M] and lands inside one *)
+apply: leq_ltn_trans Hlt.
+by rewrite -(walk_ge_wrapeq iv qLp zL jk Hcross) inf_dst_le.
 Qed.
 
 (* @INVX_STEP ge/gap -- TODO *)
