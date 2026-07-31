@@ -890,6 +890,50 @@ by rewrite ptD Hmv -pE (modn_small mpM) modn_small.
 Qed.
 
 
+(** * Slater's two equations
+
+    Slater 2 (7): at [N+1 = u+v] points the step structure has [u] steps of
+    length [alpha = p] (index [r |-> r+v], from [r < u]) and [v] of length
+    [beta = q] ([r |-> r-u]), and none of length [alpha+beta]; (8) is
+    [u*p + v*q = M], our [inv_bez].  So a walk from [y] up to [z] through
+    successive points has TWO invariants: the value one [a*p + b*q =
+    Dst y - Dst z] and the INDEX one [a*v + y = b*u + z].  The second is
+    what makes the counts bounded -- with only the first, no witness works
+    (alg2-notes.md 1). *)
+
+(* pure counting: [k < x] and [x*l <= w*k + t] with [t < k + l] force [l <= w] *)
+Lemma gap_count_aux k l w x t :
+  0 < k -> k < x -> t < k + l -> x * l <= w * k + t -> l <= w.
+Proof.
+move=> k_gt0 kx tkl H.
+have H1 : l + k * l < w * k + k + l.
+  apply: leq_ltn_trans (_ : w * k + t < _); last first.
+    by rewrite -addnA ltn_add2l.
+  by rewrite (leq_trans _ H) // -mulSn leq_mul2r kx orbT.
+rewrite -ltnS -(ltn_pmul2l k_gt0) mulnS mulnC [k * w]mulnC mulnC addnC.
+by move: H1; rewrite addnC ltn_add2r.
+Qed.
+
+(** and then the bounds of [invx_gap] are FREE.  If [a] overshoots [u] the
+    index equation forces [b] to overshoot [v] as well, and then the value
+    is at least [u*p + v*q = M], which no distance reaches. *)
+Lemma gap_bounds p q u v y z a b :
+  0 < u -> 0 < v -> u * p + v * q = M -> y < u + v -> z < u + v ->
+  a * v + y = b * u + z -> a * p + b * q < M -> a <= u /\ b <= v.
+Proof.
+move=> u_gt0 v_gt0 bez yL zL Hix Hval.
+have Hcontra : u <= a -> v <= b -> False.
+  move=> ua vb; move: Hval; rewrite ltnNge -bez => /negP; apply.
+  by rewrite leq_add // leq_mul2r ?ua ?vb orbT.
+split; apply/negPn/negP; rewrite -ltnNge => H.
+  apply: Hcontra (ltnW H) _.
+  apply: gap_count_aux u_gt0 H zL _.
+  by rewrite -Hix leq_addr.
+apply: Hcontra _ (ltnW H).
+apply: (@gap_count_aux v u a b y v_gt0 H); first by rewrite addnC.
+by rewrite Hix leq_addr.
+Qed.
+
 (** the [p2] shape needs no invariant, only [q = M - Pt u]. *)
 Lemma pt_subu q u z : q = M - Pt u -> u <= z -> Pt (z - u) = (Pt z + q) %% M.
 Proof.
