@@ -171,9 +171,13 @@ Definition nfs    := 1013760.   (* nflip * nslice *)
 Definition srank : arr :=                                     (* GENERATED *)
   PArray.make 4096%uint63 (of_nat nslice).
 
+(* NB 2047, not 4095.  The flip occupies twelve bits but edge flip parity is
+   even, so bit 11 is determined by bits 0..10 and only 2048 of the 4096 occur.
+   Masking with 4095 indexes past the end of fsclass -- caught by running the
+   generator on the flip x slice table, where it failed at once. *)
 Definition fsidx (x : int) : int :=
   Uint63.add
-    (Uint63.mul (Uint63.land x 4095%uint63) (of_nat nslice))
+    (Uint63.mul (Uint63.land x 2047%uint63) (of_nat nslice))
     (PArray.get srank (Uint63.lsr x 12%uint63)).
 
 (* =========================================================================  *)
