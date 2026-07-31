@@ -116,23 +116,38 @@ Definition cmask : int := Eval vm_compute in
   foldr (fun f a => Uint63.lor a (Uint63.lsl 1%uint63 (of_nat f))) 0%uint63
         cprim.
 
-(* is the facelet sitting in slot s a U/D sticker? *)
-Definition udhit (u : arr) (c : nat) : bool :=
-  negb (Uint63.eqb
-          (Uint63.land cmask
-             (Uint63.lsl 1%uint63 (PArray.get u (of_nat c)))) 0%uint63).
+(* is facelet x a U/D sticker?  the bitmask form, as Coordfs's bit pmask *)
+Definition bitc (x : int) : bool :=
+  negb (Uint63.eqb (Uint63.land cmask (Uint63.lsl 1%uint63 x)) 0%uint63).
 
-(* orientation of the corner sitting in this slot, as ecoordi does it: u is
-   the inverse table, so u.[s] is the facelet occupying slot s *)
-Definition corient (u : arr) (t : nat * nat * nat) : nat :=
+(* Three levels, exactly as Coordfs / Coordfsi do it for flip x slice:
+   arrays (what the search runs), lists (the intermediate), permutations (what
+   the proofs talk about).  The bridges are ectwistiE and ctwisttE below,
+   mirroring Coordfsi.ecoordiE and Coordfsi.coordtE.
+
+   In all three, u is the INVERSE, so u at slot s is the facelet occupying s. *)
+
+Definition corienti (u : arr) (t : nat * nat * nat) : nat :=
   let: (c0, c1, c2) := t in
-  if udhit u c0 then 0%N else if udhit u c1 then 1%N else 2%N.
+  if bitc (PArray.get u (of_nat c0)) then 0%N
+  else if bitc (PArray.get u (of_nat c1)) then 1%N else 2%N.
 
-(* base 3 over the first seven corners *)
-Definition ctwisti (a : arr) : int :=
-  let u := inv_tabi 47 a in
-  foldr (fun t x => Uint63.add (Uint63.mul x 3%uint63) (of_nat (corient u t)))
+Definition corientt (u : seq nat) (t : nat * nat * nat) : nat :=
+  let: (c0, c1, c2) := t in
+  if nth 0%N u c0 \in cprim then 0%N
+  else if nth 0%N u c1 \in cprim then 1%N else 2%N.
+
+(* base 3 over the first seven corners; the eighth is forced *)
+Definition ectwisti (u : arr) : int :=
+  foldr (fun t x => Uint63.add (Uint63.mul x 3%uint63) (of_nat (corienti u t)))
         0%uint63 (take 7 ctrip).
+
+Definition ectwistt (u : seq nat) : int :=
+  foldr (fun t x => Uint63.add (Uint63.mul x 3%uint63) (of_nat (corientt u t)))
+        0%uint63 (take 7 ctrip).
+
+Definition ctwisti (a : arr) : int := ectwisti (inv_tabi 47 a).
+Definition ctwistt (t : seq nat) : int := ectwistt (inv_tab 47 t).
 
 (* the 2187 x 18 twist move table, alongside Coordfsi's actf.  GENERATED. *)
 Definition twmove : arr := PArray.make (of_nat (ntwist * 18)) 0%uint63.
@@ -248,13 +263,65 @@ Definition Dp1 (tw x : int) : nat := p1base + to_nat (p1get (p1idx tw x)).
 
 (* -- the twist is a genuine quotient coordinate -------------------------- *)
 
+(* the identity leaves every corner's U/D sticker on its own slot, so every
+   base 3 digit is 0.  perm1 kills the permutation and inordK the ordinal, and
+   then each test is a membership in cprim that computes.  NB neither
+   vm_compute nor native_compute can do this directly -- they time out on the
+   48 element finfun behind (1 : {perm facelet}). *)
 Lemma coordtw_id : coordtw 1 = 0%uint63.
+Proof. by rewrite /coordtw /corientg invg1 /= !perm1 /udcol !inordK. Qed.
+
+(* the bitmask really is membership in cprim -- 48 cases, so it computes *)
+Lemma bit_cmask x : (x < 48)%N -> bitc (of_nat x) = (x \in cprim).
+Proof.
+move=> xL.
+have H : all (fun k => bitc (of_nat k) == (k \in cprim)) (iota 0 48).
+  by vm_compute.
+by move/allP: H => /(_ x); rewrite mem_iota /= xL => /(_ isT)/eqP.
+Qed.
+
+(* array -> list, mirroring Coordfsi.ecoordiE.
+
+   STUCK -- the proof below gets to one step from the end and then loops.
+   After
+
+     rewrite !bE.
+
+   there are 15 goals: the first is literally X = X and closes with by [],
+   and the other 14 are  to_nat (get u (of_pos k)) < 48  for the fourteen
+   facelets of the seven triples.  blt discharges exactly those, but
+
+     apply: blt
+
+   diverges, and so does a trailing //.  The reason looks like the numerals:
+   the /= that unfolds foldr over the concrete seven element take 7 ctrip
+   also normalises of_nat 37 into of_pos 37%AC, so closing the side goal asks
+   unification to solve  of_nat ?c == of_pos 37%AC,  i.e. to invert of_nat,
+   and it unfolds forever.  Coordfsi.ecoordiE does not hit this because it
+   goes through eq_packn and never simplifies a numeral.
+
+   Two ways out I can see, both of which I would rather you picked between:
+   lock of_nat across the /=, or restate ectwist* as a fold over iota 0 7
+   with nth into ctrip so the side condition is c < 7 rather than a numeral.
+
+Proof.
+move=> uok.
+have bE (y : int) : (to_nat y < 48)%N -> bitc y = (to_nat y \in cprim).
+  by move=> yL; rewrite -bit_cmask ?to_natK.
+have blt c : (c < 48)%N -> (to_nat (PArray.get u (of_nat c)) < 48)%N.
+  by move=> cL; apply: tabi_lt.
+rewrite /ectwisti /ectwistt /=.
+rewrite !bE.                      (* 15 goals; goal 1 is X = X *)
+(* ... and here apply: blt loops on every one of the fourteen *)
+Qed. *)
+Lemma ectwistiE u : tabi_ok 47 u -> ectwisti u = ectwistt (ti2t 47 u).
 Proof. Admitted.
 
-(* the array form computes the structured one.  Same three level shape as the
-   flip x slice half, whose bridge is Coordfsi.coordtE:
-     coordfs (pt 47 t) = coordt t   for tab_ok 47 t. *)
-Lemma ctwistiE t : tab_ok 47 t -> ctwisti (t2ti 47 t) = coordtw (pt 47 t).
+Lemma ctwistiE a : tabi_ok 47 a -> ctwisti a = ctwistt (ti2t 47 a).
+Proof. Admitted.
+
+(* list -> permutation, mirroring Coordfsi.coordtE *)
+Lemma ctwisttE t : tab_ok 47 t -> coordtw (pt 47 t) = ctwistt t.
 Proof. Admitted.
 
 (* twist (g * m) depends only on (twist g, m).  Checked by BFS in OCaml over
