@@ -28,6 +28,9 @@ M ∈ {24,32,45,48,60,64}, all A, all B, every reachable loop state.
 | `d' + p' < q` | FALSE, 8611/10669 |
 | `W < q` always, in `le_ge_wrap` | FALSE, 2781/5701 — it quantifies over every `m`, not just the first to wrap |
 | `ge_wrap_au` | FALSE, 1941/4690 — see §2 |
+| a CANONICAL witness for `invx_gap`: greedy on the larger gap | FALSE, 194782/226002 — `b` overshoots `v` |
+| the same, `b` minimal or maximal in its congruence class | FALSE, 146308/226002 — the witness is an interior lattice point |
+| `invx_gap` as pure arithmetic (every multiple of `gcdn p q` below `u*p+v*q` is representable with `a<=u, b<=v`) | FALSE, 9322/16336 |
 | `ge_cross_ex` as first written (argmax always crosses within `p %/ q`) | FALSE, 4795/5908 — the argmax needs one step more and leaves the new range |
 | `Inf(new) = Inf(u+v) %% q` (the MIN-gap `ge` mirror of `inf_new_lt`) | FALSE, 2226/5908 — the `ge` drop tracks `p - k*q`, not `q` |
 
@@ -64,6 +67,9 @@ lemma does.** `ge_wrap_tight` (its replacement) names no decomposition.
 | `ge_cross_ex` as the DISJUNCTION (`Inf (u+v) < q` or a crossing with `0 < j <= p %/ q` inside the new range) | 0 / 5908 |
 | `Dst ymax >= M - p` (max distance vs max gap) | 0 / 5908 |
 | the first crossing lands inside a `q`-gap | 0 / 5908 |
+| `ge_inf_cases`: `Inf(new) = d'` (with `Inf (u+v)` for `d`) or `Inf (u+v) < q` | 0 / 12352, 8 moduli |
+| `Inf(new) >= d'` in the `ge` branch | 0 / 12352 |
+| `Inf(new)` is `d'` or `Inf (u+v)` | 0 / 12352 |
 
 ## 4. `invx` — which fields are needed
 
@@ -128,6 +134,22 @@ Remaining, with what each wants:
   argument of PR #121 and lifts verbatim.
 - **`inf_cong_ge`** — the `ge`-branch congruence. Untouched; the mirror
   shortcut is false (§1).
+
+## 6b. Where the remaining holes actually come from
+
+Round 8 measured away the shortcut: `invx_gap` has **no canonical witness**
+and is **not pure arithmetic** (see §1). Its content is an index count --
+how many `p`-gaps and how many `q`-gaps lie between the argmin and `y` --
+i.e. the three-distance theorem in index form. That is what
+`lt_gap_count`, `lt_gap_new` and `invx_step_ge_gap` are all missing, and
+`ge_wrap_tight` needs the same structure to place the wrapped point.
+
+**That theorem is already formalised**: `/home/thery/git/CFrac/slater.v`
+(763 lines, compiled), `get_minB` / `get_maxB` / `get_nextDmin` /
+`get_nextDmax` / `get_nextDmin_max` -- the names the comments in `Alg2.v`
+already cite. It is stated over `R` (`n@ mod 1`), so it needs porting to
+`nat` mod `M`, not importing. That port is the convergence path; guessing
+more statements is not.
 
 ## 7. Rocq gotchas hit in this file
 
