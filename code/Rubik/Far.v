@@ -70,7 +70,7 @@ Notation arr := (PArray.array int).
    the old Xeon, so -j12 pays two waves where -j18 pays one.  Drop back to
    -j12 if memory complains -- every worker loads the table, about a
    gigabyte each.                                                          *)
-Definition depth := 14.
+Definition depth := 15.
 Definition droot := depth.-2.           (* depth = droot.+2                   *)
 Definition nroot := 2.                  (* size Sroot                         *)
 Definition nmoves := 18.                (* size moves                         *)
@@ -904,17 +904,252 @@ Fixpoint searchz5 (d : nat) (a : arr) (x : c5) (p : nat) : bool :=
     else false
   else false.
 
-(* [ADMITTED -- the plumbing, not the mathematics.]  Every ingredient is
-   proved just above: coordi_step is the per-view invariant step, view_move
-   the vm_compute fact that conjugation permutes the eighteen moves,
-   cubti_conji that the guard survives conjugation.  What is missing is
-     h5 (init5 a) = Dsymd a                    (five DtidE2 + cubti_conji)
-     step5 (init5 a) k = init5 (a . m_k)       (five coordi_step, via the sg
-                                                bridges nth sgj k = sigma vj k)
-   and then the induction, which is searchzE's shape with a 5-tuple carried
-   instead of one int.  far_of_searchsym then finishes it.                 *)
-Lemma far_of_searchz5 d a :
-  tabi_ok 47 a -> cubti a ->
+(* the sigma rows, related back to their computable form *)
+Lemma sg0M : sg0 = [seq sigma (nth [::] viewst 0) k | k <- iota 0 18].
+Proof. by vm_compute. Qed.
+Lemma sg1M : sg1 = [seq sigma (nth [::] viewst 1) k | k <- iota 0 18].
+Proof. by vm_compute. Qed.
+Lemma sg2M : sg2 = [seq sigma (nth [::] viewst 2) k | k <- iota 0 18].
+Proof. by vm_compute. Qed.
+Lemma sg3M : sg3 = [seq sigma (nth [::] viewst 3) k | k <- iota 0 18].
+Proof. by vm_compute. Qed.
+Lemma sg4M : sg4 = [seq sigma (nth [::] viewst 4) k | k <- iota 0 18].
+Proof. by vm_compute. Qed.
+
+(* NOTE: never leave the size side condition to // here -- it wanders into
+   sigma's computation and does not return. *)
+Lemma sg0N k : k < 18 -> nth 0%N sg0 k = sigma (nth [::] viewst 0) k.
+Proof.
+move=> kL; rewrite sg0M (nth_map 0%N).
+- by rewrite nth_iota // add0n.
+by rewrite size_iota.
+Qed.
+Lemma sg1N k : k < 18 -> nth 0%N sg1 k = sigma (nth [::] viewst 1) k.
+Proof.
+move=> kL; rewrite sg1M (nth_map 0%N).
+- by rewrite nth_iota // add0n.
+by rewrite size_iota.
+Qed.
+Lemma sg2N k : k < 18 -> nth 0%N sg2 k = sigma (nth [::] viewst 2) k.
+Proof.
+move=> kL; rewrite sg2M (nth_map 0%N).
+- by rewrite nth_iota // add0n.
+by rewrite size_iota.
+Qed.
+Lemma sg3N k : k < 18 -> nth 0%N sg3 k = sigma (nth [::] viewst 3) k.
+Proof.
+move=> kL; rewrite sg3M (nth_map 0%N).
+- by rewrite nth_iota // add0n.
+by rewrite size_iota.
+Qed.
+Lemma sg4N k : k < 18 -> nth 0%N sg4 k = sigma (nth [::] viewst 4) k.
+Proof.
+move=> kL; rewrite sg4M (nth_map 0%N).
+- by rewrite nth_iota // add0n.
+by rewrite size_iota.
+Qed.
+
+(* FIRST INVARIANT: the carried heuristic is the rebuilt one.
+   The five DtidE2 rewrites and the final comparison all need lock -- without
+   it each one scans a goal full of conjy/conjx over concrete tables. *)
+Lemma h5_init a : tabi_ok 47 a -> cubti a -> h5 (init5 a) = Dsymd a.
+Proof.
+move=> aok ca.
+have oky : tabi_ok 47 (conjy a).
+  by rewrite conjyE; apply: tabi_ok_conji; [exact: okSy | exact: aok].
+have okx : tabi_ok 47 (conjx a).
+  by rewrite conjxE; apply: tabi_ok_conji; [exact: okSx | exact: aok].
+have cy : cubti (conjy a).
+  by rewrite conjyE; apply: cubti_conji;
+     [exact: okSy | exact: cubt_Sy | exact: aok | exact: ca].
+have cx : cubti (conjx a).
+  by rewrite conjxE; apply: cubti_conji;
+     [exact: okSx | exact: cubt_Sx | exact: aok | exact: ca].
+have okyx : tabi_ok 47 (conjy (conjx a)).
+  by rewrite conjyE; apply: tabi_ok_conji; [exact: okSy | exact: okx].
+have okxy : tabi_ok 47 (conjx (conjy a)).
+  by rewrite conjxE; apply: tabi_ok_conji; [exact: okSx | exact: oky].
+have cyx : cubti (conjy (conjx a)).
+  by rewrite conjyE; apply: cubti_conji;
+     [exact: okSy | exact: cubt_Sy | exact: okx | exact: cx].
+have cxy : cubti (conjx (conjy a)).
+  by rewrite conjxE; apply: cubti_conji;
+     [exact: okSx | exact: cubt_Sx | exact: oky | exact: cy].
+rewrite /h5 /init5 /Dsymd.
+rewrite {-1}[Dtid]lock (DtidE2 aok ca) -lock.
+rewrite {-1}[Dtid]lock (DtidE2 oky cy) -lock.
+rewrite {-1}[Dtid]lock (DtidE2 okx cx) -lock.
+rewrite {-1}[Dtid]lock (DtidE2 okyx cyx) -lock.
+rewrite (DtidE2 okxy cxy).
+by rewrite [Dfsd]lock [coordi]lock.
+Qed.
+
+Lemma okv3 : tab_ok 47 (nth [::] viewst 3).
+Proof. by apply: tab_ok_comp; [exact: okSx | exact: okSy]. Qed.
+Lemma okv4 : tab_ok 47 (nth [::] viewst 4).
+Proof. by apply: tab_ok_comp; [exact: okSy | exact: okSx]. Qed.
+
+Lemma ti2t_yx a : tabi_ok 47 a ->
+  ti2t 47 (conjy (conjx a)) = ti2t 47 (conji (nth [::] viewst 3) a).
+Proof.
+move=> aok.
+have okx : tabi_ok 47 (conjx a).
+  by rewrite conjxE; apply: tabi_ok_conji; [exact: okSx | exact: aok].
+rewrite conjyE.
+rewrite {2}[conji]lock (ti2t_conji okSy okx) -lock.
+rewrite conjxE.
+rewrite {2}[conji]lock (ti2t_conji okSx aok) -lock.
+by rewrite (conjtM okSx okSy aok) (ti2t_conji okv3 aok).
+Qed.
+
+Lemma ti2t_xy a : tabi_ok 47 a ->
+  ti2t 47 (conjx (conjy a)) = ti2t 47 (conji (nth [::] viewst 4) a).
+Proof.
+move=> aok.
+have oky : tabi_ok 47 (conjy a).
+  by rewrite conjyE; apply: tabi_ok_conji; [exact: okSy | exact: aok].
+rewrite conjxE.
+rewrite {2}[conji]lock (ti2t_conji okSx oky) -lock.
+rewrite conjyE.
+rewrite {2}[conji]lock (ti2t_conji okSy aok) -lock.
+by rewrite (conjtM okSy okSx aok) (ti2t_conji okv4 aok).
+Qed.
+
+Lemma coordi_ti2t X Y : tabi_ok 47 X -> tabi_ok 47 Y ->
+  ti2t 47 X = ti2t 47 Y -> coordi X = coordi Y.
+Proof. by move=> oX oY e; rewrite (coordiE oX) (coordiE oY) e. Qed.
+
+Lemma sigma_v0 k : k < 18 -> sigma (nth [::] viewst 0) k = k.
+Proof.
+move=> kL.
+have kM : k < seq.size mtabs by rewrite -ti2t_mtis seq.size_map size_mtis.
+have mok : tab_ok 47 (nth [::] mtabs k) by apply: (allP mtabs_ok); rewrite mem_nth.
+by rewrite /sigma (conjt_id mok) index_uniq // uniq_mtabs.
+Qed.
+
+Lemma vV j : j < 5 -> nth [::] viewst j \in viewst.
+Proof. by move=> jL; rewrite mem_nth. Qed.
+
+Lemma step_comp s a k : s \in viewst -> tab_ok 47 s -> cubt s ->
+  tabi_ok 47 a -> cubti a -> k < 18 ->
+  coordi (conji s (comp_tabi 47 a (nth (id_tabi 47) mtis k)))
+  = actcd (coordi (conji s a)) (sigma s k).
+Proof.
+move=> sV sok cs aok ca kL.
+by apply: coordi_step => //; last by apply: view_move.
+Qed.
+
+(* SECOND INVARIANT: stepping the five agrees with rebuilding them. *)
+Lemma step5_init a k : tabi_ok 47 a -> cubti a -> k < 18 ->
+  step5 (init5 a) k = init5 (comp_tabi 47 a (nth (id_tabi 47) mtis k)).
+Proof.
+move=> aok ca kL.
+have mtok : tabi_ok 47 (nth (id_tabi 47) mtis k)
+  by apply: (all_nthP (id_tabi 47) mtis_ok); rewrite size_mtis.
+have Aok : tabi_ok 47 (comp_tabi 47 a (nth (id_tabi 47) mtis k))
+  by apply: (tabi_ok_comp n47_small n47_len).
+have cA : cubti (comp_tabi 47 a (nth (id_tabi 47) mtis k))
+  by apply: cubti_comp => //; rewrite size_mtis.
+have cv3 : cubt (nth [::] viewst 3).
+  rewrite -(cubtE okv3) -(ptM okSx okSy); apply: cubPM.
+  - by rewrite (cubtE okSx); exact: cubt_Sx.
+  by rewrite (cubtE okSy); exact: cubt_Sy.
+have cv4 : cubt (nth [::] viewst 4).
+  rewrite -(cubtE okv4) -(ptM okSy okSx); apply: cubPM.
+  - by rewrite (cubtE okSy); exact: cubt_Sy.
+  by rewrite (cubtE okSx); exact: cubt_Sx.
+have SyV : Sytab \in viewst by apply: (@vV 1).
+have SxV : Sxtab \in viewst by apply: (@vV 2).
+rewrite /step5 /init5.
+congr (_, _, _, _, _).
+- have kM : k < seq.size mtis by rewrite size_mtis.
+  by rewrite (@sg0N k kL) (@sigma_v0 k kL) (actcdE kM aok ca).
+- rewrite !conjyE (@sg1N k kL); symmetry.
+  by apply: step_comp;
+     [exact: SyV | exact: okSy | exact: cubt_Sy | exact: aok | exact: ca | exact: kL].
+- rewrite !conjxE (@sg2N k kL); symmetry.
+  by apply: step_comp;
+     [exact: SxV | exact: okSx | exact: cubt_Sx | exact: aok | exact: ca | exact: kL].
+- have okxa : tabi_ok 47 (conjx a).
+    by rewrite conjxE; apply: tabi_ok_conji; [exact: okSx | exact: aok].
+  have okyxa : tabi_ok 47 (conjy (conjx a)).
+    by rewrite conjyE; apply: tabi_ok_conji; [exact: okSy | exact: okxa].
+  have okxA : tabi_ok 47 (conjx (comp_tabi 47 a (nth (id_tabi 47) mtis k))).
+    by rewrite conjxE; apply: tabi_ok_conji; [exact: okSx | exact: Aok].
+  have okyxA : tabi_ok 47 (conjy (conjx (comp_tabi 47 a (nth (id_tabi 47) mtis k)))).
+    by rewrite conjyE; apply: tabi_ok_conji; [exact: okSy | exact: okxA].
+  have e1 : coordi (conjy (conjx a)) = coordi (conji (nth [::] viewst 3) a).
+    apply: coordi_ti2t;
+      [exact: okyxa | apply: tabi_ok_conji; [exact: okv3 | exact: aok]
+       | apply: ti2t_yx; exact: aok].
+  have e2 : coordi (conjy (conjx (comp_tabi 47 a (nth (id_tabi 47) mtis k))))
+          = coordi (conji (nth [::] viewst 3) (comp_tabi 47 a (nth (id_tabi 47) mtis k))).
+    apply: coordi_ti2t;
+      [exact: okyxA | apply: tabi_ok_conji; [exact: okv3 | exact: Aok]
+       | apply: ti2t_yx; exact: Aok].
+  rewrite e1 e2 (@sg3N k kL); symmetry.
+  by apply: step_comp;
+     [by apply: (@vV 3) | exact: okv3 | exact: cv3 | exact: aok | exact: ca | exact: kL].
+have okya : tabi_ok 47 (conjy a).
+  by rewrite conjyE; apply: tabi_ok_conji; [exact: okSy | exact: aok].
+have okxya : tabi_ok 47 (conjx (conjy a)).
+  by rewrite conjxE; apply: tabi_ok_conji; [exact: okSx | exact: okya].
+have okyA : tabi_ok 47 (conjy (comp_tabi 47 a (nth (id_tabi 47) mtis k))).
+  by rewrite conjyE; apply: tabi_ok_conji; [exact: okSy | exact: Aok].
+have okxyA : tabi_ok 47 (conjx (conjy (comp_tabi 47 a (nth (id_tabi 47) mtis k)))).
+  by rewrite conjxE; apply: tabi_ok_conji; [exact: okSx | exact: okyA].
+have f1 : coordi (conjx (conjy a)) = coordi (conji (nth [::] viewst 4) a).
+  apply: coordi_ti2t;
+    [exact: okxya | apply: tabi_ok_conji; [exact: okv4 | exact: aok]
+     | apply: ti2t_xy; exact: aok].
+have f2 : coordi (conjx (conjy (comp_tabi 47 a (nth (id_tabi 47) mtis k))))
+        = coordi (conji (nth [::] viewst 4) (comp_tabi 47 a (nth (id_tabi 47) mtis k))).
+  apply: coordi_ti2t;
+    [exact: okxyA | apply: tabi_ok_conji; [exact: okv4 | exact: Aok]
+     | apply: ti2t_xy; exact: Aok].
+rewrite f1 f2 (@sg4N k kL); symmetry.
+by apply: step_comp;
+   [by apply: (@vV 4) | exact: okv4 | exact: cv4 | exact: aok | exact: ca | exact: kL].
+Qed.
+
+Lemma searchz5S d a x p :
+  searchz5 d.+1 a x p =
+  (h5 x <= d.+1) &&
+  (eq_tabi 47 a (id_tabi 47) ||
+   has (fun k => searchz5 d (comp_tabi 47 a (nth (id_tabi 47) mtis k))
+                            (step5 x k) (fcpos k))
+       (allowedr mtis nfcube oppf fcpos p)).
+Proof.
+rewrite {1}/searchz5 -/searchz5.
+by case: (h5 x <= d.+1) => //=; case: (eq_tabi 47 a (id_tabi 47)) => //=.
+Qed.
+
+(* THE INDUCTION.  f_equal2 rather than congr, which does not return here. *)
+Lemma searchz5E d a p : tabi_ok 47 a -> cubti a ->
+  searchz5 d a (init5 a) p = searchir 47 mtis Dsymd nfcube oppf fcpos d a p.
+Proof.
+elim: d a p => [|d IH] a p aok ca.
+  rewrite {1}/searchz5 {1}/searchir (@h5_init a aok ca).
+  by case: (Dsymd a <= 0); case: (eq_tabi 47 a (id_tabi 47)).
+rewrite searchz5S (searchirS 47 mtis Dsymd nfcube oppf fcpos d a p).
+rewrite (@h5_init a aok ca).
+apply: f_equal2; first by apply: refl_equal.
+apply: f_equal2; first by apply: refl_equal.
+apply: eq_in_has => k; rewrite mem_filter mem_iota => /andP[_ /andP[_ kL]].
+have kL18 : k < 18 by move: kL; rewrite add0n size_mtis.
+have mtok : tabi_ok 47 (nth (id_tabi 47) mtis k)
+  by apply: (all_nthP (id_tabi 47) mtis_ok); move: kL; rewrite add0n.
+have Aok : tabi_ok 47 (comp_tabi 47 a (nth (id_tabi 47) mtis k))
+  by apply: (tabi_ok_comp n47_small n47_len).
+have cA : cubti (comp_tabi 47 a (nth (id_tabi 47) mtis k))
+  by apply: cubti_comp; [move: kL; rewrite add0n | exact: aok | exact: ca].
+by rewrite (@step5_init a k aok ca kL18) (IH _ (fcpos k) Aok cA).
+Qed.
+
+Lemma far_of_searchz5 d a : tabi_ok 47 a -> cubti a ->
   searchz5 d a (init5 a) nfcube = false ->
   pt 47 (ti2t 47 a) \notin ball Sset d.
-Admitted.
+Proof.
+move=> aok ca hs; apply: far_of_searchsym => //.
+by rewrite -(@searchz5E d a nfcube aok ca).
+Qed.
