@@ -28,6 +28,8 @@ M ∈ {24,32,45,48,60,64}, all A, all B, every reachable loop state.
 | `d' + p' < q` | FALSE, 8611/10669 |
 | `W < q` always, in `le_ge_wrap` | FALSE, 2781/5701 — it quantifies over every `m`, not just the first to wrap |
 | `ge_wrap_au` | FALSE, 1941/4690 — see §2 |
+| `ge_cross_ex` as first written (argmax always crosses within `p %/ q`) | FALSE, 4795/5908 — the argmax needs one step more and leaves the new range |
+| `Inf(new) = Inf(u+v) %% q` (the MIN-gap `ge` mirror of `inf_new_lt`) | FALSE, 2226/5908 — the `ge` drop tracks `p - k*q`, not `q` |
 
 ## 2. The `ge_wrap_au` retraction (PR #121 → #122)
 
@@ -59,6 +61,9 @@ lemma does.** `ge_wrap_tight` (its replacement) names no decomposition.
 | `ge_wrap_tight` | 0 / 11335 (3124 left disjunct, 10701 right) |
 | `pt_neq0 <-> N < M %/ gcdn A M` | 0 / 106962, all M<60, all A, N up to twice the bound |
 | `le_ge_wrap` | 0 / 16705 |
+| `ge_cross_ex` as the DISJUNCTION (`Inf (u+v) < q` or a crossing with `0 < j <= p %/ q` inside the new range) | 0 / 5908 |
+| `Dst ymax >= M - p` (max distance vs max gap) | 0 / 5908 |
+| the first crossing lands inside a `q`-gap | 0 / 5908 |
 
 ## 4. `invx` — which fields are needed
 
@@ -99,8 +104,10 @@ Remaining, with what each wants:
   `step_invd_le_new` → `le_lt_nowrap` → `mod_le_restricted`, which needs
   `invx`. Circular. (An earlier note here suggested lifting `inf_new_lt`
   earlier; that is wrong.)
-- **`ge/inf`** — no computed counterpart (the `ge` analogue of `inf_new_lt` is
-  false, §1), so it needs the gap argument directly.
+- **`ge/inf`** — PROVED, from `ge_cross_ex` in its disjunctive form: the left
+  disjunct closes by monotonicity (`inf_dst_ex` then `inf_dst_le`), the right
+  by `walk_ge_wrapeq`. Both `ge` analogues of `inf_new_lt` are false (§1),
+  so `ge_cross_ex` itself still needs the gap argument.
 - **`lt/gap`, `ge/gap`** — the trade `q = q' + (q %/ p)*p` is **free**
   (`subnK` + `leq_divM`), so no helper is wanted there. The content is the
   count bookkeeping: from `a <= u`, `b <= v` and `a*p + b*q =
@@ -111,17 +118,22 @@ Remaining, with what each wants:
 
 ## 6. Other open holes
 
-- **`pt_neq0`** — now a lemma, not an axiom (§3). Proof: `Pt n = 0` iff
-  `M %| A*n` iff `(M %/ g) %| n` by Gauss after dividing by `g = gcdn A M`;
+- **`pt_neq0`** — PROVED, with `coprime_quot`: `Pt n = 0` iff `M %| A*n` iff
+  `(M %/ g) %| n` by `Gauss_dvdr` after cancelling `g = gcdn A M`;
   `N_lt_Mg` puts the first such `n` beyond `N`.
+- **`lt_gap_new`** — reduces to `lt_gap_count`'s bookkeeping with
+  `a' = c + a + b*k - j`. Open corner: nothing rules out `j > c + a + b*k`,
+  and the borrow needs `q - k*p >= p`, false since that residue is `q %% p`.
 - **`ge_wrap_tight`** — §1/§2. The `p`-interval half is the congruence
   argument of PR #121 and lifts verbatim.
-- **`invx_p2_iter`** — mirror of the proved `invx_p1_iter`; same induction,
-  one extra `modnDml` for the `%% M`.
 - **`inf_cong_ge`** — the `ge`-branch congruence. Untouched; the mirror
   shortcut is false (§1).
 
 ## 7. Rocq gotchas hit in this file
+
+- `rocq_step_multi` runs every tactic in its list **from the same state**,
+  not in sequence — it tests alternatives. Use `rocq_compile_file` to check
+  a chain.
 
 - `rewrite -foo ?ltnW //` **diverges** when `ltnW` is an implication — pass
   arguments explicitly.
