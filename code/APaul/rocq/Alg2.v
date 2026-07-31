@@ -176,7 +176,8 @@ Qed.
 
 (** The bound that keeps a [v]-walk below [M]. *)
 Lemma pt_walk_le q y mp : Pt y <= M - q -> q <= M -> mp <= q -> Pt y + mp <= M.
-Proof. by move=> H1 qM H2; apply: leq_trans (leq_add H1 H2) _; rewrite subnK. Qed.
+Proof. by move=> H1 qM H2; apply: leq_trans (leq_add H1 H2) _; rewrite subnK.
+  Qed.
 
 
 (** ** How far the sequence can run: the orbit of [A] modulo [M] *)
@@ -277,7 +278,8 @@ have F : Pt x + Pt y < M.*2.
 have [xyLM|MLxy]:= ltnP (Pt x + Pt y) M.
   rewrite [(Pt x + _) %% _]modn_small //.
   rewrite subnDA modnB //; last by apply: leq_trans ptLdx (leq_mod _ _).
-  rewrite -[(B + M - Pt x) %% M]/(Dst x) ltnNge modn_small; last by apply: pt_lt.
+  rewrite -[(B + M - Pt x) %% M]/(Dst x) ltnNge modn_small; last by apply:
+    pt_lt.
   by rewrite ptLdx add0n.
 have -> : (Pt x + Pt y) %% M  = Pt x + Pt y - M.
   by rewrite -[in LHS](subnK MLxy) modnDr modn_small // ltn_subLR // addnn.
@@ -437,7 +439,8 @@ Qed.
 Lemma inf_dst_ex n : 0 < n -> exists2 y, y < n & Inf n = Dst y.
 Proof.
 elim: n => // [] [_ _|n IH _].
-  by exists 0; rewrite // inf_dstS inf_dst0; apply/minn_idPl; rewrite ltnW // dst_lt.
+  by exists 0; rewrite // inf_dstS inf_dst0; apply/minn_idPl; rewrite ltnW //
+    dst_lt.
 rewrite inf_dstS.
 have [y yLn Hy] := IH isT; rewrite Hy.
 case: (leqP (Dst n.+1) (Dst y)) => [H|H].
@@ -507,7 +510,8 @@ Lemma maxn_new_lt p q : 0 < p -> maxn p (q - q %/ p * p) = p.
 Proof. by move=> p_gt0; apply/maxn_idPl; rewrite ltnW // q'_lt_p. Qed.
 
 (** Bound on the offset used by [new_index_decomp_sharp]. *)
-Lemma sharp_t_lt k u v x : u + v <= x -> x < u + k * v -> x - (u + v) < (k - 1) * v.
+Lemma sharp_t_lt k u v x : u + v <= x -> x < u + k * v -> x - (u + v) < (k - 1)
+  * v.
 Proof.
 move=> xge xlt.
 have k_gt0 : 0 < k.
@@ -532,12 +536,14 @@ Proof.
 move=> v_gt0 xge.
 rewrite mulSnr (leq_trans (leq_add (leq_divM _ _) (leqnn v))) //.
 have -> : x - (u + v) + v = x - u.
-  by rewrite subnDA subnK // -(leq_add2l u) subnKC // (leq_trans _ xge) // leq_addr.
+  by rewrite subnDA subnK // -(leq_add2l u) subnKC // (leq_trans _ xge) //
+    leq_addr.
 by rewrite leq_subr.
 Qed.
 
 (** Upper half of [new_index_decomp_sharp]. *)
-Lemma sharp_hi u v x : 0 < v -> u + v <= x -> x - ((x - (u + v)) %/ v).+1 * v < u + v.
+Lemma sharp_hi u v x : 0 < v -> u + v <= x -> x - ((x - (u + v)) %/ v).+1 * v <
+  u + v.
 Proof.
 move=> v_gt0 xge.
 rewrite ltn_subLR ?sharp_lo // -{1}(subnK xge) ltn_add2r.
@@ -789,14 +795,16 @@ have [pLq|qLp] := ltnP => /= Hb Huv; split => //.
   case: (posnP (q - q %/ p * p)) => [q0|] //.
   have qme : q - q %/ p * p = q %% p by rewrite {1}(divn_eq q p) addnC addnK.
   have qmp : q %% p = 0 by rewrite -qme q0.
-  have pg : p = gcdn A M by rewrite -gE; apply/esym/gcdn_idPl; rewrite /dvdn qmp.
+  have pg : p = gcdn A M by rewrite -gE; apply/esym/gcdn_idPl; rewrite /dvdn
+    qmp.
   move: Hb; rewrite q0 muln0 addn0 => Hb.
   have Hu : u + q %/ p * v = M %/ p by rewrite -Hb mulnK.
   by move: Huv; rewrite Hu pg ltnNge (leq_trans N_le_Mg (leq_addr v _)).
 case: (posnP (p - p %/ q * q)) => [p0|] //.
 have pme : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
 have pmq : p %% q = 0 by rewrite -pme p0.
-have qg : q = gcdn A M by rewrite -gE gcdnC; apply/esym/gcdn_idPl; rewrite /dvdn pmq.
+have qg : q = gcdn A M by rewrite -gE gcdnC; apply/esym/gcdn_idPl; rewrite /dvdn
+  pmq.
 move: Hb; rewrite p0 muln0 add0n => Hb.
 have Hv : v + p %/ q * u = M %/ q by rewrite -Hb mulnK.
 by move: Huv; rewrite Hv qg ltnNge (leq_trans N_le_Mg (leq_addl u _)).
@@ -975,7 +983,8 @@ have HAM : A <= M by rewrite ltnW.
 have Hk : (M - A) %/ A * A + A <= M.
   by rewrite -{2}(subnK HAM) leq_add2r leq_divM.
 have Hge := invd_first_le_ge.
-move: Hge; rewrite /step HA HB; case: ltnP => [pLq|qLp] /= Hge; last by apply: Hge.
+move: Hge; rewrite /step HA HB; case: ltnP => [pLq|qLp] /= Hge; last by apply:
+  Hge.
 apply: le_inf_dst; first by rewrite (leq_trans (leq_mod _ _)) // ltnW.
 move=> x xLk; rewrite !muln1 !add1n in xLk.
 have Hk2 : A * ((M - A) %/ A + 1) <= M by rewrite mulnDr muln1 mulnC.
@@ -1062,7 +1071,8 @@ have HA : A %% M = A by rewrite modn_small.
 have HB : B %% M = B by rewrite modn_small.
 have Hp1 : Pt 1 = A by rewrite /pt muln1 HA.
 have Hge := invd_first_ge_ge.
-move: Hge; rewrite /step HA HB; case: ltnP => [pLq|qLp] /= Hge; last by apply: Hge.
+move: Hge; rewrite /step HA HB; case: ltnP => [pLq|qLp] /= Hge; last by apply:
+  Hge.
 have HzA : A * (B %/ A) <= B by rewrite mulnC leq_divM.
 have Hz : Dst (B %/ A) = B %% A.
   rewrite dst_below; last by rewrite pt_mul_small Hp1 // (leq_ltn_trans HzA).
@@ -1178,12 +1188,14 @@ have HA : A %% M = A by apply: modn_small.
 have Hp1 : Pt 1 = A by rewrite /pt muln1.
 have Inf2 : Inf (1 + 1) = minn (Dst 1) (Dst 0).
   rewrite !inf_dstS inf_dst0.
-  by have -> : minn (Dst 0) M = Dst 0 by apply/minn_idPl; rewrite ltnW // dst_lt.
+  by have -> : minn (Dst 0) M = Dst 0 by apply/minn_idPl; rewrite ltnW //
+    dst_lt.
 (* the two points are [0] and [A]; [b] sits either above [A] (gap [p]) or
    below it (gap [q]), and that fixes both [Inf] and the decomposition *)
 have HI : Inf (1 + 1) = if A <= B then B - A else B.
   case: (leqP A B) => [AB|AB].
-    rewrite Inf2 dst0 (_ : Dst 1 = B - A); first by apply/minn_idPl; rewrite leq_subr.
+    rewrite Inf2 dst0 (_ : Dst 1 = B - A); first by apply/minn_idPl; rewrite
+      leq_subr.
     by rewrite dst_below Hp1.
   rewrite Inf2 dst0 (_ : Dst 1 = B + M - A).
     by apply/minn_idPr; rewrite -addnBA ?leq_addr // ltnW.
@@ -1288,7 +1300,8 @@ case: (ltnP (Dst m2 + Pt (m2 - m1)) M) => [Hlt|Hge].
   by rewrite Heq (modn_small Hlt) addnC.
 have Hs : Dst m2 + Pt (m2 - m1) - M < M.
   rewrite ltn_subLR //.
-  by rewrite (leq_ltn_trans (leq_add (ltnW (dst_lt _)) (leqnn _))) // ltn_add2l pt_lt.
+  by rewrite (leq_ltn_trans (leq_add (ltnW (dst_lt _)) (leqnn _))) // ltn_add2l
+    pt_lt.
 have HD : Dst m1 = Dst m2 + Pt (m2 - m1) - M.
   by rewrite Heq -{1}(subnK Hge) modnDr modn_small.
 suff : Dst m1 < Dst m2 by rewrite ltnNge D21.
@@ -1309,7 +1322,8 @@ case: (ltnP (Dst m1 + Pt (m1 - m2)) M) => [Hlt|Hge].
   by rewrite leq_addr andbT -(modn_small Hlt) -Heq D21.
 have Hs : Dst m1 + Pt (m1 - m2) - M < M.
   rewrite ltn_subLR //.
-  by rewrite (leq_ltn_trans (leq_add (ltnW (dst_lt _)) (leqnn _))) // ltn_add2l pt_lt.
+  by rewrite (leq_ltn_trans (leq_add (ltnW (dst_lt _)) (leqnn _))) // ltn_add2l
+    pt_lt.
 have HD : Dst m2 = Dst m1 + Pt (m1 - m2) - M.
   by rewrite Heq -{1}(subnK Hge) modnDr modn_small.
 by rewrite HD addnC subnKC // (leq_trans Hge) // leq_addl.
@@ -1377,7 +1391,8 @@ suff Hq : q + Dst z <= Dst y.
   case: (ltnP (Dst (y - u) + q) M) => [Hs|Hs].
     by rewrite Heq (modn_small Hs) addnK.
   have Hlt2 : Dst (y - u) + q - M < M.
-    by rewrite ltn_subLR // (leq_ltn_trans (leq_add (leqnn (Dst (y - u))) qM)) //
+    by rewrite ltn_subLR // (leq_ltn_trans (leq_add (leqnn (Dst (y - u))) qM))
+      //
                ltn_add2r dst_lt.
   move: Heq; rewrite -{1}(subnK Hs) modnDr (modn_small Hlt2) => Heq.
   have Hc : Dst y < q by rewrite Heq ltn_subLR // ltn_add2r dst_lt.
@@ -1418,7 +1433,8 @@ have uvN := inv_uv_le iv.
     by apply/eqP; rewrite eqn_leq Dzy andbT -subn_eq0 -leqn0.
   have -> : y = z.
     case: (ltngtP y z) => // [yz|zy].
-      have := dst_gap_up (ltnW yz) Dzy; rewrite Dyz -{2}[Dst z]add0n => /addIn H0.
+      have := dst_gap_up (ltnW yz) Dzy; rewrite Dyz -{2}[Dst z]add0n => /addIn
+        H0.
       have Hd : 0 < z - y < M %/ gcdn A M.
         by rewrite subn_gt0 yz (leq_ltn_trans (leq_subr y z)) // (leq_trans zL).
       by move: (pt_neq0M Hd); rewrite H0 eqxx.
@@ -1520,7 +1536,8 @@ have wz : w < z.
 (* (6) at the pair [(z, w-u)] : nor above the successor *)
 have Hw' : Dst (w - u) = Dst w + M - q := dst_sub_u_wrap iv uw qDw.
 have zDw' : Dst z <= Dst (w - u).
-  rewrite Hw' (leq_trans (ltnW (leq_ltn_trans zDw qDw))) // leq_subRL; last first.
+  rewrite Hw' (leq_trans (ltnW (leq_ltn_trans zDw qDw))) // leq_subRL; last
+    first.
     by rewrite (leq_trans qM) // leq_addl.
   by rewrite (leq_trans qqM) // leq_addl.
 have zw' : z < w - u.
@@ -1528,7 +1545,8 @@ have zw' : z < w - u.
   have Hd := dst_gap_up w'z zDw'.
   have Hk : Pt (z - (w - u)) <= M - q.
     by apply: Hmax; rewrite (leq_ltn_trans (leq_subr _ _)).
-  move: Hk; rewrite -(leq_add2r (Dst z)) Hd Hw' -addnBA // addnC leq_add2l => H2.
+  move: Hk; rewrite -(leq_add2r (Dst z)) Hd Hw' -addnBA // addnC leq_add2l =>
+    H2.
   by move: Dzw; rewrite ltnNge H2.
 (* so [w < z < w - u], and [w - u <= w] *)
 by move: zw'; rewrite ltnNge (leq_trans (leq_subr u w)) // ltnW.
@@ -1611,7 +1629,8 @@ have /andP[m_gt0 mkd] := mk.
 have mpq : m * p <= q by rewrite -leq_divRL.
 (* the whole point of [inv_u0]/[inv_v0]: [p + q <= M] *)
 have pqM : p + q <= M by rewrite -bez leq_add // leq_pmull.
-have mpM : m * p <= M by rewrite (leq_trans mpq) // (leq_trans _ pqM) // leq_addl.
+have mpM : m * p <= M by rewrite (leq_trans mpq) // (leq_trans _ pqM) //
+  leq_addl.
 rewrite leq_subRL; last by rewrite (leq_trans mpM) // leq_addl.
 apply: leq_trans (_ : M <= _); last by rewrite leq_addl.
 by rewrite (leq_trans (leq_add mpq (leqnn p))) // addnC.
@@ -1629,7 +1648,8 @@ move=> iv Hmax pLq uvN' mnew mLuv'.
 have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
 have qM : q <= M := inv_qM iv.
 have uLN : u <= N.
-  by rewrite (leq_trans _ (ltnW uvN')) // (leq_trans (leq_addr (q %/ p * v) u)) // leq_addr.
+  by rewrite (leq_trans _ (ltnW uvN')) // (leq_trans (leq_addr (q %/ p * v) u))
+    // leq_addr.
 have qltM : q < M := inv_qltM iv uLN.
 have [j jk /andP[ylt jvm]] := new_index_decomp v_gt0 mnew mLuv'.
 have /andP[j_gt0 jk2] := jk.
@@ -1694,7 +1714,8 @@ Proof.
 move=> iv ix pLq uvN' xge xlt.
 have [p_gt0 q_gt0 _ _ _ _ u_gt0 v_gt0] := iv.
 have xlt' : x < u + (q %/ p).+1 * v by rewrite mulSn addnA addnAC.
-have [j /andP[j_gt0 jLk] /andP[ylt jvx]] := new_index_decomp_sharp v_gt0 xge xlt'.
+have [j /andP[j_gt0 jLk] /andP[ylt jvx]] := new_index_decomp_sharp v_gt0 xge
+  xlt'.
 rewrite ltnS in jLk.
 have jk : 0 < j <= q %/ p by rewrite j_gt0.
 have jpq : j * p <= q by rewrite -leq_divRL.
@@ -1725,7 +1746,8 @@ Proof.
 move=> iv ix pLq uvN'.
 have [p_gt0 _ _ _ _ _ _ _] := iv.
 apply: le_inf_dst.
-  by rewrite ltnW // (leq_ltn_trans (ltnW (ltn_pmod _ p_gt0))) // (leq_ltn_trans _ (pt_lt v)) // -(inv_pv iv).
+  by rewrite ltnW // (leq_ltn_trans (ltnW (ltn_pmod _ p_gt0))) // (leq_ltn_trans
+    _ (pt_lt v)) // -(inv_pv iv).
 move=> x xL; case: (ltnP x (u + v)) => [xold|xnew].
   exact: inf_ge_old xold.
 exact: inf_ge_new iv ix pLq uvN' xnew xL.
@@ -1825,7 +1847,8 @@ Lemma invx_step_lt_gap p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   forall y, y < u + q %/ p * v + v ->
   exists a b, [/\ a <= u + q %/ p * v, b <= v &
-                  Dst y = Inf (u + q %/ p * v + v) + a * p + b * (q - q %/ p * p)].
+                  Dst y = Inf (u + q %/ p * v + v) + a * p + b * (q - q %/ p *
+                    p)].
 Proof.
 move=> iv ix pLq uvN' y yL.
 have uvN : u + v < N by rewrite (leq_ltn_trans _ uvN') // leq_add2r leq_addr.
@@ -1846,7 +1869,8 @@ Proof.
 move=> iv Hmax pLq uvN' z zL.
 have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
 have qM : q <= M := inv_qM iv.
-have zLN : z <= N by rewrite ltnW // (ltn_trans zL) // (leq_ltn_trans _ uvN') // leq_addr.
+have zLN : z <= N by rewrite ltnW // (ltn_trans zL) // (leq_ltn_trans _ uvN') //
+  leq_addr.
 have zvN : 0 < z + v <= N.
   rewrite addn_gt0 v_gt0 orbT /=.
   by rewrite ltnW // (leq_ltn_trans _ uvN') // leq_add2r ltnW.
@@ -1914,7 +1938,8 @@ case: b Hab bLv => [|[|b]] Hab bLv.
 - by rewrite Hab mul0n addn0 addnC modnMDl dcong.
 (* exactly one [q]: then [a = 0] and [Dst y %% p = Inf + q %% p] *)
 - have a0 : a = 0.
-    case: a Hab aLu => // a Hab aLu; move: Hlt; rewrite Hab mul1n ltnNge => /negP[].
+    case: a Hab aLu => // a Hab aLu; move: Hlt; rewrite Hab mul1n ltnNge =>
+      /negP[].
     by rewrite leq_add2r (leq_trans _ (leq_addl _ _)) // mulSnr leq_addl.
   move: Hab; rewrite a0 mul0n addn0 mul1n => Hab.
   have Hd : Dst y %/ p = q %/ p.
@@ -2054,7 +2079,8 @@ have jqp : j * q <= p by rewrite -leq_divRL.
 rewrite addnC in ylt.
 have key : forall i, 0 < i <= p %/ q -> 0 < m - i * u -> i * u <= m ->
     m - i * u < u + v ->
-    [/\ 0 < m - i * u < u + v, i * q <= Pt (m - i * u) & Pt m = Pt (m - i * u) - i * q].
+    [/\ 0 < m - i * u < u + v, i * q <= Pt (m - i * u) & Pt m = Pt (m - i * u) -
+      i * q].
   move=> i /andP[i_gt0 ik] y_gt0 ium ylt2.
   have iqp : i * q <= p by rewrite -leq_divRL.
   have iqP : i * q <= Pt (m - i * u).
@@ -2153,7 +2179,8 @@ have Ip : Inf (u + v) < p.
   have Hsucc : Pt (y0 + v) = Pt y0 + p by apply: (invx_p1 ix).
   have pDy : p <= Dst y0 by rewrite -Heq.
   have Hdd := dst_of_add Hsucc pDy.
-  have Hle : Inf (u + v) <= Dst (y0 + v) by apply: inf_dst_le; rewrite ltn_add2r.
+  have Hle : Inf (u + v) <= Dst (y0 + v) by apply: inf_dst_le; rewrite
+    ltn_add2r.
   by move: Hle; rewrite Hdd -Heq leqNgt ltn_subrL p_gt0 (leq_trans p_gt0 pI).
 have rE : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
 rewrite rE.
@@ -2188,7 +2215,8 @@ have Hdst : Dst (y0 + v + j * u) = I - (p %% q + m * q).
 have HE : I - (p %% q + m * q) = (I - p %% q) %% q.
   by rewrite subnDA {1}(divn_eq (I - p %% q) q) -/m addnC addnK.
 rewrite -HE -Hdst; apply: inf_dst_le.
-rewrite addnA (leq_ltn_trans (leq_add (leqnn (y0 + v)) (leq_mul jk (leqnn u)))) //.
+rewrite addnA (leq_ltn_trans (leq_add (leqnn (y0 + v)) (leq_mul jk (leqnn u))))
+  //.
 by rewrite ltn_add2r ltn_add2r.
 Qed.
 
@@ -2258,11 +2286,13 @@ have jqPt : j * q <= Pt (y0 + v) by rewrite Hsucc (leq_trans jqp) // leq_addl.
 have Hpt : Pt (y0 + v + j * u) = Pt y0 + m * q.
   by rewrite (pt_add_u iv j_gt0 jqp jqPt) Hsucc -pjq addnBA.
 have tI : m * q <= Dst y0 by rewrite /m leq_divM.
-have Hdst : Dst (y0 + v + j * u) = Dst y0 - m * q by rewrite (dst_of_add Hpt tI).
+have Hdst : Dst (y0 + v + j * u) = Dst y0 - m * q by rewrite (dst_of_add Hpt
+  tI).
 have HE : Dst y0 - m * q = Dst y0 %% q.
   by rewrite {1}(divn_eq (Dst y0) q) -/m addnC addnK.
 have x0L : y0 + v + j * u < u + (v + p %/ q * u).
-  rewrite addnA (leq_ltn_trans (leq_add (leqnn (y0 + v)) (leq_mul jk (leqnn u)))) //.
+  rewrite addnA (leq_ltn_trans (leq_add (leqnn (y0 + v)) (leq_mul jk (leqnn
+    u)))) //.
   by rewrite ltn_add2r ltn_add2r.
 have -> : d %% q = Dst (y0 + v + j * u).
   by rewrite Hdst HE dB qg -(dst_cong_g y0) -qg.
@@ -2344,7 +2374,8 @@ have y0L' : y0 < u + (v + p %/ q * u).
 have HleI : Inf (u + (v + p %/ q * u)) <= Inf (u + v).
   by rewrite Heq; apply: inf_dst_le.
 have HgeI : ~ Dst zn < Dst y0 -> Inf (u + (v + p %/ q * u)) = Inf (u + v).
-  move=> H; apply/eqP; rewrite eqn_leq HleI /= Heq Heqn leqNgt; apply/negP => H2.
+  move=> H; apply/eqP; rewrite eqn_leq HleI /= Heq Heqn leqNgt; apply/negP =>
+    H2.
   by apply: H.
 case: (ltnP y0 u) => [y0u|uy0]; last first.
   (* [b] in a [q]-gap: nothing is added there, and [Inf] was already low *)
@@ -2361,7 +2392,8 @@ have Ip : Dst y0 < p.
   rewrite ltnNge; apply/negP => pI.
   have Hsucc : Pt (y0 + v) = Pt y0 + p by apply: (invx_p1 ix).
   have Hdd := dst_of_add Hsucc pI.
-  have Hle : Inf (u + v) <= Dst (y0 + v) by apply: inf_dst_le; rewrite ltn_add2r.
+  have Hle : Inf (u + v) <= Dst (y0 + v) by apply: inf_dst_le; rewrite
+    ltn_add2r.
   by move: Hle; rewrite Hdd Heq leqNgt ltn_subrL p_gt0 (leq_trans p_gt0 pI).
 have rq : p - p %/ q * q < q by apply: q'_lt_p.
 left; rewrite dI Heq.
@@ -2397,7 +2429,8 @@ have Hdst : Dst (y0 + v + j * u) = I - (p %% q + m * q).
 have HE : I - (p %% q + m * q) = (I - p %% q) %% q.
   by rewrite subnDA {1}(divn_eq (I - p %% q) q) -/m addnC addnK.
 have x0L : y0 + v + j * u < u + (v + k * u).
-  rewrite addnA (leq_ltn_trans (leq_add (leqnn (y0 + v)) (leq_mul jk (leqnn u)))) //.
+  rewrite addnA (leq_ltn_trans (leq_add (leqnn (y0 + v)) (leq_mul jk (leqnn
+    u)))) //.
   by rewrite ltn_add2r ltn_add2r.
 have ux0 : u <= y0 + v + j * u.
   by rewrite (leq_trans _ (leq_addl (y0 + v) (j * u))) // leq_pmull.
@@ -2456,7 +2489,8 @@ have Ip : Dst y0 < p.
   rewrite ltnNge; apply/negP => pI.
   have Hsucc : Pt (y0 + v) = Pt y0 + p by apply: (invx_p1 ix).
   have Hdd := dst_of_add Hsucc pI.
-  have Hle : Inf (u + v) <= Dst (y0 + v) by apply: inf_dst_le; rewrite ltn_add2r.
+  have Hle : Inf (u + v) <= Dst (y0 + v) by apply: inf_dst_le; rewrite
+    ltn_add2r.
   by move: Hle; rewrite Hdd Heq leqNgt ltn_subrL p_gt0 (leq_trans p_gt0 pI).
 have rq : p - p %/ q * q < q by apply: q'_lt_p.
 case: (leqP (p - p %/ q * q) (Dst y0)) => [rI|Ir]; last first.
@@ -2491,7 +2525,8 @@ have Hdst : Dst (y0 + v + j * u) = I - (p %% q + m * q).
 have HE : I - (p %% q + m * q) = (I - p %% q) %% q.
   by rewrite subnDA {1}(divn_eq (I - p %% q) q) -/m addnC addnK.
 have x0L : y0 + v + j * u < u + (v + k * u).
-  rewrite addnA (leq_ltn_trans (leq_add (leqnn (y0 + v)) (leq_mul jk (leqnn u)))) //.
+  rewrite addnA (leq_ltn_trans (leq_add (leqnn (y0 + v)) (leq_mul jk (leqnn
+    u)))) //.
   by rewrite ltn_add2r ltn_add2r.
 have ux0 : u <= y0 + v + j * u.
   by rewrite (leq_trans _ (leq_addl (y0 + v) (j * u))) // leq_pmull.
@@ -2540,7 +2575,8 @@ Lemma invx_step_ge_gap p q d u v :
   inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
   forall y, y < u + (v + p %/ q * u) ->
   exists a b, [/\ a <= u, b <= v + p %/ q * u &
-                  Dst y = Inf (u + (v + p %/ q * u)) + a * (p - p %/ q * q) + b * q].
+                  Dst y = Inf (u + (v + p %/ q * u)) + a * (p - p %/ q * q) + b
+                    * q].
 Proof.
 move=> iv ix qLp uvN' y yL.
 have uvN : u + v < N by rewrite (leq_ltn_trans _ uvN') // leq_add2l leq_addr.
@@ -2718,7 +2754,8 @@ Qed.
 Lemma inf_cong_lt p q d u v :
   inv p q d u v -> invd p q d u v -> invx p q u v -> u + v < N -> p < q ->
   Inf (u + (q %/ p) * v + v) = Inf (u + v) %[mod p].
-Proof. by move=> iv ivd ix uvLN pLq; rewrite (inf_new_lt iv ivd ix uvLN pLq) modn_mod. Qed.
+Proof. by move=> iv ivd ix uvLN pLq; rewrite (inf_new_lt iv ivd ix uvLN pLq)
+  modn_mod. Qed.
 
 (** [q <= p] branch: the new [d] is congruent to the new infimum. *)
 Lemma inf_cong_ge p q d u v :
@@ -2733,7 +2770,8 @@ case: (posnP (p - p %/ q * q)) => [p'0|p'_gt0].
   by have [_ H] := ge_exit iv ivd ix qLp p'0.
 case: (ge_inf_alt iv ivd ix qLp p'_gt0) => [->|[-> Iq]] //.
 rewrite dI; case: (leqP (p - p %/ q * q) (Inf (u + v))) => [rI|] //.
-have -> : (Inf (u + v) - (p - p %/ q * q)) %% q = Inf (u + v) - (p - p %/ q * q).
+have -> : (Inf (u + v) - (p - p %/ q * q)) %% q = Inf (u + v) - (p - p %/ q *
+  q).
   by rewrite modn_small // (leq_ltn_trans (leq_subr _ _)).
 by rewrite -{2}(subnK rI) modnDr.
 Qed.
@@ -2787,7 +2825,8 @@ Qed.
 
 (** The loop returns a lower bound on the infimum. *)
 Lemma run_sound fuel p q d u v :
-  inv p q d u v -> invd p q d u v -> invx p q u v -> u + v < N -> p + q <= fuel ->
+  inv p q d u v -> invd p q d u v -> invx p q u v -> u + v < N -> p + q <= fuel
+    ->
   run fuel p q d u v N <= Inf N.
 Proof.
 elim: fuel p q d u v => [|fuel IH] p q d u v iv ivd ix uvLN Lf.
