@@ -11,6 +11,14 @@ ROCQ ?= rocq compile
 
 all: small big
 
+# the Rocq/OCaml comparison -- see README.md
+sym:
+	$(ROCQ) -R .. Rubik SymHeur.v
+
+ladder:
+	$(ROCQ) -R .. Rubik Ladder.v
+	ocamlfind ocamlopt -package unix -linkpkg cubedata.ml ladder.ml -o ladder && ./ladder 5
+
 Big.vo: Big.v
 	$(ROCQ) Big.v
 

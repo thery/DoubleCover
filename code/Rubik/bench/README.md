@@ -62,3 +62,65 @@ build the table and several hundred per-prefix proof files `Require` it
 instead of each rebuilding it.  Note the asymmetry: serialising runs at about
 15 000 entries/s, so the one-off cost of a `.vo` for the real table is hours,
 while every consumer then gets it for free.
+
+# Why is the Rocq search slower than the OCaml one?
+
+Measured 2026-07-31.  Two files, and the answer is in two independent halves.
+
+## Per node: a flat ~35x, and no culprit ingredient
+
+`Ladder.v` and `ladder.ml` build the SAME search five times, adding one
+ingredient at a time, walking the SAME tree (fixed depth, no pruning, same
+redundancy rule).  Both report node counts, which agree exactly -- 624 124 for
+V0..V3, 138 886 for V4 -- so the comparison is valid.  Depth 5, single
+threaded, `native_compute` against `ocamlopt`:
+
+    version                          Rocq n/s     OCaml n/s    ratio
+    ---------------------------------------------------------------
+    V0  skeleton, no state             399 057    39 019 881     98x
+    V1  + compose the 48 entry cube    126 648     4 420 304     35x
+    V2  + goal test                     77 004     2 889 663     38x
+    V3  + coordinate + heuristic         37 323     1 407 278     38x
+    V4  + prune (real search shape)      42 061     1 477 337     35x
+
+**The ratio is flat.**  Adding every ingredient in turn changes nothing: Rocq
+costs ~35x on this workload and that is the whole per-node story.  Two things
+this rules out, both of which looked plausible beforehand:
+
+  * **allocation is not the cost.**  Preallocating the per-depth arrays takes
+    OCaml from 101.6 to 3.5 words/node and gains *nothing* (1.096M vs 1.109M
+    nodes/s).  The minor heap is a bump pointer.
+  * **no single ingredient dominates.**  Arrays, coordinate and table are all
+    within the same band.
+
+At `-j18` on twelve cores (a measured 11.4x) that 35x is very nearly paid for.
+
+## Per tree: ~20x, and this one is ours
+
+`SymHeur.v`.  Rocq prunes with one lookup in the flip x slice table; the OCaml
+reference takes the max over three symmetry conjugates of the SAME table.  A
+max of admissible heuristics is admissible, and it prunes far harder:
+
+    views                            nodes    time     nodes    time
+    ---------------------------------------------------------------
+    1   (what Far.v does today)     94 762   4.16 s      1x      1x
+    3   {1, Sy, Sx}                 11 353   1.06 s     8.3x    3.9x
+    5   {1, Sy, Sx, Sy.Sx, Sx.Sy}    4 918   0.895 s   19.3x    4.6x
+
+Confirmed against the reference: `rubik_lb` with `heur` cut to one symmetry
+needs 24 081 446 nodes at depth 12 where three needs 1 106 390 -- 21.8x.
+
+No new table is involved.  See SymHeur.v's header for the certificate
+obligations, which are short, and for why the wall-clock gain plateaus at
+~4.6x while the node gain keeps growing (each view rebuilds the coordinate
+where OCaml steps it -- i.e. Far.v's `searchz`/`actf`, which composes with
+this).
+
+## The upshot
+
+    ~35x   Rocq is slower at everything          the VM -- covered by -j18
+    ~4x    we compose permutations where OCaml
+           steps coordinates                     ours: searchz (proved)
+    ~20x   we explore far more tree              ours: symmetry heuristic
+
+Only the first is the language's.
