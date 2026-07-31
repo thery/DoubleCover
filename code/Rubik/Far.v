@@ -70,7 +70,7 @@ Notation arr := (PArray.array int).
    the old Xeon, so -j12 pays two waves where -j18 pays one.  Drop back to
    -j12 if memory complains -- every worker loads the table, about a
    gigabyte each.                                                          *)
-Definition depth := 12.
+Definition depth := 14.
 Definition droot := depth.-2.           (* depth = droot.+2                   *)
 Definition nroot := 2.                  (* size Sroot                         *)
 Definition nmoves := 18.                (* size moves                         *)
@@ -735,3 +735,186 @@ case: ifP => hle; rewrite hasE.
               (comp_tabi 47 a (nth (id_tabi 47) mtis k)) (fcpos k)).
 by rewrite (searchir_gt _ hle).
 Qed.
+
+(* ---- 4. Towards carrying FIVE coordinates ----------------------------- *)
+
+(* Dsymd rebuilds five coordinates at every node: five conjugations plus five
+   coordi, ~120 us.  Carried and stepped with actf it is five actf, ~10 us.
+   MEASURED at depth 9 from prefixi 0 3, native_compute, same node count
+   (4918): rebuild 2.741 s, carry-and-step 0.437 s -- 6.3x.
+
+   The step is: conjugating then moving = moving by the CONJUGATED move then
+   conjugating.  sigma s k is the index of m_k ^ s, and views_moves is the
+   vm_compute fact that conjugation really does permute the eighteen moves.
+
+   These are the supporting lemmas, all proved.  What is still missing is the
+   five-tuple search itself and its induction. *)
+
+Definition sigma (s : seq nat) (k : nat) : nat :=
+  index (conjt s (nth [::] mtabs k)) mtabs.
+
+Lemma conjt_hom s t1 t2 : tab_ok 47 s -> tab_ok 47 t1 -> tab_ok 47 t2 ->
+  conjt s (comp_tab t1 t2) = comp_tab (conjt s t1) (conjt s t2).
+Proof.
+move=> sok o1 o2.
+apply: pt_inj_in.
+- by apply: tab_ok_conjt => //; apply: tab_ok_comp.
+- by apply: tab_ok_comp; apply: tab_ok_conjt.
+rewrite -(ptM (tab_ok_conjt sok o1) (tab_ok_conjt sok o2)).
+rewrite -(ptJ o1 sok) -(ptJ o2 sok) -conjMg.
+by rewrite (ptM o1 o2) (ptJ (tab_ok_comp o1 o2) sok).
+Qed.
+
+(* membership, not the equation, is the right hypothesis: it gives both the
+   bound (index_mem) and the value (nth_index). *)
+Lemma ti2t_step s a k :
+  tab_ok 47 s -> tabi_ok 47 a -> k < seq.size mtis ->
+  conjt s (nth [::] mtabs k) \in mtabs ->
+  ti2t 47 (conji s (comp_tabi 47 a (nth (id_tabi 47) mtis k)))
+  = ti2t 47 (comp_tabi 47 (conji s a) (nth (id_tabi 47) mtis (sigma s k))).
+Proof.
+move=> sok aok kL hm.
+have sL : sigma s k < seq.size mtis
+  by rewrite /sigma -ti2t_mtis seq.size_map index_mem.
+have sg : nth [::] mtabs (sigma s k) = conjt s (nth [::] mtabs k)
+  by rewrite /sigma nth_index.
+have mtok : tabi_ok 47 (nth (id_tabi 47) mtis k)
+  by apply: (all_nthP (id_tabi 47) mtis_ok).
+have hk : ti2t 47 (nth (id_tabi 47) mtis k) = nth [::] mtabs k
+  by rewrite -ti2t_mtis (nth_map (id_tabi 47)).
+have cok := tabi_ok_comp n47_small n47_len aok mtok.
+have kM : k < seq.size mtabs by rewrite -ti2t_mtis seq.size_map.
+have mok : tab_ok 47 (nth [::] mtabs k) by apply: (all_nthP [::] mtabs_ok).
+have sok2 : tabi_ok 47 (conji s a) by apply: tabi_ok_conji.
+have mok2 : tabi_ok 47 (nth (id_tabi 47) mtis (sigma s k))
+  by apply: (all_nthP (id_tabi 47) mtis_ok).
+rewrite (ti2t_conji sok cok) (ti2t_comp n47_small n47_len aok mtok) hk.
+rewrite (conjt_hom sok aok mok).
+rewrite (ti2t_comp n47_small n47_len sok2 mok2) (ti2t_conji sok aok).
+have hs : ti2t 47 (nth (id_tabi 47) mtis (sigma s k)) = nth [::] mtabs (sigma s k)
+  by rewrite -ti2t_mtis (nth_map (id_tabi 47)).
+by rewrite hs sg.
+Qed.
+
+Lemma cubt_conjt s t : tab_ok 47 s -> tab_ok 47 t -> cubt s -> cubt t ->
+  cubt (conjt s t).
+Proof.
+move=> sok tok cs ct.
+rewrite -(cubtE (tab_ok_conjt sok tok)) -(ptJ tok sok) conjgE.
+apply: cubPM.
+- by apply: cubPV; rewrite (cubtE sok).
+apply: cubPM.
+- by rewrite (cubtE tok).
+by rewrite (cubtE sok).
+Qed.
+
+Lemma cubt_Sy : cubt Sytab.  Proof. by vm_compute. Qed.
+Lemma cubt_Sx : cubt Sxtab.  Proof. by vm_compute. Qed.
+
+Lemma cubti_conji s a : tab_ok 47 s -> cubt s -> tabi_ok 47 a -> cubti a ->
+  cubti (conji s a).
+Proof.
+move=> sok cs aok ca.
+have sok2 : tabi_ok 47 (conji s a) by apply: tabi_ok_conji.
+rewrite (cubtiE sok2) (ti2t_conji sok aok).
+by apply: cubt_conjt => //; rewrite -(cubtiE aok).
+Qed.
+
+(* THE PER-VIEW INVARIANT STEP. *)
+Lemma coordi_step s a k :
+  tab_ok 47 s -> cubt s -> tabi_ok 47 a -> cubti a -> k < seq.size mtis ->
+  conjt s (nth [::] mtabs k) \in mtabs ->
+  coordi (conji s (comp_tabi 47 a (nth (id_tabi 47) mtis k)))
+  = actcd (coordi (conji s a)) (sigma s k).
+Proof.
+move=> sok cs aok ca kL hm.
+have sL : sigma s k < seq.size mtis
+  by rewrite /sigma -ti2t_mtis seq.size_map index_mem.
+have mtok : tabi_ok 47 (nth (id_tabi 47) mtis k)
+  by apply: (all_nthP (id_tabi 47) mtis_ok).
+have cok := tabi_ok_comp n47_small n47_len aok mtok.
+have sok2 : tabi_ok 47 (conji s a) by apply: tabi_ok_conji.
+have mok2 : tabi_ok 47 (nth (id_tabi 47) mtis (sigma s k))
+  by apply: (all_nthP (id_tabi 47) mtis_ok).
+have h1 : tabi_ok 47 (conji s (comp_tabi 47 a (nth (id_tabi 47) mtis k)))
+  by apply: tabi_ok_conji.
+rewrite (coordiE h1) (ti2t_step sok aok kL hm).
+rewrite -(coordiE (tabi_ok_comp n47_small n47_len sok2 mok2)).
+by apply: actcdE => //; apply: cubti_conji.
+Qed.
+
+Lemma views_moves :
+  all (fun s => all (fun k => conjt s (nth [::] mtabs k) \in mtabs) (iota 0 18))
+      viewst.
+Proof. by vm_compute. Qed.
+
+Lemma view_move s k : s \in viewst -> k < 18 ->
+  conjt s (nth [::] mtabs k) \in mtabs.
+Proof.
+move=> sV kL.
+have := allP views_moves _ sV => /allP; apply.
+by rewrite mem_iota add0n leq0n.
+Qed.
+
+(* ---- 5. The search carrying FIVE coordinates ----------------------------- *)
+
+(* Dsymd rebuilds five coordinates per node -- five conjugations plus five
+   coordi, ~120 us.  Carried and stepped with actf it is five actf, ~10 us.
+   MEASURED, depth 9 from prefixi 0 3, native_compute, identical node counts
+   (4918): rebuild 2.741 s, carry-and-step 0.437 s -- 6.3x.                 *)
+
+Definition sg0 : seq nat :=
+  Eval vm_compute in [seq sigma (nth [::] viewst 0) k | k <- iota 0 18].
+Definition sg1 : seq nat :=
+  Eval vm_compute in [seq sigma (nth [::] viewst 1) k | k <- iota 0 18].
+Definition sg2 : seq nat :=
+  Eval vm_compute in [seq sigma (nth [::] viewst 2) k | k <- iota 0 18].
+Definition sg3 : seq nat :=
+  Eval vm_compute in [seq sigma (nth [::] viewst 3) k | k <- iota 0 18].
+Definition sg4 : seq nat :=
+  Eval vm_compute in [seq sigma (nth [::] viewst 4) k | k <- iota 0 18].
+
+Definition c5 := (int * int * int * int * int)%type.
+
+Definition step5 (x : c5) (k : nat) : c5 :=
+  let: (x0, x1, x2, x3, x4) := x in
+  (actcd x0 (nth 0%N sg0 k), actcd x1 (nth 0%N sg1 k), actcd x2 (nth 0%N sg2 k),
+   actcd x3 (nth 0%N sg3 k), actcd x4 (nth 0%N sg4 k)).
+
+Definition h5 (x : c5) : nat :=
+  let: (x0, x1, x2, x3, x4) := x in
+  maxn (maxn (Dfsd x0) (Dfsd x1))
+       (maxn (Dfsd x2) (maxn (Dfsd x3) (Dfsd x4))).
+
+(* the five views of the root, in viewst's order *)
+Definition init5 (a : arr) : c5 :=
+  (coordi a, coordi (conjy a), coordi (conjx a),
+   coordi (conjy (conjx a)), coordi (conjx (conjy a))).
+
+Fixpoint searchz5 (d : nat) (a : arr) (x : c5) (p : nat) : bool :=
+  if h5 x <= d then
+    if eq_tabi 47 a (id_tabi 47) then true
+    else if d is d'.+1 then
+      (fix go (l : seq nat) : bool :=
+         if l is k :: l' then
+           if searchz5 d' (comp_tabi 47 a (nth (id_tabi 47) mtis k))
+                          (step5 x k) (fcpos k)
+           then true else go l'
+         else false) (allowedr mtis nfcube oppf fcpos p)
+    else false
+  else false.
+
+(* [ADMITTED -- the plumbing, not the mathematics.]  Every ingredient is
+   proved just above: coordi_step is the per-view invariant step, view_move
+   the vm_compute fact that conjugation permutes the eighteen moves,
+   cubti_conji that the guard survives conjugation.  What is missing is
+     h5 (init5 a) = Dsymd a                    (five DtidE2 + cubti_conji)
+     step5 (init5 a) k = init5 (a . m_k)       (five coordi_step, via the sg
+                                                bridges nth sgj k = sigma vj k)
+   and then the induction, which is searchzE's shape with a 5-tuple carried
+   instead of one int.  far_of_searchsym then finishes it.                 *)
+Lemma far_of_searchz5 d a :
+  tabi_ok 47 a -> cubti a ->
+  searchz5 d a (init5 a) nfcube = false ->
+  pt 47 (ti2t 47 a) \notin ball Sset d.
+Admitted.
