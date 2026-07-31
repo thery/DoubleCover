@@ -1083,7 +1083,7 @@ Qed.
     [le_inf_dst] needs it for its [n = 0] base case; the second component
     is the universal bound, which is the real work.  Both parts are
     consequences of the validated [d' <= Inf (u' + v')], so this helper is
-    a faithful decomposition, not a new conjecture. *)
+    a faithful decomposition, not a new conjecture. *) 
 (** Only the NEW indices can be hard.  For [x < u + v] the bound is free:
     [d' <= d] (a remainder by a gap, or [d] itself), [d <= Inf (u+v)] by
     [invd_le], and [Inf (u+v) <= Dst x] by [inf_dst_le].  So the whole
@@ -1110,7 +1110,7 @@ Qed.
     and [get_max] are *defined* as the extremisers, so extremality is free.
     Our [inv] recorded only the values, and that is why every attempt to
     bound a distance from below has stalled.
-
+ 
     Measured (0 violations over 230 reachable states):
 
       p     = min {Pt m : 0 < m < u + v}
@@ -1275,7 +1275,26 @@ Lemma invx_step p q d u v :
   inv p q d u v -> invx p q u v -> u + v < N ->
   let: (p', q', _, u', v') := step p q d u v in
   u' + v' < N -> invx p' q' u' v'.
-Proof. Admitted.
+Proof. 
+case => p_gt0 q_gt0 ME pE qE gcdnE u_gt0 v_gt0.
+case => invx_min invx_max invx_qM invx_inf invx_gap invx_p1 invx_p2 uvN.
+rewrite /step; case : (ltnP p q) => [pLq|qLp] .
+  set q' := q - _; set u' := u + _ => u'vN; split => //.
+  - move=> m /andP[m_gt0 mLu'v]. 
+    admit.
+  - move=> m mLu'v.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  admit.
+set p' := p - _; set v' := v + _ => uv'N; split => //.
+- admit.
+- admit.
+- admit.
+- admit.
+- admit.
+admit.
 
 (** ** Top-down skeleton for the [p < q] branch
 
