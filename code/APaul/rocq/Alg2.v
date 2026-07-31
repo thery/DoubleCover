@@ -96,6 +96,89 @@ Local Notation Pt := (pt M A).
 Local Notation Dst := (dst M A B).
 Local Notation Inf := (inf_dst M A B).
 
+(** ** Elementary facts about the points [Pt] *)
+
+Lemma pt_lt x : Pt x < M.
+Proof. by rewrite ltn_mod. Qed.
+
+Lemma pt0 : Pt 0 = 0.
+Proof. by rewrite /Pt muln0 mod0n. Qed.
+
+(** the lattice is additive mod M *)
+Lemma ptD x y : Pt (x + y) = (Pt x + Pt y) %% M.
+Proof. by rewrite modnDm -mulnDr. Qed.
+
+(** and [invd] is preserved.  THE hardest of the file. *)
+Lemma pt_sub x y : y <= x -> Pt y <= Pt x -> Pt (x - y) = Pt x - Pt y.
+Proof.
+move=> yx Hp; rewrite /pt mulnBr modnB //; last by rewrite leq_mul2l yx orbT.
+by rewrite ltnNge Hp /= mul0n add0n.
+Qed.
+
+(** the [p2] shape needs no invariant, only [q = M - Pt u]. *)
+Lemma pt_subu q u z : q = M - Pt u -> u <= z -> Pt (z - u) = (Pt z + q) %% M.
+Proof.
+move=> qE uLz.
+have Hz : Pt z = (Pt (z - u) + Pt u) %% M by rewrite -ptD subnK.
+rewrite qE Hz modnDml -addnA (subnKC (ltnW (pt_lt u))) modnDr.
+by rewrite modn_small // pt_lt.
+Qed.
+
+Lemma pt_muln k x : Pt (k * x) = (k * Pt x) %% M.
+Proof. by rewrite /pt modnMmr mulnCA. Qed.
+
+(** the lattice is linear while it has not wrapped -- needed to turn an
+    index bound into a bound on [Pt]. *)
+Lemma pt_mul_small k : Pt 1 * k < M -> Pt k = Pt 1 * k.
+Proof.
+move=> H; have -> : Pt k = (Pt 1 * k) %% M by rewrite /pt muln1 modnMml.
+by rewrite modn_small.
+Qed.
+
+(** Goals (2) and (4): the [invd_le] field.  Goal (2) is [le_inf_dst] plus
+    [mod_le_dst]; goal (4) needs the same universal bound as
+    [step_invd_le_pt].  Left as one obligation so the two are attacked
+    together. *)
+Lemma pt_desc j : j * (M - A) <= A -> Pt (j + 1) = A - j * (M - A).
+Proof.
+move=> Hj.
+have HAM : A <= M by rewrite ltnW.
+have HjM : j * M = j * (M - A) + j * A by rewrite -mulnDr subnK.
+rewrite /pt.
+have -> : A * (j + 1) = A - j * (M - A) + j * M.
+  by rewrite HjM addnA subnK // mulnDr muln1 mulnC addnC.
+rewrite addnC modnMDl modn_small //.
+by rewrite (leq_ltn_trans (leq_subr _ _)).
+Qed.
+
+(** the [p1] shape is exactly "no wrap": [Pt z + p < M]. *)
+Lemma pt_addv p v z : p = Pt v -> Pt z + p < M -> Pt (z + v) = Pt z + p.
+Proof. by move=> pE H; rewrite ptD -pE modn_small. Qed.
+
+(** the walk value, modulo [M] and unconditionally. *)
+Lemma pt_walk_mod p v y j : p = Pt v -> Pt (y + j * v) = (Pt y + j * p) %% M.
+Proof.
+move=> pE; rewrite ptD.
+by have -> : Pt (j * v) = (j * p) %% M;
+   [rewrite pE /pt modnMmr mulnCA | rewrite modnDmr].
+Qed.
+
+(** batched [pt_addv]. *)
+Lemma pt_walkD p v y m :
+  p = Pt v -> m * p < M -> Pt y + m * p < M -> Pt (y + m * v) = Pt y + m * p.
+Proof.
+move=> pE mpM H.
+have Hmv : Pt (m * v) = (m * Pt v) %% M by rewrite /pt modnMmr mulnCA.
+by rewrite ptD Hmv -pE (modn_small mpM) modn_small.
+Qed.
+
+(** the bound that feeds the walk: [invx_max] gives [Pt y <= M - q]. *)
+Lemma pt_walk_le q y mp : Pt y <= M - q -> q <= M -> mp <= q -> Pt y + mp <= M.
+Proof. by move=> H1 qM H2; apply: leq_trans (leq_add H1 H2) _; rewrite subnK. Qed.
+
+
+(** ** How far the sequence can run: the orbit of [A] modulo [M] *)
+
 Lemma N_le_Mg : N <= M %/ gcdn A M.
 Proof. by apply: ltnW. Qed.
 
@@ -130,8 +213,39 @@ Proof.
 by case/andP=> n_gt0 nN; apply: pt_neq0M; rewrite n_gt0 (leq_ltn_trans nN).
 Qed.
 
-(** *** Warm-up: elementary facts about the specification *)
 
+(** ** Elementary facts about the points [Pt] (continued) *)
+
+(** [pt_addv] with only [<= M]: equality would put [Pt (z+v)] at the origin,
+    which [pt_neq0] forbids below [N].  Reusable -- this "no wrap" step was
+    inlined in [pt_new_lt] and is what both cases of [lt/p1] need. *)
+Lemma pt_addv_le p v z : p = Pt v -> 0 < z + v <= N -> Pt z + p <= M ->
+  Pt (z + v) = Pt z + p.
+Proof.
+move=> pE zvN H.
+case: (ltnP (Pt z + p) M) => [Hlt|Hge]; first exact: pt_addv.
+have HE : Pt z + p = M by apply/eqP; rewrite eqn_leq H Hge.
+by have := pt_neq0 zvN; rewrite ptD -pE HE modnn eqxx.
+Qed.
+
+(** the walk value on the nose: [<= M] from [pt_walk_le], [<> M] from
+    [pt_neq0].  Universally quantified in [j], unlike [pt_new_lt] which
+    produces its own -- that is what [lt/p1] needs. *)
+Lemma pt_walk_value p q v y j :
+  p = Pt v -> Pt y <= M - q -> q <= M -> j * p <= q -> 0 < y + j * v <= N ->
+  Pt (y + j * v) = Pt y + j * p.
+Proof.
+move=> pE Hy qM jpq yjN.
+have HP : Pt y + j * p <= M.
+  by apply: leq_trans (leq_add Hy jpq) _; rewrite subnK.
+have Hmod : Pt (y + j * v) = (Pt y + j * p) %% M := pt_walk_mod _ _ pE.
+rewrite Hmod modn_small // ltn_neqAle HP andbT.
+apply/eqP => HE.
+by have := pt_neq0 yjN; rewrite Hmod HE modnn eqxx.
+Qed.
+
+
+(** ** How far the sequence can run: the orbit of [A] modulo [M] (continued) *)
 
 (** every point is a multiple of [g = gcdn A M], so every distance is
     congruent to [B] mod [g].  This is what settles the last quotient. *)
@@ -141,25 +255,8 @@ by apply/eqP; rewrite /pt (modn_dvdm _ (dvdn_gcdr A M)); apply/eqP;
    apply: dvdn_mulr; exact: dvdn_gcdl.
 Qed.
 
-Lemma dst_cong_g x : Dst x = B %[mod gcdn A M].
-Proof.
-have gM : gcdn A M %| M := dvdn_gcdr A M.
-have HP : Pt x <= M by rewrite ltnW // /pt ltn_mod.
-rewrite /dst -addnBA // (modn_dvdm _ gM) -modnDmr.
-have -> : (M - Pt x) %% gcdn A M = 0.
-  by apply/eqP; apply: dvdn_sub; [exact: gM | exact: pt_dvd_g].
-by rewrite addn0.
-Qed.
 
-Lemma pt_lt x : Pt x < M.
-Proof. by rewrite ltn_mod. Qed.
-
-Lemma pt0 : Pt 0 = 0.
-Proof. by rewrite /Pt muln0 mod0n. Qed.
-
-(** the lattice is additive mod M *)
-Lemma ptD x y : Pt (x + y) = (Pt x + Pt y) %% M.
-Proof. by rewrite modnDm -mulnDr. Qed.
+(** ** Elementary facts about the distances [Dst] *)
 
 Lemma dst_lt x : Dst x < M.
 Proof. by rewrite ltn_mod. Qed.
@@ -201,6 +298,129 @@ have -> : (B + M.*2 - Pt x) %% M = Dst x.
 by rewrite ltnNge ptLdx.
 Qed.
 
+Lemma dst_below x : Pt x <= B -> Dst x = B - Pt x.
+Proof.
+move=> H; rewrite dstE addnC -addnBA // modnDl modn_small //.
+apply: leq_ltn_trans (leq_subr _ _) B_lt.
+Qed.
+
+Lemma dst_above x : B < Pt x -> Dst x = B + M - Pt x.
+Proof.
+move=> H; rewrite dstE modn_small //.
+rewrite ltn_subLR; last by rewrite (leq_trans (ltnW (pt_lt x))) // leq_addl.
+by rewrite ltn_add2r.
+Qed.
+
+(** holds without [Pt y <= Pt x]. *)
+Lemma dstB_gen x y : y <= x -> Dst (x - y) = (Dst x + Pt y) %% M.
+Proof.
+move=> yx.
+have Hpx : Pt x = (Pt (x - y) + Pt y) %% M by rewrite -ptD subnK.
+have HP := pt_lt (x - y); have HQ := pt_lt y.
+rewrite dstE [in RHS]dstE modnDml Hpx.
+case: (ltnP (Pt (x - y) + Pt y) M) => H.
+  rewrite (modn_small H) subnDA subnK //.
+  by rewrite leq_subRL ?(leq_trans (ltnW HP)) ?leq_addl //
+             (leq_trans (ltnW H)) // leq_addl.
+have e2 : (Pt (x - y) + Pt y) %% M = Pt (x - y) + Pt y - M.
+  rewrite -{1}(subnK H) modnDr modn_small // ltn_subLR //.
+  apply: leq_ltn_trans (leq_add (ltnW HP) (leqnn _)) _.
+  by rewrite ltn_add2l.
+have HPB : Pt (x - y) <= B + M by rewrite (leq_trans (ltnW HP)) // leq_addl.
+rewrite e2 subnBA // subnDA subnK.
+  by rewrite -[in RHS]addnBAC // modnDr.
+rewrite leq_subRL; last by rewrite (leq_trans HPB) // leq_addr.
+apply: leq_trans (leq_add (ltnW HP) (ltnW HQ)) _.
+by rewrite leq_add2r leq_addl.
+Qed.
+
+(** two general facts the walk lemmas share: stepping the index by [w]
+    lowers the distance by [Pt w] modulo [M], and [Pt] is linear modulo [M]. *)
+Lemma dst_add x w : Dst (x + w) = (Dst x + M - Pt w) %% M.
+Proof.
+have Hd := dstB_gen (x := x + w) (y := w) (leq_addl x w).
+rewrite addnK in Hd.
+have HD := dst_lt (x + w); have HP := pt_lt w.
+rewrite Hd; case: (ltnP (Dst (x + w) + Pt w) M) => H.
+  by rewrite (modn_small H) addnAC addnK modnDr modn_small.
+have e2 : (Dst (x + w) + Pt w) %% M = Dst (x + w) + Pt w - M.
+  rewrite -{1}(subnK H) modnDr modn_small // ltn_subLR //.
+  by apply: leq_ltn_trans (leq_add (ltnW HD) (leqnn _)) _; rewrite ltn_add2l.
+by rewrite e2 subnK ?addnK ?modn_small // (leq_trans (ltnW HP)) // leq_addl.
+Qed.
+
+(** * Slater (6): two points are never closer than a gap
+    In DISTANCE form (6) splits on whether the index order and the value
+    order agree: if they do the difference is a plain [Pt], if they do not
+    the walk round the circle wraps exactly once. *)
+Lemma dst_diff m1 m2 : m2 <= m1 -> Dst m2 = (Dst m1 + Pt (m1 - m2)) %% M.
+Proof. by move=> H; rewrite -{1}(subKn H) dstB_gen // leq_subr. Qed.
+
+Lemma dst_cong_g x : Dst x = B %[mod gcdn A M].
+Proof.
+have gM : gcdn A M %| M := dvdn_gcdr A M.
+have HP : Pt x <= M by rewrite ltnW // /pt ltn_mod.
+rewrite /dst -addnBA // (modn_dvdm _ gM) -modnDmr.
+have -> : (M - Pt x) %% gcdn A M = 0.
+  by apply/eqP; apply: dvdn_sub; [exact: gM | exact: pt_dvd_g].
+by rewrite addn0.
+Qed.
+
+(** a value offset read as a distance: if [x] sits [t] above [y] and [b] is
+    at least [t] above [y], then [x] is [t] closer to [b]. *)
+Lemma dst_of_add x y t : Pt x = Pt y + t -> t <= Dst y -> Dst x = Dst y - t.
+Proof.
+move=> Hx Ht.
+have HD : B + M - Pt x = B + M - Pt y - t by rewrite Hx subnDA.
+rewrite /dst HD.
+move: Ht; rewrite /dst.
+set D := B + M - Pt y.
+have DM : D < M + M.
+  by rewrite /D (leq_ltn_trans (leq_subr _ _)) // ltn_add2r.
+case: (ltnP D M) => [DltM|DgeM] Ht.
+  rewrite (modn_small DltM) in Ht *.
+  by rewrite modn_small // (leq_ltn_trans (leq_subr _ _)).
+have DE : D %% M = D - M.
+  by rewrite -{1}(subnK DgeM) modnDr modn_small // ltn_subLR.
+rewrite DE in Ht *.
+have DtM : M <= D - t.
+  by rewrite leq_subRL ?(leq_trans Ht (leq_subr _ _)) // addnC -leq_subRL.
+rewrite -{1}(subnK DtM) modnDr modn_small; last first.
+  by rewrite ltn_subLR // (leq_ltn_trans (leq_subr _ _)).
+by rewrite subnAC.
+Qed.
+
+(** the shape [invd_le] reduces to, in both [invd_first] and [step_invd]:
+    a remainder by a gap is below every distance whose index is in range.
+    Proof plan: [x <= d %/ g] gives [Dst x = B - Pt x >= B %% g] by
+    [dst_below] and [leq_trunc_div]; [x > d %/ g] makes the point wrap, and
+    [dst_above] bounds [Dst x] below by [M - Pt x >= B %% g] as long as
+    [Pt 1 * x <= B + M], which the index range provides. *)
+Lemma mod_le_dst g x : 0 < g -> g = Pt 1 -> Pt 1 * x <= M -> B %% g <= Dst x.
+Proof.
+move=> g_gt0 gE Hx.
+have PtE : Pt x = (g * x) %% M by rewrite gE /pt muln1 modnMml.
+have BMg : B %% g <= B by apply: leq_mod.
+case: (ltnP (g * x) M) => [gxM|Mgx].
+  have Ptx : Pt x = g * x by rewrite PtE modn_small.
+  case: (leqP (g * x) B) => [gxB|Bgx].
+    rewrite dst_below ?Ptx //.
+    have Hd : g * x <= B %/ g * g.
+      have Hx1 : x <= B %/ g by rewrite leq_divRL // mulnC.
+      by rewrite mulnC leq_mul2r Hx1 orbT.
+    have -> : B %% g = B - B %/ g * g by rewrite {2}(divn_eq B g) addnC addnK.
+    exact: leq_sub2l Hd.
+  rewrite dst_above ?Ptx //.
+  apply: leq_trans BMg _.
+  rewrite leq_subRL; last by rewrite (leq_trans (ltnW gxM)) // leq_addl.
+  by rewrite addnC leq_add2l ltnW.
+have gxE : g * x = M by apply/eqP; rewrite eqn_leq Mgx andbT gE.
+by rewrite dstE PtE gxE modnn subn0 modnDr (modn_small B_lt).
+Qed.
+
+
+(** ** The running minimum [Inf] *)
+
 (** the only two ways to look inside [Inf]. *)
 Lemma inf_dst0 : Inf 0 = M.
 Proof. by []. Qed.
@@ -236,13 +456,132 @@ move=> /subnK<-; elim: (_ - _) => // k kmLm.
 by rewrite addSn inf_dstS (leq_trans _ kmLm) // geq_minr.
 Qed.
 
+(** THE hard one: the [d] update stays a genuine distance. *)
+(** the converse of [inf_dst_le]: a pointwise lower bound gives a bound
+    on the infimum.  This is what turns [mod_le_dst] (pointwise) into the
+    [invd_le] field (about [Inf]). *)
+Lemma le_inf_dst e n : e <= M -> (forall x, x < n -> e <= Dst x) -> e <= Inf n.
+Proof.
+move=> eM; elim: n => [//|n IH H]; rewrite inf_dstS leq_min H // IH // => x xn.
+by apply: H (ltnW xn).
+Qed.
 
-(** *** The loop invariant
+(** the max is attained, mirror of [inf_dst_ex]. *)
+Lemma dst_max_ex n :
+  0 < n -> exists2 y, y < n & forall z, z < n -> Dst z <= Dst y.
+Proof.
+elim: n => // [] [_ _|n IH _].
+  by exists 0 => // z; rewrite ltnS leqn0 => /eqP->.
+have [y yLn Hy] := IH isT.
+case: (leqP (Dst n.+1) (Dst y)) => [H|H].
+  exists y; first by rewrite (leq_trans yLn).
+  by move=> z; rewrite ltnS leq_eqVlt => /orP[/eqP->|zLn] //; apply: Hy.
+exists n.+1 => // z; rewrite ltnS leq_eqVlt => /orP[/eqP->|zLn] //.
+by rewrite (leq_trans (Hy _ zLn)) // ltnW.
+Qed.
 
-    [p] is the length of the leftmost interval and [v] the index that
-    realises it; [q] is the length of the rightmost interval and [u] the
-    index that realises it; [d] is the distance from [b] down to some
-    point already placed. *)
+
+(** ** Arithmetic used by the loop *)
+
+(** * Slater's two equations
+    Slater 2 (7): at [N+1 = u+v] points the step structure has [u] steps of
+    length [alpha = p] (index [r |-> r+v], from [r < u]) and [v] of length
+    [beta = q] ([r |-> r-u]), and none of length [alpha+beta]; (8) is
+    [u*p + v*q = M], our [inv_bez].  So a walk from [y] up to [z] through
+    successive points has TWO invariants: the value one [a*p + b*q =
+    Dst y - Dst z] and the INDEX one [a*v + y = b*u + z].  The second is
+    what makes the counts bounded -- with only the first, no witness works
+    (alg2-notes.md 1). *)
+(* pure counting: [k < x] and [x*l <= w*k + t] with [t < k + l] force [l <= w] *)
+Lemma gap_count_aux k l w x t :
+  0 < k -> k < x -> t < k + l -> x * l <= w * k + t -> l <= w.
+Proof.
+move=> k_gt0 kx tkl H.
+have H1 : l + k * l < w * k + k + l.
+  apply: leq_ltn_trans (_ : w * k + t < _); last first.
+    by rewrite -addnA ltn_add2l.
+  by rewrite (leq_trans _ H) // -mulSn leq_mul2r kx orbT.
+rewrite -ltnS -(ltn_pmul2l k_gt0) mulnS mulnC [k * w]mulnC mulnC addnC.
+by move: H1; rewrite addnC ltn_add2r.
+Qed.
+
+(** after a [p < q] step the new [q] is [q %% p], hence below [p]. *)
+Lemma q'_lt_p p q : 0 < p -> q - q %/ p * p < p.
+Proof. by move=> p_gt0; rewrite {1}(divn_eq q p) addnC addnK ltn_pmod. Qed.
+
+Lemma maxn_new_lt p q : 0 < p -> maxn p (q - q %/ p * p) = p.
+Proof. by move=> p_gt0; apply/maxn_idPl; rewrite ltnW // q'_lt_p. Qed.
+
+(* @INVX_STEP HELPER sharp -- PROVED *)
+(** [new_index_decomp] sharpened to [j < k], cut into its arithmetic. *)
+Lemma sharp_t_lt k u v x : u + v <= x -> x < u + k * v -> x - (u + v) < (k - 1) * v.
+Proof.
+move=> xge xlt.
+have k_gt0 : 0 < k.
+  case: k xlt => // ; rewrite mul0n addn0 => H.
+  by have := leq_ltn_trans xge H; rewrite ltnNge leq_addr.
+rewrite ltn_subLR // subn1.
+move: xlt; rewrite -{1}(prednK k_gt0) mulSnr addnA => xlt.
+by rewrite (leq_trans xlt) // addnAC.
+Qed.
+
+Lemma sharp_j_lt_k k v t : 0 < v -> t < (k - 1) * v -> (t %/ v).+1 < k.
+Proof.
+move=> v_gt0 H.
+have H2 : t %/ v < k - 1 by rewrite ltn_divLR.
+by move: H2; rewrite ltn_subRL -addn1.
+Qed.
+
+Lemma sharp_lo u v x : 0 < v -> u + v <= x -> ((x - (u + v)) %/ v).+1 * v <= x.
+Proof.
+move=> v_gt0 xge.
+rewrite mulSnr (leq_trans (leq_add (leq_divM _ _) (leqnn v))) //.
+have -> : x - (u + v) + v = x - u.
+  by rewrite subnDA subnK // -(leq_add2l u) subnKC // (leq_trans _ xge) // leq_addr.
+by rewrite leq_subr.
+Qed.
+
+Lemma sharp_hi u v x : 0 < v -> u + v <= x -> x - ((x - (u + v)) %/ v).+1 * v < u + v.
+Proof.
+move=> v_gt0 xge.
+rewrite ltn_subLR ?sharp_lo // -{1}(subnK xge) ltn_add2r.
+by rewrite ltn_ceil.
+Qed.
+
+(** [q <= M] is free from [inv]. *)
+(** [p < q] branch: [x] ranges over the new indices [u+v <= x < u'+v'],
+    each written [y + m*v] with [y] old ([new_index_decomp]). *)
+Lemma new_index_decomp k u v x :
+  0 < v -> u + v <= x -> x < u + k * v + v ->
+  exists2 m, 0 < m <= k & (x - m * v < u + v) && (m * v <= x).
+Proof.
+move=> v_gt0 xge xlt.
+set r := x - (u + v).
+have Hr : r < k * v by rewrite /r ltn_subLR // addnAC.
+have Hmv : r %/ v * v + v <= x.
+  apply: leq_trans (leq_add (leq_divM r v) (leqnn v)) _.
+  by rewrite -(subnK xge) -/r leq_add2l leq_addl.
+exists (r %/ v + 1).
+  rewrite addn1 ltn0Sn /= (ltn_divLR _ _ v_gt0) //.
+rewrite mulnDl mul1n Hmv andbT.
+have -> : x - (r %/ v * v + v) = u + r %% v.
+  rewrite -(subnK xge) -/r {1}(divn_eq r v).
+  by rewrite subnDA -addnA addKn addnA addnK addnC.
+by rewrite ltn_add2l ltn_mod.
+Qed.
+
+Lemma new_index_decomp_sharp k u v x :
+  0 < v -> u + v <= x -> x < u + k * v ->
+  exists2 j, 0 < j < k & (x - j * v < u + v) && (j * v <= x).
+Proof.
+move=> v_gt0 xge xlt.
+exists ((x - (u + v)) %/ v).+1.
+  by rewrite /= (sharp_j_lt_k v_gt0) // (sharp_t_lt xge).
+by rewrite sharp_hi // sharp_lo.
+Qed.
+
+
+(** ** The invariant [inv] on the loop state *)
 
 Record inv (p q d u v : nat) : Prop := Inv {
   inv_p0  : 0 < p;
@@ -266,28 +605,11 @@ Record inv (p q d u v : nat) : Prop := Inv {
   inv_v0  : 0 < v
 }.
 
-(** *** The [d] part of the invariant, separately.  The old [inv_d] was
-    FALSE; [invd] carries a bound, a congruence and a max instead. *)
-
-Record invd (p q d u v : nat) : Prop := Invd {
-  invd_max : d < maxn p q;
-  invd_le  : d <= Inf (u + v);
-  (* [d] sits on the same residue class mod [p] as the true closest
-     distance.  Independent of [invx]: [invx] constrains the CONFIGURATION
-     (gaps at least p / q), this constrains [d] RELATIVE to it, and the two
-     leaves need both.  Validated: 0 counterexamples over 5152 states, and
-     it makes the leaves hold in 121183 of 121183 cases.  See the
-     correction note above for why [invx] alone does not suffice. *)
-  invd_cong : d = Inf (u + v) %[mod p]
-}.
-
 Lemma am_gt0 : 0 < A %% M.
 Proof.
 have : Pt 1 != 0 by apply: pt_neq0.
 by rewrite /Pt muln1; case: (_ %% _).
 Qed.
-
-(** *** Initialisation *)
 
 Lemma inv_init : inv (A %% M) (M - A %% M) (B %% M) 1 1.
 Proof.
@@ -300,11 +622,51 @@ constructor => //.
 - by rewrite (modn_small A_lt) -{2}(subnKC (ltnW A_lt)) gcdnDl.
 Qed.
 
+Lemma inv_qM p q d u v : inv p q d u v -> q <= M.
+Proof. by case=> _ _ _ _ -> _ _ _; apply: leq_subr. Qed.
 
-(** *** One step preserves the invariant
+(** The one real obligation left: the three-distance step.  Conditioned as
+    [inv_step] and [step_p_gt0] are -- only when the loop continues -- since
+    at the terminal states ([q = 0], [u + v >= N]) [invx_min] genuinely
+    fails: probed 78 violations there, 0 under the guard (376 states). *)
+(** [invx_step], one lemma per field per branch: seven fields, two
+    branches, [invx_qM] inline.  grep "@INVX_STEP" for status. *)
+(** [q < M] strictly: [q = M] would force [Pt u = 0]. *)
+Lemma inv_qltM p q d u v : inv p q d u v -> u <= N -> q < M.
+Proof.
+move=> iv uN.
+have [_ _ _ _ qE _ u_gt0 _] := iv.
+have qM := inv_qM iv.
+rewrite ltn_neqAle qM andbT; apply/eqP => qMe.
+have H := subnK (ltnW (pt_lt u)).
+move: H; rewrite -qE qMe => H2.
+have Hu : Pt u = 0.
+  have E0 : M + Pt u == M + 0 by rewrite addn0; apply/eqP.
+  by move: E0; rewrite eqn_add2l => /eqP.
+have uN' : 0 < u <= N by rewrite u_gt0 uN.
+by have := pt_neq0 uN'; rewrite Hu eqxx.
+Qed.
 
-    Split into the four independent obligations so they can be attacked
-    separately; [inv_step] just glues them. *)
+(** mourad-notes.md: the paper's side condition is [p, q <> 0], not a bound
+    on the range.  The bridge is that a two-length configuration never has
+    more points than the orbit: [u + v <= M %/ g] is FREE from [inv]. *)
+Lemma inv_uv_le p q d u v : inv p q d u v -> u + v <= M %/ gcdn A M.
+Proof.
+move=> iv; have [p_gt0 q_gt0 bez _ _ gE u_gt0 v_gt0] := iv.
+rewrite -gE.
+have g_gt0 : 0 < gcdn p q by rewrite gcdn_gt0 p_gt0.
+have Hp := dvdn_gcdl p q; have Hq := dvdn_gcdr p q.
+have p1_gt0 : 0 < p %/ gcdn p q by rewrite divn_gt0 // dvdn_leq.
+have q1_gt0 : 0 < q %/ gcdn p q by rewrite divn_gt0 // dvdn_leq.
+have -> : M %/ gcdn p q = u * (p %/ gcdn p q) + v * (q %/ gcdn p q).
+  apply/eqP; rewrite -(eqn_pmul2r g_gt0) divnK; last first.
+    by rewrite -bez dvdn_add // dvdn_mull.
+  by rewrite mulnDl -!mulnA !divnK // -bez.
+by rewrite leq_add // leq_pmulr.
+Qed.
+
+
+(** ** One step of the loop preserves [inv] *)
 
 (* glue -- pure algebra from [inv_bez]. *)
 Lemma step_bez p q d u v :
@@ -322,7 +684,6 @@ Qed.
 (** the batched Euclid step: [k] applications of slater's [get_minS] /
     [get_maxS] at once (Property 2 of the paper).  Induction on [k],
     through the two one-step lemmas below. *)
-
 (** one point added on the left: [v] keeps realising the smallest
     positive point, [u] moves to [u + v].  (slater: [get_maxS].) *)
 Lemma step_pt_one_lt p q u v :
@@ -410,69 +771,128 @@ have Hjq : j * q <= p.
 by rewrite addn_gt0 v_gt0.
 Qed.
 
-(** THE hard one: the [d] update stays a genuine distance. *)
-
-(** ** The [d] obligations, after the redesign. *)
-
-(** the converse of [inf_dst_le]: a pointwise lower bound gives a bound
-    on the infimum.  This is what turns [mod_le_dst] (pointwise) into the
-    [invd_le] field (about [Inf]). *)
-Lemma le_inf_dst e n : e <= M -> (forall x, x < n -> e <= Dst x) -> e <= Inf n.
+(** the [invd_le] half: the real content, shared with [invd_first]. *)
+(** The missing content, isolated.  [d' <= M] is bundled in because
+    [le_inf_dst] needs it for its [n = 0] base case; the second component
+    is the universal bound, which is the real work.  Both parts are
+    consequences of the validated [d' <= Inf (u' + v')], so this helper is
+    a faithful decomposition, not a new conjecture. *) 
+(** Only the NEW indices can be hard.  For [x < u + v] the bound is free:
+    [d' <= d] (a remainder by a gap, or [d] itself), [d <= Inf (u+v)] by
+    [invd_le], and [Inf (u+v) <= Dst x] by [inf_dst_le].  So the whole
+    obligation reduces to the indices the step has just added. *)
+(** The two branches add points of opposite orientation. *)
+(** The two-length structure, reproved natively rather than bridged to
+    CFrac/slater.v: the dictionary is in the header, but instantiating
+    slater's real-valued development costs more than reproving. *)
+(** The proof needs NO completeness statement -- Bezout on the NEW state
+    plus [N <= M %/ gcdn A M] is exactly enough.  If [q' = 0] then
+    [step_bez] degenerates to [u' * p = M], and [p %| q] forces
+    [p = gcdn p q = gcdn A M], so [u' = M %/ gcdn A M >= N], contradicting
+    [u' + v' < N].  Symmetrically for [p' = 0].  ([inv_complete], the false
+    lemma of round 3, was a wrong turn: it was never needed.) *)
+Lemma step_p_gt0 p q d u v :
+  inv p q d u v -> u + v < N ->
+  let: (p', q', _, u', v') := step p q d u v in
+  u' + v' < N -> 0 < p' /\ 0 < q'.
 Proof.
-move=> eM; elim: n => [//|n IH H]; rewrite inf_dstS leq_min H // IH // => x xn.
-by apply: H (ltnW xn).
+move=> iv uvLN.
+have [p_gt0 q_gt0 bez pE qE gE _ _] := iv.
+have Hb := step_bez iv.
+move: Hb; rewrite /step.
+have [pLq|qLp] := ltnP => /= Hb Huv; split => //.
+  case: (posnP (q - q %/ p * p)) => [q0|] //.
+  have qme : q - q %/ p * p = q %% p by rewrite {1}(divn_eq q p) addnC addnK.
+  have qmp : q %% p = 0 by rewrite -qme q0.
+  have pg : p = gcdn A M by rewrite -gE; apply/esym/gcdn_idPl; rewrite /dvdn qmp.
+  move: Hb; rewrite q0 muln0 addn0 => Hb.
+  have Hu : u + q %/ p * v = M %/ p by rewrite -Hb mulnK.
+  by move: Huv; rewrite Hu pg ltnNge (leq_trans N_le_Mg (leq_addr v _)).
+case: (posnP (p - p %/ q * q)) => [p0|] //.
+have pme : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
+have pmq : p %% q = 0 by rewrite -pme p0.
+have qg : q = gcdn A M by rewrite -gE gcdnC; apply/esym/gcdn_idPl; rewrite /dvdn pmq.
+move: Hb; rewrite p0 muln0 add0n => Hb.
+have Hv : v + p %/ q * u = M %/ q by rewrite -Hb mulnK.
+by move: Huv; rewrite Hv qg ltnNge (leq_trans N_le_Mg (leq_addl u _)).
 Qed.
 
-(** ** The two remaining [d] obligations. *)
-
-Lemma dst_below x : Pt x <= B -> Dst x = B - Pt x.
+(** conditioned as [step_p_gt0] is: only needed when the loop continues. *)
+(** the paper's side condition is [p, q <> 0], not a bound on the range
+    (mourad-notes.md 5); this is [inv_step] with that condition, and the
+    [N] form below is the special case via [step_p_gt0]. *)
+Lemma inv_step_pos p q d u v :
+  inv p q d u v ->
+  let: (p', q', d', u', v') := step p q d u v in
+  0 < p' -> 0 < q' -> inv p' q' d' u' v'.
 Proof.
-move=> H; rewrite dstE addnC -addnBA // modnDl modn_small //.
-apply: leq_ltn_trans (leq_subr _ _) B_lt.
+move=> iv.
+have Hb := step_bez iv.
+have Hpt := step_pt iv.
+have [_ _ _ _ _ gE u_gt0 v_gt0] := iv.
+move: Hb Hpt; rewrite /step.
+have [pLq|qLp] := ltnP => /= Hb Hpt Hp Hq.
+  have [Hpv Hqu] := Hpt Hp Hq.
+  split => //.
+    have -> : q - q %/ p * p = q %% p by rewrite {1}(divn_eq q p) addnC addnK.
+    by rewrite gcdn_modr.
+  by rewrite addn_gt0 u_gt0.
+have [Hpv Hqu] := Hpt Hp Hq.
+split => //.
+  have -> : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
+  by rewrite gcdnC gcdn_modr gcdnC.
+by rewrite addn_gt0 v_gt0.
 Qed.
 
-Lemma dst_above x : B < Pt x -> Dst x = B + M - Pt x.
+Lemma inv_step p q d u v :
+  inv p q d u v -> u + v < N ->
+  let: (p', q', d', u', v') := step p q d u v in
+  u' + v' < N -> inv p' q' d' u' v'.
 Proof.
-move=> H; rewrite dstE modn_small //.
-rewrite ltn_subLR; last by rewrite (leq_trans (ltnW (pt_lt x))) // leq_addl.
-by rewrite ltn_add2r.
+move=> iv uvLN.
+have Hg := step_p_gt0 iv uvLN.
+have Hi := inv_step_pos iv.
+move: Hg Hi; rewrite /step.
+have [pLq|qLp] := ltnP => /= Hg Hi Huv.
+  by have [Hp Hq] := Hg Huv; apply: Hi.
+by have [Hp Hq] := Hg Huv; apply: Hi.
 Qed.
 
-(** the lattice is linear while it has not wrapped -- needed to turn an
-    index bound into a bound on [Pt]. *)
-Lemma pt_mul_small k : Pt 1 * k < M -> Pt k = Pt 1 * k.
+(* CFrac: slater.get_min_NZ / get_max_NZ. *)
+(** [inv_complete] was FALSE; these are conditioned on [u'+v' < N]. *)
+(* glue -- assemble [step_p_gt0], [step_bez], [step_pt], [step_d] into
+   the record.  Mechanical once the four are done; write it last. *)
+(** [p + q] strictly decreases: each branch subtracts at least the other
+    length, which is positive. *)
+(* pure -- [q - (q %/ p) * p = q %% p < p <= q] by [ltn_mod] (needs
+   [0 < p], from [inv_p0]), so [q] strictly drops in the first branch and
+   [p] in the second.  One [modn_def]/[ltn_mod] each; no geometry. *)
+Lemma step_measure p q d u v :
+  inv p q d u v -> u + v < N ->
+  let: (p', q', _, _, _) := step p q d u v in p' + q' < p + q.
 Proof.
-move=> H; have -> : Pt k = (Pt 1 * k) %% M by rewrite /pt muln1 modnMml.
-by rewrite modn_small.
+case => p_gt0 q_gt0 _ _ _ _ _ _ _.
+rewrite /step; have [pLq|qLp] := ltnP; rewrite /=.
+  have kp_gt0 : 0 < q %/ p * p by rewrite muln_gt0 p_gt0 andbT divn_gt0 // ltnW.
+  by rewrite ltn_add2l ltn_subrL kp_gt0 q_gt0.
+have kq_gt0 : 0 < p %/ q * q by rewrite muln_gt0 q_gt0 andbT divn_gt0.
+by rewrite ltn_add2r ltn_subrL kq_gt0 p_gt0.
 Qed.
 
-(** the shape [invd_le] reduces to, in both [invd_first] and [step_invd]:
-    a remainder by a gap is below every distance whose index is in range.
-    Proof plan: [x <= d %/ g] gives [Dst x = B - Pt x >= B %% g] by
-    [dst_below] and [leq_trunc_div]; [x > d %/ g] makes the point wrap, and
-    [dst_above] bounds [Dst x] below by [M - Pt x >= B %% g] as long as
-    [Pt 1 * x <= B + M], which the index range provides. *)
-Lemma mod_le_dst g x : 0 < g -> g = Pt 1 -> Pt 1 * x <= M -> B %% g <= Dst x.
-Proof.
-move=> g_gt0 gE Hx.
-have PtE : Pt x = (g * x) %% M by rewrite gE /pt muln1 modnMml.
-have BMg : B %% g <= B by apply: leq_mod.
-case: (ltnP (g * x) M) => [gxM|Mgx].
-  have Ptx : Pt x = g * x by rewrite PtE modn_small.
-  case: (leqP (g * x) B) => [gxB|Bgx].
-    rewrite dst_below ?Ptx //.
-    have Hd : g * x <= B %/ g * g.
-      have Hx1 : x <= B %/ g by rewrite leq_divRL // mulnC.
-      by rewrite mulnC leq_mul2r Hx1 orbT.
-    have -> : B %% g = B - B %/ g * g by rewrite {2}(divn_eq B g) addnC addnK.
-    exact: leq_sub2l Hd.
-  rewrite dst_above ?Ptx //.
-  apply: leq_trans BMg _.
-  rewrite leq_subRL; last by rewrite (leq_trans (ltnW gxM)) // leq_addl.
-  by rewrite addnC leq_add2l ltnW.
-have gxE : g * x = M by apply/eqP; rewrite eqn_leq Mgx andbT gE.
-by rewrite dstE PtE gxE modnn subn0 modnDr (modn_small B_lt).
-Qed.
+
+(** ** The invariant [invd] on the recorded distance, and the first step *)
+
+Record invd (p q d u v : nat) : Prop := Invd {
+  invd_max : d < maxn p q;
+  invd_le  : d <= Inf (u + v);
+  (* [d] sits on the same residue class mod [p] as the true closest
+     distance.  Independent of [invx]: [invx] constrains the CONFIGURATION
+     (gaps at least p / q), this constrains [d] RELATIVE to it, and the two
+     leaves need both.  Validated: 0 counterexamples over 5152 states, and
+     it makes the leaves hold in 121183 of 121183 cases.  See the
+     correction note above for why [invx] alone does not suffice. *)
+  invd_cong : d = Inf (u + v) %[mod p]
+}.
 
 (** after the FIRST step, [d] satisfies [invd]. *)
 (** Goals (1) and (3) of the breakdown above -- the [invd_max] field in
@@ -489,23 +909,6 @@ case: (leqP (A %% M - A %% M %/ (M - A %% M) * (M - A %% M)) (B %% M))
    => [p'Ld|dLp'].
   by rewrite (leq_trans (ltn_pmod _ Hq)) ?leq_maxr.
 by rewrite (leq_trans dLp') // leq_maxl.
-Qed.
-
-(** Goals (2) and (4): the [invd_le] field.  Goal (2) is [le_inf_dst] plus
-    [mod_le_dst]; goal (4) needs the same universal bound as
-    [step_invd_le_pt].  Left as one obligation so the two are attacked
-    together. *)
-(** ** The points added in the [M - A <= A] branch: a descending run. *)
-Lemma pt_desc j : j * (M - A) <= A -> Pt (j + 1) = A - j * (M - A).
-Proof.
-move=> Hj.
-have HAM : A <= M by rewrite ltnW.
-have HjM : j * M = j * (M - A) + j * A by rewrite -mulnDr subnK.
-rewrite /pt.
-have -> : A * (j + 1) = A - j * (M - A) + j * M.
-  by rewrite HjM addnA subnK // mulnDr muln1 mulnC addnC.
-rewrite addnC modnMDl modn_small //.
-by rewrite (leq_ltn_trans (leq_subr _ _)).
 Qed.
 
 (** The [A < M - A] branch: covered by [mod_le_dst]. *)
@@ -721,36 +1124,6 @@ rewrite E /= in Hm Hl Hc.
 by split.
 Qed.
 
-(** and [invd] is preserved.  THE hardest of the file. *)
-Lemma pt_sub x y : y <= x -> Pt y <= Pt x -> Pt (x - y) = Pt x - Pt y.
-Proof.
-move=> yx Hp; rewrite /pt mulnBr modnB //; last by rewrite leq_mul2l yx orbT.
-by rewrite ltnNge Hp /= mul0n add0n.
-Qed.
-
-(** holds without [Pt y <= Pt x]. *)
-Lemma dstB_gen x y : y <= x -> Dst (x - y) = (Dst x + Pt y) %% M.
-Proof.
-move=> yx.
-have Hpx : Pt x = (Pt (x - y) + Pt y) %% M by rewrite -ptD subnK.
-have HP := pt_lt (x - y); have HQ := pt_lt y.
-rewrite dstE [in RHS]dstE modnDml Hpx.
-case: (ltnP (Pt (x - y) + Pt y) M) => H.
-  rewrite (modn_small H) subnDA subnK //.
-  by rewrite leq_subRL ?(leq_trans (ltnW HP)) ?leq_addl //
-             (leq_trans (ltnW H)) // leq_addl.
-have e2 : (Pt (x - y) + Pt y) %% M = Pt (x - y) + Pt y - M.
-  rewrite -{1}(subnK H) modnDr modn_small // ltn_subLR //.
-  apply: leq_ltn_trans (leq_add (ltnW HP) (leqnn _)) _.
-  by rewrite ltn_add2l.
-have HPB : Pt (x - y) <= B + M by rewrite (leq_trans (ltnW HP)) // leq_addl.
-rewrite e2 subnBA // subnDA subnK.
-  by rewrite -[in RHS]addnBAC // modnDr.
-rewrite leq_subRL; last by rewrite (leq_trans HPB) // leq_addr.
-apply: leq_trans (leq_add (ltnW HP) (ltnW HQ)) _.
-by rewrite leq_add2r leq_addl.
-Qed.
-
 (** the mirror of [step_d_lt], direction of travel corrected. *)
 Lemma step_d_ge p q d u v x j :
   inv p q d u v -> q <= p -> x < u + v -> d = Dst x ->
@@ -795,241 +1168,8 @@ case: (leqP (p - p %/ q * q) d) => [p'Ld|dLp'].
 by rewrite (leq_trans dLp') // leq_maxl.
 Qed.
 
-(** the [invd_le] half: the real content, shared with [invd_first]. *)
-(** The missing content, isolated.  [d' <= M] is bundled in because
-    [le_inf_dst] needs it for its [n = 0] base case; the second component
-    is the universal bound, which is the real work.  Both parts are
-    consequences of the validated [d' <= Inf (u' + v')], so this helper is
-    a faithful decomposition, not a new conjecture. *) 
-(** Only the NEW indices can be hard.  For [x < u + v] the bound is free:
-    [d' <= d] (a remainder by a gap, or [d] itself), [d <= Inf (u+v)] by
-    [invd_le], and [Inf (u+v) <= Dst x] by [inf_dst_le].  So the whole
-    obligation reduces to the indices the step has just added. *)
-(** The two branches add points of opposite orientation. *)
-(** The two-length structure, reproved natively rather than bridged to
-    CFrac/slater.v: the dictionary is in the header, but instantiating
-    slater's real-valued development costs more than reproving. *)
 
-(** The proof needs NO completeness statement -- Bezout on the NEW state
-    plus [N <= M %/ gcdn A M] is exactly enough.  If [q' = 0] then
-    [step_bez] degenerates to [u' * p = M], and [p %| q] forces
-    [p = gcdn p q = gcdn A M], so [u' = M %/ gcdn A M >= N], contradicting
-    [u' + v' < N].  Symmetrically for [p' = 0].  ([inv_complete], the false
-    lemma of round 3, was a wrong turn: it was never needed.) *)
-Lemma step_p_gt0 p q d u v :
-  inv p q d u v -> u + v < N ->
-  let: (p', q', _, u', v') := step p q d u v in
-  u' + v' < N -> 0 < p' /\ 0 < q'.
-Proof.
-move=> iv uvLN.
-have [p_gt0 q_gt0 bez pE qE gE _ _] := iv.
-have Hb := step_bez iv.
-move: Hb; rewrite /step.
-have [pLq|qLp] := ltnP => /= Hb Huv; split => //.
-  case: (posnP (q - q %/ p * p)) => [q0|] //.
-  have qme : q - q %/ p * p = q %% p by rewrite {1}(divn_eq q p) addnC addnK.
-  have qmp : q %% p = 0 by rewrite -qme q0.
-  have pg : p = gcdn A M by rewrite -gE; apply/esym/gcdn_idPl; rewrite /dvdn qmp.
-  move: Hb; rewrite q0 muln0 addn0 => Hb.
-  have Hu : u + q %/ p * v = M %/ p by rewrite -Hb mulnK.
-  by move: Huv; rewrite Hu pg ltnNge (leq_trans N_le_Mg (leq_addr v _)).
-case: (posnP (p - p %/ q * q)) => [p0|] //.
-have pme : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
-have pmq : p %% q = 0 by rewrite -pme p0.
-have qg : q = gcdn A M by rewrite -gE gcdnC; apply/esym/gcdn_idPl; rewrite /dvdn pmq.
-move: Hb; rewrite p0 muln0 add0n => Hb.
-have Hv : v + p %/ q * u = M %/ q by rewrite -Hb mulnK.
-by move: Huv; rewrite Hv qg ltnNge (leq_trans N_le_Mg (leq_addl u _)).
-Qed.
-
-(** [q <= M] is free from [inv]. *)
-(** [p < q] branch: [x] ranges over the new indices [u+v <= x < u'+v'],
-    each written [y + m*v] with [y] old ([new_index_decomp]). *)
-
-Lemma new_index_decomp k u v x :
-  0 < v -> u + v <= x -> x < u + k * v + v ->
-  exists2 m, 0 < m <= k & (x - m * v < u + v) && (m * v <= x).
-Proof.
-move=> v_gt0 xge xlt.
-set r := x - (u + v).
-have Hr : r < k * v by rewrite /r ltn_subLR // addnAC.
-have Hmv : r %/ v * v + v <= x.
-  apply: leq_trans (leq_add (leq_divM r v) (leqnn v)) _.
-  by rewrite -(subnK xge) -/r leq_add2l leq_addl.
-exists (r %/ v + 1).
-  rewrite addn1 ltn0Sn /= (ltn_divLR _ _ v_gt0) //.
-rewrite mulnDl mul1n Hmv andbT.
-have -> : x - (r %/ v * v + v) = u + r %% v.
-  rewrite -(subnK xge) -/r {1}(divn_eq r v).
-  by rewrite subnDA -addnA addKn addnA addnK addnC.
-by rewrite ltn_add2l ltn_mod.
-Qed.
-
-(** the [p1] shape is exactly "no wrap": [Pt z + p < M]. *)
-Lemma pt_addv p v z : p = Pt v -> Pt z + p < M -> Pt (z + v) = Pt z + p.
-Proof. by move=> pE H; rewrite ptD -pE modn_small. Qed.
-
-(** the walk value, modulo [M] and unconditionally. *)
-Lemma pt_walk_mod p v y j : p = Pt v -> Pt (y + j * v) = (Pt y + j * p) %% M.
-Proof.
-move=> pE; rewrite ptD.
-by have -> : Pt (j * v) = (j * p) %% M;
-   [rewrite pE /pt modnMmr mulnCA | rewrite modnDmr].
-Qed.
-
-(** the walk value on the nose: [<= M] from [pt_walk_le], [<> M] from
-    [pt_neq0].  Universally quantified in [j], unlike [pt_new_lt] which
-    produces its own -- that is what [lt/p1] needs. *)
-Lemma pt_walk_value p q v y j :
-  p = Pt v -> Pt y <= M - q -> q <= M -> j * p <= q -> 0 < y + j * v <= N ->
-  Pt (y + j * v) = Pt y + j * p.
-Proof.
-move=> pE Hy qM jpq yjN.
-have HP : Pt y + j * p <= M.
-  by apply: leq_trans (leq_add Hy jpq) _; rewrite subnK.
-have Hmod : Pt (y + j * v) = (Pt y + j * p) %% M := pt_walk_mod _ _ pE.
-rewrite Hmod modn_small // ltn_neqAle HP andbT.
-apply/eqP => HE.
-by have := pt_neq0 yjN; rewrite Hmod HE modnn eqxx.
-Qed.
-
-(** [pt_addv] with only [<= M]: equality would put [Pt (z+v)] at the origin,
-    which [pt_neq0] forbids below [N].  Reusable -- this "no wrap" step was
-    inlined in [pt_new_lt] and is what both cases of [lt/p1] need. *)
-Lemma pt_addv_le p v z : p = Pt v -> 0 < z + v <= N -> Pt z + p <= M ->
-  Pt (z + v) = Pt z + p.
-Proof.
-move=> pE zvN H.
-case: (ltnP (Pt z + p) M) => [Hlt|Hge]; first exact: pt_addv.
-have HE : Pt z + p = M by apply/eqP; rewrite eqn_leq H Hge.
-by have := pt_neq0 zvN; rewrite ptD -pE HE modnn eqxx.
-Qed.
-
-(** batched [pt_addv]. *)
-Lemma pt_walkD p v y m :
-  p = Pt v -> m * p < M -> Pt y + m * p < M -> Pt (y + m * v) = Pt y + m * p.
-Proof.
-move=> pE mpM H.
-have Hmv : Pt (m * v) = (m * Pt v) %% M by rewrite /pt modnMmr mulnCA.
-by rewrite ptD Hmv -pE (modn_small mpM) modn_small.
-Qed.
-
-
-(** * Slater's two equations
-
-    Slater 2 (7): at [N+1 = u+v] points the step structure has [u] steps of
-    length [alpha = p] (index [r |-> r+v], from [r < u]) and [v] of length
-    [beta = q] ([r |-> r-u]), and none of length [alpha+beta]; (8) is
-    [u*p + v*q = M], our [inv_bez].  So a walk from [y] up to [z] through
-    successive points has TWO invariants: the value one [a*p + b*q =
-    Dst y - Dst z] and the INDEX one [a*v + y = b*u + z].  The second is
-    what makes the counts bounded -- with only the first, no witness works
-    (alg2-notes.md 1). *)
-
-(* pure counting: [k < x] and [x*l <= w*k + t] with [t < k + l] force [l <= w] *)
-Lemma gap_count_aux k l w x t :
-  0 < k -> k < x -> t < k + l -> x * l <= w * k + t -> l <= w.
-Proof.
-move=> k_gt0 kx tkl H.
-have H1 : l + k * l < w * k + k + l.
-  apply: leq_ltn_trans (_ : w * k + t < _); last first.
-    by rewrite -addnA ltn_add2l.
-  by rewrite (leq_trans _ H) // -mulSn leq_mul2r kx orbT.
-rewrite -ltnS -(ltn_pmul2l k_gt0) mulnS mulnC [k * w]mulnC mulnC addnC.
-by move: H1; rewrite addnC ltn_add2r.
-Qed.
-
-(** and then the bounds of [invx_gap] are FREE.  If [a] overshoots [u] the
-    index equation forces [b] to overshoot [v] as well, and then the value
-    is at least [u*p + v*q = M], which no distance reaches. *)
-Lemma gap_bounds p q u v y z a b :
-  0 < u -> 0 < v -> u * p + v * q = M -> y < u + v -> z < u + v ->
-  a * v + y = b * u + z -> a * p + b * q < M -> a <= u /\ b <= v.
-Proof.
-move=> u_gt0 v_gt0 bez yL zL Hix Hval.
-have Hcontra : u <= a -> v <= b -> False.
-  move=> ua vb; move: Hval; rewrite ltnNge -bez => /negP; apply.
-  by rewrite leq_add // leq_mul2r ?ua ?vb orbT.
-split; apply/negPn/negP; rewrite -ltnNge => H.
-  apply: Hcontra (ltnW H) _.
-  apply: gap_count_aux u_gt0 H zL _.
-  by rewrite -Hix leq_addr.
-apply: Hcontra _ (ltnW H).
-apply: (@gap_count_aux v u a b y v_gt0 H); first by rewrite addnC.
-by rewrite Hix leq_addr.
-Qed.
-
-(** conditioned as [step_p_gt0] is: only needed when the loop continues. *)
-(** the paper's side condition is [p, q <> 0], not a bound on the range
-    (mourad-notes.md 5); this is [inv_step] with that condition, and the
-    [N] form below is the special case via [step_p_gt0]. *)
-Lemma inv_step_pos p q d u v :
-  inv p q d u v ->
-  let: (p', q', d', u', v') := step p q d u v in
-  0 < p' -> 0 < q' -> inv p' q' d' u' v'.
-Proof.
-move=> iv.
-have Hb := step_bez iv.
-have Hpt := step_pt iv.
-have [_ _ _ _ _ gE u_gt0 v_gt0] := iv.
-move: Hb Hpt; rewrite /step.
-have [pLq|qLp] := ltnP => /= Hb Hpt Hp Hq.
-  have [Hpv Hqu] := Hpt Hp Hq.
-  split => //.
-    have -> : q - q %/ p * p = q %% p by rewrite {1}(divn_eq q p) addnC addnK.
-    by rewrite gcdn_modr.
-  by rewrite addn_gt0 u_gt0.
-have [Hpv Hqu] := Hpt Hp Hq.
-split => //.
-  have -> : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
-  by rewrite gcdnC gcdn_modr gcdnC.
-by rewrite addn_gt0 v_gt0.
-Qed.
-
-Lemma inv_step p q d u v :
-  inv p q d u v -> u + v < N ->
-  let: (p', q', d', u', v') := step p q d u v in
-  u' + v' < N -> inv p' q' d' u' v'.
-Proof.
-move=> iv uvLN.
-have Hg := step_p_gt0 iv uvLN.
-have Hi := inv_step_pos iv.
-move: Hg Hi; rewrite /step.
-have [pLq|qLp] := ltnP => /= Hg Hi Huv.
-  by have [Hp Hq] := Hg Huv; apply: Hi.
-by have [Hp Hq] := Hg Huv; apply: Hi.
-Qed.
-
-(** the [p2] shape needs no invariant, only [q = M - Pt u]. *)
-Lemma pt_subu q u z : q = M - Pt u -> u <= z -> Pt (z - u) = (Pt z + q) %% M.
-Proof.
-move=> qE uLz.
-have Hz : Pt z = (Pt (z - u) + Pt u) %% M by rewrite -ptD subnK.
-rewrite qE Hz modnDml -addnA (subnKC (ltnW (pt_lt u))) modnDr.
-by rewrite modn_small // pt_lt.
-Qed.
-
-
-(** mourad-notes.md: the paper's side condition is [p, q <> 0], not a bound
-    on the range.  The bridge is that a two-length configuration never has
-    more points than the orbit: [u + v <= M %/ g] is FREE from [inv]. *)
-Lemma inv_uv_le p q d u v : inv p q d u v -> u + v <= M %/ gcdn A M.
-Proof.
-move=> iv; have [p_gt0 q_gt0 bez _ _ gE u_gt0 v_gt0] := iv.
-rewrite -gE.
-have g_gt0 : 0 < gcdn p q by rewrite gcdn_gt0 p_gt0.
-have Hp := dvdn_gcdl p q; have Hq := dvdn_gcdr p q.
-have p1_gt0 : 0 < p %/ gcdn p q by rewrite divn_gt0 // dvdn_leq.
-have q1_gt0 : 0 < q %/ gcdn p q by rewrite divn_gt0 // dvdn_leq.
-have -> : M %/ gcdn p q = u * (p %/ gcdn p q) + v * (q %/ gcdn p q).
-  apply/eqP; rewrite -(eqn_pmul2r g_gt0) divnK; last first.
-    by rewrite -bez dvdn_add // dvdn_mull.
-  by rewrite mulnDl -!mulnA !divnK // -bez.
-by rewrite leq_add // leq_pmulr.
-Qed.
-
-Lemma inv_qM p q d u v : inv p q d u v -> q <= M.
-Proof. by case=> _ _ _ _ -> _ _ _; apply: leq_subr. Qed.
+(** ** The configuration invariant [invx] *)
 
 Record invx (p q u v : nat) : Prop := Invx {
   invx_min : forall m, 0 < m < u + v -> p <= Pt m;
@@ -1059,7 +1199,6 @@ Record invx (p q u v : nat) : Prop := Invx {
     iterated.  Stepping the index by [v] raises the point by [p], and the
     guard [z + k*v <= u] keeps every intermediate index below [u], which is
     exactly what [invx_p1] needs at each step. *)
-
 Lemma invx_init : invx (A %% M) (M - A %% M) 1 1.
 Proof.
 have HA : A %% M = A by apply: modn_small.
@@ -1104,54 +1243,72 @@ split => //.
 by rewrite leq_subr.
 Qed.
 
-(** The one real obligation left: the three-distance step.  Conditioned as
-    [inv_step] and [step_p_gt0] are -- only when the loop continues -- since
-    at the terminal states ([q = 0], [u + v >= N]) [invx_min] genuinely
-    fails: probed 78 violations there, 0 under the guard (376 states). *)
-(** [invx_step], one lemma per field per branch: seven fields, two
-    branches, [invx_qM] inline.  grep "@INVX_STEP" for status. *)
-
-(** **** the [p < q] branch *)
-
-(** [q < M] strictly: [q = M] would force [Pt u = 0]. *)
-Lemma inv_qltM p q d u v : inv p q d u v -> u <= N -> q < M.
+(** the [q]-step down, on its own: [gap_step_q]'s second half needs only
+    [q <= Dst y]. *)
+Lemma dst_sub_u p q d u v y :
+  inv p q d u v -> u <= y -> q <= Dst y -> Dst (y - u) = Dst y - q.
 Proof.
-move=> iv uN.
-have [_ _ _ _ qE _ u_gt0 _] := iv.
-have qM := inv_qM iv.
-rewrite ltn_neqAle qM andbT; apply/eqP => qMe.
-have H := subnK (ltnW (pt_lt u)).
-move: H; rewrite -qE qMe => H2.
-have Hu : Pt u = 0.
-  have E0 : M + Pt u == M + 0 by rewrite addn0; apply/eqP.
-  by move: E0; rewrite eqn_add2l => /eqP.
-have uN' : 0 < u <= N by rewrite u_gt0 uN.
-by have := pt_neq0 uN'; rewrite Hu eqxx.
+move=> iv uy qDy.
+have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
+have qM : q <= M by rewrite qE leq_subr.
+have PtuE : Pt u = M - q by rewrite qE subKn // ltnW // pt_lt.
+have Heq := dst_add (y - u) u.
+rewrite subnK // PtuE subnBA // addnAC addnK in Heq.
+case: (ltnP (Dst (y - u) + q) M) => [Hs|Hs].
+  by rewrite Heq (modn_small Hs) addnK.
+have Hlt2 : Dst (y - u) + q - M < M.
+  by rewrite ltn_subLR // (leq_ltn_trans (leq_add (leqnn (Dst (y - u))) qM)) //
+             ltn_add2r dst_lt.
+move: Heq; rewrite -{1}(subnK Hs) modnDr (modn_small Hlt2) => Heq.
+have Hc : Dst y < q by rewrite Heq ltn_subLR // ltn_add2r dst_lt.
+by move: qDy; rewrite leqNgt Hc.
 Qed.
 
-(** two general facts the walk lemmas share: stepping the index by [w]
-    lowers the distance by [Pt w] modulo [M], and [Pt] is linear modulo [M]. *)
-Lemma dst_add x w : Dst (x + w) = (Dst x + M - Pt w) %% M.
+(** the wrapped companion of [dst_sub_u]: if [b] is nearer than [q] to the
+    point [w], its successor [w - u] lies BEYOND [b]. *)
+Lemma dst_sub_u_wrap p q d u v w :
+  inv p q d u v -> u <= w -> Dst w < q -> Dst (w - u) = Dst w + M - q.
 Proof.
-have Hd := dstB_gen (x := x + w) (y := w) (leq_addl x w).
-rewrite addnK in Hd.
-have HD := dst_lt (x + w); have HP := pt_lt w.
-rewrite Hd; case: (ltnP (Dst (x + w) + Pt w) M) => H.
-  by rewrite (modn_small H) addnAC addnK modnDr modn_small.
-have e2 : (Dst (x + w) + Pt w) %% M = Dst (x + w) + Pt w - M.
-  rewrite -{1}(subnK H) modnDr modn_small // ltn_subLR //.
-  by apply: leq_ltn_trans (leq_add (ltnW HD) (leqnn _)) _; rewrite ltn_add2l.
-by rewrite e2 subnK ?addnK ?modn_small // (leq_trans (ltnW HP)) // leq_addl.
+move=> iv uw qDw.
+have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
+have qM : q <= M by rewrite qE leq_subr.
+have PtuE : Pt u = M - q by rewrite qE subKn // ltnW // pt_lt.
+have Heq := dst_add (w - u) u.
+rewrite subnK // PtuE subnBA // addnAC addnK in Heq.
+case: (ltnP (Dst (w - u) + q) M) => [Hs|Hs].
+  by move: qDw; rewrite Heq (modn_small Hs) ltnNge leq_addl.
+have Hlt2 : Dst (w - u) + q - M < M.
+  by rewrite ltn_subLR // (leq_ltn_trans (leq_add (leqnn (Dst (w - u))) qM)) //
+             ltn_add2r dst_lt.
+move: Heq; rewrite -{1}(subnK Hs) modnDr (modn_small Hlt2) => Heq.
+by rewrite Heq subnK // addnK.
 Qed.
 
-(** * Slater (6): two points are never closer than a gap
+(** mourad-notes.md 2, Property 3, constructive direction: the new points
+    enter a gap from ABOVE, [q] at a time -- index [+u] steps the value down
+    by [q].  ([pt_new_ge] is the same computation read backwards.) *)
+Lemma pt_add_u p q d u v y i :
+  inv p q d u v -> 0 < i -> i * q <= p -> i * q <= Pt y ->
+  Pt (y + i * u) = Pt y - i * q.
+Proof.
+move=> iv i_gt0 iqp iqP.
+have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
+have iqM : i * q < M by rewrite (leq_ltn_trans iqp) // pE pt_lt.
+have PuE : Pt u = M - q by rewrite qE subKn // ltnW // pt_lt.
+have Hiu : Pt (i * u) = M - i * q.
+  have H1 : Pt (i * u) = (i * Pt u) %% M by rewrite /pt modnMmr mulnCA.
+  rewrite H1 PuE mulnBr.
+  have -> : i * M - i * q = (i - 1) * M + (M - i * q).
+    rewrite addnBA; last by apply: ltnW.
+    by rewrite subn1 -mulSnr prednK.
+  by rewrite modnMDl modn_small // ltn_subrL muln_gt0 i_gt0 q_gt0 M_gt0.
+rewrite ptD Hiu addnBA; last exact: ltnW iqM.
+rewrite [Pt y + M]addnC -addnBA // modnDl.
+by rewrite modn_small // (leq_ltn_trans (leq_subr _ _)) // pt_lt.
+Qed.
 
-    In DISTANCE form (6) splits on whether the index order and the value
-    order agree: if they do the difference is a plain [Pt], if they do not
-    the walk round the circle wraps exactly once. *)
 
-Lemma dst_diff m1 m2 : m2 <= m1 -> Dst m2 = (Dst m1 + Pt (m1 - m2)) %% M.
-Proof. by move=> H; rewrite -{1}(subKn H) dstB_gen // leq_subr. Qed.
+(** ** Slater's three-distance structure: gaps, walks and decompositions *)
 
 Lemma dst_gap_up m1 m2 : m1 <= m2 -> Dst m2 <= Dst m1 ->
   Pt (m2 - m1) + Dst m2 = Dst m1.
@@ -1330,6 +1487,26 @@ exists a, b.+1; split.
 by rewrite mulSn -addnA -Hix addnCA subnKC.
 Qed.
 
+(** and then the bounds of [invx_gap] are FREE.  If [a] overshoots [u] the
+    index equation forces [b] to overshoot [v] as well, and then the value
+    is at least [u*p + v*q = M], which no distance reaches. *)
+Lemma gap_bounds p q u v y z a b :
+  0 < u -> 0 < v -> u * p + v * q = M -> y < u + v -> z < u + v ->
+  a * v + y = b * u + z -> a * p + b * q < M -> a <= u /\ b <= v.
+Proof.
+move=> u_gt0 v_gt0 bez yL zL Hix Hval.
+have Hcontra : u <= a -> v <= b -> False.
+  move=> ua vb; move: Hval; rewrite ltnNge -bez => /negP; apply.
+  by rewrite leq_add // leq_mul2r ?ua ?vb orbT.
+split; apply/negPn/negP; rewrite -ltnNge => H.
+  apply: Hcontra (ltnW H) _.
+  apply: gap_count_aux u_gt0 H zL _.
+  by rewrite -Hix leq_addr.
+apply: Hcontra _ (ltnW H).
+apply: (@gap_count_aux v u a b y v_gt0 H); first by rewrite addnC.
+by rewrite Hix leq_addr.
+Qed.
+
 (** Slater's decomposition, for ANY state with the gap structure: walk to
     the argmin and read off both equations.  This is [invx_gap], and it is
     what the two [gap] obligations of [invx_step] now reduce to. *)
@@ -1353,392 +1530,6 @@ have [aLu bLv] : a <= u /\ b <= v.
   by rewrite Hval (leq_ltn_trans (leq_subr _ _)) // dst_lt.
 exists a, b; split => //.
 by rewrite Heq -addnA Hval subnKC.
-Qed.
-
-
-
-
-
-Lemma pt_muln k x : Pt (k * x) = (k * Pt x) %% M.
-Proof. by rewrite /pt modnMmr mulnCA. Qed.
-
-Lemma walk_lt_nowrap p q d u v y m :
-  inv p q d u v -> p < q -> y < u + v ->
-  0 < m <= q %/ p -> m * p <= Dst y -> Dst (y + m * v) = Dst y - m * p.
-Proof.
-move=> iv pLq yLuv mk Hmp.
-have [p_gt0 _ _ pE _ _ _ _] := iv.
-elim: m Hmp {mk} => [|m IH Hmp]; first by rewrite !mul0n addn0 subn0.
-have Hm : m * p <= Dst y by rewrite (leq_trans _ Hmp) // leq_mul2r leqnSn orbT.
-have -> : y + m.+1 * v = y + m * v + v by rewrite mulSnr addnA.
-rewrite dstD; first by rewrite IH // -pE mulSnr subnDA.
-by rewrite IH // -pE leq_psubRL // -mulSnr.
-Qed.
-
-(** the WRAP companion of [walk_lt_nowrap]. *)
-Lemma walk_lt_wrapeq p q d u v y m :
-  inv p q d u v -> p < q -> y < u + v ->
-  0 < m <= q %/ p -> Dst y < m * p -> Dst (y + m * v) = Dst y + M - m * p.
-Proof.
-move=> iv pLq yLuv /andP[m_gt0 mk] Hy.
-have [p_gt0 _ _ pE qE _ _ _] := iv.
-have mpq : m * p <= q by rewrite -leq_divRL.
-have mpM : m * p <= M by rewrite (leq_trans mpq) // qE leq_subr.
-rewrite dst_add pt_muln -pE.
-case: (ltnP (m * p) M) => [Hlt|Hge].
-  rewrite (modn_small Hlt) modn_small //.
-  rewrite ltn_subLR ?ltn_add2r //.
-  by rewrite (leq_trans mpM) // leq_addl.
-have mpE : m * p = M by apply/eqP; rewrite eqn_leq mpM Hge.
-by rewrite mpE modnn subn0 modnDr modn_small ?dst_lt // addnK.
-Qed.
-
-(** and then the point is at least [p] from [B]: [M - m*p >= M - q >= p]
-    by [inv_bez].  Shared by [le_lt_wrap] and [inf_ge_new]. *)
-Lemma walk_lt_wrap_ge p q d u v y m :
-  inv p q d u v -> p < q -> y < u + v ->
-  0 < m <= q %/ p -> Dst y < m * p -> p <= Dst (y + m * v).
-Proof.
-move=> iv pLq yLuv mk Hy.
-rewrite (walk_lt_wrapeq iv pLq yLuv mk Hy).
-have [p_gt0 q_gt0 bez _ _ _ u_gt0 v_gt0] := iv.
-have /andP[m_gt0 mkd] := mk.
-have mpq : m * p <= q by rewrite -leq_divRL.
-(* the whole point of [inv_u0]/[inv_v0]: [p + q <= M] *)
-have pqM : p + q <= M by rewrite -bez leq_add // leq_pmull.
-have mpM : m * p <= M by rewrite (leq_trans mpq) // (leq_trans _ pqM) // leq_addl.
-rewrite leq_subRL; last by rewrite (leq_trans mpM) // leq_addl.
-apply: leq_trans (_ : M <= _); last by rewrite leq_addl.
-by rewrite (leq_trans (leq_add mpq (leqnn p))) // addnC.
-Qed.
-
-(** stronger than the congruence needed; only [<=] is real content. *)
-Lemma inf_new_lt_le p q d u v :
-  inv p q d u v -> invx p q u v -> u + v < N -> p < q ->
-  Inf (u + (q %/ p) * v + v) <= Inf (u + v) %% p.
-Proof.
-move=> iv ix uvLN pLq.
-have [p_gt0 q_gt0 _ _ _ _ u_gt0 v_gt0] := iv.
-have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
-have [y yLuv HyE] := inf_dst_ex uv_gt0.
-(* [invx_inf] is what puts the walk inside the new range *)
-have Iq : Inf (u + v) < q.
-  by have := invx_inf ix; rewrite /maxn ifT.
-set m := Inf (u + v) %/ p.
-have mq : m <= q %/ p by rewrite leq_div2r // ltnW.
-have mpI : m * p <= Inf (u + v) by rewrite leq_divM.
-case: (posnP m) => [m0|m_gt0].
-  have IltP : Inf (u + v) < p by rewrite ltnNge -divn_gt0 // -/m m0.
-  rewrite (modn_small IltP).
-  by apply: inf_dst_mono; rewrite -addnA leq_add2l leq_addl.
-have Hm : 0 < m <= q %/ p by rewrite m_gt0.
-have Hmp : m * p <= Dst y by rewrite -HyE.
-have Hw := walk_lt_nowrap iv pLq yLuv Hm Hmp.
-rewrite -HyE in Hw.
-have HwE : Dst (y + m * v) = Inf (u + v) %% p.
-  by rewrite Hw /m {1}(divn_eq (Inf (u + v)) p) addKn.
-rewrite -HwE; apply: inf_dst_le.
-have -> : u + q %/ p * v + v = u + v + q %/ p * v.
-  by rewrite -!addnA (addnC v).
-by rewrite (leq_ltn_trans (leq_add (leqnn y) (_ : m * v <= q %/ p * v)))
-   ?leq_mul2r ?mq ?orbT // ltn_add2r.
-Qed.
-
-(** after a [p < q] step the new [q] is [q %% p], hence below [p]. *)
-Lemma q'_lt_p p q : 0 < p -> q - q %/ p * p < p.
-Proof. by move=> p_gt0; rewrite {1}(divn_eq q p) addnC addnK ltn_pmod. Qed.
-
-Lemma maxn_new_lt p q : 0 < p -> maxn p (q - q %/ p * p) = p.
-Proof. by move=> p_gt0; apply/maxn_idPl; rewrite ltnW // q'_lt_p. Qed.
-
-(** the max is attained, mirror of [inf_dst_ex]. *)
-Lemma dst_max_ex n :
-  0 < n -> exists2 y, y < n & forall z, z < n -> Dst z <= Dst y.
-Proof.
-elim: n => // [] [_ _|n IH _].
-  by exists 0 => // z; rewrite ltnS leqn0 => /eqP->.
-have [y yLn Hy] := IH isT.
-case: (leqP (Dst n.+1) (Dst y)) => [H|H].
-  exists y; first by rewrite (leq_trans yLn).
-  by move=> z; rewrite ltnS leq_eqVlt => /orP[/eqP->|zLn] //; apply: Hy.
-exists n.+1 => // z; rewrite ltnS leq_eqVlt => /orP[/eqP->|zLn] //.
-by rewrite (leq_trans (Hy _ zLn)) // ltnW.
-Qed.
-
-(* @INVX_STEP HELPER sharp -- PROVED *)
-(** [new_index_decomp] sharpened to [j < k], cut into its arithmetic. *)
-Lemma sharp_t_lt k u v x : u + v <= x -> x < u + k * v -> x - (u + v) < (k - 1) * v.
-Proof.
-move=> xge xlt.
-have k_gt0 : 0 < k.
-  case: k xlt => // ; rewrite mul0n addn0 => H.
-  by have := leq_ltn_trans xge H; rewrite ltnNge leq_addr.
-rewrite ltn_subLR // subn1.
-move: xlt; rewrite -{1}(prednK k_gt0) mulSnr addnA => xlt.
-by rewrite (leq_trans xlt) // addnAC.
-Qed.
-
-Lemma sharp_j_lt_k k v t : 0 < v -> t < (k - 1) * v -> (t %/ v).+1 < k.
-Proof.
-move=> v_gt0 H.
-have H2 : t %/ v < k - 1 by rewrite ltn_divLR.
-by move: H2; rewrite ltn_subRL -addn1.
-Qed.
-
-Lemma sharp_lo u v x : 0 < v -> u + v <= x -> ((x - (u + v)) %/ v).+1 * v <= x.
-Proof.
-move=> v_gt0 xge.
-rewrite mulSnr (leq_trans (leq_add (leq_divM _ _) (leqnn v))) //.
-have -> : x - (u + v) + v = x - u.
-  by rewrite subnDA subnK // -(leq_add2l u) subnKC // (leq_trans _ xge) // leq_addr.
-by rewrite leq_subr.
-Qed.
-
-Lemma sharp_hi u v x : 0 < v -> u + v <= x -> x - ((x - (u + v)) %/ v).+1 * v < u + v.
-Proof.
-move=> v_gt0 xge.
-rewrite ltn_subLR ?sharp_lo // -{1}(subnK xge) ltn_add2r.
-by rewrite ltn_ceil.
-Qed.
-
-Lemma new_index_decomp_sharp k u v x :
-  0 < v -> u + v <= x -> x < u + k * v ->
-  exists2 j, 0 < j < k & (x - j * v < u + v) && (j * v <= x).
-Proof.
-move=> v_gt0 xge xlt.
-exists ((x - (u + v)) %/ v).+1.
-  by rewrite /= (sharp_j_lt_k v_gt0) // (sharp_t_lt xge).
-by rewrite sharp_hi // sharp_lo.
-Qed.
-
-(** the bound that feeds the walk: [invx_max] gives [Pt y <= M - q]. *)
-Lemma pt_walk_le q y mp : Pt y <= M - q -> q <= M -> mp <= q -> Pt y + mp <= M.
-Proof. by move=> H1 qM H2; apply: leq_trans (leq_add H1 H2) _; rewrite subnK. Qed.
-
-(* @INVX_STEP HELPER lt -- PROVED *)
-(** a new index is an old one walked up by [j] copies of [v], adding
-    [j*p].  Shared by the five [lt] leaves.  alg2-notes.md 5. *)
-Lemma pt_new_lt p q d u v m :
-  inv p q d u v -> (forall k, k < u + v -> Pt k <= M - q) ->
-  p < q -> u + q %/ p * v + v < N ->
-  u + v <= m -> m < u + q %/ p * v + v ->
-  exists2 j, 0 < j <= q %/ p &
-    (m - j * v < u + v) /\ Pt m = Pt (m - j * v) + j * p.
-Proof.
-move=> iv Hmax pLq uvN' mnew mLuv'.
-have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
-have qM : q <= M := inv_qM iv.
-have uLN : u <= N.
-  by rewrite (leq_trans _ (ltnW uvN')) // (leq_trans (leq_addr (q %/ p * v) u)) // leq_addr.
-have qltM : q < M := inv_qltM iv uLN.
-have [j jk /andP[ylt jvm]] := new_index_decomp v_gt0 mnew mLuv'.
-have /andP[j_gt0 jk2] := jk.
-have jpq : j * p <= q by rewrite -leq_divRL.
-have m_gt0 : 0 < m by rewrite (leq_trans _ mnew) // addn_gt0 u_gt0.
-have mLN : m <= N by rewrite ltnW // (ltn_trans mLuv').
-have mN : 0 < m <= N by rewrite m_gt0 mLN.
-have HP : Pt (m - j * v) + j * p <= M := pt_walk_le (Hmax _ ylt) qM jpq.
-have Hjv : Pt (j * v) = j * p.
-  have H1 : Pt (j * v) = (j * Pt v) %% M by rewrite /pt modnMmr mulnCA.
-  by rewrite H1 -pE modn_small // (leq_ltn_trans jpq).
-have Hne : Pt (m - j * v) + j * p < M.
-  rewrite ltn_neqAle HP andbT; apply/eqP => He.
-  by have := pt_neq0 mN; rewrite -{1}(subnK jvm) ptD Hjv He modnn eqxx.
-exists j => //; split => //.
-by rewrite -{1}(subnK jvm) (pt_walkD pE) // (leq_ltn_trans jpq).
-Qed.
-
-(* @INVX_STEP lt/min -- PROVED *)
-(* needs: inv, invx_min, invx_max, pt_neq0 *)
-Lemma invx_step_lt_min p q d u v :
-  inv p q d u v -> (forall m, 0 < m < u + v -> p <= Pt m) ->
-  (forall m, m < u + v -> Pt m <= M - q) ->
-  p < q -> u + q %/ p * v + v < N ->
-  forall m, 0 < m < u + q %/ p * v + v -> p <= Pt m.
-Proof.
-move=> iv Hmin Hmax pLq uvN' m /andP[m_gt0 mLuv'].
-have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
-have qM : q <= M := inv_qM iv.
-(* the OLD indices are free *)
-case: (ltnP m (u + v)) => [mold|mnew].
-  by apply: Hmin; rewrite m_gt0.
-(* a NEW index is [y + j*v] with [y] old, and the walk adds [j*p >= p] *)
-have [j /andP[j_gt0 jk] /andP[ylt jvm]] := new_index_decomp v_gt0 mnew mLuv'.
-have jpq : j * p <= q by rewrite -leq_divRL.
-have qltM : q < M.
-  rewrite ltn_neqAle qM andbT; apply/eqP => qMe.
-  have uN : 0 < u <= N.
-    rewrite u_gt0 (leq_trans _ (ltnW uvN')) //.
-    by rewrite (leq_trans (leq_addr (q %/ p * v) u)) // leq_addr.
-  have H := subnK (ltnW (pt_lt u)).
-  move: H; rewrite -qE qMe => H2.
-  have Hu : Pt u = 0.
-    have E0 : M + Pt u == M + 0 by rewrite addn0; apply/eqP.
-    by move: E0; rewrite eqn_add2l => /eqP.
-  by have := pt_neq0 uN; rewrite Hu eqxx.
-have HP : Pt (m - j * v) + j * p <= M := pt_walk_le (Hmax _ ylt) qM jpq.
-have Hm : Pt m = Pt (m - j * v) + j * p.
-  rewrite -{1}(subnK jvm); apply: pt_walkD pE _ _.
-    by rewrite (leq_ltn_trans jpq).
-  (* the walk cannot land exactly on [M]: that is [Pt m = 0], and [pt_neq0]
-     forbids it below [N] *)
-  rewrite ltn_neqAle HP andbT; apply/eqP => He.
-  have mN : 0 < m <= N by rewrite m_gt0 (leq_trans (ltnW mLuv')) // ltnW.
-  have := pt_neq0 mN.
-  rewrite -{1}(subnK jvm) ptD.
-  have [_ _ _ pE' _ _ _ _] := iv.
-  have Hjv : Pt (j * v) = j * p.
-    have H1 : Pt (j * v) = (j * Pt v) %% M by rewrite /pt modnMmr mulnCA.
-    by rewrite H1 -pE' modn_small // (leq_ltn_trans jpq).
-  by rewrite Hjv He modnn eqxx.
-rewrite Hm (leq_trans _ (leq_addl _ _)) //.
-by rewrite -{1}[p]mul1n leq_mul2r j_gt0 orbT.
-Qed.
-
-(* @INVX_STEP HELPER ge -- PROVED *)
-(** mirror: walking by [u] SUBTRACTS [j*q].  alg2-notes.md 5. *)
-Lemma pt_new_ge p q d u v m :
-  inv p q d u v -> (forall k, 0 < k < u + v -> p <= Pt k) ->
-  q <= p ->
-  u + v <= m -> m < u + (v + p %/ q * u) ->
-  exists2 j, 0 < j <= p %/ q &
-    [/\ 0 < m - j * u < u + v, j * q <= Pt (m - j * u) &
-        Pt m = Pt (m - j * u) - j * q].
-Proof.
-move=> iv Hmin qLp mnew mLuv'.
-have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
-have mnew' : v + u <= m by rewrite addnC.
-have mLuv2 : m < v + p %/ q * u + u by rewrite addnC.
-have [j jk /andP[ylt jum]] := new_index_decomp u_gt0 mnew' mLuv2.
-have /andP[j_gt0 jk2] := jk.
-have jqp : j * q <= p by rewrite -leq_divRL.
-rewrite addnC in ylt.
-have key : forall i, 0 < i <= p %/ q -> 0 < m - i * u -> i * u <= m ->
-    m - i * u < u + v ->
-    [/\ 0 < m - i * u < u + v, i * q <= Pt (m - i * u) & Pt m = Pt (m - i * u) - i * q].
-  move=> i /andP[i_gt0 ik] y_gt0 ium ylt2.
-  have iqp : i * q <= p by rewrite -leq_divRL.
-  have iqP : i * q <= Pt (m - i * u).
-    by rewrite (leq_trans iqp) // Hmin // y_gt0.
-  have iqM : i * q < M by rewrite (leq_ltn_trans iqp) // pE pt_lt.
-  have PuE : Pt u = M - q by rewrite qE subKn // ltnW // pt_lt.
-  have Hiu : Pt (i * u) = M - i * q.
-    have H1 : Pt (i * u) = (i * Pt u) %% M by rewrite /pt modnMmr mulnCA.
-    rewrite H1 PuE mulnBr.
-    have -> : i * M - i * q = (i - 1) * M + (M - i * q).
-      rewrite addnBA; last by apply: ltnW.
-      by rewrite subn1 -mulSnr prednK.
-    by rewrite modnMDl modn_small // ltn_subrL muln_gt0 i_gt0 q_gt0 M_gt0.
-  split => //; first by rewrite y_gt0.
-  rewrite -{1}(subnK ium) ptD Hiu.
-  rewrite addnBA; last exact: ltnW iqM.
-  rewrite [Pt (m - i * u) + M]addnC -addnBA // modnDl.
-  by rewrite modn_small // (leq_ltn_trans (leq_subr _ _)) // pt_lt.
-(* the [Pt 0] corner: if the walk lands on the origin, take one step less *)
-case: (posnP (m - j * u)) => [y0|y_gt0]; last by exists j => //; apply: key.
-have mE : m = j * u by apply/eqP; rewrite eqn_leq jum andbT -subn_eq0 y0.
-have j_gt1 : 1 < j.
-  rewrite ltnNge; apply/negP => jL1.
-  have j1 : j = 1 by apply/eqP; rewrite eqn_leq jL1 j_gt0.
-  move: mnew; rewrite mE j1 mul1n leqNgt => /negP[].
-  by rewrite -{1}[u]addn0 ltn_add2l.
-have yE : m - j.-1 * u = u.
-  by rewrite mE -{1}(prednK j_gt0) mulSnr addnC addnK.
-have jpk : 0 < j.-1 <= p %/ q.
-  apply/andP; split; first by rewrite -subn1 subn_gt0.
-  exact: leq_trans (leq_pred _) jk2.
-exists j.-1 => //; apply: key => //.
-- by rewrite yE.
-- by rewrite (leq_trans _ jum) // leq_mul2r leq_pred orbT.
-by rewrite yE -{1}[u]addn0 ltn_add2l.
-Qed.
-
-(** mourad-notes.md 2, Property 3, constructive direction: the new points
-    enter a gap from ABOVE, [q] at a time -- index [+u] steps the value down
-    by [q].  ([pt_new_ge] is the same computation read backwards.) *)
-Lemma pt_add_u p q d u v y i :
-  inv p q d u v -> 0 < i -> i * q <= p -> i * q <= Pt y ->
-  Pt (y + i * u) = Pt y - i * q.
-Proof.
-move=> iv i_gt0 iqp iqP.
-have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
-have iqM : i * q < M by rewrite (leq_ltn_trans iqp) // pE pt_lt.
-have PuE : Pt u = M - q by rewrite qE subKn // ltnW // pt_lt.
-have Hiu : Pt (i * u) = M - i * q.
-  have H1 : Pt (i * u) = (i * Pt u) %% M by rewrite /pt modnMmr mulnCA.
-  rewrite H1 PuE mulnBr.
-  have -> : i * M - i * q = (i - 1) * M + (M - i * q).
-    rewrite addnBA; last by apply: ltnW.
-    by rewrite subn1 -mulSnr prednK.
-  by rewrite modnMDl modn_small // ltn_subrL muln_gt0 i_gt0 q_gt0 M_gt0.
-rewrite ptD Hiu addnBA; last exact: ltnW iqM.
-rewrite [Pt y + M]addnC -addnBA // modnDl.
-by rewrite modn_small // (leq_ltn_trans (leq_subr _ _)) // pt_lt.
-Qed.
-
-(** a value offset read as a distance: if [x] sits [t] above [y] and [b] is
-    at least [t] above [y], then [x] is [t] closer to [b]. *)
-Lemma dst_of_add x y t : Pt x = Pt y + t -> t <= Dst y -> Dst x = Dst y - t.
-Proof.
-move=> Hx Ht.
-have HD : B + M - Pt x = B + M - Pt y - t by rewrite Hx subnDA.
-rewrite /dst HD.
-move: Ht; rewrite /dst.
-set D := B + M - Pt y.
-have DM : D < M + M.
-  by rewrite /D (leq_ltn_trans (leq_subr _ _)) // ltn_add2r.
-case: (ltnP D M) => [DltM|DgeM] Ht.
-  rewrite (modn_small DltM) in Ht *.
-  by rewrite modn_small // (leq_ltn_trans (leq_subr _ _)).
-have DE : D %% M = D - M.
-  by rewrite -{1}(subnK DgeM) modnDr modn_small // ltn_subLR.
-rewrite DE in Ht *.
-have DtM : M <= D - t.
-  by rewrite leq_subRL ?(leq_trans Ht (leq_subr _ _)) // addnC -leq_subRL.
-rewrite -{1}(subnK DtM) modnDr modn_small; last first.
-  by rewrite ltn_subLR // (leq_ltn_trans (leq_subr _ _)).
-by rewrite subnAC.
-Qed.
-
-(** the [q]-step down, on its own: [gap_step_q]'s second half needs only
-    [q <= Dst y]. *)
-Lemma dst_sub_u p q d u v y :
-  inv p q d u v -> u <= y -> q <= Dst y -> Dst (y - u) = Dst y - q.
-Proof.
-move=> iv uy qDy.
-have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
-have qM : q <= M by rewrite qE leq_subr.
-have PtuE : Pt u = M - q by rewrite qE subKn // ltnW // pt_lt.
-have Heq := dst_add (y - u) u.
-rewrite subnK // PtuE subnBA // addnAC addnK in Heq.
-case: (ltnP (Dst (y - u) + q) M) => [Hs|Hs].
-  by rewrite Heq (modn_small Hs) addnK.
-have Hlt2 : Dst (y - u) + q - M < M.
-  by rewrite ltn_subLR // (leq_ltn_trans (leq_add (leqnn (Dst (y - u))) qM)) //
-             ltn_add2r dst_lt.
-move: Heq; rewrite -{1}(subnK Hs) modnDr (modn_small Hlt2) => Heq.
-have Hc : Dst y < q by rewrite Heq ltn_subLR // ltn_add2r dst_lt.
-by move: qDy; rewrite leqNgt Hc.
-Qed.
-
-(** the wrapped companion of [dst_sub_u]: if [b] is nearer than [q] to the
-    point [w], its successor [w - u] lies BEYOND [b]. *)
-Lemma dst_sub_u_wrap p q d u v w :
-  inv p q d u v -> u <= w -> Dst w < q -> Dst (w - u) = Dst w + M - q.
-Proof.
-move=> iv uw qDw.
-have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
-have qM : q <= M by rewrite qE leq_subr.
-have PtuE : Pt u = M - q by rewrite qE subKn // ltnW // pt_lt.
-have Heq := dst_add (w - u) u.
-rewrite subnK // PtuE subnBA // addnAC addnK in Heq.
-case: (ltnP (Dst (w - u) + q) M) => [Hs|Hs].
-  by move: qDw; rewrite Heq (modn_small Hs) ltnNge leq_addl.
-have Hlt2 : Dst (w - u) + q - M < M.
-  by rewrite ltn_subLR // (leq_ltn_trans (leq_add (leqnn (Dst (w - u))) qM)) //
-             ltn_add2r dst_lt.
-move: Heq; rewrite -{1}(subnK Hs) modnDr (modn_small Hlt2) => Heq.
-by rewrite Heq subnK // addnK.
 Qed.
 
 (** a gap holds no point: [w] with a [q]-gap above it (i.e. [u <= w]) and
@@ -1814,41 +1605,121 @@ by move: pDw; rewrite ltnNge (leq_trans _ H) // leq_addr.
 Qed.
 
 
+(** ** The [p < q] branch *)
 
-
-(* @INVX_STEP lt/max -- PROVED *)
-(* needs: inv, invx_max *)
-Lemma invx_step_lt_max p q d u v :
-  inv p q d u v -> (forall k, k < u + v -> Pt k <= M - q) ->
-  p < q -> u + q %/ p * v + v < N ->
-  forall m, m < u + q %/ p * v + v -> Pt m <= M - (q - q %/ p * p).
+Lemma walk_lt_nowrap p q d u v y m :
+  inv p q d u v -> p < q -> y < u + v ->
+  0 < m <= q %/ p -> m * p <= Dst y -> Dst (y + m * v) = Dst y - m * p.
 Proof.
-move=> iv Hmax pLq uvN' m mLuv'.
-have [p_gt0 q_gt0 _ _ _ _ _ _] := iv.
-have kpq : q %/ p * p <= q by rewrite leq_divM.
-case: (ltnP m (u + v)) => [mold|mnew].
-  by rewrite (leq_trans (Hmax _ mold)) // leq_sub2l // leq_subr.
-have [j /andP[j_gt0 jk] [ylt Hm]] := pt_new_lt iv Hmax pLq uvN' mnew mLuv'.
-have jpk : j * p <= q %/ p * p by rewrite leq_mul2r jk orbT.
-have -> : M - (q - q %/ p * p) = M - q + q %/ p * p.
-  by rewrite subnBA // addnBAC // (inv_qM iv).
-by rewrite Hm leq_add // (Hmax _ ylt).
+move=> iv pLq yLuv mk Hmp.
+have [p_gt0 _ _ pE _ _ _ _] := iv.
+elim: m Hmp {mk} => [|m IH Hmp]; first by rewrite !mul0n addn0 subn0.
+have Hm : m * p <= Dst y by rewrite (leq_trans _ Hmp) // leq_mul2r leqnSn orbT.
+have -> : y + m.+1 * v = y + m * v + v by rewrite mulSnr addnA.
+rewrite dstD; first by rewrite IH // -pE mulSnr subnDA.
+by rewrite IH // -pE leq_psubRL // -mulSnr.
 Qed.
 
-(* @INVX_STEP lt/inf -- PROVED *)
-(* NOT via inf_new_lt: that goes through step_invd_le -> ... ->
-   mod_le_restricted, which needs invx.  Circular.  alg2-notes.md 5. *)
-Lemma invx_step_lt_inf p q d u v :
-  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
-  Inf (u + q %/ p * v + v) < maxn p (q - q %/ p * p).
+(** the WRAP companion of [walk_lt_nowrap]. *)
+Lemma walk_lt_wrapeq p q d u v y m :
+  inv p q d u v -> p < q -> y < u + v ->
+  0 < m <= q %/ p -> Dst y < m * p -> Dst (y + m * v) = Dst y + M - m * p.
 Proof.
-move=> iv ix pLq uvN'.
-have [p_gt0 _ _ _ _ _ _ _] := iv.
-have uvN : u + v < N.
-  by rewrite (leq_ltn_trans _ uvN') // leq_add2r leq_addr.
-rewrite (maxn_new_lt _ p_gt0).
-apply: leq_ltn_trans (inf_new_lt_le iv ix uvN pLq) _.
-by rewrite ltn_pmod.
+move=> iv pLq yLuv /andP[m_gt0 mk] Hy.
+have [p_gt0 _ _ pE qE _ _ _] := iv.
+have mpq : m * p <= q by rewrite -leq_divRL.
+have mpM : m * p <= M by rewrite (leq_trans mpq) // qE leq_subr.
+rewrite dst_add pt_muln -pE.
+case: (ltnP (m * p) M) => [Hlt|Hge].
+  rewrite (modn_small Hlt) modn_small //.
+  rewrite ltn_subLR ?ltn_add2r //.
+  by rewrite (leq_trans mpM) // leq_addl.
+have mpE : m * p = M by apply/eqP; rewrite eqn_leq mpM Hge.
+by rewrite mpE modnn subn0 modnDr modn_small ?dst_lt // addnK.
+Qed.
+
+(** and then the point is at least [p] from [B]: [M - m*p >= M - q >= p]
+    by [inv_bez].  Shared by [le_lt_wrap] and [inf_ge_new]. *)
+Lemma walk_lt_wrap_ge p q d u v y m :
+  inv p q d u v -> p < q -> y < u + v ->
+  0 < m <= q %/ p -> Dst y < m * p -> p <= Dst (y + m * v).
+Proof.
+move=> iv pLq yLuv mk Hy.
+rewrite (walk_lt_wrapeq iv pLq yLuv mk Hy).
+have [p_gt0 q_gt0 bez _ _ _ u_gt0 v_gt0] := iv.
+have /andP[m_gt0 mkd] := mk.
+have mpq : m * p <= q by rewrite -leq_divRL.
+(* the whole point of [inv_u0]/[inv_v0]: [p + q <= M] *)
+have pqM : p + q <= M by rewrite -bez leq_add // leq_pmull.
+have mpM : m * p <= M by rewrite (leq_trans mpq) // (leq_trans _ pqM) // leq_addl.
+rewrite leq_subRL; last by rewrite (leq_trans mpM) // leq_addl.
+apply: leq_trans (_ : M <= _); last by rewrite leq_addl.
+by rewrite (leq_trans (leq_add mpq (leqnn p))) // addnC.
+Qed.
+
+(* @INVX_STEP HELPER lt -- PROVED *)
+(** a new index is an old one walked up by [j] copies of [v], adding
+    [j*p].  Shared by the five [lt] leaves.  alg2-notes.md 5. *)
+Lemma pt_new_lt p q d u v m :
+  inv p q d u v -> (forall k, k < u + v -> Pt k <= M - q) ->
+  p < q -> u + q %/ p * v + v < N ->
+  u + v <= m -> m < u + q %/ p * v + v ->
+  exists2 j, 0 < j <= q %/ p &
+    (m - j * v < u + v) /\ Pt m = Pt (m - j * v) + j * p.
+Proof.
+move=> iv Hmax pLq uvN' mnew mLuv'.
+have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
+have qM : q <= M := inv_qM iv.
+have uLN : u <= N.
+  by rewrite (leq_trans _ (ltnW uvN')) // (leq_trans (leq_addr (q %/ p * v) u)) // leq_addr.
+have qltM : q < M := inv_qltM iv uLN.
+have [j jk /andP[ylt jvm]] := new_index_decomp v_gt0 mnew mLuv'.
+have /andP[j_gt0 jk2] := jk.
+have jpq : j * p <= q by rewrite -leq_divRL.
+have m_gt0 : 0 < m by rewrite (leq_trans _ mnew) // addn_gt0 u_gt0.
+have mLN : m <= N by rewrite ltnW // (ltn_trans mLuv').
+have mN : 0 < m <= N by rewrite m_gt0 mLN.
+have HP : Pt (m - j * v) + j * p <= M := pt_walk_le (Hmax _ ylt) qM jpq.
+have Hjv : Pt (j * v) = j * p.
+  have H1 : Pt (j * v) = (j * Pt v) %% M by rewrite /pt modnMmr mulnCA.
+  by rewrite H1 -pE modn_small // (leq_ltn_trans jpq).
+have Hne : Pt (m - j * v) + j * p < M.
+  rewrite ltn_neqAle HP andbT; apply/eqP => He.
+  by have := pt_neq0 mN; rewrite -{1}(subnK jvm) ptD Hjv He modnn eqxx.
+exists j => //; split => //.
+by rewrite -{1}(subnK jvm) (pt_walkD pE) // (leq_ltn_trans jpq).
+Qed.
+
+(** stronger than the congruence needed; only [<=] is real content. *)
+Lemma inf_new_lt_le p q d u v :
+  inv p q d u v -> invx p q u v -> u + v < N -> p < q ->
+  Inf (u + (q %/ p) * v + v) <= Inf (u + v) %% p.
+Proof.
+move=> iv ix uvLN pLq.
+have [p_gt0 q_gt0 _ _ _ _ u_gt0 v_gt0] := iv.
+have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
+have [y yLuv HyE] := inf_dst_ex uv_gt0.
+(* [invx_inf] is what puts the walk inside the new range *)
+have Iq : Inf (u + v) < q.
+  by have := invx_inf ix; rewrite /maxn ifT.
+set m := Inf (u + v) %/ p.
+have mq : m <= q %/ p by rewrite leq_div2r // ltnW.
+have mpI : m * p <= Inf (u + v) by rewrite leq_divM.
+case: (posnP m) => [m0|m_gt0].
+  have IltP : Inf (u + v) < p by rewrite ltnNge -divn_gt0 // -/m m0.
+  rewrite (modn_small IltP).
+  by apply: inf_dst_mono; rewrite -addnA leq_add2l leq_addl.
+have Hm : 0 < m <= q %/ p by rewrite m_gt0.
+have Hmp : m * p <= Dst y by rewrite -HyE.
+have Hw := walk_lt_nowrap iv pLq yLuv Hm Hmp.
+rewrite -HyE in Hw.
+have HwE : Dst (y + m * v) = Inf (u + v) %% p.
+  by rewrite Hw /m {1}(divn_eq (Inf (u + v)) p) addKn.
+rewrite -HwE; apply: inf_dst_le.
+have -> : u + q %/ p * v + v = u + v + q %/ p * v.
+  by rewrite -!addnA (addnC v).
+by rewrite (leq_ltn_trans (leq_add (leqnn y) (_ : m * v <= q %/ p * v)))
+   ?leq_mul2r ?mq ?orbT // ltn_add2r.
 Qed.
 
 (** the [Inf] shift across a [p < q] step.  [<=] is the proved
@@ -1920,15 +1791,86 @@ apply/eqP; rewrite eqn_leq (inf_new_lt_le iv ix uvN pLq) /=.
 exact: inf_new_ge_lt iv ix pLq uvN'.
 Qed.
 
-Lemma inf_shift_lt p q d u v :
+(* @INVX_STEP lt/min -- PROVED *)
+(* needs: inv, invx_min, invx_max, pt_neq0 *)
+Lemma invx_step_lt_min p q d u v :
+  inv p q d u v -> (forall m, 0 < m < u + v -> p <= Pt m) ->
+  (forall m, m < u + v -> Pt m <= M - q) ->
+  p < q -> u + q %/ p * v + v < N ->
+  forall m, 0 < m < u + q %/ p * v + v -> p <= Pt m.
+Proof.
+move=> iv Hmin Hmax pLq uvN' m /andP[m_gt0 mLuv'].
+have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
+have qM : q <= M := inv_qM iv.
+(* the OLD indices are free *)
+case: (ltnP m (u + v)) => [mold|mnew].
+  by apply: Hmin; rewrite m_gt0.
+(* a NEW index is [y + j*v] with [y] old, and the walk adds [j*p >= p] *)
+have [j /andP[j_gt0 jk] /andP[ylt jvm]] := new_index_decomp v_gt0 mnew mLuv'.
+have jpq : j * p <= q by rewrite -leq_divRL.
+have qltM : q < M.
+  rewrite ltn_neqAle qM andbT; apply/eqP => qMe.
+  have uN : 0 < u <= N.
+    rewrite u_gt0 (leq_trans _ (ltnW uvN')) //.
+    by rewrite (leq_trans (leq_addr (q %/ p * v) u)) // leq_addr.
+  have H := subnK (ltnW (pt_lt u)).
+  move: H; rewrite -qE qMe => H2.
+  have Hu : Pt u = 0.
+    have E0 : M + Pt u == M + 0 by rewrite addn0; apply/eqP.
+    by move: E0; rewrite eqn_add2l => /eqP.
+  by have := pt_neq0 uN; rewrite Hu eqxx.
+have HP : Pt (m - j * v) + j * p <= M := pt_walk_le (Hmax _ ylt) qM jpq.
+have Hm : Pt m = Pt (m - j * v) + j * p.
+  rewrite -{1}(subnK jvm); apply: pt_walkD pE _ _.
+    by rewrite (leq_ltn_trans jpq).
+  (* the walk cannot land exactly on [M]: that is [Pt m = 0], and [pt_neq0]
+     forbids it below [N] *)
+  rewrite ltn_neqAle HP andbT; apply/eqP => He.
+  have mN : 0 < m <= N by rewrite m_gt0 (leq_trans (ltnW mLuv')) // ltnW.
+  have := pt_neq0 mN.
+  rewrite -{1}(subnK jvm) ptD.
+  have [_ _ _ pE' _ _ _ _] := iv.
+  have Hjv : Pt (j * v) = j * p.
+    have H1 : Pt (j * v) = (j * Pt v) %% M by rewrite /pt modnMmr mulnCA.
+    by rewrite H1 -pE' modn_small // (leq_ltn_trans jpq).
+  by rewrite Hjv He modnn eqxx.
+rewrite Hm (leq_trans _ (leq_addl _ _)) //.
+by rewrite -{1}[p]mul1n leq_mul2r j_gt0 orbT.
+Qed.
+
+(* @INVX_STEP lt/max -- PROVED *)
+(* needs: inv, invx_max *)
+Lemma invx_step_lt_max p q d u v :
+  inv p q d u v -> (forall k, k < u + v -> Pt k <= M - q) ->
+  p < q -> u + q %/ p * v + v < N ->
+  forall m, m < u + q %/ p * v + v -> Pt m <= M - (q - q %/ p * p).
+Proof.
+move=> iv Hmax pLq uvN' m mLuv'.
+have [p_gt0 q_gt0 _ _ _ _ _ _] := iv.
+have kpq : q %/ p * p <= q by rewrite leq_divM.
+case: (ltnP m (u + v)) => [mold|mnew].
+  by rewrite (leq_trans (Hmax _ mold)) // leq_sub2l // leq_subr.
+have [j /andP[j_gt0 jk] [ylt Hm]] := pt_new_lt iv Hmax pLq uvN' mnew mLuv'.
+have jpk : j * p <= q %/ p * p by rewrite leq_mul2r jk orbT.
+have -> : M - (q - q %/ p * p) = M - q + q %/ p * p.
+  by rewrite subnBA // addnBAC // (inv_qM iv).
+by rewrite Hm leq_add // (Hmax _ ylt).
+Qed.
+
+(* @INVX_STEP lt/inf -- PROVED *)
+(* NOT via inf_new_lt: that goes through step_invd_le -> ... ->
+   mod_le_restricted, which needs invx.  Circular.  alg2-notes.md 5. *)
+Lemma invx_step_lt_inf p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
-  exists2 c, c <= q %/ p & Inf (u + v) = Inf (u + q %/ p * v + v) + c * p.
+  Inf (u + q %/ p * v + v) < maxn p (q - q %/ p * p).
 Proof.
 move=> iv ix pLq uvN'.
-have Iq : Inf (u + v) < q by have := invx_inf ix; rewrite /maxn ifT.
-exists (Inf (u + v) %/ p); first by rewrite leq_div2r // ltnW.
-rewrite (inf_new_eq_lt iv ix pLq uvN').
-by rewrite [Inf (u + v) %% p + _]addnC -divn_eq.
+have [p_gt0 _ _ _ _ _ _ _] := iv.
+have uvN : u + v < N.
+  by rewrite (leq_ltn_trans _ uvN') // leq_add2r leq_addr.
+rewrite (maxn_new_lt _ p_gt0).
+apply: leq_ltn_trans (inf_new_lt_le iv ix uvN pLq) _.
+by rewrite ltn_pmod.
 Qed.
 
 (* @INVX_STEP lt/gap -- PROVED *)
@@ -2001,268 +1943,14 @@ have [_ qE] := Hpt Hp Hq.
 by apply: pt_subu.
 Qed.
 
-(** **** the [q <= p] branch *)
-
-(* @INVX_STEP ge/min -- PROVED *)
-(* needs: inv, invx_min *)
-Lemma invx_step_ge_min p q d u v :
-  inv p q d u v -> (forall k, 0 < k < u + v -> p <= Pt k) ->
-  q <= p ->
-  forall m, 0 < m < u + (v + p %/ q * u) -> p - p %/ q * q <= Pt m.
-Proof.
-move=> iv Hmin qLp m /andP[m_gt0 mLuv'].
-case: (ltnP m (u + v)) => [mold|mnew].
-  by rewrite (leq_trans (leq_subr _ _)) // Hmin // m_gt0.
-have [j /andP[j_gt0 jk] [/andP[y_gt0 ylt] jqP Hm]] :=
-  pt_new_ge iv Hmin qLp mnew mLuv'.
-rewrite Hm leq_sub ?Hmin ?y_gt0 //.
-by rewrite leq_mul2r jk orbT.
-Qed.
-
-(* @INVX_STEP ge/max -- PROVED *)
-(* needs: inv, invx_min, invx_max *)
-Lemma invx_step_ge_max p q d u v :
-  inv p q d u v -> (forall k, 0 < k < u + v -> p <= Pt k) ->
-  (forall k, k < u + v -> Pt k <= M - q) ->
-  q <= p ->
-  forall m, m < u + (v + p %/ q * u) -> Pt m <= M - q.
-Proof.
-move=> iv Hmin Hmax qLp m mLuv'.
-case: (ltnP m (u + v)) => [mold|mnew]; first by apply: Hmax.
-have [j /andP[j_gt0 jk] [/andP[y_gt0 ylt] jqP Hm]] :=
-  pt_new_ge iv Hmin qLp mnew mLuv'.
-by rewrite Hm (leq_trans (leq_subr _ _)) // Hmax.
-Qed.
-
-(* @INVX_STEP ge/inf -- PROVED *)
-(* PROBED, and the witness is identified.  Goal [Inf(u'+v') < q] holds
-   10669/10669.  Inf drops in 6432 cases; in EVERY one the new minimiser
-   is [ymax + j*u] with [ymax] the old MAXIMUM-distance index and [j >= 1]
-   (3960/3960, j=1 in 2496).  So the proof is: take [ymax], walk by [u]
-   until the walk carries [Pt] across [B] -- [j] is the least step with
-   [Dst ymax + j*q >= M] -- and that new point is within [q] below [b].
-   NEEDS: dst_max_ex (the max is attained, mirror of inf_dst_ex) and
-   walk_ge_wrapeq, both available.  Monotonicity alone does NOT work. *)
-(** the wrap companion of [walk_ge_nowrap].  [m * q <= p < M] now comes
-    from [p + q <= M] ([inv_bez] with [inv_u0]/[inv_v0]), not from the
-    no-wrap hypothesis. *)
-Lemma walk_ge_wrapeq p q d u v y m :
-  inv p q d u v -> q <= p -> y < u + v -> 0 < m <= p %/ q ->
-  M <= Dst y + m * q -> Dst (y + m * u) = Dst y + m * q - M.
-Proof.
-move=> iv qLp yLuv /andP[m_gt0 mk] Hw.
-have [p_gt0 q_gt0 bez pE qE _ u_gt0 v_gt0] := iv.
-have pqM : p + q <= M by rewrite -bez leq_add // leq_pmull.
-have mqp : m * q <= p by rewrite -leq_divRL.
-have mqM : m * q < M.
-  have pM : p < M by rewrite (leq_trans _ pqM) // -addn1 leq_add2l.
-  by rewrite (leq_ltn_trans mqp).
-have PuE : Pt u = M - q by rewrite qE subKn // ltnW // pt_lt.
-have Hpm : Pt (m * u) = M - m * q.
-  rewrite pt_muln PuE mulnBr.
-  have -> : m * M - m * q = (m - 1) * M + (M - m * q).
-    rewrite addnBA; last by apply: ltnW.
-    by rewrite subn1 -mulSnr prednK.
-  by rewrite modnMDl modn_small // ltn_subrL muln_gt0 m_gt0 q_gt0 M_gt0.
-rewrite dst_add Hpm (subnBA _ (ltnW mqM)) addnAC addnK.
-rewrite -{1}(subnK Hw) modnDr modn_small // ltn_subLR //.
-by rewrite (leq_ltn_trans (leq_add (ltnW (dst_lt y)) (leqnn _))) // ltn_add2l.
-Qed.
-
-(** the new [d] is below [q] in both branches of its conditional: the
-    [then] branch is a remainder mod [q], and the [else] branch has
-    [d < p - p %/ q * q = p %% q < q].  This is what makes the
-    non-tight half of [le_ge_wrap] trivial. *)
-Lemma ge_d_lt_q p q d : 0 < q ->
-  (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d) < q.
-Proof.
-move=> q_gt0.
-have pmod : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
-case: (leqP (p - p %/ q * q) d) => [_|H]; first by rewrite ltn_pmod.
-by rewrite (leq_ltn_trans (ltnW H)) // pmod ltn_pmod.
-Qed.
-
-(** mourad-notes.md 3-4, now PROVED rather than probed.  In the [ge] branch
-    [b]'s [p]-gap is cut, from the right, into [k] gaps of length [q] and
-    then one gap of length [r] at the BOTTOM (Property 3).  So either [b]
-    sits in that residual gap -- nothing was added below it, and [Inf] is
-    already under [q] -- or it sits in one of the [q]-gaps, and the point
-    just below it is [(Inf - r) %% q] away, which is the algorithm's [d]. *)
-Lemma ge_inf_le p q d u v :
-  inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
-  Inf (u + v) < q \/
-  Inf (u + (v + p %/ q * u)) <= (Inf (u + v) - (p - p %/ q * q)) %% q.
-Proof.
-move=> iv ix qLp uvN'.
-have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
-have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
-have [y0 y0L Heq] := inf_dst_ex uv_gt0.
-have k_gt0 : 0 < p %/ q by rewrite divn_gt0.
-have rq : p - p %/ q * q < q by apply: q'_lt_p.
-case: (ltnP y0 u) => [y0u|uy0]; last first.
-  (* [b] is in a [q]-gap: nothing is added there, and [Inf] is already low *)
-  left; rewrite ltnNge; apply/negP => qI.
-  have qDy : q <= Dst y0 by rewrite -Heq.
-  have Hd := dst_sub_u iv uy0 qDy.
-  have Hle : Inf (u + v) <= Dst (y0 - u).
-    by apply: inf_dst_le; rewrite (leq_ltn_trans (leq_subr _ _)).
-  by move: Hle; rewrite Hd -Heq leqNgt ltn_subrL q_gt0 (leq_trans q_gt0 qI).
-(* [b] is in a [p]-gap, so [Inf] is below its length *)
-have Ip : Inf (u + v) < p.
-  rewrite ltnNge; apply/negP => pI.
-  have Hsucc : Pt (y0 + v) = Pt y0 + p by apply: (invx_p1 ix).
-  have pDy : p <= Dst y0 by rewrite -Heq.
-  have Hdd := dst_of_add Hsucc pDy.
-  have Hle : Inf (u + v) <= Dst (y0 + v) by apply: inf_dst_le; rewrite ltn_add2r.
-  by move: Hle; rewrite Hdd -Heq leqNgt ltn_subrL p_gt0 (leq_trans p_gt0 pI).
-have rE : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
-rewrite rE.
-case: (ltnP (Inf (u + v)) (p %% q)) => [Ir|rI].
-  (* [b] is in the residual gap at the bottom: no point was added below it *)
-  by left; exact: ltn_trans Ir (ltn_pmod p q_gt0).
-(* [b] is in the [m]-th [q]-gap; the point just below it is the witness *)
-right.
-set I := Inf (u + v) in Heq Ip rI *.
-set k := p %/ q in k_gt0 *.
-set m := (I - p %% q) %/ q.
-have mk : m < k by rewrite /m ltn_divLR // ltn_subLR // addnC -divn_eq.
-set j := k - m.
-have j_gt0 : 0 < j by rewrite /j subn_gt0.
-have jk : j <= k by rewrite /j leq_subr.
-have jqp : j * q <= p.
-  by rewrite (leq_trans (leq_mul jk (leqnn q))) // -/k leq_divM.
-have pjq : p - j * q = p %% q + m * q.
-  have mkq : m * q <= k * q by rewrite leq_mul2r (ltnW mk) orbT.
-  have jqE : j * q = k * q - m * q by rewrite /j mulnBl.
-  rewrite jqE {1}(divn_eq p q) -/k subnBA //.
-  by rewrite -addnA addnC addnK.
-have Hsucc : Pt (y0 + v) = Pt y0 + p by apply: (invx_p1 ix).
-have jqPt : j * q <= Pt (y0 + v) by rewrite Hsucc (leq_trans jqp) // leq_addl.
-have Hpt : Pt (y0 + v + j * u) = Pt y0 + (p %% q + m * q).
-  by rewrite (pt_add_u iv j_gt0 jqp jqPt) Hsucc -pjq addnBA.
-have tI : p %% q + m * q <= I.
-  by rewrite addnC -(subnK rI) leq_add2r /m leq_divM.
-have tDy : p %% q + m * q <= Dst y0 by rewrite -Heq.
-have Hdst : Dst (y0 + v + j * u) = I - (p %% q + m * q).
-  by rewrite (dst_of_add Hpt tDy) -Heq.
-have HE : I - (p %% q + m * q) = (I - p %% q) %% q.
-  by rewrite subnDA {1}(divn_eq (I - p %% q) q) -/m addnC addnK.
-rewrite -HE -Hdst; apply: inf_dst_le.
-rewrite addnA (leq_ltn_trans (leq_add (leqnn (y0 + v)) (leq_mul jk (leqnn u)))) //.
-by rewrite ltn_add2r ltn_add2r.
-Qed.
-
-(* @INVX_STEP ge/inf -- PROVED *)
-(* needs: inv, ge_inf_le *)
-Lemma invx_step_ge_inf p q d u v :
-  inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
-  Inf (u + (v + p %/ q * u)) < maxn (p - p %/ q * q) q.
-Proof.
-move=> iv ix qLp uvN'.
-have [p_gt0 q_gt0 _ _ _ _ u_gt0 v_gt0] := iv.
-have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
-have -> : maxn (p - p %/ q * q) q = q.
-  by apply/maxn_idPr; rewrite ltnW // q'_lt_p.
-case: (ge_inf_le iv ix qLp uvN') => [Hlt|Hle]; last first.
-  by rewrite (leq_ltn_trans Hle) // ltn_pmod.
-(* the old range already has a point inside a [q]-gap *)
-apply: leq_ltn_trans Hlt.
-have [y yL ->] := inf_dst_ex uv_gt0.
-by apply: inf_dst_le; rewrite (leq_trans yL) // leq_add2l leq_addr.
-Qed.
-
-(* @INVX_STEP ge/gap -- TODO *)
-(* mirror of lt/gap in shape only.  PROBED: the ge branch is NOT
-   symmetric -- the Inf drop is a multiple of q in just 4489/6701 steps,
-   so there is no inf_shift_ge of the lt form.  Needs its own analysis. *)
-Lemma invx_step_ge_gap p q d u v :
-  inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
-  forall y, y < u + (v + p %/ q * u) ->
-  exists a b, [/\ a <= u, b <= v + p %/ q * u &
-                  Dst y = Inf (u + (v + p %/ q * u)) + a * (p - p %/ q * q) + b * q].
-Proof.
-move=> iv ix qLp uvN' y yL.
-have uvN : u + v < N by rewrite (leq_ltn_trans _ uvN') // leq_add2l leq_addr.
-have Hmin' := invx_step_ge_min iv (invx_min ix) qLp.
-have Hmax' := invx_step_ge_max iv (invx_min ix) (invx_max ix) qLp.
-move: (inv_step iv uvN); rewrite /step.
-case: (ltnP p q) => [pLq|_]; first by rewrite ltnNge qLp in pLq.
-move=> /= iv'.
-exact: gap_decomp (iv' uvN') Hmin' Hmax' yL.
-Qed.
-
-(* @INVX_STEP ge/p1 -- PROVED *)
-(* needs: inv, invx_max *)
-Lemma invx_step_ge_p1 p q d u v :
-  inv p q d u v -> (forall m, m < u + v -> Pt m <= M - q) ->
-  q <= p -> u + (v + p %/ q * u) < N ->
-  forall z, z < u -> Pt (z + (v + p %/ q * u)) = Pt z + (p - p %/ q * q).
-Proof.
-move=> iv Hmax qLp uvN' z zLu.
-have [_ q_gt0 _ _ _ _ u_gt0 v_gt0] := iv.
-have uvN : u + v < N.
-  by rewrite (leq_ltn_trans _ uvN') // leq_add2l leq_addr.
-have Hg := step_p_gt0 iv uvN.
-have Hpt := step_pt iv.
-move: Hg Hpt; rewrite /step ifN -?leqNgt // => Hg Hpt.
-have [Hp Hq] := Hg uvN'.
-have [pE' _] := Hpt Hp Hq.
-apply: pt_addv pE' _.
-(* no wrap: [Pt z <= M - q] by [invx_max], and [p %% q < q] *)
-have pmod : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
-have zLuv : z < u + v by rewrite (leq_trans zLu) // leq_addr.
-have := Hmax _ zLuv.
-rewrite pmod => Hm.
-rewrite (leq_ltn_trans (leq_add Hm (leqnn (p %% q)))) //.
-by rewrite -{2}(subnK (inv_qM iv)) ltn_add2l ltn_pmod.
-Qed.
-
-(* @INVX_STEP ge/p2 -- PROVED *)
-(* needs: inv_qu alone *)
-Lemma invx_step_ge_p2 p q u v :
-  q = M - Pt u ->
-  forall z, u <= z < u + (v + p %/ q * u) -> Pt (z - u) = (Pt z + q) %% M.
-Proof. by move=> qE z /andP[uLz _]; apply: pt_subu. Qed.
-
-Lemma invx_step p q d u v :
-  inv p q d u v -> invx p q u v -> u + v < N ->
-  let: (p', q', _, u', v') := step p q d u v in
-  u' + v' < N -> invx p' q' u' v'.
-Proof.
-move=> iv ix uvN.
-have [_ q_gt0 _ _ _ _ _ _] := iv.
-have qM := inv_qM iv.
-rewrite /step; case: (ltnP p q) => [pLq|qLp] /= uvN'; split.
-- exact: invx_step_lt_min iv (invx_min ix) (invx_max ix) pLq uvN'.
-- exact: invx_step_lt_max iv (invx_max ix) pLq uvN'.
-- by rewrite (leq_trans _ qM) // leq_subr.
-- exact: invx_step_lt_inf iv ix pLq uvN'.
-- exact: invx_step_lt_gap iv ix pLq uvN'.
-- exact: invx_step_lt_p1 iv (invx_max ix) pLq uvN'.
-- exact: invx_step_lt_p2 iv pLq uvN'.
-- exact: invx_step_ge_min iv (invx_min ix) qLp.
-- exact: invx_step_ge_max iv (invx_min ix) (invx_max ix) qLp.
-- exact: qM.
-- exact: invx_step_ge_inf iv ix qLp uvN'.
-- exact: invx_step_ge_gap iv ix qLp uvN'.
-- exact: invx_step_ge_p1 iv (invx_max ix) qLp uvN'.
-exact: invx_step_ge_p2 (inv_qu iv).
-Qed.
-
-
 (** CORRECTION to PR #108: the claim there was wrong; what follows is the
     corrected version. *)
-
-(** ** Scaffold for the two content leaves: both split on whether the
-    walk wraps. *)
-
 (** NB an earlier version of this file had [step_d_lt], which is exactly
     this statement with [d = Dst x] threaded through; several comments above
     still call it "(PROVED)".  It was removed in the round-8 cleanup, so the
     induction is redone here directly on [dstD].  Note [inv] does not mention
     [d] at all, so [inv p q d1 u v -> inv p q d2 u v] -- which is why the
     [Dst y] instance below needs no extra hypothesis. *)
-
 (** DEAD END, see alg2-notes.md 1. *)
 (** split on [m] vs [Dst y %/ p]; the guard is essential (notes 1). *)
 Lemma mod_le_restricted p q d u v y :
@@ -2358,31 +2046,8 @@ rewrite -{1}(subnK myx).
 exact: step_invd_le_new_lt_at iv ivd ix uvLN pLq ylt mk.
 Qed.
 
-(** the mirror.  [new_index_decomp] is reused with [u] and [v] SWAPPED:
-    its window [u + k*v + v] becomes [v + k*u + u], which is exactly this
-    branch's [u + (v + (p %/ q) * u)].  The walk then descends the index
-    ([step_d_ge]) instead of ascending. *)
-(** the [ge] branch is easier: [d' <= d], and stepping by [u] raises
-    [Dst] by [q]. *)
-Lemma step_ge_d_le p q d : q <= p ->
-  (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d) <= d.
-Proof.
-move=> qLp; case: (leqP (p - p %/ q * q) d) => // dge.
-by apply: leq_trans (leq_mod _ _) _; rewrite leq_subr.
-Qed.
 
-(** in the [ge] branch [d] IS the closest distance: [d] and [Inf] are
-    both below [p] and congruent mod [p]. *)
-Lemma ge_d_eq_inf p q d u v :
-  inv p q d u v -> invd p q d u v -> invx p q u v -> q <= p ->
-  d = Inf (u + v).
-Proof.
-move=> iv ivd ix qLp.
-have [dmax _ dcong] := ivd.
-have dp : d < p by move: dmax; rewrite /maxn ifN // -leqNgt.
-have ip : Inf (u + v) < p by move: (invx_inf ix); rewrite /maxn ifN // -leqNgt.
-by rewrite -(modn_small dp) dcong modn_small.
-Qed.
+(** ** The [q <= p] branch *)
 
 Lemma walk_ge_nowrap p q d u v y m :
   inv p q d u v -> q <= p -> y < u + v -> 0 < m <= p %/ q ->
@@ -2401,13 +2066,211 @@ have Hpm : Pt (m * u) = M - m * q.
 by rewrite dst_add Hpm (subnBA _ (ltnW mqM)) addnAC addnK modn_small.
 Qed.
 
+(* @INVX_STEP ge/inf -- PROVED *)
+(* PROBED, and the witness is identified.  Goal [Inf(u'+v') < q] holds
+   10669/10669.  Inf drops in 6432 cases; in EVERY one the new minimiser
+   is [ymax + j*u] with [ymax] the old MAXIMUM-distance index and [j >= 1]
+   (3960/3960, j=1 in 2496).  So the proof is: take [ymax], walk by [u]
+   until the walk carries [Pt] across [B] -- [j] is the least step with
+   [Dst ymax + j*q >= M] -- and that new point is within [q] below [b].
+   NEEDS: dst_max_ex (the max is attained, mirror of inf_dst_ex) and
+   walk_ge_wrapeq, both available.  Monotonicity alone does NOT work. *)
+(** the wrap companion of [walk_ge_nowrap].  [m * q <= p < M] now comes
+    from [p + q <= M] ([inv_bez] with [inv_u0]/[inv_v0]), not from the
+    no-wrap hypothesis. *)
+Lemma walk_ge_wrapeq p q d u v y m :
+  inv p q d u v -> q <= p -> y < u + v -> 0 < m <= p %/ q ->
+  M <= Dst y + m * q -> Dst (y + m * u) = Dst y + m * q - M.
+Proof.
+move=> iv qLp yLuv /andP[m_gt0 mk] Hw.
+have [p_gt0 q_gt0 bez pE qE _ u_gt0 v_gt0] := iv.
+have pqM : p + q <= M by rewrite -bez leq_add // leq_pmull.
+have mqp : m * q <= p by rewrite -leq_divRL.
+have mqM : m * q < M.
+  have pM : p < M by rewrite (leq_trans _ pqM) // -addn1 leq_add2l.
+  by rewrite (leq_ltn_trans mqp).
+have PuE : Pt u = M - q by rewrite qE subKn // ltnW // pt_lt.
+have Hpm : Pt (m * u) = M - m * q.
+  rewrite pt_muln PuE mulnBr.
+  have -> : m * M - m * q = (m - 1) * M + (M - m * q).
+    rewrite addnBA; last by apply: ltnW.
+    by rewrite subn1 -mulSnr prednK.
+  by rewrite modnMDl modn_small // ltn_subrL muln_gt0 m_gt0 q_gt0 M_gt0.
+rewrite dst_add Hpm (subnBA _ (ltnW mqM)) addnAC addnK.
+rewrite -{1}(subnK Hw) modnDr modn_small // ltn_subLR //.
+by rewrite (leq_ltn_trans (leq_add (ltnW (dst_lt y)) (leqnn _))) // ltn_add2l.
+Qed.
+
+(* @INVX_STEP HELPER ge -- PROVED *)
+(** mirror: walking by [u] SUBTRACTS [j*q].  alg2-notes.md 5. *)
+Lemma pt_new_ge p q d u v m :
+  inv p q d u v -> (forall k, 0 < k < u + v -> p <= Pt k) ->
+  q <= p ->
+  u + v <= m -> m < u + (v + p %/ q * u) ->
+  exists2 j, 0 < j <= p %/ q &
+    [/\ 0 < m - j * u < u + v, j * q <= Pt (m - j * u) &
+        Pt m = Pt (m - j * u) - j * q].
+Proof.
+move=> iv Hmin qLp mnew mLuv'.
+have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
+have mnew' : v + u <= m by rewrite addnC.
+have mLuv2 : m < v + p %/ q * u + u by rewrite addnC.
+have [j jk /andP[ylt jum]] := new_index_decomp u_gt0 mnew' mLuv2.
+have /andP[j_gt0 jk2] := jk.
+have jqp : j * q <= p by rewrite -leq_divRL.
+rewrite addnC in ylt.
+have key : forall i, 0 < i <= p %/ q -> 0 < m - i * u -> i * u <= m ->
+    m - i * u < u + v ->
+    [/\ 0 < m - i * u < u + v, i * q <= Pt (m - i * u) & Pt m = Pt (m - i * u) - i * q].
+  move=> i /andP[i_gt0 ik] y_gt0 ium ylt2.
+  have iqp : i * q <= p by rewrite -leq_divRL.
+  have iqP : i * q <= Pt (m - i * u).
+    by rewrite (leq_trans iqp) // Hmin // y_gt0.
+  have iqM : i * q < M by rewrite (leq_ltn_trans iqp) // pE pt_lt.
+  have PuE : Pt u = M - q by rewrite qE subKn // ltnW // pt_lt.
+  have Hiu : Pt (i * u) = M - i * q.
+    have H1 : Pt (i * u) = (i * Pt u) %% M by rewrite /pt modnMmr mulnCA.
+    rewrite H1 PuE mulnBr.
+    have -> : i * M - i * q = (i - 1) * M + (M - i * q).
+      rewrite addnBA; last by apply: ltnW.
+      by rewrite subn1 -mulSnr prednK.
+    by rewrite modnMDl modn_small // ltn_subrL muln_gt0 i_gt0 q_gt0 M_gt0.
+  split => //; first by rewrite y_gt0.
+  rewrite -{1}(subnK ium) ptD Hiu.
+  rewrite addnBA; last exact: ltnW iqM.
+  rewrite [Pt (m - i * u) + M]addnC -addnBA // modnDl.
+  by rewrite modn_small // (leq_ltn_trans (leq_subr _ _)) // pt_lt.
+(* the [Pt 0] corner: if the walk lands on the origin, take one step less *)
+case: (posnP (m - j * u)) => [y0|y_gt0]; last by exists j => //; apply: key.
+have mE : m = j * u by apply/eqP; rewrite eqn_leq jum andbT -subn_eq0 y0.
+have j_gt1 : 1 < j.
+  rewrite ltnNge; apply/negP => jL1.
+  have j1 : j = 1 by apply/eqP; rewrite eqn_leq jL1 j_gt0.
+  move: mnew; rewrite mE j1 mul1n leqNgt => /negP[].
+  by rewrite -{1}[u]addn0 ltn_add2l.
+have yE : m - j.-1 * u = u.
+  by rewrite mE -{1}(prednK j_gt0) mulSnr addnC addnK.
+have jpk : 0 < j.-1 <= p %/ q.
+  apply/andP; split; first by rewrite -subn1 subn_gt0.
+  exact: leq_trans (leq_pred _) jk2.
+exists j.-1 => //; apply: key => //.
+- by rewrite yE.
+- by rewrite (leq_trans _ jum) // leq_mul2r leq_pred orbT.
+by rewrite yE -{1}[u]addn0 ltn_add2l.
+Qed.
+
+(** the new [d] is below [q] in both branches of its conditional: the
+    [then] branch is a remainder mod [q], and the [else] branch has
+    [d < p - p %/ q * q = p %% q < q].  This is what makes the
+    non-tight half of [le_ge_wrap] trivial. *)
+Lemma ge_d_lt_q p q d : 0 < q ->
+  (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d) < q.
+Proof.
+move=> q_gt0.
+have pmod : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
+case: (leqP (p - p %/ q * q) d) => [_|H]; first by rewrite ltn_pmod.
+by rewrite (leq_ltn_trans (ltnW H)) // pmod ltn_pmod.
+Qed.
+
+(** in the [ge] branch [d] IS the closest distance: [d] and [Inf] are
+    both below [p] and congruent mod [p]. *)
+Lemma ge_d_eq_inf p q d u v :
+  inv p q d u v -> invd p q d u v -> invx p q u v -> q <= p ->
+  d = Inf (u + v).
+Proof.
+move=> iv ivd ix qLp.
+have [dmax _ dcong] := ivd.
+have dp : d < p by move: dmax; rewrite /maxn ifN // -leqNgt.
+have ip : Inf (u + v) < p by move: (invx_inf ix); rewrite /maxn ifN // -leqNgt.
+by rewrite -(modn_small dp) dcong modn_small.
+Qed.
+
+(** the mirror.  [new_index_decomp] is reused with [u] and [v] SWAPPED:
+    its window [u + k*v + v] becomes [v + k*u + u], which is exactly this
+    branch's [u + (v + (p %/ q) * u)].  The walk then descends the index
+    ([step_d_ge]) instead of ascending. *)
+(** the [ge] branch is easier: [d' <= d], and stepping by [u] raises
+    [Dst] by [q]. *)
+Lemma step_ge_d_le p q d : q <= p ->
+  (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d) <= d.
+Proof.
+move=> qLp; case: (leqP (p - p %/ q * q) d) => // dge.
+by apply: leq_trans (leq_mod _ _) _; rewrite leq_subr.
+Qed.
+
+(** mourad-notes.md 3-4, now PROVED rather than probed.  In the [ge] branch
+    [b]'s [p]-gap is cut, from the right, into [k] gaps of length [q] and
+    then one gap of length [r] at the BOTTOM (Property 3).  So either [b]
+    sits in that residual gap -- nothing was added below it, and [Inf] is
+    already under [q] -- or it sits in one of the [q]-gaps, and the point
+    just below it is [(Inf - r) %% q] away, which is the algorithm's [d]. *)
+Lemma ge_inf_le p q d u v :
+  inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
+  Inf (u + v) < q \/
+  Inf (u + (v + p %/ q * u)) <= (Inf (u + v) - (p - p %/ q * q)) %% q.
+Proof.
+move=> iv ix qLp uvN'.
+have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
+have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
+have [y0 y0L Heq] := inf_dst_ex uv_gt0.
+have k_gt0 : 0 < p %/ q by rewrite divn_gt0.
+have rq : p - p %/ q * q < q by apply: q'_lt_p.
+case: (ltnP y0 u) => [y0u|uy0]; last first.
+  (* [b] is in a [q]-gap: nothing is added there, and [Inf] is already low *)
+  left; rewrite ltnNge; apply/negP => qI.
+  have qDy : q <= Dst y0 by rewrite -Heq.
+  have Hd := dst_sub_u iv uy0 qDy.
+  have Hle : Inf (u + v) <= Dst (y0 - u).
+    by apply: inf_dst_le; rewrite (leq_ltn_trans (leq_subr _ _)).
+  by move: Hle; rewrite Hd -Heq leqNgt ltn_subrL q_gt0 (leq_trans q_gt0 qI).
+(* [b] is in a [p]-gap, so [Inf] is below its length *)
+have Ip : Inf (u + v) < p.
+  rewrite ltnNge; apply/negP => pI.
+  have Hsucc : Pt (y0 + v) = Pt y0 + p by apply: (invx_p1 ix).
+  have pDy : p <= Dst y0 by rewrite -Heq.
+  have Hdd := dst_of_add Hsucc pDy.
+  have Hle : Inf (u + v) <= Dst (y0 + v) by apply: inf_dst_le; rewrite ltn_add2r.
+  by move: Hle; rewrite Hdd -Heq leqNgt ltn_subrL p_gt0 (leq_trans p_gt0 pI).
+have rE : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
+rewrite rE.
+case: (ltnP (Inf (u + v)) (p %% q)) => [Ir|rI].
+  (* [b] is in the residual gap at the bottom: no point was added below it *)
+  by left; exact: ltn_trans Ir (ltn_pmod p q_gt0).
+(* [b] is in the [m]-th [q]-gap; the point just below it is the witness *)
+right.
+set I := Inf (u + v) in Heq Ip rI *.
+set k := p %/ q in k_gt0 *.
+set m := (I - p %% q) %/ q.
+have mk : m < k by rewrite /m ltn_divLR // ltn_subLR // addnC -divn_eq.
+set j := k - m.
+have j_gt0 : 0 < j by rewrite /j subn_gt0.
+have jk : j <= k by rewrite /j leq_subr.
+have jqp : j * q <= p.
+  by rewrite (leq_trans (leq_mul jk (leqnn q))) // -/k leq_divM.
+have pjq : p - j * q = p %% q + m * q.
+  have mkq : m * q <= k * q by rewrite leq_mul2r (ltnW mk) orbT.
+  have jqE : j * q = k * q - m * q by rewrite /j mulnBl.
+  rewrite jqE {1}(divn_eq p q) -/k subnBA //.
+  by rewrite -addnA addnC addnK.
+have Hsucc : Pt (y0 + v) = Pt y0 + p by apply: (invx_p1 ix).
+have jqPt : j * q <= Pt (y0 + v) by rewrite Hsucc (leq_trans jqp) // leq_addl.
+have Hpt : Pt (y0 + v + j * u) = Pt y0 + (p %% q + m * q).
+  by rewrite (pt_add_u iv j_gt0 jqp jqPt) Hsucc -pjq addnBA.
+have tI : p %% q + m * q <= I.
+  by rewrite addnC -(subnK rI) leq_add2r /m leq_divM.
+have tDy : p %% q + m * q <= Dst y0 by rewrite -Heq.
+have Hdst : Dst (y0 + v + j * u) = I - (p %% q + m * q).
+  by rewrite (dst_of_add Hpt tDy) -Heq.
+have HE : I - (p %% q + m * q) = (I - p %% q) %% q.
+  by rewrite subnDA {1}(divn_eq (I - p %% q) q) -/m addnC addnK.
+rewrite -HE -Hdst; apply: inf_dst_le.
+rewrite addnA (leq_ltn_trans (leq_add (leqnn (y0 + v)) (leq_mul jk (leqnn u)))) //.
+by rewrite ltn_add2r ltn_add2r.
+Qed.
 
 (** two halves: [q <= W] is [ge_d_lt_q], [W < q] is [ge_wrap_tight].
     alg2-notes.md 1-2 for what is refuted here. *)
-
-
 (** [ge_wrap_au] was FALSE; see alg2-notes.md 2. *)
-
 (** THE remaining hole, and it is one hole: the EXIT step, where the new
     range passes [N].  Beyond [N] the points of the sequence repeat, so the
     configuration is no longer a two-length configuration and every proof
@@ -2499,6 +2362,37 @@ Lemma ge_wrap_exit p q d u v y m :
 Proof.
 move=> iv ivd ix qLp p'0 yLuv mk Hw.
 by have [H _] := ge_exit iv ivd ix qLp p'0; apply: H.
+Qed.
+
+(* @INVX_STEP ge/min -- PROVED *)
+(* needs: inv, invx_min *)
+Lemma invx_step_ge_min p q d u v :
+  inv p q d u v -> (forall k, 0 < k < u + v -> p <= Pt k) ->
+  q <= p ->
+  forall m, 0 < m < u + (v + p %/ q * u) -> p - p %/ q * q <= Pt m.
+Proof.
+move=> iv Hmin qLp m /andP[m_gt0 mLuv'].
+case: (ltnP m (u + v)) => [mold|mnew].
+  by rewrite (leq_trans (leq_subr _ _)) // Hmin // m_gt0.
+have [j /andP[j_gt0 jk] [/andP[y_gt0 ylt] jqP Hm]] :=
+  pt_new_ge iv Hmin qLp mnew mLuv'.
+rewrite Hm leq_sub ?Hmin ?y_gt0 //.
+by rewrite leq_mul2r jk orbT.
+Qed.
+
+(* @INVX_STEP ge/max -- PROVED *)
+(* needs: inv, invx_min, invx_max *)
+Lemma invx_step_ge_max p q d u v :
+  inv p q d u v -> (forall k, 0 < k < u + v -> p <= Pt k) ->
+  (forall k, k < u + v -> Pt k <= M - q) ->
+  q <= p ->
+  forall m, m < u + (v + p %/ q * u) -> Pt m <= M - q.
+Proof.
+move=> iv Hmin Hmax qLp m mLuv'.
+case: (ltnP m (u + v)) => [mold|mnew]; first by apply: Hmax.
+have [j /andP[j_gt0 jk] [/andP[y_gt0 ylt] jqP Hm]] :=
+  pt_new_ge iv Hmin qLp mnew mLuv'.
+by rewrite Hm (leq_trans (leq_subr _ _)) // Hmax.
 Qed.
 
 (** the same case analysis, but with EQUALITIES: [Inf] of the new range is
@@ -2712,6 +2606,78 @@ apply: leq_ltn_trans (leq_add (leqnn y) (leq_mul mk2 (leqnn u))) _.
 by rewrite ltn_add2r.
 Qed.
 
+(* @INVX_STEP ge/inf -- PROVED *)
+(* needs: inv, ge_inf_le *)
+Lemma invx_step_ge_inf p q d u v :
+  inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
+  Inf (u + (v + p %/ q * u)) < maxn (p - p %/ q * q) q.
+Proof.
+move=> iv ix qLp uvN'.
+have [p_gt0 q_gt0 _ _ _ _ u_gt0 v_gt0] := iv.
+have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
+have -> : maxn (p - p %/ q * q) q = q.
+  by apply/maxn_idPr; rewrite ltnW // q'_lt_p.
+case: (ge_inf_le iv ix qLp uvN') => [Hlt|Hle]; last first.
+  by rewrite (leq_ltn_trans Hle) // ltn_pmod.
+(* the old range already has a point inside a [q]-gap *)
+apply: leq_ltn_trans Hlt.
+have [y yL ->] := inf_dst_ex uv_gt0.
+by apply: inf_dst_le; rewrite (leq_trans yL) // leq_add2l leq_addr.
+Qed.
+
+(* @INVX_STEP ge/gap -- TODO *)
+(* mirror of lt/gap in shape only.  PROBED: the ge branch is NOT
+   symmetric -- the Inf drop is a multiple of q in just 4489/6701 steps,
+   so there is no inf_shift_ge of the lt form.  Needs its own analysis. *)
+Lemma invx_step_ge_gap p q d u v :
+  inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
+  forall y, y < u + (v + p %/ q * u) ->
+  exists a b, [/\ a <= u, b <= v + p %/ q * u &
+                  Dst y = Inf (u + (v + p %/ q * u)) + a * (p - p %/ q * q) + b * q].
+Proof.
+move=> iv ix qLp uvN' y yL.
+have uvN : u + v < N by rewrite (leq_ltn_trans _ uvN') // leq_add2l leq_addr.
+have Hmin' := invx_step_ge_min iv (invx_min ix) qLp.
+have Hmax' := invx_step_ge_max iv (invx_min ix) (invx_max ix) qLp.
+move: (inv_step iv uvN); rewrite /step.
+case: (ltnP p q) => [pLq|_]; first by rewrite ltnNge qLp in pLq.
+move=> /= iv'.
+exact: gap_decomp (iv' uvN') Hmin' Hmax' yL.
+Qed.
+
+(* @INVX_STEP ge/p1 -- PROVED *)
+(* needs: inv, invx_max *)
+Lemma invx_step_ge_p1 p q d u v :
+  inv p q d u v -> (forall m, m < u + v -> Pt m <= M - q) ->
+  q <= p -> u + (v + p %/ q * u) < N ->
+  forall z, z < u -> Pt (z + (v + p %/ q * u)) = Pt z + (p - p %/ q * q).
+Proof.
+move=> iv Hmax qLp uvN' z zLu.
+have [_ q_gt0 _ _ _ _ u_gt0 v_gt0] := iv.
+have uvN : u + v < N.
+  by rewrite (leq_ltn_trans _ uvN') // leq_add2l leq_addr.
+have Hg := step_p_gt0 iv uvN.
+have Hpt := step_pt iv.
+move: Hg Hpt; rewrite /step ifN -?leqNgt // => Hg Hpt.
+have [Hp Hq] := Hg uvN'.
+have [pE' _] := Hpt Hp Hq.
+apply: pt_addv pE' _.
+(* no wrap: [Pt z <= M - q] by [invx_max], and [p %% q < q] *)
+have pmod : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
+have zLuv : z < u + v by rewrite (leq_trans zLu) // leq_addr.
+have := Hmax _ zLuv.
+rewrite pmod => Hm.
+rewrite (leq_ltn_trans (leq_add Hm (leqnn (p %% q)))) //.
+by rewrite -{2}(subnK (inv_qM iv)) ltn_add2l ltn_pmod.
+Qed.
+
+(* @INVX_STEP ge/p2 -- PROVED *)
+(* needs: inv_qu alone *)
+Lemma invx_step_ge_p2 p q u v :
+  q = M - Pt u ->
+  forall z, u <= z < u + (v + p %/ q * u) -> Pt (z - u) = (Pt z + q) %% M.
+Proof. by move=> qE z /andP[uLz _]; apply: pt_subu. Qed.
+
 Lemma step_invd_le_new_ge_at p q d u v y m :
   inv p q d u v -> invd p q d u v -> invx p q u v -> u + v < N ->
   q <= p -> y < u + v -> 0 < m <= p %/ q ->
@@ -2747,6 +2713,34 @@ have [m mk /andP[ylt myx]] := new_index_decomp (k := p %/ q) u_gt0
 rewrite -{1}(subnK myx).
 rewrite addnC in ylt.
 exact: step_invd_le_new_ge_at iv ivd ix uvLN qLp ylt mk.
+Qed.
+
+
+(** ** One step of the loop preserves [invx] and [invd] *)
+
+Lemma invx_step p q d u v :
+  inv p q d u v -> invx p q u v -> u + v < N ->
+  let: (p', q', _, u', v') := step p q d u v in
+  u' + v' < N -> invx p' q' u' v'.
+Proof.
+move=> iv ix uvN.
+have [_ q_gt0 _ _ _ _ _ _] := iv.
+have qM := inv_qM iv.
+rewrite /step; case: (ltnP p q) => [pLq|qLp] /= uvN'; split.
+- exact: invx_step_lt_min iv (invx_min ix) (invx_max ix) pLq uvN'.
+- exact: invx_step_lt_max iv (invx_max ix) pLq uvN'.
+- by rewrite (leq_trans _ qM) // leq_subr.
+- exact: invx_step_lt_inf iv ix pLq uvN'.
+- exact: invx_step_lt_gap iv ix pLq uvN'.
+- exact: invx_step_lt_p1 iv (invx_max ix) pLq uvN'.
+- exact: invx_step_lt_p2 iv pLq uvN'.
+- exact: invx_step_ge_min iv (invx_min ix) qLp.
+- exact: invx_step_ge_max iv (invx_min ix) (invx_max ix) qLp.
+- exact: qM.
+- exact: invx_step_ge_inf iv ix qLp uvN'.
+- exact: invx_step_ge_gap iv ix qLp uvN'.
+- exact: invx_step_ge_p1 iv (invx_max ix) qLp uvN'.
+exact: invx_step_ge_p2 (inv_qu iv).
 Qed.
 
 Lemma step_invd_le_new p q d u v :
@@ -2800,7 +2794,6 @@ Qed.
     keeps the modulus ([p' = p]) so [invd_cong] transports directly, while
     [q <= p] CHANGES it to [p %% q], so its congruence is a different
     statement and gets its own helper. *)
-
 Lemma inf_new_lt p q d u v :
   inv p q d u v -> invd p q d u v -> invx p q u v -> u + v < N -> p < q ->
   Inf (u + (q %/ p) * v + v) = Inf (u + v) %% p.
@@ -2865,41 +2858,14 @@ rewrite E /= in Hm Hl Hc.
 by split.
 Qed.
 
-(* CFrac: slater.get_min_NZ / get_max_NZ. *)
-(** [inv_complete] was FALSE; these are conditioned on [u'+v' < N]. *)
 
-
-(* glue -- assemble [step_p_gt0], [step_bez], [step_pt], [step_d] into
-   the record.  Mechanical once the four are done; write it last. *)
-
-(** *** Termination *)
-
-(** [p + q] strictly decreases: each branch subtracts at least the other
-    length, which is positive. *)
-(* pure -- [q - (q %/ p) * p = q %% p < p <= q] by [ltn_mod] (needs
-   [0 < p], from [inv_p0]), so [q] strictly drops in the first branch and
-   [p] in the second.  One [modn_def]/[ltn_mod] each; no geometry. *)
-Lemma step_measure p q d u v :
-  inv p q d u v -> u + v < N ->
-  let: (p', q', _, _, _) := step p q d u v in p' + q' < p + q.
-Proof.
-case => p_gt0 q_gt0 _ _ _ _ _ _ _.
-rewrite /step; have [pLq|qLp] := ltnP; rewrite /=.
-  have kp_gt0 : 0 < q %/ p * p by rewrite muln_gt0 p_gt0 andbT divn_gt0 // ltnW.
-  by rewrite ltn_add2l ltn_subrL kp_gt0 q_gt0.
-have kq_gt0 : 0 < p %/ q * q by rewrite muln_gt0 q_gt0 andbT divn_gt0.
-by rewrite ltn_add2r ltn_subrL kq_gt0 p_gt0.
-Qed.
+(** ** Soundness of the loop and of [lefevre] *)
 
 (** [fuel_enough] was in the skeleton to relate an arbitrary fuel to
     [p + q]; it turned out to be unnecessary and has been removed.
     [run_sound] carries [p + q <= fuel] directly, and [lefevre] runs with
     [fuel = M] while [p + q = A %% M + (M - A %% M) = M], so the
     hypothesis is met exactly.  Nothing else referred to it. *)
-
-
-(** *** The exit, and the main result *)
-
 (** At the exit [u + v >= N], so the configuration has at least [N]
     points; [d] is a distance in that configuration, hence at most the
     infimum taken over the smaller set [x < N]. *)
@@ -2912,7 +2878,6 @@ Lemma exit_bound p q d u v :
 Proof.
 by case=> _ dLinf _ NLuv; apply: leq_trans dLinf (inf_dst_mono NLuv).
 Qed.
-
 
 (* glue -- induction on [fuel]; at each turn either the loop exits and
    [exit_bound] applies, or [inv_step] re-establishes the invariant. *)
