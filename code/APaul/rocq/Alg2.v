@@ -1005,7 +1005,17 @@ have uN' : 0 < u <= N by rewrite u_gt0 uN.
 by have := pt_neq0 uN'; rewrite Hu eqxx.
 Qed.
 
-(* @INVX_STEP HELPER lt -- TODO *)
+(* @INVX_STEP HELPER sharp -- TODO *)
+(** [new_index_decomp] sharpened: when [x] stops short of the last block,
+    the step count stops short of [k].  Witness: [j = (x - u - v) %/ v + 1],
+    for which [j*v > x - u - v] and [(j-1)*v <= x - u - v] by [divn_eq],
+    and [j <= k - 1] because [x - u - v < (k-1)*v]. *)
+Lemma new_index_decomp_sharp k u v x :
+  0 < v -> u + v <= x -> x < u + k * v ->
+  exists2 j, 0 < j < k & (x - j * v < u + v) && (j * v <= x).
+Proof. Admitted.
+
+(* @INVX_STEP HELPER lt -- PROVED *)
 (** a new index is an old one walked up by [j] copies of [v], adding
     [j*p].  Shared by the five [lt] leaves.  alg2-notes.md 5. *)
 Lemma pt_new_lt p q d u v m :
@@ -1014,7 +1024,29 @@ Lemma pt_new_lt p q d u v m :
   u + v <= m -> m < u + q %/ p * v + v ->
   exists2 j, 0 < j <= q %/ p &
     (m - j * v < u + v) /\ Pt m = Pt (m - j * v) + j * p.
-Proof. Admitted.
+Proof.
+move=> iv Hmax pLq uvN' mnew mLuv'.
+have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
+have qM : q <= M := inv_qM iv.
+have uLN : u <= N.
+  by rewrite (leq_trans _ (ltnW uvN')) // (leq_trans (leq_addr (q %/ p * v) u)) // leq_addr.
+have qltM : q < M := inv_qltM iv uLN.
+have [j jk /andP[ylt jvm]] := new_index_decomp v_gt0 mnew mLuv'.
+have /andP[j_gt0 jk2] := jk.
+have jpq : j * p <= q by rewrite -leq_divRL.
+have m_gt0 : 0 < m by rewrite (leq_trans _ mnew) // addn_gt0 u_gt0.
+have mLN : m <= N by rewrite ltnW // (ltn_trans mLuv').
+have mN : 0 < m <= N by rewrite m_gt0 mLN.
+have HP : Pt (m - j * v) + j * p <= M := pt_walk_le (Hmax _ ylt) qM jpq.
+have Hjv : Pt (j * v) = j * p.
+  have H1 : Pt (j * v) = (j * Pt v) %% M by rewrite /pt modnMmr mulnCA.
+  by rewrite H1 -pE modn_small // (leq_ltn_trans jpq).
+have Hne : Pt (m - j * v) + j * p < M.
+  rewrite ltn_neqAle HP andbT; apply/eqP => He.
+  by have := pt_neq0 mN; rewrite -{1}(subnK jvm) ptD Hjv He modnn eqxx.
+exists j => //; split => //.
+by rewrite -{1}(subnK jvm) (pt_walkD pE) // (leq_ltn_trans jpq).
+Qed.
 
 (* @INVX_STEP lt/min -- PROVED *)
 (* needs: inv, invx_min, invx_max, pt_neq0 *)
@@ -1063,7 +1095,7 @@ rewrite Hm (leq_trans _ (leq_addl _ _)) //.
 by rewrite -{1}[p]mul1n leq_mul2r j_gt0 orbT.
 Qed.
 
-(* @INVX_STEP HELPER ge -- TODO *)
+(* @INVX_STEP HELPER ge -- PROVED *)
 (** mirror: walking by [u] SUBTRACTS [j*q].  alg2-notes.md 5. *)
 Lemma pt_new_ge p q d u v m :
   inv p q d u v -> (forall k, 0 < k < u + v -> p <= Pt k) ->
@@ -1072,7 +1104,54 @@ Lemma pt_new_ge p q d u v m :
   exists2 j, 0 < j <= p %/ q &
     [/\ 0 < m - j * u < u + v, j * q <= Pt (m - j * u) &
         Pt m = Pt (m - j * u) - j * q].
-Proof. Admitted.
+Proof.
+move=> iv Hmin qLp uvN' mnew mLuv'.
+have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
+have mnew' : v + u <= m by rewrite addnC.
+have mLuv2 : m < v + p %/ q * u + u by rewrite addnC.
+have [j jk /andP[ylt jum]] := new_index_decomp u_gt0 mnew' mLuv2.
+have /andP[j_gt0 jk2] := jk.
+have jqp : j * q <= p by rewrite -leq_divRL.
+rewrite addnC in ylt.
+have key : forall i, 0 < i <= p %/ q -> 0 < m - i * u -> i * u <= m ->
+    m - i * u < u + v ->
+    [/\ 0 < m - i * u < u + v, i * q <= Pt (m - i * u) & Pt m = Pt (m - i * u) - i * q].
+  move=> i /andP[i_gt0 ik] y_gt0 ium ylt2.
+  have iqp : i * q <= p by rewrite -leq_divRL.
+  have iqP : i * q <= Pt (m - i * u).
+    by rewrite (leq_trans iqp) // Hmin // y_gt0.
+  have iqM : i * q < M by rewrite (leq_ltn_trans iqp) // pE pt_lt.
+  have PuE : Pt u = M - q by rewrite qE subKn // ltnW // pt_lt.
+  have Hiu : Pt (i * u) = M - i * q.
+    have H1 : Pt (i * u) = (i * Pt u) %% M by rewrite /pt modnMmr mulnCA.
+    rewrite H1 PuE mulnBr.
+    have -> : i * M - i * q = (i - 1) * M + (M - i * q).
+      rewrite addnBA; last by apply: ltnW.
+      by rewrite subn1 -mulSnr prednK.
+    by rewrite modnMDl modn_small // ltn_subrL muln_gt0 i_gt0 q_gt0 M_gt0.
+  split => //; first by rewrite y_gt0.
+  rewrite -{1}(subnK ium) ptD Hiu.
+  rewrite addnBA; last exact: ltnW iqM.
+  rewrite [Pt (m - i * u) + M]addnC -addnBA // modnDl.
+  by rewrite modn_small // (leq_ltn_trans (leq_subr _ _)) // pt_lt.
+(* the [Pt 0] corner: if the walk lands on the origin, take one step less *)
+case: (posnP (m - j * u)) => [y0|y_gt0]; last by exists j => //; apply: key.
+have mE : m = j * u by apply/eqP; rewrite eqn_leq jum andbT -subn_eq0 y0.
+have j_gt1 : 1 < j.
+  rewrite ltnNge; apply/negP => jL1.
+  have j1 : j = 1 by apply/eqP; rewrite eqn_leq jL1 j_gt0.
+  move: mnew; rewrite mE j1 mul1n leqNgt => /negP[].
+  by rewrite -{1}[u]addn0 ltn_add2l.
+have yE : m - j.-1 * u = u.
+  by rewrite mE -{1}(prednK j_gt0) mulSnr addnC addnK.
+have jpk : 0 < j.-1 <= p %/ q.
+  apply/andP; split; first by rewrite -subn1 subn_gt0.
+  exact: leq_trans (leq_pred _) jk2.
+exists j.-1 => //; apply: key => //.
+- by rewrite yE.
+- by rewrite (leq_trans _ jum) // leq_mul2r leq_pred orbT.
+by rewrite yE -{1}[u]addn0 ltn_add2l.
+Qed.
 
 (* @INVX_STEP lt/max -- PROVED *)
 (* needs: inv, invx_max *)
@@ -1112,7 +1191,8 @@ Proof. Admitted.
 (* @INVX_STEP lt/p1 -- TODO *)
 (* wants new_index_decomp sharpened to [j < k].  alg2-notes.md 5. *)
 Lemma invx_step_lt_p1 p q d u v :
-  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
+  inv p q d u v -> (forall k, k < u + v -> Pt k <= M - q) ->
+  p < q -> u + q %/ p * v + v < N ->
   forall z, z < u + q %/ p * v -> Pt (z + v) = Pt z + p.
 Proof. Admitted.
 
@@ -1234,7 +1314,7 @@ rewrite /step; case: (ltnP p q) => [pLq|qLp] /= uvN'; split.
 - by rewrite (leq_trans _ qM) // leq_subr.
 - exact: invx_step_lt_inf iv ix pLq uvN'.
 - exact: invx_step_lt_gap iv ix pLq uvN'.
-- exact: invx_step_lt_p1 iv ix pLq uvN'.
+- exact: invx_step_lt_p1 iv (invx_max ix) pLq uvN'.
 - exact: invx_step_lt_p2 iv pLq uvN'.
 - exact: invx_step_ge_min iv (invx_min ix) qLp uvN'.
 - exact: invx_step_ge_max iv (invx_min ix) (invx_max ix) qLp uvN'.
