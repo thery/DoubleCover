@@ -1588,21 +1588,35 @@ rewrite -{1}(subnK Hw) modnDr modn_small // ltn_subLR //.
 by rewrite (leq_ltn_trans (leq_add (ltnW (dst_lt y)) (leqnn _))) // ltn_add2l.
 Qed.
 
-(** PROBED 5908/5908, in this DISJUNCTIVE form.  The earlier shape -- the
-    argmax of [Dst] always crosses [M] within [p %/ q] steps -- is false
-    (6005/6701): 1113 times the argmax needs one step more and the crossing
-    index leaves the new range.  In exactly those states [Inf (u+v) < q]
-    holds already, so [ge/inf] follows by monotonicity. *)
-Lemma ge_cross_ex p q d u v :
+(** the new [d] is below [q] in both branches of its conditional: the
+    [then] branch is a remainder mod [q], and the [else] branch has
+    [d < p - p %/ q * q = p %% q < q].  This is what makes the
+    non-tight half of [le_ge_wrap] trivial. *)
+Lemma ge_d_lt_q p q d : 0 < q ->
+  (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d) < q.
+Proof.
+move=> q_gt0.
+have pmod : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
+case: (leqP (p - p %/ q * q) d) => [_|H]; first by rewrite ltn_pmod.
+by rewrite (leq_ltn_trans (ltnW H)) // pmod ltn_pmod.
+Qed.
+
+(** PROBED 12352/12352 (8 moduli).  In the [ge] branch the new minimum is
+    either the value the algorithm computes for [d] -- with [Inf (u+v)] for
+    [d], which [ge_d_eq_inf] licenses -- or the old minimum, and in the
+    latter case that one was already below [q].  Two earlier shapes were
+    refuted: a crossing from the argmax within [p %/ q] steps (4795/5908)
+    and the min-gap mirror [Inf(new) = Inf(u+v) %% q] (2226/5908). *)
+Lemma ge_inf_cases p q d u v :
   inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
-  Inf (u + v) < q \/
-  exists z j, [/\ z < u + v, 0 < j <= p %/ q,
-                  z + j * u < u + (v + p %/ q * u) &
-                  M <= Dst z + j * q /\ Dst z + j * q - M < q].
+  Inf (u + (v + p %/ q * u)) =
+    (if p - p %/ q * q <= Inf (u + v)
+     then (Inf (u + v) - (p - p %/ q * q)) %% q else Inf (u + v))
+  \/ Inf (u + v) < q.
 Proof. Admitted.
 
 (* @INVX_STEP ge/inf -- PROVED *)
-(* needs: inv, invx, ge_cross_ex, walk_ge_wrapeq *)
+(* needs: inv, ge_inf_cases, ge_d_lt_q *)
 Lemma invx_step_ge_inf p q d u v :
   inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
   Inf (u + (v + p %/ q * u)) < maxn (p - p %/ q * q) q.
@@ -1612,14 +1626,11 @@ have [p_gt0 q_gt0 _ _ _ _ u_gt0 v_gt0] := iv.
 have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
 have -> : maxn (p - p %/ q * q) q = q.
   by apply/maxn_idPr; rewrite ltnW // q'_lt_p.
-case: (ge_cross_ex iv ix qLp uvN') => [Hlt|[z [j [zL jk zin [Hcross Hlt]]]]].
-  (* the old range already has a point inside a [q]-gap *)
-  apply: leq_ltn_trans Hlt.
-  have [y yL ->] := inf_dst_ex uv_gt0.
-  by apply: inf_dst_le; rewrite (leq_trans yL) // leq_add2l leq_addr.
-(* or a walk crosses [M] and lands inside one *)
+case: (ge_inf_cases iv ix qLp uvN') => [->|Hlt]; first exact: ge_d_lt_q _ _ q_gt0.
+(* the old range already has a point inside a [q]-gap *)
 apply: leq_ltn_trans Hlt.
-by rewrite -(walk_ge_wrapeq iv qLp zL jk Hcross) inf_dst_le.
+have [y yL ->] := inf_dst_ex uv_gt0.
+by apply: inf_dst_le; rewrite (leq_trans yL) // leq_add2l leq_addr.
 Qed.
 
 (* @INVX_STEP ge/gap -- TODO *)
@@ -1847,18 +1858,6 @@ Qed.
 (** two halves: [q <= W] is [ge_d_lt_q], [W < q] is [ge_wrap_tight].
     alg2-notes.md 1-2 for what is refuted here. *)
 
-(** the new [d] is below [q] in both branches of its conditional: the
-    [then] branch is a remainder mod [q], and the [else] branch has
-    [d < p - p %/ q * q = p %% q < q].  This is what makes the
-    non-tight half of [le_ge_wrap] trivial. *)
-Lemma ge_d_lt_q p q d : 0 < q ->
-  (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d) < q.
-Proof.
-move=> q_gt0.
-have pmod : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
-case: (leqP (p - p %/ q * q) d) => [_|H]; first by rewrite ltn_pmod.
-by rewrite (leq_ltn_trans (ltnW H)) // pmod ltn_pmod.
-Qed.
 
 (** [ge_wrap_au] was FALSE; see alg2-notes.md 2. *)
 
