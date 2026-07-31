@@ -37,7 +37,7 @@ Proof. by move=> h00 h01 h02 h03 h04 h05 h06 h07 h08 h09 h10 h11 h12 h13 h14 h15
 (* the second move outermost, so that the eighteen pieces are exactly the
    eighteen conjuncts *)
 Lemma searchd :
-  all (fun j => all (fun i => ~~ searchir 47 mtis Dtid nfcube oppf fcpos droot
+  all (fun j => all (fun i => ~~ searchir 47 mtis Dsymd nfcube oppf fcpos droot
                                             (prefixi i j) nfcube)
                     (iota 0 nroot))
       (iota 0 nmoves).
@@ -56,14 +56,14 @@ rewrite -prefixiE //.
 (* the depth is given explicitly so that the term is ground before it meets
    the goal; ball Sset ?d is a finset over {perm 'I_48} and not something to
    leave to unification.                                                   *)
-have hs : searchir 47 mtis Dtid nfcube oppf fcpos droot (prefixi i j) nfcube
+have hs : searchir 47 mtis Dsymd nfcube oppf fcpos droot (prefixi i j) nfcube
         = false.
   (* no /= anywhere near this goal: it holds a searchi at depth droot and simpl
      would start unfolding the search itself.                              *)
   have h1 : i \in iota 0 nroot by rewrite mem_iota add0n leq0n.
   have h2 : j \in iota 0 nmoves by rewrite mem_iota add0n leq0n.
   by apply/negbTE; move: searchd => /allP/(_ _ h2)/allP/(_ _ h1).
-exact: (far_of_searchir (d := droot) (prefixi_ok iL' jL) hs).
+exact: (far_of_searchsym (d := droot) (prefixi_ok iL' jL) hs).
 Qed.
 
 Theorem superflip_fard : superflip \notin ball Sset depth.

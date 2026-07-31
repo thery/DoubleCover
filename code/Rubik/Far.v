@@ -225,6 +225,55 @@ Proof. by rewrite /Sroot !inE => /orP[]/eqP->; [exists 0%N | exists 1%N]. Qed.
    9 x 72 = 648, against 1 x 131 for dropping ball_root2 and using
    searchr_split2 instead.  Symmetry is worth more than the two levels of
    guard, by a factor of five.                                             *)
+(* ---- 2bis. The symmetry-strengthened heuristic --------------------------- *)
+
+(* Far.v prunes with ONE lookup in the flip x slice table.  The OCaml
+   reference prunes with the MAX over several symmetry conjugates of the SAME
+   table, and a max of admissible heuristics is admissible.  Measured in
+   bench/SymHeur.v, depth 9 from prefixi 0 3:
+
+     views                            nodes    time
+     1  (what this file used to do)  94 762   4.16 s
+     3  {1, Sy, Sx}                  11 353   1.06 s     8.3x fewer nodes
+     5  {1, Sy, Sx, Sy.Sx, Sx.Sy}     4 918   0.895 s   19.3x fewer nodes
+
+   No new table -- this is the table we already ship.  To go back to three
+   views, or to one, just shorten Dsymd.                                   *)
+
+Definition syti     : arr := Eval vm_compute in t2ti 47 Sytab.
+Definition sxti     : arr := Eval vm_compute in t2ti 47 Sxtab.
+Definition syti_inv : arr := Eval vm_compute in inv_tabi 47 syti.
+Definition sxti_inv : arr := Eval vm_compute in inv_tabi 47 sxti.
+
+Definition conjy (a : arr) : arr := comp_tabi 47 (comp_tabi 47 syti_inv a) syti.
+Definition conjx (a : arr) : arr := comp_tabi 47 (comp_tabi 47 sxti_inv a) sxti.
+
+Definition Dsymd (a : arr) : nat :=
+  maxn (maxn (Dtid a) (Dtid (conjy a)))
+       (maxn (Dtid (conjx a))
+             (maxn (Dtid (conjy (conjx a))) (Dtid (conjx (conjy a))))).
+
+(* [ADMITTED -- the point of this commit is a TIMING, not a proof.]
+
+   This is far_of_searchir with Dsymd in place of Dtid, and it is stated at
+   exactly the interface where the work has to happen.  What it needs:
+
+     h 1 = 0        the identity is fixed by every symmetry, so each view
+                    contributes Dfsd (coordfs 1) = 0: this is Dfsd_0.
+     h g <= (h (g*m)).+1
+                    view-wise.  (g*m)^s = g^s * m^s and m^s is again a move
+                    (conjugation permutes the eighteen -- a vm_compute check
+                    of the shape Redun.uniq_mtabs uses), so Dfsd_step applies
+                    to each conjugate, and max is monotone.
+
+   Sym.v already supplies Sy, Sx, Sytab, Sxtab, okSy, okSx and ptJ, so this
+   is assembly rather than new mathematics -- the same shape as actcdE.    *)
+Lemma far_of_searchsym d a :
+  tabi_ok 47 a ->
+  searchir 47 mtis Dsymd nfcube oppf fcpos d a nfcube = false ->
+  pt 47 (ti2t 47 a) \notin ball Sset d.
+Admitted.
+
 Lemma far_of_searchir d a :
   tabi_ok 47 a ->
   searchir 47 mtis Dtid nfcube oppf fcpos d a nfcube = false ->
