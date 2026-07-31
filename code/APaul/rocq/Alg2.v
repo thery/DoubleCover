@@ -934,6 +934,33 @@ apply: (@gap_count_aux v u a b y v_gt0 H); first by rewrite addnC.
 by rewrite Hix leq_addr.
 Qed.
 
+(** conditioned as [step_p_gt0] is: only needed when the loop continues. *)
+Lemma inv_step p q d u v :
+  inv p q d u v -> u + v < N ->
+  let: (p', q', d', u', v') := step p q d u v in
+  u' + v' < N -> inv p' q' d' u' v'.
+Proof.
+move=> iv uvLN.
+have Hg := step_p_gt0 iv uvLN.
+have Hb := step_bez iv.
+have Hpt := step_pt iv.
+have [_ _ _ _ _ gE u_gt0 v_gt0] := iv.
+move: Hg Hb Hpt; rewrite /step.
+have [pLq|qLp] := ltnP => /= Hg Hb Hpt Huv.
+  have [Hp Hq] := Hg Huv.
+  have [Hpv Hqu] := Hpt Hp Hq.
+  split => //.
+    have -> : q - q %/ p * p = q %% p by rewrite {1}(divn_eq q p) addnC addnK.
+    by rewrite gcdn_modr.
+  by rewrite addn_gt0 u_gt0.
+have [Hp Hq] := Hg Huv.
+have [Hpv Hqu] := Hpt Hp Hq.
+split => //.
+  have -> : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
+  by rewrite gcdnC gcdn_modr gcdnC.
+by rewrite addn_gt0 v_gt0.
+Qed.
+
 (** the [p2] shape needs no invariant, only [q = M - Pt u]. *)
 Lemma pt_subu q u z : q = M - Pt u -> u <= z -> Pt (z - u) = (Pt z + q) %% M.
 Proof.
@@ -1058,6 +1085,217 @@ have e2 : (Dst (x + w) + Pt w) %% M = Dst (x + w) + Pt w - M.
   by apply: leq_ltn_trans (leq_add (ltnW HD) (leqnn _)) _; rewrite ltn_add2l.
 by rewrite e2 subnK ?addnK ?modn_small // (leq_trans (ltnW HP)) // leq_addl.
 Qed.
+
+(** * Slater (6): two points are never closer than a gap
+
+    In DISTANCE form (6) splits on whether the index order and the value
+    order agree: if they do the difference is a plain [Pt], if they do not
+    the walk round the circle wraps exactly once. *)
+
+Lemma dst_diff m1 m2 : m2 <= m1 -> Dst m2 = (Dst m1 + Pt (m1 - m2)) %% M.
+Proof. by move=> H; rewrite -{1}(subKn H) dstB_gen // leq_subr. Qed.
+
+Lemma dst_gap_up m1 m2 : m1 <= m2 -> Dst m2 <= Dst m1 ->
+  Pt (m2 - m1) + Dst m2 = Dst m1.
+Proof.
+move=> m12 D21; move: (dst_diff m12) => Heq.
+case: (ltnP (Dst m2 + Pt (m2 - m1)) M) => [Hlt|Hge].
+  by rewrite Heq (modn_small Hlt) addnC.
+have Hs : Dst m2 + Pt (m2 - m1) - M < M.
+  rewrite ltn_subLR //.
+  by rewrite (leq_ltn_trans (leq_add (ltnW (dst_lt _)) (leqnn _))) // ltn_add2l pt_lt.
+have HD : Dst m1 = Dst m2 + Pt (m2 - m1) - M.
+  by rewrite Heq -{1}(subnK Hge) modnDr modn_small.
+suff : Dst m1 < Dst m2 by rewrite ltnNge D21.
+by rewrite HD ltn_subLR // [M + _]addnC ltn_add2l pt_lt.
+Qed.
+
+Lemma dst_gap_down m1 m2 :
+  m2 <= m1 -> m1 <= N -> Dst m2 <= Dst m1 -> m2 != m1 ->
+  Pt (m1 - m2) + Dst m1 = M + Dst m2.
+Proof.
+move=> m21 m1N D21 m2Dm1; move: (dst_diff m21) => Heq.
+have Hd : 0 < m1 - m2 <= N.
+  by rewrite subn_gt0 ltn_neqAle m2Dm1 m21 (leq_trans (leq_subr _ _)).
+case: (ltnP (Dst m1 + Pt (m1 - m2)) M) => [Hlt|Hge].
+  have /eqP := pt_neq0 Hd; case.
+  apply/eqP; rewrite -(eqn_add2l (Dst m1)) addn0 eqn_leq.
+  by rewrite leq_addr andbT -(modn_small Hlt) -Heq D21.
+have Hs : Dst m1 + Pt (m1 - m2) - M < M.
+  rewrite ltn_subLR //.
+  by rewrite (leq_ltn_trans (leq_add (ltnW (dst_lt _)) (leqnn _))) // ltn_add2l pt_lt.
+have HD : Dst m2 = Dst m1 + Pt (m1 - m2) - M.
+  by rewrite Heq -{1}(subnK Hge) modnDr modn_small.
+by rewrite HD addnC subnKC // (leq_trans Hge) // leq_addl.
+Qed.
+
+(** one step of the walk toward an index [z] no further from [B].  For [z]
+    ABOVE [y] the bound is (6) itself; for [z] BELOW it is (6) at the pair
+    [(z, y+v)] -- Slater's trick, which avoids ever comparing [p] with [q]. *)
+Lemma gap_step_p p q d u v y z :
+  inv p q d u v -> u + v <= N ->
+  (forall m, 0 < m < u + v -> p <= Pt m) ->
+  y < u -> z < u + v -> Dst z <= Dst y -> z != y ->
+  p + Dst z <= Dst y /\ Dst (y + v) = Dst y - p.
+Proof.
+move=> iv uvN Hmin yu zL Dzy zDy.
+have [p_gt0 q_gt0 bez pE qE _ u_gt0 v_gt0] := iv.
+have yL : y < u + v by rewrite (leq_trans yu) // leq_addr.
+suff Hp : p + Dst z <= Dst y.
+  split => //.
+  have pDy : p <= Dst y by rewrite (leq_trans _ Hp) // leq_addr.
+  by rewrite dst_add -pE -addnBAC // modnDr modn_small //
+             (leq_ltn_trans (leq_subr p (Dst y))) // dst_lt.
+case: (leqP z y) => [zy|yz]; last first.
+  rewrite -(dst_gap_up (ltnW yz) Dzy) leq_add2r.
+  by apply: Hmin; rewrite subn_gt0 yz (leq_ltn_trans (leq_subr _ _)).
+(* Slater's trick: (6) at the pair [(z, y+v)] *)
+have Hw := dst_gap_down zy (leq_trans (ltnW yL) uvN) Dzy zDy.
+rewrite leqNgt; apply/negP => Hlt.
+have HP : Pt (y - z) = M - (Dst y - Dst z) by rewrite subnBA // -Hw addnK.
+have t_gt0 : 0 < Dst y - Dst z.
+  case: (posnP (Dst y - Dst z)) => // t0.
+  by have := pt_lt (y - z); rewrite HP t0 subn0 ltnn.
+have tp : Dst y - Dst z < p by rewrite ltn_subLR // addnC.
+have Hk : p <= Pt (y - z + v).
+  by apply: Hmin;
+     rewrite addn_gt0 v_gt0 orbT ltn_add2r (leq_ltn_trans (leq_subr z y) yu).
+move: Hk; rewrite ptD -pE HP.
+have -> : M - (Dst y - Dst z) + p = M + (p - (Dst y - Dst z)).
+  have tp' : Dst y - Dst z <= p := ltnW tp.
+  have pM : p <= M.
+    by rewrite pE ltnW // pt_lt.
+  have tM : Dst y - Dst z <= M := leq_trans tp' pM.
+  by rewrite addnBAC // addnBA.
+rewrite modnDl modn_small; last first.
+  by rewrite (leq_ltn_trans (leq_subr _ _)) // pE pt_lt.
+by rewrite leqNgt ltn_subrL t_gt0 p_gt0.
+Qed.
+
+Lemma gap_step_q p q d u v y z :
+  inv p q d u v -> u + v <= N ->
+  (forall m, m < u + v -> Pt m <= M - q) ->
+  u <= y -> y < u + v -> z < u + v -> Dst z <= Dst y -> z != y ->
+  q + Dst z <= Dst y /\ Dst (y - u) = Dst y - q.
+Proof.
+move=> iv uvN Hmax uy yL zL Dzy zDy.
+have [p_gt0 q_gt0 bez pE qE _ u_gt0 v_gt0] := iv.
+have qM : q <= M by rewrite qE leq_subr.
+have PtuE : Pt u = M - q by rewrite qE subKn // ltnW // pt_lt.
+suff Hq : q + Dst z <= Dst y.
+  split => //.
+  have qDy : q <= Dst y by rewrite (leq_trans _ Hq) // leq_addr.
+  have Heq := dst_add (y - u) u.
+  rewrite subnK // PtuE subnBA // addnAC addnK in Heq.
+  case: (ltnP (Dst (y - u) + q) M) => [Hs|Hs].
+    by rewrite Heq (modn_small Hs) addnK.
+  have Hlt2 : Dst (y - u) + q - M < M.
+    by rewrite ltn_subLR // (leq_ltn_trans (leq_add (leqnn (Dst (y - u))) qM)) //
+               ltn_add2r dst_lt.
+  move: Heq; rewrite -{1}(subnK Hs) modnDr (modn_small Hlt2) => Heq.
+  have Hc : Dst y < q by rewrite Heq ltn_subLR // ltn_add2r dst_lt.
+  by move: qDy; rewrite leqNgt Hc.
+case: (leqP z y) => [zy|yz].
+  have Hw := dst_gap_down zy (leq_trans (ltnW yL) uvN) Dzy zDy.
+  have HP : Pt (y - z) = M + Dst z - Dst y by rewrite -Hw addnK.
+  have Hk : Pt (y - z) <= M - q.
+    by apply: Hmax; rewrite (leq_ltn_trans (leq_subr _ _)).
+  move: Hk; rewrite HP leq_subLR addnBA // leq_subRL; last first.
+    by rewrite (leq_trans qM) // leq_addl.
+  by rewrite addnCA [Dst y + M]addnC leq_add2l.
+(* Slater's trick again, now at the pair [(y, (z-y)+u)] *)
+have Hu := dst_gap_up (ltnW yz) Dzy.
+rewrite -Hu leq_add2r leqNgt; apply/negP => Hlt.
+have Hk : Pt (z - y + u) <= M - q.
+  apply: Hmax; rewrite addnC ltn_add2l ltn_subLR; last exact: ltnW yz.
+  by rewrite (leq_trans zL) // leq_add2r.
+move: Hk; rewrite ptD PtuE modn_small; last first.
+  by rewrite addnBA // ltn_subLR ?(leq_trans qM) ?leq_addl // ltn_add2r.
+rewrite -{2}[M - q]add0n leq_add2r leqn0 => /eqP H0.
+have Hd : 0 < z - y <= N.
+  by rewrite subn_gt0 yz (leq_trans (leq_subr y z)) // (leq_trans (ltnW zL)).
+by move: (pt_neq0 Hd); rewrite H0 eqxx.
+Qed.
+
+(** the walk, carrying BOTH of Slater's equations.  A [p]-step sends
+    [(a,b)] to [(a+1,b)] and the index [y] to [y+v]; a [q]-step sends it to
+    [(a,b+1)] and [y] to [y-u].  Each keeps [a*v + y = b*u + z] exactly,
+    and that is the equation the bounds come from ([gap_bounds]). *)
+Lemma gap_walk n p q d u v y z :
+  inv p q d u v -> u + v <= N ->
+  (forall m, 0 < m < u + v -> p <= Pt m) ->
+  (forall m, m < u + v -> Pt m <= M - q) ->
+  y < u + v -> z < u + v -> Dst z <= Dst y -> Dst y - Dst z <= n ->
+  exists a b, a * p + b * q = Dst y - Dst z /\ a * v + y = b * u + z.
+Proof.
+elim: n y => [|n IH] y iv uvN Hmin Hmax yL zL Dzy Hn.
+  have Dyz : Dst y = Dst z.
+    by apply/eqP; rewrite eqn_leq Dzy andbT -subn_eq0 -leqn0.
+  have -> : y = z.
+    case: (ltngtP y z) => // [yz|zy].
+      have := dst_gap_up (ltnW yz) Dzy; rewrite Dyz -{2}[Dst z]add0n => /addIn H0.
+      have Hd : 0 < z - y <= N.
+        by rewrite subn_gt0 yz (leq_trans (leq_subr y z)) // (leq_trans (ltnW zL)).
+      by move: (pt_neq0 Hd); rewrite H0 eqxx.
+    have Hne : z != y by rewrite ltn_eqF.
+    have := dst_gap_down (ltnW zy) (leq_trans (ltnW yL) uvN) Dzy Hne.
+    rewrite Dyz => /addIn HH.
+    by have := pt_lt (y - z); rewrite HH ltnn.
+  by exists 0, 0; rewrite !mul0n subnn.
+have [p_gt0 _ _ _ _ _ _ _] := iv.
+have [/eqP zEy|zDy] := boolP (z == y).
+  by exists 0, 0; rewrite !mul0n zEy subnn.
+case: (ltnP y u) => [yu|uy].
+  have [Hp Hstep] := gap_step_p iv uvN Hmin yu zL Dzy zDy.
+  have pDy : p <= Dst y by rewrite (leq_trans _ Hp) // leq_addr.
+  have yvL : y + v < u + v by rewrite ltn_add2r.
+  have Dz2 : Dst z <= Dst (y + v) by rewrite Hstep leq_subRL // addnC.
+  have Hn2 : Dst (y + v) - Dst z <= n.
+    by rewrite Hstep subnAC leq_subLR (leq_trans Hn) // -add1n leq_add2r.
+  have [a [b [Hval Hix]]] := IH (y + v) iv uvN Hmin Hmax yvL zL Dz2 Hn2.
+  exists a.+1, b; split.
+    by rewrite mulSn -addnA Hval Hstep subnAC addnC subnK // leq_subRL // addnC.
+  by rewrite -Hix mulSn -addnA addnCA [v + y]addnC.
+have [Hq Hstep] := gap_step_q iv uvN Hmax uy yL zL Dzy zDy.
+have qDy : q <= Dst y by rewrite (leq_trans _ Hq) // leq_addr.
+have q_gt0 : 0 < q by have [_ ? _ _ _ _ _ _] := iv.
+have yuL : y - u < u + v by rewrite (leq_ltn_trans (leq_subr _ _)).
+have Dz2 : Dst z <= Dst (y - u) by rewrite Hstep leq_subRL // addnC.
+have Hn2 : Dst (y - u) - Dst z <= n.
+  by rewrite Hstep subnAC leq_subLR (leq_trans Hn) // -add1n leq_add2r.
+have [a [b [Hval Hix]]] := IH (y - u) iv uvN Hmin Hmax yuL zL Dz2 Hn2.
+exists a, b.+1; split.
+  by rewrite mulSn addnCA Hval Hstep subnAC subnKC // leq_subRL // addnC.
+by rewrite mulSn -addnA -Hix addnCA subnKC.
+Qed.
+
+(** Slater's decomposition, for ANY state with the gap structure: walk to
+    the argmin and read off both equations.  This is [invx_gap], and it is
+    what the two [gap] obligations of [invx_step] now reduce to. *)
+Lemma gap_decomp p q d u v y :
+  inv p q d u v -> u + v <= N ->
+  (forall m, 0 < m < u + v -> p <= Pt m) ->
+  (forall m, m < u + v -> Pt m <= M - q) ->
+  y < u + v ->
+  exists a b, [/\ a <= u, b <= v & Dst y = Inf (u + v) + a * p + b * q].
+Proof.
+move=> iv uvN Hmin Hmax yL.
+have [p_gt0 q_gt0 bez _ _ _ u_gt0 v_gt0] := iv.
+have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
+have [z zL Heq] := inf_dst_ex uv_gt0.
+have Dzy : Dst z <= Dst y by rewrite -Heq inf_dst_le.
+have [a [b [Hval Hix]]] :=
+  gap_walk iv uvN Hmin Hmax yL zL Dzy (leqnn (Dst y - Dst z)).
+have [aLu bLv] : a <= u /\ b <= v.
+  apply: (gap_bounds u_gt0 v_gt0 bez yL zL Hix).
+  by rewrite Hval (leq_ltn_trans (leq_subr _ _)) // dst_lt.
+exists a, b; split => //.
+by rewrite Heq -addnA Hval subnKC.
+Qed.
+
+
+
+
 
 Lemma pt_muln k x : Pt (k * x) = (k * Pt x) %% M.
 Proof. by rewrite /pt modnMmr mulnCA. Qed.
@@ -1469,32 +1707,8 @@ by rewrite [Inf (u + v) %% p + _]addnC -divn_eq.
 Qed.
 
 (* @INVX_STEP lt/gap -- PROVED *)
-(** the count bound.  NOT pure arithmetic: [c <= k], [a <= u], [b <= v]
-    separately would allow [c + a + b*k = u + k + k*v], overshooting [u']
-    by [k].  The three cannot be tight at once, and the equations say why.
-    PROBED 64489/64489, worst excess 0. *)
-Lemma lt_gap_count p q d u v y a b c :
-  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
-  y < u + v -> a <= u -> b <= v -> c <= q %/ p ->
-  Dst y = Inf (u + v) + a * p + b * q ->
-  Inf (u + v) = Inf (u + q %/ p * v + v) + c * p ->
-  c + a + b * (q %/ p) <= u + q %/ p * v.
-Proof. Admitted.
-
-(** the NEW indices: [pt_new_lt] writes [y] as [y0 + j*v] with [y0] old, so
-    the decomposition is the old one at [y0] with [j] fewer copies of [p]:
-    [a' = c + a + b*k - j], [b' = b], and [lt_gap_count] bounds [a'].
-    Open corner: nothing yet rules out [j > c + a + b*k], and there the
-    borrow fails -- one would need [q - k*p >= p], but that residue is
-    [q %% p < p].  Same crux as [lt_gap_count]. *)
-Lemma lt_gap_new p q d u v y :
-  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
-  u + v <= y -> y < u + q %/ p * v + v ->
-  exists a b, [/\ a <= u + q %/ p * v, b <= v &
-                  Dst y = Inf (u + q %/ p * v + v) + a * p + b * (q - q %/ p * p)].
-Proof. Admitted.
-
-(* needs: inv, invx_gap, inf_shift_lt, lt_gap_count, lt_gap_new *)
+(* the whole obligation is Slater's walk at the NEW state, whose
+   inv/min/max are already proved obligations. *)
 Lemma invx_step_lt_gap p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   forall y, y < u + q %/ p * v + v ->
@@ -1502,15 +1716,13 @@ Lemma invx_step_lt_gap p q d u v :
                   Dst y = Inf (u + q %/ p * v + v) + a * p + b * (q - q %/ p * p)].
 Proof.
 move=> iv ix pLq uvN' y yL.
-have [p_gt0 q_gt0 _ _ _ _ _ _] := iv.
-have qE : q = q %/ p * p + (q - q %/ p * p) by rewrite subnKC // leq_divM.
-case: (ltnP y (u + v)) => [yold|ynew]; last first.
-  exact: lt_gap_new iv ix pLq uvN' ynew yL.
-have [c cLk Hc] := inf_shift_lt iv ix pLq uvN'.
-have [a [b [aLu bLv Hab]]] := invx_gap ix yold.
-exists (c + a + b * (q %/ p)), b; split => //.
-  exact: lt_gap_count iv ix pLq uvN' yold aLu bLv cLk Hab Hc.
-by rewrite Hab Hc [X in b * X]qE mulnDr !mulnDl mulnA -!addnA; congr (_ + _).
+have uvN : u + v < N by rewrite (leq_ltn_trans _ uvN') // leq_add2r leq_addr.
+have Hmin' := invx_step_lt_min iv (invx_min ix) (invx_max ix) pLq uvN'.
+have Hmax' := invx_step_lt_max iv (invx_max ix) pLq uvN'.
+move: (inv_step iv uvN); rewrite /step.
+case: (ltnP p q) => [_|]; last by rewrite leqNgt pLq.
+move=> /= iv'.
+exact: gap_decomp (iv' uvN') (ltnW uvN') Hmin' Hmax' yL.
 Qed.
 
 (* @INVX_STEP lt/p1 -- PROVED *)
@@ -1686,7 +1898,16 @@ Lemma invx_step_ge_gap p q d u v :
   forall y, y < u + (v + p %/ q * u) ->
   exists a b, [/\ a <= u, b <= v + p %/ q * u &
                   Dst y = Inf (u + (v + p %/ q * u)) + a * (p - p %/ q * q) + b * q].
-Proof. Admitted.
+Proof.
+move=> iv ix qLp uvN' y yL.
+have uvN : u + v < N by rewrite (leq_ltn_trans _ uvN') // leq_add2l leq_addr.
+have Hmin' := invx_step_ge_min iv (invx_min ix) qLp uvN'.
+have Hmax' := invx_step_ge_max iv (invx_min ix) (invx_max ix) qLp uvN'.
+move: (inv_step iv uvN); rewrite /step.
+case: (ltnP p q) => [pLq|_]; first by rewrite ltnNge qLp in pLq.
+move=> /= iv'.
+exact: gap_decomp (iv' uvN') (ltnW uvN') Hmin' Hmax' yL.
+Qed.
 
 (* @INVX_STEP ge/p1 -- PROVED *)
 (* needs: inv, invx_max *)
@@ -2076,32 +2297,6 @@ Qed.
 
 (* glue -- assemble [step_p_gt0], [step_bez], [step_pt], [step_d] into
    the record.  Mechanical once the four are done; write it last. *)
-(** conditioned as [step_p_gt0] is: only needed when the loop continues. *)
-Lemma inv_step p q d u v :
-  inv p q d u v -> u + v < N ->
-  let: (p', q', d', u', v') := step p q d u v in
-  u' + v' < N -> inv p' q' d' u' v'.
-Proof.
-move=> iv uvLN.
-have Hg := step_p_gt0 iv uvLN.
-have Hb := step_bez iv.
-have Hpt := step_pt iv.
-have [_ _ _ _ _ gE u_gt0 v_gt0] := iv.
-move: Hg Hb Hpt; rewrite /step.
-have [pLq|qLp] := ltnP => /= Hg Hb Hpt Huv.
-  have [Hp Hq] := Hg Huv.
-  have [Hpv Hqu] := Hpt Hp Hq.
-  split => //.
-    have -> : q - q %/ p * p = q %% p by rewrite {1}(divn_eq q p) addnC addnK.
-    by rewrite gcdn_modr.
-  by rewrite addn_gt0 u_gt0.
-have [Hp Hq] := Hg Huv.
-have [Hpv Hqu] := Hpt Hp Hq.
-split => //.
-  have -> : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
-  by rewrite gcdnC gcdn_modr gcdnC.
-by rewrite addn_gt0 v_gt0.
-Qed.
 
 (** *** Termination *)
 
