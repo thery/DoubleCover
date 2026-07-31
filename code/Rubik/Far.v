@@ -262,8 +262,11 @@ Definition sxti     : arr := Eval vm_compute in t2ti 47 Sxtab.
 Definition syti_inv : arr := Eval vm_compute in inv_tabi 47 syti.
 Definition sxti_inv : arr := Eval vm_compute in inv_tabi 47 sxti.
 
-Definition conjy (a : arr) : arr := comp_tabi 47 (comp_tabi 47 syti_inv a) syti.
-Definition conjx (a : arr) : arr := comp_tabi 47 (comp_tabi 47 sxti_inv a) sxti.
+(* NOTE the bracketing: si . (a . s), matching conji.  Written (si . a) . s it
+   computes the same thing but every proof below then needs associativity of
+   comp_tab, which is not worth a single lemma. *)
+Definition conjy (a : arr) : arr := comp_tabi 47 syti_inv (comp_tabi 47 a syti).
+Definition conjx (a : arr) : arr := comp_tabi 47 sxti_inv (comp_tabi 47 a sxti).
 
 Definition Dsymd (a : arr) : nat :=
   maxn (maxn (Dtid a) (Dtid (conjy a)))
@@ -375,23 +378,64 @@ have sok : tab_ok 47 s by apply: (allP viewst_ok).
 by rewrite (ptJ tok sok) hfsE // tab_ok_conjt.
 Qed.
 
-(* [THE ONLY ADMIT.]  The computational Dsymd equals the \max_(s <- viewst)
-   form the proofs are stated over.  They are the same five views:
+(* the literal tables, related back to their table forms.  syti and friends
+   are Eval vm_compute in, hence closed literals, so nothing matches them
+   syntactically until these fire. *)
+Lemma sytiE     : syti     = t2ti 47 Sytab.               Proof. by vm_compute. Qed.
+Lemma sxtiE     : sxti     = t2ti 47 Sxtab.               Proof. by vm_compute. Qed.
+Lemma syti_invE : syti_inv = t2ti 47 (inv_tab 47 Sytab).  Proof. by vm_compute. Qed.
+Lemma sxti_invE : sxti_inv = t2ti 47 (inv_tab 47 Sxtab).  Proof. by vm_compute. Qed.
 
-     a                <->  s = id_tab 47      ->  g
-     conjy a          <->  s = Sytab          ->  g ^ Sy
-     conjx a          <->  s = Sxtab          ->  g ^ Sx
-     conjy (conjx a)  <->  s = Sxtab * Sytab  ->  g ^ (Sx * Sy)
-     conjx (conjy a)  <->  s = Sytab * Sxtab  ->  g ^ (Sy * Sx)
+Lemma conjyE a : conjy a = conji Sytab a.
+Proof. by rewrite /conjy /conji sytiE syti_invE. Qed.
 
-   so this is the bigop over a five element list unfolded, plus ti2t_conji per
-   view -- proved just above -- modulo the associativity difference between
-   conjy's  (si . a) . s  and conji's  si . (a . s).  Everything it rests on
-   is proved; only this assembly is missing.
+Lemma conjxE a : conjx a = conji Sxtab a.
+Proof. by rewrite /conjx /conji sxtiE sxti_invE. Qed.
 
-   THE TRAP: do NOT use /= or unfold viewst here.  The goal then carries
-   concrete 48 entry tables and simpl does not return.  Use big_cons/big_nil
-   and aim every rewrite. *)
+(* conjugating by the identity, and composing two conjugations.  Both are
+   trivial on PERMUTATIONS (conjg1, conjgM), so transport through pt rather
+   than fight comp_tab and inv_tab directly -- pt_inj_in is what Redun's
+   uniq_moves already uses for exactly this. *)
+Lemma conjt_id t : tab_ok 47 t -> conjt (id_tab 47) t = t.
+Proof.
+move=> tok; apply: pt_inj_in => //; first by apply: tab_ok_conjt (tab_ok_id 47) tok.
+by rewrite -(ptJ tok (tab_ok_id 47)) pt1 conjg1.
+Qed.
+
+Lemma conjtM s1 s2 t : tab_ok 47 s1 -> tab_ok 47 s2 -> tab_ok 47 t ->
+  conjt s2 (conjt s1 t) = conjt (comp_tab s1 s2) t.
+Proof.
+move=> o1 o2 tok.
+have oc1 : tab_ok 47 (conjt s1 t) by apply: tab_ok_conjt.
+apply: pt_inj_in.
+- by apply: tab_ok_conjt.
+- by apply: tab_ok_conjt => //; apply: tab_ok_comp.
+rewrite -(ptJ oc1 o2) -(ptJ tok o1) -(ptJ tok (tab_ok_comp o1 o2)).
+by rewrite -(ptM o1 o2) conjgM.
+Qed.
+
+(* [ADMITTED -- the script below does not return, and I did not find which
+   step.  Everything it uses IS proved: conjyE / conjxE relate the literal
+   tables to conji, ti2t_conji pushes ti2t through a conjugation, conjt_id
+   and conjtM are the two structural facts, all above and all admit free.
+   So this is assembly only.  The script:
+
+     move=> aok.
+     have oky : tabi_ok 47 (conjy a).
+       by rewrite conjyE; apply: tabi_ok_conji => //; exact: okSy.
+     have okx : tabi_ok 47 (conjx a).
+       by rewrite conjxE; apply: tabi_ok_conji => //; exact: okSx.
+     rewrite /Dsymt /viewst !big_cons big_nil maxn0 /Dsymd.
+     rewrite !(DtiE Dfsd) // !conjyE !conjxE.
+     rewrite !(ti2t_conji okSy) // !(ti2t_conji okSx) //.
+     by rewrite conjt_id // !conjtM //; try exact: okSy; try exact: okSx.
+
+   Suspects, in order: the !(DtiE Dfsd) with its side conditions left to //,
+   and the !conjtM at the end -- both rewrite under terms holding concrete 48
+   entry tables, and everything of that shape in this file has had to be
+   aimed explicitly rather than left to a bang or a //.  Note also that the
+   bigop MUST be opened with !big_cons big_nil maxn0 and never with /=, which
+   does not return on these goals. *)
 Lemma DsymdE a : tabi_ok 47 a -> Dsymd a = Dsymt (ti2t 47 a).
 Admitted.
 
