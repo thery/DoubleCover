@@ -1462,6 +1462,7 @@ Qed.
     with equality excluded by [pt_neq0] (it would put [Pt m] at the origin).
 
     [lt_min], [lt_max], [lt_p1], [lt_inf] and [lt_gap] all reduce to this. *)
+(* @INVX_STEP HELPER lt -- TODO *)
 Lemma pt_new_lt p q d u v m :
   inv p q d u v -> (forall k, k < u + v -> Pt k <= M - q) ->
   p < q -> u + q %/ p * v + v < N ->
@@ -1472,6 +1473,7 @@ Proof. Admitted.
 
 (* DEPENDS ON: [inv], [invx_min], [invx_max] (through [pt_walk_le]) and
    [pt_neq0] -- the last to rule out the walk landing exactly on [M]. *)
+(* @INVX_STEP lt/min -- PROVED *)
 Lemma invx_step_lt_min p q d u v :
   inv p q d u v -> (forall m, 0 < m < u + v -> p <= Pt m) ->
   (forall m, m < u + v -> Pt m <= M - q) ->
@@ -1529,6 +1531,7 @@ Qed.
     statement must either exclude it or observe that [m = j*u] with
     [u + v <= m] forces [j >= 2] and an earlier point to be used instead.
     That corner is why this is stated with [0 < m - j*u]. *)
+(* @INVX_STEP HELPER ge -- TODO *)
 Lemma pt_new_ge p q d u v m :
   inv p q d u v -> (forall k, 0 < k < u + v -> p <= Pt k) ->
   q <= p -> u + (v + p %/ q * u) < N ->
@@ -1540,6 +1543,7 @@ Proof. Admitted.
 
 (* DEPENDS ON: [inv] and [invx_max] only.  Old indices are free because
    [q' <= q]; new ones are [pt_new_lt] plus [j*p <= k*p]. *)
+(* @INVX_STEP lt/max -- PROVED *)
 Lemma invx_step_lt_max p q d u v :
   inv p q d u v -> (forall k, k < u + v -> Pt k <= M - q) ->
   p < q -> u + q %/ p * v + v < N ->
@@ -1565,6 +1569,7 @@ Qed.
    branch as [Inf (u+v) %% p]; combined with [p' = p] that should give it
    directly -- CHECK whether [inf_new_lt] can be moved before this point,
    since it currently lives after and depends on [step_invd_le]. *)
+(* @INVX_STEP lt/inf -- TODO *)
 Lemma invx_step_lt_inf p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   Inf (u + q %/ p * v + v) < maxn p (q - q %/ p * p).
@@ -1576,6 +1581,7 @@ Proof. Admitted.
    [Pt y + j*p], so they gain [j] copies of [p].  The bookkeeping is on the
    COUNTS: [a <= u'] and [b <= v'] with [u' = u + k*v], [v' = v].
    HELPER TO ADD: the [q = q' + (q %/ p) * p] trade, as an equation. *)
+(* @INVX_STEP lt/gap -- TODO *)
 Lemma invx_step_lt_gap p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   forall y, y < u + q %/ p * v + v ->
@@ -1590,6 +1596,7 @@ Proof. Admitted.
    [< u + k*v + v]) should yield -- a sharper form of [new_index_decomp].
    HELPER TO ADD: [new_index_decomp] with the conclusion [j < k] under the
    hypothesis [x < u + k*v]. *)
+(* @INVX_STEP lt/p1 -- TODO *)
 Lemma invx_step_lt_p1 p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   forall z, z < u + q %/ p * v -> Pt (z + v) = Pt z + p.
@@ -1597,6 +1604,7 @@ Proof. Admitted.
 
 (* DEPENDS ON: [inv] (through [step_p_gt0] and [step_pt], for the NEW
    state's [q' = M - Pt u']) and the two side conditions.  NO [invx]. *)
+(* @INVX_STEP lt/p2 -- PROVED *)
 Lemma invx_step_lt_p2 p q d u v :
   inv p q d u v -> p < q -> u + q %/ p * v + v < N ->
   forall z, u + q %/ p * v <= z < u + q %/ p * v + v ->
@@ -1621,6 +1629,7 @@ Qed.
 
 (* DEPENDS ON: [inv] and [invx_min].  Old indices: [p' <= p <= Pt m].
    New ones: the walk subtracts [j*q <= (p %/ q)*q], so [Pt m >= p - that]. *)
+(* @INVX_STEP ge/min -- PROVED *)
 Lemma invx_step_ge_min p q d u v :
   inv p q d u v -> (forall k, 0 < k < u + v -> p <= Pt k) ->
   q <= p -> u + (v + p %/ q * u) < N ->
@@ -1637,6 +1646,7 @@ Qed.
 
 (* DEPENDS ON: [inv], [invx_min] (to run the walk) and [invx_max].  The
    walk only SUBTRACTS, so the old bound carries over unchanged. *)
+(* @INVX_STEP ge/max -- PROVED *)
 Lemma invx_step_ge_max p q d u v :
   inv p q d u v -> (forall k, 0 < k < u + v -> p <= Pt k) ->
   (forall k, k < u + v -> Pt k <= M - q) ->
@@ -1653,6 +1663,7 @@ Qed.
 (* SKETCH.  Mirror of [invx_step_lt_inf], and the one with no computed
    counterpart: the [ge] analogue of [inf_new_lt] is FALSE (34/1384, see
    the note on [inf_cong_ge]), so this needs the gap argument directly. *)
+(* @INVX_STEP ge/inf -- TODO *)
 Lemma invx_step_ge_inf p q d u v :
   inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
   Inf (u + (v + p %/ q * u)) < maxn (p - p %/ q * q) q.
@@ -1660,6 +1671,7 @@ Proof. Admitted.
 
 (* SKETCH.  Mirror of [invx_step_lt_gap], with [p = p' + (p %/ q)*q] as
    the trade and [pt_new_ge]'s [Pt y - j*q] for the new indices. *)
+(* @INVX_STEP ge/gap -- TODO *)
 Lemma invx_step_ge_gap p q d u v :
   inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
   forall y, y < u + (v + p %/ q * u) ->
@@ -1668,6 +1680,7 @@ Lemma invx_step_ge_gap p q d u v :
 Proof. Admitted.
 
 (* DEPENDS ON: [inv] and [invx_max] -- and on nothing else in [invx]. *)
+(* @INVX_STEP ge/p1 -- PROVED *)
 Lemma invx_step_ge_p1 p q d u v :
   inv p q d u v -> (forall m, m < u + v -> Pt m <= M - q) ->
   q <= p -> u + (v + p %/ q * u) < N ->
@@ -1694,6 +1707,7 @@ Qed.
 
 (* DEPENDS ON: [inv_qu] alone.  No [invx] field, no branch condition, no
    bound on [N] -- it is [pt_subu] restricted to the new range. *)
+(* @INVX_STEP ge/p2 -- PROVED *)
 Lemma invx_step_ge_p2 p q u v :
   q = M - Pt u ->
   forall z, u <= z < u + (v + p %/ q * u) -> Pt (z - u) = (Pt z + q) %% M.
