@@ -414,30 +414,49 @@ rewrite -(ptJ oc1 o2) -(ptJ tok o1) -(ptJ tok (tab_ok_comp o1 o2)).
 by rewrite -(ptM o1 o2) conjgM.
 Qed.
 
-(* [ADMITTED -- the script below does not return, and I did not find which
-   step.  Everything it uses IS proved: conjyE / conjxE relate the literal
-   tables to conji, ti2t_conji pushes ti2t through a conjugation, conjt_id
-   and conjtM are the two structural facts, all above and all admit free.
-   So this is assembly only.  The script:
+(* The computational Dsymd equals the \max_(s <- viewst) form the proofs are
+   stated over.  Same five views:
 
-     move=> aok.
-     have oky : tabi_ok 47 (conjy a).
-       by rewrite conjyE; apply: tabi_ok_conji => //; exact: okSy.
-     have okx : tabi_ok 47 (conjx a).
-       by rewrite conjxE; apply: tabi_ok_conji => //; exact: okSx.
-     rewrite /Dsymt /viewst !big_cons big_nil maxn0 /Dsymd.
-     rewrite !(DtiE Dfsd) // !conjyE !conjxE.
-     rewrite !(ti2t_conji okSy) // !(ti2t_conji okSx) //.
-     by rewrite conjt_id // !conjtM //; try exact: okSy; try exact: okSx.
+     a                <->  s = id_tab 47      ->  g
+     conjy a          <->  s = Sytab          ->  g ^ Sy
+     conjx a          <->  s = Sxtab          ->  g ^ Sx
+     conjy (conjx a)  <->  s = Sxtab * Sytab  ->  g ^ (Sx * Sy)
+     conjx (conjy a)  <->  s = Sytab * Sxtab  ->  g ^ (Sy * Sx)
 
-   Suspects, in order: the !(DtiE Dfsd) with its side conditions left to //,
-   and the !conjtM at the end -- both rewrite under terms holding concrete 48
-   entry tables, and everything of that shape in this file has had to be
-   aimed explicitly rather than left to a bang or a //.  Note also that the
-   bigop MUST be opened with !big_cons big_nil maxn0 and never with /=, which
-   does not return on these goals. *)
+   THE TACTIC THAT MAKES THIS POSSIBLE IS lock.  Every rewrite here scans the
+   whole goal for its pattern, and every subterm it tests against is a conjt
+   or a maxn over concrete 48 entry tables -- so the FAILED matches, not the
+   successful one, are what cost.  Plain `rewrite (conjtM ...)` does not
+   return; locking the other occurrences first makes it 10 ms:
+
+       rewrite {-3 4}[conjt]lock (conjtM okSx okSy aok) -lock.
+
+   Same for maxn at the end.  Note also `5!big_cons` with an exact count
+   rather than `!`, and never /= anywhere near these goals.               *)
 Lemma DsymdE a : tabi_ok 47 a -> Dsymd a = Dsymt (ti2t 47 a).
-Admitted.
+Proof.
+move=> aok.
+have oky  : tabi_ok 47 (conjy a).
+  by rewrite conjyE; apply: tabi_ok_conji; [exact: okSy | exact: aok].
+have okx  : tabi_ok 47 (conjx a).
+  by rewrite conjxE; apply: tabi_ok_conji; [exact: okSx | exact: aok].
+have okxy : tabi_ok 47 (conjx (conjy a)).
+  by rewrite conjxE; apply: tabi_ok_conji; [exact: okSx | exact: oky].
+have okyx : tabi_ok 47 (conjy (conjx a)).
+  by rewrite conjyE; apply: tabi_ok_conji; [exact: okSy | exact: okx].
+rewrite /Dsymt /viewst 5!big_cons big_nil.
+rewrite {-5}[maxn]lock maxn0 -lock /Dsymd /Dtid.
+rewrite !(DtiE Dfsd); [ | done | done | done | done | done].
+rewrite (ti2t_conji okSx aok).
+rewrite (ti2t_conji okSy aok).
+rewrite (ti2t_conji okSy okx) (ti2t_conji okSx oky).
+rewrite (ti2t_conji okSx aok) (ti2t_conji okSy aok).
+rewrite {-3 4}[conjt]lock (conjtM okSx okSy aok) -lock.
+rewrite {-4 5}[conjt]lock (conjtM okSy okSx aok) -lock.
+rewrite {-5}[conjt]lock (conjt_id aok) -lock.
+rewrite {-5 6}[maxn]lock maxnA -lock.
+by [].
+Qed.
 
 (* ---- the assembly, exactly as far_of_searchir ---------------------------- *)
 
