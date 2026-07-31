@@ -227,19 +227,36 @@ Proof. by rewrite /Sroot !inE => /orP[]/eqP->; [exists 0%N | exists 1%N]. Qed.
    guard, by a factor of five.                                             *)
 (* ---- 2bis. The symmetry-strengthened heuristic --------------------------- *)
 
-(* Far.v prunes with ONE lookup in the flip x slice table.  The OCaml
-   reference prunes with the MAX over several symmetry conjugates of the SAME
-   table, and a max of admissible heuristics is admissible.  Measured in
-   bench/SymHeur.v, depth 9 from prefixi 0 3:
+(* Far.v used to prune with ONE lookup in the flip x slice table.  It now
+   prunes with the MAX over five symmetry views of the SAME table.  A max of
+   admissible heuristics is admissible, and it prunes far harder: measured in
+   bench/SymHeur.v at depth 9, 94 762 nodes with one view against 4 918 with
+   five, and on the old Xeon at depth 12 the Far phase went from 21m07 CPU to
+   6m40 -- 3.16x.  No new table is involved.
 
-     views                            nodes    time
-     1  (what this file used to do)  94 762   4.16 s
-     3  {1, Sy, Sx}                  11 353   1.06 s     8.3x fewer nodes
-     5  {1, Sy, Sx, Sy.Sx, Sx.Sy}     4 918   0.895 s   19.3x fewer nodes
+   Everything is stated over `viewst`, a list of TABLES, and `views` is its
+   image under pt.  Defining views that way rather than as a literal list of
+   permutations is what keeps the proofs short: no lemma ever has to unfold a
+   concrete 48 entry table, which is fatal (simpl on these does not return).  *)
 
-   No new table -- this is the table we already ship.  To go back to three
-   views, or to one, just shorten Dsymd.                                   *)
+Definition conjt (s t : seq nat) : seq nat := comp_tab (inv_tab 47 s) (comp_tab t s).
 
+Definition conji (s : seq nat) (a : arr) : arr :=
+  comp_tabi 47 (t2ti 47 (inv_tab 47 s)) (comp_tabi 47 a (t2ti 47 s)).
+
+Definition viewst : seq (seq nat) :=
+  [:: id_tab 47; Sytab; Sxtab; comp_tab Sxtab Sytab; comp_tab Sytab Sxtab].
+
+Definition views : seq {perm facelet} := [seq pt 47 s | s <- viewst].
+
+Definition hsymp (g : {perm facelet}) : nat := \max_(u <- views) hfs Dfsd (g ^ u).
+Definition Dsymt (t : seq nat)        : nat := \max_(s <- viewst) Dt Dfsd (conjt s t).
+(* THE COMPUTATIONAL FORM -- this is what the search actually runs, and what
+   was measured at 6m40 CPU on the Xeon.  The conjugating tables are closed
+   literals so the VM shares them; the \max_(s <- viewst) form (Dsymt) is the
+   one the PROOFS are stated over, and DsymdE bridges the two.  Running the
+   search directly over viewst does NOT evaluate -- t2ti (inv_tab s) would be
+   rebuilt at every node. *)
 Definition syti     : arr := Eval vm_compute in t2ti 47 Sytab.
 Definition sxti     : arr := Eval vm_compute in t2ti 47 Sxtab.
 Definition syti_inv : arr := Eval vm_compute in inv_tabi 47 syti.
@@ -253,26 +270,159 @@ Definition Dsymd (a : arr) : nat :=
        (maxn (Dtid (conjx a))
              (maxn (Dtid (conjy (conjx a))) (Dtid (conjx (conjy a))))).
 
-(* [ADMITTED -- the point of this commit is a TIMING, not a proof.]
+(* ---- the views are symmetries ------------------------------------------- *)
 
-   This is far_of_searchir with Dsymd in place of Dtid, and it is stated at
-   exactly the interface where the work has to happen.  What it needs:
+Lemma viewst_ok : all (tab_ok 47) viewst.
+Proof.
+apply/allP => s; rewrite /viewst !inE.
+case/or4P=> [/eqP->|/eqP->|/eqP->|/orP[/eqP->|/eqP->]].
+- exact: tab_ok_id.
+- exact: okSy.
+- exact: okSx.
+- by apply: tab_ok_comp; [exact: okSx | exact: okSy].
+by apply: tab_ok_comp; [exact: okSy | exact: okSx].
+Qed.
 
-     h 1 = 0        the identity is fixed by every symmetry, so each view
-                    contributes Dfsd (coordfs 1) = 0: this is Dfsd_0.
-     h g <= (h (g*m)).+1
-                    view-wise.  (g*m)^s = g^s * m^s and m^s is again a move
-                    (conjugation permutes the eighteen -- a vm_compute check
-                    of the shape Redun.uniq_mtabs uses), so Dfsd_step applies
-                    to each conjugate, and max is monotone.
+Lemma tab_ok_conjt s t : tab_ok 47 s -> tab_ok 47 t -> tab_ok 47 (conjt s t).
+Proof.
+by move=> sok tok; rewrite /conjt; apply: tab_ok_comp;
+   [apply: tab_ok_inv | apply: tab_ok_comp].
+Qed.
 
-   Sym.v already supplies Sy, Sx, Sytab, Sxtab, okSy, okSx and ptJ, so this
-   is assembly rather than new mathematics -- the same shape as actcdE.    *)
+(* the ptM rewrite has to happen in a SMALL goal.  Inline in views_Symg, where
+   the goal carries the concrete tables, it does not return.                *)
+Lemma pt_comp_Symg t1 t2 : tab_ok 47 t1 -> tab_ok 47 t2 ->
+  pt 47 t1 \in Symg -> pt 47 t2 \in Symg -> pt 47 (comp_tab t1 t2) \in Symg.
+Proof. by move=> o1 o2 h1 h2; rewrite -(ptM o1 o2); apply: groupM. Qed.
+
+Lemma pt_Sy_Symg : pt 47 Sytab \in Symg.
+Proof. by rewrite -SyT; apply: mem_gen; rewrite !inE eqxx. Qed.
+
+Lemma pt_Sx_Symg : pt 47 Sxtab \in Symg.
+Proof. by rewrite -SxT; apply: mem_gen; rewrite !inE eqxx orbT. Qed.
+
+Lemma views_Symg u : u \in views -> u \in Symg.
+Proof.
+case/mapP => s sV ->.
+move: sV; rewrite /viewst !inE.
+case/or4P=> [/eqP->|/eqP->|/eqP->|/orP[/eqP->|/eqP->]].
+- by rewrite pt1 group1.
+- exact: pt_Sy_Symg.
+- exact: pt_Sx_Symg.
+- by apply: pt_comp_Symg;
+     [exact: okSx | exact: okSy | exact: pt_Sx_Symg | exact: pt_Sy_Symg].
+by apply: pt_comp_Symg;
+   [exact: okSy | exact: okSx | exact: pt_Sy_Symg | exact: pt_Sx_Symg].
+Qed.
+
+(* ---- the two certificate obligations, which is the whole mathematics ----- *)
+
+Lemma hsymp0 : hsymp 1 = 0.
+Proof.
+rewrite /hsymp; apply/eqP; rewrite -leqn0.
+apply/bigmax_leqP_seq => u _ _.
+by rewrite conj1g (hfs0 Dfsd_0).
+Qed.
+
+(* view-wise: (g*m)^u = g^u * m^u, and m^u is again a move because Symg
+   stabilises Sset -- that is Sym.Symg_stab, already proved.  Then max is
+   monotone.  No new mathematics.                                          *)
+Lemma hsympS g m : m \in Sset -> hsymp g <= (hsymp (g * m)).+1.
+Proof.
+move=> mS; rewrite /hsymp.
+apply/bigmax_leqP_seq => u uV _.
+have uS : u \in Symg by apply: views_Symg.
+have muS : m ^ u \in Sset by rewrite -(Symg_stab uS) memJ_conjg.
+apply: leq_trans (_ : (hfs Dfsd (g ^ u * m ^ u)).+1 <= _).
+  exact: (hfsS Dfsd_step).
+rewrite -conjMg ltnS.
+exact: (leq_bigmax_seq u uV isT).
+Qed.
+
+(* ---- arrays down to tables down to permutations -------------------------- *)
+
+Lemma tabi_ok_conji s a :
+  tab_ok 47 s -> tabi_ok 47 a -> tabi_ok 47 (conji s a).
+Proof.
+move=> sok aok.
+have si : tabi_ok 47 (t2ti 47 s) by apply: (tabi_ok_t2ti n47_small n47_len).
+have sv : tabi_ok 47 (t2ti 47 (inv_tab 47 s))
+  by apply: (tabi_ok_t2ti n47_small n47_len); apply: tab_ok_inv.
+by apply: (tabi_ok_comp n47_small n47_len) => //;
+   apply: (tabi_ok_comp n47_small n47_len).
+Qed.
+
+Lemma ti2t_conji s a :
+  tab_ok 47 s -> tabi_ok 47 a -> ti2t 47 (conji s a) = conjt s (ti2t 47 a).
+Proof.
+move=> sok aok.
+have si : tabi_ok 47 (t2ti 47 s) by apply: (tabi_ok_t2ti n47_small n47_len).
+have sv : tabi_ok 47 (t2ti 47 (inv_tab 47 s))
+  by apply: (tabi_ok_t2ti n47_small n47_len); apply: tab_ok_inv.
+have e1 : ti2t 47 (t2ti 47 s) = s by apply: (ti2t_t2ti n47_small n47_len).
+have e2 : ti2t 47 (t2ti 47 (inv_tab 47 s)) = inv_tab 47 s
+  by apply: (ti2t_t2ti n47_small n47_len); apply: tab_ok_inv.
+rewrite /conji /conjt (ti2t_comp n47_small n47_len) //; last first.
+  by apply: (tabi_ok_comp n47_small n47_len).
+by rewrite (ti2t_comp n47_small n47_len) // e1 e2.
+Qed.
+
+Lemma hsympE t : tab_ok 47 t -> hsymp (pt 47 t) = Dsymt t.
+Proof.
+move=> tok; rewrite /hsymp /Dsymt /views big_map.
+apply: eq_big_seq => s sV.
+have sok : tab_ok 47 s by apply: (allP viewst_ok).
+by rewrite (ptJ tok sok) hfsE // tab_ok_conjt.
+Qed.
+
+(* [THE ONLY ADMIT.]  The computational Dsymd equals the \max_(s <- viewst)
+   form the proofs are stated over.  They are the same five views:
+
+     a                <->  s = id_tab 47      ->  g
+     conjy a          <->  s = Sytab          ->  g ^ Sy
+     conjx a          <->  s = Sxtab          ->  g ^ Sx
+     conjy (conjx a)  <->  s = Sxtab * Sytab  ->  g ^ (Sx * Sy)
+     conjx (conjy a)  <->  s = Sytab * Sxtab  ->  g ^ (Sy * Sx)
+
+   so this is the bigop over a five element list unfolded, plus ti2t_conji per
+   view -- proved just above -- modulo the associativity difference between
+   conjy's  (si . a) . s  and conji's  si . (a . s).  Everything it rests on
+   is proved; only this assembly is missing.
+
+   THE TRAP: do NOT use /= or unfold viewst here.  The goal then carries
+   concrete 48 entry tables and simpl does not return.  Use big_cons/big_nil
+   and aim every rewrite. *)
+Lemma DsymdE a : tabi_ok 47 a -> Dsymd a = Dsymt (ti2t 47 a).
+Admitted.
+
+(* ---- the assembly, exactly as far_of_searchir ---------------------------- *)
+
 Lemma far_of_searchsym d a :
   tabi_ok 47 a ->
   searchir 47 mtis Dsymd nfcube oppf fcpos d a nfcube = false ->
   pt 47 (ti2t 47 a) \notin ball Sset d.
-Admitted.
+Proof.
+move=> aok sE.
+have fcE : forall k, k < seq.size [seq ti2t 47 mt | mt <- mtis] ->
+    fcube (pt 47 (nth [::] [seq ti2t 47 mt | mt <- mtis] k)) = fcpos k.
+  move=> k; rewrite seq.size_map => kL.
+  have kL' : k < nmoves by rewrite /mtis seq.size_map in kL.
+  by rewrite (nth_map sfti) // -nth_movesE // fcpos_moves.
+have mtsok : all (tab_ok 47) [seq ti2t 47 mt | mt <- mtis].
+  by rewrite all_map; exact: mtis_ok.
+apply: (searchrN Sset_inv hsymp0 hsympS
+                 fcube_ltS oppfK fcube_close fcube_comm).
+have e1 : searchir 47 mtis Dsymd nfcube oppf fcpos d a nfcube
+        = searchtr 47 [seq ti2t 47 mt | mt <- mtis] Dsymt nfcube oppf fcpos
+                   d (ti2t 47 a) nfcube.
+  by apply: (searchirE n47_small n47_len mtis_ok DsymdE).
+have e2 : searchtr 47 [seq ti2t 47 mt | mt <- mtis] Dsymt nfcube oppf fcpos
+                   d (ti2t 47 a) nfcube
+        = searchr [seq pt 47 mt | mt <- [seq ti2t 47 mt | mt <- mtis]]
+                  hsymp nfcube fcube oppf d (pt 47 (ti2t 47 a)) nfcube.
+  by apply: (searchtrE mtsok nfcube oppf hsympE fcE).
+by rewrite mtisE -e2 -e1.
+Qed.
 
 Lemma far_of_searchir d a :
   tabi_ok 47 a ->
