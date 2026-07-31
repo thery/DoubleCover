@@ -1006,10 +1006,9 @@ by have := pt_neq0 uN'; rewrite Hu eqxx.
 Qed.
 
 (* @INVX_STEP HELPER sharp -- TODO *)
-(** [new_index_decomp] sharpened: when [x] stops short of the last block,
-    the step count stops short of [k].  Witness: [j = (x - u - v) %/ v + 1],
-    for which [j*v > x - u - v] and [(j-1)*v <= x - u - v] by [divn_eq],
-    and [j <= k - 1] because [x - u - v < (k-1)*v]. *)
+(** [new_index_decomp] sharpened to [j < k].  Witness [j = t %/ v + 1] with
+    [t = x - (u+v)]; the three subgoals it leaves are pure arithmetic:
+    [t < (k-1)*v], then [ltn_divLR], then the two bounds by [divn_eq]. *)
 Lemma new_index_decomp_sharp k u v x :
   0 < v -> u + v <= x -> x < u + k * v ->
   exists2 j, 0 < j < k & (x - j * v < u + v) && (j * v <= x).
@@ -1173,14 +1172,17 @@ by rewrite Hm leq_add // (Hmax _ ylt).
 Qed.
 
 (* @INVX_STEP lt/inf -- TODO *)
-(* try lifting inf_new_lt above this point.  alg2-notes.md 5. *)
+(* NOT via inf_new_lt: that goes through step_invd_le -> ... ->
+   mod_le_restricted, which needs invx.  Circular.  alg2-notes.md 5. *)
 Lemma invx_step_lt_inf p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   Inf (u + q %/ p * v + v) < maxn p (q - q %/ p * p).
 Proof. Admitted.
 
 (* @INVX_STEP lt/gap -- TODO *)
-(* wants the trade [q = q' + (q %/ p)*p].  alg2-notes.md 5. *)
+(* the trade [q = q' + (q %/ p)*p] is free (subnK, leq_divM); the content
+   is the COUNTS, and it needs lt/inf first (the decomposition is relative
+   to the NEW Inf).  alg2-notes.md 5. *)
 Lemma invx_step_lt_gap p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
   forall y, y < u + q %/ p * v + v ->
@@ -1259,7 +1261,7 @@ Lemma invx_step_ge_inf p q d u v :
 Proof. Admitted.
 
 (* @INVX_STEP ge/gap -- TODO *)
-(* mirror, trade [p = p' + (p %/ q)*q].  alg2-notes.md 5. *)
+(* mirror; likewise needs ge/inf first. *)
 Lemma invx_step_ge_gap p q d u v :
   inv p q d u v -> invx p q u v -> q <= p -> u + (v + p %/ q * u) < N ->
   forall y, y < u + (v + p %/ q * u) ->

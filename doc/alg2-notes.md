@@ -94,14 +94,20 @@ Remaining, with what each wants:
   `j < k`. *Helper wanted:* `new_index_decomp` sharpened to conclude `j < k`
   when `x < u + k*v`.
 - **`lt/inf`** — `Inf` only decreases as the range grows, so the content is
-  that it drops below the *new* `maxn p' q'`. `inf_new_lt` already computes
-  the new `Inf` in this branch as `Inf (u+v) %% p`; check whether it can be
-  moved earlier (it currently sits after and depends on `step_invd_le`).
+  that it drops below the *new* `maxn p' q'`. **Not** via `inf_new_lt`:
+  that goes `inf_new_lt` → `step_invd_le` → `step_invd_le_pt` →
+  `step_invd_le_new` → `le_lt_nowrap` → `mod_le_restricted`, which needs
+  `invx`. Circular. (An earlier note here suggested lifting `inf_new_lt`
+  earlier; that is wrong.)
 - **`ge/inf`** — no computed counterpart (the `ge` analogue of `inf_new_lt` is
   false, §1), so it needs the gap argument directly.
-- **`lt/gap`, `ge/gap`** — old indices keep their decomposition by trading one
-  `q` for `k` copies of `p` plus one `q'`; new indices gain `j` copies.
-  *Helper wanted:* the trade `q = q' + (q %/ p) * p` as an equation.
+- **`lt/gap`, `ge/gap`** — the trade `q = q' + (q %/ p)*p` is **free**
+  (`subnK` + `leq_divM`), so no helper is wanted there. The content is the
+  count bookkeeping: from `a <= u`, `b <= v` and `a*p + b*q =
+  (a + b*k)*p + b*q'` one gets `a' = a + b*k <= u + v*k = u'`, `b' = b <= v'`.
+  But the new decomposition is relative to the **new** `Inf`, so
+  **`lt/gap` depends on `lt/inf`** (and `ge/gap` on `ge/inf`). Do the `inf`
+  pair first.
 
 ## 6. Other open holes
 
