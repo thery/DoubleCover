@@ -90,24 +90,35 @@ Notation arr := (PArray.array int).
 (*  confirms).  Two corner facelets sit on the same cubie iff exactly the same *)
 (*  face turns fix them -- a corner lies on 3 of the 6 faces and distinct      *)
 (*  corners have distinct face triples, so the eight triples fall out of the   *)
-(*  fixed sets.  The U/D axis came out as faces 2 and 4, which is NOT the      *)
-(*  (f + 3) mod 6 pairing that Moves.oppf uses on move indices.                *)
+(*  fixed sets.                                                               *)
+(*                                                                            *)
+(*  THE U/D AXIS IS NOT A FREE CHOICE.  It must be the axis the flip x slice   *)
+(*  coordinate already uses, namely the two faces whose quarter turn leaves    *)
+(*  the slice alone.  An earlier version put it elsewhere; twist and           *)
+(*  flip x slice were then quotients along different axes, their product was   *)
+(*  not Kociemba's phase 1 coordinate, and every BFS level came out too large  *)
+(*  (6, 71, 810, ... against the correct 4, 50, 592, ...).  Caught by the      *)
+(*  generator, whose depth histogram must agree with ocaml/rubik_par.ml's.     *)
+(*                                                                            *)
+(*  NB two numberings that are easy to confuse: the MOVE GROUP k / 3 and the   *)
+(*  FACELET BLOCK f / 8 do not agree.  Move group 3 spins block 5.  The U/D    *)
+(*  groups are 0 and 3; the U/D blocks are 0 and 5, and it is the blocks that  *)
+(*  carry the stickers below.                                                 *)
 (* =========================================================================  *)
 
 (* 3 ^ 7 -- the eighth orientation is forced, the sum being 0 mod 3 *)
 Definition ntwist := 2187.
 
 (* the U/D sticker of each corner, one per cubie *)
-Definition cprim : seq nat := [:: 16; 18; 21; 23; 32; 34; 37; 39]%N.
+Definition cprim : seq nat := [:: 0; 2; 5; 7; 40; 42; 45; 47]%N.
 
 (* the three stickers of each corner, U/D one first.  The cyclic order of the
    other two is a free choice: swapping them recodes one base 3 digit
-   bijectively, so all 2 ^ 8 choices give the same 2187 value quotient.  This
-   was checked by BFS over all of them, so nothing here rests on a chirality
-   convention I would have had to get right. *)
+   bijectively, so all 2 ^ 8 choices give the same 2187 value quotient.  The
+   AXIS, however, is not free -- see the warning above. *)
 Definition ctrip : seq (nat * nat * nat) :=
-  [:: (16, 5, 10); (18, 7, 24); (21, 15, 40); (23, 29, 42);
-      (32, 2, 26); (34, 0,  8); (37, 31, 47); (39, 13, 45)]%N.
+  [:: ( 0,  8, 34); ( 2, 26, 32); ( 5, 10, 16); ( 7, 18, 24);
+      (40, 15, 21); (42, 23, 29); (45, 13, 39); (47, 31, 37)]%N.
 
 (* NB: qualified Uint63 functions throughout rather than the << and >> and
    .[ ] notations -- fingroup owns << _ >> for the generated subgroup, so the
