@@ -147,11 +147,70 @@ Definition ectwistt (u : seq nat) : int :=
 Definition ctwisti (a : arr) : int := ectwisti (inv_tabi 47 a).
 Definition ctwistt (t : seq nat) : int := ectwistt (inv_tab 47 t).
 
-(* the 2187 x 18 twist move table, alongside Coordfsi's actf.  GENERATED. *)
-Definition twmove : arr := PArray.make (of_nat (ntwist * 18)) 0%uint63.
+(* acttw is COMPUTED from the move, exactly as Coordfs.actfs is, and NOT a
+   generated table.  That is the whole point: coordfs (g * m) = actfs (coordfs
+   g) m needs no data, and the twist must be able to say the same.  A table
+   would make coordtw_step a statement about emitted numbers.
 
-Definition acttw (x : int) (k : nat) : int :=
+   The corner analogue of Coordfs's epos / eprimf / src / xbit: a corner
+   facelet belongs to a cubie (cpos) and sits in one of its three slots
+   (cslot), the U/D slot being slot 0.  A move sends the U/D slot of corner p
+   to some slot of some corner, and that pair IS the action on the digit. *)
+
+(* the 24 corner facelets, grouped by cubie, U/D sticker first *)
+Definition cflat : seq nat :=
+  flatten [seq [:: t.1.1; t.1.2; t.2] | t <- ctrip].
+
+Definition cpos  (f : facelet) : nat := (index (f : nat) cflat) %/ 3.
+Definition cslot (f : facelet) : nat := (index (f : nat) cflat) %% 3.
+
+(* the U/D slot of corner position p *)
+Definition cprimf (p : nat) : facelet := inord (nth 0%N cprim p).
+
+(* which corner arrives at p, and how far it is rotated when it gets there *)
+Definition csrc   (m : {perm facelet}) (p : nat) : nat := cpos  (m^-1 (cprimf p)).
+Definition cdelta (m : {perm facelet}) (p : nat) : nat := cslot (m^-1 (cprimf p)).
+
+(* 3 ^ 0 .. 3 ^ 7 as int63 LITERALS: of_nat on a unary nat is O(n) *)
+Definition pow3 : seq int := [:: 1; 3; 9; 27; 81; 243; 729; 2187]%uint63.
+
+(* digit p of the base 3 coordinate; digit p has weight 3 ^ p *)
+Definition dig3i (x : int) (p : nat) : int :=
+  Uint63.mod (Uint63.div x (nth 1%uint63 pow3 p)) 3%uint63.
+
+(* the eighth orientation is not stored: the eight sum to 0 mod 3 *)
+Definition dig8i (x : int) : int :=
+  Uint63.mod
+    (Uint63.sub 3%uint63
+       (Uint63.mod (foldr (fun p a => Uint63.add a (dig3i x p)) 0%uint63
+                          (iota 0 7)) 3%uint63))
+    3%uint63.
+
+Definition digi (x : int) (p : nat) : int :=
+  if p == 7 then dig8i x else dig3i x p.
+
+(* THE PROOF SIDE.  Computed from the move, so coordtwM is a theorem about the
+   moves and not about emitted numbers. *)
+Definition acttw (x : int) (m : {perm facelet}) : int :=
+  foldr (fun p a =>
+           Uint63.add (Uint63.mul a 3%uint63)
+             (Uint63.mod (Uint63.add (digi x (csrc m p)) (of_nat (cdelta m p)))
+                         3%uint63))
+        0%uint63 (iota 0 7).
+
+(* THE COMPUTATION SIDE.  {perm facelet} is a 48-element finfun that neither
+   vm_compute nor native_compute can touch, so the check cannot run acttw.
+   It runs this instead -- a 2187 x 18 table, tiny next to the phase 1 table --
+   and acttwiE ties the two together by a finite check over 39 366 entries.
+   Exactly Fstab's actd / actf / actfE split, one level up. *)
+Definition twmove : arr := PArray.make (of_nat (ntwist * 18)) 0%uint63. (* GENERATED *)
+
+Definition acttwi (x : int) (k : nat) : int :=
   PArray.get twmove (Uint63.add (Uint63.mul x 18%uint63) (of_nat k)).
+
+Lemma acttwiE x k : (k < 18)%N ->
+  acttwi x k = acttw x (pt 47 (nth [::] mtabs k)).
+Proof. Admitted.
 
 (* the structured counterpart, for the proofs -- mirrors Coordfs.coordfs, which
    is likewise stated with g^-1 applied to the slot's primary facelet *)
@@ -349,11 +408,29 @@ Qed.
 Lemma ctwisttE t : tab_ok 47 t -> coordtw (pt 47 t) = ctwistt t.
 Proof. Admitted.
 
-(* twist (g * m) depends only on (twist g, m).  Checked by BFS in OCaml over
-   all 2187 values and all 18 moves -- and over all 256 chirality choices,
-   which is why ctrip's cyclic order needed no convention. *)
+(* the corner analogue of Coordfs's epair: where an edge's two stickers are
+   swapped by an involution, a corner's three are rotated by a 3-cycle.  A
+   permutation "moves cubies rigidly" exactly when it commutes with it, and
+   that is the guard coordtwM needs -- Coordfs.cubP one level up. *)
+Definition Ccyc : seq (seq facelet) :=
+  [seq [:: inord t.1.1; inord t.1.2; inord t.2] | t <- ctrip].
+
+Definition ccyc : {perm facelet} := \prod_(l <- Ccyc) cyc l.
+
+Definition cubcP (g : {perm facelet}) : bool :=
+  [forall f : facelet, ccyc (g f) == g (ccyc f)].
+
+(* Coordfs.coordfsM transposed.  With acttw computed rather than tabled this
+   is a theorem about the moves, not about emitted numbers. *)
+Lemma coordtwM g m :
+  cubcP g -> cubcP m -> coordtw (g * m) = acttw (coordtw g) m.
+Proof. Admitted.
+
+(* the form the search uses *)
 Lemma coordtw_step (g : {perm facelet}) (k : nat) : (k < 18)%N ->
-  coordtw (g * pt 47 (nth [::] mtabs k)) = acttw (coordtw g) k.
+  cubcP g ->
+  coordtw (g * pt 47 (nth [::] mtabs k)) =
+  acttw (coordtw g) (pt 47 (nth [::] mtabs k)).
 Proof. Admitted.
 
 (* =========================================================================  *)
@@ -395,7 +472,7 @@ Definition p1stepF (tw : int) : int -> bool :=
   fun x =>
     if (nfsi <=? fsidx x)%uint63 then true
     else all (fun km => (Dp1i tw x <=?
-                incr (Dp1i (acttw tw km.1) (actf x km.2)))%uint63) md.
+                incr (Dp1i (acttwi tw km.1) (actf x km.2)))%uint63) md.
 
 Definition p1checkTw (tw : int) : bool := all_pow ncoord 0%uint63 (p1stepF tw).
 
@@ -525,7 +602,7 @@ Qed.
 Lemma p1checkStep_inst tw x k :
   p1stepF tw x -> (fsidx x <? nfsi)%uint63 -> (k < 18)%N ->
   (Dp1i tw x <=?
-   incr (Dp1i (acttw tw k) (actf x (mdatf_of_tab (nth [::] mtabs k)))))%uint63.
+   incr (Dp1i (acttwi tw k) (actf x (mdatf_of_tab (nth [::] mtabs k)))))%uint63.
 Proof.
 move=> hall fsL kL.
 (* the guard, settled on its own and entirely in int63 *)
@@ -545,7 +622,7 @@ Lemma Dp1_step_of_check :
   forall tw x k, (to_nat tw < ntwist)%N -> (to_nat x < 2 ^ ncoord)%N ->
   (fsidx x <? nfsi)%uint63 -> (k < 18)%N ->
   (Dp1 tw x <=
-   (Dp1 (acttw tw k) (actfs x (nth 1%g moves k))).+1)%N.
+   (Dp1 (acttwi tw k) (actfs x (nth 1%g moves k))).+1)%N.
 Proof.
 move=> hcheck tw x k twL xL fsL kL.
 have F := p1checkStep_inst (p1stepF_of_check hcheck twL xL) fsL kL.
