@@ -644,9 +644,7 @@ Proof. by vm_compute. Qed.
 
 Lemma corientgE g p : cubcP g -> (p < 8)%N ->
   corientg g p = ((3 - cslot (g^-1 (cprimf p))) %% 3)%N.
-Proof. Admitted.
-(* Proved down to ONE line.  Everything through hcorner and the two
-   cslot_facts instances is instant; only the last rewrite does not return.
+Proof.
 move=> cg pL.
 have := allP ctrip_facts p; rewrite mem_iota /= pL => /(_ isT).
 rewrite /corientg /cprimf.
@@ -658,7 +656,7 @@ have hcy : inord c1 = ccyc (inord c0) :> facelet.
   by rewrite ccycE inordK // hcc.
 have h1 : g^-1 (inord c1) = ccyc (g^-1 (inord c0)).
   by rewrite hcy (cubcPV cg).
-(* so the sticker at c0 is a corner facelet: ccyc moves it *)
+(* so ccyc moves that sticker, hence it IS a corner facelet *)
 have hmv : ccyc (g^-1 (inord c0)) != g^-1 (inord c0).
   rewrite -h1; apply/eqP => /perm_inj /(congr1 (@nat_of_ord 48)).
   by rewrite !inordK // => e; move: hne; rewrite e eqxx.
@@ -669,13 +667,14 @@ have hcorner : ((g^-1 (inord c0) : nat) \in cflat).
   by apply/eqP; rewrite ccycE e inord_val.
 have /and4P[/eqP hud /eqP hsl hin hlt] := allP cslot_facts _ hcorner.
 have /and4P[/eqP hudc _ _ _] := allP cslot_facts _ hin.
-rewrite /udcol /cslot h1 ccycE inordK //.
-rewrite hud.
-rewrite hudc.
-rewrite hsl.   (* <-- LOOPS.  hud and hudc are instant. *)
+rewrite /udcol /cslot h1 ccycE inordK // hud hudc.
+(* LOCK the other index first.  Two index _ cflat %% 3 subterms are in the
+   goal and hsl matches only one; it is the FAILED matches against the other
+   that do not return, not the successful one. *)
+rewrite [index (g^-1 (inord c0) : nat) cflat]lock hsl -lock.
 have hs3 : (index (g^-1 (inord c0) : nat) cflat %% 3 < 3)%N by rewrite ltn_mod.
 by move: hs3; case: (index _ _ %% 3) => [|[|[|?]]].
-Qed. *)
+Qed.
 
 (* THE CORNER FACT, and the only genuinely new content left.  A move sends
    the U/D slot of corner p to slot cdelta m p of corner csrc m p; since a
