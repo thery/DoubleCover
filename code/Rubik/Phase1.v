@@ -311,6 +311,50 @@ rewrite /acttw foldr3E ?to_nat_0 ?mul0n ?add0n //.
 by apply: leq_trans (pack3n_lt 7 _) _.
 Qed.
 
+(* THE TABLE LEVEL.  acttw mentions m^-1 on a {perm facelet}, which no compute
+   tactic can touch, so acttwiE cannot be checked against it directly -- the
+   same wall moves_cubcP hit.  acttwt says the same thing about a move TABLE,
+   where everything is nat and int63, and acttwtE bridges the two. *)
+
+Definition cposn (f : nat) : nat := (index f cflat %/ 3)%N.
+Definition cslotn (f : nat) : nat := (index f cflat %% 3)%N.
+
+Definition csrct (mt : seq nat) (p : nat) : nat :=
+  cposn (nth 0%N (inv_tab 47 mt) (nth 0%N cprim p)).
+Definition cdeltat (mt : seq nat) (p : nat) : nat :=
+  cslotn (nth 0%N (inv_tab 47 mt) (nth 0%N cprim p)).
+
+Definition acttwdt (x : int) (mt : seq nat) (p : nat) : nat :=
+  (dign x (csrct mt p) + 3 - cdeltat mt p) %% 3.
+
+Definition acttwt (x : int) (mt : seq nat) : int :=
+  foldr (fun p a => Uint63.add (Uint63.mul a 3%uint63) (of_nat (acttwdt x mt p)))
+        0%uint63 (iota 0 7).
+
+Lemma acttwtE x mt : tab_ok 47 mt -> acttw x (pt 47 mt) = acttwt x mt.
+Proof.
+move=> mok; have iok := tab_ok_inv mok.
+have hfold (F G : nat -> int -> int) l :
+    (forall p y, F p y = G p y) -> foldr F 0%uint63 l = foldr G 0%uint63 l.
+  by move=> h; elim: l => //= q l ->; rewrite h.
+rewrite /acttw /acttwt; apply: hfold => p y.
+(* suff, not congr and not f_equal2: both have to unify against the int63
+   addition and neither returns.  suff never touches it. *)
+suff -> : acttwd x (pt 47 mt) p = acttwdt x mt p by [].
+rewrite /acttwd /acttwdt /csrc /cdelta /csrct /cdeltat /cprimf.
+have hcpl : (nth 0%N cprim p < 48)%N.
+  have hall : all (fun q => (nth 0%N cprim q < 48)%N) (iota 0 8) by vm_compute.
+  have [pL|pL] := ltnP p 8.
+    by have := allP hall p; rewrite mem_iota /= pL => /(_ isT).
+  by rewrite nth_default // (_ : seq.size cprim = 8).
+rewrite (ptV mok) ptE; last exact: iok.
+rewrite (inordK hcpl).
+have hX : (nth 0%N (inv_tab 47 mt) (nth 0%N cprim p) < 48)%N.
+  have /and3P[/eqP sz /allP hall _] := iok.
+  by apply: hall; rewrite mem_nth // sz.
+by rewrite /cpos /cslot /cposn /cslotn (inordK hX).
+Qed.
+
 (* THE COMPUTATION SIDE.  {perm facelet} is a 48-element finfun that neither
    vm_compute nor native_compute can touch, so the check cannot run acttw.
    It runs this instead -- a 2187 x 18 table, tiny next to the phase 1 table --
