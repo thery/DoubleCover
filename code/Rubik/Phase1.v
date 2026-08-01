@@ -189,6 +189,45 @@ Definition dig8i (x : int) : int :=
 Definition digi (x : int) (p : nat) : int :=
   if p == 7 then dig8i x else dig3i x p.
 
+(* =========================================================================  *)
+(*  Base 3 digits -- the analogue of Coordfs's packn / nbit                    *)
+(*                                                                            *)
+(*  Everything here is on nat.  The values are below 3 ^ 7 = 2187, nowhere    *)
+(*  near overflow, so the int63 side is reached once at the end rather than   *)
+(*  carried through every lemma.                                             *)
+(* =========================================================================  *)
+
+Fixpoint pack3n (k : nat) (f : nat -> nat) : nat :=
+  if k is k1.+1 then pack3n k1 f + (f k1 %% 3) * 3 ^ k1 else 0.
+
+Definition dig3n (x j : nat) : nat := (x %/ 3 ^ j) %% 3.
+
+Lemma pack3n_lt k f : (pack3n k f < 3 ^ k)%N.
+Proof.
+elim: k => [|k IH]; first by rewrite expn0.
+have h3 : (f k %% 3 < 3)%N by rewrite ltn_mod.
+apply: leq_ltn_trans (_ : pack3n k f + 2 * 3 ^ k < _)%N.
+  by rewrite leq_add2l leq_mul2r -ltnS h3 orbT.
+have h : (3 ^ k.+1 = 3 ^ k + 2 * 3 ^ k)%N.
+  by rewrite expnS (_ : 3 = 1 + 2)%N // mulnDl mul1n.
+by rewrite h ltn_add2r.
+Qed.
+
+Lemma dig3n_pack3n k f j : (j < k)%N -> dig3n (pack3n k f) j = f j %% 3.
+Proof.
+elim: k j => [//|k IH] j; rewrite ltnS leq_eqVlt => /orP[/eqP->|jL].
+  rewrite /dig3n /= addnC divnMDl ?expn_gt0 //.
+  by rewrite divn_small ?pack3n_lt // addn0 modn_mod.
+have HH : (j <= k)%N := ltnW jL.
+rewrite /dig3n /= divnDr; last by apply: dvdn_mull; apply: dvdn_exp2l.
+(* the third k is the exponent; the first two are pack3n k f and f k *)
+rewrite -{3}(subnK HH) expnD mulnA mulnK ?expn_gt0 //.
+have h3 : (3 %| (f k %% 3) * 3 ^ (k - j))%N.
+  by apply: dvdn_mull; rewrite -{1}(expn1 3) dvdn_exp2l // subn_gt0.
+rewrite -modnDmr (eqP h3) addn0.
+by move: (IH _ jL); rewrite /dig3n => ->.
+Qed.
+
 (* THE PROOF SIDE.  Computed from the move, so coordtwM is a theorem about the
    moves and not about emitted numbers. *)
 Definition acttw (x : int) (m : {perm facelet}) : int :=
