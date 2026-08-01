@@ -405,8 +405,41 @@ by rewrite /tabi_ok (ti2t_inv n47_small n47_len aok); apply: tab_ok_inv.
 Qed.
 
 (* list -> permutation, mirroring Coordfsi.coordtE *)
+(* Coordfsi.coordtE, one level up *)
 Lemma ctwisttE t : tab_ok 47 t -> coordtw (pt 47 t) = ctwistt t.
-Proof. Admitted.
+Proof.
+move=> tok; have iok := tab_ok_inv tok.
+have ilt c : (c < 48)%N -> (nth 0%N (inv_tab 47 t) c < 48)%N.
+  move=> cL; have /and3P[/eqP sz /allP hall _] := iok.
+  by apply: hall; rewrite mem_nth // sz.
+have hval c : (c < 48)%N ->
+    udcol ((pt 47 t)^-1 (inord c)) = (nth 0%N (inv_tab 47 t) c \in cprim).
+  move=> cL; rewrite (ptV tok) ptE; last exact: iok.
+  by rewrite /udcol (inordK cL) (inordK (ilt _ cL)).
+(* the entries of ctrip are facelets *)
+have hb : all (fun tr => ((tr.1.1 < 48) && (tr.1.2 < 48) && (tr.2 < 48))%N) ctrip.
+  by vm_compute.
+have hfold (F G : nat -> int -> int) l :
+    (forall p x, F p x = G p x) -> foldr F 0%uint63 l = foldr G 0%uint63 l.
+  by move=> h; elim: l => //= p l ->; rewrite h.
+have hlist : take 7 ctrip = [seq nth (0, 0, 0)%N ctrip p | p <- iota 0 7] by [].
+rewrite /coordtw /ctwistt /ectwistt hlist foldr_map.
+(* hfold quantifies over every p, including p >= 8 where nth gives the
+   default -- whose entries are 0, so the bound holds there too *)
+move/(all_nthP (0, 0, 0)%N): hb => hb'.
+have hsz : seq.size ctrip = 8 by [].
+have hbp q : (((nth (0, 0, 0)%N ctrip q).1.1 < 48) &&
+              ((nth (0, 0, 0)%N ctrip q).1.2 < 48))%N.
+  have [qL|qL] := ltnP q 8.
+    have qs : (q < seq.size ctrip)%N by rewrite hsz.
+    by have /andP[/andP[-> ->] _] := hb' q qs.
+  by rewrite nth_default ?hsz.
+apply: hfold => p x; congr (Uint63.add _ _); congr (of_nat _).
+rewrite /corientg /corientt.
+have /andP[h0 h1] := hbp p.
+case: (nth (0, 0, 0)%N ctrip p) h0 h1 => [[c0 c1] c2] h0 h1.
+by rewrite (hval _ h0) (hval _ h1).
+Qed.
 
 (* the corner analogue of Coordfs's epair: where an edge's two stickers are
    swapped by an involution, a corner's three are rotated by a 3-cycle.  A
