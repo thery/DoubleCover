@@ -338,7 +338,8 @@ have hfold (F G : nat -> int -> int) l :
     (forall p y, F p y = G p y) -> foldr F 0%uint63 l = foldr G 0%uint63 l.
   by move=> h; elim: l => //= q l ->; rewrite h.
 rewrite /acttw /acttwt; apply: hfold => p y.
-(* suff, not congr: congr on the int63 addition does not return *)
+(* suff, not congr and not f_equal2: both have to unify against the int63
+   addition and neither returns.  suff never touches it. *)
 suff -> : acttwd x (pt 47 mt) p = acttwdt x mt p by [].
 rewrite /acttwd /acttwdt /csrc /cdelta /csrct /cdeltat /cprimf.
 have hcpl : (nth 0%N cprim p < 48)%N.
