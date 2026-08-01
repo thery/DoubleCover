@@ -16,8 +16,10 @@
 (*   [scanAll_flags] says the loop reports exactly the indices whose          *)
 (*   distance falls in the window of their own chunk, [scanAll_complete]      *)
 (*   that it misses no hard case.  As in [Scan.v] the truth is an abstract    *)
-(*   [tru : nat -> nat] and the drift a [nat] bound, so no real number        *)
-(*   appears; reals enter only where [tru] and that bound are instantiated.   *)
+(*   [tru : nat -> nat], and the drift [err] and target [win] are [nat]       *)
+(*   bounds -- one of each per chunk, since [Ec] varies along the             *)
+(*   interval -- so no real number appears; reals enter only where [tru]      *)
+(*   and those bounds are instantiated.                                       *)
 (*                                                                            *)
 (*   [chunks d] is the number of turns the C takes over [d] points.  They     *)
 (*   cover the interval ([leq_chunks]), the last one running past its end     *)
@@ -156,29 +158,30 @@ Qed.
 
 (*  [tru j] is the true value at the global index [j], read as [Scan.v]       *)
 (*  reads it: on the circle of size [M] and shifted by the window, so a       *)
-(*  hard case is one whose true value is within [win] of its own chunk's      *)
-(*  [Ec].  Each chunk tracks it to within [err].                              *)
+(*  hard case is one whose true value is within [win k] of its own chunk's    *)
+(*  [Ec k].  Chunk [k] tracks it to within [err k]; both vary from chunk to   *)
+(*  chunk, as [Ec] does.                                                      *)
 (*                                                                            *)
 (*  Proof: a global index splits as [chk j * n + fne j] with [chk j] a        *)
 (*  chunk of the run and [fne j] a point of it, so the chunk's own            *)
 (*  [Scan.scan_complete] applies and [scanAll_mem] lifts it.                  *)
-Theorem scanAll_complete (tru : nat -> nat) err win c :
+Theorem scanAll_complete (tru err win : nat -> nat) c :
   (forall k, k < c -> 0 < Ec k) ->
   (forall k, k < c -> 2 * Ec k <= M) ->
-  (forall k, k < c -> win + err < Ec k) ->
+  (forall k, k < c -> win k + err k < Ec k) ->
   (forall k i, k < c -> i < n ->
-     cdist M (dst M (Ac k) (Bc k) i) (tru (k * n + i)) <= err) ->
-  forall j, j < c * n -> cdist M (tru j) (Ec (chk j)) <= win ->
+     cdist M (dst M (Ac k) (Bc k) i) (tru (k * n + i)) <= err k) ->
+  forall j, j < c * n -> cdist M (tru j) (Ec (chk j)) <= win (chk j) ->
   j \in scanAll c.
 Proof.
 move=> HE HEM Hwin Herr j jLcn Hhard.
 have kLc : chk j < c by rewrite /chk ltn_divLR.
 have iLn : fne j < n by rewrite /fne ltn_mod.
 have jE : chk j * n + fne j = j by rewrite /chk /fne -divn_eq.
-have Hhard' : cdist M (tru (chk j * n + fne j)) (Ec (chk j)) <= win.
+have Hhard' : cdist M (tru (chk j * n + fne j)) (Ec (chk j)) <= win (chk j).
   by rewrite jE.
 have Hin := scan_complete M_gt0 (ltn_Bc (chk j))
-  (tru := fun i => tru (chk j * n + i)) (win := win)
+  (tru := fun i => tru (chk j * n + i)) (win := win (chk j))
   (HE _ kLc) (HEM _ kLc) (fun i iLn' => Herr _ i kLc iLn') (Hwin _ kLc)
   iLn Hhard'.
 move: Hin; rewrite (scan_mem M_gt0 _ (ltn_Bc (chk j))) => /andP[_ Hlt].
@@ -235,15 +238,15 @@ Qed.
 
 (*  Completeness survives the screen: if [post] keeps every hard case of the  *)
 (*  chunk it is given, the screened loop still misses none.                   *)
-Theorem scanAll_with_complete post (tru : nat -> nat) err win c :
+Theorem scanAll_with_complete post (tru err win : nat -> nat) c :
   (forall k, k < c -> 0 < Ec k) ->
   (forall k, k < c -> 2 * Ec k <= M) ->
-  (forall k, k < c -> win + err < Ec k) ->
+  (forall k, k < c -> win k + err k < Ec k) ->
   (forall k i, k < c -> i < n ->
-     cdist M (dst M (Ac k) (Bc k) i) (tru (k * n + i)) <= err) ->
-  (forall k j, k < c -> j \in chunk k -> cdist M (tru j) (Ec (chk j)) <= win ->
-     j \in post (chunk k)) ->
-  forall j, j < c * n -> cdist M (tru j) (Ec (chk j)) <= win ->
+     cdist M (dst M (Ac k) (Bc k) i) (tru (k * n + i)) <= err k) ->
+  (forall k j, k < c -> j \in chunk k ->
+     cdist M (tru j) (Ec (chk j)) <= win (chk j) -> j \in post (chunk k)) ->
+  forall j, j < c * n -> cdist M (tru j) (Ec (chk j)) <= win (chk j) ->
   j \in scanAll_with post c.
 Proof.
 move=> HE HEM Hwin Herr Hpost j jLcn Hhard.
@@ -281,13 +284,13 @@ by rewrite (leq_ltn_trans (leq_divM _ _)) // addSn.
 Qed.
 
 (*  So the run over an interval of [d] points misses no hard case in it.      *)
-Corollary scanAll_cover (tru : nat -> nat) err win d :
+Corollary scanAll_cover (tru err win : nat -> nat) d :
   (forall k, k < chunks d -> 0 < Ec k) ->
   (forall k, k < chunks d -> 2 * Ec k <= M) ->
-  (forall k, k < chunks d -> win + err < Ec k) ->
+  (forall k, k < chunks d -> win k + err k < Ec k) ->
   (forall k i, k < chunks d -> i < n ->
-     cdist M (dst M (Ac k) (Bc k) i) (tru (k * n + i)) <= err) ->
-  forall j, j < d -> cdist M (tru j) (Ec (chk j)) <= win ->
+     cdist M (dst M (Ac k) (Bc k) i) (tru (k * n + i)) <= err k) ->
+  forall j, j < d -> cdist M (tru j) (Ec (chk j)) <= win (chk j) ->
   j \in scanAll (chunks d).
 Proof.
 move=> HE HEM Hwin Herr j jLd Hhard.
