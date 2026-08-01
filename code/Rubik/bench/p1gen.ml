@@ -96,7 +96,30 @@ let derive_corners udf =
     | [c1; c2] -> ctrip.(i) <- (c0, c1, c2); is_cprim.(c0) <- true
     | l -> Printf.eprintf "corner %d has %d partners\n" c0 (List.length l);
            exit 1)
-    corners
+    corners;
+  (* The cyclic order is NOT free.  Sorting the other two stickers gives a
+     different sense per corner, and then corner orientation is not an action
+     at all.  A coherent order is exactly one for which the 3-cycle rotating
+     every corner in place COMMUTES with every move -- Phase1.v's cubcP.
+     Exactly two of the 2 ^ 8 choices qualify (the two chiralities); take the
+     smaller mask. *)
+  let coherent mask =
+    let tri = Array.mapi (fun i (a, b, c) ->
+      if (mask lsr i) land 1 = 1 then (a, c, b) else (a, b, c)) ctrip in
+    let cc = Array.init nfacelet (fun x -> x) in
+    Array.iter (fun (a, b, c) -> cc.(a) <- b; cc.(b) <- c; cc.(c) <- a) tri;
+    let ok = ref true in
+    for k = 0 to nmoves - 1 do
+      for x = 0 to nfacelet - 1 do
+        if cc.(moves.(k).(x)) <> moves.(k).(cc.(x)) then ok := false
+      done
+    done; !ok in
+  let m = ref (-1) in
+  for mask = 255 downto 0 do if coherent mask then m := mask done;
+  if !m < 0 then (prerr_endline "no coherent cyclic order"; exit 1);
+  Printf.printf "coherent cyclic order: mask %d\n%!" !m;
+  Array.iteri (fun i (a, b, c) ->
+    if (!m lsr i) land 1 = 1 then ctrip.(i) <- (a, c, b)) (Array.copy ctrip)
 
 (* foldr (fun t x -> x * 3 + corient u t) 0 (take 7 ctrip) *)
 let ectwist u =
@@ -417,6 +440,83 @@ let () =
       Printf.printf "depth %2d : %14Ld nodes, %8.1f s, solution %b\n%!"
         t !nodes (Unix.gettimeofday () -. t0) !found
     done;
+    exit 0
+  end;
+
+  (* ---- does corientgM hold?  test before proving ------------------------ *)
+  (* Rocq: corientg (g * m) p = (dign (coordtw g) (csrc m p) + cdelta m p) mod 3
+     with (g * m) x = m (g x), and g^-1 y = the i with g i = y. *)
+
+  if Array.length Sys.argv > 2 && Sys.argv.(2) = "corner" then begin
+    let cflat = Array.make 24 0 in
+    Array.iteri (fun i (a, b, c) ->
+      cflat.(3*i) <- a; cflat.(3*i+1) <- b; cflat.(3*i+2) <- c) ctrip;
+    let idx = Array.make nfacelet (-1) in
+    Array.iteri (fun i f -> idx.(f) <- i) cflat;
+    let cpos f = idx.(f) / 3 and cslot f = idx.(f) mod 3 in
+    let cprimf p = let (a, _, _) = ctrip.(p) in a in
+    let pinv = Array.make nfacelet 0 in
+    let inv_of a = for i = 0 to nfacelet - 1 do pinv.(a.(i)) <- i done; pinv in
+    let corientg a p =                     (* a is the permutation g *)
+      let gi = inv_of a in
+      let (c0, c1, _) = ctrip.(p) in
+      if is_cprim.(gi.(c0)) then 0 else if is_cprim.(gi.(c1)) then 1 else 2 in
+    let coordtw_of a =
+      let acc = ref 0 in
+      for p = 6 downto 0 do acc := !acc * 3 + corientg a p done; !acc in
+    let dig x p = (x / (int_of_float (3.0 ** float_of_int p))) mod 3 in
+    let dign x p =
+      if p = 7 then
+        let s = ref 0 in for q = 0 to 6 do s := !s + dig x q done;
+        (3 - !s mod 3) mod 3
+      else dig x p in
+    (* foundation: is corientg g p the slot of the sticker now at p's U/D
+       slot, or its negation? *)
+    let c1 = ref 0 and c2 = ref 0 and n = ref 0 in
+    let st = Random.State.make [|20260801|] in
+    let a = ref ident in
+    for _ = 0 to 100_000 do
+      a := comp !a moves.(Random.State.int st nmoves);
+      let gi = Array.copy (inv_of !a) in
+      for p = 0 to 7 do
+        let want = corientg !a p and s = cslot gi.(cprimf p) in
+        incr n;
+        if want <> s then incr c1;
+        if want <> (3 - s) mod 3 then incr c2
+      done
+    done;
+    Printf.printf "corientg vs cslot      : %d of %d\n" !c1 !n;
+    Printf.printf "corientg vs (3-cslot)%%3: %d of %d\n%!" !c2 !n;
+    (* and the composition law, four conventions *)
+    let variants = Array.make 8 0 and tested = ref 0 in
+    let b = ref ident in
+    for _ = 0 to 200_000 do
+      let k = Random.State.int st nmoves in
+      let m = moves.(k) in
+      let gm = comp !b m in
+      let mi = Array.copy (inv_of m) in
+      let cg = coordtw_of !b in
+      for p = 0 to 6 do
+        let want = corientg gm p in
+        let try_one v f =
+          let cs = cpos f and cd = cslot f in
+          want <> (match v with
+            | 0 -> (dign cg cs + cd) mod 3
+            | 1 -> (dign cg cs + 3 - cd) mod 3
+            | 2 -> (3 - dign cg cs + cd) mod 3
+            | _ -> (6 - dign cg cs - cd) mod 3) in
+        for v = 0 to 3 do
+          if try_one v mi.(cprimf p) then variants.(v) <- variants.(v) + 1;
+          if try_one v m.(cprimf p) then variants.(4+v) <- variants.(4+v) + 1
+        done;
+        incr tested
+      done;
+      b := gm
+    done;
+    Array.iteri (fun v c ->
+      Printf.printf "  %s cdelta %-5s : %d of %d\n"
+        (if v < 4 then "m^-1" else "m   ")
+        [|"+"; "-"; "neg+"; "neg-"|].(v mod 4) c !tested) variants;
     exit 0
   end;
 

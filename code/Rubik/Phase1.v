@@ -100,12 +100,16 @@ Definition ntwist := 2187.
 Definition cprim : seq nat := [:: 0; 2; 5; 7; 40; 42; 45; 47]%N.
 
 (* the three stickers of each corner, U/D one first.  The cyclic order of the
-   other two is a free choice: swapping them recodes one base 3 digit
-   bijectively, so all 2 ^ 8 choices give the same 2187 value quotient.  The
-   AXIS, however, is not free -- see the warning above. *)
+   other two is NOT free.  All 2 ^ 8 choices give the same 2187 value quotient,
+   which is what an earlier comment here claimed, but the DIGIT ALGEBRA needs
+   a coherent order: corner orientation is an action only when the 3-cycle
+   rotating every corner in place commutes with every move, i.e. when cubcP
+   holds.  Exactly 2 of the 256 qualify -- the two chiralities -- and this is
+   the smaller mask.  Measured by bench/p1gen.ml, which now derives it rather
+   than sorting.  The AXIS is not free either -- see the warning above. *)
 Definition ctrip : seq (nat * nat * nat) :=
-  [:: ( 0,  8, 34); ( 2, 26, 32); ( 5, 10, 16); ( 7, 18, 24);
-      (40, 15, 21); (42, 23, 29); (45, 13, 39); (47, 31, 37)]%N.
+  [:: ( 0,  8, 34); ( 2, 32, 26); ( 5, 16, 10); ( 7, 24, 18);
+      (40, 15, 21); (42, 23, 29); (45, 39, 13); (47, 31, 37)]%N.
 
 (* NB: qualified Uint63 functions throughout rather than the << and >> and
    .[ ] notations -- fingroup owns << _ >> for the generated subgroup, so the
@@ -171,32 +175,141 @@ Definition cprimf (p : nat) : facelet := inord (nth 0%N cprim p).
 Definition csrc   (m : {perm facelet}) (p : nat) : nat := cpos  (m^-1 (cprimf p)).
 Definition cdelta (m : {perm facelet}) (p : nat) : nat := cslot (m^-1 (cprimf p)).
 
-(* 3 ^ 0 .. 3 ^ 7 as int63 LITERALS: of_nat on a unary nat is O(n) *)
-Definition pow3 : seq int := [:: 1; 3; 9; 27; 81; 243; 729; 2187]%uint63.
 
-(* digit p of the base 3 coordinate; digit p has weight 3 ^ p *)
-Definition dig3i (x : int) (p : nat) : int :=
-  Uint63.mod (Uint63.div x (nth 1%uint63 pow3 p)) 3%uint63.
+(* =========================================================================  *)
+(*  Base 3 digits -- the analogue of Coordfs's packn / nbit                    *)
+(*                                                                            *)
+(*  Everything here is on nat.  The values are below 3 ^ 7 = 2187, nowhere    *)
+(*  near overflow, so the int63 side is reached once at the end rather than   *)
+(*  carried through every lemma.                                             *)
+(* =========================================================================  *)
 
-(* the eighth orientation is not stored: the eight sum to 0 mod 3 *)
-Definition dig8i (x : int) : int :=
-  Uint63.mod
-    (Uint63.sub 3%uint63
-       (Uint63.mod (foldr (fun p a => Uint63.add a (dig3i x p)) 0%uint63
-                          (iota 0 7)) 3%uint63))
-    3%uint63.
+Fixpoint pack3n (k : nat) (f : nat -> nat) : nat :=
+  if k is k1.+1 then pack3n k1 f + (f k1 %% 3) * 3 ^ k1 else 0.
 
-Definition digi (x : int) (p : nat) : int :=
-  if p == 7 then dig8i x else dig3i x p.
+Definition dig3n (x j : nat) : nat := (x %/ 3 ^ j) %% 3.
+
+Lemma pack3n_lt k f : (pack3n k f < 3 ^ k)%N.
+Proof.
+elim: k => [|k IH]; first by rewrite expn0.
+have h3 : (f k %% 3 < 3)%N by rewrite ltn_mod.
+apply: leq_ltn_trans (_ : pack3n k f + 2 * 3 ^ k < _)%N.
+  by rewrite leq_add2l leq_mul2r -ltnS h3 orbT.
+have h : (3 ^ k.+1 = 3 ^ k + 2 * 3 ^ k)%N.
+  by rewrite expnS (_ : 3 = 1 + 2)%N // mulnDl mul1n.
+by rewrite h ltn_add2r.
+Qed.
+
+Lemma dig3n_pack3n k f j : (j < k)%N -> dig3n (pack3n k f) j = f j %% 3.
+Proof.
+elim: k j => [//|k IH] j; rewrite ltnS leq_eqVlt => /orP[/eqP->|jL].
+  rewrite /dig3n /= addnC divnMDl ?expn_gt0 //.
+  by rewrite divn_small ?pack3n_lt // addn0 modn_mod.
+have HH : (j <= k)%N := ltnW jL.
+rewrite /dig3n /= divnDr; last by apply: dvdn_mull; apply: dvdn_exp2l.
+(* the third k is the exponent; the first two are pack3n k f and f k *)
+rewrite -{3}(subnK HH) expnD mulnA mulnK ?expn_gt0 //.
+have h3 : (3 %| (f k %% 3) * 3 ^ (k - j))%N.
+  by apply: dvdn_mull; rewrite -{1}(expn1 3) dvdn_exp2l // subn_gt0.
+rewrite -modnDmr (eqP h3) addn0.
+by move: (IH _ jL); rewrite /dig3n => ->.
+Qed.
+
+(* pack3n only reads f below k, so agreeing there is enough.  This is all the
+   assembly needs -- injectivity of pack3n never comes up, because both sides
+   of coordtwM are packed and the proof compares the digit functions. *)
+Lemma pack3n_ext k f g :
+  (forall j, (j < k)%N -> f j = g j) -> pack3n k f = pack3n k g.
+Proof.
+elim: k => [//|k IH] h /=.
+rewrite IH; last by move=> j jL; apply: h; apply: ltnW.
+by rewrite (h k (ltnSn k)).
+Qed.
+
+(* Every int63 step below needs a `_ < nwB` side condition, and leaving one to
+   // is the unary trap -- 2 ^ 63 in successors.  Proved once here, against a
+   bound vm_compute can actually check, and used by name thereafter. *)
+Lemma small_nwB n : (n < 2 ^ 20)%N -> (n < nwB)%N.
+Proof.
+move=> nL; apply: leq_trans nL _.
+by rewrite nwB_pow leq_exp2l.
+Qed.
+
+(* the foldr that coordtw and acttw are written with, read as pack3n.  The
+   accumulator has to be generalised: iota 0 n.+1 peels its LAST element, so
+   the induction step changes acc rather than n's contribution.  The bound is
+   exactly preserved -- it is the same number on both sides. *)
+Lemma foldr3E f n (acc : int) :
+  (forall p, (f p < 3)%N) ->
+  (to_nat acc * 3 ^ n + pack3n n f < 2 ^ 20)%N ->
+  to_nat (foldr (fun p x => Uint63.add (Uint63.mul x 3%uint63) (of_nat (f p)))
+                acc (iota 0 n))
+  = (to_nat acc * 3 ^ n + pack3n n f)%N.
+Proof.
+move=> f3; elim: n acc => [acc _|n IH acc hb].
+  by rewrite /= expn0 muln1 addn0.
+have fn3 : (f n %% 3 = f n)%N by apply/modn_small/f3.
+have hstep : (to_nat acc * 3 + f n <= to_nat acc * 3 ^ n.+1 + pack3n n.+1 f)%N.
+  apply: leq_add.
+    by rewrite leq_mul2l expnS leq_pmulr ?expn_gt0 ?orbT.
+  rewrite /= fn3; apply: leq_trans (leq_addl _ _).
+  by apply: leq_pmulr; rewrite expn_gt0.
+have hb' : (to_nat acc * 3 + f n < nwB)%N.
+  by apply: small_nwB; apply: leq_ltn_trans hstep hb.
+have h3i : to_nat 3%uint63 = 3%N by vm_compute.
+have hmb : (to_nat acc * to_nat 3%uint63 < nwB)%N.
+  rewrite h3i; apply: small_nwB.
+  by apply: leq_ltn_trans hb; apply: leq_trans hstep; rewrite leq_addr.
+have hm : to_nat (Uint63.mul acc 3%uint63) = (to_nat acc * 3)%N.
+  by rewrite to_nat_mul // h3i.
+have hfnw : (f n < nwB)%N by apply: small_nwB; apply: leq_trans (f3 n) _.
+have hacc : to_nat (Uint63.add (Uint63.mul acc 3%uint63) (of_nat (f n)))
+          = (to_nat acc * 3 + f n)%N.
+  rewrite to_nat_add; last by rewrite hm of_natK.
+  by rewrite hm of_natK.
+(* the same algebra serves the IH's bound and the final step *)
+have heq : ((to_nat acc * 3 + f n) * 3 ^ n + pack3n n f
+            = to_nat acc * 3 ^ n.+1 + pack3n n.+1 f)%N.
+  rewrite mulnDl -mulnA -expnS /= fn3.
+  by rewrite -addnA [(f n * 3 ^ n + _)%N]addnC addnA.
+have -> : iota 0 n.+1 = iota 0 n ++ [:: n].
+  by rewrite -addn1 iotaD add0n.
+rewrite foldr_cat.
+(* acc must be given EXPLICITLY: IH's bound mentions it too, so rewrite
+   cannot pin it from the left-hand side alone. *)
+set acc' := foldr _ acc [:: n].
+have haccE : acc' = Uint63.add (Uint63.mul acc 3%uint63) (of_nat (f n)) by [].
+rewrite (IH acc'); last by rewrite haccE hacc heq.
+by rewrite haccE hacc heq.
+Qed.
 
 (* THE PROOF SIDE.  Computed from the move, so coordtwM is a theorem about the
    moves and not about emitted numbers. *)
+(* the eighth orientation is not stored: the eight sum to 0 mod 3 *)
+Definition dig8 (x : int) : nat :=
+  (3 - (foldr (fun q a => a + dig3n (to_nat x) q) 0 (iota 0 7)) %% 3) %% 3.
+
+Definition dign (x : int) (p : nat) : nat :=
+  if p == 7 then dig8 x else dig3n (to_nat x) p.
+
+(* digit p of the moved coordinate: the corner that arrives at p, rotated *)
+(* cdelta is SUBTRACTED: corientg counts how far one must turn to REACH the
+   U/D sticker, so it runs opposite to cslot.  Measured, not guessed --
+   corientg g p = (3 - cslot (g^-1 (cprimf p))) %% 3, 0 mismatches in 800 008,
+   and this law 0 in 1 400 007. *)
+Definition acttwd (x : int) (m : {perm facelet}) (p : nat) : nat :=
+  (dign x (csrc m p) + 3 - cdelta m p) %% 3.
+
 Definition acttw (x : int) (m : {perm facelet}) : int :=
-  foldr (fun p a =>
-           Uint63.add (Uint63.mul a 3%uint63)
-             (Uint63.mod (Uint63.add (digi x (csrc m p)) (of_nat (cdelta m p)))
-                         3%uint63))
+  foldr (fun p a => Uint63.add (Uint63.mul a 3%uint63) (of_nat (acttwd x m p)))
         0%uint63 (iota 0 7).
+
+Lemma acttwE x m : to_nat (acttw x m) = pack3n 7 (acttwd x m).
+Proof.
+rewrite /acttw foldr3E ?to_nat_0 ?mul0n ?add0n //.
+  by move=> p; rewrite /acttwd ltn_mod.
+by apply: leq_trans (pack3n_lt 7 _) _.
+Qed.
 
 (* THE COMPUTATION SIDE.  {perm facelet} is a 48-element finfun that neither
    vm_compute nor native_compute can touch, so the check cannot run acttw.
@@ -225,6 +338,29 @@ Definition coordtw (g : {perm facelet}) : int :=
   foldr (fun p x => Uint63.add (Uint63.mul x 3%uint63) (of_nat (corientg g p)))
         0%uint63 (iota 0 7).
 
+(* corientg returns one of 0, 1, 2 by construction *)
+Lemma corientg_lt g p : (corientg g p < 3)%N.
+Proof.
+rewrite /corientg; case: (nth (0, 0, 0)%N ctrip p) => [[c0 c1] c2].
+by case: ifP => _ //; case: ifP.
+Qed.
+
+(* the coordinate, read as a base 3 packing.  3 ^ 7 = 2187 is far below
+   2 ^ 20, so foldr3E's bound is immediate. *)
+Lemma coordtwE g : to_nat (coordtw g) = pack3n 7 (fun p => corientg g p).
+Proof.
+rewrite /coordtw foldr3E ?to_nat_0 ?mul0n ?add0n //.
+  exact: corientg_lt.
+by apply: leq_trans (pack3n_lt 7 _) _.
+Qed.
+
+(* reading a digit back out: what acttw's digi has to agree with *)
+Lemma dig_coordtw g q : (q < 7)%N -> dig3n (to_nat (coordtw g)) q = corientg g q.
+Proof.
+move=> qL; rewrite coordtwE dig3n_pack3n //.
+by apply/modn_small/corientg_lt.
+Qed.
+
 (* =========================================================================  *)
 (*  2.  Re-indexing flip x slice into 1 013 760 consecutive slots             *)
 (*                                                                            *)
@@ -237,11 +373,13 @@ Definition coordtw (g : {perm facelet}) : int :=
 (* =========================================================================  *)
 
 Definition nflip  := 2048.
-Definition nslice := 495.
-Definition nfs    := 1013760.   (* nflip * nslice *)
+(* the number of 12 bit masks with four bits set.  NOT Coordfs.nslice,
+   which is 4, the number of slice edges. *)
+Definition nsrank := 495.
+Definition nfs    := 1013760.   (* nflip * nsrank *)
 
 Definition srank : arr :=                                     (* GENERATED *)
-  PArray.make 4096%uint63 (of_nat nslice).
+  PArray.make 4096%uint63 (of_nat nsrank).
 
 (* NB 2047, not 4095.  The flip occupies twelve bits but edge flip parity is
    even, so bit 11 is determined by bits 0..10 and only 2048 of the 4096 occur.
@@ -249,7 +387,7 @@ Definition srank : arr :=                                     (* GENERATED *)
    generator on the flip x slice table, where it failed at once. *)
 Definition fsidx (x : int) : int :=
   Uint63.add
-    (Uint63.mul (Uint63.land x 2047%uint63) (of_nat nslice))
+    (Uint63.mul (Uint63.land x 2047%uint63) (of_nat nsrank))
     (PArray.get srank (Uint63.lsr x 12%uint63)).
 
 (* =========================================================================  *)
@@ -405,26 +543,213 @@ by rewrite /tabi_ok (ti2t_inv n47_small n47_len aok); apply: tab_ok_inv.
 Qed.
 
 (* list -> permutation, mirroring Coordfsi.coordtE *)
+(* Coordfsi.coordtE, one level up *)
 Lemma ctwisttE t : tab_ok 47 t -> coordtw (pt 47 t) = ctwistt t.
-Proof. Admitted.
+Proof.
+move=> tok; have iok := tab_ok_inv tok.
+have ilt c : (c < 48)%N -> (nth 0%N (inv_tab 47 t) c < 48)%N.
+  move=> cL; have /and3P[/eqP sz /allP hall _] := iok.
+  by apply: hall; rewrite mem_nth // sz.
+have hval c : (c < 48)%N ->
+    udcol ((pt 47 t)^-1 (inord c)) = (nth 0%N (inv_tab 47 t) c \in cprim).
+  move=> cL; rewrite (ptV tok) ptE; last exact: iok.
+  by rewrite /udcol (inordK cL) (inordK (ilt _ cL)).
+(* the entries of ctrip are facelets *)
+have hb : all (fun tr => ((tr.1.1 < 48) && (tr.1.2 < 48) && (tr.2 < 48))%N) ctrip.
+  by vm_compute.
+have hfold (F G : nat -> int -> int) l :
+    (forall p x, F p x = G p x) -> foldr F 0%uint63 l = foldr G 0%uint63 l.
+  by move=> h; elim: l => //= p l ->; rewrite h.
+have hlist : take 7 ctrip = [seq nth (0, 0, 0)%N ctrip p | p <- iota 0 7] by [].
+rewrite /coordtw /ctwistt /ectwistt hlist foldr_map.
+(* hfold quantifies over every p, including p >= 8 where nth gives the
+   default -- whose entries are 0, so the bound holds there too *)
+move/(all_nthP (0, 0, 0)%N): hb => hb'.
+have hsz : seq.size ctrip = 8 by [].
+have hbp q : (((nth (0, 0, 0)%N ctrip q).1.1 < 48) &&
+              ((nth (0, 0, 0)%N ctrip q).1.2 < 48))%N.
+  have [qL|qL] := ltnP q 8.
+    have qs : (q < seq.size ctrip)%N by rewrite hsz.
+    by have /andP[/andP[-> ->] _] := hb' q qs.
+  by rewrite nth_default ?hsz.
+apply: hfold => p x; congr (Uint63.add _ _); congr (of_nat _).
+rewrite /corientg /corientt.
+have /andP[h0 h1] := hbp p.
+case: (nth (0, 0, 0)%N ctrip p) h0 h1 => [[c0 c1] c2] h0 h1.
+by rewrite (hval _ h0) (hval _ h1).
+Qed.
 
 (* the corner analogue of Coordfs's epair: where an edge's two stickers are
    swapped by an involution, a corner's three are rotated by a 3-cycle.  A
    permutation "moves cubies rigidly" exactly when it commutes with it, and
    that is the guard coordtwM needs -- Coordfs.cubP one level up. *)
-Definition Ccyc : seq (seq facelet) :=
-  [seq [:: inord t.1.1; inord t.1.2; inord t.2] | t <- ctrip].
+(* AS A TABLE, not as a product of cycles.  pt 47 gives a permutation whose
+   application computes through ptE, which is what the corner facts below
+   need; \prod_(l <- Ccyc) cyc l does not compute. *)
+Definition ccyct : seq nat :=
+  [seq (let i := index f cflat in
+        if (i < 24)%N then nth 0%N cflat (i - i %% 3 + (i %% 3).+1 %% 3) else f)
+   | f <- iota 0 48].
 
-Definition ccyc : {perm facelet} := \prod_(l <- Ccyc) cyc l.
+Definition ccyc : {perm facelet} := pt 47 ccyct.
+
+Lemma ccyct_ok : tab_ok 47 ccyct.
+Proof. by vm_compute. Qed.
+
+(* The two facts about the concrete corner data, stated on nat so they
+   compute: the U/D stickers are exactly the slot 0 ones, and ccyct advances
+   the slot by one.  Both are an `all` over the 24 corner facelets. *)
+Lemma cslot_facts :
+  all (fun i => [&& (i \in cprim) == (index i cflat %% 3 == 0)%N,
+                 index (nth 0%N ccyct i) cflat %% 3 ==
+                   ((index i cflat %% 3).+1 %% 3)%N,
+                 nth 0%N ccyct i \in cflat &
+                 (nth 0%N ccyct i < 48)%N]) cflat.
+Proof. by vm_compute. Qed.
 
 Definition cubcP (g : {perm facelet}) : bool :=
   [forall f : facelet, ccyc (g f) == g (ccyc f)].
 
 (* Coordfs.coordfsM transposed.  With acttw computed rather than tabled this
    is a theorem about the moves, not about emitted numbers. *)
-Lemma coordtwM g m :
-  cubcP g -> cubcP m -> coordtw (g * m) = acttw (coordtw g) m.
+(* ccyc applied, through ptE *)
+Lemma ccycE (f : facelet) : ccyc f = inord (nth 0%N ccyct f).
+Proof. by rewrite /ccyc ptE ?ccyct_ok. Qed.
+
+(* ccyc moves exactly the corner facelets -- so cornerhood is definable from
+   ccyc alone, and cubcP therefore preserves it *)
+Lemma ccyc_moves : all (fun i => (nth 0%N ccyct i != i) == (i \in cflat))
+                       (iota 0 48).
+Proof. by vm_compute. Qed.
+
+(* cubcP passes to the inverse *)
+Lemma cubcPV g : cubcP g -> forall f, g^-1 (ccyc f) = ccyc (g^-1 f).
+Proof.
+move=> /forallP cg f.
+have := eqP (cg (g^-1 f)); rewrite permKV => ->.
+by rewrite permK.
+Qed.
+
+(* corientg counts how far one must turn to REACH the U/D sticker, so it runs
+   OPPOSITE to cslot, which says where the sticker sitting there came from.
+   Measured: 0 mismatches in 800 008.  cubcP is needed -- the second branch
+   asks about a different slot of the same cubie POSITION, and only a rigid
+   motion ties that to the first. *)
+(* everything concrete about ctrip that the proof needs, in one vm_compute *)
+Lemma ctrip_facts :
+  all (fun p => let t := nth (0, 0, 0)%N ctrip p in
+       [&& nth 0%N cprim p == t.1.1, nth 0%N ccyct t.1.1 == t.1.2,
+           (t.1.1 < 48)%N, (t.1.2 < 48)%N & t.1.1 != t.1.2]) (iota 0 8).
+Proof. by vm_compute. Qed.
+
+Lemma corientgE g p : cubcP g -> (p < 8)%N ->
+  corientg g p = ((3 - cslot (g^-1 (cprimf p))) %% 3)%N.
+Proof.
+move=> cg pL.
+have := allP ctrip_facts p; rewrite mem_iota /= pL => /(_ isT).
+rewrite /corientg /cprimf.
+case: (nth (0, 0, 0)%N ctrip p) => [[c0 c1] c2].
+case/and5P => /eqP hcp /eqP hcc h0L h1L hne.
+rewrite hcp.
+(* the sticker at slot c1 is ccyc of the one at slot c0 *)
+have hcy : inord c1 = ccyc (inord c0) :> facelet.
+  by rewrite ccycE inordK // hcc.
+have h1 : g^-1 (inord c1) = ccyc (g^-1 (inord c0)).
+  by rewrite hcy (cubcPV cg).
+(* so ccyc moves that sticker, hence it IS a corner facelet *)
+have hmv : ccyc (g^-1 (inord c0)) != g^-1 (inord c0).
+  rewrite -h1; apply/eqP => /perm_inj /(congr1 (@nat_of_ord 48)).
+  by rewrite !inordK // => e; move: hne; rewrite e eqxx.
+have hcorner : ((g^-1 (inord c0) : nat) \in cflat).
+  have hi := allP ccyc_moves (g^-1 (inord c0) : nat).
+  rewrite mem_iota /= ltn_ord in hi.
+  rewrite -(eqP (hi isT)); apply: contra hmv => /eqP e.
+  by apply/eqP; rewrite ccycE e inord_val.
+have /and4P[/eqP hud /eqP hsl hin hlt] := allP cslot_facts _ hcorner.
+have /and4P[/eqP hudc _ _ _] := allP cslot_facts _ hin.
+rewrite /udcol /cslot h1 ccycE inordK // hud hudc.
+(* LOCK the other index first.  Two index _ cflat %% 3 subterms are in the
+   goal and hsl matches only one; it is the FAILED matches against the other
+   that do not return, not the successful one. *)
+rewrite [index (g^-1 (inord c0) : nat) cflat]lock hsl -lock.
+have hs3 : (index (g^-1 (inord c0) : nat) cflat %% 3 < 3)%N by rewrite ltn_mod.
+by move: hs3; case: (index _ _ %% 3) => [|[|[|?]]].
+Qed.
+
+(* cubcP is closed under composition, so g * m is covered by corientgE *)
+Lemma cubcPM g m : cubcP g -> cubcP m -> cubcP (g * m).
+Proof.
+move=> /forallP cg /forallP cm; apply/forallP => f.
+by rewrite !permM (eqP (cm _)) (eqP (cg _)).
+Qed.
+
+(* THE TOTAL TWIST.  cubcP says the corners turn rigidly; it does NOT say the
+   eight orientations sum to 0 mod 3.  But the coordinate stores only seven
+   digits and recovers the eighth from that sum, so dign at 7 is right only
+   when it holds.  It is a property of the cube group, not of rigidity, and
+   so it has to be carried. *)
+Definition twsum (g : {perm facelet}) : nat :=
+  (foldr (fun p a => a + corientg g p) 0 (iota 0 8)) %% 3.
+
+(* where each corner sticker sits relative to its cubie's U/D sticker *)
+Lemma cflat_reach :
+  all (fun i => let c := (index i cflat %/ 3)%N in
+       [&& (index i cflat %% 3 == 0)%N ==> (i == nth 0%N cprim c),
+           (index i cflat %% 3 == 1)%N ==> (i == nth 0%N ccyct (nth 0%N cprim c)),
+           (index i cflat %% 3 == 2)%N ==>
+             (i == nth 0%N ccyct (nth 0%N ccyct (nth 0%N cprim c))) &
+           (c < 8)%N]) cflat.
+Proof. by vm_compute. Qed.
+
+(* an accumulator in an additive foldr just comes out in front *)
+Lemma foldr_addE (h : nat -> nat) l acc :
+  foldr (fun q a => a + h q) acc l = (acc + foldr (fun q a => a + h q) 0 l)%N.
+Proof.
+by elim: l acc => [|x l IH] acc /=; rewrite ?addn0 // IH addnA.
+Qed.
+
+(* reading ANY of the eight digits, including the forced one.  For q < 7 this
+   is dig_coordtw; for q = 7 it is exactly what twsum g = 0 buys. *)
+Lemma dignE g q : cubcP g -> twsum g = 0%N -> (q < 8)%N ->
+  dign (coordtw g) q = corientg g q.
+Proof.
+move=> cg ts qL; rewrite /dign.
+have [->|qn7] := eqVneq q 7; last first.
+  by rewrite dig_coordtw // ltn_neqAle qn7 -ltnS.
+(* the list is concrete, so unfold it rather than induct: seven rewrites *)
+have hf : foldr (fun q a => a + dig3n (to_nat (coordtw g)) q) 0 (iota 0 7)
+        = foldr (fun q a => a + corientg g q) 0 (iota 0 7).
+  by rewrite [iota 0 7]/= /= !dig_coordtw.
+rewrite /dig8 hf.
+move: ts; rewrite /twsum -addn1 iotaD add0n foldr_cat.
+rewrite [foldr _ _ [:: 7]]/= add0n foldr_addE.
+have h7 : (corientg g 7 < 3)%N by apply: corientg_lt.
+set S := foldr _ 0 _; rewrite -modnDml.
+(* S occurs bare in the hypothesis, so bring it under %% 3 first; then both
+   sides are opaque terms below 3 and the nine cases compute. *)
+rewrite -modnDmr.
+have hs : (S %% 3 < 3)%N by rewrite ltn_mod.
+by move: h7 hs; case: (corientg g 7) => [|[|[|?]]] //;
+   case: (S %% 3) => [|[|[|?]]].
+Qed.
+
+(* THE CORNER FACT, and the only genuinely new content left.  A move sends
+   the U/D slot of corner p to slot cdelta m p of corner csrc m p; since a
+   cubcP permutation turns each cubie rigidly, the orientation there is the
+   orientation of that corner under g, advanced by cdelta. *)
+Lemma corientgM g m p : cubcP g -> cubcP m -> twsum g = 0%N -> (p < 7)%N ->
+  corientg (g * m) p = acttwd (coordtw g) m p.
 Proof. Admitted.
+
+(* and coordtwM is then just the packing *)
+Lemma coordtwM g m :
+  cubcP g -> cubcP m -> twsum g = 0%N ->
+  coordtw (g * m) = acttw (coordtw g) m.
+Proof.
+move=> cg cm ts; apply: to_nat_inj.
+rewrite coordtwE acttwE; apply: pack3n_ext => p pL.
+exact: corientgM.
+Qed.
 
 (* the form the search uses *)
 Lemma coordtw_step (g : {perm facelet}) (k : nat) : (k < 18)%N ->
