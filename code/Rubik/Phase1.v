@@ -583,10 +583,27 @@ Qed.
    swapped by an involution, a corner's three are rotated by a 3-cycle.  A
    permutation "moves cubies rigidly" exactly when it commutes with it, and
    that is the guard coordtwM needs -- Coordfs.cubP one level up. *)
-Definition Ccyc : seq (seq facelet) :=
-  [seq [:: inord t.1.1; inord t.1.2; inord t.2] | t <- ctrip].
+(* AS A TABLE, not as a product of cycles.  pt 47 gives a permutation whose
+   application computes through ptE, which is what the corner facts below
+   need; \prod_(l <- Ccyc) cyc l does not compute. *)
+Definition ccyct : seq nat :=
+  [seq (let i := index f cflat in
+        if (i < 24)%N then nth 0%N cflat (i - i %% 3 + (i %% 3).+1 %% 3) else f)
+   | f <- iota 0 48].
 
-Definition ccyc : {perm facelet} := \prod_(l <- Ccyc) cyc l.
+Definition ccyc : {perm facelet} := pt 47 ccyct.
+
+Lemma ccyct_ok : tab_ok 47 ccyct.
+Proof. by vm_compute. Qed.
+
+(* The two facts about the concrete corner data, stated on nat so they
+   compute: the U/D stickers are exactly the slot 0 ones, and ccyct advances
+   the slot by one.  Both are an `all` over the 24 corner facelets. *)
+Lemma cslot_facts :
+  all (fun i => ((i \in cprim) == (index i cflat %% 3 == 0)%N)
+             && (index (nth 0%N ccyct i) cflat %% 3 ==
+                 ((index i cflat %% 3).+1 %% 3)%N)) cflat.
+Proof. by vm_compute. Qed.
 
 Definition cubcP (g : {perm facelet}) : bool :=
   [forall f : facelet, ccyc (g f) == g (ccyc f)].
