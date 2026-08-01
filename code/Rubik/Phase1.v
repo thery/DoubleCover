@@ -228,6 +228,74 @@ rewrite -modnDmr (eqP h3) addn0.
 by move: (IH _ jL); rewrite /dig3n => ->.
 Qed.
 
+(* pack3n only reads f below k, so agreeing there is enough.  This is all the
+   assembly needs -- injectivity of pack3n never comes up, because both sides
+   of coordtwM are packed and the proof compares the digit functions. *)
+Lemma pack3n_ext k f g :
+  (forall j, (j < k)%N -> f j = g j) -> pack3n k f = pack3n k g.
+Proof.
+elim: k => [//|k IH] h /=.
+rewrite IH; last by move=> j jL; apply: h; apply: ltnW.
+by rewrite (h k (ltnSn k)).
+Qed.
+
+(* Every int63 step below needs a `_ < nwB` side condition, and leaving one to
+   // is the unary trap -- 2 ^ 63 in successors.  Proved once here, against a
+   bound vm_compute can actually check, and used by name thereafter. *)
+Lemma small_nwB n : (n < 2 ^ 20)%N -> (n < nwB)%N.
+Proof.
+move=> nL; apply: leq_trans nL _.
+by rewrite nwB_pow leq_exp2l.
+Qed.
+
+(* the foldr that coordtw and acttw are written with, read as pack3n.  The
+   accumulator has to be generalised: iota 0 n.+1 peels its LAST element, so
+   the induction step changes acc rather than n's contribution.  The bound is
+   exactly preserved -- it is the same number on both sides. *)
+Lemma foldr3E f n (acc : int) :
+  (forall p, (f p < 3)%N) ->
+  (to_nat acc * 3 ^ n + pack3n n f < 2 ^ 20)%N ->
+  to_nat (foldr (fun p x => Uint63.add (Uint63.mul x 3%uint63) (of_nat (f p)))
+                acc (iota 0 n))
+  = (to_nat acc * 3 ^ n + pack3n n f)%N.
+Proof.
+move=> f3; elim: n acc => [acc _|n IH acc hb].
+  by rewrite /= expn0 muln1 addn0.
+have fn3 : (f n %% 3 = f n)%N by apply/modn_small/f3.
+have hstep : (to_nat acc * 3 + f n <= to_nat acc * 3 ^ n.+1 + pack3n n.+1 f)%N.
+  apply: leq_add.
+    by rewrite leq_mul2l expnS leq_pmulr ?expn_gt0 ?orbT.
+  rewrite /= fn3; apply: leq_trans (leq_addl _ _).
+  by apply: leq_pmulr; rewrite expn_gt0.
+have hb' : (to_nat acc * 3 + f n < nwB)%N.
+  by apply: small_nwB; apply: leq_ltn_trans hstep hb.
+have h3i : to_nat 3%uint63 = 3%N by vm_compute.
+have hmb : (to_nat acc * to_nat 3%uint63 < nwB)%N.
+  rewrite h3i; apply: small_nwB.
+  by apply: leq_ltn_trans hb; apply: leq_trans hstep; rewrite leq_addr.
+have hm : to_nat (Uint63.mul acc 3%uint63) = (to_nat acc * 3)%N.
+  by rewrite to_nat_mul // h3i.
+have hfnw : (f n < nwB)%N by apply: small_nwB; apply: leq_trans (f3 n) _.
+have hacc : to_nat (Uint63.add (Uint63.mul acc 3%uint63) (of_nat (f n)))
+          = (to_nat acc * 3 + f n)%N.
+  rewrite to_nat_add; last by rewrite hm of_natK.
+  by rewrite hm of_natK.
+(* the same algebra serves the IH's bound and the final step *)
+have heq : ((to_nat acc * 3 + f n) * 3 ^ n + pack3n n f
+            = to_nat acc * 3 ^ n.+1 + pack3n n.+1 f)%N.
+  rewrite mulnDl -mulnA -expnS /= fn3.
+  by rewrite -addnA [(f n * 3 ^ n + _)%N]addnC addnA.
+have -> : iota 0 n.+1 = iota 0 n ++ [:: n].
+  by rewrite -addn1 iotaD add0n.
+rewrite foldr_cat.
+(* acc must be given EXPLICITLY: IH's bound mentions it too, so rewrite
+   cannot pin it from the left-hand side alone. *)
+set acc' := foldr _ acc [:: n].
+have haccE : acc' = Uint63.add (Uint63.mul acc 3%uint63) (of_nat (f n)) by [].
+rewrite (IH acc'); last by rewrite haccE hacc heq.
+by rewrite haccE hacc heq.
+Qed.
+
 (* THE PROOF SIDE.  Computed from the move, so coordtwM is a theorem about the
    moves and not about emitted numbers. *)
 Definition acttw (x : int) (m : {perm facelet}) : int :=
