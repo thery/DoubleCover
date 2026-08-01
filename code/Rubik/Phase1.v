@@ -237,11 +237,13 @@ Definition coordtw (g : {perm facelet}) : int :=
 (* =========================================================================  *)
 
 Definition nflip  := 2048.
-Definition nslice := 495.
-Definition nfs    := 1013760.   (* nflip * nslice *)
+(* the number of 12 bit masks with four bits set.  NOT Coordfs.nslice,
+   which is 4, the number of slice edges. *)
+Definition nsrank := 495.
+Definition nfs    := 1013760.   (* nflip * nsrank *)
 
 Definition srank : arr :=                                     (* GENERATED *)
-  PArray.make 4096%uint63 (of_nat nslice).
+  PArray.make 4096%uint63 (of_nat nsrank).
 
 (* NB 2047, not 4095.  The flip occupies twelve bits but edge flip parity is
    even, so bit 11 is determined by bits 0..10 and only 2048 of the 4096 occur.
@@ -249,7 +251,7 @@ Definition srank : arr :=                                     (* GENERATED *)
    generator on the flip x slice table, where it failed at once. *)
 Definition fsidx (x : int) : int :=
   Uint63.add
-    (Uint63.mul (Uint63.land x 2047%uint63) (of_nat nslice))
+    (Uint63.mul (Uint63.land x 2047%uint63) (of_nat nsrank))
     (PArray.get srank (Uint63.lsr x 12%uint63)).
 
 (* =========================================================================  *)
