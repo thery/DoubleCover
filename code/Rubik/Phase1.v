@@ -332,6 +332,29 @@ Definition coordtw (g : {perm facelet}) : int :=
   foldr (fun p x => Uint63.add (Uint63.mul x 3%uint63) (of_nat (corientg g p)))
         0%uint63 (iota 0 7).
 
+(* corientg returns one of 0, 1, 2 by construction *)
+Lemma corientg_lt g p : (corientg g p < 3)%N.
+Proof.
+rewrite /corientg; case: (nth (0, 0, 0)%N ctrip p) => [[c0 c1] c2].
+by case: ifP => _ //; case: ifP.
+Qed.
+
+(* the coordinate, read as a base 3 packing.  3 ^ 7 = 2187 is far below
+   2 ^ 20, so foldr3E's bound is immediate. *)
+Lemma coordtwE g : to_nat (coordtw g) = pack3n 7 (fun p => corientg g p).
+Proof.
+rewrite /coordtw foldr3E ?to_nat_0 ?mul0n ?add0n //.
+  exact: corientg_lt.
+by apply: leq_trans (pack3n_lt 7 _) _.
+Qed.
+
+(* reading a digit back out: what acttw's digi has to agree with *)
+Lemma dig_coordtw g q : (q < 7)%N -> dig3n (to_nat (coordtw g)) q = corientg g q.
+Proof.
+move=> qL; rewrite coordtwE dig3n_pack3n //.
+by apply/modn_small/corientg_lt.
+Qed.
+
 (* =========================================================================  *)
 (*  2.  Re-indexing flip x slice into 1 013 760 consecutive slots             *)
 (*                                                                            *)
