@@ -169,8 +169,10 @@ Definition x_start : Z := 4503599627370496.   (* 0.25 = 2^52 / 2^54 *)
 (** ** Cost of the FULL al.c interval [0.25, 0.25001) in Coq
 
     The interval spans [x1num - x0num = 180143985095] grid points, i.e.
-    [~171981] chunks of [2^20].  Measured per-chunk rates (see [Bench.v]),
-    polynomial entry evaluation included:
+    [171799] chunks of [2^20] — [180143985095 / 2^20 = 171798.69], so the
+    last chunk runs [323129] points past [x1num] ([ScanAll.chunks]).
+    Measured per-chunk rates (see [Bench.v]), polynomial entry evaluation
+    included:
 
                             vm_compute        native_compute
       search63 (filter)     0.219 s/chunk     0.056 s/chunk  -> full ~2.7 h
