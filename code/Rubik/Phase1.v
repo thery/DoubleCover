@@ -397,6 +397,15 @@ Definition p1checkTw (tw : int) : bool := all_pow ncoord 0%uint63 (p1stepF tw).
 Definition p1checkStep : bool :=
   all (fun t => p1checkTw (of_nat t)) (iota 0 ntwist).
 
+(* An EQUATION, not a delta step.  Any conversion that has to see through
+   p1checkTw lets the kernel unfold the all_pow fixpoint at ncoord = 24, i.e.
+   2 ^ 24 conjuncts: applying all_powP to p1checkTw tw directly loops in the
+   tactic, `rewrite /p1checkTw in htw` loops at Qed, and even a definitional
+   coercion loops in elaboration.  Rewriting with this lemma is an eq_ind with
+   a small motive and does not. *)
+Lemma p1checkTwE tw : p1checkTw tw = all_pow ncoord 0%uint63 (p1stepF tw).
+Proof. by rewrite /p1checkTw. Qed.
+
 Definition p1check0 : bool :=
   (Dp1i (ctwistt (id_tab 47)) (coordt (id_tab 47)) =? 0)%uint63.
 
@@ -473,16 +482,73 @@ Qed.
 (* STATED ON COORDINATES, not on g -- exactly Fstab.DfsStep_of_check.  The
    guard cubP that coordfs's coordM needs never appears here, and the step to
    g is taken later, where coordtw_step and coordM are applied together. *)
+(* -- small facts about the move tables, hoisted so each gets its own Qed --- *)
+
+Lemma mtabs_size : seq.size mtabs = 18.
+Proof. by []. Qed.
+
+Lemma nth_mtabs_ok k : (k < 18)%N -> tab_ok 47 (nth [::] mtabs k).
+Proof.
+by move=> kL; apply: (allP mtabs_ok); apply: mem_nth; rewrite mtabs_size.
+Qed.
+
+Lemma nth_moves_pt k : (k < 18)%N -> nth 1%g moves k = pt 47 (nth [::] mtabs k).
+Proof. by move=> kL; rewrite mtabsE (nth_map [::]) ?mtabs_size. Qed.
+
+(* the move as a permutation and the move as packed data agree *)
+Lemma actfs_actfE x k : (k < 18)%N ->
+  actfs x (nth 1%g moves k) = actf x (mdatf_of_tab (nth [::] mtabs k)).
+Proof.
+move=> kL; rewrite nth_moves_pt // actfE.
+by apply: actdE; apply: nth_mtabs_ok.
+Qed.
+
+(* split in two so the Qeds are separate: getting the checked instance out of
+   the loop, and then reading the k-th move out of it *)
+Lemma p1stepF_of_check tw x :
+  p1checkStep -> (to_nat tw < ntwist)%N -> (to_nat x < 2 ^ ncoord)%N ->
+  p1stepF tw x.
+Proof.
+rewrite /p1checkStep => hcheck twL xL.
+have htw : p1checkTw tw.
+  move/allP: hcheck => /(_ (to_nat tw)).
+  by rewrite mem_iota /= twL to_natK; apply.
+rewrite p1checkTwE in htw.
+exact: (all_powP ncoord_dig htw xL).
+Qed.
+
+Lemma p1checkStep_inst tw x k :
+  p1stepF tw x -> (fsidx x <? nfsi)%uint63 -> (k < 18)%N ->
+  (Dp1i tw x <=?
+   incr (Dp1i (acttw tw k) (actf x (mdatf_of_tab (nth [::] mtabs k)))))%uint63.
+Proof.
+move=> hall fsL kL.
+(* the guard, settled on its own and entirely in int63 *)
+have hcond : (nfsi <=? fsidx x)%uint63 = false.
+  apply/idP => /nlebP h1; move/nltbP: fsL => h2.
+  by rewrite leqNgt h2 in h1.
+move: hall; rewrite /p1stepF hcond => hstep.
+move: hstep => /(all_nthP (0%N, mdatf_of_tab [::])).
+rewrite size_map size_iota => /(_ k kL).
+(* nth_map_iota, not nth_map + nth_iota: with the length a literal the
+   latter pair makes the iota compute and unfolds the whole list. *)
+by rewrite (nth_map_iota _ _ kL).
+Qed.
+
 Lemma Dp1_step_of_check :
   p1checkStep ->
   forall tw x k, (to_nat tw < ntwist)%N -> (to_nat x < 2 ^ ncoord)%N ->
   (fsidx x <? nfsi)%uint63 -> (k < 18)%N ->
   (Dp1 tw x <=
    (Dp1 (acttw tw k) (actfs x (nth 1%g moves k))).+1)%N.
-Proof. Admitted.
-(* STUCK, and precisely here.  The skeleton is Fstab.DfsStep_of_check
-   transposed; three causes were found and fixed getting this far, all worth
-   keeping:
+Proof.
+move=> hcheck tw x k twL xL fsL kL.
+have F := p1checkStep_inst (p1stepF_of_check hcheck twL xL) fsL kL.
+by rewrite (actfs_actfE _ kL) /Dp1; apply: leb_incr_le; last exact: Dp1i_small.
+Qed.
+
+(* Notes kept from the attempt: three causes found and fixed getting here,
+   each worth a day if rediscovered.
 
      - htw must be UNFOLDED (rewrite /p1checkTw in htw) before all_powP, or
        unification expands all_pow ncoord into 2 ^ 24 conjuncts;
@@ -493,14 +559,11 @@ Proof. Admitted.
        nat and overflows the stack.  Hence the fsidx bound is stated in
        int63, as fsidx x <? nfsi.
 
-   What does not return is one small goal:
-
-       fsL : (fsidx x <? nfsi)%uint63
-       ------------------------------
-       (nfsi <=? fsidx x)%uint63 = false
-
-   case: ifP on the unfolded p1stepF, case E : on the bare condition, and a
-   standalone have all fail to return.                                      *)
+   And the guard itself, which is what actually blocked: from
+   fsL : (fsidx x <? nfsi) show (nfsi <=? fsidx x) = false.  case: ifP on the
+   unfolded p1stepF and case E : on the bare condition both fail to return;
+   apply/idP/negP to put both inequalities in the context, then nlebP/nltbP
+   to move to nat and leqNgt to close, is thery's route and is instant.   *)
 
 (* =========================================================================  *)
 (*  6.  Still to build (code, not proof)                                      *)
