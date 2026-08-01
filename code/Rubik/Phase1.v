@@ -683,6 +683,29 @@ move=> /forallP cg /forallP cm; apply/forallP => f.
 by rewrite !permM (eqP (cm _)) (eqP (cg _)).
 Qed.
 
+(* cubcP passes to the inverse as a predicate, not just as the equation *)
+Lemma cubcPI g : cubcP g -> cubcP g^-1.
+Proof. by move=> cg; apply/forallP => f; rewrite (cubcPV cg). Qed.
+
+(* cornerhood is definable from ccyc -- ccyc moves exactly the corner
+   facelets -- so anything commuting with ccyc preserves it *)
+Lemma cubcP_corner g f :
+  cubcP g -> (((g f : nat) \in cflat) = ((f : nat) \in cflat)).
+Proof.
+move=> /forallP cg.
+have hmv h : ((ccyc h != h) = ((h : nat) \in cflat)).
+  have hi := allP ccyc_moves (h : nat).
+  rewrite mem_iota /= ltn_ord in hi.
+  rewrite -(eqP (hi isT)); apply/idP/idP; apply: contra.
+    by move=> /eqP e; apply/eqP; rewrite ccycE e inord_val.
+  move=> /eqP e; apply/eqP.
+  have hlt : (nth 0%N ccyct (h : nat) < 48)%N.
+    have /and3P[/eqP sz /allP hall _] := ccyct_ok.
+    by apply: hall; rewrite mem_nth // sz ltn_ord.
+  by move: e; rewrite ccycE => /(congr1 (@nat_of_ord 48)); rewrite inordK.
+by rewrite -!hmv (eqP (cg f)) (inj_eq perm_inj).
+Qed.
+
 (* THE TOTAL TWIST.  cubcP says the corners turn rigidly; it does NOT say the
    eight orientations sum to 0 mod 3.  But the coordinate stores only seven
    digits and recovers the eighth from that sum, so dign at 7 is right only
@@ -692,14 +715,71 @@ Definition twsum (g : {perm facelet}) : nat :=
   (foldr (fun p a => a + corientg g p) 0 (iota 0 8)) %% 3.
 
 (* where each corner sticker sits relative to its cubie's U/D sticker *)
+(* every corner sticker is its cubie's U/D sticker turned cslot times *)
 Lemma cflat_reach :
   all (fun i => let c := (index i cflat %/ 3)%N in
-       [&& (index i cflat %% 3 == 0)%N ==> (i == nth 0%N cprim c),
-           (index i cflat %% 3 == 1)%N ==> (i == nth 0%N ccyct (nth 0%N cprim c)),
-           (index i cflat %% 3 == 2)%N ==>
-             (i == nth 0%N ccyct (nth 0%N ccyct (nth 0%N cprim c))) &
-           (c < 8)%N]) cflat.
+       [&& i == iter (index i cflat %% 3) (nth 0%N ccyct) (nth 0%N cprim c),
+           (nth 0%N cprim c \in cflat) & (c < 8)%N]) cflat.
 Proof. by vm_compute. Qed.
+
+Lemma cprim_facts :
+  all (fun p => (nth 0%N cprim p \in cflat) && (nth 0%N cprim p < 48)%N)
+      (iota 0 8).
+Proof. by vm_compute. Qed.
+
+(* every entry of ccyct is a facelet *)
+Lemma ccyct_lt j : (j < 48)%N -> (nth 0%N ccyct j < 48)%N.
+Proof.
+move=> jL; have /and3P[/eqP sz /allP hall _] := ccyct_ok.
+by apply: hall; rewrite mem_nth // sz.
+Qed.
+
+(* cflat is closed under the step, so iterating stays in range *)
+Lemma cflat_lt j : (j \in cflat) -> (j < 48)%N.
+Proof.
+have h : all (fun i => (i < 48)%N) cflat by vm_compute.
+by move=> hj; apply: (allP h).
+Qed.
+
+Lemma iter_ccycE j s : (j < 48)%N ->
+  inord (iter s (nth 0%N ccyct) j) = iter s ccyc (inord j) :> facelet.
+Proof.
+elim: s j => [//|s IH] j jL.
+have hlt : (iter s (nth 0%N ccyct) j < 48)%N.
+  by elim: s {IH} => [//|k IH]; apply: ccyct_lt.
+by rewrite !iterS -IH // ccycE inordK.
+Qed.
+
+(* one step, as its own lemma: inside cslot_iter the goal carries two cslot
+   occurrences and rewriting hsl there has the same trouble corientgE had *)
+Lemma cslot_ccyc (y : facelet) : ((y : nat) \in cflat) ->
+  cslot (ccyc y) = ((cslot y).+1 %% 3)%N.
+Proof.
+move=> hy.
+have /andP[_ /andP[/eqP hsl /andP[_ hlt]]] := allP cslot_facts (y : nat) hy.
+by rewrite /cslot ccycE inordK.
+Qed.
+
+Lemma cflat_ccyc (y : facelet) : ((y : nat) \in cflat) ->
+  ((ccyc y : nat) \in cflat).
+Proof.
+move=> hy.
+have /andP[_ /andP[_ /andP[hin hlt]]] := allP cslot_facts (y : nat) hy.
+by rewrite ccycE inordK.
+Qed.
+
+Lemma cslot_iter (x : facelet) s : ((x : nat) \in cflat) ->
+  cslot (iter s ccyc x) = ((cslot x + s) %% 3)%N.
+Proof.
+move=> hx; elim: s => [|s IH]; first by rewrite addn0 modn_small ?ltn_mod.
+have hin : ((iter s ccyc x : nat) \in cflat).
+  by elim: s {IH} => [//|k IH]; rewrite iterS; apply: cflat_ccyc.
+by rewrite iterS cslot_ccyc // IH addnS -addn1 modnDml addn1.
+Qed.
+
+Lemma ccyc_iter_inv g (x : facelet) s : cubcP g ->
+  g^-1 (iter s ccyc x) = iter s ccyc (g^-1 x).
+Proof. by move=> cg; elim: s => [//|s IH]; rewrite !iterS -IH (cubcPV cg). Qed.
 
 (* an accumulator in an additive foldr just comes out in front *)
 Lemma foldr_addE (h : nat -> nat) l acc :
@@ -739,7 +819,40 @@ Qed.
    orientation of that corner under g, advanced by cdelta. *)
 Lemma corientgM g m p : cubcP g -> cubcP m -> twsum g = 0%N -> (p < 7)%N ->
   corientg (g * m) p = acttwd (coordtw g) m p.
-Proof. Admitted.
+Proof.
+move=> cg cm ts pL.
+have p8 : (p < 8)%N by apply: ltnW.
+rewrite (corientgE (cubcPM cg cm) p8) invMg permM /acttwd /csrc /cdelta.
+(* the sticker arriving at p's U/D slot *)
+have hcpl : (nth 0%N cprim p \in cflat) && (nth 0%N cprim p < 48)%N.
+  by apply: (allP cprim_facts); rewrite mem_iota.
+have /andP[hcpin hcplt] := hcpl.
+have hcp : ((cprimf p : nat) \in cflat) by rewrite /cprimf inordK.
+have hf : ((m^-1 (cprimf p) : nat) \in cflat).
+  by rewrite cubcP_corner ?cubcPI.
+have /and3P[/eqP hre hcin hc8] := allP cflat_reach _ hf.
+(* it is its cubie's U/D sticker turned cslot times *)
+set c := (index _ cflat %/ 3)%N in hre hcin hc8.
+have hcl : (nth 0%N cprim c < 48)%N.
+  have hm : (c \in iota 0 8) by rewrite mem_iota /= hc8.
+  by have /andP[_ hh] := allP cprim_facts c hm; exact: hh.
+have hreach : m^-1 (cprimf p) = iter (cslot (m^-1 (cprimf p))) ccyc (cprimf c).
+  by rewrite /cprimf -iter_ccycE // -hre inord_val.
+have hgc : ((g^-1 (cprimf c) : nat) \in cflat).
+  by rewrite cubcP_corner ?cubcPI // /cprimf inordK.
+(* {1}: hreach's RHS contains its own LHS, so an unrestricted rewrite
+   re-matches forever.  Only the occurrence under g^-1 is wanted. *)
+rewrite {1}hreach.
+(* side conditions SUPPLIED, not left to //: cubcP g is a [forall f : facelet]
+   and done tries to evaluate it. *)
+rewrite (ccyc_iter_inv _ _ cg) (cslot_iter _ hgc).
+rewrite (dignE cg ts hc8) (corientgE cg hc8).
+set a := cslot (g^-1 (cprimf c)); set s := cslot (m^-1 (cprimf p)).
+have ha : (a < 3)%N by rewrite /a /cslot ltn_mod.
+have hs : (s < 3)%N by rewrite /s /cslot ltn_mod.
+by move: ha hs; case: a => [|[|[|?]]] //; case: s => [|[|[|?]]].
+Qed.
+
 
 (* and coordtwM is then just the packing *)
 Lemma coordtwM g m :
