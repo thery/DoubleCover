@@ -3,3 +3,10 @@
 *.vos
 *.glob
 .*.aux
+
+# OCaml build artifacts
+*.cmi
+*.cmx
+*.o
+p1gen
+ladder

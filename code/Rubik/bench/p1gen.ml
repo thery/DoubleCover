@@ -1,0 +1,495 @@
+(* The phase 1 table -- twist x flip x slice, 2 217 093 120 states -- built in
+   the ROCQ coordinate, so it can be emitted as Rocq literals directly.
+
+   ocaml/rubik_par.ml builds the same table from a corner/edge cube model.  The
+   values must agree; only the slot numbering differs.  The check that costs
+   nothing and needs no bridge is the DEPTH HISTOGRAM: how many states sit at
+   each BFS level.  Two programs on two cube models must produce the same
+   counts, level for level.
+
+   usage: p1gen [cap]          cap defaults to 9, as rubik_par's does *)
+
+open Cubedata
+
+let nfacelet = 48
+let nmoves = 18
+let ntwist = 2187
+let nslice = 495
+let nfs = 1013760                       (* 2048 flip x 495 slice *)
+
+let time name f =
+  let t = Unix.gettimeofday () in
+  let r = f () in
+  Printf.printf "  %-38s %7.2f s\n%!" name (Unix.gettimeofday () -. t); r
+
+(* ---- permutations, exactly as gen.ml and Rocq's comp_tabi / inv_tabi ----- *)
+
+let comp a b = Array.init nfacelet (fun i -> b.(a.(i)))
+let comp_into dst a b = for i = 0 to nfacelet - 1 do dst.(i) <- b.(a.(i)) done
+let inv_into dst a = for i = 0 to nfacelet - 1 do dst.(a.(i)) <- i done
+let ident = Array.init nfacelet (fun i -> i)
+let bit m i = (m lsr i) land 1 = 1
+
+(* ---- the flip x slice coordinate, Coordfs's packn over 24 positions ------ *)
+
+let ecoordi u =
+  let acc = ref 0 in
+  for k = 0 to 23 do
+    let b = if k < 12 then not (bit pmask u.(eprim.(k)))
+            else bit smask u.(eprim.(k - 12)) in
+    if b then acc := !acc lor (1 lsl k)
+  done; !acc
+
+(* ---- the twist coordinate, over corner data DERIVED from the moves ------- *)
+
+(* A facelet is a corner facelet iff f mod 8 is in {0,2,5,7}; two of them sit
+   on the same cubie iff exactly the same face turns move them.
+
+   The U/D axis is NOT a free choice.  It must be the axis the flip x slice
+   coordinate already uses -- the two faces whose turns leave the slice alone.
+   Phase1.v's cprim/ctrip put it on a different axis, which makes twist and
+   flip x slice quotients along different axes; their product is then not
+   Kociemba's phase 1 coordinate at all, and every BFS level comes out too
+   large.  Hence: derive, do not transcribe. *)
+
+let is_corner f = let m = f mod 8 in m = 0 || m = 2 || m = 5 || m = 7
+let moved_by x = Array.init 6 (fun f -> moves.(3 * f).(x) <> x)
+
+(* Move group k/3 and facelet block f/8 are DIFFERENT numberings: moves.(9) is
+   group 3 but it is block 5 that spins in place under it.  The block of a
+   group is the one the turn permutes within itself. *)
+let block_of_group g =
+  let b = ref (-1) in
+  for k = 0 to 5 do
+    let inside = ref true in
+    for i = 8 * k to 8 * k + 7 do
+      if moves.(3 * g).(i) / 8 <> k then inside := false
+    done;
+    if !inside && moves.(3 * g).(8 * k) <> 8 * k then b := k
+  done;
+  if !b < 0 then (Printf.eprintf "no block spins under group %d\n" g; exit 1);
+  !b
+
+let ctrip = Array.make 8 (0, 0, 0)
+let is_cprim = Array.make nfacelet false
+
+(* udf : the two MOVE GROUPS of the U/D axis; their blocks carry the stickers *)
+let derive_corners udf =
+  let b1 = block_of_group (fst udf) and b2 = block_of_group (snd udf) in
+  Printf.printf "U/D facelet blocks: %d and %d\n%!" b1 b2;
+  let onud f = f / 8 = b1 || f / 8 = b2 in
+  let corners = ref [] in
+  for x = 0 to nfacelet - 1 do
+    if is_corner x && onud x then corners := x :: !corners
+  done;
+  let corners = List.sort compare !corners in
+  if List.length corners <> 8 then
+    (Printf.eprintf "expected 8 U/D corner stickers, got %d\n"
+       (List.length corners); exit 1);
+  List.iteri (fun i c0 ->
+    let m0 = moved_by c0 in
+    let others = ref [] in
+    for x = 0 to nfacelet - 1 do
+      if x <> c0 && is_corner x && moved_by x = m0 then others := x :: !others
+    done;
+    match List.sort compare !others with
+    | [c1; c2] -> ctrip.(i) <- (c0, c1, c2); is_cprim.(c0) <- true
+    | l -> Printf.eprintf "corner %d has %d partners\n" c0 (List.length l);
+           exit 1)
+    corners
+
+(* foldr (fun t x -> x * 3 + corient u t) 0 (take 7 ctrip) *)
+let ectwist u =
+  let acc = ref 0 in
+  for i = 6 downto 0 do
+    let (c0, c1, _) = ctrip.(i) in
+    let o = if is_cprim.(u.(c0)) then 0 else if is_cprim.(u.(c1)) then 1 else 2 in
+    acc := !acc * 3 + o
+  done; !acc
+
+let () =
+  let cap = try int_of_string Sys.argv.(1) with _ -> 9 in
+  Printf.printf "phase 1 generator, Rocq coordinate, cap %d\n%!" cap;
+
+  (* ---- srank : 12 bit slice mask -> rank among the 495 with 4 bits set --- *)
+  let srank = Array.make 4096 nslice in
+  let r = ref 0 in
+  for m = 0 to 4095 do
+    let p = ref 0 in
+    for i = 0 to 11 do if bit m i then incr p done;
+    if !p = 4 then (srank.(m) <- !r; incr r)
+  done;
+  Printf.printf "srank: %d masks with four bits set\n%!" !r;
+  let fsidx c = (c land 2047) * nslice + srank.(c lsr 12) in
+
+  let iv = Array.make nfacelet 0 in
+  let coordi a = inv_into iv a; ecoordi iv in
+
+  (* the U/D axis, read off the flip x slice coordinate itself: the two faces
+     whose quarter turn leaves the slice alone *)
+  let slice_of a = srank.((coordi a) lsr 12) in
+  let s0 = slice_of ident in
+  let udl = ref [] in
+  for f = 0 to 5 do
+    if slice_of moves.(3 * f) = s0 then udl := f :: !udl
+  done;
+  let udf = match List.sort compare !udl with
+    | [a; b] -> (a, b)
+    | l -> Printf.eprintf "U/D axis: expected 2 faces, got %d\n"
+             (List.length l); exit 1 in
+  Printf.printf "U/D axis: faces %d and %d\n%!" (fst udf) (snd udf);
+  derive_corners udf;
+  Printf.printf "cprim = [%s]\n"
+    (String.concat "; "
+       (Array.to_list (Array.map (fun (c, _, _) -> string_of_int c) ctrip)));
+  Printf.printf "ctrip = [%s]\n%!"
+    (String.concat "; "
+       (Array.to_list (Array.map (fun (a, b, c) ->
+          Printf.sprintf "(%d,%d,%d)" a b c) ctrip)));
+
+  let ctwist a = inv_into iv a; ectwist iv in
+
+  (* ---- BFS the two coordinate spaces, keeping a representative ----------- *)
+
+  let bfs_reps size idx =
+    let rep = Array.make size [||] and seen = Array.make size false in
+    let cnt = ref 0 and q = Queue.create () in
+    let i0 = idx ident in
+    rep.(i0) <- ident; seen.(i0) <- true; incr cnt; Queue.add ident q;
+    while not (Queue.is_empty q) do
+      let a = Queue.pop q in
+      for k = 0 to nmoves - 1 do
+        let b = comp a moves.(k) in
+        let i = idx b in
+        if not seen.(i) then
+          (rep.(i) <- b; seen.(i) <- true; incr cnt; Queue.add b q)
+      done
+    done;
+    (rep, !cnt) in
+
+  let twrep, twcnt =
+    time "BFS the twist space" (fun () -> bfs_reps ntwist ctwist) in
+  Printf.printf "twist: reached %d of %d\n%!" twcnt ntwist;
+  let fsrep, fscnt =
+    time "BFS the flip x slice space" (fun () ->
+      bfs_reps nfs (fun a -> fsidx (coordi a))) in
+  Printf.printf "flip x slice: reached %d of %d\n%!" fscnt nfs;
+
+  (* ---- the coordinate move tables --------------------------------------- *)
+
+  let scratch = Array.make nfacelet 0 in
+  let twmove = Array.make (ntwist * nmoves) 0 in
+  time "twist move table" (fun () ->
+    for i = 0 to ntwist - 1 do
+      for k = 0 to nmoves - 1 do
+        comp_into scratch twrep.(i) moves.(k);
+        twmove.(i * nmoves + k) <- ctwist scratch
+      done
+    done);
+  let fsmove = Array.make (nfs * nmoves) 0 in
+  time "flip x slice move table" (fun () ->
+    for i = 0 to nfs - 1 do
+      for k = 0 to nmoves - 1 do
+        comp_into scratch fsrep.(i) moves.(k);
+        fsmove.(i * nmoves + k) <- fsidx (coordi scratch)
+      done
+    done);
+
+  (* ---- are they well defined?  step a random walk both ways -------------- *)
+  (* the move tables are read off ONE representative per coordinate; they are
+     only meaningful if every other cube with the same coordinate steps to the
+     same place.  Walk at random and compare cube level against table level. *)
+
+  let viol = ref 0 in
+  time "move tables vs cube composition" (fun () ->
+    let a = ref ident and st = Random.State.make [|20260801|] in
+    for _ = 0 to 2_000_000 do
+      let k = Random.State.int st nmoves in
+      let b = comp !a moves.(k) in
+      let t = ctwist !a and f = fsidx (coordi !a) in
+      if twmove.(t * nmoves + k) <> ctwist b then incr viol;
+      if fsmove.(f * nmoves + k) <> fsidx (coordi b) then incr viol;
+      a := b
+    done);
+  Printf.printf "move table violations: %d\n%!" !viol;
+  if !viol > 0 then (prerr_endline "MOVE TABLES ARE NOT WELL DEFINED"; exit 1);
+
+  (* ---- twist x slice, rubik_par's second table -------------------------- *)
+  (* the slice moves on its own: fsidx is flip * nslice + slice, and the slice
+     part of a move depends only on the slice part *)
+
+  let slmove = Array.make (nslice * nmoves) 0 in
+  for s = 0 to nslice - 1 do
+    for k = 0 to nmoves - 1 do
+      slmove.(s * nmoves + k) <- fsmove.(s * nmoves + k) mod nslice
+    done
+  done;
+  (* flip x slice on its own, rubik_par's first table *)
+  let pfs = Bytes.make nfs '\255' in
+  Bytes.set pfs (fsidx (coordi ident)) '\000';
+  time "BFS flip x slice distance" (fun () ->
+    let cur = ref 0 and go = ref true in
+    while !go do
+      let added = ref 0 in
+      for i = 0 to nfs - 1 do
+        if Char.code (Bytes.unsafe_get pfs i) = !cur then
+          for k = 0 to nmoves - 1 do
+            let j = fsmove.(i * nmoves + k) in
+            if Char.code (Bytes.unsafe_get pfs j) = 255 then
+              (Bytes.unsafe_set pfs j (Char.unsafe_chr (!cur + 1)); incr added)
+          done
+      done;
+      if !added = 0 then go := false else incr cur
+    done);
+  let fsmax = ref 0 and fsfill = ref 0 in
+  Bytes.iter (fun c -> let v = Char.code c in
+    if v < 255 then (incr fsfill; if v > !fsmax then fsmax := v)) pfs;
+  Printf.printf "flip x slice: %d of %d filled, max depth %d\n%!"
+    !fsfill nfs !fsmax;
+
+  let nts = ntwist * nslice in
+  let pts = Bytes.make nts '\255' in
+  Bytes.set pts (ctwist ident * nslice + slice_of ident) '\000';
+  time "BFS twist x slice" (fun () ->
+    let cur = ref 0 and go = ref true in
+    while !go do
+      let added = ref 0 in
+      for i = 0 to nts - 1 do
+        if Char.code (Bytes.unsafe_get pts i) = !cur then begin
+          let t = i / nslice and s = i mod nslice in
+          for k = 0 to nmoves - 1 do
+            let j = twmove.(t * nmoves + k) * nslice
+                    + slmove.(s * nmoves + k) in
+            if Char.code (Bytes.unsafe_get pts j) = 255 then
+              (Bytes.unsafe_set pts j (Char.unsafe_chr (!cur + 1)); incr added)
+          done
+        end
+      done;
+      if !added = 0 then go := false else incr cur
+    done);
+  let tsmax = ref 0 and tsfill = ref 0 in
+  Bytes.iter (fun c -> let v = Char.code c in
+    if v < 255 then (incr tsfill; if v > !tsmax then tsmax := v)) pts;
+  Printf.printf "twist x slice: %d of %d filled, max depth %d\n%!"
+    !tsfill nts !tsmax;
+
+  (* ---- the phase 1 BFS, index = twist * nfs + fsidx ---------------------- *)
+
+  let n_all = ntwist * nfs in
+  Printf.printf "phase 1 space: %d states (%.2f GB as bytes)\n%!"
+    n_all (float_of_int n_all /. 1073741824.0);
+  let p = Bytes.make n_all (Char.chr (cap + 1)) in
+  let i0 = ctwist ident * nfs + fsidx (coordi ident) in
+  Bytes.set p i0 '\000';
+  let hist = Array.make (cap + 2) 0 in
+  hist.(0) <- 1;
+  let t0 = Unix.gettimeofday () in
+  for cur = 0 to cap - 1 do
+    let added = ref 0 in
+    for t = 0 to ntwist - 1 do
+      let tb = t * nmoves and base = t * nfs in
+      for f = 0 to nfs - 1 do
+        if Char.code (Bytes.unsafe_get p (base + f)) = cur then begin
+          let fb = f * nmoves in
+          for k = 0 to nmoves - 1 do
+            let j = Array.unsafe_get twmove (tb + k) * nfs
+                    + Array.unsafe_get fsmove (fb + k) in
+            if Char.code (Bytes.unsafe_get p j) > cur + 1 then begin
+              Bytes.unsafe_set p j (Char.unsafe_chr (cur + 1)); incr added
+            end
+          done
+        end
+      done
+    done;
+    hist.(cur + 1) <- !added;
+    Printf.printf "   depth %2d -> %12d states (%.0f s)\n%!"
+      (cur + 1) !added (Unix.gettimeofday () -. t0)
+  done;
+
+  (* ---- the three axis views, DERIVED ------------------------------------ *)
+  (* rubik_par takes h as the max over three axis rotations -- conjugation by
+     the 120 degree turn about a corner, which permutes the six faces in two
+     3-cycles.  Which Rocq move groups those are is not guessable, so find the
+     rotation: an order 3 element of the symmetry group that permutes the move
+     set.  {1, r, r^2} are then the three views. *)
+
+  let sy = [|2;4;7;1;6;0;3;5;32;33;34;35;36;37;38;39;8;9;10;11;12;13;14;15;
+             16;17;18;19;20;21;22;23;24;25;26;27;28;29;30;31;
+             45;43;40;46;41;47;44;42|] in
+  let sx = [|39;38;37;36;35;34;33;32;13;11;8;14;9;15;12;10;0;1;2;3;4;5;6;7;
+             26;28;31;25;30;24;27;29;47;46;45;44;43;42;41;40;
+             16;17;18;19;20;21;22;23|] in
+  let sm = [|2;1;0;4;3;7;6;5;26;25;24;28;27;31;30;29;18;17;16;20;19;23;22;21;
+             10;9;8;12;11;15;14;13;34;33;32;36;35;39;38;37;
+             42;41;40;44;43;47;46;45|] in
+  let inv a = let c = Array.make nfacelet 0 in
+              for i = 0 to nfacelet - 1 do c.(a.(i)) <- i done; c in
+  let group gens =
+    let seen = Hashtbl.create 64 in
+    let rec add a = let k = Array.to_list a in
+      if not (Hashtbl.mem seen k) then begin
+        Hashtbl.add seen k a; List.iter (fun g -> add (comp a g)) gens end in
+    add ident; Hashtbl.fold (fun _ v acc -> v :: acc) seen [] in
+  let syms = group [sy; sx; sm] in
+  (* r is usable iff order 3 and conjugation sends every move to a move *)
+  let permutes_moves r =
+    let ri = inv r in
+    let idx = Array.make nmoves (-1) in
+    (try
+       for k = 0 to nmoves - 1 do
+         let c = comp ri (comp moves.(k) r) in
+         let j = ref (-1) in
+         for m = 0 to nmoves - 1 do if moves.(m) = c then j := m done;
+         if !j < 0 then raise Exit; idx.(k) <- !j
+       done; Some idx
+     with Exit -> None) in
+  let order3 = List.filter (fun r ->
+    r <> ident && comp r (comp r r) = ident) syms in
+  let rot = List.find_opt (fun r -> permutes_moves r <> None) order3 in
+  let mv = match rot with
+    | None -> Printf.eprintf "no order 3 rotation permutes the moves\n"; exit 1
+    | Some r ->
+      let i1 = match permutes_moves r with Some x -> x | None -> assert false in
+      let r2 = comp r r in
+      let i2 = match permutes_moves r2 with Some x -> x | None -> assert false in
+      [| Array.init nmoves (fun m -> m); i1; i2 |] in
+  Printf.printf "three views: move relabellings %s / %s\n%!"
+    (String.concat "," (Array.to_list (Array.map string_of_int mv.(1))))
+    (String.concat "," (Array.to_list (Array.map string_of_int mv.(2))));
+
+  (* ---- the search, mimicking rubik_par's dfs ----------------------------- *)
+
+  if Array.length Sys.argv > 2 && Sys.argv.(2) = "search" then begin
+    let target = try int_of_string Sys.argv.(3) with _ -> 14 in
+    let maxd = 24 in
+    let cube = Array.init maxd (fun _ -> Array.make nfacelet 0) in
+    let tw = Array.make_matrix maxd 3 0 in
+    let fs = Array.make_matrix maxd 3 0 in
+    let nodes = ref 0L in
+    let heur d =
+      let h = ref 0 in
+      for k = 0 to 2 do
+        let t = tw.(d).(k) and f = fs.(d).(k) in
+        let a = Char.code (Bytes.unsafe_get pfs f) in
+        let b = Char.code (Bytes.unsafe_get pts (t * nslice + f mod nslice)) in
+        let c = Char.code (Bytes.unsafe_get p (t * nfs + f)) in
+        if a > !h then h := a;
+        if b > !h then h := b;
+        if c > !h then h := c
+      done; !h in
+    let opp f = (f + 3) mod 6 in
+    let step d m =
+      let d' = d + 1 in
+      comp_into cube.(d') cube.(d) moves.(m);
+      for k = 0 to 2 do
+        let mk = mv.(k).(m) in
+        tw.(d').(k) <- twmove.(tw.(d).(k) * nmoves + mk);
+        fs.(d').(k) <- fsmove.(fs.(d).(k) * nmoves + mk)
+      done in
+    let rec dfs d rem prev =
+      nodes := Int64.add !nodes 1L;
+      let h = heur d in
+      if h = 0 && cube.(d) = ident then true
+      else if h > rem || rem = 0 then false
+      else begin
+        let found = ref false and m = ref 0 in
+        while not !found && !m < nmoves do
+          let f = !m / 3 in
+          if not (f = prev || (f = opp prev && f > prev)) then begin
+            step d !m;
+            if dfs (d + 1) (rem - 1) f then found := true
+          end;
+          incr m
+        done; !found
+      end in
+    for t = 1 to target do
+      Array.blit sfti 0 cube.(0) 0 nfacelet;
+      for k = 0 to 2 do
+        tw.(0).(k) <- ctwist sfti; fs.(0).(k) <- fsidx (coordi sfti) done;
+      nodes := 0L;
+      let t0 = Unix.gettimeofday () in
+      let found = ref false in
+      List.iter (fun m ->
+        if not !found then begin
+          step 0 m;
+          if dfs 1 (t - 1) 0 then found := true
+        end) [0; 1];
+      Printf.printf "depth %2d : %14Ld nodes, %8.1f s, solution %b\n%!"
+        t !nodes (Unix.gettimeofday () -. t0) !found
+    done;
+    exit 0
+  end;
+
+  (* ---- emission ---------------------------------------------------------- *)
+  (* Four bits per entry, fifteen per int63 word -- the true distance 0..cap+1,
+     never clamped from below.  Storing d - base and clamping the underflow to
+     0 would report base for a state that is really nearer, which OVERSTATES
+     the distance and is not an admissible heuristic.  Clamping from above is
+     the safe direction and is what cap already does. *)
+
+  let nper = 15 and nwidth = 4 in
+  let words = (n_all + nper - 1) / nper in
+  let cwords = 1 lsl 21 in                (* Phase1.v's cwlog *)
+  let nchunk = (words + cwords - 1) / cwords in
+  Printf.printf "\nemission: %d words of %d entries, %d chunks of %d\n%!"
+    words nper nchunk cwords;
+
+  let word w =
+    let v = ref 0 in
+    for j = nper - 1 downto 0 do
+      let i = w * nper + j in
+      let d = if i < n_all then Char.code (Bytes.unsafe_get p i) else 0 in
+      v := (!v lsl nwidth) lor d
+    done; !v in
+
+  let emit_seq oc name n f =
+    Printf.fprintf oc "Definition %s : seq int := [::\n" name;
+    for i = 0 to n - 1 do
+      Printf.fprintf oc "%d%s" (f i)
+        (if i = n - 1 then "" else if i mod 8 = 7 then ";\n" else "; ")
+    done;
+    Printf.fprintf oc "]%%uint63.\n\n" in
+
+  let header oc what =
+    Printf.fprintf oc
+      "(* GENERATED by bench/p1gen.ml -- do not edit.                    *)\n\
+       (* %s *)\n\n\
+       From Stdlib Require Import Uint63.\n\
+       From mathcomp Require Import all_ssreflect.\n\n" what in
+
+  if Array.length Sys.argv > 2 && Sys.argv.(2) = "emit" then begin
+    (* the dummy: same names, no data, so day to day compiles stay cheap *)
+    let oc = open_out "P1Data.v" in
+    header oc "DUMMY -- empty stand in for P1Data_real.v.  Swap it in only \
+               when the certificate is being checked.";
+    emit_seq oc "srank_data" 0 (fun _ -> 0);
+    emit_seq oc "twmove_data" 0 (fun _ -> 0);
+    emit_seq oc "p1_chunk_00" 0 (fun _ -> 0);
+    close_out oc;
+    Printf.printf "wrote P1Data.v (dummy)\n%!";
+
+    (* the real small tables, plus chunk 0 as the size probe *)
+    let oc = open_out "P1Data_real.v" in
+    header oc "The phase 1 table: srank, the twist move table, and chunk 0.";
+    emit_seq oc "srank_data" 4096 (fun i -> srank.(i));
+    emit_seq oc "twmove_data" (ntwist * nmoves) (fun i -> twmove.(i));
+    emit_seq oc "p1_chunk_00" (min cwords words) word;
+    close_out oc;
+    let sz = (Unix.stat "P1Data_real.v").Unix.st_size in
+    Printf.printf "wrote P1Data_real.v: %.1f MB for chunk 0 of %d\n%!"
+      (float_of_int sz /. 1048576.0) nchunk;
+    Printf.printf "  => whole table projects to %.2f GB\n%!"
+      (float_of_int sz *. float_of_int nchunk /. 1073741824.0)
+  end;
+
+  (* ---- the histogram, which is what rubik_par must reproduce ------------- *)
+
+  let acc = ref 0 in
+  Printf.printf "\ndepth histogram (compare against rubik_par):\n";
+  for d = 0 to cap do
+    acc := !acc + hist.(d);
+    Printf.printf "  %2d %14d\n" d hist.(d)
+  done;
+  Printf.printf "  %2d %14d  (unreached, >= %d)\n" (cap + 1) (n_all - !acc)
+    (cap + 1);
+  Printf.printf "  total %12d\n%!" n_all
