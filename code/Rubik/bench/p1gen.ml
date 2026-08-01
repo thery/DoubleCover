@@ -520,6 +520,43 @@ let () =
     exit 0
   end;
 
+  (* ---- does acttwiE hold?  the table action vs the digit formula --------- *)
+  (* Rocq: acttwi x k = acttw x (pt 47 mtabs_k), i.e. the emitted 2187 x 18
+     table agrees with the computed corner action.  Test before proving. *)
+
+  if Array.length Sys.argv > 2 && Sys.argv.(2) = "acttwi" then begin
+    let cflat = Array.make 24 0 in
+    Array.iteri (fun i (a, b, c) ->
+      cflat.(3*i) <- a; cflat.(3*i+1) <- b; cflat.(3*i+2) <- c) ctrip;
+    let idx = Array.make nfacelet (-1) in
+    Array.iteri (fun i f -> idx.(f) <- i) cflat;
+    let cpos f = idx.(f) / 3 and cslot f = idx.(f) mod 3 in
+    let cprimf p = let (a, _, _) = ctrip.(p) in a in
+    let pw3 = [|1;3;9;27;81;243;729|] in
+    let dign x p =
+      if p = 7 then
+        (let s = ref 0 in
+         for q = 0 to 6 do s := !s + (x / pw3.(q)) mod 3 done;
+         (3 - !s mod 3) mod 3)
+      else (x / pw3.(p)) mod 3 in
+    let bad = ref 0 in
+    let mi = Array.make nfacelet 0 in
+    for k = 0 to nmoves - 1 do
+      inv_into mi moves.(k);
+      for x = 0 to ntwist - 1 do
+        (* the digit formula, exactly acttw *)
+        let got = ref 0 in
+        for p = 6 downto 0 do
+          let f = mi.(cprimf p) in
+          got := !got * 3 + (dign x (cpos f) + 3 - cslot f) mod 3
+        done;
+        if !got <> twmove.(x * nmoves + k) then incr bad
+      done
+    done;
+    Printf.printf "acttwiE: %d mismatches out of %d\n%!" !bad (ntwist * nmoves);
+    exit 0
+  end;
+
   (* ---- emission ---------------------------------------------------------- *)
   (* Four bits per entry, fifteen per int63 word -- the true distance 0..cap+1,
      never clamped from below.  Storing d - base and clamping the underflow to
