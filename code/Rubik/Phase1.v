@@ -865,11 +865,37 @@ exact: corientgM.
 Qed.
 
 (* the form the search uses *)
+(* the moves turn corners rigidly -- a table fact, so it computes *)
+Lemma moves_cubcP_tab :
+  all (fun mt => all (fun f => nth 0%N ccyct (nth 0%N mt f) ==
+                               nth 0%N mt (nth 0%N ccyct f)) (iota 0 48)) mtabs.
+Proof. by vm_compute. Qed.
+
+Lemma moves_cubcP k : (k < 18)%N -> cubcP (pt 47 (nth [::] mtabs k)).
+Proof.
+move=> kL; set mt := nth [::] mtabs k.
+have hsz : seq.size mtabs = 18 by [].
+have hmt : tab_ok 47 mt.
+  by apply: (allP mtabs_ok); apply: mem_nth; rewrite hsz.
+have hlt j : (j < 48)%N -> (nth 0%N mt j < 48)%N.
+  move=> jL; have /and3P[/eqP sz /allP hall _] := hmt.
+  by apply: hall; rewrite mem_nth // sz.
+have htab : all (fun f => nth 0%N ccyct (nth 0%N mt f) ==
+                          nth 0%N mt (nth 0%N ccyct f)) (iota 0 48).
+  by apply: (allP moves_cubcP_tab); rewrite mem_nth // hsz.
+apply/forallP => f; apply/eqP.
+rewrite ccycE ptE // ccycE.
+rewrite (inordK (hlt _ (ltn_ord f))) ptE //.
+rewrite (inordK (ccyct_lt (ltn_ord f))).
+congr (inord _); apply/eqP.
+by have := allP htab (f : nat); rewrite mem_iota /= ltn_ord => /(_ isT).
+Qed.
+
 Lemma coordtw_step (g : {perm facelet}) (k : nat) : (k < 18)%N ->
-  cubcP g ->
+  cubcP g -> twsum g = 0%N ->
   coordtw (g * pt 47 (nth [::] mtabs k)) =
   acttw (coordtw g) (pt 47 (nth [::] mtabs k)).
-Proof. Admitted.
+Proof. by move=> kL cg ts; apply: coordtwM => //; apply: moves_cubcP. Qed.
 
 (* =========================================================================  *)
 (*  6.  THE CHECK                                                             *)
