@@ -171,23 +171,6 @@ Definition cprimf (p : nat) : facelet := inord (nth 0%N cprim p).
 Definition csrc   (m : {perm facelet}) (p : nat) : nat := cpos  (m^-1 (cprimf p)).
 Definition cdelta (m : {perm facelet}) (p : nat) : nat := cslot (m^-1 (cprimf p)).
 
-(* 3 ^ 0 .. 3 ^ 7 as int63 LITERALS: of_nat on a unary nat is O(n) *)
-Definition pow3 : seq int := [:: 1; 3; 9; 27; 81; 243; 729; 2187]%uint63.
-
-(* digit p of the base 3 coordinate; digit p has weight 3 ^ p *)
-Definition dig3i (x : int) (p : nat) : int :=
-  Uint63.mod (Uint63.div x (nth 1%uint63 pow3 p)) 3%uint63.
-
-(* the eighth orientation is not stored: the eight sum to 0 mod 3 *)
-Definition dig8i (x : int) : int :=
-  Uint63.mod
-    (Uint63.sub 3%uint63
-       (Uint63.mod (foldr (fun p a => Uint63.add a (dig3i x p)) 0%uint63
-                          (iota 0 7)) 3%uint63))
-    3%uint63.
-
-Definition digi (x : int) (p : nat) : int :=
-  if p == 7 then dig8i x else dig3i x p.
 
 (* =========================================================================  *)
 (*  Base 3 digits -- the analogue of Coordfs's packn / nbit                    *)
@@ -298,12 +281,27 @@ Qed.
 
 (* THE PROOF SIDE.  Computed from the move, so coordtwM is a theorem about the
    moves and not about emitted numbers. *)
+(* the eighth orientation is not stored: the eight sum to 0 mod 3 *)
+Definition dig8 (x : int) : nat :=
+  (3 - (foldr (fun q a => a + dig3n (to_nat x) q) 0 (iota 0 7)) %% 3) %% 3.
+
+Definition dign (x : int) (p : nat) : nat :=
+  if p == 7 then dig8 x else dig3n (to_nat x) p.
+
+(* digit p of the moved coordinate: the corner that arrives at p, rotated *)
+Definition acttwd (x : int) (m : {perm facelet}) (p : nat) : nat :=
+  (dign x (csrc m p) + cdelta m p) %% 3.
+
 Definition acttw (x : int) (m : {perm facelet}) : int :=
-  foldr (fun p a =>
-           Uint63.add (Uint63.mul a 3%uint63)
-             (Uint63.mod (Uint63.add (digi x (csrc m p)) (of_nat (cdelta m p)))
-                         3%uint63))
+  foldr (fun p a => Uint63.add (Uint63.mul a 3%uint63) (of_nat (acttwd x m p)))
         0%uint63 (iota 0 7).
+
+Lemma acttwE x m : to_nat (acttw x m) = pack3n 7 (acttwd x m).
+Proof.
+rewrite /acttw foldr3E ?to_nat_0 ?mul0n ?add0n //.
+  by move=> p; rewrite /acttwd ltn_mod.
+by apply: leq_trans (pack3n_lt 7 _) _.
+Qed.
 
 (* THE COMPUTATION SIDE.  {perm facelet} is a 48-element finfun that neither
    vm_compute nor native_compute can touch, so the check cannot run acttw.
@@ -587,9 +585,22 @@ Definition cubcP (g : {perm facelet}) : bool :=
 
 (* Coordfs.coordfsM transposed.  With acttw computed rather than tabled this
    is a theorem about the moves, not about emitted numbers. *)
+(* THE CORNER FACT, and the only genuinely new content left.  A move sends
+   the U/D slot of corner p to slot cdelta m p of corner csrc m p; since a
+   cubcP permutation turns each cubie rigidly, the orientation there is the
+   orientation of that corner under g, advanced by cdelta. *)
+Lemma corientgM g m p : cubcP g -> cubcP m -> (p < 7)%N ->
+  corientg (g * m) p = acttwd (coordtw g) m p.
+Proof. Admitted.
+
+(* and coordtwM is then just the packing *)
 Lemma coordtwM g m :
   cubcP g -> cubcP m -> coordtw (g * m) = acttw (coordtw g) m.
-Proof. Admitted.
+Proof.
+move=> cg cm; apply: to_nat_inj.
+rewrite coordtwE acttwE; apply: pack3n_ext => p pL.
+exact: corientgM.
+Qed.
 
 (* the form the search uses *)
 Lemma coordtw_step (g : {perm facelet}) (k : nat) : (k < 18)%N ->
