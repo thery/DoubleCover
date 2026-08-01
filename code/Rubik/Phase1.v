@@ -286,6 +286,10 @@ have H : all (fun k => bitc (of_nat k) == (k \in cprim)) (iota 0 48).
 by move/allP: H => /(_ x); rewrite mem_iota /= xL => /(_ isT)/eqP.
 Qed.
 
+Lemma of_pos_of_nat n : of_pos n = of_nat (BinPos.Pos.to_nat n).
+  by rewrite Znat.positive_nat_Z.
+  Qed.
+
 (* array -> list, mirroring Coordfsi.ecoordiE.
 
    STUCK -- the proof below gets to one step from the end and then loops.
@@ -321,10 +325,25 @@ rewrite !bE.                      (* 15 goals; goal 1 is X = X *)
 (* ... and here apply: blt loops on every one of the fourteen *)
 Qed. *)
 Lemma ectwistiE u : tabi_ok 47 u -> ectwisti u = ectwistt (ti2t 47 u).
-Proof. Admitted.
+Proof.
+move=> uok.
+have bE y : (to_nat y < 48)%N -> bitc y = (to_nat y \in cprim).
+  by move=> yL; rewrite -bit_cmask ?to_natK.
+have blt c : (c < 48)%N -> (to_nat (PArray.get u (of_nat c)) < 48)%N.
+  by move=> cL; apply: tabi_lt.
+rewrite /ectwisti /ectwistt /=.
+have of_posE n : of_pos n = of_nat (BinPos.Pos.to_nat n).
+  by rewrite Znat.positive_nat_Z.
+by rewrite !of_posE -[(get u 0)]/(get u (of_nat 0)) !bE //; apply: blt.
+Qed.
 
+(* Coordfsi.coordiE, one level up *)
 Lemma ctwistiE a : tabi_ok 47 a -> ctwisti a = ctwistt (ti2t 47 a).
-Proof. Admitted.
+Proof.
+move=> aok; rewrite /ctwisti /ctwistt ectwistiE.
+  by rewrite (ti2t_inv n47_small n47_len aok).
+by rewrite /tabi_ok (ti2t_inv n47_small n47_len aok); apply: tab_ok_inv.
+Qed.
 
 (* list -> permutation, mirroring Coordfsi.coordtE *)
 Lemma ctwisttE t : tab_ok 47 t -> coordtw (pt 47 t) = ctwistt t.
