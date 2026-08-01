@@ -767,8 +767,8 @@ by rewrite addn_gt0 v_gt0.
 Qed.
 
 (* the [invd_le] half: the real content, shared with [invd_first].            *)
-(* [d' <= M] is bundled in because [leq_inf_dst] needs it for its base         *)
-(* case; the universal bound is the real content.                             *) 
+(* [d' <= M] is bundled in because [leq_inf_dst] needs it for its base        *)
+(* case; the universal bound is the real content.                            *)
 (* Only the NEW indices can be hard.  For [x < u + v] the bound is free:      *)
 (* [d' <= d] (a remainder by a gap, or [d] itself), [d <= Inf (u+v)] by       *)
 (* [invd_le], and [Inf (u+v) <= dst x] by [leq_inf].  So the whole            *)
