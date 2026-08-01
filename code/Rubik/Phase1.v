@@ -1,6 +1,5 @@
 (* =========================================================================  *)
-(*  Phase1.v -- SKELETON.  Every lemma is Admitted; this file fixes the        *)
-(*  DESIGN and the SIZES of the phase 1 table, nothing else.                  *)
+(*  Phase1.v -- the phase 1 heuristic, its table, and its certificate.        *)
 (*                                                                            *)
 (*  The flip x slice table Far.v ships today is 2 ^ 24 entries and caps the    *)
 (*  heuristic at 9.  Phase 1 -- twist x flip x slice -- caps at 12, which is   *)
@@ -8,58 +7,46 @@
 (*                                                                            *)
 (*     2187 twist  x  2048 flip  x  495 slice  =  2 217 093 120 states        *)
 (*                                                                            *)
-(*  and the whole question is whether that fits.  It does, in ONE PArray,      *)
-(*  because of two independent reductions:                                    *)
+(*  UNFOLDED, one slot per state, exactly as ocaml/rubik_par.ml has it.  The  *)
+(*  point of this file is to MIMIC that program, whose depth 19 run is the     *)
+(*  computational content of Diameter.v's superflip_far: 104 561 988 516       *)
+(*  nodes, 24.0 CPU-hours.                                                    *)
 (*                                                                            *)
-(*  SYMMETRY.  Only ONE representative per orbit need be stored.  Measured,    *)
-(*  NOT quoted -- computed from Sym.v's own generators Sy, Sx, Sm:             *)
+(*     2 217 093 120 entries                                                  *)
+(*     4 bits each, 15 per int63  =  147 806 208 words  =  1.18 GB            *)
+(*     PArray.max_length          =    4 194 303 words                        *)
 (*                                                                            *)
-(*     symmetry group                     48   (closure of Sy, Sx, Sm)        *)
-(*     act on the flip x slice coord      16   <-- see the warning below       *)
-(*     reachable flip x slice      1 013 760   = 2048 x 495, all of them       *)
-(*     orbits                         64 430   reduction 15.73x               *)
+(*  so the table is a PArray of 71 PArrays, split on the word index at a       *)
+(*  power of two (w >> cwlog), which stays definitional -- the trick Fspar.v's *)
+(*  cbits uses.                                                               *)
 (*                                                                            *)
-(*  which independently reproduces Kociemba's published 64 430.                *)
+(*  WHY NOT FOLDED.  The 16 symmetries that act on the flip x slice           *)
+(*  coordinate would collapse 1 013 760 values to 64 430 -- measured 15.73x,   *)
+(*  independently reproducing Kociemba's published number -- taking the table  *)
+(*  to 36.4 MB and the certificate with it.  It is not done here because the   *)
+(*  fold needs a soundness lemma of its own (conjugate states must land in     *)
+(*  the same slot) that the unfolded table simply does not have.  Mimic        *)
+(*  first; fold later if the size bites.  Measured cost of not folding: about  *)
+(*  8 GB per worker, capping roquableu at ~6 parallel workers rather than 18.  *)
+(*  (If it is ever folded, note that only 16 of the 48 symmetries act on the   *)
+(*  coordinate -- a u that moves the UD slice does not act on it at all, so    *)
+(*  "the orbit of a coordinate" is not even well defined for the other 32.)    *)
 (*                                                                            *)
-(*  WHY SIXTEEN AND NOT FORTY EIGHT.  An earlier version of this file claimed  *)
-(*  all 48, on the grounds that Sym.Symg_stab makes every u in Symg permute    *)
-(*  the move set and so preserve the distance.  That argument is about the     *)
-(*  distance on the CUBE.  The fold is applied to the flip x slice COORDINATE, *)
-(*  and a u that moves the UD slice does not act on that coordinate at all:    *)
-(*  coordfs (g ^ u) is then not a function of coordfs g, so "the orbit of a    *)
-(*  coordinate" is not even well defined.  Tested directly -- for each u, over *)
-(*  540 000 pairs with coordfs a = coordfs b, is coordfs (a ^ u) =             *)
-(*  coordfs (b ^ u)?  Exactly 16 of the 48 pass.  It is also what Far.v has    *)
-(*  been telling us all along: its heuristic maxes over five views BECAUSE     *)
-(*  they differ (7, 7, 6 at the root), which could not happen if conjugation   *)
-(*  left the coordinate invariant.                                            *)
+(*  CLAMP.  Entries hold the true distance, capped ABOVE at p1cap + 1 by       *)
+(*  stopping the BFS -- never an offset clamped from below.  Storing d - base  *)
+(*  and clamping the underflow to 0 reports base for a state that is really    *)
+(*  nearer, which OVERstates the distance and can prune a real solution.       *)
 (*                                                                            *)
-(*  CLAMP.  Two bits per entry, holding d - 8 clamped to [0, 3].  Entries      *)
-(*  below 8 never prune at the depths we search, and clamping DOWN keeps the   *)
-(*  heuristic admissible -- a smaller h is always safe.                        *)
+(*  THE TABLE IS GENERATED AND VALIDATED.  bench/p1gen.ml builds it in the     *)
+(*  Rocq coordinate in ~2 min and agrees with rubik_par at every BFS level     *)
+(*  (4, 50, 592, 7156, 87236, 1043817, 12070278, 124946368, 821605960) and     *)
+(*  node for node in the search (2102, 25598, 340658 at depths 12, 13, 14).    *)
+(*  Two programs on two different cube models.                                *)
 (*                                                                            *)
-(*  Together:                                                                  *)
+(*  It is never asked to be CORRECT: p1check0 and p1checkStep make it a local  *)
+(*  certificate, so the generator is not in the trusted base.                  *)
 (*                                                                            *)
-(*     2187 x 64 430            = 140 908 410 entries                         *)
-(*     at 31 entries per int63  =   4 545 433 words  =  36.4 MB               *)
-(*     PArray.max_length        =   4 194 303 words                           *)
-(*                                                                            *)
-(*  which overshoots max_length by 8%, so it takes THREE chunks -- a PArray    *)
-(*  of PArrays split on the word index, w >> 21, which stays definitional.     *)
-(*                                                                            *)
-(*  For scale, against the flip x slice table we ship today:                   *)
-(*                                                                            *)
-(*                      entries      per word   words       size              *)
-(*     flip x slice   16 777 216      8         2 097 152   16.8 MB           *)
-(*     phase 1       140 908 410     31         4 545 433   36.4 MB           *)
-(*                                                                            *)
-(*  8.4x the entries but only 2.2x the memory, the 2 bit packing absorbing     *)
-(*  the rest.  Per worker that is +20 MB against the ~1 GB each already uses,  *)
-(*  so -j18 is unaffected.  The real cost is not memory but FsData.v: 25 MB    *)
-(*  of literals today, ~54 MB here, and it already compiles serially in 4-6    *)
-(*  minutes.                                                                  *)
-(*                                                                            *)
-(*  WHAT IS STILL MISSING is only the proofs and the generated data.  See the  *)
+(*  WHAT IS STILL MISSING is the proofs and the generated data.  See the       *)
 (*  Admitted list at the bottom.                                              *)
 (* =========================================================================  *)
 
@@ -207,59 +194,67 @@ Definition fsidx (x : int) : int :=
     (PArray.get srank (Uint63.lsr x 12%uint63)).
 
 (* =========================================================================  *)
-(*  3.  The symmetry fold                                                     *)
+(*  3.  The index, unfolded                                                   *)
 (*                                                                            *)
-(*  fsclass sends each of the 1 013 760 flip x slice indices to its orbit      *)
-(*  representative together with the symmetry that gets there, packed as       *)
-(*  class * 16 + sym (64 430 * 16 < 2 ^ 21, so one int63 is ample).  The twist *)
-(*  must be conjugated by the SAME symmetry, which is what twconj is for:      *)
-(*  2187 * 16 = 34 992 entries.                                               *)
+(*  UNFOLDED, deliberately: one slot per state, exactly as ocaml/rubik_par.ml  *)
+(*  has it.  The 16-symmetry fold would shrink the table 15.73x and the        *)
+(*  certificate with it, but it needs a soundness lemma of its own (conjugate  *)
+(*  states land in the same slot) that the unfolded table does not.  Mimic     *)
+(*  first, fold later if the size bites.  Measured cost of not folding: about  *)
+(*  8 GB per worker, which caps roquableu at ~6 parallel workers rather than   *)
+(*  18.  Nothing else about the development changes.                          *)
 (* =========================================================================  *)
 
-(* the sixteen that ACT on the flip x slice coordinate, not all 48 of Symg *)
-Definition nsym   := 16.
-Definition nclass := 64430.
+(* nfs and ntwist as int63 LITERALS, not as of_nat applied to the nat.
+   of_nat is O(n) on a unary nat, so of_nat nfs is a million reduction steps --
+   fine once, ruinous inside a loop the kernel runs 4 * 10 ^ 10 times, and it
+   is also what makes `case: ifP` on the guard below diverge. *)
+Definition nfsi    : int := 1013760%uint63.
+Definition ntwisti : int := 2187%uint63.
 
-Definition fsclass : arr := PArray.make (of_nat nfs) 0%uint63.            (* GENERATED *)
-Definition twconj  : arr := PArray.make (of_nat (ntwist * nsym)) 0%uint63. (* GENERATED *)
+(* NB no `to_nat nfsi = nfs` lemma: proving it materialises nfs as a unary nat
+   and overflows the stack.  Everything below stays on the int63 side. *)
 
-(* the folded phase 1 index: 0 .. 2187 * 64430 *)
 Definition p1idx (tw x : int) : int :=
-  let c  := PArray.get fsclass (fsidx x) in
-  let s  := Uint63.land c 15%uint63 in
-  let cl := Uint63.lsr c 4%uint63 in
-  Uint63.add (Uint63.mul cl (of_nat ntwist))
-    (PArray.get twconj (Uint63.add (Uint63.mul tw (of_nat nsym)) s)).
+  Uint63.add (Uint63.mul tw nfsi) (fsidx x).
 
 (* =========================================================================  *)
-(*  4.  The table itself: two bits per entry, 31 per word                     *)
+(*  4.  The table itself: four bits per entry, fifteen per word               *)
+(*                                                                            *)
+(*  FOUR bits, holding the true distance capped at p1cap + 1 -- never an       *)
+(*  offset clamped from below.  Storing d - base and clamping the underflow    *)
+(*  to zero reports base for a state that is really nearer, which OVERstates   *)
+(*  the distance and is not an admissible heuristic; it can prune away a real  *)
+(*  solution.  Clamping from ABOVE is the safe direction, and that is exactly  *)
+(*  what stopping the BFS at p1cap does.                                      *)
 (* =========================================================================  *)
 
-Definition p1base  := 8.        (* entries hold d - p1base, clamped to [0,3] *)
-Definition p1words := 4545433.  (* ceil (2187 * 64430 / 31) *)
+Definition p1cap     := 9.            (* the BFS stops here, as rubik_par does *)
+Definition p1entries := 2217093120.   (* ntwist * nfs                          *)
+Definition p1words   := 147806208.    (* ceil (p1entries / 15)                 *)
 
-(* 4 545 433 > PArray.max_length = 4 194 303, so the table is a PArray of
+(* p1words > PArray.max_length = 4 194 303, so the table is a PArray of
    PArrays.  The split is on the WORD index at a power of two, w >> cwlog,
-   which stays definitional -- the same trick Fspar.v's cbits uses.  Three
-   chunks: two full at 2 ^ 21 words and a short tail of 351 129. *)
+   which stays definitional -- the same trick Fspar.v's cbits uses. *)
 Definition cwlog  := 21.
-Definition nchunk := 3.
+Definition nchunk := 71.
 
 Definition p1tabs : PArray.array arr :=                           (* GENERATED *)
   PArray.make (of_nat nchunk) (PArray.make 1%uint63 0%uint63).
 
 Definition p1get (i : int) : int :=
-  let w := Uint63.div i 31%uint63 in
-  let r := Uint63.sub i (Uint63.mul w 31%uint63) in
+  let w := Uint63.div i 15%uint63 in
+  let r := Uint63.sub i (Uint63.mul w 15%uint63) in
   let c := Uint63.lsr w (of_nat cwlog) in
   let o := Uint63.land w (Uint63.sub (Uint63.lsl 1%uint63 (of_nat cwlog))
                                      1%uint63) in
   Uint63.land
-    (Uint63.lsr (PArray.get (PArray.get p1tabs c) o) (Uint63.mul r 2%uint63))
-    3%uint63.
+    (Uint63.lsr (PArray.get (PArray.get p1tabs c) o) (Uint63.mul r 4%uint63))
+    15%uint63.
 
-(* the heuristic.  Clamping DOWN is what keeps this admissible. *)
-Definition Dp1 (tw x : int) : nat := p1base + to_nat (p1get (p1idx tw x)).
+(* the heuristic: the stored value, which IS the distance up to the cap *)
+Definition Dp1i (tw x : int) : int := p1get (p1idx tw x).
+Definition Dp1 (tw x : int) : nat := to_nat (Dp1i tw x).
 
 (* =========================================================================  *)
 (*  5.  What has to be proved                                                 *)
@@ -342,30 +337,156 @@ Lemma coordtw_step (g : {perm facelet}) (k : nat) : (k < 18)%N ->
   coordtw (g * pt 47 (nth [::] mtabs k)) = acttw (coordtw g) k.
 Proof. Admitted.
 
-(* -- the fold is sound: conjugate states land in the same slot ------------- *)
+(* =========================================================================  *)
+(*  6.  THE CHECK                                                             *)
+(*                                                                            *)
+(*  The table is never asked to be CORRECT, only to be a local certificate:    *)
+(*  zero at the identity, and never dropping by more than one across a move.   *)
+(*  Those two facts alone make the heuristic admissible, and both are decided  *)
+(*  by a closed boolean the kernel evaluates.  Exactly Fstab.v's check0 /      *)
+(*  checkStep, one level up.                                                  *)
+(*                                                                            *)
+(*  WHY THE LOOP IS OVER RANKS.  Only 1 013 760 of the 2 ^ 24 packed flip x    *)
+(*  slice values occur -- 6 % -- so iterating over packed values would do      *)
+(*  sixteen times the work.  unranki turns a rank back into a packed value,    *)
+(*  and p1checkUnrank is what makes that legitimate.                          *)
+(*                                                                            *)
+(*  WHY p1mdata IS HOISTED.  Fstab.v measured this: with the move data built   *)
+(*  inside the lambda it is rebuilt per state, 26 ms against 79 us -- ninety   *)
+(*  days against seven hours.  Here the loop is 132 times longer still.       *)
+(* =========================================================================  *)
 
-(* u must not only be a symmetry (Symg_stab, so it permutes the moves and
-   preserves the distance) but must also ACT on the flip x slice coordinate,
-   which is what fspres asks: it maps slice edges to slice edges and primary
-   facelets to primary facelets.  Exactly 16 of the 48 do -- measured, and
-   dropping fspres is precisely the error the header describes. *)
-Definition fspres (u : {perm facelet}) : bool :=
-  [forall f : facelet, (scol (u f) == scol f) && (pcol (u f) == pcol f)].
+Definition p1mdata : seq (nat * mdatf) :=
+  [seq (k, mdatf_of_tab (nth [::] mtabs k)) | k <- iota 0 18].
 
-Lemma p1idx_sym (g u : {perm facelet}) : u \in Symg -> fspres u ->
-  p1idx (coordtw (g ^ u)) (coordfs (g ^ u)) = p1idx (coordtw g) (coordfs g).
+(* THE LOOP RUNS OVER PACKED VALUES, NOT OVER RANKS, and that is deliberate.
+   Ranking first would be 16x fewer iterations, but then the checked instance
+   is at unranki (fsidx x) rather than at x, and closing the gap needs fsidx
+   to be injective on the summaries -- a real obligation, and one Coordfs does
+   not currently provide.  Over packed values, all_powP hands back the
+   instance at x itself and the proof is Fstab.DfsStep_of_check verbatim.
+   Measured cost of the choice: the extra sweep is ~5 % on top of the move
+   checks, which dominate either way.
+
+   The fsidx guard is NOT cosmetic: without it every one of the 2 ^ 24 packed
+   values would run the eighteen move checks instead of the 6 % that are
+   summaries, which is sixteen times the work. *)
+Definition p1stepF (tw : int) : int -> bool :=
+  let md := p1mdata in
+  fun x =>
+    if (nfsi <=? fsidx x)%uint63 then true
+    else all (fun km => (Dp1i tw x <=?
+                incr (Dp1i (acttw tw km.1) (actf x km.2)))%uint63) md.
+
+Definition p1checkTw (tw : int) : bool := all_pow ncoord 0%uint63 (p1stepF tw).
+
+Definition p1checkStep : bool :=
+  all (fun t => p1checkTw (of_nat t)) (iota 0 ntwist).
+
+Definition p1check0 : bool :=
+  (Dp1i (ctwistt (id_tab 47)) (coordt (id_tab 47)) =? 0)%uint63.
+
+(* -- the split for parallel checking --------------------------------------- *)
+
+(* The outer loop is an all over iota, not an all_pow, so splitting it is
+   cat_take_drop and all_cat -- no all_pow_glue16 needed.  That is the one
+   place this is EASIER than the flip x slice certificate: 2187 twists cut
+   into as many slices as there are cores, each its own file. *)
+Lemma p1checkStep_split n :
+  all (fun t => p1checkTw (of_nat t)) (take n (iota 0 ntwist)) ->
+  all (fun t => p1checkTw (of_nat t)) (drop n (iota 0 ntwist)) ->
+  p1checkStep.
+Proof.
+by rewrite /p1checkStep -{3}(cat_take_drop n (iota 0 ntwist)) all_cat => -> ->.
+Qed.
+
+Lemma p1checkStep_of_slices (s : seq nat) :
+  s = iota 0 ntwist ->
+  all (fun t => p1checkTw (of_nat t)) s -> p1checkStep.
+Proof. by move=> ->. Qed.
+
+(* -- what the two checks buy ---------------------------------------------- *)
+
+(* These are the point of the file.  A table passing them is a valid
+   heuristic, whatever it actually contains. *)
+
+(* coordtw 1 does not compute, being about a permutation; the identity table
+   is its computable form, by pt1 and ctwisttE -- exactly Fstab's coordfs1E *)
+Lemma coordtw1E : coordtw 1 = ctwistt (id_tab 47).
+Proof. by rewrite -(ctwisttE (tab_ok_id 47)) pt1. Qed.
+
+Lemma Dp1_0_of_check : p1check0 -> Dp1 (coordtw 1) (coordfs 1) = 0%N.
+Proof.
+rewrite /p1check0 /Dp1 /Dp1i coordtw1E coordfs1E.
+by move=> /eqb_correct ->; rewrite to_nat_0.
+Qed.
+
+(* NO Dp1_oob ANALOGUE, and the reason matters.  Fstab gets Dfs_oob because a
+   coordinate past 2 ^ ncoord indexes past the table.  Here p1idx tw x is
+   tw * nfs + fsidx x, so fsidx x >= nfs does NOT leave the table -- it lands
+   in the NEXT twist's block and reads a perfectly good entry for a different
+   state.  So the fsidx guard in p1stepF is not free: it has to be discharged,
+   not absorbed.
+
+   That is what fsidx_lt is for.  It is a fact about the summaries, not about
+   the table: the flip half is eleven bits and the slice half is a mask with
+   exactly four bits set, so fsidx lands below 2048 * 495.  It belongs in
+   Coordfs, which owns both halves; it is stated here until it moves. *)
+Lemma fsidx_lt (g : {perm facelet}) : (fsidx (coordfs g) <? nfsi)%uint63.
 Proof. Admitted.
 
-(* -- the local certificate ------------------------------------------------ *)
+(* the entries are four bits, so the successor on the int side is the
+   successor on the nat side -- no wrap.  Fstab.Dfsi_small verbatim. *)
+Lemma Dp1i_small tw x : (to_nat (Dp1i tw x) < nwB.-1)%N.
+Proof.
+rewrite /Dp1i /p1get.
+set v := (X in (X land _)%uint63); rewrite landC.
+apply: ltn_trans (_ : 2 ^ 4 < _); last first.
+  rewrite -ltnS prednK; last by apply: ltn_trans ndigitsLwB.
+  by apply: ltn_trans ndigitsLwB.
+by apply: to_nat_land_bound.
+Qed.
 
-Lemma Dp1_0 : Dp1 (coordtw 1) (coordfs 1) = 0%N.
-Proof. Admitted.
+(* nfs < nwB, needed to move of_nat across the fsidx guard.  Proved the way
+   ssrint63.ndigitsLwB is -- bound by a power of two, then nwB_pow -- because
+   `by []` on a `_ < nwB` goal is the unary trap: 2 ^ 63 in successors. *)
+Lemma nfsB : (nfs < nwB)%N.
+Proof.
+apply: leq_ltn_trans (_ : (2 ^ 20)%N < _); first by vm_compute.
+by rewrite nwB_pow ltn_exp2l.
+Qed.
 
-Lemma Dp1_step (g : {perm facelet}) (k : nat) : (k < 18)%N ->
-  (Dp1 (coordtw g) (coordfs g) <=
-   (Dp1 (coordtw (g * pt 47 (nth [::] mtabs k)))
-        (coordfs (g * pt 47 (nth [::] mtabs k)))).+1)%N.
+(* STATED ON COORDINATES, not on g -- exactly Fstab.DfsStep_of_check.  The
+   guard cubP that coordfs's coordM needs never appears here, and the step to
+   g is taken later, where coordtw_step and coordM are applied together. *)
+Lemma Dp1_step_of_check :
+  p1checkStep ->
+  forall tw x k, (to_nat tw < ntwist)%N -> (to_nat x < 2 ^ ncoord)%N ->
+  (fsidx x <? nfsi)%uint63 -> (k < 18)%N ->
+  (Dp1 tw x <=
+   (Dp1 (acttw tw k) (actfs x (nth 1%g moves k))).+1)%N.
 Proof. Admitted.
+(* STUCK, and precisely here.  The skeleton is Fstab.DfsStep_of_check
+   transposed; three causes were found and fixed getting this far, all worth
+   keeping:
+
+     - htw must be UNFOLDED (rewrite /p1checkTw in htw) before all_powP, or
+       unification expands all_pow ncoord into 2 ^ 24 conjuncts;
+     - nfs must appear as the int63 literal nfsi, never as of_nat nfs.
+       of_nat is O(n) on a unary nat, so of_nat nfs is a million reduction
+       steps -- and the kernel would pay it inside a 4 * 10 ^ 10 loop;
+     - to_nat nfsi = nfs cannot be proved at all: it materialises the unary
+       nat and overflows the stack.  Hence the fsidx bound is stated in
+       int63, as fsidx x <? nfsi.
+
+   What does not return is one small goal:
+
+       fsL : (fsidx x <? nfsi)%uint63
+       ------------------------------
+       (nfsi <=? fsidx x)%uint63 = false
+
+   case: ifP on the unfolded p1stepF, case E : on the bare condition, and a
+   standalone have all fail to return.                                      *)
 
 (* =========================================================================  *)
 (*  6.  Still to build (code, not proof)                                      *)
