@@ -114,6 +114,85 @@ Qed.
 
 (*  ** The loop misses nothing                                                *)
 
+(*  [cdist0] only sees its argument modulo [M].                               *)
+Lemma cdist0_mod x y : x = y %[mod M] -> cdist0 x = cdist0 y.
+Proof. by move=> H; rewrite /cdist0 H. Qed.
+
+(*  It is subadditive.                                                        *)
+Lemma cdist0D x y : cdist0 (x + y) <= cdist0 x + cdist0 y.
+Proof.
+rewrite /cdist0 -modnDm.
+set a := x %% M; set b := y %% M.
+have aM : a < M by rewrite ltn_mod.
+have bM : b < M by rewrite ltn_mod.
+have aM' : a <= M := ltnW aM.
+have bM' : b <= M := ltnW bM.
+case: (ltnP (a + b) M) => [ab|ab].
+  rewrite (modn_small ab).
+  case: (leqP a (M - a)) => ha; case: (leqP b (M - b)) => hb.
+  - by rewrite geq_minl.
+  - rewrite (leq_trans (geq_minr _ _)) //.
+    by rewrite (leq_trans (leq_sub2l M (leq_addl a b))) // leq_addl.
+  - rewrite (leq_trans (geq_minr _ _)) //.
+    by rewrite (leq_trans (leq_sub2l M (leq_addr b a))) // leq_addr.
+  rewrite (leq_trans (geq_minr _ _)) //.
+  by rewrite (leq_trans (leq_sub2l M (leq_addr b a))) // leq_addr.
+have abM : a + b < M + M.
+  by rewrite (leq_ltn_trans (leq_add aM' (leqnn b))) // ltn_add2l.
+have cE : (a + b) %% M = a + b - M.
+  by rewrite -{1}(subnK ab) modnDr modn_small // ltn_subLR.
+rewrite cE.
+case: (leqP a (M - a)) => ha; case: (leqP b (M - b)) => hb.
+- by rewrite (leq_trans (geq_minl _ _)) // leq_subr.
+- rewrite (leq_trans (geq_minl _ _)) // leq_subLR.
+  by rewrite addnCA leq_add2l (leq_trans bM') // leq_addr.
+- rewrite (leq_trans (geq_minl _ _)) // leq_subLR.
+  by rewrite addnA leq_add2r (leq_trans aM') // leq_addr.
+have -> : M - (a + b - M) = M + M - (a + b) by rewrite subnBA.
+have -> : M - a + (M - b) = M + M - (a + b).
+  by rewrite addnBAC // addnBA // subnDA subnAC.
+by rewrite geq_minr.
+Qed.
+
+(*  Hence the triangle inequality.                                            *)
+Lemma cdistD x y z : cdist x z <= cdist x y + cdist y z.
+Proof.
+have yM : y %% M <= M by rewrite ltnW // ltn_mod.
+have zM : z %% M <= M by rewrite ltnW // ltn_mod.
+have yMx : y %% M <= x + M by rewrite (leq_trans yM) // leq_addl.
+have yy : y %% M <= y by rewrite leq_mod.
+have yD : y - y %% M = y %/ M * M by rewrite {1}(divn_eq y M) addnK.
+have step1 : x + M - y %% M + y = x + M + (y %/ M * M).
+  by rewrite -yD addnBAC // addnBA.
+have key : (x + M - y %% M) + (y + M - z %% M)
+         = (x + M - z %% M) + (y %/ M * M + M).
+  rewrite addnBA; last by rewrite (leq_trans zM) // leq_addl.
+  by rewrite addnA step1 addnBAC ?(leq_trans zM) ?leq_addl // !addnA.
+rewrite /cdist -(cdist0_mod (x := (x + M - y %% M) + (y + M - z %% M))).
+  exact: cdist0D.
+by rewrite key [y %/ M * M + M]addnC -mulSn addnC modnMDl.
+Qed.
+
+(*  Within [E] of [E] means inside the window [[0, 2E)].                      *)
+Lemma cdist_win x E :
+  x < M -> 2 * E <= M -> cdist x E < E -> x < 2 * E.
+Proof.
+move=> xM EM2 Hlt.
+case: (ltnP x E) => [xE|Ex]; first by rewrite (leq_trans xE) // leq_pmull.
+have E_gt0 : 0 < E by case: (posnP E) Hlt => [->|//]; rewrite ltn0.
+have EM : E < M by rewrite (leq_trans _ EM2) // ltn_Pmull.
+have xEM : x - E < M by rewrite (leq_ltn_trans (leq_subr _ _)).
+move: Hlt; rewrite /cdist (modn_small EM).
+have -> : x + M - E = (x - E) + M by rewrite addnBAC.
+rewrite /cdist0 modnDr (modn_small xEM).
+case: (leqP (x - E) (M - (x - E))) => h.
+  by move=> H; rewrite -(subnK Ex) mul2n -addnn ltn_add2r.
+rewrite ltn_subLR; last exact: ltnW xEM.
+rewrite (subnK Ex) => H.
+by move: (ltn_trans xM H); rewrite ltnn.
+Qed.
+
+
 (*  [tru i] is the true value at index [i], on the same circle and with the   *)
 (*  same shift by [E] as [dst], so a hard case is one whose true value is     *)
 (*  within [win] of [E].  The distance [dst] tracks it to within [err].       *)
@@ -123,10 +202,17 @@ Qed.
 (*  test [dst i < 2 * E] holds and [scan_mem] applies.                        *)
 Theorem scan_complete (tru : nat -> nat) err win E n :
   0 < E -> 2 * E <= M ->
-  (forall i, i < n -> cdist (tru i) (dst i) <= err) ->
+  (forall i, i < n -> cdist (dst i) (tru i) <= err) ->
   win + err < E ->
   forall i, i < n -> cdist (tru i) E <= win -> i \in scan (2 * E) n.
-Proof. Admitted.
+Proof.
+move=> E_gt0 EM2 Herr Hwin i iLn Hhard.
+rewrite scan_mem iLn /=.
+apply: cdist_win => //; first by rewrite ltn_dst.
+apply: leq_ltn_trans (cdistD _ (tru i) _) _.
+apply: leq_ltn_trans (leq_add (Herr i iLn) Hhard) _.
+by rewrite addnC.
+Qed.
 
 End Scan.
 
