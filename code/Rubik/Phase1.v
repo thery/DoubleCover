@@ -676,19 +676,45 @@ have hs3 : (index (g^-1 (inord c0) : nat) cflat %% 3 < 3)%N by rewrite ltn_mod.
 by move: hs3; case: (index _ _ %% 3) => [|[|[|?]]].
 Qed.
 
+(* cubcP is closed under composition, so g * m is covered by corientgE *)
+Lemma cubcPM g m : cubcP g -> cubcP m -> cubcP (g * m).
+Proof.
+move=> /forallP cg /forallP cm; apply/forallP => f.
+by rewrite !permM (eqP (cm _)) (eqP (cg _)).
+Qed.
+
+(* THE TOTAL TWIST.  cubcP says the corners turn rigidly; it does NOT say the
+   eight orientations sum to 0 mod 3.  But the coordinate stores only seven
+   digits and recovers the eighth from that sum, so dign at 7 is right only
+   when it holds.  It is a property of the cube group, not of rigidity, and
+   so it has to be carried. *)
+Definition twsum (g : {perm facelet}) : nat :=
+  (foldr (fun p a => a + corientg g p) 0 (iota 0 8)) %% 3.
+
+(* where each corner sticker sits relative to its cubie's U/D sticker *)
+Lemma cflat_reach :
+  all (fun i => let c := (index i cflat %/ 3)%N in
+       [&& (index i cflat %% 3 == 0)%N ==> (i == nth 0%N cprim c),
+           (index i cflat %% 3 == 1)%N ==> (i == nth 0%N ccyct (nth 0%N cprim c)),
+           (index i cflat %% 3 == 2)%N ==>
+             (i == nth 0%N ccyct (nth 0%N ccyct (nth 0%N cprim c))) &
+           (c < 8)%N]) cflat.
+Proof. by vm_compute. Qed.
+
 (* THE CORNER FACT, and the only genuinely new content left.  A move sends
    the U/D slot of corner p to slot cdelta m p of corner csrc m p; since a
    cubcP permutation turns each cubie rigidly, the orientation there is the
    orientation of that corner under g, advanced by cdelta. *)
-Lemma corientgM g m p : cubcP g -> cubcP m -> (p < 7)%N ->
+Lemma corientgM g m p : cubcP g -> cubcP m -> twsum g = 0%N -> (p < 7)%N ->
   corientg (g * m) p = acttwd (coordtw g) m p.
 Proof. Admitted.
 
 (* and coordtwM is then just the packing *)
 Lemma coordtwM g m :
-  cubcP g -> cubcP m -> coordtw (g * m) = acttw (coordtw g) m.
+  cubcP g -> cubcP m -> twsum g = 0%N ->
+  coordtw (g * m) = acttw (coordtw g) m.
 Proof.
-move=> cg cm; apply: to_nat_inj.
+move=> cg cm ts; apply: to_nat_inj.
 rewrite coordtwE acttwE; apply: pack3n_ext => p pL.
 exact: corientgM.
 Qed.
