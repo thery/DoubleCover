@@ -23,6 +23,11 @@
 (*   cover the interval ([leq_chunks]), the last one running past its end     *)
 (*   by fewer than [n] points ([ltn_chunks]), which only adds candidates.     *)
 (*                                                                            *)
+(*   The C screens each candidate on the spot rather than accumulating a      *)
+(*   chunk's worth of them; [scanAll_with] is the loop with that screen,      *)
+(*   and [scanAll_with_complete] says completeness survives it as long as     *)
+(*   the screen keeps the hard cases of the chunk it is given.                *)
+(*                                                                            *)
 (*   [scanAll_coh] reads the reindexing the other way: when the seeds         *)
 (*   continue one and the same walk -- the shape the polynomial ones are      *)
 (*   meant to have -- the whole run IS the flat inner scan over [c * n]       *)
@@ -180,6 +185,77 @@ move: Hin; rewrite (scan_mem M_gt0 _ (ltn_Bc (chk j))) => /andP[_ Hlt].
 by rewrite scanAll_mem jLcn /hit.
 Qed.
 
+(*  ** Screening inside the loop                                              *)
+
+(*  The C does not accumulate the candidates of a chunk: it screens each on   *)
+(*  the spot.  [post] is that screen, run on one chunk's candidates.          *)
+Fixpoint scanAll_with_rec (post : seq nat -> seq nat) (k c : nat) : seq nat :=
+  if c is c1.+1 then post (chunk k) ++ scanAll_with_rec post k.+1 c1
+  else [::].
+
+(*  The screened outer loop.                                                  *)
+Definition scanAll_with (post : seq nat -> seq nat) (c : nat) : seq nat :=
+  scanAll_with_rec post 0 c.
+
+(*  Screening by the identity is the plain loop.                              *)
+Lemma scanAll_with_id c : scanAll_with id c = scanAll c.
+Proof.
+by rewrite /scanAll_with /scanAll; elim: c 0 => //= c IH k; rewrite IH.
+Qed.
+
+(*  A chunk reports an index iff that index is its own and passes the test.   *)
+Lemma chunk_mem k j : (j \in chunk k) = (chk j == k) && hit j.
+Proof.
+rewrite chunkE mem_filter mem_iota andbC; congr (_ && _).
+have -> : (chk j == k) = (k <= chk j) && (chk j < k.+1).
+  by rewrite ltnS -eqn_leq eq_sym.
+by rewrite /chk leq_divRL // ltn_divLR // mulSn addnC.
+Qed.
+
+(*  From chunk [k], an index is reported iff some chunk screens it in.        *)
+Lemma scanAll_with_recE post k c j :
+  (j \in scanAll_with_rec post k c) = has (fun i => j \in post (chunk i))
+                                          (iota k c).
+Proof. by elim: c k => [//|c IH] k; rewrite /= mem_cat IH. Qed.
+
+(*  Membership, the form a caller uses.                                       *)
+Lemma scanAll_with_mem post c j :
+  (j \in scanAll_with post c) = has (fun k => j \in post (chunk k)) (iota 0 c).
+Proof. exact: scanAll_with_recE. Qed.
+
+(*  A screen that only removes reports nothing the plain loop would not.      *)
+Lemma scanAll_with_sub post c :
+  (forall l, {subset post l <= l}) -> {subset scanAll_with post c <= scanAll c}.
+Proof.
+move=> Hpost j; rewrite scanAll_with_mem => /hasP[k]; rewrite mem_iota add0n.
+move=> /andP[_ kLc] /Hpost; rewrite chunk_mem => /andP[/eqP kE Hh].
+move: kLc; rewrite -kE /chk ltn_divLR // => jLcn.
+by rewrite scanAll_mem jLcn.
+Qed.
+
+(*  Completeness survives the screen: if [post] keeps every hard case of the  *)
+(*  chunk it is given, the screened loop still misses none.                   *)
+Theorem scanAll_with_complete post (tru : nat -> nat) err win c :
+  (forall k, k < c -> 0 < Ec k) ->
+  (forall k, k < c -> 2 * Ec k <= M) ->
+  (forall k, k < c -> win + err < Ec k) ->
+  (forall k i, k < c -> i < n ->
+     cdist M (dst M (Ac k) (Bc k) i) (tru (k * n + i)) <= err) ->
+  (forall k j, k < c -> j \in chunk k -> cdist M (tru j) (Ec (chk j)) <= win ->
+     j \in post (chunk k)) ->
+  forall j, j < c * n -> cdist M (tru j) (Ec (chk j)) <= win ->
+  j \in scanAll_with post c.
+Proof.
+move=> HE HEM Hwin Herr Hpost j jLcn Hhard.
+have kLc : chk j < c by rewrite /chk ltn_divLR.
+have jin : j \in chunk (chk j).
+  rewrite chunk_mem eqxx /=.
+  by have := scanAll_complete HE HEM Hwin Herr jLcn Hhard;
+     rewrite scanAll_mem jLcn.
+rewrite scanAll_with_mem; apply/hasP; exists (chk j); last exact: Hpost.
+by rewrite mem_iota add0n.
+Qed.
+
 (*  ** How many turns the loop takes                                          *)
 
 (*  The C moves the chunk start by [n] until it passes the end of the         *)
@@ -262,6 +338,12 @@ Proof. by vm_compute. Qed.
 (*  has one wide enough.                                                      *)
 Example scanAll_exk :
   scanAll 24 5 (fun _ => 5) (fun _ => 7) (fun k => k * 2) 2 = [:: 6].
+Proof. by vm_compute. Qed.
+
+(*  The same run with a screen that drops the first report.                   *)
+Example scanAll_with_ex :
+  scanAll_with 24 5 (fun _ => 5) (fun _ => 7) (fun _ => 2)
+    (fun l => [seq j <- l | 1 < j]) 2 = [:: 6].
 Proof. by vm_compute. Qed.
 
 (*  Chunks of [5] points: [10] points take two turns, [11] take three.        *)
