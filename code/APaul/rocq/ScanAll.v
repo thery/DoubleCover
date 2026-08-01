@@ -298,6 +298,24 @@ apply: scanAll_complete HE HEM Hwin Herr _ _ Hhard.
 by apply: leq_trans jLd (leq_chunks d).
 Qed.
 
+(*  The same for the screened run: this is the search over an interval of     *)
+(*  [d] points, as the C writes it, missing no hard case in it.               *)
+Corollary scanAll_with_cover post (tru err win : nat -> nat) d :
+  (forall k, k < chunks d -> 0 < Ec k) ->
+  (forall k, k < chunks d -> 2 * Ec k <= M) ->
+  (forall k, k < chunks d -> win k + err k < Ec k) ->
+  (forall k i, k < chunks d -> i < n ->
+     cdist M (dst M (Ac k) (Bc k) i) (tru (k * n + i)) <= err k) ->
+  (forall k j, k < chunks d -> j \in chunk k ->
+     cdist M (tru j) (Ec (chk j)) <= win (chk j) -> j \in post (chunk k)) ->
+  forall j, j < d -> cdist M (tru j) (Ec (chk j)) <= win (chk j) ->
+  j \in scanAll_with post (chunks d).
+Proof.
+move=> HE HEM Hwin Herr Hpost j jLd Hhard.
+apply: scanAll_with_complete HE HEM Hwin Herr Hpost _ _ Hhard.
+by apply: leq_trans jLd (leq_chunks d).
+Qed.
+
 End ScanAll.
 
 (*  ** Chunks of one and the same walk                                        *)
