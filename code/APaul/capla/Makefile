@@ -9,34 +9,58 @@
 #
 # Its Rocq sources need Rocq 8.15-9.0 (9.1 is refused by configure), so a
 # dedicated opam switch is the simplest way to build it.
+#
+# The port is in three layers:
+#   scan.b  the Lefevre inner loop, pure wrapping u64 arithmetic
+#   poly.b  the 21-limb integers and the certified polynomial
+#   htr.b   the whole search, both as a producer and as a checker
 
 CCOMP  ?= $(HOME)/git/capla-compiler/ccomp
 CC     ?= gcc
 CFLAGS ?= -O2 -Wall
 
-all: test_scan
+all: test_scan test_poly test_htr
 
-# The Capla loop and its C driver, both through ccomp.
+# The Capla code and its C drivers, both through ccomp.
 test_scan: scan.b test_scan.c
 	$(CCOMP) $^ -o $@
 
-# Same driver with the Capla side dropped, built by gcc: the baseline the
-# ccomp timings are read against.
+test_poly: poly.b test_poly.c
+	$(CCOMP) $^ -o $@
+
+test_htr: htr.b poly.b test_htr.c
+	$(CCOMP) htr.b test_htr.c -o $@
+
+# The scan driver with the Capla side dropped, built by gcc: the baseline
+# the ccomp timings are read against.
 test_scan_gcc: test_scan.c scan_stub.c
 	$(CC) $(CFLAGS) $^ -o $@
 
 # The unverified C backend of ccomp, to read what Capla generates.
-scan.c: scan.b
-	$(CCOMP) -dbcaplac -c $< -o /dev/null
+%.c-gen: %.b
+	$(CCOMP) -dcaplac -c $< -o /dev/null
 
-# The assembly of the loop, to compare the two code generators.
-scan.s: scan.b
+# The assembly, to compare the two code generators.
+%.s: %.b
 	$(CCOMP) -S $<
 
-check: test_scan
+# The fast checks: the inner loop and the polynomial layer against C.
+check: test_scan test_poly
 	./test_scan
+	./test_poly
+
+# The whole search over [0.25, 0.25001).  Minutes, not seconds.  Its
+# output is meant to be identical to that of ../htr_plain.
+check-full: test_htr
+	./test_htr
+
+# The same, as a checker against the five known cases.  Twice the work of
+# check-full: one full pass, plus a short pass on a wrong oracle.
+check-oracle: test_htr
+	./test_htr -check
 
 clean:
-	rm -f test_scan test_scan_gcc scan.c scan.s *.o
+	rm -f test_scan test_poly test_htr test_scan_gcc *.s *.o
+	rm -f scan.c poly.c htr.c
 
-.PHONY: all check clean
+.PHONY: all check check-full check-oracle clean

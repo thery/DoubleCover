@@ -1,5 +1,9 @@
 test_scan
 test_scan_gcc
+test_poly
+test_htr
 scan.c
-scan.s
+poly.c
+htr.c
+*.s
 *.o
