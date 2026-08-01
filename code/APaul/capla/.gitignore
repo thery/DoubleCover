@@ -1,0 +1,5 @@
+test_scan
+test_scan_gcc
+scan.c
+scan.s
+*.o
