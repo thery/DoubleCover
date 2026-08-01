@@ -725,11 +725,13 @@ move: ts; rewrite /twsum -addn1 iotaD add0n foldr_cat.
 rewrite [foldr _ _ [:: 7]]/= add0n foldr_addE.
 have h7 : (corientg g 7 < 3)%N by apply: corientg_lt.
 set S := foldr _ 0 _; rewrite -modnDml.
-(* BLOCKED on the last arithmetic step only.  Everything above is instant.
-   Remaining goal, with h7 : corientg g 7 < 3 --
-     from  (corientg g 7 %% 3 + S) %% 3 = 0
-     show  (3 - S %% 3) %% 3 = corientg g 7. *)
-Admitted.
+(* S occurs bare in the hypothesis, so bring it under %% 3 first; then both
+   sides are opaque terms below 3 and the nine cases compute. *)
+rewrite -modnDmr.
+have hs : (S %% 3 < 3)%N by rewrite ltn_mod.
+by move: h7 hs; case: (corientg g 7) => [|[|[|?]]] //;
+   case: (S %% 3) => [|[|[|?]]].
+Qed.
 
 (* THE CORNER FACT, and the only genuinely new content left.  A move sends
    the U/D slot of corner p to slot cdelta m p of corner csrc m p; since a
