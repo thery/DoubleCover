@@ -701,6 +701,36 @@ Lemma cflat_reach :
            (c < 8)%N]) cflat.
 Proof. by vm_compute. Qed.
 
+(* an accumulator in an additive foldr just comes out in front *)
+Lemma foldr_addE (h : nat -> nat) l acc :
+  foldr (fun q a => a + h q) acc l = (acc + foldr (fun q a => a + h q) 0 l)%N.
+Proof.
+by elim: l acc => [|x l IH] acc /=; rewrite ?addn0 // IH addnA.
+Qed.
+
+(* reading ANY of the eight digits, including the forced one.  For q < 7 this
+   is dig_coordtw; for q = 7 it is exactly what twsum g = 0 buys. *)
+Lemma dignE g q : cubcP g -> twsum g = 0%N -> (q < 8)%N ->
+  dign (coordtw g) q = corientg g q.
+Proof.
+move=> cg ts qL; rewrite /dign.
+have [->|qn7] := eqVneq q 7; last first.
+  by rewrite dig_coordtw // ltn_neqAle qn7 -ltnS.
+(* the list is concrete, so unfold it rather than induct: seven rewrites *)
+have hf : foldr (fun q a => a + dig3n (to_nat (coordtw g)) q) 0 (iota 0 7)
+        = foldr (fun q a => a + corientg g q) 0 (iota 0 7).
+  by rewrite [iota 0 7]/= /= !dig_coordtw.
+rewrite /dig8 hf.
+move: ts; rewrite /twsum -addn1 iotaD add0n foldr_cat.
+rewrite [foldr _ _ [:: 7]]/= add0n foldr_addE.
+have h7 : (corientg g 7 < 3)%N by apply: corientg_lt.
+set S := foldr _ 0 _; rewrite -modnDml.
+(* BLOCKED on the last arithmetic step only.  Everything above is instant.
+   Remaining goal, with h7 : corientg g 7 < 3 --
+     from  (corientg g 7 %% 3 + S) %% 3 = 0
+     show  (3 - S %% 3) %% 3 = corientg g 7. *)
+Admitted.
+
 (* THE CORNER FACT, and the only genuinely new content left.  A move sends
    the U/D slot of corner p to slot cdelta m p of corner csrc m p; since a
    cubcP permutation turns each cubie rigidly, the orientation there is the
