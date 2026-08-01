@@ -65,23 +65,62 @@ int main (int argc, char **argv)
   if (argc == 2 && strcmp (argv[1], "-check") == 0)
     {
       int64_t bogus[1];
-      uint8_t ok, bad;
+      uint8_t ok, bad, ctl;
+      int fail = 0;
 
       ok = htr_check (X0NUM, X1NUM, COp, oracle, 5, stats, NL);
       printf ("check against the 5 known cases: %s\n",
               ok ? "accepted" : "REJECTED");
       printf ("  %llu candidates, %llu hard-to-round\n",
               (unsigned long long) stats[0], (unsigned long long) stats[1]);
+      if (!ok)
+        fail = 1;
 
-      /* negative test: on the first ten chunks there is no hard case, so
-       * an oracle claiming one must be rejected */
+      /* htr_check can fail in three ways, and each needs its own test.
+       *
+       * (1) an oracle entry that is never found: on the first ten chunks
+       *     there is no hard case, so an oracle claiming one is wrong. */
       bogus[0] = X0NUM + 1;
       bad = htr_check (X0NUM, X0NUM + 10 * (1LL << 20), COp, bogus, 1,
                        stats, NL);
-      printf ("check against a wrong oracle: %s\n",
+      printf ("wrong oracle, entry never found: %s\n",
               bad ? "ACCEPTED (wrong)" : "rejected");
+      if (bad)
+        fail = 1;
 
-      return (ok && !bad) ? 0 : 1;
+      /* The other two need a range where a case really is found.  Take
+       * the chunk holding the first known case; the control below is what
+       * makes the two tests after it mean anything. */
+      {
+        int64_t c0 = X0NUM + (((oracle[0] - X0NUM) >> 20) << 20);
+        int64_t c1 = c0 + (1LL << 20);
+
+        ctl = htr_check (c0, c1, COp, oracle, 1, stats, NL);
+        printf ("control, that chunk holds exactly that case: %s"
+                " (%llu found)\n",
+                ctl ? "accepted" : "REJECTED",
+                (unsigned long long) stats[1]);
+        if (!ctl)
+          fail = 1;
+
+        /* (2) a case found that the oracle omits: same chunk, but the
+         *     oracle is empty. */
+        bad = htr_check (c0, c1, COp, oracle, 0, stats, NL);
+        printf ("wrong oracle, case omitted: %s\n",
+                bad ? "ACCEPTED (wrong)" : "rejected");
+        if (bad)
+          fail = 1;
+
+        /* (3) a case found where the oracle expects a different value. */
+        bogus[0] = oracle[0] + 1;
+        bad = htr_check (c0, c1, COp, bogus, 1, stats, NL);
+        printf ("wrong oracle, wrong value: %s\n",
+                bad ? "ACCEPTED (wrong)" : "rejected");
+        if (bad)
+          fail = 1;
+      }
+
+      return fail;
     }
 
   {
