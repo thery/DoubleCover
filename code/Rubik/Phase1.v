@@ -600,9 +600,11 @@ Proof. by vm_compute. Qed.
    compute: the U/D stickers are exactly the slot 0 ones, and ccyct advances
    the slot by one.  Both are an `all` over the 24 corner facelets. *)
 Lemma cslot_facts :
-  all (fun i => ((i \in cprim) == (index i cflat %% 3 == 0)%N)
-             && (index (nth 0%N ccyct i) cflat %% 3 ==
-                 ((index i cflat %% 3).+1 %% 3)%N)) cflat.
+  all (fun i => [&& (i \in cprim) == (index i cflat %% 3 == 0)%N,
+                 index (nth 0%N ccyct i) cflat %% 3 ==
+                   ((index i cflat %% 3).+1 %% 3)%N,
+                 nth 0%N ccyct i \in cflat &
+                 (nth 0%N ccyct i < 48)%N]) cflat.
 Proof. by vm_compute. Qed.
 
 Definition cubcP (g : {perm facelet}) : bool :=
@@ -610,14 +612,70 @@ Definition cubcP (g : {perm facelet}) : bool :=
 
 (* Coordfs.coordfsM transposed.  With acttw computed rather than tabled this
    is a theorem about the moves, not about emitted numbers. *)
+(* ccyc applied, through ptE *)
+Lemma ccycE (f : facelet) : ccyc f = inord (nth 0%N ccyct f).
+Proof. by rewrite /ccyc ptE ?ccyct_ok. Qed.
+
+(* ccyc moves exactly the corner facelets -- so cornerhood is definable from
+   ccyc alone, and cubcP therefore preserves it *)
+Lemma ccyc_moves : all (fun i => (nth 0%N ccyct i != i) == (i \in cflat))
+                       (iota 0 48).
+Proof. by vm_compute. Qed.
+
+(* cubcP passes to the inverse *)
+Lemma cubcPV g : cubcP g -> forall f, g^-1 (ccyc f) = ccyc (g^-1 f).
+Proof.
+move=> /forallP cg f.
+have := eqP (cg (g^-1 f)); rewrite permKV => ->.
+by rewrite permK.
+Qed.
+
 (* corientg counts how far one must turn to REACH the U/D sticker, so it runs
    OPPOSITE to cslot, which says where the sticker sitting there came from.
    Measured: 0 mismatches in 800 008.  cubcP is needed -- the second branch
    asks about a different slot of the same cubie POSITION, and only a rigid
    motion ties that to the first. *)
+(* everything concrete about ctrip that the proof needs, in one vm_compute *)
+Lemma ctrip_facts :
+  all (fun p => let t := nth (0, 0, 0)%N ctrip p in
+       [&& nth 0%N cprim p == t.1.1, nth 0%N ccyct t.1.1 == t.1.2,
+           (t.1.1 < 48)%N, (t.1.2 < 48)%N & t.1.1 != t.1.2]) (iota 0 8).
+Proof. by vm_compute. Qed.
+
 Lemma corientgE g p : cubcP g -> (p < 8)%N ->
   corientg g p = ((3 - cslot (g^-1 (cprimf p))) %% 3)%N.
 Proof. Admitted.
+(* Proved down to ONE line.  Everything through hcorner and the two
+   cslot_facts instances is instant; only the last rewrite does not return.
+move=> cg pL.
+have := allP ctrip_facts p; rewrite mem_iota /= pL => /(_ isT).
+rewrite /corientg /cprimf.
+case: (nth (0, 0, 0)%N ctrip p) => [[c0 c1] c2].
+case/and5P => /eqP hcp /eqP hcc h0L h1L hne.
+rewrite hcp.
+(* the sticker at slot c1 is ccyc of the one at slot c0 *)
+have hcy : inord c1 = ccyc (inord c0) :> facelet.
+  by rewrite ccycE inordK // hcc.
+have h1 : g^-1 (inord c1) = ccyc (g^-1 (inord c0)).
+  by rewrite hcy (cubcPV cg).
+(* so the sticker at c0 is a corner facelet: ccyc moves it *)
+have hmv : ccyc (g^-1 (inord c0)) != g^-1 (inord c0).
+  rewrite -h1; apply/eqP => /perm_inj /(congr1 (@nat_of_ord 48)).
+  by rewrite !inordK // => e; move: hne; rewrite e eqxx.
+have hcorner : ((g^-1 (inord c0) : nat) \in cflat).
+  have hi := allP ccyc_moves (g^-1 (inord c0) : nat).
+  rewrite mem_iota /= ltn_ord in hi.
+  rewrite -(eqP (hi isT)); apply: contra hmv => /eqP e.
+  by apply/eqP; rewrite ccycE e inord_val.
+have /and4P[/eqP hud /eqP hsl hin hlt] := allP cslot_facts _ hcorner.
+have /and4P[/eqP hudc _ _ _] := allP cslot_facts _ hin.
+rewrite /udcol /cslot h1 ccycE inordK //.
+rewrite hud.
+rewrite hudc.
+rewrite hsl.   (* <-- LOOPS.  hud and hudc are instant. *)
+have hs3 : (index (g^-1 (inord c0) : nat) cflat %% 3 < 3)%N by rewrite ltn_mod.
+by move: hs3; case: (index _ _ %% 3) => [|[|[|?]]].
+Qed. *)
 
 (* THE CORNER FACT, and the only genuinely new content left.  A move sends
    the U/D slot of corner p to slot cdelta m p of corner csrc m p; since a
