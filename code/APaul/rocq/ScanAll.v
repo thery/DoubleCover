@@ -23,6 +23,11 @@
 (*   cover the interval ([leq_chunks]), the last one running past its end     *)
 (*   by fewer than [n] points ([ltn_chunks]), which only adds candidates.     *)
 (*                                                                            *)
+(*   [scanAll_coh] reads the reindexing the other way: when the seeds         *)
+(*   continue one and the same walk -- the shape the polynomial ones are      *)
+(*   meant to have -- the whole run IS the flat inner scan over [c * n]       *)
+(*   points.                                                                  *)
+(*                                                                            *)
 (******************************************************************************)
 
 From mathcomp Require Import all_ssreflect.
@@ -216,6 +221,30 @@ Qed.
 
 End ScanAll.
 
+(*  ** Chunks of one and the same walk                                        *)
+
+(*  Restarting the walk at the distance it has reached at [x] gives the same  *)
+(*  distances from there on.                                                  *)
+Lemma dst_restart M (M_gt0 : 0 < M) A B x y :
+  dst M A (dst M A B x) y = dst M A B (x + y).
+Proof. by rewrite dstE dstDE. Qed.
+
+(*  So seeds that continue one and the same walk -- each chunk restarted at   *)
+(*  the distance the previous ones reached -- make the outer loop the flat    *)
+(*  inner loop over all [c * n] points: the reindexing loses and invents      *)
+(*  nothing.  This is the shape the polynomial seeds are meant to have.       *)
+Theorem scanAll_coh M n A B E c : 0 < M -> 0 < n -> B < M ->
+  scanAll M n (fun _ => A) (fun k => dst M A B (k * n)) (fun _ => E) c
+  = scan M A B (2 * E) (c * n).
+Proof.
+move=> M_gt0 n_gt0 ltn_B.
+rewrite (scanAll_flags M_gt0 n_gt0 _ _ (fun k => ltn_dst M_gt0 A B (k * n))).
+rewrite (scan_flags M_gt0 _ ltn_B).
+apply: eq_filter => j.
+rewrite /hit /chk /fne dst_restart //.
+by rewrite -divn_eq.
+Qed.
+
 (*  ** Sanity checks (computed)                                               *)
 
 (*  [M = 24], multiplier [5], target [7], chunks of [5] points: each chunk    *)
@@ -233,14 +262,6 @@ Proof. by vm_compute. Qed.
 (*  has one wide enough.                                                      *)
 Example scanAll_exk :
   scanAll 24 5 (fun _ => 5) (fun _ => 7) (fun k => k * 2) 2 = [:: 6].
-Proof. by vm_compute. Qed.
-
-(*  Seeds that continue one and the same walk -- each chunk restarted at      *)
-(*  the distance the previous one reached -- give back the flat inner scan    *)
-(*  over all [10] points: the reindexing loses and invents nothing.           *)
-Example scanAll_flat :
-  scanAll 24 5 (fun _ => 5) (fun k => dst 24 5 7 (k * 5)) (fun _ => 2) 2
-  = scan 24 5 7 4 10.
 Proof. by vm_compute. Qed.
 
 (*  Chunks of [5] points: [10] points take two turns, [11] take three.        *)

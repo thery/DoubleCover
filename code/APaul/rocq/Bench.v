@@ -6,19 +6,21 @@
     machine-comparable (independent of wall-clock noise).
 
     The full search interval [[0.25, 0.25001)] is
-      FULL_CHUNKS = (x1num - x0num) / 2^20 = 180143985095 / 2^20 = 171981
-    chunks of 2^20 grid points  (= 2^24 * 10748 points).
+      FULL_CHUNKS = ceil ((x1num - x0num) / 2^20)
+                  = ceil (180143985095 / 2^20) = 171799
+    chunks of 2^20 grid points  (= 2^24 * 10737.4 points), the last of
+    which runs 323129 points past [x1num].
 
     Four benches, with their extrapolation to the full interval:
 
       BENCH 1  filter only: 50 chunks (poly entry + Int63 scan)
-               full ~= T1 * (171981 / 50)   = T1 * 3439.6
+               full ~= T1 * (171799 / 50)   = T1 * 3436.0
       BENCH 2  pure Int63 scan: 2^24 recurrence steps (counter, no list)
-               full ~= T2 * (171981*2^20 / 2^24) = T2 * 10748
+               full ~= T2 * (171799*2^20 / 2^24) = T2 * 10737.4
       BENCH 3  pure polynomial evaluation: 1000 chunk entries
-               full ~= T3 * (171981 / 1000)  = T3 * 172.0
+               full ~= T3 * (171799 / 1000)  = T3 * 171.8
       BENCH 4  filter + screen: the same 50 chunks through [Check.hrc63]
-               full ~= T4 * 3439.6
+               full ~= T4 * 3436.0
 
     BENCH 4 minus BENCH 1 is the cost of screening: with htr.c's corrected
     window the filter flags ~41 candidates per chunk (BENCH 1 returns
