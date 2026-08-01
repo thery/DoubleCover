@@ -100,12 +100,16 @@ Definition ntwist := 2187.
 Definition cprim : seq nat := [:: 0; 2; 5; 7; 40; 42; 45; 47]%N.
 
 (* the three stickers of each corner, U/D one first.  The cyclic order of the
-   other two is a free choice: swapping them recodes one base 3 digit
-   bijectively, so all 2 ^ 8 choices give the same 2187 value quotient.  The
-   AXIS, however, is not free -- see the warning above. *)
+   other two is NOT free.  All 2 ^ 8 choices give the same 2187 value quotient,
+   which is what an earlier comment here claimed, but the DIGIT ALGEBRA needs
+   a coherent order: corner orientation is an action only when the 3-cycle
+   rotating every corner in place commutes with every move, i.e. when cubcP
+   holds.  Exactly 2 of the 256 qualify -- the two chiralities -- and this is
+   the smaller mask.  Measured by bench/p1gen.ml, which now derives it rather
+   than sorting.  The AXIS is not free either -- see the warning above. *)
 Definition ctrip : seq (nat * nat * nat) :=
-  [:: ( 0,  8, 34); ( 2, 26, 32); ( 5, 10, 16); ( 7, 18, 24);
-      (40, 15, 21); (42, 23, 29); (45, 13, 39); (47, 31, 37)]%N.
+  [:: ( 0,  8, 34); ( 2, 32, 26); ( 5, 16, 10); ( 7, 24, 18);
+      (40, 15, 21); (42, 23, 29); (45, 39, 13); (47, 31, 37)]%N.
 
 (* NB: qualified Uint63 functions throughout rather than the << and >> and
    .[ ] notations -- fingroup owns << _ >> for the generated subgroup, so the
@@ -289,8 +293,12 @@ Definition dign (x : int) (p : nat) : nat :=
   if p == 7 then dig8 x else dig3n (to_nat x) p.
 
 (* digit p of the moved coordinate: the corner that arrives at p, rotated *)
+(* cdelta is SUBTRACTED: corientg counts how far one must turn to REACH the
+   U/D sticker, so it runs opposite to cslot.  Measured, not guessed --
+   corientg g p = (3 - cslot (g^-1 (cprimf p))) %% 3, 0 mismatches in 800 008,
+   and this law 0 in 1 400 007. *)
 Definition acttwd (x : int) (m : {perm facelet}) (p : nat) : nat :=
-  (dign x (csrc m p) + cdelta m p) %% 3.
+  (dign x (csrc m p) + 3 - cdelta m p) %% 3.
 
 Definition acttw (x : int) (m : {perm facelet}) : int :=
   foldr (fun p a => Uint63.add (Uint63.mul a 3%uint63) (of_nat (acttwd x m p)))
@@ -585,6 +593,15 @@ Definition cubcP (g : {perm facelet}) : bool :=
 
 (* Coordfs.coordfsM transposed.  With acttw computed rather than tabled this
    is a theorem about the moves, not about emitted numbers. *)
+(* corientg counts how far one must turn to REACH the U/D sticker, so it runs
+   OPPOSITE to cslot, which says where the sticker sitting there came from.
+   Measured: 0 mismatches in 800 008.  cubcP is needed -- the second branch
+   asks about a different slot of the same cubie POSITION, and only a rigid
+   motion ties that to the first. *)
+Lemma corientgE g p : cubcP g -> (p < 8)%N ->
+  corientg g p = ((3 - cslot (g^-1 (cprimf p))) %% 3)%N.
+Proof. Admitted.
+
 (* THE CORNER FACT, and the only genuinely new content left.  A move sends
    the U/D slot of corner p to slot cdelta m p of corner csrc m p; since a
    cubcP permutation turns each cubie rigidly, the orientation there is the
