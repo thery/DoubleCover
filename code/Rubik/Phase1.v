@@ -613,8 +613,14 @@ Definition p1words   := 147806208.    (* ceil (p1entries / 15)                 *
 Definition cwlog  := 21.
 Definition nchunk := 71.
 
-Definition p1tabs : PArray.array arr :=                           (* GENERATED *)
-  PArray.make (of_nat nchunk) (PArray.make 1%uint63 0%uint63).
+(* THE TABLE IS A PARAMETER, exactly as Fstab.v takes it and FsTable.v        *)
+(* supplies it.  Nothing below assumes ANYTHING about it -- no length, no     *)
+(* default, no contents -- because the two checks are what make the heuristic *)
+(* admissible, whatever the array holds.  So the theory can be developed, and *)
+(* the search wired up, against a table that has not been emitted yet.        *)
+Section P1Tab.
+
+Variable p1tabs : PArray.array arr.
 
 Definition p1get (i : int) : int :=
   let w := Uint63.div i 15%uint63 in
@@ -1745,12 +1751,93 @@ Qed.
    apply/idP/negP to put both inequalities in the context, then nlebP/nltbP
    to move to nat and leqNgt to close, is thery's route and is instant.   *)
 
+End P1Tab.
+
 (* =========================================================================  *)
-(*  6.  Still to build (code, not proof)                                      *)
+(*  7.  The dummy table                                                       *)
 (*                                                                            *)
-(*  - acttw, the 2187 x 18 twist move table, alongside Coordfsi's actf         *)
-(*  - the generator: BFS over the folded phase 1 space, emitting srank,        *)
-(*    fsclass, twconj and p1tab as Rocq literals                               *)
-(*  - Far.v's searchz5 carries five flip x slice coordinates; it must carry    *)
-(*    five twists as well, and h5 becomes a max of five Dp1                    *)
+(*  Every entry zero, so Dp1 is 0 everywhere: an admissible heuristic that    *)
+(*  prunes nothing.  It exists so that everything downstream -- the search    *)
+(*  carrying twists, h5 as a max of Dp1 -- can be built and RUN before the    *)
+(*  real table is emitted, which is 71 chunks, 2.9 GB of literals and 8.8     *)
+(*  CPU-hours.  Swapping the real table in later only makes the search        *)
+(*  faster; it cannot make it wrong, and it cannot make it right either --    *)
+(*  that is what p1check0 and p1checkStep are for, and the dummy passes both  *)
+(*  BY PROOF rather than by evaluation, which the real table cannot do.       *)
+(*                                                                            *)
+(*  With the dummy, `max (h5 ...) (Dp1 ...)' is exactly today's h5, so the    *)
+(*  depth 12-14 runs stay comparable while the wiring is developed.           *)
+(* =========================================================================  *)
+
+Definition p1dummy : PArray.array arr :=
+  PArray.make (of_nat nchunk) (PArray.make 1%uint63 0%uint63).
+
+(* PArray.get on a `make' is the fill value at EVERY index -- in range or not,
+   since the fill value is also the default.  So the two nested reads give 0
+   and the shift and mask leave it there.
+
+   THE PATTERNS ARE NOT OPTIONAL: a bare `rewrite PArray.get_make' fails on
+   both reads ("does not match any subterm"), because the two are at different
+   types -- array (array int) and array int -- and the implicit A is what
+   unification gets wrong.  Naming the redex fixes it, and this is the same
+   "arguments explicit" rule the conjugation rewrites in Sym.v needed. *)
+Lemma p1get_dummy i : p1get p1dummy i = 0%uint63.
+Proof.
+rewrite /p1get /p1dummy.
+rewrite [PArray.get (PArray.make (of_nat nchunk)
+                       (PArray.make 1%uint63 0%uint63)) _]PArray.get_make.
+rewrite [PArray.get (PArray.make 1%uint63 0%uint63) _]PArray.get_make.
+by rewrite lsr0 land0.
+Qed.
+
+Lemma Dp1i_dummy tw x : Dp1i p1dummy tw x = 0%uint63.
+Proof. exact: p1get_dummy. Qed.
+
+Lemma Dp1_dummy tw x : Dp1 p1dummy tw x = 0%N.
+Proof. by rewrite /Dp1 Dp1i_dummy to_nat_0. Qed.
+
+Lemma p1check0_dummy : p1check0 p1dummy.
+Proof. by rewrite /p1check0 Dp1i_dummy. Qed.
+
+(* `apply/allP' does NOT work on this goal -- the view leaves an evar for the
+   list and reports "no assumption" -- and neither `/Dp1i' nor a bang does.
+   Rewriting the predicate to xpredT, then naming each redex, is instant. *)
+Lemma p1stepF_dummy tw x : p1stepF p1dummy tw x.
+Proof.
+rewrite /p1stepF; case: ifP => // _.
+rewrite (eq_all (a2 := xpredT)) ?all_predT // => km.
+by rewrite [Dp1i p1dummy tw x]p1get_dummy
+           [Dp1i p1dummy (acttwi tw km.1) (actf x km.2)]p1get_dummy.
+Qed.
+
+(* BY PROOF, NOT BY EVALUATION, and that is the whole point of the dummy:
+   all_pow_all takes a predicate that is true everywhere and never unfolds the
+   2 ^ 24 loop.  The real table has to be checked by the kernel instead. *)
+Lemma p1checkStep_dummy : p1checkStep p1dummy.
+Proof.
+apply/allP => t _; rewrite p1checkTwE.
+by apply: Fstab.all_pow_all => x; exact: p1stepF_dummy.
+Qed.
+
+(* so the two things the search needs hold, unconditionally *)
+Lemma Dp1_0_dummy : Dp1 p1dummy (coordtw 1) (coordfs 1) = 0%N.
+Proof. exact/Dp1_0_of_check/p1check0_dummy. Qed.
+
+Lemma Dp1_step_dummy :
+  forall tw x k, (to_nat tw < ntwist)%N -> (to_nat x < 2 ^ ncoord)%N ->
+  (fsidx x <? nfsi)%uint63 -> (k < 18)%N ->
+  (Dp1 p1dummy tw x <=
+   (Dp1 p1dummy (acttwi tw k) (actfs x (nth 1%g moves k))).+1)%N.
+Proof. exact: (Dp1_step_of_check p1checkStep_dummy). Qed.
+
+(* =========================================================================  *)
+(*  8.  Still to build (code, not proof)                                      *)
+(*                                                                            *)
+(*  - the emission of the real table: 71 chunks, 2.9 GB of literals, 8.8      *)
+(*    CPU-hours, 4.5 GB of .vo.  bench/p1gen.ml `emit', and it runs on        *)
+(*    roquableu, not here                                                     *)
+(*  - Far.v's searchz5 carries five flip x slice coordinates; it must carry   *)
+(*    five twists as well, and h5 becomes a max of five Dp1.  THIS CAN BE     *)
+(*    DONE NOW, against p1dummy, and swapping the real table in afterwards    *)
+(*    changes no proof                                                        *)
 (* =========================================================================  *)
