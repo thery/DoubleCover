@@ -142,6 +142,7 @@ Local Notation inf_ex := (inf_ex M_gt0 A B).
 Local Notation leq_N_Mg := (leq_N_Mg N_lt_Mg).
 Local Notation dst_diff := (dst_diff M_gt0 A B).
 Local Notation dst_ofD := (dst_ofD ltn_B).
+Local Notation dst_gap_up := (@dst_gap_up M M_gt0 A B).
 Local Notation pt_neq0 := (pt_neq0 M_gt0 N_lt_Mg).
 
 Local Notation step_p_gt0 := (@step_p_gt0 M A N N_lt_Mg).
@@ -166,6 +167,8 @@ Local Notation invx_step := (@invx_step M M_gt0 A B ltn_B N N_lt_Mg).
 Local Notation gap_q_empty := (@gap_q_empty M M_gt0 A B).
 Local Notation gap_p_empty := (@gap_p_empty M M_gt0 A B).
 Local Notation walk_lt_nowrap := (@walk_lt_nowrap M M_gt0 A B).
+Local Notation walk_ge_nowrap := (@walk_ge_nowrap M M_gt0 A B).
+Local Notation red_ge_new := (@red_ge_new M M_gt0 A).
 Local Notation invx_red_ge_min := (@invx_red_ge_min M M_gt0 A).
 Local Notation invx_red_ge_max := (@invx_red_ge_max M M_gt0 A).
 Local Notation invx_red_ge_p2 := (@invx_red_ge_p2 M M_gt0 A).
@@ -305,10 +308,31 @@ Qed.
 (*    a [z] with [dst z < dst w] would sit strictly inside [w]'s gap, and no  *)
 (*    point does.  The [w < z] half of [gap_p_empty] needs no change -- it    *)
 (*    already runs on [invx_min] alone.                                       *)
+(*  the [z < w] case, which is the only one that differs: [Alg2] gets its    *)
+(*    contradiction from [p <= q], and here it has to come from [w < u].      *)
+Lemma gap_pu_down p q d u v w z :
+  inv p q d u v -> invx p q u v -> w < u -> z < w -> dst z <= dst w ->
+  dst w < p -> False.
+Proof. Admitted.
+
 Lemma gap_pu_empty p q d u v w z :
   inv p q d u v -> invx p q u v -> w < u -> z < u + v -> dst w < p ->
   dst w <= dst z.
-Proof. Admitted.
+Proof.
+move=> iv ix wu zL pDw; case: leqP => // Dzw.
+have wL : w < u + v by rewrite (leq_trans wu) // leq_addr.
+have zDw : dst z <= dst w := ltnW Dzw.
+have [wz|zw] := ltnP w z; last first.
+  have zNw : z != w by apply/eqP => zw'; move: Dzw; rewrite zw' ltnn.
+  have zLw : z < w by rewrite ltn_neqAle zNw zw.
+  by case: (gap_pu_down iv ix wu zLw zDw pDw).
+(* the [w < z] half is [Alg2.gap_p_empty]'s, and runs on [invx_min] alone *)
+have Hd := dst_gap_up (ltnW wz) zDw.
+have Hk : p <= pt (z - w).
+  by apply: (invx_min ix); rewrite subn_gt0 wz (leq_ltn_trans (leq_subr _ _)).
+move: Hk; rewrite -(leq_add2r (dst z)) Hd => H.
+by move: pDw; rewrite ltnNge (leq_trans _ H) // leq_addr.
+Qed.
 
 Lemma inf_at_pu p q d u v w :
   inv p q d u v -> invx p q u v -> w < u -> dst w < p -> inf (u + v) = dst w.
@@ -625,7 +649,16 @@ Lemma sub_p_new_dst p q d u v y0 :
   inv p q d u v -> invx p q u v -> q < p -> y0 < u -> p - q <= dst y0 ->
   u + (v + u) < N ->
   dst (y0 + (v + u)) = dst y0 - (p - q).
-Proof. Admitted.
+Proof.
+move=> iv ix qLp y0u pqD uvuN.
+have [_ q_gt0 _ _ _ _ _ _] := iv.
+have k1 : 1 <= p %/ q by rewrite divn_gt0 //; apply: ltnW.
+have p1 : 0 < p - 1 * q by rewrite mul1n subn_gt0.
+have uvN' : u + (v + 1 * u) < N by rewrite mul1n.
+have H := invx_red_ge_p1 iv ix (ltnW qLp) k1 p1 uvN' y0u.
+rewrite !mul1n in H.
+by rewrite (dst_ofD H).
+Qed.
 
 Lemma sub_p_argmin p q d u v y0 :
   inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
@@ -650,8 +683,20 @@ Proof. Admitted.
 
 Lemma ge_new_dst p q d u v z :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
-  u + v <= z -> z < N -> inf (u + v) <= dst z.
-Proof. Admitted.
+  u + v <= z -> z < u + (v + p %/ q * u) -> inf (u + v) <= dst z.
+Proof.
+move=> iv ix iw uvN pLd zge zlt.
+have [pLq|qLp] := ltnP p q.
+  by move: zlt; rewrite (divn_small pLq) mul0n addn0 ltnNge zge.
+have [j jk [yb jqP Hm]] := red_ge_new iv (invx_min ix) qLp (leqnn _) zge zlt.
+have /andP[y_gt0 ylt] := yb.
+have jul : j * u <= z by apply: ltnW; rewrite -subn_gt0.
+have zE : z = z - j * u + j * u by rewrite subnK.
+have [Hw|Hw] := ltnP (dst (z - j * u) + j * q) M.
+  rewrite zE (walk_ge_nowrap iv qLp ylt jk Hw).
+  by rewrite (leq_trans _ (leq_addr _ _)) // leq_inf_dst.
+by rewrite zE; apply: ge_wrap_dst iv ix qLp ylt jk Hw.
+Qed.
 
 (*  Reducing [p] splits [p]-gaps, into [p - q] on the left and [q] on the    *)
 (*    right (Property 3: the residual is leftmost, points enter from the      *)
@@ -803,7 +848,7 @@ have dE : inf (u + v) = d - p by have := invw_inf iw; rewrite ifN // -leqNgt.
 rewrite -dE; apply: leq_inf.
   by rewrite -inf0; apply: leq_inf_mono.
 move=> z zL; have [zold|znew] := ltnP z (u + v); first exact: leq_inf_dst zold.
-exact: ge_new_dst iv ix iw uvN pLd znew zL.
+by apply: ge_new_dst iv ix iw uvN pLd znew _; apply: leq_trans zL NL.
 Qed.
 
 (*  At the exit the count has passed [N], so [half1_exact] is out of reach:   *)
