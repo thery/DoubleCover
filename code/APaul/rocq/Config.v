@@ -101,6 +101,8 @@ Local Notation step_pt_one_ge := (@step_pt_one_ge M M_gt0 A B ltn_B).
 
 Local Notation walk_lt_nowrap := (@walk_lt_nowrap M M_gt0 A B).
 Local Notation walk_lt_wrap_ge := (@walk_lt_wrap_ge M M_gt0 A B).
+Local Notation dst_sub_u := (dst_sub_u M_gt0).
+Local Notation pt_add_u := (pt_add_u M_gt0).
 
 (******************************************************************************)
 (* Reducing [q] by [k] copies of [p]                                          *)
@@ -565,6 +567,98 @@ move=> iv ix qLp kLp p'_gt0 uvN' y yL.
 have Hmin' := invx_red_ge_min iv (invx_min ix) qLp kLp.
 have Hmax' := invx_red_ge_max iv (invx_min ix) (invx_max ix) qLp kLp.
 by apply: gap_decomp (inv_red_ge iv qLp kLp p'_gt0) Hmin' Hmax' yL.
+Qed.
+
+(*  How far the infimum drops when [p] is reduced -- and it is NOT the       *)
+(*    mirror of the [q] side.  Property 3 is directional: a [q]-gap splits    *)
+(*    into [k] gaps of length [p] then the residual, LEFT TO RIGHT, so every  *)
+(*    point walks down by steps of [p]; a [p]-gap splits into the residual    *)
+(*    [r = p - k*q] then [k] gaps of length [q], points entering FROM THE     *)
+(*    RIGHT.  So here whether the infimum moves at all depends on which gap   *)
+(*    [b] sits in, which is what the disjunction records: [inf (u+v) < q]     *)
+(*    is the case where [b] is in a [q]-gap and nothing is added below it.    *)
+(*    This is [Alg2.ge_inf_le] at a general [k]; the [if] is what replaces    *)
+(*    Alg2's appeal to [r < q], which only holds at the quotient.             *)
+Lemma inf_red_ge_le p q d u v k :
+  inv p q d u v -> invx p q u v -> q <= p -> 0 < k -> k <= p %/ q ->
+  u + (v + k * u) < N ->
+  inf (u + v) < q \/
+  inf (u + (v + k * u)) <=
+    (if p - k * q <= inf (u + v) then (inf (u + v) - (p - k * q)) %% q
+     else inf (u + v)).
+Proof.
+move=> iv ix qLp k_gt0 kLp uvN'.
+have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
+have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
+have [y0 y0L Heq] := inf_ex uv_gt0.
+have kqp : k * q <= p by rewrite -leq_divRL.
+case: (ltnP y0 u) => [y0u|uy0]; last first.
+(* [b] is in a [q]-gap: nothing is added there, and [Inf] is already low      *)
+  left; rewrite ltnNge; apply/negP => qI.
+  have qDy : q <= dst y0 by rewrite -Heq.
+  have Hd := dst_sub_u iv uy0 qDy.
+  have Hle : inf (u + v) <= dst (y0 - u).
+    by apply: leq_inf_dst; rewrite (leq_ltn_trans (leq_subr _ _)).
+  by move: Hle; rewrite Hd -Heq leqNgt ltn_subrL q_gt0 (leq_trans q_gt0 qI).
+(* [b] is in a [p]-gap, so [Inf] is below its length                          *)
+have Ip : inf (u + v) < p.
+  rewrite ltnNge; apply/negP => pI.
+  have Hsucc : pt (y0 + v) = pt y0 + p by apply: (invx_p1 ix).
+  have pDy : p <= dst y0 by rewrite -Heq.
+  have Hdd := dst_ofD Hsucc pDy.
+  have Hle : inf (u + v) <= dst (y0 + v).
+    by apply: leq_inf_dst; rewrite ltn_add2r.
+  by move: Hle; rewrite Hdd -Heq leqNgt ltn_subrL p_gt0 (leq_trans p_gt0 pI).
+right; case: (leqP (p - k * q) (inf (u + v))) => [rI|Ir]; last first.
+(* [b] is in the residual gap at the bottom: no point was added below it      *)
+  by apply: leq_inf_mono; rewrite leq_add2l leq_addr.
+(* [b] is in the [m]-th new [q]-gap; the point just below it is the witness   *)
+set I := inf (u + v) in Heq Ip rI *.
+set m := (I - (p - k * q)) %/ q.
+have mk : m < k.
+  by rewrite /m ltn_divLR // ltn_subLR // (subnK kqp).
+set j := k - m.
+have j_gt0 : 0 < j by rewrite /j subn_gt0.
+have jk : j <= k by rewrite /j leq_subr.
+have jqp : j * q <= p.
+  by rewrite (leq_trans (leq_mul jk (leqnn q))).
+have pjq : p - j * q = (p - k * q) + m * q.
+  have mkq : m * q <= k * q by rewrite leq_mul2r (ltnW mk) orbT.
+  have jqE : j * q = k * q - m * q by rewrite /j mulnBl.
+  by rewrite jqE subnBA // addnBAC.
+have Hsucc : pt (y0 + v) = pt y0 + p by apply: (invx_p1 ix).
+have jqPt : j * q <= pt (y0 + v) by rewrite Hsucc (leq_trans jqp) // leq_addl.
+have Hpt : pt (y0 + v + j * u) = pt y0 + ((p - k * q) + m * q).
+  by rewrite (pt_add_u iv j_gt0 jqp jqPt) Hsucc -pjq addnBA.
+have tI : (p - k * q) + m * q <= I.
+  by rewrite addnC -(subnK rI) leq_add2r /m leq_divM.
+have tDy : (p - k * q) + m * q <= dst y0 by rewrite -Heq.
+have Hdst : dst (y0 + v + j * u) = I - ((p - k * q) + m * q).
+  by rewrite (dst_ofD Hpt tDy) -Heq.
+have HE : I - ((p - k * q) + m * q) = (I - (p - k * q)) %% q.
+  by rewrite subnDA {1}(divn_eq (I - (p - k * q)) q) -/m addnC addnK.
+rewrite -HE -Hdst; apply: leq_inf_dst.
+rewrite addnA (leq_ltn_trans (leq_add (leqnn (y0 + v))
+        (leq_mul jk (leqnn u)))) //.
+by rewrite ltn_add2r ltn_add2r.
+Qed.
+
+(*  and the [inf] field of [invx] on this side, which holds under either      *)
+(*    branch of the disjunction -- the same route as [Alg2].                  *)
+Lemma invx_red_ge_inf p q d u v k :
+  inv p q d u v -> invx p q u v -> q <= p -> 0 < k -> k <= p %/ q ->
+  u + (v + k * u) < N ->
+  inf (u + (v + k * u)) < maxn (p - k * q) q.
+Proof.
+move=> iv ix qLp k_gt0 kLp uvN'.
+have [_ q_gt0 _ _ _ _ u_gt0 v_gt0] := iv.
+case: (inf_red_ge_le iv ix qLp k_gt0 kLp uvN') => [Ilt|Hle].
+  apply: leq_ltn_trans (_ : inf (u + v) < _); last by rewrite (leq_trans Ilt) //
+    leq_maxr.
+  by apply: leq_inf_mono; rewrite leq_add2l leq_addr.
+move: Hle; case: (leqP (p - k * q) (inf (u + v))) => [rI|Ir] Hle.
+  by rewrite (leq_ltn_trans Hle) // (leq_trans (ltn_pmod _ q_gt0)) ?leq_maxr.
+by rewrite (leq_ltn_trans Hle) // (leq_trans Ir) // leq_maxl.
 Qed.
 
 End Reduce.
