@@ -27,4 +27,8 @@ Lemma p1searchd_@N@ :
   all (fun i => ~~ searchz3 p1tab @D@ (prefixi i @J@)
                             (init3 (prefixi i @J@)) nfcube)
       (iota 0 nroot).
-Proof. Time native_cast_no_check (erefl true). Qed.
+(* vm_cast_no_check, NOT native: Far_??.v can go native because fstab is two
+   million words, but the phase 1 table is 4.5 GB and the native compiler has
+   to emit it -- the same wall FsTable.v hit with `Eval vm_compute'.  vm
+   evaluates once too. *)
+Proof. Time vm_cast_no_check (erefl true). Qed.
