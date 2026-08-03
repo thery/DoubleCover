@@ -159,6 +159,14 @@ Local Notation invx_red_lt_p2 := (@invx_red_lt_p2 M M_gt0 A B ltn_B).
 Local Notation invx_red_lt_inf := (@invx_red_lt_inf M M_gt0 A B N).
 Local Notation invx_red_lt_gap :=
   (@invx_red_lt_gap M M_gt0 A B ltn_B N N_lt_Mg).
+Local Notation invx_step := (@invx_step M M_gt0 A B ltn_B N N_lt_Mg).
+Local Notation invx_red_ge_min := (@invx_red_ge_min M M_gt0 A).
+Local Notation invx_red_ge_max := (@invx_red_ge_max M M_gt0 A).
+Local Notation invx_red_ge_p2 := (@invx_red_ge_p2 M M_gt0 A).
+Local Notation invx_red_ge_p1 :=
+  (@invx_red_ge_p1 M M_gt0 A B ltn_B N N_lt_Mg).
+Local Notation invx_red_ge_inf := (@invx_red_ge_inf M M_gt0 A B ltn_B N).
+Local Notation invx_red_ge_gap := (@invx_red_ge_gap M M_gt0 A B ltn_B N).
 
 Definition half1 (p q d u v : nat) : nat * nat * nat * nat * nat :=
   if d < p then
@@ -393,19 +401,48 @@ Lemma half1_leq_inf p q d u v :
   N <= u' + v' -> d' <= inf N.
 Proof. Admitted.
 
-(*  [invx] through the two halves.  [half1] is [Alg2.step], [half2] is        *)
-(*    Config.v's reduction at [k = 1]; both are assemblies of the six         *)
-(*    [invx_red_*] fields, once Config.v has the [inf] one.                   *)
+(*  [invx] through the two halves, and both are assemblies.  [half1] is       *)
+(*    [Alg2.step] whenever the branch test agrees with [p < q], and the       *)
+(*    identity otherwise, so [Alg2.invx_step] does it; [half2] is Config.v's  *)
+(*    reduction at [k = 1], so its six [invx_red_*] fields do.                *)
 Lemma invx_half1 p q d u v :
   inv p q d u v -> invx p q u v -> u + v < N ->
   let: (p', q', _, u', v') := half1 p q d u v in
   u' + v' < N -> invx p' q' u' v'.
-Proof. Admitted.
+Proof.
+move=> iv ix uvN.
+have pqN := inv_pq_neq iv uvN.
+have Hs := invx_step iv ix uvN.
+rewrite /half1; case: (ltnP d p) => [dLp|pLd].
+  case: (ltnP p q) => [pLq|qLp] /=; first by move: Hs; rewrite /step ifT.
+  have qLp' : q < p by rewrite ltn_neqAle qLp andbT eq_sym.
+  by rewrite (divn_small qLp') mul0n subn0 addn0.
+case: (ltnP p q) => [pLq|qLp] /=.
+  by rewrite (divn_small pLq) mul0n subn0 addn0.
+by move: Hs; rewrite /step ifN -?leqNgt.
+Qed.
 
 Lemma invx_sub_p p q d u v :
   inv p q d u v -> invx p q u v -> q < p -> u + (v + u) < N ->
   invx (p - q) q u (v + u).
-Proof. Admitted.
+Proof.
+move=> iv ix qLp uvN; have [_ q_gt0 _ _ _ _ _ _] := iv.
+have k1 : 1 <= p %/ q by rewrite divn_gt0 //; apply: ltnW.
+have p1 : 0 < p - 1 * q by rewrite mul1n subn_gt0.
+have uvN' : u + (v + 1 * u) < N by rewrite mul1n.
+split.
+- by have H := invx_red_ge_min iv (invx_min ix) (ltnW qLp) k1;
+     rewrite !mul1n in H.
+- by have H := invx_red_ge_max iv (invx_min ix) (invx_max ix) (ltnW qLp) k1;
+     rewrite !mul1n in H.
+- exact: inv_qM iv.
+- by have H := invx_red_ge_inf (k := 1) iv ix (ltnW qLp) isT k1 uvN';
+     rewrite !mul1n in H.
+- by have H := invx_red_ge_gap iv ix (ltnW qLp) k1 p1 uvN';
+     rewrite !mul1n in H.
+- by have H := invx_red_ge_p1 iv ix (ltnW qLp) k1 p1 uvN'; rewrite !mul1n in H.
+by have H := invx_red_ge_p2 (k := 1) iv; rewrite !mul1n in H.
+Qed.
 
 Lemma invx_sub_q p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + v + v < N ->
