@@ -141,6 +141,7 @@ Local Notation leq_inf_mono := (leq_inf_mono M A B).
 Local Notation inf_ex := (inf_ex M_gt0 A B).
 Local Notation leq_N_Mg := (leq_N_Mg N_lt_Mg).
 Local Notation dst_diff := (dst_diff M_gt0 A B).
+Local Notation dst_ofD := (dst_ofD ltn_B).
 Local Notation pt_neq0 := (pt_neq0 M_gt0 N_lt_Mg).
 
 Local Notation step_p_gt0 := (@step_p_gt0 M A N N_lt_Mg).
@@ -254,7 +255,14 @@ Qed.
 Lemma argmin_lt_p p q d u v y0 :
   inv p q d u v -> invx p q u v -> y0 < u -> inf (u + v) = dst y0 ->
   dst y0 < p.
-Proof. Admitted.
+Proof.
+move=> iv ix y0u Hy0; have [p_gt0 _ _ _ _ _ _ _] := iv.
+rewrite ltnNge; apply/negP => pDy0.
+have Hsucc : pt (y0 + v) = pt y0 + p by apply: (invx_p1 ix).
+have Hdd := dst_ofD Hsucc pDy0.
+have Hle : inf (u + v) <= dst (y0 + v) by apply: leq_inf_dst; rewrite ltn_add2r.
+by move: Hle; rewrite Hdd Hy0 leqNgt ltn_subrL p_gt0 (leq_trans p_gt0 pDy0).
+Qed.
 
 Lemma inf_at_p p q d u v w :
   inv p q d u v -> invx p q u v -> p <= q -> w < u + v -> dst w < p ->
@@ -313,7 +321,25 @@ Qed.
 Lemma invw_init_gap :
   1 + 1 <= N ->
   forall y, y < 1 + 1 -> inf (1 + 1) = dst y -> (y < 1) = (B %% M < A %% M).
-Proof. Admitted.
+Proof.
+move=> N2 y yL yE.
+have bm : B %% M = B by apply: modn_small.
+have yN : y <= N by apply: ltnW; exact: leq_trans yL N2.
+have Hi := invw_init_inf.
+have [BLa|aLB] := ltnP (B %% M) (A %% M).
+  have -> : y = 0.
+    apply: dst_inj yN (leq0n N) _.
+    by rewrite -yE Hi ifT // bm dst0.
+  by [].
+have amB : A %% M <= B by rewrite -bm.
+have d1 : dst 1 = B - A %% M.
+  rewrite dstE /Dist.pt muln1 -addnBAC // modnDr modn_small //.
+  by rewrite (leq_ltn_trans (leq_subr _ _)).
+have -> : y = 1.
+  apply: dst_inj yN (leq_trans _ N2) _ => //.
+  by rewrite -yE Hi ifN -?leqNgt // bm d1.
+by rewrite ltnn.
+Qed.
 
 Lemma invw_init : invw (A %% M) (M - A %% M) (B %% M) 1 1.
 Proof.
