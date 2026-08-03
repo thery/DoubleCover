@@ -1172,6 +1172,121 @@ Qed.
    the table: the flip half is eleven bits and the slice half is a mask with
    exactly four bits set, so fsidx lands below 2048 * 495.  It belongs in
    Coordfs, which owns both halves; it is stated here until it moves. *)
+(* -- the slice half has exactly four bits set ------------------------------ *)
+
+(* ALL FOUR OF THESE BELONG IN Coordfs.v, which owns eprim, esec and epair;
+   they are here only so that closing fsidx_lt does not rebuild the sixteen
+   certificate files.  Move them when the file settles.
+
+   Note the cubP hypothesis, which is not decoration: for an arbitrary
+   permutation the count is anything at all, and fsidx_lt is then FALSE.  It
+   is the same hypothesis coordfs_flip and coordfs_slice carry. *)
+
+(* a slice edge is one whose position is among the last four -- read off the
+   24 edge facelets, since scol and epos are both functions of the nat *)
+Lemma scol_epos (f : facelet) : (f : nat) \in eprim ++ esec ->
+  scol f = (nedge - nslice <= epos f)%N.
+Proof.
+move=> fE; apply/eqP.
+have hall : all (fun m => ((m \in drop 8 eprim ++ drop 8 esec)
+                  == (nedge - nslice <= index m (eprim ++ esec) %% nedge)%N))
+                (eprim ++ esec).
+  by vm_compute.
+exact: (allP hall _ fE).
+Qed.
+
+(* a primary facelet is never the partner of a primary facelet: eprim and the
+   image of eprim under the pairing are disjoint *)
+Lemma eprimf_epair_neq p q : (p < nedge)%N -> (q < nedge)%N ->
+  eprimf q != epair (eprimf p).
+Proof.
+move=> pL qL; apply/eqP => e.
+have hsz : seq.size eprim = nedge by vm_compute.
+have hb : (epairn (eprimf p : nat) < nfacelet)%N := epairn_lt (eprimf_edge pL).
+have e' : nth 0%N eprim q = epairn (nth 0%N eprim p).
+  by rewrite -(eprimfK pL) -(eprimfK qL) e epairE (inordK hb).
+have hall : all (fun m => epairn m \notin eprim) eprim by vm_compute.
+have hpm : nth 0%N eprim p \in eprim by apply: mem_nth; rewrite hsz.
+have hqm : nth 0%N eprim q \in eprim by apply: mem_nth; rewrite hsz.
+by have := allP hall _ hpm; rewrite -e' hqm.
+Qed.
+
+(* the position the edge at p came from is injective in p.  Two positions with
+   the same source hold the two facelets of one edge -- edge_case -- and the
+   secondary case is exactly what eprimf_epair_neq rules out. *)
+Lemma eprimg_inj g p q : cubP g -> (p < nedge)%N -> (q < nedge)%N ->
+  epos (g^-1 (eprimf p)) = epos (g^-1 (eprimf q)) -> p = q.
+Proof.
+move=> cg pL qL e.
+have key : g^-1 (eprimf p) = g^-1 (eprimf q) -> p = q.
+  move=> /(@perm_inj _ g^-1) ee.
+  by move: (f_equal epos ee); rewrite (epos_prim pL) (epos_prim qL).
+have aE : ((g^-1 (eprimf p)) : nat) \in eprim ++ esec.
+  by rewrite (cubP_edge _ (cubPV cg)) eprimf_edge.
+have bE : ((g^-1 (eprimf q)) : nat) \in eprim ++ esec.
+  by rewrite (cubP_edge _ (cubPV cg)) eprimf_edge.
+case: (edge_case aE) => [aP|aS]; case: (edge_case bE) => [bP|bS].
+- by apply: key; rewrite {1}aP e -bP.
+- have : eprimf q = epair (eprimf p).
+    apply: (@perm_inj _ g^-1).
+    by rewrite (cubP_epairV _ cg) {1}bS -e -aP.
+  by move=> /eqP; rewrite (negbTE (@eprimf_epair_neq p q pL qL)).
+- have : eprimf p = epair (eprimf q).
+    apply: (@perm_inj _ g^-1).
+    by rewrite (cubP_epairV _ cg) {1}aS e -bP.
+  by move=> /eqP; rewrite (negbTE (@eprimf_epair_neq q p qL pL)).
+- by apply: key; rewrite {1}aS e -bS.
+Qed.
+
+(* THE FACT.  p |-> epos (g^-1 (eprimf p)) is injective on twelve positions
+   with twelve values, hence a permutation of them, so the four positions it
+   sends into the last four are counted exactly once each.  Stated and proved
+   on SEQS -- perm_eq of the map with iota -- rather than through finset. *)
+Lemma count_sliceb g : cubP g -> count (sliceb g) (iota 0 nedge) = nslice.
+Proof.
+move=> cg.
+have hedge p : (p < nedge)%N -> ((g^-1 (eprimf p)) : nat) \in eprim ++ esec.
+  by move=> pL; rewrite (cubP_edge _ (cubPV cg)) eprimf_edge.
+have hE : {in iota 0 nedge, sliceb g =1
+            (fun p => (nedge - nslice <= epos (g^-1 (eprimf p)))%N)}.
+  move=> p; rewrite mem_iota add0n => /andP[_ pL].
+  by rewrite /sliceb (scol_epos (hedge p pL)).
+rewrite (eq_in_count hE).
+have hsub : {subset [seq epos (g^-1 (eprimf p)) | p <- iota 0 nedge]
+                    <= iota 0 nedge}.
+  move=> r /mapP[p _ ->]; rewrite mem_iota add0n leq0n /=.
+  exact: epos_lt.
+have huniq : uniq [seq epos (g^-1 (eprimf p)) | p <- iota 0 nedge].
+  (* the side condition SUPPLIED: `rewrite map_inj_in_uniq ?iota_uniq //'
+     does not return *)
+  have hinj : {in iota 0 nedge &,
+                injective (fun p => epos (g^-1 (eprimf p)))}.
+    move=> p q; rewrite !mem_iota !add0n => /andP[_ pL] /andP[_ qL].
+    exact: eprimg_inj cg pL qL.
+  by rewrite (map_inj_in_uniq hinj) iota_uniq.
+have hsz : (seq.size (iota 0 nedge) <=
+            seq.size [seq epos (g^-1 (eprimf p)) | p <- iota 0 nedge])%N.
+  by rewrite size_map.
+have hperm : perm_eq [seq epos (g^-1 (eprimf p)) | p <- iota 0 nedge]
+                     (iota 0 nedge).
+  apply: uniq_perm; [exact: huniq | exact: iota_uniq | ].
+  by have [_ hi] := uniq_min_size huniq hsub hsz; exact: hi.
+have -> : count (fun p => (nedge - nslice <= epos (g^-1 (eprimf p)))%N)
+                (iota 0 nedge)
+        = count (fun r => (nedge - nslice <= r)%N)
+                [seq epos (g^-1 (eprimf p)) | p <- iota 0 nedge].
+  by rewrite count_map.
+(* seq.permP, NOT permP: all_fingroup shadows it with the {perm _} one *)
+by rewrite (seq.permP hperm); vm_compute.
+Qed.
+
+(* -- and what is left ------------------------------------------------------ *)
+
+(* STILL ADMITTED, and no longer for want of a mathematical fact: count_sliceb
+   is the content.  What is missing is the bridge from the count to the array
+   read -- nbit of the shifted word is sliceb, the mask is below 4096, and a
+   finite check over the 4096 masks turns "four bits set" into srank < 495.
+   It will also need the cubP hypothesis this statement does not yet carry. *)
 Lemma fsidx_lt (g : {perm facelet}) : (fsidx (coordfs g) <? nfsi)%uint63.
 Proof. Admitted.
 
