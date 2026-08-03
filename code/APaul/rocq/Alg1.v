@@ -578,6 +578,34 @@ Qed.
 (*    drops -- by nothing, or by the new [p].  That is the [k = 1] case of    *)
 (*    Config.v's reduction, and the reason [invw] is stated with a test       *)
 (*    rather than an equation.                                                *)
+(*  ONE helper for both [p]-side leaves.  After the single reduction the      *)
+(*    point below [b] is either the one it had -- [b] stayed in the left      *)
+(*    [p - q] part -- or the one that entered from the right, whose index is  *)
+(*    [y0 + (v + u)] by [Config.invx_red_ge_p1] at [k = 1].  Both [_inf] and  *)
+(*    [_gap] read off it, the second through [dst_inj].                       *)
+(*                                                                            *)
+(*  OPEN, and it is the same corner that made [half1_ge_nodrop] false without *)
+(*    a range bound: the count [u + (v + u)] can pass [M %/ g], where [Inf]   *)
+(*    is the minimum over the whole orbit and the equation below can fail.    *)
+(*    A range hypothesis fixes the helper, but [invw_inf] is NOT conditional  *)
+(*    -- [run1_past] reads it at overshot counts -- so [invw_sub_p_inf]       *)
+(*    cannot take one.  Deciding that is the next thing, before any proof:    *)
+(*    either [invw_inf] gets a condition and [run1_past] a weaker fact, or    *)
+(*    the overshoot is shown to stay below [M %/ g].                          *)
+Lemma sub_p_argmin p q d u v y0 :
+  inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
+  y0 < u -> inf (u + v) = dst y0 -> u + (v + u) <= N ->
+  inf (u + (v + u)) = dst (if d < p - q then y0 else y0 + (v + u)).
+Proof. Admitted.
+
+(*  and one for the exit.  There the count has passed [N], so nothing can be  *)
+(*    said about the whole new range -- but only the indices BELOW [N] are    *)
+(*    asked about, and those are still one orbit's worth.                     *)
+Lemma ge_new_dst p q d u v z :
+  inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
+  u + v <= z -> z < N -> inf (u + v) <= dst z.
+Proof. Admitted.
+
 (*  Reducing [p] splits [p]-gaps, into [p - q] on the left and [q] on the    *)
 (*    right (Property 3: the residual is leftmost, points enter from the      *)
 (*    right).  So these two need to know that [b] is in a [p]-gap: for a [b]  *)
@@ -601,7 +629,28 @@ Lemma invw_sub_p_gap p q d u v :
   u + (v + u) <= N ->
   forall y, y < u + (v + u) -> inf (u + (v + u)) = dst y ->
   (y < u) = (d < p - q).
-Proof. Admitted.
+Proof.
+move=> iv ix qLp dE dLp pg uvuN y yL yE.
+have [_ _ _ _ _ _ u_gt0 _] := iv.
+have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
+have [y0 y0L Hy0] := inf_ex uv_gt0.
+have y0u : y0 < u := pg _ y0L Hy0.
+have Ha := sub_p_argmin iv ix qLp dE dLp y0u Hy0 uvuN.
+have yN : y <= N by apply: ltnW; exact: leq_trans yL uvuN.
+have y0uv : y0 + (v + u) < u + (v + u) by rewrite ltn_add2r.
+have [dLpq|pqLd] := ltnP d (p - q).
+  rewrite ifT // in Ha.
+  have y0N : y0 <= N.
+    by apply: ltnW; apply: leq_trans uvuN; rewrite (leq_trans y0L) // leq_add2l
+       leq_addr.
+  have -> : y = y0 by apply: dst_inj yN y0N _; rewrite -yE Ha.
+  by rewrite y0u.
+rewrite ifN -?leqNgt // in Ha.
+have wN : y0 + (v + u) <= N by apply: ltnW; exact: leq_trans y0uv uvuN.
+have -> : y = y0 + (v + u) by apply: dst_inj yN wN _; rewrite -yE Ha.
+apply/negbTE; rewrite -leqNgt.
+exact: leq_trans (leq_addl v u) (leq_addl y0 (v + u)).
+Qed.
 
 Lemma invw_sub_p p q d u v :
   inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
@@ -695,7 +744,14 @@ Qed.
 Lemma half1_leq_inf_ge p q d u v :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
   N <= u + (v + p %/ q * u) -> d - p <= inf N.
-Proof. Admitted.
+Proof.
+move=> iv ix iw uvN pLd NL.
+have dE : inf (u + v) = d - p by have := invw_inf iw; rewrite ifN // -leqNgt.
+rewrite -dE; apply: leq_inf.
+  by rewrite -inf0; apply: leq_inf_mono.
+move=> z zL; have [zold|znew] := ltnP z (u + v); first exact: leq_inf_dst zold.
+exact: ge_new_dst iv ix iw uvN pLd znew zL.
+Qed.
 
 (*  At the exit the count has passed [N], so [half1_exact] is out of reach:   *)
 (*    its range hypothesis is exactly what the exit denies.  On the [q] side  *)
