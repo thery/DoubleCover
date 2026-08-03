@@ -623,8 +623,10 @@ Definition tsget (i : int) : int :=
   Uint63.land (Uint63.lsr (PArray.get tstab w) (Uint63.mul r 4%uint63))
               15%uint63.
 
-Definition Dtsi (tw m : int) : int :=
-  tsget (Uint63.add (Uint63.mul tw nmaski3) m).
+(* INDEXED BY RANK, t * 495 + s, exactly as rubik_par indexes it: the search
+   carries ranks, so this is the direct read. *)
+Definition Dtsi (tw s : int) : int :=
+  tsget (Uint63.add (Uint63.mul tw nsranki) s).
 
 Definition Dts (tw m : int) : nat := to_nat (Dtsi tw m).
 
@@ -632,18 +634,22 @@ Definition Dts (tw m : int) : nat := to_nat (Dtsi tw m).
 Definition smaski (x : int) : int := Uint63.lsr x 12%uint63.
 
 (* the mask action, emitted alongside: 4096 x 18 *)
-Definition maskmove : arr := mkarr 73728%uint63 0%uint63 maskmove_data.
+(* the slice action by RANK, 495 x 18 *)
+Definition slmtab : arr := mkarr 8910%uint63 0%uint63 slmove_data.
 
-Definition actmaski (m : int) (k : nat) : int :=
-  PArray.get maskmove (Uint63.add (Uint63.mul m 18%uint63) (of_nat k)).
+Definition actslri (s : int) (k : nat) : int :=
+  PArray.get slmtab (Uint63.add (Uint63.mul s 18%uint63) (of_nat k)).
 
 (* -- the two checks, exactly Fstab's pair ---------------------------------- *)
 
-Definition ts_check0 : bool :=
-  (Dtsi (ctwistt (id_tab 47)) (smaski (coordt (id_tab 47))) =? 0)%uint63.
+Definition slrank (f : int) : int :=
+  Uint63.sub f (Uint63.mul (Uint63.div f nsranki) nsranki).
 
-Definition tsstepF (tw m : int) : bool :=
-  all (fun k => (Dtsi tw m <=? incr (Dtsi (acttwi tw k) (actmaski m k)))%uint63)
+Definition ts_check0 : bool :=
+  (Dtsi (ctwistt (id_tab 47)) (slrank (fsidx (coordt (id_tab 47)))) =? 0)%uint63.
+
+Definition tsstepF (tw s : int) : bool :=
+  all (fun k => (Dtsi tw s <=? incr (Dtsi (acttwi tw k) (actslri s k)))%uint63)
       (iota 0 18).
 
 (* the mask loop is an all_pow over twelve bits, so it never leaves int63;
@@ -651,8 +657,12 @@ Definition tsstepF (tw m : int) : bool :=
    MEASURED: 200 twists in 25.8 s under vm_compute, so all 2187 is about
    4.7 minutes -- which is why the proof lives in its own file and goes
    through native_cast_no_check, as Far_00.v does. *)
+(* all_pow 9 covers 512 ranks, so the 17 past 495 are guarded out rather than
+   read into the next twist's block. *)
 Definition ts_checkStep : bool :=
-  all (fun t => all_pow 12 0%uint63 (tsstepF (of_nat t))) (iota 0 ntwist).
+  all (fun t => all_pow 9 0%uint63
+                  (fun s => (nsranki <=? s)%uint63 || tsstepF (of_nat t) s))
+      (iota 0 ntwist).
 
 Lemma ts_check0P : ts_check0.
 Proof. by vm_compute. Qed.

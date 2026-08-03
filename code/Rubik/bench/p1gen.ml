@@ -398,29 +398,13 @@ let () =
     Printf.printf "ts entries above 14: %d\n%!" !over;
     if !over > 0 then (prerr_endline "TS TABLE DOES NOT FIT IN FOUR BITS";
                        exit 1);
-    (* INDEXED BY MASK, not by rank: t * 4096 + mask, so the slice half needs
-       no unranking in Rocq.  The slice mask moves on its own structurally --
-       actfs's high half reads only high bits -- whereas the rank does not,
-       and FsTable.v already made this trade for the flip x slice table:
-       "the waste costs memory and nothing else".  Same values, same node
-       counts, 8.2x the slots.  Masks that cannot occur hold 0, which makes
-       the certificate's step condition trivially true there. *)
+    (* INDEXED BY RANK, t * nslice + s, exactly as rubik_par indexes it.
+       The search carries ranks, so this is the direct read and no unranking
+       is needed anywhere. *)
     let unrank = Array.make nslice 0 in
     Array.iteri (fun m r -> if r < nslice then unrank.(r) <- m) srank;
-    let nmask = 4096 in
-    let ntsm = ntwist * nmask in
-    let tsm = Bytes.make ntsm '\000' in
-    for t = 0 to ntwist - 1 do
-      for m = 0 to nmask - 1 do
-        let r = srank.(m) in
-        if r < nslice then
-          Bytes.unsafe_set tsm (t * nmask + m)
-            (Bytes.unsafe_get pts (t * nslice + r))
-      done
-    done;
-    (* and the mask action, which is what the step condition steps by *)
-    let maskmove = Array.make (nmask * nmoves) 0 in
-    for m = 0 to nmask - 1 do
+    let maskmove = Array.make (4096 * nmoves) 0 in
+    for m = 0 to 4095 do
       let r = srank.(m) in
       for k = 0 to nmoves - 1 do
         maskmove.(m * nmoves + k) <-
@@ -431,16 +415,16 @@ let () =
       let v = ref 0 in
       for j = nper - 1 downto 0 do
         let i = w * nper + j in
-        let d = if i < ntsm then Char.code (Bytes.unsafe_get tsm i) else 0 in
+        let d = if i < nts then Char.code (Bytes.unsafe_get pts i) else 0 in
         v := (!v lsl nwidth) lor d
       done; !v in
-    let tswords = (ntsm + nper - 1) / nper in
+    let tswords = (nts + nper - 1) / nper in
     (* the same packing self check as the phase 1 table gets *)
     let bad = ref 0 and st = Random.State.make [|20260803|] in
     for _ = 1 to 200_000 do
-      let i = Random.State.full_int st ntsm in
+      let i = Random.State.full_int st nts in
       if (tsword (i / nper) lsr ((i mod nper) * nwidth)) land 15
-         <> Char.code (Bytes.unsafe_get tsm i) then incr bad
+         <> Char.code (Bytes.unsafe_get pts i) then incr bad
     done;
     Printf.printf "ts packing self check: %d mismatches of 200000\n%!" !bad;
     if !bad > 0 then (prerr_endline "TS PACKING IS WRONG"; exit 1);
@@ -454,6 +438,64 @@ let () =
     close_out oc;
     let sz = (Unix.stat "../P1Small.v").Unix.st_size in
     Printf.printf "wrote ../P1Small.v: %.2f MB\n%!" (float_of_int sz /. 1048576.0);
+
+    (* THE FLIP x SLICE MOVE TABLE, which is what rubik_par steps with and
+       what Phase1.v currently recomputes with actf.  1 013 760 x 18 values
+       below 2 ^ 20, so three to an int63 word at twenty bits each. *)
+    let fsw = 3 and fsbits = 20 in
+    let nfsm = nfs * nmoves in
+    let fsmword w =
+      let v = ref 0 in
+      for j = fsw - 1 downto 0 do
+        let i = w * fsw + j in
+        let d = if i < nfsm then fsmove.(i) else 0 in
+        v := (!v lsl fsbits) lor d
+      done; !v in
+    let fsmwords = (nfsm + fsw - 1) / fsw in
+    let bad = ref 0 and st2 = Random.State.make [|20260804|] in
+    for _ = 1 to 200_000 do
+      let i = Random.State.full_int st2 nfsm in
+      if (fsmword (i / fsw) lsr ((i mod fsw) * fsbits)) land 1048575
+         <> fsmove.(i) then incr bad
+    done;
+    Printf.printf "fsmove packing self check: %d mismatches of 200000\n%!" !bad;
+    if !bad > 0 then (prerr_endline "FSMOVE PACKING IS WRONG"; exit 1);
+    (* the flip x slice DISTANCE table, by rank -- rubik_par's pfs *)
+    let fsdword w =
+      let v = ref 0 in
+      for j = nper - 1 downto 0 do
+        let i = w * nper + j in
+        let d = if i < nfs then Char.code (Bytes.unsafe_get pfs i) else 0 in
+        v := (!v lsl nwidth) lor d
+      done; !v in
+    let fsdwords = (nfs + nper - 1) / nper in
+    let oc = open_out "../P1Fs.v" in
+    header oc "The flip x slice distance table, by rank: 1 013 760 entries, \
+               four bits each, fifteen per word.";
+    emit_seq oc "fs_data" fsdwords fsdword;
+    close_out oc;
+    Printf.printf "wrote ../P1Fs.v: %d words\n%!" fsdwords;
+
+    let oc = open_out "../P1Fsm.v" in
+    header oc "The flip x slice move table, by RANK: 1 013 760 x 18 values \
+               below 2 ^ 20, three to an int63 word.";
+    emit_seq oc "fsmove_data" fsmwords fsmword;
+    close_out oc;
+    let sz = (Unix.stat "../P1Fsm.v").Unix.st_size in
+    Printf.printf "wrote ../P1Fsm.v: %d words, %.2f MB\n%!"
+      fsmwords (float_of_int sz /. 1048576.0);
+
+    (* and the unranking, so a rank can be turned back into a packed summary *)
+    let oc = open_out "../P1Rank.v" in
+    header oc "Unranking: rank -> packed flip x slice summary, 1 013 760 \
+               entries.";
+    emit_seq oc "unrank_data" nfs (fun r ->
+      let f = r / nslice and s = r mod nslice in
+      f lor (unrank.(s) lsl 12));
+    close_out oc;
+    let sz = (Unix.stat "../P1Rank.v").Unix.st_size in
+    Printf.printf "wrote ../P1Rank.v: %.2f MB\n%!"
+      (float_of_int sz /. 1048576.0);
 
     let oc = open_out "../P1Ts.v" in
     header oc "The twist x slice distance table, rubik_par's second pruning \

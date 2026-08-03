@@ -42,6 +42,9 @@ FsData.v
 FsTable.v
 P1Small.v
 P1Ts.v
+P1Fs.v
+P1Fsm.v
+P1Rank.v
 Phase1.v
 P1TsChk.v
 Far.v
