@@ -21,8 +21,25 @@ set -e
 JOBS=${JOBS:-4}
 cd "$(dirname "$0")"
 
+# -P N is accepted as well as JOBS=N, because both spellings are natural and
+# the wrong one used to be read as a chunk range and produce nonsense.
+if [ "$1" = "-P" ]; then
+  [ -n "$2" ] || { echo "mkp1.sh: -P needs a number" >&2; exit 1; }
+  JOBS=$2; shift 2
+fi
+
 FIRST=${1:-0}
 LAST=${2:-70}
+
+for v in "$JOBS" "$FIRST" "$LAST"; do
+  case "$v" in
+    ''|*[!0-9]*) echo "mkp1.sh: bad argument '$v'" >&2
+                 echo "usage: [JOBS=n] ./mkp1.sh [-P n] [first last]" >&2
+                 exit 1;;
+  esac
+done
+[ "$FIRST" -le "$LAST" ] && [ "$LAST" -le 70 ] || {
+  echo "mkp1.sh: chunk range must satisfy 0 <= first <= last <= 70" >&2; exit 1; }
 
 if [ ! -x bench/p1gen ]; then
   echo "building bench/p1gen"

@@ -485,6 +485,30 @@ let () =
     (String.concat "," (Array.to_list (Array.map string_of_int mv.(1))))
     (String.concat "," (Array.to_list (Array.map string_of_int mv.(2))));
 
+  (* the rotation itself, as a facelet table, so Rocq is GIVEN it rather than
+     guessing which product of Sy and Sx it is.  Printed in Rocq syntax. *)
+  if Array.length Sys.argv > 2 && Sys.argv.(2) = "views" then begin
+    let rot = match rot with Some r -> r | None -> assert false in
+    let pr name a =
+      Printf.printf "Definition %s : seq nat :=\n  [:: %s]%%N.\n\n" name
+        (String.concat "; " (Array.to_list (Array.map string_of_int a))) in
+    pr "rot3t" rot;
+    pr "mv3a" mv.(1);
+    pr "mv3b" mv.(2);
+    (* and the check Rocq will have to reproduce: conjugation by rot sends
+       move k to move mv1 k, and by rot^2 to mv2 k *)
+    let ri = inv rot in
+    let bad = ref 0 in
+    for k = 0 to nmoves - 1 do
+      if comp ri (comp moves.(k) rot) <> moves.(mv.(1).(k)) then incr bad;
+      let r2 = comp rot rot in
+      if comp (inv r2) (comp moves.(k) r2) <> moves.(mv.(2).(k)) then incr bad
+    done;
+    Printf.printf "(* relabelling check: %d mismatches of %d *)\n%!"
+      !bad (2 * nmoves);
+    exit 0
+  end;
+
   (* ---- the search, mimicking rubik_par's dfs ----------------------------- *)
 
   if Array.length Sys.argv > 2 && Sys.argv.(2) = "search" then begin
