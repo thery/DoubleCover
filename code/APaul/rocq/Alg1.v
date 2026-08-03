@@ -146,6 +146,9 @@ Local Notation dst_gap_up := (@dst_gap_up M M_gt0 A B).
 Local Notation gap_walk := (@gap_walk M M_gt0 A B).
 Local Notation gap_bounds := (@gap_bounds M).
 Local Notation pt_neq0 := (pt_neq0 M_gt0 N_lt_Mg).
+Local Notation pt_neq0M := (pt_neq0M M_gt0).
+Local Notation red_ge_pt := (@red_ge_pt M M_gt0 A B ltn_B).
+Local Notation inv_uv_le := (@inv_uv_le M A).
 
 Local Notation step_p_gt0 := (@step_p_gt0 M A N N_lt_Mg).
 Local Notation inv_step_pos := (@inv_step_pos M M_gt0 A B ltn_B).
@@ -675,19 +678,37 @@ Qed.
 (*    [(if ...) <= inf (u+v)] suffices there.  Splitting [invw_inf] into its  *)
 (*    two inequalities, and asking the full equation only below [N], is what  *)
 (*    releases the range hypothesis here.                                     *)
+(*  [ptD_leq] with the orbit bound in place of [N].  Its [<= N] is there     *)
+(*    only to feed [pt_neq0], whose real form is [pt_neq0M] with              *)
+(*    [n < M %/ g] -- and [Alg2.inv_uv_le] hands that bound to every state    *)
+(*    satisfying [inv], for free.  So nothing here needs a range hypothesis.  *)
+Lemma ptD_leqM x y :
+  0 < x + y < M %/ g -> pt x + pt y <= M -> pt (x + y) = pt x + pt y.
+Proof.
+move=> xyM; case: ltngtP => // [pxpyLM|pxpyE] _; first exact: ptD.
+by have := pt_neq0M xyM; rewrite ptDE pxpyE modnn eqxx.
+Qed.
+
 Lemma sub_p_new_dst p q d u v y0 :
   inv p q d u v -> invx p q u v -> q < p -> y0 < u -> p - q <= dst y0 ->
-  u + (v + u) < N ->
   dst (y0 + (v + u)) = dst y0 - (p - q).
 Proof.
-move=> iv ix qLp y0u pqD uvuN.
-have [_ q_gt0 _ _ _ _ _ _] := iv.
+move=> iv ix qLp y0u pqD.
+have [_ q_gt0 _ _ _ _ _ v_gt0] := iv.
 have k1 : 1 <= p %/ q by rewrite divn_gt0 //; apply: ltnW.
 have p1 : 0 < p - 1 * q by rewrite mul1n subn_gt0.
-have uvN' : u + (v + 1 * u) < N by rewrite mul1n.
-have H := invx_red_ge_p1 iv ix (ltnW qLp) k1 p1 uvN' y0u.
-rewrite !mul1n in H.
-by rewrite (dst_ofD H).
+have iv' : inv (p - q) q d u (v + u).
+  by have H := inv_red_ge iv (ltnW qLp) k1 p1; rewrite !mul1n in H.
+have Huv := inv_uv_le iv'.
+have [pE' _] := red_ge_pt iv (ltnW qLp) k1 p1.
+rewrite !mul1n in pE'.
+have Hlt : y0 + (v + u) < M %/ g by apply: leq_trans Huv; rewrite ltn_add2r.
+have Hsucc : pt (y0 + (v + u)) = pt y0 + (p - q).
+  rewrite [in RHS]pE'; apply: ptD_leqM.
+    by rewrite Hlt andbT addn_gt0 orbC addn_gt0 v_gt0.
+  rewrite -pE' (leq_trans (leq_add (leqnn (pt y0)) (leq_subr q p))) //.
+  by rewrite -(invx_p1 ix y0u); apply: ltnW; exact: ltn_pt.
+by rewrite (dst_ofD Hsucc).
 Qed.
 
 Lemma sub_p_argmin p q d u v y0 :
