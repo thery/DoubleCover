@@ -177,10 +177,9 @@ Local Notation red_ge_new := (@red_ge_new M M_gt0 A).
 Local Notation invx_red_ge_min := (@invx_red_ge_min M M_gt0 A).
 Local Notation invx_red_ge_max := (@invx_red_ge_max M M_gt0 A).
 Local Notation invx_red_ge_p2 := (@invx_red_ge_p2 M M_gt0 A).
-Local Notation invx_red_ge_p1 :=
-  (@invx_red_ge_p1 M M_gt0 A B ltn_B N N_lt_Mg).
-Local Notation invx_red_ge_inf := (@invx_red_ge_inf M M_gt0 A B ltn_B N).
-Local Notation invx_red_ge_gap := (@invx_red_ge_gap M M_gt0 A B ltn_B N).
+Local Notation invx_red_ge_p1 := (@invx_red_ge_p1 M M_gt0 A B ltn_B).
+Local Notation invx_red_ge_inf := (@invx_red_ge_inf M M_gt0 A B ltn_B).
+Local Notation invx_red_ge_gap := (@invx_red_ge_gap M M_gt0 A B ltn_B).
 
 Definition half1 (p q d u v : nat) : nat * nat * nat * nat * nat :=
   if d < p then
@@ -653,6 +652,25 @@ Qed.
 (*    drops -- by nothing, or by the new [p].  That is the [k = 1] case of    *)
 (*    Config.v's reduction, and the reason [invw] is stated with a test       *)
 (*    rather than an equation.                                                *)
+Lemma invx_sub_p p q d u v :
+  inv p q d u v -> invx p q u v -> q < p -> invx (p - q) q u (v + u).
+Proof.
+move=> iv ix qLp; have [_ q_gt0 _ _ _ _ _ _] := iv.
+have k1 : 1 <= p %/ q by rewrite divn_gt0 //; apply: ltnW.
+have p1 : 0 < p - 1 * q by rewrite mul1n subn_gt0.
+split.
+- by have H := invx_red_ge_min iv (invx_min ix) (ltnW qLp) k1;
+     rewrite !mul1n in H.
+- by have H := invx_red_ge_max iv (invx_min ix) (invx_max ix) (ltnW qLp) k1;
+     rewrite !mul1n in H.
+- exact: inv_qM iv.
+- by have H := invx_red_ge_inf (k := 1) iv ix (ltnW qLp) isT k1;
+     rewrite !mul1n in H.
+- by have H := invx_red_ge_gap iv ix (ltnW qLp) k1 p1; rewrite !mul1n in H.
+- by have H := invx_red_ge_p1 iv ix (ltnW qLp) k1 p1; rewrite !mul1n in H.
+by have H := invx_red_ge_p2 (k := 1) iv; rewrite !mul1n in H.
+Qed.
+
 (*  ONE helper for both [p]-side leaves.  After the single reduction the      *)
 (*    point below [b] is either the one it had -- [b] stayed in the left      *)
 (*    [p - q] part -- or the one that entered from the right, whose index is  *)
@@ -716,7 +734,29 @@ Lemma sub_p_argmin p q d u v y0 :
   y0 < u -> inf (u + v) = dst y0 ->
   inf (u + (v + u)) = dst (if d < p - q then y0 else y0 + (v + u)) /\
   inf (u + (v + u)) = (if d < p - q then d else d - (p - q)).
-Proof. Admitted.
+Proof.
+move=> iv ix qLp dE dLp y0u Hy0.
+have [_ q_gt0 _ _ _ _ _ _] := iv.
+have k1 : 1 <= p %/ q by rewrite divn_gt0 //; apply: ltnW.
+have p1 : 0 < p - 1 * q by rewrite mul1n subn_gt0.
+have iv' : inv (p - q) q d u (v + u).
+  by have H := inv_red_ge iv (ltnW qLp) k1 p1; rewrite !mul1n in H.
+have ix' : invx (p - q) q u (v + u) := invx_sub_p iv ix qLp.
+have dy0 : dst y0 = d by rewrite -Hy0 -dE.
+have [dLpq|pqLd] := ltnP d (p - q).
+  have Hinf : inf (u + (v + u)) = dst y0.
+    by apply: (inf_at_pu iv' ix' y0u); rewrite dy0.
+  by split; [exact: Hinf | rewrite Hinf dy0].
+have Hd : dst (y0 + (v + u)) = d - (p - q).
+  by rewrite (sub_p_new_dst iv ix qLp y0u) ?dy0.
+have Hinf : inf (u + (v + u)) = dst (y0 + (v + u)).
+  apply: (inf_at_q iv' ix' (inv_qqM iv (ltnW qLp))).
+  - exact: leq_trans (leq_addl v u) (leq_addl y0 (v + u)).
+  - by rewrite ltn_add2r.
+  rewrite Hd ltn_subLR // (leq_trans dLp) //.
+  by rewrite -{1}(subnK (ltnW qLp)) leq_add2l.
+by split; [exact: Hinf | rewrite Hinf Hd].
+Qed.
 
 (*  and one for the exit.  There the count has passed [N], so nothing can be  *)
 (*    said about the whole new range -- but only the indices BELOW [N] are    *)
@@ -727,9 +767,31 @@ Proof. Admitted.
 (*    unless it wraps.  The wrapping case is the whole content, and it is     *)
 (*    [Alg2.le_ge_wrap] with [invd] removed: that lemma asks for [invd] only  *)
 (*    to name [d], and here the bound to beat is [Inf] itself.                *)
-Lemma ge_wrap_dst p q d u v y j :
-  inv p q d u v -> invx p q u v -> q <= p -> y < u + v -> 0 < j <= p %/ q ->
-  M <= dst y + j * q -> inf (u + v) <= dst (y + j * u).
+Lemma ge_wrap_dst p q d u v y j y0 :
+  inv p q d u v -> invx p q u v -> q <= p -> 0 < p - p %/ q * q ->
+  y0 < u + v -> inf (u + v) = dst y0 -> u <= y0 -> inf (u + v) < q ->
+  y < u + v -> 0 < j <= p %/ q -> inf (u + v) <= dst (y + j * u).
+Proof.
+move=> iv ix qLp p'_gt0 y0L Hy0 uy0 Iq yL /andP[j_gt0 jk2].
+have iv' := inv_red_ge iv qLp (leqnn (p %/ q)) p'_gt0.
+have Hmax' := invx_red_ge_max iv (invx_min ix) (invx_max ix) qLp (leqnn _).
+have y0L' : y0 < u + (v + p %/ q * u).
+  by rewrite (leq_trans y0L) // leq_add2l leq_addr.
+have yjL : y + j * u < u + (v + p %/ q * u).
+  rewrite addnA (leq_ltn_trans (leq_add (leqnn y) (leq_mul jk2 (leqnn u)))) //.
+  by rewrite ltn_add2r.
+rewrite Hy0; apply: (gap_q_empty iv' Hmax' (inv_qqM iv qLp) uy0 y0L' yjL).
+by rewrite -Hy0.
+Qed.
+
+(*  the degenerate corner: [q] divides [p], so the reduction lands on         *)
+(*    [p - k*q = 0] and the reduced configuration is not a two-length one at  *)
+(*    all -- [inv] fails, and with it [gap_q_empty].  [Alg2.ge_wrap_exit] is  *)
+(*    the lemma for that case there; it is stated against [invd]'s [d'].      *)
+Lemma ge_wrap_deg p q d u v y j :
+  inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
+  p - p %/ q * q = 0 -> y < u + v -> 0 < j <= p %/ q ->
+  inf (u + v) <= dst (y + j * u).
 Proof. Admitted.
 
 Lemma ge_new_dst p q d u v z :
@@ -739,14 +801,21 @@ Proof.
 move=> iv ix iw uvN pLd zge zlt.
 have [pLq|qLp] := ltnP p q.
   by move: zlt; rewrite (divn_small pLq) mul0n addn0 ltnNge zge.
+have [_ _ _ _ _ _ u_gt0 _] := iv.
+have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
+have [y0 y0L Hy0] := inf_ex uv_gt0.
 have [j jk [yb jqP Hm]] := red_ge_new iv (invx_min ix) qLp (leqnn _) zge zlt.
 have /andP[y_gt0 ylt] := yb.
 have jul : j * u <= z by apply: ltnW; rewrite -subn_gt0.
 have zE : z = z - j * u + j * u by rewrite subnK.
-have [Hw|Hw] := ltnP (dst (z - j * u) + j * q) M.
-  rewrite zE (walk_ge_nowrap iv qLp ylt jk Hw).
-  by rewrite (leq_trans _ (leq_addr _ _)) // leq_inf_dst.
-by rewrite zE; apply: ge_wrap_dst iv ix qLp ylt jk Hw.
+have [p'0|p'_gt0] := posnP (p - p %/ q * q).
+  by rewrite zE; apply: ge_wrap_deg iv ix iw uvN pLd p'0 ylt jk.
+have uy0 : u <= y0.
+  by rewrite leqNgt (invw_gap iw (ltnW uvN) y0L Hy0) ltnNge pLd.
+have Iq : inf (u + v) < q.
+  rewrite (invw_inf iw) ifN -?leqNgt //.
+  by rewrite ltn_subLR //; exact: invw_max iw.
+by rewrite zE; apply: ge_wrap_dst iv ix qLp p'_gt0 y0L Hy0 uy0 Iq ylt jk.
 Qed.
 
 (*  Reducing [p] splits [p]-gaps, into [p - q] on the left and [q] on the    *)
@@ -945,27 +1014,6 @@ case: (ltnP p q) => [pLq|qLp] /=.
 by move: Hs; rewrite /step ifN -?leqNgt.
 Qed.
 
-Lemma invx_sub_p p q d u v :
-  inv p q d u v -> invx p q u v -> q < p -> u + (v + u) < N ->
-  invx (p - q) q u (v + u).
-Proof.
-move=> iv ix qLp uvN; have [_ q_gt0 _ _ _ _ _ _] := iv.
-have k1 : 1 <= p %/ q by rewrite divn_gt0 //; apply: ltnW.
-have p1 : 0 < p - 1 * q by rewrite mul1n subn_gt0.
-have uvN' : u + (v + 1 * u) < N by rewrite mul1n.
-split.
-- by have H := invx_red_ge_min iv (invx_min ix) (ltnW qLp) k1;
-     rewrite !mul1n in H.
-- by have H := invx_red_ge_max iv (invx_min ix) (invx_max ix) (ltnW qLp) k1;
-     rewrite !mul1n in H.
-- exact: inv_qM iv.
-- by have H := invx_red_ge_inf (k := 1) iv ix (ltnW qLp) isT k1 uvN';
-     rewrite !mul1n in H.
-- by have H := invx_red_ge_gap iv ix (ltnW qLp) k1 p1 uvN';
-     rewrite !mul1n in H.
-- by have H := invx_red_ge_p1 iv ix (ltnW qLp) k1 p1 uvN'; rewrite !mul1n in H.
-by have H := invx_red_ge_p2 (k := 1) iv; rewrite !mul1n in H.
-Qed.
 
 Lemma invx_sub_q p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> u + v + v < N ->
@@ -1049,7 +1097,7 @@ case: (ltnP d p) => [dLp|pLd] Hi Hx H1 Hle Hm.
   case: (leqP N (u1 + (v + u1))) => [Nuv2|uv2N].
     exact: run1_past iw2 Nuv2 f_gt0.
   apply: IH => //; first exact: inv_sub_p iv1 q1Lp.
-    exact: invx_sub_p iv1 ix1 q1Lp uv2N.
+    exact: invx_sub_p iv1 ix1 q1Lp.
   by rewrite -ltnS (leq_trans Hm).
 (* [b] is in a [q]-gap: [half1] divides [p], [half2] takes one [q] off       *)
 set k := p %/ q in Hi Hx H1 Hle Hm *.
