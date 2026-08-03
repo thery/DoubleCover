@@ -160,6 +160,7 @@ Local Notation invx_red_lt_inf := (@invx_red_lt_inf M M_gt0 A B N).
 Local Notation invx_red_lt_gap :=
   (@invx_red_lt_gap M M_gt0 A B ltn_B N N_lt_Mg).
 Local Notation invx_step := (@invx_step M M_gt0 A B ltn_B N N_lt_Mg).
+Local Notation gap_q_empty := (@gap_q_empty M M_gt0 A B).
 Local Notation invx_red_ge_min := (@invx_red_ge_min M M_gt0 A).
 Local Notation invx_red_ge_max := (@invx_red_ge_max M M_gt0 A).
 Local Notation invx_red_ge_p2 := (@invx_red_ge_p2 M M_gt0 A).
@@ -372,16 +373,47 @@ Qed.
 (*    [b] is in a [q]-gap, so [gap_q_empty] applies.                          *)
 Lemma half1_ge_nodrop p q d u v :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
+  u + (v + p %/ q * u) < N ->
   inf (u + v) <= inf (u + (v + p %/ q * u)).
-Proof. Admitted.
+Proof.
+move=> iv ix iw uvN pLd uvN'.
+have [p_gt0 q_gt0 bez pE qE gE u_gt0 v_gt0] := iv.
+have [pLq|qLp] := ltnP p q; first by rewrite (divn_small pLq) mul0n addn0.
+have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
+have [y0 y0L Hy0] := inf_ex uv_gt0.
+(* [invw_gap]: the test is false, so [b] is in a [q]-gap *)
+have uy0 : u <= y0.
+  by rewrite leqNgt (invw_gap iw y0L Hy0) ltnNge pLd.
+(* and [b] is inside it: [invw_max] gives [d - p < q] *)
+have dy0q : dst y0 < q.
+  rewrite -Hy0 (invw_inf iw) ifN -?leqNgt //.
+  by rewrite ltn_subLR //; exact: invw_max iw.
+have qqM : q + q <= M.
+  rewrite -bez (leq_trans (leq_add qLp (leqnn q))) // leq_add //.
+    by rewrite leq_pmull.
+  by rewrite leq_pmull.
+(* the reduced configuration, which needs both gaps positive *)
+have Hg := step_p_gt0 iv uvN.
+move: Hg; rewrite /step ifN -?leqNgt // => Hg.
+have [Hp Hq] := Hg uvN'.
+have iv' := inv_red_ge iv qLp (leqnn (p %/ q)) Hp.
+have Hmax' := invx_red_ge_max iv (invx_min ix) (invx_max ix) qLp
+                              (leqnn (p %/ q)).
+have y0L' : y0 < u + (v + p %/ q * u).
+  by rewrite (leq_trans y0L) // leq_add2l leq_addr.
+apply: leq_inf; first by rewrite Hy0; apply: ltnW; exact: ltn_dst.
+move=> z zL; rewrite Hy0.
+exact: (gap_q_empty iv' Hmax' qqM uy0 y0L' zL dy0q).
+Qed.
 
 (*  so [half1] does not move [Inf] in this branch either.                     *)
 Lemma half1_inf_ge p q d u v :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
+  u + (v + p %/ q * u) < N ->
   inf (u + (v + p %/ q * u)) = inf (u + v).
 Proof.
-move=> iv ix iw uvN pLd; apply/eqP; rewrite eqn_leq.
-rewrite (half1_ge_nodrop iv ix iw uvN pLd) andbT.
+move=> iv ix iw uvN pLd uvN'; apply/eqP; rewrite eqn_leq.
+rewrite (half1_ge_nodrop iv ix iw uvN pLd uvN') andbT.
 by apply: leq_inf_mono; rewrite leq_add2l leq_addr.
 Qed.
 
@@ -404,7 +436,7 @@ Proof.
 move=> iv ix iw uvN; rewrite /half1; case: (ltnP d p) => [dLp|pLd] /= uvN'.
   by rewrite (half1_inf_lt iv ix iw uvN dLp uvN'); have := invw_inf iw;
      rewrite ifT.
-by rewrite (half1_inf_ge iv ix iw uvN pLd); have := invw_inf iw;
+by rewrite (half1_inf_ge iv ix iw uvN pLd uvN'); have := invw_inf iw;
    rewrite ifN // -leqNgt.
 Qed.
 
@@ -493,6 +525,22 @@ Qed.
 (*    gives [Inf (u'+v') <= Inf N], so it is enough to bound [d'] by the      *)
 (*    infimum of the NEW range -- the lower half of the [inf] law, which      *)
 (*    carries no range bound on either side.                                  *)
+(*  the [p <= d] half of the exit.  It cannot go through                     *)
+(*    [half1_ge_nodrop]: there the reduced configuration is asked to satisfy  *)
+(*    [inv], which needs [0 < p %% q], and [Alg2.step_p_gt0] gives that only  *)
+(*    below [N] -- while here the count has passed [N].  When [q] divides     *)
+(*    [p] the reduction lands on an all-[q] configuration whose range covers  *)
+(*    the whole orbit, and there [Inf] genuinely does drop; what saves the    *)
+(*    statement is that only the indices BELOW [N] matter.                    *)
+Lemma half1_leq_inf_ge p q d u v :
+  inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
+  N <= u + (v + p %/ q * u) -> d - p <= inf N.
+Proof. Admitted.
+
+(*  At the exit the count has passed [N], so [half1_exact] is out of reach:   *)
+(*    its range hypothesis is exactly what the exit denies.  On the [q] side  *)
+(*    [N <= u'+v'] gives [Inf (u'+v') <= Inf N], and the lower half of        *)
+(*    Config's [inf] law carries no range bound, so [d] passes through it.    *)
 Lemma half1_leq_inf p q d u v :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N ->
   let: (_, _, d', u', v') := half1 p q d u v in
@@ -500,16 +548,15 @@ Lemma half1_leq_inf p q d u v :
 Proof.
 move=> iv ix iw uvN; have [p_gt0 q_gt0 _ _ _ _ _ _] := iv.
 have pqN := inv_pq_neq iv uvN.
-rewrite /half1; case: (ltnP d p) => [dLp|pLd] /= NL;
-    apply: leq_trans (leq_inf_mono NL).
-  have dE : inf (u + v) = d by have := invw_inf iw; rewrite ifT.
-  have [pLq|qLp] := ltnP p q; last first.
-    have qLp' : q < p by rewrite ltn_neqAle qLp andbT eq_sym.
-    by rewrite (divn_small qLp') mul0n addn0 dE.
-  have H := inf_red_lt_ge iv ix pLq (leqnn (q %/ p)).
-  by rewrite dE (divn_small dLp) minn0 mul0n subn0 in H.
-have dE : inf (u + v) = d - p by have := invw_inf iw; rewrite ifN // -leqNgt.
-by rewrite -dE (half1_ge_nodrop iv ix iw uvN pLd).
+rewrite /half1; case: (ltnP d p) => [dLp|pLd] /= NL; last first.
+  exact: half1_leq_inf_ge iv ix iw uvN pLd NL.
+apply: leq_trans (leq_inf_mono NL).
+have dE : inf (u + v) = d by have := invw_inf iw; rewrite ifT.
+have [pLq|qLp] := ltnP p q; last first.
+  have qLp' : q < p by rewrite ltn_neqAle qLp andbT eq_sym.
+  by rewrite (divn_small qLp') mul0n addn0 dE.
+have H := inf_red_lt_ge iv ix pLq (leqnn (q %/ p)).
+by rewrite dE (divn_small dLp) minn0 mul0n subn0 in H.
 Qed.
 
 (*  [invx] through the two halves, and both are assemblies.  [half1] is       *)
