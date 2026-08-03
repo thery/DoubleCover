@@ -24,7 +24,10 @@ ulimit -s unlimited
 # P1Fsm.v is checked in as a DUMMY -- 116 MB is too big for git -- so the real
 # one has to be regenerated.  With the dummy every fsmove read is 0 and the
 # search is nonsense, so this is not optional.
-if [ "$(wc -c < P1Fsm.v)" -lt 1000000 ]; then
+# P1Fsm.v is NOT in git -- it used to be checked in as a dummy under the same
+# name, and every git pull then restored the dummy over the real table, so the
+# search ran with every fsmove read returning 0.  That cost a day.
+if [ ! -f P1Fsm.v ] || [ "$(wc -c < P1Fsm.v)" -lt 1000000 ]; then
   echo "regenerating the real P1Fsm.v (116 MB)"
   (cd bench && [ -x p1gen ] || ocamlfind ocamlopt -package unix -linkpkg \
      cubedata.ml p1gen.ml -o p1gen)

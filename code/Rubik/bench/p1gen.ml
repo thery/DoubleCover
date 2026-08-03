@@ -616,6 +616,37 @@ let () =
     exit 0
   end;
 
+  (* ---- the root's three views, for comparison against Rocq's init3 ------ *)
+  if Array.length Sys.argv > 2 && Sys.argv.(2) = "root" then begin
+    Printf.printf "superflip root, three views (twist, flip x slice rank):\n";
+    for k = 0 to 2 do
+      let c = Array.make nfacelet 0 in
+      Array.blit sfti 0 c 0 nfacelet;
+      Printf.printf "  view %d : tw = %d  fs = %d\n" k (ctwist c) (fsidx (coordi c))
+    done;
+    (* the three views stepped exactly as rubik_par steps them: view k by the
+       RELABELLED move mv.(k).(m), through twmove and fsmove *)
+    let tw = Array.make 3 (ctwist sfti) and fs = Array.make 3 (fsidx (coordi sfti)) in
+    List.iter (fun m ->
+      for k = 0 to 2 do
+        let mk = mv.(k).(m) in
+        tw.(k) <- twmove.(tw.(k) * nmoves + mk);
+        fs.(k) <- fsmove.(fs.(k) * nmoves + mk)
+      done;
+      Printf.printf "  after move %d :" m;
+      for k = 0 to 2 do Printf.printf "  v%d(%d,%d)" k tw.(k) fs.(k) done;
+      Printf.printf "\n%!") [0; 4; 8; 12];
+    Printf.printf "  heur at the root = %d\n%!"
+      (let h = ref 0 in
+       for k = 0 to 2 do
+         let t = ctwist sfti and f = fsidx (coordi sfti) in
+         let a = Char.code (Bytes.unsafe_get pfs f) in
+         let b = Char.code (Bytes.unsafe_get pts (t * nslice + f mod nslice)) in
+         if a > !h then h := a; if b > !h then h := b
+       done; !h);
+    exit 0
+  end;
+
   (* ---- the search, mimicking rubik_par's dfs ----------------------------- *)
 
   if Array.length Sys.argv > 2 && Sys.argv.(2) = "search" then begin
