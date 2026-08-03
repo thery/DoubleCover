@@ -41,7 +41,9 @@ Fstab.v
 FsData.v
 FsTable.v
 P1Small.v
+P1Ts.v
 Phase1.v
+P1TsChk.v
 Far.v
 Far_00.v
 Far_01.v
