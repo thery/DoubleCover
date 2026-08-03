@@ -33,6 +33,11 @@ Import GroupScope.
 Definition rootm (m : nat) : PArray.array int :=
   comp_tabi 47 sfti (nth sfti mtis m).
 
+(* the depth, and the root depth Far.v's droot mirrors: two moves are fixed
+   by prefixi, so the search below a root has depth - 2 left *)
+Definition p1depth := 14.
+Definition p1droot := p1depth.-2.
+
 (* depth t: the first move is fixed, so the search below it has t - 1 left *)
 Definition runp1 (T : PArray.array (PArray.array int)) (t : nat) : bool :=
   searchz3 T t.-1 (rootm 0) (init3 (rootm 0)) (fcpos 0) ||
