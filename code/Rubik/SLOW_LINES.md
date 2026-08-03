@@ -14,6 +14,7 @@ Normal sentences are well under 1 s, so everything below is worth a look.
 | **19.4** | `Diameter.v` | `by do ?[by apply: face...]` |
 | **14.3** | `Far.v` | `by move=> _ ca; rewrite /Dtid ...`  (= `DtidE2`) |
 | **8.0** | `Far.v` | `rewrite /prefixi !e //.`  (inside `prefixi_cub`) |
+| **7.8** | `Phase1.v` | `by rewrite !permM (eqP (cm _)) (eqP (cg _)).`  (= `cubcPM`) |
 
 Notes:
 
@@ -27,6 +28,13 @@ Notes:
   opaque for that one proof should take it to milliseconds.
 - `prefixi_cub`'s `rewrite /prefixi !e //` at 8 s is the same disease: `//`
   after unfolding `prefixi` lets `done` wander into the table.
+- **`cubcPM` in `Phase1.v` at 7.8 s (2026-08-03) is a three-token proof** --
+  `by rewrite !permM (eqP (cm _)) (eqP (cg _))` on `cubcP (g * m)`, where
+  `cubcP g := [forall f, ccyc (g f) == g (ccyc f)]`. Nothing here touches a
+  table, so the suspects are the two bang-rewrites and the `_` in `cm _` /
+  `cg _`, i.e. the "exact counts, not bangs" and "arguments explicit" rules.
+  `2!permM` and the point supplied explicitly is the first thing to try.
+  NOT fixed -- flagged for an offline pass.
 
 ## 2. The import tax -- systematic, ~7-9 s PER FILE
 
