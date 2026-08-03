@@ -99,6 +99,9 @@ Local Notation gap_decomp := (@gap_decomp M M_gt0 A B).
 Local Notation step_pt_one_lt := (@step_pt_one_lt M A B ltn_B).
 Local Notation step_pt_one_ge := (@step_pt_one_ge M M_gt0 A B ltn_B).
 
+Local Notation walk_lt_nowrap := (@walk_lt_nowrap M M_gt0 A B).
+Local Notation walk_lt_wrap_ge := (@walk_lt_wrap_ge M M_gt0 A B).
+
 (******************************************************************************)
 (* Reducing [q] by [k] copies of [p]                                          *)
 (******************************************************************************)
@@ -270,6 +273,121 @@ move=> iv ix pLq kLq q'_gt0 uvN' y yL.
 have Hmin' := invx_red_lt_min iv (invx_min ix) (invx_max ix) pLq kLq uvN'.
 have Hmax' := invx_red_lt_max iv (invx_max ix) pLq kLq uvN'.
 by apply: gap_decomp (inv_red_lt iv pLq kLq q'_gt0) Hmin' Hmax' yL.
+Qed.
+
+(*  The [inf] drop.  Reducing by [k] copies walks the closest point down by   *)
+(*    [k] gaps of length [p], but the walk stops when it would wrap: at most  *)
+(*    [inf %/ p] copies fit under [inf].  Hence the [minn] below.  At         *)
+(*    [k = q %/ p] this is [Alg2.inf_new_eq_lt], where the [minn] collapses   *)
+(*    to [inf %/ p] and the difference to [inf %% p].                         *)
+Lemma inf_red_lt_le p q d u v k :
+  inv p q d u v -> p < q -> k <= q %/ p ->
+  inf (u + k * v + v) <= inf (u + v) - minn k (inf (u + v) %/ p) * p.
+Proof.
+move=> iv pLq kLq.
+have [p_gt0 q_gt0 _ _ _ _ u_gt0 v_gt0] := iv.
+have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
+have [y yLuv HyE] := inf_ex uv_gt0.
+set m := minn k (inf (u + v) %/ p).
+have mLk : m <= k := geq_minl _ _.
+have mq : m <= q %/ p := leq_trans mLk kLq.
+have mpI : m * p <= inf (u + v).
+  by rewrite (leq_trans (_ : _ <= inf (u + v) %/ p * p)) ?leq_divM //
+             leq_mul2r geq_minr orbT.
+have [m0|m_gt0] := posnP m.
+  rewrite m0 mul0n subn0; apply: leq_inf_mono.
+  by rewrite -addnA leq_add2l leq_addl.
+have Hm : 0 < m <= q %/ p by rewrite m_gt0.
+have Hmp : m * p <= dst y by rewrite -HyE.
+have Hw := walk_lt_nowrap iv pLq yLuv Hm Hmp.
+rewrite -HyE in Hw.
+rewrite -Hw; apply: leq_inf_dst.
+have -> : u + k * v + v = u + v + k * v by rewrite -!addnA (addnC v).
+by rewrite (leq_ltn_trans (leq_add (leqnn y) (_ : m * v <= k * v)))
+            ?leq_mul2r ?mLk ?orbT // ltn_add2r.
+Qed.
+
+(*  The converse bound.  Old indices are free; a new one is an old one        *)
+(*    walked up by [j <= k] gaps, and the walk either stays under [inf]       *)
+(*    (then the gap decomposition absorbs it) or wraps.  Wrapping needs       *)
+(*    [inf %/ p < k], which is exactly the branch of the [minn] where         *)
+(*    [inf - m*p] is [inf %% p], and a wrapped walk lands above [p].          *)
+Lemma inf_red_lt_ge p q d u v k :
+  inv p q d u v -> invx p q u v -> p < q -> k <= q %/ p ->
+  inf (u + v) - minn k (inf (u + v) %/ p) * p <= inf (u + k * v + v).
+Proof.
+move=> iv ix pLq kLq.
+have [p_gt0 q_gt0 _ _ _ _ u_gt0 v_gt0] := iv.
+have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
+set m := minn k (inf (u + v) %/ p).
+apply: leq_inf.
+  by rewrite (leq_trans (leq_subr _ _)) // ltnW //
+             (leq_ltn_trans (leq_inf_dst uv_gt0)) // ltn_dst.
+move=> x xL.
+have [xold|xnew] := ltnP x (u + v).
+  by rewrite (leq_trans (leq_subr _ _)) // leq_inf_dst.
+have xL' : x < u + k.+1 * v by rewrite mulSn addnA addnAC.
+have [j /andP[j_gt0 jLk] /andP[ylt jvx]] :=
+     new_index_decomp_sharp v_gt0 xnew xL'.
+rewrite ltnS in jLk.
+have jk : 0 < j <= q %/ p by rewrite j_gt0 (leq_trans jLk).
+have xE : x = x - j * v + j * v by rewrite subnK.
+have [Hmp|Hmp] := leqP (j * p) (dst (x - j * v)).
+  have jLq : j <= q %/ p := leq_trans jLk kLq.
+  have jpq : j * p <= q by rewrite -leq_divRL.
+  rewrite xE (walk_lt_nowrap iv pLq ylt jk Hmp).
+  have [a [b [aLu bLv Hgap]]] := invx_gap ix ylt.
+  have [b0|b_gt0] := posnP b; last first.
+(* a [q] in the gap absorbs the whole walk: [j*p <= q]                        *)
+    apply: leq_trans (_ : inf (u + v) <= _); first exact: leq_subr.
+    rewrite leq_subRL // Hgap addnC -addnA leq_add2l (leq_trans jpq) //.
+    exact: leq_trans (leq_pmull q b_gt0) (leq_addl _ _).
+(* no [q]: the walk eats at most [a + m] gaps [p] out of [inf + a*p]          *)
+  have jam : j - a <= m.
+    rewrite /m leq_min (leq_trans (leq_subr _ _)) //= leq_divRL // mulnBl.
+    by rewrite leq_subLR addnC (leq_trans Hmp) // Hgap b0 mul0n addn0.
+  have -> : inf (u + v) - m * p = dst (x - j * v) - (a + m) * p.
+    by rewrite Hgap b0 mul0n addn0 mulnDl subnDA addnK.
+  by apply: leq_sub2l; rewrite leq_mul2r -leq_subLR jam orbT.
+(* the wrap case.  It cannot happen on the [k] branch of the [minn]           *)
+have [kI|Ik] := leqP k (inf (u + v) %/ p).
+  have jpI : j * p <= inf (u + v) by rewrite -leq_divRL // (leq_trans jLk).
+  by move: Hmp; rewrite ltnNge (leq_trans jpI) // leq_inf_dst.
+have mE : m = inf (u + v) %/ p by rewrite /m; apply/minn_idPr; apply: ltnW.
+rewrite mE {1}(divn_eq (inf (u + v)) p) addKn.
+rewrite xE; apply: leq_trans (walk_lt_wrap_ge iv pLq ylt jk Hmp).
+exact: ltnW (ltn_pmod _ p_gt0).
+Qed.
+
+(*  The two halves together.  [Alg2.inf_new_eq_lt] is the case [k = q %/ p].  *)
+Lemma inf_red_lt p q d u v k :
+  inv p q d u v -> invx p q u v -> p < q -> k <= q %/ p -> u + k * v + v < N ->
+  inf (u + k * v + v) = inf (u + v) - minn k (inf (u + v) %/ p) * p.
+Proof.
+move=> iv ix pLq kLq uvN'.
+apply/eqP; rewrite eqn_leq (inf_red_lt_le iv pLq kLq) /=.
+exact: inf_red_lt_ge iv ix pLq kLq.
+Qed.
+
+(*  The last [invx] field: the new infimum is below the new larger gap.       *)
+(*    On the [inf %/ p] branch the drop lands in [0, p[; on the [k] branch    *)
+(*    it lands below [q - k*p], as [inf < q] by [invx_inf].                   *)
+Lemma invx_red_lt_inf p q d u v k :
+  inv p q d u v -> invx p q u v -> p < q -> k <= q %/ p -> 0 < q - k * p ->
+  u + k * v + v < N ->
+  inf (u + k * v + v) < maxn p (q - k * p).
+Proof.
+move=> iv ix pLq kLq q'_gt0 uvN'.
+have [p_gt0 q_gt0 _ _ _ _ _ _] := iv.
+apply: leq_ltn_trans (inf_red_lt_le iv pLq kLq) _.
+(*  [leqP] itself resolves the [minn] in each branch                          *)
+have [kI|Ik] := leqP k (inf (u + v) %/ p); last first.
+  rewrite {1}(divn_eq (inf (u + v)) p) addKn.
+  by apply: leq_trans (leq_maxl _ _); rewrite ltn_pmod.
+have Iq : inf (u + v) < q by have := invx_inf ix; rewrite /maxn ifT.
+have kpI : k * p <= inf (u + v) by rewrite -leq_divRL.
+apply: leq_trans (leq_maxr _ _).
+by apply: ltn_sub2r => //; apply: leq_ltn_trans kpI Iq.
 Qed.
 
 (******************************************************************************)
