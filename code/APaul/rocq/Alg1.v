@@ -2,54 +2,35 @@
 (*                                                                            *)
 (*   Lefevre's original lower-bound algorithm                                 *)
 (*                                                                            *)
-(*   Algorithm 1 of doc/mourad.pdf (hal-00751446, 4.1), the algorithm         *)
-(*    Alg2.v's Algorithm 2 was designed to replace.  Same specification:      *)
-(*    with [a = A/M], [b = B/M], a lower bound on                             *)
-(*    [inf { b - a*x mod 1 | x < N }].                                        *)
+(*   Algorithm 1 of doc/mourad.pdf (hal-00751446, 4.1), which Alg2.v's        *)
+(*    Algorithm 2 replaces.  Same specification: with [a = A/M], [b = B/M],   *)
+(*    a lower bound on [inf { b - a*x mod 1 | x < N }].                       *)
 (*                                                                            *)
-(*   The two differ in what they branch on.  Algorithm 2 tests [p < q] and    *)
-(*    always takes the Euclidean quotient.  Algorithm 1 tests [d < p], and    *)
-(*    one of its turns is TWO reductions -- a division one then a single      *)
-(*    subtraction -- with the exit test BETWEEN them (lines 7 and 14).  That  *)
-(*    is why the loop cannot be written as a [step] plus a check, the way     *)
-(*    Alg2.run is, and why it visits configurations Algorithm 2 skips.        *)
+(*   A turn is TWO reductions, a division one then a single subtraction,      *)
+(*    with the exit test BETWEEN them (lines 7 and 14):                       *)
 (*                                                                            *)
 (*      branch [d < p]   q -= (q %/ p)*p, u += k*v | exit | p -= q, v += u    *)
 (*      branch [p <= d]  d -= p, p -= (p %/ q)*q, v += k*u | exit |           *)
 (*                                                          q -= p, u += v    *)
 (*                                                                            *)
-(*   [half1] is therefore [Alg2.step] (the quotient agrees whenever the       *)
-(*    branch test agrees with [p < q], and is [0] otherwise), and [half2] is  *)
-(*    the same reduction with [k = 1], which is what Config.v provides.       *)
+(*   So [half1] is [Alg2.step] -- the quotient agrees when the branch test    *)
+(*    agrees with [p < q] and is [0] otherwise -- and [half2] is the same     *)
+(*    reduction at [k = 1], which is Config.v.                                *)
 (*                                                                            *)
-(*   WHAT [d] IS, AND WHERE.  4.1 and Lefevre's thesis both say [d] is the    *)
-(*    distance from [b] down to the nearest point on its left, i.e.           *)
-(*    [inf (u + v)].  That is true BETWEEN the halves -- where the exit test  *)
-(*    reads it and where the loop returns it -- and not at the top of a       *)
-(*    turn: [half2] adds points and leaves [d] alone.  So at a turn start     *)
-(*    what holds is [invw] below,                                            *)
+(*   [d] is the distance from [b] to the nearest point on its left BETWEEN    *)
+(*    the halves, where the exit test reads it and the loop returns it.  At   *)
+(*    a turn start [half2] has added points and left [d] alone, and what      *)
+(*    holds is [invw]: [inf (u + v) = if d < p then d else d - p], with       *)
+(*    [d < p + q].  Algorithm 2's [invd] does not hold here.                  *)
 (*                                                                            *)
-(*      inf (u + v) = if d < p then d else d - p     and   d < p + q,         *)
+(*   Line 13 of the listing prints as [q <- p - k*q]; it has to be            *)
+(*    [p <- p - k*q], else line 15 goes negative.  The [Example]s check it.   *)
 (*                                                                            *)
-(*    i.e. [d] is the infimum plus the one [p]-step [half1] has not yet       *)
-(*    taken -- which is exactly what the branch test decides.  Algorithm 2's  *)
-(*    [invd] does NOT hold here: it fails at the initial state already.       *)
+(*   Lines 2 and 11 return Failure early when [d < eps].  [d] never           *)
+(*    increases ([leq_run1]), so the loop returns [d] and the test is         *)
+(*    [lefevre1_test].                                                        *)
 (*                                                                            *)
-(*   NOTE ON THE SOURCE.  Line 13 of the paper's listing prints as            *)
-(*    [q <- p - k*q].  That has to be a typo for [p <- p - k*q]: as           *)
-(*    printed it leaves [p] at its old, larger value and line 15's            *)
-(*    [q <- q - p] would go negative.  The counter update on the same line,   *)
-(*    [v <- v + k*u], is the one that goes with reducing [p] by [k*q].  The   *)
-(*    [Example]s below are what check that reading.                           *)
-(*                                                                            *)
-(*   NOTE ON eps.  The paper's lines 2 and 11 return Failure early when       *)
-(*    [d < eps].  That is an optimisation, not part of the bound: [d] never   *)
-(*    increases ([leq_run1]), so an early Failure and a final [d < eps]       *)
-(*    agree.  The loop below therefore returns [d], as Alg2.run does, and     *)
-(*    the test is the corollary [lefevre1_test].                             *)
-(*                                                                            *)
-(*   Companion notes: doc/mourad-notes.md (the six cases and Property 3),     *)
-(*    doc/lefevre-these-notes.md (what the variables mean).                   *)
+(*   Companion notes: doc/mourad-notes.md, doc/lefevre-these-notes.md.        *)
 (*                                                                            *)
 (******************************************************************************)
 
@@ -81,24 +62,17 @@ Fixpoint run1 (fuel p q d u v N : nat) : nat :=
 Definition lefevre1 (M A B N : nat) : nat :=
   run1 M (A %% M) (M - A %% M) (B %% M) 1 1 N.
 
-(*  Sanity checks (computed).  These are what validate the transcription      *)
-(*    of the listing, in particular the line 13 reading above.  They are      *)
-(*    the same figures Alg2.v checks, so the two algorithms can be compared   *)
-(*    on them directly.                                                       *)
-(*                                                                            *)
-(*   [a = 17/45] is the example of Figure 4 of the paper.                     *)
+(*  Sanity checks (computed), on Alg2.v's figures.  [a = 17/45] is the       *)
+(*    example of Figure 4.                                                    *)
 
 Example lefevre1_fig4 : lefevre1 45 17 30 5 = 7.
 Proof. by vm_compute. Qed.
 
-(*  Alg2.lefevre_strict's case, where Algorithm 2 returns 1 and the true      *)
-(*    infimum is 2.  Algorithm 1 is exact here -- it is the sharper of the    *)
-(*    two, see [leq_lefevre_1_2] at the bottom of the file.                   *)
+(*  Alg2.lefevre_strict's case: Algorithm 2 returns 1, the infimum is 2.     *)
 Example lefevre1_sharper : (lefevre1 32 23 12 8, lefevre 32 23 12 8) = (2, 1).
 Proof. by vm_compute. Qed.
 
-(*  But not exact in general: here both return 0 and the infimum is 1.  This  *)
-(*    is the smallest counterexample.                                         *)
+(*  Not exact in general: both return 0 and the infimum is 1.                *)
 Example lefevre1_strict : (lefevre1 5 2 3 4, inf_dst 5 2 3 4) = (0, 1).
 Proof. by vm_compute. Qed.
 
@@ -208,21 +182,8 @@ Qed.
 Lemma inv_dW p q d d' u v : inv p q d u v -> inv p q d' u v.
 Proof. by case. Qed.
 
-(*  The [gap] field is the paper's line 4 remark: the test says which gap    *)
-(*    [b] is in.  It has to be carried, not derived -- [Alg2.ge_inf_le]      *)
-(*    proves only the two one-way implications ([y0 < u -> Inf < p] and      *)
-(*    [u <= y0 -> Inf < q]), so when [Inf] is below both lengths the state   *)
-(*    alone does not say which gap holds [b].  The paper is in the same      *)
-(*    position: "[b] in a [p]-interval implies [d < p]" is immediate from    *)
-(*    what [d] is, but the converse is a property of the states the loop     *)
-(*    reaches, and it is Property 3's directionality that keeps it true.     *)
-(*    [invx_p1]/[invx_p2] are what make "[y] indexes a [p]-gap" mean         *)
-(*    [y < u].                                                               *)
-(*  The workhorse for everything below: the point [b] sits above attains     *)
-(*    the infimum.  [Alg2.gap_p_empty] and [gap_q_empty] say it is a lower    *)
-(*    bound over the range; with [leq_inf_dst] that is an equation, and       *)
-(*    every case of 4.1 becomes "name the point, check it is inside its       *)
-(*    gap".                                                                   *)
+(*  The point [b] sits above attains the infimum: [Alg2.gap_p_empty] and     *)
+(*    [gap_q_empty] make it a lower bound, [leq_inf_dst] an equation.         *)
 Lemma inv_qqM p q d u v : inv p q d u v -> q <= p -> q + q <= M.
 Proof.
 case=> p_gt0 q_gt0 bez _ _ _ u_gt0 v_gt0 qLp.
@@ -231,8 +192,7 @@ rewrite -bez (leq_trans (leq_add qLp (leqnn q))) // leq_add //.
 by rewrite leq_pmull.
 Qed.
 
-(*  and distances are distinct below [N], so "the point below [b]" is        *)
-(*    unique: naming it once names it everywhere.                             *)
+(*  Distances are distinct below [N], so that point is unique.               *)
 Lemma dst_inj x y : x <= N -> y <= N -> dst x = dst y -> x = y.
 Proof.
 wlog yx : x y / y <= x => [H xN yN dE|].
@@ -256,10 +216,8 @@ have H : 0 < x - y <= N by rewrite subn_gt0 yLx (leq_trans (leq_subr _ _)).
 by have := pt_neq0 H; rewrite ptE eqxx.
 Qed.
 
-(*  the last piece of the kit, and the one Alg2 proves inside [ge_inf_le]:   *)
-(*    the point [b] sits above is one whose gap contains [b], so its          *)
-(*    distance is below that gap's length.  ([Ip] there, by [invx_p1] and     *)
-(*    minimality: a [dst y0 >= p] would put [y0 + v] strictly below.)         *)
+(*  [b] lies inside the gap of the point below it, so its distance is below  *)
+(*    that gap's length.                                                      *)
 Lemma argmin_lt_p p q d u v y0 :
   inv p q d u v -> invx p q u v -> y0 < u -> inf (u + v) = dst y0 ->
   dst y0 < p.
@@ -272,18 +230,7 @@ have Hle : inf (u + v) <= dst (y0 + v) by apply: leq_inf_dst; rewrite ltn_add2r.
 by move: Hle; rewrite Hdd Hy0 leqNgt ltn_subrL p_gt0 (leq_trans p_gt0 pDy0).
 Qed.
 
-Lemma inf_at_p p q d u v w :
-  inv p q d u v -> invx p q u v -> p <= q -> w < u + v -> dst w < p ->
-  inf (u + v) = dst w.
-Proof.
-move=> iv ix pq wL pDw; apply/eqP; rewrite eqn_leq (leq_inf_dst wL) /=.
-apply: leq_inf; first by apply: ltnW; exact: ltn_dst.
-move=> z zL.
-by apply: (gap_p_empty iv (invx_min ix) (invx_max ix) pq wL zL pDw).
-Qed.
-
-(*  [q + q <= M] rather than [q <= p]: on a reduced configuration the        *)
-(*    second is not available, and it is only ever used to get the first.     *)
+(*  [q + q <= M] rather than [q <= p], which a reduced configuration lacks.  *)
 Lemma inf_at_q p q d u v w :
   inv p q d u v -> invx p q u v -> q + q <= M -> u <= w -> w < u + v ->
   dst w < q -> inf (u + v) = dst w.
@@ -293,34 +240,11 @@ apply: leq_inf; first by apply: ltnW; exact: ltn_dst.
 by move=> z zL; apply: (gap_q_empty iv (invx_max ix) qqM uw wL zL qDw).
 Qed.
 
-(*  THE MISSING SIBLING, and the reason the [p]-side leaves are still open.   *)
-(*    [inf_at_p] asks [p <= q] and [inf_at_q] asks [u <= w], so neither       *)
-(*    covers "[b] is in the gap headed by [w < u] while that gap is the       *)
-(*    LARGER one" -- which is what a configuration reduced on the [p] side    *)
-(*    looks like ([p - q] can exceed [q]).  Alg2 never met that case, so      *)
-(*    neither [gap_p_empty] nor [gap_q_empty] covers it: this is their third  *)
-(*    sibling, and [invw_sub_p_inf]/[invw_sub_p_gap] are to be written        *)
-(*    against it.                                                             *)
-(*                                                                            *)
-(*  ROUTE: [gap_p_empty]'s proof uses [p <= q] once, to turn [q <= dst w]     *)
-(*    into a contradiction with [dst w < p].  With [w < u] instead, [invx_p1] *)
-(*    gives the successor at [pt w + p] directly, which is the same argument  *)
-(*    as [argmin_lt_p] run backwards.                                         *)
-(*  What it rests on: [Alg2.gap_p_empty] with [w < u] in place of [p <= q].  *)
-(*    That hypothesis is used there exactly once, in the [z < w] case, to     *)
-(*    turn [q <= dst w] into a contradiction with [dst w < p].  With [w < u]  *)
-(*    the argument is [invx_p1]'s successor at [pt w + p] plus [invx_min]:    *)
-(*    a [z] with [dst z < dst w] would sit strictly inside [w]'s gap, and no  *)
-(*    point does.  The [w < z] half of [gap_p_empty] needs no change -- it    *)
-(*    already runs on [invx_min] alone.                                       *)
-(*  the [z < w] case, which is the only one that differs: [Alg2] gets its    *)
-(*    contradiction from [p <= q], and here it has to come from [w < u].      *)
-(*  and it comes straight out of [Alg2.gap_walk], which IS the tiling: any    *)
-(*    two indices in range have [dst y - dst z = a*p + b*q] with the index    *)
-(*    equation [a*v + y = b*u + z].  Here [dst w - dst z < p] forces [a = 0], *)
-(*    so the index equation reads [w = b*u + z]: [b = 0] makes [w = z] and    *)
-(*    any larger [b] makes [w >= u].  Both are excluded.  (That is the        *)
-(*    paper's Property 2 doing the work, and Alg2 already proved it.)         *)
+(*  The [w < u] analogue of [Alg2.gap_p_empty], whose [p <= q] covers only   *)
+(*    the case where [w]'s gap is the smaller one.  Its [z < w] case is the   *)
+(*    only one that differs: [Alg2.gap_walk] is the tiling, and               *)
+(*    [dst w - dst z < p] forces [a = 0] there, so the index equation gives   *)
+(*    [w = z] or [w >= u], both excluded.                                     *)
 Lemma gap_pu_down p q d u v w z :
   inv p q d u v -> invx p q u v -> w < u -> z < w -> dst z <= dst w ->
   dst w < p -> False.
@@ -549,20 +473,9 @@ have qLp' : q %/ p = 0 by rewrite divn_small // ltn_neqAle qLp andbT eq_sym.
 by rewrite qLp' mul0n addn0.
 Qed.
 
-(*  The other branch.  [invw] says [b] is NOT in a [p]-gap here: [d] is       *)
-(*    [Inf + p], so [Inf < q] by [invw_max].  That is the paper's fourth      *)
-(*    case -- [b] sits in a [q]-gap, and reducing [p] splits [p]-gaps only,   *)
-(*    so no point enters below [b] and [Inf] cannot drop.                     *)
-(*                                                                            *)
-(*  Stated as the one inequality, with NO bound on the new range: that is     *)
-(*    what lets it serve the exit case as well ([half1_leq_inf] below), and   *)
-(*    the other direction is free by monotonicity.                            *)
-(*                                                                            *)
-(*  ROUTE.  [Alg2.ge_inf_alt]'s right disjunct is this statement.  It asks    *)
-(*    for [invd] only to get [d = Inf] out of [ge_d_eq_inf], so it applies    *)
-(*    at [d := inf (u + v)], for which [invd] is immediate; what is left is   *)
-(*    to rule out its left disjunct, which is where [invw_gap] comes in --    *)
-(*    [b] is in a [q]-gap, so [gap_q_empty] applies.                          *)
+(*  [b] is in a [q]-gap here ([invw] gives [Inf = d - p] and [Inf < q]), and *)
+(*    reducing [p] splits [p]-gaps only, so [Inf] cannot drop.  Stated as one *)
+(*    inequality with no bound on the new range, so it serves the exit too.   *)
 Lemma half1_ge_nodrop p q d u v :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
   u + (v + p %/ q * u) < N ->
@@ -672,35 +585,8 @@ split.
 by have H := invx_red_ge_p2 (k := 1) iv; rewrite !mul1n in H.
 Qed.
 
-(*  ONE helper for both [p]-side leaves.  After the single reduction the      *)
-(*    point below [b] is either the one it had -- [b] stayed in the left      *)
-(*    [p - q] part -- or the one that entered from the right, whose index is  *)
-(*    [y0 + (v + u)] by [Config.invx_red_ge_p1] at [k = 1].  Both [_inf] and  *)
-(*    [_gap] read off it, the second through [dst_inj].                       *)
-(*                                                                            *)
-(*  NO range hypothesis is needed, and the earlier note claiming otherwise    *)
-(*    was wrong: [Alg2.inv_uv_le] bounds [u + v] by [M %/ g] for ANY state    *)
-(*    satisfying [inv], and the reduced configuration here does satisfy it    *)
-(*    ([q < p] gives [0 < p - q], so [Config.inv_red_ge] applies).  The       *)
-(*    orbit cannot be overrun.  That corner is real only where [inv] breaks   *)
-(*    -- [half1_ge_nodrop] with [q] dividing [p] -- not here.                 *)
-(*  What [sub_p_argmin] rests on: the point that enters [b]'s gap from the   *)
-(*    right is at index [y0 + (v + u)] -- [Config.invx_red_ge_p1] at          *)
-(*    [k = 1] -- and [dst_ofD] then gives its distance.                       *)
-(*                                                                            *)
-(*  NOTE the range hypothesis, which [sub_p_argmin] does not have.            *)
-(*    [invx_red_ge_p1] wants the new count below [N] (through [ptD_leq] and   *)
-(*    [pt_neq0]), while [sub_p_argmin] must hold at overshot counts because   *)
-(*    [invw_inf] does.  The way out is that [run1_past] does not need the     *)
-(*    EQUATION [invw_inf] but only one direction of it: it concludes          *)
-(*    [run1 <= (if d < p then d else d - p) <= inf (u+v) <= inf N], so        *)
-(*    [(if ...) <= inf (u+v)] suffices there.  Splitting [invw_inf] into its  *)
-(*    two inequalities, and asking the full equation only below [N], is what  *)
-(*    releases the range hypothesis here.                                     *)
-(*  [ptD_leq] with the orbit bound in place of [N].  Its [<= N] is there     *)
-(*    only to feed [pt_neq0], whose real form is [pt_neq0M] with              *)
-(*    [n < M %/ g] -- and [Alg2.inv_uv_le] hands that bound to every state    *)
-(*    satisfying [inv], for free.  So nothing here needs a range hypothesis.  *)
+(*  [ptD_leq] with the orbit bound: its [<= N] only feeds [pt_neq0], and     *)
+(*    [Alg2.inv_uv_le] bounds every [inv] state by [M %/ g].                  *)
 Lemma ptD_leqM x y :
   0 < x + y < M %/ g -> pt x + pt y <= M -> pt (x + y) = pt x + pt y.
 Proof.
@@ -708,6 +594,7 @@ move=> xyM; case: ltngtP => // [pxpyLM|pxpyE] _; first exact: ptD.
 by have := pt_neq0M xyM; rewrite ptDE pxpyE modnn eqxx.
 Qed.
 
+(*  The point entering [b]'s gap from the right, and its distance.           *)
 Lemma sub_p_new_dst p q d u v y0 :
   inv p q d u v -> invx p q u v -> q < p -> y0 < u -> p - q <= dst y0 ->
   dst (y0 + (v + u)) = dst y0 - (p - q).
@@ -730,6 +617,8 @@ have Hsucc : pt (y0 + (v + u)) = pt y0 + (p - q).
 by rewrite (dst_ofD Hsucc).
 Qed.
 
+(*  After the reduction the point below [b] is the one it had, or the one    *)
+(*    that entered from the right.  Both [_inf] and [_gap] read off it.       *)
 Lemma sub_p_argmin p q d u v y0 :
   inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
   y0 < u -> inf (u + v) = dst y0 ->
@@ -759,15 +648,9 @@ have Hinf : inf (u + (v + u)) = dst (y0 + (v + u)).
 by split; [exact: Hinf | rewrite Hinf Hd].
 Qed.
 
-(*  and one for the exit.  There the count has passed [N], so nothing can be  *)
-(*    said about the whole new range -- but only the indices BELOW [N] are    *)
-(*    asked about, and those are still one orbit's worth.                     *)
-(*  What [ge_new_dst] rests on.  A new index is [y + j*u] with [y] old and   *)
-(*    [0 < j <= p %/ q] ([Config.red_ge_new]), and the walk down subtracts    *)
-(*    [j*q] from the point, so it ADDS [j*q] to the distance -- harmless --   *)
-(*    unless it wraps.  The wrapping case is the whole content, and it is     *)
-(*    [Alg2.le_ge_wrap] with [invd] removed: that lemma asks for [invd] only  *)
-(*    to name [d], and here the bound to beat is [Inf] itself.                *)
+(*  A new index is [y + j*u] ([Config.red_ge_new]); the walk adds [j*q] to   *)
+(*    the distance unless it wraps, and [gap_q_empty] on the reduced          *)
+(*    configuration covers both.                                              *)
 Lemma ge_wrap_dst p q d u v y j y0 :
   inv p q d u v -> invx p q u v -> q <= p -> 0 < p - p %/ q * q ->
   y0 < u + v -> inf (u + v) = dst y0 -> u <= y0 -> inf (u + v) < q ->
@@ -785,10 +668,8 @@ rewrite Hy0; apply: (gap_q_empty iv' Hmax' (inv_qqM iv qLp) uy0 y0L' yjL).
 by rewrite -Hy0.
 Qed.
 
-(*  the degenerate corner: [q] divides [p], so the reduction lands on         *)
-(*    [p - k*q = 0] and the reduced configuration is not a two-length one at  *)
-(*    all -- [inv] fails, and with it [gap_q_empty].  [Alg2.ge_wrap_exit] is  *)
-(*    the lemma for that case there; it is stated against [invd]'s [d'].      *)
+(*  The degenerate case [q] divides [p], where the reduction leaves no       *)
+(*    two-length configuration: [Alg2.ge_exit] is stated for it.              *)
 Lemma ge_wrap_deg p q d u v y j :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
   p - p %/ q * q = 0 -> y < u + v -> 0 < j <= p %/ q ->
@@ -965,18 +846,7 @@ move=> iv ix pLq dE dLq; split.
 exact: invw_sub_q_gap iv ix pLq dE dLq.
 Qed.
 
-(*  At the exit the count has passed [N], so [half1_exact] is out of reach:   *)
-(*    its range hypothesis is exactly what the exit denies.  But [N <= u'+v'] *)
-(*    gives [Inf (u'+v') <= Inf N], so it is enough to bound [d'] by the      *)
-(*    infimum of the NEW range -- the lower half of the [inf] law, which      *)
-(*    carries no range bound on either side.                                  *)
-(*  the [p <= d] half of the exit.  It cannot go through                     *)
-(*    [half1_ge_nodrop]: there the reduced configuration is asked to satisfy  *)
-(*    [inv], which needs [0 < p %% q], and [Alg2.step_p_gt0] gives that only  *)
-(*    below [N] -- while here the count has passed [N].  When [q] divides     *)
-(*    [p] the reduction lands on an all-[q] configuration whose range covers  *)
-(*    the whole orbit, and there [Inf] genuinely does drop; what saves the    *)
-(*    statement is that only the indices BELOW [N] matter.                    *)
+(*  the [p <= d] half of the exit.                                           *)
 Lemma half1_leq_inf_ge p q d u v :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
   N <= u + (v + p %/ q * u) -> d - p <= inf N.
@@ -1068,19 +938,10 @@ apply: leq_trans (run1_decr p q d u v f_gt0) _.
 by rewrite -(invw_inf iw); apply: leq_inf_mono.
 Qed.
 
-(*  The loop returns a lower bound on the infimum.                            *)
-(*                                                                            *)
-(*  The spine.  Induction on [fuel]: at each turn [half1_exact] makes [d]     *)
-(*    the infimum, the exit case is [half1_leq_inf], and the recursive case   *)
-(*    rebuilds the three records by [inv_half1]/[inv_sub_*],                  *)
-(*    [invx_half1]/[invx_sub_*] and [half1_exact]/[invw_sub_*].               *)
-(*                                                                            *)
-(*  The exit test sits BETWEEN the halves, so it bounds the mid-turn count    *)
-(*    and a turn can begin with [N <= u + v].  That case is closed by         *)
-(*    [run1_past], which needs [invw] and nothing else -- which is why        *)
-(*    [invw_sub_p] and [invw_sub_q] must NOT carry a [< N] hypothesis, and    *)
-(*    why [invx] is never asked for at an overshot count.  Config.v's [inf]   *)
-(*    laws oblige: neither half of them needs the range bound.                *)
+(*  Induction on [fuel]: [half1_exact] makes [d] the infimum, the exit is    *)
+(*    [half1_leq_inf], and the recursive case rebuilds the three records.     *)
+(*    A turn can begin with [N <= u + v], since the exit test bounds the      *)
+(*    mid-turn count; [run1_past] closes that case from [invw] alone.         *)
 Lemma run1_sound fuel p q d u v :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N ->
   p + q <= fuel -> run1 fuel p q d u v N <= inf N.
@@ -1161,15 +1022,7 @@ End Theory.
 (* Comparison with Algorithm 2                                                *)
 (******************************************************************************)
 
-(*  Both algorithms bound the same quantity, so they can be compared.        *)
-(*    Neither is exact ([lefevre1_strict]), but Algorithm 1 is the sharper   *)
-(*    of the two: measured true over all [M <= 24], all [A, B < M] and all   *)
-(*    [3 <= N < M %/ gcdn A M], with [lefevre1_sharper] a witness that the   *)
-(*    inequality is strict somewhere.  Not proved.                           *)
-(*                                                                           *)
-(*  This is a statement about the two algorithms only, with no [inf] in it,  *)
-(*    so it needs neither soundness proof and could be attacked first.       *)
-
-(* TODO: proof.
-Lemma leq_lefevre_1_2 M A B N : lefevre M A B N <= lefevre1 M A B N.
-*)
+(*  Neither is exact ([lefevre1_strict]), but Algorithm 1 is the sharper of  *)
+(*    the two: [lefevre M A B N <= lefevre1 M A B N], measured over all      *)
+(*    [M <= 24], all [A, B < M] and all [3 <= N < M %/ gcdn A M], with       *)
+(*    [lefevre1_sharper] a strict witness.  Not proved.                      *)
