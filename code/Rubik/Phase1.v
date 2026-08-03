@@ -58,7 +58,7 @@ From Rubik Require Import ssrint63.
    certificate files *)
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
         Coordfs Coordfsi Fstab FsTable Diameter Moves
-        Searchr Redun Searchir.
+        Searchr Redun Searchir P1Small.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -360,14 +360,134 @@ Qed.
    It runs this instead -- a 2187 x 18 table, tiny next to the phase 1 table --
    and acttwiE ties the two together by a finite check over 39 366 entries.
    Exactly Fstab's actd / actf / actfE split, one level up. *)
-Definition twmove : arr := PArray.make (of_nat (ntwist * 18)) 0%uint63. (* GENERATED *)
+
+(* the length as an int63 LITERAL: of_nat (ntwist * 18) is 39 366 successors,
+   built every time the array is forced.  Same reason nfsi is a literal. *)
+Definition ntwmovei : int := 39366%uint63.     (* ntwist * 18                *)
+
+(* P1Small.v's 39 366 numbers become an array here, and nowhere else.  Same
+   fold as FsTable.mkarr, with the length and the default given: the entries
+   are twist coordinates, so the default 0 is a twist coordinate too. *)
+Definition mkarr (n d : int) (l : seq int) : arr :=
+  (fix go (a : arr) (i : int) (l : seq int) {struct l} : arr :=
+     if l is x :: l' then go (PArray.set a i x) (i + 1)%uint63 l' else a)
+    (PArray.make n d) 0%uint63 l.
+
+Definition twmove : arr := mkarr ntwmovei 0%uint63 twmove_data. (* GENERATED *)
 
 Definition acttwi (x : int) (k : nat) : int :=
   PArray.get twmove (Uint63.add (Uint63.mul x 18%uint63) (of_nat k)).
 
-Lemma acttwiE x k : (k < 18)%N ->
+(* THE FINITE CHECK.  2187 twists x 18 moves, both sides computable: acttwi
+   reads the emitted array, acttwt runs the digit formula on the move TABLE.
+   Measured in OCaml before it was proved: 0 mismatches out of 39 366
+   (bench/p1gen.ml, mode `acttwi'). *)
+
+(* BOTH LOOP INVARIANTS ARE HOISTED, and the check does not run without it:
+   acttwt as written rebuilds inv_tab 47 mt for each of the seven digits and
+   again for each of the 2187 twists, and dign runs a division on a UNARY nat.
+   Straight `vm_compute' on the unhoisted check ran 667 s.  Same trick, and
+   the same reason, as p1mdata in section 5. *)
+
+(* the move's contribution: which corner arrives at p, and how far it is
+   turned -- seven pairs per move, computed once for all twists *)
+Definition acttwm (mt : seq nat) : seq (nat * nat) :=
+  [seq (csrct mt p, cdeltat mt p) | p <- iota 0 7].
+
+Definition acttwms : seq (seq (nat * nat)) := [seq acttwm mt | mt <- mtabs].
+
+(* the nine digits of x -- eight corners and the slot 8 that cposn returns for
+   a facelet that is not a corner facelet at all -- computed once for all
+   moves.  NINE, not eight, because csrct is an index divided by three and the
+   index of a missing facelet is the size of the list. *)
+Definition twdigs (x : int) : seq nat := [seq dign x p | p <- iota 0 9].
+
+Definition acttwtd (d : seq nat) (l : seq (nat * nat)) : int :=
+  foldr (fun q a => Uint63.add (Uint63.mul a 3%uint63)
+                               (of_nat ((nth 0%N d q.1 + 3 - q.2) %% 3)))
+        0%uint63 l.
+
+(* foldr over a map, so the hoisted form and acttwt are the same fold *)
+Lemma foldr_map_seq (T R : Type) (F : T -> R -> R) (g : nat -> T)
+    (z : R) (l : seq nat) :
+  foldr F z [seq g p | p <- l] = foldr (fun p a => F (g p) a) z l.
+Proof. by elim: l => //= p l ->. Qed.
+
+(* cposn is an index divided by three, and index returns the size when the
+   facelet is absent, so 24 %/ 3 = 8 is the largest value it can take *)
+Lemma csrct_lt mt p : (csrct mt p < 9)%N.
+Proof.
+rewrite /csrct /cposn.
+have hsz : seq.size cflat = 24%N by vm_compute.
+apply: leq_ltn_trans (_ : (24 %/ 3 < 9)%N) => //.
+by rewrite -hsz leq_div2r // index_size.
+Qed.
+
+Lemma twdigsE x j : (j < 9)%N -> nth 0%N (twdigs x) j = dign x j.
+Proof. by move=> jL; rewrite /twdigs (nth_map_iota _ _ jL). Qed.
+
+Lemma acttwtdE x mt : acttwtd (twdigs x) (acttwm mt) = acttwt x mt.
+Proof.
+rewrite /acttwtd /acttwm /acttwt foldr_map_seq.
+elim: (iota 0 7) => //= p l ->; congr Uint63.add.
+by rewrite /acttwdt twdigsE // csrct_lt.
+Qed.
+
+(* the three functions the loop runs, split so that the two hoisted arguments
+   are evaluated once per twist and not once per (twist, move) *)
+Definition acttwiCk (x : int) (d : seq nat) (k : nat) : bool :=
+  acttwi x k == acttwtd d (nth [::] acttwms k).
+
+(* AN EQUATION, NOT A DELTA STEP, and this one is worth 168 s.  `rewrite
+   /acttwiCk in hk' at the instance x := of_nat (to_nat x) does not return
+   inside five minutes, while the same step through this lemma is 0.001 s.
+   The conversion itself is free -- `by []' proves this at that very instance
+   in 0.003 s -- so what is slow is ssreflect's UNIFICATION of the two forms,
+   not the kernel.  Same lesson, and same fix, as p1checkTwE below. *)
+Lemma acttwiCkE x d k :
+  acttwiCk x d k = (acttwi x k == acttwtd d (nth [::] acttwms k)).
+Proof. by []. Qed.
+
+Definition acttwiCx (n : nat) : bool :=
+  all (acttwiCk (of_nat n) (twdigs (of_nat n))) (iota 0 18).
+
+Definition acttwiC : bool := all acttwiCx (iota 0 ntwist).
+
+(* EQUATIONS, so that allP never has to unfold a definition against `all' *)
+Lemma acttwiCxE n :
+  acttwiCx n = all (acttwiCk (of_nat n) (twdigs (of_nat n))) (iota 0 18).
+Proof. by []. Qed.
+
+Lemma acttwiCE : acttwiC = all acttwiCx (iota 0 ntwist).
+Proof. by []. Qed.
+
+Lemma acttwiCP : acttwiC.
+Proof. by vm_compute. Qed.
+
+(* The twist coordinate is seven base 3 digits, so x >= ntwist is not a twist
+   coordinate at all and the array has no entry for it -- acttwi would read the
+   default.  Hence the bound, which every caller has: it is Dp1_step_of_check's
+   twL. *)
+Lemma acttwiE x k : (to_nat x < ntwist)%N -> (k < 18)%N ->
   acttwi x k = acttw x (pt 47 (nth [::] mtabs k)).
-Proof. Admitted.
+Proof.
+move=> xL kL.
+have hmt : seq.size mtabs = 18%N by vm_compute.
+have mok : tab_ok 47 (nth [::] mtabs k).
+  by apply: (allP mtabs_ok); rewrite mem_nth // hmt.
+(* NO `/=' ANYWHERE BELOW.  simpl on a goal mentioning all _ (iota 0 2187)
+   unfolds the fixpoint into 2187 conjuncts and does not return; that is why
+   the memberships are discharged by add0n / leq0n instead. *)
+have kM : k \in iota 0 18 by rewrite mem_iota add0n leq0n kL.
+have xM : to_nat x \in iota 0 ntwist by rewrite mem_iota add0n leq0n xL.
+have hnth : nth [::] acttwms k = acttwm (nth [::] mtabs k).
+  by rewrite /acttwms (nth_map [::]) // hmt.
+have hall : all acttwiCx (iota 0 ntwist) by rewrite -acttwiCE; exact: acttwiCP.
+have hx := allP hall _ xM; rewrite acttwiCxE in hx.
+have hk := allP hx _ kM.
+rewrite acttwiCkE to_natK hnth acttwtdE in hk.
+by rewrite (eqP hk) (acttwtE _ mok).
+Qed.
 
 (* the structured counterpart, for the proofs -- mirrors Coordfs.coordfs, which
    is likewise stated with g^-1 applied to the slot's primary facelet *)
@@ -422,8 +542,15 @@ Definition nflip  := 2048.
 Definition nsrank := 495.
 Definition nfs    := 1013760.   (* nflip * nsrank *)
 
+(* nsrank as an int63 literal, for the same reason ntwmovei is one *)
+Definition nsranki : int := 495%uint63.                      (* nsrank      *)
+Definition nmaski  : int := 4096%uint63.                     (* 2 ^ 12      *)
+
+(* the rank of each twelve bit mask among those with four bits set, or 495 for
+   a mask that cannot occur -- which is also the default, so an index past the
+   end reads the same "impossible" value rather than the rank of slice 0. *)
 Definition srank : arr :=                                     (* GENERATED *)
-  PArray.make 4096%uint63 (of_nat nsrank).
+  mkarr nmaski nsranki srank_data.
 
 (* NB 2047, not 4095.  The flip occupies twelve bits but edge flip parity is
    even, so bit 11 is determined by bits 0..10 and only 2048 of the 4096 occur.
