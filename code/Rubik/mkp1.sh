@@ -7,18 +7,20 @@
 #     per chunk   7m26 wall, 12.1 GB peak RSS, 42 MB of .v, 62.8 MB of .vo
 #     all 71      8.8 CPU-hours, 2.9 GB of .v, 4.5 GB of .vo
 #
-# The peak RSS is what bounds JOBS: 12.1 GB per worker means 4 on a 62 GB
-# machine, not 24.  Going wider swaps and is slower than going narrower.
+# The peak RSS is what bounds JOBS: 12.1 GB per worker.  MEASURED on
+# roquableu 2026-08-03: five workers SWAP on 62 GB and crawl.  Three is the
+# safe number there; going wider is slower, not faster.
 #
-#   ./mkp1.sh              emit and compile everything, 4 workers
-#   JOBS=6 ./mkp1.sh       more workers -- check the RAM first
+#   ./mkp1.sh              emit and compile everything, 3 workers
+#   JOBS=4 ./mkp1.sh       more workers -- check the RAM first
+#   KEEP=0 ./mkp1.sh       re-emit even if the chunks are already there
 #   ./mkp1.sh 12 19        only chunks 12 .. 19 (P1Table.v is still written)
 #
 # Nothing here is required by the rest of the development: Phase1.v takes
 # the table as a Section variable and uses p1dummy until this has run.
 
 set -e
-JOBS=${JOBS:-4}
+JOBS=${JOBS:-3}
 cd "$(dirname "$0")"
 
 # -P N is accepted as well as JOBS=N, because both spellings are natural and
@@ -50,8 +52,20 @@ fi
 # The BFS is ~2 minutes and 2.1 GB before a single literal is written, and
 # the packing self check runs before the write, so a wrong table costs
 # minutes rather than hours.
-echo "emitting chunks $FIRST .. $LAST"
-(cd bench && ./p1gen 9 emit "$FIRST" "$LAST")
+#
+# SKIPPED when the chunks are already there, so that recovering from a bad
+# JOBS choice does not rewrite 2.9 GB.  KEEP=0 forces a re-emission.
+need=0
+for i in $(seq -w "$FIRST" "$LAST"); do
+  [ -f "P1_$i.v" ] || need=1
+done
+if [ "$need" = "1" ] || [ "${KEEP:-1}" = "0" ]; then
+  echo "emitting chunks $FIRST .. $LAST"
+  (cd bench && ./p1gen 9 emit "$FIRST" "$LAST")
+else
+  echo "chunks $FIRST .. $LAST already emitted, skipping (KEEP=0 to redo)"
+  (cd bench && ./p1gen 9 table)
+fi
 
 # ulimit: a 42 MB list literal overflows the default 8 MB stack at PARSE
 # time, long before any proof runs.

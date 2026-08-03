@@ -324,24 +324,6 @@ let () =
   Printf.printf "move table violations: %d\n%!" !viol;
   if !viol > 0 then (prerr_endline "MOVE TABLES ARE NOT WELL DEFINED"; exit 1);
 
-  (* ---- the two SMALL tables, emitted before the big BFS ------------------ *)
-  (* srank is 4096 numbers and twmove is 39 366: a quarter of a megabyte, so
-     they are checked in and Phase1.v requires them unconditionally.  The
-     phase 1 table itself is 2.9 GB of literals and is not.  Nothing after
-     this point is needed, so the mode stops here. *)
-
-  if Array.length Sys.argv > 2 && Sys.argv.(2) = "small" then begin
-    let oc = open_out "../P1Small.v" in
-    header oc "srank, and the twist move table.";
-    emit_seq oc "srank_data" 4096 (fun i -> srank.(i));
-    emit_seq oc "twmove_data" (ntwist * nmoves) (fun i -> twmove.(i));
-    close_out oc;
-    let sz = (Unix.stat "../P1Small.v").Unix.st_size in
-    Printf.printf "wrote ../P1Small.v: %.2f MB\n%!"
-      (float_of_int sz /. 1048576.0);
-    exit 0
-  end;
-
   (* ---- twist x slice, rubik_par's second table -------------------------- *)
   (* the slice moves on its own: fsidx is flip * nslice + slice, and the slice
      part of a move depends only on the slice part *)
@@ -400,6 +382,89 @@ let () =
     if v < 255 then (incr tsfill; if v > !tsmax then tsmax := v)) pts;
   Printf.printf "twist x slice: %d of %d filled, max depth %d\n%!"
     !tsfill nts !tsmax;
+
+  (* ---- the SMALL tables, emitted before the big BFS ---------------------- *)
+  (* srank, the twist move table, the slice move table and the twist x slice
+     distance table.  Together about 1.7 MB, so unlike the phase 1 table they
+     are checked in and required unconditionally.  Everything they need is
+     built by this point; the big BFS below is not.  So the mode stops here. *)
+
+  if Array.length Sys.argv > 2 && Sys.argv.(2) = "small" then begin
+    (* the ts table is packed four bits to an entry like the phase 1 one, so
+       every entry has to fit.  It does -- all 1 082 565 states are reached by
+       depth 9 -- but check rather than assume. *)
+    let over = ref 0 in
+    Bytes.iter (fun c -> if Char.code c > 14 then incr over) pts;
+    Printf.printf "ts entries above 14: %d\n%!" !over;
+    if !over > 0 then (prerr_endline "TS TABLE DOES NOT FIT IN FOUR BITS";
+                       exit 1);
+    (* INDEXED BY MASK, not by rank: t * 4096 + mask, so the slice half needs
+       no unranking in Rocq.  The slice mask moves on its own structurally --
+       actfs's high half reads only high bits -- whereas the rank does not,
+       and FsTable.v already made this trade for the flip x slice table:
+       "the waste costs memory and nothing else".  Same values, same node
+       counts, 8.2x the slots.  Masks that cannot occur hold 0, which makes
+       the certificate's step condition trivially true there. *)
+    let unrank = Array.make nslice 0 in
+    Array.iteri (fun m r -> if r < nslice then unrank.(r) <- m) srank;
+    let nmask = 4096 in
+    let ntsm = ntwist * nmask in
+    let tsm = Bytes.make ntsm '\000' in
+    for t = 0 to ntwist - 1 do
+      for m = 0 to nmask - 1 do
+        let r = srank.(m) in
+        if r < nslice then
+          Bytes.unsafe_set tsm (t * nmask + m)
+            (Bytes.unsafe_get pts (t * nslice + r))
+      done
+    done;
+    (* and the mask action, which is what the step condition steps by *)
+    let maskmove = Array.make (nmask * nmoves) 0 in
+    for m = 0 to nmask - 1 do
+      let r = srank.(m) in
+      for k = 0 to nmoves - 1 do
+        maskmove.(m * nmoves + k) <-
+          if r < nslice then unrank.(slmove.(r * nmoves + k)) else m
+      done
+    done;
+    let tsword w =
+      let v = ref 0 in
+      for j = nper - 1 downto 0 do
+        let i = w * nper + j in
+        let d = if i < ntsm then Char.code (Bytes.unsafe_get tsm i) else 0 in
+        v := (!v lsl nwidth) lor d
+      done; !v in
+    let tswords = (ntsm + nper - 1) / nper in
+    (* the same packing self check as the phase 1 table gets *)
+    let bad = ref 0 and st = Random.State.make [|20260803|] in
+    for _ = 1 to 200_000 do
+      let i = Random.State.full_int st ntsm in
+      if (tsword (i / nper) lsr ((i mod nper) * nwidth)) land 15
+         <> Char.code (Bytes.unsafe_get tsm i) then incr bad
+    done;
+    Printf.printf "ts packing self check: %d mismatches of 200000\n%!" !bad;
+    if !bad > 0 then (prerr_endline "TS PACKING IS WRONG"; exit 1);
+
+    let oc = open_out "../P1Small.v" in
+    header oc "srank, the twist move table and the slice move table.";
+    emit_seq oc "srank_data" 4096 (fun i -> srank.(i));
+    emit_seq oc "twmove_data" (ntwist * nmoves) (fun i -> twmove.(i));
+    emit_seq oc "slmove_data" (nslice * nmoves) (fun i -> slmove.(i));
+    emit_seq oc "maskmove_data" (4096 * nmoves) (fun i -> maskmove.(i));
+    close_out oc;
+    let sz = (Unix.stat "../P1Small.v").Unix.st_size in
+    Printf.printf "wrote ../P1Small.v: %.2f MB\n%!" (float_of_int sz /. 1048576.0);
+
+    let oc = open_out "../P1Ts.v" in
+    header oc "The twist x slice distance table, rubik_par's second pruning \
+               table: 2187 x 495 entries, four bits each, fifteen per word.";
+    emit_seq oc "ts_data" tswords tsword;
+    close_out oc;
+    let sz = (Unix.stat "../P1Ts.v").Unix.st_size in
+    Printf.printf "wrote ../P1Ts.v: %d words, %.2f MB\n%!"
+      tswords (float_of_int sz /. 1048576.0);
+    exit 0
+  end;
 
   (* ---- the phase 1 BFS, index = twist * nfs + fsidx ---------------------- *)
 
