@@ -173,6 +173,7 @@ Local Notation gap_q_empty := (@gap_q_empty M M_gt0 A B).
 Local Notation gap_p_empty := (@gap_p_empty M M_gt0 A B).
 Local Notation walk_lt_nowrap := (@walk_lt_nowrap M M_gt0 A B).
 Local Notation walk_ge_nowrap := (@walk_ge_nowrap M M_gt0 A B).
+Local Notation ge_exit := (@ge_exit M M_gt0 A B ltn_B).
 Local Notation red_ge_new := (@red_ge_new M M_gt0 A).
 Local Notation invx_red_ge_min := (@invx_red_ge_min M M_gt0 A).
 Local Notation invx_red_ge_max := (@invx_red_ge_max M M_gt0 A).
@@ -792,7 +793,24 @@ Lemma ge_wrap_deg p q d u v y j :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
   p - p %/ q * q = 0 -> y < u + v -> 0 < j <= p %/ q ->
   inf (u + v) <= dst (y + j * u).
-Proof. Admitted.
+Proof.
+move=> iv ix iw uvN pLd p'0 yL jk.
+have [p_gt0 q_gt0 _ _ _ _ _ _] := iv.
+have qLp : q <= p.
+  rewrite leqNgt; apply/negP => pLq.
+  by move: p'0 p_gt0; rewrite (divn_small pLq) mul0n subn0 => ->.
+have Iq : inf (u + v) < q.
+  rewrite (invw_inf iw) ifN -?leqNgt //.
+  by rewrite ltn_subLR //; exact: invw_max iw.
+have [Hnw|Hw] := ltnP (dst y + j * q) M.
+  rewrite (walk_ge_nowrap iv qLp yL jk Hnw).
+  by rewrite (leq_trans _ (leq_addr _ _)) // leq_inf_dst.
+have ivd : invd p q (inf (u + v)) u v.
+  by split => //; exact: (invx_inf ix).
+have [H1 _] := ge_exit (inv_dW (inf (u + v)) iv) ivd ix qLp p'0.
+have := H1 y j yL jk Hw.
+by rewrite p'0 leq0n subn0 modn_small.
+Qed.
 
 Lemma ge_new_dst p q d u v z :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
