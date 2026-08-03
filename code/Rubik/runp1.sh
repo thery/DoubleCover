@@ -9,8 +9,13 @@
 # its answer a theorem is Farp1.far_of_searchz3, still admitted.
 set -e
 cd "$(dirname "$0")"
+#   ./runp1.sh prepare   build the two remaining tables, run nothing
+#   ./runp1.sh 14        run depth 14 -- and if prepare was done first, this
+#                        command does NOTHING BUT THE SEARCH
 N=${1:-14}
-case "$N" in ''|*[!0-9]*) echo "usage: ./runp1.sh [depth]" >&2; exit 1;; esac
+if [ "$N" = "prepare" ]; then PREPARE=1; N=14; else PREPARE=0; fi
+case "$N" in ''|*[!0-9]*) echo "usage: ./runp1.sh [prepare|depth]" >&2; exit 1;;
+esac
 
 [ -f P1_70.vo ] || { echo "run ./mkp1.sh first (the phase 1 table)" >&2; exit 1; }
 
@@ -34,6 +39,11 @@ fi
 if [ ! -f P1Table.vo ]; then
   echo "=== compiling P1Table.v (one-off, 4.5 GB of chunks) ==="
   time rocq compile -R . Rubik P1Table.v
+fi
+
+if [ "$PREPARE" = "1" ]; then
+  echo "tables ready -- ./runp1.sh N now measures the search alone"
+  exit 0
 fi
 
 cat > RunReal.v <<EOF
