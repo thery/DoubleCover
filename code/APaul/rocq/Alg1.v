@@ -140,6 +140,8 @@ Local Notation leq_inf_dst := (leq_inf_dst M A B).
 Local Notation leq_inf_mono := (leq_inf_mono M A B).
 Local Notation inf_ex := (inf_ex M_gt0 A B).
 Local Notation leq_N_Mg := (leq_N_Mg N_lt_Mg).
+Local Notation dst_diff := (dst_diff M_gt0 A B).
+Local Notation pt_neq0 := (pt_neq0 M_gt0 N_lt_Mg).
 
 Local Notation step_p_gt0 := (@step_p_gt0 M A N N_lt_Mg).
 Local Notation inv_step_pos := (@inv_step_pos M M_gt0 A B ltn_B).
@@ -161,6 +163,8 @@ Local Notation invx_red_lt_gap :=
   (@invx_red_lt_gap M M_gt0 A B ltn_B N N_lt_Mg).
 Local Notation invx_step := (@invx_step M M_gt0 A B ltn_B N N_lt_Mg).
 Local Notation gap_q_empty := (@gap_q_empty M M_gt0 A B).
+Local Notation gap_p_empty := (@gap_p_empty M M_gt0 A B).
+Local Notation walk_lt_nowrap := (@walk_lt_nowrap M M_gt0 A B).
 Local Notation invx_red_ge_min := (@invx_red_ge_min M M_gt0 A).
 Local Notation invx_red_ge_max := (@invx_red_ge_max M M_gt0 A).
 Local Notation invx_red_ge_p2 := (@invx_red_ge_p2 M M_gt0 A).
@@ -205,10 +209,78 @@ Proof. by case. Qed.
 (*    reaches, and it is Property 3's directionality that keeps it true.     *)
 (*    [invx_p1]/[invx_p2] are what make "[y] indexes a [p]-gap" mean         *)
 (*    [y < u].                                                               *)
+(*  The workhorse for everything below: the point [b] sits above attains     *)
+(*    the infimum.  [Alg2.gap_p_empty] and [gap_q_empty] say it is a lower    *)
+(*    bound over the range; with [leq_inf_dst] that is an equation, and       *)
+(*    every case of 4.1 becomes "name the point, check it is inside its       *)
+(*    gap".                                                                   *)
+Lemma inv_qqM p q d u v : inv p q d u v -> q <= p -> q + q <= M.
+Proof.
+case=> p_gt0 q_gt0 bez _ _ _ u_gt0 v_gt0 qLp.
+rewrite -bez (leq_trans (leq_add qLp (leqnn q))) // leq_add //.
+  by rewrite leq_pmull.
+by rewrite leq_pmull.
+Qed.
+
+(*  and distances are distinct below [N], so "the point below [b]" is        *)
+(*    unique: naming it once names it everywhere.                             *)
+Lemma dst_inj x y : x <= N -> y <= N -> dst x = dst y -> x = y.
+Proof.
+wlog yx : x y / y <= x => [H xN yN dE|].
+  case: (leqP y x) => [yx|xy]; first by apply: H.
+  by apply/esym; apply: H => //; apply: ltnW.
+move=> xN yN dE; have := dst_diff yx; rewrite -dE => HE.
+have ptE : pt (x - y) = 0.
+  have dM : dst y < M := ltn_dst _.
+  have pM : pt (x - y) < M := ltn_pt _.
+  case: (ltnP (dst y + pt (x - y)) M) => [dpM|Mdp].
+    move: HE; rewrite modn_small; last by rewrite dE.
+    by rewrite -{1}[dst x]addn0 => /addnI.
+  rewrite dE in HE; move: HE; rewrite -(subnK Mdp) modnDr modn_small;
+      last first.
+    by rewrite ltn_subLR //
+       (leq_ltn_trans (leq_add (ltnW dM) (leqnn (pt (x - y))))) // ltn_add2l.
+  move=> /eqP; rewrite -(eqn_add2r M) subnK // eqn_add2l => /eqP ME.
+  by move: pM; rewrite -ME ltnn.
+apply/eqP; rewrite eqn_leq yx andbT leqNgt; apply/negP => yLx.
+have H : 0 < x - y <= N by rewrite subn_gt0 yLx (leq_trans (leq_subr _ _)).
+by have := pt_neq0 H; rewrite ptE eqxx.
+Qed.
+
+(*  the last piece of the kit, and the one Alg2 proves inside [ge_inf_le]:   *)
+(*    the point [b] sits above is one whose gap contains [b], so its          *)
+(*    distance is below that gap's length.  ([Ip] there, by [invx_p1] and     *)
+(*    minimality: a [dst y0 >= p] would put [y0 + v] strictly below.)         *)
+Lemma argmin_lt_p p q d u v y0 :
+  inv p q d u v -> invx p q u v -> y0 < u -> inf (u + v) = dst y0 ->
+  dst y0 < p.
+Proof. Admitted.
+
+Lemma inf_at_p p q d u v w :
+  inv p q d u v -> invx p q u v -> p <= q -> w < u + v -> dst w < p ->
+  inf (u + v) = dst w.
+Proof.
+move=> iv ix pq wL pDw; apply/eqP; rewrite eqn_leq (leq_inf_dst wL) /=.
+apply: leq_inf; first by apply: ltnW; exact: ltn_dst.
+move=> z zL.
+by apply: (gap_p_empty iv (invx_min ix) (invx_max ix) pq wL zL pDw).
+Qed.
+
+Lemma inf_at_q p q d u v w :
+  inv p q d u v -> invx p q u v -> q <= p -> u <= w -> w < u + v ->
+  dst w < q -> inf (u + v) = dst w.
+Proof.
+move=> iv ix qLp uw wL qDw; apply/eqP; rewrite eqn_leq (leq_inf_dst wL) /=.
+apply: leq_inf; first by apply: ltnW; exact: ltn_dst.
+move=> z zL.
+by apply: (gap_q_empty iv (invx_max ix) (inv_qqM iv qLp) uw wL zL qDw).
+Qed.
+
 Record invw (p q d u v : nat) := Invw {
   invw_max : d < p + q;
   invw_inf : inf (u + v) = if d < p then d else d - p;
-  invw_gap : forall y, y < u + v -> inf (u + v) = dst y -> (y < u) = (d < p)
+  invw_gap : u + v <= N ->
+             forall y, y < u + v -> inf (u + v) = dst y -> (y < u) = (d < p)
 }.
 
 (*  At the start [u = v = 1], so the configuration is the two points [0] and  *)
@@ -238,8 +310,9 @@ Qed.
 
 (*  and the two points are distinct, so the argmin is the one the test        *)
 (*    names: [0] when [d < p], [1] otherwise.                                 *)
-Lemma invw_init_gap y :
-  y < 1 + 1 -> inf (1 + 1) = dst y -> (y < 1) = (B %% M < A %% M).
+Lemma invw_init_gap :
+  1 + 1 <= N ->
+  forall y, y < 1 + 1 -> inf (1 + 1) = dst y -> (y < 1) = (B %% M < A %% M).
 Proof. Admitted.
 
 Lemma invw_init : invw (A %% M) (M - A %% M) (B %% M) 1 1.
@@ -383,7 +456,7 @@ have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
 have [y0 y0L Hy0] := inf_ex uv_gt0.
 (* [invw_gap]: the test is false, so [b] is in a [q]-gap *)
 have uy0 : u <= y0.
-  by rewrite leqNgt (invw_gap iw y0L Hy0) ltnNge pLd.
+  by rewrite leqNgt (invw_gap iw (ltnW uvN) y0L Hy0) ltnNge pLd.
 (* and [b] is inside it: [invw_max] gives [d - p < q] *)
 have dy0q : dst y0 < q.
   rewrite -Hy0 (invw_inf iw) ifN -?leqNgt //.
@@ -422,9 +495,22 @@ Qed.
 (*    again, and what [invw_sub_p_*] above ask for.                           *)
 Lemma half1_gap_lt p q d u v :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> d < p ->
+  u + q %/ p * v + v < N ->
   forall y, y < u + q %/ p * v + v -> inf (u + q %/ p * v + v) = dst y ->
   y < u + q %/ p * v.
-Proof. Admitted.
+Proof.
+move=> iv ix iw uvN dLp uvN' y yL yE.
+have [_ _ _ _ _ _ u_gt0 _] := iv.
+have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
+have [y0 y0L Hy0] := inf_ex uv_gt0.
+have y0u : y0 < u by rewrite (invw_gap iw (ltnW uvN) y0L Hy0).
+have dEq : dst y = dst y0.
+  by rewrite -yE -Hy0 (half1_inf_lt iv ix iw uvN dLp uvN').
+have yN : y <= N by apply: ltnW; exact: ltn_trans yL uvN'.
+have y0N : y0 <= N by apply: ltnW; exact: ltn_trans y0L uvN.
+have -> : y = y0 by apply: dst_inj yN y0N dEq.
+by rewrite (leq_trans y0u) // leq_addr.
+Qed.
 
 (*  Between the halves, [d] is exactly the infimum -- which is what 4.1 says  *)
 (*    [d] is, and it is true HERE, not at the top of the loop.                *)
@@ -468,6 +554,7 @@ Proof. Admitted.
 Lemma invw_sub_p_gap p q d u v :
   inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
   (forall y, y < u + v -> inf (u + v) = dst y -> y < u) ->
+  u + (v + u) <= N ->
   forall y, y < u + (v + u) -> inf (u + (v + u)) = dst y ->
   (y < u) = (d < p - q).
 Proof. Admitted.
@@ -507,8 +594,37 @@ Qed.
 (*    new point underneath it.                                               *)
 Lemma invw_sub_q_gap p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> d = inf (u + v) -> d < q ->
+  u + v + v <= N ->
   forall y, y < u + v + v -> inf (u + v + v) = dst y -> (y < u + v) = (d < p).
-Proof. Admitted.
+Proof.
+move=> iv ix pLq dE dLq uvvN y yL yE.
+have [p_gt0 _ _ _ _ _ u_gt0 v_gt0] := iv.
+have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
+have [y0 y0L Hy0] := inf_ex uv_gt0.
+have Hinf := invw_sub_q_inf iv ix pLq dE.
+have yN : y <= N by apply: ltnW; exact: leq_trans yL uvvN.
+have y0N : y0 <= N.
+  by apply: ltnW; apply: leq_trans uvvN; rewrite (leq_trans y0L) // leq_addr.
+have [dLp|pLd] := ltnP d p.
+(* [b] keeps its neighbour: nothing was added below it *)
+  have dEq : dst y = dst y0 by rewrite -yE -Hy0 Hinf ifT // -dE.
+  have -> : y = y0 by apply: dst_inj yN y0N dEq.
+  by rewrite y0L.
+(* [b] is in a [q]-gap, and the point added at [p] above its left end is
+   now the nearest below it *)
+have uy0 : u <= y0.
+  rewrite leqNgt; apply/negP => y0u.
+  by move: pLd; rewrite leqNgt dE Hy0 (argmin_lt_p iv ix y0u Hy0).
+have pDy0 : 1 * p <= dst y0 by rewrite mul1n -Hy0 -dE.
+have k1 : 0 < 1 <= q %/ p by rewrite divn_gt0 //; apply: ltnW.
+have Hw := walk_lt_nowrap iv pLq y0L k1 pDy0.
+have dEq : dst y = dst (y0 + 1 * v).
+  by rewrite -yE Hw mul1n Hinf ifN -?leqNgt // -Hy0 -dE.
+have y0vN : y0 + 1 * v <= N.
+  by rewrite mul1n; apply: leq_trans uvvN; rewrite leq_add2r; apply: ltnW.
+have -> : y = y0 + 1 * v by apply: dst_inj yN y0vN dEq.
+by rewrite mul1n ltnNge leq_add // leqNgt pLd.
+Qed.
 
 Lemma invw_sub_q p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> d = inf (u + v) -> d < q ->
@@ -679,7 +795,8 @@ case: (ltnP d p) => [dLp|pLd] Hi Hx H1 Hle Hm.
     have qLp' : q < p by rewrite ltn_neqAle qLp andbT eq_sym.
     by rewrite /q1 /k (divn_small qLp') mul0n subn0.
   have iv1 := Hi u1vN; have ix1 := Hx u1vN; have d1 := H1 u1vN.
-  have iw2 := invw_sub_p iv1 ix1 q1Lp d1 dLp (half1_gap_lt iv ix iw uvN dLp).
+  have iw2 := invw_sub_p iv1 ix1 q1Lp d1 dLp
+                         (half1_gap_lt iv ix iw uvN dLp u1vN).
   case: (leqP N (u1 + (v + u1))) => [Nuv2|uv2N].
     exact: run1_past iw2 Nuv2 f_gt0.
   apply: IH => //; first exact: inv_sub_p iv1 q1Lp.
