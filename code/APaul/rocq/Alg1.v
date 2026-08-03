@@ -298,9 +298,27 @@ Qed.
 (*    into a contradiction with [dst w < p].  With [w < u] instead, [invx_p1] *)
 (*    gives the successor at [pt w + p] directly, which is the same argument  *)
 (*    as [argmin_lt_p] run backwards.                                         *)
+(*  What it rests on: [Alg2.gap_p_empty] with [w < u] in place of [p <= q].  *)
+(*    That hypothesis is used there exactly once, in the [z < w] case, to     *)
+(*    turn [q <= dst w] into a contradiction with [dst w < p].  With [w < u]  *)
+(*    the argument is [invx_p1]'s successor at [pt w + p] plus [invx_min]:    *)
+(*    a [z] with [dst z < dst w] would sit strictly inside [w]'s gap, and no  *)
+(*    point does.  The [w < z] half of [gap_p_empty] needs no change -- it    *)
+(*    already runs on [invx_min] alone.                                       *)
+Lemma gap_pu_empty p q d u v w z :
+  inv p q d u v -> invx p q u v -> w < u -> z < u + v -> dst w < p ->
+  dst w <= dst z.
+Proof. Admitted.
+
 Lemma inf_at_pu p q d u v w :
   inv p q d u v -> invx p q u v -> w < u -> dst w < p -> inf (u + v) = dst w.
-Proof. Admitted.
+Proof.
+move=> iv ix wu pDw.
+have wL : w < u + v by rewrite (leq_trans wu) // leq_addr.
+apply/eqP; rewrite eqn_leq (leq_inf_dst wL) /=.
+apply: leq_inf; first by apply: ltnW; exact: ltn_dst.
+by move=> z zL; apply: (gap_pu_empty iv ix wu zL pDw).
+Qed.
 
 Record invw (p q d u v : nat) := Invw {
   invw_max : d < p + q;
@@ -590,6 +608,25 @@ Qed.
 (*    ([q < p] gives [0 < p - q], so [Config.inv_red_ge] applies).  The       *)
 (*    orbit cannot be overrun.  That corner is real only where [inv] breaks   *)
 (*    -- [half1_ge_nodrop] with [q] dividing [p] -- not here.                 *)
+(*  What [sub_p_argmin] rests on: the point that enters [b]'s gap from the   *)
+(*    right is at index [y0 + (v + u)] -- [Config.invx_red_ge_p1] at          *)
+(*    [k = 1] -- and [dst_ofD] then gives its distance.                       *)
+(*                                                                            *)
+(*  NOTE the range hypothesis, which [sub_p_argmin] does not have.            *)
+(*    [invx_red_ge_p1] wants the new count below [N] (through [ptD_leq] and   *)
+(*    [pt_neq0]), while [sub_p_argmin] must hold at overshot counts because   *)
+(*    [invw_inf] does.  The way out is that [run1_past] does not need the     *)
+(*    EQUATION [invw_inf] but only one direction of it: it concludes          *)
+(*    [run1 <= (if d < p then d else d - p) <= inf (u+v) <= inf N], so        *)
+(*    [(if ...) <= inf (u+v)] suffices there.  Splitting [invw_inf] into its  *)
+(*    two inequalities, and asking the full equation only below [N], is what  *)
+(*    releases the range hypothesis here.                                     *)
+Lemma sub_p_new_dst p q d u v y0 :
+  inv p q d u v -> invx p q u v -> q < p -> y0 < u -> p - q <= dst y0 ->
+  u + (v + u) < N ->
+  dst (y0 + (v + u)) = dst y0 - (p - q).
+Proof. Admitted.
+
 Lemma sub_p_argmin p q d u v y0 :
   inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
   y0 < u -> inf (u + v) = dst y0 ->
@@ -600,6 +637,17 @@ Proof. Admitted.
 (*  and one for the exit.  There the count has passed [N], so nothing can be  *)
 (*    said about the whole new range -- but only the indices BELOW [N] are    *)
 (*    asked about, and those are still one orbit's worth.                     *)
+(*  What [ge_new_dst] rests on.  A new index is [y + j*u] with [y] old and   *)
+(*    [0 < j <= p %/ q] ([Config.red_ge_new]), and the walk down subtracts    *)
+(*    [j*q] from the point, so it ADDS [j*q] to the distance -- harmless --   *)
+(*    unless it wraps.  The wrapping case is the whole content, and it is     *)
+(*    [Alg2.le_ge_wrap] with [invd] removed: that lemma asks for [invd] only  *)
+(*    to name [d], and here the bound to beat is [Inf] itself.                *)
+Lemma ge_wrap_dst p q d u v y j :
+  inv p q d u v -> invx p q u v -> q <= p -> y < u + v -> 0 < j <= p %/ q ->
+  M <= dst y + j * q -> inf (u + v) <= dst (y + j * u).
+Proof. Admitted.
+
 Lemma ge_new_dst p q d u v z :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
   u + v <= z -> z < N -> inf (u + v) <= dst z.
