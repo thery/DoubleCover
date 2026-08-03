@@ -37,6 +37,13 @@ and #name("inf_dst M A B n"), written $"Inf"(n)$ below, is the minimum of
 #name("dst x") over $x < n$. The theorem to prove is that the algorithm's result
 is at most $"Inf"(N)$.
 
+There are two algorithms, and *they are presented here in the reverse of their
+numbering*. Algorithm 1 is Lefèvre's original; Algorithm 2 is the later,
+batched variant designed to replace it. But Algorithm 2's development came
+first and is what Algorithm 1's proof reuses throughout, so it is described
+first below. Where the numbering could mislead, the sections are named for what
+the loop does rather than for its number.
+
 = The structure the algorithm walks
 
 == Two-length configurations
@@ -89,7 +96,7 @@ moves the infimum by a known amount. Algorithm 2 always takes $k$ maximal;
 Algorithm 1 takes it maximal on one side of a turn and $k = 1$ on the other, so
 both are instances of the same lemmas.
 
-= Algorithm 2
+= Algorithm 2: one reduction per turn
 
 == The loop
 
@@ -152,11 +159,12 @@ The soundness theorem is #name("lefevre_sound"), and the form the search uses is
 #name("lefevre_test"): if the returned bound clears $epsilon$, then every
 $x < N$ has #name("dst x") above $epsilon$.
 
-= Algorithm 1
+= Algorithm 1: two reductions per turn
 
-== Why it is not just Algorithm 2 again
+== Why it is not Algorithm 2 with different constants
 
-Algorithm 1, the original, differs in two ways that matter to the proof.
+Algorithm 1 is the original, and it differs from the algorithm just described in
+two ways that matter to the proof.
 
 First, *one turn is two reductions*: a division step and then a single
 subtraction. Second — and this is the awkward part — *the exit test sits between
@@ -271,3 +279,43 @@ proofs of what Config proves at general $k$ rather than instances of it; folding
 them together would remove that duplication. And several range hypotheses in
 `Alg2.v` are of the form "the count is below $N$" where "below the orbit length
 $M slash gcd(A, M)$" would do, which is what `Config.v` now uses.
+
+= Sources
+
+The algorithm is Lefèvre's, and the analysis the proofs follow is Fortin,
+Gouicem and Graillat's.
+
+#set enum(numbering: "[1]")
++ P. Fortin, M. Gouicem, S. Graillat, _Correctly rounding elementary functions on
+  GPU_, hal-00751446 (`doc/mourad.pdf`). §3.2 states and proves Properties 1--3
+  on two-length configurations; §4.1 gives Algorithm 1 with its six cases for
+  $d$, and Algorithm 2. This is the analysis both developments follow, and the
+  source of the listing transcribed in `Alg1.v`.
+
++ V. Lefèvre, _Moyens arithmétiques pour un calcul fiable_, thèse, ENS Lyon,
+  2000, ch. 2. Says what the variables mean: $u$ and $v$ count the intervals of
+  each length, and $d$ is the distance from the point considered to the lower
+  endpoint of its interval. Also states the overshoot outright — the loop stops
+  not at $N$ but at the first configuration size at least $N$.
+
++ V. Lefèvre, _An Algorithm That Computes a Lower Bound on the Distance Between
+  a Segment and $ZZ^2$_, Developments in Reliable Computing, 203--212. The
+  published form of the same algorithm.
+
++ V. Lefèvre, J.-M. Muller, _Worst Cases for Correct Rounding of the Elementary
+  Functions in Double Precision_, INRIA RR-4044 (`doc/RR-4044.pdf`). The search
+  this bound serves.
+
++ N. B. Slater, _Gaps and steps for the sequence $n theta mod 1$_, Proc. Camb.
+  Phil. Soc. 63 (1967) 1115--1123 (`doc/slater.pdf`). The three-distance theorem;
+  §2 is the form `invx` uses, giving the successor of a point by index rather
+  than by position.
+
+The repository carries reading notes alongside these: `doc/mourad-notes.md` (the
+six cases and Property 3), `doc/lefevre-these-notes.md` (the variables),
+`doc/slater-notes.md` (the dictionary to Slater), `doc/alg2-notes.md`.
+
+Two points where the sources stop short of what a proof needs are marked in the
+text: §4.1's line-4 remark, which is asserted rather than proved and becomes an
+invariant clause here (§4.3); and the fact that neither source states a loop
+invariant, so `invd` and `invw` are of the developments' own making.
