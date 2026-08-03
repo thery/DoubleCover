@@ -143,6 +143,8 @@ Local Notation leq_N_Mg := (leq_N_Mg N_lt_Mg).
 Local Notation dst_diff := (dst_diff M_gt0 A B).
 Local Notation dst_ofD := (dst_ofD ltn_B).
 Local Notation dst_gap_up := (@dst_gap_up M M_gt0 A B).
+Local Notation gap_walk := (@gap_walk M M_gt0 A B).
+Local Notation gap_bounds := (@gap_bounds M).
 Local Notation pt_neq0 := (pt_neq0 M_gt0 N_lt_Mg).
 
 Local Notation step_p_gt0 := (@step_p_gt0 M A N N_lt_Mg).
@@ -310,10 +312,38 @@ Qed.
 (*    already runs on [invx_min] alone.                                       *)
 (*  the [z < w] case, which is the only one that differs: [Alg2] gets its    *)
 (*    contradiction from [p <= q], and here it has to come from [w < u].      *)
+(*  and it comes straight out of [Alg2.gap_walk], which IS the tiling: any    *)
+(*    two indices in range have [dst y - dst z = a*p + b*q] with the index    *)
+(*    equation [a*v + y = b*u + z].  Here [dst w - dst z < p] forces [a = 0], *)
+(*    so the index equation reads [w = b*u + z]: [b = 0] makes [w = z] and    *)
+(*    any larger [b] makes [w >= u].  Both are excluded.  (That is the        *)
+(*    paper's Property 2 doing the work, and Alg2 already proved it.)         *)
 Lemma gap_pu_down p q d u v w z :
   inv p q d u v -> invx p q u v -> w < u -> z < w -> dst z <= dst w ->
   dst w < p -> False.
-Proof. Admitted.
+Proof.
+move=> iv ix wu zw Dzw pDw.
+have [p_gt0 q_gt0 bez _ _ _ u_gt0 v_gt0] := iv.
+have wL : w < u + v by rewrite (leq_trans wu) // leq_addr.
+have zL : z < u + v by rewrite (ltn_trans zw).
+have [a [b [Hval Hix]]] :=
+  gap_walk (n := dst w - dst z) iv (invx_min ix) (invx_max ix) wL zL Dzw
+           (leqnn _).
+have Hlt : a * p + b * q < M.
+  by rewrite Hval (leq_ltn_trans (leq_subr _ _)) // ltn_dst.
+have [aLu bLv] := gap_bounds u_gt0 v_gt0 bez wL zL Hix Hlt.
+have a0 : a = 0.
+  case: a Hval Hix aLu Hlt => // a Hval _ _ _.
+  have : p <= dst w - dst z.
+    by rewrite -Hval (leq_trans _ (leq_addr _ _)) // -{1}[p]mul1n leq_mul2r
+       orbT.
+  by rewrite leqNgt (leq_ltn_trans (leq_subr _ _) pDw).
+move: Hix; rewrite a0 mul0n add0n => Hix.
+have [b0|b_gt0] := posnP b.
+  by move: zw; rewrite b0 mul0n add0n in Hix; rewrite -Hix ltnn.
+move: wu; rewrite Hix ltnNge => /negP[].
+by rewrite (leq_trans (leq_pmull u b_gt0)) // leq_addr.
+Qed.
 
 Lemma gap_pu_empty p q d u v w z :
   inv p q d u v -> invx p q u v -> w < u -> z < u + v -> dst w < p ->
