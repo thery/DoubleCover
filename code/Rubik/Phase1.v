@@ -46,8 +46,11 @@
 (*  It is never asked to be CORRECT: p1check0 and p1checkStep make it a local  *)
 (*  certificate, so the generator is not in the trusted base.                  *)
 (*                                                                            *)
-(*  WHAT IS STILL MISSING is the proofs and the generated data.  See the       *)
-(*  Admitted list at the bottom.                                              *)
+(*  THIS FILE IS ADMIT-FREE.  Print Assumptions on anything in it lists only  *)
+(*  the Uint63 and PArray primitives.  srank and the twist move table are     *)
+(*  real data, from P1Small.v; what is still missing is the phase 1 table     *)
+(*  itself -- 71 chunks, 2.9 GB of literals, see section 7 -- and the wiring  *)
+(*  of the search to carry a twist.                                          *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -1028,6 +1031,40 @@ by move: ha hs; case: a => [|[|[|?]]] //; case: s => [|[|[|?]]].
 Qed.
 
 
+(* THE SAME FACT WITHOUT THE COORDINATE, and so without twsum: corientgM
+   reads the source digit out of coordtw g, which is only the orientation
+   when the eighth digit is the forced one.  Read it off corientg directly
+   and the hypothesis is not needed -- and the range widens to all eight
+   corners, which is what the total twist has to sum over. *)
+Lemma corientgM0 g m p : cubcP g -> cubcP m -> (p < 8)%N ->
+  corientg (g * m) p = (corientg g (csrc m p) + 3 - cdelta m p) %% 3.
+Proof.
+move=> cg cm p8.
+rewrite (corientgE (cubcPM cg cm) p8) invMg permM /csrc /cdelta.
+have hcpl : (nth 0%N cprim p \in cflat) && (nth 0%N cprim p < 48)%N.
+  by apply: (allP cprim_facts); rewrite mem_iota.
+have /andP[hcpin hcplt] := hcpl.
+have hcp : ((cprimf p : nat) \in cflat) by rewrite /cprimf inordK.
+have hf : ((m^-1 (cprimf p) : nat) \in cflat).
+  by rewrite cubcP_corner ?cubcPI.
+have /and3P[/eqP hre hcin hc8] := allP cflat_reach _ hf.
+set c := (index _ cflat %/ 3)%N in hre hcin hc8.
+have hcl : (nth 0%N cprim c < 48)%N.
+  have hm : (c \in iota 0 8) by rewrite mem_iota /= hc8.
+  by have /andP[_ hh] := allP cprim_facts c hm; exact: hh.
+have hreach : m^-1 (cprimf p) = iter (cslot (m^-1 (cprimf p))) ccyc (cprimf c).
+  by rewrite /cprimf -iter_ccycE // -hre inord_val.
+have hgc : ((g^-1 (cprimf c) : nat) \in cflat).
+  by rewrite cubcP_corner ?cubcPI // /cprimf inordK.
+rewrite {1}hreach.
+rewrite (ccyc_iter_inv _ _ cg) (cslot_iter _ hgc).
+rewrite (corientgE cg hc8).
+set a := cslot (g^-1 (cprimf c)); set s := cslot (m^-1 (cprimf p)).
+have ha : (a < 3)%N by rewrite /a /cslot ltn_mod.
+have hs : (s < 3)%N by rewrite /s /cslot ltn_mod.
+by move: ha hs; case: a => [|[|[|?]]] //; case: s => [|[|[|?]]].
+Qed.
+
 (* and coordtwM is then just the packing *)
 Lemma coordtwM g m :
   cubcP g -> cubcP m -> twsum g = 0%N ->
@@ -1070,6 +1107,188 @@ Lemma coordtw_step (g : {perm facelet}) (k : nat) : (k < 18)%N ->
   coordtw (g * pt 47 (nth [::] mtabs k)) =
   acttw (coordtw g) (pt 47 (nth [::] mtabs k)).
 Proof. by move=> kL cg ts; apply: coordtwM => //; apply: moves_cubcP. Qed.
+
+(* =========================================================================  *)
+(*  5bis.  The total twist is invariant, so twsum = 0 is not a hypothesis     *)
+(*                                                                            *)
+(*  coordtwM and coordtw_step both carry `twsum g = 0' and nothing discharged *)
+(*  it.  It is discharged here, as an INVARIANT rather than a fact about a    *)
+(*  single g: the identity has total twist 0, and no move changes it.         *)
+(*                                                                            *)
+(*  WHY IT IS TRUE.  A move sends the U/D slot of corner p to slot            *)
+(*  cdelta m p of corner csrc m p, so summing corientg (g * m) over the eight *)
+(*  corners re-sums corientg g over a PERMUTATION of them, shifted by the     *)
+(*  total of the deltas.  The permutation leaves the sum alone, and the total *)
+(*  delta of every move is 0 mod 3 -- a quarter turn of a face on the U/D     *)
+(*  axis twists nothing, and any other quarter turn twists its four corners   *)
+(*  by 1, 2, 1, 2.  Both are table facts and both are checked below.          *)
+(*                                                                            *)
+(*  This is what makes the phase 1 coordinate an action of the cube GROUP     *)
+(*  rather than of the rigid-corner monoid: cubcP is not enough, and the      *)
+(*  eighth digit is exactly where the difference shows.                       *)
+(* =========================================================================  *)
+
+(* -- sums over a list, all four generic ------------------------------------ *)
+
+Lemma foldr_sum_split (h1 h2 : nat -> nat) l :
+  foldr (fun p a => a + (h1 p + h2 p)) 0%N l
+  = (foldr (fun p a => a + h1 p) 0%N l + foldr (fun p a => a + h2 p) 0%N l)%N.
+Proof. by elim: l => //= x l ->; rewrite addnACA. Qed.
+
+Lemma foldr_sum_big (h : nat -> nat) l :
+  foldr (fun q a => a + h q) 0%N l = (\sum_(q <- l) h q)%N.
+Proof. by elim: l => [|x l IH]; rewrite ?big_nil //= big_cons IH addnC. Qed.
+
+(* the reindexing, and the only reason bigop appears in this file *)
+Lemma foldr_sum_perm (h : nat -> nat) l1 l2 : perm_eq l1 l2 ->
+  foldr (fun q a => a + h q) 0%N l1 = foldr (fun q a => a + h q) 0%N l2.
+Proof. by move=> hp; rewrite !foldr_sum_big; apply: perm_big. Qed.
+
+Lemma foldr_sum_eq_in (h1 h2 : nat -> nat) l : {in l, h1 =1 h2} ->
+  foldr (fun p a => a + h1 p) 0%N l = foldr (fun p a => a + h2 p) 0%N l.
+Proof.
+elim: l => [//|x l IH] hc /=.
+rewrite IH; last by move=> p pl; apply: hc; rewrite inE pl orbT.
+by rewrite hc ?inE ?eqxx.
+Qed.
+
+Lemma foldr_sum_cong (h1 h2 : nat -> nat) l :
+  {in l, forall p, h1 p %% 3 = h2 p %% 3} ->
+  (foldr (fun p a => a + h1 p) 0%N l) %% 3
+  = (foldr (fun p a => a + h2 p) 0%N l) %% 3.
+Proof.
+elim: l => [//|x l IH] hc /=.
+have hx : h1 x %% 3 = h2 x %% 3 by apply: hc; rewrite inE eqxx.
+have hl : (foldr (fun p a => a + h1 p) 0%N l) %% 3
+        = (foldr (fun p a => a + h2 p) 0%N l) %% 3.
+  by apply: IH => p pl; apply: hc; rewrite inE pl orbT.
+by rewrite -modnDml hl modnDml -modnDmr hx modnDmr.
+Qed.
+
+(* -- the invariance, for any m that behaves like a move -------------------- *)
+
+Lemma twsumM g m : cubcP g -> cubcP m ->
+  perm_eq [seq csrc m p | p <- iota 0 8] (iota 0 8) ->
+  (foldr (fun p a => a + (3 - cdelta m p)) 0%N (iota 0 8)) %% 3 = 0%N ->
+  twsum (g * m) = twsum g.
+Proof.
+move=> cg cm hperm hd; rewrite /twsum.
+rewrite (foldr_sum_cong
+           (h2 := fun p => corientg g (csrc m p) + (3 - cdelta m p)));
+  last first.
+  move=> p; rewrite mem_iota add0n => /andP[_ p8].
+  rewrite (corientgM0 cg cm p8) modn_mod addnBA //.
+  by apply: ltnW; rewrite /cdelta /cslot ltn_mod.
+rewrite foldr_sum_split -modnDmr hd addn0.
+(* the map form has to be named: the eta-contracted `addn^~' in the goal does
+   not match foldr_map_seq's right hand side *)
+have hmap : foldr (fun p a => (a + corientg g (csrc m p))%N) 0%N (iota 0 8)
+          = foldr (fun q a => (a + corientg g q)%N) 0%N
+                  [seq csrc m p | p <- iota 0 8].
+  by rewrite foldr_map_seq.
+by rewrite hmap (foldr_sum_perm _ hperm).
+Qed.
+
+(* -- the two hypotheses, at the table level -------------------------------- *)
+
+(* the same {perm facelet} wall as everywhere else: csrc and cdelta mention
+   m^-1, so the checks run on the move TABLES and these bridge them *)
+Lemma cprimf_ptV mt p : tab_ok 47 mt ->
+  (((pt 47 mt)^-1 (cprimf p)) : nat)
+  = nth 0%N (inv_tab 47 mt) (nth 0%N cprim p).
+Proof.
+move=> mok; have iok := tab_ok_inv mok.
+have hcpl : (nth 0%N cprim p < 48)%N.
+  have hall : all (fun q => (nth 0%N cprim q < 48)%N) (iota 0 8) by vm_compute.
+  have [pL|pL] := ltnP p 8.
+    by have := allP hall p; rewrite mem_iota /= pL => /(_ isT).
+  by rewrite nth_default // (_ : seq.size cprim = 8).
+rewrite /cprimf (ptV mok) ptE; last exact: iok.
+rewrite (inordK hcpl).
+have hX : (nth 0%N (inv_tab 47 mt) (nth 0%N cprim p) < 48)%N.
+  have /and3P[/eqP sz /allP hall _] := iok.
+  by apply: hall; rewrite mem_nth // sz.
+by rewrite (inordK hX).
+Qed.
+
+Lemma csrcE mt p : tab_ok 47 mt -> csrc (pt 47 mt) p = csrct mt p.
+Proof. by move=> mok; rewrite /csrc /csrct /cpos /cposn cprimf_ptV. Qed.
+
+Lemma cdeltaE mt p : tab_ok 47 mt -> cdelta (pt 47 mt) p = cdeltat mt p.
+Proof. by move=> mok; rewrite /cdelta /cdeltat /cslot /cslotn cprimf_ptV. Qed.
+
+(* the corners a move brings to the eight slots are the eight corners *)
+Lemma csrct_perm_moves :
+  all (fun mt => perm_eq [seq csrct mt p | p <- iota 0 8] (iota 0 8)) mtabs.
+Proof. by vm_compute. Qed.
+
+(* THE TOTAL DELTA OF A MOVE IS 0 MOD 3.  Stated on 3 - cdelta, the quantity
+   the sum actually needs, so that no nat subtraction has to be pushed
+   through a sum afterwards. *)
+Definition cdsumt (mt : seq nat) : nat :=
+  (foldr (fun p a => a + (3 - cdeltat mt p)) 0%N (iota 0 8)) %% 3.
+
+Lemma cdsumt_moves : all (fun mt => cdsumt mt == 0)%N mtabs.
+Proof. by vm_compute. Qed.
+
+(* -- and the invariant ----------------------------------------------------- *)
+
+Lemma twsum_step g k : (k < 18)%N -> cubcP g ->
+  twsum (g * pt 47 (nth [::] mtabs k)) = twsum g.
+Proof.
+move=> kL cg; set mt := nth [::] mtabs k.
+have hsz : seq.size mtabs = 18%N by vm_compute.
+have hmem : mt \in mtabs by rewrite /mt mem_nth // hsz.
+have mok : tab_ok 47 mt by apply: (allP mtabs_ok).
+apply: twsumM => //; first exact: moves_cubcP.
+  have -> : [seq csrc (pt 47 mt) p | p <- iota 0 8]
+          = [seq csrct mt p | p <- iota 0 8].
+    by apply: eq_map => p; exact: csrcE.
+  exact: (allP csrct_perm_moves _ hmem).
+rewrite (foldr_sum_eq_in (h2 := fun p => 3 - cdeltat mt p)); last first.
+  by move=> p _; rewrite cdeltaE.
+exact: (eqP (allP cdsumt_moves _ hmem)).
+Qed.
+
+(* the solved cube has every corner already showing its U/D sticker *)
+Lemma twsum1 : twsum 1 = 0%N.
+Proof.
+have hb : all (fun tr => (tr.1.1 \in cprim) && (tr.1.1 < 48)%N) ctrip.
+  by vm_compute.
+have h0 : {in iota 0 8, corientg 1 =1 fun _ => 0%N}.
+  move=> p; rewrite mem_iota add0n => /andP[_ p8].
+  rewrite /corientg.
+  have hm : nth (0, 0, 0)%N ctrip p \in ctrip.
+    by rewrite mem_nth // (_ : seq.size ctrip = 8%N).
+  have /andP[hin hlt] := allP hb _ hm.
+  case E : (nth (0, 0, 0)%N ctrip p) => [[c0 c1] c2].
+  rewrite E in hin hlt.
+  by rewrite invg1 perm1 /udcol (inordK hlt) hin.
+by rewrite /twsum (foldr_sum_eq_in h0).
+Qed.
+
+Lemma cubcP1 : cubcP 1.
+Proof. by apply/forallP => f; rewrite !perm1. Qed.
+
+(* THE PACKAGED FORM, in exactly the shape Coordfs.v's section wants of an
+   invariant: true at 1, closed under the moves.  Whatever threads the search
+   carries this and coordtw_step's hypotheses come for free. *)
+Definition twP (g : {perm facelet}) : bool := cubcP g && (twsum g == 0%N).
+
+Lemma twP1 : twP 1.
+Proof. by rewrite /twP cubcP1 twsum1 eqxx. Qed.
+
+Lemma twPM g k : (k < 18)%N -> twP g -> twP (g * pt 47 (nth [::] mtabs k)).
+Proof.
+move=> kL /andP[cg ts]; rewrite /twP.
+by rewrite (cubcPM cg (moves_cubcP kL)) (twsum_step kL cg) ts.
+Qed.
+
+(* the form the search will actually use: no twsum in sight *)
+Lemma coordtw_stepP (g : {perm facelet}) (k : nat) : (k < 18)%N -> twP g ->
+  coordtw (g * pt 47 (nth [::] mtabs k)) =
+  acttw (coordtw g) (pt 47 (nth [::] mtabs k)).
+Proof. by move=> kL /andP[cg /eqP ts]; apply: coordtw_step. Qed.
 
 (* =========================================================================  *)
 (*  6.  THE CHECK                                                             *)
