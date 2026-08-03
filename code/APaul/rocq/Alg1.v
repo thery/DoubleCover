@@ -584,18 +584,17 @@ Qed.
 (*    [y0 + (v + u)] by [Config.invx_red_ge_p1] at [k = 1].  Both [_inf] and  *)
 (*    [_gap] read off it, the second through [dst_inj].                       *)
 (*                                                                            *)
-(*  OPEN, and it is the same corner that made [half1_ge_nodrop] false without *)
-(*    a range bound: the count [u + (v + u)] can pass [M %/ g], where [Inf]   *)
-(*    is the minimum over the whole orbit and the equation below can fail.    *)
-(*    A range hypothesis fixes the helper, but [invw_inf] is NOT conditional  *)
-(*    -- [run1_past] reads it at overshot counts -- so [invw_sub_p_inf]       *)
-(*    cannot take one.  Deciding that is the next thing, before any proof:    *)
-(*    either [invw_inf] gets a condition and [run1_past] a weaker fact, or    *)
-(*    the overshoot is shown to stay below [M %/ g].                          *)
+(*  NO range hypothesis is needed, and the earlier note claiming otherwise    *)
+(*    was wrong: [Alg2.inv_uv_le] bounds [u + v] by [M %/ g] for ANY state    *)
+(*    satisfying [inv], and the reduced configuration here does satisfy it    *)
+(*    ([q < p] gives [0 < p - q], so [Config.inv_red_ge] applies).  The       *)
+(*    orbit cannot be overrun.  That corner is real only where [inv] breaks   *)
+(*    -- [half1_ge_nodrop] with [q] dividing [p] -- not here.                 *)
 Lemma sub_p_argmin p q d u v y0 :
   inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
-  y0 < u -> inf (u + v) = dst y0 -> u + (v + u) <= N ->
-  inf (u + (v + u)) = dst (if d < p - q then y0 else y0 + (v + u)).
+  y0 < u -> inf (u + v) = dst y0 ->
+  inf (u + (v + u)) = dst (if d < p - q then y0 else y0 + (v + u)) /\
+  inf (u + (v + u)) = (if d < p - q then d else d - (p - q)).
 Proof. Admitted.
 
 (*  and one for the exit.  There the count has passed [N], so nothing can be  *)
@@ -621,7 +620,13 @@ Lemma invw_sub_p_inf p q d u v :
   inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
   (forall y, y < u + v -> inf (u + v) = dst y -> y < u) ->
   inf (u + (v + u)) = (if d < p - q then d else d - (p - q)).
-Proof. Admitted.
+Proof.
+move=> iv ix qLp dE dLp pg.
+have [_ _ _ _ _ _ u_gt0 _] := iv.
+have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
+have [y0 y0L Hy0] := inf_ex uv_gt0.
+by have [_ ->] := sub_p_argmin iv ix qLp dE dLp (pg _ y0L Hy0) Hy0.
+Qed.
 
 Lemma invw_sub_p_gap p q d u v :
   inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
@@ -635,7 +640,7 @@ have [_ _ _ _ _ _ u_gt0 _] := iv.
 have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
 have [y0 y0L Hy0] := inf_ex uv_gt0.
 have y0u : y0 < u := pg _ y0L Hy0.
-have Ha := sub_p_argmin iv ix qLp dE dLp y0u Hy0 uvuN.
+have [Ha _] := sub_p_argmin iv ix qLp dE dLp y0u Hy0.
 have yN : y <= N by apply: ltnW; exact: leq_trans yL uvuN.
 have y0uv : y0 + (v + u) < u + (v + u) by rewrite ltn_add2r.
 have [dLpq|pqLd] := ltnP d (p - q).
