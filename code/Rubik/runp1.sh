@@ -36,6 +36,8 @@ fi
 # TIMED SEPARATELY, so the search's own cost is visible.  Building the glue
 # is a one-off; loading it is paid per run; the search itself is the
 # `Time Eval' line inside RunReal.v and is neither.
+# the glue is regenerable in milliseconds and needs no BFS
+[ -f P1Table.v ] || (cd bench && ./p1gen 9 table)
 if [ ! -f P1Table.vo ]; then
   echo "=== compiling P1Table.v (one-off, 4.5 GB of chunks) ==="
   time rocq compile -R . Rubik P1Table.v
