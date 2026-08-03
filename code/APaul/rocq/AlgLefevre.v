@@ -2,7 +2,7 @@
 (*                                                                            *)
 (*   Lefevre's original lower-bound algorithm                                 *)
 (*                                                                            *)
-(*   Algorithm 1 of doc/mourad.pdf (hal-00751446, 4.1), which Alg2.v's        *)
+(*   Algorithm 1 of doc/mourad.pdf (hal-00751446, 4.1), which AlgFGG.v's        *)
 (*    Algorithm 2 replaces.  Same specification: with [a = A/M], [b = B/M],   *)
 (*    a lower bound on [inf { b - a*x mod 1 | x < N }].                       *)
 (*                                                                            *)
@@ -13,7 +13,7 @@
 (*      branch [p <= d]  d -= p, p -= (p %/ q)*q, v += k*u | exit |           *)
 (*                                                          q -= p, u += v    *)
 (*                                                                            *)
-(*   So [half1] is [Alg2.step] -- the quotient agrees when the branch test    *)
+(*   So [half1] is [AlgFGG.step] -- the quotient agrees when the branch test    *)
 (*    agrees with [p < q] and is [0] otherwise -- and [half2] is the same     *)
 (*    reduction at [k = 1], which is Config.v.                                *)
 (*                                                                            *)
@@ -40,7 +40,7 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-From APaulRocq Require Import Dist Alg2 Config.
+From APaulRocq Require Import Dist AlgFGG Config.
 
 Fixpoint run1 (fuel p q d u v N : nat) : nat :=
   if fuel is fuel1.+1 then
@@ -62,13 +62,13 @@ Fixpoint run1 (fuel p q d u v N : nat) : nat :=
 Definition lefevre1 (M A B N : nat) : nat :=
   run1 M (A %% M) (M - A %% M) (B %% M) 1 1 N.
 
-(*  Sanity checks (computed), on Alg2.v's figures.  [a = 17/45] is the       *)
+(*  Sanity checks (computed), on AlgFGG.v's figures.  [a = 17/45] is the       *)
 (*    example of Figure 4.                                                    *)
 
 Example lefevre1_fig4 : lefevre1 45 17 30 5 = 7.
 Proof. by vm_compute. Qed.
 
-(*  Alg2.lefevre_strict's case: Algorithm 2 returns 1, the infimum is 2.     *)
+(*  AlgFGG.lefevre_strict's case: Algorithm 2 returns 1, the infimum is 2.     *)
 Example lefevre1_sharper : (lefevre1 32 23 12 8, lefevre 32 23 12 8) = (2, 1).
 Proof. by vm_compute. Qed.
 
@@ -182,7 +182,7 @@ Qed.
 Lemma inv_dW p q d d' u v : inv p q d u v -> inv p q d' u v.
 Proof. by case. Qed.
 
-(*  The point [b] sits above attains the infimum: [Alg2.gap_p_empty] and     *)
+(*  The point [b] sits above attains the infimum: [AlgFGG.gap_p_empty] and     *)
 (*    [gap_q_empty] make it a lower bound, [leq_inf_dst] an equation.         *)
 Lemma inv_qqM p q d u v : inv p q d u v -> q <= p -> q + q <= M.
 Proof.
@@ -240,9 +240,9 @@ apply: leq_inf; first by apply: ltnW; exact: ltn_dst.
 by move=> z zL; apply: (gap_q_empty iv (invx_max ix) qqM uw wL zL qDw).
 Qed.
 
-(*  The [w < u] analogue of [Alg2.gap_p_empty], whose [p <= q] covers only   *)
+(*  The [w < u] analogue of [AlgFGG.gap_p_empty], whose [p <= q] covers only   *)
 (*    the case where [w]'s gap is the smaller one.  Its [z < w] case is the   *)
-(*    only one that differs: [Alg2.gap_walk] is the tiling, and               *)
+(*    only one that differs: [AlgFGG.gap_walk] is the tiling, and               *)
 (*    [dst w - dst z < p] forces [a = 0] there, so the index equation gives   *)
 (*    [w = z] or [w >= u], both excluded.                                     *)
 Lemma gap_pu_down p q d u v w z :
@@ -283,7 +283,7 @@ have [wz|zw] := ltnP w z; last first.
   have zNw : z != w by apply/eqP => zw'; move: Dzw; rewrite zw' ltnn.
   have zLw : z < w by rewrite ltn_neqAle zNw zw.
   by case: (gap_pu_down iv ix wu zLw zDw pDw).
-(* the [w < z] half is [Alg2.gap_p_empty]'s, and runs on [invx_min] alone *)
+(* the [w < z] half is [AlgFGG.gap_p_empty]'s, and runs on [invx_min] alone *)
 have Hd := dst_gap_up (ltnW wz) zDw.
 have Hk : p <= pt (z - w).
   by apply: (invx_min ix); rewrite subn_gt0 wz (leq_ltn_trans (leq_subr _ _)).
@@ -366,7 +366,7 @@ split; [by rewrite subnKC ?bm // ltnW| |exact: invw_init_gap].
 by rewrite invw_init_inf bm.
 Qed.
 
-(*  [half1] is [Alg2.step] whenever the branch test agrees with [p < q]: same *)
+(*  [half1] is [AlgFGG.step] whenever the branch test agrees with [p < q]: same *)
 (*    quotient, same counts.  When they disagree the quotient is [0] and      *)
 (*    [half1] leaves the configuration alone.                                 *)
 Lemma inv_half1 p q d u v :
@@ -457,7 +457,7 @@ Qed.
 (******************************************************************************)
 
 (*  [half1] does not move the infimum.  In this branch [invw] says [d] is     *)
-(*    already the infimum, so it is below [p] and [Alg2.inf_new_eq_lt]'s      *)
+(*    already the infimum, so it is below [p] and [AlgFGG.inf_new_eq_lt]'s      *)
 (*    [Inf %% p] is [Inf] itself.                                             *)
 Lemma half1_inf_lt p q d u v :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> d < p ->
@@ -586,7 +586,7 @@ by have H := invx_red_ge_p2 (k := 1) iv; rewrite !mul1n in H.
 Qed.
 
 (*  [ptD_leq] with the orbit bound: its [<= N] only feeds [pt_neq0], and     *)
-(*    [Alg2.inv_uv_le] bounds every [inv] state by [M %/ g].                  *)
+(*    [AlgFGG.inv_uv_le] bounds every [inv] state by [M %/ g].                  *)
 Lemma ptD_leqM x y :
   0 < x + y < M %/ g -> pt x + pt y <= M -> pt (x + y) = pt x + pt y.
 Proof.
@@ -669,7 +669,7 @@ by rewrite -Hy0.
 Qed.
 
 (*  The degenerate case [q] divides [p], where the reduction leaves no       *)
-(*    two-length configuration: [Alg2.ge_exit] is stated for it.              *)
+(*    two-length configuration: [AlgFGG.ge_exit] is stated for it.              *)
 Lemma ge_wrap_deg p q d u v y j :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
   p - p %/ q * q = 0 -> y < u + v -> 0 < j <= p %/ q ->
@@ -882,8 +882,8 @@ by rewrite dE (divn_small dLp) minn0 mul0n subn0 in H.
 Qed.
 
 (*  [invx] through the two halves, and both are assemblies.  [half1] is       *)
-(*    [Alg2.step] whenever the branch test agrees with [p < q], and the       *)
-(*    identity otherwise, so [Alg2.invx_step] does it; [half2] is Config.v's  *)
+(*    [AlgFGG.step] whenever the branch test agrees with [p < q], and the       *)
+(*    identity otherwise, so [AlgFGG.invx_step] does it; [half2] is Config.v's  *)
 (*    reduction at [k = 1], so its six [invx_red_*] fields do.                *)
 Lemma invx_half1 p q d u v :
   inv p q d u v -> invx p q u v -> u + v < N ->
