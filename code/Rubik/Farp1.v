@@ -73,8 +73,11 @@ Proof. by vm_compute. Qed.
 (* THE FACT EVERYTHING RESTS ON, and the same one p1gen checks in OCaml:
    conjugation by each view permutes the move set, by the relabelling. *)
 Lemma rot3_relabel :
-  all (fun k => (conjt rot3t (nth [::] mtabs k) == nth [::] mtabs (nth 0%N mv3a k))
-             && (conjt rot3t2 (nth [::] mtabs k) == nth [::] mtabs (nth 0%N mv3b k)))
+  all (fun k =>
+         (conjt rot3t (nth [::] mtabs k)
+            == nth [::] mtabs (nth 0%N mv3a k)) &&
+         (conjt rot3t2 (nth [::] mtabs k)
+            == nth [::] mtabs (nth 0%N mv3b k)))
       (iota 0 18).
 Proof. by vm_compute. Qed.
 
