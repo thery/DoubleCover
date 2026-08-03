@@ -61,7 +61,7 @@ From Rubik Require Import ssrint63.
    certificate files *)
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
         Coordfs Coordfsi Fstab FsTable Diameter Moves
-        Searchr Redun Searchir P1Small.
+        Searchr Redun Searchir P1Small P1Ts.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -591,6 +591,71 @@ Definition ntwisti : int := 2187%uint63.
 
 Definition p1idx (tw x : int) : int :=
   Uint63.add (Uint63.mul tw nfsi) (fsidx x).
+
+(* =========================================================================  *)
+(*  3bis.  Twist x slice, rubik_par's second pruning table                    *)
+(*                                                                            *)
+(*  rubik_par reads THREE lower bounds per view and takes the max: flip x     *)
+(*  slice, twist x slice, and phase 1.  Rocq had the first (fstab) and the    *)
+(*  third; this is the second.  2187 x 495 = 1 082 565 states, all of them    *)
+(*  reached by depth 9, so nothing is unreachable and four bits suffice.      *)
+(*                                                                            *)
+(*  INDEXED BY MASK, not by rank.  rubik_par uses t * 495 + slice rank.  The  *)
+(*  RANK does not move on its own -- recovering it needs unranking -- but the *)
+(*  MASK does: actfs's high half reads only high bits of x, so the slice mask *)
+(*  of a moved coordinate depends on the slice mask alone.  FsTable.v already *)
+(*  made exactly this trade for the flip x slice table, and for exactly this  *)
+(*  reason: "the waste costs memory and nothing else".  Same values, same     *)
+(*  node counts, 8.2x the slots.  A mask that cannot occur holds 0, which     *)
+(*  makes the step condition trivially true there.                            *)
+(* =========================================================================  *)
+
+Definition nmask3    := 4096.        (* 2 ^ nedge, the masks it is indexed by *)
+Definition ntsentries := 8957952.    (* ntwist * nmask3                       *)
+Definition ntswordsi : int := 597197%uint63.   (* ceil (ntsentries / 15)      *)
+Definition nmaski3   : int := 4096%uint63.
+
+Definition tstab : arr := mkarr ntswordsi 0%uint63 ts_data.   (* GENERATED *)
+
+Definition tsget (i : int) : int :=
+  let w := Uint63.div i 15%uint63 in
+  let r := Uint63.sub i (Uint63.mul w 15%uint63) in
+  Uint63.land (Uint63.lsr (PArray.get tstab w) (Uint63.mul r 4%uint63))
+              15%uint63.
+
+Definition Dtsi (tw m : int) : int :=
+  tsget (Uint63.add (Uint63.mul tw nmaski3) m).
+
+Definition Dts (tw m : int) : nat := to_nat (Dtsi tw m).
+
+(* the slice mask of a packed summary is its top twelve bits *)
+Definition smaski (x : int) : int := Uint63.lsr x 12%uint63.
+
+(* the mask action, emitted alongside: 4096 x 18 *)
+Definition maskmove : arr := mkarr 73728%uint63 0%uint63 maskmove_data.
+
+Definition actmaski (m : int) (k : nat) : int :=
+  PArray.get maskmove (Uint63.add (Uint63.mul m 18%uint63) (of_nat k)).
+
+(* -- the two checks, exactly Fstab's pair ---------------------------------- *)
+
+Definition ts_check0 : bool :=
+  (Dtsi (ctwistt (id_tab 47)) (smaski (coordt (id_tab 47))) =? 0)%uint63.
+
+Definition tsstepF (tw m : int) : bool :=
+  all (fun k => (Dtsi tw m <=? incr (Dtsi (acttwi tw k) (actmaski m k)))%uint63)
+      (iota 0 18).
+
+(* the mask loop is an all_pow over twelve bits, so it never leaves int63;
+   only the twist loop pays of_nat, once per twist rather than per state.
+   MEASURED: 200 twists in 25.8 s under vm_compute, so all 2187 is about
+   4.7 minutes -- which is why the proof lives in its own file and goes
+   through native_cast_no_check, as Far_00.v does. *)
+Definition ts_checkStep : bool :=
+  all (fun t => all_pow 12 0%uint63 (tsstepF (of_nat t))) (iota 0 ntwist).
+
+Lemma ts_check0P : ts_check0.
+Proof. by vm_compute. Qed.
 
 (* =========================================================================  *)
 (*  4.  The table itself: four bits per entry, fifteen per word               *)
