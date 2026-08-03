@@ -1751,6 +1751,93 @@ Qed.
    apply/idP/negP to put both inequalities in the context, then nlebP/nltbP
    to move to nat and leqNgt to close, is thery's route and is instant.   *)
 
+(* =========================================================================  *)
+(*  6bis.  The heuristic at a permutation                                     *)
+(*                                                                            *)
+(*  What Searchr.v asks of a heuristic is exactly two things -- h 1 = 0 and   *)
+(*  h g <= (h (g * m)).+1 for every move -- and those are what p1check0 and   *)
+(*  p1checkStep buy.  This section turns the one into the other.              *)
+(*                                                                            *)
+(*  IT CANNOT GO THROUGH Coordfs.hcoordg, and the reason is worth recording:  *)
+(*  that section wants `Dstep' for EVERY x, and Dp1 does not have it.  Fstab  *)
+(*  does, because a coordinate past 2 ^ ncoord indexes past the table and     *)
+(*  reads 0, which is below everything.  Here p1idx tw x is tw * nfs + fsidx  *)
+(*  x, so an out of range fsidx lands in the NEXT twist's block and reads a   *)
+(*  perfectly good entry for a different state.  So the guard is discharged   *)
+(*  by hand, from the invariant, and fsidx_lt is what makes it possible.      *)
+(* =========================================================================  *)
+
+(* the twist coordinate is seven base 3 digits, hence below 3 ^ 7 *)
+Lemma coordtw_lt g : (to_nat (coordtw g) < ntwist)%N.
+Proof.
+rewrite coordtwE.
+apply: leq_trans (pack3n_lt 7 _) _.
+by rewrite (_ : (3 ^ 7 = ntwist)%N) //; vm_compute.
+Qed.
+
+Lemma size_moves18 : seq.size moves = 18%N.
+Proof. by rewrite mtabsE size_map; vm_compute. Qed.
+
+(* a move is the k-th move table for some k, which is how the abstract
+   `m \in Sset' meets acttwi's numbered interface *)
+Lemma Sset_move m : m \in Sset ->
+  exists2 k, (k < 18)%N & m = pt 47 (nth [::] mtabs k).
+Proof.
+rewrite inE => /(nthP 1%g)[k kL kE].
+have kL18 : (k < 18)%N by move: kL; rewrite size_moves18.
+by exists k => //; rewrite -kE mtabsE (nth_map [::]).
+Qed.
+
+Lemma hmovesE k : (k < 18)%N -> nth 1%g moves k = pt 47 (nth [::] mtabs k).
+Proof. by move=> kL; rewrite mtabsE (nth_map [::]). Qed.
+
+Section P1Heur.
+
+Hypothesis hchk0 : p1check0.
+Hypothesis hchkS : p1checkStep.
+
+(* the invariant: cubP for the flip x slice half, twP for the twist half *)
+Definition twcP (g : {perm facelet}) : bool := cubP g && twP g.
+
+Lemma twcP1 : twcP 1.
+Proof. by rewrite /twcP cubP1 twP1. Qed.
+
+Lemma twcPM g m : twcP g -> m \in Sset -> twcP (g * m).
+Proof.
+move=> /andP[cg tg] mS; rewrite /twcP (cubP_step cg mS) /=.
+by have [k kL ->] := Sset_move mS; exact: twPM.
+Qed.
+
+(* 0 off the invariant, which is what makes both obligations unconditional --
+   Coordfs.hcoordg's trick, done by hand for the reason above *)
+Definition hp1 (g : {perm facelet}) : nat :=
+  if twcP g then Dp1 (coordtw g) (coordfs g) else 0%N.
+
+(* EQUATIONS, because `case: ifP' and `case E :' on this guard are the trap
+   the notes below record: one of them returned once and timed out the next
+   time on the same goal. *)
+Lemma hp1E g : twcP g -> hp1 g = Dp1 (coordtw g) (coordfs g).
+Proof. by rewrite /hp1 => ->. Qed.
+
+Lemma hp1N g : ~~ twcP g -> hp1 g = 0%N.
+Proof. by rewrite /hp1 => /negbTE ->. Qed.
+
+Lemma hp10 : hp1 1 = 0%N.
+Proof. by rewrite /hp1 twcP1 (Dp1_0_of_check hchk0). Qed.
+
+Lemma hp1S g m : m \in Sset -> hp1 g <= (hp1 (g * m)).+1.
+Proof.
+move=> mS; have [Pg|nPg] := boolP (twcP g); last by rewrite (hp1N nPg).
+rewrite (hp1E Pg) (hp1E (twcPM Pg mS)).
+have /andP[cg /andP[cc /eqP ts]] := Pg.
+have [k kL mE] := Sset_move mS.
+rewrite mE (coordfsMS cg _); last by rewrite -mE.
+rewrite (coordtw_step kL cc ts) -(acttwiE (coordtw_lt g) kL) -(hmovesE kL).
+exact: (Dp1_step_of_check hchkS (coordtw_lt g) (coordfs_lt _) (fsidx_lt cg) kL).
+Qed.
+
+End P1Heur.
+
 End P1Tab.
 
 (* =========================================================================  *)
