@@ -147,7 +147,10 @@ Local Notation inf_new_eq_lt := (@inf_new_eq_lt M M_gt0 A B N).
 
 Local Notation inv_red_lt := (@inv_red_lt M A B ltn_B).
 Local Notation inv_red_ge := (@inv_red_ge M M_gt0 A B ltn_B).
-Local Notation inf_red_lt := (@inf_red_lt M M_gt0 A B N).
+Local Notation inf_red_lt_le := (@inf_red_lt_le M M_gt0 A B).
+Local Notation inf_red_lt_ge := (@inf_red_lt_ge M M_gt0 A B).
+Local Notation inv_init := (@inv_init M M_gt0 A B ltn_A N N_gt0 N_lt_Mg).
+Local Notation invx_init := (@invx_init M M_gt0 A B ltn_A ltn_B).
 Local Notation inv_qM := (@inv_qM M A).
 Local Notation invx_red_lt_min := (@invx_red_lt_min M M_gt0 A N N_lt_Mg).
 Local Notation invx_red_lt_max := (@invx_red_lt_max M M_gt0 A N N_lt_Mg).
@@ -361,19 +364,21 @@ Qed.
 (*    rather than an equation.                                                *)
 Lemma invw_sub_p p q d u v :
   inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
-  u + (v + u) < N -> invw (p - q) q d u (v + u).
+  invw (p - q) q d u (v + u).
 Proof. Admitted.
 
 Lemma invw_sub_q p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> d = inf (u + v) -> d < q ->
-  u + v + v < N -> invw p (q - p) d (u + v) v.
+  invw p (q - p) d (u + v) v.
 Proof.
-move=> iv ix pLq dE dLq uvN; have [p_gt0 _ _ _ _ _ _ _] := iv.
+move=> iv ix pLq dE dLq; have [p_gt0 _ _ _ _ _ _ _] := iv.
 have k1 : 1 <= q %/ p by rewrite divn_gt0 //; apply: ltnW.
-have uvN' : u + 1 * v + v < N by rewrite mul1n.
+have Hle := inf_red_lt_le iv pLq k1; have Hge := inf_red_lt_ge iv ix pLq k1.
+have H : inf (u + 1 * v + v) = inf (u + v) - minn 1 (inf (u + v) %/ p) * p.
+  by apply/eqP; rewrite eqn_leq Hle Hge.
+rewrite mul1n in H.
 split; first by rewrite subnKC //; apply: ltnW.
-have H := inf_red_lt iv ix pLq k1 uvN'; rewrite !mul1n -dE in H.
-rewrite H; have [dLp|pLd] := ltnP d p.
+rewrite H -dE; have [dLp|pLd] := ltnP d p.
   by rewrite (divn_small dLp) minn0 mul0n subn0.
 by rewrite (minn_idPl _) ?mul1n // divn_gt0.
 Qed.
@@ -439,27 +444,79 @@ Qed.
 
 (*  The loop returns a lower bound on the infimum.                            *)
 (*                                                                            *)
-(*  ROUTE, and the one thing in the way.  Induction on [fuel]: at each turn   *)
-(*    [half1_exact] makes [d] the infimum, the exit case is                   *)
-(*    [half1_leq_inf], and the recursive case rebuilds the three records by   *)
-(*    [inv_half1]/[inv_sub_*], [invx_half1]/[invx_sub_*] and                  *)
-(*    [half1_exact]/[invw_sub_*].                                             *)
+(*  The spine.  Induction on [fuel]: at each turn [half1_exact] makes [d]     *)
+(*    the infimum, the exit case is [half1_leq_inf], and the recursive case   *)
+(*    rebuilds the three records by [inv_half1]/[inv_sub_*],                  *)
+(*    [invx_half1]/[invx_sub_*] and [half1_exact]/[invw_sub_*].               *)
 (*                                                                            *)
-(*  What does NOT go through as stated: the exit test sits BETWEEN the        *)
-(*    halves, so it bounds [u1 + v], not the count after [half2].  A turn     *)
-(*    can therefore begin with [N <= u + v], and then the range hypotheses    *)
-(*    of the [inf] lemmas above (and of Alg2's) are unavailable.              *)
-(*    [run1_past] closes that case from [invw] alone -- so what is missing is *)
-(*    exactly [invw] at an overshot count, i.e. the [invw_sub_*] pair without *)
-(*    their [< N] hypothesis.                                                 *)
+(*  The exit test sits BETWEEN the halves, so it bounds the mid-turn count    *)
+(*    and a turn can begin with [N <= u + v].  That case is closed by         *)
+(*    [run1_past], which needs [invw] and nothing else -- which is why        *)
+(*    [invw_sub_p] and [invw_sub_q] must NOT carry a [< N] hypothesis, and    *)
+(*    why [invx] is never asked for at an overshot count.  Config.v's [inf]   *)
+(*    laws oblige: neither half of them needs the range bound.                *)
 Lemma run1_sound fuel p q d u v :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N ->
   p + q <= fuel -> run1 fuel p q d u v N <= inf N.
-Proof. Admitted.
+Proof.
+elim: fuel p q d u v =>
+    [p q d u v iv _ _ _ pqf|f IH p q d u v iv ix iw uvN pqf].
+  have [p_gt0 _ _ _ _ _ _ _] := iv.
+  by move: pqf; rewrite leqn0 addn_eq0 => /andP[/eqP p0 _]; rewrite p0 in p_gt0.
+have [p_gt0 q_gt0 _ _ _ _ _ _] := iv.
+have f_gt0 : 0 < f.
+  by rewrite -ltnS (leq_trans _ pqf) // -addn1 leq_add.
+have pqN := inv_pq_neq iv uvN.
+have Hi := inv_half1 iv uvN.
+have Hx := invx_half1 iv ix uvN.
+have H1 := half1_exact iv ix iw uvN.
+have Hle := half1_leq_inf iv ix iw uvN.
+have Hm := run1_measure iv uvN.
+move: Hi Hx H1 Hle Hm; rewrite /half1 /half2 /=.
+case: (ltnP d p) => [dLp|pLd] Hi Hx H1 Hle Hm.
+(* [b] is in a [p]-gap: [half1] divides [q], [half2] takes one [p] off       *)
+  set k := q %/ p in Hi Hx H1 Hle Hm *.
+  set q1 := q - k * p in Hi Hx H1 Hle Hm *.
+  set u1 := u + k * v in Hi Hx H1 Hle Hm *.
+  case: (leqP N (u1 + v)) => [Nu1v|u1vN]; first exact: Hle.
+  have q1Lp : q1 < p.
+    have [pLq|qLp] := ltnP p q; first by apply: q'_lt_p.
+    have qLp' : q < p by rewrite ltn_neqAle qLp andbT eq_sym.
+    by rewrite /q1 /k (divn_small qLp') mul0n subn0.
+  have iv1 := Hi u1vN; have ix1 := Hx u1vN; have d1 := H1 u1vN.
+  have iw2 := invw_sub_p iv1 ix1 q1Lp d1 dLp.
+  case: (leqP N (u1 + (v + u1))) => [Nuv2|uv2N].
+    exact: run1_past iw2 Nuv2 f_gt0.
+  apply: IH => //; first exact: inv_sub_p iv1 q1Lp.
+    exact: invx_sub_p iv1 ix1 q1Lp uv2N.
+  by rewrite -ltnS (leq_trans Hm).
+(* [b] is in a [q]-gap: [half1] divides [p], [half2] takes one [q] off       *)
+set k := p %/ q in Hi Hx H1 Hle Hm *.
+set p1 := p - k * q in Hi Hx H1 Hle Hm *.
+set v1 := v + k * u in Hi Hx H1 Hle Hm *.
+case: (leqP N (u + v1)) => [Nuv1|uv1N]; first exact: Hle.
+have p1Lq : p1 < q.
+  have [pLq|qLp] := ltnP p q; last by apply: q'_lt_p.
+  by rewrite /p1 /k (divn_small pLq) mul0n subn0.
+have iv1 := Hi uv1N; have ix1 := Hx uv1N; have d1 := H1 uv1N.
+have dpLq : d - p < q by rewrite -(ltn_add2l p) subnKC // (invw_max iw).
+have iw2 := invw_sub_q (inv_dW (d - p) iv1) ix1 p1Lq d1 dpLq.
+case: (leqP N (u + v1 + v1)) => [Nuv2|uv2N].
+  exact: run1_past iw2 Nuv2 f_gt0.
+apply: IH => //; first exact: inv_sub_q (inv_dW (d - p) iv1) p1Lq.
+  exact: invx_sub_q iv1 ix1 p1Lq uv2N.
+by rewrite -ltnS (leq_trans Hm).
+Qed.
 
 (*  The algorithm returns a lower bound on the infimum.                       *)
 Theorem lefevre1_sound : 2 < N -> lefevre1 M A B N <= inf N.
-Proof. Admitted.
+Proof.
+move=> N_gt2.
+have am : A %% M < M by rewrite ltn_mod.
+apply: run1_sound; [exact: inv_init | exact: invx_init | exact: invw_init | |].
+  by rewrite (leq_trans _ N_gt2).
+by rewrite subnKC // ltnW.
+Qed.
 
 (*  The form the search uses: if the returned bound clears the threshold,     *)
 (*    there is no hard-to-round case in this sub-interval.                    *)
