@@ -66,8 +66,8 @@ Local Notation ptS := (ptS ltn_A).
 Local Notation ptWE := (ptWE M A).
 Local Notation leq_N_Mg := (leq_N_Mg N_lt_Mg).
 Local Notation coprime_Mg_Ag := (coprime_Mg_Ag M_gt0 A).
-Local Notation pt_neq0M := (pt_neq0M M_gt0).
 Local Notation pt_neq0 := (pt_neq0 M_gt0 N_lt_Mg).
+Local Notation pt_neq0M := (pt_neq0M M_gt0).
 Local Notation ptD_leq := (ptD_leq M_gt0 N_lt_Mg).
 Local Notation ptWv := (ptWv M_gt0 N_lt_Mg).
 Local Notation dvdn_g_pt := (dvdn_g_pt M A).
@@ -157,6 +157,18 @@ have [pE' qE'] := red_lt_pt iv pLq kLq q'_gt0.
 split => //; first by apply: (red_lt_bez iv kpq).
   by rewrite -gE -{2}(subnKC kpq) gcdnMDl.
 by rewrite addn_gt0 u_gt0.
+Qed.
+
+(*  [ptD_leq] with the orbit bound in place of [N].  Its [<= N] is there      *)
+(*    only to feed [pt_neq0], whose real content is [pt_neq0M] with           *)
+(*    [n < M %/ g] -- and [Alg2.inv_uv_le] hands that bound to every state    *)
+(*    satisfying [inv].  That is why nothing on the [p] side below needs a    *)
+(*    range hypothesis.                                                       *)
+Lemma ptD_leqM x y :
+  0 < x + y < M %/ g -> pt x + pt y <= M -> pt (x + y) = pt x + pt y.
+Proof.
+move=> xyM; case: ltngtP => // [pxpyLM|pxpyE] _; first exact: ptD.
+by have := pt_neq0M xyM; rewrite ptDE pxpyE modnn eqxx.
 Qed.
 
 (*  A new index is an old one walked up by [j <= k] copies of [v], and the    *)
@@ -537,16 +549,16 @@ Qed.
 
 Lemma invx_red_ge_p1 p q d u v k :
   inv p q d u v -> invx p q u v ->
-  q <= p -> k <= p %/ q -> 0 < p - k * q -> u + (v + k * u) < N ->
+  q <= p -> k <= p %/ q -> 0 < p - k * q ->
   forall z, z < u -> pt (z + (v + k * u)) = pt z + (p - k * q).
 Proof.
-move=> iv ix qLp kLp p'_gt0 uvN' z zLu.
+move=> iv ix qLp kLp p'_gt0 z zLu.
 have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
 have [pE' _] := red_ge_pt iv qLp kLp p'_gt0.
-have zLuv : z + (v + k * u) < N.
-  by rewrite (leq_ltn_trans _ uvN') // leq_add2r ltnW.
-rewrite pE'; apply: ptD_leq.
-  by rewrite (leq_trans _ (ltnW zLuv)) ?andbT // addn_gt0 addn_gt0 v_gt0 orbT.
+have Huv := inv_uv_le (inv_red_ge iv qLp kLp p'_gt0).
+have zLuv : z + (v + k * u) < M %/ g by apply: leq_trans Huv; rewrite ltn_add2r.
+rewrite pE'; apply: ptD_leqM.
+  by rewrite zLuv andbT addn_gt0 addn_gt0 v_gt0 orbT.
 rewrite -pE' (leq_trans (leq_add (leqnn (pt z)) (leq_subr (k * q) p))) //.
 by rewrite -(invx_p1 ix zLu) ltnW // ltn_pt.
 Qed.
@@ -558,12 +570,12 @@ Proof. by move=> iv z /andP[uLz _]; apply: ptBu; case: iv. Qed.
 
 Lemma invx_red_ge_gap p q d u v k :
   inv p q d u v -> invx p q u v ->
-  q <= p -> k <= p %/ q -> 0 < p - k * q -> u + (v + k * u) < N ->
+  q <= p -> k <= p %/ q -> 0 < p - k * q ->
   forall y, y < u + (v + k * u) ->
   exists a b, [/\ a <= u, b <= v + k * u &
                   dst y = inf (u + (v + k * u)) + a * (p - k * q) + b * q].
 Proof.
-move=> iv ix qLp kLp p'_gt0 uvN' y yL.
+move=> iv ix qLp kLp p'_gt0 y yL.
 have Hmin' := invx_red_ge_min iv (invx_min ix) qLp kLp.
 have Hmax' := invx_red_ge_max iv (invx_min ix) (invx_max ix) qLp kLp.
 by apply: gap_decomp (inv_red_ge iv qLp kLp p'_gt0) Hmin' Hmax' yL.
@@ -581,13 +593,12 @@ Qed.
 (*    Alg2's appeal to [r < q], which only holds at the quotient.             *)
 Lemma inf_red_ge_le p q d u v k :
   inv p q d u v -> invx p q u v -> q <= p -> 0 < k -> k <= p %/ q ->
-  u + (v + k * u) < N ->
   inf (u + v) < q \/
   inf (u + (v + k * u)) <=
     (if p - k * q <= inf (u + v) then (inf (u + v) - (p - k * q)) %% q
      else inf (u + v)).
 Proof.
-move=> iv ix qLp k_gt0 kLp uvN'.
+move=> iv ix qLp k_gt0 kLp.
 have [p_gt0 q_gt0 _ pE qE _ u_gt0 v_gt0] := iv.
 have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
 have [y0 y0L Heq] := inf_ex uv_gt0.
@@ -647,12 +658,11 @@ Qed.
 (*    branch of the disjunction -- the same route as [Alg2].                  *)
 Lemma invx_red_ge_inf p q d u v k :
   inv p q d u v -> invx p q u v -> q <= p -> 0 < k -> k <= p %/ q ->
-  u + (v + k * u) < N ->
   inf (u + (v + k * u)) < maxn (p - k * q) q.
 Proof.
-move=> iv ix qLp k_gt0 kLp uvN'.
+move=> iv ix qLp k_gt0 kLp.
 have [_ q_gt0 _ _ _ _ u_gt0 v_gt0] := iv.
-case: (inf_red_ge_le iv ix qLp k_gt0 kLp uvN') => [Ilt|Hle].
+case: (inf_red_ge_le iv ix qLp k_gt0 kLp) => [Ilt|Hle].
   apply: leq_ltn_trans (_ : inf (u + v) < _); last by rewrite (leq_trans Ilt) //
     leq_maxr.
   by apply: leq_inf_mono; rewrite leq_add2l leq_addr.
