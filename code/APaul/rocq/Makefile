@@ -11,9 +11,10 @@ VOFILES := $(VFILES:.v=.vo)
 all: $(VOFILES)
 
 # inter-file dependencies
-Alg2.vo: Dist.vo
-Config.vo: Dist.vo Alg2.vo
-Alg1.vo: Dist.vo Alg2.vo
+AlgFGG.vo: Dist.vo Config.vo
+Config.vo: Dist.vo
+AlgLefevre.vo: Dist.vo Config.vo AlgFGG.vo
+AlgLefevreWip.vo: Dist.vo AlgFGG.vo AlgLefevre.vo
 Scan.vo: Dist.vo
 ScanAll.vo: Dist.vo Scan.vo
 Certif.vo: Data.vo

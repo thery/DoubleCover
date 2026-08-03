@@ -11,7 +11,7 @@
   #text(size: 17pt)[*Lefèvre's lower bound, and its proof in Rocq*]
 
   #v(0.4em)
-  #text(size: 10pt)[A guide to `Alg2.v`, `Alg1.v` and `Config.v` for readers who do not read Rocq]
+  #text(size: 10pt)[A guide to `AlgFGG.v`, `AlgLefevre.v` and `Config.v` for readers who do not read Rocq]
 ]
 
 #v(1em)
@@ -96,6 +96,58 @@ moves the infimum by a known amount. Algorithm 2 always takes $k$ maximal;
 Algorithm 1 takes it maximal on one side of a turn and $k = 1$ on the other, so
 both are instances of the same lemmas.
 
+= The two listings
+
+Both are transcribed from §4.1. $p$ and $q$ are the two gap lengths, $u$ and $v$
+their counts, $d$ the recorded distance, and $epsilon''$ the threshold.
+
+*Algorithm 1 (Lefèvre).* Two reductions per turn, and the exit test between them.
+
+```
+ 1  p <- {a}; q <- 1 - {a}; d <- {b}; u <- 1; v <- 1
+ 2  if d < eps then return Failure
+ 3  while True do
+ 4    if d < p then
+ 5      k <- q / p
+ 6      q <- q - k*p;  u <- u + k*v
+ 7      if u + v >= N then return Success
+ 8      p <- p - q;    v <- v + u
+ 9    else
+10      d <- d - p
+11      if d < eps then return Failure
+12      k <- p / q
+13      p <- p - k*q;  v <- v + k*u
+14      if u + v >= N then return Success
+15      q <- q - p;    u <- u + v
+```
+
+Line 13 prints in the paper as `q <- p - k*q`; that has to be a typo, since it
+would leave $p$ at its old value and send line 15 negative.
+
+*Algorithm 2 (Fortin–Gouicem–Graillat).* One reduction per turn, the branch on
+the two lengths, and a single exit test.
+
+```
+ 1  p <- {a}; q <- 1; d <- {b}; u <- 1; v <- 1
+ 2  if d < eps then return Failure
+ 3  while True do
+ 4    if p < q then
+ 5      k <- q / p
+ 6      q <- q - k*p
+ 7      u <- u + k*v
+ 8      d <- d mod p
+ 9    else
+10      k <- p / q
+11      p <- p - k*q
+12      v <- v + k*u
+13      if p <= d then d <- (d - p) mod q
+14    if u + v >= N then return Success
+```
+
+In the development the loops are `run` and `run1`, driven by structural fuel
+rather than `while True`, and the early `Failure` exits are dropped: $d$ never
+increases, so testing the returned value against $epsilon''$ is equivalent.
+
 = Algorithm 2: one reduction per turn
 
 == The loop
@@ -174,7 +226,7 @@ again. Lefèvre says so explicitly: the algorithm stops not at $N$ but at the
 first configuration size at least $N$.
 
 So the file has #name("half1") and #name("half2"), and #name("half1") is
-`Alg2.step` while #name("half2") is the same reduction at $k = 1$.
+`AlgFGG.step` while #name("half2") is the same reduction at $k = 1$.
 
 == What $d$ is, and where
 
@@ -261,9 +313,9 @@ and the corollary the search uses, #name("lefevre1_test").
   inset: 6pt,
   [*File*], [*Statements*], [*Contents*],
   [`Dist.v`], [—], [`pt`, `dst`, `Inf` and their arithmetic],
-  [`Alg2.v`], [99], [Algorithm 2: `step`, `run`, `inv`/`invd`/`invx`, the gap and walk lemmas, `lefevre_sound`],
-  [`Config.v`], [25], [one reduction at an arbitrary $k$: `inv` and `invx` preserved, and how far the infimum drops],
-  [`Alg1.v`], [52], [Algorithm 1: `half1`/`half2`, `run1`, `invw`, `lefevre1_sound`],
+  [`AlgFGG.v`], [68], [Algorithm 2: `step`, `run`, `inv`/`invd`/`invx`, the gap and walk lemmas, `lefevre_sound`],
+  [`Config.v`], [53], [one reduction at an arbitrary $k$: `inv` and `invx` preserved, and how far the infimum drops],
+  [`AlgLefevre.v`], [52], [Algorithm 1: `half1`/`half2`, `run1`, `invw`, `lefevre1_sound`],
 )
 
 Both soundness theorems, and both `_test` corollaries, are proved without
@@ -274,10 +326,10 @@ infimum, and the files record the smallest witnesses. Algorithm 1 is the sharper
 of the two; that comparison is measured but not proved.
 
 Two things remain open in the organisation rather than the mathematics.
-`Config.v` still imports `Alg2.v`, so Algorithm 2's step lemmas are independent
+`Config.v` still imports `AlgFGG.v`, so Algorithm 2's step lemmas are independent
 proofs of what Config proves at general $k$ rather than instances of it; folding
 them together would remove that duplication. And several range hypotheses in
-`Alg2.v` are of the form "the count is below $N$" where "below the orbit length
+`AlgFGG.v` are of the form "the count is below $N$" where "below the orbit length
 $M slash gcd(A, M)$" would do, which is what `Config.v` now uses.
 
 = Sources
@@ -290,7 +342,7 @@ Gouicem and Graillat's.
   GPU_, hal-00751446 (`doc/mourad.pdf`). §3.2 states and proves Properties 1--3
   on two-length configurations; §4.1 gives Algorithm 1 with its six cases for
   $d$, and Algorithm 2. This is the analysis both developments follow, and the
-  source of the listing transcribed in `Alg1.v`.
+  source of the listing transcribed in `AlgLefevre.v`.
 
 + V. Lefèvre, _Moyens arithmétiques pour un calcul fiable_, thèse, ENS Lyon,
   2000, ch. 2. Says what the variables mean: $u$ and $v$ count the intervals of

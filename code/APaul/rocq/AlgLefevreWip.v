@@ -1,11 +1,11 @@
 (******************************************************************************)
 (*                                                                            *)
-(*   Scratch: measuring Alg1.v's invariant                                    *)
+(*   Scratch: measuring AlgLefevre.v's invariant                                    *)
 (*                                                                            *)
 (*   [invw] and the exactness of [d] between the halves are the statements    *)
 (*    that can fail for a reason other than bookkeeping, so they are          *)
 (*    measured on the states an actual run visits before anything is proved.  *)
-(*    That is what refuted the two earlier readings of 4.1 -- Alg2's [invd]   *)
+(*    That is what refuted the two earlier readings of 4.1 -- AlgFGG's [invd]   *)
 (*    at a turn start, and "[inf] drops by [p] across [half1]".               *)
 (*                                                                            *)
 (*   Verdicts, over all [M <= 20], all [A, B < M], all                        *)
@@ -13,7 +13,7 @@
 (*                                                                            *)
 (*      [chk_invw]   0 failures     (turn start: [invw])                      *)
 (*      [chk_exact]  0 failures     (after [half1]: [d] is the infimum)       *)
-(*      [chk_invd]   FAILS          (Alg2's [invd] at a turn start)           *)
+(*      [chk_invd]   FAILS          (AlgFGG's [invd] at a turn start)           *)
 (*                                                                            *)
 (*   Not part of the development.                                             *)
 (*                                                                            *)
@@ -25,7 +25,7 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-From APaulRocq Require Import Dist Alg2 Alg1.
+From APaulRocq Require Import Dist AlgFGG AlgLefevre.
 
 (*  The states a run of [run1] enters, in order.  The last one can have       *)
 (*    [N <= u + v]: the exit test reads the count BETWEEN the halves, so a    *)
@@ -60,7 +60,7 @@ Definition chk_exact (M A B N : nat) (s : nat * nat * nat * nat * nat) :=
   else
     let k := p %/ q in d - p == inf_dst M A B (u + (v + k * u)).
 
-(*  Alg2's [invd], for contrast: it fails, already at the initial state.      *)
+(*  AlgFGG's [invd], for contrast: it fails, already at the initial state.      *)
 Definition chk_invd (M A B N : nat) (s : nat * nat * nat * nat * nat) :=
   let: (p, q, d, u, v) := s in
   [&& d < maxn p q, d <= inf_dst M A B (u + v) &
