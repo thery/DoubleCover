@@ -12,6 +12,8 @@ all: $(VOFILES)
 
 # inter-file dependencies
 Alg2.vo: Dist.vo
+Config.vo: Dist.vo Alg2.vo
+Alg1.vo: Dist.vo Alg2.vo
 Scan.vo: Dist.vo
 ScanAll.vo: Dist.vo Scan.vo
 Certif.vo: Data.vo
