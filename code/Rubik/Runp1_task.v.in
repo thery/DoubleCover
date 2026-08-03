@@ -27,8 +27,8 @@ Lemma p1searchd_@N@ :
   all (fun i => ~~ searchz3 p1tab @D@ (prefixi i @J@)
                             (init3 (prefixi i @J@)) nfcube)
       (iota 0 nroot).
-(* vm_cast_no_check, NOT native: Far_??.v can go native because fstab is two
-   million words, but the phase 1 table is 4.5 GB and the native compiler has
-   to emit it -- the same wall FsTable.v hit with `Eval vm_compute'.  vm
-   evaluates once too. *)
-Proof. Time vm_cast_no_check (erefl true). Qed.
+(* the evaluator is chosen by mkrunp1.sh: EVAL=vm (default) or EVAL=native.
+   Far_??.v goes native because fstab is two million words; whether that is
+   still right for a 4.5 GB table is a question for measurement, not for me
+   to assert -- generate both and time them. *)
+Proof. Time @CAST@_cast_no_check (erefl true). Qed.
