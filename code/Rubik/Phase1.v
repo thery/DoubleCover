@@ -541,6 +541,7 @@ Definition nflip  := 2048.
    which is 4, the number of slice edges. *)
 Definition nsrank := 495.
 Definition nfs    := 1013760.   (* nflip * nsrank *)
+Definition nmask  := 4096.      (* 2 ^ nedge, the masks srank is indexed by  *)
 
 (* nsrank as an int63 literal, for the same reason ntwmovei is one *)
 Definition nsranki : int := 495%uint63.                      (* nsrank      *)
@@ -580,8 +581,10 @@ Definition fsidx (x : int) : int :=
 Definition nfsi    : int := 1013760%uint63.
 Definition ntwisti : int := 2187%uint63.
 
-(* NB no `to_nat nfsi = nfs` lemma: proving it materialises nfs as a unary nat
-   and overflows the stack.  Everything below stays on the int63 side. *)
+(* NB `to_nat nfsi = nfs` as stated is not worth proving: nfs as a unary nat
+   is a million successors.  But the FACTORED form is, and cheaply -- see
+   nfsiE, to_nat nfsi = nflip * nsrank, where neither side is ever evaluated.
+   Everything else below stays on the int63 side. *)
 
 Definition p1idx (tw x : int) : int :=
   Uint63.add (Uint63.mul tw nfsi) (fsidx x).
@@ -1280,15 +1283,141 @@ have -> : count (fun p => (nedge - nslice <= epos (g^-1 (eprimf p)))%N)
 by rewrite (seq.permP hperm); vm_compute.
 Qed.
 
-(* -- and what is left ------------------------------------------------------ *)
+(* -- from the count to the array read -------------------------------------- *)
 
-(* STILL ADMITTED, and no longer for want of a mathematical fact: count_sliceb
-   is the content.  What is missing is the bridge from the count to the array
-   read -- nbit of the shifted word is sliceb, the mask is below 4096, and a
-   finite check over the 4096 masks turns "four bits set" into srank < 495.
-   It will also need the cubP hypothesis this statement does not yet carry. *)
-Lemma fsidx_lt (g : {perm facelet}) : (fsidx (coordfs g) <? nfsi)%uint63.
-Proof. Admitted.
+(* THE PRODUCT IS NEVER NORMALISED, and that is the whole trick.  Section 3
+   says to_nat nfsi = nfs "cannot be proved at all", and that is true of the
+   LITERAL: nfs as a unary nat is a million successors.  But nfsi = 2048 * 495
+   holds in int63 by machine arithmetic, to_nat is a morphism for the product,
+   and 2048 and 495 are small.  So the bound travels to nat without either
+   side ever being evaluated -- 0.56 s.  (thery's suggestion.) *)
+Lemma nfsiE : to_nat nfsi = (nflip * nsrank)%N.
+Proof.
+have h2048 : to_nat 2048%uint63 = nflip by vm_compute.
+have h495 : to_nat 495%uint63 = nsrank by vm_compute.
+have hb : (to_nat 2048%uint63 * to_nat 495%uint63 < nwB)%N.
+  rewrite h2048 h495.
+  apply: leq_ltn_trans (_ : (2 ^ 20)%N < _); first by vm_compute.
+  by rewrite nwB_pow ltn_exp2l.
+rewrite (_ : nfsi = (2048 * 495)%uint63); last by vm_compute.
+by rewrite (to_nat_mul _ _ hb) h2048 h495.
+Qed.
+
+(* the arithmetic half, with the srank bound as a hypothesis: the flip is
+   eleven bits and the rank is below 495, so the index is below 2048 * 495 *)
+Lemma fsidx_ltB x :
+  (to_nat (PArray.get srank (Uint63.lsr x 12%uint63)) < nsrank)%N ->
+  (fsidx x <? nfsi)%uint63.
+Proof.
+move=> hs; apply/nltbP; rewrite nfsiE /fsidx.
+set f := to_nat (Uint63.land x 2047%uint63).
+set s := to_nat (PArray.get srank (Uint63.lsr x 12%uint63)).
+have hnw : (nflip * nsrank < nwB)%N.
+  apply: leq_ltn_trans (_ : (2 ^ 20)%N < _); first by vm_compute.
+  by rewrite nwB_pow ltn_exp2l.
+have hf : (f < nflip)%N.
+  rewrite /f landC -(_ : (2 ^ 11 = nflip)%N); last by vm_compute.
+  by apply: to_nat_land_bound; vm_compute.
+have hns : to_nat (of_nat nsrank) = nsrank.
+  by apply: of_natK; apply: leq_ltn_trans hnw; vm_compute.
+have hmulb : (f * to_nat (of_nat nsrank) < nwB)%N.
+  rewrite hns; apply: leq_ltn_trans hnw.
+  by rewrite leq_mul2r; apply/orP; right; exact: ltnW hf.
+have hmul : to_nat (Uint63.mul (Uint63.land x 2047%uint63) (of_nat nsrank))
+          = (f * nsrank)%N.
+  by rewrite (to_nat_mul _ _ hmulb) hns.
+have haddb : (to_nat (Uint63.mul (Uint63.land x 2047%uint63) (of_nat nsrank))
+              + s < nwB)%N.
+  rewrite hmul; apply: leq_ltn_trans hnw.
+  apply: leq_trans (_ : (f.+1 * nsrank <= nflip * nsrank)%N).
+    (* mulSnr, NOT mulSn + addnC: addnC has two additions to choose from here
+       and the rewrite does not return *)
+    by rewrite mulSnr leq_add2l; exact: ltnW hs.
+  by rewrite leq_mul2r hf orbT.
+rewrite (to_nat_add _ _ haddb) hmul -/s.
+apply: leq_trans (_ : (f.+1 * nsrank <= nflip * nsrank)%N).
+  by rewrite mulSnr ltn_add2l; exact: hs.
+by rewrite leq_mul2r hf orbT.
+Qed.
+
+(* the shift, on bits: srank is indexed by the top twelve bits *)
+Lemma nbit_lsr_nedge x j : (j < nedge)%N ->
+  nbit (Uint63.lsr x 12%uint63) j = nbit x (nedge + j).
+Proof.
+move=> jL.
+have hjw : (j < nwB)%N.
+  by apply: small_nwB; apply: leq_trans jL _; vm_compute.
+have hsw : (nedge + j < nwB)%N.
+  apply: small_nwB; apply: leq_ltn_trans (_ : (nedge + nedge < 2 ^ 20)%N).
+    by rewrite leq_add2l ltnW.
+  by vm_compute.
+have hsum : (12%uint63 + of_nat j)%uint63 = of_nat (nedge + j).
+  rewrite (_ : 12%uint63 = of_nat nedge); last by vm_compute.
+  exact: Fstab.of_nat_addE hsw.
+have hcond : (of_nat j <=? 12%uint63 + of_nat j)%uint63.
+  by apply/nlebP; rewrite hsum !of_natK // leq_addl.
+by rewrite /nbit bit_lsr (ifT _ _ hcond) hsum.
+Qed.
+
+(* the mask is twelve bits, because the coordinate is twenty four *)
+Lemma smask_lt g : (to_nat (Uint63.lsr (coordfs g) 12%uint63) < nmask)%N.
+Proof.
+have h12 : to_nat 12%uint63 = nedge by vm_compute.
+rewrite to_nat_lsr h12 ltn_divLR ?expn_gt0 //.
+rewrite (_ : (nmask = 2 ^ 12)%N); last by vm_compute.
+by rewrite -expnD; exact: coordfs_lt.
+Qed.
+
+Lemma nbit_smask g j : (j < nedge)%N ->
+  nbit (Uint63.lsr (coordfs g) 12%uint63) j = sliceb g j.
+Proof.
+move=> jL; rewrite nbit_lsr_nedge // /coordfs nbit_packn.
+- by rewrite ltnNge leq_addr /= addKn.
+- by rewrite /ncoord ltn_add2l.
+- exact: ncoord_dig.
+Qed.
+
+(* THE TABLE FACT: a mask with four bits set has a rank, and it is below 495.
+   4096 masks, so the check is instant.  The emitted table satisfies it
+   exactly -- the 495 masks with four bits set get distinct ranks 0 .. 494 and
+   every other mask gets 495. *)
+Definition srankC : bool :=
+  all (fun m => (count (nbit (of_nat m)) (iota 0 nedge) == nslice)
+                ==> (to_nat (PArray.get srank (of_nat m)) < nsrank)%N)
+      (iota 0 nmask).
+
+Lemma srankCP : srankC.
+Proof. by vm_compute. Qed.
+
+(* the equation again, and again worth it: `allP srankCP' unfolds srankC by
+   unification and costs 14.5 s at Qed, against 0.2 s through this *)
+Lemma srankCE : srankC =
+  all (fun m => (count (nbit (of_nat m)) (iota 0 nedge) == nslice)
+                ==> (to_nat (PArray.get srank (of_nat m)) < nsrank)%N)
+      (iota 0 nmask).
+Proof. by []. Qed.
+
+(* -- and the guard itself -------------------------------------------------- *)
+
+(* THE cubP HYPOTHESIS IS NECESSARY: for an arbitrary permutation the slice
+   mask is arbitrary, srank hands back its 495, and fsidx reaches exactly
+   nfs.  It is the hypothesis coordfs_flip and coordfs_slice already carry. *)
+Lemma fsidx_lt g : cubP g -> (fsidx (coordfs g) <? nfsi)%uint63.
+Proof.
+move=> cg; apply: fsidx_ltB.
+have hmem : to_nat (Uint63.lsr (coordfs g) 12%uint63) \in iota 0 nmask.
+  by rewrite mem_iota add0n leq0n smask_lt.
+have hcount : count (nbit (of_nat (to_nat (Uint63.lsr (coordfs g) 12%uint63))))
+                    (iota 0 nedge) == nslice.
+  rewrite to_natK; apply/eqP; rewrite -(count_sliceb cg).
+  apply: eq_in_count => j.
+  by rewrite mem_iota add0n => /andP[_ jL]; exact: nbit_smask jL.
+have hall : all (fun m => (count (nbit (of_nat m)) (iota 0 nedge) == nslice)
+                ==> (to_nat (PArray.get srank (of_nat m)) < nsrank)%N)
+      (iota 0 nmask).
+  by rewrite -srankCE; exact: srankCP.
+by have := implyP (allP hall _ hmem) hcount; rewrite to_natK.
+Qed.
 
 (* the entries are four bits, so the successor on the int side is the
    successor on the nat side -- no wrap.  Fstab.Dfsi_small verbatim. *)
