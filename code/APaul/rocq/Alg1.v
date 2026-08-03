@@ -194,20 +194,31 @@ Qed.
 Lemma inv_dW p q d d' u v : inv p q d u v -> inv p q d' u v.
 Proof. by case. Qed.
 
+(*  The [gap] field is the paper's line 4 remark: the test says which gap    *)
+(*    [b] is in.  It has to be carried, not derived -- [Alg2.ge_inf_le]      *)
+(*    proves only the two one-way implications ([y0 < u -> Inf < p] and      *)
+(*    [u <= y0 -> Inf < q]), so when [Inf] is below both lengths the state   *)
+(*    alone does not say which gap holds [b].  The paper is in the same      *)
+(*    position: "[b] in a [p]-interval implies [d < p]" is immediate from    *)
+(*    what [d] is, but the converse is a property of the states the loop     *)
+(*    reaches, and it is Property 3's directionality that keeps it true.     *)
+(*    [invx_p1]/[invx_p2] are what make "[y] indexes a [p]-gap" mean         *)
+(*    [y < u].                                                               *)
 Record invw (p q d u v : nat) := Invw {
   invw_max : d < p + q;
-  invw_inf : inf (u + v) = if d < p then d else d - p
+  invw_inf : inf (u + v) = if d < p then d else d - p;
+  invw_gap : forall y, y < u + v -> inf (u + v) = dst y -> (y < u) = (d < p)
 }.
 
 (*  At the start [u = v = 1], so the configuration is the two points [0] and  *)
 (*    [1] and the infimum is [B] or [B - A %% M], which is exactly what the   *)
 (*    branch test picks out.                                                  *)
-Lemma invw_init : invw (A %% M) (M - A %% M) (B %% M) 1 1.
+Lemma invw_init_inf :
+  inf (1 + 1) = if B %% M < A %% M then B %% M else B %% M - A %% M.
 Proof.
 have am : A %% M < M by rewrite ltn_mod.
 have bm : B %% M = B by apply: modn_small.
 have pt1 : pt 1 = A %% M by rewrite /Dist.pt muln1.
-split; first by rewrite subnKC ?bm // ltnW.
 rewrite !infSE inf0 dst0 dstE pt1.
 have [BLa|aLB] := ltnP B (A %% M).
   rewrite bm ifT // (minn_idPl (ltnW ltn_B)).
@@ -222,6 +233,20 @@ rewrite bm ifN -?leqNgt // (minn_idPl (ltnW ltn_B)).
 have -> : (B + M - A %% M) %% M = B - A %% M.
   by rewrite -addnBAC // modnDr modn_small // (leq_ltn_trans (leq_subr _ _)).
 by apply/minn_idPl; rewrite leq_subr.
+Qed.
+
+(*  and the two points are distinct, so the argmin is the one the test        *)
+(*    names: [0] when [d < p], [1] otherwise.                                 *)
+Lemma invw_init_gap y :
+  y < 1 + 1 -> inf (1 + 1) = dst y -> (y < 1) = (B %% M < A %% M).
+Proof. Admitted.
+
+Lemma invw_init : invw (A %% M) (M - A %% M) (B %% M) 1 1.
+Proof.
+have am : A %% M < M by rewrite ltn_mod.
+have bm : B %% M = B by apply: modn_small.
+split; [by rewrite subnKC ?bm // ltnW| |exact: invw_init_gap].
+by rewrite invw_init_inf bm.
 Qed.
 
 (*  [half1] is [Alg2.step] whenever the branch test agrees with [p < q]: same *)
@@ -334,19 +359,31 @@ Qed.
 (*  The other branch.  [invw] says [b] is NOT in a [p]-gap here: [d] is       *)
 (*    [Inf + p], so [Inf < q] by [invw_max].  That is the paper's fourth      *)
 (*    case -- [b] sits in a [q]-gap, and reducing [p] splits [p]-gaps only,   *)
-(*    so no point enters [b]'s gap and [Inf] does not move.                   *)
-(*                                                                           *)
-(*  ROUTE.  [Alg2.ge_inf_alt] is this statement with a disjunction, and its   *)
-(*    right disjunct is exactly the conclusion below.  It asks for [invd],    *)
-(*    which Algorithm 1 does not have -- but only to get [d = Inf] out of     *)
-(*    [ge_d_eq_inf], so it can be applied at [d := inf (u + v)], for which    *)
-(*    [invd] is immediate.  What is then left is to rule out its left         *)
-(*    disjunct, i.e. the [gap_q_empty] half of its proof.                     *)
+(*    so no point enters below [b] and [Inf] cannot drop.                     *)
+(*                                                                            *)
+(*  Stated as the one inequality, with NO bound on the new range: that is     *)
+(*    what lets it serve the exit case as well ([half1_leq_inf] below), and   *)
+(*    the other direction is free by monotonicity.                            *)
+(*                                                                            *)
+(*  ROUTE.  [Alg2.ge_inf_alt]'s right disjunct is this statement.  It asks    *)
+(*    for [invd] only to get [d = Inf] out of [ge_d_eq_inf], so it applies    *)
+(*    at [d := inf (u + v)], for which [invd] is immediate; what is left is   *)
+(*    to rule out its left disjunct, which is where [invw_gap] comes in --    *)
+(*    [b] is in a [q]-gap, so [gap_q_empty] applies.                          *)
+Lemma half1_ge_nodrop p q d u v :
+  inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
+  inf (u + v) <= inf (u + (v + p %/ q * u)).
+Proof. Admitted.
+
+(*  so [half1] does not move [Inf] in this branch either.                     *)
 Lemma half1_inf_ge p q d u v :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
-  u + (v + p %/ q * u) < N ->
   inf (u + (v + p %/ q * u)) = inf (u + v).
-Proof. Admitted.
+Proof.
+move=> iv ix iw uvN pLd; apply/eqP; rewrite eqn_leq.
+rewrite (half1_ge_nodrop iv ix iw uvN pLd) andbT.
+by apply: leq_inf_mono; rewrite leq_add2l leq_addr.
+Qed.
 
 (*  Between the halves, [d] is exactly the infimum -- which is what 4.1 says  *)
 (*    [d] is, and it is true HERE, not at the top of the loop.                *)
@@ -358,7 +395,7 @@ Proof.
 move=> iv ix iw uvN; rewrite /half1; case: (ltnP d p) => [dLp|pLd] /= uvN'.
   by rewrite (half1_inf_lt iv ix iw uvN dLp uvN'); have := invw_inf iw;
      rewrite ifT.
-by rewrite (half1_inf_ge iv ix iw uvN pLd uvN'); have := invw_inf iw;
+by rewrite (half1_inf_ge iv ix iw uvN pLd); have := invw_inf iw;
    rewrite ifN // -leqNgt.
 Qed.
 
@@ -370,36 +407,84 @@ Qed.
 (*    drops -- by nothing, or by the new [p].  That is the [k = 1] case of    *)
 (*    Config.v's reduction, and the reason [invw] is stated with a test       *)
 (*    rather than an equation.                                                *)
+Lemma invw_sub_p_inf p q d u v :
+  inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
+  inf (u + (v + u)) = (if d < p - q then d else d - (p - q)).
+Proof. Admitted.
+
+Lemma invw_sub_p_gap p q d u v :
+  inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
+  forall y, y < u + (v + u) -> inf (u + (v + u)) = dst y ->
+  (y < u) = (d < p - q).
+Proof. Admitted.
+
 Lemma invw_sub_p p q d u v :
   inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
   invw (p - q) q d u (v + u).
+Proof.
+move=> iv ix qLp dE dLp; split.
+- by rewrite (subnK (ltnW qLp)).
+- exact: invw_sub_p_inf iv ix qLp dE dLp.
+exact: invw_sub_p_gap iv ix qLp dE dLp.
+Qed.
+
+Lemma invw_sub_q_inf p q d u v :
+  inv p q d u v -> invx p q u v -> p < q -> d = inf (u + v) ->
+  inf (u + v + v) = (if d < p then d else d - p).
+Proof.
+move=> iv ix pLq dE; have [p_gt0 _ _ _ _ _ _ _] := iv.
+have k1 : 1 <= q %/ p by rewrite divn_gt0 //; apply: ltnW.
+have Hle := inf_red_lt_le iv pLq k1; have Hge := inf_red_lt_ge iv ix pLq k1.
+have H : inf (u + 1 * v + v) = inf (u + v) - minn 1 (inf (u + v) %/ p) * p.
+  by apply/eqP; rewrite eqn_leq Hle Hge.
+rewrite mul1n in H.
+rewrite H -dE; have [dLp|pLd] := ltnP d p.
+  by rewrite (divn_small dLp) minn0 mul0n subn0.
+by rewrite (minn_idPl _) ?mul1n // divn_gt0.
+Qed.
+
+(*  the mirror of [invw_sub_p_gap]: reducing [q] splits [q]-gaps into a [p]   *)
+(*    on the left and the residual on the right, so a [b] whose [d] is        *)
+(*    below [p] lands in the new [p]-gap and one whose [d] is not gets the    *)
+(*    new point underneath it.                                               *)
+Lemma invw_sub_q_gap p q d u v :
+  inv p q d u v -> invx p q u v -> p < q -> d = inf (u + v) -> d < q ->
+  forall y, y < u + v + v -> inf (u + v + v) = dst y -> (y < u + v) = (d < p).
 Proof. Admitted.
 
 Lemma invw_sub_q p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> d = inf (u + v) -> d < q ->
   invw p (q - p) d (u + v) v.
 Proof.
-move=> iv ix pLq dE dLq; have [p_gt0 _ _ _ _ _ _ _] := iv.
-have k1 : 1 <= q %/ p by rewrite divn_gt0 //; apply: ltnW.
-have Hle := inf_red_lt_le iv pLq k1; have Hge := inf_red_lt_ge iv ix pLq k1.
-have H : inf (u + 1 * v + v) = inf (u + v) - minn 1 (inf (u + v) %/ p) * p.
-  by apply/eqP; rewrite eqn_leq Hle Hge.
-rewrite mul1n in H.
-split; first by rewrite subnKC //; apply: ltnW.
-rewrite H -dE; have [dLp|pLd] := ltnP d p.
-  by rewrite (divn_small dLp) minn0 mul0n subn0.
-by rewrite (minn_idPl _) ?mul1n // divn_gt0.
+move=> iv ix pLq dE dLq; split.
+- by rewrite (subnKC (ltnW pLq)).
+- exact: invw_sub_q_inf iv ix pLq dE.
+exact: invw_sub_q_gap iv ix pLq dE dLq.
 Qed.
 
-(*  At the exit the count has passed [N], so the equality above is out of     *)
-(*    reach ([Alg2]'s [inf] lemmas need the new range below [N]).  Only the   *)
-(*    inequality is needed, and only at the indices below [N]: this is        *)
-(*    [Alg2.inf_ge_new] with [x < N] in place of the range hypothesis.        *)
+(*  At the exit the count has passed [N], so [half1_exact] is out of reach:   *)
+(*    its range hypothesis is exactly what the exit denies.  But [N <= u'+v'] *)
+(*    gives [Inf (u'+v') <= Inf N], so it is enough to bound [d'] by the      *)
+(*    infimum of the NEW range -- the lower half of the [inf] law, which      *)
+(*    carries no range bound on either side.                                  *)
 Lemma half1_leq_inf p q d u v :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N ->
   let: (_, _, d', u', v') := half1 p q d u v in
   N <= u' + v' -> d' <= inf N.
-Proof. Admitted.
+Proof.
+move=> iv ix iw uvN; have [p_gt0 q_gt0 _ _ _ _ _ _] := iv.
+have pqN := inv_pq_neq iv uvN.
+rewrite /half1; case: (ltnP d p) => [dLp|pLd] /= NL;
+    apply: leq_trans (leq_inf_mono NL).
+  have dE : inf (u + v) = d by have := invw_inf iw; rewrite ifT.
+  have [pLq|qLp] := ltnP p q; last first.
+    have qLp' : q < p by rewrite ltn_neqAle qLp andbT eq_sym.
+    by rewrite (divn_small qLp') mul0n addn0 dE.
+  have H := inf_red_lt_ge iv ix pLq (leqnn (q %/ p)).
+  by rewrite dE (divn_small dLp) minn0 mul0n subn0 in H.
+have dE : inf (u + v) = d - p by have := invw_inf iw; rewrite ifN // -leqNgt.
+by rewrite -dE (half1_ge_nodrop iv ix iw uvN pLd).
+Qed.
 
 (*  [invx] through the two halves, and both are assemblies.  [half1] is       *)
 (*    [Alg2.step] whenever the branch test agrees with [p < q], and the       *)
