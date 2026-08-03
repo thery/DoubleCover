@@ -385,6 +385,15 @@ rewrite (half1_ge_nodrop iv ix iw uvN pLd) andbT.
 by apply: leq_inf_mono; rewrite leq_add2l leq_addr.
 Qed.
 
+(*  and it leaves [b] where it was: in the [d < p] branch it splits           *)
+(*    [q]-gaps, so a [b] in a [p]-gap keeps its neighbour below.  Property 3  *)
+(*    again, and what [invw_sub_p_*] above ask for.                           *)
+Lemma half1_gap_lt p q d u v :
+  inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> d < p ->
+  forall y, y < u + q %/ p * v + v -> inf (u + q %/ p * v + v) = dst y ->
+  y < u + q %/ p * v.
+Proof. Admitted.
+
 (*  Between the halves, [d] is exactly the infimum -- which is what 4.1 says  *)
 (*    [d] is, and it is true HERE, not at the top of the loop.                *)
 Lemma half1_exact p q d u v :
@@ -407,27 +416,44 @@ Qed.
 (*    drops -- by nothing, or by the new [p].  That is the [k = 1] case of    *)
 (*    Config.v's reduction, and the reason [invw] is stated with a test       *)
 (*    rather than an equation.                                                *)
+(*  Reducing [p] splits [p]-gaps, into [p - q] on the left and [q] on the    *)
+(*    right (Property 3: the residual is leftmost, points enter from the      *)
+(*    right).  So these two need to know that [b] is in a [p]-gap: for a [b]  *)
+(*    in an untouched [q]-gap all one gets is [Inf < q], which says nothing   *)
+(*    about the new test [d < p - q].  In the loop [b] IS in a [p]-gap here,  *)
+(*    the turn having taken the [d < p] branch, and [half1] splits only       *)
+(*    [q]-gaps there -- that is [half1_gap_lt].                               *)
+(*                                                                            *)
+(*  This is the paper's row 6: [b] is in an interval of length [p], points    *)
+(*    enter it from the right one by one, so the last one added is the        *)
+(*    nearest below [b] and [d] loses the new [p].                            *)
 Lemma invw_sub_p_inf p q d u v :
   inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
+  (forall y, y < u + v -> inf (u + v) = dst y -> y < u) ->
   inf (u + (v + u)) = (if d < p - q then d else d - (p - q)).
 Proof. Admitted.
 
 Lemma invw_sub_p_gap p q d u v :
   inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
+  (forall y, y < u + v -> inf (u + v) = dst y -> y < u) ->
   forall y, y < u + (v + u) -> inf (u + (v + u)) = dst y ->
   (y < u) = (d < p - q).
 Proof. Admitted.
 
 Lemma invw_sub_p p q d u v :
   inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
+  (forall y, y < u + v -> inf (u + v) = dst y -> y < u) ->
   invw (p - q) q d u (v + u).
 Proof.
-move=> iv ix qLp dE dLp; split.
+move=> iv ix qLp dE dLp pg; split.
 - by rewrite (subnK (ltnW qLp)).
-- exact: invw_sub_p_inf iv ix qLp dE dLp.
-exact: invw_sub_p_gap iv ix qLp dE dLp.
+- exact: invw_sub_p_inf iv ix qLp dE dLp pg.
+exact: invw_sub_p_gap iv ix qLp dE dLp pg.
 Qed.
 
+(*  The [q] side needs no such hypothesis: reducing [q] leaves [p]-gaps       *)
+(*    alone, and "[b] is in a [p]-gap" already forces [Inf < p], so both      *)
+(*    cases agree with the test on their own.                                 *)
 Lemma invw_sub_q_inf p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> d = inf (u + v) ->
   inf (u + v + v) = (if d < p then d else d - p).
@@ -606,7 +632,7 @@ case: (ltnP d p) => [dLp|pLd] Hi Hx H1 Hle Hm.
     have qLp' : q < p by rewrite ltn_neqAle qLp andbT eq_sym.
     by rewrite /q1 /k (divn_small qLp') mul0n subn0.
   have iv1 := Hi u1vN; have ix1 := Hx u1vN; have d1 := H1 u1vN.
-  have iw2 := invw_sub_p iv1 ix1 q1Lp d1 dLp.
+  have iw2 := invw_sub_p iv1 ix1 q1Lp d1 dLp (half1_gap_lt iv ix iw uvN dLp).
   case: (leqP N (u1 + (v + u1))) => [Nuv2|uv2N].
     exact: run1_past iw2 Nuv2 f_gt0.
   apply: IH => //; first exact: inv_sub_p iv1 q1Lp.
