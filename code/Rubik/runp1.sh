@@ -29,8 +29,10 @@ ulimit -s unlimited
 # search ran with every fsmove read returning 0.  That cost a day.
 if [ ! -f P1Fsm.v ] || [ "$(wc -c < P1Fsm.v)" -lt 1000000 ]; then
   echo "regenerating the real P1Fsm.v (116 MB)"
-  (cd bench && [ -x p1gen ] || ocamlfind ocamlopt -package unix -linkpkg \
-     cubedata.ml p1gen.ml -o p1gen)
+  # rebuild if the source is NEWER, not merely if the binary is absent: a
+  # stale p1gen silently emits the old set of tables
+  (cd bench && { [ -x p1gen ] && [ p1gen -nt p1gen.ml ]; } || ocamlfind \
+     ocamlopt -package unix -linkpkg cubedata.ml p1gen.ml -o p1gen)
   (cd bench && ./p1gen 9 small)
   echo "compiling P1Fsm.v (~20 min)"
   rocq compile -R . Rubik P1Fsm.v

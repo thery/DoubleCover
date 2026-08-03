@@ -43,7 +43,9 @@ done
 [ "$FIRST" -le "$LAST" ] && [ "$LAST" -le 70 ] || {
   echo "mkp1.sh: chunk range must satisfy 0 <= first <= last <= 70" >&2; exit 1; }
 
-if [ ! -x bench/p1gen ]; then
+# rebuild if the source is NEWER, not merely if the binary is absent: a stale
+# p1gen silently emits the old set of tables
+if [ ! -x bench/p1gen ] || [ bench/p1gen.ml -nt bench/p1gen ]; then
   echo "building bench/p1gen"
   (cd bench && ocamlfind ocamlopt -package unix -linkpkg \
      cubedata.ml p1gen.ml -o p1gen)
