@@ -274,15 +274,33 @@ move=> z zL.
 by apply: (gap_p_empty iv (invx_min ix) (invx_max ix) pq wL zL pDw).
 Qed.
 
+(*  [q + q <= M] rather than [q <= p]: on a reduced configuration the        *)
+(*    second is not available, and it is only ever used to get the first.     *)
 Lemma inf_at_q p q d u v w :
-  inv p q d u v -> invx p q u v -> q <= p -> u <= w -> w < u + v ->
+  inv p q d u v -> invx p q u v -> q + q <= M -> u <= w -> w < u + v ->
   dst w < q -> inf (u + v) = dst w.
 Proof.
-move=> iv ix qLp uw wL qDw; apply/eqP; rewrite eqn_leq (leq_inf_dst wL) /=.
+move=> iv ix qqM uw wL qDw; apply/eqP; rewrite eqn_leq (leq_inf_dst wL) /=.
 apply: leq_inf; first by apply: ltnW; exact: ltn_dst.
-move=> z zL.
-by apply: (gap_q_empty iv (invx_max ix) (inv_qqM iv qLp) uw wL zL qDw).
+by move=> z zL; apply: (gap_q_empty iv (invx_max ix) qqM uw wL zL qDw).
 Qed.
+
+(*  THE MISSING SIBLING, and the reason the [p]-side leaves are still open.   *)
+(*    [inf_at_p] asks [p <= q] and [inf_at_q] asks [u <= w], so neither       *)
+(*    covers "[b] is in the gap headed by [w < u] while that gap is the       *)
+(*    LARGER one" -- which is what a configuration reduced on the [p] side    *)
+(*    looks like ([p - q] can exceed [q]).  Alg2 never met that case, so      *)
+(*    neither [gap_p_empty] nor [gap_q_empty] covers it: this is their third  *)
+(*    sibling, and [invw_sub_p_inf]/[invw_sub_p_gap] are to be written        *)
+(*    against it.                                                             *)
+(*                                                                            *)
+(*  ROUTE: [gap_p_empty]'s proof uses [p <= q] once, to turn [q <= dst w]     *)
+(*    into a contradiction with [dst w < p].  With [w < u] instead, [invx_p1] *)
+(*    gives the successor at [pt w + p] directly, which is the same argument  *)
+(*    as [argmin_lt_p] run backwards.                                         *)
+Lemma inf_at_pu p q d u v w :
+  inv p q d u v -> invx p q u v -> w < u -> dst w < p -> inf (u + v) = dst w.
+Proof. Admitted.
 
 Record invw (p q d u v : nat) := Invw {
   invw_max : d < p + q;
