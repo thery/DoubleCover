@@ -24,7 +24,7 @@ ulimit -s unlimited
 # P1Fsm.v is checked in as a DUMMY -- 116 MB is too big for git -- so the real
 # one has to be regenerated.  With the dummy every fsmove read is 0 and the
 # search is nonsense, so this is not optional.
-if ! grep -q "^0; " P1Fsm.v 2>/dev/null; then
+if [ "$(wc -c < P1Fsm.v)" -lt 1000000 ]; then
   echo "regenerating the real P1Fsm.v (116 MB)"
   (cd bench && [ -x p1gen ] || ocamlfind ocamlopt -package unix -linkpkg \
      cubedata.ml p1gen.ml -o p1gen)
