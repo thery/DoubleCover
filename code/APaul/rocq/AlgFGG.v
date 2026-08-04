@@ -132,12 +132,8 @@ by have [Hp Hq] := Hg Huv; apply: Hi.
 by have [Hp Hq] := Hg Huv; apply: Hi.
 Qed.
 
-(* These hold while the loop continues, i.e. under [u' + v' < N].             *)
-(* glue -- assemble [step_p_gt0], [step_bez], [step_pt], [step_d] into        *)
-(* the record.  Mechanical once the four are done; write it last.             *)
-(* [p + q] strictly decreases: each branch subtracts at least the other       *)
-(* length, which is positive.                                                 *)
-(* [p + q] strictly decreases, so the loop terminates.                        *)
+(* [p + q] strictly decreases -- each branch subtracts at least the other     *)
+(* length, which is positive -- so the loop terminates.                       *)
 Lemma step_measure p q d u v :
   inv p q d u v -> u + v < N ->
   let: (p', q', _, _, _) := step p q d u v in p' + q' < p + q.
@@ -425,13 +421,9 @@ by rewrite (leq_ltn_trans (leq_add (leqnn y) (_ : m * v <= q %/ p * v)))
             ?leq_mul2r ?mq ?orbT // ltn_add2r.
 Qed.
 
-(*  NB an earlier version of this file had [step_d_lt], which is exactly      *)
-(* this statement with [d = Dst x] threaded through; several comments above   *)
-(* still call it "(PROVED)".  It was removed in the round-8 cleanup, so the   *)
-(* induction is redone here directly on [dstD].  Note [inv] does not mention  *)
-(* [d] at all, so [inv p q d1 u v -> inv p q d2 u v] -- which is why the      *)
-(* [Dst y] instance below needs no extra hypothesis.                          *)
-(* [d] and a distance compare after reduction, inside the first gaps.         *)
+(* [d] and a distance compare after reduction, inside the first gaps.  [inv]  *)
+(* does not mention [d], so the [dst y] instance below needs no extra         *)
+(* hypothesis.                                                                *)
 Lemma mod_le_restricted p q d u v y :
   inv p q d u v -> invd p q d u v -> invx p q u v -> p < q -> y < u + v ->
   dst y %/ p <= q %/ p -> d %% p <= dst y %% p.
