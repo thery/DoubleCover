@@ -18,6 +18,19 @@ N=${1:-14}
 #   ./runp1.sh count "13 14 15 16" 0   the same, several depths in one go,
 #                           SEQUENTIALLY -- each run holds 8.5-10 GB and
 #                           64 GB caps roquableu at about five at once
+#   EVAL=native ./runp1.sh count 16 0  the same under native_compute.
+#                           vm_compute has been seen to leak with PArray,
+#                           and the resident set does climb with depth --
+#                           15.3 GB at depth 16 against 1.6 GB at 14 -- so
+#                           the two evaluators are worth comparing before
+#                           concluding anything about the footprint.
+# vm (default) or native.  EVAL=native to compare footprints.
+case "${EVAL:-vm}" in
+  vm)     EVALC=vm_compute;;
+  native) EVALC=native_compute;;
+  *)      echo "EVAL must be vm or native" >&2; exit 1;;
+esac
+
 COUNT=0
 if [ "$1" = "count" ]; then COUNT=1; shift; N=${1:-14}; J=${2:-0}; fi
 if [ "$N" = "prepare" ]; then PREPARE=1; N=14; else PREPARE=0; fi
@@ -114,9 +127,9 @@ Import GroupScope.
 (* (solution found, nodes) -- compare with bench/p1gen 9 pieces $D $J.
    The count is an int63: a unary nat counter costs O(subtree) per addition
    and was reporting itself as well as the search. *)
-Time Eval vm_compute in countp1 p1tab $R $J.
+Time Eval $EVALC in countp1 p1tab $R $J.
 EOF2
-  echo "=== counting nodes, depth $D, piece $J ==="
+  echo "=== counting nodes, depth $D, piece $J, $EVALC ==="
   time rocq compile -R . Rubik "$F.v"
  done
  exit 0
