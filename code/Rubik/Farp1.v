@@ -199,9 +199,21 @@ Definition step3 (x : c3) (k : nat) : c3 :=
    at each of the three views, and the max of all nine.  *)
 Definition maxi (a b : int) : int := if (a <=? b)%uint63 then b else a.
 
+(* BY RANK.  Phase1's p1idx takes the PACKED value and ranks it itself
+   (p1idx tw x = tw * nfsi + fsidx x), but what the search carries is already
+   the rank, so p1idx would rank it TWICE and read a wrong slot.  The
+   reference is c = p[t * nfs + f] with f the rank -- p1gen.ml's heur.
+   Reading a wrong slot can OVERSTATE the distance, which prunes a real
+   solution: this is a soundness bug, not a slowdown.  p1idxE is the bridge
+   back to Phase1's packed form. *)
+Definition p1idxr (tw r : int) : int := Uint63.add (Uint63.mul tw nfsi) r.
+
+Lemma p1idxE tw x : p1idx tw x = p1idxr tw (fsidx x).
+Proof. by []. Qed.
+
 Definition hv1 (T : PArray.array arr) (tf : int * int) : int :=
   maxi (maxi (Dfsri tf.2) (Dtsi tf.1 (slrank tf.2)))
-       (p1get T (p1idx tf.1 tf.2)).
+       (p1get T (p1idxr tf.1 tf.2)).
 
 Definition h3 (T : PArray.array arr) (x : c3) : nat :=
   let: (x0, x1, x2) := x in
