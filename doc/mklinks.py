@@ -35,10 +35,15 @@ FIELD = re.compile(r"^\s+(\w+)\s*:(?!=)")
 
 
 def index(root):
-    """name -> (file, line), for every declaration and record field."""
+    """name -> (file, line), for every declaration and record field.
+
+    The file names themselves are keys too, with line 0: they link to the
+    whole file rather than to a line.
+    """
     out, dup = {}, []
     for f in FILES:
         path = os.path.join(root, SRCDIR, f)
+        out[f] = (f, 0)
         in_record = False
         for lineno, line in enumerate(open(path), 1):
             m = DECL.match(line)
@@ -74,6 +79,8 @@ HEAD = re.compile(r"^(\w+)(?:\s+\w+)*$")
 
 def resolve(arg, idx):
     """The name a #name(...) argument links to, or None if it is a formula."""
+    if arg in idx:                                       # a file name
+        return arg
     m = HEAD.match(arg.split(":")[0].strip())
     if m and m.group(1) in idx:
         return m.group(1)
@@ -107,7 +114,8 @@ def main():
              f"// Source revision: {args.rev}", "", "#let srclinks = ("]
     for arg in sorted(used):
         f, lineno = used[arg]
-        lines.append(f'  "{arg}": "{REPO}/{args.rev}/{SRCDIR}/{f}#L{lineno}",')
+        anchor = f"#L{lineno}" if lineno else ""
+        lines.append(f'  "{arg}": "{REPO}/{args.rev}/{SRCDIR}/{f}{anchor}",')
     lines += [")", ""]
     table = "\n".join(lines)
 
