@@ -144,17 +144,32 @@ Proof. by rewrite /conj3 /conji; congr (comp_tabi _ _ (comp_tabi _ _ _)). Qed.
    whole reason P1Fsm.v exists: Phase1.v's actf recomputes the flip x slice
    action at 79 us, where rubik_par reads an array. *)
 
-Definition nfsmwordsi : int := 6082560%uint63.   (* ceil (1013760 * 18 / 3) *)
+(* CHUNKED, and it has to be: 1 013 760 x 18 values at three to a word is
+   6 082 560 words, 1.45x PArray.max_length = 4 194 303.  PArray.make caps
+   silently there and every read past it returns the default 0 -- which is
+   what made the whole flip x slice half of the search read as zero.  Same
+   split as p1get, on the word index at a power of two. *)
+Definition fcwlog := 21.
 
-Definition fsmtab : arr := mkarr nfsmwordsi 0%uint63 fsmove_data.
+Definition fsmtabs : PArray.array arr :=
+  let a := PArray.make 3%uint63 (PArray.make 1%uint63 0%uint63) in
+  let a := PArray.set a 0%uint63 (mkarr 2097152%uint63 0%uint63 fsm_chunk_00) in
+  let a := PArray.set a 1%uint63 (mkarr 2097152%uint63 0%uint63 fsm_chunk_01) in
+  let a := PArray.set a 2%uint63 (mkarr 1888256%uint63 0%uint63 fsm_chunk_02) in
+  a.
 
-(* three values to a word, twenty bits each *)
+(* three values to a word, twenty bits each; the word index splits into a
+   chunk and an offset exactly as p1get's does *)
 Definition actfsr (r : int) (k : nat) : int :=
   let i := Uint63.add (Uint63.mul r 18%uint63) (of_nat k) in
   let w := Uint63.div i 3%uint63 in
   let j := Uint63.sub i (Uint63.mul w 3%uint63) in
-  Uint63.land (Uint63.lsr (PArray.get fsmtab w) (Uint63.mul j 20%uint63))
-              1048575%uint63.
+  let c := Uint63.lsr w (of_nat fcwlog) in
+  let o := Uint63.land w (Uint63.sub (Uint63.lsl 1%uint63 (of_nat fcwlog))
+                                     1%uint63) in
+  Uint63.land
+    (Uint63.lsr (PArray.get (PArray.get fsmtabs c) o) (Uint63.mul j 20%uint63))
+    1048575%uint63.
 
 (* rubik_par's pfs, the flip x slice distance by rank *)
 Definition nfswordsi : int := 67584%uint63.      (* ceil (1013760 / 15)      *)

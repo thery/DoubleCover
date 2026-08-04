@@ -476,11 +476,25 @@ let () =
     close_out oc;
     Printf.printf "wrote ../P1Fs.v: %d words\n%!" fsdwords;
 
+    (* THREE CHUNKS of 2 ^ 21 words.  6 082 560 words is 1.45x
+       PArray.max_length = 4 194 303, and PArray.make silently caps there:
+       every read past it returns the default 0.  That is exactly why the
+       phase 1 table is chunked, and it has to be done here too. *)
+    let fcwlog = 21 in
+    let fcwords = 1 lsl fcwlog in
+    let fnchunk = (fsmwords + fcwords - 1) / fcwords in
     let oc = open_out "../P1Fsm.v" in
     header oc "The flip x slice move table, by RANK: 1 013 760 x 18 values \
-               below 2 ^ 20, three to an int63 word.";
-    emit_seq oc "fsmove_data" fsmwords fsmword;
+               below 2 ^ 20, three to an int63 word, in chunks of 2 ^ 21 \
+               words (PArray.max_length is 4 194 303).";
+    for c = 0 to fnchunk - 1 do
+      let lo = c * fcwords in
+      let hi = min (lo + fcwords) fsmwords in
+      emit_seq oc (Printf.sprintf "fsm_chunk_%02d" c) (hi - lo)
+        (fun i -> fsmword (lo + i))
+    done;
     close_out oc;
+    Printf.printf "  (%d chunks of at most %d words)\n%!" fnchunk fcwords;
     let sz = (Unix.stat "../P1Fsm.v").Unix.st_size in
     Printf.printf "wrote ../P1Fsm.v: %d words, %.2f MB\n%!"
       fsmwords (float_of_int sz /. 1048576.0);
