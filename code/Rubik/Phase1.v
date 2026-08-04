@@ -560,9 +560,15 @@ Definition srank : arr :=                                     (* GENERATED *)
    even, so bit 11 is determined by bits 0..10 and only 2048 of the 4096 occur.
    Masking with 4095 indexes past the end of fsclass -- caught by running the
    generator on the flip x slice table, where it failed at once. *)
+(* nsranki, THE LITERAL DEFINED FIVE LINES ABOVE, not of_nat nsrank.  of_nat
+   walks its unary argument: MEASURED, of_nat 495 is 36.4 us, and it made
+   fsidx cost 32.0 us against 0.10 us with the literal -- 320x.  fsidx is
+   not in the search's inner loop (the search carries ranks), but it is the
+   GUARD of every certificate, evaluated 2 ^ 24 times in each, and 2187 x
+   2 ^ 24 times in p1checkStep. *)
 Definition fsidx (x : int) : int :=
   Uint63.add
-    (Uint63.mul (Uint63.land x 2047%uint63) (of_nat nsrank))
+    (Uint63.mul (Uint63.land x 2047%uint63) nsranki)
     (PArray.get srank (Uint63.lsr x 12%uint63)).
 
 (* =========================================================================  *)
@@ -697,11 +703,21 @@ Section P1Tab.
 
 Variable p1tabs : PArray.array arr.
 
+(* THE SHIFT IS AN int63 LITERAL, not of_nat of a nat.  cwlog is a nat, and
+   of_nat walks it: MEASURED at 1.53 us for of_nat 21, against 0.04 us for
+   the array read it is supposed to index.  p1get did it twice per read, so
+   p1get cost 2.99 us where the read costs 0.13.  cwlogi is the same number
+   -- cwlogiE checks it -- so every value below is unchanged. *)
+Definition cwlogi : int := 21%uint63.       (* = of_nat cwlog, see cwlogiE *)
+
+Lemma cwlogiE : of_nat cwlog = cwlogi.
+Proof. by vm_compute. Qed.
+
 Definition p1get (i : int) : int :=
   let w := Uint63.div i 15%uint63 in
   let r := Uint63.sub i (Uint63.mul w 15%uint63) in
-  let c := Uint63.lsr w (of_nat cwlog) in
-  let o := Uint63.land w (Uint63.sub (Uint63.lsl 1%uint63 (of_nat cwlog))
+  let c := Uint63.lsr w cwlogi in
+  let o := Uint63.land w (Uint63.sub (Uint63.lsl 1%uint63 cwlogi)
                                      1%uint63) in
   Uint63.land
     (Uint63.lsr (PArray.get (PArray.get p1tabs c) o) (Uint63.mul r 4%uint63))

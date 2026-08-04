@@ -160,12 +160,21 @@ Definition fsmtabs : PArray.array arr :=
 
 (* three values to a word, twenty bits each; the word index splits into a
    chunk and an offset exactly as p1get's does *)
+(* THE SHIFT AS A LITERAL, for the reason cwlogi records in Phase1: of_nat
+   on a nat is 1.53 us, the array read it indexes is 0.04, and actfsr did it
+   twice.  MEASURED: actfsr 4.60 us -> 0.12 us with the two shifts and the
+   move index as int63. *)
+Definition fcwlogi : int := 21%uint63.     (* = of_nat fcwlog, see fcwlogiE *)
+
+Lemma fcwlogiE : of_nat fcwlog = fcwlogi.
+Proof. by vm_compute. Qed.
+
 Definition actfsr (r : int) (k : nat) : int :=
   let i := Uint63.add (Uint63.mul r 18%uint63) (of_nat k) in
   let w := Uint63.div i 3%uint63 in
   let j := Uint63.sub i (Uint63.mul w 3%uint63) in
-  let c := Uint63.lsr w (of_nat fcwlog) in
-  let o := Uint63.land w (Uint63.sub (Uint63.lsl 1%uint63 (of_nat fcwlog))
+  let c := Uint63.lsr w fcwlogi in
+  let o := Uint63.land w (Uint63.sub (Uint63.lsl 1%uint63 fcwlogi)
                                      1%uint63) in
   Uint63.land
     (Uint63.lsr (PArray.get (PArray.get fsmtabs c) o) (Uint63.mul j 20%uint63))
@@ -215,9 +224,31 @@ Definition hv1 (T : PArray.array arr) (tf : int * int) : int :=
   maxi (maxi (Dfsri tf.2) (Dtsi tf.1 (slrank tf.2)))
        (p1get T (p1idxr tf.1 tf.2)).
 
-Definition h3 (T : PArray.array arr) (x : c3) : nat :=
+(* IN int63, and h3 is its to_nat.  The search compares the heuristic with
+   the depth, and to_nat builds a UNARY nat: MEASURED, to_nat 9 is 7.97 us
+   against 1.6 us for the nine lookups it converts.  of_nat is 13x cheaper
+   per unit than to_nat -- of_nat 21 is 1.5 us, to_nat 9 is 8.0 -- so the
+   search converts the DEPTH int-ward rather than the heuristic nat-ward,
+   and h3iE says the two tests agree. *)
+Definition h3i (T : PArray.array arr) (x : c3) : int :=
   let: (x0, x1, x2) := x in
-  to_nat (maxi (hv1 T x0) (maxi (hv1 T x1) (hv1 T x2))).
+  maxi (hv1 T x0) (maxi (hv1 T x1) (hv1 T x2)).
+
+Definition h3 (T : PArray.array arr) (x : c3) : nat := to_nat (h3i T x).
+
+(* `n < nwB' left to done diverges: nwB is 2 ^ 63 as a unary nat.  Every
+   depth here is at most 63, and ndigits is 63. *)
+Lemma small_nwB n : (n <= 63)%N -> (n < nwB)%N.
+Proof.
+move=> nL; apply: leq_ltn_trans nL _; exact: ndigitsLwB.
+Qed.
+
+Lemma h3iE T x d : (d <= 63)%N ->
+  (h3i T x <=? of_nat d)%uint63 = (h3 T x <= d)%N.
+Proof.
+move=> dL; rewrite /h3.
+by apply/nlebP/idP; rewrite (@of_natK d (small_nwB dL)).
+Qed.
 
 (* the three views of the root: the coordinate of each conjugate.  At the
    superflip all three agree -- it is fixed by all 48 symmetries -- and they
@@ -230,7 +261,7 @@ Definition init3 (a : arr) : c3 :=
 (* and the search itself, the same shape as Far.v's searchz5 *)
 Fixpoint searchz3 (T : PArray.array arr) (d : nat) (a : arr) (x : c3) (p : nat)
     : bool :=
-  if h3 T x <= d then
+  if (h3i T x <=? of_nat d)%uint63 then
     if eq_tabi 47 a (id_tabi 47) then true
     else if d is d'.+1 then
       (fix go (l : seq nat) : bool :=
@@ -242,7 +273,9 @@ Fixpoint searchz3 (T : PArray.array arr) (d : nat) (a : arr) (x : c3) (p : nat)
     else false
   else false.
 
-Lemma searchz3S T d a x p :
+(* stated with the nat test, which is the one the proofs use; h3iE turns the
+   int63 test the definition runs into it, once, here *)
+Lemma searchz3S T d a x p : (d.+1 <= 63)%N ->
   searchz3 T d.+1 a x p =
   (h3 T x <= d.+1) &&
   (eq_tabi 47 a (id_tabi 47) ||
@@ -250,7 +283,7 @@ Lemma searchz3S T d a x p :
                             (step3 x k) (fcpos k))
        (allowedr mtis nfcube oppf fcpos p)).
 Proof.
-rewrite {1}/searchz3 -/searchz3.
+move=> dL; rewrite {1}/searchz3 -/searchz3 (h3iE T x dL).
 by case: (h3 T x <= d.+1) => //=; case: (eq_tabi 47 a (id_tabi 47)) => //=.
 Qed.
 
@@ -535,14 +568,17 @@ Qed.
 
 (* and then the search is the reference search, by induction on the depth.
    Far.v's searchz5E line for line, with the twist guard threaded. *)
-Lemma searchz3E T d a p : fsmoveC -> tabi_ok 47 a -> cubti a -> twP3 a ->
+Lemma searchz3E T d a p : (d <= 63)%N ->
+  fsmoveC -> tabi_ok 47 a -> cubti a -> twP3 a ->
   searchz3 T d a (init3 a) p
   = searchir 47 mtis (Dsym3 T) nfcube oppf fcpos d a p.
 Proof.
-move=> hc; elim: d a p => [|d IH] a p aok ca tw.
-  rewrite {1}/searchz3 {1}/searchir h3_init.
+move=> dL hc; move: dL; elim: d a p => [|d IH] a p dL aok ca tw.
+  rewrite {1}/searchz3 {1}/searchir (h3iE T (init3 a) dL) h3_init.
   by case: (Dsym3 T a <= 0); case: (eq_tabi 47 a (id_tabi 47)).
-rewrite searchz3S (searchirS 47 mtis (Dsym3 T) nfcube oppf fcpos d a p).
+have dL' : (d <= 63)%N by apply: leq_trans dL; exact: leqnSn.
+rewrite (searchz3S _ _ _ _ dL).
+rewrite (searchirS 47 mtis (Dsym3 T) nfcube oppf fcpos d a p).
 rewrite h3_init.
 apply: f_equal2; first by apply: refl_equal.
 apply: f_equal2; first by apply: refl_equal.
@@ -555,7 +591,7 @@ have Aok : tabi_ok 47 (comp_tabi 47 a (nth (id_tabi 47) mtis k))
 have cA : cubti (comp_tabi 47 a (nth (id_tabi 47) mtis k))
   by apply: cubti_comp; [move: kL; rewrite add0n | exact: aok | exact: ca].
 have twA := twP3_step aok tw kL18.
-by rewrite (step3_init hc aok ca tw kL18) (IH _ (fcpos k) Aok cA twA).
+by rewrite (step3_init hc aok ca tw kL18) (IH _ (fcpos k) dL' Aok cA twA).
 Qed.
 
 (* THE PAYOFF, the analogue of Far.far_of_searchz5.  The two check
@@ -1004,16 +1040,18 @@ Proof. by []. Qed.
    the ball.  Far.v's far_of_searchsym, over three views and three tables:
    searchz3E to the reduced search, searchirE3 down to tables, searchtrE
    down to permutations, then Searchr's searchrN. *)
-Lemma far_of_searchz3 T d a :
+Lemma far_of_searchz3 T d a : (d <= 63)%N ->
   p1check0 T -> p1checkStep T -> ts_checkStep ->
   fsmoveC -> fsrC -> slrC -> tabi_ok 47 a -> cubti a -> twP3 a ->
   searchz3 T d a (init3 a) nfcube = false ->
   pt 47 (ti2t 47 a) \notin ball Sset d.
 Proof.
-move=> hc0 hcS htsS hfm hfr hsl aok ca tw hs.
+move=> dL hc0 hcS htsS hfm hfr hsl aok ca tw hs.
 have hstep : forall g m, m \in Sset -> hsym3 T g <= (hsym3 T (g * m)).+1.
   by move=> g m mS; exact: (@hsym3S T g m hcS htsS hsl mS).
-have e0 := searchz3E T d nfcube hfm aok ca tw.
+have e0 : searchz3 T d a (init3 a) nfcube
+        = searchir 47 mtis (Dsym3 T) nfcube oppf fcpos d a nfcube
+  := @searchz3E T d a nfcube dL hfm aok ca tw.
 have e1 := searchirE3 T d hfr nfcube aok ca tw.
 have e2 := searchtrE mtsok3 nfcube oppf (hE3 T) fcE3 d nfcube aok.
 (* cleared as soon as they are used, for the reason above *)
@@ -1061,3 +1099,34 @@ rewrite /prefixi (nth_mtis_default i18) (nth_mtis_default j18).
 apply: twP3_step ok1 _ j18.
 exact: twP3_step sok twP3_sfti i18.
 Qed.
+
+(* ---- 6. The node counter, for comparing against the OCaml ---------------- *)
+
+(* THE COUNTER IS int63.  It used to be a nat, and `n + m' on a unary nat
+   costs O(n): the count reaches millions, so every measurement taken with
+   it -- every ./runp1.sh count -- was reporting the counter's cost as well
+   as the search's.  The production searchz3 has no counter, so the runs
+   themselves were never affected, only the timings I derived from them.
+
+   Otherwise this is searchz3 exactly, so the node counts it reports are the
+   ones the real search visits. *)
+Fixpoint searchz3c (T : PArray.array arr) (d : nat) (a : arr) (x : c3)
+                   (p : nat) : bool * int :=
+  if (h3i T x <=? of_nat d)%uint63 then
+    if eq_tabi 47 a (id_tabi 47) then (true, 1%uint63)
+    else if d is d'.+1 then
+      (fix go (l : seq nat) (n : int) : bool * int :=
+         if l is k :: l' then
+           let: (r, m) :=
+              searchz3c T d' (comp_tabi 47 a (nth (id_tabi 47) mtis k))
+                             (step3 x k) (fcpos k) in
+           if r then (true, Uint63.add n m) else go l' (Uint63.add n m)
+         else (false, n)) (allowedr mtis nfcube oppf fcpos p) 1%uint63
+    else (false, 1%uint63)
+  else (false, 1%uint63).
+
+(* one piece, as Runp1_NN.v runs it, but reporting the node count *)
+Definition countp1 (T : PArray.array arr) (d j : nat) : bool * int :=
+  let: (r0, n0) := searchz3c T d (prefixi 0 j) (init3 (prefixi 0 j)) nfcube in
+  let: (r1, n1) := searchz3c T d (prefixi 1 j) (init3 (prefixi 1 j)) nfcube in
+  (r0 || r1, Uint63.add n0 n1).
