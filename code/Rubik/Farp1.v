@@ -678,9 +678,286 @@ rewrite size_map size_iota => /(_ k kL).
 by rewrite (nth_map_iota _ _ kL) => /eqP.
 Qed.
 
+(* -- the twist x slice bound: getting its checked instance out ------------- *)
+
+Lemma ltb_lebF a b : (a <? b)%uint63 -> (b <=? a)%uint63 = false.
+Proof.
+move=> ab; apply/idP => /nlebP h1; move/nltbP: ab => h2.
+by rewrite leqNgt h2 in h1.
+Qed.
+
+Lemma to_nat_nsranki : to_nat nsranki = nsrank.
+Proof. by vm_compute. Qed.
+
+(* the guard ts_checkStep is written with: the rank of a summary is below 495,
+   which is the int63 statement that slrank is a remainder *)
+Lemma slrank_ltB f : (slrank f <? nsranki)%uint63.
+Proof.
+apply/nltbP; rewrite to_nat_nsranki /slrank.
+have hle : (to_nat f %/ nsrank * nsrank <= to_nat f)%N by exact: leq_divM.
+have hq : to_nat (Uint63.mul (Uint63.div f nsranki) nsranki)
+        = (to_nat f %/ nsrank * nsrank)%N.
+  rewrite to_nat_mulW to_nat_div to_nat_nsranki modn_small //.
+  exact: leq_ltn_trans hle (to_nat_bounded f).
+rewrite to_nat_sub ?hq //; last exact: to_nat_bounded.
+by rewrite {1}(divn_eq (to_nat f) nsrank) addKn ltn_pmod.
+Qed.
+
+(* four bits, so far below the wrap point -- Phase1's Dp1i_small, verbatim *)
+Lemma Dtsi_small tw s : (to_nat (Dtsi tw s) < nwB.-1)%N.
+Proof.
+rewrite /Dtsi /tsget.
+set v := (X in (X land _)%uint63); rewrite landC.
+apply: ltn_trans (_ : 2 ^ 4 < _); last first.
+  rewrite -ltnS prednK; last by apply: ltn_trans ndigitsLwB.
+  by apply: ltn_trans ndigitsLwB.
+by apply: to_nat_land_bound.
+Qed.
+
+Lemma nine_dig : (9 <= ndigits)%N.
+Proof. by vm_compute. Qed.
+
+Lemma nsrank_pow9 : (nsrank <= 2 ^ 9)%N.
+Proof. by []. Qed.
+
+(* an EQUATION, not a delta step.  `rewrite /ts_checkStep' makes the kernel
+   unfold the check at Qed -- 2187 twists x 512 ranks -- and it does not
+   return.  Phase1's p1checkTwE records the same trap. *)
+Lemma ts_checkStepE : ts_checkStep =
+  all (fun t => all_pow 9 0%uint63
+                  (fun s => (nsranki <=? s)%uint63 || tsstepF (of_nat t) s))
+      (iota 0 ntwist).
+Proof. by rewrite /ts_checkStep. Qed.
+
+(* AND THE CHECK NEVER ENTERS THE CONTEXT.  With a hypothesis of type
+   ts_checkStep in scope every `done' tries `assumption', which unifies the
+   goal against it -- same is_true head -- and unfolds the whole check: even
+   `1 <= 2' stops returning.  So the premise is rewritten in the GOAL and
+   consumed on the way in. *)
+Lemma tsstepF_of_check tw s : ts_checkStep -> (to_nat tw < ntwist)%N ->
+  (s <? nsranki)%uint63 -> tsstepF tw s.
+Proof.
+rewrite ts_checkStepE => /allP h twL sB.
+have sN : (to_nat s < nsrank)%N by rewrite -to_nat_nsranki; apply/nltbP.
+have sP : (to_nat s < 2 ^ 9)%N by apply: leq_trans sN nsrank_pow9.
+have hm : to_nat tw \in iota 0 ntwist by rewrite mem_iota add0n leq0n twL.
+have htw : all_pow 9 0%uint63 (fun r => (nsranki <=? r)%uint63 || tsstepF tw r).
+  by move: (h _ hm); rewrite to_natK; exact: id.
+have := all_powP nine_dig htw sP.
+rewrite (ltb_lebF sB) orFb; exact: id.
+Qed.
+
+(* another equation, and for the same reason: `rewrite /tsstepF' inside the
+   proof below makes its Qed diverge, while rewriting with this does not *)
+Lemma tsstepFE tw s : tsstepF tw s =
+  all (fun k => (Dtsi tw s <=?
+                 incr (Dtsi (acttwi tw k) (actslri s k)))%uint63) (iota 0 18).
+Proof. by rewrite /tsstepF. Qed.
+
+(* split from the above so the Qeds are separate, as Phase1 splits
+   p1stepF_of_check from p1checkStep_inst *)
+Lemma ts_checkStep_inst tw s k : tsstepF tw s -> (k < 18)%N ->
+  (Dtsi tw s <=? incr (Dtsi (acttwi tw k) (actslri s k)))%uint63.
+Proof.
+rewrite tsstepFE => hall kL.
+have hm : k \in iota 0 18 by rewrite mem_iota add0n leq0n kL.
+exact: (allP hall _ hm).
+Qed.
+
+(* THE TWIST x SLICE STEP, at the coordinate level.  Phase1's
+   Dp1_step_of_check for the other table, with the slice rank stepping
+   through the certified actslri. *)
+Lemma Dts_step_of_check tw x k :
+  ts_checkStep -> slrC -> (to_nat tw < ntwist)%N -> (to_nat x < 2 ^ ncoord)%N ->
+  (fsidx x <? nfsi)%uint63 -> (k < 18)%N ->
+  (Dts tw (slrank (fsidx x))
+   <= (Dts (acttwi tw k) (slrank (fsidx (actfs x moves`_k)))).+1)%N.
+Proof.
+move=> hchk hsl twL xL fsL kL.
+have F := ts_checkStep_inst
+            (tsstepF_of_check hchk twL (slrank_ltB (fsidx x))) kL.
+have S := slrC_inst (slr_of_check hsl xL) fsL kL.
+clear hchk hsl.
+rewrite S in F.
+rewrite (actfs_actfE _ kL) /Dts.
+by apply: leb_incr_le F _; exact: Dtsi_small.
+Qed.
+
+(* -- the three bounds, at the permutation level ---------------------------- *)
+
+(* the twist x slice bound.  Zero off the invariant, exactly as Phase1's hp1
+   is, so that the two obligations below are unconditional. *)
+Definition hts (g : {perm facelet}) : nat :=
+  if twcP g then Dts (coordtw g) (slrank (fsidx (coordfs g))) else 0%N.
+
+Lemma htsE g : twcP g -> hts g = Dts (coordtw g) (slrank (fsidx (coordfs g))).
+Proof. by rewrite /hts => ->. Qed.
+
+Lemma htsN g : ~~ twcP g -> hts g = 0%N.
+Proof. by rewrite /hts => /negbTE ->. Qed.
+
+Lemma hts0 : hts 1 = 0%N.
+Proof.
+rewrite /hts twcP1 coordtw1E coordfs1E /Dts.
+(* /ts_check0 in the HYPOTHESIS first: `/eqP ts_check0P' straight makes
+   unification look through the check and it does not return *)
+have := ts_check0P; rewrite /ts_check0 => /eqP ->.
+exact: to_nat_0.
+Qed.
+
+(* the checks are turned into applied facts and CLEARED at once: left in the
+   context, every later `done' unifies its goal against them and unfolds the
+   check. *)
+Lemma htsS g m : ts_checkStep -> slrC -> m \in Sset ->
+  hts g <= (hts (g * m)).+1.
+Proof.
+move=> hchk hsl mS.
+have D := fun tw x k => @Dts_step_of_check tw x k hchk hsl.
+clear hchk hsl.
+have [Pg|nPg] := boolP (twcP g); last by rewrite (htsN nPg).
+rewrite (htsE Pg) (htsE (twcPM Pg mS)).
+have /andP[cg /andP[cc /eqP tsum]] := Pg.
+have [k kL mE] := Sset_move mS.
+rewrite mE (coordfsMS cg _); last by rewrite -mE.
+rewrite (coordtw_step kL cc tsum) -(acttwiE (coordtw_lt g) kL) -(hmovesE kL).
+exact: (D _ _ _ (coordtw_lt g) (coordfs_lt _) (fsidx_lt cg) kL).
+Qed.
+
+(* THE PER VIEW HEURISTIC: the max of the three, which is rubik_par's
+   max (pfs, pts, p) at one view. *)
+Definition h3p (T : PArray.array arr) (g : {perm facelet}) : nat :=
+  maxn (maxn (hfs Dfsd g) (hts g)) (hp1 T g).
+
+Lemma h3p0 T : p1check0 T -> h3p T 1 = 0%N.
+Proof. by move=> hc; rewrite /h3p (hfs0 Dfsd_0) hts0 (hp10 hc). Qed.
+
+Lemma h3pS T g m : p1checkStep T -> ts_checkStep -> slrC -> m \in Sset ->
+  h3p T g <= (h3p T (g * m)).+1.
+Proof.
+move=> hS hchk hsl mS.
+have A := hfsS Dfsd_step g mS.
+have B := htsS g hchk hsl mS.
+have C := hp1S hS g mS.
+clear hS hchk hsl.
+rewrite /h3p geq_max; apply/andP; split; last first.
+  by apply: leq_trans C _; rewrite ltnS leq_max leqnn orbT.
+rewrite geq_max; apply/andP; split.
+  by apply: leq_trans A _; rewrite ltnS leq_max leq_max leqnn.
+by apply: leq_trans B _; rewrite ltnS leq_max leq_max leqnn orbT.
+Qed.
+
+(* -- and the max over the three views -------------------------------------- *)
+
+Definition hsym3 (T : PArray.array arr) (g : {perm facelet}) : nat :=
+  \max_(u <- views3p) h3p T (g ^ u).
+
+Lemma hsym30 T : p1check0 T -> hsym3 T 1 = 0%N.
+Proof.
+move=> hc; rewrite /hsym3; apply/eqP; rewrite -leqn0.
+by apply/bigmax_leqP_seq => u _ _; rewrite conj1g (h3p0 hc).
+Qed.
+
+(* view-wise, exactly Far.v's hsympS: (g * m) ^ u = g ^ u * m ^ u, and m ^ u
+   is again a move because Symg stabilises Sset -- Sym.Symg_stab. *)
+Lemma hsym3S T g m : p1checkStep T -> ts_checkStep -> slrC -> m \in Sset ->
+  hsym3 T g <= (hsym3 T (g * m)).+1.
+Proof.
+move=> hS hchk hsl mS.
+have D := fun g' m' (h : m' \in Sset) => @h3pS T g' m' hS hchk hsl h.
+clear hS hchk hsl.
+rewrite /hsym3; apply/bigmax_leqP_seq => u uV _.
+have uS : u \in Symg by apply: views3_Symg.
+have muS : m ^ u \in Sset by rewrite -(Symg_stab uS) memJ_conjg.
+apply: leq_trans (_ : (h3p T (g ^ u * m ^ u)).+1 <= _).
+  exact: D _ _ muS.
+rewrite -conjMg ltnS.
+exact: (leq_bigmax_seq u uV isT).
+Qed.
+
+(* -- from the array computation down to the permutation heuristic ---------- *)
+
+Lemma to_nat_maxi a b : to_nat (maxi a b) = maxn (to_nat a) (to_nat b).
+Proof.
+rewrite /maxi; case: nlebP => h; first by rewrite (maxn_idPr h).
+by move/negP: h; rewrite -ltnNge => h; rewrite (maxn_idPl (ltnW h)).
+Qed.
+
+(* THREE AT ONCE, over opaque variables.  Rewriting with to_nat_maxi twice on
+   the real goal does not return: its key is to_nat, and the right hand side
+   has a to_nat under hts -- Dts is to_nat (Dtsi ...) -- so the matcher walks
+   into the twist x slice table and evaluates it. *)
+Lemma to_nat_maxi3 a b c :
+  to_nat (maxi a (maxi b c))
+  = maxn (to_nat a) (maxn (to_nat b) (to_nat c)).
+Proof. by rewrite to_nat_maxi to_nat_maxi. Qed.
+
+(* ONE VIEW: the int63 triple of lookups is the nat heuristic at that view.
+   The invariant is needed on all three: hfs is 0 off cubP, hts and hp1 are 0
+   off twcP, while the array reads the tables regardless. *)
+Lemma hv1E T X : fsrC -> tabi_ok 47 X -> cubti X -> twPti X ->
+  to_nat (hv1 T (ctwisti X, fsidx (coordi X)))
+  = h3p T (pt 47 (ti2t 47 X)).
+Proof.
+move=> hfr Xok cX tX.
+have cA : cubP (pt 47 (ti2t 47 X)) by rewrite (cubtE Xok) -(cubtiE Xok).
+have hcd : coordi X = coordfs (pt 47 (ti2t 47 X))
+  by rewrite (coordiE Xok) (coordtE Xok).
+have htw : ctwisti X = coordtw (pt 47 (ti2t 47 X))
+  by rewrite (ctwistiE Xok) (ctwisttE Xok).
+have twg : twcP (pt 47 (ti2t 47 X)) by rewrite /twcP cA andTb; exact: tX.
+rewrite /hv1 [in LHS]/fst [in LHS]/snd.
+rewrite to_nat_maxi to_nat_maxi.
+rewrite /h3p /hfs /hcoordg cA (htsE twg) (hp1E T twg) hcd htw.
+rewrite (fsrC_inst (fsr_of_check hfr (coordfs_lt _)) (fsidx_lt cA)).
+rewrite /Dfsd /Dfs /Dts /Dp1 /Dp1i p1idxE.
+exact: refl_equal.
+Qed.
+
+(* AND THE THREE VIEWS: Dsym3, which is what the search evaluates, is hsym3,
+   which is what the two obligations are proved for.  The conjugates line up
+   through ptJ -- pt of a conjugated table is the conjugated permutation. *)
+Lemma Dsym3E T a : fsrC -> tabi_ok 47 a -> cubti a -> twP3 a ->
+  Dsym3 T a = hsym3 T (pt 47 (ti2t 47 a)).
+Proof.
+move=> hfr aok ca /and3P[t1 t2 t3].
+have ok3 := tabi_ok_conj3 aok.
+have ok33 := tabi_ok_conj3 ok3.
+have c3 := cubti_conj3 aok ca.
+have c33 := cubti_conj3 ok3 c3.
+rewrite /Dsym3 /h3 /init3.
+rewrite /hsym3 /views3p /views3.
+rewrite big_map.
+(* big_cons one at a time, and maxn0 under a lock: `3!big_cons' and a bare
+   maxn0 both walk off into the tables.  Far.v's DsymdE records the same. *)
+rewrite big_cons big_cons big_cons big_nil.
+rewrite {-3}[maxn]lock maxn0 -lock.
+rewrite pt1 conjg1.
+rewrite to_nat_maxi3.
+have aokt : tab_ok 47 (ti2t 47 a) by [].
+have J1 : pt 47 (ti2t 47 a) ^ pt 47 rot3t = pt 47 (ti2t 47 (conj3 a)).
+  by rewrite (ptJ aokt rot3t_ok) conj3E (ti2t_conji rot3t_ok aok).
+have J2 : pt 47 (ti2t 47 a) ^ pt 47 rot3t2
+        = pt 47 (ti2t 47 (conj3 (conj3 a))).
+  by rewrite (ptJ aokt rot3t2_ok) (ti2t_conj33 aok) (ti2t_conji rot3t2_ok aok).
+rewrite J1 J2.
+(* BACKWARDS, hsym3 side to array side: forwards, the matcher looks for
+   to_nat (hv1 ...) and walks into h3p on the other side instead. *)
+rewrite -(hv1E T hfr aok ca t1).
+rewrite -(hv1E T hfr ok3 c3 t2).
+rewrite -(hv1E T hfr ok33 c33 t3).
+exact: refl_equal.
+Qed.
+
+(* WHAT IS LEFT.  searchirE wants the array to table bridge for EVERY
+   tabi_ok array, but Dsym3E holds only on cubes carrying the twist
+   invariant -- off it the array still reads the tables while hsym3 is 0.
+   The search never visits such an array, so what is missing is an
+   invariant aware searchirE: the same induction with a predicate P
+   threaded, P at the root and P closed under a move.  hsym30 and hsym3S
+   are unconditional and are already proved. *)
 Lemma far_of_searchz3 T d a :
   p1check0 T -> p1checkStep T -> ts_check0 -> ts_checkStep ->
-  fsmoveC -> tabi_ok 47 a -> cubti a -> twP3 a ->
+  fsmoveC -> fsrC -> slrC -> tabi_ok 47 a -> cubti a -> twP3 a ->
   searchz3 T d a (init3 a) nfcube = false ->
   pt 47 (ti2t 47 a) \notin ball Sset d.
 Proof. Admitted.
