@@ -948,44 +948,77 @@ rewrite -(hv1E T hfr ok33 c33 t3).
 exact: refl_equal.
 Qed.
 
-(* WHAT IS LEFT.  searchirE wants the array to table bridge for EVERY
-   tabi_ok array, but Dsym3E holds only on cubes carrying the twist
-   invariant -- off it the array still reads the tables while hsym3 is 0.
-   The search never visits such an array, so what is missing is an
-   invariant aware searchirE: the same induction with a predicate P
-   threaded, P at the root and P closed under a move.  hsym30 and hsym3S
-   are unconditional and are already proved. *)
+(* -- the search, from the array down to the ball --------------------------- *)
+
+(* AN INVARIANT AWARE searchirE.  Searchir's own searchirE wants the array
+   to table bridge for EVERY tabi_ok array, and Dsym3E holds only on cubes
+   carrying the twist invariant -- off it the array still reads the tables
+   while hsym3 is 0.  The search never visits such an array, so this is the
+   same induction with the invariant threaded: it holds at the root, and
+   cubti_comp and twP3_step carry it along a move. *)
+Lemma searchirE3 T d : fsrC -> forall a p,
+  tabi_ok 47 a -> cubti a -> twP3 a ->
+  searchir 47 mtis (Dsym3 T) nfcube oppf fcpos d a p
+  = searchtr 47 [seq ti2t 47 mt | mt <- mtis] (fun t => hsym3 T (pt 47 t))
+             nfcube oppf fcpos d (ti2t 47 a) p.
+Proof.
+move=> hfr; elim: d => [|d IH] a p aok ca tw.
+  rewrite {1}/searchir {1}/searchtr.
+  by rewrite (Dsym3E T hfr aok ca tw) (eq_tabi_id n47_small n47_len aok).
+rewrite searchirS searchtrS.
+rewrite (Dsym3E T hfr aok ca tw) (eq_tabi_id n47_small n47_len aok).
+congr (_ && (_ || _)).
+rewrite /allowedr has_filter_and seq.size_map.
+apply: eq_in_has => k; rewrite mem_iota => /andP[_ kL].
+congr (_ && _).
+have kL18 : (k < 18)%N by move: kL; rewrite add0n size_mtis.
+have mtok : tabi_ok 47 (nth (id_tabi 47) mtis k)
+  by apply: (all_nthP (id_tabi 47) mtis_ok); move: kL; rewrite add0n.
+rewrite (nth_map (id_tabi 47)); last by move: kL; rewrite add0n.
+rewrite -(ti2t_comp n47_small n47_len aok mtok).
+apply: IH.
+- exact: (tabi_ok_comp n47_small n47_len aok mtok).
+- by apply: cubti_comp; [move: kL; rewrite add0n | exact: aok | exact: ca].
+exact: twP3_step aok tw kL18.
+Qed.
+
+(* HOISTED, all three, rather than proved inline where far_of_searchz3 needs
+   them: there the context holds ts_checkStep and fsmoveC, and every // and
+   every trailing done then unifies its goal against them and unfolds the
+   check.  Far.v proves the same three inline because its context is clean. *)
+Lemma fcE3 k : k < seq.size [seq ti2t 47 mt | mt <- mtis] ->
+  fcube (pt 47 (nth [::] [seq ti2t 47 mt | mt <- mtis] k)) = fcpos k.
+Proof.
+rewrite seq.size_map => kL.
+have kL' : k < nmoves by rewrite /mtis seq.size_map in kL.
+by rewrite (nth_map sfti) // -nth_movesE // fcpos_moves.
+Qed.
+
+Lemma mtsok3 : all (tab_ok 47) [seq ti2t 47 mt | mt <- mtis].
+Proof. by rewrite all_map; exact: mtis_ok. Qed.
+
+Lemma hE3 T t : tab_ok 47 t -> hsym3 T (pt 47 t) = hsym3 T (pt 47 t).
+Proof. by []. Qed.
+
+(* AND THE THEOREM: a search that comes back false puts the state outside
+   the ball.  Far.v's far_of_searchsym, over three views and three tables:
+   searchz3E to the reduced search, searchirE3 down to tables, searchtrE
+   down to permutations, then Searchr's searchrN. *)
 Lemma far_of_searchz3 T d a :
-  p1check0 T -> p1checkStep T -> ts_check0 -> ts_checkStep ->
+  p1check0 T -> p1checkStep T -> ts_checkStep ->
   fsmoveC -> fsrC -> slrC -> tabi_ok 47 a -> cubti a -> twP3 a ->
   searchz3 T d a (init3 a) nfcube = false ->
   pt 47 (ti2t 47 a) \notin ball Sset d.
-Proof. Admitted.
-
-(* ---- 5. The same search, counting nodes ---------------------------------- *)
-
-(* rubik_par increments `nodes' at the top of dfs, before the heuristic, so a
-   node is one call.  searchz3c counts the same thing, and is otherwise
-   searchz3 verbatim -- it exists to compare node for node against
-   `p1gen 9 pieces', which is the only way to tell "we expand more nodes"
-   from "each node costs more". *)
-Fixpoint searchz3c (T : PArray.array arr) (d : nat) (a : arr) (x : c3) (p : nat)
-    : bool * nat :=
-  if h3 T x <= d then
-    if eq_tabi 47 a (id_tabi 47) then (true, 1%N)
-    else if d is d'.+1 then
-      (fix go (l : seq nat) (n : nat) : bool * nat :=
-         if l is k :: l' then
-           let: (r, m) :=
-              searchz3c T d' (comp_tabi 47 a (nth (id_tabi 47) mtis k))
-                             (step3 x k) (fcpos k) in
-           if r then (true, (n + m)%N) else go l' (n + m)%N
-         else (false, n)) (allowedr mtis nfcube oppf fcpos p) 1%N
-    else (false, 1%N)
-  else (false, 1%N).
-
-(* one piece, as Runp1_NN.v runs it, but reporting the node count *)
-Definition countp1 (T : PArray.array arr) (d j : nat) : bool * nat :=
-  let: (r0, n0) := searchz3c T d (prefixi 0 j) (init3 (prefixi 0 j)) nfcube in
-  let: (r1, n1) := searchz3c T d (prefixi 1 j) (init3 (prefixi 1 j)) nfcube in
-  (r0 || r1, (n0 + n1)%N).
+Proof.
+move=> hc0 hcS htsS hfm hfr hsl aok ca tw hs.
+have hstep : forall g m, m \in Sset -> hsym3 T g <= (hsym3 T (g * m)).+1.
+  by move=> g m mS; exact: (@hsym3S T g m hcS htsS hsl mS).
+have e0 := searchz3E T d nfcube hfm aok ca tw.
+have e1 := searchirE3 T d hfr nfcube aok ca tw.
+have e2 := searchtrE mtsok3 nfcube oppf (hE3 T) fcE3 d nfcube aok.
+(* cleared as soon as they are used, for the reason above *)
+clear hcS htsS hfm hfr hsl.
+apply: (searchrN Sset_inv (hsym30 hc0) hstep
+                 fcube_ltS oppfK fcube_close fcube_comm).
+rewrite mtisE -e2 -e1 -e0; exact: hs.
+Qed.
