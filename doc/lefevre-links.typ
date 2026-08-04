@@ -2,6 +2,10 @@
 // Source revision: main
 
 #let srclinks = (
+  "AlgFGG.v": "https://github.com/thery/DoubleCover/blob/main/code/APaul/rocq/AlgFGG.v",
+  "AlgLefevre.v": "https://github.com/thery/DoubleCover/blob/main/code/APaul/rocq/AlgLefevre.v",
+  "Config.v": "https://github.com/thery/DoubleCover/blob/main/code/APaul/rocq/Config.v",
+  "Dist.v": "https://github.com/thery/DoubleCover/blob/main/code/APaul/rocq/Dist.v",
   "dst x": "https://github.com/thery/DoubleCover/blob/main/code/APaul/rocq/Dist.v#L24",
   "gap_bounds": "https://github.com/thery/DoubleCover/blob/main/code/APaul/rocq/Config.v#L526",
   "gap_p_empty": "https://github.com/thery/DoubleCover/blob/main/code/APaul/rocq/Config.v#L609",

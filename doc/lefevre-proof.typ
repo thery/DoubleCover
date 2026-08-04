@@ -16,13 +16,13 @@
   #text(size: 17pt)[*Lefèvre's lower bound, and its proof in Rocq*]
 
   #v(0.4em)
-  #text(size: 10pt)[A guide to `AlgFGG.v`, `AlgLefevre.v` and `Config.v` for readers who do not read Rocq]
+  #text(size: 10pt)[A guide to #name("AlgFGG.v"), #name("AlgLefevre.v") and #name("Config.v") for readers who do not read Rocq]
 ]
 
 #v(1em)
 
-Names set in `monospace` are the Rocq identifiers; those that are declarations
-link to their source line on GitHub.
+Names set in `monospace` are the Rocq identifiers and file names; those that
+are coloured link to their source on GitHub.
 
 = What is being computed
 
@@ -92,21 +92,28 @@ and updates the counts:
   #name("q -= k*p, u += k*v") #h(3em) or #h(3em) #name("p -= k*q, v += k*u")
 ]
 
+Here $k$ can be anything from $1$ up to *the quotient*, meaning the Euclidean
+quotient of the gap being reduced by the other one — $floor(q slash p)$ on the
+left above, $floor(p slash q)$ on the right. That is how many copies fit; at
+that value the gap left over is the Euclidean remainder, which may be $0$, and
+what keeps it positive is that the loop has not yet reached $N$ points
+(#name("step_p_gt0")).
+
 The paper's Property 3 says these splits are *directional*: a $q$-gap becomes
 $k$ gaps of length $p$ followed by the residual, left to right, whereas a
 $p$-gap becomes the residual followed by $k$ gaps of length $q$ — points enter
 from the right. That asymmetry is visible throughout the proofs.
 
-`Config.v` proves what one reduction does to a configuration, *for any $k$ up to
-the quotient*: it preserves #name("inv") (#name("inv_red_lt"),
+#name("Config.v") proves what one reduction does to a configuration, for any
+such $k$: it preserves #name("inv") (#name("inv_red_lt"),
 #name("inv_red_ge")) and #name("invx") (the #name("invx_red_*") families), and it
 moves the infimum by a known amount. Algorithm 2 always takes $k$ maximal;
 Algorithm 1 takes it maximal on one side of a turn and $k = 1$ on the other, so
 both are instances of the same lemmas. The maximal case is named #name("step")
 there, and its lemmas — #name("step_bez"), #name("step_p_gt0"),
 #name("inv_step_pos"), #name("inf_new_eq_lt") and #name("invx_step") — are the
-general ones with $k$ taken to be the quotient. `AlgFGG.v`'s loop is
-#name("step") itself; `AlgLefevre.v` reduces the first half of its turn to it.
+general ones with $k$ taken to be the quotient. #name("AlgFGG.v")'s loop is
+#name("step") itself; #name("AlgLefevre.v") reduces the first half of its turn to it.
 
 = The two listings
 
@@ -206,7 +213,7 @@ which gap is being reduced:
 
 That asymmetry is not an artefact of the formalisation; it is Property 3.
 
-Two lemmas of `Config.v` do the geometric work and are reused constantly by
+Two lemmas of #name("Config.v") do the geometric work and are reused constantly by
 both developments: #name("gap_p_empty") and #name("gap_q_empty") say that a
 point with $b$ inside its own gap is the nearest point below $b$ — nothing else
 in range can be closer. A third, #name("gap_walk"), is the tiling in index form:
@@ -327,10 +334,10 @@ and the corollary the search uses, #name("lefevre1_test").
   stroke: 0.4pt + luma(180),
   inset: 6pt,
   [*File*], [*Statements*], [*Contents*],
-  [`Dist.v`], [50], [`pt`, `dst`, `Inf` and their arithmetic],
-  [`Config.v`], [60], [the configuration `inv`/`invd`/`invx`, the gap and walk lemmas, one reduction at an arbitrary $k$, and `step` at the quotient],
-  [`AlgFGG.v`], [46], [Algorithm 2: `run`, the `invd` step lemmas, `lefevre_sound`],
-  [`AlgLefevre.v`], [50], [Algorithm 1: `half1`/`half2`, `run1`, `invw`, `lefevre1_sound`],
+  [#name("Dist.v")], [50], [`pt`, `dst`, `Inf` and their arithmetic],
+  [#name("Config.v")], [60], [the configuration `inv`/`invd`/`invx`, the gap and walk lemmas, one reduction at an arbitrary $k$, and `step` at the quotient],
+  [#name("AlgFGG.v")], [46], [Algorithm 2: `run`, the `invd` step lemmas, `lefevre_sound`],
+  [#name("AlgLefevre.v")], [50], [Algorithm 1: `half1`/`half2`, `run1`, `invw`, `lefevre1_sound`],
 )
 
 The dependencies are `Dist` $arrow$ `Config` $arrow$ {`AlgFGG`, `AlgLefevre`};
@@ -344,8 +351,8 @@ infimum, and each file records a witness as a computed `Example`. Algorithm 1
 is the sharper of the two; that comparison is measured, not proved.
 
 One thing remains open in the organisation rather than the mathematics: several
-range hypotheses in `AlgFGG.v` are of the form "the count is below $N$" where
-"below the orbit length $M slash gcd(A, M)$" would do, which is what `Config.v`
+range hypotheses in #name("AlgFGG.v") are of the form "the count is below $N$" where
+"below the orbit length $M slash gcd(A, M)$" would do, which is what #name("Config.v")
 uses.
 
 = Sources
@@ -358,7 +365,7 @@ Gouicem and Graillat's.
   GPU_, hal-00751446 (`doc/mourad.pdf`). §3.2 states and proves Properties 1--3
   on two-length configurations; §4.1 gives Algorithm 1 with its six cases for
   $d$, and Algorithm 2. This is the analysis both developments follow, and the
-  source of the listing transcribed in `AlgLefevre.v`.
+  source of the listing transcribed in #name("AlgLefevre.v").
 
 + V. Lefèvre, _Moyens arithmétiques pour un calcul fiable_, thèse, ENS Lyon,
   2000, ch. 2. Says what the variables mean: $u$ and $v$ count the intervals of
