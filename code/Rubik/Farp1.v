@@ -26,7 +26,7 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
         Coordfs Coordfsi Fstab FsTable Diameter Moves
-        Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 Far.
+        Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm P1Rank Phase1 Far.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -261,11 +261,52 @@ Proof. by rewrite /Dsym3. Qed.
    what a root will need to discharge it by vm_compute. *)
 Definition twPti (a : arr) : bool := twP (pt 47 (ti2t 47 a)).
 
+(* -- what step3_init decomposes into -------------------------------------- *)
+
+(* THE TWIST HALF is a theorem: acttwi is Phase1's computed action and
+   coordtw_step says the coordinate is an action. *)
+Lemma acttwi_step b j : tabi_ok 47 b -> cubti b -> twPti b -> (j < 18)%N ->
+  acttwi (ctwisti b) j
+  = ctwisti (comp_tabi 47 b (nth (id_tabi 47) mtis j)).
+Proof.
+move=> bok cb tw jL.
+have /andP[cc /eqP ts] := tw.
+have jL' : (j < seq.size mtis)%N by rewrite size_mtis.
+have mtok : tabi_ok 47 (nth (id_tabi 47) mtis j)
+  by apply: (all_nthP (id_tabi 47) mtis_ok).
+have cok : tabi_ok 47 (comp_tabi 47 b (nth (id_tabi 47) mtis j))
+  by apply: (tabi_ok_comp n47_small n47_len).
+have hmt : ti2t 47 (nth (id_tabi 47) mtis j) = nth [::] mtabs j.
+  by rewrite -ti2t_mtis (nth_map (id_tabi 47)).
+rewrite (ctwistiE bok) -(ctwisttE bok).
+rewrite (acttwiE (coordtw_lt _) jL) -(coordtw_step jL cc ts).
+rewrite (ctwistiE cok) -(ctwisttE cok).
+by rewrite (ti2t_comp n47_small n47_len bok mtok) -(ptM bok mtok) hmt.
+Qed.
+
+(* THE FLIP x SLICE HALF IS NOT A THEOREM -- it is a certificate.  actfsr
+   reads the EMITTED fsmove table, so "stepping the rank steps the
+   coordinate" is a statement about 1 013 760 x 18 emitted numbers and can
+   only be discharged by computing.  That is the ~7 core-hour check that buys
+   the ~900 -> ~8 core-hour reduction in p1checkStep, and it is the honest
+   place for it: once here, not once per phase 1 state.
+
+   It needs unranking (P1Rank.v) to say which coordinate a rank denotes. *)
+Definition fsmoveC : bool :=
+  all (fun r => all (fun j =>
+         actfsr (of_nat r) j ==
+         fsidx (actfs (nth 0%uint63 unrank_data r)
+                      (nth 1%g moves j)))
+       (iota 0 18))
+      (iota 0 1013760).
+
+Lemma fsmoveCP : fsmoveC.
+Proof. Admitted.
+
 (* THE INVARIANT: stepping the three carried pairs agrees with rebuilding
    them after the move.  The flip x slice half is Far.v's coordi_step -- the
    views are usable there because sigma_rot3a says Far's sigma IS mv3a -- plus
-   the fsmove table; the twist half is coordtw_step and acttwiE.  It is the
-   one place the two tables have to line up with the theory. *)
+   the fsmove certificate; the twist half is acttwi_step. *)
 Lemma step3_init a k : tabi_ok 47 a -> cubti a -> twPti a -> (k < 18)%N ->
   step3 (init3 a) k = init3 (comp_tabi 47 a (nth (id_tabi 47) mtis k)).
 Proof. Admitted.
@@ -273,7 +314,16 @@ Proof. Admitted.
 (* the twist guard propagates along a move, which is twPM at the array level *)
 Lemma twPti_step a k : tabi_ok 47 a -> twPti a -> (k < 18)%N ->
   twPti (comp_tabi 47 a (nth (id_tabi 47) mtis k)).
-Proof. Admitted.
+Proof.
+move=> aok tw kL.
+have kL' : (k < seq.size mtis)%N by rewrite size_mtis.
+have mtok : tabi_ok 47 (nth (id_tabi 47) mtis k)
+  by apply: (all_nthP (id_tabi 47) mtis_ok).
+rewrite /twPti (ti2t_comp n47_small n47_len aok mtok) -(ptM aok mtok).
+have -> : ti2t 47 (nth (id_tabi 47) mtis k) = nth [::] mtabs k.
+  by rewrite -ti2t_mtis (nth_map (id_tabi 47)).
+exact: twPM kL tw.
+Qed.
 
 (* and then the search is the reference search, by induction on the depth.
    Far.v's searchz5E line for line, with the twist guard threaded. *)
