@@ -31,7 +31,12 @@ ulimit -s unlimited
 # P1Fsm.v is NOT in git -- it used to be checked in as a dummy under the same
 # name, and every git pull then restored the dummy over the real table, so the
 # search ran with every fsmove read returning 0.  That cost a day.
-if [ ! -f P1Fsm.v ] || [ "$(wc -c < P1Fsm.v)" -lt 1000000 ]; then
+# SIZE IS NOT ENOUGH.  The pre-chunking table is 121 MB and defines a single
+# fsmove_data, so it passes any size test yet Farp1.v fails on it with
+# "fsm_chunk_00 was not found".  Test the FORMAT too, on the definition name
+# (structural), not on a data line.
+if [ ! -f P1Fsm.v ] || [ "$(wc -c < P1Fsm.v)" -lt 1000000 ] ||
+   ! grep -q "^Definition fsm_chunk_02" P1Fsm.v; then
   echo "regenerating the real P1Fsm.v (116 MB)"
   # rebuild if the source is NEWER, not merely if the binary is absent: a
   # stale p1gen silently emits the old set of tables
