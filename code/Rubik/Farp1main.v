@@ -54,6 +54,10 @@ Section P1Far.
 Variable T : PArray.array arr.
 Variable d : nat.
 
+(* the search compares the heuristic with the depth in int63 now, and the
+   bridge to the nat comparison needs the depth to fit -- it is at most 19 *)
+Hypothesis dL : (d <= 63)%N.
+
 (* the five computations, and the twist x slice check *)
 Hypothesis hc0 : p1check0 T.
 Hypothesis hcS : p1checkStep T.
@@ -85,7 +89,7 @@ have hs : searchz3 T d (prefixi i j) (init3 (prefixi i j)) nfcube = false.
      would start unfolding the search itself *)
   move: hsearch => /allP/(_ _ (mem_iota0 jL))/allP/(_ _ (mem_iota0 iL)) h.
   exact: negbTE h.
-exact: (far_of_searchz3 (d := d) hc0 hcS hts hfm hfr hsl
+exact: (far_of_searchz3 (d := d) dL hc0 hcS hts hfm hfr hsl
                         (prefixi_ok iL' jL) (prefixi_cub iL' jL)
                         (prefixi_twP3 iL' jL) hs).
 Qed.
