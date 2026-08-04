@@ -1022,3 +1022,42 @@ apply: (searchrN Sset_inv (hsym30 hc0) hstep
                  fcube_ltS oppfK fcube_close fcube_comm).
 rewrite mtisE -e2 -e1 -e0; exact: hs.
 Qed.
+
+(* -- the invariant at the root --------------------------------------------- *)
+
+(* THE ONE THING LEFT TO PROVE.  It cannot be discharged by vm_compute: twP
+   is stated over {perm facelet}, and permutations do not evaluate -- 240 s
+   and no answer.  What it needs is the computable form at the TABLE level,
+   mirroring cubt:
+     cubcPt t := (comp_tab ccyct t == comp_tab t ccyct), with
+       cubcPtE : tab_ok 47 t -> cubcP (pt 47 t) = cubcPt t
+     twsumt   from Phase1's corientt, with
+       twsumtE : tab_ok 47 t -> twsum (pt 47 t) = twsumt t
+   Both are transports through pt, the same shape as the cubtE and ctwisttE
+   that already exist; the corientt half is already inside ctwisttE's proof.
+   Then twP3 sfti is a table computation. *)
+Lemma twP3_sfti : twP3 sfti.
+Proof. Admitted.
+
+(* prefixi's nth defaults to sfti, twP3_step's to id_tabi; in range they
+   agree *)
+Lemma nth_mtis_default k : (k < 18)%N ->
+  nth sfti mtis k = nth (id_tabi 47) mtis k.
+Proof. by move=> kL; apply: set_nth_default; rewrite size_mtis. Qed.
+
+(* and so the invariant holds at every one of the eighteen roots *)
+Lemma prefixi_twP3 i j : (i < nmoves)%N -> (j < nmoves)%N ->
+  twP3 (prefixi i j).
+Proof.
+move=> iL jL.
+have i18 : (i < 18)%N by [].
+have j18 : (j < 18)%N by [].
+have hm k : (k < 18)%N -> tabi_ok 47 (nth (id_tabi 47) mtis k)
+  by move=> kL; apply: (all_nthP (id_tabi 47) mtis_ok); rewrite size_mtis.
+have sok : tabi_ok 47 sfti by vm_compute.
+have ok1 : tabi_ok 47 (comp_tabi 47 sfti (nth (id_tabi 47) mtis i))
+  by apply: (tabi_ok_comp n47_small n47_len sok (hm _ i18)).
+rewrite /prefixi (nth_mtis_default i18) (nth_mtis_default j18).
+apply: twP3_step ok1 _ j18.
+exact: twP3_step sok twP3_sfti i18.
+Qed.
