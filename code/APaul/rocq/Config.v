@@ -1364,17 +1364,6 @@ move=> iv; rewrite /step; have [pLq|qLp] := ltnP => /=.
 by apply: red_ge_bez iv _; apply: leq_divM.
 Qed.
 
-(*  The step preserves [p = pt v] and [q = M - pt u].                         *)
-Lemma step_pt p q d u v :
-  inv p q d u v ->
-  let: (p', q', _, u', v') := step p q d u v in
-  0 < p' -> 0 < q' -> (p' = pt v') /\ (q' = M - pt u').
-Proof.
-move=> iv; rewrite /step; have [pLq|qLp] := ltnP => /= Hp Hq.
-  by apply: red_lt_pt iv pLq (leqnn _) Hq.
-by apply: red_ge_pt iv qLp (leqnn _) Hp.
-Qed.
-
 (*  Both gaps stay positive while the range stays below [N]: a gap reaching   *)
 (*    zero would put the counts at [M %/ g], which [N] is below.              *)
 Lemma step_p_gt0 p q d u v :

@@ -66,7 +66,7 @@ themselves points of the orbit. A second record, #name("invx"), fixes the
 
 #align(center)[
   #name("z < u") $==>$ #name("pt (z + v) = pt z + p") #h(2em)
-  #name("u <= z") $==>$ #name("pt (z - u) = (pt z + q) mod M")
+  #name("u <= z < u + v") $==>$ #name("pt (z - u) = (pt z + q) mod M")
 ]
 
 So an index below $u$ heads a gap of length $p$, and an index at least $u$ heads
@@ -95,9 +95,10 @@ the quotient*: it preserves #name("inv") (#name("inv_red_lt"),
 moves the infimum by a known amount. Algorithm 2 always takes $k$ maximal;
 Algorithm 1 takes it maximal on one side of a turn and $k = 1$ on the other, so
 both are instances of the same lemmas. The maximal case is named #name("step")
-there, and its four lemmas (#name("step_p_gt0"), #name("inv_step_pos"),
-#name("inf_new_eq_lt"), #name("invx_step")) are the general ones with $k$ taken
-to be the quotient; both algorithm files use them.
+there, and its lemmas — #name("step_bez"), #name("step_p_gt0"),
+#name("inv_step_pos"), #name("inf_new_eq_lt") and #name("invx_step") — are the
+general ones with $k$ taken to be the quotient. `AlgFGG.v`'s loop is
+#name("step") itself; `AlgLefevre.v` reduces the first half of its turn to it.
 
 = The two listings
 
@@ -174,7 +175,7 @@ clauses:
 #align(center)[
   #name("d < maxn p q") #h(2em)
   #name("d <= Inf (u + v)") #h(2em)
-  #name("d = Inf (u + v) mod p")
+  $d equiv "Inf"(u + v) space (mod p)$
 ]
 
 — $d$ is below the infimum, and congruent to it modulo the smaller gap. The
@@ -187,7 +188,7 @@ The main work is showing the three records survive a step. For #name("inv") and
 statement about where the new points land relative to $b$, and it splits by
 which gap is being reduced:
 
-- reducing $q$ (#name("inf_new_eq_lt")): every point walks down by steps of $p$,
+- reducing $q$ (#name("inf_new_lt")): every point walks down by steps of $p$,
   so the new infimum is exactly $"Inf" mod p$ — clean, because the walk can be
   iterated until it can go no further;
 - reducing $p$ (#name("ge_inf_alt")): points enter $p$-gaps from the right, so
@@ -197,18 +198,18 @@ which gap is being reduced:
 
 That asymmetry is not an artefact of the formalisation; it is Property 3.
 
-Two lemmas do the geometric work and are reused constantly:
-#name("gap_p_empty") and #name("gap_q_empty") say that a point with $b$ inside
-its own gap is the nearest point below $b$ — nothing else in range can be
-closer. A third, #name("gap_walk"), is the tiling in index form: for any two
-indices in range,
+Two lemmas of `Config.v` do the geometric work and are reused constantly by
+both developments: #name("gap_p_empty") and #name("gap_q_empty") say that a
+point with $b$ inside its own gap is the nearest point below $b$ — nothing else
+in range can be closer. A third, #name("gap_walk"), is the tiling in index form:
+for any two indices in range whose distances differ by at most a given bound,
 
 #align(center)[
   #name("dst y - dst z = a*p + b*q") #h(1em) with #h(1em) #name("a*v + y = b*u + z"),
 ]
 
-with $a <= u$ and $b <= v$. Most "no point can be there" arguments are one
-application of it.
+and a companion, #name("gap_bounds"), turns that into $a <= u$ and $b <= v$.
+Most "no point can be there" arguments are one application of the two.
 
 The soundness theorem is #name("lefevre_sound"), and the form the search uses is
 #name("lefevre_test"): if the returned bound clears $epsilon$, then every
@@ -228,8 +229,11 @@ exit, performs the subtraction half, which adds more points without testing
 again. Lefèvre says so explicitly: the algorithm stops not at $N$ but at the
 first configuration size at least $N$.
 
-So the file has #name("half1") and #name("half2"), and #name("half1") is
-`Config.step` while #name("half2") is the same reduction at $k = 1$.
+So the file has #name("half1") and #name("half2"). On the configuration
+#name("half1") does what `Config.step` does whenever the branch test $d < p$
+agrees with $p < q$ — same quotient, same counts — and leaves it alone
+otherwise, the quotient then being $0$; the two differ in how they update $d$.
+#name("half2") is the same reduction at $k = 1$.
 
 == What $d$ is, and where
 
@@ -316,9 +320,9 @@ and the corollary the search uses, #name("lefevre1_test").
   inset: 6pt,
   [*File*], [*Statements*], [*Contents*],
   [`Dist.v`], [50], [`pt`, `dst`, `Inf` and their arithmetic],
-  [`Config.v`], [61], [the configuration `inv`/`invd`/`invx`, the gap and walk lemmas, one reduction at an arbitrary $k$, and `step` at the quotient],
-  [`AlgFGG.v`], [45], [Algorithm 2: `run`, the `invd` step lemmas, `lefevre_sound`],
-  [`AlgLefevre.v`], [49], [Algorithm 1: `half1`/`half2`, `run1`, `invw`, `lefevre1_sound`],
+  [`Config.v`], [60], [the configuration `inv`/`invd`/`invx`, the gap and walk lemmas, one reduction at an arbitrary $k$, and `step` at the quotient],
+  [`AlgFGG.v`], [46], [Algorithm 2: `run`, the `invd` step lemmas, `lefevre_sound`],
+  [`AlgLefevre.v`], [50], [Algorithm 1: `half1`/`half2`, `run1`, `invw`, `lefevre1_sound`],
 )
 
 The dependencies are `Dist` $arrow$ `Config` $arrow$ {`AlgFGG`, `AlgLefevre`};
@@ -328,8 +332,8 @@ Both soundness theorems, and both `_test` corollaries, are proved without
 axioms: `Print Assumptions` reports *closed under the global context* for each.
 
 Neither algorithm is exact — both can return a bound strictly below the true
-infimum, and the files record the smallest witnesses. Algorithm 1 is the sharper
-of the two; that comparison is measured but not proved.
+infimum, and each file records a witness as a computed `Example`. Algorithm 1
+is the sharper of the two; that comparison is measured, not proved.
 
 One thing remains open in the organisation rather than the mathematics: several
 range hypotheses in `AlgFGG.v` are of the form "the count is below $N$" where
