@@ -13,8 +13,8 @@ all: $(VOFILES)
 # inter-file dependencies
 AlgFGG.vo: Dist.vo Config.vo
 Config.vo: Dist.vo
-AlgLefevre.vo: Dist.vo Config.vo AlgFGG.vo
-AlgLefevreWip.vo: Dist.vo AlgFGG.vo AlgLefevre.vo
+AlgLefevre.vo: Dist.vo Config.vo
+AlgLefevreWip.vo: Dist.vo Config.vo AlgLefevre.vo
 Scan.vo: Dist.vo
 ScanAll.vo: Dist.vo Scan.vo
 Certif.vo: Data.vo

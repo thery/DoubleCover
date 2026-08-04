@@ -94,7 +94,10 @@ the quotient*: it preserves #name("inv") (#name("inv_red_lt"),
 #name("inv_red_ge")) and #name("invx") (the #name("invx_red_*") families), and it
 moves the infimum by a known amount. Algorithm 2 always takes $k$ maximal;
 Algorithm 1 takes it maximal on one side of a turn and $k = 1$ on the other, so
-both are instances of the same lemmas.
+both are instances of the same lemmas. The maximal case is named #name("step")
+there, and its four lemmas (#name("step_p_gt0"), #name("inv_step_pos"),
+#name("inf_new_eq_lt"), #name("invx_step")) are the general ones with $k$ taken
+to be the quotient; both algorithm files use them.
 
 = The two listings
 
@@ -226,7 +229,7 @@ again. Lefèvre says so explicitly: the algorithm stops not at $N$ but at the
 first configuration size at least $N$.
 
 So the file has #name("half1") and #name("half2"), and #name("half1") is
-`AlgFGG.step` while #name("half2") is the same reduction at $k = 1$.
+`Config.step` while #name("half2") is the same reduction at $k = 1$.
 
 == What $d$ is, and where
 
@@ -260,8 +263,8 @@ add something the sources only assert. §4.1 remarks that
 which is what makes the six-case analysis work. One direction is immediate: if
 $b$ is in a $p$-gap then $d < p$, since $d$ is a distance inside that gap. The
 converse is *not* a property of the state — when the infimum is below both gap
-lengths, the configuration alone does not say which gap holds $b$ (Alg2's
-#name("ge_inf_le") gives only the two one-way implications). It is a property of
+lengths, the configuration alone does not say which gap holds $b$
+(#name("inf_red_ge_le") gives only the two one-way implications). It is a property of
 the states the loop reaches, kept true by Property 3's directionality. So it is
 carried as an invariant clause,
 
@@ -312,11 +315,14 @@ and the corollary the search uses, #name("lefevre1_test").
   stroke: 0.4pt + luma(180),
   inset: 6pt,
   [*File*], [*Statements*], [*Contents*],
-  [`Dist.v`], [—], [`pt`, `dst`, `Inf` and their arithmetic],
-  [`AlgFGG.v`], [68], [Algorithm 2: `step`, `run`, `inv`/`invd`/`invx`, the gap and walk lemmas, `lefevre_sound`],
-  [`Config.v`], [53], [one reduction at an arbitrary $k$: `inv` and `invx` preserved, and how far the infimum drops],
-  [`AlgLefevre.v`], [52], [Algorithm 1: `half1`/`half2`, `run1`, `invw`, `lefevre1_sound`],
+  [`Dist.v`], [50], [`pt`, `dst`, `Inf` and their arithmetic],
+  [`Config.v`], [61], [the configuration `inv`/`invd`/`invx`, the gap and walk lemmas, one reduction at an arbitrary $k$, and `step` at the quotient],
+  [`AlgFGG.v`], [45], [Algorithm 2: `run`, the `invd` step lemmas, `lefevre_sound`],
+  [`AlgLefevre.v`], [49], [Algorithm 1: `half1`/`half2`, `run1`, `invw`, `lefevre1_sound`],
 )
+
+The dependencies are `Dist` $arrow$ `Config` $arrow$ {`AlgFGG`, `AlgLefevre`};
+the two algorithm files are independent of each other.
 
 Both soundness theorems, and both `_test` corollaries, are proved without
 axioms: `Print Assumptions` reports *closed under the global context* for each.
@@ -325,12 +331,10 @@ Neither algorithm is exact — both can return a bound strictly below the true
 infimum, and the files record the smallest witnesses. Algorithm 1 is the sharper
 of the two; that comparison is measured but not proved.
 
-Two things remain open in the organisation rather than the mathematics.
-`Config.v` still imports `AlgFGG.v`, so Algorithm 2's step lemmas are independent
-proofs of what Config proves at general $k$ rather than instances of it; folding
-them together would remove that duplication. And several range hypotheses in
-`AlgFGG.v` are of the form "the count is below $N$" where "below the orbit length
-$M slash gcd(A, M)$" would do, which is what `Config.v` now uses.
+One thing remains open in the organisation rather than the mathematics: several
+range hypotheses in `AlgFGG.v` are of the form "the count is below $N$" where
+"below the orbit length $M slash gcd(A, M)$" would do, which is what `Config.v`
+uses.
 
 = Sources
 
