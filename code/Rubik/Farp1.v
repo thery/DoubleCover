@@ -295,3 +295,31 @@ Lemma far_of_searchz3 T d a :
   searchz3 T d a (init3 a) nfcube = false ->
   pt 47 (ti2t 47 a) \notin ball Sset d.
 Proof. Admitted.
+
+(* ---- 5. The same search, counting nodes ---------------------------------- *)
+
+(* rubik_par increments `nodes' at the top of dfs, before the heuristic, so a
+   node is one call.  searchz3c counts the same thing, and is otherwise
+   searchz3 verbatim -- it exists to compare node for node against
+   `p1gen 9 pieces', which is the only way to tell "we expand more nodes"
+   from "each node costs more". *)
+Fixpoint searchz3c (T : PArray.array arr) (d : nat) (a : arr) (x : c3) (p : nat)
+    : bool * nat :=
+  if h3 T x <= d then
+    if eq_tabi 47 a (id_tabi 47) then (true, 1%N)
+    else if d is d'.+1 then
+      (fix go (l : seq nat) (n : nat) : bool * nat :=
+         if l is k :: l' then
+           let: (r, m) :=
+              searchz3c T d' (comp_tabi 47 a (nth (id_tabi 47) mtis k))
+                             (step3 x k) (fcpos k) in
+           if r then (true, (n + m)%N) else go l' (n + m)%N
+         else (false, n)) (allowedr mtis nfcube oppf fcpos p) 1%N
+    else (false, 1%N)
+  else (false, 1%N).
+
+(* one piece, as Runp1_NN.v runs it, but reporting the node count *)
+Definition countp1 (T : PArray.array arr) (d j : nat) : bool * nat :=
+  let: (r0, n0) := searchz3c T d (prefixi 0 j) (init3 (prefixi 0 j)) nfcube in
+  let: (r1, n1) := searchz3c T d (prefixi 1 j) (init3 (prefixi 1 j)) nfcube in
+  (r0 || r1, (n0 + n1)%N).
