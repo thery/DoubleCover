@@ -151,11 +151,13 @@ Proof. by rewrite /conj3 /conji; congr (comp_tabi _ _ (comp_tabi _ _ _)). Qed.
    split as p1get, on the word index at a power of two. *)
 Definition fcwlog := 21.
 
+(* the chunks are PRIMITIVE ARRAY LITERALS, so this is three pointers and
+   mkarr is not needed: nothing is converted and nothing is held twice. *)
 Definition fsmtabs : PArray.array arr :=
   let a := PArray.make 3%uint63 (PArray.make 1%uint63 0%uint63) in
-  let a := PArray.set a 0%uint63 (mkarr 2097152%uint63 0%uint63 fsm_chunk_00) in
-  let a := PArray.set a 1%uint63 (mkarr 2097152%uint63 0%uint63 fsm_chunk_01) in
-  let a := PArray.set a 2%uint63 (mkarr 1888256%uint63 0%uint63 fsm_chunk_02) in
+  let a := PArray.set a 0%uint63 fsm_chunk_00 in
+  let a := PArray.set a 1%uint63 fsm_chunk_01 in
+  let a := PArray.set a 2%uint63 fsm_chunk_02 in
   a.
 
 (* three values to a word, twenty bits each; the word index splits into a
