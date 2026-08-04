@@ -25,7 +25,7 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-From APaulRocq Require Import Dist AlgFGG AlgLefevre.
+From APaulRocq Require Import Dist Config AlgLefevre.
 
 (*  The states a run of [run1] enters, in order.  The last one can have       *)
 (*    [N <= u + v]: the exit test reads the count BETWEEN the halves, so a    *)

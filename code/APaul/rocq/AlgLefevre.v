@@ -2,7 +2,7 @@
 (*                                                                            *)
 (*   Lefevre's original lower-bound algorithm                                 *)
 (*                                                                            *)
-(*   Algorithm 1 of doc/mourad.pdf (hal-00751446, 4.1), which AlgFGG.v's        *)
+(*   Algorithm 1 of doc/mourad.pdf (hal-00751446, 4.1), which AlgFGG.v's      *)
 (*    Algorithm 2 replaces.  Same specification: with [a = A/M], [b = B/M],   *)
 (*    a lower bound on [inf { b - a*x mod 1 | x < N }].                       *)
 (*                                                                            *)
@@ -13,7 +13,7 @@
 (*      branch [p <= d]  d -= p, p -= (p %/ q)*q, v += k*u | exit |           *)
 (*                                                          q -= p, u += v    *)
 (*                                                                            *)
-(*   So [half1] is [AlgFGG.step] -- the quotient agrees when the branch test    *)
+(*   So [half1] is [Config.step] -- the quotient agrees when the branch test  *)
 (*    agrees with [p < q] and is [0] otherwise -- and [half2] is the same     *)
 (*    reduction at [k = 1], which is Config.v.                                *)
 (*                                                                            *)
@@ -40,7 +40,7 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-From APaulRocq Require Import Dist AlgFGG Config.
+From APaulRocq Require Import Dist Config.
 
 Fixpoint run1 (fuel p q d u v N : nat) : nat :=
   if fuel is fuel1.+1 then
@@ -62,17 +62,18 @@ Fixpoint run1 (fuel p q d u v N : nat) : nat :=
 Definition lefevre1 (M A B N : nat) : nat :=
   run1 M (A %% M) (M - A %% M) (B %% M) 1 1 N.
 
-(*  Sanity checks (computed), on AlgFGG.v's figures.  [a = 17/45] is the       *)
+(*  Sanity checks (computed), on AlgFGG.v's figures.  [a = 17/45] is the      *)
 (*    example of Figure 4.                                                    *)
 
 Example lefevre1_fig4 : lefevre1 45 17 30 5 = 7.
 Proof. by vm_compute. Qed.
 
-(*  AlgFGG.lefevre_strict's case: Algorithm 2 returns 1, the infimum is 2.     *)
-Example lefevre1_sharper : (lefevre1 32 23 12 8, lefevre 32 23 12 8) = (2, 1).
+(*  Sharper than Algorithm 2 here: [AlgFGG.lefevre_strict] returns 1, and     *)
+(*    the infimum is 2.                                                       *)
+Example lefevre1_sharper : lefevre1 32 23 12 8 = 2.
 Proof. by vm_compute. Qed.
 
-(*  Not exact in general: both return 0 and the infimum is 1.                *)
+(*  Not exact in general: both return 0 and the infimum is 1.                 *)
 Example lefevre1_strict : (lefevre1 5 2 3 4, inf_dst 5 2 3 4) = (0, 1).
 Proof. by vm_compute. Qed.
 
@@ -104,7 +105,6 @@ Local Notation invd := (invd M A B).
 Local Notation invx := (invx M A B).
 
 Local Notation ltn_pt := (ltn_pt M_gt0 A).
-Local Notation pt0 := (pt0 M A).
 Local Notation ltn_dst := (ltn_dst M_gt0 A B).
 Local Notation dst0 := (dst0 A ltn_B).
 Local Notation dstE := (dstE M A B).
@@ -123,6 +123,7 @@ Local Notation pt_neq0 := (pt_neq0 M_gt0 N_lt_Mg).
 Local Notation pt_neq0M := (pt_neq0M M_gt0).
 Local Notation red_ge_pt := (@red_ge_pt M M_gt0 A B ltn_B).
 Local Notation inv_uv_le := (@inv_uv_le M A).
+Local Notation ptD_leqM := (@ptD_leqM M M_gt0 A).
 
 Local Notation step_p_gt0 := (@step_p_gt0 M A N N_lt_Mg).
 Local Notation inv_step_pos := (@inv_step_pos M M_gt0 A B ltn_B).
@@ -135,6 +136,7 @@ Local Notation inf_red_lt_ge := (@inf_red_lt_ge M M_gt0 A B).
 Local Notation inv_init := (@inv_init M M_gt0 A B ltn_A N N_gt0 N_lt_Mg).
 Local Notation invx_init := (@invx_init M M_gt0 A B ltn_A ltn_B).
 Local Notation inv_qM := (@inv_qM M A).
+Local Notation inv_dW := (@inv_dW M A).
 Local Notation invx_red_lt_min := (@invx_red_lt_min M M_gt0 A N N_lt_Mg).
 Local Notation invx_red_lt_max := (@invx_red_lt_max M M_gt0 A N N_lt_Mg).
 Local Notation invx_red_lt_p1 := (@invx_red_lt_p1 M M_gt0 A N N_lt_Mg).
@@ -144,7 +146,6 @@ Local Notation invx_red_lt_gap :=
   (@invx_red_lt_gap M M_gt0 A B ltn_B N N_lt_Mg).
 Local Notation invx_step := (@invx_step M M_gt0 A B ltn_B N N_lt_Mg).
 Local Notation gap_q_empty := (@gap_q_empty M M_gt0 A B).
-Local Notation gap_p_empty := (@gap_p_empty M M_gt0 A B).
 Local Notation walk_lt_nowrap := (@walk_lt_nowrap M M_gt0 A B).
 Local Notation walk_ge_nowrap := (@walk_ge_nowrap M M_gt0 A B).
 Local Notation ge_exit := (@ge_exit M M_gt0 A B ltn_B).
@@ -179,10 +180,7 @@ Qed.
 
 (*  [inv] does not constrain [d], so it transfers across the two halves'      *)
 (*    differing [d] components.                                               *)
-Lemma inv_dW p q d d' u v : inv p q d u v -> inv p q d' u v.
-Proof. by case. Qed.
-
-(*  The point [b] sits above attains the infimum: [AlgFGG.gap_p_empty] and     *)
+(*  The point [b] sits above attains the infimum: [gap_p_empty] and           *)
 (*    [gap_q_empty] make it a lower bound, [leq_inf_dst] an equation.         *)
 Lemma inv_qqM p q d u v : inv p q d u v -> q <= p -> q + q <= M.
 Proof.
@@ -192,7 +190,7 @@ rewrite -bez (leq_trans (leq_add qLp (leqnn q))) // leq_add //.
 by rewrite leq_pmull.
 Qed.
 
-(*  Distances are distinct below [N], so that point is unique.               *)
+(*  Distances are distinct below [N], so that point is unique.                *)
 Lemma dst_inj x y : x <= N -> y <= N -> dst x = dst y -> x = y.
 Proof.
 wlog yx : x y / y <= x => [H xN yN dE|].
@@ -216,7 +214,7 @@ have H : 0 < x - y <= N by rewrite subn_gt0 yLx (leq_trans (leq_subr _ _)).
 by have := pt_neq0 H; rewrite ptE eqxx.
 Qed.
 
-(*  [b] lies inside the gap of the point below it, so its distance is below  *)
+(*  [b] lies inside the gap of the point below it, so its distance is below   *)
 (*    that gap's length.                                                      *)
 Lemma argmin_lt_p p q d u v y0 :
   inv p q d u v -> invx p q u v -> y0 < u -> inf (u + v) = dst y0 ->
@@ -230,7 +228,7 @@ have Hle : inf (u + v) <= dst (y0 + v) by apply: leq_inf_dst; rewrite ltn_add2r.
 by move: Hle; rewrite Hdd Hy0 leqNgt ltn_subrL p_gt0 (leq_trans p_gt0 pDy0).
 Qed.
 
-(*  [q + q <= M] rather than [q <= p], which a reduced configuration lacks.  *)
+(*  [q + q <= M] rather than [q <= p], which a reduced configuration lacks.   *)
 Lemma inf_at_q p q d u v w :
   inv p q d u v -> invx p q u v -> q + q <= M -> u <= w -> w < u + v ->
   dst w < q -> inf (u + v) = dst w.
@@ -240,9 +238,9 @@ apply: leq_inf; first by apply: ltnW; exact: ltn_dst.
 by move=> z zL; apply: (gap_q_empty iv (invx_max ix) qqM uw wL zL qDw).
 Qed.
 
-(*  The [w < u] analogue of [AlgFGG.gap_p_empty], whose [p <= q] covers only   *)
+(*  The [w < u] analogue of [gap_p_empty], whose [p <= q] covers only         *)
 (*    the case where [w]'s gap is the smaller one.  Its [z < w] case is the   *)
-(*    only one that differs: [AlgFGG.gap_walk] is the tiling, and               *)
+(*    only one that differs: [gap_walk] is the tiling, and                    *)
 (*    [dst w - dst z < p] forces [a = 0] there, so the index equation gives   *)
 (*    [w = z] or [w >= u], both excluded.                                     *)
 Lemma gap_pu_down p q d u v w z :
@@ -283,7 +281,7 @@ have [wz|zw] := ltnP w z; last first.
   have zNw : z != w by apply/eqP => zw'; move: Dzw; rewrite zw' ltnn.
   have zLw : z < w by rewrite ltn_neqAle zNw zw.
   by case: (gap_pu_down iv ix wu zLw zDw pDw).
-(* the [w < z] half is [AlgFGG.gap_p_empty]'s, and runs on [invx_min] alone *)
+(* the [w < z] half is [gap_p_empty]'s, and runs on [invx_min] alone          *)
 have Hd := dst_gap_up (ltnW wz) zDw.
 have Hk : p <= pt (z - w).
   by apply: (invx_min ix); rewrite subn_gt0 wz (leq_ltn_trans (leq_subr _ _)).
@@ -366,9 +364,9 @@ split; [by rewrite subnKC ?bm // ltnW| |exact: invw_init_gap].
 by rewrite invw_init_inf bm.
 Qed.
 
-(*  [half1] is [AlgFGG.step] whenever the branch test agrees with [p < q]: same *)
-(*    quotient, same counts.  When they disagree the quotient is [0] and      *)
-(*    [half1] leaves the configuration alone.                                 *)
+(*  [half1] is [Config.step] whenever the branch test agrees with [p < q]:   *)
+(*    same quotient, same counts.  When they disagree the quotient is [0]    *)
+(*    and [half1] leaves the configuration alone.                            *)
 Lemma inv_half1 p q d u v :
   inv p q d u v -> u + v < N ->
   let: (p', q', _, u', v') := half1 p q d u v in
@@ -457,7 +455,7 @@ Qed.
 (******************************************************************************)
 
 (*  [half1] does not move the infimum.  In this branch [invw] says [d] is     *)
-(*    already the infimum, so it is below [p] and [AlgFGG.inf_new_eq_lt]'s      *)
+(*    already the infimum, so it is below [p] and [inf_new_eq_lt]'s           *)
 (*    [Inf %% p] is [Inf] itself.                                             *)
 Lemma half1_inf_lt p q d u v :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> d < p ->
@@ -473,7 +471,7 @@ have qLp' : q %/ p = 0 by rewrite divn_small // ltn_neqAle qLp andbT eq_sym.
 by rewrite qLp' mul0n addn0.
 Qed.
 
-(*  [b] is in a [q]-gap here ([invw] gives [Inf = d - p] and [Inf < q]), and *)
+(*  [b] is in a [q]-gap here ([invw] gives [Inf = d - p] and [Inf < q]), and  *)
 (*    reducing [p] splits [p]-gaps only, so [Inf] cannot drop.  Stated as one *)
 (*    inequality with no bound on the new range, so it serves the exit too.   *)
 Lemma half1_ge_nodrop p q d u v :
@@ -486,10 +484,10 @@ have [p_gt0 q_gt0 bez pE qE gE u_gt0 v_gt0] := iv.
 have [pLq|qLp] := ltnP p q; first by rewrite (divn_small pLq) mul0n addn0.
 have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
 have [y0 y0L Hy0] := inf_ex uv_gt0.
-(* [invw_gap]: the test is false, so [b] is in a [q]-gap *)
+(* [invw_gap]: the test is false, so [b] is in a [q]-gap                      *)
 have uy0 : u <= y0.
   by rewrite leqNgt (invw_gap iw (ltnW uvN) y0L Hy0) ltnNge pLd.
-(* and [b] is inside it: [invw_max] gives [d - p < q] *)
+(* and [b] is inside it: [invw_max] gives [d - p < q]                         *)
 have dy0q : dst y0 < q.
   rewrite -Hy0 (invw_inf iw) ifN -?leqNgt //.
   by rewrite ltn_subLR //; exact: invw_max iw.
@@ -497,7 +495,7 @@ have qqM : q + q <= M.
   rewrite -bez (leq_trans (leq_add qLp (leqnn q))) // leq_add //.
     by rewrite leq_pmull.
   by rewrite leq_pmull.
-(* the reduced configuration, which needs both gaps positive *)
+(* the reduced configuration, which needs both gaps positive                  *)
 have Hg := step_p_gt0 iv uvN.
 move: Hg; rewrite /step ifN -?leqNgt // => Hg.
 have [Hp Hq] := Hg uvN'.
@@ -585,16 +583,7 @@ split.
 by have H := invx_red_ge_p2 (k := 1) iv; rewrite !mul1n in H.
 Qed.
 
-(*  [ptD_leq] with the orbit bound: its [<= N] only feeds [pt_neq0], and     *)
-(*    [AlgFGG.inv_uv_le] bounds every [inv] state by [M %/ g].                  *)
-Lemma ptD_leqM x y :
-  0 < x + y < M %/ g -> pt x + pt y <= M -> pt (x + y) = pt x + pt y.
-Proof.
-move=> xyM; case: ltngtP => // [pxpyLM|pxpyE] _; first exact: ptD.
-by have := pt_neq0M xyM; rewrite ptDE pxpyE modnn eqxx.
-Qed.
-
-(*  The point entering [b]'s gap from the right, and its distance.           *)
+(*  The point entering [b]'s gap from the right, and its distance.            *)
 Lemma sub_p_new_dst p q d u v y0 :
   inv p q d u v -> invx p q u v -> q < p -> y0 < u -> p - q <= dst y0 ->
   dst (y0 + (v + u)) = dst y0 - (p - q).
@@ -617,7 +606,7 @@ have Hsucc : pt (y0 + (v + u)) = pt y0 + (p - q).
 by rewrite (dst_ofD Hsucc).
 Qed.
 
-(*  After the reduction the point below [b] is the one it had, or the one    *)
+(*  After the reduction the point below [b] is the one it had, or the one     *)
 (*    that entered from the right.  Both [_inf] and [_gap] read off it.       *)
 Lemma sub_p_argmin p q d u v y0 :
   inv p q d u v -> invx p q u v -> q < p -> d = inf (u + v) -> d < p ->
@@ -648,7 +637,7 @@ have Hinf : inf (u + (v + u)) = dst (y0 + (v + u)).
 by split; [exact: Hinf | rewrite Hinf Hd].
 Qed.
 
-(*  A new index is [y + j*u] ([Config.red_ge_new]); the walk adds [j*q] to   *)
+(*  A new index is [y + j*u] ([Config.red_ge_new]); the walk adds [j*q] to    *)
 (*    the distance unless it wraps, and [gap_q_empty] on the reduced          *)
 (*    configuration covers both.                                              *)
 Lemma ge_wrap_dst p q d u v y j y0 :
@@ -668,8 +657,8 @@ rewrite Hy0; apply: (gap_q_empty iv' Hmax' (inv_qqM iv qLp) uy0 y0L' yjL).
 by rewrite -Hy0.
 Qed.
 
-(*  The degenerate case [q] divides [p], where the reduction leaves no       *)
-(*    two-length configuration: [AlgFGG.ge_exit] is stated for it.              *)
+(*  The degenerate case [q] divides [p], where the reduction leaves no        *)
+(*    two-length configuration: [ge_exit] is stated for it.                   *)
 Lemma ge_wrap_deg p q d u v y j :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
   p - p %/ q * q = 0 -> y < u + v -> 0 < j <= p %/ q ->
@@ -717,7 +706,7 @@ have Iq : inf (u + v) < q.
 by rewrite zE; apply: ge_wrap_dst iv ix qLp p'_gt0 y0L Hy0 uy0 Iq ylt jk.
 Qed.
 
-(*  Reducing [p] splits [p]-gaps, into [p - q] on the left and [q] on the    *)
+(*  Reducing [p] splits [p]-gaps, into [p - q] on the left and [q] on the     *)
 (*    right (Property 3: the residual is leftmost, points enter from the      *)
 (*    right).  So these two need to know that [b] is in a [p]-gap: for a [b]  *)
 (*    in an untouched [q]-gap all one gets is [Inf < q], which says nothing   *)
@@ -801,7 +790,7 @@ Qed.
 (*  the mirror of [invw_sub_p_gap]: reducing [q] splits [q]-gaps into a [p]   *)
 (*    on the left and the residual on the right, so a [b] whose [d] is        *)
 (*    below [p] lands in the new [p]-gap and one whose [d] is not gets the    *)
-(*    new point underneath it.                                               *)
+(*    new point underneath it.                                                *)
 Lemma invw_sub_q_gap p q d u v :
   inv p q d u v -> invx p q u v -> p < q -> d = inf (u + v) -> d < q ->
   u + v + v <= N ->
@@ -816,7 +805,7 @@ have yN : y <= N by apply: ltnW; exact: leq_trans yL uvvN.
 have y0N : y0 <= N.
   by apply: ltnW; apply: leq_trans uvvN; rewrite (leq_trans y0L) // leq_addr.
 have [dLp|pLd] := ltnP d p.
-(* [b] keeps its neighbour: nothing was added below it *)
+(* [b] keeps its neighbour: nothing was added below it                        *)
   have dEq : dst y = dst y0 by rewrite -yE -Hy0 Hinf ifT // -dE.
   have -> : y = y0 by apply: dst_inj yN y0N dEq.
   by rewrite y0L.
@@ -846,7 +835,7 @@ move=> iv ix pLq dE dLq; split.
 exact: invw_sub_q_gap iv ix pLq dE dLq.
 Qed.
 
-(*  the [p <= d] half of the exit.                                           *)
+(*  the [p <= d] half of the exit.                                            *)
 Lemma half1_leq_inf_ge p q d u v :
   inv p q d u v -> invx p q u v -> invw p q d u v -> u + v < N -> p <= d ->
   N <= u + (v + p %/ q * u) -> d - p <= inf N.
@@ -882,8 +871,8 @@ by rewrite dE (divn_small dLp) minn0 mul0n subn0 in H.
 Qed.
 
 (*  [invx] through the two halves, and both are assemblies.  [half1] is       *)
-(*    [AlgFGG.step] whenever the branch test agrees with [p < q], and the       *)
-(*    identity otherwise, so [AlgFGG.invx_step] does it; [half2] is Config.v's  *)
+(*    [Config.step] whenever the branch test agrees with [p < q], and the     *)
+(*    identity otherwise, so [invx_step] does it; [half2] is Config.v's       *)
 (*    reduction at [k = 1], so its six [invx_red_*] fields do.                *)
 Lemma invx_half1 p q d u v :
   inv p q d u v -> invx p q u v -> u + v < N ->
@@ -938,7 +927,7 @@ apply: leq_trans (run1_decr p q d u v f_gt0) _.
 by rewrite -(invw_inf iw); apply: leq_inf_mono.
 Qed.
 
-(*  Induction on [fuel]: [half1_exact] makes [d] the infimum, the exit is    *)
+(*  Induction on [fuel]: [half1_exact] makes [d] the infimum, the exit is     *)
 (*    [half1_leq_inf], and the recursive case rebuilds the three records.     *)
 (*    A turn can begin with [N <= u + v], since the exit test bounds the      *)
 (*    mid-turn count; [run1_past] closes that case from [invw] alone.         *)
@@ -961,7 +950,7 @@ have Hle := half1_leq_inf iv ix iw uvN.
 have Hm := run1_measure iv uvN.
 move: Hi Hx H1 Hle Hm; rewrite /half1 /half2 /=.
 case: (ltnP d p) => [dLp|pLd] Hi Hx H1 Hle Hm.
-(* [b] is in a [p]-gap: [half1] divides [q], [half2] takes one [p] off       *)
+(* [b] is in a [p]-gap: [half1] divides [q], [half2] takes one [p] off        *)
   set k := q %/ p in Hi Hx H1 Hle Hm *.
   set q1 := q - k * p in Hi Hx H1 Hle Hm *.
   set u1 := u + k * v in Hi Hx H1 Hle Hm *.
@@ -978,7 +967,7 @@ case: (ltnP d p) => [dLp|pLd] Hi Hx H1 Hle Hm.
   apply: IH => //; first exact: inv_sub_p iv1 q1Lp.
     exact: invx_sub_p iv1 ix1 q1Lp.
   by rewrite -ltnS (leq_trans Hm).
-(* [b] is in a [q]-gap: [half1] divides [p], [half2] takes one [q] off       *)
+(* [b] is in a [q]-gap: [half1] divides [p], [half2] takes one [q] off        *)
 set k := p %/ q in Hi Hx H1 Hle Hm *.
 set p1 := p - k * q in Hi Hx H1 Hle Hm *.
 set v1 := v + k * u in Hi Hx H1 Hle Hm *.
@@ -1022,7 +1011,7 @@ End Theory.
 (* Comparison with Algorithm 2                                                *)
 (******************************************************************************)
 
-(*  Neither is exact ([lefevre1_strict]), but Algorithm 1 is the sharper of  *)
-(*    the two: [lefevre M A B N <= lefevre1 M A B N], measured over all      *)
-(*    [M <= 24], all [A, B < M] and all [3 <= N < M %/ gcdn A M], with       *)
-(*    [lefevre1_sharper] a strict witness.  Not proved.                      *)
+(*  Neither is exact ([lefevre1_strict]), but Algorithm 1 is the sharper of   *)
+(*    the two: [lefevre M A B N <= lefevre1 M A B N], measured over all       *)
+(*    [M <= 24], all [A, B < M] and all [3 <= N < M %/ gcdn A M], with        *)
+(*    [lefevre1_sharper] a strict witness.  Not proved.                       *)

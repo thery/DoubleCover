@@ -1,23 +1,26 @@
 (******************************************************************************)
 (*                                                                            *)
-(*   Reducing a two-length configuration by a given number of copies          *)
+(*   The two-length configuration and its reduction                           *)
 (*                                                                            *)
-(*   [AlgFGG.step] always takes the Euclidean quotient.  Algorithm 1 (AlgLefevre.v)   *)
-(*    takes the quotient on one side of a turn and a single copy on the       *)
-(*    other, so it walks through configurations [AlgFGG.step] skips.  The       *)
-(*    operation is the same one in both cases:                                *)
+(*   Both algorithms walk the same object: [u] gaps of length [p] and [v] of  *)
+(*    length [q] tiling the circle, with [u*p + v*q = M].  [inv] states the   *)
+(*    tiling, [invx] the index structure it induces, and [invd] the bound on  *)
+(*    the recorded distance [d] that AlgFGG.v uses.                           *)
+(*                                                                            *)
+(*   A turn reduces one gap by [k] copies of the other:                       *)
 (*                                                                            *)
 (*      reduce [q]:  q -= k*p, u += k*v                                       *)
 (*      reduce [p]:  p -= k*q, v += k*u                                       *)
 (*                                                                            *)
-(*   AlgFGG.v proves what this does to the configuration only at [k] maximal.   *)
-(*    Here it is proved for any [k] up to the quotient, which is what         *)
-(*    Algorithm 1 needs; AlgFGG's statements come back by taking [k] to be      *)
-(*    the quotient.  Folding AlgFGG.v onto these is the plumbing still to do.   *)
+(*   The [red_] and [invx_red_] lemmas do this at any [k] up to the Euclidean *)
+(*    quotient, which is what AlgLefevre.v needs.  [step] is the reduction at *)
+(*    the quotient itself, which is one turn of AlgFGG.v; its lemmas          *)
+(*    ([step_p_gt0], [inv_step_pos], [inf_new_eq_lt], [invx_step]) are the    *)
+(*    general ones instantiated there.                                        *)
 (*                                                                            *)
-(*   Nothing below mentions [d].  That is the one thing the two algorithms    *)
-(*    do not share: [AlgFGG.invd] against [AlgLefevre.invw].  The configuration and   *)
-(*    its reduction they share entirely.                                      *)
+(*   Only [invd] mentions [d].  That is the one thing the two algorithms do   *)
+(*    not share: [invd] against [AlgLefevre.invw].  The configuration and its *)
+(*    reduction they share entirely.                                          *)
 (*                                                                            *)
 (******************************************************************************)
 
@@ -29,10 +32,20 @@ Unset Printing Implicit Defensive.
 
 From APaulRocq Require Import Dist.
 
+(*  Reduce the larger gap by every copy of the smaller one it holds: one      *)
+(*    turn of AlgFGG.v.  [d] is carried along.                                *)
+Definition step (p q d u v : nat) : nat * nat * nat * nat * nat :=
+  if p < q then
+    let k := q %/ p in (p, q - k * p, d %% p, u + k * v, v)
+  else
+    let k := p %/ q in
+    let p' := p - k * q in
+    (p', q, (if p' <= d then (d - p') %% q else d), u, v + k * u).
+
 Section Reduce.
 
-(*  The same setting as AlgFGG.v's [Section Theory], so that its lemmas read    *)
-(*    here as they are stated there.                                          *)
+(*  The setting the two algorithms share: the line is [y = a*x - b] with      *)
+(*    [a = A/M] and [b = B/M], searched over the first [N] indices.           *)
 
 Variable M : nat.
 Hypothesis M_gt0 : 0 < M.
@@ -52,45 +65,32 @@ Local Notation dst := (dst M A B).
 Local Notation inf := (inf_dst M A B).
 
 
-(*  The vocabulary of Dist.v, with this section's parameters supplied, so    *)
-(*  that the lemmas read here exactly as they are stated there.              *)
+(*  The vocabulary of Dist.v, with this section's parameters supplied, so     *)
+(*  that the lemmas read here exactly as they are stated there.               *)
 Local Notation ltn_pt := (ltn_pt M_gt0 A).
 Local Notation pt0 := (pt0 M A).
 Local Notation ptDE := (ptDE M A).
-Local Notation ptB := (ptB M_gt0).
 Local Notation ptBu := (ptBu M_gt0).
 Local Notation ptM := (ptM M A).
-Local Notation ptS := (ptS ltn_A).
-Local Notation ptWE := (ptWE M A).
 Local Notation leq_N_Mg := (leq_N_Mg N_lt_Mg).
-Local Notation coprime_Mg_Ag := (coprime_Mg_Ag M_gt0 A).
 Local Notation pt_neq0 := (pt_neq0 M_gt0 N_lt_Mg).
 Local Notation pt_neq0M := (pt_neq0M M_gt0).
 Local Notation ptD_leq := (ptD_leq M_gt0 N_lt_Mg).
 Local Notation ptWv := (ptWv M_gt0 N_lt_Mg).
-Local Notation dvdn_g_pt := (dvdn_g_pt M A).
 Local Notation ltn_dst := (ltn_dst M_gt0 A B).
 Local Notation dst0 := (dst0 A ltn_B).
-Local Notation dstE := (dstE M A B).
 Local Notation dstD := (dstD M_gt0).
 Local Notation dst_below := (dst_below ltn_B).
 Local Notation dst_above := (dst_above M_gt0).
-Local Notation dstBE := (dstBE M_gt0 A B).
 Local Notation dstDE := (dstDE M_gt0 A B).
 Local Notation dst_diff := (dst_diff M_gt0 A B).
 Local Notation dst_mod_g := (dst_mod_g M_gt0 A B).
 Local Notation dst_ofD := (dst_ofD ltn_B).
-Local Notation leq_mod_dst := (leq_mod_dst M_gt0 ltn_B).
 Local Notation inf0 := (inf0 M A B).
 Local Notation infSE := (infSE M A B).
 Local Notation leq_inf_dst := (leq_inf_dst M A B).
 Local Notation inf_ex := (inf_ex M_gt0 A B).
 Local Notation leq_inf_mono := (leq_inf_mono M A B).
-Local Notation dst_max_ex := (dst_max_ex M A B).
-
-
-(*  and the lemmas of AlgFGG.v this file builds on, likewise.                  *)
-
 
 
 (******************************************************************************)
@@ -677,7 +677,7 @@ rewrite (walk_lt_wrapeq iv pLq yLuv mk Hy).
 have [p_gt0 q_gt0 bez _ _ _ u_gt0 v_gt0] := iv.
 have /andP[m_gt0 mkd] := mk.
 have mpq : m * p <= q by rewrite -leq_divRL.
-(* the whole point of [inv_u0]/[inv_v0]: [p + q <= M] *)
+(* the whole point of [inv_u0]/[inv_v0]: [p + q <= M]                         *)
 have pqM : p + q <= M by rewrite -bez leq_add // leq_pmull.
 have mpM : m * p <= M by rewrite (leq_trans mpq) // (leq_trans _ pqM) //
   leq_addl.
@@ -719,14 +719,14 @@ move=> iv ivd ix qLp p'0.
 have [p_gt0 q_gt0 bez pE qE gE u_gt0 v_gt0] := iv.
 have rE : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
 have qp : q %| p by rewrite /dvdn -rE p'0.
-(* the last quotient: [q] IS the gcd, so all gaps are [g] *)
+(* the last quotient: [q] IS the gcd, so all gaps are [g]                     *)
 have qg : q = gcdn A M by rewrite -gE gcdnC; apply/esym/gcdn_idPl.
 have dE : (if p - p %/ q * q <= d then (d - (p - p %/ q * q)) %% q else d)
             = d %% q by rewrite p'0 leq0n subn0.
 have [_ _ dcong] := ivd.
 have uv_gt0 : 0 < u + v by rewrite addn_gt0 u_gt0.
 have [y0 y0L Heq] := inf_ex uv_gt0.
-(* [d] is congruent to [B] mod [g], so [d %% q] is the global minimum *)
+(* [d] is congruent to [B] mod [g], so [d %% q] is the global minimum         *)
 have dB : d = B %[mod q].
   have H1 : d = inf (u + v) %[mod q].
     by rewrite -(modn_dvdm d qp) dcong modn_dvdm.
@@ -786,9 +786,7 @@ Qed.
 (* Reducing [q] by [k] copies of [p]                                          *)
 (******************************************************************************)
 
-(*  [p] is still a point and [q - k*p] still a co-point.  This is             *)
-(*    [AlgFGG.step_pt]'s first branch, whose proof is already an induction on   *)
-(*    [j <= q %/ p]: only the instantiation at the end was special.           *)
+(*  [p] is still a point and [q - k*p] still a co-point.                      *)
 Lemma red_lt_pt p q d u v k :
   inv p q d u v -> p < q -> k <= q %/ p -> 0 < q - k * p ->
   (p = pt v) /\ (q - k * p = M - pt (u + k * v)).
@@ -839,7 +837,7 @@ Qed.
 
 (*  [ptD_leq] with the orbit bound in place of [N].  Its [<= N] is there      *)
 (*    only to feed [pt_neq0], whose real content is [pt_neq0M] with           *)
-(*    [n < M %/ g] -- and [AlgFGG.inv_uv_le] hands that bound to every state    *)
+(*    [n < M %/ g] -- and [inv_uv_le] hands that bound to every state         *)
 (*    satisfying [inv].  That is why nothing on the [p] side below needs a    *)
 (*    range hypothesis.                                                       *)
 Lemma ptD_leqM x y :
@@ -850,7 +848,7 @@ by have := pt_neq0M xyM; rewrite ptDE pxpyE modnn eqxx.
 Qed.
 
 (*  A new index is an old one walked up by [j <= k] copies of [v], and the    *)
-(*    walk adds [j*p].  [AlgFGG.pt_new_lt] with the quotient replaced by [k].   *)
+(*    walk adds [j*p].                                                        *)
 Lemma red_lt_new p q d u v m k :
   inv p q d u v -> (forall i, i < u + v -> pt i <= M - q) ->
   p < q -> k <= q %/ p -> u + k * v + v < N ->
@@ -882,8 +880,7 @@ exists j => //; split => //.
 by rewrite -{1}(subnK jvm) pE ptWD // -pE // (leq_ltn_trans jpq).
 Qed.
 
-(*  The four [invx] fields that do not mention [inf], at a general [k].       *)
-(*    [AlgFGG.invx_step_lt_min] and friends, with the quotient replaced.        *)
+(*  The four [invx] fields that do not mention [inf].                         *)
 Lemma invx_red_lt_min p q d u v k :
   inv p q d u v -> (forall m, 0 < m < u + v -> p <= pt m) ->
   (forall m, m < u + v -> pt m <= M - q) ->
@@ -970,8 +967,8 @@ Qed.
 (*  The [inf] drop.  Reducing by [k] copies walks the closest point down by   *)
 (*    [k] gaps of length [p], but the walk stops when it would wrap: at most  *)
 (*    [inf %/ p] copies fit under [inf].  Hence the [minn] below.  At         *)
-(*    [k = q %/ p] this is [AlgFGG.inf_new_eq_lt], where the [minn] collapses   *)
-(*    to [inf %/ p] and the difference to [inf %% p].                         *)
+(*    [k = q %/ p] the [minn] collapses to [inf %/ p] and the difference to   *)
+(*    [inf %% p], which is [inf_new_eq_lt].                                   *)
 Lemma inf_red_lt_le p q d u v k :
   inv p q d u v -> p < q -> k <= q %/ p ->
   inf (u + k * v + v) <= inf (u + v) - minn k (inf (u + v) %/ p) * p.
@@ -1051,7 +1048,7 @@ rewrite xE; apply: leq_trans (walk_lt_wrap_ge iv pLq ylt jk Hmp).
 exact: ltnW (ltn_pmod _ p_gt0).
 Qed.
 
-(*  The two halves together.  [AlgFGG.inf_new_eq_lt] is the case [k = q %/ p].  *)
+(*  The two halves together.                                                  *)
 Lemma inf_red_lt p q d u v k :
   inv p q d u v -> invx p q u v -> p < q -> k <= q %/ p -> u + k * v + v < N ->
   inf (u + k * v + v) = inf (u + v) - minn k (inf (u + v) %/ p) * p.
@@ -1135,7 +1132,7 @@ by rewrite addn_gt0 v_gt0.
 Qed.
 
 (*  The mirror: a new index is an old one walked DOWN by [j <= k] copies of   *)
-(*    [u], and the walk subtracts [j*q].  [AlgFGG.pt_new_ge] at [k].            *)
+(*    [u], and the walk subtracts [j*q].                                      *)
 Lemma red_ge_new p q d u v m k :
   inv p q d u v -> (forall i, 0 < i < u + v -> p <= pt i) ->
   q <= p -> k <= p %/ q ->
@@ -1193,9 +1190,9 @@ exists j.-1 => //; apply: key => //.
 by rewrite yE -{1}[u]addn0 ltn_add2l.
 Qed.
 
-(*  The [invx] fields on the [p] side.  [_p1] cannot go through AlgFGG's        *)
-(*    argument, which reads [p - k*q < q] off the remainder; at a general     *)
-(*    [k] that is false.  It goes through the OLD [invx_p1] instead: it       *)
+(*  The [invx] fields on the [p] side.  [_p1] cannot read [p - k*q < q] off   *)
+(*    the remainder -- at a general [k] that is false -- so it goes through   *)
+(*    the OLD [invx_p1] instead: it                                           *)
 (*    already says [pt z + p] is a point, hence below [M], and the new gap    *)
 (*    is shorter.                                                             *)
 Lemma invx_red_ge_min p q d u v k :
@@ -1259,7 +1256,7 @@ have Hmax' := invx_red_ge_max iv (invx_min ix) (invx_max ix) qLp kLp.
 by apply: gap_decomp (inv_red_ge iv qLp kLp p'_gt0) Hmin' Hmax' yL.
 Qed.
 
-(*  How far the infimum drops when [p] is reduced -- and it is NOT the       *)
+(*  How far the infimum drops when [p] is reduced -- and it is NOT the        *)
 (*    mirror of the [q] side.  Property 3 is directional: a [q]-gap splits    *)
 (*    into [k] gaps of length [p] then the residual, LEFT TO RIGHT, so every  *)
 (*    point walks down by steps of [p]; a [p]-gap splits into the residual    *)
@@ -1267,8 +1264,8 @@ Qed.
 (*    RIGHT.  So here whether the infimum moves at all depends on which gap   *)
 (*    [b] sits in, which is what the disjunction records: [inf (u+v) < q]     *)
 (*    is the case where [b] is in a [q]-gap and nothing is added below it.    *)
-(*    This is [AlgFGG.ge_inf_le] at a general [k]; the [if] is what replaces    *)
-(*    AlgFGG's appeal to [r < q], which only holds at the quotient.             *)
+(*    The [if] is what replaces the appeal to [r < q] available only at the   *)
+(*    quotient.                                                               *)
 Lemma inf_red_ge_le p q d u v k :
   inv p q d u v -> invx p q u v -> q <= p -> 0 < k -> k <= p %/ q ->
   inf (u + v) < q \/
@@ -1333,7 +1330,7 @@ by rewrite ltn_add2r ltn_add2r.
 Qed.
 
 (*  and the [inf] field of [invx] on this side, which holds under either      *)
-(*    branch of the disjunction -- the same route as [AlgFGG].                  *)
+(*    branch of the disjunction.                                              *)
 Lemma invx_red_ge_inf p q d u v k :
   inv p q d u v -> invx p q u v -> q <= p -> 0 < k -> k <= p %/ q ->
   inf (u + (v + k * u)) < maxn (p - k * q) q.
@@ -1347,6 +1344,119 @@ case: (inf_red_ge_le iv ix qLp k_gt0 kLp) => [Ilt|Hle].
 move: Hle; case: (leqP (p - k * q) (inf (u + v))) => [rI|Ir] Hle.
   by rewrite (leq_ltn_trans Hle) // (leq_trans (ltn_pmod _ q_gt0)) ?leq_maxr.
 by rewrite (leq_ltn_trans Hle) // (leq_trans Ir) // leq_maxl.
+Qed.
+
+(******************************************************************************)
+(* The reduction at the Euclidean quotient                                    *)
+(******************************************************************************)
+
+(*  [inv] does not constrain [d].                                             *)
+Lemma inv_dW p q d d' u v : inv p q d u v -> inv p q d' u v.
+Proof. by case. Qed.
+
+(*  The step preserves [u * p + v * q = M].                                   *)
+Lemma step_bez p q d u v :
+  inv p q d u v ->
+  let: (p', q', _, u', v') := step p q d u v in u' * p' + v' * q' = M.
+Proof.
+move=> iv; rewrite /step; have [pLq|qLp] := ltnP => /=.
+  by apply: red_lt_bez iv _; apply: leq_divM.
+by apply: red_ge_bez iv _; apply: leq_divM.
+Qed.
+
+(*  The step preserves [p = pt v] and [q = M - pt u].                         *)
+Lemma step_pt p q d u v :
+  inv p q d u v ->
+  let: (p', q', _, u', v') := step p q d u v in
+  0 < p' -> 0 < q' -> (p' = pt v') /\ (q' = M - pt u').
+Proof.
+move=> iv; rewrite /step; have [pLq|qLp] := ltnP => /= Hp Hq.
+  by apply: red_lt_pt iv pLq (leqnn _) Hq.
+by apply: red_ge_pt iv qLp (leqnn _) Hp.
+Qed.
+
+(*  Both gaps stay positive while the range stays below [N]: a gap reaching   *)
+(*    zero would put the counts at [M %/ g], which [N] is below.              *)
+Lemma step_p_gt0 p q d u v :
+  inv p q d u v -> u + v < N ->
+  let: (p', q', _, u', v') := step p q d u v in
+  u' + v' < N -> 0 < p' /\ 0 < q'.
+Proof.
+move=> iv uvLN.
+have [p_gt0 q_gt0 bez pE qE gE _ _] := iv.
+have Hb := step_bez iv.
+move: Hb; rewrite /step.
+have [pLq|qLp] := ltnP => /= Hb Huv; split => //.
+  case: (posnP (q - q %/ p * p)) => [q0|] //.
+  have qme : q - q %/ p * p = q %% p by rewrite {1}(divn_eq q p) addnC addnK.
+  have qmp : q %% p = 0 by rewrite -qme q0.
+  have pg : p = gcdn A M by rewrite -gE; apply/esym/gcdn_idPl; rewrite /dvdn
+    qmp.
+  move: Hb; rewrite q0 muln0 addn0 => Hb.
+  have Hu : u + q %/ p * v = M %/ p by rewrite -Hb mulnK.
+  by move: Huv; rewrite Hu pg ltnNge (leq_trans leq_N_Mg (leq_addr v _)).
+have [p0|//] := posnP (p - p %/ q * q).
+have pme : p - p %/ q * q = p %% q by rewrite {1}(divn_eq p q) addnC addnK.
+have pmq : p %% q = 0 by rewrite -pme p0.
+have qg : q = g by rewrite -gE gcdnC; apply/esym/gcdn_idPl; rewrite /dvdn pmq.
+move: Hb; rewrite p0 muln0 add0n => Hb.
+have Hv : v + p %/ q * u = M %/ q by rewrite -Hb mulnK.
+by move: Huv; rewrite Hv qg ltnNge (leq_trans leq_N_Mg (leq_addl u _)).
+Qed.
+
+(*  The step preserves [inv], given that both new gaps are positive.          *)
+Lemma inv_step_pos p q d u v :
+  inv p q d u v ->
+  let: (p', q', d', u', v') := step p q d u v in
+  0 < p' -> 0 < q' -> inv p' q' d' u' v'.
+Proof.
+move=> iv; rewrite /step; have [pLq|qLp] := ltnP => /= Hp Hq.
+  by apply: inv_dW (inv_red_lt iv pLq (leqnn _) Hq).
+by apply: inv_dW (inv_red_ge iv qLp (leqnn _) Hp).
+Qed.
+
+(*  On the [p < q] branch the whole quotient is taken, so the infimum drops   *)
+(*    to its remainder mod [p].                                               *)
+Lemma inf_new_eq_lt p q d u v :
+  inv p q d u v -> invx p q u v -> p < q -> u + q %/ p * v + v < N ->
+  inf (u + q %/ p * v + v) = inf (u + v) %% p.
+Proof.
+move=> iv ix pLq uvN'.
+have IL : inf (u + v) %/ p <= q %/ p.
+  apply: leq_div2r; apply: ltnW.
+  by rewrite -(maxn_idPr (ltnW pLq)); apply: invx_inf.
+rewrite (inf_red_lt iv ix pLq (leqnn _) uvN') (minn_idPr IL).
+by rewrite {1}(divn_eq (inf (u + v)) p) addnC addnK.
+Qed.
+
+(*  and [invx] survives the step, on either branch.                           *)
+Lemma invx_step p q d u v :
+  inv p q d u v -> invx p q u v -> u + v < N ->
+  let: (p', q', _, u', v') := step p q d u v in
+  u' + v' < N -> invx p' q' u' v'.
+Proof.
+move=> iv ix uvN.
+have [_ q_gt0 _ _ _ _ _ _] := iv.
+have qM := inv_qM iv.
+have Hg := step_p_gt0 iv uvN.
+move: Hg; rewrite /step; case: (ltnP p q) => [pLq|qLp] /= Hg uvN'.
+  have [_ q'_gt0] := Hg uvN'; split.
+  - by apply: invx_red_lt_min iv (invx_min ix) (invx_max ix) pLq (leqnn _) uvN'.
+  - by apply: invx_red_lt_max iv (invx_max ix) pLq (leqnn _) uvN'.
+  - by rewrite (leq_trans _ qM) // leq_subr.
+  - by apply: invx_red_lt_inf iv ix pLq (leqnn _) q'_gt0 uvN'.
+  - by apply: invx_red_lt_gap iv ix pLq (leqnn _) q'_gt0 uvN'.
+  - by apply: invx_red_lt_p1 iv (invx_max ix) pLq (leqnn _) uvN'.
+  by apply: invx_red_lt_p2 iv pLq (leqnn _) q'_gt0.
+have [p'_gt0 _] := Hg uvN'; split.
+- by apply: invx_red_ge_min iv (invx_min ix) qLp (leqnn _).
+- by apply: invx_red_ge_max iv (invx_min ix) (invx_max ix) qLp (leqnn _).
+- by apply: qM.
+- have k_gt0 : 0 < p %/ q by rewrite divn_gt0.
+  by apply: invx_red_ge_inf iv ix qLp k_gt0 (leqnn _).
+- by apply: invx_red_ge_gap iv ix qLp (leqnn _) p'_gt0.
+- by apply: invx_red_ge_p1 iv ix qLp (leqnn _) p'_gt0.
+by apply: invx_red_ge_p2 iv.
 Qed.
 
 End Reduce.
