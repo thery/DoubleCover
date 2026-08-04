@@ -562,6 +562,122 @@ Qed.
    hypotheses are what make the heuristic admissible; with p1dummy they are
    p1check0_dummy and p1checkStep_dummy, with the real table they are the
    emitted certificate. *)
+(* ---- 5. The heuristic at the permutation level --------------------------- *)
+
+(* THE VIEWS ARE SYMMETRIES.  Far.v's views are Sy and Sx, which are two of
+   Symg's three generators and so are in Symg for nothing.  The 120 degree
+   rotation is not a generator, so it has to be exhibited as a word in them.
+   Found by breadth first search over Symset, which closes at 48 elements:
+   rot3t is at length four. *)
+Lemma rot3tE : rot3t = comp_tab (comp_tab (comp_tab Sytab Sxtab) Sytab) Sytab.
+Proof. by vm_compute. Qed.
+
+Lemma pt_rot3_Symg : pt 47 rot3t \in Symg.
+Proof.
+have o1 : tab_ok 47 (comp_tab Sytab Sxtab) by apply: tab_ok_comp okSy okSx.
+have s1 : pt 47 (comp_tab Sytab Sxtab) \in Symg
+  by apply: pt_comp_Symg okSy okSx pt_Sy_Symg pt_Sx_Symg.
+have o2 : tab_ok 47 (comp_tab (comp_tab Sytab Sxtab) Sytab)
+  by apply: tab_ok_comp o1 okSy.
+have s2 : pt 47 (comp_tab (comp_tab Sytab Sxtab) Sytab) \in Symg
+  by apply: pt_comp_Symg o1 okSy s1 pt_Sy_Symg.
+by rewrite rot3tE; apply: pt_comp_Symg o2 okSy s2 pt_Sy_Symg.
+Qed.
+
+Lemma pt_rot3t2_Symg : pt 47 rot3t2 \in Symg.
+Proof.
+by rewrite /rot3t2; apply: pt_comp_Symg rot3t_ok rot3t_ok pt_rot3_Symg
+                                        pt_rot3_Symg.
+Qed.
+
+Definition views3 : seq (seq nat) := [:: id_tab 47; rot3t; rot3t2].
+
+Definition views3p : seq {perm facelet} := [seq pt 47 s | s <- views3].
+
+Lemma views3_Symg u : u \in views3p -> u \in Symg.
+Proof.
+case/mapP => s; rewrite !inE => /orP[/eqP->|/orP[/eqP->|/eqP->]] ->.
+- by rewrite pt1 group1.
+- exact: pt_rot3_Symg.
+exact: pt_rot3t2_Symg.
+Qed.
+
+(* -- CERTIFICATE 2: the flip x slice distances, by rank -------------------- *)
+
+(* Dfsri reads the emitted P1Fs table by RANK, as rubik_par's pfs is read.
+   Far.v's Dfsd reads fstab by PACKED value and has Dfsd_0 and Dfsd_step
+   already proved, so all that is missing is that the two agree.  Over
+   PACKED values, for the same reason fsmoveC is: at x rather than at
+   unranki (fsidx x), so no injectivity of fsidx is needed. *)
+Definition fsrstepF (x : int) : bool :=
+  (nfsi <=? fsidx x)%uint63 || (Dfsri (fsidx x) =? Dfsi fstab x)%uint63.
+
+Definition fsrC : bool := all_pow ncoord 0%uint63 fsrstepF.
+
+Lemma fsrCE : fsrC = all_pow ncoord 0%uint63 fsrstepF.
+Proof. by rewrite /fsrC. Qed.
+
+Lemma fsrCP : fsrC.
+Proof. Admitted.
+
+(* -- CERTIFICATE 3: the slice rank move table ------------------------------ *)
+
+(* The ts bound is read at slrank (fsidx x), and stepping it uses actslri,
+   which reads the emitted slmove_data.  Nothing backed that table either.
+   Same shape and same loop as fsmoveC. *)
+Definition slrstepF (x : int) : bool :=
+  (nfsi <=? fsidx x)%uint63 ||
+  all (fun km => actslri (slrank (fsidx x)) km.1 =?
+                 slrank (fsidx (actf x km.2)))%uint63 p1mdata.
+
+Definition slrC : bool := all_pow ncoord 0%uint63 slrstepF.
+
+Lemma slrCE : slrC = all_pow ncoord 0%uint63 slrstepF.
+Proof. by rewrite /slrC. Qed.
+
+Lemma slrCP : slrC.
+Proof. Admitted.
+
+(* -- getting the checked instances out of the two loops -------------------- *)
+
+Lemma fsguard x : (fsidx x <? nfsi)%uint63 -> (nfsi <=? fsidx x)%uint63 = false.
+Proof.
+move=> fsL; apply/idP => /nlebP h1; move/nltbP: fsL => h2.
+by rewrite leqNgt h2 in h1.
+Qed.
+
+Lemma fsr_of_check x : fsrC -> (to_nat x < 2 ^ ncoord)%N -> fsrstepF x.
+Proof.
+move=> hcheck xL; rewrite fsrCE in hcheck.
+exact: (all_powP ncoord_dig hcheck xL).
+Qed.
+
+Lemma fsrC_inst x :
+  fsrstepF x -> (fsidx x <? nfsi)%uint63 -> Dfsri (fsidx x) = Dfsi fstab x.
+Proof.
+(* orFb, NOT /=: simpl here goes on to unfold Dfsri and fstab and evaluate
+   them.  Same trap as everywhere else on these tables. *)
+by move=> hall fsL; move: hall; rewrite /fsrstepF (fsguard fsL) orFb => /eqP.
+Qed.
+
+Lemma slr_of_check x : slrC -> (to_nat x < 2 ^ ncoord)%N -> slrstepF x.
+Proof.
+move=> hcheck xL; rewrite slrCE in hcheck.
+exact: (all_powP ncoord_dig hcheck xL).
+Qed.
+
+Lemma slrC_inst x k :
+  slrstepF x -> (fsidx x <? nfsi)%uint63 -> (k < 18)%N ->
+  actslri (slrank (fsidx x)) k
+  = slrank (fsidx (actf x (mdatf_of_tab (nth [::] mtabs k)))).
+Proof.
+move=> hall fsL kL.
+move: hall; rewrite /slrstepF (fsguard fsL) orFb => hstep.
+move: hstep => /(all_nthP (0%N, mdatf_of_tab [::])).
+rewrite size_map size_iota => /(_ k kL).
+by rewrite (nth_map_iota _ _ kL) => /eqP.
+Qed.
+
 Lemma far_of_searchz3 T d a :
   p1check0 T -> p1checkStep T -> ts_check0 -> ts_checkStep ->
   fsmoveC -> tabi_ok 47 a -> cubti a -> twP3 a ->
