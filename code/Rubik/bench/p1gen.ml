@@ -661,6 +661,85 @@ let () =
     exit 0
   end;
 
+  (* ---- ONE PIECE, exactly as Rocq's countp1 runs it ---------------------- *)
+  (* countp1 T d j searches the TWO prefixes superflip . m_0 . m_j and
+     superflip . m_1 . m_j at depth d = N - 2, starting the redundancy filter
+     afresh (p = nfcube).  The `search' mode above is a different tree -- it
+     fixes only the first move and carries the filter -- so its node count is
+     NOT comparable with countp1's.  This mode is, piece for piece. *)
+  if Array.length Sys.argv > 2 && Sys.argv.(2) = "pieces" then begin
+    let target = try int_of_string Sys.argv.(3) with _ -> 14 in
+    let jarg = try Some (int_of_string Sys.argv.(4)) with _ -> None in
+    let r = match rot with Some r -> r | None -> assert false in
+    let ri = inv r in
+    let r2 = comp r r in
+    let ri2 = inv r2 in
+    let maxd = 24 in
+    let cube = Array.init maxd (fun _ -> Array.make nfacelet 0) in
+    let tw = Array.make_matrix maxd 3 0 in
+    let fs = Array.make_matrix maxd 3 0 in
+    let nodes = ref 0L in
+    let heur d =
+      let h = ref 0 in
+      for k = 0 to 2 do
+        let t = tw.(d).(k) and f = fs.(d).(k) in
+        let a = Char.code (Bytes.unsafe_get pfs f) in
+        let b = Char.code (Bytes.unsafe_get pts (t * nslice + f mod nslice)) in
+        let c = Char.code (Bytes.unsafe_get p (t * nfs + f)) in
+        if a > !h then h := a;
+        if b > !h then h := b;
+        if c > !h then h := c
+      done; !h in
+    let opp f = (f + 3) mod 6 in
+    let step d m =
+      let d' = d + 1 in
+      comp_into cube.(d') cube.(d) moves.(m);
+      for k = 0 to 2 do
+        let mk = mv.(k).(m) in
+        tw.(d').(k) <- twmove.(tw.(d).(k) * nmoves + mk);
+        fs.(d').(k) <- fsmove.(fs.(d).(k) * nmoves + mk)
+      done in
+    let rec dfs d rem prev =
+      nodes := Int64.add !nodes 1L;
+      let h = heur d in
+      if h = 0 && cube.(d) = ident then true
+      else if h > rem || rem = 0 then false
+      else begin
+        let found = ref false and m = ref 0 in
+        while not !found && !m < nmoves do
+          let f = !m / 3 in
+          if not (f = prev || (f = opp prev && f > prev)) then begin
+            step d !m;
+            if dfs (d + 1) (rem - 1) f then found := true
+          end;
+          incr m
+        done; !found
+      end in
+    (* the prefix, and its three views rebuilt from the cube -- at a general
+       prefix they differ, unlike at the superflip root where all three agree *)
+    let piece i j =
+      let c = comp (comp sfti moves.(i)) moves.(j) in
+      Array.blit c 0 cube.(0) 0 nfacelet;
+      let v = [| c; comp ri (comp c r); comp ri2 (comp c r2) |] in
+      for k = 0 to 2 do
+        tw.(0).(k) <- ctwist v.(k); fs.(0).(k) <- fsidx (coordi v.(k)) done;
+      dfs 0 (target - 2) 6 in                (* prev = 6 excludes nothing *)
+    let js = match jarg with Some j -> [j] | None -> List.init nmoves (fun j -> j) in
+    let tot = ref 0L in
+    List.iter (fun j ->
+      nodes := 0L;
+      let t0 = Unix.gettimeofday () in
+      let r0 = piece 0 j in
+      let r1 = piece 1 j in
+      tot := Int64.add !tot !nodes;
+      Printf.printf "piece %2d : %14Ld nodes, %8.1f s, solution %b\n%!"
+        j !nodes (Unix.gettimeofday () -. t0) (r0 || r1)) js;
+    if jarg = None then
+      Printf.printf "total    : %14Ld nodes over %d pieces at depth %d\n%!"
+        !tot nmoves target;
+    exit 0
+  end;
+
   (* ---- the search, mimicking rubik_par's dfs ----------------------------- *)
 
   if Array.length Sys.argv > 2 && Sys.argv.(2) = "search" then begin
