@@ -1202,3 +1202,114 @@ Definition countp1 (T : PArray.array arr) (d j : nat) : bool * int :=
   let: (r0, n0) := searchz3c T d (prefixi 0 j) (init3 (prefixi 0 j)) nfcube in
   let: (r1, n1) := searchz3c T d (prefixi 1 j) (init3 (prefixi 1 j)) nfcube in
   (r0 || r1, Uint63.add n0 n1).
+
+(* ---- 7. The cheap phase 1 step certificate ------------------------------- *)
+
+(* all_pow visits exactly the 2 ^ k values from i, so a pointwise implication
+   that holds ON THAT RANGE is enough.  Mirrors all_pow_gen's induction. *)
+Lemma all_pow_imp k i (f g : int -> bool) :
+  k <= ndigits -> to_nat i + (2 ^ k)%N <= nwB ->
+  (forall x, to_nat i <= to_nat x < to_nat i + (2 ^ k)%N -> f x -> g x) ->
+  all_pow k i f -> all_pow k i g.
+Proof.
+elim: k i => [|k IH] i kL hb /=.
+  by move=> h; apply: h; rewrite expn0 addn1 leqnn ltnSn.
+move=> h /andP[h1 h2].
+have kL' : k <= ndigits by apply: ltnW.
+have hhalf : to_nat i + 2 ^ k <= nwB.
+  by apply: leq_trans hb; rewrite leq_add2l leq_exp2l.
+have hi2 : to_nat (i + lsl 1 (of_nat k))%uint63 = to_nat i + 2 ^ k.
+  by apply: to_nat_addlsl => //; apply: leq_trans hb;
+     rewrite ltn_add2l ltn_exp2l.
+apply/andP; split.
+  apply: (IH i) => // x /andP[hx1 hx2]; apply: h; rewrite hx1 /=.
+  by apply: leq_trans hx2 _; rewrite leq_add2l leq_exp2l.
+apply: (IH (i + lsl 1 (of_nat k))%uint63) => //.
+- by rewrite hi2 -addnA addnn -mul2n -expnS.
+move=> x; rewrite hi2 => /andP[hx1 hx2]; apply: h.
+rewrite (leq_trans _ hx1) ?leq_addr //=.
+by move: hx2; rewrite -addnA addnn -mul2n -expnS.
+Qed.
+
+(* ---- the cheap step ------------------------------------------------------ *)
+
+(* p1stepF recomputes the flip x slice action with actf, at 6.2 us a call and
+   eighteen calls for each of the 1 013 760 summaries in each of the 2187
+   twists.  actfsr reads the emitted move table instead, at 0.12 us, and
+   fsmoveC is exactly the lemma that says the two agree. *)
+Definition p1stepFr (T : PArray.array arr) (tw x : int) : bool :=
+  let r := fsidx x in
+  if (nfsi <=? r)%uint63 then true
+  else all (fun k =>
+              (p1get T (p1idxr tw r) <=?
+               incr (p1get T (p1idxr (acttwi tw k) (actfsr r k))))%uint63)
+           (iota 0 18).
+
+Definition p1checkTwr (T : PArray.array arr) (tw : int) : bool :=
+  all_pow ncoord 0%uint63 (p1stepFr T tw).
+
+Definition p1checkStepr (T : PArray.array arr) : bool :=
+  all (fun t => p1checkTwr T (of_nat t)) (iota 0 ntwist).
+
+Lemma p1checkTwrE T tw :
+  p1checkTwr T tw = all_pow ncoord 0%uint63 (p1stepFr T tw).
+Proof. by rewrite /p1checkTwr. Qed.
+
+(* p1stepF's all is over p1mdata, a map; this is the same all over the
+   indices, so that fsmoveC_inst can be applied at k directly.  Conversion
+   does the preim delta, the beta and the two projections in one step --
+   rewriting them apart does not return. *)
+Lemma p1stepFE T tw x :
+  p1stepF T tw x =
+  (if (nfsi <=? fsidx x)%uint63 then true
+   else all (fun k =>
+               (Dp1i T tw x <=?
+                incr (Dp1i T (acttwi tw k)
+                        (actf x (mdatf_of_tab (nth [::] mtabs k)))))%uint63)
+            (iota 0 18)).
+Proof. by rewrite /p1stepF /p1mdata all_map. Qed.
+
+(* the two step functions agree wherever the certificate looks *)
+Lemma p1stepFrE T tw x : fsmoveC -> (to_nat x < 2 ^ ncoord)%N ->
+  p1stepFr T tw x = p1stepF T tw x.
+Proof.
+move=> hfm xL; rewrite p1stepFE /p1stepFr.
+case: (boolP (nfsi <=? fsidx x)%uint63) => hg; first by [].
+have fsL : (fsidx x <? nfsi)%uint63.
+  by apply/nltbP; move/nlebP: hg => h; rewrite ltnNge; apply/negP.
+have hst := fsmstepF_of_check hfm xL.
+apply: eq_in_all => k; rewrite mem_iota add0n => /andP[_ kL].
+by rewrite /Dp1i p1idxE p1idxE (fsmoveC_inst hst fsL kL).
+Qed.
+
+(* AND SO THE CHEAP CHECK SUFFICES.  fsmoveC is itself a certificate, but a
+   2 ^ 24 one, against 2187 x 2 ^ 24 here -- and it is needed anyway.
+
+   TWO TRAPS.  fsmoveC is turned into a forall and CLEARED at once: left in
+   the context it is is_true headed, so every // and every trailing done
+   unifies its goal against an all_pow at ncoord = 24 and stops returning.
+   And allP is not usable here -- applying its view makes the unifier look
+   at `all _ (iota 0 2187)' whose elements are themselves all_pow at 2 ^ 24.
+   sub_all takes the pointwise implication without ever forming that. *)
+Lemma p1checkStepr_ok T : fsmoveC -> p1checkStepr T -> p1checkStep T.
+Proof.
+move=> hfm.
+have hE : forall tw x, (to_nat x < 2 ^ ncoord)%N ->
+                       p1stepFr T tw x = p1stepF T tw x.
+  by move=> tw x xL; apply: p1stepFrE hfm xL.
+clear hfm.
+have hb : (to_nat 0%uint63 + 2 ^ ncoord <= nwB)%N.
+  by rewrite to_nat_0 add0n nwB_pow leq_exp2l // ncoord_dig.
+rewrite /p1checkStepr /p1checkStep.
+apply: sub_all => t.
+rewrite p1checkTwE p1checkTwrE.
+apply: (all_pow_imp ncoord_dig hb) => x hx.
+(* hx gives the range the rewrite needs, and // discharges it *)
+by rewrite hE //; move: hx; rewrite to_nat_0 add0n => /andP[_].
+Qed.
+
+(* the slices version, mirroring Phase1.p1checkStep_of_slices *)
+Lemma p1checkStepr_of_slices T (s : seq nat) : s = iota 0 ntwist ->
+  all (fun t => p1checkTwr T (of_nat t)) s -> p1checkStepr T.
+Proof. by move=> ->. Qed.
+
