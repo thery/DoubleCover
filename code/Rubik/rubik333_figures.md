@@ -169,6 +169,8 @@ Full table, depth 16 count run:
 | | |
 |---|---|
 | **`Phase1.vo`** | **41 s** on roquableu, **44.9 s** on the desktop (2026-08-05, `-time`) |
+| **`Farp1.vo`** | **1 m 30** on roquableu with the real tables (2026-08-05) |
+| **`FsmChk.vo`** | **1 m 20** on roquableu, native (2026-08-05) — the fsmoveC certificate, 2^24 values |
 | `P1TsChk.vo` | 35 s (its header still says 4.7 min — that predates the `of_nat` work) |
 
 The two machines are within 10 % of each other on `Phase1.vo`, so do NOT
