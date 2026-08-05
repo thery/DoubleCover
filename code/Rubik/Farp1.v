@@ -1065,19 +1065,89 @@ Qed.
 
 (* -- the invariant at the root --------------------------------------------- *)
 
-(* THE ONE THING LEFT TO PROVE.  It cannot be discharged by vm_compute: twP
-   is stated over {perm facelet}, and permutations do not evaluate -- 240 s
-   and no answer.  What it needs is the computable form at the TABLE level,
-   mirroring cubt:
-     cubcPt t := (comp_tab ccyct t == comp_tab t ccyct), with
-       cubcPtE : tab_ok 47 t -> cubcP (pt 47 t) = cubcPt t
-     twsumt   from Phase1's corientt, with
-       twsumtE : tab_ok 47 t -> twsum (pt 47 t) = twsumt t
-   Both are transports through pt, the same shape as the cubtE and ctwisttE
-   that already exist; the corientt half is already inside ctwisttE's proof.
-   Then twP3 sfti is a table computation. *)
+(* THE INVARIANT AT THE ROOT, COMPUTABLY.  twP is stated over
+   {perm facelet}, and permutations do not evaluate -- vm_compute on
+   twP3 sfti runs past 240 s with no answer.  So it is transported to the
+   TABLE level first, where it is a comparison of two 48 entry tables and a
+   sum over eight corners, and THAT computes in milliseconds.  Same shape as
+   the cubtE and ctwisttE that already exist. *)
+
+(* cubcP g says g commutes with the corner 3-cycle *)
+Lemma cubcPE g : cubcP g = (g * ccyc == ccyc * g).
+Proof.
+apply/forallP/eqP => [h|h f].
+  by apply/permP => f; rewrite !permM (eqP (h f)).
+by rewrite -!permM h.
+Qed.
+
+Definition cubcPt (t : seq nat) : bool := comp_tab t ccyct == comp_tab ccyct t.
+
+Lemma cubcPtE t : tab_ok 47 t -> cubcP (pt 47 t) = cubcPt t.
+Proof.
+move=> tok.
+have o1 : tab_ok 47 (comp_tab t ccyct) by apply: tab_ok_comp tok ccyct_ok.
+have o2 : tab_ok 47 (comp_tab ccyct t) by apply: tab_ok_comp ccyct_ok tok.
+rewrite cubcPE /ccyc (ptM tok ccyct_ok) (ptM ccyct_ok tok) /cubcPt.
+by apply/eqP/eqP => [/(pt_inj_in o1 o2)|->].
+Qed.
+
+(* the per corner bridge, which ctwisttE proves inline for its own fold *)
+Lemma corientgtE t p : tab_ok 47 t ->
+  corientg (pt 47 t) p = corientt (inv_tab 47 t) (nth (0, 0, 0)%N ctrip p).
+Proof.
+move=> tok; have iok := tab_ok_inv tok.
+have ilt c : (c < 48)%N -> (nth 0%N (inv_tab 47 t) c < 48)%N.
+  move=> cL; have /and3P[/eqP sz /allP hall _] := iok.
+  by apply: hall; rewrite mem_nth // sz.
+have hval c : (c < 48)%N ->
+    udcol ((pt 47 t)^-1 (inord c)) = (nth 0%N (inv_tab 47 t) c \in cprim).
+  move=> cL; rewrite (ptV tok) ptE; last exact: iok.
+  by rewrite /udcol (inordK cL) (inordK (ilt _ cL)).
+have hb : all (fun tr => ((tr.1.1 < 48) && (tr.1.2 < 48) &&
+                          (tr.2 < 48))%N) ctrip.
+  by vm_compute.
+move/(all_nthP (0, 0, 0)%N): hb => hb'.
+have hsz : seq.size ctrip = 8 by [].
+have hbp : (((nth (0, 0, 0)%N ctrip p).1.1 < 48) &&
+            ((nth (0, 0, 0)%N ctrip p).1.2 < 48))%N.
+  have [pL|pL] := ltnP p 8.
+    have ps : (p < seq.size ctrip)%N by rewrite hsz.
+    by have /andP[/andP[-> ->] _] := hb' p ps.
+  by rewrite nth_default ?hsz.
+rewrite /corientg /corientt.
+have /andP[h0 h1] := hbp.
+case: (nth (0, 0, 0)%N ctrip p) h0 h1 => [[c0 c1] c2] h0 h1.
+by rewrite (hval _ h0) (hval _ h1).
+Qed.
+
+Definition twsumt (t : seq nat) : nat :=
+  (foldr (fun p a => a + corientt (inv_tab 47 t) (nth (0, 0, 0)%N ctrip p))
+         0%N (iota 0 8)) %% 3.
+
+Lemma twsumtE t : tab_ok 47 t -> twsum (pt 47 t) = twsumt t.
+Proof.
+move=> tok; rewrite /twsum /twsumt; congr (_ %% 3).
+by elim: (iota 0 8) => //= p l ->; rewrite (corientgtE p tok).
+Qed.
+
+Definition twPt (t : seq nat) : bool := cubcPt t && (twsumt t == 0%N).
+
+Lemma twPtE t : tab_ok 47 t -> twP (pt 47 t) = twPt t.
+Proof. by move=> tok; rewrite /twP (cubcPtE tok) (twsumtE tok). Qed.
+
+Lemma twPtiE a : tabi_ok 47 a -> twPti a = twPt (ti2t 47 a).
+Proof. by move=> aok; rewrite /twPti (twPtE _). Qed.
+
 Lemma twP3_sfti : twP3 sfti.
-Proof. Admitted.
+Proof.
+have sok : tabi_ok 47 sfti by vm_compute.
+have ok3 := tabi_ok_conj3 sok.
+have ok33 := tabi_ok_conj3 ok3.
+apply/and3P; split.
+- by rewrite (twPtiE sok); vm_compute.
+- by rewrite (twPtiE ok3); vm_compute.
+by rewrite (twPtiE ok33); vm_compute.
+Qed.
 
 (* prefixi's nth defaults to sfti, twP3_step's to id_tabi; in range they
    agree *)
