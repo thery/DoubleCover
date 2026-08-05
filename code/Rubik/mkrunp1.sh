@@ -21,4 +21,15 @@ for j in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17; do
   sed -e "s/@N@/$n/g" -e "s/@J@/$j/g" -e "s/@D@/$R/g" -e "s/@DEPTH@/$D/g" -e "s/@CAST@/$E/g" \
       Runp1_task.v.in > "Runp1_$n.v"
 done
+
+# THE DEPTH LIVES IN TWO PLACES.  Runp1.v's p1depth is what Farp1inst's
+# theorem is stated at, and what p1searchd's statement uses through p1droot;
+# the eighteen generated files carry the same number independently.  Left
+# unsynchronised, ./mkrunp1.sh 19 gives searches at depth 17 and a p1searchd
+# still stated at 12, and Farp1inst fails -- AFTER the multi-day run.
+sed -i "s/^Definition p1depth := .*/Definition p1depth := $D./" Runp1.v
+grep -q "^Definition p1depth := $D\.$" Runp1.v || {
+  echo "failed to set p1depth in Runp1.v" >&2; exit 1; }
+
 echo "wrote Runp1_00.v .. Runp1_17.v at depth $D (root depth $R), $E"
+echo "  and set Runp1.v's p1depth to $D -- rebuild Runp1.vo before the pieces"
