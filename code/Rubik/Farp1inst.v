@@ -16,7 +16,7 @@ From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
         Coordfs Coordfsi Fstab FsTable Diameter Moves
         Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 Far Farp1
-        Farp1main P1TsChk P1Table Runp1.
+        Farp1main P1TsChk P1Table Runp1 FsmChk FsrChk SlrChk P1Chk0.
 Require Import Runp1_00 Runp1_01 Runp1_02 Runp1_03 Runp1_04 Runp1_05.
 Require Import Runp1_06 Runp1_07 Runp1_08 Runp1_09 Runp1_10 Runp1_11.
 Require Import Runp1_12 Runp1_13 Runp1_14 Runp1_15 Runp1_16 Runp1_17.
@@ -73,14 +73,12 @@ Proof. by []. Qed.
    and slrCP are stated in Farp1.v and admitted there, and p1check0 and
    p1checkStep have to be run on the emitted table. *)
 Theorem superflip_p1far_real :
-  p1check0 p1tab -> p1checkStep p1tab ->
-  fsmoveC -> fsrC -> slrC ->
-  superflip \notin ball Sset p1depth.
+  p1checkStep p1tab -> superflip \notin ball Sset p1depth.
 Proof.
-move=> hc0 hcS hfm hfr hsl.
+move=> hcS.
 (* every argument pinned: closing a Section turns its Variables and
    Hypotheses into EXPLICIT arguments, in declaration order, so a partial
    application silently binds p1tab to the wrong slot. *)
-exact: (@superflip_p1far p1tab p1droot p1droot_small hc0 hcS ts_checkStepP
-                         hfm hfr hsl p1searchd).
+exact: (@superflip_p1far p1tab p1droot p1droot_small p1check0P hcS
+                         ts_checkStepP fsmoveCP fsrCP slrCP p1searchd).
 Qed.

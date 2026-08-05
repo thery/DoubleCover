@@ -373,8 +373,8 @@ Definition fsmoveC : bool := all_pow ncoord 0%uint63 fsmstepF.
 Lemma fsmoveCE : fsmoveC = all_pow ncoord 0%uint63 fsmstepF.
 Proof. by rewrite /fsmoveC. Qed.
 
-Lemma fsmoveCP : fsmoveC.
-Proof. Admitted.
+(* the certificate itself is discharged in FsmChk.v, by
+   native_cast_no_check, so a day to day build does not pay for it *)
 
 (* split in two, as Phase1.v splits p1stepF_of_check from p1checkStep_inst:
    getting the checked instance out of the loop, then reading the k-th move
@@ -655,8 +655,8 @@ Definition fsrC : bool := all_pow ncoord 0%uint63 fsrstepF.
 Lemma fsrCE : fsrC = all_pow ncoord 0%uint63 fsrstepF.
 Proof. by rewrite /fsrC. Qed.
 
-Lemma fsrCP : fsrC.
-Proof. Admitted.
+(* the certificate itself is discharged in FsrChk.v, by
+   native_cast_no_check, so a day to day build does not pay for it *)
 
 (* -- CERTIFICATE 3: the slice rank move table ------------------------------ *)
 
@@ -673,8 +673,8 @@ Definition slrC : bool := all_pow ncoord 0%uint63 slrstepF.
 Lemma slrCE : slrC = all_pow ncoord 0%uint63 slrstepF.
 Proof. by rewrite /slrC. Qed.
 
-Lemma slrCP : slrC.
-Proof. Admitted.
+(* the certificate itself is discharged in SlrChk.v, by
+   native_cast_no_check, so a day to day build does not pay for it *)
 
 (* -- getting the checked instances out of the two loops -------------------- *)
 

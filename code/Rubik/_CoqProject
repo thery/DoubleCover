@@ -70,5 +70,9 @@ Farmain.v
 Farp1.v
 Farp1main.v
 Farp1chk.v
+FsmChk.v
+FsrChk.v
+SlrChk.v
+P1Chk0.v
 Farp1inst.v
 Runp1.v
