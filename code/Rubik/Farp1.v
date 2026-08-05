@@ -552,23 +552,23 @@ move=> aok ca /and3P[t1 t2 t3] kL.
 have kM : k \in iota 0 18 by rewrite mem_iota add0n leq0n kL.
 have kaL := allP mv3a_lt _ kM.
 have kbL := allP mv3b_lt _ kM.
+(* one place for `the k-th move table is well formed', as prefixi_twP3 has:
+   all_nthP wants j < size mtis, and mv3a_lt / mv3b_lt give j < 18 *)
+have hm j : (j < 18)%N -> tabi_ok 47 (nth (id_tabi 47) mtis j)
+  by move=> jL; apply: (all_nthP (id_tabi 47) mtis_ok); rewrite size_mtis.
 have ok3 := tabi_ok_conj3 aok.
 have ok33 := tabi_ok_conj3 ok3.
 have ca3 := cubti_conj3 aok ca.
 have ca33 := cubti_conj3 ok3 ca3.
-have okc : tabi_ok 47 (comp_tabi 47 a (nth (id_tabi 47) mtis k)).
-  apply: (tabi_ok_comp n47_small n47_len) => //.
-  by apply: (all_nthP (id_tabi 47) mtis_ok); rewrite size_mtis.
+have okc := tabi_ok_comp n47_small n47_len aok (hm _ kL).
 apply/and3P; split.
 - exact: twPti_step aok ca t1 kL.
 - rewrite (twPti_ti2t (tabi_ok_conj3 okc)
-             (tabi_ok_comp n47_small n47_len ok3
-                (all_nthP (id_tabi 47) mtis_ok _ (leq_trans kaL (leqnn _))))
+             (tabi_ok_comp n47_small n47_len ok3 (hm _ kaL))
              (conj3_step aok kL)).
   exact: twPti_step ok3 ca3 t2 kaL.
 rewrite (twPti_ti2t (tabi_ok_conj3 (tabi_ok_conj3 okc))
-           (tabi_ok_comp n47_small n47_len ok33
-              (all_nthP (id_tabi 47) mtis_ok _ (leq_trans kbL (leqnn _))))
+           (tabi_ok_comp n47_small n47_len ok33 (hm _ kbL))
            (conj3_step2 aok kL)).
 exact: twPti_step ok33 ca33 t3 kbL.
 Qed.
