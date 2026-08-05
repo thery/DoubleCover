@@ -378,17 +378,20 @@ Definition mkarr (n d : int) (l : seq int) : arr :=
 
 Definition twmove : arr := mkarr ntwmovei 0%uint63 twmove_data. (* GENERATED *)
 
-Definition acttwi (x : int) (k : nat) : int :=
-  PArray.get twmove (Uint63.add (Uint63.mul x 18%uint63) (of_nat k)).
+(* THE MOVE INDEX AS AN int63.  acttwi takes a nat, so every call runs
+   of_nat on it, and p1stepFr's inner loop calls it eighteen times for every
+   checked packed value.  MEASURED vm, 100 000 iterations: the eighteen move
+   loop costs 15.7 us with of_nat against 1.18 us with the indices already
+   int63 -- 13.3x, and actfsr converts a second time on top.
 
-(* THE SAME WITH THE MOVE INDEX ALREADY int63.  acttwi takes a nat, so every
-   call runs of_nat on it, and p1stepFr's inner loop calls it eighteen times
-   for every checked packed value.  MEASURED vm, 100 000 iterations: the
-   eighteen move loop costs 15.7 us with of_nat against 1.18 us with the
-   indices as int63 -- 13.3x, and actfsr converts a second time on top.
-   acttwiiE says the two agree, so the proofs keep using acttwi. *)
+   acttwi is DEFINED FROM acttwii rather than repeating its body: with two
+   copies the two sides of acttwiiE are only convertible after delta, and the
+   `by []' closing it then evaluates twmove -- 39 366 entries -- which is
+   where a whole Phase1.v build went.  Factored, the lemma is one delta. *)
 Definition acttwii (x k : int) : int :=
   PArray.get twmove (Uint63.add (Uint63.mul x 18%uint63) k).
+
+Definition acttwi (x : int) (k : nat) : int := acttwii x (of_nat k).
 
 Lemma acttwiiE x k : acttwii x (of_nat k) = acttwi x k.
 Proof. by []. Qed.
