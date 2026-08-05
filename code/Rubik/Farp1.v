@@ -82,6 +82,14 @@ Lemma rot3_relabel :
 Proof. by vm_compute. Qed.
 
 (* so each view sends a move to a move -- Far.v's view_move, for these views *)
+(* HOISTED, and it matters: several proofs below carry fsmoveC, fsrC, slrC
+   or ts_checkStep in their context, and a trailing `done' there tries
+   `assumption' against one of them and unfolds an all_pow at ncoord = 24.
+   Proving this once, where no certificate is in scope, keeps every use of it
+   out of that trap.  Farp1main.v had its own copy for the same reason. *)
+Lemma mem_iota0 n k : (k < n)%N -> k \in iota 0 n.
+Proof. by move=> kL; rewrite mem_iota add0n leq0n kL. Qed.
+
 Lemma size_mtabs18 : seq.size mtabs = 18%N.
 Proof. by vm_compute. Qed.
 
@@ -94,14 +102,14 @@ Proof. by vm_compute. Qed.
 
 Lemma rot3_move k : (k < 18)%N -> conjt rot3t (nth [::] mtabs k) \in mtabs.
 Proof.
-move=> kL; have kM : k \in iota 0 18 by rewrite mem_iota add0n leq0n kL.
+move=> kL; have kM := mem_iota0 kL.
 have /andP[/eqP -> _] := allP rot3_relabel _ kM.
 by apply: mem_nth; rewrite size_mtabs18; exact: (allP mv3a_lt _ kM).
 Qed.
 
 Lemma rot3t2_move k : (k < 18)%N -> conjt rot3t2 (nth [::] mtabs k) \in mtabs.
 Proof.
-move=> kL; have kM : k \in iota 0 18 by rewrite mem_iota add0n leq0n kL.
+move=> kL; have kM := mem_iota0 kL.
 have /andP[_ /eqP ->] := allP rot3_relabel _ kM.
 by apply: mem_nth; rewrite size_mtabs18; exact: (allP mv3b_lt _ kM).
 Qed.
@@ -425,17 +433,20 @@ Qed.
 (* and the array level: the certificate at x = coordi a, with the two side
    conditions discharged where they belong -- the packed bound from Coordfs,
    the fsok guard from sok_coordfs and the carried parity. *)
-Lemma actfsr_step a k : fsmoveC -> tabi_ok 47 a -> cubti a -> twPti a ->
-  (k < 18)%N ->
+(* fsmoveC LAST, deliberately.  Every `by' below ends in `done', and `done'
+   tries `assumption' against each hypothesis; against fsmoveC that unfolds
+   an all_pow at ncoord = 24 and does not return.  Introduced last, it is not
+   in the context while any of them runs. *)
+Lemma actfsr_step a k : tabi_ok 47 a -> cubti a -> twPti a -> (k < 18)%N ->
+  fsmoveC ->
   actfsr (fsidx (coordi a)) k
   = fsidx (coordi (comp_tabi 47 a (nth (id_tabi 47) mtis k))).
 Proof.
-move=> hc aok ca tw kL.
+move=> aok ca tw kL.
 have kL' : (k < seq.size mtis)%N by rewrite size_mtis.
 have hcd : coordi a = coordfs (pt 47 (ti2t 47 a)).
   by rewrite (coordiE aok) (coordtE aok).
-rewrite (actcdE kL' aok ca) /actcd.
-have -> : nth (mdatf_of_tab [::]) mdatafd k = mdatf_of_tab (nth [::] mtabs k).
+have hmd : nth (mdatf_of_tab [::]) mdatafd k = mdatf_of_tab (nth [::] mtabs k).
   by rewrite mdatafdE /mdataf (nth_map [::]) // size_mtabs18.
 (* cA is NOT redundant: without it `exact: sok_coordfs' leaves cubP to
    `done', which unfolds it and evaluates the tables -- it does not
@@ -447,12 +458,11 @@ have hfs : fsok (coordi a).
   rewrite /fsok; apply/andP; split.
     by rewrite hcd; exact: sok_coordfs cA.
   by move: tw; rewrite /twPti => /andP[_].
-(* every argument pinned, no `apply ... ; last': with fsmoveC in the context
-   the unification apply leaves behind goes looking at it, and fsmoveC is an
-   all_pow at ncoord = 24 *)
-have hstep : fsmstepF (coordi a).
-  by apply: fsmstepF_of_check hc _; rewrite hcd; exact: coordfs_lt.
-exact: fsmoveC_inst hstep hfs kL.
+have hcl : (to_nat (coordi a) < 2 ^ ncoord)%N by rewrite hcd; exact: coordfs_lt.
+(* fsmoveC enters HERE, and nothing below it calls done *)
+move=> hc.
+rewrite (actcdE kL' aok ca) /actcd hmd.
+exact: fsmoveC_inst (fsmstepF_of_check hc hcl) hfs kL.
 Qed.
 
 (* the views keep cubies together, so cubti travels to them *)
@@ -480,7 +490,7 @@ Lemma conj3_step a k : tabi_ok 47 a -> (k < 18)%N ->
                           (nth (id_tabi 47) mtis (nth 0%N mv3a k))).
 Proof.
 move=> aok kL.
-have kM : k \in iota 0 18 by rewrite mem_iota add0n leq0n kL.
+have kM := mem_iota0 kL.
 have kL' : (k < seq.size mtis)%N by rewrite size_mtis.
 have /eqP hs := allP sigma_rot3a _ kM.
 rewrite !conj3E -hs.
@@ -510,7 +520,7 @@ Lemma conj3_step2 a k : tabi_ok 47 a -> (k < 18)%N ->
                           (nth (id_tabi 47) mtis (nth 0%N mv3b k))).
 Proof.
 move=> aok kL.
-have kM : k \in iota 0 18 by rewrite mem_iota add0n leq0n kL.
+have kM := mem_iota0 kL.
 have kL' : (k < seq.size mtis)%N by rewrite size_mtis.
 have mtok : tabi_ok 47 (nth (id_tabi 47) mtis k)
   by apply: (all_nthP (id_tabi 47) mtis_ok).
@@ -555,7 +565,7 @@ Lemma twP3_step a k : tabi_ok 47 a -> cubti a -> twP3 a -> (k < 18)%N ->
   twP3 (comp_tabi 47 a (nth (id_tabi 47) mtis k)).
 Proof.
 move=> aok ca /and3P[t1 t2 t3] kL.
-have kM : k \in iota 0 18 by rewrite mem_iota add0n leq0n kL.
+have kM := mem_iota0 kL.
 have kaL := allP mv3a_lt _ kM.
 have kbL := allP mv3b_lt _ kM.
 (* one place for `the k-th move table is well formed', as prefixi_twP3 has:
@@ -584,9 +594,22 @@ Lemma step3_init a k : fsmoveC ->
   step3 (init3 a) k = init3 (comp_tabi 47 a (nth (id_tabi 47) mtis k)).
 Proof.
 move=> hc aok ca /and3P[t1 t2 t3] kL.
-have kM : k \in iota 0 18 by rewrite mem_iota add0n leq0n kL.
+have kM := mem_iota0 kL.
 have kaL := allP mv3a_lt _ kM.
 have kbL := allP mv3b_lt _ kM.
+have ok3 := tabi_ok_conj3 aok.
+have ok33 := tabi_ok_conj3 ok3.
+have c3a := cubti_conj3 aok ca.
+have c33a := cubti_conj3 ok3 c3a.
+(* THE THREE CERTIFICATE INSTANCES FIRST, AND THEN clear hc.  With fsmoveC in
+   the context every `done' -- even one closing `true' -- tries `assumption'
+   against it, and unfolding an all_pow at ncoord = 24 does not return.  It
+   did not bite before only because the old guard was an int63 comparison;
+   fsok holds fpar, a count over a NAT. *)
+have f1 := actfsr_step aok ca t1 kL hc.
+have f2 := actfsr_step ok3 c3a t2 kaL hc.
+have f3 := actfsr_step ok33 c33a t3 kbL hc.
+clear hc.
 have kL' : (k < seq.size mtis)%N by rewrite size_mtis.
 have kaL' : (nth 0%N mv3a k < seq.size mtis)%N by rewrite size_mtis.
 have kbL' : (nth 0%N mv3b k < seq.size mtis)%N by rewrite size_mtis.
@@ -597,23 +620,19 @@ have maok : tabi_ok 47 (nth (id_tabi 47) mtis (nth 0%N mv3a k))
 have mbok : tabi_ok 47 (nth (id_tabi 47) mtis (nth 0%N mv3b k))
   by apply: (all_nthP (id_tabi 47) mtis_ok).
 have Aok := tabi_ok_comp n47_small n47_len aok mtok.
-have ok3 := tabi_ok_conj3 aok.
-have ok33 := tabi_ok_conj3 ok3.
 have okA3 := tabi_ok_conj3 Aok.
 have okA33 := tabi_ok_conj3 okA3.
 have C3 := tabi_ok_comp n47_small n47_len ok3 maok.
 have C33 := tabi_ok_comp n47_small n47_len ok33 mbok.
-have c3a := cubti_conj3 aok ca.
-have c33a := cubti_conj3 ok3 c3a.
 have e3 := conj3_step aok kL.
 have e33 := conj3_step2 aok kL.
 rewrite /step3 /init3.
 (* the projections of the literal pairs, by delta -- NOT by /=, which goes
    on to unfold the tables underneath *)
 rewrite [in LHS]/fst [in LHS]/snd.
-rewrite (acttwi_step aok ca t1 kL) (actfsr_step hc aok ca t1 kL).
-rewrite (acttwi_step ok3 c3a t2 kaL) (actfsr_step hc ok3 c3a t2 kaL).
-rewrite (acttwi_step ok33 c33a t3 kbL) (actfsr_step hc ok33 c33a t3 kbL).
+rewrite (acttwi_step aok ca t1 kL) f1.
+rewrite (acttwi_step ok3 c3a t2 kaL) f2.
+rewrite (acttwi_step ok33 c33a t3 kbL) f3.
 rewrite (ctwisti_ti2t okA3 C3 e3) (coordi_ti2t okA3 C3 e3).
 rewrite (ctwisti_ti2t okA33 C33 e33) (coordi_ti2t okA33 C33 e33).
 exact: refl_equal.
@@ -823,7 +842,7 @@ Proof.
 rewrite ts_checkStepE => /allP h twL sB.
 have sN : (to_nat s < nsrank)%N by rewrite -to_nat_nsranki; apply/nltbP.
 have sP : (to_nat s < 2 ^ 9)%N by apply: leq_trans sN nsrank_pow9.
-have hm : to_nat tw \in iota 0 ntwist by rewrite mem_iota add0n leq0n twL.
+have hm := mem_iota0 twL.
 have htw : all_pow 9 0%uint63 (fun r => (nsranki <=? r)%uint63 || tsstepF tw r).
   by move: (h _ hm); rewrite to_natK; exact: id.
 have := all_powP nine_dig htw sP.
@@ -843,7 +862,7 @@ Lemma ts_checkStep_inst tw s k : tsstepF tw s -> (k < 18)%N ->
   (Dtsi tw s <=? incr (Dtsi (acttwi tw k) (actslri s k)))%uint63.
 Proof.
 rewrite tsstepFE => hall kL.
-have hm : k \in iota 0 18 by rewrite mem_iota add0n leq0n kL.
+have hm := mem_iota0 kL.
 exact: (allP hall _ hm).
 Qed.
 
@@ -977,11 +996,14 @@ Proof. by rewrite to_nat_maxi to_nat_maxi. Qed.
 (* ONE VIEW: the int63 triple of lookups is the nat heuristic at that view.
    The invariant is needed on all three: hfs is 0 off cubP, hts and hp1 are 0
    off twcP, while the array reads the tables regardless. *)
-Lemma hv1E T X : fsrC -> tabi_ok 47 X -> cubti X -> twPti X ->
+(* fsrC LAST, as in actfsr_step: the four `have ... by ...' below each end in
+   done, and done tries assumption against fsrC, which is an all_pow at
+   ncoord = 24. *)
+Lemma hv1E T X : tabi_ok 47 X -> cubti X -> twPti X -> fsrC ->
   to_nat (hv1 T (ctwisti X, fsidx (coordi X)))
   = h3p T (pt 47 (ti2t 47 X)).
 Proof.
-move=> hfr Xok cX tX.
+move=> Xok cX tX.
 have cA : cubP (pt 47 (ti2t 47 X)) by rewrite (cubtE Xok) -(cubtiE Xok).
 have hcd : coordi X = coordfs (pt 47 (ti2t 47 X))
   by rewrite (coordiE Xok) (coordtE Xok).
@@ -991,6 +1013,8 @@ have htw : ctwisti X = coordtw (pt 47 (ti2t 47 X))
    goes off evaluating the tables.  [&& a, b & c] IS a && (b && c). *)
 have twg : twcP (pt 47 (ti2t 47 X)).
   by rewrite /twcP cA andTb -hcd; exact: tX.
+(* fsrC enters HERE, and nothing below it calls done *)
+move=> hfr.
 rewrite /hv1 [in LHS]/fst [in LHS]/snd.
 rewrite to_nat_maxi to_nat_maxi.
 rewrite /h3p /hfs /hcoordg cA (htsE twg) (hp1E T twg) hcd htw.
@@ -1028,9 +1052,9 @@ have J2 : pt 47 (ti2t 47 a) ^ pt 47 rot3t2
 rewrite J1 J2.
 (* BACKWARDS, hsym3 side to array side: forwards, the matcher looks for
    to_nat (hv1 ...) and walks into h3p on the other side instead. *)
-rewrite -(hv1E T hfr aok ca t1).
-rewrite -(hv1E T hfr ok3 c3 t2).
-rewrite -(hv1E T hfr ok33 c33 t3).
+rewrite -(hv1E T aok ca t1 hfr).
+rewrite -(hv1E T ok3 c3 t2 hfr).
+rewrite -(hv1E T ok33 c33 t3 hfr).
 exact: refl_equal.
 Qed.
 
