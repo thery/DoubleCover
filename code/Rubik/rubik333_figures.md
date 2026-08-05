@@ -171,6 +171,34 @@ Full table, depth 16 count run:
 | **`Phase1.vo`** | **41 s** on roquableu, **44.9 s** on the desktop (2026-08-05, `-time`) |
 | **`Farp1.vo`** | **1 m 30** on roquableu with the real tables (2026-08-05) |
 | **`FsmChk.vo`** | **1 m 20** on roquableu, native (2026-08-05) — the fsmoveC certificate, 2^24 values |
+| **`SlrChk.vo`** | **12 m 7**, of which the `Qed` is **719.7 s** (2026-08-05) |
+
+### These certificates are Qed-bound
+
+`native_cast_no_check` does NOT evaluate: it records the cast, and the whole
+2^24 evaluation happens in the KERNEL at `Qed`. So the `Time` line inside the
+file always reads 0 s and is useless — `time make` is the only measure.
+`-time` still earns its keep by splitting tactic from `Qed`, which is how the
+`||` below was found.
+
+**`||` IS STRICT UNDER NATIVE.** `orb` is a function call, native compiles it
+to OCaml, and OCaml evaluates both arguments. So a guard written
+`~~ fsok x || A` runs `A` on all 2^24 values, where
+`if ~~ fsok x then true else A` runs it only on the 1 013 760 admitted.
+MEASURED: `SlrChk` (with `||`) 719.7 s against `FsmChk` (with `if`) ~80 s —
+9x, against 16.5x predicted. Fix parked on branch `rubik-orb-if`.
+
+### A P1Chk slice, after the guard fix
+
+| | |
+|---|---|
+| memory | **3.2 GB** each, 9 in parallel = 29 GB of 64 |
+| per twist, ARITHMETIC from measured primitives | `sok` on 2^24 ~0.7 s + **`fpar` on 2.03 M ~16 s** + the 18 move work on 1.01 M ~6 s = ~22 s |
+| a slice of 81 twists | ~30 min |
+
+**`fpar` dominates and should be a 4096 entry table** like `srank`: it is
+`odd (count (nbit x) (iota 0 nedge))`, a NAT computation at ~8 us a call. A
+lookup would be 0.04 us and cut the slice to ~9 min. Designed, not built.
 | `P1TsChk.vo` | 35 s (its header still says 4.7 min — that predates the `of_nat` work) |
 
 The two machines are within 10 % of each other on `Phase1.vo`, so do NOT
