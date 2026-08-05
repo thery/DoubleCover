@@ -134,6 +134,19 @@ done
 printf ".\nQed.\n"
 } > P1ChkAll.v
 
+# ---- and _CoqProject, or make has no rule for any of them ----------------
+# The slice count is an argument, so the entries cannot just be checked in:
+# the old ones are dropped and the new ones added on every run.
+grep -v '^P1Chk_' _CoqProject | grep -v '^P1ChkAll\.v$' > _CoqProject.new
+i=0
+while [ $i -lt $NSLICE ]; do
+  printf "P1Chk_%02d.v\n" $i >> _CoqProject.new
+  i=$((i + 1))
+done
+echo "P1ChkAll.v" >> _CoqProject.new
+mv _CoqProject.new _CoqProject
+
 echo "wrote P1Chk_00 .. P1Chk_$(printf "%02d" $((NSLICE - 1))).v and P1ChkAll.v"
+echo "  and listed them in _CoqProject, so make has rules for them"
 echo "  $NSLICE slices of $LEN twists, $CAST"
 echo "  each slice loads the table, about 5 GB -- twelve at a time on 64 GB"
