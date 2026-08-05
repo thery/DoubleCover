@@ -2130,7 +2130,9 @@ Proof. by rewrite /p1check0 Dp1i_dummy. Qed.
    Rewriting the predicate to xpredT, then naming each redex, is instant. *)
 Lemma p1stepF_dummy tw x : p1stepF p1dummy tw x.
 Proof.
-rewrite /p1stepF; case: ifP => // _.
+(* the guard branch closed by isT, NOT by //: done on the other branch has
+   the whole p1mdata all in front of it and reaches for the tables *)
+rewrite /p1stepF; case: ifP => [_|_]; first exact: isT.
 rewrite (eq_all (a2 := xpredT)) ?all_predT // => km.
 by rewrite [Dp1i p1dummy tw x]p1get_dummy
            [Dp1i p1dummy (acttwi tw km.1) (actf x km.2)]p1get_dummy.
