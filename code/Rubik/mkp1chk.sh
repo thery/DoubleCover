@@ -15,8 +15,9 @@
 #  s = iota 0 ntwist, so the slices are concatenated and that equation is
 #  settled by vm_compute on 2187 elements, which is nothing.
 #
-#  MEMORY: each slice loads the whole phase 1 table, about 5 GB since the
-#  chunks became array literals.  Twelve at a time on a 64 GB machine.
+#  MEMORY: each slice loads the whole phase 1 table, 3 GB since the chunks
+#  became array literals.  DO NOT choose the -j yourself: say `make p1chk',
+#  with no -j, and Makefile.local takes it from the RAM present.
 # =========================================================================
 
 NSLICE=${1:-27}
@@ -159,4 +160,6 @@ mv _CoqProject.new _CoqProject
 echo "wrote P1Chk_00 .. P1Chk_$(printf "%02d" $((NSLICE - 1))).v and P1ChkAll.v"
 echo "  and listed them in _CoqProject, so make has rules for them"
 echo "  $NSLICE slices of $LEN twists, $CAST"
-echo "  each slice loads the table, about 5 GB -- twelve at a time on 64 GB"
+echo ""
+echo "  now say   make p1chk   -- with NO -j: it is a memory question, and"
+echo "  Makefile.local computes the job count from the RAM present."
