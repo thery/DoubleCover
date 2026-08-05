@@ -24,3 +24,9 @@ CountReal_*.v
 CountReal_*.vo
 CountReal_*.glob
 CountReal.v
+P1Chk_*.v
+P1Chk_*.vo
+P1Chk_*.glob
+P1ChkAll.v
+P1ChkAll.vo
+P1ChkAll.glob
