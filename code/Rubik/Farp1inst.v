@@ -61,7 +61,14 @@ by apply: all_iota18p1;
     exact: p1searchd_15 | exact: p1searchd_16 | exact: p1searchd_17].
 Qed.
 
-(* THE THEOREM, with the three certificates that are still computations left
+(* HOISTED, and not proved inside the theorem: there the context holds
+   p1checkStep, fsmoveC, fsrC and slrC, and a trailing `done' then unifies
+   its goal against one of them and unfolds an all_pow at ncoord = 24.  Even
+   `12 <= 63' stops returning. *)
+Lemma p1droot_small : (p1droot <= 63)%N.
+Proof. by []. Qed.
+
+(* THE THEOREM, with the certificates that are still computations left
    standing in its type.  Discharging them is what remains: fsmoveCP, fsrCP
    and slrCP are stated in Farp1.v and admitted there, and p1check0 and
    p1checkStep have to be run on the emitted table. *)
@@ -71,5 +78,9 @@ Theorem superflip_p1far_real :
   superflip \notin ball Sset p1depth.
 Proof.
 move=> hc0 hcS hfm hfr hsl.
-exact: (superflip_p1far hc0 hcS ts_checkStepP hfm hfr hsl p1searchd).
+(* every argument pinned: closing a Section turns its Variables and
+   Hypotheses into EXPLICIT arguments, in declaration order, so a partial
+   application silently binds p1tab to the wrong slot. *)
+exact: (@superflip_p1far p1tab p1droot p1droot_small hc0 hcS ts_checkStepP
+                         hfm hfr hsl p1searchd).
 Qed.
