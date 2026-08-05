@@ -53,7 +53,8 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
         Coordfs Coordfsi Fstab FsTable Diameter Moves
-        Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 P1Table.
+        Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 Far Farp1
+        P1Table.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -61,8 +62,14 @@ Unset Printing Implicit Defensive.
 
 Import GroupScope.
 
+(* p1checkTwr, NOT p1checkTw: it reads the emitted fsmove table where
+   p1checkTw recomputes the action with actf.  MEASURED: actf 6.2 us,
+   actfsr 0.12 us, and there are eighteen of them for each of the
+   1 013 760 summaries in each twist.  Farp1.p1checkStepr_ok turns the
+   cheap check into the real one, using fsmoveC -- which is a 2 ^ 24
+   certificate that has to be discharged anyway. *)
 Lemma p1chk_$n :
-  all (fun t => p1checkTw p1tab (of_nat t)) (iota $lo $LEN).
+  all (fun t => p1checkTwr p1tab (of_nat t)) (iota $lo $LEN).
 Proof. Time $CAST. Qed.
 EOF
   i=$((i + 1))
@@ -89,7 +96,8 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
         Coordfs Coordfsi Fstab FsTable Diameter Moves
-        Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 P1Table.
+        Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 Far Farp1
+        P1Table FsmChk.
 EOF
 i=0
 while [ $i -lt $NSLICE ]; do
@@ -121,9 +129,9 @@ cat <<'EOF'
 Lemma slicesE : slices = iota 0 ntwist.
 Proof. by vm_compute. Qed.
 
-Lemma p1checkStepP : p1checkStep p1tab.
+Lemma p1checkSteprP : p1checkStepr p1tab.
 Proof.
-apply: (p1checkStep_of_slices slicesE).
+apply: (p1checkStepr_of_slices slicesE).
 EOF
 printf "by rewrite /slices !all_cat"
 i=0
@@ -131,7 +139,9 @@ while [ $i -lt $NSLICE ]; do
   printf " p1chk_%02d" $i
   i=$((i + 1))
 done
-printf ".\nQed.\n"
+printf ".\nQed.\n\n"
+printf "Lemma p1checkStepP : p1checkStep p1tab.\n"
+printf "Proof. exact: (p1checkStepr_ok fsmoveCP p1checkSteprP). Qed.\n"
 } > P1ChkAll.v
 
 # ---- and _CoqProject, or make has no rule for any of them ----------------
