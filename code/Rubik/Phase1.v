@@ -393,8 +393,10 @@ Definition acttwii (x k : int) : int :=
 
 Definition acttwi (x : int) (k : nat) : int := acttwii x (of_nat k).
 
+(* /acttwi, not `by []': nothing is left to done, which on these tables
+   reaches for the arrays and does not come back *)
 Lemma acttwiiE x k : acttwii x (of_nat k) = acttwi x k.
-Proof. by []. Qed.
+Proof. by rewrite /acttwi. Qed.
 
 (* THE FINITE CHECK.  2187 twists x 18 moves, both sides computable: acttwi
    reads the emitted array, acttwt runs the digit formula on the move TABLE.

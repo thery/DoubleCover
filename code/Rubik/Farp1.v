@@ -194,8 +194,9 @@ Definition actfsri (r k : int) : int :=
 
 Definition actfsr (r : int) (k : nat) : int := actfsri r (of_nat k).
 
+(* /actfsr, not `by []': see acttwiiE in Phase1.v *)
 Lemma actfsriE r k : actfsri r (of_nat k) = actfsr r k.
-Proof. by []. Qed.
+Proof. by rewrite /actfsr. Qed.
 
 (* rubik_par's pfs, the flip x slice distance by rank *)
 Definition nfswordsi : int := 67584%uint63.      (* ceil (1013760 / 15)      *)
