@@ -443,8 +443,9 @@ have cA : cubP (pt 47 (ti2t 47 a)) by rewrite (cubtE aok) -(cubtiE aok).
 (* the guard is now fsok, and its two halves come from two different places:
    the slice half from cubP, the parity half from the carried invariant *)
 have hfs : fsok (coordi a).
-  apply/andP; split; first by rewrite hcd; exact: sok_coordfs cA.
-  by case/andP: tw.
+  rewrite /fsok; apply/andP; split.
+    by rewrite hcd; exact: sok_coordfs cA.
+  by move: tw; rewrite /twPti => /andP[_].
 apply: fsmoveC_inst kL; last exact: hfs.
 by apply: fsmstepF_of_check hc _; rewrite hcd; exact: coordfs_lt.
 Qed.
@@ -981,8 +982,10 @@ have hcd : coordi X = coordfs (pt 47 (ti2t 47 X))
   by rewrite (coordiE Xok) (coordtE Xok).
 have htw : ctwisti X = coordtw (pt 47 (ti2t 47 X))
   by rewrite (ctwistiE Xok) (ctwisttE Xok).
+(* andTb, NOT /=: simpl on a goal holding twP unfolds cubcP and twsum and
+   goes off evaluating the tables.  [&& a, b & c] IS a && (b && c). *)
 have twg : twcP (pt 47 (ti2t 47 X)).
-  by rewrite /twcP cA /= -hcd; exact: tX.
+  by rewrite /twcP cA andTb -hcd; exact: tX.
 rewrite /hv1 [in LHS]/fst [in LHS]/snd.
 rewrite to_nat_maxi to_nat_maxi.
 rewrite /h3p /hfs /hcoordg cA (htsE twg) (hp1E T twg) hcd htw.

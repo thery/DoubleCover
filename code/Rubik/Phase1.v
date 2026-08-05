@@ -2012,8 +2012,9 @@ Definition twcP (g : {perm facelet}) : bool :=
 
 Lemma twcP1 : twcP 1.
 Proof.
-rewrite /twcP cubP1 twP1 /=.
-by rewrite coordfs1E /fpar; vm_compute.
+(* !andTb, NOT /=: see the note in Farp1.hv1E -- simpl here unfolds twP *)
+rewrite /twcP cubP1 twP1 !andTb.
+by rewrite coordfs1E; vm_compute.
 Qed.
 
 Lemma twcPM g m : twcP g -> m \in Sset -> twcP (g * m).
