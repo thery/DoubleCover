@@ -1934,12 +1934,12 @@ Qed.
 Lemma hmovesE k : (k < 18)%N -> nth 1%g moves k = pt 47 (nth [::] mtabs k).
 Proof. by move=> kL; rewrite mtabsE (nth_map [::]). Qed.
 
-Section P1Heur.
+(* HOISTED ABOVE Section P1Heur, and it has to be: inside it the context
+   holds hchkS : p1checkStep, and every `done' -- including the sixteen that
+   close odd_count_addb's four case splits -- then tries `assumption'
+   against it and unfolds an all_pow at ncoord = 24.  None of these lemmas
+   mentions the table.  The same trap as everywhere else in this file. *)
 
-Hypothesis hchk0 : p1check0.
-Hypothesis hchkS : p1checkStep.
-
-(* the invariant: cubP for the flip x slice half, twP for the twist half *)
 (* ---- the flip parity, the edge analogue of twsum ------------------------- *)
 
 (* odd (count _) is a sum in F2, so a pointwise xor splits *)
@@ -2012,6 +2012,13 @@ have hall : all (fun m => (count (nbit (of_nat m)) (iota 0 nedge) == nslice)
 by have := implyP (allP hall _ hmem) hcount; rewrite to_natK.
 Qed.
 
+
+Section P1Heur.
+
+Hypothesis hchk0 : p1check0.
+Hypothesis hchkS : p1checkStep.
+
+(* the invariant: cubP for the flip x slice half, twP for the twist half *)
 (* CARRIED, like twsum g = 0 and for the same reason: a single flipped edge is
    a rigid cubie permutation, so cubP does not give it.  With it, twcP g is
    exactly what p1stepF's guard asks of coordfs g. *)
