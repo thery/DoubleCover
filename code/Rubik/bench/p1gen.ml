@@ -634,6 +634,93 @@ let () =
 
   (* the rotation itself, as a facelet table, so Rocq is GIVEN it rather than
      guessing which product of Sy and Sx it is.  Printed in Rocq syntax. *)
+  (* ---- the sixteen U/D preserving symmetries ---------------------------- *)
+  (* The phase 1 coordinate is defined relative to the U/D stickers, so a
+     symmetry induces a map on it exactly when it maps the U/D facelet blocks
+     to themselves.  Sixteen of the forty-eight do -- the subgroup Kociemba
+     solvers fold by.  This mode DERIVES them and checks that the induced
+     maps are WELL DEFINED: symtw is read off one representative per twist,
+     so the test is that a different element of the same class conjugates to
+     the same twist.  Same standard the move tables are held to. *)
+  if Array.length Sys.argv > 2 && Sys.argv.(2) = "sym16" then begin
+    let stride = try int_of_string Sys.argv.(3) with _ -> 97 in
+    let ud = Array.make nfacelet false in
+    for i = 0 to 7 do ud.(i) <- true done;
+    for i = 40 to 47 do ud.(i) <- true done;
+    let keeps u =
+      (try
+         for f = 0 to nfacelet - 1 do
+           if ud.(f) <> ud.(u.(f)) then raise Exit done;
+         true
+       with Exit -> false) in
+    let s16 = List.filter keeps syms in
+    Printf.printf "U/D preserving symmetries: %d of %d\n%!"
+      (List.length s16) (List.length syms);
+    let sc = Array.make nfacelet 0 in
+    let conj ui u g = comp ui (comp g u) in
+    let tot_tw = ref 0 and tot_fs = ref 0 in
+    List.iteri (fun n u ->
+      let ui = inv u in
+      let symtw = Array.init ntwist (fun t -> ctwist (conj ui u twrep.(t))) in
+      let badtw = ref 0 in
+      for t = 0 to ntwist - 1 do
+        for k = 0 to nmoves - 1 do
+          comp_into sc twrep.(t) moves.(k);
+          if ctwist (conj ui u sc) <> symtw.(twmove.(t * nmoves + k))
+          then incr badtw
+        done
+      done;
+      let symfs =
+        Array.init nfs (fun i -> fsidx (coordi (conj ui u fsrep.(i)))) in
+      let badfs = ref 0 in
+      let i = ref 0 in
+      while !i < nfs do
+        for k = 0 to nmoves - 1 do
+          comp_into sc fsrep.(!i) moves.(k);
+          if fsidx (coordi (conj ui u sc)) <> symfs.(fsmove.(!i * nmoves + k))
+          then incr badfs
+        done;
+        i := !i + stride
+      done;
+      tot_tw := !tot_tw + !badtw; tot_fs := !tot_fs + !badfs;
+      Printf.printf "  sym %2d : twist %d bad of %d, flip x slice %d bad\n%!"
+        n !badtw (ntwist * nmoves) !badfs) s16;
+    Printf.printf "TOTAL: twist %d bad, flip x slice %d bad (stride %d)\n%!"
+      !tot_tw !tot_fs stride;
+    (* THE FOLD FACTOR.  The folded table is indexed by (flip x slice class
+       representative, twist), so the reduction is nfs / number of orbits of
+       the sixteen on the flip x slice space.  Orbits are not all free --
+       symmetric positions have smaller ones -- so this is counted, not
+       divided. *)
+    let symfs_all =
+      List.map (fun u ->
+        let ui = inv u in
+        Array.init nfs (fun i -> fsidx (coordi (comp ui (comp fsrep.(i) u)))))
+        s16 in
+    let rp = Array.make nfs (-1) in
+    let norb = ref 0 in
+    for i = 0 to nfs - 1 do
+      if rp.(i) < 0 then begin
+        incr norb;
+        List.iter (fun m -> if rp.(m.(i)) < 0 then rp.(m.(i)) <- i) symfs_all
+      end
+    done;
+    Printf.printf "flip x slice orbits: %d of %d (fold %.2fx)\n%!"
+      !norb nfs (float_of_int nfs /. float_of_int !norb);
+    Printf.printf "folded phase 1 table: %d entries against %d\n%!"
+      (!norb * ntwist) (nfs * ntwist);
+    (* the sixteen as Rocq tables, so Rocq is GIVEN them rather than having
+       to search the group itself -- the same rule the rot3t table follows *)
+    let pr name t =
+      Printf.printf "Definition %s : seq nat :=\n  [::" name;
+      Array.iteri (fun i v ->
+        Printf.printf "%s%d" (if i = 0 then " " else
+                              if i mod 16 = 0 then ";\n   " else "; ") v) t;
+      Printf.printf "]%%N.\n" in
+    List.iteri (fun n u -> pr (Printf.sprintf "sym16_%02d" n) (Array.of_list (Array.to_list u))) s16;
+    exit 0
+  end;
+
   if Array.length Sys.argv > 2 && Sys.argv.(2) = "views" then begin
     let rot = match rot with Some r -> r | None -> assert false in
     let pr name a =
