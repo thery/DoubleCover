@@ -26,7 +26,7 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
         Coordfs Coordfsi Fstab FsTable Diameter Moves
-        Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 Far.
+        Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 Far Fsparity.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -447,8 +447,12 @@ have hfs : fsok (coordi a).
   rewrite /fsok; apply/andP; split.
     by rewrite hcd; exact: sok_coordfs cA.
   by move: tw; rewrite /twPti => /andP[_].
-apply: fsmoveC_inst kL; last exact: hfs.
-by apply: fsmstepF_of_check hc _; rewrite hcd; exact: coordfs_lt.
+(* every argument pinned, no `apply ... ; last': with fsmoveC in the context
+   the unification apply leaves behind goes looking at it, and fsmoveC is an
+   all_pow at ncoord = 24 *)
+have hstep : fsmstepF (coordi a).
+  by apply: fsmstepF_of_check hc _; rewrite hcd; exact: coordfs_lt.
+exact: fsmoveC_inst hstep hfs kL.
 Qed.
 
 (* the views keep cubies together, so cubti travels to them *)
@@ -1324,13 +1328,15 @@ Proof. by rewrite /p1stepF /p1mdata all_map. Qed.
 Lemma p1stepFrE T tw x : fsmoveC -> (to_nat x < 2 ^ ncoord)%N ->
   p1stepFr T tw x = p1stepF T tw x.
 Proof.
+(* exact: erefl for the guard branch, NOT `by []': done there does not
+   return.  And boolP SUBSTITUTES -- in the second branch the goal already
+   reads `if ~~ false', so there is no `~~ fsok x' left for rewrite hg. *)
 move=> hfm xL; rewrite p1stepFE /p1stepFr.
-case: (boolP (fsok x)) => hg; last by rewrite hg.
-rewrite (fsguard hg) midxiE all_map.
-have hst := fsmstepF_of_check hfm xL.
+case: (boolP (fsok x)) => hg; last exact: erefl.
+rewrite midxiE all_map.
 apply: eq_in_all => k; rewrite mem_iota add0n => /andP[_ kL].
-rewrite /preim /= acttwiiE actfsriE.
-by rewrite /Dp1i p1idxE p1idxE (fsmoveC_inst hst hg kL).
+rewrite /preim /= acttwiiE actfsriE /Dp1i p1idxE p1idxE.
+by rewrite (fsmoveC_inst (fsmstepF_of_check hfm xL) hg kL).
 Qed.
 
 (* AND SO THE CHEAP CHECK SUFFICES.  fsmoveC is itself a certificate, but a

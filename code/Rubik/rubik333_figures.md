@@ -168,7 +168,19 @@ Full table, depth 16 count run:
 
 | | |
 |---|---|
+| **`Phase1.vo`** | **41 s** on roquableu, **44.9 s** on the desktop (2026-08-05, `-time`) |
 | `P1TsChk.vo` | 35 s (its header still says 4.7 min — that predates the `of_nat` work) |
+
+The two machines are within 10 % of each other on `Phase1.vo`, so do NOT
+assume roquableu is faster per core — it has the RAM and the cores, not the
+clock. Its slowest sentences, all over a second:
+
+| | |
+|---|---|
+| `by rewrite !permM (eqP (cm _))...` | 7.5 s |
+| the `all_ssreflect` import | 6.9 s |
+| a `by vm_compute` at char 25096 | 6.0 s |
+| `rewrite /p1stepF; case: ifP` in `p1stepF_dummy` | 5.0 s |
 | `Farp1.vo` | ~30 s |
 | `Farp1main.vo` | 8 s, and needs **no data at all** |
 | `Farp1chk.vo` | ~1m25 through `make` (builds the chain beneath it) |
@@ -176,3 +188,26 @@ Full table, depth 16 count run:
 
 `Far_00.v .. Far_17.v` are in `_CoqProject` and each is a **65 hour** depth 15
 run of the old five view search. **Never run bare `make`.**
+
+## Working interactively: use DUMMY tables (2026-08-05)
+
+`rocq-mcp` opening a file in this development, MEASURED cold:
+
+| tables | `rocq_start` on a small file requiring the chain |
+|---|---|
+| the real `P1Ts.v` + `P1Fs.v` (2.75 MB) | **over 120 s** — `Farp1.v` itself over 290 s, past the server cap |
+| both replaced by `[:: 0]` | **under 30 s** |
+
+So develop against dummies. It is NOT raw size: a synthetic 4.2 MB
+`seq int` and the file requiring it cost pet under 25 s cold, against 8.3 s
+for `coqc` — so pet handles a big table fine and the cause here is
+something else, not yet identified.
+
+`P1Ts.v` and `P1Fs.v` are **tracked**, unlike `P1Fsm.v`, so a local dummy
+must be hidden from git:
+
+    git update-index --skip-worktree P1Ts.v P1Fs.v     # dummy locally
+    git update-index --no-skip-worktree P1Ts.v P1Fs.v  # and back
+
+Keep the real ones somewhere before overwriting. See the note about never
+checking a dummy in under a generated file's name.
