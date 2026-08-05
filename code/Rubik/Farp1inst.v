@@ -16,7 +16,8 @@ From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
         Coordfs Coordfsi Fstab FsTable Diameter Moves
         Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 Far Farp1
-        Farp1main P1TsChk P1Table Runp1 FsmChk FsrChk SlrChk P1Chk0.
+        Farp1main P1TsChk P1Table Runp1 FsmChk FsrChk SlrChk P1Chk0
+        P1ChkAll.
 Require Import Runp1_00 Runp1_01 Runp1_02 Runp1_03 Runp1_04 Runp1_05.
 Require Import Runp1_06 Runp1_07 Runp1_08 Runp1_09 Runp1_10 Runp1_11.
 Require Import Runp1_12 Runp1_13 Runp1_14 Runp1_15 Runp1_16 Runp1_17.
@@ -42,8 +43,8 @@ Lemma all_iota18p1 (f : nat -> bool) :
   f 15%N -> f 16%N -> f 17%N -> all f (iota 0 18).
 Proof.
 move=> h00 h01 h02 h03 h04 h05 h06 h07 h08 h09 h10 h11 h12 h13 h14 h15 h16 h17.
-by rewrite /= h00 h01 h02 h03 h04 h05 h06 h07 h08 h09 h10 h11 h12 h13 h14 h15
-           h16 h17.
+by rewrite /= h00 h01 h02 h03 h04 h05 h06 h07 h08 h09 h10 h11 h12 h13 h14
+           h15 h16 h17.
 Qed.
 
 Lemma p1searchd :
@@ -72,13 +73,16 @@ Proof. by []. Qed.
    standing in its type.  Discharging them is what remains: fsmoveCP, fsrCP
    and slrCP are stated in Farp1.v and admitted there, and p1check0 and
    p1checkStep have to be run on the emitted table. *)
-Theorem superflip_p1far_real :
-  p1checkStep p1tab -> superflip \notin ball Sset p1depth.
+(* NO HYPOTHESES.  Every one of the six computations has its own file and
+   its own Qed: P1Chk0 and P1ChkAll for the phase 1 table, P1TsChk for the
+   twist x slice one, FsmChk, FsrChk and SlrChk for the three move and
+   distance tables.  Print Assumptions shows only the int63 and PArray
+   primitives. *)
+Theorem superflip_p1far_real : superflip \notin ball Sset p1depth.
 Proof.
-move=> hcS.
 (* every argument pinned: closing a Section turns its Variables and
    Hypotheses into EXPLICIT arguments, in declaration order, so a partial
    application silently binds p1tab to the wrong slot. *)
-exact: (@superflip_p1far p1tab p1droot p1droot_small p1check0P hcS
+exact: (@superflip_p1far p1tab p1droot p1droot_small p1check0P p1checkStepP
                          ts_checkStepP fsmoveCP fsrCP slrCP p1searchd).
 Qed.
