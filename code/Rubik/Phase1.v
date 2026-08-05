@@ -381,6 +381,18 @@ Definition twmove : arr := mkarr ntwmovei 0%uint63 twmove_data. (* GENERATED *)
 Definition acttwi (x : int) (k : nat) : int :=
   PArray.get twmove (Uint63.add (Uint63.mul x 18%uint63) (of_nat k)).
 
+(* THE SAME WITH THE MOVE INDEX ALREADY int63.  acttwi takes a nat, so every
+   call runs of_nat on it, and p1stepFr's inner loop calls it eighteen times
+   for every checked packed value.  MEASURED vm, 100 000 iterations: the
+   eighteen move loop costs 15.7 us with of_nat against 1.18 us with the
+   indices as int63 -- 13.3x, and actfsr converts a second time on top.
+   acttwiiE says the two agree, so the proofs keep using acttwi. *)
+Definition acttwii (x k : int) : int :=
+  PArray.get twmove (Uint63.add (Uint63.mul x 18%uint63) k).
+
+Lemma acttwiiE x k : acttwii x (of_nat k) = acttwi x k.
+Proof. by []. Qed.
+
 (* THE FINITE CHECK.  2187 twists x 18 moves, both sides computable: acttwi
    reads the emitted array, acttwt runs the digit formula on the move TABLE.
    Measured in OCaml before it was proved: 0 mismatches out of 39 366
@@ -570,6 +582,36 @@ Definition fsidx (x : int) : int :=
   Uint63.add
     (Uint63.mul (Uint63.land x 2047%uint63) nsranki)
     (PArray.get srank (Uint63.lsr x 12%uint63)).
+
+(* AND THE GUARD THAT GOES WITH IT.  `fsidx x <? nfsi' is NOT the test for
+   "x is a summary", and using it as one made the certificates of Farp1.v
+   false.  It fails in both halves of the packing:
+
+   - srank returns nsrank = 495 for a twelve bit mask WITHOUT four bits set,
+     which is also the array default, so fsidx x = (f + 1) * 495 for those --
+     BELOW nfsi = 2048 * 495 for every f < 2047.  COUNTED: 495 of the 4096
+     masks are genuine, 3601 are not.
+
+   - the flip is masked with 2047 by the very argument three comments above:
+     bit 11 is the parity of the other eleven.  Two values differing in it
+     share a rank, and actf sends them to DIFFERENT ranks.  MEASURED, at
+     c0 = coordt (id_tab 47) and c1 = c0 lxor 2048: fsidx agrees, and after
+     the fourth move the ranks are 300 and 8220.
+
+   Together the old guard admits 8 385 007 of the 2 ^ 24 -- 50 %, not the 6 %
+   the old comments claimed.  fsok admits exactly nflip * nsrank = nfs.
+
+   The DEFINITIONS live here because p1stepF below needs them; the lemmas
+   about them are in Fsparity.v, which requires this file. *)
+
+(* the parity of the twelve flip bits *)
+Definition fpar (x : int) : bool := odd (count (nbit x) (iota 0 nedge)).
+
+(* the slice mask really is one of the 495 with four bits set *)
+Definition sok (x : int) : bool :=
+  (PArray.get srank (Uint63.lsr x 12%uint63) <? nsranki)%uint63.
+
+Definition fsok (x : int) : bool := sok x && ~~ fpar x.
 
 (* =========================================================================  *)
 (*  3.  The index, unfolded                                                   *)
@@ -1421,10 +1463,14 @@ Definition p1mdata : seq (nat * mdatf) :=
    The fsidx guard is NOT cosmetic: without it every one of the 2 ^ 24 packed
    values would run the eighteen move checks instead of the 6 % that are
    summaries, which is sixteen times the work. *)
+(* fsok, NOT `fsidx x <? nfsi' -- see the note where fsok is defined.  The
+   old guard let through values that are not summaries at all, which made
+   this check assert a distance inequality about table slots that no state
+   occupies, and made it 8.3x larger than it needs to be. *)
 Definition p1stepF (tw : int) : int -> bool :=
   let md := p1mdata in
   fun x =>
-    if (nfsi <=? fsidx x)%uint63 then true
+    if ~~ fsok x then true
     else all (fun km => (Dp1i tw x <=?
                 incr (Dp1i (acttwi tw km.1) (actf x km.2)))%uint63) md.
 
@@ -1795,15 +1841,13 @@ exact: (all_powP ncoord_dig htw xL).
 Qed.
 
 Lemma p1checkStep_inst tw x k :
-  p1stepF tw x -> (fsidx x <? nfsi)%uint63 -> (k < 18)%N ->
+  p1stepF tw x -> fsok x -> (k < 18)%N ->
   (Dp1i tw x <=?
    incr (Dp1i (acttwi tw k) (actf x (mdatf_of_tab (nth [::] mtabs k)))))%uint63.
 Proof.
-move=> hall fsL kL.
+move=> hall hs kL.
 (* the guard, settled on its own and entirely in int63 *)
-have hcond : (nfsi <=? fsidx x)%uint63 = false.
-  apply/idP => /nlebP h1; move/nltbP: fsL => h2.
-  by rewrite leqNgt h2 in h1.
+have hcond : ~~ fsok x = false by rewrite hs.
 move: hall; rewrite /p1stepF hcond => hstep.
 move: hstep => /(all_nthP (0%N, mdatf_of_tab [::])).
 rewrite size_map size_iota => /(_ k kL).
@@ -1815,7 +1859,7 @@ Qed.
 Lemma Dp1_step_of_check :
   p1checkStep ->
   forall tw x k, (to_nat tw < ntwist)%N -> (to_nat x < 2 ^ ncoord)%N ->
-  (fsidx x <? nfsi)%uint63 -> (k < 18)%N ->
+  fsok x -> (k < 18)%N ->
   (Dp1 tw x <=
    (Dp1 (acttwi tw k) (actfs x (nth 1%g moves k))).+1)%N.
 Proof.
@@ -1888,16 +1932,100 @@ Hypothesis hchk0 : p1check0.
 Hypothesis hchkS : p1checkStep.
 
 (* the invariant: cubP for the flip x slice half, twP for the twist half *)
-Definition twcP (g : {perm facelet}) : bool := cubP g && twP g.
+(* ---- the flip parity, the edge analogue of twsum ------------------------- *)
+
+(* odd (count _) is a sum in F2, so a pointwise xor splits *)
+Lemma odd_count_addb (T : Type) (f g : T -> bool) (s : seq T) :
+  odd (count (fun k => f k (+) g k) s) = odd (count f s) (+) odd (count g s).
+Proof.
+elim: s => [|a s IH] //=; rewrite !oddD IH.
+by case: (f a); case: (g a); case: (odd (count f s)); case: (odd (count g s)).
+Qed.
+
+(* THE TWO FACTS ABOUT THE MOVES it rests on: each permutes the twelve edges,
+   and flips an EVEN number of them.  Both finite, so both checked. *)
+Definition mtabs_fpar : bool :=
+  all (fun mt => perm_eq (msrc mt) (iota 0 nedge)
+                 && ~~ odd (count id (mxbit mt))) mtabs.
+
+Lemma mtabs_fparP : mtabs_fpar.
+Proof. by vm_compute. Qed.
+
+(* the flip half of actd is the flip half of x permuted, then xored with the
+   move's own xbit vector, so the PARITY picks up only the second -- and that
+   is a constant of the move, not of x *)
+Lemma fpar_actd x d :
+  perm_eq d.1 (iota 0 nedge) -> seq.size d.2 = nedge ->
+  fpar (actd x d) = fpar x (+) odd (count id d.2).
+Proof.
+move=> hp hs; rewrite /fpar.
+have hnb j : j \in iota 0 nedge ->
+    nbit (actd x d) j = nbit x (nth 0%N d.1 j) (+) nth false d.2 j.
+  rewrite mem_iota add0n => /andP[_ jL].
+  rewrite /actd (nbit_packn _ (j := j)) //; first by rewrite jL.
+  by apply: leq_trans jL (leq_addr _ _).
+rewrite (eq_in_count hnb) odd_count_addb; congr (_ (+) _).
+  rewrite -(seq.permP hp (nbit x)) -count_map.
+  have hsz : seq.size d.1 = nedge by rewrite (perm_size hp) size_iota.
+  by rewrite -hsz -/(mkseq _ _) mkseq_nth.
+by rewrite -(count_map (nth false d.2) id) -hs -/(mkseq _ _) mkseq_nth.
+Qed.
+
+(* THE INVARIANT: a move does not change the flip parity *)
+Lemma fpar_actfsS x m : m \in Sset -> fpar (actfs x m) = fpar x.
+Proof.
+move=> mS; have [k kL mE] := Sset_move mS.
+have hsz : seq.size mtabs = 18%N by vm_compute.
+have hmt : nth [::] mtabs k \in mtabs by rewrite mem_nth // hsz.
+have mok : tab_ok 47 (nth [::] mtabs k) by apply: (allP mtabs_ok).
+have /andP[hp hx] := allP mtabs_fparP _ hmt.
+rewrite mE (actdE _ mok) (fpar_actd x (mdat_of_tab _) hp).
+  by move: hx; rewrite mdat_snd; case: odd => //=; rewrite addbF.
+by rewrite mdat_snd /mxbit size_map size_iota.
+Qed.
+
+(* the slice half of the guard, at a real cube.  The first half of fsidx_lt,
+   which runs the two together. *)
+Lemma sok_coordfs g : cubP g -> sok (coordfs g).
+Proof.
+move=> cg; rewrite /sok; apply/nltbP.
+rewrite (_ : to_nat nsranki = nsrank); last by vm_compute.
+have hmem : to_nat (Uint63.lsr (coordfs g) 12%uint63) \in iota 0 nmask.
+  by rewrite mem_iota add0n leq0n smask_lt.
+have hcount : count (nbit (of_nat (to_nat (Uint63.lsr (coordfs g) 12%uint63))))
+                    (iota 0 nedge) == nslice.
+  rewrite to_natK; apply/eqP; rewrite -(count_sliceb cg).
+  apply: eq_in_count => j.
+  by rewrite mem_iota add0n => /andP[_ jL]; exact: nbit_smask jL.
+have hall : all (fun m => (count (nbit (of_nat m)) (iota 0 nedge) == nslice)
+                ==> (to_nat (PArray.get srank (of_nat m)) < nsrank)%N)
+      (iota 0 nmask).
+  by rewrite -srankCE; exact: srankCP.
+by have := implyP (allP hall _ hmem) hcount; rewrite to_natK.
+Qed.
+
+(* CARRIED, like twsum g = 0 and for the same reason: a single flipped edge is
+   a rigid cubie permutation, so cubP does not give it.  With it, twcP g is
+   exactly what p1stepF's guard asks of coordfs g. *)
+Definition twcP (g : {perm facelet}) : bool :=
+  [&& cubP g, twP g & ~~ fpar (coordfs g)].
 
 Lemma twcP1 : twcP 1.
-Proof. by rewrite /twcP cubP1 twP1. Qed.
+Proof.
+rewrite /twcP cubP1 twP1 /=.
+by rewrite coordfs1E /fpar; vm_compute.
+Qed.
 
 Lemma twcPM g m : twcP g -> m \in Sset -> twcP (g * m).
 Proof.
-move=> /andP[cg tg] mS; rewrite /twcP (cubP_step cg mS) /=.
+move=> /and3P[cg tg fg] mS; rewrite /twcP (cubP_step cg mS) /=.
+rewrite (coordfsMS cg mS) (fpar_actfsS _ mS) fg andbT.
 by have [k kL ->] := Sset_move mS; exact: twPM.
 Qed.
+
+(* and so the guard holds at every state the search reaches *)
+Lemma fsok_twcP g : twcP g -> fsok (coordfs g).
+Proof. by move=> /and3P[cg _ fg]; rewrite /fsok (sok_coordfs cg). Qed.
 
 (* 0 off the invariant, which is what makes both obligations unconditional --
    Coordfs.hcoordg's trick, done by hand for the reason above *)
@@ -1920,11 +2048,12 @@ Lemma hp1S g m : m \in Sset -> hp1 g <= (hp1 (g * m)).+1.
 Proof.
 move=> mS; have [Pg|nPg] := boolP (twcP g); last by rewrite (hp1N nPg).
 rewrite (hp1E Pg) (hp1E (twcPM Pg mS)).
-have /andP[cg /andP[cc /eqP ts]] := Pg.
+have /and3P[cg /andP[cc /eqP ts] _] := Pg.
 have [k kL mE] := Sset_move mS.
 rewrite mE (coordfsMS cg _); last by rewrite -mE.
 rewrite (coordtw_step kL cc ts) -(acttwiE (coordtw_lt g) kL) -(hmovesE kL).
-exact: (Dp1_step_of_check hchkS (coordtw_lt g) (coordfs_lt _) (fsidx_lt cg) kL).
+exact: (Dp1_step_of_check hchkS (coordtw_lt g) (coordfs_lt _)
+                          (fsok_twcP Pg) kL).
 Qed.
 
 End P1Heur.
@@ -2003,7 +2132,7 @@ Proof. exact/Dp1_0_of_check/p1check0_dummy. Qed.
 
 Lemma Dp1_step_dummy :
   forall tw x k, (to_nat tw < ntwist)%N -> (to_nat x < 2 ^ ncoord)%N ->
-  (fsidx x <? nfsi)%uint63 -> (k < 18)%N ->
+  fsok x -> (k < 18)%N ->
   (Dp1 p1dummy tw x <=
    (Dp1 p1dummy (acttwi tw k) (actfs x (nth 1%g moves k))).+1)%N.
 Proof. exact: (Dp1_step_of_check p1checkStep_dummy). Qed.

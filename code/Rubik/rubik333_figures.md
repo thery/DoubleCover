@@ -21,6 +21,23 @@ after the `of_nat` work of 2026-08-04 (see "Primitive costs").
 | flip x slice move table | 6 082 560 words, 3 chunks (PArray.max_length is 4 194 303) |
 | phase 1 table chunks | 71 of at most 2 097 152 words |
 
+### What the certificate guard actually admits (2026-08-05)
+
+`srank` has **495** masks with four bits set; the other **3601** all return
+exactly `nsrank` = 495, which is both the "impossible" value and the array
+default. So for those, `fsidx x = (f + 1) * 495`, which is BELOW
+`nfsi = 2048 * 495` for every `f < 2047`.
+
+| | |
+|---|---|
+| values passing `fsidx x <? nfsi` | 495*2048 + 3601*2047 = **8 385 007** of 2^24, i.e. **50.0 %** |
+| values that are genuine summaries | 2048 * 495 = **1 013 760**, i.e. 6.0 % |
+
+The comment in `Farp1.v` saying the guard "leaves only the 6 %" was wrong by
+**8.3x**, and the extra values are exactly the ones that made `fsmoveC`
+false. Fixing the guard is therefore a correctness fix AND the largest
+single saving available on the certificate.
+
 ### The sixteen symmetry fold (`p1gen 9 sym16`, 2026-08-05)
 
 | | |
@@ -46,6 +63,14 @@ happen.
 | `of_nat n` | ~0.07 us per unit — `of_nat 21` 1.53, `of_nat 495` **36.4** |
 | `to_nat n` | ~0.9 us per unit — `to_nat 9` **7.97**. Thirteen times `of_nat` |
 | `nth` over an 18 element seq | 7.3 us (a unary fixpoint walking cons cells) |
+| the 18 move loop, `iota 0 18` + `of_nat k` | **15.7 us** a pass |
+| the same with the indices already int63 | **1.18 us** — 13.3x |
+
+The last two are 2026-08-05, 100 000 iterations, **vm**. `p1stepFr` makes
+TWO of those passes for every checked packed value (`acttwi` converts, and
+`actfsr` converts again) against about 6 us of actual array reads, so its
+inner loop is mostly conversion. Whether `native_compute` narrows the gap is
+NOT measured — do not turn 13.3x into a predicted slice time.
 
 **So: when a test compares an int63 with a nat, convert the NAT side.**
 
