@@ -1987,7 +1987,7 @@ have hsz : seq.size mtabs = 18%N by vm_compute.
 have hmt : nth [::] mtabs k \in mtabs by rewrite mem_nth // hsz.
 have mok : tab_ok 47 (nth [::] mtabs k) by apply: (allP mtabs_ok).
 have /andP[hp hx] := allP mtabs_fparP _ hmt.
-rewrite mE (actdE _ mok) (fpar_actd x (mdat_of_tab _) hp).
+rewrite mE (actdE _ mok) (fpar_actd x (mdat_of_tab (nth [::] mtabs k)) hp).
   by move: hx; rewrite mdat_snd; case: odd => //=; rewrite addbF.
 by rewrite mdat_snd /mxbit size_map size_iota.
 Qed.
