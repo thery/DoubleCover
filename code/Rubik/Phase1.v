@@ -727,8 +727,11 @@ Proof. by vm_compute. Qed.
 (* =========================================================================  *)
 
 Definition p1cap     := 9.            (* the BFS stops here, as rubik_par does *)
-Definition p1entries := 2217093120.   (* ntwist * nfs                          *)
-Definition p1words   := 147806208.    (* ceil (p1entries / 15)                 *)
+(* int63, not nat.  Nothing computes with these two -- they record the shape
+   of the table -- but a nat that size is a stack overflow waiting for the
+   first `vm_compute' that reaches it, and Rocq warns about the literal. *)
+Definition p1entriesi : int := 2217093120%uint63.  (* ntwist * nfs           *)
+Definition p1wordsi   : int := 147806208%uint63.   (* ceil (p1entries / 15)  *)
 
 (* p1words > PArray.max_length = 4 194 303, so the table is a PArray of
    PArrays.  The split is on the WORD index at a power of two, w >> cwlog,
