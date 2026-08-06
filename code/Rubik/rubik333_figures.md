@@ -138,6 +138,22 @@ The first batch DID deliver, because `allowedr p`, `nth _ mtis k` and
 **Only trust a `rep` measurement when the expression depends on the loop's
 input.**
 
+### The OCaml, for comparison (2026-08-06, desktop, `bench/p1gen 9 pieces N 0`)
+
+| depth | nodes | OCaml search |
+|---|---|---|
+| 14 | 42 320 | 0.0 s |
+| 15 | 547 580 | **0.4 s** |
+| 16 | 7 100 612 | **5.6 s** |
+
+**14x a depth** -- exponential, the same shape as ours -- and **0.79 us a
+node**. Each invocation also spends ~120 s rebuilding the 2.06 GB table,
+which is why the totals are all ~2 min; the printed search seconds exclude it.
+
+**WE ARE STILL 209x THE OCAML** after the 11x: our depth 16 search is 1174 s
+for 7 100 612 nodes = 165 us a node. The "29.7 us a node" recorded below
+must be measuring something else -- do not use it.
+
 ### The fast search on the real chain (2026-08-06, roquableu)
 
 `Runp1_NN.v` with `searchz3n`, native, MEASURED per piece:
@@ -150,10 +166,15 @@ input.**
 **10.3x a depth**, measured -- against a node growth of 12.97x, so the fixed
 cost and whatever else takes a little off.
 
-Applying it ONCE more, depth 17 is ~3.4 h a piece, so n = 19 is ~17 h at
--j4 or ~10 h at -j6. That is a two point extrapolation one step out, and the
-growth may steepen as the working set grows -- but it is grounded in two real
-measurements at the real speed, which the projection that failed was not.
+**CORRECTED using the OCaml's factor.** Ours is 10.3x where the OCaml is
+14x, so a fixed per piece cost is depressing it. Solving the two points
+against the known node ratio 12.97:
+
+    117  = f + s        f ~ 27 s fixed, s ~ 90 s of search at depth 15
+    1200 = f + 12.97 s
+
+which puts depth 17 at 12.87 x 1174 + 27 = **~4.2 h a piece**, not 3.4 --
+about 25 % more. n = 19 is then ~13 h at -j6, ~21 h at -j4.
 
 For comparison, the OLD search took 4 min a piece at depth 14, where the new
 one takes 117 s at depth 15 -- 12.97x the nodes in half the time.

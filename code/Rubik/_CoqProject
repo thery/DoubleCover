@@ -106,6 +106,7 @@ P1Chk_25.v
 P1Chk_26.v
 P1ChkAll.v
 Fast.v
+FastP.v
 FastBench.v
 Runp1_00.v
 Runp1_01.v
