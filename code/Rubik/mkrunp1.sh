@@ -14,7 +14,7 @@ D=${1:-14}
 case "$D" in ''|*[!0-9]*) echo "usage: ./mkrunp1.sh [depth]" >&2; exit 1;; esac
 [ "$D" -ge 3 ] || { echo "depth must be at least 3" >&2; exit 1; }
 R=$((D - 2))
-E=${EVAL:-vm}
+E=${EVAL:-native}   # native, measured 1.5x on wall for this search
 case "$E" in vm|native) ;; *) echo "EVAL must be vm or native" >&2; exit 1;; esac
 for j in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17; do
   n=$(printf "%02d" $j)

@@ -105,3 +105,5 @@ P1Chk_24.v
 P1Chk_25.v
 P1Chk_26.v
 P1ChkAll.v
+Fast.v
+FastBench.v
