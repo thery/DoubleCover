@@ -34,6 +34,18 @@ Definition newrun : bool :=
                              (init3 (prefixi i 0)) nfcube)
       (iota 0 nroot).
 
-(* both must print the same answer, or the comparison means nothing *)
+Definition grun : bool :=
+  all (fun i => ~~ searchz3g p1tab 14 14%uint63 (prefixi i 0)
+                             (init3 (prefixi i 0)) nfcube)
+      (iota 0 nroot).
+
+Definition hrun : bool :=
+  all (fun i => ~~ searchz3h p1tab 14 14%uint63 (prefixi i 0)
+                             (init3 (prefixi i 0)) nfcube)
+      (iota 0 nroot).
+
+(* ALL FOUR must print true, or the comparison means nothing *)
 Time Eval native_compute in oldrun.
 Time Eval native_compute in newrun.
+Time Eval native_compute in grun.
+Time Eval native_compute in hrun.

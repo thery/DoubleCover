@@ -74,3 +74,69 @@ Fixpoint searchz3f (T : PArray.array arr) (d : nat) (di : int) (a : arr)
          else false) (nth [::] allowed3 p)
     else false
   else false.
+
+(* =========================================================================  *)
+(*  searchz3g: the heuristic tested BEFORE the table is composed              *)
+(*                                                                            *)
+(*  searchz3f evaluates comp_tabi for every child and then the recursive call *)
+(*  rejects most of them on one lookup -- a 48 entry array built to be thrown  *)
+(*  away.  Rocq is strict, so there is no laziness to save us.  Testing        *)
+(*  h3i on the child's COORDINATES first costs six array reads (step3i) and   *)
+(*  one lookup, and only survivors pay for comp_tabi.                          *)
+(*                                                                            *)
+(*  Same tree, same answer: the test is exactly the one the child would do    *)
+(*  first.  Only the order of evaluation changes.                             *)
+(* =========================================================================  *)
+Fixpoint searchz3g (T : PArray.array arr) (d : nat) (di : int) (a : arr)
+                   (x : c3) (p : nat) : bool :=
+  if (h3i T x <=? di)%uint63 then
+    if eq_tabi 47 a (id_tabi 47) then true
+    else if d is d'.+1 then
+      let di' := Uint63.sub di 1%uint63 in
+      (fix go (l : seq (amove * nat)) : bool :=
+         if l is mp :: l' then
+           let: (m, pk) := mp in
+           let x' := step3i x m in
+           if (h3i T x' <=? di')%uint63 then
+             if searchz3g T d' di' (comp_tabi 47 a (PArray.get mtisa m.1.1))
+                            x' pk
+             then true else go l'
+           else go l'
+         else false) (nth [::] allowed3 p)
+    else false
+  else false.
+
+(* ---- eq_tabi with an early exit ------------------------------------------
+   eqi is `(get a i =? get b i) && eqi k' ...'.  andb is a FUNCTION, strict
+   under native, so the recursive call runs even when the entries already
+   differ -- all 48 are compared every time.  The same trap as the `||' in
+   the certificate guards.  `a' is almost never the identity, so this should
+   stop at the first or second entry. *)
+Fixpoint eqif (k : nat) (i : int) (a b : arr) : bool :=
+  if k is k'.+1 then
+    if (PArray.get a i =? PArray.get b i)%uint63
+    then eqif k' (Uint63.add i 1%uint63) a b
+    else false
+  else true.
+
+Definition eq_tabif (a b : arr) : bool := eqif 48 0%uint63 a b.
+
+(* searchz3g plus that *)
+Fixpoint searchz3h (T : PArray.array arr) (d : nat) (di : int) (a : arr)
+                   (x : c3) (p : nat) : bool :=
+  if (h3i T x <=? di)%uint63 then
+    if eq_tabif a (id_tabi 47) then true
+    else if d is d'.+1 then
+      let di' := Uint63.sub di 1%uint63 in
+      (fix go (l : seq (amove * nat)) : bool :=
+         if l is mp :: l' then
+           let: (m, pk) := mp in
+           let x' := step3i x m in
+           if (h3i T x' <=? di')%uint63 then
+             if searchz3h T d' di' (comp_tabi 47 a (PArray.get mtisa m.1.1))
+                            x' pk
+             then true else go l'
+           else go l'
+         else false) (nth [::] allowed3 p)
+    else false
+  else false.
