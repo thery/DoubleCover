@@ -119,6 +119,23 @@ Growth factor **12.9** (12.98 and 12.80 between the three measured totals).
 redundancy filter, `countp1` fixes the first two and restarts it at nfcube.
 The counts are not comparable between them.
 
+### searchz3 against searchz3f (nat taken out of the inner loop)
+
+MEASURED on roquableu 2026-08-06, `FastBench.vo`, one piece at depth 14,
+**native for both**, and both answers `true`:
+
+| | |
+|---|---|
+| `searchz3` | **78.4 s** |
+| `searchz3f` | **34.3 s** |
+| | **2.28x** |
+
+That is the nat removal alone. The overnight n = 19 run was **vm**, so the
+vm -> native 1.5x is ADDITIONAL to this.
+
+After it, `comp_tabi` dominates -- 8.3 us a child, ~125 us a node, a fresh
+48 entry array per child -- and it is NOT nat.
+
 ### Per node
 
 | | |
