@@ -338,13 +338,10 @@ have kL : (k < 18)%N.
 have pkL : (fcpos k < 7)%N by rewrite /fcpos ltn_divLR // (leq_trans kL).
 have sv : forall v j, stepv v (of_nat j) = (acttwi v.1 j, actfsr v.2 j).
   by move=> v j; rewrite /stepv acttwiiE actfsriE.
-(* NOT `/='.  What it did here was preim's two coercions, and step3 on the
-   right so that !sv meets it halfway -- so do exactly those.  cbv WITHOUT
-   delta cannot unfold a constant at all, and the three constants named are
-   the coercions, none of which is a table.  MEASURED: this lands on the
-   same goal `/=' did. *)
-rewrite /preim;
-  cbv beta iota zeta delta [pred_of_simpl fun_of_simpl SimplPred].
+(* NOT `/='.  All it did here was preim's three coercions and step3 on the
+   right, where !sv meets it halfway -- so unfold exactly those five and let
+   simpl choose nothing.  MEASURED: this lands on the same goal `/=' did. *)
+rewrite /preim /pred_of_simpl /SimplPred /fun_of_simpl.
 rewrite (of_natS_sub dL) (mtisaE kL) !sv /step3.
 rewrite (IH (ltnW dL) _ _ _ _ pkL erefl).
 (* [X in X && _] IS NOT TIDINESS.  Left to search the whole goal, rewrite
@@ -453,9 +450,7 @@ have hy : (stepv x0 (of_nat k), stepv x1 (of_nat (nth 0%N mv3a k)),
         = init3 (rebuild a0 (of_nat k :: path)).
   rewrite hr -(si _ _ aok ca tw kL) -hx !sv; exact: refl_equal.
 (* same as in searchz3mE: the coercions, and nothing else *)
-rewrite /preim;
-  cbv beta iota zeta delta [pred_of_simpl fun_of_simpl SimplPred].
-rewrite (of_natS_sub dL).
+rewrite /preim /pred_of_simpl /SimplPred /fun_of_simpl (of_natS_sub dL).
 congr (_ && _).
 rewrite (IH dL' (of_nat d) a0 (of_nat k :: path) _ _ _ (fcpos k)
             erefl pkL Aok cA twA hy) hr (mtisaE kL).
