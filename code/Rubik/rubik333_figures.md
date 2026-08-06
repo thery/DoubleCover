@@ -138,6 +138,26 @@ The first batch DID deliver, because `allowedr p`, `nth _ mtis k` and
 **Only trust a `rep` measurement when the expression depends on the loop's
 input.**
 
+### The fast search on the real chain (2026-08-06, roquableu)
+
+`Runp1_NN.v` with `searchz3n`, native, MEASURED per piece:
+
+| n | search depth | CPU a piece | |
+|---|---|---|---|
+| 17 | 15 | **117 s** | 18 pieces, 13 m 5 wall at -j4 |
+| 18 | 16 | **1200 s** | |
+
+**10.3x a depth**, measured -- against a node growth of 12.97x, so the fixed
+cost and whatever else takes a little off.
+
+Applying it ONCE more, depth 17 is ~3.4 h a piece, so n = 19 is ~17 h at
+-j4 or ~10 h at -j6. That is a two point extrapolation one step out, and the
+growth may steepen as the working set grows -- but it is grounded in two real
+measurements at the real speed, which the projection that failed was not.
+
+For comparison, the OLD search took 4 min a piece at depth 14, where the new
+one takes 117 s at depth 15 -- 12.97x the nodes in half the time.
+
 ### Making searchz3 faster (2026-08-06, roquableu)
 
 One piece at depth 14, `native_compute`, every variant answering `true`,
