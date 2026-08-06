@@ -251,9 +251,16 @@ Definition issolved (x : c3) : bool :=
     else false
   else false.
 
-(* the path is kept newest first, so rebuilding folds it in reverse *)
+(* the path is kept newest first, and foldr applies the LAST element of the
+   list first -- so folding over `path' itself composes oldest move first,
+   which is what is wanted.  An earlier version folded over `rev path' and
+   composed them backwards; nothing detected it, because rebuild is only
+   ever evaluated in the issolved branch and no search finds a solution, so
+   every answer was "no solution" either way.  Found by trying to prove
+   rebuild a0 (k :: path) = comp_tabi 47 (rebuild a0 path) (get mtisa k),
+   which is now true by foldr's own equation. *)
 Definition rebuild (a0 : arr) (path : seq int) : arr :=
-  foldr (fun k acc => comp_tabi 47 acc (PArray.get mtisa k)) a0 (rev path).
+  foldr (fun k acc => comp_tabi 47 acc (PArray.get mtisa k)) a0 path.
 
 Fixpoint searchz3n (T : PArray.array arr) (d : nat) (di : int) (a0 : arr)
                    (path : seq int) (x : c3) (p : nat) : bool :=
