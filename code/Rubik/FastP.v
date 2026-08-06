@@ -23,6 +23,22 @@ Unset Printing Implicit Defensive.
 
 Import GroupScope.
 
+(* =========================================================================  *)
+(*  NOTHING IN THIS FILE EVALUATES A TABLE, AND NO TACTIC MAY EITHER          *)
+(*                                                                            *)
+(*  Dfsri and Dtsi hold fsdtab and tsdtab; actfsri and actfsr hold the fs     *)
+(*  move table, 116 MB with the real data.  Every proof below uses them       *)
+(*  SYMBOLICALLY -- but a `simpl', or a rewrite whose keyed match fails and   *)
+(*  falls back to conversion, unfolds one and walks the literal.  MEASURED    *)
+(*  on roquableu: hv1leE's first sentence did not return.  On the desktop     *)
+(*  P1Fs, P1Ts and P1Fsm are dummies, so the whole class is invisible and     *)
+(*  the file compiles in 12 s either way.                                     *)
+(*                                                                            *)
+(*  Local, so nothing is exported: the generated Runp1_NN.v must be free to   *)
+(*  evaluate all of this under native_compute.                                *)
+(* =========================================================================  *)
+Local Opaque Dfsri Dtsi p1get actfsri actfsr acttwii acttwi.
+
 (*  Towards searchz3nE: the pieces, all proved                                *)
 (* =========================================================================  *)
 
@@ -53,10 +69,22 @@ apply/idP/idP; rewrite /maxi.
 by case/andP => ha hb; case: ifP.
 Qed.
 
+(* THE THREE LOOKUPS OUT OF THE GOAL BEFORE ANY TACTIC SEES IT.  Dfsri and
+   Dtsi hold fsdtab and tsdtab, and with the REAL tables those are 1.35 MB
+   array literals: `rewrite !maxi_leb' has to search the goal, and where
+   keyed matching fails it falls back to conversion, unfolds Dfsri and walks
+   the literal.  MEASURED on roquableu -- this sentence did not return; on
+   the desktop, where P1Fs and P1Ts are dummies, it is 0 s and the whole
+   class is invisible.  Generalised, the goal is maxi algebra over three
+   plain ints and no table is reachable from it.  The `_' patterns are gone
+   for the same reason: they gave the matcher the whole goal to search. *)
 Lemma hv1leE T tf di : hv1le T tf di = (hv1 T tf <=? di)%uint63.
 Proof.
-rewrite /hv1le /hv1 !maxi_leb.
-by case: (_ <=? _)%uint63; case: (_ <=? _)%uint63; case: (_ <=? _)%uint63.
+rewrite /hv1le /hv1.
+move: (Dfsri tf.2) (Dtsi tf.1 (slrank tf.2)) (p1get T (p1idxr tf.1 tf.2))
+  => a b c.
+rewrite !maxi_leb.
+by case: (a <=? di)%uint63; case: (b <=? di)%uint63; case: (c <=? di)%uint63.
 Qed.
 
 (* maxi_leb is restricted to the two OUTER maxi, or it fires inside hv1 too
