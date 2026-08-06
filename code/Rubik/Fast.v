@@ -182,3 +182,43 @@ Fixpoint searchz3k (T : PArray.array arr) (d : nat) (di : int) (a : arr)
          else false) (nth [::] allowed3 p)
     else false
   else false.
+
+(* =========================================================================  *)
+(*  searchz3m: the three views computed one at a time                         *)
+(*                                                                            *)
+(*  step3i still builds all three views' coordinates before h3le gets to      *)
+(*  reject on the first.  A child turned away by view 0 never needed views 1  *)
+(*  and 2 -- four array reads wasted each time, and most children are turned  *)
+(*  away.  Interleaving the two is the same short circuit once more.          *)
+(*                                                                            *)
+(*  Same tree, same answer: hv1le on all three in order IS h3le.              *)
+(* =========================================================================  *)
+Definition stepv (v : int * int) (k : int) : int * int :=
+  (acttwii v.1 k, actfsri v.2 k).
+
+Fixpoint searchz3m (T : PArray.array arr) (d : nat) (di : int) (a : arr)
+                   (x : c3) (p : nat) : bool :=
+  if h3le T x di then
+    if eq_tabif a (id_tabi 47) then true
+    else if d is d'.+1 then
+      let di' := Uint63.sub di 1%uint63 in
+      let: (x0, x1, x2) := x in
+      (fix go (l : seq (amove * nat)) : bool :=
+         if l is mp :: l' then
+           let: (m, pk) := mp in
+           let: ((k, ka), kb) := m in
+           let y0 := stepv x0 k in
+           if hv1le T y0 di' then
+             let y1 := stepv x1 ka in
+             if hv1le T y1 di' then
+               let y2 := stepv x2 kb in
+               if hv1le T y2 di' then
+                 if searchz3m T d' di'
+                      (comp_tabi 47 a (PArray.get mtisa k)) (y0, y1, y2) pk
+                 then true else go l'
+               else go l'
+             else go l'
+           else go l'
+         else false) (nth [::] allowed3 p)
+    else false
+  else false.

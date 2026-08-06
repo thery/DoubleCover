@@ -49,9 +49,15 @@ Definition krun : bool :=
                              (init3 (prefixi i 0)) nfcube)
       (iota 0 nroot).
 
+Definition mrun : bool :=
+  all (fun i => ~~ searchz3m p1tab 14 14%uint63 (prefixi i 0)
+                             (init3 (prefixi i 0)) nfcube)
+      (iota 0 nroot).
+
 (* ALL must print true, or the comparison means nothing *)
 Time Eval native_compute in oldrun.
 Time Eval native_compute in newrun.
 Time Eval native_compute in grun.
 Time Eval native_compute in hrun.
 Time Eval native_compute in krun.
+Time Eval native_compute in mrun.
