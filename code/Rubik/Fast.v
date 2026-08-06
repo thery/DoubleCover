@@ -284,3 +284,39 @@ Fixpoint searchz3n (T : PArray.array arr) (d : nat) (di : int) (a0 : arr)
          else false) (nth [::] allowed3 p)
     else false
   else false.
+
+(* =========================================================================  *)
+(*  the same search, counting the nodes it visits                             *)
+(*                                                                            *)
+(*  So that the seconds above can be turned into us a node and compared with  *)
+(*  the OCaml's 0.6-0.8.  The counter is an int63: a nat one costs O(n) per   *)
+(*  increment and would dominate what it measures.                            *)
+(* =========================================================================  *)
+Fixpoint searchz3nc (T : PArray.array arr) (d : nat) (di : int) (a0 : arr)
+                    (path : seq int) (x : c3) (p : nat) : bool * int :=
+  if h3le T x di then
+    if (if issolved x then eq_tabif (rebuild a0 path) (id_tabi 47) else false)
+    then (true, 1%uint63)
+    else if d is d'.+1 then
+      let di' := Uint63.sub di 1%uint63 in
+      let: (x0, x1, x2) := x in
+      (fix go (l : seq (amove * nat)) (acc : int) : bool * int :=
+         if l is mp :: l' then
+           let: (m, pk) := mp in
+           let: ((k, ka), kb) := m in
+           let y0 := stepv x0 k in
+           if hv1le T y0 di' then
+             let y1 := stepv x1 ka in
+             if hv1le T y1 di' then
+               let y2 := stepv x2 kb in
+               if hv1le T y2 di' then
+                 let: (r, c) := searchz3nc T d' di' a0 (k :: path)
+                                           (y0, y1, y2) pk in
+                 if r then (true, Uint63.add acc c)
+                 else go l' (Uint63.add acc c)
+               else go l' acc
+             else go l' acc
+           else go l' acc
+         else (false, acc)) (nth [::] allowed3 p) 1%uint63
+    else (false, 1%uint63)
+  else (false, 1%uint63).
