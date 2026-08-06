@@ -413,6 +413,55 @@ move=> pL; rewrite allowed3E_all (nth_map 0%N); last by rewrite size_iota.
 by rewrite nth_iota.
 Qed.
 
+(* ---- the solved test, which is the one step that is not a reordering ----- *)
+
+Lemma tabi_ok_idi : tabi_ok 47 (id_tabi 47).
+Proof. by rewrite /tabi_ok (ti2t_id n47_small n47_len); exact: tab_ok_id. Qed.
+
+(* init3 factors through ti2t, so tables with the same ti2t have the same
+   three views *)
+Lemma init3_ti2t a b : tabi_ok 47 a -> tabi_ok 47 b ->
+  ti2t 47 a = ti2t 47 b -> init3 a = init3 b.
+Proof.
+move=> aok bok hab.
+have step : forall u v, tabi_ok 47 u -> tabi_ok 47 v ->
+    ti2t 47 u = ti2t 47 v -> ti2t 47 (conj3 u) = ti2t 47 (conj3 v).
+  by move=> u v uok vok huv; rewrite !conj3E !(ti2t_conji rot3t_ok) // huv.
+have ok3a := tabi_ok_conj3 aok; have ok3b := tabi_ok_conj3 bok.
+have ok33a := tabi_ok_conj3 ok3a; have ok33b := tabi_ok_conj3 ok3b.
+have h3 := step _ _ aok bok hab.
+have h33 := step _ _ ok3a ok3b h3.
+rewrite /init3 (ctwisti_ti2t aok bok hab) (coordi_ti2t aok bok hab).
+rewrite (ctwisti_ti2t ok3a ok3b h3) (coordi_ti2t ok3a ok3b h3).
+by rewrite (ctwisti_ti2t ok33a ok33b h33) (coordi_ti2t ok33a ok33b h33).
+Qed.
+
+(* SOLVED IMPLIES COORDINATES SOLVED -- what makes the cheap test sound *)
+Lemma issolved_eq a : tabi_ok 47 a ->
+  eq_tabi 47 a (id_tabi 47) -> issolved (init3 a).
+Proof.
+move=> aok; rewrite (eq_tabiE n47_small aok tabi_ok_idi) => /eqP hti.
+by rewrite (init3_ti2t aok tabi_ok_idi hti); vm_compute.
+Qed.
+
+(* and so the cheap test in front changes nothing *)
+Lemma solved_stepE a : tabi_ok 47 a ->
+  (if issolved (init3 a) then eq_tabif a (id_tabi 47) else false)
+  = eq_tabi 47 a (id_tabi 47).
+Proof.
+move=> aok; rewrite eq_tabifE.
+(* boolP SUBSTITUTES, so the false branch has no eq_tabi left to rewrite *)
+case: (boolP (eq_tabi 47 a (id_tabi 47))) => h.
+  by rewrite (issolved_eq aok h).
+by case: (issolved _).
+Qed.
+
+(* one move of the path, by foldr's own equation -- this is what the `rev'
+   was breaking *)
+Lemma rebuild_cons a0 k path :
+  rebuild a0 (k :: path) = comp_tabi 47 (rebuild a0 path) (PArray.get mtisa k).
+Proof. by []. Qed.
+
 (* =========================================================================  *)
 (*  THE BRIDGE, ADMITTED                                                      *)
 (*                                                                            *)
