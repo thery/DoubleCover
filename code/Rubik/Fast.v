@@ -222,3 +222,65 @@ Fixpoint searchz3m (T : PArray.array arr) (d : nat) (di : int) (a : arr)
          else false) (nth [::] allowed3 p)
     else false
   else false.
+
+(* =========================================================================  *)
+(*  searchz3n: carry the PATH, not the table                                  *)
+(*                                                                            *)
+(*  a is used for exactly one thing -- eq_tabif a idi, "is it solved" -- and  *)
+(*  maintaining it costs a 48 entry composition for every surviving child.    *)
+(*  But a solved cube certainly has solved COORDINATES, and comparing six     *)
+(*  ints is nothing.  So test the coordinates, and rebuild the table from the *)
+(*  move path only in the case they say it might be solved.                   *)
+(*                                                                            *)
+(*  Sound because solved => coordinates solved: the coordinate test can only  *)
+(*  let through non-solutions, never reject a solution, and the rebuild then  *)
+(*  settles it exactly.                                                       *)
+(* =========================================================================  *)
+Definition solved3 : c3 := Eval vm_compute in init3 (id_tabi 47).
+
+Definition issolved (x : c3) : bool :=
+  let: (x0, x1, x2) := x in
+  let: (s0, s1, s2) := solved3 in
+  if (x0.1 =? s0.1)%uint63 then
+    if (x0.2 =? s0.2)%uint63 then
+      if (x1.1 =? s1.1)%uint63 then
+        if (x1.2 =? s1.2)%uint63 then
+          if (x2.1 =? s2.1)%uint63 then (x2.2 =? s2.2)%uint63 else false
+        else false
+      else false
+    else false
+  else false.
+
+(* the path is kept newest first, so rebuilding folds it in reverse *)
+Definition rebuild (a0 : arr) (path : seq int) : arr :=
+  foldr (fun k acc => comp_tabi 47 acc (PArray.get mtisa k)) a0 (rev path).
+
+Fixpoint searchz3n (T : PArray.array arr) (d : nat) (di : int) (a0 : arr)
+                   (path : seq int) (x : c3) (p : nat) : bool :=
+  if h3le T x di then
+    (* a nested if, NOT `&&': andb is strict, so `issolved x && eq_tabif
+       (rebuild ...)' would rebuild the table at EVERY node -- the very bug
+       this file exists to remove *)
+    if (if issolved x then eq_tabif (rebuild a0 path) (id_tabi 47) else false)
+    then true
+    else if d is d'.+1 then
+      let di' := Uint63.sub di 1%uint63 in
+      let: (x0, x1, x2) := x in
+      (fix go (l : seq (amove * nat)) : bool :=
+         if l is mp :: l' then
+           let: (m, pk) := mp in
+           let: ((k, ka), kb) := m in
+           let y0 := stepv x0 k in
+           if hv1le T y0 di' then
+             let y1 := stepv x1 ka in
+             if hv1le T y1 di' then
+               let y2 := stepv x2 kb in
+               if hv1le T y2 di' then
+                 if searchz3n T d' di' a0 (k :: path) (y0, y1, y2) pk
+                 then true else go l'
+               else go l'
+             else go l'
+           else go l'
+         else false) (nth [::] allowed3 p)
+    else false
+  else false.
