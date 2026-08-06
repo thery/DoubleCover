@@ -14,8 +14,8 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
         Coordfs Coordfsi Fstab FsTable Diameter Moves
-        Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 Far Farp1
-        P1Table Runp1.
+        Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 Far Fsparity
+        Farp1 P1Table Runp1 Fast FastP FsmChk.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -31,4 +31,15 @@ Lemma p1searchd_@N@ :
    Far_??.v goes native because fstab is two million words; whether that is
    still right for a 4.5 GB table is a question for measurement, not for me
    to assert -- generate both and time them. *)
-Proof. Time @CAST@_cast_no_check (erefl true). Qed.
+(* RUN WITH THE FAST SEARCH.  searchz3n is searchz3 with the strictness
+   waste removed -- MEASURED at 11.9x on one piece at depth 14 -- and
+   FastP.p1searchd_bridge is what turns its answer into this statement.
+   THE BRIDGE IS PROVED (2026-08-06), so nothing is admitted here.  It needs
+   fsmoveC, because the coordinates the fast search carries are only the
+   table's own by step3_init; FsmChk.fsmoveCP discharges it. *)
+Proof.
+(* every argument explicit, and no `//' or `done' anywhere near fsmoveCP:
+   `done' tries assumption and unfolds an all_pow at ncoord = 24 *)
+apply: (@p1searchd_bridge p1tab @D@ @J@ isT isT fsmoveCP).
+Time @CAST@_cast_no_check (erefl true).
+Qed.

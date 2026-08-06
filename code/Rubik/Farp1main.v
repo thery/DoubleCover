@@ -44,8 +44,9 @@ Notation arr := (PArray.array int).
 Lemma nroot_leq : (nroot <= nmoves)%N.
 Proof. by []. Qed.
 
-Lemma mem_iota0 n k : (k < n)%N -> k \in iota 0 n.
-Proof. by move=> kL; rewrite mem_iota add0n leq0n. Qed.
+(* mem_iota0 now lives in Farp1.v, proved outside those proofs for this
+   same reason and
+   used at its eight sites; keeping a second copy here would clash. *)
 
 (* ---- 2. The assembly ------------------------------------------------------ *)
 

@@ -21,6 +21,23 @@ after the `of_nat` work of 2026-08-04 (see "Primitive costs").
 | flip x slice move table | 6 082 560 words, 3 chunks (PArray.max_length is 4 194 303) |
 | phase 1 table chunks | 71 of at most 2 097 152 words |
 
+### What the certificate guard actually admits (2026-08-05)
+
+`srank` has **495** masks with four bits set; the other **3601** all return
+exactly `nsrank` = 495, which is both the "impossible" value and the array
+default. So for those, `fsidx x = (f + 1) * 495`, which is BELOW
+`nfsi = 2048 * 495` for every `f < 2047`.
+
+| | |
+|---|---|
+| values passing `fsidx x <? nfsi` | 495*2048 + 3601*2047 = **8 385 007** of 2^24, i.e. **50.0 %** |
+| values that are genuine summaries | 2048 * 495 = **1 013 760**, i.e. 6.0 % |
+
+The comment in `Farp1.v` saying the guard "leaves only the 6 %" was wrong by
+**8.3x**, and the extra values are exactly the ones that made `fsmoveC`
+false. Fixing the guard is therefore a correctness fix AND the largest
+single saving available on the certificate.
+
 ### The sixteen symmetry fold (`p1gen 9 sym16`, 2026-08-05)
 
 | | |
@@ -46,6 +63,14 @@ happen.
 | `of_nat n` | ~0.07 us per unit — `of_nat 21` 1.53, `of_nat 495` **36.4** |
 | `to_nat n` | ~0.9 us per unit — `to_nat 9` **7.97**. Thirteen times `of_nat` |
 | `nth` over an 18 element seq | 7.3 us (a unary fixpoint walking cons cells) |
+| the 18 move loop, `iota 0 18` + `of_nat k` | **15.7 us** a pass |
+| the same with the indices already int63 | **1.18 us** — 13.3x |
+
+The last two are 2026-08-05, 100 000 iterations, **vm**. `p1stepFr` makes
+TWO of those passes for every checked packed value (`acttwi` converts, and
+`actfsr` converts again) against about 6 us of actual array reads, so its
+inner loop is mostly conversion. Whether `native_compute` narrows the gap is
+NOT measured — do not turn 13.3x into a predicted slice time.
 
 **So: when a test compares an int63 with a nat, convert the NAT side.**
 
@@ -93,6 +118,126 @@ Growth factor **12.9** (12.98 and 12.80 between the three measured totals).
 `pieces` is not `search`: `search` fixes only the first move and carries the
 redundancy filter, `countp1` fixes the first two and restarts it at nfcube.
 The counts are not comparable between them.
+
+### A `rep`-STYLE MICRO BENCHMARK OVERSTATES CLOSED SUBTERMS
+
+`rep n (fun _ => e) acc` re-evaluates `e` every iteration. The real search
+runs under `native_compute`, which **lifts closed subterms and evaluates them
+once**. So the harness measures a cost that does not exist for anything not
+depending on a variable.
+
+MEASURED, and this is how it was found (2026-08-06): `of_nat 48` inside
+`comp_tabi` (3.21 us in the harness) and `id_tabi 47` inside `eq_tabi`
+(7.13 us) predicted a further 1.76x on `searchz3f`. The real run gave
+34.3 s -> 32.3 s, **6 %, inside the noise** — `oldrun` moved 78.4 -> 69.8 s,
+11 %, with no change to it at all. Both were reverted.
+
+The first batch DID deliver, because `allowedr p`, `nth _ mtis k` and
+`of_nat d` all depend on a VARIABLE and so cannot be lifted.
+
+**Only trust a `rep` measurement when the expression depends on the loop's
+input.**
+
+### The OCaml, for comparison (2026-08-06, desktop, `bench/p1gen 9 pieces N 0`)
+
+| depth | nodes | OCaml search |
+|---|---|---|
+| 14 | 42 320 | 0.0 s |
+| 15 | 547 580 | **0.4 s** |
+| 16 | 7 100 612 | **5.6 s** |
+
+**14x a depth** -- exponential, the same shape as ours -- and **0.79 us a
+node**. Each invocation also spends ~120 s rebuilding the 2.06 GB table,
+which is why the totals are all ~2 min; the printed search seconds exclude it.
+
+**WE ARE STILL 209x THE OCAML** after the 11x: our depth 16 search is 1174 s
+for 7 100 612 nodes = 165 us a node. The "29.7 us a node" recorded below
+must be measuring something else -- do not use it.
+
+### The fast search on the real chain (2026-08-06, roquableu)
+
+`Runp1_NN.v` with `searchz3n`, native, MEASURED per piece:
+
+| n | search depth | CPU a piece | |
+|---|---|---|---|
+| 17 | 15 | **117 s** | 18 pieces, 13 m 5 wall at -j4 |
+| 18 | 16 | **1200 s** | |
+
+**10.3x a depth**, measured -- against a node growth of 12.97x, so the fixed
+cost and whatever else takes a little off.
+
+**CORRECTED using the OCaml's factor.** Ours is 10.3x where the OCaml is
+14x, so a fixed per piece cost is depressing it. Solving the two points
+against the known node ratio 12.97:
+
+    117  = f + s        f ~ 27 s fixed, s ~ 90 s of search at depth 15
+    1200 = f + 12.97 s
+
+which puts depth 17 at 12.87 x 1174 + 27 = **~4.2 h a piece**, not 3.4 --
+about 25 % more. n = 19 is then ~13 h at -j6, ~21 h at -j4.
+
+**THE WHOLE n = 18 RUN, MEASURED (2026-08-06, roquableu, 18 pieces):**
+
+    real 8177 s = 2 h 16      user 23299 s = 6 h 28      sys 88 s
+
+so **1294 s a piece** on average -- the 1200 s single piece above was
+representative -- and an effective parallelism of 23299 / 8177 = **2.85**,
+not the -j it was launched at. Piece 11 alone took 30 min against the 20 min
+average: the pieces vary by about 1.5x, which is worth remembering before
+reading anything into a single one.
+
+Redone from that average, search part 1294 - 27 = 1267 s at depth 16:
+
+    depth 17 = 12.87 x 1267 + 27 = 16 335 s = **4.54 h a piece**
+    18 pieces = **82 CPU-h**
+
+At the 2.85 effective parallelism just measured that is **~29 h wall**, not
+one night. Six workers, if the memory holds (mkrunp1.sh's header says six on
+62 GB), would be ~14 h.
+
+For comparison, the OLD search took 4 min a piece at depth 14, where the new
+one takes 117 s at depth 15 -- 12.97x the nodes in half the time.
+
+### Making searchz3 faster (2026-08-06, roquableu)
+
+One piece at depth 14, `native_compute`, every variant answering `true`,
+all within ONE run so the ratios mean something (the baseline alone has
+read 78.4 / 69.8 / 66.6 / 66.5 / 70.0 s across runs -- a 23 % spread).
+
+| | s | |
+|---|---|---|
+| `searchz3` | 70.0 | |
+| `searchz3f` | 39.1 | nat out of the inner loop |
+| `searchz3g` | 16.5 | h3i tested BEFORE comp_tabi |
+| `searchz3h` | 13.4 | eq_tabi stops at the first mismatch |
+| `searchz3k` | 9.7 | the nine heuristic lookups short circuited |
+| `searchz3m` | 8.0 | the three views computed one at a time |
+| `searchz3n` | **5.9** | the move path carried instead of the table |
+| | | **11.9x** |
+
+**FOUR OF THE SIX ARE ONE BUG: Rocq is strict, so work happens that a lazy
+evaluator would skip.** `orb` in the certificate guards, `andb` in `eqi`,
+the recursive call's own argument (a 48 entry array built for children that
+one lookup rejects), and `maxi` over nine lookups when the first settles it.
+The others were constants recomputed from unary, and maintaining a 48 entry
+table that is only ever compared against the identity.
+
+### searchz3 against searchz3f (nat taken out of the inner loop)
+
+MEASURED on roquableu 2026-08-06, `FastBench.vo`, one piece at depth 14,
+**native for both**, and both answers `true`:
+
+| | |
+|---|---|
+| `searchz3` | **78.4 s** |
+| `searchz3f` | **34.3 s** |
+| | **2.28x** |
+
+That is the nat removal alone. The overnight n = 19 run was **vm**, so the
+vm -> native 1.5x is ADDITIONAL to this.
+
+After it, `comp_tabi` dominates -- 8.3 us a child, ~125 us a node, a fresh
+48 entry array per child -- and it is NOT nat.
 
 ### Per node
 
@@ -143,7 +288,49 @@ Full table, depth 16 count run:
 
 | | |
 |---|---|
+| **`Phase1.vo`** | **41 s** on roquableu, **44.9 s** on the desktop (2026-08-05, `-time`) |
+| **`Farp1.vo`** | **1 m 30** on roquableu with the real tables (2026-08-05) |
+| **`FsmChk.vo`** | **1 m 20** on roquableu, native (2026-08-05) — the fsmoveC certificate, 2^24 values |
+| **`SlrChk.vo`** | **12 m 7**, of which the `Qed` is **719.7 s** (2026-08-05) |
+
+### These certificates are Qed-bound
+
+`native_cast_no_check` does NOT evaluate: it records the cast, and the whole
+2^24 evaluation happens in the KERNEL at `Qed`. So the `Time` line inside the
+file always reads 0 s and is useless — `time make` is the only measure.
+`-time` still earns its keep by splitting tactic from `Qed`, which is how the
+`||` below was found.
+
+**`||` IS STRICT UNDER NATIVE.** `orb` is a function call, native compiles it
+to OCaml, and OCaml evaluates both arguments. So a guard written
+`~~ fsok x || A` runs `A` on all 2^24 values, where
+`if ~~ fsok x then true else A` runs it only on the 1 013 760 admitted.
+MEASURED: `SlrChk` (with `||`) 719.7 s against `FsmChk` (with `if`) ~80 s —
+9x, against 16.5x predicted. Fix parked on branch `rubik-orb-if`.
+
+### A P1Chk slice, after the guard fix
+
+| | |
+|---|---|
+| memory | **3.2 GB** each, 9 in parallel = 29 GB of 64 |
+| per twist, ARITHMETIC from measured primitives | `sok` on 2^24 ~0.7 s + **`fpar` on 2.03 M ~16 s** + the 18 move work on 1.01 M ~6 s = ~22 s |
+| a slice of 81 twists | ~30 min |
+
+**`fpar` dominates and should be a 4096 entry table** like `srank`: it is
+`odd (count (nbit x) (iota 0 nedge))`, a NAT computation at ~8 us a call. A
+lookup would be 0.04 us and cut the slice to ~9 min. Designed, not built.
 | `P1TsChk.vo` | 35 s (its header still says 4.7 min — that predates the `of_nat` work) |
+
+The two machines are within 10 % of each other on `Phase1.vo`, so do NOT
+assume roquableu is faster per core — it has the RAM and the cores, not the
+clock. Its slowest sentences, all over a second:
+
+| | |
+|---|---|
+| `by rewrite !permM (eqP (cm _))...` | 7.5 s |
+| the `all_ssreflect` import | 6.9 s |
+| a `by vm_compute` at char 25096 | 6.0 s |
+| `rewrite /p1stepF; case: ifP` in `p1stepF_dummy` | 5.0 s |
 | `Farp1.vo` | ~30 s |
 | `Farp1main.vo` | 8 s, and needs **no data at all** |
 | `Farp1chk.vo` | ~1m25 through `make` (builds the chain beneath it) |
@@ -151,3 +338,26 @@ Full table, depth 16 count run:
 
 `Far_00.v .. Far_17.v` are in `_CoqProject` and each is a **65 hour** depth 15
 run of the old five view search. **Never run bare `make`.**
+
+## Working interactively: use DUMMY tables (2026-08-05)
+
+`rocq-mcp` opening a file in this development, MEASURED cold:
+
+| tables | `rocq_start` on a small file requiring the chain |
+|---|---|
+| the real `P1Ts.v` + `P1Fs.v` (2.75 MB) | **over 120 s** — `Farp1.v` itself over 290 s, past the server cap |
+| both replaced by `[:: 0]` | **under 30 s** |
+
+So develop against dummies. It is NOT raw size: a synthetic 4.2 MB
+`seq int` and the file requiring it cost pet under 25 s cold, against 8.3 s
+for `coqc` — so pet handles a big table fine and the cause here is
+something else, not yet identified.
+
+`P1Ts.v` and `P1Fs.v` are **tracked**, unlike `P1Fsm.v`, so a local dummy
+must be hidden from git:
+
+    git update-index --skip-worktree P1Ts.v P1Fs.v     # dummy locally
+    git update-index --no-skip-worktree P1Ts.v P1Fs.v  # and back
+
+Keep the real ones somewhere before overwriting. See the note about never
+checking a dummy in under a generated file's name.

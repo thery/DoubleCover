@@ -14,7 +14,7 @@ D=${1:-14}
 case "$D" in ''|*[!0-9]*) echo "usage: ./mkrunp1.sh [depth]" >&2; exit 1;; esac
 [ "$D" -ge 3 ] || { echo "depth must be at least 3" >&2; exit 1; }
 R=$((D - 2))
-E=${EVAL:-vm}
+E=${EVAL:-native}   # native, measured 1.5x on wall for this search
 case "$E" in vm|native) ;; *) echo "EVAL must be vm or native" >&2; exit 1;; esac
 for j in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17; do
   n=$(printf "%02d" $j)
@@ -31,5 +31,16 @@ sed -i "s/^Definition p1depth := .*/Definition p1depth := $D./" Runp1.v
 grep -q "^Definition p1depth := $D\.$" Runp1.v || {
   echo "failed to set p1depth in Runp1.v" >&2; exit 1; }
 
+# ---- and _CoqProject, or make has no rule for any of them ----------------
+# The same step mkp1chk.sh does for its slices.  Without it,
+#   make -j9 Runp1_00.vo ... Runp1_17.vo
+# stops at `No rule to make target Runp1_01.vo'.
+grep -v '^Runp1_[0-9]' _CoqProject > _CoqProject.new
+for j in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17; do
+  printf "Runp1_%02d.v\n" $j >> _CoqProject.new
+done
+mv _CoqProject.new _CoqProject
+
 echo "wrote Runp1_00.v .. Runp1_17.v at depth $D (root depth $R), $E"
+echo "  and listed them in _CoqProject, so make has rules for them"
 echo "  and set Runp1.v's p1depth to $D -- rebuild Runp1.vo before the pieces"
