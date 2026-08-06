@@ -463,6 +463,28 @@ Lemma rebuild_cons a0 k path :
 Proof. by []. Qed.
 
 (* =========================================================================  *)
+(*  searchz3m = searchz3.  A PURE REORDERING, so no invariant is needed:      *)
+(*  searchz3m carries the table and tests eq_tabi against it directly.        *)
+(*  (searchz3n, which carries the path instead, additionally needs x aligned  *)
+(*  with the table -- step3_init -- and so drags in fsmoveC, cubti and twP3.) *)
+(* =========================================================================  *)
+
+(* the depth, one step down, on the int side *)
+Lemma of_natS_sub d : (d.+1 <= 63)%N ->
+  Uint63.sub (of_nat d.+1) 1%uint63 = of_nat d.
+Proof.
+move=> dL.
+have hs : (d.+1 < nwB)%N by apply: small_nwB.
+have hd : (d < nwB)%N by apply: small_nwB; apply: ltnW.
+apply/to_nat_inj; rewrite to_nat_sub ?to_nat_1 ?of_natK ?subn1 //.
+Qed.
+
+Lemma searchz3mE T d : (d <= 63)%N -> forall di a x p, (p < 7)%N ->
+  di = of_nat d -> searchz3m T d di a x p = searchz3 T d a x p.
+Proof.
+Admitted.
+
+(* =========================================================================  *)
 (*  THE BRIDGE, ADMITTED                                                      *)
 (*                                                                            *)
 (*  Everything above is a reordering of searchz3 except the last step, which  *)
