@@ -224,6 +224,39 @@ Qed.
    x is destructured and stepv is used rather than step3i, so that both sides
    are the SAME TERMS and not merely convertible -- otherwise `/=' unfolds
    step3i on one side only and nothing matches. *)
+(* THE LIST STEP, OVER ABSTRACT PREDICATES.  This is the `//=' that did not
+   return on roquableu: after the cons is destructured the goal carries
+   stepv/hv1le/searchz3m over the real tables, and simpl walks them.  Here
+   g0, g1, g2 and R are variables, so the induction runs where there is no
+   table to walk, and the two S lemmas below get it by `exact' with every
+   argument given -- a conversion check, not a search. *)
+(* the element is destructured ONCE, exactly as the code does it -- with one
+   `let:' per test the two sides stop being convertible, since a match cannot
+   be commuted out of an `if' for a variable mp *)
+Lemma go_has3 (g0 g1 g2 R : int -> int -> int -> nat -> bool) l :
+  (fix go (l : seq (amove * nat)) : bool :=
+     if l is mp :: l' then
+       let: (m, pk) := mp in
+       let: ((k, ka), kb) := m in
+       if g0 k ka kb pk then
+         if g1 k ka kb pk then
+           if g2 k ka kb pk then (if R k ka kb pk then true else go l')
+           else go l'
+         else go l'
+       else go l'
+     else false) l
+  = has (fun mp =>
+           let: (m, pk) := mp in
+           let: ((k, ka), kb) := m in
+           (if g0 k ka kb pk then
+              if g1 k ka kb pk then g2 k ka kb pk else false
+            else false) && R k ka kb pk) l.
+Proof.
+elim: l => [|[[[k ka] kb] pk] l IH] //=.
+by case: (g0 _ _ _ _); case: (g1 _ _ _ _); case: (g2 _ _ _ _);
+   case: (R _ _ _ _); rewrite ?IH.
+Qed.
+
 Lemma searchz3mS T d di a x0 x1 x2 p : (d.+1 <= 63)%N -> di = of_nat d.+1 ->
   searchz3m T d.+1 di a (x0, x1, x2) p =
   (h3 T (x0, x1, x2) <= d.+1)%N &&
@@ -245,13 +278,14 @@ move=> dL ->; rewrite {1}/searchz3m -/searchz3m.
 rewrite h3leE (h3iE T (x0, x1, x2) dL) eq_tabifE.
 case: (h3 T (x0, x1, x2) <= d.+1)%N => //=.
 case: (eq_tabi 47 a (id_tabi 47)) => //=.
-elim: (nth [::] allowed3 p) => [|[[[k ka] kb] pk] l IH] //=.
-(* no `//=' on these: it partially reduces one side and the two stop
-   matching syntactically *)
-case: (hv1le _ _ _); last by rewrite IH.
-case: (hv1le _ _ _); last by rewrite IH.
-case: (hv1le _ _ _); last by rewrite IH.
-by case: (searchz3m _ _ _ _ _ _); rewrite ?IH.
+exact: (go_has3
+  (fun k ka kb pk => hv1le T (stepv x0 k) (Uint63.sub (of_nat d.+1) 1%uint63))
+  (fun k ka kb pk => hv1le T (stepv x1 ka) (Uint63.sub (of_nat d.+1) 1%uint63))
+  (fun k ka kb pk => hv1le T (stepv x2 kb) (Uint63.sub (of_nat d.+1) 1%uint63))
+  (fun k ka kb pk => searchz3m T d (Uint63.sub (of_nat d.+1) 1%uint63)
+                       (comp_tabi 47 a (PArray.get mtisa k))
+                       (stepv x0 k, stepv x1 ka, stepv x2 kb) pk)
+  (nth [::] allowed3 p)).
 Qed.
 
 (* searchz3 tests the heuristic first thing, so conjoining that test in front
@@ -336,11 +370,14 @@ rewrite h3leE (h3iE T (x0, x1, x2) dL) eq_tabifE.
 case: (h3 T (x0, x1, x2) <= d.+1)%N => //=.
 case: (if issolved (x0, x1, x2)
        then eq_tabi 47 (rebuild a0 path) (id_tabi 47) else false) => //=.
-elim: (nth [::] allowed3 p) => [|[[[k ka] kb] pk] l IH] //=.
-case: (hv1le _ _ _); last by rewrite IH.
-case: (hv1le _ _ _); last by rewrite IH.
-case: (hv1le _ _ _); last by rewrite IH.
-by case: (searchz3n _ _ _ _ _ _ _); rewrite ?IH.
+exact: (go_has3
+  (fun k ka kb pk => hv1le T (stepv x0 k) (Uint63.sub (of_nat d.+1) 1%uint63))
+  (fun k ka kb pk => hv1le T (stepv x1 ka) (Uint63.sub (of_nat d.+1) 1%uint63))
+  (fun k ka kb pk => hv1le T (stepv x2 kb) (Uint63.sub (of_nat d.+1) 1%uint63))
+  (fun k ka kb pk => searchz3n T d (Uint63.sub (of_nat d.+1) 1%uint63)
+                       a0 (k :: path)
+                       (stepv x0 k, stepv x1 ka, stepv x2 kb) pk)
+  (nth [::] allowed3 p)).
 Qed.
 
 (* the invariant is x = init3 (rebuild a0 path): the coordinates carried are
