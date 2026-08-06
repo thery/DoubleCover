@@ -138,6 +138,30 @@ The first batch DID deliver, because `allowedr p`, `nth _ mtis k` and
 **Only trust a `rep` measurement when the expression depends on the loop's
 input.**
 
+### Making searchz3 faster (2026-08-06, roquableu)
+
+One piece at depth 14, `native_compute`, every variant answering `true`,
+all within ONE run so the ratios mean something (the baseline alone has
+read 78.4 / 69.8 / 66.6 / 66.5 / 70.0 s across runs -- a 23 % spread).
+
+| | s | |
+|---|---|---|
+| `searchz3` | 70.0 | |
+| `searchz3f` | 39.1 | nat out of the inner loop |
+| `searchz3g` | 16.5 | h3i tested BEFORE comp_tabi |
+| `searchz3h` | 13.4 | eq_tabi stops at the first mismatch |
+| `searchz3k` | 9.7 | the nine heuristic lookups short circuited |
+| `searchz3m` | 8.0 | the three views computed one at a time |
+| `searchz3n` | **5.9** | the move path carried instead of the table |
+| | | **11.9x** |
+
+**FOUR OF THE SIX ARE ONE BUG: Rocq is strict, so work happens that a lazy
+evaluator would skip.** `orb` in the certificate guards, `andb` in `eqi`,
+the recursive call's own argument (a 48 entry array built for children that
+one lookup rejects), and `maxi` over nine lookups when the first settles it.
+The others were constants recomputed from unary, and maintaining a 48 entry
+table that is only ever compared against the identity.
+
 ### searchz3 against searchz3f (nat taken out of the inner loop)
 
 MEASURED on roquableu 2026-08-06, `FastBench.vo`, one piece at depth 14,

@@ -59,6 +59,13 @@ Definition nrun : bool :=
                              (init3 (prefixi i 0)) nfcube)
       (iota 0 nroot).
 
+(* THE FLOOR: depth 10 has almost no nodes, so this is essentially what
+   native_compute costs to compile the term.  Every figure above includes it. *)
+Definition floor10 : bool :=
+  all (fun i => ~~ searchz3n p1tab 10 10%uint63 (prefixi i 0) [::]
+                             (init3 (prefixi i 0)) nfcube)
+      (iota 0 nroot).
+
 (* ALL must print true, or the comparison means nothing *)
 Time Eval native_compute in oldrun.
 Time Eval native_compute in newrun.
@@ -67,3 +74,4 @@ Time Eval native_compute in hrun.
 Time Eval native_compute in krun.
 Time Eval native_compute in mrun.
 Time Eval native_compute in nrun.
+Time Eval native_compute in floor10.
