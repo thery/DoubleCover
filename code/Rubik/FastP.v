@@ -28,16 +28,16 @@ Import GroupScope.
 (*                                                                            *)
 (*  Dfsri and Dtsi hold fsdtab and tsdtab; actfsri and actfsr hold the fs     *)
 (*  move table, 116 MB with the real data.  Every proof below uses them       *)
-(*  SYMBOLICALLY -- but a `simpl', or a rewrite whose keyed match fails and   *)
-(*  falls back to conversion, unfolds one and walks the literal.  MEASURED    *)
-(*  on roquableu: hv1leE's first sentence did not return.  On the desktop     *)
-(*  P1Fs, P1Ts and P1Fsm are dummies, so the whole class is invisible and     *)
-(*  the file compiles in 12 s either way.                                     *)
+(*  SYMBOLICALLY -- but a tactic that SEARCHES a goal mentioning one of them  *)
+(*  falls back to conversion, unfolds it and walks the literal.  MEASURED on  *)
+(*  roquableu, three times: hv1leE, h3leE and searchz3mS's list step each did *)
+(*  not return.  On the desktop P1Fs, P1Ts and P1Fsm are dummies, so the      *)
+(*  whole class is invisible and the file compiles in 12 s either way.        *)
 (*                                                                            *)
-(*  Local, so nothing is exported: the generated Runp1_NN.v must be free to   *)
-(*  evaluate all of this under native_compute.                                *)
+(*  So: give every argument, and let `exact' check a conversion rather than   *)
+(*  let a rewrite look for a pattern.  NO `Opaque' -- it does not rescue      *)
+(*  these goals, and it would be the only one in the development.             *)
 (* =========================================================================  *)
-Local Opaque Dfsri Dtsi p1get actfsri actfsr acttwii acttwi.
 
 (*  Towards searchz3nE: the pieces, all proved                                *)
 (* =========================================================================  *)
@@ -69,47 +69,49 @@ apply/idP/idP; rewrite /maxi.
 by case/andP => ha hb; case: ifP.
 Qed.
 
-(* THE SHAPE, OVER THREE PLAIN INTS.  Everything below goes through this and
-   NO TACTIC EVER TOUCHES A LOOKUP: `exact' passes Dfsri/Dtsi/p1get in as
-   arguments, so they are assigned by first order unification and never
-   matched against, unfolded or abstracted.
-   Why it matters: with the REAL tables Dfsri holds a 1.35 MB literal and
-   actfsri a 116 MB one, and anything that searches a goal containing them --
-   `rewrite !maxi_leb', and equally a `move:' trying to abstract them -- falls
-   back to conversion and walks the literal.  MEASURED on roquableu: it does
-   not return.  On the desktop P1Fs/P1Ts/P1Fsm are dummies, so this whole
-   class is invisible and the file compiles in 12 s either way. *)
-(* THE ONE IDIOM THAT IS MEASURED TO WORK ON THE REAL TABLES: push the
-   equations, ABSTRACT every table bearing term into a plain int variable,
-   and only then rewrite.  What must NOT be done, both MEASURED not to
-   return on roquableu:
-     - `rewrite !maxi_leb' straight at the goal -- it searches, and where the
-       keyed match fails it unfolds Dfsri and walks a 1.35 MB literal;
-     - `exact: <shape lemma>' with the six variables still open -- the
-       elaborator then unfolds hv1le and hv1 to solve them, same walk.
-   Once a, b, c are variables the goal is three ints and nothing can be
-   reached from it. *)
-Lemma hv1leE T tf di : hv1le T tf di = (hv1 T tf <=? di)%uint63.
+(* THE SHAPE, OVER THREE PLAIN INTS.  Proved once here, where there is no
+   table to reach, and used by a GROUND `exact' below -- so the elaborator
+   only checks a conversion, and never looks for anything. *)
+Lemma maxi3_leb x y z di :
+  (if (x <=? di)%uint63
+   then if (y <=? di)%uint63 then (z <=? di)%uint63 else false
+   else false)
+  = (maxi (maxi x y) z <=? di)%uint63.
 Proof.
-rewrite /hv1le /hv1.
-move: (Dfsri tf.2) (Dtsi tf.1 (slrank tf.2)) (p1get T (p1idxr tf.1 tf.2))
-  => a b c.
 rewrite !maxi_leb.
-by case: (a <=? di)%uint63; case: (b <=? di)%uint63; case: (c <=? di)%uint63.
+by case: (x <=? di)%uint63; case: (y <=? di)%uint63; case: (z <=? di)%uint63.
 Qed.
 
-(* THE SAME IDIOM, and `rewrite (maxi_leb (hv1 T x0)) ... !hv1leE' was the
-   second sentence to not return on roquableu: each hv1 hides Dfsri and
-   Dtsi, so searching for a pattern reaches the literals.  Push the three
-   equations, abstract the six terms, and only then rewrite. *)
+(* h3i associates the other way, and its arguments are hv1 rather than a
+   lookup, so the three equations come in as PREMISES: their types then fix
+   a, b, c and x, y, z, and again nothing is left open. *)
+Lemma maxi3_lebR (a b c : bool) (x y z di : int) :
+  a = (x <=? di)%uint63 -> b = (y <=? di)%uint63 -> c = (z <=? di)%uint63 ->
+  (if a then if b then c else false else false)
+  = (maxi x (maxi y z) <=? di)%uint63.
+Proof.
+move=> -> -> ->; rewrite !maxi_leb.
+by case: (x <=? di)%uint63; case: (y <=? di)%uint63; case: (z <=? di)%uint63.
+Qed.
+
+(* THE THREE LOOKUPS GIVEN, not found.  `rewrite !maxi_leb' at the goal
+   searches and does not return; so does a `move:' abstracting them, and so
+   does an `exact' with the six variables still open -- all three MEASURED on
+   roquableu.  Written out, this is a conversion check on hv1le and hv1 and
+   nothing else. *)
+Lemma hv1leE T tf di : hv1le T tf di = (hv1 T tf <=? di)%uint63.
+Proof.
+exact: (maxi3_leb (Dfsri tf.2) (Dtsi tf.1 (slrank tf.2))
+                  (p1get T (p1idxr tf.1 tf.2)) di).
+Qed.
+
+(* and the same: `rewrite (maxi_leb (hv1 T x0)) ... !hv1leE' was the second
+   sentence not to return.  The three hv1leE instances are ground, so
+   maxi3_lebR has nothing to solve. *)
 Lemma h3leE T x di : h3le T x di = (h3i T x <=? di)%uint63.
 Proof.
-case: x => [[x0 x1] x2]; rewrite /h3le /h3i.
-move: (hv1leE T x0 di) (hv1leE T x1 di) (hv1leE T x2 di).
-move: (hv1le T x0 di) (hv1le T x1 di) (hv1le T x2 di) => a b c.
-move: (hv1 T x0) (hv1 T x1) (hv1 T x2) => u v w.
-move=> -> -> ->; rewrite !maxi_leb.
-by case: (u <=? di)%uint63; case: (v <=? di)%uint63; case: (w <=? di)%uint63.
+case: x => [[x0 x1] x2].
+exact: (maxi3_lebR (hv1leE T x0 di) (hv1leE T x1 di) (hv1leE T x2 di)).
 Qed.
 
 (* the whole list at once: eighteen separate vm_computes did not return *)
