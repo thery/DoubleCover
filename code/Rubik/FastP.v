@@ -69,32 +69,50 @@ apply/idP/idP; rewrite /maxi.
 by case/andP => ha hb; case: ifP.
 Qed.
 
-(* THE THREE LOOKUPS OUT OF THE GOAL BEFORE ANY TACTIC SEES IT.  Dfsri and
-   Dtsi hold fsdtab and tsdtab, and with the REAL tables those are 1.35 MB
-   array literals: `rewrite !maxi_leb' has to search the goal, and where
-   keyed matching fails it falls back to conversion, unfolds Dfsri and walks
-   the literal.  MEASURED on roquableu -- this sentence did not return; on
-   the desktop, where P1Fs and P1Ts are dummies, it is 0 s and the whole
-   class is invisible.  Generalised, the goal is maxi algebra over three
-   plain ints and no table is reachable from it.  The `_' patterns are gone
-   for the same reason: they gave the matcher the whole goal to search. *)
-Lemma hv1leE T tf di : hv1le T tf di = (hv1 T tf <=? di)%uint63.
+(* THE SHAPE, OVER THREE PLAIN INTS.  Everything below goes through this and
+   NO TACTIC EVER TOUCHES A LOOKUP: `exact' passes Dfsri/Dtsi/p1get in as
+   arguments, so they are assigned by first order unification and never
+   matched against, unfolded or abstracted.
+   Why it matters: with the REAL tables Dfsri holds a 1.35 MB literal and
+   actfsri a 116 MB one, and anything that searches a goal containing them --
+   `rewrite !maxi_leb', and equally a `move:' trying to abstract them -- falls
+   back to conversion and walks the literal.  MEASURED on roquableu: it does
+   not return.  On the desktop P1Fs/P1Ts/P1Fsm are dummies, so this whole
+   class is invisible and the file compiles in 12 s either way. *)
+Lemma maxi3_leb x y z di :
+  (if (x <=? di)%uint63
+   then if (y <=? di)%uint63 then (z <=? di)%uint63 else false
+   else false)
+  = (maxi (maxi x y) z <=? di)%uint63.
 Proof.
-rewrite /hv1le /hv1.
-move: (Dfsri tf.2) (Dtsi tf.1 (slrank tf.2)) (p1get T (p1idxr tf.1 tf.2))
-  => a b c.
 rewrite !maxi_leb.
-by case: (a <=? di)%uint63; case: (b <=? di)%uint63; case: (c <=? di)%uint63.
+by case: (x <=? di)%uint63; case: (y <=? di)%uint63; case: (z <=? di)%uint63.
 Qed.
 
-(* maxi_leb is restricted to the two OUTER maxi, or it fires inside hv1 too
-   and the two sides stop matching *)
+Lemma hv1leE T tf di : hv1le T tf di = (hv1 T tf <=? di)%uint63.
+Proof. exact: maxi3_leb. Qed.
+
+(* h3i associates the other way -- maxi x (maxi y z) -- and its three
+   arguments are hv1 rather than a lookup, so the equations come in as
+   PREMISES: `exact' then determines a, b, c, x, y, z from their types by
+   first order unification, and the goal is never searched. *)
+Lemma maxi3_lebR (a b c : bool) (x y z di : int) :
+  a = (x <=? di)%uint63 -> b = (y <=? di)%uint63 -> c = (z <=? di)%uint63 ->
+  (if a then if b then c else false else false)
+  = (maxi x (maxi y z) <=? di)%uint63.
+Proof.
+move=> -> -> ->; rewrite !maxi_leb.
+by case: (x <=? di)%uint63; case: (y <=? di)%uint63; case: (z <=? di)%uint63.
+Qed.
+
+(* NO REWRITE HERE EITHER.  `rewrite (maxi_leb (hv1 T x0)) ... !hv1leE' was
+   the second sentence to not return on roquableu: each hv1 hides Dfsri and
+   Dtsi, so searching the goal for a pattern reaches the literals.  Passing
+   the three hv1leE instances to maxi3_lebR searches nothing. *)
 Lemma h3leE T x di : h3le T x di = (h3i T x <=? di)%uint63.
 Proof.
 case: x => [[x0 x1] x2]; rewrite /h3le /h3i.
-rewrite (maxi_leb (hv1 T x0)) (maxi_leb (hv1 T x1)) !hv1leE.
-by case: (hv1 T x0 <=? di)%uint63; case: (hv1 T x1 <=? di)%uint63;
-   case: (hv1 T x2 <=? di)%uint63.
+exact: (maxi3_lebR (hv1leE T x0 di) (hv1leE T x1 di) (hv1leE T x2 di)).
 Qed.
 
 (* the whole list at once: eighteen separate vm_computes did not return *)
@@ -255,10 +273,11 @@ by rewrite (searchz3S T A X P dL) => /andP[hh _].
 Qed.
 
 (* h3le on a literal triple, folded back *)
+(* and the same, rather than `by rewrite -h3leE' *)
 Lemma h3le_split T y0 y1 y2 dj :
   (if hv1le T y0 dj then if hv1le T y1 dj then hv1le T y2 dj else false
    else false) = (h3i T (y0, y1, y2) <=? dj)%uint63.
-Proof. by rewrite -h3leE. Qed.
+Proof. exact: (maxi3_lebR (hv1leE T y0 dj) (hv1leE T y1 dj) (hv1leE T y2 dj)). Qed.
 
 Lemma searchz3mE T d : (d <= 63)%N -> forall di a x p, (p < 7)%N ->
   di = of_nat d -> searchz3m T d di a x p = searchz3 T d a x p.
