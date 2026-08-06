@@ -140,3 +140,45 @@ Fixpoint searchz3h (T : PArray.array arr) (d : nat) (di : int) (a : arr)
          else false) (nth [::] allowed3 p)
     else false
   else false.
+
+(* =========================================================================  *)
+(*  h3le: the heuristic TEST, short circuited                                 *)
+(*                                                                            *)
+(*  h3i computes nine table lookups and takes their max; the caller only ever *)
+(*  asks `h3i T x <=? di', and max <= di iff every one of them is.  Since the *)
+(*  earlier test made most children rejections, the first lookup usually       *)
+(*  settles it -- one instead of nine.                                        *)
+(*                                                                            *)
+(*  h3le T x di is EXACTLY h3i T x <=? di, so the tree does not change.       *)
+(* =========================================================================  *)
+Definition hv1le (T : PArray.array arr) (tf : int * int) (di : int) : bool :=
+  if (Dfsri tf.2 <=? di)%uint63 then
+    if (Dtsi tf.1 (slrank tf.2) <=? di)%uint63 then
+      (p1get T (p1idxr tf.1 tf.2) <=? di)%uint63
+    else false
+  else false.
+
+Definition h3le (T : PArray.array arr) (x : c3) (di : int) : bool :=
+  let: (x0, x1, x2) := x in
+  if hv1le T x0 di then
+    if hv1le T x1 di then hv1le T x2 di else false
+  else false.
+
+Fixpoint searchz3k (T : PArray.array arr) (d : nat) (di : int) (a : arr)
+                   (x : c3) (p : nat) : bool :=
+  if h3le T x di then
+    if eq_tabif a (id_tabi 47) then true
+    else if d is d'.+1 then
+      let di' := Uint63.sub di 1%uint63 in
+      (fix go (l : seq (amove * nat)) : bool :=
+         if l is mp :: l' then
+           let: (m, pk) := mp in
+           let x' := step3i x m in
+           if h3le T x' di' then
+             if searchz3k T d' di' (comp_tabi 47 a (PArray.get mtisa m.1.1))
+                            x' pk
+             then true else go l'
+           else go l'
+         else false) (nth [::] allowed3 p)
+    else false
+  else false.
