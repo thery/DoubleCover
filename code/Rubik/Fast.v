@@ -30,34 +30,13 @@ Unset Printing Implicit Defensive.
 
 Import GroupScope.
 
-(* ---- the identity table, built ONCE -------------------------------------
-   searchz3 writes `eq_tabi 47 a (id_tabi 47)', and id_tabi 47 builds a fresh
-   48 entry array every node.  MEASURED, 100 000 iterations, vm:
-     eq_tabi 47 a0 (id_tabi 47)   12.13 us
-     eq_tabi 47 a0 a0              5.24 us
-     id_tabi 47 alone              7.13 us
-   -- the difference is exactly the rebuild. *)
-Definition idi : arr := Eval vm_compute in id_tabi 47.
-
-(* ---- comp_tabi without the of_nat ---------------------------------------
-   comp_tabi sizes its result with `PArray.make (of_nat n.+1) 0', i.e. it
-   computes the constant 48 from unary ON EVERY CALL.  MEASURED:
-     comp_tabi 47      9.39 us
-     with a literal    5.45 us      -- 34 % of it was of_nat 48 (3.21 us)
-     PArray.make 48    0.37 us
-   The remaining 5.45 is 48 iterations of three array reads, i.e. the floor. *)
-Definition comp_tabif (a b : arr) : arr :=
-  foldi 48 0%uint63
-        (fun i c => PArray.set c i (PArray.get b (PArray.get a i)))
-        (PArray.make 48%uint63 0%uint63).
-
 (* ---- the move tables as an array, indexed by an int --------------------- *)
 Fixpoint setl (a : PArray.array arr) (i : int) (l : seq arr)
   : PArray.array arr :=
   if l is x :: l' then setl (PArray.set a i x) (Uint63.add i 1) l' else a.
 
 Definition mtisa : PArray.array arr := Eval vm_compute in
-  setl (PArray.make 18%uint63 idi) 0%uint63 mtis.
+  setl (PArray.make 18%uint63 (id_tabi 47)) 0%uint63 mtis.
 
 (* ---- the seven allowed lists, with every index already an int ------------ *)
 (* each entry is (k, mv3a k, mv3b k) as ints, and the child's p as a nat --
@@ -83,13 +62,13 @@ Definition step3i (x : c3) (m : amove) : c3 :=
 Fixpoint searchz3f (T : PArray.array arr) (d : nat) (di : int) (a : arr)
                    (x : c3) (p : nat) : bool :=
   if (h3i T x <=? di)%uint63 then
-    if eq_tabi 47 a idi then true
+    if eq_tabi 47 a (id_tabi 47) then true
     else if d is d'.+1 then
       let di' := Uint63.sub di 1%uint63 in
       (fix go (l : seq (amove * nat)) : bool :=
          if l is mp :: l' then
            let: (m, pk) := mp in
-           if searchz3f T d' di' (comp_tabif a (PArray.get mtisa m.1.1))
+           if searchz3f T d' di' (comp_tabi 47 a (PArray.get mtisa m.1.1))
                           (step3i x m) pk
            then true else go l'
          else false) (nth [::] allowed3 p)
