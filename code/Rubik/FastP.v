@@ -173,31 +173,42 @@ have hd : (d < nwB)%N by apply: small_nwB; apply: ltnW.
 apply/to_nat_inj; rewrite to_nat_sub ?to_nat_1 ?of_natK ?subn1 //.
 Qed.
 
-(* one unfolding, in the shape searchz3S has for searchz3.  The && here is
-   in the SPECIFICATION, where only the value matters; the code keeps its
-   nested ifs, because andb is strict and would run the recursive call even
-   when the guard fails. *)
-Lemma searchz3mS T d di a x p : (d.+1 <= 63)%N -> di = of_nat d.+1 ->
-  searchz3m T d.+1 di a x p =
-  (h3 T x <= d.+1)%N &&
+(* one unfolding, in the shape searchz3S has for searchz3.  The && here is in
+   the SPECIFICATION, where only the value matters; the code keeps its nested
+   ifs, because andb is strict and would run the recursive call even when the
+   guard fails.
+
+   x is destructured and stepv is used rather than step3i, so that both sides
+   are the SAME TERMS and not merely convertible -- otherwise `/=' unfolds
+   step3i on one side only and nothing matches. *)
+Lemma searchz3mS T d di a x0 x1 x2 p : (d.+1 <= 63)%N -> di = of_nat d.+1 ->
+  searchz3m T d.+1 di a (x0, x1, x2) p =
+  (h3 T (x0, x1, x2) <= d.+1)%N &&
   (eq_tabi 47 a (id_tabi 47) ||
-   has (fun m => h3le T (step3i x m.1) (Uint63.sub di 1%uint63) &&
-                 searchz3m T d (Uint63.sub di 1%uint63)
-                           (comp_tabi 47 a (PArray.get mtisa m.1.1.1))
-                           (step3i x m.1) m.2)
+   has (fun m =>
+          let: (mm, pk) := m in
+          let: ((k, ka), kb) := mm in
+          (if hv1le T (stepv x0 k) (Uint63.sub di 1%uint63)
+           then if hv1le T (stepv x1 ka) (Uint63.sub di 1%uint63)
+                then hv1le T (stepv x2 kb) (Uint63.sub di 1%uint63)
+                else false
+           else false) &&
+          searchz3m T d (Uint63.sub di 1%uint63)
+                    (comp_tabi 47 a (PArray.get mtisa k))
+                    (stepv x0 k, stepv x1 ka, stepv x2 kb) pk)
        (nth [::] allowed3 p)).
 Proof.
 move=> dL ->; rewrite {1}/searchz3m -/searchz3m.
-rewrite h3leE (h3iE T x dL) eq_tabifE.
-case: (h3 T x <= d.+1)%N => //=.
+rewrite h3leE (h3iE T (x0, x1, x2) dL) eq_tabifE.
+case: (h3 T (x0, x1, x2) <= d.+1)%N => //=.
 case: (eq_tabi 47 a (id_tabi 47)) => //=.
-case: x => [[x0 x1] x2].
 elim: (nth [::] allowed3 p) => [|[[[k ka] kb] pk] l IH] //=.
-rewrite /h3le /step3i /stepv /=.
-case: (hv1le _ _ _) => //=; last by rewrite IH.
-case: (hv1le _ _ _) => //=; last by rewrite IH.
-case: (hv1le _ _ _) => //=; last by rewrite IH.
-by case: (searchz3m _ _ _ _ _ _) => //=; rewrite IH.
+(* no `//=' on these: it partially reduces one side and the two stop
+   matching syntactically *)
+case: (hv1le _ _ _); last by rewrite IH.
+case: (hv1le _ _ _); last by rewrite IH.
+case: (hv1le _ _ _); last by rewrite IH.
+by case: (searchz3m _ _ _ _ _ _); rewrite ?IH.
 Qed.
 
 Lemma searchz3mE T d : (d <= 63)%N -> forall di a x p, (p < 7)%N ->
