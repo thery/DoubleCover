@@ -176,6 +176,25 @@ against the known node ratio 12.97:
 which puts depth 17 at 12.87 x 1174 + 27 = **~4.2 h a piece**, not 3.4 --
 about 25 % more. n = 19 is then ~13 h at -j6, ~21 h at -j4.
 
+**THE WHOLE n = 18 RUN, MEASURED (2026-08-06, roquableu, 18 pieces):**
+
+    real 8177 s = 2 h 16      user 23299 s = 6 h 28      sys 88 s
+
+so **1294 s a piece** on average -- the 1200 s single piece above was
+representative -- and an effective parallelism of 23299 / 8177 = **2.85**,
+not the -j it was launched at. Piece 11 alone took 30 min against the 20 min
+average: the pieces vary by about 1.5x, which is worth remembering before
+reading anything into a single one.
+
+Redone from that average, search part 1294 - 27 = 1267 s at depth 16:
+
+    depth 17 = 12.87 x 1267 + 27 = 16 335 s = **4.54 h a piece**
+    18 pieces = **82 CPU-h**
+
+At the 2.85 effective parallelism just measured that is **~29 h wall**, not
+one night. Six workers, if the memory holds (mkrunp1.sh's header says six on
+62 GB), would be ~14 h.
+
 For comparison, the OLD search took 4 min a piece at depth 14, where the new
 one takes 117 s at depth 15 -- 12.97x the nodes in half the time.
 
