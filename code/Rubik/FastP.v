@@ -232,6 +232,17 @@ Qed.
    g0, g1, g2 and R are variables, so the induction runs where there is no
    table to walk, and the two S lemmas below get it by `exact' with every
    argument given -- a conversion check, not a search. *)
+(* THE TWO OUTER TESTS, over plain bools.  These replace the `case: ... =>
+   //=' pairs: all those `/=' ever did was reduce `if true' and `true && _',
+   which is this, and MEASURED on roquableu they cost 0.007 s while Dfsri was
+   Opaque and did not return once it was not -- simpl walks the literal.
+   With X, B and C variables there is nothing to walk. *)
+Lemma if_andb (X B C : bool) : B = C -> (if X then B else false) = X && C.
+Proof. by move=> ->; case: X. Qed.
+
+Lemma if_orb (E B C : bool) : B = C -> (if E then true else B) = E || C.
+Proof. by move=> ->; case: E. Qed.
+
 (* the element is destructured ONCE, exactly as the code does it -- with one
    `let:' per test the two sides stop being convertible, since a match cannot
    be commuted out of an `if' for a variable mp *)
@@ -278,8 +289,7 @@ Lemma searchz3mS T d di a x0 x1 x2 p : (d.+1 <= 63)%N -> di = of_nat d.+1 ->
 Proof.
 move=> dL ->; rewrite {1}/searchz3m -/searchz3m.
 rewrite h3leE (h3iE T (x0, x1, x2) dL) eq_tabifE.
-case: (h3 T (x0, x1, x2) <= d.+1)%N => //=.
-case: (eq_tabi 47 a (id_tabi 47)) => //=.
+apply: if_andb; apply: if_orb.
 exact: (go_has3
   (fun k ka kb pk => hv1le T (stepv x0 k) (Uint63.sub (of_nat d.+1) 1%uint63))
   (fun k ka kb pk => hv1le T (stepv x1 ka) (Uint63.sub (of_nat d.+1) 1%uint63))
@@ -328,7 +338,11 @@ have kL : (k < 18)%N.
 have pkL : (fcpos k < 7)%N by rewrite /fcpos ltn_divLR // (leq_trans kL).
 have sv : forall v j, stepv v (of_nat j) = (acttwi v.1 j, actfsr v.2 j).
   by move=> v j; rewrite /stepv acttwiiE actfsriE.
-rewrite /preim /= (of_natS_sub dL) (mtisaE kL) !sv.
+(* NOT `/='.  All it did here was preim's three coercions and step3 on the
+   right, where !sv meets it halfway -- so unfold exactly those five and let
+   simpl choose nothing.  MEASURED: this lands on the same goal `/=' did. *)
+rewrite /preim /pred_of_simpl /SimplPred /fun_of_simpl.
+rewrite (of_natS_sub dL) (mtisaE kL) !sv /step3.
 rewrite (IH (ltnW dL) _ _ _ _ pkL erefl).
 (* [X in X && _] IS NOT TIDINESS.  Left to search the whole goal, rewrite
    walks into the two searchz3 terms and does not return -- MEASURED, it ran
@@ -369,9 +383,7 @@ Lemma searchz3nS T d di a0 path x0 x1 x2 p :
 Proof.
 move=> dL ->; rewrite {1}/searchz3n -/searchz3n.
 rewrite h3leE (h3iE T (x0, x1, x2) dL) eq_tabifE.
-case: (h3 T (x0, x1, x2) <= d.+1)%N => //=.
-case: (if issolved (x0, x1, x2)
-       then eq_tabi 47 (rebuild a0 path) (id_tabi 47) else false) => //=.
+apply: if_andb; apply: if_orb.
 exact: (go_has3
   (fun k ka kb pk => hv1le T (stepv x0 k) (Uint63.sub (of_nat d.+1) 1%uint63))
   (fun k ka kb pk => hv1le T (stepv x1 ka) (Uint63.sub (of_nat d.+1) 1%uint63))
@@ -437,7 +449,8 @@ have hy : (stepv x0 (of_nat k), stepv x1 (of_nat (nth 0%N mv3a k)),
            stepv x2 (of_nat (nth 0%N mv3b k)))
         = init3 (rebuild a0 (of_nat k :: path)).
   rewrite hr -(si _ _ aok ca tw kL) -hx !sv; exact: refl_equal.
-rewrite /preim /= (of_natS_sub dL).
+(* same as in searchz3mE: the coercions, and nothing else *)
+rewrite /preim /pred_of_simpl /SimplPred /fun_of_simpl (of_natS_sub dL).
 congr (_ && _).
 rewrite (IH dL' (of_nat d) a0 (of_nat k :: path) _ _ _ (fcpos k)
             erefl pkL Aok cA twA hy) hr (mtisaE kL).
