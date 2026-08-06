@@ -322,6 +322,64 @@ Fixpoint searchz3nc (T : PArray.array arr) (d : nat) (di : int) (a0 : arr)
   else (false, 1%uint63).
 
 (* =========================================================================  *)
+(*  Towards searchz3nE: the pieces, all proved                                *)
+(* =========================================================================  *)
+
+(* the early exit changes nothing *)
+Lemma eq_tabifE a b : eq_tabif a b = eq_tabi 47 a b.
+Proof.
+rewrite /eq_tabif /eq_tabi.
+have gen : forall k i, eqif k i a b = eqi k i a b.
+  by elim=> [|k IH] i //=; case: (_ =? _)%uint63; rewrite ?IH.
+by apply: gen.
+Qed.
+
+(* max <= c iff both are: what lets the nine lookups short circuit *)
+Lemma maxi_leb a b c :
+  (maxi a b <=? c)%uint63 = ((a <=? c)%uint63 && (b <=? c)%uint63).
+Proof.
+apply/idP/idP; rewrite /maxi.
+  case: ifP => hab h; apply/andP; split.
+  - by move/nlebP: hab => hab; move/nlebP: h => h;
+       apply/nlebP; apply: leq_trans hab h.
+  - exact: h.
+  - exact: h.
+  move/nlebP: h => h; apply/nlebP.
+  have hba : to_nat b <= to_nat a.
+    apply: ltnW; rewrite ltnNge; apply/negP => hc.
+    by move: hab; have := introT (nlebP a b) hc => ->.
+  by apply: leq_trans hba h.
+by case/andP => ha hb; case: ifP.
+Qed.
+
+Lemma hv1leE T tf di : hv1le T tf di = (hv1 T tf <=? di)%uint63.
+Proof.
+rewrite /hv1le /hv1 !maxi_leb.
+by case: (_ <=? _)%uint63; case: (_ <=? _)%uint63; case: (_ <=? _)%uint63.
+Qed.
+
+(* maxi_leb is restricted to the two OUTER maxi, or it fires inside hv1 too
+   and the two sides stop matching *)
+Lemma h3leE T x di : h3le T x di = (h3i T x <=? di)%uint63.
+Proof.
+case: x => [[x0 x1] x2]; rewrite /h3le /h3i.
+rewrite (maxi_leb (hv1 T x0)) (maxi_leb (hv1 T x1)) !hv1leE.
+by case: (hv1 T x0 <=? di)%uint63; case: (hv1 T x1 <=? di)%uint63;
+   case: (hv1 T x2 <=? di)%uint63.
+Qed.
+
+(* the whole list at once: eighteen separate vm_computes did not return *)
+Lemma mtisaE_all : [seq PArray.get mtisa (of_nat k) | k <- iota 0 18] = mtis.
+Proof. by vm_compute. Qed.
+
+Lemma mtisaE k : (k < 18)%N ->
+  PArray.get mtisa (of_nat k) = nth (id_tabi 47) mtis k.
+Proof.
+move=> kL; rewrite -mtisaE_all (nth_map 0%N); last by rewrite size_iota.
+by rewrite nth_iota.
+Qed.
+
+(* =========================================================================  *)
 (*  THE BRIDGE, ADMITTED                                                      *)
 (*                                                                            *)
 (*  Everything above is a reordering of searchz3 except the last step, which  *)
