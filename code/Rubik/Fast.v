@@ -379,6 +379,33 @@ move=> kL; rewrite -mtisaE_all (nth_map 0%N); last by rewrite size_iota.
 by rewrite nth_iota.
 Qed.
 
+Lemma step3iE x k :
+  step3i x ((of_nat k, of_nat (nth 0%N mv3a k)), of_nat (nth 0%N mv3b k))
+  = step3 x k.
+Proof.
+by case: x => [[x0 x1] x2]; rewrite /step3i /step3 !acttwiiE !actfsriE.
+Qed.
+
+(* allowed3 is its own definition, so this is conversion; it is stated
+   because the induction needs to rewrite with it. *)
+Lemma allowed3E_all :
+  allowed3 =
+  [seq [seq (((of_nat k, of_nat (nth 0%N mv3a k)), of_nat (nth 0%N mv3b k)),
+             fcpos k)
+       | k <- allowedr mtis nfcube oppf fcpos p]
+  | p <- iota 0 7].
+Proof. by vm_compute. Qed.
+
+Lemma allowed3E p : (p < 7)%N ->
+  nth [::] allowed3 p =
+  [seq (((of_nat k, of_nat (nth 0%N mv3a k)), of_nat (nth 0%N mv3b k)),
+        fcpos k)
+  | k <- allowedr mtis nfcube oppf fcpos p].
+Proof.
+move=> pL; rewrite allowed3E_all (nth_map 0%N); last by rewrite size_iota.
+by rewrite nth_iota.
+Qed.
+
 (* =========================================================================  *)
 (*  THE BRIDGE, ADMITTED                                                      *)
 (*                                                                            *)
