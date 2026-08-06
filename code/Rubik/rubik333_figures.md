@@ -119,6 +119,25 @@ Growth factor **12.9** (12.98 and 12.80 between the three measured totals).
 redundancy filter, `countp1` fixes the first two and restarts it at nfcube.
 The counts are not comparable between them.
 
+### A `rep`-STYLE MICRO BENCHMARK OVERSTATES CLOSED SUBTERMS
+
+`rep n (fun _ => e) acc` re-evaluates `e` every iteration. The real search
+runs under `native_compute`, which **lifts closed subterms and evaluates them
+once**. So the harness measures a cost that does not exist for anything not
+depending on a variable.
+
+MEASURED, and this is how it was found (2026-08-06): `of_nat 48` inside
+`comp_tabi` (3.21 us in the harness) and `id_tabi 47` inside `eq_tabi`
+(7.13 us) predicted a further 1.76x on `searchz3f`. The real run gave
+34.3 s -> 32.3 s, **6 %, inside the noise** — `oldrun` moved 78.4 -> 69.8 s,
+11 %, with no change to it at all. Both were reverted.
+
+The first batch DID deliver, because `allowedr p`, `nth _ mtis k` and
+`of_nat d` all depend on a VARIABLE and so cannot be lifted.
+
+**Only trust a `rep` measurement when the expression depends on the loop's
+input.**
+
 ### searchz3 against searchz3f (nat taken out of the inner loop)
 
 MEASURED on roquableu 2026-08-06, `FastBench.vo`, one piece at depth 14,
