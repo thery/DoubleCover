@@ -320,3 +320,38 @@ Fixpoint searchz3nc (T : PArray.array arr) (d : nat) (di : int) (a0 : arr)
          else (false, acc)) (nth [::] allowed3 p) 1%uint63
     else (false, 1%uint63)
   else (false, 1%uint63).
+
+(* =========================================================================  *)
+(*  THE BRIDGE, ADMITTED                                                      *)
+(*                                                                            *)
+(*  Everything above is a reordering of searchz3 except the last step, which  *)
+(*  trades the maintained table for the move path.  None of it changes the    *)
+(*  tree or the answer, and FastBench checks that on a real piece -- but that *)
+(*  is a check, not a proof.                                                  *)
+(*                                                                            *)
+(*  ADMITTED DELIBERATELY so the chain can be RUN and timed.  Anything built  *)
+(*  on it inherits the admit; `Print Assumptions' will say so.                *)
+(*                                                                            *)
+(*  To discharge it: mtisaE, allowed3E, step3iE, h3leE, eq_tabifE, then an    *)
+(*  induction on d.  The first five are reorderings; the path step needs      *)
+(*  `solved -> coordinates solved', which is what issolved filters on.        *)
+(* =========================================================================  *)
+Lemma searchz3nE T d a p :
+  searchz3n T d (of_nat d) a [::] (init3 a) p = searchz3 T d a (init3 a) p.
+Admitted.
+
+(* the shape the generated Runp1_NN.v files need: apply this, discharge the
+   `di = of_nat d' side condition by vm_compute, and cast the searchz3n
+   statement.  Stated as an implication rather than an equation so the
+   generated proof is one `apply' and no rewriting under a binder. *)
+Lemma p1searchd_bridge T d di j :
+  di = of_nat d ->
+  all (fun i => ~~ searchz3n T d di (prefixi i j) [::]
+                             (init3 (prefixi i j)) nfcube) (iota 0 nroot) ->
+  all (fun i => ~~ searchz3 T d (prefixi i j)
+                            (init3 (prefixi i j)) nfcube) (iota 0 nroot).
+Proof.
+move=> -> h; apply/allP => i hi.
+have /allP/(_ i hi) := h.
+by rewrite searchz3nE.
+Qed.
