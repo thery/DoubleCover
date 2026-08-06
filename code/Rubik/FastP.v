@@ -79,40 +79,37 @@ Qed.
    back to conversion and walks the literal.  MEASURED on roquableu: it does
    not return.  On the desktop P1Fs/P1Ts/P1Fsm are dummies, so this whole
    class is invisible and the file compiles in 12 s either way. *)
-Lemma maxi3_leb x y z di :
-  (if (x <=? di)%uint63
-   then if (y <=? di)%uint63 then (z <=? di)%uint63 else false
-   else false)
-  = (maxi (maxi x y) z <=? di)%uint63.
-Proof.
-rewrite !maxi_leb.
-by case: (x <=? di)%uint63; case: (y <=? di)%uint63; case: (z <=? di)%uint63.
-Qed.
-
+(* THE ONE IDIOM THAT IS MEASURED TO WORK ON THE REAL TABLES: push the
+   equations, ABSTRACT every table bearing term into a plain int variable,
+   and only then rewrite.  What must NOT be done, both MEASURED not to
+   return on roquableu:
+     - `rewrite !maxi_leb' straight at the goal -- it searches, and where the
+       keyed match fails it unfolds Dfsri and walks a 1.35 MB literal;
+     - `exact: <shape lemma>' with the six variables still open -- the
+       elaborator then unfolds hv1le and hv1 to solve them, same walk.
+   Once a, b, c are variables the goal is three ints and nothing can be
+   reached from it. *)
 Lemma hv1leE T tf di : hv1le T tf di = (hv1 T tf <=? di)%uint63.
-Proof. exact: maxi3_leb. Qed.
-
-(* h3i associates the other way -- maxi x (maxi y z) -- and its three
-   arguments are hv1 rather than a lookup, so the equations come in as
-   PREMISES: `exact' then determines a, b, c, x, y, z from their types by
-   first order unification, and the goal is never searched. *)
-Lemma maxi3_lebR (a b c : bool) (x y z di : int) :
-  a = (x <=? di)%uint63 -> b = (y <=? di)%uint63 -> c = (z <=? di)%uint63 ->
-  (if a then if b then c else false else false)
-  = (maxi x (maxi y z) <=? di)%uint63.
 Proof.
-move=> -> -> ->; rewrite !maxi_leb.
-by case: (x <=? di)%uint63; case: (y <=? di)%uint63; case: (z <=? di)%uint63.
+rewrite /hv1le /hv1.
+move: (Dfsri tf.2) (Dtsi tf.1 (slrank tf.2)) (p1get T (p1idxr tf.1 tf.2))
+  => a b c.
+rewrite !maxi_leb.
+by case: (a <=? di)%uint63; case: (b <=? di)%uint63; case: (c <=? di)%uint63.
 Qed.
 
-(* NO REWRITE HERE EITHER.  `rewrite (maxi_leb (hv1 T x0)) ... !hv1leE' was
-   the second sentence to not return on roquableu: each hv1 hides Dfsri and
-   Dtsi, so searching the goal for a pattern reaches the literals.  Passing
-   the three hv1leE instances to maxi3_lebR searches nothing. *)
+(* THE SAME IDIOM, and `rewrite (maxi_leb (hv1 T x0)) ... !hv1leE' was the
+   second sentence to not return on roquableu: each hv1 hides Dfsri and
+   Dtsi, so searching for a pattern reaches the literals.  Push the three
+   equations, abstract the six terms, and only then rewrite. *)
 Lemma h3leE T x di : h3le T x di = (h3i T x <=? di)%uint63.
 Proof.
 case: x => [[x0 x1] x2]; rewrite /h3le /h3i.
-exact: (maxi3_lebR (hv1leE T x0 di) (hv1leE T x1 di) (hv1leE T x2 di)).
+move: (hv1leE T x0 di) (hv1leE T x1 di) (hv1leE T x2 di).
+move: (hv1le T x0 di) (hv1le T x1 di) (hv1le T x2 di) => a b c.
+move: (hv1 T x0) (hv1 T x1) (hv1 T x2) => u v w.
+move=> -> -> ->; rewrite !maxi_leb.
+by case: (u <=? di)%uint63; case: (v <=? di)%uint63; case: (w <=? di)%uint63.
 Qed.
 
 (* the whole list at once: eighteen separate vm_computes did not return *)
@@ -273,11 +270,12 @@ by rewrite (searchz3S T A X P dL) => /andP[hh _].
 Qed.
 
 (* h3le on a literal triple, folded back *)
-(* and the same, rather than `by rewrite -h3leE' *)
+(* a GROUND instance of h3leE -- no metavariable for the elaborator to solve,
+   so it only has to convert h3le, not search anything *)
 Lemma h3le_split T y0 y1 y2 dj :
   (if hv1le T y0 dj then if hv1le T y1 dj then hv1le T y2 dj else false
    else false) = (h3i T (y0, y1, y2) <=? dj)%uint63.
-Proof. exact: (maxi3_lebR (hv1leE T y0 dj) (hv1leE T y1 dj) (hv1leE T y2 dj)). Qed.
+Proof. exact: (h3leE T (y0, y1, y2) dj). Qed.
 
 Lemma searchz3mE T d : (d <= 63)%N -> forall di a x p, (p < 7)%N ->
   di = of_nat d -> searchz3m T d di a x p = searchz3 T d a x p.
