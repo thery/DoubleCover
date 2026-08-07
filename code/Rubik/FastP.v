@@ -23,22 +23,6 @@ Unset Printing Implicit Defensive.
 
 Import GroupScope.
 
-(* =========================================================================  *)
-(*  NOTHING IN THIS FILE EVALUATES A TABLE, AND NO TACTIC MAY EITHER          *)
-(*                                                                            *)
-(*  Dfsri and Dtsi hold fsdtab and tsdtab; actfsri and actfsr hold the fs     *)
-(*  move table, 116 MB with the real data.  Every proof below uses them       *)
-(*  SYMBOLICALLY -- but a tactic that SEARCHES a goal mentioning one of them  *)
-(*  falls back to conversion, unfolds it and walks the literal.  MEASURED on  *)
-(*  roquableu, three times: hv1leE, h3leE and searchz3mS's list step each did *)
-(*  not return.  On the desktop P1Fs, P1Ts and P1Fsm are dummies, so the      *)
-(*  whole class is invisible and the file compiles in 12 s either way.        *)
-(*                                                                            *)
-(*  So: give every argument, and let `exact' check a conversion rather than   *)
-(*  let a rewrite look for a pattern.  NO `Opaque' -- it does not rescue      *)
-(*  these goals, and it would be the only one in the development.             *)
-(* =========================================================================  *)
-
 (*  Towards searchz3nE: the pieces, all proved                                *)
 (* =========================================================================  *)
 
@@ -69,49 +53,20 @@ apply/idP/idP; rewrite /maxi.
 by case/andP => ha hb; case: ifP.
 Qed.
 
-(* THE SHAPE, OVER THREE PLAIN INTS.  Proved once here, where there is no
-   table to reach, and used by a GROUND `exact' below -- so the elaborator
-   only checks a conversion, and never looks for anything. *)
-Lemma maxi3_leb x y z di :
-  (if (x <=? di)%uint63
-   then if (y <=? di)%uint63 then (z <=? di)%uint63 else false
-   else false)
-  = (maxi (maxi x y) z <=? di)%uint63.
-Proof.
-rewrite !maxi_leb.
-by case: (x <=? di)%uint63; case: (y <=? di)%uint63; case: (z <=? di)%uint63.
-Qed.
-
-(* h3i associates the other way, and its arguments are hv1 rather than a
-   lookup, so the three equations come in as PREMISES: their types then fix
-   a, b, c and x, y, z, and again nothing is left open. *)
-Lemma maxi3_lebR (a b c : bool) (x y z di : int) :
-  a = (x <=? di)%uint63 -> b = (y <=? di)%uint63 -> c = (z <=? di)%uint63 ->
-  (if a then if b then c else false else false)
-  = (maxi x (maxi y z) <=? di)%uint63.
-Proof.
-move=> -> -> ->; rewrite !maxi_leb.
-by case: (x <=? di)%uint63; case: (y <=? di)%uint63; case: (z <=? di)%uint63.
-Qed.
-
-(* THE THREE LOOKUPS GIVEN, not found.  `rewrite !maxi_leb' at the goal
-   searches and does not return; so does a `move:' abstracting them, and so
-   does an `exact' with the six variables still open -- all three MEASURED on
-   roquableu.  Written out, this is a conversion check on hv1le and hv1 and
-   nothing else. *)
 Lemma hv1leE T tf di : hv1le T tf di = (hv1 T tf <=? di)%uint63.
 Proof.
-exact: (maxi3_leb (Dfsri tf.2) (Dtsi tf.1 (slrank tf.2))
-                  (p1get T (p1idxr tf.1 tf.2)) di).
+rewrite /hv1le /hv1 !maxi_leb.
+by case: (_ <=? _)%uint63; case: (_ <=? _)%uint63; case: (_ <=? _)%uint63.
 Qed.
 
-(* and the same: `rewrite (maxi_leb (hv1 T x0)) ... !hv1leE' was the second
-   sentence not to return.  The three hv1leE instances are ground, so
-   maxi3_lebR has nothing to solve. *)
+(* maxi_leb is restricted to the two OUTER maxi, or it fires inside hv1 too
+   and the two sides stop matching *)
 Lemma h3leE T x di : h3le T x di = (h3i T x <=? di)%uint63.
 Proof.
-case: x => [[x0 x1] x2].
-exact: (maxi3_lebR (hv1leE T x0 di) (hv1leE T x1 di) (hv1leE T x2 di)).
+case: x => [[x0 x1] x2]; rewrite /h3le /h3i.
+rewrite (maxi_leb (hv1 T x0)) (maxi_leb (hv1 T x1)) !hv1leE.
+by case: (hv1 T x0 <=? di)%uint63; case: (hv1 T x1 <=? di)%uint63;
+   case: (hv1 T x2 <=? di)%uint63.
 Qed.
 
 (* the whole list at once: eighteen separate vm_computes did not return *)
@@ -226,50 +181,6 @@ Qed.
    x is destructured and stepv is used rather than step3i, so that both sides
    are the SAME TERMS and not merely convertible -- otherwise `/=' unfolds
    step3i on one side only and nothing matches. *)
-(* THE LIST STEP, OVER ABSTRACT PREDICATES.  This is the `//=' that did not
-   return on roquableu: after the cons is destructured the goal carries
-   stepv/hv1le/searchz3m over the real tables, and simpl walks them.  Here
-   g0, g1, g2 and R are variables, so the induction runs where there is no
-   table to walk, and the two S lemmas below get it by `exact' with every
-   argument given -- a conversion check, not a search. *)
-(* THE TWO OUTER TESTS, over plain bools.  These replace the `case: ... =>
-   //=' pairs: all those `/=' ever did was reduce `if true' and `true && _',
-   which is this, and MEASURED on roquableu they cost 0.007 s while Dfsri was
-   Opaque and did not return once it was not -- simpl walks the literal.
-   With X, B and C variables there is nothing to walk. *)
-Lemma if_andb (X B C : bool) : B = C -> (if X then B else false) = X && C.
-Proof. by move=> ->; case: X. Qed.
-
-Lemma if_orb (E B C : bool) : B = C -> (if E then true else B) = E || C.
-Proof. by move=> ->; case: E. Qed.
-
-(* the element is destructured ONCE, exactly as the code does it -- with one
-   `let:' per test the two sides stop being convertible, since a match cannot
-   be commuted out of an `if' for a variable mp *)
-Lemma go_has3 (g0 g1 g2 R : int -> int -> int -> nat -> bool) l :
-  (fix go (l : seq (amove * nat)) : bool :=
-     if l is mp :: l' then
-       let: (m, pk) := mp in
-       let: ((k, ka), kb) := m in
-       if g0 k ka kb pk then
-         if g1 k ka kb pk then
-           if g2 k ka kb pk then (if R k ka kb pk then true else go l')
-           else go l'
-         else go l'
-       else go l'
-     else false) l
-  = has (fun mp =>
-           let: (m, pk) := mp in
-           let: ((k, ka), kb) := m in
-           (if g0 k ka kb pk then
-              if g1 k ka kb pk then g2 k ka kb pk else false
-            else false) && R k ka kb pk) l.
-Proof.
-elim: l => [|[[[k ka] kb] pk] l IH] //=.
-by case: (g0 _ _ _ _); case: (g1 _ _ _ _); case: (g2 _ _ _ _);
-   case: (R _ _ _ _); rewrite ?IH.
-Qed.
-
 Lemma searchz3mS T d di a x0 x1 x2 p : (d.+1 <= 63)%N -> di = of_nat d.+1 ->
   searchz3m T d.+1 di a (x0, x1, x2) p =
   (h3 T (x0, x1, x2) <= d.+1)%N &&
@@ -289,15 +200,15 @@ Lemma searchz3mS T d di a x0 x1 x2 p : (d.+1 <= 63)%N -> di = of_nat d.+1 ->
 Proof.
 move=> dL ->; rewrite {1}/searchz3m -/searchz3m.
 rewrite h3leE (h3iE T (x0, x1, x2) dL) eq_tabifE.
-apply: if_andb; apply: if_orb.
-exact: (go_has3
-  (fun k ka kb pk => hv1le T (stepv x0 k) (Uint63.sub (of_nat d.+1) 1%uint63))
-  (fun k ka kb pk => hv1le T (stepv x1 ka) (Uint63.sub (of_nat d.+1) 1%uint63))
-  (fun k ka kb pk => hv1le T (stepv x2 kb) (Uint63.sub (of_nat d.+1) 1%uint63))
-  (fun k ka kb pk => searchz3m T d (Uint63.sub (of_nat d.+1) 1%uint63)
-                       (comp_tabi 47 a (PArray.get mtisa k))
-                       (stepv x0 k, stepv x1 ka, stepv x2 kb) pk)
-  (nth [::] allowed3 p)).
+case: (h3 T (x0, x1, x2) <= d.+1)%N => //=.
+case: (eq_tabi 47 a (id_tabi 47)) => //=.
+elim: (nth [::] allowed3 p) => [|[[[k ka] kb] pk] l IH] //=.
+(* no `//=' on these: it partially reduces one side and the two stop
+   matching syntactically *)
+case: (hv1le _ _ _); last by rewrite IH.
+case: (hv1le _ _ _); last by rewrite IH.
+case: (hv1le _ _ _); last by rewrite IH.
+by case: (searchz3m _ _ _ _ _ _); rewrite ?IH.
 Qed.
 
 (* searchz3 tests the heuristic first thing, so conjoining that test in front
@@ -316,12 +227,10 @@ by rewrite (searchz3S T A X P dL) => /andP[hh _].
 Qed.
 
 (* h3le on a literal triple, folded back *)
-(* a GROUND instance of h3leE -- no metavariable for the elaborator to solve,
-   so it only has to convert h3le, not search anything *)
 Lemma h3le_split T y0 y1 y2 dj :
   (if hv1le T y0 dj then if hv1le T y1 dj then hv1le T y2 dj else false
    else false) = (h3i T (y0, y1, y2) <=? dj)%uint63.
-Proof. exact: (h3leE T (y0, y1, y2) dj). Qed.
+Proof. by rewrite -h3leE. Qed.
 
 Lemma searchz3mE T d : (d <= 63)%N -> forall di a x p, (p < 7)%N ->
   di = of_nat d -> searchz3m T d di a x p = searchz3 T d a x p.
@@ -338,11 +247,7 @@ have kL : (k < 18)%N.
 have pkL : (fcpos k < 7)%N by rewrite /fcpos ltn_divLR // (leq_trans kL).
 have sv : forall v j, stepv v (of_nat j) = (acttwi v.1 j, actfsr v.2 j).
   by move=> v j; rewrite /stepv acttwiiE actfsriE.
-(* NOT `/='.  All it did here was preim's three coercions and step3 on the
-   right, where !sv meets it halfway -- so unfold exactly those five and let
-   simpl choose nothing.  MEASURED: this lands on the same goal `/=' did. *)
-rewrite /preim /pred_of_simpl /SimplPred /fun_of_simpl.
-rewrite (of_natS_sub dL) (mtisaE kL) !sv /step3.
+rewrite /preim /= (of_natS_sub dL) (mtisaE kL) !sv.
 rewrite (IH (ltnW dL) _ _ _ _ pkL erefl).
 (* [X in X && _] IS NOT TIDINESS.  Left to search the whole goal, rewrite
    walks into the two searchz3 terms and does not return -- MEASURED, it ran
@@ -383,15 +288,14 @@ Lemma searchz3nS T d di a0 path x0 x1 x2 p :
 Proof.
 move=> dL ->; rewrite {1}/searchz3n -/searchz3n.
 rewrite h3leE (h3iE T (x0, x1, x2) dL) eq_tabifE.
-apply: if_andb; apply: if_orb.
-exact: (go_has3
-  (fun k ka kb pk => hv1le T (stepv x0 k) (Uint63.sub (of_nat d.+1) 1%uint63))
-  (fun k ka kb pk => hv1le T (stepv x1 ka) (Uint63.sub (of_nat d.+1) 1%uint63))
-  (fun k ka kb pk => hv1le T (stepv x2 kb) (Uint63.sub (of_nat d.+1) 1%uint63))
-  (fun k ka kb pk => searchz3n T d (Uint63.sub (of_nat d.+1) 1%uint63)
-                       a0 (k :: path)
-                       (stepv x0 k, stepv x1 ka, stepv x2 kb) pk)
-  (nth [::] allowed3 p)).
+case: (h3 T (x0, x1, x2) <= d.+1)%N => //=.
+case: (if issolved (x0, x1, x2)
+       then eq_tabi 47 (rebuild a0 path) (id_tabi 47) else false) => //=.
+elim: (nth [::] allowed3 p) => [|[[[k ka] kb] pk] l IH] //=.
+case: (hv1le _ _ _); last by rewrite IH.
+case: (hv1le _ _ _); last by rewrite IH.
+case: (hv1le _ _ _); last by rewrite IH.
+by case: (searchz3n _ _ _ _ _ _ _); rewrite ?IH.
 Qed.
 
 (* the invariant is x = init3 (rebuild a0 path): the coordinates carried are
@@ -449,8 +353,7 @@ have hy : (stepv x0 (of_nat k), stepv x1 (of_nat (nth 0%N mv3a k)),
            stepv x2 (of_nat (nth 0%N mv3b k)))
         = init3 (rebuild a0 (of_nat k :: path)).
   rewrite hr -(si _ _ aok ca tw kL) -hx !sv; exact: refl_equal.
-(* same as in searchz3mE: the coercions, and nothing else *)
-rewrite /preim /pred_of_simpl /SimplPred /fun_of_simpl (of_natS_sub dL).
+rewrite /preim /= (of_natS_sub dL).
 congr (_ && _).
 rewrite (IH dL' (of_nat d) a0 (of_nat k :: path) _ _ _ (fcpos k)
             erefl pkL Aok cA twA hy) hr (mtisaE kL).

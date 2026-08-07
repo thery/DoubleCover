@@ -570,8 +570,12 @@ Definition nmaski  : int := 4096%uint63.                     (* 2 ^ 12      *)
 (* the rank of each twelve bit mask among those with four bits set, or 495 for
    a mask that cannot occur -- which is also the default, so an index past the
    end reads the same "impossible" value rather than the rank of slice 0. *)
+(* `Eval vm_compute in': without it the body of this table IS the cons
+   list, and one delta step puts a 67 584 cell TERM in front of any
+   tactic that unfolds a lookup -- it does not return.  See fsdtab in
+   Farp1.v for the measurement. *)
 Definition srank : arr :=                                     (* GENERATED *)
-  mkarr nmaski nsranki srank_data.
+  Eval vm_compute in mkarr nmaski nsranki srank_data.
 
 (* NB 2047, not 4095.  The flip occupies twelve bits but edge flip parity is
    even, so bit 11 is determined by bits 0..10 and only 2048 of the 4096 occur.
@@ -668,7 +672,12 @@ Definition ntsentries := 8957952.    (* ntwist * nmask3                       *)
 Definition ntswordsi : int := 597197%uint63.   (* ceil (ntsentries / 15)      *)
 Definition nmaski3   : int := 4096%uint63.
 
-Definition tstab : arr := mkarr ntswordsi 0%uint63 ts_data.   (* GENERATED *)
+(* `Eval vm_compute in': without it the body of this table IS the cons
+   list, and one delta step puts a 67 584 cell TERM in front of any
+   tactic that unfolds a lookup -- it does not return.  See fsdtab in
+   Farp1.v for the measurement. *)
+Definition tstab : arr :=                                     (* GENERATED *)
+  Eval vm_compute in mkarr ntswordsi 0%uint63 ts_data.
 
 Definition tsget (i : int) : int :=
   let w := Uint63.div i 15%uint63 in
