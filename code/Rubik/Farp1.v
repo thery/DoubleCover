@@ -209,7 +209,15 @@ Proof. by rewrite /actfsr. Qed.
 (* rubik_par's pfs, the flip x slice distance by rank *)
 Definition nfswordsi : int := 67584%uint63.      (* ceil (1013760 / 15)      *)
 
-Definition fsdtab : arr := mkarr nfswordsi 0%uint63 fs_data.
+(* `Eval vm_compute in', and it is not an optimisation.  Without it the body
+   of fsdtab IS `mkarr nfswordsi 0 fs_data', and fs_data is a 67 584 cell
+   CONS LIST -- a term.  One delta step under Dfsri then puts that list in
+   front of whatever tactic is running, and it does not return: MEASURED,
+   every proof in FastP.v about hv1le or h3le died on it, and each was only
+   fixable by contriving never to unfold Dfsri.  Evaluated, the body is a
+   primitive array VALUE, there is no list, and the same tactics run in
+   under 0.04 s.  (P1Fsm.v is already generated in that form.) *)
+Definition fsdtab : arr := Eval vm_compute in mkarr nfswordsi 0%uint63 fs_data.
 
 Definition Dfsri (r : int) : int :=
   let w := Uint63.div r 15%uint63 in
@@ -717,8 +725,13 @@ Qed.
    already proved, so all that is missing is that the two agree.  Over
    PACKED values, for the same reason fsmoveC is: at x rather than at
    unranki (fsidx x), so no injectivity of fsidx is needed. *)
+(* `if', NOT `||'.  orb is a function call, and native compiles it to OCaml,
+   which is strict -- so `~~ fsok x || A' evaluates A for every one of the
+   2 ^ 24 values rather than the 1 013 760 the guard admits.  MEASURED: with
+   `||' SlrChk's Qed took 719.7 s against FsmChk's ~80 s, and FsmChk is the
+   one already written with `if'. *)
 Definition fsrstepF (x : int) : bool :=
-  ~~ fsok x || (Dfsri (fsidx x) =? Dfsi fstab x)%uint63.
+  if ~~ fsok x then true else (Dfsri (fsidx x) =? Dfsi fstab x)%uint63.
 
 Definition fsrC : bool := all_pow ncoord 0%uint63 fsrstepF.
 
@@ -733,10 +746,11 @@ Proof. by rewrite /fsrC. Qed.
 (* The ts bound is read at slrank (fsidx x), and stepping it uses actslri,
    which reads the emitted slmove_data.  Nothing backed that table either.
    Same shape and same loop as fsmoveC. *)
+(* `if', NOT `||' -- see fsrstepF *)
 Definition slrstepF (x : int) : bool :=
-  ~~ fsok x ||
-  all (fun km => actslri (slrank (fsidx x)) km.1 =?
-                 slrank (fsidx (actf x km.2)))%uint63 p1mdata.
+  if ~~ fsok x then true
+  else all (fun km => actslri (slrank (fsidx x)) km.1 =?
+                      slrank (fsidx (actf x km.2)))%uint63 p1mdata.
 
 Definition slrC : bool := all_pow ncoord 0%uint63 slrstepF.
 
@@ -757,9 +771,9 @@ Qed.
 Lemma fsrC_inst x :
   fsrstepF x -> fsok x -> Dfsri (fsidx x) = Dfsi fstab x.
 Proof.
-(* orFb, NOT /=: simpl here goes on to unfold Dfsri and fstab and evaluate
-   them.  Same trap as everywhere else on these tables. *)
-by move=> hall fsL; move: hall; rewrite /fsrstepF (fsguard fsL) orFb => /eqP.
+(* the guard rewritten, then the `if' reduces by itself -- NOT /=, which goes
+   on to unfold Dfsri and fstab and evaluate them. *)
+by move=> hall fsL; move: hall; rewrite /fsrstepF (fsguard fsL) => /eqP.
 Qed.
 
 Lemma slr_of_check x : slrC -> (to_nat x < 2 ^ ncoord)%N -> slrstepF x.
@@ -774,7 +788,7 @@ Lemma slrC_inst x k :
   = slrank (fsidx (actf x (mdatf_of_tab (nth [::] mtabs k)))).
 Proof.
 move=> hall fsL kL.
-move: hall; rewrite /slrstepF (fsguard fsL) orFb => hstep.
+move: hall; rewrite /slrstepF (fsguard fsL) => hstep.
 move: hstep => /(all_nthP (0%N, mdatf_of_tab [::])).
 rewrite size_map size_iota => /(_ k kL).
 by rewrite (nth_map_iota _ _ kL) => /eqP.
