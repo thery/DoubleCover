@@ -1312,9 +1312,15 @@ Qed.
    eighteen calls for each of the 1 013 760 summaries in each of the 2187
    twists.  actfsr reads the emitted move table instead, at 0.12 us, and
    fsmoveC is exactly the lemma that says the two agree. *)
-(* both lets are inside the else, and read once rather than eighteen times:
-   outside the else they would run on every value, not on the 6 % the guard
-   admits *)
+(* the check at a rank.  d is read once rather than eighteen times. *)
+Definition p1stepRk (T : PArray.array arr) (tw r : int) : bool :=
+  let d := p1get T (p1idxr tw r) in
+  all (fun k =>
+         (d <=? incr (p1get T (p1idxr (acttwii tw k) (actfsri r k))))%uint63)
+      midxi.
+
+(* and at a packed value, which it reads only through fsidx -- p1stepFrRk
+   says so, and is what lets the certificate run over ranks *)
 Definition p1stepFr (T : PArray.array arr) (tw x : int) : bool :=
   if ~~ fsok x then true
   else let r := fsidx x in
@@ -1324,18 +1330,46 @@ Definition p1stepFr (T : PArray.array arr) (tw x : int) : bool :=
                incr (p1get T (p1idxr (acttwii tw k) (actfsri r k))))%uint63)
            midxi.
 
-(* all_powi, not all_pow: the loop is run 2 ^ ncoord times for each of the
-   2187 twists, and all_pow rebuilds its offset with an of_nat at every
-   node.  p1checkTwrE below keeps the two interchangeable in proofs. *)
+Lemma p1stepFrRk T tw x :
+  p1stepFr T tw x = if ~~ fsok x then true else p1stepRk T tw (fsidx x).
+Proof. by []. Qed.
+
+(* OVER RANKS, so the loop runs 2 ^ 20 times a twist and not 2 ^ 24.  The
+   ranks past nfsi are not summaries and are passed; the rest are checked.
+   all_powi rather than all_pow, which rebuilds its offset at every node. *)
+Definition nfsbits := 20.                  (* nfs = 1013760 < 2 ^ nfsbits  *)
+
 Definition p1checkTwr (T : PArray.array arr) (tw : int) : bool :=
-  all_powi ncoord 0%uint63 (Uint63.lsl 1 (of_nat ncoord)) (p1stepFr T tw).
+  all_powi nfsbits 0%uint63 (Uint63.lsl 1 (of_nat nfsbits))
+           (fun r => if (nfsi <=? r)%uint63 then true else p1stepRk T tw r).
 
 Definition p1checkStepr (T : PArray.array arr) : bool :=
   all (fun t => p1checkTwr T (of_nat t)) (iota 0 ntwist).
 
+(* a rank below nfsi is checked, and fsok_lt says a summary has one *)
+Lemma p1checkTwrRk T tw r :
+  p1checkTwr T tw -> (r <? nfsi)%uint63 -> p1stepRk T tw r.
+Proof.
+rewrite /p1checkTwr all_powiE // => hall hr.
+have h1 : (to_nat r < to_nat nfsi)%N by apply/nltbP.
+have hlt : (to_nat r < 2 ^ nfsbits)%N.
+  by apply: leq_trans h1 _; vm_compute.
+have := all_powP (k := nfsbits) _ hall hlt.
+have -> : (nfsi <=? r)%uint63 = false.
+  by apply: negbTE; apply/negP => /nlebP; rewrite leqNgt h1.
+by apply; vm_compute.
+Qed.
+
+(* so the check holds at every packed value, guard included *)
+Lemma p1checkTwrFr T tw x : p1checkTwr T tw -> p1stepFr T tw x.
+Proof.
+move=> h; rewrite p1stepFrRk; case: (boolP (fsok x)) => hx //=.
+by apply: (p1checkTwrRk h); exact: fsok_lt.
+Qed.
+
 Lemma p1checkTwrE T tw :
-  p1checkTwr T tw = all_pow ncoord 0%uint63 (p1stepFr T tw).
-Proof. by rewrite /p1checkTwr all_powiE. Qed.
+  p1checkTwr T tw -> all_pow ncoord 0%uint63 (p1stepFr T tw).
+Proof. by move=> h; apply: all_pow_all => x; exact: p1checkTwrFr h. Qed.
 
 (* p1stepF's all is over p1mdata, a map; this is the same all over the
    indices, so that fsmoveC_inst can be applied at k directly.  Conversion
@@ -1386,7 +1420,7 @@ have hb : (to_nat 0%uint63 + 2 ^ ncoord <= nwB)%N.
   by rewrite to_nat_0 add0n nwB_pow leq_exp2l // ncoord_dig.
 rewrite /p1checkStepr /p1checkStep.
 apply: sub_all => t.
-rewrite p1checkTwE p1checkTwrE.
+rewrite p1checkTwE; move/p1checkTwrE.
 apply: (all_pow_imp ncoord_dig hb) => x hx.
 (* hx gives the range the rewrite needs, and // discharges it *)
 by rewrite hE //; move: hx; rewrite to_nat_0 add0n => /andP[_].
