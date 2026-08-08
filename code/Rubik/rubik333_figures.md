@@ -411,3 +411,43 @@ are lower and the ratio has still to be timed on a slice.
 
 The certificate `fparCP` costs **1.05 s** in `Phase1.vo`, and the whole
 addition under 2.5 s.
+
+## The certificate, after the search optimizations were applied to it
+
+MEASURED on roquableu, 2026-08-08.  The first figure is the 27 slices alone;
+the second is `DEPTH=16 make test` from a clean tree, which builds P1Fsm,
+FsData, P1Rank, Fstab, P1Table, the 27 slices, the 18 searches, the three
+certificates and Farp1inst -- strictly more work.
+
+| | wall | CPU |
+|---|---|---|
+| the 27 slices, before | 2 h 21 13 | 20 h 05 |
+| the whole chain, after `fpar` | **1 h 04 06** | **6 h 33** |
+
+So a slice went from 44.6 min to about 12, at least **3.1x** and about 3.7x.
+Of the 64 min wall, **20 were the single-threaded `cmxs` of P1Fsm**, which is
+now the largest serial step in a build that starts from clean.
+
+### The loop itself (vm_compute, 2 ^ 22 values, trivial predicate)
+
+| driver | time | |
+|---|---|---|
+| `all_pow` -- rebuilds `1 << of_nat k1` at each of the 2 ^ k nodes | 0.989 s | |
+| offset carried as an int, `&&` kept | 0.458 s | **2.16x**, the of_nat |
+| offset as an int, nested `if` | **0.346 s** | a further **1.32x**, the `&&` |
+
+The `&&` gains here for a different reason than in the search: a certificate
+is true everywhere, so nothing is being skipped -- it is purely that `andb`
+is a function call made 2 ^ 24 times a twist.
+
+### What is NOT worth changing
+
+`p1get` divides by 15 and `actfsri` by 3, 37 times per admitted value.
+MEASURED: a division costs **0.008 us more than a shift** (0.047 against
+0.039 a call), so the lot is ~0.3 s a twist.  A magic-number division is not
+worth its proof.
+
+After this, an admitted value costs 18 x (4 array reads, 2 divisions, ~6
+multiplications) and that is the floor for this data layout.  The one lever
+left is the 16 symmetry fold: it removes 15.73x of the table and therefore
+15.73x of the certificate, which is one check per slot.
