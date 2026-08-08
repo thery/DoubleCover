@@ -47,6 +47,7 @@ P1Fsm.v
 P1Rank.v
 Phase1.v
 P1TsChk.v
+P1Table.v
 Far.v
 Far_00.v
 Far_01.v
