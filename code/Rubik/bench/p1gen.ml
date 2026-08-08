@@ -15,7 +15,11 @@
      small      emit ../P1Small.v: srank and the twist move table
      emit [a b] emit ../P1_00.v .. ../P1_70.v and ../P1Table.v: the table
                 itself, 2.9 GB.  a and b bound the chunk range, so the
-                emission can be split over several cores.  See ../mkp1.sh *)
+                emission can be split over several cores.  See ../mkp1.sh
+     fold       build the folded table and check it against the plain one
+     emitfold [a b]
+                emit ../P1Fold.v, ../P1F_00.v .. and ../P1FTable.v: the
+                folded table.  a and b bound the chunk range, as emit's do *)
 
 open Cubedata
 
@@ -800,9 +804,11 @@ let () =
      rep.(f) is the orbit of f, sym.(f) a symmetry carrying f to the orbit's
      representative, and twsym.(t * 16 + s) the twist under that symmetry.
      This mode builds the four tables, checks the identity above on random
-     pairs, and times the folded read against the unfolded one. *)
+     pairs, and times the folded read against the unfolded one.  `emitfold'
+     builds the same tables and writes them out as Rocq files instead. *)
 
-  if Array.length Sys.argv > 2 && Sys.argv.(2) = "fold" then begin
+  if Array.length Sys.argv > 2
+     && (Sys.argv.(2) = "fold" || Sys.argv.(2) = "emitfold") then begin
     let ud = Array.make nfacelet false in
     for i = 0 to 7 do ud.(i) <- true done;
     for i = 40 to 47 do ud.(i) <- true done;
@@ -950,6 +956,152 @@ let () =
            <> Bytes.unsafe_get p (t * nfs + f) then incr bad
       done);
     Printf.printf "fold check: %d mismatches of %d pairs\n%!" !bad n;
+    if !bad > 0 then (prerr_endline "THE FOLDED TABLE IS WRONG"; exit 1);
+
+    (* ---- the folded tables as Rocq files --------------------------------- *)
+    (* P1Fold.v holds rep, sym and twsym; P1F_00.v .. hold the folded distance
+       table, glued by P1FTable.v.  All of it primitive array literals: a seq
+       body makes every tactic that unfolds a lookup walk a giant term. *)
+
+    if Sys.argv.(2) = "emitfold" then begin
+      let t_emit = Unix.gettimeofday () in
+      let first = try int_of_string Sys.argv.(3) with _ -> 0 in
+      let last = try int_of_string Sys.argv.(4) with _ -> max_int in
+
+      (* rep is below 2 ^ 16, but an int63 word holds only THREE sixteen bit
+         fields -- four would need 64 -- so sixteen bits buys nothing over
+         twenty, and twenty is the packing fsmove already uses. *)
+      let sw = 3 and sbits = 20 in
+      let mask20 = (1 lsl sbits) - 1 in
+      let ntw = ntwist * nsym in
+      if norb > mask20 || ntwist > mask20 then
+        (prerr_endline "A VALUE DOES NOT FIT IN TWENTY BITS"; exit 1);
+      let pack3 a n w =
+        let v = ref 0 in
+        for j = sw - 1 downto 0 do
+          let i = w * sw + j in
+          v := (!v lsl sbits) lor (if i < n then a.(i) else 0)
+        done; !v in
+      let pack15 a n w =
+        let v = ref 0 in
+        for j = nper - 1 downto 0 do
+          let i = w * nper + j in
+          v := (!v lsl nwidth) lor (if i < n then a.(i) else 0)
+        done; !v in
+      let nfold = norb * ntwist in
+      let fword w =
+        let v = ref 0 in
+        for j = nper - 1 downto 0 do
+          let i = w * nper + j in
+          let d =
+            if i < nfold then Char.code (Bytes.unsafe_get fold i) else 0 in
+          v := (!v lsl nwidth) lor d
+        done; !v in
+      let fwords = (nfold + nper - 1) / nper in
+      let fnchunk = (fwords + cwords - 1) / cwords in
+
+      (* THE PACKING HAS TO INVERT, and this is the only place it is checked.
+         Read entries back through the arithmetic Rocq's p1get uses, the
+         folded table through its chunk and offset as well. *)
+      let sbad = ref 0 and st = Random.State.make [|20260808|] in
+      let chk name got want cnt =
+        let b = ref 0 in
+        for _ = 1 to cnt do
+          let i = Random.State.full_int st (Array.length want) in
+          if got i <> want.(i) then incr b
+        done;
+        Printf.printf "%s packing self check: %d mismatches of %d\n%!"
+          name !b cnt;
+        sbad := !sbad + !b in
+      chk "rep" (fun i ->
+        (pack3 rep nfs (i / sw) lsr ((i mod sw) * sbits)) land mask20)
+        rep 200_000;
+      chk "sym" (fun i ->
+        (pack15 sym nfs (i / nper) lsr ((i mod nper) * nwidth)) land 15)
+        sym 200_000;
+      chk "twsym" (fun i ->
+        (pack3 twsym ntw (i / sw) lsr ((i mod sw) * sbits)) land mask20)
+        twsym 200_000;
+      let fbad = ref 0 in
+      for _ = 1 to 500_000 do
+        let i = Random.State.full_int st nfold in
+        let w = i / nper and r = i mod nper in
+        let c = w lsr cwlog and o = w land (cwords - 1) in
+        if c * cwords + o <> w then incr fbad;
+        if (fword w lsr (r * nwidth)) land 15
+           <> Char.code (Bytes.unsafe_get fold i) then incr fbad
+      done;
+      Printf.printf "folded table packing self check: %d mismatches of \
+                     500000\n%!" !fbad;
+      sbad := !sbad + !fbad;
+      if !sbad > 0 then (prerr_endline "A PACKING IS WRONG"; exit 1);
+
+      let total = ref 0.0 in
+      let wrote fn =
+        let sz = float_of_int (Unix.stat fn).Unix.st_size in
+        total := !total +. sz;
+        Printf.printf "  %-16s %8.2f MB\n%!" fn (sz /. 1048576.0) in
+
+      let oc = open_out "../P1Fold.v" in
+      header_arr oc "The folding tables: rep, the orbit of a flip x slice \
+                     rank, and sym, a symmetry reaching that orbit's \
+                     representative, both over 1 013 760 ranks, and twsym, \
+                     the twist under each of the sixteen symmetries.  rep \
+                     and twsym pack three to a word at twenty bits, sym \
+                     fifteen at four.";
+      emit_arr oc "rep_data" ((nfs + sw - 1) / sw) (pack3 rep nfs);
+      emit_arr oc "sym_data" ((nfs + nper - 1) / nper) (pack15 sym nfs);
+      emit_arr oc "twsym_data" ((ntw + sw - 1) / sw) (pack3 twsym ntw);
+      close_out oc;
+      wrote "../P1Fold.v";
+
+      for c = first to min last (fnchunk - 1) do
+        let lo = c * cwords in
+        let hi = min (lo + cwords) fwords in
+        let fn = Printf.sprintf "../P1F_%02d.v" c in
+        let oc = open_out fn in
+        header_arr oc (Printf.sprintf
+          "The folded phase 1 table, chunk %d of %d: words %d .. %d."
+          c fnchunk lo (hi - 1));
+        emit_arr oc (Printf.sprintf "p1f_chunk_%02d" c) (hi - lo)
+          (fun j -> fword (lo + j));
+        close_out oc;
+        wrote fn
+      done;
+
+      (* the glue: an array of the chunks, and like P1Table.v it does not
+         require Phase1, so an edit there does not make this .vo stale *)
+      let oc = open_out "../P1FTable.v" in
+      Printf.fprintf oc
+        "(* GENERATED by bench/p1gen.ml -- do not edit.              *)\n\
+         (* The folded phase 1 table: %d chunks of at most %d words. *)\n\
+         (*                                                          *)\n\
+         (* %d entries, four bits each, fifteen to an int63    *)\n\
+         (* word.  The chunks are PRIMITIVE ARRAY LITERALS, so this  *)\n\
+         (* is a set of pointers and nothing is converted or copied. *)\n\n\
+         From Stdlib Require Import Uint63.\n\
+         From Stdlib Require Import PArray.\n\
+         Require Import"
+        fnchunk cwords nfold;
+      for c = 0 to fnchunk - 1 do
+        Printf.fprintf oc "\n        P1F_%02d" c done;
+      Printf.fprintf oc ".\n\nLocal Open Scope uint63_scope.\n\n";
+      Printf.fprintf oc "Definition p1ftab : array (array int) :=\n";
+      Printf.fprintf oc
+        "  let a := PArray.make %d (PArray.make 1 0) in\n" fnchunk;
+      for c = 0 to fnchunk - 1 do
+        Printf.fprintf oc
+          "  let a := PArray.set a %d p1f_chunk_%02d in\n" c c
+      done;
+      Printf.fprintf oc "  a.\n";
+      close_out oc;
+      wrote "../P1FTable.v";
+
+      Printf.printf "wrote %d chunks of %d, %.2f GB in %.1f s\n%!"
+        (min last (fnchunk - 1) - first + 1) fnchunk
+        (!total /. 1073741824.0) (Unix.gettimeofday () -. t_emit);
+      exit 0
+    end;
 
     (* ---- and what does the indirection cost? ----------------------------- *)
     let bench name f =

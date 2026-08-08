@@ -30,3 +30,8 @@ P1Chk_*.glob
 P1ChkAll.v
 P1ChkAll.vo
 P1ChkAll.glob
+
+# the folded phase 1 table -- 165 MB, regenerate with bench/p1gen 9 emitfold
+P1F_[0-9][0-9].v
+P1FTable.v
+P1Fold.v
