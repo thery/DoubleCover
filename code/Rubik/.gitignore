@@ -35,3 +35,5 @@ P1ChkAll.glob
 P1F_[0-9][0-9].v
 P1FTable.v
 P1Fold.v
+P1R_[0-9][0-9].v
+P1RTable.v
