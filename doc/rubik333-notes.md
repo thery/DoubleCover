@@ -69,6 +69,35 @@ comments claimed.  `fsok = sok x && ~~ fpar x` admits exactly
 `fpar_mask` for the masking, then a certificate over the 4096 masks.  `fsok`
 is written as an `if` for the reason at the top of this file.
 
+## Every search optimization belongs in the table check too
+
+The search and the certificates are separate code doing the same kind of
+work, so a trick found for one applies to the other.  Applied so far:
+
+- `fpar` as a table and `fsok` as an `if` (see above);
+- the loop `all_pow` carrying its offset as an int instead of rebuilding
+  `1 << of_nat k` at every node, and nested `if`s in place of `&&`.
+  `all_powiE` proves the two loops equal;
+- the value that does not depend on the loop variable read once instead of
+  eighteen times, in `p1stepF`, `p1stepFr`, `fsmstepF` and `slrstepF`;
+- the offset masks `cwmaski` and `fcwmaski` as literals rather than a shift
+  and a subtraction on every lookup.
+
+Two traps this exposed, worth checking in any evaluated code:
+
+- **`&&` and `||` are function calls**, so both sides run.  In the search
+  that wastes the work a short circuit would have skipped; in a certificate
+  nothing is skipped, since everything is true, and the gain is only the
+  call itself -- still 1.32x at 2^24 nodes a twist.
+- **A `let` before a guard runs for every value.**  `let r := fsidx x in if
+  ~~ fsok x then ...` computed `fsidx` on all 2^24 rather than on the 6 %
+  the guard admits.  Put the `let` in the `else`.
+
+`of_nat` was audited once and `fsidx` fixed; `fpar`'s `count` over an `iota`
+and `all_pow`'s own `of_nat` survived that pass, because it looked for the
+name `of_nat` rather than for nat computation.  Look for `iota`, `count`,
+`odd`, `nth` and `size` as well.
+
 ## `fsidx` and `of_nat`
 
 `of_nat` walks its unary argument, so `of_nat 495` is 36.4 us and made

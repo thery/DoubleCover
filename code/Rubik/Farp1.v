@@ -141,16 +141,9 @@ Proof. by rewrite /conj3 /conji; congr (comp_tabi _ _ (comp_tabi _ _ _)). Qed.
 
 (* ---- 3. The search, mimicking rubik_par's dfs ---------------------------- *)
 
-(* THE STATE.  rubik_par carries, per node, three (twist, flip x slice) pairs
-   -- one per axis view -- and steps each by the RELABELLED move:
-
-     for k = 0 to 2:
-       tw.(d').(k) <- twmove.(tw.(d).(k) * nmoves + mv.(k).(m));
-       fs.(d').(k) <- fsmove.(fs.(d).(k) * nmoves + mv.(k).(m))
-
-   Both coordinates are stepped by a TABLE, never recomputed.  That is the
-   whole reason P1Fsm.v exists: Phase1.v's actf recomputes the flip x slice
-   action at 79 us, where rubik_par reads an array. *)
+(* The state carried at each position: three (twist, flip x slice) pairs, one
+   for the cube and one for each of its two conj3 conjugates.  A move steps
+   each pair by a table read, as rubik_par does, and never recomputes it. *)
 
 (* CHUNKED, and it has to be: 1 013 760 x 18 values at three to a word is
    6 082 560 words, 1.45x PArray.max_length = 4 194 303.  PArray.make caps
@@ -189,13 +182,16 @@ Lemma midxiE : midxi = [seq of_nat k | k <- iota 0 18].
 Proof. by vm_compute. Qed.
 
 (* the move index as an int63 -- see acttwii in Phase1.v for the measurement *)
+(* the offset mask as a literal, as cwmaski is in Phase1.v *)
+Definition fcwmaski : int := Eval vm_compute in
+  Uint63.sub (Uint63.lsl 1%uint63 fcwlogi) 1%uint63.
+
 Definition actfsri (r k : int) : int :=
   let i := Uint63.add (Uint63.mul r 18%uint63) k in
   let w := Uint63.div i 3%uint63 in
   let j := Uint63.sub i (Uint63.mul w 3%uint63) in
   let c := Uint63.lsr w fcwlogi in
-  let o := Uint63.land w (Uint63.sub (Uint63.lsl 1%uint63 fcwlogi)
-                                     1%uint63) in
+  let o := Uint63.land w fcwmaski in
   Uint63.land
     (Uint63.lsr (PArray.get (PArray.get fsmtabs c) o) (Uint63.mul j 20%uint63))
     1048575%uint63.
@@ -209,14 +205,9 @@ Proof. by rewrite /actfsr. Qed.
 (* rubik_par's pfs, the flip x slice distance by rank *)
 Definition nfswordsi : int := 67584%uint63.      (* ceil (1013760 / 15)      *)
 
-(* `Eval vm_compute in', and it is not an optimisation.  Without it the body
-   of fsdtab IS `mkarr nfswordsi 0 fs_data', and fs_data is a 67 584 cell
-   CONS LIST -- a term.  One delta step under Dfsri then puts that list in
-   front of whatever tactic is running, and it does not return: MEASURED,
-   every proof in FastP.v about hv1le or h3le died on it, and each was only
-   fixable by contriving never to unfold Dfsri.  Evaluated, the body is a
-   primitive array VALUE, there is no list, and the same tactics run in
-   under 0.04 s.  (P1Fsm.v is already generated in that form.) *)
+(* `Eval vm_compute in' makes the body an array value.  Without it the body
+   is the term mkarr ... fs_data, and fs_data is a 67 584 cell cons list that
+   any tactic unfolding Dfsri then has to walk. *)
 Definition fsdtab : arr := Eval vm_compute in mkarr nfswordsi 0%uint63 fs_data.
 
 Definition Dfsri (r : int) : int :=
@@ -242,13 +233,9 @@ Definition step3 (x : c3) (k : nat) : c3 :=
    at each of the three views, and the max of all nine.  *)
 Definition maxi (a b : int) : int := if (a <=? b)%uint63 then b else a.
 
-(* BY RANK.  Phase1's p1idx takes the PACKED value and ranks it itself
-   (p1idx tw x = tw * nfsi + fsidx x), but what the search carries is already
-   the rank, so p1idx would rank it TWICE and read a wrong slot.  The
-   reference is c = p[t * nfs + f] with f the rank -- p1gen.ml's heur.
-   Reading a wrong slot can OVERSTATE the distance, which prunes a real
-   solution: this is a soundness bug, not a slowdown.  p1idxE is the bridge
-   back to Phase1's packed form. *)
+(* by rank, because the search already carries the rank: Phase1's p1idx
+   takes the packed value and ranks it itself, so it would rank it twice.
+   p1idxE is the bridge back to that packed form. *)
 Definition p1idxr (tw r : int) : int := Uint63.add (Uint63.mul tw nfsi) r.
 
 Lemma p1idxE tw x : p1idx tw x = p1idxr tw (fsidx x).
@@ -258,12 +245,8 @@ Definition hv1 (T : PArray.array arr) (tf : int * int) : int :=
   maxi (maxi (Dfsri tf.2) (Dtsi tf.1 (slrank tf.2)))
        (p1get T (p1idxr tf.1 tf.2)).
 
-(* IN int63, and h3 is its to_nat.  The search compares the heuristic with
-   the depth, and to_nat builds a UNARY nat: MEASURED, to_nat 9 is 7.97 us
-   against 1.6 us for the nine lookups it converts.  of_nat is 13x cheaper
-   per unit than to_nat -- of_nat 21 is 1.5 us, to_nat 9 is 8.0 -- so the
-   search converts the DEPTH int-ward rather than the heuristic nat-ward,
-   and h3iE says the two tests agree. *)
+(* in int63, and h3 is its to_nat.  The search converts the depth to an int
+   rather than the heuristic to a nat, and h3iE says the two tests agree. *)
 Definition h3i (T : PArray.array arr) (x : c3) : int :=
   let: (x0, x1, x2) := x in
   maxi (hv1 T x0) (maxi (hv1 T x1) (hv1 T x2)).
@@ -390,17 +373,15 @@ Qed.
    discharged by computing.  It is the honest place for it: once here, not
    once per phase 1 state.
 
-   OVER PACKED VALUES, NOT OVER RANKS, for the reason Phase1.v's p1stepF
-   gives.  Ranking first is sixteen times fewer iterations, but the checked
-   instance would then sit at unranki (fsidx x) rather than at x, and closing
-   that gap needs fsidx injective on the summaries -- which Coordfs does not
-   provide.  Over packed values all_powP hands the instance back at coordi a
-   itself, and the fsidx guard leaves only the 6 % that are summaries.  Same
-   shape as p1stepF, same move data hoisted for the same reason. *)
+   It runs over packed values, not over ranks: over ranks the instance
+   all_powP returns would sit at unranki (fsidx x) rather than at x, and
+   closing that gap needs fsidx injective on the summaries, which Coordfs
+   does not give.  The guard leaves only the 6 % that are summaries. *)
 Definition fsmstepF (x : int) : bool :=
   let md := p1mdata in
   if ~~ fsok x then true
-  else all (fun km => actfsr (fsidx x) km.1 == fsidx (actf x km.2)) md.
+  else let r := fsidx x in
+       all (fun km => actfsr r km.1 == fsidx (actf x km.2)) md.
 
 Definition fsmoveC : bool := all_pow ncoord 0%uint63 fsmstepF.
 
@@ -749,7 +730,8 @@ Proof. by rewrite /fsrC. Qed.
 (* `if', NOT `||' -- see fsrstepF *)
 Definition slrstepF (x : int) : bool :=
   if ~~ fsok x then true
-  else all (fun km => actslri (slrank (fsidx x)) km.1 =?
+  else let s := slrank (fsidx x) in
+       all (fun km => actslri s km.1 =?
                       slrank (fsidx (actf x km.2)))%uint63 p1mdata.
 
 Definition slrC : bool := all_pow ncoord 0%uint63 slrstepF.
@@ -1330,23 +1312,30 @@ Qed.
    eighteen calls for each of the 1 013 760 summaries in each of the 2187
    twists.  actfsr reads the emitted move table instead, at 0.12 us, and
    fsmoveC is exactly the lemma that says the two agree. *)
+(* both lets are inside the else, and read once rather than eighteen times:
+   outside the else they would run on every value, not on the 6 % the guard
+   admits *)
 Definition p1stepFr (T : PArray.array arr) (tw x : int) : bool :=
-  let r := fsidx x in
   if ~~ fsok x then true
-  else all (fun k =>
-              (p1get T (p1idxr tw r) <=?
+  else let r := fsidx x in
+       let d := p1get T (p1idxr tw r) in
+       all (fun k =>
+              (d <=?
                incr (p1get T (p1idxr (acttwii tw k) (actfsri r k))))%uint63)
            midxi.
 
+(* all_powi, not all_pow: the loop is run 2 ^ ncoord times for each of the
+   2187 twists, and all_pow rebuilds its offset with an of_nat at every
+   node.  p1checkTwrE below keeps the two interchangeable in proofs. *)
 Definition p1checkTwr (T : PArray.array arr) (tw : int) : bool :=
-  all_pow ncoord 0%uint63 (p1stepFr T tw).
+  all_powi ncoord 0%uint63 (Uint63.lsl 1 (of_nat ncoord)) (p1stepFr T tw).
 
 Definition p1checkStepr (T : PArray.array arr) : bool :=
   all (fun t => p1checkTwr T (of_nat t)) (iota 0 ntwist).
 
 Lemma p1checkTwrE T tw :
   p1checkTwr T tw = all_pow ncoord 0%uint63 (p1stepFr T tw).
-Proof. by rewrite /p1checkTwr. Qed.
+Proof. by rewrite /p1checkTwr all_powiE. Qed.
 
 (* p1stepF's all is over p1mdata, a map; this is the same all over the
    indices, so that fsmoveC_inst can be applied at k directly.  Conversion

@@ -108,6 +108,31 @@ move=> kL hall hx; apply: (all_pow_gen kL _ hall); rewrite to_nat_0 add0n //.
 by rewrite nwB_pow leq_exp2l.
 Qed.
 
+(* The same loop, with the offset of the second half carried as an int       *)
+(* rather than rebuilt as 1 << of_nat k at each of the 2 ^ k nodes, and with *)
+(* nested ifs in place of &&.  all_powiE says the two agree.                 *)
+Fixpoint all_powi (k : nat) (i off : int) (f : int -> bool) : bool :=
+  if k is k1.+1 then
+    let off' := lsr off 1 in
+    if all_powi k1 i off' f then all_powi k1 (add i off') off' f else false
+  else f i.
+
+Lemma lsl1S k : k.+1 < ndigits ->
+  lsr (lsl 1 (of_nat k.+1)) 1 = lsl 1 (of_nat k).
+Proof.
+move=> kL; apply: to_nat_inj.
+rewrite to_nat_lsr to_nat_lsl1 // to_nat_lsl1; last by apply: ltnW.
+by rewrite to_nat_1 expnS mulKn.
+Qed.
+
+Lemma all_powiE k i f : k < ndigits ->
+  all_powi k i (lsl 1 (of_nat k)) f = all_pow k i f.
+Proof.
+elim: k i => [|k IH] i //= kL.
+have kL' : k < ndigits by apply: ltnW.
+by rewrite lsl1S // !IH //; case: all_pow.
+Qed.
+
 (* Reading a table built as a map over iota.  Stated for a general n on
    purpose: with n a literal, rewriting nth_map/nth_iota makes the iota
    compute and the whole list unfold.                                       *)

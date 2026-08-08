@@ -791,12 +791,16 @@ Definition cwlogi : int := 21%uint63.       (* = of_nat cwlog, see cwlogiE *)
 Lemma cwlogiE : of_nat cwlog = cwlogi.
 Proof. by vm_compute. Qed.
 
+(* the offset mask as a literal: it was rebuilt with a shift and a
+   subtraction on every lookup, and there are nineteen a value *)
+Definition cwmaski : int := Eval vm_compute in
+  Uint63.sub (Uint63.lsl 1%uint63 cwlogi) 1%uint63.
+
 Definition p1get (i : int) : int :=
   let w := Uint63.div i 15%uint63 in
   let r := Uint63.sub i (Uint63.mul w 15%uint63) in
   let c := Uint63.lsr w cwlogi in
-  let o := Uint63.land w (Uint63.sub (Uint63.lsl 1%uint63 cwlogi)
-                                     1%uint63) in
+  let o := Uint63.land w cwmaski in
   Uint63.land
     (Uint63.lsr (PArray.get (PArray.get p1tabs c) o) (Uint63.mul r 4%uint63))
     15%uint63.
@@ -1503,11 +1507,15 @@ Definition p1mdata : seq (nat * mdatf) :=
    old guard let through values that are not summaries at all, which made
    this check assert a distance inequality about table slots that no state
    occupies, and made it 8.3x larger than it needs to be. *)
+(* Dp1i tw x does not depend on km, so it is read once and not eighteen
+   times.  The let is inside the else: outside it, it would run on every
+   value rather than on the ones the guard admits. *)
 Definition p1stepF (tw : int) : int -> bool :=
   let md := p1mdata in
   fun x =>
     if ~~ fsok x then true
-    else all (fun km => (Dp1i tw x <=?
+    else let d := Dp1i tw x in
+         all (fun km => (d <=?
                 incr (Dp1i (acttwi tw km.1) (actf x km.2)))%uint63) md.
 
 Definition p1checkTw (tw : int) : bool := all_pow ncoord 0%uint63 (p1stepF tw).
