@@ -451,3 +451,32 @@ After this, an admitted value costs 18 x (4 array reads, 2 divisions, ~6
 multiplications) and that is the floor for this data layout.  The one lever
 left is the 16 symmetry fold: it removes 15.73x of the table and therefore
 15.73x of the certificate, which is one check per slot.
+
+## The same check in OCaml — `bench/p1gen 9 check` (2026-08-08, desktop)
+
+```
+check over packed values: 0 violations, 821.6 s (0.38 s a twist, 0.5 min for 81)
+check over ranks:         0 violations, 140.0 s (0.06 s a twist, 0.1 min for 81)
+the guard costs 5.87x
+```
+
+| | a slice (81 twists) | all 2187 twists |
+|---|---|---|
+| Rocq, roquableu, after #263 and #265 | ~8 min | ~4.3 CPU-h |
+| **OCaml, the same loop** | **30 s** | **13.7 min** |
+| OCaml over ranks, not packed values | 5 s | 2.3 min |
+
+**Rocq is ~16x the OCaml** on identical work, ~19x correcting for roquableu
+being the faster machine.  So the check is nowhere near the machine, and the
+claim that it was at the memory latency floor -- 0.23 us a check against
+~80 ns a DRAM access -- was wrong.
+
+**The `fsok` guard costs 5.87x, measured.**  Rocq walks all 2^24 packed
+values a twist because `all_powP` hands the instance back at `x`; walking the
+1 013 760 ranks directly needs `fsidx` injective on the summaries, which
+`Coordfs` does not give.  Against the other lever:
+
+| lever | worth | cost |
+|---|---|---|
+| `fsidx` injective on summaries, then iterate over ranks | **5.87x** | one lemma, no table changes |
+| the 16 symmetry fold | 15.73x | a soundness lemma plus regenerating every table |
