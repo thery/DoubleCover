@@ -577,61 +577,80 @@ Definition nmaski  : int := 4096%uint63.                     (* 2 ^ 12      *)
 Definition srank : arr :=                                     (* GENERATED *)
   Eval vm_compute in mkarr nmaski nsranki srank_data.
 
-(* NB 2047, not 4095.  The flip occupies twelve bits but edge flip parity is
-   even, so bit 11 is determined by bits 0..10 and only 2048 of the 4096 occur.
-   Masking with 4095 indexes past the end of fsclass -- caught by running the
-   generator on the flip x slice table, where it failed at once. *)
-(* nsranki, THE LITERAL DEFINED FIVE LINES ABOVE, not of_nat nsrank.  of_nat
-   walks its unary argument: MEASURED, of_nat 495 is 36.4 us, and it made
-   fsidx cost 32.0 us against 0.10 us with the literal -- 320x.  fsidx is
-   not in the search's inner loop (the search carries ranks), but it is the
-   GUARD of every certificate, evaluated 2 ^ 24 times in each, and 2187 x
-   2 ^ 24 times in p1checkStep. *)
+(* the flip is masked with 2047, not 4095: bit 11 is the parity of the other
+   eleven for a real cube, so only 2048 of the 4096 masks occur.  nsranki is
+   the int63 literal, not of_nat nsrank, which would walk a unary nat. *)
 Definition fsidx (x : int) : int :=
   Uint63.add
     (Uint63.mul (Uint63.land x 2047%uint63) nsranki)
     (PArray.get srank (Uint63.lsr x 12%uint63)).
 
-(* AND THE GUARD THAT GOES WITH IT.  `fsidx x <? nfsi' is NOT the test for
-   "x is a summary", and using it as one made the certificates of Farp1.v
-   false.  It fails in both halves of the packing:
-
-   - srank returns nsrank = 495 for a twelve bit mask WITHOUT four bits set,
-     which is also the array default, so fsidx x = (f + 1) * 495 for those --
-     BELOW nfsi = 2048 * 495 for every f < 2047.  COUNTED: 495 of the 4096
-     masks are genuine, 3601 are not.
-
-   - the flip is masked with 2047 by the very argument three comments above:
-     bit 11 is the parity of the other eleven.  Two values differing in it
-     share a rank, and actf sends them to DIFFERENT ranks.  MEASURED, at
-     c0 = coordt (id_tab 47) and c1 = c0 lxor 2048: fsidx agrees, and after
-     the fourth move the ranks are 300 and 8220.
-
-   Together the old guard admits 8 385 007 of the 2 ^ 24 -- 50 %, not the 6 %
-   the old comments claimed.  fsok admits exactly nflip * nsrank = nfs.
-
-   The DEFINITIONS live here because p1stepF below needs them; the lemmas
-   about them are in Fsparity.v, which requires this file. *)
+(* and the guard: `fsidx x <? nfsi' does NOT say that x is a summary, and
+   fsok does -- it admits exactly nflip * nsrank = nfs values.  See
+   doc/rubik333-notes.md.  The definitions are here because p1stepF below
+   needs them; the lemmas about them are in Fsparity.v. *)
 
 (* the parity of the twelve flip bits *)
 Definition fpar (x : int) : bool := odd (count (nbit x) (iota 0 nedge)).
+
+Definition nfmaski : int := 4095%uint63.               (* the twelve bits *)
+
+(* the same parity as a table, since fpar reads only those twelve bits *)
+Definition fpartab : arr := Eval vm_compute in
+  mkarr nmaski 0%uint63
+        [seq (if fpar (of_nat m) then 1 else 0)%uint63 | m <- iota 0 nmask].
+
+Definition fparr (x : int) : bool :=
+  (PArray.get fpartab (Uint63.land nfmaski x) =? 1)%uint63.
+
+Lemma bit_nfmaski k : (k < nedge)%N -> bit nfmaski (of_nat k).
+Proof. by do 12![case: k => [|k]; first by vm_compute]. Qed.
+
+Lemma fpar_mask x : fpar (Uint63.land nfmaski x) = fpar x.
+Proof.
+rewrite /fpar; congr odd; apply: eq_in_count => k.
+rewrite mem_iota => /andP[_ kL].
+by rewrite /nbit land_spec bit_nfmaski ?andTb.
+Qed.
+
+Definition fparC : bool :=
+  all (fun m => (PArray.get fpartab (of_nat m) =? 1)%uint63 == fpar (of_nat m))
+      (iota 0 nmask).
+
+Lemma fparCP : fparC. Proof. by vm_compute. Qed.
+
+(* the equation, so that allP does not have to unfold fparC *)
+Lemma fparCE : fparC =
+  all (fun m => (PArray.get fpartab (of_nat m) =? 1)%uint63 == fpar (of_nat m))
+      (iota 0 nmask).
+Proof. by []. Qed.
+
+Lemma fparrE x : fparr x = fpar x.
+Proof.
+rewrite /fparr -fpar_mask.
+set m := (Uint63.land nfmaski x).
+have mL : (to_nat m < nmask)%N.
+  by apply: (@to_nat_land_bound _ _ 12); vm_compute.
+have hmem : to_nat m \in iota 0 nmask by rewrite mem_iota /=.
+have hall : all (fun k => (PArray.get fpartab (of_nat k) =? 1)%uint63
+                          == fpar (of_nat k)) (iota 0 nmask).
+  by rewrite -fparCE; exact: fparCP.
+by have := eqP (allP hall _ hmem); rewrite to_natK.
+Qed.
 
 (* the slice mask really is one of the 495 with four bits set *)
 Definition sok (x : int) : bool :=
   (PArray.get srank (Uint63.lsr x 12%uint63) <? nsranki)%uint63.
 
-Definition fsok (x : int) : bool := sok x && ~~ fpar x.
+(* an if and not `&&', which is a function and evaluates both sides *)
+Definition fsok (x : int) : bool := if sok x then ~~ fparr x else false.
+
+Lemma fsokE x : fsok x = sok x && ~~ fpar x.
+Proof. by rewrite /fsok fparrE; case: sok. Qed.
 
 (* =========================================================================  *)
-(*  3.  The index, unfolded                                                   *)
-(*                                                                            *)
-(*  UNFOLDED, deliberately: one slot per state, exactly as ocaml/rubik_par.ml  *)
-(*  has it.  The 16-symmetry fold would shrink the table 15.73x and the        *)
-(*  certificate with it, but it needs a soundness lemma of its own (conjugate  *)
-(*  states land in the same slot) that the unfolded table does not.  Mimic     *)
-(*  first, fold later if the size bites.  Measured cost of not folding: about  *)
-(*  8 GB per worker, which caps roquableu at ~6 parallel workers rather than   *)
-(*  18.  Nothing else about the development changes.                          *)
+(*  3.  The index, unfolded: one slot per state, as ocaml/rubik_par.ml has    *)
+(*      it.  The 16 symmetry fold is discussed in doc/rubik333-notes.md.      *)
 (* =========================================================================  *)
 
 (* nfs and ntwist as int63 LITERALS, not as of_nat applied to the nat.
@@ -2053,7 +2072,7 @@ Qed.
 
 (* and so the guard holds at every state the search reaches *)
 Lemma fsok_twcP g : twcP g -> fsok (coordfs g).
-Proof. by move=> /and3P[cg _ fg]; rewrite /fsok (sok_coordfs cg). Qed.
+Proof. by move=> /and3P[cg _ fg]; rewrite fsokE (sok_coordfs cg). Qed.
 
 (* 0 off the invariant, which is what makes both obligations unconditional --
    Coordfs.hcoordg's trick, done by hand for the reason above *)
