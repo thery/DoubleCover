@@ -791,6 +791,192 @@ let () =
     exit 0
   end;
 
+  (* ---- the folded table ------------------------------------------------- *)
+  (* A U/D preserving symmetry applied to BOTH coordinates leaves the distance
+     alone, so one flip x slice per orbit is enough:
+
+       p.(t * nfs + f) = fold.(rep.(f) * ntwist + twsym.(t * 16 + sym.(f)))
+
+     rep.(f) is the orbit of f, sym.(f) a symmetry carrying f to the orbit's
+     representative, and twsym.(t * 16 + s) the twist under that symmetry.
+     This mode builds the four tables, checks the identity above on random
+     pairs, and times the folded read against the unfolded one. *)
+
+  if Array.length Sys.argv > 2 && Sys.argv.(2) = "fold" then begin
+    let ud = Array.make nfacelet false in
+    for i = 0 to 7 do ud.(i) <- true done;
+    for i = 40 to 47 do ud.(i) <- true done;
+    let keeps u =
+      (try
+         for f = 0 to nfacelet - 1 do
+           if ud.(f) <> ud.(u.(f)) then raise Exit done;
+         true
+       with Exit -> false) in
+    let s16 = Array.of_list (List.filter keeps syms) in
+    let nsym = Array.length s16 in
+    Printf.printf "U/D preserving symmetries: %d of %d\n%!"
+      nsym (List.length syms);
+    if nsym <> 16 then (prerr_endline "NOT SIXTEEN SYMMETRIES"; exit 1);
+
+    (* a group: the product of any two of the sixteen is one of the sixteen *)
+    let notin = ref 0 in
+    Array.iter (fun a -> Array.iter (fun b ->
+      let c = comp a b in
+      if not (Array.exists (fun d -> d = c) s16) then incr notin) s16) s16;
+    Printf.printf "products outside the sixteen: %d of %d\n%!"
+      !notin (nsym * nsym);
+
+    let t_fold = Unix.gettimeofday () in
+    let symfs = time "the flip x slice symmetry maps" (fun () ->
+      Array.map (fun u ->
+        let ui = inv u in
+        Array.init nfs (fun i -> fsidx (coordi (comp ui (comp fsrep.(i) u)))))
+        s16) in
+    let twsym = time "the twist symmetry map" (fun () ->
+      let a = Array.make (ntwist * nsym) 0 in
+      Array.iteri (fun s u ->
+        let ui = inv u in
+        for t = 0 to ntwist - 1 do
+          a.(t * nsym + s) <- ctwist (comp ui (comp twrep.(t) u))
+        done) s16;
+      a) in
+
+    (* the orbits, each named by its smallest flip x slice value *)
+    let rep = Array.make nfs (-1) and sym = Array.make nfs 0 in
+    let canon = Array.make nfs 0 in
+    let norb = ref 0 in
+    time "the orbits" (fun () ->
+      for f = 0 to nfs - 1 do
+        if rep.(f) < 0 then begin
+          canon.(!norb) <- f;
+          for s = 0 to nsym - 1 do
+            let g = symfs.(s).(f) in
+            if rep.(g) < 0 then rep.(g) <- !norb
+          done;
+          incr norb
+        end
+      done);
+    let norb = !norb in
+    Printf.printf "flip x slice orbits: %d of %d (fold %.2fx)\n%!"
+      norb nfs (float_of_int nfs /. float_of_int norb);
+
+    (* the symmetry that reaches the representative, found by trying all *)
+    let nosym = ref 0 in
+    time "the symmetry that folds" (fun () ->
+      for f = 0 to nfs - 1 do
+        let c = canon.(rep.(f)) in
+        let s = ref 0 in
+        while !s < nsym && symfs.(!s).(f) <> c do incr s done;
+        if !s = nsym then incr nosym else sym.(f) <- !s
+      done);
+    Printf.printf "values reaching no representative: %d\n%!" !nosym;
+    if !nosym > 0 then (prerr_endline "THE ORBITS ARE WRONG"; exit 1);
+
+    (* the folded table, read row by row of the unfolded one *)
+    let fold = Bytes.make (norb * ntwist) '\000' in
+    time "fill the folded table" (fun () ->
+      for t = 0 to ntwist - 1 do
+        let base = t * nfs in
+        for r = 0 to norb - 1 do
+          Bytes.unsafe_set fold (r * ntwist + t)
+            (Bytes.unsafe_get p (base + Array.unsafe_get canon r))
+        done
+      done);
+    Printf.printf "  %-38s %7.2f s\n%!" "fold, all of it"
+      (Unix.gettimeofday () -. t_fold);
+    Printf.printf "folded %d entries (%.0f MB) against %d (%.2f GB)\n%!"
+      (norb * ntwist) (float_of_int (norb * ntwist) /. 1048576.0)
+      n_all (float_of_int n_all /. 1073741824.0);
+
+    (* ---- do the sixteen really act on the two coordinates? --------------- *)
+
+    (* each induced map is a permutation of its space *)
+    let badp = ref 0 in
+    let hit = Array.make nfs false in
+    Array.iter (fun m ->
+      Array.fill hit 0 nfs false;
+      Array.iter (fun v -> if hit.(v) then incr badp else hit.(v) <- true) m)
+      symfs;
+    let hitw = Array.make ntwist false in
+    for s = 0 to nsym - 1 do
+      Array.fill hitw 0 ntwist false;
+      for t = 0 to ntwist - 1 do
+        let v = twsym.(t * nsym + s) in
+        if hitw.(v) then incr badp else hitw.(v) <- true
+      done
+    done;
+    Printf.printf "maps that are not permutations: %d\n%!" !badp;
+
+    (* well defined: conjugating then moving is moving then conjugating.  The
+       flip x slice space is sampled, as the sym16 mode samples it. *)
+    let stride = 97 in
+    let sc = Array.make nfacelet 0 in
+    let badw = ref 0 in
+    time "the induced maps against the moves" (fun () ->
+      Array.iteri (fun s u ->
+        let ui = inv u in
+        for t = 0 to ntwist - 1 do
+          for k = 0 to nmoves - 1 do
+            comp_into sc twrep.(t) moves.(k);
+            if ctwist (comp ui (comp sc u))
+               <> twsym.(twmove.(t * nmoves + k) * nsym + s) then incr badw
+          done
+        done;
+        let i = ref 0 in
+        while !i < nfs do
+          for k = 0 to nmoves - 1 do
+            comp_into sc fsrep.(!i) moves.(k);
+            if fsidx (coordi (comp ui (comp sc u)))
+               <> symfs.(s).(fsmove.(!i * nmoves + k)) then incr badw
+          done;
+          i := !i + stride
+        done) s16);
+    Printf.printf "induced maps not well defined: %d\n%!" !badw;
+    if !badp > 0 || !badw > 0 || !notin > 0 then
+      (prerr_endline "THE SIXTEEN DO NOT ACT"; exit 1);
+
+    (* ---- does the folded read give the unfolded value? ------------------- *)
+    let n = 20_000_000 in
+    let st = Random.State.make [|20260808|] in
+    let ts = Array.init n (fun _ -> Random.State.int st ntwist) in
+    let fsr = Array.init n (fun _ -> Random.State.int st nfs) in
+    let bad = ref 0 in
+    time "folded against unfolded" (fun () ->
+      for i = 0 to n - 1 do
+        let t = Array.unsafe_get ts i and f = Array.unsafe_get fsr i in
+        let r = Array.unsafe_get rep f and y = Array.unsafe_get sym f in
+        let t' = Array.unsafe_get twsym (t * nsym + y) in
+        if Bytes.unsafe_get fold (r * ntwist + t')
+           <> Bytes.unsafe_get p (t * nfs + f) then incr bad
+      done);
+    Printf.printf "fold check: %d mismatches of %d pairs\n%!" !bad n;
+
+    (* ---- and what does the indirection cost? ----------------------------- *)
+    let bench name f =
+      let t0 = Unix.gettimeofday () in
+      let s = f () in
+      let d = Unix.gettimeofday () -. t0 in
+      Printf.printf "  %-24s %6.2f s  %6.1f ns a lookup (sink %d)\n%!"
+        name d (d *. 1e9 /. float_of_int n) s;
+      d in
+    let du = bench "unfolded lookups" (fun () ->
+      let s = ref 0 in
+      for i = 0 to n - 1 do
+        let t = Array.unsafe_get ts i and f = Array.unsafe_get fsr i in
+        s := !s + Char.code (Bytes.unsafe_get p (t * nfs + f))
+      done; !s) in
+    let df = bench "folded lookups" (fun () ->
+      let s = ref 0 in
+      for i = 0 to n - 1 do
+        let t = Array.unsafe_get ts i and f = Array.unsafe_get fsr i in
+        let r = Array.unsafe_get rep f and y = Array.unsafe_get sym f in
+        let t' = Array.unsafe_get twsym (t * nsym + y) in
+        s := !s + Char.code (Bytes.unsafe_get fold (r * ntwist + t'))
+      done; !s) in
+    Printf.printf "the folded read costs %.2fx\n%!" (df /. du);
+    exit 0
+  end;
+
   if Array.length Sys.argv > 2 && Sys.argv.(2) = "views" then begin
     let rot = match rot with Some r -> r | None -> assert false in
     let pr name a =
