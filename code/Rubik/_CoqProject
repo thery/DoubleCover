@@ -70,6 +70,7 @@ Far_16.v
 Far_17.v
 Farmain.v
 Fsparity.v
+Sym16.v
 Farp1.v
 Farp1main.v
 Farp1chk.v
