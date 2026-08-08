@@ -35,7 +35,7 @@ Definition rootm (m : nat) : PArray.array int :=
 
 (* the depth, and the root depth Far.v's droot mirrors: two moves are fixed
    by prefixi, so the search below a root has depth - 2 left *)
-Definition p1depth := 14.
+Definition p1depth := 16.
 Definition p1droot := p1depth.-2.
 
 (* depth t: the first move is fixed, so the search below it has t - 1 left *)
