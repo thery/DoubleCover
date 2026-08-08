@@ -361,3 +361,53 @@ must be hidden from git:
 
 Keep the real ones somewhere before overwriting. See the note about never
 checking a dummy in under a generated file's name.
+
+---
+
+## The real runs, at -j9 (2026-08-07/08, roquableu, 62 GB, 12 cores)
+
+| n | search depth | wall | CPU | jobs |
+|---|---|---|---|---|
+| 17 | 15 | 13 m 05 | 35 m 29 | 3 |
+| 18 | 16 | 2 h 16 | 6 h 28 | 3 |
+| 18 | 16 | **54 m 37** | **6 h 57** | 9 |
+| 19 | 17 | **11 h 13 42** | **85 h 11** | 9 |
+
+- n = 18 at -j9 against -j3: **2.49x on wall**, effective parallelism
+  **7.63** of 9, CPU up 7.4 % for the contention.  n = 19 gave 7.59.
+- The depth 16 -> 17 CPU ratio is **12.26**, a little under the 12.87 node
+  ratio.  Predicting n = 19 as (n = 18 wall) x 12.87 came in 4 % high.
+- **Piece 11 is the tail**, at both depths: ~1.4x the average.
+
+### A search piece is 4.15 GB, whatever the depth
+
+MEASURED during the n = 18 run: nine workers at **4.15 GB each**, identical
+to three decimals, flat from t+110 s to the sample before the first exited at
+t+1221 s — the `Qed` included, where under native the evaluation happens.
+The same 4.1 GB at depth 15.  It is the loaded table, not search state:
+`searchz3n` is a DFS returning a bool that tail calls `go l'`, so nothing is
+retained per position but the path, at most `d` deep.
+
+The old figures — "1.6 GB at depth 14, 15.3 GB at 16" in `runp1.sh`, "about
+8 GB resident" in `mkrunp1.sh` — are from when the chunks were `seq int`.
+
+Hence `P1RUN_GB=6` -> **-j9**, which is also optimal: 18 equal pieces balance
+only at j = 18, 9 or 6; j = 18 wants 74 GB, and j = 12 still runs 12 + 6.
+
+## `fpar` as a table (2026-08-08, desktop, `vm_compute`, 2^20 values)
+
+| | total | a value |
+|---|---|---|
+| `sok x && ~~ fpar x`, the old guard | 9.624 s | **9.2 us** |
+| `fsok x`, an `if` over `fparr` | 0.346 s | **0.33 us** |
+| `fpar` alone | 9.432 s | 9.0 us |
+| `fparr` alone | 0.320 s | 0.31 us |
+
+**27.8x on the guard.** Two separate causes, both removed: `fpar` was a nat
+`count` over `iota 0 nedge`, and the `&&` in front of it is a function, so it
+ran on all 2^24 rather than the 12.1 % that pass `sok`.  Under
+`native_compute`, which is what the certificates use, the absolute numbers
+are lower and the ratio has still to be timed on a slice.
+
+The certificate `fparCP` costs **1.05 s** in `Phase1.vo`, and the whole
+addition under 2.5 s.

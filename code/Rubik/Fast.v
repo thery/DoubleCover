@@ -1,18 +1,8 @@
 (* =========================================================================  *)
 (*  Fast.v                                                                    *)
 (*                                                                            *)
-(*  searchz3 with every nat taken out of the inner loop.  NO PROOFS: this is  *)
-(*  for measuring only.  searchz3f is not tied to searchz3 by anything yet.   *)
-(*                                                                            *)
-(*  What it removes, all MEASURED at 100 000 iterations, vm:                  *)
-(*                                                                            *)
-(*    allowedr p      60.4 us -> 2.55  precomputed, the answer depends only   *)
-(*                                    on p, which takes 7 values              *)
-(*    nth _ mtis k     8.67 us -> 0.17  an array, not a walk down 18 conses,  *)
-(*                                    and it runs once a CHILD                *)
-(*    of_nat d         1.57 us -> 0.10  the depth carried as an int as well   *)
-(*    step3's two nth over mv3a/mv3b and three of_nat: precomputed with the   *)
-(*    move index, so step3i does six array reads and nothing else.            *)
+(*  searchz3 on int63, as the refinements searchz3f to searchz3n.             *)
+(*  Definitions only; FastP.v proves searchz3n = searchz3.                    *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -39,8 +29,7 @@ Definition mtisa : PArray.array arr := Eval vm_compute in
   setl (PArray.make 18%uint63 (id_tabi 47)) 0%uint63 mtis.
 
 (* ---- the seven allowed lists, with every index already an int ------------ *)
-(* each entry is (k, mv3a k, mv3b k) as ints, and the child's p as a nat --
-   p indexes a seven element list, so it is left alone *)
+(* an entry is (k, mv3a k, mv3b k) as ints, and the child's p as a nat *)
 Definition amove := ((int * int) * int)%type.
 
 Definition allowed3 : seq (seq (amove * nat)) := Eval vm_compute in
@@ -57,8 +46,8 @@ Definition step3i (x : c3) (m : amove) : c3 :=
    (acttwii x1.1 ka, actfsri x1.2 ka),
    (acttwii x2.1 kb, actfsri x2.2 kb)).
 
-(* ---- and the search.  d stays a nat for the recursion to be structural;
-   di is the same number as an int, so h3i's test costs nothing. ------------ *)
+(* ---- and the search.  d stays a nat so that the recursion is structural,
+   di is the same depth as an int, for the heuristic test. ------------------ *)
 Fixpoint searchz3f (T : PArray.array arr) (d : nat) (di : int) (a : arr)
                    (x : c3) (p : nat) : bool :=
   if (h3i T x <=? di)%uint63 then
@@ -75,18 +64,8 @@ Fixpoint searchz3f (T : PArray.array arr) (d : nat) (di : int) (a : arr)
     else false
   else false.
 
-(* =========================================================================  *)
-(*  searchz3g: the heuristic tested BEFORE the table is composed              *)
-(*                                                                            *)
-(*  searchz3f evaluates comp_tabi for every child and then the recursive call *)
-(*  rejects most of them on one lookup -- a 48 entry array built to be thrown  *)
-(*  away.  Rocq is strict, so there is no laziness to save us.  Testing        *)
-(*  h3i on the child's COORDINATES first costs six array reads (step3i) and   *)
-(*  one lookup, and only survivors pay for comp_tabi.                          *)
-(*                                                                            *)
-(*  Same tree, same answer: the test is exactly the one the child would do    *)
-(*  first.  Only the order of evaluation changes.                             *)
-(* =========================================================================  *)
+(* ---- searchz3g: the heuristic is tested on the coordinates after the move,
+   before the table is composed --------------------------------------------- *)
 Fixpoint searchz3g (T : PArray.array arr) (d : nat) (di : int) (a : arr)
                    (x : c3) (p : nat) : bool :=
   if (h3i T x <=? di)%uint63 then
@@ -106,12 +85,7 @@ Fixpoint searchz3g (T : PArray.array arr) (d : nat) (di : int) (a : arr)
     else false
   else false.
 
-(* ---- eq_tabi with an early exit ------------------------------------------
-   eqi is `(get a i =? get b i) && eqi k' ...'.  andb is a FUNCTION, strict
-   under native, so the recursive call runs even when the entries already
-   differ -- all 48 are compared every time.  The same trap as the `||' in
-   the certificate guards.  `a' is almost never the identity, so this should
-   stop at the first or second entry. *)
+(* ---- eq_tabi stopping at the first entry that differs -------------------- *)
 Fixpoint eqif (k : nat) (i : int) (a b : arr) : bool :=
   if k is k'.+1 then
     if (PArray.get a i =? PArray.get b i)%uint63
@@ -121,7 +95,7 @@ Fixpoint eqif (k : nat) (i : int) (a b : arr) : bool :=
 
 Definition eq_tabif (a b : arr) : bool := eqif 48 0%uint63 a b.
 
-(* searchz3g plus that *)
+(* ---- searchz3h: searchz3g with eq_tabif ---------------------------------- *)
 Fixpoint searchz3h (T : PArray.array arr) (d : nat) (di : int) (a : arr)
                    (x : c3) (p : nat) : bool :=
   if (h3i T x <=? di)%uint63 then
@@ -141,16 +115,7 @@ Fixpoint searchz3h (T : PArray.array arr) (d : nat) (di : int) (a : arr)
     else false
   else false.
 
-(* =========================================================================  *)
-(*  h3le: the heuristic TEST, short circuited                                 *)
-(*                                                                            *)
-(*  h3i computes nine table lookups and takes their max; the caller only ever *)
-(*  asks `h3i T x <=? di', and max <= di iff every one of them is.  Since the *)
-(*  earlier test made most children rejections, the first lookup usually       *)
-(*  settles it -- one instead of nine.                                        *)
-(*                                                                            *)
-(*  h3le T x di is EXACTLY h3i T x <=? di, so the tree does not change.       *)
-(* =========================================================================  *)
+(* ---- h3le T x di is h3i T x <=? di, lookup by lookup --------------------- *)
 Definition hv1le (T : PArray.array arr) (tf : int * int) (di : int) : bool :=
   if (Dfsri tf.2 <=? di)%uint63 then
     if (Dtsi tf.1 (slrank tf.2) <=? di)%uint63 then
@@ -183,16 +148,8 @@ Fixpoint searchz3k (T : PArray.array arr) (d : nat) (di : int) (a : arr)
     else false
   else false.
 
-(* =========================================================================  *)
-(*  searchz3m: the three views computed one at a time                         *)
-(*                                                                            *)
-(*  step3i still builds all three views' coordinates before h3le gets to      *)
-(*  reject on the first.  A child turned away by view 0 never needed views 1  *)
-(*  and 2 -- four array reads wasted each time, and most children are turned  *)
-(*  away.  Interleaving the two is the same short circuit once more.          *)
-(*                                                                            *)
-(*  Same tree, same answer: hv1le on all three in order IS h3le.              *)
-(* =========================================================================  *)
+(* ---- searchz3m: x holds the cube and its two conj3 conjugates; each of the
+   three is moved only if the previous ones passed the test ----------------- *)
 Definition stepv (v : int * int) (k : int) : int * int :=
   (acttwii v.1 k, actfsri v.2 k).
 
@@ -223,19 +180,9 @@ Fixpoint searchz3m (T : PArray.array arr) (d : nat) (di : int) (a : arr)
     else false
   else false.
 
-(* =========================================================================  *)
-(*  searchz3n: carry the PATH, not the table                                  *)
-(*                                                                            *)
-(*  a is used for exactly one thing -- eq_tabif a idi, "is it solved" -- and  *)
-(*  maintaining it costs a 48 entry composition for every surviving child.    *)
-(*  But a solved cube certainly has solved COORDINATES, and comparing six     *)
-(*  ints is nothing.  So test the coordinates, and rebuild the table from the *)
-(*  move path only in the case they say it might be solved.                   *)
-(*                                                                            *)
-(*  Sound because solved => coordinates solved: the coordinate test can only  *)
-(*  let through non-solutions, never reject a solution, and the rebuild then  *)
-(*  settles it exactly.                                                       *)
-(* =========================================================================  *)
+(* ---- searchz3n: carry the move path instead of the table.  The coordinates
+   say whether the position may be solved; the table is rebuilt from the path
+   only then -------------------------------------------------------------- *)
 Definition solved3 : c3 := Eval vm_compute in init3 (id_tabi 47).
 
 Definition issolved (x : c3) : bool :=
@@ -251,23 +198,16 @@ Definition issolved (x : c3) : bool :=
     else false
   else false.
 
-(* the path is kept newest first, and foldr applies the LAST element of the
-   list first -- so folding over `path' itself composes oldest move first,
-   which is what is wanted.  An earlier version folded over `rev path' and
-   composed them backwards; nothing detected it, because rebuild is only
-   ever evaluated in the issolved branch and no search finds a solution, so
-   every answer was "no solution" either way.  Found by trying to prove
-   rebuild a0 (k :: path) = comp_tabi 47 (rebuild a0 path) (get mtisa k),
-   which is now true by foldr's own equation. *)
+(* the path is newest first, and foldr takes its last element first, so the
+   moves are composed oldest first *)
 Definition rebuild (a0 : arr) (path : seq int) : arr :=
   foldr (fun k acc => comp_tabi 47 acc (PArray.get mtisa k)) a0 path.
 
 Fixpoint searchz3n (T : PArray.array arr) (d : nat) (di : int) (a0 : arr)
                    (path : seq int) (x : c3) (p : nat) : bool :=
   if h3le T x di then
-    (* a nested if, NOT `&&': andb is strict, so `issolved x && eq_tabif
-       (rebuild ...)' would rebuild the table at EVERY node -- the very bug
-       this file exists to remove *)
+    (* nested ifs and not `&&', which is strict and would rebuild the table
+       at every position *)
     if (if issolved x then eq_tabif (rebuild a0 path) (id_tabi 47) else false)
     then true
     else if d is d'.+1 then
@@ -292,13 +232,7 @@ Fixpoint searchz3n (T : PArray.array arr) (d : nat) (di : int) (a0 : arr)
     else false
   else false.
 
-(* =========================================================================  *)
-(*  the same search, counting the nodes it visits                             *)
-(*                                                                            *)
-(*  So that the seconds above can be turned into us a node and compared with  *)
-(*  the OCaml's 0.6-0.8.  The counter is an int63: a nat one costs O(n) per   *)
-(*  increment and would dominate what it measures.                            *)
-(* =========================================================================  *)
+(* ---- searchz3nc: searchz3n, also returning how many positions it visited - *)
 Fixpoint searchz3nc (T : PArray.array arr) (d : nat) (di : int) (a0 : arr)
                     (path : seq int) (x : c3) (p : nat) : bool * int :=
   if h3le T x di then
@@ -328,4 +262,3 @@ Fixpoint searchz3nc (T : PArray.array arr) (d : nat) (di : int) (a0 : arr)
     else (false, 1%uint63)
   else (false, 1%uint63).
 
-(* =========================================================================  *)

@@ -23,15 +23,10 @@
 ## =========================================================================
 
 # ---- what a job costs, in GB ---------------------------------------------
-# These are PEAKS, and a peak is the only figure worth budgeting with.  The
-# 3.0 GB in rubik333_figures.md was a spot reading taken early in a slice and
-# it is not the number to divide by: on 2026-08-05 twelve slices forty five
-# seconds in were already at 1.4 to 2.8 GB apiece, 40 GB used and 11.5 GB
-# swapped, for a job that runs ten to twenty minutes.
-#
-# 6 GB is taken from that reading with room to grow, NOT from a completed
-# slice.  ./watchmem.sh on one slice run alone gives the true peak; when you
-# have it, put it here and in rubik333_figures.md.
+# MEASURED with ./watchmem.sh: a search piece is 4.15 GB and a certificate
+# slice 3.0 GB, both flat for the whole run and both independent of the
+# depth.  6 GB is those with room to spare, and on a 62 GB machine it gives
+# -j9 -- which also divides the 18 pieces and the 27 slices evenly.
 P1CHK_GB    ?= 6
 P1RUN_GB    ?= 6
 

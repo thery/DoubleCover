@@ -463,7 +463,7 @@ have cA : cubP (pt 47 (ti2t 47 a)) by rewrite (cubtE aok) -(cubtiE aok).
 (* the guard is now fsok, and its two halves come from two different places:
    the slice half from cubP, the parity half from the carried invariant *)
 have hfs : fsok (coordi a).
-  rewrite /fsok; apply/andP; split.
+  rewrite fsokE; apply/andP; split.
     by rewrite hcd; exact: sok_coordfs cA.
   by move: tw; rewrite /twPti => /andP[_].
 have hcl : (to_nat (coordi a) < 2 ^ ncoord)%N by rewrite hcd; exact: coordfs_lt.
