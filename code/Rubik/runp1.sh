@@ -16,14 +16,8 @@ N=${1:-14}
 #   ./runp1.sh count 14 0   node count for piece 0 at depth 14, to compare
 #                           against `bench/p1gen 9 pieces 14 0'
 #   ./runp1.sh count "13 14 15 16" 0   the same, several depths in one go,
-#                           SEQUENTIALLY -- each run holds 8.5-10 GB and
-#                           64 GB caps roquableu at about five at once
-#   EVAL=native ./runp1.sh count 16 0  the same under native_compute.
-#                           vm_compute has been seen to leak with PArray,
-#                           and the resident set does climb with depth --
-#                           15.3 GB at depth 16 against 1.6 GB at 14 -- so
-#                           the two evaluators are worth comparing before
-#                           concluding anything about the footprint.
+#                           sequentially
+#   EVAL=native ./runp1.sh count 16 0  the same under native_compute
 # vm (default) or native.  EVAL=native to compare footprints.
 case "${EVAL:-vm}" in
   vm)     EVALC=vm_compute;;

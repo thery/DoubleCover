@@ -3,9 +3,9 @@
 # both root moves inside -- the same decomposition mkfar.sh uses, so the two
 # experiments are comparable piece for piece.
 #
-# MEMORY: each piece loads the whole phase 1 table, about 8 GB resident.
-# Far_??.v loads only fstab and is small, so it parallelises 18 ways; this
-# does NOT.  Six at a time on a 62 GB machine, not eighteen.
+# MEMORY: each piece loads the whole phase 1 table, 4.15 GB resident at any
+# depth.  Nine at a time on a 62 GB machine -- say `make p1run P1RUN_GB=6',
+# which computes that, rather than a -j of your own.
 #   ./mkrunp1.sh          depth 14, vm
 #   ./mkrunp1.sh 15       depth 15, vm
 #   EVAL=native ./mkrunp1.sh 14    depth 14, native_compute
