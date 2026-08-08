@@ -581,6 +581,76 @@ let () =
       (cur + 1) !added (Unix.gettimeofday () -. t0)
   done;
 
+  (* ---- the certificate, the same one Rocq checks ------------------------- *)
+  (* p1checkStep says: for every twist and every packed value that is a
+     summary, the stored distance is at most one more than the distance after
+     each of the eighteen moves.  Two loops, and the difference between them
+     is the price of the guard:
+
+       over packed values   what Rocq does -- all 2 ^ 24 values a twist, with
+                            the fsok guard letting 6 % through
+       over ranks           the same checks reached directly, 16 times fewer
+                            iterations.  Rocq cannot do this without fsidx
+                            injective on the summaries, which Coordfs does
+                            not give. *)
+
+  if Array.length Sys.argv > 2 && Sys.argv.(2) = "check" then begin
+    let npacked = 1 lsl 24 in
+    let fpartab = Array.make 4096 false in
+    for m = 0 to 4095 do
+      let c = ref 0 in
+      for i = 0 to 11 do if bit m i then incr c done;
+      fpartab.(m) <- !c land 1 = 1
+    done;
+
+    let bad = ref 0 in
+    let t0 = Unix.gettimeofday () in
+    for t = 0 to ntwist - 1 do
+      let tb = t * nmoves and base = t * nfs in
+      for x = 0 to npacked - 1 do
+        let sr = Array.unsafe_get srank (x lsr 12) in
+        if sr < nslice && not (Array.unsafe_get fpartab (x land 4095)) then
+          begin
+            let r = (x land 2047) * nslice + sr in
+            let d = Char.code (Bytes.unsafe_get p (base + r)) in
+            let fb = r * nmoves in
+            for k = 0 to nmoves - 1 do
+              let j = Array.unsafe_get twmove (tb + k) * nfs
+                      + Array.unsafe_get fsmove (fb + k) in
+              if d > Char.code (Bytes.unsafe_get p j) + 1 then incr bad
+            done
+          end
+      done
+    done;
+    let d1 = Unix.gettimeofday () -. t0 in
+    Printf.printf
+      "check over packed values: %d violations, %.1f s (%.2f s a twist, \
+       %.1f min for 81)\n%!" !bad d1 (d1 /. float_of_int ntwist)
+      (d1 /. float_of_int ntwist *. 81.0 /. 60.0);
+
+    let bad2 = ref 0 in
+    let t1 = Unix.gettimeofday () in
+    for t = 0 to ntwist - 1 do
+      let tb = t * nmoves and base = t * nfs in
+      for r = 0 to nfs - 1 do
+        let d = Char.code (Bytes.unsafe_get p (base + r)) in
+        let fb = r * nmoves in
+        for k = 0 to nmoves - 1 do
+          let j = Array.unsafe_get twmove (tb + k) * nfs
+                  + Array.unsafe_get fsmove (fb + k) in
+          if d > Char.code (Bytes.unsafe_get p j) + 1 then incr bad2
+        done
+      done
+    done;
+    let d2 = Unix.gettimeofday () -. t1 in
+    Printf.printf
+      "check over ranks:         %d violations, %.1f s (%.2f s a twist, \
+       %.1f min for 81)\n%!" !bad2 d2 (d2 /. float_of_int ntwist)
+      (d2 /. float_of_int ntwist *. 81.0 /. 60.0);
+    Printf.printf "the guard costs %.2fx\n%!" (d1 /. d2);
+    exit 0
+  end;
+
   (* ---- the three axis views, DERIVED ------------------------------------ *)
   (* rubik_par takes h as the max over three axis rotations -- conjugation by
      the 120 degree turn about a corner, which permutes the six faces in two
