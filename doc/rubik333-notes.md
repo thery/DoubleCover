@@ -81,7 +81,13 @@ work, so a trick found for one applies to the other.  Applied so far:
 - the value that does not depend on the loop variable read once instead of
   eighteen times, in `p1stepF`, `p1stepFr`, `fsmstepF` and `slrstepF`;
 - the offset masks `cwmaski` and `fcwmaski` as literals rather than a shift
-  and a subtraction on every lookup.
+  and a subtraction on every lookup;
+- **the certificate stated over ranks and not over packed values.**
+  `p1stepFr` reads `x` only through `fsidx x`, so the loop runs over the
+  2^20 ranks rather than the 2^24 packed values — sixteen times fewer, and
+  `fsok_lt` carries the result back to any packed value.  The injectivity
+  of `fsidx` is *not* needed for this: it is needed for `fsmstepF`, whose
+  body really does use `x` (through `actf x`).
 
 Two traps this exposed, worth checking in any evaluated code:
 
