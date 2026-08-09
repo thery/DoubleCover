@@ -163,8 +163,13 @@ Hypothesis smulL : forall s t, (to_nat s < nsym)%N -> (to_nat t < nsym)%N ->
    argument supplies that -- it is a property of the emitted table.  On a
    table built from a genuine distance it holds, because a symmetry fixing
    the rank relates two states at the same distance. *)
-Hypothesis stabE : forall tw r u, (r <? nfsi)%uint63 -> (to_nat u < nsym)%N ->
+Hypothesis stabE : forall tw r u, (to_nat tw < ntwist)%N ->
+  (r <? nfsi)%uint63 -> (to_nat u < nsym)%N ->
   ract r u = rrep r -> p1get F (foldi (frep r) (twsym tw u)) = D tw r.
+
+(* a move keeps the twist a twist, which the check below needs twice *)
+Hypothesis acttwiL : forall tw k, (to_nat tw < ntwist)%N -> (k < 18)%N ->
+  (to_nat (acttwi tw k) < ntwist)%N.
 
 (* -- the symmetries permute the moves -------------------------------------- *)
 
@@ -189,11 +194,11 @@ Hypothesis actrE : forall x k, (k < 18)%N ->
 (*  hypothesis is used.                                                       *)
 (* =========================================================================  *)
 
-Lemma DfoldiS tw r s : (r <? nfsi)%uint63 -> (to_nat s < nsym)%N ->
-  D (twsym tw s) (ract r s) = D tw r.
+Lemma DfoldiS tw r s : (to_nat tw < ntwist)%N -> (r <? nfsi)%uint63 ->
+  (to_nat s < nsym)%N -> D (twsym tw s) (ract r s) = D tw r.
 Proof.
-move=> rL sL; have qL := ractL rL sL; have tL := fsymL qL.
-rewrite -[RHS](stabE tw rL (smulL sL tL) _); last first.
+move=> twL rL sL; have qL := ractL rL sL; have tL := fsymL qL.
+rewrite -[RHS](stabE twL rL (smulL sL tL) _); last first.
   by rewrite -(ractA rL sL tL) (fsymE qL) (rrepS rL sL).
 by rewrite /Dfoldi (frepS rL sL) (twsymA tw sL tL).
 Qed.
@@ -281,7 +286,7 @@ have hs : foldstepF (twsym tw (fsym r)) (frep r).
      [exact: hcheck | exact: (twsymL twL sL) | exact: (frepL rL)].
 have := foldstepF_inst hs (msymL kL sL).
 rewrite (repsE rL) -(fsymE rL) (msymT tw kL sL) (msymR rL kL sL).
-by rewrite (DfoldiS _ rL sL) (DfoldiS _ (actrL rL kL) sL).
+by rewrite (DfoldiS twL rL sL) (DfoldiS (acttwiL twL kL) (actrL rL kL) sL).
 Qed.
 
 (* the same in nat, which is the form Searchr.v asks for *)
