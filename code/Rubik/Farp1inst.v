@@ -16,7 +16,7 @@ From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
         Coordfs Coordfsi Fstab FsTable Diameter Moves
         Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 Far Farp1
-        Farp1main P1TsChk P1Table Runp1 FsmChk FsrChk SlrChk P1Chk0
+        Farp1main P1TsChk P1FTable Runp1 FsmChk FsrChk SlrChk P1Chk0
         P1ChkAll.
 Require Import Runp1_00 Runp1_01 Runp1_02 Runp1_03 Runp1_04 Runp1_05.
 Require Import Runp1_06 Runp1_07 Runp1_08 Runp1_09 Runp1_10 Runp1_11.
@@ -48,7 +48,7 @@ by rewrite /= h00 h01 h02 h03 h04 h05 h06 h07 h08 h09 h10 h11 h12 h13 h14
 Qed.
 
 Lemma p1searchd :
-  all (fun j => all (fun i => ~~ searchz3 p1tab p1droot (prefixi i j)
+  all (fun j => all (fun i => ~~ searchz3 p1ftab p1droot (prefixi i j)
                                           (init3 (prefixi i j)) nfcube)
                     (iota 0 nroot))
       (iota 0 nmoves).
@@ -82,7 +82,7 @@ Theorem superflip_p1far_real : superflip \notin ball Sset p1depth.
 Proof.
 (* every argument pinned: closing a Section turns its Variables and
    Hypotheses into EXPLICIT arguments, in declaration order, so a partial
-   application silently binds p1tab to the wrong slot. *)
-exact: (@superflip_p1far p1tab p1droot p1droot_small p1check0P p1checkStepP
+   application silently binds p1ftab to the wrong slot. *)
+exact: (@superflip_p1far p1ftab p1droot p1droot_small p1check0P p1checkStepP
                          ts_checkStepP fsmoveCP fsrCP slrCP p1searchd).
 Qed.

@@ -12,7 +12,7 @@ From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
         Coordfs Coordfsi Fstab FsTable Diameter Moves
         Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 Far Fsparity
-        Farp1 P1Table Runp1 Fast FastP FsmChk.
+        Farp1 P1FTable Runp1 Fast FastP FsmChk.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -21,12 +21,12 @@ Unset Printing Implicit Defensive.
 Import GroupScope.
 
 Lemma p1searchd_@N@ :
-  all (fun i => ~~ searchz3 p1tab @D@ (prefixi i @J@)
+  all (fun i => ~~ searchz3 p1ftab @D@ (prefixi i @J@)
                             (init3 (prefixi i @J@)) nfcube)
       (iota 0 nroot).
 (* p1searchd_bridge runs the fast search and gives this statement *)
 Proof.
 (* every argument given: `done' would unfold an all_pow at ncoord = 24 *)
-apply: (@p1searchd_bridge p1tab @D@ @J@ isT isT fsmoveCP).
+apply: (@p1searchd_bridge p1ftab @D@ @J@ isT isT fsmoveCP).
 Time @CAST@_cast_no_check (erefl true).
 Qed.
