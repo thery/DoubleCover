@@ -7,30 +7,33 @@
 (*                                                                            *)
 (*     2187 twist  x  2048 flip  x  495 slice  =  2 217 093 120 states        *)
 (*                                                                            *)
-(*  UNFOLDED, one slot per state, exactly as ocaml/rubik_par.ml has it.  The  *)
-(*  point of this file is to MIMIC that program, whose depth 19 run is the     *)
-(*  computational content of Diameter.v's superflip_far: 104 561 988 516       *)
-(*  nodes, 24.0 CPU-hours.                                                    *)
+(*  The point of this file is to MIMIC ocaml/rubik_par.ml, whose depth 19     *)
+(*  run is the computational content of Diameter.v's superflip_far:           *)
+(*  104 561 988 516 nodes, 24.0 CPU-hours.                                    *)
 (*                                                                            *)
-(*     2 217 093 120 entries                                                  *)
-(*     4 bits each, 15 per int63  =  147 806 208 words  =  1.18 GB            *)
-(*     PArray.max_length          =    4 194 303 words                        *)
+(*  FOLDED by the sixteen symmetries that fix the U/D axis.  They act on the  *)
+(*  flip x slice coordinate, so one row per orbit of ranks is enough: the     *)
+(*  1 013 760 ranks fall into 64 430 orbits, and a state is read by mapping   *)
+(*  its rank to its orbit and its twist through the symmetry that takes the   *)
+(*  rank to the orbit representative.  Only 16 of the 48 symmetries act on    *)
+(*  the coordinate at all -- a u that moves the UD slice does not -- so the   *)
+(*  orbit of a rank is not defined for the other 32.                          *)
 (*                                                                            *)
-(*  so the table is a PArray of 71 PArrays, split on the word index at a       *)
+(*     64 430 orbits x 2187 twist  =  140 908 410 entries                     *)
+(*     4 bits each, 15 per int63   =    9 393 894 words  =  75 MB             *)
+(*     PArray.max_length           =    4 194 303 words                       *)
+(*                                                                            *)
+(*  so the table is a PArray of 5 PArrays, split on the word index at a       *)
 (*  power of two (w >> cwlog), which stays definitional -- the trick Fspar.v's *)
 (*  cbits uses.                                                               *)
 (*                                                                            *)
-(*  WHY NOT FOLDED.  The 16 symmetries that act on the flip x slice           *)
-(*  coordinate would collapse 1 013 760 values to 64 430 -- measured 15.73x,   *)
-(*  independently reproducing Kociemba's published number -- taking the table  *)
-(*  to 36.4 MB and the certificate with it.  It is not done here because the   *)
-(*  fold needs a soundness lemma of its own (conjugate states must land in     *)
-(*  the same slot) that the unfolded table simply does not have.  Mimic        *)
-(*  first; fold later if the size bites.  Measured cost of not folding: about  *)
-(*  8 GB per worker, capping roquableu at ~6 parallel workers rather than 18.  *)
-(*  (If it is ever folded, note that only 16 of the 48 symmetries act on the   *)
-(*  coordinate -- a u that moves the UD slice does not act on it at all, so    *)
-(*  "the orbit of a coordinate" is not even well defined for the other 32.)    *)
+(*  THE FOLD ASSUMES NOTHING OF THE THREE TABLES IT READS.  The orbit of a    *)
+(*  rank, the symmetry that reaches the representative, and the action on     *)
+(*  twists are parameters here, with no property attached: p1checkStep        *)
+(*  checks exactly the expression the search reads, so a wrong orbit table    *)
+(*  makes the check fail rather than the heuristic unsound.  Fold.v is the    *)
+(*  other half, where the check is run at the representatives only and the    *)
+(*  symmetries do have to act.                                                *)
 (*                                                                            *)
 (*  CLAMP.  Entries hold the true distance, capped ABOVE at p1cap + 1 by       *)
 (*  stopping the BFS -- never an offset clamped from below.  Storing d - base  *)
@@ -49,8 +52,8 @@
 (*  THIS FILE IS ADMIT-FREE.  Print Assumptions on anything in it lists only  *)
 (*  the Uint63 and PArray primitives.  srank and the twist move table are     *)
 (*  real data, from P1Small.v; what is still missing is the phase 1 table     *)
-(*  itself -- 71 chunks, 2.9 GB of literals, see section 7 -- and the wiring  *)
-(*  of the search to carry a twist.                                          *)
+(*  itself -- 5 chunks, see section 7 -- and the wiring of the search to      *)
+(*  carry a twist.                                                            *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -649,8 +652,8 @@ Lemma fsokE x : fsok x = sok x && ~~ fpar x.
 Proof. by rewrite /fsok fparrE; case: sok. Qed.
 
 (* =========================================================================  *)
-(*  3.  The index, unfolded: one slot per state, as ocaml/rubik_par.ml has    *)
-(*      it.  The 16 symmetry fold is discussed in doc/rubik333-notes.md.      *)
+(*  3.  The index, folded: one row of twists per orbit of ranks.              *)
+(*      The 16 symmetry fold is discussed in doc/rubik333-notes.md.           *)
 (* =========================================================================  *)
 
 (* nfs and ntwist as int63 LITERALS, not as of_nat applied to the nat.
@@ -665,8 +668,15 @@ Definition ntwisti : int := 2187%uint63.
    nfsiE, to_nat nfsi = nflip * nsrank, where neither side is ever evaluated.
    Everything else below stays on the int63 side. *)
 
-Definition p1idx (tw x : int) : int :=
-  Uint63.add (Uint63.mul tw nfsi) (fsidx x).
+(* the orbits the sixteen symmetries cut the ranks into.  It is the ROW
+   COUNT of the folded table; nfsi stays the bound on a rank. *)
+Definition norb := 64430.
+
+(* the table is orbit major: one block of ntwist entries per orbit, so the
+   index is the orbit times ntwisti plus the twist.  Fold.foldi is the same
+   index, and cannot be used here -- Fold.v is built on top of this file. *)
+Definition p1foldi (rep tw : int) : int :=
+  Uint63.add (Uint63.mul rep ntwisti) tw.
 
 (* =========================================================================  *)
 (*  3bis.  Twist x slice, rubik_par's second pruning table                    *)
@@ -763,23 +773,29 @@ Definition p1cap     := 9.            (* the BFS stops here, as rubik_par does *
 (* int63, not nat.  Nothing computes with these two -- they record the shape
    of the table -- but a nat that size is a stack overflow waiting for the
    first `vm_compute' that reaches it, and Rocq warns about the literal. *)
-Definition p1entriesi : int := 2217093120%uint63.  (* ntwist * nfs           *)
-Definition p1wordsi   : int := 147806208%uint63.   (* ceil (p1entries / 15)  *)
+Definition p1entriesi : int := 140908410%uint63.   (* norb * ntwist          *)
+Definition p1wordsi   : int := 9393894%uint63.     (* ceil (p1entries / 15)  *)
 
 (* p1words > PArray.max_length = 4 194 303, so the table is a PArray of
    PArrays.  The split is on the WORD index at a power of two, w >> cwlog,
    which stays definitional -- the same trick Fspar.v's cbits uses. *)
 Definition cwlog  := 21.
-Definition nchunk := 71.
+Definition nchunk := 5.
 
 (* THE TABLE IS A PARAMETER, exactly as Fstab.v takes it and FsTable.v        *)
 (* supplies it.  Nothing below assumes ANYTHING about it -- no length, no     *)
 (* default, no contents -- because the two checks are what make the heuristic *)
 (* admissible, whatever the array holds.  So the theory can be developed, and *)
 (* the search wired up, against a table that has not been emitted yet.        *)
+(* THE THREE FOLD TABLES ARE PARAMETERS ON THE SAME TERMS: no property of     *)
+(* them is assumed either, because the check reads through them exactly as    *)
+(* the search does.                                                           *)
 Section P1Tab.
 
-Variable p1tabs : PArray.array arr.
+Variable p1ftabs : PArray.array arr.  (* the folded distances *)
+Variable frep fsym : int -> int.      (* a rank's orbit, and a symmetry
+                                         that reaches its representative *)
+Variable twsym : int -> int -> int.   (* the twist under a symmetry *)
 
 (* THE SHIFT IS AN int63 LITERAL, not of_nat of a nat.  cwlog is a nat, and
    of_nat walks it: MEASURED at 1.53 us for of_nat 21, against 0.04 us for
@@ -802,12 +818,21 @@ Definition p1get (i : int) : int :=
   let c := Uint63.lsr w cwlogi in
   let o := Uint63.land w cwmaski in
   Uint63.land
-    (Uint63.lsr (PArray.get (PArray.get p1tabs c) o) (Uint63.mul r 4%uint63))
+    (Uint63.lsr (PArray.get (PArray.get p1ftabs c) o) (Uint63.mul r 4%uint63))
     15%uint63.
 
-(* the heuristic: the stored value, which IS the distance up to the cap *)
-Definition Dp1i (tw x : int) : int := p1get (p1idx tw x).
+(* the heuristic: the stored value, which IS the distance up to the cap.
+   BY RANK, because the fold is by rank and the search carries the rank. *)
+Definition Dp1ri (tw r : int) : int :=
+  p1get (p1foldi (frep r) (twsym tw (fsym r))).
+
+Definition Dp1i (tw x : int) : int := Dp1ri tw (fsidx x).
 Definition Dp1 (tw x : int) : nat := to_nat (Dp1i tw x).
+
+(* the bridge to the ranked read, an EQUATION so that nothing has to unfold
+   Dp1i to get at it *)
+Lemma Dp1iE tw x : Dp1i tw x = Dp1ri tw (fsidx x).
+Proof. by []. Qed.
 
 (* =========================================================================  *)
 (*  5.  What has to be proved                                                 *)
@@ -1571,11 +1596,19 @@ by move=> /eqb_correct ->; rewrite to_nat_0.
 Qed.
 
 (* NO Dp1_oob ANALOGUE, and the reason matters.  Fstab gets Dfs_oob because a
-   coordinate past 2 ^ ncoord indexes past the table.  Here p1idx tw x is
-   tw * nfs + fsidx x, so fsidx x >= nfs does NOT leave the table -- it lands
-   in the NEXT twist's block and reads a perfectly good entry for a different
-   state.  So the fsidx guard in p1stepF is not free: it has to be discharged,
-   not absorbed.
+   coordinate past 2 ^ ncoord indexes past the table.  Here the index is
+   frep (fsidx x) * ntwist + twsym tw (fsym (fsidx x)), and rows are
+   contiguous: an orbit at or past norb, or a twist at or past ntwist, does
+   NOT leave the table -- it lands in a neighbouring row and reads a
+   perfectly good entry for a different state.  Folding adds a second
+   indirection with exactly the same hazard.  So the fsidx guard in p1stepF
+   is not free: it has to be discharged, not absorbed.
+
+   NOTHING MORE IS NEEDED HERE, though, and that is worth being precise
+   about: p1checkStep checks the composite read at the very x the search
+   reads it at, so no range fact about frep, fsym or twsym enters.  Fold.v
+   is where the ranges do have to be assumed, because there the check runs
+   at the orbit representatives and has to be carried back.
 
    That is what fsidx_lt is for.  It is a fact about the summaries, not about
    the table: the flip half is eleven bits and the slice half is a mask with
@@ -1829,7 +1862,7 @@ Qed.
    successor on the nat side -- no wrap.  Fstab.Dfsi_small verbatim. *)
 Lemma Dp1i_small tw x : (to_nat (Dp1i tw x) < nwB.-1)%N.
 Proof.
-rewrite /Dp1i /p1get.
+rewrite /Dp1i /Dp1ri /p1get.
 set v := (X in (X land _)%uint63); rewrite landC.
 apply: ltn_trans (_ : 2 ^ 4 < _); last first.
   rewrite -ltnS prednK; last by apply: ltn_trans ndigitsLwB.
@@ -1940,10 +1973,10 @@ Qed.
 (*  IT CANNOT GO THROUGH Coordfs.hcoordg, and the reason is worth recording:  *)
 (*  that section wants `Dstep' for EVERY x, and Dp1 does not have it.  Fstab  *)
 (*  does, because a coordinate past 2 ^ ncoord indexes past the table and     *)
-(*  reads 0, which is below everything.  Here p1idx tw x is tw * nfs + fsidx  *)
-(*  x, so an out of range fsidx lands in the NEXT twist's block and reads a   *)
-(*  perfectly good entry for a different state.  So the guard is discharged   *)
-(*  by hand, from the invariant, and fsidx_lt is what makes it possible.      *)
+(*  reads 0, which is below everything.  Here the rows are contiguous, so an  *)
+(*  out of range rank lands in a neighbouring row and reads a perfectly good  *)
+(*  entry for a different state.  So the guard is discharged by hand, from    *)
+(*  the invariant, and fsidx_lt is what makes it possible.                    *)
 (* =========================================================================  *)
 
 (* the twist coordinate is seven base 3 digits, hence below 3 ^ 7 *)
@@ -2121,11 +2154,14 @@ End P1Tab.
 (*  Every entry zero, so Dp1 is 0 everywhere: an admissible heuristic that    *)
 (*  prunes nothing.  It exists so that everything downstream -- the search    *)
 (*  carrying twists, h5 as a max of Dp1 -- can be built and RUN before the    *)
-(*  real table is emitted, which is 71 chunks, 2.9 GB of literals and 8.8     *)
-(*  CPU-hours.  Swapping the real table in later only makes the search        *)
-(*  faster; it cannot make it wrong, and it cannot make it right either --    *)
-(*  that is what p1check0 and p1checkStep are for, and the dummy passes both  *)
-(*  BY PROOF rather than by evaluation, which the real table cannot do.       *)
+(*  five chunks of literals are emitted.  Swapping the real table in later    *)
+(*  only makes the search faster; it cannot make it wrong, and it cannot      *)
+(*  make it right either -- that is what p1check0 and p1checkStep are for,    *)
+(*  and the dummy passes both BY PROOF rather than by evaluation, which the   *)
+(*  real table cannot do.                                                     *)
+(*                                                                            *)
+(*  The three fold tables get dummies too: the identity symmetry everywhere   *)
+(*  and one orbit, which is the fold of a table that is constant anyway.      *)
 (*                                                                            *)
 (*  With the dummy, `max (h5 ...) (Dp1 ...)' is exactly today's h5, so the    *)
 (*  depth 12-14 runs stay comparable while the wiring is developed.           *)
@@ -2133,6 +2169,11 @@ End P1Tab.
 
 Definition p1dummy : PArray.array arr :=
   PArray.make (of_nat nchunk) (PArray.make 1%uint63 0%uint63).
+
+(* every rank in orbit 0, reached by the symmetry 0, which leaves the twist *)
+Definition frepdummy (r : int) : int := 0%uint63.
+Definition fsymdummy (r : int) : int := 0%uint63.
+Definition twsymdummy (tw s : int) : int := tw.
 
 (* PArray.get on a `make' is the fill value at EVERY index -- in range or not,
    since the fill value is also the default.  So the two nested reads give 0
@@ -2152,54 +2193,58 @@ rewrite [PArray.get (PArray.make 1%uint63 0%uint63) _]PArray.get_make.
 by rewrite lsr0 land0.
 Qed.
 
-Lemma Dp1i_dummy tw x : Dp1i p1dummy tw x = 0%uint63.
+Lemma Dp1i_dummy tw x :
+  Dp1i p1dummy frepdummy fsymdummy twsymdummy tw x = 0%uint63.
 Proof. exact: p1get_dummy. Qed.
 
-Lemma Dp1_dummy tw x : Dp1 p1dummy tw x = 0%N.
+Lemma Dp1_dummy tw x : Dp1 p1dummy frepdummy fsymdummy twsymdummy tw x = 0%N.
 Proof. by rewrite /Dp1 Dp1i_dummy to_nat_0. Qed.
 
-Lemma p1check0_dummy : p1check0 p1dummy.
+Lemma p1check0_dummy : p1check0 p1dummy frepdummy fsymdummy twsymdummy.
 Proof. by rewrite /p1check0 Dp1i_dummy. Qed.
 
 (* `apply/allP' does NOT work on this goal -- the view leaves an evar for the
    list and reports "no assumption" -- and neither `/Dp1i' nor a bang does.
    Rewriting the predicate to xpredT, then naming each redex, is instant. *)
-Lemma p1stepF_dummy tw x : p1stepF p1dummy tw x.
+Lemma p1stepF_dummy tw x :
+  p1stepF p1dummy frepdummy fsymdummy twsymdummy tw x.
 Proof.
 (* the guard branch closed by isT, NOT by //: done on the other branch has
    the whole p1mdata all in front of it and reaches for the tables *)
 rewrite /p1stepF; case: ifP => [_|_]; first exact: isT.
 rewrite (eq_all (a2 := xpredT)) ?all_predT // => km.
-by rewrite [Dp1i p1dummy tw x]p1get_dummy
-           [Dp1i p1dummy (acttwi tw km.1) (actf x km.2)]p1get_dummy.
+by rewrite [Dp1i p1dummy _ _ _ tw x]p1get_dummy
+           [Dp1i p1dummy _ _ _ (acttwi tw km.1) (actf x km.2)]p1get_dummy.
 Qed.
 
 (* BY PROOF, NOT BY EVALUATION, and that is the whole point of the dummy:
    all_pow_all takes a predicate that is true everywhere and never unfolds the
    2 ^ 24 loop.  The real table has to be checked by the kernel instead. *)
-Lemma p1checkStep_dummy : p1checkStep p1dummy.
+Lemma p1checkStep_dummy : p1checkStep p1dummy frepdummy fsymdummy twsymdummy.
 Proof.
 apply/allP => t _; rewrite p1checkTwE.
 by apply: Fstab.all_pow_all => x; exact: p1stepF_dummy.
 Qed.
 
 (* so the two things the search needs hold, unconditionally *)
-Lemma Dp1_0_dummy : Dp1 p1dummy (coordtw 1) (coordfs 1) = 0%N.
+Lemma Dp1_0_dummy :
+  Dp1 p1dummy frepdummy fsymdummy twsymdummy (coordtw 1) (coordfs 1) = 0%N.
 Proof. exact/Dp1_0_of_check/p1check0_dummy. Qed.
 
 Lemma Dp1_step_dummy :
   forall tw x k, (to_nat tw < ntwist)%N -> (to_nat x < 2 ^ ncoord)%N ->
   fsok x -> (k < 18)%N ->
-  (Dp1 p1dummy tw x <=
-   (Dp1 p1dummy (acttwi tw k) (actfs x (nth 1%g moves k))).+1)%N.
+  (Dp1 p1dummy frepdummy fsymdummy twsymdummy tw x <=
+   (Dp1 p1dummy frepdummy fsymdummy twsymdummy (acttwi tw k)
+        (actfs x (nth 1%g moves k))).+1)%N.
 Proof. exact: (Dp1_step_of_check p1checkStep_dummy). Qed.
 
 (* =========================================================================  *)
 (*  8.  Still to build (code, not proof)                                      *)
 (*                                                                            *)
-(*  - the emission of the real table: 71 chunks, 2.9 GB of literals, 8.8      *)
-(*    CPU-hours, 4.5 GB of .vo.  bench/p1gen.ml `emit', and it runs on        *)
-(*    roquableu, not here                                                     *)
+(*  - the emission of the real table: 5 chunks of literals, plus the orbit,   *)
+(*    symmetry and twist tables the fold reads.  bench/p1gen.ml `emit', and   *)
+(*    it runs on roquableu, not here                                          *)
 (*  - Far.v's searchz5 carries five flip x slice coordinates; it must carry   *)
 (*    five twists as well, and h5 becomes a max of five Dp1.  THIS CAN BE     *)
 (*    DONE NOW, against p1dummy, and swapping the real table in afterwards    *)

@@ -46,6 +46,14 @@ Definition step3i (x : c3) (m : amove) : c3 :=
    (acttwii x1.1 ka, actfsri x1.2 ka),
    (acttwii x2.1 kb, actfsri x2.2 kb)).
 
+(* the three folding tables again, as section variables *)
+Section Fold.
+
+Variable frep fsym : int -> int.
+Variable twsym : int -> int -> int.
+
+Local Notation Dp1r T := (Dp1ri T frep fsym twsym).
+
 (* ---- and the search.  d stays a nat so that the recursion is structural,
    di is the same depth as an int, for the heuristic test. ------------------ *)
 Fixpoint searchz3f (T : PArray.array arr) (d : nat) (di : int) (a : arr)
@@ -119,7 +127,7 @@ Fixpoint searchz3h (T : PArray.array arr) (d : nat) (di : int) (a : arr)
 Definition hv1le (T : PArray.array arr) (tf : int * int) (di : int) : bool :=
   if (Dfsri tf.2 <=? di)%uint63 then
     if (Dtsi tf.1 (slrank tf.2) <=? di)%uint63 then
-      (p1get T (p1idxr tf.1 tf.2) <=? di)%uint63
+      (Dp1r T tf.1 tf.2 <=? di)%uint63
     else false
   else false.
 
@@ -262,3 +270,4 @@ Fixpoint searchz3nc (T : PArray.array arr) (d : nat) (di : int) (a0 : arr)
     else (false, 1%uint63)
   else (false, 1%uint63).
 
+End Fold.

@@ -233,17 +233,18 @@ Definition step3 (x : c3) (k : nat) : c3 :=
    at each of the three views, and the max of all nine.  *)
 Definition maxi (a b : int) : int := if (a <=? b)%uint63 then b else a.
 
-(* by rank, because the search already carries the rank: Phase1's p1idx
-   takes the packed value and ranks it itself, so it would rank it twice.
-   p1idxE is the bridge back to that packed form. *)
-Definition p1idxr (tw r : int) : int := Uint63.add (Uint63.mul tw nfsi) r.
+(* The three folding tables are section variables, so every definition below
+   still names one table and no call site changes.  End puts them back. *)
+Section Fold.
 
-Lemma p1idxE tw x : p1idx tw x = p1idxr tw (fsidx x).
-Proof. by []. Qed.
+Variable frep fsym : int -> int.
+Variable twsym : int -> int -> int.
+
+Local Notation Dp1r T := (Dp1ri T frep fsym twsym).
 
 Definition hv1 (T : PArray.array arr) (tf : int * int) : int :=
   maxi (maxi (Dfsri tf.2) (Dtsi tf.1 (slrank tf.2)))
-       (p1get T (p1idxr tf.1 tf.2)).
+       (Dp1r T tf.1 tf.2).
 
 (* in int63, and h3 is its to_nat.  The search converts the depth to an int
    rather than the heuristic to a nat, and h3iE says the two tests agree. *)
@@ -1015,7 +1016,7 @@ rewrite /hv1 [in LHS]/fst [in LHS]/snd.
 rewrite to_nat_maxi to_nat_maxi.
 rewrite /h3p /hfs /hcoordg cA (htsE twg) (hp1E T twg) hcd htw.
 rewrite (fsrC_inst (fsr_of_check hfr (coordfs_lt _)) (fsok_twcP twg)).
-rewrite /Dfsd /Dfs /Dts /Dp1 /Dp1i p1idxE.
+rewrite /Dfsd /Dfs /Dts /Dp1 Dp1iE.
 exact: refl_equal.
 Qed.
 
@@ -1314,9 +1315,9 @@ Qed.
    fsmoveC is exactly the lemma that says the two agree. *)
 (* the check at a rank.  d is read once rather than eighteen times. *)
 Definition p1stepRk (T : PArray.array arr) (tw r : int) : bool :=
-  let d := p1get T (p1idxr tw r) in
+  let d := Dp1r T tw r in
   all (fun k =>
-         (d <=? incr (p1get T (p1idxr (acttwii tw k) (actfsri r k))))%uint63)
+         (d <=? incr (Dp1r T (acttwii tw k) (actfsri r k)))%uint63)
       midxi.
 
 (* and at a packed value, which it reads only through fsidx -- p1stepFrRk
@@ -1324,10 +1325,9 @@ Definition p1stepRk (T : PArray.array arr) (tw r : int) : bool :=
 Definition p1stepFr (T : PArray.array arr) (tw x : int) : bool :=
   if ~~ fsok x then true
   else let r := fsidx x in
-       let d := p1get T (p1idxr tw r) in
+       let d := Dp1r T tw r in
        all (fun k =>
-              (d <=?
-               incr (p1get T (p1idxr (acttwii tw k) (actfsri r k))))%uint63)
+              (d <=? incr (Dp1r T (acttwii tw k) (actfsri r k)))%uint63)
            midxi.
 
 Lemma p1stepFrRk T tw x :
@@ -1396,7 +1396,7 @@ move=> hfm xL; rewrite p1stepFE /p1stepFr.
 case: (boolP (fsok x)) => hg; last exact: erefl.
 rewrite midxiE all_map.
 apply: eq_in_all => k; rewrite mem_iota add0n => /andP[_ kL].
-rewrite /preim /= acttwiiE actfsriE /Dp1i p1idxE p1idxE.
+rewrite /preim /= acttwiiE actfsriE !Dp1iE.
 by rewrite (fsmoveC_inst (fsmstepF_of_check hfm xL) hg kL).
 Qed.
 
@@ -1431,3 +1431,4 @@ Lemma p1checkStepr_of_slices T (s : seq nat) : s = iota 0 ntwist ->
   all (fun t => p1checkTwr T (of_nat t)) s -> p1checkStepr T.
 Proof. by move=> ->. Qed.
 
+End Fold.
