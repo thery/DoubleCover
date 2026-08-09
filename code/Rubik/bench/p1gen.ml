@@ -1131,18 +1131,26 @@ let () =
          (* is a set of pointers and nothing is converted or copied. *)\n\n\
          From Stdlib Require Import Uint63.\n\
          From Stdlib Require Import PArray.\n\
+         Require Import P1Fold.\n\
          Require Import"
         fnchunk cwords nfold;
       for c = 0 to fnchunk - 1 do
         Printf.fprintf oc "\n        P1F_%02d" c done;
       Printf.fprintf oc ".\n\nLocal Open Scope uint63_scope.\n\n";
+      (* the three folding tables ride in the slots after the chunks, so a
+         folded read still takes one table *)
       Printf.fprintf oc "Definition p1ftab : array (array int) :=\n";
       Printf.fprintf oc
-        "  let a := PArray.make %d (PArray.make 1 0) in\n" fnchunk;
+        "  let a := PArray.make %d (PArray.make 1 0) in\n" (fnchunk + 3);
       for c = 0 to fnchunk - 1 do
         Printf.fprintf oc
           "  let a := PArray.set a %d p1f_chunk_%02d in\n" c c
       done;
+      Printf.fprintf oc "  let a := PArray.set a %d rep_data in\n" fnchunk;
+      Printf.fprintf oc "  let a := PArray.set a %d sym_data in\n"
+        (fnchunk + 1);
+      Printf.fprintf oc "  let a := PArray.set a %d twsym_data in\n"
+        (fnchunk + 2);
       Printf.fprintf oc "  a.\n";
       close_out oc;
       wrote "../P1FTable.v";

@@ -233,18 +233,9 @@ Definition step3 (x : c3) (k : nat) : c3 :=
    at each of the three views, and the max of all nine.  *)
 Definition maxi (a b : int) : int := if (a <=? b)%uint63 then b else a.
 
-(* The three folding tables are section variables, so every definition below
-   still names one table and no call site changes.  End puts them back. *)
-Section Fold.
-
-Variable frep fsym : int -> int.
-Variable twsym : int -> int -> int.
-
-Local Notation Dp1r T := (Dp1ri T frep fsym twsym).
-
 Definition hv1 (T : PArray.array arr) (tf : int * int) : int :=
   maxi (maxi (Dfsri tf.2) (Dtsi tf.1 (slrank tf.2)))
-       (Dp1r T tf.1 tf.2).
+       (Dp1ri T tf.1 tf.2).
 
 (* in int63, and h3 is its to_nat.  The search converts the depth to an int
    rather than the heuristic to a nat, and h3iE says the two tests agree. *)
@@ -1315,9 +1306,9 @@ Qed.
    fsmoveC is exactly the lemma that says the two agree. *)
 (* the check at a rank.  d is read once rather than eighteen times. *)
 Definition p1stepRk (T : PArray.array arr) (tw r : int) : bool :=
-  let d := Dp1r T tw r in
+  let d := Dp1ri T tw r in
   all (fun k =>
-         (d <=? incr (Dp1r T (acttwii tw k) (actfsri r k)))%uint63)
+         (d <=? incr (Dp1ri T (acttwii tw k) (actfsri r k)))%uint63)
       midxi.
 
 (* and at a packed value, which it reads only through fsidx -- p1stepFrRk
@@ -1325,9 +1316,9 @@ Definition p1stepRk (T : PArray.array arr) (tw r : int) : bool :=
 Definition p1stepFr (T : PArray.array arr) (tw x : int) : bool :=
   if ~~ fsok x then true
   else let r := fsidx x in
-       let d := Dp1r T tw r in
+       let d := Dp1ri T tw r in
        all (fun k =>
-              (d <=? incr (Dp1r T (acttwii tw k) (actfsri r k)))%uint63)
+              (d <=? incr (Dp1ri T (acttwii tw k) (actfsri r k)))%uint63)
            midxi.
 
 Lemma p1stepFrRk T tw x :
@@ -1430,5 +1421,3 @@ Qed.
 Lemma p1checkStepr_of_slices T (s : seq nat) : s = iota 0 ntwist ->
   all (fun t => p1checkTwr T (of_nat t)) s -> p1checkStepr T.
 Proof. by move=> ->. Qed.
-
-End Fold.

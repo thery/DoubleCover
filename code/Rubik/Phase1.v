@@ -790,12 +790,37 @@ Definition nchunk := 5.
 (* THE THREE FOLD TABLES ARE PARAMETERS ON THE SAME TERMS: no property of     *)
 (* them is assumed either, because the check reads through them exactly as    *)
 (* the search does.                                                           *)
+(* WHERE THE FOLDING TABLES LIVE.  They ride in the same array as the        *)
+(* distance chunks, in the three slots after them, so a folded read still    *)
+(* takes one table and no definition below grows an argument.                *)
+Definition frepslot  : int := 5%uint63.   (* a rank's orbit               *)
+Definition fsymslot  : int := 6%uint63.   (* the symmetry that folds it   *)
+Definition twsymslot : int := 7%uint63.   (* the twist under a symmetry   *)
+
 Section P1Tab.
 
-Variable p1ftabs : PArray.array arr.  (* the folded distances *)
-Variable frep fsym : int -> int.      (* a rank's orbit, and a symmetry
-                                         that reaches its representative *)
-Variable twsym : int -> int -> int.   (* the twist under a symmetry *)
+Variable p1ftabs : PArray.array arr.
+
+(* three twenty bit values to a word, and fifteen four bit ones *)
+Definition get20i (a : arr) (i : int) : int :=
+  let w := Uint63.div i 3%uint63 in
+  let j := Uint63.sub i (Uint63.mul w 3%uint63) in
+  Uint63.land (Uint63.lsr (PArray.get a w) (Uint63.mul j 20%uint63))
+              1048575%uint63.
+
+Definition get4i (a : arr) (i : int) : int :=
+  let w := Uint63.div i 15%uint63 in
+  let j := Uint63.sub i (Uint63.mul w 15%uint63) in
+  Uint63.land (Uint63.lsr (PArray.get a w) (Uint63.mul j 4%uint63))
+              15%uint63.
+
+Definition frep (r : int) : int := get20i (PArray.get p1ftabs frepslot) r.
+
+Definition fsym (r : int) : int := get4i (PArray.get p1ftabs fsymslot) r.
+
+Definition twsym (tw s : int) : int :=
+  get20i (PArray.get p1ftabs twsymslot)
+         (Uint63.add (Uint63.mul tw 16%uint63) s).
 
 (* THE SHIFT IS AN int63 LITERAL, not of_nat of a nat.  cwlog is a nat, and
    of_nat walks it: MEASURED at 1.53 us for of_nat 21, against 0.04 us for
@@ -2171,9 +2196,6 @@ Definition p1dummy : PArray.array arr :=
   PArray.make (of_nat nchunk) (PArray.make 1%uint63 0%uint63).
 
 (* every rank in orbit 0, reached by the symmetry 0, which leaves the twist *)
-Definition frepdummy (r : int) : int := 0%uint63.
-Definition fsymdummy (r : int) : int := 0%uint63.
-Definition twsymdummy (tw s : int) : int := tw.
 
 (* PArray.get on a `make' is the fill value at EVERY index -- in range or not,
    since the fill value is also the default.  So the two nested reads give 0
@@ -2194,33 +2216,33 @@ by rewrite lsr0 land0.
 Qed.
 
 Lemma Dp1i_dummy tw x :
-  Dp1i p1dummy frepdummy fsymdummy twsymdummy tw x = 0%uint63.
+  Dp1i p1dummy tw x = 0%uint63.
 Proof. exact: p1get_dummy. Qed.
 
-Lemma Dp1_dummy tw x : Dp1 p1dummy frepdummy fsymdummy twsymdummy tw x = 0%N.
+Lemma Dp1_dummy tw x : Dp1 p1dummy tw x = 0%N.
 Proof. by rewrite /Dp1 Dp1i_dummy to_nat_0. Qed.
 
-Lemma p1check0_dummy : p1check0 p1dummy frepdummy fsymdummy twsymdummy.
+Lemma p1check0_dummy : p1check0 p1dummy.
 Proof. by rewrite /p1check0 Dp1i_dummy. Qed.
 
 (* `apply/allP' does NOT work on this goal -- the view leaves an evar for the
    list and reports "no assumption" -- and neither `/Dp1i' nor a bang does.
    Rewriting the predicate to xpredT, then naming each redex, is instant. *)
 Lemma p1stepF_dummy tw x :
-  p1stepF p1dummy frepdummy fsymdummy twsymdummy tw x.
+  p1stepF p1dummy tw x.
 Proof.
 (* the guard branch closed by isT, NOT by //: done on the other branch has
    the whole p1mdata all in front of it and reaches for the tables *)
 rewrite /p1stepF; case: ifP => [_|_]; first exact: isT.
 rewrite (eq_all (a2 := xpredT)) ?all_predT // => km.
-by rewrite [Dp1i p1dummy _ _ _ tw x]p1get_dummy
-           [Dp1i p1dummy _ _ _ (acttwi tw km.1) (actf x km.2)]p1get_dummy.
+by rewrite [Dp1i p1dummy tw x]p1get_dummy
+           [Dp1i p1dummy (acttwi tw km.1) (actf x km.2)]p1get_dummy.
 Qed.
 
 (* BY PROOF, NOT BY EVALUATION, and that is the whole point of the dummy:
    all_pow_all takes a predicate that is true everywhere and never unfolds the
    2 ^ 24 loop.  The real table has to be checked by the kernel instead. *)
-Lemma p1checkStep_dummy : p1checkStep p1dummy frepdummy fsymdummy twsymdummy.
+Lemma p1checkStep_dummy : p1checkStep p1dummy.
 Proof.
 apply/allP => t _; rewrite p1checkTwE.
 by apply: Fstab.all_pow_all => x; exact: p1stepF_dummy.
@@ -2228,14 +2250,14 @@ Qed.
 
 (* so the two things the search needs hold, unconditionally *)
 Lemma Dp1_0_dummy :
-  Dp1 p1dummy frepdummy fsymdummy twsymdummy (coordtw 1) (coordfs 1) = 0%N.
+  Dp1 p1dummy (coordtw 1) (coordfs 1) = 0%N.
 Proof. exact/Dp1_0_of_check/p1check0_dummy. Qed.
 
 Lemma Dp1_step_dummy :
   forall tw x k, (to_nat tw < ntwist)%N -> (to_nat x < 2 ^ ncoord)%N ->
   fsok x -> (k < 18)%N ->
-  (Dp1 p1dummy frepdummy fsymdummy twsymdummy tw x <=
-   (Dp1 p1dummy frepdummy fsymdummy twsymdummy (acttwi tw k)
+  (Dp1 p1dummy tw x <=
+   (Dp1 p1dummy (acttwi tw k)
         (actfs x (nth 1%g moves k))).+1)%N.
 Proof. exact: (Dp1_step_of_check p1checkStep_dummy). Qed.
 
