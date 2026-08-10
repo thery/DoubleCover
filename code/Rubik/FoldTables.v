@@ -1,7 +1,6 @@
 (* =========================================================================  *)
-(*  FoldTables.v -- the four folding tables, unpacked from P1Fold.v and bounded.*)
-(*                                                                          *)
-(*  See fold.md for the design, the pitfalls and the numbers.               *)
+(*  FoldTables.v -- The four folding tables, unpacked from P1Fold.v and     *)
+(*     bounded.                                                             *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

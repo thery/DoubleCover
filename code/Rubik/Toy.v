@@ -1,15 +1,6 @@
 (* =========================================================================  *)
-(*  Toy.v                                                                     *)
-(*                                                                            *)
-(*  The lower-bound pipeline, end to end, with a heuristic that is 0          *)
-(*  everywhere -- admissible, useless -- so the search is brute force and     *)
-(*  only tiny depths are affordable.  It exists to exercise the machinery,    *)
-(*  not to prove anything about the cube: superflip_far2 is depth 2.          *)
-(*                                                                            *)
-(*  NOTHING IN THE REAL RUN DEPENDS ON THIS FILE.  The moves and the          *)
-(*  superflip live in Moves.v, which this file and Far.v both import; the     *)
-(*  real chain is Moves -> Fstab -> FsTable -> Far -> Far_?? -> Farmain and   *)
-(*  never mentions Toy.                                                       *)
+(*  Toy.v -- The lower bound pipeline end to end, with a heuristic that is  *)
+(*     0 everywhere.                                                        *)
 (* =========================================================================  *)
 
 From Stdlib Require Import Uint63.

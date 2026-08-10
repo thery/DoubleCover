@@ -1,12 +1,6 @@
 (* =========================================================================  *)
-(*  Farp1inst.v                                                               *)
-(*                                                                            *)
-(*  Farp1main at the real table and the eighteen real searches.               *)
-(*                                                                            *)
-(*  THE ONLY FILE IN THE PHASE 1 DEVELOPMENT THAT NEEDS THE DATA.  Everything *)
-(*  above it -- Farp1.v and Farp1main.v -- is abstract over the table, so the *)
-(*  proofs check without the 4.5 GB of chunks and without the eighteen search *)
-(*  runs.  Build this one last.                                               *)
+(*  Farp1inst.v -- Farp1main at the real table and the eighteen real        *)
+(*     searches.                                                            *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

@@ -1,15 +1,6 @@
 (* =========================================================================  *)
-(*  Moves.v                                                                   *)
-(*                                                                            *)
-(*  The cube's data, once: the eighteen moves and the superflip, as tables    *)
-(*  and as int63 arrays, with the lemmas tying them back to Rubik333.moves    *)
-(*  and to superflip.                                                         *)
-(*                                                                            *)
-(*  This used to live in Toy.v, whose job is the toy heuristic and nothing    *)
-(*  else; the real run had to import the toy to get the moves.  Far.v said    *)
-(*  "when the real run needs its own file those move out of Toy.v and both    *)
-(*  read them from there" -- this is that file.  Toy.v and Far.v now both     *)
-(*  import it and neither imports the other.                                  *)
+(*  Moves.v -- The eighteen moves and the superflip, as tables and int63    *)
+(*     arrays.                                                              *)
 (* =========================================================================  *)
 
 From Stdlib Require Import Uint63.

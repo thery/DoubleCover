@@ -1,7 +1,6 @@
 (* =========================================================================  *)
-(*  FoldAssembly.v -- FoldChecks and FoldRankCert together: p1checkStepr, no data.*)
-(*                                                                          *)
-(*  See fold.md for the design, the pitfalls and the numbers.               *)
+(*  FoldAssembly.v -- FoldChecks and FoldRankCert together: p1checkStepr,   *)
+(*     no data.                                                             *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

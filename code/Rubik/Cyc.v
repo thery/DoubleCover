@@ -1,12 +1,6 @@
 (* =========================================================================  *)
-(*  Cyc.v                                                                     *)
-(*                                                                            *)
-(*  Cyclic permutations of a finite type, presented by a list of the points   *)
-(*  they cycle.  `cyc [:: a0; a1; ...; ak]` is the permutation                *)
-(*     a0 -> a1 -> ... -> ak -> a0,  fixing everything else.                  *)
-(*  It is built as a product of transpositions, so it carries no injectivity  *)
-(*  proof obligation.  The three lemmas characterise it fully on a `uniq`     *)
-(*  list -- purely by rewriting, never by evaluating a permutation.           *)
+(*  Cyc.v -- Cyclic permutations of a finite type, given by the points they *)
+(*     cycle.                                                               *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

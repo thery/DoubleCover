@@ -1,17 +1,5 @@
 (* =========================================================================  *)
-(*  Searchr.v                                                                 *)
-(*                                                                            *)
-(*  The search with the move redundancy rules.                                *)
-(*                                                                            *)
-(*  Search.v tries all eighteen moves at every node.  A minimal word never    *)
-(*  needs two consecutive moves of the same face (they compose to a single    *)
-(*  move or to nothing), and two moves of opposite faces commute, so of the   *)
-(*  two orders only one need be tried.  Branching drops from 18 to about      *)
-(*  13.35, which over nineteen levels is a factor of roughly 300 -- measured  *)
-(*  in ocaml/rubik_lb.ml, which has had these rules from the start.           *)
-(*                                                                            *)
-(*  NOTHING HERE IS ABOUT THE CUBE.  The two facts below are all that is       *)
-(*  needed, and Rubik333.v supplies them for the six faces.                   *)
+(*  Searchr.v -- The search with the move redundancy rules.                 *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

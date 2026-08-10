@@ -1,16 +1,5 @@
 (* =========================================================================  *)
-(*  Tsearch.v                                                                 *)
-(*                                                                            *)
-(*  The search of Search.v, run on TABLES.                                    *)
-(*                                                                            *)
-(*  Nothing about a {perm 'I_n.+1} reduces: inord does not, and a cyc is a    *)
-(*  bigop of tperm over a finfun, so the kernel cannot decide g == 1 or       *)
-(*  compute g * m.  Table.v exists for exactly that reason, and the search    *)
-(*  has to move there too: searcht walks lists of naturals, where comp_tab    *)
-(*  is a map and equality is decidable by vm_compute.                         *)
-(*                                                                            *)
-(*  searchtE is the bridge -- the two searches agree, so a false answer from  *)
-(*  the computable one is a false answer from the one Search.v proves sound.  *)
+(*  Tsearch.v -- The search of Search.v, run on TABLES.                     *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

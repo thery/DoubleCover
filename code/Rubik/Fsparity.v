@@ -1,10 +1,6 @@
 (* =========================================================================  *)
-(*  Fsparity.v                                                                   *)
-(*                                                                            *)
-(*  What makes a packed value a genuine flip x slice summary, and why a move  *)
-(*  preserves it.  Split out of Farp1.v so it can be developed on its own:    *)
-(*  Farp1.v takes over 290 s to elaborate interactively, which is longer than *)
-(*  an rocq-mcp session will wait.                                            *)
+(*  Fsparity.v -- What makes a packed value a genuine flip x slice summary, *)
+(*     and why a move preserves it.                                         *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

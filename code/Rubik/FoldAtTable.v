@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  FoldAtTable.v -- the fold at the emitted table.  See fold.md.                 *)
+(*  FoldAtTable.v -- The fold at the emitted table.                         *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

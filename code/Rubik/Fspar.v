@@ -1,16 +1,6 @@
 (* =========================================================================  *)
-(*  Fspar.v                                                                   *)
-(*                                                                            *)
-(*  checkStep, split sixteen ways so it can be run on several cores.          *)
-(*                                                                            *)
-(*  all_pow k.+1 i f is all_pow k i f && all_pow k (i + 2 ^ k) f by           *)
-(*  definition, so four splits turn the single all_pow 24 into sixteen        *)
-(*  all_pow 20, each over its own 1 048 576 wide slice.  Fs_00.v .. Fs_15.v   *)
-(*  run one slice each and Fsmain.v glues them, exactly as Far_??.v and       *)
-(*  Farmain.v do for the search.                                              *)
-(*                                                                            *)
-(*  Measured on the whole range: about 70 min in one process, so about nine   *)
-(*  minutes on twelve cores.                                                  *)
+(*  Fspar.v -- checkStep, split sixteen ways so it can be run on several    *)
+(*     cores.                                                               *)
 (* =========================================================================  *)
 
 From Stdlib Require Import Uint63.
