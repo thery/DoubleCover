@@ -1,8 +1,6 @@
 (* =========================================================================  *)
-(*  FoldStabiliser.v -- short orbits: every symmetry that reaches the representative*)
-(*                      must give the same entry.                           *)
-(*                                                                          *)
-(*  See fold.md for the design, the pitfalls and the numbers.               *)
+(*  FoldStabiliser.v -- Short orbits: every symmetry reaching the           *)
+(*     representative agrees.                                               *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

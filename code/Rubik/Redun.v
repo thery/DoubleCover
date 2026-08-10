@@ -1,14 +1,5 @@
 (* =========================================================================  *)
-(*  Redun.v                                                                   *)
-(*                                                                            *)
-(*  Searchr.v's face structure, instantiated for the cube.                     *)
-(*                                                                            *)
-(*  Searchr.v proves the move redundancy rules from two facts about the move   *)
-(*  set and nothing about the cube.  This file supplies them for the six       *)
-(*  faces, so that searchrN becomes usable on Rubik333.moves.                  *)
-(*                                                                            *)
-(*    fc m   the face of a move, 0..5 in the order of Rubik333.faces           *)
-(*    opp f  the opposite face, U<->D, R<->L, F<->B                            *)
+(*  Redun.v -- Searchr.v's face structure, instantiated for the cube.       *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

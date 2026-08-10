@@ -1,8 +1,5 @@
 (* =========================================================================  *)
-(*  Fast.v                                                                    *)
-(*                                                                            *)
-(*  searchz3 on int63, as the refinements searchz3f to searchz3n.             *)
-(*  Definitions only; FastP.v proves searchz3n = searchz3.                    *)
+(*  Fast.v -- searchz3 on int63, as the refinements searchz3f to searchz3n. *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

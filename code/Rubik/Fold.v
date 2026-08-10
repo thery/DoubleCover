@@ -1,8 +1,6 @@
 (* =========================================================================  *)
-(*  Fold.v -- the fold: the table and the folding functions as variables,   *)
-(*            and the seventeen facts assumed of them.                      *)
-(*                                                                          *)
-(*  See fold.md for the design, the pitfalls and the numbers.               *)
+(*  Fold.v -- The fold: the folding functions as variables, and the facts   *)
+(*     assumed of them.                                                     *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

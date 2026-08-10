@@ -1,11 +1,5 @@
 (* =========================================================================  *)
-(*  FastP.v                                                                   *)
-(*                                                                            *)
-(*  The proofs about Fast.v.  SEPARATE FILE ON PURPOSE: rocq-mcp cannot       *)
-(*  elaborate Fast.v past `allowed3' -- a Definition whose body is an         *)
-(*  `Eval vm_compute in' over allowedr -- and everything after it is then     *)
-(*  invisible to the session.  Loading Fast.vo works, so putting the proofs   *)
-(*  here makes them developable interactively.                                *)
+(*  FastP.v -- The proofs about Fast.v: searchz3n equals searchz3.          *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

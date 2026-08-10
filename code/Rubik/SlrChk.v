@@ -1,15 +1,5 @@
 (* =========================================================================  *)
-(*  SlrChk.v                                                                 *)
-(*                                                                            *)
-(*  the slice rank move table -- the certificate, and nothing else.           *)
-(*                                                                            *)
-(*  In its own file for the reason P1TsChk.v is: an all_pow over 2 ^ 24       *)
-(*  packed values is not something a day to day build should pay for.         *)
-(*                                                                            *)
-(*  native_cast_no_check, not `by vm_compute': the latter evaluates twice,    *)
-(*  once in the tactic and once when the kernel rechecks the cast at Qed.     *)
-(*  If the native compiler is unavailable, vm_cast_no_check (erefl true)      *)
-(*  is the fallback -- it also evaluates once, just more slowly.              *)
+(*  SlrChk.v -- The slice rank move table certificate.                      *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

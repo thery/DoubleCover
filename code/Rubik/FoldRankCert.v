@@ -1,7 +1,6 @@
 (* =========================================================================  *)
-(*  FoldRankCert.v -- the orbit check, rebuilt as Farp1's certificate over ranks.*)
-(*                                                                          *)
-(*  See fold.md for the design, the pitfalls and the numbers.               *)
+(*  FoldRankCert.v -- The orbit check, rebuilt as Farp1's certificate over  *)
+(*     ranks.                                                               *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

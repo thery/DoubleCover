@@ -1,7 +1,5 @@
 (* =========================================================================  *)
-(*  FoldChecksRun.v -- the twelve checks, run at the emitted tables.        *)
-(*                                                                          *)
-(*  See fold.md for the design, the pitfalls and the numbers.               *)
+(*  FoldChecksRun.v -- The twelve checks, run at the emitted tables.        *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

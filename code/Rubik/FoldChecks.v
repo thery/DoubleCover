@@ -1,7 +1,6 @@
 (* =========================================================================  *)
-(*  FoldChecks.v -- the twelve checks as hypotheses, and the fact each one buys.*)
-(*                                                                          *)
-(*  See fold.md for the design, the pitfalls and the numbers.               *)
+(*  FoldChecks.v -- The twelve checks as hypotheses, and the fact each one  *)
+(*     buys.                                                                *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
