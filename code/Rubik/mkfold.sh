@@ -75,4 +75,9 @@ rocq compile -R . Rubik P1RTable.v
 # the lines above have run, and coqdep would refuse the whole project.
 echo "running the twelve checks (Foldcert.v)"
 rocq compile -R . Rubik Foldcert.v
+
+# and the fold at the table: the three slot equations, stabC, and the orbit
+# certificate itself.  Out of _CoqProject for the same reason as Foldcert.
+echo "running the certificate (Foldrun.v)"
+rocq compile -R . Rubik Foldrun.v
 echo "done"
