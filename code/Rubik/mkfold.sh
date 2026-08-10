@@ -18,6 +18,11 @@ set -e
 cd "$(dirname "$0")"
 
 JOBS=${1:-3}
+# The native step is what eats the machine: ocamlopt -shared on a 40 MB
+# literal is about 6.5 GB, MEASURED on roquableu, where seven at once filled
+# 64 GB and swapped.  So the .vo files are built with JOBS workers and the
+# .cmxs are precompiled with NJOBS, which is small on purpose.
+NJOBS=${2:-2}
 
 need=0
 [ -f P1Fold.v ] || need=1
@@ -49,27 +54,25 @@ fi
 # a 40 MB array literal overflows the default stack at parse time
 ulimit -s unlimited
 
-# NO NATIVE COMPILER ON THE TABLES.  In a native switch coqc also builds a
-# .cmx for every file, and for a 40 MB array literal that dwarfs the .vo.
-# Nothing here is ever native_computed -- Foldcert.v and the certificate are
-# vm_compute throughout -- so the .cmx would never be loaded.
-ROCQ="rocq compile -native-compiler no"
-
 echo "compiling P1Fold.v"
-$ROCQ -R . Rubik P1Fold.v
+rocq compile -R . Rubik P1Fold.v
+
+chunks() { for i in 00 01 02 03 04; do echo "P1F_$i"; done
+            for i in 00 01 02; do echo "P1R_$i"; done; }
 
 echo "compiling the eight chunks with $JOBS workers"
-{ for i in 00 01 02 03 04; do echo "P1F_$i.v"; done
-  for i in 00 01 02; do echo "P1R_$i.v"; done; } |
-  xargs -P "$JOBS" -I{} $ROCQ -R . Rubik {}
+chunks | xargs -P "$JOBS" -I{} rocq compile -native-compiler no -R . Rubik {}.v
+
+echo "precompiling native with $NJOBS workers"
+chunks | xargs -P "$NJOBS" -I{} rocq native-precompile -R . Rubik {}.vo
 
 echo "compiling the glue"
-$ROCQ -R . Rubik P1FTable.v
-$ROCQ -R . Rubik P1RTable.v
+rocq compile -R . Rubik P1FTable.v
+rocq compile -R . Rubik P1RTable.v
 
 # Foldcert.v is the run: the twelve checks at the emitted tables.  It is NOT
 # in _CoqProject -- it requires P1Fold and P1RTable, which do not exist until
 # the lines above have run, and coqdep would refuse the whole project.
 echo "running the twelve checks (Foldcert.v)"
-$ROCQ -R . Rubik Foldcert.v
+rocq compile -R . Rubik Foldcert.v
 echo "done"
