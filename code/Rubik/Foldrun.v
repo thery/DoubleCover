@@ -1,16 +1,5 @@
 (* =========================================================================  *)
-(*  Foldrun.v -- the fold at the emitted table.                               *)
-(*                                                                            *)
-(*  Foldasm.v assembles the fold with the table and the twelve checks as      *)
-(*  section hypotheses.  This file supplies them, and gets p1checkStepr for   *)
-(*  the table the search actually reads.                                      *)
-(*                                                                            *)
-(*  Three kinds of thing live here, and none of them is the long run:        *)
-(*    - the three slot equations, which say that slots 5, 6 and 7 of the      *)
-(*      table hold the folding tables Foldtab.v reads;                        *)
-(*    - stabE, from Foldchk.stabE_of_check, and stabC under it;               *)
-(*    - the orbit certificate, GLUED from the twenty seven Foldslc slices     *)
-(*      so that it runs nine at a time rather than as one process.            *)
+(*  Foldrun.v -- the fold at the emitted table.  See fold.md.                 *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -39,15 +28,7 @@ Import GroupScope.
 (*  1.  The three slots                                                       *)
 (* =========================================================================  *)
 
-(* The folded table carries the three folding tables in the slots after the
-   distance chunks, so a folded read still takes one array.  These say the
-   slots hold what Foldtab.v reads, and each is one array comparison.
-
-   native_cast_no_check, not "by vm_compute": the latter reduces in the
-   tactic and the kernel then converts the statement again at Qed.
-   MEASURED on repslotE under vm: 1.83 s in the tactic and 1.28 s more at
-   Qed.  vm_cast_no_check (erefl repa) is the fallback where the native
-   compiler is not available. *)
+(* slots 5, 6 and 7 hold the folding tables Foldtab.v reads *)
 
 Lemma repslotE : PArray.get p1ftab frepslot = repa.
 Proof. Time native_cast_no_check (erefl repa). Qed.
@@ -71,8 +52,7 @@ Proof. by rewrite /Phase1.twsym twsymslotE. Qed.
 (*  2.  The stabiliser                                                        *)
 (* =========================================================================  *)
 
-(* A rank whose orbit is shorter than sixteen reaches its representative by
-   several symmetries; the row has to give the same entry for all of them. *)
+(* short orbits: every symmetry reaching the representative agrees *)
 Lemma stabCP : stabC p1ftab (racti ractab).
 Proof. Time native_cast_no_check (erefl true). Qed.
 
@@ -87,11 +67,7 @@ Proof. by move=> twL rL uL hu; exact: (stabE_of_check stabCP rL uL twL hu). Qed.
 (*  3.  The certificate, at the orbits                                        *)
 (* =========================================================================  *)
 
-(* 64 430 orbits x 2187 twists x 18 moves, in place of the same sweep over
-   all 1 013 760 ranks.  CUT INTO TWENTY SEVEN SLICES, eighty one twists
-   each, exactly as the P1Chk slices cut the rank certificate: as one file
-   it is a single process, and the rank certificate it replaces ran nine at
-   a time.  The slices are what puts the wall time back. *)
+(* the orbit certificate, in twenty seven slices of eighty one twists *)
 
 Definition slices : seq nat :=
   iota 0 81 ++ iota 81 81 ++ iota 162 81 ++ iota 243 81 ++ iota 324 81 ++
@@ -104,9 +80,7 @@ Definition slices : seq nat :=
 Lemma slicesE : slices = iota 0 ntwist.
 Proof. Time native_cast_no_check (erefl (iota 0 ntwist)). Qed.
 
-(* foldcheckStep IS that all over iota 0 ntwist, so the equation is all it
-   takes.  `h' given by name rather than left to done: done would unfold the
-   all and evaluate it. *)
+(* foldcheckStep is that all, so the equation is all it takes *)
 Lemma foldcheckStep_of_slices (s : seq nat) : s = iota 0 ntwist ->
   all (fun t => foldcheckOrb p1ftab frepi fsymi repsi twsymi actfsr
                               (of_nat t)) s ->
@@ -128,7 +102,7 @@ Qed.
 (*  4.  The value at the identity                                             *)
 (* =========================================================================  *)
 
-(* One entry, and P1Chk0.v's version of it reads the unfolded table. *)
+(* the value at the identity, one entry *)
 Lemma p1check0P : p1check0 p1ftab.
 Proof. Time native_cast_no_check (erefl true). Qed.
 
