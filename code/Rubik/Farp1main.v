@@ -23,7 +23,7 @@ Notation arr := (PArray.array int).
 (* OUTSIDE the section below, and that is not tidiness.  Inside it the
    context holds p1checkStep, fsmoveC, fsrC and slrC, and every trailing
    `done' then tries `assumption', unifies its goal against one of them --
-   same is_true head -- and unfolds an all_pow at ncoord = 24.  Farmain.v
+   same is_true head -- and unfolds an all_pow at ncoord = 24.  the master file
    proves both of these inline because its context is clean; here even
    `i < nmoves' does not return. *)
 Lemma nroot_leq : (nroot <= nmoves)%N.

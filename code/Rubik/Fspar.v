@@ -84,7 +84,7 @@ Proof. by vm_compute. Qed.
 
 (* f STAYS ABSTRACT THROUGHOUT.  A /= or a vm_compute here would unfold the
    loop into 2 ^ 24 conjuncts; this is the all_iota18 lesson from
-   Farmain.v, where the same mistake made the glue look like it hung.    *)
+   the glue of a split proof, where it looks like a hang.               *)
 Lemma all_pow_glue16 (f : int -> bool) :
   all_pow cbits (cstart 0) f -> all_pow cbits (cstart 1) f ->
   all_pow cbits (cstart 2) f -> all_pow cbits (cstart 3) f ->

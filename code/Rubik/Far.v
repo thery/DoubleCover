@@ -175,8 +175,8 @@ Proof. by rewrite /Sroot !inE => /orP[]/eqP->; [exists 0%N | exists 1%N]. Qed.
 
 (* What is left is 36 searches of depth droot -- two root moves times eighteen
    second moves -- and they are independent.  They are NOT here: one
-   generated file per second move proves its own pair, and Farmain.v glues
-   the eighteen together and finishes the theorem.  See Farmain.v.
+   generated file per second move proves its own pair, and a master file
+   glues the eighteen together and finishes the theorem.
 
    The split is by second move rather than by pair so that each file is one
    vm_compute over two searches: eighteen files rather than thirty six, and
