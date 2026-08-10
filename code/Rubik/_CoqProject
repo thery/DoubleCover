@@ -133,3 +133,4 @@ Runp1_17.v
 Foldchk.v
 Foldbr.v
 Foldinst.v
+Foldasm.v
