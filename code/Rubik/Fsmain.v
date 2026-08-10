@@ -18,8 +18,8 @@ From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
-From Rubik Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root.
-From Rubik Require Import Coord Coordfs Coordfsi Fstab FsTable Diameter Moves.
+
+From Rubik Require Import Fstab FsTable Moves.
 From Rubik Require Import Fspar.
 From Rubik Require Import Fs_00 Fs_01 Fs_02 Fs_03 Fs_04 Fs_05 Fs_06 Fs_07
                           Fs_08 Fs_09 Fs_10 Fs_11 Fs_12 Fs_13 Fs_14 Fs_15.

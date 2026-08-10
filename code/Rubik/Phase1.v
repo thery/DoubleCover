@@ -62,9 +62,7 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 (* Far.v's chain minus Fsmain, so this does not drag in the sixteen
    certificate files *)
-Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
-        Coordfs Coordfsi Fstab FsTable Diameter Moves
-        Searchr Redun Searchir P1Small P1Ts.
+Require Import Table Tabi Rubik333 Coordfs Coordfsi Fstab Moves P1Small P1Ts.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -180,7 +178,6 @@ Definition cprimf (p : nat) : facelet := inord (nth 0%N cprim p).
 (* which corner arrives at p, and how far it is rotated when it gets there *)
 Definition csrc   (m : {perm facelet}) (p : nat) : nat := cpos  (m^-1 (cprimf p)).
 Definition cdelta (m : {perm facelet}) (p : nat) : nat := cslot (m^-1 (cprimf p)).
-
 
 (* =========================================================================  *)
 (*  Base 3 digits -- the analogue of Coordfs's packn / nbit                    *)
@@ -1259,7 +1256,6 @@ have hs : (s < 3)%N by rewrite /s /cslot ltn_mod.
 by move: ha hs; case: a => [|[|[|?]]] //; case: s => [|[|[|?]]].
 Qed.
 
-
 (* THE SAME FACT WITHOUT THE COORDINATE, and so without twsum: corientgM
    reads the source digit out of coordtw g, which is only the orientation
    when the eighth digit is the forced one.  Read it off corientg directly
@@ -2108,7 +2104,6 @@ have hall : all (fun m => (count (nbit (of_nat m)) (iota 0 nedge) == nslice)
   by rewrite -srankCE; exact: srankCP.
 by have := implyP (allP hall _ hmem) hcount; rewrite to_natK.
 Qed.
-
 
 Section P1Heur.
 

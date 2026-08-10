@@ -23,8 +23,7 @@ From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
-Require Import Cyc Ball Table Search Tsearch Tabi Searchr Rubik333 Sym
-        Diameter Moves Redun.
+Require Import Table Tsearch Tabi Searchr Rubik333 Redun.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -196,8 +195,6 @@ by rewrite (nth_map (id_tabi n)) // -ti2t_comp // IH // tabi_ok_comp.
 Qed.
 
 End ArrayR.
-
-
 
 (* [MEDIUM] a copy of Tabi.searchi with the guard added.  Not written yet
    because it must be written ONCE, correctly:

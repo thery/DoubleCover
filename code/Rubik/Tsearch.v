@@ -14,7 +14,7 @@
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
-Require Import Cyc Ball Table Search.
+Require Import Table Search.
 
 Set Implicit Arguments.
 Unset Strict Implicit.

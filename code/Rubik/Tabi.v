@@ -30,7 +30,7 @@ From Stdlib Require Import -(notations) PArray.
 From mathcomp Require Import all_ssreflect all_fingroup.
 (* the name avoids mathcomp's ssrint, which would win the short name          *)
 From Rubik Require Import ssrint63.
-Require Import Cyc Ball Table Search Tsearch.
+Require Import Table Search Tsearch.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -181,7 +181,6 @@ rewrite /comp_tabi
 - by rewrite to_nat_0 add0n length_makeE n_len of_natK.
 by rewrite to_nat_0 add0n to_of_natK //= iL.
 Qed.
-
 
 (* ---- 4. What the operations have to satisfy ------------------------------ *)
 

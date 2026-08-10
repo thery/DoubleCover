@@ -35,7 +35,7 @@ From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Rubik Require Import ssrint63.
-Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord Coordfs.
+Require Import Ball Table Search Tabi Rubik333 Sym Coordfs.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -104,7 +104,6 @@ Fixpoint alli (k : nat) (i : int) (f : int -> bool) : bool :=
 Definition eprimi : arr :=
   Eval vm_compute in
   mkarrn (of_nat nedge) [seq of_nat (nth 0%N eprim k) | k <- iota 0 nedge].
-
 
 (* u is the INVERSE table: u f is the facelet whose sticker now sits at f,    *)
 (* which is what g^-1 f means on this side.                                   *)
