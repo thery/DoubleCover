@@ -26,6 +26,10 @@ for i in 00 01 02; do [ -f "P1R_$i.v" ] || need=1; done
 
 if [ "$need" = "1" ] || [ "${KEEP:-1}" = "0" ]; then
   echo "emitting the folded tables"
+  # p1gen is a build product, so a fresh clone has to make it first
+  [ -x bench/p1gen ] ||
+    (cd bench && ocamlfind ocamlopt -package unix -linkpkg \
+       cubedata.ml p1gen.ml -o p1gen)
   (cd bench && ./p1gen 9 emitfold)
 else
   echo "folded tables already emitted, skipping (KEEP=0 to redo)"
@@ -45,4 +49,10 @@ echo "compiling the eight chunks with $JOBS workers"
 echo "compiling the glue"
 rocq compile -R . Rubik P1FTable.v
 rocq compile -R . Rubik P1RTable.v
+
+# Foldcert.v is the run: the twelve checks at the emitted tables.  It is NOT
+# in _CoqProject -- it requires P1Fold and P1RTable, which do not exist until
+# the lines above have run, and coqdep would refuse the whole project.
+echo "running the twelve checks (Foldcert.v)"
+rocq compile -R . Rubik Foldcert.v
 echo "done"
