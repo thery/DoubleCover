@@ -88,6 +88,29 @@ move/nltbP => iL; apply/negbTE/negP => /nlebP h.
 by move: iL; rewrite ltnNge h.
 Qed.
 
+(* ---- the widths the generator packs with -------------------------------- *)
+
+Definition nsymi   : int := 16%uint63.                 (* nsym            *)
+Definition nrbits  := 20.                (* 2 ^ 20 covers the ranks       *)
+Definition nwide   : int := 3%uint63.       (* twenty bit values a word    *)
+Definition wbits   : int := 20%uint63.
+Definition wmaski  : int := 1048575%uint63.            (* 2 ^ 20 - 1      *)
+Definition nnarrow : int := 15%uint63.        (* four bit values a word    *)
+Definition nbits   : int := 4%uint63.
+Definition nmask4  : int := 15%uint63.
+
+(* a twenty bit value out of a flat array, three to a word *)
+Definition get20 (a : arr) (i : int) : int :=
+  let w := Uint63.div i nwide in
+  let j := Uint63.sub i (Uint63.mul w nwide) in
+  Uint63.land (Uint63.lsr (PArray.get a w) (Uint63.mul j wbits)) wmaski.
+
+(* a four bit value out of a flat array, fifteen to a word *)
+Definition get4 (a : arr) (i : int) : int :=
+  let w := Uint63.div i nnarrow in
+  let j := Uint63.sub i (Uint63.mul w nnarrow) in
+  Uint63.land (Uint63.lsr (PArray.get a w) (Uint63.mul j nbits)) nmask4.
+
 (* =========================================================================  *)
 (*  2.  The data the fold needs, and what is assumed of it                    *)
 (*                                                                            *)
@@ -149,7 +172,11 @@ Hypothesis actrL : forall r k, (r <? nfsi)%uint63 -> (k < 18)%N ->
 
 (* -- the symmetries act --------------------------------------------------- *)
 
-Hypothesis twsymA : forall tw s t, (to_nat s < nsym)%N -> (to_nat t < nsym)%N ->
+(* THE TWIST BOUND IS NOT DECORATION, here as in stabE: past ntwist the
+   twist table has no entry and answers with its default, so neither of the
+   two equations below can hold there.  Every caller has the bound. *)
+Hypothesis twsymA : forall tw s t, (to_nat tw < ntwist)%N ->
+  (to_nat s < nsym)%N -> (to_nat t < nsym)%N ->
   twsym (twsym tw s) t = twsym tw (smul s t).
 Hypothesis ractA : forall r s t, (r <? nfsi)%uint63 -> (to_nat s < nsym)%N ->
   (to_nat t < nsym)%N -> ract (ract r s) t = ract r (smul s t).
@@ -175,7 +202,8 @@ Hypothesis acttwiL : forall tw k, (to_nat tw < ntwist)%N -> (k < 18)%N ->
 
 Hypothesis msymL : forall k s, (k < 18)%N -> (to_nat s < nsym)%N ->
   (msym k s < 18)%N.
-Hypothesis msymT : forall tw k s, (k < 18)%N -> (to_nat s < nsym)%N ->
+Hypothesis msymT : forall tw k s, (to_nat tw < ntwist)%N -> (k < 18)%N ->
+  (to_nat s < nsym)%N ->
   acttwi (twsym tw s) (msym k s) = twsym (acttwi tw k) s.
 Hypothesis msymR : forall r k s, (r <? nfsi)%uint63 -> (k < 18)%N ->
   (to_nat s < nsym)%N -> actr (ract r s) (msym k s) = ract (actr r k) s.
@@ -200,7 +228,7 @@ Proof.
 move=> twL rL sL; have qL := ractL rL sL; have tL := fsymL qL.
 rewrite -[RHS](stabE twL rL (smulL sL tL) _); last first.
   by rewrite -(ractA rL sL tL) (fsymE qL) (rrepS rL sL).
-by rewrite /Dfoldi (frepS rL sL) (twsymA tw sL tL).
+by rewrite /Dfoldi (frepS rL sL) (twsymA twL sL tL).
 Qed.
 
 (* =========================================================================  *)
@@ -285,7 +313,7 @@ have hs : foldstepF (twsym tw (fsym r)) (frep r).
   by apply: foldstepF_of_check;
      [exact: hcheck | exact: (twsymL twL sL) | exact: (frepL rL)].
 have := foldstepF_inst hs (msymL kL sL).
-rewrite (repsE rL) -(fsymE rL) (msymT tw kL sL) (msymR rL kL sL).
+rewrite (repsE rL) -(fsymE rL) (msymT twL kL sL) (msymR rL kL sL).
 by rewrite (DfoldiS twL rL sL) (DfoldiS (acttwiL twL kL) (actrL rL kL) sL).
 Qed.
 

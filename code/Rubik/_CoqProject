@@ -130,3 +130,7 @@ Runp1_14.v
 Runp1_15.v
 Runp1_16.v
 Runp1_17.v
+Foldchk.v
+Foldbr.v
+Foldinst.v
+Foldcert.v
