@@ -8,6 +8,11 @@
 (*  THE TABLE AND THE TWELVE CHECKS ARE HYPOTHESES, so the assembly is        *)
 (*  checked here, once, without a byte of emitted data.  Foldrun.v supplies   *)
 (*  them and computes nothing else.                                           *)
+(*                                                                            *)
+(*  Foldinst.v's extraction lemmas take their check from ITS section, so the  *)
+(*  discharged argument order differs from one to the next -- rrepSn wants    *)
+(*  repsi before the check, because it is the only one that uses it.  Read    *)
+(*  the signature with About rather than pattern matching on a neighbour.     *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -79,7 +84,7 @@ Proof.
 apply: p1checkStepr_of_step => tw r k twL rL kL.
 rewrite !Dp1riE.
 exact: (Dfoldi_step_of_check (fsymEn fsymECP) (fsymLn fsymLCP)
-          (frepSn frepSCP) (rrepSn frepSCP) (@repsEn frepi repsi)
+          (frepSn frepSCP) (rrepSn repsi frepSCP) (@repsEn frepi repsi)
           frepLP (twsymLn twsymLCP) (ractLn ractLCP) (actrLn actrLCP)
           (twsymAn twsymACP) (ractAn ractACP) (smulLn smulCP) stabEP
           (acttwiLn acttwiLCP) (@msymLn) (msymTn msymTCP) (msymRn msymRCP)
