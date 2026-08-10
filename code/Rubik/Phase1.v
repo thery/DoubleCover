@@ -690,7 +690,7 @@ Definition tsstepF (tw s : int) : bool :=
    only the twist loop pays of_nat, once per twist rather than per state.
    MEASURED: 200 twists in 25.8 s under vm_compute, so all 2187 is about
    4.7 minutes -- which is why the proof lives in its own file and goes
-   through native_cast_no_check, as Far_00.v does. *)
+   through native_cast_no_check, as the search slices do. *)
 (* all_pow 9 covers 512 ranks, so the 17 past 495 are guarded out rather than
    read into the next twist's block. *)
 Definition ts_checkStep : bool :=

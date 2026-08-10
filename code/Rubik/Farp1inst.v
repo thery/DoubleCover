@@ -27,10 +27,8 @@ Import GroupScope.
    a term holding a searchz3, and simpl then starts unfolding the search
    rather than the all, which does not come back.
 
-   COPIED from Farmain.v rather than imported: Farmain requires Far_00 ..
-   Far_17, and each of those is a 65 hour depth 15 run of the OLD five view
-   search.  Importing it for one three line lemma would make this file
-   unbuildable. *)
+   Stated here rather than imported: the only other copy sat above the
+   eighteen search runs. *)
 Lemma all_iota18p1 (f : nat -> bool) :
   f 0%N -> f 1%N -> f 2%N -> f 3%N -> f 4%N -> f 5%N -> f 6%N -> f 7%N ->
   f 8%N -> f 9%N -> f 10%N -> f 11%N -> f 12%N -> f 13%N -> f 14%N ->
@@ -73,8 +71,7 @@ Proof. by []. Qed.
    Print Assumptions shows only the int63 and PArray primitives.
 
    THE PHASE 1 CERTIFICATE COMES FROM THE FOLD.  FoldAtTable checks the 64 430
-   orbit representatives; P1ChkAll's twenty seven slices checked all
-   1 013 760 ranks and are no longer required by anything. *)
+   orbit representatives, in place of a sweep over all 1 013 760 ranks. *)
 Theorem superflip_p1far_real : superflip \notin ball Sset p1depth.
 Proof.
 (* every argument pinned: closing a Section turns its Variables and
