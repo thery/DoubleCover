@@ -3,9 +3,11 @@
 # both root moves inside -- the same decomposition mkfar.sh uses, so the two
 # experiments are comparable piece for piece.
 #
-# MEMORY: each piece loads the whole phase 1 table, 4.15 GB resident at any
-# depth.  Nine at a time on a 62 GB machine -- say `make p1run P1RUN_GB=6',
-# which computes that, rather than a -j of your own.
+# MEMORY: each piece loads the whole phase 1 table.  Since the fold that is
+# p1ftab and not p1tab, so about 0.85 GB and not 4.15 -- MEASURED at n = 16,
+# 8.2 GB across nine workers.  All EIGHTEEN then fit in one wave: say
+# `make p1run P1RUN_GB=3', which computes the -j, rather than one of your
+# own.  P1RUN_GB=6 gave -j9 and was right for the unfolded table.
 #   ./mkrunp1.sh          depth 14, vm
 #   ./mkrunp1.sh 15       depth 15, vm
 #   EVAL=native ./mkrunp1.sh 14    depth 14, native_compute
