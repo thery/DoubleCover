@@ -19,29 +19,6 @@ Unset Printing Implicit Defensive.
 
 Import GroupScope.
 
-(* ---- the widths the generator packs with -------------------------------- *)
-
-Definition nsymi   : int := 16%uint63.                 (* nsym            *)
-Definition nrbits  := 20.                (* 2 ^ 20 covers the ranks       *)
-Definition nwide   : int := 3%uint63.       (* twenty bit values a word    *)
-Definition wbits   : int := 20%uint63.
-Definition wmaski  : int := 1048575%uint63.            (* 2 ^ 20 - 1      *)
-Definition nnarrow : int := 15%uint63.        (* four bit values a word    *)
-Definition nbits   : int := 4%uint63.
-Definition nmask4  : int := 15%uint63.
-
-(* a twenty bit value out of a flat array, three to a word *)
-Definition get20 (a : arr) (i : int) : int :=
-  let w := Uint63.div i nwide in
-  let j := Uint63.sub i (Uint63.mul w nwide) in
-  Uint63.land (Uint63.lsr (PArray.get a w) (Uint63.mul j wbits)) wmaski.
-
-(* a four bit value out of a flat array, fifteen to a word *)
-Definition get4 (a : arr) (i : int) : int :=
-  let w := Uint63.div i nnarrow in
-  let j := Uint63.sub i (Uint63.mul w nnarrow) in
-  Uint63.land (Uint63.lsr (PArray.get a w) (Uint63.mul j nbits)) nmask4.
-
 (* ---- the four tables ----------------------------------------------------- *)
 
 Definition repa : arr := Eval vm_compute in rep_data.
