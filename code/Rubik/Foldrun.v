@@ -34,16 +34,20 @@ Import GroupScope.
 
 (* The folded table carries the three folding tables in the slots after the
    distance chunks, so a folded read still takes one array.  These say the
-   slots hold what Foldtab.v reads, and each is one array comparison. *)
+   slots hold what Foldtab.v reads, and each is one array comparison.
+
+   vm_cast_no_check, not "by vm_compute": the latter reduces in the tactic
+   and the kernel then converts the statement again at Qed.  MEASURED on
+   repslotE: 1.83 s in the tactic and 1.28 s more at Qed. *)
 
 Lemma repslotE : PArray.get p1ftab frepslot = repa.
-Proof. by vm_compute. Qed.
+Proof. vm_cast_no_check (erefl repa). Qed.
 
 Lemma symslotE : PArray.get p1ftab fsymslot = syma.
-Proof. by vm_compute. Qed.
+Proof. vm_cast_no_check (erefl syma). Qed.
 
 Lemma twsymslotE : PArray.get p1ftab twsymslot = twsyma.
-Proof. by vm_compute. Qed.
+Proof. vm_cast_no_check (erefl twsyma). Qed.
 
 Lemma frepE r : Phase1.frep p1ftab r = frepi r.
 Proof. by rewrite /Phase1.frep repslotE. Qed.
@@ -81,7 +85,16 @@ Lemma foldcheckStepP :
 Proof. Time native_cast_no_check (erefl true). Qed.
 
 (* =========================================================================  *)
-(*  4.  And the rank certificate Farp1 asks for                               *)
+(*  4.  The value at the identity                                             *)
+(* =========================================================================  *)
+
+(* One entry, so vm_compute rather than native: this needs no precompiled
+   table and P1Chk0.v's version of it reads the unfolded table. *)
+Lemma p1check0P : p1check0 p1ftab.
+Proof. vm_cast_no_check (erefl true). Qed.
+
+(* =========================================================================  *)
+(*  5.  And the rank certificate Farp1 asks for                               *)
 (* =========================================================================  *)
 
 Lemma p1checkSteprP : p1checkStepr p1ftab.
