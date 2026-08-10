@@ -16,7 +16,7 @@ From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Rubik Require Import ssrint63.
-Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Diameter.
+Require Import Table Tabi Rubik333 Sym Diameter.
 
 Set Implicit Arguments.
 Unset Strict Implicit.

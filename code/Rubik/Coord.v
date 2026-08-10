@@ -37,7 +37,7 @@
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
-Require Import Cyc Ball Table Rubik333 Sym Search Root.
+Require Import Ball Rubik333 Sym Search Root.
 
 Set Implicit Arguments.
 Unset Strict Implicit.

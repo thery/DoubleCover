@@ -44,3 +44,22 @@ exact: (@superflip_p1far p1dummy p1droot p1droot_small
                          (p1check0_dummy) (p1checkStep_dummy) hts
                          hfm hfr hsl hsearch).
 Qed.
+
+(* THE SAME, THROUGH THE FOLD.  Farp1inst no longer passes a p1checkStep
+   proved over the ranks: it passes p1checkStepr_ok applied to the orbit
+   certificate.  That is one more argument position to get wrong, and the
+   dummy catches it here in seconds rather than after the searches. *)
+Theorem superflip_p1far_dummy_folded :
+  all (fun j => all (fun i => ~~ searchz3 p1dummy p1droot (prefixi i j)
+                                          (init3 (prefixi i j)) nfcube)
+                    (iota 0 nroot))
+      (iota 0 nmoves) ->
+  p1check0 p1dummy -> p1checkStepr p1dummy ->
+  ts_checkStep -> fsmoveC -> fsrC -> slrC ->
+  superflip \notin ball Sset p1depth.
+Proof.
+move=> hsearch h0 hstepr hts hfm hfr hsl.
+exact: (@superflip_p1far p1dummy p1droot p1droot_small h0
+                         (p1checkStepr_ok hfm hstepr) hts
+                         hfm hfr hsl hsearch).
+Qed.

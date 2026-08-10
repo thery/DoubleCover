@@ -34,9 +34,8 @@ From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Rubik Require Import ssrint63.
-Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
-        Coordfs Coordfsi Fstab FsTable Diameter Moves Fsmain
-        Searchr Redun Searchir.
+Require Import Ball Table Tsearch Tabi Rubik333 Sym Root Coordfs Coordfsi
+        Fstab FsTable Diameter Moves Fsmain Searchr Redun Searchir.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -210,7 +209,6 @@ Proof. by rewrite /Sroot !inE => /orP[]/eqP->; [exists 0%N | exists 1%N]. Qed.
    The split is by second move rather than by pair so that each file is one
    vm_compute over two searches: eighteen files rather than thirty six, and
    each still small enough to check on its own core.                        *)
-
 
 (* ---- 5. The reduced search, and why the guard stops at the prefix --------- *)
 
@@ -623,7 +621,6 @@ apply: cubti_comp.
 - exact: sfti_ok.
 exact: csf.
 Qed.
-
 
 (* ---- 3quater. searchz: prune the child BEFORE composing ------------------ *)
 

@@ -31,7 +31,7 @@ From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Rubik Require Import ssrint63.
-Require Import Cyc Ball Table Rubik333 Sym Search Root Coord.
+Require Import Rubik333.
 
 Set Implicit Arguments.
 Unset Strict Implicit.

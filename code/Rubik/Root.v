@@ -22,7 +22,7 @@
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
-Require Import Cyc Ball Table Rubik333 Sym Search.
+Require Import Ball Rubik333 Sym Search.
 
 Set Implicit Arguments.
 Unset Strict Implicit.

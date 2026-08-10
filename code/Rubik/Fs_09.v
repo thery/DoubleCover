@@ -9,8 +9,8 @@ From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
-From Rubik Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root.
-From Rubik Require Import Coord Coordfs Coordfsi Fstab FsTable Diameter Moves.
+
+From Rubik Require Import Fstab.
 From Rubik Require Import Fspar.
 
 Lemma fschk_09 : all_pow cbits (cstart 9) chunkF.
