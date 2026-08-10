@@ -20,24 +20,24 @@ per move). So a folded table need not equal an unfolded one.
 | file | what | needs data |
 |---|---|---|
 | `Fold.v` | the theory: table and folding functions as section variables, 17 hypotheses | no |
-| `Foldtab.v` | the four folding tables unpacked from `P1Fold.v`, and their bounds | yes |
-| `Foldchk.v` | `stabC` and `stabE_of_check` | no |
-| `Foldbr.v` | the pointwise folded step rebuilt into Farp1's rank certificate | no |
-| `Foldinst.v` | the twelve checks as section hypotheses, and what each buys | no |
-| `Foldasm.v` | the assembly: `Foldinst` + `Foldbr` gives `p1checkStepr` | no |
-| `Foldcert.v` | the twelve checks, run | yes |
-| `Foldslc_NN.v` | the orbit certificate, 27 slices of 81 twists | yes |
-| `Foldrun.v` | the slots, `stabC`, the glue, `p1check0`, `p1checkStepr` | yes |
+| `FoldTables.v` | the four folding tables unpacked from `P1Fold.v`, and their bounds | yes |
+| `FoldStabiliser.v` | `stabC` and `stabE_of_check` | no |
+| `FoldRankCert.v` | the pointwise folded step rebuilt into Farp1's rank certificate | no |
+| `FoldChecks.v` | the twelve checks as section hypotheses, and what each buys | no |
+| `FoldAssembly.v` | the assembly: `FoldChecks` + `FoldRankCert` gives `p1checkStepr` | no |
+| `FoldChecksRun.v` | the twelve checks, run | yes |
+| `FoldOrbit_NN.v` | the orbit certificate, 27 slices of 81 twists | yes |
+| `FoldAtTable.v` | the slots, `stabC`, the glue, `p1check0`, `p1checkStepr` | yes |
 
 The split is deliberate: structure is checked against hypotheses in seconds,
 numbers are run last. Before it, one wrong lemma name cost a 40 minute
 re-run.
 
-Rebuild order after touching `Phase1.v` or `Fold.v`: Phase1, Fold, Foldtab,
-Foldchk, Foldinst, Foldasm, Foldcert, Foldslc, Foldrun. Anything else gives
+Rebuild order after touching `Phase1.v` or `Fold.v`: Phase1, Fold, FoldTables,
+FoldStabiliser, FoldChecks, FoldAssembly, FoldChecksRun, FoldOrbit, FoldAtTable. Anything else gives
 "makes inconsistent assumptions over library".
 
-`Foldcert.v`, `Foldslc_NN.v` and `Foldrun.v` are **out of `_CoqProject`**:
+`FoldChecksRun.v`, `FoldOrbit_NN.v` and `FoldAtTable.v` are **out of `_CoqProject`**:
 they require `P1Fold`, which does not exist until `mkfold.sh` has run, and
 coqdep would refuse the whole project. `mkfold.sh` runs them.
 
@@ -65,7 +65,7 @@ time.
   hypothesis carries `(r <? nfsi)` or the twist bound for that reason.
 - `Fold.v`'s `actrE` is unprovable as stated -- no `fsok x` guard, which
   `Farp1.fsmoveC_inst` needs. Only `Dfoldx_step_of_check` used it, and
-  `Foldbr.v` makes that unnecessary. Left alone.
+  `FoldRankCert.v` makes that unnecessary. Left alone.
 - `twsymA` and `msymT` need the twist bound, which makes `tw` implicit; the
   call sites then lose their explicit `tw`.
 - **Notations do not capture.** `Notation rankloop body := (... fun r =>
@@ -75,7 +75,7 @@ time.
   `f (of_nat s)` unified, not a pattern. Loop over `sym16i : seq int`.
 - `exact: hchk` against a loop body **evaluates it**. `rewrite -stabCE;
   exact: hchk` folds the body back to the name instead, and is instant.
-- `Foldinst.v`'s extraction lemmas take their check from its section, so the
+- `FoldChecks.v`'s extraction lemmas take their check from its section, so the
   discharged argument order differs from one to the next -- `rrepSn` wants
   `repsi` before the check, being the only one that uses it. Read each
   signature with `About`, never by analogy with a neighbour.
@@ -91,5 +91,5 @@ time.
 `Fold.v:250` writes the orbit guard as `(norbi <=? i) || foldstepF tw i`
 where `Farp1.v:1335` writes `if ... then true else ...`. The `||` form
 evaluates the body on all 2^17 indices instead of the 64 430 admitted --
-about 2x. Fixing it invalidates `Foldcert.vo`, so it waits for the next
+about 2x. Fixing it invalidates `FoldChecksRun.vo`, so it waits for the next
 time that file is rebuilt anyway.

@@ -17,7 +17,7 @@ Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
         Coordfs Coordfsi Fstab FsTable Diameter Moves
         Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 Far Farp1
         Farp1main P1TsChk P1FTable Runp1 FsmChk FsrChk SlrChk
-        Foldrun.
+        FoldAtTable.
 Require Import Runp1_00 Runp1_01 Runp1_02 Runp1_03 Runp1_04 Runp1_05.
 Require Import Runp1_06 Runp1_07 Runp1_08 Runp1_09 Runp1_10 Runp1_11.
 Require Import Runp1_12 Runp1_13 Runp1_14 Runp1_15 Runp1_16 Runp1_17.
@@ -74,11 +74,11 @@ Proof. by []. Qed.
    and slrCP are stated in Farp1.v and admitted there, and p1check0 and
    p1checkStep have to be run on the emitted table. *)
 (* NO HYPOTHESES.  Every one of the six computations has its own file and
-   its own Qed: Foldrun for the phase 1 table, P1TsChk for the twist x slice
+   its own Qed: FoldAtTable for the phase 1 table, P1TsChk for the twist x slice
    one, FsmChk, FsrChk and SlrChk for the three move and distance tables.
    Print Assumptions shows only the int63 and PArray primitives.
 
-   THE PHASE 1 CERTIFICATE COMES FROM THE FOLD.  Foldrun checks the 64 430
+   THE PHASE 1 CERTIFICATE COMES FROM THE FOLD.  FoldAtTable checks the 64 430
    orbit representatives; P1ChkAll's twenty seven slices checked all
    1 013 760 ranks and are no longer required by anything. *)
 Theorem superflip_p1far_real : superflip \notin ball Sset p1depth.

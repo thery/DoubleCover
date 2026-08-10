@@ -49,7 +49,7 @@ Fold.v
 P1TsChk.v
 Far.v
 Fsparity.v
-Foldtab.v
+FoldTables.v
 Sym16.v
 Farp1.v
 Farp1main.v
@@ -79,7 +79,7 @@ Runp1_14.v
 Runp1_15.v
 Runp1_16.v
 Runp1_17.v
-Foldchk.v
-Foldbr.v
-Foldinst.v
-Foldasm.v
+FoldStabiliser.v
+FoldRankCert.v
+FoldChecks.v
+FoldAssembly.v

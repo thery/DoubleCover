@@ -70,24 +70,24 @@ echo "compiling the glue"
 rocq compile -R . Rubik P1FTable.v
 rocq compile -R . Rubik P1RTable.v
 
-# Foldcert.v is the run: the twelve checks at the emitted tables.  It is NOT
+# FoldChecksRun.v is the run: the twelve checks at the emitted tables.  It is NOT
 # in _CoqProject -- it requires P1Fold and P1RTable, which do not exist until
 # the lines above have run, and coqdep would refuse the whole project.
-echo "running the twelve checks (Foldcert.v)"
-rocq compile -R . Rubik Foldcert.v
+echo "running the twelve checks (FoldChecksRun.v)"
+rocq compile -R . Rubik FoldChecksRun.v
 
 # The orbit certificate, cut into twenty seven slices of eighty one twists.
 # As one file it is a single process and the rank certificate it replaces
 # ran nine at a time, so the slices are what puts the wall time back.
 echo "generating the twenty seven slices"
-./mkfoldslc.sh
+./mkfoldorbit.sh
 echo "running the slices with $JOBS workers"
 for i in 00 01 02 03 04 05 06 07 08 09 10 11 12 13 \
-         14 15 16 17 18 19 20 21 22 23 24 25 26; do echo "Foldslc_$i"; done |
+         14 15 16 17 18 19 20 21 22 23 24 25 26; do echo "FoldOrbit_$i"; done |
   xargs -P "$JOBS" -I{} rocq compile -R . Rubik {}.v
 
 # and the fold at the table: the three slot equations, stabC, and the glue.
-# Out of _CoqProject for the same reason as Foldcert.
-echo "gluing them (Foldrun.v)"
-rocq compile -R . Rubik Foldrun.v
+# Out of _CoqProject for the same reason as FoldChecksRun.
+echo "gluing them (FoldAtTable.v)"
+rocq compile -R . Rubik FoldAtTable.v
 echo "done"
