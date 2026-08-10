@@ -49,21 +49,27 @@ fi
 # a 40 MB array literal overflows the default stack at parse time
 ulimit -s unlimited
 
+# NO NATIVE COMPILER ON THE TABLES.  In a native switch coqc also builds a
+# .cmx for every file, and for a 40 MB array literal that dwarfs the .vo.
+# Nothing here is ever native_computed -- Foldcert.v and the certificate are
+# vm_compute throughout -- so the .cmx would never be loaded.
+ROCQ="rocq compile -native-compiler no"
+
 echo "compiling P1Fold.v"
-rocq compile -R . Rubik P1Fold.v
+$ROCQ -R . Rubik P1Fold.v
 
 echo "compiling the eight chunks with $JOBS workers"
 { for i in 00 01 02 03 04; do echo "P1F_$i.v"; done
   for i in 00 01 02; do echo "P1R_$i.v"; done; } |
-  xargs -P "$JOBS" -I{} rocq compile -R . Rubik {}
+  xargs -P "$JOBS" -I{} $ROCQ -R . Rubik {}
 
 echo "compiling the glue"
-rocq compile -R . Rubik P1FTable.v
-rocq compile -R . Rubik P1RTable.v
+$ROCQ -R . Rubik P1FTable.v
+$ROCQ -R . Rubik P1RTable.v
 
 # Foldcert.v is the run: the twelve checks at the emitted tables.  It is NOT
 # in _CoqProject -- it requires P1Fold and P1RTable, which do not exist until
 # the lines above have run, and coqdep would refuse the whole project.
 echo "running the twelve checks (Foldcert.v)"
-rocq compile -R . Rubik Foldcert.v
+$ROCQ -R . Rubik Foldcert.v
 echo "done"
