@@ -7,6 +7,12 @@
 (*  computed at the emitted tables: the two big ones are ractA at             *)
 (*  2 ^ 20 x 256 and msymR at 2 ^ 20 x 18 x 16.                               *)
 (*                                                                            *)
+(*  native_cast_no_check, not "by vm_compute": the latter evaluates twice,    *)
+(*  once in the tactic and once when the kernel rechecks the cast at Qed.     *)
+(*  This evaluates once, and natively.  Every table it reads has to be        *)
+(*  natively precompiled first, the eight chunks included.  If the native     *)
+(*  compiler is not available, vm_cast_no_check (erefl true) is the fallback. *)
+(*                                                                            *)
 (*  `rocq compile -vos' checks the statements without running any of them.    *)
 (* =========================================================================  *)
 
@@ -25,30 +31,42 @@ Unset Printing Implicit Defensive.
 
 (* ---- the cheap ones ------------------------------------------------------ *)
 
-Lemma fsymLCP : fsymLC fsymi. Proof. by vm_compute. Qed.
+Lemma fsymLCP : fsymLC fsymi.
+Proof. Time native_cast_no_check (erefl true). Qed.
 
-Lemma smulCP : smulC. Proof. by vm_compute. Qed.
+Lemma smulCP : smulC.
+Proof. Time native_cast_no_check (erefl true). Qed.
 
-Lemma acttwiLCP : acttwiLC. Proof. by vm_compute. Qed.
+Lemma acttwiLCP : acttwiLC.
+Proof. Time native_cast_no_check (erefl true). Qed.
 
-Lemma twsymLCP : twsymLC twsymi. Proof. by vm_compute. Qed.
+Lemma twsymLCP : twsymLC twsymi.
+Proof. Time native_cast_no_check (erefl true). Qed.
 
-Lemma twsymACP : twsymAC twsymi. Proof. by vm_compute. Qed.
+Lemma twsymACP : twsymAC twsymi.
+Proof. Time native_cast_no_check (erefl true). Qed.
 
-Lemma msymTCP : msymTC twsymi. Proof. by vm_compute. Qed.
+Lemma msymTCP : msymTC twsymi.
+Proof. Time native_cast_no_check (erefl true). Qed.
 
 (* ---- the ones over the 2 ^ 20 ranks -------------------------------------- *)
 
-Lemma fsymECP : fsymEC ractab frepi fsymi repsi. Proof. by vm_compute. Qed.
+Lemma fsymECP : fsymEC ractab frepi fsymi repsi.
+Proof. Time native_cast_no_check (erefl true). Qed.
 
-Lemma ractLCP : ractLC ractab. Proof. by vm_compute. Qed.
+Lemma ractLCP : ractLC ractab.
+Proof. Time native_cast_no_check (erefl true). Qed.
 
-Lemma actrLCP : actrLC actfsr. Proof. by vm_compute. Qed.
+Lemma actrLCP : actrLC actfsr.
+Proof. Time native_cast_no_check (erefl true). Qed.
 
-Lemma frepSCP : frepSC ractab frepi. Proof. by vm_compute. Qed.
+Lemma frepSCP : frepSC ractab frepi.
+Proof. Time native_cast_no_check (erefl true). Qed.
 
 (* ---- and the two big ones ------------------------------------------------ *)
 
-Lemma ractACP : ractAC ractab. Proof. by vm_compute. Qed.
+Lemma ractACP : ractAC ractab.
+Proof. Time native_cast_no_check (erefl true). Qed.
 
-Lemma msymRCP : msymRC ractab actfsr. Proof. by vm_compute. Qed.
+Lemma msymRCP : msymRC ractab actfsr.
+Proof. Time native_cast_no_check (erefl true). Qed.
