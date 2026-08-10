@@ -16,8 +16,8 @@ From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
         Coordfs Coordfsi Fstab FsTable Diameter Moves
         Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 Far Farp1
-        Farp1main P1TsChk P1FTable Runp1 FsmChk FsrChk SlrChk P1Chk0
-        P1ChkAll.
+        Farp1main P1TsChk P1FTable Runp1 FsmChk FsrChk SlrChk
+        Foldrun.
 Require Import Runp1_00 Runp1_01 Runp1_02 Runp1_03 Runp1_04 Runp1_05.
 Require Import Runp1_06 Runp1_07 Runp1_08 Runp1_09 Runp1_10 Runp1_11.
 Require Import Runp1_12 Runp1_13 Runp1_14 Runp1_15 Runp1_16 Runp1_17.
@@ -74,15 +74,19 @@ Proof. by []. Qed.
    and slrCP are stated in Farp1.v and admitted there, and p1check0 and
    p1checkStep have to be run on the emitted table. *)
 (* NO HYPOTHESES.  Every one of the six computations has its own file and
-   its own Qed: P1Chk0 and P1ChkAll for the phase 1 table, P1TsChk for the
-   twist x slice one, FsmChk, FsrChk and SlrChk for the three move and
-   distance tables.  Print Assumptions shows only the int63 and PArray
-   primitives. *)
+   its own Qed: Foldrun for the phase 1 table, P1TsChk for the twist x slice
+   one, FsmChk, FsrChk and SlrChk for the three move and distance tables.
+   Print Assumptions shows only the int63 and PArray primitives.
+
+   THE PHASE 1 CERTIFICATE COMES FROM THE FOLD.  Foldrun checks the 64 430
+   orbit representatives; P1ChkAll's twenty seven slices checked all
+   1 013 760 ranks and are no longer required by anything. *)
 Theorem superflip_p1far_real : superflip \notin ball Sset p1depth.
 Proof.
 (* every argument pinned: closing a Section turns its Variables and
    Hypotheses into EXPLICIT arguments, in declaration order, so a partial
    application silently binds p1ftab to the wrong slot. *)
-exact: (@superflip_p1far p1ftab p1droot p1droot_small p1check0P p1checkStepP
+exact: (@superflip_p1far p1ftab p1droot p1droot_small p1check0P
+                         (p1checkStepr_ok fsmoveCP p1checkSteprP)
                          ts_checkStepP fsmoveCP fsrCP slrCP p1searchd).
 Qed.
