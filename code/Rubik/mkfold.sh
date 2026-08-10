@@ -26,11 +26,22 @@ for i in 00 01 02; do [ -f "P1R_$i.v" ] || need=1; done
 
 if [ "$need" = "1" ] || [ "${KEEP:-1}" = "0" ]; then
   echo "emitting the folded tables"
-  # p1gen is a build product, so a fresh clone has to make it first
-  [ -x bench/p1gen ] ||
+  # p1gen is a build product and gitignored, so it is either missing or
+  # whatever was built here last.  REBUILD IT IF THE SOURCE IS NEWER: an old
+  # binary emits the old set of files and the failure then looks like a
+  # missing P1Fold.v three lines further down.
+  if [ ! -x bench/p1gen ] || [ bench/p1gen.ml -nt bench/p1gen ] ||
+     [ bench/cubedata.ml -nt bench/p1gen ]; then
+    echo "building bench/p1gen"
     (cd bench && ocamlfind ocamlopt -package unix -linkpkg \
        cubedata.ml p1gen.ml -o p1gen)
+  fi
   (cd bench && ./p1gen 9 emitfold)
+  # say what is missing, rather than let rocq report a file it cannot find
+  for f in P1Fold.v P1FTable.v P1RTable.v; do
+    [ -f "$f" ] || { echo "p1gen did not write $f -- is bench/p1gen current?" >&2
+                     exit 1; }
+  done
 else
   echo "folded tables already emitted, skipping (KEEP=0 to redo)"
 fi
