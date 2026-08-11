@@ -109,9 +109,16 @@ test: fold
 TIMED_J    ?= 3
 TIMED_TGTS ?= all
 
-timed: fold
+# THE ORDER IS THE WHOLE POINT.  The emitted tables first, because nothing
+# in _CoqProject builds without them; then the project under the timer,
+# which is where P1Fsm.vo and its 25 GB ocamlopt are; then the fold's own
+# certificates.  Letting mkfold.sh run whole first would build P1Fsm.vo
+# itself, through FoldChecks -> Farp1, and the table would not have it.
+timed:
 	./mkrunp1.sh $(DEPTH)
+	PHASE=tables ./mkfold.sh $(P1_J) 2
 	ulimit -s unlimited; $(MAKE) -j$(TIMED_J) pretty-timed TGTS="$(TIMED_TGTS)"
+	./mkfold.sh $(P1_J) 2
 	@echo "the in-project files: time-of-build-pretty.log"
 	@echo "the fold's:           fold-timing.log"
 

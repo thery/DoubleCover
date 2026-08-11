@@ -139,6 +139,16 @@ build P1RTable
 # _CoqProject, so make knows their order; MAKEFLAGS is cleared because this
 # script is itself called from a recipe and would otherwise look for the
 # parent's jobserver.
+# PHASE=tables stops here, with the emitted tables built and nothing else.
+# It is what `make timed' wants: everything past this line drags the whole
+# project in through FoldChecks -> Farp1 -> P1Fsm, and a file built here is
+# a file the timing table never sees.  Run the script again with no PHASE to
+# finish; the part above is then a no-op.
+if [ "${PHASE:-all}" = tables ]; then
+  echo "PHASE=tables: the emitted tables are built, stopping"
+  exit 0
+fi
+
 echo "the fold's in-project files"
 MAKEFLAGS= make -j"$JOBS" FoldTables.vo FoldStabiliser.vo FoldRankCert.vo \
                           FoldChecks.vo FoldAssembly.vo
