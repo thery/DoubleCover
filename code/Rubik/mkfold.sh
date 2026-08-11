@@ -54,18 +54,55 @@ fi
 # a 40 MB array literal overflows the default stack at parse time
 ulimit -s unlimited
 
-echo "compiling P1Fold.v"
-rocq compile -R . Rubik P1Fold.v
+# ---- what still has to be built ------------------------------------------
+# These files are OUT of _CoqProject, so coqdep never sees them and make
+# cannot tell what is current.  Without the test below every run of this
+# script redid the lot -- the twelve checks alone are the better part of an
+# hour -- on a tree where nothing had changed.
+#
+# A target is stale when its .vo is missing, older than its own source, or
+# older than the .vo of anything that source requires.  The requires are read
+# off the file, so nothing here has to be kept in step by hand.
+prereqs () {   # the .vo of every in-project file that $1 requires
+  awk '/Require/, /\.[ \t]*$/ {
+         gsub(/^From +[A-Za-z]+ +/, ""); gsub(/Require|Import|Export/, "");
+         gsub(/-\(notations\)/, ""); gsub(/\./, " "); print }' "$1" |
+  tr ' \t' '\n\n' | grep -v '^$' | sort -u |
+  while read m; do [ -f "$m.v" ] && echo "$m.vo"; done
+}
+
+stale () {     # stale <base>: does <base>.vo have to be rebuilt?
+  if [ ! -f "$1.vo" ]; then return 0; fi
+  if [ "$1.v" -nt "$1.vo" ]; then return 0; fi
+  for p in $(prereqs "$1.v"); do
+    if [ -f "$p" ] && [ "$p" -nt "$1.vo" ]; then return 0; fi
+  done
+  return 1
+}
+
+build () {     # build <base> [extra rocq flags]
+  b=$1; shift
+  if stale "$b"; then
+    echo "compiling $b.v"
+    ./rocqtime.sh "$b" "$@"
+  else
+    echo "$b.vo is current"
+  fi
+}
+
+build P1Fold
 
 chunks() { for i in 00 01 02 03 04; do echo "P1F_$i"; done
             for i in 00 01 02; do echo "P1R_$i"; done; }
 
-# the chunks depend on P1Fold.v alone, so keep them when they are current
-if [ -n "$(find P1F_00.vo -newer P1Fold.v 2>/dev/null)" ]; then
-  echo "chunks are current, skipping"
+# the `|| :' matters under set -e: the assignment takes the status of the
+# loop, and a loop whose last chunk was current ends on a false
+todo=$(chunks | while read b; do if stale "$b"; then echo "$b"; fi; done) || :
+if [ -z "$todo" ]; then
+  echo "the eight chunks are current"
 else
-  echo "compiling the eight chunks with $JOBS workers"
-chunks | xargs -P "$JOBS" -I{} rocq compile -native-compiler no -R . Rubik {}.v
+  echo "compiling $(echo "$todo" | wc -w) of the eight chunks with $JOBS workers"
+  echo "$todo" | xargs -P "$JOBS" -I{} ./rocqtime.sh {} -native-compiler no
 fi
 
 # always: a missing .cmxs is what makes the glue fail, and it is cheap to
@@ -74,28 +111,31 @@ fi
 echo "precompiling native with $NJOBS workers"
 chunks | xargs -P "$NJOBS" -I{} rocq native-precompile -R . Rubik {}.vo
 
-echo "compiling the glue"
-rocq compile -R . Rubik P1FTable.v
-rocq compile -R . Rubik P1RTable.v
+build P1FTable
+build P1RTable
 
 # FoldChecksRun.v is the run: the twelve checks at the emitted tables.  It is NOT
 # in _CoqProject -- it requires P1Fold and P1RTable, which do not exist until
 # the lines above have run, and coqdep would refuse the whole project.
-echo "running the twelve checks (FoldChecksRun.v)"
-rocq compile -R . Rubik FoldChecksRun.v
+echo "the twelve checks (FoldChecksRun.v), 40 to 60 min when they do run"
+build FoldChecksRun
 
 # The orbit certificate, cut into twenty seven slices of eighty one twists.
 # As one file it is a single process and the rank certificate it replaces
 # ran nine at a time, so the slices are what puts the wall time back.
 echo "generating the twenty seven slices"
 ./mkfoldorbit.sh
-echo "running the slices with $JOBS workers"
-for i in 00 01 02 03 04 05 06 07 08 09 10 11 12 13 \
-         14 15 16 17 18 19 20 21 22 23 24 25 26; do echo "FoldOrbit_$i"; done |
-  xargs -P "$JOBS" -I{} rocq compile -R . Rubik {}.v
+todo=$(for i in 00 01 02 03 04 05 06 07 08 09 10 11 12 13 \
+                14 15 16 17 18 19 20 21 22 23 24 25 26; do
+         if stale "FoldOrbit_$i"; then echo "FoldOrbit_$i"; fi; done) || :
+if [ -z "$todo" ]; then
+  echo "the twenty seven certificates are current"
+else
+  echo "running $(echo "$todo" | wc -w) of them with $JOBS workers"
+  echo "$todo" | xargs -P "$JOBS" -I{} ./rocqtime.sh {}
+fi
 
 # and the fold at the table: the three slot equations, stabC, and the glue.
 # Out of _CoqProject for the same reason as FoldChecksRun.
-echo "gluing them (FoldAtTable.v)"
-rocq compile -R . Rubik FoldAtTable.v
+build FoldAtTable
 echo "done"
