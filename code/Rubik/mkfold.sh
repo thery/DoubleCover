@@ -31,6 +31,17 @@ for i in 00 01 02; do [ -f "P1R_$i.v" ] || need=1; done
 
 if [ "$need" = "1" ] || [ "${KEEP:-1}" = "0" ]; then
   echo "emitting the folded tables"
+  # p1gen rewrites EVERY file it emits and this script calls it as soon as
+  # ONE of them is missing.  So remember what is here: a file that comes back
+  # byte for byte the same gets its old timestamp put back, or its .vo -- and
+  # the eight chunks and twelve checks under it -- would be redone for
+  # nothing.
+  stamp=$(mktemp)
+  for f in P1Fold.v P1FTable.v P1RTable.v P1F_[0-9][0-9].v P1R_[0-9][0-9].v; do
+    if [ -f "$f" ]; then
+      echo "$(md5sum "$f" | cut -d' ' -f1) $(date -r "$f" +%s) $f"
+    fi
+  done > "$stamp"
   # p1gen is a build product and gitignored, so it is either missing or
   # whatever was built here last.  REBUILD IT IF THE SOURCE IS NEWER: an old
   # binary emits the old set of files and the failure then looks like a
@@ -47,6 +58,15 @@ if [ "$need" = "1" ] || [ "${KEEP:-1}" = "0" ]; then
     [ -f "$f" ] || { echo "p1gen did not write $f -- is bench/p1gen current?" >&2
                      exit 1; }
   done
+  kept=0
+  while read -r m t f; do
+    if [ -f "$f" ] && [ "$(md5sum "$f" | cut -d' ' -f1)" = "$m" ]; then
+      touch -d "@$t" "$f"
+      kept=$((kept + 1))
+    fi
+  done < "$stamp"
+  rm -f "$stamp"
+  echo "  $kept emitted file(s) came back unchanged and kept their date"
 else
   echo "folded tables already emitted, skipping (KEEP=0 to redo)"
 fi
