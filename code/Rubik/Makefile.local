@@ -75,9 +75,11 @@ DEPTH ?= 16
 
 .PHONY: p1run p1jobs test fold timed
 
-# the in-project half of the fold is make's; mkfold.sh only does the part
-# that needs the emitted tables
-fold: Fold.vo FoldTables.vo FoldStabiliser.vo FoldChecks.vo FoldAssembly.vo
+# NO PREREQUISITES.  FoldTables.v requires P1Fold, which does not exist until
+# mkfold.sh has emitted it, so make cannot build any of the in-project fold
+# files first -- it stops with "Unable to locate library P1Fold".  The script
+# builds them itself, in the middle, once the tables are there.
+fold:
 	./mkfold.sh $(P1_J) 2
 
 test: fold

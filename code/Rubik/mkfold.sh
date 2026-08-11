@@ -114,6 +114,15 @@ chunks | xargs -P "$NJOBS" -I{} rocq native-precompile -R . Rubik {}.vo
 build P1FTable
 build P1RTable
 
+# The in-project half, and only now: FoldTables.v requires P1Fold, so none of
+# these can be built before the lines above have run.  They ARE in
+# _CoqProject, so make knows their order; MAKEFLAGS is cleared because this
+# script is itself called from a recipe and would otherwise look for the
+# parent's jobserver.
+echo "the fold's in-project files"
+MAKEFLAGS= make -j"$JOBS" FoldTables.vo FoldStabiliser.vo FoldRankCert.vo \
+                          FoldChecks.vo FoldAssembly.vo
+
 # FoldChecksRun.v is the run: the twelve checks at the emitted tables.  It is NOT
 # in _CoqProject -- it requires P1Fold and P1RTable, which do not exist until
 # the lines above have run, and coqdep would refuse the whole project.
