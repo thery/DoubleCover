@@ -96,9 +96,20 @@ test: fold
 #
 # The fold's files are out of _CoqProject and coq_makefile cannot see them.
 # They time themselves through ./rocqtime.sh, into fold-timing.log.
+#
+# TIMED_J is separate from the build's job count on purpose: a per file time
+# taken with nine of them competing for memory bandwidth is not the file's
+# cost.  Three is the honest number, and the run is longer for it.
+#
+# TIMED_TGTS=all covers everything in _CoqProject.  Farp1inst.vo, which is
+# most of it -- the eighteen searches, the three checks, P1TsChk -- leaves
+# out the sixteen Fs_?? slices, Fsmain, Fast, FastP and Toy.
+TIMED_J    ?= 3
+TIMED_TGTS ?= all
+
 timed: fold
 	./mkrunp1.sh $(DEPTH)
-	ulimit -s unlimited; $(MAKE) -j$(P1_J) pretty-timed TGTS="Farp1inst.vo"
+	ulimit -s unlimited; $(MAKE) -j$(TIMED_J) pretty-timed TGTS="$(TIMED_TGTS)"
 	@echo "the in-project files: time-of-build-pretty.log"
 	@echo "the fold's:           fold-timing.log"
 
