@@ -114,5 +114,5 @@ Lemma p1checkSteprP : p1checkStepr p1ftab.
 Proof.
 exact: (FoldAssembly.p1checkSteprP frepE fsymE twsymE (@frepL)
           fsymLCP smulCP fsymECP ractLCP actrLCP frepSCP ractACP msymRCP
-          twsymLCP acttwiLCP twsymACP msymTCP stabEP foldcheckStepP).
+          twsymLCP acttwiLCP twsymACP msymTCP msymiCP stabEP foldcheckStepP).
 Qed.

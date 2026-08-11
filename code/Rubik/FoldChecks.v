@@ -46,6 +46,13 @@ Definition allsym (f : int -> bool) : bool := all f sym16i.
 
 Definition allmv (f : nat -> bool) : bool := all f (iota 0 18).
 
+(* and the eighteen moves as int63 values, for the same reason: a loop that
+   reads them as `of_nat k' cannot be instantiated at an int k. *)
+Definition mv18i : seq int :=
+  Eval vm_compute in [seq of_nat i | i <- iota 0 18].
+
+Definition allmvi (f : int -> bool) : bool := all f mv18i.
+
 (* the rank loop: 2 ^ 20 values with the ones past nfsi guarded out.  This is
    FoldTables.frepL's proof, said once. *)
 Lemma rank_of_check (f : int -> bool) :
@@ -96,6 +103,16 @@ Proof.
 by rewrite /allmv => hchk k kL; apply: (allP hchk); rewrite mem_iota add0n leq0n kL.
 Qed.
 
+Lemma mv18i_mem k : (k < 18)%N -> of_nat k \in mv18i.
+Proof.
+move=> kL; have -> : mv18i = [seq of_nat i | i <- iota 0 18] by vm_compute.
+by apply: map_f; rewrite mem_iota add0n leq0n kL.
+Qed.
+
+Lemma movei_of_check (f : int -> bool) :
+  allmvi f -> forall k, (k < 18)%N -> f (of_nat k).
+Proof. by rewrite /allmvi => hchk k kL; apply: (allP hchk); exact: mv18i_mem. Qed.
+
 (* =========================================================================  *)
 (*  2.  The data                                                              *)
 (* =========================================================================  *)
@@ -110,6 +127,12 @@ Variable ractab : PArray.array arr.
 (* the move on ranks is Farp1's actfsr.  A VARIABLE here: requiring Farp1
    pulls P1Fs and P1Fsm, and with them the session open goes past the cap. *)
 Variable actr : int -> nat -> int.
+
+(* AND THE SAME MOVE AT AN INT63 INDEX, which is Farp1's actfsri -- actfsr
+   is that one after of_nat.  The checks below are stated over this form so
+   their loops never leave int63; the theory above keeps the nat one. *)
+Variable actri : int -> int -> int.
+Hypothesis actriE : forall r k, actri r (of_nat k) = actr r k.
 
 (* and the four folding tables, FoldTables.v's frepi, fsymi, twsymi and repsi.
    VARIABLES for the same reason: nothing below computes with them. *)
@@ -148,6 +171,39 @@ Definition smuli (s t : int) : int :=
 (* the move a symmetry turns a move into, Sym16's relabelling read at an
    int63 symmetry index *)
 Definition msymi (k : nat) (s : int) : nat := symmove (to_nat s) k.
+
+(* THE SAME RELABELLING AS 288 INT63 ENTRIES, entry s * 18 + k.  symmove is
+   two nth walks over a seq of seqs, after a to_nat, and msymRC ran it on
+   every one of its 302 million iterations: MEASURED 1.56 us a value against
+   ractAC's 254 ns for the same loop shape over the int63 smula.  This is
+   smult/smula one definition over. *)
+Definition nmvi : int := 18%uint63.                 (* the eighteen moves *)
+
+Definition msymt : seq nat :=
+  Eval vm_compute in [seq symmove s k | s <- iota 0 16, k <- iota 0 18].
+
+Definition msyma : arr :=
+  Eval vm_compute in mkarr 288%uint63 0%uint63 [seq of_nat i | i <- msymt].
+
+Definition msymii (k s : int) : int :=
+  PArray.get msyma (Uint63.add (Uint63.mul s nmvi) k).
+
+(* that the table is the relabelling.  288 values, so it costs nothing. *)
+Definition msymiC : bool :=
+  allsym (fun s => allmvi (fun k =>
+    (msymii k s =? of_nat (msymi (to_nat k) s))%uint63)).
+
+Hypothesis msymiCP : msymiC.
+
+(* so the table may be read as the relabelling, at a nat move index *)
+Lemma msymiiE k s : (k < 18)%N -> (to_nat s < nsym)%N ->
+  msymii (of_nat k) s = of_nat (msymi k s).
+Proof.
+move=> kL sL; apply/eqb_correct.
+have kW : (k < nwB)%N.
+  by apply: leq_trans kL _; apply: leq_trans (ltnW ndigitsLwB); vm_compute.
+by have := movei_of_check (sym_of_check msymiCP sL) kL; rewrite (of_natK k kW).
+Qed.
 
 (* THE CHECKS ARE HYPOTHESES HERE.  Running them needs the emitted tables and
    a good half hour; everything below only needs to KNOW they hold, so it is
@@ -303,14 +359,14 @@ Qed.
 (* ---- the symmetries permute the moves, on ranks -------------------------- *)
 
 Definition msymRC : bool :=
-  allrank (fun r => allsym (fun s => allmv (fun k =>
-    (actr (racti r s) (msymi k s) =? racti (actr r k) s)%uint63))).
+  allrank (fun r => allsym (fun s => allmvi (fun k =>
+    (actri (racti r s) (msymii k s) =? racti (actri r k) s)%uint63))).
 
 Hypothesis msymRCP : msymRC.
 
 Lemma msymRCE : msymRC =
-  allrank (fun r => allsym (fun s => allmv (fun k =>
-    (actr (racti r s) (msymi k s) =? racti (actr r k) s)%uint63))).
+  allrank (fun r => allsym (fun s => allmvi (fun k =>
+    (actri (racti r s) (msymii k s) =? racti (actri r k) s)%uint63))).
 Proof. by []. Qed.
 
 Lemma msymRn r k s : (r <? nfsi)%uint63 -> (k < 18)%N ->
@@ -318,7 +374,8 @@ Lemma msymRn r k s : (r <? nfsi)%uint63 -> (k < 18)%N ->
 Proof.
 move=> hr kL sL; have h := msymRCP; rewrite msymRCE in h.
 apply/eqb_correct.
-by have := move_of_check (sym_of_check (rank_of_check h hr) sL) kL.
+have := movei_of_check (sym_of_check (rank_of_check h hr) sL) kL.
+by rewrite (msymiiE kL sL) !actriE.
 Qed.
 
 (* ---- the twist half ------------------------------------------------------ *)

@@ -45,11 +45,16 @@ Hypothesis ractLCP : ractLC ractab.
 Hypothesis actrLCP : actrLC actfsr.
 Hypothesis frepSCP : frepSC ractab frepi.
 Hypothesis ractACP : ractAC ractab.
-Hypothesis msymRCP : msymRC ractab actfsr.
+Hypothesis msymRCP : msymRC ractab actfsri.
 Hypothesis twsymLCP : twsymLC twsymi.
 Hypothesis acttwiLCP : acttwiLC.
 Hypothesis twsymACP : twsymAC twsymi.
 Hypothesis msymTCP : msymTC twsymi.
+
+(* and that the 288 entry msym table IS Sym16's relabelling.  msymRC is
+   stated over the table so its loop stays in int63; this is what ties the
+   two together, and it costs 288 values to run. *)
+Hypothesis msymiCP : msymiC.
 
 (* the stabiliser fact, which FoldStabiliser.stabE_of_check supplies from stabC *)
 Hypothesis stabEP : forall tw r u, (to_nat tw < ntwist)%N ->
@@ -75,7 +80,8 @@ exact: (Dfoldi_step_of_check (fsymEn fsymECP) (fsymLn fsymLCP)
           (frepSn frepSCP) (rrepSn repsi frepSCP) (@repsEn frepi repsi)
           frepLP (twsymLn twsymLCP) (ractLn ractLCP) (actrLn actrLCP)
           (twsymAn twsymACP) (ractAn ractACP) (smulLn smulCP) stabEP
-          (acttwiLn acttwiLCP) (@msymLn) (msymTn msymTCP) (msymRn msymRCP)
+          (acttwiLn acttwiLCP) (@msymLn) (msymTn msymTCP)
+          (msymRn (actri := actfsri) actfsriE msymiCP msymRCP)
           foldcheckStepP twL rL kL).
 Qed.
 
