@@ -111,15 +111,9 @@ TIMED_TGTS ?= all
 
 timed: fold
 	./mkrunp1.sh $(DEPTH)
-	@ls *.vo 2>/dev/null | wc -l > .timed-before; date +%s >> .timed-before
 	ulimit -s unlimited; $(MAKE) -j$(TIMED_J) pretty-timed TGTS="$(TIMED_TGTS)"
-	@set -- $$(cat .timed-before); rm -f .timed-before; \
-	 echo "the in-project files: time-of-build-pretty.log"; \
-	 echo "the fold's:           fold-timing.log"; \
-	 echo ""; \
-	 echo "THE TABLE TOTAL IS NOT THIS RUN'S TIME.  A file is timed only"; \
-	 echo "if this make built it, and $$1 .vo were already there when it"; \
-	 echo "started.  This run took $$(( ($$(date +%s) - $$2) / 60 )) min of wall."
+	@echo "the in-project files: time-of-build-pretty.log"
+	@echo "the fold's:           fold-timing.log"
 
 p1jobs:
 	@echo "$(P1_MEMGB) GB of RAM, $(P1_NCPU) cpus, $(P1_RESERVE_GB) GB reserved"
