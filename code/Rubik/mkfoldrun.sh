@@ -1,6 +1,6 @@
 #!/bin/sh
 # =========================================================================
-#  Write the twelve checks as twelve files, FoldRun_00.v .. FoldRun_11.v.
+#  Write the thirteen checks as thirteen files, FoldRun_00.v .. FoldRun_12.v.
 #
 #  They are independent lemmas over the emitted tables, so one file each
 #  makes the wall time the largest of them instead of their sum -- as one
@@ -9,14 +9,14 @@
 #  ORDERED BY COST, dearest first: xargs starts them in this order, and the
 #  last one to start is the one that sets the makespan.
 #
-#  FoldChecksRun.v re-exports the twelve, so what requires it sees no change.
+#  FoldChecksRun.v re-exports them, so what requires it sees no change.
 # =========================================================================
 cd "$(dirname "$0")"
 
 # name : statement
 set -- \
   "ractACP:ractAC ractab" \
-  "msymRCP:msymRC ractab actfsr" \
+  "msymRCP:msymRC ractab actfsri" \
   "fsymECP:fsymEC ractab frepi fsymi repsi" \
   "ractLCP:ractLC ractab" \
   "actrLCP:actrLC actfsr" \
@@ -26,7 +26,8 @@ set -- \
   "acttwiLCP:acttwiLC" \
   "twsymLCP:twsymLC twsymi" \
   "twsymACP:twsymAC twsymi" \
-  "msymTCP:msymTC twsymi"
+  "msymTCP:msymTC twsymi" \
+  "msymiCP:msymiC"
 
 bar='(* =========================================================================  *)'
 
@@ -67,5 +68,5 @@ for e in "$@"; do
   fi
 done
 
-if [ "$changed" = 0 ]; then echo "  the twelve check files are current"
-else echo "  wrote $changed of the twelve check files"; fi
+if [ "$changed" = 0 ]; then echo "  the thirteen check files are current"
+else echo "  wrote $changed of the thirteen check files"; fi
