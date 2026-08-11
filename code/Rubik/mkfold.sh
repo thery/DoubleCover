@@ -60,11 +60,16 @@ rocq compile -R . Rubik P1Fold.v
 chunks() { for i in 00 01 02 03 04; do echo "P1F_$i"; done
             for i in 00 01 02; do echo "P1R_$i"; done; }
 
+# the chunks depend on P1Fold.v alone, so keep them when they are current
+if [ -n "$(find P1F_00.vo -newer P1Fold.v 2>/dev/null)" ]; then
+  echo "chunks are current, skipping"
+else
 echo "compiling the eight chunks with $JOBS workers"
 chunks | xargs -P "$JOBS" -I{} rocq compile -native-compiler no -R . Rubik {}.v
 
 echo "precompiling native with $NJOBS workers"
 chunks | xargs -P "$NJOBS" -I{} rocq native-precompile -R . Rubik {}.vo
+fi
 
 echo "compiling the glue"
 rocq compile -R . Rubik P1FTable.v

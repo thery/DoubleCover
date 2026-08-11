@@ -79,7 +79,7 @@ fold:
 	./mkfold.sh $(P1_J) 2
 
 test:
-	@[ -f FoldAtTable.vo ] || $(MAKE) fold
+	@[ -f FoldAtTable.vo ] && [ ! Phase1.vo -nt FoldAtTable.vo ] || $(MAKE) fold
 	./mkrunp1.sh $(DEPTH)
 	ulimit -s unlimited; $(MAKE) -j$(P1_J) Farp1inst.vo
 
