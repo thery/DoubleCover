@@ -223,6 +223,10 @@ Qed.
 (*  is where the fold pays.  The loop is an all_pow over 2 ^ 17 orbit indices *)
 (*  with the ones past norbi guarded out, and an all over the twists so that  *)
 (*  of_nat is paid once per twist rather than once per state.                 *)
+(*                                                                            *)
+(*  THE GUARD IS AN `if', NOT AN `||'.  orb is a function call and native     *)
+(*  evaluates both its arguments, so `norbi <=? i || foldstepF tw i' ran the  *)
+(*  body on all 2 ^ 17 indices instead of the 64 430 admitted.                *)
 (* =========================================================================  *)
 
 Definition foldstepF (tw i : int) : bool :=
@@ -232,7 +236,7 @@ Definition foldstepF (tw i : int) : bool :=
 
 Definition foldcheckOrb (tw : int) : bool :=
   all_pow norblog 0%uint63
-    (fun i => (norbi <=? i)%uint63 || foldstepF tw i).
+    (fun i => if (norbi <=? i)%uint63 then true else foldstepF tw i).
 
 Definition foldcheckStep : bool :=
   all (fun t => foldcheckOrb (of_nat t)) (iota 0 ntwist).
@@ -242,7 +246,7 @@ Definition foldcheckStep : bool :=
 Lemma foldcheckOrbE tw :
   foldcheckOrb tw =
   all_pow norblog 0%uint63
-    (fun i => (norbi <=? i)%uint63 || foldstepF tw i).
+    (fun i => if (norbi <=? i)%uint63 then true else foldstepF tw i).
 Proof. by rewrite /foldcheckOrb. Qed.
 
 Definition foldcheck0 : bool :=
@@ -274,7 +278,7 @@ have htw : foldcheckOrb tw.
 rewrite foldcheckOrbE in htw.
 have hi : (to_nat i < 2 ^ norblog)%N.
   by apply: leq_trans (ltnW norbi_dig); apply/nltbP.
-by have := all_powP norblog_dig htw hi; rewrite (norbi_guard iL) orFb.
+by have := all_powP norblog_dig htw hi; rewrite (norbi_guard iL).
 Qed.
 
 (* and the k-th move out of the instance *)
