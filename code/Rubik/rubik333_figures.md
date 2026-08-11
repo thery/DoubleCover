@@ -306,7 +306,10 @@ to OCaml, and OCaml evaluates both arguments. So a guard written
 `~~ fsok x || A` runs `A` on all 2^24 values, where
 `if ~~ fsok x then true else A` runs it only on the 1 013 760 admitted.
 MEASURED: `SlrChk` (with `||`) 719.7 s against `FsmChk` (with `if`) ~80 s —
-9x, against 16.5x predicted. Fix parked on branch `rubik-orb-if`.
+9x, against 16.5x predicted. Fixed: every `fsok` guard in `Farp1.v` and
+`Phase1.v` is an `if` now. One is left, `Fold.v:235`, where the orbit guard
+`(norbi <=? i) || foldstepF tw i` still runs the body on all 2 ^ 17 indices
+instead of the 64 430 admitted.
 
 ### A P1Chk slice, after the guard fix
 
@@ -336,8 +339,10 @@ clock. Its slowest sentences, all over a second:
 | `Farp1chk.vo` | ~1m25 through `make` (builds the chain beneath it) |
 | the 71 chunks | JOBS=3, ~5 h wall as array literals |
 
-`Far_00.v .. Far_17.v` are in `_CoqProject` and each is a **65 hour** depth 15
-run of the old five view search. **Never run bare `make`.**
+`Far_00.v .. Far_17.v` are gone, deleted with the old five view search. What
+is in `_CoqProject` now is `Runp1_00.v .. Runp1_17.v`, one eighteenth of the
+phase 1 search each at whatever depth `./mkrunp1.sh` last set -- 1200 s of CPU
+a piece at n = 18, measured above. **Never run bare `make`.**
 
 ## Working interactively: use DUMMY tables (2026-08-05)
 
