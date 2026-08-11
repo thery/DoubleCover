@@ -156,9 +156,9 @@ MAKEFLAGS= make -j"$JOBS" FoldTables.vo FoldStabiliser.vo FoldRankCert.vo \
 # FoldChecksRun.v is the run: the twelve checks at the emitted tables.  It is NOT
 # in _CoqProject -- it requires P1Fold and P1RTable, which do not exist until
 # the lines above have run, and coqdep would refuse the whole project.
-echo "the thirteen checks, one file each"
+echo "the thirteen checks, in three files"
 ./mkfoldrun.sh
-todo=$(for i in 00 01 02 03 04 05 06 07 08 09 10 11 12; do
+todo=$(for i in 00 01 02; do
          if stale "FoldRun_$i"; then echo "FoldRun_$i"; fi; done) || :
 if [ -z "$todo" ]; then
   echo "the thirteen checks are current"
