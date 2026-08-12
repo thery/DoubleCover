@@ -6,10 +6,11 @@
 #show raw: set text(font: "DejaVu Sans Mono", size: 9pt)
 #show figure.caption: set text(size: 9pt)
 // Every drawing sits in a light frame.
-#show figure: it => align(center)[
-  #block(stroke: 0.4pt + luma(140), inset: 9pt, radius: 2pt, it.body)
+#show figure: it => block(width: 100%)[
+  #block(width: 100%, stroke: 0.4pt + luma(140), inset: 9pt, radius: 2pt,
+         align(center, it.body))
   #v(0.35em)
-  #it.caption
+  #align(center, it.caption)
 ]
 
 #import "@preview/cetz:0.3.4"
@@ -167,6 +168,39 @@
   face3dc(ft, rb, vmul(-1, w), right)
 }
 
+// A face whose nine stickers are marked by the kind of piece they sit on:
+// corner at the four corners, edge at the four sides, centre in the middle.
+#let cCor = rgb("#c9d6e8")
+#let cEdg = rgb("#eee2c8")
+#let cCen = luma(170)
+#let face3dt(o, a, b, centre) = {
+  import cetz.draw: *
+  for row in (0, 1, 2) {
+    for col in (0, 1, 2) {
+      let corner = (row != 1) and (col != 1)
+      let centred = row == 1 and col == 1
+      let p = vadd(vadd(o, vmul(col / 3, a)), vmul(row / 3, b))
+      let c = vadd(vadd(o, vmul((col + 0.5) / 3, a)), vmul((row + 0.5) / 3, b))
+      line(p, vadd(p, vmul(1 / 3, a)), vadd(vadd(p, vmul(1 / 3, a)), vmul(1 / 3, b)),
+           vadd(p, vmul(1 / 3, b)), close: true, stroke: 0.5pt,
+           fill: if centred { cCen } else if corner { cCor } else { cEdg })
+      content(c, text(size: 7.5pt, weight: if centred { "bold" } else { "regular" })[
+        #if centred { centre } else if corner { "c" } else { "e" }])
+    }
+  }
+  line(o, vadd(o, a), vadd(vadd(o, a), b), vadd(o, b), close: true, stroke: 0.8pt)
+}
+
+#let cube3dt(dx) = {
+  let w = (0, 1.8)
+  let rb = (1.55, 0.87)
+  let lb = (-1.55, 0.87)
+  let ft = vadd((dx, 0), w)
+  face3dt(vadd(vadd(ft, rb), lb), vmul(-1, lb), vmul(-1, rb), "U")
+  face3dt(vadd(ft, lb), vmul(-1, lb), vmul(-1, w), "F")
+  face3dt(ft, rb, vmul(-1, w), "R")
+}
+
 // The numbered cube: up, front and right, at a horizontal offset.
 #let cube3dn(dx, hi: ()) = {
   let w = (0, 1.95)
@@ -201,9 +235,6 @@
 #align(center)[
   #text(size: 17pt)[*God's number is at least 20:* \ *proving it in Rocq*]
 
-  #v(0.5em)
-  #text(size: 10pt)[A guide to the Rubik's cube development, for readers who do not read Rocq]
-
   #v(0.9em)
   #text(size: 11pt)[Laurent Théry]
 
@@ -217,21 +248,13 @@
   #set text(size: 9.8pt)
   #set par(justify: true)
   *Abstract.* God's number, the largest number of face turns needed to solve a
-  Rubik's cube, is twenty. This note describes a proof in the Rocq prover of
-  the lower half of that statement: one position, the superflip, cannot be
-  solved in nineteen moves. It presents the cube as a group of permutations of
-  its forty-eight stickers, the pruned search that establishes the bound, the
-  two conditions a pruning table must satisfy, and only those, so that a table
-  with two billion entries never has to be proved correct, and the work
-  needed to make a kernel run such a search at all: machine integers instead
-  of unary ones, guards that do not evaluate what they guard, a search proved
-  equal to a twelve times faster one, and a table folded by symmetry. The
-  final theorem is admit-free; the search behind it took 85 hours of processor
-  time.
+  Rubik's cube, is twenty. We describe a proof in the Rocq prover of the lower
+  half of that statement: one position, the superflip, cannot be solved in
+  nineteen moves. The search is pruned by a table of two billion entries that
+  is never proved correct, only checked.
 
   #v(0.4em)
-  *Keywords.* Rubik's cube, God's number, formal proof, Rocq, mathcomp,
-  pruning table, heuristic search.
+  *Keywords.* Rubik's cube, God's number, formal proof, Rocq, pruning table.
 ]]
 
 #v(0.6em)
@@ -244,6 +267,23 @@ pieces* with one. The centres are attached to the core. They spin in place but
 never travel, so they are the frame that everything else is measured against:
 the white face is wherever the white centre is. A face turn moves four corners
 and four edges, and nothing else.
+
+#figure(
+  cetz.canvas(length: 1cm, {
+    import cetz.draw: *
+    cube3dt(0)
+    let key(y, fill, label, body) = {
+      rect((3.1, y), (3.55, y - 0.45), fill: fill, stroke: 0.5pt)
+      content((3.325, y - 0.225), text(size: 7.5pt)[#label])
+      content((3.75, y - 0.225), text(size: 9pt)[#body], anchor: "west")
+    }
+    key(3.3, cCor, "c", [8 corner pieces, 3 stickers each])
+    key(2.6, cEdg, "e", [12 edge pieces, 2 stickers each])
+    key(1.9, cCen, "U", [6 centre pieces, 1 sticker, fixed])
+  }),
+  caption: [The three kinds of piece. Every face shows four corner stickers,
+    four edge stickers and one centre.],
+) <pieces>
 
 Not every arrangement of the pieces can be reached by turning faces. Those
 that can number
@@ -282,8 +322,12 @@ hard.
   scramble and show it cannot be solved in 19.
 
 This note is about the second half, and about one scramble: the *superflip*,
-the cube in which every corner is already correct and all twelve edges are
-flipped in place (@sflip). A 20-move solution for it is known. What has to be
+drawn in @sflip beside a solved cube. Every corner sticker is where it belongs,
+and every edge is in its own place but turned over, so it shows the colour of
+the face beside it. Turn the whole cube in your hands, or look at it in a
+mirror, and the same pattern comes back: the superflip is one of the rare
+positions that all 48 ways of looking at a cube leave unchanged, and that will
+matter later. A 20-move solution for it is known. What has to be
 proved is that no solution of 19 moves exists.
 
 #figure(
@@ -300,12 +344,7 @@ proved is that no solution of 19 moves exists.
       (cR, cW, cR, cG, cR, cB, cR, cY, cR))
     content((4.4, -0.45), text(size: 9pt)[the superflip])
   }),
-  caption: [The position the proof is about. Every corner sticker is where it
-    belongs; every edge cubie is in its right place but turned over, so it
-    shows the colour of the face beside it. Turn the whole cube in your
-    hands, or look at it in a mirror, and the same pattern comes back: the
-    superflip is one of the rare positions left unchanged by all 48 ways of
-    looking at a cube. That is what lets the search fix its first move.],
+  caption: [A solved cube, and the superflip.],
 ) <sflip>
 
 That is still a big computation. There are 18 possible moves at each step, so
@@ -324,7 +363,11 @@ The cube is easier to reason about if we stop thinking about it as a solid
 object. Only the coloured stickers matter. There are six faces of nine
 stickers, and the six centre stickers never move relative to each other, so a
 move is just a rearrangement of the *48 remaining stickers*. Number them 0 to
-47, as in @cube3d and @net.
+47, as in @cube3d and @net: eight to a face, taken left to right and top to
+bottom with the centre skipped, so up gets 0--7, left 8--15, front 16--23,
+right 24--31, back 32--39 and down 40--47. These are the numbers the sources
+use, which is what makes the definition of a move checkable against a
+picture.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -334,9 +377,7 @@ move is just a rearrangement of the *48 remaining stickers*. Number them 0 to
     bezier((-1.15, 3.75), (1.15, 3.75), (0, 4.55), mark: (end: ">"), stroke: 0.7pt)
     content((0, 4.75), text(size: 9pt)[the move $U$])
   }),
-  caption: [Three of the six faces, with the numbering the development uses.
-    Hidden behind them are the left face (8--15), the back (32--39) and the
-    bottom (40--47). The six centre stickers, marked with a letter, never move.],
+  caption: [Three of the six faces, and the turn of the top one.],
 ) <cube3d>
 
 #figure(
@@ -348,10 +389,7 @@ move is just a rearrangement of the *48 remaining stickers*. Number them 0 to
     flatface(9 * s, -3 * s, (32, 33, 34, 35, 36, 37, 38, 39), "B", tint: pB)
     flatface(3 * s, -6 * s, (40, 41, 42, 43, 44, 45, 46, 47), "D", tint: pY)
   }),
-  caption: [The cube unfolded. Each face is read left to right, top to bottom,
-    with its centre skipped: up 0--7, left 8--15, front 16--23, right 24--31,
-    back 32--39, down 40--47. These are the numbers the Rocq file uses, so the
-    definition of a move can be checked against this picture.],
+  caption: [The cube unfolded, with all forty-eight places numbered.],
 ) <net>
 
 With the places numbered, a move is written down by saying, for each place,
@@ -362,8 +400,11 @@ $(0 space 2 space 7 space 5)$. The four edge stickers of that face do the same,
 $(1 space 4 space 6 space 3)$. But the turn does not only move the top face:
 it also carries the top row of each side face round to the next one, front to
 left, left to back, back to right, right to front. That is three more cycles,
-$(8 space 32 space 24 space 16)$ and its two companions, and @uturn shows the
-whole of it.
+$(8 space 32 space 24 space 16)$ and its two companions. @uturn shows the whole
+of it, each square saying which sticker sits there afterwards: the top row of
+the left face holds 16, 17, 18, the stickers that came round from the front.
+The other forty stickers are untouched, and the six centres never move at
+all.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -376,12 +417,7 @@ whole of it.
             (16, 17, 18), (24, 25, 26), (32, 33, 34), (8, 9, 10))
     content((-0.75, -1.24 - 5.4 * s), text(size: 9pt)[after])
   }),
-  caption: [Everything a clockwise turn of the top face moves: the nine places
-    of that face, and the top row of the left, front, right and back faces
-    below it. Each square says which sticker sits there, so the top row of the
-    left face now holds 16, 17, 18, the stickers that came round from the
-    front. The other forty stickers are untouched, and the six centres never
-    move at all.],
+  caption: [Everything a clockwise turn of the top face moves.],
 ) <uturn>
 
 Six clockwise quarter turns generate everything: up, right, front, down, left
@@ -484,7 +520,10 @@ most one when a move is made. Call it $h$.
 Such an estimate is a pair of scissors. Walk down the tree of moves, keeping
 track of how many are left. If the estimate for a position is 20 while only 18
 moves remain, that whole branch can be dropped: it cannot possibly reach the
-solved cube in time. @tree shows the picture.
+solved cube in time. @tree shows the picture: below every position the table is
+consulted, and a branch whose estimate exceeds the moves still available is
+abandoned without ever being explored. The estimate is allowed to be too small,
+which only means less cutting; it is never allowed to be too large.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -508,10 +547,7 @@ solved cube in time. @tree shows the picture.
       tlbl(x, -2.65, [18 moves left])
     }
   }),
-  caption: [The search, and its scissors. Below every position the table is
-    consulted; a branch whose estimate exceeds the moves still available is
-    abandoned without ever being explored. The estimate is allowed to be too
-    small, which only means less cutting, but never too large.],
+  caption: [The search, and its scissors.],
 ) <tree>
 
 == Where the estimate comes from
@@ -524,9 +560,14 @@ summaries that a computer can work out, once and for all, the exact distance
 from the solved summary to every other summary. That table of distances is the
 estimate: a scramble needs at least as many moves as its summary does.
 
-And here is where the facelet numbering earns its keep: a summary is read
-straight off the stickers. @encoding shows the three questions the summary
-asks.
+And here is where the numbering of the stickers earns its keep: a summary is
+read straight off them. @encoding shows the three questions it asks. A corner
+has one sticker belonging to the up or down face, and that sticker sits in one
+of three places, which is 0, 1 or 2. An edge is either the right way round or
+turned over, which is 0 or 1. And the four edges of the middle layer occupy
+four of the twelve edge slots; the figure shades them on the two visible faces,
+where three of the four can be seen. Nothing else about the position is
+recorded.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -546,12 +587,7 @@ asks.
     content((3.4, 4.5), text(size: 9pt)[*the middle layer*: which four slots?])
     cube3dn(3.4, hi: (19, 20, 27, 28))
   }),
-  caption: [The three questions. A corner has one sticker belonging to the up
-    or down face, and it sits in one of three places: 0, 1 or 2. An edge is
-    either the right way round or turned over: 0 or 1. And the four edges of
-    the middle layer occupy four of the twelve edge slots, shaded here on the
-    two visible faces, where three of the four can be seen. Nothing else
-    about the position is recorded.],
+  caption: [The three questions a summary asks.],
 ) <encoding>
 
 The summary is the product of the three answers:
@@ -945,6 +981,24 @@ exactly what an exhaustive search would have to supply: that the 55.9 million
 families cover every case up to symmetry, and that each of them is solvable in
 20 moves. That computation is several orders of magnitude larger than the one
 this note describes.
+
+= Acknowledgements
+
+This development was written with *Claude*, Anthropic's coding assistant, as a
+working partner. The Rocq sources, the OCaml programs they are checked against
+and this note were produced in three weeks, between 23 July and 12 August 2026,
+and 267 of the 268 commits touching `code/Rubik` record Claude as a co-author.
+The division of labour was the natural one: I said what was to be proved, chose
+what to formalise and what to throw away, and rejected what was wrong; Claude
+wrote and rewrote the proofs and the generators, ran the experiments and
+measured them.
+
+What makes such a collaboration workable is that almost nothing has to be taken
+on trust. Every claim about the cube ends in the Rocq kernel, which does not
+care who wrote the proof, and the tables are checked rather than believed. What
+does have to be watched is everything outside that: the numbers, the claims
+about what was measured and what was only estimated, and the statement of the
+final theorem itself, since a theorem can be true and say less than one thinks.
 
 #pagebreak(weak: true)
 
