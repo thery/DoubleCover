@@ -125,11 +125,21 @@ else
   echo "$todo" | xargs -P "$JOBS" -I{} ./rocqtime.sh {} -native-compiler no
 fi
 
-# always: a missing .cmxs is what makes the glue fail, and it is cheap to
-# re-check because rocq skips the ones that are current
-
-echo "precompiling native with $NJOBS workers"
-chunks | xargs -P "$NJOBS" -I{} rocq native-precompile -R . Rubik {}.vo
+# A missing .cmxs is what makes the glue fail, so this has to happen -- but
+# it is NOT cheap and rocq does NOT skip the ones that are current: ~6 min a
+# chunk, MEASURED on roquableu, which at two at a time is ~24 min, more than
+# everything else in the fold together.  So the test is here: a .cmxs newer
+# than its .vo is done.
+todo=$(chunks | while read b; do
+         if [ ! -f ".coq-native/NRubik_$b.cmxs" ] ||
+            [ "$b.vo" -nt ".coq-native/NRubik_$b.cmxs" ]; then echo "$b"; fi
+       done) || :
+if [ -z "$todo" ]; then
+  echo "the eight .cmxs are current"
+else
+  echo "precompiling $(echo "$todo" | wc -w) .cmxs with $NJOBS workers, ~6 min each"
+  echo "$todo" | xargs -P "$NJOBS" -I{} ./rocqtime.sh --native {}
+fi
 
 build P1FTable
 build P1RTable
