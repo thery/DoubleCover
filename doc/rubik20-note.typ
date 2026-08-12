@@ -261,8 +261,7 @@ Three details of the pieces will matter later, and they are worth naming now.
 Every corner carries exactly one sticker of the top or bottom colour, and that
 sticker sits either on the top of the corner or on one of its two sides: which
 of the three is the corner's *twist*. Every edge has a right way round, and can
-sit in its slot *turned over*, showing its two colours the other way about.
-That is what the superflip does, to all twelve edges at once. And the four edges
+sit in its slot *turned over*, showing its two colours the other way about. And the four edges
 lying in the *middle layer*, the slice between the top and bottom faces,
 occupy four of the twelve edge slots; which four is the third thing to keep
 track of.
@@ -711,47 +710,97 @@ Two otherwise identical certificates, one of each shape: *719.7 s against about
 80 s*. The same mistake in the search cost a further factor of 27.8 on one
 guard. Every guard in the development is a nested `if` now.
 
-*The search itself, twelve times faster.* `Fast.v` contains a chain of seven
-versions of the same search, each proved equal to the one before, so no trust
-is transferred. Measured on one piece at depth 14:
+*The search itself, twelve times faster.* Before the list of changes, here is
+what the search of #src("Farp1.v") actually carries at each position, since
+none of them make sense otherwise. Four things:
+
+- `a`, the position itself as a 48-entry array saying where each sticker went.
+  It is used for one purpose only, to ask "is this the solved cube?", and a
+  fresh one is built for each child by composing `a` with the move's own array.
+- `x`, the three views: for each of the three, the pair of numbers that is its
+  summary, the corner twist and the flip-and-slice index. A move takes each
+  pair to another pair by two lookups in a move table.
+- `p`, which face was turned last, from which the list of moves worth trying
+  next is read off.
+- `d`, how many moves are left.
+
+The estimate is the largest of *nine* lookups: three tables, at each of the
+three views. Now the chain of seven versions in #src("Fast.v"), each proved
+equal to the one before, so that no trust is transferred. Measured on one piece
+at depth 14:
 
 #tbl(([version], [seconds], [what it removes]),
   ([the original], [70.0], []),
-  ([2], [39.1], [library numbers out of the inner loop]),
-  ([3], [16.5], [consult the table before rebuilding anything]),
-  ([4], [13.4], [stop comparing two tables at the first difference]),
-  ([5], [9.7], [stop consulting the nine tables once one settles it]),
-  ([6], [8.0], [compute the three views one at a time]),
-  ([7], [*5.9*], [carry the list of moves, not the rebuilt position]),
+  ([2], [39.1], [Peano arithmetic inside the loop: move indices, the depth
+                 test and the list of allowed moves all become machine
+                 integers, computed once]),
+  ([3], [16.5], [building the child's 48-entry array before looking at the
+                 estimate, when the estimate then rejects the child]),
+  ([4], [13.4], [comparing all 48 entries against the solved position when the
+                 first difference already settles it]),
+  ([5], [9.7],  [the last of the nine lookups once one of them already exceeds
+                 the moves left]),
+  ([6], [8.0],  [computing the summaries of all three views when the first view
+                 already cuts]),
+  ([7], [*5.9*], [keeping `a` up to date at every position: the list of moves
+                  is carried instead, and the position rebuilt from it only for
+                  the solved test]),
   ([], [*11.9x*], []),
 )
 
 Four of those six steps are the same mistake in different clothes: work being
 done that a lazier evaluator would have skipped.
 
-*A sharper estimate, nearly for free.* Every position is looked at from three
-angles, itself and its two rotations about a corner axis, and each angle
-contributes three table lookups. The estimate is the largest of the nine. More
-work at each node, far fewer nodes.
+*Three views of the same position.* Rotating the whole cube about a corner
+axis gives the same position seen differently, and its summary is then a
+different entry of the same table. Each of the three views therefore yields a
+lower bound on the number of moves left, so the largest of them is a lower
+bound too, and never a smaller one than any single view gives. Three times the
+lookups at each position, in exchange for a sharper cut and so a smaller tree.
+This is standard practice in cube solvers, Kociemba's included; what is new
+here is only that the three views are proved to be legitimate.
 
-*What costs memory is the text, not the data.* A table written as a list of two
-million integers occupies 877 MB once loaded, although the data itself is
-17 MB: the cost is the syntax tree the kernel holds in memory, not the numbers.
-Written as an array literal instead, the same block loads in 281 MB, and the
-full table dropped from 21.5 GB to *5 GB*, which is what allowed nine parallel
-workers instead of two on a 62 GB machine.
+*How the table is written down costs more than the table.* The phase 1 table
+is emitted as Rocq source, one file per block of 2 097 152 entries, 71 of them.
+Written as a list, a block is a term: two million nested applications of the
+list constructor, each holding a machine integer. That term is what the `.vo`
+stores and what `Require` loads, and it is far larger than the 17 MB of data in
+it. Written instead as an array literal, that is, as a definition whose body
+has already been evaluated to a primitive array, the `.vo` holds one compact
+block of memory. Measured on the same 2 097 152 entries:
 
-*Folding the table by symmetry.* Sixteen of the cube's 48 symmetries leave the
-structure of the summary intact, so summaries come in families of about
-sixteen, and only one member of each family needs a stored distance:
-*64 430 families instead of 1 013 760, a factor of 15.73.* A lookup first
-rewrites the summary into the family's representative. This costs the search
-, measured at 1.61 times slower at depth 16, and pays everywhere else: a
-search worker drops from 4.15 GB to *0.85 GB*, so all eighteen pieces now run
-at once instead of in two waves, and checking the table drops from about 5.4
-processor hours to *1.35*. That the fold is legitimate is itself proved. It
-would not even be needed for correctness: the estimate is never claimed to be
-the true distance, only to satisfy the two local conditions.
+#tbl(([the block, written as], [its `.vo`], [loaded]),
+  ([a list], [37.8 MB], [877 MB]),
+  ([an array literal], [*6.0 MB*], [*281 MB*]),
+)
+
+Over all 71 blocks that is 21.5 GB against *5 GB*, and it is what allowed nine
+parallel workers instead of two on a 62 GB machine.
+
+*Folding the table by symmetry.* The summary is built around the up-down axis:
+the twist counts where each corner's up-or-down sticker sits, and the slice
+says where the four edges between the top and bottom faces are. So a symmetry
+that leaves that axis in place turns a summary into another summary, while one
+that tips the cube onto another axis does not act on these summaries at all.
+Sixteen of the 48 keep the axis, and they sort the 1 013 760 flip-and-slice
+values into *64 430 families*, a factor of *15.73*. Two values in the same
+family are the same distance from solved, so one entry per family is enough: a
+lookup first replaces the value by its family's representative, carrying the
+twist through the same symmetry, and then reads a table 15.73 times smaller.
+
+That is a different use of symmetry from the three views above, and the two are
+worth telling apart. The three views ask the *same* table three questions and
+keep the largest answer, which sharpens the estimate and cuts the tree. The
+fold asks the *same* question of a *smaller* table, and the estimate does not
+change at all. Symmetry-reduced tables of this kind are standard in cube
+solvers; what the development adds is a proof that the folded table still
+satisfies the two conditions, which is all it has to satisfy, since it is never
+claimed to hold true distances.
+
+The fold costs the search, measured at 1.61 times slower at depth 16, and pays
+everywhere else: a search worker drops from 4.15 GB to *0.85 GB*, so all
+eighteen pieces now run at once instead of in two waves, and checking the table
+drops from about 5.4 processor hours to *1.35*.
 
 *What remains.* Against the OCaml program running the same search, Rocq needs
 about 165 microseconds per position against 0.79, a factor of *209*. That
@@ -826,8 +875,12 @@ Positions visited, measured, and matching the OCaml program exactly:
   ([14], [42 320], [784 572]),
   ([15], [547 580], [10 185 576]),
   ([16], [7 100 612], [130 430 424]),
-  ([17], [91 377 680], [about 1.7 billion (arithmetic, at the measured growth of 12.87)]),
+  ([17], [91 377 680], [about 1 700 000 000]),
 )
+
+The last figure is the only one not counted but computed, as the measured
+depth 16 total multiplied by the measured growth of 12.87 from one depth to
+the next.
 
 Some build costs on the reference machine, a dual-socket Xeon with 62 GB and
 twelve physical cores, all measured:
