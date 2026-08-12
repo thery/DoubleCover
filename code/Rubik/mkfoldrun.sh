@@ -1,12 +1,13 @@
 #!/bin/sh
 # =========================================================================
-#  Write the thirteen checks as THREE files, FoldRun_00.v .. FoldRun_02.v.
+#  Write the thirteen checks as TWO files, FoldRun_00.v and FoldRun_01.v.
 #
 #  They are independent lemmas over the emitted tables, so the wall time is
-#  the largest FILE and not their sum.  Three is where splitting stops
-#  paying.  MEASURED at n = 16: msymRC 106 s, ractAC 69 s, the eleven
-#  others 70 s together, against ~4 s to load the chain in each file --
-#  one file ~190 s, two ~135, three 106, and thirteen 106 as well.
+#  the largest FILE and not their sum.  MEASURED at n = 16: msymRC 101 s,
+#  ractAC 63 s, and the eleven others 18 s TOGETHER -- they share the ~4 s
+#  chain load, so each is about a second of work.  One file is ~174 s; two
+#  are 101, and so are three and thirteen.  msymRC alone sets the wall, so
+#  everything else goes in one file with it left on its own.
 #
 #  DEAREST FIRST: xargs starts them in this order.
 #
@@ -18,27 +19,26 @@ cd "$(dirname "$0")"
 set -- \
   "0:msymRCP:msymRC ractab actfsri" \
   "1:ractACP:ractAC ractab" \
-  "2:fsymECP:fsymEC ractab frepi fsymi repsi" \
-  "2:ractLCP:ractLC ractab" \
-  "2:actrLCP:actrLC actfsr" \
-  "2:frepSCP:frepSC ractab frepi" \
-  "2:fsymLCP:fsymLC fsymi" \
-  "2:smulCP:smulC" \
-  "2:acttwiLCP:acttwiLC" \
-  "2:twsymLCP:twsymLC twsymi" \
-  "2:twsymACP:twsymAC twsymi" \
-  "2:msymTCP:msymTC twsymi" \
-  "2:msymiCP:msymiC"
+  "1:fsymECP:fsymEC ractab frepi fsymi repsi" \
+  "1:ractLCP:ractLC ractab" \
+  "1:actrLCP:actrLC actfsr" \
+  "1:frepSCP:frepSC ractab frepi" \
+  "1:fsymLCP:fsymLC fsymi" \
+  "1:smulCP:smulC" \
+  "1:acttwiLCP:acttwiLC" \
+  "1:twsymLCP:twsymLC twsymi" \
+  "1:twsymACP:twsymAC twsymi" \
+  "1:msymTCP:msymTC twsymi" \
+  "1:msymiCP:msymiC"
 
 bar='(* =========================================================================  *)'
 
 changed=0
-for g in 0 1 2; do
+for g in 0 1; do
   nn=$(printf "%02d" "$g")
   case "$g" in
-    0) what="msymRC, the dearest at 106 s";;
-    1) what="ractAC, at 69 s";;
-    *) what="the eleven cheap ones, 70 s together";;
+    0) what="msymRC alone, the dearest at 101 s";;
+    *) what="the twelve others, 81 s together";;
   esac
   { echo "$bar"
     printf '(*  %-72s*)\n' "FoldRun_$nn.v -- $what."
@@ -78,5 +78,5 @@ for g in 0 1 2; do
   fi
 done
 
-if [ "$changed" = 0 ]; then echo "  the three check files are current"
-else echo "  wrote $changed of the three check files"; fi
+if [ "$changed" = 0 ]; then echo "  the two check files are current"
+else echo "  wrote $changed of the two check files"; fi

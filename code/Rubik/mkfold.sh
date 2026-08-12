@@ -77,7 +77,7 @@ ulimit -s unlimited
 # ---- what still has to be built ------------------------------------------
 # These files are OUT of _CoqProject, so coqdep never sees them and make
 # cannot tell what is current.  Without the test below every run of this
-# script redid the lot -- the twelve checks alone are the better part of an
+# script redid the lot -- the checks alone were the better part of an
 # hour -- on a tree where nothing had changed.
 #
 # A target is stale when its .vo is missing, older than its own source, or
@@ -125,20 +125,25 @@ else
   echo "$todo" | xargs -P "$JOBS" -I{} ./rocqtime.sh {} -native-compiler no
 fi
 
-# always: a missing .cmxs is what makes the glue fail, and it is cheap to
-# re-check because rocq skips the ones that are current
-
-echo "precompiling native with $NJOBS workers"
-chunks | xargs -P "$NJOBS" -I{} rocq native-precompile -R . Rubik {}.vo
+# A missing .cmxs is what makes the glue fail, so this has to happen -- but
+# it is NOT cheap and rocq does NOT skip the ones that are current: ~6 min a
+# chunk, MEASURED on roquableu, which at two at a time is ~24 min, more than
+# everything else in the fold together.  So the test is here: a .cmxs newer
+# than its .vo is done.
+todo=$(chunks | while read b; do
+         if [ ! -f ".coq-native/NRubik_$b.cmxs" ] ||
+            [ "$b.vo" -nt ".coq-native/NRubik_$b.cmxs" ]; then echo "$b"; fi
+       done) || :
+if [ -z "$todo" ]; then
+  echo "the eight .cmxs are current"
+else
+  echo "precompiling $(echo "$todo" | wc -w) .cmxs with $NJOBS workers, ~6 min each"
+  echo "$todo" | xargs -P "$NJOBS" -I{} ./rocqtime.sh --native {}
+fi
 
 build P1FTable
 build P1RTable
 
-# The in-project half, and only now: FoldTables.v requires P1Fold, so none of
-# these can be built before the lines above have run.  They ARE in
-# _CoqProject, so make knows their order; MAKEFLAGS is cleared because this
-# script is itself called from a recipe and would otherwise look for the
-# parent's jobserver.
 # PHASE=tables stops here, with the emitted tables built and nothing else.
 # It is what `make timed' wants: everything past this line drags the whole
 # project in through FoldChecks -> Farp1 -> P1Fsm, and a file built here is
@@ -149,16 +154,22 @@ if [ "${PHASE:-all}" = tables ]; then
   exit 0
 fi
 
+# The in-project half, and only now: FoldTables.v requires P1Fold, so none of
+# these can be built before the lines above have run.  They ARE in
+# _CoqProject, so make knows their order; MAKEFLAGS is cleared because this
+# script is itself called from a recipe and would otherwise look for the
+# parent's jobserver.
 echo "the fold's in-project files"
 MAKEFLAGS= make -j"$JOBS" FoldTables.vo FoldStabiliser.vo FoldRankCert.vo \
                           FoldChecks.vo FoldAssembly.vo
 
-# FoldChecksRun.v is the run: the twelve checks at the emitted tables.  It is NOT
-# in _CoqProject -- it requires P1Fold and P1RTable, which do not exist until
-# the lines above have run, and coqdep would refuse the whole project.
-echo "the thirteen checks, in three files"
+# The thirteen checks at the emitted tables, in two files -- msymRC alone,
+# which sets the wall at 101 s, and the twelve others together at 81 s.
+# They are NOT in _CoqProject: they require P1Fold and P1RTable, which do not
+# exist until the lines above have run, and coqdep would refuse the project.
+echo "the thirteen checks, in two files"
 ./mkfoldrun.sh
-todo=$(for i in 00 01 02; do
+todo=$(for i in 00 01; do
          if stale "FoldRun_$i"; then echo "FoldRun_$i"; fi; done) || :
 if [ -z "$todo" ]; then
   echo "the thirteen checks are current"
