@@ -668,17 +668,38 @@ assumptions. Everything else in the development exists either to discharge
 those two assumptions for the real table, or to make the search fast enough to
 run.
 
-*What the table has to satisfy, and what it does not.* #src("Coord.v") shows that a summary
-`coord`, the action `act` of a move on summaries, and any table `D` at all give
-a legal estimate as soon as `D` passes these two checks:
+*What the table has to satisfy, and what it does not.* #src("Coord.v") asks for
+three things and checks two:
 
 ```coq
+Variable coord : {perm facelet} -> X.
+Variable act   : X -> {perm facelet} -> X.
+Hypothesis coordM : forall g m, coord (g * m) = act (coord g) m.
+
+Variable D : X -> nat.
 Hypothesis D0    : D (coord 1) = 0.
 Hypothesis Dstep : forall x m, m \in Sset -> D x <= (D (act x m)).+1.
 ```
 
-The first says the solved summary has value zero. The second says that applying
-a move to a summary lowers its value by at most one. Nothing else is required.
+`coord` is the summary of a position, `X` being whatever the summaries happen
+to be. `act` is how a move acts on a summary directly, without going back to
+the position it came from: for the phase 1 summary it is two lookups in a move
+table. `coordM` is what makes the pair worth having, and it is the one thing
+proved about the summary itself. Summarising after a move is the same as acting
+on the summary, so the search may throw the position away and keep only its
+summary.
+
+`D` is then the table, and the two checks are its. The first says the solved
+summary has value zero. The second says that acting by a move on a summary
+lowers its value by at most one.
+
+Notice where `coord` is *absent*: `Dstep` quantifies over every `x` in `X`, and
+not only over the summaries `coord g` of real positions. That is deliberate,
+and it is what makes the condition checkable. `X` is a finite set of two
+billion values, the check simply runs over all of them, and it never has to be
+known which of them come from a cube. It is also why the same lemma will serve
+the folded table later, whose entries are not distances of positions at all.
+Nothing else is required.
 In particular the table is never proved to hold the true distances; what is
 proved of it is only that it is a valid under-estimate, which is a strictly
 weaker property.
