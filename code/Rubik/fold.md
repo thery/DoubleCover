@@ -86,10 +86,24 @@ time.
 - The native step needs `ulimit -s unlimited`; without it `ocamlopt`
   overflows on the table literals.
 
+## Measured again after the round of 2026-08-11/12, at n = 16
+
+| | before | after |
+|---|---|---|
+| the 27 orbit slices | 4224 s CPU | **2517 s** -- the `||` guard became an `if` |
+| `msymRC` | 472 s | **101 s** -- msym is a 288 entry int63 array |
+| the checks, wall | 528 s | **101 s** -- two files, `msymRC` alone in one |
+| the eight `.cmxs` | untimed | **~6 min each**, ~24 min at NJOBS=2 |
+
+So the `.cmxs` step is now the largest part of the fold: more than the
+certificates, the checks and the slices together. `rocq native-precompile`
+does not skip current ones, so `mkfold.sh` tests each `.cmxs` against its
+`.vo` and a rerun is free.
+
 ## Left to do
 
-`Fold.v:250` writes the orbit guard as `(norbi <=? i) || foldstepF tw i`
-where `Farp1.v:1335` writes `if ... then true else ...`. The `||` form
-evaluates the body on all 2^17 indices instead of the 64 430 admitted --
-about 2x. Fixing it invalidates `FoldChecksRun.vo`, so it waits for the next
-time that file is rebuilt anyway.
+1. The `.cmxs` job count. NJOBS=2 is caution, not measurement; 4 is probably
+   right on 62 GB.
+2. `foldstepF` takes its move index as a **nat**. The orbit slices are 2517 s,
+   75 % of the fold's CPU, and this is the shape that just paid 4.5x on
+   `msymRC`. Read from the source, not measured.

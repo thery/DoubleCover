@@ -8,6 +8,7 @@
 *.d
 .coq-native/
 .lia.cache
+.nia.cache
 
 # the real phase 1 table -- 42 MB per chunk, regenerate with bench/p1gen
 P1Data_real.v
