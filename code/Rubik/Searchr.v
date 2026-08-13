@@ -550,4 +550,62 @@ case/hasP => m mS /andP[_ sm]; rewrite hg /=; apply/orP; right.
 by apply/hasP; exists m => //; apply: IH sm.
 Qed.
 
+(* (e) soundness, the pair of ball_searchr.  Note p is arbitrary here, where
+   ball_searchr needs nfc: the guard only ever REMOVES candidates, so a
+   guarded search that succeeds is still telling the truth.                *)
+Lemma searchr_ball d g p : searchr d g p -> g \in ball S d.
+Proof. by move/searchr_search; exact: search_ball. Qed.
+
+(* the form everything else uses -- searchrN is this one at p = nfc, in the
+   other direction *)
+Corollary searchr_far d g p : g \notin ball S d -> searchr d g p = false.
+Proof. by move=> gB; apply/negP => /searchr_ball; apply/negP. Qed.
+
+(* ---- 8. The same root split, and the second move guarded as well ---------- *)
+
+(* searchr_root2 asks for every second move; this asks only for those on a
+   DIFFERENT FACE from the first.  A second move on the same face merges with
+   the first (fc_close), which shortens the word -- so the case is not
+   removed, it is moved to a smaller depth, and that is what the induction on
+   k is for.  Two ingredients beyond searchr_root2: searchrW, since the
+   surviving pieces sit at depth d and the induction meets them lower, and
+   searchr_ball, to come back from a search that succeeded to the ball the
+   induction hypothesis speaks about.                                       *)
+Lemma searchr_root2m (Sr : seq gT) d g :
+  {subset Sr <= Sseq} ->
+  g != 1 ->
+  (forall k, g \in ball S k.+1 -> exists2 m1, m1 \in Sr & g * m1 \in ball S k) ->
+  (forall m1, m1 \in Sr -> g * m1 != 1) ->
+  (forall m1 m2, m1 \in Sr -> m2 \in Sseq -> fc m2 != fc m1 ->
+     searchr d (g * m1 * m2) (fc m2) = false) ->
+  g \notin ball S d.+2.
+Proof.
+move=> SrS g1 hroot hn1 hmm.
+suff H : forall k, k <= d.+2 -> g \notin ball S k by apply: H.
+elim => [_|k IH kL]; first by rewrite /= set1gE inE.
+apply/negP => gB.
+have [m1 m1R gm1B] := hroot k gB.
+case: k IH kL gB gm1B => [|k] IH kL gB gm1B.
+  by move: gm1B; rewrite /= set1gE inE => /eqP gE; case/eqP: (hn1 _ m1R).
+move: (ball_searchr gm1B) => /andP[_].
+rewrite (negbTE (hn1 _ m1R)) orFb.
+case/hasP => m2 m2S /andP[_ sm2].
+(* the goal shows searchr unfolded to its fix; exact matches up to conversion *)
+have sm : searchr k (g * m1 * m2) (fc m2) by exact: sm2.
+have kd : (k <= d)%N by move: kL; rewrite !ltnS.
+have gnB : g \notin ball S k.+1 by apply: IH; apply: ltnW.
+case: (eqVneq (fc m2) (fc m1)) => [fe|fne]; last first.
+  by move: (hmm _ _ m1R m2S fne); rewrite (searchrW kd sm).
+have m1S : m1 \in S by rewrite memS; apply: SrS.
+have m2SS : m2 \in S by rewrite memS.
+case: (fc_close m1S m2SS (esym fe)) => [me|[m3 m3S [fm3 me]]].
+  rewrite -mulgA me mulg1 in sm.
+  by case/negP: gnB; apply: ballW (searchr_ball sm).
+rewrite -mulgA me in sm.
+case/negP: gnB; rewrite {1}/ball -/ball inE; apply/orP; right.
+apply/mulsgP; exists (g * m3) m3^-1; last by rewrite -mulgA mulgV mulg1.
+  exact: searchr_ball sm.
+by apply: memSV.
+Qed.
+
 End Searchr.

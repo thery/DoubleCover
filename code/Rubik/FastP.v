@@ -396,3 +396,20 @@ rewrite -(sn _ (prefixi_ok iL' jL) (prefixi_cub iL' jL)
                (prefixi_twP3 iL' jL)).
 exact: hn.
 Qed.
+
+(* the same for ONE root move, which is what half a piece proves.  The two
+   second moves that set the makespan are cut this way rather than run whole
+   -- see mkrunp1.sh. *)
+Lemma p1searchd_bridge1 T d j p i :
+  (d <= 63)%N -> (j < nmoves)%N -> (p < 7)%N -> (i < nroot)%N -> fsmoveC ->
+  ~~ searchz3n T d (of_nat d) (prefixi i j) [::] (init3 (prefixi i j)) p ->
+  ~~ searchz3 T d (prefixi i j) (init3 (prefixi i j)) p.
+Proof.
+move=> dL jL pL iL hc.
+have iL' : (i < nmoves)%N := leq_trans iL (isT : (nroot <= nmoves)%N).
+have sn : searchz3n T d (of_nat d) (prefixi i j) [::] (init3 (prefixi i j)) p
+        = searchz3 T d (prefixi i j) (init3 (prefixi i j)) p
+  := @searchz3nE T d (prefixi i j) p dL hc pL (prefixi_ok iL' jL)
+                 (prefixi_cub iL' jL) (prefixi_twP3 iL' jL).
+by rewrite -sn.
+Qed.

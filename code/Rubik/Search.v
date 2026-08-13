@@ -78,6 +78,21 @@ apply/orP; right; apply/hasP; exists s^-1; first by rewrite -memS; apply: memSV.
 by rewrite -mulgA mulgV mulg1; apply: IH.
 Qed.
 
+(* And the other side: what the search finds is really there.  Only the "no"
+   side is needed for a lower bound, which is why this was never stated; it
+   is what lets a search that succeeded put its argument back in a ball.   *)
+Lemma search_ball d g : search d g -> g \in ball S d.
+Proof.
+elim: d g => [g|d IH g] /andP[hg].
+  by rewrite orbF => /eqP->; rewrite /= set1gE inE.
+case/orP => [/eqP->|/hasP[m mS sm]].
+  exact: mem1_ball.
+rewrite {1}/ball -/ball inE; apply/orP; right.
+apply/mulsgP; exists (g * m) m^-1; last by rewrite -mulgA mulgV mulg1.
+  exact: IH.
+by apply: memSV; rewrite memS.
+Qed.
+
 (* ... which is to say, a negative answer is a proof.                         *)
 Corollary searchN d g : search d g = false -> g \notin ball S d.
 Proof. by move=> sF; apply/negP => /ball_search; rewrite sF. Qed.
