@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  Fsmain.v -- The sixteen slices, glued: checkStep for the real table and *)
-(*     the real moves.                                                      *)
+(*  Fsmain.v -- The sixteen slices, glued: checkStep for the real table and   *)
+(*     the real moves.                                                        *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -20,7 +20,7 @@ Unset Printing Implicit Defensive.
 Import GroupScope.
 
 (* chunkFE is a delta step and all_pow_glue16 keeps the predicate abstract,
-   so nothing here unfolds the loop.  See Fspar.v.                        *)
+   so nothing here unfolds the loop.  See Fspar.v.                            *)
 Lemma fstab_checkStep : checkStep fstab mtabs.
 Proof.
 rewrite chunkFE.

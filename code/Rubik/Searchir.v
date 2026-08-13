@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  Searchir.v -- The reduced search on tables and on int63 arrays, and the *)
-(*     bridges down to Searchr.searchr.                                     *)
+(*  Searchir.v -- The reduced search on tables and on int63 arrays, and the   *)
+(*     bridges down to Searchr.searchr.                                       *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -22,7 +22,7 @@ Definition fcpos (k : nat) : nat := k %/ 3.
 (* THE ONE CUBE FACT the bridges rest on: position k carries face k %/ 3.
    [EASY] nth 1 moves k is the k-th move, and index_uniq with
    Redun.uniq_moves reads its index back as k -- exactly the step already
-   used in Redun.triple_moves.                                            *)
+   used in Redun.triple_moves.                                                *)
 Lemma fcpos_moves k : k < 18 -> fcube (nth 1 moves k) = fcpos k.
 Proof.
 move=> k18.
@@ -33,7 +33,7 @@ Qed.
 (* has over a list = has over its positions.  Pure seq, and the missing
    ingredient of searchtrE.
    NOTE the predicate is written A -> bool and NOT pred A: with pred A the
-   statement does not even elaborate here, it tries to unify A with int. *)
+   statement does not even elaborate here, it tries to unify A with int.      *)
 Lemma has_nth_iota (A : Type) (p : A -> bool) (s : seq A) (x0 : A) :
   has p s = has (fun k => p (nth x0 s k)) (iota 0 (seq.size s)).
 Proof.
@@ -51,7 +51,7 @@ Hypothesis mtsok : all (tab_ok n) mts.
 Variable Dt : seq nat -> nat.
 
 (* the face structure, abstract here: nfc faces, opp pairs them, and fcp
-   gives the face of a POSITION in mts *)
+   gives the face of a POSITION in mts                                        *)
 Variable nfc : nat.
 Variable opp : nat -> nat.
 Variable fcp : nat -> nat.
@@ -80,7 +80,7 @@ Variable h : {perm 'I_n.+1} -> nat.
 Hypothesis hE : forall t, tab_ok n t -> h (pt n t) = Dt t.
 Variable fc : {perm 'I_n.+1} -> nat.
 
-(* the position/move identification, supplied by fcpos_moves at the cube *)
+(* the position/move identification, supplied by fcpos_moves at the cube      *)
 Hypothesis fcE : forall k, k < seq.size mts ->
   fc (pt n (nth [::] mts k)) = fcp k.
 
@@ -90,7 +90,7 @@ Hypothesis fcE : forall k, k < seq.size mts ->
    right, then has_nth_iota turns that list into its positions.  It has to
    be AIMED at the right hand side -- has_nth_iota's pattern also matches
    the left, where the body mentions k outside the nth, so an untargeted
-   rewrite goes the wrong way.                                            *)
+   rewrite goes the wrong way.                                                *)
 Lemma searchtrE d t p :
   tab_ok n t ->
   searchtr d t p = searchr [seq pt n mt | mt <- mts] h nfc fc opp d (pt n t) p.
@@ -108,7 +108,7 @@ End TableR.
 
 (* ---- 3. The reduced search on arrays --------------------------------------*)
 
-(* has over a filtered list is has over the list with the filter conjoined *)
+(* has over a filtered list is has over the list with the filter conjoined    *)
 Lemma has_filter_and (A : Type) (P f : A -> bool) (s : seq A) :
   has f [seq x <- s | P x] = has (fun x => P x && f x) s.
 Proof. by elim: s => [//|x s IH] /=; case: (P x) => //=; rewrite IH. Qed.
@@ -116,7 +116,7 @@ Proof. by elim: s => [//|x s IH] /=; case: (P x) => //=; rewrite IH. Qed.
 Section ArrayR.
 
 Variable n : nat.
-(* eq_tabi_id needs these two, exactly as Tabi's section does *)
+(* eq_tabi_id needs these two, exactly as Tabi's section does                 *)
 Hypothesis n_small : n.+1 < nwB.
 Hypothesis n_len : (of_nat n.+1 <=? PArray.max_length)%uint63.
 Variable mtis : seq (PArray.array int).
@@ -133,7 +133,7 @@ Variable fcp : nat -> nat.
    SAME SHAPE as Tabi.searchi, so the laziness carries over for free and
    searchirS stays definitional.  && and has are strict under vm_compute, so
    a guard spelled `okfc0 ... && searchir ...` inside the loop would run the
-   recursive call even when the guard fails -- the 185 s bug all over again. *)
+   recursive call even when the guard fails -- the 185 s bug all over again.  *)
 Definition allowedr (p : nat) : seq nat :=
   [seq k <- iota 0 (seq.size mtis) | okfc0 nfc opp p (fcp k)].
 
@@ -165,7 +165,7 @@ Lemma searchirE d a p :
   searchir d a p =
   searchtr n [seq ti2t n mt | mt <- mtis] Dt nfc opp fcp d (ti2t n a) p.
 Proof.
-(* p must be generalised: the recursive call changes it to fcp k *)
+(* p must be generalised: the recursive call changes it to fcp k              *)
 move=> aok; move: a p aok; elim: d => [|d IH] a p aok.
   by rewrite /= DtiE // eq_tabi_id //.
 rewrite searchirS searchtrS DtiE // eq_tabi_id //.
@@ -189,7 +189,7 @@ End ArrayR.
      short-circuit before the recursive call, not be &&-ed with it.
    Then searchirE mirrors Tabi.searchiE (rewrite searchirS, DtiE,
    eq_tabi_id, congr, pointwise), and searchirN composes searchirE,
-   searchtrE and Searchr.searchrN.                                        *)
+   searchtrE and Searchr.searchrN.                                            *)
 
 (* ---- 4. What the assembly then needs --------------------------------------*)
 
@@ -203,4 +203,4 @@ End ArrayR.
    one instead of two.  Decide this before generating the files -- it
    changes what the Far_??.v say, and they are expensive to redo.
    Note also that the factor being bought here is largest at the TOP of the
-   search, so a root split that ignores the guard wastes part of it.       *)
+   search, so a root split that ignores the guard wastes part of it.          *)

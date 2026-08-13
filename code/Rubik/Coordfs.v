@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  Coordfs.v -- The flip x slice summary, packed into 24 bits of an int63. *)
+(*  Coordfs.v -- The flip x slice summary, packed into 24 bits of an int63.   *)
 (* =========================================================================  *)
 
 From Stdlib Require Import Uint63.
@@ -16,7 +16,7 @@ Import GroupScope.
 
 (* uint63_scope is deliberately NOT opened: this file is mostly about perms
    and nat, and the scope would turn every 1 into an int.  The three int
-   expressions below carry their own %uint63.                                *)
+   expressions below carry their own %uint63.                                 *)
 
 (* ---- 1. A summary that is only an action on part of the group ------------ *)
 
@@ -78,21 +78,21 @@ Definition eprim : seq nat :=
 Definition esec : seq nat :=
   [:: 25; 17; 9; 33; 30; 22; 14; 38; 27; 12; 11; 28]%N.
 
-(* the twelve positions, and the four of them in the middle slice            *)
+(* the twelve positions, and the four of them in the middle slice             *)
 Definition nedge := 12.
 Definition nslice := 4.
 Definition nfacelet := 48.
 
 Definition eprimf (p : nat) : facelet := inord (nth 0%N eprim p).
 
-(* the two colourings the summary reads.  pcol is one facelet of each edge,  *)
-(* scol is both facelets of each slice edge -- that is what makes the slice  *)
-(* half a plain permutation of bits with no correction term.                 *)
+(* the two colourings the summary reads.  pcol is one facelet of each edge,   *)
+(* scol is both facelets of each slice edge -- that is what makes the slice   *)
+(* half a plain permutation of bits with no correction term.                  *)
 Definition pcol (f : facelet) : bool := (f : nat) \in eprim.
 Definition scol (f : facelet) : bool :=
   (f : nat) \in drop 8 eprim ++ drop 8 esec.
 
-(* the partner facelet, and the position an edge facelet belongs to          *)
+(* the partner facelet, and the position an edge facelet belongs to           *)
 Definition epair (f : facelet) : facelet :=
   nth f [seq (inord i : facelet) | i <- esec ++ eprim]
         (index (f : nat) (eprim ++ esec)).
@@ -103,7 +103,7 @@ Definition epos (f : facelet) : nat := index (f : nat) (eprim ++ esec) %% nedge.
 
 (* Nothing about 'I_48 reduces -- inord does not -- so every fact about the
    twelve edges is proved by pushing it to nat, where the lists are literals
-   and vm_compute decides.  These three are the whole bridge.               *)
+   and vm_compute decides.  These three are the whole bridge.                 *)
 
 Lemma all_iota_lt (P : nat -> bool) n i : all P (iota 0 n) -> i < n -> P i.
 Proof. by move=> /allP hP iL; apply: hP; rewrite mem_iota. Qed.
@@ -143,7 +143,7 @@ Proof. by rewrite /epos ltn_mod. Qed.
 
 (* the pairing has no fixed point on the edge facelets and is the identity
    elsewhere, which is what says a permutation commuting with it keeps edge
-   facelets edge facelets                                                   *)
+   facelets edge facelets                                                     *)
 Lemma epair_fix (f : facelet) : (epair f == f) = ((f : nat) \notin eprim ++ esec).
 Proof.
 have [fM|fN] := boolP ((f : nat) \in eprim ++ esec); last first.
@@ -241,7 +241,7 @@ Qed.
 (* The moves keep cubies together -- moves_cubP -- but nothing about a
    permutation reduces, so that fact has to be read on the tables and it
    lives in Coordfsi.v with the rest of the table bridge.  So does everything
-   downstream of it: cubP_step, hfs and the search.                          *)
+   downstream of it: cubP_step, hfs and the search.                           *)
 
 (* an edge facelet stays an edge facelet                                      *)
 Lemma cubP_edge g f :
@@ -313,7 +313,7 @@ by rewrite orbF; apply: IH => //; apply: ltnW.
 Qed.
 
 (* two words agreeing on the first k bits are equal, which is how every       *)
-(* equation between packed summaries is proved                               *)
+(* equation between packed summaries is proved                                *)
 Lemma eq_packn k (f1 f2 : nat -> bool) :
   (forall j, j < k -> f1 j = f2 j) -> packn k f1 = packn k f2.
 Proof.
@@ -346,7 +346,7 @@ Definition flipb (g : {perm facelet}) (p : nat) : bool :=
 Definition sliceb (g : {perm facelet}) (p : nat) : bool :=
   scol (g^-1 (eprimf p)).
 
-Definition ncoord := (nedge + nedge)%N.       (* 24 bits *)
+Definition ncoord := (nedge + nedge)%N.       (* 24 bits                      *)
 
 Definition coordfs (g : {perm facelet}) : int :=
   packn ncoord
@@ -388,7 +388,7 @@ Proof. by apply: packn_lt. Qed.
    edge_case: m^-1 (eprimf j) is eprimf q, and then pcol of it is true so
    xbit is false and the bit is copied; or it is epair (eprimf q), and then
    pcol_epair complements the flip bit while scol_epair leaves the slice bit
-   alone.  cubP g is what lets g^-1 be pushed through epair.                *)
+   alone.  cubP g is what lets g^-1 be pushed through epair.                  *)
 
 Lemma ncoord_dig : ncoord <= ndigits.
 Proof. by vm_compute. Qed.
@@ -435,10 +435,10 @@ case: (edge_case xE) => [xP|xS].
 by rewrite {1}xS cubP_epairV // scol_epair.
 Qed.
 
-(* and the equivariance is the two halves, routed through the packing *)
+(* and the equivariance is the two halves, routed through the packing         *)
 (* stated on cubP m rather than on m \in Sset: that the moves satisfy cubP is
    a table fact and lives in Coordfsi.v, so keeping it out here leaves this
-   file about the summary alone.                                            *)
+   file about the summary alone.                                              *)
 Lemma coordfsM g m :
   cubP g -> cubP m -> coordfs (g * m) = actfs (coordfs g) m.
 Proof.
@@ -457,4 +457,4 @@ by rewrite -(ltn_add2l nedge) subnKC.
 Qed.
 
 (* Section 9, what this gives Search.v, is in Coordfsi.v: it needs
-   moves_cubP, and moves_cubP needs the tables.                              *)
+   moves_cubP, and moves_cubP needs the tables.                               *)

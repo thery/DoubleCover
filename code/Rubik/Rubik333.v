@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  Rubik333.v -- A group-theoretic representation of the 3x3x3 Rubik's     *)
-(*     cube, in the style of Rokicki, Kociemba, Davidson, Dethr             *)
+(*  Rubik333.v -- A group-theoretic representation of the 3x3x3 Rubik's       *)
+(*     cube, in the style of Rokicki, Kociemba, Davidson, Dethr               *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

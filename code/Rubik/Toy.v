@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  Toy.v -- The lower bound pipeline end to end, with a heuristic that is  *)
-(*     0 everywhere.                                                        *)
+(*  Toy.v -- The lower bound pipeline end to end, with a heuristic that is    *)
+(*     0 everywhere.                                                          *)
 (* =========================================================================  *)
 
 From Stdlib Require Import Uint63.

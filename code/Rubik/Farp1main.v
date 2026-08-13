@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  Farp1main.v -- superflip \notin ball Sset d.+2, over an abstract table. *)
+(*  Farp1main.v -- superflip \notin ball Sset d.+2, over an abstract table.   *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -25,23 +25,23 @@ Notation arr := (PArray.array int).
    `done' then tries `assumption', unifies its goal against one of them --
    same is_true head -- and unfolds an all_pow at ncoord = 24.  the master file
    proves both of these inline because its context is clean; here even
-   `i < nmoves' does not return. *)
+   `i < nmoves' does not return.                                              *)
 Lemma nroot_leq : (nroot <= nmoves)%N.
 Proof. by []. Qed.
 
-(* the root moves are on the U face, whose fcpos is 0 *)
+(* the root moves are on the U face, whose fcpos is 0                         *)
 Lemma fcpos_root i : (i < nroot)%N -> fcpos i = 0%N.
 Proof. by case: i => [|[|]]. Qed.
 
-(* and a second move on any other face is one jsnd keeps *)
+(* and a second move on any other face is one jsnd keeps                      *)
 Lemma mem_jsnd j : (j < nmoves)%N -> fcpos j != 0%N -> j \in jsnd.
 Proof. by move=> jL jne; rewrite mem_filter jne (mem_iota0 jL). Qed.
 
 (* mem_iota0 now lives in Farp1.v, proved outside those proofs for this
    same reason and
-   used at its eight sites; keeping a second copy here would clash. *)
+   used at its eight sites; keeping a second copy here would clash.           *)
 
-(* ---- 2. The assembly ------------------------------------------------------ *)
+(* ---- 2. The assembly ------------------------------------------------------*)
 
 Section P1Far.
 
@@ -49,10 +49,10 @@ Variable T : PArray.array arr.
 Variable d : nat.
 
 (* the search compares the heuristic with the depth in int63 now, and the
-   bridge to the nat comparison needs the depth to fit -- it is at most 19 *)
+   bridge to the nat comparison needs the depth to fit -- it is at most 19    *)
 Hypothesis dL : (d <= 63)%N.
 
-(* the five computations, and the twist x slice check *)
+(* the five computations, and the twist x slice check                         *)
 Hypothesis hc0 : p1check0 T.
 Hypothesis hcS : p1checkStep T.
 Hypothesis hts : ts_checkStep.
@@ -74,7 +74,7 @@ Hypothesis hsl : slrC.
    where it used to start at nfcube, "no previous move" -- which let it try
    all eighteen third moves where the rules leave about thirteen.  That one
    needs nothing new: the word after the second move is reduced like any
-   other, and the old code simply discarded the fact.                       *)
+   other, and the old code simply discarded the fact.                         *)
 Hypothesis hsearch :
   all (fun j => all (fun i => ~~ searchz3 T d (prefixi i j)
                                           (init3 (prefixi i j)) (fcpos j))
@@ -82,7 +82,7 @@ Hypothesis hsearch :
       jsnd.
 
 (* the piece as a searchr that came back false, NOT as a ball membership:
-   searchrN would want nfcube and would throw the guard away again *)
+   searchrN would want nfcube and would throw the guard away again            *)
 Lemma p1prefix_searchr i j :
   (i < nroot)%N -> (j < nmoves)%N -> fcpos j != 0%N ->
   searchr moves (hsym3 T) nfcube fcube oppf d
@@ -93,11 +93,11 @@ have iL' : (i < nmoves)%N := leq_trans iL nroot_leq.
 have jS := mem_jsnd jL jne.
 (* the depth is given explicitly so the term is ground before it meets the
    goal: ball Sset ?d is a finset over {perm 'I_48}, not something to leave
-   to unification. *)
+   to unification.                                                            *)
 rewrite -(prefixiE iL' jL).
 have hs : searchz3 T d (prefixi i j) (init3 (prefixi i j)) (fcpos j) = false.
   (* no /= anywhere near this: it holds a searchz3 at depth d, and simpl
-     would start unfolding the search itself *)
+     would start unfolding the search itself                                  *)
   move: hsearch => /allP/(_ _ jS)/allP/(_ _ (mem_iota0 iL)) h.
   exact: negbTE h.
 exact: (searchr_of_searchz3 (d := d) dL hfm hfr
@@ -122,14 +122,14 @@ apply: (searchr_root2m Sset_inv (hsym30 hc0) hstep
 move=> m1 m2 m1R m2M fne.
 (* fne GOES BACK IN THE GOAL FIRST.  The two intro patterns below substitute
    m1 and m2 away, and a hypothesis left standing does not follow them, so
-   the rewrite finds fcube m1 where it expects fcube moves`_i. *)
+   the rewrite finds fcube m1 where it expects fcube moves`_i.                *)
 move: fne.
 have [j jL <-] := moves_index m2M.
 have [i iL <-] := root_index m1R.
 (* the root is on the U face, so fcpos i = 0 and what is left says the second
    move is on another one.  NO TRAILING `by' ANYWHERE IN HERE: the context
    holds p1checkStep, and a `done' that unifies against it unfolds an all_pow
-   at ncoord = 24 -- the reason nroot_leq sits outside the section. *)
+   at ncoord = 24 -- the reason nroot_leq sits outside the section.           *)
 rewrite (fcpos_moves jL) (fcpos_moves (leq_trans iL nroot_leq)).
 rewrite (fcpos_root iL) => jne.
 exact: (p1prefix_searchr iL jL jne).

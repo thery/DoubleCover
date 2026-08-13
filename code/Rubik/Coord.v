@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  Coord.v -- The pruning heuristic Search.v asks for, built from a        *)
-(*     SUMMARY of a position.                                               *)
+(*  Coord.v -- The pruning heuristic Search.v asks for, built from a          *)
+(*     SUMMARY of a position.                                                 *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

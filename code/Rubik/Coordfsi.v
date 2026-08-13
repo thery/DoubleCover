@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  Coordfsi.v -- The flip x slice summary on int63, and its agreement with *)
-(*     the nat level.                                                       *)
+(*  Coordfsi.v -- The flip x slice summary on int63, and its agreement with   *)
+(*     the nat level.                                                         *)
 (* =========================================================================  *)
 
 From Stdlib Require Import Uint63.
@@ -40,14 +40,14 @@ Definition smask : int := packn nfacelet (fun f => f \in drop 8 eprim ++ drop 8 
 Lemma nfacelet_dig : nfacelet <= ndigits.
 Proof. by vm_compute. Qed.
 
-(* what the masks are for: one bit test replaces the membership              *)
+(* what the masks are for: one bit test replaces the membership               *)
 Lemma bit_pmask f : f < nfacelet -> nbit pmask f = pcol (inord f).
 Proof. by move=> fL; rewrite /pmask nbit_packn ?nfacelet_dig // /pcol inordK. Qed.
 
 Lemma bit_smask f : f < nfacelet -> nbit smask f = scol (inord f).
 Proof. by move=> fL; rewrite /smask nbit_packn ?nfacelet_dig // /scol inordK. Qed.
 
-(* the pairing on facelets, read at nat level -- epairn is in Coordfs.v      *)
+(* the pairing on facelets, read at nat level -- epairn is in Coordfs.v       *)
 Lemma epairnE f : f < nfacelet -> epair (inord f) = inord (epairn f).
 Proof. by move=> fL; rewrite epairE inordK. Qed.
 
@@ -57,7 +57,7 @@ Proof. by move=> fL; rewrite epairE inordK. Qed.
    pairing goes into an int array and the loop is indexed by an int: four
    array reads per facelet, where the nat version cost a to_nat, an of_nat
    and two linear scans of a 24 element list.  Measured over 20 000
-   evaluations of the heuristic, 55.0 s before and 2.3 s after.            *)
+   evaluations of the heuristic, 55.0 s before and 2.3 s after.               *)
 
 Definition mkarrn (n : int) (l : seq int) : arr :=
   (fix go (a : arr) (i : int) (l : seq int) {struct l} : arr :=
@@ -72,7 +72,7 @@ Fixpoint alli (k : nat) (i : int) (f : int -> bool) : bool :=
   if k is k1.+1 then f i && alli k1 (i + 1)%uint63 f else true.
 
 (* the twelve primary facelets, as ints: one array read instead of a scan of
-   a 12 element nat list plus an of_nat of a value up to 47                 *)
+   a 12 element nat list plus an of_nat of a value up to 47                   *)
 Definition eprimi : arr :=
   Eval vm_compute in
   mkarrn (of_nat nedge) [seq of_nat (nth 0%N eprim k) | k <- iota 0 nedge].
@@ -119,7 +119,7 @@ Lemma nfacelet_nwB m : m < nfacelet -> m < nwB.
 Proof. by move=> mL; apply: leq_trans (leq_trans mL _) n47_small. Qed.
 
 (* inord is injective below the bound, which is how an equation between
-   facelets becomes an equation between naturals                             *)
+   facelets becomes an equation between naturals                              *)
 Lemma inord_eq (a b : nat) : a < nfacelet -> b < nfacelet ->
   ((inord a : facelet) == inord b) = (a == b).
 Proof.
@@ -127,7 +127,7 @@ move=> aL bL; apply/eqP/eqP => [e|->//].
 by rewrite -(inordK aL) e inordK.
 Qed.
 
-(* the int indexed loop, as a list one -- the same shape as Tabi.v's eqiE *)
+(* the int indexed loop, as a list one -- the same shape as Tabi.v's eqiE     *)
 Lemma alliE k i (f : int -> bool) :
   to_nat i + k < nwB ->
   alli k i f = all (fun j => f (of_nat j)) (iota (to_nat i) k).
@@ -141,7 +141,7 @@ by rewrite to_nat_incr // to_natK.
 Qed.
 
 (* epairi holds what epairn computes.  It is a literal array, so this is 48
-   comparisons and not an induction over mkarrn.                           *)
+   comparisons and not an induction over mkarrn.                              *)
 Lemma get_epairi f :
   f < nfacelet -> PArray.get epairi (of_nat f) = of_nat (epairn f).
 Proof.
@@ -244,7 +244,7 @@ Qed.
    about a permutation reduces, so "the eighteen moves keep cubies together"
    has to be read through cubtE, and cubtE is a table fact.                   *)
 
-(* the six faces, each one XmoveT away from a table and then one vm_compute *)
+(* the six faces, each one XmoveT away from a table and then one vm_compute   *)
 Lemma cubP_faces g : g \in faces -> cubP g.
 Proof.
 have hf : all cubP faces.
@@ -265,7 +265,7 @@ Qed.
 Lemma cubP_step g m : cubP g -> m \in Sset -> cubP (g * m).
 Proof. by move=> cg /moves_cubP cm; exact: cubPM. Qed.
 
-(* the equivariance, with the moves known to preserve cubies                 *)
+(* the equivariance, with the moves known to preserve cubies                  *)
 Lemma coordfsMS g m :
   cubP g -> m \in Sset -> coordfs (g * m) = actfs (coordfs g) m.
 Proof. by move=> cg /moves_cubP cm; apply: coordfsM. Qed.
@@ -281,7 +281,7 @@ Hypothesis Dfs0 : Dfs (coordfs 1) = 0.
 Hypothesis DfsStep : forall x m, m \in Sset -> Dfs x <= (Dfs (actfs x m)).+1.
 
 (* what Coordfs.v's summary gives Search.v.  The guard costs nothing: hfs is
-   0 off the guarded set, so both conditions come out unconditional.         *)
+   0 off the guarded set, so both conditions come out unconditional.          *)
 Definition hfs : {perm facelet} -> nat := hcoordg cubP coordfs Dfs.
 
 Lemma hfs0 : hfs 1 = 0.
@@ -316,7 +316,7 @@ Hypothesis mtisE :
   moves = [seq pt 47 mt | mt <- [seq ti2t 47 mt | mt <- mtis]].
 
 (* what the depth 12 theorem will cite: one false answer from the array       *)
-(* search, and the position is out of the ball.                              *)
+(* search, and the position is out of the ball.                               *)
 Corollary far_of_searchi d a :
   tabi_ok 47 a -> searchi 47 mtis Dti d a = false ->
   pt 47 (ti2t 47 a) \notin ball Sset d.

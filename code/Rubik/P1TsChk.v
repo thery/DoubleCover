@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  P1TsChk.v -- The twist x slice table's step certificate, and nothing    *)
-(*     else.                                                                *)
+(*  P1TsChk.v -- The twist x slice table's step certificate, and nothing      *)
+(*     else.                                                                  *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -16,6 +16,6 @@ Unset Printing Implicit Defensive.
 Import GroupScope.
 
 (* If the native compiler is unavailable, vm_cast_no_check (erefl true) is the
-   fallback -- it evaluates once as well, just more slowly. *)
+   fallback -- it evaluates once as well, just more slowly.                   *)
 Lemma ts_checkStepP : ts_checkStep.
 Proof. Time native_cast_no_check (erefl true). Qed.

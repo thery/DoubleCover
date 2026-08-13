@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  Sym.v -- The spatial symmetries of the cube, acting on facelets.        *)
+(*  Sym.v -- The spatial symmetries of the cube, acting on facelets.          *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

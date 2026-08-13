@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  Fsparity.v -- What makes a packed value a genuine flip x slice summary, *)
-(*     and why a move preserves it.                                         *)
+(*  Fsparity.v -- What makes a packed value a genuine flip x slice summary,   *)
+(*     and why a move preserves it.                                           *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -36,33 +36,33 @@ Import GroupScope.
 
    fsok asks for both, and admits exactly nflip * nsrank = nfs values -- the
    count the emitted tables have a row for.  Fixing it is therefore a
-   soundness fix AND the largest saving available on the certificate. *)
+   soundness fix AND the largest saving available on the certificate.         *)
 
 (* fpar, sok and fsok, and everything provable about them at the PERMUTATION
    level, are in Phase1.v: p1stepF there needs the guard, and twcP there
    carries the parity.  What is left here is the array level, which Phase1.v
-   cannot state -- it does not know about comp_tabi or mtis. *)
+   cannot state -- it does not know about comp_tabi or mtis.                  *)
 
-(* the old bound, where the old bound is what is wanted *)
+(* the old bound, where the old bound is what is wanted                       *)
 Lemma fsok_lt x : fsok x -> (fsidx x <? nfsi)%uint63.
 Proof.
 move=> /andP[hs _]; apply: fsidx_ltB.
 by have := nltbP _ _ hs; rewrite (_ : to_nat nsranki = nsrank) //; vm_compute.
 Qed.
 
-(* THE INVARIANT, at the int level: a move does not change the flip parity *)
+(* THE INVARIANT, at the int level: a move does not change the flip parity    *)
 Lemma fpar_actf x mt : mt \in mtabs ->
   fpar (actf x (mdatf_of_tab mt)) = fpar x.
 Proof.
 move=> hmt; rewrite actfE.
 have /andP[hp hx] := allP mtabs_fparP _ hmt.
-(* @: Unset Strict Implicit makes d implicit, and hp fixes only d.1 *)
+(* @: Unset Strict Implicit makes d implicit, and hp fixes only d.1           *)
 rewrite (@fpar_actd x (mdat_of_tab mt) hp).
   by move: hx; rewrite mdat_snd; case: odd => //=; rewrite addbF.
 by rewrite mdat_snd /mxbit size_map size_iota.
 Qed.
 
-(* and the parity at the array level: a move does not change it *)
+(* and the parity at the array level: a move does not change it               *)
 Lemma fpar_step a k : tabi_ok 47 a -> cubti a -> (k < 18)%N ->
   fpar (coordi (comp_tabi 47 a (nth (id_tabi 47) mtis k))) = fpar (coordi a).
 Proof.

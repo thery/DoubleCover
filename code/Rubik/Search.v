@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  Search.v -- The lower bound search: iterative deepening with an         *)
-(*     admissible heuristic.                                                *)
+(*  Search.v -- The lower bound search: iterative deepening with an           *)
+(*     admissible heuristic.                                                  *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -80,7 +80,7 @@ Qed.
 
 (* And the other side: what the search finds is really there.  Only the "no"
    side is needed for a lower bound, which is why this was never stated; it
-   is what lets a search that succeeded put its argument back in a ball.   *)
+   is what lets a search that succeeded put its argument back in a ball.      *)
 Lemma search_ball d g : search d g -> g \in ball S d.
 Proof.
 elim: d g => [g|d IH g] /andP[hg].

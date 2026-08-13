@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  FoldAtTable.v -- The fold at the emitted table.                         *)
+(*  FoldAtTable.v -- The fold at the emitted table.                           *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -28,7 +28,7 @@ Import GroupScope.
 (*  1.  The three slots                                                       *)
 (* =========================================================================  *)
 
-(* slots 5, 6 and 7 hold the folding tables FoldTables.v reads *)
+(* slots 5, 6 and 7 hold the folding tables FoldTables.v reads                *)
 
 Lemma repslotE : PArray.get p1ftab frepslot = repa.
 Proof. Time native_cast_no_check (erefl repa). Qed.
@@ -52,7 +52,7 @@ Proof. by rewrite /Phase1.twsym twsymslotE. Qed.
 (*  2.  The stabiliser                                                        *)
 (* =========================================================================  *)
 
-(* short orbits: every symmetry reaching the representative agrees *)
+(* short orbits: every symmetry reaching the representative agrees            *)
 Lemma stabCP : stabC p1ftab (racti ractab).
 Proof. Time native_cast_no_check (erefl true). Qed.
 
@@ -67,7 +67,7 @@ Proof. by move=> twL rL uL hu; exact: (stabE_of_check stabCP rL uL twL hu). Qed.
 (*  3.  The certificate, at the orbits                                        *)
 (* =========================================================================  *)
 
-(* the orbit certificate, in twenty seven slices of eighty one twists *)
+(* the orbit certificate, in twenty seven slices of eighty one twists         *)
 
 Definition slices : seq nat :=
   iota 0 81 ++ iota 81 81 ++ iota 162 81 ++ iota 243 81 ++ iota 324 81 ++
@@ -80,7 +80,7 @@ Definition slices : seq nat :=
 Lemma slicesE : slices = iota 0 ntwist.
 Proof. Time native_cast_no_check (erefl (iota 0 ntwist)). Qed.
 
-(* foldcheckStep is that all, so the equation is all it takes *)
+(* foldcheckStep is that all, so the equation is all it takes                 *)
 Lemma foldcheckStep_of_slices (s : seq nat) : s = iota 0 ntwist ->
   all (fun t => foldcheckOrb p1ftab frepi fsymi repsi twsymi actfsr
                               (of_nat t)) s ->
@@ -102,7 +102,7 @@ Qed.
 (*  4.  The value at the identity                                             *)
 (* =========================================================================  *)
 
-(* the value at the identity, one entry *)
+(* the value at the identity, one entry                                       *)
 Lemma p1check0P : p1check0 p1ftab.
 Proof. Time native_cast_no_check (erefl true). Qed.
 

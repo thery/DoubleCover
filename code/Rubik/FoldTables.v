@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  FoldTables.v -- The four folding tables, unpacked from P1Fold.v and     *)
-(*     bounded.                                                             *)
+(*  FoldTables.v -- The four folding tables, unpacked from P1Fold.v and       *)
+(*     bounded.                                                               *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -24,22 +24,22 @@ Definition syma : arr := Eval vm_compute in sym_data.
 Definition twsyma : arr := Eval vm_compute in twsym_data.
 Definition repsa : arr := Eval vm_compute in reps_data.
 
-(* the orbit of a rank *)
+(* the orbit of a rank                                                        *)
 Definition frepi (r : int) : int := get20 repa r.
 
-(* a symmetry taking that rank to its orbit's representative *)
+(* a symmetry taking that rank to its orbit's representative                  *)
 Definition fsymi (r : int) : int := get4 syma r.
 
-(* the twist under a symmetry *)
+(* the twist under a symmetry                                                 *)
 Definition twsymi (tw s : int) : int :=
   get20 twsyma (Uint63.add (Uint63.mul tw nsymi) s).
 
-(* the rank of an orbit's representative *)
+(* the rank of an orbit's representative                                      *)
 Definition repsi (i : int) : int := get20 repsa i.
 
 (* ---- and the bounds Fold.v asks for -------------------------------------- *)
 
-(* every orbit index is below norbi *)
+(* every orbit index is below norbi                                           *)
 Definition frepC : bool :=
   all_powi nrbits 0%uint63 (Uint63.lsl 1 (of_nat nrbits))
            (fun r => if (nfsi <=? r)%uint63 then true
@@ -69,7 +69,7 @@ have -> : (nfsi <=? r)%uint63 = false.
 by apply; vm_compute.
 Qed.
 
-(* every symmetry index is below sixteen *)
+(* every symmetry index is below sixteen                                      *)
 Definition fsymC : bool :=
   all_powi nrbits 0%uint63 (Uint63.lsl 1 (of_nat nrbits))
            (fun r => if (nfsi <=? r)%uint63 then true

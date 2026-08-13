@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  Farp1inst.v -- Farp1main at the real table and the eighteen real        *)
-(*     searches.                                                            *)
+(*  Farp1inst.v -- Farp1main at the real table and the eighteen real          *)
+(*     searches.                                                              *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -28,7 +28,7 @@ Import GroupScope.
    the all, which does not come back.
 
    Stated here rather than imported: the only other copy sat above the
-   search runs. *)
+   search runs.                                                               *)
 Lemma all_jsndp1 (f : nat -> bool) :
   f 3%N -> f 4%N -> f 5%N -> f 6%N -> f 7%N -> f 8%N -> f 9%N -> f 10%N ->
   f 11%N -> f 12%N -> f 13%N -> f 14%N -> f 15%N -> f 16%N -> f 17%N ->
@@ -40,7 +40,7 @@ by rewrite /jsnd /= h03 h04 h05 h06 h07 h08 h09 h10 h11 h12 h13 h14
 Qed.
 
 (* and the two root moves of a piece, split for the two that set the
-   makespan.  Same reason for the abstract f. *)
+   makespan.  Same reason for the abstract f.                                 *)
 Lemma all_rootp1 (f : nat -> bool) : f 0%N -> f 1%N -> all f (iota 0 nroot).
 Proof. by move=> h0 h1; rewrite /= h0 h1. Qed.
 
@@ -63,26 +63,26 @@ Qed.
 (* HOISTED, and not proved inside the theorem: there the context holds
    p1checkStep, fsmoveC, fsrC and slrC, and a trailing `done' then unifies
    its goal against one of them and unfolds an all_pow at ncoord = 24.  Even
-   `12 <= 63' stops returning. *)
+   `12 <= 63' stops returning.                                                *)
 Lemma p1droot_small : (p1droot <= 63)%N.
 Proof. by []. Qed.
 
 (* THE THEOREM, with the certificates that are still computations left
    standing in its type.  Discharging them is what remains: fsmoveCP, fsrCP
    and slrCP are stated in Farp1.v and admitted there, and p1check0 and
-   p1checkStep have to be run on the emitted table. *)
+   p1checkStep have to be run on the emitted table.                           *)
 (* NO HYPOTHESES.  Every one of the six computations has its own file and
    its own Qed: FoldAtTable for the phase 1 table, P1TsChk for the twist x slice
    one, FsmChk, FsrChk and SlrChk for the three move and distance tables.
    Print Assumptions shows only the int63 and PArray primitives.
 
    THE PHASE 1 CERTIFICATE COMES FROM THE FOLD.  FoldAtTable checks the 64 430
-   orbit representatives, in place of a sweep over all 1 013 760 ranks. *)
+   orbit representatives, in place of a sweep over all 1 013 760 ranks.       *)
 Theorem superflip_p1far_real : superflip \notin ball Sset p1depth.
 Proof.
 (* every argument pinned: closing a Section turns its Variables and
    Hypotheses into EXPLICIT arguments, in declaration order, so a partial
-   application silently binds p1ftab to the wrong slot. *)
+   application silently binds p1ftab to the wrong slot.                       *)
 exact: (@superflip_p1far p1ftab p1droot p1droot_small p1check0P
                          (p1checkStepr_ok fsmoveCP p1checkSteprP)
                          ts_checkStepP fsmoveCP fsrCP slrCP p1searchd).

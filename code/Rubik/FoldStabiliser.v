@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  FoldStabiliser.v -- Short orbits: every symmetry reaching the           *)
-(*     representative agrees.                                               *)
+(*  FoldStabiliser.v -- Short orbits: every symmetry reaching the             *)
+(*     representative agrees.                                                 *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -17,19 +17,19 @@ Unset Printing Implicit Defensive.
 
 Import GroupScope.
 
-Definition ntwbits := 12.               (* 2 ^ 12 covers the 2187 twists   *)
+Definition ntwbits := 12.               (* 2 ^ 12 covers the 2187 twists      *)
 
 Section Chk.
 
 Variable F : PArray.array arr.
 Variable ract : int -> int -> int.
 
-(* the entry the folded row gives for the symmetry u *)
+(* the entry the folded row gives for the symmetry u                          *)
 Local Notation ent u r tw := (p1get F (foldi (frepi r) (twsymi tw u))).
 
 (* Every symmetry that reaches the representative gives the same entry.  The
    one that fsym names is skipped, being the same term on both sides, which
-   is what keeps the check to the 17 120 pairs that say something. *)
+   is what keeps the check to the 17 120 pairs that say something.            *)
 Definition stabC : bool :=
   all_powi nrbits 0%uint63 (Uint63.lsl 1 (of_nat nrbits))
     (fun r =>
@@ -67,12 +67,12 @@ Lemma stabE_of_check tw r u :
   ent u r tw = ent (fsymi r) r tw.
 Proof.
 move=> hchk rL uL twL hu.
-(* the symmetry fsym names is the same term on both sides *)
+(* the symmetry fsym names is the same term on both sides                     *)
 case: (boolP (u =? fsymi r)%uint63) => [/eqb_correct ->|hne] //.
 have hrlt : (to_nat r < 2 ^ nrbits)%N.
   by apply: leq_trans (_ : to_nat nfsi <= _); [apply/nltbP | vm_compute].
 (* the outer loop as all_pow, the two inner ones left as written: turning
-   them all at once puts a rewrite under a binder and does not come back *)
+   them all at once puts a rewrite under a binder and does not come back      *)
 have hall : all_pow nrbits 0%uint63
   (fun r0 => if (nfsi <=? r0)%uint63 then true
              else all (fun u0 => let ui := of_nat u0 in
@@ -86,21 +86,21 @@ have hall : all_pow nrbits 0%uint63
                   (iota 0 16)).
   rewrite -all_powiE; last by vm_compute.
   (* -stabCE folds the body back to the name; exact: hchk alone would
-     unify by evaluating the loop *)
+     unify by evaluating the loop                                             *)
   rewrite -stabCE; exact: hchk.
-(* peel the rank loop *)
+(* peel the rank loop                                                         *)
 have hr := all_powP (k := nrbits) _ hall hrlt.
 have hg : (nfsi <=? r)%uint63 = false.
   by apply: negbTE; apply/negP => /nlebP; rewrite leqNgt (elimT (nltbP _ _) rL).
 rewrite hg in hr.
 move: hr => /(_ isT) hr.
-(* peel the sixteen symmetries *)
+(* peel the sixteen symmetries                                                *)
 have hmem : to_nat u \in iota 0 16 by rewrite mem_iota /=.
 have htw := allP hr _ hmem.
 rewrite to_natK in htw.
 cbv zeta in htw.
 rewrite (negPf hne) hu Uint63.eqb_refl in htw.
-(* peel the twist loop *)
+(* peel the twist loop                                                        *)
 rewrite all_powiE in htw; last by vm_compute.
 have htlt : (to_nat tw < 2 ^ ntwbits)%N by apply: leq_trans twL _; vm_compute.
 have h2 := all_powP (k := ntwbits) _ htw htlt.

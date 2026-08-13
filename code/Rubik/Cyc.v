@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  Cyc.v -- Cyclic permutations of a finite type, given by the points they *)
-(*     cycle.                                                               *)
+(*  Cyc.v -- Cyclic permutations of a finite type, given by the points they   *)
+(*     cycle.                                                                 *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
