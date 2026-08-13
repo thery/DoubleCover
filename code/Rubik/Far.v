@@ -46,6 +46,14 @@ Definition droot := depth.-2.           (* depth = droot.+2                   *)
 Definition nroot := 2.                  (* size Sroot                         *)
 Definition nmoves := 18.                (* size moves                         *)
 
+(* THE SECOND MOVES A PIECE IS STILL NEEDED FOR.  The first move is on the U
+   face, whose fcpos is 0, and a second move on that same face merges with it
+   into one move -- a shorter maneuver, which Searchr.searchr_root2m sends to
+   a smaller depth instead of to a piece.  So j = 0, 1, 2 are dropped and
+   fifteen files remain.  The three that turn the D face are NOT dropped:
+   see the header of mkrunp1.sh.                                            *)
+Definition jsnd := [seq j <- iota 0 nmoves | fcpos j != 0%N].
+
 (* ---- 1. The heuristic, from the table ------------------------------------ *)
 
 (* Moves.v supplies mtabs, mtis, sftab, sfti and their lemmas.  They used to  *)
