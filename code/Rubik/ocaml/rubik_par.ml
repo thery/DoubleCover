@@ -278,14 +278,23 @@ let () =
     end in
 
   (* root prefixes of length 2.  superflip is fixed by all 48 symmetries and
-     is its own inverse, so the first move may be taken to be U or U2. *)
+     is its own inverse, so the first move may be taken to be U or U2.
+
+     ONLY THE SAME FACE IS DROPPED, NOT THE OPPOSITE ONE.  The dfs guard keeps
+     D before U, but here the first move is pinned to the U face by symmetry,
+     and the two rules cannot both be had: U D commutes to D U, and turning
+     the cube over to put that D back on top gives U D again.  A U-face and a
+     D-face turn at the head is a fixed point of both, so dropping f2 = D
+     loses those sequences.  This is Reid's R1 L1 case, which he keeps and
+     cuts instead with the symmetries that fix the pair.
+     Fixed 2026-08-13: the filter used to drop them, which made the search
+     unsound; 30 prefixes now, not 24. *)
   let prefixes =
     let l = ref [] in
     List.iter (fun m1 ->
       let f1 = m1 / 3 in
       for m2 = 0 to 17 do
-        let f2 = m2 / 3 in
-        if not (f2 = f1 || (f2 = opp f1 && f2 > f1)) then l := (m1, m2) :: !l
+        if m2 / 3 <> f1 then l := (m1, m2) :: !l
       done) [0; 1];
     List.rev !l in
 

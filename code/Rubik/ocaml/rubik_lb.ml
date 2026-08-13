@@ -371,7 +371,15 @@ let () =
   let use_rules = not (Array.length Sys.argv > 4 && Sys.argv.(4) = "norules") in
   Printf.printf "redundancy rules: %b\n%!" use_rules;
 
-  let rec dfs d rem prev =
+  (* SAMEONLY IS FOR THE SECOND MOVE ONLY.  The first move is pinned to the U
+     face by symmetry, and the opposite-face rule keeps D before U, so the two
+     cannot both be applied: U D commutes to D U, and turning the cube over to
+     put that D back on top gives U D again.  Applying the full guard at the
+     root therefore loses every sequence whose first two turns are a U-face
+     and a D-face one -- Reid's R1 L1 case.  Only the same-face part is safe
+     there, since U then U2 merges into a shorter sequence.
+     Fixed 2026-08-13; the root used to pass the full guard. *)
+  let rec dfs d rem prev sameonly =
     nodes := Int64.add !nodes 1L;
     let h = heur d in
     if h = 0 && is_solved d then true
@@ -382,7 +390,8 @@ let () =
       let m = ref 0 in
       while not !found && !m < 18 do
         let f = !m / 3 in
-        if use_rules && prev >= 0 && (f = prev || (f = opp prev && f > prev)) then ()
+        if use_rules && prev >= 0 &&
+           (f = prev || (not sameonly && f = opp prev && f > prev)) then ()
         else begin
           let d' = d + 1 in
           let mcp = moves.(!m).cp and mep = moves.(!m).ep in
@@ -394,7 +403,7 @@ let () =
             fl.(d').(k) <- mt_flip.(fl.(d).(k)).(mk);
             sl.(d').(k) <- mt_slice.(sl.(d).(k)).(mk)
           done;
-          if dfs d' (rem - 1) f then found := true
+          if dfs d' (rem - 1) f false then found := true
         end;
         incr m
       done;
@@ -432,7 +441,7 @@ let () =
             fl.(1).(k) <- mt_flip.(fl.(0).(k)).(mk);
             sl.(1).(k) <- mt_slice.(sl.(0).(k)).(mk)
           done;
-          if dfs 1 (t - 1) 0 then found := true
+          if dfs 1 (t - 1) 0 true then found := true
         end) [0; 1];
       Printf.printf "depth %2d : %14Ld nodes, %8.1f s, solution %b\n%!"
         t !nodes (Unix.gettimeofday () -. t0) !found;

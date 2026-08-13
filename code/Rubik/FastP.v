@@ -371,18 +371,22 @@ Qed.
 (* the shape the generated Runp1_NN.v files need: apply this and cast the
    searchz3n statement.  Stated as an implication rather than an equation so
    the generated proof is one `apply' and no rewriting under a binder. *)
-Lemma p1searchd_bridge T d j : (d <= 63)%N -> (j < nmoves)%N -> fsmoveC ->
+(* p is the face the search starts guarded against: nfcube for no guard at
+   all, fcpos j for a piece whose second move is j.  Only the second is used
+   now -- see Searchr.searchr_root2. *)
+Lemma p1searchd_bridge T d j p : (d <= 63)%N -> (j < nmoves)%N -> (p < 7)%N ->
+  fsmoveC ->
   all (fun i => ~~ searchz3n T d (of_nat d) (prefixi i j) [::]
-                             (init3 (prefixi i j)) nfcube) (iota 0 nroot) ->
+                             (init3 (prefixi i j)) p) (iota 0 nroot) ->
   all (fun i => ~~ searchz3 T d (prefixi i j)
-                            (init3 (prefixi i j)) nfcube) (iota 0 nroot).
+                            (init3 (prefixi i j)) p) (iota 0 nroot).
 Proof.
-move=> dL jL hc.
+move=> dL jL pL hc.
 (* same reason as above: fsmoveC used once, then out of the context *)
 have sn : forall a, tabi_ok 47 a -> cubti a -> twP3 a ->
-    searchz3n T d (of_nat d) a [::] (init3 a) nfcube
-    = searchz3 T d a (init3 a) nfcube
-  := fun a aok ca tw => @searchz3nE T d a nfcube dL hc isT aok ca tw.
+    searchz3n T d (of_nat d) a [::] (init3 a) p
+    = searchz3 T d a (init3 a) p
+  := fun a aok ca tw => @searchz3nE T d a p dL hc pL aok ca tw.
 clear hc => h; apply/allP => i hi.
 have iL : (i < nroot)%N.
   by move: hi; rewrite mem_iota add0n => /andP[_].

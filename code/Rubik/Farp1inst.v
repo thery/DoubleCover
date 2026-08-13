@@ -41,7 +41,7 @@ Qed.
 
 Lemma p1searchd :
   all (fun j => all (fun i => ~~ searchz3 p1ftab p1droot (prefixi i j)
-                                          (init3 (prefixi i j)) nfcube)
+                                          (init3 (prefixi i j)) (fcpos j))
                     (iota 0 nroot))
       (iota 0 nmoves).
 Proof.
