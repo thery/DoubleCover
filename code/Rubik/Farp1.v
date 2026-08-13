@@ -1104,6 +1104,26 @@ apply: (searchrN Sset_inv (hsym30 hc0) hstep
 rewrite mtisE -e2 -e1 -e0; exact: hs.
 Qed.
 
+(* THE SAME CHAIN, STOPPING AT searchr AND FOR ANY PREVIOUS FACE p.  A piece
+   fixes two moves and then searches; started at nfcube its own first move is
+   unguarded, which is one level of branching thrown away.  searchrN wants
+   p = nfcube, so it cannot be used here: Searchr.searchr_root2 takes over.
+   The three checks searchrN needs are not needed either -- this is only the
+   chain of equations.                                                      *)
+Lemma searchr_of_searchz3 T d a p : (d <= 63)%N ->
+  fsmoveC -> fsrC -> tabi_ok 47 a -> cubti a -> twP3 a ->
+  searchz3 T d a (init3 a) p = false ->
+  searchr moves (hsym3 T) nfcube fcube oppf d (pt 47 (ti2t 47 a)) p = false.
+Proof.
+move=> dL hfm hfr aok ca tw hs.
+have e0 : searchz3 T d a (init3 a) p
+        = searchir 47 mtis (Dsym3 T) nfcube oppf fcpos d a p
+  := @searchz3E T d a p dL hfm aok ca tw.
+have e1 := searchirE3 T d hfr p aok ca tw.
+have e2 := searchtrE mtsok3 nfcube oppf (hE3 T) fcE3 d p aok.
+by rewrite mtisE -e2 -e1 -e0.
+Qed.
+
 (* -- the invariant at the root --------------------------------------------- *)
 
 (* THE INVARIANT AT THE ROOT, COMPUTABLY.  twP is stated over

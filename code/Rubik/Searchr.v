@@ -493,6 +493,53 @@ case/hasP => m2 m2S /andP[ok2].
 move=> sm; case/negP: (negbT (gmm _ _ m1S m2S ok1 ok2)); exact: sm.
 Qed.
 
+(* ---- 6. Deeper is not worse ---------------------------------------------- *)
+
+(* Search.v has search_mono for the unguarded search; the guarded one never
+   needed it, since everything reaches balls through ball_searchr and ballW.
+   It is what lets a piece proved at one depth be used at a smaller one.    *)
+Lemma searchr_mono d g p : searchr d g p -> searchr d.+1 g p.
+Proof.
+elim: d g p => [|d IH] g p /andP[hg]; rewrite /= (leqW hg) /=.
+  by case/orP => [->//|].
+case/orP => [->//|/hasP[m mS /andP[okm sm]]]; apply/orP; right.
+by apply/hasP; exists m => //; rewrite okm /=; exact: IH.
+Qed.
+
+Lemma searchrW d d' g p : d <= d' -> searchr d g p -> searchr d' g p.
+Proof.
+elim: d' => [|d' IH]; first by rewrite leqn0 => /eqP->.
+rewrite leq_eqVlt => /orP[/eqP->//|dd' sd].
+by apply: searchr_mono; apply: IH; rewrite // -ltnS.
+Qed.
+
+(* ---- 7. The root split, KEEPING the guard on the move after the root ------*)
+
+(* The first move comes from Sr and is chosen by symmetry, not by the guard,
+   so nothing constrains the second one -- see Root.v.  But the word AFTER
+   that second move is reduced like any other, so its own first move is
+   guarded against fc m2, and that is one whole level of branching.  The
+   search files threw it away by starting each piece at nfc.
+
+   hroot is Root.ball_root at d.+1, and the rest is one unfolding of searchr,
+   exactly as in searchr_split2.                                           *)
+Lemma searchr_root2 (Sr : seq gT) d g :
+  (g \in ball S d.+2 -> exists2 m1, m1 \in Sr & g * m1 \in ball S d.+1) ->
+  (forall m1, m1 \in Sr -> g * m1 != 1) ->
+  (forall m1 m2, m1 \in Sr -> m2 \in Sseq ->
+     searchr d (g * m1 * m2) (fc m2) = false) ->
+  g \notin ball S d.+2.
+Proof.
+move=> hroot hn1 hmm; apply/negP => gB.
+have [m1 m1R gm1B] := hroot gB.
+move: (ball_searchr gm1B) => /andP[_].
+rewrite (negbTE (hn1 _ m1R)) orFb.
+(* the goal shows searchr unfolded to its fix, so rewrite cannot match it;
+   exact does, up to conversion -- as in searchr_split2 *)
+case/hasP => m2 m2S /andP[_ sm2].
+by case/negP: (negbT (hmm _ _ m1R m2S)); exact: sm2.
+Qed.
+
 (* (d) and the sanity check that this is worth it: the rules only ever remove
    candidates, so a reduced search that fails is a search that fails.      *)
 Lemma searchr_search d g p : searchr d g p -> search Sseq h d g.

@@ -53,16 +53,27 @@ Hypothesis hfr : fsrC.
 Hypothesis hsl : slrC.
 
 (* the eighteen pieces, glued: the second move outermost, so that the
-   eighteen conjuncts are exactly the eighteen files *)
+   eighteen conjuncts are exactly the eighteen files.
+
+   EACH PIECE STARTS GUARDED AGAINST fcpos j, THE FACE OF ITS SECOND MOVE.
+   It used to start at nfcube, meaning "no previous move", which let the
+   piece try all eighteen third moves where the rules leave about thirteen --
+   one whole level of the search given away.  The guard is legitimate here
+   because the word after the second move is reduced like any other; what
+   cannot be guarded is the second move itself, whose face is fixed by the
+   symmetry argument and not by the rules.  See Searchr.searchr_root2.      *)
 Hypothesis hsearch :
   all (fun j => all (fun i => ~~ searchz3 T d (prefixi i j)
-                                          (init3 (prefixi i j)) nfcube)
+                                          (init3 (prefixi i j)) (fcpos j))
                     (iota 0 nroot))
       (iota 0 nmoves).
 
-Lemma p1prefix_far i j :
+(* the piece as a searchr that came back false, NOT as a ball membership:
+   searchrN would want nfcube and would throw the guard away again *)
+Lemma p1prefix_searchr i j :
   (i < nroot)%N -> (j < nmoves)%N ->
-  superflip * nth 1%g moves i * nth 1%g moves j \notin ball Sset d.
+  searchr moves (hsym3 T) nfcube fcube oppf d
+          (superflip * nth 1%g moves i * nth 1%g moves j) (fcpos j) = false.
 Proof.
 move=> iL jL.
 have iL' : (i < nmoves)%N := leq_trans iL nroot_leq.
@@ -70,25 +81,32 @@ have iL' : (i < nmoves)%N := leq_trans iL nroot_leq.
    goal: ball Sset ?d is a finset over {perm 'I_48}, not something to leave
    to unification. *)
 rewrite -(prefixiE iL' jL).
-have hs : searchz3 T d (prefixi i j) (init3 (prefixi i j)) nfcube = false.
+have hs : searchz3 T d (prefixi i j) (init3 (prefixi i j)) (fcpos j) = false.
   (* no /= anywhere near this: it holds a searchz3 at depth d, and simpl
      would start unfolding the search itself *)
   move: hsearch => /allP/(_ _ (mem_iota0 jL))/allP/(_ _ (mem_iota0 iL)) h.
   exact: negbTE h.
-exact: (far_of_searchz3 (d := d) dL hc0 hcS hts hfm hfr hsl
-                        (prefixi_ok iL' jL) (prefixi_cub iL' jL)
-                        (prefixi_twP3 iL' jL) hs).
+exact: (searchr_of_searchz3 (d := d) dL hfm hfr
+                            (prefixi_ok iL' jL) (prefixi_cub iL' jL)
+                            (prefixi_twP3 iL' jL) hs).
 Qed.
 
 (* ---- 3. The theorem ------------------------------------------------------ *)
 
 Theorem superflip_p1far : superflip \notin ball Sset d.+2.
 Proof.
-apply: (ball_root2 superflipJ superflip_neq1 superflip_move_neq1).
+have hstep : forall g m, m \in Sset -> hsym3 T g <= (hsym3 T (g * m)).+1.
+  by move=> g m mS; exact: (@hsym3S T g m hcS hts hsl mS).
+apply: (searchr_root2 Sset_inv (hsym30 hc0) hstep
+                      fcube_ltS oppfK fcube_close fcube_comm (Sr := Sroot)).
+- move=> gB; case: (ball_root superflipJ gB) => [gE|[m1 m1R hm1]].
+    by move: superflip_neq1; rewrite gE eqxx.
+  by exists m1.
+- by move=> m1 m1R; exact: superflip_move_neq1 (Sroot_moves m1R).
 move=> m1 m2 m1R m2M.
 have [j jL <-] := moves_index m2M.
 have [i iL <-] := root_index m1R.
-exact: p1prefix_far.
+by rewrite (fcpos_moves jL) p1prefix_searchr.
 Qed.
 
 End P1Far.

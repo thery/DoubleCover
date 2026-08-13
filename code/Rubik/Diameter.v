@@ -111,16 +111,9 @@ apply: groupM; last by [].
 by apply: groupM; last by apply: groupX.
 Qed.
 
-(* [COMPUTATION] The lower-bound search: no word of length at most 19 in the  *)
-(* eighteen moves reaches the superflip.                                      *)
-Lemma superflip_far : superflip \notin ball Sset 19.
-Admitted.
-
-Theorem rubik_diam_gt_19 : ~~ diam_le Sset 19.
-Proof.
-apply/negP => /subsetP Hs; move: superflip_far.
-by rewrite (Hs _ superflip_in_G).
-Qed.
+(* The lower bound itself is not here: it is the search, which sits at the    *)
+(* top of the development while the cube is defined here at the bottom.  See  *)
+(* Diam20.v, where the two ends meet.                                         *)
 
 (* ---- 2. The reduction, instantiated on the cube -------------------------- *)
 
@@ -148,8 +141,7 @@ move=> C CH; have [u uS uR] := Rcover CH.
 by exists u => //; apply: Symg_stab.
 Qed.
 
-(* The diameter is twenty: reachable in 20, and 19 is not enough.             *)
-Theorem rubik_diameter : diam_le Sset 20 /\ ~~ diam_le Sset 19.
-Proof. by split; [exact: rubik_diam_le_20 | exact: rubik_diam_gt_19]. Qed.
-
 End Checker.
+
+(* The other half, "19 is not enough", and the two together as the diameter,  *)
+(* are in Diam20.v.                                                           *)

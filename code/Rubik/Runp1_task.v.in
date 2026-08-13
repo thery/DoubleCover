@@ -19,11 +19,13 @@ Import GroupScope.
 
 Lemma p1searchd_@N@ :
   all (fun i => ~~ searchz3 p1ftab @D@ (prefixi i @J@)
-                            (init3 (prefixi i @J@)) nfcube)
+                            (init3 (prefixi i @J@)) (fcpos @J@))
       (iota 0 nroot).
-(* p1searchd_bridge runs the fast search and gives this statement *)
+(* p1searchd_bridge runs the fast search and gives this statement.  fcpos @J@
+   is the face of the second move: the search starts guarded against it, so
+   the third move is one of about thirteen and not one of eighteen. *)
 Proof.
 (* every argument given: `done' would unfold an all_pow at ncoord = 24 *)
-apply: (@p1searchd_bridge p1ftab @D@ @J@ isT isT fsmoveCP).
+apply: (@p1searchd_bridge p1ftab @D@ @J@ (fcpos @J@) isT isT isT fsmoveCP).
 Time @CAST@_cast_no_check (erefl true).
 Qed.
