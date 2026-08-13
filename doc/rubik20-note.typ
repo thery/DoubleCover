@@ -875,7 +875,7 @@ Forty-six hand-written Rocq files. What each group does.
   ([`Rubik333.v`], [facelets, the six faces, the eighteen moves, the cube group]),
   ([`Sym.v`, `Sym16.v`], [the 48 symmetries of the cube; the 16 used by the fold]),
   ([`Ball.v`], [balls of radius $d$, and what "the diameter is at most $d$" means]),
-  ([`Diameter.v`], [the superflip, its 20-move sequence, and the final statement]),
+  ([`Diameter.v`], [the superflip, its 20-move sequence, and what the upper bound would need]),
 )
 
 #tbl(([the search, in the abstract], []),
@@ -905,6 +905,7 @@ Forty-six hand-written Rocq files. What each group does.
   ([`Runp1_00.v` .. `_17.v`], [the eighteen pieces, written by a script]),
   ([`Farp1main.v`], [the theorem over _any_ table: 8 seconds, and no data at all]),
   ([`Farp1inst.v`], [the same at the real table and the eighteen real runs]),
+  ([`Diam20.v`], [and hence God's number is at least 20]),
 )
 
 The *certificates* are the files that run the checks, each with its own `Qed`:
@@ -971,7 +972,10 @@ primitives of its machine-integer and array interface. Nothing in the chain is
 admitted.
 
 At depth 19 this says precisely that the superflip cannot be solved in 19
-moves, which is *God's number $>= 20$*.
+moves. Two lines then turn it into *God's number $>= 20$*, in
+#src("Diam20.v"): that file is where the two ends of the development meet, the
+cube being defined at the bottom of the chain and the search sitting at the
+top, and it first checks that the eighteen searches were indeed run at 19.
 
 The runs, measured, eighteen pieces on nine workers:
 
@@ -988,19 +992,14 @@ and the same at every depth, and *0.85 GB* since the table was folded,
 which is what lets all eighteen pieces run at once. The 19-move run above was
 made before the fold.
 
-*What is left.* Three things, stated plainly.
+*What is left.* Two things, stated plainly.
 
-+ `Diameter.v` proves `~~ diam_le Sset 19` from a lemma that it states and
-  admits, "the superflip is not within 19 moves". It has to admit it: that
-  file sits at the bottom of the chain, where the cube is defined, while the
-  search which establishes the fact sits at the top and requires everything.
-  #src("Diam20.v") joins the two ends, replaying those same two lines of proof
-  with the real theorem in scope, after checking that the eighteen searches
-  were indeed run at depth 19. Nothing is admitted there.
 + The second move of the search ranges over all eighteen moves, though the
   three that turn the top face again are redundant: $2 times 15 = 30$ searches
-  would do in place of 36. Those three happen to be the cheapest of the
-  eighteen pieces, so this is processor time rather than wall clock.
+  would do in place of 36. What those three cost has not been measured. The
+  other three, which turn the bottom face, look redundant and are not: the two
+  turns commute, and the first move is already pinned to the top face by
+  symmetry, so no rewriting can move the bottom one out of second place.
 + Compiling the table blocks to native code is now the largest single step of
   a build from clean, larger than the certificates, the checks and the
   twenty-seven slices together, and how many of them can run at once has never

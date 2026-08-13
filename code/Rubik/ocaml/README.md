@@ -1,12 +1,13 @@
 # The superflip lower bound, prototyped in OCaml
 
-`Diameter.v` leaves one `[COMPUTATION]` admitted:
+The lower bound is one computation:
 
 ```coq
-Lemma superflip_far : superflip \notin ball Sset 19.
+superflip \notin ball Sset 19
 ```
 
-These two programs are the prototype of the computation behind it.  They are
+It is proved in Rocq, by the search of `Farp1inst.v`; `Diam20.v` turns it into
+God's number being at least 20.  These two programs are its prototype.  They are
 not part of the proof: they exist to measure how big the job is, and to be the
 reference the Rocq version is checked against, node for node.
 
@@ -91,7 +92,7 @@ depth 19 : 104 561 988 516 nodes, no solution
            2h20m on 14 cores, 24.0 CPU-hours, 1.21e6 nodes/s/core
 ```
 
-which is the computational content of `superflip_far`.
+which is the computational content of the lower bound.
 
 The 20-move maneuver `U R2 F B R B2 R U2 L B2 R U' D' R2 F R' L B2 U2 F2` is
 applied to the solved cube at start up and checked to produce the superflip;
