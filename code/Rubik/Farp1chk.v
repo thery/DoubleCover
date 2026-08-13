@@ -20,9 +20,9 @@ Proof. by []. Qed.
 
 Theorem superflip_p1far_dummy :
   all (fun j => all (fun i => ~~ searchz3 p1dummy p1droot (prefixi i j)
-                                          (init3 (prefixi i j)) nfcube)
+                                          (init3 (prefixi i j)) (fcpos j))
                     (iota 0 nroot))
-      (iota 0 nmoves) ->
+      jsnd ->
   ts_checkStep -> fsmoveC -> fsrC -> slrC ->
   superflip \notin ball Sset p1depth.
 Proof.
@@ -38,9 +38,9 @@ Qed.
    dummy catches it here in seconds rather than after the searches. *)
 Theorem superflip_p1far_dummy_folded :
   all (fun j => all (fun i => ~~ searchz3 p1dummy p1droot (prefixi i j)
-                                          (init3 (prefixi i j)) nfcube)
+                                          (init3 (prefixi i j)) (fcpos j))
                     (iota 0 nroot))
-      (iota 0 nmoves) ->
+      jsnd ->
   p1check0 p1dummy -> p1checkStepr p1dummy ->
   ts_checkStep -> fsmoveC -> fsrC -> slrC ->
   superflip \notin ball Sset p1depth.
