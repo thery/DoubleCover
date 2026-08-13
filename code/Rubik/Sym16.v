@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  Sym16.v -- The sixteen symmetries the phase 1 table folds by.           *)
+(*  Sym16.v -- The sixteen symmetries the phase 1 table folds by.             *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -15,7 +15,7 @@ Unset Printing Implicit Defensive.
 
 Import GroupScope.
 
-(* ---- 1. The sixteen, as facelet tables ---------------------------------- *)
+(* ---- 1. The sixteen, as facelet tables ----------------------------------  *)
 
 Definition sym16_00 : seq nat :=
   [:: 45; 43; 40; 46; 41; 47; 44; 42; 39; 38; 37; 36; 35; 34; 33; 32;
@@ -109,14 +109,14 @@ Proof. by vm_compute. Qed.
 
 (* Conjugating move k by the i-th symmetry gives move symmove i k.  Read off
    with Far.v's sigma, exactly as Far.v reads off its own sg0 .. sg4, and
-   checked against the moves by sym16C below. *)
+   checked against the moves by sym16C below.                                 *)
 Definition symmovet : seq (seq nat) :=
   Eval vm_compute in [seq [seq sigma s k | k <- iota 0 18] | s <- sym16ts].
 
 Definition symmove (i k : nat) : nat := nth 0%N (nth [::] symmovet i) k.
 
 (* THE FACT THE FOLD RESTS ON: conjugation by each of the sixteen permutes
-   the eighteen moves, by the relabelling. *)
+   the eighteen moves, by the relabelling.                                    *)
 Definition sym16C : bool :=
   all (fun i =>
          all (fun k => conjt (nth [::] sym16ts i) (nth [::] mtabs k)
@@ -128,7 +128,7 @@ Lemma sym16CP : sym16C.
 Proof. by vm_compute. Qed.
 
 (* the equation, so that allP is applied to a visible all and never has to
-   unfold the certificate *)
+   unfold the certificate                                                     *)
 Lemma sym16CE :
   sym16C =
   all (fun i =>
@@ -138,7 +138,7 @@ Lemma sym16CE :
       (iota 0 16).
 Proof. by []. Qed.
 
-(* the relabellings land in range, so the conjugated move really is a move *)
+(* the relabellings land in range, so the conjugated move really is a move    *)
 Definition symmoveB : bool :=
   all (fun i => all (fun k => (symmove i k < 18)%N) (iota 0 18)) (iota 0 16).
 
@@ -153,7 +153,7 @@ Proof. by []. Qed.
 (* ---- 3. The sixteen are a group ------------------------------------------ *)
 
 (* Sixteen distinct tables, the identity among them, closed under inverse and
-   under the 256 products. *)
+   under the 256 products.                                                    *)
 Definition sym16G : bool :=
   [&& uniq sym16ts,
       id_tab 47 \in sym16ts,
@@ -174,7 +174,7 @@ Proof. by []. Qed.
 (* ---- 4. The usable forms ------------------------------------------------- *)
 
 (* the small facts the proofs below need, kept local because Farp1.v already
-   carries its own copies of the first two *)
+   carries its own copies of the first two                                    *)
 Local Lemma mem_iota0 n k : (k < n)%N -> k \in iota 0 n.
 Proof. by move=> kL; rewrite mem_iota add0n leq0n kL. Qed.
 
@@ -199,7 +199,7 @@ exact: (allP (allP h _ (mem_iota0 iL)) _ (mem_iota0 kL)).
 Qed.
 
 (* so each of the sixteen sends a move to a move -- Far.v's view_move, for
-   these views *)
+   these views                                                                *)
 Lemma sym16_move i k : (i < 16)%N -> (k < 18)%N ->
   conjt (nth [::] sym16ts i) (nth [::] mtabs k) \in mtabs.
 Proof.
@@ -222,7 +222,7 @@ Local Lemma ptJt s t : tab_ok 47 s -> tab_ok 47 t ->
 Proof. move=> sok tok; exact: (ptJ tok sok). Qed.
 
 (* the same fact about the permutations: the k-th move conjugated by the i-th
-   symmetry IS the symmove i k-th move *)
+   symmetry IS the symmove i k-th move                                        *)
 Lemma sym16_ptJ i k : (i < 16)%N -> (k < 18)%N ->
   (pt 47 (nth [::] mtabs k)) ^ (pt 47 (nth [::] sym16ts i))
   = pt 47 (nth [::] mtabs (symmove i k)).
@@ -240,7 +240,7 @@ exact: (nth_map [::] (pt 47 [::]) (pt 47) kM).
 Qed.
 
 (* and again over Rubik333's moves, which is the list the reduction speaks
-   about *)
+   about                                                                      *)
 Lemma sym16_movesJ i k : (i < 16)%N -> (k < 18)%N ->
   (nth 1 moves k) ^ (pt 47 (nth [::] sym16ts i)) = nth 1 moves (symmove i k).
 Proof.

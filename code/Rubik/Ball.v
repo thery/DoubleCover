@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  Ball.v -- The word metric of a generating set in a finite group.        *)
+(*  Ball.v -- The word metric of a generating set in a finite group.          *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

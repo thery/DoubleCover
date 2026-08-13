@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  Tsearch.v -- The search of Search.v, run on TABLES.                     *)
+(*  Tsearch.v -- The search of Search.v, run on TABLES.                       *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

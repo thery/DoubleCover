@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  Farp1.v -- The three axis views, and the phase 1 search built on them.  *)
+(*  Farp1.v -- The three axis views, and the phase 1 search built on them.    *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -25,7 +25,7 @@ Definition rot3t : seq nat :=
       10; 12; 15; 9; 14; 8; 11; 13; 37; 35; 32; 38; 33; 39; 36; 34]%N.
 
 (* the move relabellings: conjugating by r sends move k to move mv3a k, and
-   by r ^ 2 to move mv3b k *)
+   by r ^ 2 to move mv3b k                                                    *)
 Definition mv3a : seq nat :=
   [:: 6; 7; 8; 0; 1; 2; 3; 4; 5; 15; 16; 17; 9; 10; 11; 12; 13; 14]%N.
 
@@ -40,11 +40,11 @@ Proof. by vm_compute. Qed.
 Lemma rot3t2_ok : tab_ok 47 rot3t2.
 Proof. by vm_compute. Qed.
 
-(* it really is an order 3 element *)
+(* it really is an order 3 element                                            *)
 Lemma rot3t_order3 : comp_tab rot3t rot3t2 = id_tab 47.
 Proof. by vm_compute. Qed.
 
-(* it keeps cubies together, which every view has to *)
+(* it keeps cubies together, which every view has to                          *)
 Lemma cubt_rot3 : cubt rot3t.
 Proof. by vm_compute. Qed.
 
@@ -52,7 +52,7 @@ Lemma cubt_rot3t2 : cubt rot3t2.
 Proof. by vm_compute. Qed.
 
 (* THE FACT EVERYTHING RESTS ON, and the same one p1gen checks in OCaml:
-   conjugation by each view permutes the move set, by the relabelling. *)
+   conjugation by each view permutes the move set, by the relabelling.        *)
 Lemma rot3_relabel :
   all (fun k =>
          (conjt rot3t (nth [::] mtabs k)
@@ -62,19 +62,19 @@ Lemma rot3_relabel :
       (iota 0 18).
 Proof. by vm_compute. Qed.
 
-(* so each view sends a move to a move -- Far.v's view_move, for these views *)
+(* so each view sends a move to a move -- Far.v's view_move, for these views  *)
 (* HOISTED, and it matters: several proofs below carry fsmoveC, fsrC, slrC
    or ts_checkStep in their context, and a trailing `done' there tries
    `assumption' against one of them and unfolds an all_pow at ncoord = 24.
    Proving this once, where no certificate is in scope, keeps every use of it
-   out of that trap.  Farp1main.v had its own copy for the same reason. *)
+   out of that trap.  Farp1main.v had its own copy for the same reason.       *)
 Lemma mem_iota0 n k : (k < n)%N -> k \in iota 0 n.
 Proof. by move=> kL; rewrite mem_iota add0n leq0n kL. Qed.
 
 Lemma size_mtabs18 : seq.size mtabs = 18%N.
 Proof. by vm_compute. Qed.
 
-(* the relabellings land in range, so the conjugated move is a move *)
+(* the relabellings land in range, so the conjugated move is a move           *)
 Lemma mv3a_lt : all (fun k => (nth 0%N mv3a k < 18)%N) (iota 0 18).
 Proof. by vm_compute. Qed.
 
@@ -96,7 +96,7 @@ by apply: mem_nth; rewrite size_mtabs18; exact: (allP mv3b_lt _ kM).
 Qed.
 
 (* and Far.v's sigma -- the index of the conjugated move -- is the
-   relabelling, so every lemma Far.v states in terms of sigma applies *)
+   relabelling, so every lemma Far.v states in terms of sigma applies         *)
 Lemma sigma_rot3a : all (fun k => sigma rot3t k == nth 0%N mv3a k) (iota 0 18).
 Proof. by vm_compute. Qed.
 
@@ -107,7 +107,7 @@ Proof. by vm_compute. Qed.
 
 (* the same shape as Far.v's conjy / conjx: the conjugating tables are closed
    literals so the VM shares them, and the bracketing is ri . (a . r) to match
-   conji. *)
+   conji.                                                                     *)
 Definition r3ti     : arr := Eval vm_compute in t2ti 47 rot3t.
 Definition r3ti_inv : arr := Eval vm_compute in inv_tabi 47 r3ti.
 
@@ -124,17 +124,17 @@ Proof. by rewrite /conj3 /conji; congr (comp_tabi _ _ (comp_tabi _ _ _)). Qed.
 
 (* The state carried at each position: three (twist, flip x slice) pairs, one
    for the cube and one for each of its two conj3 conjugates.  A move steps
-   each pair by a table read, as rubik_par does, and never recomputes it. *)
+   each pair by a table read, as rubik_par does, and never recomputes it.     *)
 
 (* CHUNKED, and it has to be: 1 013 760 x 18 values at three to a word is
    6 082 560 words, 1.45x PArray.max_length = 4 194 303.  PArray.make caps
    silently there and every read past it returns the default 0 -- which is
    what made the whole flip x slice half of the search read as zero.  Same
-   split as p1get, on the word index at a power of two. *)
+   split as p1get, on the word index at a power of two.                       *)
 Definition fcwlog := 21.
 
 (* the chunks are PRIMITIVE ARRAY LITERALS, so this is three pointers and
-   mkarr is not needed: nothing is converted and nothing is held twice. *)
+   mkarr is not needed: nothing is converted and nothing is held twice.       *)
 Definition fsmtabs : PArray.array arr :=
   let a := PArray.make 3%uint63 (PArray.make 1%uint63 0%uint63) in
   let a := PArray.set a 0%uint63 fsm_chunk_00 in
@@ -143,27 +143,27 @@ Definition fsmtabs : PArray.array arr :=
   a.
 
 (* three values to a word, twenty bits each; the word index splits into a
-   chunk and an offset exactly as p1get's does *)
+   chunk and an offset exactly as p1get's does                                *)
 (* THE SHIFT AS A LITERAL, for the reason cwlogi records in Phase1: of_nat
    on a nat is 1.53 us, the array read it indexes is 0.04, and actfsr did it
    twice.  MEASURED: actfsr 4.60 us -> 0.12 us with the two shifts and the
-   move index as int63. *)
-Definition fcwlogi : int := 21%uint63.     (* = of_nat fcwlog, see fcwlogiE *)
+   move index as int63.                                                       *)
+Definition fcwlogi : int := 21%uint63.     (* = of_nat fcwlog, see fcwlogiE   *)
 
 Lemma fcwlogiE : of_nat fcwlog = fcwlogi.
 Proof. by vm_compute. Qed.
 
 (* the eighteen move indices as int63 literals, once, for the same reason
    p1mdata hoists the move data: a `seq nat' index makes every use run
-   of_nat.  midxiE ties it to iota 0 18 so the proofs are unaffected. *)
+   of_nat.  midxiE ties it to iota 0 18 so the proofs are unaffected.         *)
 Definition midxi : seq int :=
   [:: 0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11; 12; 13; 14; 15; 16; 17]%uint63.
 
 Lemma midxiE : midxi = [seq of_nat k | k <- iota 0 18].
 Proof. by vm_compute. Qed.
 
-(* the move index as an int63 -- see acttwii in Phase1.v for the measurement *)
-(* the offset mask as a literal, as cwmaski is in Phase1.v *)
+(* the move index as an int63 -- see acttwii in Phase1.v for the measurement  *)
+(* the offset mask as a literal, as cwmaski is in Phase1.v                    *)
 Definition fcwmaski : int := Eval vm_compute in
   Uint63.sub (Uint63.lsl 1%uint63 fcwlogi) 1%uint63.
 
@@ -179,16 +179,16 @@ Definition actfsri (r k : int) : int :=
 
 Definition actfsr (r : int) (k : nat) : int := actfsri r (of_nat k).
 
-(* /actfsr, not `by []': see acttwiiE in Phase1.v *)
+(* /actfsr, not `by []': see acttwiiE in Phase1.v                             *)
 Lemma actfsriE r k : actfsri r (of_nat k) = actfsr r k.
 Proof. by rewrite /actfsr. Qed.
 
-(* rubik_par's pfs, the flip x slice distance by rank *)
-Definition nfswordsi : int := 67584%uint63.      (* ceil (1013760 / 15)      *)
+(* rubik_par's pfs, the flip x slice distance by rank                         *)
+Definition nfswordsi : int := 67584%uint63.      (* ceil (1013760 / 15)       *)
 
 (* `Eval vm_compute in' makes the body an array value.  Without it the body
    is the term mkarr ... fs_data, and fs_data is a 67 584 cell cons list that
-   any tactic unfolding Dfsri then has to walk. *)
+   any tactic unfolding Dfsri then has to walk.                               *)
 Definition fsdtab : arr := Eval vm_compute in mkarr nfswordsi 0%uint63 fs_data.
 
 Definition Dfsri (r : int) : int :=
@@ -211,7 +211,7 @@ Definition step3 (x : c3) (k : nat) : c3 :=
 
      a = pfs[f];  b = pts[t * nslice + f mod nslice];  c = p[t * nfs + f]
 
-   at each of the three views, and the max of all nine.  *)
+   at each of the three views, and the max of all nine.                       *)
 Definition maxi (a b : int) : int := if (a <=? b)%uint63 then b else a.
 
 Definition hv1 (T : PArray.array arr) (tf : int * int) : int :=
@@ -219,7 +219,7 @@ Definition hv1 (T : PArray.array arr) (tf : int * int) : int :=
        (Dp1ri T tf.1 tf.2).
 
 (* in int63, and h3 is its to_nat.  The search converts the depth to an int
-   rather than the heuristic to a nat, and h3iE says the two tests agree. *)
+   rather than the heuristic to a nat, and h3iE says the two tests agree.     *)
 Definition h3i (T : PArray.array arr) (x : c3) : int :=
   let: (x0, x1, x2) := x in
   maxi (hv1 T x0) (maxi (hv1 T x1) (hv1 T x2)).
@@ -227,7 +227,7 @@ Definition h3i (T : PArray.array arr) (x : c3) : int :=
 Definition h3 (T : PArray.array arr) (x : c3) : nat := to_nat (h3i T x).
 
 (* `n < nwB' left to done diverges: nwB is 2 ^ 63 as a unary nat.  Every
-   depth here is at most 63, and ndigits is 63. *)
+   depth here is at most 63, and ndigits is 63.                               *)
 Lemma small_nwB n : (n <= 63)%N -> (n < nwB)%N.
 Proof.
 move=> nL; apply: leq_ltn_trans nL _; exact: ndigitsLwB.
@@ -242,13 +242,13 @@ Qed.
 
 (* the three views of the root: the coordinate of each conjugate.  At the
    superflip all three agree -- it is fixed by all 48 symmetries -- and they
-   diverge as the search descends. *)
+   diverge as the search descends.                                            *)
 Definition init3 (a : arr) : c3 :=
   ((ctwisti a, fsidx (coordi a)),
    (ctwisti (conj3 a), fsidx (coordi (conj3 a))),
    (ctwisti (conj3 (conj3 a)), fsidx (coordi (conj3 (conj3 a))))).
 
-(* and the search itself, the same shape as Far.v's searchz5 *)
+(* and the search itself, the same shape as Far.v's searchz5                  *)
 Fixpoint searchz3 (T : PArray.array arr) (d : nat) (a : arr) (x : c3) (p : nat)
     : bool :=
   if (h3i T x <=? of_nat d)%uint63 then
@@ -264,7 +264,7 @@ Fixpoint searchz3 (T : PArray.array arr) (d : nat) (a : arr) (x : c3) (p : nat)
   else false.
 
 (* stated with the nat test, which is the one the proofs use; h3iE turns the
-   int63 test the definition runs into it, once, here *)
+   int63 test the definition runs into it, once, here                         *)
 Lemma searchz3S T d a x p : (d.+1 <= 63)%N ->
   searchz3 T d.+1 a x p =
   (h3 T x <= d.+1) &&
@@ -281,23 +281,23 @@ Qed.
 
 (* the rebuilt heuristic: the same nine lookups, but recomputing the three
    views from the array rather than carrying them.  Far.v's Dsymd, one
-   quotient up. *)
+   quotient up.                                                               *)
 (* init3 IS the rebuild, so Dsym3 is it -- no second computational form and
-   no DsymdE-style bridge to prove, which is where Far.v had to work. *)
+   no DsymdE-style bridge to prove, which is where Far.v had to work.         *)
 Definition Dsym3 (T : PArray.array arr) (a : arr) : nat := h3 T (init3 a).
 
 (* NOT `by []': done searches for a proof, unfolds h3, and goes off
-   evaluating the tables -- it does not return.  One delta step does. *)
+   evaluating the tables -- it does not return.  One delta step does.         *)
 Lemma h3_init T a : h3 T (init3 a) = Dsym3 T a.
 Proof. by rewrite /Dsym3. Qed.
 
 (* the twist invariant at the array level.  Stated through pt for now; the
    computable form (cubcPt and twsumt at the table level, mirroring cubt) is
-   what a root will need to discharge it by vm_compute. *)
+   what a root will need to discharge it by vm_compute.                       *)
 (* AND THE FLIP PARITY, carried in the same boolean.  It is not a consequence
    of cubti: a single flipped edge is a rigid cubie permutation and fails it.
    It is the edge analogue of twsum g = 0, and it rides along twPti for free,
-   since twP3 is threaded through the whole development already. *)
+   since twP3 is threaded through the whole development already.              *)
 Definition twPti (a : arr) : bool :=
   twP (pt 47 (ti2t 47 a)) && ~~ fpar (coordi a).
 
@@ -307,7 +307,7 @@ Definition twPti (a : arr) : bool :=
    BOOLEAN, so the three views are checked at the ROOT and propagated by
    twP3_step.  The rotation does preserve the corner 3-cycle, which is the
    cubcP half and is a table check (ccyct_rot3), but the twsum half is not
-   needed at all this way. *)
+   needed at all this way.                                                    *)
 Definition twP3 (a : arr) : bool :=
   [&& twPti a, twPti (conj3 a) & twPti (conj3 (conj3 a))].
 
@@ -317,10 +317,10 @@ Proof. by vm_compute. Qed.
 Lemma ccyct_rot3t2 : conjt rot3t2 ccyct = ccyct.
 Proof. by vm_compute. Qed.
 
-(* -- what step3_init decomposes into -------------------------------------- *)
+(* -- what step3_init decomposes into --------------------------------------  *)
 
 (* THE TWIST HALF is a theorem: acttwi is Phase1's computed action and
-   coordtw_step says the coordinate is an action. *)
+   coordtw_step says the coordinate is an action.                             *)
 Lemma acttwi_step b j : tabi_ok 47 b -> cubti b -> twPti b -> (j < 18)%N ->
   acttwi (ctwisti b) j
   = ctwisti (comp_tabi 47 b (nth (id_tabi 47) mtis j)).
@@ -349,7 +349,7 @@ Qed.
    It runs over packed values, not over ranks: over ranks the instance
    all_powP returns would sit at unranki (fsidx x) rather than at x, and
    closing that gap needs fsidx injective on the summaries, which Coordfs
-   does not give.  The guard leaves only the 6 % that are summaries. *)
+   does not give.  The guard leaves only the 6 % that are summaries.          *)
 Definition fsmstepF (x : int) : bool :=
   let md := p1mdata in
   if ~~ fsok x then true
@@ -360,16 +360,16 @@ Definition fsmoveC : bool := all_pow ncoord 0%uint63 fsmstepF.
 
 (* an EQUATION, not a delta step: any conversion that sees through fsmoveC
    unfolds the all_pow fixpoint at ncoord = 24, i.e. 2 ^ 24 conjuncts.  Same
-   trap and same fix as p1checkTwE. *)
+   trap and same fix as p1checkTwE.                                           *)
 Lemma fsmoveCE : fsmoveC = all_pow ncoord 0%uint63 fsmstepF.
 Proof. by rewrite /fsmoveC. Qed.
 
 (* the certificate itself is discharged in FsmChk.v, by
-   native_cast_no_check, so a day to day build does not pay for it *)
+   native_cast_no_check, so a day to day build does not pay for it            *)
 
 (* split in two, as Phase1.v splits p1stepF_of_check from p1checkStep_inst:
    getting the checked instance out of the loop, then reading the k-th move
-   out of it *)
+   out of it                                                                  *)
 Lemma fsmstepF_of_check x : fsmoveC -> (to_nat x < 2 ^ ncoord)%N -> fsmstepF x.
 Proof.
 move=> hcheck xL; rewrite fsmoveCE in hcheck.
@@ -377,7 +377,7 @@ exact: (all_powP ncoord_dig hcheck xL).
 Qed.
 
 (* the guard, settled once: fsok x makes the certificates' `if' take its
-   second branch *)
+   second branch                                                              *)
 Lemma fsguard x : fsok x -> ~~ fsok x = false.
 Proof. by move=> hs; rewrite hs. Qed.
 
@@ -394,11 +394,11 @@ Qed.
 
 (* and the array level: the certificate at x = coordi a, with the two side
    conditions discharged where they belong -- the packed bound from Coordfs,
-   the fsok guard from sok_coordfs and the carried parity. *)
+   the fsok guard from sok_coordfs and the carried parity.                    *)
 (* fsmoveC LAST, deliberately.  Every `by' below ends in `done', and `done'
    tries `assumption' against each hypothesis; against fsmoveC that unfolds
    an all_pow at ncoord = 24 and does not return.  Introduced last, it is not
-   in the context while any of them runs. *)
+   in the context while any of them runs.                                     *)
 Lemma actfsr_step a k : tabi_ok 47 a -> cubti a -> twPti a -> (k < 18)%N ->
   fsmoveC ->
   actfsr (fsidx (coordi a)) k
@@ -412,28 +412,28 @@ have hmd : nth (mdatf_of_tab [::]) mdatafd k = mdatf_of_tab (nth [::] mtabs k).
   by rewrite mdatafdE /mdataf (nth_map [::]) // size_mtabs18.
 (* cA is NOT redundant: without it `exact: sok_coordfs' leaves cubP to
    `done', which unfolds it and evaluates the tables -- it does not
-   return. *)
+   return.                                                                    *)
 have cA : cubP (pt 47 (ti2t 47 a)) by rewrite (cubtE aok) -(cubtiE aok).
 (* the guard is now fsok, and its two halves come from two different places:
-   the slice half from cubP, the parity half from the carried invariant *)
+   the slice half from cubP, the parity half from the carried invariant       *)
 have hfs : fsok (coordi a).
   rewrite fsokE; apply/andP; split.
     by rewrite hcd; exact: sok_coordfs cA.
   by move: tw; rewrite /twPti => /andP[_].
 have hcl : (to_nat (coordi a) < 2 ^ ncoord)%N by rewrite hcd; exact: coordfs_lt.
-(* fsmoveC enters HERE, and nothing below it calls done *)
+(* fsmoveC enters HERE, and nothing below it calls done                       *)
 move=> hc.
 rewrite (actcdE kL' aok ca) /actcd hmd.
 exact: fsmoveC_inst (fsmstepF_of_check hc hcl) hfs kL.
 Qed.
 
-(* the views keep cubies together, so cubti travels to them *)
+(* the views keep cubies together, so cubti travels to them                   *)
 Lemma cubti_conj3 a : tabi_ok 47 a -> cubti a -> cubti (conj3 a).
 Proof.
 by move=> aok ca; rewrite conj3E; apply: cubti_conji rot3t_ok cubt_rot3 aok ca.
 Qed.
 
-(* the twist coordinate, like twPti, only sees the table *)
+(* the twist coordinate, like twPti, only sees the table                      *)
 Lemma ctwisti_ti2t X Y : tabi_ok 47 X -> tabi_ok 47 Y ->
   ti2t 47 X = ti2t 47 Y -> ctwisti X = ctwisti Y.
 Proof. by move=> Xok Yok h; rewrite (ctwistiE Xok) (ctwistiE Yok) h. Qed.
@@ -441,11 +441,11 @@ Proof. by move=> Xok Yok h; rewrite (ctwistiE Xok) (ctwistiE Yok) h. Qed.
 (* THE INVARIANT: stepping the three carried pairs agrees with rebuilding
    them after the move.  The flip x slice half is Far.v's coordi_step -- the
    views are usable there because sigma_rot3a says Far's sigma IS mv3a -- plus
-   the fsmove certificate; the twist half is acttwi_step. *)
+   the fsmove certificate; the twist half is acttwi_step.                     *)
 (* the three views of a moved table are the moved three views, with the move
    relabelled -- Far.v's ti2t_step at s = rot3t, which applies because
    rot3_move gives its side condition and sigma_rot3a says Far's sigma is
-   mv3a. *)
+   mv3a.                                                                      *)
 Lemma conj3_step a k : tabi_ok 47 a -> (k < 18)%N ->
   ti2t 47 (conj3 (comp_tabi 47 a (nth (id_tabi 47) mtis k)))
   = ti2t 47 (comp_tabi 47 (conj3 a)
@@ -463,14 +463,14 @@ Lemma tabi_ok_conj3 a : tabi_ok 47 a -> tabi_ok 47 (conj3 a).
 Proof. by move=> aok; rewrite conj3E; apply: tabi_ok_conji rot3t_ok aok. Qed.
 
 (* the second view: conjugating twice is conjugating by r ^ 2, which is
-   Far.v's ti2t_yx for these views -- conjtM, at the table level. *)
+   Far.v's ti2t_yx for these views -- conjtM, at the table level.             *)
 Lemma ti2t_conj33 a : tabi_ok 47 a ->
   ti2t 47 (conj3 (conj3 a)) = ti2t 47 (conji rot3t2 a).
 Proof.
 move=> aok; have ok3 := tabi_ok_conj3 aok.
 (* the RHS FIRST: with conji rot3t2 a still in the goal, matching
    ti2t_conji at rot3t makes ssreflect unify rot3t with comp_tab rot3t
-   rot3t, and that does not return. *)
+   rot3t, and that does not return.                                           *)
 rewrite (ti2t_conji rot3t2_ok aok) {1}conj3E (ti2t_conji rot3t_ok ok3).
 rewrite conj3E (ti2t_conji rot3t_ok aok).
 by rewrite (conjtM rot3t_ok rot3t_ok aok).
@@ -500,15 +500,15 @@ rewrite (ti2t_conj33 cok).
 exact: ti2t_step rot3t2_ok aok kL' (rot3t2_move kL).
 Qed.
 
-(* twPti only sees the table, so ti2t-equal arrays are interchangeable *)
+(* twPti only sees the table, so ti2t-equal arrays are interchangeable        *)
 (* tabi_ok on BOTH sides now: twPti also reads coordi, which ti2t alone does
    not determine -- coordiE is what ties the two, and it wants the array
-   well formed. *)
+   well formed.                                                               *)
 Lemma twPti_ti2t X Y : tabi_ok 47 X -> tabi_ok 47 Y ->
   ti2t 47 X = ti2t 47 Y -> twPti X = twPti Y.
 Proof. by move=> Xok Yok h; rewrite /twPti (coordiE Xok) (coordiE Yok) h. Qed.
 
-(* the twist guard propagates along a move, which is twPM at the array level *)
+(* the twist guard propagates along a move, which is twPM at the array level  *)
 Lemma twPti_step a k : tabi_ok 47 a -> cubti a -> twPti a -> (k < 18)%N ->
   twPti (comp_tabi 47 a (nth (id_tabi 47) mtis k)).
 Proof.
@@ -531,7 +531,7 @@ have kM := mem_iota0 kL.
 have kaL := allP mv3a_lt _ kM.
 have kbL := allP mv3b_lt _ kM.
 (* one place for `the k-th move table is well formed', as prefixi_twP3 has:
-   all_nthP wants j < size mtis, and mv3a_lt / mv3b_lt give j < 18 *)
+   all_nthP wants j < size mtis, and mv3a_lt / mv3b_lt give j < 18            *)
 have hm j : (j < 18)%N -> tabi_ok 47 (nth (id_tabi 47) mtis j)
   by move=> jL; apply: (all_nthP (id_tabi 47) mtis_ok); rewrite size_mtis.
 have ok3 := tabi_ok_conj3 aok.
@@ -567,7 +567,7 @@ have c33a := cubti_conj3 ok3 c3a.
    the context every `done' -- even one closing `true' -- tries `assumption'
    against it, and unfolding an all_pow at ncoord = 24 does not return.  It
    did not bite before only because the old guard was an int63 comparison;
-   fsok holds fpar, a count over a NAT. *)
+   fsok holds fpar, a count over a NAT.                                       *)
 have f1 := actfsr_step aok ca t1 kL hc.
 have f2 := actfsr_step ok3 c3a t2 kaL hc.
 have f3 := actfsr_step ok33 c33a t3 kbL hc.
@@ -590,7 +590,7 @@ have e3 := conj3_step aok kL.
 have e33 := conj3_step2 aok kL.
 rewrite /step3 /init3.
 (* the projections of the literal pairs, by delta -- NOT by /=, which goes
-   on to unfold the tables underneath *)
+   on to unfold the tables underneath                                         *)
 rewrite [in LHS]/fst [in LHS]/snd.
 rewrite (acttwi_step aok ca t1 kL) f1.
 rewrite (acttwi_step ok3 c3a t2 kaL) f2.
@@ -601,7 +601,7 @@ exact: refl_equal.
 Qed.
 
 (* and then the search is the reference search, by induction on the depth.
-   Far.v's searchz5E line for line, with the twist guard threaded. *)
+   Far.v's searchz5E line for line, with the twist guard threaded.            *)
 Lemma searchz3E T d a p : (d <= 63)%N ->
   fsmoveC -> tabi_ok 47 a -> cubti a -> twP3 a ->
   searchz3 T d a (init3 a) p
@@ -631,14 +631,14 @@ Qed.
 (* THE PAYOFF, the analogue of Far.far_of_searchz5.  The two check
    hypotheses are what make the heuristic admissible; with p1dummy they are
    p1check0_dummy and p1checkStep_dummy, with the real table they are the
-   emitted certificate. *)
+   emitted certificate.                                                       *)
 (* ---- 5. The heuristic at the permutation level --------------------------- *)
 
 (* THE VIEWS ARE SYMMETRIES.  Far.v's views are Sy and Sx, which are two of
    Symg's three generators and so are in Symg for nothing.  The 120 degree
    rotation is not a generator, so it has to be exhibited as a word in them.
    Found by breadth first search over Symset, which closes at 48 elements:
-   rot3t is at length four. *)
+   rot3t is at length four.                                                   *)
 Lemma rot3tE : rot3t = comp_tab (comp_tab (comp_tab Sytab Sxtab) Sytab) Sytab.
 Proof. by vm_compute. Qed.
 
@@ -678,12 +678,12 @@ Qed.
    Far.v's Dfsd reads fstab by PACKED value and has Dfsd_0 and Dfsd_step
    already proved, so all that is missing is that the two agree.  Over
    PACKED values, for the same reason fsmoveC is: at x rather than at
-   unranki (fsidx x), so no injectivity of fsidx is needed. *)
+   unranki (fsidx x), so no injectivity of fsidx is needed.                   *)
 (* `if', NOT `||'.  orb is a function call, and native compiles it to OCaml,
    which is strict -- so `~~ fsok x || A' evaluates A for every one of the
    2 ^ 24 values rather than the 1 013 760 the guard admits.  MEASURED: with
    `||' SlrChk's Qed took 719.7 s against FsmChk's ~80 s, and FsmChk is the
-   one already written with `if'. *)
+   one already written with `if'.                                             *)
 Definition fsrstepF (x : int) : bool :=
   if ~~ fsok x then true else (Dfsri (fsidx x) =? Dfsi fstab x)%uint63.
 
@@ -693,14 +693,14 @@ Lemma fsrCE : fsrC = all_pow ncoord 0%uint63 fsrstepF.
 Proof. by rewrite /fsrC. Qed.
 
 (* the certificate itself is discharged in FsrChk.v, by
-   native_cast_no_check, so a day to day build does not pay for it *)
+   native_cast_no_check, so a day to day build does not pay for it            *)
 
 (* -- CERTIFICATE 3: the slice rank move table ------------------------------ *)
 
 (* The ts bound is read at slrank (fsidx x), and stepping it uses actslri,
    which reads the emitted slmove_data.  Nothing backed that table either.
-   Same shape and same loop as fsmoveC. *)
-(* `if', NOT `||' -- see fsrstepF *)
+   Same shape and same loop as fsmoveC.                                       *)
+(* `if', NOT `||' -- see fsrstepF                                             *)
 Definition slrstepF (x : int) : bool :=
   if ~~ fsok x then true
   else let s := slrank (fsidx x) in
@@ -713,7 +713,7 @@ Lemma slrCE : slrC = all_pow ncoord 0%uint63 slrstepF.
 Proof. by rewrite /slrC. Qed.
 
 (* the certificate itself is discharged in SlrChk.v, by
-   native_cast_no_check, so a day to day build does not pay for it *)
+   native_cast_no_check, so a day to day build does not pay for it            *)
 
 (* -- getting the checked instances out of the two loops -------------------- *)
 
@@ -727,7 +727,7 @@ Lemma fsrC_inst x :
   fsrstepF x -> fsok x -> Dfsri (fsidx x) = Dfsi fstab x.
 Proof.
 (* the guard rewritten, then the `if' reduces by itself -- NOT /=, which goes
-   on to unfold Dfsri and fstab and evaluate them. *)
+   on to unfold Dfsri and fstab and evaluate them.                            *)
 by move=> hall fsL; move: hall; rewrite /fsrstepF (fsguard fsL) => /eqP.
 Qed.
 
@@ -761,7 +761,7 @@ Lemma to_nat_nsranki : to_nat nsranki = nsrank.
 Proof. by vm_compute. Qed.
 
 (* the guard ts_checkStep is written with: the rank of a summary is below 495,
-   which is the int63 statement that slrank is a remainder *)
+   which is the int63 statement that slrank is a remainder                    *)
 Lemma slrank_ltB f : (slrank f <? nsranki)%uint63.
 Proof.
 apply/nltbP; rewrite to_nat_nsranki /slrank.
@@ -774,7 +774,7 @@ rewrite to_nat_sub ?hq //; last exact: to_nat_bounded.
 by rewrite {1}(divn_eq (to_nat f) nsrank) addKn ltn_pmod.
 Qed.
 
-(* four bits, so far below the wrap point -- Phase1's Dp1i_small, verbatim *)
+(* four bits, so far below the wrap point -- Phase1's Dp1i_small, verbatim    *)
 Lemma Dtsi_small tw s : (to_nat (Dtsi tw s) < nwB.-1)%N.
 Proof.
 rewrite /Dtsi /tsget.
@@ -793,7 +793,7 @@ Proof. by []. Qed.
 
 (* an EQUATION, not a delta step.  `rewrite /ts_checkStep' makes the kernel
    unfold the check at Qed -- 2187 twists x 512 ranks -- and it does not
-   return.  Phase1's p1checkTwE records the same trap. *)
+   return.  Phase1's p1checkTwE records the same trap.                        *)
 Lemma ts_checkStepE : ts_checkStep =
   all (fun t => all_pow 9 0%uint63
                   (fun s => (nsranki <=? s)%uint63 || tsstepF (of_nat t) s))
@@ -804,7 +804,7 @@ Proof. by rewrite /ts_checkStep. Qed.
    ts_checkStep in scope every `done' tries `assumption', which unifies the
    goal against it -- same is_true head -- and unfolds the whole check: even
    `1 <= 2' stops returning.  So the premise is rewritten in the GOAL and
-   consumed on the way in. *)
+   consumed on the way in.                                                    *)
 Lemma tsstepF_of_check tw s : ts_checkStep -> (to_nat tw < ntwist)%N ->
   (s <? nsranki)%uint63 -> tsstepF tw s.
 Proof.
@@ -819,14 +819,14 @@ rewrite (ltb_lebF sB) orFb; exact: id.
 Qed.
 
 (* another equation, and for the same reason: `rewrite /tsstepF' inside the
-   proof below makes its Qed diverge, while rewriting with this does not *)
+   proof below makes its Qed diverge, while rewriting with this does not      *)
 Lemma tsstepFE tw s : tsstepF tw s =
   all (fun k => (Dtsi tw s <=?
                  incr (Dtsi (acttwi tw k) (actslri s k)))%uint63) (iota 0 18).
 Proof. by rewrite /tsstepF. Qed.
 
 (* split from the above so the Qeds are separate, as Phase1 splits
-   p1stepF_of_check from p1checkStep_inst *)
+   p1stepF_of_check from p1checkStep_inst                                     *)
 Lemma ts_checkStep_inst tw s k : tsstepF tw s -> (k < 18)%N ->
   (Dtsi tw s <=? incr (Dtsi (acttwi tw k) (actslri s k)))%uint63.
 Proof.
@@ -837,7 +837,7 @@ Qed.
 
 (* THE TWIST x SLICE STEP, at the coordinate level.  Phase1's
    Dp1_step_of_check for the other table, with the slice rank stepping
-   through the certified actslri. *)
+   through the certified actslri.                                             *)
 Lemma Dts_step_of_check tw x k :
   ts_checkStep -> slrC -> (to_nat tw < ntwist)%N -> (to_nat x < 2 ^ ncoord)%N ->
   fsok x -> (k < 18)%N ->
@@ -857,7 +857,7 @@ Qed.
 (* -- the three bounds, at the permutation level ---------------------------- *)
 
 (* the twist x slice bound.  Zero off the invariant, exactly as Phase1's hp1
-   is, so that the two obligations below are unconditional. *)
+   is, so that the two obligations below are unconditional.                   *)
 Definition hts (g : {perm facelet}) : nat :=
   if twcP g then Dts (coordtw g) (slrank (fsidx (coordfs g))) else 0%N.
 
@@ -871,14 +871,14 @@ Lemma hts0 : hts 1 = 0%N.
 Proof.
 rewrite /hts twcP1 coordtw1E coordfs1E /Dts.
 (* /ts_check0 in the HYPOTHESIS first: `/eqP ts_check0P' straight makes
-   unification look through the check and it does not return *)
+   unification look through the check and it does not return                  *)
 have := ts_check0P; rewrite /ts_check0 => /eqP ->.
 exact: to_nat_0.
 Qed.
 
 (* the checks are turned into applied facts and CLEARED at once: left in the
    context, every later `done' unifies its goal against them and unfolds the
-   check. *)
+   check.                                                                     *)
 Lemma htsS g m : ts_checkStep -> slrC -> m \in Sset ->
   hts g <= (hts (g * m)).+1.
 Proof.
@@ -895,7 +895,7 @@ exact: (D _ _ _ (coordtw_lt g) (coordfs_lt _) (fsok_twcP Pg) kL).
 Qed.
 
 (* THE PER VIEW HEURISTIC: the max of the three, which is rubik_par's
-   max (pfs, pts, p) at one view. *)
+   max (pfs, pts, p) at one view.                                             *)
 Definition h3p (T : PArray.array arr) (g : {perm facelet}) : nat :=
   maxn (maxn (hfs Dfsd g) (hts g)) (hp1 T g).
 
@@ -929,7 +929,7 @@ by apply/bigmax_leqP_seq => u _ _; rewrite conj1g (h3p0 hc).
 Qed.
 
 (* view-wise, exactly Far.v's hsympS: (g * m) ^ u = g ^ u * m ^ u, and m ^ u
-   is again a move because Symg stabilises Sset -- Sym.Symg_stab. *)
+   is again a move because Symg stabilises Sset -- Sym.Symg_stab.             *)
 Lemma hsym3S T g m : p1checkStep T -> ts_checkStep -> slrC -> m \in Sset ->
   hsym3 T g <= (hsym3 T (g * m)).+1.
 Proof.
@@ -956,7 +956,7 @@ Qed.
 (* THREE AT ONCE, over opaque variables.  Rewriting with to_nat_maxi twice on
    the real goal does not return: its key is to_nat, and the right hand side
    has a to_nat under hts -- Dts is to_nat (Dtsi ...) -- so the matcher walks
-   into the twist x slice table and evaluates it. *)
+   into the twist x slice table and evaluates it.                             *)
 Lemma to_nat_maxi3 a b c :
   to_nat (maxi a (maxi b c))
   = maxn (to_nat a) (maxn (to_nat b) (to_nat c)).
@@ -964,10 +964,10 @@ Proof. by rewrite to_nat_maxi to_nat_maxi. Qed.
 
 (* ONE VIEW: the int63 triple of lookups is the nat heuristic at that view.
    The invariant is needed on all three: hfs is 0 off cubP, hts and hp1 are 0
-   off twcP, while the array reads the tables regardless. *)
+   off twcP, while the array reads the tables regardless.                     *)
 (* fsrC LAST, as in actfsr_step: the four `have ... by ...' below each end in
    done, and done tries assumption against fsrC, which is an all_pow at
-   ncoord = 24. *)
+   ncoord = 24.                                                               *)
 Lemma hv1E T X : tabi_ok 47 X -> cubti X -> twPti X -> fsrC ->
   to_nat (hv1 T (ctwisti X, fsidx (coordi X)))
   = h3p T (pt 47 (ti2t 47 X)).
@@ -979,10 +979,10 @@ have hcd : coordi X = coordfs (pt 47 (ti2t 47 X))
 have htw : ctwisti X = coordtw (pt 47 (ti2t 47 X))
   by rewrite (ctwistiE Xok) (ctwisttE Xok).
 (* andTb, NOT /=: simpl on a goal holding twP unfolds cubcP and twsum and
-   goes off evaluating the tables.  [&& a, b & c] IS a && (b && c). *)
+   goes off evaluating the tables.  [&& a, b & c] IS a && (b && c).           *)
 have twg : twcP (pt 47 (ti2t 47 X)).
   by rewrite /twcP cA andTb -hcd; exact: tX.
-(* fsrC enters HERE, and nothing below it calls done *)
+(* fsrC enters HERE, and nothing below it calls done                          *)
 move=> hfr.
 rewrite /hv1 [in LHS]/fst [in LHS]/snd.
 rewrite to_nat_maxi to_nat_maxi.
@@ -994,7 +994,7 @@ Qed.
 
 (* AND THE THREE VIEWS: Dsym3, which is what the search evaluates, is hsym3,
    which is what the two obligations are proved for.  The conjugates line up
-   through ptJ -- pt of a conjugated table is the conjugated permutation. *)
+   through ptJ -- pt of a conjugated table is the conjugated permutation.     *)
 Lemma Dsym3E T a : fsrC -> tabi_ok 47 a -> cubti a -> twP3 a ->
   Dsym3 T a = hsym3 T (pt 47 (ti2t 47 a)).
 Proof.
@@ -1007,7 +1007,7 @@ rewrite /Dsym3 /h3 /init3.
 rewrite /hsym3 /views3p /views3.
 rewrite big_map.
 (* big_cons one at a time, and maxn0 under a lock: `3!big_cons' and a bare
-   maxn0 both walk off into the tables.  Far.v's DsymdE records the same. *)
+   maxn0 both walk off into the tables.  Far.v's DsymdE records the same.     *)
 rewrite big_cons big_cons big_cons big_nil.
 rewrite {-3}[maxn]lock maxn0 -lock.
 rewrite pt1 conjg1.
@@ -1020,7 +1020,7 @@ have J2 : pt 47 (ti2t 47 a) ^ pt 47 rot3t2
   by rewrite (ptJ aokt rot3t2_ok) (ti2t_conj33 aok) (ti2t_conji rot3t2_ok aok).
 rewrite J1 J2.
 (* BACKWARDS, hsym3 side to array side: forwards, the matcher looks for
-   to_nat (hv1 ...) and walks into h3p on the other side instead. *)
+   to_nat (hv1 ...) and walks into h3p on the other side instead.             *)
 rewrite -(hv1E T aok ca t1 hfr).
 rewrite -(hv1E T ok3 c3 t2 hfr).
 rewrite -(hv1E T ok33 c33 t3 hfr).
@@ -1034,7 +1034,7 @@ Qed.
    carrying the twist invariant -- off it the array still reads the tables
    while hsym3 is 0.  The search never visits such an array, so this is the
    same induction with the invariant threaded: it holds at the root, and
-   cubti_comp and twP3_step carry it along a move. *)
+   cubti_comp and twP3_step carry it along a move.                            *)
 Lemma searchirE3 T d : fsrC -> forall a p,
   tabi_ok 47 a -> cubti a -> twP3 a ->
   searchir 47 mtis (Dsym3 T) nfcube oppf fcpos d a p
@@ -1064,7 +1064,7 @@ Qed.
 (* HOISTED, all three, rather than proved inline where far_of_searchz3 needs
    them: there the context holds ts_checkStep and fsmoveC, and every // and
    every trailing done then unifies its goal against them and unfolds the
-   check.  Far.v proves the same three inline because its context is clean. *)
+   check.  Far.v proves the same three inline because its context is clean.   *)
 Lemma fcE3 k : k < seq.size [seq ti2t 47 mt | mt <- mtis] ->
   fcube (pt 47 (nth [::] [seq ti2t 47 mt | mt <- mtis] k)) = fcpos k.
 Proof.
@@ -1082,7 +1082,7 @@ Proof. by []. Qed.
 (* AND THE THEOREM: a search that comes back false puts the state outside
    the ball.  Far.v's far_of_searchsym, over three views and three tables:
    searchz3E to the reduced search, searchirE3 down to tables, searchtrE
-   down to permutations, then Searchr's searchrN. *)
+   down to permutations, then Searchr's searchrN.                             *)
 Lemma far_of_searchz3 T d a : (d <= 63)%N ->
   p1check0 T -> p1checkStep T -> ts_checkStep ->
   fsmoveC -> fsrC -> slrC -> tabi_ok 47 a -> cubti a -> twP3 a ->
@@ -1097,7 +1097,7 @@ have e0 : searchz3 T d a (init3 a) nfcube
   := @searchz3E T d a nfcube dL hfm aok ca tw.
 have e1 := searchirE3 T d hfr nfcube aok ca tw.
 have e2 := searchtrE mtsok3 nfcube oppf (hE3 T) fcE3 d nfcube aok.
-(* cleared as soon as they are used, for the reason above *)
+(* cleared as soon as they are used, for the reason above                     *)
 clear hcS htsS hfm hfr hsl.
 apply: (searchrN Sset_inv (hsym30 hc0) hstep
                  fcube_ltS oppfK fcube_close fcube_comm).
@@ -1109,7 +1109,7 @@ Qed.
    unguarded, which is one level of branching thrown away.  searchrN wants
    p = nfcube, so it cannot be used here: Searchr.searchr_root2 takes over.
    The three checks searchrN needs are not needed either -- this is only the
-   chain of equations.                                                      *)
+   chain of equations.                                                        *)
 Lemma searchr_of_searchz3 T d a p : (d <= 63)%N ->
   fsmoveC -> fsrC -> tabi_ok 47 a -> cubti a -> twP3 a ->
   searchz3 T d a (init3 a) p = false ->
@@ -1131,9 +1131,9 @@ Qed.
    twP3 sfti runs past 240 s with no answer.  So it is transported to the
    TABLE level first, where it is a comparison of two 48 entry tables and a
    sum over eight corners, and THAT computes in milliseconds.  Same shape as
-   the cubtE and ctwisttE that already exist. *)
+   the cubtE and ctwisttE that already exist.                                 *)
 
-(* cubcP g says g commutes with the corner 3-cycle *)
+(* cubcP g says g commutes with the corner 3-cycle                            *)
 Lemma cubcPE g : cubcP g = (g * ccyc == ccyc * g).
 Proof.
 apply/forallP/eqP => [h|h f].
@@ -1152,7 +1152,7 @@ rewrite cubcPE /ccyc (ptM tok ccyct_ok) (ptM ccyct_ok tok) /cubcPt.
 by apply/eqP/eqP => [/(pt_inj_in o1 o2)|->].
 Qed.
 
-(* the per corner bridge, which ctwisttE proves inline for its own fold *)
+(* the per corner bridge, which ctwisttE proves inline for its own fold       *)
 Lemma corientgtE t p : tab_ok 47 t ->
   corientg (pt 47 t) p = corientt (inv_tab 47 t) (nth (0, 0, 0)%N ctrip p).
 Proof.
@@ -1196,14 +1196,14 @@ Definition twPt (t : seq nat) : bool := cubcPt t && (twsumt t == 0%N).
 Lemma twPtE t : tab_ok 47 t -> twP (pt 47 t) = twPt t.
 Proof. by move=> tok; rewrite /twP (cubcPtE tok) (twsumtE tok). Qed.
 
-(* the flip parity stays as it is: coordi already only reads the table *)
+(* the flip parity stays as it is: coordi already only reads the table        *)
 Lemma twPtiE a : tabi_ok 47 a ->
   twPti a = twPt (ti2t 47 a) && ~~ fpar (coordi a).
 Proof. by move=> aok; rewrite /twPti (twPtE _). Qed.
 
 Lemma twP3_sfti : twP3 sfti.
 Proof.
-(* sfok, not sok: sok is now the slice half of the guard, in Phase1.v *)
+(* sfok, not sok: sok is now the slice half of the guard, in Phase1.v         *)
 have sfok : tabi_ok 47 sfti by vm_compute.
 have ok3 := tabi_ok_conj3 sfok.
 have ok33 := tabi_ok_conj3 ok3.
@@ -1214,12 +1214,12 @@ by rewrite (twPtiE ok33); vm_compute.
 Qed.
 
 (* prefixi's nth defaults to sfti, twP3_step's to id_tabi; in range they
-   agree *)
+   agree                                                                      *)
 Lemma nth_mtis_default k : (k < 18)%N ->
   nth sfti mtis k = nth (id_tabi 47) mtis k.
 Proof. by move=> kL; apply: set_nth_default; rewrite size_mtis. Qed.
 
-(* and so the invariant holds at every one of the eighteen roots *)
+(* and so the invariant holds at every one of the eighteen roots              *)
 Lemma prefixi_twP3 i j : (i < nmoves)%N -> (j < nmoves)%N ->
   twP3 (prefixi i j).
 Proof.
@@ -1228,7 +1228,7 @@ have i18 : (i < 18)%N by [].
 have j18 : (j < 18)%N by [].
 have hm k : (k < 18)%N -> tabi_ok 47 (nth (id_tabi 47) mtis k)
   by move=> kL; apply: (all_nthP (id_tabi 47) mtis_ok); rewrite size_mtis.
-(* sfok, not sok: sok is now the slice half of the guard, in Phase1.v *)
+(* sfok, not sok: sok is now the slice half of the guard, in Phase1.v         *)
 have sfok : tabi_ok 47 sfti by vm_compute.
 have csf : cubti sfti by vm_compute.
 have ok1 : tabi_ok 47 (comp_tabi 47 sfti (nth (id_tabi 47) mtis i))
@@ -1249,7 +1249,7 @@ Qed.
    themselves were never affected, only the timings I derived from them.
 
    Otherwise this is searchz3 exactly, so the node counts it reports are the
-   ones the real search visits. *)
+   ones the real search visits.                                               *)
 Fixpoint searchz3c (T : PArray.array arr) (d : nat) (a : arr) (x : c3)
                    (p : nat) : bool * int :=
   if (h3i T x <=? of_nat d)%uint63 then
@@ -1265,7 +1265,7 @@ Fixpoint searchz3c (T : PArray.array arr) (d : nat) (a : arr) (x : c3)
     else (false, 1%uint63)
   else (false, 1%uint63).
 
-(* one piece, as Runp1_NN.v runs it, but reporting the node count *)
+(* one piece, as Runp1_NN.v runs it, but reporting the node count             *)
 Definition countp1 (T : PArray.array arr) (d j : nat) : bool * int :=
   let: (r0, n0) := searchz3c T d (prefixi 0 j) (init3 (prefixi 0 j)) nfcube in
   let: (r1, n1) := searchz3c T d (prefixi 1 j) (init3 (prefixi 1 j)) nfcube in
@@ -1274,7 +1274,7 @@ Definition countp1 (T : PArray.array arr) (d j : nat) : bool * int :=
 (* ---- 7. The cheap phase 1 step certificate ------------------------------- *)
 
 (* all_pow visits exactly the 2 ^ k values from i, so a pointwise implication
-   that holds ON THAT RANGE is enough.  Mirrors all_pow_gen's induction. *)
+   that holds ON THAT RANGE is enough.  Mirrors all_pow_gen's induction.      *)
 Lemma all_pow_imp k i (f g : int -> bool) :
   k <= ndigits -> to_nat i + (2 ^ k)%N <= nwB ->
   (forall x, to_nat i <= to_nat x < to_nat i + (2 ^ k)%N -> f x -> g x) ->
@@ -1304,8 +1304,8 @@ Qed.
 (* p1stepF recomputes the flip x slice action with actf, at 6.2 us a call and
    eighteen calls for each of the 1 013 760 summaries in each of the 2187
    twists.  actfsr reads the emitted move table instead, at 0.12 us, and
-   fsmoveC is exactly the lemma that says the two agree. *)
-(* the check at a rank.  d is read once rather than eighteen times. *)
+   fsmoveC is exactly the lemma that says the two agree.                      *)
+(* the check at a rank.  d is read once rather than eighteen times.           *)
 Definition p1stepRk (T : PArray.array arr) (tw r : int) : bool :=
   let d := Dp1ri T tw r in
   all (fun k =>
@@ -1313,7 +1313,7 @@ Definition p1stepRk (T : PArray.array arr) (tw r : int) : bool :=
       midxi.
 
 (* and at a packed value, which it reads only through fsidx -- p1stepFrRk
-   says so, and is what lets the certificate run over ranks *)
+   says so, and is what lets the certificate run over ranks                   *)
 Definition p1stepFr (T : PArray.array arr) (tw x : int) : bool :=
   if ~~ fsok x then true
   else let r := fsidx x in
@@ -1328,8 +1328,8 @@ Proof. by []. Qed.
 
 (* OVER RANKS, so the loop runs 2 ^ 20 times a twist and not 2 ^ 24.  The
    ranks past nfsi are not summaries and are passed; the rest are checked.
-   all_powi rather than all_pow, which rebuilds its offset at every node. *)
-Definition nfsbits := 20.                  (* nfs = 1013760 < 2 ^ nfsbits  *)
+   all_powi rather than all_pow, which rebuilds its offset at every node.     *)
+Definition nfsbits := 20.                  (* nfs = 1013760 < 2 ^ nfsbits     *)
 
 Definition p1checkTwr (T : PArray.array arr) (tw : int) : bool :=
   all_powi nfsbits 0%uint63 (Uint63.lsl 1 (of_nat nfsbits))
@@ -1338,7 +1338,7 @@ Definition p1checkTwr (T : PArray.array arr) (tw : int) : bool :=
 Definition p1checkStepr (T : PArray.array arr) : bool :=
   all (fun t => p1checkTwr T (of_nat t)) (iota 0 ntwist).
 
-(* a rank below nfsi is checked, and fsok_lt says a summary has one *)
+(* a rank below nfsi is checked, and fsok_lt says a summary has one           *)
 Lemma p1checkTwrRk T tw r :
   p1checkTwr T tw -> (r <? nfsi)%uint63 -> p1stepRk T tw r.
 Proof.
@@ -1352,7 +1352,7 @@ have -> : (nfsi <=? r)%uint63 = false.
 by apply; vm_compute.
 Qed.
 
-(* so the check holds at every packed value, guard included *)
+(* so the check holds at every packed value, guard included                   *)
 Lemma p1checkTwrFr T tw x : p1checkTwr T tw -> p1stepFr T tw x.
 Proof.
 move=> h; rewrite p1stepFrRk; case: (boolP (fsok x)) => hx //=.
@@ -1366,7 +1366,7 @@ Proof. by move=> h; apply: all_pow_all => x; exact: p1checkTwrFr h. Qed.
 (* p1stepF's all is over p1mdata, a map; this is the same all over the
    indices, so that fsmoveC_inst can be applied at k directly.  Conversion
    does the preim delta, the beta and the two projections in one step --
-   rewriting them apart does not return. *)
+   rewriting them apart does not return.                                      *)
 Lemma p1stepFE T tw x :
   p1stepF T tw x =
   (if ~~ fsok x then true
@@ -1377,13 +1377,13 @@ Lemma p1stepFE T tw x :
             (iota 0 18)).
 Proof. by rewrite /p1stepF /p1mdata all_map. Qed.
 
-(* the two step functions agree wherever the certificate looks *)
+(* the two step functions agree wherever the certificate looks                *)
 Lemma p1stepFrE T tw x : fsmoveC -> (to_nat x < 2 ^ ncoord)%N ->
   p1stepFr T tw x = p1stepF T tw x.
 Proof.
 (* exact: erefl for the guard branch, NOT `by []': done there does not
    return.  And boolP SUBSTITUTES -- in the second branch the goal already
-   reads `if ~~ false', so there is no `~~ fsok x' left for rewrite hg. *)
+   reads `if ~~ false', so there is no `~~ fsok x' left for rewrite hg.       *)
 move=> hfm xL; rewrite p1stepFE /p1stepFr.
 case: (boolP (fsok x)) => hg; last exact: erefl.
 rewrite midxiE all_map.
@@ -1400,7 +1400,7 @@ Qed.
    unifies its goal against an all_pow at ncoord = 24 and stops returning.
    And allP is not usable here -- applying its view makes the unifier look
    at `all _ (iota 0 2187)' whose elements are themselves all_pow at 2 ^ 24.
-   sub_all takes the pointwise implication without ever forming that. *)
+   sub_all takes the pointwise implication without ever forming that.         *)
 Lemma p1checkStepr_ok T : fsmoveC -> p1checkStepr T -> p1checkStep T.
 Proof.
 move=> hfm.
@@ -1414,11 +1414,11 @@ rewrite /p1checkStepr /p1checkStep.
 apply: sub_all => t.
 rewrite p1checkTwE; move/p1checkTwrE.
 apply: (all_pow_imp ncoord_dig hb) => x hx.
-(* hx gives the range the rewrite needs, and // discharges it *)
+(* hx gives the range the rewrite needs, and // discharges it                 *)
 by rewrite hE //; move: hx; rewrite to_nat_0 add0n => /andP[_].
 Qed.
 
-(* the slices version, mirroring Phase1.p1checkStep_of_slices *)
+(* the slices version, mirroring Phase1.p1checkStep_of_slices                 *)
 Lemma p1checkStepr_of_slices T (s : seq nat) : s = iota 0 ntwist ->
   all (fun t => p1checkTwr T (of_nat t)) s -> p1checkStepr T.
 Proof. by move=> ->. Qed.

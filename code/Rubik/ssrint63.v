@@ -8,7 +8,7 @@ Import PrimInt63Notations.
 Import Uint63Axioms.
 Import Uint63.
 
-(* Missing in mathcomp *)
+(* Missing in mathcomp                                                        *)
 
 Lemma nat_pow_exp m n : Nat.pow m n = m ^ n.
 Proof. by elim: n => //= n ->; rewrite expnS. Qed.
@@ -134,7 +134,7 @@ rewrite -telescope_sumn => [|i j iLj]; first by rewrite big_mkord.
 by apply: leq_pexp2l => //; apply: ltn_trans x_gt1.
 Qed.
 
-(* 63 Arithmetic *)
+(* 63 Arithmetic                                                              *)
 
 Definition one := of_Z 1.
 Definition zero := of_Z 0.
@@ -142,7 +142,7 @@ Definition zero := of_Z 0.
 Definition decr s := (s - 1)%uint63.
 Definition incr s := (s + 1)%uint63.
 Definition is_nzero s := negb (eqb s zero).
-(* Get the log 2 of a number *)
+(* Get the log 2 of a number                                                  *)
 Definition log2 (v : int) : int :=
   (if v =? 0 then 0 else 62 - head0 v)%uint63.
 
@@ -1243,12 +1243,12 @@ apply: IH.
 by rewrite e1 hlt /= addSn -addnS.
 Qed.
 
-(* ---- the other fold: writing the index at a computed position ----------- *)
+(* ---- the other fold: writing the index at a computed position -----------  *)
 
 (* inv_tabi writes i at position h i, so what survives at a position is       *)
 (* decided by injectivity of h rather than by the order of the writes.        *)
 
-(* a position h never hits is untouched *)
+(* a position h never hits is untouched                                       *)
 Lemma get_foldi_wr_miss (h : int -> int) m i0 p a :
   to_nat i0 + m < nwB ->
   (forall i, to_nat i0 <= to_nat i < to_nat i0 + m -> h i <> p) ->
@@ -1267,7 +1267,7 @@ move=> i; rewrite e1 addSn -addnS => /andP[h1 h2].
 by apply: hmiss; rewrite h2 andbT (leq_trans _ h1).
 Qed.
 
-(* a position h hits holds the index that hit it *)
+(* a position h hits holds the index that hit it                              *)
 Lemma get_foldi_wr (h : int -> int) m i0 k a :
   to_nat i0 + m < nwB ->
   (forall i, to_nat i0 <= to_nat i < to_nat i0 + m ->

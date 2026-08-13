@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  Fspar.v -- checkStep, split sixteen ways so it can be run on several    *)
-(*     cores.                                                               *)
+(*  Fspar.v -- checkStep, split sixteen ways so it can be run on several      *)
+(*     cores.                                                                 *)
 (* =========================================================================  *)
 
 From Stdlib Require Import Uint63.
@@ -22,13 +22,13 @@ Definition nchunk := 16.                (* 2 ^ (ncoord - cbits)               *)
 
 (* the start of slice n.  cstart n is a closed int, so every equation between
    it and the offsets the split produces is one vm_compute on integers --
-   the predicate is never in scope of that computation.                  *)
+   the predicate is never in scope of that computation.                       *)
 Definition cstart (n : nat) : int := (of_nat n * lsl 1 (of_nat cbits))%uint63.
 
 (* the predicate checkStep runs, at the real table and the real moves.
    Fstab.v names it so that this is a delta step: an equation between two
    closed all_pow ncoord terms would make conversion commute the let past
-   all_pow, which unfolds the loop into 2 ^ 24 conjuncts and never returns. *)
+   all_pow, which unfolds the loop into 2 ^ 24 conjuncts and never returns.   *)
 Definition chunkF : int -> bool := stepF fstab mtabs.
 
 Lemma chunkFE : checkStep fstab mtabs = all_pow ncoord 0%uint63 chunkF.
@@ -37,13 +37,13 @@ Proof. by rewrite /checkStep /chunkF. Qed.
 (* ---- the split ------------------------------------------------------------*)
 
 (* one binary split, with k abstract so conversion can only take a single
-   delta step -- with k concrete it would unfold the whole loop.          *)
+   delta step -- with k concrete it would unfold the whole loop.              *)
 Lemma all_powS k i (f : int -> bool) :
   all_pow k.+1 i f = all_pow k i f && all_pow k (i + lsl 1 (of_nat k))%uint63 f.
 Proof. by []. Qed.
 
 (* the sixteen offsets the four splits leave behind, each identified with the
-   cstart it is.  Integer arithmetic only, so vm_compute is safe here.    *)
+   cstart it is.  Integer arithmetic only, so vm_compute is safe here.        *)
 Lemma cs00 : cstart 0 = 0%uint63.
 Proof. by vm_compute. Qed.
 Lemma cs01 : (0 + lsl 1 (of_nat 20))%uint63 = cstart 1.
@@ -84,7 +84,7 @@ Proof. by vm_compute. Qed.
 
 (* f STAYS ABSTRACT THROUGHOUT.  A /= or a vm_compute here would unfold the
    loop into 2 ^ 24 conjuncts; this is the all_iota18 lesson from
-   the glue of a split proof, where it looks like a hang.               *)
+   the glue of a split proof, where it looks like a hang.                     *)
 Lemma all_pow_glue16 (f : int -> bool) :
   all_pow cbits (cstart 0) f -> all_pow cbits (cstart 1) f ->
   all_pow cbits (cstart 2) f -> all_pow cbits (cstart 3) f ->

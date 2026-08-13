@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  Root.v -- The first move of a maneuver, up to symmetry.                 *)
+(*  Root.v -- The first move of a maneuver, up to symmetry.                   *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

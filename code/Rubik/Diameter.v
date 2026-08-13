@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  Diameter.v -- The statement that the diameter of the Rubik's cube group *)
-(*     is twenty.                                                           *)
+(*  Diameter.v -- The statement that the diameter of the Rubik's cube group   *)
+(*     is twenty.                                                             *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  Fast.v -- searchz3 on int63, as the refinements searchz3f to searchz3n. *)
+(*  Fast.v -- searchz3 on int63, as the refinements searchz3f to searchz3n.   *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -14,7 +14,7 @@ Unset Printing Implicit Defensive.
 
 Import GroupScope.
 
-(* ---- the move tables as an array, indexed by an int --------------------- *)
+(* ---- the move tables as an array, indexed by an int ---------------------  *)
 Fixpoint setl (a : PArray.array arr) (i : int) (l : seq arr)
   : PArray.array arr :=
   if l is x :: l' then setl (PArray.set a i x) (Uint63.add i 1) l' else a.
@@ -23,7 +23,7 @@ Definition mtisa : PArray.array arr := Eval vm_compute in
   setl (PArray.make 18%uint63 (id_tabi 47)) 0%uint63 mtis.
 
 (* ---- the seven allowed lists, with every index already an int ------------ *)
-(* an entry is (k, mv3a k, mv3b k) as ints, and the child's p as a nat *)
+(* an entry is (k, mv3a k, mv3b k) as ints, and the child's p as a nat        *)
 Definition amove := ((int * int) * int)%type.
 
 Definition allowed3 : seq (seq (amove * nat)) := Eval vm_compute in
@@ -176,7 +176,7 @@ Fixpoint searchz3m (T : PArray.array arr) (d : nat) (di : int) (a : arr)
 
 (* ---- searchz3n: carry the move path instead of the table.  The coordinates
    say whether the position may be solved; the table is rebuilt from the path
-   only then -------------------------------------------------------------- *)
+   only then --------------------------------------------------------------   *)
 Definition solved3 : c3 := Eval vm_compute in init3 (id_tabi 47).
 
 Definition issolved (x : c3) : bool :=
@@ -193,7 +193,7 @@ Definition issolved (x : c3) : bool :=
   else false.
 
 (* the path is newest first, and foldr takes its last element first, so the
-   moves are composed oldest first *)
+   moves are composed oldest first                                            *)
 Definition rebuild (a0 : arr) (path : seq int) : arr :=
   foldr (fun k acc => comp_tabi 47 acc (PArray.get mtisa k)) a0 path.
 
@@ -201,7 +201,7 @@ Fixpoint searchz3n (T : PArray.array arr) (d : nat) (di : int) (a0 : arr)
                    (path : seq int) (x : c3) (p : nat) : bool :=
   if h3le T x di then
     (* nested ifs and not `&&', which is strict and would rebuild the table
-       at every position *)
+       at every position                                                      *)
     if (if issolved x then eq_tabif (rebuild a0 path) (id_tabi 47) else false)
     then true
     else if d is d'.+1 then

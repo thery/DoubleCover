@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  Searchr.v -- The search with the move redundancy rules.                 *)
+(*  Searchr.v -- The search with the move redundancy rules.                   *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -22,10 +22,10 @@ Variable h : gT -> nat.
 Hypothesis h1 : h 1 = 0.
 Hypothesis hstep : forall g m, m \in S -> h g <= (h (g * m)).+1.
 
-(* ---- 1. The face structure ------------------------------------------------ *)
+(* ---- 1. The face structure ------------------------------------------------*)
 
 (* nfc faces, numbered 0 .. nfc-1, and opp pairs them up.  For the cube nfc
-   is 6 and opp is U<->D, R<->L, F<->B.                                     *)
+   is 6 and opp is U<->D, R<->L, F<->B.                                       *)
 Variable nfc : nat.
 Variable fc : gT -> nat.
 Variable opp : nat -> nat.
@@ -34,29 +34,29 @@ Hypothesis fc_lt : forall m, m \in S -> fc m < nfc.
 Hypothesis oppK : forall f, f < nfc -> opp (opp f) = f.
 (* opp_lt and opp_neq were assumed here too and are NOT needed: nothing in
    the file uses them, and searchrN does not depend on them.  Removed so
-   Rubik333.v is not asked for facts no proof consumes.                   *)
+   Rubik333.v is not asked for facts no proof consumes.                       *)
 
 (* THE FIRST FACT.  The moves of one face together with 1 are closed under
    product: U * U = U2, U * U2 = U', U * U' = 1.  So two consecutive moves
-   of the same face are never needed -- the word gets shorter.            *)
+   of the same face are never needed -- the word gets shorter.                *)
 Hypothesis fc_close : forall m1 m2, m1 \in S -> m2 \in S -> fc m1 = fc m2 ->
   (m1 * m2 = 1) \/ (exists2 m3, m3 \in S & fc m3 = fc m1 /\ m1 * m2 = m3).
 
 (* THE SECOND FACT.  Opposite faces commute, so of the two orders one may be
-   fixed arbitrarily -- here the one with the smaller face index first.    *)
+   fixed arbitrarily -- here the one with the smaller face index first.       *)
 Hypothesis fc_comm : forall m1 m2, m1 \in S -> m2 \in S ->
   fc m2 = opp (fc m1) -> m1 * m2 = m2 * m1.
 
 (* Only these two facts.  An earlier draft also assumed fc m^-1 = fc m, for a
-   reduced_revV that turned out to be FALSE and unnecessary -- see (c). *)
+   reduced_revV that turned out to be FALSE and unnecessary -- see (c).       *)
 
 (* ---- 2. Reduced words ---------------------------------------------------- *)
 
 (* may a move of face f follow one of face p?  Not if same face, and of an
-   opposite pair only the smaller index first.                             *)
+   opposite pair only the smaller index first.                                *)
 Definition okfc (p f : nat) : bool := (f != p) && ~~ ((f == opp p) && (p < f)).
 
-(* nfc is not the index of any face, so it means "no previous move" *)
+(* nfc is not the index of any face, so it means "no previous move"           *)
 Definition okfc0 (p f : nat) : bool := if p < nfc then okfc p f else true.
 
 Fixpoint reduced (p : nat) (l : seq gT) : bool :=
@@ -64,23 +64,23 @@ Fixpoint reduced (p : nat) (l : seq gT) : bool :=
   else true.
 
 (* the two defects a word can have, split out because the induction treats
-   them differently: a merge shortens the word, a swap only reorders it.   *)
+   them differently: a merge shortens the word, a swap only reorders it.      *)
 Definition badp (p f : nat) : bool := (f == opp p) && (p < f).
 
 (* the guard has to mirror okfc0: at p = nfc there is no previous move, so the
-   first move is unconstrained.  Without the guard reducedE is simply false. *)
+   first move is unconstrained.  Without the guard reducedE is simply false.  *)
 Fixpoint nosame (p : nat) (l : seq gT) : bool :=
   if l is m :: l'
   then (if p < nfc then fc m != p else true) && nosame (fc m) l'
   else true.
 
-(* how many adjacent opposite pairs are the wrong way round *)
+(* how many adjacent opposite pairs are the wrong way round                   *)
 Fixpoint inv (p : nat) (l : seq gT) : nat :=
   if l is m :: l'
   then (if p < nfc then badp p (fc m) else false) + inv (fc m) l'
   else 0.
 
-(* reduced = in the move set, no same face twice, no inversion *)
+(* reduced = in the move set, no same face twice, no inversion                *)
 Lemma reducedE p l :
   reduced p l = [&& all (mem Sseq) l, nosame p l & inv p l == 0].
 Proof.
@@ -105,18 +105,18 @@ Fixpoint searchr (d : nat) (g : gT) (p : nat) : bool :=
 
 (* (a) NORMALISATION, the whole content of the file.                          *)
 (*                                                                            *)
-(*  Two rewrites.  fc_close MERGES a same-face pair and strictly shortens the  *)
-(*  word; fc_comm SWAPS an out-of-order opposite pair and leaves the length    *)
-(*  alone.  So the measure is (size, inv) lexicographic, with merges taking    *)
-(*  priority -- and the priority is not cosmetic.  Swapping can CREATE a       *)
-(*  same-face pair: D U D has none, and swapping its bad (U,D) gives D D U.    *)
-(*  What is true, and what makes inv decrease, is that when the word has NO    *)
-(*  same-face pair anywhere, a swap removes one inversion and creates none:    *)
-(*  a new bad pair on the left would need face opp b = a, which was same-face  *)
-(*  with l_i before the swap, and on the right it would need face b, which was *)
+(*  Two rewrites.  fc_close MERGES a same-face pair and strictly shortens the *)
+(*  word; fc_comm SWAPS an out-of-order opposite pair and leaves the length   *)
+(*  alone.  So the measure is (size, inv) lexicographic, with merges taking   *)
+(*  priority -- and the priority is not cosmetic.  Swapping can CREATE a      *)
+(*  same-face pair: D U D has none, and swapping its bad (U,D) gives D D U.   *)
+(*  What is true, and what makes inv decrease, is that when the word has NO   *)
+(*  same-face pair anywhere, a swap removes one inversion and creates none:   *)
+(*  a new bad pair on the left would need face opp b = a, which was same-face *)
+(*  with l_i before the swap, and on the right it would need face b, which was*)
 (*  same-face with l_i+1.  Both excluded.                                     *)
 
-(* the face the word leaves behind, so cat lemmas can be stated *)
+(* the face the word leaves behind, so cat lemmas can be stated               *)
 Fixpoint lastfc (p : nat) (l : seq gT) : nat :=
   if l is m :: l' then lastfc (fc m) l' else p.
 
@@ -132,7 +132,7 @@ Proof. by elim: a p => [|x a IH] p /=; rewrite ?andTb // IH andbA. Qed.
    wrong way round is the trap: badp (fc m1) (fc m3) dies on its EQUALITY
    (nosame forbids fc m3 = fc m2), while badp (fc m2) (fc m3) dies on its
    ORDERING -- fc m3 = fc m1 is perfectly legal (U D U), and what kills it is
-   fc m1 < fc m2.                                                          *)
+   fc m1 < fc m2.                                                             *)
 Lemma inv_swap_tail m1 m2 l2 :
   fc m1 < nfc -> fc m2 < nfc -> badp (fc m1) (fc m2) ->
   nosame (fc m2) l2 ->
@@ -140,7 +140,7 @@ Lemma inv_swap_tail m1 m2 l2 :
 Proof.
 move=> h1n h2n; rewrite /badp => /andP[/eqP f2E hlt].
 (* rewrite the two guards BEFORE destructuring, or h3 is an if-expression
-   rather than a negation and negbTE will not apply *)
+   rather than a negation and negbTE will not apply                           *)
 case: l2 => [//|m3 l2] /=; rewrite h1n h2n => /andP[h3 _].
 have e1 : badp (fc m1) (fc m3) = false.
   by rewrite /badp -f2E (negbTE h3).
@@ -151,13 +151,13 @@ have e2 : badp (fc m2) (fc m3) = false.
 by rewrite e1 e2.
 Qed.
 
-(* the two surgeries.  Stated as "there is a split", which is what the         *)
-(* induction consumes; no indices anywhere.                                    *)
+(* the two surgeries.  Stated as "there is a split", which is what the        *)
+(* induction consumes; no indices anywhere.                                   *)
 (* Phrased over a previous MOVE, not a previous face.  With a face, `~~ nosame
    p l` can be violated at the boundary with p and there is then no same-face
    pair inside l at all; with a move the boundary case is just l1 = [::].
    At the top level p is nfc, the guard is vacuous, and nosame nfc (m :: l)
-   is nosame (fc m) l -- so this is the form the induction wants.        *)
+   is nosame (fc m) l -- so this is the form the induction wants.             *)
 Lemma find_same m0 l :
   ~~ nosame (fc m0) l ->
   exists l1 m1 m2 l2, [/\ m0 :: l = l1 ++ m1 :: m2 :: l2, fc m1 = fc m2
@@ -188,13 +188,13 @@ rewrite add0n => /(IH m)[l1 [m1 [m2 [l2 [lE fE sE]]]]].
 by exists (m0 :: l1), m1, m2, l2; split; rewrite ?lE //= !addSn sE.
 Qed.
 
-(* big_cat wants a commutative law, so the product over a cat is proved here *)
+(* big_cat wants a commutative law, so the product over a cat is proved here  *)
 Lemma prodcat (a b : seq gT) :
   \prod_(m <- a ++ b) m = (\prod_(m <- a) m) * (\prod_(m <- b) m).
 Proof. by elim: a => [|x a IH]; rewrite ?big_nil ?mul1g //= !big_cons IH mulgA. Qed.
 
 (* merging a same-face pair: shorter, same product.  Note the mulgA has to be
-   aimed -- a bare rewrite re-associates the wrong occurrence.            *)
+   aimed -- a bare rewrite re-associates the wrong occurrence.                *)
 Lemma merge_step l1 m1 m2 l2 :
   all (mem Sseq) (l1 ++ m1 :: m2 :: l2) -> fc m1 = fc m2 ->
   exists2 l', all (mem Sseq) l' &
@@ -217,7 +217,7 @@ by rewrite !prodcat !big_cons [m1 * (m2 * _)]mulgA mE.
 Qed.
 
 (* swapping an out-of-order opposite pair: same length, same product, and one
-   inversion fewer -- the last part is the delicate one, see above.        *)
+   inversion fewer -- the last part is the delicate one, see above.           *)
 (* [HARD] ASSEMBLY ONLY -- the delicate part is now inv_swap_tail above.
    What is left: the three easy conjuncts (all_cat; size_cat, both sides are
    size l1 + (size l2).+2; product by prodcat + big_cons + fc_comm with an
@@ -242,7 +242,7 @@ Qed.
        appear against a neighbour of face opp b = a on the left or face b on
        the right, and both were same-face adjacencies before the swap.
      - a helper `inv_cat : inv p (a ++ b) = inv p a + inv (last-face) b` would
-       make the l1 induction routine; state it with an explicit last face.  *)
+       make the l1 induction routine; state it with an explicit last face.    *)
 Lemma swap_step p l1 m1 m2 l2 :
   all (mem Sseq) (l1 ++ m1 :: m2 :: l2) -> nosame p (l1 ++ m1 :: m2 :: l2) ->
   badp (fc m1) (fc m2) ->
@@ -275,7 +275,7 @@ have -> : badp q (fc m2) = false.
     by rewrite andFb.
   move=> /eqP oE.
   have qE : fc m1 = q by rewrite -(oppK h1n) oE (oppK hqn).
-  (* hq may still carry its `if q < nfc` guard; hqn reduces it *)
+  (* hq may still carry its `if q < nfc` guard; hqn reduces it                *)
   by move: hq; rewrite ?hqn qE eqxx.
 by rewrite !add0n add1n ltn_add2l leq_addl.
 Qed.
@@ -293,11 +293,11 @@ Qed.
              drops inv, so the inner IH applies.
      The inner induction needs its own bound lemma, e.g.
        reduce_inv k l : inv nfc l <= k -> nosame nfc l -> size l <= n.+1 -> ...
-     stated inside the n.+1 branch so IHn is available.                    *)
-(* the nested induction: outer on the length bound, inner on inv *)
+     stated inside the n.+1 branch so IHn is available.                       *)
+(* the nested induction: outer on the length bound, inner on inv              *)
 (* THE MERGE BRANCH, on its own because reduce_inv needs it too: a swap can
    BREAK nosame (D U D has none, swapping its bad pair gives D D U), so the
-   inner induction cannot carry nosame and must be able to fall back here. *)
+   inner induction cannot carry nosame and must be able to fall back here.    *)
 Lemma reduce_merge n
   (IHn : forall l, size l <= n -> all (mem Sseq) l ->
      exists2 l', reduced nfc l' & size l' <= size l /\
@@ -308,7 +308,7 @@ Lemma reduce_merge n
               \prod_(m <- l') m = \prod_(m <- l) m.
 Proof.
 case: l => [|m l0] // nsl sl lS.
-(* nfc < nfc is not reduced by /=; ltnn does it *)
+(* nfc < nfc is not reduced by /=; ltnn does it                               *)
 move: nsl; rewrite /= ltnn andTb => nsl.
 case: (find_same nsl) => l1 [m1 [m2 [l2 [lE fE sE]]]].
 have lS' : all (mem Sseq) (l1 ++ m1 :: m2 :: l2) by rewrite -lE.
@@ -371,12 +371,12 @@ Lemma reduce_word (l : seq gT) :
 Proof. exact: (reduce_bound (leqnn (size l))). Qed.
 
 (* (b) the ball is exactly the reduced words, which is (a) plus the standard
-   "ball d = products of lists of length at most d".                       *)
+   "ball d = products of lists of length at most d".                          *)
 (* [HARD] not reached.  SKELETON: induction on d.  ball S 0 = [set 1] gives
    l = [::].  For d.+1, ball S d.+1 = ball S d :|: (ball S d * S), so either the
    IH applies directly (size <= d <= d.+1), or g = a * s with a in ball S d and
    s in S: take l = (word for a) ++ [:: s], and prodcat/big_cons finish it.
-   Ball.v may already have something close -- check before proving.       *)
+   Ball.v may already have something close -- check before proving.           *)
 Lemma ball_prod d g :
   g \in ball S d -> exists2 l, all (mem Sseq) l & size l <= d /\ \prod_(m <- l) m = g.
 Proof.
@@ -393,7 +393,7 @@ by rewrite prodcat big_cons big_nil mulg1 pl.
 Qed.
 
 (* [EASY once ball_prod and reduce_word are in] SKELETON: ball_prod gives a
-   word, reduce_word reduces it, and size l' <= size l <= d chains.       *)
+   word, reduce_word reduces it, and size l' <= size l <= d chains.           *)
 Lemma ball_reduced d g :
   g \in ball S d ->
   exists2 l, reduced nfc l & size l <= d /\ \prod_(m <- l) m = g.
@@ -406,18 +406,18 @@ Qed.
 (* (c) completeness, the analogue of Search.ball_search.  Note the word is
    read the other way round in search (g * m1 * m2 ... = 1), so this needs
    reduced to be stable under inverse-and-reverse -- Ssym and oppK give it,
-   but it is a step in its own right.                                      *)
+   but it is a step in its own right.                                         *)
 (* (c) completeness.  searchr wants m1 * ... * mk = g^-1, so the reduced word
    is taken for g^-1 rather than for g, and NOTHING IS REVERSED.
-                                                                            *)
-(*  An earlier draft tried to reverse the word for g, via                    *)
-(*    reduced_revV : reduced nfc l -> reduced nfc (rev [seq m^-1 | m <- l])  *)
-(*  which is FALSE: l = [D; U] has faces (3,0) and is reduced, since okfc    *)
-(*  wants the larger face first; its reverse has faces (0,3) and is not.     *)
-(*  The convention simply is not symmetric under reversal.  Ball.mem_ballV   *)
-(*  moves to g^-1 instead and the whole problem disappears.                  *)
+                                                                              *)
+(*  An earlier draft tried to reverse the word for g, via                     *)
+(*    reduced_revV : reduced nfc l -> reduced nfc (rev [seq m^-1 | m <- l])   *)
+(*  which is FALSE: l = [D; U] has faces (3,0) and is reduced, since okfc     *)
+(*  wants the larger face first; its reverse has faces (0,3) and is not.      *)
+(*  The convention simply is not symmetric under reversal.  Ball.mem_ballV    *)
+(*  moves to g^-1 instead and the whole problem disappears.                   *)
 
-(* converse of ball_prod: a word of length k lands in ball S k *)
+(* converse of ball_prod: a word of length k lands in ball S k                *)
 Lemma prod_in_ball l :
   all (mem Sseq) l -> \prod_(m <- l) m \in ball S (size l).
 Proof.
@@ -436,7 +436,7 @@ rewrite leq_eqVlt => /orP[/eqP->//|ab xa].
 by apply: (subsetP (ball_mono _ _)); apply: IHb; rewrite ?xa // -ltnS.
 Qed.
 
-(* a reduced word for g^-1 IS a successful search from g *)
+(* a reduced word for g^-1 IS a successful search from g                      *)
 Lemma searchr_word d g p l :
   size l <= d -> reduced p l -> \prod_(m <- l) m = g^-1 -> searchr d g p.
 Proof.
@@ -474,7 +474,7 @@ Proof. by move=> sF; apply/negP => /ball_searchr; rewrite sF. Qed.
    Only guard respecting pairs (m1, m2) need checking, which is where the
    redundancy factor at the TOP of the search comes from -- after a U face
    root the guard kills faces U and D, so twelve second moves instead of
-   eighteen.  Measured cost of NOT doing this: 1.348^2 = 1.82x.          *)
+   eighteen.  Measured cost of NOT doing this: 1.348^2 = 1.82x.               *)
 Lemma searchr_split2 d g p :
   g != 1 ->
   (forall m1, m1 \in Sseq -> okfc0 p (fc m1) -> g * m1 != 1) ->
@@ -489,7 +489,7 @@ case/hasP => m1 m1S /andP[ok1] /andP[_].
 rewrite (negbTE (gm1 _ m1S ok1)) orFb.
 case/hasP => m2 m2S /andP[ok2].
 (* the goal here shows searchr unfolded to its fix, so rewrite cannot match
-   it; exact does, up to conversion *)
+   it; exact does, up to conversion                                           *)
 move=> sm; case/negP: (negbT (gmm _ _ m1S m2S ok1 ok2)); exact: sm.
 Qed.
 
@@ -497,7 +497,7 @@ Qed.
 
 (* Search.v has search_mono for the unguarded search; the guarded one never
    needed it, since everything reaches balls through ball_searchr and ballW.
-   It is what lets a piece proved at one depth be used at a smaller one.    *)
+   It is what lets a piece proved at one depth be used at a smaller one.      *)
 Lemma searchr_mono d g p : searchr d g p -> searchr d.+1 g p.
 Proof.
 elim: d g p => [|d IH] g p /andP[hg]; rewrite /= (leqW hg) /=.
@@ -522,7 +522,7 @@ Qed.
    search files threw it away by starting each piece at nfc.
 
    hroot is Root.ball_root at d.+1, and the rest is one unfolding of searchr,
-   exactly as in searchr_split2.                                           *)
+   exactly as in searchr_split2.                                              *)
 Lemma searchr_root2 (Sr : seq gT) d g :
   (g \in ball S d.+2 -> exists2 m1, m1 \in Sr & g * m1 \in ball S d.+1) ->
   (forall m1, m1 \in Sr -> g * m1 != 1) ->
@@ -535,13 +535,13 @@ have [m1 m1R gm1B] := hroot gB.
 move: (ball_searchr gm1B) => /andP[_].
 rewrite (negbTE (hn1 _ m1R)) orFb.
 (* the goal shows searchr unfolded to its fix, so rewrite cannot match it;
-   exact does, up to conversion -- as in searchr_split2 *)
+   exact does, up to conversion -- as in searchr_split2                       *)
 case/hasP => m2 m2S /andP[_ sm2].
 by case/negP: (negbT (hmm _ _ m1R m2S)); exact: sm2.
 Qed.
 
 (* (d) and the sanity check that this is worth it: the rules only ever remove
-   candidates, so a reduced search that fails is a search that fails.      *)
+   candidates, so a reduced search that fails is a search that fails.         *)
 Lemma searchr_search d g p : searchr d g p -> search Sseq h d g.
 Proof.
 elim: d g p => [g p|d IH g p] //=.
@@ -552,16 +552,16 @@ Qed.
 
 (* (e) soundness, the pair of ball_searchr.  Note p is arbitrary here, where
    ball_searchr needs nfc: the guard only ever REMOVES candidates, so a
-   guarded search that succeeds is still telling the truth.                *)
+   guarded search that succeeds is still telling the truth.                   *)
 Lemma searchr_ball d g p : searchr d g p -> g \in ball S d.
 Proof. by move/searchr_search; exact: search_ball. Qed.
 
 (* the form everything else uses -- searchrN is this one at p = nfc, in the
-   other direction *)
+   other direction                                                            *)
 Corollary searchr_far d g p : g \notin ball S d -> searchr d g p = false.
 Proof. by move=> gB; apply/negP => /searchr_ball; apply/negP. Qed.
 
-(* ---- 8. The same root split, and the second move guarded as well ---------- *)
+(* ---- 8. The same root split, and the second move guarded as well ----------*)
 
 (* searchr_root2 asks for every second move; this asks only for those on a
    DIFFERENT FACE from the first.  A second move on the same face merges with
@@ -570,7 +570,7 @@ Proof. by move=> gB; apply/negP => /searchr_ball; apply/negP. Qed.
    k is for.  Two ingredients beyond searchr_root2: searchrW, since the
    surviving pieces sit at depth d and the induction meets them lower, and
    searchr_ball, to come back from a search that succeeded to the ball the
-   induction hypothesis speaks about.                                       *)
+   induction hypothesis speaks about.                                         *)
 Lemma searchr_root2m (Sr : seq gT) d g :
   {subset Sr <= Sseq} ->
   g != 1 ->

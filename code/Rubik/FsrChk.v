@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  FsrChk.v -- The flip x slice distance table certificate, by rank.       *)
+(*  FsrChk.v -- The flip x slice distance table certificate, by rank.         *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  Farp1chk.v -- Farp1inst's instantiation, type checked against p1dummy.  *)
+(*  Farp1chk.v -- Farp1inst's instantiation, type checked against p1dummy.    *)
 (* =========================================================================  *)
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
@@ -35,7 +35,7 @@ Qed.
 (* THE SAME, THROUGH THE FOLD.  Farp1inst no longer passes a p1checkStep
    proved over the ranks: it passes p1checkStepr_ok applied to the orbit
    certificate.  That is one more argument position to get wrong, and the
-   dummy catches it here in seconds rather than after the searches. *)
+   dummy catches it here in seconds rather than after the searches.           *)
 Theorem superflip_p1far_dummy_folded :
   all (fun j => all (fun i => ~~ searchz3 p1dummy p1droot (prefixi i j)
                                           (init3 (prefixi i j)) (fcpos j))

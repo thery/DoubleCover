@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  Tabi.v -- The tables of Table.v, on int63 and PArray, and the bridge    *)
-(*     back.                                                                *)
+(*  Tabi.v -- The tables of Table.v, on int63 and PArray, and the bridge      *)
+(*     back.                                                                  *)
 (* =========================================================================  *)
 (* PArray is imported without its notations -- ssrint63.v does the same and   *)
 (* redeclares the ones it needs -- and ssrint63.v brings the int63 toolbox:   *)
@@ -350,7 +350,7 @@ Hypothesis DtiE : forall a, tabi_ok a -> Dti a = Dt (ti2t a).
 
    if is a match: the scrutinee is evaluated and then only the branch taken.
    The inner fix does for the move list what has would not.  Same booleans,
-   and depth 5 goes from 186 s to nothing.                                  *)
+   and depth 5 goes from 186 s to nothing.                                    *)
 Fixpoint searchi (d : nat) (a : arr) : bool :=
   if Dti a <= d then
     if eq_tabi a id_tabi then true
@@ -401,7 +401,7 @@ Qed.
 
 (* and hence, composing with searchtE of Tsearch.v, a false answer from the   *)
 (* array search is a false answer from the search Search.v proves sound --    *)
-(* which searchN then turns into a membership fact.                          *)
+(* which searchN then turns into a membership fact.                           *)
 Variable h : {perm 'I_n.+1} -> nat.
 Hypothesis hE : forall t, tab_ok n t -> h (pt n t) = Dt t.
 

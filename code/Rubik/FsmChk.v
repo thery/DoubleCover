@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  FsmChk.v -- The flip x slice move table certificate, by rank.           *)
+(*  FsmChk.v -- The flip x slice move table certificate, by rank.             *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

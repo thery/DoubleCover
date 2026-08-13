@@ -1,6 +1,6 @@
 (* =========================================================================  *)
-(*  Moves.v -- The eighteen moves and the superflip, as tables and int63    *)
-(*     arrays.                                                              *)
+(*  Moves.v -- The eighteen moves and the superflip, as tables and int63      *)
+(*     arrays.                                                                *)
 (* =========================================================================  *)
 
 From Stdlib Require Import Uint63.

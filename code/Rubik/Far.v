@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  Far.v -- superflip \notin ball Sset depth, assembled.                   *)
+(*  Far.v -- superflip \notin ball Sset depth, assembled.                     *)
 (* =========================================================================  *)
 
 From Stdlib Require Import Uint63.
@@ -40,7 +40,7 @@ Notation arr := (PArray.array int).
    and the search is eighteen, both just above the twelve physical cores of
    the old Xeon, so -j12 pays two waves where -j18 pays one.  Drop back to
    -j12 if memory complains -- every worker loads the table, about a
-   gigabyte each.                                                          *)
+   gigabyte each.                                                             *)
 Definition depth := 15.
 Definition droot := depth.-2.           (* depth = droot.+2                   *)
 Definition nroot := 2.                  (* size Sroot                         *)
@@ -51,7 +51,7 @@ Definition nmoves := 18.                (* size moves                         *)
    into one move -- a shorter maneuver, which Searchr.searchr_root2m sends to
    a smaller depth instead of to a piece.  So j = 0, 1, 2 are dropped and
    fifteen files remain.  The three that turn the D face are NOT dropped:
-   see the header of mkrunp1.sh.                                            *)
+   see the header of mkrunp1.sh.                                              *)
 Definition jsnd := [seq j <- iota 0 nmoves | fcpos j != 0%N].
 
 (* ---- 1. The heuristic, from the table ------------------------------------ *)
@@ -83,7 +83,7 @@ Qed.
    generators of Symg, and each of those is SyT/SxT/SmT then ptJ then one
    comparison of two literal tables -- the shape Sym.v's Symg_stab uses.
    The two helpers below are pure view plumbing between x \in 'C[g],
-   commute and g ^ x = g; they are what fought, not the mathematics.       *)
+   commute and g ^ x = g; they are what fought, not the mathematics.          *)
 Lemma conj_fix_cent (g u : {perm facelet}) : u \in 'C[g] -> g ^ u = g.
 Proof. by move=> /cent1P comm; apply/conjg_commute/commute_sym. Qed.
 
@@ -91,7 +91,7 @@ Lemma cent_conj_fix (g u : {perm facelet}) : g ^ u = g -> u \in 'C[g].
 Proof. by move=> guEg; apply/cent1P; rewrite /commute [RHS]conjgC guEg. Qed.
 
 (* !inE over-rewrites here and leaves a shape cent_conj_fix cannot see;
-   5!inE stops at the three generators.                                     *)
+   5!inE stops at the three generators.                                       *)
 Lemma superflipJ u : u \in Symg -> superflip ^ u = superflip.
 Proof.
 move=> uS; apply: conj_fix_cent; move: uS; apply: subsetP.
@@ -118,7 +118,7 @@ have hall : all (fun mt => comp_tab sftab mt != id_tab 47) mtabs
 by apply: (allP hall).
 Qed.
 
-(* ---- 3. The 36 prefixes, as arrays ---------------------------------------- *)
+(* ---- 3. The 36 prefixes, as arrays ----------------------------------------*)
 
 (* Indexed by position rather than by membership: arr is not an eqType, so    *)
 (* a \in prefixes does not even typecheck, whereas i \in iota 0 18 does.      *)
@@ -188,9 +188,9 @@ Proof. by rewrite /Sroot !inE => /orP[]/eqP->; [exists 0%N | exists 1%N]. Qed.
 
    The split is by second move rather than by pair so that each file is one
    vm_compute over two searches: eighteen files rather than thirty six, and
-   each still small enough to check on its own core.                        *)
+   each still small enough to check on its own core.                          *)
 
-(* ---- 5. The reduced search, and why the guard stops at the prefix --------- *)
+(* ---- 5. The reduced search, and why the guard stops at the prefix ---------*)
 
 (* THE SENTINEL p IS NOT A SHORTCUT, it is forced.  ball_root2 conjugates by
    the 48 symmetries to push the first move into Sroot, which is worth a
@@ -202,7 +202,7 @@ Proof. by rewrite /Sroot !inE => /orP[]/eqP->; [exists 0%N | exists 1%N]. Qed.
    The arithmetic says this is the right trade anyway: symmetry x sentinel is
    9 x 72 = 648, against 1 x 131 for dropping ball_root2 and using
    searchr_split2 instead.  Symmetry is worth more than the two levels of
-   guard, by a factor of five.                                             *)
+   guard, by a factor of five.                                                *)
 (* ---- 2bis. The symmetry-strengthened heuristic --------------------------- *)
 
 (* Far.v used to prune with ONE lookup in the flip x slice table.  It now
@@ -234,7 +234,7 @@ Definition Dsymt (t : seq nat)        : nat := \max_(s <- viewst) Dt Dfsd (conjt
    literals so the VM shares them; the \max_(s <- viewst) form (Dsymt) is the
    one the PROOFS are stated over, and DsymdE bridges the two.  Running the
    search directly over viewst does NOT evaluate -- t2ti (inv_tab s) would be
-   rebuilt at every node. *)
+   rebuilt at every node.                                                     *)
 Definition syti     : arr := Eval vm_compute in t2ti 47 Sytab.
 Definition sxti     : arr := Eval vm_compute in t2ti 47 Sxtab.
 Definition syti_inv : arr := Eval vm_compute in inv_tabi 47 syti.
@@ -242,7 +242,7 @@ Definition sxti_inv : arr := Eval vm_compute in inv_tabi 47 sxti.
 
 (* NOTE the bracketing: si . (a . s), matching conji.  Written (si . a) . s it
    computes the same thing but every proof below then needs associativity of
-   comp_tab, which is not worth a single lemma. *)
+   comp_tab, which is not worth a single lemma.                               *)
 Definition conjy (a : arr) : arr := comp_tabi 47 syti_inv (comp_tabi 47 a syti).
 Definition conjx (a : arr) : arr := comp_tabi 47 sxti_inv (comp_tabi 47 a sxti).
 
@@ -251,7 +251,7 @@ Definition Dsymd (a : arr) : nat :=
        (maxn (Dtid (conjx a))
              (maxn (Dtid (conjy (conjx a))) (Dtid (conjx (conjy a))))).
 
-(* ---- the views are symmetries ------------------------------------------- *)
+(* ---- the views are symmetries -------------------------------------------  *)
 
 Lemma viewst_ok : all (tab_ok 47) viewst.
 Proof.
@@ -271,7 +271,7 @@ by move=> sok tok; rewrite /conjt; apply: tab_ok_comp;
 Qed.
 
 (* the ptM rewrite has to happen in a SMALL goal.  Inline in views_Symg, where
-   the goal carries the concrete tables, it does not return.                *)
+   the goal carries the concrete tables, it does not return.                  *)
 Lemma pt_comp_Symg t1 t2 : tab_ok 47 t1 -> tab_ok 47 t2 ->
   pt 47 t1 \in Symg -> pt 47 t2 \in Symg -> pt 47 (comp_tab t1 t2) \in Symg.
 Proof. by move=> o1 o2 h1 h2; rewrite -(ptM o1 o2); apply: groupM. Qed.
@@ -307,7 +307,7 @@ Qed.
 
 (* view-wise: (g*m)^u = g^u * m^u, and m^u is again a move because Symg
    stabilises Sset -- that is Sym.Symg_stab, already proved.  Then max is
-   monotone.  No new mathematics.                                          *)
+   monotone.  No new mathematics.                                             *)
 Lemma hsympS g m : m \in Sset -> hsymp g <= (hsymp (g * m)).+1.
 Proof.
 move=> mS; rewrite /hsymp.
@@ -358,7 +358,7 @@ Qed.
 
 (* the literal tables, related back to their table forms.  syti and friends
    are Eval vm_compute in, hence closed literals, so nothing matches them
-   syntactically until these fire. *)
+   syntactically until these fire.                                            *)
 Lemma sytiE     : syti     = t2ti 47 Sytab.               Proof. by vm_compute. Qed.
 Lemma sxtiE     : sxti     = t2ti 47 Sxtab.               Proof. by vm_compute. Qed.
 Lemma syti_invE : syti_inv = t2ti 47 (inv_tab 47 Sytab).  Proof. by vm_compute. Qed.
@@ -373,7 +373,7 @@ Proof. by rewrite /conjx /conji sxtiE sxti_invE. Qed.
 (* conjugating by the identity, and composing two conjugations.  Both are
    trivial on PERMUTATIONS (conjg1, conjgM), so transport through pt rather
    than fight comp_tab and inv_tab directly -- pt_inj_in is what Redun's
-   uniq_moves already uses for exactly this. *)
+   uniq_moves already uses for exactly this.                                  *)
 Lemma conjt_id t : tab_ok 47 t -> conjt (id_tab 47) t = t.
 Proof.
 move=> tok; apply: pt_inj_in => //; first by apply: tab_ok_conjt (tab_ok_id 47) tok.
@@ -410,7 +410,7 @@ Qed.
        rewrite {-3 4}[conjt]lock (conjtM okSx okSy aok) -lock.
 
    Same for maxn at the end.  Note also `5!big_cons` with an exact count
-   rather than `!`, and never /= anywhere near these goals.               *)
+   rather than `!`, and never /= anywhere near these goals.                   *)
 Lemma DsymdE a : tabi_ok 47 a -> Dsymd a = Dsymt (ti2t 47 a).
 Proof.
 move=> aok.
@@ -484,7 +484,7 @@ apply: (searchrN Sset_inv (hfs0 Dfsd_0) (hfsS Dfsd_step)
    rewrite -(searchtrE ...) the backward rewrite has to unify
    [seq pt 47 mt | mt <- ?mts] against the concrete mtis, which builds
    eighteen permutations and never returns -- a timeout, not a type error.
-   Given as closed equations both rewrites are syntactic and it takes 1.3 s. *)
+   Given as closed equations both rewrites are syntactic and it takes 1.3 s.  *)
 have e1 : searchir 47 mtis Dtid nfcube oppf fcpos d a nfcube
         = searchtr 47 [seq ti2t 47 mt | mt <- mtis] (Dt Dfsd) nfcube oppf fcpos
                    d (ti2t 47 a) nfcube.
@@ -505,13 +505,13 @@ Qed.
    against 5.4 us for the composition alone; with actf, 19.8 us.  actf IS the
    coordinate transition and checkStep already certifies it, so the coordinate
    can be carried and stepped instead of recomputed.  The array is still
-   composed, for the goal test only.                                        *)
+   composed, for the goal test only.                                          *)
 
 (* EVALUATED ONCE.  mdataf mtabs is an application of a constant to an
    argument, so the VM cannot share it: written directly here it is rebuilt on
    every call -- eighteen mdatf, each a twelve entry array plus a twelve bit
    pack -- about 13.5 times per node.  As a closed Definition it is a literal
-   and costs nothing per node.                                             *)
+   and costs nothing per node.                                                *)
 Definition mdatafd : seq mdatf := Eval vm_compute in mdataf mtabs.
 
 Lemma mdatafdE : mdatafd = mdataf mtabs.
@@ -533,7 +533,7 @@ Proof. by move=> kL; rewrite -ti2t_mtis (nth_map (id_tabi 47)). Qed.
 (* The guard travels: being a cube is closed under composing with a move.
    Down through cubtiE to tables, cubtE to permutations, where it is cubPM --
    and the move is a move, by mtisE.  NOTE arr is not an eqType, so the
-   membership cannot be taken in mtis; it goes through mtabs.              *)
+   membership cannot be taken in mtis; it goes through mtabs.                 *)
 Lemma cubti_comp a k : k < seq.size mtis -> tabi_ok 47 a -> cubti a ->
   cubti (comp_tabi 47 a (nth (id_tabi 47) mtis k)).
 Proof.
@@ -555,7 +555,7 @@ Qed.
    after composing.  This is Coordfs's equivariance coordfsM, carried up
    through actdE (actfs = actd on a table) and actfE (actd = actf on the
    packed move data), with coordiE/coordtE moving between the three levels.
-   Every piece was already proved for the certificate; nothing new here.  *)
+   Every piece was already proved for the certificate; nothing new here.      *)
 Lemma actcdE a k : k < seq.size mtis -> tabi_ok 47 a -> cubti a ->
   coordi (comp_tabi 47 a (nth (id_tabi 47) mtis k)) = actcd (coordi a) k.
 Proof.
@@ -583,7 +583,7 @@ Proof. by rewrite /mtis seq.size_map -(seq.size_map (pt 47)) -mtabsE moves_size.
 
 (* the 36 roots are cubes, so the guard holds where the search starts.
    NOTE prefixi takes its nth default as sfti and cubti_comp as id_tabi 47;
-   below nmoves they agree, which is what set_nth_default says.            *)
+   below nmoves they agree, which is what set_nth_default says.               *)
 Lemma prefixi_cub i j : i < nmoves -> j < nmoves -> cubti (prefixi i j).
 Proof.
 move=> iL jL.
@@ -628,7 +628,7 @@ Qed.
    not re-abstract this.
 
    mdatafd above is the other half of that lesson: mdataf mtabs is an
-   application, which the VM rebuilds on every call.                        *)
+   application, which the VM rebuilds on every call.                          *)
 
 Fixpoint searchz (d : nat) (a : arr) (x : int) (p : nat) : bool :=
   if Dfsd x <= d then
@@ -653,7 +653,7 @@ Proof. by case: d => [|d] h; rewrite {1}/searchir h. Qed.
    statement and goal that mentions it, and then congr / case / elim all have
    to match against two copies of it -- which is the only reason this proof
    ever looked hard.  Named, goals carry the constant goz d a x and every
-   step below is ordinary.                                                 *)
+   step below is ordinary.                                                    *)
 Definition goz (d : nat) (a : arr) (x : int) : seq nat -> bool :=
   fix go (l : seq nat) : bool :=
     if l is k :: l' then
@@ -688,7 +688,7 @@ Proof. by []. Qed.
    arguments must be EXPLICIT (searchirS and DtidE2 are ~7 ms given
    explicitly and do not return implicitly), and the two binary operators are
    peeled with f_equal2 rather than congr, which tries to match the whole
-   goal.  Nothing here needs /= : simpl on these goals does not return.   *)
+   goal.  Nothing here needs /= : simpl on these goals does not return.       *)
 Lemma searchzE d a p : tabi_ok 47 a -> cubti a ->
   searchz d a (coordi a) p = searchir 47 mtis Dtid nfcube oppf fcpos d a p.
 Proof.
@@ -713,7 +713,7 @@ case: ifP => hle; rewrite hasE.
 by rewrite (searchir_gt _ hle).
 Qed.
 
-(* ---- 4. Towards carrying FIVE coordinates ----------------------------- *)
+(* ---- 4. Towards carrying FIVE coordinates -----------------------------    *)
 
 (* Dsymd rebuilds five coordinates at every node: five conjugations plus five
    coordi, ~120 us.  Carried and stepped with actf it is five actf, ~10 us.
@@ -725,7 +725,7 @@ Qed.
    vm_compute fact that conjugation really does permute the eighteen moves.
 
    These are the supporting lemmas, all proved.  What is still missing is the
-   five-tuple search itself and its induction. *)
+   five-tuple search itself and its induction.                                *)
 
 Definition sigma (s : seq nat) (k : nat) : nat :=
   index (conjt s (nth [::] mtabs k)) mtabs.
@@ -743,7 +743,7 @@ by rewrite (ptM o1 o2) (ptJ (tab_ok_comp o1 o2) sok).
 Qed.
 
 (* membership, not the equation, is the right hypothesis: it gives both the
-   bound (index_mem) and the value (nth_index). *)
+   bound (index_mem) and the value (nth_index).                               *)
 Lemma ti2t_step s a k :
   tab_ok 47 s -> tabi_ok 47 a -> k < seq.size mtis ->
   conjt s (nth [::] mtabs k) \in mtabs ->
@@ -797,7 +797,7 @@ rewrite (cubtiE sok2) (ti2t_conji sok aok).
 by apply: cubt_conjt => //; rewrite -(cubtiE aok).
 Qed.
 
-(* THE PER-VIEW INVARIANT STEP. *)
+(* THE PER-VIEW INVARIANT STEP.                                               *)
 Lemma coordi_step s a k :
   tab_ok 47 s -> cubt s -> tabi_ok 47 a -> cubti a -> k < seq.size mtis ->
   conjt s (nth [::] mtabs k) \in mtabs ->
@@ -838,7 +838,7 @@ Qed.
 (* Dsymd rebuilds five coordinates per node -- five conjugations plus five
    coordi, ~120 us.  Carried and stepped with actf it is five actf, ~10 us.
    MEASURED, depth 9 from prefixi 0 3, native_compute, identical node counts
-   (4918): rebuild 2.741 s, carry-and-step 0.437 s -- 6.3x.                 *)
+   (4918): rebuild 2.741 s, carry-and-step 0.437 s -- 6.3x.                   *)
 
 Definition sg0 : seq nat :=
   Eval vm_compute in [seq sigma (nth [::] viewst 0) k | k <- iota 0 18].
@@ -863,7 +863,7 @@ Definition h5 (x : c5) : nat :=
   maxn (maxn (Dfsd x0) (Dfsd x1))
        (maxn (Dfsd x2) (maxn (Dfsd x3) (Dfsd x4))).
 
-(* the five views of the root, in viewst's order *)
+(* the five views of the root, in viewst's order                              *)
 Definition init5 (a : arr) : c5 :=
   (coordi a, coordi (conjy a), coordi (conjx a),
    coordi (conjy (conjx a)), coordi (conjx (conjy a))).
@@ -881,7 +881,7 @@ Fixpoint searchz5 (d : nat) (a : arr) (x : c5) (p : nat) : bool :=
     else false
   else false.
 
-(* the sigma rows, related back to their computable form *)
+(* the sigma rows, related back to their computable form                      *)
 Lemma sg0M : sg0 = [seq sigma (nth [::] viewst 0) k | k <- iota 0 18].
 Proof. by vm_compute. Qed.
 Lemma sg1M : sg1 = [seq sigma (nth [::] viewst 1) k | k <- iota 0 18].
@@ -894,7 +894,7 @@ Lemma sg4M : sg4 = [seq sigma (nth [::] viewst 4) k | k <- iota 0 18].
 Proof. by vm_compute. Qed.
 
 (* NOTE: never leave the size side condition to // here -- it wanders into
-   sigma's computation and does not return. *)
+   sigma's computation and does not return.                                   *)
 Lemma sg0N k : k < 18 -> nth 0%N sg0 k = sigma (nth [::] viewst 0) k.
 Proof.
 move=> kL; rewrite sg0M (nth_map 0%N).
@@ -928,7 +928,7 @@ Qed.
 
 (* FIRST INVARIANT: the carried heuristic is the rebuilt one.
    The five DtidE2 rewrites and the final comparison all need lock -- without
-   it each one scans a goal full of conjy/conjx over concrete tables. *)
+   it each one scans a goal full of conjy/conjx over concrete tables.         *)
 Lemma h5_init a : tabi_ok 47 a -> cubti a -> h5 (init5 a) = Dsymd a.
 Proof.
 move=> aok ca.
@@ -1016,7 +1016,7 @@ move=> sV sok cs aok ca kL.
 by apply: coordi_step => //; last by apply: view_move.
 Qed.
 
-(* SECOND INVARIANT: stepping the five agrees with rebuilding them. *)
+(* SECOND INVARIANT: stepping the five agrees with rebuilding them.           *)
 Lemma step5_init a k : tabi_ok 47 a -> cubti a -> k < 18 ->
   step5 (init5 a) k = init5 (comp_tabi 47 a (nth (id_tabi 47) mtis k)).
 Proof.
@@ -1101,7 +1101,7 @@ rewrite {1}/searchz5 -/searchz5.
 by case: (h5 x <= d.+1) => //=; case: (eq_tabi 47 a (id_tabi 47)) => //=.
 Qed.
 
-(* THE INDUCTION.  f_equal2 rather than congr, which does not return here. *)
+(* THE INDUCTION.  f_equal2 rather than congr, which does not return here.    *)
 Lemma searchz5E d a p : tabi_ok 47 a -> cubti a ->
   searchz5 d a (init5 a) p = searchir 47 mtis Dsymd nfcube oppf fcpos d a p.
 Proof.

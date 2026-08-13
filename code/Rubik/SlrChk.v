@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  SlrChk.v -- The slice rank move table certificate.                      *)
+(*  SlrChk.v -- The slice rank move table certificate.                        *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.

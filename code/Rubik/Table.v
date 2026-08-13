@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  Table.v -- Permutations of 'I_n.+1 presented by their image table.      *)
+(*  Table.v -- Permutations of 'I_n.+1 presented by their image table.        *)
 (* =========================================================================  *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
