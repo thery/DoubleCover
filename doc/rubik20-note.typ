@@ -668,17 +668,38 @@ assumptions. Everything else in the development exists either to discharge
 those two assumptions for the real table, or to make the search fast enough to
 run.
 
-*What the table has to satisfy, and what it does not.* #src("Coord.v") shows that a summary
-`coord`, the action `act` of a move on summaries, and any table `D` at all give
-a legal estimate as soon as `D` passes these two checks:
+*What the table has to satisfy, and what it does not.* #src("Coord.v") asks for
+three things and checks two:
 
 ```coq
+Variable coord : {perm facelet} -> X.
+Variable act   : X -> {perm facelet} -> X.
+Hypothesis coordM : forall g m, coord (g * m) = act (coord g) m.
+
+Variable D : X -> nat.
 Hypothesis D0    : D (coord 1) = 0.
 Hypothesis Dstep : forall x m, m \in Sset -> D x <= (D (act x m)).+1.
 ```
 
-The first says the solved summary has value zero. The second says that applying
-a move to a summary lowers its value by at most one. Nothing else is required.
+`coord` is the summary of a position, `X` being whatever the summaries happen
+to be. `act` is how a move acts on a summary directly, without going back to
+the position it came from: for the phase 1 summary it is two lookups in a move
+table. `coordM` is what makes the pair worth having, and it is the one thing
+proved about the summary itself. Summarising after a move is the same as acting
+on the summary, so the search may throw the position away and keep only its
+summary.
+
+`D` is then the table, and the two checks are its. The first says the solved
+summary has value zero. The second says that acting by a move on a summary
+lowers its value by at most one.
+
+Notice where `coord` is *absent*: `Dstep` quantifies over every `x` in `X`, and
+not only over the summaries `coord g` of real positions. That is deliberate,
+and it is what makes the condition checkable. `X` is a finite set of two
+billion values, the check simply runs over all of them, and it never has to be
+known which of them come from a cube. It is also why the same lemma will serve
+the folded table later, whose entries are not distances of positions at all.
+Nothing else is required.
 In particular the table is never proved to hold the true distances; what is
 proved of it is only that it is a valid under-estimate, which is a strictly
 weaker property.
@@ -901,7 +922,8 @@ questions, each with its measurements.
 = The development in figures
 
 #tbl(([], []),
-  ([hand-written Rocq], [*46 files, 14 033 lines*]),
+  ([hand-written Rocq, about the cube], [*45 files, 12 725 lines*]),
+  ([`ssrint63.v`, a general int63 toolbox], [1 308 lines]),
   ([generated table sources, in the repository], [about 156 000 lines]),
   ([generated table sources, too big to store], [about 165 MB of literals]),
   ([OCaml reference programs and generators], [2 749 lines]),
@@ -966,17 +988,23 @@ and the same at every depth, and *0.85 GB* since the table was folded,
 which is what lets all eighteen pieces run at once. The 19-move run above was
 made before the fold.
 
-*What is left.* Two things, stated plainly.
+*What is left.* Three things, stated plainly.
 
-+ The 19-move run predates the fold becoming the official table check. Through
-  the fold the chain has been run at 16 and at 18; running it at 19 is
-  projected at about 13 hours of wall clock, by multiplying the measured 18
-  figure by the measured growth of 12.87. That same method predicted the
-  earlier run to within 4 %.
-+ `Diameter.v` still contains the sentence "the superflip is not within 19
-  moves" as an admitted placeholder, because that file sits at the bottom of
-  the chain and cannot refer to the search that sits at the top. Both ends
-  exist; a short file at the top has to join them.
++ `Diameter.v` proves `~~ diam_le Sset 19` from a lemma that it states and
+  admits, "the superflip is not within 19 moves". It has to admit it: that
+  file sits at the bottom of the chain, where the cube is defined, while the
+  search which establishes the fact sits at the top and requires everything.
+  #src("Diam20.v") joins the two ends, replaying those same two lines of proof
+  with the real theorem in scope, after checking that the eighteen searches
+  were indeed run at depth 19. Nothing is admitted there.
++ The second move of the search ranges over all eighteen moves, though the
+  three that turn the top face again are redundant: $2 times 15 = 30$ searches
+  would do in place of 36. Those three happen to be the cheapest of the
+  eighteen pieces, so this is processor time rather than wall clock.
++ Compiling the table blocks to native code is now the largest single step of
+  a build from clean, larger than the certificates, the checks and the
+  twenty-seven slices together, and how many of them can run at once has never
+  been measured.
 
 And the other half of God's number, that 20 moves always suffice, is not
 proved here. `Diameter.v` does contain the reduction for it, stated in terms of
@@ -985,23 +1013,9 @@ families cover every case up to symmetry, and that each of them is solvable in
 20 moves. That computation is several orders of magnitude larger than the one
 this note describes.
 
-= Acknowledgements
-
-This development was written with *Claude*, Anthropic's coding assistant, as a
-working partner. The Rocq sources, the OCaml programs they are checked against
-and this note were produced in three weeks, between 23 July and 12 August 2026,
-and 267 of the 268 commits touching `code/Rubik` record Claude as a co-author.
-The division of labour was the natural one: I said what was to be proved, chose
-what to formalise and what to throw away, and rejected what was wrong; Claude
-wrote and rewrote the proofs and the generators, ran the experiments and
-measured them.
-
-What makes such a collaboration workable is that almost nothing has to be taken
-on trust. Every claim about the cube ends in the Rocq kernel, which does not
-care who wrote the proof, and the tables are checked rather than believed. What
-does have to be watched is everything outside that: the numbers, the claims
-about what was measured and what was only estimated, and the statement of the
-final theorem itself, since a theorem can be true and say less than one thinks.
+This development was written with the help of Claude, Anthropic's coding
+assistant, which is recorded as a co-author of 267 of the 268 commits of
+`code/Rubik`.
 
 #pagebreak(weak: true)
 

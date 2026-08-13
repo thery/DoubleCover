@@ -82,9 +82,17 @@ DEPTH ?= 16
 fold:
 	./mkfold.sh $(P1_J) 2
 
+# Diam20.v is out of _CoqProject: it holds a guard `p1depth = 19', so it is
+# meaningless -- and fails -- at any other depth.  At 19 it is the theorem
+# thery actually wants, `~~ diam_le Sset 19', with nothing admitted, and it
+# costs seconds since the searches are already .vo by then.
 test: fold
 	./mkrunp1.sh $(DEPTH)
 	ulimit -s unlimited; $(MAKE) -j$(P1_J) Farp1inst.vo
+	@if [ "$(DEPTH)" = "19" ]; then \
+	   echo "== depth 19: God's number is at least 20"; \
+	   ulimit -s unlimited; rocq compile -R . Rubik Diam20.v; \
+	 fi
 
 # The same run, with a time for every file:
 #
