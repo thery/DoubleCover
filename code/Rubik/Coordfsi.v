@@ -53,11 +53,11 @@ Proof. by move=> fL; rewrite epairE inordK. Qed.
 
 (* ---- 2. The summary on lists --------------------------------------------- *)
 
-(* The guard is read at every node, so nothing in it may touch nat.  The
-   pairing goes into an int array and the loop is indexed by an int: four
-   array reads per facelet, where the nat version cost a to_nat, an of_nat
-   and two linear scans of a 24 element list.  Measured over 20 000
-   evaluations of the heuristic, 55.0 s before and 2.3 s after.               *)
+(* The guard is read at every node, so nothing in it may touch nat.  The      *)
+(* pairing goes into an int array and the loop is indexed by an int: four     *)
+(* array reads per facelet, where the nat version cost a to_nat, an of_nat    *)
+(* and two linear scans of a 24 element list.  Measured over 20 000           *)
+(* evaluations of the heuristic, 55.0 s before and 2.3 s after.               *)
 
 Definition mkarrn (n : int) (l : seq int) : arr :=
   (fix go (a : arr) (i : int) (l : seq int) {struct l} : arr :=
@@ -71,8 +71,8 @@ Definition epairi : arr :=
 Fixpoint alli (k : nat) (i : int) (f : int -> bool) : bool :=
   if k is k1.+1 then f i && alli k1 (i + 1)%uint63 f else true.
 
-(* the twelve primary facelets, as ints: one array read instead of a scan of
-   a 12 element nat list plus an of_nat of a value up to 47                   *)
+(* the twelve primary facelets, as ints: one array read instead of a scan of  *)
+(* a 12 element nat list plus an of_nat of a value up to 47                   *)
 Definition eprimi : arr :=
   Eval vm_compute in
   mkarrn (of_nat nedge) [seq of_nat (nth 0%N eprim k) | k <- iota 0 nedge].
@@ -118,8 +118,8 @@ Qed.
 Lemma nfacelet_nwB m : m < nfacelet -> m < nwB.
 Proof. by move=> mL; apply: leq_trans (leq_trans mL _) n47_small. Qed.
 
-(* inord is injective below the bound, which is how an equation between
-   facelets becomes an equation between naturals                              *)
+(* inord is injective below the bound, which is how an equation between       *)
+(* facelets becomes an equation between naturals                              *)
 Lemma inord_eq (a b : nat) : a < nfacelet -> b < nfacelet ->
   ((inord a : facelet) == inord b) = (a == b).
 Proof.
@@ -140,8 +140,8 @@ rewrite IH; last by rewrite to_nat_incr // addSn -addnS.
 by rewrite to_nat_incr // to_natK.
 Qed.
 
-(* epairi holds what epairn computes.  It is a literal array, so this is 48
-   comparisons and not an induction over mkarrn.                              *)
+(* epairi holds what epairn computes.  It is a literal array, so this is 48   *)
+(* comparisons and not an induction over mkarrn.                              *)
 Lemma get_epairi f :
   f < nfacelet -> PArray.get epairi (of_nat f) = of_nat (epairn f).
 Proof.
@@ -240,9 +240,9 @@ Qed.
 
 (* ---- 5b. The guard, on the move set --------------------------------------*)
 
-(* This is why the block below lives here rather than in Coordfs.v: nothing
-   about a permutation reduces, so "the eighteen moves keep cubies together"
-   has to be read through cubtE, and cubtE is a table fact.                   *)
+(* This is why the block below lives here rather than in Coordfs.v: nothing   *)
+(* about a permutation reduces, so "the eighteen moves keep cubies together"  *)
+(* has to be read through cubtE, and cubtE is a table fact.                   *)
 
 (* the six faces, each one XmoveT away from a table and then one vm_compute   *)
 Lemma cubP_faces g : g \in faces -> cubP g.
@@ -280,8 +280,8 @@ Variable Dfs : int -> nat.
 Hypothesis Dfs0 : Dfs (coordfs 1) = 0.
 Hypothesis DfsStep : forall x m, m \in Sset -> Dfs x <= (Dfs (actfs x m)).+1.
 
-(* what Coordfs.v's summary gives Search.v.  The guard costs nothing: hfs is
-   0 off the guarded set, so both conditions come out unconditional.          *)
+(* what Coordfs.v's summary gives Search.v.  The guard costs nothing: hfs is  *)
+(* 0 off the guarded set, so both conditions come out unconditional.          *)
 Definition hfs : {perm facelet} -> nat := hcoordg cubP coordfs Dfs.
 
 Lemma hfs0 : hfs 1 = 0.

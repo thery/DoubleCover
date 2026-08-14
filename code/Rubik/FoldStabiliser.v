@@ -27,9 +27,9 @@ Variable ract : int -> int -> int.
 (* the entry the folded row gives for the symmetry u                          *)
 Local Notation ent u r tw := (p1get F (foldi (frepi r) (twsymi tw u))).
 
-(* Every symmetry that reaches the representative gives the same entry.  The
-   one that fsym names is skipped, being the same term on both sides, which
-   is what keeps the check to the 17 120 pairs that say something.            *)
+(* Every symmetry that reaches the representative gives the same entry.  The  *)
+(* one that fsym names is skipped, being the same term on both sides, which   *)
+(* is what keeps the check to the 17 120 pairs that say something.            *)
 Definition stabC : bool :=
   all_powi nrbits 0%uint63 (Uint63.lsl 1 (of_nat nrbits))
     (fun r =>
@@ -71,8 +71,8 @@ move=> hchk rL uL twL hu.
 case: (boolP (u =? fsymi r)%uint63) => [/eqb_correct ->|hne] //.
 have hrlt : (to_nat r < 2 ^ nrbits)%N.
   by apply: leq_trans (_ : to_nat nfsi <= _); [apply/nltbP | vm_compute].
-(* the outer loop as all_pow, the two inner ones left as written: turning
-   them all at once puts a rewrite under a binder and does not come back      *)
+(* the outer loop as all_pow, the two inner ones left as written: turning     *)
+(* them all at once puts a rewrite under a binder and does not come back      *)
 have hall : all_pow nrbits 0%uint63
   (fun r0 => if (nfsi <=? r0)%uint63 then true
              else all (fun u0 => let ui := of_nat u0 in
@@ -85,8 +85,8 @@ have hall : all_pow nrbits 0%uint63
                     else true)
                   (iota 0 16)).
   rewrite -all_powiE; last by vm_compute.
-  (* -stabCE folds the body back to the name; exact: hchk alone would
-     unify by evaluating the loop                                             *)
+  (* -stabCE folds the body back to the name; exact: hchk alone would         *)
+  (* unify by evaluating the loop                                             *)
   rewrite -stabCE; exact: hchk.
 (* peel the rank loop                                                         *)
 have hr := all_powP (k := nrbits) _ hall hrlt.

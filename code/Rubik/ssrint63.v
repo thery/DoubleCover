@@ -1162,9 +1162,9 @@ Qed.
 
 
 
-(* nwB is 2 ^ 63 and nat is unary, so no numeral is ever going to be compared
-   to it by computation.  Bound it by a small power of two instead:
-   48 < nwB is ltn_nwB (m := 6).                                              *)
+(* nwB is 2 ^ 63 and nat is unary, so no numeral is ever going to be compared *)
+(* to it by computation.  Bound it by a small power of two instead:           *)
+(* 48 < nwB is ltn_nwB (m := 6).                                              *)
 Lemma ltn_nwB m k : m <= ndigits -> k < 2 ^ m -> k < nwB.
 Proof.
 by move=> hm hk; rewrite nwB_pow; apply: leq_trans hk _; rewrite leq_exp2l.

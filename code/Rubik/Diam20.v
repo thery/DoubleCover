@@ -13,15 +13,15 @@ Unset Printing Implicit Defensive.
 
 Import GroupScope.
 
-(* THE GUARD.  Farp1inst proves the superflip out of the ball of radius
-   p1depth, and p1depth is whatever mkrunp1.sh last wrote into Runp1.v.  This
-   sentence is what fails, in a second and before anything else, if the
-   eighteen searches were not run at 19.                                      *)
+(* THE GUARD.  Farp1inst proves the superflip out of the ball of radius       *)
+(* p1depth, and p1depth is whatever mkrunp1.sh last wrote into Runp1.v.  This *)
+(* sentence is what fails, in a second and before anything else, if the       *)
+(* eighteen searches were not run at 19.                                      *)
 Lemma p1depth_19 : p1depth = 19%N.
 Proof. by []. Qed.
 
-(* Diameter.v defines the cube and cannot mention the search, which needs
-   everything; this is where the two ends meet.  Nothing is admitted.         *)
+(* Diameter.v defines the cube and cannot mention the search, which needs     *)
+(* everything; this is where the two ends meet.  Nothing is admitted.         *)
 Theorem rubik_diam_gt_19_real : ~~ diam_le Sset 19.
 Proof.
 apply/negP => /subsetP Hs; move: superflip_p1far_real.
@@ -31,9 +31,9 @@ Qed.
 (* int63 and PArray primitives only                                           *)
 Print Assumptions rubik_diam_gt_19_real.
 
-(* The diameter is twenty: reachable in 20, and 19 is not enough.  The upper
-   half is still what an exhaustive search would have to supply, and is the
-   only thing assumed here.                                                   *)
+(* The diameter is twenty: reachable in 20, and 19 is not enough.  The upper  *)
+(* half is still what an exhaustive search would have to supply, and is the   *)
+(* only thing assumed here.                                                   *)
 Theorem rubik_diameter (R : {set {set {perm facelet}}})
   (Rcover : forall C, C \in cosets ->
      exists2 u, u \in Symg & (C :^ u \in R) || (C^-1 :^ u \in R))

@@ -19,8 +19,8 @@ Unset Printing Implicit Defensive.
 
 Import GroupScope.
 
-(* chunkFE is a delta step and all_pow_glue16 keeps the predicate abstract,
-   so nothing here unfolds the loop.  See Fspar.v.                            *)
+(* chunkFE is a delta step and all_pow_glue16 keeps the predicate abstract,   *)
+(* so nothing here unfolds the loop.  See Fspar.v.                            *)
 Lemma fstab_checkStep : checkStep fstab mtabs.
 Proof.
 rewrite chunkFE.

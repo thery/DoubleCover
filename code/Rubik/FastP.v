@@ -50,8 +50,8 @@ rewrite /hv1le /hv1 !maxi_leb.
 by case: (_ <=? _)%uint63; case: (_ <=? _)%uint63; case: (_ <=? _)%uint63.
 Qed.
 
-(* maxi_leb is restricted to the two OUTER maxi, or it fires inside hv1 too
-   and the two sides stop matching                                            *)
+(* maxi_leb is restricted to the two OUTER maxi, or it fires inside hv1 too   *)
+(* and the two sides stop matching                                            *)
 Lemma h3leE T x di : h3le T x di = (h3i T x <=? di)%uint63.
 Proof.
 case: x => [[x0 x1] x2]; rewrite /h3le /h3i.
@@ -78,8 +78,8 @@ Proof.
 by case: x => [[x0 x1] x2]; rewrite /step3i /step3 !acttwiiE !actfsriE.
 Qed.
 
-(* allowed3 is its own definition, so this is conversion; it is stated
-   because the induction needs to rewrite with it.                            *)
+(* allowed3 is its own definition, so this is conversion; it is stated        *)
+(* because the induction needs to rewrite with it.                            *)
 Lemma allowed3E_all :
   allowed3 =
   [seq [seq (((of_nat k, of_nat (nth 0%N mv3a k)), of_nat (nth 0%N mv3b k)),
@@ -103,8 +103,8 @@ Qed.
 Lemma tabi_ok_idi : tabi_ok 47 (id_tabi 47).
 Proof. by rewrite /tabi_ok (ti2t_id n47_small n47_len); exact: tab_ok_id. Qed.
 
-(* init3 factors through ti2t, so tables with the same ti2t have the same
-   three views                                                                *)
+(* init3 factors through ti2t, so tables with the same ti2t have the same     *)
+(* three views                                                                *)
 Lemma init3_ti2t a b : tabi_ok 47 a -> tabi_ok 47 b ->
   ti2t 47 a = ti2t 47 b -> init3 a = init3 b.
 Proof.
@@ -141,8 +141,8 @@ case: (boolP (eq_tabi 47 a (id_tabi 47))) => h.
 by case: (issolved _).
 Qed.
 
-(* one move of the path, by foldr's own equation -- this is what the `rev'
-   was breaking                                                               *)
+(* one move of the path, by foldr's own equation -- this is what the `rev'    *)
+(* was breaking                                                               *)
 Lemma rebuild_cons a0 k path :
   rebuild a0 (k :: path) = comp_tabi 47 (rebuild a0 path) (PArray.get mtisa k).
 Proof. by []. Qed.
@@ -164,14 +164,14 @@ have hd : (d < nwB)%N by apply: small_nwB; apply: ltnW.
 apply/to_nat_inj; rewrite to_nat_sub ?to_nat_1 ?of_natK ?subn1 //.
 Qed.
 
-(* one unfolding, in the shape searchz3S has for searchz3.  The && here is in
-   the SPECIFICATION, where only the value matters; the code keeps its nested
-   ifs, because andb is strict and would run the recursive call even when the
-   guard fails.
-
-   x is destructured and stepv is used rather than step3i, so that both sides
-   are the SAME TERMS and not merely convertible -- otherwise `/=' unfolds
-   step3i on one side only and nothing matches.                               *)
+(* one unfolding, in the shape searchz3S has for searchz3.  The && here is in *)
+(* the SPECIFICATION, where only the value matters; the code keeps its nested *)
+(* ifs, because andb is strict and would run the recursive call even when the *)
+(* guard fails.                                                               *)
+(*                                                                            *)
+(* x is destructured and stepv is used rather than step3i, so that both sides *)
+(* are the SAME TERMS and not merely convertible -- otherwise `/=' unfolds    *)
+(* step3i on one side only and nothing matches.                               *)
 Lemma searchz3mS T d di a x0 x1 x2 p : (d.+1 <= 63)%N -> di = of_nat d.+1 ->
   searchz3m T d.+1 di a (x0, x1, x2) p =
   (h3 T (x0, x1, x2) <= d.+1)%N &&
@@ -194,19 +194,19 @@ rewrite h3leE (h3iE T (x0, x1, x2) dL) eq_tabifE.
 case: (h3 T (x0, x1, x2) <= d.+1)%N => //=.
 case: (eq_tabi 47 a (id_tabi 47)) => //=.
 elim: (nth [::] allowed3 p) => [|[[[k ka] kb] pk] l IH] //=.
-(* no `//=' on these: it partially reduces one side and the two stop
-   matching syntactically                                                     *)
+(* no `//=' on these: it partially reduces one side and the two stop          *)
+(* matching syntactically                                                     *)
 case: (hv1le _ _ _); last by rewrite IH.
 case: (hv1le _ _ _); last by rewrite IH.
 case: (hv1le _ _ _); last by rewrite IH.
 by case: (searchz3m _ _ _ _ _ _); rewrite ?IH.
 Qed.
 
-(* searchz3 tests the heuristic first thing, so conjoining that test in front
-   of it changes nothing                                                      *)
-(* stated with the NAT test: `rewrite /searchz3' cannot unfold a fixpoint
-   whose decreasing argument is a variable, so d is cased and the successor
-   case goes through searchz3S.                                               *)
+(* searchz3 tests the heuristic first thing, so conjoining that test in front *)
+(* of it changes nothing                                                      *)
+(* stated with the NAT test: `rewrite /searchz3' cannot unfold a fixpoint     *)
+(* whose decreasing argument is a variable, so d is cased and the successor   *)
+(* case goes through searchz3S.                                               *)
 Lemma test_and_searchz3 T d A X P : (d <= 63)%N ->
   (((h3 T X) <= d)%N && searchz3 T d A X P) = searchz3 T d A X P.
 Proof.
@@ -240,9 +240,9 @@ have sv : forall v j, stepv v (of_nat j) = (acttwi v.1 j, actfsr v.2 j).
   by move=> v j; rewrite /stepv acttwiiE actfsriE.
 rewrite /preim /= (of_natS_sub dL) (mtisaE kL) !sv.
 rewrite (IH (ltnW dL) _ _ _ _ pkL erefl).
-(* [X in X && _] IS NOT TIDINESS.  Left to search the whole goal, rewrite
-   walks into the two searchz3 terms and does not return -- MEASURED, it ran
-   past 240 s where the restricted form takes 1.7 s.                          *)
+(* [X in X && _] IS NOT TIDINESS.  Left to search the whole goal, rewrite     *)
+(* walks into the two searchz3 terms and does not return -- MEASURED, it ran  *)
+(* past 240 s where the restricted form takes 1.7 s.                          *)
 rewrite [X in X && _]h3le_split [X in X && _](h3iE T _ (ltnW dL)).
 exact: test_and_searchz3 (ltnW dL).
 Qed.
@@ -289,9 +289,9 @@ case: (hv1le _ _ _); last by rewrite IH.
 by case: (searchz3n _ _ _ _ _ _ _); rewrite ?IH.
 Qed.
 
-(* the invariant is x = init3 (rebuild a0 path): the coordinates carried are
-   the ones of the table the path rebuilds.  step3_init is what keeps it, and
-   solved_stepE is what turns the cheap test back into eq_tabi.               *)
+(* the invariant is x = init3 (rebuild a0 path): the coordinates carried are  *)
+(* the ones of the table the path rebuilds.  step3_init is what keeps it, and *)
+(* solved_stepE is what turns the cheap test back into eq_tabi.               *)
 Lemma searchz3nmE T d : (d <= 63)%N -> fsmoveC ->
   forall di a0 path x0 x1 x2 p, di = of_nat d -> (p < 7)%N ->
   tabi_ok 47 (rebuild a0 path) -> cubti (rebuild a0 path) ->
@@ -300,9 +300,9 @@ Lemma searchz3nmE T d : (d <= 63)%N -> fsmoveC ->
   = searchz3m T d di (rebuild a0 path) (x0, x1, x2) p.
 Proof.
 move=> dL hc.
-(* fsmoveC INSTANTIATED ONCE AND THEN CLEARED.  With it in the context every
-   trailing `done' unifies its goal against it and unfolds an all_pow at
-   ncoord = 24; Farp1's step3_init clears it for exactly this reason.         *)
+(* fsmoveC INSTANTIATED ONCE AND THEN CLEARED.  With it in the context every  *)
+(* trailing `done' unifies its goal against it and unfolds an all_pow at      *)
+(* ncoord = 24; Farp1's step3_init clears it for exactly this reason.         *)
 have si := fun a k => @step3_init a k hc.
 clear hc; move: dL.
 elim: d => [|d IH] dL di a0 path x0 x1 x2 p -> pL aok ca tw hx.
@@ -311,8 +311,8 @@ elim: d => [|d IH] dL di a0 path x0 x1 x2 p -> pL aok ca tw hx.
 have dL' : (d <= 63)%N := ltnW dL.
 rewrite (searchz3nS T a0 path x0 x1 x2 p dL erefl).
 rewrite (searchz3mS T (rebuild a0 path) x0 x1 x2 p dL erefl).
-(* the cheap test in front, removed once and for all -- as a `have', because
-   (x0, x1, x2) occurs in h3 as well and a bare rewrite hits that one first   *)
+(* the cheap test in front, removed once and for all -- as a `have', because  *)
+(* (x0, x1, x2) occurs in h3 as well and a bare rewrite hits that one first   *)
 have hs : (if issolved (x0, x1, x2)
            then eq_tabi 47 (rebuild a0 path) (id_tabi 47) else false)
         = eq_tabi 47 (rebuild a0 path) (id_tabi 47).
@@ -357,23 +357,23 @@ Lemma searchz3nE T d a p : (d <= 63)%N -> fsmoveC -> (p < 7)%N ->
   searchz3n T d (of_nat d) a [::] (init3 a) p = searchz3 T d a (init3 a) p.
 Proof.
 move=> dL hc pL aok ca tw.
-(* the triple has to be a LITERAL pair for searchz3nmE, whose statement
-   destructures it                                                            *)
+(* the triple has to be a LITERAL pair for searchz3nmE, whose statement       *)
+(* destructures it                                                            *)
 case E : (init3 a) => [[y0 y1] y2].
-(* EVERY ARGUMENT GIVEN.  Left implicit, a0 and path come from unifying
-   `rebuild ?a0 ?path' with `a' -- higher order, and it does not return:
-   MEASURED, over 120 s against 9 ms.                                         *)
+(* EVERY ARGUMENT GIVEN.  Left implicit, a0 and path come from unifying       *)
+(* `rebuild ?a0 ?path' with `a' -- higher order, and it does not return:      *)
+(* MEASURED, over 120 s against 9 ms.                                         *)
 rewrite (@searchz3nmE T d dL hc (of_nat d) a [::] y0 y1 y2 p erefl
                       pL aok ca tw (esym E)).
 exact: (@searchz3mE T d dL (of_nat d) (rebuild a [::]) (y0, y1, y2) p pL erefl).
 Qed.
 
-(* the shape the generated Runp1_NN.v files need: apply this and cast the
-   searchz3n statement.  Stated as an implication rather than an equation so
-   the generated proof is one `apply' and no rewriting under a binder.        *)
-(* p is the face the search starts guarded against: nfcube for no guard at
-   all, fcpos j for a piece whose second move is j.  Only the second is used
-   now -- see Searchr.searchr_root2.                                          *)
+(* the shape the generated Runp1_NN.v files need: apply this and cast the     *)
+(* searchz3n statement.  Stated as an implication rather than an equation so  *)
+(* the generated proof is one `apply' and no rewriting under a binder.        *)
+(* p is the face the search starts guarded against: nfcube for no guard at    *)
+(* all, fcpos j for a piece whose second move is j.  Only the second is used  *)
+(* now -- see Searchr.searchr_root2.                                          *)
 Lemma p1searchd_bridge T d j p : (d <= 63)%N -> (j < nmoves)%N -> (p < 7)%N ->
   fsmoveC ->
   all (fun i => ~~ searchz3n T d (of_nat d) (prefixi i j) [::]
@@ -397,9 +397,9 @@ rewrite -(sn _ (prefixi_ok iL' jL) (prefixi_cub iL' jL)
 exact: hn.
 Qed.
 
-(* the same for ONE root move, which is what half a piece proves.  The two
-   second moves that set the makespan are cut this way rather than run whole
-   -- see mkrunp1.sh.                                                         *)
+(* the same for ONE root move, which is what half a piece proves.  The two    *)
+(* second moves that set the makespan are cut this way rather than run whole  *)
+(* -- see mkrunp1.sh.                                                         *)
 Lemma p1searchd_bridge1 T d j p i :
   (d <= 63)%N -> (j < nmoves)%N -> (p < 7)%N -> (i < nroot)%N -> fsmoveC ->
   ~~ searchz3n T d (of_nat d) (prefixi i j) [::] (init3 (prefixi i j)) p ->
