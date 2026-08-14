@@ -254,9 +254,8 @@
   one of them checked inside the prover.
 
   #v(0.4em)
-  *The sources* are at #link(repo)[`github.com/thery/DoubleCover`], under
-  `code/Rubik`, with a #src("README.md") saying what is in them and how to
-  run it.
+  *The sources* are at
+  #link("https://github.com/thery/DoubleCover/tree/main/code/Rubik")[`github.com/thery/DoubleCover/code/Rubik`].
 
   #v(0.4em)
   *Keywords.* Rubik's cube, God's number, formal proof, Rocq, pruning table.
