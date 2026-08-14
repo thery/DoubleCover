@@ -297,14 +297,18 @@ edges in any order ($12!$), each flipped or not with the last again forced
 ($2^11$); and a final halving, because corners and edges cannot be rearranged
 independently of each other.
 
-Three details of the pieces will matter later, and they are worth naming now.
-Every corner carries exactly one sticker of the top or bottom colour, and that
-sticker sits either on the top of the corner or on one of its two sides: which
-of the three is the corner's *twist*. Every edge has a right way round, and can
-sit in its slot *turned over*, showing its two colours the other way about. And the four edges
-lying in the *middle layer*, the slice between the top and bottom faces,
-occupy four of the twelve edge slots; which four is the third thing to keep
-track of.
+Three details of the pieces matter later. They are named here.
+
+Each corner has exactly one sticker of the top colour or the bottom colour.
+That sticker can be in three places on the corner: on top, or on one of the
+corner's two sides. Which of the three is the corner's *twist*.
+
+Each edge has a right way round. Put back the other way round, it shows its two
+colours the wrong way about. That is the edge's *flip*.
+
+Four of the twelve edges belong in the middle layer, the *slice* between the
+top and the bottom face. A move can send them to any of the twelve edge slots.
+Which four slots they are in is the third thing to follow.
 
 Turning one face is a _move_, and a half turn counts as one move just like a
 quarter turn. Every scramble can be undone; the question is how many moves the
@@ -684,40 +688,36 @@ Hypothesis Dstep : forall x m, m \in Sset -> D x <= (D (act x m)).+1.
 `coord` is the summary of a position, `X` being whatever the summaries happen
 to be. `act` is how a move acts on a summary directly, without going back to
 the position it came from: for the phase 1 summary it is two lookups in a move
-table. `coordM` is what makes the pair worth having, and it is the one thing
-proved about the summary itself. Summarising after a move is the same as acting
-on the summary, so the search may throw the position away and keep only its
-summary.
+table. `coordM` is what makes the pair worth having, and it is the one thing proved
+about the summary itself. It says that summarising after a move gives the same
+answer as acting on the summary. So the search never computes a summary from a
+position. It carries the summary beside the position and brings it up to date
+one move at a time, at the cost of a lookup. It still carries the position: the
+summary cannot say whether the cube is solved, only the position can.
 
-`D` is then the table, and the two checks are its. The first says the solved
-summary has value zero. The second says that acting by a move on a summary
-lowers its value by at most one.
+*The two conditions.* `D` is the estimate. It takes a summary and gives back a
+number, and that number is read from the table. `D0` and `Dstep` are everything
+asked of it. `D0` says the solved cube gets zero. `Dstep` says that one move
+lowers the estimate by at most one.
 
-Notice where `coord` is *absent*: `Dstep` quantifies over every `x` in `X`, and
-not only over the summaries `coord g` of real positions. That is deliberate,
-and it is what makes the condition checkable. `X` is a finite set of two
-billion values, the check simply runs over all of them, and it never has to be
-known which of them come from a cube. It is also why the same lemma will serve
-the folded table later, whose entries are not distances of positions at all.
-Nothing else is required.
-In particular the table is never proved to hold the true distances; what is
-proved of it is only that it is a valid under-estimate, which is a strictly
-weaker property.
+That is a weak demand, and it is worth seeing how weak. The table is never
+proved to hold the true distance to the solved cube. A table of zeros passes
+both conditions. It would prune nothing, and the search would run for ever, but
+it would not make the search give a wrong answer. The conditions do not ask the
+table to be good. They ask it to be safe.
 
-That weaker property is not cheaper to check. Exactness is local too: a table
-holds the true distances exactly when it satisfies the two conditions above and
-also, at every summary but the solved one, some move lowers its value by
-exactly one. That is the same single sweep over the table. What the weaker
-property buys is not speed but freedom, and it is what section 5 spends: the
-folded table of the last optimisation is *not* the true distance function and
-would fail an exactness check, yet it passes these two and is therefore just as
-good a certificate. So it can
-be produced by any program in any language, and here an OCaml generator writes
-it out as Rocq source, to be checked afterwards by evaluating the two
-conditions on every entry. Those checks are large computations in their own
-right: the second one runs over each of the 2.2 billion summaries and each of
-the eighteen moves. They are what the _certificate_ files do, each ending in
-its own `Qed`.
+*How the two conditions are checked.* Notice where `coord` does not appear.
+`Dstep` speaks of every `x` in `X`, not only of the summaries of real
+positions. That is deliberate, and it is what makes the check possible at all.
+`X` is a finite set of 2.2 billion values. The check runs over all of them, and
+it never has to know which of them come from a cube, which would be a hard
+question on its own. So `D0` is one lookup, and `Dstep` is one sweep: 2.2
+billion summaries, eighteen moves each, one comparison apiece. Those sweeps are
+what the _certificate_ files do, each ending in its own `Qed`.
+
+Nothing in this asks where the table came from. It can be written by any
+program in any language. Here an OCaml generator writes it out as Rocq source,
+and the two conditions are checked on it afterwards.
 
 *Two reductions cut the top of the tree.* First, the superflip looks the same
 from every angle. There are 48 ways of putting a cube back into the space it
@@ -876,8 +876,22 @@ keep the largest answer, which sharpens the estimate and cuts the tree. The
 fold asks the *same* question of a *smaller* table, and the estimate does not
 change at all. Symmetry-reduced tables of this kind are standard in cube
 solvers; what the development adds is a proof that the folded table still
-satisfies the two conditions, which is all it has to satisfy, since it is never
-claimed to hold true distances.
+satisfies the two conditions.
+
+This is where the weakness of the two conditions pays. Nowhere does the proof
+say that the folded table holds distances. It says the table passes `D0` and
+`Dstep`, and the search needs nothing more. Had the conditions been written to
+demand true distances instead, the fold would have had to be shown to preserve
+them, which is a harder statement about the sixteen symmetries and about what
+sharing an entry between two summaries does to it. None of that has to be
+faced. The check is run on the folded table just as it was on the flat one, and
+it is the same check.
+
+Nor would demanding more have cost more. A table of true distances is
+recognised by the same single sweep: it holds them exactly when it passes the
+two conditions and, at every summary but the solved one, some move lowers the
+value by exactly one. Asking for less does not buy a cheaper check. It buys the
+freedom to hand the search a table like this one.
 
 The fold costs the search, measured at 1.61 times slower at depth 16, and pays
 everywhere else: a search worker drops from 4.15 GB to *0.85 GB*, so all
