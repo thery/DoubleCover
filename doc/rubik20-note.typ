@@ -285,8 +285,8 @@ and four edges, and nothing else.
     four edge stickers and one centre.],
 ) <pieces>
 
-Not every arrangement of the pieces can be reached by turning faces. Those
-that can number
+Not every arrangement of the pieces can be reached by turning faces. The number
+of arrangements that can be reached is
 
 $ 8! dot 3^7 dot 12! dot 2^11 slash 2 = 43 space 252 space 003 space 274
   space 489 space 856 space 000 approx 4.3 dot 10^19, $
@@ -741,6 +741,15 @@ to the top gives $U D$ once more. It is a fixed point of both rewritings. The
 same case appears in Reid's original proof, where he keeps it and cuts the
 *third* move instead.
 
+Our own OCaml program had this wrong. It dropped the three bottom-face second
+moves and so searched 24 prefixes where it had to search 30. Nothing about the
+program looked wrong: it ran for hours, it exhausted its tree, and it reported
+that no solution of length 19 exists, which is the answer we expected. The
+error only came out when the same reduction had to be proved in Rocq, and the
+proof of the bottom-face case could not be written. This is the whole argument
+for proving a search rather than trusting it. A cut that is too greedy does not
+make a search fail. It makes it faster, and it makes it agree with you.
+
 Everything below the second move obeys the rules in full, the third move
 included, so a node has about thirteen branches rather than eighteen. Getting
 the rule to the third move is not an extra assumption: the sequence after the
@@ -872,7 +881,7 @@ claimed to hold true distances.
 
 The fold costs the search, measured at 1.61 times slower at depth 16, and pays
 everywhere else: a search worker drops from 4.15 GB to *0.85 GB*, so all
-eighteen pieces now run at once instead of in two waves, and checking the table
+the pieces now run at once instead of in two waves, and checking the table
 drops from about 5.4 processor hours to *1.35*.
 
 *What remains.* Against the OCaml program running the same search, Rocq needs
@@ -917,7 +926,7 @@ Forty-six hand-written Rocq files. What each group does.
   ([`Fast.v`, `FastP.v`], [the fast search, and the proof that it is the same search]),
   ([`Runp1_03.v` .. `_17.v`], [the seventeen pieces, written by a script]),
   ([`Farp1main.v`], [the theorem over _any_ table: 8 seconds, and no data at all]),
-  ([`Farp1inst.v`], [the same at the real table and the eighteen real runs]),
+  ([`Farp1inst.v`], [the same at the real table and the seventeen real runs]),
   ([`Diam20.v`], [and hence God's number is at least 20]),
 )
 
@@ -999,29 +1008,50 @@ moves. Two lines then turn it into *God's number $>= 20$*, in
 cube being defined at the bottom of the chain and the search sitting at the
 top, and it first checks that the searches were indeed run at 19.
 
-The runs, measured, eighteen pieces on nine workers:
+The run that proves it, measured on the reference machine, twice: once before
+the fold and the two reductions and once after, the same theorem both times.
 
-#tbl(([radius], [search depth], [wall clock], [processor time]),
-  ([17], [15], [13 min 05], [35 min 29]),
-  ([18], [16], [54 min 37], [6 h 57]),
-  ([*19*], [*17*], [*11 h 13 min*], [*85 h 11*]),
+#tbl(([radius 19, search depth 17], [before], [after]),
+  ([pieces], [18], [*17*]),
+  ([workers], [9], [*18*]),
+  ([memory per worker], [4.15 GB], [*0.85 GB*]),
+  ([wall clock], [11 h 13], [*6 h 36*]),
+  ([processor time], [85 h 11], [*87 h 36*]),
 )
 
-Those three predate the reductions just described. Measured on the same machine
-before and after, at radius 16, the search itself went from 272 to 146
-processor-seconds, a factor of *1.86*, and the whole run, the loading of the
-table included, from 531 to 391.
+The pieces do not all take the same time. The shortest took 3 h 38 and the
+longest 6 h 36, read from the times at which they finished. The run ends when
+the longest piece ends, so the other sixteen workers are idle before that. Two
+of the fifteen search positions, the ninth and the eleventh, are cut in half
+for this reason. Were they not cut, each would take about 9 h 50, and the whole
+run would take that long. If the work were shared evenly over eighteen workers
+it would take 4 h 54. So about 1 h 40 is lost to idle workers, and to save it
+the eight longest pieces would have to be cut in half as well.
+
+The two columns say that the fold and the two reductions cut the wall clock by
+41% and left the processor time as it was, 3% higher. The gain in wall clock
+comes from the memory: a worker needs 0.85 GB, so seventeen pieces fit at once,
+where 4.15 GB allowed only nine. The processor time is a surprise. On the small
+test used while the reductions were written, the fold was 1.61 times slower and
+the reductions 1.86 times faster. Together that is a saving of about a sixth,
+and the run shows no saving at all. That small test is not to be trusted: it
+subtracts two large numbers, 245 processor-seconds of table loading from 391
+for the whole run, to get 146 of search. The run above is the number to trust
+for the cost of the theorem. Why the two factors do not add up has not been
+measured.
 
 *Memory.* A worker holds the loaded table and nothing else that grows: the
 search walks down and back up, so only the current sequence of moves is kept.
-Measured at *4.15 GB* per worker, identical to three decimals across the nine
-and the same at every depth, and *0.85 GB* since the table was folded,
-which is what lets all seventeen pieces run at once. The 19-move run above was
-made before the fold.
+The 4.15 GB is identical to three decimals across the nine workers and the same
+at every depth, and the fold is what brings it to 0.85 and lets all seventeen
+pieces run at once.
 
-*What is left.* The radius-19 run above was made before the fold and before
-the two reductions, so the 85 processor-hours it cost overstate what the same
-theorem would cost today. Nothing else in the chain is known to be wasteful.
+*What is left.* The proof that God's number is at least 20 costs 87
+processor-hours and one night. That is a measured cost, not an estimate. One
+saving is easy to see: the 1 h 40 of idle workers at the end of the run. That
+is a matter of how the work is shared out, not of mathematics. The other is the
+gap between Rocq and the same search written in OCaml. Nothing else in the
+chain is known to be wasteful.
 
 And the other half of God's number, that 20 moves always suffice, is not
 proved here. `Diameter.v` does contain the reduction for it, stated in terms of
