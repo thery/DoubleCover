@@ -729,14 +729,27 @@ again. Being unchanged by all 48, it lets the search take the first move to be
 $U$ or $U^2$ instead of any of the eighteen. Second, no shortest solution ever turns the same face twice in a row, nor turns
 two opposite faces in both orders.
 
-Fixing the first two moves then splits the depth-19 search into $2 times 18 =
-36$ searches of depth 17. The second move ranges over all eighteen, including
-the three that turn the U face again: those are redundant, but they are left in
-at this level and the redundancy rules do their work inside the search, which
-keeps the statement of the split as simple as "any first move from `Sroot`,
-any second move from `moves`". The 36 are packed into *eighteen files*, one per
-second move, each carrying both first moves, and that is how the work is spread
-over the cores of a machine: eighteen files, eighteen `Qed`s, nothing shared.
+Fixing the first two moves then splits the depth-19 search into $2 times 15 =
+30$ searches of depth 17. The second move ranges over fifteen of the eighteen:
+the three that turn the top face again merge with the first move into a single
+turn, giving a shorter maneuver, which the proof covers at a smaller depth
+rather than by a search of its own. The three that turn the *bottom* face look
+just as redundant and are not, and the reason is worth stating. The two turns
+commute, so $U D$ can be rewritten $D U$; but the first move is already pinned
+to the top face by symmetry, and turning the cube over to bring that $D$ back
+to the top gives $U D$ once more. It is a fixed point of both rewritings. The
+same case appears in Reid's original proof, where he keeps it and cuts the
+*third* move instead.
+
+Everything below the second move obeys the rules in full, the third move
+included, so a node has about thirteen branches rather than eighteen. Getting
+the rule to the third move is not an extra assumption: the sequence after the
+second move is reduced like any other, and the proof already knew it.
+
+The 30 are packed into *seventeen files*, one per second move, each carrying
+both first moves, except the two dearest, which are cut in half so that no
+single file sets the pace. That is how the work is spread over the cores of a
+machine: seventeen files, seventeen `Qed`s, nothing shared.
 
 = What had to be optimised
 
@@ -902,7 +915,7 @@ Forty-six hand-written Rocq files. What each group does.
   ([`Farp1.v`], [the three viewing angles and the search built on them, 1404 lines]),
   ([`Far.v`], [the assembly: the superflip is not within $d$ moves, 1124 lines]),
   ([`Fast.v`, `FastP.v`], [the fast search, and the proof that it is the same search]),
-  ([`Runp1_00.v` .. `_17.v`], [the eighteen pieces, written by a script]),
+  ([`Runp1_03.v` .. `_17.v`], [the seventeen pieces, written by a script]),
   ([`Farp1main.v`], [the theorem over _any_ table: 8 seconds, and no data at all]),
   ([`Farp1inst.v`], [the same at the real table and the eighteen real runs]),
   ([`Diam20.v`], [and hence God's number is at least 20]),
@@ -944,16 +957,25 @@ The last figure is the only one not counted but computed, as the measured
 depth 16 total multiplied by the measured growth of 12.87 from one depth to
 the next.
 
-Some build costs on the reference machine, a dual-socket Xeon with 62 GB and
-twelve physical cores, all measured:
+Building the tables costs the same whatever radius is searched afterwards.
+Measured end to end from a clean tree on the reference machine, a dual-socket
+Xeon with 62 GB and twelve physical cores:
 
-#tbl(([], []),
-  ([the phase 1 estimate and its theory], [41 s]),
-  ([the search file over the real tables], [1 min 30]),
-  ([checking the folded table, in 27 slices], [9 min, about 1.35 processor hours]),
-  ([the structural checks of the fold], [about 101 s]),
-  ([compiling one table block to native code], [about 6 min, 9--10 GB]),
+#tbl(([], [wall clock], [processor time]),
+  ([emitting the tables and compiling them to native code], [17 min 21], [52 min 13]),
+  ([the coordinate and summary tables], [22 min 46], [21 min 15]),
+  ([the search and the estimate, over no data at all], [11 min 02], [30 min 45]),
+  ([the four certificates for the move and distance tables], [56 s], [2 min 27]),
+  ([the fold: twelve checks and twenty-seven slices], [9 min 52], [47 min 57]),
+  ([the shape check against the dummy table], [18 s], [16 s]),
+  ([*in total*], [*1 h 02*], [*2 h 35*]),
 )
+
+Two things that table says. The second line is *serial* — 21 minutes of
+processor time inside 23 minutes of wall clock — so it is the longest stage by
+the clock and no number of cores shortens it. And the first and fifth lines
+together are 100 of the 155 processor-minutes, both dominated by the OCaml
+compiler turning a table into native code.
 
 = The theorem, its cost, and what is left
 
@@ -966,7 +988,7 @@ Theorem superflip_p1far_real : superflip \notin ball Sset p1depth.
 In words, the superflip is not within `p1depth` moves of the solved cube, where
 the depth is set by one script before the run. It has *no hypotheses left*: the six
 computations it rests on, namely the two summary tables, the three move and
-distance tables and the eighteen searches, each live in their own file
+distance tables and the searches, each live in their own file
 behind their own `Qed`. Asking Rocq what the proof assumes reports only the
 primitives of its machine-integer and array interface. Nothing in the chain is
 admitted.
@@ -975,7 +997,7 @@ At depth 19 this says precisely that the superflip cannot be solved in 19
 moves. Two lines then turn it into *God's number $>= 20$*, in
 #src("Diam20.v"): that file is where the two ends of the development meet, the
 cube being defined at the bottom of the chain and the search sitting at the
-top, and it first checks that the eighteen searches were indeed run at 19.
+top, and it first checks that the searches were indeed run at 19.
 
 The runs, measured, eighteen pieces on nine workers:
 
@@ -985,25 +1007,21 @@ The runs, measured, eighteen pieces on nine workers:
   ([*19*], [*17*], [*11 h 13 min*], [*85 h 11*]),
 )
 
+Those three predate the reductions just described. Measured on the same machine
+before and after, at radius 16, the search itself went from 272 to 146
+processor-seconds, a factor of *1.86*, and the whole run, the loading of the
+table included, from 531 to 391.
+
 *Memory.* A worker holds the loaded table and nothing else that grows: the
 search walks down and back up, so only the current sequence of moves is kept.
 Measured at *4.15 GB* per worker, identical to three decimals across the nine
 and the same at every depth, and *0.85 GB* since the table was folded,
-which is what lets all eighteen pieces run at once. The 19-move run above was
+which is what lets all seventeen pieces run at once. The 19-move run above was
 made before the fold.
 
-*What is left.* Two things, stated plainly.
-
-+ The second move of the search ranges over all eighteen moves, though the
-  three that turn the top face again are redundant: $2 times 15 = 30$ searches
-  would do in place of 36. What those three cost has not been measured. The
-  other three, which turn the bottom face, look redundant and are not: the two
-  turns commute, and the first move is already pinned to the top face by
-  symmetry, so no rewriting can move the bottom one out of second place.
-+ Compiling the table blocks to native code is now the largest single step of
-  a build from clean, larger than the certificates, the checks and the
-  twenty-seven slices together, and how many of them can run at once has never
-  been measured.
+*What is left.* The radius-19 run above was made before the fold and before
+the two reductions, so the 85 processor-hours it cost overstate what the same
+theorem would cost today. Nothing else in the chain is known to be wasteful.
 
 And the other half of God's number, that 20 moves always suffice, is not
 proved here. `Diameter.v` does contain the reduction for it, stated in terms of
