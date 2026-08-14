@@ -254,6 +254,10 @@
   one of them checked inside the prover.
 
   #v(0.4em)
+  *The sources* are at
+  #link("https://github.com/thery/DoubleCover/tree/main/code/Rubik")[`github.com/thery/DoubleCover/code/Rubik`].
+
+  #v(0.4em)
   *Keywords.* Rubik's cube, God's number, formal proof, Rocq, pruning table.
 ]]
 
@@ -1003,7 +1007,9 @@ processor-hours.
 
 = The files
 
-Forty-six hand-written Rocq files. What each group does.
+Forty-six hand-written Rocq files. What each group does. The sources carry
+their own #src("README.md"), which lists the same files, the scripts beside
+them, and how to run the whole thing.
 
 #tbl(([the cube, as mathematics], []),
   ([`Cyc.v`], [cyclic permutations, built from the list of points they move]),
