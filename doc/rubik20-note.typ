@@ -250,8 +250,8 @@
   *Abstract.* God's number, the largest number of face turns needed to solve a
   Rubik's cube, is twenty. We describe a proof in the Rocq prover of the lower
   half of that statement: one position, the superflip, cannot be solved in
-  nineteen moves. The search is pruned by a table of two billion entries that
-  is never proved correct, only checked.
+  nineteen moves. The search is pruned by a table of two billion entries, every
+  one of them checked inside the prover.
 
   #v(0.4em)
   *Keywords.* Rubik's cube, God's number, formal proof, Rocq, pruning table.
@@ -429,9 +429,15 @@ and back. Each of them can also be done twice or backwards, which gives the
 *eighteen moves*
 
 #align(center)[
-  $U, space U^2, space U^(-1), quad R, space R^2, space R^(-1), quad
-    F, space F^2, space F^(-1), quad D, space D^2, space D^(-1), quad
-    L, space L^2, space L^(-1), quad B, space B^2, space B^(-1)$
+  #grid(
+    columns: (auto,) * 6,
+    column-gutter: 1.6em,
+    row-gutter: 0.5em,
+    align: center,
+    $U$, $R$, $F$, $D$, $L$, $B$,
+    $U^2$, $R^2$, $F^2$, $D^2$, $L^2$, $B^2$,
+    $U^(-1)$, $R^(-1)$, $F^(-1)$, $D^(-1)$, $L^(-1)$, $B^(-1)$,
+  )
 ]
 
 A scramble is a product of moves, for instance $R U R^(-1) U^(-1)$, a word of
@@ -485,11 +491,23 @@ Word by word:
   composing moves, which is the cube group.
 
 The superflip is written down the same way, as the twelve swaps that exchange
-the two stickers of each edge. That makes it a permutation of the stickers, but
-by itself it says nothing about the cube: a permutation is a legal position
-only if the faces can actually be turned to reach it, that is, only if it lies
-in $G$. Nothing in the definition gives that, and it has to be proved. The
-proof is to exhibit a maneuver, since the superflip is the result of
+the two stickers of each edge:
+
+```coq
+Definition Spcyc : seq (seq facelet) :=
+  [:: [:: 1@; 33@]; [:: 3@; 9@]; [:: 4@; 25@];
+      (* ... nine more, one per edge ... *) ].
+
+Definition superflip : {perm facelet} := \prod_(l <- Spcyc) cyc l.
+```
+
+That makes it a permutation of the stickers, but by itself it says nothing
+about the cube. A permutation is a legal position only if the faces can
+actually be turned to reach it, that is, only if it lies in $G$. Nothing in the
+definition above gives that, and it has to be proved.
+
+The proof is one equality. On the left, the superflip as just defined. On the
+right, a word of twenty moves:
 
 #align(center)[
   $U space R^2 space F space B space R space B^2 space R space U^2 space L
@@ -497,10 +515,11 @@ proof is to exhibit a maneuver, since the superflip is the result of
     R^(-1) space L space B^2 space U^2 space F^2$
 ]
 
-and both sides of that equality are pushed onto tables of 48 entries, where it
-becomes one comparison of two lists. Since each of the twenty letters is one of
-the generators, membership in $G$ follows, and the same maneuver is what gives
-the upper bound of 20 for this particular cube.
+Both sides are permutations of the 48 stickers. Each is written out as the list
+of the 48 places it sends each place to, and the equality becomes one
+comparison of two lists. Every letter on the right is one of the eighteen
+moves, so the superflip lies in $G$. That same word is also what gives the
+upper bound of 20 for this one position.
 
 Nothing here is assumed. There is no axiom stating what a cube is, and a reader
 who wants to check the model only has to compare the six lists of cycles
@@ -606,6 +625,12 @@ The summary is the product of the three answers:
   ([*the phase 1 summary, all three together*], [*2 217 093 120*], []),
 )
 
+The name comes from Kociemba's solving algorithm, which works in two phases.
+Its first phase has to bring exactly these three answers to zero, and the
+summary is what it watches while doing so. The algorithm itself plays no part
+here. Only the name is borrowed, because it is the one everybody uses for this
+table.
+
 Two billion is small next to 43 quintillion: *every summary stands for exactly
 19 508 428 800 real scrambles* (that is the division, and it comes out even).
 The table records, for each summary, its distance from the solved summary. No
@@ -695,6 +720,32 @@ position. It carries the summary beside the position and brings it up to date
 one move at a time, at the cost of a lookup. It still carries the position: the
 summary cannot say whether the cube is solved, only the position can.
 
+Put beside the `search` of #src("Search.v"), the search that actually runs has
+this shape. Names are simplified and the machine-integer details left out; the
+real one is `searchz3` in #src("Farp1.v"):
+
+```coq
+Fixpoint search (d : nat) (g : gT) (x : summary) (p : move) : bool :=
+  (D x <= d) &&
+  ((g == 1) ||
+   (if d is d'.+1
+    then has (fun m => search d' (g * m) (act x m) m) (allowed p)
+    else false)).
+```
+
+Two things travel down the tree instead of one, and each is used for exactly
+one job:
+
+- `D x <= d` is the cut. It reads the table at the summary `x`, and never looks
+  at the position.
+- `g == 1` asks whether the cube is solved. It reads the position `g`, and
+  never looks at the summary.
+- `g * m` moves the position and `act x m` moves the summary, side by side, one
+  move at a time. That step is `coordM` being used, and it is why the summary
+  never has to be recomputed from the position.
+- `p` is the move just played, and `allowed p` is the list of moves the rules
+  permit after it. That is where redundant sequences are dropped.
+
 *The two conditions.* `D` is the estimate. It takes a summary and gives back a
 number, and that number is read from the table. `D0` and `Dstep` are everything
 asked of it. `D0` says the solved cube gets zero. `Dstep` says that one move
@@ -703,43 +754,49 @@ lowers the estimate by at most one.
 That is a weak demand, and it is worth seeing how weak. The table is never
 proved to hold the true distance to the solved cube. A table of zeros passes
 both conditions. It would prune nothing, and the search would run for ever, but
-it would not make the search give a wrong answer. The conditions do not ask the
-table to be good. They ask it to be safe.
+it would not make the search give a wrong answer.
 
-*How the two conditions are checked.* Notice where `coord` does not appear.
-`Dstep` speaks of every `x` in `X`, not only of the summaries of real
-positions. That is deliberate, and it is what makes the check possible at all.
-`X` is a finite set of 2.2 billion values. The check runs over all of them, and
-it never has to know which of them come from a cube, which would be a hard
-question on its own. So `D0` is one lookup, and `Dstep` is one sweep: 2.2
-billion summaries, eighteen moves each, one comparison apiece. Those sweeps are
-what the _certificate_ files do, each ending in its own `Qed`.
+*How the two conditions are checked.* Look again at `Dstep`. Unlike `D0`, it
+does not mention `coord` at all. It speaks of every value `x` in `X`, and not
+only of those values that are the summary of a real position. That is
+deliberate, and it is what makes the check possible. `X` is a finite set of 2.2
+billion values, so the check runs over all of them, and it never has to know
+which of them come from a cube. `D0`
+is then one lookup, and `Dstep` is one sweep: 2.2 billion summaries, eighteen
+moves each, one comparison apiece. Those sweeps are what the _certificate_
+files do: #src("FsmChk.v"), #src("FsrChk.v"), #src("SlrChk.v"),
+#src("P1TsChk.v") and #src("Farp1chk.v"), listed again at the end of this note,
+each ending in its own `Qed`.
 
 Nothing in this asks where the table came from. It can be written by any
 program in any language. Here an OCaml generator writes it out as Rocq source,
 and the two conditions are checked on it afterwards.
 
-*Two reductions cut the top of the tree.* First, the superflip looks the same
-from every angle. There are 48 ways of putting a cube back into the space it
-came from: any of the six faces can be turned to the top, each of them in four
-positions, which makes twenty-four, and each of those seen in a mirror as
-well.
-Relabelling the superflip's stickers by any of the 48 gives the superflip back
-again. Being unchanged by all 48, it lets the search take the first move to be
-$U$ or $U^2$ instead of any of the eighteen. Second, no shortest solution ever turns the same face twice in a row, nor turns
-two opposite faces in both orders.
+*Three cuts at the top of the tree.* They are three different arguments and it
+is worth keeping them apart. The first two apply once each, to the first move
+and to the second. The third applies at every move from the third on.
 
-Fixing the first two moves then splits the depth-19 search into $2 times 15 =
-30$ searches of depth 17. The second move ranges over fifteen of the eighteen:
-the three that turn the top face again merge with the first move into a single
-turn, giving a shorter maneuver, which the proof covers at a smaller depth
-rather than by a search of its own. The three that turn the *bottom* face look
-just as redundant and are not, and the reason is worth stating. The two turns
+*The first move: eighteen become two.* The superflip looks the same from every
+angle. There are 48 ways of putting a cube back into the space it came from:
+any of the six faces can be turned to the top, each of them in four positions,
+which makes twenty-four, and each of those seen in a mirror as well.
+Relabelling the superflip's stickers by any of the 48 gives the superflip back
+again. So the first move may be taken to be $U$ or $U^2$, and the other sixteen
+need not be tried.
+
+*The second move: eighteen become fifteen.* The three that turn the top face
+again are dropped. Turning the top face twice running merges into a single
+turn, so those give a word of nineteen moves or fewer, and the proof covers
+shorter words at a smaller depth rather than by a search of their own.
+
+The three that turn the *bottom* face look just as droppable, and are not. It
+is worth saying why, because it is the case everyone gets wrong. The two turns
 commute, so $U D$ can be rewritten $D U$; but the first move is already pinned
 to the top face by symmetry, and turning the cube over to bring that $D$ back
-to the top gives $U D$ once more. It is a fixed point of both rewritings. The
-same case appears in Reid's original proof, where he keeps it and cuts the
-*third* move instead.
+to the top gives $U D$ once more. It is a fixed point of both rewritings, so
+neither rewriting removes it. Reid's proof meets the same case and pays for it
+elsewhere: he keeps the bottom-face second move, and uses the symmetries that
+fix the pair of opposite faces to cut his *third* move instead.
 
 Our own OCaml program had this wrong. It dropped the three bottom-face second
 moves and so searched 24 prefixes where it had to search 30. Nothing about the
@@ -750,15 +807,45 @@ proof of the bottom-face case could not be written. This is the whole argument
 for proving a search rather than trusting it. A cut that is too greedy does not
 make a search fail. It makes it faster, and it makes it agree with you.
 
-Everything below the second move obeys the rules in full, the third move
-included, so a node has about thirteen branches rather than eighteen. Getting
-the rule to the third move is not an extra assumption: the sequence after the
-second move is reduced like any other, and the proof already knew it.
+*From the third move on: eighteen become fifteen or twelve.* This one is not
+about the superflip and not about the top of the tree. It is one rule, applied
+at every node. A shortest word never turns the same face twice running, since
+the two turns merge into one; and of two opposite faces it never uses both
+orders, since $U D$ and $D U$ give the same position, so fixing one order
+loses nothing. At a node whose last move was on the top, right or front face,
+both halves of the rule bite and *twelve* moves are left. At a node whose last
+move was on the bottom, left or back face, only the first half bites, because
+the opposite pair has already been cut in the other order, and *fifteen* are
+left.
 
-The 30 are packed into *seventeen files*, one per second move, each carrying
-both first moves, except the two dearest, which are cut in half so that no
-single file sets the pace. That is how the work is spread over the cores of a
-machine: seventeen files, seventeen `Qed`s, nothing shared.
+Applying that rule to the third move is not an extra assumption. The word after
+the second move is reduced like any other, and the proof already knew it; the
+search had simply been throwing the fact away and trying all eighteen.
+
+None of the three is obvious, and they interact. The bottom-face second move
+survives only because the rule used from the third move on would otherwise cut
+the same pair of opposite faces twice, once by symmetry and once by the order
+convention. Arguments of that shape are easy to get wrong and hard to test,
+since getting one wrong makes the search faster and leaves the answer looking
+the same. This is what Rocq is for here. Every cut has to be proved before the
+search is allowed to use it, so a cut that does not hold is refused rather than
+rewarded, and cuts that would otherwise be too delicate to trust can be taken.
+
+So the depth-19 search becomes $2 times 15 = 30$ searches of depth 17. The 30
+are packed into *seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"),
+one per second move and numbered by it, each holding both first moves.
+
+Two of them run far longer than the rest, and they are the two whose second
+move turns the bottom face, $D$ and $D^(-1)$, where the rule above leaves
+fifteen branches and not twelve. Each is cut in two, one first move to a file:
+#src("Runp1_09a.v") and #src("Runp1_09b.v") in place of a single `Runp1_09.v`,
+and #src("Runp1_11a.v") and #src("Runp1_11b.v") in place of `Runp1_11.v`.
+Fifteen second moves, two of them split, makes seventeen files. Without the
+split, the run would finish long before those two files did, and would have to
+wait for them.
+
+That is how the work is spread over the cores of a machine: seventeen files,
+seventeen `Qed`s, nothing shared.
 
 = What had to be optimised
 
@@ -944,11 +1031,14 @@ Forty-six hand-written Rocq files. What each group does.
   ([`Diam20.v`], [and hence God's number is at least 20]),
 )
 
-The *certificates* are the files that run the checks, each with its own `Qed`:
-three for the move and distance tables, one for the second summary table, two
-for the main table split sixteen ways, and nine more for the folded table.
-Three of the last group hold the actual numbers and are deliberately kept out
-of the project file, since they do not exist until the generator has run.
+The *certificates* are the files that run the checks, each with its own `Qed`.
+Four of them cover the move and distance tables and the second summary table:
+#src("FsmChk.v"), #src("FsrChk.v"), #src("SlrChk.v") and #src("P1TsChk.v").
+#src("Farp1chk.v") checks the shape of the main table. Two more check the main
+table itself, split sixteen ways, and the folded table is checked by the
+`Fold` group, whose slices are #src("FoldOrbit_00.v") to `FoldOrbit_26.v`.
+Three of the files that hold the actual numbers are deliberately kept out of
+the project file, since they do not exist until the generator has run.
 
 *Outside Rocq*, `ocaml/rubik_par.ml` and `ocaml/rubik_lb.ml` are the reference
 implementation. The Rocq search reproduces their node counts exactly, which is
