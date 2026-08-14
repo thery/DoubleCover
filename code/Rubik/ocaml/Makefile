@@ -1,4 +1,5 @@
 # The superflip lower bound, prototyped in OCaml.  See README.md.
+# Also rubik_qtm, the same experiment in the quarter-turn metric.
 #
 #   make            build both programs
 #   make check      depths 1..14 on one core (a couple of minutes)
@@ -15,7 +16,7 @@ JOBS     ?= $(shell nproc)
 DEPTH    ?= 19
 CAP      ?= 9
 
-PROGS = rubik_lb rubik_par
+PROGS = rubik_lb rubik_par rubik_qtm
 
 all: $(PROGS)
 
@@ -48,3 +49,29 @@ distclean: clean
 	rm -f phase1_cap*.tbl MoveTables.v
 
 .PHONY: all check run clean distclean
+
+# ---- the quarter-turn metric --------------------------------------------- #
+# Reid's lower bound: superflip composed with fourspot needs 26 quarter
+# turns.  The target's corner permutation is EVEN, so its distance is even
+# and exhausting depth 24 already proves 26 -- one level cheaper than 25.
+#
+#   make qtarget    print the position and stop, no table needed
+#   make qverify    deepen until a solution appears: the UPPER bound
+#   make qrun       the exhaustive run: the LOWER bound
+QDEPTH ?= 24
+QCAP   ?= 11
+
+rubik_qtm: rubik_qtm.ml
+	$(OCAMLOPT) $< -o $@
+
+qtarget: rubik_qtm
+	./rubik_qtm $(QDEPTH) $(QCAP) target
+
+qverify: rubik_qtm
+	./rubik_qtm $(QDEPTH) $(QCAP) build
+	./rubik_qtm 26 $(QCAP) verify
+
+# 120 prefixes of length two, one per job, so each line is one prefix.
+qrun: rubik_qtm
+	./rubik_qtm $(QDEPTH) $(QCAP) build
+	seq 0 119 | xargs -P $(JOBS) -I{} ./rubik_qtm $(QDEPTH) $(QCAP) {} 120
