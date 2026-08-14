@@ -30,12 +30,12 @@ Fixpoint all_pow (k : nat) (i : int) (f : int -> bool) : bool :=
 Lemma all_pow_all k i (f : int -> bool) : (forall x, f x) -> all_pow k i f.
 Proof. by move=> hf; elim: k i => //= k IH i; rewrite !IH. Qed.
 
-(* the completeness lemma.  The induction has to be on a general starting
-   point -- the recursive call starts at i + 2 ^ k1, not at 0 -- so the
-   statement below is the one to prove and all_powP is its instance at 0.     *)
+(* the completeness lemma.  The induction has to be on a general starting     *)
+(* point -- the recursive call starts at i + 2 ^ k1, not at 0 -- so the       *)
+(* statement below is the one to prove and all_powP is its instance at 0.     *)
 
-(* the step of the induction: the second half starts 2 ^ k further on, and
-   that addition does not wrap                                                *)
+(* the step of the induction: the second half starts 2 ^ k further on, and    *)
+(* that addition does not wrap                                                *)
 Lemma to_nat_addlsl i k :
   k < ndigits -> to_nat i + (2 ^ k)%N < nwB ->
   to_nat (i + lsl 1 (of_nat k))%uint63 = to_nat i + (2 ^ k)%N.
@@ -45,8 +45,8 @@ move=> kL hb; have h2 : to_nat (lsl 1 (of_nat k)) = (2 ^ k)%N.
 by rewrite to_nat_add h2.
 Qed.
 
-(* the completeness of the loop, by the get_foldi_in induction: split at the
-   midpoint, and to_nat_addlsl for the second half starting 2 ^ k further on  *)
+(* the completeness of the loop, by the get_foldi_in induction: split at the  *)
+(* midpoint, and to_nat_addlsl for the second half starting 2 ^ k further on  *)
 Lemma all_pow_gen k i f x :
   k <= ndigits -> to_nat i + (2 ^ k)%N <= nwB -> all_pow k i f ->
   to_nat i <= to_nat x < to_nat i + (2 ^ k)%N -> f x.
@@ -101,9 +101,9 @@ have kL' : k < ndigits by apply: ltnW.
 by rewrite lsl1S // !IH //; case: all_pow.
 Qed.
 
-(* Reading a table built as a map over iota.  Stated for a general n on
-   purpose: with n a literal, rewriting nth_map/nth_iota makes the iota
-   compute and the whole list unfold.                                         *)
+(* Reading a table built as a map over iota.  Stated for a general n on       *)
+(* purpose: with n a literal, rewriting nth_map/nth_iota makes the iota       *)
+(* compute and the whole list unfold.                                         *)
 Lemma nth_map_iota (T : Type) (d : T) (f : nat -> T) n p :
   p < n -> nth d [seq f k | k <- iota 0 n] p = f p.
 Proof. by move=> pL; rewrite (nth_map 0%N) ?size_iota // nth_iota. Qed.
@@ -123,10 +123,10 @@ Definition emask := ((2 ^ nwidth).-1)%N.    (* 15                             *)
 Definition nstates := (2 ^ ncoord)%N.       (* 16 777 216                     *)
 Definition nwordslog := (ncoord - nperlog)%N.  (* 21                          *)
 
-(* The array size is an int CONSTANT, not of_nat of a nat one.  nat is unary,
-   so of_nat (2 ^ 21) makes the kernel build two million successors the first
-   time anything has to convert it -- which unification does, silently, and
-   then the file simply never finishes compiling.                             *)
+(* The array size is an int CONSTANT, not of_nat of a nat one.  nat is unary, *)
+(* so of_nat (2 ^ 21) makes the kernel build two million successors the first *)
+(* time anything has to convert it -- which unification does, silently, and   *)
+(* then the file simply never finishes compiling.                             *)
 Definition nwordsi : int := lsl 1%uint63 (of_nat nwordslog).
 
 Section Table.
@@ -180,9 +180,9 @@ Definition eposn (f : nat) : nat := index f (eprim ++ esec) %% nedge.
 
 Definition mdatum := (seq nat * seq bool)%type.
 
-(* Two named definitions rather than one pair: a projection out of a literal
-   pair only reduces under /=, and /= also computes iota 0 nedge and unfolds
-   the map over it, after which nth_map_iota has nothing to match.            *)
+(* Two named definitions rather than one pair: a projection out of a literal  *)
+(* pair only reduces under /=, and /= also computes iota 0 nedge and unfolds  *)
+(* the map over it, after which nth_map_iota has nothing to match.            *)
 Definition msrc (mt : seq nat) : seq nat :=
   [seq eposn (nth 0%N (inv_tab 47 mt) (nth 0%N eprim k)) | k <- iota 0 nedge].
 
@@ -340,9 +340,9 @@ Qed.
 Lemma nedge_dig : nedge <= ndigits.
 Proof. by apply: leq_trans ncoord_dig; rewrite /ncoord leq_addr. Qed.
 
-(* of_nat commutes with the three operations the loop does, below nwB.  These
-   are generic int63 facts and would sit better in ssrint63.v; they are here
-   to avoid a rebuild of everything that depends on it.                       *)
+(* of_nat commutes with the three operations the loop does, below nwB.  These *)
+(* are generic int63 facts and would sit better in ssrint63.v; they are here  *)
+(* to avoid a rebuild of everything that depends on it.                       *)
 Lemma of_nat_ltbE m n : m < nwB -> n < nwB -> (of_nat m <? of_nat n)%uint63 = (m < n).
 Proof.
 move=> hm hn; apply/idP/idP => H.
@@ -377,9 +377,9 @@ Lemma actfE_gen x (dp : mdatf) (d : mdatum) :
   (forall p, p < nedge -> bit dp.2 (of_nat p) = nth false d.2 p) ->
   (forall p, p < nedge -> nth 0%N d.1 p < nedge) ->
   actf x dp = actd x d.
-(* Beware: nwB is 2^63, so a stray // on a `_ < nwB` side goal sends done off
-   computing it in unary and the file never compiles -- it looks exactly like
-   a diverging tactic.  Every such bound is discharged from hnw below.        *)
+(* Beware: nwB is 2^63, so a stray // on a `_ < nwB` side goal sends done off *)
+(* computing it in unary and the file never compiles -- it looks exactly like *)
+(* a diverging tactic.  Every such bound is discharged from hnw below.        *)
 Proof.
 move=> hget hbit hlt.
 have hnw k : k <= ndigits -> k < nwB.
@@ -402,9 +402,9 @@ Qed.
 (* (d) reading back a literal built by mkarrn.  epairi and eprimi dodged this *)
 (* by being closed terms, so 48 vm_computes did it; mk_srci mt depends on mt, *)
 (* so the fold has to be reasoned about for real.                             *)
-(* the fold mkarrn is, named so it can be reasoned about.  Convertible with
-   mkarrn's body, hence mkarrnE by [].  Note PArray's axioms need their type
-   given explicitly -- rewrite cannot unify the universe, exact can.          *)
+(* the fold mkarrn is, named so it can be reasoned about.  Convertible with   *)
+(* mkarrn's body, hence mkarrnE by [].  Note PArray's axioms need their type  *)
+(* given explicitly -- rewrite cannot unify the universe, exact can.          *)
 Fixpoint setl (a : arr) (i : int) (l : seq int) : arr :=
   if l is x :: l' then setl (PArray.set a i x) (i + 1)%uint63 l' else a.
 
@@ -417,8 +417,8 @@ elim: l a i => [|x l IH] a i //=.
 rewrite IH; exact: (@PArray.length_set int a i x).
 Qed.
 
-(* below the written range the fold changes nothing; this is what lets the
-   head of the list be read back after the tail has been written.             *)
+(* below the written range the fold changes nothing; this is what lets the    *)
+(* head of the list be read back after the tail has been written.             *)
 Lemma get_setl_lt l a i j :
   to_nat i + seq.size l < nwB -> to_nat j < to_nat i ->
   PArray.get (setl a i l) j = PArray.get a j.
@@ -523,9 +523,9 @@ Definition mdata : seq mdatum := [seq mdat_of_tab mt | mt <- mtabs].
 (* the same data in the fast shape; checkStep runs on this one                *)
 Definition mdataf : seq mdatf := [seq mdatf_of_tab mt | mt <- mtabs].
 
-(* mdatum is an eqType so allP applied to mdata; mdatf holds an arr, which is
-   not one, so membership is unavailable and the instance has to be taken by
-   index instead -- all_nthP, then nth_map through index mt mtabs.            *)
+(* mdatum is an eqType so allP applied to mdata; mdatf holds an arr, which is *)
+(* not one, so membership is unavailable and the instance has to be taken by  *)
+(* index instead -- all_nthP, then nth_map through index mt mtabs.            *)
 Lemma all_mdataf (P : mdatf -> bool) mt :
   all P mdataf -> mt \in mtabs -> P (mdatf_of_tab mt).
 Proof.
@@ -546,23 +546,23 @@ Definition check0 : bool := (Dfsi (coordt (id_tab 47)) =? 0)%uint63.
 
 (* Entries are at most 15, so the successor cannot wrap and the nat           *)
 (* inequality can be checked on int.                                          *)
-(* mdata IS HOISTED, AND THAT IS NOT COSMETIC.  Inside the lambda it is
-   recomputed for every x -- call by value again -- and mdata is eighteen
-   mdat_of_tab, each inverting a 48 entry nat list with index and then
-   scanning a 24 entry list per edge.  Measured: 26 ms per check with it
-   inside, 79 us with it hoisted, over 16 777 216 states times eighteen
-   moves.  That is 90 days against 6.6 hours, for one let.                    *)
-(* actd is replaced by actf here, and mdata by mdataf: same booleans by
-   actfE, ten times faster.  See 4bis.                                        *)
+(* mdata IS HOISTED, AND THAT IS NOT COSMETIC.  Inside the lambda it is       *)
+(* recomputed for every x -- call by value again -- and mdata is eighteen     *)
+(* mdat_of_tab, each inverting a 48 entry nat list with index and then        *)
+(* scanning a 24 entry list per edge.  Measured: 26 ms per check with it      *)
+(* inside, 79 us with it hoisted, over 16 777 216 states times eighteen       *)
+(* moves.  That is 90 days against 6.6 hours, for one let.                    *)
+(* actd is replaced by actf here, and mdata by mdataf: same booleans by       *)
+(* actfE, ten times faster.  See 4bis.                                        *)
 
-(* THE PREDICATE IS NAMED, AND THAT IS NOT COSMETIC EITHER.  With the let
-   written inline under all_pow, splitting the loop for several cores needs
-   an equation between two closed all_pow ncoord terms, and proving it
-   forces conversion to commute the let past all_pow -- which unfolds the
-   loop into 2 ^ 24 conjuncts and never returns.  Named, the split is a
-   delta step: checkStep is all_pow ncoord 0 stepF by definition, and
-   Fspar.v can rewrite /checkStep and work on stepF with the loop still
-   folded.                                                                    *)
+(* THE PREDICATE IS NAMED, AND THAT IS NOT COSMETIC EITHER.  With the let     *)
+(* written inline under all_pow, splitting the loop for several cores needs   *)
+(* an equation between two closed all_pow ncoord terms, and proving it        *)
+(* forces conversion to commute the let past all_pow -- which unfolds the     *)
+(* loop into 2 ^ 24 conjuncts and never returns.  Named, the split is a       *)
+(* delta step: checkStep is all_pow ncoord 0 stepF by definition, and         *)
+(* Fspar.v can rewrite /checkStep and work on stepF with the loop still       *)
+(* folded.                                                                    *)
 Definition stepF : int -> bool :=
   let md := mdataf in
   fun x => all (fun d => (Dfsi x <=? incr (Dfsi (actf x d)))%uint63) md.
@@ -580,8 +580,8 @@ Proof. by rewrite /check0 /Dfs coordfs1E => /eqb_correct ->; rewrite to_nat_0. Q
 
 (* x outside the summaries is Dfs_oob; inside, all_powP gives the checked     *)
 (* instance and actdE turns the move into its data.                           *)
-(* the entries are four bits, so the successor on the int side is the
-   successor on the nat side -- no wrap to worry about                        *)
+(* the entries are four bits, so the successor on the int side is the         *)
+(* successor on the nat side -- no wrap to worry about                        *)
 Lemma Dfsi_small x : to_nat (Dfsi x) < nwB.-1.
 Proof.
 rewrite /Dfsi.
@@ -600,10 +600,10 @@ rewrite -to_nat_incr; first by apply/nlebP.
 by rewrite -[nwB]prednK // (ltn_trans _ ndigitsLwB).
 Qed.
 
-(* the routing: out of range is Dfs_oob, in range is all_powP for the checked
-   instance and actdE to turn the move into its data.  Note the /checkStep
-   has to come before the intros -- unfolding it afterwards is what made this
-   look like it diverged.                                                     *)
+(* the routing: out of range is Dfs_oob, in range is all_powP for the checked *)
+(* instance and actdE to turn the move into its data.  Note the /checkStep    *)
+(* has to come before the intros -- unfolding it afterwards is what made this *)
+(* look like it diverged.                                                     *)
 Lemma DfsStep_of_check :
   checkStep -> forall x m, m \in Sset -> Dfs x <= (Dfs (actfs x m)).+1.
 Proof.

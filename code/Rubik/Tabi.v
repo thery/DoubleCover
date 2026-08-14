@@ -290,9 +290,9 @@ Qed.
 
 (* ---- 5. From a list to an array ------------------------------------------ *)
 
-(* The moves and the start position are produced by Table.v as lists.  t2ti is
-   the only place a list becomes an array; it runs once, on nineteen tables of
-   n.+1 entries, and everything after it stays on arrays.                     *)
+(* The moves and the start position are produced by Table.v as lists. t2ti is *)
+(* the only place a list becomes an array; it runs once, on nineteen tables   *)
+(* of n.+1 entries, and everything after it stays on arrays.                  *)
 Definition t2ti (t : seq nat) : arr :=
   foldi n.+1 0 (fun i c => PArray.set c i (of_nat (nth 0%N t (to_nat i))))
         (PArray.make (of_nat n.+1) 0).
@@ -310,8 +310,8 @@ rewrite /t2ti
 by rewrite to_nat_0 add0n to_of_natK //= iL.
 Qed.
 
-(* t2ti is a section of the bridge: the list is recovered unchanged, so a fact
-   proved about a table transports to its array for free.                     *)
+(* t2ti is a section of the bridge: the list is recovered unchanged, so a     *)
+(* fact proved about a table transports to its array for free.                *)
 Lemma ti2t_t2ti t : tab_ok n t -> ti2t (t2ti t) = t.
 Proof.
 move=> tok; have /and3P[/eqP tsz tall _] := tok.
@@ -335,22 +335,22 @@ Variable Dti : arr -> nat.
 Variable Dt : seq nat -> nat.
 Hypothesis DtiE : forall a, tabi_ok a -> Dti a = Dt (ti2t a).
 
-(* WRITTEN WITH if, NOT WITH && AND has, AND THAT IS THE WHOLE POINT.
-   && is andb and || is orb, both ordinary functions, and vm_compute is call
-   by value: it evaluates every argument before applying.  With
-
-     (Dti a <= d) && (eq_tabi a id_tabi || has ... mtis)
-
-   the guard decides the answer and the subtree is explored anyway, so the
-   pruning table computes a correct heuristic that saves no work at all --
-   measured, the search from the superflip at depth 5 took 186 s, which is
-   the full 18 ^ 5 tree, where the heuristic should have stopped it at the
-   root in one node.  has is worse than it looks: being p x || has p s' it
-   does not stop at the first success either.
-
-   if is a match: the scrutinee is evaluated and then only the branch taken.
-   The inner fix does for the move list what has would not.  Same booleans,
-   and depth 5 goes from 186 s to nothing.                                    *)
+(* WRITTEN WITH if, NOT WITH && AND has, AND THAT IS THE WHOLE POINT.         *)
+(* && is andb and || is orb, both ordinary functions, and vm_compute is call  *)
+(* by value: it evaluates every argument before applying.  With               *)
+(*                                                                            *)
+(*   (Dti a <= d) && (eq_tabi a id_tabi || has ... mtis)                      *)
+(*                                                                            *)
+(* the guard decides the answer and the subtree is explored anyway, so the    *)
+(* pruning table computes a correct heuristic that saves no work at all --    *)
+(* measured, the search from the superflip at depth 5 took 186 s, which is    *)
+(* the full 18 ^ 5 tree, where the heuristic should have stopped it at the    *)
+(* root in one node.  has is worse than it looks: being p x || has p s' it    *)
+(* does not stop at the first success either.                                 *)
+(*                                                                            *)
+(* if is a match: the scrutinee is evaluated and then only the branch taken.  *)
+(* The inner fix does for the move list what has would not.  Same booleans,   *)
+(* and depth 5 goes from 186 s to nothing.                                    *)
 Fixpoint searchi (d : nat) (a : arr) : bool :=
   if Dti a <= d then
     if eq_tabi a id_tabi then true

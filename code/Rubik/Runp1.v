@@ -20,8 +20,8 @@ Import GroupScope.
 Definition rootm (m : nat) : PArray.array int :=
   comp_tabi 47 sfti (nth sfti mtis m).
 
-(* the depth, and the root depth Far.v's droot mirrors: two moves are fixed
-   by prefixi, so the search below a root has depth - 2 left                  *)
+(* the depth, and the root depth Far.v's droot mirrors: two moves are fixed   *)
+(* by prefixi, so the search below a root has depth - 2 left                  *)
 Definition p1depth := 16.
 Definition p1droot := p1depth.-2.
 
@@ -30,8 +30,8 @@ Definition runp1 (T : PArray.array (PArray.array int)) (t : nat) : bool :=
   searchz3 T t.-1 (rootm 0) (init3 (rootm 0)) (fcpos 0) ||
   searchz3 T t.-1 (rootm 1) (init3 (rootm 1)) (fcpos 1).
 
-(* a smoke test against the dummy table: it must RUN, and with Dp1 = 0 the
-   heuristic is just the two pair tables, so a shallow depth is enough        *)
+(* a smoke test against the dummy table: it must RUN, and with Dp1 = 0 the    *)
+(* heuristic is just the two pair tables, so a shallow depth is enough        *)
 Definition smoke : bool := runp1 p1dummy 6.
 
 Time Eval vm_compute in smoke.

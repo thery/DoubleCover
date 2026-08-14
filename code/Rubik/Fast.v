@@ -40,8 +40,8 @@ Definition step3i (x : c3) (m : amove) : c3 :=
    (acttwii x1.1 ka, actfsri x1.2 ka),
    (acttwii x2.1 kb, actfsri x2.2 kb)).
 
-(* ---- and the search.  d stays a nat so that the recursion is structural,
-   di is the same depth as an int, for the heuristic test. ------------------ *)
+(* ---- and the search.  d stays a nat so that the recursion is structural,   *)
+(* di is the same depth as an int, for the heuristic test. ------------------ *)
 Fixpoint searchz3f (T : PArray.array arr) (d : nat) (di : int) (a : arr)
                    (x : c3) (p : nat) : bool :=
   if (h3i T x <=? di)%uint63 then
@@ -58,8 +58,8 @@ Fixpoint searchz3f (T : PArray.array arr) (d : nat) (di : int) (a : arr)
     else false
   else false.
 
-(* ---- searchz3g: the heuristic is tested on the coordinates after the move,
-   before the table is composed --------------------------------------------- *)
+(* ---- searchz3g: the heuristic is tested on the coordinates after the move, *)
+(* before the table is composed --------------------------------------------- *)
 Fixpoint searchz3g (T : PArray.array arr) (d : nat) (di : int) (a : arr)
                    (x : c3) (p : nat) : bool :=
   if (h3i T x <=? di)%uint63 then
@@ -142,8 +142,8 @@ Fixpoint searchz3k (T : PArray.array arr) (d : nat) (di : int) (a : arr)
     else false
   else false.
 
-(* ---- searchz3m: x holds the cube and its two conj3 conjugates; each of the
-   three is moved only if the previous ones passed the test ----------------- *)
+(* ---- searchz3m: x holds the cube and its two conj3 conjugates; each of the *)
+(* three is moved only if the previous ones passed the test ----------------- *)
 Definition stepv (v : int * int) (k : int) : int * int :=
   (acttwii v.1 k, actfsri v.2 k).
 
@@ -174,9 +174,9 @@ Fixpoint searchz3m (T : PArray.array arr) (d : nat) (di : int) (a : arr)
     else false
   else false.
 
-(* ---- searchz3n: carry the move path instead of the table.  The coordinates
-   say whether the position may be solved; the table is rebuilt from the path
-   only then --------------------------------------------------------------   *)
+(* ---- searchz3n: carry the move path instead of the table.  The coordinates *)
+(* say whether the position may be solved; the table is rebuilt from the path *)
+(* only then --------------------------------------------------------------   *)
 Definition solved3 : c3 := Eval vm_compute in init3 (id_tabi 47).
 
 Definition issolved (x : c3) : bool :=
@@ -192,16 +192,16 @@ Definition issolved (x : c3) : bool :=
     else false
   else false.
 
-(* the path is newest first, and foldr takes its last element first, so the
-   moves are composed oldest first                                            *)
+(* the path is newest first, and foldr takes its last element first, so the   *)
+(* moves are composed oldest first                                            *)
 Definition rebuild (a0 : arr) (path : seq int) : arr :=
   foldr (fun k acc => comp_tabi 47 acc (PArray.get mtisa k)) a0 path.
 
 Fixpoint searchz3n (T : PArray.array arr) (d : nat) (di : int) (a0 : arr)
                    (path : seq int) (x : c3) (p : nat) : bool :=
   if h3le T x di then
-    (* nested ifs and not `&&', which is strict and would rebuild the table
-       at every position                                                      *)
+    (* nested ifs and not `&&', which is strict and would rebuild the table   *)
+    (* at every position                                                      *)
     if (if issolved x then eq_tabif (rebuild a0 path) (id_tabi 47) else false)
     then true
     else if d is d'.+1 then

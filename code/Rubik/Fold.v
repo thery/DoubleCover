@@ -26,16 +26,16 @@ Notation arr := (PArray.array int).
 Definition nsym    := 16.      (* the symmetries that fix the U/D axis        *)
 Definition norblog := 17.      (* 2 ^ 17 covers the orbit indices             *)
 
-(* the orbits of ranks under those sixteen, as an int63 LITERAL: of_nat
-   walks a unary nat, and this number is read once per node                   *)
+(* the orbits of ranks under those sixteen, as an int63 LITERAL: of_nat       *)
+(* walks a unary nat, and this number is read once per node                   *)
 Definition norbi : int := 64430%uint63.
 
 (* the folded table is orbit major: one block of ntwist entries per orbit     *)
 Definition foldi (rep tw : int) : int :=
   Uint63.add (Uint63.mul rep ntwisti) tw.
 
-(* the folded read: the orbit of r, and the twist carried through the
-   symmetry that takes r to that orbit's representative                       *)
+(* the folded read: the orbit of r, and the twist carried through the         *)
+(* symmetry that takes r to that orbit's representative                       *)
 Definition Dfoldi (F : PArray.array arr) (frep fsym : int -> int)
     (twsym : int -> int -> int) (tw r : int) : int :=
   p1get F (foldi (frep r) (twsym tw (fsym r))).
@@ -44,8 +44,8 @@ Definition Dfold (F : PArray.array arr) (frep fsym : int -> int)
     (twsym : int -> int -> int) (tw r : int) : nat :=
   to_nat (Dfoldi F frep fsym twsym tw r).
 
-(* four bits per entry, so the successor on the int side is the successor on
-   the nat side.  Phase1.Dp1i_small verbatim, and it needs no hypothesis.     *)
+(* four bits per entry, so the successor on the int side is the successor on  *)
+(* the nat side.  Phase1.Dp1i_small verbatim, and it needs no hypothesis.     *)
 Lemma Dfoldi_small F frep fsym twsym tw r :
   (to_nat (Dfoldi F frep fsym twsym tw r) < nwB.-1)%N.
 Proof.
@@ -64,9 +64,9 @@ Proof. by vm_compute. Qed.
 Lemma norblog_dig : norblog <= ndigits.
 Proof. by vm_compute. Qed.
 
-(* an orbit index below norbi passes the loop guard.  Stated on int63 and
-   proved through nltbP and nlebP: the nat value of norbi is not needed, and
-   the nat form of the guard is what makes `case: ifP' diverge.               *)
+(* an orbit index below norbi passes the loop guard.  Stated on int63 and     *)
+(* proved through nltbP and nlebP: the nat value of norbi is not needed, and  *)
+(* the nat form of the guard is what makes `case: ifP' diverge.               *)
 Lemma norbi_guard i : (i <? norbi)%uint63 -> (norbi <=? i)%uint63 = false.
 Proof.
 move/nltbP => iL; apply/negbTE/negP => /nlebP h.
@@ -123,10 +123,10 @@ Local Notation D := (Dfoldi F frep fsym twsym).
 
 (* -- everything below is about RANKS, so r <? nfsi throughout -------------- *)
 
-(* THE RANK GUARD IS NOT DECORATION.  The four rank tables have nfs entries,
-   so at r past nfs they answer with their default and none of the equations
-   below can hold there.  It is Phase1's fsok guard again, and a caller
-   discharges it the same way, by Phase1.fsidx_lt.                            *)
+(* THE RANK GUARD IS NOT DECORATION.  The four rank tables have nfs entries,  *)
+(* so at r past nfs they answer with their default and none of the equations  *)
+(* below can hold there.  It is Phase1's fsok guard again, and a caller       *)
+(* discharges it the same way, by Phase1.fsidx_lt.                            *)
 
 (* fsym r really does carry r to the representative of its orbit              *)
 Hypothesis fsymE : forall r, (r <? nfsi)%uint63 -> ract r (fsym r) = rrep r.
@@ -141,10 +141,10 @@ Hypothesis rrepS : forall r s, (r <? nfsi)%uint63 -> (to_nat s < nsym)%N ->
 (* the orbit table and the representative table name the same rank            *)
 Hypothesis repsE : forall r, (r <? nfsi)%uint63 -> reps (frep r) = rrep r.
 
-(* THE RANGE OBLIGATIONS.  Rows are contiguous, so an orbit index at or past
-   norbi, or a twist at or past ntwist, does not read a default: it reads a
-   good entry belonging to another state.  Both are what let the check at the
-   representatives be read back at r.                                         *)
+(* THE RANGE OBLIGATIONS.  Rows are contiguous, so an orbit index at or past  *)
+(* norbi, or a twist at or past ntwist, does not read a default: it reads a   *)
+(* good entry belonging to another state.  Both are what let the check at the *)
+(* representatives be read back at r.                                         *)
 Hypothesis frepL : forall r, (r <? nfsi)%uint63 -> (frep r <? norbi)%uint63.
 Hypothesis twsymL : forall tw s, (to_nat tw < ntwist)%N ->
   (to_nat s < nsym)%N -> (to_nat (twsym tw s) < ntwist)%N.
@@ -157,9 +157,9 @@ Hypothesis actrL : forall r k, (r <? nfsi)%uint63 -> (k < 18)%N ->
 
 (* -- the symmetries act ---------------------------------------------------  *)
 
-(* THE TWIST BOUND IS NOT DECORATION, here as in stabE: past ntwist the
-   twist table has no entry and answers with its default, so neither of the
-   two equations below can hold there.  Every caller has the bound.           *)
+(* THE TWIST BOUND IS NOT DECORATION, here as in stabE: past ntwist the       *)
+(* twist table has no entry and answers with its default, so neither of the   *)
+(* two equations below can hold there.  Every caller has the bound.           *)
 Hypothesis twsymA : forall tw s t, (to_nat tw < ntwist)%N ->
   (to_nat s < nsym)%N -> (to_nat t < nsym)%N ->
   twsym (twsym tw s) t = twsym tw (smul s t).
@@ -168,13 +168,13 @@ Hypothesis ractA : forall r s t, (r <? nfsi)%uint63 -> (to_nat s < nsym)%N ->
 Hypothesis smulL : forall s t, (to_nat s < nsym)%N -> (to_nat t < nsym)%N ->
   (to_nat (smul s t) < nsym)%N.
 
-(* THE ONE OBLIGATION THAT IS NOT BOOKKEEPING.  A rank whose orbit is shorter
-   than sixteen is taken to its representative by several symmetries, and
-   those symmetries send the twist to different places.  So the folded row of
-   such an orbit must give the same entry for all of them, and no shape
-   argument supplies that -- it is a property of the emitted table.  On a
-   table built from a genuine distance it holds, because a symmetry fixing
-   the rank relates two states at the same distance.                          *)
+(* THE ONE OBLIGATION THAT IS NOT BOOKKEEPING.  A rank whose orbit is shorter *)
+(* than sixteen is taken to its representative by several symmetries, and     *)
+(* those symmetries send the twist to different places.  So the folded row of *)
+(* such an orbit must give the same entry for all of them, and no shape       *)
+(* argument supplies that -- it is a property of the emitted table.  On a     *)
+(* table built from a genuine distance it holds, because a symmetry fixing    *)
+(* the rank relates two states at the same distance.                          *)
 Hypothesis stabE : forall tw r u, (to_nat tw < ntwist)%N ->
   (r <? nfsi)%uint63 -> (to_nat u < nsym)%N ->
   ract r u = rrep r -> p1get F (foldi (frep r) (twsym tw u)) = D tw r.
@@ -195,8 +195,8 @@ Hypothesis msymR : forall r k s, (r <? nfsi)%uint63 -> (k < 18)%N ->
 
 (* -- the rank action is the packed action, ranked -------------------------- *)
 
-(* the search carries ranks, so the emitted move table is by rank; actf is
-   the same move on the packed summary                                        *)
+(* the search carries ranks, so the emitted move table is by rank; actf is    *)
+(* the same move on the packed summary                                        *)
 Hypothesis actrE : forall x k, (k < 18)%N ->
   fsidx (actf x (mdatf_of_tab (nth [::] mtabs k))) = actr (fsidx x) k.
 
@@ -241,8 +241,8 @@ Definition foldcheckOrb (tw : int) : bool :=
 Definition foldcheckStep : bool :=
   all (fun t => foldcheckOrb (of_nat t)) (iota 0 ntwist).
 
-(* An EQUATION, not a delta step: any conversion that sees through
-   foldcheckOrb unfolds the all_pow into 2 ^ 17 conjuncts.                    *)
+(* An EQUATION, not a delta step: any conversion that sees through            *)
+(* foldcheckOrb unfolds the all_pow into 2 ^ 17 conjuncts.                    *)
 Lemma foldcheckOrbE tw :
   foldcheckOrb tw =
   all_pow norblog 0%uint63
@@ -289,9 +289,9 @@ move=> /allP hall kL; apply: hall.
 by rewrite mem_iota add0n leq0n kL.
 Qed.
 
-(* THE POINT OF THE FILE: checked at the representatives, true at every
-   rank.  The symmetry moves the state to the representative, the check
-   fires there, and DfoldiS moves the moved state back.                       *)
+(* THE POINT OF THE FILE: checked at the representatives, true at every       *)
+(* rank.  The symmetry moves the state to the representative, the check       *)
+(* fires there, and DfoldiS moves the moved state back.                       *)
 Lemma Dfoldi_step_of_check :
   foldcheckStep ->
   forall tw r k, (to_nat tw < ntwist)%N -> (r <? nfsi)%uint63 -> (k < 18)%N ->
@@ -318,8 +318,8 @@ apply: leb_incr_le; last exact: Dfoldi_small.
 exact: (Dfoldi_step_of_check hcheck twL rL kL).
 Qed.
 
-(* the step at a packed summary, which is the shape Phase1.Dp1_step_of_check
-   has; the rank guard is what Phase1.fsidx_lt discharges                     *)
+(* the step at a packed summary, which is the shape Phase1.Dp1_step_of_check  *)
+(* has; the rank guard is what Phase1.fsidx_lt discharges                     *)
 Lemma Dfoldx_step_of_check :
   foldcheckStep ->
   forall tw x k, (to_nat tw < ntwist)%N -> (fsidx x <? nfsi)%uint63 ->

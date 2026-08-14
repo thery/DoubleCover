@@ -22,9 +22,9 @@ Import GroupScope.
 Lemma p1searchd_@N@@H@ :
   ~~ searchz3 p1ftab @D@ (prefixi @I@ @J@)
               (init3 (prefixi @I@ @J@)) (fcpos @J@).
-(* p1searchd_bridge1 runs the fast search and gives this statement.  fcpos @J@
-   is the face of the second move: the search starts guarded against it, so
-   the third move is one of about thirteen and not one of eighteen.           *)
+(* p1searchd_bridge1 runs the fast search and gives this statement. fcpos @J@ *)
+(* is the face of the second move: the search starts guarded against it, so   *)
+(* the third move is one of about thirteen and not one of eighteen.           *)
 Proof.
 (* every argument given: `done' would unfold an all_pow at ncoord = 24        *)
 apply: (@p1searchd_bridge1 p1ftab @D@ @J@ (fcpos @J@) @I@ isT isT isT isT

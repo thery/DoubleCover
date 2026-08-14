@@ -19,10 +19,10 @@ Import GroupScope.
 
 Definition fcpos (k : nat) : nat := k %/ 3.
 
-(* THE ONE CUBE FACT the bridges rest on: position k carries face k %/ 3.
-   [EASY] nth 1 moves k is the k-th move, and index_uniq with
-   Redun.uniq_moves reads its index back as k -- exactly the step already
-   used in Redun.triple_moves.                                                *)
+(* THE ONE CUBE FACT the bridges rest on: position k carries face k %/ 3.     *)
+(* [EASY] nth 1 moves k is the k-th move, and index_uniq with                 *)
+(* Redun.uniq_moves reads its index back as k -- exactly the step already     *)
+(* used in Redun.triple_moves.                                                *)
 Lemma fcpos_moves k : k < 18 -> fcube (nth 1 moves k) = fcpos k.
 Proof.
 move=> k18.
@@ -30,10 +30,10 @@ have szk : k < seq.size moves by rewrite moves_size.
 by rewrite /fcube (index_uniq 1 szk uniq_moves).
 Qed.
 
-(* has over a list = has over its positions.  Pure seq, and the missing
-   ingredient of searchtrE.
-   NOTE the predicate is written A -> bool and NOT pred A: with pred A the
-   statement does not even elaborate here, it tries to unify A with int.      *)
+(* has over a list = has over its positions.  Pure seq, and the missing       *)
+(* ingredient of searchtrE.                                                   *)
+(* NOTE the predicate is written A -> bool and NOT pred A: with pred A the    *)
+(* statement does not even elaborate here, it tries to unify A with int.      *)
 Lemma has_nth_iota (A : Type) (p : A -> bool) (s : seq A) (x0 : A) :
   has p s = has (fun k => p (nth x0 s k)) (iota 0 (seq.size s)).
 Proof.
@@ -50,8 +50,8 @@ Variable mts : seq (seq nat).
 Hypothesis mtsok : all (tab_ok n) mts.
 Variable Dt : seq nat -> nat.
 
-(* the face structure, abstract here: nfc faces, opp pairs them, and fcp
-   gives the face of a POSITION in mts                                        *)
+(* the face structure, abstract here: nfc faces, opp pairs them, and fcp      *)
+(* gives the face of a POSITION in mts                                        *)
 Variable nfc : nat.
 Variable opp : nat -> nat.
 Variable fcp : nat -> nat.
@@ -84,13 +84,13 @@ Variable fc : {perm 'I_n.+1} -> nat.
 Hypothesis fcE : forall k, k < seq.size mts ->
   fc (pt n (nth [::] mts k)) = fcp k.
 
-(* the analogue of Tsearch.searchtE, and the only place where the
-   position/move identification happens.  The pointwise step is between a
-   has over POSITIONS and a has over MOVES: has_map strips the map on the
-   right, then has_nth_iota turns that list into its positions.  It has to
-   be AIMED at the right hand side -- has_nth_iota's pattern also matches
-   the left, where the body mentions k outside the nth, so an untargeted
-   rewrite goes the wrong way.                                                *)
+(* the analogue of Tsearch.searchtE, and the only place where the             *)
+(* position/move identification happens.  The pointwise step is between a     *)
+(* has over POSITIONS and a has over MOVES: has_map strips the map on the     *)
+(* right, then has_nth_iota turns that list into its positions.  It has to    *)
+(* be AIMED at the right hand side -- has_nth_iota's pattern also matches     *)
+(* the left, where the body mentions k outside the nth, so an untargeted      *)
+(* rewrite goes the wrong way.                                                *)
 Lemma searchtrE d t p :
   tab_ok n t ->
   searchtr d t p = searchr [seq pt n mt | mt <- mts] h nfc fc opp d (pt n t) p.
@@ -128,12 +128,12 @@ Variable nfc : nat.
 Variable opp : nat -> nat.
 Variable fcp : nat -> nat.
 
-(* THE POSITIONS ALLOWED AFTER A MOVE OF FACE p, filtered ONCE per p rather
-   than tested per move.  That is not cosmetic: it keeps the inner loop the
-   SAME SHAPE as Tabi.searchi, so the laziness carries over for free and
-   searchirS stays definitional.  && and has are strict under vm_compute, so
-   a guard spelled `okfc0 ... && searchir ...` inside the loop would run the
-   recursive call even when the guard fails -- the 185 s bug all over again.  *)
+(* THE POSITIONS ALLOWED AFTER A MOVE OF FACE p, filtered ONCE per p rather   *)
+(* than tested per move.  That is not cosmetic: it keeps the inner loop the   *)
+(* SAME SHAPE as Tabi.searchi, so the laziness carries over for free and      *)
+(* searchirS stays definitional.  && and has are strict under vm_compute, so  *)
+(* a guard spelled `okfc0 ... && searchir ...` inside the loop would run the  *)
+(* recursive call even when the guard fails -- the 185 s bug all over again.  *)
 Definition allowedr (p : nat) : seq nat :=
   [seq k <- iota 0 (seq.size mtis) | okfc0 nfc opp p (fcp k)].
 
@@ -180,27 +180,10 @@ Qed.
 
 End ArrayR.
 
-(* [MEDIUM] a copy of Tabi.searchi with the guard added.  Not written yet
-   because it must be written ONCE, correctly:
-     KEEP THE `if ... then` SHAPE.  && and has are strict under vm_compute, so
-     spelling this with && evaluates both branches and loses all the pruning.
-     That is the bug that cost 185 s at depth 5 before it was found, and the
-     guard adds a second place to get it wrong -- the okfc0 test must
-     short-circuit before the recursive call, not be &&-ed with it.
-   Then searchirE mirrors Tabi.searchiE (rewrite searchirS, DtiE,
-   eq_tabi_id, congr, pointwise), and searchirN composes searchirE,
-   searchtrE and Searchr.searchrN.                                            *)
 
 (* ---- 4. What the assembly then needs --------------------------------------*)
 
-(* Far.v and the eighteen Far_??.v switch from searchi to searchir.  ONE
-   THING THERE IS NOT A RENAME: Far.v splits the root with ball_split2,
-   which quantifies the first two moves independently
-     (forall m1 m2, m1 \in Sseq -> m2 \in Sseq -> g * m1 * m2 \notin ball S d)
-   whereas the reduced search requires m2 to respect the guard against m1.
-   So either ball_split2 gains that hypothesis (and the eighteen generated
-   files gain the guard in their statement), or the split is taken at depth
-   one instead of two.  Decide this before generating the files -- it
-   changes what the Far_??.v say, and they are expensive to redo.
-   Note also that the factor being bought here is largest at the TOP of the
-   search, so a root split that ignores the guard wastes part of it.          *)
+(* Far.v splits the root at depth two.  The second move is NOT guarded        *)
+(* against the first: the first is fixed by symmetry, not by the rules, and   *)
+(* the two normalisations cannot both be applied.  The third move is          *)
+(* guarded, and Searchr.searchr_root2 is where that is proved.                *)

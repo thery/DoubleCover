@@ -14,9 +14,9 @@ Unset Printing Implicit Defensive.
 
 Import GroupScope.
 
-(* uint63_scope is deliberately NOT opened: this file is mostly about perms
-   and nat, and the scope would turn every 1 into an int.  The three int
-   expressions below carry their own %uint63.                                 *)
+(* uint63_scope is deliberately NOT opened: this file is mostly about perms   *)
+(* and nat, and the scope would turn every 1 into an int.  The three int      *)
+(* expressions below carry their own %uint63.                                 *)
 
 (* ---- 1. A summary that is only an action on part of the group ------------ *)
 
@@ -101,9 +101,9 @@ Definition epos (f : facelet) : nat := index (f : nat) (eprim ++ esec) %% nedge.
 
 (* ---- 2b. Moving the data to nat ------------------------------------------ *)
 
-(* Nothing about 'I_48 reduces -- inord does not -- so every fact about the
-   twelve edges is proved by pushing it to nat, where the lists are literals
-   and vm_compute decides.  These three are the whole bridge.                 *)
+(* Nothing about 'I_48 reduces -- inord does not -- so every fact about the   *)
+(* twelve edges is proved by pushing it to nat, where the lists are literals  *)
+(* and vm_compute decides.  These three are the whole bridge.                 *)
 
 Lemma all_iota_lt (P : nat -> bool) n i : all P (iota 0 n) -> i < n -> P i.
 Proof. by move=> /allP hP iL; apply: hP; rewrite mem_iota. Qed.
@@ -141,9 +141,9 @@ Proof. by move=> pL; rewrite /eprimf inordK // eprim_lt. Qed.
 Lemma epos_lt f : epos f < nedge.
 Proof. by rewrite /epos ltn_mod. Qed.
 
-(* the pairing has no fixed point on the edge facelets and is the identity
-   elsewhere, which is what says a permutation commuting with it keeps edge
-   facelets edge facelets                                                     *)
+(* the pairing has no fixed point on the edge facelets and is the identity    *)
+(* elsewhere, which is what says a permutation commuting with it keeps edge   *)
+(* facelets edge facelets                                                     *)
 Lemma epair_fix (f : facelet) : (epair f == f) = ((f : nat) \notin eprim ++ esec).
 Proof.
 have [fM|fN] := boolP ((f : nat) \in eprim ++ esec); last first.
@@ -238,10 +238,10 @@ have := eqP (hg (g^-1 f)); rewrite permKV => e.
 by rewrite e permK.
 Qed.
 
-(* The moves keep cubies together -- moves_cubP -- but nothing about a
-   permutation reduces, so that fact has to be read on the tables and it
-   lives in Coordfsi.v with the rest of the table bridge.  So does everything
-   downstream of it: cubP_step, hfs and the search.                           *)
+(* The moves keep cubies together -- moves_cubP -- but nothing about a        *)
+(* permutation reduces, so that fact has to be read on the tables and it      *)
+(* lives in Coordfsi.v with the rest of the table bridge.  So does everything *)
+(* downstream of it: cubP_step, hfs and the search.                           *)
 
 (* an edge facelet stays an edge facelet                                      *)
 Lemma cubP_edge g f :
@@ -384,11 +384,11 @@ Proof. by apply: packn_lt. Qed.
 (* true so xbit is false and the bit is copied; or it is epair (eprimf q),    *)
 (* and then pcol_epair complements the flip bit while scol_epair leaves the   *)
 (* slice bit alone.  cubP g is what lets g^-1 be pushed through epair.        *)
-(* the two halves, where the content is.  Each is one application of
-   edge_case: m^-1 (eprimf j) is eprimf q, and then pcol of it is true so
-   xbit is false and the bit is copied; or it is epair (eprimf q), and then
-   pcol_epair complements the flip bit while scol_epair leaves the slice bit
-   alone.  cubP g is what lets g^-1 be pushed through epair.                  *)
+(* the two halves, where the content is.  Each is one application of          *)
+(* edge_case: m^-1 (eprimf j) is eprimf q, and then pcol of it is true so     *)
+(* xbit is false and the bit is copied; or it is epair (eprimf q), and then   *)
+(* pcol_epair complements the flip bit while scol_epair leaves the slice bit  *)
+(* alone.  cubP g is what lets g^-1 be pushed through epair.                  *)
 
 Lemma ncoord_dig : ncoord <= ndigits.
 Proof. by vm_compute. Qed.
@@ -436,9 +436,9 @@ by rewrite {1}xS cubP_epairV // scol_epair.
 Qed.
 
 (* and the equivariance is the two halves, routed through the packing         *)
-(* stated on cubP m rather than on m \in Sset: that the moves satisfy cubP is
-   a table fact and lives in Coordfsi.v, so keeping it out here leaves this
-   file about the summary alone.                                              *)
+(* stated on cubP m rather than on m \in Sset: that the moves satisfy cubP is *)
+(* a table fact and lives in Coordfsi.v, so keeping it out here leaves this   *)
+(* file about the summary alone.                                              *)
 Lemma coordfsM g m :
   cubP g -> cubP m -> coordfs (g * m) = actfs (coordfs g) m.
 Proof.
@@ -456,5 +456,5 @@ rewrite ltnNge leq_addr /= addKn coordfs_slice //.
 by rewrite -(ltn_add2l nedge) subnKC.
 Qed.
 
-(* Section 9, what this gives Search.v, is in Coordfsi.v: it needs
-   moves_cubP, and moves_cubP needs the tables.                               *)
+(* Section 9, what this gives Search.v, is in Coordfsi.v: it needs            *)
+(* moves_cubP, and moves_cubP needs the tables.                               *)

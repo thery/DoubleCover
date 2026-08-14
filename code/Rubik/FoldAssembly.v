@@ -26,15 +26,15 @@ Variable ractab : PArray.array arr.
 Variables frepi fsymi repsi : int -> int.
 Variable twsymi : int -> int -> int.
 
-(* Phase1 reads the folding tables out of slots 5, 6 and 7 of F itself, so
-   the assembly needs to know that those slots hold these tables.  Three
-   array equalities, discharged where the table is supplied.                  *)
+(* Phase1 reads the folding tables out of slots 5, 6 and 7 of F itself, so    *)
+(* the assembly needs to know that those slots hold these tables.  Three      *)
+(* array equalities, discharged where the table is supplied.                  *)
 Hypothesis frepE : forall r, Phase1.frep F r = frepi r.
 Hypothesis fsymE : forall r, Phase1.fsym F r = fsymi r.
 Hypothesis twsymE : forall tw s, Phase1.twsym F tw s = twsymi tw s.
 
-(* every orbit index is below norbi -- FoldTables.frepL, as a hypothesis so
-   this file need not require the table it is proved from                     *)
+(* every orbit index is below norbi -- FoldTables.frepL, as a hypothesis so   *)
+(* this file need not require the table it is proved from                     *)
 Hypothesis frepLP : forall r, (r <? nfsi)%uint63 -> (frepi r <? norbi)%uint63.
 
 (* the twelve checks                                                          *)
@@ -51,9 +51,9 @@ Hypothesis acttwiLCP : acttwiLC.
 Hypothesis twsymACP : twsymAC twsymi.
 Hypothesis msymTCP : msymTC twsymi.
 
-(* and that the 288 entry msym table IS Sym16's relabelling.  msymRC is
-   stated over the table so its loop stays in int63; this is what ties the
-   two together, and it costs 288 values to run.                              *)
+(* and that the 288 entry msym table IS Sym16's relabelling.  msymRC is       *)
+(* stated over the table so its loop stays in int63; this is what ties the    *)
+(* two together, and it costs 288 values to run.                              *)
 Hypothesis msymiCP : msymiC.
 
 (* the stabiliser fact, which FoldStabiliser.stabE_of_check supplies from stabC *)

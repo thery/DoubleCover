@@ -16,10 +16,10 @@ Import GroupScope.
 
 (* ---- 1. The missing commutation -------------------------------------------*)
 
-(* Sym.v built the U-D and R-L axes because Sy and Sx needed them; the F-B
-   pair was never required.  Same proof: the two layers are supported on
-   disjoint facelets, so uniq_inord settles it without evaluating a
-   permutation.                                                               *)
+(* Sym.v built the U-D and R-L axes because Sy and Sx needed them; the F-B    *)
+(* pair was never required.  Same proof: the two layers are supported on      *)
+(* disjoint facelets, so uniq_inord settles it without evaluating a           *)
+(* permutation.                                                               *)
 Lemma FBcyc_uniq : uniq (flatten (Fcyc ++ Bcyc)).
 Proof.
 by eapply (@uniq_inord _
@@ -35,21 +35,21 @@ Qed.
 
 (* ---- 2. One face closes ---------------------------------------------------*)
 
-(* the conversion, factored: every power of an order-4 element is one of the
-   four powers below 4.  Note this cannot collapse the nine cases of
-   face_closeP into one tactic -- in mathcomp neither addn nor modn reduces
-   under /=, so the exponent stays a stuck (1 + 1) %% 4 and nothing matches
-   without a per-case conversion anyway.                                      *)
+(* the conversion, factored: every power of an order-4 element is one of the  *)
+(* four powers below 4.  Note this cannot collapse the nine cases of          *)
+(* face_closeP into one tactic -- in mathcomp neither addn nor modn reduces   *)
+(* under /=, so the exponent stays a stuck (1 + 1) %% 4 and nothing matches   *)
+(* without a per-case conversion anyway.                                      *)
 Lemma expg_mod4 (g : {perm facelet}) k : g ^+ 4 = 1 -> g ^+ k = g ^+ (k %% 4).
 Proof.
 by move=> g4; rewrite {1}(divn_eq k 4) mulnC expgD expgnA g4 expg1n mul1g.
 Qed.
 
-(* The three non-trivial powers of an order-4 element are closed under
-   product, falling back on the identity.  This is fc_close's content; all
-   six faces have order 4 (Umove4 .. Dmove4), so it is proved once.
-   Stated in uniform powers g^+1, g^+2, g^+3 rather than g, g^+2, g^-1 so
-   that every one of the nine products goes through a single expgD.           *)
+(* The three non-trivial powers of an order-4 element are closed under        *)
+(* product, falling back on the identity.  This is fc_close's content; all    *)
+(* six faces have order 4 (Umove4 .. Dmove4), so it is proved once.           *)
+(* Stated in uniform powers g^+1, g^+2, g^+3 rather than g, g^+2, g^-1 so     *)
+(* that every one of the nine products goes through a single expgD.           *)
 Lemma face_closeP (g m1 m2 : {perm facelet}) :
   g ^+ 4 = 1 ->
   m1 \in [:: g ^+ 1; g ^+ 2; g ^+ 3] -> m2 \in [:: g ^+ 1; g ^+ 2; g ^+ 3] ->
@@ -78,10 +78,10 @@ Qed.
 
 (* ---- 3. moves is duplicate free -------------------------------------------*)
 
-(* fcube below is index m moves, so it only names the intended face if moves
-   has no repeats.  Comparing eighteen permutations pairwise would be a
-   nightmare; going through the TABLES makes it a list computation, which is
-   the trick this development uses everywhere.  Measured: 145 ms.             *)
+(* fcube below is index m moves, so it only names the intended face if moves  *)
+(* has no repeats.  Comparing eighteen permutations pairwise would be a       *)
+(* nightmare; going through the TABLES makes it a list computation, which is  *)
+(* the trick this development uses everywhere.  Measured: 145 ms.             *)
 Lemma uniq_mtabs : uniq mtabs.
 Proof. by vm_compute. Qed.
 
@@ -110,16 +110,16 @@ Qed.
 Definition nfcube := 6.                 (* six faces                          *)
 Definition oppf (f : nat) : nat := (f + 3) %% nfcube.
 
-(* moves is flatten [seq [:: g; g^+2; g^-1] | g <- faces], so the moves of
-   face f sit at indices 3f, 3f+1, 3f+2.                                      *)
+(* moves is flatten [seq [:: g; g^+2; g^-1] | g <- faces], so the moves of    *)
+(* face f sit at indices 3f, 3f+1, 3f+2.                                      *)
 Definition fcube (m : {perm facelet}) : nat := index m moves %/ 3.
 
-(* oppf_lt and oppf_neq used to live here, to discharge Searchr's opp_lt and
-   opp_neq.  Those hypotheses turned out to be unused, so both are gone --
-   two lines to restore if ever wanted.  oppfK is NOT dead: searchrN needs
-   it, and an earlier cleanup deleted it by accident along with its two
-   neighbours -- Redun.v still compiled, because nothing inside Redun.v uses
-   it, and only Far.v noticed.                                                *)
+(* oppf_lt and oppf_neq used to live here, to discharge Searchr's opp_lt and  *)
+(* opp_neq.  Those hypotheses turned out to be unused, so both are gone --    *)
+(* two lines to restore if ever wanted.  oppfK is NOT dead: searchrN needs    *)
+(* it, and an earlier cleanup deleted it by accident along with its two       *)
+(* neighbours -- Redun.v still compiled, because nothing inside Redun.v uses  *)
+(* it, and only Far.v noticed.                                                *)
 Lemma oppfK f : f < nfcube -> oppf (oppf f) = f.
 Proof. by rewrite /oppf /nfcube; case: f => [|[|[|[|[|[|f]]]]]]. Qed.
 
@@ -133,10 +133,10 @@ Qed.
 
 (* ---- 5. Reading a move's face off the list --------------------------------*)
 
-(* nth on the concrete eighteen element list reduces by pure list computation
-   -- NO permutation is ever evaluated.  That is what makes all of this cheap,
-   and it is worth knowing before assuming otherwise: the whole block below
-   is mechanical because of it.                                               *)
+(* nth on the concrete eighteen element list reduces by pure list computation *)
+(* -- NO permutation is ever evaluated. That is what makes all of this cheap, *)
+(* and it is worth knowing before assuming otherwise: the whole block below   *)
+(* is mechanical because of it.                                               *)
 Definition gf (f : nat) : {perm facelet} := nth 1 faces f.
 
 Lemma faces_ord4 f : f < 6 -> (gf f) ^+ 4 = 1.
@@ -159,9 +159,9 @@ Qed.
 Lemma moves_size : seq.size moves = 18.
 Proof. by rewrite /moves /faces. Qed.
 
-(* the block structure: face q occupies indices 3q, 3q+1, 3q+2, holding
-   g, g^+2 and g^-1 -- the last being g^+3 since g has order 4.  Eighteen
-   cases, all closed by list reduction.                                       *)
+(* the block structure: face q occupies indices 3q, 3q+1, 3q+2, holding       *)
+(* g, g^+2 and g^-1 -- the last being g^+3 since g has order 4.  Eighteen     *)
+(* cases, all closed by list reduction.                                       *)
 Lemma nth_moves q r : q < 6 -> r < 3 -> nth 1 moves (3 * q + r) = (gf q) ^+ r.+1.
 Proof.
 move=> q6 r3.
@@ -188,17 +188,16 @@ Qed.
 
 (* ---- 6. What is left ------------------------------------------------------*)
 
-(* the converse of moves_faceE, and the two facts Searchr.v asks for.  All
-   three are now mechanical: nth_moves gives the member, mem_nth puts it in
-   moves, and index_uniq (via uniq_moves) reads its index back exactly.
-   [EASY] triple_moves: m' = gf f ^+ k for k in 1..3 is nth 1 moves (3f+k-1),
-   so mem_nth gives m' \in moves and index_uniq gives fcube m' = f.
-   [EASY] fcube_close: moves_faceE on m1 gives the triple, fcube m1 = fcube m2
-   puts m2 in the same one, face_closeP does the algebra, triple_moves maps
-   the answer back.
-   [EASY] fcube_comm: needs commute (gf f) (gf (oppf f)) -- six cases from
-   commute_UD, commute_RL, commute_FB and their commute_sym -- then commuteX2
-   lifts it from the generators to their powers.                              *)
+(* the converse of moves_faceE, and the two facts Searchr.v asks for. All     *)
+(* three are now mechanical: nth_moves gives the member, mem_nth puts it in   *)
+(* moves, and index_uniq (via uniq_moves) reads its index back exactly.       *)
+(* [EASY] triple_moves: m' = gf f ^+ k for k in 1..3 is nth 1 moves (3f+k-1), *)
+(* so mem_nth gives m' \in moves and index_uniq gives fcube m' = f. [EASY]    *)
+(* fcube_close: moves_faceE on m1 gives the triple, fcube m1 = fcube m2 puts  *)
+(* m2 in the same one, face_closeP does the algebra, triple_moves maps the    *)
+(* answer back. [EASY] fcube_comm: needs commute (gf f) (gf (oppf f)) -- six  *)
+(* cases from commute_UD, commute_RL, commute_FB and their commute_sym --     *)
+(* then commuteX2 lifts it from the generators to their powers.               *)
 Lemma triple_moves f m' : f < 6 ->
   m' \in [:: (gf f) ^+ 1; (gf f) ^+ 2; (gf f) ^+ 3] ->
   m' \in moves /\ fcube m' = f.
@@ -225,9 +224,9 @@ have h : index m moves < seq.size moves by rewrite index_mem.
 by move: h; rewrite moves_size.
 Qed.
 
-(* Sset membership, folded.  rewrite inE on a GOAL mentioning Sset expands it
-   into an eighteen way disjunction over permutations and the proof hangs;
-   proved once here on a small goal and used as a rewrite rule instead.       *)
+(* Sset membership, folded.  rewrite inE on a GOAL mentioning Sset expands it *)
+(* into an eighteen way disjunction over permutations and the proof hangs;    *)
+(* proved once here on a small goal and used as a rewrite rule instead.       *)
 Lemma fcube_close m1 m2 : m1 \in Sset -> m2 \in Sset -> fcube m1 = fcube m2 ->
   (m1 * m2 = 1) \/
   (exists2 m3, m3 \in Sset & fcube m3 = fcube m1 /\ m1 * m2 = m3).
@@ -270,8 +269,8 @@ have f6 : fcube m1 < 6 by exact: fcube_ltS.
 have t1 := moves_faceE m1M.
 have t2 := moves_faceE m2M; rewrite fE in t2.
 move: t1 t2; rewrite !inE => t1 t2.
-(* x and y must be ABSTRACT here: substituting m1 while the goal still
-   mentions fcube m1 builds fcube (gf (fcube m1) ^+ 1) and diverges.          *)
+(* x and y must be ABSTRACT here: substituting m1 while the goal still        *)
+(* mentions fcube m1 builds fcube (gf (fcube m1) ^+ 1) and diverges.          *)
 have key : forall f (x y : {perm facelet}), f < 6 ->
     x \in [:: (gf f) ^+ 1; (gf f) ^+ 2; (gf f) ^+ 3] ->
     y \in [:: (gf (oppf f)) ^+ 1; (gf (oppf f)) ^+ 2; (gf (oppf f)) ^+ 3] ->

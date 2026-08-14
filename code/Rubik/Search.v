@@ -78,9 +78,9 @@ apply/orP; right; apply/hasP; exists s^-1; first by rewrite -memS; apply: memSV.
 by rewrite -mulgA mulgV mulg1; apply: IH.
 Qed.
 
-(* And the other side: what the search finds is really there.  Only the "no"
-   side is needed for a lower bound, which is why this was never stated; it
-   is what lets a search that succeeded put its argument back in a ball.      *)
+(* And the other side: what the search finds is really there.  Only the "no"  *)
+(* side is needed for a lower bound, which is why this was never stated; it   *)
+(* is what lets a search that succeeded put its argument back in a ball.      *)
 Lemma search_ball d g : search d g -> g \in ball S d.
 Proof.
 elim: d g => [g|d IH g] /andP[hg].

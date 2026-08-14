@@ -24,16 +24,16 @@ Definition ntwbits := 12.               (* 2 ^ 12 covers the 2187 twists      *)
 (*  1.  Reading a checked loop back at a point                                *)
 (* =========================================================================  *)
 
-(* The sixteen symmetries as int63 values.  A loop over `iota 0 16' would
-   read them as `of_nat s', and the instance at an int s could then only be
-   recovered by unifying `f (of_nat s)' -- not a pattern, so not solvable.
-   Over this list the loop is `all f sym16i' and f is read off directly.      *)
+(* The sixteen symmetries as int63 values.  A loop over `iota 0 16' would     *)
+(* read them as `of_nat s', and the instance at an int s could then only be   *)
+(* recovered by unifying `f (of_nat s)' -- not a pattern, so not solvable.    *)
+(* Over this list the loop is `all f sym16i' and f is read off directly.      *)
 Definition sym16i : seq int :=
   Eval vm_compute in [seq of_nat i | i <- iota 0 16].
 
-(* The four loop shapes as functions.  As NOTATIONS they would have had to
-   capture their index, and a notation argument is read in the ambient scope,
-   where that index does not exist.                                           *)
+(* The four loop shapes as functions.  As NOTATIONS they would have had to    *)
+(* capture their index, and a notation argument is read in the ambient scope, *)
+(* where that index does not exist.                                           *)
 Definition allrank (f : int -> bool) : bool :=
   all_powi nrbits 0%uint63 (Uint63.lsl 1 (of_nat nrbits))
            (fun r => if (nfsi <=? r)%uint63 then true else f r).
@@ -46,15 +46,15 @@ Definition allsym (f : int -> bool) : bool := all f sym16i.
 
 Definition allmv (f : nat -> bool) : bool := all f (iota 0 18).
 
-(* and the eighteen moves as int63 values, for the same reason: a loop that
-   reads them as `of_nat k' cannot be instantiated at an int k.               *)
+(* and the eighteen moves as int63 values, for the same reason: a loop that   *)
+(* reads them as `of_nat k' cannot be instantiated at an int k.               *)
 Definition mv18i : seq int :=
   Eval vm_compute in [seq of_nat i | i <- iota 0 18].
 
 Definition allmvi (f : int -> bool) : bool := all f mv18i.
 
-(* the rank loop: 2 ^ 20 values with the ones past nfsi guarded out.  This is
-   FoldTables.frepL's proof, said once.                                       *)
+(* the rank loop: 2 ^ 20 values with the ones past nfsi guarded out.  This is *)
+(* FoldTables.frepL's proof, said once.                                       *)
 Lemma rank_of_check (f : int -> bool) :
   allrank f -> forall r, (r <? nfsi)%uint63 -> f r.
 Proof.
@@ -117,30 +117,30 @@ Proof. by rewrite /allmvi => hchk k kL; apply: (allP hchk); exact: mv18i_mem. Qe
 (*  2.  The data                                                              *)
 (* =========================================================================  *)
 
-(* THE RANK TABLE IS A VARIABLE.  Requiring the emitted one to STATE the
-   checks costs 103 MB on every session open, and nothing below computes
-   with it -- FoldChecksRun.v instantiates it once.                           *)
+(* THE RANK TABLE IS A VARIABLE.  Requiring the emitted one to STATE the      *)
+(* checks costs 103 MB on every session open, and nothing below computes      *)
+(* with it -- FoldChecksRun.v instantiates it once.                           *)
 Section Obl.
 
 Variable ractab : PArray.array arr.
 
-(* the move on ranks is Farp1's actfsr.  A VARIABLE here: requiring Farp1
-   pulls P1Fs and P1Fsm, and with them the session open goes past the cap.    *)
+(* the move on ranks is Farp1's actfsr.  A VARIABLE here: requiring Farp1     *)
+(* pulls P1Fs and P1Fsm, and with them the session open goes past the cap.    *)
 Variable actr : int -> nat -> int.
 
-(* AND THE SAME MOVE AT AN INT63 INDEX, which is Farp1's actfsri -- actfsr
-   is that one after of_nat.  The checks below are stated over this form so
-   their loops never leave int63; the theory above keeps the nat one.         *)
+(* AND THE SAME MOVE AT AN INT63 INDEX, which is Farp1's actfsri -- actfsr    *)
+(* is that one after of_nat.  The checks below are stated over this form so   *)
+(* their loops never leave int63; the theory above keeps the nat one.         *)
 Variable actri : int -> int -> int.
 Hypothesis actriE : forall r k, actri r (of_nat k) = actr r k.
 
-(* and the four folding tables, FoldTables.v's frepi, fsymi, twsymi and repsi.
-   VARIABLES for the same reason: nothing below computes with them.           *)
+(* and the four folding tables, FoldTables.v's frepi, fsymi, twsymi and       *)
+(* repsi. VARIABLES for the same reason: nothing below computes with them.    *)
 Variables frepi fsymi repsi : int -> int.
 Variable twsymi : int -> int -> int.
 
-(* the rank under a symmetry, chunked like the folded table: entry r * 16 + s
-   at twenty bits, three to a word                                            *)
+(* the rank under a symmetry, chunked like the folded table: entry r * 16 + s *)
+(* at twenty bits, three to a word                                            *)
 Definition racti (r s : int) : int :=
   let i := Uint63.add (Uint63.mul r nsymi) s in
   let w := Uint63.div i nwide in
@@ -151,13 +151,13 @@ Definition racti (r s : int) : int :=
     (Uint63.lsr (PArray.get (PArray.get ractab c) o) (Uint63.mul j wbits))
     wmaski.
 
-(* the rank of a rank's representative.  DEFINED through the two tables, so
-   Fold.v's repsE is an identity and not a check.                             *)
+(* the rank of a rank's representative.  DEFINED through the two tables, so   *)
+(* Fold.v's repsE is an identity and not a check.                             *)
 Definition rrepi (r : int) : int := repsi (frepi r).
 
-(* composing two of the sixteen.  Derived from Sym16's tables rather than
-   emitted: the sixteen are closed under comp_tab by sym16GP, so index lands
-   below sixteen -- smulC checks that it does.                                *)
+(* composing two of the sixteen.  Derived from Sym16's tables rather than     *)
+(* emitted: the sixteen are closed under comp_tab by sym16GP, so index lands  *)
+(* below sixteen -- smulC checks that it does.                                *)
 Definition smult : seq nat :=
   Eval vm_compute in
   [seq index (comp_tab s t) sym16ts | s <- sym16ts, t <- sym16ts].
@@ -168,15 +168,15 @@ Definition smula : arr :=
 Definition smuli (s t : int) : int :=
   PArray.get smula (Uint63.add (Uint63.mul s nsymi) t).
 
-(* the move a symmetry turns a move into, Sym16's relabelling read at an
-   int63 symmetry index                                                       *)
+(* the move a symmetry turns a move into, Sym16's relabelling read at an      *)
+(* int63 symmetry index                                                       *)
 Definition msymi (k : nat) (s : int) : nat := symmove (to_nat s) k.
 
-(* THE SAME RELABELLING AS 288 INT63 ENTRIES, entry s * 18 + k.  symmove is
-   two nth walks over a seq of seqs, after a to_nat, and msymRC ran it on
-   every one of its 302 million iterations: MEASURED 1.56 us a value against
-   ractAC's 254 ns for the same loop shape over the int63 smula.  This is
-   smult/smula one definition over.                                           *)
+(* THE SAME RELABELLING AS 288 INT63 ENTRIES, entry s * 18 + k.  symmove is   *)
+(* two nth walks over a seq of seqs, after a to_nat, and msymRC ran it on     *)
+(* every one of its 302 million iterations: MEASURED 1.56 us a value against  *)
+(* ractAC's 254 ns for the same loop shape over the int63 smula.  This is     *)
+(* smult/smula one definition over.                                           *)
 Definition nmvi : int := 18%uint63.                 (* the eighteen moves     *)
 
 Definition msymt : seq nat :=
@@ -205,25 +205,25 @@ have kW : (k < nwB)%N.
 by have := movei_of_check (sym_of_check msymiCP sL) kL; rewrite (of_natK k kW).
 Qed.
 
-(* THE CHECKS ARE HYPOTHESES HERE.  Running them needs the emitted tables and
-   a good half hour; everything below only needs to KNOW they hold, so it is
-   proved once against a section hypothesis and FoldChecksRun.v pays the bill.
-   A name that does not typecheck then costs a load, not a run.               *)
+(* THE CHECKS ARE HYPOTHESES HERE. Running them needs the emitted tables and  *)
+(* a good half hour; everything below only needs to KNOW they hold, so it is  *)
+(* proved once against a section hypothesis and FoldChecksRun.v pays the      *)
+(* bill. A name that does not typecheck then costs a load, not a run.         *)
 
 (* =========================================================================  *)
 (*  3.  The obligations that are pure bookkeeping                             *)
 (* =========================================================================  *)
 
-(* the orbit table and the representative table name the same rank: an
-   identity, because rrepi is DEFINED through both                            *)
-(* the guard is carried even though the equation does not need it: Fold.v's
-   repsE has it, and an argument without it does not fit                      *)
+(* the orbit table and the representative table name the same rank: an        *)
+(* identity, because rrepi is DEFINED through both                            *)
+(* the guard is carried even though the equation does not need it: Fold.v's   *)
+(* repsE has it, and an argument without it does not fit                      *)
 Lemma repsEn r : (r <? nfsi)%uint63 -> repsi (frepi r) = rrepi r.
 Proof. by []. Qed.
 
-(* the symmetry a rank folds by is one of the sixteen.  FoldTables has the same
-   check but no equation for it, and unfolding a loop by conversion is what
-   the equations are there to avoid, so it is restated here.                  *)
+(* the symmetry a rank folds by is one of the sixteen. FoldTables has the     *)
+(* same check but no equation for it, and unfolding a loop by conversion is   *)
+(* what the equations are there to avoid, so it is restated here.             *)
 Definition fsymLC : bool := allrank (fun r => (fsymi r <? nsymi)%uint63).
 
 Hypothesis fsymLCP : fsymLC.
@@ -408,10 +408,10 @@ Lemma acttwiLn tw k : (to_nat tw < ntwist)%N -> (k < 18)%N ->
 Proof.
 move=> twL kL; have h := acttwiLCP; rewrite acttwiLCE in h.
 have hb := move_of_check (twist_of_check h twL) kL.
-(* acttwi READS THE EMITTED TWIST TABLE, so the bound must be moved to int63
-   before anything looks at it: `apply/nltbP' on a goal bounded by the nat
-   ntwist has to unify it against to_nat _, and that evaluates the table.
-   Rewrite the bound first, then elimT, which unifies nothing.                *)
+(* acttwi READS THE EMITTED TWIST TABLE, so the bound must be moved to int63  *)
+(* before anything looks at it: `apply/nltbP' on a goal bounded by the nat    *)
+(* ntwist has to unify it against to_nat _, and that evaluates the table.     *)
+(* Rewrite the bound first, then elimT, which unifies nothing.                *)
 rewrite (_ : ntwist = to_nat ntwisti); last by vm_compute.
 exact: (elimT (nltbP _ _) hb).
 Qed.
