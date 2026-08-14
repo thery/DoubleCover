@@ -985,9 +985,21 @@ everywhere else: a search worker drops from 4.15 GB to *0.85 GB*, so all
 the pieces now run at once instead of in two waves, and checking the table
 drops from about 5.4 processor hours to *1.35*.
 
-*What remains.* Against the OCaml program running the same search, Rocq needs
-about 165 microseconds per position against 0.79, a factor of *209*. That
-factor, not the algorithm, is why the run takes hours rather than minutes.
+*What remains.* The same search written in OCaml is about three times faster.
+Both were run at radius 19 on the reference machine. The OCaml program visits
+146 065 078 152 positions in 26.4 processor-hours, which is 0.65 microseconds a
+position; Rocq takes 87.6 processor-hours over the same tree, which is 2.16. A
+factor of *3.3*.
+
+That the two walk the same tree is not assumed. Dividing each of the seventeen
+Rocq pieces by the positions its OCaml counterpart visited gives between 1.98
+and 2.52 microseconds, across pieces that differ in size by a factor of two. A
+Rocq search cutting differently anywhere would show up as scatter there, and
+there is none.
+
+So the run takes a night because the tree has 146 billion nodes in it, not
+because the prover is slow. In OCaml the same tree still costs 26
+processor-hours.
 
 = The files
 
@@ -1057,18 +1069,18 @@ questions, each with its measurements.
   ([build and run scripts], [1 031 lines]),
 )
 
-Positions visited, measured, and matching the OCaml program exactly:
+Positions visited by the radius-19 search, counted by the OCaml program. The
+Rocq search walks the same tree, and reproduces these counts exactly at the
+smaller depths where counting it is cheap:
 
-#tbl(([search depth], [one piece], [all 18 pieces]),
-  ([14], [42 320], [784 572]),
-  ([15], [547 580], [10 185 576]),
-  ([16], [7 100 612], [130 430 424]),
-  ([17], [91 377 680], [about 1 700 000 000]),
+#tbl(([], [positions]),
+  ([the smallest piece, `Runp1_11b`], [5 575 767 076]),
+  ([the largest piece, `Runp1_10`], [10 554 835 820]),
+  ([*all seventeen*], [*146 065 078 152*]),
 )
 
-The last figure is the only one not counted but computed, as the measured
-depth 16 total multiplied by the measured growth of 12.87 from one depth to
-the next.
+The tree grows by 12.22 from one level to the next, measured between depths 17
+and 19.
 
 Building the tables costs the same whatever radius is searched afterwards.
 Measured end to end from a clean tree on the reference machine, a dual-socket
@@ -1151,11 +1163,13 @@ at every depth, and the fold is what brings it to 0.85 and lets all seventeen
 pieces run at once.
 
 *What is left.* The proof that God's number is at least 20 costs 87
-processor-hours and one night. That is a measured cost, not an estimate. One
-saving is easy to see: the 1 h 40 of idle workers at the end of the run. That
-is a matter of how the work is shared out, not of mathematics. The other is the
-gap between Rocq and the same search written in OCaml. Nothing else in the
-chain is known to be wasteful.
+processor-hours and one night. That is a measured cost, not an estimate. Two
+savings are in sight and neither is large. The first is the 1 h 40 of idle
+workers at the end of the run, which is a matter of how the work is shared out
+and not of mathematics. The second is the factor of 3.3 against OCaml, and even
+winning all of it would leave 26 processor-hours. The cost is the tree, and the
+tree is 146 billion positions. Nothing else in the chain is known to be
+wasteful.
 
 And the other half of God's number, that 20 moves always suffice, is not
 proved here. `Diameter.v` does contain the reduction for it, stated in terms of
