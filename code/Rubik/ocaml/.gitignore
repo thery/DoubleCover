@@ -1,8 +1,11 @@
 # build products
 rubik_lb
 rubik_par
+rubik_qtm
+rubik_reid
 *.cmi
 *.cmx
 *.o
 # generated
 MoveTables.v
+*.tbl

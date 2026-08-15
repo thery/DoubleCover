@@ -3,6 +3,7 @@
 ssrint63.v
 Cyc.v
 Ball.v
+Canon.v
 Table.v
 Search.v
 Searchr.v
