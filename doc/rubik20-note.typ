@@ -1178,11 +1178,27 @@ tree is 146 billion positions. Nothing else in the chain is known to be
 wasteful.
 
 And the other half of God's number, that 20 moves always suffice, is not
-proved here. `Diameter.v` does contain the reduction for it, stated in terms of
-exactly what an exhaustive search would have to supply: that the 55.9 million
-families cover every case up to symmetry, and that each of them is solvable in
-20 moves. That computation is several orders of magnitude larger than the one
-this note describes.
+proved here. What #src("Diameter.v") does contain is the reduction for it, and
+that reduction now rests on one assumption rather than two.
+
+The published proofs of the upper half do not solve all 43 quintillion
+positions. They cut the cube group into the 2 217 093 120 cosets of a
+subgroup, note that a symmetry of the cube carries one coset to another, and
+solve one coset per symmetry class. Two things are then needed: that the
+chosen representatives really do cover every coset, and that each of them is
+solvable in 20 moves.
+
+The first of those is not a computation, and #src("Canon.v") proves it.
+Choose as representative the least member of each class, in the order the
+finite type already carries, and the covering property holds because a finite
+set has a least element. It is eighty lines and it assumes nothing; the count
+of classes, 138 639 780, never enters the proof, since only one class is ever
+looked at.
+
+So what is assumed is exactly the second thing: that every one of those
+representatives can be solved in twenty moves. That is the computation
+Rokicki, Kociemba, Davidson and Dethridge ran, and it is several orders of
+magnitude larger than the one this note describes.
 
 This development was written with the help of Claude, Anthropic's coding
 assistant, which is recorded as a co-author of 267 of the 268 commits of
