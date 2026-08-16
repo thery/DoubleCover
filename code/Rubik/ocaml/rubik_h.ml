@@ -321,6 +321,34 @@ let allowed pm run m =
     if f = pf then (m = pm && run = 1)
     else not (f = opp pf && f > pf)
 
+(* ---- the three viewing angles ------------------------------------------- *)
+
+(* H is built around the up-down axis, so the table answers "how far from H"
+   for that axis alone.  Turn the whole cube and it answers for another axis,
+   and every answer is a lower bound on the same distance, because a rotation
+   does not change how far a position is from solved.  Three answers, keep
+   the largest.
+
+   No symmetry acting on cubies is needed for this.  A rotation relabels the
+   faces, so it turns a maneuver into another maneuver -- the conjugated
+   position is the conjugated WORD -- and along the search it turns a move
+   into another move, so the same tables follow it with a permuted index.
+
+   Face order U R F D L B.  The second line turns the cube about the front-
+   back axis, U -> R -> D -> L -> U, which carries the up-down axis onto the
+   right-left one; the third turns it about the right-left axis, U -> F -> D
+   -> B -> U.  Both are rotations, so a clockwise turn stays clockwise.     *)
+let nax = 3
+let axis = [| [| 0; 1; 2; 3; 4; 5 |];
+              [| 1; 3; 2; 4; 0; 5 |];
+              [| 2; 1; 3; 5; 4; 0 |] |]
+
+(* the same relabelling on the twelve quarter turns and on the eighteen *)
+let cmv = Array.init nax (fun i ->
+  Array.init nmv (fun m -> 2 * axis.(i).(face m) + (m land 1)))
+let cmv18 = Array.init nax (fun i ->
+  Array.init 18 (fun m -> 3 * axis.(i).(m / 3) + m mod 3))
+
 let perm_parity p =
   let n = Array.length p in
   let seen = Array.make n false and r = ref 0 in
@@ -371,6 +399,14 @@ let () =
     let _, man = prefixes.(k) in
     let c = ref target in
     Array.iter (fun m -> c := mult !c moves.(m)) man; !c in
+  (* the same position seen along axis i, built by relabelling the words *)
+  let position_ax i k =
+    let _, man = prefixes.(k) in
+    let c = ref (solved ()) in
+    Array.iter (fun m -> c := mult !c moves18.(cmv18.(i).(m)))
+      (Array.append sf_man fs_man);
+    Array.iter (fun m -> c := mult !c moves.(cmv.(i).(m))) man;
+    !c in
 
   (* ---- the move tables -------------------------------------------------- *)
   let mt_e  = mk_move_table n_e  cube_of_e  e_coord  in
@@ -383,6 +419,74 @@ let () =
   let e0 = e_coord (solved ()) and cl0 = cl_coord (solved ())
   and ct0 = ct_coord (solved ()) in
   let start = (e0 * n_cl + cl0) * n_ct + ct0 in
+
+  (* WHAT MAKES A VIEW SOUND is that the relabelling is a rotation of the
+     cube, so that the position it describes is at the same distance as the
+     one being searched.  Anything else may read HIGHER than the distance,
+     and then the search cuts the branch that holds the solution and says no.
+     No run would report that, so it is checked here, twice.
+
+     Once by hand: opposite faces must stay opposite, and the rotation must
+     not be a mirror.  Faces are U R F D L B, so a face and its opposite are
+     three apart, the axis of a face is its index modulo three and the sign
+     is whether it is one of the first three.  A mirror shows up as a signed
+     permutation of determinant minus one, and a mirror turns a clockwise
+     turn into an anticlockwise one, which the relabelling does not do.
+
+     Once by machine: conjugating a position by a rotation cannot change the
+     cycle structure of its corner and edge permutations.  A relabelling that
+     is not a rotation gets that wrong on a random word almost at once.     *)
+  let rotation_ok a =
+    let seen = Array.make 6 false and ok = ref true in
+    Array.iter (fun f -> if f < 0 || f > 5 || seen.(f) then ok := false
+                         else seen.(f) <- true) a;
+    for f = 0 to 5 do
+      if a.((f + 3) mod 6) <> (a.(f) + 3) mod 6 then ok := false done;
+    let p = Array.init 3 (fun i -> a.(i) mod 3) in
+    let sgn = ref 1 in
+    for i = 0 to 2 do if a.(i) >= 3 then sgn := - !sgn done;
+    let par = ref 1 in
+    for i = 0 to 2 do for j = i + 1 to 2 do
+      if p.(i) > p.(j) then par := - !par done done;
+    !ok && !sgn * !par = 1 in
+
+  let cycle_type p =
+    let n = Array.length p in
+    let seen = Array.make n false and l = ref [] in
+    for i = 0 to n - 1 do
+      if not seen.(i) then begin
+        let j = ref i and len = ref 0 in
+        while not seen.(!j) do seen.(!j) <- true; j := p.(!j); incr len done;
+        l := !len :: !l
+      end
+    done;
+    List.sort compare !l in
+
+  let view_check words =
+    for i = 0 to nax - 1 do
+      if not (rotation_ok axis.(i)) then begin
+        log "view %d is not a rotation of the cube\n" i; exit 1 end
+    done;
+    let st = ref 20260816 in
+    let rnd k = st := (!st * 1103515245 + 12345) land 0x3FFFFFFF; !st mod k in
+    let bad = ref 0 in
+    for _ = 1 to words do
+      let len = 1 + rnd 14 in
+      let w = Array.init len (fun _ -> rnd nmv) in
+      let build cw =
+        let c = ref (solved ()) in
+        Array.iter (fun m -> c := mult !c moves.(cw.(m))) w; !c in
+      let g = build (Array.init nmv (fun m -> m)) in
+      let tg = cycle_type g.cp, cycle_type g.ep in
+      for i = 0 to nax - 1 do
+        let h = build cmv.(i) in
+        if (cycle_type h.cp, cycle_type h.ep) <> tg then incr bad
+      done
+    done;
+    log "the three angles: rotations, and %d random words keep their cycles"
+      words;
+    log "%s\n" (if !bad = 0 then "" else Printf.sprintf " -- %d WRONG" !bad);
+    if !bad > 0 then exit 1 in
 
   (* ---- check: the coordinates, and the machinery on a small table ------- *)
   if mode = "check" then begin
@@ -440,9 +544,12 @@ let () =
       log "%s: %d states, %d never reached\n" name (na * nb) h.(31);
       for d = 0 to 30 do if h.(d) > 0 then log "  %2d %10d\n" d h.(d) done;
       (try Sys.remove path with _ -> ());
-      if h.(31) > 0 then exit 1 in
-    small "(cl, ct)" "h_check1.tbl" (n_cl, mt_cl, cl0) (n_ct, mt_ct, ct0);
-    small "(e, cl)"  "h_check2.tbl" (n_e, mt_e, e0) (n_cl, mt_cl, cl0);
+      if h.(31) > 0 then exit 1;
+      t in
+    ignore (small "(cl, ct)" "h_check1.tbl" (n_cl, mt_cl, cl0) (n_ct, mt_ct, ct0));
+    let t = small "(e, cl)"  "h_check2.tbl" (n_e, mt_e, e0) (n_cl, mt_cl, cl0) in
+    ignore t;
+    view_check 20000;
     exit 0
   end;
 
@@ -488,25 +595,36 @@ let () =
     exit 0
   end;
 
-  (* ---- the node count --------------------------------------------------- *)
-  if mode <> "count" then (prerr_endline "unknown mode"; exit 1);
+  (* ---- the node count, and the run -------------------------------------- *)
+  if mode <> "count" && mode <> "run" then
+    (prerr_endline "unknown mode"; exit 1);
   let k = arg4 0 in
+  let job, njobs =
+    if mode = "run" && Array.length Sys.argv > 6
+    then int_of_string Sys.argv.(5), int_of_string Sys.argv.(6) else 0, 1 in
   let name, man = prefixes.(k) in
   let root = position k in
 
   let maxd = 32 in
   let cps = Array.init maxd (fun _ -> Array.make 8 0) in
   let eps = Array.init maxd (fun _ -> Array.make 12 0) in
-  let ec = Array.make maxd 0 and cc = Array.make maxd 0 in
-  let tc = Array.make maxd 0 and fc = Array.make maxd 0 in
+  let ec = Array.make_matrix nax maxd 0 in
+  let cc = Array.make_matrix nax maxd 0 in
+  let tc = Array.make_matrix nax maxd 0 in
+  let fc = Array.make maxd 0 in
   let nodes = ref 0L in
 
   let heur d =
-    Char.code (Bigarray.Array1.unsafe_get tbl
-                 ((ec.(d) * n_cl + cc.(d)) * n_ct + tc.(d))) in
+    let h = ref 0 in
+    for i = 0 to nax - 1 do
+      let v = Char.code (Bigarray.Array1.unsafe_get tbl
+                ((ec.(i).(d) * n_cl + cc.(i).(d)) * n_ct + tc.(i).(d))) in
+      if v > !h then h := v
+    done;
+    !h in
 
   let is_solved d =
-    let r = ref (tc.(d) = 0 && fc.(d) = 0) in
+    let r = ref (tc.(0).(d) = ct0 && fc.(d) = 0) in
     for i = 0 to 7 do if cps.(d).(i) <> i then r := false done;
     for i = 0 to 11 do if eps.(d).(i) <> i then r := false done;
     !r in
@@ -516,9 +634,12 @@ let () =
     let mcp = moves.(m).cp and mep = moves.(m).ep in
     for i = 0 to 7 do cps.(d').(i) <- cps.(d).(mcp.(i)) done;
     for i = 0 to 11 do eps.(d').(i) <- eps.(d).(mep.(i)) done;
-    ec.(d') <- mt_e.(ec.(d)).(m);
-    cc.(d') <- mt_cl.(cc.(d)).(m);
-    tc.(d') <- mt_ct.(tc.(d)).(m);
+    for i = 0 to nax - 1 do
+      let mi = cmv.(i).(m) in
+      ec.(i).(d') <- mt_e.(ec.(i).(d)).(mi);
+      cc.(i).(d') <- mt_cl.(cc.(i).(d)).(mi);
+      tc.(i).(d') <- mt_ct.(tc.(i).(d)).(mi)
+    done;
     fc.(d') <- mt_fl.(fc.(d)).(m) in
 
   let rec dfs d rem pm run =
@@ -541,19 +662,47 @@ let () =
 
   for i = 0 to 7 do cps.(0).(i) <- root.cp.(i) done;
   for i = 0 to 11 do eps.(0).(i) <- root.ep.(i) done;
-  ec.(0) <- e_coord root; cc.(0) <- cl_coord root;
-  tc.(0) <- ct_coord root; fc.(0) <- flip root;
+  for i = 0 to nax - 1 do
+    let c = position_ax i k in
+    ec.(i).(0) <- e_coord c; cc.(i).(0) <- cl_coord c; tc.(i).(0) <- ct_coord c
+  done;
+  fc.(0) <- flip root;
+  view_check 2000;
   log "position %d: superflip . fourspot . %s\n" k name;
   log "  prefix %d moves, so Reid's search of it is depth %d\n"
     (Array.length man) (24 - Array.length man);
   log "  root table value: %d\n" (heur 0);
 
-  for d = 10 to depth do
-    nodes := 0L;
+  if mode = "count" then
+    for d = 10 to depth do
+      nodes := 0L;
+      let t1 = Unix.gettimeofday () in
+      let got = dfs 0 d (-1) 0 in
+      let s = Unix.gettimeofday () -. t1 in
+      log "depth %2d : %14Ld nodes, %8.1f s, %.2e nodes/s%s\n" d !nodes s
+        (Int64.to_float !nodes /. (if s > 0. then s else 1.))
+        (if got then "  SOLVED -- which would be a discovery, check it" else "")
+    done
+  else begin
+    (* THE RUN.  One job takes some of the moves the search may play first,
+       and every job plays every second move the rule allows after it.  The
+       first move is NOT cut down: the reduction of doc/reid-1998-fourspot.md
+       already fixed the beginning of the maneuver, and asking the rest to be
+       canonical as well would need an argument nobody has made.             *)
+    let pre = ref [] in
+    for m1 = 0 to nmv - 1 do
+      for m2 = 0 to nmv - 1 do
+        if allowed m1 1 m2 then pre := (m1, m2) :: !pre done done;
+    let pre = List.rev !pre in
     let t1 = Unix.gettimeofday () in
-    let got = dfs 0 d (-1) 0 in
-    let s = Unix.gettimeofday () -. t1 in
-    log "depth %2d : %14Ld nodes, %8.1f s, %.2e nodes/s%s\n" d !nodes s
-      (Int64.to_float !nodes /. (if s > 0. then s else 1.))
-      (if got then "  SOLVED -- which would be a discovery, check it" else "")
-  done
+    let got = ref false in
+    List.iteri (fun idx (m1, m2) ->
+      if idx mod njobs = job && not !got then begin
+        step 0 m1; step 1 m2;
+        let run = if face m2 = face m1 then 2 else 1 in
+        if dfs 2 (depth - 2) m2 run then got := true
+      end) pre;
+    Printf.printf
+      "position %d job %d/%d depth %d : %Ld nodes, %.1f s, solution %b\n%!"
+      k job njobs depth !nodes (Unix.gettimeofday () -. t1) !got
+  end

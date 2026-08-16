@@ -129,11 +129,27 @@ database that was our best quarter-turn heuristic.  His table reaches distance
 14 in quarter turns; the mean is 11.55.
 
 ```
-make hcheck     # the coordinates and two small tables, a few seconds
+make hcheck     # the coordinates, two small tables, the three angles
 make hroots     # Reid's six positions, no table needed
 make hbuild     # the table, JOBS workers
 make hcount     # node counts from position HPOS up to depth HDEPTH
+make hrun       # the real search of position HPOS, JOBS workers
 ```
+
+The table is read along **three axes**.  `H` is built around the up-down axis,
+so turning the whole cube asks it about another axis, and every answer is a
+lower bound on the same distance.  No symmetry acting on cubies is needed: a
+rotation relabels the faces, so the position seen along another axis is the
+relabelled word, and along the search a move becomes another move, which the
+same tables follow with a permuted index.
+
+What makes that sound is only that the relabelling is a rotation.  If it is
+not, a view can read higher than the distance, the search cuts the branch
+holding the solution, and the run says no -- which is the one kind of mistake
+a search cannot report.  `make hcheck` therefore tests it twice: opposite
+faces stay opposite and the signed permutation has determinant one, so it is
+a rotation and not a mirror; and on twenty thousand random words, conjugating
+must leave the cycle structure of the corner and edge permutations alone.
 
 **The table goes on tmpfs, not on a disk.**  From the tenth level on, a level
 of the sweep dirties the whole table, so a file on a disk is written back in
