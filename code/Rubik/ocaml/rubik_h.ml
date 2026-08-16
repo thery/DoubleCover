@@ -242,10 +242,17 @@ let counters path nw =
    rather than left to assume.  Assuming it builds a table of distances from
    a cube nobody asked about, and every value in it is wrong by a shift that
    is different for every coset.                                           *)
+(* A HALF BUILT TABLE MUST NOT LOOK LIKE A BUILT ONE.  The sweep writes into
+   `path.part' and renames it only when it has finished, so a build that is
+   interrupted leaves nothing that a later run will pick up and believe.  An
+   interrupted 29 Gb table is a bad thing to inherit in silence: it prunes
+   almost nothing and the search still answers.                             *)
 let build path cap nw start (na, mta) (nb, mtb) (nc, mtc) =
   let n_all = na * nb * nc in
   let fresh = not (Sys.file_exists path) in
-  let fd = Unix.openfile path [Unix.O_RDWR; Unix.O_CREAT] 0o644 in
+  let wpath = if fresh then path ^ ".part" else path in
+  if fresh then (try Sys.remove wpath with _ -> ());
+  let fd = Unix.openfile wpath [Unix.O_RDWR; Unix.O_CREAT] 0o644 in
   if fresh then Unix.LargeFile.ftruncate fd (Int64.of_int n_all);
   let t = Bigarray.array1_of_genarray
       (Unix.map_file fd Bigarray.char Bigarray.c_layout true [| n_all |]) in
@@ -255,7 +262,7 @@ let build path cap nw start (na, mta) (nb, mtb) (nc, mtc) =
     let t0 = Unix.gettimeofday () in
     Bigarray.Array1.fill t (Char.chr (cap + 1));
     Bigarray.Array1.unsafe_set t start '\000';
-    let cnt = counters (path ^ ".cnt") nw in
+      let cnt = counters (wpath ^ ".cnt") nw in
     let slice w = (w * na / nw, (w + 1) * na / nw) in
     (try
       for cur = 0 to cap - 1 do
@@ -295,7 +302,8 @@ let build path cap nw start (na, mta) (nb, mtb) (nc, mtc) =
         if !added = 0L then raise Exit
       done
     with Exit -> ());
-    (try Sys.remove (path ^ ".cnt") with _ -> ())
+    (try Sys.remove (wpath ^ ".cnt") with _ -> ());
+    Sys.rename wpath path
   end;
   t
 
