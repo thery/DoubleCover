@@ -667,11 +667,14 @@ let () =
     ec.(i).(0) <- e_coord c; cc.(i).(0) <- cl_coord c; tc.(i).(0) <- ct_coord c
   done;
   fc.(0) <- flip root;
-  view_check 2000;
-  log "position %d: superflip . fourspot . %s\n" k name;
-  log "  prefix %d moves, so Reid's search of it is depth %d\n"
-    (Array.length man) (24 - Array.length man);
-  log "  root table value: %d\n" (heur 0);
+  (* Only one job talks.  With a job per prefix there are 132 of them.      *)
+  if job = 0 then begin
+    view_check 2000;
+    log "position %d: superflip . fourspot . %s\n" k name;
+    log "  prefix %d moves, so Reid's search of it is depth %d\n"
+      (Array.length man) (24 - Array.length man);
+    log "  root table value: %d\n" (heur 0)
+  end;
 
   if mode = "count" then
     for d = 10 to depth do
