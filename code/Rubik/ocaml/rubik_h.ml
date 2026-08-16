@@ -450,7 +450,14 @@ let () =
   end;
 
   (* ---- the table -------------------------------------------------------- *)
-  let path = Printf.sprintf "h_cap%d.tbl" cap in
+  (* WHERE THE TABLE LIVES IS NOT A DETAIL.  A file on an ordinary disk is
+     written back by the kernel as the sweep dirties it, and from the tenth
+     level on a level dirties the whole table, so the build stops computing
+     and waits on the disk: measured on the reference machine, 18 workers
+     idle at 65% iowait and 60 Mb a second.  On tmpfs the pages never leave
+     memory.  H_TBL says where, and the Makefile puts it in /dev/shm.       *)
+  let path =
+    try Sys.getenv "H_TBL" with Not_found -> Printf.sprintf "h_cap%d.tbl" cap in
   if mode <> "build" && not (Sys.file_exists path) then begin
     prerr_endline (path ^ " is missing -- run the build first");
     exit 1
