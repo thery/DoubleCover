@@ -3,9 +3,11 @@ rubik_lb
 rubik_par
 rubik_qtm
 rubik_reid
+rubik_h
 *.cmi
 *.cmx
 *.o
 # generated
 MoveTables.v
 *.tbl
+*.tbl.cnt

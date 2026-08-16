@@ -16,7 +16,7 @@ JOBS     ?= $(shell nproc)
 DEPTH    ?= 19
 CAP      ?= 9
 
-PROGS = rubik_lb rubik_par rubik_qtm
+PROGS = rubik_lb rubik_par rubik_qtm rubik_h
 
 all: $(PROGS)
 
@@ -46,7 +46,7 @@ clean:
 	rm -f $(PROGS) *.cmi *.cmx *.o
 
 distclean: clean
-	rm -f phase1_cap*.tbl MoveTables.v
+	rm -f phase1_cap*.tbl qtm_cap*.tbl h_cap*.tbl MoveTables.v
 
 .PHONY: all check run clean distclean
 
@@ -75,3 +75,32 @@ qverify: rubik_qtm
 qrun: rubik_qtm
 	./rubik_qtm $(QDEPTH) $(QCAP) build
 	seq 0 119 | xargs -P $(JOBS) -I{} ./rubik_qtm $(QDEPTH) $(QCAP) {} 120
+
+# ---- Reid's 1998 table ---------------------------------------------------- #
+# The subgroup of his "new optimal solver" post: 29 099 347 200 cosets, one
+# byte each, so the file is 29.1 GB and the machine needs that much free disk
+# and enough memory to keep it in the page cache.
+#
+#   make hcheck     the coordinates and two small tables, a few seconds
+#   make hbuild     the table itself, JOBS workers (hours)
+#   make hcount     node counts from one of Reid's six positions
+HDEPTH ?= 18
+HCAP   ?= 14
+HPOS   ?= 0
+
+rubik_h: rubik_h.ml
+	$(OCAMLOPT) $< -o $@
+
+hcheck: rubik_h
+	./rubik_h 1 $(HCAP) check
+
+hroots: rubik_h
+	./rubik_h 1 $(HCAP) roots
+
+hbuild: rubik_h
+	./rubik_h 1 $(HCAP) build $(JOBS)
+
+hcount: rubik_h
+	./rubik_h $(HDEPTH) $(HCAP) count $(HPOS)
+
+.PHONY: hcheck hroots hbuild hcount
