@@ -135,7 +135,19 @@ make hbuild     # the table, JOBS workers
 make hcount     # node counts from position HPOS up to depth HDEPTH
 ```
 
-**The build wants 29.1 GB of free disk and the memory to keep it cached.**
+**The table goes on tmpfs, not on a disk.**  From the tenth level on, a level
+of the sweep dirties the whole table, so a file on a disk is written back in
+full at every level: measured on the reference machine, eighteen workers idle
+at 65% iowait while the disk took 60 MB a second.  `/dev/shm` has to hold
+28 GB, which is more than the usual half of memory allows, so
+
+```
+df -h /dev/shm
+sudo mount -o remount,size=32G /dev/shm
+```
+
+`HTBL` says where the table goes and defaults to `/dev/shm/h_cap14.tbl`.  It
+does not survive a reboot; copy it to the disk afterwards if that matters.
 One byte a coset and no symmetry folding: Reid stores nibbles and folds the
 sixteen symmetries of the U-D axis into 883 MB, which is four times smaller
 and a great deal more code.  Time is an estimate, not a measurement: about

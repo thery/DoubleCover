@@ -87,6 +87,11 @@ qrun: rubik_qtm
 HDEPTH ?= 18
 HCAP   ?= 14
 HPOS   ?= 0
+# On tmpfs, NOT on the disk: the sweep dirties the whole table at every deep
+# level, and a disk turns the build into 65% iowait.  /dev/shm must hold 28 GB
+# -- check with df -h /dev/shm, and raise it if need be with
+#   sudo mount -o remount,size=32G /dev/shm
+HTBL   ?= /dev/shm/h_cap$(HCAP).tbl
 
 rubik_h: rubik_h.ml
 	$(OCAMLOPT) $< -o $@
@@ -98,9 +103,9 @@ hroots: rubik_h
 	./rubik_h 1 $(HCAP) roots
 
 hbuild: rubik_h
-	./rubik_h 1 $(HCAP) build $(JOBS)
+	H_TBL=$(HTBL) ./rubik_h 1 $(HCAP) build $(JOBS)
 
 hcount: rubik_h
-	./rubik_h $(HDEPTH) $(HCAP) count $(HPOS)
+	H_TBL=$(HTBL) ./rubik_h $(HDEPTH) $(HCAP) count $(HPOS)
 
 .PHONY: hcheck hroots hbuild hcount
