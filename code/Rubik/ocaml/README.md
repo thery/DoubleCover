@@ -178,16 +178,59 @@ numbers have to be Reid's quarter-turn column, coset for coset:
 If they are not, the coordinate is wrong and nothing below it means anything.
 
 `make hcount HPOS=0 HDEPTH=18` then counts nodes from `superflip . fourspot .
-R U`, the position Reid searched through 22 quarter turns.  What the same
-estimate that reproduces his 153 hours predicts, for the one viewing angle
-this program uses:
+R U`, the position Reid searched through 22 quarter turns.
 
-| depth | nodes |
-|---:|---:|
-| 15 | 1.0e5 |
-| 16 | 8.9e5 |
-| 17 | 7.9e6 |
-| 18 | 7.1e7 |
+## What it measured
 
-so depths 15 to 18 are seconds and the curve, not the estimate, is what
-should decide whether the quarter-turn bound is affordable.
+The build, 18 workers, table in `/dev/shm`: **9 min 50 wall, 103 processor
+minutes**, and the fifteen level counts are Reid's quarter-turn column to the
+unit, 1, 8, 76, 696, 6418, 57912, 514318, 4496206, 38304572, 308312232,
+2142297548, 9789496784, 14800845359, 2014724044, 291026.  So the coordinate is
+his.
+
+That build is the one job he timed, which makes the two machines comparable
+for once:
+
+| | cosets swept | processor time | per coset |
+|---|---|---|---|
+| Reid, 1998, one processor | 1 851 470 460, folded | 85 min | 2.75 us |
+| here, 18 workers | 29 099 347 200, flat | 103 min | 0.21 us |
+
+Sixteen times the states for 1.2 times the processor time, so 13 times faster
+a coset.  A sweep has good locality and gets the clock speed; the search below
+is random access and gets only what memory latency has gained, which is far
+less.
+
+The search from position 0, one viewing angle, table read from `/dev/shm`:
+
+| depth | nodes | two levels up |
+|---:|---:|---:|
+| 14 | 1 991 576 | |
+| 15 | 6 736 696 | |
+| 16 | 82 974 159 | 41.7 |
+| 17 | 350 463 408 | 52.0 |
+| 18 | 3 719 942 325 | 44.8 |
+
+at a steady **8.4 million nodes a second on one core**, seven times the
+half-turn search, because this heuristic is one random read and that one is
+three.  Depths alternate because the corner permutation fixes the parity of
+the distance, so the ratio to read is the one two levels up.
+
+Extrapolating each chain on its own ratio, and letting the ratio drift up as
+it has been doing -- it must end at the canonical 8.9 squared -- position 0 at
+depth 22 is about **9e12 nodes** and each of the other five at depth 21 about
+**1.2e12**, so Reid's six searches are around **1.5e13 nodes, 500 processor
+hours, a day and a half on eighteen cores**.
+
+That is the whole point of the exercise.  The same six searches with the
+tables we had were 1.25e14 nodes and some 3 300 processor hours, and the
+quarter-turn bound was written down as blocked.  It is not blocked.
+
+Three things that number does not include.  It is **one viewing angle**, and
+`H` is symmetric about the U-D axis, so the same table can be read along all
+three -- which is where the rest of Reid's advantage must lie.  It is OCaml,
+and Rocq measured 3.3 times slower on the half-turn search.  And nothing here
+says how the table would be written down in Rocq: folded by the sixteen
+symmetries it is 1 851 470 460 entries, which at four bits and sixteen to an
+`int63` word is 116 million cells, fewer than the 149 million the phase 1
+table already loads.
