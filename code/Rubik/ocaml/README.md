@@ -109,3 +109,73 @@ returns the same node counts to the unit (46 322 at depth 11, 692 462 at 12,
   * 11x slower under `vm_compute`
 
 so the full depth-19 computation projects to about 9 hours on 14 cores.
+
+## Reid's 1998 table, `rubik_h.ml`
+
+His post of 31 July 1998 (`doc/reid-1998-optimal-solver.md`) describes the
+pruning table his optimal solver used, and it is not one of ours.  Take the
+subgroup `H` in which the four middle-slice edges are home and unflipped, the
+four U corners are on the U face, and every corner has its U or D facelet on
+the U or D face.  A coset is then a triple:
+
+| coordinate | what it is | size |
+|---|---|---|
+| `e` | where the four slice edges sit, and how they are flipped | 190 080 |
+| `cl` | which four corner places hold the U corners | 70 |
+| `ct` | the corner orientations | 2 187 |
+
+which is 29 099 347 200 cosets, 680 times the 42.6 million states of the edge
+database that was our best quarter-turn heuristic.  His table reaches distance
+14 in quarter turns; the mean is 11.55.
+
+```
+make hcheck     # the coordinates and two small tables, a few seconds
+make hroots     # Reid's six positions, no table needed
+make hbuild     # the table, JOBS workers
+make hcount     # node counts from position HPOS up to depth HDEPTH
+```
+
+**The build wants 29.1 GB of free disk and the memory to keep it cached.**
+One byte a coset and no symmetry folding: Reid stores nibbles and folds the
+sixteen symmetries of the U-D axis into 883 MB, which is four times smaller
+and a great deal more code.  Time is an estimate, not a measurement: about
+3.5e11 random writes, so one to two hours on eighteen workers.
+
+`make hcheck` is what to run first.  It round trips the three coordinates,
+checks that every move permutes each of them, and prints
+
+```
+from solved: 8 cosets at distance 1, fixed by U U' D D'
+```
+
+which is the first line of Reid's distance column, and says that the four
+turns of the U and D faces lie in `H`.  It then builds the two small tables
+`(cl, ct)` and `(e, cl)` -- the same sweep, the same forks, the same shared
+file -- and fails if any state is left unreached.
+
+`make hbuild` prints the number of cosets at each distance as it goes.  Those
+numbers have to be Reid's quarter-turn column, coset for coset:
+
+```
+ 0 1          4 6418       8 38304572     12 14800845359
+ 1 8          5 57912      9 308312232    13 2014724044
+ 2 76         6 514318    10 2142297548   14 291026
+ 3 696        7 4496206   11 9789496784
+```
+
+If they are not, the coordinate is wrong and nothing below it means anything.
+
+`make hcount HPOS=0 HDEPTH=18` then counts nodes from `superflip . fourspot .
+R U`, the position Reid searched through 22 quarter turns.  What the same
+estimate that reproduces his 153 hours predicts, for the one viewing angle
+this program uses:
+
+| depth | nodes |
+|---:|---:|
+| 15 | 1.0e5 |
+| 16 | 8.9e5 |
+| 17 | 7.9e6 |
+| 18 | 7.1e7 |
+
+so depths 15 to 18 are seconds and the curve, not the estimate, is what
+should decide whether the quarter-turn bound is affordable.
