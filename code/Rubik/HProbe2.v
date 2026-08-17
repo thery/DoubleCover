@@ -31,7 +31,7 @@ Definition probe_ends_01 :=
 (* million.                                                                  *)
 Definition entry (k : int) : int :=
   let w := k / 15 in
-  let a := if w < 2097152 then h_chunk_00 else h_chunk_01 in
+  let a := if w <? 2097152 then h_chunk_00 else h_chunk_01 in
   (a.[w land 2097151] >> (4 * (k mod 15))) land 15.
 
 Definition probe_entries :=
