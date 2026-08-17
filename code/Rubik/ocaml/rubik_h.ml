@@ -349,6 +349,76 @@ let cmv = Array.init nax (fun i ->
 let cmv18 = Array.init nax (fun i ->
   Array.init 18 (fun m -> 3 * axis.(i).(m / 3) + m mod 3))
 
+(* ---- the sixteen symmetries of the up-down axis -------------------------- *)
+
+(* H is invariant under every symmetry of the cube that keeps the up-down axis
+   in place, and there are sixteen of those.  Two cosets carried onto each
+   other by one of them are the same distance from solved, so one entry serves
+   both, and Reid's 190 080 values of e fall into 12 094 families.  That count
+   is the check on everything here.
+
+   A symmetry is again a relabelling of the faces, and a mirror is allowed as
+   well as a rotation: the fold only needs the distance to be preserved, and
+   the mirror image of a maneuver solves the mirror image of the position.  A
+   mirror does turn a clockwise turn into an anticlockwise one, which is the
+   flag below.                                                              *)
+let nsym = 16
+
+let sym_compose (a1, m1) (a2, m2) =
+  (Array.init 6 (fun f -> a2.(a1.(f))), m1 <> m2)
+
+let syms =
+  let gens = [ ([| 0; 2; 4; 3; 5; 1 |], false);  (* U fixed, R -> F -> L -> B *)
+               ([| 3; 1; 5; 0; 4; 2 |], false);  (* U <-> D, F <-> B          *)
+               ([| 0; 4; 2; 3; 1; 5 |], true) ]  (* the mirror R <-> L        *)
+  in
+  let l = ref [ (Array.init 6 (fun f -> f), false) ] in
+  let grew = ref true in
+  while !grew do
+    grew := false;
+    List.iter (fun g ->
+      List.iter (fun x ->
+        let (ya, ym) = sym_compose x g in
+        if not (List.exists (fun (a, m) -> a = ya && m = ym) !l) then begin
+          l := (ya, ym) :: !l; grew := true end) !l) gens
+  done;
+  Array.of_list (List.rev !l)
+
+(* the same relabelling on the twelve quarter turns, direction reversed by a
+   mirror *)
+let smv = Array.map (fun (a, m) ->
+  Array.init nmv (fun q ->
+    2 * a.(face q) + (if m then 1 - (q land 1) else q land 1))) syms
+
+(* How a symmetry acts on a coordinate.  A value is reached from the solved
+   one by a word, the symmetry turns that word into another word, and the
+   value that one reaches is the answer.  Taking the values in the order a
+   breadth first sweep finds them means the parent's answer is always ready,
+   so no word is ever written down.                                         *)
+let sym_of_coord n mt start rel =
+  let a = Array.make n (-1) in
+  let order = Array.make n 0 and prev = Array.make n 0 and via = Array.make n 0 in
+  let seen = Array.make n false in
+  seen.(start) <- true; order.(0) <- start;
+  let head = ref 0 and tail = ref 1 in
+  while !head < !tail do
+    let x = order.(!head) in incr head;
+    for q = 0 to nmv - 1 do
+      let y = mt.(x).(q) in
+      if not seen.(y) then begin
+        seen.(y) <- true; prev.(y) <- x; via.(y) <- q;
+        order.(!tail) <- y; incr tail
+      end
+    done
+  done;
+  if !tail <> n then (prerr_endline "a coordinate is not connected"; exit 1);
+  a.(start) <- start;
+  for i = 1 to n - 1 do
+    let x = order.(i) in
+    a.(x) <- mt.(a.(prev.(x))).(rel.(via.(x)))
+  done;
+  a
+
 let perm_parity p =
   let n = Array.length p in
   let seen = Array.make n false and r = ref 0 in
@@ -488,6 +558,38 @@ let () =
     log "%s\n" (if !bad = 0 then "" else Printf.sprintf " -- %d WRONG" !bad);
     if !bad > 0 then exit 1 in
 
+  (* The sixteen symmetries and the families of e values they make.  This
+     needs no distance table, so the count that checks it -- Reid's 12 094 --
+     is had before anything big is built.                                   *)
+  let families () =
+    if Array.length syms <> nsym then begin
+      log "the group came out at %d, not %d\n" (Array.length syms) nsym;
+      exit 1 end;
+    Array.iteri (fun i (a, _) ->
+      let ok = ref (a.(0) = 0 || a.(0) = 3) in
+      for f = 0 to 5 do
+        if a.((f + 3) mod 6) <> (a.(f) + 3) mod 6 then ok := false done;
+      if not !ok then begin
+        log "symmetry %d does not keep the up-down axis\n" i; exit 1 end) syms;
+    let sym_e  = Array.init nsym (fun i -> sym_of_coord n_e  mt_e  e0  smv.(i)) in
+    let sym_cl = Array.init nsym (fun i -> sym_of_coord n_cl mt_cl cl0 smv.(i)) in
+    let sym_ct = Array.init nsym (fun i -> sym_of_coord n_ct mt_ct ct0 smv.(i)) in
+    let rep = Array.make n_e 0 and which = Array.make n_e 0 in
+    for e = 0 to n_e - 1 do
+      let best = ref max_int and bs = ref 0 in
+      for i = 0 to nsym - 1 do
+        if sym_e.(i).(e) < !best then (best := sym_e.(i).(e); bs := i) done;
+      rep.(e) <- !best; which.(e) <- !bs
+    done;
+    let cls = Array.make n_e (-1) and nrep = ref 0 in
+    for e = 0 to n_e - 1 do
+      if rep.(e) = e then begin cls.(e) <- !nrep; incr nrep end done;
+    log "%d symmetries keep the up-down axis, and %d values of e make %d families, a factor of %.2f\n"
+      nsym n_e !nrep (float_of_int n_e /. float_of_int !nrep);
+    if !nrep <> 12094 then begin
+      log "Reid says 12 094 families, so the symmetries are wrong\n"; exit 1 end;
+    (sym_cl, sym_ct, rep, which, cls, !nrep) in
+
   (* ---- check: the coordinates, and the machinery on a small table ------- *)
   if mode = "check" then begin
     let round n of_coord coord name =
@@ -550,6 +652,7 @@ let () =
     let t = small "(e, cl)"  "h_check2.tbl" (n_e, mt_e, e0) (n_cl, mt_cl, cl0) in
     ignore t;
     view_check 20000;
+    ignore (families ());
     exit 0
   end;
 
@@ -580,6 +683,68 @@ let () =
   let nw = if mode = "build" then arg4 1 else 1 in
   let t0 = Unix.gettimeofday () in
   let tbl = build path cap nw start (n_e, mt_e) (n_cl, mt_cl) (n_ct, mt_ct) in
+  (* ---- the fold, for the sake of Rocq ----------------------------------- *)
+
+  (* Rocq cannot be handed 29.1 GB, and it does not have to be.  One entry
+     serves a whole family, so what is left is 12 094 x 70 x 2187 entries at
+     four bits, 883 MB, and packed sixteen to an int63 word that is 116
+     million cells -- fewer than the 149 million the phase 1 table already
+     loads.                                                                 *)
+  if mode = "fold" then begin
+    let sym_cl, sym_ct, rep, which, cls, nrep = families () in
+    let fpath = try Sys.getenv "H_FTBL" with Not_found ->
+      Printf.sprintf "h_fold%d.tbl" cap in
+    let n_fold = nrep * n_cl * n_ct in
+    let bytes = (n_fold + 1) / 2 in
+    log "folded table: %d entries, %d bytes\n" n_fold bytes;
+    let fd = Unix.openfile (fpath ^ ".part")
+        [Unix.O_RDWR; Unix.O_CREAT; Unix.O_TRUNC] 0o644 in
+    Unix.LargeFile.ftruncate fd (Int64.of_int bytes);
+    let f = Bigarray.array1_of_genarray
+        (Unix.map_file fd Bigarray.char Bigarray.c_layout true [| bytes |]) in
+    Unix.close fd;
+    let t1 = Unix.gettimeofday () in
+    for e = 0 to n_e - 1 do
+      if rep.(e) = e then begin
+        let src = e * n_cl * n_ct and dst = cls.(e) * n_cl * n_ct in
+        for j = 0 to n_cl * n_ct - 1 do
+          let v = Char.code (Bigarray.Array1.unsafe_get tbl (src + j)) in
+          let k = dst + j in
+          let b = Char.code (Bigarray.Array1.unsafe_get f (k / 2)) in
+          Bigarray.Array1.unsafe_set f (k / 2) (Char.chr
+            (if k land 1 = 0 then (b land 0xf0) lor v
+             else (b land 0x0f) lor (v lsl 4)))
+        done
+      end
+    done;
+    log "written in %.0f s\n" (Unix.gettimeofday () -. t1);
+
+    (* THE CHECK.  A lookup through the fold must give exactly what the flat
+       table gives, on positions the search really meets.                   *)
+    let fold_get e c t =
+      let i = which.(e) in
+      let k = (cls.(rep.(e)) * n_cl + sym_cl.(i).(c)) * n_ct + sym_ct.(i).(t) in
+      let b = Char.code (Bigarray.Array1.unsafe_get f (k / 2)) in
+      if k land 1 = 0 then b land 0x0f else b lsr 4 in
+    let st = ref 17 and bad = ref 0 in
+    let rnd k = st := (!st * 1103515245 + 12345) land 0x3FFFFFFF; !st mod k in
+    for _ = 1 to 200000 do
+      let e = ref e0 and c = ref cl0 and t = ref ct0 in
+      for _ = 1 to 1 + rnd 20 do
+        let q = rnd nmv in
+        e := mt_e.(!e).(q); c := mt_cl.(!c).(q); t := mt_ct.(!t).(q)
+      done;
+      let flat = Char.code (Bigarray.Array1.unsafe_get tbl
+                   ((!e * n_cl + !c) * n_ct + !t)) in
+      if fold_get !e !c !t <> flat then incr bad
+    done;
+    log "200 000 random positions through the fold: %d disagree\n" !bad;
+    if !bad > 0 then exit 1;
+    Sys.rename (fpath ^ ".part") fpath;
+    log "%s written\n" fpath;
+    exit 0
+  end;
+
   if mode = "build" then begin
     (* The distance histogram, which is the check that matters: it has to be
        Reid's quarter-turn column, coset for coset.                          *)
@@ -699,11 +864,21 @@ let () =
     let pre = List.rev !pre in
     let t1 = Unix.gettimeofday () in
     let got = ref false in
+    (* A JOB THAT SAYS NOTHING FOR AN HOUR CANNOT BE TOLD FROM ONE THAT HAS
+       HUNG.  Every prefix it finishes prints a line, so the run can be seen
+       to be moving and what is left can be read off it.                    *)
+    let mine = List.length (List.filteri (fun i _ -> i mod njobs = job) pre) in
+    let done_ = ref 0 in
     List.iteri (fun idx (m1, m2) ->
       if idx mod njobs = job && not !got then begin
+        let n0 = !nodes in
         step 0 m1; step 1 m2;
         let run = if face m2 = face m1 then 2 else 1 in
-        if dfs 2 (depth - 2) m2 run then got := true
+        if dfs 2 (depth - 2) m2 run then got := true;
+        incr done_;
+        Printf.printf "  job %d prefix %s %s (%d of %d) : %Ld nodes, %.0f s\n%!"
+          job mvname.(m1) mvname.(m2) !done_ mine
+          (Int64.sub !nodes n0) (Unix.gettimeofday () -. t1)
       end) pre;
     Printf.printf
       "position %d job %d/%d depth %d : %Ld nodes, %.1f s, solution %b\n%!"
