@@ -131,7 +131,7 @@ hfold: rubik_h
 # One chunk of the folded table as a Rocq array literal, in the shape
 # bench/p1gen.ml emits: fifteen four bit entries to an int63 word, two million
 # words a chunk.  59 chunks hold the whole thing.  See ../HProbe.v for what to
-# measure with it.
+# measure with it.  It reads only the folded file, not the 29 GB table.
 CHUNK  ?= 0
 HFTBL  ?= h_fold$(HCAP).tbl
 hdump: rubik_h
