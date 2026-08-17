@@ -218,8 +218,10 @@ let mk_move_table n of_coord coord =
    too large.  The count is therefore taken in a second pass, once every
    writer has finished.                                                     *)
 (* One place prints, and it prints at once: a build that says nothing for an
-   hour cannot be told from one that has hung.                              *)
-let log fmt = Printf.ksprintf (fun s -> print_string s; flush stdout) fmt
+   hour cannot be told from one that has hung.  It prints on the ERROR
+   channel, because the dump mode has the standard one redirected into the
+   Rocq file it writes, and a banner there is a syntax error.               *)
+let log fmt = Printf.ksprintf (fun s -> prerr_string s; flush stderr) fmt
 
 let parallel nw f =
   for w = 0 to nw - 1 do
