@@ -862,6 +862,9 @@ let () =
       for m2 = 0 to nmv - 1 do
         if allowed m1 1 m2 then pre := (m1, m2) :: !pre done done;
     let pre = List.rev !pre in
+    if job = 0 then log "%d prefixes over %d jobs\n" (List.length pre) njobs;
+    if njobs > List.length pre && job = 0 then
+      log "WARNING: more jobs than prefixes, the last ones have nothing to do\n";
     let t1 = Unix.gettimeofday () in
     let got = ref false in
     (* A JOB THAT SAYS NOTHING FOR AN HOUR CANNOT BE TOLD FROM ONE THAT HAS

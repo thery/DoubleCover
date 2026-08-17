@@ -109,10 +109,13 @@ hcount: rubik_h
 	H_TBL=$(HTBL) ./rubik_h $(HDEPTH) $(HCAP) count $(HPOS)
 
 # The real thing for one of Reid's positions.  ONE JOB PER PREFIX, not one per
-# core: the prefixes are very unequal -- measured at depth 16, from 7 681 to
-# 235 732 nodes -- so dealing them round robin to the cores leaves most of them
-# idle at the end.  132 jobs and xargs packs them.
-HJOBS  ?= 132
+# core: the prefixes are unequal -- measured at depth 21, from 94 million to
+# 520 million nodes -- so dealing them round robin to the cores leaves most of
+# them idle at the end.  One job a prefix and xargs packs them.
+#
+# There are 120 prefixes: a first move of U, R or F leaves nine second moves
+# and one of D, L or B leaves eleven, which is 6 * 9 + 6 * 11.
+HJOBS  ?= 120
 hrun: rubik_h
 	seq 0 $$(($(HJOBS) - 1)) | xargs -P $(JOBS) -I{} \
 	  env H_TBL=$(HTBL) ./rubik_h $(HDEPTH) $(HCAP) run $(HPOS) {} $(HJOBS)
