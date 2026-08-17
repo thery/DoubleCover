@@ -387,21 +387,234 @@ have h : (wp w) ^ (symp i) = wp [seq srel i m | m <- w].
 by rewrite -h hP P_Jsym.
 Qed.
 
+(* ---- both kinds of turn occur in every maneuver -------------------------  *)
+
+Lemma kind_or : all (fun m => (m \in eightm) || (m \in fourm)) (iota 0 nq).
+Proof. by vm_compute. Qed.
+
+Lemma kind_disj :
+  all (fun m => ~~ ((m \in eightm) && (m \in fourm))) (iota 0 nq).
+Proof. by vm_compute. Qed.
+
+Lemma nth_qw (w : seq nat) k : qw w -> (k < seq.size w)%N ->
+  (nth 0%N w k < nq)%N.
+Proof. by move=> wq kL; apply: (allP wq); apply: mem_nth. Qed.
+
+(* ---- the shift, as an operation on a word -------------------------------  *)
+
+Definition rotq (k : nat) (w : seq nat) : seq nat :=
+  drop k w ++ [seq sigq m | m <- take k w].
+
+Lemma qw_take k w : qw w -> qw (take k w).
+Proof.
+move=> wq; apply/allP => m mw; apply: (allP wq).
+by rewrite -(cat_take_drop k w) mem_cat mw.
+Qed.
+
+Lemma qw_drop k w : qw w -> qw (drop k w).
+Proof.
+move=> wq; apply/allP => m mw; apply: (allP wq).
+by rewrite -(cat_take_drop k w) mem_cat mw orbT.
+Qed.
+
+Lemma rotq_size k w : seq.size (rotq k w) = seq.size w.
+Proof. by rewrite /rotq size_cat size_map addnC -size_cat cat_take_drop. Qed.
+
+Lemma rotq_qw k w : qw w -> qw (rotq k w).
+Proof.
+move=> wq; rewrite /qw /rotq all_cat; apply/andP; split.
+  exact: (qw_drop k wq).
+by apply: sigq_qw; exact: (qw_take k wq).
+Qed.
+
+Lemma rotq_man k w : qw w -> wp w = P -> wp (rotq k w) = P.
+Proof.
+move=> wq hP; rewrite /rotq; apply: man_rot; first exact: (qw_take k wq).
+by rewrite cat_take_drop.
+Qed.
+
+(* ---- somewhere in the cycle an eight is followed by a four --------------  *)
+
+(* Both kinds occur, so going round the cyclic word the kind changes; and it  *)
+(* changes from the eight to the four somewhere, which is the pair the shift  *)
+(* brings to the front.  Proved by contradiction: if an eight were always     *)
+(* followed by an eight, walking round from one would make every letter an    *)
+(* eight, and there is a four.                                                *)
+
+Lemma cyc_step (w : seq nat) k : qw w ->
+  (k < seq.size w)%N ->
+  ~~ ((nth 0%N w k \in eightm) &&
+      (nth 0%N w ((k + 1) %% seq.size w) \in fourm)) ->
+  nth 0%N w k \in eightm ->
+  nth 0%N w ((k + 1) %% seq.size w) \in eightm.
+Proof.
+move=> wq kL hno hk.
+have nP : (0 < seq.size w)%N by apply: leq_ltn_trans kL.
+have kL' : ((k + 1) %% seq.size w < seq.size w)%N by apply: ltn_pmod.
+have := allP kind_or _ (mem_iota0 (nth_qw wq kL')).
+by move: hno; rewrite hk /= => /negbTE ->; rewrite orbF => ->.
+Qed.
+
+Lemma cyc_walk (w : seq nat) : qw w ->
+  (forall k, (k < seq.size w)%N ->
+     ~~ ((nth 0%N w k \in eightm) &&
+         (nth 0%N w ((k + 1) %% seq.size w) \in fourm))) ->
+  forall t k, (k < seq.size w)%N -> nth 0%N w k \in eightm ->
+     nth 0%N w ((k + t) %% seq.size w) \in eightm.
+Proof.
+move=> wq hno t; elim: t => [k kL hk|t ih k kL hk].
+  by rewrite addn0 modn_small.
+have nP : (0 < seq.size w)%N by apply: leq_ltn_trans kL.
+have kL' : ((k + t) %% seq.size w < seq.size w)%N by apply: ltn_pmod.
+have := cyc_step wq kL' (hno _ kL') (ih _ kL hk).
+by rewrite modnDml addn1 addnS.
+Qed.
+
+Lemma cyc_adj (w : seq nat) : qw w ->
+  has (fun m => m \in eightm) w -> has (fun m => m \in fourm) w ->
+  exists k, [/\ (k < seq.size w)%N, nth 0%N w k \in eightm &
+                nth 0%N w ((k + 1) %% seq.size w) \in fourm].
+Proof.
+move=> wq h8 h4.
+set p := fun k => (nth 0%N w k \in eightm) &&
+                  (nth 0%N w ((k + 1) %% seq.size w) \in fourm).
+case: (boolP (has p (iota 0 (seq.size w)))) => [/hasP[k kI pk]|hno].
+  have kL : (k < seq.size w)%N by move: kI; rewrite mem_iota add0n; case/andP.
+  by exists k; split => //; [case/andP: pk | case/andP: pk].
+have hnok : forall k, (k < seq.size w)%N -> ~~ p k.
+  by move=> k kL; apply: (hasPn hno); exact: mem_iota0.
+set j := find (fun m => m \in eightm) w.
+set i := find (fun m => m \in fourm) w.
+have jL : (j < seq.size w)%N by rewrite -has_find.
+have iL : (i < seq.size w)%N by rewrite -has_find.
+have hj : nth 0%N w j \in eightm by apply: nth_find.
+have hi : nth 0%N w i \in fourm by apply: nth_find.
+have := cyc_walk wq hnok (i + seq.size w - j) jL hj.
+rewrite subnKC ?(leq_trans (ltnW jL) (leq_addl _ _)) //.
+rewrite modnDr modn_small // => hbad.
+have := allP kind_disj _ (mem_iota0 (nth_qw wq iL)).
+by rewrite hbad hi.
+Qed.
+
+(* ---- where the shifted word starts -------------------------------------   *)
+
+Lemma sigq_fourP :
+  all (fun m => (m \in fourm) == (sigq m \in fourm)) (iota 0 nq).
+Proof. by vm_compute. Qed.
+
+Lemma sigq_four m : (m < nq)%N -> m \in fourm -> sigq m \in fourm.
+Proof.
+move=> mL mF; have /eqP := allP sigq_fourP _ (mem_iota0 mL).
+by rewrite mF => <-.
+Qed.
+
+Lemma rotq_nth0 (w : seq nat) k : (k < seq.size w)%N ->
+  nth 0%N (rotq k w) 0 = nth 0%N w k.
+Proof.
+move=> kL; rewrite /rotq nth_cat size_drop subn_gt0 kL.
+by rewrite nth_drop addn0.
+Qed.
+
+Lemma rotq_nth1 (w : seq nat) k : qw w -> (1 < seq.size w)%N ->
+  (k < seq.size w)%N -> nth 0%N w ((k + 1) %% seq.size w) \in fourm ->
+  nth 0%N (rotq k w) 1 \in fourm.
+Proof.
+move=> wq n2 kL h4.
+have nP : (0 < seq.size w)%N by apply: leq_ltn_trans kL.
+case: (boolP (1 < seq.size w - k)%N) => [hlt|hge].
+  have kL1 : (k + 1 < seq.size w)%N by rewrite -ltn_subRL.
+  rewrite /rotq nth_cat size_drop hlt nth_drop.
+  by move: h4; rewrite modn_small.
+have hk : (seq.size w - k = 1)%N.
+  by apply/eqP; rewrite eqn_leq -ltnS ltnNge hge /= subn_gt0 kL.
+have kE : k = (seq.size w - 1)%N by rewrite -hk subKn // ltnW.
+have kP : (0 < k)%N by rewrite kE subn_gt0.
+rewrite /rotq nth_cat size_drop hk ltnn subnn.
+rewrite (nth_map 0%N) ?size_take_min; last by rewrite ltn_min kP nP.
+rewrite nth_take //; apply: sigq_four; first by apply: nth_qw.
+have kn := subnKC (ltnW kL); rewrite hk in kn.
+by move: h4; rewrite kn modnn.
+Qed.
+
+(* ---- Proposition 2, in the form Reid says his program already wants -----  *)
+
+(* Every (eight, four) pair is carried by one of the sixteen to (R, F) or to  *)
+(* (R', F) -- the two prefixes, in the front-back orientation of the position.*)
+Lemma pair_norm :
+  all (fun e => all (fun f =>
+        has (fun i => ((srel i e == 2) && (srel i f == 4)) ||
+                      ((srel i e == 3) && (srel i f == 4))) (iota 0 16))
+      fourm) eightm.
+Proof. by vm_compute. Qed.
+
+Lemma size_gt1 (s : seq nat) x y : x \in s -> y \in s -> x != y ->
+  (1 < seq.size s)%N.
+Proof.
+case: s => [//|a [|b s']] //=; rewrite !inE => /eqP-> /eqP->.
+by rewrite eqxx.
+Qed.
+
+(* THE STATEMENT.  Any maneuver for the position can be turned into one of the*)
+(* same length whose first two turns are R F or R' F.  Reid gets that far with*)
+(* the same three transformations and says it "would already be enough        *)
+(* reduction for my program"; his six sequences cut it further, at the cost of*)
+(* the case analysis noted at the end of this file.                           *)
+Theorem prop2_pair (w : seq nat) : qw w -> wp w = P ->
+  exists w', [/\ qw w', seq.size w' = seq.size w, wp w' = P,
+                 (nth 0%N w' 0 == 2) || (nth 0%N w' 0 == 3) & nth 0%N w' 1 = 4].
+Proof.
+move=> wq hP.
+have h8 : has (fun m => m \in eightm) w.
+  case: (boolP (has (fun m => m \in eightm) w)) => // hno.
+  suff hf : fourw w by have := four_not_P hf; rewrite hP eqxx.
+  apply/allP => m mw; have mL := allP wq _ mw.
+  by move: (allP kind_or _ (mem_iota0 mL));
+     rewrite (negbTE (hasPn hno _ mw)) orFb.
+have h4 : has (fun m => m \in fourm) w.
+  case: (boolP (has (fun m => m \in fourm) w)) => // hno.
+  suff he : eightw w by have := eight_not_P he; rewrite hP eqxx.
+  apply/allP => m mw; have mL := allP wq _ mw.
+  by move: (allP kind_or _ (mem_iota0 mL));
+     rewrite (negbTE (hasPn hno _ mw)) orbF.
+have n2 : (1 < seq.size w)%N.
+  have /hasP[e ew e8] := h8; have /hasP[f fw f4] := h4.
+  apply: (size_gt1 ew fw); apply/eqP => efE.
+  have eL := allP wq _ ew.
+  by move: (allP kind_disj _ (mem_iota0 eL)); rewrite e8 efE f4.
+have [k [kL hk8 hk4]] := cyc_adj wq h8 h4.
+have h1 := rotq_nth1 wq n2 kL hk4.
+have h0 : nth 0%N (rotq k w) 0 \in eightm by rewrite rotq_nth0.
+have /hasP[i iI hi] := allP (allP pair_norm _ h0) _ h1.
+have iL : (i < 16)%N by move: iI; rewrite mem_iota add0n; case/andP.
+have wq1 := rotq_qw k wq.
+exists [seq srel i m | m <- rotq k w]; split.
+- exact: srel_qw.
+- by rewrite size_map rotq_size.
+- by apply: man_sym => //; exact: rotq_man.
+- rewrite (nth_map 0%N) ?rotq_size //; last by apply: leq_trans n2.
+  by case/orP: hi => /andP[/eqP-> _]; rewrite eqxx ?orbT.
+rewrite (nth_map 0%N) ?rotq_size //.
+by case/orP: hi => /andP[_ /eqP->].
+Qed.
+
 (* ---- what is left ------------------------------------------------------   *)
 
-(* Everything above keeps a maneuver a maneuver and keeps its length, and no  *)
-(* maneuver is all of one kind.  The case analysis on top of that is still to *)
-(* be written:                                                                *)
+(* prop2_pair is Proposition 2 as far as two prefixes.  Reid cuts the second  *)
+(* of them into five, and each of those six reductions has a witness among the*)
+(* sixteen -- CHECKED -- but two of them need a step he does not name:        *)
 (*                                                                            *)
-(*   1. going round a cyclic word in which both kinds occur, some place has a *)
-(*      turn of the eight followed by one of the four; man_rot brings it to   *)
-(*      the front;                                                            *)
-(*   2. for each of the 8 * 4 such pairs there is a symmetry among the sixteen*)
-(*      carrying it to one of two pairs -- a finite check on srel, which is   *)
-(*      not yet stated;                                                       *)
-(*   3. after the second of those two, the eleven possible third turns reduce *)
-(*      to five, the other six going to the first case by a symmetry or by    *)
-(*      man_inv followed by man_rot.                                          *)
+(*   R' F F   goes to R F' F' by the symmetry 11, and F' F' rewritten as      *)
+(*            F F, which is the same group element and the same length;       *)
+(*   R' F B'  goes to R B' F by the symmetry 13, and B' F has to be swapped,  *)
+(*            which is legitimate because opposite faces commute;             *)
+(*   R' F t   for t one of U, R, D, L inverts and shifts to a word starting   *)
+(*            (t', F'), which the symmetries 1, 11, 0, 15 carry to (R, F).    *)
 (*                                                                            *)
-(* Until 1 to 3 are done, Proposition 2 is not proved, and the six positions  *)
-(* the run searches are not yet known to be the right six.                    *)
+(* No symmetry alone takes R' F to R F: there are only two that send R' to R, *)
+(* and they send F to F' and to B'.  So the first two cases really do need the*)
+(* rewriting and the commutation, which is why they are not here yet.         *)
+(*                                                                            *)
+(* WHAT IT COSTS TO SKIP THEM.  With two prefixes both have to be searched to *)
+(* 22 quarter turns instead of one at 22 and five at 21, which by the         *)
+(* prototype's measured 22.2 CPU-h at depth 22 and ~9 min at depth 21 roughly *)
+(* doubles the run.  The choice is machine time against those two mechanisms. *)
