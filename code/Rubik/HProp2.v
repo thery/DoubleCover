@@ -597,24 +597,270 @@ rewrite (nth_map 0%N) ?rotq_size //.
 by case/orP: hi => /andP[_ /eqP->].
 Qed.
 
+(* ---- the six reductions of Reid's third turn ----------------------------  *)
+
+(* THE TWO IDENTITIES HE WRITES WITH AN EQUALS SIGN. A maneuver is a list of  *)
+(* quarter turns here, so "R' U U = R' U2" and "R D' U = R U D'" are not      *)
+(* equalities of lists; they are two adjacent letters replaced by two others  *)
+(* with the same product, which is man_pair. Nothing else is needed for       *)
+(* either.                                                                    *)
+
+Lemma wp_pair (a b : nat) (u v : seq nat) :
+  wp (u ++ a :: b :: v) = wp u * (qmv a * qmv b) * wp v.
+Proof. by rewrite wp_cat !wp_cons !mulgA. Qed.
+
+Lemma man_pair (a b a' b' : nat) (u v : seq nat) :
+  qmv a * qmv b = qmv a' * qmv b' ->
+  wp (u ++ a :: b :: v) = P -> wp (u ++ a' :: b' :: v) = P.
+Proof. by move=> hab; rewrite !wp_pair hab. Qed.
+
+Lemma man_cancel (a b : nat) (u v : seq nat) :
+  qmv a * qmv b = 1 -> wp (u ++ a :: b :: v) = P -> wp (u ++ v) = P.
+Proof. by move=> hab; rewrite wp_pair hab mulg1 wp_cat. Qed.
+
+Lemma qmv_pairE (a b a' b' : nat) : (a < nq)%N -> (b < nq)%N ->
+  (a' < nq)%N -> (b' < nq)%N ->
+  comp_tab (mvt a) (mvt b) = comp_tab (mvt a') (mvt b') ->
+  qmv a * qmv b = qmv a' * qmv b'.
+Proof.
+by move=> aL bL aL' bL' h; rewrite !qmvE // !ptM ?mvt_ok //; congr pt.
+Qed.
+
+Lemma qmv_pair1 (a b : nat) : (a < nq)%N -> (b < nq)%N ->
+  comp_tab (mvt a) (mvt b) = id_tab flast -> qmv a * qmv b = 1.
+Proof. by move=> aL bL h; rewrite !qmvE // ptM ?mvt_ok // h pt1. Qed.
+
+(* F' F' is F F, B' and F commute, and F F' is nothing                        *)
+Lemma half_FF : qmv 5 * qmv 5 = qmv 4 * qmv 4.
+Proof. by apply: qmv_pairE => //; vm_compute. Qed.
+
+Lemma comm_BF : qmv 11 * qmv 4 = qmv 4 * qmv 11.
+Proof. by apply: qmv_pairE => //; vm_compute. Qed.
+
+Lemma cancel_FF : qmv 4 * qmv 5 = 1.
+Proof. by apply: qmv_pair1 => //; vm_compute. Qed.
+
+Lemma qw_cons m w : (m < nq)%N -> qw w -> qw (m :: w).
+Proof. by move=> mL wq; rewrite /qw /=; apply/andP; split => //; exact: wq. Qed.
+
+Lemma qw3 (a b c : nat) (v : seq nat) : (a < nq)%N -> (b < nq)%N ->
+  (c < nq)%N -> qw v -> qw (a :: b :: c :: v).
+Proof.
+move=> aL bL cL vq.
+apply: qw_cons => //; apply: qw_cons => //; apply: qw_cons => //.
+Qed.
+
+(* ---- a maneuver is at least three turns long ---------------------------   *)
+
+Lemma P_not1 : ti2t flast pfb != id_tab flast.
+Proof. by vm_compute. Qed.
+
+Lemma P_not_one_turn : all (fun a => mvt a != ti2t flast pfb) (iota 0 nq).
+Proof. by vm_compute. Qed.
+
+Lemma P_not_two_turns :
+  all (fun a => all (fun b => comp_tab (mvt a) (mvt b) != ti2t flast pfb)
+                    (iota 0 nq))
+      (iota 0 nq).
+Proof. by vm_compute. Qed.
+
+Lemma man_size3 (w : seq nat) : qw w -> wp w = P -> (2 < seq.size w)%N.
+Proof.
+case: w => [_|a [|b [|c v]]] //=.
+- rewrite wp_nil /P => h1.
+  have hE : ti2t flast pfb = id_tab flast.
+    apply: (@pt_inj flast); [exact: ptab_ok | exact: tab_ok_id |].
+    by rewrite pt1 -h1.
+  by move: P_not1; rewrite hE eqxx.
+- rewrite /qw /= andbT => aL; rewrite wp_one => hP.
+  have hE : mvt a = ti2t flast pfb.
+    apply: (@pt_inj flast); [exact: mvt_ok | exact: ptab_ok |].
+    by rewrite -qmvE // hP.
+  by move: (allP P_not_one_turn _ (mem_iota0 aL)); rewrite hE eqxx.
+rewrite /qw /= andbT => /andP[aL bL] hP.
+have hE : comp_tab (mvt a) (mvt b) = ti2t flast pfb.
+  apply: (@pt_inj flast);
+    [by apply: tab_ok_comp; apply: mvt_ok | exact: ptab_ok |].
+  rewrite -ptM ?mvt_ok // -!qmvE //.
+  by move: hP; rewrite wp_cons wp_one.
+by move: (allP (allP P_not_two_turns _ (mem_iota0 aL)) _ (mem_iota0 bL));
+   rewrite hE eqxx.
+Qed.
+
+(* ---- the witnesses, read off srel --------------------------------------   *)
+
+Lemma srel_11_3 : srel 11 3 = 2. Proof. by vm_compute. Qed.
+Lemma srel_11_4 : srel 11 4 = 5. Proof. by vm_compute. Qed.
+Lemma srel_11_5 : srel 11 5 = 4. Proof. by vm_compute. Qed.
+Lemma srel_13_3 : srel 13 3 = 2. Proof. by vm_compute. Qed.
+Lemma srel_13_4 : srel 13 4 = 11. Proof. by vm_compute. Qed.
+Lemma srel_13_11 : srel 13 11 = 4. Proof. by vm_compute. Qed.
+Lemma srel_1_1 : srel 1 1 = 2. Proof. by vm_compute. Qed.
+Lemma srel_1_5 : srel 1 5 = 4. Proof. by vm_compute. Qed.
+Lemma srel_0_7 : srel 0 7 = 2. Proof. by vm_compute. Qed.
+Lemma srel_0_5 : srel 0 5 = 4. Proof. by vm_compute. Qed.
+Lemma srel_15_9 : srel 15 9 = 2. Proof. by vm_compute. Qed.
+Lemma srel_15_5 : srel 15 5 = 4. Proof. by vm_compute. Qed.
+
+Lemma qinv_4 : qinv 4 = 5. Proof. by []. Qed.
+Lemma qinv_3 : qinv 3 = 2. Proof. by []. Qed.
+
+(* ---- R' F F: one symmetry, then F' F' read as F F ----------------------   *)
+
+Lemma case_half (v : seq nat) : qw v -> wp (3 :: 4 :: 4 :: v) = P ->
+  exists w', [/\ qw w', seq.size w' = seq.size (3 :: 4 :: 4 :: v), wp w' = P,
+                 nth 0%N w' 0 = 2 & nth 0%N w' 1 = 4].
+Proof.
+move=> vq hP.
+have wq : qw (3 :: 4 :: 4 :: v) by apply: qw3.
+have h2 := man_sym (i := 11) isT wq hP.
+move: h2; rewrite map_cons map_cons map_cons srel_11_3 srel_11_4 => h2.
+have h3 := man_pair (u := [:: 2]) (v := [seq srel 11 m | m <- v]) half_FF h2.
+exists (2 :: 4 :: 4 :: [seq srel 11 m | m <- v]); split => //.
+- by apply: qw3 => //; apply: (srel_qw (i := 11) isT vq).
+by rewrite /= size_map.
+Qed.
+
+(* ---- R' F B': one symmetry, then the two opposite faces swapped --------   *)
+
+Lemma case_comm (v : seq nat) : qw v -> wp (3 :: 4 :: 11 :: v) = P ->
+  exists w', [/\ qw w', seq.size w' = seq.size (3 :: 4 :: 11 :: v), wp w' = P,
+                 nth 0%N w' 0 = 2 & nth 0%N w' 1 = 4].
+Proof.
+move=> vq hP.
+have wq : qw (3 :: 4 :: 11 :: v) by apply: qw3.
+have h2 := man_sym (i := 13) isT wq hP.
+move: h2; rewrite map_cons map_cons map_cons srel_13_3 srel_13_4 srel_13_11
+  => h2.
+have h3 := man_pair (u := [:: 2]) (v := [seq srel 13 m | m <- v]) comm_BF h2.
+exists (2 :: 4 :: 11 :: [seq srel 13 m | m <- v]); split => //.
+- by apply: qw3 => //; apply: (srel_qw (i := 13) isT vq).
+by rewrite /= size_map.
+Qed.
+
+(* ---- the other four: invert, shift, and then a symmetry ----------------   *)
+
+(* Inverting puts the three turns at the end, reversed and inverted; the shift*)
+(* brings them back to the front untouched, since only the part that MOVES is *)
+(* conjugated; and the pair they make is then named by a symmetry.            *)
+Lemma case_inv (c i : nat) (v : seq nat) : (c < nq)%N -> qw v -> (i < 16)%N ->
+  srel i (qinv c) = 2 -> srel i 5 = 4 -> wp (3 :: 4 :: c :: v) = P ->
+  exists w', [/\ qw w', seq.size w' = seq.size (3 :: 4 :: c :: v), wp w' = P,
+                 nth 0%N w' 0 = 2 & nth 0%N w' 1 = 4].
+Proof.
+move=> cL vq iL hi1 hi2 hP.
+have wq : qw (3 :: 4 :: c :: v) by apply: qw3.
+set u := [seq qinv m | m <- rev v].
+have hs : [seq qinv m | m <- rev (3 :: 4 :: c :: v)] = u ++ [:: qinv c; 5; 2].
+  rewrite !rev_cons -!cats1 !map_cat -!catA.
+  by rewrite /u /= qinv_4 qinv_3.
+have h2 := man_inv wq hP; rewrite hs in h2.
+have h2q : qw (u ++ [:: qinv c; 5; 2]) by rewrite -hs; apply: qinv_qw.
+have h3 := rotq_man (seq.size u) h2q h2.
+have h3q := rotq_qw (seq.size u) h2q.
+have h4 := man_sym iL h3q h3.
+move: h4; rewrite /rotq drop_size_cat // take_size_cat //.
+rewrite map_cat !map_cons hi1 hi2 => h4.
+exists ([:: 2; 4; srel i 2] ++ [seq srel i m | m <- [seq sigq m | m <- u]]).
+split => //.
+- rewrite /qw all_cat; apply/andP; split.
+    have h2n : (srel i 2 < nq)%N.
+      by apply: (allP (allP srel_lt _ (mem_iota0 iL))); apply: mem_iota0.
+    by rewrite /= h2n.
+  by apply: srel_qw => //; apply: sigq_qw; rewrite /u; apply: qinv_qw.
+by rewrite size_cat !size_map size_rev.
+Qed.
+
+(* ---- Proposition 2 ------------------------------------------------------  *)
+
+(* The five third turns Reid keeps.  In his orientation they are D, F', R',   *)
+(* B', L' after R' U; the position here is turned onto the front-back axis, so*)
+(* they read B, D', R', U', L'.                                               *)
+Definition kept : seq nat := [:: 1; 3; 7; 9; 10]%N.
+
+(* the six sequences: R F, or R' F and then one of the five                   *)
+Definition heads (w : seq nat) : bool :=
+  ((nth 0%N w 0 == 2) && (nth 0%N w 1 == 4)) ||
+  [&& nth 0%N w 0 == 3, nth 0%N w 1 == 4 & nth 0%N w 2 \in kept].
+
+(* every third turn is kept, cancels, or is one of the six that reduce        *)
+Lemma third_cases :
+  all (fun c => [|| c \in kept, c == 5, c == 4, c == 11
+               | c \in [:: 0; 2; 6; 8]%N]) (iota 0 nq).
+Proof. by vm_compute. Qed.
+
+(* THE HYPOTHESIS REID DOES NOT WRITE.  His statement says "any maneuver", but*)
+(* the proof needs one that cannot be shortened -- otherwise the third turn   *)
+(* could cancel the second, which is the case he dismisses as "not allowed".  *)
+(* For the bound that costs nothing: a shortest maneuver is what one takes.   *)
+Theorem prop2 (w : seq nat) : qw w -> wp w = P ->
+  (forall u, qw u -> wp u = P -> (seq.size w <= seq.size u)%N) ->
+  exists w', [/\ qw w', seq.size w' = seq.size w, wp w' = P & heads w'].
+Proof.
+move=> wq hP hmin.
+have [w1 [w1q w1s w1P ha hb]] := prop2_pair wq hP.
+have s3 : (2 < seq.size w1)%N by apply: man_size3.
+move: w1q w1s w1P ha hb s3; case: w1 => [|a [|b [|c v]]] //.
+move=> w1q w1s w1P; rewrite /= => ha hb _.
+have cL : (c < nq)%N by move: w1q; rewrite /qw /= => /and4P[].
+have vq : qw v by move: w1q; rewrite /qw /= => /and4P[].
+have fin : forall w2, qw w2 -> seq.size w2 = seq.size w -> wp w2 = P ->
+           nth 0%N w2 0 = 2 -> nth 0%N w2 1 = 4 ->
+           exists w', [/\ qw w', seq.size w' = seq.size w, wp w' = P
+                     & heads w'].
+  move=> w2 q2 s2 p2 n0 n1; exists w2; split => //.
+  by apply/orP; left; rewrite n0 n1 !eqxx.
+have hmin1 : forall u, qw u -> wp u = P ->
+             (seq.size (a :: b :: c :: v) <= seq.size u)%N.
+  by rewrite w1s; exact: hmin.
+case/orP: ha => /eqP aE.
+  exists (a :: b :: c :: v); split => //.
+  by rewrite /heads /= aE hb !eqxx.
+have [ck|cnk] := boolP (c \in kept).
+  exists (a :: b :: c :: v); split => //.
+  by apply/orP; right; rewrite /= aE hb ck !eqxx.
+rewrite aE hb in w1P w1s hmin1 *.
+have [/eqP c5|cn5] := boolP (c == 5).
+  have hc : wp ([:: 3] ++ v) = P.
+    rewrite c5 in w1P; apply: (man_cancel cancel_FF); exact: w1P.
+  move: (hmin1 _ (qw_cons (isT : (3 < nq)%N) vq) hc); rewrite /= ltnS => hle.
+  have h2 := leq_trans (leqnSn (seq.size v).+1) hle.
+  by rewrite ltnn in h2.
+have [/eqP c4|cn4] := boolP (c == 4).
+  rewrite c4 in w1P w1s.
+  have [w2 [q2 s2 p2 n0 n1]] := case_half vq w1P.
+  by apply: (fin w2) => //; rewrite s2 w1s.
+have [/eqP c11|cn11] := boolP (c == 11).
+  rewrite c11 in w1P w1s.
+  have [w2 [q2 s2 p2 n0 n1]] := case_comm vq w1P.
+  by apply: (fin w2) => //; rewrite s2 w1s.
+have [ci|cni] := boolP (c \in [:: 0; 2; 6; 8]%N).
+  move: ci; rewrite !inE => /or4P[] /eqP cE; rewrite cE in w1P w1s.
+  - have [w2 [q2 s2 p2 n0 n1]] :=
+      case_inv (c := 0) (i := 1) isT vq isT srel_1_1 srel_1_5 w1P.
+    by apply: (fin w2) => //; rewrite s2 w1s.
+  - have [w2 [q2 s2 p2 n0 n1]] :=
+      case_inv (c := 2) (i := 11) isT vq isT srel_11_3 srel_11_5 w1P.
+    by apply: (fin w2) => //; rewrite s2 w1s.
+  - have [w2 [q2 s2 p2 n0 n1]] :=
+      case_inv (c := 6) (i := 0) isT vq isT srel_0_7 srel_0_5 w1P.
+    by apply: (fin w2) => //; rewrite s2 w1s.
+  have [w2 [q2 s2 p2 n0 n1]] :=
+    case_inv (c := 8) (i := 15) isT vq isT srel_15_9 srel_15_5 w1P.
+  by apply: (fin w2) => //; rewrite s2 w1s.
+move: (allP third_cases _ (mem_iota0 cL)).
+by rewrite (negbTE cnk) (negbTE cn5) (negbTE cn4) (negbTE cn11) (negbTE cni).
+Qed.
+
 (* ---- what is left ------------------------------------------------------   *)
 
-(* prop2_pair is Proposition 2 as far as two prefixes.  Reid cuts the second  *)
-(* of them into five, and each of those six reductions has a witness among the*)
-(* sixteen -- CHECKED -- but two of them need a step he does not name:        *)
+(* Proposition 2 is proved.  What it does NOT yet give is the bound: for that *)
+(* the run has to be tied to it, which needs                                  *)
 (*                                                                            *)
-(*   R' F F   goes to R F' F' by the symmetry 11, and F' F' rewritten as      *)
-(*            F F, which is the same group element and the same length;       *)
-(*   R' F B'  goes to R B' F by the symmetry 13, and B' F has to be swapped,  *)
-(*            which is legitimate because opposite faces commute;             *)
-(*   R' F t   for t one of U, R, D, L inverts and shifts to a word starting   *)
-(*            (t', F'), which the symmetries 1, 11, 0, 15 carry to (R, F).    *)
-(*                                                                            *)
-(* No symmetry alone takes R' F to R F: there are only two that send R' to R, *)
-(* and they send F to F' and to B'.  So the first two cases really do need the*)
-(* rewriting and the commutation, which is why they are not here yet.         *)
-(*                                                                            *)
-(* WHAT IT COSTS TO SKIP THEM.  With two prefixes both have to be searched to *)
-(* 22 quarter turns instead of one at 22 and five at 21, which by the         *)
-(* prototype's measured 22.2 CPU-h at depth 22 and ~9 min at depth 21 roughly *)
-(* doubles the run.  The choice is machine time against those two mechanisms. *)
+(*   1. the position searched (Reid's orientation, HRoot's targeti) related to*)
+(*      this one by the rotation Sx -- one conjugation, checked but not     *)
+(*      stated;                                                             *)
+(*   2. the six prefixes here matched with the six the run searches;          *)
+(*   3. the search's redundancy rule shown to lose no maneuver;               *)
+(*   4. and the table shown to be a lower bound at all, which is the Dstep    *)
+(*      sweep and the largest job left.                                       *)

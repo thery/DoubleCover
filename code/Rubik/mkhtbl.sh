@@ -37,9 +37,21 @@ fi
 # THE CHUNK COUNT IS NOT WRITTEN DOWN HERE.  The dump prints it, and it is
 # read off that: a fold with a different family count would silently leave
 # the last chunks out if this script held its own number.
+# The probe rewrites HFold_00.v, which would make its .vo look stale and cost
+# eight minutes for nothing -- MEASURED.  So its date is put back if the file
+# came out byte for byte the same, the trick mkfold.sh uses.
 echo "asking the dump how many chunks there are"
+if [ -f HFold_00.v ]; then
+  m0=$(md5sum HFold_00.v | cut -d' ' -f1); t0=$(date -r HFold_00.v +%s)
+else
+  m0=; t0=
+fi
 NCH=$( (cd ocaml && make -s hdump CHUNK=0) 2>&1 >/dev/null |
        sed -n 's/.*, \([0-9]*\) chunks.*/\1/p')
+if [ -n "$m0" ] && [ "$(md5sum HFold_00.v | cut -d' ' -f1)" = "$m0" ]; then
+  touch -d "@$t0" HFold_00.v
+  echo "  HFold_00.v came back unchanged and kept its date"
+fi
 case "$NCH" in
   ''|*[!0-9]*) echo "the dump did not say how many chunks -- is the fold there?" >&2
                exit 1 ;;
@@ -83,6 +95,19 @@ else
   echo "precompiling $(echo "$todo" | wc -w) .cmxs with $NJOBS workers, ~7 min each"
   echo "$todo" | xargs -P "$NJOBS" -I{} ./rocqtime.sh --native {}
 fi
+
+# ---- the native side of what HFoldAll requires --------------------------
+# HFoldAll takes setl from HSearch, so ITS .cmxs has to be there too, and the
+# files above are compiled with the native pass off.  Without this the last
+# step fails with "Unbound module NRubik_HSearch" after three hours of
+# chunks -- MEASURED, the first time this script was run.
+for b in HRoot HCoord HSearch HTables; do
+  if [ -f "$b.vo" ] && { [ ! -f ".coq-native/NRubik_$b.cmxs" ] ||
+                         [ "$b.vo" -nt ".coq-native/NRubik_$b.cmxs" ]; }; then
+    echo "precompiling $b.cmxs"
+    ./rocqtime.sh --native "$b"
+  fi
+done
 
 # ---- the file that gathers the chunks ------------------------------------
 # GENERATED, because the number of chunks is the fold's business and not
