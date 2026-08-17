@@ -123,7 +123,7 @@ Proof. by vm_compute. Qed.
 
 (* A quarter turn is an odd permutation of the corners, so the distance of a  *)
 (* position has the parity of its corner permutation.  This one is even, which*)
-(* is what takes "nothing at 24" to "exactly 26" -- a step Reid leaves        *)
+(* is what takes `nothing at 24' to `exactly 26' -- a step Reid leaves        *)
 (* implicit.                                                                  *)
 Definition invcount (f : nat -> nat) (n : nat) : nat :=
   sumn [seq count (fun j => (f j < f i)%N) (iota (i + 1) (n - i - 1))
@@ -139,7 +139,7 @@ Proof. by vm_compute. Qed.
 (* The facts above are the whole of the arithmetic in Proposition 2.  What is *)
 (* left is a statement about WORDS, and it needs no machine:                  *)
 (*                                                                            *)
-(*   1. the three transformations keep both "is a maneuver for the position"  *)
+(*   1. the three transformations keep both `is a maneuver for the position'  *)
 (*      and its length: conjugation by one of the sixteen symmetries, the     *)
 (*      cyclic shift whose engine is pfb_sigma, and inversion;               *)
 (*   2. a maneuver uses both kinds of turn -- from pfb_allflip with           *)
