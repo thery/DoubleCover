@@ -96,6 +96,26 @@ Definition hmoves : seq (seq (amv * nat)) := Eval vm_compute in
   [seq [seq (nth anull amoves m, hclass p m) | m <- iota 0 12 & allowedq p m]
   | p <- iota 0 nclass].
 
+(* ---- how the run is cut up ---------------------------------------------- *)
+
+(* One job takes some of the pairs of moves the search may play first, and     *)
+(* plays every second move the rule allows after its first.  The first move is *)
+(* NOT cut down: the reduction of doc/reid-1998-fourspot.md has already fixed  *)
+(* the beginning of the maneuver, and asking the rest to be canonical as well  *)
+(* would need an argument nobody has made.                                    *)
+Definition hpres : seq (seq nat) := Eval vm_compute in
+  flatten [seq [seq [:: m1; m2] | m2 <- iota 0 12 & allowedq (pcode m1 1) m2]
+          | m1 <- iota 0 12].
+
+(* A first move of U, R or F leaves nine second moves and one of D, L or B     *)
+(* leaves eleven, which is 6 * 9 + 6 * 11.                                    *)
+Lemma hpres_size : seq.size hpres = 120.
+Proof. by vm_compute. Qed.
+
+(* job j of nj, dealt round robin as the prototype deals them                 *)
+Definition hslice (j nj : nat) : seq (seq nat) :=
+  [seq nth [::] hpres i | i <- iota 0 (seq.size hpres) & i %% nj == j].
+
 (* ---- the state --------------------------------------------------------- *)
 
 (* one coset per axis, each of them a triple *)
