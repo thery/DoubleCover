@@ -276,6 +276,13 @@ folded table from the flat one: 12 094 x 70 x 2187 entries at four bits,
 883 MB, and it verifies 200 000 random positions through the fold against
 the flat table before renaming the file into place.
 
+`make hdump CHUNK=0` writes one chunk of it as a Rocq array literal, in the
+shape `bench/p1gen.ml` emits: fifteen four bit entries to an `int63` word,
+two million words a chunk.  The folded table is 123 431 364 words, so 59
+chunks, against the five that hold the folded phase 1 table.  `../HProbe.v`
+says what to measure with one of them, and that measurement decides whether
+the Rocq side is possible at all.
+
 A mirror is allowed here where it would not be in the search: the fold only
 needs the distance to be preserved, and the mirror image of a maneuver solves
 the mirror image of the position.  A mirror does turn a clockwise turn into

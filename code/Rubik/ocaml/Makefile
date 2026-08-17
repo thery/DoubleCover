@@ -109,10 +109,13 @@ hcount: rubik_h
 	H_TBL=$(HTBL) ./rubik_h $(HDEPTH) $(HCAP) count $(HPOS)
 
 # The real thing for one of Reid's positions.  ONE JOB PER PREFIX, not one per
-# core: the prefixes are very unequal -- measured at depth 16, from 7 681 to
-# 235 732 nodes -- so dealing them round robin to the cores leaves most of them
-# idle at the end.  132 jobs and xargs packs them.
-HJOBS  ?= 132
+# core: the prefixes are unequal -- measured at depth 21, from 94 million to
+# 520 million nodes -- so dealing them round robin to the cores leaves most of
+# them idle at the end.  One job a prefix and xargs packs them.
+#
+# There are 120 prefixes: a first move of U, R or F leaves nine second moves
+# and one of D, L or B leaves eleven, which is 6 * 9 + 6 * 11.
+HJOBS  ?= 120
 hrun: rubik_h
 	seq 0 $$(($(HJOBS) - 1)) | xargs -P $(JOBS) -I{} \
 	  env H_TBL=$(HTBL) ./rubik_h $(HDEPTH) $(HCAP) run $(HPOS) {} $(HJOBS)
@@ -125,8 +128,18 @@ hrun: rubik_h
 hfold: rubik_h
 	H_TBL=$(HTBL) ./rubik_h 1 $(HCAP) fold
 
+# One chunk of the folded table as a Rocq array literal, in the shape
+# bench/p1gen.ml emits: fifteen four bit entries to an int63 word, two million
+# words a chunk.  59 chunks hold the whole thing.  See ../HProbe.v for what to
+# measure with it.
+CHUNK  ?= 0
+HFTBL  ?= h_fold$(HCAP).tbl
+hdump: rubik_h
+	H_FTBL=$(HFTBL) ./rubik_h 1 $(HCAP) dump $(CHUNK) \
+	  > ../HFold_$$(printf %02d $(CHUNK)).v
+
 hall: rubik_h
 	$(MAKE) hrun HPOS=0 HDEPTH=22
 	for k in 1 2 3 4 5; do $(MAKE) hrun HPOS=$$k HDEPTH=21; done
 
-.PHONY: hcheck hroots hbuild hcount hrun hall hfold
+.PHONY: hcheck hroots hbuild hcount hrun hall hfold hdump
