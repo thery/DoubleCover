@@ -51,14 +51,14 @@ Definition mtia : PArray.array arr := Eval vm_compute in
 
 (* ---- the redundancy rule ------------------------------------------------ *)
 
-(* Here U U is a legitimate pair, being the half turn, so "never the same face *)
-(* twice running" would be unsound.  What is true: three turns of a face in a  *)
+(* Here U U is a legitimate pair, being the half turn, so `never the same face *)
+(* twice running` would be unsound.  What is true: three turns of a face in a  *)
 (* row are one turn the other way, so a run is at most two long; a run of two  *)
 (* must be twice the SAME turn, since U U' is nothing; and of the two orders   *)
 (* of two opposite faces only one is kept.                                    *)
 (*                                                                            *)
 (* The state of the rule is the last move and how long its run is.  Class 0 is *)
-(* the start, and class 1 + 2 m + (r - 1) is "last move m, run r", r being 1   *)
+(* the start, and class 1 + 2 m + (r - 1) is `last move m, run r', r being 1   *)
 (* or 2 -- a run of three never arises.                                       *)
 Definition nclass := (1 + 2 * 12)%N.
 

@@ -556,8 +556,8 @@ Qed.
 
 (* THE STATEMENT.  Any maneuver for the position can be turned into one of the*)
 (* same length whose first two turns are R F or R' F.  Reid gets that far with*)
-(* the same three transformations and says it "would already be enough        *)
-(* reduction for my program"; his six sequences cut it further, at the cost of*)
+(* the same three transformations and says it `would already be enough        *)
+(* reduction for my program`; his six sequences cut it further, at the cost of*)
 (* the case analysis noted at the end of this file.                           *)
 Theorem prop2_pair (w : seq nat) : qw w -> wp w = P ->
   exists w', [/\ qw w', seq.size w' = seq.size w, wp w' = P,
@@ -600,7 +600,7 @@ Qed.
 (* ---- the six reductions of Reid's third turn ----------------------------  *)
 
 (* THE TWO IDENTITIES HE WRITES WITH AN EQUALS SIGN. A maneuver is a list of  *)
-(* quarter turns here, so "R' U U = R' U2" and "R D' U = R U D'" are not      *)
+(* quarter turns here, so `R' U U = R' U2' and `R D' U = R U D'' are not      *)
 (* equalities of lists; they are two adjacent letters replaced by two others  *)
 (* with the same product, which is man_pair. Nothing else is needed for       *)
 (* either.                                                                    *)
@@ -789,9 +789,9 @@ Lemma third_cases :
                | c \in [:: 0; 2; 6; 8]%N]) (iota 0 nq).
 Proof. by vm_compute. Qed.
 
-(* THE HYPOTHESIS REID DOES NOT WRITE.  His statement says "any maneuver", but*)
+(* THE HYPOTHESIS REID DOES NOT WRITE.  His statement says `any maneuver', but*)
 (* the proof needs one that cannot be shortened -- otherwise the third turn   *)
-(* could cancel the second, which is the case he dismisses as "not allowed".  *)
+(* could cancel the second, which is the case he dismisses as `not allowed'.  *)
 (* For the bound that costs nothing: a shortest maneuver is what one takes.   *)
 Theorem prop2 (w : seq nat) : qw w -> wp w = P ->
   (forall u, qw u -> wp u = P -> (seq.size w <= seq.size u)%N) ->

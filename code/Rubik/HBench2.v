@@ -10,7 +10,7 @@
 (*   /usr/bin/time -v coqc -R . Rubik HBench2.v                                *)
 (*                                                                            *)
 (* 1. The table at the root of position 0, along each of the three axes.  The  *)
-(*    prototype prints the largest of them as "root table value: 10", so the   *)
+(*    prototype prints the largest of them as `root table value: 10', so the   *)
 (*    largest here must be 10.  This is the whole lookup path -- coordinates,  *)
 (*    fold, packing -- against a number computed by the other program.         *)
 (*                                                                            *)
