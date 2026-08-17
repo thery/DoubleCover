@@ -291,6 +291,32 @@ Fixpoint hsearchc (d : nat) (di : int) (a0 : arr) (path : seq int)
     else (false, 1%uint63)
   else (false, 1%uint63).
 
+(* ---- the same search, counting the prototype's way ---------------------- *)
+
+(* hsearchc counts a position when it recurses into it, so a child the table   *)
+(* cuts is never counted.  ocaml/rubik_h.ml counts on ENTRY: its dfs adds one  *)
+(* and only then asks the table, so every child the rule allows is counted,    *)
+(* cut or not.  That is a factor of about ten, and this is the version whose   *)
+(* numbers can be compared with the prototype's directly.                     *)
+Fixpoint hsearchn (d : nat) (di : int) (a0 : arr) (path : seq int)
+                  (x : hst) (p : nat) : bool * int :=
+  if hle x di then
+    if (if hsolved x then eq_tabi flast (rebuild a0 path) idi else false)
+    then (true, 1%uint63)
+    else if d is d'.+1 then
+      let di' := Uint63.sub di 1%uint63 in
+      let: (x0, x1, x2) := x in
+      (fix go (l : seq (amv * nat)) (acc : int) : bool * int :=
+         if l is mp :: l' then
+           let: (m, pk) := mp in
+           let: (k18, (k0, k1, k2)) := m in
+           let: (r, c) := hsearchn d' di' a0 (k18 :: path)
+                            (stepa x0 k0, stepa x1 k1, stepa x2 k2) pk in
+           if r then (true, Uint63.add acc c) else go l' (Uint63.add acc c)
+         else (false, acc)) (nth [::] hmoves p) 1%uint63
+    else (false, 1%uint63)
+  else (false, 1%uint63).
+
 (* ---- what a run asks for ----------------------------------------------- *)
 
 (* The state at the root of position k: its coset along each of the three     *)
@@ -319,5 +345,10 @@ Definition hrun (k : nat) (w : seq nat) (d : nat) : bool :=
 Definition hrunc (k : nat) (w : seq nat) (d : nat) : bool * int :=
   let: (path, x, p) := hprefix k w in
   hsearchc d (of_nat d) (rooti k) path x p.
+
+(* the same, counted as the prototype counts                                  *)
+Definition hrunn (k : nat) (w : seq nat) (d : nat) : bool * int :=
+  let: (path, x, p) := hprefix k w in
+  hsearchn d (of_nat d) (rooti k) path x p.
 
 End Search.
