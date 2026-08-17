@@ -86,3 +86,6 @@ FoldChecks.v
 FoldAssembly.v
 HRoot.v
 HCoord.v
+HTables.v
+HSearch.v
+HChk.v

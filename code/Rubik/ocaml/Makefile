@@ -138,8 +138,13 @@ hdump: rubik_h
 	H_FTBL=$(HFTBL) ./rubik_h 1 $(HCAP) dump $(CHUNK) \
 	  > ../HFold_$$(printf %02d $(CHUNK)).v
 
+# The three move tables and the two maps of the fold, as Rocq.  It needs
+# neither the big table nor the folded one -- everything is recomputed.
+mtabs: rubik_h
+	./rubik_h 1 $(HCAP) mtabs > ../HTables.v
+
 hall: rubik_h
 	$(MAKE) hrun HPOS=0 HDEPTH=22
 	for k in 1 2 3 4 5; do $(MAKE) hrun HPOS=$$k HDEPTH=21; done
 
-.PHONY: hcheck hroots hbuild hcount hrun hall hfold hdump
+.PHONY: hcheck hroots hbuild hcount hrun hall hfold hdump mtabs
