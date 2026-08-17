@@ -129,11 +129,13 @@ database that was our best quarter-turn heuristic.  His table reaches distance
 14 in quarter turns; the mean is 11.55.
 
 ```
-make hcheck     # the coordinates, two small tables, the three angles
+make hcheck     # the coordinates, the angles, the sixteen symmetries
 make hroots     # Reid's six positions, no table needed
 make hbuild     # the table, JOBS workers
 make hcount     # node counts from position HPOS up to depth HDEPTH
 make hrun       # the real search of position HPOS, JOBS workers
+make hall       # all six positions, which is the lower bound
+make hfold      # the table folded by symmetry, 883 MB, for Rocq
 ```
 
 The table is read along **three axes**.  `H` is built around the up-down axis,
@@ -242,7 +244,44 @@ That is the whole point of the exercise.  The same six searches with the
 tables we had were 1.25e14 nodes and some 3 300 processor hours, and the
 quarter-turn bound was written down as blocked.  It is not blocked.
 
-Three things that number does not include.  It is **one viewing angle**, and
+## What the run measured
+
+Position 0, `superflip . fourspot . R U`, searched to depth 22 -- Reid's
+deepest of the six -- on eighteen cores with the table in `/dev/shm`:
+
+```
+145 625 923 490 nodes, 22.2 processor-hours, 89 minutes wall, no solution
+```
+
+which is 1.82 million nodes a second a core.  The eighteen jobs came out
+within 25% of each other, from 6.00 to 10.38 billion nodes, so the two-move
+prefixes even out at depth even though they differ by thirty times at depth
+16.
+
+The other five are one level shallower, so about a tenth of that each.  The
+whole lower bound is therefore some **35 processor-hours, two and a half
+hours of wall clock**, against Reid's 153 hours in 1998.
+
+## The fold, for the sake of Rocq
+
+Every symmetry of the cube that keeps the up-down axis carries a coset onto
+one the same distance from solved, so one entry serves a family.  There are
+sixteen such symmetries -- rotations about the axis, the flip that exchanges
+up and down, and the mirrors -- and they sort the 190 080 values of `e` into
+**12 094 families**, Reid's number, a factor of 15.72.
+
+`make hcheck` computes that count, and it needs no distance table, so it is
+the cheap check on the whole construction.  `make hfold` then writes the
+folded table from the flat one: 12 094 x 70 x 2187 entries at four bits,
+883 MB, and it verifies 200 000 random positions through the fold against
+the flat table before renaming the file into place.
+
+A mirror is allowed here where it would not be in the search: the fold only
+needs the distance to be preserved, and the mirror image of a maneuver solves
+the mirror image of the position.  A mirror does turn a clockwise turn into
+an anticlockwise one, which the relabelling carries.
+
+Three things the run's figure does not include.  It is **one viewing angle**, and
 `H` is symmetric about the U-D axis, so the same table can be read along all
 three -- which is where the rest of Reid's advantage must lie.  It is OCaml,
 and Rocq measured 3.3 times slower on the half-turn search.  And nothing here

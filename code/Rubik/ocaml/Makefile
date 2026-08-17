@@ -117,4 +117,16 @@ hrun: rubik_h
 	seq 0 $$(($(HJOBS) - 1)) | xargs -P $(JOBS) -I{} \
 	  env H_TBL=$(HTBL) ./rubik_h $(HDEPTH) $(HCAP) run $(HPOS) {} $(HJOBS)
 
-.PHONY: hcheck hroots hbuild hcount hrun
+# All six of Reid's positions, which together are the lower bound.  The first
+# is searched to depth 22 and the others to 21, because the corner parity
+# fixes the parity of the distance and their prefixes differ in length.
+# The table folded by the sixteen symmetries of the up-down axis: 12 094
+# families, 883 MB at four bits an entry.  It needs the flat table to be there.
+hfold: rubik_h
+	H_TBL=$(HTBL) ./rubik_h 1 $(HCAP) fold
+
+hall: rubik_h
+	$(MAKE) hrun HPOS=0 HDEPTH=22
+	for k in 1 2 3 4 5; do $(MAKE) hrun HPOS=$$k HDEPTH=21; done
+
+.PHONY: hcheck hroots hbuild hcount hrun hall hfold
