@@ -128,8 +128,18 @@ hrun: rubik_h
 hfold: rubik_h
 	H_TBL=$(HTBL) ./rubik_h 1 $(HCAP) fold
 
+# One chunk of the folded table as a Rocq array literal, in the shape
+# bench/p1gen.ml emits: fifteen four bit entries to an int63 word, two million
+# words a chunk.  59 chunks hold the whole thing.  See ../HProbe.v for what to
+# measure with it.
+CHUNK  ?= 0
+HFTBL  ?= h_fold$(HCAP).tbl
+hdump: rubik_h
+	H_FTBL=$(HFTBL) ./rubik_h 1 $(HCAP) dump $(CHUNK) \
+	  > ../HFold_$$(printf %02d $(CHUNK)).v
+
 hall: rubik_h
 	$(MAKE) hrun HPOS=0 HDEPTH=22
 	for k in 1 2 3 4 5; do $(MAKE) hrun HPOS=$$k HDEPTH=21; done
 
-.PHONY: hcheck hroots hbuild hcount hrun hall hfold
+.PHONY: hcheck hroots hbuild hcount hrun hall hfold hdump
