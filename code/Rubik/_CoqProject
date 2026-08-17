@@ -85,3 +85,4 @@ FoldRankCert.v
 FoldChecks.v
 FoldAssembly.v
 HRoot.v
+HCoord.v
