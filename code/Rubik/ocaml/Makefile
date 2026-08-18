@@ -125,6 +125,9 @@ hrun: rubik_h
 # fixes the parity of the distance and their prefixes differ in length.
 # The table folded by the sixteen symmetries of the up-down axis: 12 094
 # families, 883 MB at four bits an entry.  It needs the flat table to be there.
+hadmis: rubik_h
+	H_TBL=$(HTBL) ./rubik_h 1 $(HCAP) admis $(JOBS)
+
 hfold: rubik_h
 	H_TBL=$(HTBL) ./rubik_h 1 $(HCAP) fold
 
