@@ -178,6 +178,34 @@ have /implyP/(_ p0)/implyP/(_ ap)/or3P[] :=
 by move=> h; apply: Or33.
 Qed.
 
+(* ---- the two turns of a face --------------------------------------------- *)
+
+(* A face has two quarter turns and they are inverse, so of two turns of one  *)
+(* face that are not the same one, the second undoes the first -- that is the *)
+(* cancel.  And the turn three of a face collapse into is a turn of that same *)
+(* face, which is all phi reads of it.                                        *)
+Lemma qinv_tab :
+  all (fun a => all (fun m => ((fce m == fce a) && (m != a)) ==> (m == qinv a))
+       (iota 0 nq)) (iota 0 nq).
+Proof. by vm_compute. Qed.
+
+Lemma qinv_same a m : (a < nq)%N -> (m < nq)%N -> fce m = fce a -> m != a ->
+  m = qinv a.
+Proof.
+move=> aL mL fam ma.
+have /implyP/(_ (introT andP (conj (introT eqP fam) ma)))/eqP h :=
+  allP (allP qinv_tab _ (mem_iota0 aL)) _ (mem_iota0 mL).
+by [].
+Qed.
+
+Lemma fce_qinv_tab : all (fun a => fce (qinv a) == fce a) (iota 0 nq).
+Proof. by vm_compute. Qed.
+
+Lemma fce_qinv a : (a < nq)%N -> fce (qinv a) = fce a.
+Proof.
+by move=> aL; apply/eqP; apply: (allP fce_qinv_tab); apply: mem_iota0.
+Qed.
+
 (* ---- what is left -------------------------------------------------------  *)
 
 (* With the three rewrites and this measure, the shape of the argument is     *)
