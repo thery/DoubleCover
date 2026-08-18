@@ -133,3 +133,185 @@ rewrite okw_cat => /andP[ou]; rewrite /= andbT => aa pL.
 rewrite /hclassw foldl_cat last_cat /=.
 by have [_ -> _ _] := hclass_ok (hclassw_lt uq ou pL) aL aa.
 Qed.
+
+(* ---- run two ------------------------------------------------------------- *)
+
+(* A run of two is two of the SAME turn, and that is what says the letter     *)
+(* before the pair is the same again -- which is what the collapse needs.     *)
+Lemma prun2_tab :
+  all (fun p => all (fun m => allowedq p m ==> (prun (hclass p m) == 2)%N ==>
+        ((0 < p)%N && (m == plast p))) (iota 0 nq)) (iota 0 nclass).
+Proof. by vm_compute. Qed.
+
+Lemma prun2_last p u a : qw u -> okw p u -> (p < nclass)%N -> (a < nq)%N ->
+  allowedq (hclassw p u) a -> prun (hclass (hclassw p u) a) = 2%N ->
+  (0 < hclassw p u)%N /\ a = plast (hclassw p u).
+Proof.
+move=> uq ou pL aL aa h2.
+have cL := hclassw_lt uq ou pL.
+have /implyP/(_ aa)/implyP/(_ (introT eqP h2))/andP[h1 /eqP h3] :=
+  allP (allP prun2_tab _ (mem_iota0 cL)) _ (mem_iota0 aL).
+by split.
+Qed.
+
+(* ---- the three rewrites, each on the word it works at -------------------- *)
+
+Lemma qw_cat u v : qw (u ++ v) = qw u && qw v.
+Proof. by rewrite /qw all_cat. Qed.
+
+Lemma qw_cons m u : qw (m :: u) = ((m < nq)%N && qw u).
+Proof. by []. Qed.
+
+Lemma step_swap (u v : seq nat) a m : (a < nq)%N -> (m < nq)%N -> ohi a m ->
+  [/\ wp (u ++ m :: a :: v) = wp (u ++ a :: m :: v),
+      seq.size (u ++ m :: a :: v) = seq.size (u ++ a :: m :: v) &
+      (phi (u ++ m :: a :: v) < phi (u ++ a :: m :: v))%N].
+Proof.
+move=> aL mL am; split.
+- by apply: man_swap => //; move: am; rewrite /ohi => /andP[].
+- by rewrite !size_cat.
+by rewrite (phi_swap u v am).
+Qed.
+
+Lemma step_cancel (u v : seq nat) a m : (a < nq)%N -> (m < nq)%N ->
+  fce m = fce a -> m != a ->
+  [/\ wp (u ++ v) = wp (u ++ a :: m :: v),
+      (seq.size (u ++ v)).+2 = seq.size (u ++ a :: m :: v) &
+      (phi (u ++ v) <= phi (u ++ a :: m :: v))%N].
+Proof.
+move=> aL mL fam ma; split.
+- rewrite wp_pair (qinv_same aL mL fam ma) qmv_cancel // mulg1.
+  by rewrite wp_cat.
+- by rewrite !size_cat /= addnS addnS.
+apply: leq_trans (phi_del u v m) _.
+by apply: (phi_del u (m :: v) a).
+Qed.
+
+Lemma step_run3 (u v : seq nat) a : (a < nq)%N ->
+  [/\ wp (u ++ qinv a :: v) = wp (u ++ a :: a :: a :: v),
+      (seq.size (u ++ qinv a :: v)).+2 = seq.size (u ++ a :: a :: a :: v) &
+      (phi (u ++ qinv a :: v) <= phi (u ++ a :: a :: a :: v))%N].
+Proof.
+move=> aL; split.
+- by rewrite wp_triple qmv_cube // wp_cat wp_cons mulgA.
+- by rewrite !size_cat /= !addnS.
+rewrite (phi_fce u v (fce_qinv aL)).
+apply: leq_trans (phi_del u (a :: v) a) _.
+by apply: (phi_del u (a :: a :: v) a).
+Qed.
+
+(* The collapse asks for the letter before the pair, so it is stated on the   *)
+(* word rather than on a place in it: three of a face, and out comes one.     *)
+Lemma step_run3_word (u v : seq nat) a : qw u -> qw v -> u != [::] ->
+  a = last 0%N u -> (a < nq)%N ->
+  exists w2, [/\ qw w2, wp w2 = wp (u ++ a :: a :: v),
+      (seq.size w2).+2 = seq.size (u ++ a :: a :: v) &
+      (phi w2 <= phi (u ++ a :: a :: v))%N].
+Proof.
+case/lastP: u => [_|u2 b] //; rewrite last_rcons -cats1 => uq vq _ ba aL.
+rewrite -ba -catA /=.
+have [h1 h2 h3] := step_run3 u2 v aL.
+exists (u2 ++ qinv a :: v); split => //.
+rewrite qw_cat qw_cons qinv_lt //= vq andbT.
+by move: uq; rewrite qw_cat => /andP[].
+Qed.
+
+(* ---- OBLIGATION B -------------------------------------------------------- *)
+
+(* Every word is matched by one the rule accepts, no longer.  While the rule  *)
+(* refuses somewhere, rewrite at the first place it does: okw_bad says where, *)
+(* bad_case says which of the three, and each of them drops size + phi -- a   *)
+(* cancel and a collapse by two in the size, a swap by one in phi.            *)
+Lemma canon_le n w : (seq.size w + phi w <= n)%N -> qw w ->
+  exists w', [/\ qw w', wp w' = wp w, (seq.size w' <= seq.size w)%N & okw 0 w'].
+Proof.
+elim: n w => [|n ih] w wn wq.
+  have /size0nil wE : seq.size w = 0%N.
+    by move: wn; rewrite leqn0 addn_eq0 => /andP[/eqP].
+  by exists [::]; rewrite wE.
+have [ow|now] := boolP (okw 0 w); first by exists w.
+have [u [m [v [wE ou am]]]] := okw_bad now.
+have mL : (m < nq)%N by move: wq; rewrite wE qw_cat qw_cons => /andP[_ /andP[]].
+have vq : qw v by move: wq; rewrite wE qw_cat qw_cons => /andP[_ /andP[_]].
+case/lastP: u wE ou am => [|u1 a] wE ou am.
+  by move: am; rewrite /allowedq /hclassw.
+have uq : qw (rcons u1 a) by move: wq; rewrite wE qw_cat => /andP[].
+have u1q : qw u1 by move: uq; rewrite -cats1 qw_cat => /andP[].
+have aL : (a < nq)%N.
+  by move: uq; rewrite -cats1 qw_cat qw_cons andbT => /andP[_].
+have ou1 : okw 0 u1 by move: ou; rewrite -cats1 okw_cat => /andP[].
+have p1L : (hclassw 0 u1 < nclass)%N by apply: hclassw_lt.
+have aa : allowedq (hclassw 0 u1) a.
+  by move: ou; rewrite -cats1 okw_cat /= andbT => /andP[_].
+have hcE : hclassw 0 (rcons u1 a) = hclass (hclassw 0 u1) a.
+  by rewrite -cats1 hclassw_cat.
+have [pL aE _ _] := hclass_ok p1L aL aa.
+have wE2 : w = u1 ++ a :: m :: v by rewrite wE -cats1 -catA.
+move: am; rewrite hcE => am.
+have [] := bad_case (hclass_gt0 (hclassw 0 u1) a) pL mL am; rewrite aE.
+- (* the two cancel                                                           *)
+  move=> [fam ma].
+  have [hwp hsz hph] := step_cancel u1 v aL mL fam ma.
+  have w2q : qw (u1 ++ v) by rewrite qw_cat u1q vq.
+  have hn : (seq.size (u1 ++ v) + phi (u1 ++ v) <= n)%N.
+    have h2 : ((seq.size (u1 ++ v) + phi (u1 ++ v)).+2 <= n.+1)%N.
+      apply: leq_trans _ wn; rewrite wE2 -addSn -addSn hsz.
+      by rewrite leq_add2l.
+    by rewrite !ltnS in h2; apply: ltnW.
+  have [w' [q' p' s' o']] := ih _ hn w2q.
+  exists w'; split => //; first by rewrite p' hwp -wE2.
+  apply: leq_trans s' _.
+  by rewrite wE2 -hsz; apply: ltnW; apply: ltnW.
+- (* three of a face collapse into one                                        *)
+  move=> [maE prE].
+  have [p10 aE1] := prun2_last u1q ou1 isT aL aa prE.
+  have u10 : u1 != [::] by apply/eqP => uE; move: p10; rewrite uE /hclassw.
+  have alast : a = last 0%N u1.
+    by rewrite aE1 (hclassw_last u10 u1q ou1 isT).
+  move: wE2; rewrite maE => wE2.
+  have [w2 [q2 p2 s2 f2]] := step_run3_word u1q vq u10 alast aL.
+  have hn : (seq.size w2 + phi w2 <= n)%N.
+    have h2 : ((seq.size w2 + phi w2).+2 <= n.+1)%N.
+      apply: leq_trans _ wn; rewrite wE2 -addSn -addSn s2.
+      by rewrite leq_add2l.
+    by rewrite !ltnS in h2; apply: ltnW.
+  have [w' [q' p' s' o']] := ih _ hn q2.
+  exists w'; split => //; first by rewrite p' p2 -wE2.
+  apply: leq_trans s' _.
+  by rewrite wE2 -s2; apply: ltnW; apply: ltnW.
+(* the two opposite faces swap                                                *)
+move=> hoi.
+have [hwp hsz hph] := step_swap u1 v aL mL hoi.
+have w2q : qw (u1 ++ m :: a :: v).
+  by rewrite qw_cat !qw_cons mL aL vq !andbT.
+have hn : (seq.size (u1 ++ m :: a :: v) + phi (u1 ++ m :: a :: v) <= n)%N.
+  rewrite -ltnS; apply: leq_trans wn.
+  by rewrite wE2 hsz ltn_add2l.
+have [w' [q' p' s' o']] := ih _ hn w2q.
+exists w'; split => //; first by rewrite p' hwp -wE2.
+by apply: leq_trans s' _; rewrite wE2 hsz.
+Qed.
+
+(* and the hypothesis HBound.targ_far asks for                                *)
+Theorem canon v : qw v ->
+  exists v', [/\ qw v', wp v' = wp v, (seq.size v' <= seq.size v)%N & okw 0 v'].
+Proof. by apply: (canon_le (leqnn _)). Qed.
+
+(* ---- WHAT IS LEFT OF THE BOUND ------------------------------------------- *)
+
+(* With B discharged, `no maneuver of 25 quarter turns' rests on Hrun alone.  *)
+(* Print Assumptions targ_far_run names nothing but the int63 and PArray      *)
+(* primitives.                                                                *)
+Theorem targ_far_run
+  (Hrun : forall k v, (k < seq.size rpfx)%N -> qw v -> okw 0 v ->
+     (seq.size (nth [::] rpfx k) + seq.size v <= 24)%N ->
+     wp (nth [::] rpfx k ++ v) != targ) :
+  targ \notin ball Sq 25.
+Proof. by apply: targ_far Hrun canon. Qed.
+
+(* And Hrun is where the run has to be read as a statement about maneuvers.   *)
+(* okw_hpres and hslice_tab do the cutting up; what is left is the search     *)
+(* itself -- that a false means no accepted word of that length solves --     *)
+(* which needs obligation C (HAgree), obligation D (HAdmis, whose h_cut is    *)
+(* the form a cut needs, and HSweep for the sweep under it) and the fold read *)
+(* back as the flat table.                                                    *)
