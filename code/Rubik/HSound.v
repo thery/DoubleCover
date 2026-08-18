@@ -315,3 +315,34 @@ Proof. by apply: targ_far Hrun canon. Qed.
 (* which needs obligation C (HAgree), obligation D (HAdmis, whose h_cut is    *)
 (* the form a cut needs, and HSweep for the sweep under it) and the fold read *)
 (* back as the flat table.                                                    *)
+
+(* ---- the statement the run files have to be read through ----------------- *)
+
+Section RunSound.
+
+Variable mt_e mt_cl mt_ct : arr.
+Variable which fam sym_cl sym_ct : arr.
+Variable hfold : PArray.array arr.
+
+(* THE SEARCH IS SOUND WHEN IT FAILS.  hrun coming back false has to mean     *)
+(* that no word the rule accepts, of the depth it was given, finishes the     *)
+(* prefix.  That is what the seventy two run files are worth, and it is what  *)
+(* obligations C and D are for: C says the triple the search carries is the   *)
+(* triple of the position it stands at, D says the score it cuts on never     *)
+(* exceeds the distance, so a cut throws no maneuver away.                    *)
+Definition run_sound : Prop :=
+  forall (k d : nat) (w v : seq nat),
+    (k < seq.size rpfx)%N -> w \in hpres -> qw v ->
+    okw (hclassw 0 w) v -> (seq.size v <= d)%N ->
+    hrun mt_e mt_cl mt_ct which fam sym_cl sym_ct hfold k w d = false ->
+    wp (nth [::] rpfx k ++ w ++ v) != targ.
+
+End RunSound.
+
+(* WHAT STILL SEPARATES run_sound FROM targ_far_run's Hrun.  Given run_sound  *)
+(* and the seventy two run files, a word the rule accepts of two turns or     *)
+(* more is one of the 120 prefixes and a tail, by okw_hpres, and the prefix   *)
+(* is dealt to some job, by hslice_tab.  A word of one turn or none is NOT    *)
+(* searched at all, so it needs its own argument: the seventy eight words     *)
+(* made of one of Reid's six prefixes and at most one turn, none of which is  *)
+(* the position.  That is a computation on tables and is not written.         *)
