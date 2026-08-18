@@ -82,13 +82,48 @@ Lemma eplc_perm :
                 all (fun j => (eflp m j < 2)%N) (iota 0 nedge)) (iota 0 nq).
 Proof. by vm_compute. Qed.
 
+(* ---- reading a sticker back through the turn ----------------------------- *)
+
+(* The whole dependence on the position is here, and it is one step: after    *)
+(* the turn, the sticker at a facelet is the one that was at the facelet the  *)
+(* turn brings it from.  Which facelet that is depends on the turn alone.     *)
+Lemma ti2t_mvq : all (fun m => ti2t flast (mvq m) == mvt m) (iota 0 nq).
+Proof. by vm_compute. Qed.
+
+Lemma tabi_ok_mvq m : (m < nq)%N -> tabi_ok flast (mvq m).
+Proof.
+move=> mL; rewrite /tabi_ok.
+have /eqP -> := allP ti2t_mvq _ (mem_iota0 mL).
+by apply: mvt_ok.
+Qed.
+
+Lemma getn_step (a : arr) (m f : nat) : tabi_ok flast a -> (m < nq)%N ->
+  (f < 48)%N ->
+  getn (inv_tabi flast (comp_tabi flast a (mvq m))) f
+    = getn (inv_tabi flast a) (nth 0%N (inv_tab flast (mvt m)) f).
+Proof.
+move=> aok mL fL.
+have mok := tabi_ok_mvq mL.
+have /eqP mE := allP ti2t_mvq _ (mem_iota0 mL).
+have cok := tabi_ok_comp n47_small n47_len aok mok.
+rewrite /getn
+  -[to_nat (get (inv_tabi flast _) (of_nat f))](nth_ti2t (n := flast)) //.
+rewrite -[to_nat (get (inv_tabi flast a) _)](nth_ti2t (n := flast)) //;
+    last first.
+  by have := tab_lt (t := inv_tab flast (mvt m)) (inord f : facelet)
+       (tab_ok_inv (mvt_ok mL)); rewrite inordK.
+rewrite (ti2t_inv n47_small n47_len cok) (ti2t_inv n47_small n47_len aok).
+rewrite (ti2t_comp n47_small n47_len aok mok) mE.
+rewrite (inv_tab_comp aok (mvt_ok mL)).
+by rewrite nth_comp_tab // size_inv_tab.
+Qed.
+
 (* ---- what is left -------------------------------------------------------- *)
 
-(* With those, the step on the datum is: the cubie at place eplc m j in the   *)
-(* position is at place j after the turn, and its flip is the old one plus    *)
-(* eflp m j.  Writing that out needs the sticker after the turn to be read    *)
-(* back through the turn -- inv_tab_comp above -- and the guard cubti, which  *)
-(* is what says the sticker at the secondary facelet belongs to the same      *)
-(* cubie as the one at the primary.  Then the datum of a position steps by a  *)
-(* rule with no position in it, and the sweep over the 190080 data is what    *)
-(* ties the rule to the table.                                                *)
+(* The step on the datum is: the cubie at place eplc m j is at place j after  *)
+(* the turn, and its flip is the old one plus eflp m j.  getn_step gives the  *)
+(* sticker; what is left is to read the place and the flip off it, and there  *)
+(* the guard cubti is what is wanted -- it says the sticker at the secondary  *)
+(* facelet belongs to the same cubie as the one at the primary, which is the  *)
+(* case eflp m j = 1.  Then the datum steps by a rule with no position in it, *)
+(* and the sweep over the 190080 data ties the rule to the table.             *)
