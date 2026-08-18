@@ -94,4 +94,5 @@ replace HSweepAll.v.new HSweepAll.v && changed=$((changed + 1))
 
 echo "$NJ pieces plus the glue, $changed rewritten"
 echo "run them with, say:"
-echo "  ls HSweep_*.v | xargs -P 12 -I{} ./rocqtime.sh {}"
+# rocqtime.sh takes the BASE NAME, not the file name.
+echo "  ls HSweep_*.v | sed 's/[.]v$//' | xargs -P 12 -I{} ./rocqtime.sh {}"

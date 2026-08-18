@@ -18,9 +18,23 @@
 (* an unranking, cube_of_e and its two companions in ocaml/rubik_h.ml -- and  *)
 (* the round trip that the rank of the unranked value is the value again.     *)
 (*                                                                            *)
-(* So obligation C is: unranking in Rocq, the round trips, and then a sweep   *)
-(* of 190080 x 12 (and 70 x 12, and 2187 x 12).  The sweep is small -- it is  *)
-(* the unranking that is the work, and rubik_h.ml's cube_of_e is the spec.    *)
+(* OBLIGATION C IS THREE THINGS, and the reduction below says they suffice:   *)
+(*                                                                            *)
+(*   the coordinate of a position after a turn depends only on the coordinate *)
+(*     before it.  THIS IS THE MATHEMATICS, and no computation reaches it: it *)
+(*     says the triple determines the coset of Reid's subgroup.               *)
+(*   every value is the coordinate of some position -- an unranking, of which *)
+(*     rubik_h.ml's cube_of_e is the spec.  It may be had more cheaply: the   *)
+(*     table build already walks from the solved coset to every one of the    *)
+(*     190080, so a parent and a move for each value gives a position for it  *)
+(*     by replaying turns, with no unranking written at all.                  *)
+(*   the sweep, one position per value, which is small.                       *)
+(*                                                                            *)
+(* AND THE STATEMENT HAS TO SAY WHICH POSITIONS.  Over ALL arrays it is not   *)
+(* true: an array that does not keep the two facelets of an edge together has *)
+(* a triple, and nothing makes that triple step with the tables.  cubti is    *)
+(* that guard, and Coordfsi has it closed under the turns already.  The check *)
+(* mtabsok could not show this up -- it only ever looks at real positions.    *)
 (*                                                                            *)
 (* Nothing here is proved yet.  The file exists to hold the statement.        *)
 
@@ -28,7 +42,8 @@ From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
-Require Import Table Tabi Rubik333 Moves Coordfs Phase1 HRoot HCoord HSearch.
+Require Import Table Tabi Rubik333 Moves Coordfs Coordfsi Phase1 HRoot HCoord
+        HSearch.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -41,7 +56,7 @@ Notation arr := (PArray.array int).
 (* The statement, over the tables a run supplies.  mtabsok in HSearch.v is    *)
 (* this, restricted to a list of positions; agree is the same for all.        *)
 Definition agree (mt_e mt_cl mt_ct : arr) : Prop :=
-  forall (a : arr) (m : nat), (m < 12)%N ->
+  forall (a : arr) (m : nat), tabi_ok flast a -> cubti a -> (m < 12)%N ->
     htriple (comp_tabi flast a (mvi (qt18 m)))
       = stepa mt_e mt_cl mt_ct (htriple a) (of_nat m).
 
