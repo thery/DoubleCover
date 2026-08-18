@@ -210,12 +210,110 @@ have -> : (eidx m j - nedge = eplc m j)%N.
 by apply: getn_sec.
 Qed.
 
+(* ---- the flip after a turn ---------------------------------------------- *)
+
+(* The twin of eplace_step, and the one difference: reading the cubie off the *)
+(* secondary facelet of its place is exactly what turns it over, so the flip  *)
+(* picks up eflp m j where the place picks up nothing.                        *)
+Lemma epairn_fixn :
+  all (fun f => (epairn f == f) == (f \notin eprim ++ esec)) (iota 0 48).
+Proof. by vm_compute. Qed.
+
+Lemma epairn_eprim :
+  all (fun f => (f \in eprim ++ esec) ==>
+        ((epairn f \in eprim) == (f \notin eprim))) (iota 0 48).
+Proof. by vm_compute. Qed.
+
+Lemma epairn_lt : all (fun f => (epairn f < 48)%N) (iota 0 48).
+Proof. by vm_compute. Qed.
+
+Lemma eprim_mem : all (fun j => (nth 0%N eprim j \in eprim ++ esec) &&
+                                (nth 0%N esec j \in eprim ++ esec))
+                      (iota 0 nedge).
+Proof. by vm_compute. Qed.
+
+Lemma ee_lt48 : all (fun f => (f < 48)%N) (eprim ++ esec).
+Proof. by vm_compute. Qed.
+
+(* An edge facelet holds an edge sticker, and that is not free either: it     *)
+(* follows from the guard, since the pairing moves a facelet exactly when the *)
+(* facelet is an edge one, and the position is injective.                     *)
+Lemma getn_edge (u : arr) f : tabi_ok flast u -> cubt (ti2t flast u) ->
+  (f < 48)%N -> (f \in eprim ++ esec) -> (getn u f \in eprim ++ esec).
+Proof.
+move=> uok cu fL fin.
+have /and3P[/eqP usz _ uuniq] := uok.
+have pfL := allP epairn_lt _ (mem_iota0 fL).
+have hx : getn u f = nth 0%N (ti2t flast u) f by rewrite /getn (nth_ti2t u fL).
+have xL : (getn u f < 48)%N.
+  by rewrite hx; have := tab_lt (t := ti2t flast u) (inord f : facelet) uok;
+     rewrite inordK.
+have /eqP he := allP epairn_fixn _ (mem_iota0 xL).
+have /eqP hc := allP cu _ (mem_iota0 (n := nfacelet) fL).
+apply/negPn/negP => hnot.
+have hfix : epairn (getn u f) = getn u f by apply/eqP; rewrite he.
+move: hc; rewrite -hx hfix hx => hEq.
+have : (epairn f == f).
+  by rewrite -(nth_uniq 0%N _ _ uuniq) ?usz // -hEq.
+have /eqP hf2 := allP epairn_fixn _ (mem_iota0 fL).
+by rewrite hf2 fin.
+Qed.
+
+(* the sticker at the secondary facelet is the partner of the one at the      *)
+(* primary -- the guard again, at the level of the sticker                    *)
+Lemma getn_pair (u : arr) j : tabi_ok flast u -> cubt (ti2t flast u) ->
+  (j < nedge)%N ->
+  getn u (nth 0%N esec j) = epairn (getn u (nth 0%N eprim j)).
+Proof.
+move=> uok cu jL.
+have /andP[pL sL] := allP eprim_lt48 _ (mem_iota0 jL).
+have /eqP pj := allP esec_epairn _ (mem_iota0 jL).
+have h1 : getn u (nth 0%N esec j) = nth 0%N (ti2t flast u) (nth 0%N esec j).
+  by rewrite /getn (nth_ti2t u sL).
+have h2 : getn u (nth 0%N eprim j) = nth 0%N (ti2t flast u) (nth 0%N eprim j).
+  by rewrite /getn (nth_ti2t u pL).
+rewrite h1 h2 pj.
+by have /eqP <- := allP cu _ (mem_iota0 (n := nfacelet) pL).
+Qed.
+
+Lemma eflipn_step (a : arr) m j : tabi_ok flast a ->
+  cubt (ti2t flast (inv_tabi flast a)) -> (m < nq)%N -> (j < nedge)%N ->
+  eflipn (inv_tabi flast (comp_tabi flast a (mvq m))) j
+    = ((eflipn (inv_tabi flast a) (eplc m j) + eflp m j) %% 2)%N.
+Proof.
+move=> aok cu mL jL.
+have /andP[pL _] := allP eprim_lt48 _ (mem_iota0 jL).
+have iL := allP (allP eidx_lt _ (mem_iota0 mL)) _ (mem_iota0 jL).
+have uok : tabi_ok flast (inv_tabi flast a).
+  by rewrite /tabi_ok (ti2t_inv n47_small n47_len aok); apply: tab_ok_inv.
+have cL : (eplc m j < nedge)%N by rewrite /eplc ltn_mod.
+rewrite /eflipn (getn_step aok mL pL) (emv_in mL jL).
+case: (ltnP (eidx m j) nedge) => h.
+  have e1 : eplc m j = eidx m j by rewrite /eplc modn_small.
+  have e2 : eflp m j = 0%N by rewrite /eflp divn_small.
+  rewrite nth_cat size_eprim h e1 e2 addn0.
+  by case: (_ \in _).
+have e1 : (eidx m j - nedge = eplc m j)%N.
+  by rewrite /eplc -{2}(subnK h) modnDr modn_small // ltn_subLR.
+have e2 : eflp m j = 1%N.
+  rewrite /eflp; apply/eqP; rewrite eqn_leq -ltnS.
+  by rewrite divn_gt0 // h andbT ltn_divLR.
+have /andP[cpL _] := allP eprim_lt48 _ (mem_iota0 cL).
+have /andP[cpM _] := allP eprim_mem _ (mem_iota0 cL).
+rewrite nth_cat size_eprim ltnNge h /= e1 e2 (getn_pair uok cu cL).
+set X := getn (inv_tabi flast a) (nth 0%N eprim (eplc m j)).
+have XM : X \in eprim ++ esec by apply: getn_edge.
+have /implyP/(_ XM)/eqP -> :=
+  allP epairn_eprim _ (mem_iota0 (allP ee_lt48 _ XM)).
+by case: (X \in eprim).
+Qed.
+
 (* ---- what is left -------------------------------------------------------- *)
 
-(* eplace_step is the place; the flip is its twin and goes the same way, the  *)
-(* one difference being that reading the cubie off the secondary facelet is   *)
-(* what turns it over, so the flip picks up eflp m j where the place picks up *)
-(* nothing.  After that: eslot, which is the place and the flip of one cubie; *)
-(* the datum, which is the four of them; and the sweep over the 190080 data,  *)
-(* which is what ties the rule to the table.  Then the same twice more for    *)
-(* the corners, where there are 70 and 2187 data and no pairing to keep.      *)
+(* The place and the flip are both done, so a turn moves the pair (place,     *)
+(* flip) of every one of the twelve edge slots by a rule with no position in  *)
+(* it.  What is left for the edges: eslot, which picks out of those twelve    *)
+(* the four the coordinate reads; the datum, which is those four; and the     *)
+(* sweep over the 190080 data, which ties the rule to the table.  Then the    *)
+(* same twice more for the corners, where there are 70 and 2187 data and no   *)
+(* pairing to keep.                                                           *)
