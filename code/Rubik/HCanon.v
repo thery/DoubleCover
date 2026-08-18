@@ -127,6 +127,57 @@ elim: u => [|x u ih] /=; first by rewrite leq_addl.
 by rewrite leq_add // !count_cat /= addnCA leq_addl.
 Qed.
 
+(* ---- reading a class back ------------------------------------------------ *)
+
+(* The class is `the last turn and how long its run is', and that is the form *)
+(* the rewriting needs.  THE GUARD IS NOT DECORATION: a third turn of the same*)
+(* face would take the class out of its own coding, and it is allowedq alone  *)
+(* that keeps it in.                                                          *)
+Lemma hclass_tab :
+  all (fun p => all (fun m => allowedq p m ==>
+        [&& hclass p m < nclass, plast (hclass p m) == m,
+            0 < prun (hclass p m) & prun (hclass p m) <= 2]%N)
+      (iota 0 nq)) (iota 0 nclass).
+Proof. by vm_compute. Qed.
+
+Lemma hclass_ok p m : (p < nclass)%N -> (m < nq)%N -> allowedq p m ->
+  [/\ (hclass p m < nclass)%N, plast (hclass p m) = m,
+      (0 < prun (hclass p m))%N & (prun (hclass p m) <= 2)%N].
+Proof.
+move=> pL mL ap.
+have /implyP/(_ ap)/and4P[h1 /eqP h2 h3 h4] :=
+  allP (allP hclass_tab _ (mem_iota0 pL)) _ (mem_iota0 mL).
+by split.
+Qed.
+
+(* ---- what a violation calls for ------------------------------------------ *)
+
+(* THE THREE REWRITES ARE EXHAUSTIVE, and this is where that is settled: a    *)
+(* turn the rule refuses is either the other turn of the face just played --  *)
+(* the two cancel -- or a third turn of it, which collapses into one, or the  *)
+(* smaller of two opposite faces coming second, which swaps.  Twenty five     *)
+(* classes by twelve turns, so it is a computation.                           *)
+Lemma bad_tab :
+  all (fun p => all (fun m => (0 < p)%N ==> ~~ allowedq p m ==>
+     [|| (fce m == fce (plast p)) && (m != plast p),
+         (m == plast p) && (prun p == 2)%N
+       | ohi (plast p) m ])
+      (iota 0 nq)) (iota 0 nclass).
+Proof. by vm_compute. Qed.
+
+Lemma bad_case p m :
+  (0 < p)%N -> (p < nclass)%N -> (m < nq)%N -> ~~ allowedq p m ->
+  [\/ fce m = fce (plast p) /\ m != plast p,
+      m = plast p /\ prun p = 2%N | ohi (plast p) m].
+Proof.
+move=> p0 pL mL ap.
+have /implyP/(_ p0)/implyP/(_ ap)/or3P[] :=
+  allP (allP bad_tab _ (mem_iota0 pL)) _ (mem_iota0 mL).
+- by move=> /andP[/eqP h1 h2]; apply: Or31.
+- by move=> /andP[/eqP h1 /eqP h2]; apply: Or32.
+by move=> h; apply: Or33.
+Qed.
+
 (* ---- what is left -------------------------------------------------------  *)
 
 (* With the three rewrites and this measure, the shape of the argument is     *)
