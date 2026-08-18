@@ -413,6 +413,131 @@ have j0n : (j0 < n)%N.
 by apply: ih => // j jL Pj; apply: hun => //; apply: ltnW.
 Qed.
 
+(* ---- the guard survives a turn ------------------------------------------- *)
+
+(* Which is also what the search needs of the positions it meets.            *)
+Lemma cubt_mvt : all (fun m => cubt (mvt m)) (iota 0 nq).
+Proof. by vm_compute. Qed.
+
+Lemma cubt_comp t1 t2 : tab_ok flast t1 -> tab_ok flast t2 ->
+  cubt t1 -> cubt t2 -> cubt (comp_tab t1 t2).
+Proof.
+move=> ok1 ok2 c1 c2.
+rewrite -(cubtE (tab_ok_comp ok1 ok2)) -ptM //.
+by apply: cubPM; rewrite cubtE.
+Qed.
+
+Lemma cubt_step (a : arr) m : tabi_ok flast a -> (m < nq)%N ->
+  cubt (ti2t flast a) -> cubt (ti2t flast (comp_tabi flast a (mvq m))).
+Proof.
+move=> aok mL ca.
+have /eqP mE := allP ti2t_mvq _ (mem_iota0 mL).
+rewrite (ti2t_comp n47_small n47_len aok (tabi_ok_mvq mL)) mE.
+by apply: cubt_comp => //; [apply: mvt_ok | apply: (allP cubt_mvt);
+   apply: mem_iota0].
+Qed.
+
+Lemma tabi_ok_invi a : tabi_ok flast a -> tabi_ok flast (inv_tabi flast a).
+Proof.
+by move=> aok; rewrite /tabi_ok (ti2t_inv n47_small n47_len aok);
+   apply: tab_ok_inv.
+Qed.
+
+Lemma cubt_invi a : tabi_ok flast a -> cubt (ti2t flast a) ->
+  cubt (ti2t flast (inv_tabi flast a)).
+Proof.
+by move=> aok ca; rewrite (ti2t_inv n47_small n47_len aok); apply: cubt_inv.
+Qed.
+
+(* ---- THE DATUM STEPS ----------------------------------------------------- *)
+
+(* Where a place goes, read backwards: the turn takes einv m j to j.         *)
+Definition einv (m j : nat) : nat := index j [seq eplc m k | k <- iota 0 nedge].
+
+Lemma einv_tab :
+  all (fun m => all (fun j =>
+        [&& einv m j < nedge, eplc m (einv m j) == j & einv m (eplc m j) == j])
+      (iota 0 nedge)) (iota 0 nq).
+Proof. by vm_compute. Qed.
+
+Lemma einv_lt m j : (m < nq)%N -> (j < nedge)%N -> (einv m j < nedge)%N.
+Proof.
+by move=> mL jL; have /and3P[h _ _] := allP (allP einv_tab _ (mem_iota0 mL)) _
+  (mem_iota0 jL).
+Qed.
+
+Lemma eplc_einv m j : (m < nq)%N -> (j < nedge)%N -> eplc m (einv m j) = j.
+Proof.
+move=> mL jL.
+by have /and3P[_ /eqP h _] := allP (allP einv_tab _ (mem_iota0 mL)) _
+  (mem_iota0 jL).
+Qed.
+
+Lemma einv_eplc m j : (m < nq)%N -> (j < nedge)%N -> einv m (eplc m j) = j.
+Proof.
+move=> mL jL.
+by have /and3P[_ _ /eqP h] := allP (allP einv_tab _ (mem_iota0 mL)) _
+  (mem_iota0 jL).
+Qed.
+
+Lemma eflipn_lt (u : arr) j : (eflipn u j < 2)%N.
+Proof. by rewrite /eflipn; case: ifP. Qed.
+
+(* eslot is the place of a cubie and its flip, and it is the fold that says   *)
+(* so -- there is exactly one place holding the cubie                         *)
+Lemma eslotE (u : arr) i j0 : tabi_ok flast u -> cubt (ti2t flast u) ->
+  (j0 < nedge)%N -> eplace u j0 = (nedge - nslicec + i)%N ->
+  eslot u i = (2 * j0 + eflipn u j0)%N.
+Proof.
+move=> uok cu j0L hj0.
+rewrite /eslot.
+apply: (@foldl_uniq _ (fun j => (2 * j + eflipn u j)%N)
+          (fun j => eplace u j == (nedge - nslicec + i)%N) nedge 0%N j0) => //.
+  by rewrite hj0.
+move=> j jL /eqP hj; apply: eplace_inj uok cu jL j0L _.
+by rewrite hj hj0.
+Qed.
+
+(* THE MATHEMATICS OF C, FOR ONE SLICE CUBIE.  Where it sits and how it lies  *)
+(* after a turn is a rule in the turn and in where it sat and how it lay, and *)
+(* there is no position left in it.                                           *)
+Lemma eslot_step (a : arr) m i : tabi_ok flast a -> cubt (ti2t flast a) ->
+  (m < nq)%N -> (i < nslicec)%N ->
+  eslot (inv_tabi flast (comp_tabi flast a (mvq m))) i =
+    (let x := eslot (inv_tabi flast a) i in
+     let j' := einv m (x %/ 2)%N in
+     2 * j' + (x %% 2 + eflp m j') %% 2)%N.
+Proof.
+move=> aok ca mL iL.
+have uok := tabi_ok_invi aok.
+have cu := cubt_invi aok ca.
+have vL : (nedge - nslicec + i < nedge)%N by [].
+have [j0 j0L hj0] := eplace_onto uok cu vL.
+have hx := eslotE uok cu j0L hj0.
+have j'L : (einv m j0 < nedge)%N by apply: einv_lt.
+have a'ok := tabi_ok_comp n47_small n47_len aok (tabi_ok_mvq mL).
+have ca' := cubt_step aok mL ca.
+have u'ok := tabi_ok_invi a'ok.
+have cu' := cubt_invi a'ok ca'.
+have hpl := eplace_step aok cu mL j'L.
+rewrite (eplc_einv mL j0L) in hpl.
+have hj' : eplace (inv_tabi flast (comp_tabi flast a (mvq m))) (einv m j0)
+             = (nedge - nslicec + i)%N by rewrite hpl.
+rewrite (eslotE u'ok cu' j'L hj') (eflipn_step aok cu mL j'L).
+rewrite (eplc_einv mL j0L) hx.
+have f2 : (eflipn (inv_tabi flast a) j0 < 2)%N := eflipn_lt _ _.
+cbv zeta.
+set k := (2 * j0 + eflipn (inv_tabi flast a) j0)%N.
+have hk1 : (k %/ 2)%N = j0.
+  rewrite /k [(2 * j0)%N]mulnC divnMDl.
+    by rewrite (divn_small f2) addn0.
+  by [].
+have hk2 : (k %% 2)%N = eflipn (inv_tabi flast a) j0.
+  rewrite /k [(2 * j0)%N]mulnC modnMDl.
+  by rewrite (modn_small f2).
+by rewrite hk1 hk2.
+Qed.
+
 (* ---- what is left -------------------------------------------------------- *)
 
 (* The place and the flip are both done, so a turn moves the pair (place,     *)
