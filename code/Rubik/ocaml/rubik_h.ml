@@ -783,9 +783,53 @@ let () =
     prerr_endline (path ^ " is missing -- run the build first");
     exit 1
   end;
-  let nw = if mode = "build" then arg4 1 else 1 in
+  let nw = if mode = "build" || mode = "admis" then arg4 1 else 1 in
   let t0 = Unix.gettimeofday () in
   let tbl = build path cap nw start (n_e, mt_e) (n_cl, mt_cl) (n_ct, mt_ct) in
+
+  (* ---- the sweep the Rocq proof needs ------------------------------------ *)
+
+  (* The search prunes with the table, and that is sound only if the table
+     never says more than the truth.  What a sweep can check, coset by coset,
+     is the local form of it: a turn moves the entry by at most one, so no
+     word of n turns can reach anything the table scores more than n above
+     where it started.  A capped entry keeps it: everything past the cap holds
+     cap + 1 and its neighbours hold at least cap.
+     This is the reference run for the Rocq sweep -- same order, same
+     comparison, so the two are comparable coset for coset.                  *)
+  if mode = "admis" then begin
+    let n_all = n_e * n_cl * n_ct in
+    log "sweeping %d cosets x %d turns, %d workers...\n" n_all nmv nw;
+    let t0 = Unix.gettimeofday () in
+    let bad = counters (path ^ ".bad") nw in
+    parallel nw (fun w ->
+      let lo = w * n_e / nw and hi = (w + 1) * n_e / nw in
+      let n = ref 0L in
+      for a = lo to hi - 1 do
+        let ra = mt_e.(a) in
+        for b = 0 to n_cl - 1 do
+          let rb = mt_cl.(b) in
+          let base = (a * n_cl + b) * n_ct in
+          for c = 0 to n_ct - 1 do
+            let v = Char.code (Bigarray.Array1.unsafe_get tbl (base + c)) in
+            let rc = mt_ct.(c) in
+            for m = 0 to nmv - 1 do
+              let j = (ra.(m) * n_cl + rb.(m)) * n_ct + rc.(m) in
+              if Char.code (Bigarray.Array1.unsafe_get tbl j) + 1 < v
+              then n := Int64.add !n 1L
+            done
+          done
+        done
+      done;
+      Bigarray.Array1.set bad w !n);
+    let tot = ref 0L in
+    for w = 0 to nw - 1 do
+      tot := Int64.add !tot (Bigarray.Array1.get bad w) done;
+    log "  %Ld cosets where a turn drops the table by more than one (%.0f s)\n"
+      !tot (Unix.gettimeofday () -. t0);
+    (try Sys.remove (path ^ ".bad") with _ -> ());
+    exit (if !tot = 0L then 0 else 1)
+  end;
   (* ---- the fold, for the sake of Rocq ----------------------------------- *)
 
   (* Rocq cannot be handed 29.1 GB, and it does not have to be.  One entry
