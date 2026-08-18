@@ -88,4 +88,28 @@ Definition admis : bool := adm 0%uint63 n_e.
 Lemma adm_split x n m y : advn n x = y -> adm x n -> adm y m -> adm x (n + m).
 Proof. by move=> <-; rewrite /adm iterD => -> ->. Qed.
 
+(* ---- what the sweep gives at one triple ---------------------------------- *)
+
+(* iter walks x, x + 1, ... and advn k x is where it stands after k steps, so *)
+(* reading a step off the walk needs no arithmetic either.                    *)
+Lemma iterP n x f k : (k < n)%N -> iter n x f -> f (advn k x).
+Proof.
+elim: n x k => [|n ih] x [|k] //= kn /andP[fx it] //.
+by apply: ih.
+Qed.
+
+(* SAY THE TYPE OF EVERY STEP.  Left to work it out, the unifier meets iter   *)
+(* at n_e and expands 190080 into unary; with the type given it does not.     *)
+(* The kernel still walks the fuel once at Qed, and that is why this file     *)
+(* takes about three minutes to compile where the rest take seconds.  It is   *)
+(* paid once, and the sweep jobs themselves never go through this lemma.      *)
+Lemma admisP e cl ct : (e < n_e)%N -> (cl < n_cl)%N -> (ct < n_ct)%N ->
+  admis -> adm1 (advn e 0%uint63, advn cl 0%uint63, advn ct 0%uint63).
+Proof.
+move=> eL cL tL ha.
+have h1 : adm_cl (advn e 0%uint63) by apply: (iterP eL ha).
+have h2 : adm_ct (advn e 0%uint63) (advn cl 0%uint63) by apply: (iterP cL h1).
+by apply: (iterP tL h2).
+Qed.
+
 End Sweep.
