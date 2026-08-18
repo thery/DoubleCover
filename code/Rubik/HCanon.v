@@ -88,11 +88,44 @@ rewrite count_cat ih !addnA.
 by rewrite [(count (ohi m) u + count (ohi m) s + phi u)%N]addnAC.
 Qed.
 
-(* phi_swap -- that a swap of an opposite pair drops phi by exactly one -- is
-   the next step and the reason the measure works: the pairs other than the
-   swapped one are untouched, since the two letters only trade places between
-   the same neighbours.  It goes through interactively and is not in the file
-   yet; the arithmetic shape at the end needs one more look.                 *)
+(* Of two opposite faces only one order counts, so a swap cannot go both ways.*)
+Lemma ohiN (a b : nat) : ohi a b -> ~~ ohi b a.
+Proof. by rewrite /ohi => /andP[_ ab]; rewrite andbC leqNgt ltnW. Qed.
+
+(* A SWAP DROPS phi BY EXACTLY ONE.  The pairs other than the swapped one are *)
+(* untouched: the two letters only trade places between the same neighbours,  *)
+(* so every count over the part before them is the same sum in another order. *)
+Lemma phi_swap (a b : nat) (u v : seq nat) : ohi a b ->
+  phi (u ++ a :: b :: v) = (phi (u ++ b :: a :: v)).+1.
+Proof.
+move=> ab; rewrite !phi_cat /=.
+have hu : sumn [seq ohi m a + (ohi m b + count (ohi m) v) | m <- u]
+        = sumn [seq ohi m b + (ohi m a + count (ohi m) v) | m <- u].
+  by congr sumn; apply: eq_map => m; rewrite addnCA.
+rewrite hu ab (negbTE (ohiN ab)) /= add0n add1n addSn addnS.
+by congr (_ + _).+1; rewrite addnCA.
+Qed.
+
+(* THE TWO SHORTENINGS CANNOT RAISE phi.  Taking a letter out only takes pairs*)
+(* out, and the collapse of three turns of a face into one leaves the face    *)
+(* alone, which is all phi reads.                                             *)
+Lemma phi_fce (u v : seq nat) (a m : nat) : fce a = fce m ->
+  phi (u ++ a :: v) = phi (u ++ m :: v).
+Proof.
+move=> fam; rewrite !phi_cat /=.
+have ho x : ohi x a = ohi x m by rewrite /ohi /oppq fam.
+have hoa x : ohi a x = ohi m x by rewrite /ohi /oppq fam.
+have hc : count (ohi a) v = count (ohi m) v.
+  by apply: eq_count => x; rewrite hoa.
+congr (_ + _ + _); last by rewrite hc.
+by congr sumn; apply: eq_map => x; rewrite ho.
+Qed.
+
+Lemma phi_del (u v : seq nat) (m : nat) : (phi (u ++ v) <= phi (u ++ m :: v))%N.
+Proof.
+elim: u => [|x u ih] /=; first by rewrite leq_addl.
+by rewrite leq_add // !count_cat /= addnCA leq_addl.
+Qed.
 
 (* ---- what is left -------------------------------------------------------  *)
 
