@@ -59,12 +59,22 @@ Eval vm_compute in chk_rank.
 (* Where the place j' comes from: the turn takes it to eplc m j'.  So the     *)
 (* cubie that was at place j is at the j' with eplc m j' = j, and it is       *)
 (* turned over on the way exactly when eflp m j' is one.                      *)
-Definition eplcinv (m j : nat) : nat :=
-  index j [seq eplc m k | k <- iota 0 nedge].
+(* ONCE, NOT ONCE A LOOKUP.  eidx inverts a forty eight entry table, some two *)
+(* thousand operations, and eplcinv would ask for it twelve times a slot --   *)
+(* a thousandfold before a single datum is looked at.  These are the same     *)
+(* numbers, computed once: for each turn, where each place came from and      *)
+(* whether the cubie is turned over on the way.                               *)
+Definition einvt : seq (seq nat) := Eval vm_compute in
+  [seq [seq index j [seq eplc m k | k <- iota 0 nedge] | j <- iota 0 nedge]
+  | m <- iota 0 nq].
+
+Definition eflpt : seq (seq nat) := Eval vm_compute in
+  [seq [seq eflp m j | j <- iota 0 nedge] | m <- iota 0 nq].
 
 Definition estep (m : nat) (s : seq nat) : seq nat :=
   [seq (let j := (x %/ 2)%N in let fl := (x %% 2)%N in
-        let j' := eplcinv m j in (2 * j' + (fl + eflp m j') %% 2)%N) | x <- s].
+        let j' := nth 0%N (nth [::] einvt m) j in
+        (2 * j' + (fl + nth 0%N (nth [::] eflpt m) j') %% 2)%N) | x <- s].
 
 (* CHECK 2: on Reid's six, the rule agrees with the move table.              *)
 Definition chk_root : bool :=
@@ -104,12 +114,10 @@ Definition chk_from (l : seq (seq nat)) : bool :=
                (Uint63.add (Uint63.mul (erk s) nqti) (of_nat m)))
       (iota 0 nq)) l.
 
-(* ON A SLICE, and that is not caution -- erk and estep count in nat, and a  *)
-(* nat operation is about a microsecond against 0.05 for an int63.  Two      *)
-(* thousand data answer the question the sweep is asked, which is whether    *)
-(* the rule is the table, and they give the cost of one datum so the whole   *)
-(* 190080 can be scaled rather than guessed.  The whole sweep is the same    *)
-(* line with edata for esmall, and it wants the datum in int63 first.        *)
+(* The slice first, for the rate, then the whole thing.  Two thousand data   *)
+(* already answer the question the sweep is asked -- whether the rule is the *)
+(* table -- and they say what the 190080 will cost.                          *)
 Definition esmall : seq (seq nat) := take 2000 edata.
 
 Time Eval vm_compute in chk_from esmall.
+Time Eval vm_compute in chk_from edata.
