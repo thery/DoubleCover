@@ -308,6 +308,111 @@ have /implyP/(_ XM)/eqP -> :=
 by case: (X \in eprim).
 Qed.
 
+(* ---- a position permutes the places -------------------------------------- *)
+
+(* eslot picks, out of the twelve places, the one holding a given cubie, so   *)
+(* it is only well behaved because there is exactly one.  That is not free    *)
+(* either: two places holding the same cubie would have to hold its two       *)
+(* facelets, and then the guard and injectivity put a primary facelet on a    *)
+(* secondary one.                                                             *)
+Lemma eprim_esec_disj :
+  all (fun j1 => all (fun j2 => nth 0%N esec j1 != nth 0%N eprim j2)
+        (iota 0 nedge)) (iota 0 nedge).
+Proof. by vm_compute. Qed.
+
+Lemma eprim_inj :
+  all (fun j1 => all (fun j2 => (nth 0%N eprim j1 == nth 0%N eprim j2) ==>
+        (j1 == j2)) (iota 0 nedge)) (iota 0 nedge).
+Proof. by vm_compute. Qed.
+
+(* two edge facelets are on the same place exactly when they are the same     *)
+(* facelet or the two of that place                                           *)
+Lemma eposn_inj :
+  all (fun f1 => all (fun f2 =>
+        ((f1 \in eprim ++ esec) && (f2 \in eprim ++ esec)) ==>
+        ((eposn f1 == eposn f2) == ((f1 == f2) || (f1 == epairn f2))))
+        (iota 0 48)) (iota 0 48).
+Proof. by vm_compute. Qed.
+
+Lemma eplace_inj (u : arr) j1 j2 : tabi_ok flast u -> cubt (ti2t flast u) ->
+  (j1 < nedge)%N -> (j2 < nedge)%N -> eplace u j1 = eplace u j2 -> j1 = j2.
+Proof.
+move=> uok cu j1L j2L he.
+have /and3P[/eqP usz _ uuniq] := uok.
+have /andP[p1L s1L] := allP eprim_lt48 _ (mem_iota0 j1L).
+have /andP[p2L s2L] := allP eprim_lt48 _ (mem_iota0 j2L).
+have /andP[p1M _] := allP eprim_mem _ (mem_iota0 j1L).
+have /andP[p2M s2M] := allP eprim_mem _ (mem_iota0 j2L).
+have X1M := getn_edge uok cu p1L p1M.
+have X2M := getn_edge uok cu p2L p2M.
+have h1 : getn u (nth 0%N eprim j1) = nth 0%N (ti2t flast u) (nth 0%N eprim j1).
+  by rewrite /getn (nth_ti2t u p1L).
+have h2 : getn u (nth 0%N eprim j2) = nth 0%N (ti2t flast u) (nth 0%N eprim j2).
+  by rewrite /getn (nth_ti2t u p2L).
+have hs : getn u (nth 0%N esec j2) = nth 0%N (ti2t flast u) (nth 0%N esec j2).
+  by rewrite /getn (nth_ti2t u s2L).
+have /implyP/(_ (introT andP (conj X1M X2M)))/eqP hd :=
+  allP (allP eposn_inj _ (mem_iota0 (allP ee_lt48 _ X1M))) _
+       (mem_iota0 (allP ee_lt48 _ X2M)).
+move: he; rewrite /eplace => /eqP; rewrite hd => /orP[/eqP hx|/eqP hx].
+  apply/eqP; have /implyP := allP (allP eprim_inj _ (mem_iota0 j1L)) _
+    (mem_iota0 j2L); apply.
+  have i1 : (nth 0%N eprim j1 < seq.size (ti2t flast u))%N by rewrite usz.
+  have i2 : (nth 0%N eprim j2 < seq.size (ti2t flast u))%N by rewrite usz.
+  have hnu := nth_uniq 0%N i1 i2 uuniq.
+  by rewrite -hnu -h1 -h2 hx.
+have i1 : (nth 0%N eprim j1 < seq.size (ti2t flast u))%N by rewrite usz.
+have i3 : (nth 0%N esec j2 < seq.size (ti2t flast u))%N by rewrite usz.
+have hnu := nth_uniq 0%N i1 i3 uuniq.
+have hcon : nth 0%N eprim j1 == nth 0%N esec j2.
+  by rewrite -hnu -h1 -hs (getn_pair uok cu j2L) hx.
+have /negP := allP (allP eprim_esec_disj _ (mem_iota0 j2L)) _ (mem_iota0 j1L).
+by case; rewrite eq_sym.
+Qed.
+
+(* ---- every cubie is somewhere, and the fold finds it --------------------- *)
+
+(* eslot runs over the twelve places and keeps the last that holds the cubie *)
+(* it is after.  With eplace_inj there is at most one, and since the twelve  *)
+(* places carry twelve distinct values below twelve there is exactly one.    *)
+Lemma eplace_ltn (u : arr) j : (eplace u j < nedge)%N.
+Proof. by rewrite /eplace /eposn ltn_mod. Qed.
+
+Lemma eplace_onto (u : arr) v : tabi_ok flast u -> cubt (ti2t flast u) ->
+  (v < nedge)%N -> exists2 j, (j < nedge)%N & eplace u j = v.
+Proof.
+move=> uok cu vL.
+have huniq : uniq [seq eplace u j | j <- iota 0 nedge].
+  have hinj : {in iota 0 nedge &, injective (eplace u)}.
+    move=> x y; rewrite !mem_iota !add0n => /andP[_ xL] /andP[_ yL].
+    by apply: eplace_inj.
+  rewrite (map_inj_in_uniq hinj); exact: iota_uniq.
+have hsub : {subset [seq eplace u j | j <- iota 0 nedge] <= iota 0 nedge}.
+  by move=> x /mapP[j _ ->]; rewrite mem_iota add0n eplace_ltn.
+have hsz : (seq.size (iota 0 nedge)
+              <= seq.size [seq eplace u j | j <- iota 0 nedge])%N.
+  by rewrite size_map.
+have [_ hi] := uniq_min_size huniq hsub hsz.
+have : v \in [seq eplace u j | j <- iota 0 nedge].
+  by rewrite hi mem_iota add0n.
+by case/mapP => j; rewrite mem_iota add0n => /andP[_ jL] ->; exists j.
+Qed.
+
+(* the fold keeps what the one match gives it                                 *)
+Lemma foldl_uniq (T : Type) (g : nat -> T) (P : nat -> bool) n s0 j0 :
+  (j0 < n)%N -> P j0 -> (forall j, (j < n)%N -> P j -> j = j0) ->
+  foldl (fun s j => if P j then g j else s) s0 (iota 0 n) = g j0.
+Proof.
+elim: n j0 => [|n ih] j0 // j0L Pj0 hun.
+rewrite -[n.+1]addn1 iotaD add0n foldl_cat /=.
+case: ifP => [Pn|Pn].
+  by rewrite (hun n _ Pn).
+have j0n : (j0 < n)%N.
+  rewrite ltn_neqAle -ltnS j0L andbT.
+  by apply/eqP => e; move: Pn; rewrite -e Pj0.
+by apply: ih => // j jL Pj; apply: hun => //; apply: ltnW.
+Qed.
+
 (* ---- what is left -------------------------------------------------------- *)
 
 (* The place and the flip are both done, so a turn moves the pair (place,     *)
