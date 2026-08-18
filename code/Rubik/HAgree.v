@@ -44,3 +44,39 @@ Definition agree (mt_e mt_cl mt_ct : arr) : Prop :=
   forall (a : arr) (m : nat), (m < 12)%N ->
     htriple (comp_tabi flast a (mvi (qt18 m)))
       = stepa mt_e mt_cl mt_ct (htriple a) (of_nat m).
+
+(* ---- what turns the check into the theorem ------------------------------  *)
+
+(* THE SHAPE OF THE ARGUMENT, once and for the three coordinates.  A          *)
+(* coordinate is a map from positions to numbers, a table row is a map from   *)
+(* numbers to numbers, and they agree everywhere as soon as                   *)
+(*                                                                            *)
+(*   the coordinate of a position after a turn depends only on the coordinate *)
+(*     before it -- which is what makes the coordinate a coordinate at all;   *)
+(*   every value is the coordinate of some position -- the unranking;         *)
+(*   the table is right at that one position for each value -- the sweep.     *)
+(*                                                                            *)
+(* None of the three is proved here.  What is proved is that they suffice, so *)
+(* the work left is those three and not a fourth thing.                       *)
+
+Section Reduce.
+
+Variable coord : arr -> int.            (* one of the three coordinates       *)
+Variable step  : int -> nat -> int.     (* the row of the table it is checked *)
+Variable act   : arr -> nat -> arr.     (* playing a turn on a position       *)
+Variable rep   : int -> arr.            (* a position with a given coordinate *)
+
+(* the coordinate is a coordinate: a turn acts on it and not on the position  *)
+Hypothesis coord_act : forall a b m, coord a = coord b ->
+  coord (act a m) = coord (act b m).
+
+(* the unranking hits the value it is asked for                               *)
+Hypothesis rep_coord : forall a, coord (rep (coord a)) = coord a.
+
+(* the sweep: at one position per value, the table is what the turn does      *)
+Hypothesis sweep : forall a m, coord (act (rep (coord a)) m) = step (coord a) m.
+
+Lemma agree_of_reps a m : coord (act a m) = step (coord a) m.
+Proof. by rewrite -[in LHS](coord_act m (rep_coord a)) sweep. Qed.
+
+End Reduce.
