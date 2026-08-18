@@ -316,6 +316,62 @@ Proof. by apply: targ_far Hrun canon. Qed.
 (* the form a cut needs, and HSweep for the sweep under it) and the fold read *)
 (* back as the flat table.                                                    *)
 
+(* ---- the words the run never searches ------------------------------------ *)
+
+(* Different tables, different permutations.  Table.v does not say it, and    *)
+(* the short words below are settled by a table, so it is needed here.        *)
+Lemma pt_tab_inj t1 t2 : tab_ok flast t1 -> tab_ok flast t2 ->
+  pt flast t1 = pt flast t2 -> t1 = t2.
+Proof.
+move=> ok1 ok2 hp.
+have /and3P[/eqP s1 _ _] := ok1.
+have /and3P[/eqP s2 _ _] := ok2.
+apply: (@eq_from_nth _ 0%N); first by rewrite s1 s2.
+move=> i iL; rewrite s1 in iL.
+have := f_equal (fun s : {perm facelet} => s (inord i)) hp.
+rewrite !ptE // => h.
+have h2 : nth 0 t1 (inord i : facelet) = nth 0 t2 (inord i : facelet).
+  rewrite -(inordK (tab_lt (inord i) ok1)) -(inordK (tab_lt (inord i) ok2)).
+  by rewrite h.
+by move: h2; rewrite inordK.
+Qed.
+
+Lemma targ_tab_ok : tab_ok flast (ti2t flast targeti).
+Proof. by vm_compute. Qed.
+
+Lemma wp_neq_targ w : qw w -> wtr w != ti2t flast targeti -> wp w != targ.
+Proof.
+move=> wq hne; apply/eqP => hw.
+case/eqP: hne; apply: pt_tab_inj (targ_tab_ok) _; first by apply: wtr_ok.
+by rewrite -wp_wtr.
+Qed.
+
+Lemma rpfx_qw : all qw rpfx.
+Proof. by vm_compute. Qed.
+
+(* THE RUN SEARCHES NOTHING SHORTER THAN TWO TURNS past a prefix, because the *)
+(* jobs are cut on pairs.  So a word of one turn or none needs its own        *)
+(* argument, and there are only seventy eight of them.                        *)
+Lemma short_tab :
+  all (fun k => all (fun v => wtr (nth [::] rpfx k ++ v) != ti2t flast targeti)
+        ([::] :: [seq [:: m] | m <- iota 0 nq])) (iota 0 (seq.size rpfx)).
+Proof. by vm_compute. Qed.
+
+Lemma short_no_targ k v : (k < seq.size rpfx)%N -> qw v ->
+  (seq.size v <= 1)%N -> wp (nth [::] rpfx k ++ v) != targ.
+Proof.
+move=> kL vq vs.
+have kq : qw (nth [::] rpfx k) by apply: (allP rpfx_qw); apply: mem_nth.
+have ht : wtr (nth [::] rpfx k ++ v) != ti2t flast targeti.
+  have h := allP short_tab _ (mem_iota0 kL).
+  apply: (allP h); rewrite inE.
+  case: v vq vs => [_ _|m v0]; first by rewrite eqxx.
+  case: v0 => [|x l]; last by [].
+  move=> /andP[mL _] _; apply/orP; right.
+  by apply: map_f; apply: mem_iota0.
+by apply: wp_neq_targ => //; rewrite qw_cat kq vq.
+Qed.
+
 (* ---- the statement the run files have to be read through ----------------- *)
 
 Section RunSound.
@@ -337,12 +393,52 @@ Definition run_sound : Prop :=
     hrun mt_e mt_cl mt_ct which fam sym_cl sym_ct hfold k w d = false ->
     wp (nth [::] rpfx k ++ w ++ v) != targ.
 
+(* the depth each job was given: 24 less the prefix and the pair of turns the *)
+(* job starts with, which is Reid's 22 and 21 counted from the position       *)
+Definition hdepth (k : nat) : nat := (24 - (seq.size (nth [::] rpfx k) + 2))%N.
+
+Lemma hdepth_val : [seq hdepth k | k <- iota 0 (seq.size rpfx)]
+  = [:: 20; 19; 19; 19; 19; 19]%N.
+Proof. by vm_compute. Qed.
+
+(* THE ASSEMBLY.  Given the search sound and the run files, no word the rule  *)
+(* accepts finishes a prefix -- which is targ_far's Hrun.  A word of two      *)
+(* turns or more is one of the 120 prefixes and a tail, and a shorter one is  *)
+(* short_no_targ.                                                             *)
+Lemma Hrun_of :
+  run_sound ->
+  (forall k w, (k < seq.size rpfx)%N -> w \in hpres ->
+     hrun mt_e mt_cl mt_ct which fam sym_cl sym_ct hfold k w (hdepth k)
+       = false) ->
+  forall k v, (k < seq.size rpfx)%N -> qw v -> okw 0 v ->
+    (seq.size (nth [::] rpfx k) + seq.size v <= 24)%N ->
+    wp (nth [::] rpfx k ++ v) != targ.
+Proof.
+move=> Hs Hj k v kL vq ov hsz.
+case: (leqP (seq.size v) 1) => [vs|v1]; first by apply: short_no_targ.
+case: v vq ov hsz v1 => [|m1 [|m2 v']] // vq ov hsz _.
+have [wp2 ov'] := okw_hpres vq ov.
+apply: (Hs k (hdepth k) [:: m1; m2] v') => //.
+- by move: vq; rewrite !qw_cons => /andP[_ /andP[]].
+- rewrite /hdepth leq_subRL.
+    rewrite -addnA [(2 + _)%N]addnC; first by move: hsz => /=; rewrite addn2.
+  by apply: leq_trans hsz; rewrite leq_add2l.
+by apply: Hj.
+Qed.
+
+(* and so the bound, off the search being sound and the run files alone       *)
+Theorem targ_far_of :
+  run_sound ->
+  (forall k w, (k < seq.size rpfx)%N -> w \in hpres ->
+     hrun mt_e mt_cl mt_ct which fam sym_cl sym_ct hfold k w (hdepth k)
+       = false) ->
+  targ \notin ball Sq 25.
+Proof. by move=> Hs Hj; apply: targ_far_run; apply: Hrun_of. Qed.
+
 End RunSound.
 
-(* WHAT STILL SEPARATES run_sound FROM targ_far_run's Hrun.  Given run_sound  *)
-(* and the seventy two run files, a word the rule accepts of two turns or     *)
-(* more is one of the 120 prefixes and a tail, by okw_hpres, and the prefix   *)
-(* is dealt to some job, by hslice_tab.  A word of one turn or none is NOT    *)
-(* searched at all, so it needs its own argument: the seventy eight words     *)
-(* made of one of Reid's six prefixes and at most one turn, none of which is  *)
-(* the position.  That is a computation on tables and is not written.         *)
+(* SO ONE THING IS LEFT: run_sound, the search itself.  Everything around it  *)
+(* is proved -- targ_far_of takes run_sound and the seventy two run files and *)
+(* gives the bound.  run_sound is where obligations C and D are spent: C says *)
+(* the triple the search carries is the triple of the position it stands at,  *)
+(* D says a cut throws no maneuver away.                                      *)
