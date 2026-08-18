@@ -8,7 +8,7 @@
 (* first, hsearch came back false.  HBound.targ_far asks for something else,  *)
 (*                                                                            *)
 (*   forall k v, k < size rpfx -> qw v -> okw 0 v ->                          *)
-(*     size (nth [::] rpfx k) + size v <= 24 ->                              *)
+(*     size (nth [::] rpfx k) + size v <= 24 ->                               *)
 (*       wp (nth [::] rpfx k ++ v) != targ                                    *)
 (*                                                                            *)
 (* -- no word the rule accepts finishes the prefix.  Between the two there are*)
@@ -27,7 +27,7 @@ From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Table Tabi Tsearch Rubik333 Sym Ball Moves Coordfs Phase1
-        HRoot HCoord HReid HProp2 HSearch HBridge HBound.
+        HRoot HCoord HReid HProp2 HSearch HBridge HBound HCanon.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -72,8 +72,8 @@ Qed.
 
 (* ---- and the twelve jobs cover the 120 prefixes -------------------------- *)
 
-(* The run deals the prefixes round robin over twelve jobs, so what has to be  *)
-(* true is that every one of them is dealt to somebody.                        *)
+(* The run deals the prefixes round robin over twelve jobs, so what has to be *)
+(* true is that every one of them is dealt to somebody.                       *)
 Lemma hslice_tab : all (fun w => has (fun j => w \in hslice j 12) (iota 0 12))
                        hpres.
 Proof. by vm_compute. Qed.
@@ -84,4 +84,52 @@ Proof.
 move=> wp.
 have /hasP[j jI wj] := allP hslice_tab _ wp.
 by exists j => //; move: jI; rewrite mem_iota.
+Qed.
+
+(* ---- where the rule first refuses ---------------------------------------- *)
+
+(* The rewriting needs a place to work at: the first letter the rule turns    *)
+(* down, with everything before it accepted.  Then HCanon.bad_case says which *)
+(* of the three rewrites applies there.                                       *)
+Lemma okw_bad (w : seq nat) p : ~~ okw p w ->
+  exists u m v, [/\ w = u ++ m :: v, okw p u & ~~ allowedq (hclassw p u) m].
+Proof.
+elim: w p => [|a w ih] p //=.
+rewrite negb_and => /orP[ap|ow].
+  by exists [::], a, w.
+have [u [m [v [wE ou am]]]] := ih _ ow.
+have [ap|ap] := boolP (allowedq p a); last by exists [::], a, w.
+exists (a :: u), m, v; split => //=; first by rewrite wE.
+by rewrite ap.
+Qed.
+
+(* ---- the class along a word ---------------------------------------------- *)
+
+(* Three things bad_case wants of the class at that place: that it is not the *)
+(* starting class, that it is a class at all, and that the turn it names is   *)
+(* the letter just before.                                                    *)
+Lemma hclass_gt0 p m : (0 < hclass p m)%N.
+Proof. by rewrite /hclass; do ! case: ifP => _. Qed.
+
+Lemma hclassw_gt0 p u : u != [::] -> (0 < hclassw p u)%N.
+Proof.
+case/lastP: u => // u a _.
+by rewrite -cats1 /hclassw foldl_cat /= hclass_gt0.
+Qed.
+
+Lemma hclassw_lt p u : qw u -> okw p u -> (p < nclass)%N ->
+  (hclassw p u < nclass)%N.
+Proof.
+elim: u p => [|a u ih] p //=; rewrite /qw /= => /andP[aL uq] /andP[ap ou] pL.
+by apply: ih => //; have [h _ _ _] := hclass_ok pL aL ap.
+Qed.
+
+Lemma hclassw_last p u : u != [::] -> qw u -> okw p u -> (p < nclass)%N ->
+  plast (hclassw p u) = last 0%N u.
+Proof.
+case/lastP: u => // u a _.
+rewrite -cats1 /qw all_cat => /andP[uq]; rewrite /= andbT => aL.
+rewrite okw_cat => /andP[ou]; rewrite /= andbT => aa pL.
+rewrite /hclassw foldl_cat last_cat /=.
+by have [_ -> _ _] := hclass_ok (hclassw_lt uq ou pL) aL aa.
 Qed.
