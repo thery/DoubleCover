@@ -370,6 +370,49 @@ have /negP := allP (allP eprim_esec_disj _ (mem_iota0 j2L)) _ (mem_iota0 j1L).
 by case; rewrite eq_sym.
 Qed.
 
+(* ---- every cubie is somewhere, and the fold finds it --------------------- *)
+
+(* eslot runs over the twelve places and keeps the last that holds the cubie *)
+(* it is after.  With eplace_inj there is at most one, and since the twelve  *)
+(* places carry twelve distinct values below twelve there is exactly one.    *)
+Lemma eplace_ltn (u : arr) j : (eplace u j < nedge)%N.
+Proof. by rewrite /eplace /eposn ltn_mod. Qed.
+
+Lemma eplace_onto (u : arr) v : tabi_ok flast u -> cubt (ti2t flast u) ->
+  (v < nedge)%N -> exists2 j, (j < nedge)%N & eplace u j = v.
+Proof.
+move=> uok cu vL.
+have huniq : uniq [seq eplace u j | j <- iota 0 nedge].
+  have hinj : {in iota 0 nedge &, injective (eplace u)}.
+    move=> x y; rewrite !mem_iota !add0n => /andP[_ xL] /andP[_ yL].
+    by apply: eplace_inj.
+  rewrite (map_inj_in_uniq hinj); exact: iota_uniq.
+have hsub : {subset [seq eplace u j | j <- iota 0 nedge] <= iota 0 nedge}.
+  by move=> x /mapP[j _ ->]; rewrite mem_iota add0n eplace_ltn.
+have hsz : (seq.size (iota 0 nedge)
+              <= seq.size [seq eplace u j | j <- iota 0 nedge])%N.
+  by rewrite size_map.
+have [_ hi] := uniq_min_size huniq hsub hsz.
+have : v \in [seq eplace u j | j <- iota 0 nedge].
+  by rewrite hi mem_iota add0n.
+by case/mapP => j; rewrite mem_iota add0n => /andP[_ jL] ->; exists j.
+Qed.
+
+(* the fold keeps what the one match gives it                                 *)
+Lemma foldl_uniq (T : Type) (g : nat -> T) (P : nat -> bool) n s0 j0 :
+  (j0 < n)%N -> P j0 -> (forall j, (j < n)%N -> P j -> j = j0) ->
+  foldl (fun s j => if P j then g j else s) s0 (iota 0 n) = g j0.
+Proof.
+elim: n j0 => [|n ih] j0 // j0L Pj0 hun.
+rewrite -[n.+1]addn1 iotaD add0n foldl_cat /=.
+case: ifP => [Pn|Pn].
+  by rewrite (hun n _ Pn).
+have j0n : (j0 < n)%N.
+  rewrite ltn_neqAle -ltnS j0L andbT.
+  by apply/eqP => e; move: Pn; rewrite -e Pj0.
+by apply: ih => // j jL Pj; apply: hun => //; apply: ltnW.
+Qed.
+
 (* ---- what is left -------------------------------------------------------- *)
 
 (* The place and the flip are both done, so a turn moves the pair (place,     *)
