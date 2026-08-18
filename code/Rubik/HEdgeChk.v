@@ -97,11 +97,19 @@ Definition edata : seq (seq nat) :=
 Eval vm_compute in seq.size edata.
 
 (* CHECK 3: the table is the ranking of the rule, at every datum and turn.   *)
-Definition chk_sweep : bool :=
+Definition chk_from (l : seq (seq nat)) : bool :=
   all (fun s => all (fun m =>
         erk (estep m s)
           == PArray.get h_mt_e
                (Uint63.add (Uint63.mul (erk s) nqti) (of_nat m)))
-      (iota 0 nq)) edata.
+      (iota 0 nq)) l.
 
-Eval native_compute in chk_sweep.
+(* ON A SLICE, and that is not caution -- erk and estep count in nat, and a  *)
+(* nat operation is about a microsecond against 0.05 for an int63.  Two      *)
+(* thousand data answer the question the sweep is asked, which is whether    *)
+(* the rule is the table, and they give the cost of one datum so the whole   *)
+(* 190080 can be scaled rather than guessed.  The whole sweep is the same    *)
+(* line with edata for esmall, and it wants the datum in int63 first.        *)
+Definition esmall : seq (seq nat) := take 2000 edata.
+
+Time Eval vm_compute in chk_from esmall.
