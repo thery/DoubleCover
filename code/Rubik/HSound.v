@@ -69,3 +69,19 @@ split=> //.
 have /implyP := allP (allP okw2_hpres _ (mem_iota0 m1L)) _ (mem_iota0 m2L).
 by apply.
 Qed.
+
+(* ---- and the twelve jobs cover the 120 prefixes -------------------------- *)
+
+(* The run deals the prefixes round robin over twelve jobs, so what has to be  *)
+(* true is that every one of them is dealt to somebody.                        *)
+Lemma hslice_tab : all (fun w => has (fun j => w \in hslice j 12) (iota 0 12))
+                       hpres.
+Proof. by vm_compute. Qed.
+
+Lemma hslice_mem (w : seq nat) : w \in hpres ->
+  exists2 j, (j < 12)%N & w \in hslice j 12.
+Proof.
+move=> wp.
+have /hasP[j jI wj] := allP hslice_tab _ wp.
+by exists j => //; move: jI; rewrite mem_iota.
+Qed.
