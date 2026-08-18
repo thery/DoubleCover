@@ -126,28 +126,153 @@ by have /implyP := allP (allP hmoves_tab _ (mem_iota0 pL)) _ (mem_iota0 mL);
    apply.
 Qed.
 
+(* ---- the search rebuilds the position ------------------------------------ *)
+
+(* The maneuver is carried as the list of turns played, newest first, and the *)
+(* position is only ever rebuilt from it when the cosets say it might be      *)
+(* solved.  These two say the list is the position, and that the three codes  *)
+(* a turn carries are the turn seen from the three axes.                      *)
+Lemma get_mtia k : (k < 18)%N -> PArray.get mtia (of_nat k) = mvi k.
+Proof.
+by case: k => [|[|[|[|[|[|[|[|[|[|[|[|[|[|[|[|[|[|]]]]]]]]]]]]]]]]]] // _;
+   vm_compute.
+Qed.
+
+Lemma amoves_nth m : (m < nq)%N ->
+  nth anull amoves m =
+    (of_nat (qt18 m), (of_nat (cmv 0 m), of_nat (cmv 1 m), of_nat (cmv 2 m))).
+Proof.
+by case: m => [|[|[|[|[|[|[|[|[|[|[|[|]]]]]]]]]]]] // _; vm_compute.
+Qed.
+
+(* a word played on a position                                               *)
+Definition aw (a : arr) (v : seq nat) : arr :=
+  foldl (fun x m => comp_tabi flast x (mvq m)) a v.
+
+Lemma aw_cons a m v : aw a (m :: v) = aw (comp_tabi flast a (mvq m)) v.
+Proof. by []. Qed.
+
+Lemma rebuild_cons a0 path m : (m < nq)%N ->
+  rebuild a0 (of_nat (qt18 m) :: path)
+    = comp_tabi flast (rebuild a0 path) (mvq m).
+Proof.
+move=> mL; rewrite /rebuild /= -/(rebuild a0 path) get_mtia //.
+by apply: qt18_lt.
+Qed.
+
+Lemma hleE x0 x1 x2 di :
+  hl (x0, x1, x2) di = [&& hal x0 di, hal x1 di & hal x2 di].
+Proof. by rewrite /hle; case: (hal x0 di); case: (hal x1 di). Qed.
+
+(* the depth in int63 is the depth in nat, and NEVER leave the bound to //:   *)
+(* nwB is 2 ^ 63 and in unary it does not come back                          *)
+Lemma small_nwB k : (k <= 48)%N -> (k < nwB)%N.
+Proof. by move=> kL; apply: leq_ltn_trans n47_small. Qed.
+
+Lemma of_nat_sub1 n :
+  (n <= 24)%N -> Uint63.sub (of_nat n.+1) 1%uint63 = of_nat n.
+Proof.
+move=> nL.
+have h1 : (n.+1 <= 48)%N by apply: leq_trans (_ : 25 <= 48)%N.
+have h0 : (n <= 48)%N by apply: ltnW.
+apply: to_nat_inj.
+by rewrite to_nat_sub ?of_natK ?to_nat_1 ?subn1 //; try by apply: small_nwB.
+Qed.
+
+(* ---- THE SEARCH IS SOUND WHEN IT FAILS ----------------------------------- *)
+
+(* Everything the search needs of the table and the coordinates, named.  pok  *)
+(* is the positions it meets, stt the triples it carries.  All four are       *)
+(* obligation C, or C through D: that a turn moves the triples by the tables, *)
+(* that the solved position is recognised, and that a cut throws no maneuver  *)
+(* away.                                                                      *)
+Section Complete.
+
+Variable pok : arr -> bool.
+Variable stt : arr -> hst.
+
+Hypothesis pok_step : forall a m, pok a -> (m < nq)%N ->
+  pok (comp_tabi flast a (mvq m)).
+Hypothesis stt_step : forall a m, pok a -> (m < nq)%N ->
+  stt (comp_tabi flast a (mvq m)) =
+    (stp (stt a).1.1 (of_nat (cmv 0 m)), stp (stt a).1.2 (of_nat (cmv 1 m)),
+     stp (stt a).2 (of_nat (cmv 2 m))).
+Hypothesis stt_sol : forall a, pok a -> eq_tabi flast a idi -> hsol (stt a).
+Hypothesis stt_cut : forall a v n, pok a -> qw v -> (seq.size v <= n)%N ->
+  (n <= 24)%N -> eq_tabi flast (aw a v) idi -> hl (stt a) (of_nat n).
+
+(* If a word the rule accepts, of at most d turns, solves the position the    *)
+(* search stands at, the search says true.  The induction is on the word: the *)
+(* cut cannot refuse it, the loop is offered its first turn, and the rest is  *)
+(* the same statement one turn on.                                            *)
+Lemma hsearch_complete v : forall d a0 path p,
+  (d <= 24)%N -> pok (rebuild a0 path) -> qw v -> okw p v -> (p < nclass)%N ->
+  (seq.size v <= d)%N -> eq_tabi flast (aw (rebuild a0 path) v) idi ->
+  hsrch d (of_nat d) a0 path (stt (rebuild a0 path)) p.
+Proof.
+elim: v => [|m v ih] d a0 path p dL pk vq ov pL vs hsl.
+  have hc := stt_cut pk (v := [::]) isT (leq0n d) dL hsl.
+  have hs := stt_sol pk hsl.
+  case E : (stt (rebuild a0 path)) hc hs => [[y0 y1] y2] hc hs.
+  by rewrite hsearchE hc hs hsl.
+case: d dL vs => [|d'] dL vs; first by [].
+have mL : (m < nq)%N by move: vq => /andP[].
+have vqv : qw v by move: vq => /andP[].
+have ap : allowedq p m by move: ov => /= /andP[].
+have opv : okw (hclass p m) v by move: ov => /= /andP[].
+have d'L : (d' <= 24)%N by apply: ltnW.
+have vsz : (seq.size v <= d')%N by move: vs.
+have hc := stt_cut pk vq vs dL hsl.
+have pk' : pok (comp_tabi flast (rebuild a0 path) (mvq m)) by apply: pok_step.
+have hsl' :
+    eq_tabi flast (aw (comp_tabi flast (rebuild a0 path) (mvq m)) v) idi.
+  by rewrite -aw_cons.
+have hcc := stt_cut pk' vqv vsz d'L hsl'.
+have hst := stt_step pk mL.
+have hr := rebuild_cons a0 path mL.
+have [pcL _ _ _] := hclass_ok pL mL ap.
+have pkr : pok (rebuild a0 (of_nat (qt18 m) :: path)) by rewrite hr.
+have hslr : eq_tabi flast (aw (rebuild a0 (of_nat (qt18 m) :: path)) v) idi.
+  by rewrite hr.
+have hrec := ih d' a0 (of_nat (qt18 m) :: path) (hclass p m) d'L pkr vqv opv
+  pcL vsz hslr.
+move: hrec; rewrite hr hst => hrec.
+move: hcc; rewrite hst hleE => /and3P[g0 g1 g2].
+case E : (stt (rebuild a0 path)) hc g0 g1 g2 hrec
+  => [[y0 y1] y2] hc g0 g1 g2 hrec.
+rewrite hsearchE hc.
+case: ifP => [_|_]; first by [].
+rewrite (of_nat_sub1 d'L).
+apply: (hgo_true (k18 := of_nat (qt18 m)) (k0 := of_nat (cmv 0 m))
+                 (k1 := of_nat (cmv 1 m)) (k2 := of_nat (cmv 2 m))
+                 (pk := hclass p m)) => //.
+by rewrite -(amoves_nth mL); apply: hmoves_mem.
+Qed.
+
+(* the same read the way the run files are read                              *)
+Lemma hsearch_sound d a0 path v p :
+  (d <= 24)%N -> pok (rebuild a0 path) -> qw v -> okw p v -> (p < nclass)%N ->
+  (seq.size v <= d)%N ->
+  hsrch d (of_nat d) a0 path (stt (rebuild a0 path)) p = false ->
+  ~~ eq_tabi flast (aw (rebuild a0 path) v) idi.
+Proof.
+move=> dL pk vq ov pL vs hf; apply/negP => hsl.
+by rewrite (hsearch_complete dL pk vq ov pL vs hsl) in hf.
+Qed.
+
+End Complete.
+
 End RunS.
 
 (* ---- what is left of run_sound ------------------------------------------- *)
 
-(* The proof is the contrapositive: if an accepted word of at most d turns    *)
-(* solves the position the search stands at, the search says true.  It is an  *)
-(* induction on that word, and the pieces above are its skeleton -- hsearchE  *)
-(* to see one step of the search, hmoves_mem to know the turn is offered,     *)
-(* hgo_true to know the loop takes it.                                        *)
+(* hsearch_sound is the search half of E, and it is done.  Turning it into    *)
+(* HSound.run_sound is two things, neither about the recursion:               *)
 (*                                                                            *)
-(* WHAT THE INDUCTION STILL NEEDS, and none of it is about the recursion:     *)
-(*                                                                            *)
-(*   the state IS the position.  x is the triple of rebuild a0 path along     *)
-(*     each of the three axes, and stays so when a turn is played.  That is   *)
-(*     obligation C, three times, once per axis -- the axes differ only by    *)
-(*     the relabelling cmv, so the third instance is the same theorem.        *)
-(*   a cut throws nothing away.  hle and hale must hold whenever a solution   *)
-(*     of the remaining depth exists, which is HAdmis.h_cut once h is the     *)
-(*     table read through the coordinates -- obligation D, whose sweep is     *)
-(*     proved (HSweep, hsweep_all) and whose bridge to positions is C again.  *)
-(*   the solved test is complete.  A solved position has triple h0, so        *)
-(*     hsolved says true and the table rebuild agrees -- one lookup and C.    *)
-(*   the depth in int63 is the depth in nat, for at most 24 of them.          *)
-(*                                                                            *)
-(* So E is now waiting on C, not on anything about the search.                *)
+(*   the four hypotheses of the section above, which are obligation C -- the  *)
+(*     triples are the position's, three axes, and they step with the tables; *)
+(*     the solved position is recognised; and a cut throws no maneuver away,  *)
+(*     which is HAdmis.h_cut over the sweep HSweep.admis, now proved;         *)
+(*   the root, which is HBridge's work: the position the run searches from is *)
+(*     Reid's, and `the rebuilt table is the identity' is `the maneuver ends  *)
+(*     at the position'.                                                      *)
