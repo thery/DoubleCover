@@ -139,3 +139,95 @@ p1run:
 	@[ -n "$(P1RUN_VO)" ] || { echo "no Runp1_NN.v -- run ./mkrunp1.sh first" >&2; exit 1; }
 	@echo "== $(words $(P1RUN_VO)) searches, $(P1RUN_GB) GB each, $(P1_MEMGB) GB RAM -> -j$(P1RUN_J)"
 	$(MAKE) -j$(P1RUN_J) $(P1RUN_VO)
+
+# ==========================================================================
+#  THE QUARTER TURN BOUND, END TO END
+#
+#      make htest                     the whole chain
+#      make htest 2>&1 | tee h.log    the same, kept
+#      make hjobs                     the job counts and where they come from
+#
+#  For a clean run, delete the artefacts first -- by hand, on purpose:
+#
+#      rm -f *.vo *.vos *.vok *.glob .*.aux && rm -rf .coq-native
+#
+#  Everything already built is kept, so an interrupted run continues where it
+#  stopped.  The emitted .v files are kept too: they are data, and nothing in
+#  the proof takes their content on trust.
+#
+#  THE PHASES ARE SEQUENTIAL ON PURPOSE.  Each has its own memory cost, and
+#  two at once is what filled the swap on 18 August: the 29 GB flat table was
+#  still in /dev/shm, which is RAM, while twelve workers held the folded one.
+#  Phase 0 looks for it and refuses to start.
+#
+#  WHAT IT COSTS, measured on roquableu on 17/18 August 2026:
+#    the tables and the 59 fold chunks   ~3 h 25 wall, the ocamlopt pass most
+#    the search, 72 jobs                 4 h 00 wall / 45.9 CPU-h
+#    the table sweep, 12 jobs            2 h 51 wall / 31.7 CPU-h
+#    the three coordinate sweeps         80 CPU-s
+#    HAll and Print Assumptions          about a minute
+#  so one night.  The time of each piece lands in fold-timing.log.
+# ==========================================================================
+
+# MEASURED: a fold chunk is 8.8 GB, almost all of it the ocamlopt pass, and a
+# worker holding the folded table is 3.86 GiB.  A C sweep holds the three
+# move tables and nothing else, which is small -- 2 GB is a GUESS with room.
+HFOLD_GB   ?= 9
+HRUN_GB    ?= 4
+HSWEEP_GB  ?= 4
+HSWEEPC_GB ?= 2
+
+HFOLD_J   := $(call p1_jobs,$(HFOLD_GB))
+HRUN_J    := $(call p1_jobs,$(HRUN_GB))
+HSWEEP_J  := $(call p1_jobs,$(HSWEEP_GB))
+HSWEEPC_J := $(call p1_jobs,$(HSWEEPC_GB))
+
+# the 120 prefixes are dealt into this many slices, for the search and for
+# the sweep alike
+HNJ ?= 12
+
+.PHONY: htest hjobs
+
+hjobs:
+	@echo "$(P1_MEMGB) GB of RAM, $(P1_NCPU) cpus, $(P1_RESERVE_GB) GB reserved"
+	@echo "  fold chunks: $(HFOLD_GB) GB each -> -j$(HFOLD_J)"
+	@echo "  search:      $(HRUN_GB) GB each  -> -j$(HRUN_J)"
+	@echo "  table sweep: $(HSWEEP_GB) GB each  -> -j$(HSWEEP_J)"
+	@echo "  C sweeps:    $(HSWEEPC_GB) GB each  -> -j$(HSWEEPC_J)"
+
+htest:
+	@echo "== phase 0: is the RAM free"
+	@if ls /dev/shm/*.tbl >/dev/null 2>&1; then \
+	   echo "a table is in /dev/shm, which is RAM -- delete it first" >&2; \
+	   ls -la /dev/shm/*.tbl >&2; exit 1; fi
+	@if [ ! -f ocaml/h_fold14.tbl ]; then \
+	   echo "ocaml/h_fold14.tbl is missing:" >&2; \
+	   echo "  cd ocaml && make hbuild JOBS=18 && make hfold" >&2; \
+	   exit 1; fi
+	@date
+	@echo "== phase 1: the small tables, and the chunks of the folded one"
+	./mkhtbl.sh $(HFOLD_J) 2
+	@echo "== phase 2: the development, up to the cut"
+	ulimit -s unlimited; $(MAKE) -j$(P1_J) HCut.vo HPrefix.vo HFinal.vo
+	@echo "== phase 3: the search, $(HRUN_J) workers"
+	./mkhrun.sh $(HNJ)
+	ulimit -s unlimited; ls HRun_*.v | sed 's/[.]v$$//' | \
+	  xargs -P $(HRUN_J) -I{} ./rocqtime.sh {}
+	@echo "== phase 4: obligation D, the sweep of the table"
+	./mkhsweep.sh $(HNJ)
+	ulimit -s unlimited; ls HSweep_[0-9]*.v | sed 's/[.]v$$//' | \
+	  xargs -P $(HSWEEP_J) -I{} ./rocqtime.sh {}
+	ulimit -s unlimited; ./rocqtime.sh HSweepAll
+	@echo "== phase 5: obligation C, the three coordinate sweeps"
+	./mkhsweepc.sh
+	ulimit -s unlimited; ls HSweepE_*.v | sed 's/[.]v$$//' | \
+	  xargs -P $(HSWEEPC_J) -I{} ./rocqtime.sh {}
+	ulimit -s unlimited; ./rocqtime.sh HSweepCAll
+	@echo "== phase 6: the theorem, and what it rests on"
+	./mkhall.sh
+	ulimit -s unlimited; ./rocqtime.sh HAll
+	@printf 'From Rubik Require Import HAll.\nPrint Assumptions qdiam25.\n' > HPa.v
+	ulimit -s unlimited; rocq compile -R . Rubik HPa.v
+	@rm -f HPa.v HPa.vo HPa.glob HPa.vok HPa.vos .HPa.aux
+	@echo "== it must name nothing but the int63 and array primitives"
+	@date
