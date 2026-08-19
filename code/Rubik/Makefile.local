@@ -169,17 +169,26 @@ p1run:
 #  so one night.  The time of each piece lands in fold-timing.log.
 # ==========================================================================
 
-# MEASURED: a fold chunk is 8.8 GB, almost all of it the ocamlopt pass, and a
-# worker holding the folded table is 3.86 GiB.  A C sweep holds the three
-# move tables and nothing else, which is small -- 2 GB is a GUESS with room.
-HFOLD_GB   ?= 9
+# THE FOLD'S TWO PASSES ARE PRICED APART, and mkhtbl.sh is what prices them:
+# the .vo is cheap and the .cmxs is not.  8.8 GB is the pair together, so
+# neither number comes from the RAM arithmetic -- these are the script's own,
+# MEASURED on 17 August, and three at a time is already ~27 GB.
+HFOLD_VO_J  ?= 3
+HFOLD_NAT_J ?= 2
+
+# MEASURED: a worker holding the folded table is 3.86 GiB, and TWELVE of them
+# is the configuration the 18 August run actually used.  The RAM arithmetic
+# says thirteen on a 62 GB machine; that is an extrapolation, and a four hour
+# phase is the wrong place to try it, so the measured number is the cap.
 HRUN_GB    ?= 4
 HSWEEP_GB  ?= 4
+HRUN_MAX   ?= 12
 HSWEEPC_GB ?= 2
 
-HFOLD_J   := $(call p1_jobs,$(HFOLD_GB))
-HRUN_J    := $(call p1_jobs,$(HRUN_GB))
-HSWEEP_J  := $(call p1_jobs,$(HSWEEP_GB))
+hmin = $(shell [ $(1) -lt $(2) ] && echo $(1) || echo $(2))
+
+HRUN_J    := $(call hmin,$(call p1_jobs,$(HRUN_GB)),$(HRUN_MAX))
+HSWEEP_J  := $(call hmin,$(call p1_jobs,$(HSWEEP_GB)),$(HRUN_MAX))
 HSWEEPC_J := $(call p1_jobs,$(HSWEEPC_GB))
 
 # the 120 prefixes are dealt into this many slices, for the search and for
@@ -190,7 +199,7 @@ HNJ ?= 12
 
 hjobs:
 	@echo "$(P1_MEMGB) GB of RAM, $(P1_NCPU) cpus, $(P1_RESERVE_GB) GB reserved"
-	@echo "  fold chunks: $(HFOLD_GB) GB each -> -j$(HFOLD_J)"
+	@echo "  fold: -j$(HFOLD_VO_J) for the .vo, -j$(HFOLD_NAT_J) for the .cmxs"
 	@echo "  search:      $(HRUN_GB) GB each  -> -j$(HRUN_J)"
 	@echo "  table sweep: $(HSWEEP_GB) GB each  -> -j$(HSWEEP_J)"
 	@echo "  C sweeps:    $(HSWEEPC_GB) GB each  -> -j$(HSWEEPC_J)"
@@ -206,7 +215,7 @@ htest:
 	   exit 1; fi
 	@date
 	@echo "== phase 1: the small tables, and the chunks of the folded one"
-	./mkhtbl.sh $(HFOLD_J) 2
+	./mkhtbl.sh $(HFOLD_VO_J) $(HFOLD_NAT_J)
 	@echo "== phase 2: the development, up to the cut"
 	ulimit -s unlimited; $(MAKE) -j$(P1_J) HCut.vo HPrefix.vo HFinal.vo
 	@echo "== phase 3: the search, $(HRUN_J) workers"
