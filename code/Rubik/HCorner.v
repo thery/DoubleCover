@@ -119,7 +119,7 @@ Lemma cmv_tab :
       (iota 0 nq).
 Proof. by vm_compute. Qed.
 
-(* ---- the three facelets of a place hold one cubie ------------------------- *)
+(* ---- the three facelets of a place hold one cubie ------------------------ *)
 
 (* Where the guard is spent, and the corner's answer to getn_pair: the        *)
 (* sticker at the s-th facelet of a place is the one at the first, turned s   *)
@@ -156,8 +156,8 @@ have hx : getn u (iter s (nth 0%N ccyct) f)
             = nth 0%N (ti2t flast u) (iter s (nth 0%N ccyct) f).
   by rewrite /getn (nth_ti2t u hlt).
 rewrite !iterS -ih hx.
-have hy : getn u (nth 0%N ccyct (iter s (nth 0%N ccyct) f))
-            = nth 0%N (ti2t flast u) (nth 0%N ccyct (iter s (nth 0%N ccyct) f)).
+set Y := nth 0%N ccyct (iter s (nth 0%N ccyct) f).
+have hy : getn u Y = nth 0%N (ti2t flast u) Y.
   by rewrite /getn (nth_ti2t u (ccyct_lt hlt)).
 rewrite hy.
 by rewrite (eqP (allP cu _ (mem_iota0 (n := nfacelet) hlt))).
