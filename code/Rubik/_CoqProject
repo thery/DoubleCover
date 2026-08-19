@@ -104,6 +104,6 @@ HCorner.v
 HGlue.v
 HSweepC.v
 HPok.v
-ScrCut.v
 HPrefix.v
+HCut.v
 HFinal.v

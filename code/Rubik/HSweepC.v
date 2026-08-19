@@ -55,6 +55,11 @@ Import GroupScope.
 
 Notation arr := (PArray.array int).
 
+(* the three coordinate sizes as int63, which is how the table is indexed    *)
+Definition n_ei : int := Eval vm_compute in of_nat n_e.
+Definition n_cli : int := Eval vm_compute in of_nat n_cl.
+Definition n_cti : int := Eval vm_compute in of_nat n_ct.
+
 (* the eight corner places, and the seven twists the coordinate carries       *)
 Definition ncorn := 8.
 Definition nfree := 7.
@@ -523,8 +528,11 @@ Proof. by case: b => /andP[]. Qed.
 
 (* One datum: the rank of the stepped datum is what the table says, for all   *)
 (* twelve turns.  The rank of the datum itself is taken once.                 *)
+(* THE RANK IS AN INDEX, and the sweep is where that is checked too: the     *)
+(* table has n_e rows and nothing is known of a row that is not there.       *)
 Definition eone (s : seq nat) : bool :=
   let r := erk s in
+  Uint63.ltb r n_ei &&
   all (fun m => erk (estepn m s) ==
         PArray.get mt_e (Uint63.add (Uint63.mul r nqti) (of_nat m)))
       (iota 0 nq).
@@ -570,15 +578,26 @@ have uok := tabi_ok_invi aok; have cu := cubt_invi aok ca.
 have hv := edat_valid uok cu.
 have hsz : seq.size (edat (inv_tabi flast a)) = nslicec.
   by rewrite size_map size_iota.
-have /allP/(_ m (mem_iota0 mL))/eqP h1 := echkP hchk hsz hv.
+have /andP[_ /allP/(_ m (mem_iota0 mL))/eqP h1] := echkP hchk hsz hv.
 have /andP[hb _] := hv.
 by rewrite !ecoordiE (edat_step aok ca mL) -(estepnE mL hb).
+Qed.
+
+(* the rank a position shows is a row of the table, which is Hcoord          *)
+Lemma ecoord_lt (u : arr) : echk -> tabi_ok flast u -> cubt (ti2t flast u) ->
+  Uint63.ltb (ecoordi u) n_ei.
+Proof.
+move=> hchk uok cu.
+have hsz : seq.size (edat u) = nslicec by rewrite size_map size_iota.
+have /andP[h _] := echkP hchk hsz (edat_valid uok cu).
+by rewrite ecoordiE.
 Qed.
 
 (* ---- the corner places --------------------------------------------------- *)
 
 Definition clone (b : seq bool) : bool :=
   let r := clrk b in
+  Uint63.ltb r n_cli &&
   all (fun m => clrk (clstep m b) ==
         PArray.get mt_cl (Uint63.add (Uint63.mul r nqti) (of_nat m)))
       (iota 0 nq).
@@ -611,14 +630,25 @@ move=> hchk a m aok ca mL.
 have uok := tabi_ok_invi aok; have cu := cubct_invi aok ca.
 have hsz : seq.size (cldat (inv_tabi flast a)) = ncorn.
   by rewrite size_map size_iota.
-have /allP/(_ m (mem_iota0 mL))/eqP h1 := clchkP hchk hsz (cldat_valid uok cu).
+have /andP[_ /allP/(_ m (mem_iota0 mL))/eqP h1] :=
+  clchkP hchk hsz (cldat_valid uok cu).
 by rewrite !clcoordiE (cldat_step aok ca mL).
+Qed.
+
+Lemma clcoord_lt (u : arr) : clchk -> tabi_ok flast u -> cubct (ti2t flast u) ->
+  Uint63.ltb (clcoordi u) n_cli.
+Proof.
+move=> hchk uok cu.
+have hsz : seq.size (cldat u) = ncorn by rewrite size_map size_iota.
+have /andP[h _] := clchkP hchk hsz (cldat_valid uok cu).
+by rewrite clcoordiE.
 Qed.
 
 (* ---- the twists ---------------------------------------------------------- *)
 
 Definition ctone (t : seq nat) : bool :=
   let r := ctrk t in
+  Uint63.ltb r n_cti &&
   all (fun m => ctrk (ctstep m t) ==
         PArray.get mt_ct (Uint63.add (Uint63.mul r nqti) (of_nat m)))
       (iota 0 nq).
@@ -658,8 +688,18 @@ have hsz : seq.size (ctdat (inv_tabi flast a)) = nfree.
   by rewrite size_map size_iota.
 have hb : all (fun x => (x < nslot)%N) (ctdat (inv_tabi flast a)).
   by apply/allP => x /mapP[j _ ->]; apply: ctwist_ltn.
-have /allP/(_ m (mem_iota0 mL))/eqP h1 := ctchkP hchk hsz hb.
+have /andP[_ /allP/(_ m (mem_iota0 mL))/eqP h1] := ctchkP hchk hsz hb.
 by rewrite !ctcoordiE (ctdat_step aok ca mL hs).
+Qed.
+
+Lemma ctcoord_lt (u : arr) : ctchk -> Uint63.ltb (ctcoordi u) n_cti.
+Proof.
+move=> hchk.
+have hsz : seq.size (ctdat u) = nfree by rewrite size_map size_iota.
+have hb : all (fun x => (x < nslot)%N) (ctdat u).
+  by apply/allP => x /mapP[j _ ->]; apply: ctwist_ltn.
+have /andP[h _] := ctchkP hchk hsz hb.
+by rewrite ctcoordiE.
 Qed.
 
 End Sweeps.
