@@ -160,6 +160,11 @@ p1run:
 #  still in /dev/shm, which is RAM, while twelve workers held the folded one.
 #  Phase 0 looks for it and refuses to start.
 #
+#  THE ORDER IS THE POINT OF THE FIRST TWO PHASES.  HFoldAll requires
+#  HSearch and HTables, so the development has to be built before the chunks
+#  are gathered -- but HTables.v has to EXIST before that, or coqdep refuses
+#  the whole project.  So: emit the small tables, build, then the chunks.
+#
 #  WHAT IT COSTS, measured on roquableu on 17/18 August 2026:
 #    the tables and the 59 fold chunks   ~3 h 25 wall, the ocamlopt pass most
 #    the search, 72 jobs                 4 h 00 wall / 45.9 CPU-h
@@ -214,10 +219,13 @@ htest:
 	   echo "  cd ocaml && make hbuild JOBS=18 && make hfold" >&2; \
 	   exit 1; fi
 	@date
-	@echo "== phase 1: the small tables, and the chunks of the folded one"
-	./mkhtbl.sh $(HFOLD_VO_J) $(HFOLD_NAT_J)
+	@echo "== phase 1: the small tables, which coqdep needs to see"
+	@[ -f HTables.v ] || (cd ocaml && make -s mtabs)
 	@echo "== phase 2: the development, up to the cut"
-	ulimit -s unlimited; $(MAKE) -j$(P1_J) HCut.vo HPrefix.vo HFinal.vo
+	ulimit -s unlimited; \
+	  $(MAKE) -j$(P1_J) HTables.vo HCut.vo HPrefix.vo HFinal.vo
+	@echo "== phase 2b: the chunks of the folded table"
+	./mkhtbl.sh $(HFOLD_VO_J) $(HFOLD_NAT_J)
 	@echo "== phase 3: the search, $(HRUN_J) workers"
 	./mkhrun.sh $(HNJ)
 	ulimit -s unlimited; ls HRun_*.v | sed 's/[.]v$$//' | \
