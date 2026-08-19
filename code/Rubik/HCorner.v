@@ -119,10 +119,54 @@ Lemma cmv_tab :
       (iota 0 nq).
 Proof. by vm_compute. Qed.
 
+(* ---- the three facelets of a place hold one cubie ------------------------ *)
+
+(* Where the guard is spent, and the corner's answer to getn_pair: the        *)
+(* sticker at the s-th facelet of a place is the one at the first, turned s   *)
+(* times.  Turning keeps the cubie and advances the slot, so the cubie is the *)
+(* same whichever facelet it is read from, and the twist picks up s.          *)
+Lemma cprim_lt48 : all (fun j => (nth 0%N cprim j < 48)%N) (iota 0 8).
+Proof. by vm_compute. Qed.
+
+Lemma cflat_lt48 : all (fun f => (f < 48)%N) cflat.
+Proof. by vm_compute. Qed.
+
+Lemma cposn_ccyct : all (fun f => cposn (nth 0%N ccyct f) == cposn f) cflat.
+Proof. by vm_compute. Qed.
+
+Lemma cslotn_ccyct :
+  all (fun f => cslotn (nth 0%N ccyct f) == ((cslotn f).+1 %% 3)%N) cflat.
+Proof. by vm_compute. Qed.
+
+Lemma cflat_iter :
+  all (fun p => all (fun s => nth 0%N cflat (3 * p + s)%N ==
+        iter s (nth 0%N ccyct) (nth 0%N cflat (3 * p)%N))
+      (iota 0 3)) (iota 0 8).
+Proof. by vm_compute. Qed.
+
+Lemma getn_iter (u : arr) f s : tabi_ok flast u -> cubct (ti2t flast u) ->
+  (f < 48)%N ->
+  getn u (iter s (nth 0%N ccyct) f) = iter s (nth 0%N ccyct) (getn u f).
+Proof.
+move=> uok cu fL.
+elim: s => [//|s ih].
+have hlt : (iter s (nth 0%N ccyct) f < 48)%N.
+  by elim: s {ih} => [//|k ihk]; apply: ccyct_lt.
+have hx : getn u (iter s (nth 0%N ccyct) f)
+            = nth 0%N (ti2t flast u) (iter s (nth 0%N ccyct) f).
+  by rewrite /getn (nth_ti2t u hlt).
+rewrite !iterS -ih hx.
+set Y := nth 0%N ccyct (iter s (nth 0%N ccyct) f).
+have hy : getn u Y = nth 0%N (ti2t flast u) Y.
+  by rewrite /getn (nth_ti2t u (ccyct_lt hlt)).
+rewrite hy.
+by rewrite (eqP (allP cu _ (mem_iota0 (n := nfacelet) hlt))).
+Qed.
+
 (* ---- what is left -------------------------------------------------------- *)
 
-(* From here it is HEdge.v again: read the place and the twist off the       *)
-(* sticker -- getn_step gives the sticker, and the guard says the cubie is   *)
-(* the same whichever of the three facelets of its place it is read from --  *)
-(* then the datum, then the two rankings, then the sweeps, which are 70 x 12 *)
-(* and 2187 x 12 and so smaller than the edges'.                             *)
+(* Both halves are now in hand -- HEdge.getn_step says which sticker is read *)
+(* after a turn, getn_iter says the cubie does not depend on which facelet   *)
+(* of its place it is read from.  What is left is to put them together into  *)
+(* cplace_step and ctwist_step, then the datum, then the two rankings, then  *)
+(* the sweeps, 70 x 12 and 2187 x 12, smaller than the edges'.               *)
