@@ -251,14 +251,18 @@
   Rubik's cube, is twenty. We describe a proof in the Rocq prover of the lower
   half of that statement: one position, the superflip, cannot be solved in
   nineteen moves. The search is pruned by a table of two billion entries, every
-  one of them checked inside the prover.
+  one of them checked inside the prover. Counting a half turn as the two
+  quarter turns it is made of gives a second number, twenty-six, and the lower
+  half of that is proved here too: Michael Reid's position of 1998 cannot be
+  solved in twenty-five quarter turns.
 
   #v(0.4em)
   *The sources* are at
   #link("https://github.com/thery/DoubleCover/tree/main/code/Rubik")[`github.com/thery/DoubleCover/code/Rubik`].
 
   #v(0.4em)
-  *Keywords.* Rubik's cube, God's number, formal proof, Rocq, pruning table.
+  *Keywords.* Rubik's cube, God's number, quarter turn, formal proof, Rocq,
+  pruning table.
 ]]
 
 #v(0.6em)
@@ -318,6 +322,10 @@ Turning one face is a _move_, and a half turn counts as one move just like a
 quarter turn. Every scramble can be undone; the question is how many moves the
 worst scramble needs. That number is called *God's number*.
 
+Counting a half turn as one move is a choice. It can also be counted as the
+two quarter turns it is made of, which gives a second number for the same
+cube. This note proves a lower bound for each of the two.
+
 In 2010 Rokicki, Kociemba, Davidson and Dethridge showed that it is *20*
 @rokicki2013diameter. The answer comes in two halves, and they are not equally
 hard.
@@ -329,7 +337,8 @@ hard.
 - *Twenty moves are sometimes needed.* For this it is enough to point at one
   scramble and show it cannot be solved in 19.
 
-This note is about the second half, and about one scramble: the *superflip*,
+Most of this note is about the second half, and about one scramble: the
+*superflip*,
 drawn in @sflip beside a solved cube. Every corner sticker is where it belongs,
 and every edge is in its own place but turned over, so it shows the colour of
 the face beside it. Turn the whole cube in your hands, or look at it in a
@@ -1007,7 +1016,8 @@ processor-hours.
 
 = The files
 
-Forty-six hand-written Rocq files. What each group does. The sources carry
+The proof of the twenty is forty-six hand-written Rocq files. What each group
+does. The sources carry
 their own #src("README.md"), which lists the same files, the scripts beside
 them, and how to run the whole thing.
 
@@ -1199,6 +1209,218 @@ So what is assumed is exactly the second thing: that every one of those
 representatives can be solved in twenty moves. That is the computation
 Rokicki, Kociemba, Davidson and Dethridge ran, and it is several orders of
 magnitude larger than the one this note describes.
+
+= Counting in quarter turns
+
+A half turn is two quarter turns. Counted that way there are only twelve
+moves, the six faces turned one way and those six turned back, and the worst
+scramble needs more of them. The answer in that count is *26*
+(#link("http://cube20.org")[cube20.org]). What is proved here is again the
+lower half, and by the same means: one position cannot be solved in 25 quarter
+turns. That 26 always suffice is not proved here, and nothing below bears on
+it.
+
+== The position
+
+The superflip is not far enough away. Reid's post records it at 24 quarter
+turns, which was the lower bound before his own. In August 1998 he posted a
+better position to the Cube-Lovers list: the *four-spot*, with the superflip
+composed onto it.
+
+The four-spot is the cube on the left of @fspot. It puts the front colour on
+the back face and the right colour on the left face, and the other way about
+as well. The centres cannot move, so each of those four faces ends up showing
+its own colour in one square only, which is the spot the pattern is named
+after. The top and bottom faces are untouched. Composing the superflip onto it
+turns every edge over as well, and that is the cube on the right.
+
+#figure(
+  cetz.canvas(length: 1cm, {
+    import cetz.draw: *
+    cube3dc(0,
+      (cW, cW, cW, cW, cW, cW, cW, cW, cW),
+      (cB, cB, cB, cB, cG, cB, cB, cB, cB),
+      (cO, cO, cO, cO, cR, cO, cO, cO, cO))
+    content((0, -0.45), text(size: 9pt)[the four-spot])
+    cube3dc(4.4,
+      (cW, cG, cW, cR, cW, cO, cW, cB, cW),
+      (cB, cW, cB, cR, cG, cO, cB, cY, cB),
+      (cO, cW, cO, cB, cR, cG, cO, cY, cO))
+    content((4.4, -0.45), text(size: 9pt)[and with the superflip on it])
+  }),
+  caption: [The four-spot, and Reid's position.],
+) <fspot>
+
+Reid's position is 26 quarter turns from solved. The twenty-six are this word,
+which is his:
+
+#align(center)[
+  $U^2 space D^2 space L space F^2 space U^(-1) space D space R^2 space B
+    space U^(-1) space D^(-1) space R space L space F^2 space R space U space
+    D^(-1) space R^(-1) space L space U space F^(-1) space B^(-1)$
+]
+
+Twenty-one face turns, and twenty-six quarter turns because five of them are
+half turns. It is checked the way the superflip's word was checked, by
+multiplying out both sides and comparing two lists of 48 places. What has to
+be proved is that 25 quarter turns do not do it.
+
+*Twenty-five is really twenty-four.* Each of the twelve quarter turns is an
+odd permutation of the 48 stickers: it is five four-cycles, and a four-cycle
+is odd. The sign of a product is the product of the signs, so a maneuver of
+odd length gives back an odd position. Reid's position is even, the word above
+having 26 letters. So every maneuver for it has even length, and ruling out 25
+is ruling out 24. That is proved, and it is what lets the searches stop at 24.
+
+== Reid's six beginnings
+
+His argument has two halves, and only the second is a computation.
+
+The first half is his Proposition 2. Take a maneuver for the position that
+cannot be shortened. Then it can be rewritten, into one of the same length,
+that begins with one of six sequences:
+
+#align(center)[
+  #grid(
+    columns: (auto,) * 3,
+    column-gutter: 2.2em,
+    row-gutter: 0.5em,
+    align: center,
+    $R space U$, $R^(-1) space U space D$, $R^(-1) space U space F^(-1)$,
+    $R^(-1) space U space R^(-1)$, $R^(-1) space U space B^(-1)$,
+    $R^(-1) space U space L^(-1)$,
+  )
+]
+
+The rewriting is done by hand, with three operations that change neither the
+product nor the length: conjugate the maneuver by one of the sixteen
+symmetries that leave the position alone, invert it, or shift it round
+cyclically, the letters that go to the end coming back relabelled. That last
+operation is what the position was chosen for. #src("HProp2.v") is the whole
+of that argument in Rocq, and #src("HBridge.v") carries it over to the
+orientation of the cube the search actually uses.
+
+*One hypothesis Reid does not write down.* His statement says any maneuver.
+His proof needs one that cannot be shortened, since otherwise the third turn
+may cancel the second, a case he sets aside in one line as not allowed. The
+Rocq statement carries that hypothesis. It costs nothing, because a shortest
+maneuver is what one is looking for anyway.
+
+So six searches settle the question. The first beginning is two turns long and
+is searched 22 turns further; the other five are three turns long and are
+searched 21 further. Either way the search reaches 24 turns in all, which is
+the even length that ruling out 25 comes down to.
+
+== The summary, and its table
+
+The estimate is built as before, by forgetting most of the cube and keeping a
+summary. This one is bigger, and it keeps different things:
+
+#block(breakable: false)[
+  #tbl(([summary], [values], []),
+    ([where the four middle-layer edges sit, each of them
+      the right way round or not], [190 080], [$= 24 dot 22 dot 20 dot 18$]),
+    ([which four corner places hold the four top corners], [70],
+     [4 places among 8]),
+    ([how the eight corners are twisted], [2 187], [$= 3^7$]),
+    ([*the three together*], [*29 099 347 200*], []),
+  )
+]
+
+The 24, 22, 20 and 18 fall by two each time because a place taken by one of
+the four edges is taken whichever way round that edge is. These summaries are
+the cosets of a subgroup of the cube group, Reid's H, which is where the H at
+the front of the file names comes from.
+
+The table holds the distance from solved of every one of the 29 billion. How
+many summaries lie at each distance comes out equal to the column Reid
+published in 1998, and that is the check on the whole construction, run before
+anything else is. The table is then folded as the other one was: the sixteen
+symmetries that keep the up-down axis sort the 190 080 edge values into
+12 094 families, a factor of 15.72, and one entry is kept per family. That is
+883 MB, and a search worker holds all of it, measured at 3.86 GB once loaded
+into the prover.
+
+== Four things nobody checks by eye
+
+The search is only as good as four facts, and not one of them shows up in a
+run. Get any of them wrong and the search still finishes, and still says there
+is no maneuver.
+
+*The rule the search plays by loses no maneuver.* It will not play just any
+sequence. Three quarter turns of one face running are one turn the other way,
+so it never plays three; two must be twice the same turn, since a turn and its
+inverse cancel; and of two opposite faces it keeps one order only. Two turns
+of the same face are allowed, unlike in the search for the twenty, because
+here they are the half turn. #src("HSound.v") proves that any maneuver can be
+rewritten to obey those rules without getting longer, so nothing the search
+refuses was needed.
+
+*The three numbers are what the move tables say they are.* The search never
+looks at a position. It carries the three numbers and steps each of them
+through a move table. That is right only if the table is the rule by which a
+turn moves the thing the number counts. So first the rule is proved to be a
+rule: a turn moves where a piece sits and how it lies by something with no
+position left in it. Then the tables are compared against that rule at every
+one of the 190 080, the 70 and the 2 187 data, twelve turns each.
+#src("HSweepC.v").
+
+*The table never drops by more than one under a turn.* This is the same single
+condition the first table had to meet, and here it is a sweep of the whole of
+it: 29 099 347 200 summaries times twelve turns. #src("HSweep.v") is that
+sweep, cut into twelve jobs of one file each. Beside it sits one lookup, that
+the table reads zero at the solved summary.
+
+*A search coming back false means there is no maneuver.* The search returns a
+boolean, and a boolean is not a theorem. #src("HRunS.v") proves the step
+between them: if a word the rules accept, no longer than the depth, solves the
+position the search stands at, then the search returns true. So false says no
+such word exists, and the rule above says that is every word.
+
+Proving them turned up two things worth telling.
+
+*The eighth corner twist.* The summary records seven twists and not eight, and
+reads the eighth off the other seven. That works only because the eight twists
+of a real position add up to zero modulo three. So the search has to carry
+that fact about the positions it meets: it holds where it starts, and every
+turn keeps it. Without it the number the summary records would not fix the
+eighth twist at all.
+
+*The summary has to be a row of the table.* Nothing whatever is known about a
+row that is not there. So each of the three numbers is proved to be smaller
+than its own table -- below 190 080, below 70, below 2 187 -- at every
+position the search can reach.
+
+== The theorem, and what it cost
+
+The statement at the top is one line:
+
+```coq
+Theorem qdiam25 : ~ diam_le Sq 25.
+```
+
+`Sq` is the set of the twelve quarter turns, and `diam_le Sq 25` says that
+every position of the cube is within 25 of them. The line says it is not, so
+the quarter-turn diameter is more than 25. Reid's position is the witness, and
+his word above puts it at exactly 26. Asking Rocq what the proof assumes
+reports the primitives of its machine-integer and array interface, and nothing
+else.
+
+Measured on the reference machine, the same one as every other number in this
+note:
+
+#tbl(([], [wall clock], [processor time]),
+  ([building the table, in OCaml], [9 min 50], [1 h 43]),
+  ([the three sweeps over the move tables], [], [1 min 20]),
+  ([the sweep over the distance table, twelve jobs], [2 h 51], [31 h 42]),
+  ([the six searches, seventy-two pieces, twelve workers], [4 h 00], [45 h 54]),
+)
+
+The sweeps and the search are the whole cost. Checking the table rather than
+trusting it comes to about two thirds of what the search itself costs. The
+quarter-turn proof is thirty more hand-written Rocq files and 6 739 lines. The
+cube, the permutations, the tables and the machine-integer toolbox are the ones
+already there, used unchanged.
 
 This development was written with the help of Claude, Anthropic's coding
 assistant, which is recorded as a co-author of 267 of the 268 commits of
