@@ -120,5 +120,13 @@ replace () {
   echo
   echo "Theorem targ_dist25 : targ \\in ball Sq 26 /\\ targ \\notin ball Sq 25."
   echo "Proof. by split; [apply: targ_near | apply: targ_far25]. Qed."
+  echo
+  echo "(* THE QUARTER TURN DIAMETER IS MORE THAN TWENTY FIVE *)"
+  echo "Theorem qdiam25 : ~ diam_le Sq 25."
+  echo "Proof."
+  echo "move=> /subsetP hsub."
+  echo "have := hsub _ targ_gen."
+  echo "by apply/negP; apply: targ_far25."
+  echo "Qed."
 } > HAll.v.new
 replace HAll.v.new HAll.v && echo "HAll.v written" || echo "HAll.v unchanged"
