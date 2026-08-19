@@ -99,14 +99,14 @@ replace () {
   echo "    k w (hdepth k) = false."
   echo "Proof."
   echo "move=> kL wp; have [j jL wj] := hslice_mem wp."
-  echo "apply/negP."
-  echo "move: kL wj; case: k => [|[|[|[|[|[|]]]]]] // _;"
-  echo "  move: jL; case: j => [|[|[|[|[|[|[|[|[|[|[|[|]]]]]]]]]]]] // _."
+  echo "apply: negbTE; move: wj."
+  echo "case: k kL => [|[|[|[|[|[|k]]]]]] // _;"
+  echo "  case: j jL => [|[|[|[|[|[|[|[|[|[|[|[|j]]]]]]]]]]]] // _."
   k=0
   while [ "$k" -lt "$NK" ]; do
     j=0
     while [ "$j" -lt "$NJ" ]; do
-      printf '%s\n' "- by apply: (allP hrun_${k}_$(printf %02d $j))." 
+      printf '%s\n' "- exact: (allP hrun_${k}_$(printf %02d $j) w)." 
       j=$((j + 1))
     done
     k=$((k + 1))
