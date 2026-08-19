@@ -12,7 +12,7 @@ From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
-Require Import Table Tabi Rubik333 Sym Moves Coordfs Coordfsi Phase1
+Require Import Table Tabi Rubik333 Sym Ball Moves Coordfs Coordfsi Phase1
         HRoot HCoord HReid HProp2 HSearch HBridge HBound HCanon
         HSound HEdge HRunS HCorner HSweepC HGlue HPok.
 
@@ -175,3 +175,138 @@ by rewrite aw_cat.
 Qed.
 
 End Root.
+
+(* ---- the maneuver the run is about --------------------------------------- *)
+
+(* The search asks whether the rebuilt table is the identity; Reid's question *)
+(* is whether the word is his position.  These are the same question, and     *)
+(* what makes them the same is that HIS POSITION IS AN INVOLUTION: playing a  *)
+(* word that gives the position ON the position gives the solved cube.        *)
+Lemma hpres_qw : all (fun w => qw w && okw 0 w) hpres.
+Proof. by vm_compute. Qed.
+
+Lemma rpfx_pfxs : rpfx = pfxs.
+Proof. by []. Qed.
+
+Lemma targeti_ok : tabi_ok flast targeti.
+Proof. by vm_compute. Qed.
+
+Lemma targ_targ :
+  comp_tab (ti2t flast targeti) (ti2t flast targeti) = id_tab flast.
+Proof. by vm_compute. Qed.
+
+(* a word of quarter turns played on a position, the two ways it is written  *)
+Lemma appw_qtw (a : arr) w : appw a (qtw w) = aw a w.
+Proof. by elim: w a => [//|m w ih] a /=; rewrite ih. Qed.
+
+Lemma rooti_aw k : rooti k = aw targeti (nth [::] pfxs k).
+Proof. by rewrite /rooti appw_qtw. Qed.
+
+Lemma comp_tabA t1 t2 t3 : tab_ok flast t1 -> tab_ok flast t2 ->
+  tab_ok flast t3 ->
+  comp_tab (comp_tab t1 t2) t3 = comp_tab t1 (comp_tab t2 t3).
+Proof.
+move=> o1 o2 o3.
+apply: pt_tab_inj.
+- by apply: tab_ok_comp => //; apply: tab_ok_comp.
+- by apply: tab_ok_comp => //; apply: tab_ok_comp.
+by rewrite -!ptM ?tab_ok_comp // mulgA.
+Qed.
+
+Lemma comp_tab_idr t : tab_ok flast t -> comp_tab t (id_tab flast) = t.
+Proof.
+move=> tok; apply: pt_tab_inj => //; first by apply: tab_ok_comp => //;
+  apply: tab_ok_id.
+by rewrite -ptM ?tab_ok_id // pt1 mulg1.
+Qed.
+
+(* playing a word on a position is composing with the word's table           *)
+Lemma ti2t_aw (a : arr) u : tabi_ok flast a -> qw u ->
+  ti2t flast (aw a u) = comp_tab (ti2t flast a) (wtr u).
+Proof.
+elim: u a => [|m u ih] a aok uq.
+  by symmetry; apply: (comp_tab_idr aok).
+move: uq; rewrite qw_cons => /andP[mL uq].
+have qok := tabi_ok_mvq mL.
+rewrite aw_cons (ih _ (tabi_ok_comp n47_small n47_len aok qok) uq).
+rewrite (ti2t_comp n47_small n47_len aok qok).
+rewrite (eqP (allP ti2t_mvq _ (mem_iota0 mL))).
+by rewrite comp_tabA //; [apply: mvt_ok | apply: wtr_ok].
+Qed.
+
+Lemma tabi_ok_aw (a : arr) u : tabi_ok flast a -> qw u ->
+  tabi_ok flast (aw a u).
+Proof.
+elim: u a => [//|m u ih] a aok; rewrite qw_cons => /andP[mL uq].
+by rewrite aw_cons; apply: ih => //;
+   apply: (tabi_ok_comp n47_small n47_len aok (tabi_ok_mvq mL)).
+Qed.
+
+Section Bridge.
+
+Variable mt_e mt_cl mt_ct : arr.
+Variable which fam sym_cl sym_ct : arr.
+Variable hfold : PArray.array arr.
+
+Local Notation hrn := (hrun mt_e mt_cl mt_ct which fam sym_cl sym_ct hfold).
+
+Hypothesis Hse : sweep_e mt_e.
+Hypothesis Hscl : sweep_cl mt_cl.
+Hypothesis Hsct : sweep_ct mt_ct.
+
+Hypothesis Hcut : forall (a : arr) (v : seq nat) (n : nat),
+  pok a -> qw v -> (seq.size v <= n)%N -> (n <= 24)%N ->
+  eq_tabi flast (aw a v) idi ->
+  hle which fam sym_cl sym_ct hfold (stt a) (of_nat n).
+
+(* HSound.run_sound, but for a depth of at most twenty four -- which is what  *)
+(* a table capped at twenty four can answer for, and what every job is given. *)
+Lemma run_soundP k d w v : (k < seq.size rpfx)%N -> w \in hpres -> qw v ->
+  okw (hclassw 0 w) v -> (seq.size v <= d)%N -> (d <= 24)%N ->
+  hrn k w d = false -> wp (nth [::] rpfx k ++ w ++ v) != targ.
+Proof.
+move=> kL wh vq ov vs dL hf.
+have /andP[wq ow] := allP hpres_qw _ wh.
+have kL' : (k < npfx)%N by move: kL; rewrite rpfx_pfxs.
+have hns := hrun_sound Hse Hscl Hsct Hcut kL' wq vq ov ow vs dL hf.
+apply/negP => /eqP hwp; case/negP: hns.
+have hpq : qw (nth [::] rpfx k) by apply: (allP rpfx_qw); apply: mem_nth.
+have hu : qw (nth [::] rpfx k ++ w ++ v) by rewrite !qw_cat hpq wq vq.
+have hwt : wtr (nth [::] rpfx k ++ w ++ v) = ti2t flast targeti.
+  apply: pt_tab_inj (wtr_ok hu) targ_tab_ok _.
+  by rewrite -wp_wtr // hwp.
+have haw : aw (rooti k) (w ++ v) = aw targeti (nth [::] rpfx k ++ (w ++ v)).
+  by rewrite rooti_aw rpfx_pfxs aw_cat.
+have aok := tabi_ok_aw targeti_ok hu.
+rewrite haw (eq_tabi_id n47_small n47_len aok).
+by apply/eqP; rewrite (ti2t_aw targeti_ok hu) hwt; exact: targ_targ.
+Qed.
+
+(* THE HYPOTHESIS THE BOUND TAKES.  Given the seventy two run files, no word  *)
+(* the rule accepts is Reid's position.  A word of one turn or none is never  *)
+(* searched and is settled by HSound.short_no_targ.                           *)
+Lemma HrunP (Hj : forall k w, (k < seq.size rpfx)%N -> w \in hpres ->
+    hrn k w (hdepth k) = false) :
+  forall k v, (k < seq.size rpfx)%N -> qw v -> okw 0 v ->
+    (seq.size (nth [::] rpfx k) + seq.size v <= 24)%N ->
+    wp (nth [::] rpfx k ++ v) != targ.
+Proof.
+move=> k v kL vq ov hsz.
+case: (leqP (seq.size v) 1) => [vs|v1]; first by apply: short_no_targ.
+case: v vq ov hsz v1 => [|m1 [|m2 v']] // vq ov hsz _.
+have [wp2 ov'] := okw_hpres vq ov.
+apply: (run_soundP (k := k) (d := hdepth k) (w := [:: m1; m2])) => //.
+- by move: vq; rewrite !qw_cons => /andP[_ /andP[]].
+- rewrite /hdepth leq_subRL.
+    rewrite -addnA [(2 + _)%N]addnC; first by move: hsz => /=; rewrite addn2.
+  by apply: leq_trans hsz; rewrite leq_add2l.
+- by rewrite /hdepth leq_subr.
+by apply: Hj.
+Qed.
+
+(* and with it the bound itself, on the run files and Hcut alone             *)
+Lemma targ_far_runP (Hj : forall k w, (k < seq.size rpfx)%N -> w \in hpres ->
+    hrn k w (hdepth k) = false) : targ \notin ball Sq 25.
+Proof. by apply: targ_far_run (HrunP Hj). Qed.
+
+End Bridge.
