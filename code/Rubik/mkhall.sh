@@ -121,6 +121,13 @@ replace () {
   echo "Theorem targ_dist25 : targ \\in ball Sq 26 /\\ targ \\notin ball Sq 25."
   echo "Proof. by split; [apply: targ_near | apply: targ_far25]. Qed."
   echo
+  echo "(* the position is a maneuver, so it is in the group at all *)"
+  echo "Lemma targ_gen : targ \\in generated Sq."
+  echo "Proof."
+  echo "have := wp_ball targw_qw."
+  echo "by rewrite wp_targw; apply: (subsetP (ball_sub_gen Sq 40))."
+  echo "Qed."
+  echo
   echo "(* THE QUARTER TURN DIAMETER IS MORE THAN TWENTY FIVE *)"
   echo "Theorem qdiam25 : ~ diam_le Sq 25."
   echo "Proof."
