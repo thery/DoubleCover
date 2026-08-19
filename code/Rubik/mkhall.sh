@@ -78,7 +78,7 @@ replace () {
   echo "- rewrite -n_cliE; apply/nltbP."
   echo "  by apply: (clcoord_lt hclchk uok (cubct_invi aok cca))."
   echo "rewrite -n_ctiE; apply/nltbP."
-  echo "by apply: (ctcoord_lt hctchk)."
+  echo "by apply: (ctcoord_lt _ hctchk)."
   echo "Qed."
   echo
   echo "(* ---- obligation D read through the coordinates ----------------- *)"
