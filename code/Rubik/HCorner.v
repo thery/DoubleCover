@@ -163,6 +163,64 @@ rewrite hy.
 by rewrite (eqP (allP cu _ (mem_iota0 (n := nfacelet) hlt))).
 Qed.
 
+(* ---- rotating keeps the cubie and shifts the twist ------------------------ *)
+
+Lemma ccyct_cflat : all (fun f => nth 0%N ccyct f \in cflat) cflat.
+Proof. by vm_compute. Qed.
+
+Lemma ccyct_fix :
+  all (fun f => (nth 0%N ccyct f == f) == (f \notin cflat)) (iota 0 48).
+Proof. by vm_compute. Qed.
+
+Lemma cflat_prim : all (fun p => nth 0%N cflat (3 * p)%N == nth 0%N cprim p)
+  (iota 0 8).
+Proof. by vm_compute. Qed.
+
+Lemma cposn_iter f s : f \in cflat ->
+  cposn (iter s (nth 0%N ccyct) f) = cposn f.
+Proof.
+move=> fM; elim: s => [//|s ih].
+have hM : iter s (nth 0%N ccyct) f \in cflat.
+  by elim: s {ih} => [//|k ihk]; apply: (allP ccyct_cflat).
+by rewrite iterS (eqP (allP cposn_ccyct _ hM)).
+Qed.
+
+Lemma cslotn_iter f s : f \in cflat ->
+  cslotn (iter s (nth 0%N ccyct) f) = ((cslotn f + s) %% 3)%N.
+Proof.
+move=> fM; elim: s => [|s ih].
+  by rewrite addn0 modn_small // /cslotn ltn_mod.
+have hM : iter s (nth 0%N ccyct) f \in cflat.
+  by elim: s {ih} => [//|k ihk]; apply: (allP ccyct_cflat).
+rewrite iterS (eqP (allP cslotn_ccyct _ hM)) ih.
+by rewrite -addn1 modnDml addn1 addnS.
+Qed.
+
+(* a corner facelet holds a corner sticker, and that follows from the guard   *)
+(* just as it did for the edges: ccyc moves exactly the corner facelets       *)
+Lemma getn_corner (u : arr) f : tabi_ok flast u -> cubct (ti2t flast u) ->
+  (f < 48)%N -> f \in cflat -> getn u f \in cflat.
+Proof.
+move=> uok cu fL fin.
+have /and3P[/eqP usz _ uuniq] := uok.
+have hx : getn u f = nth 0%N (ti2t flast u) f by rewrite /getn (nth_ti2t u fL).
+have xL : (getn u f < 48)%N.
+  rewrite hx.
+  by have := tab_lt (t := ti2t flast u) (inord f : facelet) uok; rewrite inordK.
+have /eqP he := allP ccyct_fix _ (mem_iota0 xL).
+have /eqP hc := allP cu _ (mem_iota0 (n := nfacelet) fL).
+apply/negPn/negP => hnot.
+have hfix : nth 0%N ccyct (getn u f) = getn u f by apply/eqP; rewrite he.
+move: hc; rewrite -hx hfix hx => hEq.
+have i1 : (f < seq.size (ti2t flast u))%N by rewrite usz.
+have i2 : (nth 0%N ccyct f < seq.size (ti2t flast u))%N.
+  by rewrite usz; apply: ccyct_lt.
+have hnu := nth_uniq 0%N i1 i2 uuniq.
+have : (f == nth 0%N ccyct f) by rewrite -hnu hEq.
+rewrite eq_sym => hfe.
+by have /eqP hf2 := allP ccyct_fix _ (mem_iota0 fL); rewrite hf2 fin in hfe.
+Qed.
+
 (* ---- what is left -------------------------------------------------------- *)
 
 (* Both halves are now in hand -- HEdge.getn_step says which sticker is read *)
