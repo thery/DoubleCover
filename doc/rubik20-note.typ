@@ -1418,7 +1418,8 @@ note:
 
 The sweeps and the search are the whole cost. Checking the table rather than
 trusting it comes to about two thirds of what the search itself costs. The
-quarter-turn proof is thirty more hand-written Rocq files and 6 739 lines. The
+quarter-turn work is thirty more hand-written Rocq files and 6 739 lines, six
+of them checks that are run once and are not part of the proof. The
 cube, the permutations, the tables and the machine-integer toolbox are the ones
 already there, used unchanged.
 
