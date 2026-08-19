@@ -41,6 +41,18 @@ Definition cldat : seq (seq bool) :=
 
 Eval vm_compute in seq.size cldat.
 
+(* ONCE, NOT ONCE A LOOKUP.  cplc and ctw each recompute the inverse of a    *)
+(* forty eight entry table, so asking for them inside the sweep costs a      *)
+(* thousandfold.  Here they are, computed once.                              *)
+Definition cplct : seq (seq nat) := Eval vm_compute in
+  [seq [seq cplc m j | j <- iota 0 8] | m <- iota 0 nq].
+
+Definition ctwt : seq (seq nat) := Eval vm_compute in
+  [seq [seq ctw m j | j <- iota 0 8] | m <- iota 0 nq].
+
+Definition cplcn (m j : nat) : nat := nth 0%N (nth [::] cplct m) j.
+Definition ctwn  (m j : nat) : nat := nth 0%N (nth [::] ctwt m) j.
+
 (* clcoordi with the position taken out of it                                *)
 Definition clrk (b : seq bool) : int :=
   (foldl (fun ax j => let: (a, x) := ax in
@@ -51,7 +63,7 @@ Definition clrk (b : seq bool) : int :=
 
 (* a turn permutes the places                                                *)
 Definition clstep (m : nat) (b : seq bool) : seq bool :=
-  [seq nth false b (cplc m j) | j <- iota 0 8].
+  [seq nth false b (cplcn m j) | j <- iota 0 8].
 
 Definition chk_cl : bool :=
   all (fun b => all (fun m =>
@@ -60,7 +72,7 @@ Definition chk_cl : bool :=
                (Uint63.add (Uint63.mul (clrk b) nqti) (of_nat m)))
       (iota 0 nq)) cldat.
 
-Eval vm_compute in chk_cl.
+Time Eval vm_compute in chk_cl.
 
 (* ---- the seven free twists ----------------------------------------------- *)
 
@@ -81,7 +93,7 @@ Definition ctrk (t : seq nat) : int :=
         0%uint63 (rev (iota 0 7)).
 
 Definition ctstep (m : nat) (t : seq nat) : seq nat :=
-  [seq ((ctget t (cplc m j) + (3 - ctw m j)) %% 3)%N | j <- iota 0 7].
+  [seq ((ctget t (cplcn m j) + (3 - ctwn m j)) %% 3)%N | j <- iota 0 7].
 
 Definition chk_ct : bool :=
   all (fun t => all (fun m =>
@@ -90,4 +102,4 @@ Definition chk_ct : bool :=
                (Uint63.add (Uint63.mul (ctrk t) nqti) (of_nat m)))
       (iota 0 nq)) ctdat.
 
-Eval vm_compute in chk_ct.
+Time Eval vm_compute in chk_ct.
