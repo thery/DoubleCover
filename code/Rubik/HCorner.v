@@ -163,7 +163,7 @@ rewrite hy.
 by rewrite (eqP (allP cu _ (mem_iota0 (n := nfacelet) hlt))).
 Qed.
 
-(* ---- rotating keeps the cubie and shifts the twist ------------------------ *)
+(* ---- rotating keeps the cubie and shifts the twist ----------------------- *)
 
 Lemma ccyct_cflat : all (fun f => nth 0%N ccyct f \in cflat) cflat.
 Proof. by vm_compute. Qed.
