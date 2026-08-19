@@ -221,10 +221,107 @@ rewrite eq_sym => hfe.
 by have /eqP hf2 := allP ccyct_fix _ (mem_iota0 fL); rewrite hf2 fin in hfe.
 Qed.
 
+(* ---- THE DATUM STEPS ----------------------------------------------------- *)
+
+Lemma cmv_in m j : (m < nq)%N -> (j < 8)%N ->
+  nth 0%N (inv_tab flast (mvt m)) (nth 0%N cprim (rplace j))
+    = nth 0%N cflat (cidx m j).
+Proof.
+move=> mL jL.
+rewrite /cidx nth_index // -index_mem.
+have /and3P[h _ _] := allP (allP cmv_tab _ (mem_iota0 mL)) _ (mem_iota0 jL).
+by have -> : seq.size cflat = 24%N by vm_compute.
+Qed.
+
+(* the sticker a turn brings to a place is the first facelet of one place,    *)
+(* rotated by the twist it picks up                                          *)
+Lemma cidx_split m j : (m < nq)%N -> (j < 8)%N ->
+  nth 0%N cflat (cidx m j)
+    = iter (ctw m j) (nth 0%N ccyct) (nth 0%N cprim (rplace (cplc m j))).
+Proof.
+move=> mL jL.
+have /and3P[iL pL /eqP rE] := allP (allP cmv_tab _ (mem_iota0 mL)) _
+  (mem_iota0 jL).
+have hd : cidx m j = (3 * (cidx m j %/ 3) + ctw m j)%N.
+  by rewrite /ctw {1}(divn_eq (cidx m j) 3) mulnC.
+rewrite {1}hd rE.
+have pL' : (cidx m j %/ 3 < 8)%N by rewrite ltn_divLR.
+have tw3 : (ctw m j < 3)%N by rewrite /ctw ltn_mod.
+have /eqP -> := allP (allP cflat_iter _ (mem_iota0 pL')) _ (mem_iota0 tw3).
+by have /eqP -> := allP cflat_prim _ (mem_iota0 pL').
+Qed.
+
+Lemma rplace_lt m j : (m < nq)%N -> (j < 8)%N -> (rplace (cplc m j) < 8)%N.
+Proof.
+move=> mL jL.
+have /and3P[iL pL /eqP rE] := allP (allP cmv_tab _ (mem_iota0 mL)) _
+  (mem_iota0 jL).
+by rewrite rE ltn_divLR.
+Qed.
+
+Lemma cprim_cflat p : (p < 8)%N -> nth 0%N cprim p \in cflat.
+Proof.
+move=> pL; have /eqP <- := allP cflat_prim _ (mem_iota0 pL).
+apply: mem_nth; have -> : seq.size cflat = 24%N; first by vm_compute.
+by rewrite -[24%N]/(3 * 8)%N ltn_mul2l.
+Qed.
+
+(* WHERE A CORNER SITS after a turn: a rule in the turn and in where it sat.  *)
+Lemma cplace_step (a : arr) m j : tabi_ok flast a -> cubct (ti2t flast a) ->
+  (m < nq)%N -> (j < 8)%N ->
+  cplace (inv_tabi flast (comp_tabi flast a (mvq m))) j
+    = cplace (inv_tabi flast a) (cplc m j).
+Proof.
+move=> aok ca mL jL.
+have uok := tabi_ok_invi aok.
+have cu := cubct_invi aok ca.
+have rL := rplace_lt mL jL.
+have oc2r_lt : all (fun j => (rplace j < 8)%N) (iota 0 8) by vm_compute.
+have jrL : (rplace j < 8)%N by apply: (allP oc2r_lt); apply: mem_iota0.
+have pfL := allP cprim_lt48 _ (mem_iota0 rL).
+rewrite /cplace (getn_step aok mL (allP cprim_lt48 _ (mem_iota0 jrL))).
+rewrite (cmv_in mL jL) (cidx_split mL jL) (getn_iter _ uok cu pfL).
+by rewrite cposn_iter //; apply: getn_corner => //; apply: cprim_cflat.
+Qed.
+
+(* nine cases, and the twist is a subtraction because the prototype counts a  *)
+(* slot the other way round                                                   *)
+Lemma tw_arith c t : (c < 3)%N -> (t < 3)%N ->
+  ((3 - (c + t) %% 3) %% 3 = ((3 - c) %% 3 + (3 - t)) %% 3)%N.
+Proof. by case: c => [|[|[|]]] // _; case: t => [|[|[|]]]. Qed.
+
+(* AND HOW IT IS TURNED: the old twist, less the one the turn brings in.      *)
+Lemma ctwist_step (a : arr) m j : tabi_ok flast a -> cubct (ti2t flast a) ->
+  (m < nq)%N -> (j < 8)%N ->
+  ctwist (inv_tabi flast (comp_tabi flast a (mvq m))) j
+    = ((ctwist (inv_tabi flast a) (cplc m j) + (3 - ctw m j)) %% 3)%N.
+Proof.
+move=> aok ca mL jL.
+have uok := tabi_ok_invi aok.
+have cu := cubct_invi aok ca.
+have rL := rplace_lt mL jL.
+have oc2r_lt : all (fun j => (rplace j < 8)%N) (iota 0 8) by vm_compute.
+have jrL : (rplace j < 8)%N by apply: (allP oc2r_lt); apply: mem_iota0.
+have pfL := allP cprim_lt48 _ (mem_iota0 rL).
+have pfM : nth 0%N cprim (rplace (cplc m j)) \in cflat by apply: cprim_cflat.
+have xM := getn_corner uok cu pfL pfM.
+have tw3 : (ctw m j < 3)%N by rewrite /ctw ltn_mod.
+rewrite /ctwist (getn_step aok mL (allP cprim_lt48 _ (mem_iota0 jrL))).
+rewrite (cmv_in mL jL) (cidx_split mL jL) (getn_iter _ uok cu pfL).
+rewrite (cslotn_iter (ctw m j) xM).
+set c0 := cslotn (getn (inv_tabi flast a) (nth 0%N cprim (rplace (cplc m j)))).
+have c0L : (c0 < 3)%N by rewrite /c0 /cslotn ltn_mod.
+by rewrite /nslot (tw_arith c0L tw3).
+Qed.
+
 (* ---- what is left -------------------------------------------------------- *)
 
-(* Both halves are now in hand -- HEdge.getn_step says which sticker is read *)
-(* after a turn, getn_iter says the cubie does not depend on which facelet   *)
-(* of its place it is read from.  What is left is to put them together into  *)
-(* cplace_step and ctwist_step, then the datum, then the two rankings, then  *)
-(* the sweeps, 70 x 12 and 2187 x 12, smaller than the edges'.               *)
+(* cplace_step and ctwist_step are the mathematics of C for the corners, and *)
+(* with HEdge.eslot_step that is all three coordinates: a turn moves the     *)
+(* datum by a rule with no position in it.  clcoordi and ctcoordi read       *)
+(* nothing but cplace and ctwist, so both coordinates after a turn are       *)
+(* functions of the datum before it.                                        *)
+(*                                                                           *)
+(* What is left of C is the sweeps -- that the two move tables ARE the       *)
+(* rankings of the rule, 70 x 12 and 2187 x 12, and the edges' 190080 x 12,  *)
+(* which HEdgeChk has already run and which came back true.                  *)
