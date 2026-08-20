@@ -7,12 +7,17 @@
 
    A row is named by a move sequence.  Play it from solved and call the
    result p.  The row is every word w with p * w in H.  A word of length d
-   found by the search is a member of the row solved in d moves, so when
-   every member has been found the row needs no more moves than the depth
-   reached.  The search deepens until all 19 508 428 800 are marked.
+   is a member of the row solved in d moves, so when every member has been
+   found by depth 20 the row needs no more than twenty moves.
+
+   Every level does two things.  The search finds the words of that length
+   whose last move is NOT in H.  The prepass takes everything found so far
+   and plays each of the ten moves of H on all of it at once, which accounts
+   for every word whose last move IS in H -- and that is nearly all of them.
 
    usage: rubik_row <cap> <maxdepth> "<moves>"    one row
           rubik_row <cap> <maxdepth> build        the pruning table only
+          rubik_row check                         the checks, no table
 
    Moves are written the usual way, U R2 F', faces U R F D L B.  An empty
    move string is the row of H itself.
@@ -115,36 +120,156 @@ let mk_move_table n of_coord coord =
     for m = 0 to 17 do t.(i).(m) <- coord (mult c moves.(m)) done
   done; t
 
-(* ---- the row's own numbers ---------------------------------------------- *)
+(* ======================================================================== *)
+(*  How a member of the row is written down                                 *)
+(* ======================================================================== *)
 
-(* 8! corner permutations, 8! permutations of the eight edges outside the
-   middle layer, 4! of the four inside it.  A position of H has the same
-   parity on its corners as on its edges, which halves the count. *)
+(* A member of H is three permutations: the eight corners, the eight edges
+   outside the middle layer, and the four inside it.  The three have to agree
+   on parity, which is why the row has 8! * 8! * 4! / 2 members and not more.
+
+   The bits are laid out the way hcoset does, because that is what makes the
+   prepass fast.  A page is one corner permutation.  Inside a page, a GROUP
+   of twenty-four bits is a pair of outer edge permutations, and the
+   twenty-four bits are the twenty-four middle permutations: the twelve even
+   ones in the low half and the twelve odd ones in the high half.  Which of
+   the pair a bit means is settled by parity, so nothing is lost. *)
+
 let fact8 = 40320
 let fact4 = 24
-let rowsize = fact8 * fact8 * fact4 / 2
+let ngroup = fact8 / 2                          (* 20 160 *)
+let npage = fact8
+let mapsize = npage * ngroup                    (* groups in the whole map *)
+let rowsize = mapsize * fact4                   (* 19 508 428 800 *)
 
-(* One page a corner permutation, one bit an edge permutation. *)
-let pagebits = fact8 * fact4 / 2
-let pagebytes = pagebits / 8
+(* The ten moves of H: the two faces turned any way, the four sides turned
+   twice.  Faces are U R F D L B and a move is 3 * face + amount. *)
+let hmoves = [| 0; 1; 2; 9; 10; 11; 4; 7; 13; 16 |]
+let nh = Array.length hmoves
+let f2 = 7
 
-(* Where a permutation stands among the permutations of its own kind, by the
-   usual count of how many later entries are smaller. *)
-let rank8 a off =
+let rank a off n =
   let r = ref 0 in
-  for i = 0 to 7 do
+  for i = 0 to n - 1 do
     let c = ref 0 in
-    for j = i + 1 to 7 do if a.(off + j) < a.(off + i) then incr c done;
-    r := !r * (8 - i) + !c
+    for j = i + 1 to n - 1 do if a.(off + j) < a.(off + i) then incr c done;
+    r := !r * (n - i) + !c
   done; !r
 
-let rank4 a off =
-  let r = ref 0 in
-  for i = 0 to 3 do
-    let c = ref 0 in
-    for j = i + 1 to 3 do if a.(off + j) < a.(off + i) then incr c done;
-    r := !r * (4 - i) + !c
-  done; !r
+let unrank r n =
+  let c = Array.make n 0 and a = Array.make n 0 and r = ref r in
+  for i = n - 1 downto 0 do
+    c.(i) <- !r mod (n - i); r := !r / (n - i)
+  done;
+  let left = Array.init n (fun i -> i) and nleft = ref n in
+  for i = 0 to n - 1 do
+    let k = c.(i) in
+    a.(i) <- left.(k);
+    for j = k to !nleft - 2 do left.(j) <- left.(j + 1) done;
+    decr nleft
+  done; a
+
+let parity a off n =
+  let p = ref 0 in
+  for i = 0 to n - 1 do
+    for j = i + 1 to n - 1 do
+      if a.(off + j) < a.(off + i) then p := !p lxor 1
+    done
+  done; !p
+
+(* The outer edges are numbered in pairs that differ by exchanging the two
+   cubies 0 and 1, and the low bit of the number is the parity.  Two things
+   follow, and the prepass needs both: a move sends a pair to a pair, because
+   exchanging two cubies before a move is the same as exchanging them after
+   it; and the parity of the number tells which member of the pair is meant,
+   so the pair may be stored as one group. *)
+let e8num = Array.make fact8 0            (* rank -> number *)
+let e8rep = Array.make ngroup 0           (* group -> rank of its even member *)
+
+let () =
+  let pairid = Array.make fact8 (-1) in
+  let next = ref 0 in
+  for r = 0 to fact8 - 1 do
+    let a = unrank r 8 in
+    let b = Array.copy a in
+    for i = 0 to 7 do
+      if a.(i) = 0 then b.(i) <- 1 else if a.(i) = 1 then b.(i) <- 0
+    done;
+    let rb = rank b 0 8 in
+    let key = if r < rb then r else rb in
+    if pairid.(key) < 0 then begin pairid.(key) <- !next; incr next end;
+    let g = pairid.(key) in
+    let p = parity a 0 8 in
+    e8num.(r) <- 2 * g + p;
+    if p = 0 then e8rep.(g) <- r
+  done;
+  if !next <> ngroup then (prerr_endline "the outer pairs are wrong"; exit 1)
+
+(* The middle four are numbered so that the even ones take the low twelve
+   bits and the odd ones the high twelve, an odd one sitting at the place of
+   the even one it comes from by F2.  That makes F2 an exchange of the two
+   halves and nothing else. *)
+let e4bit = Array.make fact4 0            (* rank -> bit, 0..23 *)
+let e4of = Array.make fact4 0             (* bit -> rank *)
+
+(* how a move acts on the four middle cubies, as a map of ranks *)
+let e4move = Array.make_matrix fact4 18 0
+let () =
+  (* only the ten moves of H keep the four middle cubies among themselves *)
+  for r = 0 to fact4 - 1 do
+    let a = unrank r 4 in
+    Array.iter (fun m ->
+      let ep = moves.(m).ep in
+      let b = Array.init 4 (fun i -> a.(ep.(8 + i) - 8)) in
+      e4move.(r).(m) <- rank b 0 4) hmoves
+  done;
+  let i = ref 0 in
+  for r = 0 to fact4 - 1 do
+    if parity (unrank r 4) 0 4 = 0 then begin
+      e4bit.(r) <- !i; e4of.(!i) <- r;
+      let r' = e4move.(r).(f2) in
+      e4bit.(r') <- 12 + !i; e4of.(12 + !i) <- r';
+      incr i
+    end
+  done;
+  if !i <> 12 then (prerr_endline "the middle halves are wrong"; exit 1)
+
+(* where a move sends a page, a group, and the twelve bits of each half *)
+let mpage = Array.make_matrix npage nh 0
+let mgroup = Array.make_matrix ngroup nh 0
+let mswap = Array.make nh 0
+let mlo = Array.init nh (fun _ -> Array.make 4096 0)
+let mhi = Array.init nh (fun _ -> Array.make 4096 0)
+
+let () =
+  for k = 0 to nh - 1 do
+    let m = hmoves.(k) in
+    let cp = moves.(m).cp and ep = moves.(m).ep in
+    for r = 0 to npage - 1 do
+      let a = unrank r 8 in
+      mpage.(r).(k) <- rank (Array.init 8 (fun i -> a.(cp.(i)))) 0 8
+    done;
+    for g = 0 to ngroup - 1 do
+      let a = unrank e8rep.(g) 8 in
+      let b = Array.init 8 (fun i -> a.(ep.(i))) in
+      mgroup.(g).(k) <- e8num.(rank b 0 8) lsr 1
+    done;
+    mswap.(k) <- (if e4bit.(e4move.(e4of.(0)).(m)) >= 12 then 1 else 0);
+    for i = 0 to 11 do
+      let b = e4bit.(e4move.(e4of.(i)).(m)) in
+      mlo.(k).(1 lsl i) <- 1 lsl (b mod 12);
+      let b = e4bit.(e4move.(e4of.(12 + i)).(m)) in
+      mhi.(k).(1 lsl i) <- 1 lsl (b mod 12)
+    done;
+    for i = 1 to 4095 do
+      let low = i land (-i) in
+      mlo.(k).(i) <- mlo.(k).(low) lor mlo.(k).(i - low);
+      mhi.(k).(i) <- mhi.(k).(low) lor mhi.(k).(i - low)
+    done
+  done
+
+let popc = Array.make 4096 0
+let () = for i = 1 to 4095 do popc.(i) <- popc.(i lsr 1) + (i land 1) done
 
 (* ---- the moves, written the usual way ----------------------------------- *)
 
@@ -155,80 +280,135 @@ let parse_moves s =
   while !i < n do
     if s.[!i] = ' ' then incr i
     else begin
-      let f = String.index_opt faces s.[!i] in
-      (match f with
-       | None -> prerr_endline ("bad move at " ^ string_of_int !i); exit 1
-       | Some f ->
-         incr i;
-         let t =
-           if !i < n && s.[!i] = '2' then (incr i; 1)
-           else if !i < n && (s.[!i] = '\'' || s.[!i] = '3') then (incr i; 2)
-           else if !i < n && s.[!i] = '1' then (incr i; 0)
-           else 0 in
-         l := (3 * f + t) :: !l)
+      match String.index_opt faces s.[!i] with
+      | None -> prerr_endline ("bad move at " ^ string_of_int !i); exit 1
+      | Some f ->
+        incr i;
+        let t =
+          if !i < n && s.[!i] = '2' then (incr i; 1)
+          else if !i < n && (s.[!i] = '\'' || s.[!i] = '3') then (incr i; 2)
+          else if !i < n && s.[!i] = '1' then (incr i; 0)
+          else 0 in
+        l := (3 * f + t) :: !l
     end
   done;
   List.rev !l
 
-(* ---- the checks, which need no table ------------------------------------ *)
+(* ======================================================================== *)
+(*  The map, and the prepass                                                *)
+(* ======================================================================== *)
 
-(* The ten moves of H: the two faces turned any way, the four sides turned
-   twice.  Faces are U R F D L B and a move is 3 * face + amount, the amounts
-   being a quarter turn, a half turn and a quarter turn back. *)
-let hmoves = [| 0; 1; 2; 9; 10; 11; 4; 7; 13; 16 |]
+(* Two maps, so that the prepass reads what was known at the end of the last
+   level and writes what is known at the end of this one.  Playing a move on
+   what a move has just reached would count it a level too soon.  Each map
+   keeps the low halves apart from the high ones, sixteen bits at a time,
+   which is what a machine word reads without unpacking. *)
+
+type map = (int, Bigarray.int16_unsigned_elt, Bigarray.c_layout)
+             Bigarray.Array1.t
+
+let nomap : map = Bigarray.Array1.create Bigarray.int16_unsigned
+    Bigarray.c_layout 0
+let culo = ref nomap and cuhi = ref nomap
+let nxlo = ref nomap and nxhi = ref nomap
+
+let alloc () =
+  let mk () =
+    let a = Bigarray.Array1.create Bigarray.int16_unsigned
+        Bigarray.c_layout mapsize in
+    Bigarray.Array1.fill a 0; a in
+  culo := mk (); cuhi := mk (); nxlo := mk (); nxhi := mk ()
+
+(* where a member of H stands, written into the map being built *)
+let mark_at cp ep =
+  let pg = rank cp 0 8 in
+  let gr = e8num.(rank ep 0 8) lsr 1 in
+  let bt = e4bit.(rank ep 8 4) in
+  let i = pg * ngroup + gr in
+  if bt < 12 then
+    Bigarray.Array1.unsafe_set !nxlo i
+      (Bigarray.Array1.unsafe_get !nxlo i lor (1 lsl bt))
+  else
+    Bigarray.Array1.unsafe_set !nxhi i
+      (Bigarray.Array1.unsafe_get !nxhi i lor (1 lsl (bt - 12)))
+
+(* One move of H played on the whole map at once.  A page goes to a page, a
+   group to a group, and the twenty-four bits of a group are rearranged by a
+   table -- six of the ten moves leave the middle four alone and so leave the
+   bits where they are. *)
+let prepass k =
+  let clo = !culo and chi = !cuhi and nlo = !nxlo and nhi = !nxhi in
+  let tlo = mlo.(k) and thi = mhi.(k) and sw = mswap.(k) in
+  let mg = Array.make ngroup 0 in
+  for g = 0 to ngroup - 1 do mg.(g) <- mgroup.(g).(k) done;
+  for pg = 0 to npage - 1 do
+    let src = pg * ngroup and dst = mpage.(pg).(k) * ngroup in
+    for g = 0 to ngroup - 1 do
+      let lo = Bigarray.Array1.unsafe_get clo (src + g) in
+      let hi = Bigarray.Array1.unsafe_get chi (src + g) in
+      if lo lor hi <> 0 then begin
+        let d = dst + Array.unsafe_get mg g in
+        let a = Array.unsafe_get tlo lo and b = Array.unsafe_get thi hi in
+        let dl, dh = if sw = 0 then a, b else b, a in
+        if dl <> 0 then
+          Bigarray.Array1.unsafe_set nlo d
+            (Bigarray.Array1.unsafe_get nlo d lor dl);
+        if dh <> 0 then
+          Bigarray.Array1.unsafe_set nhi d
+            (Bigarray.Array1.unsafe_get nhi d lor dh)
+      end
+    done
+  done
+
+let count () =
+  let lo = !culo and hi = !cuhi in
+  let n = ref 0 in
+  for i = 0 to mapsize - 1 do
+    n := !n + Array.unsafe_get popc (Bigarray.Array1.unsafe_get lo i)
+           + Array.unsafe_get popc (Bigarray.Array1.unsafe_get hi i)
+  done; !n
+
+(* the whole level, and it is what the row does: carry over what was known,
+   play the ten moves on all of it, then let the caller add the search *)
+let carry () =
+  Bigarray.Array1.blit !culo !nxlo;
+  Bigarray.Array1.blit !cuhi !nxhi;
+  for k = 0 to nh - 1 do prepass k done
+
+let swapmaps () =
+  let a = !culo and b = !cuhi in
+  culo := !nxlo; cuhi := !nxhi; nxlo := a; nxhi := b
+
+(* ======================================================================== *)
+(*  The checks, which need no table                                         *)
+(* ======================================================================== *)
 
 let in_h c = twist c = 0 && flip c = 0 && slice c = 0
 
-let parity a n off =
-  let p = ref 0 in
-  for i = 0 to n - 1 do
-    for j = i + 1 to n - 1 do
-      if a.(off + j) < a.(off + i) then p := !p lxor 1
-    done
-  done; !p
+(* where a position of H stands: its page, its group, and its bit *)
+let place c =
+  let g = e8num.(rank c.ep 0 8) in
+  let b = e4bit.(rank c.ep 8 4) in
+  (rank c.cp 0 8, g lsr 1, b)
 
 let check () =
   let bad = ref 0 in
   let fail s = incr bad; print_string ("FAILED: " ^ s ^ "\n") in
 
-  (* the ranks number each kind of permutation once each *)
+  (* the numbering of the outer edges, and of the middle four *)
   let seen = Array.make fact8 0 in
-  let a = Array.make 8 0 in
-  let rec perm8 k =
-    if k = 8 then seen.(rank8 a 0) <- seen.(rank8 a 0) + 1
-    else for v = 0 to 7 do
-      let free = ref true in
-      for i = 0 to k - 1 do if a.(i) = v then free := false done;
-      if !free then begin a.(k) <- v; perm8 (k + 1) end
-    done in
-  perm8 0;
-  if Array.exists (fun x -> x <> 1) seen then fail "rank8 is not a bijection";
-
-  let seen4 = Array.make fact4 0 in
-  let b = Array.make 12 0 in
-  let rec perm4 k =
-    if k = 4 then seen4.(rank4 b 8) <- seen4.(rank4 b 8) + 1
-    else for v = 8 to 11 do
-      let free = ref true in
-      for i = 0 to k - 1 do if b.(8 + i) = v then free := false done;
-      if !free then begin b.(8 + k) <- v; perm4 (k + 1) end
-    done in
-  perm4 0;
-  if Array.exists (fun x -> x <> 1) seen4 then fail "rank4 is not a bijection";
-
-  (* two middle permutations whose ranks differ only in the last place have
-     opposite parity, which is what lets the last place be dropped *)
-  let par4 = Array.make fact4 0 in
-  let rec par k =
-    if k = 4 then par4.(rank4 b 8) <- parity b 4 8
-    else for v = 8 to 11 do
-      let free = ref true in
-      for i = 0 to k - 1 do if b.(8 + i) = v then free := false done;
-      if !free then begin b.(8 + k) <- v; par (k + 1) end
-    done in
-  par 0;
-  for r = 0 to fact4 / 2 - 1 do
-    if par4.(2 * r) = par4.(2 * r + 1) then fail "the middle pairs agree"
+  Array.iter (fun x -> seen.(x) <- seen.(x) + 1) e8num;
+  if Array.exists (fun x -> x <> 1) seen then fail "the outer numbers repeat";
+  for r = 0 to fact8 - 1 do
+    if e8num.(r) land 1 <> parity (unrank r 8) 0 8 then
+      fail "an outer number does not carry its parity"
+  done;
+  let seen = Array.make fact4 0 in
+  Array.iter (fun x -> seen.(x) <- seen.(x) + 1) e4bit;
+  if Array.exists (fun x -> x <> 1) seen then fail "the middle bits repeat";
+  for r = 0 to fact4 - 1 do
+    if (e4bit.(r) >= 12) <> (parity (unrank r 4) 0 4 = 1) then
+      fail "a middle bit is in the wrong half"
   done;
 
   (* the ten moves keep a position in H, and no other move does *)
@@ -237,34 +417,46 @@ let check () =
     if in_h moves.(m) <> there then fail (Printf.sprintf "move %d in H" m)
   done;
 
-  (* a member of H keeps the two kinds of edge apart, its corners and its
-     edges have the same parity, and its index is in range and one to one *)
+  (* F2 is the exchange of the two halves and nothing else *)
+  let kf2 = ref (-1) in
+  Array.iteri (fun k m -> if m = f2 then kf2 := k) hmoves;
+  let k = !kf2 in
+  if mswap.(k) <> 1 then fail "F2 does not change half";
+  for i = 0 to 4095 do
+    if mlo.(k).(i) <> i || mhi.(k).(i) <> i then fail "F2 moves a bit"
+  done;
+
+  (* THE CHECK THAT MATTERS: where the prepass sends a bit is where the move
+     sends the position.  Take a member of H, take a move of H, and compare
+     the place of the product with the place the tables give. *)
   Random.self_init ();
-  let tbl = Hashtbl.create 100003 in
-  let seenpos = Hashtbl.create 100003 in
   let c = ref (solved ()) in
+  let places = Hashtbl.create 100003 in
   for _ = 1 to 200000 do
-    c := mult !c moves.(hmoves.(Random.int 10));
+    c := mult !c moves.(hmoves.(Random.int nh));
     let p = !c in
     if not (in_h p) then fail "a word of H left H";
-    for j = 0 to 7 do if p.ep.(j) > 7 then fail "a middle edge came out" done;
-    for j = 8 to 11 do if p.ep.(j) < 8 then fail "an outer edge went in" done;
-    let pc = parity p.cp 8 0 in
-    let pe = parity p.ep 8 0 lxor parity p.ep 4 8 in
-    if pc <> pe then fail "the two parities differ";
-    let page = rank8 p.cp 0 in
-    let off = rank8 p.ep 0 * 12 + (rank4 p.ep 8 lsr 1) in
-    if page < 0 || page >= fact8 || off < 0 || off >= pagebits then
-      fail "the index is out of range";
-    let key = page * pagebits + off in
-    let sig_ = (Array.to_list p.cp, Array.to_list p.ep) in
-    (match Hashtbl.find_opt tbl key with
-     | Some s when s <> sig_ -> fail "two positions share an index"
-     | _ -> Hashtbl.replace tbl key sig_);
-    (match Hashtbl.find_opt seenpos sig_ with
-     | Some k when k <> key -> fail "one position has two indices"
-     | _ -> Hashtbl.replace seenpos sig_ key)
+    let (pg, gr, bt) = place p in
+    if pg < 0 || pg >= npage || gr < 0 || gr >= ngroup
+       || bt < 0 || bt >= fact4 then fail "the place is out of range";
+    let key = (pg * ngroup + gr) * fact4 + bt in
+    let sg = (Array.to_list p.cp, Array.to_list p.ep) in
+    (match Hashtbl.find_opt places key with
+     | Some s when s <> sg -> fail "two members share a place"
+     | _ -> Hashtbl.replace places key sg);
+    for k = 0 to nh - 1 do
+      let q = mult p moves.(hmoves.(k)) in
+      let (pg', gr', bt') = place q in
+      if mpage.(pg).(k) <> pg' then fail "the page table is wrong";
+      if mgroup.(gr).(k) <> gr' then fail "the group table is wrong";
+      let half = bt / 12 and j = bt mod 12 in
+      let want = if half = 0 then mlo.(k).(1 lsl j) else mhi.(k).(1 lsl j) in
+      let half' = if half = 0 then mswap.(k) else 1 - mswap.(k) in
+      if want <> 1 lsl (bt' mod 12) || half' <> bt' / 12 then
+        fail "the bit table is wrong"
+    done
   done;
+
   (* the move rule counts the canonical sequences, which Canseq.v proves are
      18, 243, 3240, 43254 and 577368 *)
   let opp f = (f + 3) mod 6 in
@@ -286,14 +478,55 @@ let check () =
               d got want.(d - 1))
   done;
 
-  Printf.printf "row size %d, %d pages of %d bits\n" rowsize fact8 pagebits;
-  Printf.printf "%d distinct members of H sampled\n" (Hashtbl.length tbl);
+  Printf.printf "row %d members, %d pages of %d groups of 24 bits\n"
+    rowsize npage ngroup;
+  Printf.printf "%d distinct members of H sampled\n" (Hashtbl.length places);
   if !bad = 0 then print_string "all checks passed\n"
   else Printf.printf "%d checks FAILED\n" !bad;
   exit (if !bad = 0 then 0 else 1)
 
+(* ======================================================================== *)
+
+(* The prepass on its own, from the solved position: level n is every member
+   of H that ten moves of H reach in n.  For the first levels the same thing
+   is worked out one position at a time, with a table of what has been seen,
+   and the two must agree. *)
+let hball n =
+  alloc ();
+  mark_at (solved ()).cp (solved ()).ep;
+  swapmaps ();
+  let seen = Hashtbl.create 1000003 in
+  let front = ref [ solved () ] in
+  Hashtbl.replace seen (Array.to_list (solved ()).cp,
+                        Array.to_list (solved ()).ep) ();
+  Printf.printf "level  0 : %d\n%!" (count ());
+  for d = 1 to n do
+    let t0 = Unix.gettimeofday () in
+    carry (); swapmaps ();
+    let got = count () in
+    let t1 = Unix.gettimeofday () in
+    if d <= 5 then begin
+      let nf = ref [] in
+      List.iter (fun p ->
+        Array.iter (fun m ->
+          let q = mult p moves.(m) in
+          let key = (Array.to_list q.cp, Array.to_list q.ep) in
+          if not (Hashtbl.mem seen key) then begin
+            Hashtbl.replace seen key (); nf := q :: !nf
+          end) hmoves) !front;
+      front := !nf;
+      let want = Hashtbl.length seen in
+      Printf.printf "level %2d : %d, one at a time %d, %s (%.1f s)\n%!"
+        d got want (if got = want then "agree" else "DISAGREE") (t1 -. t0)
+    end else
+      Printf.printf "level %2d : %d (%.1f s)\n%!" d got (t1 -. t0)
+  done;
+  exit 0
+
 let () =
   if Array.length Sys.argv > 1 && Sys.argv.(1) = "check" then check ();
+  if Array.length Sys.argv > 2 && Sys.argv.(1) = "hball" then
+    hball (int_of_string Sys.argv.(2));
   let cap = int_of_string Sys.argv.(1) in
   let maxdepth = int_of_string Sys.argv.(2) in
   let arg = if Array.length Sys.argv > 3 then Sys.argv.(3) else "" in
@@ -342,17 +575,11 @@ let () =
   end;
   if build_only then exit 0;
 
-  (* the row's representative *)
+  alloc ();
   let repseq = parse_moves arg in
   let rep = ref (solved ()) in
   List.iter (fun m -> rep := mult !rep moves.(m)) repseq;
   let rep = !rep in
-
-  (* one bit a member of the row *)
-  let bits = Bigarray.Array1.create Bigarray.char Bigarray.c_layout
-      (fact8 * pagebytes) in
-  Bigarray.Array1.fill bits '\000';
-  let uniq = ref 0 in
 
   let maxd = 32 in
   let cps = Array.init maxd (fun _ -> Array.make 8 0) in
@@ -361,6 +588,8 @@ let () =
   let fl = Array.make maxd 0 in
   let sl = Array.make maxd 0 in
   let nodes = ref 0L and probes = ref 0L in
+  let ish = Array.make 18 false in
+  Array.iter (fun m -> ish.(m) <- true) hmoves;
 
   let heur d =
     Char.code (Bigarray.Array1.unsafe_get p_all
@@ -375,24 +604,13 @@ let () =
     fl.(d') <- mt_flip.(fl.(d)).(m);
     sl.(d') <- mt_slice.(sl.(d)).(m) in
 
-  (* A member of H is a corner permutation, a permutation of the eight outer
-     edges and one of the four middle ones.  The parity of the middle four is
-     settled by the other two, and two permutations whose ranks differ only in
-     the last place have opposite parity, so dropping that place numbers the
-     twelve that are left. *)
-  let mark d =
-    let page = rank8 cps.(d) 0 in
-    let off = rank8 eps.(d) 0 * 12 + (rank4 eps.(d) 8 lsr 1) in
-    let i = page * pagebytes + (off lsr 3) in
-    let b = Char.code (Bigarray.Array1.unsafe_get bits i) in
-    let m = 1 lsl (off land 7) in
-    if b land m = 0 then begin
-      Bigarray.Array1.unsafe_set bits i (Char.unsafe_chr (b lor m));
-      incr uniq
-    end in
+  let mark d = mark_at cps.(d) eps.(d) in
 
   let opp f = (f + 3) mod 6 in
 
+  (* The search looks only for words whose last move is not in H.  Every word
+     that ends in H is a shorter one of the same row followed by moves of H,
+     and the prepass has already played those. *)
   let rec dfs d togo prev =
     nodes := Int64.add !nodes 1L;
     if heur d <= togo then begin
@@ -402,9 +620,9 @@ let () =
       end else
         for m = 0 to 17 do
           let f = m / 3 in
-          if prev < 0 || not (f = prev || (f = opp prev && f > prev)) then begin
-            step d m; dfs (d + 1) (togo - 1) f
-          end
+          if (togo > 1 || not ish.(m))
+             && (prev < 0 || not (f = prev || (f = opp prev && f > prev)))
+          then begin step d m; dfs (d + 1) (togo - 1) f end
         done
     end in
 
@@ -415,16 +633,23 @@ let () =
   Printf.printf "row \"%s\", %d members, table cap %d, first depth %d\n%!"
     arg rowsize cap (heur 0);
   let t0 = Unix.gettimeofday () in
+  let done_ = ref 0 in
   let d = ref (heur 0) in
-  while !uniq < rowsize && !d <= maxdepth do
-    let before = !uniq in
-    nodes := 0L; probes := 0L;
+  while !done_ < rowsize && !d <= maxdepth do
+    let before = !done_ in
     let t1 = Unix.gettimeofday () in
+    carry ();
+    let t2 = Unix.gettimeofday () in
+    nodes := 0L; probes := 0L;
     dfs 0 !d (-1);
+    let t3 = Unix.gettimeofday () in
+    swapmaps ();
+    done_ := count ();
     Printf.printf
-      "depth %2d : %Ld nodes, %Ld solutions, %d new, %d done, %.1f s\n%!"
-      !d !nodes !probes (!uniq - before) !uniq (Unix.gettimeofday () -. t1);
+      "depth %2d : %Ld nodes, %Ld solutions, %d new, %d done, \
+       prepass %.1f s, search %.1f s\n%!"
+      !d !nodes !probes (!done_ - before) !done_ (t2 -. t1) (t3 -. t2);
     incr d
   done;
   Printf.printf "row \"%s\": %d of %d after depth %d, %.1f s\n%!"
-    arg !uniq rowsize (!d - 1) (Unix.gettimeofday () -. t0)
+    arg !done_ rowsize (!d - 1) (Unix.gettimeofday () -. t0)
