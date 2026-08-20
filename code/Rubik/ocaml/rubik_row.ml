@@ -455,18 +455,24 @@ let alloc () =
     Bigarray.Array1.fill a 0; a in
   culo := mk (); cuhi := mk (); nxlo := mk (); nxhi := mk ()
 
-(* where a member of H stands, written into the map being built *)
+(* where a member of H stands, written into the map being built, counting
+   what is new so that a search can be stopped once it has found enough *)
+let nset = ref 0
+
 let mark_at cp ep =
   let pg = rank cp 0 8 in
   let gr = e8num.(rank ep 0 8) lsr 1 in
   let bt = e4bit.(rank ep 8 4) in
   let i = pg * ngroup + gr in
-  if bt < 12 then
-    Bigarray.Array1.unsafe_set !nxlo i
-      (Bigarray.Array1.unsafe_get !nxlo i lor (1 lsl bt))
-  else
-    Bigarray.Array1.unsafe_set !nxhi i
-      (Bigarray.Array1.unsafe_get !nxhi i lor (1 lsl (bt - 12)))
+  if bt < 12 then begin
+    let v = Bigarray.Array1.unsafe_get !nxlo i and m = 1 lsl bt in
+    if v land m = 0 then begin
+      Bigarray.Array1.unsafe_set !nxlo i (v lor m); incr nset end
+  end else begin
+    let v = Bigarray.Array1.unsafe_get !nxhi i and m = 1 lsl (bt - 12) in
+    if v land m = 0 then begin
+      Bigarray.Array1.unsafe_set !nxhi i (v lor m); incr nset end
+  end
 
 (* One move of H played on the whole map at once.  A page goes to a page, a
    group to a group, and the twenty-four bits of a group are rearranged by a
@@ -856,6 +862,16 @@ let () =
   let nopre = Sys.getenv_opt "ROW_NOPREPASS" <> None in
   let cut = ref true in
   let rcut = 5 in
+  (* hcoset's `enoughbits': the last search level need not be run out, only
+     run until the map holds enough for the prepasses above it to finish the
+     row.  Its own rule at depth 16 is 167 million plus a third of what the
+     prepass left, and ROWENOUGH takes that number.  Safe like every other
+     cut here -- what is proved is that the map filled. *)
+  let enough = ref max_int in
+  let rowenough =
+    match Sys.getenv_opt "ROWENOUGH" with
+    | Some v -> int_of_string v
+    | None -> 0 in
   let opp f = (f + 3) mod 6 in
   let idx d = (tw.(d) * n_flip + fl.(d)) * n_slice + sl.(d) in
 
@@ -865,7 +881,8 @@ let () =
      of each. *)
   let rec dfsm d togo prev mask =
     nodes := Int64.add !nodes 1L;
-    if togo = 0 then begin
+    if !nset >= !enough then ()
+    else if togo = 0 then begin
       probes := Int64.add !probes 1L;
       mark d
     end else begin
@@ -940,6 +957,14 @@ let () =
     end;
     let t2 = Unix.gettimeofday () in
     nodes := 0L; probes := 0L;
+    (* the threshold is on the whole map, so what the prepass left has to be
+       counted before the search starts; that costs a couple of seconds and
+       only on the level the threshold applies to *)
+    enough := max_int;
+    if rowenough > 0 && !d = maxsearch then begin
+      swapmaps (); nset := count (); swapmaps ();
+      enough := rowenough
+    end;
     if !d <= maxsearch then begin
       if has_mask then begin
         let w = Bigarray.Array1.unsafe_get p_msk (idx 0) in
@@ -952,8 +977,10 @@ let () =
     done_ := count ();
     Printf.printf
       "depth %2d : %Ld nodes, %Ld solutions, %d new, %d done, \
-       prepass %.1f s, search %.1f s\n%!"
-      !d !nodes !probes (!done_ - before) !done_ (t2 -. t1) (t3 -. t2);
+       prepass %.1f s, search %.1f s%s\n%!"
+      !d !nodes !probes (!done_ - before) !done_ (t2 -. t1) (t3 -. t2)
+      (if !enough < max_int && !nset >= !enough then " (stopped early)"
+       else "");
     incr d
   done;
   Printf.printf "row \"%s\": %d of %d after depth %d, %.1f s\n%!"
@@ -964,7 +991,16 @@ let () =
      is settled on its own by a WORD: play it and the position is solved.
      hcoset does the same and hands them to Kociemba's two phase algorithm.
      Nothing here has to be trusted -- the word is checked by playing it. *)
-  if Sys.getenv_opt "ROWLEFT" <> None && !done_ < rowsize then begin
+  (* ROWLEFT is how many to settle, not a flag: these are the deepest members
+     of the row, so phase one gets them into H with about ten moves to spare
+     and a member of H often needs more than that.  Most phase one solutions
+     therefore lead nowhere and the solver works through many of them.  A
+     sample is what tells us the shape; ROWLEFT=0 means all of them. *)
+  let rowleft =
+    match Sys.getenv_opt "ROWLEFT" with
+    | Some v -> (try int_of_string v with _ -> 1000)
+    | None -> -1 in
+  if rowleft >= 0 && !done_ < rowsize then begin
     let irep = inv rep in
     let mx = 22 in
     let cps = Array.init mx (fun _ -> Array.make 8 0) in
@@ -1031,10 +1067,12 @@ let () =
       for i = 0 to 11 do
         if (!c).ep.(i) <> i || (!c).eo.(i) <> 0 then ok := false done;
       !ok in
-    Printf.printf "the leftovers, one word each\n%!";
+    Printf.printf "the leftovers, one word each%s\n%!"
+      (if rowleft = 0 then "" else Printf.sprintf " (the first %d)" rowleft);
     let t1 = Unix.gettimeofday () in
     let seen = ref 0 and bad = ref 0 and worst = ref 0 and hist = Array.make 25 0 in
     let clo = !culo and chi = !cuhi in
+    (try
     for pg = 0 to npage - 1 do
       for g = 0 to ngroup - 1 do
         let i = pg * ngroup + g in
@@ -1047,17 +1085,22 @@ let () =
             if not set then begin
               incr seen;
               let q = mult irep (unplace pg g b) in
-              match solve20 q with
-              | Some w when List.length w <= 20 && solves q w ->
-                let n = List.length w in
-                hist.(n) <- hist.(n) + 1;
-                if n > !worst then worst := n
-              | _ -> incr bad
+              (match solve20 q with
+               | Some w when List.length w <= 20 && solves q w ->
+                 let n = List.length w in
+                 hist.(n) <- hist.(n) + 1;
+                 if n > !worst then worst := n
+               | _ -> incr bad);
+              if !seen mod 25 = 0 then
+                Printf.printf "   %d done, %d without a word, %.1f s\n%!"
+                  !seen !bad (Unix.gettimeofday () -. t1);
+              if rowleft > 0 && !seen >= rowleft then raise Exit
             end
           done
       done
-    done;
-    Printf.printf "%d left over, %d without a word of 20, longest %d, %.1f s\n%!"
+    done
+    with Exit -> ());
+    Printf.printf "%d settled, %d without a word of 20, longest %d, %.1f s\n%!"
       !seen !bad !worst (Unix.gettimeofday () -. t1);
     for n = 0 to 24 do
       if hist.(n) > 0 then Printf.printf "   %2d moves : %d\n" n hist.(n) done
