@@ -549,6 +549,48 @@ is sparse and 88 s when it is full, because we skip empty groups and it does
 not.  Our best level is 3.1x its and our worst 11.8x, so the variance is all
 on our side.
 
+### Its production recipe, and the 345
+
+hcoset's real setting is `-F`, and it is neither of the two above.  It selects
+`-S 16 -d 20` and sets `enoughbits = 167000000 + uniq/3` **after** the depth
+16 prepass, so the depth 16 search runs only until the map holds 220 310 448
+and then stops.  That one difference is the whole story of the leftover
+count, measured on `R U F L D B R U F L`:
+
+| recipe | leftover |
+|---|---|
+| full depth 15 then five prepasses | 152 997 |
+| depth 16 stopped at 220 310 448, which is `-F` | **318** |
+| the paper's average | 345 |
+
+So the row is entirely typical and there was never anything to explain;
+comparing a depth 15 run against the paper's 345 is comparing two different
+computations.  `ROWENOUGH` is the same stop, and on the same recipe:
+
+| | hcoset | rubik_row |
+|---|---|---|
+| depth 16 solutions | 65 975 234 | 66 009 955 |
+| stopped at | 220 310 498 | 220 310 448 |
+| **leftover** | **318** | **316** |
+| the coset, one core | 72.2 s | 445.4 s |
+
+316 against 318: once the stop is armed the answer depends on the order bits
+are found, and the two search the moves in different orders.  Everything up
+to that point still agrees to the unit.  **6.2x** on the whole coset.
+
+`ROWLEFT=200` then settles two hundred of the leftovers, each by a word that
+is checked by playing it:
+
+    200 settled, 0 without a word of 20, longest 20
+       17 moves : 1
+       18 moves : 2
+       19 moves : 11
+       20 moves : 186
+
+93% of them need exactly twenty moves.  They are the deepest members of the
+row, which is why phase one reaches H with too few moves to spare and why
+Rokicki solves them on six axes rather than one.
+
 ### Running its recipe rather than ours -- a full depth 15 search then five
 prepasses, `ROWSEARCH=15 ROWCAP=12` -- the row takes 324.1 s and the two are
 directly comparable:
