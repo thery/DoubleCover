@@ -164,6 +164,7 @@ hall: rubik_h
 #   make hball N=4  the prepass alone from solved, against a one at a time BFS
 #   make row        one row, ROW="U R2 F'"
 #   make row ROWLEFT=1   the same, then a word for each member left over
+#   make row ROWSEARCH=16 ROWENOUGH=173502991   hcoset's own quick proof of 20
 #
 # ROWDEPTH is where the row gives up, ROWSEARCH is where the SEARCH gives up
 # and the prepass carries alone -- 20 and 16 are hcoset's own numbers.
@@ -181,6 +182,12 @@ N         ?= 4
 # exported so that it works written either before or after `make'.
 ROWLEFT   ?=
 export ROWLEFT
+
+# hcoset's `enoughbits': stop the last search level once the map holds this
+# many, and let the prepasses above it finish the row.  Its own rule at depth
+# 16 is 167 000 000 plus a third of what the level started with.
+ROWENOUGH ?=
+export ROWENOUGH
 
 rubik_row: rubik_row.ml
 	$(OCAMLOPT) $< -o $@

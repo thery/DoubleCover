@@ -455,18 +455,24 @@ let alloc () =
     Bigarray.Array1.fill a 0; a in
   culo := mk (); cuhi := mk (); nxlo := mk (); nxhi := mk ()
 
-(* where a member of H stands, written into the map being built *)
+(* where a member of H stands, written into the map being built, counting
+   what is new so that a search can be stopped once it has found enough *)
+let nset = ref 0
+
 let mark_at cp ep =
   let pg = rank cp 0 8 in
   let gr = e8num.(rank ep 0 8) lsr 1 in
   let bt = e4bit.(rank ep 8 4) in
   let i = pg * ngroup + gr in
-  if bt < 12 then
-    Bigarray.Array1.unsafe_set !nxlo i
-      (Bigarray.Array1.unsafe_get !nxlo i lor (1 lsl bt))
-  else
-    Bigarray.Array1.unsafe_set !nxhi i
-      (Bigarray.Array1.unsafe_get !nxhi i lor (1 lsl (bt - 12)))
+  if bt < 12 then begin
+    let v = Bigarray.Array1.unsafe_get !nxlo i and m = 1 lsl bt in
+    if v land m = 0 then begin
+      Bigarray.Array1.unsafe_set !nxlo i (v lor m); incr nset end
+  end else begin
+    let v = Bigarray.Array1.unsafe_get !nxhi i and m = 1 lsl (bt - 12) in
+    if v land m = 0 then begin
+      Bigarray.Array1.unsafe_set !nxhi i (v lor m); incr nset end
+  end
 
 (* One move of H played on the whole map at once.  A page goes to a page, a
    group to a group, and the twenty-four bits of a group are rearranged by a
@@ -856,6 +862,16 @@ let () =
   let nopre = Sys.getenv_opt "ROW_NOPREPASS" <> None in
   let cut = ref true in
   let rcut = 5 in
+  (* hcoset's `enoughbits': the last search level need not be run out, only
+     run until the map holds enough for the prepasses above it to finish the
+     row.  Its own rule at depth 16 is 167 million plus a third of what the
+     prepass left, and ROWENOUGH takes that number.  Safe like every other
+     cut here -- what is proved is that the map filled. *)
+  let enough = ref max_int in
+  let rowenough =
+    match Sys.getenv_opt "ROWENOUGH" with
+    | Some v -> int_of_string v
+    | None -> 0 in
   let opp f = (f + 3) mod 6 in
   let idx d = (tw.(d) * n_flip + fl.(d)) * n_slice + sl.(d) in
 
@@ -865,7 +881,8 @@ let () =
      of each. *)
   let rec dfsm d togo prev mask =
     nodes := Int64.add !nodes 1L;
-    if togo = 0 then begin
+    if !nset >= !enough then ()
+    else if togo = 0 then begin
       probes := Int64.add !probes 1L;
       mark d
     end else begin
@@ -940,6 +957,14 @@ let () =
     end;
     let t2 = Unix.gettimeofday () in
     nodes := 0L; probes := 0L;
+    (* the threshold is on the whole map, so what the prepass left has to be
+       counted before the search starts; that costs a couple of seconds and
+       only on the level the threshold applies to *)
+    enough := max_int;
+    if rowenough > 0 && !d = maxsearch then begin
+      swapmaps (); nset := count (); swapmaps ();
+      enough := rowenough
+    end;
     if !d <= maxsearch then begin
       if has_mask then begin
         let w = Bigarray.Array1.unsafe_get p_msk (idx 0) in
@@ -952,8 +977,10 @@ let () =
     done_ := count ();
     Printf.printf
       "depth %2d : %Ld nodes, %Ld solutions, %d new, %d done, \
-       prepass %.1f s, search %.1f s\n%!"
-      !d !nodes !probes (!done_ - before) !done_ (t2 -. t1) (t3 -. t2);
+       prepass %.1f s, search %.1f s%s\n%!"
+      !d !nodes !probes (!done_ - before) !done_ (t2 -. t1) (t3 -. t2)
+      (if !enough < max_int && !nset >= !enough then " (stopped early)"
+       else "");
     incr d
   done;
   Printf.printf "row \"%s\": %d of %d after depth %d, %.1f s\n%!"
