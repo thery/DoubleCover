@@ -1082,6 +1082,10 @@ let () =
         (match solve1 (inv q) with
          | Some w -> Some (List.rev_map invmv w)
          | None -> None) in
+    (* a move, written the usual way, so a witness can be read by eye        *)
+    let mvname m =
+      Printf.sprintf "%c%s" faces.[m / 3]
+        (match m mod 3 with 0 -> "" | 1 -> "2" | _ -> "'") in
     let solves q w =
       let c = ref q in
       List.iter (fun m -> c := mult !c moves.(m)) w;
@@ -1113,8 +1117,17 @@ let () =
                | Some w when List.length w <= 20 && solves q w ->
                  let n = List.length w in
                  hist.(n) <- hist.(n) + 1;
-                 if n > !worst then worst := n
-               | _ -> incr bad);
+                 if n > !worst then worst := n;
+                 (* the witness itself: the place, then the word, as move
+                    numbers for a machine and as moves for a reader *)
+                 Printf.printf "LEFT %d %d %d %d%s   # %s\n"
+                   pg g b n
+                   (String.concat ""
+                      (List.map (fun m -> " " ^ string_of_int m) w))
+                   (String.concat " " (List.map mvname w))
+               | _ ->
+                 incr bad;
+                 Printf.printf "LEFT %d %d %d NONE\n" pg g b);
               Printf.printf "   %d done, %d without a word, %.1f s\n%!"
                 !seen !bad (Unix.gettimeofday () -. t1);
               if rowleft > 0 && !seen >= rowleft then raise Exit
