@@ -1411,13 +1411,22 @@ note:
 
 #tbl(([], [wall clock], [processor time]),
   ([building the table, in OCaml], [9 min 50], [1 h 43]),
+  ([the same table as fifty-nine Rocq files], [3 h 13], [6 h 50]),
   ([the three sweeps over the move tables], [], [1 min 20]),
   ([the sweep over the distance table, twelve jobs], [2 h 51], [31 h 42]),
   ([the six searches, seventy-two pieces, twelve workers], [4 h 00], [45 h 54]),
+  ([*the whole chain in Rocq*], [*10 h 32*], [*87 h 29*]),
 )
 
-The sweeps and the search are the whole cost. Checking the table rather than
-trusting it comes to about two thirds of what the search itself costs. The
+The last row is not the sum of the ones above it. It is the whole chain
+measured end to end, from a directory where nothing is built, and it is a
+little larger because it also carries the rest of the development, the file
+that gathers the fifty-nine pieces and the final theorem. The OCaml table on
+the first row is built once by hand and is not part of that run.
+
+The sweeps and the search are nearly nine tenths of the cost. Checking the
+table rather than trusting it comes to about two thirds of what the search
+itself costs. The
 quarter-turn work is thirty more hand-written Rocq files and 6 739 lines, six
 of them checks that are run once and are not part of the proof. The
 cube, the permutations, the tables and the machine-integer toolbox are the ones
