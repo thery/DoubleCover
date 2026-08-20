@@ -162,15 +162,19 @@ hall: rubik_h
 #
 #   make rowcheck   the tables, against direct multiplication, no big memory
 #   make hball N=4  the prepass alone from solved, against a one at a time BFS
-#   make row        one row, ROW="U R2 F'" and ROWDEPTH the depth to stop at
+#   make row        one row, ROW="U R2 F'"
+#
+# ROWDEPTH is where the row gives up, ROWSEARCH is where the SEARCH gives up
+# and the prepass carries alone -- 20 and 16 are hcoset's own numbers.
 #
 # THE MAP IS 6.5 GB: four arrays of 812 851 200 sixteen bit words, a low and
 # a high half for what is known now and for what is being built.  hball needs
 # only that; row needs the 2.2 GB pruning table on top.
-ROWCAP   ?= 9
-ROWDEPTH ?= 20
-ROW      ?=
-N        ?= 4
+ROWCAP    ?= 9
+ROWDEPTH  ?= 20
+ROWSEARCH ?= 16
+ROW       ?=
+N         ?= 4
 
 rubik_row: rubik_row.ml
 	$(OCAMLOPT) $< -o $@
@@ -183,6 +187,6 @@ hball: rubik_row
 
 row: rubik_row
 	./rubik_row $(ROWCAP) $(ROWDEPTH) build
-	./rubik_row $(ROWCAP) $(ROWDEPTH) "$(ROW)"
+	./rubik_row $(ROWCAP) $(ROWDEPTH) "$(ROW)" $(ROWSEARCH)
 
 .PHONY: rowcheck hball row
