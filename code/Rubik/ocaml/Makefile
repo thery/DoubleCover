@@ -46,7 +46,7 @@ clean:
 	rm -f $(PROGS) *.cmi *.cmx *.o
 
 distclean: clean
-	rm -f phase1_cap*.tbl qtm_cap*.tbl h_cap*.tbl MoveTables.v
+	rm -f phase1_cap*.tbl phase1m*.tbl qtm_cap*.tbl h_cap*.tbl MoveTables.v
 
 .PHONY: all check run clean distclean
 
@@ -185,8 +185,17 @@ rowcheck: rubik_row
 hball: rubik_row
 	./rubik_row hball $(N)
 
+# The table hcoset's phase1prune carries: beside the distance, WHICH MOVES GO
+# CLOSER.  It needs the EXACT distances, so cap 12, and it is a word a state
+# -- 17.7 GB, against Rokicki's 650 MB, because he folds by the sixteen
+# symmetries and we do not.  Built once; the row uses it if it is there.
+# A row then wants 2.2 + 17.7 + 6.5 = 26.4 GB.
+mask: rubik_row
+	./rubik_row 12 20 build
+	./rubik_row 12 20 mask
+
 row: rubik_row
 	./rubik_row $(ROWCAP) $(ROWDEPTH) build
 	./rubik_row $(ROWCAP) $(ROWDEPTH) "$(ROW)" $(ROWSEARCH)
 
-.PHONY: rowcheck hball row
+.PHONY: rowcheck hball mask row

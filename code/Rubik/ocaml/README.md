@@ -314,6 +314,7 @@ been found by depth 20 needs no more than twenty moves.
 
     make rowcheck              the checks, no big memory
     make hball N=4             the prepass alone, against a one at a time BFS
+    make mask                  the exact table and its move masks, once
     make row ROW="U R2 F'"     one row
     make row                   the row of H itself
 
@@ -368,9 +369,112 @@ cannot see.
 
 The pruning table is the prototype's own, `phase1_cap9.tbl`, 2.2 GB, one byte
 a state.  It is capped at nine and phase 1 distances go to twelve, so
-everything at ten or beyond reads ten: weaker pruning, never a lie.  Rokicki's
-own table is exact to twelve and carries, for each state, which moves change
-the distance; it is symmetry reduced to 170 311 680 entries of four bytes.
+everything at ten or beyond reads ten: weaker pruning, never a lie.  **Cap 12
+is the exact table**, in the same 2.2 GB and with no new code, and it matters
+because most of the 2.2 billion states sit at ten, eleven or twelve -- the
+range cap 9 collapses to one value.
+
+`make mask` builds the second table, which is what `hcoset`'s `phase1prune`
+carries: beside the distance, **which moves go closer**.  A node then tries
+only the moves the table names instead of all eighteen, which Rokicki says
+"eliminates almost all false paths in the search".  Ours is a word a state --
+five bits of distance, eighteen of the moves that drop it, eighteen of those
+that do not raise it -- so 17.7 GB against his 650 MB, because he folds by
+the sixteen symmetries and we do not.  A row then wants 2.2 + 17.7 + 6.5 =
+26.4 GB.
+
+The sweep that builds it is cheap because of how the index is laid out: with
+a twist and a flip held fixed, the eighteen children of all 495 slice values
+sit in eighteen runs of 495 bytes, so the whole sweep works out of cache.
+
+The mask search does NOT need the exact table.  What it needs is that the
+table never over-estimates and never changes by more than one per move, and a
+capped table has both: the smaller of the distance and the cap is still a
+lower bound, and taking the smaller of two things with a constant cannot make
+two neighbours differ by more than they did.  So a move the table rules out
+leads nowhere whatever the cap.
+
+`make mask` uses cap 12 anyway, for a reason that has nothing to do with
+soundness: **the cap does not change the table's size.**  The 17.7 GB is the
+two masks, not the distance, so cap 9 and cap 12 cost the same to store and
+cap 12 prunes strictly better.  The two improvements are independent -- exact
+distances buy pruning, masks buy one table read a node instead of eighteen --
+and there is no reason to take the weaker half of the first.
+
+If the 17.7 GB is the problem, the answer is not a lower cap but the fold
+Rokicki uses and `fold.md` already describes: the sixteen symmetries of the
+U/D axis, 15.7x, about 1.1 GB, at the price of a fold on every lookup.
+
+### The first row, measured
+
+The row of H itself, on roquableu, one core, 2026-08-20:
+
+    ./rubik_row 9 20 "" 11
+    depth 11 : 1487553320 nodes, 45573536 solutions,  582017108 new,   733642602 done
+    depth 12 : 0 nodes, 0 solutions,  2257346454 new,  2990989056 done
+    depth 13 : 0 nodes, 0 solutions,  5725571470 new,  8716560526 done
+    depth 14 : 0 nodes, 0 solutions,  7182132183 new, 15898692709 done
+    depth 15 : 0 nodes, 0 solutions,  3430240810 new, 19328933519 done
+    depth 16 : 0 nodes, 0 solutions,   178843181 new, 19507776700 done
+    depth 17 : 0 nodes, 0 solutions,      651828 new, 19508428528 done
+    depth 18 : 0 nodes, 0 solutions,         272 new, 19508428800 done
+    row "": 19508428800 of 19508428800 after depth 18, 725.7 s
+
+**12 min 11 on one core**: 307 s of search, 394 s of prepass, 25 s of
+counting.  So every position of H is within eighteen face turns, and the run
+exhibits a word for each.  The search stopped at eleven and the prepass found
+96% of the members on its own.  The levels close rather than trail off: the
+last two add 651 828 and then 272.
+
+Where the search stops is a free choice, and a cheap one.  Searching to 16,
+which is what hcoset does, is out of reach with this table: the cut search
+grows 7.3 a level from 26.7 s at depth 10, which puts depth 16 at about
+forty seven days on one core.  Stopping at eleven costs nine prepass levels
+at twenty to sixty seconds each.  Both are safe, so the only question is
+which one fills the map.
+
+The cuts were checked against the plain search at two levels: depth 10 and
+depth 11 give 151 625 494 and 733 642 602 members either way, to the unit,
+while the cut search does one nineteenth of the work.
+
+### A real row, measured
+
+`R U F L D B R U F L`, the same machine, one core, 2026-08-20.  Its
+representative is already 10 from H, so the search starts at depth 10:
+
+    ./rubik_row 9 20 "R U F L D B R U F L" 16
+    depth 15 :   641980912 nodes,  19245852 solutions,     19508974 done, search  118.2 s
+    depth 16 :  8393815854 nodes, 148553182 solutions,    294431520 done, search 1490.7 s
+    depth 17 : 0 nodes, 0 solutions,   2244383965 done, prepass 55.8 s
+    depth 18 : 0 nodes, 0 solutions,  10567926928 done, prepass 73.6 s
+    depth 19 : 0 nodes, 0 solutions,  19313324832 done, prepass 46.4 s
+    depth 20 : 0 nodes, 0 solutions,  19508428800 done, prepass 43.9 s
+    row: 19508428800 of 19508428800 after depth 20, 1880.4 s
+
+**31 min 26 on one core**, and 86% of it is the search, of which depth 16
+alone is 79%.  The prepass is 249 s of the 1880.
+
+Where the search stops decides everything, and the three runs price it:
+
+| search to | wall | reached |
+|---|---|---|
+| 11 | 3 min 30 | 3 460 129 724, 17.7% |
+| 15 | 6 min 43 | 19 508 275 803, short by **152 997** |
+| 16 | 31 min 26 | **19 508 428 800, full** |
+
+The last hundredth of a percent cost five times the rest.  That is the whole
+problem in one table, and it is why Rokicki's pruning table, and the symmetry
+fold under it, are not optional at scale.
+
+Note also how differently the two rows search.  The row of H itself does
+1 487 553 320 nodes at depth 11; this one does 9 274, because its
+representative is already 10 from H and there is no slack for the search to
+waste.  The trivial row is the expensive one to search and the cheap one to
+fill; a real row is the other way round.
+
+**The row of H is the easiest row there is** -- Rokicki says the trivial coset is the
+one the prepass helps most.  A row named by a real move sequence starts with
+an empty map and a search that begins around depth 10 rather than 0.
 
 The prepass is not an optimisation, it is what makes a row possible at all.
 `hcoset.w` gives the size of the thing it removes: for the row of H itself
