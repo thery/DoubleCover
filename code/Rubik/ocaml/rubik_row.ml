@@ -1018,15 +1018,28 @@ let () =
       fls.(d') <- mt_flip.(fls.(d)).(m);
       sls.(d') <- mt_slice.(sls.(d)).(m) in
     let out = ref None in
+    (* A LEFTOVER IS A DEEP POSITION, so phase one reaches H with little to
+       spare and most phase one solutions lead to an element of H that cannot
+       be finished inside what is left.  The solver then works through
+       millions of them.  So it gives up on a length after this many and goes
+       to the next, and if the position itself will not go it is tried
+       inverted, which is a different tree -- that is the cheap end of what
+       Rokicki does on six axes. *)
+    let p1cap = 200000 in
+    let tried = ref 0 in
     (* phase one takes it into H, phase two the rest of the way *)
     let rec p1 d togo prev mask =
       if togo = 0 then begin
-        let hq = { cp = cps.(d); co = Array.make 8 0;
-                   ep = eps.(d); eo = Array.make 12 0 } in
-        match phase2 (h2coord hq) (20 - d) with
-        | Some w2 ->
-          out := Some (Array.to_list (Array.sub path 0 d) @ w2); true
-        | None -> false
+        if !tried >= p1cap then true          (* give up on this length *)
+        else begin
+          incr tried;
+          let hq = { cp = cps.(d); co = Array.make 8 0;
+                     ep = eps.(d); eo = Array.make 12 0 } in
+          match phase2 (h2coord hq) (20 - d) with
+          | Some w2 ->
+            out := Some (Array.to_list (Array.sub path 0 d) @ w2); true
+          | None -> false
+        end
       end else begin
         let togo' = togo - 1 in
         let r = ref false and m = ref 0 in
@@ -1045,7 +1058,7 @@ let () =
           incr m
         done; !r
       end in
-    let solve20 q =
+    let solve1 q =
       Array.blit q.cp 0 cps.(0) 0 8;
       Array.blit q.ep 0 eps.(0) 0 12;
       tws.(0) <- twist q; fls.(0) <- flip q; sls.(0) <- slice q;
@@ -1054,10 +1067,21 @@ let () =
       let nd0 = mdist w0 in
       let l = ref nd0 in
       while !out = None && !l <= 20 do
+        tried := 0;
         ignore (p1 0 !l (-1) (mmask w0 (!l - nd0)));
         incr l
       done;
       !out in
+    (* a move undone, and a word undone: play it backwards, each move the
+       other way *)
+    let invmv m = 3 * (m / 3) + (2 - m mod 3) in
+    let solve20 q =
+      match solve1 q with
+      | Some w -> Some w
+      | None ->
+        (match solve1 (inv q) with
+         | Some w -> Some (List.rev_map invmv w)
+         | None -> None) in
     let solves q w =
       let c = ref q in
       List.iter (fun m -> c := mult !c moves.(m)) w;
@@ -1091,9 +1115,8 @@ let () =
                  hist.(n) <- hist.(n) + 1;
                  if n > !worst then worst := n
                | _ -> incr bad);
-              if !seen mod 25 = 0 then
-                Printf.printf "   %d done, %d without a word, %.1f s\n%!"
-                  !seen !bad (Unix.gettimeofday () -. t1);
+              Printf.printf "   %d done, %d without a word, %.1f s\n%!"
+                !seen !bad (Unix.gettimeofday () -. t1);
               if rowleft > 0 && !seen >= rowleft then raise Exit
             end
           done
