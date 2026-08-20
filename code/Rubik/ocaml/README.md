@@ -507,6 +507,27 @@ Its own split is 3 s of search, 15 s for five prepasses and 1.5 s of
 overhead.  Its search runs at 25 million positions a second and its prepass
 at 65 billion group operations a CPU second.
 
+Running its recipe rather than ours -- a full depth 15 search then five
+prepasses, `ROWSEARCH=15 ROWCAP=12` -- the row takes 324.1 s and the two are
+directly comparable:
+
+| | his, core seconds | ours, core seconds | |
+|---|---|---|---|
+| the search | ~12 | 37.3 | 3.1x |
+| five prepasses | ~60 | 272 | 4.5x |
+| overhead | ~6 | ~15 | 2.5x |
+| **total** | **~78** | **324** | **4.2x** |
+
+**Four times, and the gap is the PREPASS, not the search.**  It is 272 s of
+our 324 and it is pure memory work: our two maps are 3.25 GB against his
+2.44, and his inner loop is 61 machine instructions handling 24 positions and
+ten moves at once, which he clocks at 65 billion group operations a CPU
+second.  Ours works out at 4.5 times less per group operation, which for
+OCaml against hand tuned C on a memory bound loop is about what one expects.
+
+Comparing our depth 16 run against his depth 15 recipe gives 9x and is not
+the same computation.
+
 **And it does not fill the coset.**  "A full search to depth 15 followed by
 five prepasses usually eliminates all but a few dozen positions ... on
 average we find 345 positions left per coset, which we can then quickly solve
@@ -516,6 +537,18 @@ prepasses -- and it left **152 997**, not 345.  That gap is not speed and is
 not explained here.  The paper's 345 is an average over 55 882 296 cosets and
 it says that the hard ones get a partial depth 16 search, so part of it may
 be that our row is one of those; how much is not known.
+
+`ROWLEFT=1` settles them the way hcoset does, a word each: phase one into H
+over the mask table, then phase two the rest of the way.  Phase two is a
+search inside H over its ten moves, bounded by two tables of 967 680 entries
+-- the corners with the middle four, and the outer edges with the middle four
+-- each built by breadth first search in seconds.  Neither is the whole
+state, so each is a lower bound and the larger is the one to use.
+
+**None of that has to be trusted.**  A leftover is discharged by exhibiting a
+word, and the word is checked by playing it.  That is the reverse of the
+lower bound, where a witness proves nothing and only exhaustiveness counts,
+and it is why the leftovers are the easy half of the upper bound.
 
 The exact distance distribution, which the build prints and which sums to
 2 217 093 120: 1, 4, 50, 592, 7 156, 87 236, 1 043 817, 12 070 278,
