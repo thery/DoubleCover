@@ -70,9 +70,18 @@ Definition wmask (w : int) (s : nat) : int :=
   else if s == 1%N then Uint63.land (Uint63.lsr w 23%uint63) allmv
   else Uint63.land (Uint63.lsr w 5%uint63) allmv.
 
-(* the coordinate and the member, each stepped by a move                      *)
+(* THE SEARCH CARRIES A POSITION, NOT A MEMBER.  A member of the row is what *)
+(* the search reaches when the coordinate is solved, and only then, so what   *)
+(* is carried down the tree is the position played so far, and tomemb reads   *)
+(* the member off it at a leaf.  posp is the position OF THE ROW that it      *)
+(* stands for -- the word played, which is the row's representative undone    *)
+(* and the carried position put back -- so at the root posp is the identity   *)
+(* and a move takes it one step further out.                                  *)
+Variable pst : Type.
 Variable cstep : int -> int -> int.
-Variable xstep : memb -> int -> memb.
+Variable xstep : pst -> int -> pst.
+Variable tomemb : pst -> memb.
+Variable posp : pst -> {perm facelet}.
 
 (* the redundancy rule, as the moves each face allows next                    *)
 Variable okmv : int -> int -> bool.
@@ -84,7 +93,7 @@ Definition nmvn : nat := 18.
 (* It is handed the moves worth trying, so it never builds a position the     *)
 (* table has already ruled out.  At the bottom the coordinate is solved, so   *)
 (* the member reached is one of the row and its bit goes in.                  *)
-Fixpoint srch (togo : nat) (c : int) (x : memb) (msk : int) (pv : int)
+Fixpoint srch (togo : nat) (c : int) (x : pst) (msk : int) (pv : int)
               (m : rmap) : rmap :=
   if togo is togo'.+1 then
     ifold nmvn 0%uint63
@@ -100,12 +109,12 @@ Fixpoint srch (togo : nat) (c : int) (x : memb) (msk : int) (pv : int)
            then srch togo' c' (xstep x k) (wmask w (togo' - nd)) k m'
            else m')
       m
-  else let: (pg, gr, bt) := plc x in mmark m pg gr bt.
+  else let: (pg, gr, bt) := plc (tomemb x) in mmark m pg gr bt.
 
 (* ---- one level, and the run ---------------------------------------------- *)
 
 Variable croot : int.                  (* the row's coordinate               *)
-Variable xroot : memb.                 (* and the member it starts from      *)
+Variable sroot : pst.                  (* and the position it starts from    *)
 Variable dsrch : nat.                  (* where the search gives up          *)
 
 Definition level (d : nat) (m : rmap) : rmap :=
@@ -113,12 +122,12 @@ Definition level (d : nat) (m : rmap) : rmap :=
   if (d <= dsrch)%N then
     let w := p1get croot in
     let nd := Uint63.to_nat (wdist w) in
-    if (nd <= d)%N then srch d croot xroot (wmask w (d - nd)) 18%uint63 m'
+    if (nd <= d)%N then srch d croot sroot (wmask w (d - nd)) 18%uint63 m'
     else m'
   else m'.
 
 Fixpoint run (n : nat) (d : nat) (m : rmap) : rmap :=
-  if n is n1.+1 then run n1 d.+1 (level d m) else m.
+  if n is n1.+1 then run n1 d.+1 (level d.+1 m) else m.
 
 (* ---- what the two halves owe --------------------------------------------- *)
 
@@ -132,6 +141,9 @@ Definition soundat (m : rmap) (d : nat) : Prop :=
   forall pg gr bt,
     inrange pg gr bt -> mtest m pg gr bt -> wthn d (unplc pg gr bt).
 
+(* the row starts at its representative, which is no moves out               *)
+Hypothesis root_ball : posp sroot \in ball Sset 0.
+
 (* THE PREPASS OWES: a bit it sets is a member one move of H further than one *)
 (* already set.  That is where the page, group and bit tables are spent, and  *)
 (* it is one move -- not an induction over words.                             *)
@@ -140,16 +152,30 @@ Proof. Admitted.
 
 (* THE SEARCH OWES: a bit it sets is a member of the row reached by the word  *)
 (* it played.  An induction on the word, and nothing more: the search is      *)
-(* never asked to have found everything.                                      *)
+(* never asked to have found everything, which is the half a lower bound      *)
+(* cannot do without.                                                         *)
 Lemma srch_sound togo c x msk pv m d :
-  soundat m d -> wthn (d - togo) x -> soundat (srch togo c x msk pv m) d.
+  soundat m d -> posp x \in ball Sset (d - togo) ->
+  soundat (srch togo c x msk pv m) d.
 Proof. Admitted.
+
+(* ---- and the assembly, which owes nothing -------------------------------- *)
+
+(* From here down there is no new mathematics: the two lemmas above are put   *)
+(* together, once for a level and once for the run.                          *)
 
 Lemma level_sound m d : soundat m d -> soundat (level d.+1 m) d.+1.
-Proof. Admitted.
+Proof.
+move=> hm; rewrite /level.
+have hp := prepass_sound hm.
+case: ifP => _ //; case: ifP => _ //.
+by apply: srch_sound => //; rewrite subnn.
+Qed.
 
-(* and so the whole run                                                       *)
 Lemma run_sound n d m : soundat m d -> soundat (run n d m) (d + n).
-Proof. Admitted.
+Proof.
+elim: n d m => [|n ih] d m hm /=; first by rewrite addn0.
+by rewrite addnS -addSn; apply/ih/level_sound.
+Qed.
 
 End Run.

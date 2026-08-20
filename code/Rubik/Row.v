@@ -126,8 +126,14 @@ Lemma place_unplace pg gr bt :
   membok (unplace pg gr bt) /\ place (unplace pg gr bt) = (pg, gr, bt).
 Proof. Admitted.
 
-(* so the map has exactly one bit for each member                             *)
+(* so the map has exactly one bit for each member.  This one is not a new    *)
+(* fact: reading a place back is what makes it one to one.                   *)
 Lemma place_inj x y : membok x -> membok y -> place x = place y -> x = y.
-Proof. Admitted.
+Proof.
+move=> hx hy hE.
+move: (unplace_place hx) (unplace_place hy); rewrite hE.
+case: (place y) => [[pg gr] bt] Hx Hy.
+by rewrite -Hx -Hy.
+Qed.
 
 End Row.
