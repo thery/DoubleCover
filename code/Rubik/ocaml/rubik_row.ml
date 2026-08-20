@@ -859,7 +859,14 @@ let () =
   (* ROW_NOPREPASS=1 turns the prepass and both cuts off, which is the plain
      search: every canonical word that reaches H, counted.  That is the only
      way to compare with hcoset's published 16 019 916 192 at depth 12. *)
-  let nopre = Sys.getenv_opt "ROW_NOPREPASS" <> None in
+  (* An exported make variable that was never given a value arrives as the
+     EMPTY STRING, not as nothing, so every one of these has to survive it. *)
+  let getenvi name dflt =
+    match Sys.getenv_opt name with
+    | Some v when v <> "" -> (try int_of_string v with _ -> dflt)
+    | _ -> dflt in
+  let nopre = match Sys.getenv_opt "ROW_NOPREPASS" with
+    | Some v -> v <> "" | None -> false in
   let cut = ref true in
   let rcut = 5 in
   (* hcoset's `enoughbits': the last search level need not be run out, only
@@ -868,10 +875,7 @@ let () =
      prepass left, and ROWENOUGH takes that number.  Safe like every other
      cut here -- what is proved is that the map filled. *)
   let enough = ref max_int in
-  let rowenough =
-    match Sys.getenv_opt "ROWENOUGH" with
-    | Some v -> int_of_string v
-    | None -> 0 in
+  let rowenough = getenvi "ROWENOUGH" 0 in
   let opp f = (f + 3) mod 6 in
   let idx d = (tw.(d) * n_flip + fl.(d)) * n_slice + sl.(d) in
 
@@ -996,10 +1000,7 @@ let () =
      and a member of H often needs more than that.  Most phase one solutions
      therefore lead nowhere and the solver works through many of them.  A
      sample is what tells us the shape; ROWLEFT=0 means all of them. *)
-  let rowleft =
-    match Sys.getenv_opt "ROWLEFT" with
-    | Some v -> (try int_of_string v with _ -> 1000)
-    | None -> -1 in
+  let rowleft = getenvi "ROWLEFT" (-1) in
   if rowleft >= 0 && !done_ < rowsize then begin
     let irep = inv rep in
     let mx = 22 in
