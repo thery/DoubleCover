@@ -492,6 +492,31 @@ row, where before it was 13%.  That is the split Rokicki describes.
 Building the two tables is 350 s for the exact distances and 396 s for the
 masks, **12 min 26 once**, and every row after that reuses them.
 
+### How this compares with hcoset, in the paper's own units
+
+`doc/rubik20.pdf` fixes the convention where it sets its hardware baseline:
+"a Nehalem X3460 ... with **four cores** and hyperthreading enabled.  We
+distinguish **core seconds** (execution on one core) and **CPU seconds**
+(execution on the entire CPU).  Our primary metric throughout is CPU
+seconds."  So its 19.5 s a coset is a whole four core CPU, about **78 core
+seconds**, against our 725 on one core: **about nine times**, one order of
+magnitude.  Dividing the paper's billion CPU seconds by the coset count and
+calling the answer one core gives four times too large a gap.
+
+Its own split is 3 s of search, 15 s for five prepasses and 1.5 s of
+overhead.  Its search runs at 25 million positions a second and its prepass
+at 65 billion group operations a CPU second.
+
+**And it does not fill the coset.**  "A full search to depth 15 followed by
+five prepasses usually eliminates all but a few dozen positions ... on
+average we find 345 positions left per coset, which we can then quickly solve
+in 20 or fewer moves using Kociemba's two-phase algorithm."  Our
+`ROWSEARCH=15` run is that recipe exactly -- full depth 15, then five
+prepasses -- and it left **152 997**, not 345.  That gap is not speed and is
+not explained here.  The paper's 345 is an average over 55 882 296 cosets and
+it says that the hard ones get a partial depth 16 search, so part of it may
+be that our row is one of those; how much is not known.
+
 The exact distance distribution, which the build prints and which sums to
 2 217 093 120: 1, 4, 50, 592, 7 156, 87 236, 1 043 817, 12 070 278,
 124 946 368, 821 605 960, 1 199 128 738, 58 202 444, **476**.  Only 476
