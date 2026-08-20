@@ -507,7 +507,49 @@ Its own split is 3 s of search, 15 s for five prepasses and 1.5 s of
 overhead.  Its search runs at 25 million positions a second and its prepass
 at 65 billion group operations a CPU second.
 
-Running its recipe rather than ours -- a full depth 15 search then five
+### Checked against hcoset itself
+
+`bigdist.tar.gz` on cube20.org ships the sources already untangled, so no
+CWEB tools are needed and it builds with a modern compiler unchanged:
+
+    g++ -DHALF -O3 -Wall -DLEVELCOUNTS -o hcoset hcoset.cpp phase1prune.cpp \
+        kocsymm.cpp cubepos.cpp -lpthread
+    ./hcoset -t 1 -S 15 -d 20 R1U1F1L1D1B1R1U1F1L1
+
+which is our `ROW="R U F L D B R U F L" ROWSEARCH=15 ROWDEPTH=20` on one
+core.  **It prints our numbers.**
+
+| level | hcoset | rubik_row |
+|---|---|---|
+| 15 | 19 508 974 | 19 508 974 |
+| 16 | 159 930 336 | 159 930 336 |
+| 17 | 1 044 849 952 | 1 044 849 952 |
+| 18 | 5 886 166 750 | 5 886 166 750 |
+| 19 | 17 282 758 082 | 17 282 758 082 |
+| 20 | 19 508 275 803 | 19 508 275 803 |
+
+Eleven levels to the unit, solution counts included, by an implementation
+that shares no code with ours.  **So hcoset also leaves 152 997 on this
+coset**, and the paper's 345 is an average over 55 882 296 cosets from which
+this row is 443 times out.  There is nothing wrong with either program.
+
+The same run gives the speed, one core, identical work:
+
+| | hcoset | rubik_row | |
+|---|---|---|---|
+| search to 15 | 5.11 s | 37.6 s | 7.4x |
+| five prepasses | 38.16 s | 252 s | 6.6x |
+| **the coset** | **44.44 s** | **311 s** | **7.0x** |
+
+**Seven times.**  Converting the paper's CPU seconds gave 4.2x, which was too
+generous; this measurement supersedes it.
+
+Its prepass is 7.5 to 7.8 s at every level, flat.  Ours is 24 s when the map
+is sparse and 88 s when it is full, because we skip empty groups and it does
+not.  Our best level is 3.1x its and our worst 11.8x, so the variance is all
+on our side.
+
+### Running its recipe rather than ours -- a full depth 15 search then five
 prepasses, `ROWSEARCH=15 ROWCAP=12` -- the row takes 324.1 s and the two are
 directly comparable:
 
@@ -533,10 +575,10 @@ five prepasses usually eliminates all but a few dozen positions ... on
 average we find 345 positions left per coset, which we can then quickly solve
 in 20 or fewer moves using Kociemba's two-phase algorithm."  Our
 `ROWSEARCH=15` run is that recipe exactly -- full depth 15, then five
-prepasses -- and it left **152 997**, not 345.  That gap is not speed and is
-not explained here.  The paper's 345 is an average over 55 882 296 cosets and
-it says that the hard ones get a partial depth 16 search, so part of it may
-be that our row is one of those; how much is not known.
+prepasses -- and it left **152 997**, not 345.  That is not a fault: hcoset
+itself leaves 152 997 on the same coset, as the section above shows.  The 345
+is an average, and the paper says the hard cosets get a partial depth 16
+search, which is exactly what our `ROWSEARCH=16` run does.
 
 `ROWLEFT=1` settles them the way hcoset does, a word each: phase one into H
 over the mask table, then phase two the rest of the way.  Phase two is a
