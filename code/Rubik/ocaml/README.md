@@ -466,6 +466,138 @@ The last hundredth of a percent cost five times the rest.  That is the whole
 problem in one table, and it is why Rokicki's pruning table, and the symmetry
 fold under it, are not optional at scale.
 
+### What the exact table and the masks bought
+
+The same row again with `ROWCAP=12` and `phase1m12.tbl` in place.  Every
+`new` and every `done` matched the run above to the unit at all eleven
+levels, which is the check: it is a different search over a different table.
+
+| | cap 9, no masks | cap 12 and masks | |
+|---|---|---|---|
+| the row | 1 880.4 s | **725.3 s** | 2.6x |
+| processor time | 1 871 s | 668 s | 2.8x |
+| the search | 1 617 s | 447 s | 3.6x |
+| depth 16 | 1 490.7 s | 347.6 s | 4.3x |
+| nodes at depth 16 | 8 393 815 854 | 819 640 367 | 10.2x |
+
+The nodes fell tenfold and the time only 3.6, so a node costs 2.8 times what
+it did: 17.7 GB touched at random against 2.2 GB.  92 s of the wall is not
+processor time at all, purely paging.  **The fold is the missing factor** --
+Rokicki holds the same table in 650 MB by the sixteen symmetries of the U/D
+axis, and `fold.md` already does that fold for the Rocq side.
+
+The balance flipped with it: the prepass is now 263 s of the 725, 36% of the
+row, where before it was 13%.  That is the split Rokicki describes.
+
+Building the two tables is 350 s for the exact distances and 396 s for the
+masks, **12 min 26 once**, and every row after that reuses them.
+
+### How this compares with hcoset, in the paper's own units
+
+`doc/rubik20.pdf` fixes the convention where it sets its hardware baseline:
+"a Nehalem X3460 ... with **four cores** and hyperthreading enabled.  We
+distinguish **core seconds** (execution on one core) and **CPU seconds**
+(execution on the entire CPU).  Our primary metric throughout is CPU
+seconds."  So its 19.5 s a coset is a whole four core CPU, about **78 core
+seconds**, against our 725 on one core: **about nine times**, one order of
+magnitude.  Dividing the paper's billion CPU seconds by the coset count and
+calling the answer one core gives four times too large a gap.
+
+Its own split is 3 s of search, 15 s for five prepasses and 1.5 s of
+overhead.  Its search runs at 25 million positions a second and its prepass
+at 65 billion group operations a CPU second.
+
+### Checked against hcoset itself
+
+`bigdist.tar.gz` on cube20.org ships the sources already untangled, so no
+CWEB tools are needed and it builds with a modern compiler unchanged:
+
+    g++ -DHALF -O3 -Wall -DLEVELCOUNTS -o hcoset hcoset.cpp phase1prune.cpp \
+        kocsymm.cpp cubepos.cpp -lpthread
+    ./hcoset -t 1 -S 15 -d 20 R1U1F1L1D1B1R1U1F1L1
+
+which is our `ROW="R U F L D B R U F L" ROWSEARCH=15 ROWDEPTH=20` on one
+core.  **It prints our numbers.**
+
+| level | hcoset | rubik_row |
+|---|---|---|
+| 15 | 19 508 974 | 19 508 974 |
+| 16 | 159 930 336 | 159 930 336 |
+| 17 | 1 044 849 952 | 1 044 849 952 |
+| 18 | 5 886 166 750 | 5 886 166 750 |
+| 19 | 17 282 758 082 | 17 282 758 082 |
+| 20 | 19 508 275 803 | 19 508 275 803 |
+
+Eleven levels to the unit, solution counts included, by an implementation
+that shares no code with ours.  **So hcoset also leaves 152 997 on this
+coset**, and the paper's 345 is an average over 55 882 296 cosets from which
+this row is 443 times out.  There is nothing wrong with either program.
+
+The same run gives the speed, one core, identical work:
+
+| | hcoset | rubik_row | |
+|---|---|---|---|
+| search to 15 | 5.11 s | 37.6 s | 7.4x |
+| five prepasses | 38.16 s | 252 s | 6.6x |
+| **the coset** | **44.44 s** | **311 s** | **7.0x** |
+
+**Seven times.**  Converting the paper's CPU seconds gave 4.2x, which was too
+generous; this measurement supersedes it.
+
+Its prepass is 7.5 to 7.8 s at every level, flat.  Ours is 24 s when the map
+is sparse and 88 s when it is full, because we skip empty groups and it does
+not.  Our best level is 3.1x its and our worst 11.8x, so the variance is all
+on our side.
+
+### Running its recipe rather than ours -- a full depth 15 search then five
+prepasses, `ROWSEARCH=15 ROWCAP=12` -- the row takes 324.1 s and the two are
+directly comparable:
+
+| | his, core seconds | ours, core seconds | |
+|---|---|---|---|
+| the search | ~12 | 37.3 | 3.1x |
+| five prepasses | ~60 | 272 | 4.5x |
+| overhead | ~6 | ~15 | 2.5x |
+| **total** | **~78** | **324** | **4.2x** |
+
+**Four times, and the gap is the PREPASS, not the search.**  It is 272 s of
+our 324 and it is pure memory work: our two maps are 3.25 GB against his
+2.44, and his inner loop is 61 machine instructions handling 24 positions and
+ten moves at once, which he clocks at 65 billion group operations a CPU
+second.  Ours works out at 4.5 times less per group operation, which for
+OCaml against hand tuned C on a memory bound loop is about what one expects.
+
+Comparing our depth 16 run against his depth 15 recipe gives 9x and is not
+the same computation.
+
+**And it does not fill the coset.**  "A full search to depth 15 followed by
+five prepasses usually eliminates all but a few dozen positions ... on
+average we find 345 positions left per coset, which we can then quickly solve
+in 20 or fewer moves using Kociemba's two-phase algorithm."  Our
+`ROWSEARCH=15` run is that recipe exactly -- full depth 15, then five
+prepasses -- and it left **152 997**, not 345.  That is not a fault: hcoset
+itself leaves 152 997 on the same coset, as the section above shows.  The 345
+is an average, and the paper says the hard cosets get a partial depth 16
+search, which is exactly what our `ROWSEARCH=16` run does.
+
+`ROWLEFT=1` settles them the way hcoset does, a word each: phase one into H
+over the mask table, then phase two the rest of the way.  Phase two is a
+search inside H over its ten moves, bounded by two tables of 967 680 entries
+-- the corners with the middle four, and the outer edges with the middle four
+-- each built by breadth first search in seconds.  Neither is the whole
+state, so each is a lower bound and the larger is the one to use.
+
+**None of that has to be trusted.**  A leftover is discharged by exhibiting a
+word, and the word is checked by playing it.  That is the reverse of the
+lower bound, where a witness proves nothing and only exhaustiveness counts,
+and it is why the leftovers are the easy half of the upper bound.
+
+The exact distance distribution, which the build prints and which sums to
+2 217 093 120: 1, 4, 50, 592, 7 156, 87 236, 1 043 817, 12 070 278,
+124 946 368, 821 605 960, 1 199 128 738, 58 202 444, **476**.  Only 476
+states of the 2.2 billion are at distance 12; the mass is at 9 and 10, which
+is what cap 9 was flattening.
+
 Note also how differently the two rows search.  The row of H itself does
 1 487 553 320 nodes at depth 11; this one does 9 274, because its
 representative is already 10 from H and there is no slack for the search to

@@ -204,6 +204,7 @@ let parity a off n =
    it; and the parity of the number tells which member of the pair is meant,
    so the pair may be stored as one group. *)
 let e8num = Array.make fact8 0            (* rank -> number *)
+let e8inv = Array.make fact8 0            (* number -> rank *)
 let e8rep = Array.make ngroup 0           (* group -> rank of its even member *)
 
 let () =
@@ -221,6 +222,7 @@ let () =
     let g = pairid.(key) in
     let p = parity a 0 8 in
     e8num.(r) <- 2 * g + p;
+    e8inv.(2 * g + p) <- r;
     if p = 0 then e8rep.(g) <- r
   done;
   if !next <> ngroup then (prerr_endline "the outer pairs are wrong"; exit 1)
@@ -313,6 +315,120 @@ let parse_moves s =
     end
   done;
   List.rev !l
+
+(* The position that undoes this one. *)
+let inv c =
+  let r = solved () in
+  for i = 0 to 7 do
+    r.cp.(c.cp.(i)) <- i;
+    r.co.(c.cp.(i)) <- (3 - c.co.(i)) mod 3
+  done;
+  for i = 0 to 11 do
+    r.ep.(c.ep.(i)) <- i;
+    r.eo.(c.ep.(i)) <- c.eo.(i)
+  done;
+  r
+
+(* A page, a group and a bit, read back as the member of H they stand for.
+   The bit names the middle permutation and the group names a pair of outer
+   ones; which of the pair is meant is settled by parity, and the numbering
+   carries the parity in its low bit. *)
+let unplace page group bit =
+  let cp = unrank page 8 in
+  let emp = unrank e4of.(bit) 4 in
+  let num = 2 * group + (parity cp 0 8 lxor parity emp 0 4) in
+  let ud = unrank e8inv.(num) 8 in
+  let ep = Array.make 12 0 in
+  for i = 0 to 7 do ep.(i) <- ud.(i) done;
+  for i = 0 to 3 do ep.(8 + i) <- 8 + emp.(i) done;
+  { cp; co = Array.make 8 0; ep; eo = Array.make 12 0 }
+
+(* ======================================================================== *)
+(*  Phase two: solving inside H, over its ten moves                         *)
+(* ======================================================================== *)
+
+(* A member of H is three permutations and nothing else, so the search is
+   over three small coordinates.  Two tables bound the distance: the corners
+   with the middle four, and the outer edges with the middle four.  Neither
+   is the whole state, so each is a lower bound and the larger of the two is
+   the one to use. *)
+
+let p2c = Array.make_matrix fact8 nh 0
+let p2u = Array.make_matrix fact8 nh 0
+let p2s = Array.make_matrix fact4 nh 0
+
+let () =
+  for k = 0 to nh - 1 do
+    let m = hmoves.(k) in
+    let cp = moves.(m).cp and ep = moves.(m).ep in
+    for r = 0 to fact8 - 1 do
+      let a = unrank r 8 in
+      p2c.(r).(k) <- rank (Array.init 8 (fun i -> a.(cp.(i)))) 0 8;
+      p2u.(r).(k) <- rank (Array.init 8 (fun i -> a.(ep.(i)))) 0 8
+    done;
+    for r = 0 to fact4 - 1 do p2s.(r).(k) <- e4move.(r).(m) done
+  done
+
+let n2 = fact8 * fact4
+
+let bfs2 mv =
+  let d = Bytes.make n2 '\255' in
+  Bytes.set d 0 '\000';
+  let cur = ref 0 and go = ref true in
+  while !go do
+    go := false;
+    for i = 0 to n2 - 1 do
+      if Char.code (Bytes.get d i) = !cur then begin
+        let a = i / fact4 and b = i mod fact4 in
+        for k = 0 to nh - 1 do
+          let j = mv.(a).(k) * fact4 + p2s.(b).(k) in
+          if Char.code (Bytes.get d j) = 255 then begin
+            Bytes.set d j (Char.chr (!cur + 1)); go := true end
+        done
+      end
+    done;
+    incr cur
+  done; d
+
+let pr2c = lazy (bfs2 p2c)
+let pr2u = lazy (bfs2 p2u)
+
+(* the H coordinates of a member of H *)
+let h2coord q =
+  (rank q.cp 0 8, rank q.ep 0 8, rank q.ep 8 4)
+
+(* Deepening search inside H.  Returns the moves, innermost last. *)
+let phase2 (c0, u0, s0) budget =
+  let tc = Lazy.force pr2c and tu = Lazy.force pr2u in
+  let h c u s =
+    let a = Char.code (Bytes.unsafe_get tc (c * fact4 + s))
+    and b = Char.code (Bytes.unsafe_get tu (u * fact4 + s)) in
+    if a > b then a else b in
+  let path = Array.make 32 0 in
+  let out = ref None in
+  let rec go c u s togo n prev =
+    if c = 0 && u = 0 && s = 0 then begin
+      out := Some (Array.to_list (Array.sub path 0 n)); true end
+    else if togo = 0 || h c u s > togo then false
+    else begin
+      let k = ref 0 and found = ref false in
+      while not !found && !k < nh do
+        let m = hmoves.(!k) in
+        let f = m / 3 in
+        if f <> prev then begin
+          path.(n) <- m;
+          if go p2c.(c).(!k) p2u.(u).(!k) p2s.(s).(!k) (togo - 1) (n + 1) f
+          then found := true
+        end;
+        incr k
+      done;
+      !found
+    end in
+  let rec deepen d =
+    if d > budget then None
+    else if go c0 u0 s0 d 0 (-1) then !out
+    else deepen (d + 1) in
+  deepen (h c0 u0 s0)
 
 (* ======================================================================== *)
 (*  The map, and the prepass                                                *)
@@ -450,8 +566,8 @@ let check () =
      sends the position.  Take a member of H, take a move of H, and compare
      the place of the product with the place the tables give. *)
   Random.self_init ();
-  let c = ref (solved ()) in
   let places = Hashtbl.create 100003 in
+  let c = ref (solved ()) in
   for _ = 1 to 200000 do
     c := mult !c moves.(hmoves.(Random.int nh));
     let p = !c in
@@ -476,6 +592,37 @@ let check () =
         fail "the bit table is wrong"
     done
   done;
+
+  (* reading a place back gives the member that was put there *)
+  let c = ref (solved ()) in
+  for _ = 1 to 20000 do
+    c := mult !c moves.(hmoves.(Random.int nh));
+    let p = !c in
+    let (pg, gr, bt) = place p in
+    let q = unplace pg gr bt in
+    if q.cp <> p.cp || q.ep <> p.ep then fail "a place reads back wrong"
+  done;
+
+  (* phase two solves a member of H, and the word is checked by playing it *)
+  let worst = ref 0 in
+  for _ = 1 to 300 do
+    c := mult !c moves.(hmoves.(Random.int nh));
+    let p = !c in
+    match phase2 (h2coord p) 20 with
+    | None -> fail "phase two found no word"
+    | Some w ->
+      if List.length w > !worst then worst := List.length w;
+      let q = ref p in
+      List.iter (fun m ->
+        if not (Array.exists (fun x -> x = m) hmoves) then
+          fail "phase two used a move outside H";
+        q := mult !q moves.(m)) w;
+      for i = 0 to 7 do
+        if (!q).cp.(i) <> i then fail "phase two did not solve the corners" done;
+      for i = 0 to 11 do
+        if (!q).ep.(i) <> i then fail "phase two did not solve the edges" done
+  done;
+  Printf.printf "phase two solved 300 members of H, longest %d moves\n" !worst;
 
   (* the move rule counts the canonical sequences, which Canseq.v proves are
      18, 243, 3240, 43254 and 577368 *)
@@ -810,4 +957,108 @@ let () =
     incr d
   done;
   Printf.printf "row \"%s\": %d of %d after depth %d, %.1f s\n%!"
-    arg !done_ rowsize (!d - 1) (Unix.gettimeofday () -. t0)
+    arg !done_ rowsize (!d - 1) (Unix.gettimeofday () -. t0);
+
+  (* ---- what is left over ------------------------------------------------ *)
+  (* A row that stops short leaves a few members unmarked, and each of those
+     is settled on its own by a WORD: play it and the position is solved.
+     hcoset does the same and hands them to Kociemba's two phase algorithm.
+     Nothing here has to be trusted -- the word is checked by playing it. *)
+  if Sys.getenv_opt "ROWLEFT" <> None && !done_ < rowsize then begin
+    let irep = inv rep in
+    let mx = 22 in
+    let cps = Array.init mx (fun _ -> Array.make 8 0) in
+    let eps = Array.init mx (fun _ -> Array.make 12 0) in
+    let tws = Array.make mx 0 and fls = Array.make mx 0
+    and sls = Array.make mx 0 in
+    let path = Array.make mx 0 in
+    let ix d = (tws.(d) * n_flip + fls.(d)) * n_slice + sls.(d) in
+    let step1 d m =
+      let d' = d + 1 in
+      let mcp = moves.(m).cp and mep = moves.(m).ep in
+      for i = 0 to 7 do cps.(d').(i) <- cps.(d).(mcp.(i)) done;
+      for i = 0 to 11 do eps.(d').(i) <- eps.(d).(mep.(i)) done;
+      tws.(d') <- mt_twist.(tws.(d)).(m);
+      fls.(d') <- mt_flip.(fls.(d)).(m);
+      sls.(d') <- mt_slice.(sls.(d)).(m) in
+    let out = ref None in
+    (* phase one takes it into H, phase two the rest of the way *)
+    let rec p1 d togo prev mask =
+      if togo = 0 then begin
+        let hq = { cp = cps.(d); co = Array.make 8 0;
+                   ep = eps.(d); eo = Array.make 12 0 } in
+        match phase2 (h2coord hq) (20 - d) with
+        | Some w2 ->
+          out := Some (Array.to_list (Array.sub path 0 d) @ w2); true
+        | None -> false
+      end else begin
+        let togo' = togo - 1 in
+        let r = ref false and m = ref 0 in
+        while not !r && !m < 18 do
+          if mask land (1 lsl !m) <> 0 then begin
+            let f = !m / 3 in
+            if prev < 0 || not (f = prev || (f = opp prev && f > prev))
+            then begin
+              step1 d !m; path.(d) <- !m;
+              let w = Bigarray.Array1.unsafe_get p_msk (ix (d + 1)) in
+              let nd = mdist w in
+              if nd <= togo' && p1 (d + 1) togo' f (mmask w (togo' - nd))
+              then r := true
+            end
+          end;
+          incr m
+        done; !r
+      end in
+    let solve20 q =
+      Array.blit q.cp 0 cps.(0) 0 8;
+      Array.blit q.ep 0 eps.(0) 0 12;
+      tws.(0) <- twist q; fls.(0) <- flip q; sls.(0) <- slice q;
+      out := None;
+      let w0 = Bigarray.Array1.unsafe_get p_msk (ix 0) in
+      let nd0 = mdist w0 in
+      let l = ref nd0 in
+      while !out = None && !l <= 20 do
+        ignore (p1 0 !l (-1) (mmask w0 (!l - nd0)));
+        incr l
+      done;
+      !out in
+    let solves q w =
+      let c = ref q in
+      List.iter (fun m -> c := mult !c moves.(m)) w;
+      let ok = ref true in
+      for i = 0 to 7 do
+        if (!c).cp.(i) <> i || (!c).co.(i) <> 0 then ok := false done;
+      for i = 0 to 11 do
+        if (!c).ep.(i) <> i || (!c).eo.(i) <> 0 then ok := false done;
+      !ok in
+    Printf.printf "the leftovers, one word each\n%!";
+    let t1 = Unix.gettimeofday () in
+    let seen = ref 0 and bad = ref 0 and worst = ref 0 and hist = Array.make 25 0 in
+    let clo = !culo and chi = !cuhi in
+    for pg = 0 to npage - 1 do
+      for g = 0 to ngroup - 1 do
+        let i = pg * ngroup + g in
+        let lo = Bigarray.Array1.unsafe_get clo i
+        and hi = Bigarray.Array1.unsafe_get chi i in
+        if lo <> 4095 || hi <> 4095 then
+          for b = 0 to 23 do
+            let set = if b < 12 then lo land (1 lsl b) <> 0
+                      else hi land (1 lsl (b - 12)) <> 0 in
+            if not set then begin
+              incr seen;
+              let q = mult irep (unplace pg g b) in
+              match solve20 q with
+              | Some w when List.length w <= 20 && solves q w ->
+                let n = List.length w in
+                hist.(n) <- hist.(n) + 1;
+                if n > !worst then worst := n
+              | _ -> incr bad
+            end
+          done
+      done
+    done;
+    Printf.printf "%d left over, %d without a word of 20, longest %d, %.1f s\n%!"
+      !seen !bad !worst (Unix.gettimeofday () -. t1);
+    for n = 0 to 24 do
+      if hist.(n) > 0 then Printf.printf "   %2d moves : %d\n" n hist.(n) done
+  end

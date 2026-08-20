@@ -163,6 +163,7 @@ hall: rubik_h
 #   make rowcheck   the tables, against direct multiplication, no big memory
 #   make hball N=4  the prepass alone from solved, against a one at a time BFS
 #   make row        one row, ROW="U R2 F'"
+#   make row ROWLEFT=1   the same, then a word for each member left over
 #
 # ROWDEPTH is where the row gives up, ROWSEARCH is where the SEARCH gives up
 # and the prepass carries alone -- 20 and 16 are hcoset's own numbers.
@@ -175,6 +176,11 @@ ROWDEPTH  ?= 20
 ROWSEARCH ?= 16
 ROW       ?=
 N         ?= 4
+
+# ROWLEFT=1 settles the members a short row leaves over, a word each.  It is
+# exported so that it works written either before or after `make'.
+ROWLEFT   ?=
+export ROWLEFT
 
 rubik_row: rubik_row.ml
 	$(OCAMLOPT) $< -o $@
