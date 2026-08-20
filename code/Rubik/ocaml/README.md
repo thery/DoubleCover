@@ -437,7 +437,42 @@ The cuts were checked against the plain search at two levels: depth 10 and
 depth 11 give 151 625 494 and 733 642 602 members either way, to the unit,
 while the cut search does one nineteenth of the work.
 
-**This is the easiest row there is** -- Rokicki says the trivial coset is the
+### A real row, measured
+
+`R U F L D B R U F L`, the same machine, one core, 2026-08-20.  Its
+representative is already 10 from H, so the search starts at depth 10:
+
+    ./rubik_row 9 20 "R U F L D B R U F L" 16
+    depth 15 :   641980912 nodes,  19245852 solutions,     19508974 done, search  118.2 s
+    depth 16 :  8393815854 nodes, 148553182 solutions,    294431520 done, search 1490.7 s
+    depth 17 : 0 nodes, 0 solutions,   2244383965 done, prepass 55.8 s
+    depth 18 : 0 nodes, 0 solutions,  10567926928 done, prepass 73.6 s
+    depth 19 : 0 nodes, 0 solutions,  19313324832 done, prepass 46.4 s
+    depth 20 : 0 nodes, 0 solutions,  19508428800 done, prepass 43.9 s
+    row: 19508428800 of 19508428800 after depth 20, 1880.4 s
+
+**31 min 26 on one core**, and 86% of it is the search, of which depth 16
+alone is 79%.  The prepass is 249 s of the 1880.
+
+Where the search stops decides everything, and the three runs price it:
+
+| search to | wall | reached |
+|---|---|---|
+| 11 | 3 min 30 | 3 460 129 724, 17.7% |
+| 15 | 6 min 43 | 19 508 275 803, short by **152 997** |
+| 16 | 31 min 26 | **19 508 428 800, full** |
+
+The last hundredth of a percent cost five times the rest.  That is the whole
+problem in one table, and it is why Rokicki's pruning table, and the symmetry
+fold under it, are not optional at scale.
+
+Note also how differently the two rows search.  The row of H itself does
+1 487 553 320 nodes at depth 11; this one does 9 274, because its
+representative is already 10 from H and there is no slack for the search to
+waste.  The trivial row is the expensive one to search and the cheap one to
+fill; a real row is the other way round.
+
+**The row of H is the easiest row there is** -- Rokicki says the trivial coset is the
 one the prepass helps most.  A row named by a real move sequence starts with
 an empty map and a search that begins around depth 10 rather than 0.
 
