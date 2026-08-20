@@ -1461,7 +1461,7 @@ The sources are at
 with the note, its figures and Reid's transcribed post beside them.
 
 This development was written with the help of Claude, Anthropic's coding
-assistant, which is recorded as a co-author of 336 of the 356 commits of
+assistant, which is recorded as a co-author of 336 of the 353 commits of
 `code/Rubik`.
 
 #pagebreak(weak: true)
