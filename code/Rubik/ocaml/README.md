@@ -466,6 +466,38 @@ The last hundredth of a percent cost five times the rest.  That is the whole
 problem in one table, and it is why Rokicki's pruning table, and the symmetry
 fold under it, are not optional at scale.
 
+### What the exact table and the masks bought
+
+The same row again with `ROWCAP=12` and `phase1m12.tbl` in place.  Every
+`new` and every `done` matched the run above to the unit at all eleven
+levels, which is the check: it is a different search over a different table.
+
+| | cap 9, no masks | cap 12 and masks | |
+|---|---|---|---|
+| the row | 1 880.4 s | **725.3 s** | 2.6x |
+| processor time | 1 871 s | 668 s | 2.8x |
+| the search | 1 617 s | 447 s | 3.6x |
+| depth 16 | 1 490.7 s | 347.6 s | 4.3x |
+| nodes at depth 16 | 8 393 815 854 | 819 640 367 | 10.2x |
+
+The nodes fell tenfold and the time only 3.6, so a node costs 2.8 times what
+it did: 17.7 GB touched at random against 2.2 GB.  92 s of the wall is not
+processor time at all, purely paging.  **The fold is the missing factor** --
+Rokicki holds the same table in 650 MB by the sixteen symmetries of the U/D
+axis, and `fold.md` already does that fold for the Rocq side.
+
+The balance flipped with it: the prepass is now 263 s of the 725, 36% of the
+row, where before it was 13%.  That is the split Rokicki describes.
+
+Building the two tables is 350 s for the exact distances and 396 s for the
+masks, **12 min 26 once**, and every row after that reuses them.
+
+The exact distance distribution, which the build prints and which sums to
+2 217 093 120: 1, 4, 50, 592, 7 156, 87 236, 1 043 817, 12 070 278,
+124 946 368, 821 605 960, 1 199 128 738, 58 202 444, **476**.  Only 476
+states of the 2.2 billion are at distance 12; the mass is at 9 and 10, which
+is what cap 9 was flattening.
+
 Note also how differently the two rows search.  The row of H itself does
 1 487 553 320 nodes at depth 11; this one does 9 274, because its
 representative is already 10 from H and there is no slack for the search to
