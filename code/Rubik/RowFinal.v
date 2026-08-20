@@ -32,17 +32,6 @@ Import GroupScope.
 Notation arr := (PArray.array int).
 Notation rmap := (PArray.array arr).
 
-(* the two maps together                                                      *)
-Definition mor (m1 m2 : rmap) : rmap :=
-  ifold npagen 0%uint63
-    (fun pg a =>
-       ifold ngroupn 0%uint63
-         (fun gr a' =>
-            let g := grpof pg gr in
-            gset a' g (Uint63.lor (gget m1 g) (gget m2 g)))
-         a)
-    m1.
-
 Section Final.
 
 Variable e8num e8inv e4bit e4of par8 par4 : arr.
@@ -68,15 +57,30 @@ Hypothesis wokP :
 
 Variable wl : seq (int * int * int * seq int).
 
-(* every witness is in range, at most twenty moves, and solves its member     *)
-Definition witsok : bool :=
+(* the map of the places the witnesses cover                                  *)
+Definition wmapof (l : seq (int * int * int * seq int)) : rmap :=
+  foldr (fun t m => let: (pg, gr, bt, _) := t in mmark m pg gr bt) mempty l.
+
+Definition wmap : rmap := wmapof wl.
+
+Definition wgood (l : seq (int * int * int * seq int)) : bool :=
   all (fun t => let: (pg, gr, bt, w) := t in
                 [&& inrng pg gr bt, (seq.size w <= 20)%N & wok (unplc pg gr bt) w])
-      wl.
+      l.
 
-(* the map of the places the witnesses cover                                  *)
-Definition wmap : rmap :=
-  foldr (fun t m => let: (pg, gr, bt, _) := t in mmark m pg gr bt) mempty wl.
+(* every witness is in range, at most twenty moves, and solves its member     *)
+Definition witsok : bool := wgood wl.
+
+(* a bit the witness map has set has a witness behind it                      *)
+Lemma wmap_wit l pg gr bt :
+  wgood l -> mtest (wmapof l) pg gr bt ->
+  exists w, (seq.size w <= 20)%N /\ wok (unplc pg gr bt) w.
+Proof.
+elim: l => [|t l ih] /=; first by rewrite memptyP.
+case: t => [[[p g] b] w] /andP[/and3P[_ hs hw] hl] /mmarkP[].
+  by case=> <- <- <-; exists w.
+by apply: ih.
+Qed.
 
 (* ---- the theorem --------------------------------------------------------- *)
 
@@ -91,7 +95,21 @@ Theorem row_within_20 :
   witsok ->
   mfull (mor mfin wmap) ->
   forall x, mok x -> wthn 20 x.
-Proof. Admitted.
+Proof.
+move=> hs hw hf x hx.
+case E: (plc x) => [[pg gr] bt].
+have PR := @place_range e8num e8inv e4bit e4of par8 par4.
+have UP := @unplace_place e8num e8inv e4bit e4of par8 par4.
+have hr := PR x pg gr bt hx E.
+have hu := UP x pg gr bt hx E.
+have hb : mtest (mor mfin wmap) pg gr bt by apply: mfullP.
+(* the side goal must be handed the range, not left to done: done unfolds  *)
+(* and evaluates, and what it would evaluate here is the map.              *)
+rewrite (@morP mfin wmap pg gr bt hr) in hb.
+rewrite -hu; case/orP: hb => hb; first by apply: hs.
+have [w [hsz hok]] := wmap_wit hw hb.
+by apply: wokP hok hsz.
+Qed.
 
 (* What the two hypotheses of row_within_20 rest on, so that the shape of the *)
 (* whole thing is visible from this file alone:                               *)

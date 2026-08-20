@@ -111,13 +111,13 @@ Definition inrange (pg gr bt : int) : bool :=
   [&& (pg <? npagei)%uint63, (gr <? ngroupi)%uint63 & (bt <? nbiti)%uint63].
 
 (* a place is in range                                                        *)
-Lemma place_range x :
-  membok x -> let: (pg, gr, bt) := place x in inrange pg gr bt.
+Lemma place_range x pg gr bt :
+  membok x -> place x = (pg, gr, bt) -> inrange pg gr bt.
 Proof. Admitted.
 
 (* reading a place back gives the member that was put there                   *)
-Lemma unplace_place x :
-  membok x -> let: (pg, gr, bt) := place x in unplace pg gr bt = x.
+Lemma unplace_place x pg gr bt :
+  membok x -> place x = (pg, gr, bt) -> unplace pg gr bt = x.
 Proof. Admitted.
 
 (* and every place in range comes from a member                               *)
@@ -131,8 +131,9 @@ Proof. Admitted.
 Lemma place_inj x y : membok x -> membok y -> place x = place y -> x = y.
 Proof.
 move=> hx hy hE.
-move: (unplace_place hx) (unplace_place hy); rewrite hE.
-case: (place y) => [[pg gr] bt] Hx Hy.
+case E: (place y) => [[pg gr] bt].
+have Hx := unplace_place hx (etrans hE E).
+have Hy := unplace_place hy E.
 by rewrite -Hx -Hy.
 Qed.
 

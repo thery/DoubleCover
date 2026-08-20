@@ -67,15 +67,30 @@ leave the middle four alone and so leave all twenty four bits where they are.
 One move over the whole row is then 812 851 200 groups of a read, a table
 lookup and an OR, and no member is ever taken apart.
 
+## What is proved
+
+**The whole assembly, and it owes no new mathematics.**
+
+| | what it took |
+|---|---|
+| `RowFinal.row_within_20` | the theorem: no bit clear, plus the bijection, gives every member |
+| `RowFinal.wmap_wit` | a bit the witness map has set has a witness behind it |
+| `RowRun.run_sound` | the induction over the levels |
+| `RowRun.level_sound` | the prepass and the search, put together |
+| `Row.place_inj` | reading a place back is what makes it one to one |
+
+Proving `row_within_20` was worth it for what it turned the debt into: one
+large admit about everything became four small ones about `PArray` and the
+chunking, with no cube and no row in them.
+
 ## What is still owed
 
 | | where | what it is |
 |---|---|---|
-| the bijection | `Row.place_unplace`, `Row.place_inj` | **the long pole**: the ranking, the pairing, and the parity that lets the last place be dropped |
+| the bijection | `Row.place_range`, `Row.unplace_place`, `Row.place_unplace` | **the long pole**: the ranking, the pairing, and the parity that lets the last place be dropped |
+| the map | `RowMap.memptyP`, `.mfullP`, `.morP`, `.mmarkP` | four small facts about the chunked arrays and nothing else |
 | the prepass | `RowRun.prepass_sound` | a bit it sets is one move of H from one already set. One move, not an induction |
 | the search | `RowRun.srch_sound` | an induction on the word. Soundness only |
-| the assembly | `RowFinal.row_within_20` | no bit clear, plus the bijection, gives every member |
-| the run | `RowRun.run_sound` | the induction over levels, off the two above |
 
 `RowFinal.wokP` -- a word of at most twenty moves that solves a position puts
 it in the ball of twenty -- is the one remaining bridge to `Ball.v`.
@@ -91,6 +106,18 @@ it in the ball of twenty -- is the one remaining bridge to `Ball.v`.
   has to be written `seq.size`.
 - `PArray.max_length` is 4 194 303, so the map is 388 chunks of two million,
   the shape `P1Fold` and the H fold chunks already use.
+- **A side goal left to `//` hangs**, and it is the same trap the H files
+  carry: `done` unfolds and evaluates, and what it would evaluate here is the
+  map.  `rewrite (@morP mfin wmap pg gr bt hr) in hb` goes through in
+  milliseconds where `rewrite morP // in hb` does not come back.
+- State a lemma in the form it will be APPLIED in.  `place_range` and
+  `unplace_place` first read `let: (pg, gr, bt) := place x in ...`, which is
+  unusable at the call site because the `let` is already reduced by the time
+  it is a hypothesis.  `place x = (pg, gr, bt) -> ...` is the form that works.
+- Row.v changing means RowMap, RowRun and RowFinal must be rebuilt IN ORDER,
+  or the next one says "makes inconsistent assumptions"; and an interactive
+  session opened before the rebuild keeps the old statements until it is
+  restarted.
 
 ## Costs, measured in OCaml on roquableu
 
