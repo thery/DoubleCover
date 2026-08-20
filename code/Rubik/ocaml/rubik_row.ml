@@ -991,7 +991,16 @@ let () =
      is settled on its own by a WORD: play it and the position is solved.
      hcoset does the same and hands them to Kociemba's two phase algorithm.
      Nothing here has to be trusted -- the word is checked by playing it. *)
-  if Sys.getenv_opt "ROWLEFT" <> None && !done_ < rowsize then begin
+  (* ROWLEFT is how many to settle, not a flag: these are the deepest members
+     of the row, so phase one gets them into H with about ten moves to spare
+     and a member of H often needs more than that.  Most phase one solutions
+     therefore lead nowhere and the solver works through many of them.  A
+     sample is what tells us the shape; ROWLEFT=0 means all of them. *)
+  let rowleft =
+    match Sys.getenv_opt "ROWLEFT" with
+    | Some v -> (try int_of_string v with _ -> 1000)
+    | None -> -1 in
+  if rowleft >= 0 && !done_ < rowsize then begin
     let irep = inv rep in
     let mx = 22 in
     let cps = Array.init mx (fun _ -> Array.make 8 0) in
@@ -1058,10 +1067,12 @@ let () =
       for i = 0 to 11 do
         if (!c).ep.(i) <> i || (!c).eo.(i) <> 0 then ok := false done;
       !ok in
-    Printf.printf "the leftovers, one word each\n%!";
+    Printf.printf "the leftovers, one word each%s\n%!"
+      (if rowleft = 0 then "" else Printf.sprintf " (the first %d)" rowleft);
     let t1 = Unix.gettimeofday () in
     let seen = ref 0 and bad = ref 0 and worst = ref 0 and hist = Array.make 25 0 in
     let clo = !culo and chi = !cuhi in
+    (try
     for pg = 0 to npage - 1 do
       for g = 0 to ngroup - 1 do
         let i = pg * ngroup + g in
@@ -1074,17 +1085,22 @@ let () =
             if not set then begin
               incr seen;
               let q = mult irep (unplace pg g b) in
-              match solve20 q with
-              | Some w when List.length w <= 20 && solves q w ->
-                let n = List.length w in
-                hist.(n) <- hist.(n) + 1;
-                if n > !worst then worst := n
-              | _ -> incr bad
+              (match solve20 q with
+               | Some w when List.length w <= 20 && solves q w ->
+                 let n = List.length w in
+                 hist.(n) <- hist.(n) + 1;
+                 if n > !worst then worst := n
+               | _ -> incr bad);
+              if !seen mod 25 = 0 then
+                Printf.printf "   %d done, %d without a word, %.1f s\n%!"
+                  !seen !bad (Unix.gettimeofday () -. t1);
+              if rowleft > 0 && !seen >= rowleft then raise Exit
             end
           done
       done
-    done;
-    Printf.printf "%d left over, %d without a word of 20, longest %d, %.1f s\n%!"
+    done
+    with Exit -> ());
+    Printf.printf "%d settled, %d without a word of 20, longest %d, %.1f s\n%!"
       !seen !bad !worst (Unix.gettimeofday () -. t1);
     for n = 0 to 24 do
       if hist.(n) > 0 then Printf.printf "   %2d moves : %d\n" n hist.(n) done
