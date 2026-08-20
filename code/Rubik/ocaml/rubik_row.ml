@@ -35,7 +35,17 @@
    The pruning table is the prototype's own, phase1_cap<K>.tbl, 2.2 GB, one
    byte a state, shared by every worker through the file system.  It is
    capped: everything at cap+1 or beyond reads cap+1.  Phase 1 distances go
-   to 12, so a cap below 12 prunes weaker but never lies. *)
+   to 12, so cap 12 is the EXACT table and a cap below it prunes weaker but
+   never lies.
+
+   With cap 12 there is a second table worth building, phase1m12.tbl, which
+   is what hcoset's phase1prune carries: beside the distance, WHICH MOVES GO
+   CLOSER.  A node then tries only the moves the table names instead of all
+   eighteen, which Rokicki says "eliminates almost all false paths".  Ours is
+   a word a state -- five bits of distance, eighteen of the moves that drop
+   it and eighteen of those that do not raise it -- so 17.7 GB against his
+   650 MB, because he folds by the sixteen symmetries and we do not.  Build
+   it with `mask' and the row uses it if it is there. *)
 
 type cube = { cp : int array; co : int array; ep : int array; eo : int array }
 
@@ -586,6 +596,64 @@ let () =
         (Unix.gettimeofday () -. t0)
     done
   end;
+  (* THE MASK TABLE.  Sweeping it is fast because of how the index is laid
+     out: for a twist and a flip held fixed, the eighteen children of all 495
+     slice values sit in eighteen runs of 495 bytes, so the whole sweep works
+     out of cache. *)
+  let mpath = Printf.sprintf "phase1m%d.tbl" cap in
+  let want_mask = (arg = "mask") in
+  let has_mask = Sys.file_exists mpath in
+  if want_mask && has_mask then begin
+    Printf.printf "%s is already there\n%!" mpath; exit 0 end;
+  if want_mask && cap < 12 then begin
+    prerr_endline "the mask table needs the exact distances, so cap 12";
+    exit 1 end;
+  let p_msk =
+    if not (want_mask || has_mask) then
+      Bigarray.Array1.create Bigarray.int Bigarray.c_layout 0
+    else begin
+      let fd = Unix.openfile mpath
+          (if want_mask then [Unix.O_RDWR; Unix.O_CREAT] else [Unix.O_RDONLY])
+          0o644 in
+      let a = Bigarray.array1_of_genarray
+          (Unix.map_file fd Bigarray.int Bigarray.c_layout want_mask
+             [| n_all |]) in
+      Unix.close fd; a
+    end in
+  if want_mask then begin
+    Printf.printf "building the mask table (%d words, %.1f GB)...\n%!"
+      n_all (float_of_int n_all *. 8.0 /. 1e9);
+    let t0 = Unix.gettimeofday () in
+    let base = Array.make 18 0 in
+    for t = 0 to n_twist - 1 do
+      let mtt = mt_twist.(t) in
+      for f = 0 to n_flip - 1 do
+        let mtf = mt_flip.(f) in
+        let here = (t * n_flip + f) * n_slice in
+        for m = 0 to 17 do
+          base.(m) <- (mtt.(m) * n_flip + mtf.(m)) * n_slice done;
+        for s = 0 to n_slice - 1 do
+          let mts = mt_slice.(s) in
+          let d = Char.code (Bigarray.Array1.unsafe_get p_all (here + s)) in
+          let down = ref 0 and flat = ref 0 in
+          for m = 0 to 17 do
+            let dc = Char.code (Bigarray.Array1.unsafe_get p_all
+                                  (Array.unsafe_get base m + mts.(m))) in
+            if dc < d then down := !down lor (1 lsl m);
+            if dc <= d then flat := !flat lor (1 lsl m)
+          done;
+          Bigarray.Array1.unsafe_set p_msk (here + s)
+            (d lor (!down lsl 5) lor (!flat lsl 23))
+        done
+      done;
+      if t land 255 = 0 then
+        Printf.printf "   twist %d of %d (%.0f s)\n%!" t n_twist
+          (Unix.gettimeofday () -. t0)
+    done;
+    Printf.printf "the mask table took %.0f s\n%!"
+      (Unix.gettimeofday () -. t0);
+    exit 0
+  end;
   if build_only then exit 0;
 
   alloc ();
@@ -608,6 +676,18 @@ let () =
     Char.code (Bigarray.Array1.unsafe_get p_all
                  ((tw.(d) * n_flip + fl.(d)) * n_slice + sl.(d))) in
 
+  (* A word of the mask table: the distance, then the moves that drop it by
+     one, then the moves that do not raise it.  A move changes the distance
+     by at most one, so a node with s moves to spare beyond its distance may
+     take: any move if s is two or more, a move that does not raise if s is
+     one, and only a move that drops if s is nought. *)
+  let allmv = (1 lsl 18) - 1 in
+  let mdist w = w land 31 in
+  let mmask w s =
+    if s >= 2 then allmv
+    else if s = 1 then (w lsr 23) land allmv
+    else (w lsr 5) land allmv in
+
   let step d m =
     let d' = d + 1 in
     let mcp = moves.(m).cp and mep = moves.(m).ep in
@@ -619,7 +699,42 @@ let () =
 
   let mark d = mark_at cps.(d) eps.(d) in
 
+  (* ROW_NOPREPASS=1 turns the prepass and both cuts off, which is the plain
+     search: every canonical word that reaches H, counted.  That is the only
+     way to compare with hcoset's published 16 019 916 192 at depth 12. *)
+  let nopre = Sys.getenv_opt "ROW_NOPREPASS" <> None in
+  let cut = ref true in
+  let rcut = 5 in
   let opp f = (f + 3) mod 6 in
+  let idx d = (tw.(d) * n_flip + fl.(d)) * n_slice + sl.(d) in
+
+  (* The same search over the mask table.  A node is handed the moves worth
+     trying, so it never builds a position the table has already ruled out --
+     the eighteen tries and eighteen table reads a node become three or four
+     of each. *)
+  let rec dfsm d togo prev mask =
+    nodes := Int64.add !nodes 1L;
+    if togo = 0 then begin
+      probes := Int64.add !probes 1L;
+      mark d
+    end else begin
+      let togo' = togo - 1 in
+      for m = 0 to 17 do
+        if mask land (1 lsl m) <> 0 then begin
+          let f = m / 3 in
+          if (togo > 1 || not !cut || not ish.(m))
+             && (prev < 0 || not (f = prev || (f = opp prev && f > prev)))
+          then begin
+            step d m;
+            let w = Bigarray.Array1.unsafe_get p_msk (idx (d + 1)) in
+            let nd = mdist w in
+            if nd <= togo'
+               && (not !cut || togo' = nd || togo' + nd >= rcut) then
+              dfsm (d + 1) togo' f (mmask w (togo' - nd))
+          end
+        end
+      done
+    end in
 
   (* When the prepass has run, the search looks only for words whose last
      move is not in H: every word that ends in H is a shorter one of the same
@@ -629,12 +744,6 @@ let () =
      H -- that is hcoset's rule, and it is empirical, not proved.  A word
      that wastes a move down there ends in moves of H, so the prepass catches
      it anyway.  Both cuts are off on a level with no prepass. *)
-  (* ROW_NOPREPASS=1 turns the prepass and both cuts off, which is the plain
-     search: every canonical word that reaches H, counted.  That is the only
-     way to compare with hcoset's published 16 019 916 192 at depth 12. *)
-  let nopre = Sys.getenv_opt "ROW_NOPREPASS" <> None in
-  let cut = ref true in
-  let rcut = 5 in
   let rec dfs d togo prev =
     nodes := Int64.add !nodes 1L;
     let nd = heur d in
@@ -664,8 +773,15 @@ let () =
   let d0 = heur 0 in
   while !done_ < rowsize && !d <= maxdepth do
     let before = !done_ in
-    (* the prepass costs the same whether the map is full or empty, so it is
-       not worth running until the map has something in it *)
+    (* The prepass costs the same sweep whether the map is full or empty, so
+       below some count searching is the cheaper way to the same members.
+       hcoset puts it at six million and so do we.  Note what the two sides
+       are: with the prepass ON the search is cut and the prepass makes up
+       the difference; with it OFF the search is not cut, and an uncut level
+       finds every word of that length, including the ones ending in H.  So
+       either way the level is complete -- the threshold buys speed, and a
+       LOWER one would buy speed at the price of completeness, which is the
+       wrong trade when a row is finishing short. *)
     cut := not nopre && !d > d0 && (!done_ > 6000000 || !d > maxsearch);
     let t1 = Unix.gettimeofday () in
     if !cut then carry () else begin
@@ -673,7 +789,13 @@ let () =
     end;
     let t2 = Unix.gettimeofday () in
     nodes := 0L; probes := 0L;
-    if !d <= maxsearch then dfs 0 !d (-1);
+    if !d <= maxsearch then begin
+      if has_mask then begin
+        let w = Bigarray.Array1.unsafe_get p_msk (idx 0) in
+        let nd = mdist w in
+        if nd <= !d then dfsm 0 !d (-1) (mmask w (!d - nd))
+      end else dfs 0 !d (-1)
+    end;
     let t3 = Unix.gettimeofday () in
     swapmaps ();
     done_ := count ();

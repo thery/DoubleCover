@@ -314,6 +314,7 @@ been found by depth 20 needs no more than twenty moves.
 
     make rowcheck              the checks, no big memory
     make hball N=4             the prepass alone, against a one at a time BFS
+    make mask                  the exact table and its move masks, once
     make row ROW="U R2 F'"     one row
     make row                   the row of H itself
 
@@ -368,9 +369,28 @@ cannot see.
 
 The pruning table is the prototype's own, `phase1_cap9.tbl`, 2.2 GB, one byte
 a state.  It is capped at nine and phase 1 distances go to twelve, so
-everything at ten or beyond reads ten: weaker pruning, never a lie.  Rokicki's
-own table is exact to twelve and carries, for each state, which moves change
-the distance; it is symmetry reduced to 170 311 680 entries of four bytes.
+everything at ten or beyond reads ten: weaker pruning, never a lie.  **Cap 12
+is the exact table**, in the same 2.2 GB and with no new code, and it matters
+because most of the 2.2 billion states sit at ten, eleven or twelve -- the
+range cap 9 collapses to one value.
+
+`make mask` builds the second table, which is what `hcoset`'s `phase1prune`
+carries: beside the distance, **which moves go closer**.  A node then tries
+only the moves the table names instead of all eighteen, which Rokicki says
+"eliminates almost all false paths in the search".  Ours is a word a state --
+five bits of distance, eighteen of the moves that drop it, eighteen of those
+that do not raise it -- so 17.7 GB against his 650 MB, because he folds by
+the sixteen symmetries and we do not.  A row then wants 2.2 + 17.7 + 6.5 =
+26.4 GB.
+
+The sweep that builds it is cheap because of how the index is laid out: with
+a twist and a flip held fixed, the eighteen children of all 495 slice values
+sit in eighteen runs of 495 bytes, so the whole sweep works out of cache.
+
+The mask search is only sound on the exact table -- a move changes the
+distance by at most one, so a move the table rules out cannot lead anywhere,
+and that argument needs the distance to be the real one.  `make mask` refuses
+a cap below twelve for that reason.
 
 ### The first row, measured
 
