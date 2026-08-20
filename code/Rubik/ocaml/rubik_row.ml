@@ -605,8 +605,12 @@ let () =
   let has_mask = Sys.file_exists mpath in
   if want_mask && has_mask then begin
     Printf.printf "%s is already there\n%!" mpath; exit 0 end;
+  (* Cap 12 is not a soundness matter -- the masks are right at any cap,
+     because a capped table is still a lower bound and still moves by at most
+     one a turn.  It is that the cap does not change the table's SIZE, so a
+     lower one would cost the same 17.7 GB and prune worse. *)
   if want_mask && cap < 12 then begin
-    prerr_endline "the mask table needs the exact distances, so cap 12";
+    prerr_endline "the cap does not change the size, so build it exact: 12";
     exit 1 end;
   let p_msk =
     if not (want_mask || has_mask) then

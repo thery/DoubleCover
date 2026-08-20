@@ -387,10 +387,23 @@ The sweep that builds it is cheap because of how the index is laid out: with
 a twist and a flip held fixed, the eighteen children of all 495 slice values
 sit in eighteen runs of 495 bytes, so the whole sweep works out of cache.
 
-The mask search is only sound on the exact table -- a move changes the
-distance by at most one, so a move the table rules out cannot lead anywhere,
-and that argument needs the distance to be the real one.  `make mask` refuses
-a cap below twelve for that reason.
+The mask search does NOT need the exact table.  What it needs is that the
+table never over-estimates and never changes by more than one per move, and a
+capped table has both: the smaller of the distance and the cap is still a
+lower bound, and taking the smaller of two things with a constant cannot make
+two neighbours differ by more than they did.  So a move the table rules out
+leads nowhere whatever the cap.
+
+`make mask` uses cap 12 anyway, for a reason that has nothing to do with
+soundness: **the cap does not change the table's size.**  The 17.7 GB is the
+two masks, not the distance, so cap 9 and cap 12 cost the same to store and
+cap 12 prunes strictly better.  The two improvements are independent -- exact
+distances buy pruning, masks buy one table read a node instead of eighteen --
+and there is no reason to take the weaker half of the first.
+
+If the 17.7 GB is the problem, the answer is not a lower cap but the fold
+Rokicki uses and `fold.md` already describes: the sixteen symmetries of the
+U/D axis, 15.7x, about 1.1 GB, at the price of a fold on every lookup.
 
 ### The first row, measured
 
