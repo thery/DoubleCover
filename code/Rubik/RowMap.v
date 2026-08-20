@@ -78,6 +78,38 @@ Definition mfull (m : rmap) : bool :=
        (fun gr c => c && Uint63.eqb (gget m (grpof pg gr)) allbits) true)
     true.
 
+(* the two maps together                                                      *)
+Definition mor (m1 m2 : rmap) : rmap :=
+  ifold npagen 0%uint63
+    (fun pg a =>
+       ifold ngroupn 0%uint63
+         (fun gr a' =>
+            let g := grpof pg gr in
+            gset a' g (Uint63.lor (gget m1 g) (gget m2 g)))
+         a)
+    m1.
+
+(* ---- what the map owes --------------------------------------------------- *)
+
+(* Four small facts, and they are all anything above this file needs.  Each  *)
+(* is about PArray and the chunking and nothing else -- no cube, no row.     *)
+
+Lemma memptyP pg gr bt : mtest mempty pg gr bt = false.
+Proof. Admitted.
+
+Lemma mfullP m pg gr bt : mfull m -> inrange pg gr bt -> mtest m pg gr bt.
+Proof. Admitted.
+
+Lemma morP m1 m2 pg gr bt :
+  inrange pg gr bt ->
+  mtest (mor m1 m2) pg gr bt = mtest m1 pg gr bt || mtest m2 pg gr bt.
+Proof. Admitted.
+
+Lemma mmarkP m p g b pg gr bt :
+  mtest (mmark m p g b) pg gr bt ->
+  [/\ p = pg, g = gr & b = bt] \/ mtest m pg gr bt.
+Proof. Admitted.
+
 Section Pre.
 
 (* ---- the ten moves of H, on pages, on groups and on bits ----------------- *)
