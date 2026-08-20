@@ -507,6 +507,20 @@ Its own split is 3 s of search, 15 s for five prepasses and 1.5 s of
 overhead.  Its search runs at 25 million positions a second and its prepass
 at 65 billion group operations a CPU second.
 
+### The published count, checked to the unit
+
+`ROW_NOPREPASS=1 ./rubik_row 9 12 ""` is the plain search with the prepass and
+both cuts off: every canonical word that reaches H, counted.  On roquableu,
+one core, 2026-08-20:
+
+    depth 12 : 94938762928 nodes, 16019916192 solutions, 24530.8 s
+    row "": 3011858108 of 19508428800 after depth 12, 28644.0 s
+
+**16 019 916 192 is Rokicki's own published count** of the canonical sequences
+that solve phase 1 at depth 12 for the trivial coset, quoted in `hcoset.w`.
+To the unit.  That level cost 6 h 49 and the run 7 h 57, on one core; scaling
+the depth 11 rate had predicted 6 h 50 for the level.
+
 ### Checked against hcoset itself
 
 `bigdist.tar.gz` on cube20.org ships the sources already untangled, so no
