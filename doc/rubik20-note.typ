@@ -1188,11 +1188,14 @@ proved here. What #src("Diameter.v") does contain is the reduction for it, and
 that reduction now rests on one assumption rather than two.
 
 The published proofs of the upper half do not solve all 43 quintillion
-positions. They cut the cube group into the 2 217 093 120 cosets of a
-subgroup, note that a symmetry of the cube carries one coset to another, and
-solve one coset per symmetry class. Two things are then needed: that the
-chosen representatives really do cover every coset, and that each of them is
-solvable in 20 moves.
+positions one at a time. They cut the cube group into the 2 217 093 120 cosets
+of a subgroup and solve a whole coset at once: one search settles every one of
+the 19 508 428 800 positions in it. The positions in a coset are not all the
+same distance from solved; what the search shows is that none of them is more
+than 20. A symmetry of the cube carries one coset to another, and the image is
+solved by the same maneuvers relabelled, so only one coset per symmetry class
+is searched. Two things are then needed: that the cosets searched cover every
+class, and that each search really settles its whole coset.
 
 The first of those is not a computation, and #src("Canon.v") proves it.
 Choose as representative the least member of each class, in the order the
