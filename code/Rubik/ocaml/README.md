@@ -312,24 +312,59 @@ and call the result p, and the row is every word w with p * w in H.  A word
 of length d is a member solved in d moves, so a row where every member has
 been found by depth 20 needs no more than twenty moves.
 
-    make rowcheck              the checks, no table needed
+    make rowcheck              the checks, no big memory
+    make hball N=4             the prepass alone, against a one at a time BFS
     make row ROW="U R2 F'"     one row
     make row                   the row of H itself
 
-The members are marked in a bitmap of one bit each: a page for every corner
-permutation, and within a page a bit for every permutation of the eight outer
-edges and the four middle ones.  The parity of the middle four is settled by
-the other two, so a page is 8! * 4! / 2 bits and the whole map is 2.44 GB --
-the shape `hcoset` uses.
+Every level does two things.  The **search** finds the words of that length
+whose last move is not in H.  The **prepass** takes everything found so far
+and plays each of the ten moves of H on all of it at once, which accounts for
+every word whose last move is in H -- and that is nearly all of them.  A word
+that ends in H is a shorter word of the same row followed by moves of H, so
+one prepass a level is exactly right, and reading and writing the same map
+would count a member a level too soon.  That is why there are two.
 
-`make rowcheck` verifies, without any table: that the two ranks number their
-permutations one each, that two middle permutations whose ranks differ only in
-the last place have opposite parity, which is what lets that place be dropped,
-that exactly ten of the eighteen moves keep a position in H, that a member of
-H keeps the two kinds of edge apart and has the same parity on its corners as
-on its edges, that the index is in range and one to one over 200 000 sampled
-members, and that the move rule counts 18, 243, 3240, 43254 and 577368
-canonical sequences, which `Canseq.v` proves.
+The layout is `hcoset`'s, because it is what makes the prepass fast.  A page
+is one corner permutation.  Inside a page a **group** of twenty-four bits is a
+pair of outer edge permutations, the pair being the two that differ by
+exchanging the cubies 0 and 1; the twenty-four bits are the twenty-four middle
+permutations, the twelve even ones in the low half and the twelve odd ones in
+the high half.  Which member of the pair a bit means is settled by parity, so
+nothing is lost, and the numbering carries the parity in its low bit.  Two
+things follow, and the prepass needs both: a move sends a pair to a pair,
+because exchanging two cubies before a move is the same as exchanging them
+after it, and the middle bits are numbered so that F2 is the exchange of the
+two halves and nothing else.  Six of the ten moves leave the middle four
+alone and so leave all twenty-four bits where they are; the other four
+rearrange twelve bits by a table of 4096 entries.
+
+So one move of H over the whole row is 812 851 200 groups of two reads, a
+table lookup and two ORs -- no position is ever taken apart.  The map is kept
+as its low halves and its high halves apart, sixteen bits at a time, which
+costs 6.5 GB for the two maps against `hcoset`'s 4.9, and buys a machine word
+that needs no unpacking.
+
+`make rowcheck` verifies, with no big memory and in five seconds: that the
+outer numbering is one to one and carries the parity in its low bit, that each
+middle permutation gets its own bit and lands in the half its parity says,
+that exactly ten of the eighteen moves keep a position in H, that F2 is the
+exchange of the two halves and moves no bit within them, and that the move
+rule counts 18, 243, 3240, 43254 and 577368 canonical sequences, which
+`Canseq.v` proves.
+
+Then the check that matters: for 200 000 members of H and each of the ten
+moves, **where the prepass tables send the bit is where the move sends the
+position** -- page, group and bit compared against multiplying the position
+out.  That is two million comparisons and it is what says the prepass plays
+the right moves.
+
+`make hball N` is the other end of it: the prepass alone from the solved
+position, so level n is every member of H that n moves of H reach.  For the
+first five levels the same thing is worked out one position at a time with a
+table of what has been seen, and the two counts must agree.  That check is on
+the loop -- the blits, the swap and the indexing -- which the tables check
+cannot see.
 
 The pruning table is the prototype's own, `phase1_cap9.tbl`, 2.2 GB, one byte
 a state.  It is capped at nine and phase 1 distances go to twelve, so
@@ -337,10 +372,9 @@ everything at ten or beyond reads ten: weaker pruning, never a lie.  Rokicki's
 own table is exact to twelve and carries, for each state, which moves change
 the distance; it is symmetry reduced to 170 311 680 entries of four bytes.
 
-**This is the search half only, and the search half alone cannot fill a
-row.** `hcoset.w` says why: for the row of H itself there are 16 019 916 192
-canonical sequences that solve phase 1 at depth 12, and only 329 352 128 of
-them end in a move outside H.  All the others are handled by the prepass,
-which extends the whole marked set by the ten moves of H in one pass over the
-bitmap.  Rokicki calls the prepass the key operation for a bound of 20 and the
-one that takes the bulk of the time.  It is not written here.
+The prepass is not an optimisation, it is what makes a row possible at all.
+`hcoset.w` gives the size of the thing it removes: for the row of H itself
+there are 16 019 916 192 canonical sequences that solve phase 1 at depth 12,
+and only 329 352 128 of them -- one in fifty -- end in a move outside H.
+Rokicki calls it the key operation for a bound of 20 and the one that takes
+the bulk of the time.
