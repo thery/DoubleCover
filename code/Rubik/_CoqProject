@@ -107,3 +107,7 @@ HPok.v
 HPrefix.v
 HCut.v
 HFinal.v
+Row.v
+RowMap.v
+RowRun.v
+RowFinal.v
