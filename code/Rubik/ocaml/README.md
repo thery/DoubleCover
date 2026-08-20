@@ -372,6 +372,42 @@ everything at ten or beyond reads ten: weaker pruning, never a lie.  Rokicki's
 own table is exact to twelve and carries, for each state, which moves change
 the distance; it is symmetry reduced to 170 311 680 entries of four bytes.
 
+### The first row, measured
+
+The row of H itself, on roquableu, one core, 2026-08-20:
+
+    ./rubik_row 9 20 "" 11
+    depth 11 : 1487553320 nodes, 45573536 solutions,  582017108 new,   733642602 done
+    depth 12 : 0 nodes, 0 solutions,  2257346454 new,  2990989056 done
+    depth 13 : 0 nodes, 0 solutions,  5725571470 new,  8716560526 done
+    depth 14 : 0 nodes, 0 solutions,  7182132183 new, 15898692709 done
+    depth 15 : 0 nodes, 0 solutions,  3430240810 new, 19328933519 done
+    depth 16 : 0 nodes, 0 solutions,   178843181 new, 19507776700 done
+    depth 17 : 0 nodes, 0 solutions,      651828 new, 19508428528 done
+    depth 18 : 0 nodes, 0 solutions,         272 new, 19508428800 done
+    row "": 19508428800 of 19508428800 after depth 18, 725.7 s
+
+**12 min 11 on one core**: 307 s of search, 394 s of prepass, 25 s of
+counting.  So every position of H is within eighteen face turns, and the run
+exhibits a word for each.  The search stopped at eleven and the prepass found
+96% of the members on its own.  The levels close rather than trail off: the
+last two add 651 828 and then 272.
+
+Where the search stops is a free choice, and a cheap one.  Searching to 16,
+which is what hcoset does, is out of reach with this table: the cut search
+grows 7.3 a level from 26.7 s at depth 10, which puts depth 16 at about
+forty seven days on one core.  Stopping at eleven costs nine prepass levels
+at twenty to sixty seconds each.  Both are safe, so the only question is
+which one fills the map.
+
+The cuts were checked against the plain search at two levels: depth 10 and
+depth 11 give 151 625 494 and 733 642 602 members either way, to the unit,
+while the cut search does one nineteenth of the work.
+
+**This is the easiest row there is** -- Rokicki says the trivial coset is the
+one the prepass helps most.  A row named by a real move sequence starts with
+an empty map and a search that begins around depth 10 rather than 0.
+
 The prepass is not an optimisation, it is what makes a row possible at all.
 `hcoset.w` gives the size of the thing it removes: for the row of H itself
 there are 16 019 916 192 canonical sequences that solve phase 1 at depth 12,
