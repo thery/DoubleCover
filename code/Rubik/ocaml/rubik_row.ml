@@ -15,9 +15,19 @@
    and plays each of the ten moves of H on all of it at once, which accounts
    for every word whose last move IS in H -- and that is nearly all of them.
 
-   usage: rubik_row <cap> <maxdepth> "<moves>"    one row
-          rubik_row <cap> <maxdepth> build        the pruning table only
-          rubik_row check                         the checks, no table
+   usage: rubik_row <cap> <maxdepth> "<moves>" [<maxsearch>]   one row
+          rubik_row <cap> <maxdepth> build                    the table only
+          rubik_row check                                     the checks
+          rubik_row hball <n>                                 the prepass alone
+
+   The search runs only while the depth is at most <maxsearch>; above that
+   the prepass runs alone.  That is how hcoset reaches twenty: it searches to
+   about sixteen and lets the prepass carry the rest.
+
+   EVERY CUT HERE IS SAFE, which is the opposite of the lower bound searches.
+   What is proved is that the map filled, not that the search was complete,
+   so a cut that loses words can only make the row finish later or not at
+   all.  It can never call a member covered when it is not.
 
    Moves are written the usual way, U R2 F', faces U R F D L B.  An empty
    move string is the row of H itself.
@@ -530,6 +540,9 @@ let () =
   let cap = int_of_string Sys.argv.(1) in
   let maxdepth = int_of_string Sys.argv.(2) in
   let arg = if Array.length Sys.argv > 3 then Sys.argv.(3) else "" in
+  let maxsearch =
+    if Array.length Sys.argv > 4 then int_of_string Sys.argv.(4)
+    else maxdepth in
   let build_only = (arg = "build") in
 
   let mt_twist = mk_move_table n_twist cube_of_twist twist in
@@ -608,19 +621,32 @@ let () =
 
   let opp f = (f + 3) mod 6 in
 
-  (* The search looks only for words whose last move is not in H.  Every word
-     that ends in H is a shorter one of the same row followed by moves of H,
-     and the prepass has already played those. *)
+  (* When the prepass has run, the search looks only for words whose last
+     move is not in H: every word that ends in H is a shorter one of the same
+     row followed by moves of H, and the prepass has already played those.
+
+     It also refuses, near the bottom, any move that does not go straight at
+     H -- that is hcoset's rule, and it is empirical, not proved.  A word
+     that wastes a move down there ends in moves of H, so the prepass catches
+     it anyway.  Both cuts are off on a level with no prepass. *)
+  (* ROW_NOPREPASS=1 turns the prepass and both cuts off, which is the plain
+     search: every canonical word that reaches H, counted.  That is the only
+     way to compare with hcoset's published 16 019 916 192 at depth 12. *)
+  let nopre = Sys.getenv_opt "ROW_NOPREPASS" <> None in
+  let cut = ref true in
+  let rcut = 5 in
   let rec dfs d togo prev =
     nodes := Int64.add !nodes 1L;
-    if heur d <= togo then begin
+    let nd = heur d in
+    if nd <= togo
+       && (not !cut || d = 0 || togo = nd || togo + nd >= rcut) then begin
       if togo = 0 then begin
         probes := Int64.add !probes 1L;
         mark d
       end else
         for m = 0 to 17 do
           let f = m / 3 in
-          if (togo > 1 || not ish.(m))
+          if (togo > 1 || not !cut || not ish.(m))
              && (prev < 0 || not (f = prev || (f = opp prev && f > prev)))
           then begin step d m; dfs (d + 1) (togo - 1) f end
         done
@@ -635,13 +661,19 @@ let () =
   let t0 = Unix.gettimeofday () in
   let done_ = ref 0 in
   let d = ref (heur 0) in
+  let d0 = heur 0 in
   while !done_ < rowsize && !d <= maxdepth do
     let before = !done_ in
+    (* the prepass costs the same whether the map is full or empty, so it is
+       not worth running until the map has something in it *)
+    cut := not nopre && !d > d0 && (!done_ > 6000000 || !d > maxsearch);
     let t1 = Unix.gettimeofday () in
-    carry ();
+    if !cut then carry () else begin
+      Bigarray.Array1.blit !culo !nxlo; Bigarray.Array1.blit !cuhi !nxhi
+    end;
     let t2 = Unix.gettimeofday () in
     nodes := 0L; probes := 0L;
-    dfs 0 !d (-1);
+    if !d <= maxsearch then dfs 0 !d (-1);
     let t3 = Unix.gettimeofday () in
     swapmaps ();
     done_ := count ();
