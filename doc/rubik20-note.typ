@@ -257,10 +257,6 @@
   solved in twenty-five quarter turns.
 
   #v(0.4em)
-  *The sources* are at
-  #link("https://github.com/thery/DoubleCover/tree/main/code/Rubik")[`github.com/thery/DoubleCover/code/Rubik`].
-
-  #v(0.4em)
   *Keywords.* Rubik's cube, God's number, quarter turn, formal proof, Rocq,
   pruning table.
 ]]
@@ -1224,8 +1220,9 @@ it.
 
 The superflip is not far enough away. Reid's post records it at 24 quarter
 turns, which was the lower bound before his own. In August 1998 he posted a
-better position to the Cube-Lovers list: the *four-spot*, with the superflip
-composed onto it.
+better position to the Cube-Lovers list @reid1998fourspot: the *four-spot*,
+with the superflip composed onto it. That post is the source of everything in
+this section, and it is transcribed in the repository beside this note.
 
 The four-spot is the cube on the left of @fspot. It puts the front colour on
 the back face and the right colour on the left face, and the other way about
@@ -1423,8 +1420,48 @@ of them checks that are run once and are not part of the proof. The
 cube, the permutations, the tables and the machine-integer toolbox are the ones
 already there, used unchanged.
 
+= What was done, and what it taught
+
+Two numbers, and the lower half of each. No position of the cube is solved in
+19 face turns, and none in 25 quarter turns, because one position is not: the
+superflip for the first, the superflip on the four-spot for the second. That
+20 and 26 always suffice is not proved here. Both halves are proved the same
+way, by a search that comes back empty over a table that says how far a
+position still is.
+
+Four things came out of doing it.
+
+*A search that says no is only as good as the facts nobody checks.* Our own
+prototype for the first bound dropped six of the thirty beginnings it should
+have tried. It ran for hours and gave the expected answer. The proof is what
+found it. A cut that is too greedy does not make a search fail; it makes it
+faster, and it makes it agree with you.
+
+*Not trusting the table costs about what the search costs.* Sweeping the
+quarter-turn table to check that it never drops by more than one is 31 hours
+of processor time, against 45 hours for the six searches it guides. That is
+the price of the word "proof" here, and it is not a rounding error.
+
+*The representation decides everything else.* The tables are machine integers
+in arrays, not lists of unary numbers, and the second table is folded by its
+symmetries from 29 billion entries to 883 MB. Where a number was left in the
+prover's unary form the sweep ran twenty times slower, and where a small table
+was inverted inside a loop instead of once outside it, a thousand times
+slower. Both were measured, and both were mistakes made here first.
+
+*The facts nobody writes down are the ones that cost.* Reid's proposition
+needs a maneuver that cannot be shortened, which he does not say. The summary
+keeps seven corner twists and recovers the eighth, which only works because
+the eight add up to nothing modulo three. A summary has to be a row of the
+table before the table can be read at it. None of the three shows up in a run.
+Each of them showed up in the proof.
+
+The sources are at
+#link("https://github.com/thery/DoubleCover/tree/main/code/Rubik")[`github.com/thery/DoubleCover/code/Rubik`],
+with the note, its figures and Reid's transcribed post beside them.
+
 This development was written with the help of Claude, Anthropic's coding
-assistant, which is recorded as a co-author of 267 of the 268 commits of
+assistant, which is recorded as a co-author of 336 of the 356 commits of
 `code/Rubik`.
 
 #pagebreak(weak: true)
