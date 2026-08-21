@@ -65,12 +65,6 @@ Definition wp (w : seq nat) : {perm facelet} := \prod_(m <- w) nth 1 moves m.
 Definition wtr (w : seq nat) : seq nat :=
   foldr (fun m t => comp_tab (mvt m) t) (id_tab flast) w.
 
-Lemma size_mtabs : seq.size mtabs = 18%N.
-Proof. by vm_compute. Qed.
-
-Lemma size_moves : seq.size moves = 18%N.
-Proof. by rewrite mtabsE seq.size_map size_mtabs. Qed.
-
 Lemma mvt_ok m : (m < 18)%N -> tab_ok flast (mvt m).
 Proof.
 move=> mL; rewrite /mvt; apply: (allP mtabs_ok); apply: mem_nth.
@@ -94,9 +88,6 @@ elim: w => [_|m w ih]; first by rewrite /wp big_nil pt1.
 rewrite /wf /= => /andP[mL wL].
 by rewrite /wp big_cons -/(wp w) ih // mvtE // ptM ?mvt_ok ?wtr_ok.
 Qed.
-
-Lemma mv_Sset m : (m < 18)%N -> nth 1 moves m \in Sset.
-Proof. by move=> mL; rewrite inE mem_nth // size_moves. Qed.
 
 (* a word of n moves lands inside the ball of n, which is all the witnesses   *)
 (* ever ask of the group                                                      *)
