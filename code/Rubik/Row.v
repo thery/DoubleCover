@@ -266,6 +266,9 @@ Proof. by rewrite npagenE ngroupnE. Qed.
 Lemma npagen_nwB : (npagen < nwB)%N.
 Proof. by rewrite npagenE; apply: (@ltn_nwB 16). Qed.
 
+Lemma ngroupn_nwB : (ngroupn < nwB)%N.
+Proof. by rewrite ngroupnE; apply: (@ltn_nwB 15). Qed.
+
 Lemma ltn_npagei x : (x <? npagei)%uint63 -> (to_nat x < npagen)%N.
 Proof. by move=> h; apply/nltbP. Qed.
 
