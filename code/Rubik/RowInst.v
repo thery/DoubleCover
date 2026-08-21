@@ -466,6 +466,17 @@ have -> : cfs (coordof x) = fsidx (coordi x).
 by rewrite (twstepP kL px) (fsstepP kL px).
 Qed.
 
+(* ---- what a member's table is ------------------------------------------- *)
+
+(* The position a member stands for is the superflip undone and the member    *)
+(* put back, and that is all pos ever is here.                                *)
+Lemma posE x : RowFinal.pos ptab x = superflip^-1 * pt flast (memb2tab x).
+Proof.
+rewrite /RowFinal.pos /ptab.
+rewrite -(ptM (tab_ok_inv sfti_ok) (memb2tab_ok x)).
+by rewrite -(ptV sfti_ok) -sftiE.
+Qed.
+
 (* ---- a leaf is a member -------------------------------------------------- *)
 
 (* THE HARD END, and both halves of it are the same fact: a distance of       *)
@@ -482,10 +493,18 @@ Lemma leaf_memb c x : coordP c x -> pstok x ->
   wdist (p1get p1 c) = 0%uint63 -> membok par8 par4 (tomemb x).
 Proof. Admitted.
 
+(* AND THIS ONE COMES APART.  What a leaf owes is that the three ranks put    *)
+(* the position back together -- and once they do, the rest is posE: the      *)
+(* member's position is the superflip undone and the member put back, which   *)
+(* is what posp already is.                                                   *)
+Hypothesis tomemb_tab : forall c x, coordP c x -> pstok x ->
+  wdist (p1get p1 c) = 0%uint63 ->
+  pt flast (memb2tab (tomemb x)) = pt flast (ti2t flast x).
+
 Lemma leaf_pos c x : coordP c x -> pstok x ->
   wdist (p1get p1 c) = 0%uint63 ->
   RowFinal.pos ptab (tomemb x) = posp x.
-Proof. Admitted.
+Proof. by move=> hc hp h0; rewrite posE (tomemb_tab hc hp h0). Qed.
 
 (* ---- the prepass tables -------------------------------------------------- *)
 
@@ -714,17 +733,6 @@ have [hj hje hb'] := hshift _ hb.
 have [bt hbt1 [hbtE hbv]] := hlo _ hj hb'.
 exists bt => //; split; first by rewrite hbtE hdlo hje.
 by rewrite (@test_bit v bt (lt_digits hbt1)).
-Qed.
-
-(* ---- what a member's table is ------------------------------------------- *)
-
-(* The position a member stands for is the superflip undone and the member    *)
-(* put back, and that is all pos ever is here.                                *)
-Lemma posE x : RowFinal.pos ptab x = superflip^-1 * pt flast (memb2tab x).
-Proof.
-rewrite /RowFinal.pos /ptab.
-rewrite -(ptM (tab_ok_inv sfti_ok) (memb2tab_ok x)).
-by rewrite -(ptV sfti_ok) -sftiE.
 Qed.
 
 (* ---- and what the three tables do to a member ---------------------------- *)
