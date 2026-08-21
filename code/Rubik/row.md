@@ -69,34 +69,57 @@ lookup and an OR, and no member is ever taken apart.
 
 ## What is proved
 
-**The whole assembly, and it owes no new mathematics.**
+**The whole assembly, the bijection, and the witnesses.**
 
 | | what it took |
 |---|---|
 | `RowFinal.row_within_20` | the theorem: no bit clear, plus the bijection, gives every member |
+| `RowFinal.wokP` | a word of at most twenty moves that solves a member puts it in the ball of twenty |
 | `RowFinal.wmap_wit` | a bit the witness map has set has a witness behind it |
 | `RowRun.run_sound` | the induction over the levels |
 | `RowRun.level_sound` | the prepass and the search, put together |
+| `Row.place_range`, `Row.unplace_place`, `Row.place_unplace` | **the bijection** |
 | `Row.place_inj` | reading a place back is what makes it one to one |
 
-Proving `row_within_20` was worth it for what it turned the debt into: one
-large admit about everything became four small ones about `PArray` and the
-chunking, with no cube and no row in them.
+**THE BIJECTION IS NOT A HAND PROOF, and that is what settled it.** The
+lemmas were first written about arbitrary tables, where they are simply not
+true: nothing said that a number carries its parity in its last place, or
+that `e8inv` undoes `e8num`. What they need is two booleans -- `Row.e8ok`
+over the forty thousand outer permutations and `Row.e4ok` over the twenty
+four middle ones -- and each is a walk the instance file settles by
+computation. So the long pole turned into two `vm_compute`s and about a
+hundred lines of ordinary arithmetic.
+
+`membok` gained the three range tests at the same time, for the same reason:
+without them a member could name a page that is not there.
+
+**The witnesses are done too.** `wok` is now a real check -- compose the
+member's table with the word's and see the identity -- and `wokP` is proved
+from `Ball.v`, so nothing about words is assumed any more. A word is a list
+of move numbers in the development's own numbering, and playing it is twenty
+compositions of a forty eight entry list.
 
 ## What is still owed
 
 | | where | what it is |
 |---|---|---|
-| the bijection | `Row.place_range`, `Row.unplace_place`, `Row.place_unplace` | **the long pole**: the ranking, the pairing, and the parity that lets the last place be dropped |
 | the map | `RowMap.memptyP`, `.mfullP`, `.morP`, `.mmarkP` | four small facts about the chunked arrays and nothing else |
 | the prepass | `RowRun.prepass_sound` | a bit it sets is one move of H from one already set. One move, not an induction |
 | the search | `RowRun.srch_sound` | an induction on the word. Soundness only |
 
-`RowFinal.wokP` -- a word of at most twenty moves that solves a position puts
-it in the ball of twenty -- is the one remaining bridge to `Ball.v`.
-
 ## Traps already paid for
 
+- **A nat that is a numeral is a trap twice over.** `to_nat npagei = 40320`
+  by `vm_compute` overflows the stack: it builds the answer in unary and
+  compares it with the literal. The way round is `of_natK`, which walks from
+  nat to int63 through `of_nat` and looks at no unary number; and the bounds
+  are then *defined* as `to_nat npagei`, so a check needs no bridging at all.
+  Written the other way, with `npagen := 40320`, the `Qed` of the one lemma
+  that reads a check took **41 seconds**; defined as `to_nat npagei` it is
+  instant.
+- **A side goal about `nwB` left to `//` never comes back** -- `nwB` is
+  2 ^ 63 in unary. Every `to_nat_add`, `to_nat_mul` side condition here is
+  discharged by hand for that reason.
 - **19 508 428 800 as a nat does not exist.** Every size here is `int63`. The
   first version of `Row.v` had `rowsize = (40320 * 20160 * 24)%N` with a
   `by []`, and the kernel went away to build it in unary. Sizes are `int63`
