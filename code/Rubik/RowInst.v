@@ -291,15 +291,65 @@ have szm : seq.size mtis = 18%N by rewrite /mtis seq.size_map size_mtabs.
 by apply: (all_nthP sfti mtis_ok); rewrite szm.
 Qed.
 
-(* The table half is Moves.sfti_ok; the other two are a computation on the    *)
-(* superflip, which is what Farp1 does at its own root.                       *)
-Lemma root_pok : pstok sroot.
+(* THE ONE GAP IS THE TWISTS.  twP holds of the identity and survives a move  *)
+(* -- Phase1.twP1 and Phase1.twPM -- and Diameter.superflipE writes the       *)
+(* superflip as Reid's twenty moves, so this is twenty steps and no thought.  *)
+(* Better still would be twP of everything in G, by induction over the ball.  *)
+Lemma twP_superflip : twP superflip.
 Proof. Admitted.
 
-(* tabi_ok_comp for the table; Farp1.twPti_step for the twists and the flip   *)
-(* parity, and cubti under a move is what Farp1 derives at its own root.      *)
-Lemma xstep_pok x k : (to_nat k < nmvn)%N -> pstok x -> pstok (xstep x k).
+(* and the rest of the root is three computations: the table is a table, the  *)
+(* cubies are cubies, and the flips are even                                  *)
+Lemma root_pok : pstok sroot.
+Proof.
+rewrite /pstok /sroot /repi sfti_ok /=.
+apply/andP; split; first by vm_compute.
+rewrite /twPti; apply/andP; split; last by vm_compute.
+by rewrite -sftiE; exact: twP_superflip.
+Qed.
+
+(* the move, as a permutation and as one of the eighteen                      *)
+Lemma mviE k : (to_nat k < nmvn)%N ->
+  pt flast (ti2t flast (mvi k)) = nth 1 moves (to_nat k).
+Proof.
+move=> kL; have kL18 : (to_nat k < 18)%N by [].
+have szm : (to_nat k < seq.size mtis)%N.
+  by rewrite /mtis seq.size_map size_mtabs.
+by rewrite (mvtE kL18) /mvt -ti2t_mtis /mvi (nth_map sfti _ _ szm).
+Qed.
+
+(* the cubies stay cubies: a move keeps cubP, and cubti is cubP read off a    *)
+(* table                                                                      *)
+Lemma cubti_step x k : (to_nat k < nmvn)%N -> tabi_ok flast x -> cubti x ->
+  cubti (xstep x k).
+Proof.
+move=> kL xok cx; have mok := mvi_ok kL.
+have cok := tabi_ok_comp n47_small n47_len xok mok.
+rewrite (cubtiE cok) -(cubtE cok).
+rewrite (ti2t_comp n47_small n47_len xok mok) -(ptM xok mok).
+apply: cubP_step; last by rewrite mviE //; apply: mv_Sset.
+by rewrite (cubtE xok) -(cubtiE xok).
+Qed.
+
+(* THE FLIP PARITY IS THE ONE THING LEFT.  A move does not change it -- it is *)
+(* the edge analogue of the twists summing to nought -- and Phase1 carries    *)
+(* the invariant it belongs to; Farp1.twPti_step is the same statement.       *)
+Lemma fpar_step x k : (to_nat k < nmvn)%N -> tabi_ok flast x -> cubti x ->
+  ~~ fpar (coordi x) -> ~~ fpar (coordi (xstep x k)).
 Proof. Admitted.
+
+Lemma xstep_pok x k : (to_nat k < nmvn)%N -> pstok x -> pstok (xstep x k).
+Proof.
+move=> kL /and3P[xok cx tx]; have mok := mvi_ok kL.
+rewrite /pstok; apply/and3P; split.
+- exact: (tabi_ok_comp n47_small n47_len xok mok).
+- exact: (cubti_step kL xok cx).
+move: tx; rewrite /twPti => /andP[tw fp].
+apply/andP; split; last exact: (fpar_step kL xok cx fp).
+rewrite (ti2t_comp n47_small n47_len xok mok) -(ptM xok mok) mviE //.
+have kL18 : (to_nat k < 18)%N by [].
+by rewrite (mvtE kL18); apply: twPM.
+Qed.
 
 (* ---- one move played is one move ----------------------------------------- *)
 
