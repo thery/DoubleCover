@@ -329,6 +329,114 @@ let inv c =
   done;
   r
 
+(* ---- the three axes ------------------------------------------------------ *)
+
+(* Rokicki solves a position on three axes and each way round, six in all.
+   Ours had only the two ways round, and the leftovers of a symmetric row
+   need the rest: a position phase one cannot fit inside twenty from one
+   side is often shallow from another.  The other two axes come from turning
+   the WHOLE CUBE about the URF corner, which sends the face U to R, R to F
+   and F to U.
+
+   The turn renames the cubies, and that much is plain -- a cubie is named by
+   its faces and the faces are renamed.  Its twists and flips are not: they
+   are counted from faces the turn moves.  So they are SEARCHED FOR, and what
+   is kept is the turn that sends every move to a move.  None of it has to be
+   trusted, since a witness is played back before it is believed, but a wrong
+   turn would simply find nothing. *)
+
+(* U R F D L B goes to R F U L B D *)
+let facemap = [| 1; 2; 0; 4; 5; 3 |]
+
+(* the corner each corner goes to, and the edge each edge goes to.  Corners
+   are URF UFL ULB UBR DFR DLF DBL DRB and edges UR UF UL UB DR DF DL DB FR
+   FL BL BR, so URF stays where it is and UFL goes to UBR, and so on. *)
+let cnames = [| 0; 3; 7; 4; 1; 2; 6; 5 |]
+let enames = [| 8; 0; 11; 4; 9; 2; 10; 6; 1; 3; 7; 5 |]
+
+let invperm a =
+  let r = Array.make (Array.length a) 0 in
+  Array.iteri (fun i x -> r.(x) <- i) a; r
+
+let same a b n =
+  let ok = ref true in
+  for i = 0 to n - 1 do if a.(i) <> b.(i) then ok := false done; !ok
+
+(* the turn of the whole cube, found rather than written out *)
+let rot =
+  let idc = Array.init 8 (fun i -> i) and ide = Array.init 12 (fun i -> i) in
+  (* the corners: try each way round, and every way of twisting them *)
+  let corner () =
+    let res = ref None in
+    List.iter (fun cp ->
+      for t = 0 to 6560 do
+        if !res = None then begin
+          let co = Array.make 8 0 and x = ref t in
+          for i = 0 to 7 do co.(i) <- !x mod 3; x := !x / 3 done;
+          let a = { cp; co; ep = ide; eo = Array.make 12 0 } in
+          let ia = inv a in
+          let ok = ref true in
+          for f = 0 to 5 do
+            let c = mult (mult a basic.(f)) ia in
+            let b = basic.(facemap.(f)) in
+            if not (same c.cp b.cp 8 && same c.co b.co 8) then ok := false
+          done;
+          if !ok then res := Some (cp, co)
+        end
+      done) [cnames; invperm cnames];
+    match !res with
+    | Some r -> r
+    | None -> prerr_endline "the corner turn was not found"; exit 1 in
+  (* the edges: the same, and every way of flipping them *)
+  let edge () =
+    let res = ref None in
+    List.iter (fun ep ->
+      for t = 0 to 4095 do
+        if !res = None then begin
+          let eo = Array.init 12 (fun i -> (t lsr i) land 1) in
+          let a = { cp = idc; co = Array.make 8 0; ep; eo } in
+          let ia = inv a in
+          let ok = ref true in
+          for f = 0 to 5 do
+            let c = mult (mult a basic.(f)) ia in
+            let b = basic.(facemap.(f)) in
+            if not (same c.ep b.ep 12 && same c.eo b.eo 12) then ok := false
+          done;
+          if !ok then res := Some (ep, eo)
+        end
+      done) [enames; invperm enames];
+    match !res with
+    | Some r -> r
+    | None -> prerr_endline "the edge turn was not found"; exit 1 in
+  let (cp, co) = corner () and (ep, eo) = edge () in
+  { cp; co; ep; eo }
+
+(* the three axes, and the face each face is called by on each of them *)
+let axes = [| solved (); rot; mult rot rot |]
+
+let axfaces =
+  [| Array.init 6 (fun f -> f);
+     facemap;
+     Array.init 6 (fun f -> facemap.(facemap.(f))) |]
+
+(* a move, renamed for the axis it comes back from *)
+let axmv i m = 3 * axfaces.(i).(m / 3) + m mod 3
+
+(* and the promise: on every axis, a move turned by the axis IS the move it
+   is renamed to.  Checked here rather than argued, once, at startup. *)
+let () =
+  for i = 0 to Array.length axes - 1 do
+    let a = axes.(i) in
+    let ia = inv a in
+    for m = 0 to 17 do
+      let c = mult (mult a moves.(m)) ia in
+      let b = moves.(axmv i m) in
+      if not (same c.cp b.cp 8 && same c.co b.co 8
+              && same c.ep b.ep 12 && same c.eo b.eo 12) then begin
+        Printf.eprintf "axis %d does not rename move %d\n" i m; exit 1 end
+    done
+  done
+
 (* A page, a group and a bit, read back as the member of H they stand for.
    The bit names the middle permutation and the group names a pair of outer
    ones; which of the pair is meant is settled by parity, and the numbering
@@ -551,6 +659,48 @@ let check () =
   for r = 0 to fact4 - 1 do
     if (e4bit.(r) >= 12) <> (parity (unrank r 4) 0 4 = 1) then
       fail "a middle bit is in the wrong half"
+  done;
+
+  (* THE THREE AXES ARE THREE DIFFERENT NOTIONS OF H, which is the whole
+     reason to have them: the ten moves of one axis are not the ten moves of
+     another, so a position phase one cannot fit inside twenty on one is a
+     different problem on the next.  That every move is renamed to a move is
+     checked at startup, on all eighteen and all three. *)
+  for i = 1 to Array.length axes - 1 do
+    let kept = Array.for_all
+        (fun m -> Array.exists (fun x -> x = axmv i m) hmoves) hmoves in
+    if kept then fail (Printf.sprintf "axis %d keeps H where it was" i)
+  done;
+
+  (* AN AXIS RENAMES A WORD, and this is the direction the leftover solver
+     depends on: a word that solves a position solves the position turned by
+     an axis, once each of its moves is renamed.  Twenty random words, all
+     three axes, both ways round. *)
+  let iax = [| 0; 2; 1 |] in                 (* the axis that undoes an axis *)
+  let isolved c =
+    let ok = ref true in
+    for i = 0 to 7 do
+      if c.cp.(i) <> i || c.co.(i) <> 0 then ok := false done;
+    for i = 0 to 11 do
+      if c.ep.(i) <> i || c.eo.(i) <> 0 then ok := false done;
+    !ok in
+  let play q w = List.fold_left (fun c m -> mult c moves.(m)) q w in
+  let seed = ref 12345 in
+  let rnd n = seed := (!seed * 1103515245 + 12345) land 0x3FFFFFFF;
+    !seed mod n in
+  for _ = 1 to 20 do
+    let u = List.init 12 (fun _ -> rnd 18) in
+    let q = play (solved ()) u in
+    let sol = List.rev_map (fun m -> 3 * (m / 3) + (2 - m mod 3)) u in
+    for i = 0 to Array.length axes - 1 do
+      let a = axes.(i) in
+      let qa = mult (mult (inv a) q) a in
+      let w = List.map (axmv iax.(i)) sol in
+      if not (isolved (play qa w)) then
+        fail (Printf.sprintf "axis %d does not carry a word over" i);
+      if not (isolved (play q (List.map (axmv i) w))) then
+        fail (Printf.sprintf "axis %d does not bring a word back" i)
+    done
   done;
 
   (* the ten moves keep a position in H, and no other move does *)
@@ -1039,7 +1189,7 @@ let () =
        to the next, and if the position itself will not go it is tried
        inverted, which is a different tree -- that is the cheap end of what
        Rokicki does on six axes. *)
-    let p1cap = 200000 in
+    let p1cap = getenvi "ROWP1CAP" 200000 in
     let tried = ref 0 in
     (* phase one takes it into H, phase two the rest of the way *)
     let rec p1 d togo prev mask =
@@ -1089,13 +1239,40 @@ let () =
     (* a move undone, and a word undone: play it backwards, each move the
        other way *)
     let invmv m = 3 * (m / 3) + (2 - m mod 3) in
+    (* SIX AXES: the three axes, each way round.  The word comes back in the
+       frame of the axis it was found on and is renamed on the way out; if
+       the position was solved inverted the word is played backwards, each
+       move the other way. *)
     let solve20 q =
-      match solve1 q with
-      | Some w -> Some w
-      | None ->
-        (match solve1 (inv q) with
-         | Some w -> Some (List.rev_map invmv w)
-         | None -> None) in
+      let rec go i =
+        if i >= Array.length axes then None
+        else begin
+          let a = axes.(i) in
+          let qa = mult (mult (inv a) q) a in
+          match solve1 qa with
+          | Some w -> Some (List.map (axmv i) w)
+          | None ->
+            (match solve1 (inv qa) with
+             | Some w -> Some (List.rev_map (fun m -> axmv i (invmv m)) w)
+             | None -> go (i + 1))
+        end in
+      go 0 in
+    (* The phase one distance, on each axis and each way round.  It is the
+       number that decides everything: twenty less the smallest of the six is
+       all phase two has to work in, and a member of H usually wants fourteen
+       to sixteen moves of H. *)
+    let d1 c = mdist (Bigarray.Array1.unsafe_get p_msk
+        ((twist c * n_flip + flip c) * n_slice + slice c)) in
+    let axd q =
+      let l = ref [] in
+      for i = Array.length axes - 1 downto 0 do
+        let a = axes.(i) in
+        let qa = mult (mult (inv a) q) a in
+        l := d1 qa :: d1 (inv qa) :: !l
+      done;
+      !l in
+    let axds q = String.concat " " (List.map string_of_int (axd q)) in
+    let axdmin q = List.fold_left min 99 (axd q) in
     (* a move, written the usual way, so a witness can be read by eye        *)
     let _ = () in
     let mvname m =
@@ -1119,10 +1296,7 @@ let () =
        let q = ref (solved ()) in
        List.iter (fun m -> q := mult !q moves.(m)) (parse_moves v);
        let q = !q in
-       let d1 c = mdist (Bigarray.Array1.unsafe_get p_msk
-           ((twist c * n_flip + flip c) * n_slice + slice c)) in
-       Printf.printf "scramble : phase one %d, inverted %d\n%!"
-         (d1 q) (d1 (inv q));
+       Printf.printf "scramble : phase one, six axes, %s\n%!" (axds q);
        (match solve20 q with
         | Some w when solves q w ->
           Printf.printf "%d moves : %s\n"
@@ -1135,10 +1309,8 @@ let () =
     (match rowplace with
      | Some (pg, g, b) ->
        let q = mult irep (unplace pg g b) in
-       let d1 c = mdist (Bigarray.Array1.unsafe_get p_msk
-           ((twist c * n_flip + flip c) * n_slice + slice c)) in
-       Printf.printf "place %d %d %d : phase one %d, inverted %d\n%!"
-         pg g b (d1 q) (d1 (inv q));
+       Printf.printf "place %d %d %d : phase one, six axes, %s\n%!"
+         pg g b (axds q);
        (match solve20 q with
         | Some w when solves q w ->
           Printf.printf "%d moves : %s\n"
@@ -1180,11 +1352,10 @@ let () =
                  (* say WHY: the phase one distance is what phase two is left
                     to work in, and an element of H usually wants fourteen to
                     sixteen moves of H *)
-                 let d1 c = mdist (Bigarray.Array1.unsafe_get p_msk
-                     ((twist c * n_flip + flip c) * n_slice + slice c)) in
-                 let a = d1 q and b' = d1 (inv q) in
                  Printf.printf
-                   "LEFT %d %d %d NONE   # phase one %d, inverted %d, leaves %d for phase two\n" pg g b a b' (20 - min a b'));
+                   "LEFT %d %d %d NONE   # phase one, six axes, %s, \
+                    leaves %d for phase two\n" pg g b (axds q)
+                   (20 - axdmin q));
               Printf.printf "   %d done, %d without a word, %.1f s\n%!"
                 !seen !bad (Unix.gettimeofday () -. t1);
               if rowleft > 0 && !seen >= rowleft then raise Exit
