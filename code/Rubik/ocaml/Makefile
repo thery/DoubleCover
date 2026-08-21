@@ -190,6 +190,15 @@ ROWSOLVE  ?=
 export ROWPLACE
 export ROWSOLVE
 
+# The leftovers are solved on SIX AXES -- the three axes of the cube, each
+# way round -- because a position phase one cannot fit inside twenty from one
+# side is often shallow from another.  ROWP1CAP is how many phase one
+# solutions of a length are tried before going on to the next; a leftover is
+# deep, so most of them lead to an element of H that will not finish in what
+# is left.
+ROWP1CAP  ?=
+export ROWP1CAP
+
 # hcoset's `enoughbits': stop the last search level once the map holds this
 # many, and let the prepasses above it finish the row.  Its own rule at depth
 # 16 is 167 000 000 plus a third of what the level started with.
