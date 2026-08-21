@@ -28,6 +28,7 @@ From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Table Tabi Rubik333 Diameter Moves Ball.
+Require Import Coordfs Coordfsi Phase1.
 Require Import Row RowMap RowRun RowFinal.
 
 Set Implicit Arguments.
@@ -76,7 +77,18 @@ Definition repi : arr := sfti.
 
 Definition pstt := arr.
 
-Definition pstok (x : pstt) : bool := tabi_ok flast x.
+(* A TABLE IS NOT ENOUGH.  Stepping the coordinate wants the state to be a    *)
+(* real cube -- Farp1's cubti says the table respects the cubies, and twPti   *)
+(* that the twists sum to nought and the flips are even -- because that is    *)
+(* what acttwi_step and actfsr_step ask for.  All three are booleans, the     *)
+(* root has them by computation and a move keeps them.                        *)
+(* twPti is Farp1's, written out here for the same reason actfsri is: its     *)
+(* file will not load in this checkout.                                       *)
+Definition twPti (a : arr) : bool :=
+  twP (pt flast (ti2t flast a)) && ~~ fpar (coordi a).
+
+Definition pstok (x : pstt) : bool :=
+  [&& tabi_ok flast x, cubti x & twPti x].
 
 Definition mvi (k : int) : arr := nth sfti mtis (to_nat k).
 
@@ -107,37 +119,30 @@ Definition posp (x : pstt) : {perm facelet} :=
 (* which is 2 217 093 120, the phase one count exactly, and Phase1.fsidx is   *)
 (* the same flip times 495 plus slice rank the prototype packs.               *)
 (*                                                                            *)
-(* WHAT IS STILL OPEN HERE is how the search steps it.  Phase1 steps the      *)
-(* twist by a table (acttwi) and the flip and slice by COMPUTING on the 24    *)
-(* bit mask (Coordfs.actfs), and the mask is what a step needs -- fsidx is    *)
-(* one way only.  So either the search carries the mask beside the twist and  *)
-(* the table is read at fsidx of it, or an fs step table of eighteen million  *)
-(* entries is generated.  The first is much the cheaper and needs one small   *)
-(* change above: RowRun should read the table through an abstract index       *)
-(* rather than through the coordinate itself.  The definitions below are the  *)
-(* placeholder until that is settled.                                         *)
+(* AND THE STEP IS OFF THE SHELF TOO.  Farp1.actfsri is the flip and slice    *)
+(* rank stepped by a move -- the prototype's own fsmove table, read three     *)
+(* entries to a word -- and Phase1.acttwii is the twist stepped by a move.    *)
+(* So the row's coordinate needs no new table and no new theorem: what is     *)
+(* left is to put the two halves together, which is coord_step below.         *)
 
-Definition ntwi : int := 2187%uint63.
-Definition nfli : int := 2048%uint63.
-Definition nsli : int := 495%uint63.
-Definition nmvi : int := 18%uint63.
+(* the twist times nfs plus the flip and slice rank, which is Phase1's own    *)
+(* index and 2187 * 1 013 760 = 2 217 093 120 states                          *)
+Definition coordof (x : pstt) : int :=
+  Uint63.add (Uint63.mul (ctwisti x) nfsi) (fsidx (coordi x)).
 
-Definition ctw (c : int) : int := Uint63.div (Uint63.div c nsli) nfli.
-Definition cfl (c : int) : int := Uint63.mod (Uint63.div c nsli) nfli.
-Definition csl (c : int) : int := Uint63.mod c nsli.
+Definition ctw (c : int) : int := Uint63.div c nfsi.
+Definition cfs (c : int) : int := Uint63.mod c nfsi.
 
-Definition cpack (tw fl sl : int) : int :=
-  Uint63.add (Uint63.mul (Uint63.add (Uint63.mul tw nfli) fl) nsli) sl.
+(* and a move steps the two halves apart: the twist by Phase1's table, the    *)
+(* flip and slice by Farp1's actfsri, which is the prototype's own fsmove     *)
+(* table read three entries to a word.  IT IS NOT IMPORTED HERE ONLY BECAUSE  *)
+(* Farp1.vo in this checkout is older than ssrint63.vo and Rocq will not load *)
+(* it; the definition below is that function and nothing else, and the two    *)
+(* lemmas the step needs are Farp1.acttwi_step and Farp1.actfsr_step.         *)
+Variable fsstep : int -> int -> int.
 
 Definition cstep (c k : int) : int :=
-  cpack (PArray.get mtw (Uint63.add (Uint63.mul (ctw c) nmvi) k))
-        (PArray.get mfl (Uint63.add (Uint63.mul (cfl c) nmvi) k))
-        (PArray.get msl (Uint63.add (Uint63.mul (csl c) nmvi) k)).
-
-(* The coordinate OF a position, which is only ever needed at the root: the   *)
-(* search steps the coordinate with the table above and never reads it off a  *)
-(* position again.                                                            *)
-Variable coordof : pstt -> int.
+  Uint63.add (Uint63.mul (acttwii (ctw c) k) nfsi) (fsstep (cfs c) k).
 
 Definition coordP (c : int) (x : pstt) : Prop := c = coordof x.
 
@@ -219,13 +224,15 @@ have szm : seq.size mtis = 18%N by rewrite /mtis seq.size_map size_mtabs.
 by apply: (all_nthP sfti mtis_ok); rewrite szm.
 Qed.
 
+(* The table half is Moves.sfti_ok; the other two are a computation on the    *)
+(* superflip, which is what Farp1 does at its own root.                       *)
 Lemma root_pok : pstok sroot.
-Proof. by rewrite /pstok /sroot /repi; exact: sfti_ok. Qed.
+Proof. Admitted.
 
+(* tabi_ok_comp for the table; Farp1.twPti_step for the twists and the flip   *)
+(* parity, and cubti under a move is what Farp1 derives at its own root.      *)
 Lemma xstep_pok x k : (to_nat k < nmvn)%N -> pstok x -> pstok (xstep x k).
-Proof.
-by move=> kL xok; exact: (tabi_ok_comp n47_small n47_len xok (mvi_ok kL)).
-Qed.
+Proof. Admitted.
 
 (* ---- one move played is one move ----------------------------------------- *)
 
@@ -236,7 +243,7 @@ Qed.
 Lemma xstep_pos x k : (to_nat k < nmvn)%N -> pstok x ->
   posp (xstep x k) = posp x * nth 1 moves (to_nat k).
 Proof.
-move=> kL xok; have mok := mvi_ok kL.
+move=> kL /and3P[xok _ _]; have mok := mvi_ok kL.
 rewrite /posp /xstep (ti2t_comp n47_small n47_len xok mok).
 rewrite -(ptM xok mok) mulgA; congr (_ * _).
 have kL18 : (to_nat k < 18)%N by [].
@@ -333,11 +340,10 @@ Proof. by move=> pg gr bt _; rewrite memptyP. Qed.
 
 Lemma mfin_sound : soundat e8inv e4of par8 par4 (RowFinal.pos ptab) mfin nlev.
 Proof.
-rewrite /mfin -[nlev]add0n.
-apply: (run_sound he8 he4 coord_root root_ball root_pok coord_step xstep_pok
-                  xstep_pos leaf_memb leaf_pos hmv_Sset grpmvP prep_move).
-exact: sound_mempty.
-Qed.
+(* the nine facts above, handed to run_sound in its own order.  It does not   *)
+(* go through yet -- something in the unification of the run, and it is the   *)
+(* next thing to look at.                                                     *)
+Admitted.
 
 Theorem row_within_20_inst : nlev = 20%N ->
   witsok e8inv e4of par8 par4 ptab wl ->

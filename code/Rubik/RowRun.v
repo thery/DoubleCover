@@ -190,7 +190,7 @@ Hypothesis root_pok : pstok sroot.
 
 (* a move steps the coordinate and the position together, and keeps a table   *)
 (* a table                                                                    *)
-Hypothesis coord_step : forall c x k, (to_nat k < nmvn)%N ->
+Hypothesis coord_step : forall c x k, (to_nat k < nmvn)%N -> pstok x ->
   coordP c x -> coordP (cstep c k) (xstep x k).
 
 Hypothesis xstep_pok : forall x k, (to_nat k < nmvn)%N ->
@@ -326,7 +326,7 @@ case: ifP => _ //; case: ifP => _ //.
 (* and the lets stay in the definition because they are what stops the table  *)
 (* being read three times at every node.                                      *)
 cbv zeta; case: ifP => // hle.
-apply: (ih _ _ _ _ _ _ (coord_step hk hc) (xstep_pok hk hp) hle hm');
+apply: (ih _ _ _ _ _ _ (coord_step hk hp hc) (xstep_pok hk hp) hle hm');
     first by apply: ltnW.
 rewrite (@xstep_pos x k hk hp) -(subnSK hdt).
 by apply: ball_step => //; apply: mv_Sset; exact: hk.
