@@ -168,12 +168,12 @@ Definition witsok : bool := wgood wl.
 
 (* a bit the witness map has set has a witness behind it                      *)
 Lemma wmap_wit (l : seq (int * int * int * seq nat)) pg gr bt :
-  wgood l -> mtest (wmapof l) pg gr bt ->
+  inrng pg gr bt -> wgood l -> mtest (wmapof l) pg gr bt ->
   exists w, (seq.size w <= 20)%N /\ wok (unplc pg gr bt) w.
 Proof.
-elim: l => [|t l ih] /=; first by rewrite memptyP.
-case: t => [[[p g] b] w] /andP[/and3P[_ hs hw] hl] /mmarkP[].
-  by case=> <- <- <-; exists w.
+move=> hr; elim: l => [|t l ih] /=; first by rewrite memptyP.
+case: t => [[[p g] b] w] /andP[/and3P[hi hs hw] hl].
+case/(mmarkP hi hr) => [[<- <- <-]|]; first by exists w.
 by apply: ih.
 Qed.
 
@@ -198,9 +198,8 @@ have hu := unplace_place he8 he4 hx E.
 have hb : mtest (mor mfin wmap) pg gr bt by apply: mfullP.
 (* the side goal must be handed the range, not left to done: done unfolds     *)
 (* and evaluates, and what it would evaluate here is the map.                 *)
-rewrite (@morP mfin wmap pg gr bt hr) in hb.
-rewrite -hu; case/orP: hb => hb; first by apply: hs.
-have [w [hsz hok]] := wmap_wit hw hb.
+rewrite -hu; case/orP: (morP hb) => {}hb; first by apply: hs.
+have [w [hsz hok]] := wmap_wit hr hw hb.
 by apply: wokP hok hsz.
 Qed.
 
