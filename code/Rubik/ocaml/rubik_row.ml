@@ -1222,47 +1222,66 @@ let () =
           incr m
         done; !r
       end in
-    let solve1 q =
+    (* one length, one position: every phase one solution of that length is
+       tried, and each is finished inside what is left, until the budget for
+       the length runs out *)
+    let solve1 q l =
       Array.blit q.cp 0 cps.(0) 0 8;
       Array.blit q.ep 0 eps.(0) 0 12;
       tws.(0) <- twist q; fls.(0) <- flip q; sls.(0) <- slice q;
       out := None;
       let w0 = Bigarray.Array1.unsafe_get p_msk (ix 0) in
       let nd0 = mdist w0 in
-      let l = ref nd0 in
-      while !out = None && !l <= 20 do
+      if nd0 <= l then begin
         tried := 0;
-        ignore (p1 0 !l (-1) (mmask w0 (!l - nd0)));
-        incr l
-      done;
+        ignore (p1 0 l (-1) (mmask w0 (l - nd0)))
+      end;
       !out in
     (* a move undone, and a word undone: play it backwards, each move the
        other way *)
     let invmv m = 3 * (m / 3) + (2 - m mod 3) in
-    (* SIX AXES: the three axes, each way round.  The word comes back in the
-       frame of the axis it was found on and is renamed on the way out; if
-       the position was solved inverted the word is played backwards, each
-       move the other way. *)
+    (* the phase one distance of a position *)
+    let d1 c = mdist (Bigarray.Array1.unsafe_get p_msk
+        ((twist c * n_flip + flip c) * n_slice + slice c)) in
+    (* SIX AXES: the three axes of the cube, each way round.  A LENGTH IS
+       TRIED ON ALL SIX BEFORE IT IS RAISED, because a shorter phase one
+       leaves more room for phase two, and phase two is where these
+       positions are hard.  The word comes back in the frame of the axis it
+       was found on and is renamed on the way out; if the position was solved
+       inverted the word is played backwards, each move the other way.
+
+       ONE AXIS IS ALREADY EXHAUSTED for a leftover of the row: the row
+       itself is a two phase search on axis nought, complete up to the depth
+       the search reached.  What the other five buy is a different tree. *)
+    let rowtrace = match Sys.getenv_opt "ROWTRACE" with
+      | Some v -> v <> "" | None -> false in
     let solve20 q =
-      let rec go i =
-        if i >= Array.length axes then None
-        else begin
-          let a = axes.(i) in
-          let qa = mult (mult (inv a) q) a in
-          match solve1 qa with
-          | Some w -> Some (List.map (axmv i) w)
-          | None ->
-            (match solve1 (inv qa) with
-             | Some w -> Some (List.rev_map (fun m -> axmv i (invmv m)) w)
-             | None -> go (i + 1))
-        end in
-      go 0 in
+      let vars = Array.init 6 (fun k ->
+        let a = axes.(k / 2) in
+        let qa = mult (mult (inv a) q) a in
+        (k / 2, k mod 2 = 1, if k mod 2 = 0 then qa else inv qa)) in
+      let res = ref None and l = ref 0 in
+      let t0 = Unix.gettimeofday () in
+      while !res = None && !l <= 20 do
+        Array.iteri (fun k (i, invd, qq) ->
+          if !res = None && d1 qq <= !l then begin
+            (match solve1 qq !l with
+             | Some w ->
+               res := Some (if invd then List.rev_map (fun m -> axmv i (invmv m)) w
+                            else List.map (axmv i) w)
+             | None -> ());
+            if rowtrace then
+              Printf.printf "      length %d, axis %d%s: %d tried, %.1f s\n%!"
+                !l k (if !tried >= p1cap then " (gave up)" else "")
+                !tried (Unix.gettimeofday () -. t0)
+          end) vars;
+        incr l
+      done;
+      !res in
     (* The phase one distance, on each axis and each way round.  It is the
        number that decides everything: twenty less the smallest of the six is
        all phase two has to work in, and a member of H usually wants fourteen
        to sixteen moves of H. *)
-    let d1 c = mdist (Bigarray.Array1.unsafe_get p_msk
-        ((twist c * n_flip + flip c) * n_slice + slice c)) in
     let axd q =
       let l = ref [] in
       for i = Array.length axes - 1 downto 0 do
