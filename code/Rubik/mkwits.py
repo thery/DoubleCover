@@ -20,9 +20,29 @@ import sys
 
 
 def main() -> int:
+    # A place attacked on its own with ROWPLACE prints its place on one line
+    # and its word, written the usual way, on the next.  Read that too, so a
+    # place settled apart does not have to be folded in by hand.
+    faces = "URFDLB"
+
+    def mvnum(s):
+        f = faces.index(s[0])
+        a = 0 if len(s) == 1 else (1 if s[1] == "2" else 2)
+        return 3 * f + a
+
     wits = []
     nowords = []
+    place = None
     for line in sys.stdin:
+        if line.startswith("place "):
+            f = line.split()
+            place = (int(f[1]), int(f[2]), int(f[3]))
+            continue
+        if " moves : " in line and place is not None:
+            word = [mvnum(s) for s in line.split(" moves : ")[1].split()]
+            wits.append((place[0], place[1], place[2], word))
+            place = None
+            continue
         if not line.startswith("LEFT "):
             continue
         body = line.split("#")[0].split()
