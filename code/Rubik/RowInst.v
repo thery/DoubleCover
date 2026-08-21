@@ -17,9 +17,11 @@
 (* which is why the position is carried and not recomputed.                   *)
 (*                                                                            *)
 (* WHAT IS STILL OPEN is at the bottom, one Admitted lemma each, and each     *)
-(* says in its comment what it will take.  Three of them are checks a         *)
-(* generated table settles by computation; the rest are the bridge between    *)
-(* three ranks and a permutation of facelets, which is the real work.         *)
+(* says in its comment what it will take.  The easy end is closed: the root   *)
+(* is no moves out, a table stays a table, one move played is one move, and   *)
+(* the ten of H are ten of the eighteen.  What is left is one check on the    *)
+(* bit tables and the bridge between three ranks and a permutation of         *)
+(* facelets, which is the real work.                                          *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
@@ -199,9 +201,7 @@ Variable wl : seq (int * int * int * seq nat).
 
 (* The root is the representative, so no moves have been played.              *)
 Lemma root_ball : posp sroot \in ball Sset 0.
-Proof.
-(* posp sroot = superflip^-1 * superflip = 1, and ball _ 0 is 1.              *)
-Admitted.
+Proof. by rewrite /posp /sroot /repi -sftiE mulVg ball0; exact: set11. Qed.
 
 (* The root's coordinate is the root's coordinate.                            *)
 Lemma coord_root : coordP croot sroot.
@@ -211,13 +211,21 @@ Proof. by []. Qed.
 (* to be tables -- Moves.mtis is [seq t2ti mt | mt <- mtabs] and mtabs_ok     *)
 (* says every one of them is.                                                 *)
 Lemma mvi_ok k : (to_nat k < nmvn)%N -> tabi_ok flast (mvi k).
-Proof. Admitted.
+Proof.
+(* allP would want an eqType and an array is not one, so the walk is read     *)
+(* with all_nthP, which takes a default element and no equality at all.       *)
+move=> kL; rewrite /mvi.
+have szm : seq.size mtis = 18%N by rewrite /mtis seq.size_map size_mtabs.
+by apply: (all_nthP sfti mtis_ok); rewrite szm.
+Qed.
 
 Lemma root_pok : pstok sroot.
-Proof. Admitted.
+Proof. by rewrite /pstok /sroot /repi; exact: sfti_ok. Qed.
 
 Lemma xstep_pok x k : (to_nat k < nmvn)%N -> pstok x -> pstok (xstep x k).
-Proof. Admitted.
+Proof.
+by move=> kL xok; exact: (tabi_ok_comp n47_small n47_len xok (mvi_ok kL)).
+Qed.
 
 (* ---- one move played is one move ----------------------------------------- *)
 
@@ -227,7 +235,15 @@ Proof. Admitted.
 (* carrying tabi_ok through, which is what pstok is for.                      *)
 Lemma xstep_pos x k : (to_nat k < nmvn)%N -> pstok x ->
   posp (xstep x k) = posp x * nth 1 moves (to_nat k).
-Proof. Admitted.
+Proof.
+move=> kL xok; have mok := mvi_ok kL.
+rewrite /posp /xstep (ti2t_comp n47_small n47_len xok mok).
+rewrite -(ptM xok mok) mulgA; congr (_ * _).
+have kL18 : (to_nat k < 18)%N by [].
+have szm : (to_nat k < seq.size mtis)%N.
+  by rewrite /mtis seq.size_map size_mtabs.
+by rewrite (mvtE kL18) /mvt -ti2t_mtis /mvi (nth_map sfti _ _ szm).
+Qed.
 
 (* ---- the coordinate steps with the position ------------------------------ *)
 
@@ -266,7 +282,11 @@ Proof. Admitted.
 
 (* The ten of H are ten of the eighteen: a computation on ten numbers.        *)
 Lemma hmv_Sset k : (to_nat k < nhn)%N -> hmv k \in Sset.
-Proof. Admitted.
+Proof.
+move=> kL; rewrite /hmv; apply: mv_Sset; rewrite /hmvi.
+have hall : all (fun m => (m < 18)%N) hmvn by vm_compute.
+by apply: (all_nthP 0%N hall).
+Qed.
 
 (* A CHECK, and a small one: the rearrangement of a group is a permutation    *)
 (* of its twenty four bits, and btmvt says which.  It is enough to know it of *)
