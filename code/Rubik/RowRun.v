@@ -178,26 +178,36 @@ Definition soundat (m : rmap) (d : nat) : Prop :=
 
 Variable coordP : int -> pst -> Prop.
 
+(* WHAT THE SEARCH CARRIES IS A TABLE, and a table has to be a permutation    *)
+(* for playing a move on it to mean anything.  pstok is that, and it is an    *)
+(* invariant: the root has it and a move keeps it.                            *)
+Variable pstok : pst -> bool.
+
 (* the root of the search is the row's representative, no moves out           *)
 Hypothesis coord_root : coordP croot sroot.
 Hypothesis root_ball : posp sroot \in ball Sset 0.
+Hypothesis root_pok : pstok sroot.
 
-(* a move steps the coordinate and the position together                      *)
+(* a move steps the coordinate and the position together, and keeps a table   *)
+(* a table                                                                    *)
 Hypothesis coord_step : forall c x k, (to_nat k < nmvn)%N ->
   coordP c x -> coordP (cstep c k) (xstep x k).
 
+Hypothesis xstep_pok : forall x k, (to_nat k < nmvn)%N ->
+  pstok x -> pstok (xstep x k).
+
 (* and what it plays is the k-th move                                         *)
-Hypothesis xstep_pos : forall x k, (to_nat k < nmvn)%N ->
+Hypothesis xstep_pos : forall x k, (to_nat k < nmvn)%N -> pstok x ->
   posp (xstep x k) = posp x * nth 1 moves (to_nat k).
 
 (* WHERE THE DISTANCE IS NOUGHT the position is in H, and only there do the   *)
 (* three ranks the search reads off mean anything: outside H the edges are    *)
 (* mixed between the outer eight and the middle four, and there is no outer   *)
 (* permutation to rank.  So both of the last two carry that premise.          *)
-Hypothesis leaf_memb : forall c x, coordP c x ->
+Hypothesis leaf_memb : forall c x, coordP c x -> pstok x ->
   wdist (p1get c) = 0%uint63 -> membok par8 par4 (tomemb x).
 
-Hypothesis leaf_pos : forall c x, coordP c x ->
+Hypothesis leaf_pos : forall c x, coordP c x -> pstok x ->
   wdist (p1get c) = 0%uint63 -> pos (tomemb x) = posp x.
 
 (* ---- and the bridge for the prepass -------------------------------------- *)
@@ -285,17 +295,17 @@ Qed.
 (* runs deeper than the level it is at, and never enters a node the table has *)
 (* put further from H than the moves it has left.                             *)
 Lemma srch_sound togo c x msk pv m d :
-  (togo <= d)%N -> coordP c x ->
+  (togo <= d)%N -> coordP c x -> pstok x ->
   (to_nat (wdist (p1get c)) <= togo)%N ->
   soundat m d -> posp x \in ball Sset (d - togo) ->
   soundat (srch togo c x msk pv m) d.
 Proof.
-elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hnd hm hb.
+elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hp hnd hm hb.
   (* a leaf: the distance is nought, so the position is in H and the three    *)
   (* ranks the search reads off are the member it stands for                  *)
   have h0 : wdist (p1get c) = 0%uint63.
     by apply: to_nat_inj; rewrite to_nat_0; apply/eqP; rewrite -leqn0.
-  have hok := leaf_memb hc h0.
+  have hok := leaf_memb hc hp h0.
   rewrite /=.
   have E : plc (tomemb x) =
       (mcp (tomemb x),
@@ -304,7 +314,7 @@ elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hnd hm hb.
   move=> pg' gr' bt' hr ht.
   case: (mmarkP (place_range he8 he4 hok E) hr ht) => [[<- <- <-]|hb2];
     last by apply: hm.
-  rewrite /wthn (unplace_place he8 he4 hok E) (leaf_pos hc h0).
+  rewrite /wthn (unplace_place he8 he4 hok E) (leaf_pos hc hp h0).
   by move: hb; rewrite subn0.
 (* a step: the same map, one move further out                                 *)
 apply: (@ifold_indi _ (fun m' => soundat m' d)); [| |exact: hm].
@@ -316,8 +326,9 @@ case: ifP => _ //; case: ifP => _ //.
 (* and the lets stay in the definition because they are what stops the table  *)
 (* being read three times at every node.                                      *)
 cbv zeta; case: ifP => // hle.
-apply: (ih _ _ _ _ _ _ (coord_step hk hc) hle hm'); first by apply: ltnW.
-rewrite (@xstep_pos x k hk) -(subnSK hdt).
+apply: (ih _ _ _ _ _ _ (coord_step hk hc) (xstep_pok hk hp) hle hm');
+    first by apply: ltnW.
+rewrite (@xstep_pos x k hk hp) -(subnSK hdt).
 by apply: ball_step => //; apply: mv_Sset; exact: hk.
 Qed.
 
@@ -331,7 +342,7 @@ Proof.
 move=> hm; rewrite /level.
 have hp := prepass_sound hm.
 case: ifP => _ //; case: ifP => hnd //.
-apply: (srch_sound _ coord_root hnd hp) => //.
+apply: (srch_sound _ coord_root root_pok hnd hp) => //.
 by rewrite subnn.
 Qed.
 
