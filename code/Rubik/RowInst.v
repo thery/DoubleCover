@@ -60,9 +60,6 @@ Variable mpg mgr msw mlo mhi : arr.
 (* where a move of H sends a bit, twenty four of them for each of the ten     *)
 Variable btmvt : arr.
 
-(* the phase one coordinate, move by move: twists, flips, slices              *)
-Variable mtw mfl msl : arr.
-
 (* and the phase one table itself, chunked like every other big table         *)
 Variable p1 : PArray.array arr.
 
