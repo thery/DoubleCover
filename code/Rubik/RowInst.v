@@ -16,12 +16,11 @@
 (* so far, starting at the superflip.  A move is one composition of tables,   *)
 (* which is why the position is carried and not recomputed.                   *)
 (*                                                                            *)
-(* WHAT IS STILL OPEN is at the bottom, one Admitted lemma each, and each     *)
-(* says in its comment what it will take.  The easy end is closed: the root   *)
-(* is no moves out, a table stays a table, one move played is one move, and   *)
-(* the ten of H are ten of the eighteen.  What is left is one check on the    *)
-(* bit tables and the bridge between three ranks and a permutation of         *)
-(* facelets, which is the real work.                                          *)
+(* NOTHING IS ADMITTED HERE.  What the file cannot know it ASKS FOR, as a     *)
+(* hypothesis beside the table it is about, and there are twelve of them:     *)
+(* four checks on the tables, one on the fs step table, two saying what a     *)
+(* leaf is, two saying what the prepass tables do to a member, the member's   *)
+(* table being a permutation, and the two the run itself settles.             *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
@@ -296,7 +295,19 @@ Qed.
 (* superflip as Reid's twenty moves, so this is twenty steps and no thought.  *)
 (* Better still would be twP of everything in G, by induction over the ball.  *)
 Lemma twP_superflip : twP superflip.
-Proof. Admitted.
+Proof.
+(* twP of everything in G, and the superflip is in G.  The induction is over  *)
+(* the ball, so it needs no word for the superflip at all -- superflipE and   *)
+(* its twenty moves never come into it.                                       *)
+suff hG : forall g, g \in G -> twP g by apply: hG; exact: superflip_in_G.
+move=> g /mem_gen_ball[n]; elim: n g => [g|n ih g].
+  by rewrite ball0 inE => /eqP->; exact: twP1.
+rewrite /= inE => /orP[/ih//|/mulsgP[b m bB mS ->]].
+have mI : m \in moves by move: mS; rewrite inE.
+have kL : (index m moves < seq.size moves)%N by rewrite index_mem.
+rewrite size_moves in kL.
+by rewrite -(nth_index 1 mI) (mvtE kL); apply: twPM => //; apply: ih.
+Qed.
 
 (* and the rest of the root is three computations: the table is a table, the  *)
 (* cubies are cubies, and the flips are even                                  *)
@@ -336,7 +347,20 @@ Qed.
 (* the invariant it belongs to; Farp1.twPti_step is the same statement.       *)
 Lemma fpar_step x k : (to_nat k < nmvn)%N -> tabi_ok flast x -> cubti x ->
   ~~ fpar (coordi x) -> ~~ fpar (coordi (xstep x k)).
-Proof. Admitted.
+Proof.
+(* the summary of a position moved is the summary moved, and a move does not  *)
+(* touch the parity of the flips -- Coordfs.coordfsM and Phase1.fpar_actfsS   *)
+move=> kL xok cx fp.
+have mok := mvi_ok kL.
+have cok := tabi_ok_comp n47_small n47_len xok mok.
+have cg : cubP (pt flast (ti2t flast x)) by rewrite (cubtE xok) -(cubtiE xok).
+have cm : cubP (nth 1 moves (to_nat k)) by apply: moves_cubP; apply: mv_Sset.
+have -> : coordi (xstep x k) = actfs (coordi x) (nth 1 moves (to_nat k)).
+  rewrite (coordiE cok) -(coordtE cok) (coordiE xok) -(coordtE xok).
+  rewrite (ti2t_comp n47_small n47_len xok mok) -(ptM xok mok) mviE //.
+  by rewrite (coordfsM cg cm).
+by rewrite (fpar_actfsS _ (mv_Sset kL)).
+Qed.
 
 Lemma xstep_pok x k : (to_nat k < nmvn)%N -> pstok x -> pstok (xstep x k).
 Proof.
@@ -381,7 +405,23 @@ Hypothesis fsstepP : forall x k, (to_nat k < nmvn)%N -> pstok x ->
 
 Lemma twstepP x k : (to_nat k < nmvn)%N -> pstok x ->
   acttwii (ctwisti x) k = ctwisti (xstep x k).
-Proof. Admitted.
+Proof.
+(* the twist of a position moved is the twist moved: Phase1's acttwiE turns   *)
+(* the table into the action and coordtw_stepP says the coordinate is one.    *)
+(* That is where twP is spent, which is why the state carries it.             *)
+move=> kL /and3P[xok cx tx].
+have kL18 : (to_nat k < 18)%N by [].
+have mok := mvi_ok kL.
+have cok := tabi_ok_comp n47_small n47_len xok mok.
+have tw : twP (pt flast (ti2t flast x)) by move: tx; rewrite /twPti => /andP[].
+have hlt : (to_nat (ctwisti x) < ntwist)%N.
+  by rewrite (ctwistiE xok) -(ctwisttE xok); apply: coordtw_lt.
+rewrite -{1}(to_natK k) acttwiiE (acttwiE hlt kL18).
+rewrite (ctwistiE xok) -(ctwisttE xok) -(coordtw_stepP kL18 tw).
+rewrite (ctwistiE cok) -(ctwisttE cok).
+by rewrite (ti2t_comp n47_small n47_len xok mok) -(ptM xok mok) mviE //
+           (mvtE kL18).
+Qed.
 
 (* ---- and the packing comes apart again ----------------------------------- *)
 
@@ -390,7 +430,7 @@ Proof. Admitted.
 
 Lemma nfsi_pow : (to_nat nfsi <= 2 ^ 20)%N.
 Proof.
-(* an inequality between powers must go through leq_exp2l: left to done it   *)
+(* an inequality between powers must go through leq_exp2l: left to done it    *)
 (* builds 2 ^ 20 in unary and overflows the stack.                            *)
 rewrite nfsiE; apply: leq_trans (_ : 2 ^ 11 * 2 ^ 9 <= _)%N.
   by apply: leq_mul.
@@ -466,7 +506,7 @@ have -> : cfs (coordof x) = fsidx (coordi x).
 by rewrite (twstepP kL px) (fsstepP kL px).
 Qed.
 
-(* ---- what a member's table is ------------------------------------------- *)
+(* ---- what a member's table is -------------------------------------------  *)
 
 (* The position a member stands for is the superflip undone and the member    *)
 (* put back, and that is all pos ever is here.                                *)
@@ -479,19 +519,17 @@ Qed.
 
 (* ---- a leaf is a member -------------------------------------------------- *)
 
-(* THE HARD END, and both halves of it are the same fact: a distance of       *)
-(* nought in the phase one table means the position is IN H, and only there   *)
-(* do three ranks mean anything -- outside H the edges are mixed between the  *)
-(* outer eight and the middle four and there is no outer permutation to rank. *)
+(* WHAT A LEAF OWES, and there is no proving it here: tomemb is a function    *)
+(* this file is handed, so what it does is a fact the instance supplies, like *)
+(* the tables.  Both facts carry the same premise -- a distance of nought in  *)
+(* the phase one table, which is what says the position is IN H, and only     *)
+(* there do three ranks mean anything: outside H the edges are mixed between  *)
+(* the outer eight and the middle four and there is no outer permutation to   *)
+(* rank.                                                                      *)
 (*                                                                            *)
-(* So each of these two needs, first, that the table's nought is exactly H    *)
-(* (which is what the table is for and is a property of the generated data),  *)
-(* and then the cubie to facelet bridge again: leaf_memb is the parity        *)
-(* invariant of the cube, leaf_pos is that the three ranks put the position   *)
-(* back together.                                                             *)
-Lemma leaf_memb c x : coordP c x -> pstok x ->
+(* The first is the parity invariant of the cube read off the three ranks.    *)
+Hypothesis leaf_memb : forall c x, coordP c x -> pstok x ->
   wdist (p1get p1 c) = 0%uint63 -> membok par8 par4 (tomemb x).
-Proof. Admitted.
 
 (* AND THIS ONE COMES APART.  What a leaf owes is that the three ranks put    *)
 (* the position back together -- and once they do, the rest is posE: the      *)

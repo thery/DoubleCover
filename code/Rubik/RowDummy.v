@@ -65,6 +65,36 @@ Proof. Admitted.
 Lemma d_memb2tab_ok x : tab_ok flast (dmemb x).
 Proof. Admitted.
 
+(* ---- and the five the tables would settle -------------------------------- *)
+
+(* What a leaf is, what the fs step table does, and what the prepass tables   *)
+(* do.  On the real tables the first is a certificate the lower bound has     *)
+(* already run and the others are the cubie to facelet bridge; on a dummy     *)
+(* none of them holds.                                                        *)
+
+Lemma d_fsstepP x k : (to_nat k < RowRun.nmvn)%N -> pstok x ->
+  dstep (fsidx (coordi x)) k = fsidx (coordi (xstep x k)).
+Proof. Admitted.
+
+Lemma d_leaf_memb c x : coordP c x -> pstok x ->
+  wdist (p1get dm c) = 0%uint63 -> membok d1 d1 (dtomemb x).
+Proof. Admitted.
+
+Lemma d_tomemb_tab c x : coordP c x -> pstok x ->
+  wdist (p1get dm c) = 0%uint63 ->
+  pt flast (dmemb (dtomemb x)) = pt flast (ti2t flast x).
+Proof. Admitted.
+
+Lemma d_prep_range k pg gr bt : (to_nat k < nhn)%N -> inrange pg gr bt ->
+  inrange (pgmv d1 k pg) (grmv d1 k gr) (btmv d1 k bt).
+Proof. Admitted.
+
+Lemma d_memb2tab_move k pg gr bt : (to_nat k < nhn)%N -> inrange pg gr bt ->
+  pt flast (dmemb (unplace d1 d1 d1 d1
+                     (pgmv d1 k pg) (grmv d1 k gr) (btmv d1 k bt)))
+  = pt flast (dmemb (unplace d1 d1 d1 d1 pg gr bt)) * hmv k.
+Proof. Admitted.
+
 (* and the two the computation would settle: the witnesses do what they say,  *)
 (* and the map and they together leave no bit clear                           *)
 Lemma d_witsok : witsok d1 d1 d1 d1 (ptab dmemb) dwl.
@@ -73,11 +103,12 @@ Proof. Admitted.
 Lemma d_full : mfull (mor dfin (wmap dwl)).
 Proof. Admitted.
 
-(* ---- and the row ---------------------------------------------------------- *)
+(* ---- and the row ----------------------------------------------------------*)
 
 Theorem dummy_row_within_20 x :
   membok d1 d1 x -> wthn (RowFinal.pos (ptab dmemb)) 20 x.
 Proof.
 apply: (row_within_20_inst d_e8ok d_e4ok d_memb2tab_ok d_srcok d_halfok
-                           (erefl 20%N) d_witsok d_full).
+                           d_fsstepP d_leaf_memb d_tomemb_tab d_prep_range
+                           d_memb2tab_move (erefl 20%N) d_witsok d_full).
 Qed.
