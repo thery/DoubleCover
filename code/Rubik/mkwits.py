@@ -21,13 +21,14 @@ import sys
 
 def main() -> int:
     wits = []
+    nowords = []
     for line in sys.stdin:
         if not line.startswith("LEFT "):
             continue
         body = line.split("#")[0].split()
         if len(body) < 5 or body[4] == "NONE":
-            print("a leftover with no word: " + line.strip(), file=sys.stderr)
-            return 1
+            nowords.append(line.strip())
+            continue
         pg, gr, bt, n = (int(x) for x in body[1:5])
         word = [int(x) for x in body[5:]]
         if len(word) != n or n > 20:
@@ -37,6 +38,15 @@ def main() -> int:
             print("a move out of range: " + line.strip(), file=sys.stderr)
             return 1
         wits.append((pg, gr, bt, word))
+
+    # every one of them, not just the first: a place with no word is a place
+    # to attack on its own with ROWPLACE, and it is worth seeing them all
+    if nowords:
+        for l in nowords:
+            print(l, file=sys.stderr)
+        print("%d leftover(s) with no word of twenty, %d with one"
+              % (len(nowords), len(wits)), file=sys.stderr)
+        return 1
 
     if not wits:
         print("no leftover in the log", file=sys.stderr)
