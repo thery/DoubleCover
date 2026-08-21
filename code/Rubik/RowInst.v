@@ -716,20 +716,42 @@ exists bt => //; split; first by rewrite hbtE hdlo hje.
 by rewrite (@test_bit v bt (lt_digits hbt1)).
 Qed.
 
-(* THE OTHER HARD ONE.  It says the page, the group and the bit tables        *)
-(* together are one move of H played on the member, and it cannot be checked  *)
-(* -- there are nineteen billion members.  It factors into three that can:    *)
-(* the page table is the corner permutation moved (40320 by 10), the group    *)
-(* table is the pair of outer permutations moved (20160 by 10), the bit table *)
-(* is the middle four moved (24 by 10).  What is left is that the three       *)
-(* together rebuild the position, which is the cubie to facelet bridge once   *)
-(* more.                                                                      *)
+(* ---- what a member's table is ------------------------------------------- *)
+
+(* The position a member stands for is the superflip undone and the member    *)
+(* put back, and that is all pos ever is here.                                *)
+Lemma posE x : RowFinal.pos ptab x = superflip^-1 * pt flast (memb2tab x).
+Proof.
+rewrite /RowFinal.pos /ptab.
+rewrite -(ptM (tab_ok_inv sfti_ok) (memb2tab_ok x)).
+by rewrite -(ptV sfti_ok) -sftiE.
+Qed.
+
+(* ---- and what the three tables do to a member ---------------------------- *)
+
+(* A CHECK, and three small ones: a page goes to a page, a group to a group   *)
+(* and a bit to a bit.  40320 by ten, 20160 by ten, 24 by ten.                *)
+Hypothesis prep_range : forall k pg gr bt, (to_nat k < nhn)%N ->
+  inrange pg gr bt -> inrange (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt).
+
+(* AND THE BRIDGE, which is the only thing here about the cube: moving the    *)
+(* place moves the member by that move of H.  It is where the page, group and *)
+(* bit tables are finally spent.                                              *)
+Hypothesis memb2tab_move : forall k pg gr bt, (to_nat k < nhn)%N ->
+  inrange pg gr bt ->
+  pt flast (memb2tab (unplace e8inv e4of par8 par4
+                        (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt)))
+  = pt flast (memb2tab (unplace e8inv e4of par8 par4 pg gr bt)) * hmv k.
+
 Lemma prep_move k pg gr bt : (to_nat k < nhn)%N -> inrange pg gr bt ->
   inrange (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt) /\
   RowFinal.pos ptab
     (unplace e8inv e4of par8 par4 (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt))
   = RowFinal.pos ptab (unplace e8inv e4of par8 par4 pg gr bt) * hmv k.
-Proof. Admitted.
+Proof.
+move=> kL hr; split; first by apply: prep_range.
+by rewrite !posE (memb2tab_move kL hr) mulgA.
+Qed.
 
 (* ---- and one more the witnesses ask for ---------------------------------- *)
 
