@@ -458,9 +458,15 @@ Definition himv (k v : int) : int :=
 Definition lo12 : int := 4095%uint63.
 
 (* one group, moved                                                           *)
+(* THE HIGH HALF IS MASKED TOO.  Without it a word with a bit above the       *)
+(* twenty fourth indexes mhi inside ANOTHER move's block of four thousand and *)
+(* gives back that move's rearrangement -- and no check on the tables can     *)
+(* repair it, since those entries are the other move's real data.  The        *)
+(* prototype never meets it because it keeps the two halves in two arrays;    *)
+(* packing them into one word is this side's own doing, so the mask is too.   *)
 Definition grpmv (k v : int) : int :=
   let l := lomv k (Uint63.land v lo12) in
-  let h := himv k (Uint63.lsr v 12%uint63) in
+  let h := himv k (Uint63.land (Uint63.lsr v 12%uint63) lo12) in
   if Uint63.eqb (PArray.get msw k) 0%uint63
   then Uint63.lor l (Uint63.lsl h 12%uint63)
   else Uint63.lor h (Uint63.lsl l 12%uint63).
