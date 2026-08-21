@@ -82,6 +82,15 @@ apply: to_nat_inj; rewrite to_nat_advn to_nat_0 add0n.
 by rewrite modn_small // to_nat_bounded.
 Qed.
 
+(* one step of the walk, from either end                                      *)
+Lemma advnS j x :
+  Uint63.add (advn j x) 1%uint63 = advn j (Uint63.add x 1%uint63).
+Proof. by elim: j x => [|j ih] x //=; rewrite ih. Qed.
+
+(* where the walk stands after i steps, as a number                           *)
+Lemma to_nat_advn0 i : (i < nwB)%N -> to_nat (advn i 0%uint63) = i.
+Proof. by move=> h; rewrite to_nat_advn to_nat_0 add0n modn_small. Qed.
+
 (* the form the checks are used in: a walk from nought settles every int the  *)
 (* walk is long enough to reach                                               *)
 Lemma iter_at n f x : iter n 0%uint63 f -> (to_nat x < n)%N -> f x.

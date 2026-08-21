@@ -46,6 +46,29 @@ Proof.
 by move=> hf; elim: n x a => [|n ih] x a //= ha; apply: ih; apply: hf.
 Qed.
 
+(* the same, when the step is only good for the numbers the walk reaches --   *)
+(* which is how the eighteen moves are read off a walk of eighteen            *)
+Lemma ifold_indg (A : Type) (P : A -> Prop) n j f a :
+  (j + n <= nwB)%N ->
+  (forall k b, (to_nat k < j + n)%N -> P b -> P (f k b)) -> P a ->
+  P (ifold n (advn j 0%uint63) f a).
+Proof.
+elim: n j a => [|n ih] j a hb hf ha //=.
+have -> : Uint63.add (advn j 0%uint63) 1%uint63 = advn j.+1 0%uint63.
+  by rewrite advnS.
+apply: ih.
+- by rewrite addSnnS.
+- by move=> k b hk hPb; apply: hf => //; rewrite -addSnnS.
+apply: hf => //; rewrite to_nat_advn0; first by rewrite addnS ltnS leq_addr.
+by apply: leq_trans hb; rewrite addnS ltnS leq_addr.
+Qed.
+
+Lemma ifold_indi (A : Type) (P : A -> Prop) n f a :
+  (n <= nwB)%N ->
+  (forall k b, (to_nat k < n)%N -> P b -> P (f k b)) -> P a ->
+  P (ifold n 0%uint63 f a).
+Proof. by move=> hb hf ha; apply: (@ifold_indg _ _ n 0). Qed.
+
 (* ---- the map ------------------------------------------------------------- *)
 
 Definition cshft  : int := 21%uint63.          (* two million a chunk         *)

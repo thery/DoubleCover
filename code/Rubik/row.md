@@ -112,12 +112,36 @@ the quotient and the remainder by the size of a chunk (`div_one_lsl_lsr` and
 `land_power2` in `ssrint63`), so nothing below reasons about bits except the
 twenty four bits of a group, where `bit_decr` and `bit_onenn` settle it.
 
+**The search is proved too, and what it cost was the BRIDGE.** `srch_sound`
+was stated over `pos`, `posp`, `tomemb` and `xstep` with nothing connecting
+them, which is the same defect the bijection had. Five hypotheses now say
+what the search carries and they are the whole of what an instance has to
+make good -- nothing else in the file looks at the cube:
+
+| | what it says |
+|---|---|
+| `coord_root`, `root_ball` | the search starts at the row's representative, no moves out |
+| `coord_step` | a move steps the coordinate and the position together |
+| `xstep_pos` | and what it plays is the k-th move |
+| `leaf_memb` | what the search reads off is always three ranks that agree on parity |
+| `leaf_pos` | and where the distance is nought, it is the position that was played |
+
+**`leaf_pos` is where the phase one table is spent.** A distance of nought
+means the position is in H, and only there do the three ranks determine it --
+so only there is a leaf a member of the row. That is the one thing the search
+takes from the table; the cuts, the mask and the redundancy rule never enter
+the proof at all.
+
+The induction carries `posp x \in ball Sset (d - togo)`, with two premises
+the caller already tests: the search never runs deeper than the level it is
+at, and never enters a node the table has put further from H than the moves
+it has left.
+
 ## What is still owed
 
 | | where | what it is |
 |---|---|---|
 | the prepass | `RowRun.prepass_sound` | a bit it sets is one move of H from one already set. One move, not an induction |
-| the search | `RowRun.srch_sound` | an induction on the word. Soundness only |
 
 ## Traps already paid for
 
@@ -132,6 +156,11 @@ twenty four bits of a group, where `bit_decr` and `bit_onenn` settle it.
 - **A side goal about `nwB` left to `//` never comes back** -- `nwB` is
   2 ^ 63 in unary. Every `to_nat_add`, `to_nat_mul` side condition here is
   discharged by hand for that reason.
+- **`case: ifP` does not look through a `let`** when the branches speak of
+  what the let binds, and it says so with `Some patterns are undefined`,
+  which reads like an intro pattern error and is not one. `cbv zeta` first.
+  The lets stay in `srch` because they are what stops the phase one table
+  being read three times at every node.
 - **A BIG NUMBER MUST NOT BE LEFT IN THE CONTEXT**, and this one cost an
   afternoon. `done` tries the hypotheses UP TO CONVERSION, so with
   `2 ^ 31 + 2 ^ 15 < 2 ^ 32` sitting there as a hypothesis, the next `by []`
