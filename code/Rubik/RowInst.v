@@ -60,9 +60,6 @@ Variable mpg mgr msw mlo mhi : arr.
 (* where a move of H sends a bit, twenty four of them for each of the ten     *)
 Variable btmvt : arr.
 
-(* the phase one coordinate, move by move: twists, flips, slices              *)
-Variable mtw mfl msl : arr.
-
 (* and the phase one table itself, chunked like every other big table         *)
 Variable p1 : PArray.array arr.
 
@@ -294,15 +291,65 @@ have szm : seq.size mtis = 18%N by rewrite /mtis seq.size_map size_mtabs.
 by apply: (all_nthP sfti mtis_ok); rewrite szm.
 Qed.
 
-(* The table half is Moves.sfti_ok; the other two are a computation on the    *)
-(* superflip, which is what Farp1 does at its own root.                       *)
-Lemma root_pok : pstok sroot.
+(* THE ONE GAP IS THE TWISTS.  twP holds of the identity and survives a move  *)
+(* -- Phase1.twP1 and Phase1.twPM -- and Diameter.superflipE writes the       *)
+(* superflip as Reid's twenty moves, so this is twenty steps and no thought.  *)
+(* Better still would be twP of everything in G, by induction over the ball.  *)
+Lemma twP_superflip : twP superflip.
 Proof. Admitted.
 
-(* tabi_ok_comp for the table; Farp1.twPti_step for the twists and the flip   *)
-(* parity, and cubti under a move is what Farp1 derives at its own root.      *)
-Lemma xstep_pok x k : (to_nat k < nmvn)%N -> pstok x -> pstok (xstep x k).
+(* and the rest of the root is three computations: the table is a table, the  *)
+(* cubies are cubies, and the flips are even                                  *)
+Lemma root_pok : pstok sroot.
+Proof.
+rewrite /pstok /sroot /repi sfti_ok /=.
+apply/andP; split; first by vm_compute.
+rewrite /twPti; apply/andP; split; last by vm_compute.
+by rewrite -sftiE; exact: twP_superflip.
+Qed.
+
+(* the move, as a permutation and as one of the eighteen                      *)
+Lemma mviE k : (to_nat k < nmvn)%N ->
+  pt flast (ti2t flast (mvi k)) = nth 1 moves (to_nat k).
+Proof.
+move=> kL; have kL18 : (to_nat k < 18)%N by [].
+have szm : (to_nat k < seq.size mtis)%N.
+  by rewrite /mtis seq.size_map size_mtabs.
+by rewrite (mvtE kL18) /mvt -ti2t_mtis /mvi (nth_map sfti _ _ szm).
+Qed.
+
+(* the cubies stay cubies: a move keeps cubP, and cubti is cubP read off a    *)
+(* table                                                                      *)
+Lemma cubti_step x k : (to_nat k < nmvn)%N -> tabi_ok flast x -> cubti x ->
+  cubti (xstep x k).
+Proof.
+move=> kL xok cx; have mok := mvi_ok kL.
+have cok := tabi_ok_comp n47_small n47_len xok mok.
+rewrite (cubtiE cok) -(cubtE cok).
+rewrite (ti2t_comp n47_small n47_len xok mok) -(ptM xok mok).
+apply: cubP_step; last by rewrite mviE //; apply: mv_Sset.
+by rewrite (cubtE xok) -(cubtiE xok).
+Qed.
+
+(* THE FLIP PARITY IS THE ONE THING LEFT.  A move does not change it -- it is *)
+(* the edge analogue of the twists summing to nought -- and Phase1 carries    *)
+(* the invariant it belongs to; Farp1.twPti_step is the same statement.       *)
+Lemma fpar_step x k : (to_nat k < nmvn)%N -> tabi_ok flast x -> cubti x ->
+  ~~ fpar (coordi x) -> ~~ fpar (coordi (xstep x k)).
 Proof. Admitted.
+
+Lemma xstep_pok x k : (to_nat k < nmvn)%N -> pstok x -> pstok (xstep x k).
+Proof.
+move=> kL /and3P[xok cx tx]; have mok := mvi_ok kL.
+rewrite /pstok; apply/and3P; split.
+- exact: (tabi_ok_comp n47_small n47_len xok mok).
+- exact: (cubti_step kL xok cx).
+move: tx; rewrite /twPti => /andP[tw fp].
+apply/andP; split; last exact: (fpar_step kL xok cx fp).
+rewrite (ti2t_comp n47_small n47_len xok mok) -(ptM xok mok) mviE //.
+have kL18 : (to_nat k < 18)%N by [].
+by rewrite (mvtE kL18); apply: twPM.
+Qed.
 
 (* ---- one move played is one move ----------------------------------------- *)
 
@@ -324,15 +371,111 @@ Qed.
 
 (* ---- the coordinate steps with the position ------------------------------ *)
 
-(* THE COORDINATE MOVE TABLES ARE RIGHT: reading the twist, the flip and the  *)
-(* slice off a position and stepping them is the same as stepping the         *)
-(* position and reading them off.  Three checks, one for each coordinate --   *)
-(* 2187, 2048 and 495 entries by eighteen moves -- and then a proof that the  *)
-(* three together are the packed coordinate.  Coordfs.v already has the flip  *)
-(* and the slice as functions of a permutation.                               *)
+(* THE TWO HALVES ARE LEMMAS THE DEVELOPMENT ALREADY HAS, and each is named   *)
+(* here rather than borrowed only because Farp1.vo will not load.             *)
+(* Farp1.acttwi_step is the twist half; Farp1.actfsr_step is the other, on    *)
+(* the fsmove certificate the lower bound has already run.                    *)
+
+Hypothesis fsstepP : forall x k, (to_nat k < nmvn)%N -> pstok x ->
+  fsstep (fsidx (coordi x)) k = fsidx (coordi (xstep x k)).
+
+Lemma twstepP x k : (to_nat k < nmvn)%N -> pstok x ->
+  acttwii (ctwisti x) k = ctwisti (xstep x k).
+Proof. Admitted.
+
+(* ---- and the packing comes apart again ----------------------------------- *)
+
+(* THE BOUND IS SPELT OUT, not computed: 2187 times a million does not exist  *)
+(* in unary.  A twist is under 2 ^ 12 and a flip and slice rank under 2 ^ 20. *)
+
+Lemma nfsi_pow : (to_nat nfsi <= 2 ^ 20)%N.
+Proof.
+(* an inequality between powers must go through leq_exp2l: left to done it   *)
+(* builds 2 ^ 20 in unary and overflows the stack.                            *)
+rewrite nfsiE; apply: leq_trans (_ : 2 ^ 11 * 2 ^ 9 <= _)%N.
+  by apply: leq_mul.
+by rewrite -expnD leq_exp2l.
+Qed.
+
+Lemma pow33 : (2 ^ 32 + 2 ^ 20 < 2 ^ 33)%N.
+Proof.
+have -> : (33 = 32 + 1)%N by [].
+by rewrite expnD expn1 muln2 -addnn ltn_add2l ltn_exp2l.
+Qed.
+
+Lemma pow33_split : (2 ^ 32 = 2 ^ 12 * 2 ^ 20)%N.
+Proof. by rewrite -expnD. Qed.
+
+Lemma ndigits33 : (33 <= ndigits)%N.
+Proof. by []. Qed.
+
+Lemma bound33 a b c :
+  (a <= 2 ^ 12)%N -> (b <= 2 ^ 20)%N -> (c <= 2 ^ 20)%N ->
+  (a * b + c < nwB)%N.
+Proof.
+move=> h1 h2 h3.
+apply: (@ltn_nwB 33 _ ndigits33).
+apply: leq_ltn_trans pow33.
+by rewrite pow33_split; apply: leq_add; [apply: leq_mul | ].
+Qed.
+
+(* the twist of a state, and the rank of its flips and slices, both small     *)
+Lemma ctwisti_lt x : tabi_ok flast x -> (to_nat (ctwisti x) < ntwist)%N.
+Proof.
+by move=> xok; rewrite (ctwistiE xok) -(ctwisttE xok); apply: coordtw_lt.
+Qed.
+
+Lemma fsidx_ltx x : tabi_ok flast x -> cubti x ->
+  (to_nat (fsidx (coordi x)) < to_nat nfsi)%N.
+Proof.
+move=> xok cx; apply/nltbP.
+rewrite (coordiE xok) -(coordtE xok); apply: fsidx_lt.
+by rewrite (cubtE xok) -(cubtiE xok).
+Qed.
+
+Lemma coordofE x : tabi_ok flast x -> cubti x ->
+  to_nat (coordof x)
+  = (to_nat (ctwisti x) * to_nat nfsi + to_nat (fsidx (coordi x)))%N.
+Proof.
+move=> xok cx.
+have h1 : (to_nat (ctwisti x) <= 2 ^ 12)%N.
+  by apply: leq_trans (ltnW (ctwisti_lt xok)) _.
+have h3 : (to_nat (fsidx (coordi x)) <= 2 ^ 20)%N.
+  by apply: leq_trans (ltnW (fsidx_ltx xok cx)) _; apply: nfsi_pow.
+have hb := bound33 h1 nfsi_pow h3.
+have hm : to_nat (Uint63.mul (ctwisti x) nfsi)
+        = (to_nat (ctwisti x) * to_nat nfsi)%N.
+  by apply: to_nat_mul; apply: leq_ltn_trans hb; apply: leq_addr.
+have ha : (to_nat (Uint63.mul (ctwisti x) nfsi)
+           + to_nat (fsidx (coordi x)) < nwB)%N by rewrite hm.
+by rewrite /coordof (@to_nat_add _ _ ha) hm.
+Qed.
+
 Lemma coord_step c x k : (to_nat k < nmvn)%N -> pstok x ->
   coordP c x -> coordP (cstep c k) (xstep x k).
-Proof. Admitted.
+Proof.
+move=> kL px; have /and3P[xok cx _] := px.
+rewrite /coordP => ->; rewrite /cstep.
+have hfs : (0 < to_nat nfsi)%N by apply: leq_ltn_trans (fsidx_ltx xok cx).
+have -> : ctw (coordof x) = ctwisti x.
+  apply: to_nat_inj; rewrite to_nat_div (coordofE xok cx).
+  by rewrite divnMDl // divn_small ?addn0 //; apply: fsidx_ltx.
+have -> : cfs (coordof x) = fsidx (coordi x).
+  apply: to_nat_inj; rewrite to_nat_mod (coordofE xok cx).
+  by rewrite modnMDl modn_small //; apply: fsidx_ltx.
+by rewrite (twstepP kL px) (fsstepP kL px).
+Qed.
+
+(* ---- what a member's table is ------------------------------------------- *)
+
+(* The position a member stands for is the superflip undone and the member    *)
+(* put back, and that is all pos ever is here.                                *)
+Lemma posE x : RowFinal.pos ptab x = superflip^-1 * pt flast (memb2tab x).
+Proof.
+rewrite /RowFinal.pos /ptab.
+rewrite -(ptM (tab_ok_inv sfti_ok) (memb2tab_ok x)).
+by rewrite -(ptV sfti_ok) -sftiE.
+Qed.
 
 (* ---- a leaf is a member -------------------------------------------------- *)
 
@@ -350,10 +493,18 @@ Lemma leaf_memb c x : coordP c x -> pstok x ->
   wdist (p1get p1 c) = 0%uint63 -> membok par8 par4 (tomemb x).
 Proof. Admitted.
 
+(* AND THIS ONE COMES APART.  What a leaf owes is that the three ranks put    *)
+(* the position back together -- and once they do, the rest is posE: the      *)
+(* member's position is the superflip undone and the member put back, which   *)
+(* is what posp already is.                                                   *)
+Hypothesis tomemb_tab : forall c x, coordP c x -> pstok x ->
+  wdist (p1get p1 c) = 0%uint63 ->
+  pt flast (memb2tab (tomemb x)) = pt flast (ti2t flast x).
+
 Lemma leaf_pos c x : coordP c x -> pstok x ->
   wdist (p1get p1 c) = 0%uint63 ->
   RowFinal.pos ptab (tomemb x) = posp x.
-Proof. Admitted.
+Proof. by move=> hc hp h0; rewrite posE (tomemb_tab hc hp h0). Qed.
 
 (* ---- the prepass tables -------------------------------------------------- *)
 
@@ -584,20 +735,31 @@ exists bt => //; split; first by rewrite hbtE hdlo hje.
 by rewrite (@test_bit v bt (lt_digits hbt1)).
 Qed.
 
-(* THE OTHER HARD ONE.  It says the page, the group and the bit tables        *)
-(* together are one move of H played on the member, and it cannot be checked  *)
-(* -- there are nineteen billion members.  It factors into three that can:    *)
-(* the page table is the corner permutation moved (40320 by 10), the group    *)
-(* table is the pair of outer permutations moved (20160 by 10), the bit table *)
-(* is the middle four moved (24 by 10).  What is left is that the three       *)
-(* together rebuild the position, which is the cubie to facelet bridge once   *)
-(* more.                                                                      *)
+(* ---- and what the three tables do to a member ---------------------------- *)
+
+(* A CHECK, and three small ones: a page goes to a page, a group to a group   *)
+(* and a bit to a bit.  40320 by ten, 20160 by ten, 24 by ten.                *)
+Hypothesis prep_range : forall k pg gr bt, (to_nat k < nhn)%N ->
+  inrange pg gr bt -> inrange (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt).
+
+(* AND THE BRIDGE, which is the only thing here about the cube: moving the    *)
+(* place moves the member by that move of H.  It is where the page, group and *)
+(* bit tables are finally spent.                                              *)
+Hypothesis memb2tab_move : forall k pg gr bt, (to_nat k < nhn)%N ->
+  inrange pg gr bt ->
+  pt flast (memb2tab (unplace e8inv e4of par8 par4
+                        (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt)))
+  = pt flast (memb2tab (unplace e8inv e4of par8 par4 pg gr bt)) * hmv k.
+
 Lemma prep_move k pg gr bt : (to_nat k < nhn)%N -> inrange pg gr bt ->
   inrange (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt) /\
   RowFinal.pos ptab
     (unplace e8inv e4of par8 par4 (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt))
   = RowFinal.pos ptab (unplace e8inv e4of par8 par4 pg gr bt) * hmv k.
-Proof. Admitted.
+Proof.
+move=> kL hr; split; first by apply: prep_range.
+by rewrite !posE (memb2tab_move kL hr) mulgA.
+Qed.
 
 (* ---- and one more the witnesses ask for ---------------------------------- *)
 
