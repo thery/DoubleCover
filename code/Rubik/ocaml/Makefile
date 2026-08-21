@@ -217,6 +217,13 @@ rubik_row: rubik_row.ml
 rowcheck: rubik_row
 	./rubik_row check
 
+# The twelve tables of a row, as the Rocq lists the generated files carry.
+# Rocq CHECKS them -- Row.e8ok and Row.e4ok over the layout, srcok and halfok
+# over the bits -- so nothing about how they were built is trusted.
+rowtab: rubik_row
+	./rubik_row dumptab layout > ../RowTabL.v
+	./rubik_row dumptab prep > ../RowTabP.v
+
 hball: rubik_row
 	./rubik_row hball $(N)
 
@@ -233,4 +240,4 @@ row: rubik_row
 	./rubik_row $(ROWCAP) $(ROWDEPTH) build
 	./rubik_row $(ROWCAP) $(ROWDEPTH) "$(ROW)" $(ROWSEARCH)
 
-.PHONY: rowcheck hball mask row
+.PHONY: rowcheck rowtab hball mask row
