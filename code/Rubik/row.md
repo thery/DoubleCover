@@ -137,11 +137,28 @@ the caller already tests: the search never runs deeper than the level it is
 at, and never enters a node the table has put further from H than the moves
 it has left.
 
-## What is still owed
+**The prepass is proved as well**, on three more hypotheses of the same kind:
+`hmv_Sset` (the ten moves of H are moves), `grpmvP` (a bit the rearrangement
+sets came from a bit of the word it was given) and `prep_move` (page, group
+and bit together are that one move played on the member). It is one move, not
+an induction over words.
 
-| | where | what it is |
-|---|---|---|
-| the prepass | `RowRun.prepass_sound` | a bit it sets is one move of H from one already set. One move, not an induction |
+`Print Assumptions` on `RowFinal.row_within_20` names only the primitive
+int63 and PArray axioms -- the trusted base the whole development already
+stands on. Everything else is a section hypothesis, which is to say a thing
+the instance has to supply.
+
+## What is still owed: THE INSTANCE
+
+Nothing in the four files. What is missing is the file that supplies them:
+
+| | what it is |
+|---|---|
+| the layout | the six tables, and `e8ok`, `e4ok` by `vm_compute` |
+| the search | `pst`, `cstep`, `xstep`, `tomemb`, `posp`, `coordP`, and the six bridge facts |
+| the prepass | `mpg`, `mgr`, `msw`, `mlo`, `mhi`, `btmv`, `hmv`, and the three bridge facts |
+| the tables | the phase one table, chunked, and the row's own run |
+| the witnesses | `mkwits.py` on the row's leftovers |
 
 ## Traps already paid for
 

@@ -401,6 +401,18 @@ apply: (@ifold_ind _ (fun m => forall p q c, mtest m p q c ->
 by apply: hstep.
 Qed.
 
+(* a bit an or sets was there already, or is one of the bits it ored in       *)
+Lemma mtest_gor (a : rmap) G V P Q B :
+  mtest (gor a G V) P Q B ->
+  mtest a P Q B \/
+  (G = grpof P Q /\ ~~ (Uint63.land V (bitof B) =? 0)%uint63).
+Proof.
+rewrite /gor /mtest.
+case: (gget_gset a G (Uint63.lor (gget a G) V) (grpof P Q)) => [->|[hG ->]].
+  by move=> h; left.
+by move=> /test_lor/orP[hin|hnew]; [left; rewrite -hG|right].
+Qed.
+
 (* a bit set by a mark is the mark, or was there already                      *)
 Lemma mmarkP m p g b pg gr bt :
   inrange p g b -> inrange pg gr bt ->

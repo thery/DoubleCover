@@ -68,6 +68,10 @@ Local Notation mok := (membok par8 par4).
 Variable mpg mgr msw mlo mhi : arr.
 
 Local Notation prep := (prepass mpg mgr msw mlo mhi).
+Local Notation prepm := (prepmv mpg mgr msw mlo mhi).
+Local Notation pgm := (pgmv mpg).
+Local Notation grm := (grmv mgr).
+Local Notation grpm := (grpmv msw mlo mhi).
 
 (* ---- the phase one table, and the moves ---------------------------------- *)
 
@@ -186,20 +190,88 @@ Hypothesis coord_step : forall c x k, (to_nat k < nmvn)%N ->
 Hypothesis xstep_pos : forall x k, (to_nat k < nmvn)%N ->
   posp (xstep x k) = posp x * nth 1 moves (to_nat k).
 
-(* what the search reads off is always three ranks that agree on parity       *)
-Hypothesis leaf_memb : forall x, membok par8 par4 (tomemb x).
+(* WHERE THE DISTANCE IS NOUGHT the position is in H, and only there do the   *)
+(* three ranks the search reads off mean anything: outside H the edges are    *)
+(* mixed between the outer eight and the middle four, and there is no outer   *)
+(* permutation to rank.  So both of the last two carry that premise.          *)
+Hypothesis leaf_memb : forall c x, coordP c x ->
+  wdist (p1get c) = 0%uint63 -> membok par8 par4 (tomemb x).
 
-(* and where the distance is nought, it is the position that was played       *)
 Hypothesis leaf_pos : forall c x, coordP c x ->
   wdist (p1get c) = 0%uint63 -> pos (tomemb x) = posp x.
 
-(* ---- what the prepass still owes ----------------------------------------- *)
+(* ---- and the bridge for the prepass -------------------------------------- *)
 
-(* THE PREPASS OWES: a bit it sets is a member one move of H further than one *)
-(* already set.  That is where the page, group and bit tables are spent, and  *)
-(* it is one move -- not an induction over words.                             *)
+(* The prepass plays one move of H on the whole map at once, by three tables: *)
+(* a page goes to a page, a group to a group, and the twenty four bits of a   *)
+(* group are rearranged.  Which bit goes where is btmv; hmv is the move       *)
+(* itself.  These three say that the rearrangement is what the tables do, and *)
+(* that page, group and bit together are that one move.                       *)
+
+Variable btmv : int -> int -> int.
+Variable hmv : int -> {perm facelet}.
+
+(* the ten moves of H are moves                                               *)
+Hypothesis hmv_Sset : forall k, (to_nat k < nhn)%N -> hmv k \in Sset.
+
+(* a bit the rearrangement sets came from a bit of the word it was given      *)
+Hypothesis grpmvP : forall k v bt', (to_nat k < nhn)%N ->
+  (bt' <? nbiti)%uint63 ->
+  ~~ (Uint63.land (grpm k v) (bitof bt') =? 0)%uint63 ->
+  exists2 bt, (bt <? nbiti)%uint63 &
+    btmv k bt = bt' /\ ~~ (Uint63.land v (bitof bt) =? 0)%uint63.
+
+(* and the three tables together are one move of H played on the member       *)
+Hypothesis prep_move : forall k pg gr bt, (to_nat k < nhn)%N ->
+  inrange pg gr bt ->
+  inrange (pgm k pg) (grm k gr) (btmv k bt) /\
+  pos (unplc (pgm k pg) (grm k gr) (btmv k bt)) = pos (unplc pg gr bt) * hmv k.
+
+(* ---- the prepass, which owes nothing any more ---------------------------- *)
+
+(* a map sound at d is sound at d plus one, which is what carrying it over    *)
+(* costs                                                                      *)
+Lemma soundatW m d : soundat m d -> soundat m d.+1.
+Proof.
+move=> hm pg gr bt hr ht; rewrite /wthn.
+by apply: (subsetP (ball_mono Sset d)); apply: hm.
+Qed.
+
+(* A bit the prepass sets is a member one move of H further out than one      *)
+(* already set.  One move, not an induction over words -- and it is the only  *)
+(* place the page, group and bit tables are spent.                            *)
 Lemma prepass_sound m d : soundat m d -> soundat (prep m) d.+1.
-Proof. Admitted.
+Proof.
+move=> hm; rewrite /prepass.
+apply: (@ifold_indi _ (fun a => soundat a d.+1)); [| |exact: soundatW hm].
+  by apply: ltnW; apply: (@ltn_nwB 4).
+move=> k dst hk hdst; rewrite /prepmv.
+(* every page                                                                 *)
+apply: (@ifold_indi _ (fun a => soundat a d.+1)); [| |exact: hdst].
+  by apply: ltnW; exact: npagen_nwB.
+move=> pg a hpg ha; cbv zeta.
+(* and every group in it                                                      *)
+apply: (@ifold_indi _ (fun a' => soundat a' d.+1)); [| |exact: ha].
+  by apply: ltnW; exact: ngroupn_nwB.
+move=> gr a' hgr ha'; cbv zeta.
+case: ifP => _ //.
+move=> P Q B hr ht.
+(* the bit was there already, or it is one of the twenty four just written    *)
+case: (mtest_gor ht) => [hold|[hG hbit]]; first by apply: ha'.
+have hbi : (B <? nbiti)%uint63 by case/and3P: hr.
+have [bt hbt [hbtE hv]] := grpmvP hk hbi hbit.
+(* where it came from is a bit of the map, and so a member within d           *)
+have hri : inrange pg gr bt.
+  by rewrite /inrange hbt !andbT; apply/andP; split; apply/nltbP.
+have hin : mtest m pg gr bt by [].
+have [hr' hpm] := prep_move hk hri.
+(* and the two places are the same place                                      *)
+have [<- <-] : pgm k pg = P /\ grm k gr = Q.
+  by apply: grpof_inj hG; [case/and3P: hr'|case/and3P: hr'|case/and3P: hr|
+                           case/and3P: hr].
+rewrite /wthn -hbtE hpm.
+by apply: ball_step; [apply: hm | apply: hmv_Sset].
+Qed.
 
 (* ---- the search, which owes nothing any more ----------------------------- *)
 
@@ -223,7 +295,7 @@ elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hnd hm hb.
   (* ranks the search reads off are the member it stands for                  *)
   have h0 : wdist (p1get c) = 0%uint63.
     by apply: to_nat_inj; rewrite to_nat_0; apply/eqP; rewrite -leqn0.
-  have hok := leaf_memb x.
+  have hok := leaf_memb hc h0.
   rewrite /=.
   have E : plc (tomemb x) =
       (mcp (tomemb x),
