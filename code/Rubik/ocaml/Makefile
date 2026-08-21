@@ -183,6 +183,13 @@ N         ?= 4
 ROWLEFT   ?=
 export ROWLEFT
 
+# ROWPLACE="pg gr bt" attacks one leftover of the row on its own; ROWSOLVE
+# gives the solver an ordinary scramble, which is the check on the solver.
+ROWPLACE  ?=
+ROWSOLVE  ?=
+export ROWPLACE
+export ROWSOLVE
+
 # hcoset's `enoughbits': stop the last search level once the map holds this
 # many, and let the prepasses above it finish the row.  Its own rule at depth
 # 16 is 167 000 000 plus a third of what the level started with.

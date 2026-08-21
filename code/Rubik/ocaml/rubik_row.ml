@@ -822,7 +822,9 @@ let () =
        | [a; b; c] -> Some (int_of_string a, int_of_string b, int_of_string c)
        | _ -> prerr_endline "ROWPLACE wants three numbers"; exit 1)
     | _ -> None in
-  if rowplace = None then alloc ();
+  let rowsolve = match Sys.getenv_opt "ROWSOLVE" with
+    | Some v -> v <> "" | None -> false in
+  if rowplace = None && not rowsolve then alloc ();
   let repseq = parse_moves arg in
   let rep = ref (solved ()) in
   List.iter (fun m -> rep := mult !rep moves.(m)) repseq;
@@ -952,7 +954,8 @@ let () =
   let done_ = ref 0 in
   let d = ref (heur 0) in
   let d0 = heur 0 in
-  while rowplace = None && !done_ < rowsize && !d <= maxdepth do
+  while rowplace = None && not rowsolve && !done_ < rowsize
+        && !d <= maxdepth do
     let before = !done_ in
     (* The prepass costs the same sweep whether the map is full or empty, so
        below some count searching is the cheaper way to the same members.
@@ -1010,7 +1013,8 @@ let () =
      therefore lead nowhere and the solver works through many of them.  A
      sample is what tells us the shape; ROWLEFT=0 means all of them. *)
   let rowleft = getenvi "ROWLEFT" (-1) in
-  if (rowplace <> None || rowleft >= 0) && !done_ < rowsize then begin
+  if (rowplace <> None || rowsolve || rowleft >= 0)
+     && !done_ < rowsize then begin
     let irep = inv rep in
     let mx = 22 in
     let cps = Array.init mx (fun _ -> Array.make 8 0) in
@@ -1108,6 +1112,25 @@ let () =
       !ok in
     let t1 = Unix.gettimeofday () in
     let seen = ref 0 and bad = ref 0 and worst = ref 0 and hist = Array.make 25 0 in
+    (* ROWSOLVE="<moves>" solves the position that scramble gives, which is
+       the check on the solver itself: an ordinary position must go. *)
+    (match Sys.getenv_opt "ROWSOLVE" with
+     | Some v when v <> "" ->
+       let q = ref (solved ()) in
+       List.iter (fun m -> q := mult !q moves.(m)) (parse_moves v);
+       let q = !q in
+       let d1 c = mdist (Bigarray.Array1.unsafe_get p_msk
+           ((twist c * n_flip + flip c) * n_slice + slice c)) in
+       Printf.printf "scramble : phase one %d, inverted %d\n%!"
+         (d1 q) (d1 (inv q));
+       (match solve20 q with
+        | Some w when solves q w ->
+          Printf.printf "%d moves : %s\n"
+            (List.length w) (String.concat " " (List.map mvname w))
+        | Some _ -> print_string "a word that does not solve it\n"
+        | None -> print_string "no word of twenty\n");
+       exit 0
+     | _ -> ());
     (* one place on its own, and then nothing else                          *)
     (match rowplace with
      | Some (pg, g, b) ->
