@@ -30,6 +30,8 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
+Import GroupScope.
+
 Notation arr := (PArray.array int).
 
 (* ---- the permutation of a rank ------------------------------------------- *)
@@ -87,8 +89,27 @@ Definition lrank (n : nat) (f : nat -> nat) : nat :=
 Definition rank8 (f : nat -> nat) : int := of_nat (lrank 8 f).
 Definition rank4 (f : nat -> nat) : int := of_nat (lrank 4 f).
 
+(* The search calls this at every leaf, so it reads the INVERSE TABLE and    *)
+(* never builds a permutation: Tabi.inv_tabi is the same inverse csrc takes  *)
+(* of the position, and at the primary facelet of a place it gives the home  *)
+(* facelet of whatever sits there.                                           *)
 Definition tomemb (a : arr) : memb :=
-  (rank8 (fun p => cpos ((pt flast (ti2t flast a))^-1 (cprimf p))),
-   rank8 (fun p => epos ((pt flast (ti2t flast a))^-1 (eprimf p))),
-   rank4 (fun p =>
-      (epos ((pt flast (ti2t flast a))^-1 (eprimf (8 + p))) - 8)%N)).
+  let u := ti2t flast (inv_tabi flast a) in
+  (rank8 (fun p => cpos (inord (nth 0%N u (nth 0%N cprim p)))),
+   rank8 (fun p => epos (inord (nth 0%N u (nth 0%N eprim p)))),
+   rank4 (fun p => (epos (inord (nth 0%N u (nth 0%N eprim (8 + p)))) - 8)%N)).
+
+(* ---- what the unrank tables have to be ----------------------------------- *)
+
+(* A row of up8 is a permutation of the eight, and a row of up4 of the four.  *)
+(* That is a walk over 40320 rows and 24, and it is all the tables are asked  *)
+(* for -- nothing here cares WHICH permutation a rank names, only that the    *)
+(* naming is one to one.                                                      *)
+
+Definition up8ok1 (r : int) : bool :=
+  perm_eq [seq up8 r p | p <- iota 0 8] (iota 0 8).
+Definition up8ok : bool := iter npagen 0%uint63 up8ok1.
+
+Definition up4ok1 (r : int) : bool :=
+  perm_eq [seq up4 r p | p <- iota 0 4] (iota 0 4).
+Definition up4ok : bool := iter nbitn 0%uint63 up4ok1.
