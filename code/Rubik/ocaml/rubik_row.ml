@@ -813,7 +813,16 @@ let () =
   end;
   if build_only then exit 0;
 
-  alloc ();
+  (* ROWPLACE="pg gr bt" skips the row and attacks that one place, so a
+     leftover can be worked on in seconds instead of rerunning the row. *)
+  let rowplace =
+    match Sys.getenv_opt "ROWPLACE" with
+    | Some v when v <> "" ->
+      (match List.filter (fun s -> s <> "") (String.split_on_char ' ' v) with
+       | [a; b; c] -> Some (int_of_string a, int_of_string b, int_of_string c)
+       | _ -> prerr_endline "ROWPLACE wants three numbers"; exit 1)
+    | _ -> None in
+  if rowplace = None then alloc ();
   let repseq = parse_moves arg in
   let rep = ref (solved ()) in
   List.iter (fun m -> rep := mult !rep moves.(m)) repseq;
@@ -943,7 +952,7 @@ let () =
   let done_ = ref 0 in
   let d = ref (heur 0) in
   let d0 = heur 0 in
-  while !done_ < rowsize && !d <= maxdepth do
+  while rowplace = None && !done_ < rowsize && !d <= maxdepth do
     let before = !done_ in
     (* The prepass costs the same sweep whether the map is full or empty, so
        below some count searching is the cheaper way to the same members.
@@ -1001,7 +1010,7 @@ let () =
      therefore lead nowhere and the solver works through many of them.  A
      sample is what tells us the shape; ROWLEFT=0 means all of them. *)
   let rowleft = getenvi "ROWLEFT" (-1) in
-  if rowleft >= 0 && !done_ < rowsize then begin
+  if (rowplace <> None || rowleft >= 0) && !done_ < rowsize then begin
     let irep = inv rep in
     let mx = 22 in
     let cps = Array.init mx (fun _ -> Array.make 8 0) in
@@ -1084,6 +1093,7 @@ let () =
          | Some w -> Some (List.rev_map invmv w)
          | None -> None) in
     (* a move, written the usual way, so a witness can be read by eye        *)
+    let _ = () in
     let mvname m =
       Printf.sprintf "%c%s" faces.[m / 3]
         (match m mod 3 with 0 -> "" | 1 -> "2" | _ -> "'") in
@@ -1096,10 +1106,26 @@ let () =
       for i = 0 to 11 do
         if (!c).ep.(i) <> i || (!c).eo.(i) <> 0 then ok := false done;
       !ok in
-    Printf.printf "the leftovers, one word each%s\n%!"
-      (if rowleft = 0 then "" else Printf.sprintf " (the first %d)" rowleft);
     let t1 = Unix.gettimeofday () in
     let seen = ref 0 and bad = ref 0 and worst = ref 0 and hist = Array.make 25 0 in
+    (* one place on its own, and then nothing else                          *)
+    (match rowplace with
+     | Some (pg, g, b) ->
+       let q = mult irep (unplace pg g b) in
+       let d1 c = mdist (Bigarray.Array1.unsafe_get p_msk
+           ((twist c * n_flip + flip c) * n_slice + slice c)) in
+       Printf.printf "place %d %d %d : phase one %d, inverted %d\n%!"
+         pg g b (d1 q) (d1 (inv q));
+       (match solve20 q with
+        | Some w when solves q w ->
+          Printf.printf "%d moves : %s\n"
+            (List.length w) (String.concat " " (List.map mvname w))
+        | Some _ -> print_string "a word that does not solve it\n"
+        | None -> print_string "no word of twenty\n");
+       exit 0
+     | None -> ());
+    Printf.printf "the leftovers, one word each%s\n%!"
+      (if rowleft = 0 then "" else Printf.sprintf " (the first %d)" rowleft);
     let clo = !culo and chi = !cuhi in
     (try
     for pg = 0 to npage - 1 do
@@ -1128,7 +1154,14 @@ let () =
                    (String.concat " " (List.map mvname w))
                | _ ->
                  incr bad;
-                 Printf.printf "LEFT %d %d %d NONE\n" pg g b);
+                 (* say WHY: the phase one distance is what phase two is left
+                    to work in, and an element of H usually wants fourteen to
+                    sixteen moves of H *)
+                 let d1 c = mdist (Bigarray.Array1.unsafe_get p_msk
+                     ((twist c * n_flip + flip c) * n_slice + slice c)) in
+                 let a = d1 q and b' = d1 (inv q) in
+                 Printf.printf
+                   "LEFT %d %d %d NONE   # phase one %d, inverted %d, leaves %d for phase two\n" pg g b a b' (20 - min a b'));
               Printf.printf "   %d done, %d without a word, %.1f s\n%!"
                 !seen !bad (Unix.gettimeofday () -. t1);
               if rowleft > 0 && !seen >= rowleft then raise Exit
