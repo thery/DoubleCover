@@ -157,6 +157,9 @@ Definition croot : int := coordof sroot.
 (* construction this file cannot borrow.                                      *)
 Variable memb2tab : memb -> seq nat.
 
+(* and what it builds is a permutation of the forty eight facelets            *)
+Hypothesis memb2tab_ok : forall x, tab_ok flast (memb2tab x).
+
 (* and the word the member stands for is the representative undone in front   *)
 Definition ptab (x : memb) : seq nat :=
   comp_tab (inv_tab flast (ti2t flast repi)) (memb2tab x).
@@ -179,6 +182,73 @@ Definition nhi : int := 10%uint63.
 
 Definition btmv (k bt : int) : int :=
   PArray.get btmvt (Uint63.add (Uint63.mul bt nhi) k).
+
+(* ---- what the two half tables do to the bits ----------------------------- *)
+
+(* A group is two halves of twelve bits.  mlo rearranges the low half, mhi    *)
+(* the high one, msw says whether the two change places, and btmvt says where *)
+(* each of the twenty four bits ends up.  THE THREE MUST AGREE, and that is a *)
+(* computation: ten moves by twenty four places by four thousand words.       *)
+
+Definition nhalfi : int := 12%uint63.       (* the bits of half a group       *)
+Definition nhalfn : nat := to_nat nhalfi.
+Definition nloi : int := 4096%uint63.       (* what half a group holds        *)
+Definition nlon : nat := to_nat nloi.
+
+(* the bit a move brings to a place: the one of the twenty four that btmvt    *)
+(* sends there, found by walking them                                         *)
+Definition btsrc (k bt : int) : int :=
+  ifold nbitn 0%uint63
+    (fun i a => if (btmv k i =? bt)%uint63 then i else a) 0%uint63.
+
+(* where a place of the low half ends up, and one of the high half: in the    *)
+(* same half, or in the other one when the move changes them over             *)
+Definition dstlo (k j : int) : int :=
+  if (PArray.get msw k =? 0)%uint63 then j else Uint63.add j nhalfi.
+
+Definition dsthi (k j : int) : int :=
+  if (PArray.get msw k =? 0)%uint63 then Uint63.add j nhalfi else j.
+
+(* THE FIRST CHECK, ten moves by twelve places: what btmvt brings to a place  *)
+(* of the low half is a bit of the low half, and what it brings to a place of *)
+(* the high half is a bit of the high half.  So a source is always a bit of   *)
+(* the half the table was read from.                                          *)
+Definition srcok : bool :=
+  iter nhn 0%uint63 (fun k =>
+    iter nhalfn 0%uint63 (fun j =>
+      let s := btsrc k (dstlo k j) in
+      let t := btsrc k (dsthi k j) in
+      [&& (s <? nhalfi)%uint63, (btmv k s =? dstlo k j)%uint63,
+          (nhalfi <=? t)%uint63, (t <? nbiti)%uint63 &
+          (btmv k t =? dsthi k j)%uint63])).
+
+(* THE SECOND CHECK, ten moves by twenty four places by four thousand words:  *)
+(* a bit either table sets is inside the half, and it is set only when the    *)
+(* place btmvt takes it from was set in the word.  Nothing above the twelfth  *)
+(* place is ever set, which is what keeps the two halves apart.               *)
+
+(* THE THREE LOOPS ARE THREE DEFINITIONS, and that is not decoration: as one  *)
+(* term the walk is a million words wide, and reading a single step off it    *)
+(* took a minute and a half -- all of it spent unfolding what was never asked *)
+(* for.  A name at each level keeps every step small, and the three lemmas    *)
+(* below put the name back into the shape the walk is read in.                *)
+
+(* one place of one move, over the four thousand words a half can hold        *)
+Definition halfw (k j s t : int) : bool :=
+  iter nlon 0%uint63 (fun w =>
+    [&& bit (lomv mlo k w) j ==> ((j <? nhalfi)%uint63 && bit w s) &
+        bit (himv mhi k w) j ==> ((j <? nhalfi)%uint63 && bit w t)]).
+
+(* one move, over the twenty four places                                      *)
+Definition halfp (k : int) : bool :=
+  iter nbitn 0%uint63 (fun j =>
+    halfw k j (btsrc k (dstlo k j))
+              (Uint63.sub (btsrc k (dsthi k j)) nhalfi)).
+
+Definition halfok : bool := iter nhn 0%uint63 halfp.
+
+Hypothesis hsrc : srcok.
+Hypothesis hhalf : halfok.
 
 (* ---- the redundancy rule ------------------------------------------------- *)
 
@@ -260,7 +330,7 @@ Qed.
 (* 2187, 2048 and 495 entries by eighteen moves -- and then a proof that the  *)
 (* three together are the packed coordinate.  Coordfs.v already has the flip  *)
 (* and the slice as functions of a permutation.                               *)
-Lemma coord_step c x k : (to_nat k < nmvn)%N ->
+Lemma coord_step c x k : (to_nat k < nmvn)%N -> pstok x ->
   coordP c x -> coordP (cstep c k) (xstep x k).
 Proof. Admitted.
 
@@ -295,15 +365,224 @@ have hall : all (fun m => (m < 18)%N) hmvn by vm_compute.
 by apply: (all_nthP 0%N hall).
 Qed.
 
+(* ---- reading a word one bit at a time ------------------------------------ *)
+
+(* The map is written in terms of a word meeting a bit; the tables are        *)
+(* written in terms of the bits themselves.  These say the two agree, and     *)
+(* say which place of a word is which place of a half.                        *)
+
+Lemma test_bit x b : (b <? digits)%uint63 ->
+  ~~ (Uint63.land x (bitof b) =? 0)%uint63 = bit x b.
+Proof.
+move=> hbd; have hb1 : (1 = one)%uint63 by vm_compute.
+apply/idP/idP; last first.
+  move=> hx; apply/negP => /neqbP h0.
+  have hz : Uint63.land x (bitof b) = 0%uint63 by apply: to_nat_inj.
+  have : bit (Uint63.land x (bitof b)) b.
+    by rewrite land_spec hx /bitof hb1 bit_onenn // eqxx.
+  by rewrite hz bit_0.
+apply: contraR => hnb; apply/neqbP.
+suff -> : Uint63.land x (bitof b) = 0%uint63 by [].
+apply: bit_ext => i; rewrite land_spec bit_0.
+have [hid|hid] := boolP (i <? digits)%uint63; last first.
+  rewrite bit_M ?andbF //.
+  by apply/nlebP; rewrite leqNgt; apply/negP => /nltbP h; case/negP: hid.
+rewrite /bitof hb1 bit_onenn //.
+by case: eqP => [<-|_]; rewrite ?andbF // (negbTE hnb).
+Qed.
+
+(* twelve places are twenty four places, and both are inside a word           *)
+Lemma lt_half_digits j : (j <? nhalfi)%uint63 -> (j <? digits)%uint63.
+Proof.
+move=> h; apply/nltbP; apply: leq_trans (_ : to_nat nhalfi <= _).
+  by apply/nltbP.
+by apply/nlebP; vm_compute.
+Qed.
+
+Lemma lt_half_nbiti j : (j <? nhalfi)%uint63 -> (j <? nbiti)%uint63.
+Proof.
+move=> h; apply/nltbP; apply: leq_trans (_ : to_nat nhalfi <= _).
+  by apply/nltbP.
+by apply/nlebP; vm_compute.
+Qed.
+
+Lemma nlonE : nlon = 4096%N.
+Proof.
+have h : (4096 < nwB)%N by apply: (@ltn_nwB 13).
+rewrite /nlon; have -> : nloi = Uint63.of_nat 4096 by vm_compute.
+by rewrite (@of_natK 4096 h).
+Qed.
+
+(* the low half of a word is the word at the places below twelve              *)
+Lemma bit_lohalf v i : (i <? nhalfi)%uint63 ->
+  bit (Uint63.land v lo12) i = bit v i.
+Proof.
+move=> hi; rewrite land_spec.
+have -> : lo12 = decr (Uint63.lsl one nhalfi) by vm_compute.
+by rewrite bit_decr ?hi ?andbT //; vm_compute.
+Qed.
+
+(* and the high half is the word twelve places up, masked back to a half      *)
+Lemma bit_hihalf v s : (nhalfi <=? s)%uint63 -> (s <? nbiti)%uint63 ->
+  bit (Uint63.land (Uint63.lsr v nhalfi) lo12) (Uint63.sub s nhalfi) = bit v s.
+Proof.
+move=> hs hs2; have hle : (to_nat nhalfi <= to_nat s)%N by apply/nlebP.
+rewrite bit_lohalf; last first.
+  apply/nltbP; rewrite to_nat_sub ?to_nat_bounded //.
+  rewrite -(ltn_add2r (to_nat nhalfi)) subnK //.
+  have -> : (to_nat nhalfi + to_nat nhalfi = to_nat nbiti)%N by vm_compute.
+  by apply/nltbP.
+rewrite bit_lsr.
+have he : Uint63.add nhalfi (Uint63.sub s nhalfi) = s by rewrite laddC subK.
+rewrite he ifT //; apply/nlebP.
+by rewrite to_nat_sub ?leq_subr ?to_nat_bounded.
+Qed.
+
+(* a masked word is a half: the check is asked about it and no other word     *)
+Lemma lo12_lt v : (Uint63.land v lo12 <? nloi)%uint63.
+Proof.
+have -> : lo12 = decr (Uint63.lsl one nhalfi) by vm_compute.
+rewrite land_power2; last by vm_compute.
+have -> : Uint63.lsl one nhalfi = nloi by vm_compute.
+by apply/nltbP; rewrite to_nat_mod ltn_mod; have := nlonE; rewrite /nlon => ->.
+Qed.
+
+(* ---- reading the checks off, one step at a time -------------------------- *)
+
+(* A name has to be put back into the shape a walk is read in, and it has to  *)
+(* be put back BY A REWRITE: given the name, unification takes the walk apart *)
+(* word by word and a step that should be free costs minutes.                 *)
+
+Lemma halfokE : halfok = iter nhn 0%uint63 halfp.
+Proof. by []. Qed.
+
+Lemma halfpE k : halfp k = iter nbitn 0%uint63 (fun j =>
+  halfw k j (btsrc k (dstlo k j))
+            (Uint63.sub (btsrc k (dsthi k j)) nhalfi)).
+Proof. by []. Qed.
+
+Lemma halfwE k j s t : halfw k j s t = iter nlon 0%uint63 (fun w =>
+  [&& bit (lomv mlo k w) j ==> ((j <? nhalfi)%uint63 && bit w s) &
+      bit (himv mhi k w) j ==> ((j <? nhalfi)%uint63 && bit w t)]).
+Proof. by []. Qed.
+
+(* what the first check says of one move and one place of a half              *)
+Lemma srcokP k j : (to_nat k < nhn)%N -> (j <? nhalfi)%uint63 ->
+  [&& (btsrc k (dstlo k j) <? nhalfi)%uint63,
+      (btmv k (btsrc k (dstlo k j)) =? dstlo k j)%uint63,
+      (nhalfi <=? btsrc k (dsthi k j))%uint63,
+      (btsrc k (dsthi k j) <? nbiti)%uint63 &
+      (btmv k (btsrc k (dsthi k j)) =? dsthi k j)%uint63].
+Proof.
+move=> hk hj; have hj' : (to_nat j < nhalfn)%N by apply/nltbP.
+by have h := iter_at (iter_at hsrc hk) hj'; cbv zeta in h.
+Qed.
+
+(* and what the second says of one move, one place and one word               *)
+Lemma halfokP k j w : (to_nat k < nhn)%N -> (to_nat j < nbitn)%N ->
+  (w <? nloi)%uint63 ->
+  [&& bit (lomv mlo k w) j ==>
+        ((j <? nhalfi)%uint63 && bit w (btsrc k (dstlo k j))) &
+      bit (himv mhi k w) j ==>
+        ((j <? nhalfi)%uint63 &&
+           bit w (Uint63.sub (btsrc k (dsthi k j)) nhalfi))].
+Proof.
+move=> hk hj hw; have hw' : (to_nat w < nlon)%N by apply/nltbP.
+have h1 := hhalf; rewrite halfokE in h1.
+have h2 := iter_at h1 hk; rewrite halfpE in h2.
+have h3 := iter_at h2 hj; rewrite halfwE in h3.
+exact: iter_at h3 hw'.
+Qed.
+
+(* the moved group, with the two halves named                                 *)
+Lemma grpmvE k v :
+  grpmv msw mlo mhi k v =
+    (if (PArray.get msw k =? 0)%uint63
+     then Uint63.lor (lomv mlo k (Uint63.land v lo12))
+            (Uint63.lsl
+               (himv mhi k (Uint63.land (Uint63.lsr v nhalfi) lo12)) nhalfi)
+     else Uint63.lor (himv mhi k (Uint63.land (Uint63.lsr v nhalfi) lo12))
+            (Uint63.lsl (lomv mlo k (Uint63.land v lo12)) nhalfi)).
+Proof. by []. Qed.
+
 (* A CHECK, and a small one: the rearrangement of a group is a permutation    *)
 (* of its twenty four bits, and btmvt says which.  It is enough to know it of *)
 (* the two twelve bit halves -- ten moves by four thousand entries -- since a *)
 (* group is the two halves and the exchange of them.                          *)
+
+(* THE HIGH HALF IS MASKED and that is what makes this hold of every word.    *)
+(* Read as v >> 12 alone, a word with a bit above the twenty fourth would     *)
+(* land inside ANOTHER move's twelve bits of the table and come back with     *)
+(* that move's rearrangement; the mask keeps the read inside this one.        *)
 Lemma grpmvP k v bt' : (to_nat k < nhn)%N -> (bt' <? nbiti)%uint63 ->
   ~~ (Uint63.land (grpmv msw mlo mhi k v) (bitof bt') =? 0)%uint63 ->
   exists2 bt, (bt <? nbiti)%uint63 &
     btmv k bt = bt' /\ ~~ (Uint63.land v (bitof bt) =? 0)%uint63.
-Proof. Admitted.
+Proof.
+move=> hk hbt hset.
+have hbtd : (bt' <? digits)%uint63 := lt_digits hbt.
+have hbtn : (to_nat bt' < nbitn)%N := ltn_nbiti hbt.
+rewrite test_bit // grpmvE in hset.
+(* a bit of the moved low half came from the place btmvt takes it from        *)
+have hlo : forall j, (to_nat j < nbitn)%N ->
+    bit (lomv mlo k (Uint63.land v lo12)) j ->
+    exists2 bt, (bt <? nbiti)%uint63 & btmv k bt = dstlo k j /\ bit v bt.
+  move=> j hj hb; have /andP[h1 _] := halfokP hk hj (lo12_lt v).
+  have /andP[hj12 hbw] := implyP h1 hb.
+  have /and5P[hs1 hs2 _ _ _] := srcokP hk hj12.
+  exists (btsrc k (dstlo k j)); first exact: lt_half_nbiti hs1.
+  split; first by apply: to_nat_inj; apply/neqbP.
+  by rewrite -(bit_lohalf v hs1).
+(* and one of the moved high half, twelve places up                           *)
+have hhi : forall j, (to_nat j < nbitn)%N ->
+    bit (himv mhi k (Uint63.land (Uint63.lsr v nhalfi) lo12)) j ->
+    exists2 bt, (bt <? nbiti)%uint63 & btmv k bt = dsthi k j /\ bit v bt.
+  move=> j hj hb.
+  have /andP[_ h1] := halfokP hk hj (lo12_lt (Uint63.lsr v nhalfi)).
+  have /andP[hj12 hbw] := implyP h1 hb.
+  have /and5P[_ _ ht1 ht2 _] := srcokP hk hj12.
+  have /and5P[_ _ _ _ ht3] := srcokP hk hj12.
+  exists (btsrc k (dsthi k j)) => //.
+  split; first by apply: to_nat_inj; apply/neqbP.
+  by rewrite -(bit_hihalf v ht1 ht2).
+(* a half put twelve places up is read twelve places down                     *)
+have hshift : forall x, bit (Uint63.lsl x nhalfi) bt' ->
+    [/\ (to_nat (Uint63.sub bt' nhalfi) < nbitn)%N,
+        Uint63.add (Uint63.sub bt' nhalfi) nhalfi = bt' &
+        bit x (Uint63.sub bt' nhalfi)].
+  move=> x; rewrite bit_lsl; case: ifP => // hg hb.
+  have hgl : (bt' <? nhalfi)%uint63 = false.
+    by move: hg; case: (bt' <? nhalfi)%uint63.
+  have hge : (nhalfi <=? bt')%uint63.
+    by apply/nlebP; rewrite leqNgt; apply: contraFN hgl => h; apply/nltbP.
+  split => //; last by rewrite subK.
+  rewrite to_nat_sub ?to_nat_bounded //; last by apply/nlebP.
+  by apply: leq_ltn_trans (leq_subr _ _) hbtn.
+(* four cases: the two halves, and the move changing them over or not         *)
+move: hset; case: ifP => hsw hset.
+  have hdlo : forall j, dstlo k j = j by move=> j; rewrite /dstlo hsw.
+  have hdhi : forall j, dsthi k j = Uint63.add j nhalfi.
+    by move=> j; rewrite /dsthi hsw.
+  move: hset; rewrite lor_spec => /orP[hb|hb].
+    have [bt hbt1 [hbtE hbv]] := hlo _ hbtn hb.
+    exists bt => //; split; first by rewrite hbtE hdlo.
+    by rewrite (@test_bit v bt (lt_digits hbt1)).
+  have [hj hje hb'] := hshift _ hb.
+  have [bt hbt1 [hbtE hbv]] := hhi _ hj hb'.
+  exists bt => //; split; first by rewrite hbtE hdhi hje.
+  by rewrite (@test_bit v bt (lt_digits hbt1)).
+have hdlo : forall j, dstlo k j = Uint63.add j nhalfi.
+  by move=> j; rewrite /dstlo hsw.
+have hdhi : forall j, dsthi k j = j by move=> j; rewrite /dsthi hsw.
+move: hset; rewrite lor_spec => /orP[hb|hb].
+  have [bt hbt1 [hbtE hbv]] := hhi _ hbtn hb.
+  exists bt => //; split; first by rewrite hbtE hdhi.
+  by rewrite (@test_bit v bt (lt_digits hbt1)).
+have [hj hje hb'] := hshift _ hb.
+have [bt hbt1 [hbtE hbv]] := hlo _ hj hb'.
+exists bt => //; split; first by rewrite hbtE hdlo hje.
+by rewrite (@test_bit v bt (lt_digits hbt1)).
+Qed.
 
 (* THE OTHER HARD ONE.  It says the page, the group and the bit tables        *)
 (* together are one move of H played on the member, and it cannot be checked  *)
@@ -325,7 +604,10 @@ Proof. Admitted.
 (* The word a member stands for is a table, which is what makes replaying a   *)
 (* witness twenty compositions of a forty eight entry list.                   *)
 Lemma ptab_ok x : tab_ok flast (ptab x).
-Proof. Admitted.
+Proof.
+apply: Table.tab_ok_comp; last by apply: memb2tab_ok.
+by apply: Table.tab_ok_inv; apply: sfti_ok.
+Qed.
 
 (* =========================================================================  *)
 (*  THE ROW, PUT TOGETHER                                                     *)
@@ -340,10 +622,14 @@ Proof. by move=> pg gr bt _; rewrite memptyP. Qed.
 
 Lemma mfin_sound : soundat e8inv e4of par8 par4 (RowFinal.pos ptab) mfin nlev.
 Proof.
-(* the nine facts above, handed to run_sound in its own order.  It does not   *)
-(* go through yet -- something in the unification of the run, and it is the   *)
-(* next thing to look at.                                                     *)
-Admitted.
+(* THE SECOND OCCURRENCE ONLY.  nlev is the depth reached AND the number of   *)
+(* levels run, and rewriting both leaves the run at 0 + nlev where run_sound  *)
+(* wants the same n it adds to d.                                             *)
+rewrite /mfin -{2}[nlev]add0n.
+apply: (run_sound he8 he4 coord_root root_ball root_pok coord_step xstep_pok
+                  xstep_pos leaf_memb leaf_pos hmv_Sset grpmvP prep_move).
+exact: sound_mempty.
+Qed.
 
 Theorem row_within_20_inst : nlev = 20%N ->
   witsok e8inv e4of par8 par4 ptab wl ->
