@@ -112,4 +112,7 @@ RowMap.v
 RowRun.v
 RowFinal.v
 RowInst.v
+RowTabL.v
+RowTabP.v
+RowTab.v
 RowDummy.v
