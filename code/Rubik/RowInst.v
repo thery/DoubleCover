@@ -296,7 +296,19 @@ Qed.
 (* superflip as Reid's twenty moves, so this is twenty steps and no thought.  *)
 (* Better still would be twP of everything in G, by induction over the ball.  *)
 Lemma twP_superflip : twP superflip.
-Proof. Admitted.
+Proof.
+(* twP of everything in G, and the superflip is in G.  The induction is over  *)
+(* the ball, so it needs no word for the superflip at all -- superflipE and   *)
+(* its twenty moves never come into it.                                       *)
+suff hG : forall g, g \in G -> twP g by apply: hG; exact: superflip_in_G.
+move=> g /mem_gen_ball[n]; elim: n g => [g|n ih g].
+  by rewrite ball0 inE => /eqP->; exact: twP1.
+rewrite /= inE => /orP[/ih//|/mulsgP[b m bB mS ->]].
+have mI : m \in moves by move: mS; rewrite inE.
+have kL : (index m moves < seq.size moves)%N by rewrite index_mem.
+rewrite size_moves in kL.
+by rewrite -(nth_index 1 mI) (mvtE kL); apply: twPM => //; apply: ih.
+Qed.
 
 (* and the rest of the root is three computations: the table is a table, the  *)
 (* cubies are cubies, and the flips are even                                  *)
@@ -479,19 +491,17 @@ Qed.
 
 (* ---- a leaf is a member -------------------------------------------------- *)
 
-(* THE HARD END, and both halves of it are the same fact: a distance of       *)
-(* nought in the phase one table means the position is IN H, and only there   *)
-(* do three ranks mean anything -- outside H the edges are mixed between the  *)
-(* outer eight and the middle four and there is no outer permutation to rank. *)
+(* WHAT A LEAF OWES, and there is no proving it here: tomemb is a function    *)
+(* this file is handed, so what it does is a fact the instance supplies, like *)
+(* the tables.  Both facts carry the same premise -- a distance of nought in  *)
+(* the phase one table, which is what says the position is IN H, and only     *)
+(* there do three ranks mean anything: outside H the edges are mixed between  *)
+(* the outer eight and the middle four and there is no outer permutation to   *)
+(* rank.                                                                      *)
 (*                                                                            *)
-(* So each of these two needs, first, that the table's nought is exactly H    *)
-(* (which is what the table is for and is a property of the generated data),  *)
-(* and then the cubie to facelet bridge again: leaf_memb is the parity        *)
-(* invariant of the cube, leaf_pos is that the three ranks put the position   *)
-(* back together.                                                             *)
-Lemma leaf_memb c x : coordP c x -> pstok x ->
+(* The first is the parity invariant of the cube read off the three ranks.    *)
+Hypothesis leaf_memb : forall c x, coordP c x -> pstok x ->
   wdist (p1get p1 c) = 0%uint63 -> membok par8 par4 (tomemb x).
-Proof. Admitted.
 
 (* AND THIS ONE COMES APART.  What a leaf owes is that the three ranks put    *)
 (* the position back together -- and once they do, the rest is posE: the      *)
