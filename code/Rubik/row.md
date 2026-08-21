@@ -99,11 +99,23 @@ from `Ball.v`, so nothing about words is assumed any more. A word is a list
 of move numbers in the development's own numbering, and playing it is twenty
 compositions of a forty eight entry list.
 
+**The map is proved too, and it is never asked to be well formed.** A write
+outside a `PArray` does nothing at all, so a read after a write gives either
+what was written or what was there before -- and that is all `memptyP`,
+`mfullP`, `morP` and `mmarkP` need, because every one of them is one
+directional: a bit that is set came from somewhere. A map of the wrong shape
+simply never fills and the row never finishes. `morP` is therefore an
+implication and not an equation, which is also all `row_within_20` ever used.
+
+The chunking argues with the ordinary division: the shift and the mask ARE
+the quotient and the remainder by the size of a chunk (`div_one_lsl_lsr` and
+`land_power2` in `ssrint63`), so nothing below reasons about bits except the
+twenty four bits of a group, where `bit_decr` and `bit_onenn` settle it.
+
 ## What is still owed
 
 | | where | what it is |
 |---|---|---|
-| the map | `RowMap.memptyP`, `.mfullP`, `.morP`, `.mmarkP` | four small facts about the chunked arrays and nothing else |
 | the prepass | `RowRun.prepass_sound` | a bit it sets is one move of H from one already set. One move, not an induction |
 | the search | `RowRun.srch_sound` | an induction on the word. Soundness only |
 
@@ -120,6 +132,14 @@ compositions of a forty eight entry list.
 - **A side goal about `nwB` left to `//` never comes back** -- `nwB` is
   2 ^ 63 in unary. Every `to_nat_add`, `to_nat_mul` side condition here is
   discharged by hand for that reason.
+- **A BIG NUMBER MUST NOT BE LEFT IN THE CONTEXT**, and this one cost an
+  afternoon. `done` tries the hypotheses UP TO CONVERSION, so with
+  `2 ^ 31 + 2 ^ 15 < 2 ^ 32` sitting there as a hypothesis, the next `by []`
+  -- on a goal about nothing at all -- went away to build two billion in
+  unary. The three facts about powers in `RowMap.v` are lemmas of their own
+  for that reason and none of them is ever a hypothesis. The same reading
+  explains the first trap: it is not `//` that is dangerous, it is `done`
+  meeting a number it can evaluate.
 - **19 508 428 800 as a nat does not exist.** Every size here is `int63`. The
   first version of `Row.v` had `rowsize = (40320 * 20160 * 24)%N` with a
   `by []`, and the kernel went away to build it in unary. Sizes are `int63`
