@@ -371,15 +371,100 @@ Qed.
 
 (* ---- the coordinate steps with the position ------------------------------ *)
 
-(* THE COORDINATE MOVE TABLES ARE RIGHT: reading the twist, the flip and the  *)
-(* slice off a position and stepping them is the same as stepping the         *)
-(* position and reading them off.  Three checks, one for each coordinate --   *)
-(* 2187, 2048 and 495 entries by eighteen moves -- and then a proof that the  *)
-(* three together are the packed coordinate.  Coordfs.v already has the flip  *)
-(* and the slice as functions of a permutation.                               *)
+(* THE TWO HALVES ARE LEMMAS THE DEVELOPMENT ALREADY HAS, and each is named   *)
+(* here rather than borrowed only because Farp1.vo will not load.             *)
+(* Farp1.acttwi_step is the twist half; Farp1.actfsr_step is the other, on    *)
+(* the fsmove certificate the lower bound has already run.                    *)
+
+Hypothesis fsstepP : forall x k, (to_nat k < nmvn)%N -> pstok x ->
+  fsstep (fsidx (coordi x)) k = fsidx (coordi (xstep x k)).
+
+Lemma twstepP x k : (to_nat k < nmvn)%N -> pstok x ->
+  acttwii (ctwisti x) k = ctwisti (xstep x k).
+Proof. Admitted.
+
+(* ---- and the packing comes apart again ----------------------------------- *)
+
+(* THE BOUND IS SPELT OUT, not computed: 2187 times a million does not exist  *)
+(* in unary.  A twist is under 2 ^ 12 and a flip and slice rank under 2 ^ 20. *)
+
+Lemma nfsi_pow : (to_nat nfsi <= 2 ^ 20)%N.
+Proof.
+(* an inequality between powers must go through leq_exp2l: left to done it   *)
+(* builds 2 ^ 20 in unary and overflows the stack.                            *)
+rewrite nfsiE; apply: leq_trans (_ : 2 ^ 11 * 2 ^ 9 <= _)%N.
+  by apply: leq_mul.
+by rewrite -expnD leq_exp2l.
+Qed.
+
+Lemma pow33 : (2 ^ 32 + 2 ^ 20 < 2 ^ 33)%N.
+Proof.
+have -> : (33 = 32 + 1)%N by [].
+by rewrite expnD expn1 muln2 -addnn ltn_add2l ltn_exp2l.
+Qed.
+
+Lemma pow33_split : (2 ^ 32 = 2 ^ 12 * 2 ^ 20)%N.
+Proof. by rewrite -expnD. Qed.
+
+Lemma ndigits33 : (33 <= ndigits)%N.
+Proof. by []. Qed.
+
+Lemma bound33 a b c :
+  (a <= 2 ^ 12)%N -> (b <= 2 ^ 20)%N -> (c <= 2 ^ 20)%N ->
+  (a * b + c < nwB)%N.
+Proof.
+move=> h1 h2 h3.
+apply: (@ltn_nwB 33 _ ndigits33).
+apply: leq_ltn_trans pow33.
+by rewrite pow33_split; apply: leq_add; [apply: leq_mul | ].
+Qed.
+
+(* the twist of a state, and the rank of its flips and slices, both small     *)
+Lemma ctwisti_lt x : tabi_ok flast x -> (to_nat (ctwisti x) < ntwist)%N.
+Proof.
+by move=> xok; rewrite (ctwistiE xok) -(ctwisttE xok); apply: coordtw_lt.
+Qed.
+
+Lemma fsidx_ltx x : tabi_ok flast x -> cubti x ->
+  (to_nat (fsidx (coordi x)) < to_nat nfsi)%N.
+Proof.
+move=> xok cx; apply/nltbP.
+rewrite (coordiE xok) -(coordtE xok); apply: fsidx_lt.
+by rewrite (cubtE xok) -(cubtiE xok).
+Qed.
+
+Lemma coordofE x : tabi_ok flast x -> cubti x ->
+  to_nat (coordof x)
+  = (to_nat (ctwisti x) * to_nat nfsi + to_nat (fsidx (coordi x)))%N.
+Proof.
+move=> xok cx.
+have h1 : (to_nat (ctwisti x) <= 2 ^ 12)%N.
+  by apply: leq_trans (ltnW (ctwisti_lt xok)) _.
+have h3 : (to_nat (fsidx (coordi x)) <= 2 ^ 20)%N.
+  by apply: leq_trans (ltnW (fsidx_ltx xok cx)) _; apply: nfsi_pow.
+have hb := bound33 h1 nfsi_pow h3.
+have hm : to_nat (Uint63.mul (ctwisti x) nfsi)
+        = (to_nat (ctwisti x) * to_nat nfsi)%N.
+  by apply: to_nat_mul; apply: leq_ltn_trans hb; apply: leq_addr.
+have ha : (to_nat (Uint63.mul (ctwisti x) nfsi)
+           + to_nat (fsidx (coordi x)) < nwB)%N by rewrite hm.
+by rewrite /coordof (@to_nat_add _ _ ha) hm.
+Qed.
+
 Lemma coord_step c x k : (to_nat k < nmvn)%N -> pstok x ->
   coordP c x -> coordP (cstep c k) (xstep x k).
-Proof. Admitted.
+Proof.
+move=> kL px; have /and3P[xok cx _] := px.
+rewrite /coordP => ->; rewrite /cstep.
+have hfs : (0 < to_nat nfsi)%N by apply: leq_ltn_trans (fsidx_ltx xok cx).
+have -> : ctw (coordof x) = ctwisti x.
+  apply: to_nat_inj; rewrite to_nat_div (coordofE xok cx).
+  by rewrite divnMDl // divn_small ?addn0 //; apply: fsidx_ltx.
+have -> : cfs (coordof x) = fsidx (coordi x).
+  apply: to_nat_inj; rewrite to_nat_mod (coordofE xok cx).
+  by rewrite modnMDl modn_small //; apply: fsidx_ltx.
+by rewrite (twstepP kL px) (fsstepP kL px).
+Qed.
 
 (* ---- a leaf is a member -------------------------------------------------- *)
 
