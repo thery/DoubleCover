@@ -199,6 +199,12 @@ export ROWSOLVE
 ROWP1CAP  ?=
 export ROWP1CAP
 
+# ROWTRACE=1 says what the leftover solver is doing: one line a length and an
+# axis, with how many phase one solutions were tried and whether the budget
+# ran out.  Without it a long attempt looks exactly like a hang.
+ROWTRACE  ?=
+export ROWTRACE
+
 # hcoset's `enoughbits': stop the last search level once the map holds this
 # many, and let the prepasses above it finish the row.  Its own rule at depth
 # 16 is 167 000 000 plus a third of what the level started with.
