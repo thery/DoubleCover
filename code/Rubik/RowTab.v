@@ -70,3 +70,14 @@ Proof. by vm_compute. Qed.
 
 Lemma halfokC : halfok mswi mloi mhii btmvi.
 Proof. by vm_compute. Qed.
+
+(* and the three ranges: a page goes to a page, a group to a group, a bit to  *)
+(* a bit                                                                      *)
+Lemma pgokC : pgok mpgi.
+Proof. by vm_compute. Qed.
+
+Lemma grokC : grok mgri.
+Proof. by vm_compute. Qed.
+
+Lemma btokC : btok btmvi.
+Proof. by vm_compute. Qed.

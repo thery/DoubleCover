@@ -890,6 +890,14 @@ let () =
     emit "msw_data" nh (fun k -> mswap.(k));
     emit "mlo_data" (nh * 4096) (fun i -> mlo.(i / 4096).(i mod 4096));
     emit "mhi_data" (nh * 4096) (fun i -> mhi.(i / 4096).(i mod 4096));
+    (* THE PERMUTATION OF A RANK, which is the one thing Rocq cannot read off
+       a smaller table: unranking is a computation and the layout tables are
+       written in terms of it.  Eight numbers a corner rank, four a middle
+       one. *)
+    emit "up8_data" (fact8 * 8)
+      (fun i -> (unrank (i / 8) 8).(i mod 8));
+    emit "up4_data" (fact4 * 4)
+      (fun i -> (unrank (i / 4) 4).(i mod 4));
     (* and where each of the twenty four bits goes, move by move *)
     emit "btmv_data" (fact4 * nh)
       (fun i -> let bt = i / nh and k = i mod nh in

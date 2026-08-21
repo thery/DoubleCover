@@ -775,10 +775,35 @@ Qed.
 
 (* ---- and what the three tables do to a member ---------------------------- *)
 
-(* A CHECK, and three small ones: a page goes to a page, a group to a group   *)
-(* and a bit to a bit.  40320 by ten, 20160 by ten, 24 by ten.                *)
-Hypothesis prep_range : forall k pg gr bt, (to_nat k < nhn)%N ->
+(* THREE CHECKS, and small ones: a page goes to a page, a group to a group    *)
+(* and a bit to a bit.  40320 by ten, 20160 by ten, 24 by ten.  Each walk is  *)
+(* named at both levels, so reading one step off it is a delta step and not a *)
+(* march through the whole thing.                                             *)
+
+Definition pgok1 (k : int) : bool :=
+  iter npagen 0%uint63 (fun pg => (pgmv mpg k pg <? npagei)%uint63).
+Definition pgok : bool := iter nhn 0%uint63 pgok1.
+
+Definition grok1 (k : int) : bool :=
+  iter ngroupn 0%uint63 (fun gr => (grmv mgr k gr <? ngroupi)%uint63).
+Definition grok : bool := iter nhn 0%uint63 grok1.
+
+Definition btok1 (k : int) : bool :=
+  iter nbitn 0%uint63 (fun bt => (btmv k bt <? nbiti)%uint63).
+Definition btok : bool := iter nhn 0%uint63 btok1.
+
+Hypothesis hpg : pgok.
+Hypothesis hgr : grok.
+Hypothesis hbt : btok.
+
+Lemma prep_range k pg gr bt : (to_nat k < nhn)%N ->
   inrange pg gr bt -> inrange (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt).
+Proof.
+move=> kL /and3P[hp hg hb]; apply/and3P; split.
+- by apply: (iter_at (iter_at hpg kL) (ltn_npagei hp)).
+- by apply: (iter_at (iter_at hgr kL) (ltn_ngroupi hg)).
+by apply: (iter_at (iter_at hbt kL) (ltn_nbiti hb)).
+Qed.
 
 (* AND THE BRIDGE, which is the only thing here about the cube: moving the    *)
 (* place moves the member by that move of H.  It is where the page, group and *)
