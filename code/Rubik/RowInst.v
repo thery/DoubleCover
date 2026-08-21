@@ -16,12 +16,11 @@
 (* so far, starting at the superflip.  A move is one composition of tables,   *)
 (* which is why the position is carried and not recomputed.                   *)
 (*                                                                            *)
-(* WHAT IS STILL OPEN is at the bottom, one Admitted lemma each, and each     *)
-(* says in its comment what it will take.  The easy end is closed: the root   *)
-(* is no moves out, a table stays a table, one move played is one move, and   *)
-(* the ten of H are ten of the eighteen.  What is left is one check on the    *)
-(* bit tables and the bridge between three ranks and a permutation of         *)
-(* facelets, which is the real work.                                          *)
+(* NOTHING IS ADMITTED HERE.  What the file cannot know it ASKS FOR, as a     *)
+(* hypothesis beside the table it is about, and there are twelve of them:     *)
+(* four checks on the tables, one on the fs step table, two saying what a     *)
+(* leaf is, two saying what the prepass tables do to a member, the member's   *)
+(* table being a permutation, and the two the run itself settles.             *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
@@ -348,7 +347,20 @@ Qed.
 (* the invariant it belongs to; Farp1.twPti_step is the same statement.       *)
 Lemma fpar_step x k : (to_nat k < nmvn)%N -> tabi_ok flast x -> cubti x ->
   ~~ fpar (coordi x) -> ~~ fpar (coordi (xstep x k)).
-Proof. Admitted.
+Proof.
+(* the summary of a position moved is the summary moved, and a move does not  *)
+(* touch the parity of the flips -- Coordfs.coordfsM and Phase1.fpar_actfsS   *)
+move=> kL xok cx fp.
+have mok := mvi_ok kL.
+have cok := tabi_ok_comp n47_small n47_len xok mok.
+have cg : cubP (pt flast (ti2t flast x)) by rewrite (cubtE xok) -(cubtiE xok).
+have cm : cubP (nth 1 moves (to_nat k)) by apply: moves_cubP; apply: mv_Sset.
+have -> : coordi (xstep x k) = actfs (coordi x) (nth 1 moves (to_nat k)).
+  rewrite (coordiE cok) -(coordtE cok) (coordiE xok) -(coordtE xok).
+  rewrite (ti2t_comp n47_small n47_len xok mok) -(ptM xok mok) mviE //.
+  by rewrite (coordfsM cg cm).
+by rewrite (fpar_actfsS _ (mv_Sset kL)).
+Qed.
 
 Lemma xstep_pok x k : (to_nat k < nmvn)%N -> pstok x -> pstok (xstep x k).
 Proof.
@@ -393,7 +405,23 @@ Hypothesis fsstepP : forall x k, (to_nat k < nmvn)%N -> pstok x ->
 
 Lemma twstepP x k : (to_nat k < nmvn)%N -> pstok x ->
   acttwii (ctwisti x) k = ctwisti (xstep x k).
-Proof. Admitted.
+Proof.
+(* the twist of a position moved is the twist moved: Phase1's acttwiE turns   *)
+(* the table into the action and coordtw_stepP says the coordinate is one.    *)
+(* That is where twP is spent, which is why the state carries it.             *)
+move=> kL /and3P[xok cx tx].
+have kL18 : (to_nat k < 18)%N by [].
+have mok := mvi_ok kL.
+have cok := tabi_ok_comp n47_small n47_len xok mok.
+have tw : twP (pt flast (ti2t flast x)) by move: tx; rewrite /twPti => /andP[].
+have hlt : (to_nat (ctwisti x) < ntwist)%N.
+  by rewrite (ctwistiE xok) -(ctwisttE xok); apply: coordtw_lt.
+rewrite -{1}(to_natK k) acttwiiE (acttwiE hlt kL18).
+rewrite (ctwistiE xok) -(ctwisttE xok) -(coordtw_stepP kL18 tw).
+rewrite (ctwistiE cok) -(ctwisttE cok).
+by rewrite (ti2t_comp n47_small n47_len xok mok) -(ptM xok mok) mviE //
+           (mvtE kL18).
+Qed.
 
 (* ---- and the packing comes apart again ----------------------------------- *)
 
@@ -402,7 +430,7 @@ Proof. Admitted.
 
 Lemma nfsi_pow : (to_nat nfsi <= 2 ^ 20)%N.
 Proof.
-(* an inequality between powers must go through leq_exp2l: left to done it   *)
+(* an inequality between powers must go through leq_exp2l: left to done it    *)
 (* builds 2 ^ 20 in unary and overflows the stack.                            *)
 rewrite nfsiE; apply: leq_trans (_ : 2 ^ 11 * 2 ^ 9 <= _)%N.
   by apply: leq_mul.
@@ -478,7 +506,7 @@ have -> : cfs (coordof x) = fsidx (coordi x).
 by rewrite (twstepP kL px) (fsstepP kL px).
 Qed.
 
-(* ---- what a member's table is ------------------------------------------- *)
+(* ---- what a member's table is -------------------------------------------  *)
 
 (* The position a member stands for is the superflip undone and the member    *)
 (* put back, and that is all pos ever is here.                                *)
