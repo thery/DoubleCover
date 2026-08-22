@@ -337,6 +337,27 @@ Lemma mvparokC : mvparok.  Proof. by vm_compute. Qed.
 (* both parities even, every move flips both or neither, so every position    *)
 (* reached by a word has them equal.  This is where being IN THE GROUP is     *)
 (* used, and it is the only place.                                            *)
+(* THE BASE OF THE INDUCTION, and it is checked: the solved cube has both     *)
+(* parities even.                                                             *)
+Lemma prm_idC :
+  prmn 8 (cperm_of (id_tab flast)) == prmn 12 (eperm_of (id_tab flast)).
+Proof. by vm_compute. Qed.
+
+(* AND THE STEP.  Playing a move on a position composes the two permutations  *)
+(* with that move's, and the parity of a composition is the exclusive or, so  *)
+(* both sides pick up the same bit -- which is exactly what mvparokC says.    *)
+(* It needs the move to carry corners to corners and edges to edges, which is *)
+(* what a facelet table of the cube does.                                     *)
+Lemma prm_step t m : tab_ok flast t -> (m < 18)%N ->
+  prmn 8 (cperm_of (comp_tab (mvt m) t))
+    = prmn 8 (cperm_of (inv_tab flast (mvt m))) (+) prmn 8 (cperm_of t) /\
+  prmn 12 (eperm_of (comp_tab (mvt m) t))
+    = prmn 12 (eperm_of (inv_tab flast (mvt m))) (+) prmn 12 (eperm_of t).
+Proof. Admitted.
+
+(* and then the law is the induction along the word, prm_idC at the bottom    *)
+(* and prm_step with mvparokC at each turn.  Ball.mem_gen_ball turns being in *)
+(* the group into being in a ball, which is the word.                         *)
 Lemma prm_law t : tab_ok flast t -> pt flast t \in G ->
   prmn 8 (cperm_of t) = prmn 12 (eperm_of t).
 Proof. Admitted.
@@ -397,6 +418,11 @@ Hypothesis hp4w : par4okw par4t.
 
 (* ---- the parity condition, and where it comes from ----------------------- *)
 
+(* THE COUNT SPLITS INTO THE TWO BLOCKS: the pairs inside the outer eight,    *)
+(* the pairs inside the middle four, and the mixed ones -- and a mixed pair   *)
+(* is never an inversion, because an outer place holds something below eight  *)
+(* and a middle place something at eight or above.                            *)
+(*                                                                            *)
 (* At a position of H the twelve edges are the outer eight and the middle     *)
 (* four side by side, each keeping to its own, so a pair of places from       *)
 (* different halves is never an inversion and the parity of the twelve is     *)
