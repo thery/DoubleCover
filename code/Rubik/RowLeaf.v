@@ -362,6 +362,55 @@ Lemma prm_law t : tab_ok flast t -> pt flast t \in G ->
   prmn 8 (cperm_of t) = prmn 12 (eperm_of t).
 Proof. Admitted.
 
+(* ---- what being in H says about the corners ------------------------------ *)
+
+(* THE ONE THING LEFT is that being in H carries a place to a place and       *)
+(* leaves the slot alone.  For the corners it comes from two facts, and       *)
+(* NEITHER IS NEW.                                                            *)
+(*                                                                            *)
+(* The first is that the position commutes with ccyct, the three cycle that   *)
+(* turns every corner in place.  That is Phase1's cubcP, which pstok already  *)
+(* carries inside twP, and Moves.moves_cubcP_tab checks it for every move.    *)
+(* It says the three facelets of a corner stay together AND IN ORDER, so a    *)
+(* slot is carried to the same slot.                                          *)
+(*                                                                            *)
+(* The second is that the twist is nought, which says the U or D facelet of   *)
+(* every place holds a U or D sticker -- so the primary facelet of a place    *)
+(* goes to the primary facelet of a place, and that fixes which place.        *)
+
+(* the layout and the rotation agree: ccyct sends the facelet at slot j of a  *)
+(* place to the one at slot j + 1, the same place                             *)
+Lemma ccyct_lay :
+  all (fun i => nth 0%N ccyct (nth 0%N cflatp i)
+                == nth 0%N cflatp ((i %/ 3) * 3 + (i %% 3).+1 %% 3)%N)
+      (iota 0 24).
+Proof. by vm_compute. Qed.
+
+(* and the primary facelet of a place is the one whose slot is nought         *)
+Lemma cprimp_lay :
+  all (fun p => nth 0%N cprimp p == nth 0%N cflatp (p * 3)%N) (iota 0 8).
+Proof. by vm_compute. Qed.
+
+Section InHCorner.
+
+Variable u : seq nat.
+Hypothesis huok : tab_ok flast u.
+
+(* pstok's cubcP half, as a table                                             *)
+Hypothesis hcyc : comp_tab u ccyct = comp_tab ccyct u.
+
+(* the twist is nought, place by place                                        *)
+Hypothesis htw0 : forall p, (p < 8)%N ->
+  nth 0%N u (nth 0%N cprimp p) \in cprim.
+
+(* so the corners keep their slot, with the place permutation cperm_of u      *)
+Lemma inH_corner p j : (p < 8)%N -> (j < 3)%N ->
+  nth 0%N u (nth 0%N cflatp (p * 3 + j)%N)
+  = nth 0%N cflatp (cperm_of u p * 3 + j)%N.
+Proof. Admitted.
+
+End InHCorner.
+
 Section Leaf.
 
 (* ---- the position, as the table tomemb reads ----------------------------- *)
