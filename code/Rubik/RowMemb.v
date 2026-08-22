@@ -24,7 +24,7 @@ From Rubik Require Import ssrint63.
 Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
 Require Import Row RowMap RowRun RowFinal RowInst.
-Require Import RowTabP.
+Require Import Lehmer RowTabP.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -430,11 +430,6 @@ Definition memb2tab (x : memb) : seq nat := inv_tab flast (membinv x).
 (* the rank of a permutation, the prototype's own: fold over the places, and  *)
 (* at each one count how many later places hold something smaller.  It is a   *)
 (* computation over eight numbers, so no table is wanted.                     *)
-Definition lrank (n : nat) (f : nat -> nat) : nat :=
-  foldl (fun r i =>
-           (r * (n - i)
-            + count (fun j => (f j < f i)%N) (iota i.+1 (n - i.+1)))%N)
-        0%N (iota 0 n).
 
 Definition rank8 (f : nat -> nat) : int := of_nat (lrank 8 f).
 Definition rank4 (f : nat -> nat) : int := of_nat (lrank 4 f).
