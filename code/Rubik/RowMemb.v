@@ -155,6 +155,65 @@ Definition up4ok : bool := iter nbitn 0%uint63 up4ok1.
 (* tables are asked for -- nothing cares WHICH permutation a rank names, only *)
 (* that each names one.                                                       *)
 
+
+(* ---- disjoint tables commute --------------------------------------------- *)
+
+(* The three parts of a member act on disjoint facelets, and so do the three  *)
+(* halves of a move of H.  That is what lets the composition be rearranged,   *)
+(* and it is the one structural fact the prepass proof needs.                 *)
+
+Lemma comp_tabE (s t : seq nat) f : (f < seq.size s)%N ->
+  nth 0%N (comp_tab s t) f = nth 0%N t (nth 0%N s f).
+Proof. by move=> h; rewrite /comp_tab (nth_map 0%N). Qed.
+
+Lemma tab_ok_size (t : seq nat) : tab_ok flast t -> seq.size t = 48%N.
+Proof. by case/and3P => /eqP. Qed.
+
+Lemma tab_eq (s t : seq nat) : tab_ok flast s -> tab_ok flast t ->
+  (forall f, (f < 48)%N -> nth 0%N s f = nth 0%N t f) -> s = t.
+Proof.
+move=> hs ht h; apply: (@eq_from_nth _ 0%N).
+  by rewrite (tab_ok_size hs) (tab_ok_size ht).
+by move=> i; rewrite (tab_ok_size hs) => hi; apply: h.
+Qed.
+
+Lemma comp_disj (S T s t : seq nat) :
+  tab_ok flast s -> tab_ok flast t ->
+  all (fun f => (f \in S) || (nth 0%N s f == f)) (iota 0 48) ->
+  all (fun f => (f \in T) || (nth 0%N t f == f)) (iota 0 48) ->
+  all (fun f => (f \in S) ==> (nth 0%N s f \in S)) (iota 0 48) ->
+  all (fun f => (f \in T) ==> (nth 0%N t f \in T)) (iota 0 48) ->
+  all (fun f => ~~ ((f \in S) && (f \in T))) (iota 0 48) ->
+  comp_tab s t = comp_tab t s.
+Proof.
+move=> hs ht hsid htid hss htt hd.
+have hsl f : (f < 48)%N -> (nth 0%N s f < 48)%N.
+  by move=> hf; move: (hs) => /and3P[_ /allP hh _]; apply: hh; apply: mem_nth;
+     rewrite (tab_ok_size hs).
+apply: tab_eq; try by apply: tab_ok_comp.
+move=> f hf.
+rewrite comp_tabE ?(tab_ok_size hs) // comp_tabE ?(tab_ok_size ht) //.
+have hfS := all_iota_lt hsid hf.
+have hfT := all_iota_lt htid hf.
+have hfD := all_iota_lt hd hf.
+case: (boolP (f \in S)) => hS.
+  have hsS : nth 0%N s f \in S by move: (all_iota_lt hss hf); rewrite hS.
+  have -> : nth 0%N t (nth 0%N s f) = nth 0%N s f.
+    move: (all_iota_lt htid (hsl f hf)).
+    by move: (all_iota_lt hd (hsl f hf)); rewrite hsS /= => /negbTE -> /= /eqP.
+  by move: hfT; move: hfD; rewrite hS /= => /negbTE -> /= /eqP ->.
+have hsf : nth 0%N s f = f by move: hfS; rewrite (negbTE hS) /= => /eqP.
+rewrite hsf.
+have htl f' : (f' < 48)%N -> (nth 0%N t f' < 48)%N.
+  by move=> hf'; move: (ht) => /and3P[_ /allP hh _]; apply: hh; apply: mem_nth;
+     rewrite (tab_ok_size ht).
+case: (boolP (f \in T)) => hT.
+  have htT : nth 0%N t f \in T by move: (all_iota_lt htt hf); rewrite hT.
+  move: (all_iota_lt hsid (htl f hf)).
+  by move: (all_iota_lt hd (htl f hf)); rewrite htT andbT => /negbTE -> /= /eqP.
+by move: hfT; rewrite (negbTE hT) /= => /eqP ht2; rewrite ht2 hsf.
+Qed.
+
 Section Parts.
 
 Definition cpartok : bool :=
