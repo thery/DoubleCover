@@ -51,6 +51,234 @@ Definition up8 (r : int) (p : nat) : nat :=
 Definition up4 (r : int) (p : nat) : nat :=
   to_nat (PArray.get up4i (Uint63.add (Uint63.mul r 4%uint63) (of_nat p))).
 
+(* ---- what a table is, and what a part of one is -------------------------- *)
+
+(* Read once here because the layout below needs them: a composition read at  *)
+(* a facelet, the size of a table, when two are equal, and what it is for a   *)
+(* table to be a part -- a permutation that leaves every facelet outside its  *)
+(* own set alone and keeps its own.                                           *)
+
+Lemma comp_tabE (s t : seq nat) f : (f < seq.size s)%N ->
+  nth 0%N (comp_tab s t) f = nth 0%N t (nth 0%N s f).
+Proof. by move=> h; rewrite /comp_tab (nth_map 0%N). Qed.
+
+Lemma tab_ok_size (t : seq nat) : tab_ok flast t -> seq.size t = 48%N.
+Proof. by case/and3P => /eqP. Qed.
+
+Lemma tab_eq (s t : seq nat) : tab_ok flast s -> tab_ok flast t ->
+  (forall f, (f < 48)%N -> nth 0%N s f = nth 0%N t f) -> s = t.
+Proof.
+move=> hs ht h; apply: (@eq_from_nth _ 0%N).
+  by rewrite (tab_ok_size hs) (tab_ok_size ht).
+by move=> i; rewrite (tab_ok_size hs) => hi; apply: h.
+Qed.
+
+Definition partok (S : nat -> bool) (t : seq nat) : bool :=
+  [&& tab_ok flast t,
+      all (fun f => S f || (nth 0%N t f == f)) (iota 0 48) &
+      all (fun f => S f ==> S (nth 0%N t f)) (iota 0 48)].
+
+Lemma partok_tab S t : partok S t -> tab_ok flast t.
+Proof. by case/and3P. Qed.
+
+(* a table cut down to one set, leaving the rest alone                        *)
+Definition restr (S : nat -> bool) (t : seq nat) : seq nat :=
+  mkseq (fun f => if S f then nth 0%N t f else f) 48.
+
+(* ---- a layout, and the one thing all three parts are --------------------- *)
+
+(* THE THREE PARTS ARE THE SAME CONSTRUCTION THREE TIMES, and saying so once  *)
+(* is what makes the checks small.  A LAYOUT is a set of facelets listed      *)
+(* place by place, so many facelets at each place: the corners are eight      *)
+(* places of three, the outer eight and the middle four are places of two,    *)
+(* the primary facelet and the other one.  A rank names a permutation of the  *)
+(* PLACES, and the part it gives moves each facelet to the same slot of the   *)
+(* place the permutation names.                                               *)
+(*                                                                            *)
+(* Everything a walk had to say about the forty eight facelets is then said   *)
+(* about eight numbers instead, which is the whole of the saving: a part is a *)
+(* permutation exactly when the rank names one, and a move carries a part     *)
+(* exactly when it carries the places.                                        *)
+
+Section Lay.
+
+Variable lay : seq nat.          (* the facelets, place by place              *)
+Variable nsl npl : nat.          (* facelets at a place, and places           *)
+Variable inL : nat -> bool.      (* the set of them, as a table               *)
+Variable plc slt : nat -> nat.   (* which place a facelet is at, and its slot *)
+
+(* a place and a slot name an index of the layout                             *)
+Lemma lidx p q : (p < npl)%N -> (q < nsl)%N -> (p * nsl + q < npl * nsl)%N.
+Proof.
+move=> hp hq.
+have h0 : (0 < nsl)%N by apply: leq_ltn_trans hq.
+have h1 : (p * nsl + q < p.+1 * nsl)%N.
+  by rewrite mulSn [(nsl + _)%N]addnC ltn_add2l.
+by apply: leq_trans h1 _; rewrite leq_pmul2r.
+Qed.
+
+Definition part (u : nat -> nat) : seq nat :=
+  mkseq (fun f => if inL f then nth 0%N lay (u (plc f) * nsl + slt f)%N else f)
+        48.
+
+(* what a layout owes, and it is a walk over the places and the facelets      *)
+Definition layok : bool :=
+  [&& (0 < nsl)%N,
+      all (fun i => [&& (nth 0%N lay i < 48)%N, inL (nth 0%N lay i),
+                        plc (nth 0%N lay i) == i %/ nsl &
+                        slt (nth 0%N lay i) == i %% nsl])
+          (iota 0 (npl * nsl)),
+      all (fun f => inL f ==> (nth 0%N lay (plc f * nsl + slt f)%N == f))
+          (iota 0 48) &
+      all (fun f => inL f ==> ((plc f < npl)%N && (slt f < nsl)%N))
+          (iota 0 48)].
+
+Lemma layP i : layok -> (i < npl * nsl)%N ->
+  [&& (nth 0%N lay i < 48)%N, inL (nth 0%N lay i),
+      plc (nth 0%N lay i) == i %/ nsl & slt (nth 0%N lay i) == i %% nsl].
+Proof. by case/and4P => _ h _ _ hi; apply: all_iota_lt h hi. Qed.
+
+Lemma layK f : layok -> (f < 48)%N -> inL f ->
+  nth 0%N lay (plc f * nsl + slt f)%N = f.
+Proof.
+by case/and4P => _ _ h _ hf hL; move: (all_iota_lt h hf); rewrite hL => /eqP.
+Qed.
+
+Lemma lay_rng f : layok -> (f < 48)%N -> inL f ->
+  (plc f < npl)%N && (slt f < nsl)%N.
+Proof.
+by case/and4P => _ _ _ h hf hL; move: (all_iota_lt h hf); rewrite hL.
+Qed.
+
+(* an index of the layout is its place and its slot, so the layout is one to  *)
+(* one                                                                        *)
+Lemma lay_inj i j : layok -> (i < npl * nsl)%N -> (j < npl * nsl)%N ->
+  nth 0%N lay i = nth 0%N lay j -> i = j.
+Proof.
+move=> hok hi hj hE.
+have /and4P[_ _ /eqP hpi /eqP hsi] := layP hok hi.
+have /and4P[_ _ /eqP hpj /eqP hsj] := layP hok hj.
+have h0 : (0 < nsl)%N by case/and4P: hok.
+by rewrite (divn_eq i nsl) (divn_eq j nsl) -hpi -hsi -hpj -hsj hE.
+Qed.
+
+(* ---- a rank that names a permutation gives a part that is one ------------ *)
+
+Lemma part_partok u : layok ->
+  perm_eq [seq u p | p <- iota 0 npl] (iota 0 npl) -> partok inL (part u).
+Proof.
+move=> hok hu.
+have h0 : (0 < nsl)%N by case/and4P: hok.
+(* the rank stays inside the places and is one to one on them                 *)
+have hult p : (p < npl)%N -> (u p < npl)%N.
+  move=> hp; have : u p \in [seq u q | q <- iota 0 npl].
+    by apply/mapP; exists p => //; rewrite mem_iota.
+  by rewrite (perm_mem hu) mem_iota.
+have huinj p q : (p < npl)%N -> (q < npl)%N -> u p = u q -> p = q.
+  move=> hp hq hpq.
+  have hun : uniq [seq u p | p <- iota 0 npl].
+    by rewrite (perm_uniq hu) iota_uniq.
+  have hs : seq.size [seq u p | p <- iota 0 npl] = npl.
+    by rewrite size_map size_iota.
+  have hp' : (p < seq.size [seq u p | p <- iota 0 npl])%N by rewrite hs.
+  have hq' : (q < seq.size [seq u p | p <- iota 0 npl])%N by rewrite hs.
+  apply/eqP; rewrite -(nth_uniq 0%N hp' hq' hun).
+  by rewrite !(nth_map 0%N) ?size_iota // !nth_iota // !add0n hpq.
+have hidx f : (f < 48)%N -> inL f -> (u (plc f) * nsl + slt f < npl * nsl)%N.
+  move=> hf hL; have /andP[hp hs] := lay_rng hok hf hL.
+  by apply: lidx => //; exact: (hult _ hp).
+have hval f : (f < 48)%N ->
+  nth 0%N (part u) f = if inL f then nth 0%N lay (u (plc f) * nsl + slt f)%N
+                       else f.
+  by move=> hf; rewrite /part nth_mkseq.
+(* one to one on the forty eight, and that is the only hard part              *)
+have hinj : {in iota 0 48 &, injective
+   (fun f => if inL f then nth 0%N lay (u (plc f) * nsl + slt f)%N else f)}.
+  move=> f g; rewrite !mem_iota !add0n => /andP[_ hf] /andP[_ hg] /=.
+  case: (boolP (inL f)) => hLf; case: (boolP (inL g)) => hLg.
+  - move=> hE; have hij := lay_inj hok (hidx f hf hLf) (hidx g hg hLg) hE.
+    have /andP[hpf hsf] := lay_rng hok hf hLf.
+    have /andP[hpg hsg] := lay_rng hok hg hLg.
+    have hsE : slt f = slt g.
+      have h : (u (plc f) * nsl + slt f) %% nsl
+             = (u (plc g) * nsl + slt g) %% nsl by rewrite hij.
+      by move: h; rewrite !modnMDl !modn_small.
+    have hpE : u (plc f) = u (plc g).
+      have h : (u (plc f) * nsl + slt f) %/ nsl
+             = (u (plc g) * nsl + slt g) %/ nsl by rewrite hij.
+      by move: h; rewrite !divnMDl // !divn_small // !addn0.
+    rewrite -(layK hok hf hLf) -(layK hok hg hLg) hsE.
+    by rewrite (huinj _ _ hpf hpg hpE).
+  - move=> hE; move: hLg; suff -> : inL g by [].
+    by rewrite -hE; have /and4P[_ -> _ _] := layP hok (hidx f hf hLf).
+  - move=> hE; move: hLf; suff -> : inL f by [].
+    by rewrite hE; have /and4P[_ -> _ _] := layP hok (hidx g hg hLg).
+  by [].
+apply/and3P; split; last 1 first.
+- apply/allP => f; rewrite mem_iota add0n => /andP[_ hf].
+  apply/implyP => hL; rewrite hval // hL.
+  by have /and4P[_ -> _ _] := layP hok (hidx f hf hL).
+- apply/and3P; split.
+  + by rewrite size_mkseq.
+  + apply/allP => v /(nthP 0%N)[i]; rewrite size_mkseq => hi <-.
+    rewrite hval //; case: (boolP (inL i)) => hL //.
+    by have /and4P[-> _ _ _] := layP hok (hidx i hi hL).
+  by rewrite /part /mkseq map_inj_in_uniq // iota_uniq.
+apply/allP => f; rewrite mem_iota add0n => /andP[_ hf].
+by rewrite hval //; case: (boolP (inL f)) => hL //=; rewrite eqxx orbT.
+Qed.
+
+(* ---- and a move that carries the places carries the part ----------------- *)
+
+(* The place a move sends a place to, read off the layout at the first slot.  *)
+Definition lperm (t : seq nat) : seq nat :=
+  [seq plc (nth 0%N t (nth 0%N lay (p * nsl)%N)) | p <- iota 0 npl].
+
+(* and the walk that says the move really does act that way, the same at      *)
+(* every slot: for the corners that is a move of H not twisting a corner, and *)
+(* it is twenty four tests a move                                             *)
+Definition lslot (t : seq nat) : bool :=
+  all (fun i => nth 0%N t (nth 0%N lay i)
+                == nth 0%N lay
+                     (nth 0%N (lperm t) (i %/ nsl) * nsl + i %% nsl)%N)
+      (iota 0 (npl * nsl)).
+
+Lemma part_move u v t : layok -> lslot t ->
+  all (fun p => v p == u (nth 0%N (lperm t) p)) (iota 0 npl) ->
+  all (fun p => (u p < npl)%N) (iota 0 npl) ->
+  all (fun p => (nth 0%N (lperm t) p < npl)%N) (iota 0 npl) ->
+  part v = comp_tab (restr inL t) (part u).
+Proof.
+move=> hok hsl hvu hun hln.
+have h0 : (0 < nsl)%N by case/and4P: hok.
+apply: (@eq_from_nth _ 0%N).
+  by rewrite /part /comp_tab !size_map !size_iota.
+move=> f; rewrite size_mkseq => hf.
+have hsz : seq.size (restr inL t) = 48%N by rewrite /restr size_mkseq.
+have hr : nth 0%N (restr inL t) f = if inL f then nth 0%N t f else f.
+  by rewrite /restr nth_mkseq.
+have hpv : nth 0%N (part v) f
+         = if inL f then nth 0%N lay (v (plc f) * nsl + slt f)%N else f.
+  by rewrite /part nth_mkseq.
+rewrite comp_tabE ?hsz // hr hpv.
+case: (boolP (inL f)) => hL; last by rewrite /part nth_mkseq // (negbTE hL).
+have /andP[hpf hsf] := lay_rng hok hf hL.
+(* where the move takes this facelet: the same slot of the place lperm names  *)
+have hE : nth 0%N t f
+        = nth 0%N lay (nth 0%N (lperm t) (plc f) * nsl + slt f)%N.
+  have := all_iota_lt hsl (lidx hpf hsf).
+  rewrite (layK hok hf hL) divnMDl // divn_small // addn0 modnMDl modn_small //.
+  by move=> /eqP.
+have hlt : (nth 0%N (lperm t) (plc f) < npl)%N by apply: all_iota_lt hln hpf.
+have hj := lidx hlt hsf.
+have /and4P[hj48 hjL /eqP hjp /eqP hjs] := layP hok hj.
+rewrite hE /part nth_mkseq // hjL hjp hjs divnMDl // divn_small // addn0.
+rewrite modnMDl modn_small //.
+by have := all_iota_lt hvu hpf => /eqP ->.
+Qed.
+
+End Lay.
+
 (* ---- the cube a member names --------------------------------------------- *)
 
 (* THE THREE ACT ON DISJOINT FACELETS, so the cube a member names is their    *)
@@ -61,13 +289,6 @@ Definition up4 (r : int) (p : nat) : nat :=
 (*                                                                            *)
 (* Each is the identity away from its own facelets, which is what lets them   *)
 (* be composed at all.                                                        *)
-
-(* CPOS AND EPOS AT THE NAT LEVEL, and this is not a nicety: inord does not   *)
-(* reduce, so cposn f under a vm_compute does not come back.  Coordfs         *)
-(* says the same thing about its own twelve -- every fact there is pushed to  *)
-(* nat for exactly this reason.  These are the same functions with the        *)
-(* ordinal taken out.                                                         *)
-Definition eposn (f : nat) : nat := (index f (eprim ++ esec)) %% nedge.
 
 (* THE TWO SIDES NUMBER THE CORNERS DIFFERENTLY, and nothing else does.  The  *)
 (* prototype takes them URF UFL ULB UBR DFR DLF DBL DRB; cflat takes them in  *)
@@ -89,8 +310,51 @@ Definition cflatp : seq nat :=
 (* the primary facelet of each place, in the same order                       *)
 Definition cprimp : seq nat := [seq nth 0%N cflatp (3 * p)%N | p <- iota 0 8].
 
-Definition cposn (f : nat) : nat := (index f cflatp) %/ 3.
-Definition cslotn (f : nat) : nat := (index f cflatp) %% 3.
+(* ---- the facelet is looked up, not searched for -------------------------- *)
+
+(* EVERY ONE OF THESE IS A FUNCTION OF THE FACELET ALONE, and every one of    *)
+(* them used to be a scan: which place a facelet belongs to, how far round    *)
+(* it sits, and whether it is a corner, an outer edge or a middle one.  A     *)
+(* part asks all of them at each of forty eight facelets and a walk builds a  *)
+(* part at each of forty thousand ranks, so the scans were the whole cost --  *)
+(* measured, the membership alone was seven eighths of it.  Read once into    *)
+(* tables of forty eight, they are a lookup.                                  *)
+
+Definition eouts : seq nat := take 8 eprim ++ take 8 esec.
+Definition emids : seq nat := drop 8 eprim ++ drop 8 esec.
+
+Definition cposv : seq nat := Eval vm_compute in
+  [seq (index f cflatp) %/ 3 | f <- iota 0 48].
+Definition cslotv : seq nat := Eval vm_compute in
+  [seq (index f cflatp) %% 3 | f <- iota 0 48].
+Definition eposv : seq nat := Eval vm_compute in
+  [seq (index f (eprim ++ esec)) %% nedge | f <- iota 0 48].
+
+Definition inCv : seq bool := Eval vm_compute in
+  [seq f \in cflatp | f <- iota 0 48].
+Definition inUv : seq bool := Eval vm_compute in
+  [seq f \in eouts | f <- iota 0 48].
+Definition inMv : seq bool := Eval vm_compute in
+  [seq f \in emids | f <- iota 0 48].
+Definition inPv : seq bool := Eval vm_compute in
+  [seq f \in eprim | f <- iota 0 48].
+Definition inSv : seq bool := Eval vm_compute in
+  [seq f \in esec | f <- iota 0 48].
+
+Definition inC (f : nat) : bool := nth false inCv f.
+Definition inU (f : nat) : bool := nth false inUv f.
+Definition inM (f : nat) : bool := nth false inMv f.
+Definition inP (f : nat) : bool := nth false inPv f.
+Definition inS (f : nat) : bool := nth false inSv f.
+
+(* CPOS AND EPOS AT THE NAT LEVEL, and this is not a nicety: inord does not   *)
+(* reduce, so cposn f under a vm_compute does not come back.  Coordfs         *)
+(* says the same thing about its own twelve -- every fact there is pushed to  *)
+(* nat for exactly this reason.  These are the same functions with the        *)
+(* ordinal taken out, and now read off a table.                               *)
+Definition cposn (f : nat) : nat := nth 0%N cposv f.
+Definition cslotn (f : nat) : nat := nth 0%N cslotv f.
+Definition eposn (f : nat) : nat := nth 0%N eposv f.
 
 (* AND THE ORDER IS CHECKED, not asserted.  These are the prototype's own six *)
 (* cp arrays, copied out of rubik_row.ml's `basic'.  Turn a face, ask which   *)
@@ -110,32 +374,36 @@ Definition cordok : bool :=
 Lemma cordokC : cordok.
 Proof. by vm_compute. Qed.
 
-Definition cpart (r : int) : seq nat :=
-  mkseq (fun f =>
-     if (f \in cflatp) then
-       nth 0%N cflatp (3 * up8 r (cposn f) + cslotn f)%N
-     else f)
-   48.
+(* The three layouts.  The corners are eight places of three facelets, in the *)
+(* prototype's order; the outer eight and the middle four are places of two,  *)
+(* the primary facelet and the other one.                                     *)
 
-Definition upart (r : int) : seq nat :=
-  mkseq (fun f =>
-     if (eposn f < 8)%N then
-       if (f \in eprim) then nth 0%N eprim (up8 r (eposn f))
-       else if (f \in esec) then nth 0%N esec (up8 r (eposn f))
-       else f
-     else f)
-   48.
+Definition ulay : seq nat :=
+  flatten [seq [:: nth 0%N eprim p; nth 0%N esec p] | p <- iota 0 8].
 
-Definition mpart (r : int) : seq nat :=
-  mkseq (fun f =>
-     if (8 <= eposn f)%N then
-       if (f \in eprim) then
-         nth 0%N eprim (8 + up4 r (eposn f - 8))%N
-       else if (f \in esec) then
-         nth 0%N esec (8 + up4 r (eposn f - 8))%N
-       else f
-     else f)
-   48.
+Definition mlay : seq nat :=
+  flatten [seq [:: nth 0%N eprim (8 + p)%N; nth 0%N esec (8 + p)%N]
+          | p <- iota 0 4].
+
+(* an edge facelet is at slot nought if it is the primary one                 *)
+Definition eslt (f : nat) : nat := if inP f then 0%N else 1%N.
+
+(* and a middle edge is at place eight and up                                 *)
+Definition mplc (f : nat) : nat := (eposn f - 8)%N.
+
+Definition cpart (r : int) : seq nat := part cflatp 3 inC cposn cslotn (up8 r).
+Definition upart (r : int) : seq nat := part ulay 2 inU eposn eslt (up8 r).
+Definition mpart (r : int) : seq nat := part mlay 2 inM mplc eslt (up4 r).
+
+(* ---- and the three layouts are layouts, which is one walk over each ------ *)
+
+Definition clayok : bool := layok cflatp 3 8 inC cposn cslotn.
+Definition ulayok : bool := layok ulay 2 8 inU eposn eslt.
+Definition mlayok : bool := layok mlay 2 4 inM mplc eslt.
+
+Lemma clayokC : clayok.  Proof. by vm_compute. Qed.
+Lemma ulayokC : ulayok.  Proof. by vm_compute. Qed.
+Lemma mlayokC : mlayok.  Proof. by vm_compute. Qed.
 
 (* A MEMBER OUT OF RANGE NAMES THE SOLVED CUBE.  What is wanted above is      *)
 (* that every member names a permutation with no premise attached, and a rank *)
@@ -210,28 +478,13 @@ Definition up4ok : bool := iter nbitn 0%uint63 up4ok1.
 (* halves of a move of H.  That is what lets the composition be rearranged,   *)
 (* and it is the one structural fact the prepass proof needs.                 *)
 
-Lemma comp_tabE (s t : seq nat) f : (f < seq.size s)%N ->
-  nth 0%N (comp_tab s t) f = nth 0%N t (nth 0%N s f).
-Proof. by move=> h; rewrite /comp_tab (nth_map 0%N). Qed.
-
-Lemma tab_ok_size (t : seq nat) : tab_ok flast t -> seq.size t = 48%N.
-Proof. by case/and3P => /eqP. Qed.
-
-Lemma tab_eq (s t : seq nat) : tab_ok flast s -> tab_ok flast t ->
-  (forall f, (f < 48)%N -> nth 0%N s f = nth 0%N t f) -> s = t.
-Proof.
-move=> hs ht h; apply: (@eq_from_nth _ 0%N).
-  by rewrite (tab_ok_size hs) (tab_ok_size ht).
-by move=> i; rewrite (tab_ok_size hs) => hi; apply: h.
-Qed.
-
-Lemma comp_disj (S T s t : seq nat) :
+Lemma comp_disj (S T : nat -> bool) (s t : seq nat) :
   tab_ok flast s -> tab_ok flast t ->
-  all (fun f => (f \in S) || (nth 0%N s f == f)) (iota 0 48) ->
-  all (fun f => (f \in T) || (nth 0%N t f == f)) (iota 0 48) ->
-  all (fun f => (f \in S) ==> (nth 0%N s f \in S)) (iota 0 48) ->
-  all (fun f => (f \in T) ==> (nth 0%N t f \in T)) (iota 0 48) ->
-  all (fun f => ~~ ((f \in S) && (f \in T))) (iota 0 48) ->
+  all (fun f => S f || (nth 0%N s f == f)) (iota 0 48) ->
+  all (fun f => T f || (nth 0%N t f == f)) (iota 0 48) ->
+  all (fun f => S f ==> S (nth 0%N s f)) (iota 0 48) ->
+  all (fun f => T f ==> T (nth 0%N t f)) (iota 0 48) ->
+  all (fun f => ~~ (S f && T f)) (iota 0 48) ->
   comp_tab s t = comp_tab t s.
 Proof.
 move=> hs ht hsid htid hss htt hd.
@@ -244,8 +497,8 @@ rewrite comp_tabE ?(tab_ok_size hs) // comp_tabE ?(tab_ok_size ht) //.
 have hfS := all_iota_lt hsid hf.
 have hfT := all_iota_lt htid hf.
 have hfD := all_iota_lt hd hf.
-case: (boolP (f \in S)) => hS.
-  have hsS : nth 0%N s f \in S by move: (all_iota_lt hss hf); rewrite hS.
+case: (boolP (S f)) => hS.
+  have hsS : S (nth 0%N s f) by move: (all_iota_lt hss hf); rewrite hS.
   have -> : nth 0%N t (nth 0%N s f) = nth 0%N s f.
     move: (all_iota_lt htid (hsl f hf)).
     by move: (all_iota_lt hd (hsl f hf)); rewrite hsS /= => /negbTE -> /= /eqP.
@@ -255,8 +508,8 @@ rewrite hsf.
 have htl f' : (f' < 48)%N -> (nth 0%N t f' < 48)%N.
   by move=> hf'; move: (ht) => /and3P[_ /allP hh _]; apply: hh; apply: mem_nth;
      rewrite (tab_ok_size ht).
-case: (boolP (f \in T)) => hT.
-  have htT : nth 0%N t f \in T by move: (all_iota_lt htt hf); rewrite hT.
+case: (boolP (T f)) => hT.
+  have htT : T (nth 0%N t f) by move: (all_iota_lt htt hf); rewrite hT.
   move: (all_iota_lt hsid (htl f hf)).
   by move: (all_iota_lt hd (htl f hf)); rewrite htT andbT => /negbTE -> /= /eqP.
 by move: hfT; rewrite (negbTE hT) /= => /eqP ht2; rewrite ht2 hsf.
@@ -270,20 +523,37 @@ Qed.
 (* the composition of its three halves, and they are disjoint.  restr cuts a  *)
 (* table down to one set and leaves the rest alone.                           *)
 
-Definition restr (S t : seq nat) : seq nat :=
-  mkseq (fun f => if f \in S then nth 0%N t f else f) 48.
-
-(* the outer eight and the middle four, as facelet sets                       *)
-Definition eout : seq nat := take 8 eprim ++ take 8 esec.
-Definition emid : seq nat := drop 8 eprim ++ drop 8 esec.
-
 (* the move a place is carried by, undone: membinv is the inverse of the      *)
 (* member, so what acts on it is the move the other way round                 *)
 Definition hinv (k : int) : seq nat := inv_tab flast (mvt (hmvi k)).
 
-Definition hcT (k : int) : seq nat := restr cflatp (hinv k).
-Definition huT (k : int) : seq nat := restr eout (hinv k).
-Definition hmT (k : int) : seq nat := restr emid (hinv k).
+Definition hcT (k : int) : seq nat := restr inC (hinv k).
+Definition huT (k : int) : seq nat := restr inU (hinv k).
+Definition hmT (k : int) : seq nat := restr inM (hinv k).
+
+(* ---- and a move is eight numbers, not forty eight ------------------------ *)
+
+(* A move of H carries a place to a place and leaves the slot alone: it never *)
+(* twists a corner and never flips an edge, which is what being in H MEANS.   *)
+(* So each half of it is named by a permutation of the places, read off the   *)
+(* layout at the first slot, and everything the walks used to say about the   *)
+(* forty eight facelets is said about eight numbers instead.                  *)
+Definition chp (k : int) : seq nat := lperm cflatp 3 8 cposn (hinv k).
+Definition uhp (k : int) : seq nat := lperm ulay 2 8 eposn (hinv k).
+Definition mhp (k : int) : seq nat := lperm mlay 2 4 mplc (hinv k).
+
+(* that it really does act that way, and that it stays inside the places:     *)
+(* twenty four tests a move for the corners, sixteen and eight for the edges  *)
+Definition hlayok : bool :=
+  iter nhn 0%uint63 (fun k =>
+    [&& lslot cflatp 3 8 cposn (hinv k),
+        lslot ulay 2 8 eposn (hinv k),
+        lslot mlay 2 4 mplc (hinv k) &
+        [&& all (fun p => (nth 0%N (chp k) p < 8)%N) (iota 0 8),
+            all (fun p => (nth 0%N (uhp k) p < 8)%N) (iota 0 8) &
+            all (fun p => (nth 0%N (mhp k) p < 4)%N) (iota 0 4)]]).
+
+Lemma hlayokC : hlayok.  Proof. by vm_compute. Qed.
 
 (* ---- what any part of a member or of a move owes -------------------------*)
 
@@ -292,22 +562,14 @@ Definition hmT (k : int) : seq nat := restr emid (hinv k).
 (* alone, and it keeps its own.  The last two are what let the three parts of *)
 (* a member be shuffled past the three halves of a move, which is the whole   *)
 (* of the prepass proof.                                                      *)
-Definition partok (S t : seq nat) : bool :=
-  [&& tab_ok flast t,
-      all (fun f => (f \in S) || (nth 0%N t f == f)) (iota 0 48) &
-      all (fun f => (f \in S) ==> (nth 0%N t f \in S)) (iota 0 48)].
-
-Lemma partok_tab S t : partok S t -> tab_ok flast t.
-Proof. by case/and3P. Qed.
-
-Definition dsj (S T : seq nat) : bool :=
-  all (fun f => ~~ ((f \in S) && (f \in T))) (iota 0 48).
+Definition dsj (S T : nat -> bool) : bool :=
+  all (fun f => ~~ (S f && T f)) (iota 0 48).
 
 (* the three sets of a member are disjoint, and that is a walk over forty     *)
 (* eight facelets with no table in it                                         *)
-Lemma dsj_cu : dsj cflatp eout.  Proof. by vm_compute. Qed.
-Lemma dsj_cm : dsj cflatp emid.  Proof. by vm_compute. Qed.
-Lemma dsj_um : dsj eout emid.    Proof. by vm_compute. Qed.
+Lemma dsj_cu : dsj inC inU.  Proof. by vm_compute. Qed.
+Lemma dsj_cm : dsj inC inM.  Proof. by vm_compute. Qed.
+Lemma dsj_um : dsj inU inM.    Proof. by vm_compute. Qed.
 
 (* and then two parts of disjoint facelets commute, as tables and as          *)
 (* permutations.  The permutation form is the one the assembly uses, because  *)
@@ -350,10 +612,12 @@ Section Move.
 
 Variable mpg mgr btmvt e8invt e4oft par8t par4t : arr.
 
-(* the corner half: the page table is the corner permutation moved            *)
+(* the corner half: the page table is the corner permutation moved, and that  *)
+(* is eight numbers at each page rather than a table of forty eight           *)
 Definition cmvok1 (k : int) : bool :=
   iter npagen 0%uint63 (fun pg =>
-    cpart (pgmv mpg k pg) == comp_tab (hcT k) (cpart pg)).
+    all (fun p => up8 (pgmv mpg k pg) p == up8 pg (nth 0%N (chp k) p))
+        (iota 0 8)).
 Definition cmvok : bool := iter nhn 0%uint63 cmvok1.
 
 (* the middle half: btmv is the middle permutation moved                      *)
@@ -361,8 +625,9 @@ Definition cmvok : bool := iter nhn 0%uint63 cmvok1.
 (* check has to go through it or it is checking the wrong thing.              *)
 Definition mmvok1 (k : int) : bool :=
   iter nbitn 0%uint63 (fun bt =>
-    mpart (PArray.get e4oft (btmv btmvt k bt))
-    == comp_tab (hmT k) (mpart (PArray.get e4oft bt))).
+    all (fun p => up4 (PArray.get e4oft (btmv btmvt k bt)) p
+                  == up4 (PArray.get e4oft bt) (nth 0%N (mhp k) p))
+        (iota 0 4)).
 Definition mmvok : bool := iter nhn 0%uint63 mmvok1.
 
 (* ---- and the parity, which is not carried across ------------------------- *)
@@ -408,12 +673,13 @@ Definition parok : bool := iter nhn 0%uint63 parok1.
 Definition umvok1 (k : int) : bool :=
   iter ngroupn 0%uint63 (fun gr =>
     iter 2 0%uint63 (fun p =>
-      upart (PArray.get e8invt
+      all (fun q =>
+        up8 (PArray.get e8invt
                (Uint63.add (Uint63.mul (grmv mgr k gr) 2%uint63)
-                           (Uint63.lxor p (hpar k))))
-      == comp_tab (huT k)
-           (upart (PArray.get e8invt
-                     (Uint63.add (Uint63.mul gr 2%uint63) p))))).
+                           (Uint63.lxor p (hpar k)))) q
+        == up8 (PArray.get e8invt (Uint63.add (Uint63.mul gr 2%uint63) p))
+               (nth 0%N (uhp k) q))
+        (iota 0 8))).
 Definition umvok : bool := iter nhn 0%uint63 umvok1.
 
 (* ---- and the move itself is its three halves ------------------------------*)
@@ -423,19 +689,60 @@ Definition umvok : bool := iter nhn 0%uint63 umvok1.
 (* of facelets.  It is what being in H means, written down.                   *)
 Definition hmvok : bool :=
   iter nhn 0%uint63 (fun k =>
-    [&& partok cflatp (hcT k), partok eout (huT k), partok emid (hmT k) &
+    [&& partok inC (hcT k), partok inU (huT k), partok inM (hmT k) &
         hinv k == comp_tab (comp_tab (hcT k) (huT k)) (hmT k)]).
 
 End Move.
 
 Section Parts.
 
-Definition cpartok : bool :=
-  iter npagen 0%uint63 (fun r => partok cflatp (cpart r)).
-Definition upartok : bool :=
-  iter npagen 0%uint63 (fun r => partok eout (upart r)).
-Definition mpartok : bool :=
-  iter nbitn 0%uint63 (fun r => partok emid (mpart r)).
+(* A PART IS A PERMUTATION EXACTLY WHEN THE RANK NAMES ONE, so what was a     *)
+(* walk over the forty eight facelets at each of forty thousand ranks is a    *)
+(* walk over eight numbers -- and up8ok was already here, unused.             *)
+Definition cpartok : bool := clayok && up8ok.
+Definition upartok : bool := ulayok && up8ok.
+Definition mpartok : bool := mlayok && up4ok.
+
+(* a rank that names a permutation of the places stays inside them            *)
+Lemma up8_rng r : up8ok1 r -> all (fun p => (up8 r p < 8)%N) (iota 0 8).
+Proof.
+move=> h; apply/allP => p; rewrite mem_iota add0n => /andP[_ hp].
+have : up8 r p \in [seq up8 r q | q <- iota 0 8].
+  by apply/mapP; exists p => //; rewrite mem_iota.
+by rewrite (perm_mem h) mem_iota.
+Qed.
+
+Lemma up4_rng r : up4ok1 r -> all (fun p => (up4 r p < 4)%N) (iota 0 4).
+Proof.
+move=> h; apply/allP => p; rewrite mem_iota add0n => /andP[_ hp].
+have : up4 r p \in [seq up4 r q | q <- iota 0 4].
+  by apply/mapP; exists p => //; rewrite mem_iota.
+by rewrite (perm_mem h) mem_iota.
+Qed.
+
+Lemma cpartokP r : cpartok -> (r <? npagei)%uint63 -> partok inC (cpart r).
+Proof.
+(* NOT `part_partok => //': what done would evaluate is the layout walk, and  *)
+(* that measured 172 seconds.  The layout is handed over, not looked for.     *)
+case/andP => hl hu hr.
+exact: (part_partok hl (iter_at hu (ltn_npagei hr))).
+Qed.
+
+Lemma upartokP r : upartok -> (r <? npagei)%uint63 -> partok inU (upart r).
+Proof.
+(* NOT `part_partok => //': what done would evaluate is the layout walk, and  *)
+(* that measured 172 seconds.  The layout is handed over, not looked for.     *)
+case/andP => hl hu hr.
+exact: (part_partok hl (iter_at hu (ltn_npagei hr))).
+Qed.
+
+Lemma mpartokP r : mpartok -> (r <? nbiti)%uint63 -> partok inM (mpart r).
+Proof.
+(* NOT `part_partok => //': what done would evaluate is the layout walk, and  *)
+(* that measured 172 seconds.  The layout is handed over, not looked for.     *)
+case/andP => hl hu hr.
+exact: (part_partok hl (iter_at hu (ltn_nbiti hr))).
+Qed.
 
 Hypothesis hcp : cpartok.
 Hypothesis hup : upartok.
@@ -446,9 +753,9 @@ Lemma membinv_ok x : tab_ok flast (membinv x).
 Proof.
 rewrite /membinv; case: ifPn => [_|]; first exact: tab_ok_id.
 rewrite negbK => /and3P[hc hu hm].
-apply: tab_ok_comp; last by apply: partok_tab (iter_at hmp (ltn_nbiti hm)).
-apply: tab_ok_comp; first by apply: partok_tab (iter_at hcp (ltn_npagei hc)).
-by apply: partok_tab (iter_at hup (ltn_npagei hu)).
+apply: tab_ok_comp; last by apply: partok_tab (mpartokP hmp hm).
+apply: tab_ok_comp; first by apply: partok_tab (cpartokP hcp hc).
+by apply: partok_tab (upartokP hup hu).
 Qed.
 
 Lemma memb2tab_ok x : tab_ok flast (memb2tab x).
@@ -541,27 +848,27 @@ Qed.
 
 (* ---- the six tables, and the three that have to move past three ---------- *)
 
-Lemma hcT_ok k : (to_nat k < nhn)%N -> partok cflatp (hcT k).
+Lemma hcT_ok k : (to_nat k < nhn)%N -> partok inC (hcT k).
 Proof. by move=> kL; case/and4P: (iter_at hmvo kL). Qed.
 
-Lemma huT_ok k : (to_nat k < nhn)%N -> partok eout (huT k).
+Lemma huT_ok k : (to_nat k < nhn)%N -> partok inU (huT k).
 Proof. by move=> kL; case/and4P: (iter_at hmvo kL). Qed.
 
-Lemma hmT_ok k : (to_nat k < nhn)%N -> partok emid (hmT k).
+Lemma hmT_ok k : (to_nat k < nhn)%N -> partok inM (hmT k).
 Proof. by move=> kL; case/and4P: (iter_at hmvo kL). Qed.
 
 Lemma hinvE k : (to_nat k < nhn)%N ->
   hinv k = comp_tab (comp_tab (hcT k) (huT k)) (hmT k).
 Proof. by move=> kL; case/and4P: (iter_at hmvo kL) => _ _ _ /eqP. Qed.
 
-Lemma cpart_ok r : (r <? npagei)%uint63 -> partok cflatp (cpart r).
-Proof. by move=> h; apply: (iter_at hcp (ltn_npagei h)). Qed.
+Lemma cpart_ok r : (r <? npagei)%uint63 -> partok inC (cpart r).
+Proof. exact: cpartokP hcp. Qed.
 
-Lemma upart_ok r : (r <? npagei)%uint63 -> partok eout (upart r).
-Proof. by move=> h; apply: (iter_at hup (ltn_npagei h)). Qed.
+Lemma upart_ok r : (r <? npagei)%uint63 -> partok inU (upart r).
+Proof. exact: upartokP hup. Qed.
 
-Lemma mpart_ok r : (r <? nbiti)%uint63 -> partok emid (mpart r).
-Proof. by move=> h; apply: (iter_at hmp (ltn_nbiti h)). Qed.
+Lemma mpart_ok r : (r <? nbiti)%uint63 -> partok inM (mpart r).
+Proof. exact: mpartokP hmp. Qed.
 
 (* the member a place names, as a permutation of the forty eight              *)
 Lemma pt_membinv pg gr bt : inrange pg gr bt ->
@@ -591,28 +898,48 @@ move=> kL hr; have hr' := prep_range hpgo hgro hbto kL hr.
 have /and3P[hp hg hb] := hr.
 have /and3P[hp' hg' hb'] := hr'.
 rewrite (pt_membinv hr) (pt_membinv hr') !unplE /mcp /mud /mmp.
-(* the three walks, one for each part                                         *)
+have [/and4P[_ o2 o3 _] _] := place_unplace he8 he4 hr.
+have q2 : (PArray.get e8invt
+             (Uint63.add (Uint63.mul gr 2%uint63) (prty pg bt))
+           <? npagei)%uint63 := o2.
+have q3 : (PArray.get e4oft bt <? nbiti)%uint63 := o3.
+have /and4P[hsc hsu hsm /and3P[hnc hnu hnm]] := iter_at hlayokC kL.
+(* THE THREE PARTS FOLLOW THE THREE RANKS, and that is part_move: the move    *)
+(* carries the places, the rank check says where, and the forty eight         *)
+(* facelets follow.                                                           *)
 have hc : cpart (pgmv mpg k pg) = comp_tab (hcT k) (cpart pg).
-  by apply/eqP; apply: (iter_at (iter_at hcmv kL) (ltn_npagei hp)).
+  apply: (@part_move cflatp 3 8 inC cposn cslotn (up8 pg)
+            (up8 (pgmv mpg k pg)) (hinv k) clayokC hsc
+            (iter_at (iter_at hcmv kL) (ltn_npagei hp)) _ hnc).
+  apply: up8_rng; case/andP: hcp => _ hu.
+  exact: (iter_at hu (ltn_npagei hp)).
 have hm : mpart (PArray.get e4oft (btmv btmvt k bt))
         = comp_tab (hmT k) (mpart (PArray.get e4oft bt)).
-  by apply/eqP; apply: (iter_at (iter_at hmmv kL) (ltn_nbiti hb)).
+  apply: (@part_move mlay 2 4 inM mplc eslt (up4 (PArray.get e4oft bt))
+            (up4 (PArray.get e4oft (btmv btmvt k bt))) (hinv k) mlayokC hsm
+            (iter_at (iter_at hmmv kL) (ltn_nbiti hb)) _ hnm).
+  by apply: up4_rng; case/andP: hmp => _ hu; exact: (iter_at hu (ltn_nbiti q3)).
 have hu : upart (PArray.get e8invt
             (Uint63.add (Uint63.mul (grmv mgr k gr) 2%uint63)
                         (prty (pgmv mpg k pg) (btmv btmvt k bt))))
         = comp_tab (huT k)
             (upart (PArray.get e8invt
                       (Uint63.add (Uint63.mul gr 2%uint63) (prty pg bt)))).
-  rewrite (prty_move kL hp hb); apply/eqP.
-  apply: (iter_at (iter_at (iter_at humv kL) (ltn_ngroupi hg))).
-  by apply: prty_lt2.
+  rewrite (prty_move kL hp hb).
+  apply: (@part_move ulay 2 8 inU eposn eslt
+            (up8 (PArray.get e8invt (Uint63.add (Uint63.mul gr 2%uint63)
+                                                (prty pg bt))))
+            (up8 (PArray.get e8invt
+                    (Uint63.add (Uint63.mul (grmv mgr k gr) 2%uint63)
+                                (Uint63.lxor (prty pg bt)
+                                   (hpar mpg btmvt e4oft par8t par4t k)))))
+            (hinv k) ulayokC hsu _ _ hnu).
+  - apply: (iter_at (iter_at (iter_at humv kL) (ltn_ngroupi hg))).
+    by apply: prty_lt2.
+  apply: up8_rng; case/andP: hup => _ hv.
+  exact: (iter_at hv (ltn_npagei q2)).
 rewrite hc hm hu (hinvE kL).
 (* the six tables become six permutations, and from there it is a group       *)
-have [/and4P[_ o2 o3 _] _] := place_unplace he8 he4 hr.
-have q2 : (PArray.get e8invt
-             (Uint63.add (Uint63.mul gr 2%uint63) (prty pg bt))
-           <? npagei)%uint63 := o2.
-have q3 : (PArray.get e4oft bt <? nbiti)%uint63 := o3.
 have hct := partok_tab (hcT_ok kL).
 have hut := partok_tab (huT_ok kL).
 have hmt := partok_tab (hmT_ok kL).
