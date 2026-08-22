@@ -23,7 +23,8 @@ JOBS=${1:-$(nproc)}
 { echo "-R . Rubik"
   echo
   for f in Row RowMap RowRun RowFinal RowInst \
-           RowTabL RowTabP RowTab RowMemb RowWits RowWitsChk RowDummy; do
+           RowTabL RowTabP RowTab RowMemb RowMembChk \
+           RowWits RowWitsChk RowDummy; do
     echo "$f.v"
   done
 } > _RowProject
