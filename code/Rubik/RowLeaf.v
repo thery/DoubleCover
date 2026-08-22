@@ -107,7 +107,7 @@ Qed.
 Lemma fold_mixed n (g : nat -> nat) :
   (forall i, (g i <= n - i.+1)%N) ->
   forall m k r, (k + m = n)%N ->
-    (foldl (fun r i => (r * (n - i) + g i)%N) r (iota k m) < (r + 1) * m`!)%N.
+    (foldl (fun a i => (a * (n - i) + g i)%N) r (iota k m) < (r + 1) * m`!)%N.
 Proof.
 move=> hg; elim=> [|m ih] k r hkm /=; first by rewrite fact0 muln1 addn1.
 have hnk : (n - k = m.+1)%N by rewrite -hkm addKn.
@@ -121,10 +121,11 @@ Qed.
 
 Lemma lrank_lt n f : (lrank n f < n`!)%N.
 Proof.
-(* fold_mixed above IS the content and is proved; only its instantiation at   *)
-(* k = 0, m = n, r = 0 is left, where the count is below the length of the    *)
-(* list it counts over.                                                       *)
-Admitted.
+have hg i : (count (fun j => (f j < f i)%N) (iota i.+1 (n - i.+1))
+             <= n - i.+1)%N.
+  by rewrite -{2}(size_iota i.+1 (n - i.+1)); apply: count_size.
+by move: (fold_mixed hg 0%N (add0n n)); rewrite add0n mul1n /lrank.
+Qed.
 
 Lemma rank8_ltP f : (rank8 f <? npagei)%uint63.
 Proof.
