@@ -20,5 +20,6 @@ ulimit -s unlimited
 JOBS=${1:-$(nproc)}
 [ -f Makefile ] || rocq makefile -f _CoqProject -o Makefile
 make -j"$JOBS" Row.vo RowMap.vo RowRun.vo RowFinal.vo RowInst.vo \
-                RowTabL.vo RowTabP.vo RowTab.vo RowDummy.vo
+                RowTabL.vo RowTabP.vo RowTab.vo \
+                RowMemb.vo RowWits.vo RowWitsChk.vo RowDummy.vo
 echo "the row is built; the four checks in RowTab.v passed"

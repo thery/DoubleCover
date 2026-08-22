@@ -115,4 +115,7 @@ RowInst.v
 RowTabL.v
 RowTabP.v
 RowTab.v
+RowMemb.v
+RowWits.v
+RowWitsChk.v
 RowDummy.v
