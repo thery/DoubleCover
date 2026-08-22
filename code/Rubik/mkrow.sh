@@ -23,7 +23,9 @@ JOBS=${1:-$(nproc)}
 { echo "-R . Rubik"
   echo
   for f in Row RowMap RowRun RowFinal RowInst \
-           RowTabL RowTabP RowTab RowMemb RowMembChk \
+           RowTabL RowTabP RowTab RowMemb \
+           RowMoveH RowMoveM RowParity RowPartM \
+           RowPartC RowPartU RowMoveC RowMoveU RowMembChk \
            RowWits RowWitsChk RowDummy; do
     echo "$f.v"
   done
