@@ -59,6 +59,13 @@ def main() -> int:
             return 1
         wits.append((pg, gr, bt, word))
 
+    # A place the row left without a word may have been settled on its own,
+    # and then its own log carries it.  So a NONE only counts against us if
+    # nothing else covered that place.
+    done = {(pg, gr, bt) for (pg, gr, bt, _) in wits}
+    nowords = [l for l in nowords
+               if tuple(int(x) for x in l.split()[1:4]) not in done]
+
     # every one of them, not just the first: a place with no word is a place
     # to attack on its own with ROWPLACE, and it is worth seeing them all
     if nowords:
@@ -67,6 +74,15 @@ def main() -> int:
         print("%d leftover(s) with no word of twenty, %d with one"
               % (len(nowords), len(wits)), file=sys.stderr)
         return 1
+
+    seen = set()
+    uniq = []
+    for w in wits:
+        if w[:3] in seen:
+            continue
+        seen.add(w[:3])
+        uniq.append(w)
+    wits = uniq
 
     if not wits:
         print("no leftover in the log", file=sys.stderr)

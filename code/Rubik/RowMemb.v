@@ -214,6 +214,84 @@ case: (boolP (f \in T)) => hT.
 by move: hfT; rewrite (negbTE hT) /= => /eqP ht2; rewrite ht2 hsf.
 Qed.
 
+
+(* ---- the three halves of a move of H -------------------------------------- *)
+
+(* A move of H sends corner facelets to corner facelets, outer edges to outer *)
+(* edges and middle to middle -- that is what being in H MEANS -- so it is    *)
+(* the composition of its three halves, and they are disjoint.  restr cuts a  *)
+(* table down to one set and leaves the rest alone.                           *)
+
+Definition restr (S t : seq nat) : seq nat :=
+  mkseq (fun f => if f \in S then nth 0%N t f else f) 48.
+
+(* the outer eight and the middle four, as facelet sets                       *)
+Definition eout : seq nat := take 8 eprim ++ take 8 esec.
+Definition emid : seq nat := drop 8 eprim ++ drop 8 esec.
+
+(* the move a place is carried by, undone: membinv is the inverse of the      *)
+(* member, so what acts on it is the move the other way round                 *)
+Definition hinv (k : int) : seq nat := inv_tab flast (mvt (hmvi k)).
+
+Definition hcT (k : int) : seq nat := restr cflat (hinv k).
+Definition huT (k : int) : seq nat := restr eout (hinv k).
+Definition hmT (k : int) : seq nat := restr emid (hinv k).
+
+(* ---- what the three tables owe, part by part ------------------------------ *)
+
+(* Each is a walk, and that is the whole point of splitting the member into   *)
+(* three: the corners against the page table, the outer eight against the     *)
+(* group table, the middle four against btmv.  Over the places together they  *)
+(* would be nineteen billion; apart they are 403 200, 403 200 and 240.        *)
+
+Section Move.
+
+Variable mpg mgr btmvt e8invt e4oft : arr.
+
+(* the corner half: the page table is the corner permutation moved            *)
+Definition cmvok1 (k : int) : bool :=
+  iter npagen 0%uint63 (fun pg =>
+    cpart (pgmv mpg k pg) == comp_tab (hcT k) (cpart pg)).
+Definition cmvok : bool := iter nhn 0%uint63 cmvok1.
+
+(* the middle half: btmv is the middle permutation moved                      *)
+(* mpart takes the middle RANK, which is what e4of reads off a bit, so the    *)
+(* check has to go through it or it is checking the wrong thing.              *)
+Definition mmvok1 (k : int) : bool :=
+  iter nbitn 0%uint63 (fun bt =>
+    mpart (PArray.get e4oft (btmv btmvt k bt))
+    == comp_tab (hmT k) (mpart (PArray.get e4oft bt))).
+Definition mmvok : bool := iter nhn 0%uint63 mmvok1.
+
+(* THE OUTER HALF IS THE ONE WITH A PARITY IN IT.  A group is a PAIR of outer *)
+(* permutations and which of the two a place means is settled by the parity   *)
+(* of the corners and the middle together, so the moved place's outer         *)
+(* permutation depends on the page and the bit as well as the group.  What    *)
+(* makes it a walk again is that a move changes each of the three parities by *)
+(* a fixed amount, so the pair is carried across whole: the check runs over   *)
+(* the group and the parity, 20160 by two by ten.                             *)
+Definition umvok1 (k : int) : bool :=
+  iter ngroupn 0%uint63 (fun gr =>
+    iter 2 0%uint63 (fun p =>
+      upart (PArray.get e8invt
+               (Uint63.add (Uint63.mul (grmv mgr k gr) 2%uint63) p))
+      == comp_tab (huT k)
+           (upart (PArray.get e8invt
+                     (Uint63.add (Uint63.mul gr 2%uint63) p))))).
+Definition umvok : bool := iter nhn 0%uint63 umvok1.
+
+
+(* ---- and the move itself is its three halves ------------------------------ *)
+
+(* Ten tables, ten checks: undoing a move of H is its corner half, its outer  *)
+(* half and its middle half, composed.  It is what being in H means, written  *)
+(* down.                                                                      *)
+Definition hsplit : bool :=
+  iter nhn 0%uint63 (fun k =>
+    hinv k == comp_tab (comp_tab (hcT k) (huT k)) (hmT k)).
+
+End Move.
+
 Section Parts.
 
 Definition cpartok : bool :=
@@ -241,3 +319,33 @@ Lemma memb2tab_ok x : tab_ok flast (memb2tab x).
 Proof. by apply: tab_ok_inv; apply: membinv_ok. Qed.
 
 End Parts.
+
+(* ---- the prepass moves a member ------------------------------------------ *)
+
+Section Prep.
+
+Variable mpg mgr btmvt e8invt e4oft par8t par4t e8numt : arr.
+
+Hypothesis hcmv : cmvok mpg.
+Hypothesis hmmv : mmvok btmvt e4oft.
+Hypothesis humv : umvok mgr e8invt.
+Hypothesis hspl : hsplit.
+
+(* THE STEP THAT IS LEFT, and it is the parity one.  The three ranks of the   *)
+(* moved place are the three ranks moved: the page table for the corners, the *)
+(* group table WITH ITS PARITY for the outer eight, btmv for the middle.  It  *)
+(* is a walk over the page and the bit -- a move changes each parity by a     *)
+(* fixed amount -- and it is what carries a pair of outer permutations across *)
+(* whole.                                                                     *)
+Hypothesis moved_ranks : forall k pg gr bt, (to_nat k < nhn)%N ->
+  inrange pg gr bt ->
+  unplace e8invt e4oft par8t par4t
+    (pgmv mpg k pg) (grmv mgr k gr) (btmv btmvt k bt)
+  = (pgmv mpg k pg,
+     PArray.get e8invt
+       (Uint63.add (Uint63.mul (grmv mgr k gr) 2%uint63)
+          (Uint63.mod (PArray.get e8numt
+             (mud (unplace e8invt e4oft par8t par4t pg gr bt))) 2%uint63)),
+     btmv btmvt k bt).
+
+End Prep.
