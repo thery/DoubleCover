@@ -63,18 +63,57 @@ Definition up4 (r : int) (p : nat) : nat :=
 (* be composed at all.                                                        *)
 
 (* CPOS AND EPOS AT THE NAT LEVEL, and this is not a nicety: inord does not   *)
-(* reduce, so cposn f under a vm_compute does not come back.  Coordfs  *)
+(* reduce, so cposn f under a vm_compute does not come back.  Coordfs         *)
 (* says the same thing about its own twelve -- every fact there is pushed to  *)
 (* nat for exactly this reason.  These are the same functions with the        *)
-(* ordinal taken out.                                                        *)
-Definition cposn (f : nat) : nat := (index f cflat) %/ 3.
-Definition cslotn (f : nat) : nat := (index f cflat) %% 3.
+(* ordinal taken out.                                                         *)
 Definition eposn (f : nat) : nat := (index f (eprim ++ esec)) %% nedge.
+
+(* THE TWO SIDES NUMBER THE CORNERS DIFFERENTLY, and nothing else does.  The  *)
+(* prototype takes them URF UFL ULB UBR DFR DLF DBL DRB; cflat takes them in  *)
+(* the order its facelets come, which reads ULB UBR UFL URF DLF DFR DBL DRB.  *)
+(* A rank the prototype wrote names a permutation of ITS eight, so it has to  *)
+(* be read in its order.  The edges need nothing of the kind: eprim and esec  *)
+(* are already UR UF UL UB DR DF DL DB FR FL BL BR.                           *)
+(*                                                                            *)
+(* This is the prototype's order written in our own numbers, and it is not a  *)
+(* choice: cordok below turns each face and reads the corner every place      *)
+(* receives, and only this order gives the prototype's own numbers.           *)
+Definition cordn : seq nat := [:: 3; 2; 0; 1; 5; 4; 6; 7]%N.
+
+(* the twenty four facelets again, the corners in the prototype's order       *)
+Definition cflatp : seq nat :=
+  flatten [seq [seq nth 0%N cflat (3 * c + j)%N | j <- iota 0 3]
+          | c <- cordn].
+
+(* the primary facelet of each place, in the same order                       *)
+Definition cprimp : seq nat := [seq nth 0%N cflatp (3 * p)%N | p <- iota 0 8].
+
+Definition cposn (f : nat) : nat := (index f cflatp) %/ 3.
+Definition cslotn (f : nat) : nat := (index f cflatp) %% 3.
+
+(* AND THE ORDER IS CHECKED, not asserted.  These are the prototype's own six *)
+(* cp arrays, copied out of rubik_row.ml's `basic'.  Turn a face, ask which   *)
+(* corner each place receives, and the eight numbers have to be its.  The six *)
+(* turns move the corners every way there is, so nothing but the right order  *)
+(* passes.                                                                    *)
+Definition cparr : seq (seq nat) :=
+  [:: [:: 3; 0; 1; 2; 4; 5; 6; 7]; [:: 4; 1; 2; 0; 7; 5; 6; 3];
+      [:: 1; 5; 2; 3; 0; 4; 6; 7]; [:: 0; 1; 2; 3; 5; 6; 7; 4];
+      [:: 0; 2; 6; 3; 4; 1; 5; 7]; [:: 0; 1; 3; 7; 4; 5; 2; 6]]%N.
+
+Definition cordok : bool :=
+  all (fun k => [seq cposn (nth 0%N (inv_tab flast (nth [::] mtabs (3 * k)%N))
+                                    (nth 0%N cprimp p)) | p <- iota 0 8]
+                == nth [::] cparr k) (iota 0 6).
+
+Lemma cordokC : cordok.
+Proof. by vm_compute. Qed.
 
 Definition cpart (r : int) : seq nat :=
   mkseq (fun f =>
-     if (f \in cflat) then
-       nth 0%N cflat (3 * up8 r (cposn f) + cslotn f)%N
+     if (f \in cflatp) then
+       nth 0%N cflatp (3 * up8 r (cposn f) + cslotn f)%N
      else f)
    48.
 
@@ -120,9 +159,9 @@ Definition memb2tab (x : memb) : seq nat := inv_tab flast (membinv x).
 (* leaf.  It is only meant for a position of H: outside it the edges are      *)
 (* mixed between the outer eight and the middle four and there is no outer    *)
 (* permutation to rank.                                                       *)
-(* the rank of a permutation, the prototype's own: fold over the places, and *)
-(* at each one count how many later places hold something smaller.  It is a  *)
-(* computation over eight numbers, so no table is wanted.                    *)
+(* the rank of a permutation, the prototype's own: fold over the places, and  *)
+(* at each one count how many later places hold something smaller.  It is a   *)
+(* computation over eight numbers, so no table is wanted.                     *)
 Definition lrank (n : nat) (f : nat -> nat) : nat :=
   foldl (fun r i =>
            (r * (n - i)
@@ -132,15 +171,15 @@ Definition lrank (n : nat) (f : nat -> nat) : nat :=
 Definition rank8 (f : nat -> nat) : int := of_nat (lrank 8 f).
 Definition rank4 (f : nat -> nat) : int := of_nat (lrank 4 f).
 
-(* The search calls this at every leaf, so it reads the INVERSE TABLE and    *)
-(* never builds a permutation: Tabi.inv_tabi is the same inverse csrc takes  *)
-(* of the position, and at the primary facelet of a place it gives the home  *)
-(* facelet of whatever sits there.                                           *)
+(* The search calls this at every leaf, so it reads the INVERSE TABLE and     *)
+(* never builds a permutation: Tabi.inv_tabi is the same inverse csrc takes   *)
+(* of the position, and at the primary facelet of a place it gives the home   *)
+(* facelet of whatever sits there.                                            *)
 Definition tomemb (a : arr) : memb :=
   let u := ti2t flast (inv_tabi flast a) in
-  (rank8 (fun p => cpos (inord (nth 0%N u (nth 0%N cprim p)))),
-   rank8 (fun p => epos (inord (nth 0%N u (nth 0%N eprim p)))),
-   rank4 (fun p => (epos (inord (nth 0%N u (nth 0%N eprim (8 + p)))) - 8)%N)).
+  (rank8 (fun p => cposn (nth 0%N u (nth 0%N cprimp p))),
+   rank8 (fun p => eposn (nth 0%N u (nth 0%N eprim p))),
+   rank4 (fun p => (eposn (nth 0%N u (nth 0%N eprim (8 + p))) - 8)%N)).
 
 (* ---- what the unrank tables have to be ----------------------------------- *)
 
@@ -224,7 +263,7 @@ by move: hfT; rewrite (negbTE hT) /= => /eqP ht2; rewrite ht2 hsf.
 Qed.
 
 
-(* ---- the three halves of a move of H -------------------------------------- *)
+(* ---- the three halves of a move of H --------------------------------------*)
 
 (* A move of H sends corner facelets to corner facelets, outer edges to outer *)
 (* edges and middle to middle -- that is what being in H MEANS -- so it is    *)
@@ -246,7 +285,7 @@ Definition hcT (k : int) : seq nat := restr cflat (hinv k).
 Definition huT (k : int) : seq nat := restr eout (hinv k).
 Definition hmT (k : int) : seq nat := restr emid (hinv k).
 
-(* ---- what the three tables owe, part by part ------------------------------ *)
+(* ---- what the three tables owe, part by part ------------------------------*)
 
 (* Each is a walk, and that is the whole point of splitting the member into   *)
 (* three: the corners against the page table, the outer eight against the     *)
@@ -290,7 +329,7 @@ Definition umvok1 (k : int) : bool :=
 Definition umvok : bool := iter nhn 0%uint63 umvok1.
 
 
-(* ---- and the move itself is its three halves ------------------------------ *)
+(* ---- and the move itself is its three halves ------------------------------*)
 
 (* Ten tables, ten checks: undoing a move of H is its corner half, its outer  *)
 (* half and its middle half, composed.  It is what being in H means, written  *)
