@@ -5,21 +5,29 @@
 #    ./mkrow.sh        with the job count of the machine
 #    ./mkrow.sh 18     with eighteen workers
 #
-#  `make' on this directory builds _CoqProject, and _CoqProject holds the
-#  seventeen Runp1 pieces -- the depth nineteen search, 87 CPU-hours, which
-#  is the lower bound's certificate and not something to run while working.
-#  This builds the row's own chain and its tables, and stops.
+#  It does NOT use _CoqProject.  Two reasons: _CoqProject holds the seventeen
+#  Runp1 pieces, which are the depth nineteen search and 87 CPU-hours; and it
+#  lists files that are EMITTED rather than kept -- HSweep.v, P1Fold.v and
+#  the rest -- so `rocq makefile' on it fails outright on a machine where
+#  they have not been generated.  This writes its own list of the row's files
+#  and builds those.  Everything they depend on is already compiled.
 #
-#  The tables are the slow part: RowTabP.v is 5.4 MB of list and the checks
-#  over 40320 ranks are vm_computes.  ulimit -s unlimited is not optional --
-#  a list that long overflows the stack without it.
+#  ulimit -s unlimited is not optional: RowTabP.v is 5.4 MB of list and the
+#  stack overflows without it.
 # =========================================================================
 set -e
 cd "$(dirname "$0")"
 ulimit -s unlimited
 JOBS=${1:-$(nproc)}
-[ -f Makefile ] || rocq makefile -f _CoqProject -o Makefile
-make -j"$JOBS" Row.vo RowMap.vo RowRun.vo RowFinal.vo RowInst.vo \
-                RowTabL.vo RowTabP.vo RowTab.vo \
-                RowMemb.vo RowWits.vo RowWitsChk.vo RowDummy.vo
-echo "the row is built; the four checks in RowTab.v passed"
+
+{ echo "-R . Rubik"
+  echo
+  for f in Row RowMap RowRun RowFinal RowInst \
+           RowTabL RowTabP RowTab RowMemb RowWits RowWitsChk RowDummy; do
+    echo "$f.v"
+  done
+} > _RowProject
+
+rocq makefile -f _RowProject -o Makefile.row
+make -f Makefile.row -j"$JOBS"
+echo "the row is built"
