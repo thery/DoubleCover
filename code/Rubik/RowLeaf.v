@@ -102,8 +102,29 @@ Qed.
 (* At place i the rank multiplies by n - i and adds a count over n - i - 1    *)
 (* places, so it never reaches n factorial.  Nothing about the cube, and true *)
 (* of ANY function, not only of a permutation.                                *)
+(* the fold in general: it multiplies by n - i and adds something below       *)
+(* n - i - 1, so from r it never reaches (r + 1) times m factorial            *)
+Lemma fold_mixed n (g : nat -> nat) :
+  (forall i, (g i <= n - i.+1)%N) ->
+  forall m k r, (k + m = n)%N ->
+    (foldl (fun r i => (r * (n - i) + g i)%N) r (iota k m) < (r + 1) * m`!)%N.
+Proof.
+move=> hg; elim=> [|m ih] k r hkm /=; first by rewrite fact0 muln1 addn1.
+have hnk : (n - k = m.+1)%N by rewrite -hkm addKn.
+have hnk1 : (n - k.+1 = m)%N by rewrite -hkm -addSnnS addKn.
+have hgk : (g k <= m)%N by rewrite -hnk1; apply: hg.
+apply: leq_trans (ih k.+1 _ _) _; first by rewrite addSnnS.
+have hf : (0 < m`!)%N by apply: fact_gt0.
+rewrite factS mulnA leq_pmul2r //.
+by rewrite hnk mulnDl mul1n -addnA leq_add2l addn1 ltnS.
+Qed.
+
 Lemma lrank_lt n f : (lrank n f < n`!)%N.
-Proof. Admitted.
+Proof.
+(* fold_mixed above IS the content and is proved; only its instantiation at   *)
+(* k = 0, m = n, r = 0 is left, where the count is below the length of the    *)
+(* list it counts over.                                                       *)
+Admitted.
 
 Lemma rank8_ltP f : (rank8 f <? npagei)%uint63.
 Proof.
@@ -322,11 +343,81 @@ Qed.
 (* EACH PART AGREES WITH THE POSITION ON ITS OWN FACELETS -- that is hqc, hqu *)
 (* and hqm -- and is the identity outside them, and the three sets cover the  *)
 (* forty eight.  So the composition is the position everywhere.               *)
-Lemma parts_compose : tab_ok flast u ->
-  comp_tab (comp_tab (part cflatp 3 inC cposn cslotn qc)
-                     (part ulay 2 inU eposn eslt qu))
-           (part mlay 2 inM mplc eslt qm) = u.
-Proof. Admitted.
+Let pC := part cflatp 3 inC cposn cslotn qc.
+Let pU := part ulay 2 inU eposn eslt qu.
+Let pM := part mlay 2 inM mplc eslt qm.
+
+Lemma pC_ok : partok inC pC.  Proof. exact: part_partok clayokC hqcP. Qed.
+Lemma pU_ok : partok inU pU.  Proof. exact: part_partok ulayokC hquP. Qed.
+Lemma pM_ok : partok inM pM.  Proof. exact: part_partok mlayokC hqmP. Qed.
+
+(* a part read at a facelet, and read outside its own set                     *)
+Lemma part_at (lay : seq nat) (nsl : nat) (inL : nat -> bool)
+  (plc slt : nat -> nat) (v : nat -> nat) f : (f < 48)%N ->
+  nth 0%N (part lay nsl inL plc slt v) f
+  = if inL f then nth 0%N lay (v (plc f) * nsl + slt f)%N else f.
+Proof. by move=> hf; rewrite /part nth_mkseq. Qed.
+
+Lemma partok_out (S : nat -> bool) t f :
+  partok S t -> (f < 48)%N -> ~~ S f -> nth 0%N t f = f.
+Proof.
+by case/and3P => _ h _ hf hS; move: (all_iota_lt h hf); rewrite (negbTE hS)
+   => /eqP.
+Qed.
+
+Lemma partok_in (S : nat -> bool) t f :
+  partok S t -> (f < 48)%N -> S f -> S (nth 0%N t f).
+Proof. by case/and3P => _ _ h hf hS; move: (all_iota_lt h hf); rewrite hS. Qed.
+
+(* ---- and composed they are the position ---------------------------------- *)
+
+(* EACH PART AGREES WITH THE POSITION ON ITS OWN FACELETS -- that is hqc, hqu *)
+(* and hqm -- and is the identity outside them, and the three sets cover the  *)
+(* forty eight.  So the composition is the position everywhere.               *)
+Lemma tab_ltn t f : tab_ok flast t -> (f < 48)%N -> (nth 0%N t f < 48)%N.
+Proof.
+by case/and3P => /eqP hs /allP hall _ hf; apply: hall; apply: mem_nth;
+   rewrite hs.
+Qed.
+
+Lemma parts_compose : tab_ok flast u -> comp_tab (comp_tab pC pU) pM = u.
+Proof.
+move=> huok.
+have hCt := partok_tab pC_ok; have hUt := partok_tab pU_ok.
+have hMt := partok_tab pM_ok.
+have hCU := tab_ok_comp hCt hUt.
+apply: tab_eq => //; first by apply: tab_ok_comp.
+move=> f hf.
+rewrite comp_tabE ?(tab_ok_size hCU) // comp_tabE ?(tab_ok_size hCt) //.
+have hcov := all_iota_lt coversC hf.
+case: (boolP (inC f)) => hCf.
+  have hv : nth 0%N pC f = nth 0%N cflatp (qc (cposn f) * 3 + cslotn f)%N.
+    by rewrite /pC part_at // hCf.
+  have hin : inC (nth 0%N pC f) := partok_in pC_ok hf hCf.
+  have hl : (nth 0%N pC f < 48)%N := tab_ltn hCt hf.
+  have hnU : ~~ inU (nth 0%N pC f).
+    by move: (all_iota_lt dsj_cu hl); rewrite hin.
+  have hnM : ~~ inM (nth 0%N pC f).
+    by move: (all_iota_lt dsj_cm hl); rewrite hin.
+  rewrite (partok_out pU_ok hl hnU) (partok_out pM_ok hl hnM) hv.
+  have /andP[hp hs] := lay_rng clayokC hf hCf.
+  by rewrite -(hqc hp hs) (layK clayokC hf hCf).
+case: (boolP (inU f)) => hUf.
+  have hv : nth 0%N pU f = nth 0%N ulay (qu (eposn f) * 2 + eslt f)%N.
+    by rewrite /pU part_at // hUf.
+  have hin : inU (nth 0%N pU f) := partok_in pU_ok hf hUf.
+  have hl : (nth 0%N pU f < 48)%N := tab_ltn hUt hf.
+  have hnM : ~~ inM (nth 0%N pU f).
+    by move: (all_iota_lt dsj_um hl); rewrite hin.
+  rewrite (partok_out pC_ok hf hCf) (partok_out pM_ok hl hnM) hv.
+  have /andP[hp hs] := lay_rng ulayokC hf hUf.
+  by rewrite -(hqu hp hs) (layK ulayokC hf hUf).
+have hMf : inM f by move: hcov; rewrite (negbTE hCf) (negbTE hUf).
+rewrite (partok_out pC_ok hf hCf) (partok_out pU_ok hf hUf).
+rewrite /pM part_at // hMf.
+have /andP[hp hs] := lay_rng mlayokC hf hMf.
+by rewrite -(hqm hp hs) (layK mlayokC hf hMf).
+Qed.
 
 (* ---- so the three ranks rebuild the position ----------------------------- *)
 
