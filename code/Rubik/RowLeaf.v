@@ -170,12 +170,39 @@ Definition up8inv : bool :=
 Definition up4inv : bool :=
   iter nbitn 0%uint63 (fun r => (rank4 (up4 r) =? r)%uint63).
 
-(* the ranking is one to one on permutations, which is Lehmer's own fact      *)
+(* ---- the ranking is one to one on permutations --------------------------- *)
+
+(* Lehmer's own fact, and it comes apart in two.  The CODE of a permutation   *)
+(* is, at each place, how many later places hold something smaller; the rank  *)
+(* is the code read as a mixed radix number, digit i below n - i - 1.         *)
+Definition lcode (n : nat) (q : nat -> nat) (i : nat) : nat :=
+  count (fun j => (q j < q i)%N) (iota i.+1 (n - i.+1)).
+
+(* one: the rank determines the code, because the radix leaves no choice.     *)
+(* This is fold_mixed read backwards and wants the same induction.            *)
+Lemma lrank_code n (q1 q2 : nat -> nat) :
+  lrank n q1 = lrank n q2 ->
+  forall i, (i < n)%N -> lcode n q1 i = lcode n q2 i.
+Proof. Admitted.
+
+(* two: the code determines the permutation.  At the first place the code     *)
+(* says how many of the others are smaller, which fixes q 0 outright, and the *)
+(* rest follows on the places that are left.                                  *)
+Lemma code_perm n (q1 q2 : nat -> nat) :
+  perm_eq [seq q1 p | p <- iota 0 n] (iota 0 n) ->
+  perm_eq [seq q2 p | p <- iota 0 n] (iota 0 n) ->
+  (forall i, (i < n)%N -> lcode n q1 i = lcode n q2 i) ->
+  forall p, (p < n)%N -> q1 p = q2 p.
+Proof. Admitted.
+
 Lemma lrank_inj n (q1 q2 : nat -> nat) :
   perm_eq [seq q1 p | p <- iota 0 n] (iota 0 n) ->
   perm_eq [seq q2 p | p <- iota 0 n] (iota 0 n) ->
   lrank n q1 = lrank n q2 -> forall p, (p < n)%N -> q1 p = q2 p.
-Proof. Admitted.
+Proof.
+move=> h1 h2 hr; apply: code_perm => //.
+exact: lrank_code hr.
+Qed.
 
 (* and the int63 rank determines the nat rank, both being small               *)
 Lemma rank8_inj q1 q2 : rank8 q1 = rank8 q2 -> lrank 8 q1 = lrank 8 q2.
