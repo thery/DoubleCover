@@ -34,10 +34,18 @@ Import GroupScope.
 
 (* ---- the parity of a permutation of the places --------------------------- *)
 
-(* Counted as inversions, which is what the tables have to agree with.        *)
+(* THE NUMBER OF INVERSIONS, COUNTED PLACE BY PLACE.  At each place, how many *)
+(* later places hold something smaller -- which is the Lehmer digit lcode     *)
+(* below, so the parity and the rank count the same thing and differ only in  *)
+(* how they add it up.                                                        *)
+(*                                                                            *)
+(* Counting it this way rather than over all pairs at once is what makes the  *)
+(* exchange of two neighbouring places a LOCAL fact: every digit but two is   *)
+(* untouched, because exchanging two of the later places does not change how  *)
+(* many of them are smaller.                                                  *)
 Definition prmn (n : nat) (q : nat -> nat) : bool :=
-  odd (count (fun ij => ((ij.1 < ij.2) && (q ij.2 < q ij.1))%N)
-             (allpairs (fun i j => (i, j)) (iota 0 n) (iota 0 n))).
+  odd (sumn [seq count (fun j => (q j < q i)%N) (iota i.+1 (n - i.+1))
+            | i <- iota 0 n]).
 
 (* ---- inversions are the sign, and that has to be proved once ------------- *)
 
@@ -51,11 +59,13 @@ Definition prmn (n : nat) (q : nat -> nat) : bool :=
 (* the identity inverts nothing                                               *)
 Lemma prmn_id n : prmn n id = false.
 Proof.
-rewrite /prmn; suff -> : count (fun ij => ((ij.1 < ij.2) && (ij.2 < ij.1))%N)
-  (allpairs (fun i j => (i, j)) (iota 0 n) (iota 0 n)) = 0%N by [].
-apply/eqP; rewrite -leqn0 leqNgt -has_count.
-apply/negP => /hasP[[i j] _ /andP[h1 h2]] /=.
-by have := ltn_trans h1 h2; rewrite ltnn.
+rewrite /prmn; suff -> : [seq count (fun j => (j < i)%N) (iota i.+1 (n - i.+1))
+                         | i <- iota 0 n]
+                       = [seq 0%N | i <- iota 0 n].
+  by elim: (iota 0 n) => //= _ l ih; rewrite ih.
+apply/eq_in_map => i _; apply/eqP; rewrite -leqn0 leqNgt -has_count.
+apply/negP => /hasP[j]; rewrite mem_iota => /andP[hj _] /= hji.
+by move: hj; rewrite ltnNge (ltnW hji).
 Qed.
 
 (* THE CRUX, and it is the classical one: exchanging two neighbouring places  *)
@@ -74,9 +84,46 @@ Qed.
 (*                                                                            *)
 (* Every permutation is reached from the identity by such exchanges, which is *)
 (* bubble sort, so prmn_mul follows from this by induction on the inversions. *)
-Lemma prmn_swap n q i : (i.+1 < n)%N ->
-  prmn n (fun p => q (if p == i then i.+1 else if p == i.+1 then i else p))
-  = ~~ prmn n q.
+(* NB THE PREMISE.  Without q i <> q i + 1 the statement is FALSE: a constant *)
+(* q inverts nothing either way.  It is there because a permutation is        *)
+(* injective, and it is where injectivity is the whole of what is used.       *)
+(* exchanging the places i and i + 1                                          *)
+Definition swp (i p : nat) : nat :=
+  if p == i then i.+1 else if p == i.+1 then i else p.
+
+Lemma swpK i : involutive (swp i).
+Proof.
+move=> p; rewrite /swp; case: (p =P i) => [->|hi].
+  by rewrite ifN ?eqxx // -[i.+1 == i]/(i.+1 == i) neq_ltn ltnSn orbT.
+case: (p =P i.+1) => [->|hi1]; first by rewrite eqxx.
+by rewrite ifN ?ifN //; apply/eqP.
+Qed.
+
+(* AWAY FROM THE TWO PLACES NOTHING MOVES.  At a place before i the later     *)
+(* places are exchanged among themselves, and how many of them are smaller    *)
+(* does not depend on their order; at a place after i + 1 neither is in       *)
+(* range.                                                                     *)
+Lemma prmn_swap_out n q i k : (k < n)%N -> (i.+1 < n)%N ->
+  k != i -> k != i.+1 ->
+  count (fun j => (q (swp i j) < q (swp i k))%N) (iota k.+1 (n - k.+1))
+  = count (fun j => (q j < q k)%N) (iota k.+1 (n - k.+1)).
+Proof. Admitted.
+
+(* AND AT THE TWO PLACES THE COUNT MOVES BY ONE.  The digit at i becomes the  *)
+(* digit that was at i + 1 plus whether q i is below q (i + 1); the digit at  *)
+(* i + 1 becomes the digit that was at i less whether q (i + 1) is below q i. *)
+(* A permutation makes exactly one of those two hold, so the two digits       *)
+(* together move by exactly one.                                              *)
+Lemma prmn_swap_mid n q i : (i.+1 < n)%N -> q i != q i.+1 ->
+  odd (count (fun j => (q (swp i j) < q (swp i i))%N) (iota i.+1 (n - i.+1))
+       + count (fun j => (q (swp i j) < q (swp i i.+1))%N)
+               (iota i.+2 (n - i.+2)))
+  = ~~ odd (count (fun j => (q j < q i)%N) (iota i.+1 (n - i.+1))
+            + count (fun j => (q j < q i.+1)%N) (iota i.+2 (n - i.+2))).
+Proof. Admitted.
+
+Lemma prmn_swap n q i : (i.+1 < n)%N -> q i != q i.+1 ->
+  prmn n (fun p => q (swp i p)) = ~~ prmn n q.
 Proof. Admitted.
 
 (* and then the sign multiplies, which is all prm_step needs                  *)
@@ -202,10 +249,11 @@ Qed.
 Lemma prmn_eq n (f g : nat -> nat) :
   (forall p, (p < n)%N -> f p = g p) -> prmn n f = prmn n g.
 Proof.
-move=> hfg; rewrite /prmn; congr odd; apply: eq_in_count => ij.
-move=> /allpairsPdep[i [j [hi hj ->]]] /=.
-by move: hi hj; rewrite !mem_iota !add0n => /andP[_ hi] /andP[_ hj];
-   rewrite !hfg.
+move=> hfg; rewrite /prmn; congr odd; congr sumn.
+apply/eq_in_map => i; rewrite mem_iota add0n => /andP[_ hi].
+rewrite hfg //; apply: eq_in_count => j.
+rewrite mem_iota => /andP[hj1 hj2].
+by rewrite hfg // (leq_trans hj2) // subnKC.
 Qed.
 
 (* ---- and the unranking undoes the ranking -------------------------------- *)
