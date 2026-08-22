@@ -303,6 +303,32 @@ Definition covers : bool :=
 
 Lemma coversC : covers.  Proof. by vm_compute. Qed.
 
+(* ---- the parity law, and its checkable half ------------------------------ *)
+
+(* THE THIRD INVARIANT of the cube: a position reached by moves has the same  *)
+(* parity on the corners as on the edges.  It is not cubP -- cubP is the      *)
+(* centraliser of an involution and is bigger than the group -- so it has to  *)
+(* come along the word, one move at a time.                                   *)
+(*                                                                            *)
+(* The per move half IS checkable, and is checked here: the corner            *)
+(* permutation of each of the eighteen moves and its edge permutation have    *)
+(* the same parity.  Each move is a four cycle on four corners and a four     *)
+(* cycle on four edges, so both are odd; the doubles are even on both.        *)
+
+Definition mvc (m : nat) : seq nat :=
+  [seq cposn (nth 0%N (inv_tab flast (mvt m)) (nth 0%N cprimp p))
+  | p <- iota 0 8].
+
+Definition mve (m : nat) : seq nat :=
+  [seq eposn (nth 0%N (inv_tab flast (mvt m)) (nth 0%N eprim p))
+  | p <- iota 0 12].
+
+Definition mvparok : bool :=
+  all (fun m => prmn 8 (nth 0%N (mvc m)) == prmn 12 (nth 0%N (mve m)))
+      (iota 0 18).
+
+Lemma mvparokC : mvparok.  Proof. by vm_compute. Qed.
+
 Section Leaf.
 
 (* ---- the position, as the table tomemb reads ----------------------------- *)
@@ -357,12 +383,18 @@ Hypothesis hp4w : par4okw par4t.
 
 (* ---- and the one fact about the cube ------------------------------------- *)
 
-(* THE THIRD INVARIANT.  The corner permutation and the edge permutation have *)
-(* the same parity, and the edges here are the outer eight and the middle     *)
-(* four apart, so the corner parity is the two of them together.  It holds    *)
-(* for a position REACHED BY MOVES -- every face turn is a four cycle on the  *)
-(* corners and a four cycle on the edges, both odd -- and not for every       *)
-(* facelet permutation that pairs up the way a cube does.                     *)
+(* THE THIRD INVARIANT, and mvparokC above is its per move half.  Two steps   *)
+(* are left between them.                                                     *)
+(*                                                                            *)
+(* One: at a position of H the twelve edges are the outer eight and the       *)
+(* middle four side by side, each keeping to its own, so the parity of the    *)
+(* twelve is the exclusive or of the two.  That is a fact about qu and qm     *)
+(* being the halves of one permutation of the twelve.                         *)
+(*                                                                            *)
+(* Two: the law carries along a word.  Every move flips both parities or      *)
+(* neither -- mvparokC -- and the identity has both even, so an induction on  *)
+(* the word gives it for every position reached.  It needs the position to    *)
+(* have been reached, which is the thing pstok does not record.               *)
 Hypothesis hcube : prmn 8 qc = prmn 8 qu (+) prmn 4 qm.
 
 (* ---- the three ranks tomemb reads are the three permutations ------------- *)
@@ -406,19 +438,31 @@ Qed.
 Lemma cpartE : up8inv -> up8ok ->
   cpart (rank8 qc) = part cflatp 3 inC cposn cslotn qc.
 Proof.
-move=> hi h8; apply: part_eq => f hf hL; apply: (up8_lrank hi h8) => //.
+(* NOT `=> //': what done closes there is the bound on the place, and it      *)
+(* measured forty two seconds.  Both premises are handed over.                *)
+move=> hi h8; apply: part_eq => f hf hL.
+apply: (up8_lrank hi h8); first exact: hqcP.
+by have /andP[h _] := lay_rng clayokC hf hL.
 Qed.
 
 Lemma upartE : up8inv -> up8ok ->
   upart (rank8 qu) = part ulay 2 inU eposn eslt qu.
 Proof.
-move=> hi h8; apply: part_eq => f hf hL; apply: (up8_lrank hi h8) => //.
+(* NOT `=> //': what done closes there is the bound on the place, and it      *)
+(* measured forty two seconds.  Both premises are handed over.                *)
+move=> hi h8; apply: part_eq => f hf hL.
+apply: (up8_lrank hi h8); first exact: hquP.
+by have /andP[h _] := lay_rng ulayokC hf hL.
 Qed.
 
 Lemma mpartE : up4inv -> up4ok ->
   mpart (rank4 qm) = part mlay 2 inM mplc eslt qm.
 Proof.
-move=> hi h4; apply: part_eq => f hf hL; apply: (up4_lrank hi h4) => //.
+(* NOT `=> //': what done closes there is the bound on the place, and it      *)
+(* measured forty two seconds.  Both premises are handed over.                *)
+move=> hi h4; apply: part_eq => f hf hL.
+apply: (up4_lrank hi h4); first exact: hqmP.
+by have /andP[h _] := lay_rng mlayokC hf hL.
 Qed.
 
 (* ---- and composed they are the position ---------------------------------- *)
