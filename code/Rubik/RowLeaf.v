@@ -175,6 +175,33 @@ Definition up8inv : bool :=
 Definition up4inv : bool :=
   iter nbitn 0%uint63 (fun r => (rank4 (up4 r) =? r)%uint63).
 
+(* the other side of fold_mixed: the fold never falls below r times m         *)
+(* factorial.  With the two together the fold lands in one radix window and   *)
+(* the digits come back out by a division, which is what lrank_code needs.    *)
+Lemma fold_mixed_ge n (g : nat -> nat) :
+  forall m k r, (k + m = n)%N ->
+    (r * m`! <= foldl (fun a i => (a * (n - i) + g i)%N) r (iota k m))%N.
+Proof.
+elim=> [|m ih] k r hkm /=; first by rewrite fact0 muln1.
+have hnk : (n - k = m.+1)%N by rewrite -hkm addKn.
+apply: leq_trans (ih k.+1 _ _) => //; last by rewrite addSnnS.
+by rewrite factS mulnA leq_pmul2r ?fact_gt0 // hnk leq_addr.
+Qed.
+
+(* so the fold sits in one radix window and a division reads its start back   *)
+Lemma fold_mixed_div n (g : nat -> nat) m k r :
+  (forall i, (g i <= n - i.+1)%N) -> (k + m = n)%N ->
+  (foldl (fun a i => (a * (n - i) + g i)%N) r (iota k m)) %/ m`! = r.
+Proof.
+move=> hg hkm.
+have hf : (0 < m`!)%N by apply: fact_gt0.
+have hlo := @fold_mixed_ge n g m k r hkm.
+have hhi := @fold_mixed n g hg m k r hkm.
+rewrite -{1}(subnKC hlo) divnMDl // divn_small ?addn0 //.
+rewrite ltn_subLR //.
+by apply: leq_trans hhi _; rewrite mulnDl mul1n addnC.
+Qed.
+
 (* ---- the ranking is one to one on permutations --------------------------- *)
 
 (* Lehmer's own fact, and it comes apart in two.  The CODE of a permutation   *)
