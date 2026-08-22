@@ -39,6 +39,53 @@ Definition prmn (n : nat) (q : nat -> nat) : bool :=
   odd (count (fun ij => ((ij.1 < ij.2) && (q ij.2 < q ij.1))%N)
              (allpairs (fun i j => (i, j)) (iota 0 n) (iota 0 n))).
 
+(* ---- inversions are the sign, and that has to be proved once ------------- *)
+
+(* THE ONE LEMMA THE PARITY LAW WANTS.  mathcomp has odd_permM, so the sign   *)
+(* multiplies -- but its odd_perm counts ORBITS, `odd #|T| (+) odd            *)
+(* #|porbits s|', and prmn counts INVERSIONS.  The two agree and the library  *)
+(* does not say so, so the bridge is ours.  It cannot be avoided by using     *)
+(* odd_perm instead: prmn has to COMPUTE, for the parity table walk, and a    *)
+(* permutation of ordinals does not.                                          *)
+
+(* the identity inverts nothing                                               *)
+Lemma prmn_id n : prmn n id = false.
+Proof.
+rewrite /prmn; suff -> : count (fun ij => ((ij.1 < ij.2) && (ij.2 < ij.1))%N)
+  (allpairs (fun i j => (i, j)) (iota 0 n) (iota 0 n)) = 0%N by [].
+apply/eqP; rewrite -leqn0 leqNgt -has_count.
+apply/negP => /hasP[[i j] _ /andP[h1 h2]] /=.
+by have := ltn_trans h1 h2; rewrite ltnn.
+Qed.
+
+(* THE CRUX, and it is the classical one: exchanging two neighbouring places  *)
+(* changes the number of inversions by exactly one.  The pairs fall into four *)
+(* kinds and only one of them moves:                                          *)
+(*                                                                            *)
+(*   neither place is i or i + 1        the pair is untouched                 *)
+(*   the pair IS (i, i + 1)             its inversion is turned over          *)
+(*   one place is i, the other beyond   this pair and the one at i + 1 trade  *)
+(*   one place is i + 1, other before   statuses, so the two together do not  *)
+(*                                      change the count                      *)
+(*                                                                            *)
+(* so the count moves by exactly one and the parity turns over.  Written out  *)
+(* it is a reindexing of the count over the pairs by the exchange, which is   *)
+(* an involution on them -- bigop's reindex, once the count is a double sum.  *)
+(*                                                                            *)
+(* Every permutation is reached from the identity by such exchanges, which is *)
+(* bubble sort, so prmn_mul follows from this by induction on the inversions. *)
+Lemma prmn_swap n q i : (i.+1 < n)%N ->
+  prmn n (fun p => q (if p == i then i.+1 else if p == i.+1 then i else p))
+  = ~~ prmn n q.
+Proof. Admitted.
+
+(* and then the sign multiplies, which is all prm_step needs                  *)
+Lemma prmn_mul n q1 q2 :
+  perm_eq [seq q1 p | p <- iota 0 n] (iota 0 n) ->
+  perm_eq [seq q2 p | p <- iota 0 n] (iota 0 n) ->
+  prmn n (fun p => q1 (q2 p)) = prmn n q1 (+) prmn n q2.
+Proof. Admitted.
+
 (* ---- a fold does not look past its list ---------------------------------- *)
 
 Lemma foldl_eq_in (T : eqType) (R : Type) (F G : R -> T -> R)
@@ -373,8 +420,15 @@ Proof. by vm_compute. Qed.
 (* AND THE STEP.  Playing a move on a position composes the two permutations  *)
 (* with that move's, and the parity of a composition is the exclusive or, so  *)
 (* both sides pick up the same bit -- which is exactly what mvparokC says.    *)
-(* It needs the move to carry corners to corners and edges to edges, which is *)
-(* what a facelet table of the cube does.                                     *)
+(*                                                                            *)
+(* IT REDUCES TO TWO THINGS AND NOTHING ELSE.  One is prmn_mul above, the     *)
+(* sign multiplying.  The other is that the place permutation of a            *)
+(* composition is the composition of the place permutations -- which needs    *)
+(* the position to carry the facelets of one cubie to the facelets of one     *)
+(* cubie, and that is cubcP for the corners and cubP for the edges, both of   *)
+(* which pstok already carries.  A move may TWIST a corner, so it is only at  *)
+(* the level of places that this holds, which is why cperm_of reads cposn and *)
+(* throws the slot away.                                                      *)
 Lemma prm_step t m : tab_ok flast t -> (m < 18)%N ->
   prmn 8 (cperm_of (comp_tab (mvt m) t))
     = prmn 8 (cperm_of (inv_tab flast (mvt m))) (+) prmn 8 (cperm_of t) /\
