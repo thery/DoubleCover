@@ -85,8 +85,13 @@ Lemma d_tomemb_tab c x : coordP c x -> pstok x ->
   pt flast (dmemb (dtomemb x)) = pt flast (ti2t flast x).
 Proof. Admitted.
 
-Lemma d_prep_range k pg gr bt : (to_nat k < nhn)%N -> inrange pg gr bt ->
-  inrange (pgmv d1 k pg) (grmv d1 k gr) (btmv d1 k bt).
+Lemma d_pgok : pgok d1.
+Proof. Admitted.
+
+Lemma d_grok : grok d1.
+Proof. Admitted.
+
+Lemma d_btok : btok d1.
 Proof. Admitted.
 
 Lemma d_memb2tab_move k pg gr bt : (to_nat k < nhn)%N -> inrange pg gr bt ->
@@ -109,6 +114,7 @@ Theorem dummy_row_within_20 x :
   membok d1 d1 x -> wthn (RowFinal.pos (ptab dmemb)) 20 x.
 Proof.
 apply: (row_within_20_inst d_e8ok d_e4ok d_memb2tab_ok d_srcok d_halfok
-                           d_fsstepP d_leaf_memb d_tomemb_tab d_prep_range
-                           d_memb2tab_move (erefl 20%N) d_witsok d_full).
+                           d_fsstepP d_leaf_memb d_tomemb_tab
+                           d_pgok d_grok d_btok d_memb2tab_move
+                           (erefl 20%N) d_witsok d_full).
 Qed.
