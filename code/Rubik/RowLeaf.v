@@ -391,6 +391,24 @@ Lemma cprimp_lay :
   all (fun p => nth 0%N cprimp p == nth 0%N cflatp (p * 3)%N) (iota 0 8).
 Proof. by vm_compute. Qed.
 
+(* a U or D sticker is a corner facelet at slot nought, and that is what the  *)
+(* twist being nought hands over                                              *)
+Lemma cprim_lay :
+  all (fun f => (f \in cprim) ==> (inC f && (cslotn f == 0%N))) (iota 0 48).
+Proof. by vm_compute. Qed.
+
+Lemma size_ccyct : seq.size ccyct = 48%N.
+Proof. by vm_compute. Qed.
+
+Lemma tab_ltn t f : tab_ok flast t -> (f < 48)%N -> (nth 0%N t f < 48)%N.
+Proof.
+by case/and3P => /eqP hs /allP hall _ hf; apply: hall; apply: mem_nth;
+   rewrite hs.
+Qed.
+
+Lemma cflatp_lt i : (i < 24)%N -> (nth 0%N cflatp i < 48)%N.
+Proof. by move=> hi; have /and4P[h _ _ _] := layP clayokC hi. Qed.
+
 Section InHCorner.
 
 Variable u : seq nat.
@@ -404,10 +422,91 @@ Hypothesis htw0 : forall p, (p < 8)%N ->
   nth 0%N u (nth 0%N cprimp p) \in cprim.
 
 (* so the corners keep their slot, with the place permutation cperm_of u      *)
+(* the position commutes with the rotation, read at one facelet               *)
+Lemma hcom f : (f < 48)%N ->
+  nth 0%N u (nth 0%N ccyct f) = nth 0%N ccyct (nth 0%N u f).
+Proof.
+move=> hf; have := congr1 (fun t => nth 0%N t f) hcyc.
+by rewrite !comp_tabE ?(tab_ok_size huok) ?size_ccyct.
+Qed.
+
+(* THE BASE: the twist being nought puts the primary facelet of a place at    *)
+(* the primary facelet of a place, and that says which place.                 *)
+Lemma inH_corner0 p : (p < 8)%N ->
+  nth 0%N u (nth 0%N cflatp (p * 3)%N)
+  = nth 0%N cflatp (cperm_of u p * 3)%N.
+Proof.
+move=> hp.
+have hi0 : (p * 3 < 24)%N by rewrite -[24%N]/(8 * 3)%N ltn_mul2r.
+have hcp : nth 0%N cprimp p = nth 0%N cflatp (p * 3)%N.
+  exact: (eqP (all_iota_lt cprimp_lay hp)).
+have hf48 : (nth 0%N u (nth 0%N cflatp (p * 3)%N) < 48)%N.
+  exact: tab_ltn huok (cflatp_lt hi0).
+have hpr : nth 0%N u (nth 0%N cflatp (p * 3)%N) \in cprim.
+  by rewrite -hcp; apply: htw0.
+have /andP[hin hs0] : inC (nth 0%N u (nth 0%N cflatp (p * 3)%N))
+                      && (cslotn (nth 0%N u (nth 0%N cflatp (p * 3)%N)) == 0%N).
+  by move: (all_iota_lt cprim_lay hf48); rewrite hpr.
+rewrite /cperm_of hcp.
+by rewrite -{1}(layK clayokC hf48 hin) (eqP hs0) addn0.
+Qed.
+
+(* AND ONE SLOT AT A TIME: the rotation takes slot k to slot k + 1 and the    *)
+(* position goes through it, which is hcom.                                   *)
+(* the place a corner goes to is a place                                      *)
+Lemma cperm_of_lt p : (p < 8)%N -> (cperm_of u p < 8)%N.
+Proof.
+move=> hp.
+have hi0 : (p * 3 < 24)%N by rewrite -[24%N]/(8 * 3)%N ltn_mul2r.
+have hcp : nth 0%N cprimp p = nth 0%N cflatp (p * 3)%N.
+  exact: (eqP (all_iota_lt cprimp_lay hp)).
+have hf48 : (nth 0%N u (nth 0%N cflatp (p * 3)%N) < 48)%N.
+  exact: tab_ltn huok (cflatp_lt hi0).
+have hpr : nth 0%N u (nth 0%N cflatp (p * 3)%N) \in cprim.
+  by rewrite -hcp; apply: htw0.
+have /andP[hin _] : inC (nth 0%N u (nth 0%N cflatp (p * 3)%N))
+                    && (cslotn (nth 0%N u (nth 0%N cflatp (p * 3)%N)) == 0%N).
+  by move: (all_iota_lt cprim_lay hf48); rewrite hpr.
+by rewrite /cperm_of hcp; have /andP[h _] := lay_rng clayokC hf48 hin.
+Qed.
+
+(* the rotation reads on the layout as one step of the slot                   *)
+Lemma ccyct_step r k : (r < 8)%N -> (k < 2)%N ->
+  nth 0%N ccyct (nth 0%N cflatp (r * 3 + k)%N)
+  = nth 0%N cflatp (r * 3 + k.+1)%N.
+Proof.
+move=> hr hk.
+have hk3 : (k < 3)%N by apply: leq_trans hk _.
+have hi : (r * 3 + k < 24)%N.
+  by rewrite -[24%N]/(8 * 3)%N; apply: lidx.
+have := eqP (all_iota_lt ccyct_lay hi).
+by rewrite divnMDl // modnMDl !modn_small // divn_small // addn0.
+Qed.
+
+Lemma inH_cornerS p k : (p < 8)%N -> (k < 2)%N ->
+  nth 0%N u (nth 0%N cflatp (p * 3 + k)%N)
+    = nth 0%N cflatp (cperm_of u p * 3 + k)%N ->
+  nth 0%N u (nth 0%N cflatp (p * 3 + k.+1)%N)
+    = nth 0%N cflatp (cperm_of u p * 3 + k.+1)%N.
+Proof.
+move=> hp hk ih.
+have hk3 : (k < 3)%N by apply: leq_trans hk _.
+have hi : (p * 3 + k < 24)%N.
+  by rewrite -[24%N]/(8 * 3)%N; apply: lidx.
+rewrite -(ccyct_step hp hk) (hcom (cflatp_lt hi)) ih.
+by rewrite (ccyct_step (cperm_of_lt hp) hk).
+Qed.
+
 Lemma inH_corner p j : (p < 8)%N -> (j < 3)%N ->
   nth 0%N u (nth 0%N cflatp (p * 3 + j)%N)
   = nth 0%N cflatp (cperm_of u p * 3 + j)%N.
-Proof. Admitted.
+Proof.
+move=> hp; case: j => [_|[_|[_|]]] //.
+- by rewrite !addn0; apply: inH_corner0.
+- by apply: inH_cornerS => //; rewrite !addn0; apply: inH_corner0.
+apply: inH_cornerS => //; apply: inH_cornerS => //.
+by rewrite !addn0; apply: inH_corner0.
+Qed.
 
 End InHCorner.
 
@@ -675,12 +774,6 @@ Proof. by case/and3P => _ _ h hf hS; move: (all_iota_lt h hf); rewrite hS. Qed.
 (* EACH PART AGREES WITH THE POSITION ON ITS OWN FACELETS -- that is hqc, hqu *)
 (* and hqm -- and is the identity outside them, and the three sets cover the  *)
 (* forty eight.  So the composition is the position everywhere.               *)
-Lemma tab_ltn t f : tab_ok flast t -> (f < 48)%N -> (nth 0%N t f < 48)%N.
-Proof.
-by case/and3P => /eqP hs /allP hall _ hf; apply: hall; apply: mem_nth;
-   rewrite hs.
-Qed.
-
 Lemma parts_compose : tab_ok flast u -> comp_tab (comp_tab pC pU) pM = u.
 Proof.
 move=> huok.
