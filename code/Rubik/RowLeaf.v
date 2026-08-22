@@ -97,6 +97,109 @@ have /and4P[_ _ /eqP h _] := layP mlayokC hi.
 by rewrite h mulnK.
 Qed.
 
+(* ---- what a Lehmer rank owes, and it is arithmetic ----------------------- *)
+
+(* At place i the rank multiplies by n - i and adds a count over n - i - 1    *)
+(* places, so it never reaches n factorial.  Nothing about the cube, and true *)
+(* of ANY function, not only of a permutation.                                *)
+Lemma lrank_lt n f : (lrank n f < n`!)%N.
+Proof. Admitted.
+
+Lemma rank8_ltP f : (rank8 f <? npagei)%uint63.
+Proof.
+have h8 : (8`! = 40320)%N by [].
+have hl : (lrank 8 f < 40320)%N by rewrite -h8; apply: lrank_lt.
+have hw : (40320 < nwB)%N by apply: (@ltn_nwB 16).
+apply/nltbP; rewrite /rank8 (of_natK _ (leq_trans hl (ltnW hw))).
+by rewrite -/npagen npagenE.
+Qed.
+
+Lemma rank4_ltP f : (rank4 f <? nbiti)%uint63.
+Proof.
+have h4 : (4`! = 24)%N by [].
+have hl : (lrank 4 f < 24)%N by rewrite -h4; apply: lrank_lt.
+have hw : (24 < nwB)%N by apply: (@ltn_nwB 5).
+apply/nltbP; rewrite /rank4 (of_natK _ (leq_trans hl (ltnW hw))).
+by have -> : to_nat nbiti = 24%N by vm_compute.
+Qed.
+
+(* ---- the parity, like the rank, only looks at its places ----------------- *)
+
+Lemma prmn_eq n (f g : nat -> nat) :
+  (forall p, (p < n)%N -> f p = g p) -> prmn n f = prmn n g.
+Proof.
+move=> hfg; rewrite /prmn; congr odd; apply: eq_in_count => ij.
+move=> /allpairsPdep[i [j [hi hj ->]]] /=.
+by move: hi hj; rewrite !mem_iota !add0n => /andP[_ hi] /andP[_ hj];
+   rewrite !hfg.
+Qed.
+
+(* ---- and the unranking undoes the ranking -------------------------------- *)
+
+(* The prototype's own ranking and unranking, so this is a fact about two     *)
+(* little functions and the table up8i, not about the cube.                   *)
+Lemma up8_lrank q : perm_eq [seq q p | p <- iota 0 8] (iota 0 8) ->
+  forall p, (p < 8)%N -> up8 (rank8 q) p = q p.
+Proof. Admitted.
+
+Lemma up4_lrank q : perm_eq [seq q p | p <- iota 0 4] (iota 0 4) ->
+  forall p, (p < 4)%N -> up4 (rank4 q) p = q p.
+Proof. Admitted.
+
+(* ---- what the parity tables owe, as a walk ------------------------------- *)
+
+(* par8 at a rank is the parity of the permutation that rank names.  It is    *)
+(* NOT e8ok, which ties par8 to e8num and says nothing about a parity.        *)
+Definition par8okw (par8t : arr) : bool :=
+  iter npagen 0%uint63
+    (fun r => (PArray.get par8t r
+               =? (if prmn 8 (up8 r) then 1 else 0))%uint63).
+
+Definition par4okw (par4t : arr) : bool :=
+  iter nbitn 0%uint63
+    (fun r => (PArray.get par4t r
+               =? (if prmn 4 (up4 r) then 1 else 0))%uint63).
+
+Lemma par8okP par8t q : par8okw par8t ->
+  perm_eq [seq q p | p <- iota 0 8] (iota 0 8) ->
+  PArray.get par8t (rank8 q) = (if prmn 8 q then 1 else 0)%uint63.
+Proof.
+move=> hw hq.
+have := iter_at hw (ltn_npagei (rank8_ltP q)) => /eqP ->.
+by rewrite (prmn_eq (up8_lrank hq)).
+Qed.
+
+Lemma par4okP par4t q : par4okw par4t ->
+  perm_eq [seq q p | p <- iota 0 4] (iota 0 4) ->
+  PArray.get par4t (rank4 q) = (if prmn 4 q then 1 else 0)%uint63.
+Proof.
+move=> hw hq.
+have := iter_at hw (ltn_nbiti (rank4_ltP q)) => /eqP ->.
+by rewrite (prmn_eq (up4_lrank hq)).
+Qed.
+
+(* ---- a part only looks at its own places --------------------------------- *)
+
+Lemma part_eq (lay : seq nat) (nsl : nat) (inL : nat -> bool)
+  (plc slt : nat -> nat) (v1 v2 : nat -> nat) :
+  (forall f, (f < 48)%N -> inL f -> v1 (plc f) = v2 (plc f)) ->
+  part lay nsl inL plc slt v1 = part lay nsl inL plc slt v2.
+Proof.
+move=> h; apply: (@eq_from_nth _ 0%N); first by rewrite !size_mkseq.
+move=> f; rewrite size_mkseq => hf; rewrite !nth_mkseq //.
+by case: (boolP (inL f)) => hL //; rewrite h.
+Qed.
+
+(* ---- and the three sets cover the forty eight facelets ------------------- *)
+
+(* Twenty four corners, sixteen outer, eight middle.  It is what lets the     *)
+(* three parts compose to the whole position and not merely agree on part of  *)
+(* it.                                                                        *)
+Definition covers : bool :=
+  all (fun f => [|| inC f, inU f | inM f]) (iota 0 48).
+
+Lemma coversC : covers.  Proof. by vm_compute. Qed.
+
 Section Leaf.
 
 (* ---- the position, as the table tomemb reads ----------------------------- *)
@@ -142,21 +245,12 @@ move=> hp; have : qm p \in [seq qm q | q <- iota 0 4].
 by rewrite (perm_mem hqmP) mem_iota.
 Qed.
 
-(* ---- what the ranking owes, and it is not about the cube ----------------- *)
-
-(* A Lehmer rank of eight places is below eight factorial.  Pure arithmetic   *)
-(* on lrank, nothing to do with the cube.                                     *)
-Hypothesis rank8_lt : forall q, (rank8 q <? npagei)%uint63.
-Hypothesis rank4_lt : forall q, (rank4 q <? nbiti)%uint63.
-
-(* ---- what the parity tables owe, and it is a walk ------------------------ *)
+(* ---- the parity tables, and their walk ----------------------------------- *)
 
 Variable par8t par4t : arr.
 
-Hypothesis hpar8 : forall q, perm_eq [seq q p | p <- iota 0 8] (iota 0 8) ->
-  PArray.get par8t (rank8 q) = (if prmn 8 q then 1 else 0)%uint63.
-Hypothesis hpar4 : forall q, perm_eq [seq q p | p <- iota 0 4] (iota 0 4) ->
-  PArray.get par4t (rank4 q) = (if prmn 4 q then 1 else 0)%uint63.
+Hypothesis hp8w : par8okw par8t.
+Hypothesis hp4w : par4okw par4t.
 
 (* ---- and the one fact about the cube ------------------------------------- *)
 
@@ -198,9 +292,60 @@ Lemma leaf_membH a : ti2t flast (inv_tabi flast a) = u ->
   membok par8t par4t (tomemb a).
 Proof.
 move=> hu; rewrite (tomembE hu) /membok /mcp /mud /mmp.
-rewrite !rank8_lt rank4_lt /=.
-rewrite (hpar8 hqcP) (hpar8 hquP) (hpar4 hqmP) hcube.
+rewrite !rank8_ltP rank4_ltP /=.
+rewrite (par8okP hp8w hqcP) (par8okP hp8w hquP) (par4okP hp4w hqmP) hcube.
 by case: (prmn 8 qu); case: (prmn 4 qm).
+Qed.
+
+(* ---- the three parts ARE the three permutations -------------------------- *)
+
+Lemma cpartE : cpart (rank8 qc) = part cflatp 3 inC cposn cslotn qc.
+Proof.
+apply: part_eq => f hf hL; apply: up8_lrank => //.
+by have /andP[h _] := lay_rng clayokC hf hL.
+Qed.
+
+Lemma upartE : upart (rank8 qu) = part ulay 2 inU eposn eslt qu.
+Proof.
+apply: part_eq => f hf hL; apply: up8_lrank => //.
+by have /andP[h _] := lay_rng ulayokC hf hL.
+Qed.
+
+Lemma mpartE : mpart (rank4 qm) = part mlay 2 inM mplc eslt qm.
+Proof.
+apply: part_eq => f hf hL; apply: up4_lrank => //.
+by have /andP[h _] := lay_rng mlayokC hf hL.
+Qed.
+
+(* ---- and composed they are the position ---------------------------------- *)
+
+(* EACH PART AGREES WITH THE POSITION ON ITS OWN FACELETS -- that is hqc, hqu *)
+(* and hqm -- and is the identity outside them, and the three sets cover the  *)
+(* forty eight.  So the composition is the position everywhere.               *)
+Lemma parts_compose : tab_ok flast u ->
+  comp_tab (comp_tab (part cflatp 3 inC cposn cslotn qc)
+                     (part ulay 2 inU eposn eslt qu))
+           (part mlay 2 inM mplc eslt qm) = u.
+Proof. Admitted.
+
+(* ---- so the three ranks rebuild the position ----------------------------- *)
+
+Lemma membrng_ranks : membrng (rank8 qc, rank8 qu, rank4 qm).
+Proof. by rewrite /membrng /mcp /mud /mmp !rank8_ltP rank4_ltP. Qed.
+
+Lemma tomemb_tabH a : tabi_ok flast a -> ti2t flast (inv_tabi flast a) = u ->
+  pt flast (memb2tab (tomemb a)) = pt flast (ti2t flast a).
+Proof.
+move=> haok hu.
+have htok : tab_ok flast (ti2t flast a) := haok.
+have hui : u = inv_tab flast (ti2t flast a).
+  by rewrite -hu (ti2t_inv n47_small n47_len haok).
+have huok : tab_ok flast u by rewrite hui; apply: tab_ok_inv.
+have hmi : membinv (tomemb a) = u.
+  rewrite (tomembE hu) /membinv.
+  case: ifPn => [hn|_]; first by rewrite membrng_ranks in hn.
+  by rewrite /mcp /mud /mmp cpartE upartE mpartE; apply: parts_compose.
+by rewrite /memb2tab hmi -(ptV huok) hui -(ptV htok) invgK.
 Qed.
 
 End Leaf.
