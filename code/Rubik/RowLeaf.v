@@ -547,6 +547,36 @@ Lemma eprim_mlay :
   all (fun p => nth 0%N eprim (8 + p)%N == nth 0%N mlay (p * 2)%N) (iota 0 4).
 Proof. by vm_compute. Qed.
 
+(* a primary sticker at an outer place is an outer facelet at slot nought,    *)
+(* and at a middle place a middle one -- which is what the flip being nought  *)
+(* and the slice being solved hand over                                       *)
+Lemma eprim_layu :
+  all (fun f => ((f \in eprim) && (eposn f < 8)%N)
+                ==> (inU f && (eslt f == 0%N))) (iota 0 48).
+Proof. by vm_compute. Qed.
+
+Lemma eprim_laym :
+  all (fun f => ((f \in eprim) && (8 <= eposn f)%N)
+                ==> (inM f && (eslt f == 0%N))) (iota 0 48).
+Proof. by vm_compute. Qed.
+
+(* the pairing reads on the layouts as one step of the slot                   *)
+Lemma epairn_ustep r : (r < 8)%N ->
+  epairn (nth 0%N ulay (r * 2)%N) = nth 0%N ulay (r * 2 + 1)%N.
+Proof.
+move=> hr; have hi : (r * 2 < 16)%N by rewrite -[16%N]/(8 * 2)%N ltn_mul2r.
+have := eqP (all_iota_lt epairn_ulay hi).
+by rewrite mulnK // modnMl.
+Qed.
+
+Lemma epairn_mstep r : (r < 4)%N ->
+  epairn (nth 0%N mlay (r * 2)%N) = nth 0%N mlay (r * 2 + 1)%N.
+Proof.
+move=> hr; have hi : (r * 2 < 8)%N by rewrite -[8%N]/(4 * 2)%N ltn_mul2r.
+have := eqP (all_iota_lt epairn_mlay hi).
+by rewrite mulnK // modnMl.
+Qed.
+
 Section InHEdge.
 
 Variable u : seq nat.
@@ -565,15 +595,106 @@ Hypothesis hfl0 : forall p, (p < 12)%N ->
 Hypothesis hsl : forall p, (p < 12)%N ->
   (8 <= eposn (nth 0%N u (nth 0%N eprim p)))%N = (8 <= p)%N.
 
+(* THE BASE, outer: the flip being nought puts a primary sticker at a primary *)
+(* sticker, and the slice being solved keeps it outer.                        *)
+Lemma inH_outer0 p : (p < 8)%N ->
+  nth 0%N u (nth 0%N ulay (p * 2)%N) = nth 0%N ulay (eperm_of u p * 2)%N.
+Proof.
+move=> hp.
+have hp12 : (p < 12)%N by apply: leq_trans hp _.
+have hep : nth 0%N eprim p = nth 0%N ulay (p * 2)%N.
+  exact: (eqP (all_iota_lt eprim_ulay hp)).
+have hi : (p * 2 < 16)%N by rewrite -[16%N]/(8 * 2)%N ltn_mul2r.
+have hu48 : (nth 0%N ulay (p * 2)%N < 48)%N.
+  by have /and4P[h _ _ _] := layP ulayokC hi.
+have hf48 := tab_ltn huok hu48.
+have hpr : nth 0%N u (nth 0%N ulay (p * 2)%N) \in eprim.
+  by rewrite -hep; apply: hfl0.
+have hlt : (eposn (nth 0%N u (nth 0%N ulay (p * 2)%N)) < 8)%N.
+  by rewrite -hep ltnNge (hsl hp12) leqNgt hp.
+have /andP[hin hs0] : inU (nth 0%N u (nth 0%N ulay (p * 2)%N))
+                      && (eslt (nth 0%N u (nth 0%N ulay (p * 2)%N)) == 0%N).
+  by move: (all_iota_lt eprim_layu hf48); rewrite hpr hlt.
+rewrite /eperm_of hep.
+by rewrite -{1}(layK ulayokC hf48 hin) (eqP hs0) addn0.
+Qed.
+
+Lemma eperm_of_ltu p : (p < 8)%N -> (eperm_of u p < 8)%N.
+Proof.
+move=> hp; have hp12 : (p < 12)%N by apply: leq_trans hp _.
+have hep : nth 0%N eprim p = nth 0%N ulay (p * 2)%N.
+  exact: (eqP (all_iota_lt eprim_ulay hp)).
+by rewrite /eperm_of ltnNge (hsl hp12) leqNgt hp.
+Qed.
+
 Lemma inH_outer p j : (p < 8)%N -> (j < 2)%N ->
   nth 0%N u (nth 0%N ulay (p * 2 + j)%N)
   = nth 0%N ulay (eperm_of u p * 2 + j)%N.
-Proof. Admitted.
+Proof.
+move=> hp; case: j => [_|[_|]] //; first by rewrite !addn0; apply: inH_outer0.
+have hi : (p * 2 < 16)%N by rewrite -[16%N]/(8 * 2)%N ltn_mul2r.
+have hu48 : (nth 0%N ulay (p * 2)%N < 48)%N.
+  by have /and4P[h _ _ _] := layP ulayokC hi.
+rewrite -(epairn_ustep hp) (hpair hu48) inH_outer0 //.
+by rewrite (epairn_ustep (eperm_of_ltu hp)).
+Qed.
+
+(* THE BASE, middle: the same, and the slice keeps it middle                  *)
+Lemma inH_middle0 p : (p < 4)%N ->
+  nth 0%N u (nth 0%N mlay (p * 2)%N)
+  = nth 0%N mlay ((eperm_of u (8 + p)%N - 8) * 2)%N.
+Proof.
+move=> hp.
+have hp12 : (8 + p < 12)%N by rewrite ltn_add2l.
+have hep : nth 0%N eprim (8 + p)%N = nth 0%N mlay (p * 2)%N.
+  exact: (eqP (all_iota_lt eprim_mlay hp)).
+have hi : (p * 2 < 8)%N by rewrite -[8%N]/(4 * 2)%N ltn_mul2r.
+have hu48 : (nth 0%N mlay (p * 2)%N < 48)%N.
+  by have /and4P[h _ _ _] := layP mlayokC hi.
+have hf48 := tab_ltn huok hu48.
+have hpr : nth 0%N u (nth 0%N mlay (p * 2)%N) \in eprim.
+  by rewrite -hep; apply: hfl0.
+have hge : (8 <= eposn (nth 0%N u (nth 0%N mlay (p * 2)%N)))%N.
+  by rewrite -hep (hsl hp12) leq_addr.
+have /andP[hin hs0] : inM (nth 0%N u (nth 0%N mlay (p * 2)%N))
+                      && (eslt (nth 0%N u (nth 0%N mlay (p * 2)%N)) == 0%N).
+  by move: (all_iota_lt eprim_laym hf48); rewrite hpr hge.
+rewrite /eperm_of hep -/(mplc _).
+by rewrite -{1}(layK mlayokC hf48 hin) (eqP hs0) addn0.
+Qed.
+
+Lemma eperm_of_ltm p : (p < 4)%N -> (eperm_of u (8 + p)%N - 8 < 4)%N.
+Proof.
+move=> hp.
+have hp12 : (8 + p < 12)%N by rewrite ltn_add2l.
+have hep : nth 0%N eprim (8 + p)%N = nth 0%N mlay (p * 2)%N.
+  exact: (eqP (all_iota_lt eprim_mlay hp)).
+have hi : (p * 2 < 8)%N by rewrite -[8%N]/(4 * 2)%N ltn_mul2r.
+have hu48 : (nth 0%N mlay (p * 2)%N < 48)%N.
+  by have /and4P[h _ _ _] := layP mlayokC hi.
+have hf48 := tab_ltn huok hu48.
+have hpr : nth 0%N u (nth 0%N mlay (p * 2)%N) \in eprim.
+  by rewrite -hep; apply: hfl0.
+have hge : (8 <= eposn (nth 0%N u (nth 0%N mlay (p * 2)%N)))%N.
+  by rewrite -hep (hsl hp12) leq_addr.
+have /andP[hin _] : inM (nth 0%N u (nth 0%N mlay (p * 2)%N))
+                    && (eslt (nth 0%N u (nth 0%N mlay (p * 2)%N)) == 0%N).
+  by move: (all_iota_lt eprim_laym hf48); rewrite hpr hge.
+rewrite /eperm_of hep -/(mplc _).
+by have /andP[h _] := lay_rng mlayokC hf48 hin.
+Qed.
 
 Lemma inH_middle p j : (p < 4)%N -> (j < 2)%N ->
   nth 0%N u (nth 0%N mlay (p * 2 + j)%N)
   = nth 0%N mlay ((eperm_of u (8 + p)%N - 8) * 2 + j)%N.
-Proof. Admitted.
+Proof.
+move=> hp; case: j => [_|[_|]] //; first by rewrite !addn0; apply: inH_middle0.
+have hi : (p * 2 < 8)%N by rewrite -[8%N]/(4 * 2)%N ltn_mul2r.
+have hu48 : (nth 0%N mlay (p * 2)%N < 48)%N.
+  by have /and4P[h _ _ _] := layP mlayokC hi.
+rewrite -(epairn_mstep hp) (hpair hu48) inH_middle0 //.
+by rewrite (epairn_mstep (eperm_of_ltm hp)).
+Qed.
 
 End InHEdge.
 
