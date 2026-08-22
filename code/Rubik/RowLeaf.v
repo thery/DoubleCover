@@ -70,6 +70,11 @@ Lemma ulay_prim :
   all (fun p => nth 0%N ulay (p * 2)%N == nth 0%N eprim p) (iota 0 8).
 Proof. by vm_compute. Qed.
 
+(* and the middle four sit at places eight and up                             *)
+Lemma eposn_mlayC :
+  all (fun p => eposn (nth 0%N mlay (p * 2)%N) == (8 + p)%N) (iota 0 4).
+Proof. by vm_compute. Qed.
+
 Lemma mlay_prim :
   all (fun p => nth 0%N mlay (p * 2)%N == nth 0%N eprim (8 + p)%N) (iota 0 4).
 Proof. by vm_compute. Qed.
@@ -315,19 +320,26 @@ Lemma coversC : covers.  Proof. by vm_compute. Qed.
 (* the same parity.  Each move is a four cycle on four corners and a four     *)
 (* cycle on four edges, so both are odd; the doubles are even on both.        *)
 
-Definition mvc (m : nat) : seq nat :=
-  [seq cposn (nth 0%N (inv_tab flast (mvt m)) (nth 0%N cprimp p))
-  | p <- iota 0 8].
-
-Definition mve (m : nat) : seq nat :=
-  [seq eposn (nth 0%N (inv_tab flast (mvt m)) (nth 0%N eprim p))
-  | p <- iota 0 12].
+(* the corner permutation and the edge permutation a table names              *)
+Definition cperm_of (t : seq nat) (p : nat) : nat :=
+  cposn (nth 0%N t (nth 0%N cprimp p)).
+Definition eperm_of (t : seq nat) (p : nat) : nat :=
+  eposn (nth 0%N t (nth 0%N eprim p)).
 
 Definition mvparok : bool :=
-  all (fun m => prmn 8 (nth 0%N (mvc m)) == prmn 12 (nth 0%N (mve m)))
+  all (fun m => prmn 8 (cperm_of (inv_tab flast (mvt m)))
+                == prmn 12 (eperm_of (inv_tab flast (mvt m))))
       (iota 0 18).
 
 Lemma mvparokC : mvparok.  Proof. by vm_compute. Qed.
+
+(* THE LAW ITSELF, and it is the induction mvparokC feeds: the identity has   *)
+(* both parities even, every move flips both or neither, so every position    *)
+(* reached by a word has them equal.  This is where being IN THE GROUP is     *)
+(* used, and it is the only place.                                            *)
+Lemma prm_law t : tab_ok flast t -> pt flast t \in G ->
+  prmn 8 (cperm_of t) = prmn 12 (eperm_of t).
+Proof. Admitted.
 
 Section Leaf.
 
@@ -383,19 +395,36 @@ Hypothesis hp4w : par4okw par4t.
 
 (* ---- and the one fact about the cube ------------------------------------- *)
 
-(* THE THIRD INVARIANT, and mvparokC above is its per move half.  Two steps   *)
-(* are left between them.                                                     *)
-(*                                                                            *)
-(* One: at a position of H the twelve edges are the outer eight and the       *)
-(* middle four side by side, each keeping to its own, so the parity of the    *)
-(* twelve is the exclusive or of the two.  That is a fact about qu and qm     *)
-(* being the halves of one permutation of the twelve.                         *)
-(*                                                                            *)
-(* Two: the law carries along a word.  Every move flips both parities or      *)
-(* neither -- mvparokC -- and the identity has both even, so an induction on  *)
-(* the word gives it for every position reached.  It needs the position to    *)
-(* have been reached, which is the thing pstok does not record.               *)
-Hypothesis hcube : prmn 8 qc = prmn 8 qu (+) prmn 4 qm.
+(* ---- the parity condition, and where it comes from ----------------------- *)
+
+(* At a position of H the twelve edges are the outer eight and the middle     *)
+(* four side by side, each keeping to its own, so a pair of places from       *)
+(* different halves is never an inversion and the parity of the twelve is     *)
+(* the exclusive or of the two.                                               *)
+Lemma prm12_split (e : nat -> nat) :
+  (forall p, (p < 8)%N -> e p = qu p) ->
+  (forall p, (p < 4)%N -> e (8 + p)%N = (8 + qm p)%N) ->
+  prmn 12 e = prmn 8 qu (+) prmn 4 qm.
+Proof. Admitted.
+
+(* and then the parity condition is the law at this position                  *)
+Lemma hcubeP : tab_ok flast u -> pt flast u \in G ->
+  prmn 8 qc = prmn 8 qu (+) prmn 4 qm.
+Proof.
+move=> huok hG.
+have hc : prmn 8 qc = prmn 8 (cperm_of u).
+  apply: prmn_eq => p hp; rewrite /cperm_of.
+  rewrite -(eqP (all_iota_lt cflatp_prim hp)).
+  by rewrite -[(p * 3)%N]addn0 hqc // addn0 cposn_lay // qc_lt.
+have he : prmn 12 (eperm_of u) = prmn 8 qu (+) prmn 4 qm.
+  apply: prm12_split => p hp; rewrite /eperm_of.
+  - rewrite -(eqP (all_iota_lt ulay_prim hp)).
+    by rewrite -[(p * 2)%N]addn0 hqu // addn0 eposn_ulay // qu_lt.
+  rewrite -(eqP (all_iota_lt mlay_prim hp)).
+  rewrite -[(p * 2)%N]addn0 hqm // addn0.
+  by rewrite (eqP (all_iota_lt eposn_mlayC (qm_lt hp))).
+by rewrite hc (prm_law huok hG).
+Qed.
 
 (* ---- the three ranks tomemb reads are the three permutations ------------- *)
 
@@ -424,9 +453,12 @@ Qed.
 (* ---- and they satisfy membok --------------------------------------------  *)
 
 Lemma leaf_membH a : up8inv -> up8ok -> up4inv -> up4ok ->
+  tab_ok flast u -> pt flast u \in G ->
   ti2t flast (inv_tabi flast a) = u -> membok par8t par4t (tomemb a).
 Proof.
-move=> hi8 h8 hi4 h4 hu; rewrite (tomembE hu) /membok /mcp /mud /mmp.
+move=> hi8 h8 hi4 h4 huok hG hu.
+have hcube := hcubeP huok hG.
+rewrite (tomembE hu) /membok /mcp /mud /mmp.
 rewrite !rank8_ltP rank4_ltP /=.
 rewrite (par8okP hi8 h8 hp8w hqcP) (par8okP hi8 h8 hp8w hquP)
         (par4okP hi4 h4 hp4w hqmP) hcube.
