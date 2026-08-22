@@ -281,9 +281,63 @@ Definition emid : seq nat := drop 8 eprim ++ drop 8 esec.
 (* member, so what acts on it is the move the other way round                 *)
 Definition hinv (k : int) : seq nat := inv_tab flast (mvt (hmvi k)).
 
-Definition hcT (k : int) : seq nat := restr cflat (hinv k).
+Definition hcT (k : int) : seq nat := restr cflatp (hinv k).
 Definition huT (k : int) : seq nat := restr eout (hinv k).
 Definition hmT (k : int) : seq nat := restr emid (hinv k).
+
+(* ---- what any part of a member or of a move owes -------------------------*)
+
+(* Three things, and each is settled facelet by facelet: the part is a        *)
+(* permutation of the forty eight, it leaves every facelet outside its own    *)
+(* alone, and it keeps its own.  The last two are what let the three parts of *)
+(* a member be shuffled past the three halves of a move, which is the whole   *)
+(* of the prepass proof.                                                      *)
+Definition partok (S t : seq nat) : bool :=
+  [&& tab_ok flast t,
+      all (fun f => (f \in S) || (nth 0%N t f == f)) (iota 0 48) &
+      all (fun f => (f \in S) ==> (nth 0%N t f \in S)) (iota 0 48)].
+
+Lemma partok_tab S t : partok S t -> tab_ok flast t.
+Proof. by case/and3P. Qed.
+
+Definition dsj (S T : seq nat) : bool :=
+  all (fun f => ~~ ((f \in S) && (f \in T))) (iota 0 48).
+
+(* the three sets of a member are disjoint, and that is a walk over forty     *)
+(* eight facelets with no table in it                                         *)
+Lemma dsj_cu : dsj cflatp eout.  Proof. by vm_compute. Qed.
+Lemma dsj_cm : dsj cflatp emid.  Proof. by vm_compute. Qed.
+Lemma dsj_um : dsj eout emid.    Proof. by vm_compute. Qed.
+
+(* and then two parts of disjoint facelets commute, as tables and as          *)
+(* permutations.  The permutation form is the one the assembly uses, because  *)
+(* multiplication in a group is associative and comp_tab is not.              *)
+Lemma partok_comm S T s t : partok S s -> partok T t -> dsj S T ->
+  comp_tab s t = comp_tab t s.
+Proof.
+case/and3P => hs h1 h2; case/and3P => ht h3 h4 hd.
+exact: (comp_disj hs ht h1 h3 h2 h4 hd).
+Qed.
+
+Lemma pt_comm S T s t : partok S s -> partok T t -> dsj S T ->
+  pt flast s * pt flast t = pt flast t * pt flast s.
+Proof.
+move=> hs ht hd.
+by rewrite !ptM ?(partok_tab hs) ?(partok_tab ht) // (partok_comm hs ht hd).
+Qed.
+
+(* AND THIS IS THE WHOLE OF THE PREPASS PROOF, with the cube taken out of it. *)
+(* Six things in a row, three of them going past three; the three crossings   *)
+(* are the three disjointness facts and nothing else is used.                 *)
+Lemma six_shuffle (gT : finGroupType) (a b c x y z : gT) :
+  x * b = b * x -> x * c = c * x -> y * c = c * y ->
+  a * x * (b * y) * (c * z) = a * b * c * (x * y * z).
+Proof.
+move=> h1 h2 h3.
+rewrite -!mulgA; congr (_ * _).
+rewrite mulgA h1 -mulgA; congr (_ * _).
+by rewrite [y * (c * z)]mulgA h3 -mulgA mulgA h2 -mulgA.
+Qed.
 
 (* ---- what the three tables owe, part by part ------------------------------*)
 
@@ -294,7 +348,7 @@ Definition hmT (k : int) : seq nat := restr emid (hinv k).
 
 Section Move.
 
-Variable mpg mgr btmvt e8invt e4oft : arr.
+Variable mpg mgr btmvt e8invt e4oft par8t par4t : arr.
 
 (* the corner half: the page table is the corner permutation moved            *)
 Definition cmvok1 (k : int) : bool :=
@@ -311,43 +365,77 @@ Definition mmvok1 (k : int) : bool :=
     == comp_tab (hmT k) (mpart (PArray.get e4oft bt))).
 Definition mmvok : bool := iter nhn 0%uint63 mmvok1.
 
-(* THE OUTER HALF IS THE ONE WITH A PARITY IN IT.  A group is a PAIR of outer *)
-(* permutations and which of the two a place means is settled by the parity   *)
-(* of the corners and the middle together, so the moved place's outer         *)
-(* permutation depends on the page and the bit as well as the group.  What    *)
-(* makes it a walk again is that a move changes each of the three parities by *)
-(* a fixed amount, so the pair is carried across whole: the check runs over   *)
-(* the group and the parity, 20160 by two by ten.                             *)
+(* ---- and the parity, which is not carried across ------------------------- *)
+
+(* WHICH OF A PAIR A PLACE MEANS IS SETTLED BY A PARITY, and a move CHANGES   *)
+(* that parity.  Eight of the ten do: U, U' and R2 are all odd on the outer   *)
+(* eight, and only U2 and D2 are not.  So the moved place does not take the   *)
+(* same half of its pair, and a check that used the same one on both sides    *)
+(* would simply be false.                                                     *)
+(*                                                                            *)
+(* What IS fixed is how much the parity moves.  A move changes the corner     *)
+(* parity by the same amount at every page and the middle parity by the same  *)
+(* amount at every bit, so reading the two at nought gives the whole story    *)
+(* and parok is the walk that says so: ten by 40320 and ten by 24.            *)
+Definition dcpar (k : int) : int :=
+  Uint63.lxor (PArray.get par8t (pgmv mpg k 0%uint63))
+              (PArray.get par8t 0%uint63).
+
+Definition dmpar (k : int) : int :=
+  Uint63.lxor (PArray.get par4t (PArray.get e4oft (btmv btmvt k 0%uint63)))
+              (PArray.get par4t (PArray.get e4oft 0%uint63)).
+
+(* and the outer parity moves by the two together, because a member's three   *)
+(* parities always agree                                                      *)
+Definition hpar (k : int) : int := Uint63.lxor (dcpar k) (dmpar k).
+
+Definition parok1 (k : int) : bool :=
+  iter npagen 0%uint63 (fun pg =>
+    (PArray.get par8t (pgmv mpg k pg) =?
+     Uint63.lxor (PArray.get par8t pg) (dcpar k))%uint63)
+  &&
+  iter nbitn 0%uint63 (fun bt =>
+    (PArray.get par4t (PArray.get e4oft (btmv btmvt k bt)) =?
+     Uint63.lxor (PArray.get par4t (PArray.get e4oft bt)) (dmpar k))%uint63).
+Definition parok : bool := iter nhn 0%uint63 parok1.
+
+(* ---- the outer half ------------------------------------------------------ *)
+
+(* A group is a PAIR of outer permutations and the last place of the number   *)
+(* says which.  The move carries the pair across whole -- that is what mgr    *)
+(* is -- and moves the parity by hpar, so the check runs over the group and   *)
+(* the parity, 20160 by two by ten.                                           *)
 Definition umvok1 (k : int) : bool :=
   iter ngroupn 0%uint63 (fun gr =>
     iter 2 0%uint63 (fun p =>
       upart (PArray.get e8invt
-               (Uint63.add (Uint63.mul (grmv mgr k gr) 2%uint63) p))
+               (Uint63.add (Uint63.mul (grmv mgr k gr) 2%uint63)
+                           (Uint63.lxor p (hpar k))))
       == comp_tab (huT k)
            (upart (PArray.get e8invt
                      (Uint63.add (Uint63.mul gr 2%uint63) p))))).
 Definition umvok : bool := iter nhn 0%uint63 umvok1.
 
-
 (* ---- and the move itself is its three halves ------------------------------*)
 
 (* Ten tables, ten checks: undoing a move of H is its corner half, its outer  *)
-(* half and its middle half, composed.  It is what being in H means, written  *)
-(* down.                                                                      *)
-Definition hsplit : bool :=
+(* half and its middle half, composed, and each half is a part of its own set *)
+(* of facelets.  It is what being in H means, written down.                   *)
+Definition hmvok : bool :=
   iter nhn 0%uint63 (fun k =>
-    hinv k == comp_tab (comp_tab (hcT k) (huT k)) (hmT k)).
+    [&& partok cflatp (hcT k), partok eout (huT k), partok emid (hmT k) &
+        hinv k == comp_tab (comp_tab (hcT k) (huT k)) (hmT k)]).
 
 End Move.
 
 Section Parts.
 
 Definition cpartok : bool :=
-  iter npagen 0%uint63 (fun r => tab_ok flast (cpart r)).
+  iter npagen 0%uint63 (fun r => partok cflatp (cpart r)).
 Definition upartok : bool :=
-  iter npagen 0%uint63 (fun r => tab_ok flast (upart r)).
+  iter npagen 0%uint63 (fun r => partok eout (upart r)).
 Definition mpartok : bool :=
-  iter nbitn 0%uint63 (fun r => tab_ok flast (mpart r)).
+  iter nbitn 0%uint63 (fun r => partok emid (mpart r)).
 
 Hypothesis hcp : cpartok.
 Hypothesis hup : upartok.
@@ -358,9 +446,9 @@ Lemma membinv_ok x : tab_ok flast (membinv x).
 Proof.
 rewrite /membinv; case: ifPn => [_|]; first exact: tab_ok_id.
 rewrite negbK => /and3P[hc hu hm].
-apply: tab_ok_comp; last by apply: (iter_at hmp (ltn_nbiti hm)).
-apply: tab_ok_comp; first by apply: (iter_at hcp (ltn_npagei hc)).
-by apply: (iter_at hup (ltn_npagei hu)).
+apply: tab_ok_comp; last by apply: partok_tab (iter_at hmp (ltn_nbiti hm)).
+apply: tab_ok_comp; first by apply: partok_tab (iter_at hcp (ltn_npagei hc)).
+by apply: partok_tab (iter_at hup (ltn_npagei hu)).
 Qed.
 
 Lemma memb2tab_ok x : tab_ok flast (memb2tab x).
@@ -370,30 +458,215 @@ End Parts.
 
 (* ---- the prepass moves a member ------------------------------------------ *)
 
+(* AND THIS IS THE BRIDGE: moving the place moves the member by that move of  *)
+(* H.  Nothing here is a new fact about the cube -- the four walks above are  *)
+(* the facts -- and all that is left is to shuffle six tables into a          *)
+(* different order.  The shuffling is done on PERMUTATIONS rather than on     *)
+(* tables, because a group is associative and comp_tab is not.                *)
+
 Section Prep.
 
-Variable mpg mgr btmvt e8invt e4oft par8t par4t e8numt : arr.
+Variable mpg mgr btmvt : arr.
+Variable e8numt e8invt e4bitt e4oft par8t par4t : arr.
 
+Hypothesis he8 : e8ok e8numt e8invt par8t.
+Hypothesis he4 : e4ok e4bitt e4oft par4t.
+Hypothesis hpgo : pgok mpg.
+Hypothesis hgro : grok mgr.
+Hypothesis hbto : btok btmvt.
+Hypothesis hcp : cpartok.
+Hypothesis hup : upartok.
+Hypothesis hmp : mpartok.
 Hypothesis hcmv : cmvok mpg.
 Hypothesis hmmv : mmvok btmvt e4oft.
-Hypothesis humv : umvok mgr e8invt.
-Hypothesis hspl : hsplit.
+Hypothesis humv : umvok mpg mgr btmvt e8invt e4oft par8t par4t.
+Hypothesis hmvo : hmvok.
+Hypothesis hprk : parok mpg btmvt e4oft par8t par4t.
 
-(* THE STEP THAT IS LEFT, and it is the parity one.  The three ranks of the   *)
-(* moved place are the three ranks moved: the page table for the corners, the *)
-(* group table WITH ITS PARITY for the outer eight, btmv for the middle.  It  *)
-(* is a walk over the page and the bit -- a move changes each parity by a     *)
-(* fixed amount -- and it is what carries a pair of outer permutations across *)
-(* whole.                                                                     *)
-Hypothesis moved_ranks : forall k pg gr bt, (to_nat k < nhn)%N ->
-  inrange pg gr bt ->
-  unplace e8invt e4oft par8t par4t
-    (pgmv mpg k pg) (grmv mgr k gr) (btmv btmvt k bt)
-  = (pgmv mpg k pg,
-     PArray.get e8invt
-       (Uint63.add (Uint63.mul (grmv mgr k gr) 2%uint63)
-          (Uint63.mod (PArray.get e8numt
-             (mud (unplace e8invt e4oft par8t par4t pg gr bt))) 2%uint63)),
-     btmv btmvt k bt).
+Local Notation unpl := (unplace e8invt e4oft par8t par4t).
+Local Notation prty pg bt :=
+  (Uint63.lxor (PArray.get par8t pg) (PArray.get par4t (PArray.get e4oft bt))).
+
+(* the three ranks a place names, read straight off unplace                   *)
+Lemma unplE pg gr bt :
+  unpl pg gr bt =
+  (pg, PArray.get e8invt (Uint63.add (Uint63.mul gr 2%uint63) (prty pg bt)),
+   PArray.get e4oft bt).
+Proof. by []. Qed.
+
+(* a place in range names a member whose three ranks are in range             *)
+Lemma membrng_unpl pg gr bt : inrange pg gr bt -> membrng (unpl pg gr bt).
+Proof.
+(* NOT apply/and3P: what done would evaluate here is the layout tables.       *)
+move=> hr; have [/and4P[h1 h2 h3 _] _] := place_unplace he8 he4 hr.
+by rewrite /membrng h1 h2 h3.
+Qed.
+
+(* a parity is nought or one, whichever table it came from                    *)
+Lemma prty_lt2 pg bt : (pg <? npagei)%uint63 -> (bt <? nbiti)%uint63 ->
+  (to_nat (prty pg bt) < 2)%N.
+Proof.
+move=> hp hb; apply: lxor_lt2; first by apply: (par8_lt2 he8).
+by apply: (par4_lt2 he4); case/and5P: (e4at he4 hb).
+Qed.
+
+(* HOW FAR THE PARITY MOVES, and it is the same everywhere.  parok says the   *)
+(* corner parity and the middle parity each shift by a fixed amount, so their *)
+(* exclusive or -- which is the outer parity -- shifts by hpar.               *)
+Lemma prty_move k pg bt : (to_nat k < nhn)%N ->
+  (pg <? npagei)%uint63 -> (bt <? nbiti)%uint63 ->
+  prty (pgmv mpg k pg) (btmv btmvt k bt)
+  = Uint63.lxor (prty pg bt) (hpar mpg btmvt e4oft par8t par4t k).
+Proof.
+move=> kL hp hb; have /andP[hc hm] := iter_at hprk kL.
+rewrite (eqP (iter_at hc (ltn_npagei hp))) (eqP (iter_at hm (ltn_nbiti hb))).
+rewrite /hpar.
+have z8 : (to_nat 0%uint63 < npagen)%N by apply: ltn_npagei.
+have z4 : (to_nat 0%uint63 < nbitn)%N by apply: ltn_nbiti.
+have h1 : (to_nat (PArray.get par8t pg) < 2)%N by apply: (par8_lt2 he8).
+have h2 : (to_nat (PArray.get par4t (PArray.get e4oft bt)) < 2)%N.
+  by apply: (par4_lt2 he4); case/and5P: (e4at he4 hb).
+have hz8 : (0%uint63 <? npagei)%uint63 by [].
+have hz4 : (0%uint63 <? nbiti)%uint63 by [].
+have h3 : (to_nat (dcpar mpg par8t k) < 2)%N.
+  apply: lxor_lt2; apply: (par8_lt2 he8); last by [].
+  by apply: (iter_at (iter_at hpgo kL) z8).
+have h4 : (to_nat (dmpar btmvt e4oft par4t k) < 2)%N.
+  apply: lxor_lt2; apply: (par4_lt2 he4).
+  - by case/and5P: (e4at he4 (iter_at (iter_at hbto kL) z4)).
+  by case/and5P: (e4at he4 hz4).
+by case: (int_lt2 h1) => ->; case: (int_lt2 h2) => ->;
+   case: (int_lt2 h3) => ->; case: (int_lt2 h4) => ->; vm_compute.
+Qed.
+
+(* ---- the six tables, and the three that have to move past three ---------- *)
+
+Lemma hcT_ok k : (to_nat k < nhn)%N -> partok cflatp (hcT k).
+Proof. by move=> kL; case/and4P: (iter_at hmvo kL). Qed.
+
+Lemma huT_ok k : (to_nat k < nhn)%N -> partok eout (huT k).
+Proof. by move=> kL; case/and4P: (iter_at hmvo kL). Qed.
+
+Lemma hmT_ok k : (to_nat k < nhn)%N -> partok emid (hmT k).
+Proof. by move=> kL; case/and4P: (iter_at hmvo kL). Qed.
+
+Lemma hinvE k : (to_nat k < nhn)%N ->
+  hinv k = comp_tab (comp_tab (hcT k) (huT k)) (hmT k).
+Proof. by move=> kL; case/and4P: (iter_at hmvo kL) => _ _ _ /eqP. Qed.
+
+Lemma cpart_ok r : (r <? npagei)%uint63 -> partok cflatp (cpart r).
+Proof. by move=> h; apply: (iter_at hcp (ltn_npagei h)). Qed.
+
+Lemma upart_ok r : (r <? npagei)%uint63 -> partok eout (upart r).
+Proof. by move=> h; apply: (iter_at hup (ltn_npagei h)). Qed.
+
+Lemma mpart_ok r : (r <? nbiti)%uint63 -> partok emid (mpart r).
+Proof. by move=> h; apply: (iter_at hmp (ltn_nbiti h)). Qed.
+
+(* the member a place names, as a permutation of the forty eight              *)
+Lemma pt_membinv pg gr bt : inrange pg gr bt ->
+  pt flast (membinv (unpl pg gr bt))
+  = pt flast (cpart (mcp (unpl pg gr bt))) *
+    pt flast (upart (mud (unpl pg gr bt))) *
+    pt flast (mpart (mmp (unpl pg gr bt))).
+Proof.
+(* NO /= ANYWHERE HERE.  cpart is an mkseq, so a simpl unfolds it into a      *)
+(* forty eight place list and the shape the rewrites look for is gone.        *)
+move=> hr; have hb := membrng_unpl hr.
+have [/and4P[h1 h2 h3 _] _] := place_unplace he8 he4 hr.
+have hC := partok_tab (cpart_ok h1).
+have hU := partok_tab (upart_ok h2).
+have hM := partok_tab (mpart_ok h3).
+rewrite /membinv; case: ifPn => [hn|_]; first by rewrite hb in hn.
+by rewrite -(ptM (tab_ok_comp hC hU) hM) -(ptM hC hU).
+Qed.
+
+(* ---- and the move, part by part ------------------------------------------ *)
+
+Lemma pt_membinv_move k pg gr bt : (to_nat k < nhn)%N -> inrange pg gr bt ->
+  pt flast (membinv (unpl (pgmv mpg k pg) (grmv mgr k gr) (btmv btmvt k bt)))
+  = pt flast (hinv k) * pt flast (membinv (unpl pg gr bt)).
+Proof.
+move=> kL hr; have hr' := prep_range hpgo hgro hbto kL hr.
+have /and3P[hp hg hb] := hr.
+have /and3P[hp' hg' hb'] := hr'.
+rewrite (pt_membinv hr) (pt_membinv hr') !unplE /mcp /mud /mmp.
+(* the three walks, one for each part                                         *)
+have hc : cpart (pgmv mpg k pg) = comp_tab (hcT k) (cpart pg).
+  by apply/eqP; apply: (iter_at (iter_at hcmv kL) (ltn_npagei hp)).
+have hm : mpart (PArray.get e4oft (btmv btmvt k bt))
+        = comp_tab (hmT k) (mpart (PArray.get e4oft bt)).
+  by apply/eqP; apply: (iter_at (iter_at hmmv kL) (ltn_nbiti hb)).
+have hu : upart (PArray.get e8invt
+            (Uint63.add (Uint63.mul (grmv mgr k gr) 2%uint63)
+                        (prty (pgmv mpg k pg) (btmv btmvt k bt))))
+        = comp_tab (huT k)
+            (upart (PArray.get e8invt
+                      (Uint63.add (Uint63.mul gr 2%uint63) (prty pg bt)))).
+  rewrite (prty_move kL hp hb); apply/eqP.
+  apply: (iter_at (iter_at (iter_at humv kL) (ltn_ngroupi hg))).
+  by apply: prty_lt2.
+rewrite hc hm hu (hinvE kL).
+(* the six tables become six permutations, and from there it is a group       *)
+have [/and4P[_ o2 o3 _] _] := place_unplace he8 he4 hr.
+have q2 : (PArray.get e8invt
+             (Uint63.add (Uint63.mul gr 2%uint63) (prty pg bt))
+           <? npagei)%uint63 := o2.
+have q3 : (PArray.get e4oft bt <? nbiti)%uint63 := o3.
+have hct := partok_tab (hcT_ok kL).
+have hut := partok_tab (huT_ok kL).
+have hmt := partok_tab (hmT_ok kL).
+have hcc := partok_tab (cpart_ok hp).
+have huc := partok_tab (upart_ok q2).
+have hmc := partok_tab (mpart_ok q3).
+rewrite -(ptM hct hcc) -(ptM hut huc) -(ptM hmt hmc).
+rewrite -(ptM (tab_ok_comp hct hut) hmt) -(ptM hct hut).
+apply: six_shuffle.
+- exact: (pt_comm (cpart_ok hp) (huT_ok kL) dsj_cu).
+- exact: (pt_comm (cpart_ok hp) (hmT_ok kL) dsj_cm).
+exact: (pt_comm (upart_ok q2) (hmT_ok kL) dsj_um).
+Qed.
+
+(* ---- and the same thing the other way up, which is what RowInst asks for - *)
+
+(* memb2tab is membinv inverted, so the move that acted on the left acts on   *)
+(* the right and the other way round -- and the move undone, undone, is the   *)
+(* move.                                                                      *)
+Lemma memb2tab_move k pg gr bt : (to_nat k < nhn)%N -> inrange pg gr bt ->
+  pt flast (memb2tab (unpl (pgmv mpg k pg) (grmv mgr k gr) (btmv btmvt k bt)))
+  = pt flast (memb2tab (unpl pg gr bt)) * hmv k.
+Proof.
+move=> kL hr; have hr' := prep_range hpgo hgro hbto kL hr.
+have hi : (hmvi k < 18)%N.
+  by apply: (all_nthP 0%N (_ : all (fun m => (m < 18)%N) hmvn)).
+have hmk := mvt_ok hi.
+(* the two tables named, not left to be guessed: an underscore here sends the *)
+(* unifier into the member itself.                                            *)
+have ho1 := membinv_ok hcp hup hmp (unpl pg gr bt).
+have ho2 := membinv_ok hcp hup hmp
+              (unpl (pgmv mpg k pg) (grmv mgr k gr) (btmv btmvt k bt)).
+(* the three inversions are CONVERSIONS, given as terms.  Left to rewrite,    *)
+(* the match against memb2tab does not come back.                             *)
+have E1 : pt flast (memb2tab (unpl pg gr bt))
+        = (pt flast (membinv (unpl pg gr bt)))^-1 := esym (ptV ho1).
+have E2 : pt flast (memb2tab
+            (unpl (pgmv mpg k pg) (grmv mgr k gr) (btmv btmvt k bt)))
+        = (pt flast (membinv
+            (unpl (pgmv mpg k pg) (grmv mgr k gr) (btmv btmvt k bt))))^-1
+        := esym (ptV ho2).
+have E3 : pt flast (hinv k) = (pt flast (mvt (hmvi k)))^-1 := esym (ptV hmk).
+(* AND NO congr HERE.  congr tries to close its side goals by conversion,     *)
+(* and the two sides are permutations of the forty eight facelets: what it    *)
+(* would evaluate is the tables.  Both sides are brought to the same shape    *)
+(* instead, and the last step is reflexivity on equal terms.                  *)
+apply: (etrans E2).
+rewrite (pt_membinv_move kL hr).
+rewrite invMg.
+rewrite E1.
+rewrite E3.
+rewrite invgK.
+rewrite /hmv -(mvtE hi).
+exact: erefl.
+Qed.
 
 End Prep.
