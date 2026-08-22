@@ -62,29 +62,38 @@ Definition up4 (r : int) (p : nat) : nat :=
 (* Each is the identity away from its own facelets, which is what lets them   *)
 (* be composed at all.                                                        *)
 
+(* CPOS AND EPOS AT THE NAT LEVEL, and this is not a nicety: inord does not   *)
+(* reduce, so cposn f under a vm_compute does not come back.  Coordfs  *)
+(* says the same thing about its own twelve -- every fact there is pushed to  *)
+(* nat for exactly this reason.  These are the same functions with the        *)
+(* ordinal taken out.                                                        *)
+Definition cposn (f : nat) : nat := (index f cflat) %/ 3.
+Definition cslotn (f : nat) : nat := (index f cflat) %% 3.
+Definition eposn (f : nat) : nat := (index f (eprim ++ esec)) %% nedge.
+
 Definition cpart (r : int) : seq nat :=
   mkseq (fun f =>
      if (f \in cflat) then
-       nth 0%N cflat (3 * up8 r (cpos (inord f)) + cslot (inord f))%N
+       nth 0%N cflat (3 * up8 r (cposn f) + cslotn f)%N
      else f)
    48.
 
 Definition upart (r : int) : seq nat :=
   mkseq (fun f =>
-     if (epos (inord f) < 8)%N then
-       if (f \in eprim) then nth 0%N eprim (up8 r (epos (inord f)))
-       else if (f \in esec) then nth 0%N esec (up8 r (epos (inord f)))
+     if (eposn f < 8)%N then
+       if (f \in eprim) then nth 0%N eprim (up8 r (eposn f))
+       else if (f \in esec) then nth 0%N esec (up8 r (eposn f))
        else f
      else f)
    48.
 
 Definition mpart (r : int) : seq nat :=
   mkseq (fun f =>
-     if (8 <= epos (inord f))%N then
+     if (8 <= eposn f)%N then
        if (f \in eprim) then
-         nth 0%N eprim (8 + up4 r (epos (inord f) - 8))%N
+         nth 0%N eprim (8 + up4 r (eposn f - 8))%N
        else if (f \in esec) then
-         nth 0%N esec (8 + up4 r (epos (inord f) - 8))%N
+         nth 0%N esec (8 + up4 r (eposn f - 8))%N
        else f
      else f)
    48.
