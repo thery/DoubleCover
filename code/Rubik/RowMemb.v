@@ -614,9 +614,14 @@ Variable mpg mgr btmvt e8invt e4oft par8t par4t : arr.
 
 (* the corner half: the page table is the corner permutation moved, and that  *)
 (* is eight numbers at each page rather than a table of forty eight           *)
+(* THE PLACE PERMUTATION IS READ ONCE.  It does not depend on the page, but  *)
+(* nothing hoists it out of the loop, and rebuilding it means rebuilding the  *)
+(* move undone -- an inv_tab, measured at 1.2 ms.  Forty thousand pages by    *)
+(* ten moves of that is eight minutes; with the let it is nothing.            *)
 Definition cmvok1 (k : int) : bool :=
+  let c := chp k in
   iter npagen 0%uint63 (fun pg =>
-    all (fun p => up8 (pgmv mpg k pg) p == up8 pg (nth 0%N (chp k) p))
+    all (fun p => up8 (pgmv mpg k pg) p == up8 pg (nth 0%N c p))
         (iota 0 8)).
 Definition cmvok : bool := iter nhn 0%uint63 cmvok1.
 
@@ -624,9 +629,10 @@ Definition cmvok : bool := iter nhn 0%uint63 cmvok1.
 (* mpart takes the middle RANK, which is what e4of reads off a bit, so the    *)
 (* check has to go through it or it is checking the wrong thing.              *)
 Definition mmvok1 (k : int) : bool :=
+  let m := mhp k in
   iter nbitn 0%uint63 (fun bt =>
     all (fun p => up4 (PArray.get e4oft (btmv btmvt k bt)) p
-                  == up4 (PArray.get e4oft bt) (nth 0%N (mhp k) p))
+                  == up4 (PArray.get e4oft bt) (nth 0%N m p))
         (iota 0 4)).
 Definition mmvok : bool := iter nhn 0%uint63 mmvok1.
 
@@ -655,13 +661,15 @@ Definition dmpar (k : int) : int :=
 Definition hpar (k : int) : int := Uint63.lxor (dcpar k) (dmpar k).
 
 Definition parok1 (k : int) : bool :=
+  let dc := dcpar k in
+  let dm := dmpar k in
   iter npagen 0%uint63 (fun pg =>
     (PArray.get par8t (pgmv mpg k pg) =?
-     Uint63.lxor (PArray.get par8t pg) (dcpar k))%uint63)
+     Uint63.lxor (PArray.get par8t pg) dc)%uint63)
   &&
   iter nbitn 0%uint63 (fun bt =>
     (PArray.get par4t (PArray.get e4oft (btmv btmvt k bt)) =?
-     Uint63.lxor (PArray.get par4t (PArray.get e4oft bt)) (dmpar k))%uint63).
+     Uint63.lxor (PArray.get par4t (PArray.get e4oft bt)) dm)%uint63).
 Definition parok : bool := iter nhn 0%uint63 parok1.
 
 (* ---- the outer half ------------------------------------------------------ *)
@@ -671,14 +679,16 @@ Definition parok : bool := iter nhn 0%uint63 parok1.
 (* is -- and moves the parity by hpar, so the check runs over the group and   *)
 (* the parity, 20160 by two by ten.                                           *)
 Definition umvok1 (k : int) : bool :=
+  let u := uhp k in
+  let h := hpar k in
   iter ngroupn 0%uint63 (fun gr =>
     iter 2 0%uint63 (fun p =>
       all (fun q =>
         up8 (PArray.get e8invt
                (Uint63.add (Uint63.mul (grmv mgr k gr) 2%uint63)
-                           (Uint63.lxor p (hpar k)))) q
+                           (Uint63.lxor p h))) q
         == up8 (PArray.get e8invt (Uint63.add (Uint63.mul gr 2%uint63) p))
-               (nth 0%N (uhp k) q))
+               (nth 0%N u q))
         (iota 0 8))).
 Definition umvok : bool := iter nhn 0%uint63 umvok1.
 
