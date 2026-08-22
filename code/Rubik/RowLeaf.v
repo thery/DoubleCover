@@ -411,6 +411,73 @@ Proof. Admitted.
 
 End InHCorner.
 
+(* ---- and what it says about the edges ------------------------------------ *)
+
+(* THE SAME SHAPE, and again neither fact is new.                             *)
+(*                                                                            *)
+(* The position commutes with epair, which swaps the two facelets of an edge. *)
+(* That is Coordfs's cubP, and pstok already carries it as cubti.  It says    *)
+(* the two facelets of an edge stay together, so a slot goes to a slot.       *)
+(*                                                                            *)
+(* The flip is nought, so a primary facelet goes to a primary facelet, which  *)
+(* is slot nought to slot nought rather than the two exchanged.               *)
+(*                                                                            *)
+(* And the slice is solved, so a middle place holds a middle edge and an      *)
+(* outer place an outer one: the two layouts do not mix, which is what lets   *)
+(* the eight and the four be separate permutations at all.                    *)
+
+(* the layouts and the pairing agree: epair swaps the two slots of a place    *)
+Lemma epairn_ulay :
+  all (fun i => epairn (nth 0%N ulay i)
+                == nth 0%N ulay ((i %/ 2) * 2 + (i %% 2).+1 %% 2)%N)
+      (iota 0 16).
+Proof. by vm_compute. Qed.
+
+Lemma epairn_mlay :
+  all (fun i => epairn (nth 0%N mlay i)
+                == nth 0%N mlay ((i %/ 2) * 2 + (i %% 2).+1 %% 2)%N)
+      (iota 0 8).
+Proof. by vm_compute. Qed.
+
+(* and the primary facelet of an edge place is the one whose slot is nought   *)
+Lemma eprim_ulay :
+  all (fun p => nth 0%N eprim p == nth 0%N ulay (p * 2)%N) (iota 0 8).
+Proof. by vm_compute. Qed.
+
+Lemma eprim_mlay :
+  all (fun p => nth 0%N eprim (8 + p)%N == nth 0%N mlay (p * 2)%N) (iota 0 4).
+Proof. by vm_compute. Qed.
+
+Section InHEdge.
+
+Variable u : seq nat.
+Hypothesis huok : tab_ok flast u.
+
+(* pstok's cubti, as a table: the two facelets of an edge stay together       *)
+Hypothesis hpair : forall f, (f < 48)%N ->
+  nth 0%N u (epairn f) = epairn (nth 0%N u f).
+
+(* the flip is nought, place by place                                         *)
+Hypothesis hfl0 : forall p, (p < 12)%N ->
+  nth 0%N u (nth 0%N eprim p) \in eprim.
+
+(* and the slice is solved: a middle place holds a middle edge and an outer   *)
+(* place an outer one                                                         *)
+Hypothesis hsl : forall p, (p < 12)%N ->
+  (8 <= eposn (nth 0%N u (nth 0%N eprim p)))%N = (8 <= p)%N.
+
+Lemma inH_outer p j : (p < 8)%N -> (j < 2)%N ->
+  nth 0%N u (nth 0%N ulay (p * 2 + j)%N)
+  = nth 0%N ulay (eperm_of u p * 2 + j)%N.
+Proof. Admitted.
+
+Lemma inH_middle p j : (p < 4)%N -> (j < 2)%N ->
+  nth 0%N u (nth 0%N mlay (p * 2 + j)%N)
+  = nth 0%N mlay ((eperm_of u (8 + p)%N - 8) * 2 + j)%N.
+Proof. Admitted.
+
+End InHEdge.
+
 Section Leaf.
 
 (* ---- the position, as the table tomemb reads ----------------------------- *)
