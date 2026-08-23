@@ -302,6 +302,17 @@ Definition covers : bool :=
 
 Lemma coversC : covers.  Proof. by vm_compute. Qed.
 
+(* ---- how far a table can send a facelet ---------------------------------  *)
+
+Lemma tab_ltn t f : tab_ok flast t -> (f < 48)%N -> (nth 0%N t f < 48)%N.
+Proof.
+by case/and3P => /eqP hs /allP hall _ hf; apply: hall; apply: mem_nth;
+   rewrite hs.
+Qed.
+
+Lemma cflatp_lt i : (i < 24)%N -> (nth 0%N cflatp i < 48)%N.
+Proof. by move=> hi; have /and4P[h _ _ _] := layP clayokC hi. Qed.
+
 (* ---- the parity law, and its checkable half ------------------------------ *)
 
 (* THE THIRD INVARIANT of the cube: a position reached by moves has the same  *)
@@ -321,8 +332,7 @@ Definition eperm_of (t : seq nat) (p : nat) : nat :=
   eposn (nth 0%N t (nth 0%N eprim p)).
 
 Definition mvparok : bool :=
-  all (fun m => prmn 8 (cperm_of (inv_tab flast (mvt m)))
-                == prmn 12 (eperm_of (inv_tab flast (mvt m))))
+  all (fun m => prmn 8 (cperm_of (mvt m)) == prmn 12 (eperm_of (mvt m)))
       (iota 0 18).
 
 Lemma mvparokC : mvparok.  Proof. by vm_compute. Qed.
@@ -349,19 +359,205 @@ Proof. by vm_compute. Qed.
 (* which pstok already carries.  A move may TWIST a corner, so it is only at  *)
 (* the level of places that this holds, which is why cperm_of reads cposn and *)
 (* throws the slot away.                                                      *)
-Lemma prm_step t m : tab_ok flast t -> (m < 18)%N ->
-  prmn 8 (cperm_of (comp_tab (mvt m) t))
-    = prmn 8 (cperm_of (inv_tab flast (mvt m))) (+) prmn 8 (cperm_of t) /\
-  prmn 12 (eperm_of (comp_tab (mvt m) t))
-    = prmn 12 (eperm_of (inv_tab flast (mvt m))) (+) prmn 12 (eperm_of t).
-Proof. Admitted.
+(* ---- what a table must do to the cubies for the parity to compose -------- *)
 
-(* and then the law is the induction along the word, prm_idC at the bottom    *)
-(* and prm_step with mvparokC at each turn.  Ball.mem_gen_ball turns being in *)
-(* the group into being in a ball, which is the word.                         *)
+(* THE PLACE PERMUTATION OF A COMPOSITION IS THE COMPOSITION OF THE PLACE     *)
+(* PERMUTATIONS, and that is the only thing the step needs.  cperm_of reads   *)
+(* the place a corner goes to and throws the SLOT away, so it composes as     *)
+(* soon as the second table sends the three facelets of one corner to the     *)
+(* three facelets of one corner -- it may twist them, and every move does.    *)
+(* That is a fact about the eighteen moves and it is checked below, at every  *)
+(* facelet, not assumed.                                                      *)
+(*                                                                            *)
+(* What is asked of the FIRST table is only that it sends a corner facelet    *)
+(* to a corner facelet and an edge facelet to an edge facelet, which is tcub. *)
+
+(* a facelet of an edge, either of the two                                    *)
+Definition inPS (f : nat) : bool := inP f || inS f.
+
+(* corners go to corners and edges to edges                                   *)
+Definition tcub (t : seq nat) : bool :=
+  all (fun f => (inC f ==> inC (nth 0%N t f))
+             && (inPS f ==> inPS (nth 0%N t f))) (iota 0 48).
+
+(* and a move reads on the places alone, however it twists and flips          *)
+Definition mvcubc : bool :=
+  all (fun m => all (fun f => inC f ==>
+        (cposn (nth 0%N (mvt m) f) == cperm_of (mvt m) (cposn f)))
+      (iota 0 48)) (iota 0 18).
+
+Definition mvcube : bool :=
+  all (fun m => all (fun f => inPS f ==>
+        (eposn (nth 0%N (mvt m) f) == eperm_of (mvt m) (eposn f)))
+      (iota 0 48)) (iota 0 18).
+
+Lemma mvcubcC : mvcubc.  Proof. by vm_compute. Qed.
+Lemma mvcubeC : mvcube.  Proof. by vm_compute. Qed.
+
+(* ---- and that the two place permutations are permutations ---------------- *)
+
+(* prmn_mul asks it of both sides, so it travels along the word with the      *)
+(* parity: it holds of the solved cube, it holds of every move, and a         *)
+(* composition of two permutations is one.                                    *)
+Definition cpermok (t : seq nat) : bool :=
+  perm_eq [seq cperm_of t p | p <- iota 0 8] (iota 0 8).
+Definition epermok (t : seq nat) : bool :=
+  perm_eq [seq eperm_of t p | p <- iota 0 12] (iota 0 12).
+
+Definition pok (t : seq nat) : bool := [&& tcub t, cpermok t & epermok t].
+
+Lemma pok_mvC : all (fun m => pok (mvt m)) (iota 0 18).
+Proof. by vm_compute. Qed.
+
+Lemma pok_idC : pok (id_tab flast).  Proof. by vm_compute. Qed.
+
+Lemma pok_mv m : (m < 18)%N -> pok (mvt m).
+Proof. by move=> hm; apply: all_iota_lt pok_mvC hm. Qed.
+
+(* the primary facelet of a place is a facelet of the right kind              *)
+Lemma cprimp_inC : all (fun p => inC (nth 0%N cprimp p)) (iota 0 8).
+Proof. by vm_compute. Qed.
+
+Lemma eprim_inPS : all (fun p => inPS (nth 0%N eprim p)) (iota 0 12).
+Proof. by vm_compute. Qed.
+
+Lemma cprimp_lt : all (fun p => nth 0%N cprimp p < 48) (iota 0 8).
+Proof. by vm_compute. Qed.
+
+Lemma eprim_lt : all (fun p => nth 0%N eprim p < 48) (iota 0 12).
+Proof. by vm_compute. Qed.
+
+(* ---- so the place permutation composes ----------------------------------- *)
+
+Lemma cperm_ofM t m : tab_ok flast t -> tcub t -> (m < 18)%N ->
+  forall p, (p < 8)%N ->
+  cperm_of (comp_tab t (mvt m)) p = cperm_of (mvt m) (cperm_of t p).
+Proof.
+move=> htok htc hm p hp.
+have hcp48 : (nth 0%N cprimp p < 48)%N := all_iota_lt cprimp_lt hp.
+have hcpC : inC (nth 0%N cprimp p) := all_iota_lt cprimp_inC hp.
+have /andP[hC _] := all_iota_lt htc hcp48.
+have hfC : inC (nth 0%N t (nth 0%N cprimp p)) by apply: (implyP hC).
+have hf48 := tab_ltn htok hcp48.
+rewrite /cperm_of comp_tabE ?(tab_ok_size htok) //.
+by apply/eqP; apply: (implyP (all_iota_lt (all_iota_lt mvcubcC hm) hf48)).
+Qed.
+
+Lemma eperm_ofM t m : tab_ok flast t -> tcub t -> (m < 18)%N ->
+  forall p, (p < 12)%N ->
+  eperm_of (comp_tab t (mvt m)) p = eperm_of (mvt m) (eperm_of t p).
+Proof.
+move=> htok htc hm p hp.
+have hep48 : (nth 0%N eprim p < 48)%N := all_iota_lt eprim_lt hp.
+have hepE : inPS (nth 0%N eprim p) := all_iota_lt eprim_inPS hp.
+have /andP[_ hE] := all_iota_lt htc hep48.
+have hfE : inPS (nth 0%N t (nth 0%N eprim p)) by apply: (implyP hE).
+have hf48 := tab_ltn htok hep48.
+rewrite /eperm_of comp_tabE ?(tab_ok_size htok) //.
+by apply/eqP; apply: (implyP (all_iota_lt (all_iota_lt mvcubeC hm) hf48)).
+Qed.
+
+(* and playing a move keeps all three                                         *)
+Lemma pok_comp t m : tab_ok flast t -> pok t -> (m < 18)%N ->
+  pok (comp_tab t (mvt m)).
+Proof.
+move=> htok /and3P[htc hcp hep] hm.
+have /and3P[hmc hmcp hmep] := pok_mv hm.
+have htcc : tcub (comp_tab t (mvt m)).
+  apply/allP => f; rewrite mem_iota add0n => /andP[_ hf].
+  have hf48 := tab_ltn htok hf.
+  have /andP[h1 h2] := all_iota_lt htc hf.
+  have /andP[h3 h4] := all_iota_lt hmc hf48.
+  rewrite comp_tabE ?(tab_ok_size htok) //; apply/andP; split; apply/implyP.
+    by move=> hin; apply: (implyP h3); apply: (implyP h1).
+  by move=> hin; apply: (implyP h4); apply: (implyP h2).
+rewrite /pok htcc /=; apply/andP; split.
+  rewrite /cpermok.
+  have -> : [seq cperm_of (comp_tab t (mvt m)) p | p <- iota 0 8]
+          = [seq cperm_of (mvt m) (cperm_of t p) | p <- iota 0 8].
+    by apply/eq_in_map => p; rewrite mem_iota add0n => /andP[_ hp];
+       apply: cperm_ofM.
+  exact: perm_comp hmcp hcp.
+rewrite /epermok.
+have -> : [seq eperm_of (comp_tab t (mvt m)) p | p <- iota 0 12]
+        = [seq eperm_of (mvt m) (eperm_of t p) | p <- iota 0 12].
+  by apply/eq_in_map => p; rewrite mem_iota add0n => /andP[_ hp];
+     apply: eperm_ofM.
+exact: perm_comp hmep hep.
+Qed.
+
+(* AND THE STEP.  Playing a move on a position composes the two place         *)
+(* permutations, and prmn_mul says the parity of a composition is the         *)
+(* exclusive or -- so both sides pick up the same bit, which is what          *)
+(* mvparokC says.                                                             *)
+(*                                                                            *)
+(* THE MOVE GOES ON THE RIGHT.  A word is read left to right, so a ball of    *)
+(* length n + 1 is a ball of length n times a move, and the table that names  *)
+(* it is the position's table composed with the move's -- comp_tab t (mvt m), *)
+(* not the other way about.  It matters: the twisting table has to be the     *)
+(* SECOND one.                                                                *)
+Lemma prm_step t m : tab_ok flast t -> pok t -> (m < 18)%N ->
+  prmn 8 (cperm_of (comp_tab t (mvt m)))
+    = prmn 8 (cperm_of t) (+) prmn 8 (cperm_of (mvt m)) /\
+  prmn 12 (eperm_of (comp_tab t (mvt m)))
+    = prmn 12 (eperm_of t) (+) prmn 12 (eperm_of (mvt m)).
+Proof.
+move=> htok hpok hm; have /and3P[htc hcp hep] := hpok.
+have /and3P[hmc hmcp hmep] := pok_mv hm.
+split.
+  have h : forall p, (p < 8)%N ->
+    cperm_of (comp_tab t (mvt m)) p = cperm_of (mvt m) (cperm_of t p).
+    by apply: cperm_ofM.
+  by rewrite (prmn_eq h) (prmn_mul hmcp hcp) addbC.
+have h : forall p, (p < 12)%N ->
+  eperm_of (comp_tab t (mvt m)) p = eperm_of (mvt m) (eperm_of t p).
+  by apply: eperm_ofM.
+by rewrite (prmn_eq h) (prmn_mul hmep hep) addbC.
+Qed.
+
+(* AND THE LAW, as the induction along the word: prm_idC at the bottom and    *)
+(* prm_step with mvparokC at each turn.  Ball.mem_gen_ball turns being in the *)
+(* group into being in a ball, which is the word.                             *)
+(*                                                                            *)
+(* IT BUILDS THE TABLE rather than taking the given one apart, because pok    *)
+(* travels forward with the parity and not backward; pt_inj then says the     *)
+(* table it built is the one it was handed.  Stated that way it says more     *)
+(* than the law -- every position of the group HAS a table and that table is  *)
+(* pok -- and the covering at the foot of the file wants exactly that.        *)
+Lemma G_pok g : g \in G -> exists v,
+  [/\ tab_ok flast v, pok v, pt flast v = g &
+      prmn 8 (cperm_of v) = prmn 12 (eperm_of v)].
+Proof.
+move=> /mem_gen_ball[n]; move: g.
+elim: n => [|n ih] g.
+  rewrite ball0 inE => /eqP->.
+  exists (id_tab flast); split; [exact: tab_ok_id | exact: pok_idC
+                                | exact: pt1 | by apply/eqP; exact: prm_idC].
+rewrite /= inE => /orP[/ih//|/mulsgP[b m bB mS ->]].
+have [v [vok vpok vpt vpar]] := ih b bB.
+have mI : m \in moves by move: mS; rewrite inE.
+have kL : (index m moves < seq.size moves)%N by rewrite index_mem.
+rewrite size_moves in kL.
+set k := index m moves.
+have hm : m = pt flast (mvt k) by rewrite -(nth_index 1 mI) (mvtE kL).
+have hok := mvt_ok kL.
+exists (comp_tab v (mvt k)); split.
+- exact: tab_ok_comp.
+- exact: pok_comp.
+- by rewrite -(ptM vok hok) vpt -hm.
+have [hc he] := prm_step vok vpok kL.
+rewrite hc he vpar.
+have : prmn 8 (cperm_of (mvt k)) == prmn 12 (eperm_of (mvt k)).
+  by move: (all_nthP 0%N mvparokC k); rewrite size_iota nth_iota // => /(_ kL).
+by move=> /eqP->.
+Qed.
+
 Lemma prm_law t : tab_ok flast t -> pt flast t \in G ->
   prmn 8 (cperm_of t) = prmn 12 (eperm_of t).
-Proof. Admitted.
+Proof.
+move=> tok /G_pok[v [vok vpok vpt vpar]].
+by rewrite (Tsearch.pt_inj tok vok (esym vpt)).
+Qed.
 
 (* ---- what being in H says about the corners ------------------------------ *)
 
@@ -400,15 +596,6 @@ Proof. by vm_compute. Qed.
 
 Lemma size_ccyct : seq.size ccyct = 48%N.
 Proof. by vm_compute. Qed.
-
-Lemma tab_ltn t f : tab_ok flast t -> (f < 48)%N -> (nth 0%N t f < 48)%N.
-Proof.
-by case/and3P => /eqP hs /allP hall _ hf; apply: hall; apply: mem_nth;
-   rewrite hs.
-Qed.
-
-Lemma cflatp_lt i : (i < 24)%N -> (nth 0%N cflatp i < 48)%N.
-Proof. by move=> hi; have /and4P[h _ _ _] := layP clayokC hi. Qed.
 
 Section InHCorner.
 
@@ -768,7 +955,9 @@ Lemma prm12_split (e : nat -> nat) :
   (forall p, (p < 8)%N -> e p = qu p) ->
   (forall p, (p < 4)%N -> e (8 + p)%N = (8 + qm p)%N) ->
   prmn 12 e = prmn 8 qu (+) prmn 4 qm.
-Proof. Admitted.
+Proof.
+by move=> he1 he2; apply: (prmn_cat he1 he2) => p hp; exact: qu_lt.
+Qed.
 
 (* and then the parity condition is the law at this position                  *)
 Lemma hcubeP : tab_ok flast u -> pt flast u \in G ->
@@ -958,3 +1147,275 @@ by rewrite /memb2tab hmi -(ptV huok) hui -(ptV htok) invgK.
 Qed.
 
 End Leaf.
+
+(* ---- the covering: every position of H is a member ----------------------- *)
+
+(* WHAT THE ROW THEOREM WANTS.  RowInst's superflip_row_within_20 says every  *)
+(* member is within twenty, and asks in exchange that every position of H IS  *)
+(* a member.  That is this, and its two halves are leaf_membH and             *)
+(* tomemb_tabH above.                                                         *)
+
+(* being in H, read on the table: the position carries a place to a place and *)
+(* leaves the slot alone, once for each of the three layouts                  *)
+Definition placeP (u : seq nat) (qc qu qm : nat -> nat) : Prop :=
+  [/\ forall p j, (p < 8)%N -> (j < 3)%N ->
+        nth 0%N u (nth 0%N cflatp (p * 3 + j)%N)
+        = nth 0%N cflatp (qc p * 3 + j)%N,
+      forall p j, (p < 8)%N -> (j < 2)%N ->
+        nth 0%N u (nth 0%N ulay (p * 2 + j)%N)
+        = nth 0%N ulay (qu p * 2 + j)%N,
+      forall p j, (p < 4)%N -> (j < 2)%N ->
+        nth 0%N u (nth 0%N mlay (p * 2 + j)%N)
+        = nth 0%N mlay (qm p * 2 + j)%N,
+      perm_eq [seq qc p | p <- iota 0 8] (iota 0 8)
+    & perm_eq [seq qu p | p <- iota 0 8] (iota 0 8)
+      /\ perm_eq [seq qm p | p <- iota 0 4] (iota 0 4)].
+
+(* ---- being in H, as a walk over the ten generators ----------------------- *)
+
+(* THE FIVE CONDITIONS, as one boolean on a table.  Each is decidable -- a    *)
+(* table is forty eight numbers -- so the identity and the ten generators of  *)
+(* H can simply be checked, and what is left to prove is that a composition   *)
+(* keeps them.                                                               *)
+Definition hok (t : seq nat) : bool :=
+  [&& comp_tab t ccyct == comp_tab ccyct t,
+      all (fun p => nth 0%N t (nth 0%N cprimp p) \in cprim) (iota 0 8),
+      all (fun f => nth 0%N t (epairn f) == epairn (nth 0%N t f)) (iota 0 48),
+      all (fun p => nth 0%N t (nth 0%N eprim p) \in eprim) (iota 0 12) &
+      all (fun p => (8 <= eposn (nth 0%N t (nth 0%N eprim p)))%N == (8 <= p)%N)
+          (iota 0 12)].
+
+(* the ten generators of H among the eighteen moves.  faces is U R F D L B    *)
+(* and each contributes its quarter turn, its half turn and its inverse, so   *)
+(* U U2 U' are 0 1 2, D D2 D' are 9 10 11, and F2 B2 L2 R2 are 7 16 13 4.     *)
+Definition aidx : seq nat := [:: 0; 1; 2; 9; 10; 11; 7; 16; 13; 4]%N.
+
+Lemma aidxE j : (j < 10)%N -> nth 1 Amoves j = nth 1 moves (nth 0%N aidx j).
+Proof. by case: j => [|[|[|[|[|[|[|[|[|[|]]]]]]]]]]. Qed.
+
+Lemma aidx_lt j : (j < 10)%N -> (nth 0%N aidx j < 18)%N.
+Proof. by case: j => [|[|[|[|[|[|[|[|[|[|]]]]]]]]]]. Qed.
+
+Lemma hok_idC : hok (id_tab flast).  Proof. by vm_compute. Qed.
+
+Lemma hok_aC : all (fun k => hok (mvt k)) aidx.  Proof. by vm_compute. Qed.
+
+(* ---- and a composition keeps them --------------------------------------- *)
+
+(* the tables compose associatively, once the first two are tables            *)
+Lemma comp_tabA t1 t2 t3 : tab_ok flast t1 -> tab_ok flast t2 ->
+  comp_tab (comp_tab t1 t2) t3 = comp_tab t1 (comp_tab t2 t3).
+Proof.
+move=> h1 h2; rewrite {1 3}/comp_tab -map_comp.
+apply/eq_in_map => i hi /=.
+have /and3P[_ /allP hall _] := h1.
+by rewrite comp_tabE ?(tab_ok_size h2) //; apply: hall.
+Qed.
+
+(* THE THREE FACTS THE COMPOSITION NEEDS, and all three are lookups.  The     *)
+(* primary facelets of the corners are cprim, listed in the prototype's own   *)
+(* order; a primary facelet of an edge names its own place; and the pairing   *)
+(* of a facelet is a facelet.                                                 *)
+Lemma cprimpP : perm_eq cprimp cprim.  Proof. by vm_compute. Qed.
+
+Lemma eposn_eprimC : all (fun j => eposn (nth 0%N eprim j) == j) (iota 0 12).
+Proof. by vm_compute. Qed.
+
+Lemma epairn_ltC : all (fun f => epairn f < 48) (iota 0 48).
+Proof. by vm_compute. Qed.
+
+(* TWO TABLES THAT KEEP THE FIVE COMPOSE TO ONE THAT DOES.  The commuting is  *)
+(* associativity and nothing else.  The other four all read the same way: the *)
+(* first table carries the facelet somewhere the second still knows about --  *)
+(* a primary facelet of a corner, a primary facelet of an edge, the other     *)
+(* facelet of the pair, a place in the same half of the slice -- so the       *)
+(* second table's own condition applies there.                                *)
+Lemma hok_comp t1 t2 : tab_ok flast t1 -> tab_ok flast t2 ->
+  hok t1 -> hok t2 -> hok (comp_tab t1 t2).
+Proof.
+move=> h1 h2 /and5P[a1 a2 a3 a4 a5] /and5P[b1 b2 b3 b4 b5].
+have hcE f : (f < 48)%N ->
+    nth 0%N (comp_tab t1 t2) f = nth 0%N t2 (nth 0%N t1 f).
+  by move=> hf; rewrite comp_tabE ?(tab_ok_size h1).
+have hcp f : f \in cprim -> exists2 p, (p < 8)%N & nth 0%N cprimp p = f.
+  move=> hf; have hf2 : f \in cprimp by rewrite (perm_mem cprimpP).
+  have hsz : seq.size cprimp = 8%N by [].
+  by exists (index f cprimp); [rewrite -hsz index_mem | apply: nth_index].
+have hep f : f \in eprim -> exists2 p, (p < 12)%N & nth 0%N eprim p = f.
+  move=> hf; have hsz : seq.size eprim = 12%N by [].
+  by exists (index f eprim); [rewrite -hsz index_mem | apply: nth_index].
+apply/and5P; split.
+(* the rotation of the corners still commutes                                *)
+- apply/eqP; rewrite (@comp_tabA t1 t2 ccyct h1 h2) (eqP b1).
+  rewrite -(@comp_tabA t1 ccyct t2 h1 ccyct_ok) (eqP a1).
+  by rewrite (@comp_tabA ccyct t1 t2 ccyct_ok h1).
+(* a primary facelet of a corner still goes to one                           *)
+- apply/allP => p; rewrite mem_iota add0n => /andP[_ hp].
+  rewrite hcE ?(all_iota_lt cprimp_lt hp) //.
+  have [q hq hqe] := hcp _ (all_iota_lt a2 hp).
+  by rewrite -hqe; apply: (all_iota_lt b2 hq).
+(* the two facelets of an edge still stay together                           *)
+- apply/allP => f; rewrite mem_iota add0n => /andP[_ hf].
+  rewrite !hcE ?(all_iota_lt epairn_ltC hf) // (eqP (all_iota_lt a3 hf)).
+  exact: (all_iota_lt b3 (tab_ltn h1 hf)).
+(* a primary facelet of an edge still goes to one                            *)
+- apply/allP => p; rewrite mem_iota add0n => /andP[_ hp].
+  rewrite hcE ?(all_iota_lt eprim_lt hp) //.
+  have [q hq hqe] := hep _ (all_iota_lt a4 hp).
+  by rewrite -hqe; apply: (all_iota_lt b4 hq).
+(* and a place stays in its own half of the slice                            *)
+apply/allP => p; rewrite mem_iota add0n => /andP[_ hp].
+rewrite hcE ?(all_iota_lt eprim_lt hp) //.
+have [q hq hqe] := hep _ (all_iota_lt a4 hp).
+have heq : eposn (nth 0%N t1 (nth 0%N eprim p)) = q.
+  by rewrite -hqe; apply/eqP; apply: (all_iota_lt eposn_eprimC hq).
+rewrite -hqe (eqP (all_iota_lt b5 hq)).
+by rewrite -(eqP (all_iota_lt a5 hp)) heq.
+Qed.
+
+(* and then being in H gives a table that keeps them, by the same induction   *)
+(* as G_pok: the identity at the bottom, one generator at each step           *)
+Lemma inH_hok h : h \in H ->
+  exists v, [/\ tab_ok flast v, hok v & pt flast v = h].
+Proof.
+move=> /mem_gen_ball[n]; move: h.
+elim: n => [|n ih] h.
+  rewrite ball0 inE => /eqP->; exists (id_tab flast).
+  by split; [exact: tab_ok_id | exact: hok_idC | exact: pt1].
+rewrite /= inE => /orP[/ih//|/mulsgP[b m bB mS ->]].
+have [v [vok vhok vpt]] := ih b bB.
+have mI : m \in Amoves by move: mS; rewrite inE.
+have j10 : (index m Amoves < 10)%N by rewrite index_mem.
+set k := nth 0%N aidx (index m Amoves).
+have kL : (k < 18)%N by apply: aidx_lt.
+have hm : m = pt flast (mvt k).
+  by rewrite -(nth_index 1 mI) (aidxE j10) (mvtE kL).
+have hkok : tab_ok flast (mvt k) := mvt_ok kL.
+have hhk : hok (mvt k) by apply: (all_nthP 0%N hok_aC).
+exists (comp_tab v (mvt k)); split.
+- exact: tab_ok_comp.
+- exact: (hok_comp vok hkok vhok hhk).
+by rewrite -(ptM vok hkok) vpt -hm.
+Qed.
+
+(* the five conditions InHCorner and InHEdge ask for, read off hok            *)
+Lemma inH_tabconds u : tab_ok flast u -> pt flast u \in H ->
+  [/\ comp_tab u ccyct = comp_tab ccyct u,
+      forall p, (p < 8)%N -> nth 0%N u (nth 0%N cprimp p) \in cprim,
+      forall f, (f < 48)%N -> nth 0%N u (epairn f) = epairn (nth 0%N u f),
+      forall p, (p < 12)%N -> nth 0%N u (nth 0%N eprim p) \in eprim &
+      forall p, (p < 12)%N ->
+        (8 <= eposn (nth 0%N u (nth 0%N eprim p)))%N = (8 <= p)%N].
+Proof.
+move=> uok uH.
+have [v [vok vhok vpt]] := inH_hok uH.
+have hv : v = u by apply: (Tsearch.pt_inj vok uok); rewrite vpt.
+rewrite hv in vhok.
+have /and5P[k1 k2 k3 k4 k5] := vhok; split.
+- exact/eqP.
+- by move=> p hp; apply: (all_iota_lt k2 hp).
+- by move=> f hf; move: (all_iota_lt k3 hf) => /eqP ->.
+- by move=> p hp; apply: (all_iota_lt k4 hp).
+by move=> p hp; move: (all_iota_lt k5 hp) => /eqP ->.
+Qed.
+
+(* AND FROM THE FIVE, placeP, with nothing new.  The three place             *)
+(* permutations are inH_corner, inH_outer and inH_middle; that each is a      *)
+(* permutation is pok, which G_pok carries -- for the twelve edges at once,   *)
+(* and the slice being solved splits it into the outer eight and the middle   *)
+(* four.                                                                      *)
+Lemma inH_conds u : tab_ok flast u -> pt flast u \in H ->
+  exists qc qu qm, placeP u qc qu qm.
+Proof.
+move=> uok uH.
+have [c1 c2 c3 c4 c5] := inH_tabconds uok uH.
+have uG : pt flast u \in G by apply: (subsetP HsubG).
+have [v [vok vpok vpt _]] := G_pok uG.
+have hv : v = u by apply: (Tsearch.pt_inj vok uok); rewrite vpt.
+have /and3P[_ hcp hep] : pok u by rewrite -hv.
+(* the twelve are all different, so the eight and the four are               *)
+have h12u : uniq [seq eperm_of u p | p <- iota 0 12].
+  by rewrite (perm_uniq hep) iota_uniq.
+have h8u : uniq [seq eperm_of u p | p <- iota 0 8].
+  by move: h12u; rewrite -[12%N]/(8 + 4)%N iotaD add0n map_cat cat_uniq
+     => /and3P[].
+have h4u : uniq [seq (eperm_of u (8 + p)%N - 8)%N | p <- iota 0 4].
+  rewrite map_inj_in_uniq; first by move: h12u;
+    rewrite -[12%N]/(8 + 4)%N iotaD add0n map_cat cat_uniq
+      => /and3P[_ _]; rewrite -[in iota 8 4](addn0 8) iotaDl -map_comp.
+  move=> p q; rewrite !mem_iota !add0n => /andP[_ hp] /andP[_ hq] he.
+  have hp8 := eperm_of_ltm uok c4 c5 hp.
+  have hq8 := eperm_of_ltm uok c4 c5 hq.
+  have h8p : (8 <= eperm_of u (8 + p)%N)%N.
+    rewrite /eperm_of (c5 (8 + p)%N); first exact: leq_addr.
+    by rewrite -[12%N]/(8 + 4)%N ltn_add2l.
+  have h8q : (8 <= eperm_of u (8 + q)%N)%N.
+    rewrite /eperm_of (c5 (8 + q)%N); first exact: leq_addr.
+    by rewrite -[12%N]/(8 + 4)%N ltn_add2l.
+  have hE : eperm_of u (8 + p)%N = eperm_of u (8 + q)%N.
+    by rewrite -(subnK h8p) -(subnK h8q) he.
+  have hlt r : (r < 4)%N -> (8 + r < 12)%N.
+    by move=> hr; rewrite -[12%N]/(8 + 4)%N ltn_add2l.
+  have := perm_inj hep (hlt _ hp) (hlt _ hq) hE.
+  by move/eqP; rewrite eqn_add2l => /eqP.
+exists (cperm_of u), (eperm_of u), (fun p => (eperm_of u (8 + p)%N - 8)%N).
+split.
+- by move=> p j hp hj; apply: (inH_corner uok c1 c2).
+- by move=> p j hp hj; apply: (inH_outer uok c3 c4 c5).
+- by move=> p j hp hj; apply: (inH_middle uok c3 c4 c5).
+- exact: hcp.
+split.
+  apply: perm_of_rng => [|p hp]; first exact: h8u.
+  exact: (eperm_of_ltu c5 hp).
+apply: perm_of_rng => [|p hp]; first exact: h4u.
+exact: (eperm_of_ltm uok c4 c5 hp).
+Qed.
+
+(* AND THE TABLE ITSELF IS FREE.  G_pok says every position of the group has  *)
+(* a table, so h needs none of its own: take the one for h^-1, since tomemb   *)
+(* reads the inverse table anyway, and t2ti carries it to an array.           *)
+Lemma inH_places h : h \in H -> exists a qc qu qm,
+  [/\ tabi_ok flast a, pt flast (ti2t flast a) = h
+    & placeP (ti2t flast (inv_tabi flast a)) qc qu qm].
+Proof.
+move=> hh.
+have hVH : h^-1 \in H by rewrite groupV.
+have hVG : h^-1 \in G by apply: (subsetP HsubG).
+have [u [uok upok upt _]] := G_pok hVG.
+have huH : pt flast u \in H by rewrite upt.
+have [qc [qu [qm hpl]]] := inH_conds uok huH.
+have hiu : tab_ok flast (inv_tab flast u) := tab_ok_inv uok.
+have ha : tabi_ok flast (t2ti flast (inv_tab flast u))
+  := tabi_ok_t2ti n47_small n47_len hiu.
+have hti : ti2t flast (t2ti flast (inv_tab flast u)) = inv_tab flast u
+  := ti2t_t2ti n47_small n47_len hiu.
+have hpa : pt flast (ti2t flast (t2ti flast (inv_tab flast u))) = h.
+  by rewrite hti -(ptV uok) upt invgK.
+have hu : ti2t flast (inv_tabi flast (t2ti flast (inv_tab flast u))) = u.
+  rewrite (ti2t_inv n47_small n47_len ha) hti.
+  apply: (Tsearch.pt_inj (tab_ok_inv hiu) uok).
+  by rewrite -(ptV hiu) -(ptV uok) invgK.
+by exists (t2ti flast (inv_tab flast u)), qc, qu, qm; rewrite hu.
+Qed.
+
+(* and then the covering is the two lemmas above, with nothing new            *)
+Lemma row_cover par8t par4t : up8inv -> up8ok -> up4inv -> up4ok ->
+  par8okw par8t -> par4okw par4t ->
+  forall h, h \in H ->
+  exists x, membok par8t par4t x /\ pt flast (memb2tab x) = h.
+Proof.
+move=> hi8 h8 hi4 h4 hp8 hp4 h hh.
+have [a [qc [qu [qm [haok hpt [c1 c2 c3 c4 [c5 c6]]]]]]] := inH_places hh.
+set u := ti2t flast (inv_tabi flast a).
+have htok : tab_ok flast (ti2t flast a) := haok.
+have hui : u = inv_tab flast (ti2t flast a).
+  by rewrite /u (ti2t_inv n47_small n47_len haok).
+have huok : tab_ok flast u by rewrite hui; apply: tab_ok_inv.
+have huG : pt flast u \in G.
+  rewrite hui -(ptV htok) hpt groupV.
+  by apply: (subsetP HsubG).
+exists (tomemb a); split.
+  exact: (leaf_membH c1 c2 c3 c4 c5 c6 hp8 hp4 hi8 h8 hi4 h4 huok huG
+                     (erefl u)).
+by rewrite (tomemb_tabH c1 c2 c3 c4 c5 c6 hi8 h8 hi4 h4 haok (erefl u)).
+Qed.

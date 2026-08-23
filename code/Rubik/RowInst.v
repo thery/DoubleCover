@@ -868,4 +868,29 @@ apply: (row_within_20 he8 he4 ptab_ok _ hw hf hx).
 by rewrite -hn; exact: mfin_sound.
 Qed.
 
+(* ---- AND THE ROW ITSELF -------------------------------------------------- *)
+
+(* THE THEOREM WANTED, and it is about POSITIONS, not about members.  The row *)
+(* of the superflip is the coset superflip^-1 * H: the words that carry the   *)
+(* superflip into H.  row_within_20_inst says every member is within twenty;  *)
+(* what turns that into a statement about the row is that every position of H *)
+(* IS a member, which is the covering fact taken here as an argument.         *)
+(*                                                                            *)
+(* Its two halves are RowLeaf's leaf_membH -- the three ranks pass membok --  *)
+(* and tomemb_tabH -- and they put the position back.  Both are proved there  *)
+(* of a position that carries a place to a place and leaves the slot alone,   *)
+(* so what is still owed is that being in H says exactly that.                *)
+Theorem superflip_row_within_20 : nlev = 20%N ->
+  witsok e8inv e4of par8 par4 ptab wl ->
+  mfull (mor mfin (wmap wl)) ->
+  (forall h, h \in H ->
+     exists x, membok par8 par4 x /\ pt flast (memb2tab x) = h) ->
+  forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
+Proof.
+move=> hn hw hf hcov h hh.
+have [x [hx hxe]] := hcov h hh.
+have := row_within_20_inst hn hw hf hx.
+by rewrite /RowRun.wthn posE hxe.
+Qed.
+
 End Inst.
