@@ -28,6 +28,7 @@ Require Import RowMoveH RowMoveM RowParity RowPartM.
 Require Import RowPartC RowPartU RowMoveC RowMoveU RowMembChk.
 Require Import RowUp8inv RowUp8ok RowUp4inv RowUp4ok RowPar8 RowPar4.
 Require Import RowWits RowWitsChk.
+Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -43,39 +44,98 @@ Section Real.
 (* ---- the four the search carries and no file supplies -------------------- *)
 
 Variable p1 : rmap.
-Variable cstep : int -> int -> int.
-Variable tomembv : pstt -> memb.
 Variable okmvv : int -> int -> bool.
 Variable srch : nat.
 
+(* THE FLIP AND SLICE MOVE TABLE'S OWN CERTIFICATE, which the lower bound     *)
+(* already has: FsmChk.fsmoveCP proves it, by native_compute.  Carried as a   *)
+(* hypothesis rather than imported so that this file does not wait on a       *)
+(* native build.                                                              *)
+Hypothesis hfm : fsmoveC.
+
 (* ---- and the four that are runs and nothing else ------------------------- *)
 
-(* THE FS STEP TABLE.  Farp1.actfsr_step says this, and its file will not     *)
-(* load in this checkout.                                                     *)
+(* THE FS STEP TABLE, and it is Farp1's actfsri -- which is what RowInst      *)
+(* meant fsstep to be all along.  actfsr_step is the lemma; the only work is  *)
+(* the int and the nat, and the default the move table is read with.          *)
 Lemma r_fsstepP x k : (to_nat k < nmvn)%N -> pstok x ->
-  cstep (fsidx (coordi x)) k = fsidx (coordi (xstep x k)).
+  actfsri (fsidx (coordi x)) k = fsidx (coordi (xstep x k)).
+Proof.
+move=> kL /and3P[xok cx tx].
+have kL18 : (to_nat k < 18)%N by [].
+have szm : (to_nat k < seq.size mtis)%N.
+  by rewrite /mtis seq.size_map size_mtabs.
+rewrite -{1}(to_natK k) actfsriE (actfsr_step xok cx tx kL18 hfm).
+congr (fsidx (coordi (comp_tabi _ _ _))).
+by rewrite /mvi (set_nth_default (id_tabi flast) sfti szm).
+Qed.
+
+(* WHAT THE PRUNING TABLE IS FOR, and it is the only thing asked of it: a     *)
+(* nought says the position is already in H.  p1 is a Variable here, so this  *)
+(* is not provable and not meant to be -- it is the soundness of the table    *)
+(* the search was handed, and it belongs beside that table.                   *)
+Lemma r_p1H c x : coordP c x -> pstok x ->
+  wdist (p1get p1 c) = 0%uint63 -> pt flast (ti2t flast x) \in H.
 Proof. Admitted.
 
-(* WHAT A LEAF IS, twice.  RowLeaf proves both of a position that is IN H --  *)
-(* leaf_membH and tomemb_tabH -- and the premise here is that the pruning     *)
-(* table says nought at the position's coordinate.  Nothing ties that number  *)
-(* to the cube, so these two are where the premise has to change: RowInst     *)
-(* should ask that the position is in H, and the step from the pruning table  *)
-(* to being in H belongs beside the table, not beside the leaf.               *)
+(* ---- and what a leaf is, which is now PROVED ----------------------------- *)
+
+(* Both come straight from RowLeaf once the premise is being in H.  The       *)
+(* table tomemb reads is the INVERSE of the position's, so everything below   *)
+(* is said of that: it is a table because the position's is, it is in H       *)
+(* because H is a group, and inH_conds turns being in H into the three place  *)
+(* permutations leaf_membH and tomemb_tabH want.                              *)
+Section Leaf.
+
+Variable x : pstt.
+Hypothesis hx : pstok x.
+Hypothesis hH : pt flast (ti2t flast x) \in H.
+
+Let u := ti2t flast (inv_tabi flast x).
+
+Lemma r_xok : tabi_ok flast x.  Proof. by case/and3P: hx. Qed.
+
+Lemma r_uok : tab_ok flast u.
+Proof.
+by rewrite /u (ti2t_inv n47_small n47_len r_xok); apply/tab_ok_inv/r_xok.
+Qed.
+
+Lemma r_uH : pt flast u \in H.
+Proof.
+rewrite /u (ti2t_inv n47_small n47_len r_xok) -(ptV r_xok) groupV.
+exact: hH.
+Qed.
+
+Lemma r_uG : pt flast u \in G.
+Proof. by apply: (subsetP HsubG); exact: r_uH. Qed.
+
+Lemma r_leafW : membok par8i par4i (tomemb x)
+  /\ pt flast (memb2tab (tomemb x)) = pt flast (ti2t flast x).
+Proof.
+have [qc [qu [qm [c1 c2 c3 c4 [c5 c6]]]]] := inH_conds r_uok r_uH.
+split.
+  exact: (leaf_membH c1 c2 c3 c4 c5 c6 par8okwC par4okwC
+            up8invC up8okC up4invC up4okC r_uok r_uG (erefl u)).
+exact: (tomemb_tabH c1 c2 c3 c4 c5 c6
+          up8invC up8okC up4invC up4okC r_xok (erefl u)).
+Qed.
+
+End Leaf.
+
 Lemma r_leaf_memb c x : coordP c x -> pstok x ->
-  wdist (p1get p1 c) = 0%uint63 -> membok par8i par4i (tomembv x).
-Proof. Admitted.
+  pt flast (ti2t flast x) \in H -> membok par8i par4i (tomemb x).
+Proof. by move=> _ hx hH; case: (r_leafW hx hH). Qed.
 
 Lemma r_tomemb_tab c x : coordP c x -> pstok x ->
-  wdist (p1get p1 c) = 0%uint63 ->
-  pt flast (memb2tab (tomembv x)) = pt flast (ti2t flast x).
-Proof. Admitted.
+  pt flast (ti2t flast x) \in H ->
+  pt flast (memb2tab (tomemb x)) = pt flast (ti2t flast x).
+Proof. by move=> _ hx hH; case: (r_leafW hx hH). Qed.
 
 (* AND THE MAP, 812 851 200 words: the run and the witnesses together leave   *)
 (* no bit of the row clear.  This is the long pole and it is only a run.      *)
 Lemma r_full :
   mfull (mor (mfin e8numi e4biti mpgi mgri mswi mloi mhii p1
-                cstep tomembv okmvv srch 20)
+                actfsri tomemb okmvv srch 20)
              (wmap rowwits)).
 Proof. Admitted.
 
@@ -85,7 +145,7 @@ Theorem real_row_within_20 x : membok par8i par4i x ->
   RowRun.wthn (RowFinal.pos (ptab memb2tab)) 20 x.
 Proof.
 apply: (row_within_20_inst e8okC e4okC memb2tab_okC srcokC halfokC
-          r_fsstepP r_leaf_memb r_tomemb_tab
+          r_fsstepP r_leaf_memb r_tomemb_tab r_p1H
           pgokC grokC btokC memb2tab_moveC
           (erefl 20%N) witsokC r_full).
 Qed.
@@ -98,10 +158,22 @@ Theorem real_superflip_row h : h \in H ->
   superflip^-1 * h \in ball Sset 20.
 Proof.
 apply: (superflip_row_within_20 e8okC e4okC memb2tab_okC srcokC halfokC
-          r_fsstepP r_leaf_memb r_tomemb_tab
+          r_fsstepP r_leaf_memb r_tomemb_tab r_p1H
           pgokC grokC btokC memb2tab_moveC
           (erefl 20%N) witsokC r_full).
 exact: (row_cover up8invC up8okC up4invC up4okC par8okwC par4okwC).
+Qed.
+
+(* THE ROW OF THE SUPERFLIP, said the way it reads.  The search plays a word  *)
+(* from the superflip, so the row it settles is the superflip times a         *)
+(* position of H -- and superflip undone is the superflip itself, it being an *)
+(* involution.                                                                *)
+Corollary real_row_superflip m : m \in H -> superflip * m \in ball Sset 20.
+Proof.
+have hV : superflip^-1 = superflip.
+  by apply: (mulgI superflip); rewrite mulgV; move: superflip2;
+     rewrite expgS expg1.
+by rewrite -hV; exact: real_superflip_row.
 Qed.
 
 End Real.
