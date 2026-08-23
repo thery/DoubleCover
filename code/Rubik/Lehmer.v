@@ -348,7 +348,20 @@ Proof. by []. Qed.
 Lemma nondec_id n q : perm_eq [seq q p | p <- iota 0 n] (iota 0 n) ->
   (forall i j, (i < j)%N -> (j < n)%N -> (q i <= q j)%N) ->
   forall p, (p < n)%N -> q p = p.
-Proof. Admitted.
+Proof.
+move=> hp hnd p hpn.
+have hs1 : sorted leq [seq q i | i <- iota 0 n].
+  rewrite sorted_pairwise; last exact: leq_trans.
+  rewrite pairwise_map; apply/(pairwiseP 0%N) => i j.
+  rewrite !inE !size_iota => hi hj hij.
+  by rewrite !nth_iota // !add0n; apply: hnd.
+have hs2 : sorted leq (iota 0 n).
+  by rewrite -[leq]/(fun m k => (m <= k)%N); apply: iota_sorted.
+have he : [seq q i | i <- iota 0 n] = iota 0 n.
+  by apply: (sorted_eq leq_trans anti_leq hs1 hs2 hp).
+have := congr1 (fun l => nth 0%N l p) he.
+by rewrite (nth_map 0%N) ?size_iota // !nth_iota // !add0n.
+Qed.
 
 Lemma invn0_id n q : perm_eq [seq q p | p <- iota 0 n] (iota 0 n) ->
   invn n q = 0%N -> forall p, (p < n)%N -> q p = p.
@@ -367,9 +380,37 @@ move/negP => hh; rewrite leqNgt; apply/negP => hlt; apply: hh; apply/hasP.
 by exists j => //; rewrite mem_iota hij subnKC.
 Qed.
 
+(* never going down between neighbours is never going down at all             *)
+Lemma adj_nondec n q : (forall i, (i.+1 < n)%N -> (q i <= q i.+1)%N) ->
+  forall i j, (i < j)%N -> (j < n)%N -> (q i <= q j)%N.
+Proof.
+move=> h i j; elim: j => [|j ih] //.
+rewrite ltnS leq_eqVlt => /orP[/eqP->|hij] hjn; first exact: h.
+exact: leq_trans (ih hij (ltnW hjn)) (h j hjn).
+Qed.
+
 Lemma has_descent n q : (0 < invn n q)%N ->
-  {i | (i.+1 < n)%N & (q i.+1 < q i)%N}.
-Proof. Admitted.
+  exists i, (i.+1 < n)%N /\ (q i.+1 < q i)%N.
+Proof.
+move=> hpos.
+case: (boolP (has (fun i => (i.+1 < n)%N && (q i.+1 < q i)%N) (iota 0 n))).
+  by move=> /hasP[i _ /andP[h1 h2]]; exists i.
+move=> /hasPn hno; exfalso.
+have hnd : forall i j, (i < j)%N -> (j < n)%N -> (q i <= q j)%N.
+  apply: adj_nondec => i hi.
+  have hin : i \in iota 0 n.
+    by rewrite mem_iota add0n (ltn_trans (ltnSn i) hi).
+  by move: (hno i hin); rewrite hi /= -leqNgt.
+have h0 : invn n q = 0%N.
+  rewrite /invn.
+  suff -> : [seq lcode n q i | i <- iota 0 n] = [seq 0%N | i <- iota 0 n].
+    by elim: (iota 0 n) => //= _ l ih; rewrite ih.
+  apply/eq_in_map => i; rewrite mem_iota add0n => /andP[_ hi].
+  apply/eqP; rewrite /lcode -leqn0 leqNgt -has_count; apply/negP => /hasP[j].
+  rewrite mem_iota subnKC // => /andP[hj1 hj2] /=.
+  by rewrite ltnNge (hnd i j hj1 hj2).
+by rewrite h0 ltnn in hpos.
+Qed.
 
 Lemma invn_swap n q i : (i.+1 < n)%N -> (q i.+1 < q i)%N ->
   (invn n (fun p => q (swp i p)) < invn n q)%N.
@@ -390,7 +431,7 @@ case: (posnP (invn n q2)) => [h0|hpos].
   have hid := invn0_id h2 h0.
   rewrite (prmn_eq (fun p hp => congr1 q1 (hid p hp))).
   by rewrite [prmn n q2]prmnI h0 /= addbF.
-have [i hi hdesc] := has_descent hpos.
+have [i [hi hdesc]] := has_descent hpos.
 have hne : q2 i != q2 i.+1 by rewrite gtn_eqF.
 Admitted.
 
