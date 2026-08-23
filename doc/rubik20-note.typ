@@ -1518,22 +1518,21 @@ reports on its own.
 
 == What the proof found
 
-A row search uses the estimate of @tree twice, and only one of the two uses is
-safe.
+The search uses the table for two things. One is safe. The other is not.
 
-Cutting a branch is safe, for the reason given there: an estimate that is too
-small only means less cutting.
+Cutting a branch is safe. @tree says why. A table that says too little only
+cuts less.
 
-Deciding you have arrived is not. The search used to read a zero in the table
-as having reached a position of the row. But a table of zeros is never too
-large, so it meets the one condition the estimate is asked to meet, and it
-would tell the search it had arrived everywhere. The theorem would be worth no
-more than the table, and nothing in the development says the table is any good.
+Stopping is not safe. The search used to stop when the table said nought, and
+take the position it had reached as one of the row. Now fill the table with
+noughts. It still says too little, so it is still allowed. But it stops the
+search everywhere, and the theorem says nothing. Nothing here says the table
+is any good.
 
-The search now asks the position. At the bottom it tests the summary it is
-carrying, and a position that fails the test is passed over. The table is left
-to do the one thing it is for, and no part of the proof reads it. The cost is
-one comparison at each bottom node.
+So the search stops on the position, not on the table. At the bottom it looks
+at the position it is carrying and tests it. If the test fails it moves on.
+The table only cuts, and no part of the proof reads it. It costs one
+comparison at the bottom.
 
 == What it cost, and what is left
 
