@@ -88,12 +88,6 @@ Lemma d_tomemb_tab c x : coordP c x -> pstok x ->
   pt flast (dmemb (dtomemb x)) = pt flast (ti2t flast x).
 Proof. Admitted.
 
-(* and what the pruning table is for: a nought says the position is in H     *)
-Lemma d_p1H c x : coordP c x -> pstok x ->
-  wdist (p1get dm c) = 0%uint63 ->
-  ctwisti x = 0%uint63 /\ coordi x = coordfs 1.
-Proof. Admitted.
-
 Lemma d_pgok : pgok d1.
 Proof. Admitted.
 
@@ -123,7 +117,7 @@ Theorem dummy_row_within_20 x :
   membok d1 d1 x -> wthn (RowFinal.pos (ptab dmemb)) 20 x.
 Proof.
 apply: (row_within_20_inst d_e8ok d_e4ok d_memb2tab_ok d_srcok d_halfok
-                           d_fsstepP d_leaf_memb d_tomemb_tab d_p1H
+                           d_fsstepP d_leaf_memb d_tomemb_tab
                            d_pgok d_grok d_btok d_memb2tab_move
                            (erefl 20%N) d_witsok d_full).
 Qed.
