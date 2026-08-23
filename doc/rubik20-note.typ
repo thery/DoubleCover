@@ -1432,6 +1432,129 @@ of them checks that are run once and are not part of the proof. The
 cube, the permutations, the tables and the machine-integer toolbox are the ones
 already there, used unchanged.
 
+= One row of the upper half
+
+Everything above is a lower bound. Twenty face turns are needed, and twenty
+six quarter turns. That twenty face turns always *suffice* is the other half,
+and the whole of it is out of reach here. This section says what one piece of
+it costs, because we did one piece.
+
+== Rows
+
+Ten of the eighteen moves are special. They are the two turns of the top face
+and its half turn, the same three of the bottom face, and the half turns of
+the other four faces. Call them the ten. A quarter turn of a side face is not
+among them.
+
+The positions reachable with the ten alone form a group. Call a row the set of
+positions you get by playing the ten from a fixed starting position. Every
+position of the cube is in exactly one row. There are 2 217 093 120 rows and
+each holds 19 508 428 800 positions.
+
+That is the whole of Rokicki's method, and the reason it works is arithmetic.
+A row is large, so there are few of them, and one search settles a whole row
+at once instead of one position at a time.
+
+To prove the upper bound you take each row in turn and show every position in
+it is within twenty moves. We did that for one row: the superflip's.
+
+#tbl(([], [count]),
+  ([positions of the cube], [43 252 003 274 489 856 000]),
+  ([rows], [2 217 093 120]),
+  ([positions in a row], [19 508 428 800]),
+  ([rows we did], [1]),
+)
+
+The last two lines are the point of the section. One row is not the upper
+bound and is not offered as one.
+
+== A row is one map
+
+A position of a row is named by three numbers: how the eight top and bottom
+corners sit, how the eight top and bottom edges sit, and how the four middle
+edges sit. Two positions with the same three numbers are the same position.
+The three numbers fit in one bit of a map, and the map has one bit for every
+position of the row: 812 851 200 machine words of twenty four bits each, which
+is 19 508 428 800 bits and not one to spare.
+
+The search starts at the superflip and plays words. When it reaches a position
+of the row it sets that position's bit. When every bit is set, every position
+of the row has been reached by a word, and the theorem follows. The positions
+the search does not reach are handed a word each, written out and replayed;
+there were thirty two of them, twenty moves apiece.
+
+== What was already there
+
+Nearly all of it. The search, the map, the tables that move a whole map one
+step at a time, the ranking of the three numbers, the replay of the leftover
+words, the phase one table and the program that generates it: all of that is
+the lower-bound work above, used unchanged. The cube, the permutations and the
+machine-integer toolbox likewise.
+
+== What had to be added
+
+Four things, and none of them is about searching.
+
+The first is the rank and the sign of a permutation, on machine integers.
+Ranking the three numbers is how a position becomes a bit, and the sign is how
+you tell a position of the cube from an arrangement that no sequence of moves
+can produce. Rocq's library has both for its own permutations, but those do not
+compute, and a table walk cannot ask for something that does not compute.
+
+The second is that a position of a row *is* its three numbers, both ways
+round. That the three numbers give back the position was already needed. What
+was missing is the other direction: every position of the row has three
+numbers, and they pass the test the map applies. Without it the theorem is
+about triples of numbers and not about the cube.
+
+The third is the bridge from the search's own summary of a position to the
+conditions the second one wants. The search carries a small summary rather
+than the position, because the summary is one machine word and the position is
+forty eight; the bridge says the summary being solved is the position being
+what it should be.
+
+The fourth is a handful of checks over the tables, one file each so that each
+reports on its own.
+
+== What the proof found
+
+The search used to decide it had arrived by reading its pruning table. The
+table stores, for each summary, a number that never overstates the distance to
+a row position, and the search treated a zero as having arrived.
+
+That is not sound, and the reason is worth stating. A table of zeros never
+overstates anything. It passes every check the table is asked to pass, and it
+would tell the search it had arrived everywhere. The theorem would then be as
+good as the table and no better, and nothing in the development says the table
+is any good.
+
+The search now asks the position instead. At the bottom it looks at the
+summary it is carrying and tests it, and a position that fails the test is
+passed over. The pruning table is left to do the one thing it is for, which is
+to prune, and no part of the proof reads it. The cost is one comparison at each
+bottom node.
+
+== What it cost, and what is left
+
+The row is thirty one Rocq files. Twenty eight are hand-written and come to
+6 579 lines; the other three are generated, 141 458 lines of array literals and
+words. Ten of the hand-written files, 2 682 lines, are the ones this section is
+about.
+
+#tbl(([], [wall clock], [processor time]),
+  ([the row's Rocq files, checks and all], [2 min 25], [4 min 37]),
+  ([the phase one table, as Rocq files], [], [8 h 48]),
+)
+
+The phase one table is 2.9 GB of Rocq source and 4.5 GB once checked, and it
+is generated once and shared with the lower-bound work.
+
+What is proved is everything except the search itself. Every position of the
+row is a member of the map, every member the map marks is within twenty moves,
+the leftover words replay, and the tables pass their checks. What has not run
+is the search that fills the map. Until it does, the row is not settled, and
+the statement carries that one hypothesis in plain sight.
+
 = What was done, and what it taught
 
 Two numbers, and the lower half of each. No position of the cube is solved in
