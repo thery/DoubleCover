@@ -528,21 +528,61 @@ Qed.
 (* rank.                                                                      *)
 (*                                                                            *)
 (* The first is the parity invariant of the cube read off the three ranks.    *)
+(* THE PREMISE IS BEING IN H, not what the pruning table says.  p1 is an     *)
+(* arbitrary array here and nothing ties its numbers to the cube, so a fact   *)
+(* about a leaf cannot rest on one; what is meant is that the position is in  *)
+(* H, and that is a condition on the POSITION.  The step from the one to the  *)
+(* other is p1H below, and it belongs beside the table, not beside the leaf.  *)
 Hypothesis leaf_memb : forall c x, coordP c x -> pstok x ->
-  wdist (p1get p1 c) = 0%uint63 -> membok par8 par4 (tomemb x).
+  pt flast (ti2t flast x) \in G ->
+  ctwisti x = 0%uint63 -> coordi x = coordfs 1 ->
+  membok par8 par4 (tomemb x).
 
 (* AND THIS ONE COMES APART.  What a leaf owes is that the three ranks put    *)
 (* the position back together -- and once they do, the rest is posE: the      *)
 (* member's position is the superflip undone and the member put back, which   *)
 (* is what posp already is.                                                   *)
 Hypothesis tomemb_tab : forall c x, coordP c x -> pstok x ->
-  wdist (p1get p1 c) = 0%uint63 ->
+  pt flast (ti2t flast x) \in G ->
+  ctwisti x = 0%uint63 -> coordi x = coordfs 1 ->
   pt flast (memb2tab (tomemb x)) = pt flast (ti2t flast x).
 
-Lemma leaf_pos c x : coordP c x -> pstok x ->
+(* AND WHAT THE PRUNING TABLE IS FOR.  A nought in it says the position is    *)
+(* already in H, and that is the only thing the run asks of it -- soundness   *)
+(* looks nowhere else, so a wrong table makes the run find nothing, never the *)
+(* theorem false.                                                             *)
+(* AND BEING IN THE GROUP IS ASKED FOR HERE TOO, because it cannot be         *)
+(* dropped: two corners swapped and nothing else is a state whose coordinate  *)
+(* is solved and which is not in H.  The run has it -- a leaf is reached by a *)
+(* word -- and hands it over.                                                 *)
+Hypothesis p1H : forall c x, coordP c x -> pstok x ->
+  wdist (p1get p1 c) = 0%uint63 ->
+  ctwisti x = 0%uint63 /\ coordi x = coordfs 1.
+
+(* the word played is the superflip undone, so the position is the superflip  *)
+(* times the word and both are in the group                                   *)
+Lemma posp_G x : posp x \in G -> pt flast (ti2t flast x) \in G.
+Proof.
+move=> hG; have -> : pt flast (ti2t flast x) = superflip * posp x.
+  by rewrite /posp mulgA mulgV mul1g.
+by apply: groupM; [exact: superflip_in_G | exact: hG].
+Qed.
+
+(* the two above, as the run wants them: at a leaf, which is a nought         *)
+Lemma leaf_membW c x : coordP c x -> pstok x -> posp x \in G ->
+  wdist (p1get p1 c) = 0%uint63 -> membok par8 par4 (tomemb x).
+Proof.
+move=> hc hp hG h0; have [h1 h2] := p1H hc hp h0.
+exact: leaf_memb hc hp (posp_G hG) h1 h2.
+Qed.
+
+Lemma leaf_pos c x : coordP c x -> pstok x -> posp x \in G ->
   wdist (p1get p1 c) = 0%uint63 ->
   RowFinal.pos ptab (tomemb x) = posp x.
-Proof. by move=> hc hp h0; rewrite posE (tomemb_tab hc hp h0). Qed.
+Proof.
+move=> hc hp hG h0; have [h1 h2] := p1H hc hp h0.
+by rewrite posE (tomemb_tab hc hp (posp_G hG) h1 h2).
+Qed.
 
 (* ---- the prepass tables -------------------------------------------------- *)
 
@@ -852,7 +892,7 @@ Proof.
 (* wants the same n it adds to d.                                             *)
 rewrite /mfin -{2}[nlev]add0n.
 apply: (run_sound he8 he4 coord_root root_ball root_pok coord_step xstep_pok
-                  xstep_pos leaf_memb leaf_pos hmv_Sset grpmvP prep_move).
+                  xstep_pos leaf_membW leaf_pos hmv_Sset grpmvP prep_move).
 exact: sound_mempty.
 Qed.
 
@@ -866,6 +906,31 @@ Proof.
 move=> hn hw hf x hx.
 apply: (row_within_20 he8 he4 ptab_ok _ hw hf hx).
 by rewrite -hn; exact: mfin_sound.
+Qed.
+
+(* ---- AND THE ROW ITSELF -------------------------------------------------- *)
+
+(* THE THEOREM WANTED, and it is about POSITIONS, not about members.  The row *)
+(* of the superflip is the coset superflip^-1 * H: the words that carry the   *)
+(* superflip into H.  row_within_20_inst says every member is within twenty;  *)
+(* what turns that into a statement about the row is that every position of H *)
+(* IS a member, which is the covering fact taken here as an argument.         *)
+(*                                                                            *)
+(* Its two halves are RowLeaf's leaf_membH -- the three ranks pass membok --  *)
+(* and tomemb_tabH -- and they put the position back.  Both are proved there  *)
+(* of a position that carries a place to a place and leaves the slot alone,   *)
+(* so what is still owed is that being in H says exactly that.                *)
+Theorem superflip_row_within_20 : nlev = 20%N ->
+  witsok e8inv e4of par8 par4 ptab wl ->
+  mfull (mor mfin (wmap wl)) ->
+  (forall h, h \in H ->
+     exists x, membok par8 par4 x /\ pt flast (memb2tab x) = h) ->
+  forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
+Proof.
+move=> hn hw hf hcov h hh.
+have [x [hx hxe]] := hcov h hh.
+have := row_within_20_inst hn hw hf hx.
+by rewrite /RowRun.wthn posE hxe.
 Qed.
 
 End Inst.

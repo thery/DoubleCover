@@ -96,6 +96,65 @@ apply: eq_in_count => j; rewrite mem_iota => /andP[hj1 hj2].
 by rewrite !hfg // (leq_trans hj2) // subnKC.
 Qed.
 
+(* ---- two facts about a permutation of the places ------------------------- *)
+
+(* it stays inside them                                                       *)
+Lemma perm_range n q : perm_eq [seq q p | p <- iota 0 n] (iota 0 n) ->
+  forall p, (p < n)%N -> (q p < n)%N.
+Proof.
+move=> hp p hpn.
+have : q p \in [seq q j | j <- iota 0 n].
+  by apply/mapP; exists p => //; rewrite mem_iota.
+by rewrite (perm_mem hp) mem_iota add0n.
+Qed.
+
+(* and it is one to one on them                                               *)
+Lemma perm_inj n q : perm_eq [seq q p | p <- iota 0 n] (iota 0 n) ->
+  forall a b, (a < n)%N -> (b < n)%N -> q a = q b -> a = b.
+Proof.
+move=> hp a b ha hb hq.
+have hu : uniq [seq q p | p <- iota 0 n] by rewrite (perm_uniq hp) iota_uniq.
+have hs : size [seq q p | p <- iota 0 n] = n by rewrite size_map size_iota.
+have hn c : (c < n)%N -> nth 0%N [seq q p | p <- iota 0 n] c = q c.
+  by move=> hc; rewrite (nth_map 0%N) ?size_iota // nth_iota // add0n.
+by apply/eqP; rewrite -(nth_uniq 0%N _ _ hu) ?hs // !hn // hq.
+Qed.
+
+(* and a composition of two of them is one                                    *)
+Lemma perm_comp n (q1 q2 : nat -> nat) :
+  perm_eq [seq q1 p | p <- iota 0 n] (iota 0 n) ->
+  perm_eq [seq q2 p | p <- iota 0 n] (iota 0 n) ->
+  perm_eq [seq q1 (q2 p) | p <- iota 0 n] (iota 0 n).
+Proof.
+move=> h1 h2; rewrite (@eq_map _ _ _ (q1 \o q2)) // map_comp.
+by apply: perm_trans h1; apply: perm_map.
+Qed.
+
+(* and a one to one map of the places onto themselves is one                  *)
+Lemma perm_of_rng n (f : nat -> nat) :
+  uniq [seq f p | p <- iota 0 n] ->
+  (forall p, (p < n)%N -> (f p < n)%N) ->
+  perm_eq [seq f p | p <- iota 0 n] (iota 0 n).
+Proof.
+move=> hu hr; apply: uniq_perm => //; first exact: iota_uniq.
+have hsub : {subset [seq f p | p <- iota 0 n] <= iota 0 n}.
+  move=> x /mapP[p]; rewrite mem_iota add0n => /andP[_ hp] ->.
+  by rewrite mem_iota add0n hr.
+have hs : size [seq f p | p <- iota 0 n] = n by rewrite size_map size_iota.
+have hle : (size (iota 0 n) <= size [seq f p | p <- iota 0 n])%N.
+  by rewrite hs size_iota.
+by have [_ h] := uniq_min_size hu hsub hle; move=> x; rewrite h.
+Qed.
+
+(* and the values still to come at a place are all different                  *)
+Lemma perm_tail_uniq n q : perm_eq [seq q p | p <- iota 0 n] (iota 0 n) ->
+  forall p, (p <= n)%N -> uniq [seq q j | j <- iota p (n - p)].
+Proof.
+move=> hq p hp.
+have hu : uniq [seq q j | j <- iota 0 n] by rewrite (perm_uniq hq) iota_uniq.
+by move: hu; rewrite -{1}(subnKC hp) iotaD add0n map_cat cat_uniq => /and3P[].
+Qed.
+
 Definition lcode (n : nat) (q : nat -> nat) (i : nat) : nat :=
   count (fun j => (q j < q i)%N) (iota i.+1 (n - i.+1)).
 
@@ -115,7 +174,26 @@ Lemma lrank_code_gen n q1 q2 m k r1 r2 : (k + m = n)%N ->
   = foldl (fun a i => (a * (n - i) + lcode n q2 i)%N) r2 (iota k m) ->
   r1 = r2 /\ forall i, (k <= i)%N -> (i < n)%N ->
     lcode n q1 i = lcode n q2 i.
-Proof. Admitted.
+Proof.
+elim: m k r1 r2 => [|m ih] k r1 r2 /= hkm.
+  move=> ->; split=> // i hi hin.
+  by move: hkm; rewrite addn0 => hk; rewrite -hk ltnNge hi in hin.
+have hnk : (n - k = m.+1)%N by rewrite -hkm addKn.
+have hnk1 : (n - k.+1 = m)%N by rewrite -hkm -addSnnS addKn.
+have hd1 : (lcode n q1 k < n - k)%N by rewrite hnk -hnk1; apply: lcode_bd.
+have hd2 : (lcode n q2 k < n - k)%N by rewrite hnk -hnk1; apply: lcode_bd.
+have hc : (0 < n - k)%N by rewrite hnk.
+move=> he.
+have [heq htl] := ih k.+1 _ _ (etrans (addSnnS k m) hkm) he.
+have hk12 : lcode n q1 k = lcode n q2 k.
+  by move: (congr1 (fun x => x %% (n - k))%N heq); rewrite !modnMDl !modn_small.
+have hr : r1 = r2.
+  move: (congr1 (fun x => x %/ (n - k))%N heq).
+  by rewrite !divnMDl // !divn_small // !addn0.
+split=> // i hi hin.
+move: hi; rewrite leq_eqVlt => /orP[/eqP<-|hi]; first by [].
+by apply: htl.
+Qed.
 
 Lemma lrank_code n (q1 q2 : nat -> nat) :
   lrank n q1 = lrank n q2 ->
@@ -130,19 +208,6 @@ Qed.
 Lemma lcodeE n q p : lcode n q p
   = count (fun v => (v < q p)%N) [seq q j | j <- iota p.+1 (n - p.+1)].
 Proof. by rewrite /lcode count_map. Qed.
-
-(* THE CODE DETERMINES THE PERMUTATION, and the induction is on the place.    *)
-(* Which values are still to come at place p is settled by the places before  *)
-(* p; the digit then says how many of them are below the one taken at p,      *)
-(* which picks it out of them, because a set of naturals has one member with  *)
-(* a given number of members below it.                                        *)
-Lemma code_tails n q1 q2 :
-  perm_eq [seq q1 p | p <- iota 0 n] (iota 0 n) ->
-  perm_eq [seq q2 p | p <- iota 0 n] (iota 0 n) ->
-  (forall i, (i < n)%N -> lcode n q1 i = lcode n q2 i) ->
-  forall p, (p <= n)%N ->
-    perm_eq [seq q1 j | j <- iota p (n - p)] [seq q2 j | j <- iota p (n - p)].
-Proof. Admitted.
 
 (* one member of a set of naturals has a given number of members below it     *)
 (* raising the bar past a member of the list counts one more                  *)
@@ -166,12 +231,60 @@ move=> hu hv hw h; case: (ltngtP v w) => // hlt.
 by move: (count_lt_strict hlt hw); rewrite h ltnn.
 Qed.
 
+(* THE CODE DETERMINES THE PERMUTATION, and the induction is on the place.    *)
+(* Which values are still to come at place p is settled by the places before  *)
+(* p; the digit then says how many of them are below the one taken at p,      *)
+(* which picks it out of them, because a set of naturals has one member with  *)
+(* a given number of members below it.                                        *)
+Lemma code_tails n q1 q2 :
+  perm_eq [seq q1 p | p <- iota 0 n] (iota 0 n) ->
+  perm_eq [seq q2 p | p <- iota 0 n] (iota 0 n) ->
+  (forall i, (i < n)%N -> lcode n q1 i = lcode n q2 i) ->
+  forall p, (p <= n)%N ->
+    perm_eq [seq q1 j | j <- iota p (n - p)] [seq q2 j | j <- iota p (n - p)].
+Proof.
+move=> h1 h2 hcode.
+elim=> [|p ih] hp.
+  by rewrite subn0; apply: perm_trans h1 _; rewrite perm_sym.
+have hpn : (p < n)%N by [].
+have hip := ih (ltnW hp).
+have hsp : (n - p)%N = (n - p.+1).+1 by rewrite subnS prednK // subn_gt0.
+move: hip; rewrite hsp /=.
+set t1 := [seq q1 j | j <- iota p.+1 (n - p.+1)].
+set t2 := [seq q2 j | j <- iota p.+1 (n - p.+1)].
+move=> hip.
+have hus : uniq (q1 p :: t1).
+  by move: (perm_tail_uniq h1 (ltnW hp)); rewrite hsp /=.
+have hm2 : q2 p \in q1 p :: t1 by rewrite (perm_mem hip) mem_head.
+have e1 : count (fun x => (x < q1 p)%N) (q1 p :: t1) = lcode n q1 p.
+  by rewrite lcodeE /= ltnn add0n.
+have e2 : count (fun x => (x < q2 p)%N) (q1 p :: t1) = lcode n q2 p.
+  by rewrite (permP hip) lcodeE /= ltnn add0n.
+have hq : q1 p = q2 p.
+  apply: (count_below_inj hus (mem_head _ _) hm2).
+  by rewrite e1 e2 (hcode p hpn).
+by move: hip; rewrite hq perm_cons.
+Qed.
+
 Lemma code_perm n (q1 q2 : nat -> nat) :
   perm_eq [seq q1 p | p <- iota 0 n] (iota 0 n) ->
   perm_eq [seq q2 p | p <- iota 0 n] (iota 0 n) ->
   (forall i, (i < n)%N -> lcode n q1 i = lcode n q2 i) ->
   forall p, (p < n)%N -> q1 p = q2 p.
-Proof. Admitted.
+Proof.
+move=> h1 h2 hcode p hpn.
+have hT := code_tails h1 h2 hcode.
+have hsp : (n - p)%N = (n - p.+1).+1 by rewrite subnS prednK // subn_gt0.
+have hit := hT p.+1 hpn.
+have hus := perm_tail_uniq h1 (ltnW hpn).
+have hip := hT p (ltnW hpn).
+move: hus hip; rewrite hsp /= => /andP[hnotin _] hip.
+apply/eqP; apply/negPn/negP => hne.
+have : q1 p \in [seq q2 j | j <- iota p.+1 (n - p.+1)].
+  move: (perm_mem hip (q1 p)); rewrite mem_head in_cons (negbTE hne) /=.
+  by move=> <-.
+by rewrite -(perm_mem hit) (negbTE hnotin).
+Qed.
 
 Lemma lrank_inj n (q1 q2 : nat -> nat) :
   perm_eq [seq q1 p | p <- iota 0 n] (iota 0 n) ->
@@ -241,6 +354,21 @@ have hik : (i < k)%N := ltn_trans (ltnSn i) hgt.
 have hn1 : j != i by rewrite gtn_eqF // (ltn_trans hik hj1).
 have hn2 : j != i.+1 by rewrite gtn_eqF // (ltn_trans hgt hj1).
 by rewrite /swp ifN ?ifN ?hj1 ?hj2.
+Qed.
+
+(* so it is itself a permutation of the places                                *)
+Lemma swp_perm n i : (i.+1 < n)%N ->
+  perm_eq [seq swp i p | p <- iota 0 n] (iota 0 n).
+Proof.
+move=> hi; apply: uniq_perm.
+- by rewrite map_inj_uniq ?iota_uniq //; apply: can_inj (swpK i).
+- exact: iota_uniq.
+have hb j : (j < n)%N -> (swp i j < n)%N.
+  move=> hj; rewrite /swp; case: eqP => [_|_] //.
+  by case: eqP => [_|_] //; apply: ltn_trans (ltnSn i) hi.
+move=> j; rewrite mem_iota add0n; apply/mapP/idP => [[j' hj' ->]|hj].
+  by apply: hb; move: hj'; rewrite mem_iota add0n => /andP[_ ->].
+by exists (swp i j); [rewrite mem_iota add0n hb | rewrite swpK].
 Qed.
 
 Lemma prmn_swap_out n q i k : (k < n)%N -> (i.+1 < n)%N ->
@@ -414,7 +542,44 @@ Qed.
 
 Lemma invn_swap n q i : (i.+1 < n)%N -> (q i.+1 < q i)%N ->
   (invn n (fun p => q (swp i p)) < invn n q)%N.
-Proof. Admitted.
+Proof.
+move=> hi hdesc.
+have hin1 : (i < n)%N := ltn_trans (ltnSn i) hi.
+have hin : (i <= n)%N by apply: ltnW.
+have hni : (n - i)%N = (n - i.+2).+2.
+  by rewrite (subn_step hin1) (subn_step hi).
+have hcat : iota 0 n = iota 0 i ++ [:: i, i.+1 & iota i.+2 (n - i.+2)].
+  by rewrite -{1}(subnKC hin) iotaD add0n hni.
+rewrite /invn hcat !map_cat !sumn_cat /=.
+have hA : sumn [seq lcode n (fun p => q (swp i p)) k | k <- iota 0 i]
+        = sumn [seq lcode n q k | k <- iota 0 i].
+  congr sumn; apply/eq_in_map => k; rewrite mem_iota add0n => /andP[_ hk].
+  rewrite /lcode; apply: prmn_swap_out => //.
+  - by apply: ltn_trans hk _.
+  - by rewrite ltn_eqF.
+  by rewrite ltn_eqF // (ltn_trans hk (ltnSn i)).
+have hB : sumn [seq lcode n (fun p => q (swp i p)) k
+               | k <- iota i.+2 (n - i.+2)]
+        = sumn [seq lcode n q k | k <- iota i.+2 (n - i.+2)].
+  congr sumn; apply/eq_in_map => k; rewrite mem_iota => /andP[hk1 hk2].
+  rewrite subnKC // in hk2.
+  rewrite /lcode; apply: prmn_swap_out => //.
+  - by rewrite gtn_eqF // (ltn_trans (ltnSn i) hk1).
+  by rewrite gtn_eqF.
+rewrite hA hB ltn_add2l !addnA ltn_add2r.
+have hsp : (n - i.+1)%N = (n - i.+2).+1 := subn_step hi.
+have hsi : swp i i = i.+1 by rewrite /swp eqxx.
+have hsi1 : swp i i.+1 = i by rewrite /swp gtn_eqF ?ltnSn // eqxx.
+have htail r : count (fun j => (q (swp i j) < r)%N) (iota i.+2 (n - i.+2))
+             = count (fun j => (q j < r)%N) (iota i.+2 (n - i.+2)).
+  apply: eq_in_count => j; rewrite mem_iota => /andP[hj _].
+  have hn1 : j != i by rewrite gtn_eqF // (leq_trans (leqnSn _) hj).
+  have hn2 : j != i.+1 by rewrite gtn_eqF.
+  by rewrite /swp ifN ?ifN.
+have hb0 : (q i < q i.+1)%N = false by apply/negbTE; rewrite -leqNgt ltnW.
+rewrite /lcode hsp /= hsi hsi1 !htail ltnNge -ltnS hdesc /=.
+by rewrite hb0 add0n add1n addSn addnC ltnn.
+Qed.
 
 Lemma prmn_mul n q1 q2 :
   perm_eq [seq q1 p | p <- iota 0 n] (iota 0 n) ->
@@ -433,7 +598,20 @@ case: (posnP (invn n q2)) => [h0|hpos].
   by rewrite [prmn n q2]prmnI h0 /= addbF.
 have [i [hi hdesc]] := has_descent hpos.
 have hne : q2 i != q2 i.+1 by rewrite gtn_eqF.
-Admitted.
+have h2' : perm_eq [seq q2 (swp i p) | p <- iota 0 n] (iota 0 n).
+  by apply: perm_comp h2 _; apply: swp_perm.
+have hle : (invn n (fun p => q2 (swp i p)) <= m)%N.
+  by rewrite -ltnS; apply: leq_trans hm; apply: invn_swap.
+have hstep := ih _ hle h2'.
+have hne1 : q1 (q2 i) != q1 (q2 i.+1).
+  apply/eqP => heq; case/eqP: hne.
+  by apply: (perm_inj h1) => //; apply: (perm_range h2) => //; apply: ltnW.
+have hL : prmn n (fun p => q1 (q2 (swp i p))) = ~~ prmn n (fun p => q1 (q2 p)).
+  by apply: (@prmn_swap n (fun p => q1 (q2 p)) i).
+have hR : prmn n (fun p => q2 (swp i p)) = ~~ prmn n q2 by apply: prmn_swap.
+move: hstep; rewrite hL hR => /(congr1 negb).
+by rewrite negbK => ->; case: (prmn n q1); case: (prmn n q2).
+Qed.
 
 (* ---- a permutation that keeps to a partition ----------------------------- *)
 

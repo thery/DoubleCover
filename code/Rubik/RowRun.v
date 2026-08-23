@@ -204,11 +204,15 @@ Hypothesis xstep_pos : forall x k, (to_nat k < nmvn)%N -> pstok x ->
 (* three ranks the search reads off mean anything: outside H the edges are    *)
 (* mixed between the outer eight and the middle four, and there is no outer   *)
 (* permutation to rank.  So both of the last two carry that premise.          *)
+(* THE WORD PLAYED IS IN THE GROUP, and the two below are given it.  A leaf   *)
+(* is reached by a word from the root, so its position is in the ball and the *)
+(* ball is inside the group; without it a state that is a table and nothing   *)
+(* more can have a solved coordinate and still not be in H.                   *)
 Hypothesis leaf_memb : forall c x, coordP c x -> pstok x ->
-  wdist (p1get c) = 0%uint63 -> membok par8 par4 (tomemb x).
+  posp x \in G -> wdist (p1get c) = 0%uint63 -> membok par8 par4 (tomemb x).
 
 Hypothesis leaf_pos : forall c x, coordP c x -> pstok x ->
-  wdist (p1get c) = 0%uint63 -> pos (tomemb x) = posp x.
+  posp x \in G -> wdist (p1get c) = 0%uint63 -> pos (tomemb x) = posp x.
 
 (* ---- and the bridge for the prepass -------------------------------------- *)
 
@@ -305,7 +309,8 @@ elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hp hnd hm hb.
   (* ranks the search reads off are the member it stands for                  *)
   have h0 : wdist (p1get c) = 0%uint63.
     by apply: to_nat_inj; rewrite to_nat_0; apply/eqP; rewrite -leqn0.
-  have hok := leaf_memb hc hp h0.
+  have hG : posp x \in G := subsetP (ball_sub_gen Sset _) _ hb.
+  have hok := leaf_memb hc hp hG h0.
   rewrite /=.
   have E : plc (tomemb x) =
       (mcp (tomemb x),
@@ -314,7 +319,7 @@ elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hp hnd hm hb.
   move=> pg' gr' bt' hr ht.
   case: (mmarkP (place_range he8 he4 hok E) hr ht) => [[<- <- <-]|hb2];
     last by apply: hm.
-  rewrite /wthn (unplace_place he8 he4 hok E) (leaf_pos hc hp h0).
+  rewrite /wthn (unplace_place he8 he4 hok E) (leaf_pos hc hp hG h0).
   by move: hb; rewrite subn0.
 (* a step: the same map, one move further out                                 *)
 apply: (@ifold_indi _ (fun m' => soundat m' d)); [| |exact: hm].
