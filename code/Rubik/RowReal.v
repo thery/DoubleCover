@@ -27,7 +27,7 @@ Require Import RowTabL RowTabP RowTab RowMemb RowLeaf.
 Require Import RowMoveH RowMoveM RowParity RowPartM.
 Require Import RowPartC RowPartU RowMoveC RowMoveU RowMembChk.
 Require Import RowUp8inv RowUp8ok RowUp4inv RowUp4ok RowPar8 RowPar4.
-Require Import RowWits RowWitsChk.
+Require Import RowWits RowWitsChk RowInH.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 
 Set Implicit Arguments.
@@ -70,10 +70,31 @@ congr (fsidx (coordi (comp_tabi _ _ _))).
 by rewrite /mvi (set_nth_default (id_tabi flast) sfti szm).
 Qed.
 
-(* WHAT THE PRUNING TABLE IS FOR, and it is the only thing asked of it: a     *)
-(* nought says the position is already in H.  p1 is a Variable here, so this  *)
-(* is not provable and not meant to be -- it is the soundness of the table    *)
-(* the search was handed, and it belongs beside that table.                   *)
+(* WHAT THE PRUNING TABLE SAYS, and it is all that is asked of it: a nought  *)
+(* is the solved phase one coordinate.  p1 is a Variable here, so this is the *)
+(* soundness of the table the search was handed and it is carried, not        *)
+(* proved.  Soundness of the ROW looks nowhere else at p1.                    *)
+Hypothesis hp1 : forall c x, coordP c x -> pstok x ->
+  wdist (p1get p1 c) = 0%uint63 ->
+  ctwisti x = 0%uint63 /\ coordi x = coordfs 1.
+
+(* AND THEN BEING IN H FOLLOWS -- for a position of the GROUP.  RowInH does   *)
+(* the work: a solved coordinate gives the five conditions, and a position of *)
+(* G keeping them is in H.                                                    *)
+Lemma r_p1H_G c x : coordP c x -> pstok x ->
+  pt flast (ti2t flast x) \in G ->
+  wdist (p1get p1 c) = 0%uint63 -> pt flast (ti2t flast x) \in H.
+Proof.
+move=> hc hx hG h0; have [h1 h2] := hp1 hc hx h0.
+exact: (inH_of_coordi hx hG h1 h2).
+Qed.
+
+(* BEING IN THE GROUP IS NOT FREE HERE, and that is the whole of what is left *)
+(* of this one.  Two corners swapped and nothing else is a pstok state with a *)
+(* solved coordinate that keeps all five conditions and is NOT in H, so the   *)
+(* premise cannot be dropped.  The search always has it -- its state is the   *)
+(* superflip times a word -- but neither pstok nor the interface RowRun asks  *)
+(* for carries it, so it cannot be spent here.                                *)
 Lemma r_p1H c x : coordP c x -> pstok x ->
   wdist (p1get p1 c) = 0%uint63 -> pt flast (ti2t flast x) \in H.
 Proof. Admitted.
