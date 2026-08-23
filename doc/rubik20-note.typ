@@ -1518,21 +1518,22 @@ reports on its own.
 
 == What the proof found
 
-The search used to decide it had arrived by reading its pruning table. The
-table stores, for each summary, a number that never overstates the distance to
-a row position, and the search treated a zero as having arrived.
+A row search uses the estimate of @tree twice, and only one of the two uses is
+safe.
 
-That is not sound, and the reason is worth stating. A table of zeros never
-overstates anything. It passes every check the table is asked to pass, and it
-would tell the search it had arrived everywhere. The theorem would then be as
-good as the table and no better, and nothing in the development says the table
-is any good.
+Cutting a branch is safe, for the reason given there: an estimate that is too
+small only means less cutting.
 
-The search now asks the position instead. At the bottom it looks at the
-summary it is carrying and tests it, and a position that fails the test is
-passed over. The pruning table is left to do the one thing it is for, which is
-to prune, and no part of the proof reads it. The cost is one comparison at each
-bottom node.
+Deciding you have arrived is not. The search used to read a zero in the table
+as having reached a position of the row. But a table of zeros is never too
+large, so it meets the one condition the estimate is asked to meet, and it
+would tell the search it had arrived everywhere. The theorem would be worth no
+more than the table, and nothing in the development says the table is any good.
+
+The search now asks the position. At the bottom it tests the summary it is
+carrying, and a position that fails the test is passed over. The table is left
+to do the one thing it is for, and no part of the proof reads it. The cost is
+one comparison at each bottom node.
 
 == What it cost, and what is left
 
