@@ -80,19 +80,34 @@ Local Notation grpm := (grpmv msw mlo mhi).
 (* eighteen.  It is chunked like every other big table.                       *)
 Variable p1 : PArray.array arr.
 
-Definition p1get (c : int) : int :=
-  PArray.get (PArray.get p1 (Uint63.lsr c cshft)) (Uint63.land c cmskw).
+(* FOUR BITS AN ENTRY, FIFTEEN TO A WORD, which is the packing the phase one *)
+(* table is generated in and the one Phase1 reads.  The four bits ARE the     *)
+(* distance, so wdist has nothing to strip.                                   *)
+Definition cwlogi : int := 21%uint63.
+Definition cwmaski : int := Eval vm_compute in
+  Uint63.sub (Uint63.lsl 1%uint63 cwlogi) 1%uint63.
 
-Definition wdist (w : int) : int := Uint63.land w 31%uint63.
+Definition p1get (c : int) : int :=
+  let w := Uint63.div c 15%uint63 in
+  let r := Uint63.sub c (Uint63.mul w 15%uint63) in
+  let ch := Uint63.lsr w cwlogi in
+  let o := Uint63.land w cwmaski in
+  Uint63.land
+    (Uint63.lsr (PArray.get (PArray.get p1 ch) o) (Uint63.mul r 4%uint63))
+    15%uint63.
+
+Definition wdist (w : int) : int := w.
 Definition allmv : int := 262143%uint63.       (* the eighteen moves          *)
 
 (* A move changes the distance by at most one, so a node with s moves to      *)
 (* spare beyond its distance may take any move if s is two or more, one that  *)
 (* does not raise if s is one, and only one that drops if s is nought.        *)
-Definition wmask (w : int) (s : nat) : int :=
-  if (2 <= s)%N then allmv
-  else if s == 1%N then Uint63.land (Uint63.lsr w 23%uint63) allmv
-  else Uint63.land (Uint63.lsr w 5%uint63) allmv.
+(* THE TABLE NO LONGER CARRIES WHICH MOVES GO CLOSER.  A word of it is four  *)
+(* bits and holds the distance alone, so there is nothing to read a mask      *)
+(* from and every move is offered.  That costs breadth at each node and       *)
+(* nothing else: a mask that offers too much makes the search bigger, never   *)
+(* wrong, and srch_sound never looks at it.                                   *)
+Definition wmask (w : int) (s : nat) : int := allmv.
 
 (* THE SEARCH CARRIES A POSITION, NOT A MEMBER.  A member of the row is what  *)
 (* the search reaches when the coordinate is solved, and only then, so what   *)
@@ -111,6 +126,13 @@ Variable posp : pst -> {perm facelet}.
 Variable okmv : int -> int -> bool.
 
 Definition nmvn : nat := 18.
+
+(* THE PRUNING TABLE IS NEVER TRUSTED.  A distance of nought in it is a HINT  *)
+(* that the coordinate is solved and nothing more: a table of noughts is      *)
+(* admissible, so reading a leaf off the table would make the run only as     *)
+(* sound as the table.  The bottom of the search therefore ASKS the position, *)
+(* and the table is left to do the one thing it is for, which is to prune.    *)
+Variable csolved : pst -> bool.
 
 (* ---- the search ---------------------------------------------------------- *)
 
@@ -133,7 +155,9 @@ Fixpoint srch (togo : nat) (c : int) (x : pst) (msk : int) (pv : int)
            then srch togo' c' (xstep x k) (wmask w (togo' - nd)) k m'
            else m')
       m
-  else let: (pg, gr, bt) := plc (tomemb x) in mmark m pg gr bt.
+  else if csolved x
+       then let: (pg, gr, bt) := plc (tomemb x) in mmark m pg gr bt
+       else m.
 
 (* ---- one level, and the run ---------------------------------------------- *)
 
@@ -209,10 +233,10 @@ Hypothesis xstep_pos : forall x k, (to_nat k < nmvn)%N -> pstok x ->
 (* ball is inside the group; without it a state that is a table and nothing   *)
 (* more can have a solved coordinate and still not be in H.                   *)
 Hypothesis leaf_memb : forall c x, coordP c x -> pstok x ->
-  posp x \in G -> wdist (p1get c) = 0%uint63 -> membok par8 par4 (tomemb x).
+  posp x \in G -> csolved x -> membok par8 par4 (tomemb x).
 
 Hypothesis leaf_pos : forall c x, coordP c x -> pstok x ->
-  posp x \in G -> wdist (p1get c) = 0%uint63 -> pos (tomemb x) = posp x.
+  posp x \in G -> csolved x -> pos (tomemb x) = posp x.
 
 (* ---- and the bridge for the prepass -------------------------------------- *)
 
@@ -307,11 +331,9 @@ Proof.
 elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hp hnd hm hb.
   (* a leaf: the distance is nought, so the position is in H and the three    *)
   (* ranks the search reads off are the member it stands for                  *)
-  have h0 : wdist (p1get c) = 0%uint63.
-    by apply: to_nat_inj; rewrite to_nat_0; apply/eqP; rewrite -leqn0.
   have hG : posp x \in G := subsetP (ball_sub_gen Sset _) _ hb.
-  have hok := leaf_memb hc hp hG h0.
-  rewrite /=.
+  rewrite /=; case: (boolP (csolved x)) => [hs|_]; last exact: hm.
+  have hok := leaf_memb hc hp hG hs.
   have E : plc (tomemb x) =
       (mcp (tomemb x),
        Uint63.div (PArray.get e8num (mud (tomemb x))) 2%uint63,
@@ -319,7 +341,7 @@ elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hp hnd hm hb.
   move=> pg' gr' bt' hr ht.
   case: (mmarkP (place_range he8 he4 hok E) hr ht) => [[<- <- <-]|hb2];
     last by apply: hm.
-  rewrite /wthn (unplace_place he8 he4 hok E) (leaf_pos hc hp hG h0).
+  rewrite /wthn (unplace_place he8 he4 hok E) (leaf_pos hc hp hG hs).
   by move: hb; rewrite subn0.
 (* a step: the same map, one move further out                                 *)
 apply: (@ifold_indi _ (fun m' => soundat m' d)); [| |exact: hm].

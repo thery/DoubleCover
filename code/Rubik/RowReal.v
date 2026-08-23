@@ -28,6 +28,7 @@ Require Import RowMoveH RowMoveM RowParity RowPartM.
 Require Import RowPartC RowPartU RowMoveC RowMoveU RowMembChk.
 Require Import RowUp8inv RowUp8ok RowUp4inv RowUp4ok RowPar8 RowPar4.
 Require Import RowWits RowWitsChk RowInH.
+Require Import P1Table.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 
 Set Implicit Arguments.
@@ -43,9 +44,20 @@ Section Real.
 
 (* ---- the four the search carries and no file supplies -------------------- *)
 
-Variable p1 : rmap.
-Variable okmvv : int -> int -> bool.
-Variable srch : nat.
+(* THE TABLE the search prunes with: the phase one table mkp1.sh generates,   *)
+(* four bits an entry and fifteen to a word, the same one the lower bound     *)
+(* reads and read the same way.  Soundness never looks at it -- the search    *)
+(* stops on the position, not on the table -- so a bad table would only make  *)
+(* the run find less.                                                         *)
+Definition p1 : rmap := p1tab.
+
+(* THE MOVE FILTER AND THE DEPTH ARE FREE, and nothing rests on the choice.   *)
+(* okmv only skips moves -- the search passes over one it rejects -- so a     *)
+(* filter that rejects too much makes the search find less, never something   *)
+(* false, and srch_sound never reads either of them.  They are here so the    *)
+(* run can be stated; the run is what says whether they were good choices.    *)
+Definition okmvv (_ _ : int) : bool := true.
+Definition srch : nat := 16.
 
 (* THE FLIP AND SLICE MOVE TABLE'S OWN CERTIFICATE, which the lower bound     *)
 (* already has: FsmChk.fsmoveCP proves it, by native_compute.  Carried as a   *)
@@ -74,10 +86,6 @@ Qed.
 (* is the solved phase one coordinate.  p1 is a Variable here, so this is the *)
 (* soundness of the table the search was handed and it is carried, not        *)
 (* proved.  Soundness of the ROW looks nowhere else at p1.                    *)
-Hypothesis hp1 : forall c x, coordP c x -> pstok x ->
-  wdist (p1get p1 c) = 0%uint63 ->
-  ctwisti x = 0%uint63 /\ coordi x = coordfs 1.
-
 (* ---- and what a leaf is, which is now PROVED ----------------------------- *)
 
 (* Both come straight from RowLeaf once the premise is being in H.  The       *)
@@ -147,7 +155,7 @@ Theorem real_row_within_20 x : membok par8i par4i x ->
   RowRun.wthn (RowFinal.pos (ptab memb2tab)) 20 x.
 Proof.
 apply: (row_within_20_inst e8okC e4okC memb2tab_okC srcokC halfokC
-          r_fsstepP r_leaf_memb r_tomemb_tab hp1
+          r_fsstepP r_leaf_memb r_tomemb_tab
           pgokC grokC btokC memb2tab_moveC
           (erefl 20%N) witsokC r_full).
 Qed.
@@ -160,7 +168,7 @@ Theorem real_superflip_row h : h \in H ->
   superflip^-1 * h \in ball Sset 20.
 Proof.
 apply: (superflip_row_within_20 e8okC e4okC memb2tab_okC srcokC halfokC
-          r_fsstepP r_leaf_memb r_tomemb_tab hp1
+          r_fsstepP r_leaf_memb r_tomemb_tab
           pgokC grokC btokC memb2tab_moveC
           (erefl 20%N) witsokC r_full).
 exact: (row_cover up8invC up8okC up4invC up4okC par8okwC par4okwC).

@@ -258,8 +258,13 @@ Variable okmv : int -> int -> bool.
 Variable dsrch : nat.                     (* where the search gives up        *)
 Variable nlev : nat.                      (* how many levels are run          *)
 
+(* the bottom of the search, asked of the POSITION and not of the table: no  *)
+(* twist and the flip and slice already solved                               *)
+Definition csolvedb (x : pstt) : bool :=
+  (Uint63.eqb (ctwisti x) 0%uint63) && (Uint63.eqb (coordi x) (coordfs 1)).
+
 Definition mfin : rmap :=
-  run e8num e4bit mpg mgr msw mlo mhi p1 cstep xstep tomemb okmv
+  run e8num e4bit mpg mgr msw mlo mhi p1 cstep xstep tomemb okmv csolvedb
       croot sroot dsrch nlev 0 mempty.
 
 Variable wl : seq (int * int * int * seq nat).
@@ -528,11 +533,10 @@ Qed.
 (* rank.                                                                      *)
 (*                                                                            *)
 (* The first is the parity invariant of the cube read off the three ranks.    *)
-(* THE PREMISE IS BEING IN H, not what the pruning table says.  p1 is an     *)
-(* arbitrary array here and nothing ties its numbers to the cube, so a fact   *)
-(* about a leaf cannot rest on one; what is meant is that the position is in  *)
-(* H, and that is a condition on the POSITION.  The step from the one to the  *)
-(* other is p1H below, and it belongs beside the table, not beside the leaf.  *)
+(* WHAT A LEAF IS, ASKED OF THE POSITION.  It cannot be read off the pruning *)
+(* table: a table of noughts is admissible, so a leaf taken on the table's    *)
+(* word would make the run only as sound as the table.  The search tests the  *)
+(* coordinate instead, and the table is left to prune.                        *)
 Hypothesis leaf_memb : forall c x, coordP c x -> pstok x ->
   pt flast (ti2t flast x) \in G ->
   ctwisti x = 0%uint63 -> coordi x = coordfs 1 ->
@@ -555,9 +559,12 @@ Hypothesis tomemb_tab : forall c x, coordP c x -> pstok x ->
 (* dropped: two corners swapped and nothing else is a state whose coordinate  *)
 (* is solved and which is not in H.  The run has it -- a leaf is reached by a *)
 (* word -- and hands it over.                                                 *)
-Hypothesis p1H : forall c x, coordP c x -> pstok x ->
-  wdist (p1get p1 c) = 0%uint63 ->
+(* the test says what it looks like it says, and nothing is assumed          *)
+Lemma csolvedbP x : csolvedb x ->
   ctwisti x = 0%uint63 /\ coordi x = coordfs 1.
+Proof.
+by case/andP => /eqb_correct h1 /eqb_correct h2.
+Qed.
 
 (* the word played is the superflip undone, so the position is the superflip  *)
 (* times the word and both are in the group                                   *)
@@ -570,17 +577,16 @@ Qed.
 
 (* the two above, as the run wants them: at a leaf, which is a nought         *)
 Lemma leaf_membW c x : coordP c x -> pstok x -> posp x \in G ->
-  wdist (p1get p1 c) = 0%uint63 -> membok par8 par4 (tomemb x).
+  csolvedb x -> membok par8 par4 (tomemb x).
 Proof.
-move=> hc hp hG h0; have [h1 h2] := p1H hc hp h0.
+move=> hc hp hG hs; have [h1 h2] := csolvedbP hs.
 exact: leaf_memb hc hp (posp_G hG) h1 h2.
 Qed.
 
 Lemma leaf_pos c x : coordP c x -> pstok x -> posp x \in G ->
-  wdist (p1get p1 c) = 0%uint63 ->
-  RowFinal.pos ptab (tomemb x) = posp x.
+  csolvedb x -> RowFinal.pos ptab (tomemb x) = posp x.
 Proof.
-move=> hc hp hG h0; have [h1 h2] := p1H hc hp h0.
+move=> hc hp hG hs; have [h1 h2] := csolvedbP hs.
 by rewrite posE (tomemb_tab hc hp (posp_G hG) h1 h2).
 Qed.
 

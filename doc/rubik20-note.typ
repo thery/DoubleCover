@@ -1432,6 +1432,129 @@ of them checks that are run once and are not part of the proof. The
 cube, the permutations, the tables and the machine-integer toolbox are the ones
 already there, used unchanged.
 
+= One row of the upper half
+
+Everything above is a lower bound. Twenty face turns are needed, and twenty
+six quarter turns. That twenty face turns always *suffice* is the other half,
+and it is far too big to do here. This section says what one piece of it
+costs, because we did one piece.
+
+== Rows
+
+Ten of the eighteen moves are special. They are the two turns of the top face
+and its half turn, the same three of the bottom face, and the half turns of
+the other four faces. Call them the ten. A quarter turn of a side face is not
+among them.
+
+The positions reachable with the ten alone form a group. Call a row the set of
+positions you get by playing the ten from a fixed starting position. Every
+position of the cube is in exactly one row. There are 2 217 093 120 rows and
+each holds 19 508 428 800 positions.
+
+This is Rokicki's method, and it works because of simple arithmetic. A row is
+large, so there are not many rows, and one search settles a whole row at once
+instead of one position at a time.
+
+To prove the upper bound you take each row in turn and show every position in
+it is within twenty moves. We did that for one row: the superflip's.
+
+#tbl(([], [count]),
+  ([positions of the cube], [43 252 003 274 489 856 000]),
+  ([rows], [2 217 093 120]),
+  ([positions in a row], [19 508 428 800]),
+  ([rows we did], [1]),
+)
+
+The last two lines are the point of the section. One row is not the upper
+bound and is not offered as one.
+
+== A row is one map
+
+A position of a row is named by three numbers: how the eight top and bottom
+corners sit, how the eight top and bottom edges sit, and how the four middle
+edges sit. Two positions with the same three numbers are the same position.
+The map holds one bit for each position of the row. It is 812 851 200 machine
+words of twenty four bits each. That is 19 508 428 800 bits, which is the
+number of positions in a row.
+
+The search starts at the superflip and plays words. When it reaches a position
+of the row it sets that position's bit. When every bit is set, every position
+of the row has been reached by a word, and the theorem follows. Each position the search does not reach is given a word by hand. The word is
+written in the file and played back. There were thirty two such positions,
+with twenty moves each.
+
+== What was already there
+
+Nearly all of it. The search, the map, the tables that move a whole map one
+step at a time, the ranking of the three numbers, the replay of the leftover
+words, the phase one table and the program that generates it: all of that is
+the lower-bound work above, used without change. The cube, the permutations
+and the machine-integer tools are used without change too.
+
+== What had to be added
+
+Four things, and none of them is about searching.
+
+The first is the rank and the sign of a permutation, on machine integers.
+Ranking the three numbers is how a position becomes a bit, and the sign is how
+you tell a position of the cube from an arrangement that no sequence of moves
+can produce. Rocq's library has both, but for its own
+permutations, and those cannot be computed. A program can only use what can
+be computed.
+
+The second is that a position of a row *is* its three numbers, in both
+directions. One direction was already there: the three numbers give back the
+position. The other was missing: every position of the row has three numbers,
+and those numbers pass the test the map applies. Without it the theorem is
+about triples of numbers and not about the cube.
+
+The third is the link between the search's summary of a position and what the
+second one needs. The search carries a summary and not the position, because
+the summary is one machine word and the position is forty eight. The link says
+that if the summary is solved then the position is what it should be.
+
+The fourth is a few checks on the tables, one check per file, so that each one
+reports separately.
+
+== What the proof found
+
+The search uses the table for two things. One is safe. The other is not.
+
+Cutting a branch is safe. @tree says why. A table that says too little only
+cuts less.
+
+Stopping is not safe. The search used to stop when the table said zero, and
+take the position it had reached as one of the row. Now fill the table with
+zeros. It still says too little, so it is still allowed. But it stops the
+search everywhere, and the theorem says nothing. Nothing here says the table
+is any good.
+
+So the search stops on the position, not on the table. At the bottom it looks
+at the position it is carrying and tests it. If the test fails it moves on.
+The table only cuts, and no part of the proof reads it. It costs one
+comparison at the bottom.
+
+== What it cost, and what is left
+
+The row is thirty one Rocq files. Twenty eight are hand-written and come to
+6 579 lines; the other three are generated, 141 458 lines of array literals and
+words. Ten of the hand-written files, 2 682 lines, are the ones this section is
+about.
+
+#tbl(([], [wall clock], [processor time]),
+  ([the row's Rocq files, checks and all], [2 min 25], [4 min 37]),
+  ([the phase one table, as Rocq files], [], [8 h 48]),
+)
+
+The phase one table is 2.9 GB of Rocq source and 4.5 GB once checked, and it
+is generated once and shared with the lower-bound work.
+
+What is proved is everything except the search itself. Every position of the
+row is a member of the map, every member the map marks is within twenty moves,
+the leftover words replay, and the tables pass their checks. What has not run
+is the search that fills the map. Until it runs, the row is not done, and the
+statement says so: it still has that one hypothesis.
+
 = What was done, and what it taught
 
 Two numbers, and the lower half of each. No position of the cube is solved in
