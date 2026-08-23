@@ -145,6 +145,10 @@ rewrite mem_iota => /andP[hj1 hj2].
 by rewrite hfg // (leq_trans hj2) // subnKC.
 Qed.
 
+(* one place off the end of a range                                           *)
+Lemma subn_step n k : (k < n)%N -> (n - k)%N = (n - k.+1).+1.
+Proof. by move=> hk; rewrite subnS prednK // subn_gt0. Qed.
+
 Definition swp (i p : nat) : nat :=
   if p == i then i.+1 else if p == i.+1 then i else p.
 
@@ -208,11 +212,63 @@ Lemma prmn_swap_mid n q i : (i.+1 < n)%N -> q i != q i.+1 ->
                (iota i.+2 (n - i.+2)))
   = ~~ odd (count (fun j => (q j < q i)%N) (iota i.+1 (n - i.+1))
             + count (fun j => (q j < q i.+1)%N) (iota i.+2 (n - i.+2))).
-Proof. Admitted.
+Proof.
+move=> hi hne.
+have hsp : (n - i.+1)%N = (n - i.+2).+1 := subn_step hi.
+have hsi : swp i i = i.+1 by rewrite /swp eqxx.
+have hsi1 : swp i i.+1 = i by rewrite /swp gtn_eqF ?ltnSn // eqxx.
+have htail r : count (fun j => (q (swp i j) < r)%N) (iota i.+2 (n - i.+2))
+             = count (fun j => (q j < r)%N) (iota i.+2 (n - i.+2)).
+  apply: eq_in_count => j; rewrite mem_iota => /andP[hj _].
+  have hn1 : j != i by rewrite gtn_eqF // (leq_trans (leqnSn _) hj).
+  have hn2 : j != i.+1 by rewrite gtn_eqF.
+  by rewrite /swp ifN ?ifN.
+have hb : (q i.+1 < q i)%N = ~~ (q i < q i.+1)%N by case: ltngtP hne.
+rewrite hsi hsp /= hsi1 !htail hb.
+set C0 := count (fun j => (q j < q i)%N) (iota i.+2 (n - i.+2)).
+set C1 := count (fun j => (q j < q i.+1)%N) (iota i.+2 (n - i.+2)).
+by case: (q i < q i.+1)%N; rewrite !oddD /=; case: (odd C0); case: (odd C1).
+Qed.
+
+(* two of a row of four turn over, so the row turns over                      *)
+Lemma addb_mid (A a b B c d : bool) : a (+) b = ~~ (c (+) d) ->
+  A (+) (a (+) (b (+) B)) = ~~ (A (+) (c (+) (d (+) B))).
+Proof.
+by move=> h; case: A; case: B; move: h; case: a; case: b; case: c; case: d.
+Qed.
 
 Lemma prmn_swap n q i : (i.+1 < n)%N -> q i != q i.+1 ->
   prmn n (fun p => q (swp i p)) = ~~ prmn n q.
-Proof. Admitted.
+Proof.
+move=> hi hne.
+have hin : (i <= n)%N by apply: ltnW; apply: ltnW.
+have hin1 : (i < n)%N by apply: ltn_trans (ltnSn i) hi.
+have hni : (n - i)%N = (n - i.+2).+2.
+  by rewrite (subn_step hin1) (subn_step hi).
+have hcat : iota 0 n = iota 0 i ++ [:: i, i.+1 & iota i.+2 (n - i.+2)].
+  by rewrite -{1}(subnKC hin) iotaD add0n hni.
+have hA : sumn [seq count (fun j => (q (swp i j) < q (swp i k))%N)
+                         (iota k.+1 (n - k.+1)) | k <- iota 0 i]
+        = sumn [seq count (fun j => (q j < q k)%N) (iota k.+1 (n - k.+1))
+               | k <- iota 0 i].
+  congr sumn; apply/eq_in_map => k; rewrite mem_iota add0n => /andP[_ hk].
+  apply: prmn_swap_out => //.
+  - by apply: ltn_trans hk _; apply: ltn_trans (ltnSn i) hi.
+  - by rewrite ltn_eqF.
+  by rewrite ltn_eqF // (ltn_trans hk (ltnSn i)).
+have hB : sumn [seq count (fun j => (q (swp i j) < q (swp i k))%N)
+                         (iota k.+1 (n - k.+1)) | k <- iota i.+2 (n - i.+2)]
+        = sumn [seq count (fun j => (q j < q k)%N) (iota k.+1 (n - k.+1))
+               | k <- iota i.+2 (n - i.+2)].
+  congr sumn; apply/eq_in_map => k; rewrite mem_iota => /andP[hk1 hk2].
+  rewrite subnKC // in hk2.
+  apply: prmn_swap_out => //.
+  - by rewrite gtn_eqF // (ltn_trans (ltnSn i) hk1).
+  by rewrite gtn_eqF.
+rewrite /prmn hcat !map_cat !sumn_cat /= hA hB.
+rewrite !oddD; apply: addb_mid.
+by rewrite -!oddD; apply: prmn_swap_mid.
+Qed.
 
 Lemma prmn_mul n q1 q2 :
   perm_eq [seq q1 p | p <- iota 0 n] (iota 0 n) ->
