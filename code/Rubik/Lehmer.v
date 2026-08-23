@@ -145,10 +145,26 @@ Lemma code_tails n q1 q2 :
 Proof. Admitted.
 
 (* one member of a set of naturals has a given number of members below it     *)
+(* raising the bar past a member of the list counts one more                  *)
+Lemma count_lt_strict (s : seq nat) v w : (v < w)%N -> v \in s ->
+  (count (fun x => (x < v)%N) s < count (fun x => (x < w)%N) s)%N.
+Proof.
+move=> hvw; elim: s => [|x t ih] //=; rewrite inE => /orP[/eqP hx|hv].
+  rewrite -hx ltnn hvw /= add0n add1n ltnS.
+  by apply: sub_count => y h; apply: (ltn_trans h hvw).
+apply: (@leq_ltn_trans ((x < w)%N + count (fun x0 => (x0 < v)%N) t)).
+  by rewrite leq_add2r; case: (ltnP x v) => h; rewrite ?(ltn_trans h hvw).
+by rewrite ltn_add2l; apply: ih.
+Qed.
+
 Lemma count_below_inj (s : seq nat) (v w : nat) :
   uniq s -> v \in s -> w \in s ->
   count (fun x => (x < v)%N) s = count (fun x => (x < w)%N) s -> v = w.
-Proof. Admitted.
+Proof.
+move=> hu hv hw h; case: (ltngtP v w) => // hlt.
+  by move: (count_lt_strict hlt hv); rewrite h ltnn.
+by move: (count_lt_strict hlt hw); rewrite h ltnn.
+Qed.
 
 Lemma code_perm n (q1 q2 : nat -> nat) :
   perm_eq [seq q1 p | p <- iota 0 n] (iota 0 n) ->
@@ -328,9 +344,28 @@ Proof. by []. Qed.
 (* order; and exchanging there loses exactly one inversion.  So the induction *)
 (* runs on the number of inversions and each step is prmn_swap.               *)
 
+(* a permutation of the places that never goes down is the identity on them   *)
+Lemma nondec_id n q : perm_eq [seq q p | p <- iota 0 n] (iota 0 n) ->
+  (forall i j, (i < j)%N -> (j < n)%N -> (q i <= q j)%N) ->
+  forall p, (p < n)%N -> q p = p.
+Proof. Admitted.
+
 Lemma invn0_id n q : perm_eq [seq q p | p <- iota 0 n] (iota 0 n) ->
   invn n q = 0%N -> forall p, (p < n)%N -> q p = p.
-Proof. Admitted.
+Proof.
+move=> hp h0; apply: nondec_id => // i j hij hjn.
+have hin : (i < n)%N by apply: ltn_trans hij hjn.
+have hd : lcode n q i = 0%N.
+  apply/eqP; rewrite -leqn0 -h0 /invn.
+  have : lcode n q i \in [seq lcode n q k | k <- iota 0 n].
+    by apply/mapP; exists i => //; rewrite mem_iota.
+  by elim: [seq _ _ _ | _ <- _] => //= x l ih; rewrite inE
+     => /orP[/eqP->|/ih hl]; [apply: leq_addr | apply: leq_trans hl _;
+     apply: leq_addl].
+move: hd; rewrite /lcode => /eqP; rewrite -leqn0 leqNgt -has_count.
+move/negP => hh; rewrite leqNgt; apply/negP => hlt; apply: hh; apply/hasP.
+by exists j => //; rewrite mem_iota hij subnKC.
+Qed.
 
 Lemma has_descent n q : (0 < invn n q)%N ->
   {i | (i.+1 < n)%N & (q i.+1 < q i)%N}.
@@ -378,13 +413,33 @@ Hypothesis h1lt : forall p, (p < n1)%N -> (q1 p < n1)%N.
 (* something below it                                                         *)
 Lemma lcode_cat1 i : (i < n1)%N ->
   lcode (n1 + n2) e i = lcode n1 q1 i.
-Proof. Admitted.
+Proof.
+move=> hi; rewrite /lcode.
+have hi1 : (i.+1 <= n1)%N by [].
+have hs : (n1 + n2 - i.+1)%N = ((n1 - i.+1) + n2)%N.
+  by rewrite addnBAC.
+rewrite hs iotaD subnKC // count_cat.
+have -> : count (fun j => (e j < e i)%N) (iota n1 n2) = 0%N.
+  apply/eqP; rewrite -leqn0 leqNgt -has_count; apply/negP => /hasP[j].
+  rewrite mem_iota => /andP[hj1 hj2] /=.
+  rewrite -(subnKC hj1) he2 ?he1 //; last by rewrite ltn_subLR // addnC.
+  move=> h.
+  by move: (ltn_trans h (h1lt hi)); rewrite ltnNge leq_addr.
+rewrite addn0; apply: eq_in_count => j.
+by rewrite mem_iota subnKC // => /andP[hj1 hj2]; rewrite !he1.
+Qed.
 
 (* and a place of the second block counts only inside the second, where the   *)
 (* comparison is the same one shifted by n1                                   *)
 Lemma lcode_cat2 p : (p < n2)%N ->
   lcode (n1 + n2) e (n1 + p)%N = lcode n2 q2 p.
-Proof. Admitted.
+Proof.
+move=> hp; rewrite /lcode -addnS.
+have -> : (n1 + n2 - (n1 + p.+1))%N = (n2 - p.+1)%N by rewrite subnDl.
+rewrite iotaDl count_map; apply: eq_in_count => j.
+rewrite mem_iota subnKC // => /andP[_ hj].
+by rewrite /= !he2 // ltn_add2l.
+Qed.
 
 Lemma prmn_cat : prmn (n1 + n2) e = prmn n1 q1 (+) prmn n2 q2.
 Proof.
