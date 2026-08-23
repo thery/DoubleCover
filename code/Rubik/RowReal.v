@@ -28,6 +28,7 @@ Require Import RowMoveH RowMoveM RowParity RowPartM.
 Require Import RowPartC RowPartU RowMoveC RowMoveU RowMembChk.
 Require Import RowUp8inv RowUp8ok RowUp4inv RowUp4ok RowPar8 RowPar4.
 Require Import RowWits RowWitsChk RowInH.
+Require Import P1Table.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 
 Set Implicit Arguments.
@@ -43,10 +44,12 @@ Section Real.
 
 (* ---- the four the search carries and no file supplies -------------------- *)
 
-(* THE TABLE the search prunes with.  It is the phase one table mkp1.sh       *)
-(* generates, four bits an entry and fifteen to a word, and it is a Variable  *)
-(* until that file is in the tree.                                            *)
-Variable p1 : rmap.
+(* THE TABLE the search prunes with: the phase one table mkp1.sh generates,   *)
+(* four bits an entry and fifteen to a word, the same one the lower bound     *)
+(* reads and read the same way.  Soundness never looks at it -- the search    *)
+(* stops on the position, not on the table -- so a bad table would only make  *)
+(* the run find less.                                                         *)
+Definition p1 : rmap := p1tab.
 
 (* THE MOVE FILTER AND THE DEPTH ARE FREE, and nothing rests on the choice.   *)
 (* okmv only skips moves -- the search passes over one it rejects -- so a     *)
