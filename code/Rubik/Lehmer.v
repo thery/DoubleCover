@@ -156,11 +156,51 @@ case: (p =P i.+1) => [->|hi1]; first by rewrite eqxx.
 by rewrite ifN ?ifN //; apply/eqP.
 Qed.
 
+(* the exchange sends the places after k to the places after k: either both   *)
+(* i and i + 1 are among them, and it swaps two of them, or neither is and it *)
+(* does nothing                                                               *)
+Lemma swp_mem n i k j : (i.+1 < n)%N -> k != i -> k != i.+1 ->
+  (k.+1 <= j)%N -> (j < n)%N -> (k.+1 <= swp i j)%N && (swp i j < n)%N.
+Proof.
+move=> hi hki hki1 hj1 hj2.
+have [hlt|hge] := ltnP k i.
+  rewrite /swp; case: eqP => [_|_].
+    by rewrite hi andbT (leq_trans hlt (leqnSn i)).
+  case: eqP => [_|_]; last by rewrite hj1 hj2.
+  by rewrite hlt (ltnW hi).
+have hgt : (i.+1 < k)%N.
+  rewrite ltn_neqAle eq_sym hki1 /=.
+  by move: hge; rewrite leq_eqVlt eq_sym (negbTE hki).
+have hik : (i < k)%N := ltn_trans (ltnSn i) hgt.
+have hn1 : j != i by rewrite gtn_eqF // (ltn_trans hik hj1).
+have hn2 : j != i.+1 by rewrite gtn_eqF // (ltn_trans hgt hj1).
+by rewrite /swp ifN ?ifN ?hj1 ?hj2.
+Qed.
+
 Lemma prmn_swap_out n q i k : (k < n)%N -> (i.+1 < n)%N ->
   k != i -> k != i.+1 ->
   count (fun j => (q (swp i j) < q (swp i k))%N) (iota k.+1 (n - k.+1))
   = count (fun j => (q j < q k)%N) (iota k.+1 (n - k.+1)).
-Proof. Admitted.
+Proof.
+move=> hk hi hki hki1.
+have hsk : swp i k = k by rewrite /swp ifN ?ifN.
+rewrite hsk.
+transitivity (count (fun x => (q x < q k)%N)
+                    [seq swp i j | j <- iota k.+1 (n - k.+1)]).
+  by rewrite count_map.
+have hperm : perm_eq [seq swp i j | j <- iota k.+1 (n - k.+1)]
+                     (iota k.+1 (n - k.+1)).
+  apply: uniq_perm.
+  - by rewrite map_inj_uniq ?iota_uniq //; apply: can_inj (swpK i).
+  - exact: iota_uniq.
+  move=> j; rewrite mem_iota subnKC //; apply/mapP/idP => [[j' hj' ->]|hj].
+    move: hj'; rewrite mem_iota subnKC // => /andP[h1 h2].
+    by have /andP[-> ->] := swp_mem hi hki hki1 h1 h2.
+  exists (swp i j); last by rewrite swpK.
+  move: hj => /andP[h1 h2]; rewrite mem_iota subnKC //.
+  by have /andP[-> ->] := swp_mem hi hki hki1 h1 h2.
+by rewrite (permP hperm).
+Qed.
 
 Lemma prmn_swap_mid n q i : (i.+1 < n)%N -> q i != q i.+1 ->
   odd (count (fun j => (q (swp i j) < q (swp i i))%N) (iota i.+1 (n - i.+1))
