@@ -78,27 +78,6 @@ Hypothesis hp1 : forall c x, coordP c x -> pstok x ->
   wdist (p1get p1 c) = 0%uint63 ->
   ctwisti x = 0%uint63 /\ coordi x = coordfs 1.
 
-(* AND THEN BEING IN H FOLLOWS -- for a position of the GROUP.  RowInH does   *)
-(* the work: a solved coordinate gives the five conditions, and a position of *)
-(* G keeping them is in H.                                                    *)
-Lemma r_p1H_G c x : coordP c x -> pstok x ->
-  pt flast (ti2t flast x) \in G ->
-  wdist (p1get p1 c) = 0%uint63 -> pt flast (ti2t flast x) \in H.
-Proof.
-move=> hc hx hG h0; have [h1 h2] := hp1 hc hx h0.
-exact: (inH_of_coordi hx hG h1 h2).
-Qed.
-
-(* BEING IN THE GROUP IS NOT FREE HERE, and that is the whole of what is left *)
-(* of this one.  Two corners swapped and nothing else is a pstok state with a *)
-(* solved coordinate that keeps all five conditions and is NOT in H, so the   *)
-(* premise cannot be dropped.  The search always has it -- its state is the   *)
-(* superflip times a word -- but neither pstok nor the interface RowRun asks  *)
-(* for carries it, so it cannot be spent here.                                *)
-Lemma r_p1H c x : coordP c x -> pstok x ->
-  wdist (p1get p1 c) = 0%uint63 -> pt flast (ti2t flast x) \in H.
-Proof. Admitted.
-
 (* ---- and what a leaf is, which is now PROVED ----------------------------- *)
 
 (* Both come straight from RowLeaf once the premise is being in H.  The       *)
@@ -110,7 +89,9 @@ Section Leaf.
 
 Variable x : pstt.
 Hypothesis hx : pstok x.
-Hypothesis hH : pt flast (ti2t flast x) \in H.
+Hypothesis hG : pt flast (ti2t flast x) \in G.
+Hypothesis htw : ctwisti x = 0%uint63.
+Hypothesis hfs : coordi x = coordfs 1.
 
 Let u := ti2t flast (inv_tabi flast x).
 
@@ -121,19 +102,16 @@ Proof.
 by rewrite /u (ti2t_inv n47_small n47_len r_xok); apply/tab_ok_inv/r_xok.
 Qed.
 
-Lemma r_uH : pt flast u \in H.
+Lemma r_uG : pt flast u \in G.
 Proof.
 rewrite /u (ti2t_inv n47_small n47_len r_xok) -(ptV r_xok) groupV.
-exact: hH.
+exact: hG.
 Qed.
-
-Lemma r_uG : pt flast u \in G.
-Proof. by apply: (subsetP HsubG); exact: r_uH. Qed.
 
 Lemma r_leafW : membok par8i par4i (tomemb x)
   /\ pt flast (memb2tab (tomemb x)) = pt flast (ti2t flast x).
 Proof.
-have [qc [qu [qm [c1 c2 c3 c4 [c5 c6]]]]] := inH_conds r_uok r_uH.
+have [qc [qu [qm [c1 c2 c3 c4 [c5 c6]]]]] := placeP_of_coordi hx hG htw hfs.
 split.
   exact: (leaf_membH c1 c2 c3 c4 c5 c6 par8okwC par4okwC
             up8invC up8okC up4invC up4okC r_uok r_uG (erefl u)).
@@ -144,13 +122,16 @@ Qed.
 End Leaf.
 
 Lemma r_leaf_memb c x : coordP c x -> pstok x ->
-  pt flast (ti2t flast x) \in H -> membok par8i par4i (tomemb x).
-Proof. by move=> _ hx hH; case: (r_leafW hx hH). Qed.
+  pt flast (ti2t flast x) \in G ->
+  ctwisti x = 0%uint63 -> coordi x = coordfs 1 ->
+  membok par8i par4i (tomemb x).
+Proof. by move=> _ hx hG htw hfs; case: (r_leafW hx hG htw hfs). Qed.
 
 Lemma r_tomemb_tab c x : coordP c x -> pstok x ->
-  pt flast (ti2t flast x) \in H ->
+  pt flast (ti2t flast x) \in G ->
+  ctwisti x = 0%uint63 -> coordi x = coordfs 1 ->
   pt flast (memb2tab (tomemb x)) = pt flast (ti2t flast x).
-Proof. by move=> _ hx hH; case: (r_leafW hx hH). Qed.
+Proof. by move=> _ hx hG htw hfs; case: (r_leafW hx hG htw hfs). Qed.
 
 (* AND THE MAP, 812 851 200 words: the run and the witnesses together leave   *)
 (* no bit of the row clear.  This is the long pole and it is only a run.      *)
@@ -166,7 +147,7 @@ Theorem real_row_within_20 x : membok par8i par4i x ->
   RowRun.wthn (RowFinal.pos (ptab memb2tab)) 20 x.
 Proof.
 apply: (row_within_20_inst e8okC e4okC memb2tab_okC srcokC halfokC
-          r_fsstepP r_leaf_memb r_tomemb_tab r_p1H
+          r_fsstepP r_leaf_memb r_tomemb_tab hp1
           pgokC grokC btokC memb2tab_moveC
           (erefl 20%N) witsokC r_full).
 Qed.
@@ -179,7 +160,7 @@ Theorem real_superflip_row h : h \in H ->
   superflip^-1 * h \in ball Sset 20.
 Proof.
 apply: (superflip_row_within_20 e8okC e4okC memb2tab_okC srcokC halfokC
-          r_fsstepP r_leaf_memb r_tomemb_tab r_p1H
+          r_fsstepP r_leaf_memb r_tomemb_tab hp1
           pgokC grokC btokC memb2tab_moveC
           (erefl 20%N) witsokC r_full).
 exact: (row_cover up8invC up8okC up4invC up4okC par8okwC par4okwC).

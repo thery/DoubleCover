@@ -229,44 +229,31 @@ have /andP[cc /eqP ts] := tg.
 exact: coord_solved_hok tok cg cc ts htw hfs.
 Qed.
 
-(* ---- THE ONE STEP LEFT, and it is a fact about the group ----------------- *)
-
-(* THE CONVERSE OF RowLeaf's inH_hok.  That one says a position of H has a    *)
-(* table keeping the five conditions; this says a position of the GROUP whose *)
-(* table keeps them is in H, so that the five conditions cut H out of G       *)
-(* exactly.                                                                   *)
-(*                                                                            *)
-(* NOTHING IN THE TREE PROVES IT and nothing here does either.  Two ways are  *)
-(* known.  One is to solve: turn such a position into a word over the ten     *)
-(* generators of H, which is a phase two algorithm and its correctness.  The  *)
-(* other is to count: H has 8! * 8! * 4! / 2 elements and so do the positions *)
-(* of G keeping the five conditions, and inH_hok already gives one inclusion, *)
-(* so the two would be equal -- but neither cardinal is in the tree.          *)
-Lemma hok_inH v : tab_ok flast v -> pt flast v \in G -> hok v ->
-  pt flast v \in H.
-Proof. Admitted.
-
 (* ---- and the statement the row wants ------------------------------------- *)
 
-(* on a table: the coordinate is the solved one, so the position is in H      *)
-Lemma inH_of_coord t : tab_ok flast t -> pt flast t \in G ->
-  coordtw (pt flast t) = 0%uint63 -> coordfs (pt flast t) = coordfs 1 ->
-  pt flast t \in H.
-Proof.
-move=> tok gG htw hfs.
-have vok : tab_ok flast (inv_tab flast t) := tab_ok_inv tok.
-have vG : pt flast (inv_tab flast t) \in G by rewrite -(ptV tok) groupV.
-have := hok_inH vok vG (G_coord_solved_hok tok gG htw hfs).
-by rewrite -(ptV tok) groupV.
-Qed.
-
-(* and on a state of the search, which is the shape r_p1H is stated in        *)
-Lemma inH_of_coordi x : pstok x -> pt flast (ti2t flast x) \in G ->
+(* BEING IN H IS NOT NEEDED, and that was the whole difficulty.  What the     *)
+(* three place permutations want is hok itself, which the solved coordinate   *)
+(* already gives; going round by H would have asked for the converse of       *)
+(* inH_hok, which is a phase two algorithm or a counting argument, and        *)
+(* neither is in the tree.  hok_conds takes the short way.                    *)
+(*                                                                            *)
+(* Read on the INVERSE table throughout, which is the side coordfs and        *)
+(* coordtw already look at.                                                   *)
+Lemma placeP_of_coordi x : pstok x -> pt flast (ti2t flast x) \in G ->
   ctwisti x = 0%uint63 -> coordi x = coordfs 1 ->
-  pt flast (ti2t flast x) \in H.
+  exists qc qu qm, placeP (ti2t flast (inv_tabi flast x)) qc qu qm.
 Proof.
-move=> /and3P[xok _ _] xG htw hfs.
-apply: (inH_of_coord (t := ti2t flast x) xok xG).
+move=> hx hG htw hfs.
+have xok : tabi_ok flast x by case/and3P: hx.
+have tok : tab_ok flast (ti2t flast x) := xok.
+have hu : ti2t flast (inv_tabi flast x) = inv_tab flast (ti2t flast x)
+  := ti2t_inv n47_small n47_len xok.
+have huok : tab_ok flast (ti2t flast (inv_tabi flast x)).
+  by rewrite hu; apply: tab_ok_inv.
+have huG : pt flast (ti2t flast (inv_tabi flast x)) \in G.
+  by rewrite hu -(ptV tok) groupV.
+apply: (hok_conds huok huG); rewrite hu.
+apply: (G_coord_solved_hok tok hG).
   by rewrite (ctwisttE xok) -(ctwistiE xok) htw.
 by rewrite (coordtE xok) -(coordiE xok) hfs.
 Qed.

@@ -77,17 +77,21 @@ Lemma d_fsstepP x k : (to_nat k < RowRun.nmvn)%N -> pstok x ->
 Proof. Admitted.
 
 Lemma d_leaf_memb c x : coordP c x -> pstok x ->
-  pt flast (ti2t flast x) \in H -> membok d1 d1 (dtomemb x).
+  pt flast (ti2t flast x) \in G ->
+  ctwisti x = 0%uint63 -> coordi x = coordfs 1 ->
+  membok d1 d1 (dtomemb x).
 Proof. Admitted.
 
 Lemma d_tomemb_tab c x : coordP c x -> pstok x ->
-  pt flast (ti2t flast x) \in H ->
+  pt flast (ti2t flast x) \in G ->
+  ctwisti x = 0%uint63 -> coordi x = coordfs 1 ->
   pt flast (dmemb (dtomemb x)) = pt flast (ti2t flast x).
 Proof. Admitted.
 
 (* and what the pruning table is for: a nought says the position is in H     *)
 Lemma d_p1H c x : coordP c x -> pstok x ->
-  wdist (p1get dm c) = 0%uint63 -> pt flast (ti2t flast x) \in H.
+  wdist (p1get dm c) = 0%uint63 ->
+  ctwisti x = 0%uint63 /\ coordi x = coordfs 1.
 Proof. Admitted.
 
 Lemma d_pgok : pgok d1.

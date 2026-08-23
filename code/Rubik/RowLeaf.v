@@ -1324,12 +1324,25 @@ Qed.
 (* permutation is pok, which G_pok carries -- for the twelve edges at once,   *)
 (* and the slice being solved splits it into the outer eight and the middle   *)
 (* four.                                                                      *)
-Lemma inH_conds u : tab_ok flast u -> pt flast u \in H ->
+(* THE FIVE CONDITIONS ARE ENOUGH, and being in H is not needed: what the     *)
+(* three place permutations want is hok itself, plus the position being in    *)
+(* the group so that its place permutations are permutations.                 *)
+Lemma hok_conds u : tab_ok flast u -> pt flast u \in G -> hok u ->
   exists qc qu qm, placeP u qc qu qm.
 Proof.
-move=> uok uH.
-have [c1 c2 c3 c4 c5] := inH_tabconds uok uH.
-have uG : pt flast u \in G by apply: (subsetP HsubG).
+move=> uok uG hu.
+have /and5P[k1 k2 k3 k4 k5] := hu.
+have c1 : comp_tab u ccyct = comp_tab ccyct u by apply/eqP.
+have c2 : forall p, (p < 8)%N -> nth 0%N u (nth 0%N cprimp p) \in cprim.
+  by move=> p hp; apply: (all_iota_lt k2 hp).
+have c3 : forall f, (f < 48)%N ->
+    nth 0%N u (epairn f) = epairn (nth 0%N u f).
+  by move=> f hf; move: (all_iota_lt k3 hf) => /eqP ->.
+have c4 : forall p, (p < 12)%N -> nth 0%N u (nth 0%N eprim p) \in eprim.
+  by move=> p hp; apply: (all_iota_lt k4 hp).
+have c5 : forall p, (p < 12)%N ->
+    (8 <= eposn (nth 0%N u (nth 0%N eprim p)))%N = (8 <= p)%N.
+  by move=> p hp; move: (all_iota_lt k5 hp) => /eqP ->.
 have [v [vok vpok vpt _]] := G_pok uG.
 have hv : v = u by apply: (Tsearch.pt_inj vok uok); rewrite vpt.
 have /and3P[_ hcp hep] : pok u by rewrite -hv.
@@ -1370,6 +1383,17 @@ split.
 apply: perm_of_rng => [|p hp]; first exact: h4u.
 exact: (eperm_of_ltm uok c4 c5 hp).
 Qed.
+(* and being in H gives the five, so it gives the three too                   *)
+Lemma inH_conds u : tab_ok flast u -> pt flast u \in H ->
+  exists qc qu qm, placeP u qc qu qm.
+Proof.
+move=> uok uH.
+have [v [vok vhok vpt]] := inH_hok uH.
+have hv : v = u by apply: (Tsearch.pt_inj vok uok); rewrite vpt.
+apply: (hok_conds uok (subsetP HsubG _ uH)).
+by rewrite -hv.
+Qed.
+
 
 (* AND THE TABLE ITSELF IS FREE.  G_pok says every position of the group has  *)
 (* a table, so h needs none of its own: take the one for h^-1, since tomemb   *)
