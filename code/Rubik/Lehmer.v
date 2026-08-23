@@ -99,9 +99,55 @@ Qed.
 Definition lcode (n : nat) (q : nat -> nat) (i : nat) : nat :=
   count (fun j => (q j < q i)%N) (iota i.+1 (n - i.+1)).
 
+(* a digit is below its radix                                                 *)
+Lemma lcode_bd n q i : (lcode n q i <= n - i.+1)%N.
+Proof.
+by rewrite /lcode -{2}(size_iota i.+1 (n - i.+1)); apply: count_size.
+Qed.
+
+(* PEEL ONE DIGIT AND REPEAT.  fold_mixed_div reads the fold's starting value *)
+(* back, so from two equal folds the two starts are equal; that value is      *)
+(* r * (n - k) + the digit at k, and since the digit is below n - k a         *)
+(* division and a remainder separate the two.  Then the tails are equal folds *)
+(* again and the induction carries on.                                        *)
+Lemma lrank_code_gen n q1 q2 m k r1 r2 : (k + m = n)%N ->
+  foldl (fun a i => (a * (n - i) + lcode n q1 i)%N) r1 (iota k m)
+  = foldl (fun a i => (a * (n - i) + lcode n q2 i)%N) r2 (iota k m) ->
+  r1 = r2 /\ forall i, (k <= i)%N -> (i < n)%N ->
+    lcode n q1 i = lcode n q2 i.
+Proof. Admitted.
+
 Lemma lrank_code n (q1 q2 : nat -> nat) :
   lrank n q1 = lrank n q2 ->
   forall i, (i < n)%N -> lcode n q1 i = lcode n q2 i.
+Proof.
+move=> h i hi.
+by have [_ hd] := @lrank_code_gen n q1 q2 n 0%N 0%N 0%N (add0n n) h; apply: hd.
+Qed.
+
+(* THE DIGIT COUNTS VALUES, not places: how many of the values still to come  *)
+(* are below the one taken here.                                              *)
+Lemma lcodeE n q p : lcode n q p
+  = count (fun v => (v < q p)%N) [seq q j | j <- iota p.+1 (n - p.+1)].
+Proof. by rewrite /lcode count_map. Qed.
+
+(* THE CODE DETERMINES THE PERMUTATION, and the induction is on the place.    *)
+(* Which values are still to come at place p is settled by the places before  *)
+(* p; the digit then says how many of them are below the one taken at p,      *)
+(* which picks it out of them, because a set of naturals has one member with  *)
+(* a given number of members below it.                                        *)
+Lemma code_tails n q1 q2 :
+  perm_eq [seq q1 p | p <- iota 0 n] (iota 0 n) ->
+  perm_eq [seq q2 p | p <- iota 0 n] (iota 0 n) ->
+  (forall i, (i < n)%N -> lcode n q1 i = lcode n q2 i) ->
+  forall p, (p <= n)%N ->
+    perm_eq [seq q1 j | j <- iota p (n - p)] [seq q2 j | j <- iota p (n - p)].
+Proof. Admitted.
+
+(* one member of a set of naturals has a given number of members below it     *)
+Lemma count_below_inj (s : seq nat) (v w : nat) :
+  uniq s -> v \in s -> w \in s ->
+  count (fun x => (x < v)%N) s = count (fun x => (x < w)%N) s -> v = w.
 Proof. Admitted.
 
 Lemma code_perm n (q1 q2 : nat -> nat) :
@@ -270,20 +316,85 @@ rewrite !oddD; apply: addb_mid.
 by rewrite -!oddD; apply: prmn_swap_mid.
 Qed.
 
+(* the number of inversions, of which prmn is the parity                      *)
+Definition invn (n : nat) (q : nat -> nat) : nat :=
+  sumn [seq lcode n q i | i <- iota 0 n].
+
+Lemma prmnI n q : prmn n q = odd (invn n q).
+Proof. by []. Qed.
+
+(* BUBBLE SORT, in three pieces.  A permutation with no inversions is the     *)
+(* identity; one that is not the identity has two neighbouring places out of  *)
+(* order; and exchanging there loses exactly one inversion.  So the induction *)
+(* runs on the number of inversions and each step is prmn_swap.               *)
+
+Lemma invn0_id n q : perm_eq [seq q p | p <- iota 0 n] (iota 0 n) ->
+  invn n q = 0%N -> forall p, (p < n)%N -> q p = p.
+Proof. Admitted.
+
+Lemma has_descent n q : (0 < invn n q)%N ->
+  {i | (i.+1 < n)%N & (q i.+1 < q i)%N}.
+Proof. Admitted.
+
+Lemma invn_swap n q i : (i.+1 < n)%N -> (q i.+1 < q i)%N ->
+  (invn n (fun p => q (swp i p)) < invn n q)%N.
+Proof. Admitted.
+
 Lemma prmn_mul n q1 q2 :
   perm_eq [seq q1 p | p <- iota 0 n] (iota 0 n) ->
   perm_eq [seq q2 p | p <- iota 0 n] (iota 0 n) ->
   prmn n (fun p => q1 (q2 p)) = prmn n q1 (+) prmn n q2.
-Proof. Admitted.
+Proof.
+move=> h1; move: {2}(invn n q2) (leqnn (invn n q2)) => m.
+elim: m q2 => [|m ih] q2 hm h2.
+  have h0 : invn n q2 = 0%N by apply/eqP; rewrite -leqn0.
+  have hid := invn0_id h2 h0.
+  rewrite (prmn_eq (fun p hp => congr1 q1 (hid p hp))).
+  by rewrite [prmn n q2]prmnI h0 /= addbF.
+case: (posnP (invn n q2)) => [h0|hpos].
+  have hid := invn0_id h2 h0.
+  rewrite (prmn_eq (fun p hp => congr1 q1 (hid p hp))).
+  by rewrite [prmn n q2]prmnI h0 /= addbF.
+have [i hi hdesc] := has_descent hpos.
+have hne : q2 i != q2 i.+1 by rewrite gtn_eqF.
+Admitted.
 
 (* ---- a permutation that keeps to a partition ----------------------------- *)
 
 (* If the first n1 places go among themselves and the last n2 among           *)
 (* themselves, a pair of places from different halves is never an inversion,  *)
 (* so the count splits and the sign is the exclusive or of the two.           *)
-Lemma prmn_cat n1 n2 (e q1 q2 : nat -> nat) :
-  (forall p, (p < n1)%N -> e p = q1 p) ->
-  (forall p, (p < n2)%N -> e (n1 + p)%N = (n1 + q2 p)%N) ->
-  (forall p, (p < n1)%N -> (q1 p < n1)%N) ->
-  prmn (n1 + n2) e = prmn n1 q1 (+) prmn n2 q2.
+Section Cat.
+
+Variable n1 n2 : nat.
+Variable e q1 q2 : nat -> nat.
+
+Hypothesis he1 : forall p, (p < n1)%N -> e p = q1 p.
+Hypothesis he2 : forall p, (p < n2)%N -> e (n1 + p)%N = (n1 + q2 p)%N.
+Hypothesis h1lt : forall p, (p < n1)%N -> (q1 p < n1)%N.
+
+(* a place of the first block counts only inside the first block: a place of  *)
+(* the second holds something at n1 or above, and a place of the first holds  *)
+(* something below it                                                         *)
+Lemma lcode_cat1 i : (i < n1)%N ->
+  lcode (n1 + n2) e i = lcode n1 q1 i.
 Proof. Admitted.
+
+(* and a place of the second block counts only inside the second, where the   *)
+(* comparison is the same one shifted by n1                                   *)
+Lemma lcode_cat2 p : (p < n2)%N ->
+  lcode (n1 + n2) e (n1 + p)%N = lcode n2 q2 p.
+Proof. Admitted.
+
+Lemma prmn_cat : prmn (n1 + n2) e = prmn n1 q1 (+) prmn n2 q2.
+Proof.
+rewrite /prmn iotaD map_cat sumn_cat oddD; congr (_ (+) _).
+  congr odd; congr sumn; apply/eq_in_map => i.
+  by rewrite mem_iota add0n => /andP[_ hi]; apply: lcode_cat1.
+congr odd; congr sumn.
+rewrite add0n -[in LHS](addn0 n1) iotaDl -map_comp addn0.
+apply/eq_in_map => p; rewrite mem_iota add0n => /andP[_ hp].
+exact: lcode_cat2.
+Qed.
+
+End Cat.
