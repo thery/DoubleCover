@@ -1436,8 +1436,8 @@ already there, used unchanged.
 
 Everything above is a lower bound. Twenty face turns are needed, and twenty
 six quarter turns. That twenty face turns always *suffice* is the other half,
-and the whole of it is out of reach here. This section says what one piece of
-it costs, because we did one piece.
+and it is far too big to do here. This section says what one piece of it
+costs, because we did one piece.
 
 == Rows
 
@@ -1451,9 +1451,9 @@ positions you get by playing the ten from a fixed starting position. Every
 position of the cube is in exactly one row. There are 2 217 093 120 rows and
 each holds 19 508 428 800 positions.
 
-That is the whole of Rokicki's method, and the reason it works is arithmetic.
-A row is large, so there are few of them, and one search settles a whole row
-at once instead of one position at a time.
+This is Rokicki's method, and it works because of simple arithmetic. A row is
+large, so there are not many rows, and one search settles a whole row at once
+instead of one position at a time.
 
 To prove the upper bound you take each row in turn and show every position in
 it is within twenty moves. We did that for one row: the superflip's.
@@ -1473,23 +1473,23 @@ bound and is not offered as one.
 A position of a row is named by three numbers: how the eight top and bottom
 corners sit, how the eight top and bottom edges sit, and how the four middle
 edges sit. Two positions with the same three numbers are the same position.
-The three numbers fit in one bit of a map, and the map has one bit for every
-position of the row: 812 851 200 machine words of twenty four bits each, which
-is 19 508 428 800 bits and not one to spare.
+The map holds one bit for each position of the row. It is 812 851 200 machine
+words of twenty four bits each. That is 19 508 428 800 bits, which is the
+number of positions in a row.
 
 The search starts at the superflip and plays words. When it reaches a position
 of the row it sets that position's bit. When every bit is set, every position
-of the row has been reached by a word, and the theorem follows. The positions
-the search does not reach are handed a word each, written out and replayed;
-there were thirty two of them, twenty moves apiece.
+of the row has been reached by a word, and the theorem follows. Each position the search does not reach is given a word by hand. The word is
+written in the file and played back. There were thirty two such positions,
+with twenty moves each.
 
 == What was already there
 
 Nearly all of it. The search, the map, the tables that move a whole map one
 step at a time, the ranking of the three numbers, the replay of the leftover
 words, the phase one table and the program that generates it: all of that is
-the lower-bound work above, used unchanged. The cube, the permutations and the
-machine-integer toolbox likewise.
+the lower-bound work above, used without change. The cube, the permutations
+and the machine-integer tools are used without change too.
 
 == What had to be added
 
@@ -1498,23 +1498,23 @@ Four things, and none of them is about searching.
 The first is the rank and the sign of a permutation, on machine integers.
 Ranking the three numbers is how a position becomes a bit, and the sign is how
 you tell a position of the cube from an arrangement that no sequence of moves
-can produce. Rocq's library has both for its own permutations, but those do not
-compute, and a table walk cannot ask for something that does not compute.
+can produce. Rocq's library has both, but for its own
+permutations, and those cannot be computed. A program can only use what can
+be computed.
 
-The second is that a position of a row *is* its three numbers, both ways
-round. That the three numbers give back the position was already needed. What
-was missing is the other direction: every position of the row has three
-numbers, and they pass the test the map applies. Without it the theorem is
+The second is that a position of a row *is* its three numbers, in both
+directions. One direction was already there: the three numbers give back the
+position. The other was missing: every position of the row has three numbers,
+and those numbers pass the test the map applies. Without it the theorem is
 about triples of numbers and not about the cube.
 
-The third is the bridge from the search's own summary of a position to the
-conditions the second one wants. The search carries a small summary rather
-than the position, because the summary is one machine word and the position is
-forty eight; the bridge says the summary being solved is the position being
-what it should be.
+The third is the link between the search's summary of a position and what the
+second one needs. The search carries a summary and not the position, because
+the summary is one machine word and the position is forty eight. The link says
+that if the summary is solved then the position is what it should be.
 
-The fourth is a handful of checks over the tables, one file each so that each
-reports on its own.
+The fourth is a few checks on the tables, one check per file, so that each one
+reports separately.
 
 == What the proof found
 
@@ -1523,9 +1523,9 @@ The search uses the table for two things. One is safe. The other is not.
 Cutting a branch is safe. @tree says why. A table that says too little only
 cuts less.
 
-Stopping is not safe. The search used to stop when the table said nought, and
+Stopping is not safe. The search used to stop when the table said zero, and
 take the position it had reached as one of the row. Now fill the table with
-noughts. It still says too little, so it is still allowed. But it stops the
+zeros. It still says too little, so it is still allowed. But it stops the
 search everywhere, and the theorem says nothing. Nothing here says the table
 is any good.
 
@@ -1552,8 +1552,8 @@ is generated once and shared with the lower-bound work.
 What is proved is everything except the search itself. Every position of the
 row is a member of the map, every member the map marks is within twenty moves,
 the leftover words replay, and the tables pass their checks. What has not run
-is the search that fills the map. Until it does, the row is not settled, and
-the statement carries that one hypothesis in plain sight.
+is the search that fills the map. Until it runs, the row is not done, and the
+statement says so: it still has that one hypothesis.
 
 = What was done, and what it taught
 
