@@ -405,6 +405,52 @@ If the 17.7 GB is the problem, the answer is not a lower cap but the fold
 Rokicki uses and `fold.md` already describes: the sixteen symmetries of the
 U/D axis, 15.7x, about 1.1 GB, at the price of a fold on every lookup.
 
+### The map, folded by the sixteen renamings
+
+Turning or reflecting the whole cube renames the faces.  The sixteen renamings
+that leave the pair U/D where it is send H to H, rename a move to a move, and
+leave the superflip alone.  So a member of the superflip's row carries fifteen
+others, all reached by a word of the same length, and **one page of each orbit
+is enough to keep: 2768 of the 40320.**
+
+    make fball N=18                      the ball of H, folded
+    make row ROWFOLD=1 ROW="..."         a row, folded
+
+Measured on gukesh, `fball 18`: the whole of H, 19 508 428 800 members, in
+**1 m 14 s** with a map of **0.45 GB** -- the four arrays together, what is
+known now and what is being built.  The paper's own figure for the same
+bitmap is 2.3 GB, and its prepass marks into "a new copy" of it.
+
+Every level count is the one the unfolded map gives, and up to five the one
+the ball worked out a position at a time gives.
+
+The fold is sound only for a row all sixteen renamings leave alone.  The
+superflip is such a row; `ROW="R U F L D B R U F L"` is not, and `ROWFOLD=1`
+says so and stops rather than fold it.
+
+Three things it turns on, and each was nearly a bug:
+
+* **conjugation acts coordinate by coordinate** on the corners, the outer
+  edges and the middle four, so pages, groups and bits fold separately and
+  the prepass stays a matter of whole words;
+* **a group is not sent to a group.**  A group is a pair of outer edge
+  permutations differing by exchanging cubies 0 and 1, and a renaming
+  exchanges two others, so the two members of a pair land in two different
+  pairs.  Parity is what saves it: the low half of a word is one parity and
+  the high half the other, no renaming changes a parity, so each half moves
+  as a block -- to its own destination word;
+* **the level must gather, not scatter.**  Where a move sends a kept page is
+  usually not a kept page, so the level reads the ten pages a move brings to
+  a kept page rather than writing where a move sends it.
+
+The renamings are not written out: what each does to a twist and to a flip is
+searched for, and the test is that all eighteen moves are renamed to moves.
+`make rowcheck` runs that, the superflip being left alone, the automorphism,
+the page orbits, and the fold tables against the conjugation on twenty
+thousand members of H.
+
+`./rubik_row dumptab fold` writes the tables the Rocq side reads.
+
 ### The first row, measured
 
 The row of H itself, on roquableu, one core, 2026-08-20:
