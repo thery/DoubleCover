@@ -124,8 +124,9 @@ Variable croot : int.
 Variable sroot : pst.
 Variable dsrch : nat.
 
-Definition flvl (d : nat) (m : rmap) : rmap :=
-  let m' := flev m in
+(* The two maps: the level reads m and fills dst, and the caller swaps.       *)
+Definition flvl (d : nat) (m dst : rmap) : rmap :=
+  let m' := flev m dst in
   if (d <= dsrch)%N then
     let w := p1g croot in
     let nd := Uint63.to_nat (wdist w) in
@@ -133,7 +134,7 @@ Definition flvl (d : nat) (m : rmap) : rmap :=
     else m'
   else m'.
 
-Fixpoint frun (n : nat) (d : nat) (m : rmap) : rmap :=
-  if n is n1.+1 then frun n1 d.+1 (flvl d.+1 m) else m.
+Fixpoint frun (n : nat) (d : nat) (m dst : rmap) : rmap :=
+  if n is n1.+1 then frun n1 d.+1 (flvl d.+1 m dst) m else m.
 
 End FSrch.

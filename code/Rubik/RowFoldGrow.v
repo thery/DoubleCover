@@ -52,7 +52,7 @@ Notation fmrun d :=
              mgri mswi mloi mhii
              p1ftab frepi fsymi twsymi
              fstep xstep tomemb okmvv fsolved croot sroot srch
-             d 0 memptyf)).
+             d 0 (mkempty tt) (mkempty tt))).
 
 (* the empty map first: no level in it at all, so its time is what loading    *)
 (* and the fullness walk cost, and every line after it is that plus the       *)

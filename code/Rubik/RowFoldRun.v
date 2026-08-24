@@ -41,18 +41,20 @@ Local Open Scope uint63_scope.
 
 (* the solved position, where it stands: the first page, the group of the     *)
 (* first outer permutation, and the bit of the first middle one               *)
-Definition fseed : PArray.array (PArray.array int) :=
-  fmark fpgi fsgri fsbti memptyf 0
+(* A FUNCTION, NOT A VALUE.  The two maps swap, so the seed is written into at
+   the second level; a global would then hold every difference made to it. *)
+Definition fseed (u : unit) : PArray.array (PArray.array int) :=
+  fmark fpgi fsgri fsbti (mkempty tt) 0
     (Uint63.lsr (PArray.get e8numi 0) 1) (PArray.get e4biti 0).
 
 Notation flv n :=
-  (flevn fsrci fsgri fsloi fshii mgri mswi mloi mhii n fseed).
+  (flevn fsrci fsgri fsloi fshii mgri mswi mloi mhii n (fseed tt) (mkempty tt)).
 
 Notation fcnt m := (fcount forbi fpopi m).
 
 (* the seed alone first: no level in it at all, so its time is what loading   *)
 (* and the count cost, and every line after it is that plus the levels        *)
-Time Eval native_compute in fcnt fseed.
+Time Eval native_compute in fcnt (fseed tt).
 
 Time Eval native_compute in fcnt (flv 1).
 Time Eval native_compute in fcnt (flv 2).

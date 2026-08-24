@@ -83,6 +83,11 @@ Definition mkempty (u : unit) : rmap :=
     (fun c a => PArray.set a c (PArray.make csizef 0))
     (PArray.make nchunkf (PArray.make 1 0)).
 
+(* NEVER START A RUN FROM THIS ONE.  A persistent array keeps its whole       *)
+(* history behind any pointer that is still held, and a global is held for    *)
+(* ever: every map written from memptyf would keep every difference ever made *)
+(* to it alive.  Runs call mkempty tt, which nothing holds.  This one is for  *)
+(* reading -- mfullf memptyf and the like -- and for nothing that writes.     *)
 Definition memptyf : rmap := mkempty tt.
 
 (* the chunk a kept page lives in, and where the page starts inside it        *)
@@ -239,6 +244,11 @@ Definition flevmv (src : rmap) (r k doff : int) (a : arr) : arr :=
     a.
 
 (* one kept page: the carry, then the ten moves, then the chunk put back      *)
+(* THE CARRY OVERWRITES.  The destination is a map of two levels ago, so its  *)
+(* words are stale and every one of them is written, nought or not.  That is  *)
+(* what lets the two maps be reused instead of a new one being made a level:  *)
+(* a map made a level is 454 MB, and the old ones are held long enough to     *)
+(* pile up.                                                                   *)
 Definition flevpg (src : rmap) (r : int) (d : rmap) : rmap :=
   let c := pchk r in
   let doff := poff r in
@@ -248,20 +258,19 @@ Definition flevpg (src : rmap) (r : int) (d : rmap) : rmap :=
     ifold ngroupn 0
       (fun g b =>
          let j := Uint63.add doff g in
-         let v := PArray.get sa j in
-         if Uint63.eqb v 0 then b
-         else PArray.set b j (Uint63.lor (PArray.get b j) v))
+         PArray.set b j (PArray.get sa j))
       a0 in
   let a2 := ifold nhn 0 (fun k b => flevmv src r k doff b) a1 in
   PArray.set d c a2.
 
-(* THE LEVEL BUILDS ITS OWN, for the same reason: a map named once is a map   *)
-(* every level writes onto, and the differences then never die.               *)
-Definition flevel (src : rmap) : rmap :=
-  ifold nrepn 0 (fun r d => flevpg src r d) (mkempty tt).
+(* THE TWO MAPS ARE HANDED IN AND HANDED BACK.  Nothing is allocated a level: *)
+(* the level reads one and fills the other, and the caller swaps them.        *)
+Definition flevel (src : rmap) (dst : rmap) : rmap :=
+  ifold nrepn 0 (fun r d => flevpg src r d) dst.
 
-Fixpoint flevn (n : nat) (m : rmap) : rmap :=
-  if n is n1.+1 then flevn n1 (flevel m) else m.
+(* n levels, the two maps swapping at each one                                *)
+Fixpoint flevn (n : nat) (m d : rmap) : rmap :=
+  if n is n1.+1 then flevn n1 (flevel m d) m else m.
 
 (* ---- the members, counted ------------------------------------------------ *)
 
