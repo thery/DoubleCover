@@ -54,11 +54,9 @@ Notation fcnt m := (fcount forbi fpopi m).
 (* and the count cost, and every line after it is that plus the levels        *)
 Time Eval native_compute in fcnt fseed.
 
+Time Eval native_compute in fcnt (flv 1).
 Time Eval native_compute in fcnt (flv 2).
-Time Eval native_compute in fcnt (flv 4).
-Time Eval native_compute in fcnt (flv 6).
-Time Eval native_compute in fcnt (flv 8).
-Time Eval native_compute in fcnt (flv 10).
+Time Eval native_compute in fcnt (flv 3).
 
 (* the whole of H, and the row's own question -- the long one *)
 (* Time Eval native_compute in fcnt (flv 18).   19508428800 *)
