@@ -1029,18 +1029,18 @@ module P = struct
       t' := Diff (i, old, t);
       a
 
-  let get t i = Array.unsafe_get (reroot t) i
+  let get t i = (reroot t).(i)
 
+  (* NO SHORT CUT ON AN EQUAL VALUE, and the accesses are checked: PArray
+     does neither, and the point of this program is to cost what PArray
+     costs. *)
   let set t i v =
     let a = reroot t in
-    let old = Array.unsafe_get a i in
-    if old == v then t
-    else begin
-      Array.unsafe_set a i v;
-      let res = ref (Arr a) in
-      t := Diff (i, old, res);
-      res
-    end
+    let old = a.(i) in
+    a.(i) <- v;
+    let res = ref (Arr a) in
+    t := Diff (i, old, res);
+    res
 end
 
 (* the map: forty four chunks of sixty four kept pages, as Rocq lays it out *)
@@ -1141,6 +1141,117 @@ let pball n =
   for d = 1 to n do
     let t0 = Unix.gettimeofday () in
     let m = plevel !cur !nxt in
+    let t1 = Unix.gettimeofday () in
+    nxt := !cur; cur := m;
+    let st = Gc.quick_stat () in
+    Printf.printf "level %2d : %d (%.1f s, heap %.2f GB, allocated %.1f GB)\n%!"
+      d (pcount !cur) (t1 -. t0)
+      (float_of_int (Gc.stat ()).Gc.heap_words *. 8.0 /. 1e9)
+      ((st.Gc.minor_words +. st.Gc.major_words) *. 8.0 /. 1e9)
+  done;
+  exit 0
+
+(* ---- the level, translated from the Rocq LITERALLY ---------------------- *)
+
+(* The mode above is the level written the way one writes OCaml.  This one is
+   RowFold.v turned into OCaml line by line: the same ifold walking a count
+   with a closure, the same flat tables read by the same arithmetic, the same
+   packed source word taken apart by shifting.  Nothing is hoisted that the
+   Rocq does not hoist.  What it costs is what the PROGRAM costs; whatever
+   Rocq costs beyond it is the evaluator. *)
+
+(* the tables, flattened exactly as dumptab writes them for Rocq *)
+let lfsrc = Array.init (nrep * nh) (fun i ->
+  let r = i / nh and k = i mod nh in
+  let q = mpginv.(reps.(r)).(k) in
+  let p = repof.(q) in
+  (repix.(p) * nsym + sinv.(symof.(q))) * 2 + pgpar.(p))
+let lfsgr = Array.init (nsym * 2 * ngroup) (fun i ->
+  sgr.(i / (2 * ngroup)).(i / ngroup mod 2).(i mod ngroup))
+let lfslo = Array.init (nsym * 4096) (fun i -> slo.(i / 4096).(i mod 4096))
+let lfshi = Array.init (nsym * 4096) (fun i -> shi.(i / 4096).(i mod 4096))
+let lmgr = Array.init (ngroup * nh) (fun i -> mgroup.(i / nh).(i mod nh))
+let lmlo = Array.init (nh * 4096) (fun i -> mlo.(i / 4096).(i mod 4096))
+let lmhi = Array.init (nh * 4096) (fun i -> mhi.(i / 4096).(i mod 4096))
+
+(* ifold, as RowMap.v has it: a count, a running int, a closure a step *)
+let rec ifold n x f a = if n = 0 then a else ifold (n - 1) (x + 1) f (f x a)
+
+let lo12 = 4095
+let nhi = nh
+
+let fpar w = w land 1
+let fren w = (w lsr 1) land 15
+let fkpt w = w lsr 5
+
+let pchk r = r lsr 6
+let poff r = (r land 63) * ngroup
+
+let lflevmv (src : pmap) r k doff (a : int P.t) : int P.t =
+  let w = lfsrc.(r * nhi + k) in
+  let u = fren w in
+  let pc = fpar w in
+  let p = fkpt w in
+  let sa = P.get src (pchk p) in
+  let soff = poff p in
+  let glo = (u * 2 + pc) * ngroup in
+  let ghi = (u * 2 + (1 - pc)) * ngroup in
+  let ub = u lsl 12 in
+  let kb = k lsl 12 in
+  let sw = mswap.(k) = 0 in
+  ifold ngroup 0
+    (fun g b ->
+       let v = P.get sa (soff + g) in
+       if v = 0 then b
+       else
+         let lo = v land lo12 in
+         let hi = (v lsr 12) land lo12 in
+         let b1 =
+           if lo = 0 then b
+           else
+             let l = lmlo.(kb + lfslo.(ub + lo)) in
+             let j = doff + lmgr.(lfsgr.(glo + g) * nhi + k) in
+             P.set b j (P.get b j lor (if sw then l else l lsl 12)) in
+         if hi = 0 then b1
+         else
+           let h = lmhi.(kb + lfshi.(ub + hi)) in
+           let j = doff + lmgr.(lfsgr.(ghi + g) * nhi + k) in
+           P.set b1 j (P.get b1 j lor (if sw then h lsl 12 else h)))
+    a
+
+let lflevpg (src : pmap) r (d : pmap) : pmap =
+  let c = pchk r in
+  let doff = poff r in
+  let sa = P.get src c in
+  let a0 = P.get d c in
+  let a1 = ifold ngroup 0
+      (fun g b -> let j = doff + g in P.set b j (P.get sa j)) a0 in
+  let a2 = ifold nh 0 (fun k b -> lflevmv src r k doff b) a1 in
+  P.set d c a2
+
+let lflevel (src : pmap) (dst : pmap) : pmap =
+  ifold nrep 0 (fun r d -> lflevpg src r d) dst
+
+let lball n =
+  Printf.printf "the literal level: %d chunks of %d, two maps, %.2f GB\n%!"
+    pnchunk pcsize (float_of_int (2 * pnchunk * pcsize * 8) /. 1e9);
+  let cur = ref (pmkempty ()) and nxt = ref (pmkempty ()) in
+  let s = solved () in
+  let pg = rank s.cp 0 8 in
+  let sy = syms.(symof.(pg)) in
+  let b8 = Array.make 8 0 and b12 = Array.make 12 0 in
+  for j = 0 to 7 do b8.(sy.sc.(j)) <- sy.sc.(s.cp.(j)) done;
+  for j = 0 to 11 do b12.(sy.se.(j)) <- sy.se.(s.ep.(j)) done;
+  let r = repix.(repof.(pg)) in
+  let gr = e8num.(rank b12 0 8) lsr 1 and bt = e4bit.(rank b12 8 4) in
+  let a = P.get !cur (pchk r) in
+  let j = poff r + gr in
+  let a = P.set a j (P.get a j lor (1 lsl (bt mod 12))) in
+  cur := P.set !cur (pchk r) a;
+  Printf.printf "level  0 : %d\n%!" (pcount !cur);
+  for d = 1 to n do
+    let t0 = Unix.gettimeofday () in
+    let m = lflevel !cur !nxt in
     let t1 = Unix.gettimeofday () in
     nxt := !cur; cur := m;
     let st = Gc.quick_stat () in
@@ -1559,6 +1670,8 @@ let () =
     usefold := true; hball (int_of_string Sys.argv.(2)) end;
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "pball" then
     pball (int_of_string Sys.argv.(2));
+  if Array.length Sys.argv > 2 && Sys.argv.(1) = "lball" then
+    lball (int_of_string Sys.argv.(2));
   let cap = int_of_string Sys.argv.(1) in
   let maxdepth = int_of_string Sys.argv.(2) in
   let arg = if Array.length Sys.argv > 3 then Sys.argv.(3) else "" in
