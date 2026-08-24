@@ -51,7 +51,7 @@ Notation fmcnt d :=
         mgri mswi mloi mhii
         p1ftab frepi fsymi twsymi
         fstep xstep tomemb okmvv fsolved croot sroot srch
-        d 0 memptyf)).
+        d 0 (mkempty tt) (mkempty tt))).
 
 (* how many leaves the search reaches at depth ten: the prototype says 3072  *)
 Time Eval native_compute in
