@@ -1561,12 +1561,17 @@ statement says so: it still has that one hypothesis.
 
 Two numbers, and the lower half of each. No position of the cube is solved in
 19 face turns, and none in 25 quarter turns, because one position is not: the
-superflip for the first, the superflip on the four-spot for the second. That
-20 and 26 always suffice is not proved here. Both halves are proved the same
-way, by a search that comes back empty over a table that says how far a
-position still is.
+superflip for the first, the superflip on the four-spot for the second. Both
+are proved the same way, by a search that comes back empty over a table that
+says how far a position still is.
 
-Four things came out of doing it.
+That 20 and 26 always suffice is not proved here. The upper half is a
+different job: not one search that finds nothing, but two billion searches
+that must each find everything. We did one of the two billion, and the last
+section says what it cost. It is not the upper bound. What it shows is that
+the pieces are in place and what one piece is worth.
+
+Five things came out of doing it.
 
 *A search that says no is only as good as the facts nobody checks.* Our own
 prototype for the first bound dropped six of the thirty beginnings it should
@@ -1584,7 +1589,19 @@ in arrays, not lists of unary numbers, and the second table is folded by its
 symmetries from 29 billion entries to 883 MB. Where a number was left in the
 prover's unary form the sweep ran twenty times slower, and where a small table
 was inverted inside a loop instead of once outside it, a thousand times
-slower. Both were measured, and both were mistakes made here first.
+slower. The row made the same mistake a third time: its ranking counted in
+unary, and one of its checks took 5 min 49 until the count moved to machine
+integers, after which it took 26 s. All three were measured, and all three
+were mistakes made here first.
+
+*A search that says yes needs watching as much as one that says no.* The row
+search finds words, so it says yes, and it used to say so by reading its
+pruning table: distance zero, therefore arrived. That table is only ever
+asked to say too little, and a table of zeros says too little. It would have
+passed, and it would have told the search it had arrived everywhere. The
+search now asks the position. The lesson is the same as the first one, from
+the other side: what a search reports is worth only what it checks before
+reporting it.
 
 *The facts nobody writes down are the ones that cost.* Reid's proposition
 needs a maneuver that cannot be shortened, which he does not say. The summary
@@ -1598,7 +1615,7 @@ The sources are at
 with the note, its figures and Reid's transcribed post beside them.
 
 This development was written with the help of Claude, Anthropic's coding
-assistant, which is recorded as a co-author of 336 of the 353 commits of
+assistant, which is recorded as a co-author of 433 of the 458 commits of
 `code/Rubik`.
 
 #pagebreak(weak: true)
