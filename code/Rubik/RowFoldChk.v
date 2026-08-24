@@ -31,18 +31,31 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
+(* SPELT OUT HERE, NOT TAKEN BY NAME.  These two are RowInst's own -- the step
+   with Farp1's flip and slice table in it, and the leaf test -- written out
+   so that this file does not depend on how a section discharged them.  A
+   checkout whose RowInst differs then fails on the DEFINITION, which says
+   what differs, instead of on a unification message. *)
+Definition fstep (c k : int) : int :=
+  Uint63.add (Uint63.mul (acttwii (Uint63.div c nfsi) k) nfsi)
+             (actfsri (Uint63.mod c nfsi) k).
+
+Definition fsolved (c : int) (x : pstt) : bool :=
+  [&& Uint63.eqb c csolvedi, Uint63.eqb (ctwisti x) 0%uint63
+    & Uint63.eqb (coordi x) (coordfs 1)].
+
 Notation fmcnt d :=
   (fcount forbi fpopi
      (frun e8numi e4biti
         fpgi fsrci fsgri fsloi fshii fsbti
         mgri mswi mloi mhii
         p1ftab frepi fsymi twsymi
-        (cstep actfsri) xstep tomemb okmvv csolvedb croot sroot srch
+        fstep xstep tomemb okmvv fsolved croot sroot srch
         d 0 memptyf)).
 
 (* how many leaves the search reaches at depth ten: the prototype says 3072  *)
 Time Eval native_compute in
   fsrchn p1ftab frepi fsymi twsymi
-    (cstep actfsri) xstep okmvv csolvedb 10 croot sroot allmv 18 0.
+    fstep xstep okmvv fsolved 10 croot sroot allmv 18 0.
 
 Time Eval native_compute in fmcnt 10.
