@@ -71,8 +71,19 @@ Definition ppcmask : int := 63.
 Definition csizef  : int := 1290240.           (* 64 * 20160                  *)
 Definition nchunkf : int := 44.                (* 2768 pages, 64 at a time    *)
 
-Definition memptyf : rmap :=
-  PArray.make nchunkf (PArray.make csizef 0).
+(* EVERY CHUNK ITS OWN ARRAY.  `PArray.make nchunkf (PArray.make csizef 0)'   *)
+(* runs the inner make ONCE and hands the same array to all forty four slots,  *)
+(* so a write to any chunk chains a difference onto that one array -- and it   *)
+(* is a global, which nothing ever collects.  Built chunk by chunk instead,    *)
+(* each make is under a lambda and runs afresh.                               *)
+Definition nchunkn : nat := 44.
+
+Definition mkempty (u : unit) : rmap :=
+  ifold nchunkn 0
+    (fun c a => PArray.set a c (PArray.make csizef 0))
+    (PArray.make nchunkf (PArray.make 1 0)).
+
+Definition memptyf : rmap := mkempty tt.
 
 (* the chunk a kept page lives in, and where the page starts inside it        *)
 Definition pchk (r : int) : int := Uint63.lsr r ppcshft.
@@ -244,8 +255,10 @@ Definition flevpg (src : rmap) (r : int) (d : rmap) : rmap :=
   let a2 := ifold nhn 0 (fun k b => flevmv src r k doff b) a1 in
   PArray.set d c a2.
 
+(* THE LEVEL BUILDS ITS OWN, for the same reason: a map named once is a map   *)
+(* every level writes onto, and the differences then never die.               *)
 Definition flevel (src : rmap) : rmap :=
-  ifold nrepn 0 (fun r d => flevpg src r d) memptyf.
+  ifold nrepn 0 (fun r d => flevpg src r d) (mkempty tt).
 
 Fixpoint flevn (n : nat) (m : rmap) : rmap :=
   if n is n1.+1 then flevn n1 (flevel m) else m.
