@@ -1097,7 +1097,7 @@ let fcheck fail =
   done;
   Printf.printf
     "the fold: %d renamings, %d pages of %d kept, map %.2f GB against %.2f\n"
-    nsym npage nrep
+    nsym nrep npage
     (float_of_int (4 * 2 * fsize) /. 1e9)
     (float_of_int (4 * 2 * mapsize) /. 1e9)
 
