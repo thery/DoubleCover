@@ -1271,6 +1271,72 @@ let lleak n =
   Printf.printf "the global is still alive: %d\n%!" (pcount lglobal);
   exit 0
 
+(* ---- LeakSrch.v, transcribed --------------------------------------------- *)
+
+(* The Rocq file LeakSrch.v is the row's search stripped to its shape: a tree
+   eighteen wide, a new position at every node, a big table read at every node
+   to decide whether to go on, and a mark at every leaf -- all of it over
+   persistent arrays.  In Rocq that one crept from 1.20 GB to 2.10.  This is
+   the same program in OCaml, line for line, so that the two can be set side
+   by side.
+
+   The table is 70 MB of numbers.  What is IN it does not matter: the search
+   reads it at every node and the shape is what is being measured. *)
+
+let ltabsz = 5 * 2097152
+
+let ltab =
+  let a = Array.make ltabsz 0 in
+  let x = ref 123456789 in
+  for i = 0 to ltabsz - 1 do
+    x := (!x * 1103515245 + 12345) land 0x3FFFFFFF;
+    a.(i) <- !x land 15
+  done; a
+
+let lnpos = 48
+
+(* a position, stepped: a new persistent array a node *)
+let lstep (x : int P.t) (k : int) : int P.t =
+  let a = ref (P.make lnpos 0) in
+  for i = 0 to lnpos - 1 do a := P.set !a i (P.get x i + k) done;
+  !a
+
+let ldist v = ltab.((v land 2097151) + 2097152 * ((v lsr 21) land 3))
+
+let lmark (m : pmap) v =
+  let c = v land 31 in
+  let a = P.get m c in
+  let i = v land 1048575 in
+  P.set m c (P.set a i (P.get a i lor 1))
+
+let rec lsrch togo (x : int P.t) (m : pmap) : pmap =
+  if togo = 0 then lmark m (P.get x 0)
+  else begin
+    let mm = ref m in
+    for k = 0 to 17 do
+      let x' = lstep x k in
+      let d = ldist (P.get x' 0) in
+      if d land 15 <> 15 then mm := lsrch (togo - 1) x' !mm
+    done;
+    !mm
+  end
+
+let lsrchrun d =
+  Printf.printf "the search transcribed: depth %d, a table of %d words\n%!"
+    d ltabsz;
+  let m = ref (pmkempty ()) in
+  let x = ref (P.make lnpos 1) in
+  let t0 = Unix.gettimeofday () in
+  m := lsrch d !x !m;
+  let t1 = Unix.gettimeofday () in
+  Printf.printf "depth %d : %.1f s, heap %.2f GB, allocated %.1f GB\n%!"
+    d (t1 -. t0)
+    (float_of_int (Gc.stat ()).Gc.heap_words *. 8.0 /. 1e9)
+    (let st = Gc.quick_stat () in
+     (st.Gc.minor_words +. st.Gc.major_words) *. 8.0 /. 1e9);
+  Printf.printf "the map is still alive: %d\n%!" (pcount !m);
+  exit 0
+
 let lball n =
   Printf.printf "the literal level: %d chunks of %d, two maps, %.2f GB\n%!"
     pnchunk pcsize (float_of_int (2 * pnchunk * pcsize * 8) /. 1e9);
@@ -1713,6 +1779,8 @@ let () =
     lball (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "lleak" then
     lleak (int_of_string Sys.argv.(2));
+  if Array.length Sys.argv > 2 && Sys.argv.(1) = "lsrch" then
+    lsrchrun (int_of_string Sys.argv.(2));
   let cap = int_of_string Sys.argv.(1) in
   let maxdepth = int_of_string Sys.argv.(2) in
   let arg = if Array.length Sys.argv > 3 then Sys.argv.(3) else "" in
