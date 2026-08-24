@@ -260,8 +260,18 @@ Variable nlev : nat.                      (* how many levels are run          *)
 
 (* the bottom of the search, asked of the POSITION and not of the table: no  *)
 (* twist and the flip and slice already solved                               *)
-Definition csolvedb (x : pstt) : bool :=
-  (Uint63.eqb (ctwisti x) 0%uint63) && (Uint63.eqb (coordi x) (coordfs 1)).
+(* the solved coordinate, as one word: no twist, and the flip and slice       *)
+(* already solved                                                            *)
+Definition csolvedi : int := fsidx (coordfs 1).
+
+(* THE CHEAP TEST FIRST.  The search carries the coordinate, so one           *)
+(* comparison answers the question at every bottom node; the two that walk    *)
+(* the forty eight entry table only run when that one has passed.  They are   *)
+(* still there because the coordinate is packed and unpacking it is not       *)
+(* proved one to one.                                                         *)
+Definition csolvedb (c : int) (x : pstt) : bool :=
+  [&& Uint63.eqb c csolvedi, Uint63.eqb (ctwisti x) 0%uint63
+    & Uint63.eqb (coordi x) (coordfs 1)].
 
 Definition mfin : rmap :=
   run e8num e4bit mpg mgr msw mlo mhi p1 cstep xstep tomemb okmv csolvedb
@@ -560,10 +570,10 @@ Hypothesis tomemb_tab : forall c x, coordP c x -> pstok x ->
 (* is solved and which is not in H.  The run has it -- a leaf is reached by a *)
 (* word -- and hands it over.                                                 *)
 (* the test says what it looks like it says, and nothing is assumed          *)
-Lemma csolvedbP x : csolvedb x ->
+Lemma csolvedbP c x : csolvedb c x ->
   ctwisti x = 0%uint63 /\ coordi x = coordfs 1.
 Proof.
-by case/andP => /eqb_correct h1 /eqb_correct h2.
+by case/and3P => _ /eqb_correct h1 /eqb_correct h2.
 Qed.
 
 (* the word played is the superflip undone, so the position is the superflip  *)
@@ -577,14 +587,14 @@ Qed.
 
 (* the two above, as the run wants them: at a leaf, which is a nought         *)
 Lemma leaf_membW c x : coordP c x -> pstok x -> posp x \in G ->
-  csolvedb x -> membok par8 par4 (tomemb x).
+  csolvedb c x -> membok par8 par4 (tomemb x).
 Proof.
 move=> hc hp hG hs; have [h1 h2] := csolvedbP hs.
 exact: leaf_memb hc hp (posp_G hG) h1 h2.
 Qed.
 
 Lemma leaf_pos c x : coordP c x -> pstok x -> posp x \in G ->
-  csolvedb x -> RowFinal.pos ptab (tomemb x) = posp x.
+  csolvedb c x -> RowFinal.pos ptab (tomemb x) = posp x.
 Proof.
 move=> hc hp hG hs; have [h1 h2] := csolvedbP hs.
 by rewrite posE (tomemb_tab hc hp (posp_G hG) h1 h2).
