@@ -132,7 +132,7 @@ Definition nmvn : nat := 18.
 (* admissible, so reading a leaf off the table would make the run only as     *)
 (* sound as the table.  The bottom of the search therefore ASKS the position, *)
 (* and the table is left to do the one thing it is for, which is to prune.    *)
-Variable csolved : pst -> bool.
+Variable csolved : int -> pst -> bool.
 
 (* ---- the search ---------------------------------------------------------- *)
 
@@ -155,7 +155,7 @@ Fixpoint srch (togo : nat) (c : int) (x : pst) (msk : int) (pv : int)
            then srch togo' c' (xstep x k) (wmask w (togo' - nd)) k m'
            else m')
       m
-  else if csolved x
+  else if csolved c x
        then let: (pg, gr, bt) := plc (tomemb x) in mmark m pg gr bt
        else m.
 
@@ -233,10 +233,10 @@ Hypothesis xstep_pos : forall x k, (to_nat k < nmvn)%N -> pstok x ->
 (* ball is inside the group; without it a state that is a table and nothing   *)
 (* more can have a solved coordinate and still not be in H.                   *)
 Hypothesis leaf_memb : forall c x, coordP c x -> pstok x ->
-  posp x \in G -> csolved x -> membok par8 par4 (tomemb x).
+  posp x \in G -> csolved c x -> membok par8 par4 (tomemb x).
 
 Hypothesis leaf_pos : forall c x, coordP c x -> pstok x ->
-  posp x \in G -> csolved x -> pos (tomemb x) = posp x.
+  posp x \in G -> csolved c x -> pos (tomemb x) = posp x.
 
 (* ---- and the bridge for the prepass -------------------------------------- *)
 
@@ -332,7 +332,7 @@ elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hp hnd hm hb.
   (* a leaf: the distance is nought, so the position is in H and the three    *)
   (* ranks the search reads off are the member it stands for                  *)
   have hG : posp x \in G := subsetP (ball_sub_gen Sset _) _ hb.
-  rewrite /=; case: (boolP (csolved x)) => [hs|_]; last exact: hm.
+  rewrite /=; case: (boolP (csolved c x)) => [hs|_]; last exact: hm.
   have hok := leaf_memb hc hp hG hs.
   have E : plc (tomemb x) =
       (mcp (tomemb x),
