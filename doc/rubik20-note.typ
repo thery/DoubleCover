@@ -1479,9 +1479,11 @@ number of positions in a row.
 
 The search starts at the superflip and plays words. When it reaches a position
 of the row it sets that position's bit. When every bit is set, every position
-of the row has been reached by a word, and the theorem follows. Each position the search does not reach is given a word by hand. The word is
-written in the file and played back. There were thirty two such positions,
-with twenty moves each.
+of the row has been reached by a word, and the theorem follows. Each position the search does not reach is given a word by hand. There were
+thirty two such positions, with twenty moves each. The words are in
+`RowWits.v` and they are not trusted: `RowWitsChk.v` plays each one back on
+the position it belongs to and asks for the solved cube. A wrong word makes
+that check fail. It cannot make the theorem false.
 
 == What was already there
 
