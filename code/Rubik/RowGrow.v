@@ -29,6 +29,14 @@ Notation mrun d :=
   (mfull (mfin e8numi e4biti mpgi mgri mswi mloi mhii p1
             actfsri tomemb okmvv srch d)).
 
+(* the scan on the empty map first: it does no searching at all, so its time  *)
+(* is what loading and the fullness walk cost, and every line after it is     *)
+(* that plus the search                                                       *)
+Time Eval native_compute in mfull mempty.
+
+Time Eval native_compute in mrun 2.
+Time Eval native_compute in mrun 4.
+Time Eval native_compute in mrun 6.
 Time Eval native_compute in mrun 8.
 Time Eval native_compute in mrun 10.
 Time Eval native_compute in mrun 12.
