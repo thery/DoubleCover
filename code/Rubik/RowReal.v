@@ -51,12 +51,22 @@ Section Real.
 (* the run find less.                                                         *)
 Definition p1 : rmap := p1tab.
 
-(* THE MOVE FILTER AND THE DEPTH ARE FREE, and nothing rests on the choice.   *)
-(* okmv only skips moves -- the search passes over one it rejects -- so a     *)
-(* filter that rejects too much makes the search find less, never something   *)
-(* false, and srch_sound never reads either of them.  They are here so the    *)
-(* run can be stated; the run is what says whether they were good choices.    *)
-Definition okmvv (_ _ : int) : bool := true.
+(* THE MOVE FILTER.  Nothing rests on the choice -- okmv only skips moves, so *)
+(* one that rejects too much makes the search find less, never something      *)
+(* false, and srch_sound never reads it.  But offering all eighteen moves at  *)
+(* every node is what makes a search take an hour instead of a minute.        *)
+(*                                                                            *)
+(* TWO RULES, and both cost nothing.  Never turn the same face twice running: *)
+(* the two turns are one turn of that face and the pair is reached the short  *)
+(* way.  And on a pair of opposite faces, which commute, fix an order and     *)
+(* keep only one of the two ways round.  The faces are U R F D L B, so a move *)
+(* is three times its face plus how far, and the opposite of face f is f + 3. *)
+Definition okmvv (pv k : int) : bool :=
+  if (18 <=? pv)%uint63 then true
+  else let fp := (pv / 3)%uint63 in
+       let fk := (k / 3)%uint63 in
+       ~~ ((fp =? fk)%uint63 || (fp =? fk + 3)%uint63).
+
 Definition srch : nat := 16.
 
 (* THE FLIP AND SLICE MOVE TABLE'S OWN CERTIFICATE, which the lower bound     *)
