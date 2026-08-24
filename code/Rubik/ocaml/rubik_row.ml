@@ -19,6 +19,7 @@
           rubik_row <cap> <maxdepth> build                    the table only
           rubik_row check                                     the checks
           rubik_row hball <n>                                 the prepass alone
+          rubik_row fball <n>                                 the same, folded
 
    The search runs only while the depth is at most <maxsearch>; above that
    the prepass runs alone.  That is how hcoset reaches twenty: it searches to
@@ -437,6 +438,240 @@ let () =
     done
   done
 
+(* ======================================================================== *)
+(*  The sixteen renamings that keep the U/D axis                            *)
+(* ======================================================================== *)
+
+(* Turning the whole cube, or reflecting it, renames the faces.  The sixteen
+   renamings that leave the pair U/D where it is are the ones that send H to
+   H and a move of H to a move of H.  They are what makes the map small: if
+   the row's own position is left alone by all sixteen, then a member of the
+   row carries fifteen others with it, all found at the same depth, so one
+   member of each orbit is enough to store.
+
+   A renaming is a permutation of the six faces, and the corners and the
+   edges follow it, a cubie being named by its faces.  What it does to a
+   twist and to a flip does NOT follow, because those are counted from faces
+   the renaming moves.  So they are searched for, the way the axis turn
+   above is, and the test is that every face turn is renamed to a face
+   turn. *)
+
+let opface = [| 3; 4; 5; 0; 1; 2 |]
+
+(* a corner by its three faces and an edge by its two, in the order the
+   cubies are numbered: URF UFL ULB UBR DFR DLF DBL DRB, then UR UF UL UB
+   DR DF DL DB FR FL BL BR *)
+let cfaces = [| [|0;1;2|]; [|0;2;4|]; [|0;4;5|]; [|0;5;1|];
+                [|3;2;1|]; [|3;4;2|]; [|3;5;4|]; [|3;1;5|] |]
+let efaces = [| [|0;1|]; [|0;2|]; [|0;4|]; [|0;5|];
+                [|3;1|]; [|3;2|]; [|3;4|]; [|3;5|];
+                [|2;1|]; [|2;4|]; [|5;4|]; [|5;1|] |]
+
+(* the cubie that has these faces *)
+let slot_of faces set =
+  let res = ref (-1) in
+  Array.iteri (fun i f ->
+    if Array.length f = Array.length set
+       && Array.for_all (fun x -> Array.mem x set) f then res := i) faces;
+  if !res < 0 then (prerr_endline "a cubie has no slot"; exit 1);
+  !res
+
+(* every renaming of the faces that keeps opposite faces opposite and does
+   not move the pair U/D *)
+let facemaps =
+  let res = ref [] in
+  let a = Array.init 6 (fun i -> i) in
+  let rec go k =
+    if k = 6 then begin
+      let ok = ref (a.(0) = 0 || a.(0) = 3) in
+      for f = 0 to 5 do
+        if a.(opface.(f)) <> opface.(a.(f)) then ok := false done;
+      if !ok then res := Array.copy a :: !res
+    end else
+      for i = k to 5 do
+        let t = a.(k) in a.(k) <- a.(i); a.(i) <- t;
+        go (k + 1);
+        let t = a.(k) in a.(k) <- a.(i); a.(i) <- t
+      done in
+  go 0;
+  Array.of_list (List.rev !res)
+
+let nsym = Array.length facemaps
+
+(* a renaming: where it sends the corners and the edges, what it does to a
+   twist (leaves it or turns it the other way) and which flips it counts
+   from the other face *)
+type sym = { sc : int array; se : int array; stw : int; sfl : int array }
+
+let symperms fm =
+  (Array.init 8 (fun i ->
+       slot_of cfaces (Array.map (fun f -> fm.(f)) cfaces.(i))),
+   Array.init 12 (fun i ->
+       slot_of efaces (Array.map (fun f -> fm.(f)) efaces.(i))))
+
+(* the position q, seen through the renaming.  A flip is counted from a
+   face, so it changes both where the cubie is and which cubie it is. *)
+let conj s q =
+  let r = solved () in
+  for j = 0 to 7 do
+    r.cp.(s.sc.(j)) <- s.sc.(q.cp.(j));
+    r.co.(s.sc.(j)) <- s.stw * q.co.(j) mod 3
+  done;
+  for j = 0 to 11 do
+    r.ep.(s.se.(j)) <- s.se.(q.ep.(j));
+    r.eo.(s.se.(j)) <- q.eo.(j) lxor s.sfl.(j) lxor s.sfl.(q.ep.(j))
+  done;
+  r
+
+let syms =
+  Array.map (fun fm ->
+    let (sc, se) = symperms fm in
+    let res = ref None in
+    for tw = 1 to 2 do
+      for fl = 0 to 4095 do
+        if !res = None then begin
+          let s = { sc; se; stw = tw;
+                    sfl = Array.init 12 (fun i -> (fl lsr i) land 1) } in
+          (* the six face turns, renamed, all the same way round: a turn on
+             a reflected cube goes the other way *)
+          let ok dir =
+            let good = ref true in
+            for f = 0 to 5 do
+              let c = conj s basic.(f) in
+              let b = if dir = 0 then basic.(fm.(f)) else inv basic.(fm.(f)) in
+              if not (same c.cp b.cp 8 && same c.co b.co 8
+                      && same c.ep b.ep 12 && same c.eo b.eo 12) then
+                good := false
+            done; !good in
+          if ok 0 || ok 1 then res := Some s
+        end
+      done
+    done;
+    match !res with
+    | Some s -> s
+    | None -> prerr_endline "a renaming was not found"; exit 1) facemaps
+
+(* the move a move is renamed to *)
+let symmv = Array.make_matrix nsym 18 (-1)
+let () =
+  for s = 0 to nsym - 1 do
+    for m = 0 to 17 do
+      let c = conj syms.(s) moves.(m) in
+      for m' = 0 to 17 do
+        let b = moves.(m') in
+        if same c.cp b.cp 8 && same c.co b.co 8
+           && same c.ep b.ep 12 && same c.eo b.eo 12 then symmv.(s).(m) <- m'
+      done;
+      if symmv.(s).(m) < 0 then begin
+        Printf.eprintf "renaming %d does not rename move %d\n" s m; exit 1 end
+    done
+  done
+
+(* ---- the fold: where a renaming sends a page, a group and a bit -------- *)
+
+(* the parity of a page, which says which of a pair of outer edges the low
+   half of a word means *)
+let pgpar = Array.make npage 0
+let spg = Array.init nsym (fun _ -> Array.make npage 0)
+let () =
+  let b = Array.make 8 0 in
+  for p = 0 to npage - 1 do
+    let a = unrank p 8 in
+    pgpar.(p) <- parity a 0 8;
+    for s = 0 to nsym - 1 do
+      let sc = syms.(s).sc in
+      for j = 0 to 7 do b.(sc.(j)) <- sc.(a.(j)) done;
+      spg.(s).(p) <- rank b 0 8
+    done
+  done
+
+(* A GROUP IS NOT SENT TO A GROUP.  A group is a pair of outer edge
+   permutations that differ by exchanging two cubies, and a renaming
+   exchanges two OTHER cubies, so the two members of a pair land in two
+   different pairs.  They are told apart by their parity, which no renaming
+   changes, so one table for each parity is what it takes -- and the low
+   half of a word, which is one parity, moves as a block. *)
+let sgr = Array.init nsym (fun _ -> Array.init 2 (fun _ -> Array.make ngroup 0))
+let sbt = Array.init nsym (fun _ -> Array.make fact4 0)
+let () =
+  let b8 = Array.make 8 0 and b4 = Array.make 4 0 in
+  for s = 0 to nsym - 1 do
+    let se = syms.(s).se in
+    for pty = 0 to 1 do
+      for g = 0 to ngroup - 1 do
+        let a = unrank e8inv.(2 * g + pty) 8 in
+        for j = 0 to 7 do b8.(se.(j)) <- se.(a.(j)) done;
+        sgr.(s).(pty).(g) <- e8num.(rank b8 0 8) lsr 1
+      done
+    done;
+    for bt = 0 to fact4 - 1 do
+      let a = unrank e4of.(bt) 4 in
+      for j = 0 to 3 do b4.(se.(8 + j) - 8) <- se.(8 + a.(j)) - 8 done;
+      sbt.(s).(bt) <- e4bit.(rank b4 0 4)
+    done
+  done
+
+(* the twelve bits of a half, moved together *)
+let slo = Array.init nsym (fun _ -> Array.make 4096 0)
+let shi = Array.init nsym (fun _ -> Array.make 4096 0)
+let () =
+  for s = 0 to nsym - 1 do
+    for i = 0 to 11 do
+      slo.(s).(1 lsl i) <- 1 lsl (sbt.(s).(i) mod 12);
+      shi.(s).(1 lsl i) <- 1 lsl (sbt.(s).(12 + i) mod 12)
+    done;
+    for i = 1 to 4095 do
+      let low = i land (-i) in
+      slo.(s).(i) <- slo.(s).(low) lor slo.(s).(i - low);
+      shi.(s).(i) <- shi.(s).(low) lor shi.(s).(i - low)
+    done
+  done
+
+let sinv = Array.make nsym 0
+let () =
+  for s = 0 to nsym - 1 do
+    let found = ref (-1) in
+    for t = 0 to nsym - 1 do
+      let ok = ref true in
+      for p = 0 to npage - 1 do
+        if spg.(t).(spg.(s).(p)) <> p then ok := false done;
+      if !ok && !found < 0 then found := t
+    done;
+    if !found < 0 then (prerr_endline "a renaming has no inverse"; exit 1);
+    sinv.(s) <- !found
+  done
+
+(* The pages gathered into orbits.  One page of each orbit is kept, the
+   smallest, and every other page is that one read through a renaming. *)
+let repof = Array.make npage (-1)
+let symof = Array.make npage 0
+let repix = Array.make npage (-1)
+
+let (nrep, reps, orbsz) =
+  let rl = Array.make npage 0 and ol = Array.make npage 0 and n = ref 0 in
+  for p = 0 to npage - 1 do
+    if repof.(p) < 0 then begin
+      let cnt = ref 0 in
+      for s = 0 to nsym - 1 do
+        let q = spg.(s).(p) in
+        if repof.(q) < 0 then begin
+          repof.(q) <- p; symof.(q) <- sinv.(s); incr cnt end
+      done;
+      repix.(p) <- !n; rl.(!n) <- p; ol.(!n) <- !cnt; incr n
+    end
+  done;
+  (!n, Array.sub rl 0 !n, Array.sub ol 0 !n)
+
+(* where a page comes from, move by move, and the group table flattened:
+   the level reads both once a group *)
+let mpginv = Array.make_matrix npage nh 0
+let () =
+  for q = 0 to npage - 1 do
+    for k = 0 to nh - 1 do mpginv.(mpage.(q).(k)).(k) <- q done
+  done
+
+let mgk = Array.init nh (fun k -> Array.init ngroup (fun g -> mgroup.(g).(k)))
+
 (* A page, a group and a bit, read back as the member of H they stand for.
    The bit names the middle permutation and the group names a pair of outer
    ones; which of the pair is meant is settled by parity, and the numbering
@@ -641,6 +876,231 @@ let place c =
   let b = e4bit.(rank c.ep 8 4) in
   (rank c.cp 0 8, g lsr 1, b)
 
+(* ---- the folded map ---------------------------------------------------- *)
+
+(* If the sixteen renamings leave the row's own position alone, then they
+   send a member of the row to a member found at the same depth, so the map
+   is the same in all sixteen and only one page of each orbit has to be
+   kept.  That is sixteen times less memory; and the level, which is a sweep
+   of the whole map, is a sweep of a sixteenth of it, so it is also sixteen
+   times less work.
+
+   Nothing about it is a guess: which member of an orbit is stored is read
+   from a table, and marking one bit says the other fifteen are covered,
+   which is true because a renaming carries the word over unchanged in
+   length. *)
+
+let usefold = ref false
+
+let fsize = nrep * ngroup
+
+let fculo = ref nomap and fcuhi = ref nomap
+let fnxlo = ref nomap and fnxhi = ref nomap
+
+let falloc () =
+  let mk () =
+    let a = Bigarray.Array1.create Bigarray.int16_unsigned
+        Bigarray.c_layout fsize in
+    Bigarray.Array1.fill a 0; a in
+  fculo := mk (); fcuhi := mk (); fnxlo := mk (); fnxhi := mk ()
+
+let fswapmaps () =
+  let a = !fculo and b = !fcuhi in
+  fculo := !fnxlo; fcuhi := !fnxhi; fnxlo := a; fnxhi := b
+
+(* where a member of H stands in the folded map: its page is folded to the
+   one page of its orbit that is kept, and the renaming that folds it is
+   played on the whole member *)
+let fb8 = Array.make 8 0
+let fb12 = Array.make 12 0
+
+let fmark_at cp ep =
+  let pg = rank cp 0 8 in
+  let sy = syms.(symof.(pg)) in
+  let sc = sy.sc and se = sy.se in
+  for j = 0 to 7 do fb8.(sc.(j)) <- sc.(cp.(j)) done;
+  for j = 0 to 11 do fb12.(se.(j)) <- se.(ep.(j)) done;
+  let i = repix.(repof.(pg)) * ngroup + (e8num.(rank fb12 0 8) lsr 1) in
+  let bt = e4bit.(rank fb12 8 4) in
+  if bt < 12 then begin
+    let v = Bigarray.Array1.unsafe_get !fnxlo i and m = 1 lsl bt in
+    if v land m = 0 then begin
+      Bigarray.Array1.unsafe_set !fnxlo i (v lor m); incr nset end
+  end else begin
+    let v = Bigarray.Array1.unsafe_get !fnxhi i and m = 1 lsl (bt - 12) in
+    if v land m = 0 then begin
+      Bigarray.Array1.unsafe_set !fnxhi i (v lor m); incr nset end
+  end
+
+(* ONE LEVEL OF THE FOLDED MAP.  Every kept page is gathered from the ten
+   pages the moves of H bring to it, and each of those is read out of the
+   kept page of ITS orbit, through the renaming that folds it.  Gathering
+   rather than scattering is what makes this work: the page being written is
+   a kept one, and every page read is a kept one, so nothing outside the
+   folded map is ever named.
+
+   The low half of a word and the high half are two outer edge permutations
+   that a renaming sends to two different pairs, so the two halves go to two
+   different words.  Each is twelve bits moved as a block, twice: once for
+   the renaming and once for the move. *)
+let flevel () =
+  let clo = !fculo and chi = !fcuhi and nlo = !fnxlo and nhi = !fnxhi in
+  Bigarray.Array1.blit clo nlo;
+  Bigarray.Array1.blit chi nhi;
+  for r = 0 to nrep - 1 do
+    let dst = r * ngroup in
+    for k = 0 to nh - 1 do
+      let q = mpginv.(reps.(r)).(k) in
+      let p = repof.(q) in
+      let u = sinv.(symof.(q)) in
+      let src = repix.(p) * ngroup in
+      let pc = pgpar.(p) in
+      let glo = sgr.(u).(pc) and ghi = sgr.(u).(1 - pc) in
+      let ulo = slo.(u) and uhi = shi.(u) in
+      let tlo = mlo.(k) and thi = mhi.(k) and mg = mgk.(k) in
+      let sw = mswap.(k) in
+      for g = 0 to ngroup - 1 do
+        let lo = Bigarray.Array1.unsafe_get clo (src + g) in
+        if lo <> 0 then begin
+          let v = Array.unsafe_get tlo (Array.unsafe_get ulo lo) in
+          let d = dst + Array.unsafe_get mg (Array.unsafe_get glo g) in
+          if sw = 0 then
+            Bigarray.Array1.unsafe_set nlo d
+              (Bigarray.Array1.unsafe_get nlo d lor v)
+          else
+            Bigarray.Array1.unsafe_set nhi d
+              (Bigarray.Array1.unsafe_get nhi d lor v)
+        end;
+        let hi = Bigarray.Array1.unsafe_get chi (src + g) in
+        if hi <> 0 then begin
+          let v = Array.unsafe_get thi (Array.unsafe_get uhi hi) in
+          let d = dst + Array.unsafe_get mg (Array.unsafe_get ghi g) in
+          if sw = 0 then
+            Bigarray.Array1.unsafe_set nhi d
+              (Bigarray.Array1.unsafe_get nhi d lor v)
+          else
+            Bigarray.Array1.unsafe_set nlo d
+              (Bigarray.Array1.unsafe_get nlo d lor v)
+        end
+      done
+    done
+  done
+
+(* the members, counted: a bit of a kept page stands for as many members as
+   there are pages in its orbit *)
+let fcount () =
+  let lo = !fculo and hi = !fcuhi in
+  let n = ref 0 in
+  for r = 0 to nrep - 1 do
+    let c = ref 0 and base = r * ngroup in
+    for g = 0 to ngroup - 1 do
+      c := !c + Array.unsafe_get popc (Bigarray.Array1.unsafe_get lo (base + g))
+             + Array.unsafe_get popc (Bigarray.Array1.unsafe_get hi (base + g))
+    done;
+    n := !n + Array.unsafe_get orbsz r * !c
+  done; !n
+
+(* ---- the fold, or the plain map, chosen once --------------------------- *)
+
+let alloc () = if !usefold then falloc () else alloc ()
+let count () = if !usefold then fcount () else count ()
+let swapmaps () = if !usefold then fswapmaps () else swapmaps ()
+let mark_at cp ep = if !usefold then fmark_at cp ep else mark_at cp ep
+let carry () = if !usefold then flevel () else carry ()
+
+let blitmaps () =
+  if !usefold then begin
+    Bigarray.Array1.blit !fculo !fnxlo; Bigarray.Array1.blit !fcuhi !fnxhi
+  end else begin
+    Bigarray.Array1.blit !culo !nxlo; Bigarray.Array1.blit !cuhi !nxhi
+  end
+
+(* how much the map costs, which is the whole point of folding it *)
+let mapgb () =
+  let n = if !usefold then fsize else mapsize in
+  float_of_int (4 * 2 * n) /. 1e9
+
+(* ---- the fold, checked ------------------------------------------------- *)
+
+(* The tables above are built from the renamings; these are the facts they
+   have to have, and each is run rather than argued. *)
+let fcheck fail =
+  (* a renaming sends a move of H to a move of H *)
+  for s = 0 to nsym - 1 do
+    Array.iter (fun m ->
+      if not (Array.exists (fun x -> x = symmv.(s).(m)) hmoves) then
+        fail "a renaming takes a move of H outside H") hmoves
+  done;
+  (* and it leaves the superflip alone, which is what lets the row be
+     folded at all *)
+  let sf = { cp = Array.init 8 (fun i -> i); co = Array.make 8 0;
+             ep = Array.init 12 (fun i -> i); eo = Array.make 12 1 } in
+  for s = 0 to nsym - 1 do
+    let c = conj syms.(s) sf in
+    if not (same c.cp sf.cp 8 && same c.co sf.co 8
+            && same c.ep sf.ep 12 && same c.eo sf.eo 12) then
+      fail "a renaming moves the superflip"
+  done;
+  (* a renaming is an automorphism: it may be played before or after a
+     product, and the answer is the same *)
+  let seed = ref 999331 in
+  let rnd n = seed := (!seed * 1103515245 + 12345) land 0x3FFFFFFF;
+    !seed mod n in
+  for _ = 1 to 200 do
+    let a = ref (solved ()) and b = ref (solved ()) in
+    for _ = 1 to 8 do
+      a := mult !a moves.(rnd 18); b := mult !b moves.(rnd 18) done;
+    for s = 0 to nsym - 1 do
+      let x = conj syms.(s) (mult !a !b) in
+      let y = mult (conj syms.(s) !a) (conj syms.(s) !b) in
+      if not (same x.cp y.cp 8 && same x.co y.co 8
+              && same x.ep y.ep 12 && same x.eo y.eo 12) then
+        fail "a renaming is not an automorphism"
+    done
+  done;
+  (* the pages fall into orbits, and every page is in exactly one *)
+  let tot = ref 0 in
+  for r = 0 to nrep - 1 do tot := !tot + orbsz.(r) done;
+  if !tot <> npage then fail "the page orbits do not cover the pages";
+  for p = 0 to npage - 1 do
+    if repof.(p) < 0 || repix.(repof.(p)) < 0 then fail "a page has no orbit";
+    if spg.(symof.(p)).(p) <> repof.(p) then
+      fail "the renaming of a page does not fold it"
+  done;
+  (* a renaming keeps a parity, and so keeps a half where it was *)
+  for s = 0 to nsym - 1 do
+    for pty = 0 to 1 do
+      if e8num.(e8inv.(2 * sgr.(s).(pty).(0) + pty)) land 1 <> pty then
+        fail "a renaming changes an outer parity"
+    done;
+    for b = 0 to 11 do
+      if sbt.(s).(b) >= 12 || sbt.(s).(12 + b) < 12 then
+        fail "a renaming changes a middle half"
+    done
+  done;
+  (* THE CHECK THAT MATTERS: where the tables send a place is where the
+     renaming sends the member.  Take a member of H and a renaming, and
+     compare the place of the renamed member with the place the tables
+     give. *)
+  let c = ref (solved ()) in
+  for _ = 1 to 20000 do
+    c := mult !c moves.(hmoves.(rnd nh));
+    let p = !c in
+    let (pg, gr, bt) = place p in
+    let pty = e8num.(rank p.ep 0 8) land 1 in
+    for s = 0 to nsym - 1 do
+      let (pg', gr', bt') = place (conj syms.(s) p) in
+      if spg.(s).(pg) <> pg' then fail "the page fold table is wrong";
+      if sgr.(s).(pty).(gr) <> gr' then fail "the group fold table is wrong";
+      if sbt.(s).(bt) <> bt' then fail "the bit fold table is wrong"
+    done
+  done;
+  Printf.printf
+    "the fold: %d renamings, %d pages of %d kept, map %.2f GB against %.2f\n"
+    nsym nrep npage
+    (float_of_int (4 * 2 * fsize) /. 1e9)
+    (float_of_int (4 * 2 * mapsize) /. 1e9)
+
 let check () =
   let bad = ref 0 in
   let fail s = incr bad; print_string ("FAILED: " ^ s ^ "\n") in
@@ -801,6 +1261,8 @@ let check () =
               d got want.(d - 1))
   done;
 
+  fcheck fail;
+
   Printf.printf "row %d members, %d pages of %d groups of 24 bits\n"
     rowsize npage ngroup;
   Printf.printf "%d distinct members of H sampled\n" (Hashtbl.length places);
@@ -815,6 +1277,8 @@ let check () =
    is worked out one position at a time, with a table of what has been seen,
    and the two must agree. *)
 let hball n =
+  Printf.printf "the map is %.2f GB%s\n%!" (mapgb ())
+    (if !usefold then Printf.sprintf ", %d pages of %d kept" nrep npage else "");
   alloc ();
   mark_at (solved ()).cp (solved ()).ep;
   swapmaps ();
@@ -876,7 +1340,38 @@ let () =
        Local Open Scope uint63_scope.\n\n";
     (* the layout: rank to number and back, rank to bit and back, the two
        parities *)
-    if which = "layout" then begin
+    (* THE FOLD.  What the folded level reads: for a page, where it is kept
+       and through which renaming; for a kept page and a move, the page it
+       gathers from, already folded; and the renaming played on a group and
+       on the twelve bits of a half.  A page and its renaming are run
+       together into one number, and so are a source and its parity, so that
+       the level reads one word where it would otherwise read three. *)
+    if which = "fold" then begin
+    emit "fnrep_data" 1 (fun _ -> nrep);
+    emit "frep_data" nrep (fun r -> reps.(r));
+    emit "forb_data" nrep (fun r -> orbsz.(r));
+    (* a page: its kept page, the renaming that folds it, and its parity *)
+    emit "fpg_data" npage
+      (fun p -> (repix.(repof.(p)) * nsym + symof.(p)) * 2 + pgpar.(p));
+    (* a kept page and a move of H: the kept page it gathers from, the
+       renaming to read it through, and that page's parity *)
+    emit "fsrc_data" (nrep * nh)
+      (fun i ->
+         let r = i / nh and k = i mod nh in
+         let q = mpginv.(reps.(r)).(k) in
+         let p = repof.(q) in
+         (repix.(p) * nsym + sinv.(symof.(q))) * 2 + pgpar.(p));
+    (* a renaming on a group, told apart by parity, and on the bits *)
+    emit "fsgr_data" (nsym * 2 * ngroup)
+      (fun i -> sgr.(i / (2 * ngroup)).(i / ngroup mod 2).(i mod ngroup));
+    emit "fslo_data" (nsym * 4096) (fun i -> slo.(i / 4096).(i mod 4096));
+    emit "fshi_data" (nsym * 4096) (fun i -> shi.(i / 4096).(i mod 4096));
+    emit "fsbt_data" (nsym * fact4)
+      (fun i -> sbt.(i / fact4).(i mod fact4));
+    (* the bits of a half counted, so that the members can be counted: a bit
+       of a kept page stands for as many members as its orbit has pages *)
+    emit "fpop_data" 4096 (fun i -> popc.(i))
+    end else if which = "layout" then begin
     emit "e8num_data" fact8 (fun r -> e8num.(r));
     emit "e8inv_data" fact8 (fun r -> e8inv.(r));
     emit "par8_data" fact8 (fun r -> parity (unrank r 8) 0 8);
@@ -909,6 +1404,8 @@ let () =
   if Array.length Sys.argv > 1 && Sys.argv.(1) = "check" then check ();
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "hball" then
     hball (int_of_string Sys.argv.(2));
+  if Array.length Sys.argv > 2 && Sys.argv.(1) = "fball" then begin
+    usefold := true; hball (int_of_string Sys.argv.(2)) end;
   let cap = int_of_string Sys.argv.(1) in
   let maxdepth = int_of_string Sys.argv.(2) in
   let arg = if Array.length Sys.argv > 3 then Sys.argv.(3) else "" in
@@ -1033,11 +1530,30 @@ let () =
     | _ -> None in
   let rowsolve = match Sys.getenv_opt "ROWSOLVE" with
     | Some v -> v <> "" | None -> false in
-  if rowplace = None && not rowsolve then alloc ();
   let repseq = parse_moves arg in
   let rep = ref (solved ()) in
   List.iter (fun m -> rep := mult !rep moves.(m)) repseq;
   let rep = !rep in
+
+  (* ROWFOLD=1 keeps one page of each orbit of the sixteen renamings.  That
+     is sound only for a row whose own position every renaming leaves alone,
+     which is checked here: the run stops rather than fold a row that is not
+     symmetric. *)
+  (match Sys.getenv_opt "ROWFOLD" with
+   | Some v when v <> "" ->
+     for s = 0 to nsym - 1 do
+       let c = conj syms.(s) rep in
+       if not (same c.cp rep.cp 8 && same c.co rep.co 8
+               && same c.ep rep.ep 12 && same c.eo rep.eo 12) then begin
+         prerr_endline "a renaming moves this row: it cannot be folded";
+         exit 1 end
+     done;
+     usefold := true
+   | _ -> ());
+  Printf.printf "the map is %.2f GB%s\n%!" (mapgb ())
+    (if !usefold then Printf.sprintf ", %d pages of %d kept" nrep npage
+     else "");
+  if rowplace = None && not rowsolve then alloc ();
 
   let maxd = 32 in
   let cps = Array.init maxd (fun _ -> Array.make 8 0) in
@@ -1177,9 +1693,7 @@ let () =
        wrong trade when a row is finishing short. *)
     cut := not nopre && !d > d0 && (!done_ > 6000000 || !d > maxsearch);
     let t1 = Unix.gettimeofday () in
-    if !cut then carry () else begin
-      Bigarray.Array1.blit !culo !nxlo; Bigarray.Array1.blit !cuhi !nxhi
-    end;
+    if !cut then carry () else blitmaps ();
     let t2 = Unix.gettimeofday () in
     nodes := 0L; probes := 0L;
     (* the threshold is on the whole map, so what the prepass left has to be
@@ -1399,11 +1913,13 @@ let () =
      | None -> ());
     Printf.printf "the leftovers, one word each%s\n%!"
       (if rowleft = 0 then "" else Printf.sprintf " (the first %d)" rowleft);
-    let clo = !culo and chi = !cuhi in
+    let clo = if !usefold then !fculo else !culo
+    and chi = if !usefold then !fcuhi else !cuhi in
     (try
-    for pg = 0 to npage - 1 do
+    for pgi = 0 to (if !usefold then nrep else npage) - 1 do
+      let pg = if !usefold then reps.(pgi) else pgi in
       for g = 0 to ngroup - 1 do
-        let i = pg * ngroup + g in
+        let i = pgi * ngroup + g in
         let lo = Bigarray.Array1.unsafe_get clo i
         and hi = Bigarray.Array1.unsafe_get chi i in
         if lo <> 4095 || hi <> 4095 then

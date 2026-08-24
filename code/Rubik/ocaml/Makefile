@@ -162,6 +162,7 @@ hall: rubik_h
 #
 #   make rowcheck   the tables, against direct multiplication, no big memory
 #   make hball N=4  the prepass alone from solved, against a one at a time BFS
+#   make fball N=18 the same, FOLDED: 0.45 GB instead of 6.5, and as fast
 #   make row        one row, ROW="U R2 F'"
 #   make row ROWLEFT=1   the same, then a word for each member left over
 #   make row ROWSEARCH=16 ROWENOUGH=173502991   hcoset's own quick proof of 20
@@ -172,6 +173,15 @@ hall: rubik_h
 # THE MAP IS 6.5 GB: four arrays of 812 851 200 sixteen bit words, a low and
 # a high half for what is known now and for what is being built.  hball needs
 # only that; row needs the 2.2 GB pruning table on top.
+#
+# ROWFOLD=1 KEEPS ONE PAGE OF EACH ORBIT of the sixteen renamings that leave
+# the U/D axis where it is, and the map is then 0.45 GB: 2768 pages of the
+# 40320.  It is sound only for a row all sixteen leave alone -- the superflip
+# is one, an arbitrary row is not -- and the program checks the row's own
+# position and stops rather than fold one it may not.  A level is a sweep of
+# the map, so a folded row also sweeps a fifteenth as much.
+ROWFOLD   ?=
+export ROWFOLD
 ROWCAP    ?= 9
 ROWDEPTH  ?= 20
 ROWSEARCH ?= 16
@@ -227,6 +237,10 @@ rowtab: rubik_row
 hball: rubik_row
 	./rubik_row hball $(N)
 
+# the same ball, folded.  18 is where it holds the whole of H.
+fball: rubik_row
+	./rubik_row fball $(N)
+
 # The table hcoset's phase1prune carries: beside the distance, WHICH MOVES GO
 # CLOSER.  It needs the EXACT distances, so cap 12, and it is a word a state
 # -- 17.7 GB, against Rokicki's 650 MB, because he folds by the sixteen
@@ -240,4 +254,4 @@ row: rubik_row
 	./rubik_row $(ROWCAP) $(ROWDEPTH) build
 	./rubik_row $(ROWCAP) $(ROWDEPTH) "$(ROW)" $(ROWSEARCH)
 
-.PHONY: rowcheck rowtab hball mask row
+.PHONY: rowcheck rowtab hball fball mask row
