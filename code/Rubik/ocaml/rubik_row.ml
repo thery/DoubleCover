@@ -1232,6 +1232,45 @@ let lflevpg (src : pmap) r (d : pmap) : pmap =
 let lflevel (src : pmap) (dst : pmap) : pmap =
   ifold nrep 0 (fun r d -> lflevpg src r d) dst
 
+(* THE LEAKING SHAPE, LITERALLY.  Before the fix the Rocq level made a fresh
+   map every time and the run started from a GLOBAL empty map, which nothing
+   can collect.  This is that, in OCaml: the same literal level, a new map a
+   level, and a global root held for the whole run.  If the heap grows here
+   too then the shape leaks and the evaluator is not to blame; if it does not,
+   the leak is native_compute's. *)
+
+let lglobal : pmap = pmkempty ()
+
+let lflevel_fresh (src : pmap) : pmap =
+  ifold nrep 0 (fun r d -> lflevpg src r d) (pmkempty ())
+
+let lleak n =
+  Printf.printf "the leaking shape: a fresh map a level, a global root held\n%!";
+  let s = solved () in
+  let pg = rank s.cp 0 8 in
+  let sy = syms.(symof.(pg)) in
+  let b12 = Array.make 12 0 in
+  for j = 0 to 11 do b12.(sy.se.(j)) <- sy.se.(s.ep.(j)) done;
+  let r = repix.(repof.(pg)) in
+  let gr = e8num.(rank b12 0 8) lsr 1 and bt = e4bit.(rank b12 8 4) in
+  (* the seed is written INTO the global, as fseed was *)
+  let a = P.get lglobal (pchk r) in
+  let j = poff r + gr in
+  let a = P.set a j (P.get a j lor (1 lsl (bt mod 12))) in
+  let cur = ref (P.set lglobal (pchk r) a) in
+  Printf.printf "level  0 : %d\n%!" (pcount !cur);
+  for d = 1 to n do
+    let t0 = Unix.gettimeofday () in
+    cur := lflevel_fresh !cur;
+    let t1 = Unix.gettimeofday () in
+    Printf.printf "level %2d : %d (%.1f s, heap %.2f GB)\n%!"
+      d (pcount !cur) (t1 -. t0)
+      (float_of_int (Gc.stat ()).Gc.heap_words *. 8.0 /. 1e9)
+  done;
+  (* the global is still held here, which is the whole point *)
+  Printf.printf "the global is still alive: %d\n%!" (pcount lglobal);
+  exit 0
+
 let lball n =
   Printf.printf "the literal level: %d chunks of %d, two maps, %.2f GB\n%!"
     pnchunk pcsize (float_of_int (2 * pnchunk * pcsize * 8) /. 1e9);
@@ -1672,6 +1711,8 @@ let () =
     pball (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "lball" then
     lball (int_of_string Sys.argv.(2));
+  if Array.length Sys.argv > 2 && Sys.argv.(1) = "lleak" then
+    lleak (int_of_string Sys.argv.(2));
   let cap = int_of_string Sys.argv.(1) in
   let maxdepth = int_of_string Sys.argv.(2) in
   let arg = if Array.length Sys.argv > 3 then Sys.argv.(3) else "" in
