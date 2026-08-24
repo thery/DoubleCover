@@ -33,12 +33,25 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
+(* SPELT OUT HERE, NOT TAKEN BY NAME.  These two are RowInst's own -- the step
+   with Farp1's flip and slice table in it, and the leaf test -- written out
+   so that this file does not depend on how a section discharged them.  A
+   checkout whose RowInst differs then fails on the DEFINITION, which says
+   what differs, instead of on a unification message. *)
+Definition fstep (c k : int) : int :=
+  Uint63.add (Uint63.mul (acttwii (Uint63.div c nfsi) k) nfsi)
+             (actfsri (Uint63.mod c nfsi) k).
+
+Definition fsolved (c : int) (x : pstt) : bool :=
+  [&& Uint63.eqb c csolvedi, Uint63.eqb (ctwisti x) 0%uint63
+    & Uint63.eqb (coordi x) (coordfs 1)].
+
 Notation fmrun d :=
   (mfullf (frun e8numi e4biti
              fpgi fsrci fsgri fsloi fshii fsbti
              mgri mswi mloi mhii
              p1ftab frepi fsymi twsymi
-             (cstep actfsri) xstep tomemb okmvv csolvedb croot sroot srch
+             fstep xstep tomemb okmvv fsolved croot sroot srch
              d 0 memptyf)).
 
 (* the empty map first: no level in it at all, so its time is what loading    *)
