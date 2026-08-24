@@ -25,6 +25,6 @@ for f in RowFold RowTabF RowFoldTab; do
 done
 echo "the folded map is built"
 
-[ "$1" = "build" ] && exit 0
+if [ "$1" = "build" ]; then exit 0; fi
 echo "--- RowFoldRun (the run)"
 coqc -R . Rubik RowFoldRun.v
