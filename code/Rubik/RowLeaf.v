@@ -153,7 +153,7 @@ Proof.
 have h8 : (8`! = 40320)%N by [].
 have hl : (lrank 8 f < 40320)%N by rewrite -h8; apply: lrank_lt.
 have hw : (40320 < nwB)%N by apply: (@ltn_nwB 16).
-apply/nltbP; rewrite /rank8 (of_natK _ (leq_trans hl (ltnW hw))).
+apply/nltbP; rewrite rank8E (of_natK _ (leq_trans hl (ltnW hw))).
 by rewrite -/npagen npagenE.
 Qed.
 
@@ -162,7 +162,7 @@ Proof.
 have h4 : (4`! = 24)%N by [].
 have hl : (lrank 4 f < 24)%N by rewrite -h4; apply: lrank_lt.
 have hw : (24 < nwB)%N by apply: (@ltn_nwB 5).
-apply/nltbP; rewrite /rank4 (of_natK _ (leq_trans hl (ltnW hw))).
+apply/nltbP; rewrite rank4E (of_natK _ (leq_trans hl (ltnW hw))).
 by have -> : to_nat nbiti = 24%N by vm_compute.
 Qed.
 
@@ -206,7 +206,7 @@ Definition up4inv : bool :=
 (* and the int63 rank determines the nat rank, both being small               *)
 Lemma rank8_inj q1 q2 : rank8 q1 = rank8 q2 -> lrank 8 q1 = lrank 8 q2.
 Proof.
-move=> h; rewrite /rank8 in h.
+move=> h; rewrite !rank8E in h.
 have hw : (40320 < nwB)%N by apply: (@ltn_nwB 16).
 have b q : (lrank 8 q < nwB)%N.
   apply: leq_trans (ltnW hw); have -> : (40320 = 8`!)%N by [].
@@ -216,7 +216,7 @@ Qed.
 
 Lemma rank4_inj q1 q2 : rank4 q1 = rank4 q2 -> lrank 4 q1 = lrank 4 q2.
 Proof.
-move=> h; rewrite /rank4 in h.
+move=> h; rewrite !rank4E in h.
 have hw : (24 < nwB)%N by apply: (@ltn_nwB 5).
 have b q : (lrank 4 q < nwB)%N.
   apply: leq_trans (ltnW hw); have -> : (24 = 4`!)%N by [].
@@ -983,7 +983,7 @@ Qed.
 Lemma tomembE a : ti2t flast (inv_tabi flast a) = u ->
   tomemb a = (rank8 qc, rank8 qu, rank4 qm).
 Proof.
-move=> hu; rewrite /tomemb hu; congr (_, _, _); rewrite /rank8 /rank4.
+move=> hu; rewrite /tomemb hu !rank8E !rank4E; congr (_, _, _).
 - have -> : lrank 8 (fun p => cposn (nth 0%N u (nth 0%N cprimp p)))
           = lrank 8 qc; last by [].
   apply: lrank_eq => p hp.

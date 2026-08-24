@@ -431,8 +431,79 @@ Definition memb2tab (x : memb) : seq nat := inv_tab flast (membinv x).
 (* at each one count how many later places hold something smaller.  It is a   *)
 (* computation over eight numbers, so no table is wanted.                     *)
 
-Definition rank8 (f : nat -> nat) : int := of_nat (lrank 8 f).
-Definition rank4 (f : nat -> nat) : int := of_nat (lrank 4 f).
+(* THE RANK ON MACHINE INTEGERS, and it has to be.  Lehmer's lrank is on nat, *)
+(* so the running total is unary: it climbs to forty thousand and the fold    *)
+(* multiplies it at every step, then of_nat walks the answer one step at a    *)
+(* time.  MEASURED: the walk over the forty thousand pages took 5 min 49 that *)
+(* way.  The same fold on int63 is below.                                     *)
+(*                                                                            *)
+(* NOTHING OVERFLOWS, and the bound is the rank's own.  After k steps the     *)
+(* running total r satisfies (r + 1) * m! <= n!, so it never reaches n!, and  *)
+(* n is 8 or 4 here.                                                          *)
+Definition lranki (n : nat) (f : nat -> nat) : int :=
+  foldl (fun r i => Uint63.add (Uint63.mul r (of_nat (n - i)%N))
+                               (of_nat (lcode n f i)))
+        0%uint63 (iota 0 n).
+
+Lemma lranki_gen n f m k (a : int) (r : nat) :
+  (k + m = n)%N -> to_nat a = r -> ((r + 1) * m`! <= n`!)%N ->
+  (n`! < nwB)%N ->
+  to_nat (foldl (fun b i => Uint63.add (Uint63.mul b (of_nat (n - i)%N))
+                                       (of_nat (lcode n f i)))
+                a (iota k m))
+  = foldl (fun c i => (c * (n - i) + lcode n f i)%N) r (iota k m).
+Proof.
+elim: m k a r => [|m ih] k a r hkm ha hb hw //=.
+have hnk : (n - k = m.+1)%N by rewrite -hkm addKn.
+have hnk1 : (n - k.+1 = m)%N by rewrite -hkm -addSnnS addKn.
+have hd : (lcode n f k <= m)%N by rewrite -hnk1; apply: lcode_bd.
+have hr' : ((r * (n - k) + lcode n f k + 1) * m`! <= n`!)%N.
+  apply: leq_trans hb; rewrite hnk factS mulnA leq_pmul2r ?fact_gt0 //.
+  by rewrite mulnDl mul1n -addnA leq_add2l addn1 ltnS.
+have hlt : (r * (n - k) + lcode n f k < nwB)%N.
+  apply: (leq_ltn_trans _ hw); apply: (leq_trans _ hr').
+  by apply: leq_trans (leq_addr 1 _) _; apply: leq_pmulr; exact: fact_gt0.
+have hnkw : (n - k < nwB)%N.
+  by apply: (leq_ltn_trans (leq_subr k n)); apply: (leq_ltn_trans (fact_geq n)).
+have hdw : (lcode n f k < nwB)%N.
+  by apply: (leq_ltn_trans _ hlt); apply: leq_addl.
+have hoa : to_nat (of_nat (n - k)%N) = (n - k)%N by apply: of_natK.
+have hod : to_nat (of_nat (lcode n f k)) = lcode n f k by apply: of_natK.
+have hm : to_nat (Uint63.mul a (of_nat (n - k)%N)) = (r * (n - k))%N.
+  rewrite to_nat_mul; first by rewrite ha hoa.
+  by rewrite ha hoa; apply: (leq_ltn_trans _ hlt); apply: leq_addr.
+apply: ih => //; first by rewrite addSnnS.
+rewrite to_nat_add; first by rewrite hm hod.
+by rewrite hm hod.
+Qed.
+
+Lemma lrankiE n f : (n`! < nwB)%N -> to_nat (lranki n f) = lrank n f.
+Proof.
+move=> hw; rewrite /lranki /lrank.
+apply: (@lranki_gen n f n 0 0%uint63 0).
+- by rewrite add0n.
+- exact: to_nat_0.
+- by rewrite mul1n.
+exact: hw.
+Qed.
+
+Definition rank8 (f : nat -> nat) : int := lranki 8 f.
+Definition rank4 (f : nat -> nat) : int := lranki 4 f.
+
+(* and it is the same number as before, so every fact about the rank stands   *)
+Lemma rank8E f : rank8 f = of_nat (lrank 8 f).
+Proof.
+have hw : (8`! < nwB)%N by apply: (@ltn_nwB 16).
+apply: to_nat_inj; rewrite (lrankiE _ hw) of_natK //.
+exact: (ltn_trans (lrank_lt 8 f) hw).
+Qed.
+
+Lemma rank4E f : rank4 f = of_nat (lrank 4 f).
+Proof.
+have hw : (4`! < nwB)%N by apply: (@ltn_nwB 5).
+apply: to_nat_inj; rewrite (lrankiE _ hw) of_natK //.
+exact: (ltn_trans (lrank_lt 4 f) hw).
+Qed.
 
 (* The search calls this at every leaf, so it reads the INVERSE TABLE and     *)
 (* never builds a permutation: Tabi.inv_tabi is the same inverse csrc takes   *)
