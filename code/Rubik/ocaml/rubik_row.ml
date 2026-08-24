@@ -1348,7 +1348,7 @@ let () =
        the level reads one word where it would otherwise read three. *)
     if which = "fold" then begin
     emit "fnrep_data" 1 (fun _ -> nrep);
-    emit "frep_data" nrep (fun r -> reps.(r));
+    emit "fkeep_data" nrep (fun r -> reps.(r));
     emit "forb_data" nrep (fun r -> orbsz.(r));
     (* a page: its kept page, the renaming that folds it, and its parity *)
     emit "fpg_data" npage

@@ -10,7 +10,7 @@ Local Open Scope uint63_scope.
 Definition fnrep_data : seq int := [::
 2768].
 
-Definition frep_data : seq int := [::
+Definition fkeep_data : seq int := [::
 0; 1; 3; 5; 7; 9; 10; 16;
 24; 25; 26; 27; 28; 29; 30; 31;
 32; 33; 34; 35; 36; 37; 38; 39;

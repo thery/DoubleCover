@@ -42,5 +42,5 @@ Definition fsloi : arr := Eval vm_compute in mkarr nfsloi 0 fslo_data.
 Definition fshii : arr := Eval vm_compute in mkarr nfsloi 0 fshi_data.
 Definition fsbti : arr := Eval vm_compute in mkarr nfsbti 0 fsbt_data.
 Definition forbi : arr := Eval vm_compute in mkarr nrepi 0 forb_data.
-Definition frepi : arr := Eval vm_compute in mkarr nrepi 0 frep_data.
+Definition fkeepi : arr := Eval vm_compute in mkarr nrepi 0 fkeep_data.
 Definition fpopi : arr := Eval vm_compute in mkarr nfpopi 0 fpop_data.

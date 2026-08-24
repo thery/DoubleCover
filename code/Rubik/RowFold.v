@@ -55,17 +55,49 @@ Definition nsymi : int := 16.               (* renamings that keep U/D        *)
 Definition nrepi : int := 2768.             (* pages kept, of the 40320       *)
 Definition nrepn : nat := to_nat nrepi.
 
-(* 2768 * 20160 words, in chunks of two million                               *)
-Definition nchunkf : int := 27.
+(* ---- A CHUNK HOLDS WHOLE PAGES ------------------------------------------- *)
+
+(* RowMap.v cuts the map into chunks of two million words and finds a word by *)
+(* splitting its number, which costs a shift, a mask AND A SECOND ARRAY READ  *)
+(* at every single word: the chunk first, then the word inside it.            *)
+(*                                                                            *)
+(* Here a chunk holds sixty four kept pages exactly, so a page never straddles*)
+(* two chunks.  The level then reads the chunk ONCE a page and walks inside   *)
+(* it, and the second read is gone from the inner loop.  Sixty four is a      *)
+(* power of two, so which chunk and where in it are a shift and a mask.       *)
+
+Definition ppcshft : int := 6.                 (* 64 pages a chunk            *)
+Definition ppcmask : int := 63.
+Definition csizef  : int := 1290240.           (* 64 * 20160                  *)
+Definition nchunkf : int := 44.                (* 2768 pages, 64 at a time    *)
 
 Definition memptyf : rmap :=
-  PArray.make nchunkf (PArray.make csize 0).
+  PArray.make nchunkf (PArray.make csizef 0).
+
+(* the chunk a kept page lives in, and where the page starts inside it        *)
+Definition pchk (r : int) : int := Uint63.lsr r ppcshft.
+Definition poff (r : int) : int :=
+  Uint63.mul (Uint63.land r ppcmask) ngroupi.
+
+(* one word, for the marking: the level does not go through these            *)
+Definition fget (m : rmap) (r g : int) : int :=
+  PArray.get (PArray.get m (pchk r)) (Uint63.add (poff r) g).
+
+Definition fset (m : rmap) (r g v : int) : rmap :=
+  let c := pchk r in
+  PArray.set m c (PArray.set (PArray.get m c) (Uint63.add (poff r) g) v).
+
+Definition ffor (m : rmap) (r g v : int) : rmap :=
+  fset m r g (Uint63.lor (fget m r g) v).
 
 (* the map is full when every kept page has all twenty four bits              *)
 Definition mfullf (m : rmap) : bool :=
   iter nrepn 0
-    (fun r => iter ngroupn 0
-       (fun g => Uint63.eqb (gget m (grpof r g)) allbits)).
+    (fun r =>
+       let a := PArray.get m (pchk r) in
+       let o := poff r in
+       iter ngroupn 0
+         (fun g => Uint63.eqb (PArray.get a (Uint63.add o g)) allbits)).
 
 Section PreF.
 
@@ -120,68 +152,100 @@ Definition fmark (m : rmap) (pg gr bt : int) : rmap :=
   let w := PArray.get fpg pg in
   let u := fren w in
   let pty := Uint63.lxor (fpar w) (if (bt <? 12)%uint63 then 0 else 1) in
-  gor m (grpof (fkpt w) (sgrmv u pty gr)) (bitof (sbtmv u bt)).
+  ffor m (fkpt w) (sgrmv u pty gr) (bitof (sbtmv u bt)).
 
 Definition ftest (m : rmap) (pg gr bt : int) : bool :=
   let w := PArray.get fpg pg in
   let u := fren w in
   let pty := Uint63.lxor (fpar w) (if (bt <? 12)%uint63 then 0 else 1) in
   negb (Uint63.eqb
-          (Uint63.land (gget m (grpof (fkpt w) (sgrmv u pty gr)))
+          (Uint63.land (fget m (fkpt w) (sgrmv u pty gr))
                        (bitof (sbtmv u bt))) 0).
 
 (* ---- one level ----------------------------------------------------------- *)
 
-(* THE DESTINATION IS A MAP OF ITS OWN, which is the prototype's blit.  The   *)
+(* THE DESTINATION IS A MAP OF ITS OWN, which is the prototype's blit: the    *)
 (* level reads the map of the last level and writes the map of this one, and  *)
-(* no array is read that is also being written -- a map kept alive while      *)
-(* another version of it is written is what makes a persistent array slow.    *)
-(* A group that is nought is skipped: the destination starts empty.           *)
-Definition mcopyf (src : rmap) : rmap :=
-  ifold nrepn 0
-    (fun r d =>
-       ifold ngroupn 0
-         (fun g d' =>
-            let i := grpof r g in
-            let v := gget src i in
-            if Uint63.eqb v 0 then d' else gset d' i v)
-         d)
-    memptyf.
+(* no array is read that is also being written.                               *)
+(*                                                                            *)
+(* A KEPT PAGE IS FILLED IN ONE GO.  Every write this level makes to a page   *)
+(* is made here, so the page's chunk is read ONCE, the carry and the ten      *)
+(* moves are poured into it, and it is put back once.  The inner loop then    *)
+(* holds one array and reaches a word by adding, where RowMap.v's level reads *)
+(* the chunk again at every word.                                             *)
+(*                                                                            *)
+(* The low half of a word and the high half are two outer edge permutations   *)
+(* that a renaming sends to two different pairs, so the two halves go to two  *)
+(* different words.  Each is twelve bits moved as a block, twice: once for    *)
+(* the renaming and once for the move.                                        *)
 
-(* one move of H, gathered into one kept page                                 *)
-Definition flevmv (k r : int) (src : rmap) (dst : rmap) : rmap :=
+(* one move of H, gathered into the page being filled                         *)
+Definition flevmv (src : rmap) (r k doff : int) (a : arr) : arr :=
   let w := PArray.get fsrc (Uint63.add (Uint63.mul r nhi) k) in
   let u := fren w in
   let pc := fpar w in
   let p := fkpt w in
+  let sa := PArray.get src (pchk p) in
+  let soff := poff p in
+  let glo := Uint63.mul (Uint63.add (Uint63.mul u 2) pc) ngroupi in
+  let ghi :=
+    Uint63.mul (Uint63.add (Uint63.mul u 2) (Uint63.sub 1 pc)) ngroupi in
+  let ub := Uint63.lsl u 12 in
+  let kb := Uint63.lsl k 12 in
   let sw := Uint63.eqb (PArray.get msw k) 0 in
   ifold ngroupn 0
-    (fun g d =>
-       let v := gget src (grpof p g) in
-       if Uint63.eqb v 0 then d
+    (fun g b =>
+       let v := PArray.get sa (Uint63.add soff g) in
+       if Uint63.eqb v 0 then b
        else
-         let l := slomv u (Uint63.land v lo12) in
-         let h := shimv u (Uint63.land (Uint63.lsr v 12) lo12) in
-         let d1 :=
-           if Uint63.eqb l 0 then d
+         let lo := Uint63.land v lo12 in
+         let hi := Uint63.land (Uint63.lsr v 12) lo12 in
+         let b1 :=
+           if Uint63.eqb lo 0 then b
            else
-             let l' := lomv mlo k l in
-             gor d (grpof r (grmv mgr k (sgrmv u pc g)))
-               (if sw then l' else Uint63.lsl l' 12) in
-         if Uint63.eqb h 0 then d1
+             let l := PArray.get mlo
+                        (Uint63.add kb (PArray.get fslo (Uint63.add ub lo))) in
+             let j := Uint63.add doff
+                        (PArray.get mgr
+                           (Uint63.add
+                              (Uint63.mul
+                                 (PArray.get fsgr (Uint63.add glo g)) nhi) k)) in
+             PArray.set b j
+               (Uint63.lor (PArray.get b j)
+                  (if sw then l else Uint63.lsl l 12)) in
+         if Uint63.eqb hi 0 then b1
          else
-           let h' := himv mhi k h in
-           gor d1 (grpof r (grmv mgr k (sgrmv u (Uint63.sub 1 pc) g)))
-             (if sw then Uint63.lsl h' 12 else h'))
-    dst.
+           let h := PArray.get mhi
+                      (Uint63.add kb (PArray.get fshi (Uint63.add ub hi))) in
+           let j := Uint63.add doff
+                      (PArray.get mgr
+                         (Uint63.add
+                            (Uint63.mul
+                               (PArray.get fsgr (Uint63.add ghi g)) nhi) k)) in
+           PArray.set b1 j
+             (Uint63.lor (PArray.get b1 j)
+                (if sw then Uint63.lsl h 12 else h)))
+    a.
 
-(* the ten moves of H, into one kept page                                     *)
-Definition flevpg (r : int) (src dst : rmap) : rmap :=
-  ifold nhn 0 (fun k d => flevmv k r src d) dst.
+(* one kept page: the carry, then the ten moves, then the chunk put back      *)
+Definition flevpg (src : rmap) (r : int) (d : rmap) : rmap :=
+  let c := pchk r in
+  let doff := poff r in
+  let sa := PArray.get src c in
+  let a0 := PArray.get d c in
+  let a1 :=
+    ifold ngroupn 0
+      (fun g b =>
+         let j := Uint63.add doff g in
+         let v := PArray.get sa j in
+         if Uint63.eqb v 0 then b
+         else PArray.set b j (Uint63.lor (PArray.get b j) v))
+      a0 in
+  let a2 := ifold nhn 0 (fun k b => flevmv src r k doff b) a1 in
+  PArray.set d c a2.
 
-(* the whole level: the map carried over, then every kept page gathered       *)
 Definition flevel (src : rmap) : rmap :=
-  ifold nrepn 0 (fun r d => flevpg r src d) (mcopyf src).
+  ifold nrepn 0 (fun r d => flevpg src r d) memptyf.
 
 Fixpoint flevn (n : nat) (m : rmap) : rmap :=
   if n is n1.+1 then flevn n1 (flevel m) else m.
@@ -193,19 +257,21 @@ Fixpoint flevn (n : nat) (m : rmap) : rmap :=
 (* a bit of a kept page stands for as many members as its orbit has pages.    *)
 Definition fcount (m : rmap) : int :=
   ifold nrepn 0
-    (fun r a =>
-       let o := PArray.get forb r in
+    (fun r acc =>
+       let orb := PArray.get forb r in
+       let ca := PArray.get m (pchk r) in
+       let co := poff r in
        ifold ngroupn 0
          (fun g b =>
-            let v := gget m (grpof r g) in
+            let v := PArray.get ca (Uint63.add co g) in
             if Uint63.eqb v 0 then b
             else
               Uint63.add b
-                (Uint63.mul o
+                (Uint63.mul orb
                    (Uint63.add (PArray.get fpop (Uint63.land v lo12))
                       (PArray.get fpop
                          (Uint63.land (Uint63.lsr v 12) lo12)))))
-         a)
+         acc)
     0.
 
 End PreF.
