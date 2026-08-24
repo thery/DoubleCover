@@ -20,6 +20,7 @@
           rubik_row check                                     the checks
           rubik_row hball <n>                                 the prepass alone
           rubik_row fball <n>                                 the same, folded
+          rubik_row pball <n>                       the same, persistent arrays
 
    The search runs only while the depth is at most <maxsearch>; above that
    the prepass runs alone.  That is how hcoset reaches twenty: it searches to
@@ -1000,6 +1001,156 @@ let fcount () =
     n := !n + Array.unsafe_get orbsz r * !c
   done; !n
 
+(* ---- the same level, over PERSISTENT arrays ----------------------------- *)
+
+(* WHAT ROCQ PAYS, MEASURED WITHOUT ROCQ.  The Rocq side keeps the map in
+   PArray, which is a persistent array: a write returns a new version and
+   leaves the old one behind as a difference, so a pointer to any old version
+   keeps the whole history alive.  This is that array, written the way Rocq's
+   is, with the level over it word for word -- so what it costs here is the
+   data structure's own cost, and whatever Rocq costs beyond this is Rocq's. *)
+
+module P = struct
+  type 'a t = 'a data ref
+  and 'a data = Arr of 'a array | Diff of int * 'a * 'a t
+
+  let make n v : 'a t = ref (Arr (Array.make n v))
+
+  (* the array is at the end of a chain of differences; walk to it, then turn
+     the chain round so that this version is the one holding it *)
+  let rec reroot (t : 'a t) : 'a array =
+    match !t with
+    | Arr a -> a
+    | Diff (i, v, t') ->
+      let a = reroot t' in
+      let old = Array.unsafe_get a i in
+      Array.unsafe_set a i v;
+      t := Arr a;
+      t' := Diff (i, old, t);
+      a
+
+  let get t i = Array.unsafe_get (reroot t) i
+
+  let set t i v =
+    let a = reroot t in
+    let old = Array.unsafe_get a i in
+    if old == v then t
+    else begin
+      Array.unsafe_set a i v;
+      let res = ref (Arr a) in
+      t := Diff (i, old, res);
+      res
+    end
+end
+
+(* the map: forty four chunks of sixty four kept pages, as Rocq lays it out *)
+let ppc = 64
+let pcsize = ppc * ngroup
+let pnchunk = (nrep + ppc - 1) / ppc
+
+type pmap = int P.t P.t
+
+let pmkempty () : pmap =
+  let m = ref (P.make pnchunk (P.make 1 0)) in
+  for c = 0 to pnchunk - 1 do m := P.set !m c (P.make pcsize 0) done;
+  !m
+
+(* one move of H, gathered into the page being filled *)
+let plevmv (src : pmap) r k doff (a : int P.t) : int P.t =
+  let q = mpginv.(reps.(r)).(k) in
+  let p = repof.(q) in
+  let u = sinv.(symof.(q)) in
+  let si = repix.(p) in
+  let pc = pgpar.(p) in
+  let sa = P.get src (si lsr 6) in
+  let soff = (si land 63) * ngroup in
+  let glo = sgr.(u).(pc) and ghi = sgr.(u).(1 - pc) in
+  let ulo = slo.(u) and uhi = shi.(u) in
+  let tlo = mlo.(k) and thi = mhi.(k) and mg = mgk.(k) in
+  let sw = mswap.(k) in
+  let b = ref a in
+  for g = 0 to ngroup - 1 do
+    let v = P.get sa (soff + g) in
+    if v <> 0 then begin
+      let lo = v land 4095 and hi = (v lsr 12) land 4095 in
+      if lo <> 0 then begin
+        let l = tlo.(ulo.(lo)) in
+        let j = doff + mg.(glo.(g)) in
+        let w = P.get !b j in
+        b := P.set !b j (w lor (if sw = 0 then l else l lsl 12))
+      end;
+      if hi <> 0 then begin
+        let h = thi.(uhi.(hi)) in
+        let j = doff + mg.(ghi.(g)) in
+        let w = P.get !b j in
+        b := P.set !b j (w lor (if sw = 0 then h lsl 12 else h))
+      end
+    end
+  done;
+  !b
+
+(* one kept page: the carry overwrites, then the ten moves, then the chunk
+   goes back *)
+let plevpg (src : pmap) r (d : pmap) : pmap =
+  let c = r lsr 6 in
+  let doff = (r land 63) * ngroup in
+  let sa = P.get src c in
+  let a = ref (P.get d c) in
+  for g = 0 to ngroup - 1 do
+    a := P.set !a (doff + g) (P.get sa (doff + g))
+  done;
+  for k = 0 to nh - 1 do a := plevmv src r k doff !a done;
+  P.set d c !a
+
+let plevel (src : pmap) (dst : pmap) : pmap =
+  let d = ref dst in
+  for r = 0 to nrep - 1 do d := plevpg src r !d done;
+  !d
+
+let pcount (m : pmap) =
+  let n = ref 0 in
+  for r = 0 to nrep - 1 do
+    let a = P.get m (r lsr 6) in
+    let o = (r land 63) * ngroup and c = ref 0 in
+    for g = 0 to ngroup - 1 do
+      let v = P.get a (o + g) in
+      c := !c + popc.(v land 4095) + popc.((v lsr 12) land 4095)
+    done;
+    n := !n + orbsz.(r) * !c
+  done; !n
+
+(* the ball of H over persistent arrays: the same numbers, and what they cost *)
+let pball n =
+  Printf.printf "persistent arrays: %d chunks of %d, two maps, %.2f GB\n%!"
+    pnchunk pcsize (float_of_int (2 * pnchunk * pcsize * 8) /. 1e9);
+  let cur = ref (pmkempty ()) and nxt = ref (pmkempty ()) in
+  let s = solved () in
+  let pg = rank s.cp 0 8 in
+  let sy = syms.(symof.(pg)) in
+  let b8 = Array.make 8 0 and b12 = Array.make 12 0 in
+  for j = 0 to 7 do b8.(sy.sc.(j)) <- sy.sc.(s.cp.(j)) done;
+  for j = 0 to 11 do b12.(sy.se.(j)) <- sy.se.(s.ep.(j)) done;
+  let r = repix.(repof.(pg)) in
+  let gr = e8num.(rank b12 0 8) lsr 1 and bt = e4bit.(rank b12 8 4) in
+  let c = r lsr 6 and o = (r land 63) * ngroup in
+  let a = P.get !cur c in
+  let j = o + gr in
+  let a = P.set a j (P.get a j lor (1 lsl (bt mod 12))) in
+  cur := P.set !cur c a;
+  Printf.printf "level  0 : %d\n%!" (pcount !cur);
+  for d = 1 to n do
+    let t0 = Unix.gettimeofday () in
+    let m = plevel !cur !nxt in
+    let t1 = Unix.gettimeofday () in
+    nxt := !cur; cur := m;
+    let st = Gc.quick_stat () in
+    Printf.printf "level %2d : %d (%.1f s, heap %.2f GB, allocated %.1f GB)\n%!"
+      d (pcount !cur) (t1 -. t0)
+      (float_of_int (Gc.stat ()).Gc.heap_words *. 8.0 /. 1e9)
+      ((st.Gc.minor_words +. st.Gc.major_words) *. 8.0 /. 1e9)
+  done;
+  exit 0
+
 (* ---- the fold, or the plain map, chosen once --------------------------- *)
 
 let alloc () = if !usefold then falloc () else alloc ()
@@ -1406,6 +1557,8 @@ let () =
     hball (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "fball" then begin
     usefold := true; hball (int_of_string Sys.argv.(2)) end;
+  if Array.length Sys.argv > 2 && Sys.argv.(1) = "pball" then
+    pball (int_of_string Sys.argv.(2));
   let cap = int_of_string Sys.argv.(1) in
   let maxdepth = int_of_string Sys.argv.(2) in
   let arg = if Array.length Sys.argv > 3 then Sys.argv.(3) else "" in
