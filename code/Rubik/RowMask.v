@@ -4,8 +4,8 @@
 
 (* NOT PART OF THE PROOF.  The pruning table is what a search consults to    *)
 (* decide where not to go; soundness never looks at it, so nothing here has  *)
-(* to be proved.  RowLeaf.v says it in so many words: the table "is then     *)
-(* only the pruning table, which soundness never looks at".                  *)
+(* to be proved.  RowLeaf.v says it in so many words: the table is only the  *)
+(* pruning table, which soundness never looks at.                            *)
 (*                                                                           *)
 (* WHAT IS NEW IS THE MOVES.  Fold.v's table gives the distance alone, so a  *)
 (* node has to offer all eighteen moves and read the table eighteen times.   *)
