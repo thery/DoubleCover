@@ -25,17 +25,40 @@ set -e
 cd "$(dirname "$0")"
 ulimit -s unlimited
 
-# the phase one fold, only if it is not there
-for f in Fold FoldTables P1Fdec P1FTable; do
-  if [ ! -f "$f.vo" ]; then
-    echo "--- $f (missing)"
-    coqc -R . Rubik "$f.v"
-  fi
-done
+# A target is stale when its .vo is missing, older than its own source, or
+# older than the .vo of anything that source requires.  mkfold.sh's test,
+# word for word: without it this script recompiled RowTabF -- two minutes of
+# list -- on every run, and the whole point of `chk' is to be quick.
+prereqs () {   # the .vo of every in-project file that $1 requires
+  awk '/Require/, /\.[ \t]*$/ {
+         gsub(/^From +[A-Za-z]+ +/, ""); gsub(/Require|Import|Export/, "");
+         gsub(/-\(notations\)/, ""); gsub(/\./, " "); print }' "$1" |
+  tr ' \t' '\n\n' | grep -v '^$' | sort -u |
+  while read m; do [ -f "$m.v" ] && echo "$m.vo"; done
+}
 
-for f in RowFold RowMask RowTabF RowFoldTab RowFoldSrch; do
-  echo "--- $f"
-  coqc -R . Rubik "$f.v"
+stale () {     # stale <base>: does <base>.vo have to be rebuilt?
+  if [ ! -f "$1.vo" ]; then return 0; fi
+  if [ "$1.v" -nt "$1.vo" ]; then return 0; fi
+  for p in $(prereqs "$1.v"); do
+    if [ -f "$p" ] && [ "$p" -nt "$1.vo" ]; then return 0; fi
+  done
+  return 1
+}
+
+build () {     # build <base>
+  if stale "$1"; then
+    echo "--- $1"
+    coqc -R . Rubik "$1.v"
+  else
+    echo "$1.vo is current"
+  fi
+}
+
+# the phase one fold, and the row's own files, each only if it is stale
+for f in Fold FoldTables P1Fdec P1FTable \
+         RowFold RowMask RowTabF RowFoldTab RowFoldSrch; do
+  build "$f"
 done
 echo "the folded row is built"
 
