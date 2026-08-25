@@ -268,9 +268,104 @@ Definition flevpg (src : rmap) (r : int) (d : rmap) : rmap :=
 Definition flevel (src : rmap) (dst : rmap) : rmap :=
   ifold nrepn 0 (fun r d => flevpg src r d) dst.
 
+(* ---- the same level, but never writing a word that is already right ----- *)
+
+(* PArray.set allocates a difference whatever it is handed, and the old
+   version chains forward through every one of them: on a sparse map nearly
+   every word of a level is nought written over nought, 613 million of them,
+   and they are all reachable until the level returns.  Filliatre's own
+   persistent array tests for an equal value and skips; Rocq's does not, so
+   it is tested here.  Same answers, and nothing allocated for a word that
+   does not change.
+
+   flevel above is left exactly as it was, so the two can be run side by
+   side. *)
+
+(* one move of H, gathered into the page being filled                         *)
+Definition flevmvg (src : rmap) (r k doff : int) (a : arr) : arr :=
+  let w := PArray.get fsrc (Uint63.add (Uint63.mul r nhi) k) in
+  let u := fren w in
+  let pc := fpar w in
+  let p := fkpt w in
+  let sa := PArray.get src (pchk p) in
+  let soff := poff p in
+  let glo := Uint63.mul (Uint63.add (Uint63.mul u 2) pc) ngroupi in
+  let ghi :=
+    Uint63.mul (Uint63.add (Uint63.mul u 2) (Uint63.sub 1 pc)) ngroupi in
+  let ub := Uint63.lsl u 12 in
+  let kb := Uint63.lsl k 12 in
+  let sw := Uint63.eqb (PArray.get msw k) 0 in
+  ifold ngroupn 0
+    (fun g b =>
+       let v := PArray.get sa (Uint63.add soff g) in
+       if Uint63.eqb v 0 then b
+       else
+         let lo := Uint63.land v lo12 in
+         let hi := Uint63.land (Uint63.lsr v 12) lo12 in
+         let b1 :=
+           if Uint63.eqb lo 0 then b
+           else
+             let l := PArray.get mlo
+                        (Uint63.add kb (PArray.get fslo (Uint63.add ub lo))) in
+             let j := Uint63.add doff
+                        (PArray.get mgr
+                           (Uint63.add
+                              (Uint63.mul
+                                 (PArray.get fsgr (Uint63.add glo g)) nhi) k)) in
+             let w := PArray.get b j in
+             let w' := Uint63.lor w (if sw then l else Uint63.lsl l 12) in
+             if Uint63.eqb w w' then b else PArray.set b j w' in
+         if Uint63.eqb hi 0 then b1
+         else
+           let h := PArray.get mhi
+                      (Uint63.add kb (PArray.get fshi (Uint63.add ub hi))) in
+           let j := Uint63.add doff
+                      (PArray.get mgr
+                         (Uint63.add
+                            (Uint63.mul
+                               (PArray.get fsgr (Uint63.add ghi g)) nhi) k)) in
+           let w := PArray.get b1 j in
+           let w' := Uint63.lor w (if sw then Uint63.lsl h 12 else h) in
+           if Uint63.eqb w w' then b1 else PArray.set b1 j w')
+    a.
+
+(* one kept page: the carry, then the ten moves, then the chunk put back      *)
+(* THE CARRY OVERWRITES.  The destination is a map of two levels ago, so its  *)
+(* words are stale and every one of them is written, nought or not.  That is  *)
+(* what lets the two maps be reused instead of a new one being made a level:  *)
+(* a map made a level is 454 MB, and the old ones are held long enough to     *)
+(* pile up.                                                                   *)
+Definition flevpgg (src : rmap) (r : int) (d : rmap) : rmap :=
+  let c := pchk r in
+  let doff := poff r in
+  let sa := PArray.get src c in
+  let a0 := PArray.get d c in
+  (* NEVER WRITE A WORD THAT IS ALREADY RIGHT.  PArray.set allocates a
+     difference whatever it is handed, and on a sparse map nearly every word
+     of the carry is nought over nought: 613 million writes a level, all of
+     them kept until the map dies.  Filliatre's own persistent array tests
+     this and skips; Rocq's does not, so it is tested here. *)
+  let a1 :=
+    ifold ngroupn 0
+      (fun g b =>
+         let j := Uint63.add doff g in
+         let v := PArray.get sa j in
+         if Uint63.eqb (PArray.get b j) v then b else PArray.set b j v)
+      a0 in
+  let a2 := ifold nhn 0 (fun k b => flevmvg src r k doff b) a1 in
+  PArray.set d c a2.
+
+(* THE TWO MAPS ARE HANDED IN AND HANDED BACK.  Nothing is allocated a level: *)
+(* the level reads one and fills the other, and the caller swaps them.        *)
+Definition flevelg (src : rmap) (dst : rmap) : rmap :=
+  ifold nrepn 0 (fun r d => flevpgg src r d) dst.
+
 (* n levels, the two maps swapping at each one                                *)
 Fixpoint flevn (n : nat) (m d : rmap) : rmap :=
   if n is n1.+1 then flevn n1 (flevel m d) m else m.
+
+Fixpoint flevng (n : nat) (m d : rmap) : rmap :=
+  if n is n1.+1 then flevng n1 (flevelg m d) m else m.
 
 (* ---- the members, counted ------------------------------------------------ *)
 
