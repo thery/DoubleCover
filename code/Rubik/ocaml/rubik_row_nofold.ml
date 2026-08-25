@@ -2229,7 +2229,12 @@ let () =
      prepass left, and ROWENOUGH takes that number.  Safe like every other
      cut here -- what is proved is that the map filled. *)
   let enough = ref max_int in
-  let rowenough = getenvi "ROWENOUGH" 0 in
+  (* ROWENOUGH=auto is hcoset's own rule rather than a number of ours: once
+     the last search level's prepass has run, stop the search at 167 million
+     plus a third of what the prepass left.  That is `-F', the recipe every
+     published time of his was measured with. *)
+  let rowauto = (Sys.getenv_opt "ROWENOUGH" = Some "auto") in
+  let rowenough = if rowauto then 1 else getenvi "ROWENOUGH" 0 in
   let opp f = (f + 3) mod 6 in
   let idx d = (tw.(d) * n_flip + fl.(d)) * n_slice + sl.(d) in
 
@@ -2320,7 +2325,10 @@ let () =
     enough := max_int;
     if rowenough > 0 && !d = maxsearch then begin
       swapmaps (); nset := count (); swapmaps ();
-      enough := rowenough
+      enough := if rowauto then 167000000 + !nset / 3 else rowenough;
+      if rowauto then
+        Printf.printf "   the stop: %d bits, %d after the prepass\n%!"
+          !enough !nset
     end;
     if !d <= maxsearch then begin
       if has_mask then begin
