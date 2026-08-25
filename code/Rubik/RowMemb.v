@@ -357,10 +357,10 @@ Definition cslotn (f : nat) : nat := nth 0%N cslotv f.
 Definition eposn (f : nat) : nat := nth 0%N eposv f.
 
 (* AND THE ORDER IS CHECKED, not asserted.  These are the prototype's own six *)
-(* cp arrays, copied out of rubik_row.ml's `basic'.  Turn a face, ask which   *)
-(* corner each place receives, and the eight numbers have to be its.  The six *)
-(* turns move the corners every way there is, so nothing but the right order  *)
-(* passes.                                                                    *)
+(* cp arrays, copied out of rubik_row_nofold.ml's `basic'.  Turn a face, ask  *)
+(* which corner each place receives, and the eight numbers have to be its.    *)
+(* The six turns move the corners every way there is, so nothing but the      *)
+(* right order passes.                                                        *)
 Definition cparr : seq (seq nat) :=
   [:: [:: 3; 0; 1; 2; 4; 5; 6; 7]; [:: 4; 1; 2; 0; 7; 5; 6; 3];
       [:: 1; 5; 2; 3; 0; 4; 6; 7]; [:: 0; 1; 2; 3; 5; 6; 7; 4];

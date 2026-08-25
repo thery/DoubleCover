@@ -210,9 +210,9 @@ Nothing in the four files. What is missing is the file that supplies them:
 
 ## Costs, measured in OCaml on roquableu
 
-One row on one core, `ocaml/rubik_row.ml`, against `hcoset` on the same coset:
+One row on one core, `ocaml/rubik_row_nofold.ml`, against `hcoset` on the same coset:
 
-| | hcoset | rubik_row |
+| | hcoset | rubik_row_nofold |
 |---|---|---|
 | the coset, production recipe | 72.2 s | 445.4 s |
 | leftover | 318 | 316 |

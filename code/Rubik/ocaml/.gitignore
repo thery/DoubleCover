@@ -11,3 +11,6 @@ rubik_h
 MoveTables.v
 *.tbl
 *.tbl.cnt
+rubik_row
+rubik_row_nofold
+rubik_row_fold

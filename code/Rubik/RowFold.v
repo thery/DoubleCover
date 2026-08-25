@@ -30,9 +30,9 @@
 (* changes: the low half of a word is one parity and the high half the other, *)
 (* and the two halves go to two different words.                              *)
 (*                                                                            *)
-(* NOT PROVED HERE.  This file is the algorithm, mimicking ocaml/rubik_row.ml *)
-(* word for word; what it computes is checked against the prototype's own     *)
-(* numbers.                                                                   *)
+(* NOT PROVED HERE.  This file is the algorithm, mimicking                    *)
+(* ocaml/rubik_row_nofold.ml word for word; what it computes is checked       *)
+(* against the prototype's own numbers.                                       *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
