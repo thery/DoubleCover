@@ -6,9 +6,13 @@
 (* answer.  This one asks for each depth separately, so a line and a time    *)
 (* land at every step and the next step can be guessed from the last.        *)
 (*                                                                           *)
-(* IT PAYS FOR THAT.  Each Eval starts from the seed again, so the levels    *)
-(* below are redone every time; the whole file is about twice the single run *)
-(* and the last line alone is half of it.                                    *)
+(* IT PAYS FOR THAT.  Each Eval starts from the seed again, so a level is     *)
+(* redone once for every depth at or above it -- and the heaviest level is    *)
+(* not the last, so asking for all eleven depths costs several times the run. *)
+(* THREE ARE ASKED: ten, thirteen and twenty.  Thirteen against the           *)
+(* prototype's 27.7 s gives the ratio, and the ratio against its 1 273 s at   *)
+(* fifteen says what twenty will cost, which is better than any trend drawn   *)
+(* through Rocq's own numbers -- they grow by 4.9 and then by 9.4.            *)
 (*                                                                           *)
 (* The prototype's numbers, for the superflip's row:                         *)
 (*                                                                           *)
@@ -71,26 +75,10 @@ Fixpoint frunl (n : nat) (d : nat) (m dst : rmap) (acc : seq int) : seq int :=
     frunl n1 d.+1 m' m (rcons acc (fcount forbi fpopi m'))
   else acc.
 
-(* one line a depth, ten to twenty *)
+(* three depths: ten, thirteen, twenty *)
 
 Time Eval native_compute in frunl 10 0 (mkempty tt) (mkempty tt) [::].
 
-Time Eval native_compute in frunl 11 0 (mkempty tt) (mkempty tt) [::].
-
-Time Eval native_compute in frunl 12 0 (mkempty tt) (mkempty tt) [::].
-
 Time Eval native_compute in frunl 13 0 (mkempty tt) (mkempty tt) [::].
-
-Time Eval native_compute in frunl 14 0 (mkempty tt) (mkempty tt) [::].
-
-Time Eval native_compute in frunl 15 0 (mkempty tt) (mkempty tt) [::].
-
-Time Eval native_compute in frunl 16 0 (mkempty tt) (mkempty tt) [::].
-
-Time Eval native_compute in frunl 17 0 (mkempty tt) (mkempty tt) [::].
-
-Time Eval native_compute in frunl 18 0 (mkempty tt) (mkempty tt) [::].
-
-Time Eval native_compute in frunl 19 0 (mkempty tt) (mkempty tt) [::].
 
 Time Eval native_compute in frunl 20 0 (mkempty tt) (mkempty tt) [::].
