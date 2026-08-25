@@ -7,12 +7,15 @@
 #    ./mkfold.sh 4        the same with four workers
 #    KEEP=0 ./mkfold.sh   re-emit even if the files are there
 #
-#  64 430 orbits x 2187 twists = 140 908 410 entries against 2 217 093 120,
-#  so five distance chunks and three for the rank under each symmetry,
-#  where the unfolded table needs seventy one.
+#  64 430 orbits x 2187 twists = 140 908 410 entries against 2 217 093 120.
 #
-#  A chunk is ~40 MB of Rocq and takes about thirteen minutes and 9 GB, so
-#  the eight together are about 1.7 CPU-h against 8.8 for the unfolded set.
+#  AN ENTRY CARRIES THE MOVES NOW, not the distance alone: twenty eight bits,
+#  two to a word where fifteen distances went.  So thirty four chunks and not
+#  five, and three more for the rank under each symmetry.
+#
+#  A chunk is ~40 MB of Rocq and was measured at about thirteen minutes and
+#  9 GB, so the thirty seven together are about 8 CPU-h -- that is COMPUTED
+#  from the one chunk measured, not timed.
 # =========================================================================
 set -e
 cd "$(dirname "$0")"
