@@ -50,6 +50,29 @@ needed to build it and for nothing else.
 commute with the moves, and the distances and moves match the plain table.
 Five million random states were checked at cap 9.
 
+## Against hcoset, on the same row
+
+MEASURED on roquableu, 2026-08-25: the row of H (`ROW=""`), his production
+recipe on both sides (`-F`, ours `ROWSEARCH=16 ROWENOUGH=auto`), ONE CORE.
+Every level count identical -- 329 352 128 solutions at depth 12 on both
+sides, which is his published number.
+
+| | hcoset | ours | |
+|---|---|---|---|
+| search, depth 9 | 2.4 s | 68.8 s | 28x |
+| search, depth 10 | 0.9 s | 11.8 s | 14x |
+| search, depth 11 | 6.2 s | 86.3 s | 14x |
+| search, depth 12 | 45.8 s | 539 s | 12x |
+| **the prepass** | 9.2 s | 1.4-2.9 s | **ours is 3-6x faster** |
+
+So the search is about **twelve times his**, and the prepass is FASTER than
+his -- that is the map fold, which he does not do.
+
+**AND THE ROW OF H IS NOT THE SUPERFLIP ROW.**  `ROW=""` is the row of H
+itself; the superflip row is
+`U R2 F B R B2 R U2 L B2 R U' D' R2 F R' L B2 U2 F2`, and it is the one the
+Rocq proof is about.  The table above is the row of H, on both sides.
+
 ## What is not settled
 
 The two programs have only been compared at cap 9, where the old one reads
