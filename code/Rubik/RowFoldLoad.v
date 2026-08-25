@@ -15,7 +15,7 @@ Require Import Row RowMap RowRun RowFinal RowInst.
 Require Import RowTabL RowTabP RowTab RowMemb RowLeaf.
 Require Import RowWits RowReal.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
-Require Import Fold FoldTables P1FTable.
+Require Import Fold FoldTables P1Fdec P1FTable RowMask.
 Require Import RowFold RowTabF RowFoldTab RowFoldSrch.
 
 Set Implicit Arguments.
