@@ -1037,9 +1037,16 @@ module P = struct
 
   (* `reroot t` ensures that `t` becomes an `Array` node.
       This is written in CPS to avoid any stack overflow. *)
+  (* HOW FAR A REROOT WALKS.  If any read touches an old version the chain is
+     reversed, and a long chain makes that quadratic.  Counting it says
+     whether that ever happens. *)
+  let rerootsteps = ref 0
+  let reroots = ref 0
+
   let rec rerootk t k = match !t with
     | Array _ -> k ()
     | Diff (i, v, t') ->
+        incr rerootsteps;
         rerootk t' (fun () ->
             (match !t' with
              | Array a as n ->
@@ -1052,29 +1059,40 @@ module P = struct
             k()
           )
 
-  let reroot t = rerootk t (fun () -> ())
+  let reroot t = incr reroots; rerootk t (fun () -> ())
+
+  (* WHEN AN OLD VERSION IS TOUCHED.  A version is current when it holds the
+     array; if it holds a difference it is old, and touching it turns the
+     whole chain round.  These count how often that happens, reading and
+     writing, which is the thing worth knowing about a persistent array. *)
+  let oldget = ref 0
+  let oldset = ref 0
+  let isold t = match !t with Array _ -> false | Diff _ -> true
 
   let get t i =
     match !t with
     | Array a ->
         a.(i)
     | Diff _ ->
+        incr oldget;
         reroot t;
         (match !t with Array a -> a.(i) | Diff _ -> assert false)
 
+  (* THE ONE LINE CHANGED FROM FILLIATRE'S: his `set' returns the array
+     unchanged when the value is equal, and Coq's PArray does not -- it
+     allocates a difference every time.  On a map that is nearly empty
+     almost every write is nought over nought, so that line skipped nearly
+     all the work and made this side look four times faster than it is. *)
   let set t i v =
+    if isold t then incr oldset;
     reroot t;
     match !t with
     | Array a as n ->
         let old = a.(i) in
-        if old == v then
-          t
-        else (
-          a.(i) <- v;
-          let res = ref n in
-          t := Diff (i, old, res);
-          res
-        )
+        a.(i) <- v;
+        let res = ref n in
+        t := Diff (i, old, res);
+        res
     | Diff _ ->
         assert false
 end
@@ -1196,26 +1214,34 @@ let pball n =
    Rocq does not hoist.  What it costs is what the PROGRAM costs; whatever
    Rocq costs beyond it is the evaluator. *)
 
-(* the tables, flattened exactly as dumptab writes them for Rocq *)
-let lfsrc = Array.init (nrep * nh) (fun i ->
-  let r = i / nh and k = i mod nh in
-  let q = mpginv.(reps.(r)).(k) in
-  let p = repof.(q) in
-  (repix.(p) * nsym + sinv.(symof.(q))) * 2 + pgpar.(p))
-let lfsgr = Array.init (nsym * 2 * ngroup) (fun i ->
-  sgr.(i / (2 * ngroup)).(i / ngroup mod 2).(i mod ngroup))
-let lfslo = Array.init (nsym * 4096) (fun i -> slo.(i / 4096).(i mod 4096))
-let lfshi = Array.init (nsym * 4096) (fun i -> shi.(i / 4096).(i mod 4096))
-let lmgr = Array.init (ngroup * nh) (fun i -> mgroup.(i / nh).(i mod nh))
-let lmlo = Array.init (nh * 4096) (fun i -> mlo.(i / 4096).(i mod 4096))
-let lmhi = Array.init (nh * 4096) (fun i -> mhi.(i / 4096).(i mod 4096))
-
 (* THE COUNT IS A UNARY NAT, as it is in the Rocq: `ifold ngroupn' walks
    twenty thousand constructors, one match a word, and ngroupn itself is
    to_nat of an int63.  An int counter here would not be the same program. *)
 type unat = O | S of unat
 
 let rec unat_of n = if n = 0 then O else S (unat_of (n - 1))
+
+(* THE TABLES ARE PERSISTENT ARRAYS TOO.  In the Rocq every one of these is a
+   PArray, so a read is a deref, a match and a bounds check; a plain OCaml
+   array here is one indexed load, and there are six of them a word in the
+   inner loop.  That difference alone flattered this side fourfold. *)
+let pof (a : int array) : int P.t =
+  let t = ref (P.make (Array.length a) 0) in
+  Array.iteri (fun i v -> t := P.set !t i v) a; !t
+
+let lfsrc = pof (Array.init (nrep * nh) (fun i ->
+  let r = i / nh and k = i mod nh in
+  let q = mpginv.(reps.(r)).(k) in
+  let p = repof.(q) in
+  (repix.(p) * nsym + sinv.(symof.(q))) * 2 + pgpar.(p)))
+let lfsgr = pof (Array.init (nsym * 2 * ngroup) (fun i ->
+  sgr.(i / (2 * ngroup)).(i / ngroup mod 2).(i mod ngroup)))
+let lfslo = pof (Array.init (nsym * 4096) (fun i -> slo.(i / 4096).(i mod 4096)))
+let lfshi = pof (Array.init (nsym * 4096) (fun i -> shi.(i / 4096).(i mod 4096)))
+let lmgr = pof (Array.init (ngroup * nh) (fun i -> mgroup.(i / nh).(i mod nh)))
+let lmlo = pof (Array.init (nh * 4096) (fun i -> mlo.(i / 4096).(i mod 4096)))
+let lmhi = pof (Array.init (nh * 4096) (fun i -> mhi.(i / 4096).(i mod 4096)))
+let lmsw = pof (Array.init nh (fun k -> mswap.(k)))
 
 (* ifold, as RowMap.v has it: a nat, a running int, a closure a step *)
 let rec ifold (n : unat) x f a =
@@ -1237,7 +1263,7 @@ let pchk r = r lsr 6
 let poff r = (r land 63) * ngroup
 
 let lflevmv (src : pmap) r k doff (a : int P.t) : int P.t =
-  let w = lfsrc.(r * nhi + k) in
+  let w = P.get lfsrc (r * nhi + k) in
   let u = fren w in
   let pc = fpar w in
   let p = fkpt w in
@@ -1247,7 +1273,7 @@ let lflevmv (src : pmap) r k doff (a : int P.t) : int P.t =
   let ghi = (u * 2 + (1 - pc)) * ngroup in
   let ub = u lsl 12 in
   let kb = k lsl 12 in
-  let sw = mswap.(k) = 0 in
+  let sw = P.get lmsw k = 0 in
   ifold ngroupn 0
     (fun g b ->
        let v = P.get sa (soff + g) in
@@ -1258,13 +1284,13 @@ let lflevmv (src : pmap) r k doff (a : int P.t) : int P.t =
          let b1 =
            if lo = 0 then b
            else
-             let l = lmlo.(kb + lfslo.(ub + lo)) in
-             let j = doff + lmgr.(lfsgr.(glo + g) * nhi + k) in
+             let l = P.get lmlo (kb + P.get lfslo (ub + lo)) in
+             let j = doff + P.get lmgr (P.get lfsgr (glo + g) * nhi + k) in
              P.set b j (P.get b j lor (if sw then l else l lsl 12)) in
          if hi = 0 then b1
          else
-           let h = lmhi.(kb + lfshi.(ub + hi)) in
-           let j = doff + lmgr.(lfsgr.(ghi + g) * nhi + k) in
+           let h = P.get lmhi (kb + P.get lfshi (ub + hi)) in
+           let j = doff + P.get lmgr (P.get lfsgr (ghi + g) * nhi + k) in
            P.set b1 j (P.get b1 j lor (if sw then h lsl 12 else h)))
     a
 
@@ -1407,6 +1433,23 @@ let lsrchrun d =
 
 let lnfs = n_flip * n_slice                     (* 1 013 760, RowInst's nfsi *)
 
+(* THE COUNTER, PROVED TO FIRE.  A count of nought is worth nothing until the
+   counter is shown to move, so this touches an old version on purpose. *)
+let ptest () =
+  let a = P.make 4 0 in
+  let b = P.set a 0 1 in            (* a is now old, b is current *)
+  let g0 = !P.oldget and s0 = !P.oldset in
+  ignore (P.get a 0);               (* a read of an old version *)
+  let g1 = !P.oldget in
+  let c = P.set b 1 2 in            (* b is old again after that reroot *)
+  ignore (P.set b 2 3);             (* a write to an old version *)
+  ignore c;
+  Printf.printf
+    "self test: the old-read counter moved by %d, the old-write counter by %d\n\
+     (both must be at least one, or a nought elsewhere means nothing)\n%!"
+    (g1 - g0) (!P.oldset - s0);
+  exit 0
+
 let lrow n =
   (* the move tables, and the phase one table off the disk *)
   let mt_twist = mk_move_table n_twist cube_of_twist twist in
@@ -1526,9 +1569,11 @@ let lrow n =
     let t1 = Unix.gettimeofday () in
     nxt := !cur; cur := m;
     Printf.printf
-      "level %2d : %d members, %d nodes, %d leaves (%.1f s, heap %.2f GB)\n%!"
-      d (pcount !cur) !lnodes !lleaves (t1 -. t0)
+      "level %2d : %d members, %d nodes (%.1f s, heap %.2f GB, \
+       %d reads and %d writes of an OLD version)\n%!"
+      d (pcount !cur) !lnodes (t1 -. t0)
       (float_of_int (Gc.stat ()).Gc.heap_words *. 8.0 /. 1e9)
+      !P.oldget !P.oldset
   done;
   exit 0
 
@@ -1976,6 +2021,7 @@ let () =
     lleak (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "lsrch" then
     lsrchrun (int_of_string Sys.argv.(2));
+  if Array.length Sys.argv > 1 && Sys.argv.(1) = "ptest" then ptest ();
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "lrow" then
     lrow (int_of_string Sys.argv.(2));
   let cap = int_of_string Sys.argv.(1) in

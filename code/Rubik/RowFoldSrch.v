@@ -44,6 +44,7 @@ Variable fpg fsrc fsgr fslo fshi fsbt : arr.
 Variable mgr msw mlo mhi : arr.
 
 Local Notation flev := (flevel fsrc fsgr fslo fshi mgr msw mlo mhi).
+Local Notation flevg := (flevelg fsrc fsgr fslo fshi mgr msw mlo mhi).
 Local Notation fmk := (fmark fpg fsgr fsbt).
 
 (* ---- the phase one table, folded ----------------------------------------- *)
@@ -136,5 +137,19 @@ Definition flvl (d : nat) (m dst : rmap) : rmap :=
 
 Fixpoint frun (n : nat) (d : nat) (m dst : rmap) : rmap :=
   if n is n1.+1 then frun n1 d.+1 (flvl d.+1 m dst) m else m.
+
+(* the same run over the guarded level, which never writes a word that is
+   already right *)
+Definition flvlg (d : nat) (m dst : rmap) : rmap :=
+  let m' := flevg m dst in
+  if (d <= dsrch)%N then
+    let w := p1g croot in
+    let nd := Uint63.to_nat (wdist w) in
+    if (nd <= d)%N then fsrch d croot sroot (wmask w (d - nd)) 18%uint63 m'
+    else m'
+  else m'.
+
+Fixpoint frung (n : nat) (d : nat) (m dst : rmap) : rmap :=
+  if n is n1.+1 then frung n1 d.+1 (flvlg d.+1 m dst) m else m.
 
 End FSrch.
