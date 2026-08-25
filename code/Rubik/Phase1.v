@@ -719,13 +719,13 @@ Definition p1cap     := 9.            (* the BFS stops here, as rubik_par does*)
 (* of the table -- but a nat that size is a stack overflow waiting for the    *)
 (* first `vm_compute' that reaches it, and Rocq warns about the literal.      *)
 Definition p1entriesi : int := 140908410%uint63.   (* norb * ntwist           *)
-Definition p1wordsi   : int := 9393894%uint63.     (* ceil (p1entries / 15)   *)
+Definition p1wordsi   : int := 70454205%uint63.    (* ceil (p1entries / 2)    *)
 
 (* p1words > PArray.max_length = 4 194 303, so the table is a PArray of       *)
 (* PArrays.  The split is on the WORD index at a power of two, w >> cwlog,    *)
 (* which stays definitional -- the same trick Fspar.v's cbits uses.           *)
 Definition cwlog  := 21.
-Definition nchunk := 5.
+Definition nchunk := 34.
 
 (* THE TABLE IS A PARAMETER, exactly as Fstab.v takes it and FsTable.v        *)
 (* supplies it.  Nothing below assumes ANYTHING about it -- no length, no     *)
@@ -738,9 +738,9 @@ Definition nchunk := 5.
 (* WHERE THE FOLDING TABLES LIVE.  They ride in the same array as the         *)
 (* distance chunks, in the three slots after them, so a folded read still     *)
 (* takes one table and no definition below grows an argument.                 *)
-Definition frepslot  : int := 5%uint63.   (* a rank's orbit                   *)
-Definition fsymslot  : int := 6%uint63.   (* the symmetry that folds it       *)
-Definition twsymslot : int := 7%uint63.   (* the twist under a symmetry       *)
+Definition frepslot  : int := 34%uint63.  (* a rank's orbit                   *)
+Definition fsymslot  : int := 35%uint63.  (* the symmetry that folds it       *)
+Definition twsymslot : int := 36%uint63.  (* the twist under a symmetry       *)
 
 Section P1Tab.
 
