@@ -100,6 +100,14 @@ itself; the superflip row is
 `U R2 F B R B2 R U2 L B2 R U' D' R2 F R' L B2 U2 F2`, and it is the one the
 Rocq proof is about.  The table above is the row of H, on both sides.
 
+## And the Rocq side, 2026-08-26
+
+**The Rocq row never came back because its leaf test named `coordfs 1`, a
+mathcomp permutation, and those do not compute.**  Nothing else: loading is
+1.6 s and every table read is 0.1 s, measured one Eval at a time.  With the
+same value on the int side, spent once, the depth ten search prints **3072 in
+7.9 s**.
+
 ## What is not settled
 
 The two programs have only been compared at cap 9, where the old one reads
