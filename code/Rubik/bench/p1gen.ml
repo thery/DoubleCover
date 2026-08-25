@@ -1105,52 +1105,199 @@ let () =
       close_out oc;
       wrote "../P1RTable.v";
 
-      for c = first to min last (fnchunk - 1) do
+      (* ---- THE MASKED TABLE, which is what a search wants ---------------- *)
+
+      (* Beside the distance, WHICH MOVES BRING THE STATE NEARER H and which
+         at least do not take it further.  That is what turns eighteen tries
+         and eighteen reads a node into three or four of each.
+
+         Rokicki's packing, out of phase1prune.w: U2 is U1 twice, so two
+         moves of one face cannot differ by more than one step, which leaves
+         fifteen of the twenty seven ways a face can go.  Four bits a face,
+         six faces, four bits of distance: twenty eight, two to an int63
+         word, against forty one written out one bit a move. *)
+      let ncode = 15 in
+      let trip e0 e1 e2 = ((e0 + 1) * 3 + (e1 + 1)) * 3 + (e2 + 1) in
+      let codeof = Array.make 27 (-1) in
+      let tripof = Array.make ncode 0 in
+      let ncnt = ref 0 in
+      for e0 = -1 to 1 do
+        for e1 = -1 to 1 do
+          for e2 = -1 to 1 do
+            let lo = min e0 (min e1 e2) and hi = max e0 (max e1 e2) in
+            if hi - lo <= 1 then begin
+              codeof.(trip e0 e1 e2) <- !ncnt;
+              tripof.(!ncnt) <- trip e0 e1 e2;
+              incr ncnt
+            end
+          done
+        done
+      done;
+      if !ncnt <> ncode then (prerr_endline "THE FACE CODES ARE WRONG"; exit 1);
+
+      (* the table, twist by twist: the eighteen children of a twist sit in
+         eighteen rows of the plain table and the kept ranks walk each row
+         forwards *)
+      let mwords = (nfold + 1) / 2 in
+      let mw = Array.make mwords 0 in
+      let mbad = ref 0 in
+      time "the masked table" (fun () ->
+        for t = 0 to ntwist - 1 do
+          for o = 0 to norb - 1 do
+            let r = canon.(o) in
+            let d = Char.code (Bytes.unsafe_get p (t * nfs + r)) in
+            let v = ref d in
+            for fc = 0 to 5 do
+              let e j =
+                let k = 3 * fc + j in
+                let dc = Char.code (Bytes.unsafe_get p
+                  (twmove.(t * nmoves + k) * nfs + fsmove.(r * nmoves + k)) ) in
+                if dc < d then -1 else if dc = d then 0 else 1 in
+              let c = codeof.(trip (e 0) (e 1) (e 2)) in
+              if c < 0 then incr mbad
+              else v := !v lor (c lsl (4 + 4 * fc))
+            done;
+            let i = o * ntwist + t in
+            mw.(i / 2) <- mw.(i / 2) lor (!v lsl (28 * (i land 1)))
+          done
+        done);
+      if !mbad > 0 then begin
+        Printf.eprintf "%d faces move the distance both ways\n" !mbad;
+        exit 1 end;
+
+      (* THE MOVES NAMED ARE THE KEPT STATE'S.  A renaming sends a move to a
+         move, so what comes back has to be renamed before it is played.
+         Decoding and renaming are one table read a half: three faces at a
+         time, twelve bits in, the eighteen moves of the state itself out. *)
+      let conj ui u g = comp ui (comp g u) in
+      let symmv = Array.make_matrix nsym nmoves (-1) in
+      Array.iteri (fun y u ->
+        let ui = inv u in
+        for k = 0 to nmoves - 1 do
+          let c = conj ui u moves.(k) in
+          for k' = 0 to nmoves - 1 do
+            if c = moves.(k') then symmv.(y).(k) <- k'
+          done;
+          if symmv.(y).(k) < 0 then begin
+            Printf.eprintf "renaming %d does not rename move %d\n" y k;
+            exit 1 end
+        done) s16;
+      let imv = Array.init nsym (fun y ->
+        let a = Array.make nmoves 0 in
+        for k = 0 to nmoves - 1 do a.(symmv.(y).(k)) <- k done; a) in
+      let dn3 = Array.make ncode 0 and fl3 = Array.make ncode 0 in
+      for c = 0 to ncode - 1 do
+        let t = tripof.(c) in
+        for k = 0 to 2 do
+          let e = (t / (if k = 0 then 9 else if k = 1 then 3 else 1)) mod 3 - 1 in
+          if e < 0 then dn3.(c) <- dn3.(c) lor (1 lsl k);
+          if e <= 0 then fl3.(c) <- fl3.(c) lor (1 lsl k)
+        done
+      done;
+      let mktab dec half =
+        Array.init (nsym * 4096) (fun i ->
+          let y = i / 4096 and w = i mod 4096 in
+          let r = ref 0 in
+          for j = 0 to 2 do
+            (* a four bit field holds sixteen values and only fifteen are
+               codes; the sixteenth never occurs and stands for no move *)
+            let c = (w lsr (4 * j)) land 15 in
+            if c < ncode then
+              for k = 0 to 2 do
+                if (dec.(c) lsr k) land 1 = 1 then
+                  r := !r lor (1 lsl imv.(y).(3 * (half + j) + k))
+              done
+          done;
+          !r) in
+      let ndec = nsym * 4096 in
+      let dnlo = mktab dn3 0 and dnhi = mktab dn3 3 in
+      let fllo = mktab fl3 0 and flhi = mktab fl3 3 in
+
+      (* the packing has to invert, and the masks have to be the plain
+         table's, checked state by state through the whole read *)
+      let mget i =
+        (mw.(i / 2) lsr (28 * (i land 1))) land 268435455 in
+      let mbad = ref 0 in
+      for _ = 1 to 500_000 do
+        let t = Random.State.int st ntwist and f = Random.State.full_int st nfs in
+        let y = sym.(f) in
+        let w = mget (rep.(f) * ntwist + twsym.(t * nsym + y)) in
+        let d = Char.code (Bytes.unsafe_get p (t * nfs + f)) in
+        if w land 15 <> d then incr mbad;
+        let down = ref 0 and flat = ref 0 in
+        for k = 0 to nmoves - 1 do
+          let dc = Char.code (Bytes.unsafe_get p
+            (twmove.(t * nmoves + k) * nfs + fsmove.(f * nmoves + k))) in
+          if dc < d then down := !down lor (1 lsl k);
+          if dc <= d then flat := !flat lor (1 lsl k)
+        done;
+        let c = w lsr 4 in
+        let dec lo hi =
+          lo.(y * 4096 + (c land 4095)) lor hi.(y * 4096 + ((c lsr 12) land 4095)) in
+        if dec dnlo dnhi <> !down || dec fllo flhi <> !flat then incr mbad
+      done;
+      Printf.printf "masked table check: %d mismatches of 500000\n%!" !mbad;
+      if !mbad > 0 then (prerr_endline "THE MASKED TABLE IS WRONG"; exit 1);
+
+      (* the decoding tables, three values to a word at twenty bits *)
+      let oc = open_out "../P1Fdec.v" in
+      header_arr oc "Decoding and renaming for the masked folded table: for \
+                     a renaming and three faces of four bits, the moves of \
+                     the state itself.  Four tables, the nearer moves and \
+                     the not further ones, each in two halves.  Three values \
+                     to a word at twenty bits.";
+      let emit_dec name a =
+        emit_arr oc name ((ndec + sw - 1) / sw) (pack3 a ndec) in
+      emit_dec "dnlo_data" dnlo;
+      emit_dec "dnhi_data" dnhi;
+      emit_dec "fllo_data" fllo;
+      emit_dec "flhi_data" flhi;
+      close_out oc;
+      wrote "../P1Fdec.v";
+
+      (* the table itself, chunked as the folded one is *)
+      let mnchunk = (mwords + cwords - 1) / cwords in
+      for c = first to min last (mnchunk - 1) do
         let lo = c * cwords in
-        let hi = min (lo + cwords) fwords in
+        let hi = min (lo + cwords) mwords in
         let fn = Printf.sprintf "../P1F_%02d.v" c in
         let oc = open_out fn in
         header_arr oc (Printf.sprintf
-          "The folded phase 1 table, chunk %d of %d: words %d .. %d."
-          c fnchunk lo (hi - 1));
+          "The masked folded phase 1 table, chunk %d of %d: words %d .. %d.  \
+           Two entries a word, twenty eight bits each."
+          c mnchunk lo (hi - 1));
         emit_arr oc (Printf.sprintf "p1f_chunk_%02d" c) (hi - lo)
-          (fun j -> fword (lo + j));
+          (fun j -> mw.(lo + j));
         close_out oc;
         wrote fn
       done;
-
-      (* the glue: an array of the chunks, and like P1Table.v it does not
-         require Phase1, so an edit there does not make this .vo stale *)
       let oc = open_out "../P1FTable.v" in
       Printf.fprintf oc
         "(* GENERATED by bench/p1gen.ml -- do not edit.              *)\n\
-         (* The folded phase 1 table: %d chunks of at most %d words. *)\n\
-         (*                                                          *)\n\
-         (* %d entries, four bits each, fifteen to an int63    *)\n\
-         (* word.  The chunks are PRIMITIVE ARRAY LITERALS, so this  *)\n\
-         (* is a set of pointers and nothing is converted or copied. *)\n\n\
+         (* The folded phase 1 table: %d chunks of at most           *)\n\
+         (* %d words.  %d entries of twenty eight bits, two    *)\n\
+         (* to a word: four bits of distance and four for each of    *)\n\
+         (* the six faces.                                           *)\n\n\
          From Stdlib Require Import Uint63.\n\
          From Stdlib Require Import PArray.\n\
-         Require Import P1Fold.\n\
+         Require Import P1Fold P1Fdec.\n\
          Require Import"
-        fnchunk cwords nfold;
-      for c = 0 to fnchunk - 1 do
+        mnchunk cwords nfold;
+      for c = 0 to mnchunk - 1 do
         Printf.fprintf oc "\n        P1F_%02d" c done;
       Printf.fprintf oc ".\n\nLocal Open Scope uint63_scope.\n\n";
-      (* the three folding tables ride in the slots after the chunks, so a
-         folded read still takes one table *)
       Printf.fprintf oc "Definition p1ftab : array (array int) :=\n";
       Printf.fprintf oc
-        "  let a := PArray.make %d (PArray.make 1 0) in\n" (fnchunk + 3);
-      for c = 0 to fnchunk - 1 do
+        "  let a := PArray.make %d (PArray.make 1 0) in\n" (mnchunk + 3);
+      for c = 0 to mnchunk - 1 do
         Printf.fprintf oc
           "  let a := PArray.set a %d p1f_chunk_%02d in\n" c c
       done;
-      Printf.fprintf oc "  let a := PArray.set a %d rep_data in\n" fnchunk;
+      Printf.fprintf oc "  let a := PArray.set a %d rep_data in\n" mnchunk;
       Printf.fprintf oc "  let a := PArray.set a %d sym_data in\n"
-        (fnchunk + 1);
+        (mnchunk + 1);
       Printf.fprintf oc "  let a := PArray.set a %d twsym_data in\n"
-        (fnchunk + 2);
+        (mnchunk + 2);
       Printf.fprintf oc "  a.\n";
       close_out oc;
       wrote "../P1FTable.v";

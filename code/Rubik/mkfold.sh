@@ -7,12 +7,15 @@
 #    ./mkfold.sh 4        the same with four workers
 #    KEEP=0 ./mkfold.sh   re-emit even if the files are there
 #
-#  64 430 orbits x 2187 twists = 140 908 410 entries against 2 217 093 120,
-#  so five distance chunks and three for the rank under each symmetry,
-#  where the unfolded table needs seventy one.
+#  64 430 orbits x 2187 twists = 140 908 410 entries against 2 217 093 120.
 #
-#  A chunk is ~40 MB of Rocq and takes about thirteen minutes and 9 GB, so
-#  the eight together are about 1.7 CPU-h against 8.8 for the unfolded set.
+#  AN ENTRY CARRIES THE MOVES NOW, not the distance alone: twenty eight bits,
+#  two to a word where fifteen distances went.  So thirty four chunks and not
+#  five, and three more for the rank under each symmetry.
+#
+#  A chunk is ~40 MB of Rocq and was measured at about thirteen minutes and
+#  9 GB, so the thirty seven together are about 8 CPU-h -- that is COMPUTED
+#  from the one chunk measured, not timed.
 # =========================================================================
 set -e
 cd "$(dirname "$0")"
@@ -26,7 +29,8 @@ NJOBS=${2:-2}
 
 need=0
 [ -f P1Fold.v ] || need=1
-for i in 00 01 02 03 04; do [ -f "P1F_$i.v" ] || need=1; done
+for i in $(seq -w 0 33); do [ -f "P1F_$i.v" ] || need=1; done
+[ -f P1Fdec.v ] || need=1
 for i in 00 01 02; do [ -f "P1R_$i.v" ] || need=1; done
 
 if [ "$need" = "1" ] || [ "${KEEP:-1}" = "0" ]; then
@@ -37,7 +41,8 @@ if [ "$need" = "1" ] || [ "${KEEP:-1}" = "0" ]; then
   # the eight chunks and twelve checks under it -- would be redone for
   # nothing.
   stamp=$(mktemp)
-  for f in P1Fold.v P1FTable.v P1RTable.v P1F_[0-9][0-9].v P1R_[0-9][0-9].v; do
+  for f in P1Fold.v P1Fdec.v P1FTable.v P1RTable.v P1F_[0-9][0-9].v \
+           P1R_[0-9][0-9].v; do
     if [ -f "$f" ]; then
       echo "$(md5sum "$f" | cut -d' ' -f1) $(date -r "$f" +%s) $f"
     fi
@@ -52,9 +57,9 @@ if [ "$need" = "1" ] || [ "${KEEP:-1}" = "0" ]; then
     (cd bench && ocamlfind ocamlopt -package unix -linkpkg \
        cubedata.ml p1gen.ml -o p1gen)
   fi
-  (cd bench && ./p1gen 9 emitfold)
+  (cd bench && ./p1gen 12 emitfold)
   # say what is missing, rather than let rocq report a file it cannot find
-  for f in P1Fold.v P1FTable.v P1RTable.v; do
+  for f in P1Fold.v P1Fdec.v P1FTable.v P1RTable.v; do
     [ -f "$f" ] || { echo "p1gen did not write $f -- is bench/p1gen current?" >&2
                      exit 1; }
   done
@@ -111,17 +116,21 @@ build () {     # build <base> [extra rocq flags]
 }
 
 build P1Fold
+build P1Fdec
 
-chunks() { for i in 00 01 02 03 04; do echo "P1F_$i"; done
+# THIRTY FOUR CHUNKS NOW, not five: an entry carries the moves as well as the
+# distance, so it is twenty eight bits and two go in a word where fifteen
+# distances did.
+chunks() { for i in $(seq -w 0 33); do echo "P1F_$i"; done
             for i in 00 01 02; do echo "P1R_$i"; done; }
 
 # the `|| :' matters under set -e: the assignment takes the status of the
 # loop, and a loop whose last chunk was current ends on a false
 todo=$(chunks | while read b; do if stale "$b"; then echo "$b"; fi; done) || :
 if [ -z "$todo" ]; then
-  echo "the eight chunks are current"
+  echo "the chunks are current"
 else
-  echo "compiling $(echo "$todo" | wc -w) of the eight chunks with $JOBS workers"
+  echo "compiling $(echo "$todo" | wc -w) of the chunks with $JOBS workers"
   echo "$todo" | xargs -P "$JOBS" -I{} ./rocqtime.sh {} -native-compiler no
 fi
 
@@ -135,7 +144,7 @@ todo=$(chunks | while read b; do
             [ "$b.vo" -nt ".coq-native/NRubik_$b.cmxs" ]; then echo "$b"; fi
        done) || :
 if [ -z "$todo" ]; then
-  echo "the eight .cmxs are current"
+  echo "the .cmxs are current"
 else
   echo "precompiling $(echo "$todo" | wc -w) .cmxs with $NJOBS workers, ~6 min each"
   echo "$todo" | xargs -P "$NJOBS" -I{} ./rocqtime.sh --native {}

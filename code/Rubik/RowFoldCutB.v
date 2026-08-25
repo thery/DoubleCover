@@ -19,7 +19,7 @@ Require Import Row RowMap RowRun RowFinal RowInst.
 Require Import RowTabL RowTabP RowTab RowMemb RowLeaf.
 Require Import RowWits.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
-Require Import Fold FoldTables P1FTable.
+Require Import Fold FoldTables P1Fdec P1FTable RowMask.
 Require Import RowFold RowTabF RowFoldTab RowFoldSrch.
 
 Set Implicit Arguments.
@@ -57,11 +57,11 @@ Notation fmcnt d :=
      (frun e8numi e4biti
         fpgi fsrci fsgri fsloi fshii fsbti
         mgri mswi mloi mhii
-        p1ftab frepi fsymi twsymi
+        p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
         fstep xstep tomemb okmvv fsolved croot sroot dsrchn
         d 0 (mkempty tt) (mkempty tt))).
 
 
 Time Eval native_compute in
-  fsrchn p1ftab frepi fsymi twsymi
+  fsrchn p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
     fstep xstep okmvv fsolved 10 croot sroot allmv 18 0.

@@ -34,11 +34,37 @@ Definition norbi : int := 64430%uint63.
 Definition foldi (rep tw : int) : int :=
   Uint63.add (Uint63.mul rep ntwisti) tw.
 
+(* ---- an entry, and the distance in it ------------------------------------ *)
+
+(* AN ENTRY IS TWENTY EIGHT BITS, two to an int63 word: four bits of         *)
+(* distance and four for each of the six faces, saying which moves bring the *)
+(* state nearer H and which at least do not take it further.  The faces are  *)
+(* for the search alone -- everything proved here reads the distance and      *)
+(* nothing else -- and RowMask.v is where they are taken apart.               *)
+Definition mbits  : int := 28%uint63.       (* bits an entry                  *)
+Definition mper   : int := 2%uint63.        (* entries a word                 *)
+Definition mmaski : int := Eval vm_compute in
+  Uint63.sub (Uint63.lsl 1%uint63 mbits) 1%uint63.
+Definition mdmask : int := 15%uint63.       (* the distance, four bits        *)
+
+Definition p1getm (F : PArray.array arr) (i : int) : int :=
+  let w := Uint63.div i mper in
+  let r := Uint63.sub i (Uint63.mul w mper) in
+  let c := Uint63.lsr w cwlogi in
+  let o := Uint63.land w cwmaski in
+  Uint63.land
+    (Uint63.lsr (PArray.get (PArray.get F c) o) (Uint63.mul r mbits))
+    mmaski.
+
+(* the distance alone, which is what everything below reads                   *)
+Definition p1getd (F : PArray.array arr) (i : int) : int :=
+  Uint63.land (p1getm F i) mdmask.
+
 (* the folded read: the orbit of r, and the twist carried through the         *)
 (* symmetry that takes r to that orbit's representative                       *)
 Definition Dfoldi (F : PArray.array arr) (frep fsym : int -> int)
     (twsym : int -> int -> int) (tw r : int) : int :=
-  p1get F (foldi (frep r) (twsym tw (fsym r))).
+  p1getd F (foldi (frep r) (twsym tw (fsym r))).
 
 Definition Dfold (F : PArray.array arr) (frep fsym : int -> int)
     (twsym : int -> int -> int) (tw r : int) : nat :=
@@ -49,7 +75,7 @@ Definition Dfold (F : PArray.array arr) (frep fsym : int -> int)
 Lemma Dfoldi_small F frep fsym twsym tw r :
   (to_nat (Dfoldi F frep fsym twsym tw r) < nwB.-1)%N.
 Proof.
-rewrite /Dfoldi /p1get.
+rewrite /Dfoldi /p1getd.
 set v := (X in (X land _)%uint63); rewrite landC.
 apply: ltn_trans (_ : 2 ^ 4 < _); last first.
   rewrite -ltnS prednK; last by apply: ltn_trans ndigitsLwB.
@@ -177,7 +203,7 @@ Hypothesis smulL : forall s t, (to_nat s < nsym)%N -> (to_nat t < nsym)%N ->
 (* the rank relates two states at the same distance.                          *)
 Hypothesis stabE : forall tw r u, (to_nat tw < ntwist)%N ->
   (r <? nfsi)%uint63 -> (to_nat u < nsym)%N ->
-  ract r u = rrep r -> p1get F (foldi (frep r) (twsym tw u)) = D tw r.
+  ract r u = rrep r -> p1getd F (foldi (frep r) (twsym tw u)) = D tw r.
 
 (* a move keeps the twist a twist, which the check below needs twice          *)
 Hypothesis acttwiL : forall tw k, (to_nat tw < ntwist)%N -> (k < 18)%N ->
