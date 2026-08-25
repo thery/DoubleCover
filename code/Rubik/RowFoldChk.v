@@ -22,7 +22,7 @@ Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
 Require Import Row RowMap RowRun RowFinal RowInst.
 Require Import RowTabL RowTabP RowTab RowMemb RowLeaf.
-Require Import RowWits RowReal.
+Require Import RowWits.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import Fold FoldTables P1FTable.
 Require Import RowFold RowTabF RowFoldTab RowFoldSrch.
@@ -44,13 +44,26 @@ Definition fsolved (c : int) (x : pstt) : bool :=
   [&& Uint63.eqb c csolvedi, Uint63.eqb (ctwisti x) 0%uint63
     & Uint63.eqb (coordi x) (coordfs 1)].
 
+(* SPELT OUT SO THAT RowReal IS NOT REQUIRED.  RowReal is the only file that
+   pulls in P1Table -- the UNFOLDED phase one table, 2 217 093 120 entries --
+   and the folded row never reads it: it reads p1ftab, the folded one, which
+   is 140 908 410.  Requiring it costs whatever native_compute must do to
+   bring 2.2 billion entries in, and buys these two definitions. *)
+Definition okmvv (pv k : int) : bool :=
+  if (18 <=? pv)%uint63 then true
+  else let fp := (pv / 3)%uint63 in
+       let fk := (k / 3)%uint63 in
+       ~~ ((fp =? fk)%uint63 || (fp =? fk + 3)%uint63).
+
+Definition dsrchn : nat := 16.
+
 Notation fmcnt d :=
   (fcount forbi fpopi
      (frun e8numi e4biti
         fpgi fsrci fsgri fsloi fshii fsbti
         mgri mswi mloi mhii
         p1ftab frepi fsymi twsymi
-        fstep xstep tomemb okmvv fsolved croot sroot srch
+        fstep xstep tomemb okmvv fsolved croot sroot dsrchn
         d 0 (mkempty tt) (mkempty tt))).
 
 (* how many leaves the search reaches at depth ten: the prototype says 3072  *)
