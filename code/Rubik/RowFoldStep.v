@@ -43,9 +43,12 @@ Definition fstep (c k : int) : int :=
   Uint63.add (Uint63.mul (acttwii (Uint63.div c nfsi) k) nfsi)
              (actfsri (Uint63.mod c nfsi) k).
 
+(* THE LEAF TEST MEETS NO PERMUTATION.  coordfs takes a mathcomp permutation *)
+(* and those do not compute; RowInst spends it once, and what the search      *)
+(* meets here is a number.                                                    *)
 Definition fsolved (c : int) (x : pstt) : bool :=
-  [&& Uint63.eqb c csolvedi, Uint63.eqb (ctwisti x) 0%uint63
-    & Uint63.eqb (coordi x) (coordfs 1)].
+  [&& Uint63.eqb c csolvedci, Uint63.eqb (ctwisti x) 0%uint63
+    & Uint63.eqb (coordi x) coordfs1i].
 
 (* 1 -- loading and nothing else *)
 Time Eval native_compute in Uint63.add 1 1.

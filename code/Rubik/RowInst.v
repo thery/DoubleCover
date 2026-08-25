@@ -262,6 +262,19 @@ Variable nlev : nat.                      (* how many levels are run          *)
 (* twist and the flip and slice already solved                               *)
 (* the solved coordinate, as one word: no twist, and the flip and slice       *)
 (* already solved                                                            *)
+(* AS NUMBERS, AND THAT IS NOT A STYLE POINT.  coordfs takes a mathcomp     *)
+(* permutation and a mathcomp permutation DOES NOT COMPUTE: a search whose   *)
+(* bottom test names one asks native_compute to evaluate it at every leaf,   *)
+(* and does not come back.  The same values on the int side -- the           *)
+(* coordinate of the identity table, and its rank -- are computations, spent *)
+(* once here, so that what a search meets is a number.                       *)
+(*                                                                           *)
+(* WHAT IS LEFT: that the two agree, coordfs1i = coordfs 1.  coordiE says    *)
+(* coordi a = coordt (ti2t a) on a table that is one, and the identity table *)
+(* is one.  The proofs below still speak of coordfs 1 and are untouched.     *)
+Definition coordfs1i : int := Eval vm_compute in coordi (id_tabi 47).
+Definition csolvedci : int := Eval vm_compute in fsidx coordfs1i.
+
 Definition csolvedi : int := fsidx (coordfs 1).
 
 (* THE CHEAP TEST FIRST.  The search carries the coordinate, so one           *)
