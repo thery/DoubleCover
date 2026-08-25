@@ -1010,37 +1010,73 @@ let fcount () =
    is, with the level over it word for word -- so what it costs here is the
    data structure's own cost, and whatever Rocq costs beyond this is Rocq's. *)
 
+(* PERSISTENT ARRAYS, VERBATIM from Jean-Christophe Filliatre's parray.ml,
+   github.com/backtracking/ocaml-bazaar -- Baker's trick, the same scheme
+   Rocq's PArray uses.  Only make, get and set are kept, and the licence
+   notice with them.
+
+   (**********************************************************************)
+   (*  Copyright (C) Jean-Christophe Filliatre                           *)
+   (*  This software is free software; you can redistribute it and/or    *)
+   (*  modify it under the terms of the GNU Library General Public       *)
+   (*  License version 2.1, with the special exception on linking        *)
+   (*  described in file LICENSE.                                        *)
+   (*  This software is distributed in the hope that it will be useful,  *)
+   (*  but WITHOUT ANY WARRANTY.                                         *)
+   (**********************************************************************)
+*)
 module P = struct
   type 'a t = 'a data ref
-  and 'a data = Arr of 'a array | Diff of int * 'a * 'a t
 
-  let make n v : 'a t = ref (Arr (Array.make n v))
+  and 'a data =
+    | Array of 'a array
+    | Diff of int * 'a * 'a t
 
-  (* the array is at the end of a chain of differences; walk to it, then turn
-     the chain round so that this version is the one holding it *)
-  let rec reroot (t : 'a t) : 'a array =
-    match !t with
-    | Arr a -> a
+  let make n v =
+    ref (Array (Array.make n v))
+
+  (* `reroot t` ensures that `t` becomes an `Array` node.
+      This is written in CPS to avoid any stack overflow. *)
+  let rec rerootk t k = match !t with
+    | Array _ -> k ()
     | Diff (i, v, t') ->
-      let a = reroot t' in
-      let old = Array.unsafe_get a i in
-      Array.unsafe_set a i v;
-      t := Arr a;
-      t' := Diff (i, old, t);
-      a
+        rerootk t' (fun () ->
+            (match !t' with
+             | Array a as n ->
+                 let v' = a.(i) in
+                 a.(i) <- v;
+                 t := n;
+                 t' := Diff (i, v', t)
+             | Diff _ -> assert false
+            );
+            k()
+          )
 
-  let get t i = (reroot t).(i)
+  let reroot t = rerootk t (fun () -> ())
 
-  (* NO SHORT CUT ON AN EQUAL VALUE, and the accesses are checked: PArray
-     does neither, and the point of this program is to cost what PArray
-     costs. *)
+  let get t i =
+    match !t with
+    | Array a ->
+        a.(i)
+    | Diff _ ->
+        reroot t;
+        (match !t with Array a -> a.(i) | Diff _ -> assert false)
+
   let set t i v =
-    let a = reroot t in
-    let old = a.(i) in
-    a.(i) <- v;
-    let res = ref (Arr a) in
-    t := Diff (i, old, res);
-    res
+    reroot t;
+    match !t with
+    | Array a as n ->
+        let old = a.(i) in
+        if old == v then
+          t
+        else (
+          a.(i) <- v;
+          let res = ref n in
+          t := Diff (i, old, res);
+          res
+        )
+    | Diff _ ->
+        assert false
 end
 
 (* the map: forty four chunks of sixty four kept pages, as Rocq lays it out *)
@@ -1174,8 +1210,21 @@ let lmgr = Array.init (ngroup * nh) (fun i -> mgroup.(i / nh).(i mod nh))
 let lmlo = Array.init (nh * 4096) (fun i -> mlo.(i / 4096).(i mod 4096))
 let lmhi = Array.init (nh * 4096) (fun i -> mhi.(i / 4096).(i mod 4096))
 
-(* ifold, as RowMap.v has it: a count, a running int, a closure a step *)
-let rec ifold n x f a = if n = 0 then a else ifold (n - 1) (x + 1) f (f x a)
+(* THE COUNT IS A UNARY NAT, as it is in the Rocq: `ifold ngroupn' walks
+   twenty thousand constructors, one match a word, and ngroupn itself is
+   to_nat of an int63.  An int counter here would not be the same program. *)
+type unat = O | S of unat
+
+let rec unat_of n = if n = 0 then O else S (unat_of (n - 1))
+
+(* ifold, as RowMap.v has it: a nat, a running int, a closure a step *)
+let rec ifold (n : unat) x f a =
+  match n with O -> a | S n1 -> ifold n1 (x + 1) f (f x a)
+
+let ngroupn = unat_of ngroup
+let nhn = unat_of nh
+let nrepn = unat_of nrep
+let un18 = unat_of 18
 
 let lo12 = 4095
 let nhi = nh
@@ -1199,7 +1248,7 @@ let lflevmv (src : pmap) r k doff (a : int P.t) : int P.t =
   let ub = u lsl 12 in
   let kb = k lsl 12 in
   let sw = mswap.(k) = 0 in
-  ifold ngroup 0
+  ifold ngroupn 0
     (fun g b ->
        let v = P.get sa (soff + g) in
        if v = 0 then b
@@ -1224,13 +1273,13 @@ let lflevpg (src : pmap) r (d : pmap) : pmap =
   let doff = poff r in
   let sa = P.get src c in
   let a0 = P.get d c in
-  let a1 = ifold ngroup 0
+  let a1 = ifold ngroupn 0
       (fun g b -> let j = doff + g in P.set b j (P.get sa j)) a0 in
-  let a2 = ifold nh 0 (fun k b -> lflevmv src r k doff b) a1 in
+  let a2 = ifold nhn 0 (fun k b -> lflevmv src r k doff b) a1 in
   P.set d c a2
 
 let lflevel (src : pmap) (dst : pmap) : pmap =
-  ifold nrep 0 (fun r d -> lflevpg src r d) dst
+  ifold nrepn 0 (fun r d -> lflevpg src r d) dst
 
 (* THE LEAKING SHAPE, LITERALLY.  Before the fix the Rocq level made a fresh
    map every time and the run started from a GLOBAL empty map, which nothing
@@ -1242,7 +1291,7 @@ let lflevel (src : pmap) (dst : pmap) : pmap =
 let lglobal : pmap = pmkempty ()
 
 let lflevel_fresh (src : pmap) : pmap =
-  ifold nrep 0 (fun r d -> lflevpg src r d) (pmkempty ())
+  ifold nrepn 0 (fun r d -> lflevpg src r d) (pmkempty ())
 
 let lleak n =
   Printf.printf "the leaking shape: a fresh map a level, a global root held\n%!";
@@ -1285,23 +1334,30 @@ let lleak n =
 
 let ltabsz = 5 * 2097152
 
-let ltab =
-  let a = Array.make ltabsz 0 in
+(* THE TABLE IS PERSISTENT TOO, and in chunks, as p1ftab is: a read is two
+   of them, the chunk and the word, each through a ref and a match.  A flat
+   OCaml array here would be one read and would flatter this side. *)
+let ltab : int P.t P.t =
   let x = ref 123456789 in
-  for i = 0 to ltabsz - 1 do
-    x := (!x * 1103515245 + 12345) land 0x3FFFFFFF;
-    a.(i) <- !x land 15
-  done; a
+  let m = ref (P.make 5 (P.make 1 0)) in
+  for c = 0 to 4 do
+    let a = ref (P.make 2097152 0) in
+    for i = 0 to 2097151 do
+      x := (!x * 1103515245 + 12345) land 0x3FFFFFFF;
+      a := P.set !a i (!x land 15)
+    done;
+    m := P.set !m c !a
+  done;
+  !m
 
 let lnpos = 48
+let lnposn = unat_of 48
 
 (* a position, stepped: a new persistent array a node *)
 let lstep (x : int P.t) (k : int) : int P.t =
-  let a = ref (P.make lnpos 0) in
-  for i = 0 to lnpos - 1 do a := P.set !a i (P.get x i + k) done;
-  !a
+  ifold lnposn 0 (fun i a -> P.set a i (P.get x i + k)) (P.make lnpos 0)
 
-let ldist v = ltab.((v land 2097151) + 2097152 * ((v lsr 21) land 3))
+let ldist v = P.get (P.get ltab ((v lsr 21) land 3)) (v land 2097151)
 
 let lmark (m : pmap) v =
   let c = v land 31 in
@@ -1311,15 +1367,13 @@ let lmark (m : pmap) v =
 
 let rec lsrch togo (x : int P.t) (m : pmap) : pmap =
   if togo = 0 then lmark m (P.get x 0)
-  else begin
-    let mm = ref m in
-    for k = 0 to 17 do
-      let x' = lstep x k in
-      let d = ldist (P.get x' 0) in
-      if d land 15 <> 15 then mm := lsrch (togo - 1) x' !mm
-    done;
-    !mm
-  end
+  else
+    ifold un18 0
+      (fun k mm ->
+         let x' = lstep x k in
+         let d = ldist (P.get x' 0) in
+         if d land 15 = 15 then mm else lsrch (togo - 1) x' mm)
+      m
 
 let lsrchrun d =
   Printf.printf "the search transcribed: depth %d, a table of %d words\n%!"
@@ -1335,6 +1389,147 @@ let lsrchrun d =
     (let st = Gc.quick_stat () in
      (st.Gc.minor_words +. st.Gc.major_words) *. 8.0 /. 1e9);
   Printf.printf "the map is still alive: %d\n%!" (pcount !m);
+  exit 0
+
+(* ---- THE LEAKING PROGRAM ITSELF, TRANSCRIBED ----------------------------- *)
+
+(* RowFoldChk.v evaluates `fcount (frun ... 10 0 (mkempty tt) (mkempty tt))':
+   ten levels of the folded row, the search firing at the level where the
+   row's own distance is reached, marks going into the map.  That is the run
+   that reached 41 GB.
+
+   This is that program: the same level, the same search, the same run, all
+   of it over PERSISTENT ARRAYS and every loop an ifold over a UNARY nat.
+   The position is a persistent array and a new one is made at every node,
+   as xstep makes one.  The tables are persistent arrays too.
+
+   It prints the heap after every level, which is the thing being measured. *)
+
+let lnfs = n_flip * n_slice                     (* 1 013 760, RowInst's nfsi *)
+
+let lrow n =
+  (* the move tables, and the phase one table off the disk *)
+  let mt_twist = mk_move_table n_twist cube_of_twist twist in
+  let mt_flip = mk_move_table n_flip cube_of_flip flip in
+  let mt_slice = mk_move_table n_slice cube_of_slice slice in
+  let path = "phase1_cap9.tbl" in
+  if not (Sys.file_exists path) then begin
+    prerr_endline "phase1_cap9.tbl is not there: ./rubik_row 9 20 build";
+    exit 1 end;
+  let fd = Unix.openfile path [Unix.O_RDONLY] 0o644 in
+  let n_all = n_twist * n_flip * n_slice in
+  let praw = Bigarray.array1_of_genarray
+      (Unix.map_file fd Bigarray.char Bigarray.c_layout false [| n_all |]) in
+  Unix.close fd;
+  (* the table as a persistent array of chunks, as p1ftab is *)
+  let pchunks = 1 lsl 21 in
+  let nch = (n_all + pchunks - 1) / pchunks in
+  Printf.printf "the phase one table: %d chunks of %d\n%!" nch pchunks;
+  let ptab = ref (P.make nch (P.make 1 0)) in
+  for c = 0 to nch - 1 do
+    let a = Array.make pchunks 0 in
+    let base = c * pchunks in
+    for i = 0 to pchunks - 1 do
+      if base + i < n_all then
+        a.(i) <- Char.code (Bigarray.Array1.unsafe_get praw (base + i))
+    done;
+    ptab := P.set !ptab c (ref (P.Array a))
+  done;
+  let ptab = !ptab in
+  let lp1g c = P.get (P.get ptab (c lsr 21)) (c land (pchunks - 1)) in
+  (* the coordinate, and the step that carries the twist with it *)
+  let lcstep c k =
+    let tw = c / lnfs and fs = c mod lnfs in
+    let f = fs / n_slice and sl = fs mod n_slice in
+    mt_twist.(tw).(k) * lnfs
+    + (mt_flip.(f).(k) * n_slice + mt_slice.(sl).(k)) in
+  (* the position: two persistent arrays, a new pair at every node *)
+  let un8 = unat_of 8 and un12 = unat_of 12 in
+  let lxstep (cp, ep) k =
+    let mcp = moves.(k).cp and mep = moves.(k).ep in
+    (ifold un8 0 (fun i a -> P.set a i (P.get cp mcp.(i))) (P.make 8 0),
+     ifold un12 0 (fun i a -> P.set a i (P.get ep mep.(i))) (P.make 12 0)) in
+  let b8 = Array.make 8 0 and b12 = Array.make 12 0 in
+  let lmark (m : pmap) (cp, ep) =
+    for i = 0 to 7 do b8.(i) <- P.get cp i done;
+    for i = 0 to 11 do b12.(i) <- P.get ep i done;
+    let pg = rank b8 0 8 in
+    let sy = syms.(symof.(pg)) in
+    let c8 = Array.make 8 0 and c12 = Array.make 12 0 in
+    for j = 0 to 7 do c8.(sy.sc.(j)) <- sy.sc.(b8.(j)) done;
+    for j = 0 to 11 do c12.(sy.se.(j)) <- sy.se.(b12.(j)) done;
+    let r = repix.(repof.(pg)) in
+    let gr = e8num.(rank c12 0 8) lsr 1 and bt = e4bit.(rank c12 8 4) in
+    let c = r lsr 6 and o = (r land 63) * ngroup in
+    let a = P.get m c in
+    let j = o + gr in
+    let v = 1 lsl (bt mod 12) in
+    P.set m c (P.set a j (P.get a j lor v)) in
+  (* the row's own root *)
+  let rep = ref (solved ()) in
+  List.iter (fun m -> rep := mult !rep moves.(m))
+    (parse_moves "U R2 F B R B2 R U2 L B2 R U' D' R2 F R' L B2 U2 F2");
+  let rep = !rep in
+  let croot = twist rep * lnfs + (flip rep * n_slice + slice rep) in
+  let sroot =
+    (ifold un8 0 (fun i a -> P.set a i rep.cp.(i)) (P.make 8 0),
+     ifold un12 0 (fun i a -> P.set a i rep.ep.(i)) (P.make 12 0)) in
+  let csolvedc = 0 * lnfs + (flip (solved ()) * n_slice + slice (solved ())) in
+  (* RowReal's okmvv, literally: fk + 3 and NOT (fk + 3) mod 6, so only one
+     order of an opposite pair is dropped.  With the modulo both orders go
+     and the search dies at the second ply. *)
+  let okmv pv k =
+    pv >= 18 ||
+    (let fp = pv / 3 and fk = k / 3 in fp <> fk && fp <> fk + 3) in
+  (* the search, as fsrch is *)
+  let lnodes = ref 0 and lleaves = ref 0 in
+  let rec lfsrch togo c x (pv : int) (m : pmap) : pmap =
+    incr lnodes;
+    if togo = 0 then
+      (if c = csolvedc then (incr lleaves; lmark m x) else m)
+    else
+      ifold un18 0
+        (fun k mm ->
+           if not (okmv pv k) then mm
+           else
+             let c' = lcstep c k in
+             let nd = lp1g c' in
+             if nd <= togo - 1 then lfsrch (togo - 1) c' (lxstep x k) k mm
+             else mm)
+        m in
+  (* the level, and the run *)
+  let dsrch = 16 in
+  let lflvl d (m : pmap) (dst : pmap) : pmap =
+    let m' = lflevel m dst in
+    if d <= dsrch then
+      let nd = lp1g croot in
+      if nd <= d then lfsrch d croot sroot 18 m' else m'
+    else m' in
+  Printf.printf "the row's root is %d from H\n%!" (lp1g croot);
+  (* what the eighteen children read, which must contain a nine *)
+  Printf.printf "   its children:";
+  for k = 0 to 17 do Printf.printf " %d" (lp1g (lcstep croot k)) done;
+  print_newline ();
+  (* and the grandchildren of the first child that goes down *)
+  let kk = ref (-1) in
+  for k = 17 downto 0 do if lp1g (lcstep croot k) <= 9 then kk := k done;
+  if !kk >= 0 then begin
+    let c1 = lcstep croot !kk in
+    Printf.printf "   child %d is %d, its own children:" !kk (lp1g c1);
+    for k = 0 to 17 do Printf.printf " %d" (lp1g (lcstep c1 k)) done;
+    print_newline ()
+  end;
+  let cur = ref (pmkempty ()) and nxt = ref (pmkempty ()) in
+  for d = 1 to n do
+    let t0 = Unix.gettimeofday () in
+    let m = lflvl d !cur !nxt in
+    let t1 = Unix.gettimeofday () in
+    nxt := !cur; cur := m;
+    Printf.printf
+      "level %2d : %d members, %d nodes, %d leaves (%.1f s, heap %.2f GB)\n%!"
+      d (pcount !cur) !lnodes !lleaves (t1 -. t0)
+      (float_of_int (Gc.stat ()).Gc.heap_words *. 8.0 /. 1e9)
+  done;
   exit 0
 
 let lball n =
@@ -1781,6 +1976,8 @@ let () =
     lleak (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "lsrch" then
     lsrchrun (int_of_string Sys.argv.(2));
+  if Array.length Sys.argv > 2 && Sys.argv.(1) = "lrow" then
+    lrow (int_of_string Sys.argv.(2));
   let cap = int_of_string Sys.argv.(1) in
   let maxdepth = int_of_string Sys.argv.(2) in
   let arg = if Array.length Sys.argv > 3 then Sys.argv.(3) else "" in
