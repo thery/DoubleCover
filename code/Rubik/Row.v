@@ -21,7 +21,7 @@
 (* nothing, which is what makes the pair a group and the group a machine word.*)
 (*                                                                            *)
 (* Everything is a Variable: this file compiles with no table at all.  The    *)
-(* four small tables are what ocaml/rubik_row.ml already builds.              *)
+(* four small tables are what ocaml/rubik_row_nofold.ml already builds.       *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.

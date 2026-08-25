@@ -17,7 +17,7 @@ reference the Rocq version is checked against, node for node.
 |---|---|
 | `rubik_lb.ml` | iterative deepening from the superflip, depths 1..N, one core |
 | `rubik_par.ml` | the same search, split over the root prefixes, N processes |
-| `rubik_row.ml` | one row of the upper bound, the search half of Rokicki's `hcoset` |
+| `rubik_row_nofold.ml` | one row of the upper bound, the search half of Rokicki's `hcoset` |
 
 `rubik_par.ml` also has a `dump` mode that emits the three coordinate move
 tables as a Rocq file of `int63` lists.
@@ -300,7 +300,7 @@ table already loads.
 
 ## One row of the upper bound
 
-`rubik_row.ml` is the start of the other half: that twenty moves always
+`rubik_row_nofold.ml` is the start of the other half: that twenty moves always
 suffice.  Rokicki, Kociemba, Davidson and Dethridge prove it a row at a time,
 and their program is `hcoset`, a literate C++ program at
 <http://cube20.org/src/>.
@@ -449,13 +449,13 @@ searched for, and the test is that all eighteen moves are renamed to moves.
 the page orbits, and the fold tables against the conjugation on twenty
 thousand members of H.
 
-`./rubik_row dumptab fold` writes the tables the Rocq side reads.
+`./rubik_row_nofold dumptab fold` writes the tables the Rocq side reads.
 
 ### The first row, measured
 
 The row of H itself, on roquableu, one core, 2026-08-20:
 
-    ./rubik_row 9 20 "" 11
+    ./rubik_row_nofold 9 20 "" 11
     depth 11 : 1487553320 nodes, 45573536 solutions,  582017108 new,   733642602 done
     depth 12 : 0 nodes, 0 solutions,  2257346454 new,  2990989056 done
     depth 13 : 0 nodes, 0 solutions,  5725571470 new,  8716560526 done
@@ -488,7 +488,7 @@ while the cut search does one nineteenth of the work.
 `R U F L D B R U F L`, the same machine, one core, 2026-08-20.  Its
 representative is already 10 from H, so the search starts at depth 10:
 
-    ./rubik_row 9 20 "R U F L D B R U F L" 16
+    ./rubik_row_nofold 9 20 "R U F L D B R U F L" 16
     depth 15 :   641980912 nodes,  19245852 solutions,     19508974 done, search  118.2 s
     depth 16 :  8393815854 nodes, 148553182 solutions,    294431520 done, search 1490.7 s
     depth 17 : 0 nodes, 0 solutions,   2244383965 done, prepass 55.8 s
@@ -555,7 +555,7 @@ at 65 billion group operations a CPU second.
 
 ### The published count, checked to the unit
 
-`ROW_NOPREPASS=1 ./rubik_row 9 12 ""` is the plain search with the prepass and
+`ROW_NOPREPASS=1 ./rubik_row_nofold 9 12 ""` is the plain search with the prepass and
 both cuts off: every canonical word that reaches H, counted.  On roquableu,
 one core, 2026-08-20:
 
@@ -579,7 +579,7 @@ CWEB tools are needed and it builds with a modern compiler unchanged:
 which is our `ROW="R U F L D B R U F L" ROWSEARCH=15 ROWDEPTH=20` on one
 core.  **It prints our numbers.**
 
-| level | hcoset | rubik_row |
+| level | hcoset | rubik_row_nofold |
 |---|---|---|
 | 15 | 19 508 974 | 19 508 974 |
 | 16 | 159 930 336 | 159 930 336 |
@@ -595,7 +595,7 @@ this row is 443 times out.  There is nothing wrong with either program.
 
 The same run gives the speed, one core, identical work:
 
-| | hcoset | rubik_row | |
+| | hcoset | rubik_row_nofold | |
 |---|---|---|---|
 | search to 15 | 5.11 s | 37.6 s | 7.4x |
 | five prepasses | 38.16 s | 252 s | 6.6x |
@@ -627,7 +627,7 @@ So the row is entirely typical and there was never anything to explain;
 comparing a depth 15 run against the paper's 345 is comparing two different
 computations.  `ROWENOUGH` is the same stop, and on the same recipe:
 
-| | hcoset | rubik_row |
+| | hcoset | rubik_row_nofold |
 |---|---|---|
 | depth 16 solutions | 65 975 234 | 66 009 955 |
 | stopped at | 220 310 498 | 220 310 448 |

@@ -16,7 +16,8 @@ JOBS     ?= $(shell nproc)
 DEPTH    ?= 19
 CAP      ?= 9
 
-PROGS = rubik_lb rubik_par rubik_qtm rubik_h rubik_row
+PROGS = rubik_lb rubik_par rubik_qtm rubik_h rubik_row_nofold \
+        rubik_row_fold
 
 all: $(PROGS)
 
@@ -187,6 +188,7 @@ ROWDEPTH  ?= 20
 ROWSEARCH ?= 16
 ROW       ?=
 N         ?= 4
+NCHK      ?= 200000
 
 # ROWLEFT=1 settles the members a short row leaves over, a word each.  It is
 # exported so that it works written either before or after `make'.
@@ -221,37 +223,55 @@ export ROWTRACE
 ROWENOUGH ?=
 export ROWENOUGH
 
-rubik_row: rubik_row.ml
+rubik_row_nofold: rubik_row_nofold.ml
 	$(OCAMLOPT) $< -o $@
 
-rowcheck: rubik_row
-	./rubik_row check
+rowcheck: rubik_row_nofold
+	./rubik_row_nofold check
 
 # The twelve tables of a row, as the Rocq lists the generated files carry.
 # Rocq CHECKS them -- Row.e8ok and Row.e4ok over the layout, srcok and halfok
 # over the bits -- so nothing about how they were built is trusted.
-rowtab: rubik_row
-	./rubik_row dumptab layout > ../RowTabL.v
-	./rubik_row dumptab prep > ../RowTabP.v
+rowtab: rubik_row_nofold
+	./rubik_row_nofold dumptab layout > ../RowTabL.v
+	./rubik_row_nofold dumptab prep > ../RowTabP.v
 
-hball: rubik_row
-	./rubik_row hball $(N)
+hball: rubik_row_nofold
+	./rubik_row_nofold hball $(N)
 
 # the same ball, folded.  18 is where it holds the whole of H.
-fball: rubik_row
-	./rubik_row fball $(N)
+fball: rubik_row_nofold
+	./rubik_row_nofold fball $(N)
 
 # The table hcoset's phase1prune carries: beside the distance, WHICH MOVES GO
 # CLOSER.  It needs the EXACT distances, so cap 12, and it is a word a state
 # -- 17.7 GB, against Rokicki's 650 MB, because he folds by the sixteen
 # symmetries and we do not.  Built once; the row uses it if it is there.
 # A row then wants 2.2 + 17.7 + 6.5 = 26.4 GB.
-mask: rubik_row
-	./rubik_row 12 20 build
-	./rubik_row 12 20 mask
+mask: rubik_row_nofold
+	./rubik_row_nofold 12 20 build
+	./rubik_row_nofold 12 20 mask
 
-row: rubik_row
-	./rubik_row $(ROWCAP) $(ROWDEPTH) build
-	./rubik_row $(ROWCAP) $(ROWDEPTH) "$(ROW)" $(ROWSEARCH)
+row: rubik_row_nofold
+	./rubik_row_nofold $(ROWCAP) $(ROWDEPTH) build
+	./rubik_row_nofold $(ROWCAP) $(ROWDEPTH) "$(ROW)" $(ROWSEARCH)
 
-.PHONY: rowcheck rowtab hball fball mask row
+rubik_row_fold: rubik_row_fold.ml
+	$(OCAMLOPT) $< -o $@
+
+# The same table folded by the sixteen renamings: 64 430 kept ranks of
+# 1 013 760, so 563 MB where writing every state out costs 17.7 GB.  It is
+# read out of phase1_cap$(ROWCAP).tbl, which is the only thing that needs it.
+foldtab: rubik_row_fold
+	./rubik_row_fold $(ROWCAP) $(ROWDEPTH) build
+	./rubik_row_fold $(ROWCAP) $(ROWDEPTH) fold
+
+# the folded reads against the plain table, state by state.  N states.
+foldchk: rubik_row_fold
+	./rubik_row_fold $(ROWCAP) $(ROWDEPTH) foldchk $(NCHK)
+
+# the same row as `row', over the folded table
+rowf: rubik_row_fold
+	./rubik_row_fold $(ROWCAP) $(ROWDEPTH) "$(ROW)" $(ROWSEARCH)
+
+.PHONY: rowcheck rowtab hball fball mask row foldtab foldchk rowf
