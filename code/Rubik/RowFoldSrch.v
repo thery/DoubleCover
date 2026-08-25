@@ -46,6 +46,7 @@ Variable mgr msw mlo mhi : arr.
 Local Notation flev := (flevel fsrc fsgr fslo fshi mgr msw mlo mhi).
 Local Notation flevg := (flevelg fsrc fsgr fslo fshi mgr msw mlo mhi).
 Local Notation fmk := (fmark fpg fsgr fsbt).
+Local Notation fmkn := (fmarkn fpg fsgr fsbt).
 
 (* ---- the phase one table, folded ----------------------------------------- *)
 
@@ -160,5 +161,62 @@ Definition flvlg (d : nat) (m dst : rmap) : rmap :=
 
 Fixpoint frung (n : nat) (d : nat) (m dst : rmap) : rmap :=
   if n is n1.+1 then frung n1 d.+1 (flvlg d.+1 m dst) m else m.
+
+(* ---- hcoset's own stop --------------------------------------------------- *)
+
+(* THE LAST SEARCH LEVEL NEED NOT BE RUN OUT, only run until the map holds   *)
+(* enough for the prepasses above it to finish the row.  Rokicki's rule is   *)
+(* 167 million bits plus a third of what the prepass left, and every         *)
+(* published time of his was measured with it on.  It is safe like every     *)
+(* other cut here: what is proved is that the map filled, not that the       *)
+(* search was complete, so a cut that loses words can only make the row      *)
+(* finish later, never call a member covered when it is not.                 *)
+
+Variables forb fpop : arr.
+
+Definition enoughb : int := 167000000%uint63.   (* his own number            *)
+Definition enoughd : int := 3%uint63.           (* and a third of the rest   *)
+
+(* the search, carrying the count of what it has put in and stopping when it *)
+(* has put in enough                                                         *)
+Fixpoint fsrchs (togo : nat) (c : int) (x : pst) (msk : int) (pv : int)
+                (enough : int) (mn : rmap * int) : rmap * int :=
+  if Uint63.leb enough mn.2 then mn
+  else if togo is togo'.+1 then
+    ifold nmvn 0%uint63
+      (fun k a =>
+         if Uint63.eqb (Uint63.land msk (Uint63.lsl 1%uint63 k)) 0%uint63
+         then a
+         else if ~~ okmv pv k then a
+         else
+           let c' := cstep c k in
+           let w := p1g c' in
+           let nd := Uint63.to_nat (wdist w) in
+           if (nd <= togo')%N
+           then fsrchs togo' c' (xstep x k) (wmask w (togo' - nd)) k enough a
+           else a)
+      mn
+  else if csolved c x
+       then let: (pg, gr, bt) := plc (tomemb x) in fmkn mn pg gr bt
+       else mn.
+
+(* the level, with the stop on the last one it searches.  Counting the map   *)
+(* costs one sweep and only there.                                           *)
+Definition flvls (d : nat) (m dst : rmap) : rmap :=
+  let m' := flev m dst in
+  if (d <= dsrch)%N then
+    let w := p1g croot in
+    let nd := Uint63.to_nat (wdist w) in
+    if (nd <= d)%N then
+      if (d == dsrch)%N then
+        let n0 := fcount forb fpop m' in
+        let e := Uint63.add enoughb (Uint63.div n0 enoughd) in
+        (fsrchs d croot sroot (wmask w (d - nd)) 18%uint63 e (m', n0)).1
+      else fsrch d croot sroot (wmask w (d - nd)) 18%uint63 m'
+    else m'
+  else m'.
+
+Fixpoint fruns (n : nat) (d : nat) (m dst : rmap) : rmap :=
+  if n is n1.+1 then fruns n1 d.+1 (flvls d.+1 m dst) m else m.
 
 End FSrch.

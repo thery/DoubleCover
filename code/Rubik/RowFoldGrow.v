@@ -60,7 +60,7 @@ Definition okmvv (pv k : int) : bool :=
 Definition dsrchn : nat := 16.
 
 Notation fmrun d :=
-  (mfullf (frun e8numi e4biti
+  (mfullf (fruns e8numi e4biti
              fpgi fsrci fsgri fsloi fshii fsbti
              mgri mswi mloi mhii
              p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data

@@ -50,11 +50,11 @@ Definition fsolved (c : int) (x : pstt) : bool :=
 
 Notation fmcnt d :=
   (fcount forbi fpopi
-     (frun e8numi e4biti
+     (fruns e8numi e4biti
         fpgi fsrci fsgri fsloi fshii fsbti
         mgri mswi mloi mhii
         p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
-        fstep xstep tomemb okmvv fsolved croot sroot srch
+        fstep xstep tomemb okmvv fsolved croot sroot srch forbi fpopi
         d 0 (mkempty tt) (mkempty tt))).
 
 (* how many leaves the search reaches at depth ten: the prototype says 3072  *)

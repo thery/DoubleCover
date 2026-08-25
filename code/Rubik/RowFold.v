@@ -170,6 +170,23 @@ Definition fmark (m : rmap) (pg gr bt : int) : rmap :=
   let pty := Uint63.lxor (fpar w) (if (bt <? 12)%uint63 then 0 else 1) in
   ffor m (fkpt w) (sgrmv u pty gr) (bitof (sbtmv u bt)).
 
+(* THE SAME MARK, AND A COUNT OF WHAT IT PUTS IN.  The early stop has to know *)
+(* how full the map is, and a bit already set is not new.  It also does not   *)
+(* write a word that is already right, which is what flevelg does for the     *)
+(* level.                                                                    *)
+Definition fmarkn (mn : rmap * int) (pg gr bt : int) : rmap * int :=
+  let: (m, n) := mn in
+  let w := PArray.get fpg pg in
+  let u := fren w in
+  let pty := Uint63.lxor (fpar w) (if (bt <? 12)%uint63 then 0 else 1) in
+  let r := fkpt w in
+  let g := sgrmv u pty gr in
+  let v := bitof (sbtmv u bt) in
+  let old := fget m r g in
+  if Uint63.eqb (Uint63.land old v) 0%uint63
+  then (fset m r g (Uint63.lor old v), Uint63.add n 1%uint63)
+  else mn.
+
 Definition ftest (m : rmap) (pg gr bt : int) : bool :=
   let w := PArray.get fpg pg in
   let u := fren w in
