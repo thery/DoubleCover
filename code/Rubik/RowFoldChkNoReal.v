@@ -2,9 +2,15 @@
 (*  RowFoldChk.v -- the folded row against the prototype's own numbers.       *)
 (* =========================================================================  *)
 
-(* THIS IS THE PROGRAM THAT REACHED 41 GB.  It is left exactly as it was, so  *)
-(* that it can be run again and compared.  RowFoldChkNoReal.v is the same     *)
-(* thing with one dependency dropped -- see its head.                         *)
+(* THE SAME AS RowFoldChk.v BUT WITHOUT RowReal, which is the only file that  *)
+(* requires P1Table -- the UNFOLDED phase one table, 2 217 093 120 entries.   *)
+(* The folded row reads p1ftab, the folded one, 140 908 410, and never touches *)
+(* the other; RowReal was required for two four-line definitions, which are   *)
+(* written out below instead.                                                 *)
+(*                                                                            *)
+(* Run this and RowFoldChk.v side by side.  Both must print 3072 then 2560.   *)
+(* If this one holds its memory and that one climbs, the table it never reads *)
+(* was the cost.                                                              *)
 
 (* NOT PART OF THE PROOF.  RowFoldGrow.v says whether the map is full, which  *)
 (* is false at every depth it can reach.  This counts the members instead, so *)
@@ -26,7 +32,7 @@ Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
 Require Import Row RowMap RowRun RowFinal RowInst.
 Require Import RowTabL RowTabP RowTab RowMemb RowLeaf.
-Require Import RowWits RowReal.
+Require Import RowWits.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import Fold FoldTables P1FTable.
 Require Import RowFold RowTabF RowFoldTab RowFoldSrch.
@@ -48,13 +54,22 @@ Definition fsolved (c : int) (x : pstt) : bool :=
   [&& Uint63.eqb c csolvedi, Uint63.eqb (ctwisti x) 0%uint63
     & Uint63.eqb (coordi x) (coordfs 1)].
 
+(* RowReal's okmvv and its search depth, written out *)
+Definition okmvv (pv k : int) : bool :=
+  if (18 <=? pv)%uint63 then true
+  else let fp := (pv / 3)%uint63 in
+       let fk := (k / 3)%uint63 in
+       ~~ ((fp =? fk)%uint63 || (fp =? fk + 3)%uint63).
+
+Definition dsrchn : nat := 16.
+
 Notation fmcnt d :=
   (fcount forbi fpopi
      (frun e8numi e4biti
         fpgi fsrci fsgri fsloi fshii fsbti
         mgri mswi mloi mhii
         p1ftab frepi fsymi twsymi
-        fstep xstep tomemb okmvv fsolved croot sroot srch
+        fstep xstep tomemb okmvv fsolved croot sroot dsrchn
         d 0 (mkempty tt) (mkempty tt))).
 
 (* how many leaves the search reaches at depth ten: the prototype says 3072  *)
