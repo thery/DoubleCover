@@ -26,14 +26,14 @@ cd "$(dirname "$0")"
 ulimit -s unlimited
 
 # the phase one fold, only if it is not there
-for f in Fold FoldTables P1FTable; do
+for f in Fold FoldTables P1Fdec P1FTable; do
   if [ ! -f "$f.vo" ]; then
     echo "--- $f (missing)"
     coqc -R . Rubik "$f.v"
   fi
 done
 
-for f in RowFold RowTabF RowFoldTab RowFoldSrch; do
+for f in RowFold RowMask RowTabF RowFoldTab RowFoldSrch; do
   echo "--- $f"
   coqc -R . Rubik "$f.v"
 done

@@ -41,9 +41,10 @@ Local Open Scope uint63_scope.
 
 (* ---- the widths the generator packs with --------------------------------  *)
 
-(* the entry and its distance are Fold.v's: p1getm and p1getd.  What is here *)
-(* is the six faces above the distance.                                      *)
+(* the entry and the distance in it are Phase1's: p1getm and p1get.  What is *)
+(* here is the six faces above the distance.                                 *)
 Definition mdbits : int := 4%uint63.        (* bits of distance               *)
+Definition mdmask : int := 15%uint63.       (* the distance, four bits        *)
 Definition mfbits : int := 12%uint63.       (* bits of three faces            *)
 Definition mfmask : int := 4095%uint63.     (* twelve bits                    *)
 Definition msmask : int := 15%uint63.       (* the renaming, four bits        *)

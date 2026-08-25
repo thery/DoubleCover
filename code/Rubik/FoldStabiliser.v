@@ -25,7 +25,7 @@ Variable F : PArray.array arr.
 Variable ract : int -> int -> int.
 
 (* the entry the folded row gives for the symmetry u                          *)
-Local Notation ent u r tw := (p1getd F (foldi (frepi r) (twsymi tw u))).
+Local Notation ent u r tw := (p1get F (foldi (frepi r) (twsymi tw u))).
 
 (* Every symmetry that reaches the representative gives the same entry.  The  *)
 (* one that fsym names is skipped, being the same term on both sides, which   *)
