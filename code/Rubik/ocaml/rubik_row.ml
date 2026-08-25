@@ -1061,11 +1061,20 @@ module P = struct
 
   let reroot t = incr reroots; rerootk t (fun () -> ())
 
+  (* WHEN AN OLD VERSION IS TOUCHED.  A version is current when it holds the
+     array; if it holds a difference it is old, and touching it turns the
+     whole chain round.  These count how often that happens, reading and
+     writing, which is the thing worth knowing about a persistent array. *)
+  let oldget = ref 0
+  let oldset = ref 0
+  let isold t = match !t with Array _ -> false | Diff _ -> true
+
   let get t i =
     match !t with
     | Array a ->
         a.(i)
     | Diff _ ->
+        incr oldget;
         reroot t;
         (match !t with Array a -> a.(i) | Diff _ -> assert false)
 
@@ -1075,6 +1084,7 @@ module P = struct
      almost every write is nought over nought, so that line skipped nearly
      all the work and made this side look four times faster than it is. *)
   let set t i v =
+    if isold t then incr oldset;
     reroot t;
     match !t with
     | Array a as n ->
@@ -1423,6 +1433,23 @@ let lsrchrun d =
 
 let lnfs = n_flip * n_slice                     (* 1 013 760, RowInst's nfsi *)
 
+(* THE COUNTER, PROVED TO FIRE.  A count of nought is worth nothing until the
+   counter is shown to move, so this touches an old version on purpose. *)
+let ptest () =
+  let a = P.make 4 0 in
+  let b = P.set a 0 1 in            (* a is now old, b is current *)
+  let g0 = !P.oldget and s0 = !P.oldset in
+  ignore (P.get a 0);               (* a read of an old version *)
+  let g1 = !P.oldget in
+  let c = P.set b 1 2 in            (* b is old again after that reroot *)
+  ignore (P.set b 2 3);             (* a write to an old version *)
+  ignore c;
+  Printf.printf
+    "self test: the old-read counter moved by %d, the old-write counter by %d\n\
+     (both must be at least one, or a nought elsewhere means nothing)\n%!"
+    (g1 - g0) (!P.oldset - s0);
+  exit 0
+
 let lrow n =
   (* the move tables, and the phase one table off the disk *)
   let mt_twist = mk_move_table n_twist cube_of_twist twist in
@@ -1543,10 +1570,10 @@ let lrow n =
     nxt := !cur; cur := m;
     Printf.printf
       "level %2d : %d members, %d nodes (%.1f s, heap %.2f GB, \
-       %d reroots walking %d)\n%!"
+       %d reads and %d writes of an OLD version)\n%!"
       d (pcount !cur) !lnodes (t1 -. t0)
       (float_of_int (Gc.stat ()).Gc.heap_words *. 8.0 /. 1e9)
-      !P.reroots !P.rerootsteps
+      !P.oldget !P.oldset
   done;
   exit 0
 
@@ -1994,6 +2021,7 @@ let () =
     lleak (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "lsrch" then
     lsrchrun (int_of_string Sys.argv.(2));
+  if Array.length Sys.argv > 1 && Sys.argv.(1) = "ptest" then ptest ();
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "lrow" then
     lrow (int_of_string Sys.argv.(2));
   let cap = int_of_string Sys.argv.(1) in
