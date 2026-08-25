@@ -19,7 +19,7 @@ From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Table Tabi Rubik333 Moves Ball Coordfs Coordfsi Phase1.
-Require Import Row RowMap RowFold RowRun Fold.
+Require Import Row RowMap RowFold RowRun Fold RowMask.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -62,11 +62,20 @@ Variable F : PArray.array arr.
 Variables frep fsym : int -> int.
 Variable twsym : int -> int -> int.
 
+(* THE TABLE CARRIES THE MOVES NOW.  RowMask.v's read: the same fold, and    *)
+(* beside the distance the moves that bring the state nearer H and the ones  *)
+(* that at least do not take it further, named for the KEPT state and        *)
+(* renamed back through the four decoding tables.  A node then offers three  *)
+(* or four moves where it offered eighteen.                                  *)
+Variables dnlo dnhi fllo flhi : arr.
+
 Definition fp1g (c : int) : int :=
   let tw := Uint63.div c nfsi in
-  Dfoldi F frep fsym twsym tw (Uint63.sub c (Uint63.mul tw nfsi)).
+  Dfoldm F frep fsym twsym tw (Uint63.sub c (Uint63.mul tw nfsi)).
 
 Local Notation p1g := fp1g.
+Local Notation wdist := mdist.
+Local Notation wmask := (mmask dnlo dnhi fllo flhi).
 
 Variable pst : Type.
 Variable cstep : int -> int -> int.

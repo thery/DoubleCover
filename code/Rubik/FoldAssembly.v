@@ -60,7 +60,7 @@ Hypothesis msymiCP : msymiC.
 Hypothesis stabEP : forall tw r u, (to_nat tw < ntwist)%N ->
   (r <? nfsi)%uint63 -> (to_nat u < nsym)%N ->
   racti ractab r u = rrepi frepi repsi r ->
-  p1get F (foldi (frepi r) (twsymi tw u))
+  p1getd F (foldi (frepi r) (twsymi tw u))
   = Dfoldi F frepi fsymi twsymi tw r.
 
 (* and the orbit check itself                                                 *)
