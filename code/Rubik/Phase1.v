@@ -782,14 +782,27 @@ Proof. by vm_compute. Qed.
 Definition cwmaski : int := Eval vm_compute in
   Uint63.sub (Uint63.lsl 1%uint63 cwlogi) 1%uint63.
 
-Definition p1get (i : int) : int :=
-  let w := Uint63.div i 15%uint63 in
-  let r := Uint63.sub i (Uint63.mul w 15%uint63) in
+(* AN ENTRY IS TWENTY EIGHT BITS, two to a word: four bits of distance and    *)
+(* four for each of the six faces, saying which moves bring the state nearer  *)
+(* H and which at least do not take it further.  The faces are for the search *)
+(* alone -- everything proved here reads the distance -- and RowMask.v is     *)
+(* where they are taken apart.                                                *)
+Definition mbits  : int := 28%uint63.       (* bits an entry                  *)
+Definition mper   : int := 2%uint63.        (* entries a word                 *)
+Definition mmaski : int := Eval vm_compute in
+  Uint63.sub (Uint63.lsl 1%uint63 mbits) 1%uint63.
+
+Definition p1getm (i : int) : int :=
+  let w := Uint63.div i mper in
+  let r := Uint63.sub i (Uint63.mul w mper) in
   let c := Uint63.lsr w cwlogi in
   let o := Uint63.land w cwmaski in
   Uint63.land
-    (Uint63.lsr (PArray.get (PArray.get p1ftabs c) o) (Uint63.mul r 4%uint63))
-    15%uint63.
+    (Uint63.lsr (PArray.get (PArray.get p1ftabs c) o) (Uint63.mul r mbits))
+    mmaski.
+
+(* the distance in it, which is what everything below reads                   *)
+Definition p1get (i : int) : int := Uint63.land (p1getm i) 15%uint63.
 
 (* the heuristic: the stored value, which IS the distance up to the cap.      *)
 (* BY RANK, because the fold is by rank and the search carries the rank.      *)
@@ -2121,11 +2134,11 @@ Definition p1dummy : PArray.array arr :=
 (* same "arguments explicit" rule the conjugation rewrites in Sym.v needed.   *)
 Lemma p1get_dummy i : p1get p1dummy i = 0%uint63.
 Proof.
-rewrite /p1get /p1dummy.
+rewrite /p1get /p1getm /p1dummy.
 rewrite [PArray.get (PArray.make (of_nat nchunk)
                        (PArray.make 1%uint63 0%uint63)) _]PArray.get_make.
 rewrite [PArray.get (PArray.make 1%uint63 0%uint63) _]PArray.get_make.
-by rewrite lsr0 land0.
+by rewrite lsr0 !land0.
 Qed.
 
 Lemma Dp1i_dummy tw x :

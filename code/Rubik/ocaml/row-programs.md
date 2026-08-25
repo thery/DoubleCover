@@ -50,6 +50,56 @@ needed to build it and for nothing else.
 commute with the moves, and the distances and moves match the plain table.
 Five million random states were checked at cap 9.
 
+## Against hcoset, on the same row
+
+MEASURED on roquableu, 2026-08-25: the row of H (`ROW=""`), his production
+recipe on both sides (`-F`, ours `ROWSEARCH=16 ROWENOUGH=auto`), ONE CORE.
+Every level count identical -- 329 352 128 solutions at depth 12 on both
+sides, which is his published number.
+
+| | hcoset | ours | |
+|---|---|---|---|
+| search, depth 9 | 2.4 s | 68.8 s | 28x |
+| search, depth 10 | 0.9 s | 11.8 s | 14x |
+| search, depth 11 | 6.2 s | 86.3 s | 14x |
+| search, depth 12 | 45.8 s | 539 s | 12x |
+| **the prepass** | 9.2 s | 1.4-2.9 s | **ours is 3-6x faster** |
+
+So the search is about **twelve times his**, and the prepass is FASTER than
+his -- that is the map fold, which he does not do.
+
+## And on the superflip row, which is the one that matters
+
+MEASURED on roquableu the same evening, same recipe, one core.  **Every level
+count identical on the two sides** -- 3072 at depth 10, 86 144, 1 438 464,
+19 186 816, 87 830 784.
+
+| | hcoset | ours |
+|---|---|---|
+| search, depth 13 | 1.2 s | 27.7 s |
+| search, depth 14 | 8.0 s | 135.0 s |
+| search, depth 15 | 86.0 s | -- |
+| a prepass | 8.6 s | **1.4 s** |
+| the whole row | **150 s** | -- |
+
+So the search is 17-22x his here, and the prepass 6x FASTER than his.  His
+150 s is more than a third prepass (~54 s of it), which is where our map fold
+pays.
+
+**THIS ROW IS CHEAP AND THE ROW OF H IS NOT**: 150 s against hours, for him.
+The superflip row is the one the Rocq proof is about, and it is the one to
+run.  His `-F` run cannot say what is left over, because `-F` turns bit
+counting off; ours prints it at every level.
+
+**hcoset's move syntax**: an explicit twist digit and no bare letters --
+`U1R2F1B1R1B2R1U2L1B2R1U3D3R2F1R3L1B2U2F2` is the superflip, and written
+without spaces it survives any shell.
+
+**AND THE ROW OF H IS NOT THE SUPERFLIP ROW.**  `ROW=""` is the row of H
+itself; the superflip row is
+`U R2 F B R B2 R U2 L B2 R U' D' R2 F R' L B2 U2 F2`, and it is the one the
+Rocq proof is about.  The table above is the row of H, on both sides.
+
 ## What is not settled
 
 The two programs have only been compared at cap 9, where the old one reads

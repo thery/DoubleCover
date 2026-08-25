@@ -59,7 +59,7 @@ Proof. Time native_cast_no_check (erefl true). Qed.
 Lemma stabEP tw r u :
   (to_nat tw < ntwist)%N -> (r <? nfsi)%uint63 -> (to_nat u < nsym)%N ->
   racti ractab r u = rrepi frepi repsi r ->
-  p1getd p1ftab (foldi (frepi r) (twsymi tw u))
+  p1get p1ftab (foldi (frepi r) (twsymi tw u))
   = Dfoldi p1ftab frepi fsymi twsymi tw r.
 Proof. by move=> twL rL uL hu; exact: (stabE_of_check stabCP rL uL twL hu). Qed.
 
