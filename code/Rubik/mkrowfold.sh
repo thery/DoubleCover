@@ -6,6 +6,7 @@
 #    ./mkrowfold.sh chk      build, then RowFoldChk -- the numbers
 #    ./mkrowfold.sh grow     build, then RowFoldGrow -- the ladder
 #    ./mkrowfold.sh why      build, then RowFoldWhy -- where the time goes
+#    ./mkrowfold.sh edge     build, then RowFoldEdge -- what one step costs
 #    ./mkrowfold.sh          build, then RowFoldRun -- the ball of H
 #
 #  RUN chk FIRST.  It says whether the folded row is RIGHT: it must print
@@ -69,5 +70,7 @@ case "$1" in
   grow)  echo "--- RowFoldGrow (the ladder)";     coqc -R . Rubik RowFoldGrow.v ;;
   why)   echo "--- RowFoldWhy (where the time goes)"
          coqc -R . Rubik RowFoldWhy.v ;;
+  edge)  echo "--- RowFoldEdge (what one step costs)"
+         coqc -R . Rubik RowFoldEdge.v ;;
   *)     echo "--- RowFoldRun (the ball of H)";   coqc -R . Rubik RowFoldRun.v ;;
 esac
