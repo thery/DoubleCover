@@ -2481,6 +2481,12 @@ the fold";
   let fl = Array.make maxd 0 in
   let sl = Array.make maxd 0 in
   let nodes = ref 0L and probes = ref 0L in
+  (* HOW WIDE A NODE IS.  A node pays a coordinate step and a table read for
+     every move it tries, so what the search costs is `tries', not `nodes'.
+     `wide' is the nodes that were offered all eighteen, and `widths' the
+     widths added up, so the average follows. *)
+  let tries = ref 0L and wide = ref 0L and widths = ref 0L in
+  let popc18 m = popc.(m land 4095) + popc.((m lsr 12) land 4095) in
   let ish = Array.make 18 false in
   Array.iter (fun m -> ish.(m) <- true) hmoves;
 
@@ -2539,6 +2545,8 @@ the fold";
      it anyway.  Both cuts are off on a level with no prepass. *)
   let rec dfsm d togo prev mask =
     nodes := Int64.add !nodes 1L;
+    widths := Int64.add !widths (Int64.of_int (popc18 mask));
+    if mask = allmv then wide := Int64.add !wide 1L;
     if !nset >= !enough then ()
     else if togo = 0 then begin
       probes := Int64.add !probes 1L;
@@ -2551,6 +2559,7 @@ the fold";
           if (togo > 1 || not !cut || not ish.(m))
              && (prev < 0 || not (f = prev || (f = opp prev && f > prev)))
           then begin
+            tries := Int64.add !tries 1L;
             step d m;
             let w = fld (d + 1) in
             let nd = mdist w in
@@ -2588,7 +2597,7 @@ the fold";
     let t1 = Unix.gettimeofday () in
     if !cut then carry () else blitmaps ();
     let t2 = Unix.gettimeofday () in
-    nodes := 0L; probes := 0L;
+    nodes := 0L; probes := 0L; tries := 0L; wide := 0L; widths := 0L;
     (* the threshold is on the whole map, so what the prepass left has to be
        counted before the search starts; that costs a couple of seconds and
        only on the level the threshold applies to *)
@@ -2609,9 +2618,17 @@ the fold";
     swapmaps ();
     done_ := count ();
     Printf.printf
-      "depth %2d : %Ld nodes, %Ld solutions, %d new, %d done, \
+      "depth %2d : %Ld nodes, %Ld tries (%.1f a node), %Ld all eighteen \
+       (%.0f%%), width %.1f, %Ld solutions, %d new, %d done, \
        prepass %.1f s, search %.1f s%s\n%!"
-      !d !nodes !probes (!done_ - before) !done_ (t2 -. t1) (t3 -. t2)
+      !d !nodes !tries
+      (if !nodes = 0L then 0. else Int64.to_float !tries /. Int64.to_float !nodes)
+      !wide
+      (if !nodes = 0L then 0.
+       else 100. *. Int64.to_float !wide /. Int64.to_float !nodes)
+      (if !nodes = 0L then 0.
+       else Int64.to_float !widths /. Int64.to_float !nodes)
+      !probes (!done_ - before) !done_ (t2 -. t1) (t3 -. t2)
       (if !enough < max_int && !nset >= !enough then " (stopped early)"
        else "");
     incr d

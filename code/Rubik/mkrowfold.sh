@@ -10,6 +10,7 @@
 #    ./mkrowfold.sh mark     build, then RowFoldMark -- what marking costs
 #    ./mkrowfold.sh place    build, then RowFoldPlace -- which part of it
 #    ./mkrowfold.sh fast     build, then RowFoldFast -- what int63 is worth
+#    ./mkrowfold.sh wide     build, then RowFoldWide -- how wide a node is
 #    ./mkrowfold.sh          build, then RowFoldRun -- the ball of H
 #
 #  RUN chk FIRST.  It says whether the folded row is RIGHT: it must print
@@ -81,5 +82,7 @@ case "$1" in
          coqc -R . Rubik RowFoldPlace.v ;;
   fast)  echo "--- RowFoldFast (what int63 is worth; must print 71296 twice)"
          coqc -R . Rubik RowFoldFast.v ;;
+  wide)  echo "--- RowFoldWide (how many moves a node is offered)"
+         coqc -R . Rubik RowFoldWide.v ;;
   *)     echo "--- RowFoldRun (the ball of H)";   coqc -R . Rubik RowFoldRun.v ;;
 esac
