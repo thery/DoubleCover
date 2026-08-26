@@ -11,6 +11,7 @@
 #    ./mkrowfold.sh place    build, then RowFoldPlace -- which part of it
 #    ./mkrowfold.sh fast     build, then RowFoldFast -- what int63 is worth
 #    ./mkrowfold.sh wide     build, then RowFoldWide -- how wide a node is
+#    ./mkrowfold.sh okm      build, then RowFoldOkm -- what the move table is worth
 #    ./mkrowfold.sh          build, then RowFoldRun -- the ball of H
 #
 #  RUN chk FIRST.  It says whether the folded row is RIGHT: it must print
@@ -63,7 +64,7 @@ build () {     # build <base>
 
 # the phase one fold, and the row's own files, each only if it is stale
 for f in Fold FoldTables P1Fdec P1FTable \
-         RowFold RowMask RowTabF RowFoldTab RowFoldSrch RowMembi; do
+         RowFold RowMask RowTabF RowFoldTab RowFoldSrch RowMembi RowOkm; do
   build "$f"
 done
 echo "the folded row is built"
@@ -84,5 +85,7 @@ case "$1" in
          coqc -R . Rubik RowFoldFast.v ;;
   wide)  echo "--- RowFoldWide (how many moves a node is offered)"
          coqc -R . Rubik RowFoldWide.v ;;
+  okm)   echo "--- RowFoldOkm (the move table; must print 3148501 three times)"
+         coqc -R . Rubik RowFoldOkm.v ;;
   *)     echo "--- RowFoldRun (the ball of H)";   coqc -R . Rubik RowFoldRun.v ;;
 esac
