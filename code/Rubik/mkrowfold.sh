@@ -14,6 +14,7 @@
 #    ./mkrowfold.sh okm      build, then RowFoldOkm -- what the move table is worth
 #    ./mkrowfold.sh leaf     build, then RowFoldLeaf -- the test at the end
 #    ./mkrowfold.sh climb    build, then RowFoldClimb -- the row, both wins in
+#    ./mkrowfold.sh cut      build, then RowFoldCut -- with hcoset's last two cuts
 #    ./mkrowfold.sh          build, then RowFoldRun -- the ball of H
 #
 #  RUN chk FIRST.  It says whether the folded row is RIGHT: it must print
@@ -93,5 +94,7 @@ case "$1" in
          coqc -R . Rubik RowFoldLeaf.v ;;
   climb) echo "--- RowFoldClimb (the row to ten and to thirteen)"
          coqc -R . Rubik RowFoldClimb.v ;;
+  cut)   echo "--- RowFoldCut (the last two cuts; 14 must give 148423860)"
+         coqc -R . Rubik RowFoldCut.v ;;
   *)     echo "--- RowFoldRun (the ball of H)";   coqc -R . Rubik RowFoldRun.v ;;
 esac

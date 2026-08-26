@@ -219,4 +219,67 @@ Definition flvls (d : nat) (m dst : rmap) : rmap :=
 Fixpoint fruns (n : nat) (d : nat) (m dst : rmap) : rmap :=
   if n is n1.+1 then fruns n1 d.+1 (flvls d.+1 m dst) m else m.
 
+
+(* ---- hcoset's two remaining cuts ----------------------------------------- *)
+
+(* THESE TWO ARE IN THE PROTOTYPE AND WERE NOT HERE.  Both are switched on    *)
+(* only once the row is big -- past six million members -- so below depth     *)
+(* fourteen they do nothing, which is why the two sides walked identical      *)
+(* trees in everything measured so far.                                       *)
+(*                                                                            *)
+(*   the last move is not in H   a word ending in H is a shorter one          *)
+(*                               followed by moves of H, and the prepass has  *)
+(*                               already played those                         *)
+(*   go straight at H near the   a move that wastes a step down there ends in *)
+(*   bottom                      moves of H, so the prepass catches it too    *)
+(*                                                                            *)
+(* Both are safe the way the early stop is: what is proved is that the map    *)
+(* filled, so a cut that loses words can only make the row finish later,      *)
+(* never call a member covered when it is not.                                *)
+
+(* the moves of H, one bit each *)
+Variable ishm : int.
+
+(* hcoset's own number: below it a move must go straight at H *)
+Definition rcuti : nat := 5.
+
+(* and his threshold on the row's size *)
+Definition ncutb : int := 6000000%uint63.
+
+Fixpoint fsrchk (cut : bool) (togo : nat) (c : int) (x : pst) (msk pv : int)
+                (m : rmap) : rmap :=
+  if togo is togo'.+1 then
+    ifold nmvn 0%uint63
+      (fun k m' =>
+         if Uint63.eqb (Uint63.land msk (Uint63.lsl 1%uint63 k)) 0%uint63
+         then m'
+         else if ~~ okmv pv k then m'
+         else if [&& cut, (togo' == 0)%N
+                  & ~~ Uint63.eqb (Uint63.land ishm (Uint63.lsl 1%uint63 k))
+                                  0%uint63]
+         then m'
+         else
+           let c' := cstep c k in
+           let w := p1g c' in
+           let nd := Uint63.to_nat (wdist w) in
+           if [&& (nd <= togo')%N
+               & [|| ~~ cut, (nd == togo')%N | (rcuti <= togo' + nd)%N]]
+           then fsrchk cut togo' c' (xstep x k) (wmask w (togo' - nd)) k m'
+           else m')
+      m
+  else if csolved c x
+       then let: (pg, gr, bt) := plc (tomemb x) in fmk m pg gr bt
+       else m.
+
+(* the level, with the cuts on or off as the caller says *)
+Definition flvlk (cut : bool) (d : nat) (m dst : rmap) : rmap :=
+  let m' := flev m dst in
+  if (d <= dsrch)%N then
+    let w := p1g croot in
+    let nd := Uint63.to_nat (wdist w) in
+    if (nd <= d)%N
+    then fsrchk cut d croot sroot (wmask w (d - nd)) 18%uint63 m'
+    else m'
+  else m'.
+
 End FSrch.
