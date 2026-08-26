@@ -28,7 +28,7 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
-Require Import Row RowMap RowRun RowFinal.
+Require Import Row RowMap RowRun RowFinal Fsinj.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -269,22 +269,38 @@ Variable nlev : nat.                      (* how many levels are run          *)
 (* coordinate of the identity table, and its rank -- are computations, spent *)
 (* once here, so that what a search meets is a number.                       *)
 (*                                                                           *)
-(* WHAT IS LEFT: that the two agree, coordfs1i = coordfs 1.  coordiE says    *)
-(* coordi a = coordt (ti2t a) on a table that is one, and the identity table *)
-(* is one.  The proofs below still speak of coordfs 1 and are untouched.     *)
+(* AND THE TWO AGREE, which coordfs1iE below proves: coordi of a table that  *)
+(* is one is coordt of it, coordt of the identity table is coordfs of the    *)
+(* permutation it names, and that permutation is one.                        *)
 Definition coordfs1i : int := Eval vm_compute in coordi (id_tabi 47).
 Definition csolvedci : int := Eval vm_compute in fsidx coordfs1i.
 
 Definition csolvedi : int := fsidx (coordfs 1).
 
-(* THE CHEAP TEST FIRST.  The search carries the coordinate, so one           *)
-(* comparison answers the question at every bottom node; the two that walk    *)
-(* the forty eight entry table only run when that one has passed.  They are   *)
-(* still there because the coordinate is packed and unpacking it is not       *)
-(* proved one to one.                                                         *)
-Definition csolvedb (c : int) (x : pstt) : bool :=
-  [&& Uint63.eqb c csolvedi, Uint63.eqb (ctwisti x) 0%uint63
-    & Uint63.eqb (coordi x) (coordfs 1)].
+Lemma tabi_ok_idi : tabi_ok flast (id_tabi flast).
+Proof.
+by rewrite /tabi_ok (ti2t_id n47_small n47_len); exact: (tab_ok_id flast).
+Qed.
+
+Lemma coordfs1iC : coordfs1i = coordi (id_tabi flast).
+Proof. by vm_compute. Qed.
+
+Lemma coordfs1iE : coordfs1i = coordfs 1.
+Proof.
+rewrite coordfs1iC (coordiE tabi_ok_idi) (ti2t_id n47_small n47_len) -pt1.
+by rewrite (coordtE (tab_ok_id flast)).
+Qed.
+
+
+(* ONE COMPARISON, AND IT IS THE WHOLE TEST.  The search carries the         *)
+(* coordinate, so the question is asked of a number it already has.  It used  *)
+(* to ask two more of the forty eight entry cube, because unpacking the       *)
+(* coordinate was not proved one to one; Fsinj proves it, and csolvedbP       *)
+(* below gets the same two answers out of this one.                           *)
+(*                                                                            *)
+(* MEASURED at depth twelve on the same tree: with the three questions the    *)
+(* search is 37.9 s and with this one 18.5.                                   *)
+Definition csolvedb (c : int) (x : pstt) : bool := Uint63.eqb c csolvedi.
 
 Definition mfin : rmap :=
   run e8num e4bit mpg mgr msw mlo mhi p1 cstep xstep tomemb okmv csolvedb
@@ -583,10 +599,43 @@ Hypothesis tomemb_tab : forall c x, coordP c x -> pstok x ->
 (* is solved and which is not in H.  The run has it -- a leaf is reached by a *)
 (* word -- and hands it over.                                                 *)
 (* the test says what it looks like it says, and nothing is assumed          *)
-Lemma csolvedbP c x : csolvedb c x ->
+(* THE TWO ANSWERS THE LEAF NEEDS, out of the one question.  csolvedi is a   *)
+(* flip and slice rank, so it is below nfsi; the coordinate is the twist      *)
+(* times nfsi plus that rank.  A coordinate equal to something below nfsi has *)
+(* twist nought already, and then the ranks agree -- and Fsinj says the rank  *)
+(* names the summary.                                                         *)
+Lemma csolvedbP c x : coordP c x -> pstok x -> csolvedb c x ->
   ctwisti x = 0%uint63 /\ coordi x = coordfs 1.
 Proof.
-by case/and3P => _ /eqb_correct h1 /eqb_correct h2.
+move=> hc hp /eqb_correct hcs.
+have /and3P[xok cx htw] := hp.
+have hfs : (to_nat (fsidx (coordi x)) < to_nat nfsi)%N by exact: fsidx_ltx.
+have hnfs : (0 < to_nat nfsi)%N by apply: leq_ltn_trans hfs.
+have hsol : (to_nat csolvedi < to_nat nfsi)%N.
+  by apply/nltbP; rewrite /csolvedi; apply: fsidx_lt; exact: cubP1.
+have he : to_nat c
+        = (to_nat (ctwisti x) * to_nat nfsi + to_nat (fsidx (coordi x)))%N.
+  by rewrite hc; exact: coordofE.
+rewrite hcs in he.
+have htw0 : to_nat (ctwisti x) = 0%N.
+  apply/eqP; rewrite -leqn0 leqNgt; apply/negP => h1.
+  have h2 : (to_nat nfsi <= to_nat (ctwisti x) * to_nat nfsi)%N.
+    by apply: leq_pmull.
+  by move: hsol; rewrite he ltnNge => /negP; apply; apply: leq_trans h2 _;
+     apply: leq_addr.
+split; first by apply: to_nat_inj; rewrite htw0.
+have hfe : fsidx (coordi x) = csolvedi.
+  by apply: to_nat_inj; rewrite he htw0 mul0n add0n.
+have hgi : coordi x = coordfs (pt flast (ti2t flast x)).
+  by rewrite (coordiE xok) (coordtE xok).
+have hcg : cubP (pt flast (ti2t flast x)).
+  by rewrite (cubtE xok) -(cubtiE xok).
+rewrite hgi; apply: coordfs_solved.
+- exact: hcg.
+- by rewrite -hgi; case/andP: htw.
+- by rewrite -coordfs1iE; vm_compute.
+- by rewrite -coordfs1iE; vm_compute.
+by rewrite -hgi hfe.
 Qed.
 
 (* the word played is the superflip undone, so the position is the superflip  *)
@@ -602,14 +651,14 @@ Qed.
 Lemma leaf_membW c x : coordP c x -> pstok x -> posp x \in G ->
   csolvedb c x -> membok par8 par4 (tomemb x).
 Proof.
-move=> hc hp hG hs; have [h1 h2] := csolvedbP hs.
+move=> hc hp hG hs; have [h1 h2] := csolvedbP hc hp hs.
 exact: leaf_memb hc hp (posp_G hG) h1 h2.
 Qed.
 
 Lemma leaf_pos c x : coordP c x -> pstok x -> posp x \in G ->
   csolvedb c x -> RowFinal.pos ptab (tomemb x) = posp x.
 Proof.
-move=> hc hp hG hs; have [h1 h2] := csolvedbP hs.
+move=> hc hp hG hs; have [h1 h2] := csolvedbP hc hp hs.
 by rewrite posE (tomemb_tab hc hp (posp_G hG) h1 h2).
 Qed.
 

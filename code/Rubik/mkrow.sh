@@ -22,7 +22,7 @@ JOBS=${1:-$(nproc)}
 
 { echo "-R . Rubik"
   echo
-  for f in Lehmer Row RowMap RowRun RowFinal RowInst \
+  for f in Lehmer Row RowMap RowRun RowFinal Fsinj RowInst \
            RowTabL RowTabP RowTab RowMemb RowLeaf \
            RowMoveH RowMoveM RowParity RowPartM \
            RowPartC RowPartU RowMoveC RowMoveU RowMembChk \
