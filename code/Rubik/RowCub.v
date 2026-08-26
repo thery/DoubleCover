@@ -233,13 +233,147 @@ Definition emvC : bool :=
 Lemma cmvCP : cmvC. Proof. by vm_compute. Qed.
 Lemma emvCP : emvC. Proof. by vm_compute. Qed.
 
-(* ---- the step lemma ------------------------------------------------------ *)
+(* ---- what the layouts say, one index at a time --------------------------- *)
+
+(* the layout read forwards: index i holds a facelet of place i / nsl at slot *)
+(* i mod nsl                                                                  *)
+Lemma clayE i : (i < 24)%N ->
+  [&& (nth 0%N cflatp i < 48)%N, inC (nth 0%N cflatp i),
+      cposn (nth 0%N cflatp i) == (i %/ 3)%N
+    & cslotn (nth 0%N cflatp i) == (i %% 3)%N].
+Proof.
+move=> hi; have /and4P[_ /allP h _ _] := clayokC.
+by apply: h; rewrite mem_iota add0n leq0n hi.
+Qed.
+
+Lemma elayE i : (i < 24)%N ->
+  [&& (nth 0%N elay i < 48)%N, inE (nth 0%N elay i),
+      eposn (nth 0%N elay i) == (i %/ 2)%N
+    & eslt (nth 0%N elay i) == (i %% 2)%N].
+Proof.
+move=> hi; have /and4P[_ /allP h _ _] := elayokC.
+by apply: h; rewrite mem_iota add0n leq0n hi.
+Qed.
+
+(* and backwards: a facelet is at its own place and slot *)
+Lemma clayB f : (f < 48)%N -> inC f ->
+  nth 0%N cflatp (cposn f * 3 + cslotn f)%N = f.
+Proof.
+move=> hf hc; have /and4P[_ _ /allP h _] := clayokC.
+have hm : f \in iota 0 48 by rewrite mem_iota add0n leq0n hf.
+by have /implyP/(_ hc)/eqP := h _ hm.
+Qed.
+
+Lemma elayB f : (f < 48)%N -> inE f ->
+  nth 0%N elay (eposn f * 2 + eslt f)%N = f.
+Proof.
+move=> hf hc; have /and4P[_ _ /allP h _] := elayokC.
+have hm : f \in iota 0 48 by rewrite mem_iota add0n leq0n hf.
+by have /implyP/(_ hc)/eqP := h _ hm.
+Qed.
+
+(* and the bounds a facelet's place and slot obey *)
+Lemma claybd f : (f < 48)%N -> inC f -> (cposn f < 8)%N && (cslotn f < 3)%N.
+Proof.
+move=> hf hc; have /and4P[_ _ _ /allP h] := clayokC.
+have hm : f \in iota 0 48 by rewrite mem_iota add0n leq0n hf.
+by have /implyP/(_ hc) := h _ hm.
+Qed.
+
+Lemma elaybd f : (f < 48)%N -> inE f -> (eposn f < 12)%N && (eslt f < 2)%N.
+Proof.
+move=> hf hc; have /and4P[_ _ _ /allP h] := elayokC.
+have hm : f \in iota 0 48 by rewrite mem_iota add0n leq0n hf.
+by have /implyP/(_ hc) := h _ hm.
+Qed.
+
+(* ---- a move keeps a corner a corner and an edge an edge ------------------ *)
+
+Definition mvkC : bool :=
+  all (fun k =>
+    all (fun f => (inC f ==> inC (nth 0%N (mvt' k) f))
+               && (inE f ==> inE (nth 0%N (mvt' k) f))
+               && (nth 0%N (mvt' k) f < 48)%N)
+      (iota 0 48))
+    (iota 0 18).
+
+Lemma mvkCP : mvkC. Proof. by vm_compute. Qed.
+
+Lemma mvkE k f : (k < 18)%N -> (f < 48)%N ->
+  [&& inC f ==> inC (nth 0%N (mvt' k) f),
+      inE f ==> inE (nth 0%N (mvt' k) f)
+    & (nth 0%N (mvt' k) f < 48)%N].
+Proof.
+move=> hk hf; have /allP h := mvkCP.
+have hkm : k \in iota 0 18 by rewrite mem_iota add0n leq0n hk.
+have hfm : f \in iota 0 48 by rewrite mem_iota add0n leq0n hf.
+have /allP h2 := h _ hkm.
+by have /andP[/andP[a b] c] := h2 _ hfm; rewrite a b c.
+Qed.
+
+(* ---- a facelet is a corner or an edge, never both ------------------------ *)
+
+Definition ckindC : bool :=
+  all (fun f => (inC f ==> ~~ inE f) && (inE f ==> ~~ inC f)) (iota 0 48).
+
+Lemma ckindCP : ckindC. Proof. by vm_compute. Qed.
+
+Lemma ckindE f : (f < 48)%N -> (inC f ==> ~~ inE f) && (inE f ==> ~~ inC f).
+Proof.
+move=> hf; have /allP h := ckindCP.
+by apply: h; rewrite mem_iota add0n leq0n hf.
+Qed.
+
+(* ---- a move's own twenty name places ------------------------------------- *)
+
+Definition ymvbd : bool :=
+  all (fun k => all (fun p => (nth 0%N (ymv k) p < 24)%N) (iota 0 20))
+      (iota 0 18).
+
+Lemma ymvbdP : ymvbd. Proof. by vm_compute. Qed.
+
+Lemma ymvbdE k p : (k < 18)%N -> (p < 20)%N -> (nth 0%N (ymv k) p < 24)%N.
+Proof.
+move=> hk hp; have /allP h := ymvbdP.
+have hkm : k \in iota 0 18 by rewrite mem_iota add0n leq0n hk.
+have hpm : p \in iota 0 20 by rewrite mem_iota add0n leq0n hp.
+by have /allP h2 := h _ hkm; apply: h2.
+Qed.
+
+(* ---- the step keeps the twenty naming places ----------------------------- *)
 
 (* the twenty have to name places: a corner place under eight, an edge place  *)
 (* under twelve *)
 Definition yok (y : seq nat) : bool :=
   all (fun p => ycg y p < 8)%N (iota 0 8)
   && all (fun q => yeg y q < 12)%N (iota 0 12).
+
+Lemma yok_step y k : (k < 18)%N -> yok y -> yok (ystep y k).
+Proof.
+(* THE LEMMA SUPPLIED, NOT LOOKED FOR.  `apply: ymvbdE' with the bound left  *)
+(* to done lets /= unfold ymv k into a twelve entry literal of move reads,   *)
+(* and the tactic does not come back.                                        *)
+move=> hk /andP[/allP hc /allP he]; apply/andP; split; apply/allP => p;
+  rewrite mem_iota add0n leq0n /= => hp; last first.
+  have hp20 : (8 + p < 20)%N by rewrite ltn_add2l.
+  rewrite /yeg /ystep /ystepm (nth_map 0%N) ?size_iota // nth_iota // add0n.
+  have -> : (8 + p < 8)%N = false by rewrite ltnNge leq_addr.
+  rewrite mulnC divnMDl //.
+  have -> : (((yfl y (nth 0%N (ymv k) (8 + p) %/ 2)
+               + nth 0%N (ymv k) (8 + p) %% 2) %% 2) %/ 2 = 0)%N
+    by apply: divn_small; rewrite ltn_mod.
+  rewrite addn0; apply: he; rewrite mem_iota add0n leq0n /= ltn_divLR //.
+  exact: (ymvbdE hk hp20).
+have hp20 : (p < 20)%N by apply: (leq_trans hp).
+rewrite /ycg /ystep /ystepm (nth_map 0%N) ?size_iota // nth_iota // add0n hp.
+rewrite mulnC divnMDl //.
+have -> : (((ytw y (nth 0%N (ymv k) p %/ 3) + nth 0%N (ymv k) p %% 3) %% 3)
+           %/ 3 = 0)%N by apply: divn_small; rewrite ltn_mod.
+rewrite addn0; apply: hc; rewrite mem_iota add0n leq0n /= ltn_divLR //.
+exact: (ymvbdE hk hp20).
+Qed.
+
+(* ---- the step lemma ------------------------------------------------------ *)
 
 (* WHAT THE COMPUTATION ALREADY SAYS on the eighteen by eighteen, now for any *)
 (* y that names places.  The move comes out on the LEFT here; cub2tabR turns  *)
