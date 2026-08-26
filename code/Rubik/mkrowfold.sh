@@ -12,6 +12,7 @@
 #    ./mkrowfold.sh fast     build, then RowFoldFast -- what int63 is worth
 #    ./mkrowfold.sh wide     build, then RowFoldWide -- how wide a node is
 #    ./mkrowfold.sh okm      build, then RowFoldOkm -- what the move table is worth
+#    ./mkrowfold.sh leaf     build, then RowFoldLeaf -- the test at the end
 #    ./mkrowfold.sh          build, then RowFoldRun -- the ball of H
 #
 #  RUN chk FIRST.  It says whether the folded row is RIGHT: it must print
@@ -87,5 +88,7 @@ case "$1" in
          coqc -R . Rubik RowFoldWide.v ;;
   okm)   echo "--- RowFoldOkm (the move table; must print 3148501 three times)"
          coqc -R . Rubik RowFoldOkm.v ;;
+  leaf)  echo "--- RowFoldLeaf (the end test; must print 1438464 three times)"
+         coqc -R . Rubik RowFoldLeaf.v ;;
   *)     echo "--- RowFoldRun (the ball of H)";   coqc -R . Rubik RowFoldRun.v ;;
 esac
