@@ -10,3 +10,5 @@ phase1_cap*.tbl
 
 # .glob files copied off another machine, unpacked for ./unusedreq.py
 code/Rubik/glob/
+code/Rubik/RowFoldD*.v
+code/Rubik/depth*.log
