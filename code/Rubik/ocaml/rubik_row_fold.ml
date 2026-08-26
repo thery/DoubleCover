@@ -2485,6 +2485,10 @@ the fold";
      every move it tries, so what the search costs is `tries', not `nodes'.
      `wide' is the nodes that were offered all eighteen, and `widths' the
      widths added up, so the average follows. *)
+  (* THE DENOMINATOR IS THE NODES THAT TRY.  A leaf tries nothing and its
+     mask is never used, and at depth twelve fourteen nodes in fifteen are
+     leaves -- averaged over all of them a width says nothing. *)
+  let inner = ref 0L in
   let tries = ref 0L and wide = ref 0L and widths = ref 0L in
   let popc18 m = popc.(m land 4095) + popc.((m lsr 12) land 4095) in
   let ish = Array.make 18 false in
@@ -2545,13 +2549,14 @@ the fold";
      it anyway.  Both cuts are off on a level with no prepass. *)
   let rec dfsm d togo prev mask =
     nodes := Int64.add !nodes 1L;
-    widths := Int64.add !widths (Int64.of_int (popc18 mask));
-    if mask = allmv then wide := Int64.add !wide 1L;
     if !nset >= !enough then ()
     else if togo = 0 then begin
       probes := Int64.add !probes 1L;
       mark d
     end else begin
+      inner := Int64.add !inner 1L;
+      widths := Int64.add !widths (Int64.of_int (popc18 mask));
+      if mask = allmv then wide := Int64.add !wide 1L;
       let togo' = togo - 1 in
       for m = 0 to 17 do
         if mask land (1 lsl m) <> 0 then begin
@@ -2597,7 +2602,8 @@ the fold";
     let t1 = Unix.gettimeofday () in
     if !cut then carry () else blitmaps ();
     let t2 = Unix.gettimeofday () in
-    nodes := 0L; probes := 0L; tries := 0L; wide := 0L; widths := 0L;
+    nodes := 0L; probes := 0L;
+    inner := 0L; tries := 0L; wide := 0L; widths := 0L;
     (* the threshold is on the whole map, so what the prepass left has to be
        counted before the search starts; that costs a couple of seconds and
        only on the level the threshold applies to *)
@@ -2618,16 +2624,18 @@ the fold";
     swapmaps ();
     done_ := count ();
     Printf.printf
-      "depth %2d : %Ld nodes, %Ld tries (%.1f a node), %Ld all eighteen \
-       (%.0f%%), width %.1f, %Ld solutions, %d new, %d done, \
+      "depth %2d : %Ld nodes, %Ld of them open, %Ld tries \
+       (%.1f a node, %.0f%%%% kept), mask %.1f wide (%.0f%%%% all eighteen), \
+       %Ld solutions, %d new, %d done, \
        prepass %.1f s, search %.1f s%s\n%!"
-      !d !nodes !tries
-      (if !nodes = 0L then 0. else Int64.to_float !tries /. Int64.to_float !nodes)
-      !wide
-      (if !nodes = 0L then 0.
-       else 100. *. Int64.to_float !wide /. Int64.to_float !nodes)
-      (if !nodes = 0L then 0.
-       else Int64.to_float !widths /. Int64.to_float !nodes)
+      !d !nodes !inner !tries
+      (if !inner = 0L then 0. else Int64.to_float !tries /. Int64.to_float !inner)
+      (if !tries = 0L then 0.
+       else 100. *. Int64.to_float (Int64.sub !nodes 1L) /. Int64.to_float !tries)
+      (if !inner = 0L then 0.
+       else Int64.to_float !widths /. Int64.to_float !inner)
+      (if !inner = 0L then 0.
+       else 100. *. Int64.to_float !wide /. Int64.to_float !inner)
       !probes (!done_ - before) !done_ (t2 -. t1) (t3 -. t2)
       (if !enough < max_int && !nset >= !enough then " (stopped early)"
        else "");
