@@ -9,10 +9,15 @@
 (* IT PAYS FOR THAT.  Each Eval starts from the seed again, so a level is     *)
 (* redone once for every depth at or above it -- and the heaviest level is    *)
 (* not the last, so asking for all eleven depths costs several times the run. *)
-(* THREE ARE ASKED: ten, thirteen and twenty.  Thirteen against the           *)
-(* prototype's 27.7 s gives the ratio, and the ratio against its 1 273 s at   *)
-(* fifteen says what twenty will cost, which is better than any trend drawn   *)
-(* through Rocq's own numbers -- they grow by 4.9 and then by 9.4.            *)
+(* TWO ARE ASKED: ten and thirteen.  What they cost before today is 170.9 s   *)
+(* and 2 904.8, and the prototype does the whole thing to thirteen in 36.9 -- *)
+(* MEASURED, against the 27.7 this file used to quote, which was wrong.       *)
+(*                                                                            *)
+(* AND BOTH OF TODAY'S CHANGES ARE IN THIS RUN: the test at the end of a      *)
+(* branch is one comparison, and a member's place is worked out on int63.     *)
+(* Recording an answer went from 105 microseconds to 10.9, and the search at  *)
+(* depth twelve from 37.9 s to 18.5, so the whole of this ought to land near  *)
+(* 690 s.  THE COUNTS ARE THE CHECK: 2560, 72832, 1192960, 14731320.          *)
 (*                                                                           *)
 (* The prototype's numbers, for the superflip's row:                         *)
 (*                                                                           *)
@@ -31,7 +36,7 @@ Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
 Require Import Row RowMap RowRun RowFinal RowInst.
 Require Import RowTabL RowTabP RowTab RowMemb RowLeaf.
-Require Import RowWits RowReal.
+Require Import RowWits RowReal RowMembi.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import Fold FoldTables P1Fdec P1FTable RowMask.
 Require Import RowFold RowTabF RowFoldTab RowFoldSrch.
@@ -51,12 +56,11 @@ Definition fstep (c k : int) : int :=
   Uint63.add (Uint63.mul (acttwii (Uint63.div c nfsi) k) nfsi)
              (actfsri (Uint63.mod c nfsi) k).
 
-(* THE LEAF TEST MEETS NO PERMUTATION.  coordfs takes a mathcomp permutation *)
-(* and those do not compute; RowInst spends it once, and what the search      *)
-(* meets here is a number.                                                    *)
-Definition fsolved (c : int) (x : pstt) : bool :=
-  [&& Uint63.eqb c csolvedci, Uint63.eqb (ctwisti x) 0%uint63
-    & Uint63.eqb (coordi x) coordfs1i].
+(* THE TEST AT THE END OF A BRANCH IS ONE COMPARISON.  It used to ask two    *)
+(* more of the forty eight entry cube -- 19.3 s of 37.9 at depth twelve --    *)
+(* and Fsinj proves those two are answered by this one.  csolvedbP is the     *)
+(* statement; here the number is the int side of it.                          *)
+Definition fsolved (c : int) (_ : pstt) : bool := Uint63.eqb c csolvedci.
 
 (* one level of the folded row, with hcoset's stop on the last one searched   *)
 Notation flvl1 :=
@@ -64,7 +68,7 @@ Notation flvl1 :=
      fpgi fsrci fsgri fsloi fshii fsbti
      mgri mswi mloi mhii
      p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
-     fstep xstep tomemb okmvv fsolved croot sroot srch forbi fpopi).
+     fstep xstep tomembi okmvv fsolved croot sroot srch forbi fpopi).
 
 (* the run, keeping the count after each level.  The two maps swap: what the  *)
 (* level wrote is the next level's source, and its source is the next one's   *)
@@ -75,10 +79,9 @@ Fixpoint frunl (n : nat) (d : nat) (m dst : rmap) (acc : seq int) : seq int :=
     frunl n1 d.+1 m' m (rcons acc (fcount forbi fpopi m'))
   else acc.
 
-(* three depths: ten, thirteen, twenty *)
+(* TWO DEPTHS, and what they cost before today: 170.9 s at ten and 2 904.8 at
+   thirteen.  The counts must not move -- 2560, 72832, 1192960, 14731320. *)
 
 Time Eval native_compute in frunl 10 0 (mkempty tt) (mkempty tt) [::].
 
 Time Eval native_compute in frunl 13 0 (mkempty tt) (mkempty tt) [::].
-
-Time Eval native_compute in frunl 20 0 (mkempty tt) (mkempty tt) [::].
