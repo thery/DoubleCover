@@ -144,7 +144,8 @@ Variable wl : seq (int * int * int * seq nat).
 
 (* the map of the places the witnesses cover                                  *)
 Definition wmapof (l : seq (int * int * int * seq nat)) : rmap :=
-  foldr (fun t m => let: (pg, gr, bt, _) := t in mmark m pg gr bt) mempty l.
+  foldr (fun t m => let: (pg, gr, bt, _) := t in mmark m pg gr bt)
+        (mkempty tt) l.
 
 Definition wmap : rmap := wmapof wl.
 
@@ -162,7 +163,7 @@ Lemma wmap_wit (l : seq (int * int * int * seq nat)) pg gr bt :
   inrng pg gr bt -> wgood l -> mtest (wmapof l) pg gr bt ->
   exists w, (seq.size w <= 20)%N /\ wok (unplc pg gr bt) w.
 Proof.
-move=> hr; elim: l => [|t l ih] /=; first by rewrite memptyP.
+move=> hr; elim: l => [|t l ih] /=; first by rewrite mkemptyP.
 case: t => [[[p g] b] w] /andP[/and3P[hi hs hw] hl].
 case/(mmarkP hi hr) => [[<- <- <-]|]; first by exists w.
 by apply: ih.

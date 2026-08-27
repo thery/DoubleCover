@@ -268,7 +268,7 @@ Qed.
 
 Definition ymfin : PArray.array arr :=
   run e8num e4bit mpg mgr msw mlo mhi p1 (RowInst.cstep fsstep) zstepi
-      ytomemb okmv ycsolved RowInst.croot yrooti dsrch nlev 0 mempty.
+      ytomemb okmv ycsolved RowInst.croot yrooti dsrch nlev 0 (mkempty tt).
 
 Lemma ymfin_sound :
   soundat e8inv e4of par8 par4

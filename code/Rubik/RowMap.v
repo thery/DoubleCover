@@ -86,8 +86,22 @@ Definition gset (m : rmap) (g v : int) : rmap :=
 Definition gor (m : rmap) (g v : int) : rmap :=
   gset m g (Uint63.lor (gget m g) v).
 
-Definition mempty : rmap :=
-  PArray.make nchunk (PArray.make csize 0%uint63).
+(* EVERY CHUNK ITS OWN ARRAY.  `PArray.make nchunk (PArray.make csize 0)'    *)
+(* runs the inner make ONCE and hands the same array to all 388 slots, so a   *)
+(* write to any chunk chains a difference onto that one array and every other *)
+(* chunk then reads through it.  Built chunk by chunk instead, each make is   *)
+(* under a lambda and runs afresh.  RowFold has had mkempty for this reason;  *)
+(* this file did not, and the row's map paid for it.                          *)
+Definition nchunkn : nat := 388.
+
+Definition mkempty (u : unit) : rmap :=
+  ifold nchunkn 0%uint63
+    (fun c a => PArray.set a c (PArray.make csize 0%uint63))
+    (PArray.make nchunk (PArray.make 1%uint63 0%uint63)).
+
+(* NEVER START A RUN FROM THIS ONE: a global is held for ever, so every       *)
+(* difference ever made to it stays alive.  This is for reading.              *)
+Definition mempty : rmap := mkempty tt.
 
 (* a member's group, and its bit inside it                                    *)
 Definition grpof (pg gr : int) : int := Uint63.add (Uint63.mul pg ngroupi) gr.
@@ -362,11 +376,39 @@ have hz : Uint63.land (bitof b) (bitof bt) = 0%uint63.
 by rewrite hz; apply/neqbP.
 Qed.
 
-(* an empty map has no bit set                                                *)
-Lemma memptyP pg gr bt : mtest mempty pg gr bt = false.
+(* an empty map has no bit set: every chunk of it is a chunk of noughts       *)
+Lemma get_mkempty c :
+  PArray.get (mkempty tt) c = PArray.make csize 0%uint63 \/
+  PArray.get (mkempty tt) c = PArray.make 1%uint63 0%uint63.
 Proof.
-by rewrite /mtest /mempty /gget get_makeA get_makeE land0n.
+have hset : forall (t : rmap) i (v : arr),
+    PArray.get (PArray.set t i v) i = v \/
+    PArray.get (PArray.set t i v) i = PArray.get t i.
+  move=> t i v; have [hin|hin] := boolP (i <? PArray.length t)%uint63.
+    by left; rewrite get_setA.
+  right; rewrite get_oobA ?default_setA; last by rewrite length_setA;
+    apply: negbTE.
+  by rewrite (@get_oobA _ _ (negbTE hin)).
+rewrite /mkempty.
+apply: (@ifold_ind _ (fun a => PArray.get a c = PArray.make csize 0%uint63 \/
+                               PArray.get a c = PArray.make 1%uint63 0%uint63));
+    last by right; rewrite get_makeA.
+move=> i b hb.
+have [hic|hic] := eqVneq i c; last first.
+  by rewrite get_set_otherA //; apply/eqP.
+by rewrite -hic; case: (hset b i (PArray.make csize 0%uint63)) => ->;
+   [left | rewrite hic].
 Qed.
+
+Lemma mkemptyP pg gr bt : mtest (mkempty tt) pg gr bt = false.
+Proof.
+rewrite /mtest /gget.
+by case: (get_mkempty (Uint63.lsr (grpof pg gr) cshft)) => ->;
+   rewrite get_makeE land0n.
+Qed.
+
+Lemma memptyP pg gr bt : mtest mempty pg gr bt = false.
+Proof. exact: mkemptyP. Qed.
 
 (* a full map has every bit of every place in range                           *)
 Lemma mfullP m pg gr bt : mfull m -> inrange pg gr bt -> mtest m pg gr bt.
