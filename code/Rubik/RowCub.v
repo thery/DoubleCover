@@ -373,6 +373,102 @@ rewrite addn0; apply: hc; rewrite mem_iota add0n leq0n /= ltn_divLR //.
 exact: (ymvbdE hk hp20).
 Qed.
 
+(* ---- reading the stepped twenty ------------------------------------------ *)
+
+(* the four halves of the step, read back one place at a time *)
+Lemma ycg_step y k p : (k < 18)%N -> (p < 8)%N ->
+  ycg (ystep y k) p = ycg y (nth 0%N (ymv k) p %/ 3).
+Proof.
+move=> hk hp; have hp20 : (p < 20)%N by apply: (leq_trans hp).
+rewrite /ycg /ystep /ystepm (nth_map 0%N) ?size_iota // nth_iota // add0n hp.
+rewrite mulnC divnMDl //.
+have -> : (((ytw y (nth 0%N (ymv k) p %/ 3) + nth 0%N (ymv k) p %% 3) %% 3)
+           %/ 3 = 0)%N by apply: divn_small; rewrite ltn_mod.
+by rewrite addn0.
+Qed.
+
+Lemma ytw_step y k p : (k < 18)%N -> (p < 8)%N ->
+  ytw (ystep y k) p
+  = ((ytw y (nth 0%N (ymv k) p %/ 3) + nth 0%N (ymv k) p %% 3) %% 3)%N.
+Proof.
+move=> hk hp; have hp20 : (p < 20)%N by apply: (leq_trans hp).
+rewrite /ytw /ystep /ystepm (nth_map 0%N) ?size_iota // nth_iota // add0n hp.
+by rewrite mulnC modnMDl modn_mod.
+Qed.
+
+Lemma yeg_step y k q : (k < 18)%N -> (q < 12)%N ->
+  yeg (ystep y k) q = yeg y (nth 0%N (ymv k) (8 + q)%N %/ 2).
+Proof.
+move=> hk hq; have hq20 : (8 + q < 20)%N by rewrite ltn_add2l.
+rewrite /yeg /ystep /ystepm (nth_map 0%N) ?size_iota // nth_iota // add0n.
+have -> : (8 + q < 8)%N = false by rewrite ltnNge leq_addr.
+rewrite mulnC divnMDl //.
+have -> : (((yfl y (nth 0%N (ymv k) (8 + q) %/ 2)
+             + nth 0%N (ymv k) (8 + q) %% 2) %% 2) %/ 2 = 0)%N
+  by apply: divn_small; rewrite ltn_mod.
+by rewrite addn0.
+Qed.
+
+Lemma yfl_step y k q : (k < 18)%N -> (q < 12)%N ->
+  yfl (ystep y k) q
+  = ((yfl y (nth 0%N (ymv k) (8 + q)%N %/ 2)
+      + nth 0%N (ymv k) (8 + q)%N %% 2) %% 2)%N.
+Proof.
+move=> hk hq; have hq20 : (8 + q < 20)%N by rewrite ltn_add2l.
+rewrite /yfl /ystep /ystepm (nth_map 0%N) ?size_iota // nth_iota // add0n.
+have -> : (8 + q < 8)%N = false by rewrite ltnNge leq_addr.
+by rewrite mulnC modnMDl modn_mod.
+Qed.
+
+(* ---- what a move's own twenty say ---------------------------------------- *)
+
+Lemma ymvcE k p : (p < 8)%N ->
+  nth 0%N (ymv k) p
+  = (3 * cposn (nth 0%N (mvt' k) (nth 0%N cflatp (3 * p)%N))
+     + cslotn (nth 0%N (mvt' k) (nth 0%N cflatp (3 * p)%N)))%N.
+Proof.
+move=> hp; have hp20 : (p < 20)%N by apply: (leq_trans hp).
+by rewrite /ymv /tab2cub (nth_map 0%N) ?size_iota // nth_iota // add0n hp.
+Qed.
+
+Lemma ymveE k q : (q < 12)%N ->
+  nth 0%N (ymv k) (8 + q)%N
+  = (2 * eposn (nth 0%N (mvt' k) (nth 0%N eprim q))
+     + eslt (nth 0%N (mvt' k) (nth 0%N eprim q)))%N.
+Proof.
+move=> hq; have hq20 : (8 + q < 20)%N by rewrite ltn_add2l.
+rewrite /ymv /tab2cub (nth_map 0%N) ?size_iota // nth_iota // add0n.
+have -> : (8 + q < 8)%N = false by rewrite ltnNge leq_addr.
+by rewrite addKn.
+Qed.
+
+(* ---- and the two move facts, one facelet at a time ----------------------- *)
+
+Lemma cmvE k f : (k < 18)%N -> (f < 48)%N -> inC f ->
+  (cposn (nth 0%N (mvt' k) f)
+   == cposn (nth 0%N (mvt' k) (nth 0%N cflatp (3 * cposn f)%N)))
+  && (cslotn (nth 0%N (mvt' k) f)
+      == (cslotn f
+          + cslotn (nth 0%N (mvt' k) (nth 0%N cflatp (3 * cposn f)%N))) %% 3)%N.
+Proof.
+move=> hk hf hc; have /allP h := cmvCP.
+have hkm : k \in iota 0 18 by rewrite mem_iota add0n leq0n hk.
+have hfm : f \in iota 0 48 by rewrite mem_iota add0n leq0n hf.
+by have /allP h2 := h _ hkm; have /implyP/(_ hc) := h2 _ hfm.
+Qed.
+
+Lemma emvE k f : (k < 18)%N -> (f < 48)%N -> inE f ->
+  (eposn (nth 0%N (mvt' k) f)
+   == eposn (nth 0%N (mvt' k) (nth 0%N eprim (eposn f))))
+  && (eslt (nth 0%N (mvt' k) f)
+      == (eslt f + eslt (nth 0%N (mvt' k) (nth 0%N eprim (eposn f)))) %% 2)%N.
+Proof.
+move=> hk hf hc; have /allP h := emvCP.
+have hkm : k \in iota 0 18 by rewrite mem_iota add0n leq0n hk.
+have hfm : f \in iota 0 48 by rewrite mem_iota add0n leq0n hf.
+by have /allP h2 := h _ hkm; have /implyP/(_ hc) := h2 _ hfm.
+Qed.
+
 (* ---- the step lemma ------------------------------------------------------ *)
 
 (* WHAT THE COMPUTATION ALREADY SAYS on the eighteen by eighteen, now for any *)
@@ -383,11 +479,33 @@ Lemma cub2tab_step y k : (k < 18)%N -> yok y ->
 Proof.
 move=> hk hy; apply: (@eq_from_nth _ 0%N).
   by rewrite /cub2tab /comp_tab !size_map !size_iota.
-(* WHAT IS LEFT, and it is the whole of it: one facelet at a time.  At a      *)
-(* corner facelet f, place p and slot s, the left side is the corner part of  *)
-(* the stepped twenty, which is cflatp at the place the move sends p to and   *)
-(* the slot moved on; the right side is the same read through the move.  They *)
-(* agree exactly by cmvCP -- the place does not depend on the slot, and the   *)
-(* slot shifts by a constant for the place -- and emvCP does the edges.  The  *)
-(* third case, a facelet in neither, is both sides being f.                   *)
+rewrite {1}/cub2tab /comp_tab size_map size_partt => f hf.
+rewrite -/(cub2tab _) cub2tabE // /comp_tab (nth_map 0%N)
+        ?(size_ti2t flast) // -/(cub2tab _).
+rewrite (parttE _ _ _ _ _ _ _ hf).
+case hcf : (inC f); last first.
+  (* LEFT: the facelet is an edge one, or neither.  Same shape as the corner  *)
+  (* case with emvE and elayE in place of cmvE and clayE, and both sides f    *)
+  (* when it is neither.                                                      *)
+  admit.
+have /andP[hp8 hs3] := claybd hf hcf.
+have h3p : (3 * cposn f < 24)%N by rewrite -[24]/(3 * 8)%N ltn_mul2l /= hp8.
+have /and4P[hc0lt hc0C _ _] := clayE h3p.
+have /and3P[hgC _ hglt] := mvkE hk hc0lt.
+have /andP[hhp8 hhs3] := claybd hglt (implyP hgC hc0C).
+rewrite (ycg_step _ hk hp8) (ytw_step _ hk hp8) (ymvcE k hp8).
+set h := nth 0%N (mvt' k) (nth 0%N cflatp (3 * cposn f)%N).
+have hdiv : ((3 * cposn h + cslotn h) %/ 3 = cposn h)%N.
+  by rewrite mulnC divnMDl // (divn_small hhs3) addn0.
+have hmod : ((3 * cposn h + cslotn h) %% 3 = cslotn h)%N.
+  by rewrite mulnC modnMDl (modn_small hhs3).
+rewrite hdiv hmod.
+(* LEFT: the left side is now cflatp at
+     ycg y (cposn h) * 3 + (cslotn f + (ytw y (cposn h) + cslotn h) %% 3) %% 3
+   and the outer part is the identity on it, since a corner facelet is not an
+   edge one (ckindE).  The right side comes out the same way through
+   cub2tabE at the moved facelet, and cmvE says its place is cposn h and its
+   slot is (cslotn f + cslotn h) %% 3.  What is left is then
+     (s + (t + c) %% 3) %% 3 = ((s + c) %% 3 + t) %% 3
+   which is modnDmr and modnDml and addnAC. *)
 Admitted.
