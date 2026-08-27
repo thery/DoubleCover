@@ -516,42 +516,10 @@ Definition prepmv (k : int) (src : rmap) (dst : rmap) : rmap :=
          d)
     dst.
 
-(* THE CARRY IS A FRESH MAP, not the source itself.  All ten moves read the   *)
-(* source, so if the writes were stacked on top of it every read would walk   *)
-(* back over them.  The source is copied into a map of its own first and then *)
-(* stays a plain array that is only read.  The copy is one sweep against the  *)
-(* ten the moves already make.                                                *)
-Definition mcopy (src : rmap) : rmap :=
-  ifold npagen 0%uint63
-    (fun pg a =>
-       ifold ngroupn 0%uint63
-         (fun gr a' => let g := grpof pg gr in gset a' g (gget src g))
-         a)
-    (mkempty tt).
-
-(* and the copy claims nothing of its own *)
-Lemma mcopyP src pg gr bt : mtest (mcopy src) pg gr bt -> mtest src pg gr bt.
-Proof.
-have hstep : forall (g : int) (a : rmap),
-    (forall p q c, mtest a p q c -> mtest src p q c) ->
-    forall p q c,
-    mtest (gset a g (gget src g)) p q c -> mtest src p q c.
-  move=> g a ha p q c.
-  case: (gget_gset a g (gget src g) (grpof p q)).
-    by rewrite /mtest => ->; apply: ha.
-  by case=> hg; rewrite /mtest => ->; rewrite hg.
-suff h : forall p q c, mtest (mcopy src) p q c -> mtest src p q c by apply: h.
-rewrite /mcopy.
-apply: (@ifold_ind _ (fun m => forall p q c, mtest m p q c -> mtest src p q c));
-    last by move=> p q c; rewrite mkemptyP.
-move=> i a ha.
-apply: (@ifold_ind _ (fun m => forall p q c, mtest m p q c -> mtest src p q c))
-    => // k b hb.
-by apply: hstep.
-Qed.
-
-(* the whole prepass: carry the map over, then play the ten moves on it       *)
+(* THE CARRY IS THE SOURCE ITSELF.  Copying it into a map of its own was      *)
+(* tried and is far worse: it allocates a fresh 6.5 GB map and writes 812     *)
+(* million words into it at every level.                                      *)
 Definition prepass (src : rmap) : rmap :=
-  ifold nhn 0%uint63 (fun k d => prepmv k src d) (mcopy src).
+  ifold nhn 0%uint63 (fun k d => prepmv k src d) src.
 
 End Pre.
