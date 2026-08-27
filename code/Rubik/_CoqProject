@@ -53,6 +53,7 @@ Far.v
 Fsparity.v
 FoldTables.v
 Sym16.v
+Sym16Row.v
 Farp1.v
 Farp1main.v
 Farp1chk.v

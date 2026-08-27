@@ -50,7 +50,7 @@ Definition ycmfin : rmap :=
 
 (* AND THE MAP, 812 851 200 words: the run and the witnesses together leave   *)
 (* no bit of the row clear.  This is the long pole and it is only a run.      *)
-Lemma r_full_cub : mfull (mor ycmfin (wmap rowwits)).
+Lemma r_full_cub : mfull2 ycmfin (wmap rowwits).
 Proof. Admitted.
 
 (* ---- the row of the superflip -------------------------------------------- *)
