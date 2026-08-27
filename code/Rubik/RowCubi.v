@@ -342,3 +342,321 @@ rewrite /yeg /yfl -hq (a2y_nth _ hpl).
 congr (_ + _)%N.
 by rewrite -/q mulnC {1}(divn_eq (to_nat (PArray.get x (of_nat q))) 2) addnK.
 Qed.
+
+(* ---- the cube the twenty name, built as an array ------------------------- *)
+
+(* AT AN ANSWER THE RUN STILL WANTS THE FORTY EIGHT ENTRY TABLE, because      *)
+(* that is what reads a position into three ranks.  Answers are a hundredth   *)
+(* of the nodes, so building it there costs nothing next to a step -- but it  *)
+(* has to be built in int63, not through the list.                            *)
+(*                                                                            *)
+(* AND THE SAME TURN TABLE SERVES.  The cube sends the facelet at place p     *)
+(* slot s to the facelet of the place the cubie at p came from, slot s plus   *)
+(* its turn -- which is the cubie turned by s, so tturni again.  laycomb is   *)
+(* the two layouts end to end, the corners first, and lofsi says which half.  *)
+(*                                                                            *)
+(* IT WRITES f WHERE THE CUBE SENDS f, so what comes out is the INVERSE       *)
+(* table, and that is the one the run carries.                                *)
+Definition nfi : int := 48.
+
+Definition laycomb : arr := Eval vm_compute in
+  mkarrn nfi [seq of_nat v | v <- cflatp ++ elay].
+
+(* which of the twenty a facelet reads, where in the turn table it looks, and *)
+(* which half of the layout it lands in                                       *)
+Definition plin : seq nat :=
+  [seq (if inC f then cposn f else (8 + eposn f)%N) | f <- iota 0 48].
+
+Definition toffn : seq nat :=
+  [seq (if inC f then (cslotn f * 24)%N else (72 + eslt f * 24)%N)
+   | f <- iota 0 48].
+
+Definition lofsn : seq nat :=
+  [seq (if inC f then 0%N else 24%N) | f <- iota 0 48].
+
+Definition plii : arr := Eval vm_compute in
+  mkarrn nfi [seq of_nat v | v <- plin].
+
+Definition toffi : arr := Eval vm_compute in
+  mkarrn nfi [seq of_nat v | v <- toffn].
+
+Definition lofsi : arr := Eval vm_compute in
+  mkarrn nfi [seq of_nat v | v <- lofsn].
+
+Definition y2ti (y : arr) : arr :=
+  foldi 48 0
+    (fun f a => PArray.set a
+       (PArray.get laycomb
+          (PArray.get lofsi f
+           + PArray.get tturni (PArray.get toffi f
+                                + PArray.get y (PArray.get plii f)))) f)
+    (PArray.make nfi 0).
+
+(* the root, every move of it, and every move of those *)
+Definition y2tiC : bool :=
+  (ti2t flast (y2ti yrooti) == cub2tabR yroot) &&
+  all (fun k =>
+        (ti2t flast (y2ti (zstepi yrooti (of_nat k)))
+         == cub2tabR (zstep yroot k))
+        && all (fun l =>
+             ti2t flast (y2ti (zstepi (zstepi yrooti (of_nat k)) (of_nat l)))
+             == cub2tabR (zstep (zstep yroot k) l))
+             (iota 0 18))
+      (iota 0 18).
+
+Lemma y2tiCP : y2tiC. Proof. by vm_compute. Qed.
+
+(* ---- what those four tables hold ----------------------------------------- *)
+
+Definition ycubjC : bool :=
+  (let p := plin in let t := toffn in let l := lofsn in
+   all (fun f =>
+     [&& PArray.get plii (of_nat f) == of_nat (nth 0%N p f),
+         PArray.get toffi (of_nat f) == of_nat (nth 0%N t f),
+         PArray.get lofsi (of_nat f) == of_nat (nth 0%N l f),
+         (nth 0%N p f < 20)%N
+       & (nth 0%N t f <= 120)%N]) (iota 0 48))
+  && (let c := cflatp ++ elay in
+      all (fun i => PArray.get laycomb (of_nat i) == of_nat (nth 0%N c i))
+          (iota 0 48)).
+
+Lemma ycubjCP : ycubjC. Proof. by vm_compute. Qed.
+
+Lemma ycubjE f : (f < 48)%N ->
+  [&& PArray.get plii (of_nat f) == of_nat (nth 0%N plin f),
+      PArray.get toffi (of_nat f) == of_nat (nth 0%N toffn f),
+      PArray.get lofsi (of_nat f) == of_nat (nth 0%N lofsn f),
+      (nth 0%N plin f < 20)%N
+    & (nth 0%N toffn f <= 120)%N].
+Proof.
+move=> hf; have /andP[/allP h _] := ycubjCP.
+by apply: h; rewrite mem_iota add0n leq0n hf.
+Qed.
+
+Lemma laycombE i : (i < 48)%N ->
+  PArray.get laycomb (of_nat i) = of_nat (nth 0%N (cflatp ++ elay) i).
+Proof.
+move=> hi; have /andP[_ /allP h] := ycubjCP.
+by apply/eqP; apply: h; rewrite mem_iota add0n leq0n hi.
+Qed.
+
+Definition laycombB : bool :=
+  (let c := cflatp ++ elay in
+   all (fun i => (nth 0%N c i < 48)%N) (iota 0 48)).
+
+Lemma laycombBP : laycombB. Proof. by vm_compute. Qed.
+
+Lemma laycombBE i : (i < 48)%N -> (nth 0%N (cflatp ++ elay) i < 48)%N.
+Proof.
+move=> hi; have /allP h := laycombBP.
+by apply: h; rewrite mem_iota add0n leq0n hi.
+Qed.
+
+Lemma plinE f : (f < 48)%N ->
+  nth 0%N plin f = (if inC f then cposn f else (8 + eposn f)%N).
+Proof.
+move=> hf; rewrite /plin (nth_map 0%N); last by rewrite size_iota.
+by rewrite nth_iota.
+Qed.
+
+Lemma toffnE f : (f < 48)%N ->
+  nth 0%N toffn f
+  = (if inC f then (cslotn f * 24)%N else (72 + eslt f * 24)%N).
+Proof.
+move=> hf; rewrite /toffn (nth_map 0%N); last by rewrite size_iota.
+by rewrite nth_iota.
+Qed.
+
+Lemma lofsnE f : (f < 48)%N ->
+  nth 0%N lofsn f = (if inC f then 0%N else 24%N).
+Proof.
+move=> hf; rewrite /lofsn (nth_map 0%N); last by rewrite size_iota.
+by rewrite nth_iota.
+Qed.
+
+(* the turn table on a corner and on an edge, with the half chosen *)
+Lemma tturn_val3 u g : (u < 3)%N -> (g < 24)%N ->
+  nth 0%N tturnn (u * 24 + g)%N = (g - g %% 3 + (g %% 3 + u) %% 3)%N.
+Proof.
+move=> hu hg; have h := @tturn_val 0 u g isT hu hg.
+by move: h; rewrite mul0n add0n /= => ->.
+Qed.
+
+Lemma tturn_val2 u g : (u < 2)%N -> (g < 24)%N ->
+  nth 0%N tturnn (72 + u * 24 + g)%N = (g - g %% 2 + (g %% 2 + u) %% 2)%N.
+Proof.
+move=> hu hg; have hu3 : (u < 3)%N by apply: (leq_trans hu).
+have h := @tturn_val 1 u g isT hu3 hg.
+by move: h; rewrite mul1n /= => ->.
+Qed.
+
+(* ---- where a facelet is written ------------------------------------------ *)
+
+Definition hpos (y : arr) (f : int) : int :=
+  PArray.get laycomb
+    (PArray.get lofsi f
+     + PArray.get tturni (PArray.get toffi f
+                          + PArray.get y (PArray.get plii f))).
+
+Lemma n48_small : (48 < nwB)%N. Proof. by apply: (@ltn_nwB 6). Qed.
+
+(* and it is where the cube the twenty name sends it *)
+Lemma hposE y f : (f < 48)%N -> yoki y -> yok (a2y y) ->
+  to_nat (hpos y (of_nat f)) = nth 0%N (cub2tab (a2y y)) f.
+Proof.
+move=> hf /allP hy hyk.
+have /and5P[/eqP hpl /eqP htf /eqP hlf hpl20 htf120] := ycubjE hf.
+have h144 : (144 < nwB)%N by apply: (@ltn_nwB 8).
+have h48 : (48 < nwB)%N := n48_small.
+rewrite /hpos hpl htf hlf.
+have hg : (to_nat (PArray.get y (of_nat (nth 0%N plin f))) < 24)%N.
+  by apply: hy; rewrite mem_iota add0n leq0n hpl20.
+have hsum : (nth 0%N toffn f
+             + to_nat (PArray.get y (of_nat (nth 0%N plin f))) < 144)%N.
+  by apply: (@leq_ltn_trans (120 + 23)%N);
+     [apply: leq_add => //; rewrite -ltnS | ].
+have hsumb : (nth 0%N toffn f
+              + to_nat (PArray.get y (of_nat (nth 0%N plin f))) < nwB)%N
+  by apply: (ltn_trans hsum h144).
+have htfb : (nth 0%N toffn f < nwB)%N
+  by apply: (leq_ltn_trans (leq_addr _ _) hsumb).
+have hA : (of_nat (nth 0%N toffn f)
+           + PArray.get y (of_nat (nth 0%N plin f)))%uint63
+        = of_nat (nth 0%N toffn f
+                  + to_nat (PArray.get y (of_nat (nth 0%N plin f))))%N.
+  by apply: to_nat_inj; rewrite of_natK // to_nat_add of_natK.
+rewrite hA.
+have /andP[/eqP ht htl] := tturniE hsum.
+rewrite ht.
+have hlb : (nth 0%N lofsn f <= 24)%N by rewrite lofsnE //; case: (inC f).
+set V := nth 0%N tturnn (nth 0%N toffn f
+           + to_nat (PArray.get y (of_nat (nth 0%N plin f)))).
+have h24b : (24 < nwB)%N by apply: (ltn_trans (_ : (24 < 48)%N) h48).
+have hVb : (V < nwB)%N by apply: (ltn_trans htl h24b).
+have hlfb : (nth 0%N lofsn f < nwB)%N by apply: (leq_ltn_trans hlb h24b).
+have hl48 : (nth 0%N lofsn f + V < 48)%N.
+  by apply: (@leq_ltn_trans (24 + 23)%N);
+     [apply: leq_add => //; rewrite -ltnS | ].
+have hl48b : (nth 0%N lofsn f + V < nwB)%N by apply: (ltn_trans hl48 h48).
+have hB : (of_nat (nth 0%N lofsn f) + of_nat V)%uint63
+        = of_nat (nth 0%N lofsn f + V)%N.
+  by apply: to_nat_inj; rewrite of_natK // to_nat_add !of_natK.
+rewrite hB laycombE // of_natK; last first.
+  by apply: (ltn_trans (laycombBE hl48) h48).
+rewrite (cub2tab_nth hf hyk).
+have hsc : seq.size cflatp = 24%N by vm_compute.
+have /andP[/allP hyc /allP hye] := hyk.
+case hcf : (inC f).
+  have /andP[hp8 hs3] := claybd hf hcf.
+  have hp20 : (cposn f < 20)%N by apply: (leq_trans hp8).
+  have hg2 : (to_nat (PArray.get y (of_nat (cposn f))) < 24)%N.
+    by apply: hy; rewrite mem_iota add0n leq0n hp20.
+  rewrite /V (plinE hf) (toffnE hf) (lofsnE hf) hcf add0n (tturn_val3 hs3 hg2).
+  rewrite nth_cat hsc.
+  have hidx : (to_nat (PArray.get y (of_nat (cposn f)))
+               - to_nat (PArray.get y (of_nat (cposn f))) %% 3
+               + (to_nat (PArray.get y (of_nat (cposn f))) %% 3 + cslotn f)
+                 %% 3
+              = ycg (a2y y) (cposn f) * 3
+                + (cslotn f + ytw (a2y y) (cposn f)) %% 3)%N.
+    rewrite /ycg /ytw (a2y_nth _ hp20); congr (_ + _)%N.
+      by rewrite {1}(divn_eq (to_nat (PArray.get y (of_nat (cposn f)))) 3)
+                 addnK.
+    by rewrite addnC.
+  rewrite hidx.
+  have hych : (ycg (a2y y) (cposn f) < 8)%N.
+    by apply: hyc; rewrite mem_iota add0n leq0n hp8.
+  have hix : (ycg (a2y y) (cposn f) * 3
+              + (cslotn f + ytw (a2y y) (cposn f)) %% 3 < 24)%N.
+    apply: (@leq_trans ((ycg (a2y y) (cposn f)).+1 * 3)%N).
+      by rewrite mulSn addnC ltn_add2r ltn_mod.
+    by rewrite -[24%N]/(8 * 3)%N leq_mul2r hych orbT.
+  by rewrite hix.
+have hef : inE f by have /orP[hc|//] := ckindAE hf; rewrite hc in hcf.
+have /andP[hq12 hl2] := elaybd hf hef.
+have hq20 : (8 + eposn f < 20)%N by rewrite ltn_add2l.
+have hg2 : (to_nat (PArray.get y (of_nat (8 + eposn f))) < 24)%N.
+  by apply: hy; rewrite mem_iota add0n leq0n hq20.
+rewrite /V (plinE hf) (toffnE hf) (lofsnE hf) hcf (tturn_val2 hl2 hg2).
+rewrite nth_cat hsc.
+have hidx : (to_nat (PArray.get y (of_nat (8 + eposn f)))
+             - to_nat (PArray.get y (of_nat (8 + eposn f))) %% 2
+             + (to_nat (PArray.get y (of_nat (8 + eposn f))) %% 2 + eslt f)
+               %% 2
+            = yeg (a2y y) (eposn f) * 2
+              + (eslt f + yfl (a2y y) (eposn f)) %% 2)%N.
+  rewrite /yeg /yfl (a2y_nth _ hq20); congr (_ + _)%N.
+    by rewrite {1}(divn_eq (to_nat (PArray.get y (of_nat (8 + eposn f)))) 2)
+               addnK.
+  by rewrite addnC.
+rewrite hidx.
+have -> : (24 + (yeg (a2y y) (eposn f) * 2
+                 + (eslt f + yfl (a2y y) (eposn f)) %% 2) < 24)%N = false
+  by rewrite ltnNge leq_addr.
+by rewrite addKn.
+Qed.
+
+(* ---- and the array IS the table the run carries -------------------------- *)
+
+Lemma y2tiE y : y2ti y = foldi 48 0%uint63
+                          (fun f a => PArray.set a (hpos y f) f)
+                          (PArray.make nfi 0%uint63).
+Proof. by []. Qed.
+
+Lemma len_mk48 : to_nat (PArray.length (PArray.make nfi 0%uint63)) = 48%N.
+Proof. by rewrite length_makeE; vm_compute. Qed.
+
+(* WRITING f WHERE THE CUBE SENDS IT GIVES THE INVERSE, and that is sound     *)
+(* because the cube is a permutation -- which is the half of cubok that is    *)
+(* not about places.  Every facelet is hit exactly once, so nothing is left   *)
+(* at its default.                                                            *)
+Lemma ti2t_y2ti y : yoki y -> cubok (a2y y) ->
+  ti2t flast (y2ti y) = cub2tabR (a2y y).
+Proof.
+move=> hyi /andP[hyk htok].
+have h48 : (48 < nwB)%N := n48_small.
+have /and3P[/eqP hsz hall hu] := htok.
+have hcl : forall i : int, (to_nat i < 48)%N -> (to_nat (hpos y i) < 48)%N.
+  move=> i hi.
+  have hib : (to_nat i < nwB)%N by apply: (ltn_trans hi).
+  have he : i = of_nat (to_nat i) by apply: to_nat_inj; rewrite of_natK.
+  rewrite {1}he (hposE hi hyi hyk).
+  by have /allP h := hall; apply: h; rewrite mem_nth // hsz.
+have hinj : forall i j : int, (to_nat i < 48)%N -> (to_nat j < 48)%N ->
+    hpos y i = hpos y j -> i = j.
+  move=> i j hi hj he.
+  have hib : (to_nat i < nwB)%N by apply: (ltn_trans hi).
+  have hjb : (to_nat j < nwB)%N by apply: (ltn_trans hj).
+  have e1 : i = of_nat (to_nat i) by apply: to_nat_inj; rewrite of_natK.
+  have e2 : j = of_nat (to_nat j) by apply: to_nat_inj; rewrite of_natK.
+  have ha := hposE hi hyi hyk.
+  have hb := hposE hj hyi hyk.
+  rewrite -e1 in ha; rewrite -e2 in hb.
+  apply: to_nat_inj; apply/eqP.
+  rewrite -(nth_uniq 0%N _ _ hu) ?hsz //.
+  by rewrite -ha -hb he.
+apply: (@eq_from_nth _ 0%N).
+  by rewrite size_ti2t /cub2tabR /inv_tab seq.size_map size_iota.
+rewrite size_ti2t => p hp.
+have hpb : (p < nwB)%N by apply: (ltn_trans hp).
+have hmem : p \in cub2tab (a2y y) by apply: (tab_memE htok hp).
+set f := index p (cub2tab (a2y y)).
+have hf48 : (f < 48)%N by rewrite /f -hsz index_mem.
+have hfb : (f < nwB)%N by apply: (ltn_trans hf48).
+have hnf : nth 0%N (cub2tab (a2y y)) f = p by rewrite /f nth_index.
+have hhf : hpos y (of_nat f) = of_nat p.
+  apply: to_nat_inj; rewrite of_natK //.
+  by rewrite (hposE hf48 hyi hyk) hnf.
+rewrite nth_ti2t // -hhf y2tiE.
+rewrite (@get_foldi_wr (hpos y) 48 0%uint63 (of_nat f)
+                       (PArray.make nfi 0%uint63)).
+- rewrite (of_natK f hfb) /cub2tabR /inv_tab (nth_map 0%N);
+    last by rewrite size_iota.
+  by rewrite nth_iota ?add0n.
+- by rewrite to_nat_0 add0n; exact: h48.
+- move=> i; rewrite to_nat_0 add0n => /andP[_ hi].
+  by apply/nltbP; rewrite len_mk48; apply: hcl.
+- move=> i j; rewrite to_nat_0 add0n => /andP[_ hi] /andP[_ hj].
+  by apply: hinj.
+by rewrite to_nat_0 add0n (of_natK f hfb) leq0n hf48.
+Qed.
