@@ -1053,6 +1053,26 @@ module P = struct
   let soldat = Array.make nsite 0
   let stepat = Array.make nsite 0
 
+  (* THE INVARIANT: NO VERSION IS EVER READ AFTER IT HAS BEEN WRITTEN.  A
+     persistent array that is only ever used forwards costs what an ordinary
+     array costs, and one that is not silently costs the walk back and the
+     differences left behind.  So the first touch of an old version says
+     where it was, and under `strict' it stops the program rather than
+     letting it carry on and be timed. *)
+  let strict = ref false
+  let oldname = ref (fun (i : int) -> string_of_int i)
+  let warned = Array.make nsite false
+
+  let flagold i =
+    if not warned.(i) then begin
+      warned.(i) <- true;
+      Printf.eprintf "old version touched at %s\n%!" (!oldname i)
+    end;
+    if !strict then begin
+      Printf.eprintf "the invariant is broken: %s\n%!" (!oldname i);
+      exit 2
+    end
+
   let rec rerootk t k = match !t with
     | Array _ -> k ()
     | Diff (i, v, t') ->
@@ -1087,6 +1107,7 @@ module P = struct
     | Diff _ ->
         incr oldget;
         goldat.(!site) <- goldat.(!site) + 1;
+        flagold !site;
         reroot t;
         (match !t with Array a -> a.(i) | Diff _ -> assert false)
 
@@ -1097,7 +1118,8 @@ module P = struct
      all the work and made this side look four times faster than it is. *)
   let set t i v =
     if isold t then begin
-      incr oldset; soldat.(!site) <- soldat.(!site) + 1 end;
+      incr oldset; soldat.(!site) <- soldat.(!site) + 1;
+      flagold !site end;
     reroot t;
     match !t with
     | Array a as n ->
@@ -1964,6 +1986,7 @@ let wname = [| "src"; "dst"; "self"; "init" |]
 let pname = [| "gget map"; "gget chunk"; "gset read"; "gset chunk"; "gset map" |]
 let nplace = 5
 let usite w p = P.site := w * nplace + p
+let () = P.oldname := (fun i -> wname.(i / nplace) ^ " " ^ pname.(i mod nplace))
 
 (* Definition gget m g := get (get m (g >> cshft)) (g land cmskw) *)
 let ugget w (m : upmap) g =
@@ -2086,7 +2109,9 @@ let uleakg pass name n =
   exit 0
 
 let uleak n = uleakg uprepass "source read" n
-let uleak2 n = uleakg uprepass2 "fresh destination" n
+(* the level that leaves the source alone claims the invariant, so it is run
+   under it: any old version at all stops the program. *)
+let uleak2 n = P.strict := true; uleakg uprepass2 "fresh destination" n
 
 let () =
   (* `dumptab' writes the twelve tables of one row as Rocq lists, in the
