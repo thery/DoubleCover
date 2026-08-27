@@ -21,8 +21,9 @@
 (* THE MOVE UNDONE IS WHAT IS TABULATED, since that is what composes the      *)
 (* move on the right -- see RowCub's zstep.                                   *)
 (*                                                                           *)
-(* WHAT IS CHECKED: the int63 step and the list step agree, on every position *)
-(* two moves from the root.  The bridge lemma itself is not proved yet.       *)
+(* AND IT IS THE SAME STEP: a2y_zstepi says a move here, read back as a      *)
+(* list, is a move of RowCub's, for every twenty that hold cubies.  So what   *)
+(* is proved there of a step holds of the step the search runs.               *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
@@ -240,4 +241,104 @@ Lemma tturniE i : (i < 144)%N ->
 Proof.
 move=> hi; have /andP[_ /allP h] := ycubiCP.
 by apply: h; rewrite mem_iota add0n leq0n hi.
+Qed.
+
+(* ---- reading the array back as a list ------------------------------------ *)
+
+Lemma a2y_nth x q : (q < 20)%N ->
+  nth 0%N (a2y x) q = to_nat (PArray.get x (of_nat q)).
+Proof.
+move=> hq; rewrite /a2y (nth_map 0%N); last by rewrite size_iota.
+by rewrite nth_iota.
+Qed.
+
+Lemma ymvpnE k j : (j < 20)%N ->
+  nth 0%N (ymvpn k) j
+  = (let v := nth 0%N (ymvv k) j in
+     if (j < 8)%N then (v %/ 3)%N else (8 + v %/ 2)%N).
+Proof.
+move=> hj; rewrite /ymvpn (nth_map 0%N); last by rewrite size_iota.
+by rewrite nth_iota.
+Qed.
+
+Lemma ymvtnE k j : (j < 20)%N ->
+  nth 0%N (ymvtn k) j
+  = (let v := nth 0%N (ymvv k) j in
+     if (j < 8)%N then (v %% 3)%N else (v %% 2)%N).
+Proof.
+move=> hj; rewrite /ymvtn (nth_map 0%N); last by rewrite size_iota.
+by rewrite nth_iota.
+Qed.
+
+Lemma offnE k j : (j < 20)%N ->
+  nth 0%N (offn k) j
+  = ((if (j < 8)%N then 0 else 72) + nth 0%N (ymvtn k) j * 24)%N.
+Proof.
+move=> hj; rewrite /offn (nth_map 0%N); last by rewrite size_iota.
+by rewrite nth_iota.
+Qed.
+
+Lemma zstep_nth y k j : (j < 20)%N ->
+  nth 0%N (zstep y k) j
+  = (let v := nth 0%N (ymvv k) j in
+     if (j < 8)%N
+     then (3 * ycg y (v %/ 3) + (ytw y (v %/ 3) + v %% 3) %% 3)%N
+     else (2 * yeg y (v %/ 2) + (yfl y (v %/ 2) + v %% 2) %% 2)%N).
+Proof.
+move=> hj; rewrite /zstep /ystepm (nth_map 0%N); last by rewrite size_iota.
+by rewrite nth_iota.
+Qed.
+
+(* ---- and the bridge itself ----------------------------------------------- *)
+
+(* THE ONLY THING THAT CONNECTS THE SEARCH TO THE PROOF.  A move on the       *)
+(* int63 twenty, read back as a list, is a move on RowCub's twenty -- so      *)
+(* what is proved there of a step holds of the step the search runs.  The     *)
+(* twenty have to hold cubies for it: a place under eight and a turn.         *)
+Definition yoki (x : arr) : bool :=
+  all (fun q => (to_nat (PArray.get x (of_nat q)) < 24)%N) (iota 0 20).
+
+Lemma a2y_zstepi x k : (k < 18)%N -> yoki x ->
+  a2y (zstepi x (of_nat k)) = zstep (a2y x) k.
+Proof.
+move=> hk /allP hy.
+apply: (@eq_from_nth _ 0%N).
+  by rewrite /a2y /zstep /ystepm !size_map !size_iota.
+rewrite /a2y size_map size_iota => j hj.
+rewrite -/(a2y _) (a2y_nth _ hj) (get_zstepi _ hk hj).
+have /and4P[/eqP hp hpl /eqP ho hol] := ycubiE hk hj.
+rewrite hp ho.
+set q := nth 0%N (ymvpn k) j; set off := nth 0%N (offn k) j.
+have hg : (to_nat (PArray.get x (of_nat q)) < 24)%N.
+  by apply: hy; rewrite mem_iota add0n leq0n hpl.
+have hs : (off + to_nat (PArray.get x (of_nat q)) < 144)%N.
+  by apply: (@leq_ltn_trans (120 + 23)%N);
+     [apply: leq_add => //; rewrite -ltnS | ].
+have h144 : (144 < nwB)%N by apply: (@ltn_nwB 8).
+have hsb : (off + to_nat (PArray.get x (of_nat q)) < nwB)%N
+  by apply: (ltn_trans hs h144).
+have hoffb : (off < nwB)%N by apply: (leq_ltn_trans (leq_addr _ _) hsb).
+have -> : (of_nat off + PArray.get x (of_nat q))
+        = of_nat (off + to_nat (PArray.get x (of_nat q)))%N.
+  by apply: to_nat_inj; rewrite of_natK // to_nat_add of_natK.
+have /andP[/eqP ht htl] := tturniE hs.
+rewrite ht of_natK; last by apply: (ltn_trans htl); apply: (ltn_trans _ h144).
+rewrite -/(a2y x) (zstep_nth _ _ hj) /=.
+case hj8 : (j < 8)%N.
+  have hq : q = (nth 0%N (ymvv k) j %/ 3)%N by rewrite /q ymvpnE // hj8.
+  have hoff : off = (0 * 72 + (nth 0%N (ymvv k) j %% 3) * 24)%N.
+    by rewrite /off offnE // ymvtnE // hj8 mul0n add0n.
+  rewrite hoff tturn_val // ?ltn_pmod //=.
+  rewrite /ycg /ytw -hq (a2y_nth _ hpl).
+  congr (_ + _)%N.
+  by rewrite -/q mulnC {1}(divn_eq (to_nat (PArray.get x (of_nat q))) 3) addnK.
+have hq : q = (8 + nth 0%N (ymvv k) j %/ 2)%N by rewrite /q ymvpnE // hj8.
+have hoff : off = (1 * 72 + (nth 0%N (ymvv k) j %% 2) * 24)%N.
+  by rewrite /off offnE // ymvtnE // hj8 mul1n.
+have hu2 : (nth 0%N (ymvv k) j %% 2 < 3)%N.
+  by apply: (@leq_trans 2%N) => //; apply: ltn_pmod.
+rewrite hoff (tturn_val _ hu2 hg) //=.
+rewrite /yeg /yfl -hq (a2y_nth _ hpl).
+congr (_ + _)%N.
+by rewrite -/q mulnC {1}(divn_eq (to_nat (PArray.get x (of_nat q))) 2) addnK.
 Qed.
