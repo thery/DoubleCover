@@ -550,8 +550,10 @@ apply: (@ifold_ind _ (fun m => forall p q c, mtest m p q c -> mtest src p q c))
 by apply: hstep.
 Qed.
 
-(* the whole prepass: carry the map over, then play the ten moves on it       *)
+(* THE CARRY IS THE SOURCE ITSELF.  Copying it into a map of its own was      *)
+(* tried and is far worse: it allocates a fresh 6.5 GB map and writes 812     *)
+(* million words into it at every level.                                      *)
 Definition prepass (src : rmap) : rmap :=
-  ifold nhn 0%uint63 (fun k d => prepmv k src d) (mcopy src).
+  ifold nhn 0%uint63 (fun k d => prepmv k src d) src.
 
 End Pre.
