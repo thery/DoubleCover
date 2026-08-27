@@ -1043,10 +1043,21 @@ module P = struct
   let rerootsteps = ref 0
   let reroots = ref 0
 
+  (* WHICH CALL TOUCHED THE OLD VERSION.  Every read and every write below
+     is made under a site number, so the counters say not just that an old
+     version was touched but by which of the three map operations, and on
+     which map.  A site is an int so that setting it costs a store. *)
+  let nsite = 32
+  let site = ref 0
+  let goldat = Array.make nsite 0
+  let soldat = Array.make nsite 0
+  let stepat = Array.make nsite 0
+
   let rec rerootk t k = match !t with
     | Array _ -> k ()
     | Diff (i, v, t') ->
         incr rerootsteps;
+        stepat.(!site) <- stepat.(!site) + 1;
         rerootk t' (fun () ->
             (match !t' with
              | Array a as n ->
@@ -1075,6 +1086,7 @@ module P = struct
         a.(i)
     | Diff _ ->
         incr oldget;
+        goldat.(!site) <- goldat.(!site) + 1;
         reroot t;
         (match !t with Array a -> a.(i) | Diff _ -> assert false)
 
@@ -1084,7 +1096,8 @@ module P = struct
      almost every write is nought over nought, so that line skipped nearly
      all the work and made this side look four times faster than it is. *)
   let set t i v =
-    if isold t then incr oldset;
+    if isold t then begin
+      incr oldset; soldat.(!site) <- soldat.(!site) + 1 end;
     reroot t;
     match !t with
     | Array a as n ->
@@ -1938,16 +1951,52 @@ let lmpg = pof (Array.init (npage * nh) (fun i -> mpage.(i / nh).(i mod nh)))
 
 type upmap = int P.t P.t
 
+(* WHICH CALL IS ASKING.  A map is an array of chunks, each itself an array,
+   so one gget is two reads and one gset is a read and two writes, and any of
+   the five can be the one that meets an old version.  Each is made under its
+   own site number, and the caller says which map it is on, so the report at
+   the end of a level names the operation and the map rather than a total.  *)
+let wsrc = 0     (* the map the level reads                                  *)
+let wdst = 1     (* the map the level writes                                 *)
+let wslf = 2     (* the level's own carry over, source into destination      *)
+let winit = 3    (* building the map before the levels start                 *)
+let wname = [| "src"; "dst"; "self"; "init" |]
+let pname = [| "gget map"; "gget chunk"; "gset read"; "gset chunk"; "gset map" |]
+let nplace = 5
+let usite w p = P.site := w * nplace + p
+
 (* Definition gget m g := get (get m (g >> cshft)) (g land cmskw) *)
-let ugget (m : upmap) g = P.get (P.get m (g lsr ucshft)) (g land ucmskw)
+let ugget w (m : upmap) g =
+  usite w 0;
+  let c = P.get m (g lsr ucshft) in
+  usite w 1;
+  P.get c (g land ucmskw)
 
 (* Definition gset m g v := set m c (set (get m c) (g land cmskw) v) *)
-let ugset (m : upmap) g v =
+let ugset w (m : upmap) g v =
   let c = g lsr ucshft in
-  P.set m c (P.set (P.get m c) (g land ucmskw) v)
+  usite w 2;
+  let a = P.get m c in
+  usite w 3;
+  let a' = P.set a (g land ucmskw) v in
+  usite w 4;
+  P.set m c a'
 
 (* Definition gor m g v := gset m g (gget m g lor v) *)
-let ugor (m : upmap) g v = ugset m g (ugget m g lor v)
+let ugor w (m : upmap) g v = ugset w m g (ugget w m g lor v)
+
+(* what the counters saw, one line for each site that was ever touched *)
+let ureport () =
+  for w = 0 to Array.length wname - 1 do
+    for p = 0 to nplace - 1 do
+      let i = w * nplace + p in
+      if P.goldat.(i) + P.soldat.(i) + P.stepat.(i) > 0 then
+        Printf.printf
+          "    %-4s %-10s  old reads %12d  old writes %12d  steps %14d\n"
+          wname.(w) pname.(p) P.goldat.(i) P.soldat.(i) P.stepat.(i)
+    done
+  done;
+  flush stdout
 
 (* Definition grpof pg gr := pg * ngroupi + gr *)
 let ugrpof pg gr = pg * ngroup + gr
@@ -1956,7 +2005,7 @@ let ugrpof pg gr = pg * ngroup + gr
                              (make nchunk (make 1 0)) *)
 let umkempty () : upmap =
   ifold unchunkn 0
-    (fun c a -> P.set a c (P.make ucsize 0))
+    (fun c a -> usite winit 4; P.set a c (P.make ucsize 0))
     (P.make unchunk (P.make 1 0))
 
 (* Definition pgmv k pg := get mpg (pg * nhi + k), and the same for the group *)
@@ -1976,9 +2025,9 @@ let uprepmv k (src : upmap) (dst : upmap) : upmap =
        let pg' = upgmv k pg in
        ifold ngroupn 0
          (fun gr d' ->
-            let v = ugget src (ugrpof pg gr) in
+            let v = ugget wsrc src (ugrpof pg gr) in
             if v = 0 then d'
-            else ugor d' (ugrpof pg' (ugrmv k gr)) (ugrpmv k v))
+            else ugor wdst d' (ugrpof pg' (ugrmv k gr)) (ugrpmv k v))
          d)
     dst
 
@@ -2000,9 +2049,10 @@ let uprepmv0 (k : int) (src : upmap) (dst : upmap) : upmap =
        ifold ngroupn 0
          (fun gr d' ->
             let g = ugrpof pg gr in
-            let v = ugget src g in
+            let v = ugget wsrc src g in
             if v = 0 then d'
-            else ugor (ugor d' g v) (ugrpof pg' (ugrmv k gr)) (ugrpmv k v))
+            else ugor wdst (ugor wslf d' g v)
+                   (ugrpof pg' (ugrmv k gr)) (ugrpmv k v))
          d)
     dst
 
@@ -2021,7 +2071,7 @@ let uleakg pass name n =
   let s = solved () in
   let pg = rank s.cp 0 8 in
   let gr = e8num.(rank s.ep 0 8) lsr 1 and bt = e4bit.(rank s.ep 8 4) in
-  let m = ref (ugset (umkempty ()) (ugrpof pg gr) (1 lsl bt)) in
+  let m = ref (ugset winit (umkempty ()) (ugrpof pg gr) (1 lsl bt)) in
   for d = 1 to n do
     let t0 = Sys.time () in
     m := pass !m;
@@ -2030,7 +2080,8 @@ let uleakg pass name n =
       "level %2d  %7.1f s  heap %6.2f GB  old versions %d, steps %d\n%!"
       d (Sys.time () -. t0)
       (float_of_int (st.Gc.heap_words * 8) /. 1e9)
-      !P.reroots !P.rerootsteps
+      !P.reroots !P.rerootsteps;
+    ureport ()
   done;
   exit 0
 
