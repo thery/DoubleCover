@@ -676,3 +676,33 @@ apply: tab_pt_inj; first exact: tab_ok_inv.
   by apply: tab_ok_comp => //; apply: tab_ok_inv.
 by rewrite pt_zstep // -ptM ?tab_ok_inv // mvtE.
 Qed.
+
+(* ---- the cube the twenty name, one facelet at a time --------------------- *)
+
+(* THE TWO PARTS DO NOT INTERFERE.  A facelet is a corner one or an edge one  *)
+(* and never both, and each part leaves the other kind where it is, so the    *)
+(* composition reads as one case and not two.                                 *)
+Lemma cub2tab_nth Y f : (f < 48)%N -> yok Y ->
+  nth 0%N (cub2tab Y) f
+  = (if inC f
+     then nth 0%N cflatp
+            (ycg Y (cposn f) * 3 + (cslotn f + ytw Y (cposn f)) %% 3)
+     else nth 0%N elay
+            (yeg Y (eposn f) * 2 + (eslt f + yfl Y (eposn f)) %% 2))%N.
+Proof.
+move=> hf hy; rewrite cub2tabE // (parttE _ _ _ _ _ _ _ hf).
+case hcf : (inC f); last first.
+  have hef : inE f by have /orP[hc|//] := ckindAE hf; rewrite hc in hcf.
+  by rewrite (parttE _ _ _ _ _ _ _ hf) hef.
+have /andP[hp8 hs3] := claybd hf hcf.
+have /andP[/allP hyc _] := hy.
+have hych : (ycg Y (cposn f) < 8)%N.
+  by apply: hyc; rewrite mem_iota add0n leq0n hp8.
+have hi : (ycg Y (cposn f) * 3 + (cslotn f + ytw Y (cposn f)) %% 3 < 24)%N.
+  apply: (@leq_trans ((ycg Y (cposn f)).+1 * 3)%N).
+    by rewrite mulSn addnC ltn_add2r ltn_mod.
+  by rewrite -[24]/(8 * 3)%N leq_mul2r hych orbT.
+have /and4P[hilt hiC _ _] := clayE hi.
+have /andP[hiE _] := ckindE hilt.
+by rewrite (parttE _ _ _ _ _ _ _ hilt) (negbTE (implyP hiE hiC)).
+Qed.
