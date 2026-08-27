@@ -1985,10 +1985,37 @@ let uprepmv k (src : upmap) (dst : upmap) : upmap =
 (* Definition prepass src := ifold nhn 0 (fun k d => prepmv k src d) src *)
 let uprepass (src : upmap) : upmap = ifold nhn 0 (fun k d -> uprepmv k src d) src
 
+(* THE SAME LEVEL, WITH THE SOURCE LEFT ALONE.  The ten moves all read the
+   source, so if their writes are stacked on it the source becomes an old
+   version and every read of it then walks back over the writes made since.
+   Writing into a map of its own instead costs nothing extra: a bit already
+   set has to survive the level, and that is the only reason the fold started
+   at the source, so the first move carries it along -- it holds src[g]
+   already.  This is what comp_tabi and the folded level do: fill a fresh
+   array, never write on what you read. *)
+let uprepmv0 (k : int) (src : upmap) (dst : upmap) : upmap =
+  ifold npagen 0
+    (fun pg d ->
+       let pg' = upgmv k pg in
+       ifold ngroupn 0
+         (fun gr d' ->
+            let g = ugrpof pg gr in
+            let v = ugget src g in
+            if v = 0 then d'
+            else ugor (ugor d' g v) (ugrpof pg' (ugrmv k gr)) (ugrpmv k v))
+         d)
+    dst
+
+let uprepass2 (src : upmap) : upmap =
+  ifold nhn 0
+    (fun k d -> if k = 0 then uprepmv0 k src d else uprepmv k src d)
+    (umkempty ())
+
 (* the levels, one after another, with the heap and the rerooting after each *)
-let uleak n =
+let uleakg pass name n =
   Printf.printf
-    "unfolded, persistent: %d pages x %d groups = %d words, %d chunks, %.2f GB\n%!"
+    "unfolded, persistent, %s: %d pages x %d groups = %d words, %d chunks, %.2f GB\n%!"
+    name
     npage ngroup (npage * ngroup) unchunk
     (float_of_int (unchunk * ucsize * 8) /. 1e9);
   let s = solved () in
@@ -1997,7 +2024,7 @@ let uleak n =
   let m = ref (ugset (umkempty ()) (ugrpof pg gr) (1 lsl bt)) in
   for d = 1 to n do
     let t0 = Sys.time () in
-    m := uprepass !m;
+    m := pass !m;
     let st = Gc.quick_stat () in
     Printf.printf
       "level %2d  %7.1f s  heap %6.2f GB  old versions %d, steps %d\n%!"
@@ -2006,6 +2033,9 @@ let uleak n =
       !P.reroots !P.rerootsteps
   done;
   exit 0
+
+let uleak n = uleakg uprepass "source read" n
+let uleak2 n = uleakg uprepass2 "fresh destination" n
 
 let () =
   (* `dumptab' writes the twelve tables of one row as Rocq lists, in the
@@ -2111,6 +2141,8 @@ let () =
     lleak (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "uleak" then
     uleak (int_of_string Sys.argv.(2));
+  if Array.length Sys.argv > 2 && Sys.argv.(1) = "uleak2" then
+    uleak2 (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "lsrch" then
     lsrchrun (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 1 && Sys.argv.(1) = "ptest" then ptest ();
