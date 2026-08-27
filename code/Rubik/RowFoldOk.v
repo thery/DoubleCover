@@ -52,4 +52,40 @@ move: h2 => /eqb_spec ->.
 by rewrite (allbitsP hb).
 Qed.
 
+
+(* ---- the shell: what is still owed --------------------------------------- *)
+
+(* The fold lands in range, for every member.  Three checks on the generated  *)
+(* tables, discharged where those tables are.                                 *)
+Hypothesis fkptR : forall pg gr bt, inrange pg gr bt ->
+  (to_nat (fkpt (PArray.get fpg pg)) < nrepn)%N.
+
+Hypothesis sgrmvR : forall pg gr bt, inrange pg gr bt ->
+  (to_nat (sgrmv fsgr (fren (PArray.get fpg pg))
+             (fpar (PArray.get fpg pg)
+              lxor (if bt <? 12 then 0%uint63 else 1%uint63))
+             gr) < ngroupn)%N.
+
+Hypothesis sbtmvR : forall pg gr bt, inrange pg gr bt ->
+  (sbtmv fsbt (fren (PArray.get fpg pg)) bt <? nbiti).
+
+Variable pos : int -> int -> int -> Prop.
+
+(* WHAT IS STILL OWED, and it is the only thing: a bit set at a kept page     *)
+(* means that member is within the depth.  It is RowRun's soundness redone    *)
+(* for fmark, and Sym16Row.sym16_row is what carries it round the orbit.      *)
+Definition soundatf (m : rmap) : Prop :=
+  forall pg gr bt, inrange pg gr bt ->
+    ftest fpg fsgr fsbt m pg gr bt -> pos pg gr bt.
+
+(* and then a full folded map puts every member within the depth *)
+Lemma foldf_all m : mfullf m -> soundatf m ->
+  forall pg gr bt, inrange pg gr bt -> pos pg gr bt.
+Proof.
+move=> hm hs pg gr bt hr.
+apply: hs => //.
+by apply: mfullf_ftest => //; [apply: fkptR hr | apply: sgrmvR hr |
+                               apply: sbtmvR hr].
+Qed.
+
 End FoldOk.
