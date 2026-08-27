@@ -16,6 +16,7 @@
 #    ./mkrowfold.sh climb    build, then RowFoldClimb -- the row, both wins in
 #    ./mkrowfold.sh cut      build, then RowFoldCut -- with hcoset's last two cuts
 #    ./mkrowfold.sh pos      build, then RowFoldPos -- what a smaller position is worth
+#    ./mkrowfold.sh cub      build, then RowFoldCub -- the real twenty cubies
 #    ./mkrowfold.sh          build, then RowFoldRun -- the ball of H
 #
 #  RUN chk FIRST.  It says whether the folded row is RIGHT: it must print
@@ -68,7 +69,8 @@ build () {     # build <base>
 
 # the phase one fold, and the row's own files, each only if it is stale
 for f in Fold FoldTables P1Fdec P1FTable \
-         RowFold RowMask RowTabF RowFoldTab RowFoldSrch RowMembi RowOkm; do
+         RowFold RowMask RowTabF RowFoldTab RowFoldSrch RowMembi RowOkm \
+         RowCub RowCubi; do
   build "$f"
 done
 echo "the folded row is built"
@@ -99,5 +101,7 @@ case "$1" in
          coqc -R . Rubik RowFoldCut.v ;;
   pos)   echo "--- RowFoldPos (the position; must print 1438464 three times)"
          coqc -R . Rubik RowFoldPos.v ;;
+  cub)   echo "--- RowFoldCub (the real twenty; must print 1438464 three times)"
+         coqc -R . Rubik RowFoldCub.v ;;
   *)     echo "--- RowFoldRun (the ball of H)";   coqc -R . Rubik RowFoldRun.v ;;
 esac
