@@ -29,7 +29,7 @@ Require Import RowWits RowWitsChk RowInH.
 Require Import P1Table.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import Lehmer RowCub RowCubi RowCubInst.
-Require Import RowReal.
+Require Import RowReal FsmChk.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -38,9 +38,37 @@ Unset Printing Implicit Defensive.
 Notation arr := (PArray.array int).
 Notation rmap := (PArray.array arr).
 
+Import GroupScope.
+
 (* the map the twenty leave, exactly as RowCubReal names it *)
 Definition ycmfin : rmap :=
   ymfin e8numi e4biti mpgi mgri mswi mloi mhii p1 actfsri tomemb okmvv srch 20.
 
-(* MUST PRINT true *)
-Time Eval native_compute in mfull (mor ycmfin (wmap rowwits)).
+(* THE RUN.  This is RowCubReal's r_full_cub, discharged rather than          *)
+(* admitted, so the corollary below stands on nothing but the primitives.     *)
+Lemma r_full_cub_run : mfull (mor ycmfin (wmap rowwits)).
+Proof. Time native_cast_no_check (erefl true). Qed.
+
+(* ---- and the row of the superflip, with nothing left open ---------------- *)
+
+Theorem real_superflip_row_run h : h \in H ->
+  superflip^-1 * h \in ball Sset 20.
+Proof.
+apply: (ysuperflip_row_within_20 e8okC e4okC memb2tab_okC srcokC halfokC
+          (r_fsstepP fsmoveCP) r_leaf_memb r_tomemb_tab
+          pgokC grokC btokC memb2tab_moveC
+          (erefl 20%N) witsokC r_full_cub_run).
+exact: (row_cover up8invC up8okC up4invC up4okC par8okwC par4okwC).
+Qed.
+
+Corollary real_row_superflip_run m : m \in H ->
+  superflip * m \in ball Sset 20.
+Proof.
+have hV : superflip^-1 = superflip.
+  by apply: (mulgI superflip); rewrite mulgV; move: superflip2;
+     rewrite expgS expg1.
+by rewrite -hV; exact: real_superflip_row_run.
+Qed.
+
+(* IT MUST NAME NOTHING BUT THE int63 AND PArray PRIMITIVES *)
+Print Assumptions real_row_superflip_run.
