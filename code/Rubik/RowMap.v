@@ -516,17 +516,8 @@ Definition prepmv (k : int) (src : rmap) (dst : rmap) : rmap :=
          d)
     dst.
 
-(* THE CARRY IS A COPY OF THE CHUNKS, which is OCaml's blit and costs 388     *)
-(* memcpys.  Written the other way -- the ten moves stacked on the source     *)
-(* itself -- every read of the source reroots the whole chain of differences  *)
-(* written since, and every write reroots it back, at each of 812 million     *)
-(* words.  That is not a constant factor.                                     *)
-Definition mcopy (src : rmap) : rmap :=
-  ifold nchunkn 0%uint63
-    (fun c a => PArray.set a c (PArray.copy (PArray.get src c)))
-    (PArray.make nchunk (PArray.make 1%uint63 0%uint63)).
-
+(* the whole prepass: carry the map over, then play the ten moves on it       *)
 Definition prepass (src : rmap) : rmap :=
-  ifold nhn 0%uint63 (fun k d => prepmv k src d) (mcopy src).
+  ifold nhn 0%uint63 (fun k d => prepmv k src d) src.
 
 End Pre.
