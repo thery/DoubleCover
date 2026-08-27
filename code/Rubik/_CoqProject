@@ -119,6 +119,7 @@ RowTab.v
 RowMemb.v
 RowCub.v
 RowCubi.v
+RowCubInst.v
 RowWits.v
 RowWitsChk.v
 RowDummy.v
