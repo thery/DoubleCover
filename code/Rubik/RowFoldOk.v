@@ -200,6 +200,24 @@ rewrite (fset_setp _ _ _ hin) => ht.
 by case: (hnew _ _ _ ht) => [h|//]; apply: hs.
 Qed.
 
+(* ---- a page write, read as a map write ----------------------------------- *)
+
+Lemma fget_setp d r b G :
+  (pchk r <? PArray.length d)%uint63 ->
+  fget (PArray.set d (pchk r) b) r G = PArray.get b (Uint63.add (poff r) G).
+Proof. by move=> hin; rewrite /fget (@RowMap.get_setA _ _ _ hin). Qed.
+
+Lemma ffor_setp d r b G X :
+  (pchk r <? PArray.length d)%uint63 ->
+  PArray.set d (pchk r)
+    (PArray.set b (Uint63.add (poff r) G)
+       (Uint63.lor (PArray.get b (Uint63.add (poff r) G)) X))
+  = ffor (PArray.set d (pchk r) b) r G X.
+Proof.
+move=> hin; rewrite /ffor (fget_setp _ _ hin).
+by apply: fset_setp.
+Qed.
+
 (* ---- one word ored in, which is every write the level makes -------------- *)
 
 (* Once the array write is read as a map write, every write the level makes   *)
