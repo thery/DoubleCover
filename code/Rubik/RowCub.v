@@ -636,3 +636,43 @@ Definition yroot : seq nat := tab2cubR (ti2t flast repi).
 Definition yrootC : bool := cubok yroot && (cub2tabR yroot == ti2t flast repi).
 
 Lemma yrootCP : yrootC. Proof. by vm_compute. Qed.
+
+(* ---- the twenty stepped, read back, is the table stepped ----------------- *)
+
+(* TWO TABLES WITH THE SAME PERMUTATION ARE THE SAME TABLE.  Table.v gives    *)
+(* pt of a composition and of an inverse but never says pt is injective, and  *)
+(* that is what carries the step below from permutations down to tables.      *)
+Lemma tab_pt_inj t1 t2 : tab_ok flast t1 -> tab_ok flast t2 ->
+  pt flast t1 = pt flast t2 -> t1 = t2.
+Proof.
+move=> h1 h2 he.
+have /and3P[/eqP s1 _ _] := h1; have /and3P[/eqP s2 _ _] := h2.
+apply: (@eq_from_nth _ 0%N); first by rewrite s1 s2.
+rewrite s1 => i hi.
+have hii := inordK hi.
+have e1 := ptE (inord i) h1; have e2 := ptE (inord i) h2.
+rewrite hii in e1 e2.
+have e4 : (inord (nth 0%N t1 i) : 'I_flast.+1) = inord (nth 0%N t2 i).
+  by rewrite -e1 -e2 he.
+have l1 : (nth 0%N t1 i < flast.+1)%N.
+  by have /and3P[_ /allP a _] := h1; apply: a; rewrite mem_nth ?s1.
+have l2 : (nth 0%N t2 i < flast.+1)%N.
+  by have /and3P[_ /allP a _] := h2; apply: a; rewrite mem_nth ?s2.
+by rewrite -(inordK l1) -(inordK l2) e4.
+Qed.
+
+(* AND THIS IS WHAT WIRES THE TWENTY IN.  Stepping the twenty and reading     *)
+(* the table back is the table composed with the move, which is exactly the   *)
+(* step RowInst carries on tables.  So everything RowInst proves of the       *)
+(* table state -- the coordinate, the member at a leaf -- transfers by this   *)
+(* one equation, and the search itself never builds the table.                *)
+Lemma cub2tabR_zstep y k : (k < 18)%N -> cubok y ->
+  cub2tabR (zstep y k) = comp_tab (cub2tabR y) (mvt k).
+Proof.
+move=> hk hc; have /andP[hy ht] := hc.
+have /andP[hs hst] := cubok_zstep hk hc.
+have hm := mvt_ok hk.
+apply: tab_pt_inj; first exact: tab_ok_inv.
+  by apply: tab_ok_comp => //; apply: tab_ok_inv.
+by rewrite pt_zstep // -ptM ?tab_ok_inv // mvtE.
+Qed.
