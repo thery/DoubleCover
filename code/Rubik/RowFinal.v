@@ -179,17 +179,16 @@ Variable mfin : rmap.
 Theorem row_within_20 :
   soundat mfin 20 ->
   witsok ->
-  mfull (mor mfin wmap) ->
+  mfull2 mfin wmap ->
   forall x, mok x -> wthn 20 x.
 Proof.
 move=> hs hw hf x hx.
 case E: (plc x) => [[pg gr] bt].
 have hr := place_range he8 he4 hx E.
 have hu := unplace_place he8 he4 hx E.
-have hb : mtest (mor mfin wmap) pg gr bt by apply: mfullP.
 (* the side goal must be handed the range, not left to done: done unfolds     *)
 (* and evaluates, and what it would evaluate here is the map.                 *)
-rewrite -hu; case/orP: (morP hb) => {}hb; first by apply: hs.
+rewrite -hu; case/orP: (mfull2P hf hr) => {}hb; first by apply: hs.
 have [w [hsz hok]] := wmap_wit hr hw hb.
 by apply: wokP hok hsz.
 Qed.

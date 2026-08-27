@@ -28,6 +28,6 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 Time Eval native_compute in
-  mfull (mor (mfin e8numi e4biti mpgi mgri mswi mloi mhii p1
+  mfull2 (mfin e8numi e4biti mpgi mgri mswi mloi mhii p1
                 actfsri tomemb okmvv srch 20)
-             (wmap rowwits)).
+          (wmap rowwits).

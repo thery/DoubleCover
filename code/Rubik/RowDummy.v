@@ -108,7 +108,7 @@ Proof. Admitted.
 Lemma d_witsok : witsok d1 d1 d1 d1 (ptab dmemb) dwl.
 Proof. Admitted.
 
-Lemma d_full : mfull (mor dfin (wmap dwl)).
+Lemma d_full : mfull2 dfin (wmap dwl).
 Proof. Admitted.
 
 (* ---- and the row ----------------------------------------------------------*)

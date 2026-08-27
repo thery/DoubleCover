@@ -976,7 +976,7 @@ Qed.
 
 Theorem row_within_20_inst : nlev = 20%N ->
   witsok e8inv e4of par8 par4 ptab wl ->
-  mfull (mor mfin (wmap wl)) ->
+  mfull2 mfin (wmap wl) ->
   forall x, membok par8 par4 x -> RowRun.wthn (RowFinal.pos ptab) 20 x.
 Proof.
 (* NOT ONE OF THESE MAY BE LEFT TO //: what done would evaluate here is the   *)
@@ -1000,7 +1000,7 @@ Qed.
 (* so what is still owed is that being in H says exactly that.                *)
 Theorem superflip_row_within_20 : nlev = 20%N ->
   witsok e8inv e4of par8 par4 ptab wl ->
-  mfull (mor mfin (wmap wl)) ->
+  mfull2 mfin (wmap wl) ->
   (forall h, h \in H ->
      exists x, membok par8 par4 x /\ pt flast (memb2tab x) = h) ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.

@@ -286,7 +286,7 @@ Qed.
 
 Theorem yrow_within_20 : nlev = 20%N ->
   witsok e8inv e4of par8 par4 (RowInst.ptab memb2tab) wl ->
-  mfull (mor ymfin (wmap wl)) ->
+  mfull2 ymfin (wmap wl) ->
   forall x, membok par8 par4 x ->
   RowRun.wthn (RowFinal.pos (RowInst.ptab memb2tab)) 20 x.
 Proof.
@@ -297,7 +297,7 @@ Qed.
 
 Theorem ysuperflip_row_within_20 : nlev = 20%N ->
   witsok e8inv e4of par8 par4 (RowInst.ptab memb2tab) wl ->
-  mfull (mor ymfin (wmap wl)) ->
+  mfull2 ymfin (wmap wl) ->
   (forall h, h \in H ->
      exists x, membok par8 par4 x /\ pt flast (memb2tab x) = h) ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.

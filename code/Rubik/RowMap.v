@@ -107,16 +107,18 @@ Definition mfull (m : rmap) : bool :=
     (fun pg => iter ngroupn 0%uint63
        (fun gr => Uint63.eqb (gget m (grpof pg gr)) allbits)).
 
-(* the two maps together                                                      *)
-Definition mor (m1 m2 : rmap) : rmap :=
-  ifold npagen 0%uint63
-    (fun pg a =>
-       ifold ngroupn 0%uint63
-         (fun gr a' =>
-            let g := grpof pg gr in
-            gset a' g (Uint63.lor (gget m1 g) (gget m2 g)))
-         a)
-    m1.
+(* THE TWO MAPS TOGETHER ARE NEVER BUILT.  Every member has to be in one map *)
+(* or the other, and that is asked of the two of them where they stand.  The *)
+(* map that was built instead read one of them at every one of its eight     *)
+(* hundred million words while writing into it, and a persistent array reads *)
+(* an old version by walking back through every write made since -- which is *)
+(* what took 53 GB on a machine with 64.                                     *)
+Definition mfull2 (m1 m2 : rmap) : bool :=
+  iter npagen 0%uint63
+    (fun pg => iter ngroupn 0%uint63
+       (fun gr =>
+          let g := grpof pg gr in
+          Uint63.eqb (Uint63.lor (gget m1 g) (gget m2 g)) allbits)).
 
 (* ---- the array axioms, at an array of arrays ----------------------------- *)
 
@@ -375,30 +377,14 @@ have h2 := iter_at h1 (ltn_ngroupi hgr).
 by rewrite /mtest (eqP h2) allbitsP.
 Qed.
 
-(* the two maps together set no bit that neither of them had                  *)
-Lemma morP m1 m2 pg gr bt :
-  mtest (mor m1 m2) pg gr bt -> mtest m1 pg gr bt || mtest m2 pg gr bt.
+(* when the two of them are full together, every member is in one of them     *)
+Lemma mfull2P m1 m2 pg gr bt : mfull2 m1 m2 -> inrange pg gr bt ->
+  mtest m1 pg gr bt || mtest m2 pg gr bt.
 Proof.
-have hstep : forall (g : int) (a : rmap),
-    (forall p q c, mtest a p q c -> mtest m1 p q c || mtest m2 p q c) ->
-    forall p q c,
-    mtest (gset a g (Uint63.lor (gget m1 g) (gget m2 g))) p q c ->
-    mtest m1 p q c || mtest m2 p q c.
-  move=> g a ha p q c.
-  case: (gget_gset a g (Uint63.lor (gget m1 g) (gget m2 g)) (grpof p q)).
-    by rewrite /mtest => ->; apply: ha.
-  case=> hg; rewrite /mtest => ->; rewrite hg.
-  by apply: test_lor.
-suff h : forall p q c, mtest (mor m1 m2) p q c ->
-                       mtest m1 p q c || mtest m2 p q c by apply: h.
-rewrite /mor.
-apply: (@ifold_ind _ (fun m => forall p q c, mtest m p q c ->
-                               mtest m1 p q c || mtest m2 p q c));
-    last by move=> p q c ->.
-move=> i a ha.
-apply: (@ifold_ind _ (fun m => forall p q c, mtest m p q c ->
-                               mtest m1 p q c || mtest m2 p q c)) => // k b hb.
-by apply: hstep.
+move=> hf /and3P[hpg hgr hbt].
+have h1 := iter_at hf (ltn_npagei hpg).
+have h2 := iter_at h1 (ltn_ngroupi hgr).
+by apply: test_lor; rewrite (eqP h2) allbitsP.
 Qed.
 
 (* a bit an or sets was there already, or is one of the bits it ored in       *)

@@ -154,9 +154,9 @@ Proof. by move=> _ hx hG htw hfs; case: (r_leafW hx hG htw hfs). Qed.
 (* AND THE MAP, 812 851 200 words: the run and the witnesses together leave   *)
 (* no bit of the row clear.  This is the long pole and it is only a run.      *)
 Lemma r_full :
-  mfull (mor (mfin e8numi e4biti mpgi mgri mswi mloi mhii p1
+  mfull2 (mfin e8numi e4biti mpgi mgri mswi mloi mhii p1
                 actfsri tomemb okmvv srch 20)
-             (wmap rowwits)).
+          (wmap rowwits).
 Proof. Admitted.
 
 (* ---- every member of the row is within twenty ---------------------------- *)

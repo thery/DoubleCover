@@ -46,7 +46,7 @@ Definition ycmfin : rmap :=
 
 (* THE RUN.  This is RowCubReal's r_full_cub, discharged rather than          *)
 (* admitted, so the corollary below stands on nothing but the primitives.     *)
-Lemma r_full_cub_run : mfull (mor ycmfin (wmap rowwits)).
+Lemma r_full_cub_run : mfull2 ycmfin (wmap rowwits).
 Proof. Time native_cast_no_check (erefl true). Qed.
 
 (* ---- and the row of the superflip, with nothing left open ---------------- *)
