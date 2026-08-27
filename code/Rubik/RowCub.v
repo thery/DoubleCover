@@ -22,9 +22,12 @@
 (* and the middle four, which only means anything inside H -- a move takes an *)
 (* edge from one to the other.  elay is the twelve in one.                    *)
 (*                                                                            *)
-(* NOTHING HERE IS PROVED YET.  What is checked is that reading a table into  *)
-(* twenty numbers and building it back gives the table again, for the         *)
-(* identity and for all eighteen moves.                                       *)
+(* WHAT IS PROVED.  A move on the twenty is the move on the cube they name,   *)
+(* for every twenty that name places.  The search steps by the move undone,   *)
+(* which is again one of the eighteen, and that is the move composed on the   *)
+(* right -- the one thing RowRun asks that is not a computation.  The root is *)
+(* one computation.  What is checked and not proved is that reading a table   *)
+(* into twenty numbers and building it back gives the table again.            *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
@@ -126,57 +129,15 @@ Definition ymvv (k : nat) : seq nat :=
 Definition ystep (y : seq nat) (k : nat) : seq nat := ystepm (ymv k) y.
 Definition zstep (y : seq nat) (k : nat) : seq nat := ystepm (ymvv k) y.
 
-(* ---- and the check that it is the move, on all eighteen by eighteen ------- *)
+(* ---- the builder that turns the move round ------------------------------- *)
 
-Definition ystepC : bool :=
-  all (fun j => all (fun k =>
-      cub2tab (ystep (tab2cub (ti2t flast (mvi (of_nat j)))) k)
-      == comp_tab (ti2t flast (mvi (of_nat k))) (ti2t flast (mvi (of_nat j))))
-      (iota 0 18)) (iota 0 18).
-
-Definition zstepC : bool :=
-  all (fun j => all (fun k =>
-      cub2tab (zstep (tab2cub (ti2t flast (mvi (of_nat j)))) k)
-      == comp_tab (ti2t flast (mvi (of_nat j))) (ti2t flast (mvi (of_nat k))))
-      (iota 0 18)) (iota 0 18).
-
-(* the move played on the labels rather than on the places *)
-Definition ystepl (m y : seq nat) : seq nat :=
-  [seq (if p < 8 then
-          let v := nth 0%N m p in
-          (3 * ycg y p + (ytw y p + v %% 3) %% 3)%N
-        else
-          let v := nth 0%N m p in
-          (2 * yeg y (p - 8)%N + (yfl y (p - 8)%N + v %% 2) %% 2)%N)
-   | p <- iota 0 20].
-
-Definition wstepC : bool :=
-  all (fun j => all (fun k =>
-      cub2tab (ystepl (ymv k) (tab2cub (ti2t flast (mvi (of_nat j)))))
-      == comp_tab (ti2t flast (mvi (of_nat j))) (ti2t flast (mvi (of_nat k))))
-      (iota 0 18)) (iota 0 18).
-
-Definition vstepC : bool :=
-  all (fun j => all (fun k =>
-      cub2tab (ystepl (ymvv k) (tab2cub (ti2t flast (mvi (of_nat j)))))
-      == comp_tab (ti2t flast (mvi (of_nat j))) (ti2t flast (mvi (of_nat k))))
-      (iota 0 18)) (iota 0 18).
-
-(* THE BUILDER IS THE INVERSE ONE, as memb2tab is inv_tab of membinv.  From  *)
+(* THE BUILDER IS THE INVERSE ONE, as memb2tab is inv_tab of membinv.  From   *)
 (* cub2tab (ystep y k) = comp_tab (move k) (cub2tab y), inverting both sides  *)
 (* turns the move round: inv (cub2tab (ystep y k)) = comp_tab (inv (cub2tab   *)
 (* y)) (inv (move k)).  So stepping by the move UNDONE composes the move on   *)
-(* the right, which is what RowRun asks.                                     *)
+(* the right, which is what RowRun asks.                                      *)
 Definition cub2tabR (y : seq nat) : seq nat := inv_tab flast (cub2tab y).
 Definition tab2cubR (t : seq nat) : seq nat := tab2cub (inv_tab flast t).
-
-Definition rstepC : bool :=
-  all (fun j => all (fun k =>
-      cub2tabR (zstep (tab2cubR (ti2t flast (mvi (of_nat j)))) k)
-      == comp_tab (ti2t flast (mvi (of_nat j))) (ti2t flast (mvi (of_nat k))))
-      (iota 0 18)) (iota 0 18).
-
-Eval vm_compute in (ystepC, rstepC).
 
 (* ---- reading a part, and reading the cube ------------------------------- *)
 
@@ -576,3 +537,102 @@ rewrite (parttE _ _ _ _ _ _ _ hjlt) (negbTE (implyP hjE hjC)).
 congr (nth 0%N cflatp _); congr (_ + _)%N.
 by rewrite modnDmr modnDml addnA addnAC.
 Qed.
+
+(* ---- one table, under two names ------------------------------------------ *)
+
+(* The search reads a move out of an int63 array and RowFinal names the same  *)
+(* eighteen tables as a list; below they are the same table, so the witness   *)
+(* lemmas apply here unchanged.                                               *)
+Definition mvtC : bool := all (fun k => mvt' k == mvt k) (iota 0 18).
+
+Lemma mvtCP : mvtC. Proof. by vm_compute. Qed.
+
+Lemma mvt'E k : (k < 18)%N -> mvt' k = mvt k.
+Proof.
+move=> hk; have /allP h := mvtCP.
+by apply/eqP; apply: h; rewrite mem_iota add0n leq0n hk.
+Qed.
+
+(* ---- the move undone is a move too --------------------------------------- *)
+
+(* THE STEP LEMMA COVERS THE MOVE UNDONE WITH NOTHING NEW.  The three turns   *)
+(* of a face are each other's inverses, so undoing a move is playing another  *)
+(* one of the eighteen.  kinv says which, and it is read off the tables       *)
+(* rather than written down: it comes out swapping the quarter turns of each  *)
+(* face and leaving the half turn alone.                                      *)
+Definition kinv (k : nat) : nat := index (inv_tab flast (mvt k)) mtabs.
+
+Definition kinvC : bool :=
+  all (fun k => (kinv k < 18)%N && (mvt (kinv k) == inv_tab flast (mvt k)))
+      (iota 0 18).
+
+Lemma kinvCP : kinvC. Proof. by vm_compute. Qed.
+
+Lemma kinvE k : (k < 18)%N ->
+  (kinv k < 18)%N && (mvt (kinv k) == inv_tab flast (mvt k)).
+Proof.
+move=> hk; have /allP h := kinvCP.
+by apply: h; rewrite mem_iota add0n leq0n hk.
+Qed.
+
+(* so the twenty of the move undone are the twenty of another move *)
+Lemma ymvvE k : (k < 18)%N -> ymvv k = ymv (kinv k).
+Proof.
+move=> hk; have /andP[hi /eqP he] := kinvE hk.
+by rewrite /ymvv /ymv -/(mvt' k) mvt'E // -he -mvt'E.
+Qed.
+
+Lemma zstepE y k : (k < 18)%N -> zstep y k = ystep y (kinv k).
+Proof. by move=> hk; rewrite /zstep /ystep ymvvE. Qed.
+
+Lemma cub2tab_zstep y k : (k < 18)%N -> yok y ->
+  cub2tab (zstep y k) = comp_tab (mvt (kinv k)) (cub2tab y).
+Proof.
+move=> hk hy; have /andP[hi _] := kinvE hk.
+by rewrite zstepE // cub2tab_step // mvt'E.
+Qed.
+
+(* ---- what the search carries --------------------------------------------- *)
+
+(* NAMING PLACES IS NOT ENOUGH.  Twenty numbers that name places can name one *)
+(* place twice, and then the cube they build is not a permutation and has no  *)
+(* position at all.  The table being a permutation is therefore carried too,  *)
+(* and a move keeps it because the step lemma makes it a composition.         *)
+Definition cubok (y : seq nat) : bool := yok y && tab_ok flast (cub2tab y).
+
+Lemma cubok_zstep y k : (k < 18)%N -> cubok y -> cubok (zstep y k).
+Proof.
+move=> hk /andP[hy ht]; have /andP[hi _] := kinvE hk.
+apply/andP; split; first by rewrite zstepE //; apply: yok_step.
+by rewrite cub2tab_zstep //; apply: tab_ok_comp => //; apply: mvt_ok.
+Qed.
+
+Import GroupScope.
+
+(* ---- the position the twenty name, and the move on the right ------------- *)
+
+(* WHAT RowRun ASKS OF A STEP, for the twenty.  Its xstep_pos wants the       *)
+(* position after a step to be the position before it times the move, and     *)
+(* this is that, with the position read through the inverse builder.          *)
+Lemma pt_zstep y k : (k < 18)%N -> cubok y ->
+  pt flast (cub2tabR (zstep y k)) = pt flast (cub2tabR y) * nth 1 moves k.
+Proof.
+move=> hk hc; have /andP[hy ht] := hc.
+have /andP[hi /eqP hei] := kinvE hk.
+have hmi := mvt_ok hi; have hm := mvt_ok hk.
+have hcc : tab_ok flast (comp_tab (mvt (kinv k)) (cub2tab y)).
+  by apply: tab_ok_comp.
+rewrite /cub2tabR cub2tab_zstep // -(ptV hcc) -ptM // invMg -(ptV ht) mvtE //.
+by congr (_ * _); rewrite hei -(ptV hm) invgK.
+Qed.
+
+(* ---- and where the row starts -------------------------------------------- *)
+
+(* The root is one table, so what a general round trip would say about it is  *)
+(* a computation: the twenty read off it are twenty that the step keeps, and  *)
+(* they build the table back.                                                 *)
+Definition yroot : seq nat := tab2cubR (ti2t flast repi).
+
+Definition yrootC : bool := cubok yroot && (cub2tabR yroot == ti2t flast repi).
+
+Lemma yrootCP : yrootC. Proof. by vm_compute. Qed.
