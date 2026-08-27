@@ -304,7 +304,7 @@ Definition csolvedb (c : int) (x : pstt) : bool := Uint63.eqb c csolvedi.
 
 Definition mfin : rmap :=
   run e8num e4bit mpg mgr msw mlo mhi p1 cstep xstep tomemb okmv csolvedb
-      croot sroot dsrch nlev 0 mempty.
+      croot sroot dsrch nlev 0 (mkempty tt).
 
 Variable wl : seq (int * int * int * seq nat).
 
@@ -960,8 +960,9 @@ Qed.
 (* nine facts above hold, the empty map is sound because it has no bit set,   *)
 (* and the theorem is RowFinal's.                                             *)
 
-Lemma sound_mempty : soundat e8inv e4of par8 par4 (RowFinal.pos ptab) mempty 0.
-Proof. by move=> pg gr bt _; rewrite memptyP. Qed.
+Lemma sound_mempty :
+  soundat e8inv e4of par8 par4 (RowFinal.pos ptab) (mkempty tt) 0.
+Proof. by move=> pg gr bt _; rewrite mkemptyP. Qed.
 
 Lemma mfin_sound : soundat e8inv e4of par8 par4 (RowFinal.pos ptab) mfin nlev.
 Proof.

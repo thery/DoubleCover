@@ -200,6 +200,51 @@ rewrite (fset_setp _ _ _ hin) => ht.
 by case: (hnew _ _ _ ht) => [h|//]; apply: hs.
 Qed.
 
+(* ---- a page write, read as a map write ----------------------------------- *)
+
+Lemma fget_setp d r b G :
+  (pchk r <? PArray.length d)%uint63 ->
+  fget (PArray.set d (pchk r) b) r G = PArray.get b (Uint63.add (poff r) G).
+Proof. by move=> hin; rewrite /fget (@RowMap.get_setA _ _ _ hin). Qed.
+
+Lemma ffor_setp d r b G X :
+  (pchk r <? PArray.length d)%uint63 ->
+  PArray.set d (pchk r)
+    (PArray.set b (Uint63.add (poff r) G)
+       (Uint63.lor (PArray.get b (Uint63.add (poff r) G)) X))
+  = ffor (PArray.set d (pchk r) b) r G X.
+Proof.
+move=> hin; rewrite /ffor (fget_setp _ _ hin).
+by apply: fset_setp.
+Qed.
+
+(* ---- one word ored in, which is every write the level makes -------------- *)
+
+(* Once the array write is read as a map write, every write the level makes   *)
+(* is this: one word ored into one place.  Soundness survives as long as the  *)
+(* bits the word adds are good where a member reads them.                     *)
+Lemma soundatf_ffor m r G X :
+  soundatf m ->
+  (forall pg gr bt,
+     pchk r = pchk (fkpt (PArray.get fpg pg)) ->
+     Uint63.add (poff r) G
+     = Uint63.add (poff (fkpt (PArray.get fpg pg)))
+                  (sgrmv fsgr (fr pg) (fp pg bt) gr) ->
+     ~~ (Uint63.land X (bitof (sbtmv fsbt (fr pg) bt)) =? 0) ->
+     P pg gr bt) ->
+  soundatf (ffor m r G X).
+Proof.
+move=> hm hnew pg gr bt; rewrite /ftest /ffor.
+case: (fget_fset m r G (Uint63.lor (fget m r G) X)
+        (fkpt (PArray.get fpg pg)) (sgrmv fsgr (fr pg) (fp pg bt) gr))
+  => [->|[h1 [h2 ->]]]; first by apply: hm.
+move=> /RowMap.test_lor/orP[hin|hnw]; last by apply: (hnew _ _ _ h1 h2).
+apply: hm; rewrite /ftest.
+by have -> : fget m (fkpt (PArray.get fpg pg))
+               (sgrmv fsgr (fr pg) (fp pg bt) gr) = fget m r G
+  by rewrite /fget h1 h2.
+Qed.
+
 (* ---- the level's copy, which keeps the depth ----------------------------- *)
 
 (* The level first copies the source page into the page it is filling.  A     *)

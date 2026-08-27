@@ -48,6 +48,23 @@ The shape is `RowRun.prepass_sound`, with two differences.
 
 ### The tables it needs
 
+Two kinds, and the first is done.
+
+**In range** — `RowFoldChkTab.v`, six sweeps, all passing: a page folds to
+one of the 2768 kept pages, so does each move's source page, a group folds
+to a group, a bit to one of the twenty four, each half of a word to a half.
+
+**The members** — still to write. `fsgr`, `fsbt`, `fslo`, `fshi` are
+rank-level tables, and what has to hold is that each is the renaming acting
+on that rank. That is computable: `RowMemb`'s `up8` and `up4` turn a rank
+back into a permutation, `Sym16`'s tables say what the renaming does to a
+facelet, and `RowMemb`'s `cposn` and `eposn` say which cubie a facelet
+belongs to. So the check is: unrank, rename, rank again, and compare with
+the table -- 16 x 20160 for `fsgr`, less for the others. The member fact
+then follows the way `RowMemb.memb2tab_move` follows from its own checks.
+
+### The old wording of this section
+
 Two facts about the generated tables, checked and not proved, in the shape
 `RowRun` already uses for `grpmvP` and `prep_move`:
 
