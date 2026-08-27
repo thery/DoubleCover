@@ -200,6 +200,29 @@ rewrite (fset_setp _ _ _ hin) => ht.
 by case: (hnew _ _ _ ht) => [h|//]; apply: hs.
 Qed.
 
+(* ---- the level's copy, which keeps the depth ----------------------------- *)
+
+(* The level first copies the source page into the page it is filling.  A     *)
+(* member reading a copied word reads the same word in the source, so the     *)
+(* copy claims nothing new.                                                   *)
+Lemma soundatf_copy src d r b g :
+  (pchk r <? PArray.length d)%uint63 ->
+  soundatf src -> soundatf (PArray.set d (pchk r) b) ->
+  soundatf (PArray.set d (pchk r)
+              (PArray.set b (Uint63.add (poff r) g) (fget src r g))).
+Proof.
+move=> hin hsrc hd; apply: soundatf_setp => // pg gr bt.
+rewrite {1}/ftest.
+case: (fget_fset (PArray.set d (pchk r) b) r g (fget src r g)
+        (fkpt (PArray.get fpg pg))
+        (sgrmv fsgr (fr pg) (fp pg bt) gr))
+  => [->|[h1 [h2 ->]]]; first by left.
+right; apply: hsrc; rewrite /ftest.
+have -> : fget src (fkpt (PArray.get fpg pg)) (sgrmv fsgr (fr pg) (fp pg bt) gr)
+        = fget src r g by rewrite /fget h1 h2.
+by [].
+Qed.
+
 (* ---- and a full sound map puts every member within the depth ------------- *)
 
 Hypothesis fkptR : forall pg, (to_nat (fkpt (PArray.get fpg pg)) < nrepn)%N.
