@@ -324,6 +324,33 @@ move=> hf; have /allP h := ckindCP.
 by apply: h; rewrite mem_iota add0n leq0n hf.
 Qed.
 
+(* ---- every facelet is a corner one or an edge one ------------------------ *)
+
+(* eight corners of three and twelve edges of two is forty eight, so there is *)
+(* no third kind and the step lemma has two cases and not three.              *)
+Definition ckindA : bool := all (fun f => inC f || inE f) (iota 0 48).
+
+Lemma ckindAP : ckindA. Proof. by vm_compute. Qed.
+
+Lemma ckindAE f : (f < 48)%N -> inC f || inE f.
+Proof.
+move=> hf; have /allP h := ckindAP.
+by apply: h; rewrite mem_iota add0n leq0n hf.
+Qed.
+
+(* the primary facelet of an edge place is an edge facelet *)
+Definition eprimC : bool :=
+  all (fun q => (nth 0%N eprim q < 48)%N && inE (nth 0%N eprim q)) (iota 0 12).
+
+Lemma eprimCP : eprimC. Proof. by vm_compute. Qed.
+
+Lemma eprimE q : (q < 12)%N ->
+  (nth 0%N eprim q < 48)%N && inE (nth 0%N eprim q).
+Proof.
+move=> hq; have /allP h := eprimCP.
+by apply: h; rewrite mem_iota add0n leq0n hq.
+Qed.
+
 (* ---- a move's own twenty name places ------------------------------------- *)
 
 Definition ymvbd : bool :=
@@ -484,10 +511,30 @@ rewrite -/(cub2tab _) cub2tabE // /comp_tab (nth_map 0%N)
         ?(size_ti2t flast) // -/(cub2tab _).
 rewrite (parttE _ _ _ _ _ _ _ hf).
 case hcf : (inC f); last first.
-  (* LEFT: the facelet is an edge one, or neither.  Same shape as the corner  *)
-  (* case with emvE and elayE in place of cmvE and clayE, and both sides f    *)
-  (* when it is neither.                                                      *)
-  admit.
+  (* the edge case, the same read with two slots in place of three.  The     *)
+  (* corner part was already stripped above, so there is only one layer here. *)
+  have hef : inE f by have /orP[hc|//] := ckindAE hf; rewrite hc in hcf.
+  have /andP[hq12 hl2] := elaybd hf hef.
+  have /andP[he0lt he0E] := eprimE hq12.
+  have /and3P[_ hgE hglt] := mvkE hk he0lt.
+  have /andP[hhq12 hhl2] := elaybd hglt (implyP hgE he0E).
+  rewrite (parttE _ _ _ _ _ _ _ hf) hef.
+  rewrite (yeg_step _ hk hq12) (yfl_step _ hk hq12) (ymveE k hq12).
+  set h := nth 0%N (mvt' k) (nth 0%N eprim (eposn f)).
+  have hdiv : ((2 * eposn h + eslt h) %/ 2 = eposn h)%N.
+    by rewrite mulnC divnMDl // (divn_small hhl2) addn0.
+  have hmod : ((2 * eposn h + eslt h) %% 2 = eslt h)%N.
+    by rewrite mulnC modnMDl (modn_small hhl2).
+  rewrite hdiv hmod.
+  have /and3P[_ hgEi hglt2] := mvkE hk hf.
+  have hgE2 : inE (nth 0%N (mvt' k) f) by apply: (implyP hgEi).
+  have /andP[/eqP hgep /eqP hges] := emvE hk hf hef.
+  have hgCf : inC (nth 0%N (mvt' k) f) = false.
+    by apply/negbTE; have /andP[_ h2] := ckindE hglt2; apply: (implyP h2).
+  rewrite (cub2tabE y hglt2) (parttE _ _ _ _ _ _ _ hglt2) hgCf.
+  rewrite (parttE _ _ _ _ _ _ _ hglt2) hgE2 hgep hges.
+  congr (nth 0%N elay _); congr (_ + _)%N.
+  by rewrite modnDmr modnDml addnA addnAC.
 have /andP[hp8 hs3] := claybd hf hcf.
 have h3p : (3 * cposn f < 24)%N by rewrite -[24]/(3 * 8)%N ltn_mul2l /= hp8.
 have /and4P[hc0lt hc0C _ _] := clayE h3p.
@@ -528,4 +575,4 @@ rewrite (parttE _ _ _ _ _ _ _ hjlt) (negbTE (implyP hjE hjC)).
 (* the two indices are the same number: the turn can be added before or after *)
 congr (nth 0%N cflatp _); congr (_ + _)%N.
 by rewrite modnDmr modnDml addnA addnAC.
-Admitted.
+Qed.
