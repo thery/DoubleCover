@@ -500,12 +500,32 @@ have hdiv : ((3 * cposn h + cslotn h) %/ 3 = cposn h)%N.
 have hmod : ((3 * cposn h + cslotn h) %% 3 = cslotn h)%N.
   by rewrite mulnC modnMDl (modn_small hhs3).
 rewrite hdiv hmod.
-(* LEFT: the left side is now cflatp at
-     ycg y (cposn h) * 3 + (cslotn f + (ytw y (cposn h) + cslotn h) %% 3) %% 3
-   and the outer part is the identity on it, since a corner facelet is not an
-   edge one (ckindE).  The right side comes out the same way through
-   cub2tabE at the moved facelet, and cmvE says its place is cposn h and its
-   slot is (cslotn f + cslotn h) %% 3.  What is left is then
-     (s + (t + c) %% 3) %% 3 = ((s + c) %% 3 + t) %% 3
-   which is modnDmr and modnDml and addnAC. *)
+have /andP[/allP hyc /allP hye] := hy.
+have hych : (ycg y (cposn h) < 8)%N.
+  by apply: hyc; rewrite mem_iota add0n leq0n hhp8.
+have hi : (ycg y (cposn h) * 3
+           + (cslotn f + (ytw y (cposn h) + cslotn h) %% 3) %% 3 < 24)%N.
+  apply: (@leq_trans ((ycg y (cposn h)).+1 * 3)%N).
+    by rewrite mulSn addnC ltn_add2r ltn_mod.
+  by rewrite -[24]/(8 * 3)%N leq_mul2r hych orbT.
+have /and4P[hilt hiC _ _] := clayE hi.
+have /andP[hiE _] := ckindE hilt.
+rewrite (parttE _ _ _ _ _ _ _ hilt) (negbTE (implyP hiE hiC)).
+(* and now the same read on the other side, at the moved facelet *)
+have /and3P[hgCi _ hglt2] := mvkE hk hf.
+have hgC2 : inC (nth 0%N (mvt' k) f) by apply: (implyP hgCi); rewrite hcf.
+have /andP[hgp8 hgs3] := claybd hglt2 hgC2.
+have /andP[/eqP hgcp /eqP hgcs] := cmvE hk hf hcf.
+rewrite (cub2tabE y hglt2) (parttE _ _ _ _ _ _ _ hglt2) hgC2 hgcp hgcs.
+have hj : (ycg y (cposn h) * 3
+           + ((cslotn f + cslotn h) %% 3 + ytw y (cposn h)) %% 3 < 24)%N.
+  apply: (@leq_trans ((ycg y (cposn h)).+1 * 3)%N).
+    by rewrite mulSn addnC ltn_add2r ltn_mod.
+  by rewrite -[24]/(8 * 3)%N leq_mul2r hych orbT.
+have /and4P[hjlt hjC _ _] := clayE hj.
+have /andP[hjE _] := ckindE hjlt.
+rewrite (parttE _ _ _ _ _ _ _ hjlt) (negbTE (implyP hjE hjC)).
+(* the two indices are the same number: the turn can be added before or after *)
+congr (nth 0%N cflatp _); congr (_ + _)%N.
+by rewrite modnDmr modnDml addnA addnAC.
 Admitted.
