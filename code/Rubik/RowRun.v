@@ -281,7 +281,11 @@ Qed.
 Lemma prepass_sound m d : soundat m d -> soundat (prep m) d.+1.
 Proof.
 move=> hm; rewrite /prepass.
-apply: (@ifold_indi _ (fun a => soundat a d.+1)); [| |exact: soundatW hm].
+(* the side goals must be handed the range and the bit, not left to done:     *)
+(* what done would evaluate here is the map.                                  *)
+have hcp : soundat (mcopy m) d.+1.
+  by move=> pg gr bt hr ht; exact: (soundatW hm hr (mcopyP ht)).
+apply: (@ifold_indi _ (fun a => soundat a d.+1)); [| |exact: hcp].
   by apply: ltnW; apply: (@ltn_nwB 4).
 move=> k dst hk hdst; rewrite /prepmv.
 (* every page                                                                 *)
@@ -292,7 +296,9 @@ move=> pg a hpg ha; cbv zeta.
 apply: (@ifold_indi _ (fun a' => soundat a' d.+1)); [| |exact: ha].
   by apply: ltnW; exact: ngroupn_nwB.
 move=> gr a' hgr ha'; cbv zeta.
-case: ifP => _ //.
+(* the empty word writes nothing, and that branch is ha' -- not left to done, *)
+(* which would go away and evaluate the map the base is built from.           *)
+case: ifP => _; first by exact: ha'.
 move=> P Q B hr ht.
 (* the bit was there already, or it is one of the twenty four just written    *)
 case: (mtest_gor ht) => [hold|[hG hbit]]; first by apply: ha'.
