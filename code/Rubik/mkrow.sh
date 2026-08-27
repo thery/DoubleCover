@@ -27,7 +27,8 @@ JOBS=${1:-$(nproc)}
            RowMoveH RowMoveM RowParity RowPartM \
            RowPartC RowPartU RowMoveC RowMoveU RowMembChk \
            RowUp8inv RowUp8ok RowUp4inv RowUp4ok RowPar8 RowPar4 \
-           RowWits RowWitsChk RowInH RowDummy RowReal; do
+           RowWits RowWitsChk RowInH RowDummy RowReal \
+           RowCub RowCubi RowCubInst RowCubReal; do
     echo "$f.v"
   done
 } > _RowProject
