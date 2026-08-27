@@ -1917,6 +1917,96 @@ let hball n =
   done;
   exit 0
 
+(* =========================================================================
+   RowMap.v's UNFOLDED level, line for line, on the same persistent arrays
+   and the same unary counts as the folded one above.  This is the level the
+   Rocq row actually runs, and the one whose memory runs away after an hour.
+
+   Every name below is the Rocq name with the Rocq body.  The tables are the
+   real ones, as persistent arrays, like the rest of this section.
+   ========================================================================= *)
+
+let ucshft = 21
+let ucmskw = 2097151
+let ucsize = 2097152
+let unchunk = (npage * ngroup + ucsize - 1) / ucsize
+let unchunkn = unat_of unchunk
+let npagen = unat_of npage
+
+(* the page table, which the gathering level did not need *)
+let lmpg = pof (Array.init (npage * nh) (fun i -> mpage.(i / nh).(i mod nh)))
+
+type upmap = int P.t P.t
+
+(* Definition gget m g := get (get m (g >> cshft)) (g land cmskw) *)
+let ugget (m : upmap) g = P.get (P.get m (g lsr ucshft)) (g land ucmskw)
+
+(* Definition gset m g v := set m c (set (get m c) (g land cmskw) v) *)
+let ugset (m : upmap) g v =
+  let c = g lsr ucshft in
+  P.set m c (P.set (P.get m c) (g land ucmskw) v)
+
+(* Definition gor m g v := gset m g (gget m g lor v) *)
+let ugor (m : upmap) g v = ugset m g (ugget m g lor v)
+
+(* Definition grpof pg gr := pg * ngroupi + gr *)
+let ugrpof pg gr = pg * ngroup + gr
+
+(* Definition mkempty u := ifold nchunkn 0 (fun c a => set a c (make csize 0))
+                             (make nchunk (make 1 0)) *)
+let umkempty () : upmap =
+  ifold unchunkn 0
+    (fun c a -> P.set a c (P.make ucsize 0))
+    (P.make unchunk (P.make 1 0))
+
+(* Definition pgmv k pg := get mpg (pg * nhi + k), and the same for the group *)
+let upgmv k pg = P.get lmpg (pg * nhi + k)
+let ugrmv k gr = P.get lmgr (gr * nhi + k)
+
+(* Definition grpmv k v := ... lomv, himv, and the swap *)
+let ugrpmv k v =
+  let l = P.get lmlo ((k lsl 12) + (v land lo12)) in
+  let h = P.get lmhi ((k lsl 12) + ((v lsr 12) land lo12)) in
+  if P.get lmsw k = 0 then l lor (h lsl 12) else h lor (l lsl 12)
+
+(* Definition prepmv k src dst := ifold npagen ... ifold ngroupn ... *)
+let uprepmv k (src : upmap) (dst : upmap) : upmap =
+  ifold npagen 0
+    (fun pg d ->
+       let pg' = upgmv k pg in
+       ifold ngroupn 0
+         (fun gr d' ->
+            let v = ugget src (ugrpof pg gr) in
+            if v = 0 then d'
+            else ugor d' (ugrpof pg' (ugrmv k gr)) (ugrpmv k v))
+         d)
+    dst
+
+(* Definition prepass src := ifold nhn 0 (fun k d => prepmv k src d) src *)
+let uprepass (src : upmap) : upmap = ifold nhn 0 (fun k d -> uprepmv k src d) src
+
+(* the levels, one after another, with the heap and the rerooting after each *)
+let uleak n =
+  Printf.printf
+    "unfolded, persistent: %d pages x %d groups = %d words, %d chunks, %.2f GB\n%!"
+    npage ngroup (npage * ngroup) unchunk
+    (float_of_int (unchunk * ucsize * 8) /. 1e9);
+  let s = solved () in
+  let pg = rank s.cp 0 8 in
+  let gr = e8num.(rank s.ep 0 8) lsr 1 and bt = e4bit.(rank s.ep 8 4) in
+  let m = ref (ugset (umkempty ()) (ugrpof pg gr) (1 lsl bt)) in
+  for d = 1 to n do
+    let t0 = Sys.time () in
+    m := uprepass !m;
+    let st = Gc.quick_stat () in
+    Printf.printf
+      "level %2d  %7.1f s  heap %6.2f GB  old versions %d, steps %d\n%!"
+      d (Sys.time () -. t0)
+      (float_of_int (st.Gc.heap_words * 8) /. 1e9)
+      !P.reroots !P.rerootsteps
+  done;
+  exit 0
+
 let () =
   (* `dumptab' writes the twelve tables of one row as Rocq lists, in the
      convention the generated files of this development already use: one
@@ -2019,6 +2109,8 @@ let () =
     lball (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "lleak" then
     lleak (int_of_string Sys.argv.(2));
+  if Array.length Sys.argv > 2 && Sys.argv.(1) = "uleak" then
+    uleak (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "lsrch" then
     lsrchrun (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 1 && Sys.argv.(1) = "ptest" then ptest ();
