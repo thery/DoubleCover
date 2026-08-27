@@ -182,6 +182,24 @@ case/ftest_fmark => [h|[h1 h2 h3]]; first by apply: hm.
 by apply: (Porb h1 h2 h3).
 Qed.
 
+(* ---- one write inside a page, at the map level --------------------------- *)
+
+(* The level fills a page array and puts the chunk back.  This is one step of *)
+(* that, read as a map write: soundness survives as long as the bits the      *)
+(* write adds are good.                                                       *)
+Lemma soundatf_setp d r b g v :
+  (pchk r <? PArray.length d)%uint63 ->
+  soundatf (PArray.set d (pchk r) b) ->
+  (forall pg gr bt,
+     ftest fpg fsgr fsbt (fset (PArray.set d (pchk r) b) r g v) pg gr bt ->
+     ftest fpg fsgr fsbt (PArray.set d (pchk r) b) pg gr bt \/ P pg gr bt) ->
+  soundatf (PArray.set d (pchk r) (PArray.set b (Uint63.add (poff r) g) v)).
+Proof.
+move=> hin hs hnew pg gr bt.
+rewrite (fset_setp _ _ _ hin) => ht.
+by case: (hnew _ _ _ ht) => [h|//]; apply: hs.
+Qed.
+
 (* ---- and a full sound map puts every member within the depth ------------- *)
 
 Hypothesis fkptR : forall pg, (to_nat (fkpt (PArray.get fpg pg)) < nrepn)%N.
