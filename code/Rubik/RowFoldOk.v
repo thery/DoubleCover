@@ -32,6 +32,34 @@ Notation rmap := (PArray.array arr).
 
 Local Open Scope uint63_scope.
 
+(* ---- an array write inside a chunk is a map write ------------------------ *)
+
+(* The folded level fills a page ARRAY and puts the chunk back at the end.    *)
+(* These two turn that into the map write it stands for, so the level can be  *)
+(* argued about a member at a time like every other write.                    *)
+Lemma set_setA (t : rmap) i (u v : arr) :
+  PArray.set (PArray.set t i u) i v = PArray.set t i v.
+Proof.
+apply: array_ext.
+- by rewrite !RowMap.length_setA.
+- move=> j hj.
+  have [hij|hij] := eqVneq i j.
+    rewrite -hij !RowMap.get_setA //.
+    - by move: hj; rewrite !RowMap.length_setA hij => ->.
+    by move: hj; rewrite !RowMap.length_setA hij => ->.
+  by rewrite !RowMap.get_set_otherA //; apply/eqP.
+by rewrite !RowMap.default_setA.
+Qed.
+
+Lemma fset_setp d r b g v :
+  (pchk r <? PArray.length d)%uint63 ->
+  PArray.set d (pchk r) (PArray.set b (Uint63.add (poff r) g) v)
+  = fset (PArray.set d (pchk r) b) r g v.
+Proof.
+move=> hin; rewrite /fset.
+by rewrite (@RowMap.get_setA _ _ _ hin) set_setA.
+Qed.
+
 Section FoldOk.
 
 (* the three tables a member is read through: where its page is kept and by   *)
