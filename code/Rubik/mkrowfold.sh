@@ -70,7 +70,7 @@ build () {     # build <base>
 # the phase one fold, and the row's own files, each only if it is stale
 for f in Fold FoldTables P1Fdec P1FTable \
          RowFold RowMask RowTabF RowFoldTab RowFoldSrch RowMembi RowOkm \
-         RowCub RowCubi; do
+         RowCub RowCubi RowCubInst; do
   build "$f"
 done
 echo "the folded row is built"
