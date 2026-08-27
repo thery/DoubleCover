@@ -17,6 +17,8 @@
 #    ./mkrowfold.sh cut      build, then RowFoldCut -- with hcoset's last two cuts
 #    ./mkrowfold.sh pos      build, then RowFoldPos -- what a smaller position is worth
 #    ./mkrowfold.sh cub      build, then RowFoldCub -- the real twenty cubies
+#    ./mkrowfold.sh cubrun   build, then RowFoldCubRun -- the row, folded map
+#    ./mkrowfold.sh cubplain build, then RowCubRun -- the row, plain map
 #    ./mkrowfold.sh          build, then RowFoldRun -- the ball of H
 #
 #  RUN chk FIRST.  It says whether the folded row is RIGHT: it must print
@@ -103,5 +105,9 @@ case "$1" in
          coqc -R . Rubik RowFoldPos.v ;;
   cub)   echo "--- RowFoldCub (the real twenty; must print 1438464 three times)"
          coqc -R . Rubik RowFoldCub.v ;;
+  cubrun) echo "--- RowFoldCubRun (the row on the folded map, twenty carried)"
+         coqc -R . Rubik RowFoldCubRun.v ;;
+  cubplain) echo "--- RowCubRun (the row on the plain map; must print true)"
+         coqc -R . Rubik RowCubRun.v ;;
   *)     echo "--- RowFoldRun (the ball of H)";   coqc -R . Rubik RowFoldRun.v ;;
 esac
