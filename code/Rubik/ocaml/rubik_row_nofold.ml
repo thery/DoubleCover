@@ -2108,7 +2108,24 @@ let uleakg pass name n =
   done;
   exit 0
 
-let uleak n = uleakg uprepass "source read" n
+(* A LEVEL IS TEN MOVES AND EACH IS A PASS OVER THE WHOLE MAP, so a level
+   that does not end says nothing at all.  This prints after each of them:
+   the move, the time it took, the heap, and what the counters have seen. *)
+let umove k t0 =
+  let st = Gc.quick_stat () in
+  Printf.printf
+    "   move %2d  %7.1f s  heap %6.2f GB  old versions %d, steps %d\n%!"
+    k (Sys.time () -. t0)
+    (float_of_int (st.Gc.heap_words * 8) /. 1e9)
+    !P.reroots !P.rerootsteps
+
+let uprepassv (src : upmap) : upmap =
+  ifold nhn 0
+    (fun k d -> let t0 = Sys.time () in
+                let r = uprepmv k src d in umove k t0; r)
+    src
+
+let uleak n = uleakg uprepassv "source read" n
 
 (* TWO MAPS, ALLOCATED ONCE, TAKING IT IN TURNS.  The destination at level d
    is the map level d minus two left behind, and its bits are a subset of the
@@ -2130,7 +2147,11 @@ let uleak2 n =
   for d = 1 to n do
     let t0 = Sys.time () in
     b := ifold nhn 0
-           (fun k dst -> if k = 0 then uprepmv0 k !a dst else uprepmv k !a dst)
+           (fun k dst ->
+              let t0 = Sys.time () in
+              let r =
+                if k = 0 then uprepmv0 k !a dst else uprepmv k !a dst in
+              umove k t0; r)
            !b;
     let t = !a in a := !b; b := t;
     let st = Gc.quick_stat () in
