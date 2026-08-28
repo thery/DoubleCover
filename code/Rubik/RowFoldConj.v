@@ -524,3 +524,29 @@ apply: (memb_conj_pt hs o1 o2 o3 o4 o5 o6).
 - exact: (upart_conj hu hp hg o3).
 exact: (mpart_conj hu hb o5).
 Qed.
+
+(* ---- and in the shape RowFoldMem asks for ------------------------------- *)
+
+(* fold_conj_pt is about membinv, which is the member read as a permutation   *)
+(* of the forty eight the wrong way round.  What the row carries is memb2tab, *)
+(* which is that inverted -- and a conjugate inverted is the inverse          *)
+(* conjugated, so the statement comes across unchanged.                       *)
+(*                                                                            *)
+(* THIS IS RowFoldMem.fold_conj, and with it RowFoldOk's Porb is discharged:  *)
+(* members that fold together stand or fall together.                         *)
+Lemma fold_conj_memb pg gr bt : inrange pg gr bt ->
+  exists2 i, (i < 16)%N &
+    pt 47 (memb2tab (unplace e8invi e4ofi par8i par4i
+                      (Kof pg) (Gof pg gr bt) (Bof pg bt)))
+    = ((pt 47 (memb2tab (unplace e8invi e4ofi par8i par4i pg gr bt)))
+        ^ pt 47 (nth [::] sym16ts i))%g.
+Proof.
+move=> hr; have /and3P[hpg _ _] := hr.
+have b0 : (to_nat pg < npagen)%N by apply/nltbP.
+have hu : (to_nat (fren (PArray.get fpgi pg)) < nsymn)%N.
+  by apply/nltbP; apply: (Row.iter_at frnRCP b0).
+exists (Sof pg); first by apply: (aiota_lt f2sCP hu).
+have E : forall x, pt 47 (memb2tab x) = ((pt 47 (membinv x))^-1)%g.
+  by move=> x; rewrite /memb2tab (ptV (membinv_ok cpartokC upartokC mpartokC x)).
+by rewrite !E (fold_conj_pt hr) conjVg.
+Qed.
