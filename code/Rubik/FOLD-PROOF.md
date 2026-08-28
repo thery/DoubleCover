@@ -130,7 +130,20 @@ renaming and the one from its inverse cancel: the conjugate of a
 slot-preserving part is slot-preserving again, which is what makes the three
 parts reassemble the way `memb2tab_move` reassembles them.
 
-That is the shape of the remaining work.
+**And that lemma is now proved**, in `RowFoldPart.v`:
+
+    part_conj : ... -> comp_tab (part v) (restr inL t)
+                     = comp_tab (restr inL t) (part u)
+
+on `RowMemb`'s own `part`, twice -- no new kind of part was needed after
+all, because the one slot map appears on both sides of the conjugation and
+cancels. `lslots` is `lslot` with that one map added.
+
+The condition it asks of the places is exactly what the fold tables are
+checked to say: `nth (lperm t) (v p) = u (nth (lperm t) p)`, the renamed
+rank names the conjugated permutation. So `fold_conj` is now three
+applications of `part_conj` -- corners, outer edges, middle -- and the
+reassembly `memb2tab_move` already does.
 
 And then a folded `RowInst`/`RowFinal`, so that `RowFoldCubRun.v` has a
 theorem to print the assumptions of.
