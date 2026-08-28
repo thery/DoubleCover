@@ -2196,6 +2196,29 @@ let ugrew where =
       (float_of_int (st.Gc.heap_words * 8) /. 1e9) where
   end
 
+(* WHAT IS ALIVE, WHICH IS NOT WHAT THE HEAP IS.  Every PArray.set leaves a
+   difference cell behind, and there are hundreds of millions of them in a
+   move.  heap_words is the size of the heap and says nothing about whether
+   those cells are still reachable: OCaml grows the heap to about twice the
+   live data rather than collect, so a heap that doubles may hold nothing
+   new.  This collects everything collectable and then asks -- so the two
+   numbers side by side say whether the differences are alive.
+
+   It is affordable once a level: the map's chunks are int arrays, which
+   the collector does not scan. *)
+let ulive where =
+  let t0 = Unix.gettimeofday () in
+  Gc.full_major ();
+  let st = Gc.stat () in
+  Printf.printf
+    "   LIVE %6.2f GB of heap %6.2f GB (top %6.2f GB), rss %6.2f GB, \
+     collected in %.1f s -- %s\n%!"
+    (float_of_int st.Gc.live_words *. 8.0 /. 1e9)
+    (float_of_int st.Gc.heap_words *. 8.0 /. 1e9)
+    (float_of_int st.Gc.top_heap_words *. 8.0 /. 1e9)
+    (float_of_int (urss ()) /. 1e9)
+    (Unix.gettimeofday () -. t0) where
+
 (* ---- the phase one table, in the Rocq packing ---------------------------- *)
 
 (* Rocq's p1 is fifteen four bit entries to an int63 word, in chunks of two
@@ -2488,6 +2511,7 @@ let urow n =
   ugrew "the first map";
   let b = ref (umkemptyt "second") in
   ugrew "the second map";
+  ulive "the two maps, before any level";
   for d = 1 to n do
     let t0 = Sys.time () in
     let w0 = Unix.gettimeofday () in
@@ -2497,6 +2521,11 @@ let urow n =
            let r = if k = 0 then uprepmv0 k !a dst else uprepmv k !a dst in
            umove k t0;
            ugrew (Printf.sprintf "level %d, after move %d" d k);
+           (* INSIDE THE LEVEL, not at its end.  A fold whose frames still
+              hold the maps it has made would look innocent once the frames
+              are gone, so the question has to be asked while they are
+              there. *)
+           ulive (Printf.sprintf "level %d, after move %d" d k);
            r)
         !b in
     let tp = Sys.time () in
@@ -2517,6 +2546,7 @@ let urow n =
       d (tp -. t0) (ts -. tp) (Unix.gettimeofday () -. w0) !unodes
       (float_of_int (urss ()) /. 1e9);
     ugrew (Printf.sprintf "end of level %d" d);
+    ulive (Printf.sprintf "end of level %d" d);
     ureport ()
   done;
   (* mfull2 ycmfin (wmap rowwits) -- the witness map, then the full check *)
