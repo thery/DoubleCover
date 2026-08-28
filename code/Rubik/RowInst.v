@@ -302,9 +302,10 @@ Qed.
 (* search is 37.9 s and with this one 18.5.                                   *)
 Definition csolvedb (c : int) (x : pstt) : bool := Uint63.eqb c csolvedi.
 
+(* two maps, allocated once and swapped at every level                        *)
 Definition mfin : rmap :=
   run e8num e4bit mpg mgr msw mlo mhi p1 cstep xstep tomemb okmv csolvedb
-      croot sroot dsrch nlev 0 (mkempty tt).
+      croot sroot dsrch nlev 0 (mkempty tt) (mkempty tt).
 
 Variable wl : seq (int * int * int * seq nat).
 
@@ -971,8 +972,8 @@ Proof.
 (* wants the same n it adds to d.                                             *)
 rewrite /mfin -{2}[nlev]add0n.
 apply: (run_sound he8 he4 coord_root root_ball root_pok coord_step xstep_pok
-                  xstep_pos leaf_membW leaf_pos hmv_Sset grpmvP prep_move).
-exact: sound_mempty.
+                  xstep_pos leaf_membW leaf_pos hmv_Sset grpmvP prep_move);
+  exact: sound_mempty.
 Qed.
 
 Theorem row_within_20_inst : nlev = 20%N ->

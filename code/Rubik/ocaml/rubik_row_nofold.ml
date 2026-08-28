@@ -2084,6 +2084,16 @@ let uprepass2 (src : upmap) : upmap =
     (fun k d -> if k = 0 then uprepmv0 k src d else uprepmv k src d)
     (umkempty ())
 
+
+(* allocating one map: said before and after, since it is 6.51 GB of pages
+   that have to be touched and it is worth knowing what that costs *)
+let umkemptyt what =
+  Printf.printf "   %s: allocating a map ...%!" what;
+  let t0 = Sys.time () in
+  let m = umkempty () in
+  Printf.printf " %.1f s\n%!" (Sys.time () -. t0);
+  m
+
 (* the levels, one after another, with the heap and the rerooting after each *)
 let uleakg pass name n =
   Printf.printf
@@ -2094,7 +2104,7 @@ let uleakg pass name n =
   let s = solved () in
   let pg = rank s.cp 0 8 in
   let gr = e8num.(rank s.ep 0 8) lsr 1 and bt = e4bit.(rank s.ep 8 4) in
-  let m = ref (ugset winit (umkempty ()) (ugrpof pg gr) (1 lsl bt)) in
+  let m = ref (ugset winit (umkemptyt "start") (ugrpof pg gr) (1 lsl bt)) in
   for d = 1 to n do
     let t0 = Sys.time () in
     m := pass !m;
@@ -2108,10 +2118,61 @@ let uleakg pass name n =
   done;
   exit 0
 
-let uleak n = uleakg uprepass "source read" n
-(* the level that leaves the source alone claims the invariant, so it is run
-   under it: any old version at all stops the program. *)
-let uleak2 n = P.strict := true; uleakg uprepass2 "fresh destination" n
+(* A LEVEL IS TEN MOVES AND EACH IS A PASS OVER THE WHOLE MAP, so a level
+   that does not end says nothing at all.  This prints after each of them:
+   the move, the time it took, the heap, and what the counters have seen. *)
+let umove k t0 =
+  let st = Gc.quick_stat () in
+  Printf.printf
+    "   move %2d  %7.1f s  heap %6.2f GB  old versions %d, steps %d\n%!"
+    k (Sys.time () -. t0)
+    (float_of_int (st.Gc.heap_words * 8) /. 1e9)
+    !P.reroots !P.rerootsteps
+
+let uprepassv (src : upmap) : upmap =
+  ifold nhn 0
+    (fun k d -> let t0 = Sys.time () in
+                let r = uprepmv k src d in umove k t0; r)
+    src
+
+let uleak n = uleakg uprepassv "source read" n
+
+(* TWO MAPS, ALLOCATED ONCE, TAKING IT IN TURNS.  The destination at level d
+   is the map level d minus two left behind, and its bits are a subset of the
+   source's, so it needs no clearing: source, moves and what is already there
+   is exactly level d.  So nothing is allocated after the start, the source is
+   never written, and the footprint is two maps and stays there.  It runs
+   under `strict': any old version at all stops the program. *)
+let uleak2 n =
+  P.strict := true;
+  Printf.printf
+    "unfolded, persistent, two maps: %d pages x %d groups = %d words,      %d chunks, %.2f GB each\n%!"
+    npage ngroup (npage * ngroup) unchunk
+    (float_of_int (unchunk * ucsize * 8) /. 1e9);
+  let s = solved () in
+  let pg = rank s.cp 0 8 in
+  let gr = e8num.(rank s.ep 0 8) lsr 1 and bt = e4bit.(rank s.ep 8 4) in
+  let a = ref (ugset winit (umkemptyt "first") (ugrpof pg gr) (1 lsl bt)) in
+  let b = ref (umkemptyt "second") in
+  for d = 1 to n do
+    let t0 = Sys.time () in
+    b := ifold nhn 0
+           (fun k dst ->
+              let t0 = Sys.time () in
+              let r =
+                if k = 0 then uprepmv0 k !a dst else uprepmv k !a dst in
+              umove k t0; r)
+           !b;
+    let t = !a in a := !b; b := t;
+    let st = Gc.quick_stat () in
+    Printf.printf
+      "level %2d  %7.1f s  heap %6.2f GB  old versions %d, steps %d\n%!"
+      d (Sys.time () -. t0)
+      (float_of_int (st.Gc.heap_words * 8) /. 1e9)
+      !P.reroots !P.rerootsteps;
+    ureport ()
+  done;
+  exit 0
 
 let () =
   (* `dumptab' writes the twelve tables of one row as Rocq lists, in the

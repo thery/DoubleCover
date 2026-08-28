@@ -266,9 +266,11 @@ Qed.
 
 (* ---- the map the run leaves ---------------------------------------------- *)
 
+(* two maps, allocated once and swapped at every level                        *)
 Definition ymfin : PArray.array arr :=
   run e8num e4bit mpg mgr msw mlo mhi p1 (RowInst.cstep fsstep) zstepi
-      ytomemb okmv ycsolved RowInst.croot yrooti dsrch nlev 0 (mkempty tt).
+      ytomemb okmv ycsolved RowInst.croot yrooti dsrch nlev 0
+      (mkempty tt) (mkempty tt).
 
 Lemma ymfin_sound :
   soundat e8inv e4of par8 par4
@@ -278,8 +280,8 @@ rewrite /ymfin -{2}[nlev]add0n.
 apply: (run_sound he8 he4 ycoord_root yroot_ball yroot_pok ycoord_step
                   yxstep_pok yxstep_pos yleaf_memb yleaf_pos
                   RowInst.hmv_Sset (RowInst.grpmvP hsrc hhalf)
-                  (RowInst.prep_move memb2tab_ok hpg hgr hbt memb2tab_move)).
-exact: RowInst.sound_mempty.
+                  (RowInst.prep_move memb2tab_ok hpg hgr hbt memb2tab_move));
+  exact: RowInst.sound_mempty.
 Qed.
 
 (* ---- and the row --------------------------------------------------------- *)
