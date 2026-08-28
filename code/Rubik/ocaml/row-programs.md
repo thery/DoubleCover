@@ -114,3 +114,36 @@ The two programs have only been compared at cap 9, where the old one reads
 2.2 GB and has no move information at all. The comparison that counts is cap
 12, where the old one drags 17.7 GB about — that is the cost the fold exists
 to remove, and none of it shows in the 1.4× above. It needs roquableu.
+
+## The twin of the Rocq run, 2026-08-28
+
+`./rubik_row_nofold urow 20` is `RowCubRun.v` transcribed -- not a faster
+row, and it counts nothing. It exists to answer one question about the run
+that was killed on roquableu: does the shape grow, or is it the evaluator?
+
+It makes the allocations RowCubRun makes, the same number of times and in
+the same order: the map in chunks of two million words, `prepmv0` then nine
+`prepmv` page by page and group by group, the phase one table in Rocq's
+fifteen-nibbles-to-a-word packing at cap nine, `p1get`, `zstepi`'s fresh
+twenty a node with its four table reads a place, and at a leaf `y2ti`'s
+forty eight, `inv_tabi`'s forty eight and `ti2t`'s forty eight cons cells.
+Then `wmapof` -- **a THIRD map of six and a half gigabytes, made from
+nothing and marked thirty two times** -- and `mfull2` over all 812 851 200
+groups. Nineteen and a half gigabytes of map, not thirteen.
+
+What it reports:
+
+- `P.strict` is on, so the first read of a version after it has been
+  written stops the program and names which of the five map operations did
+  it, on which map;
+- the resident size from `/proc/self/statm`, with a `GREW to ... at ...`
+  line every time it passes its own high water mark by a quarter of a
+  gigabyte -- after each of the ten prepass moves, every 2^24 search nodes,
+  at each level boundary and through `mfull2`.
+
+NOT literal, and said so in the source: the four tables `y2ti` reads are
+placeholders of the right size, and the member that is marked is read off
+the twenty rather than off the forty eight. Reproducing RowCubi's facelet
+layout in OCaml is a separate job and changes no allocation.
+
+It wants about 21 GB and `phase1_cap9.tbl`.
