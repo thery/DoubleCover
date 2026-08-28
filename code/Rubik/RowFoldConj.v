@@ -347,3 +347,31 @@ have hcom : commute ((pt 47 (cpart cX) * pt 47 (upart uX) * pt 47 (mpart mX))
   by apply: commute_sym; apply: (pt_comm puY prZ duz).
 by rewrite hsig (conj_drop hcom).
 Qed.
+
+(* ---- the parities the two sides are read at ------------------------------ *)
+
+(* `unplace' reads a member's outer edges at the parity par8[pg] xor          *)
+(* par4[e4of bt], and the fold writes at fpar w xor the bit's half.  These    *)
+(* three say the two are the same number, on both sides of the fold.          *)
+
+(* the half of a word IS the parity of its middle permutation *)
+Definition parbtC : bool :=
+  iter nbitn 0%uint63 (fun bt =>
+    ((if (bt <? 12)%uint63 then 0 else 1)%uint63
+      =? PArray.get par4i (PArray.get e4ofi bt))%uint63).
+Lemma parbtCP : parbtC. Proof. by vm_compute. Qed.
+
+(* a renaming keeps the parity of a page ... *)
+Definition parKC : bool :=
+  iter npagen 0%uint63 (fun pg =>
+    (PArray.get par8i (PArray.get fkeepi (fkpt (PArray.get fpgi pg)))
+      =? PArray.get par8i pg)%uint63).
+Lemma parKCP : parKC. Proof. by vm_compute. Qed.
+
+(* ... and of a middle permutation, so the same parity indexes both sides *)
+Definition parBC : bool :=
+  iter 16 0%uint63 (fun u =>
+    iter nbitn 0%uint63 (fun bt =>
+      (PArray.get par4i (PArray.get e4ofi (sbtmv fsbti u bt))
+        =? PArray.get par4i (PArray.get e4ofi bt))%uint63)).
+Lemma parBCP : parBC. Proof. by vm_compute. Qed.
