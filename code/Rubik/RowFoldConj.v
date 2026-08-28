@@ -59,3 +59,44 @@ Definition lpcrngC : bool :=
       (iota 0 16).
 
 Lemma lpcrngCP : lpcrngC. Proof. by vm_compute. Qed.
+
+(* the sixteen worked out as values are the sixteen lperm reads *)
+Definition lpcsC : bool :=
+  all (fun s => nth [::] lpcs s == lperm cflatp 3 8 cposn (sy s)) (iota 0 16).
+
+Lemma lpcsCP : lpcsC. Proof. by vm_compute. Qed.
+
+Lemma lpcsE s : (s < 16)%N -> nth [::] lpcs s = lperm cflatp 3 8 cposn (sy s).
+Proof. by move=> hs; apply/eqP; apply: (aiota_lt lpcsCP hs). Qed.
+
+(* and a page names one of the sixteen *)
+Definition frnC : bool :=
+  iter npagen 0%uint63
+    (fun pg => (nth 0%N fren2sym (to_nat (fren (PArray.get fpgi pg))) < 16)%N).
+
+Lemma frnCP : frnC. Proof. by vm_compute. Qed.
+
+(* ---- THE CORNER PART, CONJUGATED --------------------------------------- *)
+
+(* The corner part of the kept page is the corner part of the page,          *)
+(* conjugated by the renaming that folds it.  Every ingredient part_conj     *)
+(* asks for is a sweep that has been run: the layout, the slot map, the      *)
+(* places, and the three ranges.                                            *)
+Lemma cpart_conj pg : (to_nat pg < npagen)%N -> up8ok1 pg ->
+  comp_tab (part cflatp 3 inC cposn cslotn (up8 pg))
+           (restr inC (sy (nth 0%N fren2sym (to_nat (fren (PArray.get fpgi pg))))))
+  = comp_tab (restr inC (sy (nth 0%N fren2sym (to_nat (fren (PArray.get fpgi pg))))))
+             (part cflatp 3 inC cposn cslotn
+                (up8 (PArray.get fkeepi (fkpt (PArray.get fpgi pg))))).
+Proof.
+move=> hpg hok.
+set s := nth 0%N fren2sym _.
+have hs : (s < 16)%N by apply: (Row.iter_at frnCP hpg).
+apply: (@part_conj cflatp 3 8 inC cposn cslotn _ _ (swc s)).
+- exact: clayokC.
+- by apply: (aiota_lt csymCP hs).
+- rewrite -(lpcsE hs); exact: (Row.iter_at pgconjCP hpg).
+- exact: up8_rng hok.
+- by rewrite -(lpcsE hs); apply: (aiota_lt lpcrngCP hs).
+by have /and3P[h _ _] := aiota_lt swrngCP hs.
+Qed.
