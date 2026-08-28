@@ -2137,6 +2137,399 @@ let uprepassv (src : upmap) : upmap =
 
 let uleak n = uleakg uprepassv "source read" n
 
+(* =========================================================================
+   RowCubRun.v, TRANSCRIBED -- THE ALLOCATIONS, IN THE ORDER ROCQ MAKES THEM.
+
+   This is not a faster row and it counts nothing.  It is the Rocq run's
+   persistent-array traffic and nothing else: every PArray.make, every
+   PArray.set and every PArray.get that RowCubRun performs is performed here,
+   the same number of times and in the same order, so that
+
+     - P.strict says at once if any version is ever read after it has been
+       written, and which of the operations did it, and
+     - the resident size is reported every time it grows, with where the run
+       was when it grew.
+
+   WHAT IS FAITHFUL: the map and its two chunks-of-two-million layout, the
+   prepass (prepmv0 then nine prepmv, page by page and group by group), the
+   phase one table in Rocq's fifteen-nibbles-to-a-word packing, p1get, the
+   search tree (the real coordinate, the real pruning table at cap nine, the
+   real redundancy rule), zstepi's fresh twenty a node with its four table
+   reads a place, and at a leaf y2ti's forty eight, inv_tabi's forty eight
+   and ti2t's forty eight cons cells.
+
+   WHAT IS NOT: the CONTENTS of the four tables y2ti reads are placeholders
+   of the right size, and the member that is marked is read off the twenty
+   rather than off the forty eight.  Reproducing RowCubi's facelet layout in
+   OCaml is a separate job and it changes no allocation -- the same arrays
+   are made, the same slots written, the same reads done.  The bit that goes
+   into the map is the right bit either way.
+   ========================================================================= *)
+
+(* ---- watching the resident size ------------------------------------------ *)
+
+(* THE HEAP IS NOT THE FOOTPRINT.  What the OOM killer reads is the resident
+   size, so that is what is watched: /proc/self/statm, second field, in
+   pages.  A line is printed only when it has grown past its own high water
+   mark by a quarter of a gigabyte, so a run that is merely slow is silent
+   and a run that is growing says so, and says where it was. *)
+let uhwm = ref 0
+let ustep = 268435456                        (* a quarter of a gigabyte      *)
+
+let urss () =
+  try
+    let ic = open_in "/proc/self/statm" in
+    let l = input_line ic in
+    close_in ic;
+    (match String.split_on_char ' ' l with
+     | _ :: r :: _ -> int_of_string r * 4096
+     | _ -> 0)
+  with _ -> 0
+
+let ugrew where =
+  let r = urss () in
+  if r > !uhwm + ustep then begin
+    uhwm := r;
+    let st = Gc.quick_stat () in
+    Printf.printf "   GREW to %6.2f GB resident (heap %6.2f GB) at %s\n%!"
+      (float_of_int r /. 1e9)
+      (float_of_int (st.Gc.heap_words * 8) /. 1e9) where
+  end
+
+(* ---- the phase one table, in the Rocq packing ---------------------------- *)
+
+(* Rocq's p1 is fifteen four bit entries to an int63 word, in chunks of two
+   million words -- seventy one of them for the 2 217 093 120 coordinates.
+   p1gen builds it at CAP NINE (mkp1.sh calls `p1gen 9'), so a distance over
+   nine reads as ten.  phase1_cap9.tbl on this side is the same numbers, one
+   byte each, and this packs them the way Rocq stores them. *)
+let up1w = 15                                (* entries to a word            *)
+let up1log = 21                              (* RowRun's cwlogi              *)
+let up1msk = 2097151                         (* and its cwmaski              *)
+let up1size = 2097152
+
+let up1load () : int P.t P.t =
+  let path = "phase1_cap9.tbl" in
+  if not (Sys.file_exists path) then begin
+    prerr_endline (path ^ " is not there: ./rubik_row_nofold 9 20 build");
+    exit 1 end;
+  let fd = Unix.openfile path [Unix.O_RDONLY] 0o644 in
+  let n_all = n_twist * n_flip * n_slice in
+  let praw = Bigarray.array1_of_genarray
+      (Unix.map_file fd Bigarray.char Bigarray.c_layout false [| n_all |]) in
+  Unix.close fd;
+  let nw = (n_all + up1w - 1) / up1w in
+  let nch = (nw + up1size - 1) / up1size in
+  Printf.printf "the phase one table: %d words, %d chunks, %.2f GB\n%!"
+    nw nch (float_of_int (nch * up1size * 8) /. 1e9);
+  let m = ref (P.make nch (P.make 1 0)) in
+  for c = 0 to nch - 1 do
+    let a = Array.make up1size 0 in
+    let base = c * up1size in
+    for i = 0 to up1size - 1 do
+      let w = base + i in
+      if w < nw then begin
+        let v = ref 0 in
+        for r = 0 to up1w - 1 do
+          let j = w * up1w + r in
+          if j < n_all then
+            v := !v lor
+                 (Char.code (Bigarray.Array1.unsafe_get praw j) lsl (r * 4))
+        done;
+        a.(i) <- !v
+      end
+    done;
+    m := P.set !m c (ref (P.Array a));
+    if c mod 10 = 0 || c = nch - 1 then
+      Printf.printf "   chunk %d of %d\n%!" c nch
+  done;
+  ugrew "the phase one table";
+  !m
+
+(* Definition p1get c := ... -- RowRun.v, word for word *)
+let up1get (p1 : int P.t P.t) (c : int) : int =
+  let w = c / up1w in
+  let r = c - w * up1w in
+  let ch = w lsr up1log in
+  let o = w land up1msk in
+  (P.get (P.get p1 ch) o lsr (r * 4)) land 15
+
+(* ---- the twenty cubies, and the three tables a move reads ---------------- *)
+
+(* RowCubi's zstepi:
+     foldi 20 0 (setf (fun j => tturni (offi (b+j) + x (ymvpi (b+j)))))
+                (PArray.make 20 0)
+   -- one make of twenty, then twenty times: three table reads, one read of
+   the twenty being stepped, and one write.  The twenty is never written on;
+   a fresh one is made at every node, which is the allocation this file
+   exists to reproduce.
+
+   A place holds three times the cubie plus its twist for the eight corners
+   and twice the cubie plus its flip for the twelve edges, so every entry is
+   under twenty four either way and one turn table serves both. *)
+let unsml = 20
+let un20 = unat_of 20
+
+(* which place a move reads for each of the twenty *)
+let uymvpi = pof (Array.init (18 * unsml) (fun i ->
+  let k = i / unsml and j = i mod unsml in
+  if j < 8 then moves.(k).cp.(j) else 8 + moves.(k).ep.(j - 8)))
+
+(* and by how much it turns what it finds, as an offset into the turn table *)
+let uoffi = pof (Array.init (18 * unsml) (fun i ->
+  let k = i / unsml and j = i mod unsml in
+  24 * (if j < 8 then moves.(k).co.(j) else 3 + moves.(k).eo.(j - 8))))
+
+(* the turn table: rows nought to two add a twist, three and four a flip *)
+let utturni = pof (Array.init (6 * 24) (fun i ->
+  let o = i / 24 and v = i mod 24 in
+  if o < 3 then 3 * (v / 3) + (v mod 3 + o) mod 3
+  else 2 * (v / 2) + ((v land 1) lxor (o - 3))))
+
+let uzstepi (x : int P.t) (k : int) : int P.t =
+  let b = k * unsml in
+  ifold un20 0
+    (fun j a ->
+       P.set a j
+         (P.get utturni
+            (P.get uoffi (b + j) + P.get x (P.get uymvpi (b + j)))))
+    (P.make unsml 0)
+
+(* ---- what a leaf builds -------------------------------------------------- *)
+
+(* RowCubRun's leaf is  plc (tomembi (y2ti y)) , and that is THREE forty
+   eight place structures, made and thrown away at every answer:
+
+     y2ti      a fresh forty eight, six table reads and a write a place
+     inv_tabi  a second fresh forty eight, read and written a place
+     ti2t      a list of forty eight, read a place
+
+   then twenty rank steps over that list.  The tables below are the right
+   sizes and are read the right number of times; their contents are not
+   RowCubi's, for the reason given at the top of this section. *)
+let unfi = 48
+let un48 = unat_of 48
+
+let ulofsi = pof (Array.init unfi (fun f -> f))
+let utoffi = pof (Array.init unfi (fun f -> 24 * (f mod 6)))
+let uplii = pof (Array.init unfi (fun f -> f mod unsml))
+let ulaycomb = pof (Array.init (unfi * 24) (fun i -> i mod unfi))
+
+let uy2ti (y : int P.t) : int P.t =
+  ifold un48 0
+    (fun f a ->
+       P.set a
+         (P.get ulaycomb
+            (P.get ulofsi f
+             + P.get utturni (P.get utoffi f + P.get y (P.get uplii f))))
+         f)
+    (P.make unfi 0)
+
+(* Tabi's inv_tabi: a second forty eight, the inverse of the first *)
+let uinv_tabi (a : int P.t) : int P.t =
+  ifold un48 0 (fun f b -> P.set b (P.get a f) f) (P.make unfi 0)
+
+(* Tabi's ti2t: the array read out as a list, which is what tomemb ranks *)
+let uti2t (a : int P.t) : int list =
+  let r = ref [] in
+  for f = unfi - 1 downto 0 do r := P.get a f :: !r done;
+  !r
+
+(* ---- the mark ------------------------------------------------------------ *)
+
+(* Row's place, on the member tomemb read: the page is the corner rank, the
+   group the outer edge number without its parity bit, the bit the middle
+   four.  THE RANKS ARE TAKEN FROM THE TWENTY, not from the list above -- see
+   the top of this section; the member is the same member either way. *)
+let ub8 = Array.make 8 0
+let ub12 = Array.make 12 0
+
+let umark (m : upmap) (x : int P.t) (u : int list) : upmap =
+  ignore u;
+  for i = 0 to 7 do ub8.(i) <- P.get x i / 3 done;
+  for i = 0 to 11 do ub12.(i) <- P.get x (8 + i) / 2 done;
+  let pg = rank ub8 0 8 in
+  let gr = e8num.(rank ub12 0 8) lsr 1 and bt = e4bit.(rank ub12 8 4) in
+  ugor wdst m (ugrpof pg gr) (1 lsl bt)
+
+(* ---- the search, the level and the run ----------------------------------- *)
+
+let usrch = 16                       (* RowReal's srch                       *)
+let unodes = ref 0
+
+(* RowReal's okmvv, literally: fk + 3 and NOT (fk + 3) mod 6 *)
+let uokmv pv k =
+  pv >= 18 || (let fp = pv / 3 and fk = k / 3 in fp <> fk && fp <> fk + 3)
+
+(* WHERE THE RUN GOES QUIET.  A level is ten passes over the map, each of
+   which says so when it ends, and then ONE search that says nothing at all
+   until it comes back -- and at sixteen that is the part that runs for
+   hours.  Every 2^24 nodes the search says how long it has been going and
+   how many nodes it has seen, and asks whether the resident size has
+   grown. *)
+let usmask = 16777215                        (* 2^24 - 1                     *)
+let ust0 = ref 0.0
+let usd = ref 0
+
+let usay () =
+  Printf.printf "     search %2d  %8.1f s  %14d nodes  rss %6.2f GB\n%!"
+    !usd (Unix.gettimeofday () -. !ust0) !unodes
+    (float_of_int (urss ()) /. 1e9);
+  ugrew (Printf.sprintf "search %d, %d nodes" !usd !unodes)
+
+(* RowRun's srch.  The mask is not tested: wmask is allmv at every node, so
+   the test never cuts anything and leaving it out changes no tree. *)
+let rec ufsrch p1 ucstep ucsolvedc togo c x pv (m : upmap) : upmap =
+  incr unodes;
+  if !unodes land usmask = 0 then usay ();
+  if togo = 0 then
+    (if c = ucsolvedc then
+       (* plc (tomembi (y2ti y)) -- the three forty eights, then the mark *)
+       let t = uy2ti x in
+       let ti = uinv_tabi t in
+       let u = uti2t ti in
+       umark m x u
+     else m)
+  else
+    ifold un18 0
+      (fun k mm ->
+         if not (uokmv pv k) then mm
+         else
+           let c' = ucstep c k in
+           let nd = up1get p1 c' in
+           if nd <= togo - 1 then
+             ufsrch p1 ucstep ucsolvedc (togo - 1) c' (uzstepi x k) k mm
+           else mm)
+      m
+
+(* ---- the witnesses, and the check that ends the run ---------------------- *)
+
+(* RowWits.v's thirty two members, page, group and bit.  The words that
+   settle them are played back by RowFinal.wok and are no part of what the
+   run allocates, so only the three numbers are here. *)
+let uwits = [
+  (5,5,0); (5,14,0); (5,23,16); (14,5,0); (14,7,21); (14,14,0);
+  (1560,1560,0); (1560,5040,0); (1560,8280,16); (10800,120,21);
+  (10800,1560,0); (10800,5040,0); (28785,17217,14); (28785,20151,11);
+  (28794,14397,11); (28794,17211,19); (29503,14759,11); (29503,19374,14);
+  (29519,14749,3); (29519,19373,14); (38743,14754,19); (38743,19369,11);
+  (38759,14753,19); (38759,19379,3); (40305,12597,14); (40305,14391,3);
+  (40314,12591,19); (40314,20157,3); (10800,120,16); (14,7,16);
+  (1560,8280,21); (5,23,21) ]
+
+(* RowFinal's wmapof: a THIRD map of the same six and a half gigabytes, made
+   from nothing and then marked thirty two times.  Thirty two bits cost a
+   whole map because mfull2 wants something it can read at every group. *)
+let uwmap () : upmap =
+  let m = ref (umkemptyt "witnesses") in
+  List.iter
+    (fun (pg, gr, bt) -> m := ugor winit !m (ugrpof pg gr) (1 lsl bt))
+    uwits;
+  !m
+
+let uallbits = 16777215                      (* RowMap's allbits             *)
+
+(* RowMap's mfull2: every page, every group, a word of each map read and
+   ored, and the walk stops at the first group that is not full -- iter is
+   a conjunction and && does not look at its second argument. *)
+let umfull2 (m1 : upmap) (m2 : upmap) : bool =
+  let ok = ref true in
+  let pg = ref 0 in
+  while !ok && !pg < npage do
+    let gr = ref 0 in
+    while !ok && !gr < ngroup do
+      let g = ugrpof !pg !gr in
+      if ugget wsrc m1 g lor ugget wdst m2 g <> uallbits then ok := false;
+      incr gr
+    done;
+    if !pg land 4095 = 0 then
+      ugrew (Printf.sprintf "mfull2, page %d" !pg);
+    incr pg
+  done;
+  if not !ok then
+    Printf.printf "   mfull2 stopped at page %d\n%!" !pg;
+  !ok
+
+(* THE RUN.  Twenty levels, two maps taking it in turns: the level reads one
+   and fills the other, and what it wrote is the next level's source. *)
+let urow n =
+  P.strict := true;
+  let mt_twist = mk_move_table n_twist cube_of_twist twist in
+  let mt_flip = mk_move_table n_flip cube_of_flip flip in
+  let mt_slice = mk_move_table n_slice cube_of_slice slice in
+  let p1 = up1load () in
+  let ucstep c k =
+    let tw = c / lnfs and fs = c mod lnfs in
+    let f = fs / n_slice and sl = fs mod n_slice in
+    mt_twist.(tw).(k) * lnfs
+    + (mt_flip.(f).(k) * n_slice + mt_slice.(sl).(k)) in
+  (* the row's own root: the superflip, as RowReal names it *)
+  let rep = ref (solved ()) in
+  List.iter (fun m -> rep := mult !rep moves.(m))
+    (parse_moves "U R2 F B R B2 R U2 L B2 R U' D' R2 F R' L B2 U2 F2");
+  let rep = !rep in
+  let croot = twist rep * lnfs + (flip rep * n_slice + slice rep) in
+  let sroot =
+    ifold un20 0
+      (fun j a ->
+         P.set a j
+           (if j < 8 then 3 * rep.cp.(j) + rep.co.(j)
+            else 2 * rep.ep.(j - 8) + rep.eo.(j - 8)))
+      (P.make unsml 0) in
+  let s = solved () in
+  let ucsolvedc = twist s * lnfs + (flip s * n_slice + slice s) in
+  Printf.printf
+    "unfolded, the twenty carried: %d pages x %d groups = %d words, %d chunks, %.2f GB a map\n%!"
+    npage ngroup (npage * ngroup) unchunk
+    (float_of_int (unchunk * ucsize * 8) /. 1e9);
+  Printf.printf "the row's root is %d from H, the search stops at %d\n%!"
+    (up1get p1 croot) usrch;
+  let a = ref (umkemptyt "first") in
+  ugrew "the first map";
+  let b = ref (umkemptyt "second") in
+  ugrew "the second map";
+  for d = 1 to n do
+    let t0 = Sys.time () in
+    let w0 = Unix.gettimeofday () in
+    let m' = ifold nhn 0
+        (fun k dst ->
+           let t0 = Sys.time () in
+           let r = if k = 0 then uprepmv0 k !a dst else uprepmv k !a dst in
+           umove k t0;
+           ugrew (Printf.sprintf "level %d, after move %d" d k);
+           r)
+        !b in
+    let tp = Sys.time () in
+    let go = d <= usrch && up1get p1 croot <= d in
+    Printf.printf
+      "level %2d  prepass %7.1f s (wall %7.1f)  rss %6.2f GB  %s\n%!"
+      d (tp -. t0) (Unix.gettimeofday () -. w0)
+      (float_of_int (urss ()) /. 1e9)
+      (if go then "search starting" else "no search at this depth");
+    ureport ();
+    usd := d; ust0 := Unix.gettimeofday ();
+    let m' =
+      if go then ufsrch p1 ucstep ucsolvedc d croot sroot 18 m' else m' in
+    let ts = Sys.time () in
+    b := !a; a := m';
+    Printf.printf
+      "level %2d  DONE  prepass %7.1f s  search %7.1f s  wall %7.1f  %d nodes  rss %6.2f GB\n%!"
+      d (tp -. t0) (ts -. tp) (Unix.gettimeofday () -. w0) !unodes
+      (float_of_int (urss ()) /. 1e9);
+    ugrew (Printf.sprintf "end of level %d" d);
+    ureport ()
+  done;
+  (* mfull2 ycmfin (wmap rowwits) -- the witness map, then the full check *)
+  let w = uwmap () in
+  ugrew "the witness map";
+  ureport ();
+  let t0 = Unix.gettimeofday () in
+  let r = umfull2 !a w in
+  Printf.printf "mfull2 = %b  (%.1f s, rss %6.2f GB)\n%!"
+    r (Unix.gettimeofday () -. t0) (float_of_int (urss ()) /. 1e9);
+  ureport ();
+  exit 0
+
 (* TWO MAPS, ALLOCATED ONCE, TAKING IT IN TURNS.  The destination at level d
    is the map level d minus two left behind, and its bits are a subset of the
    source's, so it needs no clearing: source, moves and what is already there
@@ -2280,6 +2673,8 @@ let () =
     uleak (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "uleak2" then
     uleak2 (int_of_string Sys.argv.(2));
+  if Array.length Sys.argv > 2 && Sys.argv.(1) = "urow" then
+    urow (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "lsrch" then
     lsrchrun (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 1 && Sys.argv.(1) = "ptest" then ptest ();

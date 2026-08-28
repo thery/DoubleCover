@@ -170,6 +170,12 @@ Nothing in the four files. What is missing is the file that supplies them:
   Written the other way, with `npagen := 40320`, the `Qed` of the one lemma
   that reads a check took **41 seconds**; defined as `to_nat npagei` it is
   instant.
+- **`of_nat` INSIDE A SWEEP is the same trap a third time.** It walks its
+  argument, so naming a slot of the 645 120 entry fold group table in `nat`
+  costs 645 120 steps to build the number -- and `RowFoldSym`'s sweep asks
+  for one at every group of every renaming. About 10^11 steps, which does
+  not finish. The same indices in `int63` are two multiplications and an
+  addition, and the file is five minutes.
 - **A side goal about `nwB` left to `//` never comes back** -- `nwB` is
   2 ^ 63 in unary. Every `to_nat_add`, `to_nat_mul` side condition here is
   discharged by hand for that reason.
