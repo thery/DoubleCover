@@ -85,20 +85,17 @@ inverse on the inside, and the other way round fails on four of the sixteen.
 The member fact then follows the way `RowMemb.memb2tab_move` follows from
 its own checks.
 
-### The old wording of this section
+**The pages** — done too, in the same file. A page is a rank of the eight
+corners, so the same conjugation says what a renaming does to it.
 
-Two facts about the generated tables, checked and not proved, in the shape
-`RowRun` already uses for `grpmvP` and `prep_move`:
+- `fpgC`: a page folds to a kept page through the renaming it names, and the
+  word carries that page's own parity. 40320 of them.
+- `fsrcC`: for a kept page and a move, rename the kept page the word names
+  and the move sends the answer to the page being filled -- which is what
+  gathering means. The parity carried here is the SOURCE page's, not the
+  filled page's. 2768 x 10 of them.
 
-- `fsrc` says, for a kept page and a move, which kept page the move gathers
-  from and through which renaming. What has to hold is that the member at
-  the destination is that move played on the renamed source member.
-- `fsgr`, `fslo`, `fshi`, `fsbt` are the renaming acting on a group and on
-  the bits. What has to hold is that a bit they set came from a bit of the
-  word they were given, and that the member relation is the renaming.
-
-`fkeepi` (in `RowFoldTab.v`, from `fkeep_data`) gives a page for each kept
-number, which is what makes the source side of that statement sayable.
+So all six fold tables are checked. The whole file is 346 s.
 
 ## Why it is worth it
 
