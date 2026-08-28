@@ -66,6 +66,22 @@ would read but its image under one of the sixteen, and `Sym16Row.sym16_row`
 is what says that costs nothing. All six tables those two statements speak
 about are now checked.
 
+**And `Porb` -- members that fold together stand or fall together -- which
+`RowFoldOk` assumes and nobody had discharged.** It comes in two halves and
+the first is done, in `RowFoldMem.v`:
+
+- `fslot_inj`: a chunk and an offset name one kept page and one group. The
+  offset a page starts at plus a group is exactly `RowMap`'s `grpof` of the
+  page inside the chunk, so `grpof_inj` settles it, and `int_add_mod` puts
+  the page number back together from its quotient and its remainder --
+  going through `to_nat` there does not come back.
+- `forb_same`: so `Porb`'s three premises name one kept page, one group and
+  one bit.
+
+What is left of `Porb` is that the place a member folds to holds that member
+**renamed**, which is where the six checked tables are finally spent, and
+then `Sym16Row.sym16_ball` says the ball does not notice.
+
 And then a folded `RowInst`/`RowFinal`, so that `RowFoldCubRun.v` has a
 theorem to print the assumptions of.
 
