@@ -57,6 +57,23 @@ whatever it does to the map it leaves it sound at the depth it was called at
 and as long as it found it. That is one hypothesis, `extP`, and the mark
 inside it is `RowFoldOk.soundatf_fmark`.
 
+### What the two write obligations will need
+
+They are the last mathematics. A word gathered by move `k` into the page
+being filled must be one move of H out from a member the source had, and the
+source is read THROUGH A RENAMING -- so the step is a renaming AND a move,
+where `fold_conj` was a renaming alone.
+
+The plan is the same three-part cut, with one lemma added at each part:
+`part_conj` for the renaming (proved) and `RowMemb.part_move` for the move
+(proved), composed. And the page leg is ALREADY DONE: `RowFoldSym.fsrcC` is
+exactly it -- rename the kept source page and the move sends the answer to
+the page being filled.
+
+What is left is the group leg and the bit leg, in the shape `uconjC` and
+`mconjC` have but with the move table composed in, and then the assembly the
+way `fold_conj_pt` assembles its three.
+
 **What is left is the two write obligations**, `Qlo_st` and `Qhi_st`, stated in
 `RowFoldLvl.v` in the shape `RowRun.v` uses for `grpmvP` and `prep_move`: a
 member that reads a bit of the word gathered for the low (resp. high) half
