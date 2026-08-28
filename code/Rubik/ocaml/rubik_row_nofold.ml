@@ -2398,7 +2398,12 @@ let usay () =
   Printf.printf "     search %2d  %8.1f s  %14d nodes  rss %6.2f GB\n%!"
     !usd (Unix.gettimeofday () -. !ust0) !unodes
     (float_of_int (urss ()) /. 1e9);
-  ugrew (Printf.sprintf "search %d, %d nodes" !usd !unodes)
+  ugrew (Printf.sprintf "search %d, %d nodes" !usd !unodes);
+  (* THE SEARCH TOO.  A fresh twenty a node and three forty eights an answer
+     is a great deal of rubbish, and the prepass's collections do not happen
+     here -- so the same question has to be asked inside the search or its
+     growth says nothing. *)
+  ulive (Printf.sprintf "search %d, %d nodes" !usd !unodes)
 
 (* RowRun's srch.  The mask is not tested: wmask is allmv at every node, so
    the test never cuts anything and leaving it out changes no tree. *)
