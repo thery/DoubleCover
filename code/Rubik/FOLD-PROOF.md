@@ -112,10 +112,25 @@ and at corner place 0 the sixteen split evenly -- eight give the slot map
 three, so eight of the sixteen REVERSE a corner's facelets and no `tw` can
 say it.
 
-So what `fold_conj` needs is a third variant of `part`, with an arbitrary
-slot permutation for each place, and a conjugation version of `part_move`
-over it. That is the shape of the remaining work, and it is why this is a
-day and not an evening.
+**But the slot map does not depend on the place**, and that is measured too:
+
+    same_across = true
+
+Renaming 1 gives the slot map `[0;2;1]` at every one of the eight corner
+places, and so it goes for all sixteen. So the variant `fold_conj` needs is
+not an arbitrary slot permutation for each place -- it is ONE slot
+permutation for the whole renaming, applied uniformly:
+
+    parts lay nsl inL plc slt u sw :=
+      mkseq (fun f => if inL f then lay[u (plc f) * nsl + sw (slt f)] else f) 48
+
+which is `part` with a single extra argument, much closer to it than `partt`
+is. And because that `sw` is global, in a conjugation the one from the
+renaming and the one from its inverse cancel: the conjugate of a
+slot-preserving part is slot-preserving again, which is what makes the three
+parts reassemble the way `memb2tab_move` reassembles them.
+
+That is the shape of the remaining work.
 
 And then a folded `RowInst`/`RowFinal`, so that `RowFoldCubRun.v` has a
 theorem to print the assumptions of.
