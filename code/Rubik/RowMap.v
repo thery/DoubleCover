@@ -516,8 +516,35 @@ Definition prepmv (k : int) (src : rmap) (dst : rmap) : rmap :=
          d)
     dst.
 
-(* the whole prepass: carry the map over, then play the ten moves on it       *)
-Definition prepass (src : rmap) : rmap :=
-  ifold nhn 0%uint63 (fun k d => prepmv k src d) src.
+(* THE SAME MOVE, ALSO CARRYING THE SOURCE ACROSS.  A bit already set has to *)
+(* survive the level, and this is the only place that is owed.  It is done    *)
+(* here rather than in a pass of its own because the word is already in hand. *)
+Definition prepmv0 (k : int) (src : rmap) (dst : rmap) : rmap :=
+  ifold npagen 0%uint63
+    (fun pg d =>
+       let pg' := pgmv k pg in
+       ifold ngroupn 0%uint63
+         (fun gr d' =>
+            let g := grpof pg gr in
+            let v := gget src g in
+            if Uint63.eqb v 0%uint63 then d'
+            else gor (gor d' g v) (grpof pg' (grmv k gr)) (grpmv k v))
+         d)
+    dst.
+
+(* THE WHOLE PREPASS, INTO THE MAP IT IS GIVEN.  The ten moves all read the  *)
+(* source, so stacking their writes on it would leave the source an old      *)
+(* version, and every read of it would then walk back over the writes made   *)
+(* since: measured in the prototype, the fifth level went from 96 s to 400 s *)
+(* and the sixth did not finish.  So the destination is a map of its own,    *)
+(* and the caller hands back the map from two levels ago and swaps -- two    *)
+(* maps serve for ever and nothing is allocated after the start.  Its bits   *)
+(* are a subset of the source's, so it needs no clearing, and the first move *)
+(* carries the source across as it goes, which is the prototype's blit.      *)
+Definition prepass (src dst : rmap) : rmap :=
+  ifold nhn 0%uint63
+    (fun k d =>
+       if Uint63.eqb k 0%uint63 then prepmv0 k src d else prepmv k src d)
+    dst.
 
 End Pre.

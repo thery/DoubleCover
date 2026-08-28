@@ -165,8 +165,9 @@ Variable croot : int.                  (* the row's coordinate                *)
 Variable sroot : pst.                  (* and the position it starts from     *)
 Variable dsrch : nat.                  (* where the search gives up           *)
 
-Definition level (d : nat) (m : rmap) : rmap :=
-  let m' := prep m in
+(* The two maps: the level reads m and fills dst, and the caller swaps.       *)
+Definition level (d : nat) (m dst : rmap) : rmap :=
+  let m' := prep m dst in
   if (d <= dsrch)%N then
     let w := p1get croot in
     let nd := Uint63.to_nat (wdist w) in
@@ -174,8 +175,8 @@ Definition level (d : nat) (m : rmap) : rmap :=
     else m'
   else m'.
 
-Fixpoint run (n : nat) (d : nat) (m : rmap) : rmap :=
-  if n is n1.+1 then run n1 d.+1 (level d.+1 m) else m.
+Fixpoint run (n : nat) (d : nat) (m dst : rmap) : rmap :=
+  if n is n1.+1 then run n1 d.+1 (level d.+1 m dst) m else m.
 
 (* ---- what the two halves owe --------------------------------------------- *)
 
@@ -275,15 +276,37 @@ move=> hm pg gr bt hr ht; rewrite /wthn.
 by apply: (subsetP (ball_mono Sset d)); apply: hm.
 Qed.
 
-(* A bit the prepass sets is a member one move of H further out than one      *)
-(* already set.  One move, not an induction over words -- and it is the only  *)
-(* place the page, group and bit tables are spent.                            *)
-Lemma prepass_sound m d : soundat m d -> soundat (prep m) d.+1.
+(* The bit one move of H writes: it is a member one move further out than a   *)
+(* bit of the source, so a source sound at d makes it sound at d plus one.    *)
+(* This is the only place the page, group and bit tables are spent.           *)
+Lemma prepmv_bit k src pg gr P Q B : (to_nat k < nhn)%N ->
+  (to_nat pg < npagen)%N -> (to_nat gr < ngroupn)%N ->
+  inrange P Q B ->
+  grpof (pgm k pg) (grm k gr) = grpof P Q ->
+  ~~ (Uint63.land (grpm k (gget src (grpof pg gr))) (bitof B) =? 0)%uint63 ->
+  forall d, soundat src d -> wthn d.+1 (unplc P Q B).
 Proof.
-move=> hm; rewrite /prepass.
-apply: (@ifold_indi _ (fun a => soundat a d.+1)); [| |exact: soundatW hm].
-  by apply: ltnW; apply: (@ltn_nwB 4).
-move=> k dst hk hdst; rewrite /prepmv.
+move=> hk hpg hgr hr hG hbit d hm.
+have hbi : (B <? nbiti)%uint63 by case/and3P: hr.
+have [bt hbt [hbtE hv]] := grpmvP hk hbi hbit.
+(* where it came from is a bit of the source, and so a member within d        *)
+have hri : inrange pg gr bt.
+  by rewrite /inrange hbt !andbT; apply/andP; split; apply/nltbP.
+have hin : mtest src pg gr bt by [].
+have [hr' hpm] := prep_move hk hri.
+(* and the two places are the same place                                      *)
+have [<- <-] : pgm k pg = P /\ grm k gr = Q.
+  by apply: grpof_inj hG; [case/and3P: hr'|case/and3P: hr'|case/and3P: hr|
+                           case/and3P: hr].
+rewrite /wthn -hbtE hpm.
+by apply: ball_step; [apply: hm | apply: hmv_Sset].
+Qed.
+
+(* one move of H over the whole map, writing where it is told                 *)
+Lemma prepmv_sound k src dst d : (to_nat k < nhn)%N ->
+  soundat src d -> soundat dst d.+1 -> soundat (prepm k src dst) d.+1.
+Proof.
+move=> hk hm hdst; rewrite /prepmv.
 (* every page                                                                 *)
 apply: (@ifold_indi _ (fun a => soundat a d.+1)); [| |exact: hdst].
   by apply: ltnW; exact: npagen_nwB.
@@ -296,19 +319,49 @@ case: ifP => _ //.
 move=> P Q B hr ht.
 (* the bit was there already, or it is one of the twenty four just written    *)
 case: (mtest_gor ht) => [hold|[hG hbit]]; first by apply: ha'.
-have hbi : (B <? nbiti)%uint63 by case/and3P: hr.
-have [bt hbt [hbtE hv]] := grpmvP hk hbi hbit.
-(* where it came from is a bit of the map, and so a member within d           *)
-have hri : inrange pg gr bt.
-  by rewrite /inrange hbt !andbT; apply/andP; split; apply/nltbP.
-have hin : mtest m pg gr bt by [].
-have [hr' hpm] := prep_move hk hri.
-(* and the two places are the same place                                      *)
-have [<- <-] : pgm k pg = P /\ grm k gr = Q.
-  by apply: grpof_inj hG; [case/and3P: hr'|case/and3P: hr'|case/and3P: hr|
+by apply: prepmv_bit hk hpg hgr hr hG hbit _ hm.
+Qed.
+
+(* the same move, also carrying the source across: the extra bit it writes is *)
+(* the source's own, which is a member within d and so within d plus one      *)
+Lemma prepmv0_sound k src dst d : (to_nat k < nhn)%N ->
+  soundat src d -> soundat dst d.+1 -> soundat (prepmv0 mpg mgr msw mlo mhi
+    k src dst) d.+1.
+Proof.
+move=> hk hm hdst; rewrite /prepmv0.
+apply: (@ifold_indi _ (fun a => soundat a d.+1)); [| |exact: hdst].
+  by apply: ltnW; exact: npagen_nwB.
+move=> pg a hpg ha; cbv zeta.
+apply: (@ifold_indi _ (fun a' => soundat a' d.+1)); [| |exact: ha].
+  by apply: ltnW; exact: ngroupn_nwB.
+move=> gr a' hgr ha'; cbv zeta.
+case: ifP => _ //.
+move=> P Q B hr ht.
+(* the move's own bit, the bit carried across, or one already there           *)
+case: (mtest_gor ht) => [ht'|[hG hbit]]; last first.
+  by apply: prepmv_bit hk hpg hgr hr hG hbit _ hm.
+case: (mtest_gor ht') => [hold|[hG hbit]]; first by apply: ha'.
+(* the carried bit stands at the very place it was read from                  *)
+have [<- <-] : pg = P /\ gr = Q.
+  by apply: grpof_inj hG; [apply/nltbP|apply/nltbP|case/and3P: hr|
                            case/and3P: hr].
-rewrite /wthn -hbtE hpm.
-by apply: ball_step; [apply: hm | apply: hmv_Sset].
+apply: (soundatW hm); last exact: hbit.
+by rewrite /inrange; apply/and3P; split;
+   [apply/nltbP|apply/nltbP|case/and3P: hr].
+Qed.
+
+(* A bit the prepass sets is a member one move of H further out than one      *)
+(* already set.  It writes into the map it is given, which is the one from    *)
+(* two levels back and so already sound at the depth being claimed.           *)
+Lemma prepass_sound m dst d :
+  soundat m d -> soundat dst d.+1 -> soundat (prep m dst) d.+1.
+Proof.
+move=> hm hd; rewrite /prepass.
+apply: (@ifold_indi _ (fun a => soundat a d.+1)); [| |exact: hd].
+  by apply: ltnW; apply: (@ltn_nwB 4).
+move=> k a hk ha; case: ifP => _.
+  by apply: prepmv0_sound hk hm ha.
+by apply: prepmv_sound hk hm ha.
 Qed.
 
 (* ---- the search, which owes nothing any more ----------------------------- *)
@@ -364,19 +417,22 @@ Qed.
 (* From here down there is no new mathematics: the two lemmas above are put   *)
 (* together, once for a level and once for the run.                           *)
 
-Lemma level_sound m d : soundat m d -> soundat (level d.+1 m) d.+1.
+Lemma level_sound m dst d :
+  soundat m d -> soundat dst d.+1 -> soundat (level d.+1 m dst) d.+1.
 Proof.
-move=> hm; rewrite /level.
-have hp := prepass_sound hm.
+move=> hm hd; rewrite /level.
+have hp := prepass_sound hm hd.
 case: ifP => _ //; case: ifP => hnd //.
 apply: (srch_sound _ coord_root root_pok hnd hp) => //.
 by rewrite subnn.
 Qed.
 
-Lemma run_sound n d m : soundat m d -> soundat (run n d m) (d + n).
+Lemma run_sound n d m dst :
+  soundat m d -> soundat dst d -> soundat (run n d m dst) (d + n).
 Proof.
-elim: n d m => [|n ih] d m hm /=; first by rewrite addn0.
-by rewrite addnS -addSn; apply/ih/level_sound.
+elim: n d m dst => [|n ih] d m dst hm hd /=; first by rewrite addn0.
+rewrite addnS -addSn.
+by apply: ih; [apply: level_sound hm (soundatW hd) | apply: soundatW hm].
 Qed.
 
 End Run.
