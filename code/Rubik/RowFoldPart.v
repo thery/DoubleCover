@@ -112,3 +112,36 @@ by rewrite divnMDl // divn_small // addn0 modnMDl modn_small //
 Qed.
 
 End Conj.
+
+(* ---- and the sixteen do act that way, on all three layouts --------------- *)
+
+(* What part_conj asks of the table is lslots, and here it is asked of the    *)
+(* sixteen renamings on each of the three parts a member is cut into.  The    *)
+(* slot map is read off the FIRST place -- which is enough exactly because it *)
+(* does not depend on the place.                                              *)
+
+Definition sy (s : nat) : seq nat := nth [::] sym16ts s.
+
+Definition swc (s j : nat) : nat := cslotn (nth 0%N (sy s) (nth 0%N cflatp j)).
+Definition swu (s j : nat) : nat := eslt (nth 0%N (sy s) (nth 0%N ulay j)).
+Definition swm (s j : nat) : nat := eslt (nth 0%N (sy s) (nth 0%N mlay j)).
+
+Definition csymC : bool :=
+  all (fun s => lslots cflatp 3 8 cposn (swc s) (sy s)) (iota 0 16).
+Definition usymC : bool :=
+  all (fun s => lslots ulay 2 8 eposn (swu s) (sy s)) (iota 0 16).
+Definition msymC : bool :=
+  all (fun s => lslots mlay 2 4 mplc (swm s) (sy s)) (iota 0 16).
+
+Lemma csymCP : csymC. Proof. by vm_compute. Qed.
+Lemma usymCP : usymC. Proof. by vm_compute. Qed.
+Lemma msymCP : msymC. Proof. by vm_compute. Qed.
+
+(* and the slot maps land where they should *)
+Definition swrngC : bool :=
+  all (fun s => [&& all (fun j => (swc s j < 3)%N) (iota 0 3),
+                    all (fun j => (swu s j < 2)%N) (iota 0 2) &
+                    all (fun j => (swm s j < 2)%N) (iota 0 2)])
+      (iota 0 16).
+
+Lemma swrngCP : swrngC. Proof. by vm_compute. Qed.
