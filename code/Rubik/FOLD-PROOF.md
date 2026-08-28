@@ -49,7 +49,15 @@ The two differences from `RowRun.prepass_sound` are both discharged.
    write is under a test -- a half that is all noughts is not written at
    all. `lvstep_if` is that write with its test.
 
-**What is left is the two write obligations**, `Qlo` and `Qhi`, stated in
+**And so is the run**, `frunx_sound`: the levels one after another at growing
+depths, `soundatf (Pd d) m -> soundatf (Pd d) dst -> soundatf (Pd (d + n))`.
+The search is not redone there -- a level is the gather and then, at the
+depths it is asked for, a search that marks; all the run needs of it is that
+whatever it does to the map it leaves it sound at the depth it was called at
+and as long as it found it. That is one hypothesis, `extP`, and the mark
+inside it is `RowFoldOk.soundatf_fmark`.
+
+**What is left is the two write obligations**, `Qlo_st` and `Qhi_st`, stated in
 `RowFoldLvl.v` in the shape `RowRun.v` uses for `grpmvP` and `prep_move`: a
 member that reads a bit of the word gathered for the low (resp. high) half
 is one move of H out from a member the source had. The source is read
