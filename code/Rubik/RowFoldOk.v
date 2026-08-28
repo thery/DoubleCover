@@ -162,6 +162,7 @@ Qed.
 Variable P : int -> int -> int -> Prop.
 
 Hypothesis Porb : forall p q c pg gr bt,
+  inrange p q c -> inrange pg gr bt ->
   pchk (fkpt (PArray.get fpg p)) = pchk (fkpt (PArray.get fpg pg)) ->
   Uint63.add (poff (fkpt (PArray.get fpg p)))
              (sgrmv fsgr (fr p) (fp p c) q)
@@ -171,15 +172,19 @@ Hypothesis Porb : forall p q c pg gr bt,
                   (bitof (sbtmv fsbt (fr pg) bt)) =? 0) ->
   P p q c -> P pg gr bt.
 
+(* A MAP IS SOUND WHERE IT NAMES A MEMBER, which is what the plain soundat   *)
+(* says too: a triple outside the ranges is not a member and the map claims   *)
+(* nothing of it.                                                             *)
 Definition soundatf (m : rmap) : Prop :=
-  forall pg gr bt, ftest fpg fsgr fsbt m pg gr bt -> P pg gr bt.
+  forall pg gr bt,
+    inrange pg gr bt -> ftest fpg fsgr fsbt m pg gr bt -> P pg gr bt.
 
-Lemma soundatf_fmark m p q c :
+Lemma soundatf_fmark m p q c : inrange p q c ->
   P p q c -> soundatf m -> soundatf (fmark fpg fsgr fsbt m p q c).
 Proof.
-move=> hP hm pg gr bt.
+move=> hpq hP hm pg gr bt hr.
 case/ftest_fmark => [h|[h1 h2 h3]]; first by apply: hm.
-by apply: (Porb h1 h2 h3).
+by apply: (Porb hpq hr h1 h2 h3).
 Qed.
 
 (* ---- one write inside a page, at the map level --------------------------- *)
@@ -190,14 +195,14 @@ Qed.
 Lemma soundatf_setp d r b g v :
   (pchk r <? PArray.length d)%uint63 ->
   soundatf (PArray.set d (pchk r) b) ->
-  (forall pg gr bt,
+  (forall pg gr bt, inrange pg gr bt ->
      ftest fpg fsgr fsbt (fset (PArray.set d (pchk r) b) r g v) pg gr bt ->
      ftest fpg fsgr fsbt (PArray.set d (pchk r) b) pg gr bt \/ P pg gr bt) ->
   soundatf (PArray.set d (pchk r) (PArray.set b (Uint63.add (poff r) g) v)).
 Proof.
-move=> hin hs hnew pg gr bt.
+move=> hin hs hnew pg gr bt hr.
 rewrite (fset_setp _ _ _ hin) => ht.
-by case: (hnew _ _ _ ht) => [h|//]; apply: hs.
+by case: (hnew _ _ _ hr ht) => [h|//]; apply: hs.
 Qed.
 
 (* ---- a page write, read as a map write ----------------------------------- *)
@@ -225,7 +230,7 @@ Qed.
 (* bits the word adds are good where a member reads them.                     *)
 Lemma soundatf_ffor m r G X :
   soundatf m ->
-  (forall pg gr bt,
+  (forall pg gr bt, inrange pg gr bt ->
      pchk r = pchk (fkpt (PArray.get fpg pg)) ->
      Uint63.add (poff r) G
      = Uint63.add (poff (fkpt (PArray.get fpg pg)))
@@ -234,12 +239,12 @@ Lemma soundatf_ffor m r G X :
      P pg gr bt) ->
   soundatf (ffor m r G X).
 Proof.
-move=> hm hnew pg gr bt; rewrite /ftest /ffor.
+move=> hm hnew pg gr bt hr; rewrite /ftest /ffor.
 case: (fget_fset m r G (Uint63.lor (fget m r G) X)
         (fkpt (PArray.get fpg pg)) (sgrmv fsgr (fr pg) (fp pg bt) gr))
   => [->|[h1 [h2 ->]]]; first by apply: hm.
-move=> /RowMap.test_lor/orP[hin|hnw]; last by apply: (hnew _ _ _ h1 h2).
-apply: hm; rewrite /ftest.
+move=> /RowMap.test_lor/orP[hin|hnw]; last by apply: (hnew _ _ _ hr h1 h2).
+apply: (hm _ _ _ hr); rewrite /ftest.
 by have -> : fget m (fkpt (PArray.get fpg pg))
                (sgrmv fsgr (fr pg) (fp pg bt) gr) = fget m r G
   by rewrite /fget h1 h2.
@@ -256,13 +261,13 @@ Lemma soundatf_copy src d r b g :
   soundatf (PArray.set d (pchk r)
               (PArray.set b (Uint63.add (poff r) g) (fget src r g))).
 Proof.
-move=> hin hsrc hd; apply: soundatf_setp => // pg gr bt.
+move=> hin hsrc hd; apply: soundatf_setp => // pg gr bt hr.
 rewrite {1}/ftest.
 case: (fget_fset (PArray.set d (pchk r) b) r g (fget src r g)
         (fkpt (PArray.get fpg pg))
         (sgrmv fsgr (fr pg) (fp pg bt) gr))
   => [->|[h1 [h2 ->]]]; first by left.
-right; apply: hsrc; rewrite /ftest.
+right; apply: (hsrc _ _ _ hr); rewrite /ftest.
 have -> : fget src (fkpt (PArray.get fpg pg)) (sgrmv fsgr (fr pg) (fp pg bt) gr)
         = fget src r g by rewrite /fget h1 h2.
 by [].
@@ -275,9 +280,10 @@ Hypothesis sgrmvR : forall pg gr bt,
   (to_nat (sgrmv fsgr (fr pg) (fp pg bt) gr) < ngroupn)%N.
 Hypothesis sbtmvR : forall pg bt, (sbtmv fsbt (fr pg) bt <? nbiti).
 
-Lemma foldf_all m : mfullf m -> soundatf m -> forall pg gr bt, P pg gr bt.
+Lemma foldf_all m : mfullf m -> soundatf m ->
+  forall pg gr bt, inrange pg gr bt -> P pg gr bt.
 Proof.
-move=> hm hs pg gr bt; apply: hs.
+move=> hm hs pg gr bt hr; apply: (hs _ _ _ hr).
 by apply: (mfullf_ftest (fkptR pg) (sgrmvR pg gr bt) (sbtmvR pg bt) hm).
 Qed.
 

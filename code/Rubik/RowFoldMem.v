@@ -167,13 +167,15 @@ Notation fmem pg gr bt :=
 (* It is where the six sweeps of RowFoldSym are finally spent, and it is the  *)
 (* shape RowInst leaves memb2tab_move in: the algorithm is proved and what    *)
 (* the tables mean is left to the instance.                                   *)
-Hypothesis fold_conj : forall pg gr bt, exists2 i, (i < 16)%N &
-  fmem pg gr bt = (mpos pg gr bt ^ pt 47 (nth [::] sym16ts i))%g.
+Hypothesis fold_conj : forall pg gr bt, inrange pg gr bt ->
+  exists2 i, (i < 16)%N &
+    fmem pg gr bt = (mpos pg gr bt ^ pt 47 (nth [::] sym16ts i))%g.
 
 (* MEMBERS THAT FOLD TOGETHER STAND OR FALL TOGETHER.  Folding to the same    *)
 (* place is being the same place, so the two are each other's image under two *)
 (* of the sixteen -- and the ball notices neither.                            *)
 Lemma fold_Porb d p q c pg gr bt :
+  inrange p q c -> inrange pg gr bt ->
   pchk (fkpt (PArray.get fpg p)) = pchk (fkpt (PArray.get fpg pg)) ->
   Uint63.add (poff (fkpt (PArray.get fpg p))) (sgrmv fsgr (fr p) (fp p c) q)
   = Uint63.add (poff (fkpt (PArray.get fpg pg)))
@@ -182,11 +184,11 @@ Lemma fold_Porb d p q c pg gr bt :
                   (bitof (sbtmv fsbt (fr pg) bt)) =? 0) ->
   mpos p q c \in ball Sset d -> mpos pg gr bt \in ball Sset d.
 Proof.
-move=> hc hg hb hP.
+move=> hrp hrg hc hg hb hP.
 have [h1 h2 h3] := forb_same sgrmvR sbtmvR hc hg hb.
 have hsame : fmem p q c = fmem pg gr bt by rewrite h1 h2 h3.
-have [i hi hie] := fold_conj p q c.
-have [j hj hje] := fold_conj pg gr bt.
+have [i hi hie] := fold_conj hrp.
+have [j hj hje] := fold_conj hrg.
 have he : (mpos pg gr bt ^ pt 47 (nth [::] sym16ts j))%g
         = (mpos p q c ^ pt 47 (nth [::] sym16ts i))%g by rewrite -hje -hie hsame.
 have -> : mpos pg gr bt

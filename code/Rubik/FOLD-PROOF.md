@@ -84,8 +84,8 @@ the first is done, in `RowFoldMem.v`:
   undoing one is applying one.
 - `fold_Porb`: **`Porb` itself**, on nothing but the primitives.
 
-So `RowFoldOk`'s one assumption is discharged, on a single hypothesis:
-`fold_conj`, that the place a member folds to holds that member **renamed**.
+**And `fold_conj` is proved too**, in `RowFoldConj.v` -- `fold_conj_memb`.
+So `RowFoldOk`'s one assumption stands on nothing left over.
 That is where the six sweeps of `RowFoldSym` are finally spent, and it is
 exactly the shape `RowInst` leaves `memb2tab_move` in -- the algorithm
 proved, what the tables mean left to the instance.
