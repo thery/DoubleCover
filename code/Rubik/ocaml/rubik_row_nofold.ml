@@ -2110,7 +2110,7 @@ let uleakg pass name n =
     m := pass !m;
     let st = Gc.quick_stat () in
     Printf.printf
-      "level %2d  %7.1f s  heap %6.2f GB  old versions %d, steps %d\n%!"
+      "level %2d  %7.1f s  heap %6.2f GB  reroot calls %d, steps %d\n%!"
       d (Sys.time () -. t0)
       (float_of_int (st.Gc.heap_words * 8) /. 1e9)
       !P.reroots !P.rerootsteps;
@@ -2124,7 +2124,7 @@ let uleakg pass name n =
 let umove k t0 =
   let st = Gc.quick_stat () in
   Printf.printf
-    "   move %2d  %7.1f s  heap %6.2f GB  old versions %d, steps %d\n%!"
+    "   move %2d  %7.1f s  heap %6.2f GB  reroot calls %d, steps %d\n%!"
     k (Sys.time () -. t0)
     (float_of_int (st.Gc.heap_words * 8) /. 1e9)
     !P.reroots !P.rerootsteps
@@ -2166,7 +2166,7 @@ let uleak2 n =
     let t = !a in a := !b; b := t;
     let st = Gc.quick_stat () in
     Printf.printf
-      "level %2d  %7.1f s  heap %6.2f GB  old versions %d, steps %d\n%!"
+      "level %2d  %7.1f s  heap %6.2f GB  reroot calls %d, steps %d\n%!"
       d (Sys.time () -. t0)
       (float_of_int (st.Gc.heap_words * 8) /. 1e9)
       !P.reroots !P.rerootsteps;
