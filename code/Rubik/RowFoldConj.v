@@ -279,3 +279,71 @@ Qed.
 Lemma conj_drop (gT : finGroupType) (X y z : gT) :
   commute (X ^ y)%g z -> (X ^ (y * z))%g = (X ^ y)%g.
 Proof. by move=> h; rewrite conjgM (cfix h). Qed.
+
+(* ---- THE THREE PARTS PUT BACK TOGETHER ---------------------------------- *)
+
+(* The three parts of the kept place, multiplied, are the member's three      *)
+(* multiplied and conjugated by the renaming.  This is where the four pieces  *)
+(* of the renaming are spent: each part is conjugated by its own piece        *)
+(* (conj_three), and the piece on the centres is left commuting with all      *)
+(* three, so it drops out (conj_drop).                                        *)
+Lemma memb_conj_pt s cX cY uX uY mX mY : (s < 16)%N ->
+  up8ok1 cX -> up8ok1 cY -> up8ok1 uX -> up8ok1 uY -> up4ok1 mX -> up4ok1 mY ->
+  comp_tab (cpart cX) (restr inC (sy s))
+    = comp_tab (restr inC (sy s)) (cpart cY) ->
+  comp_tab (upart uX) (restr inU (sy s))
+    = comp_tab (restr inU (sy s)) (upart uY) ->
+  comp_tab (mpart mX) (restr inM (sy s))
+    = comp_tab (restr inM (sy s)) (mpart mY) ->
+  (pt 47 (cpart cY) * pt 47 (upart uY) * pt 47 (mpart mY))%g
+  = ((pt 47 (cpart cX) * pt 47 (upart uX) * pt 47 (mpart mX))
+       ^ pt 47 (sy s))%g.
+Proof.
+move=> hs hcX hcY huX huY hmX hmY hC hU hM.
+have /and4P[prC prU prM prZ] := aiota_lt rprtCP hs.
+have /and3P[dcz duz dmz] := dsjZCP.
+have pcX : partok inC (cpart cX) by apply: (part_partok clayokC hcX).
+have pcY : partok inC (cpart cY) by apply: (part_partok clayokC hcY).
+have puX : partok inU (upart uX) by apply: (part_partok ulayokC huX).
+have puY : partok inU (upart uY) by apply: (part_partok ulayokC huY).
+have pmX : partok inM (mpart mX) by apply: (part_partok mlayokC hmX).
+have pmY : partok inM (mpart mY) by apply: (part_partok mlayokC hmY).
+(* THE TWO TABLES NAMED, NOT LEFT TO BE GUESSED.  A // here sends done away  *)
+(* to evaluate the layouts and it does not come back.                        *)
+have eC : (pt 47 (cpart cX) * pt 47 (restr inC (sy s)))%g
+        = (pt 47 (restr inC (sy s)) * pt 47 (cpart cY))%g.
+  rewrite (ptM (partok_tab pcX) (partok_tab prC)).
+  by rewrite (ptM (partok_tab prC) (partok_tab pcY)) hC.
+have eU : (pt 47 (upart uX) * pt 47 (restr inU (sy s)))%g
+        = (pt 47 (restr inU (sy s)) * pt 47 (upart uY))%g.
+  rewrite (ptM (partok_tab puX) (partok_tab prU)).
+  by rewrite (ptM (partok_tab prU) (partok_tab puY)) hU.
+have eM : (pt 47 (mpart mX) * pt 47 (restr inM (sy s)))%g
+        = (pt 47 (restr inM (sy s)) * pt 47 (mpart mY))%g.
+  rewrite (ptM (partok_tab pmX) (partok_tab prM)).
+  by rewrite (ptM (partok_tab prM) (partok_tab pmY)) hM.
+have h3 := conj_three eC eU eM
+  (pt_comm puX prC dsj_cu) (pt_comm pmX prC dsj_cm) (pt_comm pmX prU dsj_um)
+  (pt_comm pcY prU dsj_cu) (pt_comm pcY prM dsj_cm) (pt_comm puY prM dsj_um).
+have hsig : pt 47 (sy s)
+  = (pt 47 (restr inC (sy s)) * pt 47 (restr inU (sy s))
+     * pt 47 (restr inM (sy s)) * pt 47 (restr inZ (sy s)))%g.
+  (* only the renaming on the left, not the four copies of it on the right *)
+  rewrite -{1}(eqP (aiota_lt sfullCP hs)).
+  rewrite -(ptM (partok_tab prC)
+              (tab_ok_comp (partok_tab prU)
+                 (tab_ok_comp (partok_tab prM) (partok_tab prZ)))).
+  rewrite -(ptM (partok_tab prU)
+              (tab_ok_comp (partok_tab prM) (partok_tab prZ))).
+  by rewrite -(ptM (partok_tab prM) (partok_tab prZ)) !mulgA.
+have hcom : commute ((pt 47 (cpart cX) * pt 47 (upart uX) * pt 47 (mpart mX))
+                     ^ (pt 47 (restr inC (sy s)) * pt 47 (restr inU (sy s))
+                        * pt 47 (restr inM (sy s))))%g
+                    (pt 47 (restr inZ (sy s))).
+  rewrite -h3; apply: commute_sym; apply: commuteM; last first.
+    by apply: commute_sym; apply: (pt_comm pmY prZ dmz).
+  apply: commuteM.
+    by apply: commute_sym; apply: (pt_comm pcY prZ dcz).
+  by apply: commute_sym; apply: (pt_comm puY prZ duz).
+by rewrite hsig (conj_drop hcom).
+Qed.
