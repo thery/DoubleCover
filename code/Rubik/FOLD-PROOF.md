@@ -78,9 +78,17 @@ the first is done, in `RowFoldMem.v`:
 - `forb_same`: so `Porb`'s three premises name one kept page, one group and
   one bit.
 
-What is left of `Porb` is that the place a member folds to holds that member
-**renamed**, which is where the six checked tables are finally spent, and
-then `Sym16Row.sym16_ball` says the ball does not notice.
+- `sym16_ballV`: undoing one of the sixteen also stays inside the ball. Two
+  members that fold together are each other's image under *two* of them, so
+  one has to be undone -- and the sixteen are closed under inverse, so
+  undoing one is applying one.
+- `fold_Porb`: **`Porb` itself**, on nothing but the primitives.
+
+So `RowFoldOk`'s one assumption is discharged, on a single hypothesis:
+`fold_conj`, that the place a member folds to holds that member **renamed**.
+That is where the six sweeps of `RowFoldSym` are finally spent, and it is
+exactly the shape `RowInst` leaves `memb2tab_move` in -- the algorithm
+proved, what the tables mean left to the instance.
 
 And then a folded `RowInst`/`RowFinal`, so that `RowFoldCubRun.v` has a
 theorem to print the assumptions of.
