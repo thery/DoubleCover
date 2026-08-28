@@ -21,6 +21,7 @@ From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Tabi Rubik333 Sym Sym16 Moves.
 Require Import Row RowMap RowFold RowMemb RowFoldPart RowTab.
 Require Import RowTabF RowFoldTab RowFoldSym.
+Require Import RowPartC RowPartU RowPartM RowMoveH RowUp8ok RowUp4ok.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -346,4 +347,180 @@ have hcom : commute ((pt 47 (cpart cX) * pt 47 (upart uX) * pt 47 (mpart mX))
     by apply: commute_sym; apply: (pt_comm pcY prZ dcz).
   by apply: commute_sym; apply: (pt_comm puY prZ duz).
 by rewrite hsig (conj_drop hcom).
+Qed.
+
+(* ---- the parities the two sides are read at ------------------------------ *)
+
+(* `unplace' reads a member's outer edges at the parity par8[pg] xor          *)
+(* par4[e4of bt], and the fold writes at fpar w xor the bit's half.  These    *)
+(* three say the two are the same number, on both sides of the fold.          *)
+
+(* the half of a word IS the parity of its middle permutation *)
+Definition parbtC : bool :=
+  iter nbitn 0%uint63 (fun bt =>
+    ((if (bt <? 12)%uint63 then 0 else 1)%uint63
+      =? PArray.get par4i (PArray.get e4ofi bt))%uint63).
+Lemma parbtCP : parbtC. Proof. by vm_compute. Qed.
+
+(* a renaming keeps the parity of a page ... *)
+Definition parKC : bool :=
+  iter npagen 0%uint63 (fun pg =>
+    (PArray.get par8i (PArray.get fkeepi (fkpt (PArray.get fpgi pg)))
+      =? PArray.get par8i pg)%uint63).
+Lemma parKCP : parKC. Proof. by vm_compute. Qed.
+
+(* ... and of a middle permutation, so the same parity indexes both sides *)
+Definition parBC : bool :=
+  iter 16 0%uint63 (fun u =>
+    iter nbitn 0%uint63 (fun bt =>
+      (PArray.get par4i (PArray.get e4ofi (sbtmv fsbti u bt))
+        =? PArray.get par4i (PArray.get e4ofi bt))%uint63)).
+Lemma parBCP : parBC. Proof. by vm_compute. Qed.
+
+(* ---- everything the fold names lands in range ---------------------------- *)
+
+(* These are the three RowFoldOk asks of the tables -- a page folds to a kept *)
+(* page, a group to a group, a bit to one of the twenty four -- plus the two  *)
+(* the assembly below needs.  All five together are a tenth of a second.      *)
+
+Definition fkptRC : bool :=
+  iter npagen 0%uint63 (fun pg => (fkpt (PArray.get fpgi pg) <? nrepi)%uint63).
+Lemma fkptRCP : fkptRC. Proof. by vm_compute. Qed.
+
+Definition keepRC : bool :=
+  iter nrepn 0%uint63 (fun r => (PArray.get fkeepi r <? npagei)%uint63).
+Lemma keepRCP : keepRC. Proof. by vm_compute. Qed.
+
+Definition sgrRC : bool :=
+  iter nsymn 0%uint63 (fun u => iter nptyn 0%uint63 (fun pty =>
+    iter ngroupn 0%uint63 (fun gr => (sgrmv fsgri u pty gr <? ngroupi)%uint63))).
+Lemma sgrRCP : sgrRC. Proof. by vm_compute. Qed.
+
+Definition sbtRC : bool :=
+  iter nsymn 0%uint63 (fun u =>
+    iter nbitn 0%uint63 (fun bt => (sbtmv fsbti u bt <? nbiti)%uint63)).
+Lemma sbtRCP : sbtRC. Proof. by vm_compute. Qed.
+
+Definition frnRC : bool :=
+  iter npagen 0%uint63 (fun pg => (fren (PArray.get fpgi pg) <? nsymi)%uint63).
+
+(* the parity a member is read at is nought or one *)
+Definition ptyRC : bool :=
+  iter npagen 0%uint63 (fun pg => iter nbitn 0%uint63 (fun bt =>
+    (Uint63.lxor (fpar (PArray.get fpgi pg))
+       (if (bt <? 12)%uint63 then 0 else 1) <? 2)%uint63)).
+Lemma ptyRCP : ptyRC. Proof. by vm_compute. Qed.
+Lemma frnRCP : frnRC. Proof. by vm_compute. Qed.
+
+(* ---- so the place a member folds to is a place --------------------------- *)
+
+Notation Kof pg := (PArray.get fkeepi (fkpt (PArray.get fpgi pg))).
+Notation Ptyof pg bt :=
+  (Uint63.lxor (fpar (PArray.get fpgi pg))
+     (if (bt <? 12)%uint63 then 0%uint63 else 1%uint63)).
+Notation Gof pg gr bt :=
+  (sgrmv fsgri (fren (PArray.get fpgi pg)) (Ptyof pg bt) gr).
+Notation Bof pg bt := (sbtmv fsbti (fren (PArray.get fpgi pg)) bt).
+Notation Sof pg := (nth 0%N fren2sym (to_nat (fren (PArray.get fpgi pg)))).
+
+Lemma fold_inrange pg gr bt : inrange pg gr bt ->
+  inrange (Kof pg) (Gof pg gr bt) (Bof pg bt).
+Proof.
+move=> hr; have /and3P[hpg hgr hbt] := hr.
+have b0 : (to_nat pg < npagen)%N by apply/nltbP.
+have hfk : (to_nat (fkpt (PArray.get fpgi pg)) < nrepn)%N.
+  by apply/nltbP; apply: (Row.iter_at fkptRCP b0).
+have hu : (to_nat (fren (PArray.get fpgi pg)) < nsymn)%N.
+  by apply/nltbP; apply: (Row.iter_at frnRCP b0).
+have hb : (to_nat bt < nbitn)%N by apply/nltbP.
+have hp : (to_nat (Ptyof pg bt) < nptyn)%N.
+  by apply/nltbP; apply: (Row.iter_at (Row.iter_at ptyRCP b0) hb).
+have hg : (to_nat gr < ngroupn)%N by apply/nltbP.
+apply/and3P; split.
+- exact: (Row.iter_at keepRCP hfk).
+- exact: (Row.iter_at (Row.iter_at (Row.iter_at sgrRCP hu) hp) hg).
+exact: (Row.iter_at (Row.iter_at sbtRCP hu) hb).
+Qed.
+
+(* ---- three more ranges, so the six unranks are permutations -------------- *)
+
+Definition ugrpRC : bool :=
+  iter ngroupn 0%uint63 (fun gr => iter nptyn 0%uint63 (fun pty =>
+    (PArray.get e8invi (Uint63.add (Uint63.mul gr 2) pty) <? npagei)%uint63)).
+Lemma ugrpRCP : ugrpRC. Proof. by vm_compute. Qed.
+
+Definition e4ofRC : bool :=
+  iter nbitn 0%uint63 (fun bt => (PArray.get e4ofi bt <? nbiti)%uint63).
+Lemma e4ofRCP : e4ofRC. Proof. by vm_compute. Qed.
+
+Definition keepNC : bool :=
+  iter npagen 0%uint63
+    (fun pg => (PArray.get fkeepi (fkpt (PArray.get fpgi pg)) <? npagei)%uint63).
+Lemma keepNCP : keepNC. Proof. by vm_compute. Qed.
+
+(* =========================================================================  *)
+(*  fold_conj -- THE PLACE A MEMBER FOLDS TO HOLDS THAT MEMBER RENAMED.       *)
+(* =========================================================================  *)
+
+(* This is what RowFoldMem.fold_Porb was left standing on, and it is where    *)
+(* the six sweeps of RowFoldSym are finally spent.  RowMemb.pt_membinv cuts   *)
+(* both sides into three parts, the three part lemmas conjugate each, and     *)
+(* memb_conj_pt puts them back together.                                      *)
+(*                                                                            *)
+(* THE PARITY IS THE HINGE.  unplace reads the outer edges at par8[pg] xor    *)
+(* par4[e4of bt] and the fold writes at fpar w xor the bit's half, and the    *)
+(* three parity sweeps say those are the same number on both sides -- which   *)
+(* is what lets one pty serve where two would not have matched.               *)
+Lemma fold_conj_pt pg gr bt : inrange pg gr bt ->
+  pt 47 (membinv (unplace e8invi e4ofi par8i par4i
+                   (Kof pg) (Gof pg gr bt) (Bof pg bt)))
+  = ((pt 47 (membinv (unplace e8invi e4ofi par8i par4i pg gr bt)))
+      ^ pt 47 (sy (Sof pg)))%g.
+Proof.
+move=> hr.
+have hr' := fold_inrange hr.
+have /and3P[hpg hgr hbt] := hr.
+have /and3P[hK hG hB] := hr'.
+have b0 : (to_nat pg < npagen)%N by apply/nltbP.
+have hb : (to_nat bt < nbitn)%N by apply/nltbP.
+have hg : (to_nat gr < ngroupn)%N by apply/nltbP.
+have hu : (to_nat (fren (PArray.get fpgi pg)) < nsymn)%N.
+  by apply/nltbP; apply: (Row.iter_at frnRCP b0).
+have hp : (to_nat (Ptyof pg bt) < nptyn)%N.
+  by apply/nltbP; apply: (Row.iter_at (Row.iter_at ptyRCP b0) hb).
+have hKn : (to_nat (Kof pg) < npagen)%N by apply/nltbP.
+have hGn : (to_nat (Gof pg gr bt) < ngroupn)%N by apply/nltbP.
+have hBn : (to_nat (Bof pg bt) < nbitn)%N by apply/nltbP.
+have hs : (Sof pg < 16)%N by apply: (aiota_lt f2sCP hu).
+have epty : Ptyof pg bt
+          = Uint63.lxor (PArray.get par8i pg)
+                        (PArray.get par4i (PArray.get e4ofi bt)).
+  by rewrite (eqP (Row.iter_at parbtCP hb));
+     have /andP[_ /eqP ->] := Row.iter_at fpgCP b0.
+have epK : PArray.get par8i (Kof pg) = PArray.get par8i pg.
+  by apply/eqP; apply: (Row.iter_at parKCP b0).
+have epB : PArray.get par4i (PArray.get e4ofi (Bof pg bt))
+         = PArray.get par4i (PArray.get e4ofi bt).
+  by apply/eqP; apply: (Row.iter_at (Row.iter_at parBCP hu) hb).
+have o1 : up8ok1 pg by apply: (Row.iter_at up8okC b0).
+have o2 : up8ok1 (Kof pg) by apply: (Row.iter_at up8okC hKn).
+have o3 : up8ok1 (PArray.get e8invi
+            (Uint63.add (Uint63.mul gr 2) (Ptyof pg bt))).
+  apply: (Row.iter_at up8okC); apply/nltbP.
+  exact: (Row.iter_at (Row.iter_at ugrpRCP hg) hp).
+have o4 : up8ok1 (PArray.get e8invi
+            (Uint63.add (Uint63.mul (Gof pg gr bt) 2) (Ptyof pg bt))).
+  apply: (Row.iter_at up8okC); apply/nltbP.
+  exact: (Row.iter_at (Row.iter_at ugrpRCP hGn) hp).
+have o5 : up4ok1 (PArray.get e4ofi bt).
+  by apply: (Row.iter_at up4okC); apply/nltbP; exact: (Row.iter_at e4ofRCP hb).
+have o6 : up4ok1 (PArray.get e4ofi (Bof pg bt)).
+  by apply: (Row.iter_at up4okC); apply/nltbP; exact: (Row.iter_at e4ofRCP hBn).
+rewrite (pt_membinv e8okC e4okC cpartokC upartokC mpartokC hmvokC hr').
+rewrite (pt_membinv e8okC e4okC cpartokC upartokC mpartokC hmvokC hr).
+rewrite /mcp /mud /mmp /unplace epK epB -epty.
+apply: (memb_conj_pt hs o1 o2 o3 o4 o5 o6).
+- exact: (cpart_conj b0 o1).
+- exact: (upart_conj hu hp hg o3).
+exact: (mpart_conj hu hb o5).
 Qed.
