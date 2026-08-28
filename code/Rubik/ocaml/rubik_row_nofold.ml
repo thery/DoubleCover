@@ -2206,7 +2206,17 @@ let ugrew where =
 
    It is affordable once a level: the map's chunks are int arrays, which
    the collector does not scan. *)
+(* COLLECT WHEN IT GETS BIG, AND NOT BEFORE.  OCaml's own policy is a ratio
+   -- it lets the heap reach about twice the live data -- and there is no way
+   to say "collect above so many gigabytes".  UROWCAP says it here: while the
+   resident size is under the cap nothing is forced, and above it every
+   report collects.  UROWCAP=25 keeps the run under about 25 GB at the cost
+   of a few seconds a report.  Unset, nothing is ever forced. *)
+let ucap =
+  try float_of_string (Sys.getenv "UROWCAP") *. 1e9 with _ -> infinity
+
 let ulive where =
+  if float_of_int (urss ()) >= ucap then begin
   let t0 = Unix.gettimeofday () in
   Gc.full_major ();
   let st = Gc.stat () in
@@ -2218,6 +2228,7 @@ let ulive where =
     (float_of_int st.Gc.top_heap_words *. 8.0 /. 1e9)
     (float_of_int (urss ()) /. 1e9)
     (Unix.gettimeofday () -. t0) where
+  end
 
 (* ---- the phase one table, in the Rocq packing ---------------------------- *)
 
@@ -2398,7 +2409,12 @@ let usay () =
   Printf.printf "     search %2d  %8.1f s  %14d nodes  rss %6.2f GB\n%!"
     !usd (Unix.gettimeofday () -. !ust0) !unodes
     (float_of_int (urss ()) /. 1e9);
-  ugrew (Printf.sprintf "search %d, %d nodes" !usd !unodes)
+  ugrew (Printf.sprintf "search %d, %d nodes" !usd !unodes);
+  (* THE SEARCH TOO.  A fresh twenty a node and three forty eights an answer
+     is a great deal of rubbish, and the prepass's collections do not happen
+     here -- so the same question has to be asked inside the search or its
+     growth says nothing. *)
+  ulive (Printf.sprintf "search %d, %d nodes" !usd !unodes)
 
 (* RowRun's srch.  The mask is not tested: wmask is allmv at every node, so
    the test never cuts anything and leaving it out changes no tree. *)
