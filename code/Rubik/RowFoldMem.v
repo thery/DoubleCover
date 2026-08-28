@@ -117,3 +117,82 @@ by split=> //; apply: bitof_inj hb.
 Qed.
 
 End Same.
+
+(* ---- conjugating the other way also stays inside the ball ---------------- *)
+
+(* Sym16Row says the ball does not notice one of the sixteen.  Two members    *)
+(* that fold together are each other's image under two of them, so undoing    *)
+(* one is needed as well -- and the sixteen are closed under inverse, so      *)
+(* undoing one IS applying one.                                               *)
+Lemma sym16_ballV i n g : (i < 16)%N -> g \in ball Sset n ->
+  (g ^ (pt 47 (nth [::] sym16ts i))^-1)%g \in ball Sset n.
+Proof.
+move=> hi hg.
+rewrite (ptV (sym16_tab_ok hi)).
+have h := sym16GP; rewrite sym16GE in h.
+have /andP[_ /andP[_ /andP[hinv _]]] := h.
+have hin : inv_tab 47 (nth [::] sym16ts i) \in sym16ts.
+  by apply: (allP hinv); apply: mem_nth; rewrite (_ : seq.size sym16ts = 16%N).
+have [k hk hke] : exists2 k, (k < 16)%N &
+    nth [::] sym16ts k = inv_tab 47 (nth [::] sym16ts i).
+  have /(nthP [::])[k hk hke] := hin.
+  by exists k => //; move: hk; rewrite (_ : seq.size sym16ts = 16%N).
+by rewrite -hke; apply: sym16_ball.
+Qed.
+
+(* ---- and so Porb, which is all RowFoldOk asks of the row ----------------- *)
+
+Section Porb.
+
+Variable fpg fsgr fsbt fkeep : arr.
+
+Notation fr pg := (fren (PArray.get fpg pg)).
+Notation fp pg bt :=
+  (fpar (PArray.get fpg pg) lxor (if bt <? 12 then 0%uint63 else 1%uint63)).
+
+Hypothesis sgrmvR : forall pg gr bt,
+  (to_nat (sgrmv fsgr (fr pg) (fp pg bt) gr) < ngroupn)%N.
+Hypothesis sbtmvR : forall pg bt, (sbtmv fsbt (fr pg) bt <? nbiti).
+
+(* where the member at a place stands *)
+Variable mpos : int -> int -> int -> {perm facelet}.
+
+Notation fmem pg gr bt :=
+  (mpos (PArray.get fkeep (fkpt (PArray.get fpg pg)))
+        (sgrmv fsgr (fr pg) (fp pg bt) gr)
+        (sbtmv fsbt (fr pg) bt)).
+
+(* THE ONE THING THE FOLD STILL OWES.  The place a member folds to holds      *)
+(* that member RENAMED, and which of the sixteen is what the page names.      *)
+(* It is where the six sweeps of RowFoldSym are finally spent, and it is the  *)
+(* shape RowInst leaves memb2tab_move in: the algorithm is proved and what    *)
+(* the tables mean is left to the instance.                                   *)
+Hypothesis fold_conj : forall pg gr bt, exists2 i, (i < 16)%N &
+  fmem pg gr bt = (mpos pg gr bt ^ pt 47 (nth [::] sym16ts i))%g.
+
+(* MEMBERS THAT FOLD TOGETHER STAND OR FALL TOGETHER.  Folding to the same    *)
+(* place is being the same place, so the two are each other's image under two *)
+(* of the sixteen -- and the ball notices neither.                            *)
+Lemma fold_Porb d p q c pg gr bt :
+  pchk (fkpt (PArray.get fpg p)) = pchk (fkpt (PArray.get fpg pg)) ->
+  Uint63.add (poff (fkpt (PArray.get fpg p))) (sgrmv fsgr (fr p) (fp p c) q)
+  = Uint63.add (poff (fkpt (PArray.get fpg pg)))
+               (sgrmv fsgr (fr pg) (fp pg bt) gr) ->
+  ~~ (Uint63.land (bitof (sbtmv fsbt (fr p) c))
+                  (bitof (sbtmv fsbt (fr pg) bt)) =? 0) ->
+  mpos p q c \in ball Sset d -> mpos pg gr bt \in ball Sset d.
+Proof.
+move=> hc hg hb hP.
+have [h1 h2 h3] := forb_same sgrmvR sbtmvR hc hg hb.
+have hsame : fmem p q c = fmem pg gr bt by rewrite h1 h2 h3.
+have [i hi hie] := fold_conj p q c.
+have [j hj hje] := fold_conj pg gr bt.
+have he : (mpos pg gr bt ^ pt 47 (nth [::] sym16ts j))%g
+        = (mpos p q c ^ pt 47 (nth [::] sym16ts i))%g by rewrite -hje -hie hsame.
+have -> : mpos pg gr bt
+  = ((mpos p q c ^ pt 47 (nth [::] sym16ts i))
+       ^ (pt 47 (nth [::] sym16ts j))^-1)%g by rewrite -he conjgK.
+by apply: sym16_ballV => //; apply: sym16_ball.
+Qed.
+
+End Porb.
