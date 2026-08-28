@@ -392,15 +392,52 @@ Definition keepRC : bool :=
 Lemma keepRCP : keepRC. Proof. by vm_compute. Qed.
 
 Definition sgrRC : bool :=
-  iter 16 0%uint63 (fun u => iter 2 0%uint63 (fun pty =>
+  iter nsymn 0%uint63 (fun u => iter nptyn 0%uint63 (fun pty =>
     iter ngroupn 0%uint63 (fun gr => (sgrmv fsgri u pty gr <? ngroupi)%uint63))).
 Lemma sgrRCP : sgrRC. Proof. by vm_compute. Qed.
 
 Definition sbtRC : bool :=
-  iter 16 0%uint63 (fun u =>
+  iter nsymn 0%uint63 (fun u =>
     iter nbitn 0%uint63 (fun bt => (sbtmv fsbti u bt <? nbiti)%uint63)).
 Lemma sbtRCP : sbtRC. Proof. by vm_compute. Qed.
 
 Definition frnRC : bool :=
-  iter npagen 0%uint63 (fun pg => (fren (PArray.get fpgi pg) <? 16)%uint63).
+  iter npagen 0%uint63 (fun pg => (fren (PArray.get fpgi pg) <? nsymi)%uint63).
+
+(* the parity a member is read at is nought or one *)
+Definition ptyRC : bool :=
+  iter npagen 0%uint63 (fun pg => iter nbitn 0%uint63 (fun bt =>
+    (Uint63.lxor (fpar (PArray.get fpgi pg))
+       (if (bt <? 12)%uint63 then 0 else 1) <? 2)%uint63)).
+Lemma ptyRCP : ptyRC. Proof. by vm_compute. Qed.
 Lemma frnRCP : frnRC. Proof. by vm_compute. Qed.
+
+(* ---- so the place a member folds to is a place --------------------------- *)
+
+Notation Kof pg := (PArray.get fkeepi (fkpt (PArray.get fpgi pg))).
+Notation Ptyof pg bt :=
+  (Uint63.lxor (fpar (PArray.get fpgi pg))
+     (if (bt <? 12)%uint63 then 0%uint63 else 1%uint63)).
+Notation Gof pg gr bt :=
+  (sgrmv fsgri (fren (PArray.get fpgi pg)) (Ptyof pg bt) gr).
+Notation Bof pg bt := (sbtmv fsbti (fren (PArray.get fpgi pg)) bt).
+Notation Sof pg := (nth 0%N fren2sym (to_nat (fren (PArray.get fpgi pg)))).
+
+Lemma fold_inrange pg gr bt : inrange pg gr bt ->
+  inrange (Kof pg) (Gof pg gr bt) (Bof pg bt).
+Proof.
+move=> hr; have /and3P[hpg hgr hbt] := hr.
+have b0 : (to_nat pg < npagen)%N by apply/nltbP.
+have hfk : (to_nat (fkpt (PArray.get fpgi pg)) < nrepn)%N.
+  by apply/nltbP; apply: (Row.iter_at fkptRCP b0).
+have hu : (to_nat (fren (PArray.get fpgi pg)) < nsymn)%N.
+  by apply/nltbP; apply: (Row.iter_at frnRCP b0).
+have hb : (to_nat bt < nbitn)%N by apply/nltbP.
+have hp : (to_nat (Ptyof pg bt) < nptyn)%N.
+  by apply/nltbP; apply: (Row.iter_at (Row.iter_at ptyRCP b0) hb).
+have hg : (to_nat gr < ngroupn)%N by apply/nltbP.
+apply/and3P; split.
+- exact: (Row.iter_at keepRCP hfk).
+- exact: (Row.iter_at (Row.iter_at (Row.iter_at sgrRCP hu) hp) hg).
+exact: (Row.iter_at (Row.iter_at sbtRCP hu) hb).
+Qed.
