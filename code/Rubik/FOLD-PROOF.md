@@ -54,14 +54,36 @@ Two kinds, and the first is done.
 one of the 2768 kept pages, so does each move's source page, a group folds
 to a group, a bit to one of the twenty four, each half of a word to a half.
 
-**The members** — still to write. `fsgr`, `fsbt`, `fslo`, `fshi` are
-rank-level tables, and what has to hold is that each is the renaming acting
-on that rank. That is computable: `RowMemb`'s `up8` and `up4` turn a rank
-back into a permutation, `Sym16`'s tables say what the renaming does to a
-facelet, and `RowMemb`'s `cposn` and `eposn` say which cubie a facelet
-belongs to. So the check is: unrank, rename, rank again, and compare with
-the table -- 16 x 20160 for `fsgr`, less for the others. The member fact
-then follows the way `RowMemb.memb2tab_move` follows from its own checks.
+**The members** — done, in `RowFoldSym.v`, all four sweeps passing (307 s,
+1.1 GB): `fsgr` by unrank, rename, rank again and compare, 16 x 2 x 20160 of
+them; `fsbt` the same on the middle four, 16 x 24; and `fslo`, `fshi` by
+moving the twelve bits of a half one at a time, which is what `fsbt` already
+says, 16 x 4096 each.
+
+**EVERY INDEX IN THAT FILE IS AN int63.** `of_nat` walks its argument, so
+naming a slot of the 645 120 entry group table in `nat` costs 645 120 steps
+to build the number, once for every group of every renaming -- about 10^11
+steps, which does not finish. Counted in int63 the same index is two
+multiplications and an addition, and the sweep is five minutes.
+
+**AND THE SIXTEEN ARE NUMBERED TWICE.** `Sym16.v` orders the renamings one
+way and the fold tables, which come from the prototype, order them another.
+`RowFoldSym.fren2sym` is the map between the two:
+
+| fold `u` | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `sym16ts` | 15 | 6 | 2 | 10 | 12 | 11 | 1 | 5 | 7 | 8 | 0 | 3 | 13 | 4 | 9 | 14 |
+
+It is not assumed. The sweep asks that renaming `u` of the tables IS
+`sym16ts (fren2sym u)` acting on the ranks, so a wrong entry makes the sweep
+fail rather than pass. Read off the tables: the twenty four bits leave two
+candidates for each `u` and cannot tell `u` from `u + 8`, because the two
+differ only away from the middle four; the outer eight pin it, and they pin
+it in one direction only -- the conjugation is `s` on the outside and `s`
+inverse on the inside, and the other way round fails on four of the sixteen.
+
+The member fact then follows the way `RowMemb.memb2tab_move` follows from
+its own checks.
 
 ### The old wording of this section
 
