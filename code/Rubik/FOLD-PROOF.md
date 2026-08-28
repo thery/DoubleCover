@@ -90,6 +90,61 @@ That is where the six sweeps of `RowFoldSym` are finally spent, and it is
 exactly the shape `RowInst` leaves `memb2tab_move` in -- the algorithm
 proved, what the tables mean left to the instance.
 
+### And what `fold_conj` will cost: NOT `part`, and NOT `partt` either
+
+`RowMemb.memb2tab_move` is the plain version of this, and it works by cutting
+the member into three parts -- corners, outer edges, middle -- showing the
+move acts on each, and putting them back together. The fold wants the same
+cut with a renaming in place of the move, and there are two obstacles.
+
+`RowMemb.part_move` asks `lslot`: the move leaves a facelet in the SAME slot
+of its place. A renaming does not. `RowCub.partt` is `part` with that
+relaxed to a TURN -- slot `s` goes to `(s + tw p) %% nsl`, round the place --
+which is what a corner twist and an edge flip do.
+
+**That is still not enough, and it is measured, not guessed.** Asking of all
+sixteen renamings and all eight corner places whether the slot map is a turn:
+
+    rot_ok = false
+
+and at corner place 0 the sixteen split evenly -- eight give the slot map
+`[0;1;2]` and eight give `[0;2;1]`. A transposition is not a rotation of
+three, so eight of the sixteen REVERSE a corner's facelets and no `tw` can
+say it.
+
+**But the slot map does not depend on the place**, and that is measured too:
+
+    same_across = true
+
+Renaming 1 gives the slot map `[0;2;1]` at every one of the eight corner
+places, and so it goes for all sixteen. So the variant `fold_conj` needs is
+not an arbitrary slot permutation for each place -- it is ONE slot
+permutation for the whole renaming, applied uniformly:
+
+    parts lay nsl inL plc slt u sw :=
+      mkseq (fun f => if inL f then lay[u (plc f) * nsl + sw (slt f)] else f) 48
+
+which is `part` with a single extra argument, much closer to it than `partt`
+is. And because that `sw` is global, in a conjugation the one from the
+renaming and the one from its inverse cancel: the conjugate of a
+slot-preserving part is slot-preserving again, which is what makes the three
+parts reassemble the way `memb2tab_move` reassembles them.
+
+**And that lemma is now proved**, in `RowFoldPart.v`:
+
+    part_conj : ... -> comp_tab (part v) (restr inL t)
+                     = comp_tab (restr inL t) (part u)
+
+on `RowMemb`'s own `part`, twice -- no new kind of part was needed after
+all, because the one slot map appears on both sides of the conjugation and
+cancels. `lslots` is `lslot` with that one map added.
+
+The condition it asks of the places is exactly what the fold tables are
+checked to say: `nth (lperm t) (v p) = u (nth (lperm t) p)`, the renamed
+rank names the conjugated permutation. So `fold_conj` is now three
+applications of `part_conj` -- corners, outer edges, middle -- and the
+reassembly `memb2tab_move` already does.
+
 And then a folded `RowInst`/`RowFinal`, so that `RowFoldCubRun.v` has a
 theorem to print the assumptions of.
 
