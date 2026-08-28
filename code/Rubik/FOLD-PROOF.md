@@ -32,19 +32,34 @@ In `RowFoldOk.v`:
 
 ## What is left
 
-One thing: the folded level. `flevpg` copies the source page and then ors
-in what each of the ten moves gathers, and nothing yet says that a bit it
-writes is a member one move of H away from a member the source had.
+**The folded level's shape is proved**, in `RowFoldLvl.v`, on nothing but the
+int63 and PArray primitives:
 
-The shape is `RowRun.prepass_sound`, with two differences.
+    flevel_sound : sdf P src -> sdf Q dst -> sdf Q (flevel ... src dst)
 
-1. The level writes into a page array, not into the map. `fset_setp` is
-   the bridge, so the induction runs over `RowMap.ifold_indi` with the
-   invariant "the map with this chunk put back is sound".
+The two differences from `RowRun.prepass_sound` are both discharged.
 
-2. The source is read through a renaming. So the source member is not the
-   one the plain level would read but its image under one of the sixteen,
-   and `sym16_row` is what says that costs nothing.
+1. The level writes into a page array, not into the map. `ffor_setp` is the
+   bridge, and the induction runs over `RowMap.ifold_indi` with the
+   invariant "the map with this chunk put back is sound". `set_getA` is what
+   says a chunk put back unchanged leaves the map alone, which is how the
+   carry starts; and the level's own length invariant is carried beside
+   soundness so that every kept page's chunk stays in range.
+2. Each group is written twice, once for each half of its word, and each
+   write is under a test -- a half that is all noughts is not written at
+   all. `lvstep_if` is that write with its test.
+
+**What is left is the two write obligations**, `Qlo` and `Qhi`, stated in
+`RowFoldLvl.v` in the shape `RowRun.v` uses for `grpmvP` and `prep_move`: a
+member that reads a bit of the word gathered for the low (resp. high) half
+is one move of H out from a member the source had. The source is read
+through a renaming, so the source member is not the one the plain level
+would read but its image under one of the sixteen, and `Sym16Row.sym16_row`
+is what says that costs nothing. All six tables those two statements speak
+about are now checked.
+
+And then a folded `RowInst`/`RowFinal`, so that `RowFoldCubRun.v` has a
+theorem to print the assumptions of.
 
 ### The tables it needs
 
