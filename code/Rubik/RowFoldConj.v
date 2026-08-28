@@ -221,3 +221,61 @@ apply: (@part_conj mlay 2 4 inM mplc eslt _ _ (swm s)).
 - by rewrite -(lpmsE hs); apply: (aiota_lt lpmrngCP hs).
 by have /and3P[_ _ h] := aiota_lt swrngCP hs.
 Qed.
+
+(* ---- the renaming splits into four commuting pieces ---------------------- *)
+
+(* A member is cut into three parts and a renaming is cut the same way, with  *)
+(* the six face centres left over.  Each piece moves only its own class, the  *)
+(* four classes are disjoint, and the four pieces compose to the renaming.    *)
+(* So conjugating a member by the renaming is conjugating each part by its    *)
+(* own piece -- which is what the three part lemmas above give.               *)
+Definition inZ (f : nat) : bool := ~~ (inC f || inU f || inM f).
+
+Definition rprtC : bool :=
+  all (fun s => [&& partok inC (restr inC (sy s)),
+                    partok inU (restr inU (sy s)),
+                    partok inM (restr inM (sy s))
+                  & partok inZ (restr inZ (sy s))])
+      (iota 0 16).
+Lemma rprtCP : rprtC. Proof. by vm_compute. Qed.
+
+Definition sfullC : bool :=
+  all (fun s => comp_tab (restr inC (sy s))
+                  (comp_tab (restr inU (sy s))
+                     (comp_tab (restr inM (sy s)) (restr inZ (sy s)))) == sy s)
+      (iota 0 16).
+Lemma sfullCP : sfullC. Proof. by vm_compute. Qed.
+
+Definition dsjZC : bool := [&& dsj inC inZ, dsj inU inZ & dsj inM inZ].
+Lemma dsjZCP : dsjZC. Proof. by vm_compute. Qed.
+
+(* ---- and what that is worth, as a group computation ---------------------- *)
+
+(* Two things commute when neither moves what the other moves, and then       *)
+(* conjugating by one leaves the other alone.                                 *)
+Lemma cfix (gT : finGroupType) (x y : gT) : commute x y -> (x ^ y)%g = x.
+Proof. by move=> h; rewrite conjgE h mulKg. Qed.
+
+(* THE REASSEMBLY, with nothing about the cube in it.  Three parts, each      *)
+(* conjugated by its own piece, are the three together conjugated by the      *)
+(* three pieces together -- because a piece leaves the other two parts alone. *)
+Lemma conj_three (gT : finGroupType) (A B C A' B' C' a b c : gT) :
+  (A * a)%g = (a * A')%g -> (B * b)%g = (b * B')%g -> (C * c)%g = (c * C')%g ->
+  commute B a -> commute C a -> commute C b ->
+  commute A' b -> commute A' c -> commute B' c ->
+  (A' * B' * C')%g = ((A * B * C) ^ (a * b * c))%g.
+Proof.
+move=> hA hB hC hBa hCa hCb hA'b hA'c hB'c.
+have eA : (A ^ a)%g = A' by rewrite conjgE hA mulKg.
+have eB : (B ^ b)%g = B' by rewrite conjgE hB mulKg.
+have eC : (C ^ c)%g = C' by rewrite conjgE hC mulKg.
+rewrite !conjMg !conjgM.
+rewrite eA (cfix hA'b) (cfix hA'c).
+rewrite (cfix hBa) eB (cfix hB'c).
+by rewrite (cfix hCa) (cfix hCb) eC.
+Qed.
+
+(* and the centres, which the member does not touch, drop out of the end *)
+Lemma conj_drop (gT : finGroupType) (X y z : gT) :
+  commute (X ^ y)%g z -> (X ^ (y * z))%g = (X ^ y)%g.
+Proof. by move=> h; rewrite conjgM (cfix h). Qed.
