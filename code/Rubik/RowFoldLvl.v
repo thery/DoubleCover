@@ -84,6 +84,7 @@ forall src r k g pg gr bt,
                          (Uint63.mul
                             (Uint63.add (Uint63.mul (fren w) 2) (fpar w))
                             ngroupi) g)) nhi) k) in
+  inrange pg gr bt ->
   pchk r = pchk (fkpt (PArray.get fpg pg)) ->
   Uint63.add (poff r) G
   = Uint63.add (poff (fkpt (PArray.get fpg pg)))
@@ -115,6 +116,7 @@ forall src r k g pg gr bt,
                             (Uint63.add (Uint63.mul (fren w) 2)
                                (Uint63.sub 1 (fpar w)))
                             ngroupi) g)) nhi) k) in
+  inrange pg gr bt ->
   pchk r = pchk (fkpt (PArray.get fpg pg)) ->
   Uint63.add (poff r) G
   = Uint63.add (poff (fkpt (PArray.get fpg pg)))
@@ -157,7 +159,7 @@ Hypothesis Qhi : Qhi_st fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi P Q.
 Hypothesis PQ : forall pg gr bt, P pg gr bt -> Q pg gr bt.
 
 Lemma sdfW src : sdf P src -> sdf Q src.
-Proof. by move=> h pg gr bt ht; apply: PQ; apply: h. Qed.
+Proof. by move=> h pg gr bt hr ht; apply: PQ; apply: (h _ _ _ hr ht). Qed.
 
 (* ---- one write, read as a map write -------------------------------------- *)
 
@@ -167,7 +169,7 @@ Proof. by move=> h pg gr bt ht; apply: PQ; apply: h. Qed.
 Lemma lvstep d r bb G X :
   (pchk r <? PArray.length d) ->
   sdf Q (PArray.set d (pchk r) bb) ->
-  (forall pg gr bt,
+  (forall pg gr bt, inrange pg gr bt ->
      pchk r = pchk (fkpt (PArray.get fpg pg)) ->
      Uint63.add (poff r) G
      = Uint63.add (poff (fkpt (PArray.get fpg pg)))
@@ -190,7 +192,7 @@ Qed.
 Lemma lvstep_if d r bb (c : bool) G X :
   (pchk r <? PArray.length d) ->
   sdf Q (PArray.set d (pchk r) bb) ->
-  (forall pg gr bt,
+  (forall pg gr bt, inrange pg gr bt ->
      pchk r = pchk (fkpt (PArray.get fpg pg)) ->
      Uint63.add (poff r) G
      = Uint63.add (poff (fkpt (PArray.get fpg pg)))
@@ -320,7 +322,7 @@ Fixpoint frunx (n d : nat) (m dst : rmap) : rmap :=
 (* a map sound at d is sound at d plus one, which is what carrying it over    *)
 (* costs                                                                      *)
 Lemma sdfWd d m : sdf (Pd d) m -> sdf (Pd d.+1) m.
-Proof. by move=> h pg gr bt ht; apply: PdW; apply: h. Qed.
+Proof. by move=> h pg gr bt hr ht; apply: PdW; apply: (h _ _ _ hr ht). Qed.
 
 Lemma flvlx_sound d m dst :
   (forall r, (to_nat r < nrepn)%N -> (pchk r <? PArray.length dst)) ->
