@@ -141,9 +141,31 @@ cancels. `lslots` is `lslot` with that one map added.
 
 The condition it asks of the places is exactly what the fold tables are
 checked to say: `nth (lperm t) (v p) = u (nth (lperm t) p)`, the renamed
-rank names the conjugated permutation. So `fold_conj` is now three
-applications of `part_conj` -- corners, outer edges, middle -- and the
-reassembly `memb2tab_move` already does.
+rank names the conjugated permutation.
+
+**And all three applications are now proved**, in `RowFoldConj.v`:
+`cpart_conj`, `upart_conj`, `mpart_conj`. Each rests on a sweep of the fold's
+own tables:
+
+| | what is walked | |
+|---|---|---|
+| `pgconjC` | 40 320 pages | 5.5 s |
+| `uconjC` | 16 x 2 x 20 160 groups | 81 s |
+| `mconjC` | 16 x 24 bits | instant |
+
+**THE SWEEPS ARE NOT OVER MEMBERS.** The outer part depends on a member only
+through its group and its parity, and the middle only through its bit, so
+each walk is the size of the table it is about and not of the row.
+
+**And the parity does not move.** A renaming conjugates, so it keeps the
+parity of a permutation, which is why the same `pty` indexes both sides of
+`uconjC`. That is what the sweep says; it was not assumed. The parity the
+fold computes -- `fpar w` xor the bit's half -- is `unplace`'s own parity,
+because `fpgC` checks `fpar w = par8i pg` and the low half of a word is the
+even middle permutations.
+
+What is left is the reassembly of the three into `fold_conj`, which is what
+`memb2tab_move` already does for its three.
 
 And then a folded `RowInst`/`RowFinal`, so that `RowFoldCubRun.v` has a
 theorem to print the assumptions of.

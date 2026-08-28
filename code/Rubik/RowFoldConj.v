@@ -19,7 +19,7 @@ From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Tabi Rubik333 Sym Sym16 Moves.
-Require Import Row RowMap RowFold RowMemb RowFoldPart.
+Require Import Row RowMap RowFold RowMemb RowFoldPart RowTab.
 Require Import RowTabF RowFoldTab RowFoldSym.
 
 Set Implicit Arguments.
@@ -99,4 +99,125 @@ apply: (@part_conj cflatp 3 8 inC cposn cslotn _ _ (swc s)).
 - exact: up8_rng hok.
 - by rewrite -(lpcsE hs); apply: (aiota_lt lpcrngCP hs).
 by have /and3P[h _ _] := aiota_lt swrngCP hs.
+Qed.
+
+(* ---- the outer edges and the middle, the same way ------------------------ *)
+
+(* The outer edge part and the middle part of a member are ranks too, and the *)
+(* renaming conjugates them the same way.  THE SWEEP IS NOT OVER MEMBERS: the *)
+(* outer part depends on a member only through its group and its parity, and  *)
+(* the middle only through its bit, so the two walks are the size of the      *)
+(* tables they are about and not of the row.                                  *)
+(*                                                                            *)
+(* AND THE PARITY DOES NOT MOVE.  A renaming conjugates, so it keeps the      *)
+(* parity of a permutation -- which is why the same pty indexes both sides.   *)
+(* That is what the sweep says; it was not assumed.                           *)
+
+Definition lpu (s : nat) : seq nat := lperm ulay 2 8 eposn (sy s).
+Definition lpus : seq (seq nat) := Eval vm_compute in [seq lpu s | s <- iota 0 16].
+
+Definition lpm (s : nat) : seq nat := lperm mlay 2 4 mplc (sy s).
+Definition lpms : seq (seq nat) := Eval vm_compute in [seq lpm s | s <- iota 0 16].
+
+Definition lpusC : bool :=
+  all (fun s => nth [::] lpus s == lperm ulay 2 8 eposn (sy s)) (iota 0 16).
+Lemma lpusCP : lpusC. Proof. by vm_compute. Qed.
+Lemma lpusE s : (s < 16)%N -> nth [::] lpus s = lperm ulay 2 8 eposn (sy s).
+Proof. by move=> hs; apply/eqP; apply: (aiota_lt lpusCP hs). Qed.
+
+Definition lpmsC : bool :=
+  all (fun s => nth [::] lpms s == lperm mlay 2 4 mplc (sy s)) (iota 0 16).
+Lemma lpmsCP : lpmsC. Proof. by vm_compute. Qed.
+Lemma lpmsE s : (s < 16)%N -> nth [::] lpms s = lperm mlay 2 4 mplc (sy s).
+Proof. by move=> hs; apply/eqP; apply: (aiota_lt lpmsCP hs). Qed.
+
+Definition lpurngC : bool :=
+  all (fun s => all (fun p => (nth 0%N (nth [::] lpus s) p < 8)%N) (iota 0 8))
+      (iota 0 16).
+Lemma lpurngCP : lpurngC. Proof. by vm_compute. Qed.
+
+Definition lpmrngC : bool :=
+  all (fun s => all (fun p => (nth 0%N (nth [::] lpms s) p < 4)%N) (iota 0 4))
+      (iota 0 16).
+Lemma lpmrngCP : lpmrngC. Proof. by vm_compute. Qed.
+
+Notation ugrp gr pty := (PArray.get e8invi (Uint63.add (Uint63.mul gr 2) pty)).
+
+(* the outer eight: sixteen renamings, two parities, twenty thousand groups *)
+Definition uconjC : bool :=
+  iter 16 0%uint63 (fun u =>
+    let lp := nth [::] lpus (nth 0%N fren2sym (to_nat u)) in
+    iter 2 0%uint63 (fun pty =>
+      iter ngroupn 0%uint63 (fun gr =>
+        all (fun q => nth 0%N lp (up8 (ugrp gr pty) q)
+                      == up8 (ugrp (sgrmv fsgri u pty gr) pty) (nth 0%N lp q))
+            (iota 0 8)))).
+
+Lemma uconjCP : uconjC. Proof. by vm_compute. Qed.
+
+(* and the middle four: sixteen renamings, twenty four bits *)
+Definition mconjC : bool :=
+  iter 16 0%uint63 (fun u =>
+    let lp := nth [::] lpms (nth 0%N fren2sym (to_nat u)) in
+    iter nbitn 0%uint63 (fun bt =>
+      all (fun q => nth 0%N lp (up4 (PArray.get e4ofi bt) q)
+                    == up4 (PArray.get e4ofi (sbtmv fsbti u bt)) (nth 0%N lp q))
+          (iota 0 4))).
+
+Lemma mconjCP : mconjC. Proof. by vm_compute. Qed.
+
+(* a page's renaming number names one of the sixteen of Sym16 *)
+Definition f2sC : bool := all (fun s => (nth 0%N fren2sym s < 16)%N) (iota 0 16).
+Lemma f2sCP : f2sC. Proof. by vm_compute. Qed.
+
+(* ---- THE OUTER EDGE PART, CONJUGATED ------------------------------------ *)
+
+Lemma upart_conj u pty gr : (to_nat u < 16)%N -> (to_nat pty < 2)%N ->
+  (to_nat gr < ngroupn)%N ->
+  up8ok1 (PArray.get e8invi (Uint63.add (Uint63.mul gr 2) pty)) ->
+  comp_tab (part ulay 2 inU eposn eslt
+              (up8 (PArray.get e8invi (Uint63.add (Uint63.mul gr 2) pty))))
+           (restr inU (sy (nth 0%N fren2sym (to_nat u))))
+  = comp_tab (restr inU (sy (nth 0%N fren2sym (to_nat u))))
+             (part ulay 2 inU eposn eslt
+                (up8 (PArray.get e8invi
+                        (Uint63.add (Uint63.mul (sgrmv fsgri u pty gr) 2) pty)))).
+Proof.
+move=> hu hpty hgr hok.
+set s := nth 0%N fren2sym (to_nat u).
+have hs : (s < 16)%N by apply: (aiota_lt f2sCP hu).
+apply: (@part_conj ulay 2 8 inU eposn eslt _ _ (swu s)).
+- exact: ulayokC.
+- by apply: (aiota_lt usymCP hs).
+- (* the let in uconjC is what keeps the sweep to eighty seconds; cbv zeta   *)
+  (* takes it out, and nothing else is unfolded.                             *)
+  have h1 := Row.iter_at uconjCP hu; cbv zeta in h1.
+  have h2 := Row.iter_at h1 hpty.
+  by rewrite -(lpusE hs); exact: (Row.iter_at h2 hgr).
+- exact: up8_rng hok.
+- by rewrite -(lpusE hs); apply: (aiota_lt lpurngCP hs).
+by have /and3P[_ h _] := aiota_lt swrngCP hs.
+Qed.
+
+(* ---- AND THE MIDDLE PART ------------------------------------------------ *)
+
+Lemma mpart_conj u bt : (to_nat u < 16)%N -> (to_nat bt < nbitn)%N ->
+  up4ok1 (PArray.get e4ofi bt) ->
+  comp_tab (part mlay 2 inM mplc eslt (up4 (PArray.get e4ofi bt)))
+           (restr inM (sy (nth 0%N fren2sym (to_nat u))))
+  = comp_tab (restr inM (sy (nth 0%N fren2sym (to_nat u))))
+             (part mlay 2 inM mplc eslt
+                (up4 (PArray.get e4ofi (sbtmv fsbti u bt)))).
+Proof.
+move=> hu hbt hok.
+set s := nth 0%N fren2sym (to_nat u).
+have hs : (s < 16)%N by apply: (aiota_lt f2sCP hu).
+apply: (@part_conj mlay 2 4 inM mplc eslt _ _ (swm s)).
+- exact: mlayokC.
+- by apply: (aiota_lt msymCP hs).
+- have h1 := Row.iter_at mconjCP hu; cbv zeta in h1.
+  by rewrite -(lpmsE hs); exact: (Row.iter_at h1 hbt).
+- exact: up4_rng hok.
+- by rewrite -(lpmsE hs); apply: (aiota_lt lpmrngCP hs).
+by have /and3P[_ _ h] := aiota_lt swrngCP hs.
 Qed.
