@@ -2084,6 +2084,16 @@ let uprepass2 (src : upmap) : upmap =
     (fun k d -> if k = 0 then uprepmv0 k src d else uprepmv k src d)
     (umkempty ())
 
+
+(* allocating one map: said before and after, since it is 6.51 GB of pages
+   that have to be touched and it is worth knowing what that costs *)
+let umkemptyt what =
+  Printf.printf "   %s: allocating a map ...%!" what;
+  let t0 = Sys.time () in
+  let m = umkempty () in
+  Printf.printf " %.1f s\n%!" (Sys.time () -. t0);
+  m
+
 (* the levels, one after another, with the heap and the rerooting after each *)
 let uleakg pass name n =
   Printf.printf
@@ -2094,7 +2104,7 @@ let uleakg pass name n =
   let s = solved () in
   let pg = rank s.cp 0 8 in
   let gr = e8num.(rank s.ep 0 8) lsr 1 and bt = e4bit.(rank s.ep 8 4) in
-  let m = ref (ugset winit (umkempty ()) (ugrpof pg gr) (1 lsl bt)) in
+  let m = ref (ugset winit (umkemptyt "start") (ugrpof pg gr) (1 lsl bt)) in
   for d = 1 to n do
     let t0 = Sys.time () in
     m := pass !m;
@@ -2142,8 +2152,8 @@ let uleak2 n =
   let s = solved () in
   let pg = rank s.cp 0 8 in
   let gr = e8num.(rank s.ep 0 8) lsr 1 and bt = e4bit.(rank s.ep 8 4) in
-  let a = ref (ugset winit (umkempty ()) (ugrpof pg gr) (1 lsl bt)) in
-  let b = ref (umkempty ()) in
+  let a = ref (ugset winit (umkemptyt "first") (ugrpof pg gr) (1 lsl bt)) in
+  let b = ref (umkemptyt "second") in
   for d = 1 to n do
     let t0 = Sys.time () in
     b := ifold nhn 0
