@@ -144,7 +144,57 @@ Definition fshiC1 (u : int) : bool :=
 
 Definition fshiC : bool := iter nsymn 0%uint63 fshiC1.
 
+(* ---- and the two page tables --------------------------------------------- *)
+
+(* A PAGE IS A RANK TOO -- of the eight corners -- so the same conjugation    *)
+(* says what a renaming does to it.  Where a renaming sends a corner place:   *)
+(* apply it to that place's primary facelet and read which place the answer   *)
+(* belongs to.                                                               *)
+Definition sc (s p : nat) : nat :=
+  cposn (nth 0%N (nth [::] sym16ts s) (nth 0%N cprimp p)).
+
+Definition scv (s : nat) : seq nat := [seq sc s p | p <- iota 0 8].
+Definition civ (s : nat) : seq nat := [seq index j (scv s) | j <- iota 0 8].
+
+(* the sixteen worked out once, as values, so a sweep over forty thousand     *)
+(* pages does not rebuild them at every page                                  *)
+Definition scvs : seq (seq nat) := Eval vm_compute in
+  [seq scv (nth 0%N fren2sym u) | u <- iota 0 16].
+Definition civs : seq (seq nat) := Eval vm_compute in
+  [seq civ (nth 0%N fren2sym u) | u <- iota 0 16].
+
+(* the page a renaming sends this one to *)
+Definition pgexp (u : int) (pg : int) : int :=
+  let cv := nth [::] scvs (to_nat u) in
+  let iv := nth [::] civs (to_nat u) in
+  rank8 (fun j => nth 0%N cv (up8 pg (nth 0%N iv j))).
+
+(* fpg: a page folds to a kept page through the renaming it names, and it     *)
+(* carries its own parity                                                     *)
+Definition fpgC1 (pg : int) : bool :=
+  let w := PArray.get fpgi pg in
+  (pgexp (fren w) pg =? PArray.get fkeepi (fkpt w)) &&
+  (fpar w =? PArray.get par8i pg).
+
+Definition fpgC : bool := iter npagen 0%uint63 fpgC1.
+
+(* fsrc: for a kept page and a move, the kept page it gathers from and the    *)
+(* renaming to read it through.  Rename that kept page and the move sends     *)
+(* the answer to the page being filled -- which is what gathering means.  The *)
+(* parity carried is the SOURCE page's, not the page being filled.            *)
+Definition fsrcC1 (r : int) : bool :=
+  iter nhn 0%uint63 (fun k =>
+    let w := PArray.get fsrci (Uint63.add (Uint63.mul r nhi) k) in
+    let p := PArray.get fkeepi (fkpt w) in
+    (PArray.get mpgi (Uint63.add (Uint63.mul (pgexp (fren w) p) nhi) k)
+       =? PArray.get fkeepi r) &&
+    (fpar w =? PArray.get par8i p)).
+
+Definition fsrcC : bool := iter nrepn 0%uint63 fsrcC1.
+
 Lemma fsbtCP : fsbtC. Proof. by vm_compute. Qed.
+Lemma fpgCP : fpgC. Proof. by vm_compute. Qed.
+Lemma fsrcCP : fsrcC. Proof. by vm_compute. Qed.
 Lemma fsloCP : fsloC. Proof. by vm_compute. Qed.
 Lemma fshiCP : fshiC. Proof. by vm_compute. Qed.
 Lemma fsgrCP : fsgrC. Proof. by vm_compute. Qed.
