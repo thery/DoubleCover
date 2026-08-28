@@ -21,6 +21,7 @@ From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Tabi Rubik333 Sym Sym16 Moves.
 Require Import Row RowMap RowFold RowMemb RowFoldPart RowTab.
 Require Import RowTabF RowFoldTab RowFoldSym.
+Require Import RowPartC RowPartU RowPartM RowMoveH.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -375,3 +376,31 @@ Definition parBC : bool :=
       (PArray.get par4i (PArray.get e4ofi (sbtmv fsbti u bt))
         =? PArray.get par4i (PArray.get e4ofi bt))%uint63)).
 Lemma parBCP : parBC. Proof. by vm_compute. Qed.
+
+(* ---- everything the fold names lands in range ---------------------------- *)
+
+(* These are the three RowFoldOk asks of the tables -- a page folds to a kept *)
+(* page, a group to a group, a bit to one of the twenty four -- plus the two  *)
+(* the assembly below needs.  All five together are a tenth of a second.      *)
+
+Definition fkptRC : bool :=
+  iter npagen 0%uint63 (fun pg => (fkpt (PArray.get fpgi pg) <? nrepi)%uint63).
+Lemma fkptRCP : fkptRC. Proof. by vm_compute. Qed.
+
+Definition keepRC : bool :=
+  iter nrepn 0%uint63 (fun r => (PArray.get fkeepi r <? npagei)%uint63).
+Lemma keepRCP : keepRC. Proof. by vm_compute. Qed.
+
+Definition sgrRC : bool :=
+  iter 16 0%uint63 (fun u => iter 2 0%uint63 (fun pty =>
+    iter ngroupn 0%uint63 (fun gr => (sgrmv fsgri u pty gr <? ngroupi)%uint63))).
+Lemma sgrRCP : sgrRC. Proof. by vm_compute. Qed.
+
+Definition sbtRC : bool :=
+  iter 16 0%uint63 (fun u =>
+    iter nbitn 0%uint63 (fun bt => (sbtmv fsbti u bt <? nbiti)%uint63)).
+Lemma sbtRCP : sbtRC. Proof. by vm_compute. Qed.
+
+Definition frnRC : bool :=
+  iter npagen 0%uint63 (fun pg => (fren (PArray.get fpgi pg) <? 16)%uint63).
+Lemma frnRCP : frnRC. Proof. by vm_compute. Qed.
