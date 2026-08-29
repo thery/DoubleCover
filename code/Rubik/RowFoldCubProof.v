@@ -22,7 +22,7 @@
 (* no proof reads it -- the distance and the mask are numbers the search      *)
 (* tests, and a table that prunes too little only makes the search bigger.    *)
 (*                                                                            *)
-(* Run it with `./mkrowfold.sh proof'.  Watch it with `./mkrowfold.sh cubrun' *)
+(* Run it with `./mkrowfold.sh proof'.  It runs the OPTIMIZED level.  Watch it with `./mkrowfold.sh cubrun' *)
 (* first, which is the same run reported level by level and must print the    *)
 (* counts 2560, 72832, 1192960, 14731320.                                     *)
 
@@ -57,13 +57,35 @@ Notation rmap := (PArray.array arr).
 
 Import GroupScope.
 
-(* the map the folded run leaves, with the witnesses marked into it *)
-Definition yfcwitsi : rmap :=
-  yfcwits p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data.
+(* ---- which of the eighteen are moves of H, as RowFoldCut computes it ----- *)
+
+(* The solved coordinate is twist nought and the solved flip and slice rank,  *)
+(* which is csolvedci itself.  A move of H is one that leaves it alone.       *)
+Definition fstep (c k : int) : int :=
+  Uint63.add (Uint63.mul (acttwii (Uint63.div c nfsi) k) nfsi)
+             (actfsri (Uint63.mod c nfsi) k).
+
+Definition ishmi : int :=
+  Eval vm_compute in
+  ifold nmvn 0%uint63
+    (fun k a =>
+       if Uint63.eqb (fstep csolvedci k) csolvedci
+       then Uint63.lor a (Uint63.lsl 1%uint63 k) else a)
+    0%uint63.
+
+(* ---- the map the folded run leaves, with the witnesses marked into it ---- *)
+
+(* EVERY OPTIMIZATION ON: Rokicki's early stop and hcoset's two cuts, all     *)
+(* three proved sound in RowFoldRun.  The unoptimized certificate is still    *)
+(* there -- real_superflip_row_fold on yfcwits -- if this one ever has to be  *)
+(* compared against it.                                                       *)
+Definition yfcwitsoi : rmap :=
+  yfcwitso p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
+           forbi fpopi ishmi.
 
 (* AND THE MAP: the run and the witnesses together leave no bit of the row    *)
 (* clear.  This is the long pole and it is only a run.                        *)
-Lemma r_full_fold : mfullf yfcwitsi.
+Lemma r_full_foldo : mfullf yfcwitsoi.
 Proof. Time native_cast_no_check (erefl true). Qed.
 
 (* ---- and the row of the superflip, with nothing left open ---------------- *)
@@ -71,8 +93,9 @@ Proof. Time native_cast_no_check (erefl true). Qed.
 Theorem real_superflip_row_fold_run h : h \in H ->
   superflip^-1 * h \in ball Sset 20.
 Proof.
-exact: (real_superflip_row_fold p1ftab frepi fsymi twsymi
-          dnlo_data dnhi_data fllo_data flhi_data fsmoveCP r_full_fold).
+exact: (real_superflip_row_foldo p1ftab frepi fsymi twsymi
+          dnlo_data dnhi_data fllo_data flhi_data fsmoveCP
+          forbi fpopi ishmi r_full_foldo).
 Qed.
 
 Corollary real_row_superflip_fold_run m : m \in H ->
