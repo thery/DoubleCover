@@ -219,3 +219,62 @@ have hp : (to_nat (Ptyof (PArray.get fkeepi r) bt) < nptyn)%N.
 have := keepid hr; cbv zeta => -[e1 e2 e3].
 by rewrite /ftest e1 (e2 _ _ hg hp) (e3 _ hb).
 Qed.
+
+(* =========================================================================  *)
+(*  Where one bit ends up: the renaming on the bit, then the move on it.      *)
+(* =========================================================================  *)
+
+(* clo_bit says a bit of a moved half came from a bit of the half.  This says *)
+(* WHICH bit it came from, and it is the whole of the bit leg: the place the  *)
+(* level's word puts a source bit is the place the two plain tables put it --  *)
+(* fsbt renames the bit, btmvt moves the renamed one.                         *)
+(*                                                                            *)
+(* The half a bit lands in is the move's business: msw says whether the two   *)
+(* halves change places, and the level shifts by twelve exactly when it does. *)
+(* The check carries that shift, so nothing about halves is left to argue.    *)
+
+Definition cbtmv (k bt : int) : int :=
+  PArray.get btmvi (Uint63.add (Uint63.mul bt nhi) k).
+
+Definition cbtok (u k i : int) : bool :=
+  let l := clo u k (Uint63.lsl 1 i) in
+  let h := chi u k (Uint63.lsl 1 i) in
+  ((if (PArray.get mswi k =? 0)%uint63 then l else Uint63.lsl l nloi)
+     =? bitof (cbtmv k (sbtmv fsbti u i)))%uint63 &&
+  ((if (PArray.get mswi k =? 0)%uint63 then Uint63.lsl h nloi else h)
+     =? bitof (cbtmv k (sbtmv fsbti u (Uint63.add nloi i))))%uint63.
+
+Definition cbtC : bool :=
+  iter nsymn 0%uint63 (fun u =>
+    iter nhn 0%uint63 (fun k => iter nlon 0%uint63 (cbtok u k))).
+Lemma cbtCP : cbtC. Proof. by vm_compute. Qed.
+
+(* read through an equation, never straight -- see caddCE *)
+Lemma cbtCE : cbtC =
+  iter nsymn 0%uint63 (fun u =>
+    iter nhn 0%uint63 (fun k => iter nlon 0%uint63 (cbtok u k))).
+Proof. by []. Qed.
+
+Lemma cbt_lo u k i : (to_nat u < nsymn)%N -> (to_nat k < nhn)%N ->
+  (to_nat i < nlon)%N ->
+  (if (PArray.get mswi k =? 0)%uint63
+   then clo u k (Uint63.lsl 1 i) else Uint63.lsl (clo u k (Uint63.lsl 1 i)) nloi)
+  = bitof (cbtmv k (sbtmv fsbti u i)).
+Proof.
+move=> hu hk hi.
+have h1 := cbtCP; rewrite cbtCE in h1.
+have /andP[/eqP e _] := Row.iter_at (Row.iter_at (Row.iter_at h1 hu) hk) hi.
+exact: e.
+Qed.
+
+Lemma cbt_hi u k i : (to_nat u < nsymn)%N -> (to_nat k < nhn)%N ->
+  (to_nat i < nlon)%N ->
+  (if (PArray.get mswi k =? 0)%uint63
+   then Uint63.lsl (chi u k (Uint63.lsl 1 i)) nloi else chi u k (Uint63.lsl 1 i))
+  = bitof (cbtmv k (sbtmv fsbti u (Uint63.add nloi i))).
+Proof.
+move=> hu hk hi.
+have h1 := cbtCP; rewrite cbtCE in h1.
+have /andP[_ /eqP e] := Row.iter_at (Row.iter_at (Row.iter_at h1 hu) hk) hi.
+exact: e.
+Qed.
