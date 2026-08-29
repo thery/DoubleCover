@@ -170,6 +170,13 @@ Nothing in the four files. What is missing is the file that supplies them:
   Written the other way, with `npagen := 40320`, the `Qed` of the one lemma
   that reads a check took **41 seconds**; defined as `to_nat npagei` it is
   instant.
+- **READ A SWEEP THROUGH AN `E` LEMMA, NEVER DIRECTLY.** `iter_at` applied
+  straight to a `vm_compute`d check makes the unifier unfold the check
+  itself, and the kernel then reduces the whole sweep: one `Qed` took **256
+  seconds**. Restate the check as `Lemma cE : c = iter n 0 f. Proof. by [].
+  Qed.`, rewrite with that first, and the same fact costs **28
+  milliseconds**. `RowInst` has done this all along with `halfokE` and
+  `srcokE`; it is not decoration.
 - **`of_nat` INSIDE A SWEEP is the same trap a third time.** It walks its
   argument, so naming a slot of the 645 120 entry fold group table in `nat`
   costs 645 120 steps to build the number -- and `RowFoldSym`'s sweep asks
