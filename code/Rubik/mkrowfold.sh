@@ -19,6 +19,9 @@
 #    ./mkrowfold.sh cub      build, then RowFoldCub -- the real twenty cubies
 #    ./mkrowfold.sh cubrun   build, then RowFoldCubRun -- the row, folded map
 #    ./mkrowfold.sh proof    build, then RowFoldCubProof -- THE CERTIFICATE
+#    ./mkrowfold.sh t10      build, then RowFoldRun10 -- the proved run, depth 10
+#    ./mkrowfold.sh t13      ... depth 13
+#    ./mkrowfold.sh t15      ... depth 15  (run the three side by side)
 #    ./mkrowfold.sh cubplain build, then RowCubRun -- the row, plain map
 #    ./mkrowfold.sh          build, then RowFoldRun -- the ball of H
 #
@@ -111,6 +114,12 @@ case "$1" in
          coqc -R . Rubik RowFoldCub.v ;;
   cubrun) echo "--- RowFoldCubRun (the row on the folded map, twenty carried)"
          coqc -R . Rubik RowFoldCubRun.v ;;
+  t10)   echo "--- RowFoldRun10 (the proved run to ten, timed)"
+         coqc -R . Rubik RowFoldRunT.v; coqc -R . Rubik RowFoldRun10.v ;;
+  t13)   echo "--- RowFoldRun13 (the proved run to thirteen, timed)"
+         coqc -R . Rubik RowFoldRunT.v; coqc -R . Rubik RowFoldRun13.v ;;
+  t15)   echo "--- RowFoldRun15 (the proved run to fifteen, timed)"
+         coqc -R . Rubik RowFoldRunT.v; coqc -R . Rubik RowFoldRun15.v ;;
   proof) echo "--- RowFoldCubProof (THE CERTIFICATE: must print true)"
          coqc -R . Rubik RowFoldCubReal.v
          coqc -R . Rubik RowFoldCubProof.v ;;
