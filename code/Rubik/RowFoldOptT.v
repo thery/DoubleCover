@@ -86,18 +86,7 @@ Notation flvlo :=
      fpgi fsrci fsgri fsloi fshii fsbti
      mgri mswi mloi mhii
      p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
-     fstep xstep tomembi okmvv fsolved croot sroot srch ishmi).
-
-(* THE CUTS COME ON WHEN THE ROW IS BIG, which is the prototype's own rule:   *)
-(* past six million members, and never on the first level searched.  The      *)
-(* count is taken after every level anyway, so it costs nothing to ask.       *)
-Fixpoint frunc (n : nat) (d : nat) (n0 : int) (m dst : rmap)
-                (acc : seq int) : seq int :=
-  if n is n1.+1 then
-    let m' := flvlc (Uint63.ltb ncutb n0) d.+1 m dst in
-    let n1' := fcount forbi fpopi m' in
-    frunc n1 d.+1 n1' m' m (rcons acc n1')
-  else acc.
+     fstep xstep tomembi okmvv fsolved croot sroot srch forbi fpopi ishmi).
 
 (* ---- the run, with everything on ----------------------------------------- *)
 

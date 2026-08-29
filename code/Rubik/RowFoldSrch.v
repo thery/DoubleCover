@@ -334,4 +334,13 @@ Definition flvlsk (cut : bool) (d : nat) (m dst : rmap) : rmap :=
     else m'
   else m'.
 
+(* the run with everything on.  It carries the count of the last level, which *)
+(* is what says whether the cuts are on -- past six million members, hcoset's *)
+(* own rule.  RowFoldOptT.fruno is this with the counts kept in a list.       *)
+Fixpoint frunsk (n : nat) (d : nat) (n0 : int) (m dst : rmap) : rmap :=
+  if n is n1.+1 then
+    let m' := flvlsk (Uint63.ltb ncutb n0) d.+1 m dst in
+    frunsk n1 d.+1 (fcount forb fpop m') m' m
+  else m.
+
 End FSrch.
