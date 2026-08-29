@@ -74,6 +74,20 @@ What is left is the group leg and the bit leg, in the shape `uconjC` and
 `mconjC` have but with the move table composed in, and then the assembly the
 way `fold_conj_pt` assembles its three.
 
+**AND `RowInst.grpmvP` CANNOT BE REUSED FOR THE BITS.** The plain level
+sends the two halves of a word to ONE destination word, swapped or not, and
+`grpmvP` is about that one word. The folded level sends them to TWO
+DIFFERENT GROUPS -- the renaming carries the low half of a pair to one group
+and the high half to another, which is the whole reason there are two group
+tables. Measured:
+
+    twoG = false
+
+So the bits need their own lemma, one per half: a bit of `mlo[k][fslo[u][lo]]`
+came from a bit of `lo`. That is a smaller statement than `grpmvP` -- one
+half, not two -- but it is a new one, and it is the last piece of bit-level
+work the fold needs.
+
 **What is left is the two write obligations**, `Qlo_st` and `Qhi_st`, stated in
 `RowFoldLvl.v` in the shape `RowRun.v` uses for `grpmvP` and `prep_move`: a
 member that reads a bit of the word gathered for the low (resp. high) half
