@@ -47,8 +47,8 @@ Definition chi (u k x : int) : int :=
 Definition c1C : bool :=
   iter nsymn 0%uint63 (fun u => iter nhn 0%uint63 (fun k =>
     iter nlon 0%uint63 (fun i =>
-      let a := clo u k (Uint63.lsl 1 i) in
-      let b := chi u k (Uint63.lsl 1 i) in
+      let a := clo u k (bitof i) in
+      let b := chi u k (bitof i) in
       [&& (a <? nhalfi)%uint63, (Uint63.land a (Uint63.sub a 1) =? 0)%uint63,
           negb (a =? 0)%uint63, (b <? nhalfi)%uint63,
           (Uint63.land b (Uint63.sub b 1) =? 0)%uint63 &
@@ -61,8 +61,7 @@ Lemma c1CP : c1C. Proof. by vm_compute. Qed.
 (* so is this: twelve conditional words ored together, no list and no nat in  *)
 (* sight.                                                                     *)
 Definition cbit (f : int -> int -> int -> int) (u k x i : int) : int :=
-  if (Uint63.land (Uint63.lsr x i) 1 =? 0)%uint63 then 0%uint63
-  else f u k (Uint63.lsl 1 i).
+  if (Uint63.land x (bitof i) =? 0)%uint63 then 0%uint63 else f u k (bitof i).
 
 Definition cadd (f : int -> int -> int -> int) (u k x : int) : int :=
   Uint63.lor (Uint63.lor (Uint63.lor (Uint63.lor
@@ -95,8 +94,8 @@ Proof. by []. Qed.
 
 Lemma cbit_bit f u k x i j :
   ~~ (Uint63.land (cbit f u k x i) (bitof j) =? 0)%uint63 ->
-  (Uint63.land (Uint63.lsr x i) 1 =? 0)%uint63 = false /\
-  ~~ (Uint63.land (f u k (Uint63.lsl 1 i)) (bitof j) =? 0)%uint63.
+  (Uint63.land x (bitof i) =? 0)%uint63 = false /\
+  ~~ (Uint63.land (f u k (bitof i)) (bitof j) =? 0)%uint63.
 Proof.
 rewrite /cbit; case: ifP => h.
   by rewrite RowMap.land0n Uint63.eqb_refl.
@@ -106,8 +105,8 @@ Qed.
 Lemma cadd_bit f u k x j :
   ~~ (Uint63.land (cadd f u k x) (bitof j) =? 0)%uint63 ->
   exists2 i, (i <? 12)%uint63 &
-    (Uint63.land (Uint63.lsr x i) 1 =? 0)%uint63 = false /\
-    ~~ (Uint63.land (f u k (Uint63.lsl 1 i)) (bitof j) =? 0)%uint63.
+    (Uint63.land x (bitof i) =? 0)%uint63 = false /\
+    ~~ (Uint63.land (f u k (bitof i)) (bitof j) =? 0)%uint63.
 Proof.
 rewrite /cadd => h.
 case/RowMap.test_lor/orP: h => h; last by exists 11 => //; exact: cbit_bit h.
@@ -128,8 +127,8 @@ Lemma clo_bit u k x j : (to_nat u < nsymn)%N -> (to_nat k < nhn)%N ->
   (to_nat x < nhalfn)%N ->
   ~~ (Uint63.land (clo u k x) (bitof j) =? 0)%uint63 ->
   exists2 i, (i <? 12)%uint63 &
-    (Uint63.land (Uint63.lsr x i) 1 =? 0)%uint63 = false /\
-    ~~ (Uint63.land (clo u k (Uint63.lsl 1 i)) (bitof j) =? 0)%uint63.
+    (Uint63.land x (bitof i) =? 0)%uint63 = false /\
+    ~~ (Uint63.land (clo u k (bitof i)) (bitof j) =? 0)%uint63.
 Proof.
 move=> hu hk hx.
 have h1 := caddCP; rewrite caddCE in h1.
@@ -141,8 +140,8 @@ Lemma chi_bit u k x j : (to_nat u < nsymn)%N -> (to_nat k < nhn)%N ->
   (to_nat x < nhalfn)%N ->
   ~~ (Uint63.land (chi u k x) (bitof j) =? 0)%uint63 ->
   exists2 i, (i <? 12)%uint63 &
-    (Uint63.land (Uint63.lsr x i) 1 =? 0)%uint63 = false /\
-    ~~ (Uint63.land (chi u k (Uint63.lsl 1 i)) (bitof j) =? 0)%uint63.
+    (Uint63.land x (bitof i) =? 0)%uint63 = false /\
+    ~~ (Uint63.land (chi u k (bitof i)) (bitof j) =? 0)%uint63.
 Proof.
 move=> hu hk hx.
 have h1 := caddCP; rewrite caddCE in h1.
@@ -237,8 +236,8 @@ Definition cbtmv (k bt : int) : int :=
   PArray.get btmvi (Uint63.add (Uint63.mul bt nhi) k).
 
 Definition cbtok (u k i : int) : bool :=
-  let l := clo u k (Uint63.lsl 1 i) in
-  let h := chi u k (Uint63.lsl 1 i) in
+  let l := clo u k (bitof i) in
+  let h := chi u k (bitof i) in
   ((if (PArray.get mswi k =? 0)%uint63 then l else Uint63.lsl l nloi)
      =? bitof (cbtmv k (sbtmv fsbti u i)))%uint63 &&
   ((if (PArray.get mswi k =? 0)%uint63 then Uint63.lsl h nloi else h)
@@ -258,7 +257,7 @@ Proof. by []. Qed.
 Lemma cbt_lo u k i : (to_nat u < nsymn)%N -> (to_nat k < nhn)%N ->
   (to_nat i < nlon)%N ->
   (if (PArray.get mswi k =? 0)%uint63
-   then clo u k (Uint63.lsl 1 i) else Uint63.lsl (clo u k (Uint63.lsl 1 i)) nloi)
+   then clo u k (bitof i) else Uint63.lsl (clo u k (bitof i)) nloi)
   = bitof (cbtmv k (sbtmv fsbti u i)).
 Proof.
 move=> hu hk hi.
@@ -270,7 +269,7 @@ Qed.
 Lemma cbt_hi u k i : (to_nat u < nsymn)%N -> (to_nat k < nhn)%N ->
   (to_nat i < nlon)%N ->
   (if (PArray.get mswi k =? 0)%uint63
-   then Uint63.lsl (chi u k (Uint63.lsl 1 i)) nloi else chi u k (Uint63.lsl 1 i))
+   then Uint63.lsl (chi u k (bitof i)) nloi else chi u k (bitof i))
   = bitof (cbtmv k (sbtmv fsbti u (Uint63.add nloi i))).
 Proof.
 move=> hu hk hi.
@@ -357,7 +356,7 @@ Lemma cloX_bit u k x j : (to_nat u < nsymn)%N -> (to_nat k < nhn)%N ->
   (to_nat x < nhalfn)%N -> (j <? nbiti)%uint63 ->
   ~~ (Uint63.land (cloX u k x) (bitof j) =? 0)%uint63 ->
   exists2 i, (to_nat i < nlon)%N &
-    (Uint63.land (Uint63.lsr x i) 1 =? 0)%uint63 = false /\
+    (Uint63.land x (bitof i) =? 0)%uint63 = false /\
     j = cbtmv k (sbtmv fsbti u i).
 Proof.
 move=> hu hk hx hj.
@@ -376,7 +375,7 @@ Lemma chiX_bit u k x j : (to_nat u < nsymn)%N -> (to_nat k < nhn)%N ->
   (to_nat x < nhalfn)%N -> (j <? nbiti)%uint63 ->
   ~~ (Uint63.land (chiX u k x) (bitof j) =? 0)%uint63 ->
   exists2 i, (to_nat i < nlon)%N &
-    (Uint63.land (Uint63.lsr x i) 1 =? 0)%uint63 = false /\
+    (Uint63.land x (bitof i) =? 0)%uint63 = false /\
     j = cbtmv k (sbtmv fsbti u (Uint63.add nloi i)).
 Proof.
 move=> hu hk hx hj.
