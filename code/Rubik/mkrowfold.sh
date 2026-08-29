@@ -26,6 +26,7 @@
 #    ./mkrowfold.sh o13      ... depth 13
 #    ./mkrowfold.sh o15      ... depth 15
 #    ./mkrowfold.sh o20      ... depth 20  (run the four side by side)
+#    ./mkrowfold.sh foot     RowFoldFoot -- what the tables alone cost
 #    ./mkrowfold.sh cubplain build, then RowCubRun -- the row, plain map
 #    ./mkrowfold.sh          build, then RowFoldRun -- the ball of H
 #
@@ -133,6 +134,8 @@ case "$1" in
          coqc -R . Rubik RowFoldRunT.v; coqc -R . Rubik RowFoldRun13.v ;;
   t15)   echo "--- RowFoldRun15 (the proved run to fifteen, timed)"
          coqc -R . Rubik RowFoldRunT.v; coqc -R . Rubik RowFoldRun15.v ;;
+  foot)  echo "--- RowFoldFoot (the tables alone; watch RES)"
+         coqc -R . Rubik RowFoldOptT.v; coqc -R . Rubik RowFoldFoot.v ;;
   o10)   echo "--- RowFoldOpt10 (every optimization, depth 10)"
          coqc -R . Rubik RowFoldOptT.v; coqc -R . Rubik RowFoldOpt10.v ;;
   o13)   echo "--- RowFoldOpt13 (every optimization, depth 13)"
