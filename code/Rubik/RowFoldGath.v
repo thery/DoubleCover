@@ -278,3 +278,115 @@ have h1 := cbtCP; rewrite cbtCE in h1.
 have /andP[_ /eqP e] := Row.iter_at (Row.iter_at (Row.iter_at h1 hu) hk) hi.
 exact: e.
 Qed.
+
+(* =========================================================================  *)
+(*  The half where the move puts it.                                          *)
+(* =========================================================================  *)
+
+(* clo and chi are twelve bit words; the level shifts them by twelve or not,  *)
+(* according to msw, before oring them into the group.  These are the word    *)
+(* the level actually writes, and they are additive over the twelve bits for  *)
+(* the same reason clo and chi are -- a shift goes through an or.  Read this  *)
+(* way, the shift never has to be argued about again: cbtok is stated on the  *)
+(* shifted word too.                                                          *)
+
+Definition cloX (u k x : int) : int :=
+  if (PArray.get mswi k =? 0)%uint63 then clo u k x
+  else Uint63.lsl (clo u k x) nloi.
+
+Definition chiX (u k x : int) : int :=
+  if (PArray.get mswi k =? 0)%uint63 then Uint63.lsl (chi u k x) nloi
+  else chi u k x.
+
+Definition caddXok (u k x : int) : bool :=
+  (cloX u k x =? cadd cloX u k x)%uint63 &&
+  (chiX u k x =? cadd chiX u k x)%uint63.
+
+Definition caddXC : bool :=
+  iter nsymn 0%uint63 (fun u => iter nhn 0%uint63 (fun k =>
+    iter nhalfn 0%uint63 (caddXok u k))).
+Lemma caddXCP : caddXC. Proof. by vm_compute. Qed.
+
+Lemma caddXCE : caddXC =
+  iter nsymn 0%uint63 (fun u => iter nhn 0%uint63 (fun k =>
+    iter nhalfn 0%uint63 (caddXok u k))).
+Proof. by []. Qed.
+
+(* ---- and the bit it lands on is one of the twenty four ------------------- *)
+
+Definition cbtRok (u k i : int) : bool :=
+  (cbtmv k (sbtmv fsbti u i) <? nbiti)%uint63 &&
+  (cbtmv k (sbtmv fsbti u (Uint63.add nloi i)) <? nbiti)%uint63.
+
+Definition cbtRC : bool :=
+  iter nsymn 0%uint63 (fun u =>
+    iter nhn 0%uint63 (fun k => iter nlon 0%uint63 (cbtRok u k))).
+Lemma cbtRCP : cbtRC. Proof. by vm_compute. Qed.
+
+Lemma cbtRCE : cbtRC =
+  iter nsymn 0%uint63 (fun u =>
+    iter nhn 0%uint63 (fun k => iter nlon 0%uint63 (cbtRok u k))).
+Proof. by []. Qed.
+
+Lemma cbtR_lo u k i : (to_nat u < nsymn)%N -> (to_nat k < nhn)%N ->
+  (to_nat i < nlon)%N -> (cbtmv k (sbtmv fsbti u i) <? nbiti)%uint63.
+Proof.
+move=> hu hk hi.
+have h1 := cbtRCP; rewrite cbtRCE in h1.
+by have /andP[e _] := Row.iter_at (Row.iter_at (Row.iter_at h1 hu) hk) hi.
+Qed.
+
+Lemma cbtR_hi u k i : (to_nat u < nsymn)%N -> (to_nat k < nhn)%N ->
+  (to_nat i < nlon)%N ->
+  (cbtmv k (sbtmv fsbti u (Uint63.add nloi i)) <? nbiti)%uint63.
+Proof.
+move=> hu hk hi.
+have h1 := cbtRCP; rewrite cbtRCE in h1.
+by have /andP[_ e] := Row.iter_at (Row.iter_at (Row.iter_at h1 hu) hk) hi.
+Qed.
+
+(* ---- SO A BIT OF WHAT THE LEVEL WRITES NAMES ITS SOURCE BIT -------------- *)
+
+(* This is the bit leg, finished: a bit of the word the level ors in came     *)
+(* from a bit of the half it read, and the bit it lands on is the one the     *)
+(* renaming and then the move send that bit to.                               *)
+(*                                                                            *)
+(* NO `//' AFTER THE EXISTENTIAL: the remaining goal is an equation between   *)
+(* two table reads, and `done' evaluates it.                                  *)
+Lemma cloX_bit u k x j : (to_nat u < nsymn)%N -> (to_nat k < nhn)%N ->
+  (to_nat x < nhalfn)%N -> (j <? nbiti)%uint63 ->
+  ~~ (Uint63.land (cloX u k x) (bitof j) =? 0)%uint63 ->
+  exists2 i, (to_nat i < nlon)%N &
+    (Uint63.land (Uint63.lsr x i) 1 =? 0)%uint63 = false /\
+    j = cbtmv k (sbtmv fsbti u i).
+Proof.
+move=> hu hk hx hj.
+have h1 := caddXCP; rewrite caddXCE in h1.
+have /andP[/eqP e _] := Row.iter_at (Row.iter_at (Row.iter_at h1 hu) hk) hx.
+rewrite e => /cadd_bit[i hi [hb hbj]].
+have hin : (to_nat i < nlon)%N by apply/nltbP; exact: hi.
+exists i; first exact: hin.
+split; first exact: hb.
+apply: esym; apply: (bitof_inj (cbtR_lo hu hk hin) hj).
+rewrite -(cbt_lo hu hk hin).
+by move: hbj; rewrite /cloX.
+Qed.
+
+Lemma chiX_bit u k x j : (to_nat u < nsymn)%N -> (to_nat k < nhn)%N ->
+  (to_nat x < nhalfn)%N -> (j <? nbiti)%uint63 ->
+  ~~ (Uint63.land (chiX u k x) (bitof j) =? 0)%uint63 ->
+  exists2 i, (to_nat i < nlon)%N &
+    (Uint63.land (Uint63.lsr x i) 1 =? 0)%uint63 = false /\
+    j = cbtmv k (sbtmv fsbti u (Uint63.add nloi i)).
+Proof.
+move=> hu hk hx hj.
+have h1 := caddXCP; rewrite caddXCE in h1.
+have /andP[_ /eqP e] := Row.iter_at (Row.iter_at (Row.iter_at h1 hu) hk) hx.
+rewrite e => /cadd_bit[i hi [hb hbj]].
+have hin : (to_nat i < nlon)%N by apply/nltbP; exact: hi.
+exists i; first exact: hin.
+split; first exact: hb.
+apply: esym; apply: (bitof_inj (cbtR_hi hu hk hin) hj).
+rewrite -(cbt_hi hu hk hin).
+by move: hbj; rewrite /chiX.
+Qed.
