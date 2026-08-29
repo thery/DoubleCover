@@ -18,6 +18,7 @@
 #    ./mkrowfold.sh pos      build, then RowFoldPos -- what a smaller position is worth
 #    ./mkrowfold.sh cub      build, then RowFoldCub -- the real twenty cubies
 #    ./mkrowfold.sh cubrun   build, then RowFoldCubRun -- the row, folded map
+#    ./mkrowfold.sh proof    build, then RowFoldCubProof -- THE CERTIFICATE
 #    ./mkrowfold.sh cubplain build, then RowCubRun -- the row, plain map
 #    ./mkrowfold.sh          build, then RowFoldRun -- the ball of H
 #
@@ -75,7 +76,7 @@ for f in Fold FoldTables P1Fdec P1FTable \
          RowCub RowCubi RowCubInst RowFoldOk RowFoldChkTab RowFoldSym \
          RowFoldLvl RowFoldMem RowFoldPart RowFoldConj RowFoldGath \
          RowFoldSrc RowFoldWrite RowFoldTot RowFoldPorb RowFoldRun \
-         RowFoldEmpty RowFoldFinal; do
+         RowFoldEmpty RowFoldFinal RowFoldCubReal; do
   build "$f"
 done
 echo "the folded row is built"
@@ -110,6 +111,9 @@ case "$1" in
          coqc -R . Rubik RowFoldCub.v ;;
   cubrun) echo "--- RowFoldCubRun (the row on the folded map, twenty carried)"
          coqc -R . Rubik RowFoldCubRun.v ;;
+  proof) echo "--- RowFoldCubProof (THE CERTIFICATE: must print true)"
+         coqc -R . Rubik RowFoldCubReal.v
+         coqc -R . Rubik RowFoldCubProof.v ;;
   cubplain) echo "--- RowCubRun (the row on the plain map; must print true)"
          coqc -R . Rubik RowCubRun.v ;;
   *)     echo "--- RowFoldRun (the ball of H)";   coqc -R . Rubik RowFoldRun.v ;;
