@@ -141,4 +141,58 @@ have := hall _ _ _ hr.
 by rewrite /PdC /mposC hu hxe.
 Qed.
 
+(* =========================================================================  *)
+(*  The same row, with every optimization on.                                 *)
+(* =========================================================================  *)
+
+(* THE CUTS AND THE STOP CHANGE NOTHING THAT IS PROVED.  What they decide is  *)
+(* which branches the search takes and when it gives up, and a branch not     *)
+(* taken writes nothing.  So forb, fpop and ishm are variables here for the   *)
+(* same reason the phase one table is: no proof reads them, and the run names *)
+(* the real ones.                                                             *)
+
+Variables forb fpop : arr.
+Variable ishm : int.
+
+Definition yfcmfino : rmap :=
+  fmfino F frep fsym twsym dnlo dnhi fllo flhi
+         (RowInst.cstep actfsri) zstepi (ytomemb tomemb) okmvv ycsolved
+         RowInst.croot yrooti srch 20 forb fpop ishm.
+
+Lemma yfcmfino_sound : soundatf fpgi fsgri fsbti (PdC 20) yfcmfino.
+Proof.
+refine (@fmfino_sound F frep fsym twsym dnlo dnhi fllo flhi
+          arr (RowInst.cstep actfsri) zstepi (ytomemb tomemb) yposp okmvv
+          ycsolved RowInst.croot yrooti srch 20 ycoordP ypstok
+          ycoord_root yroot_ball yroot_pok
+          (ycoord_step (r_fsstepP hfm)) yxstep_pok yxstep_pos
+          (yleaf_memb r_leaf_memb) yfleaf_pos forb fpop ishm).
+Qed.
+
+Definition yfcwitso : rmap :=
+  foldr (fun t m =>
+           let: (pg, gr, bt, _) := t in fmark fpgi fsgri fsbti m pg gr bt)
+        yfcmfino rowwits.
+
+Lemma yfcwitso_sound : soundatf fpgi fsgri fsbti (PdC 20) yfcwitso.
+Proof. exact: (fwits_sound witsokC yfcmfino_sound). Qed.
+
+(* THE CERTIFICATE, with the optimizations on *)
+Theorem real_superflip_row_foldo : mfullf yfcwitso ->
+  forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
+Proof.
+move=> hf h hh.
+have [x [hx hxe]] :=
+  row_cover up8invC up8okC up4invC up4okC par8okwC par4okwC hh.
+case E : (place e8numi e4biti x) => [[pg gr] bt].
+have hr := place_range e8okC e4okC hx E.
+have hu := unplace_place e8okC e4okC hx E.
+have hall : forall pg' gr' bt', inrange pg' gr' bt' -> PdC 20 pg' gr' bt'.
+  refine (@foldf_all fpgi fsgri fsbti (PdC 20) fkptT
+            (fun a b c => sgrmvT _ _ _) (fun a b => sbtmvT _ _)
+            yfcwitso hf yfcwitso_sound).
+have := hall _ _ _ hr.
+by rewrite /PdC /mposC hu hxe.
+Qed.
+
 End FCubReal.

@@ -143,4 +143,57 @@ Lemma fmark_sound m pg gr bt :
   soundatf fpgi fsgri fsbti (PdC nlev) (fmark fpgi fsgri fsbti m pg gr bt).
 Proof. exact: (soundatf_fmark (@PorbC nlev)). Qed.
 
+(* =========================================================================  *)
+(*  The same, with every optimization on.                                     *)
+(* =========================================================================  *)
+
+(* fmfin runs the plain level.  This runs flvlsk -- Rokicki's early stop and  *)
+(* hcoset's two cuts -- which RowFoldRun proves sound, so the certificate may *)
+(* use it.  The cuts come on when the row passes six million members, which   *)
+(* is the prototype's own rule and is what n0 carries.                        *)
+
+Variables forb fpop : arr.
+Variable ishm : int.
+
+Definition fmfino : rmap :=
+  frunsk e8numi e4biti fpgi fsrci fsgri fsloi fshii fsbti mgri mswi mloi mhii
+         F frep fsym twsym dnlo dnhi fllo flhi
+         cstep xstep tomemb okmv csolved croot sroot dsrch forb fpop ishm
+         nlev 0 0%uint63 (mkempty tt) (mkempty tt).
+
+Lemma fmfino_sound : soundatf fpgi fsgri fsbti (PdC nlev) fmfino.
+Proof.
+rewrite /fmfino -{1}[nlev]add0n.
+refine (@frunsk_sound e8numi e8invi e4biti e4ofi par8i par4i e8okC e4okC
+          fpgi fsrci fsgri fsloi fshii fsbti mgri mswi mloi mhii
+          F frep fsym twsym dnlo dnhi fllo flhi
+          pst cstep xstep tomemb posp okmv csolved croot sroot dsrch
+          posC _ _ _ coordP pstok _ _ _ _ _ _ _ _ forb fpop ishm
+          nlev 0 0%uint63 (mkempty tt) (mkempty tt) _ _ _ _).
+- exact: PorbC.
+- exact: QloC.
+- exact: QhiC.
+- exact: coord_root.
+- exact: root_ball.
+- exact: root_pok.
+- exact: coord_step.
+- exact: xstep_pok.
+- exact: xstep_pos.
+- exact: leaf_memb.
+- exact: leaf_pos.
+- exact: pchk_mkemptyf.
+- exact: pchk_mkemptyf.
+- exact: soundatf_mkemptyf.
+exact: soundatf_mkemptyf.
+Qed.
+
+Lemma fmfino_all : mfullf fmfino ->
+  forall pg gr bt, inrange pg gr bt -> PdC nlev pg gr bt.
+Proof.
+move=> hm.
+refine (@foldf_all fpgi fsgri fsbti (PdC nlev) fkptT
+          (fun pg' gr' bt' => sgrmvT _ _ _) (fun pg' bt' => sbtmvT _ _)
+          fmfino hm fmfino_sound).
+Qed.
+
 End FFinal.
