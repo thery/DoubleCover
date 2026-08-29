@@ -74,6 +74,25 @@ What is left is the group leg and the bit leg, in the shape `uconjC` and
 `mconjC` have but with the move table composed in, and then the assembly the
 way `fold_conj_pt` assembles its three.
 
+### THE GATHER IS THE PLAIN WRITE ON THE RENAMED SOURCE
+
+Read off the level: the destination group is `mgr[fsgr[glo+g]*nhi+k]`, and
+`fsgr[glo+g]` IS the renamed group while `mgr[..*nhi+k]` is the move on it.
+The word is `mlo[k][fslo[u][lo]]` -- the renaming on the half, then the move.
+And the page is `fsrcC`. So the folded write is LITERALLY the plain write
+applied to the renamed source; the tables compose that way by construction.
+
+That is worth a great deal, because it means `Qlo_st`/`Qhi_st` need no new
+member-level gather. They reduce to three things that already exist:
+
+- `clo_bit`/`chi_bit` (`RowFoldGath.v`) -- a bit of the moved half came from
+  a bit of the half;
+- `fold_conj_memb` -- the renaming costs nothing, via `sym16_ball`;
+- `RowInst.prep_move` -- the move costs one step. It is usable concretely:
+  `srcokC` and `halfokC` are proved on the real tables in `RowTab.v`.
+
+What is left is the assembly of those three, and the ranges around it.
+
 **AND `RowInst.grpmvP` CANNOT BE REUSED FOR THE BITS.** The plain level
 sends the two halves of a word to ONE destination word, swapped or not, and
 `grpmvP` is about that one word. The folded level sends them to TWO
