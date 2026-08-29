@@ -263,4 +263,265 @@ apply: ih => //.
 by apply: soundatdW.
 Qed.
 
+
+(* =========================================================================  *)
+(*  hcoset's two cuts: the same search, refusing two kinds of move.           *)
+(* =========================================================================  *)
+
+(* fsrchk is fsrch with two more tests, and both only SKIP a branch.  A       *)
+(* branch not taken writes nothing, so the map it hands back is the one it    *)
+(* was given, and soundness is carried straight over.  That is the whole      *)
+(* difference: the proof below is fsrch_sound with two more cases, each       *)
+(* closed by the hypothesis.                                                  *)
+(*                                                                            *)
+(* WHAT IS NOT CLAIMED: nothing here says the cuts lose no member.  They do   *)
+(* lose members.  What is proved is that the map filled, and a cut that       *)
+(* loses words can only make the row finish later, never call a member        *)
+(* covered when it is not.                                                    *)
+
+Variables forb fpop : arr.
+Variable ishm : int.
+
+Local Notation fsrk :=
+  (fsrchk e8num e4bit fpg fsgr fsbt F frep fsym twsym dnlo dnhi fllo flhi
+     cstep xstep tomemb okmv csolved ishm).
+
+Lemma fsrchk0 cut c x msk pv m :
+  fsrk cut 0 c x msk pv m =
+  (if csolved c x
+   then fmk m (mcp (tomemb x))
+            (Uint63.div (PArray.get e8num (mud (tomemb x))) 2%uint63)
+            (PArray.get e4bit (mmp (tomemb x)))
+   else m).
+Proof. by []. Qed.
+
+Lemma fsrchk_len cut togo c x msk pv m :
+  PArray.length (fsrk cut togo c x msk pv m) = PArray.length m.
+Proof.
+elim: togo c x msk pv m => [|togo ih] c x msk pv m.
+  rewrite fsrchk0; case: ifP => _; last by [].
+  exact: fmark_len.
+apply: (@ifold_indi _ (fun m' => PArray.length m' = PArray.length m));
+    [by apply: ltnW; apply: (@ltn_nwB 5)| |by []].
+move=> k m' hk hl.
+case: ifP => _; first exact: hl.
+case: ifP => _; first exact: hl.
+case: ifP => _; first exact: hl.
+cbv zeta; case: ifP => _; last exact: hl.
+by rewrite ih; exact: hl.
+Qed.
+
+Lemma fsrchk_sound cut togo c x msk pv m d :
+  (togo <= d)%N -> coordP c x -> pstok x ->
+  soundatd m d -> posp x \in ball Sset (d - togo) ->
+  soundatd (fsrk cut togo c x msk pv m) d.
+Proof.
+elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hp hm hb.
+  have hG : posp x \in G := subsetP (ball_sub_gen Sset _) _ hb.
+  have E : plc (tomemb x) =
+      (mcp (tomemb x),
+       Uint63.div (PArray.get e8num (mud (tomemb x))) 2%uint63,
+       PArray.get e4bit (mmp (tomemb x))) by [].
+  rewrite fsrchk0; case: ifP => [hs|_]; last exact: hm.
+  have hok := leaf_memb hc hp hG hs.
+  rewrite /soundatd; apply: soundatf_fmark.
+  - exact: Porbd.
+  - exact: (place_range he8 he4 hok E).
+  - rewrite /Pd (unplace_place he8 he4 hok E) (leaf_pos hc hp hG hs).
+    by move: hb; rewrite subn0.
+  exact: hm.
+apply: (@ifold_indi _ (fun m' => soundatd m' d)); [| |exact: hm].
+  by apply: ltnW; apply: (@ltn_nwB 5).
+move=> k m' hk hm'.
+case: ifP => _; first exact: hm'.
+case: ifP => _; first exact: hm'.
+(* THE CUT, and it only skips *)
+case: ifP => _; first exact: hm'.
+cbv zeta; case: ifP => hle; last exact: hm'.
+apply: (ih _ _ _ _ _ _ (coord_step hk hp hc) (xstep_pok hk hp) hm');
+    first by apply: ltnW.
+rewrite (xstep_pos hk hp) -(subnSK hdt).
+by apply: ball_step; [exact: hb | apply: mv_Sset; exact: hk].
+Qed.
+
+(* =========================================================================  *)
+(*  Rokicki's early stop: the same search, counting, and stopping when full   *)
+(*  enough.                                                                   *)
+(* =========================================================================  *)
+
+(* fsrchs carries a count beside the map and gives up once the map holds      *)
+(* enough for the levels above to finish.  Two differences from fsrch, and    *)
+(* neither writes anything new: the stop RETURNS WHAT IT WAS GIVEN, and the   *)
+(* leaf marks with fmarkn, which is fmark when the bit is new and nothing     *)
+(* when it is not.                                                            *)
+
+Local Notation fmkn := (fmarkn fpg fsgr fsbt).
+Local Notation fsrsk :=
+  (fsrchsk e8num e4bit fpg fsgr fsbt F frep fsym twsym dnlo dnhi fllo flhi
+     cstep xstep tomemb okmv csolved ishm).
+
+(* the counting mark is the mark, or it is nothing *)
+Lemma fmarkn1 mn pg gr bt :
+  (fmkn mn pg gr bt).1 = fmk mn.1 pg gr bt \/ (fmkn mn pg gr bt).1 = mn.1.
+Proof.
+case: mn => m n; rewrite /fmarkn /fmark /ffor /=.
+by case: ifP => _; [left | right].
+Qed.
+
+Lemma fmarkn_len mn pg gr bt :
+  PArray.length (fmkn mn pg gr bt).1 = PArray.length mn.1.
+Proof.
+by case: (fmarkn1 mn pg gr bt) => ->; [exact: fmark_len | ].
+Qed.
+
+Lemma fsrchsk0 cut c x msk pv enough mn :
+  fsrsk cut 0 c x msk pv enough mn =
+  (if Uint63.leb enough mn.2 then mn
+   else if csolved c x
+   then fmkn mn (mcp (tomemb x))
+            (Uint63.div (PArray.get e8num (mud (tomemb x))) 2%uint63)
+            (PArray.get e4bit (mmp (tomemb x)))
+   else mn).
+Proof. by []. Qed.
+
+Lemma fsrchsk_len cut togo c x msk pv enough mn :
+  PArray.length (fsrsk cut togo c x msk pv enough mn).1
+  = PArray.length mn.1.
+Proof.
+elim: togo c x msk pv mn => [|togo ih] c x msk pv mn.
+  rewrite fsrchsk0; case: ifP => _; first by [].
+  case: ifP => _; last by [].
+  exact: fmarkn_len.
+(* the stop is in front of the fold and hands back what it was given *)
+rewrite /fsrchsk -/fsrchsk.
+case: ifP => _; first by [].
+apply: (@ifold_indi _ (fun a => PArray.length a.1 = PArray.length mn.1));
+    [by apply: ltnW; apply: (@ltn_nwB 5)| |by []].
+move=> k a hk hl.
+case: ifP => _; first exact: hl.
+case: ifP => _; first exact: hl.
+case: ifP => _; first exact: hl.
+cbv zeta; case: ifP => _; last exact: hl.
+by rewrite ih; exact: hl.
+Qed.
+
+Lemma fsrchsk_sound cut togo c x msk pv enough mn d :
+  (togo <= d)%N -> coordP c x -> pstok x ->
+  soundatd mn.1 d -> posp x \in ball Sset (d - togo) ->
+  soundatd (fsrsk cut togo c x msk pv enough mn).1 d.
+Proof.
+elim: togo c x msk pv mn => [|togo ih] c x msk pv mn hdt hc hp hm hb.
+  have hG : posp x \in G := subsetP (ball_sub_gen Sset _) _ hb.
+  have E : plc (tomemb x) =
+      (mcp (tomemb x),
+       Uint63.div (PArray.get e8num (mud (tomemb x))) 2%uint63,
+       PArray.get e4bit (mmp (tomemb x))) by [].
+  rewrite fsrchsk0.
+  (* the stop hands back what it was given *)
+  case: ifP => _; first exact: hm.
+  case: ifP => [hs|_]; last exact: hm.
+  have hok := leaf_memb hc hp hG hs.
+  case: (fmarkn1 mn (mcp (tomemb x))
+           (Uint63.div (PArray.get e8num (mud (tomemb x))) 2%uint63)
+           (PArray.get e4bit (mmp (tomemb x)))) => ->; last exact: hm.
+  rewrite /soundatd; apply: soundatf_fmark.
+  - exact: Porbd.
+  - exact: (place_range he8 he4 hok E).
+  - rewrite /Pd (unplace_place he8 he4 hok E) (leaf_pos hc hp hG hs).
+    by move: hb; rewrite subn0.
+  exact: hm.
+rewrite /fsrchsk -/fsrchsk.
+case: ifP => _; first exact: hm.
+apply: (@ifold_indi _ (fun a => soundatd a.1 d)); [| |exact: hm].
+  by apply: ltnW; apply: (@ltn_nwB 5).
+move=> k a hk ha.
+case: ifP => _; first exact: ha.
+case: ifP => _; first exact: ha.
+case: ifP => _; first exact: ha.
+cbv zeta; case: ifP => hle; last exact: ha.
+apply: (ih _ _ _ _ _ _ (coord_step hk hp hc) (xstep_pok hk hp) ha);
+    first by apply: ltnW.
+rewrite (xstep_pos hk hp) -(subnSK hdt).
+by apply: ball_step; [exact: hb | apply: mv_Sset; exact: hk].
+Qed.
+
+
+
+(* ---- the level with everything on, and the run ---------------------------- *)
+
+Local Notation flvsk :=
+  (flvlsk e8num e4bit fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi
+     F frep fsym twsym dnlo dnhi fllo flhi
+     cstep xstep tomemb okmv csolved croot sroot dsrch forb fpop ishm).
+Local Notation frnsk :=
+  (frunsk e8num e4bit fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi
+     F frep fsym twsym dnlo dnhi fllo flhi
+     cstep xstep tomemb okmv csolved croot sroot dsrch forb fpop ishm).
+
+Lemma flvlsk_len cut d m dst :
+  PArray.length (flvsk cut d m dst) = PArray.length dst.
+Proof.
+rewrite /flvlsk; cbv zeta.
+case: ifP => _; last exact: flevel_length.
+case: ifP => _; last exact: flevel_length.
+case: ifP => _.
+  by rewrite fsrchsk_len; exact: flevel_length.
+by rewrite fsrchk_len; exact: flevel_length.
+Qed.
+
+Lemma flvlsk_sound cut m dst d :
+  (forall r, (to_nat r < nrepn)%N -> (pchk r <? PArray.length dst)) ->
+  soundatd m d -> soundatd dst d.+1 -> soundatd (flvsk cut d.+1 m dst) d.+1.
+Proof.
+move=> hlen hm hd; rewrite /flvlsk; cbv zeta.
+have hg : soundatd (flev m dst) d.+1.
+  rewrite /soundatd; apply: flevel_sound.
+  - exact: Qlod.
+  - exact: Qhid.
+  - exact: PdW.
+  - exact: hlen.
+  - exact: hm.
+  exact: hd.
+case: ifP => _; last exact: hg.
+case: ifP => _; last exact: hg.
+(* THE ARGUMENTS ARE NOT SUPPLIED TO THE SECOND ONE.  Handed (leqnn d.+1)   *)
+(* first, the unifier goes into the count and the threshold that cbv zeta   *)
+(* put in the term and does not come back; applied bare and answered one    *)
+(* goal at a time it is instant.                                            *)
+case: ifP => _; last first.
+  apply: (fsrchk_sound (leqnn d.+1) coord_root root_pok hg).
+  by rewrite subnn; exact: root_ball.
+apply: fsrchsk_sound.
+- exact: leqnn.
+- exact: coord_root.
+- exact: root_pok.
+- exact: hg.
+by rewrite subnn; exact: root_ball.
+Qed.
+
+
+(* ONE STEP OF THE RUN, RESTATED.  `/=' on the step unfolds fcount, which is *)
+(* a sweep over every kept page; read through this equation it is free.       *)
+Lemma frunskS n d n0 m dst :
+  frnsk n.+1 d n0 m dst =
+  frnsk n d.+1
+    (fcount forb fpop (flvsk (Uint63.ltb ncutb n0) d.+1 m dst))
+    (flvsk (Uint63.ltb ncutb n0) d.+1 m dst) m.
+Proof. by []. Qed.
+
+Lemma frunsk_sound n d n0 m dst :
+  (forall r, (to_nat r < nrepn)%N -> (pchk r <? PArray.length m)) ->
+  (forall r, (to_nat r < nrepn)%N -> (pchk r <? PArray.length dst)) ->
+  soundatd m d -> soundatd dst d -> soundatd (frnsk n d n0 m dst) (d + n).
+Proof.
+elim: n d n0 m dst => [|n ih] d n0 m dst hlm hld hm hd.
+  by rewrite addn0; exact: hm.
+rewrite addnS -addSn frunskS.
+apply: ih.
+- by move=> r hr; rewrite flvlsk_len; apply: hld.
+- exact: hlm.
+- by apply: flvlsk_sound => //; apply: soundatdW.
+by apply: soundatdW.
+Qed.
+
 End FRun.
