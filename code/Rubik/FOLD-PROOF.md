@@ -90,9 +90,38 @@ is now a fact:
 - **the slot**, `RowFoldMem.fslot_inj`, and `fold_conjC` to undo the last
   renaming, at any depth (`Sym16Row` had it at twenty only).
 
-**What is left of the fold:** `ext`/`extP`/`extlen` -- the search leg, whose
-mark is `RowFoldOk.soundatf_fmark` -- and a folded `RowInst`/`RowFinal`, and
-then the run.
+### AND THE SEARCH, THE RUN AND THE MAP IT LEAVES (2026-08-29)
+
+- `RowFoldRun.fsrch_sound` -- the folded search, `RowRun.srch_sound` mark for
+  mark with a shorter leaf, because `soundatf_fmark` already carries in `Porb`
+  what the plain leaf has to say by hand.  On it `flvl_sound` and
+  `frun_sound`, about `RowFoldSrch`'s own `flvl` and `frun`.
+- `RowFoldTot` -- the three ranges at EVERY index, not only in range: a read
+  past the end of a PArray gives its default, so walking the array itself
+  settles every index there is.
+- `RowFoldPorb.PorbC` -- members that fold together stand or fall together, on
+  the real tables.
+- `RowFoldEmpty` -- the map the run starts from holds no member and is forty
+  four chunks long.
+- `RowFoldFinal.fmfin_sound` and `fmfin_all` -- the map the folded run leaves
+  is sound at the depth it was run to, and a FULL one puts every member of the
+  row within that depth.
+
+**Every hypothesis about the FOLD is now discharged.**  What `RowFoldFinal`
+still takes are the eight about the CUBE -- `coord_root`, `root_ball`,
+`root_pok`, `coord_step`, `xstep_pok`, `xstep_pos`, `leaf_memb`, `leaf_pos` --
+and `RowCubInst` proves all eight on the plain side.
+
+**What is left:** the concrete instantiation, which needs the generated
+`P1Fdec` and so must be built where that table is, and then the run.
+
+**And the witnesses need no map of their own** (`RowFoldFinal.fmark_sound`).
+The plain row keeps them in a second whole map and asks `mfull2` of the two --
+a map the size of the first, for thirty two bits.  Marking them into the map
+the run leaves is the same work, and then `mfullf` alone is the test.  It has
+to be at the END: a map sound at `d` claims every bit it has set is within
+`d`, and a witness is within twenty, so seeding it before the run would make
+the first level claim its neighbours are within one.
 
 ### What the two write obligations needed
 
