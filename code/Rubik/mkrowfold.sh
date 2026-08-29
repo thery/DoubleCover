@@ -74,7 +74,8 @@ for f in Fold FoldTables P1Fdec P1FTable \
          RowFold RowMask RowTabF RowFoldTab RowFoldSrch RowMembi RowOkm \
          RowCub RowCubi RowCubInst RowFoldOk RowFoldChkTab RowFoldSym \
          RowFoldLvl RowFoldMem RowFoldPart RowFoldConj RowFoldGath \
-         RowFoldSrc RowFoldWrite RowFoldTot RowFoldPorb RowFoldRun; do
+         RowFoldSrc RowFoldWrite RowFoldTot RowFoldPorb RowFoldRun \
+         RowFoldEmpty RowFoldFinal; do
   build "$f"
 done
 echo "the folded row is built"
