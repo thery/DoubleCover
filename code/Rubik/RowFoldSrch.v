@@ -282,4 +282,56 @@ Definition flvlk (cut : bool) (d : nat) (m dst : rmap) : rmap :=
     else m'
   else m'.
 
+(* ---- and the two together: the stop AND the cuts ------------------------- *)
+
+(* fsrchs stops when the map holds enough; fsrchk refuses the moves hcoset    *)
+(* refuses.  Neither has the other, and a run wants both.  This is fsrchs     *)
+(* with fsrchk's two tests put in, word for word from each.                   *)
+(*                                                                            *)
+(* NOTHING HERE IS PROVED.  Like fsrchs and fsrchk it is for measuring; what  *)
+(* says it is right is the count.                                             *)
+
+Fixpoint fsrchsk (cut : bool) (togo : nat) (c : int) (x : pst) (msk pv : int)
+                 (enough : int) (mn : rmap * int) : rmap * int :=
+  if Uint63.leb enough mn.2 then mn
+  else if togo is togo'.+1 then
+    ifold nmvn 0%uint63
+      (fun k a =>
+         if Uint63.eqb (Uint63.land msk (Uint63.lsl 1%uint63 k)) 0%uint63
+         then a
+         else if ~~ okmv pv k then a
+         else if [&& cut, (togo' == 0)%N
+                  & ~~ Uint63.eqb (Uint63.land ishm (Uint63.lsl 1%uint63 k))
+                                  0%uint63]
+         then a
+         else
+           let c' := cstep c k in
+           let w := p1g c' in
+           let nd := Uint63.to_nat (wdist w) in
+           if [&& (nd <= togo')%N
+               & [|| ~~ cut, (nd == togo')%N | (rcuti <= togo' + nd)%N]]
+           then fsrchsk cut togo' c' (xstep x k) (wmask w (togo' - nd)) k
+                        enough a
+           else a)
+      mn
+  else if csolved c x
+       then let: (pg, gr, bt) := plc (tomemb x) in fmkn mn pg gr bt
+       else mn.
+
+(* the level with everything on: the stop on the last one searched, the cuts  *)
+(* on every one the caller says                                               *)
+Definition flvlsk (cut : bool) (d : nat) (m dst : rmap) : rmap :=
+  let m' := flev m dst in
+  if (d <= dsrch)%N then
+    let w := p1g croot in
+    let nd := Uint63.to_nat (wdist w) in
+    if (nd <= d)%N then
+      if (d == dsrch)%N then
+        let n0 := fcount forb fpop m' in
+        let e := Uint63.add enoughb (Uint63.div n0 enoughd) in
+        (fsrchsk cut d croot sroot (wmask w (d - nd)) 18%uint63 e (m', n0)).1
+      else fsrchk cut d croot sroot (wmask w (d - nd)) 18%uint63 m'
+    else m'
+  else m'.
+
 End FSrch.
