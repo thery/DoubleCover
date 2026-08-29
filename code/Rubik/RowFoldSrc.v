@@ -202,3 +202,25 @@ apply: (memb_conj_pt hs o1 o2 o3 o4 o5 o6).
 - exact: (upart_conj hu hp hg o3).
 exact: (mpart_conj hu hb o5).
 Qed.
+
+(* ---- and in the shape the ball asks for ---------------------------------- *)
+
+(* RowFoldConj.fold_conj_memb, at the gather: membinv inverted is memb2tab,   *)
+(* and a conjugate inverted is the inverse conjugated, so the statement comes *)
+(* across unchanged.                                                          *)
+Lemma gather_conj_memb r k gr bt :
+  (to_nat r < nrepn)%N -> (to_nat k < nhn)%N -> inrange (gp r k) gr bt ->
+  exists2 i, (i < 16)%N &
+    pt 47 (memb2tab (unplace e8invi e4ofi par8i par4i (gq r k)
+                       (sgrmv fsgri (gu r k) (Ptyof (gp r k) bt) gr)
+                       (sbtmv fsbti (gu r k) bt)))
+    = ((pt 47 (memb2tab (unplace e8invi e4ofi par8i par4i (gp r k) gr bt)))
+        ^ pt 47 (nth [::] sym16ts i))%g.
+Proof.
+move=> hr hk hin.
+have [hu _ _ _ _] := gathR hr hk.
+exists (nth 0%N fren2sym (to_nat (gu r k))); first by apply: (aiota_lt f2sCP hu).
+have E : forall x, pt 47 (memb2tab x) = ((pt 47 (membinv x))^-1)%g.
+  by move=> x; rewrite /memb2tab (ptV (membinv_ok cpartokC upartokC mpartokC x)).
+by rewrite !E (gather_conj_pt hr hk hin) conjVg.
+Qed.
