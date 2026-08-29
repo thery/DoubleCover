@@ -57,7 +57,44 @@ whatever it does to the map it leaves it sound at the depth it was called at
 and as long as it found it. That is one hypothesis, `extP`, and the mark
 inside it is `RowFoldOk.soundatf_fmark`.
 
-### What the two write obligations will need
+### THE TWO WRITE OBLIGATIONS ARE PROVED (2026-08-29)
+
+`RowFoldWrite.QloC` and `RowFoldWrite.QhiC` discharge `Qlo_st` and `Qhi_st`
+on the real tables, admit-free. So the folded level and the folded run stand
+on nothing left over but `ext` -- the search leg -- and the instance.
+
+THE GATHER IS THE PLAIN WRITE ON THE RENAMED SOURCE, and every leg of that
+is now a fact:
+
+- **the page leg**, `RowFoldSrc.gathC`: a sweep NOT over sixteen renamings by
+  forty thousand pages but over the 27 680 pairs the level actually gathers,
+  a kept page and one of the ten moves. At each pair: the renaming is one of
+  the sixteen, the source is a kept page, the renamed page is a page, the
+  renaming keeps its parity, the parity `fsrc` carries is the source page's,
+  the move sends the renamed page to the page being filled, and the renaming
+  conjugates the eight corner places. 17.7 s.
+- **the group leg**: nothing. `mgr[fsgr[glo+g]*nhi+k]` IS
+  `grmv mgr k (sgrmv fsgr u pty g)`, the same term, so it needs no lemma.
+- **the bit leg**, `RowFoldGath.cbtC` and `caddXC`: the word the level ors in
+  is `cloX`/`chiX` -- the half where `msw` puts it -- it is additive over the
+  twelve bits, and one bit lands at `btmvt k (fsbt u i)`. So `cloX_bit` says
+  a written bit came from a source bit AND names which. Under 2 s.
+- **the member under the renaming**, `RowFoldSrc.gather_conj_pt`: word for
+  word `fold_conj_pt` at the gather's renaming. `upart_conj` and
+  `mpart_conj` were already stated at any of the sixteen and are reused;
+  only the corner leg needed the new sweep.
+- **the member under the move**: `RowMembChk.memb2tab_moveC`, unchanged.
+- **the source bit is a member**, `RowFoldGath.keep_ftest`: the gather reads
+  at a KEPT page, and a kept page is its own representative with a renaming
+  that leaves groups and bits alone, so there is no renaming to undo.
+- **the slot**, `RowFoldMem.fslot_inj`, and `fold_conjC` to undo the last
+  renaming, at any depth (`Sym16Row` had it at twenty only).
+
+**What is left of the fold:** `ext`/`extP`/`extlen` -- the search leg, whose
+mark is `RowFoldOk.soundatf_fmark` -- and a folded `RowInst`/`RowFinal`, and
+then the run.
+
+### What the two write obligations needed
 
 They are the last mathematics. A word gathered by move `k` into the page
 being filled must be one move of H out from a member the source had, and the
