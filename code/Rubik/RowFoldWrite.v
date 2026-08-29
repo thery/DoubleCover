@@ -277,3 +277,143 @@ have [j hj hje2] := fold_conjC hin.
 rewrite /PdC hje2 in hPdst2.
 by apply: (ball_conjV hj hPdst2).
 Qed.
+
+(* =========================================================================  *)
+(*  Qhi -- one write for the high half of a source word.                      *)
+(* =========================================================================  *)
+
+(* The same, with three differences: the half is the word twelve places up,   *)
+(* the parity the group is read at is turned over, and the bit of the source  *)
+(* is twelve places up too.  The twelve place arithmetic is one small walk.   *)
+
+Definition ghiC : bool :=
+  iter nlon 0%uint63 (fun i =>
+    [&& (Uint63.sub (Uint63.add nloi i) nloi =? i)%uint63,
+        (nloi <=? Uint63.add nloi i)%uint63,
+        (Uint63.add nloi i <? nbiti)%uint63 &
+        ~~ (Uint63.add nloi i <? 12)%uint63]).
+Lemma ghiCP : ghiC. Proof. by vm_compute. Qed.
+
+Lemma ghiCE : ghiC =
+  iter nlon 0%uint63 (fun i =>
+    [&& (Uint63.sub (Uint63.add nloi i) nloi =? i)%uint63,
+        (nloi <=? Uint63.add nloi i)%uint63,
+        (Uint63.add nloi i <? nbiti)%uint63 &
+        ~~ (Uint63.add nloi i <? 12)%uint63]).
+Proof. by []. Qed.
+
+Lemma ghiP i : (to_nat i < nlon)%N ->
+  [/\ Uint63.sub (Uint63.add nloi i) nloi = i,
+      (nloi <=? Uint63.add nloi i)%uint63,
+      (Uint63.add nloi i <? nbiti)%uint63 &
+      (Uint63.add nloi i <? 12)%uint63 = false].
+Proof.
+move=> hi.
+have h1 := ghiCP; rewrite ghiCE in h1.
+have /and4P[e1 e2 e3 e4] := Row.iter_at h1 hi.
+split.
+- by apply/eqP; exact: e1.
+- exact: e2.
+- exact: e3.
+by apply/negbTE; exact: e4.
+Qed.
+
+(* the high half of a word is read at the parity fsrc carries, turned over *)
+Lemma ghi_pty r k i : (to_nat r < nrepn)%N -> (to_nat k < nhn)%N ->
+  (to_nat i < nlon)%N ->
+  Ptyof (gp r k) (Uint63.add nloi i) = Uint63.sub 1 (fpar (gw r k)).
+Proof.
+move=> hr hk hi.
+have hfp := gparP hr hk.
+have [_ hkp _ _ hw] := gathR hr hk.
+have [_ _ _ e4] := ghiP hi.
+have hpk : (to_nat (gp r k) < npagen)%N.
+  by apply/nltbP; exact: (Row.iter_at keepRCP hkp).
+have hf : fpar (PArray.get fpgi (gp r k)) = fpar (gw r k).
+  by rewrite hw; apply/eqP; have /andP[_ h] := Row.iter_at fpgCP hpk; exact: h.
+rewrite e4 hf.
+by case: (int_lt2 hfp) => ->; vm_compute.
+Qed.
+
+Lemma QhiC d : Qhi_st fpgi fsrci fsgri fsloi fshii fsbti mgri mswi mloi mhii
+                      (PdC d) (PdC d.+1).
+Proof.
+move=> src r k g pg gr bt hr hk hg hsrc.
+cbv zeta.
+move=> hin h1 h2 h3.
+have [hu hkp _ _ _] := gathR hr hk.
+have /and3P[hpg hgr hbt] := hin.
+have hpgn : (to_nat pg < npagen)%N by apply/nltbP; exact: hpg.
+have hbtn : (to_nat bt < nbitn)%N by apply/nltbP; exact: hbt.
+have hgrn : (to_nat gr < ngroupn)%N by apply/nltbP; exact: hgr.
+have hfr : (to_nat (fren (PArray.get fpgi pg)) < nsymn)%N.
+  by apply/nltbP; exact: (Row.iter_at frnRCP hpgn).
+have hjb : (sbtmv fsbti (fren (PArray.get fpgi pg)) bt <? nbiti)%uint63.
+  exact: (Row.iter_at (Row.iter_at sbtRCP hfr) hbtn).
+have hhi : (to_nat (Uint63.land
+                      (Uint63.lsr (fget src (fkpt (gw r k)) g) RowInst.nhalfi)
+                      lo12) < RowFoldSym.nhalfn)%N.
+  by apply/nltbP; exact: lo12_lt _.
+have h3' : ~~ (Uint63.land
+                 (chiX (gu r k) k
+                    (Uint63.land
+                       (Uint63.lsr (fget src (fkpt (gw r k)) g) RowInst.nhalfi)
+                       lo12))
+                 (bitof (sbtmv fsbti (fren (PArray.get fpgi pg)) bt))
+               =? 0)%uint63 := h3.
+have [i hi [hbi hje]] := chiX_bit hu hk hhi hjb h3'.
+have hi12 : (i <? 12)%uint63 by apply/nltbP; exact: hi.
+have [hsub hle hs24 he12] := ghiP hi.
+have hs24n : (to_nat (Uint63.add nloi i) < nbitn)%N.
+  by apply/nltbP; exact: hs24.
+(* the bit came from a bit of the source word, twelve places up *)
+have hbv : ~~ (Uint63.land (fget src (fkpt (gw r k)) g)
+                 (bitof (Uint63.add nloi i)) =? 0)%uint63.
+  rewrite (@test_bit (fget src (fkpt (gw r k)) g) (Uint63.add nloi i)
+             (lt_digits hs24)).
+  rewrite -(@bit_hihalf (fget src (fkpt (gw r k)) g) (Uint63.add nloi i)
+              hle hs24) hsub.
+  rewrite -(@test_bit
+              (Uint63.land
+                 (Uint63.lsr (fget src (fkpt (gw r k)) g) RowInst.nhalfi) lo12)
+              i (lt_half_digits hi12)).
+  by rewrite hbi.
+have hinsrc : inrange (gp r k) g (Uint63.add nloi i).
+  have hp : (PArray.get fkeepi (fkpt (gw r k)) <? npagei)%uint63.
+    exact: (Row.iter_at keepRCP hkp).
+  by apply/and3P; split; [exact: hp | apply/nltbP; exact: hg | exact: hs24].
+have hPsrc := gsrc_memb hr hk hg hs24n hsrc hbv.
+have hPdst := gdst_memb hr hk hg hs24n hinsrc hPsrc.
+rewrite (ghi_pty hr hk hi) in hPdst.
+(* the slot the write goes to is the slot the member folds to *)
+have hpty : (to_nat (Uint63.sub 1 (fpar (gw r k))) < nptyn)%N.
+  have hfp := gparP hr hk.
+  by case: (int_lt2 hfp) => ->; vm_compute.
+have hsg : (sgrmv fsgri (gu r k) (Uint63.sub 1 (fpar (gw r k))) g
+             <? ngroupi)%uint63 :=
+  Row.iter_at (Row.iter_at (Row.iter_at sgrRCP hu) hpty) hg.
+have hsgn : (to_nat (sgrmv fsgri (gu r k) (Uint63.sub 1 (fpar (gw r k))) g)
+              < ngroupn)%N.
+  by apply/nltbP; exact: hsg.
+have hG : (grmv mgri k (sgrmv fsgri (gu r k) (Uint63.sub 1 (fpar (gw r k))) g)
+            <? ngroupi)%uint63.
+  exact: (Row.iter_at (Row.iter_at grokC hk) hsgn).
+have hp2 : (to_nat (Ptyof pg bt) < nptyn)%N.
+  by apply/nltbP; apply: (Row.iter_at (Row.iter_at ptyRCP hpgn) hbtn).
+have hGof : (sgrmv fsgri (fren (PArray.get fpgi pg)) (Ptyof pg bt) gr
+              <? ngroupi)%uint63.
+  exact: (Row.iter_at (Row.iter_at (Row.iter_at sgrRCP hfr) hp2) hgrn).
+have h2' : Uint63.add (poff r)
+             (grmv mgri k
+                (sgrmv fsgri (gu r k) (Uint63.sub 1 (fpar (gw r k))) g))
+         = Uint63.add (poff (fkpt (PArray.get fpgi pg)))
+             (sgrmv fsgri (fren (PArray.get fpgi pg)) (Ptyof pg bt) gr) := h2.
+have [hReq hGeq] := fslot_inj hG hGof h1 h2'.
+have hPdst2 : PdC d.+1 (PArray.get fkeepi (fkpt (PArray.get fpgi pg)))
+                (sgrmv fsgri (fren (PArray.get fpgi pg)) (Ptyof pg bt) gr)
+                (sbtmv fsbti (fren (PArray.get fpgi pg)) bt).
+  by rewrite -hReq -hGeq hje; exact: hPdst.
+have [j hj hje2] := fold_conjC hin.
+rewrite /PdC hje2 in hPdst2.
+by apply: (ball_conjV hj hPdst2).
+Qed.
