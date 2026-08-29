@@ -149,3 +149,67 @@ have h1 := caddCP; rewrite caddCE in h1.
 have /andP[_ /eqP e] := Row.iter_at (Row.iter_at (Row.iter_at h1 hu) hk) hx.
 by rewrite e; apply: cadd_bit.
 Qed.
+
+(* =========================================================================  *)
+(*  A bit of the source is a member, with no renaming in the way.             *)
+(* =========================================================================  *)
+
+(* To read a source bit as a member, a member has to be exhibited that folds  *)
+(* there.  The kept page itself is the one: it is its own representative, and *)
+(* the renaming it names leaves groups and bits alone.  Twenty three seconds  *)
+(* to check, and it is what lets the level's source word be read as members   *)
+(* the source map already claims.                                             *)
+Definition keepidC : bool :=
+  iter nrepn 0%uint63 (fun r =>
+    let pg := PArray.get fkeepi r in
+    let w := PArray.get fpgi pg in
+    (fkpt w =? r)%uint63 &&
+    (iter ngroupn 0%uint63 (fun g =>
+       iter nptyn 0%uint63 (fun pty =>
+         (sgrmv fsgri (fren w) pty g =? g)%uint63)) &&
+     iter nbitn 0%uint63 (fun bt => (sbtmv fsbti (fren w) bt =? bt)%uint63))).
+Lemma keepidCP : keepidC. Proof. by vm_compute. Qed.
+
+(* read through an equation, never straight -- see caddCE *)
+Lemma keepidCE : keepidC =
+  iter nrepn 0%uint63 (fun r =>
+    let pg := PArray.get fkeepi r in
+    let w := PArray.get fpgi pg in
+    (fkpt w =? r)%uint63 &&
+    (iter ngroupn 0%uint63 (fun g =>
+       iter nptyn 0%uint63 (fun pty =>
+         (sgrmv fsgri (fren w) pty g =? g)%uint63)) &&
+     iter nbitn 0%uint63 (fun bt => (sbtmv fsbti (fren w) bt =? bt)%uint63))).
+Proof. by []. Qed.
+
+Lemma keepid r : (to_nat r < nrepn)%N ->
+  let w := PArray.get fpgi (PArray.get fkeepi r) in
+  [/\ fkpt w = r,
+      forall g pty, (to_nat g < ngroupn)%N -> (to_nat pty < nptyn)%N ->
+        sgrmv fsgri (fren w) pty g = g
+    & forall bt, (to_nat bt < nbitn)%N -> sbtmv fsbti (fren w) bt = bt].
+Proof.
+move=> hr; have h1 := keepidCP; rewrite keepidCE in h1.
+have h2 := Row.iter_at h1 hr; cbv zeta in h2.
+have /andP[/eqP e1 /andP[e2 e3]] := h2.
+split=> // [g pty hg hp|bt hb].
+  by apply/eqP; exact: (Row.iter_at (Row.iter_at e2 hg) hp).
+by apply/eqP; exact: (Row.iter_at e3 hb).
+Qed.
+
+(* SO THE FOLDED MAP READ AT A KEPT SLOT IS THE SLOT ITSELF.  A bit of the   *)
+(* source word the level reads is a member the source map claims, with no    *)
+(* renaming to undo.                                                         *)
+Lemma keep_ftest src r g bt : (to_nat r < nrepn)%N -> (to_nat g < ngroupn)%N ->
+  (to_nat bt < nbitn)%N ->
+  ftest fpgi fsgri fsbti src (PArray.get fkeepi r) g bt
+  = ~~ (Uint63.land (fget src r g) (bitof bt) =? 0)%uint63.
+Proof.
+move=> hr hg hb.
+have hpg : (to_nat (PArray.get fkeepi r) < npagen)%N.
+  by apply/nltbP; apply: (Row.iter_at keepRCP hr).
+have hp : (to_nat (Ptyof (PArray.get fkeepi r) bt) < nptyn)%N.
+  by apply/nltbP; apply: (Row.iter_at (Row.iter_at ptyRCP hpg) hb).
+have := keepid hr; cbv zeta => -[e1 e2 e3].
+by rewrite /ftest e1 (e2 _ _ hg hp) (e3 _ hb).
+Qed.
