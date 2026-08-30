@@ -66,11 +66,16 @@ Import GroupScope.
 (* the left side and loads no proof to do it; RowFoldCubDone puts the two     *)
 (* together and is four lines.                                                *)
 (*                                                                            *)
-(* rowfull is mfullf of RowFoldCubDef's map, and yfcwitsoi is mfullf of       *)
-(* RowFoldCubReal's.  The two are the same term -- unfold yfcwitso, yfcmfino  *)
-(* and fmfino and the applications meet -- so the kernel matches them without *)
-(* taking a step of the search.  If that ever costs more than a moment it is  *)
-(* a delta that no longer lines up; stop and read the two terms.              *)
+(* rowfull is mfullf of RowFoldCubDef's map and yfcwitsoi is mfullf of        *)
+(* RowFoldCubReal's.  They are the same map, but every name on the way down   *)
+(* differs -- ytomembd against ytomemb tomembi, okmvvd against okmvv,         *)
+(* ycsolvedd against ycsolved, srchd against srch -- because the run file     *)
+(* loads no proof and so cannot use those constants.                          *)
+(*                                                                            *)
+(* SO THE UNFOLDING IS WRITTEN OUT.  Left to itself, unification does not     *)
+(* fail when a name will not match: it reduces, and reducing this is the run  *)
+(* again, in the kernel, which is far slower than native.  Naming the         *)
+(* constants costs nothing and cannot wander.                                 *)
 Definition yfcwitsoi : rmap :=
   yfcwitso p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
            forbi fpopi ishmi.
@@ -81,7 +86,11 @@ Theorem row_of_run : rowfull = true ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
 Proof.
 move=> hr.
-have hf : mfullf yfcwitsoi by exact: hr.
+have hf : mfullf yfcwitsoi.
+  move: hr.
+  rewrite /rowfull /ycwitso /rowmap /ytomembd /okmvvd /ycsolvedd /srchd.
+  rewrite /yfcwitsoi /yfcwitso /yfcmfino /fmfino.
+  by [].
 exact: (real_superflip_row_foldo p1ftab frepi fsymi twsymi
           dnlo_data dnhi_data fllo_data flhi_data fsmoveCP
           forbi fpopi ishmi hf).
