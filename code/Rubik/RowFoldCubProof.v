@@ -42,7 +42,7 @@ Require Import RowUp8inv RowUp8ok RowUp4inv RowUp4ok RowPar8 RowPar4.
 Require Import RowWits RowWitsChk RowInH.
 Require Import P1Table.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
-Require Import Lehmer RowCub RowCubi RowCubInst RowReal FsmChk.
+Require Import Lehmer RowCub RowCubi RowCubInst RowReal RowMembi FsmChk.
 Require Import Fold FoldTables P1Fdec P1FTable RowMask.
 Require Import RowFold RowFoldOk RowFoldMem RowFoldPart RowTabF RowFoldTab.
 Require Import RowFoldSym RowFoldConj RowFoldGath RowFoldSrc RowFoldLvl.
