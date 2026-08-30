@@ -90,7 +90,7 @@ Definition yfcwitsoi : rmap :=
 (* unification to search for.                                                 *)
 Lemma ytomembdE : ytomembd = ytomemb tomembi.  Proof. by []. Qed.
 Lemma okmvvdE   : okmvvd = okmvv.              Proof. by []. Qed.
-Lemma ycsolveddE : ycsolvedd = ycsolved.       Proof. by []. Qed.
+Lemma ycsolveddE : ycsolvedd = ycsolved1.      Proof. by []. Qed.
 Lemma srchdE    : srchd = srch.                Proof. by []. Qed.
 
 (* ---- and they are the same map ------------------------------------------- *)
