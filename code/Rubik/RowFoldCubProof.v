@@ -72,10 +72,11 @@ Import GroupScope.
 (* ycsolvedd against ycsolved, srchd against srch -- because the run file     *)
 (* loads no proof and so cannot use those constants.                          *)
 (*                                                                            *)
-(* SO THE UNFOLDING IS WRITTEN OUT.  Left to itself, unification does not     *)
-(* fail when a name will not match: it reduces, and reducing this is the run  *)
-(* again, in the kernel, which is far slower than native.  Naming the         *)
-(* constants costs nothing and cannot wander.                                 *)
+(* SO THE UNFOLDING IS WRITTEN OUT, ON BOTH SIDES.  Left to itself,           *)
+(* unification does not fail when a name will not match: it reduces, and      *)
+(* reducing this is the run again, in the kernel, which is far slower than    *)
+(* native.  One side alone is not enough -- unfolding ycsolvedd leaves a      *)
+(* lambda against ycsolved, which is still a constant.                        *)
 Definition yfcwitsoi : rmap :=
   yfcwitso p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
            forbi fpopi ishmi.
@@ -90,6 +91,7 @@ have hf : mfullf yfcwitsoi.
   move: hr.
   rewrite /rowfull /ycwitso /rowmap /ytomembd /okmvvd /ycsolvedd /srchd.
   rewrite /yfcwitsoi /yfcwitso /yfcmfino /fmfino.
+  rewrite /ytomemb /okmvv /ycsolved /RowInst.csolvedb /srch.
   by [].
 exact: (real_superflip_row_foldo p1ftab frepi fsymi twsymi
           dnlo_data dnhi_data fllo_data flhi_data fsmoveCP
