@@ -19,8 +19,10 @@
 #    ./mkrowfold.sh cub      build, then RowFoldCub -- the real twenty cubies
 #    ./mkrowfold.sh cubrun   build, then RowFoldCubRun -- the row, folded map
 #    ./mkrowfold.sh cubfoot  RowFoldCubFoot -- the certificate's floor, Requires only
+#    ./mkrowfold.sh pace     RowFoldCubPace -- the run's footprint at thirteen
 #    ./mkrowfold.sh bool     RowFoldCubBool -- THE RUN, the boolean alone (~9 h)
-#    ./mkrowfold.sh proof    build, then RowFoldCubProof -- THE CERTIFICATE
+#    ./mkrowfold.sh proof    RowFoldCubProof -- what the run buys, no run in it
+#    ./mkrowfold.sh done     RowFoldCubDone -- the two together, THE THEOREM
 #    ./mkrowfold.sh t10      build, then RowFoldRun10 -- the proved run, depth 10
 #    ./mkrowfold.sh t13      ... depth 13
 #    ./mkrowfold.sh t15      ... depth 15  (run the three side by side)
@@ -148,12 +150,22 @@ case "$1" in
          coqc -R . Rubik RowFoldOptT.v; coqc -R . Rubik RowFoldOpt20.v ;;
   cubfoot) echo "--- RowFoldCubFoot (the floor: Requires and nothing else, watch RES)"
          coqc -R . Rubik RowFoldCubFoot.v ;;
+  pace)  echo "--- RowFoldCubPace (the run at thirteen: watch RES, count 14731320)"
+         build RowFoldCubDef
+         coqc -R . Rubik RowFoldCubPace.v ;;
   bool)  echo "--- RowFoldCubBool (THE RUN: the boolean alone, ~9 h)"
+         build RowFoldCubDef
          coqc -R . Rubik RowFoldCubBool.v ;;
-  proof) echo "--- RowFoldCubProof (THE CERTIFICATE: must print true)"
-         build RowFoldCubBool
+  proof) echo "--- RowFoldCubProof (what the run buys; it runs nothing)"
+         build RowFoldCubDef
          coqc -R . Rubik RowFoldCubReal.v
          coqc -R . Rubik RowFoldCubProof.v ;;
+  done)  echo "--- RowFoldCubDone (THE THEOREM: run and proof together)"
+         build RowFoldCubDef
+         build RowFoldCubBool
+         build RowFoldCubReal
+         build RowFoldCubProof
+         coqc -R . Rubik RowFoldCubDone.v ;;
   cubplain) echo "--- RowCubRun (the row on the plain map; must print true)"
          coqc -R . Rubik RowCubRun.v ;;
   *)     echo "--- RowFoldRun (the ball of H)";   coqc -R . Rubik RowFoldRun.v ;;
