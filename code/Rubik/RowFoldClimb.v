@@ -60,7 +60,7 @@ Definition fstep (c k : int) : int :=
 (* more of the forty eight entry cube -- 19.3 s of 37.9 at depth twelve --    *)
 (* and Fsinj proves those two are answered by this one.  csolvedbP is the     *)
 (* statement; here the number is the int side of it.                          *)
-Definition fsolved (c : int) (_ : pstt) : bool := Uint63.eqb c csolvedci.
+Definition fsolved (c : int) : bool := Uint63.eqb c csolvedci.
 
 (* one level of the folded row, with hcoset's stop on the last one searched   *)
 Notation flvl1 :=

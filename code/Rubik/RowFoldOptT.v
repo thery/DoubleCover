@@ -55,7 +55,7 @@ Definition fstep (c k : int) : int :=
              (actfsri (Uint63.mod c nfsi) k).
 
 (* the test at the end of a branch is one comparison, as RowInst has it *)
-Definition fsolved (c : int) (_ : pstt) : bool := Uint63.eqb c csolvedci.
+Definition fsolved (c : int) : bool := Uint63.eqb c csolvedci.
 
 (* ---- which of the eighteen are moves of H -------------------------------- *)
 
