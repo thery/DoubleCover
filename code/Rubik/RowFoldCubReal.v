@@ -64,7 +64,13 @@ Hypothesis hfm : fsmoveC.
 (* csolved takes the coordinate and nothing else now, so no instance can pass *)
 (* it a state it had to build.  RowInst's csolvedb never read the state, so   *)
 (* this is that function with the argument gone, and beta says the two agree. *)
-Definition ycsolved1 (c : int) : bool := Uint63.eqb c RowInst.csolvedi.
+Definition ycsolved1 (c : int) : bool := Uint63.eqb c RowInst.csolvedci.
+
+(* csolvedci is the literal; csolvedi reads coordfs of a permutation, so an   *)
+(* evaluator handed it walks the whole permutation type.  RowInst.csolvedciE  *)
+(* says they are the same number.                                             *)
+Lemma ycsolved1E c y : ycsolved1 c = ycsolved c y.
+Proof. by rewrite /ycsolved1 RowInst.csolvedciE. Qed.
 
 (* ---- the one hypothesis that is not RowCubInst's word for word ----------- *)
 
@@ -74,7 +80,7 @@ Definition ycsolved1 (c : int) : bool := Uint63.eqb c RowInst.csolvedi.
 Lemma yfleaf_pos c y : ycoordP c y -> ypstok y -> yposp y \in G ->
   ycsolved1 c -> posC (ytomemb tomemb y) = yposp y.
 Proof.
-move=> hc hy hg hs.
+move=> hc hy hg hs; rewrite (ycsolved1E c y) in hs.
 rewrite -(yleaf_pos memb2tab_okC r_tomemb_tab hc hy hg hs).
 by rewrite /posC (RowInst.posE memb2tab_okC).
 Qed.
@@ -93,6 +99,7 @@ Lemma yleaf_membi c y : ycoordP c y -> ypstok y -> yposp y \in G ->
   ycsolved1 c -> membok par8i par4i (ytomemb tomembi y).
 Proof.
 move=> hc hy hg hs; rewrite (ytomembiE hy).
+rewrite (ycsolved1E c y) in hs.
 exact: (yleaf_memb r_leaf_memb hc hy hg hs).
 Qed.
 

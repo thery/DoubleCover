@@ -62,7 +62,7 @@ Definition ishmi : int :=
 (* cell array to fill an argument RowInst's csolvedb never read -- at every   *)
 (* node, since native_compute is call by value.  The argument is gone from    *)
 (* the search itself now, so it cannot come back.                             *)
-Definition ycsolvedd (c : int) : bool := Uint63.eqb c csolvedi.
+Definition ycsolvedd (c : int) : bool := Uint63.eqb c csolvedci.
 
 Definition ytomembd (y : arr) : memb := tomembi (y2ti y).
 

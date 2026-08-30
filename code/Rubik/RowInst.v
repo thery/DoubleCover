@@ -291,6 +291,13 @@ rewrite coordfs1iC (coordiE tabi_ok_idi) (ti2t_id n47_small n47_len) -pt1.
 by rewrite (coordtE (tab_ok_id flast)).
 Qed.
 
+(* AND THE NUMBER MUST BE THE LITERAL ONE.  csolvedi reads coordfs of the     *)
+(* identity permutation, so asking for it makes an evaluator walk the whole   *)
+(* permutation type; csolvedci is that number, settled once at definition     *)
+(* time.  A search must be handed the second.                                 *)
+Lemma csolvedciE : csolvedci = csolvedi.
+Proof. by rewrite /csolvedi -coordfs1iE; vm_compute. Qed.
+
 
 (* ONE COMPARISON, AND IT IS THE WHOLE TEST.  The search carries the         *)
 (* coordinate, so the question is asked of a number it already has.  It used  *)
