@@ -52,7 +52,7 @@ Variable xstep : pst -> int -> pst.
 Variable tomemb : pst -> memb.
 Variable posp : pst -> {perm facelet}.
 Variable okmv : int -> int -> bool.
-Variable csolved : int -> pst -> bool.
+Variable csolved : int -> bool.
 
 Variable croot : int.
 Variable sroot : pst.
@@ -71,9 +71,9 @@ Hypothesis xstep_pok : forall x k, (to_nat k < RowRun.nmvn)%N ->
 Hypothesis xstep_pos : forall x k, (to_nat k < RowRun.nmvn)%N -> pstok x ->
   posp (xstep x k) = posp x * nth 1%g moves (to_nat k).
 Hypothesis leaf_memb : forall c x, coordP c x -> pstok x ->
-  posp x \in G -> csolved c x -> membok par8i par4i (tomemb x).
+  posp x \in G -> csolved c -> membok par8i par4i (tomemb x).
 Hypothesis leaf_pos : forall c x, coordP c x -> pstok x ->
-  posp x \in G -> csolved c x -> posC (tomemb x) = posp x.
+  posp x \in G -> csolved c -> posC (tomemb x) = posp x.
 
 (* ---- the map the run leaves ---------------------------------------------- *)
 

@@ -71,7 +71,7 @@ Variable xstep : pst -> int -> pst.
 Variable tomemb : pst -> memb.
 Variable posp : pst -> {perm facelet}.
 Variable okmv : int -> int -> bool.
-Variable csolved : int -> pst -> bool.
+Variable csolved : int -> bool.
 
 Variable croot : int.
 Variable sroot : pst.
@@ -141,9 +141,9 @@ Hypothesis xstep_pok : forall x k, (to_nat k < RowRun.nmvn)%N ->
 Hypothesis xstep_pos : forall x k, (to_nat k < RowRun.nmvn)%N -> pstok x ->
   posp (xstep x k) = (posp x * nth 1%g moves (to_nat k))%g.
 Hypothesis leaf_memb : forall c x, coordP c x -> pstok x ->
-  posp x \in G -> csolved c x -> membok par8 par4 (tomemb x).
+  posp x \in G -> csolved c -> membok par8 par4 (tomemb x).
 Hypothesis leaf_pos : forall c x, coordP c x -> pstok x ->
-  posp x \in G -> csolved c x -> pos (tomemb x) = posp x.
+  posp x \in G -> csolved c -> pos (tomemb x) = posp x.
 
 (* ---- the search does not change how long the map is ---------------------- *)
 
@@ -180,7 +180,7 @@ Qed.
 (* reflexivity -- the mark is still there to match.                          *)
 Lemma fsrch0 c x msk pv m :
   fsr 0 c x msk pv m =
-  (if csolved c x
+  (if csolved c
    then fmk m (mcp (tomemb x))
             (Uint63.div (PArray.get e8num (mud (tomemb x))) 2%uint63)
             (PArray.get e4bit (mmp (tomemb x)))
@@ -288,7 +288,7 @@ Local Notation fsrk :=
 
 Lemma fsrchk0 cut c x msk pv m :
   fsrk cut 0 c x msk pv m =
-  (if csolved c x
+  (if csolved c
    then fmk m (mcp (tomemb x))
             (Uint63.div (PArray.get e8num (mud (tomemb x))) 2%uint63)
             (PArray.get e4bit (mmp (tomemb x)))
@@ -377,7 +377,7 @@ Qed.
 Lemma fsrchsk0 cut c x msk pv enough mn :
   fsrsk cut 0 c x msk pv enough mn =
   (if Uint63.leb enough mn.2 then mn
-   else if csolved c x
+   else if csolved c
    then fmkn mn (mcp (tomemb x))
             (Uint63.div (PArray.get e8num (mud (tomemb x))) 2%uint63)
             (PArray.get e4bit (mmp (tomemb x)))

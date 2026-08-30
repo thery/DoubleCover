@@ -57,12 +57,12 @@ Definition ishmi : int :=
 
 (* RowCubInst's ycsolved and ytomemb, and RowReal's okmvv and srch, written   *)
 (* out.  Same bodies, so the kernel sees the same terms.                      *)
-(* THE TEST AT EVERY NODE, AND IT MUST NOT BUILD ANYTHING.  RowCubInst's      *)
-(* ycsolved reads csolvedb c (y2ti y), and csolvedb throws its second         *)
-(* argument away -- but native_compute is call by value, so the forty eight   *)
-(* cell array is built at every node and dropped.  Beta drops it here, and    *)
-(* the two are still the same term to the kernel.                             *)
-Definition ycsolvedd (c : int) (_ : arr) : bool := Uint63.eqb c csolvedi.
+(* THE TEST AT EVERY NODE TAKES THE COORDINATE AND NOTHING ELSE.  The search  *)
+(* used to hand it the state as well, and this instance built a forty eight   *)
+(* cell array to fill an argument RowInst's csolvedb never read -- at every   *)
+(* node, since native_compute is call by value.  The argument is gone from    *)
+(* the search itself now, so it cannot come back.                             *)
+Definition ycsolvedd (c : int) : bool := Uint63.eqb c csolvedi.
 
 Definition ytomembd (y : arr) : memb := tomembi (y2ti y).
 
