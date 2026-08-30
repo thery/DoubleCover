@@ -81,6 +81,18 @@ Definition yfcwitsoi : rmap :=
   yfcwitso p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
            forbi fpopi ishmi.
 
+(* ---- the four names the run file had to copy ----------------------------- *)
+
+(* RowFoldCubDef loads no proof, so it cannot say ytomemb, okmvv, ycsolved    *)
+(* or srch; it writes the same four bodies under its own names.  Each pair is *)
+(* equal by unfolding a two line function, which costs nothing.  Rewriting    *)
+(* these four makes the two maps the SAME TERM, so nothing is left for        *)
+(* unification to search for.                                                 *)
+Lemma ytomembdE : ytomembd = ytomemb tomembi.  Proof. by []. Qed.
+Lemma okmvvdE   : okmvvd = okmvv.              Proof. by []. Qed.
+Lemma ycsolveddE : ycsolvedd = ycsolved.       Proof. by []. Qed.
+Lemma srchdE    : srchd = srch.                Proof. by []. Qed.
+
 (* ---- what the run buys --------------------------------------------------- *)
 
 Theorem row_of_run : rowfull = true ->
@@ -89,9 +101,9 @@ Proof.
 move=> hr.
 have hf : mfullf yfcwitsoi.
   move: hr.
-  rewrite /rowfull /ycwitso /rowmap /ytomembd /okmvvd /ycsolvedd /srchd.
+  rewrite /rowfull /ycwitso /rowmap.
+  rewrite ytomembdE okmvvdE ycsolveddE srchdE.
   rewrite /yfcwitsoi /yfcwitso /yfcmfino /fmfino.
-  rewrite /ytomemb /okmvv /ycsolved /RowInst.csolvedb /srch.
   by [].
 exact: (real_superflip_row_foldo p1ftab frepi fsymi twsymi
           dnlo_data dnhi_data fllo_data flhi_data fsmoveCP
