@@ -65,19 +65,24 @@ Definition ishmi : int :=
 (* fmfino's body, with RowFoldCubReal's arguments and RowFoldCubProof's       *)
 (* tables put in.  Every optimization is on: Rokicki's early stop and         *)
 (* hcoset's two cuts, which is what frunsk is.                                *)
-Definition ycmfino : rmap :=
-  frunsk e8numi e4biti fpgi fsrci fsgri fsloi fshii fsbti
-         mgri mswi mloi mhii
-         p1ftab frepi fsymi twsymi
-         dnlo_data dnhi_data fllo_data flhi_data
-         (RowInst.cstep actfsri) zstepi (ytomemb tomemb) okmvv ycsolved
-         RowInst.croot yrooti srch forbi fpopi ishmi
-         20 0 0%uint63 (mkempty tt) (mkempty tt).
-
+(*                                                                            *)
+(* THE UNMARKED MAP IS NOT NAMED, and that is not a style choice.  A nullary  *)
+(* Definition compiles to a top level value that native_compute keeps for     *)
+(* good, so naming it would hold the map the marking writes on alive beside   *)
+(* the marked one, and every write on a version something still points at is  *)
+(* kept as history.  Measured elsewhere in this tree: 7.5 GB -> 13 and 86 s   *)
+(* -> 400.  Written inline it is an application, evaluated once and dropped.  *)
 Definition ycwitso : rmap :=
   foldr (fun t m =>
            let: (pg, gr, bt, _) := t in fmark fpgi fsgri fsbti m pg gr bt)
-        ycmfino rowwits.
+        (frunsk e8numi e4biti fpgi fsrci fsgri fsloi fshii fsbti
+                mgri mswi mloi mhii
+                p1ftab frepi fsymi twsymi
+                dnlo_data dnhi_data fllo_data flhi_data
+                (RowInst.cstep actfsri) zstepi (ytomemb tomemb) okmvv ycsolved
+                RowInst.croot yrooti srch forbi fpopi ishmi
+                20 0 0%uint63 (mkempty tt) (mkempty tt))
+        rowwits.
 
 (* ---- and the bit --------------------------------------------------------- *)
 
