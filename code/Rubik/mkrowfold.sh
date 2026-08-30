@@ -18,6 +18,8 @@
 #    ./mkrowfold.sh pos      build, then RowFoldPos -- what a smaller position is worth
 #    ./mkrowfold.sh cub      build, then RowFoldCub -- the real twenty cubies
 #    ./mkrowfold.sh cubrun   build, then RowFoldCubRun -- the row, folded map
+#    ./mkrowfold.sh cubfoot  RowFoldCubFoot -- the certificate's floor, Requires only
+#    ./mkrowfold.sh bool     RowFoldCubBool -- THE RUN, the boolean alone (~9 h)
 #    ./mkrowfold.sh proof    build, then RowFoldCubProof -- THE CERTIFICATE
 #    ./mkrowfold.sh t10      build, then RowFoldRun10 -- the proved run, depth 10
 #    ./mkrowfold.sh t13      ... depth 13
@@ -144,7 +146,12 @@ case "$1" in
          coqc -R . Rubik RowFoldOptT.v; coqc -R . Rubik RowFoldOpt15.v ;;
   o20)   echo "--- RowFoldOpt20 (every optimization, depth 20)"
          coqc -R . Rubik RowFoldOptT.v; coqc -R . Rubik RowFoldOpt20.v ;;
+  cubfoot) echo "--- RowFoldCubFoot (the floor: Requires and nothing else, watch RES)"
+         coqc -R . Rubik RowFoldCubFoot.v ;;
+  bool)  echo "--- RowFoldCubBool (THE RUN: the boolean alone, ~9 h)"
+         coqc -R . Rubik RowFoldCubBool.v ;;
   proof) echo "--- RowFoldCubProof (THE CERTIFICATE: must print true)"
+         build RowFoldCubBool
          coqc -R . Rubik RowFoldCubReal.v
          coqc -R . Rubik RowFoldCubProof.v ;;
   cubplain) echo "--- RowCubRun (the row on the plain map; must print true)"
