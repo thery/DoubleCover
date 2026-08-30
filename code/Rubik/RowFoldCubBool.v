@@ -79,14 +79,16 @@ Definition ycwitso : rmap :=
                 mgri mswi mloi mhii
                 p1ftab frepi fsymi twsymi
                 dnlo_data dnhi_data fllo_data flhi_data
-                (RowInst.cstep actfsri) zstepi (ytomemb tomemb) okmvv ycsolved
+                (RowInst.cstep actfsri) zstepi (ytomemb tomembi) okmvv ycsolved
                 RowInst.croot yrooti srch forbi fpopi ishmi
                 20 0 0%uint63 (mkempty tt) (mkempty tt))
         rowwits.
 
 (* ---- and the bit --------------------------------------------------------- *)
 
-(* THE LONG POLE.  Measured on the same search without the marking and        *)
-(* without the proof loaded: 33 305 s and 15.5 GB.                            *)
+(* THE LONG POLE.  RowFoldOpt20 measured 33 305 s and 15.5 GB, but that is    *)
+(* not a prediction for this: it carries RowInst's table through xstep where  *)
+(* this carries the twenty cubies through zstepi.  The leaf is the same on    *)
+(* both sides now -- tomembi, no nat.                                         *)
 Lemma r_full_bool : mfullf ycwitso.
 Proof. Time native_cast_no_check (erefl true). Qed.

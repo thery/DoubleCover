@@ -33,7 +33,7 @@ Require Import RowUp8inv RowUp8ok RowUp4inv RowUp4ok RowPar8 RowPar4.
 Require Import RowWits RowWitsChk RowInH.
 Require Import P1Table.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
-Require Import Lehmer RowCub RowCubi RowCubInst RowReal.
+Require Import Lehmer RowCub RowCubi RowCubInst RowReal RowMembi.
 Require Import RowFold RowFoldOk RowFoldMem RowFoldPart RowTabF RowFoldTab.
 Require Import RowFoldSym RowFoldConj RowFoldGath RowFoldSrc RowFoldLvl.
 Require Import RowFoldWrite RowFoldTot RowFoldPorb RowFoldSrch RowFoldRun.
@@ -72,21 +72,45 @@ rewrite -(yleaf_pos memb2tab_okC r_tomemb_tab hc hy hg hs).
 by rewrite /posC (RowInst.posE memb2tab_okC).
 Qed.
 
+(* ---- the leaf, with no nat in it ----------------------------------------- *)
+
+(* THE SEARCH ASKS THE LEAF AT EVERY ANSWER IT RECORDS, and RowMemb's tomemb  *)
+(* answers by building a forty eight cell seq nat and walking it.  RowMembi's *)
+(* tomembi is the same answer on int63 alone.  tomembiE says the two agree    *)
+(* wherever the table is well formed, and at the leaf ypstok_tabi says it is. *)
+
+Lemma ytomembiE y : ypstok y -> ytomemb tomembi y = ytomemb tomemb y.
+Proof. by move=> hy; apply: (tomembiE (ypstok_tabi hy)). Qed.
+
+Lemma yleaf_membi c y : ycoordP c y -> ypstok y -> yposp y \in G ->
+  ycsolved c y -> membok par8i par4i (ytomemb tomembi y).
+Proof.
+move=> hc hy hg hs; rewrite (ytomembiE hy).
+exact: (yleaf_memb r_leaf_memb hc hy hg hs).
+Qed.
+
+Lemma yfleaf_posi c y : ycoordP c y -> ypstok y -> yposp y \in G ->
+  ycsolved c y -> posC (ytomemb tomembi y) = yposp y.
+Proof.
+move=> hc hy hg hs; rewrite (ytomembiE hy).
+exact: yfleaf_pos hc hy hg hs.
+Qed.
+
 (* ---- the map the folded run leaves --------------------------------------- *)
 
 Definition yfcmfin : rmap :=
   fmfin F frep fsym twsym dnlo dnhi fllo flhi
-        (RowInst.cstep actfsri) zstepi (ytomemb tomemb) okmvv ycsolved
+        (RowInst.cstep actfsri) zstepi (ytomemb tomembi) okmvv ycsolved
         RowInst.croot yrooti srch 20.
 
 Lemma yfcmfin_sound : soundatf fpgi fsgri fsbti (PdC 20) yfcmfin.
 Proof.
 refine (@fmfin_sound F frep fsym twsym dnlo dnhi fllo flhi
-          arr (RowInst.cstep actfsri) zstepi (ytomemb tomemb) yposp okmvv
+          arr (RowInst.cstep actfsri) zstepi (ytomemb tomembi) yposp okmvv
           ycsolved RowInst.croot yrooti srch 20 ycoordP ypstok
           ycoord_root yroot_ball yroot_pok
           (ycoord_step (r_fsstepP hfm)) yxstep_pok yxstep_pos
-          (yleaf_memb r_leaf_memb) yfleaf_pos).
+          yleaf_membi yfleaf_posi).
 Qed.
 
 (* ---- the witnesses, marked in rather than held in a map ------------------ *)
@@ -156,17 +180,17 @@ Variable ishm : int.
 
 Definition yfcmfino : rmap :=
   fmfino F frep fsym twsym dnlo dnhi fllo flhi
-         (RowInst.cstep actfsri) zstepi (ytomemb tomemb) okmvv ycsolved
+         (RowInst.cstep actfsri) zstepi (ytomemb tomembi) okmvv ycsolved
          RowInst.croot yrooti srch 20 forb fpop ishm.
 
 Lemma yfcmfino_sound : soundatf fpgi fsgri fsbti (PdC 20) yfcmfino.
 Proof.
 refine (@fmfino_sound F frep fsym twsym dnlo dnhi fllo flhi
-          arr (RowInst.cstep actfsri) zstepi (ytomemb tomemb) yposp okmvv
+          arr (RowInst.cstep actfsri) zstepi (ytomemb tomembi) yposp okmvv
           ycsolved RowInst.croot yrooti srch 20 ycoordP ypstok
           ycoord_root yroot_ball yroot_pok
           (ycoord_step (r_fsstepP hfm)) yxstep_pok yxstep_pos
-          (yleaf_memb r_leaf_memb) yfleaf_pos forb fpop ishm).
+          yleaf_membi yfleaf_posi forb fpop ishm).
 Qed.
 
 Definition yfcwitso : rmap :=
