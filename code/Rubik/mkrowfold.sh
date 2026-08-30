@@ -87,51 +87,40 @@ build () {     # build <base>
 # missing Sym16Row and the whole RowMembChk chain, which is what made a clean
 # tree fail.  A file already current is skipped, so a long one is built only
 # when it really is absent.
-FOLDFILES="Fold P1Fold FoldTables P1Fdec P1F_00 P1F_01 P1F_02 P1F_03 P1F_04 \
-  P1FTable P1Table Row RowMap Fsinj FsmChk Lehmer RowRun RowFinal \
-  RowInst RowTabP RowMemb RowCub RowCubi RowCubInst RowFold Sym16 \
-  RowFoldPart RowTabF RowFoldTab RowTabL RowTab RowFoldSym RowMoveH \
-  RowPartC RowPartM RowPartU RowLeaf RowUp4ok RowUp8ok RowFoldConj \
-  RowFoldOk RowFoldEmpty RowFoldGath RowFoldLvl Sym16Row RowFoldMem \
-  RowFoldSrc RowFoldTot RowMoveC RowMoveM RowMoveU RowParity \
-  RowMembChk RowFoldWrite RowFoldPorb RowMask RowFoldSrch \
-  RowFoldRun RowFoldFinal RowInH RowPar4 RowPar8 RowUp4inv \
-  RowUp8inv RowWits RowWitsChk RowReal RowFoldCubReal RowMembi \
-  RowOkm RowFoldCubDef"
-
-# ONE FILE AT A TIME IS SLOW AND THE DEPENDENCIES ALLOW BETTER.  coqdep knows
-# which of these wait on which, so a makefile over just these files lets make
-# run the independent ones side by side.  It is only these files: _CoqProject
-# is still not used, because it lists the seventeen Runp1 pieces.
+# WHAT THE FOLDED ROW NEEDS, in no particular order: rocq makefile works the
+# order out.  This is mkrow.sh's way and there is no reason to differ from it.
+# The files are out of _CoqProject because that one lists the seventeen Runp1
+# pieces, which are 87 CPU-hours; a project file of their own has neither
+# problem and gives make -j for free.
 #
-# JOBS defaults to the number of cores.  Set JOBS=1 to go back to one at a
-# time when a failure has to be read without other output around it.
+# THE LONG RUNS ARE NOT IN IT -- RowFoldCubBool, RowFoldCubPace and the rest
+# are asked for by name from the case below, so that a bare make never starts
+# a nine hour job.
+#
+# JOBS defaults to the number of cores.  JOBS=1 when a failure has to be read
+# without other output around it.
 : "${JOBS:=$(nproc 2>/dev/null || echo 4)}"
 
-srcs=""
-for f in $FOLDFILES; do [ -f "$f.v" ] && srcs="$srcs $f.v"; done
-
-# coqdep names every dependency, including files outside this list.  Only the
-# ones in the list are kept, so this builds exactly what the old loop built
-# and nothing else -- just not one at a time.
 {
-  echo "all:$(for f in $FOLDFILES; do [ -f "$f.v" ] && printf ' %s.vo' "$f"; done)"
-  echo "%.vo: %.v"
-  printf '\tcoqc -R . Rubik $<\n'
-  coqdep -R . Rubik $srcs 2>/dev/null |
-  awk -v keep="$FOLDFILES" '
-    BEGIN { n = split(keep, a, " "); for (i = 1; i <= n; i++) ok[a[i] ".vo"] = 1 }
-    /^#/ { next }
-    /:/  { split($0, p, ":"); t = p[1]; sub(/\.v\.beautified/, "", t);
-           line = ""; m = split(p[2], d, " ");
-           for (i = 1; i <= m; i++) { sub(/^\.\//, "", d[i]); if (d[i] in ok) line = line " " d[i] }
-           g = $1; if (g ~ /\.vo$/ && line != "") print g ":" line }
-  '
-} > .foldmake
+  echo "-R . Rubik"
+  echo
+  for f in Fold P1Fold FoldTables P1Fdec P1F_00 P1F_01 P1F_02 P1F_03 P1F_04 \
+           P1FTable P1Table Row RowMap Fsinj FsmChk Lehmer RowRun RowFinal \
+           RowInst RowTabP RowMemb RowCub RowCubi RowCubInst RowFold Sym16 \
+           RowFoldPart RowTabF RowFoldTab RowTabL RowTab RowFoldSym RowMoveH \
+           RowPartC RowPartM RowPartU RowLeaf RowUp4ok RowUp8ok RowFoldConj \
+           RowFoldOk RowFoldEmpty RowFoldGath RowFoldLvl Sym16Row RowFoldMem \
+           RowFoldSrc RowFoldTot RowMoveC RowMoveM RowMoveU RowParity \
+           RowMembChk RowFoldWrite RowFoldPorb RowMask RowFoldSrch \
+           RowFoldRun RowFoldFinal RowInH RowPar4 RowPar8 RowUp4inv \
+           RowUp8inv RowWits RowWitsChk RowReal RowFoldCubReal RowMembi \
+           RowOkm RowFoldCubDef; do
+    [ -f "$f.v" ] && echo "$f.v"
+  done
+} > _FoldProject
 
-echo "--- building the folded row with -j$JOBS"
-make -f .foldmake -j"$JOBS" all
-rm -f .foldmake
+rocq makefile -f _FoldProject -o Makefile.fold
+make -f Makefile.fold -j"$JOBS"
 
 echo "the folded row is built"
 
