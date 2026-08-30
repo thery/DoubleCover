@@ -59,13 +59,20 @@ Variables dnlo dnhi fllo flhi : arr.
 (* the flip and slice move table's certificate, as RowReal carries it *)
 Hypothesis hfm : fsmoveC.
 
+(* ---- the test at a node, on the coordinate alone ------------------------- *)
+
+(* csolved takes the coordinate and nothing else now, so no instance can pass *)
+(* it a state it had to build.  RowInst's csolvedb never read the state, so   *)
+(* this is that function with the argument gone, and beta says the two agree. *)
+Definition ycsolved1 (c : int) : bool := Uint63.eqb c RowInst.csolvedi.
+
 (* ---- the one hypothesis that is not RowCubInst's word for word ----------- *)
 
 (* RowFoldFinal asks for the position as posC writes it -- the superflip      *)
 (* undone and then the member -- where RowCubInst gives RowFinal.pos of       *)
 (* RowInst's ptab.  RowInst.posE says the two are the same.                   *)
 Lemma yfleaf_pos c y : ycoordP c y -> ypstok y -> yposp y \in G ->
-  ycsolved c y -> posC (ytomemb tomemb y) = yposp y.
+  ycsolved1 c -> posC (ytomemb tomemb y) = yposp y.
 Proof.
 move=> hc hy hg hs.
 rewrite -(yleaf_pos memb2tab_okC r_tomemb_tab hc hy hg hs).
@@ -83,14 +90,14 @@ Lemma ytomembiE y : ypstok y -> ytomemb tomembi y = ytomemb tomemb y.
 Proof. by move=> hy; apply: (tomembiE (ypstok_tabi hy)). Qed.
 
 Lemma yleaf_membi c y : ycoordP c y -> ypstok y -> yposp y \in G ->
-  ycsolved c y -> membok par8i par4i (ytomemb tomembi y).
+  ycsolved1 c -> membok par8i par4i (ytomemb tomembi y).
 Proof.
 move=> hc hy hg hs; rewrite (ytomembiE hy).
 exact: (yleaf_memb r_leaf_memb hc hy hg hs).
 Qed.
 
 Lemma yfleaf_posi c y : ycoordP c y -> ypstok y -> yposp y \in G ->
-  ycsolved c y -> posC (ytomemb tomembi y) = yposp y.
+  ycsolved1 c -> posC (ytomemb tomembi y) = yposp y.
 Proof.
 move=> hc hy hg hs; rewrite (ytomembiE hy).
 exact: yfleaf_pos hc hy hg hs.
@@ -100,14 +107,14 @@ Qed.
 
 Definition yfcmfin : rmap :=
   fmfin F frep fsym twsym dnlo dnhi fllo flhi
-        (RowInst.cstep actfsri) zstepi (ytomemb tomembi) okmvv ycsolved
+        (RowInst.cstep actfsri) zstepi (ytomemb tomembi) okmvv ycsolved1
         RowInst.croot yrooti srch 20.
 
 Lemma yfcmfin_sound : soundatf fpgi fsgri fsbti (PdC 20) yfcmfin.
 Proof.
 refine (@fmfin_sound F frep fsym twsym dnlo dnhi fllo flhi
           arr (RowInst.cstep actfsri) zstepi (ytomemb tomembi) yposp okmvv
-          ycsolved RowInst.croot yrooti srch 20 ycoordP ypstok
+          ycsolved1 RowInst.croot yrooti srch 20 ycoordP ypstok
           ycoord_root yroot_ball yroot_pok
           (ycoord_step (r_fsstepP hfm)) yxstep_pok yxstep_pos
           yleaf_membi yfleaf_posi).
@@ -180,14 +187,14 @@ Variable ishm : int.
 
 Definition yfcmfino : rmap :=
   fmfino F frep fsym twsym dnlo dnhi fllo flhi
-         (RowInst.cstep actfsri) zstepi (ytomemb tomembi) okmvv ycsolved
+         (RowInst.cstep actfsri) zstepi (ytomemb tomembi) okmvv ycsolved1
          RowInst.croot yrooti srch 20 forb fpop ishm.
 
 Lemma yfcmfino_sound : soundatf fpgi fsgri fsbti (PdC 20) yfcmfino.
 Proof.
 refine (@fmfino_sound F frep fsym twsym dnlo dnhi fllo flhi
           arr (RowInst.cstep actfsri) zstepi (ytomemb tomembi) yposp okmvv
-          ycsolved RowInst.croot yrooti srch 20 ycoordP ypstok
+          ycsolved1 RowInst.croot yrooti srch 20 ycoordP ypstok
           ycoord_root yroot_ball yroot_pok
           (ycoord_step (r_fsstepP hfm)) yxstep_pok yxstep_pos
           yleaf_membi yfleaf_posi forb fpop ishm).

@@ -83,7 +83,7 @@ Variable cstep : int -> int -> int.
 Variable xstep : pst -> int -> pst.
 Variable tomemb : pst -> memb.
 Variable okmv : int -> int -> bool.
-Variable csolved : int -> pst -> bool.
+Variable csolved : int -> bool.
 
 (* ---- the search ---------------------------------------------------------- *)
 
@@ -104,7 +104,7 @@ Fixpoint fsrch (togo : nat) (c : int) (x : pst) (msk : int) (pv : int)
            then fsrch togo' c' (xstep x k) (wmask w (togo' - nd)) k m'
            else m')
       m
-  else if csolved c x
+  else if csolved c
        then let: (pg, gr, bt) := plc (tomemb x) in fmk m pg gr bt
        else m.
 
@@ -127,7 +127,7 @@ Fixpoint fsrchn (togo : nat) (c : int) (x : pst) (msk : int) (pv : int)
            then fsrchn togo' c' (xstep x k) (wmask w (togo' - nd)) k a
            else a)
       n
-  else if csolved c x then Uint63.add n 1 else n.
+  else if csolved c then Uint63.add n 1 else n.
 
 (* ---- one level, and the run ---------------------------------------------- *)
 
@@ -196,7 +196,7 @@ Fixpoint fsrchs (togo : nat) (c : int) (x : pst) (msk : int) (pv : int)
            then fsrchs togo' c' (xstep x k) (wmask w (togo' - nd)) k enough a
            else a)
       mn
-  else if csolved c x
+  else if csolved c
        then let: (pg, gr, bt) := plc (tomemb x) in fmkn mn pg gr bt
        else mn.
 
@@ -267,7 +267,7 @@ Fixpoint fsrchk (cut : bool) (togo : nat) (c : int) (x : pst) (msk pv : int)
            then fsrchk cut togo' c' (xstep x k) (wmask w (togo' - nd)) k m'
            else m')
       m
-  else if csolved c x
+  else if csolved c
        then let: (pg, gr, bt) := plc (tomemb x) in fmk m pg gr bt
        else m.
 
@@ -314,7 +314,7 @@ Fixpoint fsrchsk (cut : bool) (togo : nat) (c : int) (x : pst) (msk pv : int)
                         enough a
            else a)
       mn
-  else if csolved c x
+  else if csolved c
        then let: (pg, gr, bt) := plc (tomemb x) in fmkn mn pg gr bt
        else mn.
 
