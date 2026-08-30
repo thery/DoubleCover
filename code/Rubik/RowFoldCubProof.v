@@ -93,18 +93,23 @@ Lemma okmvvdE   : okmvvd = okmvv.              Proof. by []. Qed.
 Lemma ycsolveddE : ycsolvedd = ycsolved.       Proof. by []. Qed.
 Lemma srchdE    : srchd = srch.                Proof. by []. Qed.
 
+(* ---- and they are the same map ------------------------------------------- *)
+
+(* Said outright, so that the only thing conversion has to do is compare      *)
+(* frunsk's arguments one by one.  It never looks inside the fixpoint: the    *)
+(* head is the same constant on both sides.                                   *)
+Lemma ycwitsoE : ycwitso = yfcwitsoi.
+Proof.
+rewrite /ycwitso /rowmap ytomembdE okmvvdE ycsolveddE srchdE.
+by rewrite /yfcwitsoi /yfcwitso /yfcmfino /fmfino.
+Qed.
+
 (* ---- what the run buys --------------------------------------------------- *)
 
 Theorem row_of_run : rowfull = true ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
 Proof.
-move=> hr.
-have hf : mfullf yfcwitsoi.
-  move: hr.
-  rewrite /rowfull /ycwitso /rowmap.
-  rewrite ytomembdE okmvvdE ycsolveddE srchdE.
-  rewrite /yfcwitsoi /yfcwitso /yfcmfino /fmfino.
-  by [].
+rewrite /rowfull ycwitsoE => hf.
 exact: (real_superflip_row_foldo p1ftab frepi fsymi twsymi
           dnlo_data dnhi_data fllo_data flhi_data fsmoveCP
           forbi fpopi ishmi hf).
