@@ -30,6 +30,7 @@ Require Import RowUp8inv RowUp8ok RowUp4inv RowUp4ok RowPar8 RowPar4.
 Require Import RowWits RowWitsChk RowInH.
 Require Import P1Table.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
+Require Import RowMembi.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -150,6 +151,33 @@ Lemma r_tomemb_tab c x : coordP c x -> pstok x ->
   ctwisti x = 0%uint63 -> coordi x = coordfs 1 ->
   pt flast (memb2tab (tomemb x)) = pt flast (ti2t flast x).
 Proof. by move=> _ hx hG htw hfs; case: (r_leafW hx hG htw hfs). Qed.
+
+(* ---- the same two, with no nat in the member ----------------------------- *)
+
+(* The search asks for the member at every answer it records, and tomemb      *)
+(* builds a forty eight cell seq nat to give it.  RowMembi's tomembi is the   *)
+(* same member on int63 alone, and pstok carries the one thing tomembiE       *)
+(* wants -- that the table is well formed.                                    *)
+Lemma r_tomembiE x : pstok x -> tomembi x = tomemb x.
+Proof. by case/and3P=> h _ _; exact: tomembiE. Qed.
+
+Lemma r_leaf_membi c x : coordP c x -> pstok x ->
+  pt flast (ti2t flast x) \in G ->
+  ctwisti x = 0%uint63 -> coordi x = coordfs 1 ->
+  membok par8i par4i (tomembi x).
+Proof.
+move=> hc hx hG htw hfs; rewrite (r_tomembiE hx).
+exact: (r_leaf_memb hc hx hG htw hfs).
+Qed.
+
+Lemma r_tomembi_tab c x : coordP c x -> pstok x ->
+  pt flast (ti2t flast x) \in G ->
+  ctwisti x = 0%uint63 -> coordi x = coordfs 1 ->
+  pt flast (memb2tab (tomembi x)) = pt flast (ti2t flast x).
+Proof.
+move=> hc hx hG htw hfs; rewrite (r_tomembiE hx).
+exact: (r_tomemb_tab hc hx hG htw hfs).
+Qed.
 
 (* AND THE MAP, 812 851 200 words: the run and the witnesses together leave   *)
 (* no bit of the row clear.  This is the long pole and it is only a run.      *)
