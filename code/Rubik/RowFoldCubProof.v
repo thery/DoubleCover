@@ -48,7 +48,7 @@ Require Import RowFold RowFoldOk RowFoldMem RowFoldPart RowTabF RowFoldTab.
 Require Import RowFoldSym RowFoldConj RowFoldGath RowFoldSrc RowFoldLvl.
 Require Import RowFoldWrite RowFoldTot RowFoldPorb RowFoldSrch RowFoldRun.
 Require Import RowFoldEmpty RowFoldFinal RowFoldCubReal.
-Require Import RowFoldCubBool.
+Require Import RowFoldCubDef.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -59,41 +59,43 @@ Notation rmap := (PArray.array arr).
 
 Import GroupScope.
 
-(* ---- the run is not in this process -------------------------------------- *)
+(* ---- the run is not in this process, and not in this file ---------------- *)
 
-(* THE BOOLEAN IS ASKED IN RowFoldCubBool, which loads only what the run      *)
-(* reads.  This file loads the whole proof side and computes nothing: the     *)
-(* map it names and the one that file ran are the same term, reached by       *)
-(* unfolding yfcwitso, yfcmfino and fmfino, so the kernel matches them        *)
-(* without taking a step of the search.                                       *)
+(* THIS FILE NEVER RUNS ANYTHING.  It says what the run's answer buys, as an  *)
+(* implication: `rowfull = true ->' and then the row.  RowFoldCubBool settles *)
+(* the left side and loads no proof to do it; RowFoldCubDone puts the two     *)
+(* together and is four lines.                                                *)
 (*                                                                            *)
-(* If that match ever costs more than a moment, it is a delta that no longer  *)
-(* lines up -- stop and read the two terms; do not wait.                      *)
+(* rowfull is mfullf of RowFoldCubDef's map, and yfcwitsoi is mfullf of       *)
+(* RowFoldCubReal's.  The two are the same term -- unfold yfcwitso, yfcmfino  *)
+(* and fmfino and the applications meet -- so the kernel matches them without *)
+(* taking a step of the search.  If that ever costs more than a moment it is  *)
+(* a delta that no longer lines up; stop and read the two terms.              *)
 Definition yfcwitsoi : rmap :=
   yfcwitso p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
            forbi fpopi ishmi.
 
-Lemma r_full_foldo : mfullf yfcwitsoi.
-Proof. Time exact: r_full_bool. Qed.
+(* ---- what the run buys --------------------------------------------------- *)
 
-(* ---- and the row of the superflip, with nothing left open ---------------- *)
-
-Theorem real_superflip_row_fold_run h : h \in H ->
-  superflip^-1 * h \in ball Sset 20.
+Theorem row_of_run : rowfull = true ->
+  forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
 Proof.
+move=> hr.
+have hf : mfullf yfcwitsoi by exact: hr.
 exact: (real_superflip_row_foldo p1ftab frepi fsymi twsymi
           dnlo_data dnhi_data fllo_data flhi_data fsmoveCP
-          forbi fpopi ishmi r_full_foldo).
+          forbi fpopi ishmi hf).
 Qed.
 
-Corollary real_row_superflip_fold_run m : m \in H ->
-  superflip * m \in ball Sset 20.
+Corollary row_of_run_superflip : rowfull = true ->
+  forall m, m \in H -> superflip * m \in ball Sset 20.
 Proof.
+move=> hr m hm.
 have hV : superflip^-1 = superflip.
   by apply: (mulgI superflip); rewrite mulgV; move: superflip2;
      rewrite expgS expg1.
-by rewrite -hV; exact: real_superflip_row_fold_run.
+by rewrite -hV; exact: row_of_run hr hm.
 Qed.
 
 (* IT MUST NAME NOTHING BUT THE int63 AND PArray PRIMITIVES                   *)
-Print Assumptions real_row_superflip_fold_run.
+Print Assumptions row_of_run_superflip.
