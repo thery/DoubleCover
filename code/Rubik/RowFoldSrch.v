@@ -1,18 +1,9 @@
 (* =========================================================================  *)
-(*  RowFoldSrch.v -- the row's run, on the folded map.                        *)
+(*  RowFoldSrch.v -- the row search and run, on the folded map.               *)
 (* =========================================================================  *)
 
-(* NOT PART OF THE PROOF.  This is RowRun.v's search, level and run with two  *)
-(* words changed:                                                             *)
-(*                                                                            *)
-(*    prep   becomes  flevel     the level, on one page of each orbit         *)
-(*    mmark  becomes  fmark      a member, marked where the fold keeps it     *)
-(*    p1get  becomes  fp1g       the pruning table, read through the fold     *)
-(*                                                                            *)
-(* The search itself is untouched -- it reaches the map only at a leaf, and   *)
-(* only to mark one bit.  Everything else is copied so that RowRun.v, which   *)
-(* is proved, is not disturbed.  The proofs are NOT redone here: this file is *)
-(* for measuring what the folded row costs.                                   *)
+(* flvlsk is one level with Rokicki's early stop and hcoset's two cuts;       *)
+(* frunsk iterates it.  RowFoldRun proves them sound.                         *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
