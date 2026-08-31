@@ -27,7 +27,7 @@ Require Import RowWits RowWitsChk RowInH.
 Require Import P1Table.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import Lehmer RowCub RowCubi RowCubInst.
-Require Import RowReal RowMembi.
+Require Import RowReal RowMembi RowCubDef.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -43,36 +43,32 @@ Section CubReal.
 (* the flip and slice move table's certificate, as RowReal carries it *)
 Hypothesis hfm : fsmoveC.
 
-(* ---- the map the twenty leave -------------------------------------------- *)
+(* ---- what the run buys --------------------------------------------------- *)
 
-Definition ycmfin : rmap :=
-  ymfin e8numi e4biti mpgi mgri mswi mloi mhii p1 actfsri tomembi okmvv srch 20.
+(* THIS FILE RUNS NOTHING.  RowCubDef names the map the twenty leave and the  *)
+(* one boolean about it; RowCubBool settles that boolean in a process that    *)
+(* loads no proof.  Here is what its being true buys, and RowCubDone puts     *)
+(* the two together.                                                         *)
 
-(* AND THE MAP, 812 851 200 words: the run and the witnesses together leave   *)
-(* no bit of the row clear.  This is the long pole and it is only a run.      *)
-Lemma r_full_cub : mfull2 ycmfin (wmap rowwits).
-Proof. Admitted.
-
-(* ---- the row of the superflip -------------------------------------------- *)
-
-Theorem real_superflip_row_cub h : h \in H ->
+Theorem row_of_runp : rowfullp = true -> forall h, h \in H ->
   superflip^-1 * h \in ball Sset 20.
 Proof.
-apply: (ysuperflip_row_within_20 e8okC e4okC memb2tab_okC srcokC halfokC
+move=> hr h hh; move: h hh.
+apply: (ysuperflipsk_marked_within_20 e8okC e4okC memb2tab_okC srcokC halfokC
           (r_fsstepP hfm) r_leaf_membi r_tomembi_tab
           pgokC grokC btokC memb2tab_moveC
-          (erefl 20%N) witsokC r_full_cub).
+          (erefl 20%N) witsokC hr).
 exact: (row_cover up8invC up8okC up4invC up4okC par8okwC par4okwC).
 Qed.
 
-(* said the way it reads, the superflip being an involution *)
-Corollary real_row_superflip_cub m : m \in H ->
+Corollary row_of_runp_superflip : rowfullp = true -> forall m, m \in H ->
   superflip * m \in ball Sset 20.
 Proof.
+move=> hr m hm.
 have hV : superflip^-1 = superflip.
   by apply: (mulgI superflip); rewrite mulgV; move: superflip2;
      rewrite expgS expg1.
-by rewrite -hV; exact: real_superflip_row_cub.
+by rewrite -hV; exact: row_of_runp hr hm.
 Qed.
 
 End CubReal.
