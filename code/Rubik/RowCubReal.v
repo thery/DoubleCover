@@ -1,5 +1,6 @@
 (* =========================================================================  *)
-(*  RowCubReal.v -- the row of the superflip, with the twenty cubies.         *)
+(*  RowCubReal.v -- the row on the PLAIN map, with nothing left open but the *)
+(*  run.                                                                     *)
 (* =========================================================================  *)
 
 (* RowReal DISCHARGES EVERY CHECK the row asks for, on the real tables, and   *)
@@ -25,10 +26,9 @@ Require Import RowPartC RowPartU RowMoveC RowMoveU RowMembChk.
 Require Import RowUp8inv RowUp8ok RowUp4inv RowUp4ok RowPar8 RowPar4.
 Require Import RowWits RowWitsChk RowInH.
 Require Import P1Table.
-Require Import Fold FoldTables P1Fdec P1FTable RowMask.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import Lehmer RowCub RowCubi RowCubInst.
-Require Import RowReal RowMembi RowMark RowSrch RowCubDef.
+Require Import RowReal RowMembi RowMark RowSrch.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -41,6 +41,17 @@ Notation rmap := (PArray.array arr).
 
 Section CubReal.
 
+(* THE FOLDED PHASE ONE TABLE IS A VARIABLE HERE, and that is not a gap: no   *)
+(* proof in the tree says what it holds.  The distance and the moves it names *)
+(* are numbers the search tests, and a table that prunes too little only      *)
+(* makes the search bigger.  So the theorem holds for any of them, and the    *)
+(* run names the real one.  RowFoldCubReal does the same.                     *)
+Variable F : PArray.array arr.
+Variables frep fsym : int -> int.
+Variable twsym : int -> int -> int.
+Variables dnlo dnhi fllo flhi : arr.
+Variable ishm : int.
+
 (* the flip and slice move table's certificate, as RowReal carries it *)
 Hypothesis hfm : fsmoveC.
 
@@ -51,38 +62,31 @@ Hypothesis hfm : fsmoveC.
 (* loads no proof.  Here is what its being true buys, and RowCubDone puts     *)
 (* the two together.                                                         *)
 
-(* ---- the two names for the same map --------------------------------------- *)
+(* ---- the map, named ------------------------------------------------------ *)
 
-(* RowFoldCubProof does this and it is not decoration.  RowCubDef builds the  *)
-(* map under its own names; the theorem is stated with RowCubInst's.  Left to *)
-(* itself the unifier does not fail when a name will not match -- it reduces, *)
-(* and reducing this is the run again, in the kernel, which does not come     *)
-(* back.  Naming the map first costs nothing and cannot wander.               *)
-Lemma rowwitspE : rowwitsp =
-  RowCubInst.ycwitsp e8numi e4biti mpgi mgri mswi mloi mhii
-    p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
-    ishmi actfsri tomembi okmvv srch 20 rowwits.
-Proof. by rewrite /rowwitsp /rowmapp /ycwitsp. Qed.
+(* The map the run leaves, and the same with the witnesses marked in.  They   *)
+(* are named here so that RowCubProof can match RowCubDef's names against     *)
+(* them by unfolding: left to itself the unifier does not fail when a name    *)
+(* will not match -- it reduces, and reducing this is the run again, in the   *)
+(* kernel.                                                                    *)
+Definition ycmfinsp : rmap :=
+  ymfinsk e8numi e4biti mpgi mgri mswi mloi mhii
+          F frep fsym twsym dnlo dnhi fllo flhi
+          ishm actfsri tomembi okmvv srch 20.
 
-Theorem row_of_runp : rowfullp = true -> forall h, h \in H ->
-  superflip^-1 * h \in ball Sset 20.
+Definition ycwitsr : rmap := wmarkof rowwits ycmfinsp.
+
+(* ---- the certificate, with the optimizations on -------------------------- *)
+
+Theorem real_superflip_row_p : mfull ycwitsr ->
+  forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
 Proof.
-rewrite /rowfullp rowwitspE => hr h hh; move: h hh.
+move=> hr h hh; move: h hh.
 apply: (ysuperflipsk_marked_within_20 e8okC e4okC memb2tab_okC srcokC halfokC
           (r_fsstepP hfm) r_leaf_membi r_tomembi_tab
           pgokC grokC btokC memb2tab_moveC
           (erefl 20%N) witsokC hr).
 exact: (row_cover up8invC up8okC up4invC up4okC par8okwC par4okwC).
-Qed.
-
-Corollary row_of_runp_superflip : rowfullp = true -> forall m, m \in H ->
-  superflip * m \in ball Sset 20.
-Proof.
-move=> hr m hm.
-have hV : superflip^-1 = superflip.
-  by apply: (mulgI superflip); rewrite mulgV; move: superflip2;
-     rewrite expgS expg1.
-by rewrite -hV; exact: row_of_runp hr hm.
 Qed.
 
 End CubReal.
