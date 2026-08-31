@@ -20,6 +20,7 @@ Require Import Lehmer RowCub RowCubi RowCubInst.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import P1Table RowReal.
 Require Import Fold FoldTables P1Fdec P1FTable RowMask RowSrch RowMark.
+Require Import RowLvl.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -45,10 +46,14 @@ Definition ishmi : int :=
 (* The map the twenty leave.  IT IS A FUNCTION AND NOT A VALUE: a nullary     *)
 (* Definition is a top level value native_compute keeps for good, which would *)
 (* hold the unmarked map alive beside the marked one.                         *)
+(* THE LEVEL IS RowLvl's: each page's chunk read once and put back once,     *)
+(* where RowMap's finds it again for every word.  It is proved equal to      *)
+(* RowMap's, so nothing about the cube changes.                             *)
 Definition rowmapp (n : nat) : rmap :=
-  ymfinsk e8numi e4biti mpgi mgri mswi mloi mhii
+  ymfinsk e8numi e4biti
           p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
-          ishmi actfsri tomembi okmvv srch n.
+          ishmi (prepassD mpgi mgri mswi mloi mhii)
+          actfsri tomembi okmvv srch n.
 
 (* The witnesses go into that map, so there is no second one to hold.  IT IS  *)
 (* RowMark's OWN wmarkof AND NOT THE SAME BODY WRITTEN OUT: RowCubReal has to *)

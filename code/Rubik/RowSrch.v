@@ -51,7 +51,10 @@ Local Notation unplc := (unplace e8inv e4of par8 par4).
 
 Variable mpg mgr msw mlo mhi : arr.
 
-Local Notation prep := (prepass mpg mgr msw mlo mhi).
+(* THE PREPASS IS A PARAMETER.  RowMap's is one; RowLvl's prepassD, which     *)
+(* reads each page's chunk once and puts it back once, is another and is      *)
+(* proved equal to it.  The run takes whichever it is handed.                     *)
+Variable prep : rmap -> rmap -> rmap.
 
 (* ---- the phase one table, folded, and the moves it names ----------------- *)
 

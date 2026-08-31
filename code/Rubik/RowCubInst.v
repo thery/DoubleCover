@@ -187,6 +187,14 @@ Variables dnlo dnhi fllo flhi : arr.
 
 (* the moves of H, one bit each                                              *)
 Variable ishm : int.
+
+(* THE PREPASS IS A PARAMETER.  RowMap's is one; RowLvl's prepassD, which     *)
+(* reads each page's chunk once and puts it back once, is another and is      *)
+(* proved equal to it.  Nothing here cares which, only that it be RowMap's.   *)
+Variable prep : rmap -> rmap -> rmap.
+
+Hypothesis prep_eq : forall m dst,
+  prep m dst = prepass mpg mgr msw mlo mhi m dst.
 Variable fsstep : int -> int -> int.
 Variable memb2tab : memb -> seq nat.
 Hypothesis memb2tab_ok : forall x, tab_ok flast (memb2tab x).
@@ -332,7 +340,7 @@ Qed.
 (* from.  Without them the plain row does not finish.                         *)
 
 Definition ymfinsk : PArray.array arr :=
-  runsk e8num e4bit mpg mgr msw mlo mhi F frep fsym twsym dnlo dnhi fllo flhi
+  runsk e8num e4bit prep F frep fsym twsym dnlo dnhi fllo flhi
         (RowInst.cstep fsstep) zstepi
         ytomemb okmv ycsolved RowInst.croot yrooti dsrch ishm
         nlev 0 0%uint63 (mkempty tt) (mkempty tt).
@@ -342,7 +350,7 @@ Lemma ymfinsk_sound :
           (RowFinal.pos (RowInst.ptab memb2tab)) ymfinsk nlev.
 Proof.
 rewrite /ymfinsk -{2}[nlev]add0n.
-apply: (runsk_sound he8 he4 ycoord_root yroot_ball yroot_pok ycoord_step
+apply: (runsk_sound he8 he4 prep_eq ycoord_root yroot_ball yroot_pok ycoord_step
                     yxstep_pok yxstep_pos yleaf_memb yleaf_pos
                     RowInst.hmv_Sset (RowInst.grpmvP hsrc hhalf)
                     (RowInst.prep_move memb2tab_ok hpg hgr hbt memb2tab_move));

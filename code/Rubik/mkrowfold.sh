@@ -134,7 +134,7 @@ rowfiles="Fold P1Fold FoldTables P1Fdec P1F_00 P1F_01 P1F_02 P1F_03 P1F_04 \
   RowMoveH RowPartC RowPartM RowPartU RowLeaf RowUp4ok RowUp8ok \
   RowMoveC RowMoveM RowMoveU RowParity RowMembChk RowInH RowPar4 RowPar8 \
   RowUp4inv RowUp8inv RowWits RowWitsChk RowReal RowMembi \
-  RowSrch RowSrchP RowMark RowCubDef RowCubReal RowCubProof"
+  RowSrch RowSrchP RowMark RowLvl RowCubDef RowCubReal RowCubProof"
 
 case "$chain" in
   row)  files="$rowfiles";  proj=_RowProject;  mk=Makefile.row ;;
@@ -222,6 +222,7 @@ case "$1" in
          build RowSrch
          build RowSrchP
          build RowMark
+         build RowLvl
          build RowCubInst
          build RowCubDef
          coqc -R . Rubik RowCubPace.v ;;
@@ -229,6 +230,7 @@ case "$1" in
          build RowSrch
          build RowSrchP
          build RowMark
+         build RowLvl
          build RowCubInst
          build RowCubDef
          coqc -R . Rubik RowCubBool.v ;;
@@ -236,6 +238,7 @@ case "$1" in
          build RowSrch
          build RowSrchP
          build RowMark
+         build RowLvl
          build RowCubInst
          build RowCubDef
          build RowCubBool
