@@ -110,11 +110,12 @@ Theorem row_of_run : rowfull = true ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
 Proof.
 rewrite /rowfull ycwitsoE => hf.
-(* BARE.  exact: will not take a fifty argument application on trust; apply   *)
-(* leaves the two it cannot read off the conclusion, and they are given here. *)
-apply: real_superflip_row_foldo.
-  exact: fsmoveCP.
-exact: hf.
+(* THE @ FORM.  Bare, apply: shelves the eleven tables as evars and the       *)
+(* kernel redoes at Qed whatever the unifier guessed for them; with every     *)
+(* argument named there is nothing to guess and Qed is immediate.             *)
+exact: (@real_superflip_row_foldo p1ftab frepi fsymi twsymi
+          dnlo_data dnhi_data fllo_data flhi_data fsmoveCP
+          forbi fpopi ishmi hf).
 Qed.
 
 Corollary row_of_run_superflip : rowfull = true ->
