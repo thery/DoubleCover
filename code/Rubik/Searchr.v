@@ -106,16 +106,11 @@ Fixpoint searchr (d : nat) (g : gT) (p : nat) : bool :=
 
 (* (a) NORMALISATION, the whole content of the file.                          *)
 (*                                                                            *)
-(*  Two rewrites.  fc_close MERGES a same-face pair and strictly shortens the *)
-(*  word; fc_comm SWAPS an out-of-order opposite pair and leaves the length   *)
-(*  alone.  So the measure is (size, inv) lexicographic, with merges taking   *)
-(*  priority -- and the priority is not cosmetic.  Swapping can CREATE a      *)
-(*  same-face pair: D U D has none, and swapping its bad (U,D) gives D D U.   *)
-(*  What is true, and what makes inv decrease, is that when the word has NO   *)
-(*  same-face pair anywhere, a swap removes one inversion and creates none:   *)
-(*  a new bad pair on the left would need face opp b = a, which was same-face *)
-(*  with l_i before the swap, and on the right it would need face b, which was*)
-(*  same-face with l_i+1.  Both excluded.                                     *)
+(*  Two rewrites.  fc_close merges a same-face pair and shortens the word;    *)
+(*  fc_comm swaps an out of order opposite pair and leaves the length alone.  *)
+(*  The measure is (size, inv) lexicographic, merges first: swapping can      *)
+(*  create a same-face pair, as D U D becomes D D U.  When the word has no    *)
+(*  same-face pair anywhere, a swap removes one inversion and creates none.   *)
 
 (* the face the word leaves behind, so cat lemmas can be stated               *)
 Fixpoint lastfc (p : nat) (l : seq gT) : nat :=
@@ -127,13 +122,11 @@ Proof. by elim: a p => [|x a IH] p /=; rewrite ?add0n // IH addnA. Qed.
 Lemma nosame_cat p a b : nosame p (a ++ b) = nosame p a && nosame (lastfc p a) b.
 Proof. by elim: a p => [|x a IH] p /=; rewrite ?andTb // IH andbA. Qed.
 
-(* THE DELICATE STEP of swap_step: after the swap the face entering l2        *)
-(* changes from fc m2 to fc m1, and inv over l2 is unchanged all the same.    *)
-(* Both head contributions are false, but for DIFFERENT reasons, and getting  *)
-(* them the wrong way round is the trap: badp (fc m1) (fc m3) dies on its     *)
-(* EQUALITY (nosame forbids fc m3 = fc m2), while badp (fc m2) (fc m3) dies   *)
-(* on its ORDERING -- fc m3 = fc m1 is perfectly legal (U D U), and what      *)
-(* kills it is fc m1 < fc m2.                                                 *)
+(* The delicate step of swap_step: after the swap the face entering l2 goes   *)
+(* from fc m2 to fc m1, and inv over l2 is unchanged.  Both head              *)
+(* contributions are false for different reasons: badp (fc m1) (fc m3) on     *)
+(* its equality, since nosame forbids fc m3 = fc m2, and badp (fc m2)         *)
+(* (fc m3) on its ordering, fc m1 < fc m2.                                    *)
 Lemma inv_swap_tail m1 m2 l2 :
   fc m1 < nfc -> fc m2 < nfc -> badp (fc m1) (fc m2) ->
   nosame (fc m2) l2 ->
@@ -152,13 +145,10 @@ have e2 : badp (fc m2) (fc m3) = false.
 by rewrite e1 e2.
 Qed.
 
-(* the two surgeries.  Stated as "there is a split", which is what the        *)
-(* induction consumes; no indices anywhere.                                   *)
-(* Phrased over a previous MOVE, not a previous face. With a face, `~~ nosame *)
-(* p l` can be violated at the boundary with p and there is then no same-face *)
-(* pair inside l at all; with a move the boundary case is just l1 = [::]. At  *)
-(* the top level p is nfc, the guard is vacuous, and nosame nfc (m :: l) is   *)
-(* nosame (fc m) l -- so this is the form the induction wants.                *)
+(* The two surgeries, stated as "there is a split", which is what the         *)
+(* induction consumes.  Phrased over a previous move rather than a previous   *)
+(* face: with a face, ~~ nosame p l can be violated at the boundary and there *)
+(* is then no same-face pair inside l at all.                                 *)
 Lemma find_same m0 l :
   ~~ nosame (fc m0) l ->
   exists l1 m1 m2 l2, [/\ m0 :: l = l1 ++ m1 :: m2 :: l2, fc m1 = fc m2

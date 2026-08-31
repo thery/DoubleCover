@@ -96,15 +96,12 @@ Qed.
 
 (* ---- the outer edges and the middle, the same way ------------------------ *)
 
-(* The outer edge part and the middle part of a member are ranks too, and the *)
-(* renaming conjugates them the same way.  THE SWEEP IS NOT OVER MEMBERS: the *)
-(* outer part depends on a member only through its group and its parity, and  *)
-(* the middle only through its bit, so the two walks are the size of the      *)
-(* tables they are about and not of the row.                                  *)
-(*                                                                            *)
-(* AND THE PARITY DOES NOT MOVE.  A renaming conjugates, so it keeps the      *)
-(* parity of a permutation -- which is why the same pty indexes both sides.   *)
-(* That is what the sweep says; it was not assumed.                           *)
+(* The outer edge part and the middle part of a member are ranks too, and     *)
+(* the symmetry conjugates them the same way.  The sweep is not over          *)
+(* members: the outer part depends on a member only through its group and     *)
+(* its parity, and the middle only through its bit, so the two walks are      *)
+(* the size of the tables and not of the row.  The parity does not move,      *)
+(* since a symmetry conjugates, which is why one pty indexes both sides.      *)
 
 Definition lpu (s : nat) : seq nat := lperm ulay 2 8 eposn (sy s).
 Definition lpus : seq (seq nat) := Eval vm_compute in [seq lpu s | s <- iota 0 16].
@@ -454,15 +451,12 @@ Lemma keepNCP : keepNC. Proof. by vm_compute. Qed.
 (*  fold_conj -- THE PLACE A MEMBER FOLDS TO HOLDS THAT MEMBER RENAMED.       *)
 (* =========================================================================  *)
 
-(* This is what RowFoldMem.fold_Porb was left standing on, and it is where    *)
-(* the six sweeps of RowFoldSym are finally spent.  RowMemb.pt_membinv cuts   *)
+(* What RowFoldMem.fold_Porb was left standing on.  RowMemb.pt_membinv cuts   *)
 (* both sides into three parts, the three part lemmas conjugate each, and     *)
-(* memb_conj_pt puts them back together.                                      *)
-(*                                                                            *)
-(* THE PARITY IS THE HINGE.  unplace reads the outer edges at par8[pg] xor    *)
-(* par4[e4of bt] and the fold writes at fpar w xor the bit's half, and the    *)
-(* three parity sweeps say those are the same number on both sides -- which   *)
-(* is what lets one pty serve where two would not have matched.               *)
+(* memb_conj_pt puts them back together.  The parity is the hinge: unplace    *)
+(* reads the outer edges at par8[pg] xor par4[e4of bt] and the fold writes    *)
+(* at fpar w xor the bit's half, and the three parity sweeps say those are    *)
+(* the same number on both sides.                                             *)
 Lemma fold_conj_pt pg gr bt : inrange pg gr bt ->
   pt 47 (membinv (unplace e8invi e4ofi par8i par4i
                    (Kof pg) (Gof pg gr bt) (Bof pg bt)))
@@ -519,13 +513,11 @@ Qed.
 
 (* ---- and in the shape RowFoldMem asks for ------------------------------- *)
 
-(* fold_conj_pt is about membinv, which is the member read as a permutation   *)
-(* of the forty eight the wrong way round.  What the row carries is memb2tab, *)
-(* which is that inverted -- and a conjugate inverted is the inverse          *)
-(* conjugated, so the statement comes across unchanged.                       *)
-(*                                                                            *)
-(* THIS IS RowFoldMem.fold_conj, and with it RowFoldOk's Porb is discharged:  *)
-(* members that fold together stand or fall together.                         *)
+(* fold_conj_pt is about membinv, the member read as a permutation of the     *)
+(* forty eight the wrong way round.  The row carries memb2tab, which is       *)
+(* that inverted, and a conjugate inverted is the inverse conjugated, so      *)
+(* the statement comes across unchanged.  This is RowFoldMem.fold_conj, and   *)
+(* with it RowFoldOk's Porb is discharged.                                    *)
 Lemma fold_conj_memb pg gr bt : inrange pg gr bt ->
   exists2 i, (i < 16)%N &
     pt 47 (memb2tab (unplace e8invi e4ofi par8i par4i

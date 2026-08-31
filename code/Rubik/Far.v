@@ -17,41 +17,21 @@ Import GroupScope.
 
 Notation arr := (PArray.array int).
 
-(* THE ONE LINE TO CHANGE.  Everything below is stated in terms of depth and  *)
-(* droot, and the eighteen generated files say droot, so setting depth to 10  *)
-(* or 14 restates the theorem and every piece of it.  Only two things do not  *)
-(* follow automatically.  First, depth must be at least 2, since ball_root2   *)
-(* needs depth = droot.+2.  Second, the pieces are compiled, so after         *)
-(* changing this line remove them -- but NOT with make clean, which would     *)
-(* also throw away FsData.vo and its six minutes of parsing for nothing.      *)
-(* Nothing outside the Far family depends on this file, so                    *)
-(*                                                                            *)
-(*     ulimit -s unlimited                                                    *)
-(*     rm -f Far*.vo Far*.vok Far*.vos Far*.glob .coq-native/NRubik_Far*      *)
-(*     make -j18                                                              *)
-(*                                                                            *)
-(* rebuilds exactly the twenty files that can have changed.                   *)
-(*                                                                            *)
-(* THE ulimit IS NOT OPTIONAL.  FsData.v is a 2 097 152 element seq int       *)
-(* literal, and loading or native compiling a list that deep recurses past    *)
-(* the default 8 MB stack; without it the build simply fails.                 *)
-(*                                                                            *)
-(* On -j: count the jobs, not the cores.  The certificate is sixteen files    *)
-(* and the search is eighteen, both just above the twelve physical cores of   *)
-(* the old Xeon, so -j12 pays two waves where -j18 pays one.  Drop back to    *)
-(* -j12 if memory complains -- every worker loads the table, about a          *)
-(* gigabyte each.                                                             *)
+(* The one line to change.  Everything below is stated in terms of depth and  *)
+(* droot, and the generated pieces say droot, so setting depth to 10 or 14    *)
+(* restates the theorem and every piece of it.  depth must be at least 2,     *)
+(* since ball_root2 needs depth = droot.+2.  The pieces are compiled, so      *)
+(* after changing this line remove Far*.vo and rebuild.  See doc/far.md.      *)
 Definition depth := 15.
 Definition droot := depth.-2.           (* depth = droot.+2                   *)
 Definition nroot := 2.                  (* size Sroot                         *)
 Definition nmoves := 18.                (* size moves                         *)
 
-(* THE SECOND MOVES A PIECE IS STILL NEEDED FOR.  The first move is on the U  *)
-(* face, whose fcpos is 0, and a second move on that same face merges with it *)
-(* into one move -- a shorter maneuver, which Searchr.searchr_root2m sends to *)
-(* a smaller depth instead of to a piece.  So j = 0, 1, 2 are dropped and     *)
-(* fifteen files remain.  The three that turn the D face are NOT dropped:     *)
-(* see the header of mkrunp1.sh.                                              *)
+(* The second moves a piece is still needed for.  The first move is on the U  *)
+(* face, and a second on that face merges with it into one, which             *)
+(* Searchr.searchr_root2m sends to a smaller depth instead of to a piece.     *)
+(* So j = 0, 1, 2 are dropped and fifteen files remain; the three that turn   *)
+(* the D face are not dropped.                                                *)
 Definition jsnd := [seq j <- iota 0 nmoves | fcpos j != 0%N].
 
 (* ---- 1. The heuristic, from the table ------------------------------------ *)
@@ -76,14 +56,11 @@ Qed.
 
 (* ---- 2. What the superflip has to satisfy -------------------------------- *)
 
-(* fixed by the 48 symmetries -- this is what buys the factor of 9.  Sym.v    *)
-(* has the conjugation on tables, so this is ptJ plus one comparison of two   *)
-(* literal lists per generator of Symg.                                       *)
-(* Being fixed by u is a subgroup condition, so it is enough on the three     *)
-(* generators of Symg, and each of those is SyT/SxT/SmT then ptJ then one     *)
-(* comparison of two literal tables -- the shape Sym.v's Symg_stab uses.      *)
-(* The two helpers below are pure view plumbing between x \in 'C[g],          *)
-(* commute and g ^ x = g; they are what fought, not the mathematics.          *)
+(* Fixed by the 48 symmetries, which is what buys the factor of nine.  Being  *)
+(* fixed by u is a subgroup condition, so the three generators of Symg        *)
+(* suffice, and each is SyT/SxT/SmT then ptJ then one comparison of two       *)
+(* literal tables.  The two helpers below move between x \in 'C[g], commute   *)
+(* and g ^ x = g.                                                             *)
 Lemma conj_fix_cent (g u : {perm facelet}) : u \in 'C[g] -> g ^ u = g.
 Proof. by move=> /cent1P comm; apply/conjg_commute/commute_sym. Qed.
 

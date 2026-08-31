@@ -2,19 +2,15 @@
 (*  RowMap.v -- the map of a row, and the prepass.                            *)
 (* =========================================================================  *)
 
-(* A GROUP is twenty four bits and fits in one word, so the map is one word a *)
-(* group: 40320 * 20160 words, 6.5 GB.  PArray.max_length is 4 194 303, so it *)
-(* is cut into chunks of two million, the shape the folded tables already use.*)
+(* A group is twenty four bits and fits in one word, so the map is one word   *)
+(* a group: 40320 pages of 20160 groups, 6.5 GB.  PArray.max_length is        *)
+(* 4 194 303, so it is cut into chunks of two million.                        *)
 (*                                                                            *)
-(* THE PREPASS is one move of H played on the whole map at once.  A page goes *)
-(* to a page, a group to a group, and the twenty four bits of a group are     *)
-(* rearranged by a table -- six of the ten moves leave the middle four alone  *)
-(* and so leave all twenty four bits where they are.  No member is ever taken *)
-(* apart, and that is what makes a whole row affordable.                      *)
-(*                                                                            *)
-(* THE LOOP IS NESTED ON PURPOSE: 812 851 200 as a unary nat does not exist,  *)
-(* but 40320 pages of 20160 groups do, and each is the size of nat the        *)
-(* existing sweeps already walk.                                              *)
+(* The prepass plays one move of H on the whole map at once: a page goes to   *)
+(* a page, a group to a group, and the bits of a group are rearranged by a    *)
+(* table.  No member is taken apart, which is what makes a whole row          *)
+(* affordable.  The loop is nested because 812 851 200 as a unary nat does    *)
+(* not exist, while 40320 and 20160 do.                                       *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
@@ -86,12 +82,10 @@ Definition gset (m : rmap) (g v : int) : rmap :=
 Definition gor (m : rmap) (g v : int) : rmap :=
   gset m g (Uint63.lor (gget m g) v).
 
-(* EVERY CHUNK ITS OWN ARRAY.  `PArray.make nchunk (PArray.make csize 0)'    *)
-(* runs the inner make ONCE and hands the same array to all 388 slots, so a   *)
-(* write to any chunk chains a difference onto that one array and every other *)
-(* chunk then reads through it.  Built chunk by chunk instead, each make is   *)
-(* under a lambda and runs afresh.  RowFold has had mkempty for this reason;  *)
-(* this file did not, and the row's map paid for it.                          *)
+(* Every chunk gets its own array.  `PArray.make nchunk (PArray.make csize    *)
+(* 0)' runs the inner make once and hands the same array to all 388 slots,    *)
+(* so a write to any chunk chains a difference onto it and every other chunk  *)
+(* reads through that.  Built chunk by chunk, each make runs afresh.          *)
 Definition nchunkn : nat := 388.
 
 Definition mkempty (u : unit) : rmap :=
@@ -121,12 +115,11 @@ Definition mfull (m : rmap) : bool :=
     (fun pg => iter ngroupn 0%uint63
        (fun gr => Uint63.eqb (gget m (grpof pg gr)) allbits)).
 
-(* THE TWO MAPS TOGETHER ARE NEVER BUILT.  Every member has to be in one map *)
-(* or the other, and that is asked of the two of them where they stand.  The *)
-(* map that was built instead read one of them at every one of its eight     *)
-(* hundred million words while writing into it, and a persistent array reads *)
-(* an old version by walking back through every write made since -- which is *)
-(* what took 53 GB on a machine with 64.                                     *)
+(* The two maps together are never built.  Every member has to be in one or   *)
+(* the other, and that is asked of the two where they stand.  Building the    *)
+(* union would read one of them at every word while writing into it, and a    *)
+(* persistent array reads an old version by walking back through every        *)
+(* write made since.                                                          *)
 Definition mfull2 (m1 m2 : rmap) : bool :=
   iter npagen 0%uint63
     (fun pg => iter ngroupn 0%uint63
