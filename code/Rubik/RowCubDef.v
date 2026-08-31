@@ -19,7 +19,7 @@ Require Import RowTabL RowTabP RowTab RowMemb RowMembi RowLeaf RowWits.
 Require Import Lehmer RowCub RowCubi RowCubInst.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import P1Table RowReal.
-Require Import Fold FoldTables P1Fdec P1FTable RowMask RowSrch.
+Require Import Fold FoldTables P1Fdec P1FTable RowMask RowSrch RowMark.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -50,11 +50,13 @@ Definition rowmapp (n : nat) : rmap :=
           p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
           ishmi actfsri tomembi okmvv srch n.
 
-(* the witnesses go into that map, so there is no second one to hold          *)
-Definition ycwitsp : rmap :=
-  foldr (fun t m => let: (pg, gr, bt, _) := t in mmark m pg gr bt)
-        (rowmapp 20) rowwits.
+(* The witnesses go into that map, so there is no second one to hold.  IT IS  *)
+(* RowMark's OWN wmarkof AND NOT THE SAME BODY WRITTEN OUT: RowCubReal has to *)
+(* match this against the name the theorem is stated with, and unification    *)
+(* does not fail when a name will not match -- it reduces, and reducing this  *)
+(* is the run again, in the kernel.                                           *)
+Definition rowwitsp : rmap := wmarkof rowwits (rowmapp 20).
 
 (* ---- and the boolean the run has to settle ------------------------------- *)
 
-Definition rowfullp : bool := mfull ycwitsp.
+Definition rowfullp : bool := mfull rowwitsp.
