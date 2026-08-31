@@ -120,10 +120,10 @@ Corollary row_of_run_superflip : rowfull = true ->
   forall m, m \in H -> superflip * m \in ball Sset 20.
 Proof.
 move=> hr m hm.
-have hV : superflip^-1 = superflip.
+have hV : superflip = superflip^-1.
   by apply: (mulgI superflip); rewrite mulgV; move: superflip2;
      rewrite expgS expg1.
-by rewrite -hV; exact: row_of_run hr hm.
+rewrite hV; exact: (row_of_run hr m hm).
 Qed.
 
 (* IT MUST NAME NOTHING BUT THE int63 AND PArray PRIMITIVES                   *)
