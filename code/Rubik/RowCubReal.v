@@ -25,9 +25,10 @@ Require Import RowPartC RowPartU RowMoveC RowMoveU RowMembChk.
 Require Import RowUp8inv RowUp8ok RowUp4inv RowUp4ok RowPar8 RowPar4.
 Require Import RowWits RowWitsChk RowInH.
 Require Import P1Table.
+Require Import Fold FoldTables P1Fdec P1FTable RowMask.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import Lehmer RowCub RowCubi RowCubInst.
-Require Import RowReal RowMembi RowCubDef.
+Require Import RowReal RowMembi RowMark RowSrch RowCubDef.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -50,10 +51,23 @@ Hypothesis hfm : fsmoveC.
 (* loads no proof.  Here is what its being true buys, and RowCubDone puts     *)
 (* the two together.                                                         *)
 
+(* ---- the two names for the same map --------------------------------------- *)
+
+(* RowFoldCubProof does this and it is not decoration.  RowCubDef builds the  *)
+(* map under its own names; the theorem is stated with RowCubInst's.  Left to *)
+(* itself the unifier does not fail when a name will not match -- it reduces, *)
+(* and reducing this is the run again, in the kernel, which does not come     *)
+(* back.  Naming the map first costs nothing and cannot wander.               *)
+Lemma rowwitspE : rowwitsp =
+  RowCubInst.ycwitsp e8numi e4biti mpgi mgri mswi mloi mhii
+    p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
+    ishmi actfsri tomembi okmvv srch 20 rowwits.
+Proof. by rewrite /rowwitsp /rowmapp /ycwitsp. Qed.
+
 Theorem row_of_runp : rowfullp = true -> forall h, h \in H ->
   superflip^-1 * h \in ball Sset 20.
 Proof.
-move=> hr h hh; move: h hh.
+rewrite /rowfullp rowwitspE => hr h hh; move: h hh.
 apply: (ysuperflipsk_marked_within_20 e8okC e4okC memb2tab_okC srcokC halfokC
           (r_fsstepP hfm) r_leaf_membi r_tomembi_tab
           pgokC grokC btokC memb2tab_moveC
