@@ -74,26 +74,65 @@ Definition ycmfinsp : rmap :=
           F frep fsym twsym dnlo dnhi fllo flhi
           ishm actfsri tomembi okmvv srch 20.
 
-Definition ycwitsr : rmap := wmarkof rowwits ycmfinsp.
+Definition ycwitsr : rmap :=
+  foldr (fun t m => let: (pg, gr, bt, _) := t in mmark m pg gr bt)
+        ycmfinsp rowwits.
+
+(* ---- the map is sound, and stays sound when the witnesses go in ---------- *)
+
+(* RowFoldCubReal goes through yfcmfino_sound and yfcwitso_sound; these are   *)
+(* the same two on the plain map.  Each goal already names the map, so        *)
+(* nothing is left for the unifier to find.                                   *)
+Lemma ycmfinsp_sound :
+  RowRun.soundat e8invi e4ofi par8i par4i
+                 (RowFinal.pos (RowInst.ptab memb2tab)) ycmfinsp 20.
+Proof.
+rewrite /ycmfinsp.
+exact: (ymfinsk_sound e8okC e4okC memb2tab_okC srcokC halfokC
+          (r_fsstepP hfm) r_leaf_membi r_tomembi_tab
+          pgokC grokC btokC memb2tab_moveC).
+Qed.
+
+(* RowFoldCubReal states fwits_sound here rather than in the general file,    *)
+(* fully instantiated, and this is that lemma on the plain map.               *)
+(* NO `//=' HERE.  The base case is a soundat, and a goal handed to `done' is *)
+(* unfolded and evaluated -- which here means the map.                        *)
+Lemma pwits_sound l m :
+  wgood e8invi e4ofi par8i par4i (RowInst.ptab memb2tab) l ->
+  RowRun.soundat e8invi e4ofi par8i par4i
+                 (RowFinal.pos (RowInst.ptab memb2tab)) m 20 ->
+  RowRun.soundat e8invi e4ofi par8i par4i
+                 (RowFinal.pos (RowInst.ptab memb2tab))
+    (foldr (fun t m' => let: (pg, gr, bt, _) := t in mmark m' pg gr bt) m l)
+    20.
+Proof.
+elim: l => [|t l ih].
+  by move=> _ hm; exact: hm.
+case: t => [[[pg gr] bt] w] /andP[/and3P[hi hs hw] hl] hm.
+apply: mmark_sound.
+- exact: hi.
+- exact: (RowFinal.wokP (RowInst.ptab_ok memb2tab_okC) hw hs).
+exact: ih hl hm.
+Qed.
+
+Lemma ycwitsr_sound :
+  RowRun.soundat e8invi e4ofi par8i par4i
+                 (RowFinal.pos (RowInst.ptab memb2tab)) ycwitsr 20.
+Proof. exact: (pwits_sound witsokC ycmfinsp_sound). Qed.
 
 (* ---- the certificate, with the optimizations on -------------------------- *)
 
 Theorem real_superflip_row_p : mfull ycwitsr ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
 Proof.
-move=> hr h hh; move: h hh.
-(* EVERY ARGUMENT IS SUPPLIED.  Applied with the table, the depth and the    *)
-(* witness list left implicit, the unifier has to find them by reading the   *)
-(* map, and reading the map is the run again, in the kernel: RowCubReal did  *)
-(* not come back.  Named, it is instant.  RowFoldRun.flvlsk_sound carries    *)
-(* the same note.                                                            *)
-refine (@ysuperflipsk_marked_within_20 _ _ _ _ _ _ e8okC e4okC
-          _ _ _ _ _ _ F frep fsym twsym dnlo dnhi fllo flhi ishm
-          _ _ memb2tab_okC _ srcokC halfokC okmvv srch 20 rowwits
-          (r_fsstepP hfm) r_leaf_membi r_tomembi_tab
-          pgokC grokC btokC memb2tab_moveC
-          (erefl 20%N) witsokC hr _).
-exact: (row_cover up8invC up8okC up4invC up4okC par8okwC par4okwC).
+move=> hf h hh.
+have [x [hx hxe]] :=
+  row_cover up8invC up8okC up4invC up4okC par8okwC par4okwC hh.
+case E : (place e8numi e4biti x) => [[pg gr] bt].
+have hr := place_range e8okC e4okC hx E.
+have hu := unplace_place e8okC e4okC hx E.
+have := ycwitsr_sound hr (mfullP hf hr).
+by rewrite /RowRun.wthn hu (RowInst.posE memb2tab_okC) hxe.
 Qed.
 
 End CubReal.
