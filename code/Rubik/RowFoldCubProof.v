@@ -1,31 +1,10 @@
 (* =========================================================================  *)
-(*  RowFoldCubProof.v -- the row on the folded map, asked.                    *)
+(*  RowFoldCubProof.v -- what the run's answer buys.                          *)
 (* =========================================================================  *)
 
-(* RowFoldCubReal leaves exactly one thing open -- that the folded map twenty *)
-(* levels leave, WITH THE THIRTY TWO WITNESSES MARKED INTO IT, has no bit of  *)
-(* the row clear -- and this is that question, asked.  It must print true,    *)
-(* and then real_superflip_row_fold is no longer conditional.                 *)
-(*                                                                            *)
-(* IT IS THE FOLDED MAP, 0.45 GB where the plain one is 6.5, and there is no  *)
-(* second map for the witnesses: they are marked in, so mfullf reads ONE map  *)
-(* where the plain mfull2 reads two.                                          *)
-(*                                                                            *)
-(* MEASURED, on roquableu, at depth THIRTEEN and not at twenty: the plain row *)
-(* is 2 904.8 s and the folded one 751.3 s.  What twenty costs has not been   *)
-(* measured and is not scaled here.                                           *)
-(*                                                                            *)
-(* THIS FILE CANNOT BE BUILT WHERE P1Fdec IS MISSING.  P1Fdec.v is generated  *)
-(* by p1gen and is not tracked, so the folded phase one table is only there   *)
-(* on the machine that made it.  Everything this file rests on IS built       *)
-(* everywhere: RowFoldCubReal proves the theorem for ANY folded table, since  *)
-(* no proof reads it -- the distance and the mask are numbers the search      *)
-(* tests, and a table that prunes too little only makes the search bigger.    *)
-(*                                                                            *)
-(* THE RUN IS NOT HERE.  `./mkrowfold.sh bool' runs it, in a process that     *)
-(* loads only what the run reads; this file then loads the proof side and     *)
-(* takes the answer without computing.  `./mkrowfold.sh cubfoot' measures     *)
-(* what this file costs before it does anything at all.                       *)
+(* rowfull = true -> the row of the superflip is within twenty.  Nothing is   *)
+(* computed here; RowFoldCubBool settles the boolean and RowFoldCubDone puts  *)
+(* the two together.  See doc/rowfold-bridge.md.                              *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
@@ -59,31 +38,10 @@ Notation rmap := (PArray.array arr).
 
 Import GroupScope.
 
-(* ---- the run is not in this process, and not in this file ---------------- *)
-
-(* THIS FILE NEVER RUNS ANYTHING.  It says what the run's answer buys, as an  *)
-(* implication: `rowfull = true ->' and then the row.  RowFoldCubBool settles *)
-(* the left side and loads no proof to do it; RowFoldCubDone puts the two     *)
-(* together and is four lines.                                                *)
-(*                                                                            *)
-(* rowfull is mfullf of RowFoldCubDef's map and the theorem asks it of        *)
-(* RowFoldCubReal's.  They are the same map, but every name on the way down   *)
-(* differs -- ytomembd against ytomemb tomembi, okmvvd against okmvv,         *)
-(* ycsolvedd against ycsolved, srchd against srch -- because the run file     *)
-(* loads no proof and so cannot use those constants.                          *)
-(*                                                                            *)
-(* SO THE UNFOLDING IS WRITTEN OUT, ON BOTH SIDES.  Left to itself,           *)
-(* unification does not fail when a name will not match: it reduces, and      *)
-(* reducing this is the run again, in the kernel, which is far slower than    *)
-(* native.  One side alone is not enough -- unfolding ycsolvedd leaves a      *)
-(* lambda against ycsolved, which is still a constant.                        *)
 (* ---- the four names the run file had to copy ----------------------------- *)
 
-(* RowFoldCubDef loads no proof, so it cannot say ytomemb, okmvv, ycsolved    *)
-(* or srch; it writes the same four bodies under its own names.  Each pair is *)
-(* equal by unfolding a two line function, which costs nothing.  Rewriting    *)
-(* these four makes the two maps the SAME TERM, so nothing is left for        *)
-(* unification to search for.                                                 *)
+(* RowFoldCubDef loads no proof, so it copies these four bodies under its own *)
+(* names.  Each pair is equal by unfolding a short function.                  *)
 Lemma ytomembdE : ytomembd = ytomemb tomembi.  Proof. by []. Qed.
 Lemma okmvvdE   : okmvvd = okmvv.              Proof. by []. Qed.
 Lemma ycsolveddE : ycsolvedd = ycsolved1.      Proof. by []. Qed.
@@ -91,9 +49,6 @@ Lemma srchdE    : srchd = srch.                Proof. by []. Qed.
 
 (* ---- and they are the same map ------------------------------------------- *)
 
-(* Said outright, so that the only thing conversion has to do is compare      *)
-(* frunsk's arguments one by one.  It never looks inside the fixpoint: the    *)
-(* head is the same constant on both sides.                                   *)
 Lemma ycwitsoE : ycwitso =
   yfcwitso p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
            forbi fpopi ishmi.
@@ -108,9 +63,6 @@ Theorem row_of_run : rowfull = true ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
 Proof.
 rewrite /rowfull ycwitsoE => hf.
-(* THE @ FORM.  Bare, apply: shelves the eleven tables as evars and the       *)
-(* kernel redoes at Qed whatever the unifier guessed for them; with every     *)
-(* argument named there is nothing to guess and Qed is immediate.             *)
 exact: (@real_superflip_row_foldo p1ftab frepi fsymi twsymi
           dnlo_data dnhi_data fllo_data flhi_data fsmoveCP
           forbi fpopi ishmi hf).
@@ -129,5 +81,5 @@ exact: hr.
 exact: hm.
 Qed.
 
-(* IT MUST NAME NOTHING BUT THE int63 AND PArray PRIMITIVES                   *)
+(* it must name nothing but the int63 and PArray primitives *)
 Print Assumptions row_of_run_superflip.
