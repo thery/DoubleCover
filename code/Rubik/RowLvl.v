@@ -116,6 +116,70 @@ Lemma fold_in_chunk c (f : int -> arr -> arr) d n :
   = PArray.set d c (ifold n 0 f (PArray.get d c)).
 Proof. by move=> hc; apply: (@fold_in_chunkg c f d n 0). Qed.
 
+(* The same, when the step is only KNOWN to write that chunk rather than    *)
+(* written that way: the level's step is a gor, and pgwrite says what a gor  *)
+(* into a page inside one chunk is.  The length carries through because a    *)
+(* set does not change it.                                                   *)
+Lemma fold_in_chunkG c (F : int -> arr -> arr) (G : int -> rmap -> rmap) d n j :
+  (j + n <= nwB)%N ->
+  (c <? PArray.length d) ->
+  (forall i a, (to_nat i < j + n)%N -> (c <? PArray.length a) ->
+     G i a = PArray.set a c (F i (PArray.get a c))) ->
+  ifold n (advn j 0) G d
+  = PArray.set d c (ifold n (advn j 0) F (PArray.get d c)).
+Proof.
+elim: n j d => [|n ih] j d hb hc hG /=; first by rewrite set_getA.
+have -> : Uint63.add (advn j 0) 1 = advn j.+1 0 by rewrite advnS.
+have hj : (to_nat (advn j 0) < j + n.+1)%N.
+  rewrite to_nat_advn0; first by rewrite addnS ltnS leq_addr.
+  by apply: leq_trans hb; rewrite addnS ltnS leq_addr.
+rewrite (hG _ _ hj hc) ih ?length_setA //.
+- by rewrite get_setA // set_setA.
+- by rewrite addSnnS.
+by move=> i a hi hca; rewrite addSnnS in hi; apply: hG.
+Qed.
+
+Lemma fold_in_chunkGi c (F : int -> arr -> arr) (G : int -> rmap -> rmap) d n :
+  (n <= nwB)%N ->
+  (c <? PArray.length d) ->
+  (forall i a, (to_nat i < n)%N -> (c <? PArray.length a) ->
+     G i a = PArray.set a c (F i (PArray.get a c))) ->
+  ifold n 0 G d = PArray.set d c (ifold n 0 F (PArray.get d c)).
+Proof. by move=> hb hc hG; apply: (@fold_in_chunkG c F G d n 0). Qed.
+
+(* ---- two walks that take the same step, where the step is only the same   *)
+(*      while the accumulator keeps a property -------------------------------*)
+
+(* The destination chunk can only be pulled out while the map still has its   *)
+(* length, so the two levels agree only under that.  ifold_eqi is not enough. *)
+Lemma ifold_eq_invg (A : Type) (P : A -> Prop) n j (f g : int -> A -> A) a :
+  (j + n <= nwB)%N ->
+  (forall i b, (to_nat i < j + n)%N -> P b -> P (f i b)) ->
+  (forall i b, (to_nat i < j + n)%N -> P b -> f i b = g i b) ->
+  P a ->
+  ifold n (advn j 0) f a = ifold n (advn j 0) g a.
+Proof.
+elim: n j a => [|n ih] j a hb hP hf ha //=.
+have -> : Uint63.add (advn j 0) 1 = advn j.+1 0 by rewrite advnS.
+have hj : (to_nat (advn j 0) < j + n.+1)%N.
+  rewrite to_nat_advn0; first by rewrite addnS ltnS leq_addr.
+  by apply: leq_trans hb; rewrite addnS ltnS leq_addr.
+have he : f (advn j 0) a = g (advn j 0) a := hf _ _ hj ha.
+rewrite -he; apply: ih.
+- by rewrite addSnnS.
+- by move=> i b hi hb2; rewrite addSnnS in hi; apply: hP.
+- by move=> i b hi hb2; rewrite addSnnS in hi; apply: hf.
+exact: (hP _ _ hj ha).
+Qed.
+
+Lemma ifold_eq_invi (A : Type) (P : A -> Prop) n (f g : int -> A -> A) a :
+  (n <= nwB)%N ->
+  (forall i b, (to_nat i < n)%N -> P b -> P (f i b)) ->
+  (forall i b, (to_nat i < n)%N -> P b -> f i b = g i b) ->
+  P a ->
+  ifold n 0 f a = ifold n 0 g a.
+Proof. by move=> hb hP hf ha; apply: (@ifold_eq_invg _ P n 0). Qed.
+
 Section Lvl.
 
 (* ---- the ten moves of H, as RowMap reads them ---------------------------- *)
@@ -137,6 +201,13 @@ Definition grmT (base gr : int) : int := PArray.get mgrT (Uint63.add base gr).
 Hypothesis mgrT_ok : forall k gr, (to_nat k < nhn)%N ->
   (to_nat gr < ngroupn)%N ->
   grmT (Uint63.mul k ngroupi) gr = grm k gr.
+
+(* a move sends a page to a page and a group to a group, which is what the   *)
+(* write side needs to know about where it is writing                        *)
+Hypothesis pgm_range : forall k pg, (to_nat k < nhn)%N -> (pg <? npagei) ->
+  (pgm k pg <? npagei).
+Hypothesis grm_range : forall k gr, (to_nat k < nhn)%N -> (gr <? ngroupi) ->
+  (grm k gr <? ngroupi).
 
 (* ---- a page sits inside one chunk, and then a read is one array get ------ *)
 
@@ -375,6 +446,119 @@ have hgi : (gr <? ngroupi) := introT (nltbP gr ngroupi) hgr.
 by rewrite -(pgread src hpi hgi hfit).
 Qed.
 
+(* ---- and the same, putting each page's chunk back once ------------------- *)
+
+(* prepmvS still puts the destination chunk back at every word, because gor   *)
+(* does.  flevpg puts it back once for the page.  This does that when BOTH    *)
+(* the page read and the page written lie inside one chunk; otherwise it is   *)
+(* prepmvS unchanged.                                                         *)
+
+Lemma length_gor d g v : PArray.length (gor d g v) = PArray.length d.
+Proof. by rewrite /gor /gset length_setA. Qed.
+
+Definition prepmvD (k : int) (src : rmap) (dst : rmap) : rmap :=
+  let base := Uint63.mul k ngroupi in
+  ifold npagen 0
+    (fun pg d =>
+       let pg' := pgm k pg in
+       if pgfits pg && pgfits pg' then
+         let sa := PArray.get src (pgchk pg) in
+         let o := pgoff pg in
+         let c' := pgchk pg' in
+         let o' := pgoff pg' in
+         PArray.set d c'
+           (ifold ngroupn 0
+              (fun gr b =>
+                 let v := PArray.get sa (Uint63.add o gr) in
+                 if Uint63.eqb v 0 then b
+                 else
+                   let j := Uint63.add o' (grmT base gr) in
+                   PArray.set b j (Uint63.lor (PArray.get b j) (grpm k v)))
+              (PArray.get d c'))
+       else if pgfits pg then
+         let sa := PArray.get src (pgchk pg) in
+         let o := pgoff pg in
+         ifold ngroupn 0
+           (fun gr d' =>
+              let v := PArray.get sa (Uint63.add o gr) in
+              if Uint63.eqb v 0 then d'
+              else gor d' (grpof pg' (grmT base gr)) (grpm k v))
+           d
+       else
+         ifold ngroupn 0
+           (fun gr d' =>
+              let v := gget src (grpof pg gr) in
+              if Uint63.eqb v 0 then d'
+              else gor d' (grpof pg' (grmT base gr)) (grpm k v))
+           d)
+    dst.
+
+Lemma prepmvD_eq k src dst : (to_nat k < nhn)%N ->
+  (forall pg, (pg <? npagei) -> (pgchk (pgm k pg) <? PArray.length dst)) ->
+  prepmvD k src dst = prepmvS k src dst.
+Proof.
+move=> hk hlen; rewrite /prepmvD /prepmvS; cbv zeta.
+apply: (@ifold_eq_invi _ (fun b => PArray.length b = PArray.length dst));
+    first by apply: ltnW; exact: npagen_nwB.
+- (* the length is kept *)
+  move=> pg d hpg hd; cbv zeta.
+  case: ifP => _.
+    by rewrite length_setA.
+  case: ifP => _.
+    apply: (@ifold_ind _ (fun a => PArray.length a = PArray.length dst)) => //.
+    by move=> i b hb; case: ifP => _ //; rewrite length_gor.
+  apply: (@ifold_ind _ (fun a => PArray.length a = PArray.length dst)) => //.
+  by move=> i b hb; case: ifP => _ //; rewrite length_gor.
+- (* and the step is the same *)
+  move=> pg d hpg hd; cbv zeta.
+  have hpi : (pg <? npagei) := introT (nltbP pg npagei) hpg.
+  have hp'i : (pgm k pg <? npagei) := pgm_range hk hpi.
+  case E : (pgfits pg); last by [].
+  case E' : (pgfits (pgm k pg)); last by [].
+  symmetry; apply: fold_in_chunkGi.
+  - by apply: ltnW; exact: ngroupn_nwB.
+  - by rewrite hd; exact: hlen.
+  move=> gr a hgr ha; cbv zeta; case: ifP => _; first by rewrite set_getA.
+  have hgii : (gr <? ngroupi) := introT (nltbP gr ngroupi) hgr.
+  have hgi : (grmT (Uint63.mul k ngroupi) gr <? ngroupi).
+    by rewrite (mgrT_ok hk hgr); apply: grm_range.
+  exact: (pgwrite _ _ hp'i hgi E').
+by [].
+Qed.
+
+(* prepmv0 writes TWICE a word -- the carry into the page read and the move   *)
+(* into the page written -- so its two writes are in two chunks and pulling   *)
+(* one out buys little.  It is left as prepmvS.  It is one move of the ten.   *)
+
+Definition prepassD (src dst : rmap) : rmap :=
+  ifold nhn 0
+    (fun k d => if Uint63.eqb k 0 then prepmv0S k src d else prepmvD k src d)
+    dst.
+
+Lemma length_prepmvS k src d :
+  PArray.length (prepmvS k src d) = PArray.length d.
+Proof.
+rewrite /prepmvS; cbv zeta.
+apply: (@ifold_ind _ (fun a => PArray.length a = PArray.length d)) => // pg b hb.
+cbv zeta; case: ifP => _.
+  apply: (@ifold_ind _ (fun a => PArray.length a = PArray.length d)) => // i c hc.
+  by case: ifP => _ //; rewrite length_gor.
+apply: (@ifold_ind _ (fun a => PArray.length a = PArray.length d)) => // i c hc.
+by case: ifP => _ //; rewrite length_gor.
+Qed.
+
+Lemma length_prepmv0S k src d :
+  PArray.length (prepmv0S k src d) = PArray.length d.
+Proof.
+rewrite /prepmv0S; cbv zeta.
+apply: (@ifold_ind _ (fun a => PArray.length a = PArray.length d)) => // pg b hb.
+cbv zeta; case: ifP => _.
+  apply: (@ifold_ind _ (fun a => PArray.length a = PArray.length d)) => // i c hc.
+  by case: ifP => _ //; rewrite !length_gor.
+apply: (@ifold_ind _ (fun a => PArray.length a = PArray.length d)) => // i c hc.
+by case: ifP => _ //; rewrite !length_gor.
+Qed.
+
 (* ---- and it is RowMap's prepass ------------------------------------------ *)
 
 Lemma prepmvT_eq k src dst : (to_nat k < nhn)%N ->
@@ -409,6 +593,20 @@ move=> k d hk; case: (Uint63.eqb k 0).
 by rewrite prepmvT_eq.
 Qed.
 
+Lemma length_prepmvD k src d :
+  PArray.length (prepmvD k src d) = PArray.length d.
+Proof.
+rewrite /prepmvD; cbv zeta.
+apply: (@ifold_ind _ (fun a => PArray.length a = PArray.length d)) => // pg b hb.
+cbv zeta; case: ifP => _.
+  by rewrite length_setA.
+case: ifP => _.
+  apply: (@ifold_ind _ (fun a => PArray.length a = PArray.length d)) => // i c hc.
+  by case: ifP => _ //; rewrite length_gor.
+apply: (@ifold_ind _ (fun a => PArray.length a = PArray.length d)) => // i c hc.
+by case: ifP => _ //; rewrite length_gor.
+Qed.
+
 Lemma prepassS_eq src dst :
   prepassS src dst = prepass mpg mgr msw mlo mhi src dst.
 Proof.
@@ -417,6 +615,27 @@ apply: ifold_eqi; first by apply: ltnW; apply: (@ltn_nwB 4).
 move=> k d hk; case: (Uint63.eqb k 0).
   by rewrite prepmv0S_eq.
 by rewrite prepmvS_eq.
+Qed.
+
+Lemma prepassD_eq src dst :
+  (forall k pg, (to_nat k < nhn)%N -> (pg <? npagei) ->
+     (pgchk (pgm k pg) <? PArray.length dst)) ->
+  prepassD src dst = prepass mpg mgr msw mlo mhi src dst.
+Proof.
+move=> hlen; rewrite -prepassS_eq /prepassD /prepassS.
+apply: (@ifold_eq_invi _ (fun b => PArray.length b = PArray.length dst));
+    first by apply: ltnW; apply: (@ltn_nwB 4).
+- move=> k d hk hd; case: (Uint63.eqb k 0).
+    by rewrite (length_prepmv0S k src d).
+  by rewrite (length_prepmvD k src d).
+(* NOT `=> //'.  done would meet prepmvD = prepmvS and try to compute both. *)
+- move=> k d hk hd; case: (Uint63.eqb k 0).
+    (* NOT `by []'.  done tries the hypotheses before reflexivity and the    *)
+    (* two sides here are whole prepasses: measured at 90 s.                 *)
+    reflexivity.
+  apply: prepmvD_eq; first exact: hk.
+  by move=> pg hpg; rewrite hd; exact: (hlen k pg hk hpg).
+by [].
 Qed.
 
 End Lvl.
