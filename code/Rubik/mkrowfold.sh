@@ -31,7 +31,8 @@
 #    ./mkrowfold.sh o15      ... depth 15
 #    ./mkrowfold.sh o20      ... depth 20  (run the four side by side)
 #    ./mkrowfold.sh foot     RowFoldFoot -- what the tables alone cost
-#    ./mkrowfold.sh cubplain build, then RowCubRun -- the row, plain map
+#    ./mkrowfold.sh pbool    RowCubBool -- THE PLAIN RUN, the boolean alone
+#    ./mkrowfold.sh pdone    RowCubDone -- the plain run and proof together
 #    ./mkrowfold.sh          build, then RowFoldRun -- the ball of H
 #
 #  RUN chk FIRST.  It says whether the folded row is RIGHT: it must print
@@ -114,7 +115,7 @@ build () {     # build <base>
            RowMembChk RowFoldWrite RowFoldPorb RowMask RowFoldSrch \
            RowFoldRun RowFoldFinal RowInH RowPar4 RowPar8 RowUp4inv \
            RowUp8inv RowWits RowWitsChk RowReal RowFoldCubReal RowMembi \
-           RowOkm RowFoldCubDef; do
+           RowOkm RowFoldCubDef RowCubDef RowCubReal; do
     [ -f "$f.v" ] && echo "$f.v"
   done
 } > _FoldProject
@@ -188,7 +189,13 @@ case "$1" in
          build RowFoldCubReal
          build RowFoldCubProof
          coqc -R . Rubik RowFoldCubDone.v ;;
-  cubplain) echo "--- RowCubRun (the row on the plain map; must print true)"
-         coqc -R . Rubik RowCubRun.v ;;
+  pbool) echo "--- RowCubBool (THE PLAIN RUN: the boolean alone)"
+         build RowCubDef
+         coqc -R . Rubik RowCubBool.v ;;
+  pdone) echo "--- RowCubDone (the plain theorem: run and proof together)"
+         build RowCubDef
+         build RowCubBool
+         build RowCubReal
+         coqc -R . Rubik RowCubDone.v ;;
   *)     echo "--- RowFoldRun (the ball of H)";   coqc -R . Rubik RowFoldRun.v ;;
 esac

@@ -210,7 +210,7 @@ Hypothesis memb2tab_move : forall k pg gr bt, (to_nat k < nhn)%N ->
 Definition ytomemb (y : arr) : memb := tomembt (y2ti y).
 Definition ycoordP (c : int) (y : arr) : Prop := RowInst.coordP c (y2ti y).
 Definition yposp (y : arr) : {perm facelet} := RowInst.posp (y2ti y).
-Definition ycsolved (c : int) (y : arr) : bool := RowInst.csolvedb c (y2ti y).
+Definition ycsolved (c : int) : bool := RowInst.csolvedb c.
 
 Lemma ycoord_root : ycoordP RowInst.croot yrooti.
 Proof.
@@ -250,14 +250,14 @@ by apply: RowInst.xstep_pos => //; case/andP: hy.
 Qed.
 
 Lemma yleaf_memb c y : ycoordP c y -> ypstok y -> yposp y \in G ->
-  ycsolved c y -> membok par8 par4 (ytomemb y).
+  ycsolved c -> membok par8 par4 (ytomemb y).
 Proof.
 move=> hc hy hg hs.
 by apply: (RowInst.leaf_membW leaf_memb hc _ hg hs); case/andP: hy.
 Qed.
 
 Lemma yleaf_pos c y : ycoordP c y -> ypstok y -> yposp y \in G ->
-  ycsolved c y ->
+  ycsolved c ->
   RowFinal.pos (RowInst.ptab memb2tab) (ytomemb y) = yposp y.
 Proof.
 move=> hc hy hg hs.

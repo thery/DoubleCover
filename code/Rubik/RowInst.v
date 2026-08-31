@@ -307,7 +307,7 @@ Proof. by rewrite /csolvedi -coordfs1iE; vm_compute. Qed.
 (*                                                                            *)
 (* MEASURED at depth twelve on the same tree: with the three questions the    *)
 (* search is 37.9 s and with this one 18.5.                                   *)
-Definition csolvedb (c : int) (x : pstt) : bool := Uint63.eqb c csolvedi.
+Definition csolvedb (c : int) : bool := Uint63.eqb c csolvedci.
 
 (* two maps, allocated once and swapped at every level                        *)
 Definition mfin : rmap :=
@@ -612,10 +612,10 @@ Hypothesis tomemb_tab : forall c x, coordP c x -> pstok x ->
 (* times nfsi plus that rank.  A coordinate equal to something below nfsi has *)
 (* twist nought already, and then the ranks agree -- and Fsinj says the rank  *)
 (* names the summary.                                                         *)
-Lemma csolvedbP c x : coordP c x -> pstok x -> csolvedb c x ->
+Lemma csolvedbP c x : coordP c x -> pstok x -> csolvedb c ->
   ctwisti x = 0%uint63 /\ coordi x = coordfs 1.
 Proof.
-move=> hc hp /eqb_correct hcs.
+move=> hc hp /eqb_correct hcs; rewrite csolvedciE in hcs.
 have /and3P[xok cx htw] := hp.
 have hfs : (to_nat (fsidx (coordi x)) < to_nat nfsi)%N by exact: fsidx_ltx.
 have hnfs : (0 < to_nat nfsi)%N by apply: leq_ltn_trans hfs.
@@ -657,14 +657,14 @@ Qed.
 
 (* the two above, as the run wants them: at a leaf, which is a nought         *)
 Lemma leaf_membW c x : coordP c x -> pstok x -> posp x \in G ->
-  csolvedb c x -> membok par8 par4 (tomemb x).
+  csolvedb c -> membok par8 par4 (tomemb x).
 Proof.
 move=> hc hp hG hs; have [h1 h2] := csolvedbP hc hp hs.
 exact: leaf_memb hc hp (posp_G hG) h1 h2.
 Qed.
 
 Lemma leaf_pos c x : coordP c x -> pstok x -> posp x \in G ->
-  csolvedb c x -> RowFinal.pos ptab (tomemb x) = posp x.
+  csolvedb c -> RowFinal.pos ptab (tomemb x) = posp x.
 Proof.
 move=> hc hp hG hs; have [h1 h2] := csolvedbP hc hp hs.
 by rewrite posE (tomemb_tab hc hp (posp_G hG) h1 h2).
