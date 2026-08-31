@@ -82,6 +82,28 @@ Lemma grm_rangeC k gr : (to_nat k < nhn)%N -> (gr <? ngroupi)%uint63 ->
   (RowMap.grmv mgri k gr <? ngroupi)%uint63.
 Proof. by move=> hk hg; apply: (iter_at (iter_at grokC hk) (ltn_ngroupi hg)). Qed.
 
+(* Rearranging an empty half gives an empty half, so a half with no bits need *)
+(* not be looked up.  These two say so of the real tables.                    *)
+Definition lohi0ok : bool :=
+  iter nhn 0%uint63
+    (fun k => (RowMap.lomv mloi k 0 =? 0)%uint63 &&
+              (RowMap.himv mhii k 0 =? 0)%uint63).
+
+Lemma lohi0okC : lohi0ok.
+Proof. by vm_compute. Qed.
+
+Lemma lomv0C k : (to_nat k < nhn)%N -> RowMap.lomv mloi k 0 = 0%uint63.
+Proof.
+move=> hk; apply: to_nat_inj; apply/neqbP.
+by case/andP: (iter_at lohi0okC hk).
+Qed.
+
+Lemma himv0C k : (to_nat k < nhn)%N -> RowMap.himv mhii k 0 = 0%uint63.
+Proof.
+move=> hk; apply: to_nat_inj; apply/neqbP.
+by case/andP: (iter_at lohi0okC hk).
+Qed.
+
 (* ---- the map, named ------------------------------------------------------ *)
 
 (* The map the run leaves, and the same with the witnesses marked in.  They   *)
