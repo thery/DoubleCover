@@ -63,11 +63,9 @@ Lemma rot3_relabel :
 Proof. by vm_compute. Qed.
 
 (* so each view sends a move to a move -- Far.v's view_move, for these views  *)
-(* HOISTED, and it matters: several proofs below carry fsmoveC, fsrC, slrC    *)
-(* or ts_checkStep in their context, and a trailing `done' there tries        *)
-(* `assumption' against one of them and unfolds an all_pow at ncoord = 24.    *)
-(* Proving this once, where no certificate is in scope, keeps every use of it *)
-(* out of that trap.  Farp1main.v had its own copy for the same reason.       *)
+(* Proved here, where no certificate is in scope: with one in the context a   *)
+(* trailing `done' tries assumption against it and unfolds an all_pow at      *)
+(* ncoord = 24.                                                               *)
 Lemma mem_iota0 n k : (k < n)%N -> k \in iota 0 n.
 Proof. by move=> kL; rewrite mem_iota add0n leq0n kL. Qed.
 
@@ -126,11 +124,9 @@ Proof. by rewrite /conj3 /conji; congr (comp_tabi _ _ (comp_tabi _ _ _)). Qed.
 (* for the cube and one for each of its two conj3 conjugates.  A move steps   *)
 (* each pair by a table read, as rubik_par does, and never recomputes it.     *)
 
-(* CHUNKED, and it has to be: 1 013 760 x 18 values at three to a word is     *)
-(* 6 082 560 words, 1.45x PArray.max_length = 4 194 303.  PArray.make caps    *)
-(* silently there and every read past it returns the default 0 -- which is    *)
-(* what made the whole flip x slice half of the search read as zero.  Same    *)
-(* split as p1get, on the word index at a power of two.                       *)
+(* Chunked: 1 013 760 x 18 values at three to a word is 6 082 560 words,      *)
+(* past PArray.max_length.  make caps there silently and every read past the  *)
+(* cap returns the default.  Split on the word index, as p1get does.          *)
 Definition fcwlog := 21.
 
 (* the chunks are PRIMITIVE ARRAY LITERALS, so this is three pointers and     *)
@@ -144,10 +140,8 @@ Definition fsmtabs : PArray.array arr :=
 
 (* three values to a word, twenty bits each; the word index splits into a     *)
 (* chunk and an offset exactly as p1get's does                                *)
-(* THE SHIFT AS A LITERAL, for the reason cwlogi records in Phase1: of_nat    *)
-(* on a nat is 1.53 us, the array read it indexes is 0.04, and actfsr did it  *)
-(* twice.  MEASURED: actfsr 4.60 us -> 0.12 us with the two shifts and the    *)
-(* move index as int63.                                                       *)
+(* The shifts and the move index are int63 literals, so actfsr does not run   *)
+(* of_nat twice on every read.  See cwlogi in Phase1.                         *)
 Definition fcwlogi : int := 21%uint63.     (* = of_nat fcwlog, see fcwlogiE   *)
 
 Lemma fcwlogiE : of_nat fcwlog = fcwlogi.
@@ -279,11 +273,9 @@ Qed.
 
 (* ---- 4. What has to be proved -------------------------------------------- *)
 
-(* the rebuilt heuristic: the same nine lookups, but recomputing the three    *)
-(* views from the array rather than carrying them.  Far.v's Dsymd, one        *)
-(* quotient up.                                                               *)
-(* init3 IS the rebuild, so Dsym3 is it -- no second computational form and   *)
-(* no DsymdE-style bridge to prove, which is where Far.v had to work.         *)
+(* The same nine lookups, recomputing the three views from the array rather   *)
+(* than carrying them.  init3 is the rebuild, so there is no second           *)
+(* computational form and no bridge to prove.                                 *)
 Definition Dsym3 (T : PArray.array arr) (a : arr) : nat := h3 T (init3 a).
 
 (* NOT `by []': done searches for a proof, unfolds h3, and goes off           *)
@@ -291,13 +283,10 @@ Definition Dsym3 (T : PArray.array arr) (a : arr) : nat := h3 T (init3 a).
 Lemma h3_init T a : h3 T (init3 a) = Dsym3 T a.
 Proof. by rewrite /Dsym3. Qed.
 
-(* the twist invariant at the array level.  Stated through pt for now; the    *)
-(* computable form (cubcPt and twsumt at the table level, mirroring cubt) is  *)
-(* what a root will need to discharge it by vm_compute.                       *)
-(* AND THE FLIP PARITY, carried in the same boolean.  It is not a consequence *)
-(* of cubti: a single flipped edge is a rigid cubie permutation and fails it. *)
-(* It is the edge analogue of twsum g = 0, and it rides along twPti for free, *)
-(* since twP3 is threaded through the whole development already.              *)
+(* The twist invariant at the array level, and the flip parity in the same    *)
+(* boolean.  The parity is not a consequence of cubti -- a single flipped     *)
+(* edge is a rigid cubie permutation and fails it -- but is the edge          *)
+(* analogue of twsum g = 0.                                                   *)
 Definition twPti (a : arr) : bool :=
   twP (pt 47 (ti2t 47 a)) && ~~ fpar (coordi a).
 

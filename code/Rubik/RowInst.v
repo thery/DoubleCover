@@ -2,25 +2,18 @@
 (*  RowInst.v -- the instance: the row of the superflip.                      *)
 (* =========================================================================  *)
 
-(* Row.v, RowMap.v, RowRun.v and RowFinal.v owe nothing: what they say holds  *)
-(* of ANY tables that pass their checks and of ANY search whose carried       *)
-(* position agrees with the cube.  This file is the other half -- it says     *)
-(* which tables and which search, and it owes everything those four asked.    *)
+(* Row, RowMap, RowRun and RowFinal hold of any tables that pass their        *)
+(* checks and any search whose carried position agrees with the cube.  This   *)
+(* file says which tables and which search, and owes what those four asked.   *)
 (*                                                                            *)
-(* THE ROW IS THE SUPERFLIP'S.  Its representative is `superflip', which      *)
-(* Moves.v already carries as a table, so the row needs no move sequence at   *)
-(* all: a member is a position h of H and the word it stands for is the       *)
-(* superflip undone and h put back.                                           *)
+(* The row is the superflip's.  Moves carries superflip as a table, so the    *)
+(* row needs no move sequence: a member is a position h of H, and the word    *)
+(* it stands for is the superflip undone and h put back.  The search carries  *)
+(* a forty eight entry table, the position played so far, so a move is one    *)
+(* composition of tables.                                                     *)
 (*                                                                            *)
-(* THE SEARCH CARRIES A FORTY EIGHT ENTRY TABLE -- the cube position played   *)
-(* so far, starting at the superflip.  A move is one composition of tables,   *)
-(* which is why the position is carried and not recomputed.                   *)
-(*                                                                            *)
-(* NOTHING IS ADMITTED HERE.  What the file cannot know it ASKS FOR, as a     *)
-(* hypothesis beside the table it is about, and there are twelve of them:     *)
-(* four checks on the tables, one on the fs step table, two saying what a     *)
-(* leaf is, two saying what the prepass tables do to a member, the member's   *)
-(* table being a permutation, and the two the run itself settles.             *)
+(* Nothing is admitted here.  What the file cannot know it asks for, as a     *)
+(* hypothesis beside the table it is about: twelve in all.                    *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
@@ -73,13 +66,11 @@ Definition repi : arr := sfti.
 
 Definition pstt := arr.
 
-(* A TABLE IS NOT ENOUGH.  Stepping the coordinate wants the state to be a    *)
-(* real cube -- Farp1's cubti says the table respects the cubies, and twPti   *)
-(* that the twists sum to nought and the flips are even -- because that is    *)
-(* what acttwi_step and actfsr_step ask for.  All three are booleans, the     *)
-(* root has them by computation and a move keeps them.                        *)
-(* twPti is Farp1's, written out here for the same reason actfsri is: its     *)
-(* file will not load in this checkout.                                       *)
+(* A table is not enough: stepping the coordinate wants the state to be a     *)
+(* real cube.  cubti says the table respects the cubies and twPti that the    *)
+(* twists sum to nought and the flips are even, which is what acttwi_step     *)
+(* and actfsr_step ask for.  Both are booleans: the root has them by          *)
+(* computation, and a move keeps them.                                        *)
 Definition twPti (a : arr) : bool :=
   twP (pt flast (ti2t flast a)) && ~~ fpar (coordi a).
 
@@ -98,28 +89,17 @@ Definition posp (x : pstt) : {perm facelet} :=
 
 (* ---- the phase one coordinate -------------------------------------------- *)
 
-(* Kociemba's three: the corner twists, the edge flips, and which four places *)
-(* the middle edges are in.                                                   *)
+(* Kociemba's three: the corner twists, the edge flips, and which four        *)
+(* places the middle edges are in.  Both halves are already here.  Phase1     *)
+(* has the corners -- ctrip, cpos, cslot, and ctwisti reading the twist off   *)
+(* a table -- and Coordfs the edges, eprim and esec in the prototype's own    *)
+(* order UR UF UL UB DR DF DL DB FR FL BL BR, so the outer eight and the      *)
+(* middle four are the first eight and the last four.                         *)
 (*                                                                            *)
-(* AND THE DEVELOPMENT ALREADY HAS BOTH HALVES OF THIS, which is the one      *)
-(* thing that makes the instance affordable.  The corners are in Phase1.v --  *)
-(* ctrip is the eight of them as facelet triples, cpos and cslot say which    *)
-(* corner a facelet belongs to and how far round, and ctwisti reads the twist *)
-(* off a table.  The edges are in Coordfs.v -- eprim and esec are the twelve  *)
-(* as facelet pairs IN THE PROTOTYPE'S OWN ORDER, UR UF UL UB DR DF DL DB FR  *)
-(* FL BL BR, so the outer eight and the middle four are already the first     *)
-(* eight and the last four -- and coordi reads the flip and the slice off a   *)
-(* table.  Both are proved against the moves where they stand.                *)
-(*                                                                            *)
-(* THE COORDINATE IS THEREFORE PHASE1'S: 2187 twists times nfs = 1 013 760,   *)
-(* which is 2 217 093 120, the phase one count exactly, and Phase1.fsidx is   *)
-(* the same flip times 495 plus slice rank the prototype packs.               *)
-(*                                                                            *)
-(* AND THE STEP IS OFF THE SHELF TOO.  Farp1.actfsri is the flip and slice    *)
-(* rank stepped by a move -- the prototype's own fsmove table, read three     *)
-(* entries to a word -- and Phase1.acttwii is the twist stepped by a move.    *)
-(* So the row's coordinate needs no new table and no new theorem: what is     *)
-(* left is to put the two halves together, which is coord_step below.         *)
+(* The coordinate is therefore Phase1's: 2187 twists times 1 013 760 is       *)
+(* 2 217 093 120, the phase one count.  The step is off the shelf too --      *)
+(* Farp1.actfsri and Phase1.acttwii -- so what is left is to put the two      *)
+(* halves together, which is coord_step below.                                *)
 
 (* the twist times nfs plus the flip and slice rank, which is Phase1's own    *)
 (* index and 2187 * 1 013 760 = 2 217 093 120 states                          *)
@@ -129,12 +109,10 @@ Definition coordof (x : pstt) : int :=
 Definition ctw (c : int) : int := Uint63.div c nfsi.
 Definition cfs (c : int) : int := Uint63.mod c nfsi.
 
-(* and a move steps the two halves apart: the twist by Phase1's table, the    *)
-(* flip and slice by Farp1's actfsri, which is the prototype's own fsmove     *)
-(* table read three entries to a word.  IT IS NOT IMPORTED HERE ONLY BECAUSE  *)
-(* Farp1.vo in this checkout is older than ssrint63.vo and Rocq will not load *)
-(* it; the definition below is that function and nothing else, and the two    *)
-(* lemmas the step needs are Farp1.acttwi_step and Farp1.actfsr_step.         *)
+(* A move steps the two halves apart: the twist by Phase1's table, the flip   *)
+(* and slice by Farp1's actfsri.  fsstep below is that function, taken as a   *)
+(* variable; the two lemmas the step needs are Farp1.acttwi_step and          *)
+(* Farp1.actfsr_step.                                                         *)
 Variable fsstep : int -> int -> int.
 
 Definition cstep (c k : int) : int :=
