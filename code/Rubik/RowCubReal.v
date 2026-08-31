@@ -82,10 +82,17 @@ Theorem real_superflip_row_p : mfull ycwitsr ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
 Proof.
 move=> hr h hh; move: h hh.
-apply: (ysuperflipsk_marked_within_20 e8okC e4okC memb2tab_okC srcokC halfokC
+(* EVERY ARGUMENT IS SUPPLIED.  Applied with the table, the depth and the    *)
+(* witness list left implicit, the unifier has to find them by reading the   *)
+(* map, and reading the map is the run again, in the kernel: RowCubReal did  *)
+(* not come back.  Named, it is instant.  RowFoldRun.flvlsk_sound carries    *)
+(* the same note.                                                            *)
+refine (@ysuperflipsk_marked_within_20 _ _ _ _ _ _ e8okC e4okC
+          _ _ _ _ _ _ F frep fsym twsym dnlo dnhi fllo flhi ishm
+          _ _ memb2tab_okC _ srcokC halfokC okmvv srch 20 rowwits
           (r_fsstepP hfm) r_leaf_membi r_tomembi_tab
           pgokC grokC btokC memb2tab_moveC
-          (erefl 20%N) witsokC hr).
+          (erefl 20%N) witsokC hr _).
 exact: (row_cover up8invC up8okC up4invC up4okC par8okwC par4okwC).
 Qed.
 
