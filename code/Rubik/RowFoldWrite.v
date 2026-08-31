@@ -2,17 +2,9 @@
 (*  RowFoldWrite.v -- what one write of the folded level is worth.            *)
 (* =========================================================================  *)
 
-(* RowFoldLvl.v proves the folded level and the folded run sound, on two      *)
-(* hypotheses: Qlo_st and Qhi_st, one for each half of a source word.  They   *)
-(* say that a member reading a bit of what the level ors in is one move of H  *)
-(* out from a member the source had.  This file discharges them.              *)
-(*                                                                            *)
-(* THE GATHER IS THE PLAIN WRITE ON THE RENAMED SOURCE, and every leg of that *)
-(* is now a fact: the page leg is RowFoldSrc.gathM, the group leg is the way  *)
-(* the tables are indexed and needs no lemma at all, and the bit leg is       *)
-(* RowFoldGath.cloX_bit.  What the member does under the two is               *)
-(* RowFoldSrc.gather_conj_memb for the renaming and RowMembChk.memb2tab_moveC *)
-(* for the move.                                                              *)
+(* QloC and QhiC, the two hypotheses RowFoldLvl leaves open, one for each     *)
+(* half of a source word: a member reading a bit the level sets is one move   *)
+(* of H out from a member the source had.                                     *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.

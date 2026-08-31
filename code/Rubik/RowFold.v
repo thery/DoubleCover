@@ -1,11 +1,12 @@
 (* =========================================================================  *)
-(*  RowFold.v -- a row, folded by the sixteen renamings.                      *)
+(*  RowFold.v -- a row, folded by the sixteen symmetries.                     *)
 (* =========================================================================  *)
 
-(* The sixteen renamings that keep the pair U/D send H to H and fix the       *)
-(* superflip, so one page of each orbit is enough to keep: fifteen times less *)
-(* memory and, since a level is a sweep, fifteen times less work.  The level  *)
-(* gathers rather than scatters.  See doc/rowfold.md.                         *)
+(* The map is 40320 pages, one for each corner permutation, of 20160 groups.  *)
+(* The sixteen symmetries that fix the U/D axis send H to H and fix the       *)
+(* superflip, so keeping one page of each orbit of sixteen is enough: fifteen *)
+(* times less memory, and as much less work, one level being one pass over    *)
+(* the map.                                                                   *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.

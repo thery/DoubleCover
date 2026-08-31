@@ -1,18 +1,10 @@
 (* =========================================================================  *)
-(*  RowFoldConj.v -- the fold's tables really do conjugate the places.        *)
+(*  RowFoldConj.v -- the fold tables do conjugate the places.                 *)
 (* =========================================================================  *)
 
-(* RowFoldPart.part_conj says a part conjugated by a renaming is the part of  *)
-(* the conjugated places, and what it asks of the places is                   *)
-(*                                                                            *)
-(*     lperm t (v p) = u (lperm t p)                                          *)
-(*                                                                            *)
-(* This file asks that of the fold's own tables, by walking them.  The page   *)
-(* is done here; the outer edges and the middle follow the same shape.        *)
-(*                                                                            *)
-(* EVERY INDEX IS AN int63, for the reason RowFoldSym gives: of_nat walks its *)
-(* argument, and naming forty thousand pages in nat does not finish.  In      *)
-(* int63 the sweep is five and a half seconds.                                *)
+(* Each table is checked by walking it: for a symmetry t and a place p,       *)
+(* lperm t (v p) = u (lperm t p).  Pages, outer edges and the middle each get *)
+(* the same treatment.                                                        *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.

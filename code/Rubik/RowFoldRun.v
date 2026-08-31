@@ -1,23 +1,10 @@
 (* =========================================================================  *)
-(*  RowFoldRun.v -- the folded search, and the folded run, are sound.         *)
+(*  RowFoldRun.v -- the folded search and the folded run are sound.           *)
 (* =========================================================================  *)
 
-(* RowRun.v proves the plain search and the plain run sound.  This file does  *)
-(* the same for the folded ones, and the two halves it needs are done:        *)
-(*                                                                            *)
-(* THE GATHER is RowFoldLvl.flevel_sound, on the two write obligations that   *)
-(* RowFoldWrite.QloC and QhiC discharge.                                      *)
-(*                                                                            *)
-(* THE SEARCH is here, and it is RowRun.srch_sound mark for mark -- with one  *)
-(* simplification.  The plain leaf has to say what a mark does to a map that  *)
-(* is read at a different place; the folded one does not, because             *)
-(* RowFoldOk.soundatf_fmark already carries that in Porb.  So the leaf is     *)
-(* three lines instead of eight.                                              *)
-(*                                                                            *)
-(* THE PHASE ONE TABLE IS NEVER TRUSTED HERE EITHER.  The distance and the    *)
-(* mask are numbers the search tests and nothing more -- a cut that loses     *)
-(* words can only make the row finish later, never call a member covered      *)
-(* when it is not -- so nothing in this file says what the folded table is.   *)
+(* fsrchk_sound, fsrchsk_sound, flvlsk_sound and frunsk_sound: what RowRun    *)
+(* proves of the plain search, proved here of the folded one.  The level's    *)
+(* two write obligations come from RowFoldWrite.                              *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
