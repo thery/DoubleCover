@@ -236,20 +236,14 @@ Variable okmv : int -> int -> bool.
 Variable dsrch : nat.                     (* where the search gives up        *)
 Variable nlev : nat.                      (* how many levels are run          *)
 
-(* the bottom of the search, asked of the POSITION and not of the table: no  *)
-(* twist and the flip and slice already solved                               *)
-(* the solved coordinate, as one word: no twist, and the flip and slice       *)
-(* already solved                                                            *)
-(* AS NUMBERS, AND THAT IS NOT A STYLE POINT.  coordfs takes a mathcomp     *)
-(* permutation and a mathcomp permutation DOES NOT COMPUTE: a search whose   *)
-(* bottom test names one asks native_compute to evaluate it at every leaf,   *)
-(* and does not come back.  The same values on the int side -- the           *)
-(* coordinate of the identity table, and its rank -- are computations, spent *)
-(* once here, so that what a search meets is a number.                       *)
-(*                                                                           *)
-(* AND THE TWO AGREE, which coordfs1iE below proves: coordi of a table that  *)
-(* is one is coordt of it, coordt of the identity table is coordfs of the    *)
-(* permutation it names, and that permutation is one.                        *)
+(* The bottom of the search, asked of the position and not of the table: no   *)
+(* twist, and the flip and slice already solved.                              *)
+(*                                                                            *)
+(* As numbers, because coordfs takes a mathcomp permutation and a mathcomp    *)
+(* permutation does not compute: a search whose bottom test names one asks    *)
+(* native_compute to evaluate it at every leaf.  The same values on the int   *)
+(* side are computations, spent once here.  coordfs1iE below proves the two   *)
+(* agree.                                                                     *)
 Definition coordfs1i : int := Eval vm_compute in coordi (id_tabi 47).
 Definition csolvedci : int := Eval vm_compute in fsidx coordfs1i.
 
@@ -277,14 +271,11 @@ Lemma csolvedciE : csolvedci = csolvedi.
 Proof. by rewrite /csolvedi -coordfs1iE; vm_compute. Qed.
 
 
-(* ONE COMPARISON, AND IT IS THE WHOLE TEST.  The search carries the         *)
+(* One comparison, and it is the whole test.  The search carries the          *)
 (* coordinate, so the question is asked of a number it already has.  It used  *)
 (* to ask two more of the forty eight entry cube, because unpacking the       *)
 (* coordinate was not proved one to one; Fsinj proves it, and csolvedbP       *)
 (* below gets the same two answers out of this one.                           *)
-(*                                                                            *)
-(* MEASURED at depth twelve on the same tree: with the three questions the    *)
-(* search is 37.9 s and with this one 18.5.                                   *)
 Definition csolvedb (c : int) : bool := Uint63.eqb c csolvedci.
 
 (* two maps, allocated once and swapped at every level                        *)

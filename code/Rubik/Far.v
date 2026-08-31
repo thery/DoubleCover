@@ -158,41 +158,27 @@ Proof. by rewrite /Sroot !inE => /orP[]/eqP->; [exists 0%N | exists 1%N]. Qed.
 
 (* ---- 4. The computation, and where it lives ------------------------------ *)
 
-(* What is left is 36 searches of depth droot -- two root moves times         *)
-(* eighteen second moves -- and they are independent. They are NOT here: one  *)
-(* generated file per second move proves its own pair, and a master file      *)
-(* glues the eighteen together and finishes the theorem.                      *)
-(*                                                                            *)
-(* The split is by second move rather than by pair so that each file is one   *)
-(* vm_compute over two searches: eighteen files rather than thirty six, and   *)
-(* each still small enough to check on its own core.                          *)
+(* What is left is 36 independent searches of depth droot, two root moves     *)
+(* times eighteen second moves.  They are not here: one generated file per    *)
+(* second move proves its own pair, and a master file glues them.  The split  *)
+(* is by second move so each file is one vm_compute over two searches.        *)
 
 (* ---- 5. The reduced search, and why the guard stops at the prefix ---------*)
 
-(* THE SENTINEL p IS NOT A SHORTCUT, it is forced.  ball_root2 conjugates by  *)
-(* the 48 symmetries to push the first move into Sroot, which is worth a      *)
-(* factor 9; but conjugation PERMUTES THE FACES, and while the same-face half *)
-(* of the guard survives that, the opposite-pair ordering half (smaller face  *)
-(* index first) does not.  So the pair (m1, m2) ball_root2 hands back cannot  *)
-(* be assumed guard respecting, and the continuation search must start at the *)
-(* sentinel -- the guard then applies from the fourth move on.                *)
-(* The arithmetic says this is the right trade anyway: symmetry x sentinel is *)
-(* 9 x 72 = 648, against 1 x 131 for dropping ball_root2 and using            *)
-(* searchr_split2 instead.  Symmetry is worth more than the two levels of     *)
-(* guard, by a factor of five.                                                *)
-(* ---- 2bis. The symmetry-strengthened heuristic --------------------------- *)
+(* The sentinel p is forced.  ball_root2 conjugates by the 48 symmetries to   *)
+(* push the first move into Sroot, which is worth a factor nine, but          *)
+(* conjugation permutes the faces: the same-face half of the guard survives   *)
+(* that and the opposite-pair ordering half does not.  So the pair ball_root2 *)
+(* hands back cannot be assumed guard respecting, and the continuation search *)
+(* starts at the sentinel, the guard applying from the fourth move on.        *)
 
-(* Far.v used to prune with ONE lookup in the flip x slice table.  It now     *)
-(* prunes with the MAX over five symmetry views of the SAME table.  A max of  *)
-(* admissible heuristics is admissible, and it prunes far harder: measured in *)
-(* bench/SymHeur.v at depth 9, 94 762 nodes with one view against 4 918 with  *)
-(* five, and on the old Xeon at depth 12 the Far phase went from 21m07 CPU to *)
-(* 6m40 -- 3.16x.  No new table is involved.                                  *)
+(* The pruning is the maximum over five symmetry views of the flip and slice  *)
+(* table.  A maximum of admissible heuristics is admissible, and it prunes    *)
+(* much harder; no new table is involved.                                     *)
 (*                                                                            *)
-(* Everything is stated over `viewst`, a list of TABLES, and `views` is its   *)
-(* image under pt.  Defining views that way rather than as a literal list of  *)
-(* permutations is what keeps the proofs short: no lemma ever has to unfold a *)
-(* concrete 48 entry table, which is fatal (simpl on these does not return).  *)
+(* Everything is stated over viewst, a list of tables, and views is its image *)
+(* under pt.  Defining views that way keeps the proofs short: no lemma has to *)
+(* unfold a concrete forty eight entry table.                                 *)
 
 Definition conjt (s t : seq nat) : seq nat := comp_tab (inv_tab 47 s) (comp_tab t s).
 
@@ -206,12 +192,11 @@ Definition views : seq {perm facelet} := [seq pt 47 s | s <- viewst].
 
 Definition hsymp (g : {perm facelet}) : nat := \max_(u <- views) hfs Dfsd (g ^ u).
 Definition Dsymt (t : seq nat)        : nat := \max_(s <- viewst) Dt Dfsd (conjt s t).
-(* THE COMPUTATIONAL FORM -- this is what the search actually runs, and what  *)
-(* was measured at 6m40 CPU on the Xeon.  The conjugating tables are closed   *)
-(* literals so the VM shares them; the \max_(s <- viewst) form (Dsymt) is the *)
-(* one the PROOFS are stated over, and DsymdE bridges the two.  Running the   *)
-(* search directly over viewst does NOT evaluate -- t2ti (inv_tab s) would be *)
-(* rebuilt at every node.                                                     *)
+(* The computational form, which is what the search runs.  The conjugating    *)
+(* tables are closed literals so the VM shares them; the \max_(s <- viewst)   *)
+(* form is what the proofs are stated over, and DsymdE bridges the two.       *)
+(* Running the search over viewst directly does not evaluate: t2ti (inv_tab   *)
+(* s) would be rebuilt at every node.                                         *)
 Definition syti     : arr := Eval vm_compute in t2ti 47 Sytab.
 Definition sxti     : arr := Eval vm_compute in t2ti 47 Sxtab.
 Definition syti_inv : arr := Eval vm_compute in inv_tabi 47 syti.
@@ -369,8 +354,8 @@ rewrite -(ptJ oc1 o2) -(ptJ tok o1) -(ptJ tok (tab_ok_comp o1 o2)).
 by rewrite -(ptM o1 o2) conjgM.
 Qed.
 
-(* The computational Dsymd equals the \max_(s <- viewst) form the proofs are  *)
-(* stated over.  Same five views:                                             *)
+(* The computational Dsymd equals the \max_(s <- viewst) form the proofs use. *)
+(* Same five views:                                                           *)
 (*                                                                            *)
 (*   a                <->  s = id_tab 47      ->  g                           *)
 (*   conjy a          <->  s = Sytab          ->  g ^ Sy                      *)
@@ -378,16 +363,14 @@ Qed.
 (*   conjy (conjx a)  <->  s = Sxtab * Sytab  ->  g ^ (Sx * Sy)               *)
 (*   conjx (conjy a)  <->  s = Sytab * Sxtab  ->  g ^ (Sy * Sx)               *)
 (*                                                                            *)
-(* THE TACTIC THAT MAKES THIS POSSIBLE IS lock.  Every rewrite here scans the *)
-(* whole goal for its pattern, and every subterm it tests against is a conjt  *)
-(* or a maxn over concrete 48 entry tables -- so the FAILED matches, not the  *)
-(* successful one, are what cost.  Plain `rewrite (conjtM ...)` does not      *)
-(* return; locking the other occurrences first makes it 10 ms:                *)
+(* lock is what makes this go through.  Every rewrite scans the whole goal,   *)
+(* and every subterm it tests is a conjt or a maxn over concrete forty eight  *)
+(* entry tables, so the failed matches are what cost.  Lock the other         *)
+(* occurrences first:                                                         *)
 (*                                                                            *)
 (*     rewrite {-3 4}[conjt]lock (conjtM okSx okSy aok) -lock.                *)
 (*                                                                            *)
-(* Same for maxn at the end.  Note also `5!big_cons` with an exact count      *)
-(* rather than `!`, and never /= anywhere near these goals.                   *)
+(* Same for maxn at the end, and never /= near these goals.                   *)
 Lemma DsymdE a : tabi_ok 47 a -> Dsymd a = Dsymt (ti2t 47 a).
 Proof.
 move=> aok.

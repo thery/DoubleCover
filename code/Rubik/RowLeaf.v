@@ -151,13 +151,11 @@ Qed.
 
 (* ---- and the unranking undoes the ranking -------------------------------- *)
 
-(* up8 IS A TABLE, so that it inverts the ranking is a fact about the data,   *)
-(* not about the cube: rank the row and the row number comes back.  A walk    *)
-(* over the 40320, and over the 24 for the middle four.                       *)
-(*                                                                            *)
-(* THE WALKS ARE CARRIED AS ARGUMENTS, never as section hypotheses.  Put in   *)
-(* the context they change what `//' closes in proofs that have nothing to do *)
-(* with them, and three lemmas broke that way.                                *)
+(* up8 is a table, so that it inverts the ranking is a fact about the data:   *)
+(* rank the row and the row number comes back.  A walk over the 40320, and    *)
+(* over the 24 for the middle four.  The walks are carried as arguments, not  *)
+(* as section hypotheses: in the context they change what `//' closes in      *)
+(* proofs that have nothing to do with them.                                  *)
 Definition up8inv : bool :=
   iter npagen 0%uint63 (fun r => (rank8 (up8 r) =? r)%uint63).
 Definition up4inv : bool :=
@@ -295,15 +293,12 @@ Proof. by move=> hi; have /and4P[h _ _ _] := layP clayokC hi. Qed.
 
 (* ---- the parity law, and its checkable half ------------------------------ *)
 
-(* THE THIRD INVARIANT of the cube: a position reached by moves has the same  *)
-(* parity on the corners as on the edges.  It is not cubP -- cubP is the      *)
-(* centraliser of an involution and is bigger than the group -- so it has to  *)
-(* come along the word, one move at a time.                                   *)
-(*                                                                            *)
-(* The per move half IS checkable, and is checked here: the corner            *)
-(* permutation of each of the eighteen moves and its edge permutation have    *)
-(* the same parity.  Each move is a four cycle on four corners and a four     *)
-(* cycle on four edges, so both are odd; the doubles are even on both.        *)
+(* The third invariant of the cube: a position reached by moves has the same  *)
+(* parity on the corners as on the edges.  It is not cubP, which is the       *)
+(* centraliser of an involution and is bigger than the group, so it comes     *)
+(* along the word one move at a time.  The per move half is checked here:     *)
+(* each of the eighteen moves is a four cycle on four corners and a four      *)
+(* cycle on four edges, so both are odd, and the doubles are even on both.    *)
 
 (* the corner permutation and the edge permutation a table names              *)
 Definition cperm_of (t : seq nat) (p : nat) : nat :=
@@ -317,40 +312,31 @@ Definition mvparok : bool :=
 
 Lemma mvparokC : mvparok.  Proof. by vm_compute. Qed.
 
-(* THE LAW ITSELF, and it is the induction mvparokC feeds: the identity has   *)
-(* both parities even, every move flips both or neither, so every position    *)
-(* reached by a word has them equal.  This is where being IN THE GROUP is     *)
-(* used, and it is the only place.                                            *)
-(* THE BASE OF THE INDUCTION, and it is checked: the solved cube has both     *)
-(* parities even.                                                             *)
+(* The law itself, which mvparokC feeds: the identity has both parities       *)
+(* even, every move turns both or neither, so every position reached by a     *)
+(* word has them equal.  This is the only place where being in the group is   *)
+(* used.  The base is checked: the solved cube has both parities even.        *)
 Lemma prm_idC :
   prmn 8 (cperm_of (id_tab flast)) == prmn 12 (eperm_of (id_tab flast)).
 Proof. by vm_compute. Qed.
 
-(* AND THE STEP.  Playing a move on a position composes the two permutations  *)
-(* with that move's, and the parity of a composition is the exclusive or, so  *)
-(* both sides pick up the same bit -- which is exactly what mvparokC says.    *)
+(* The step.  Playing a move composes the two permutations with that move's,  *)
+(* and the parity of a composition is the exclusive or, so both sides pick    *)
+(* up the same bit, which is what mvparokC says.                              *)
 (*                                                                            *)
-(* IT REDUCES TO TWO THINGS AND NOTHING ELSE.  One is prmn_mul above, the     *)
-(* sign multiplying.  The other is that the place permutation of a            *)
-(* composition is the composition of the place permutations -- which needs    *)
-(* the position to carry the facelets of one cubie to the facelets of one     *)
-(* cubie, and that is cubcP for the corners and cubP for the edges, both of   *)
-(* which pstok already carries.  A move may TWIST a corner, so it is only at  *)
-(* the level of places that this holds, which is why cperm_of reads cposn and *)
-(* throws the slot away.                                                      *)
-(* ---- what a table must do to the cubies for the parity to compose -------- *)
+(* It reduces to two things: prmn_mul above, and that the place permutation   *)
+(* of a composition is the composition of the place permutations.  The        *)
+(* second needs the position to carry the facelets of one cubie to the        *)
+(* facelets of one cubie, which is cubcP for the corners and cubP for the     *)
+(* edges, both carried by pstok.  A move may turn a corner, so this holds     *)
+(* only at the level of places, which is why cperm_of throws the slot away.   *)
 
-(* THE PLACE PERMUTATION OF A COMPOSITION IS THE COMPOSITION OF THE PLACE     *)
-(* PERMUTATIONS, and that is the only thing the step needs.  cperm_of reads   *)
-(* the place a corner goes to and throws the SLOT away, so it composes as     *)
-(* soon as the second table sends the three facelets of one corner to the     *)
-(* three facelets of one corner -- it may twist them, and every move does.    *)
-(* That is a fact about the eighteen moves and it is checked below, at every  *)
-(* facelet, not assumed.                                                      *)
-(*                                                                            *)
-(* What is asked of the FIRST table is only that it sends a corner facelet    *)
-(* to a corner facelet and an edge facelet to an edge facelet, which is tcub. *)
+(* The place permutation of a composition is the composition of the place     *)
+(* permutations.  cperm_of reads the place a corner goes to and throws the    *)
+(* slot away, so it composes as soon as the second table sends the three      *)
+(* facelets of one corner to the three facelets of one corner -- it may turn  *)
+(* them, and every move does.  That is checked below at every facelet.  Of    *)
+(* the first table only tcub is asked: corner facelets to corner facelets.    *)
 
 (* a facelet of an edge, either of the two                                    *)
 Definition inPS (f : nat) : bool := inP f || inS f.

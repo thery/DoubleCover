@@ -221,8 +221,10 @@ Definition dign (x : int) (p : nat) : nat :=
   if p == 7 then dig8 x else dig3n (to_nat x) p.
 
 (* digit p of the moved coordinate: the corner that arrives at p, rotated     *)
-(* cdelta is subtracted: corientg counts how far one must turn to reach the   *)
-(* U/D sticker, so it runs opposite to cslot.                                 *)
+(* corientg counts how far one must turn to reach the U/D sticker, so it      *)
+(* runs opposite to cslot, which says where the sticker sitting there came    *)
+(* from.  cubcP is needed: the second branch asks about a different slot of   *)
+(* the same cubie position, and only a rigid motion ties that to the first.   *)
 Definition acttwd (x : int) (m : {perm facelet}) (p : nat) : nat :=
   (dign x (csrc m p) + 3 - cdelta m p) %% 3.
 
@@ -847,13 +849,11 @@ case: (nth (0, 0, 0)%N ctrip p) h0 h1 => [[c0 c1] c2] h0 h1.
 by rewrite (hval _ h0) (hval _ h1).
 Qed.
 
-(* the corner analogue of Coordfs's epair: where an edge's two stickers are   *)
+(* The corner analogue of Coordfs's epair: an edge's two stickers are         *)
 (* swapped by an involution, a corner's three are rotated by a 3-cycle.  A    *)
-(* permutation "moves cubies rigidly" exactly when it commutes with it, and   *)
-(* that is the guard coordtwM needs -- Coordfs.cubP one level up.             *)
-(* AS A TABLE, not as a product of cycles.  pt 47 gives a permutation whose   *)
-(* application computes through ptE, which is what the corner facts below     *)
-(* need; \prod_(l <- Ccyc) cyc l does not compute.                            *)
+(* permutation moves cubies rigidly exactly when it commutes with it, which   *)
+(* is the guard coordtwM needs.  Taken as a table, not as a product of        *)
+(* cycles: pt 47 gives a permutation that computes through ptE.               *)
 Definition ccyct : seq nat :=
   [seq (let i := index f cflat in
         if (i < 24)%N then nth 0%N cflat (i - i %% 3 + (i %% 3).+1 %% 3) else f)

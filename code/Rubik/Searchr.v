@@ -207,14 +207,11 @@ split; first by rewrite !size_cat /= ltn_add2l ltnS leqnn.
 by rewrite !prodcat !big_cons [m1 * (m2 * _)]mulgA mE.
 Qed.
 
-(* swapping an out-of-order opposite pair: same length, same product, and one *)
-(* inversion fewer -- the last part is the delicate one, see above.           *)
-(* Swapping an out-of-order opposite pair.  The delicate conjunct is inv,     *)
-(* by induction on l1: at the head, badp a b = true becomes badp b a =        *)
-(* false since b > a, so the count drops by one; the tail is unchanged        *)
-(* because the face entering l2 is the same set either way.  That last        *)
-(* step is what nosame is for -- a new bad pair could only appear against a   *)
-(* same-face neighbour, and there are none.                                   *)
+(* Swapping an out of order opposite pair: same length, same product, one     *)
+(* inversion fewer.  The last, by induction on l1: at the head badp a b       *)
+(* becomes badp b a, which is false since b > a, so the count drops by one;   *)
+(* the tail is unchanged because the face entering l2 is the same set either  *)
+(* way, which is what nosame is for.                                          *)
 Lemma swap_step p l1 m1 m2 l2 :
   all (mem Sseq) (l1 ++ m1 :: m2 :: l2) -> nosame p (l1 ++ m1 :: m2 :: l2) ->
   badp (fc m1) (fc m2) ->
@@ -252,15 +249,10 @@ have -> : badp q (fc m2) = false.
 by rewrite !add0n add1n ltn_add2l leq_addl.
 Qed.
 
-(* The nested induction: outer on the length bound, inner on inv.             *)
-(*                                                                            *)
-(* THE MERGE BRANCH IS SEPARATE because reduce_inv needs it too.  A swap can  *)
-(* BREAK nosame -- D U D has none, and swapping its bad pair gives D D U --   *)
-(* so the inner induction cannot carry nosame and must fall back here.        *)
-(* the nested induction: outer on the length bound, inner on inv              *)
-(* THE MERGE BRANCH, on its own because reduce_inv needs it too: a swap can   *)
-(* BREAK nosame (D U D has none, swapping its bad pair gives D D U), so the   *)
-(* inner induction cannot carry nosame and must be able to fall back here.    *)
+(* The nested induction: outer on the length bound, inner on inv.  The merge  *)
+(* branch is separate because reduce_inv needs it too: a swap can break       *)
+(* nosame, as D U D becomes D D U, so the inner induction cannot carry        *)
+(* nosame and must fall back here.                                            *)
 Lemma reduce_merge n
   (IHn : forall l, size l <= n -> all (mem Sseq) l ->
      exists2 l', reduced nfc l' & size l' <= size l /\
@@ -333,13 +325,11 @@ Lemma reduce_word (l : seq gT) :
   exists2 l', reduced nfc l' & size l' <= size l /\ \prod_(m <- l') m = \prod_(m <- l) m.
 Proof. exact: (reduce_bound (leqnn (size l))). Qed.
 
-(* (b) the ball is exactly the reduced words, which is (a) plus the standard  *)
-(* "ball d = products of lists of length at most d".                          *)
-(* [HARD] not reached. SKELETON: induction on d. ball S 0 = [set 1] gives l = *)
-(* [::]. For d.+1, ball S d.+1 = ball S d :|: (ball S d * S), so either the   *)
-(* IH applies directly (size <= d <= d.+1), or g = a * s with a in ball S d   *)
-(* and s in S: take l = (word for a) ++ [:: s], and prodcat/big_cons finish   *)
-(* it. Ball.v may already have something close -- check before proving.       *)
+(* (b) the ball is exactly the reduced words: (a) plus the standard "ball d   *)
+(* = products of lists of length at most d".  Not reached.  Sketch:           *)
+(* induction on d; ball S 0 = [set 1] gives l = [::], and for d.+1 either     *)
+(* the hypothesis applies or g = a * s, so take the word for a with s         *)
+(* appended.  Ball may already have something close.                          *)
 Lemma ball_prod d g :
   g \in ball S d -> exists2 l, all (mem Sseq) l & size l <= d /\ \prod_(m <- l) m = g.
 Proof.

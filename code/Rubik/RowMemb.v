@@ -296,13 +296,12 @@ Definition cprimp : seq nat := [seq nth 0%N cflatp (3 * p)%N | p <- iota 0 8].
 
 (* ---- the facelet is looked up, not searched for -------------------------- *)
 
-(* EVERY ONE OF THESE IS A FUNCTION OF THE FACELET ALONE, and every one of    *)
-(* them used to be a scan: which place a facelet belongs to, how far round    *)
-(* it sits, and whether it is a corner, an outer edge or a middle one.  A     *)
-(* part asks all of them at each of forty eight facelets and a walk builds a  *)
-(* part at each of forty thousand ranks, so the scans were the whole cost --  *)
-(* measured, the membership alone was seven eighths of it.  Read once into    *)
-(* tables of forty eight, they are a lookup.                                  *)
+(* Each of these is a function of the facelet alone, and each used to be a    *)
+(* scan: which place a facelet belongs to, how far round it sits, and         *)
+(* whether it is a corner, an outer edge or a middle one.  A part asks all    *)
+(* of them at forty eight facelets and a walk builds a part at forty          *)
+(* thousand ranks, so the scans were the whole cost.  Read once into tables   *)
+(* of forty eight, they are a lookup.                                         *)
 
 Definition eouts : seq nat := take 8 eprim ++ take 8 esec.
 Definition emids : seq nat := drop 8 eprim ++ drop 8 esec.
