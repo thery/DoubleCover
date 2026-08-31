@@ -187,47 +187,10 @@ Local Notation grpm := (grpmv msw mlo mhi).
 (* a move sends a page to a page and a group to a group, which is what the    *)
 (* write side needs to know about where it is writing.  RowInst's pgok and    *)
 (* grok are these, and the instance settles them by computation.              *)
-(* rearranging an empty half gives an empty half, so a half with no bits     *)
-(* need not be looked up at all.  flevmv skips it; RowMap's grpmv always      *)
-(* reads both tables.  The instance settles these two by computation.         *)
-Hypothesis lomv0 : forall k, (to_nat k < nhn)%N -> lomv mlo k 0 = 0.
-Hypothesis himv0 : forall k, (to_nat k < nhn)%N -> himv mhi k 0 = 0.
-
 Hypothesis pgm_range : forall k pg, (to_nat k < nhn)%N -> (pg <? npagei) ->
   (pgm k pg <? npagei).
 Hypothesis grm_range : forall k gr, (to_nat k < nhn)%N -> (gr <? ngroupi) ->
   (grm k gr <? ngroupi).
-
-(* ---- one group moved, without looking up an empty half ------------------- *)
-
-Definition grpmS (k v : int) : int :=
-  let lo := Uint63.land v lo12 in
-  let hi := Uint63.land (Uint63.lsr v 12) lo12 in
-  let l := if Uint63.eqb lo 0 then 0 else lomv mlo k lo in
-  let h := if Uint63.eqb hi 0 then 0 else himv mhi k hi in
-  if Uint63.eqb (PArray.get msw k) 0
-  then Uint63.lor l (Uint63.lsl h 12)
-  else Uint63.lor h (Uint63.lsl l 12).
-
-Lemma grpmS_eq k v : (to_nat k < nhn)%N -> grpmS k v = grpm k v.
-Proof.
-move=> hk; rewrite /grpmS /grpmv.
-have hl : (if Uint63.eqb (Uint63.land v lo12) 0 then 0
-           else lomv mlo k (Uint63.land v lo12))
-        = lomv mlo k (Uint63.land v lo12).
-  case: ifP => h0 //.
-  have -> : Uint63.land v lo12 = 0.
-    by apply: to_nat_inj; apply/neqbP; exact: h0.
-  by rewrite (lomv0 hk).
-have hh : (if Uint63.eqb (Uint63.land (Uint63.lsr v 12) lo12) 0 then 0
-           else himv mhi k (Uint63.land (Uint63.lsr v 12) lo12))
-        = himv mhi k (Uint63.land (Uint63.lsr v 12) lo12).
-  case: ifP => h0 //.
-  have -> : Uint63.land (Uint63.lsr v 12) lo12 = 0.
-    by apply: to_nat_inj; apply/neqbP; exact: h0.
-  by rewrite (himv0 hk).
-by rewrite hl hh.
-Qed.
 
 (* ---- a page sits inside one chunk, and then a read is one array get ------ *)
 
@@ -364,14 +327,14 @@ Definition prepmvS (k : int) (src : rmap) (dst : rmap) : rmap :=
            (fun gr d' =>
               let v := PArray.get sa (Uint63.add o gr) in
               if Uint63.eqb v 0 then d'
-              else gor d' (grpof pg' (grm k gr)) (grpmS k v))
+              else gor d' (grpof pg' (grm k gr)) (grpm k v))
            d
        else
          ifold ngroupn 0
            (fun gr d' =>
               let v := gget src (grpof pg gr) in
               if Uint63.eqb v 0 then d'
-              else gor d' (grpof pg' (grm k gr)) (grpmS k v))
+              else gor d' (grpof pg' (grm k gr)) (grpm k v))
            d)
     dst.
 
@@ -387,7 +350,7 @@ Definition prepmv0S (k : int) (src : rmap) (dst : rmap) : rmap :=
               let g := grpof pg gr in
               let v := PArray.get sa (Uint63.add o gr) in
               if Uint63.eqb v 0 then d'
-              else gor (gor d' g v) (grpof pg' (grm k gr)) (grpmS k v))
+              else gor (gor d' g v) (grpof pg' (grm k gr)) (grpm k v))
            d
        else
          ifold ngroupn 0
@@ -395,7 +358,7 @@ Definition prepmv0S (k : int) (src : rmap) (dst : rmap) : rmap :=
               let g := grpof pg gr in
               let v := gget src g in
               if Uint63.eqb v 0 then d'
-              else gor (gor d' g v) (grpof pg' (grm k gr)) (grpmS k v))
+              else gor (gor d' g v) (grpof pg' (grm k gr)) (grpm k v))
            d)
     dst.
 
@@ -411,14 +374,11 @@ move=> hk; rewrite /prepmvS /prepmv; cbv zeta.
 apply: ifold_eqi; first by apply: ltnW; exact: npagen_nwB.
 move=> pg d hpg; cbv zeta.
 have hpi : (pg <? npagei) := introT (nltbP pg npagei) hpg.
-case: (boolP (pgfits pg)) => hfit.
-  apply: ifold_eqi; first by apply: ltnW; exact: ngroupn_nwB.
-  move=> gr d' hgr; cbv zeta.
-  have hgi : (gr <? ngroupi) := introT (nltbP gr ngroupi) hgr.
-  by rewrite -(pgread src hpi hgi hfit) (grpmS_eq _ hk).
+case: (boolP (pgfits pg)) => hfit; last by [].
 apply: ifold_eqi; first by apply: ltnW; exact: ngroupn_nwB.
 move=> gr d' hgr; cbv zeta.
-by rewrite (grpmS_eq _ hk).
+have hgi : (gr <? ngroupi) := introT (nltbP gr ngroupi) hgr.
+by rewrite -(pgread src hpi hgi hfit).
 Qed.
 
 Lemma prepmv0S_eq k src dst : (to_nat k < nhn)%N ->
@@ -428,14 +388,11 @@ move=> hk; rewrite /prepmv0S /prepmv0; cbv zeta.
 apply: ifold_eqi; first by apply: ltnW; exact: npagen_nwB.
 move=> pg d hpg; cbv zeta.
 have hpi : (pg <? npagei) := introT (nltbP pg npagei) hpg.
-case: (boolP (pgfits pg)) => hfit.
-  apply: ifold_eqi; first by apply: ltnW; exact: ngroupn_nwB.
-  move=> gr d' hgr; cbv zeta.
-  have hgi : (gr <? ngroupi) := introT (nltbP gr ngroupi) hgr.
-  by rewrite -(pgread src hpi hgi hfit) (grpmS_eq _ hk).
+case: (boolP (pgfits pg)) => hfit; last by [].
 apply: ifold_eqi; first by apply: ltnW; exact: ngroupn_nwB.
 move=> gr d' hgr; cbv zeta.
-by rewrite (grpmS_eq _ hk).
+have hgi : (gr <? ngroupi) := introT (nltbP gr ngroupi) hgr.
+by rewrite -(pgread src hpi hgi hfit).
 Qed.
 
 Lemma prepassS_eq src dst :
@@ -477,7 +434,7 @@ Definition prepmvD (k : int) (src : rmap) (dst : rmap) : rmap :=
                  if Uint63.eqb v 0 then b
                  else
                    let j := Uint63.add o' (grm k gr) in
-                   PArray.set b j (Uint63.lor (PArray.get b j) (grpmS k v)))
+                   PArray.set b j (Uint63.lor (PArray.get b j) (grpm k v)))
               (PArray.get d c'))
        else if pgfits pg then
          let sa := PArray.get src (pgchk pg) in
@@ -486,14 +443,14 @@ Definition prepmvD (k : int) (src : rmap) (dst : rmap) : rmap :=
            (fun gr d' =>
               let v := PArray.get sa (Uint63.add o gr) in
               if Uint63.eqb v 0 then d'
-              else gor d' (grpof pg' (grm k gr)) (grpmS k v))
+              else gor d' (grpof pg' (grm k gr)) (grpm k v))
            d
        else
          ifold ngroupn 0
            (fun gr d' =>
               let v := gget src (grpof pg gr) in
               if Uint63.eqb v 0 then d'
-              else gor d' (grpof pg' (grm k gr)) (grpmS k v))
+              else gor d' (grpof pg' (grm k gr)) (grpm k v))
            d)
     dst.
 

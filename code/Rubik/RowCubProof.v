@@ -49,7 +49,7 @@ rewrite /rowfullp rowwitspE => hf.
 exact: (@real_superflip_row_p p1ftab frepi fsymi twsymi
           dnlo_data dnhi_data fllo_data flhi_data ishmi
           (prepassD mpgi mgri mswi mloi mhii)
-          (prepassD_eq lomv0C himv0C pgm_rangeC grm_rangeC) fsmoveCP hf).
+          (prepassD_eq pgm_rangeC grm_rangeC) fsmoveCP hf).
 Qed.
 
 Corollary row_of_runp_superflip : rowfullp = true ->
