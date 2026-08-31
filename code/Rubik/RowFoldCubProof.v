@@ -66,7 +66,7 @@ Import GroupScope.
 (* the left side and loads no proof to do it; RowFoldCubDone puts the two     *)
 (* together and is four lines.                                                *)
 (*                                                                            *)
-(* rowfull is mfullf of RowFoldCubDef's map and yfcwitsoi is mfullf of        *)
+(* rowfull is mfullf of RowFoldCubDef's map and the theorem asks it of        *)
 (* RowFoldCubReal's.  They are the same map, but every name on the way down   *)
 (* differs -- ytomembd against ytomemb tomembi, okmvvd against okmvv,         *)
 (* ycsolvedd against ycsolved, srchd against srch -- because the run file     *)
@@ -77,10 +77,6 @@ Import GroupScope.
 (* reducing this is the run again, in the kernel, which is far slower than    *)
 (* native.  One side alone is not enough -- unfolding ycsolvedd leaves a      *)
 (* lambda against ycsolved, which is still a constant.                        *)
-Definition yfcwitsoi : rmap :=
-  yfcwitso p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
-           forbi fpopi ishmi.
-
 (* ---- the four names the run file had to copy ----------------------------- *)
 
 (* RowFoldCubDef loads no proof, so it cannot say ytomemb, okmvv, ycsolved    *)
@@ -98,10 +94,12 @@ Lemma srchdE    : srchd = srch.                Proof. by []. Qed.
 (* Said outright, so that the only thing conversion has to do is compare      *)
 (* frunsk's arguments one by one.  It never looks inside the fixpoint: the    *)
 (* head is the same constant on both sides.                                   *)
-Lemma ycwitsoE : ycwitso = yfcwitsoi.
+Lemma ycwitsoE : ycwitso =
+  yfcwitso p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
+           forbi fpopi ishmi.
 Proof.
 rewrite /ycwitso /rowmap ytomembdE okmvvdE ycsolveddE srchdE.
-by rewrite /yfcwitsoi /yfcwitso /yfcmfino /fmfino.
+by rewrite /yfcwitso /yfcmfino /fmfino.
 Qed.
 
 (* ---- what the run buys --------------------------------------------------- *)
