@@ -117,7 +117,7 @@ build () {     # build <base>
            RowFoldRun RowFoldFinal RowInH RowPar4 RowPar8 RowUp4inv \
            RowUp8inv RowWits RowWitsChk RowReal RowFoldCubReal RowMembi \
            RowOkm RowSrch RowSrchP RowMark \
-           RowFoldCubDef RowCubDef RowCubReal; do
+           RowFoldCubDef RowCubDef RowCubReal RowCubProof; do
     [ -f "$f.v" ] && echo "$f.v"
   done
 } > _FoldProject
@@ -213,6 +213,7 @@ case "$1" in
          build RowCubDef
          build RowCubBool
          build RowCubReal
+         build RowCubProof
          coqc -R . Rubik RowCubDone.v ;;
   *)     echo "--- RowFoldRun (the ball of H)";   coqc -R . Rubik RowFoldRun.v ;;
 esac
