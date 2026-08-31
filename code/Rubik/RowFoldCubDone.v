@@ -18,11 +18,11 @@ Import GroupScope.
 
 Theorem real_superflip_row_fold_run h : h \in H ->
   superflip^-1 * h \in ball Sset 20.
-Proof. exact: row_of_run rowfullE. Qed.
+Proof. apply: (row_of_run rowfullE). Qed.
 
 Corollary real_row_superflip_fold_run m : m \in H ->
   superflip * m \in ball Sset 20.
-Proof. exact: row_of_run_superflip rowfullE. Qed.
+Proof. apply: (row_of_run_superflip rowfullE). Qed.
 
-(* IT MUST NAME NOTHING BUT THE int63 AND PArray PRIMITIVES                   *)
+(* it must name nothing but the int63 and PArray primitives *)
 Print Assumptions real_row_superflip_fold_run.
