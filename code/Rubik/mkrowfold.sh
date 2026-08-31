@@ -31,6 +31,7 @@
 #    ./mkrowfold.sh o15      ... depth 15
 #    ./mkrowfold.sh o20      ... depth 20  (run the four side by side)
 #    ./mkrowfold.sh foot     RowFoldFoot -- what the tables alone cost
+#    ./mkrowfold.sh ppace    RowCubPace -- the plain run's footprint at thirteen
 #    ./mkrowfold.sh pbool    RowCubBool -- THE PLAIN RUN, the boolean alone
 #    ./mkrowfold.sh pdone    RowCubDone -- the plain run and proof together
 #    ./mkrowfold.sh          build, then RowFoldRun -- the ball of H
@@ -115,7 +116,8 @@ build () {     # build <base>
            RowMembChk RowFoldWrite RowFoldPorb RowMask RowFoldSrch \
            RowFoldRun RowFoldFinal RowInH RowPar4 RowPar8 RowUp4inv \
            RowUp8inv RowWits RowWitsChk RowReal RowFoldCubReal RowMembi \
-           RowOkm RowFoldCubDef RowCubDef RowCubReal; do
+           RowOkm RowSrch RowSrchP RowMark \
+           RowFoldCubDef RowCubDef RowCubReal; do
     [ -f "$f.v" ] && echo "$f.v"
   done
 } > _FoldProject
@@ -189,10 +191,25 @@ case "$1" in
          build RowFoldCubReal
          build RowFoldCubProof
          coqc -R . Rubik RowFoldCubDone.v ;;
+  ppace) echo "--- RowCubPace (the plain run at thirteen: watch RES, count 14731320)"
+         build RowSrch
+         build RowSrchP
+         build RowMark
+         build RowCubInst
+         build RowCubDef
+         coqc -R . Rubik RowCubPace.v ;;
   pbool) echo "--- RowCubBool (THE PLAIN RUN: the boolean alone)"
+         build RowSrch
+         build RowSrchP
+         build RowMark
+         build RowCubInst
          build RowCubDef
          coqc -R . Rubik RowCubBool.v ;;
   pdone) echo "--- RowCubDone (the plain theorem: run and proof together)"
+         build RowSrch
+         build RowSrchP
+         build RowMark
+         build RowCubInst
          build RowCubDef
          build RowCubBool
          build RowCubReal

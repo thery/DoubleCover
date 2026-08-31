@@ -24,6 +24,7 @@ Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
 Require Import Row RowMap RowRun RowFinal RowInst.
 Require Import Lehmer RowTabP RowMemb RowCub RowCubi.
+Require Import Fold RowMask RowSrch RowSrchP RowMark.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -173,6 +174,19 @@ Hypothesis he4 : e4ok e4bit e4of par4.
 
 Variable mpg mgr msw mlo mhi btmvt : arr.
 Variable p1 : PArray.array arr.
+
+(* THE PHASE ONE TABLE IS THE FOLDED ONE, and that fold is not the map's.    *)
+(* Rokicki folds the table by the sixteen symmetries and names, beside the    *)
+(* distance, the moves worth trying: a node offers three or four where p1     *)
+(* left it offering eighteen.  The map here stays unfolded; only the table    *)
+(* is folded, exactly as the folded run reads it.                             *)
+Variable F : PArray.array arr.
+Variables frep fsym : int -> int.
+Variable twsym : int -> int -> int.
+Variables dnlo dnhi fllo flhi : arr.
+
+(* the moves of H, one bit each                                              *)
+Variable ishm : int.
 Variable fsstep : int -> int -> int.
 Variable memb2tab : memb -> seq nat.
 Hypothesis memb2tab_ok : forall x, tab_ok flast (memb2tab x).
@@ -307,6 +321,86 @@ Proof.
 move=> hn hw hf hcov h hh.
 have [x [hx hxe]] := hcov h hh.
 have := yrow_within_20 hn hw hf hx.
+by rewrite /RowRun.wthn (RowInst.posE memb2tab_ok) hxe.
+Qed.
+
+(* ---- the same run, with hcoset's cuts and Rokicki's early stop ------------ *)
+
+(* THE THREE THINGS THE FOLDED RUN HAS HAD FROM THE START and this one had    *)
+(* not: the two cuts, the stop, and the count that drives them.  RowSrch      *)
+(* proves them sound, so all that changes here is which run the map comes     *)
+(* from.  Without them the plain row does not finish.                         *)
+
+Definition ymfinsk : PArray.array arr :=
+  runsk e8num e4bit mpg mgr msw mlo mhi F frep fsym twsym dnlo dnhi fllo flhi
+        (RowInst.cstep fsstep) zstepi
+        ytomemb okmv ycsolved RowInst.croot yrooti dsrch ishm
+        nlev 0 0%uint63 (mkempty tt) (mkempty tt).
+
+Lemma ymfinsk_sound :
+  soundat e8inv e4of par8 par4
+          (RowFinal.pos (RowInst.ptab memb2tab)) ymfinsk nlev.
+Proof.
+rewrite /ymfinsk -{2}[nlev]add0n.
+apply: (runsk_sound he8 he4 ycoord_root yroot_ball yroot_pok ycoord_step
+                    yxstep_pok yxstep_pos yleaf_memb yleaf_pos
+                    RowInst.hmv_Sset (RowInst.grpmvP hsrc hhalf)
+                    (RowInst.prep_move memb2tab_ok hpg hgr hbt memb2tab_move));
+  exact: RowInst.sound_mempty.
+Qed.
+
+Theorem yrowsk_within_20 : nlev = 20%N ->
+  witsok e8inv e4of par8 par4 (RowInst.ptab memb2tab) wl ->
+  mfull2 ymfinsk (wmap wl) ->
+  forall x, membok par8 par4 x ->
+  RowRun.wthn (RowFinal.pos (RowInst.ptab memb2tab)) 20 x.
+Proof.
+move=> hn hw hf x hx.
+apply: (row_within_20 he8 he4 (RowInst.ptab_ok memb2tab_ok) _ hw hf hx).
+by rewrite -hn; exact: ymfinsk_sound.
+Qed.
+
+Theorem ysuperflipsk_row_within_20 : nlev = 20%N ->
+  witsok e8inv e4of par8 par4 (RowInst.ptab memb2tab) wl ->
+  mfull2 ymfinsk (wmap wl) ->
+  (forall h, h \in H ->
+     exists x, membok par8 par4 x /\ pt flast (memb2tab x) = h) ->
+  forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
+Proof.
+move=> hn hw hf hcov h hh.
+have [x [hx hxe]] := hcov h hh.
+have := yrowsk_within_20 hn hw hf hx.
+by rewrite /RowRun.wthn (RowInst.posE memb2tab_ok) hxe.
+Qed.
+
+(* ---- and the witnesses marked in, instead of a second whole map ---------- *)
+
+(* wmap is a map the size of this one holding thirty two bits, and mfull2     *)
+(* reads both at every word.  RowMark says a mark keeps the map sound, so     *)
+(* the witnesses go into the map the run leaves and mfull alone is the test.  *)
+Definition ycwitsp : rmap := wmarkof wl ymfinsk.
+
+Theorem yrowsk_marked_within_20 : nlev = 20%N ->
+  witsok e8inv e4of par8 par4 (RowInst.ptab memb2tab) wl ->
+  mfull ycwitsp ->
+  forall x, membok par8 par4 x ->
+  RowRun.wthn (RowFinal.pos (RowInst.ptab memb2tab)) 20 x.
+Proof.
+move=> hn hw hf x hx.
+apply: (row_within_20_marked he8 he4 (RowInst.ptab_ok memb2tab_ok) _ hw hf hx).
+by rewrite -hn; exact: ymfinsk_sound.
+Qed.
+
+Theorem ysuperflipsk_marked_within_20 : nlev = 20%N ->
+  witsok e8inv e4of par8 par4 (RowInst.ptab memb2tab) wl ->
+  mfull ycwitsp ->
+  (forall h, h \in H ->
+     exists x, membok par8 par4 x /\ pt flast (memb2tab x) = h) ->
+  forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
+Proof.
+move=> hn hw hf hcov h hh.
+have [x [hx hxe]] := hcov h hh.
+have := yrowsk_marked_within_20 hn hw hf hx.
 by rewrite /RowRun.wthn (RowInst.posE memb2tab_ok) hxe.
 Qed.
 

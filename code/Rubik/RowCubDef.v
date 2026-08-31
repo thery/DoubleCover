@@ -5,6 +5,9 @@
 (* The map the twenty leave on the plain map, and the boolean the certificate *)
 (* asks about it.  See doc/rowfold-bridge.md.                                 *)
 
+(* Only the MAP is unfolded.  The table is Rokicki's folded one, read through *)
+(* RowMask, and the cuts and the stop are the folded run's own.               *)
+
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
@@ -16,6 +19,7 @@ Require Import RowTabL RowTabP RowTab RowMemb RowMembi RowLeaf RowWits.
 Require Import Lehmer RowCub RowCubi RowCubInst.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import P1Table RowReal.
+Require Import Fold FoldTables P1Fdec P1FTable RowMask RowSrch.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -24,11 +28,33 @@ Unset Printing Implicit Defensive.
 Notation arr := (PArray.array int).
 Notation rmap := (PArray.array arr).
 
-(* the map the twenty leave, exactly as RowCubReal names it                   *)
-Definition ycmfinp : rmap :=
-  ymfin e8numi e4biti mpgi mgri mswi mloi mhii p1 actfsri tomembi okmvv
-        srch 20.
+(* which of the eighteen are moves of H: those that leave the solved          *)
+(* coordinate alone.  RowFoldCubDef works out the same number.                *)
+Definition fstep (c k : int) : int :=
+  Uint63.add (Uint63.mul (acttwii (Uint63.div c nfsi) k) nfsi)
+             (actfsri (Uint63.mod c nfsi) k).
+
+Definition ishmi : int :=
+  Eval vm_compute in
+  ifold nmvn 0%uint63
+    (fun k a =>
+       if Uint63.eqb (fstep csolvedci k) csolvedci
+       then Uint63.lor a (Uint63.lsl 1%uint63 k) else a)
+    0%uint63.
+
+(* The map the twenty leave.  IT IS A FUNCTION AND NOT A VALUE: a nullary     *)
+(* Definition is a top level value native_compute keeps for good, which would *)
+(* hold the unmarked map alive beside the marked one.                         *)
+Definition rowmapp (n : nat) : rmap :=
+  ymfinsk e8numi e4biti mpgi mgri mswi mloi mhii
+          p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
+          ishmi actfsri tomembi okmvv srch n.
+
+(* the witnesses go into that map, so there is no second one to hold          *)
+Definition ycwitsp : rmap :=
+  foldr (fun t m => let: (pg, gr, bt, _) := t in mmark m pg gr bt)
+        (rowmapp 20) rowwits.
 
 (* ---- and the boolean the run has to settle ------------------------------- *)
 
-Definition rowfullp : bool := mfull2 ycmfinp (wmap rowwits).
+Definition rowfullp : bool := mfull ycwitsp.
