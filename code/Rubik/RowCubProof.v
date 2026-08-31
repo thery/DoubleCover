@@ -38,7 +38,7 @@ Notation rmap := (PArray.array arr).
 Lemma rowwitspE : rowwitsp =
   ycwitsr p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
           ishmi.
-Proof. by rewrite /rowwitsp /rowmapp /ycwitsr /ycmfinsp. Qed.
+Proof. by rewrite /rowwitsp /rowmapp /wmarkof /ycwitsr /ycmfinsp. Qed.
 
 (* ---- what the run buys --------------------------------------------------- *)
 
