@@ -61,6 +61,61 @@ Lemma addn_divmod a b c : (0 < c)%N ->
   (a + b)%N = ((a %/ c) * c + (a %% c + b))%N.
 Proof. by move=> hc; rewrite addnA -divn_eq. Qed.
 
+(* ---- writing one chunk of the map, and putting it back once -------------- *)
+
+(* flevpg pulls the destination chunk out of the outer array, writes into it  *)
+(* for the whole page, and puts it back once.  RowMap's gor puts it back at   *)
+(* every word.  These three say the two are the same, and none of them        *)
+(* mentions the cube.                                                         *)
+
+Lemma set_getA (t : rmap) (i : int) : (i <? PArray.length t) ->
+  PArray.set t i (PArray.get t i) = t.
+Proof.
+move=> hi; apply: PArray.array_ext.
+- exact: (length_setA t i (PArray.get t i)).
+- move=> j _; have [hij|hij] := boolP (i =? j)%uint63.
+    have hije : i = j by apply: to_nat_inj; apply/neqbP.
+    by rewrite -hije get_setA.
+  have hne : i <> j.
+    by move=> he; move: hij; rewrite he; case: neqbP.
+  by rewrite get_set_otherA.
+- exact: (default_setA t i (PArray.get t i)).
+Qed.
+
+Lemma set_setA (t : rmap) (i : int) (u v : arr) :
+  PArray.set (PArray.set t i u) i v = PArray.set t i v.
+Proof.
+apply: PArray.array_ext.
+- by rewrite !length_setA.
+- move=> j _; have [hij|hij] := boolP (i =? j)%uint63.
+    have hije : i = j by apply: to_nat_inj; apply/neqbP.
+    have [hin|hin] := boolP (i <? PArray.length t)%uint63.
+      by rewrite -hije !get_setA ?length_setA.
+    rewrite -hije !get_oobA ?default_setA //;
+      by rewrite !length_setA; apply: negbTE.
+  have hne : i <> j.
+    by move=> he; move: hij; rewrite he; case: neqbP.
+  by rewrite !get_set_otherA.
+- by rewrite !default_setA.
+Qed.
+
+Lemma fold_in_chunkg c (f : int -> arr -> arr) d n j :
+  (c <? PArray.length d) ->
+  ifold n (advn j 0) (fun i a => PArray.set a c (f i (PArray.get a c))) d
+  = PArray.set d c (ifold n (advn j 0) f (PArray.get d c)).
+Proof.
+elim: n j d => [|n ih] j d hc /=; first by rewrite set_getA.
+have -> : Uint63.add (advn j 0) 1 = advn j.+1 0 by rewrite advnS.
+rewrite ih ?length_setA // get_setA //.
+by rewrite set_setA.
+Qed.
+
+Lemma fold_in_chunk c (f : int -> arr -> arr) d n :
+  (c <? PArray.length d) ->
+  ifold n 0 (fun i a => PArray.set a c (f i (PArray.get a c))) d
+  = PArray.set d c (ifold n 0 f (PArray.get d c)).
+Proof. by move=> hc; apply: (@fold_in_chunkg c f d n 0). Qed.
+
 Section Lvl.
 
 (* ---- the ten moves of H, as RowMap reads them ---------------------------- *)
@@ -129,14 +184,14 @@ case/andP => /nlebP hle hno.
 by rewrite -(to_nat_add_le _ _ hno) -/ngroupn.
 Qed.
 
-Lemma pgread src pg gr : (pg <? npagei) -> (gr <? ngroupi) -> pgfits pg ->
-  gget src (grpof pg gr)
-  = PArray.get (PArray.get src (pgchk pg)) (Uint63.add (pgoff pg) gr).
+(* THE TWO INDEX FACTS.  The read uses them, and so does the write: a page   *)
+(* inside one chunk has the same chunk for all its words, and the offset is   *)
+(* the page's own plus the group.                                             *)
+Lemma pgidx pg gr : (pg <? npagei) -> (gr <? ngroupi) -> pgfits pg ->
+  Uint63.div (grpof pg gr) csize = pgchk pg
+  /\ Uint63.mod (grpof pg gr) csize = Uint63.add (pgoff pg) gr.
 Proof.
 move=> hpg hgr hfit.
-(* EVERYTHING BELOW IS SAID IN to_nat pg * ngroupn, NEVER IN pgbase.  A      *)
-(* rewrite that puts the one in place of the other inside a goal that also  *)
-(* mentions grpof does not come back.                                        *)
 have hb : to_nat (pgbase pg) = (to_nat pg * ngroupn)%N := pgbase_nat hpg.
 have hg : to_nat (grpof pg gr) = (to_nat pg * ngroupn + to_nat gr)%N :=
   to_nat_grpof hpg hgr.
@@ -150,8 +205,7 @@ have hoff : to_nat (pgoff pg) = ((to_nat pg * ngroupn) %% to_nat csize)%N.
 have hlow : ((to_nat pg * ngroupn) %% to_nat csize + to_nat gr
              < to_nat csize)%N.
   rewrite -hoff; apply: leq_trans hfn; rewrite ltn_add2l; exact: hgrn.
-have hsplit :=
-  addn_divmod (to_nat pg * ngroupn) (to_nat gr) hcs.
+have hsplit := addn_divmod (to_nat pg * ngroupn) (to_nat gr) hcs.
 have hlow2 : (to_nat (pgoff pg) + to_nat gr < to_nat csize)%N.
   rewrite hoff; exact: hlow.
 (* THE nwB SIDE GOAL IS NOT LEFT TO `by'.  nwB is 2^63 in unary.            *)
@@ -160,11 +214,9 @@ have hadd : to_nat (Uint63.add (pgoff pg) gr)
   apply: to_nat_add; apply: (@leq_trans (to_nat csize)).
     exact: hlow2.
   exact: (ltnW (to_nat_bounded csize)).
-rewrite /gget cshftE cmskwE.
-(* The two index facts on their own, so each goal is small and mentions no  *)
-(* array.  Every rewrite is given its arguments: left to search for its      *)
-(* pattern it wanders into csize and does not come back.                    *)
-have hdiv : Uint63.div (grpof pg gr) csize = pgchk pg.
+(* EVERY REWRITE IS GIVEN ITS SIDE AND ITS ARGUMENTS.  Left to search for   *)
+(* its pattern, rewrite wanders into csize and does not come back.          *)
+split.
 { apply: to_nat_inj.
   rewrite [LHS](to_nat_div (grpof pg gr) csize).
   rewrite hg hsplit.
@@ -173,19 +225,35 @@ have hdiv : Uint63.div (grpof pg gr) csize = pgchk pg.
   rewrite addn0.
   rewrite /pgchk [RHS](to_nat_div (pgbase pg) csize) hb.
   reflexivity.
-  (* divnMDl leaves its 0 < d behind, and it must be handed hcs: `done'      *)
-  (* would go away and build two million in unary.                          *)
+  (* divnMDl leaves its own 0 < d behind and must be handed hcs *)
   exact: hcs. }
-have hmod : Uint63.mod (grpof pg gr) csize = Uint63.add (pgoff pg) gr.
-{ apply: to_nat_inj.
-  rewrite [LHS](to_nat_mod (grpof pg gr) csize).
-  rewrite hg hsplit.
-  rewrite [LHS]modnMDl.
-  rewrite [LHS](modn_small hlow).
-  rewrite hadd hoff.
-  reflexivity. }
-rewrite hdiv hmod.
+apply: to_nat_inj.
+rewrite [LHS](to_nat_mod (grpof pg gr) csize).
+rewrite hg hsplit.
+rewrite [LHS]modnMDl.
+rewrite [LHS](modn_small hlow).
+rewrite hadd hoff.
 reflexivity.
+Qed.
+
+Lemma pgread src pg gr : (pg <? npagei) -> (gr <? ngroupi) -> pgfits pg ->
+  gget src (grpof pg gr)
+  = PArray.get (PArray.get src (pgchk pg)) (Uint63.add (pgoff pg) gr).
+Proof.
+move=> hpg hgr hfit; have [hdiv hmod] := pgidx hpg hgr hfit.
+by rewrite /gget cshftE cmskwE hdiv hmod.
+Qed.
+
+Lemma pgwrite d pg gr v : (pg <? npagei) -> (gr <? ngroupi) -> pgfits pg ->
+  gor d (grpof pg gr) v
+  = PArray.set d (pgchk pg)
+      (PArray.set (PArray.get d (pgchk pg)) (Uint63.add (pgoff pg) gr)
+         (Uint63.lor
+            (PArray.get (PArray.get d (pgchk pg)) (Uint63.add (pgoff pg) gr))
+            v)).
+Proof.
+move=> hpg hgr hfit; have [hdiv hmod] := pgidx hpg hgr hfit.
+by rewrite /gor /gset /gget !cshftE !cmskwE hdiv hmod.
 Qed.
 
 (* ---- one move over the whole map, the base fixed for the move ------------ *)
