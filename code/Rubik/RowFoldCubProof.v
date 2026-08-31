@@ -42,7 +42,7 @@ Require Import RowUp8inv RowUp8ok RowUp4inv RowUp4ok RowPar8 RowPar4.
 Require Import RowWits RowWitsChk RowInH.
 Require Import P1Table.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
-Require Import Lehmer RowCub RowCubi RowCubInst RowReal FsmChk.
+Require Import Lehmer RowCub RowCubi RowCubInst RowReal RowMembi FsmChk.
 Require Import Fold FoldTables P1Fdec P1FTable RowMask.
 Require Import RowFold RowFoldOk RowFoldMem RowFoldPart RowTabF RowFoldTab.
 Require Import RowFoldSym RowFoldConj RowFoldGath RowFoldSrc RowFoldLvl.
@@ -66,23 +66,52 @@ Import GroupScope.
 (* the left side and loads no proof to do it; RowFoldCubDone puts the two     *)
 (* together and is four lines.                                                *)
 (*                                                                            *)
-(* rowfull is mfullf of RowFoldCubDef's map, and yfcwitsoi is mfullf of       *)
-(* RowFoldCubReal's.  The two are the same term -- unfold yfcwitso, yfcmfino  *)
-(* and fmfino and the applications meet -- so the kernel matches them without *)
-(* taking a step of the search.  If that ever costs more than a moment it is  *)
-(* a delta that no longer lines up; stop and read the two terms.              *)
-Definition yfcwitsoi : rmap :=
+(* rowfull is mfullf of RowFoldCubDef's map and the theorem asks it of        *)
+(* RowFoldCubReal's.  They are the same map, but every name on the way down   *)
+(* differs -- ytomembd against ytomemb tomembi, okmvvd against okmvv,         *)
+(* ycsolvedd against ycsolved, srchd against srch -- because the run file     *)
+(* loads no proof and so cannot use those constants.                          *)
+(*                                                                            *)
+(* SO THE UNFOLDING IS WRITTEN OUT, ON BOTH SIDES.  Left to itself,           *)
+(* unification does not fail when a name will not match: it reduces, and      *)
+(* reducing this is the run again, in the kernel, which is far slower than    *)
+(* native.  One side alone is not enough -- unfolding ycsolvedd leaves a      *)
+(* lambda against ycsolved, which is still a constant.                        *)
+(* ---- the four names the run file had to copy ----------------------------- *)
+
+(* RowFoldCubDef loads no proof, so it cannot say ytomemb, okmvv, ycsolved    *)
+(* or srch; it writes the same four bodies under its own names.  Each pair is *)
+(* equal by unfolding a two line function, which costs nothing.  Rewriting    *)
+(* these four makes the two maps the SAME TERM, so nothing is left for        *)
+(* unification to search for.                                                 *)
+Lemma ytomembdE : ytomembd = ytomemb tomembi.  Proof. by []. Qed.
+Lemma okmvvdE   : okmvvd = okmvv.              Proof. by []. Qed.
+Lemma ycsolveddE : ycsolvedd = ycsolved1.      Proof. by []. Qed.
+Lemma srchdE    : srchd = srch.                Proof. by []. Qed.
+
+(* ---- and they are the same map ------------------------------------------- *)
+
+(* Said outright, so that the only thing conversion has to do is compare      *)
+(* frunsk's arguments one by one.  It never looks inside the fixpoint: the    *)
+(* head is the same constant on both sides.                                   *)
+Lemma ycwitsoE : ycwitso =
   yfcwitso p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
            forbi fpopi ishmi.
+Proof.
+rewrite /ycwitso /rowmap ytomembdE okmvvdE ycsolveddE srchdE.
+by rewrite /yfcwitso /yfcmfino /fmfino.
+Qed.
 
 (* ---- what the run buys --------------------------------------------------- *)
 
 Theorem row_of_run : rowfull = true ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
 Proof.
-move=> hr.
-have hf : mfullf yfcwitsoi by exact: hr.
-exact: (real_superflip_row_foldo p1ftab frepi fsymi twsymi
+rewrite /rowfull ycwitsoE => hf.
+(* THE @ FORM.  Bare, apply: shelves the eleven tables as evars and the       *)
+(* kernel redoes at Qed whatever the unifier guessed for them; with every     *)
+(* argument named there is nothing to guess and Qed is immediate.             *)
+exact: (@real_superflip_row_foldo p1ftab frepi fsymi twsymi
           dnlo_data dnhi_data fllo_data flhi_data fsmoveCP
           forbi fpopi ishmi hf).
 Qed.
@@ -94,7 +123,10 @@ move=> hr m hm.
 have hV : superflip^-1 = superflip.
   by apply: (mulgI superflip); rewrite mulgV; move: superflip2;
      rewrite expgS expg1.
-by rewrite -hV; exact: row_of_run hr hm.
+rewrite -{1}hV.
+apply: row_of_run.
+exact: hr.
+exact: hm.
 Qed.
 
 (* IT MUST NAME NOTHING BUT THE int63 AND PArray PRIMITIVES                   *)
