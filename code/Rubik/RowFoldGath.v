@@ -1,13 +1,10 @@
 (* =========================================================================  *)
-(*  RowFoldGath.v -- the gather: a renaming and then a move.                  *)
+(*  RowFoldGath.v -- a symmetry, and then a move.                             *)
 (* =========================================================================  *)
 
-(* RowFoldConj.v says what a RENAMING does to a member, which is what the map *)
-(* needs to be read at all.  The level needs one thing more: what a renaming  *)
-(* AND THEN A MOVE do, because that is what one gather is.                    *)
-(*                                                                            *)
-(* It is kept apart from RowFoldConj because that file's sweeps are eighty    *)
-(* seconds and are finished; nothing here should have to wait for them twice. *)
+(* RowFoldConj says what a symmetry does to a member.  The level needs what a *)
+(* symmetry and then a move do together, which is what one read of the folded *)
+(* map is.                                                                    *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.

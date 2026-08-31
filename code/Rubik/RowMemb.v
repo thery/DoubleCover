@@ -2,20 +2,15 @@
 (*  RowMemb.v -- the cube a member names, and the member a cube gives.        *)
 (* =========================================================================  *)
 
-(* THIS IS THE ONE PLACE WHERE THREE RANKS MEET FORTY EIGHT FACELETS, and     *)
-(* neither half of it is new: the corners are Phase1's -- ctrip is the eight  *)
-(* as facelet triples, cpos and cslot say which corner a facelet belongs to   *)
-(* and how far round -- and the edges are Coordfs's, eprim and esec, in the   *)
-(* order the prototype uses, so the outer eight are the first eight and the   *)
-(* middle four the last.                                                      *)
+(* Where three ranks meet forty eight facelets.  The corners are Phase1's,    *)
+(* ctrip, cpos and cslot; the edges are Coordfs's, eprim and esec, in the     *)
+(* prototype's order, so the outer eight come first and the middle four last. *)
 (*                                                                            *)
-(* WHAT IS BUILT IS THE INVERSE, because that is the direction that needs no  *)
-(* search: at the facelet of slot p, the position's inverse gives the home    *)
-(* facelet of whatever cubie sits at p, and the tables say which cubie that   *)
-(* is.  The member's own table is that inverted, which Table.inv_tab does.    *)
-(*                                                                            *)
-(* Nothing here is turned or flipped: a member of H is three permutations and *)
-(* nothing else, which is exactly why three ranks are enough.                 *)
+(* What is built is the inverse, the direction that needs no search: at the   *)
+(* facelet of slot p, the position's inverse gives the home facelet of        *)
+(* whatever cubie sits at p.  The member's own table is that inverted.        *)
+(* Nothing here is turned or flipped: a member of H is three permutations,    *)
+(* which is why three ranks are enough.                                       *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
@@ -87,18 +82,15 @@ Definition restr (S : nat -> bool) (t : seq nat) : seq nat :=
 
 (* ---- a layout, and the one thing all three parts are --------------------- *)
 
-(* THE THREE PARTS ARE THE SAME CONSTRUCTION THREE TIMES, and saying so once  *)
-(* is what makes the checks small.  A LAYOUT is a set of facelets listed      *)
-(* place by place, so many facelets at each place: the corners are eight      *)
-(* places of three, the outer eight and the middle four are places of two,    *)
-(* the primary facelet and the other one.  A rank names a permutation of the  *)
-(* PLACES, and the part it gives moves each facelet to the same slot of the   *)
-(* place the permutation names.                                               *)
+(* The three parts are the same construction three times.  A layout is a set  *)
+(* of facelets listed place by place: the corners are eight places of three,  *)
+(* the outer eight and the middle four are places of two.  A rank names a     *)
+(* permutation of the places, and the part it gives moves each facelet to     *)
+(* the same slot of the place the permutation names.                          *)
 (*                                                                            *)
-(* Everything a walk had to say about the forty eight facelets is then said   *)
-(* about eight numbers instead, which is the whole of the saving: a part is a *)
-(* permutation exactly when the rank names one, and a move carries a part     *)
-(* exactly when it carries the places.                                        *)
+(* So what a walk had to say about forty eight facelets is said about eight   *)
+(* numbers: a part is a permutation exactly when the rank names one, and a    *)
+(* move carries a part exactly when it carries the places.                    *)
 
 Section Lay.
 
@@ -281,25 +273,17 @@ End Lay.
 
 (* ---- the cube a member names --------------------------------------------- *)
 
-(* THE THREE ACT ON DISJOINT FACELETS, so the cube a member names is their    *)
-(* composition, and each depends on ONE rank: the corners on the corner rank, *)
-(* the outer eight on the outer rank, the middle four on the middle one.      *)
-(* That is what makes every one of them a walk Rocq can check -- 40320, 40320 *)
-(* and 24 -- where the three together are nineteen billion.                   *)
-(*                                                                            *)
-(* Each is the identity away from its own facelets, which is what lets them   *)
-(* be composed at all.                                                        *)
+(* The three act on disjoint facelets, so the cube a member names is their    *)
+(* composition, and each depends on one rank.  That is what makes each a      *)
+(* walk Rocq can check -- 40320, 40320 and 24 -- where the three together     *)
+(* are nineteen billion.  Each is the identity away from its own facelets.    *)
 
-(* THE TWO SIDES NUMBER THE CORNERS DIFFERENTLY, and nothing else does.  The  *)
-(* prototype takes them URF UFL ULB UBR DFR DLF DBL DRB; cflat takes them in  *)
-(* the order its facelets come, which reads ULB UBR UFL URF DLF DFR DBL DRB.  *)
-(* A rank the prototype wrote names a permutation of ITS eight, so it has to  *)
-(* be read in its order.  The edges need nothing of the kind: eprim and esec  *)
-(* are already UR UF UL UB DR DF DL DB FR FL BL BR.                           *)
-(*                                                                            *)
-(* This is the prototype's order written in our own numbers, and it is not a  *)
-(* choice: cordok below turns each face and reads the corner every place      *)
-(* receives, and only this order gives the prototype's own numbers.           *)
+(* The two sides number the corners differently, and nothing else.  The       *)
+(* prototype takes URF UFL ULB UBR DFR DLF DBL DRB; cflat takes them in the   *)
+(* order its facelets come, ULB UBR UFL URF DLF DFR DBL DRB.  A rank the      *)
+(* prototype wrote names a permutation of its eight, so it is read in its     *)
+(* order.  The edges need none of this.  cordok below checks the order by     *)
+(* turning each face and reading the corner every place receives.             *)
 Definition cordn : seq nat := [:: 3; 2; 0; 1; 5; 4; 6; 7]%N.
 
 (* the twenty four facelets again, the corners in the prototype's order       *)
@@ -312,13 +296,12 @@ Definition cprimp : seq nat := [seq nth 0%N cflatp (3 * p)%N | p <- iota 0 8].
 
 (* ---- the facelet is looked up, not searched for -------------------------- *)
 
-(* EVERY ONE OF THESE IS A FUNCTION OF THE FACELET ALONE, and every one of    *)
-(* them used to be a scan: which place a facelet belongs to, how far round    *)
-(* it sits, and whether it is a corner, an outer edge or a middle one.  A     *)
-(* part asks all of them at each of forty eight facelets and a walk builds a  *)
-(* part at each of forty thousand ranks, so the scans were the whole cost --  *)
-(* measured, the membership alone was seven eighths of it.  Read once into    *)
-(* tables of forty eight, they are a lookup.                                  *)
+(* Each of these is a function of the facelet alone, and each used to be a    *)
+(* scan: which place a facelet belongs to, how far round it sits, and         *)
+(* whether it is a corner, an outer edge or a middle one.  A part asks all    *)
+(* of them at forty eight facelets and a walk builds a part at forty          *)
+(* thousand ranks, so the scans were the whole cost.  Read once into tables   *)
+(* of forty eight, they are a lookup.                                         *)
 
 Definition eouts : seq nat := take 8 eprim ++ take 8 esec.
 Definition emids : seq nat := drop 8 eprim ++ drop 8 esec.

@@ -1,13 +1,10 @@
 (* =========================================================================  *)
-(*  RowFoldFinal.v -- the map the folded run leaves, and what it is worth.    *)
+(*  RowFoldFinal.v -- the map the folded run leaves.                          *)
 (* =========================================================================  *)
 
-(* RowCubInst builds ymfin, the map the PLAIN run leaves, and proves it sound *)
-(* at the depth it was run to.  This does the same for the folded run.  Every *)
-(* hypothesis of RowFoldRun that is about the FOLD is discharged here from    *)
-(* the files that prove it -- PorbC, QloC, QhiC -- and what is left as a      *)
-(* hypothesis is only what is about the CUBE, which is what RowCubInst        *)
-(* already proves and hands over unchanged.                                   *)
+(* fmfin and fmfino, unoptimized and optimized, with their soundness.  What   *)
+(* is about the fold is discharged here; what is about the cube stays a       *)
+(* hypothesis, and RowCubInst supplies it.                                    *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.

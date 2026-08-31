@@ -231,12 +231,10 @@ Qed.
 
 (* ---- 4bis. actf, the same function with no nat inside the loop ------------*)
 
-(* actd is correct but slow: per bit it walks a 12 element nat list for src,  *)
-(* a 24 element bool list for xbit, and setbit does an of_nat.  Measured at   *)
-(* 79 us per check, which is 6.6 h over the 16 777 216 states.  actf keeps the*)
-(* twelve sources in an int array and the twelve xbits in one int, and indexes*)
-(* the loop by an int, so nothing in the inner loop is a nat.  Measured at    *)
-(* 8.1 us per check, which is 41 min.                                         *)
+(* actd is correct but slow: per bit it walks a twelve element nat list for   *)
+(* src, a twenty four element bool list for xbit, and setbit runs of_nat.     *)
+(* actf keeps the sources in an int array and the xbits in one int, and       *)
+(* indexes the loop by an int, so nothing in the inner loop is a nat.         *)
 
 Definition mdatf := (arr * int)%type.
 
@@ -399,12 +397,10 @@ rewrite (of_nat_subE jn hjw) (hget _ hjs) (of_nat_addE hb).
 by rewrite /nbit addnC.
 Qed.
 
-(* (d) reading back a literal built by mkarrn.  epairi and eprimi dodged this *)
-(* by being closed terms, so 48 vm_computes did it; mk_srci mt depends on mt, *)
-(* so the fold has to be reasoned about for real.                             *)
-(* the fold mkarrn is, named so it can be reasoned about.  Convertible with   *)
-(* mkarrn's body, hence mkarrnE by [].  Note PArray's axioms need their type  *)
-(* given explicitly -- rewrite cannot unify the universe, exact can.          *)
+(* (d) reading back a literal built by mkarrn.  epairi and eprimi are closed  *)
+(* terms, so vm_compute settles them; mk_srci mt depends on mt, so the fold   *)
+(* has to be reasoned about.  It is named below for that.  PArray's axioms    *)
+(* need their type given explicitly: rewrite cannot unify the universe.       *)
 Fixpoint setl (a : arr) (i : int) (l : seq int) : arr :=
   if l is x :: l' then setl (PArray.set a i x) (i + 1)%uint63 l' else a.
 
@@ -546,14 +542,10 @@ Definition check0 : bool := (Dfsi (coordt (id_tab 47)) =? 0)%uint63.
 
 (* Entries are at most 15, so the successor cannot wrap and the nat           *)
 (* inequality can be checked on int.                                          *)
-(* mdata IS HOISTED, AND THAT IS NOT COSMETIC.  Inside the lambda it is       *)
-(* recomputed for every x -- call by value again -- and mdata is eighteen     *)
-(* mdat_of_tab, each inverting a 48 entry nat list with index and then        *)
-(* scanning a 24 entry list per edge.  Measured: 26 ms per check with it      *)
-(* inside, 79 us with it hoisted, over 16 777 216 states times eighteen       *)
-(* moves.  That is 90 days against 6.6 hours, for one let.                    *)
-(* actd is replaced by actf here, and mdata by mdataf: same booleans by       *)
-(* actfE, ten times faster.  See 4bis.                                        *)
+(* mdata is lifted out of the lambda, or it is rebuilt for every state: it    *)
+(* is eighteen mdat_of_tab, each inverting a forty eight entry nat list and   *)
+(* scanning a twenty four entry list per edge.  actd is replaced by actf      *)
+(* here and mdata by mdataf: the same booleans by actfE, and faster.          *)
 
 (* THE PREDICATE IS NAMED, AND THAT IS NOT COSMETIC EITHER.  With the let     *)
 (* written inline under all_pow, splitting the loop for several cores needs   *)

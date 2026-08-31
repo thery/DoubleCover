@@ -63,11 +63,9 @@ Lemma rot3_relabel :
 Proof. by vm_compute. Qed.
 
 (* so each view sends a move to a move -- Far.v's view_move, for these views  *)
-(* HOISTED, and it matters: several proofs below carry fsmoveC, fsrC, slrC    *)
-(* or ts_checkStep in their context, and a trailing `done' there tries        *)
-(* `assumption' against one of them and unfolds an all_pow at ncoord = 24.    *)
-(* Proving this once, where no certificate is in scope, keeps every use of it *)
-(* out of that trap.  Farp1main.v had its own copy for the same reason.       *)
+(* Proved here, where no certificate is in scope: with one in the context a   *)
+(* trailing `done' tries assumption against it and unfolds an all_pow at      *)
+(* ncoord = 24.                                                               *)
 Lemma mem_iota0 n k : (k < n)%N -> k \in iota 0 n.
 Proof. by move=> kL; rewrite mem_iota add0n leq0n kL. Qed.
 
@@ -126,11 +124,9 @@ Proof. by rewrite /conj3 /conji; congr (comp_tabi _ _ (comp_tabi _ _ _)). Qed.
 (* for the cube and one for each of its two conj3 conjugates.  A move steps   *)
 (* each pair by a table read, as rubik_par does, and never recomputes it.     *)
 
-(* CHUNKED, and it has to be: 1 013 760 x 18 values at three to a word is     *)
-(* 6 082 560 words, 1.45x PArray.max_length = 4 194 303.  PArray.make caps    *)
-(* silently there and every read past it returns the default 0 -- which is    *)
-(* what made the whole flip x slice half of the search read as zero.  Same    *)
-(* split as p1get, on the word index at a power of two.                       *)
+(* Chunked: 1 013 760 x 18 values at three to a word is 6 082 560 words,      *)
+(* past PArray.max_length.  make caps there silently and every read past the  *)
+(* cap returns the default.  Split on the word index, as p1get does.          *)
 Definition fcwlog := 21.
 
 (* the chunks are PRIMITIVE ARRAY LITERALS, so this is three pointers and     *)
@@ -144,10 +140,8 @@ Definition fsmtabs : PArray.array arr :=
 
 (* three values to a word, twenty bits each; the word index splits into a     *)
 (* chunk and an offset exactly as p1get's does                                *)
-(* THE SHIFT AS A LITERAL, for the reason cwlogi records in Phase1: of_nat    *)
-(* on a nat is 1.53 us, the array read it indexes is 0.04, and actfsr did it  *)
-(* twice.  MEASURED: actfsr 4.60 us -> 0.12 us with the two shifts and the    *)
-(* move index as int63.                                                       *)
+(* The shifts and the move index are int63 literals, so actfsr does not run   *)
+(* of_nat twice on every read.  See cwlogi in Phase1.                         *)
 Definition fcwlogi : int := 21%uint63.     (* = of_nat fcwlog, see fcwlogiE   *)
 
 Lemma fcwlogiE : of_nat fcwlog = fcwlogi.
@@ -279,11 +273,9 @@ Qed.
 
 (* ---- 4. What has to be proved -------------------------------------------- *)
 
-(* the rebuilt heuristic: the same nine lookups, but recomputing the three    *)
-(* views from the array rather than carrying them.  Far.v's Dsymd, one        *)
-(* quotient up.                                                               *)
-(* init3 IS the rebuild, so Dsym3 is it -- no second computational form and   *)
-(* no DsymdE-style bridge to prove, which is where Far.v had to work.         *)
+(* The same nine lookups, recomputing the three views from the array rather   *)
+(* than carrying them.  init3 is the rebuild, so there is no second           *)
+(* computational form and no bridge to prove.                                 *)
 Definition Dsym3 (T : PArray.array arr) (a : arr) : nat := h3 T (init3 a).
 
 (* NOT `by []': done searches for a proof, unfolds h3, and goes off           *)
@@ -291,23 +283,18 @@ Definition Dsym3 (T : PArray.array arr) (a : arr) : nat := h3 T (init3 a).
 Lemma h3_init T a : h3 T (init3 a) = Dsym3 T a.
 Proof. by rewrite /Dsym3. Qed.
 
-(* the twist invariant at the array level.  Stated through pt for now; the    *)
-(* computable form (cubcPt and twsumt at the table level, mirroring cubt) is  *)
-(* what a root will need to discharge it by vm_compute.                       *)
-(* AND THE FLIP PARITY, carried in the same boolean.  It is not a consequence *)
-(* of cubti: a single flipped edge is a rigid cubie permutation and fails it. *)
-(* It is the edge analogue of twsum g = 0, and it rides along twPti for free, *)
-(* since twP3 is threaded through the whole development already.              *)
+(* The twist invariant at the array level, and the flip parity in the same    *)
+(* boolean.  The parity is not a consequence of cubti -- a single flipped     *)
+(* edge is a rigid cubie permutation and fails it -- but is the edge          *)
+(* analogue of twsum g = 0.                                                   *)
 Definition twPti (a : arr) : bool :=
   twP (pt 47 (ti2t 47 a)) && ~~ fpar (coordi a).
 
-(* AT ALL THREE VIEWS. acttwi_step needs the invariant at the conjugate, and  *)
-(* deriving it -- twsum (g ^ u) = twsum g -- is a real theorem about the      *)
-(* total twist under conjugation. It does not have to be derived: twPti is a  *)
-(* BOOLEAN, so the three views are checked at the ROOT and propagated by      *)
-(* twP3_step. The rotation does preserve the corner 3-cycle, which is the     *)
-(* cubcP half and is a table check (ccyct_rot3), but the twsum half is not    *)
-(* needed at all this way.                                                    *)
+(* At all three views.  acttwi_step needs the invariant at the conjugate,     *)
+(* and twPti is a boolean, so the three views are checked at the root and     *)
+(* propagated by twP3_step rather than deriving twsum (g ^ u) = twsum g.      *)
+(* The rotation preserves the corner 3-cycle, which is the cubcP half and a   *)
+(* table check, ccyct_rot3.                                                   *)
 Definition twP3 (a : arr) : bool :=
   [&& twPti a, twPti (conj3 a) & twPti (conj3 (conj3 a))].
 
@@ -340,16 +327,15 @@ rewrite (ctwistiE cok) -(ctwisttE cok).
 by rewrite (ti2t_comp n47_small n47_len bok mtok) -(ptM bok mtok) hmt.
 Qed.
 
-(* THE FLIP x SLICE HALF IS NOT A THEOREM -- it is a certificate.  actfsr     *)
-(* reads the EMITTED fsmove table, so "stepping the rank steps the            *)
-(* coordinate" is a statement about emitted numbers and can only be           *)
-(* discharged by computing.  It is the honest place for it: once here, not    *)
-(* once per phase 1 state.                                                    *)
+(* The flip and slice half is a certificate, not a theorem: actfsr reads the  *)
+(* emitted fsmove table, so stepping the rank steps the coordinate is a       *)
+(* statement about emitted numbers and is discharged by computing, once       *)
+(* here rather than once per phase 1 state.                                   *)
 (*                                                                            *)
-(* It runs over packed values, not over ranks: over ranks the instance        *)
-(* all_powP returns would sit at unranki (fsidx x) rather than at x, and      *)
-(* closing that gap needs fsidx injective on the summaries, which Coordfs     *)
-(* does not give.  The guard leaves only the 6 % that are summaries.          *)
+(* It runs over packed values, not ranks: over ranks the instance all_powP    *)
+(* returns sits at unranki (fsidx x) rather than at x, and closing that gap   *)
+(* needs fsidx injective on the summaries.  The guard leaves the 6 % that     *)
+(* are summaries.                                                             *)
 Definition fsmstepF (x : int) : bool :=
   let md := p1mdata in
   if ~~ fsok x then true
@@ -392,13 +378,11 @@ rewrite size_map size_iota => /(_ k kL).
 by rewrite (nth_map_iota _ _ kL) => /eqP.
 Qed.
 
-(* and the array level: the certificate at x = coordi a, with the two side    *)
+(* And at the array level: the certificate at x = coordi a, with the side     *)
 (* conditions discharged where they belong -- the packed bound from Coordfs,  *)
-(* the fsok guard from sok_coordfs and the carried parity.                    *)
-(* fsmoveC LAST, deliberately.  Every `by' below ends in `done', and `done'   *)
-(* tries `assumption' against each hypothesis; against fsmoveC that unfolds   *)
-(* an all_pow at ncoord = 24 and does not return.  Introduced last, it is not *)
-(* in the context while any of them runs.                                     *)
+(* the fsok guard from sok_coordfs and the carried parity.  fsmoveC is        *)
+(* introduced last: `done' tries assumption against it and unfolds an         *)
+(* all_pow at ncoord = 24.                                                    *)
 Lemma actfsr_step a k : tabi_ok 47 a -> cubti a -> twPti a -> (k < 18)%N ->
   fsmoveC ->
   actfsr (fsidx (coordi a)) k
@@ -438,14 +422,9 @@ Lemma ctwisti_ti2t X Y : tabi_ok 47 X -> tabi_ok 47 Y ->
   ti2t 47 X = ti2t 47 Y -> ctwisti X = ctwisti Y.
 Proof. by move=> Xok Yok h; rewrite (ctwistiE Xok) (ctwistiE Yok) h. Qed.
 
-(* THE INVARIANT: stepping the three carried pairs agrees with rebuilding     *)
-(* them after the move. The flip x slice half is Far.v's coordi_step -- the   *)
-(* views are usable there because sigma_rot3a says Far's sigma IS mv3a --     *)
-(* plus the fsmove certificate; the twist half is acttwi_step.                *)
-(* the three views of a moved table are the moved three views, with the move  *)
-(* relabelled -- Far.v's ti2t_step at s = rot3t, which applies because        *)
-(* rot3_move gives its side condition and sigma_rot3a says Far's sigma is     *)
-(* mv3a.                                                                      *)
+(* The invariant: stepping the three carried pairs agrees with rebuilding     *)
+(* them after the move.  The flip and slice half is Far.coordi_step plus the  *)
+(* fsmove certificate; the twist half is acttwi_step.                         *)
 Lemma conj3_step a k : tabi_ok 47 a -> (k < 18)%N ->
   ti2t 47 (conj3 (comp_tabi 47 a (nth (id_tabi 47) mtis k)))
   = ti2t 47 (comp_tabi 47 (conj3 a)
@@ -674,16 +653,14 @@ Qed.
 
 (* -- CERTIFICATE 2: the flip x slice distances, by rank -------------------- *)
 
-(* Dfsri reads the emitted P1Fs table by RANK, as rubik_par's pfs is read.    *)
-(* Far.v's Dfsd reads fstab by PACKED value and has Dfsd_0 and Dfsd_step      *)
-(* already proved, so all that is missing is that the two agree.  Over        *)
-(* PACKED values, for the same reason fsmoveC is: at x rather than at         *)
-(* unranki (fsidx x), so no injectivity of fsidx is needed.                   *)
-(* `if', NOT `||'.  orb is a function call, and native compiles it to OCaml,  *)
-(* which is strict -- so `~~ fsok x || A' evaluates A for every one of the    *)
-(* 2 ^ 24 values rather than the 1 013 760 the guard admits.  MEASURED: with  *)
-(* `||' SlrChk's Qed took 719.7 s against FsmChk's ~80 s, and FsmChk is the   *)
-(* one already written with `if'.                                             *)
+(* Dfsri reads the emitted P1Fs table by rank, as rubik_par's pfs is read.    *)
+(* Far.Dfsd reads fstab by packed value and has Dfsd_0 and Dfsd_step, so      *)
+(* what is missing is that the two agree -- over packed values, so that no    *)
+(* injectivity of fsidx is needed.                                            *)
+(*                                                                            *)
+(* `if', not `||': orb is a function call and native compiles it strictly,    *)
+(* so `~~ fsok x || A' would evaluate A at every one of the 2 ^ 24 values     *)
+(* rather than the 1 013 760 the guard admits.                                *)
 Definition fsrstepF (x : int) : bool :=
   if ~~ fsok x then true else (Dfsri (fsidx x) =? Dfsi fstab x)%uint63.
 

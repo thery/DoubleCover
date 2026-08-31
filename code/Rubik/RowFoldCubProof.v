@@ -1,31 +1,10 @@
 (* =========================================================================  *)
-(*  RowFoldCubProof.v -- the row on the folded map, asked.                    *)
+(*  RowFoldCubProof.v -- what the run's answer buys.                          *)
 (* =========================================================================  *)
 
-(* RowFoldCubReal leaves exactly one thing open -- that the folded map twenty *)
-(* levels leave, WITH THE THIRTY TWO WITNESSES MARKED INTO IT, has no bit of  *)
-(* the row clear -- and this is that question, asked.  It must print true,    *)
-(* and then real_superflip_row_fold is no longer conditional.                 *)
-(*                                                                            *)
-(* IT IS THE FOLDED MAP, 0.45 GB where the plain one is 6.5, and there is no  *)
-(* second map for the witnesses: they are marked in, so mfullf reads ONE map  *)
-(* where the plain mfull2 reads two.                                          *)
-(*                                                                            *)
-(* MEASURED, on roquableu, at depth THIRTEEN and not at twenty: the plain row *)
-(* is 2 904.8 s and the folded one 751.3 s.  What twenty costs has not been   *)
-(* measured and is not scaled here.                                           *)
-(*                                                                            *)
-(* THIS FILE CANNOT BE BUILT WHERE P1Fdec IS MISSING.  P1Fdec.v is generated  *)
-(* by p1gen and is not tracked, so the folded phase one table is only there   *)
-(* on the machine that made it.  Everything this file rests on IS built       *)
-(* everywhere: RowFoldCubReal proves the theorem for ANY folded table, since  *)
-(* no proof reads it -- the distance and the mask are numbers the search      *)
-(* tests, and a table that prunes too little only makes the search bigger.    *)
-(*                                                                            *)
-(* THE RUN IS NOT HERE.  `./mkrowfold.sh bool' runs it, in a process that     *)
-(* loads only what the run reads; this file then loads the proof side and     *)
-(* takes the answer without computing.  `./mkrowfold.sh cubfoot' measures     *)
-(* what this file costs before it does anything at all.                       *)
+(* rowfull = true -> the row of the superflip is within twenty.  Nothing is   *)
+(* computed here; RowFoldCubBool settles the boolean and RowFoldCubDone puts  *)
+(* the two together.  See doc/rowfold-bridge.md.                              *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
@@ -42,7 +21,7 @@ Require Import RowUp8inv RowUp8ok RowUp4inv RowUp4ok RowPar8 RowPar4.
 Require Import RowWits RowWitsChk RowInH.
 Require Import P1Table.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
-Require Import Lehmer RowCub RowCubi RowCubInst RowReal FsmChk.
+Require Import Lehmer RowCub RowCubi RowCubInst RowReal RowMembi FsmChk.
 Require Import Fold FoldTables P1Fdec P1FTable RowMask.
 Require Import RowFold RowFoldOk RowFoldMem RowFoldPart RowTabF RowFoldTab.
 Require Import RowFoldSym RowFoldConj RowFoldGath RowFoldSrc RowFoldLvl.
@@ -59,30 +38,32 @@ Notation rmap := (PArray.array arr).
 
 Import GroupScope.
 
-(* ---- the run is not in this process, and not in this file ---------------- *)
+(* ---- the four names the run file had to copy ----------------------------- *)
 
-(* THIS FILE NEVER RUNS ANYTHING.  It says what the run's answer buys, as an  *)
-(* implication: `rowfull = true ->' and then the row.  RowFoldCubBool settles *)
-(* the left side and loads no proof to do it; RowFoldCubDone puts the two     *)
-(* together and is four lines.                                                *)
-(*                                                                            *)
-(* rowfull is mfullf of RowFoldCubDef's map, and yfcwitsoi is mfullf of       *)
-(* RowFoldCubReal's.  The two are the same term -- unfold yfcwitso, yfcmfino  *)
-(* and fmfino and the applications meet -- so the kernel matches them without *)
-(* taking a step of the search.  If that ever costs more than a moment it is  *)
-(* a delta that no longer lines up; stop and read the two terms.              *)
-Definition yfcwitsoi : rmap :=
+(* RowFoldCubDef loads no proof, so it copies these four bodies under its own *)
+(* names.  Each pair is equal by unfolding a short function.                  *)
+Lemma ytomembdE : ytomembd = ytomemb tomembi.  Proof. by []. Qed.
+Lemma okmvvdE   : okmvvd = okmvv.              Proof. by []. Qed.
+Lemma ycsolveddE : ycsolvedd = ycsolved.       Proof. by []. Qed.
+Lemma srchdE    : srchd = srch.                Proof. by []. Qed.
+
+(* ---- and they are the same map ------------------------------------------- *)
+
+Lemma ycwitsoE : ycwitso =
   yfcwitso p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
            forbi fpopi ishmi.
+Proof.
+rewrite /ycwitso /rowmap ytomembdE okmvvdE ycsolveddE srchdE.
+by rewrite /yfcwitso /yfcmfino /fmfino.
+Qed.
 
 (* ---- what the run buys --------------------------------------------------- *)
 
 Theorem row_of_run : rowfull = true ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
 Proof.
-move=> hr.
-have hf : mfullf yfcwitsoi by exact: hr.
-exact: (real_superflip_row_foldo p1ftab frepi fsymi twsymi
+rewrite /rowfull ycwitsoE => hf.
+exact: (@real_superflip_row_foldo p1ftab frepi fsymi twsymi
           dnlo_data dnhi_data fllo_data flhi_data fsmoveCP
           forbi fpopi ishmi hf).
 Qed.
@@ -94,8 +75,11 @@ move=> hr m hm.
 have hV : superflip^-1 = superflip.
   by apply: (mulgI superflip); rewrite mulgV; move: superflip2;
      rewrite expgS expg1.
-by rewrite -hV; exact: row_of_run hr hm.
+rewrite -{1}hV.
+apply: row_of_run.
+exact: hr.
+exact: hm.
 Qed.
 
-(* IT MUST NAME NOTHING BUT THE int63 AND PArray PRIMITIVES                   *)
+(* it must name nothing but the int63 and PArray primitives *)
 Print Assumptions row_of_run_superflip.

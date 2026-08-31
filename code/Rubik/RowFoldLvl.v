@@ -1,24 +1,10 @@
 (* =========================================================================  *)
-(*  RowFoldLvl.v -- the folded level keeps a map sound.                       *)
+(*  RowFoldLvl.v -- one folded level keeps a map sound.                       *)
 (* =========================================================================  *)
 
-(* RowRun.prepass_sound says a bit the plain level writes is a member one     *)
-(* move of H further out than a bit the source had.  This is the same for the *)
-(* folded level, with two differences.                                        *)
-(*                                                                            *)
-(* IT FILLS A PAGE ARRAY, NOT THE MAP.  Every write of a kept page is made    *)
-(* into one array and the chunk is put back once at the end.  RowFoldOk's     *)
-(* ffor_setp turns that array write into the map write it stands for, so the  *)
-(* induction runs with "the map with this chunk put back is sound".           *)
-(*                                                                            *)
-(* AND IT GATHERS THROUGH A RENAMING.  The word it reads is not the one the   *)
-(* plain level would read but its image under one of the sixteen, so what is  *)
-(* owed at each write is a member one move out from a member of the RENAMED   *)
-(* source -- and Sym16Row.sym16_row is what says the renaming costs nothing.  *)
-(*                                                                            *)
-(* The two facts about the gathered word are hypotheses here, in the shape    *)
-(* RowRun.v uses for grpmvP and prep_move: the algorithm is proved and what   *)
-(* the tables mean is left to the instance, which RowFoldSym.v now checks.    *)
+(* A bit the level writes is a member one move of H further out than a bit    *)
+(* the source had.  The level fills one page array and puts the chunk back    *)
+(* once, so the induction reads: the map with this chunk put back is sound.   *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.

@@ -1,7 +1,9 @@
 (* =========================================================================  *)
-(*  Fold.v -- The fold: the folding functions as variables, and the facts     *)
-(*     assumed of them.                                                       *)
+(*  Fold.v -- the folding functions as variables, and what they must satisfy. *)
 (* =========================================================================  *)
+
+(* The fold of phase one: the renaming that folds a coordinate, and the facts *)
+(* a search may use about it.                                                 *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.

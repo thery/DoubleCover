@@ -15,14 +15,12 @@ Local Notation "n '@'" := (inord n : facelet) (at level 2, format "n '@'").
 
 (* ---- 1. The three generating symmetries ---------------------------------- *)
 (*                                                                            *)
-(*  A whole-cube quarter turn is the three parallel layers turning together,  *)
-(*  which is the cubist's  y = U M D'  and  x = R M L' : the near face turns  *)
-(*  on itself, the middle slice follows it, and the far layer turns the same  *)
-(*  way in space, hence the other way as seen on its own face -- whence the   *)
-(*  inverse.  Writing the rotations this way (rather than as their twelve     *)
-(*  4-cycles) is not just shorter: it makes them visibly commute with the     *)
-(*  turns of their own axis, which settles four of the conjugation facts of   *)
-(*  section 3 outright.  Only the middle slices have to be spelt out.         *)
+(*  A whole-cube quarter turn is the three parallel layers turning            *)
+(*  together, the cubist's y = U M D' and x = R M L': the near face turns     *)
+(*  on itself, the middle slice follows, and the far layer turns the same     *)
+(*  way in space and so the other way on its own face, whence the inverse.    *)
+(*  Written this way they visibly commute with the turns of their own axis,   *)
+(*  which settles four of the conjugation facts of section 3 outright.        *)
 
 (*  The middle slice about the U-D axis, turning with U.                      *)
 Definition Midycyc : seq (seq facelet) :=
@@ -75,11 +73,10 @@ Definition Sm : {perm facelet} := \prod_(l <- Smcyc) cyc l.
 (* ---- 2. The three layers of an axis are disjoint --------------------------*)
 (*                                                                            *)
 (*  The near face, the middle slice and the far face of one axis partition    *)
-(*  the 48 facelets.  As in Rubik333.v this is uniqueness of the              *)
-(*  concatenation, proved structurally through uniq_inord -- no permutation   *)
-(*  is evaluated.  Everything about the rotations is read off it: the three   *)
-(*  layers commute, so the rotation has order 4 and fixes the turns of its    *)
-(*  own axis.                                                                 *)
+(*  the 48 facelets.  As in Rubik333 this is uniqueness of the                *)
+(*  concatenation, proved through uniq_inord, with no permutation evaluated.  *)
+(*  The three layers commute, so a rotation has order 4 and fixes the turns   *)
+(*  of its own axis.                                                          *)
 
 Lemma UMDcyc_uniq : uniq (flatten (Ucyc ++ Midycyc ++ Dcyc)).
 Proof.
@@ -181,11 +178,11 @@ Proof. by apply: cyc_prod_expn; [exact: Smcyc_uniq | apply: all_sizeP]. Qed.
 
 (* ---- 3. The moves and the symmetries as tables ----------------------------*)
 (*                                                                            *)
-(*  The facelet type is 'I_48 = 'I_47.+1, so every notion of Table.v is taken *)
-(*  at n = 47.  The cycles are repeated here as lists of nat -- the same data *)
-(*  as Ucyc..Dcyc, on the side where the kernel can compute.  Nothing is      *)
+(*  The facelet type is 'I_48 = 'I_47.+1, so every notion of Table is taken   *)
+(*  at n = 47.  The cycles are repeated here as lists of nat, the same data   *)
+(*  as Ucyc..Dcyc on the side where the kernel can compute.  Nothing is       *)
 (*  trusted about the repetition: were a nat list to disagree with its        *)
-(*  facelet counterpart, the XmoveT lemma below would simply not hold.        *)
+(*  facelet counterpart, XmoveT below would not hold.                         *)
 
 Definition Uncyc : seq (seq nat) :=
   [:: [:: 0; 2; 7; 5]; [:: 1; 4; 6; 3]; [:: 8; 32; 24; 16];

@@ -379,16 +379,11 @@ Proof. by apply: packn_lt. Qed.
 Lemma actfs_lt x m : to_nat (actfs x m) < 2 ^ ncoord.
 Proof. by apply: packn_lt. Qed.
 
-(* THE EQUIVARIANCE.  Both halves reduce to one bit, and one bit to the two   *)
+(* The equivariance.  Both halves reduce to one bit, and one bit to the two   *)
 (* cases of edge_case: m^-1 (eprimf p) is eprimf q, and then pcol of it is    *)
 (* true so xbit is false and the bit is copied; or it is epair (eprimf q),    *)
 (* and then pcol_epair complements the flip bit while scol_epair leaves the   *)
 (* slice bit alone.  cubP g is what lets g^-1 be pushed through epair.        *)
-(* the two halves, where the content is.  Each is one application of          *)
-(* edge_case: m^-1 (eprimf j) is eprimf q, and then pcol of it is true so     *)
-(* xbit is false and the bit is copied; or it is epair (eprimf q), and then   *)
-(* pcol_epair complements the flip bit while scol_epair leaves the slice bit  *)
-(* alone.  cubP g is what lets g^-1 be pushed through epair.                  *)
 
 Lemma ncoord_dig : ncoord <= ndigits.
 Proof. by vm_compute. Qed.

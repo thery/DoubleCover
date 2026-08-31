@@ -116,8 +116,8 @@ build () {     # build <base>
            RowMembChk RowFoldWrite RowFoldPorb RowMask RowFoldSrch \
            RowFoldRun RowFoldFinal RowInH RowPar4 RowPar8 RowUp4inv \
            RowUp8inv RowWits RowWitsChk RowReal RowFoldCubReal RowMembi \
-           RowOkm RowSrch RowSrchP RowMark RowFoldCubDef RowCubDef \
-           RowCubReal; do
+           RowOkm RowSrch RowSrchP RowMark \
+           RowFoldCubDef RowCubDef RowCubReal; do
     [ -f "$f.v" ] && echo "$f.v"
   done
 } > _FoldProject
