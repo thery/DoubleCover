@@ -103,29 +103,56 @@ build () {     # build <base>
 # without other output around it.
 : "${JOBS:=$(nproc 2>/dev/null || echo 4)}"
 
+# WHICH CHAIN.  The plain run reads no RowFold file at all -- only the phase
+# one table's own fold, which is Fold, FoldTables, P1Fdec, P1FTable and
+# RowMask.  So the p targets build their own chain and not the map fold's:
+# building RowFoldSym and the rest for a run that never reads them is five
+# minutes and more for nothing.
+case "$1" in
+  ppace|pbool|pdone) chain=row ;;
+  *)                 chain=fold ;;
+esac
+
+foldfiles="Fold P1Fold FoldTables P1Fdec P1F_00 P1F_01 P1F_02 P1F_03 P1F_04 \
+  P1FTable P1Table Row RowMap Fsinj FsmChk Lehmer RowRun RowFinal \
+  RowInst RowTabP RowMemb RowCub RowCubi RowCubInst RowFold Sym16 \
+  RowFoldPart RowTabF RowFoldTab RowTabL RowTab RowFoldSym RowMoveH \
+  RowPartC RowPartM RowPartU RowLeaf RowUp4ok RowUp8ok RowFoldConj \
+  RowFoldOk RowFoldEmpty RowFoldGath RowFoldLvl Sym16Row RowFoldMem \
+  RowFoldSrc RowFoldTot RowMoveC RowMoveM RowMoveU RowParity \
+  RowMembChk RowFoldWrite RowFoldPorb RowMask RowFoldSrch \
+  RowFoldRun RowFoldFinal RowInH RowPar4 RowPar8 RowUp4inv \
+  RowUp8inv RowWits RowWitsChk RowReal RowFoldCubReal RowMembi \
+  RowOkm RowSrch RowSrchP RowMark \
+  RowFoldCubDef RowCubDef RowCubReal RowCubProof"
+
+# THE PLAIN CHAIN, and not one RowFold file in it.  Read off the Requires of
+# RowCubPace, RowCubBool, RowCubDone and RowCubProof.
+rowfiles="Fold P1Fold FoldTables P1Fdec P1F_00 P1F_01 P1F_02 P1F_03 P1F_04 \
+  P1FTable P1Table RowMask Row RowMap Fsinj FsmChk Lehmer RowRun RowFinal \
+  RowInst RowTabP RowMemb RowCub RowCubi RowCubInst RowTabL RowTab \
+  RowMoveH RowPartC RowPartM RowPartU RowLeaf RowUp4ok RowUp8ok \
+  RowMoveC RowMoveM RowMoveU RowParity RowMembChk RowInH RowPar4 RowPar8 \
+  RowUp4inv RowUp8inv RowWits RowWitsChk RowReal RowMembi \
+  RowSrch RowSrchP RowMark RowCubDef RowCubReal RowCubProof"
+
+case "$chain" in
+  row)  files="$rowfiles";  proj=_RowProject;  mk=Makefile.row ;;
+  fold) files="$foldfiles"; proj=_FoldProject; mk=Makefile.fold ;;
+esac
+
 {
   echo "-R . Rubik"
   echo
-  for f in Fold P1Fold FoldTables P1Fdec P1F_00 P1F_01 P1F_02 P1F_03 P1F_04 \
-           P1FTable P1Table Row RowMap Fsinj FsmChk Lehmer RowRun RowFinal \
-           RowInst RowTabP RowMemb RowCub RowCubi RowCubInst RowFold Sym16 \
-           RowFoldPart RowTabF RowFoldTab RowTabL RowTab RowFoldSym RowMoveH \
-           RowPartC RowPartM RowPartU RowLeaf RowUp4ok RowUp8ok RowFoldConj \
-           RowFoldOk RowFoldEmpty RowFoldGath RowFoldLvl Sym16Row RowFoldMem \
-           RowFoldSrc RowFoldTot RowMoveC RowMoveM RowMoveU RowParity \
-           RowMembChk RowFoldWrite RowFoldPorb RowMask RowFoldSrch \
-           RowFoldRun RowFoldFinal RowInH RowPar4 RowPar8 RowUp4inv \
-           RowUp8inv RowWits RowWitsChk RowReal RowFoldCubReal RowMembi \
-           RowOkm RowSrch RowSrchP RowMark \
-           RowFoldCubDef RowCubDef RowCubReal RowCubProof; do
+  for f in $files; do
     [ -f "$f.v" ] && echo "$f.v"
   done
-} > _FoldProject
+} > "$proj"
 
-rocq makefile -f _FoldProject -o Makefile.fold
-make -f Makefile.fold -j"$JOBS"
+rocq makefile -f "$proj" -o "$mk"
+make -f "$mk" -j"$JOBS"
 
-echo "the folded row is built"
+echo "the $chain chain is built"
 
 case "$1" in
   build) exit 0 ;;
