@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  RowFoldCubPaceI.v -- the folded run at thirteen, depth as an int.        *)
+(*  RowFoldCubPaceI.v -- the folded run at thirteen, depth as an int.         *)
 (* =========================================================================  *)
 
 (* The count must be 14 731 320, which is what the folded run counts at       *)

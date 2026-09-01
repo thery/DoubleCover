@@ -45,7 +45,7 @@ Variable mpg mgr msw mlo mhi : arr.
 
 (* THE PREPASS IS A PARAMETER.  RowMap's is one; RowLvl's prepassD, which     *)
 (* reads each page's chunk once and puts it back once, is another and is      *)
-(* proved equal to it.  The run takes whichever it is handed.  The proof asks   *)
+(* proved equal to it.  The run takes whichever it is handed.  The proof asks *)
 (* only that it be RowMap's.                                                  *)
 Variable prep : rmap -> rmap -> rmap.
 
@@ -86,7 +86,7 @@ Variable croot : int.
 Variable sroot : pst.
 Variable dsrch : nat.
 
-(* the moves of H, one bit each                                              *)
+(* the moves of H, one bit each                                               *)
 Variable ishm : int.
 
 Local Notation p1g := (sp1g F frep fsym twsym).
@@ -162,7 +162,7 @@ Lemma srchk_sound cut togo c x msk pv m d :
   soundat (srchk cut togo c x msk pv m) d.
 Proof.
 elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hp hm hb.
-  (* a leaf: the position is in H and the three ranks are the member it is *)
+  (* a leaf: the position is in H and the three ranks are the member it is    *)
   have hG : posp x \in G := subsetP (ball_sub_gen Sset _) _ hb.
   rewrite /=; case: (boolP (csolved c)) => [hs|_]; last exact: hm.
   have hok := leaf_memb hc hp hG hs.
@@ -175,13 +175,13 @@ elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hp hm hb.
     last by apply: hm.
   rewrite /RowRun.wthn (unplace_place he8 he4 hok E) (leaf_pos hc hp hG hs).
   by move: hb; rewrite subn0.
-(* a step: the same map, one move further out *)
+(* a step: the same map, one move further out                                 *)
 apply: (@ifold_indi _ (fun m' => soundat m' d)); [| |exact: hm].
   by apply: ltnW; apply: (@ltn_nwB 5).
 move=> k m' hk hm'.
 case: ifP => _; first exact: hm'.
 case: ifP => _; first exact: hm'.
-(* THE CUT, and it only skips *)
+(* THE CUT, and it only skips                                                 *)
 case: ifP => _; first exact: hm'.
 cbv zeta; case: ifP => hle; last exact: hm'.
 apply: (ih _ _ _ _ _ _ (coord_step hk hp hc) (xstep_pok hk hp) hm');
@@ -192,7 +192,7 @@ Qed.
 
 (* ---- the search with the stop, which writes nothing new ------------------ *)
 
-(* the counting mark is the mark, or it is nothing *)
+(* the counting mark is the mark, or it is nothing                            *)
 Lemma mmarkn1 mn pg gr bt :
   (mmarkn mn pg gr bt).1 = mmark mn.1 pg gr bt \/
   (mmarkn mn pg gr bt).1 = mn.1.
@@ -226,7 +226,7 @@ elim: togo c x msk pv mn => [|togo ih] c x msk pv mn hdt hc hp hm hb.
        Uint63.div (PArray.get e8num (mud (tomemb x))) 2,
        PArray.get e4bit (mmp (tomemb x))) by [].
   rewrite srchsk0.
-  (* the stop hands back what it was given *)
+  (* the stop hands back what it was given                                    *)
   case: ifP => _; first exact: hm.
   case: ifP => [hs|_]; last exact: hm.
   have hok := leaf_memb hc hp hG hs.
@@ -345,9 +345,9 @@ by rewrite hs0.
 Qed.
 
 
-(* the nested tests, against the conjunction they replace.  A lemma of its   *)
-(* own because the induction hypothesis mentions cut, so it cannot be taken  *)
-(* apart inside the proof.                                                   *)
+(* the nested tests, against the conjunction they replace.  A lemma of its    *)
+(* own because the induction hypothesis mentions cut, so it cannot be taken   *)
+(* apart inside the proof.                                                    *)
 Lemma condE (cut : bool) (w togoi' : int) (togo : nat) :
   to_nat togoi' = togo -> (togo <= 62)%N ->
   (if w <=? togoi'

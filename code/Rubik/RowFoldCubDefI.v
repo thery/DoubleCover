@@ -32,7 +32,7 @@ Notation rmap := (PArray.array arr).
 
 Local Open Scope uint63_scope.
 
-(* okmvvd's own || is still eager here.  Nesting it would make this run's    *)
+(* okmvvd's own || is still eager here.  Nesting it would make this run's     *)
 (* move test a different function from RowFoldCubDef's, and the equality      *)
 (* proof is stated for one okmv; it costs two int tests a move.               *)
 
