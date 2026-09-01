@@ -66,9 +66,11 @@ Definition okmvv (pv k : int) : bool :=
   if (18 <=? pv)%uint63 then true
   else let fp := (pv / 3)%uint63 in
        let fk := (k / 3)%uint63 in
-       (* || is a function and native_compute is call by value, so the        *)
-       (* second test is only skipped by writing the two as nested ifs.       *)
-       if (fp =? fk)%uint63 then false else ~~ (fp =? fk + 3)%uint63.
+       (* NOT NESTED, though || is strict and pays both tests at every move.  *)
+       (* RowFoldCubDef copies this body under the name okmvvd and            *)
+       (* RowFoldCubProof joins the two by reflexivity, so the two have to    *)
+       (* stay the same term.  It is worth two int tests a move.              *)
+       ~~ ((fp =? fk)%uint63 || (fp =? fk + 3)%uint63).
 
 Definition srch : nat := 16.
 
