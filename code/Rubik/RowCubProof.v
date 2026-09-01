@@ -46,10 +46,8 @@ Theorem row_of_runp : rowfullp = true ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
 Proof.
 rewrite /rowfullp rowwitspE => hf.
-exact: (@real_superflip_row_p p1ftab frepi fsymi twsymi
-          dnlo_data dnhi_data fllo_data flhi_data ishmi
-          (prepassD mpgi mgri mswi mloi mhii)
-          (prepassD_eq pgm_rangeC grm_rangeC) fsmoveCP hf).
+exact: (real_superflip_row_p
+          (prepassD_eq mswi mloi mhii pgm_rangeC grm_rangeC) fsmoveCP hf).
 Qed.
 
 Corollary row_of_runp_superflip : rowfullp = true ->
