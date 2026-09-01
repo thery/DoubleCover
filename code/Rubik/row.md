@@ -270,3 +270,19 @@ the folded run is 8 h 13, and its own thirteen is 751.3 s.
 **The same fault is in `RowFoldSrch.v`**, ten times, `fsrchk` and `fsrchsk`
 among them. Fixing it there re-runs the folded eight hours, which is why it is
 a step of its own.
+
+### Measured, 1 September
+
+`./mkrowfold.sh ppacei` at thirteen: **14 731 320 in 2963.8 s**, against the nat
+search's 3014.8 s. That is 1.7 %, and it is noise: the first `Eval` of the two
+files is byte-identical code and differed by 13 s (57.2 against 70.6). **The
+pace at thirteen cannot price the search** -- `RowFoldCub13` walks the same
+tree to thirteen in 8.4-18.5 s, so the search is well under one per cent of
+that run. `RowFoldCub13I.v` (`./mkrowfold.sh cub13i`) is the measurement that
+can: the same three runs, whose times are already known, and the twenty cubies
+once more with the depth as an int.
+
+`&&` is `andb`, a function, and `native_compute` is call by value, so a
+conjunction pays every one of its tests at every node -- the nat search
+computed the unary `togo' + nd` at every expanding node whether or not the
+distance test held. The int searches nest their tests instead.
