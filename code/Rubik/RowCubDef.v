@@ -55,6 +55,14 @@ Definition rowmapp (n : nat) : rmap :=
           ishmi (prepassD mpgi mgri mswi mloi mhii)
           actfsri tomembi okmvv srch n.
 
+(* The same map, over the search that carries the depth as an int.  Nothing   *)
+(* about the cube or the map changes.                                         *)
+Definition rowmappi (n : nat) : rmap :=
+  ymfinski e8numi e4biti
+           p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
+           ishmi (prepassD mpgi mgri mswi mloi mhii)
+           actfsri tomembi okmvv srch n.
+
 (* The witnesses go into that map, so there is no second one to hold.  IT IS  *)
 (* RowMark's OWN wmarkof AND NOT THE SAME BODY WRITTEN OUT: RowCubReal has to *)
 (* match this against the name the theorem is stated with, and unification    *)

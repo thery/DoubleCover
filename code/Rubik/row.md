@@ -233,3 +233,40 @@ One row on one core, `ocaml/rubik_row_nofold.ml`, against `hcoset` on the same c
 At the four to eight times Rocq has cost over OCaml elsewhere, a row is
 between half an hour and an hour of kernel time. That is not the risk; the
 bijection is.
+
+## The depth as an int, not the distance as a nat
+
+`RowSrch.srchk` read the phase one distance as an int and made a unary nat of
+it at every expanding node, then compared, added and subtracted in unary:
+
+```
+let nd := Uint63.to_nat (wdist w) in
+if [&& (nd <= togo')%N & [|| ~~ cut, (nd == togo')%N | (rcuti <= togo' + nd)%N]]
+then srchk cut togo' c' (xstep x k) (wmask w (togo' - nd)) k m'
+```
+
+Five unary operations a node, one of them an addition, on a quantity that
+arrives as an int. `Farp1.h3iE` already states the rule for the phase one
+search -- the depth goes int-ward, never the table nat-ward -- and it was
+never carried over to the row.
+
+`srchki` and `srchski` carry the depth left as an int, `togoi`, beside the nat.
+The nat is only what makes the recursion structural; every test is int against
+int. `sslack` reads the slack for `mmask`, which asks it two questions and no
+more. `RowMask.v` is untouched, because the folded run reads it.
+
+**What has to be proved**, and none of it is about the cube: `srchki` equals
+`srchk` under `togoi = of_nat togo`, and likewise for the other three. The
+side conditions are the usual two -- `of_nat` round trips below `nwB`, so a
+depth bound has to travel with it, in `small_nwB`'s shape; and neither
+subtraction wraps, the first because the branch is only entered on a
+successor, the second because it is guarded by the distance test.
+
+**What it is worth.** Measured for the phase one search on a prototype over
+the identical tree: 30.6 -> 12.0 us a node, 2.6x. The row search does more a
+node, so less is expected here. The search is about 97 % of the run, measured:
+the folded run is 8 h 13, and its own thirteen is 751.3 s.
+
+**The same fault is in `RowFoldSrch.v`**, ten times, `fsrchk` and `fsrchsk`
+among them. Fixing it there re-runs the folded eight hours, which is why it is
+a step of its own.

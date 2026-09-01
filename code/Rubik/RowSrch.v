@@ -241,4 +241,99 @@ Fixpoint runsk (n : nat) (d : nat) (n0 : int) (m dst : rmap) : rmap :=
     runsk n1 d.+1 (mcount m') m' m
   else m.
 
+(* ---- the same search, with the depth left carried as an int -------------- *)
+
+(* srchk makes a unary nat of the table's distance at every expanding node,   *)
+(* and then compares, adds and subtracts in unary.  Here the depth left is    *)
+(* carried as an int beside the nat and nothing is converted at all: the nat  *)
+(* is only what makes the recursion structural.  Neither subtraction wraps.   *)
+(* The invariant is togoi = of_nat togo, and it belongs to the proof.  Why,   *)
+(* and what it is worth, is in row.md.                                        *)
+
+Definition rcutii : int := 5.       (* rcuti, on the side it is compared on   *)
+
+(* mmask asks its slack whether it is two or more and whether it is one, so   *)
+(* an int slack picks one of three nats.  RowMask itself is left alone: the   *)
+(* folded run reads it.                                                       *)
+Definition sslack (s : int) : nat :=
+  if (2 <=? s) then 2%N else if (s =? 1) then 1%N else 0%N.
+
+Fixpoint srchki (cut : bool) (togo : nat) (togoi : int) (c : int) (x : pst)
+                (msk pv : int) (m : rmap) : rmap :=
+  if togo is togo'.+1 then
+    let togoi' := Uint63.sub togoi 1 in
+    ifold nmvn 0
+      (fun k m' =>
+         if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then m'
+         else if ~~ okmv pv k then m'
+         else if [&& cut, (togo' == 0)%N
+                  & ~~ Uint63.eqb (Uint63.land ishm (Uint63.lsl 1 k)) 0]
+         then m'
+         else
+           let c' := cstep c k in
+           let w := p1g c' in
+           let nd := wdist w in
+           if [&& (nd <=? togoi')
+               & [|| ~~ cut, (nd =? togoi')
+                   | (rcutii <=? Uint63.add togoi' nd)]]
+           then srchki cut togo' togoi' c' (xstep x k)
+                       (wmask w (sslack (Uint63.sub togoi' nd))) k m'
+           else m')
+      m
+  else if csolved c
+       then let: (pg, gr, bt) := plc (tomemb x) in mmark m pg gr bt
+       else m.
+
+Fixpoint srchski (cut : bool) (togo : nat) (togoi : int) (c : int) (x : pst)
+                 (msk pv : int) (enough : int) (mn : rmap * int)
+                 : rmap * int :=
+  if Uint63.leb enough mn.2 then mn
+  else if togo is togo'.+1 then
+    let togoi' := Uint63.sub togoi 1 in
+    ifold nmvn 0
+      (fun k a =>
+         if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then a
+         else if ~~ okmv pv k then a
+         else if [&& cut, (togo' == 0)%N
+                  & ~~ Uint63.eqb (Uint63.land ishm (Uint63.lsl 1 k)) 0]
+         then a
+         else
+           let c' := cstep c k in
+           let w := p1g c' in
+           let nd := wdist w in
+           if [&& (nd <=? togoi')
+               & [|| ~~ cut, (nd =? togoi')
+                   | (rcutii <=? Uint63.add togoi' nd)]]
+           then srchski cut togo' togoi' c' (xstep x k)
+                        (wmask w (sslack (Uint63.sub togoi' nd))) k enough a
+           else a)
+      mn
+  else if csolved c
+       then let: (pg, gr, bt) := plc (tomemb x) in mmarkn mn pg gr bt
+       else mn.
+
+(* ---- the level and the run over that search ------------------------------ *)
+
+(* The level converts its own depth once, which is where of_nat belongs.      *)
+Definition levelski (cut : bool) (d : nat) (m dst : rmap) : rmap :=
+  let m' := prep m dst in
+  if (d <= dsrch)%N then
+    let w := p1g croot in
+    let di := of_nat d in
+    if (wdist w <=? di) then
+      let msk := wmask w (sslack (Uint63.sub di (wdist w))) in
+      if (d == dsrch)%N then
+        let n0 := mcount m' in
+        let e := Uint63.add enoughb (Uint63.div n0 enoughd) in
+        (srchski cut d di croot sroot msk 18 e (m', n0)).1
+      else srchki cut d di croot sroot msk 18 m'
+    else m'
+  else m'.
+
+Fixpoint runski (n : nat) (d : nat) (n0 : int) (m dst : rmap) : rmap :=
+  if n is n1.+1 then
+    let m' := levelski (Uint63.ltb ncutb n0) d.+1 m dst in
+    runski n1 d.+1 (mcount m') m' m
+  else m.
+
 End Srch.
