@@ -273,9 +273,15 @@ Fixpoint srchki (cut : bool) (togo : nat) (togoi : int) (c : int) (x : pst)
            let c' := cstep c k in
            let w := p1g c' in
            let nd := wdist w in
-           if [&& (nd <=? togoi')
-               & [|| ~~ cut, (nd =? togoi')
-                   | (rcutii <=? Uint63.add togoi' nd)]]
+           (* && is a function and native_compute is call by value, so   *)
+           (* a conjunction pays all its tests at every node.  Nested,   *)
+           (* the cut test is reached only by a node that passes two.    *)
+           if (if nd <=? togoi'
+               then (if cut
+                     then (if nd =? togoi' then true
+                           else rcutii <=? Uint63.add togoi' nd)
+                     else true)
+               else false)
            then srchki cut togo' togoi' c' (xstep x k)
                        (wmask w (sslack (Uint63.sub togoi' nd))) k m'
            else m')
@@ -301,9 +307,15 @@ Fixpoint srchski (cut : bool) (togo : nat) (togoi : int) (c : int) (x : pst)
            let c' := cstep c k in
            let w := p1g c' in
            let nd := wdist w in
-           if [&& (nd <=? togoi')
-               & [|| ~~ cut, (nd =? togoi')
-                   | (rcutii <=? Uint63.add togoi' nd)]]
+           (* && is a function and native_compute is call by value, so   *)
+           (* a conjunction pays all its tests at every node.  Nested,   *)
+           (* the cut test is reached only by a node that passes two.    *)
+           if (if nd <=? togoi'
+               then (if cut
+                     then (if nd =? togoi' then true
+                           else rcutii <=? Uint63.add togoi' nd)
+                     else true)
+               else false)
            then srchski cut togo' togoi' c' (xstep x k)
                         (wmask w (sslack (Uint63.sub togoi' nd))) k enough a
            else a)
