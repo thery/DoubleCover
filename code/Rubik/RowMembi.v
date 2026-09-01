@@ -43,8 +43,9 @@ Local Open Scope uint63_scope.
 Definition lcodei (nn : nat) (f : int -> int) (i : int) : int :=
   ifold nn 0
     (fun j c =>
-       if (Uint63.ltb i j) && (Uint63.ltb (f j) (f i))
-       then Uint63.add c 1 else c)
+       if (Uint63.ltb i j)
+       then (if (Uint63.ltb (f j) (f i)) then Uint63.add c 1 else c)
+       else c)
     0.
 
 Definition lrankii (nn : nat) (ni : int) (f : int -> int) : int :=
@@ -129,7 +130,9 @@ Proof.
 move=> hn hgf hi; rewrite /lcodei.
 have h0 : to_nat 0 = 0%N by [].
 have -> : ifold nn 0
-            (fun j c => if (i <? j) && (g j <? g i) then Uint63.add c 1 else c)
+            (fun j c => if (i <? j)
+                        then (if (g j <? g i) then Uint63.add c 1 else c)
+                        else c)
             0
         = foldl (fun c j => if (to_nat i < j)%N && (f j < f (to_nat i))%N
                             then Uint63.add c 1 else c) 0 (iota 0 nn).
@@ -138,7 +141,7 @@ have -> : ifold nn 0
   have e1 : (i <? k) = (to_nat i < to_nat k)%N by exact: nltbE.
   have e2 : (g k <? g i) = (f (to_nat k) < f (to_nat i))%N.
     by rewrite nltbE -(hgf k hk) -(hgf i hi).
-  by rewrite e1 e2.
+  by rewrite e1 e2; case: (to_nat i < to_nat k)%N.
 have hsz : (to_nat 0 + seq.size (iota 0 nn) < nwB)%N.
   by rewrite h0 add0n seq.size_iota; exact: hn.
 by rewrite (foldl_count

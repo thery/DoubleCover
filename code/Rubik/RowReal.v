@@ -66,7 +66,9 @@ Definition okmvv (pv k : int) : bool :=
   if (18 <=? pv)%uint63 then true
   else let fp := (pv / 3)%uint63 in
        let fk := (k / 3)%uint63 in
-       ~~ ((fp =? fk)%uint63 || (fp =? fk + 3)%uint63).
+       (* || is a function and native_compute is call by value, so the    *)
+       (* second test is only skipped by writing the two as nested ifs.    *)
+       if (fp =? fk)%uint63 then false else ~~ (fp =? fk + 3)%uint63.
 
 Definition srch : nat := 16.
 

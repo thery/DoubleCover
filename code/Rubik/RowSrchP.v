@@ -283,4 +283,196 @@ apply: ih.
 by apply: RowRun.soundatW.
 Qed.
 
+(* ---- the search that carries the depth is the same search ---------------- *)
+
+(* NOTHING NEW IS PROVED ABOUT THE CUBE.  srchki is shown EQUAL to srchk when *)
+(* the int it carries is the depth left, so srchk_sound carries over as it    *)
+(* stands.  There are two side conditions and no more: of_nat round trips     *)
+(* below nwB, so a bound on the depth travels with it, and neither            *)
+(* subtraction wraps.                                                         *)
+
+Local Notation srchki := (RowSrch.srchki e8num e4bit F frep fsym twsym
+                            dnlo dnhi fllo flhi cstep xstep tomemb okmv
+                            csolved ishm).
+Local Notation srchski := (RowSrch.srchski e8num e4bit F frep fsym twsym
+                             dnlo dnhi fllo flhi cstep xstep tomemb okmv
+                             csolved ishm).
+Local Notation levelski := (RowSrch.levelski e8num e4bit prep
+                              F frep fsym twsym dnlo dnhi fllo flhi
+                              cstep xstep tomemb okmv csolved croot sroot
+                              dsrch ishm).
+Local Notation runski := (RowSrch.runski e8num e4bit prep
+                            F frep fsym twsym dnlo dnhi fllo flhi
+                            cstep xstep tomemb okmv csolved croot sroot
+                            dsrch ishm).
+
+(* two walks that take the same step are the same walk                        *)
+Lemma ifold_eqf (A : Type) n j (f g : int -> A -> A) a :
+  (forall i b, f i b = g i b) -> ifold n j f a = ifold n j g a.
+Proof.
+by move=> hfg; elim: n j a => [|n ih] j a //=; rewrite hfg; apply: ih.
+Qed.
+
+(* the two tests, as equations rather than views                              *)
+Lemma nleE (a b : int) : (a <=? b) = (to_nat a <= to_nat b)%N.
+Proof. by apply/nlebP/idP. Qed.
+
+Lemma neqE (a b : int) : (a =? b) = (to_nat a == to_nat b)%N.
+Proof. by apply/neqbP/eqP. Qed.
+
+Lemma to_nat2 : to_nat 2 = 2%N.
+Proof. by vm_compute. Qed.
+
+Lemma to_nat5 : to_nat 5 = 5%N.
+Proof. by vm_compute. Qed.
+
+(* mmask asks its slack whether it is two or more and whether it is one, and  *)
+(* nothing else, so the int slack and its nat give the same mask              *)
+Lemma mmaskiE w s : wmask w (sslack s) = wmask w (to_nat s).
+Proof.
+rewrite /sslack; case E2 : (2 <=? s).
+  have hs : (2 <= to_nat s)%N by rewrite -to_nat2 -nleE E2.
+  by rewrite /mmask hs.
+have hs2 : (to_nat s < 2)%N by rewrite -to_nat2 ltnNge -nleE E2.
+case E1 : (s =? 1).
+  have hs1 : to_nat s = 1%N by rewrite -to_nat_1; apply/eqP; rewrite -neqE E1.
+  by rewrite hs1.
+have hs0 : to_nat s = 0%N.
+  case E : (to_nat s) hs2 => [|n] // hn.
+  have hn0 : n = 0%N by move: hn; rewrite ltnS ltnS leqn0 => /eqP.
+  by move: E1; rewrite neqE to_nat_1 E hn0 eqxx.
+by rewrite hs0.
+Qed.
+
+
+(* the nested tests, against the conjunction they replace.  A lemma of its   *)
+(* own because the induction hypothesis mentions cut, so it cannot be taken  *)
+(* apart inside the proof.                                                   *)
+Lemma condE (cut : bool) (w togoi' : int) (togo : nat) :
+  to_nat togoi' = togo -> (togo <= 62)%N ->
+  (if w <=? togoi'
+   then (if cut
+         then (if w =? togoi' then true else rcutii <=? Uint63.add togoi' w)
+         else true)
+   else false)
+  = [&& (to_nat w <= togo)%N
+      & [|| ~~ cut, (to_nat w == togo)%N | (rcuti <= togo + to_nat w)%N]].
+Proof.
+move=> htg ht62.
+rewrite nleE htg; case E1 : (to_nat w <= togo)%N; last by [].
+rewrite /=; case: cut; last by [].
+rewrite /= neqE htg; case E2 : (to_nat w == togo)%N; first by [].
+rewrite /=.
+have hw : (to_nat w <= togo)%N by rewrite E1.
+have hlt : (to_nat togoi' + to_nat w < nwB)%N.
+  apply: (@ltn_nwB 8); first by [].
+  rewrite htg; apply: (@leq_ltn_trans (62 + 62)%N); last by [].
+  by apply: leq_add => //; apply: leq_trans hw ht62.
+by rewrite nleE /rcutii /rcuti to_nat5 (to_nat_add togoi' w hlt) htg.
+Qed.
+
+(* ---- the search ---------------------------------------------------------- *)
+
+Lemma srchki_eq cut togo :
+  forall togoi c x msk pv m, to_nat togoi = togo -> (togo <= 63)%N ->
+  srchki cut togo togoi c x msk pv m = srchk cut togo c x msk pv m.
+Proof.
+elim: togo => [|togo ih] togoi c x msk pv m htg hb; first by [].
+rewrite /RowSrch.srchki -/RowSrch.srchki /RowSrch.srchk -/RowSrch.srchk.
+cbv zeta; apply: ifold_eqf => k m'.
+have hbd : (to_nat togoi < nwB)%N := to_nat_bounded togoi.
+have h1t : (to_nat 1 <= to_nat togoi)%N by rewrite to_nat_1 htg.
+have htg' : to_nat (Uint63.sub togoi 1) = togo.
+  by rewrite (to_nat_sub togoi 1 h1t hbd) to_nat_1 htg subn1.
+have ht62 : (togo <= 62)%N by rewrite -ltnS.
+case: ifP => _; first by [].
+case: ifP => _; first by [].
+case: ifP => _; first by [].
+set w := mdist _.
+rewrite (condE cut w htg' ht62).
+case: ifP => hif; last by [].
+have hwt : (to_nat w <= togo)%N by move: hif => /andP[].
+have hbd' : (to_nat (Uint63.sub togoi 1) < nwB)%N :=
+  to_nat_bounded (Uint63.sub togoi 1).
+have hwle : (to_nat w <= to_nat (Uint63.sub togoi 1))%N by rewrite htg'.
+rewrite mmaskiE (to_nat_sub (Uint63.sub togoi 1) w hwle hbd') htg'.
+by apply: ih; [exact: htg' | exact: ltnW].
+Qed.
+
+Lemma srchski_eq cut togo :
+  forall togoi c x msk pv enough mn, to_nat togoi = togo -> (togo <= 63)%N ->
+  srchski cut togo togoi c x msk pv enough mn
+  = srchsk cut togo c x msk pv enough mn.
+Proof.
+elim: togo => [|togo ih] togoi c x msk pv enough mn htg hb; first by [].
+rewrite /RowSrch.srchski -/RowSrch.srchski /RowSrch.srchsk -/RowSrch.srchsk.
+case: (Uint63.leb enough mn.2); first by [].
+cbv zeta; apply: ifold_eqf => k a.
+have hbd : (to_nat togoi < nwB)%N := to_nat_bounded togoi.
+have h1t : (to_nat 1 <= to_nat togoi)%N by rewrite to_nat_1 htg.
+have htg' : to_nat (Uint63.sub togoi 1) = togo.
+  by rewrite (to_nat_sub togoi 1 h1t hbd) to_nat_1 htg subn1.
+have ht62 : (togo <= 62)%N by rewrite -ltnS.
+case: ifP => _; first by [].
+case: ifP => _; first by [].
+case: ifP => _; first by [].
+set w := mdist _.
+rewrite (condE cut w htg' ht62).
+case: ifP => hif; last by [].
+have hwt : (to_nat w <= togo)%N by move: hif => /andP[].
+have hbd' : (to_nat (Uint63.sub togoi 1) < nwB)%N :=
+  to_nat_bounded (Uint63.sub togoi 1).
+have hwle : (to_nat w <= to_nat (Uint63.sub togoi 1))%N by rewrite htg'.
+rewrite mmaskiE (to_nat_sub (Uint63.sub togoi 1) w hwle hbd') htg'.
+by apply: ih; [exact: htg' | exact: ltnW].
+Qed.
+
+(* ---- the level and the run ----------------------------------------------- *)
+
+Lemma levelski_eq cut d m dst : (d <= 63)%N ->
+  levelski cut d m dst = levelsk cut d m dst.
+Proof.
+move=> hb; rewrite /RowSrch.levelski -/RowSrch.levelski.
+rewrite /RowSrch.levelsk -/RowSrch.levelsk; cbv zeta.
+case: ifP => _; last by [].
+have hdw : (d < nwB)%N.
+  by apply: (@ltn_nwB 6); [ | exact: hb].
+have hd : to_nat (of_nat d) = d := of_natK d hdw.
+set w := mdist _.
+rewrite nleE hd; case: ifP => hle; last by [].
+have hbd : (to_nat (of_nat d) < nwB)%N := to_nat_bounded (of_nat d).
+have hwle : (to_nat w <= to_nat (of_nat d))%N by rewrite hd; exact: hle.
+rewrite mmaskiE (to_nat_sub (of_nat d) w hwle hbd) hd.
+by case: ifP => _; [rewrite srchski_eq | rewrite srchki_eq].
+Qed.
+
+(* the two runs read one level down, and both are reflexivity                 *)
+Lemma runskiS n d n0 m dst :
+  runski n.+1 d n0 m dst
+  = runski n d.+1 (mcount (levelski (Uint63.ltb ncutb n0) d.+1 m dst))
+           (levelski (Uint63.ltb ncutb n0) d.+1 m dst) m.
+Proof. by []. Qed.
+
+Lemma runskS n d n0 m dst :
+  runsk n.+1 d n0 m dst
+  = runsk n d.+1 (mcount (levelsk (Uint63.ltb ncutb n0) d.+1 m dst))
+          (levelsk (Uint63.ltb ncutb n0) d.+1 m dst) m.
+Proof. by []. Qed.
+
+Lemma runski_eq n d n0 m dst : (d + n <= 63)%N ->
+  runski n d n0 m dst = runsk n d n0 m dst.
+Proof.
+elim: n d n0 m dst => [|n ih] d n0 m dst hb; first by [].
+have hd1 : (d.+1 <= 63)%N.
+  by apply: leq_trans hb; rewrite -addSnnS; exact: leq_addr.
+rewrite runskiS runskS levelski_eq; last exact: hd1.
+rewrite ih; first by [].
+by rewrite addSnnS.
+Qed.
+
+(* and so the run over that search is sound, on RowSrch's own proof           *)
+Lemma runski_sound n d n0 m dst : (d + n <= 63)%N ->
+  soundat m d -> soundat dst d -> soundat (runski n d n0 m dst) (d + n).
+Proof. by move=> hb hm hd; rewrite runski_eq //; apply: runsk_sound. Qed.
+
 End Srch.
