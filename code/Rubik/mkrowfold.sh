@@ -33,6 +33,8 @@
 #    ./mkrowfold.sh foot     RowFoldFoot -- what the tables alone cost
 #    ./mkrowfold.sh ppace    RowCubPace -- the plain run's footprint at thirteen
 #    ./mkrowfold.sh ppacei   RowCubPaceI -- the same, over the int search
+#    ./mkrowfold.sh fpacei   RowFoldCubPaceI -- the folded run, int search
+#    ./mkrowfold.sh cub13i   RowFoldCub13I -- the search at thirteen, nat vs int
 #    ./mkrowfold.sh pbool    RowCubBool -- THE PLAIN RUN, the boolean alone
 #    ./mkrowfold.sh pdone    RowCubDone -- the plain run and proof together
 #    ./mkrowfold.sh          build, then RowFoldRun -- the ball of H
@@ -183,6 +185,8 @@ case "$1" in
          coqc -R . Rubik RowFoldPos.v ;;
   cub)   echo "--- RowFoldCub (the real twenty; must print 1438464 three times)"
          coqc -R . Rubik RowFoldCub.v ;;
+  cub13i) echo "--- RowFoldCub13I (nat depth against int; 1438464 four times)"
+         coqc -R . Rubik RowFoldCub13I.v ;;
   cubrun) echo "--- RowFoldCubRun (the row on the folded map, twenty carried)"
          coqc -R . Rubik RowFoldCubRun.v ;;
   t10)   echo "--- RowFoldRun10 (the proved run to ten, timed)"
@@ -235,6 +239,11 @@ case "$1" in
          build RowCubInst
          build RowCubDef
          coqc -R . Rubik RowCubPaceI.v ;;
+  fpacei) echo "--- RowFoldCubPaceI (folded thirteen, int search: count 14731320)"
+         build RowFoldSrchI
+         build RowFoldCubDef
+         build RowFoldCubDefI
+         coqc -R . Rubik RowFoldCubPaceI.v ;;
   pbool) echo "--- RowCubBool (THE PLAIN RUN: the boolean alone)"
          build RowSrch
          build RowSrchP
