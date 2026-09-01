@@ -85,8 +85,12 @@ Fixpoint fsrchki (cut : bool) (togo : nat) (togoi : int) (c : int) (x : pst)
       (fun k m' =>
          if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then m'
          else if ~~ okmv pv k then m'
-         else if [&& cut, (togo' == 0)%N
-                  & ~~ Uint63.eqb (Uint63.land ishm (Uint63.lsl 1 k)) 0]
+         else if (if cut
+                  then (if (togo' == 0)%N
+                        then ~~ Uint63.eqb (Uint63.land ishm
+                                              (Uint63.lsl 1 k)) 0
+                        else false)
+                  else false)
          then m'
          else
            let c' := cstep c k in
@@ -119,8 +123,12 @@ Fixpoint fsrchski (cut : bool) (togo : nat) (togoi : int) (c : int) (x : pst)
       (fun k a =>
          if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then a
          else if ~~ okmv pv k then a
-         else if [&& cut, (togo' == 0)%N
-                  & ~~ Uint63.eqb (Uint63.land ishm (Uint63.lsl 1 k)) 0]
+         else if (if cut
+                  then (if (togo' == 0)%N
+                        then ~~ Uint63.eqb (Uint63.land ishm
+                                              (Uint63.lsl 1 k)) 0
+                        else false)
+                  else false)
          then a
          else
            let c' := cstep c k in

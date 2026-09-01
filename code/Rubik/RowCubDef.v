@@ -70,6 +70,12 @@ Definition rowmappi (n : nat) : rmap :=
 (* is the run again, in the kernel.                                           *)
 Definition rowwitsp : rmap := wmarkof rowwits (rowmapp 20).
 
+(* The same two over the int run.  RowCubProofI shows the two maps equal, so *)
+(* nothing is proved twice.                                                   *)
+Definition rowwitspi : rmap := wmarkof rowwits (rowmappi 20).
+
+Definition rowfullpi : bool := mfull rowwitspi.
+
 (* ---- and the boolean the run has to settle ------------------------------- *)
 
 Definition rowfullp : bool := mfull rowwitsp.

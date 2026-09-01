@@ -32,6 +32,10 @@ Notation rmap := (PArray.array arr).
 
 Local Open Scope uint63_scope.
 
+(* okmvvd's own || is still eager here.  Nesting it would make this run's    *)
+(* move test a different function from RowFoldCubDef's, and the equality      *)
+(* proof is stated for one okmv; it costs two int tests a move.               *)
+
 (* THE DEPTH IS AN ARGUMENT and the map is not named, for the reason          *)
 (* RowFoldCubDef gives: a nullary Definition is a value native_compute keeps. *)
 Definition rowmapi (n : nat) : rmap :=

@@ -365,6 +365,18 @@ apply: (runsk_sound he8 he4 prep_eq ycoord_root yroot_ball yroot_pok ycoord_step
   exact: RowInst.sound_mempty.
 Qed.
 
+(* THE TWO RUNS ARE THE SAME RUN.  runski carries the depth left as an int   *)
+(* and RowSrchP proves it equal to runsk, so nothing here is proved twice.    *)
+Lemma ymfinskiE : (nlev <= 63)%N -> ymfinski = ymfinsk.
+Proof.
+by move=> hn; rewrite /ymfinski /ymfinsk; apply: runski_eq; rewrite add0n.
+Qed.
+
+Lemma ymfinski_sound : (nlev <= 63)%N ->
+  soundat e8inv e4of par8 par4
+          (RowFinal.pos (RowInst.ptab memb2tab)) ymfinski nlev.
+Proof. by move=> hn; rewrite (ymfinskiE hn); exact: ymfinsk_sound. Qed.
+
 Theorem yrowsk_within_20 : nlev = 20%N ->
   witsok e8inv e4of par8 par4 (RowInst.ptab memb2tab) wl ->
   mfull2 ymfinsk (wmap wl) ->
