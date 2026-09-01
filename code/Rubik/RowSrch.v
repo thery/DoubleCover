@@ -12,7 +12,7 @@
 (* written for the unfolded map -- and RowSrchP.v is RowFoldRun.v.            *)
 (*                                                                            *)
 (* IT IS A FILE OF ITS OWN AND NOT AN ADDITION TO RowRun.v.  RowFoldSrch      *)
-(* reads RowRun, so a change there rebuilds the folded run -- nine hours -- to *)
+(* reads RowRun, so a change there rebuilds the folded run -- nine hours -- to*)
 (* no purpose.                                                                *)
 (*                                                                            *)
 (* Every cut is safe the way the ones in RowRun are: what is proved is that   *)
@@ -53,7 +53,7 @@ Variable mpg mgr msw mlo mhi : arr.
 
 (* THE PREPASS IS A PARAMETER.  RowMap's is one; RowLvl's prepassD, which     *)
 (* reads each page's chunk once and puts it back once, is another and is      *)
-(* proved equal to it.  The run takes whichever it is handed.                     *)
+(* proved equal to it.  The run takes whichever it is handed.                 *)
 Variable prep : rmap -> rmap -> rmap.
 
 (* ---- the phase one table, folded, and the moves it names ----------------- *)
@@ -149,7 +149,7 @@ Definition enoughd : int := 3.                  (* and a third of the rest    *)
 Definition rcuti : nat := 5.        (* below this a move must go at H         *)
 Definition ncutb : int := 6000000.  (* and his threshold on the row's size    *)
 
-(* the moves of H, one bit each                                              *)
+(* the moves of H, one bit each                                               *)
 Variable ishm : int.
 
 (* ---- hcoset's two cuts --------------------------------------------------- *)
@@ -285,9 +285,9 @@ Fixpoint srchki (cut : bool) (togo : nat) (togoi : int) (c : int) (x : pst)
            let c' := cstep c k in
            let w := p1g c' in
            let nd := wdist w in
-           (* && is a function and native_compute is call by value, so   *)
-           (* a conjunction pays all its tests at every node.  Nested,   *)
-           (* the cut test is reached only by a node that passes two.    *)
+           (* && is a function and native_compute is call by value, so        *)
+           (* a conjunction pays all its tests at every node.  Nested,        *)
+           (* the cut test is reached only by a node that passes two.         *)
            if (if nd <=? togoi'
                then (if cut
                      then (if nd =? togoi' then true
@@ -323,9 +323,9 @@ Fixpoint srchski (cut : bool) (togo : nat) (togoi : int) (c : int) (x : pst)
            let c' := cstep c k in
            let w := p1g c' in
            let nd := wdist w in
-           (* && is a function and native_compute is call by value, so   *)
-           (* a conjunction pays all its tests at every node.  Nested,   *)
-           (* the cut test is reached only by a node that passes two.    *)
+           (* && is a function and native_compute is call by value, so        *)
+           (* a conjunction pays all its tests at every node.  Nested,        *)
+           (* the cut test is reached only by a node that passes two.         *)
            if (if nd <=? togoi'
                then (if cut
                      then (if nd =? togoi' then true

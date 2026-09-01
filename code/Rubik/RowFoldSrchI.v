@@ -96,9 +96,9 @@ Fixpoint fsrchki (cut : bool) (togo : nat) (togoi : int) (c : int) (x : pst)
            let c' := cstep c k in
            let w := p1g c' in
            let nd := wdist w in
-           (* && is a function and native_compute is call by value, so   *)
-           (* a conjunction pays all its tests at every node.  Nested,   *)
-           (* the cut test is reached only by a node that passes two.    *)
+           (* && is a function and native_compute is call by value, so        *)
+           (* a conjunction pays all its tests at every node.  Nested,        *)
+           (* the cut test is reached only by a node that passes two.         *)
            if (if nd <=? togoi'
                then (if cut
                      then (if nd =? togoi' then true
@@ -134,9 +134,9 @@ Fixpoint fsrchski (cut : bool) (togo : nat) (togoi : int) (c : int) (x : pst)
            let c' := cstep c k in
            let w := p1g c' in
            let nd := wdist w in
-           (* && is a function and native_compute is call by value, so   *)
-           (* a conjunction pays all its tests at every node.  Nested,   *)
-           (* the cut test is reached only by a node that passes two.    *)
+           (* && is a function and native_compute is call by value, so        *)
+           (* a conjunction pays all its tests at every node.  Nested,        *)
+           (* the cut test is reached only by a node that passes two.         *)
            if (if nd <=? togoi'
                then (if cut
                      then (if nd =? togoi' then true

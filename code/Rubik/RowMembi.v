@@ -39,7 +39,7 @@ Unset Printing Implicit Defensive.
 
 Local Open Scope uint63_scope.
 
-(* the int63 Lehmer digit and rank, as RowMembi has them *)
+(* the int63 Lehmer digit and rank, as RowMembi has them                      *)
 Definition lcodei (nn : nat) (f : int -> int) (i : int) : int :=
   ifold nn 0
     (fun j c =>
@@ -149,7 +149,7 @@ by rewrite (foldl_count
             h0 add0n (count_lcode f hi).
 Qed.
 
-(* ---- 5. the rank -------------------------------------------------------- *)
+(* ---- 5. the rank --------------------------------------------------------  *)
 
 Lemma lrankiiE (nn : nat) (g : int -> int) (f : nat -> nat) :
   (nn < nwB)%N ->

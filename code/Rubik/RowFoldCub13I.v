@@ -1,5 +1,5 @@
 (* =========================================================================  *)
-(*  RowFoldCub13I.v -- the same three runs, and the depth left as an int.    *)
+(*  RowFoldCub13I.v -- the same three runs, and the depth left as an int.     *)
 (* =========================================================================  *)
 
 (* RowFoldCub13 measured the search at thirteen three ways.  This is that     *)
@@ -48,7 +48,7 @@ Definition dhigh : nat := 13.
 Definition xkeep (x : arr) (_ : int) : arr := x.
 
 (* the test as RowInst now has it: one comparison, and it does not look at    *)
-(* the position -- which is what makes the three runs comparable at all      *)
+(* the position -- which is what makes the three runs comparable at all       *)
 Definition fsolved (c : int) (_ : arr) : bool := Uint63.eqb c csolvedci.
 
 (* ---- the same search, with the step handed in ---------------------------- *)
@@ -73,18 +73,18 @@ Fixpoint psrch (stp : arr -> int -> arr) (togo : nat) (c : int) (x : arr)
 
 (* ---- what is asked ------------------------------------------------------- *)
 
-(* thrown away: the tables arriving *)
+(* thrown away: the tables arriving                                           *)
 Time Eval native_compute in psrch xstep dlow croot sroot allmv 18 0.
 
-(* THE THREE MUST PRINT THE SAME NUMBER *)
+(* THE THREE MUST PRINT THE SAME NUMBER                                       *)
 
-(* the forty eight entry table, as the row carries it now *)
+(* the forty eight entry table, as the row carries it now                     *)
 Time Eval native_compute in psrch xstep dhigh croot sroot allmv 18 0.
 
-(* the twenty cubies *)
+(* the twenty cubies                                                          *)
 Time Eval native_compute in psrch zstepi dhigh croot yrooti allmv 18 0.
 
-(* and no position at all: the floor *)
+(* and no position at all: the floor                                          *)
 Time Eval native_compute in psrch xkeep dhigh croot sroot allmv 18 0.
 
 (* ---- and the same, with the depth left carried as an int ----------------- *)

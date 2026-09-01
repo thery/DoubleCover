@@ -8,8 +8,8 @@
 (* There are two side conditions and no more: of_nat round trips below nwB,   *)
 (* so a bound on the depth travels with it, and neither subtraction wraps.    *)
 (*                                                                            *)
-(* The four small lemmas below are written again rather than taken from       *)
-(* RowSrchP: the two sides must not depend on each other.                     *)
+(* The small lemmas below are written again rather than taken from RowSrchP:  *)
+(* the two sides must not depend on each other.                               *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
@@ -131,9 +131,9 @@ by rewrite hs0.
 Qed.
 
 
-(* the nested tests, against the conjunction they replace.  A lemma of its   *)
-(* own because the induction hypothesis mentions cut, so it cannot be taken  *)
-(* apart inside the proof.                                                   *)
+(* the nested tests, against the conjunction they replace.  A lemma of its    *)
+(* own because the induction hypothesis mentions cut, so it cannot be taken   *)
+(* apart inside the proof.                                                    *)
 Lemma fcondE (cut : bool) (w togoi' : int) (togo : nat) :
   to_nat togoi' = togo -> (togo <= 62)%N ->
   (if w <=? togoi'

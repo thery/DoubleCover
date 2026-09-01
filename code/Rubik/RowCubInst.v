@@ -175,7 +175,7 @@ Hypothesis he4 : e4ok e4bit e4of par4.
 Variable mpg mgr msw mlo mhi btmvt : arr.
 Variable p1 : PArray.array arr.
 
-(* THE PHASE ONE TABLE IS THE FOLDED ONE, and that fold is not the map's.    *)
+(* THE PHASE ONE TABLE IS THE FOLDED ONE, and that fold is not the map's.     *)
 (* Rokicki folds the table by the sixteen symmetries and names, beside the    *)
 (* distance, the moves worth trying: a node offers three or four where p1     *)
 (* left it offering eighteen.  The map here stays unfolded; only the table    *)
@@ -185,7 +185,7 @@ Variables frep fsym : int -> int.
 Variable twsym : int -> int -> int.
 Variables dnlo dnhi fllo flhi : arr.
 
-(* the moves of H, one bit each                                              *)
+(* the moves of H, one bit each                                               *)
 Variable ishm : int.
 
 (* THE PREPASS IS A PARAMETER.  RowMap's is one; RowLvl's prepassD, which     *)
@@ -332,7 +332,7 @@ have := yrow_within_20 hn hw hf hx.
 by rewrite /RowRun.wthn (RowInst.posE memb2tab_ok) hxe.
 Qed.
 
-(* ---- the same run, with hcoset's cuts and Rokicki's early stop ------------ *)
+(* ---- the same run, with hcoset's cuts and Rokicki's early stop ------------*)
 
 (* THE THREE THINGS THE FOLDED RUN HAS HAD FROM THE START and this one had    *)
 (* not: the two cuts, the stop, and the count that drives them.  RowSrch      *)
@@ -365,7 +365,7 @@ apply: (runsk_sound he8 he4 prep_eq ycoord_root yroot_ball yroot_pok ycoord_step
   exact: RowInst.sound_mempty.
 Qed.
 
-(* THE TWO RUNS ARE THE SAME RUN.  runski carries the depth left as an int   *)
+(* THE TWO RUNS ARE THE SAME RUN.  runski carries the depth left as an int    *)
 (* and RowSrchP proves it equal to runsk, so nothing here is proved twice.    *)
 Lemma ymfinskiE : (nlev <= 63)%N -> ymfinski = ymfinsk.
 Proof.

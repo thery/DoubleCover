@@ -23,5 +23,5 @@ Corollary real_row_superflip_cub_runi m : m \in H ->
   superflip * m \in ball Sset 20.
 Proof. apply: (row_of_runpi_superflip rowfullpiE). Qed.
 
-(* it must name nothing but the int63 and PArray primitives *)
+(* it must name nothing but the int63 and PArray primitives                   *)
 Print Assumptions real_row_superflip_cub_runi.

@@ -66,8 +66,8 @@ Definition okmvv (pv k : int) : bool :=
   if (18 <=? pv)%uint63 then true
   else let fp := (pv / 3)%uint63 in
        let fk := (k / 3)%uint63 in
-       (* || is a function and native_compute is call by value, so the    *)
-       (* second test is only skipped by writing the two as nested ifs.    *)
+       (* || is a function and native_compute is call by value, so the        *)
+       (* second test is only skipped by writing the two as nested ifs.       *)
        if (fp =? fk)%uint63 then false else ~~ (fp =? fk + 3)%uint63.
 
 Definition srch : nat := 16.
@@ -95,7 +95,7 @@ congr (fsidx (coordi (comp_tabi _ _ _))).
 by rewrite /mvi (set_nth_default (id_tabi flast) sfti szm).
 Qed.
 
-(* WHAT THE PRUNING TABLE SAYS, and it is all that is asked of it: a nought  *)
+(* WHAT THE PRUNING TABLE SAYS, and it is all that is asked of it: a nought   *)
 (* is the solved phase one coordinate.  p1 is a Variable here, so this is the *)
 (* soundness of the table the search was handed and it is carried, not        *)
 (* proved.  Soundness of the ROW looks nowhere else at p1.                    *)

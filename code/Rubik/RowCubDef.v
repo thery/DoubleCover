@@ -46,9 +46,9 @@ Definition ishmi : int :=
 (* The map the twenty leave.  IT IS A FUNCTION AND NOT A VALUE: a nullary     *)
 (* Definition is a top level value native_compute keeps for good, which would *)
 (* hold the unmarked map alive beside the marked one.                         *)
-(* THE LEVEL IS RowLvl's: each page's chunk read once and put back once,     *)
-(* where RowMap's finds it again for every word.  It is proved equal to      *)
-(* RowMap's, so nothing about the cube changes.                             *)
+(* THE LEVEL IS RowLvl's: each page's chunk read once and put back once,      *)
+(* where RowMap's finds it again for every word.  It is proved equal to       *)
+(* RowMap's, so nothing about the cube changes.                               *)
 Definition rowmapp (n : nat) : rmap :=
   ymfinsk e8numi e4biti
           p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
@@ -70,7 +70,7 @@ Definition rowmappi (n : nat) : rmap :=
 (* is the run again, in the kernel.                                           *)
 Definition rowwitsp : rmap := wmarkof rowwits (rowmapp 20).
 
-(* The same two over the int run.  RowCubProofI shows the two maps equal, so *)
+(* The same two over the int run.  RowCubProofI shows the two maps equal, so  *)
 (* nothing is proved twice.                                                   *)
 Definition rowwitspi : rmap := wmarkof rowwits (rowmappi 20).
 
