@@ -345,6 +345,14 @@ Definition ymfinsk : PArray.array arr :=
         ytomemb okmv ycsolved RowInst.croot yrooti dsrch ishm
         nlev 0 0%uint63 (mkempty tt) (mkempty tt).
 
+(* The same run over the search that converts nothing.  runsk's own           *)
+(* arguments, in the same order.                                              *)
+Definition ymfinski : PArray.array arr :=
+  runski e8num e4bit prep F frep fsym twsym dnlo dnhi fllo flhi
+         (RowInst.cstep fsstep) zstepi
+         ytomemb okmv ycsolved RowInst.croot yrooti dsrch ishm
+         nlev 0 0%uint63 (mkempty tt) (mkempty tt).
+
 Lemma ymfinsk_sound :
   soundat e8inv e4of par8 par4
           (RowFinal.pos (RowInst.ptab memb2tab)) ymfinsk nlev.
