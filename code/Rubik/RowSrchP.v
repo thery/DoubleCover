@@ -43,7 +43,14 @@ Local Notation unplc := (unplace e8inv e4of par8 par4).
 
 Variable mpg mgr msw mlo mhi : arr.
 
-Local Notation prep := (prepass mpg mgr msw mlo mhi).
+(* THE PREPASS IS A PARAMETER.  RowMap's is one; RowLvl's prepassD, which     *)
+(* reads each page's chunk once and puts it back once, is another and is      *)
+(* proved equal to it.  The run takes whichever it is handed.  The proof asks   *)
+(* only that it be RowMap's.                                                  *)
+Variable prep : rmap -> rmap -> rmap.
+
+Hypothesis prep_eq : forall m dst,
+  prep m dst = prepass mpg mgr msw mlo mhi m dst.
 
 (* ---- the phase one table, folded, and the moves it names ----------------- *)
 
@@ -89,11 +96,11 @@ Local Notation srchk := (RowSrch.srchk e8num e4bit F frep fsym twsym
 Local Notation srchsk := (RowSrch.srchsk e8num e4bit F frep fsym twsym
                             dnlo dnhi fllo flhi cstep xstep tomemb okmv
                             csolved ishm).
-Local Notation levelsk := (RowSrch.levelsk e8num e4bit mpg mgr msw mlo mhi
+Local Notation levelsk := (RowSrch.levelsk e8num e4bit prep
                              F frep fsym twsym dnlo dnhi fllo flhi
                              cstep xstep tomemb okmv csolved croot sroot
                              dsrch ishm).
-Local Notation runsk := (RowSrch.runsk e8num e4bit mpg mgr msw mlo mhi
+Local Notation runsk := (RowSrch.runsk e8num e4bit prep
                            F frep fsym twsym dnlo dnhi fllo flhi
                            cstep xstep tomemb okmv csolved croot sroot
                            dsrch ishm).
@@ -251,7 +258,7 @@ Qed.
 Lemma levelsk_sound cut m dst d :
   soundat m d -> soundat dst d.+1 -> soundat (levelsk cut d.+1 m dst) d.+1.
 Proof.
-move=> hm hd; rewrite /levelsk; cbv zeta.
+move=> hm hd; rewrite /levelsk; cbv zeta; rewrite !prep_eq.
 have hp := RowRun.prepass_sound hmv_Sset grpmvP prep_move hm hd.
 case: ifP => _; last exact: hp.
 case: ifP => _; last exact: hp.

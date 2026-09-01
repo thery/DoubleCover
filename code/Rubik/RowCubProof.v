@@ -18,7 +18,7 @@ Require Import Lehmer RowCub RowCubi RowCubInst.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import P1Table RowReal FsmChk.
 Require Import Fold FoldTables P1Fdec P1FTable RowMask.
-Require Import RowSrch RowMark RowCubReal RowCubDef.
+Require Import RowSrch RowMark RowLvl RowCubReal RowCubDef.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -37,7 +37,7 @@ Notation rmap := (PArray.array arr).
 (* equation is written out and rewritten with.                               *)
 Lemma rowwitspE : rowwitsp =
   ycwitsr p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
-          ishmi.
+          ishmi (prepassD mpgi mgri mswi mloi mhii).
 Proof. by rewrite /rowwitsp /rowmapp /wmarkof /ycwitsr /ycmfinsp. Qed.
 
 (* ---- what the run buys --------------------------------------------------- *)
@@ -46,8 +46,8 @@ Theorem row_of_runp : rowfullp = true ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
 Proof.
 rewrite /rowfullp rowwitspE => hf.
-exact: (@real_superflip_row_p p1ftab frepi fsymi twsymi
-          dnlo_data dnhi_data fllo_data flhi_data ishmi fsmoveCP hf).
+exact: (real_superflip_row_p
+          (prepassD_eq mswi mloi mhii pgm_rangeC grm_rangeC) fsmoveCP hf).
 Qed.
 
 Corollary row_of_runp_superflip : rowfullp = true ->

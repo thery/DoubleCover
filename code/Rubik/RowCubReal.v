@@ -52,6 +52,14 @@ Variable twsym : int -> int -> int.
 Variables dnlo dnhi fllo flhi : arr.
 Variable ishm : int.
 
+(* THE PREPASS IS A PARAMETER, and nothing here cares which it is.  RowMap's  *)
+(* is one; RowLvl's prepassD, which reads each page's chunk once and puts it  *)
+(* back once, is another and is proved equal to it.                           *)
+Variable prep : rmap -> rmap -> rmap.
+
+Hypothesis prep_eq : forall m dst,
+  prep m dst = prepass mpgi mgri mswi mloi mhii m dst.
+
 (* the flip and slice move table's certificate, as RowReal carries it *)
 Hypothesis hfm : fsmoveC.
 
@@ -62,6 +70,18 @@ Hypothesis hfm : fsmoveC.
 (* loads no proof.  Here is what its being true buys, and RowCubDone puts     *)
 (* the two together.                                                         *)
 
+(* ---- what RowLvl's level asks of the move tables ------------------------- *)
+
+(* A move sends a page to a page and a group to a group.  RowInst's pgok and  *)
+(* grok say exactly that and the instance has already settled them.           *)
+Lemma pgm_rangeC k pg : (to_nat k < nhn)%N -> (pg <? npagei)%uint63 ->
+  (RowMap.pgmv mpgi k pg <? npagei)%uint63.
+Proof. by move=> hk hp; apply: (iter_at (iter_at pgokC hk) (ltn_npagei hp)). Qed.
+
+Lemma grm_rangeC k gr : (to_nat k < nhn)%N -> (gr <? ngroupi)%uint63 ->
+  (RowMap.grmv mgri k gr <? ngroupi)%uint63.
+Proof. by move=> hk hg; apply: (iter_at (iter_at grokC hk) (ltn_ngroupi hg)). Qed.
+
 (* ---- the map, named ------------------------------------------------------ *)
 
 (* The map the run leaves, and the same with the witnesses marked in.  They   *)
@@ -70,9 +90,8 @@ Hypothesis hfm : fsmoveC.
 (* will not match -- it reduces, and reducing this is the run again, in the   *)
 (* kernel.                                                                    *)
 Definition ycmfinsp : rmap :=
-  ymfinsk e8numi e4biti mpgi mgri mswi mloi mhii
-          F frep fsym twsym dnlo dnhi fllo flhi
-          ishm actfsri tomembi okmvv srch 20.
+  ymfinsk e8numi e4biti F frep fsym twsym dnlo dnhi fllo flhi
+          ishm prep actfsri tomembi okmvv srch 20.
 
 Definition ycwitsr : rmap :=
   foldr (fun t m => let: (pg, gr, bt, _) := t in mmark m pg gr bt)
@@ -88,7 +107,7 @@ Lemma ycmfinsp_sound :
                  (RowFinal.pos (RowInst.ptab memb2tab)) ycmfinsp 20.
 Proof.
 rewrite /ycmfinsp.
-exact: (ymfinsk_sound e8okC e4okC memb2tab_okC srcokC halfokC
+exact: (ymfinsk_sound e8okC e4okC prep_eq memb2tab_okC srcokC halfokC
           (r_fsstepP hfm) r_leaf_membi r_tomembi_tab
           pgokC grokC btokC memb2tab_moveC).
 Qed.
