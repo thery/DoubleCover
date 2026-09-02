@@ -1536,26 +1536,73 @@ at the position it is carrying and tests it. If the test fails it moves on.
 The table only cuts, and no part of the proof reads it. It costs one
 comparison at the bottom.
 
-== What it cost, and what is left
+== The map, folded
 
-The row is thirty one Rocq files. Twenty eight are hand-written and come to
-6 579 lines; the other three are generated, 141 458 lines of array literals and
-words. Ten of the hand-written files, 2 682 lines, are the ones this section is
-about.
+The map is one bit for each position of the row. It is laid out as 40 320
+pages of 20 160 groups, one page for each way the eight top and bottom corners
+can sit.
 
-#tbl(([], [wall clock], [processor time]),
-  ([the row's Rocq files, checks and all], [2 min 25], [4 min 37]),
-  ([the phase one table, as Rocq files], [], [8 h 48]),
+Sixteen renamings of the cube keep the top and bottom faces where they are.
+Each of them sends the ten to the ten, and each of them leaves the superflip
+alone. So a position and its renaming are the same distance from the
+superflip, and two pages that are renamings of one another hold the same
+answer. Only one page of each family has to be kept. That leaves 2 768 pages
+of the 40 320, a factor of 14.6.
+
+One level of the search is one pass over the map, so there is 14.6 times less
+of it to walk as well. The price is that a renaming has to be undone every
+time a kept page is read, which the plain map does not have to do.
+
+The fold is not free in the proof either. Every step of the search now writes
+into a page that stands for a whole family, and what a mark on it means has to
+be said and proved: that a renaming sends a member of the row to a member of
+the row, that undoing it gives back the position the page stood for, and that
+a map which is sound after one level is still sound after the next. That is
+the largest single piece of the row's proof.
+
+We built the row both ways, over the same cube and the same tables, and ran it
+both ways.
+
+== What it cost
+
+The row is sixty seven Rocq files. Sixty four are hand-written and come to
+15 112 lines; the other three are generated, 248 185 lines of array literals
+and words.
+
+The search ran. It ran twice, once over the folded map and once over the
+unfolded one, and both times it filled the map.
+
+#tbl(([the run], [wall clock], [memory]),
+  ([over the folded map], [8 h 13], [11.9 GB]),
+  ([over the unfolded map], [19 h 05], [not measured]),
 )
 
-The phase one table is 2.9 GB of Rocq source and 4.5 GB once checked, and it
-is generated once and shared with the lower-bound work.
+Those two figures are not a measure of what the fold is worth. The runs were
+made two days apart, the unfolded one carries a later improvement to the
+search, and only half of its wall clock was spent computing. What can be
+compared is the same search stopped at thirteen moves instead of twenty, which
+is a run of its own: 751 s over the folded map against 3 015 s over the
+unfolded one. That is four times, where the map is 14.6 times smaller. The run
+does not follow the size of the map, because a level costs by the bits that
+are set and not by the words that are there.
 
-What is proved is everything except the search itself. Every position of the
-row is a member of the map, every member the map marks is within twenty moves,
-the leftover words replay, and the tables pass their checks. What has not run
-is the search that fills the map. Until it runs, the row is not done, and the
-statement says so: it still has that one hypothesis.
+The phase one table is 2.9 GB of Rocq source and 4.5 GB once checked, 8 h 48
+of processor time. It is generated once and shared with the lower-bound work.
+
+So the row is done, and the statement has no hypothesis left.
+
+```coq
+Theorem real_row_superflip_fold_run m :
+  m \in H -> superflip * m \in ball Sset 20.
+```
+
+`H` is the group of the ten, met above as Reid's H, and a row is one of its
+cosets. In words: every position of the superflip's row is within twenty
+moves. Asking Rocq what the proof assumes reports only the primitives of its
+machine-integer and array interface, as it does for the lower bound. The
+unfolded run proves the same sentence under its own name, from its own map.
+The two share the cube, the tables and the leftover words, and nothing else:
+the map, the level and the search are written twice, once each way.
 
 = What was done, and what it taught
 
