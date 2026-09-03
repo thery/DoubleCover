@@ -22,6 +22,18 @@
 // ---- small helpers -------------------------------------------------------
 
 // A figure table: header row in bold, light rules, first column left aligned.
+#let ftbl(headers, ..rows) = table(
+  columns: (10.5em, 1fr),
+  stroke: none,
+  inset: (x: 7pt, y: 3.5pt),
+  align: left,
+  table.hline(),
+  table.header(..headers.map(h => text(weight: "bold", h))),
+  table.hline(stroke: 0.5pt),
+  ..rows.pos().flatten(),
+  table.hline(),
+)
+
 #let tbl(headers, ..rows) = align(center)[
   #table(
     columns: headers.len(),
@@ -533,7 +545,7 @@ against @net. After this file, stickers are never mentioned again.
 
 Two classical ideas make the search possible.
 
-== An estimate that is never too big
+== The pruning estimate
 
 The idea is not new, and neither is the way the estimate is obtained. A
 depth-first search that deepens step by step and prunes on an estimate that
@@ -1012,7 +1024,7 @@ does. The sources carry
 their own #src("README.md"), which lists the same files, the scripts beside
 them, and how to run the whole thing.
 
-#tbl(([the cube, as mathematics], []),
+#ftbl(([the cube, as mathematics], []),
   ([`Cyc.v`], [cyclic permutations, built from the list of points they move]),
   ([`Rubik333.v`], [facelets, the six faces, the eighteen moves, the cube group]),
   ([`Sym.v`, `Sym16.v`], [the 48 symmetries of the cube; the 16 used by the fold]),
@@ -1020,27 +1032,27 @@ them, and how to run the whole thing.
   ([`Diameter.v`], [the superflip, its 20-move sequence, and what the upper bound would need]),
 )
 
-#tbl(([the search, in the abstract], []),
+#ftbl(([the search, in the abstract], []),
   ([`Search.v`], [the search and its contract: a false answer is a proof]),
   ([`Coord.v`], [any summary plus any checked table gives a legal estimate]),
   ([`Root.v`], [the first move, up to symmetry: $U$ or $U^2$]),
   ([`Searchr.v`, `Redun.v`], [the rules that forbid redundant move sequences]),
 )
 
-#tbl(([data structures], []),
+#ftbl(([data structures], []),
   ([`Table.v`], [permutations written as the table of their images]),
   ([`Tabi.v`], [the same on machine integers and arrays, and the bridge between]),
   ([`ssrint63.v`], [the machine-integer toolbox used throughout]),
 )
 
-#tbl(([the summaries and their tables], []),
+#ftbl(([the summaries and their tables], []),
   ([`Coordfs.v`, `Coordfsi.v`], [the edge-flip and slice summary, packed into 24 bits]),
   ([`Fstab.v`, `FsTable.v`, `Fsparity.v`], [its table and the checks it must pass]),
   ([`Phase1.v`], [the phase 1 estimate, its table and its certificate, 2215 lines]),
   ([`Moves.v`], [the eighteen moves and the superflip, as tables]),
 )
 
-#tbl(([the search on the real data], []),
+#ftbl(([the search on the real data], []),
   ([`Farp1.v`], [the three viewing angles and the search built on them, 1404 lines]),
   ([`Far.v`], [the assembly: the superflip is not within $d$ moves, 1124 lines]),
   ([`Fast.v`, `FastP.v`], [the fast search, and the proof that it is the same search]),
@@ -1178,7 +1190,7 @@ winning all of it would leave 26 processor-hours. The cost is the tree, and the
 tree is 146 billion positions. Nothing else in the chain is known to be
 wasteful.
 
-= The quarter-turn bound
+= Counting in quarter turns
 
 Counted in quarter turns there are twelve moves: the six faces one way and the
 same six back. A half turn is two moves. The answer in that count is *26*
@@ -1264,7 +1276,7 @@ Six searches follow. The first beginning is two turns long and is searched 22
 further, the other five are three long and are searched 21 further. Each
 reaches 24 turns.
 
-== The summary and its table
+== The summary, and its table
 
 The estimate is built as before, by keeping a summary of the cube:
 
@@ -1290,35 +1302,35 @@ that keep the up-down axis sort the 190 080 edge values into 12 094 families, a
 factor of 15.72, and one entry is kept per family. That is 883 MB, measured at
 3.86 GB once loaded into the prover.
 
-== Four facts the search depends on
+== The files
 
-None of the four is visible in a run. If one is wrong, the search still
-finishes and still reports that there is no manoeuvre.
+#ftbl(([Reid's argument], []),
+  ([`HCoord.v`], [the three coordinates of a position, on facelet tables]),
+  ([`HRoot.v`], [Reid's six positions, and the three views of them]),
+  ([`HProp2.v`], [manoeuvres as words, and the three rewritings of them]),
+  ([`HReid.v`], [what Proposition 2 rests on]),
+  ([`HBridge.v`], [from Proposition 2 to the position the run searches]),
+)
 
-*The rule the search plays by loses no manoeuvre.* Three quarter turns of one
-face are one turn the other way, so it never plays three; two must be twice the
-same turn; and of two opposite faces it keeps one order only. #src("HSound.v")
-proves that any manoeuvre can be rewritten to obey those rules without getting
-longer.
+#ftbl(([the search], []),
+  ([`HSearch.v`], [the quarter-turn search over Reid's table]),
+  ([`HCanon.v`], [the rule the search plays by loses no manoeuvre]),
+  ([`HCut.v`], [a cut throws no manoeuvre away]),
+  ([`HPrefix.v`], [playing a word is stepping the state]),
+  ([`HPok.v`], [the positions the search meets, and the triples it carries]),
+  ([`HRunS.v`, `HSound.v`], [a search that fails is a proof that no word exists]),
+)
 
-*The three numbers move as the tables say.* The search carries the three
-numbers, never a position, and steps each through a move table. The tables are
-compared against the action of a turn at all 190 080, 70 and 2 187 entries, for
-twelve turns each. #src("HSweepC.v").
-
-*The table never drops by more than one under a turn.* A sweep of
-29 099 347 200 summaries times twelve turns, #src("HSweep.v"), cut into twelve
-jobs. Beside it one lookup, that the table reads zero at the solved summary.
-
-*A search returning false means there is no manoeuvre.* A boolean is not a
-theorem. #src("HRunS.v") proves that if a word the rules accept, no longer than
-the depth, solves the position, then the search returns true.
-
-Two facts came out of proving these. The summary records seven corner twists
-and reads the eighth off them, which holds only because the eight add up to
-zero modulo three. And nothing is known about a summary that is not a row of
-the table, so each number is proved smaller than its own table at every
-position the search can reach.
+#ftbl(([the tables, and the assembly], []),
+  ([`HChk.v`], [the move tables against the coordinates]),
+  ([`HEdge.v`, `HCorner.v`], [a turn acts on the datum, for edges and for corners]),
+  ([`HAgree.v`], [the coordinates agree with the tables, everywhere]),
+  ([`HSweepC.v`], [the three sweeps over the move tables, in six slices]),
+  ([`HSweep.v`], [the sweep over the distance table, cut into twelve jobs]),
+  ([`HAdmis.v`], [what that sweep buys: the estimate is never too big]),
+  ([`HGlue.v`, `HBound.v`], [what the run has to give, and what it gives]),
+  ([`HFinal.v`, `HAll.v`], [the bound assembled, and `qdiam25`]),
+)
 
 == The theorem, and what it cost
 
@@ -1346,9 +1358,9 @@ row is built once by hand and is not part of that run.
 
 The sweeps and the searches are nearly nine tenths of the cost. Checking the
 table rather than trusting it costs about two thirds of what the searches cost.
-The quarter-turn work is thirty more hand-written Rocq files and 6 739 lines.
+The quarter-turn work adds eighteen hand-written Rocq files and 6 008 lines.
 
-= One row of the upper bound
+= One coset of the upper half
 
 Everything above is a lower bound, and a lower bound rests on one position and
 one search that finds nothing: the superflip for the twenty face turns, the
@@ -1380,32 +1392,31 @@ is no prospect of repeating that here. What can be done is one coset, to see
 what one costs and whether the pieces are in place. This section reports that
 one coset, the superflip's.
 
-== Rows
+== Cosets
 
 The subgroup is generated by ten of the eighteen moves: the three turns of the
 top face, the three of the bottom face, and the half turns of the other four.
-Call them the ten. They generate Reid's H, met above. A coset of H is called a
-row here: the set of positions reached by playing the ten from a fixed
-position. Every position of the cube lies in exactly one row.
+Call them the ten. They generate Reid's H, met above. A coset of H is the set of positions
+reached by playing the ten from a fixed position. Every position of the cube lies in exactly one coset.
 
 #tbl(([], [count]),
   ([positions of the cube], [43 252 003 274 489 856 000]),
-  ([rows], [2 217 093 120]),
-  ([positions in a row], [19 508 428 800]),
-  ([rows we did], [1]),
+  ([cosets], [2 217 093 120]),
+  ([positions in a coset], [19 508 428 800]),
+  ([cosets we did], [1]),
 )
 
-One row is not the upper bound and is not offered as one.
+One coset is not the upper bound and is not offered as one.
 
-== A row as a map of bits
+== A coset is one map
 
-A position of a row is named by three numbers: how the eight top and bottom
+A position of a coset is named by three numbers: how the eight top and bottom
 corners sit, how the eight top and bottom edges sit, and how the four middle
 edges sit. The map holds one bit for each, 812 851 200 machine words of
 twenty-four bits, which is 19 508 428 800 bits.
 
 The search starts at the superflip and plays words, setting the bit of every
-position of the row it reaches. When every bit is set the theorem follows.
+position of the coset it reaches. When every bit is set the theorem follows.
 Thirty-two positions are not reached; each is given a word of twenty moves by
 hand in #src("RowWits.v"). The words are not trusted: #src("RowWitsChk.v")
 plays each one back and asks for the solved cube.
@@ -1421,18 +1432,18 @@ Four things are new, and none of them is about searching.
 
 - The rank and the sign of a permutation on machine integers. Rocq's library
   has both, but for permutations that cannot be computed.
-- That a position of a row *is* its three numbers, in both directions. Only one
+- That a position of a coset *is* its three numbers, in both directions. Only one
   direction was there. Without the other the theorem is about triples of
   numbers and not about the cube.
 - The link between the summary the search carries and the position it stands
   for. The summary is one machine word, the position forty-eight.
 - Checks on the tables, one per file, so that each reports separately.
 
-== An unsound stopping rule, found by the proof
+== What the proof found
 
 Cutting a branch on the table is sound: a table that says too little only cuts
 less. Stopping on it is not. The search used to stop when the table said zero
-and take the position it had reached as one of the row. A table of zeros still
+and take the position it had reached as one of the coset. A table of zeros still
 says too little, so it is still allowed, yet it would stop the search everywhere
 and the theorem would say nothing.
 
@@ -1450,14 +1461,65 @@ is one pass over the map, so there is 14.6 times less of it to walk. The price
 is undoing a renaming whenever a kept page is read.
 
 The fold has to be proved as well as written: that a renaming sends a member of
-the row to a member of the row, that undoing it gives back the position the
+the coset to a member of the coset, that undoing it gives back the position the
 page stood for, and that a map sound after one level is sound after the next.
-That is the largest single part of the row's proof.
+That is the largest single part of the coset's proof.
 
-== The two runs, and what they cost
+== The files
 
-The row is sixty-seven Rocq files: sixty-four hand-written, 15 112 lines, and
-three generated, 248 185 lines.
+#ftbl(([the coset and its members], []),
+  ([`Row.v`], [a coset, its members, and each member as a bit]),
+  ([`RowMemb.v`, `RowMembi.v`], [the cube a member names, and the member a cube gives]),
+  ([`RowMembChk.v`], [that bridge, with nothing left open]),
+  ([`RowLeaf.v`, `RowInH.v`], [a position of H is its three ranks]),
+  ([`RowInst.v`, `RowReal.v`], [the instance: the superflip's own coset]),
+)
+
+#ftbl(([ranking, and the moves], []),
+  ([`Lehmer.v`], [the rank and the sign of a permutation, on machine integers]),
+  ([`RowUp8ok.v` .. `RowUp4inv.v`], [unranking is a permutation, and undoes the ranking]),
+  ([`RowPar8.v`, `RowPar4.v`, `RowParity.v`], [the parity tables, and how a move shifts a parity]),
+  ([`RowPartC.v`, `RowPartM.v`, `RowPartU.v`], [each of the three parts is a permutation]),
+  ([`RowMoveH.v`, `RowMoveC.v`, `RowMoveM.v`, `RowMoveU.v`], [a move of H is its three halves, each following its table]),
+  ([`RowTab.v`, `RowTabL.v`, `RowTabP.v`, `RowTabF.v`], [the tables themselves, and the checks they pass]),
+)
+
+#ftbl(([the map and the search], []),
+  ([`RowMap.v`], [the map of a coset, and the pass that steps it]),
+  ([`RowRun.v`], [the search, the level loop, and what each owes]),
+  ([`RowLvl.v`], [the pass again, one chunk a page instead of one a word]),
+  ([`RowMask.v`], [the folded phase one table, and the moves worth trying]),
+  ([`RowSrch.v`, `RowSrchP.v`], [the search with the cuts and the early stop, and its proof]),
+  ([`RowMark.v`], [the leftover words marked into the map the run leaves]),
+  ([`RowWits.v`, `RowWitsChk.v`], [those words, and the replay that checks them]),
+  ([`RowFinal.v`], [every member of the coset is within twenty moves]),
+)
+
+#ftbl(([the fold], []),
+  ([`RowFold.v`], [the map folded by the sixteen renamings]),
+  ([`RowFoldSym.v`, `RowFoldConj.v`], [the fold tables are the renamings, and they conjugate]),
+  ([`RowFoldPart.v`, `RowFoldSrc.v`, `RowFoldGath.v`], [a page renamed, then moved]),
+  ([`RowFoldWrite.v`, `RowFoldLvl.v`], [what one write costs, and that a level keeps the map sound]),
+  ([`RowFoldMem.v`, `RowFoldOk.v`], [two members that fold together stand or fall together]),
+  ([`RowFoldTot.v`, `RowFoldPorb.v`], [the fold tables land in range at every index]),
+  ([`RowFoldEmpty.v`, `RowFoldFinal.v`], [the map the run starts from, and the one it leaves]),
+  ([`RowFoldRun.v`, `RowFoldSrch.v`], [the folded search and the folded run are sound]),
+  ([`RowFoldSrchI.v`, `RowFoldSrchIP.v`], [the same search with the depth as an int, and the two are equal]),
+)
+
+#ftbl(([the two runs], []),
+  ([`RowCub.v`, `RowCubi.v`, `RowCubInst.v`], [a position as twenty cubies, carried through the search]),
+  ([`RowCubDef.v`, `RowFoldCubDef.v`, `RowFoldCubDefI.v`], [what each run needs, and not one proof]),
+  ([`RowCubBoolI.v`, `RowFoldCubBoolI.v`], [the two runs: one boolean each, and nothing else]),
+  ([`RowCubReal.v`, `RowFoldCubReal.v`], [the coset on each map, with only that boolean left open]),
+  ([`RowCubProof.v`, `RowCubProofI.v`, `RowFoldCubProof.v`, `RowFoldCubProofI.v`], [what a true boolean buys]),
+  ([`RowCubDoneI.v`, `RowFoldCubDoneI.v`], [run and proof joined: the two theorems]),
+)
+
+== What it cost
+
+The coset adds sixty-six hand-written Rocq files and 15 782 lines to the work
+above, besides the generated tables.
 
 The search ran twice, over the folded map and over the unfolded one, with the
 same search in both, and both times it filled the map.
@@ -1488,12 +1550,12 @@ Theorem real_row_superflip_fold_runi m :
   m \in H -> superflip * m \in ball Sset 20.
 ```
 
-`H` is the group of the ten and a row is one of its cosets. Every position of
-the superflip's row is within twenty moves. Rocq reports only the primitives of
+`H` is the group of the ten and a coset is one of its cosets. Every position of
+the superflip's coset is within twenty moves. Rocq reports only the primitives of
 its machine-integer and array interface. The unfolded run proves the same
 statement from its own map.
 
-= Summary
+= Conclusion
 
 Two lower bounds are proved. No position of the cube is solved in 19 face
 turns, and none in 25 quarter turns. In each case one position is the witness,
@@ -1506,19 +1568,54 @@ computation: not one search that finds nothing, but two billion searches that
 must each find everything. One of the two billion was done, and the section
 above says what it cost.
 
+The three share a trunk. The cube itself, as permutations of the forty-eight
+facelets, with the eighteen moves and the group they generate. Balls, and what
+it means for a position to be within $d$ moves. The abstract search, whose
+contract is that a false answer is a proof. The rule that any summary of a
+position, together with any table that passes one check, gives an estimate that
+is never too big. And the tables themselves, held as machine integers in arrays
+rather than as lists of unary numbers.
+
+What each of the three needed of its own:
+
+- *The twenty face turns.* The phase one summary, which is the edge flips and
+  the slice, its table, and the certificate that checks the table. Three
+  viewing angles of the same search, and seventeen pieces run side by side.
+- *The twenty-six quarter turns.* Reid's Proposition 2, which is the one piece
+  of the development argued by hand rather than computed, and the parity
+  argument that turns 25 into 24. A second and much larger summary, 29 billion
+  values, with a table of its own and a sweep of its own.
+- *One coset.* A coset held as a map of bits rather than as a tree of
+  positions. That needs the rank and the sign of a permutation on machine
+  integers, the bijection between a position and its three ranks, a pass that
+  steps a whole map one move at a time, the fold by the sixteen renamings, and
+  words supplied by hand for the positions the search does not reach.
+
+The whole development, counted in hand-written Rocq and leaving out the
+generated tables, is 36 294 lines. Each line of the table counts what that
+piece adds to the ones above it.
+
+#tbl(([], [files], [lines]),
+  ([the superflip, for the twenty face turns], [53], [14 504]),
+  ([the four-spot, for the twenty-six quarter turns], [18], [6 008]),
+  ([one coset of the upper bound], [66], [15 782]),
+  ([*in all*], [*137*], [*36 294*]),
+)
+
 One point is worth recording. Our own OCaml prototype for the first bound
 dropped six of the thirty beginnings it should have tried. It ran for hours and
 gave the expected answer. The Rocq proof is what found it. A cut that is too
 greedy does not make a search fail; it makes it faster, and it makes it agree
 with you.
 
+This development was written with the help of Claude, Anthropic's coding
+assistant, which is recorded as a co-author of 656 of the 682 commits of
+`code/Rubik`.
+
 The sources are at
 #link("https://github.com/thery/DoubleCover/tree/main/code/Rubik")[`github.com/thery/DoubleCover/code/Rubik`],
 with the note, its figures and Reid's transcribed post beside them.
 
-This development was written with the help of Claude, Anthropic's coding
-assistant, which is recorded as a co-author of 433 of the 458 commits of
-`code/Rubik`.
 
 #pagebreak(weak: true)
 
