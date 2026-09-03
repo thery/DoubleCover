@@ -289,39 +289,35 @@ distance test held. The int searches nest their tests instead.
 
 ## Fold against unfold, the whole comparison
 
-Both halves are now proved and both `Print Assumptions` name the int63 and
-PArray primitives and nothing else.
+Both halves are proved and both `Print Assumptions` name the int63 and PArray
+primitives and nothing else.  **Both runs now use the SAME search**, the one
+that carries the depth as an int, so the only difference left is the map.
 
 |  | unfolded map | folded map | ratio |
 |---|---|---|---|
 | the map, words (computed from RowMap/RowFold) | 388 x 2 097 152 = 813 694 976 | 44 x 1 290 240 = 56 770 560 | **14.3x** |
 | the map, bytes at 8 a word | 6.51 GB | 454 MB | 14.3x |
-| the run's own footprint | not watched | 11.9 GB flat (measured) | -- |
-| depth 13, nat search (both measured, dates differ: fold 2026-08-31, plain 2026-09-01) | 3 014.8 s | 751.3 s | **4.01x** |
-| depth 13, int search (measured) | 2 963.8 s | NOT RUN (`fpacei`) | -- |
-| the whole run, 20 levels | **19 h 05** = 68 697 s wall, 10 h 16 CPU, int search, 2026-09-02 | 8 h 13 = 29 580 s, nat search, roquableu, 2026-08-31 | 2.32x, **NOT a fair ratio** |
+| **the whole run, 20 levels, wall** | **19 h 05** (68 697 s) | **6 h 00** (21 637 s) | **3.18x** |
+| the same run, CPU | 10 h 16 (36 975 s) | 5 h 59 (21 520 s) | **1.72x** |
+| CPU as a share of wall | 54 % | 99.5 % | -- |
+| depth 13, nat search | 3 014.8 s | 751.3 s | 4.01x |
 | the theorem | `real_row_superflip_cub_runi` | `real_row_superflip_fold_run` | -- |
-| the script | `./mkrowfold.sh pbooli` then `pdonei` | `./mkrowfold.sh bool` then `done` | -- |
+| the script | `./mkrowfold.sh pbooli` then `pdonei` | `./mkrowfold.sh booli` then `donei` | -- |
 
-**The nearest thing to an honest number is the 4.01x at thirteen**: the same
-search at the same depth.  The two were NOT measured the same day and I have
-not checked they were the same box.  The map is 14.3x bigger and the run is 4x slower, so the run does
-NOT track the map size -- it tracks it sublinearly, because the level work is
-per WORD OF THE MAP THAT IS SET, not per word allocated.
+Measured 2026-09-02 (unfolded) and 2026-09-03 (folded), both on roquableu.
 
-**The 2.32x on the whole run is three differences at once** -- the map, the
-depth carried as an int against as a nat, and possibly the machine.  It is
-smaller than 4.01x, which is the interesting part and is not explained: at
-twenty levels the search is 97 % of the run and the search is the part the
-fold does NOT shrink.
+**THE FOLD IS WORTH 3.18x ON THE WALL AND 1.72x ON THE CPU.**  The gap between
+the two is the unfolded run spending 46 % of its wall off the processor, where
+the folded run spends 0.5 %.  That is the 6.5 GB map against 454 MB, so it is
+not an artefact to be corrected away -- it is part of what the fold buys -- but
+the two numbers must be quoted as two numbers and not as one.
 
-THREE HOLES, and the first is twelve minutes:
+**AND THE INT DEPTH IS WORTH 1.37x ON THE WHOLE RUN**: the folded run was
+8 h 13 (29 580 s) with the depth as a nat and is 6 h 00 with it as an int.
+That matches the 1.41x measured on the search alone (RowFoldCub13I), which
+confirms the search is where a twenty-level run spends itself.
 
-- `./mkrowfold.sh fpacei` -- the fold at thirteen over the INT search.  With
-  it, the depth-13 row is int against int and the ratio is the map alone.
-- the plain run's peak RES.  Only 54 % of its 19 h was CPU; if that is paging
-  on 6.5 GB of map, it is the number that explains the wall.
-- which machine the 19 h ran on.  Without it no full-run ratio can be quoted.
+STILL NOT MEASURED: the two runs' peak RES.  `./mkrowfold.sh fpacei` (the fold
+at thirteen over the int search) would also complete the depth-13 row, which is
+still nat against nat.
 
-`./mkrowfold.sh booli` (the fold at twenty, int search, ~8 h) would close the
-last row properly.
