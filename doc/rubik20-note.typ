@@ -1609,8 +1609,7 @@ greedy does not make a search fail; it makes it faster, and it makes it agree
 with you.
 
 This development was written with the help of Claude, Anthropic's coding
-assistant, which is recorded as a co-author of 656 of the 682 commits of
-`code/Rubik`.
+assistant.
 
 The sources are at
 #link("https://github.com/thery/DoubleCover/tree/main/code/Rubik")[`github.com/thery/DoubleCover/code/Rubik`],
