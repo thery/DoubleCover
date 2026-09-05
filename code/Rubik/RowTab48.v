@@ -16,6 +16,7 @@ Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
 Require Import Row RowMap Row48 RowMap48 RowPrep48.
 Require Import RowTabL RowTabP RowTab RowTabP48.
+Require Import RowMemb RowLeaf RowInst RowFinal48 RowWits RowWitsChk.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -38,3 +39,26 @@ Proof. by vm_compute. Qed.
 (* table at the corner rank the two name.                                     *)
 Lemma cpgok48C : cpgok48 e8invi mpgi cpgi cfli.
 Proof. by vm_compute. Qed.
+
+(* ---- the witnesses, at forty eight bits ---------------------------------- *)
+
+(* THE WITNESS LIST IS THE TWENTY FOUR BIT ONE, and a page in it is a corner  *)
+(* RANK.  The same member stands at another place here, so the list is read   *)
+(* through wconv -- the page number split, exactly as everywhere else -- and  *)
+(* the word is not touched, since the member has not changed.                 *)
+Definition rowwits48 : seq (int * int * int * seq nat) :=
+  [seq wconv e8numi par8i t | t <- rowwits].
+
+(* and it is still a list of witnesses: every place in range, every word at   *)
+(* most twenty moves, and every word still solving its member                 *)
+Lemma wits48C :
+  wgood48 e8invi e4ofi par4i (RowInst.ptab memb2tab) rowwits48.
+Proof.
+rewrite /rowwits48; have := witsokC; rewrite /RowFinal.witsok.
+elim: rowwits => [|t l ih] //=.
+case: t => [[[pg gr] bt] w] /andP[/and3P[hi hs hw] hl].
+apply/andP; split; last by apply: ih.
+apply/and3P; split; first by apply: (inrange48_conv e8okC hi).
+  exact: hs.
+by rewrite (unplace48_conv e4ofi par4i e8okC hi).
+Qed.
