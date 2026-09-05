@@ -464,7 +464,7 @@ $d$ moves" says exactly that the scramble lies in the *ball of radius $d$*
 around the solved cube. God's number is the largest distance that occurs, the
 diameter of that ball structure.
 
-== What this looks like in Rocq
+== The cube in Rocq
 
 The development is built on *mathcomp* @mathcomp, a large library of formalised
 mathematics that already knows about permutations, groups and products. The
@@ -541,7 +541,7 @@ Nothing here is assumed. There is no axiom stating what a cube is, and a reader
 who wants to check the model only has to compare the six lists of cycles
 against @net. After this file, stickers are never mentioned again.
 
-= How the search works
+= The search in outline
 
 Two classical ideas make the search possible.
 
@@ -592,7 +592,7 @@ which only means less cutting; it is never allowed to be too large.
   caption: [The search, and its scissors.],
 ) <tree>
 
-== Where the estimate comes from
+== The origin of the estimate
 
 The trick is to forget most of the cube. Keep only part of the information,
 say how the corners are twisted and where the four middle-layer edges sit, and
@@ -654,7 +654,7 @@ entry in it is larger than 12, that being how deep the deepest summary lies
 rather than the value of any position in particular. So four bits hold one
 entry, and the whole table is *1.18 GB*.
 
-== And why a failed search is a proof
+== A failed search as a proof
 
 The search answers "maybe solvable in $d$ moves" or "no". The *no* is the
 trustworthy side: it means every branch was cut, either because the depth ran
@@ -863,7 +863,7 @@ wait for them.
 That is how the work is spread over the cores of a machine: seventeen files,
 seventeen `Qed`s, nothing shared.
 
-= What had to be optimised
+= The optimisations
 
 The first version worked and was far too slow. Closing the gap between "runs"
 and "finishes" took a series of changes, each one measured before and after.
@@ -1197,7 +1197,7 @@ same six back. A half turn is two moves. The answer in that count is *26*
 (#link("http://cube20.org")[cube20.org]). What is proved here is the lower
 half: one position cannot be solved in 25 quarter turns.
 
-== The position, and why 25 comes down to 24
+== The position, and 25 down to 24
 
 The superflip is 24 quarter turns from solved, so it is not far enough away. In
 August 1998 Reid posted a better position to the Cube-Lovers list
@@ -1332,7 +1332,7 @@ factor of 15.72, and one entry is kept per family. That is 883 MB, measured at
   ([`HFinal.v`, `HAll.v`], [the bound assembled, and `qdiam25`]),
 )
 
-== The theorem, and what it cost
+== The theorem, and its cost
 
 ```coq
 Theorem qdiam25 : ~ diam_le Sq 25.
@@ -1408,7 +1408,7 @@ reached by playing the ten from a fixed position. Every position of the cube lie
 
 One coset is not the upper bound and is not offered as one.
 
-== A coset is one map
+== The coset as one map
 
 A position of a coset is named by three numbers: how the eight top and bottom
 corners sit, how the eight top and bottom edges sit, and how the four middle
@@ -1421,7 +1421,7 @@ Thirty-two positions are not reached; each is given a word of twenty moves by
 hand in #src("RowWits.v"). The words are not trusted: #src("RowWitsChk.v")
 plays each one back and asks for the solved cube.
 
-== What is reused, and what is new
+== The reused and the new
 
 Nearly everything is reused: the search, the map, the tables that step a whole
 map, the ranking of the three numbers, the replay of the leftover words, the
@@ -1439,7 +1439,7 @@ Four things are new, and none of them is about searching.
   for. The summary is one machine word, the position forty-eight.
 - Checks on the tables, one per file, so that each reports separately.
 
-== What the proof found
+== The unsound stop
 
 Cutting a branch on the table is sound: a table that says too little only cuts
 less. Stopping on it is not. The search used to stop when the table said zero
@@ -1516,7 +1516,7 @@ That is the largest single part of the coset's proof.
   ([`RowCubDoneI.v`, `RowFoldCubDoneI.v`], [run and proof joined: the two theorems]),
 )
 
-== What it cost
+== The cost
 
 The coset adds sixty-six hand-written Rocq files and 15 782 lines to the work
 above, besides the generated tables.
@@ -1524,17 +1524,17 @@ above, besides the generated tables.
 The search ran twice, over the folded map and over the unfolded one, with the
 same search in both, and both times it filled the map.
 
-#tbl(([the run], [wall clock], [processor time]),
-  ([over the folded map], [6 h 00], [5 h 59]),
-  ([over the unfolded map], [19 h 05], [10 h 16]),
+#tbl(([the run], [wall clock], [processor time], [peak memory]),
+  ([over the folded map], [6 h 00], [5 h 59], [--]),
+  ([over the unfolded map], [10 h 51], [10 h 01], [44.4 GB]),
 )
 
-The fold is worth 3.2 times on the wall clock and 1.7 times on processor time.
-The two figures differ because the unfolded run spent 46% of its wall clock off
-the processor and the folded run 0.5%: the unfolded map is 6.5 GB against
-454 MB, so the waiting is part of what the fold saves rather than an artefact
-of the machine. Either way the run does not follow the size of the map, which
-is 14.6 times smaller.
+The fold is worth 1.8 times on the wall clock and 1.7 times on processor time.
+The run does not follow the size of the map, which is 14.6 times smaller: most
+of the work is the search at the deepest levels, and that is the same tree on
+both sides. What the map does set is the memory. The unfolded map is 6.5 GB
+against 454 MB, and a level reads one map while it writes the other, so the
+unfolded run needed 44.4 GB of a 62 GB machine.
 
 An earlier folded run, identical but for holding the depth left as a unary
 numeral instead of a machine integer, took 8 h 13. Counting in unary is the
