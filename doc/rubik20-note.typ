@@ -1406,7 +1406,8 @@ reached by playing the ten from a fixed position. Every position of the cube lie
   ([cosets we did], [1]),
 )
 
-One coset is not the upper bound and is not offered as one.
+We did one coset out of 2 217 093 120. That is not the upper bound, and we do
+not claim it is.
 
 == The coset as one map
 
