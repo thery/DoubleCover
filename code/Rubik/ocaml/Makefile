@@ -229,6 +229,23 @@ rubik_row_nofold: rubik_row_nofold.ml
 rowcheck: rubik_row_nofold
 	./rubik_row_nofold check
 
+# The corner pair, which is what halves the map: a cell holds two corner
+# permutations and forty-eight bits instead of one and twenty-four.  This
+# checks the level that moves such a cell against the cube itself, member by
+# member.  It needs no table and no memory.
+rowcheck48: rubik_row_nofold
+	./rubik_row_nofold check48
+
+# The unfolded level on Rocq's own persistent arrays, at twenty-four bits and
+# at forty-eight, N levels each.  They print the time, the members, the heap
+# and what the rerooting counters saw, so the two are read side by side.
+# THE MAPS ARE 6.5 GB AND 3.25 GB: this is a roquableu job, not a desktop one.
+uleak: rubik_row_nofold
+	./rubik_row_nofold uleak $(N)
+
+uleak48: rubik_row_nofold
+	./rubik_row_nofold uleak48 $(N)
+
 # The twelve tables of a row, as the Rocq lists the generated files carry.
 # Rocq CHECKS them -- Row.e8ok and Row.e4ok over the layout, srcok and halfok
 # over the bits -- so nothing about how they were built is trusted.

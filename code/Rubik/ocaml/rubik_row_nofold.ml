@@ -292,6 +292,42 @@ let () =
     done
   done
 
+(* ---- the corners paired too, so that a cell may hold forty-eight bits --- *)
+
+(* The outer edges are paired above and the pair is one group.  The corners
+   can be paired the same way, by exchanging the cubies 0 and 1, and for the
+   same reason: exchanging two cubies before a move is the same as exchanging
+   them after it.  A cell is then TWO corner permutations and carries
+   forty-eight bits -- the parity of the corner permutation, and under it the
+   twenty-four middle ones -- so the map has half as many words.  Which of
+   the two a bit means is settled by that parity, which e8num already carries
+   in its low bit, so the corners are numbered by e8num as well.
+
+   Two facts make the prepass work on such a cell, and both are checked here.
+   A move sends a corner pair to a corner pair.  And the parity it flips is
+   the move's own, the same for every pair, so the forty-eight bits are
+   rearranged by a table of the move alone: the twenty-four bit tables above
+   in each half, and the two halves exchanged when the move is odd on the
+   corners -- which is U, U', D and D' and no other. *)
+
+let cpage = Array.make_matrix ngroup nh (-1)  (* class -> class, by move    *)
+let cflip = Array.make nh (-1)                (* the parity the move flips  *)
+
+let () =
+  for k = 0 to nh - 1 do
+    for r = 0 to npage - 1 do
+      let c = e8num.(r) and c' = e8num.(mpage.(r).(k)) in
+      let g = c lsr 1 and g' = c' lsr 1 in
+      let f = (c land 1) lxor (c' land 1) in
+      if cpage.(g).(k) < 0 then cpage.(g).(k) <- g'
+      else if cpage.(g).(k) <> g' then
+        (prerr_endline "a move splits a corner pair"; exit 1);
+      if cflip.(k) < 0 then cflip.(k) <- f
+      else if cflip.(k) <> f then
+        (prerr_endline "the corner flip is not the move's own"; exit 1)
+    done
+  done
+
 let popc = Array.make 4096 0
 let () = for i = 1 to 4095 do popc.(i) <- popc.(i lsr 1) + (i land 1) done
 
@@ -1763,6 +1799,26 @@ let check () =
       fail "a middle bit is in the wrong half"
   done;
 
+  (* THE CORNER PAIR UNDER A RENAMING.  A renaming exchanges two OTHER
+     cubies, so it does not send a corner pair to a corner pair, exactly as
+     it does not send a group to a group.  What it does keep is the parity,
+     so one table for each parity is what a folded map would take, and this
+     is that table being well defined. *)
+  let scpg = Array.init nsym (fun _ -> Array.make_matrix 2 ngroup (-1)) in
+  for s = 0 to nsym - 1 do
+    for p = 0 to npage - 1 do
+      let c = e8num.(p) and c' = e8num.(spg.(s).(p)) in
+      if c land 1 <> c' land 1 then
+        fail "a renaming changes a corner parity"
+      else begin
+        let t = scpg.(s).(c land 1) and g = c lsr 1 in
+        if t.(g) < 0 then t.(g) <- c' lsr 1
+        else if t.(g) <> c' lsr 1 then
+          fail "a renaming splits a corner pair at one parity"
+      end
+    done
+  done;
+
   (* THE THREE AXES ARE THREE DIFFERENT NOTIONS OF H, which is the whole
      reason to have them: the ten moves of one axis are not the ten moves of
      another, so a position phase one cannot fit inside twenty on one is a
@@ -2136,6 +2192,145 @@ let uprepassv (src : upmap) : upmap =
     src
 
 let uleak n = uleakg uprepassv "source read" n
+
+(* =========================================================================
+   THE SAME LEVEL ON CELLS OF FORTY-EIGHT BITS
+   ========================================================================= *)
+
+(* THE MAP HALVED.  A cell is a corner PAIR, so there are half as many, and
+   a cell carries forty-eight bits instead of twenty-four: the low half for
+   the even corner permutation of the pair, the high half for the odd one.
+   The pair is the two that differ by exchanging the corner cubies 0 and 1,
+   and e8num numbers the corners the way it numbers the outer edges, so the
+   class is the number halved and the parity is its low bit.
+
+   Nothing else changes.  A move takes a class to a class, a group to a
+   group, and the bits by the tables above applied to each half -- and the
+   two halves are exchanged when the move is odd on the corners, which is
+   U, U', D and D' and no other.  A word is written once where two were
+   written before, which is the point.
+
+   This is uprepmv word for word, and it is what a Rocq map of forty-eight
+   bit cells would run. *)
+
+let mask24 = 16777215
+let ucls = ngroup                     (* corner classes, half of the pages  *)
+let uclsn = unat_of ucls
+let unchunk48 = (ucls * ngroup + ucsize - 1) / ucsize
+let unchunk48n = unat_of unchunk48
+
+let lcpg = pof (Array.init (ucls * nh) (fun i -> cpage.(i / nh).(i mod nh)))
+let lcfl = pof (Array.init nh (fun k -> cflip.(k)))
+
+let umkempty48 () : upmap =
+  ifold unchunk48n 0
+    (fun c a -> usite winit 4; P.set a c (P.make ucsize 0))
+    (P.make unchunk48 (P.make 1 0))
+
+let umkempty48t what =
+  Printf.printf "   %s: allocating a map ...%!" what;
+  let t0 = Sys.time () in
+  let m = umkempty48 () in
+  Printf.printf " %.1f s\n%!" (Sys.time () -. t0);
+  m
+
+let ucpgmv k pg = P.get lcpg (pg * nhi + k)
+
+(* the forty-eight bits of a cell, moved *)
+let ugrpmv48 k v =
+  let a = ugrpmv k (v land mask24) and b = ugrpmv k ((v lsr 24) land mask24) in
+  if P.get lcfl k = 0 then a lor (b lsl 24) else b lor (a lsl 24)
+
+let uprepmv48 k (src : upmap) (dst : upmap) : upmap =
+  ifold uclsn 0
+    (fun pg d ->
+       let pg' = ucpgmv k pg in
+       ifold ngroupn 0
+         (fun gr d' ->
+            let v = ugget wsrc src (ugrpof pg gr) in
+            if v = 0 then d'
+            else ugor wdst d' (ugrpof pg' (ugrmv k gr)) (ugrpmv48 k v))
+         d)
+    dst
+
+let uprepass48v (src : upmap) : upmap =
+  ifold nhn 0
+    (fun k d -> let t0 = Sys.time () in
+                let r = uprepmv48 k src d in umove k t0; r)
+    src
+
+(* the members the map holds, so that the levels can be read against the
+   ones hball prints, which are checked one at a time to depth five *)
+let ucount48 (m : upmap) =
+  let n = ref 0 in
+  for pg = 0 to ucls - 1 do
+    for gr = 0 to ngroup - 1 do
+      let v = ugget wsrc m (ugrpof pg gr) in
+      n := !n + popc.(v land lo12) + popc.((v lsr 12) land lo12)
+             + popc.((v lsr 24) land lo12) + popc.((v lsr 36) land lo12)
+    done
+  done; !n
+
+let uleak48 n =
+  Printf.printf
+    "unfolded at 48 bits: %d classes x %d groups = %d words, %d chunks, %.2f GB\n%!"
+    ucls ngroup (ucls * ngroup) unchunk48
+    (float_of_int (unchunk48 * ucsize * 8) /. 1e9);
+  let s = solved () in
+  let c = e8num.(rank s.cp 0 8) in
+  let pg = c lsr 1 and sp = c land 1 in
+  let gr = e8num.(rank s.ep 0 8) lsr 1 and bt = e4bit.(rank s.ep 8 4) in
+  let m = ref (ugset winit (umkempty48t "start") (ugrpof pg gr)
+                 (1 lsl (24 * sp + bt))) in
+  for d = 1 to n do
+    let t0 = Sys.time () in
+    m := uprepass48v !m;
+    let st = Gc.quick_stat () in
+    Printf.printf
+      "level %2d  %7.1f s  %d members  heap %6.2f GB  reroot calls %d, steps %d\n%!"
+      d (Sys.time () -. t0) (ucount48 !m)
+      (float_of_int (st.Gc.heap_words * 8) /. 1e9)
+      !P.reroots !P.rerootsteps;
+    ureport ()
+  done;
+  exit 0
+
+(* THE FORTY-EIGHT BIT LEVEL, AGAINST THE CUBE.  A member is put in its cell
+   as one bit, the move is played on the word by the tables, and the bit that
+   comes out is compared with where the member really goes -- the corners,
+   the outer edges and the middle four moved as permutations.  Every member
+   is checked against the cube and nothing is taken on trust. *)
+let check48 () =
+  let bad = ref 0 in
+  let fail s = incr bad; print_string ("FAILED: " ^ s ^ "\n") in
+  let seed = ref 987654321 in
+  let rnd n = seed := (!seed * 1103515245 + 12345) land 0x3FFFFFFF;
+    !seed mod n in
+  for _ = 1 to 20000 do
+    let c = rnd fact8 and m = rnd fact4 and g = rnd ngroup in
+    let pc = parity (unrank c 8) 0 8 and pm = parity (unrank m 4) 0 4 in
+    let e = e8inv.(2 * g + (pc lxor pm)) in
+    let ca = unrank c 8 and ea = unrank e 8 and ma = unrank m 4 in
+    let pg = e8num.(c) lsr 1 and sp = e8num.(c) land 1 in
+    let gr = e8num.(e) lsr 1 and bt = e4bit.(m) in
+    for k = 0 to nh - 1 do
+      let mv = moves.(hmoves.(k)) in
+      let c' = rank (Array.init 8 (fun i -> ca.(mv.cp.(i)))) 0 8 in
+      let e' = rank (Array.init 8 (fun i -> ea.(mv.ep.(i)))) 0 8 in
+      let m' = rank (Array.init 4 (fun i -> ma.(mv.ep.(8 + i) - 8))) 0 4 in
+      let w = ugrpmv48 k (1 lsl (24 * sp + bt)) in
+      if ucpgmv k pg <> e8num.(c') lsr 1 then
+        fail "the class table sends a cell to the wrong cell";
+      if ugrmv k gr <> e8num.(e') lsr 1 then
+        fail "the group table sends a cell to the wrong cell";
+      if w <> 1 lsl (24 * (e8num.(c') land 1) + e4bit.(m')) then
+        fail "the forty-eight bits are moved to the wrong bit"
+    done
+  done;
+  Printf.printf "20000 members times ten moves, cell and bit against the cube\n";
+  if !bad = 0 then print_string "all checks passed\n"
+  else Printf.printf "%d FAILED\n" !bad;
+  exit (if !bad = 0 then 0 else 1)
 
 (* =========================================================================
    RowCubRun.v, TRANSCRIBED -- THE ALLOCATIONS, IN THE ORDER ROCQ MAKES THEM.
@@ -2696,6 +2891,10 @@ let () =
       (fun i -> (unrank (i / 8) 8).(i mod 8));
     emit "up4_data" (fact4 * 4)
       (fun i -> (unrank (i / 4) 4).(i mod 4));
+    (* THE CORNERS PAIRED: the class table and the parity each move flips,
+       which is what a map of forty-eight bit cells reads instead of mpg. *)
+    emit "cpg_data" (ngroup * nh) (fun i -> cpage.(i / nh).(i mod nh));
+    emit "cfl_data" nh (fun k -> cflip.(k));
     (* and where each of the twenty four bits goes, move by move *)
     emit "btmv_data" (fact4 * nh)
       (fun i -> let bt = i / nh and k = i mod nh in
@@ -2717,6 +2916,9 @@ let () =
     lleak (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "uleak" then
     uleak (int_of_string Sys.argv.(2));
+  if Array.length Sys.argv > 2 && Sys.argv.(1) = "uleak48" then
+    uleak48 (int_of_string Sys.argv.(2));
+  if Array.length Sys.argv > 1 && Sys.argv.(1) = "check48" then check48 ();
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "uleak2" then
     uleak2 (int_of_string Sys.argv.(2));
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "urow" then
