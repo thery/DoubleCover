@@ -117,7 +117,7 @@ build () {     # build <base>
 # minutes and more for nothing.
 case "$1" in
   ppace|ppacei|pbool|pbooli|pdone|pdonei) chain=row ;;
-  p48bool|p48done)   chain=row48 ;;
+  p48pace|p48bool|p48done)   chain=row48 ;;
   *)                 chain=fold ;;
 esac
 
@@ -274,6 +274,9 @@ case "$1" in
          build RowFoldCubProof
          build RowFoldCubProofI
          coqc -R . Rubik RowFoldCubDoneI.v ;;
+  p48pace) echo "--- RowCubPaceI48 (forty eight bits at thirteen: count 14731320)"
+         build RowCubDef48
+         coqc -R . Rubik RowCubPaceI48.v ;;
   p48bool) echo "--- RowCubBoolI48 (THE PLAIN RUN AT FORTY EIGHT BITS, 3.25 GB)"
          build RowCubDef48
          coqc -R . Rubik RowCubBoolI48.v ;;
