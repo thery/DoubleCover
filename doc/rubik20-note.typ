@@ -1406,8 +1406,8 @@ reached by playing the ten from a fixed position. Every position of the cube lie
   ([cosets we did], [1]),
 )
 
-We did one coset out of 2 217 093 120. That is not the upper bound, and we do
-not claim it is.
+We did the superflip's coset. We had the superflip already, from the lower
+bound, so it made a good enough example of a coset.
 
 == The coset as one map
 
