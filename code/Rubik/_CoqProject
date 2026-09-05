@@ -114,6 +114,9 @@ RowMap.v
 RowMap48.v
 RowRun.v
 RowRun48.v
+RowPrep48.v
+RowTabP48.v
+RowTab48.v
 RowFinal.v
 Fsinj.v
 RowInst.v
