@@ -118,6 +118,12 @@ Definition popi : arr := Eval vm_compute in
 (* How many members the map holds.  One sweep of the whole map, which the run *)
 (* asks for once a level.  The folded count weighs a bit by the size of its   *)
 (* orbit; here a page stands for itself, so the bits are simply added up.     *)
+(*                                                                            *)
+(* ALL FOUR SLICES.  A cell is forty eight bits, so counting the two slices   *)
+(* of a twenty four bit word -- which is what this file was transcribed from  *)
+(* -- reports half the members.  Nothing false can come of that, since the    *)
+(* count only decides when the cuts and the early stop come on; but the stop  *)
+(* would come on too soon and the map would never fill.                       *)
 Definition mcount (m : rmap) : int :=
   ifold nclsn 0
     (fun pg acc =>
@@ -127,9 +133,14 @@ Definition mcount (m : rmap) : int :=
             if Uint63.eqb v 0 then b
             else
               Uint63.add b
-                (Uint63.add (PArray.get popi (Uint63.land v lo12))
-                            (PArray.get popi
-                               (Uint63.land (Uint63.lsr v 12) lo12))))
+                (Uint63.add
+                   (Uint63.add (PArray.get popi (Uint63.land v lo12))
+                               (PArray.get popi
+                                  (Uint63.land (Uint63.lsr v 12) lo12)))
+                   (Uint63.add (PArray.get popi
+                                  (Uint63.land (Uint63.lsr v 24) lo12))
+                               (PArray.get popi
+                                  (Uint63.land (Uint63.lsr v 36) lo12)))))
          acc)
     0.
 
