@@ -1524,17 +1524,17 @@ above, besides the generated tables.
 The search ran twice, over the folded map and over the unfolded one, with the
 same search in both, and both times it filled the map.
 
-#tbl(([the run], [wall clock], [processor time]),
-  ([over the folded map], [6 h 00], [5 h 59]),
-  ([over the unfolded map], [19 h 05], [10 h 16]),
+#tbl(([the run], [wall clock], [processor time], [peak memory]),
+  ([over the folded map], [6 h 00], [5 h 59], [--]),
+  ([over the unfolded map], [10 h 51], [10 h 01], [44.4 GB]),
 )
 
-The fold is worth 3.2 times on the wall clock and 1.7 times on processor time.
-The two figures differ because the unfolded run spent 46% of its wall clock off
-the processor and the folded run 0.5%: the unfolded map is 6.5 GB against
-454 MB, so the waiting is part of what the fold saves rather than an artefact
-of the machine. Either way the run does not follow the size of the map, which
-is 14.6 times smaller.
+The fold is worth 1.8 times on the wall clock and 1.7 times on processor time.
+The run does not follow the size of the map, which is 14.6 times smaller: most
+of the work is the search at the deepest levels, and that is the same tree on
+both sides. What the map does set is the memory. The unfolded map is 6.5 GB
+against 454 MB, and a level reads one map while it writes the other, so the
+unfolded run needed 44.4 GB of a 62 GB machine.
 
 An earlier folded run, identical but for holding the depth left as a unary
 numeral instead of a machine integer, took 8 h 13. Counting in unary is the
