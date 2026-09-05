@@ -167,3 +167,91 @@ left; have [-> ->] := grpof_inj (ltn_nclsi_npagei hp) hg
                                 (ltn_nclsi_npagei hpg) hgr hgg.
 by split => //; apply: bitof48_inj hnew.
 Qed.
+
+Section Pre48.
+
+(* ---- the ten moves of H on cells of forty eight bits --------------------- *)
+
+(* cpg is the corner PAIR table, 20160 * 10, where RowMap's mpg is the corner *)
+(* permutation table, 40320 * 10.  cfl says whether the move is odd on the    *)
+(* corners: if it is, the two halves of a cell change places, since the half  *)
+(* is the corner parity.  It is one for U, U', D and D' and nought for the    *)
+(* other six.                                                                 *)
+(*                                                                            *)
+(* The group table and the bit tables are RowMap's own and are read by        *)
+(* RowMap's grpmv, once for each half.                                        *)
+
+Variable cpg : arr.                 (* 20160 * 10                             *)
+Variable cfl : arr.                 (* 10                                     *)
+Variable mgr : arr.                 (* 20160 * 10                             *)
+Variable msw : arr.                 (* 10                                     *)
+Variable mlo mhi : arr.             (* 10 * 4096                              *)
+
+Definition cpgmv (k pg : int) : int :=
+  PArray.get cpg (Uint63.add (Uint63.mul pg nhi) k).
+
+(* one cell, moved.  THE HIGH HALF IS MASKED TOO, for RowMap's reason: a bit  *)
+(* above the forty eighth would index another move's block of the bit table.  *)
+Definition grpmv48 (k v : int) : int :=
+  let a := grpmv msw mlo mhi k (Uint63.land v allbits) in
+  let b := grpmv msw mlo mhi k (Uint63.land (Uint63.lsr v nbiti) allbits) in
+  if Uint63.eqb (PArray.get cfl k) 0%uint63
+  then Uint63.lor a (Uint63.lsl b nbiti)
+  else Uint63.lor b (Uint63.lsl a nbiti).
+
+(* ---- one move over the whole map ----------------------------------------- *)
+
+(* The source is read and the destination written, as in RowMap.v, and for    *)
+(* the same reason: playing a move on what a move has just reached would      *)
+(* count a member a level too soon.                                           *)
+Definition prepmv48 (k : int) (src : rmap) (dst : rmap) : rmap :=
+  ifold nclsn 0%uint63
+    (fun pg d =>
+       let pg' := cpgmv k pg in
+       ifold ngroupn 0%uint63
+         (fun gr d' =>
+            let v := gget src (grpof pg gr) in
+            if Uint63.eqb v 0%uint63 then d'
+            else gor d' (grpof pg' (grmv mgr k gr)) (grpmv48 k v))
+         d)
+    dst.
+
+(* the same move, also carrying the source across                            *)
+Definition prepmv048 (k : int) (src : rmap) (dst : rmap) : rmap :=
+  ifold nclsn 0%uint63
+    (fun pg d =>
+       let pg' := cpgmv k pg in
+       ifold ngroupn 0%uint63
+         (fun gr d' =>
+            let g := grpof pg gr in
+            let v := gget src g in
+            if Uint63.eqb v 0%uint63 then d'
+            else gor (gor d' g v) (grpof pg' (grmv mgr k gr)) (grpmv48 k v))
+         d)
+    dst.
+
+(* the whole prepass, into the map it is given                               *)
+Definition prepass48 (src dst : rmap) : rmap :=
+  ifold nhn 0%uint63
+    (fun k d =>
+       if Uint63.eqb k 0%uint63 then prepmv048 k src d else prepmv48 k src d)
+    dst.
+
+End Pre48.
+
+(* ---- three range facts the run asks for ---------------------------------- *)
+
+(* A corner pair number is below the page count of RowMap.v, so its walks and *)
+(* its grpof_inj apply to it unchanged.  These are the only bridges needed.   *)
+
+Lemma nclsn_nwB : (nclsn < nwB)%N.
+Proof. by rewrite nclsnE; exact: ngroupn_nwB. Qed.
+
+Lemma ltn_nclsn_npagei pg : (to_nat pg < nclsn)%N -> (pg <? npagei)%uint63.
+Proof.
+move=> h; apply/nltbP; apply: leq_trans h _.
+by rewrite nclsnE ngroupnE -/npagen npagenE.
+Qed.
+
+Lemma ltn_ngroupn_ngroupi gr : (to_nat gr < ngroupn)%N -> (gr <? ngroupi)%uint63.
+Proof. by move=> h; apply/nltbP. Qed.
