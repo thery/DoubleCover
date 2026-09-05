@@ -2238,7 +2238,8 @@ let ucpgmv k pg = P.get lcpg (pg * nhi + k)
 
 (* the forty-eight bits of a cell, moved *)
 let ugrpmv48 k v =
-  let a = ugrpmv k (v land mask24) and b = ugrpmv k ((v lsr 24) land mask24) in
+  let a = ugrpmv k (v land mask24) land mask24
+  and b = ugrpmv k ((v lsr 24) land mask24) land mask24 in
   if P.get lcfl k = 0 then a lor (b lsl 24) else b lor (a lsl 24)
 
 let uprepmv48 k (src : upmap) (dst : upmap) : upmap =
@@ -2869,6 +2870,13 @@ let () =
     (* the bits of a half counted, so that the members can be counted: a bit
        of a kept page stands for as many members as its orbit has pages *)
     emit "fpop_data" 4096 (fun i -> popc.(i))
+    end else if which = "prep48" then begin
+    (* THE CORNERS PAIRED: the class table and the parity each move flips,
+       which is what a map of forty-eight bit cells reads instead of mpg.  A
+       FILE OF ITS OWN, so that RowTabP.v does not move and the runs banked
+       on it stay valid. *)
+    emit "cpg_data" (ngroup * nh) (fun i -> cpage.(i / nh).(i mod nh));
+    emit "cfl_data" nh (fun k -> cflip.(k))
     end else if which = "layout" then begin
     emit "e8num_data" fact8 (fun r -> e8num.(r));
     emit "e8inv_data" fact8 (fun r -> e8inv.(r));
@@ -2891,10 +2899,6 @@ let () =
       (fun i -> (unrank (i / 8) 8).(i mod 8));
     emit "up4_data" (fact4 * 4)
       (fun i -> (unrank (i / 4) 4).(i mod 4));
-    (* THE CORNERS PAIRED: the class table and the parity each move flips,
-       which is what a map of forty-eight bit cells reads instead of mpg. *)
-    emit "cpg_data" (ngroup * nh) (fun i -> cpage.(i / nh).(i mod nh));
-    emit "cfl_data" nh (fun k -> cflip.(k));
     (* and where each of the twenty four bits goes, move by move *)
     emit "btmv_data" (fact4 * nh)
       (fun i -> let bt = i / nh and k = i mod nh in
