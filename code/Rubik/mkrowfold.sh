@@ -117,6 +117,7 @@ build () {     # build <base>
 # minutes and more for nothing.
 case "$1" in
   ppace|ppacei|pbool|pbooli|pdone|pdonei) chain=row ;;
+  p48bool|p48done)   chain=row48 ;;
   *)                 chain=fold ;;
 esac
 
@@ -143,8 +144,18 @@ rowfiles="Fold P1Fold FoldTables P1Fdec P1F_00 P1F_01 P1F_02 P1F_03 P1F_04 \
   RowUp4inv RowUp8inv RowWits RowWitsChk RowReal RowMembi \
   RowSrch RowSrchP RowMark RowLvl RowCubDef RowCubReal RowCubProof"
 
+# THE SAME CHAIN AT FORTY EIGHT BITS.  A cell is a corner PAIR and carries
+# forty eight bits, so the map is 3.25 GB where the plain one is 6.5.  The
+# files are the plain ones with 48 on the end; what they add is Row48,
+# RowMap48, RowPrep48 -- the bridge -- and the two tables RowTabP48 and
+# RowTab48 with the one check that ties them to the page table.
+row48files="$rowfiles Row48 RowMap48 RowRun48 RowPrep48 RowTabP48 RowTab48 \
+  RowSrch48 RowSrchP48 RowMark48 RowFinal48 RowCubInst48 RowCubReal48 \
+  RowCubDef48 RowCubProof48 RowCubProofI48"
+
 case "$chain" in
   row)  files="$rowfiles";  proj=_RowProject;  mk=Makefile.row ;;
+  row48) files="$row48files"; proj=_Row48Project; mk=Makefile.row48 ;;
   fold) files="$foldfiles"; proj=_FoldProject; mk=Makefile.fold ;;
 esac
 
@@ -263,6 +274,14 @@ case "$1" in
          build RowFoldCubProof
          build RowFoldCubProofI
          coqc -R . Rubik RowFoldCubDoneI.v ;;
+  p48bool) echo "--- RowCubBoolI48 (THE PLAIN RUN AT FORTY EIGHT BITS, 3.25 GB)"
+         build RowCubDef48
+         coqc -R . Rubik RowCubBoolI48.v ;;
+  p48done) echo "--- RowCubDoneI48 (the forty eight bit theorem: run and proof)"
+         build RowCubDef48
+         build RowCubProofI48
+         build RowCubBoolI48
+         coqc -R . Rubik RowCubDoneI48.v ;;
   pbool) echo "--- RowCubBool (THE PLAIN RUN: the boolean alone)"
          build RowSrch
          build RowSrchP

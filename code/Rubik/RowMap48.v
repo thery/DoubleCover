@@ -54,6 +54,15 @@ Definition mfull48 (m : rmap) : bool :=
     (fun pg => iter ngroupn 0%uint63
        (fun gr => Uint63.eqb (gget m (grpof pg gr)) allbits48)).
 
+(* The two maps together are never built, for RowMap's reason: building the  *)
+(* union would read one of them at every word while writing into it.         *)
+Definition mfull248 (m1 m2 : rmap) : bool :=
+  iter nclsn 0%uint63
+    (fun pg => iter ngroupn 0%uint63
+       (fun gr =>
+          let g := grpof pg gr in
+          Uint63.eqb (Uint63.lor (gget m1 g) (gget m2 g)) allbits48)).
+
 (* ---- the bits ------------------------------------------------------------- *)
 
 Lemma lt_digits48 x : (x <? nbit48i)%uint63 -> (x <? digits)%uint63.
@@ -151,6 +160,16 @@ have h2 := iter_at h1 (ltn_ngroupi hgr).
 by rewrite /mtest (eqP h2) allbits48P.
 Qed.
 
+(* when the two of them are full together, every member is in one of them     *)
+Lemma mfull248P m1 m2 pg gr bt : mfull248 m1 m2 -> inrange48 pg gr bt ->
+  mtest m1 pg gr bt || mtest m2 pg gr bt.
+Proof.
+move=> hf /and3P[hpg hgr hbt].
+have h1 := iter_at hf (nltbP _ _ hpg).
+have h2 := iter_at h1 (ltn_ngroupi hgr).
+by apply: test_lor; rewrite (eqP h2) allbits48P.
+Qed.
+
 (* a bit set by a mark is the mark, or was there already                      *)
 Lemma mmark48P m p g b pg gr bt :
   inrange48 p g b -> inrange48 pg gr bt ->
@@ -190,11 +209,16 @@ Variable mlo mhi : arr.             (* 10 * 4096                              *)
 Definition cpgmv (k pg : int) : int :=
   PArray.get cpg (Uint63.add (Uint63.mul pg nhi) k).
 
-(* one cell, moved.  THE HIGH HALF IS MASKED TOO, for RowMap's reason: a bit  *)
-(* above the forty eighth would index another move's block of the bit table.  *)
+(* one cell, moved.  BOTH HALVES ARE MASKED, GOING IN AND COMING OUT.  Going *)
+(* in for RowMap's reason: a bit above the forty eighth would index another   *)
+(* move's block of the bit table.  Coming out because a half must not reach   *)
+(* into the other half's places -- nothing about the tables says it cannot,   *)
+(* and a bit that arrived from nowhere would have no member behind it.        *)
 Definition grpmv48 (k v : int) : int :=
-  let a := grpmv msw mlo mhi k (Uint63.land v allbits) in
-  let b := grpmv msw mlo mhi k (Uint63.land (Uint63.lsr v nbiti) allbits) in
+  let a := Uint63.land (grpmv msw mlo mhi k (Uint63.land v allbits)) allbits in
+  let b := Uint63.land
+             (grpmv msw mlo mhi k (Uint63.land (Uint63.lsr v nbiti) allbits))
+             allbits in
   if Uint63.eqb (PArray.get cfl k) 0%uint63
   then Uint63.lor a (Uint63.lsl b nbiti)
   else Uint63.lor b (Uint63.lsl a nbiti).

@@ -27,7 +27,7 @@ From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
-Require Import Table Tabi Rubik333 Moves Ball Row RowMap.
+Require Import Table Tabi Rubik333 Moves Ball Row RowMap RowRun.
 Require Import Row48 RowMap48.
 
 Set Implicit Arguments.
@@ -185,7 +185,10 @@ Fixpoint run (n : nat) (d : nat) (m dst : rmap) : rmap :=
 (* The bridge to the cube: which position of the row a member stands for.     *)
 Variable pos : memb -> {perm facelet}.
 
-Definition wthn (d : nat) (x : memb) : Prop := pos x \in ball Sset d.
+(* THE SAME wthn AS RowRun's, not a copy: what a member is within does not   *)
+(* depend on how wide a cell is, and one constant keeps the two files' facts  *)
+(* about it interchangeable.                                                  *)
+Local Notation wthn := (RowRun.wthn pos).
 
 (* a map is sound at d when every bit it has set is a member within d         *)
 Definition soundat (m : rmap) (d : nat) : Prop :=
