@@ -96,6 +96,30 @@ move=> hbk hb; apply: to_nat_inj.
 by rewrite to_nat_mod (to_nat_mulD hb) modnMDl modn_small.
 Qed.
 
+(* ---- a page number is a pair and a parity -------------------------------- *)
+
+(* The page of RowMap.v is a corner rank; under e8num it is a number n, and   *)
+(* n = n / 2 * 2 + odd n.  So a pair and a parity make a page number and take *)
+(* it apart again, which is the whole of what the extra bit does.             *)
+Lemma pair_page g q : (g <? ngroupi)%uint63 -> (to_nat q < 2)%N ->
+  [/\ (Uint63.add (Uint63.mul g 2%uint63) q <? npagei)%uint63,
+      Uint63.div (Uint63.add (Uint63.mul g 2%uint63) q) 2%uint63 = g &
+      Uint63.mod (Uint63.add (Uint63.mul g 2%uint63) q) 2%uint63 = q].
+Proof.
+move=> hg hq.
+have hgn : (to_nat g < ngroupn)%N by apply: ltn_ngroupi.
+have hbd : (to_nat g * to_nat 2%uint63 + to_nat q < nwB)%N.
+  rewrite to_nat_two; apply: (@leq_ltn_trans (ngroupn * 2 + 2)).
+    by apply: leq_add; [rewrite leq_pmul2r //; apply: ltnW | apply: ltnW].
+  by rewrite ngroupnE; apply: (@ltn_nwB 16).
+have hq2 : (to_nat q < to_nat 2%uint63)%N by rewrite to_nat_two.
+split; last by apply: mod_mulD.
+  apply/nltbP; rewrite (to_nat_mulD hbd) to_nat_two -/npagen npage_group.
+  apply: (@leq_trans (to_nat g * 2 + 2)); first by rewrite ltn_add2l.
+  by rewrite -{2}[2%N]mul1n -mulnDl leq_mul2r addn1 hgn.
+by apply: div_mulD.
+Qed.
+
 Section Row48.
 
 (* the four tables of Row.v, unchanged, and read at the corners as well       *)
@@ -216,26 +240,9 @@ case/and5P: (e4at he4 hbi) => _ _ hmp /eqP hbit _.
 have h4 : (to_nat (PArray.get par4 mp) < 2)%N by apply: (par4_lt2 he4).
 have hp2 : (to_nat p < 2)%N by exact: lxor_lt2 hs2 h4.
 (* a page number made of a pair and a parity                                  *)
-have hpage : forall g q, (g <? ngroupi)%uint63 -> (to_nat q < 2)%N ->
-    (Uint63.add (Uint63.mul g 2%uint63) q <? npagei)%uint63 /\
-    Uint63.div (Uint63.add (Uint63.mul g 2%uint63) q) 2%uint63 = g /\
-    Uint63.mod (Uint63.add (Uint63.mul g 2%uint63) q) 2%uint63 = q.
-  move=> g q hg hq.
-  have hgn : (to_nat g < ngroupn)%N by apply: ltn_ngroupi.
-  have hbd : (to_nat g * to_nat 2%uint63 + to_nat q < nwB)%N.
-    rewrite to_nat_two; apply: (@leq_ltn_trans (ngroupn * 2 + 2)).
-      by apply: leq_add; [rewrite leq_pmul2r //; apply: ltnW | apply: ltnW].
-    by rewrite ngroupnE; apply: (@ltn_nwB 16).
-  have hq2 : (to_nat q < to_nat 2%uint63)%N by rewrite to_nat_two.
-  split; last by split; [apply: div_mulD | apply: mod_mulD].
-  apply/nltbP; rewrite (to_nat_mulD hbd) to_nat_two -/npagen npage_group.
-  apply: (@leq_trans (to_nat g * 2 + 2)); first by rewrite ltn_add2l.
-  by rewrite -{2}[2%N]mul1n -mulnDl leq_mul2r addn1 hgn.
 rewrite nclsiE in hpg.
-have hpgc := hpage _ _ hpg hs2.
-have hgrc := hpage _ _ hgr hp2.
-case: hpgc => hcr [hcd hcm].
-case: hgrc => hur [hud hum].
+have [hcr hcd hcm] := pair_page hpg hs2.
+have [hur hud hum] := pair_page hgr hp2.
 case/and5P: (e8at he8 hcr) => _ _ _ hcv /eqP hcn.
 case/and5P: (e8at he8 hur) => _ _ _ huv /eqP hun.
 (* the two permutations the numbers name, and their parities                  *)
