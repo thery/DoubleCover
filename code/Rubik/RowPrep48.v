@@ -435,4 +435,49 @@ by rewrite (unplace48E gr hpg hbt)
    (unplace48E (grmv mgr k gr) hcr hbt48) hpgof hmod.
 Qed.
 
+(* ---- and the witnesses, moved over -------------------------------------- *)
+
+(* A WITNESS IS A PLACE AND A WORD, and the places in the list are the        *)
+(* twenty four bit ones: a page is a corner RANK there.  The same member sits *)
+(* at another place here, and it is the same split again -- the page number   *)
+(* under e8num is n, the pair is n / 2 and the parity is odd n, which is the  *)
+(* high bit of the place.  The word is not touched: it solves the member, and *)
+(* the member has not changed.                                               *)
+
+Definition wconv (t : int * int * int * seq nat) : int * int * int * seq nat :=
+  let: (pg, gr, bt, w) := t in
+  (Uint63.div (PArray.get e8num pg) 2%uint63,
+   gr,
+   Uint63.add (Uint63.mul (PArray.get par8 pg) nbiti) bt,
+   w).
+
+Lemma inrange48_conv pg gr bt : inrange pg gr bt ->
+  inrange48 (Uint63.div (PArray.get e8num pg) 2%uint63) gr
+            (Uint63.add (Uint63.mul (PArray.get par8 pg) nbiti) bt).
+Proof.
+case/and3P => hpg hgr hbt; apply/and3P; split => //.
+  case/and5P: (e8at he8 hpg) => hn _ _ _ _.
+  rewrite nclsiE; apply/nltbP.
+  rewrite to_nat_div to_nat_two -/ngroupn ltn_divLR // -npage_group.
+  by apply: ltn_npagei.
+by apply: bit48_lt; [apply: (par8_lt2 he8) | apply/nltbP].
+Qed.
+
+(* and the two places name the same member                                    *)
+Lemma unplace48_conv pg gr bt : inrange pg gr bt ->
+  unplace48 e8inv e4of par4
+    (Uint63.div (PArray.get e8num pg) 2%uint63) gr
+    (Uint63.add (Uint63.mul (PArray.get par8 pg) nbiti) bt)
+  = unplace e8inv e4of par8 par4 pg gr bt.
+Proof.
+move=> hr; have /and3P[hpg hgr hbt] := hr.
+have hs2 : (to_nat (PArray.get par8 pg) < 2)%N by apply: (par8_lt2 he8).
+have hbn : (to_nat bt < to_nat nbiti)%N by apply/nltbP.
+have hbd := bit48_bound hs2 hbn.
+have /and3P[h1 _ h2] := inrange48_conv hr.
+rewrite (unplace48E gr h1 h2) /pgof (div_mulD hbn hbd) (mod_mulD hbn hbd).
+case/and5P: (e8at he8 hpg) => _ /eqP hmod /eqP hinv _ _.
+by rewrite -hmod -int_add_mod hinv.
+Qed.
+
 End Page48.

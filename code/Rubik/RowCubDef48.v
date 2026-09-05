@@ -70,11 +70,11 @@ Definition rowmappi48 (n : nat) : rmap :=
 (* match this against the name the theorem is stated with, and unification    *)
 (* does not fail when a name will not match -- it reduces, and reducing this  *)
 (* is the run again, in the kernel.                                           *)
-Definition rowwitsp48 : rmap := wmarkof rowwits (rowmapp48 20).
+Definition rowwitsp48 : rmap := wmarkof rowwits48 (rowmapp48 20).
 
 (* The same two over the int run.  RowCubProofI shows the two maps equal, so  *)
 (* nothing is proved twice.                                                   *)
-Definition rowwitspi48 : rmap := wmarkof rowwits (rowmappi48 20).
+Definition rowwitspi48 : rmap := wmarkof rowwits48 (rowmappi48 20).
 
 Definition rowfullpi48 : bool := mfull48 rowwitspi48.
 

@@ -97,7 +97,7 @@ Definition ycmfinsp : rmap :=
 
 Definition ycwitsr : rmap :=
   foldr (fun t m => let: (pg, gr, bt, _) := t in mmark m pg gr bt)
-        ycmfinsp rowwits.
+        ycmfinsp rowwits48.
 
 (* ---- the map is sound, and stays sound when the witnesses go in ---------- *)
 
@@ -139,7 +139,7 @@ Qed.
 Lemma ycwitsr_sound :
   RowRun48.soundat e8invi e4ofi par4i
                  (RowFinal.pos (RowInst.ptab memb2tab)) ycwitsr 20.
-Proof. exact: (pwits_sound witsokC ycmfinsp_sound). Qed.
+Proof. exact: (pwits_sound wits48C ycmfinsp_sound). Qed.
 
 (* ---- the certificate, with the optimizations on -------------------------- *)
 
