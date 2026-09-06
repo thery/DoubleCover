@@ -63,13 +63,13 @@ Local Notation mok := (membok par8 par4).
 
 (* ---- the prepass, from RowMap.v ------------------------------------------ *)
 
-Variable mpg mgr msw mlo mhi : arr.
+Variable cpg cfl mgr msw mlo mhi : arr.
 
-Local Notation prep := (prepass mpg mgr msw mlo mhi).
-Local Notation prepm := (prepmv mpg mgr msw mlo mhi).
-Local Notation pgm := (pgmv mpg).
+Local Notation prep := (prepass cpg cfl mgr msw mlo mhi).
+Local Notation prepm := (prepmv cpg cfl mgr msw mlo mhi).
+Local Notation pgm := (pgmv cpg).
 Local Notation grm := (grmv mgr).
-Local Notation grpm := (grpmv msw mlo mhi).
+Local Notation grpm := (grpmv cfl msw mlo mhi).
 
 (* ---- the phase one table, and the moves ---------------------------------- *)
 
@@ -249,9 +249,9 @@ Hypothesis hmv_Sset : forall k, (to_nat k < nhn)%N -> hmv k \in Sset.
 
 (* a bit the rearrangement sets came from a bit of the word it was given      *)
 Hypothesis grpmvP : forall k v bt', (to_nat k < nhn)%N ->
-  (bt' <? nbiti)%uint63 ->
+  (bt' <? nbit48i)%uint63 ->
   ~~ (Uint63.land (grpm k v) (bitof bt') =? 0)%uint63 ->
-  exists2 bt, (bt <? nbiti)%uint63 &
+  exists2 bt, (bt <? nbit48i)%uint63 &
     btmv k bt = bt' /\ ~~ (Uint63.land v (bitof bt) =? 0)%uint63.
 
 (* and the three tables together are one move of H played on the member       *)
@@ -274,14 +274,14 @@ Qed.
 (* bit of the source, so a source sound at d makes it sound at d plus one.    *)
 (* This is the only place the page, group and bit tables are spent.           *)
 Lemma prepmv_bit k src pg gr P Q B : (to_nat k < nhn)%N ->
-  (to_nat pg < npagen)%N -> (to_nat gr < ngroupn)%N ->
+  (to_nat pg < nclsn)%N -> (to_nat gr < ngroupn)%N ->
   inrange P Q B ->
   grpof (pgm k pg) (grm k gr) = grpof P Q ->
   ~~ (Uint63.land (grpm k (gget src (grpof pg gr))) (bitof B) =? 0)%uint63 ->
   forall d, soundat src d -> wthn d.+1 (unplc P Q B).
 Proof.
 move=> hk hpg hgr hr hG hbit d hm.
-have hbi : (B <? nbiti)%uint63 by case/and3P: hr.
+have hbi : (B <? nbit48i)%uint63 by case/and3P: hr.
 have [bt hbt [hbtE hv]] := grpmvP hk hbi hbit.
 (* where it came from is a bit of the source, and so a member within d        *)
 have hri : inrange pg gr bt.
@@ -290,8 +290,8 @@ have hin : mtest src pg gr bt by [].
 have [hr' hpm] := prep_move hk hri.
 (* and the two places are the same place                                      *)
 have [<- <-] : pgm k pg = P /\ grm k gr = Q.
-  by apply: grpof_inj hG; [case/and3P: hr'|case/and3P: hr'|case/and3P: hr|
-                           case/and3P: hr].
+  case/and3P: hr' => h1 h2 _; case/and3P: hr => h3 h4 _.
+  by apply: grpof_inj (ltn_nclsi_npagei h1) h2 (ltn_nclsi_npagei h3) h4 hG.
 rewrite /wthn -hbtE hpm.
 by apply: ball_step; [apply: hm | apply: hmv_Sset].
 Qed.
@@ -303,7 +303,7 @@ Proof.
 move=> hk hm hdst; rewrite /prepmv.
 (* every page                                                                 *)
 apply: (@ifold_indi _ (fun a => soundat a d.+1)); [| |exact: hdst].
-  by apply: ltnW; exact: npagen_nwB.
+  by apply: ltnW; exact: nclsn_nwB.
 move=> pg a hpg ha; cbv zeta.
 (* and every group in it                                                      *)
 apply: (@ifold_indi _ (fun a' => soundat a' d.+1)); [| |exact: ha].
@@ -319,12 +319,12 @@ Qed.
 (* the same move, also carrying the source across: the extra bit it writes is *)
 (* the source's own, which is a member within d and so within d plus one      *)
 Lemma prepmv0_sound k src dst d : (to_nat k < nhn)%N ->
-  soundat src d -> soundat dst d.+1 -> soundat (prepmv0 mpg mgr msw mlo mhi
+  soundat src d -> soundat dst d.+1 -> soundat (prepmv0 cpg cfl mgr msw mlo mhi
     k src dst) d.+1.
 Proof.
 move=> hk hm hdst; rewrite /prepmv0.
 apply: (@ifold_indi _ (fun a => soundat a d.+1)); [| |exact: hdst].
-  by apply: ltnW; exact: npagen_nwB.
+  by apply: ltnW; exact: nclsn_nwB.
 move=> pg a hpg ha; cbv zeta.
 apply: (@ifold_indi _ (fun a' => soundat a' d.+1)); [| |exact: ha].
   by apply: ltnW; exact: ngroupn_nwB.
@@ -337,8 +337,9 @@ case: (mtest_gor ht) => [ht'|[hG hbit]]; last first.
 case: (mtest_gor ht') => [hold|[hG hbit]]; first by apply: ha'.
 (* the carried bit stands at the very place it was read from                  *)
 have [<- <-] : pg = P /\ gr = Q.
-  by apply: grpof_inj hG; [apply/nltbP|apply/nltbP|case/and3P: hr|
-                           case/and3P: hr].
+  case/and3P: hr => h3 h4 _.
+  by apply: grpof_inj (ltn_nclsn_npagei hpg) (ltn_ngroupn_ngroupi hgr)
+                      (ltn_nclsi_npagei h3) h4 hG.
 apply: (soundatW hm); last exact: hbit.
 by rewrite /inrange; apply/and3P; split;
    [apply/nltbP|apply/nltbP|case/and3P: hr].
@@ -382,9 +383,11 @@ elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hp hnd hm hb.
   rewrite /=; case: (boolP (csolved c)) => [hs|_]; last exact: hm.
   have hok := leaf_memb hc hp hG hs.
   have E : plc (tomemb x) =
-      (mcp (tomemb x),
+      (Uint63.div (PArray.get e8num (mcp (tomemb x))) 2%uint63,
        Uint63.div (PArray.get e8num (mud (tomemb x))) 2%uint63,
-       PArray.get e4bit (mmp (tomemb x))) by [].
+       Uint63.add (Uint63.mul (Uint63.mod (PArray.get e8num (mcp (tomemb x)))
+                                          2%uint63) nbiti)
+                  (PArray.get e4bit (mmp (tomemb x)))) by [].
   move=> pg' gr' bt' hr ht.
   case: (mmarkP (place_range he8 he4 hok E) hr ht) => [[<- <- <-]|hb2];
     last by apply: hm.

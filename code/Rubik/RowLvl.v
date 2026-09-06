@@ -178,17 +178,17 @@ Section Lvl.
 
 (* ---- the ten moves of H, as RowMap reads them ---------------------------- *)
 
-Variable mpg mgr msw mlo mhi : arr.
+Variable cpg cfl mgr msw mlo mhi : arr.
 
-Local Notation pgm := (pgmv mpg).
+Local Notation pgm := (pgmv cpg).
 Local Notation grm := (grmv mgr).
-Local Notation grpm := (grpmv msw mlo mhi).
+Local Notation grpm := (grpmv cfl msw mlo mhi).
 
 (* a move sends a page to a page and a group to a group, which is what the    *)
 (* write side needs to know about where it is writing.  RowInst's pgok and    *)
 (* grok are these, and the instance settles them by computation.              *)
-Hypothesis pgm_range : forall k pg, (to_nat k < nhn)%N -> (pg <? npagei) ->
-  (pgm k pg <? npagei).
+Hypothesis pgm_range : forall k pg, (to_nat k < nhn)%N -> (pg <? nclsi) ->
+  (pgm k pg <? nclsi).
 Hypothesis grm_range : forall k gr, (to_nat k < nhn)%N -> (gr <? ngroupi) ->
   (grm k gr <? ngroupi).
 
@@ -224,10 +224,10 @@ Definition pgfits (pg : int) : bool :=
 Lemma zero_ngroupi : (0 <? ngroupi)%uint63.
 Proof. by []. Qed.
 
-Lemma pgbase_nat pg : (pg <? npagei) ->
+Lemma pgbase_nat pg : (pg <? nclsi) ->
   to_nat (pgbase pg) = (to_nat pg * ngroupn)%N.
 Proof.
-move=> hpg; rewrite /pgbase (to_nat_grpof hpg zero_ngroupi).
+move=> hpg; rewrite /pgbase (to_nat_grpof (ltn_nclsi_npagei hpg) zero_ngroupi).
 by rewrite to_nat_0 addn0.
 Qed.
 
@@ -241,14 +241,14 @@ Qed.
 (* THE TWO INDEX FACTS.  The read uses them, and so does the write: a page   *)
 (* inside one chunk has the same chunk for all its words, and the offset is   *)
 (* the page's own plus the group.                                             *)
-Lemma pgidx pg gr : (pg <? npagei) -> (gr <? ngroupi) -> pgfits pg ->
+Lemma pgidx pg gr : (pg <? nclsi) -> (gr <? ngroupi) -> pgfits pg ->
   Uint63.div (grpof pg gr) csize = pgchk pg
   /\ Uint63.mod (grpof pg gr) csize = Uint63.add (pgoff pg) gr.
 Proof.
 move=> hpg hgr hfit.
 have hb : to_nat (pgbase pg) = (to_nat pg * ngroupn)%N := pgbase_nat hpg.
 have hg : to_nat (grpof pg gr) = (to_nat pg * ngroupn + to_nat gr)%N :=
-  to_nat_grpof hpg hgr.
+  to_nat_grpof (ltn_nclsi_npagei hpg) hgr.
 have hgrn : (to_nat gr < ngroupn)%N := ltn_ngroupi hgr.
 have hfn := pgfits_nat hfit.
 have hgn : (0 < ngroupn)%N := leq_ltn_trans (leq0n _) hgrn.
@@ -290,7 +290,7 @@ rewrite hadd hoff.
 reflexivity.
 Qed.
 
-Lemma pgread src pg gr : (pg <? npagei) -> (gr <? ngroupi) -> pgfits pg ->
+Lemma pgread src pg gr : (pg <? nclsi) -> (gr <? ngroupi) -> pgfits pg ->
   gget src (grpof pg gr)
   = PArray.get (PArray.get src (pgchk pg)) (Uint63.add (pgoff pg) gr).
 Proof.
@@ -298,7 +298,7 @@ move=> hpg hgr hfit; have [hdiv hmod] := pgidx hpg hgr hfit.
 by rewrite /gget cshftE cmskwE hdiv hmod.
 Qed.
 
-Lemma pgwrite d pg gr v : (pg <? npagei) -> (gr <? ngroupi) -> pgfits pg ->
+Lemma pgwrite d pg gr v : (pg <? nclsi) -> (gr <? ngroupi) -> pgfits pg ->
   gor d (grpof pg gr) v
   = PArray.set d (pgchk pg)
       (PArray.set (PArray.get d (pgchk pg)) (Uint63.add (pgoff pg) gr)
@@ -317,7 +317,7 @@ Qed.
 (* boundary takes RowMap's road, and there are few of them.                   *)
 
 Definition prepmvS (k : int) (src : rmap) (dst : rmap) : rmap :=
-  ifold npagen 0
+  ifold nclsn 0
     (fun pg d =>
        let pg' := pgm k pg in
        if pgfits pg then
@@ -339,7 +339,7 @@ Definition prepmvS (k : int) (src : rmap) (dst : rmap) : rmap :=
     dst.
 
 Definition prepmv0S (k : int) (src : rmap) (dst : rmap) : rmap :=
-  ifold npagen 0
+  ifold nclsn 0
     (fun pg d =>
        let pg' := pgm k pg in
        if pgfits pg then
@@ -368,12 +368,12 @@ Definition prepassS (src dst : rmap) : rmap :=
     dst.
 
 Lemma prepmvS_eq k src dst : (to_nat k < nhn)%N ->
-  prepmvS k src dst = prepmv mpg mgr msw mlo mhi k src dst.
+  prepmvS k src dst = prepmv cpg cfl mgr msw mlo mhi k src dst.
 Proof.
 move=> hk; rewrite /prepmvS /prepmv; cbv zeta.
-apply: ifold_eqi; first by apply: ltnW; exact: npagen_nwB.
+apply: ifold_eqi; first by apply: ltnW; exact: nclsn_nwB.
 move=> pg d hpg; cbv zeta.
-have hpi : (pg <? npagei) := introT (nltbP pg npagei) hpg.
+have hpi : (pg <? nclsi) := introT (nltbP pg nclsi) hpg.
 case: (boolP (pgfits pg)) => hfit; last by [].
 apply: ifold_eqi; first by apply: ltnW; exact: ngroupn_nwB.
 move=> gr d' hgr; cbv zeta.
@@ -382,12 +382,12 @@ by rewrite -(pgread src hpi hgi hfit).
 Qed.
 
 Lemma prepmv0S_eq k src dst : (to_nat k < nhn)%N ->
-  prepmv0S k src dst = prepmv0 mpg mgr msw mlo mhi k src dst.
+  prepmv0S k src dst = prepmv0 cpg cfl mgr msw mlo mhi k src dst.
 Proof.
 move=> hk; rewrite /prepmv0S /prepmv0; cbv zeta.
-apply: ifold_eqi; first by apply: ltnW; exact: npagen_nwB.
+apply: ifold_eqi; first by apply: ltnW; exact: nclsn_nwB.
 move=> pg d hpg; cbv zeta.
-have hpi : (pg <? npagei) := introT (nltbP pg npagei) hpg.
+have hpi : (pg <? nclsi) := introT (nltbP pg nclsi) hpg.
 case: (boolP (pgfits pg)) => hfit; last by [].
 apply: ifold_eqi; first by apply: ltnW; exact: ngroupn_nwB.
 move=> gr d' hgr; cbv zeta.
@@ -396,7 +396,7 @@ by rewrite -(pgread src hpi hgi hfit).
 Qed.
 
 Lemma prepassS_eq src dst :
-  prepassS src dst = prepass mpg mgr msw mlo mhi src dst.
+  prepassS src dst = prepass cpg cfl mgr msw mlo mhi src dst.
 Proof.
 rewrite /prepassS /prepass.
 apply: ifold_eqi; first by apply: ltnW; apply: (@ltn_nwB 4).
@@ -419,7 +419,7 @@ Lemma length_gor d g v : PArray.length (gor d g v) = PArray.length d.
 Proof. by rewrite /gor /gset length_setA. Qed.
 
 Definition prepmvD (k : int) (src : rmap) (dst : rmap) : rmap :=
-  ifold npagen 0
+  ifold nclsn 0
     (fun pg d =>
        let pg' := pgm k pg in
        if [&& pgfits pg, pgfits pg' & (pgchk pg' <? PArray.length d)] then
@@ -458,10 +458,10 @@ Lemma prepmvD_eq k src dst : (to_nat k < nhn)%N ->
   prepmvD k src dst = prepmvS k src dst.
 Proof.
 move=> hk; rewrite /prepmvD /prepmvS; cbv zeta.
-apply: ifold_eqi; first by apply: ltnW; exact: npagen_nwB.
+apply: ifold_eqi; first by apply: ltnW; exact: nclsn_nwB.
 move=> pg d hpg; cbv zeta.
-have hpi : (pg <? npagei) := introT (nltbP pg npagei) hpg.
-have hp'i : (pgm k pg <? npagei) := pgm_range hk hpi.
+have hpi : (pg <? nclsi) := introT (nltbP pg nclsi) hpg.
+have hp'i : (pgm k pg <? nclsi) := pgm_range hk hpi.
 case E : (pgfits pg); last by [].
 case E' : (pgfits (pgm k pg)); last by [].
 case E'' : (pgchk (pgm k pg) <? PArray.length d); last by [].
@@ -483,7 +483,7 @@ Definition prepassD (src dst : rmap) : rmap :=
     dst.
 
 Lemma prepassD_eq src dst :
-  prepassD src dst = prepass mpg mgr msw mlo mhi src dst.
+  prepassD src dst = prepass cpg cfl mgr msw mlo mhi src dst.
 Proof.
 rewrite -prepassS_eq /prepassD /prepassS.
 apply: ifold_eqi; first by apply: ltnW; apply: (@ltn_nwB 4).
