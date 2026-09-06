@@ -23,7 +23,7 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
-Require Import Row RowMap RowRun RowFinal RowWits.
+Require Import Row RowMap RowRun RowFinal RowWits RowWitsChk.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -33,7 +33,7 @@ Notation arr := (PArray.array int).
 Notation rmap := (PArray.array arr).
 
 (* the witness map, exactly as RowFinal builds it *)
-Definition wm : rmap := wmapof rowwits.
+Definition wm : rmap := wmapof rowwits48.
 
 (* ---- 2: the witness map on its own --------------------------------------- *)
 

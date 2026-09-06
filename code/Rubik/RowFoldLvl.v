@@ -70,7 +70,7 @@ forall src r k g pg gr bt,
                          (Uint63.mul
                             (Uint63.add (Uint63.mul (fren w) 2) (fpar w))
                             ngroupi) g)) nhi) k) in
-  inrange pg gr bt ->
+  inrange24 pg gr bt ->
   pchk r = pchk (fkpt (PArray.get fpg pg)) ->
   Uint63.add (poff r) G
   = Uint63.add (poff (fkpt (PArray.get fpg pg)))
@@ -102,7 +102,7 @@ forall src r k g pg gr bt,
                             (Uint63.add (Uint63.mul (fren w) 2)
                                (Uint63.sub 1 (fpar w)))
                             ngroupi) g)) nhi) k) in
-  inrange pg gr bt ->
+  inrange24 pg gr bt ->
   pchk r = pchk (fkpt (PArray.get fpg pg)) ->
   Uint63.add (poff r) G
   = Uint63.add (poff (fkpt (PArray.get fpg pg)))
@@ -155,7 +155,7 @@ Proof. by move=> h pg gr bt hr ht; apply: PQ; apply: (h _ _ _ hr ht). Qed.
 Lemma lvstep d r bb G X :
   (pchk r <? PArray.length d) ->
   sdf Q (PArray.set d (pchk r) bb) ->
-  (forall pg gr bt, inrange pg gr bt ->
+  (forall pg gr bt, inrange24 pg gr bt ->
      pchk r = pchk (fkpt (PArray.get fpg pg)) ->
      Uint63.add (poff r) G
      = Uint63.add (poff (fkpt (PArray.get fpg pg)))
@@ -178,7 +178,7 @@ Qed.
 Lemma lvstep_if d r bb (c : bool) G X :
   (pchk r <? PArray.length d) ->
   sdf Q (PArray.set d (pchk r) bb) ->
-  (forall pg gr bt, inrange pg gr bt ->
+  (forall pg gr bt, inrange24 pg gr bt ->
      pchk r = pchk (fkpt (PArray.get fpg pg)) ->
      Uint63.add (poff r) G
      = Uint63.add (poff (fkpt (PArray.get fpg pg)))

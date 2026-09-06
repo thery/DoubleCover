@@ -90,7 +90,7 @@ Definition lmemb (x : pstt) (n : int) : int := Uint63.add n (mcp (tomemb x)).
 
 (* and those ranks turned into a page, a group and a bit                      *)
 Definition lplace (x : pstt) (n : int) : int :=
-  let: (pg, gr, bt) := place e8numi e4biti (tomemb x) in
+  let: (pg, gr, bt) := place24 e8numi e4biti (tomemb x) in
   Uint63.add n (Uint63.add pg (Uint63.add gr bt)).
 
 (* ---- what is asked ------------------------------------------------------- *)

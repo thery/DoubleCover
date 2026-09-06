@@ -20,13 +20,33 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
-Require Import Row RowMap RowRun RowFinal RowInst.
+Require Import Row RowMap RowPrep RowRun RowFinal RowInst.
 Require Import RowTabL RowTabP RowTab RowMemb RowWits.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
+(* ---- the list, read at the corner pair ----------------------------------- *)
+
+(* THE GENERATED LIST IS A LIST OF TWENTY FOUR BIT PLACES, and a page in it   *)
+(* is a corner RANK.  The map is indexed by the corner PAIR, so the same      *)
+(* member stands at another place: the rank n splits into the pair n / 2 and  *)
+(* the parity odd n, and the parity is the high half of the bit.  That is     *)
+(* wconv, and the word is not touched -- it solves the member, and the member *)
+(* has not changed.                                                          *)
+(*                                                                            *)
+(* FED THE LIST UNCONVERTED, the kernel goes off trying to reconcile two      *)
+(* lists that do not match and does not come back.                            *)
+Definition rowwits48 : seq (int * int * int * seq nat) :=
+  Eval vm_compute in [seq wconv e8numi par8i t | t <- rowwits].
+
 Lemma witsokC :
-  witsok e8invi e4ofi par8i par4i (ptab memb2tab) rowwits.
+  witsok e8invi e4ofi par8i par4i (ptab memb2tab) rowwits48.
+Proof. by vm_compute. Qed.
+
+(* and the list as it comes, at the narrow place, which is what the fold      *)
+(* marks into its own map                                                     *)
+Lemma wits24C :
+  wgood24 e8invi e4ofi par8i par4i (ptab memb2tab) rowwits.
 Proof. by vm_compute. Qed.

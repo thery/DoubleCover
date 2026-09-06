@@ -32,8 +32,8 @@ Variable e8num e8inv e4bit e4of par8 par4 : arr.
 Hypothesis he8 : e8ok e8num e8inv par8.
 Hypothesis he4 : e4ok e4bit e4of par4.
 
-Local Notation plc := (place e8num e4bit).
-Local Notation unplc := (unplace e8inv e4of par8 par4).
+Local Notation plc := (place24 e8num e4bit).
+Local Notation unplc := (unplace24 e8inv e4of par8 par4).
 
 (* ---- the fold, and the move on groups and bits --------------------------- *)
 
@@ -95,7 +95,7 @@ Proof. by move=> h pg gr bt hr ht; apply: PdW; apply: (h _ _ _ hr ht). Qed.
 (* ---- the three things the fold owes, and RowFoldWrite has them ----------- *)
 
 Hypothesis Porbd : forall d, forall p q c pg gr bt,
-  inrange p q c -> inrange pg gr bt ->
+  inrange24 p q c -> inrange24 pg gr bt ->
   pchk (fkpt (PArray.get fpg p)) = pchk (fkpt (PArray.get fpg pg)) ->
   Uint63.add (poff (fkpt (PArray.get fpg p)))
     (sgrmv fsgr (fren (PArray.get fpg p))
@@ -197,8 +197,8 @@ elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hp hm hb.
   (* soundatd is named, so it has to be unfolded for apply to see through *)
   rewrite /soundatd; apply: soundatf_fmark.
   - exact: Porbd.
-  - exact: (place_range he8 he4 hok E).
-  - rewrite /Pd (unplace_place he8 he4 hok E) (leaf_pos hc hp hG hs).
+  - exact: (place24_range he8 he4 hok E).
+  - rewrite /Pd (unplace24_place24 he8 he4 hok E) (leaf_pos hc hp hG hs).
     by move: hb; rewrite subn0.
   exact: hm.
 (* a step: the same map, one move further out *)
@@ -313,8 +313,8 @@ elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hp hm hb.
   have hok := leaf_memb hc hp hG hs.
   rewrite /soundatd; apply: soundatf_fmark.
   - exact: Porbd.
-  - exact: (place_range he8 he4 hok E).
-  - rewrite /Pd (unplace_place he8 he4 hok E) (leaf_pos hc hp hG hs).
+  - exact: (place24_range he8 he4 hok E).
+  - rewrite /Pd (unplace24_place24 he8 he4 hok E) (leaf_pos hc hp hG hs).
     by move: hb; rewrite subn0.
   exact: hm.
 apply: (@ifold_indi _ (fun m' => soundatd m' d)); [| |exact: hm].
@@ -413,8 +413,8 @@ elim: togo c x msk pv mn => [|togo ih] c x msk pv mn hdt hc hp hm hb.
            (PArray.get e4bit (mmp (tomemb x)))) => ->; last exact: hm.
   rewrite /soundatd; apply: soundatf_fmark.
   - exact: Porbd.
-  - exact: (place_range he8 he4 hok E).
-  - rewrite /Pd (unplace_place he8 he4 hok E) (leaf_pos hc hp hG hs).
+  - exact: (place24_range he8 he4 hok E).
+  - rewrite /Pd (unplace24_place24 he8 he4 hok E) (leaf_pos hc hp hG hs).
     by move: hb; rewrite subn0.
   exact: hm.
 rewrite /fsrchsk -/fsrchsk.

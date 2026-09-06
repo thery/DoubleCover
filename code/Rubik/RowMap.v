@@ -347,6 +347,19 @@ move=> h; apply/nltbP; apply: leq_trans (_ : to_nat nbit48i <= _).
 by apply/nlebP; vm_compute.
 Qed.
 
+(* THE FOLD WORKS AT THE NARROW CELL, so the three facts about the bits of a *)
+(* word are needed at twenty four as well as at forty eight.  A bit below     *)
+(* twenty four is a bit below forty eight, and the rest follows.              *)
+Lemma lt_nbiti_nbit48i j : (j <? nbiti)%uint63 -> (j <? nbit48i)%uint63.
+Proof.
+move=> h; apply/nltbP; apply: leq_trans (_ : to_nat nbiti <= _).
+  by apply/nltbP.
+by apply/nlebP; vm_compute.
+Qed.
+
+Lemma lt_digits24 j : (j <? nbiti)%uint63 -> (j <? digits)%uint63.
+Proof. by move=> h; apply: lt_digits; apply: lt_nbiti_nbit48i. Qed.
+
 Lemma allbitsP bt : (bt <? nbit48i)%uint63 ->
   (Uint63.land allbits (bitof bt) =? 0)%uint63 = false.
 Proof.
@@ -359,6 +372,22 @@ have hset : bit (Uint63.land allbits (bitof bt)) bt.
   by rewrite bit_onenn // eqxx.
 apply/negbTE/negP => /neqbP h0.
 have hz : Uint63.land allbits (bitof bt) = 0%uint63 by apply: to_nat_inj.
+by move: hset; rewrite hz bit_0.
+Qed.
+
+(* and the same of the low half, which is the whole of a folded cell         *)
+Lemma allbits24P bt : (bt <? nbiti)%uint63 ->
+  (Uint63.land allbits24 (bitof bt) =? 0)%uint63 = false.
+Proof.
+move=> hb; have hbd := lt_digits24 hb.
+have hset : bit (Uint63.land allbits24 (bitof bt)) bt.
+  rewrite land_spec.
+  have -> : allbits24 = decr (Uint63.lsl one nbiti) by vm_compute.
+  rewrite bit_decr ?hb //.
+  rewrite /bitof; have -> : 1%uint63 = one by vm_compute.
+  by rewrite bit_onenn // eqxx.
+apply/negbTE/negP => /neqbP h0.
+have hz : Uint63.land allbits24 (bitof bt) = 0%uint63 by apply: to_nat_inj.
 by move: hset; rewrite hz bit_0.
 Qed.
 
@@ -390,6 +419,13 @@ have hz : Uint63.land (bitof b) (bitof bt) = 0%uint63.
   case: eqP => [hbi|_] //=; case: eqP => [hti|_] //=.
   by case: hne; rewrite hbi hti.
 by rewrite hz; apply/neqbP.
+Qed.
+
+(* and the same at the narrow cell                                           *)
+Lemma bitof_inj24 b bt : (b <? nbiti)%uint63 -> (bt <? nbiti)%uint63 ->
+  ~~ (Uint63.land (bitof b) (bitof bt) =? 0)%uint63 -> b = bt.
+Proof.
+by move=> hb hbt; apply: bitof_inj; apply: lt_nbiti_nbit48i.
 Qed.
 
 (* an empty map has no bit set: every chunk of it is a chunk of noughts       *)

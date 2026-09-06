@@ -38,4 +38,4 @@ Import GroupScope.
 Definition ycprobe : rmap :=
   ymfin e8numi e4biti mpgi mgri mswi mloi mhii p1 actfsri tomemb okmvv srch 13.
 
-Time Eval native_compute in mfull2 ycprobe (wmap rowwits).
+Time Eval native_compute in mfull2 ycprobe (wmap rowwits48).

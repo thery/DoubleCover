@@ -30,7 +30,7 @@ Import GroupScope.
 (* superflip undone and then the member's own permutation.  It is RowInst's   *)
 (* pos, written out on the real tables.                                       *)
 Definition mposC (pg gr bt : int) : {perm facelet} :=
-  superflip^-1 * pt flast (memb2tab (unplace e8invi e4ofi par8i par4i pg gr bt)).
+  superflip^-1 * pt flast (memb2tab (unplace24 e8invi e4ofi par8i par4i pg gr bt)).
 
 Definition PdC (d : nat) (pg gr bt : int) : Prop :=
   mposC pg gr bt \in ball Sset d.
@@ -65,7 +65,7 @@ Qed.
 
 (* ---- so a member and the place it folds to stand or fall together -------- *)
 
-Lemma fold_conjC pg gr bt : inrange pg gr bt ->
+Lemma fold_conjC pg gr bt : inrange24 pg gr bt ->
   exists2 i, (i < 16)%N &
     mposC (PArray.get fkeepi (fkpt (PArray.get fpgi pg)))
           (sgrmv fsgri (fren (PArray.get fpgi pg))
@@ -95,7 +95,7 @@ move=> hr hk hg hi hsrc hb.
 have [_ hkp _ _ _] := gathR hr hk.
 have hp : (PArray.get fkeepi (fkpt (gw r k)) <? npagei)%uint63.
   exact: (Row.iter_at keepRCP hkp).
-have hin : inrange (gp r k) g i.
+have hin : inrange24 (gp r k) g i.
   by apply/and3P; split; [exact: hp | apply/nltbP; exact: hg |
                           apply/nltbP; exact: hi].
 apply: (hsrc _ _ _ hin).
@@ -106,7 +106,7 @@ Qed.
 
 Lemma gather_inrange r k g i : (to_nat r < nrepn)%N -> (to_nat k < nhn)%N ->
   (to_nat g < ngroupn)%N -> (to_nat i < nbitn)%N ->
-  inrange (gq r k) (sgrmv fsgri (gu r k) (Ptyof (gp r k) i) g)
+  inrange24 (gq r k) (sgrmv fsgri (gu r k) (Ptyof (gp r k) i) g)
           (sbtmv fsbti (gu r k) i).
 Proof.
 move=> hr hk hg hi.
@@ -128,7 +128,7 @@ Qed.
 (* the row, and the move costs one because it is a move of H.                 *)
 Lemma gdst_memb r k g i d : (to_nat r < nrepn)%N -> (to_nat k < nhn)%N ->
   (to_nat g < ngroupn)%N -> (to_nat i < nbitn)%N ->
-  inrange (gp r k) g i -> PdC d (gp r k) g i ->
+  inrange24 (gp r k) g i -> PdC d (gp r k) g i ->
   PdC d.+1 (PArray.get fkeepi r)
        (grmv mgri k (sgrmv fsgri (gu r k) (Ptyof (gp r k) i) g))
        (btmv btmvi k (sbtmv fsbti (gu r k) i)).
@@ -231,7 +231,7 @@ have hbv : ~~ (Uint63.land (fget src (fkpt (gw r k)) g) (bitof i) =? 0)%uint63.
               (lt_half_digits hi12)).
   by rewrite hbi.
 (* and a bit of the source word is a member the source claims *)
-have hinsrc : inrange (gp r k) g i.
+have hinsrc : inrange24 (gp r k) g i.
   have hp : (PArray.get fkeepi (fkpt (gw r k)) <? npagei)%uint63.
     exact: (Row.iter_at keepRCP hkp).
   by apply/and3P; split; [exact: hp | apply/nltbP; exact: hg |
@@ -362,7 +362,7 @@ have hs24n : (to_nat (Uint63.add nloi i) < nbitn)%N.
 have hbv : ~~ (Uint63.land (fget src (fkpt (gw r k)) g)
                  (bitof (Uint63.add nloi i)) =? 0)%uint63.
   rewrite (@test_bit (fget src (fkpt (gw r k)) g) (Uint63.add nloi i)
-             (lt_digits hs24)).
+             (lt_digits24 hs24)).
   rewrite -(@bit_hihalf (fget src (fkpt (gw r k)) g) (Uint63.add nloi i)
               hle hs24) hsub.
   rewrite -(@test_bit
@@ -370,7 +370,7 @@ have hbv : ~~ (Uint63.land (fget src (fkpt (gw r k)) g)
                  (Uint63.lsr (fget src (fkpt (gw r k)) g) RowInst.nhalfi) lo12)
               i (lt_half_digits hi12)).
   by rewrite hbi.
-have hinsrc : inrange (gp r k) g (Uint63.add nloi i).
+have hinsrc : inrange24 (gp r k) g (Uint63.add nloi i).
   have hp : (PArray.get fkeepi (fkpt (gw r k)) <? npagei)%uint63.
     exact: (Row.iter_at keepRCP hkp).
   by apply/and3P; split; [exact: hp | apply/nltbP; exact: hg | exact: hs24].

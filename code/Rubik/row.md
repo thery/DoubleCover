@@ -356,30 +356,70 @@ lemmas), `RowMap.v` (194 chunks, `allbits` = 2^48-1, the prepass reading a
 class table `cpg` and a flip `cfl` in place of `mpg`), `RowRun.v`,
 `RowFinal.v`, `RowLvl.v`.
 
-**What is left, in order:**
+**TWO PLACES, AND THE FILE THAT JOINS THEM.**  `Row.v` keeps a SECOND place,
+`unplace24`, where a page is the corner rank itself and a bit is a middle
+permutation alone.  Nothing runs at that width.  What it is for is that every
+fact about a MOVE is proved there -- the page table, the bit table, and the
+forty eight facelets a member names -- and `RowPrep.v` carries each of them
+over to the cell, on the one observation that the two places name the same
+member:
 
-1. `RowSrch.v`, `RowSrchP.v`, `RowMark.v` -- the same edits: `mpg` becomes
-   `cpg cfl`, `nbiti` becomes `nbit48i` in the two bit hypotheses, the leaf's
-   place equation gains the parity term, and `grpof_inj` is fed through
-   `ltn_nclsi_npagei`.
-2. **`RowSrch.mcount` MUST COUNT FOUR SLICES**, not two.  It drives the cuts
-   and the early stop; counting half the members makes the stop come on too
-   soon and the map never fills -- ten hours, then a boolean that is false.
-3. `RowMemb.v` -- the prepass instance.  The cheap way is not to redo it: a
-   place at forty eight bits and a place at twenty four name the SAME member,
-   so state the old fact about the old place as a local definition and
-   transport it.  That is `wconv`, `inrange_conv`, `unplace_conv` in the
-   deleted `RowPrep48.v`, which is in the history at 2922896.
-4. `RowInst.v` -- `btmv` becomes `24 * (s lxor cfl k) + btmv k b`, and `pgok`
-   checks `cpg`.
-5. `RowTab.v` and the generated tables -- `cpg_data` and `cfl_data` come from
-   `./rubik_row_nofold dumptab prep48`, and the ONE check that ties them to
-   the page table is `cpgok48` in the deleted `RowPrep48.v`.
-6. **The witness list is a list of TWENTY FOUR BIT places** -- a page in it is
-   a corner rank.  It must be read through `wconv`, or the kernel goes off
-   trying to reconcile two lists that do not match.  That cost fifty minutes
-   of a compile that settled nothing.
-7. `RowCub*`, then the run.
+    unplace pg gr bt  =  unplace24 (e8inv (2 * pg + bt / 24)) gr (bt % 24)
+
+So nothing about the cube is proved twice.  `RowPrep.v` adds exactly two
+things of its own: the bit lemma for a cell of two halves (`grpmvP48`), and
+ONE CHECK, `cpgok48`, that the class table and the flip really are the page
+table split that way.
+
+**What is done, 6 September:**
+
+1. `RowSrch.v` -- `mpg` became `cpg cfl`, and **`mcount` counts FOUR slices**.
+   It drives the cuts and the early stop; counting half the members makes the
+   stop come on too soon and the map never fills.
+2. `RowSrchP.v` -- `nbit48i` in the two bit hypotheses, and the leaf's place
+   equation gains the parity term.  `RowMark.v` needed no edit at all: the
+   change kept every name.
+3. `RowPrep.v` -- the transport, and `Row.membok_unplace24`, which is the half
+   of `place_unplace` that `RowMemb` reads at the narrower place.
+4. `RowInst.v` -- `grpmv24P` and `prep_move24` are the twenty four bit facts;
+   `grpmvP` and `prep_move`, the two the run asks for, are those two through
+   `RowPrep`.  Two hypotheses more, `cflok` and `cpgok48`.
+5. `RowTab.v` -- `cpgi` and `cfli`, and the two checks `cflokC` and `cpgokC`
+   pass by computation.  `RowTabC.v` is the numbers, `make rowtabc` in
+   ocaml/, and rowtab's two files are not rewritten to get them.
+6. `RowMemb.v` -- moved to `unplace24`/`inrange24`.  **THE TELL: left at the
+   wide `unplace`, `unplE`'s `by []` is false and the kernel goes away
+   evaluating -- sixteen minutes and no error.  At the narrow place the file
+   is one minute.**
+7. `RowWitsChk.v` -- `rowwits48` is the generated list read through `wconv`.
+   The list is a list of TWENTY FOUR BIT places, a page in it is a corner
+   rank, and fed unconverted the kernel does not come back.
+8. `RowCubInst.v` -- the tables and the two new hypotheses passed through.
+
+9. `RowReal.v`, `RowCubReal.v`, `RowDummy.v` and the probe files.
+
+**AND THE FOLD IS BUILT ON THE NARROW PLACE, which is why `Row.v` keeps all
+four of its lemmas and not just one.**  `RowFold*` -- thirteen files -- state
+everything over `place`, `unplace` and `inrange`: a folded page is a corner
+permutation and a cell is twenty four bits, and that is not changing.  Left
+pointing at the wide place they do not fail, they go away evaluating, which
+is the same tell `RowMemb` gave.  They now name `place24`, `unplace24`,
+`inrange24`, `place24_range` and `unplace24_place24`, and the fold means
+exactly what it meant.
+
+**AND THE ONE THAT WOULD HAVE COST A RUN.**  `RowFold.v`'s `ffull` test read
+`RowMap.allbits`, which is now 2 ^ 48 - 1.  A folded cell is twenty four bits,
+so the folded run's boolean could never be true again -- six hours, and then
+false, with nothing anywhere saying why.  The fold now reads `allbits24`, and
+`allbits24P`, `bitof_inj24` and `lt_digits24` sit beside their wide twins in
+`RowMap.v` for the same reason.  **THE RULE THIS GIVES: when a constant is
+widened in place, grep for every READER of it, not for the files that were
+edited.**
+
+**What is left:** `RowCubDef`, `RowCubProof` and the run itself.  Neither can
+be built on the desktop -- `P1Fdec.v` is generated and absent, and `FsmChk`
+is itself a computation.  Run them with `./mkrowfold.sh pbooli` then
+`pdonei`.
 
 **The level is not an optimisation.**  `RowLvl`'s level reads each page's
 chunk once and puts it back once; the plain prepass writes the chunk table

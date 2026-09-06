@@ -259,6 +259,26 @@ Definition unplace (pg gr bt : int) : memb :=
   let p := Uint63.lxor (PArray.get par8 c) (PArray.get par4 mp) in
   (c, PArray.get e8inv (Uint63.add (Uint63.mul gr 2%uint63) p), mp).
 
+(* ---- the same place at twenty four bits ---------------------------------- *)
+
+(* THE INSTANCE PROVES ITS FACTS HERE, AND RowPrep CARRIES THEM OVER.  A      *)
+(* cell of twenty four bits is one corner permutation, named by its own rank, *)
+(* and a bit is a middle permutation alone.  Nothing runs at this width any   *)
+(* more; what it is for is that the tables of a move -- the page table, and   *)
+(* the bit table -- are checked against it, and every fact the run asks of    *)
+(* the wider cell follows from one about this one.  The two places name the   *)
+(* SAME member, which is all RowPrep has to say.                              *)
+
+Definition place24 (x : memb) : int * int * int :=
+  (mcp x,
+   Uint63.div (PArray.get e8num (mud x)) 2%uint63,
+   PArray.get e4bit (mmp x)).
+
+Definition unplace24 (pg gr bt : int) : memb :=
+  let mp := PArray.get e4of bt in
+  let p := Uint63.lxor (PArray.get par8 pg) (PArray.get par4 mp) in
+  (pg, PArray.get e8inv (Uint63.add (Uint63.mul gr 2%uint63) p), mp).
+
 (* ---- what the four tables have to satisfy -------------------------------- *)
 
 (* The layout is a bijection only if the tables are the right ones, and what  *)
@@ -317,6 +337,10 @@ Hypothesis he4 : e4ok.
 
 Definition inrange (pg gr bt : int) : bool :=
   [&& (pg <? nclsi)%uint63, (gr <? ngroupi)%uint63 & (bt <? nbit48i)%uint63].
+
+(* and the range of the narrower place, where a page is a corner rank         *)
+Definition inrange24 (pg gr bt : int) : bool :=
+  [&& (pg <? npagei)%uint63, (gr <? ngroupi)%uint63 & (bt <? nbiti)%uint63].
 
 (* A numeral is looked at exactly here, and by going through of_nat rather    *)
 (* than by computing a unary number: a page is two groups, which is all the   *)
@@ -517,6 +541,77 @@ split.
   by apply/eqP; rewrite hparu /p (lxorK2 hs2 h4).
 rewrite hcn hun hcd hud hcm hbit.
 by congr (_, _, _); rewrite -int_add_mod.
+Qed.
+
+(* ---- and the same four, at the narrower place ---------------------------- *)
+
+(* THE FOLD IS BUILT ON THIS ONE.  RowFold's own layout keeps a page for      *)
+(* every corner permutation and twenty four bits to a cell, so every fact it  *)
+(* proves is about place24, and these four are what it reads.                 *)
+
+Lemma place24_range x pg gr bt :
+  membok x -> place24 x = (pg, gr, bt) -> inrange24 pg gr bt.
+Proof.
+case/and4P => hc hu hm _ [<- <- <-].
+case/and5P: (e8at hu) => hn _ _ _ _.
+case/and5P: (e4at hm) => hb _ _ _ _.
+apply/and3P; split => //.
+apply/nltbP; rewrite to_nat_div to_nat_two -/ngroupn ltn_divLR // -npage_group.
+by apply: ltn_npagei.
+Qed.
+
+Lemma unplace24_place24 x pg gr bt :
+  membok x -> place24 x = (pg, gr, bt) -> unplace24 pg gr bt = x.
+Proof.
+case: x => [[c u] m] /and4P[hc hu hm /eqP hp] [<- <- <-].
+case/and5P: (e8at hu) => _ /eqP hmod /eqP hinv _ _.
+case/and5P: (e4at hm) => _ /eqP hof _ _ _.
+have h8 : (to_nat (PArray.get par8 u) < 2)%N by apply: par8_lt2.
+have h4 : (to_nat (PArray.get par4 m) < 2)%N by apply: par4_lt2.
+rewrite /unplace24 /= hof.
+have -> : Uint63.lxor (PArray.get par8 c) (PArray.get par4 m)
+        = PArray.get par8 u.
+  by rewrite hp (lxorK2 h8 h4).
+by rewrite -hmod -int_add_mod hinv.
+Qed.
+
+Lemma place24_inj x y :
+  membok x -> membok y -> place24 x = place24 y -> x = y.
+Proof.
+move=> hx hy hE.
+case E: (place24 y) => [[pg gr] bt].
+have Hx := unplace24_place24 hx (etrans hE E).
+have Hy := unplace24_place24 hy E.
+by rewrite -Hx -Hy.
+Qed.
+
+(* AND THE SAME FOR THE NARROWER PLACE.  RowMemb builds the member's forty    *)
+(* eight facelets out of the three ranks, so it needs to know they are in     *)
+(* range; it works at the twenty four bit place, where a page is the corner   *)
+(* rank itself, and this is that half of place_unplace read there.            *)
+Lemma membok_unplace24 pg gr bt :
+  inrange24 pg gr bt -> membok (unplace24 pg gr bt).
+Proof.
+case/and3P => hpg hgr hbt.
+rewrite /unplace24 /membok /=.
+set mp := PArray.get e4of bt.
+case/and5P: (e4at hbt) => _ _ hmp _ _.
+have h8 : (to_nat (PArray.get par8 pg) < 2)%N by apply: par8_lt2.
+have h4 : (to_nat (PArray.get par4 mp) < 2)%N by apply: par4_lt2.
+set p := Uint63.lxor (PArray.get par8 pg) (PArray.get par4 mp).
+have hp2 : (to_nat p < 2)%N by exact: lxor_lt2 h8 h4.
+have [hur hud hum] := pair_page hgr hp2.
+have huv : (PArray.get e8inv (Uint63.add (Uint63.mul gr 2%uint63) p)
+              <? npagei)%uint63 by case/and5P: (e8at hur).
+have hun : PArray.get e8num (PArray.get e8inv
+             (Uint63.add (Uint63.mul gr 2%uint63) p))
+         = Uint63.add (Uint63.mul gr 2%uint63) p.
+  by case/and5P: (e8at hur) => _ _ _ _ /eqP.
+have hparu : PArray.get par8 (PArray.get e8inv
+                (Uint63.add (Uint63.mul gr 2%uint63) p)) = p.
+  by case/and5P: (e8at huv) => _ /eqP <- _ _ _; rewrite hun hum.
+apply/and4P; split => //.
+by apply/eqP; rewrite hparu /p (lxorK2 h8 h4).
 Qed.
 
 (* so the map has exactly one bit for each member                             *)

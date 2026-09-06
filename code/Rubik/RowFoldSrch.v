@@ -27,7 +27,7 @@ Section FSrch.
 
 Variable e8num e4bit : arr.
 
-Local Notation plc := (place e8num e4bit).
+Local Notation plc := (place24 e8num e4bit).
 
 (* ---- the fold, and the move on groups and bits --------------------------- *)
 

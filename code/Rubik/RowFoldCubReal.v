@@ -116,7 +116,7 @@ Qed.
 (* ---- the witnesses, marked in rather than held in a map ------------------ *)
 
 Lemma fwits_sound l m :
-  wgood e8invi e4ofi par8i par4i (RowInst.ptab memb2tab) l ->
+  wgood24 e8invi e4ofi par8i par4i (RowInst.ptab memb2tab) l ->
   soundatf fpgi fsgri fsbti (PdC 20) m ->
   soundatf fpgi fsgri fsbti (PdC 20)
     (foldr (fun t m' =>
@@ -141,7 +141,7 @@ Definition yfcwits : rmap :=
         yfcmfin rowwits.
 
 Lemma yfcwits_sound : soundatf fpgi fsgri fsbti (PdC 20) yfcwits.
-Proof. exact: (fwits_sound witsokC yfcmfin_sound). Qed.
+Proof. exact: (fwits_sound wits24C yfcmfin_sound). Qed.
 
 (* ---- and the row of the superflip, with nothing left open but the run ---- *)
 
@@ -154,10 +154,10 @@ Proof.
 move=> hf h hh.
 have [x [hx hxe]] :=
   row_cover up8invC up8okC up4invC up4okC par8okwC par4okwC hh.
-case E : (place e8numi e4biti x) => [[pg gr] bt].
-have hr := place_range e8okC e4okC hx E.
-have hu := unplace_place e8okC e4okC hx E.
-have hall : forall pg' gr' bt', inrange pg' gr' bt' -> PdC 20 pg' gr' bt'.
+case E : (place24 e8numi e4biti x) => [[pg gr] bt].
+have hr := place24_range e8okC e4okC hx E.
+have hu := unplace24_place24 e8okC e4okC hx E.
+have hall : forall pg' gr' bt', inrange24 pg' gr' bt' -> PdC 20 pg' gr' bt'.
   refine (@foldf_all fpgi fsgri fsbti (PdC 20) fkptT
             (fun a b c => sgrmvT _ _ _) (fun a b => sbtmvT _ _)
             yfcwits hf yfcwits_sound).
@@ -199,7 +199,7 @@ Definition yfcwitso : rmap :=
         yfcmfino rowwits.
 
 Lemma yfcwitso_sound : soundatf fpgi fsgri fsbti (PdC 20) yfcwitso.
-Proof. exact: (fwits_sound witsokC yfcmfino_sound). Qed.
+Proof. exact: (fwits_sound wits24C yfcmfino_sound). Qed.
 
 (* THE CERTIFICATE, with the optimizations on *)
 Theorem real_superflip_row_foldo : mfullf yfcwitso ->
@@ -208,10 +208,10 @@ Proof.
 move=> hf h hh.
 have [x [hx hxe]] :=
   row_cover up8invC up8okC up4invC up4okC par8okwC par4okwC hh.
-case E : (place e8numi e4biti x) => [[pg gr] bt].
-have hr := place_range e8okC e4okC hx E.
-have hu := unplace_place e8okC e4okC hx E.
-have hall : forall pg' gr' bt', inrange pg' gr' bt' -> PdC 20 pg' gr' bt'.
+case E : (place24 e8numi e4biti x) => [[pg gr] bt].
+have hr := place24_range e8okC e4okC hx E.
+have hu := unplace24_place24 e8okC e4okC hx E.
+have hall : forall pg' gr' bt', inrange24 pg' gr' bt' -> PdC 20 pg' gr' bt'.
   refine (@foldf_all fpgi fsgri fsbti (PdC 20) fkptT
             (fun a b c => sgrmvT _ _ _) (fun a b => sbtmvT _ _)
             yfcwitso hf yfcwitso_sound).

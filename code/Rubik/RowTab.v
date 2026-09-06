@@ -2,7 +2,7 @@
 (*  RowTab.v -- the row's tables, and the checks they have to pass.           *)
 (* =========================================================================  *)
 
-(* RowTabL.v and RowTabP.v are the numbers, written by                        *)
+(* RowTabL.v, RowTabP.v and RowTabC.v are the numbers, written by             *)
 (* ocaml/rubik_row_nofold.ml.  This file makes them arrays and CHECKS them:   *)
 (* Row.e8ok and Row.e4ok say the layout is a bijection, and RowInst's srcok   *)
 (* and halfok say the bit tables and btmv agree.  Nothing about how they were *)
@@ -18,8 +18,8 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
-Require Import Row RowMap RowRun RowFinal RowInst.
-Require Import RowTabL RowTabP.
+Require Import Row RowMap RowPrep RowRun RowFinal RowInst.
+Require Import RowTabL RowTabP RowTabC.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -81,4 +81,24 @@ Lemma grokC : grok mgri.
 Proof. by vm_compute. Qed.
 
 Lemma btokC : btok btmvi.
+Proof. by vm_compute. Qed.
+
+(* ---- and the corner pair, which is what the map is indexed by ------------ *)
+
+(* THE MAP READS THESE TWO AND NOT mpgi.  A cell holds a corner PAIR, so the  *)
+(* page table is read at the pair, 20160 by ten, and the parity the move      *)
+(* flips is read on its own, ten entries.  mpgi stays because the checks      *)
+(* above and the move on a member are stated over it.                         *)
+
+Definition ncpgi : int := 201600%uint63.        (* 20160 pairs by ten moves  *)
+
+Definition cpgi : arr := Eval vm_compute in mkarr ncpgi 0%uint63 cpg_data.
+Definition cfli : arr := Eval vm_compute in mkarr 10%uint63 0%uint63 cfl_data.
+
+(* the two checks the corner pair adds: the flip is a parity, and the class   *)
+(* table with the flip IS the page table read at the pair                     *)
+Lemma cflokC : cflok cfli.
+Proof. by vm_compute. Qed.
+
+Lemma cpgokC : cpgok48 e8invi mpgi cpgi cfli.
 Proof. by vm_compute. Qed.
