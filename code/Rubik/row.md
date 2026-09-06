@@ -321,3 +321,66 @@ STILL NOT MEASURED: the two runs' peak RES.  `./mkrowfold.sh fpacei` (the fold
 at thirteen over the int search) would also complete the depth-13 row, which is
 still nat against nat.
 
+
+## The cell at forty eight bits, done in place -- 6 September, UNFINISHED
+
+**What was asked and what went wrong first.** The change is a change of
+indexing and nothing else: a cell of the map held one corner permutation and
+its twenty four middle bits, and it should hold a corner PAIR and forty eight
+bits -- half as many words, 3.25 GB instead of 6.5.  The first attempt forked
+the whole chain into `*48` copies so that the banked runs would stay valid.
+That was wrong twice over: it turned a local change into a dozen
+transcriptions, and in one of them the level was silently the plain prepass
+rather than `RowLvl`'s.  The run then grew by 0.2 GB a minute where the
+twenty four bit run had been flat, and could not finish.  **The fork is
+deleted.  The change is now in place, in the files that were always there.**
+
+**What the fork did establish, and it is worth keeping:**
+
+- the pace at thirteen printed **14 731 320**, the number the folded run and
+  the plain run both hold there, so the layout, the tables, the prepass and
+  the search all agree at forty eight bits;
+- the map is half at the baseline: **10.8 GB against 21**.
+
+**Where a member sits now.**  A page number under `e8num` is `n`, and
+`n = 2 * (n / 2) + odd n`, so the pair is `n / 2` and the parity is the last
+bit -- and that bit is the high half of the cell:
+
+    place x = (e8num[cp] / 2, e8num[ud] / 2, 24 * (e8num[cp] % 2) + e4bit[mp])
+
+`place` still reads only `e8num` and `e4bit`, and `unplace` still reads
+`e8inv`, `e4of`, `par8` and `par4`, so **no signature above them changes**.
+
+**Compiles, at forty eight bits, in place:** `Row.v` (the four bijection
+lemmas), `RowMap.v` (194 chunks, `allbits` = 2^48-1, the prepass reading a
+class table `cpg` and a flip `cfl` in place of `mpg`), `RowRun.v`,
+`RowFinal.v`, `RowLvl.v`.
+
+**What is left, in order:**
+
+1. `RowSrch.v`, `RowSrchP.v`, `RowMark.v` -- the same edits: `mpg` becomes
+   `cpg cfl`, `nbiti` becomes `nbit48i` in the two bit hypotheses, the leaf's
+   place equation gains the parity term, and `grpof_inj` is fed through
+   `ltn_nclsi_npagei`.
+2. **`RowSrch.mcount` MUST COUNT FOUR SLICES**, not two.  It drives the cuts
+   and the early stop; counting half the members makes the stop come on too
+   soon and the map never fills -- ten hours, then a boolean that is false.
+3. `RowMemb.v` -- the prepass instance.  The cheap way is not to redo it: a
+   place at forty eight bits and a place at twenty four name the SAME member,
+   so state the old fact about the old place as a local definition and
+   transport it.  That is `wconv`, `inrange_conv`, `unplace_conv` in the
+   deleted `RowPrep48.v`, which is in the history at 2922896.
+4. `RowInst.v` -- `btmv` becomes `24 * (s lxor cfl k) + btmv k b`, and `pgok`
+   checks `cpg`.
+5. `RowTab.v` and the generated tables -- `cpg_data` and `cfl_data` come from
+   `./rubik_row_nofold dumptab prep48`, and the ONE check that ties them to
+   the page table is `cpgok48` in the deleted `RowPrep48.v`.
+6. **The witness list is a list of TWENTY FOUR BIT places** -- a page in it is
+   a corner rank.  It must be read through `wconv`, or the kernel goes off
+   trying to reconcile two lists that do not match.  That cost fifty minutes
+   of a compile that settled nothing.
+7. `RowCub*`, then the run.
+
+**The level is not an optimisation.**  `RowLvl`'s level reads each page's
+chunk once and puts it back once; the plain prepass writes the chunk table
+once per word.  The memory follows the level, not the cell.

@@ -109,14 +109,8 @@ HPrefix.v
 HCut.v
 HFinal.v
 Row.v
-Row48.v
 RowMap.v
-RowMap48.v
 RowRun.v
-RowRun48.v
-RowPrep48.v
-RowTabP48.v
-RowTab48.v
 RowFinal.v
 Fsinj.v
 RowInst.v
@@ -131,12 +125,3 @@ RowWits.v
 RowWitsChk.v
 RowDummy.v
 
-(* the forty eight bit row.  The run's own files -- RowCubDef48,
-   RowCubReal48, RowCubProof48, RowCubProofI48, RowCubBoolI48, RowCubDoneI48 --
-   are NOT here: they need the generated phase one files, as the twenty four
-   bit ones do, and mkrow48.sh builds them. *)
-RowSrch48.v
-RowSrchP48.v
-RowMark48.v
-RowFinal48.v
-RowCubInst48.v

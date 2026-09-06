@@ -2,8 +2,8 @@
 (*  RowMap.v -- the map of a row, and the prepass.                            *)
 (* =========================================================================  *)
 
-(* A group is twenty four bits and fits in one word, so the map is one word   *)
-(* a group: 40320 pages of 20160 groups, 6.5 GB.  PArray.max_length is        *)
+(* A CELL IS A CORNER PAIR AND FORTY EIGHT BITS, so the map is one word a     *)
+(* cell: 20160 pairs of 20160 groups, 3.25 GB.  PArray.max_length is          *)
 (* 4 194 303, so it is cut into chunks of two million.                        *)
 (*                                                                            *)
 (* The prepass plays one move of H on the whole map at once: a page goes to   *)
@@ -70,7 +70,7 @@ Proof. by move=> hb hf ha; apply: (@ifold_indg _ _ n 0). Qed.
 Definition cshft  : int := 21%uint63.          (* two million a chunk         *)
 Definition cmskw  : int := 2097151%uint63.
 Definition csize  : int := 2097152%uint63.
-Definition nchunk : int := 388%uint63.         (* 40320 * 20160 / 2 ^ 21      *)
+Definition nchunk : int := 194%uint63.         (* 20160 * 20160 / 2 ^ 21      *)
 
 Definition gget (m : rmap) (g : int) : int :=
   PArray.get (PArray.get m (Uint63.lsr g cshft)) (Uint63.land g cmskw).
@@ -86,7 +86,7 @@ Definition gor (m : rmap) (g v : int) : rmap :=
 (* 0)' runs the inner make once and hands the same array to all 388 slots,    *)
 (* so a write to any chunk chains a difference onto it and every other chunk  *)
 (* reads through that.  Built chunk by chunk, each make runs afresh.          *)
-Definition nchunkn : nat := 388.
+Definition nchunkn : nat := 194.
 
 Definition mkempty (u : unit) : rmap :=
   ifold nchunkn 0%uint63
@@ -107,11 +107,14 @@ Definition mtest (m : rmap) (pg gr bt : int) : bool :=
 Definition mmark (m : rmap) (pg gr bt : int) : rmap :=
   gor m (grpof pg gr) (bitof bt).
 
-(* the map is full when every group has all twenty four bits                  *)
-Definition allbits : int := 16777215%uint63.
+(* the map is full when every cell has all forty eight bits                   *)
+Definition allbits : int := 281474976710655%uint63.
+
+(* the low half of a cell, which the bit tables still work in                 *)
+Definition allbits24 : int := 16777215%uint63.
 
 Definition mfull (m : rmap) : bool :=
-  iter npagen 0%uint63
+  iter nclsn 0%uint63
     (fun pg => iter ngroupn 0%uint63
        (fun gr => Uint63.eqb (gget m (grpof pg gr)) allbits)).
 
@@ -121,7 +124,7 @@ Definition mfull (m : rmap) : bool :=
 (* persistent array reads an old version by walking back through every        *)
 (* write made since.                                                          *)
 Definition mfull2 (m1 m2 : rmap) : bool :=
-  iter npagen 0%uint63
+  iter nclsn 0%uint63
     (fun pg => iter ngroupn 0%uint63
        (fun gr =>
           let g := grpof pg gr in
@@ -313,24 +316,44 @@ Qed.
 
 (* Each is about PArray and the chunking and nothing else -- no cube, no row. *)
 
-(* a bit is nought or one, and the twenty four bits are all in allbits        *)
+(* a corner pair number is below the old page count, so grpof_inj and the     *)
+(* walks apply to it unchanged                                                *)
+Lemma ltn_nclsi_npagei pg : (pg <? nclsi)%uint63 -> (pg <? npagei)%uint63.
+Proof.
+move=> h; apply/nltbP; apply: leq_trans (nltbP _ _ h) _.
+by apply/nlebP; vm_compute.
+Qed.
+
+Lemma ltn_nclsn_npagei pg : (to_nat pg < nclsn)%N -> (pg <? npagei)%uint63.
+Proof.
+move=> h; apply/nltbP; apply: leq_trans h _.
+by rewrite nclsnE ngroupnE -/npagen npagenE.
+Qed.
+
+Lemma ltn_ngroupn_ngroupi gr : (to_nat gr < ngroupn)%N -> (gr <? ngroupi)%uint63.
+Proof. by move=> h; apply/nltbP. Qed.
+
+Lemma nclsn_nwB : (nclsn < nwB)%N.
+Proof. by rewrite nclsnE; exact: ngroupn_nwB. Qed.
+
+(* a bit is nought or one, and the forty eight bits are all in allbits        *)
 Lemma land0n x : (0 land x = 0)%uint63.
 Proof. by apply: bit_ext => i; rewrite land_spec !bit_0. Qed.
 
-Lemma lt_digits x : (x <? nbiti)%uint63 -> (x <? digits)%uint63.
+Lemma lt_digits x : (x <? nbit48i)%uint63 -> (x <? digits)%uint63.
 Proof.
-move=> h; apply/nltbP; apply: leq_trans (_ : to_nat nbiti <= _).
+move=> h; apply/nltbP; apply: leq_trans (_ : to_nat nbit48i <= _).
   by apply/nltbP.
 by apply/nlebP; vm_compute.
 Qed.
 
-Lemma allbitsP bt : (bt <? nbiti)%uint63 ->
+Lemma allbitsP bt : (bt <? nbit48i)%uint63 ->
   (Uint63.land allbits (bitof bt) =? 0)%uint63 = false.
 Proof.
 move=> hb; have hbd := lt_digits hb.
 have hset : bit (Uint63.land allbits (bitof bt)) bt.
   rewrite land_spec.
-  have -> : allbits = decr (Uint63.lsl one nbiti) by vm_compute.
+  have -> : allbits = decr (Uint63.lsl one nbit48i) by vm_compute.
   rewrite bit_decr ?hb //.
   rewrite /bitof; have -> : 1%uint63 = one by vm_compute.
   by rewrite bit_onenn // eqxx.
@@ -351,7 +374,7 @@ by rewrite land_lor_distrl ha' hb'.
 Qed.
 
 (* two of the twenty four bits meet only when they are the same bit           *)
-Lemma bitof_inj b bt : (b <? nbiti)%uint63 -> (bt <? nbiti)%uint63 ->
+Lemma bitof_inj b bt : (b <? nbit48i)%uint63 -> (bt <? nbit48i)%uint63 ->
   ~~ (Uint63.land (bitof b) (bitof bt) =? 0)%uint63 -> b = bt.
 Proof.
 move=> hb hbt h; have hbd := lt_digits hb; have hbtd := lt_digits hbt.
@@ -407,7 +430,7 @@ Proof. exact: mkemptyP. Qed.
 Lemma mfullP m pg gr bt : mfull m -> inrange pg gr bt -> mtest m pg gr bt.
 Proof.
 move=> hf /and3P[hpg hgr hbt].
-have h1 := iter_at hf (ltn_npagei hpg).
+have h1 := iter_at hf (nltbP _ _ hpg).
 have h2 := iter_at h1 (ltn_ngroupi hgr).
 by rewrite /mtest (eqP h2) allbitsP.
 Qed.
@@ -417,7 +440,7 @@ Lemma mfull2P m1 m2 pg gr bt : mfull2 m1 m2 -> inrange pg gr bt ->
   mtest m1 pg gr bt || mtest m2 pg gr bt.
 Proof.
 move=> hf /and3P[hpg hgr hbt].
-have h1 := iter_at hf (ltn_npagei hpg).
+have h1 := iter_at hf (nltbP _ _ hpg).
 have h2 := iter_at h1 (ltn_ngroupi hgr).
 by apply: test_lor; rewrite (eqP h2) allbitsP.
 Qed.
@@ -446,7 +469,8 @@ case: (gget_gset m (grpof p g)
         (Uint63.lor (gget m (grpof p g)) (bitof b)) (grpof pg gr))
     => [->|[hgg ->]]; first by move=> hh; right.
 move=> /test_lor/orP[hin|hnew]; first by right; rewrite -hgg.
-left; have [-> ->] := grpof_inj hp hg hpg hgr hgg.
+left; have [-> ->] := grpof_inj (ltn_nclsi_npagei hp) hg
+                                (ltn_nclsi_npagei hpg) hgr hgg.
 by split => //; apply: bitof_inj hnew.
 Qed.
 
@@ -458,7 +482,12 @@ Section Pre.
 (* whether a move exchanges the two halves of a group, and mlo, mhi rearrange *)
 (* the twelve bits of each half.  Six of the ten leave the bits alone, and    *)
 (* for those mlo and mhi are the identity.                                    *)
-Variable mpg : arr.                 (* 40320 * 10                             *)
+(* cpg is the corner PAIR table, 20160 * 10, where the page table was        *)
+(* 40320 * 10; cfl says whether the move is odd on the corners, in which case *)
+(* the two halves of a cell change places, since the half IS the corner       *)
+(* parity.  It is one for U, U', D and D' and nought for the other six.       *)
+Variable cpg : arr.                 (* 20160 * 10                             *)
+Variable cfl : arr.                 (* 10                                     *)
 Variable mgr : arr.                 (* 20160 * 10                             *)
 Variable msw : arr.                 (* 10                                     *)
 Variable mlo mhi : arr.             (* 10 * 4096                              *)
@@ -467,7 +496,7 @@ Definition nhi : int := 10%uint63.
 Definition nhn : nat := 10.
 
 Definition pgmv (k pg : int) : int :=
-  PArray.get mpg (Uint63.add (Uint63.mul pg nhi) k).
+  PArray.get cpg (Uint63.add (Uint63.mul pg nhi) k).
 Definition grmv (k gr : int) : int :=
   PArray.get mgr (Uint63.add (Uint63.mul gr nhi) k).
 
@@ -478,19 +507,29 @@ Definition himv (k v : int) : int :=
 
 Definition lo12 : int := 4095%uint63.
 
-(* one group, moved                                                           *)
-(* THE HIGH HALF IS MASKED TOO.  Without it a word with a bit above the       *)
-(* twenty fourth indexes mhi inside ANOTHER move's block of four thousand and *)
-(* gives back that move's rearrangement -- and no check on the tables can     *)
-(* repair it, since those entries are the other move's real data.  The        *)
-(* prototype never meets it because it keeps the two halves in two arrays;    *)
-(* packing them into one word is this side's own doing, so the mask is too.   *)
-Definition grpmv (k v : int) : int :=
+(* one cell, moved.  The twenty four bit rearrangement below is unchanged;   *)
+(* it is run over each half, and the two halves change places when the move   *)
+(* is odd on the corners.                                                     *)
+(* BOTH HALVES ARE MASKED, GOING IN AND COMING OUT.  Going in for the reason  *)
+(* the high half was always masked: a bit above the twenty fourth would index *)
+(* another move's block of the bit table.  Coming out because a half must not *)
+(* reach into the other half's places -- nothing about the tables says it     *)
+(* cannot, and a bit arriving from nowhere would have no member behind it.    *)
+Definition grpmv24 (k v : int) : int :=
   let l := lomv k (Uint63.land v lo12) in
   let h := himv k (Uint63.land (Uint63.lsr v 12%uint63) lo12) in
   if Uint63.eqb (PArray.get msw k) 0%uint63
   then Uint63.lor l (Uint63.lsl h 12%uint63)
   else Uint63.lor h (Uint63.lsl l 12%uint63).
+
+Definition grpmv (k v : int) : int :=
+  let a := Uint63.land (grpmv24 k (Uint63.land v allbits24)) allbits24 in
+  let b := Uint63.land
+             (grpmv24 k (Uint63.land (Uint63.lsr v nbiti) allbits24))
+             allbits24 in
+  if Uint63.eqb (PArray.get cfl k) 0%uint63
+  then Uint63.lor a (Uint63.lsl b nbiti)
+  else Uint63.lor b (Uint63.lsl a nbiti).
 
 (* ---- one move over the whole map ----------------------------------------- *)
 
@@ -498,7 +537,7 @@ Definition grpmv (k v : int) : int :=
 (* maps: playing a move on what a move has just reached would count a member  *)
 (* a level too soon.                                                          *)
 Definition prepmv (k : int) (src : rmap) (dst : rmap) : rmap :=
-  ifold npagen 0%uint63
+  ifold nclsn 0%uint63
     (fun pg d =>
        let pg' := pgmv k pg in
        ifold ngroupn 0%uint63
@@ -513,7 +552,7 @@ Definition prepmv (k : int) (src : rmap) (dst : rmap) : rmap :=
 (* survive the level, and this is the only place that is owed.  It is done    *)
 (* here rather than in a pass of its own because the word is already in hand. *)
 Definition prepmv0 (k : int) (src : rmap) (dst : rmap) : rmap :=
-  ifold npagen 0%uint63
+  ifold nclsn 0%uint63
     (fun pg d =>
        let pg' := pgmv k pg in
        ifold ngroupn 0%uint63

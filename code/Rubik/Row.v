@@ -42,10 +42,24 @@ Definition ngroupi : int := 20160%uint63.   (* pairs of outer edge perms      *)
 Definition nbiti   : int := 24%uint63.      (* middle permutations            *)
 Definition nhalfi  : int := 12%uint63.      (* of one parity                  *)
 
+(* A CELL OF THE MAP IS A CORNER PAIR, not one corner permutation.  The two   *)
+(* of a pair differ by exchanging the cubies 0 and 1, exactly as the outer    *)
+(* edges are already paired, so a cell carries forty eight bits: the low      *)
+(* twenty four for the even one of the pair, the high twenty four for the     *)
+(* odd one.  Half as many words, and nothing is lost -- a page number n is    *)
+(* 2 * (n / 2) plus its own last bit, and that last bit is where the extra    *)
+(* twenty four bits went.                                                     *)
+Definition nclsi   : int := 20160%uint63.   (* corner pairs, one cell each    *)
+Definition nbit48i : int := 48%uint63.      (* parity, then middle perm       *)
+
 Definition rowsize : int := 19508428800%uint63.
 
 (* SIZES ARE int63 AND NEVER nat: 19 508 428 800 in unary does not exist.     *)
-Lemma rowsizeE : rowsize = Uint63.mul (Uint63.mul npagei ngroupi) nbiti.
+(* the row is named exactly once over, at either width                        *)
+Lemma rowsizeE : rowsize = Uint63.mul (Uint63.mul nclsi ngroupi) nbit48i.
+Proof. by vm_compute. Qed.
+
+Lemma rowsize24E : rowsize = Uint63.mul (Uint63.mul npagei ngroupi) nbiti.
 Proof. by vm_compute. Qed.
 
 (* ---- walking a range of int63 -------------------------------------------- *)
@@ -139,6 +153,44 @@ have h2 : (to_nat (Uint63.mul a 2%uint63) + to_nat b < nwB)%N by rewrite hm.
 by rewrite (@to_nat_add _ _ h2) hm.
 Qed.
 
+(* ---- a number made of a quotient and a remainder -------------------------- *)
+
+(* Row.v does this at two, where a page is two groups.  Here it is needed at  *)
+(* twenty four as well, where a cell is two halves, so it is done once for    *)
+(* any divisor and used at both.                                              *)
+
+Lemma to_nat_mulD a k b :
+  (to_nat a * to_nat k + to_nat b < nwB)%N ->
+  to_nat (Uint63.add (Uint63.mul a k) b) = (to_nat a * to_nat k + to_nat b)%N.
+Proof.
+(* NO SIDE GOAL MAY BE LEFT TO //: what done would evaluate is nwB, which is  *)
+(* 2 ^ 63 in unary and does not come back.                                    *)
+move=> hb.
+have hlt : (to_nat a * to_nat k < nwB)%N.
+  by apply: leq_ltn_trans hb; apply: leq_addr.
+have hm : to_nat (Uint63.mul a k) = (to_nat a * to_nat k)%N.
+  by rewrite (@to_nat_mul _ _ hlt).
+have h2 : (to_nat (Uint63.mul a k) + to_nat b < nwB)%N by rewrite hm.
+by rewrite (@to_nat_add _ _ h2) hm.
+Qed.
+
+Lemma div_mulD a k b :
+  (to_nat b < to_nat k)%N -> (to_nat a * to_nat k + to_nat b < nwB)%N ->
+  Uint63.div (Uint63.add (Uint63.mul a k) b) k = a.
+Proof.
+move=> hbk hb; apply: to_nat_inj.
+have hk : (0 < to_nat k)%N by apply: leq_ltn_trans hbk.
+by rewrite to_nat_div (to_nat_mulD hb) divnMDl // divn_small // addn0.
+Qed.
+
+Lemma mod_mulD a k b :
+  (to_nat b < to_nat k)%N -> (to_nat a * to_nat k + to_nat b < nwB)%N ->
+  Uint63.mod (Uint63.add (Uint63.mul a k) b) k = b.
+Proof.
+move=> hbk hb; apply: to_nat_inj.
+by rewrite to_nat_mod (to_nat_mulD hb) modnMDl modn_small.
+Qed.
+
 Section Row.
 
 (* ---- the four small tables ----------------------------------------------  *)
@@ -180,20 +232,32 @@ Definition membok (x : memb) : bool :=
          Uint63.lxor (PArray.get par8 (mud x))
                      (PArray.get par4 (mmp x)))%uint63].
 
-(* where a member stands: its page, its group, and its bit.  Halving the      *)
-(* number is what puts the two of a pair in one group.                        *)
+(* where a member stands: its cell, its group, and its bit.  The cell is the *)
+(* corner PAIR -- the corner number halved -- the group is the outer pair as *)
+(* before, and the bit is the corner parity over the middle permutation: the *)
+(* bits 0 to 23 for the even corner permutation of the pair, 24 to 47 for    *)
+(* the odd one.  Halving the two numbers is what puts a pair in one cell.    *)
+(* THE PARITY IS THE LAST PLACE OF THE NUMBER, which is what e8ok says, so    *)
+(* it is read there rather than from par8: the place then needs no table the  *)
+(* old one did not need.                                                      *)
 Definition place (x : memb) : int * int * int :=
-  (mcp x,
+  (Uint63.div (PArray.get e8num (mcp x)) 2%uint63,
    Uint63.div (PArray.get e8num (mud x)) 2%uint63,
-   PArray.get e4bit (mmp x)).
+   Uint63.add (Uint63.mul (Uint63.mod (PArray.get e8num (mcp x)) 2%uint63)
+                          nbiti)
+              (PArray.get e4bit (mmp x))).
 
-(* and back.  The bit names the middle permutation and the group names a pair *)
-(* of outer ones; which of the pair is meant is settled by parity, and the    *)
-(* numbering carries the parity in its last place.                            *)
+(* and back.  The bit names the corner parity and the middle permutation; the *)
+(* corner is then the one of its pair with that parity, and the outer one is  *)
+(* the one the member's parity equation asks for.  Both numberings carry the  *)
+(* parity in their last place, which is what makes this the ordinary          *)
+(* division and nothing about bits.                                           *)
 Definition unplace (pg gr bt : int) : memb :=
-  let mp := PArray.get e4of bt in
-  let p := Uint63.lxor (PArray.get par8 pg) (PArray.get par4 mp) in
-  (pg, PArray.get e8inv (Uint63.add (Uint63.mul gr 2%uint63) p), mp).
+  let c := PArray.get e8inv
+             (Uint63.add (Uint63.mul pg 2%uint63) (Uint63.div bt nbiti)) in
+  let mp := PArray.get e4of (Uint63.mod bt nbiti) in
+  let p := Uint63.lxor (PArray.get par8 c) (PArray.get par4 mp) in
+  (c, PArray.get e8inv (Uint63.add (Uint63.mul gr 2%uint63) p), mp).
 
 (* ---- what the four tables have to satisfy -------------------------------- *)
 
@@ -205,9 +269,24 @@ Definition unplace (pg gr bt : int) : memb :=
 (* The bounds as nats are the bounds themselves, read over.  There is then    *)
 (* nothing to bridge when a check is used and no numeral in sight, which is   *)
 (* what keeps a forty thousand entry walk out of unary arithmetic.            *)
+Definition nclsn   : nat := to_nat nclsi.
+Definition nbit48n : nat := to_nat nbit48i.
+
+Lemma nclsiE : nclsi = ngroupi.
+Proof. by vm_compute. Qed.
+
+Lemma nbitiE : to_nat nbiti = 24%N.
+Proof. by vm_compute. Qed.
+
+Lemma nbit48iE : to_nat nbit48i = 48%N.
+Proof. by vm_compute. Qed.
+
 Definition npagen : nat := to_nat npagei.
 Definition ngroupn : nat := to_nat ngroupi.
 Definition nbitn : nat := to_nat nbiti.
+
+Lemma nclsnE : nclsn = ngroupn.
+Proof. by rewrite /nclsn nclsiE. Qed.
 
 (* the numbering of the outer edge permutations: it lands in range, its last  *)
 (* place is the parity, and it undoes and is undone by e8inv                  *)
@@ -237,7 +316,7 @@ Hypothesis he4 : e4ok.
 (* development may look inside place or unplace.                              *)
 
 Definition inrange (pg gr bt : int) : bool :=
-  [&& (pg <? npagei)%uint63, (gr <? ngroupi)%uint63 & (bt <? nbiti)%uint63].
+  [&& (pg <? nclsi)%uint63, (gr <? ngroupi)%uint63 & (bt <? nbit48i)%uint63].
 
 (* A numeral is looked at exactly here, and by going through of_nat rather    *)
 (* than by computing a unary number: a page is two groups, which is all the   *)
@@ -261,12 +340,6 @@ Qed.
 Lemma npage_group : npagen = (ngroupn * 2)%N.
 Proof. by rewrite npagenE ngroupnE. Qed.
 
-Lemma npagen_nwB : (npagen < nwB)%N.
-Proof. by rewrite npagenE; apply: (@ltn_nwB 16). Qed.
-
-Lemma ngroupn_nwB : (ngroupn < nwB)%N.
-Proof. by rewrite ngroupnE; apply: (@ltn_nwB 15). Qed.
-
 Lemma ltn_npagei x : (x <? npagei)%uint63 -> (to_nat x < npagen)%N.
 Proof. by move=> h; apply/nltbP. Qed.
 
@@ -275,6 +348,38 @@ Proof. by move=> h; apply/nltbP. Qed.
 
 Lemma ltn_nbiti x : (x <? nbiti)%uint63 -> (to_nat x < nbitn)%N.
 Proof. by move=> h; apply/nltbP. Qed.
+
+(* ---- a page number is a pair and a parity -------------------------------- *)
+
+(* The page of RowMap.v is a corner rank; under e8num it is a number n, and   *)
+(* n = n / 2 * 2 + odd n.  So a pair and a parity make a page number and take *)
+(* it apart again, which is the whole of what the extra bit does.             *)
+Lemma pair_page g q : (g <? ngroupi)%uint63 -> (to_nat q < 2)%N ->
+  [/\ (Uint63.add (Uint63.mul g 2%uint63) q <? npagei)%uint63,
+      Uint63.div (Uint63.add (Uint63.mul g 2%uint63) q) 2%uint63 = g &
+      Uint63.mod (Uint63.add (Uint63.mul g 2%uint63) q) 2%uint63 = q].
+Proof.
+move=> hg hq.
+have hgn : (to_nat g < ngroupn)%N by apply: ltn_ngroupi.
+have hbd : (to_nat g * to_nat 2%uint63 + to_nat q < nwB)%N.
+  rewrite to_nat_two; apply: (@leq_ltn_trans (ngroupn * 2 + 2)).
+    by apply: leq_add; [rewrite leq_pmul2r //; apply: ltnW | apply: ltnW].
+  by rewrite ngroupnE; apply: (@ltn_nwB 16).
+have hq2 : (to_nat q < to_nat 2%uint63)%N by rewrite to_nat_two.
+split; last by apply: mod_mulD.
+  apply/nltbP; rewrite (to_nat_mulD hbd) to_nat_two -/npagen npage_group.
+  apply: (@leq_trans (to_nat g * 2 + 2)); first by rewrite ltn_add2l.
+  by rewrite -{2}[2%N]mul1n -mulnDl leq_mul2r addn1 hgn.
+by apply: div_mulD.
+Qed.
+
+
+Lemma npagen_nwB : (npagen < nwB)%N.
+Proof. by rewrite npagenE; apply: (@ltn_nwB 16). Qed.
+
+Lemma ngroupn_nwB : (ngroupn < nwB)%N.
+Proof. by rewrite ngroupnE; apply: (@ltn_nwB 15). Qed.
+
 
 (* the two checks, at one entry                                               *)
 Lemma e8at u : (u <? npagei)%uint63 ->
@@ -306,15 +411,44 @@ Proof.
 by move=> h; case/and5P: (e4at h) => _ _ _ _ /nltbP; rewrite to_nat_two.
 Qed.
 
+(* a number below forty eight is a parity and a bit, and nothing wraps        *)
+Lemma bit48_bound s b :
+  (to_nat s < 2)%N -> (to_nat b < to_nat nbiti)%N ->
+  (to_nat s * to_nat nbiti + to_nat b < nwB)%N.
+Proof.
+rewrite nbitiE => hs hb.
+have h1 : (to_nat s * 24 <= 1 * 24)%N by rewrite leq_mul2r; apply/orP; right.
+have h2 : (to_nat b <= 23)%N by rewrite -ltnS.
+apply: (@leq_ltn_trans 47); last by apply: (@ltn_nwB 6).
+by apply: leq_trans (leq_add h1 h2) _.
+Qed.
+
+Lemma bit48_lt s b :
+  (to_nat s < 2)%N -> (to_nat b < to_nat nbiti)%N ->
+  (Uint63.add (Uint63.mul s nbiti) b <? nbit48i)%uint63.
+Proof.
+move=> hs hb; apply/nltbP.
+rewrite (to_nat_mulD (bit48_bound hs hb)) nbit48iE nbitiE.
+have h1 : (to_nat s * 24 <= 1 * 24)%N by rewrite leq_mul2r; apply/orP; right.
+have h2 : (to_nat b <= 23)%N by rewrite -ltnS -nbitiE.
+by apply: leq_ltn_trans (leq_add h1 h2) _.
+Qed.
+
 (* a place is in range                                                        *)
 Lemma place_range x pg gr bt :
   membok x -> place x = (pg, gr, bt) -> inrange pg gr bt.
 Proof.
 case/and4P => hc hu hm _ [<- <- <-].
-case/and5P: (e8at hu) => hn _ _ _ _.
+case/and5P: (e8at hc) => hnc /eqP hmodc _ _ _.
+case/and5P: (e8at hu) => hnu _ _ _ _.
 case/and5P: (e4at hm) => hb _ _ _ _.
-apply/and3P; split => //.
-apply/nltbP; rewrite to_nat_div to_nat_two -/ngroupn ltn_divLR // -npage_group.
+apply/and3P; split;
+  last by rewrite hmodc; apply: bit48_lt (par8_lt2 hc) (nltbP _ _ hb).
+  rewrite nclsiE; apply/nltbP.
+  rewrite to_nat_div to_nat_two -/ngroupn ltn_divLR // -npage_group.
+  by apply: ltn_npagei.
+apply/nltbP.
+rewrite to_nat_div to_nat_two -/ngroupn ltn_divLR // -npage_group.
 by apply: ltn_npagei.
 Qed.
 
@@ -323,63 +457,71 @@ Lemma unplace_place x pg gr bt :
   membok x -> place x = (pg, gr, bt) -> unplace pg gr bt = x.
 Proof.
 case: x => [[c u] m] /and4P[hc hu hm /eqP hp] [<- <- <-].
-case/and5P: (e8at hu) => _ /eqP hmod /eqP hinv _ _.
-case/and5P: (e4at hm) => _ /eqP hof _ _ _.
-have h8 : (to_nat (PArray.get par8 u) < 2)%N by apply: par8_lt2.
+case/and5P: (e8at hc) => _ /eqP hmodc /eqP hinvc _ _.
+case/and5P: (e8at hu) => _ /eqP hmodu /eqP hinvu _ _.
+case/and5P: (e4at hm) => hbi /eqP hofb _ _ _.
+have hs2 : (to_nat (PArray.get par8 c) < 2)%N by apply: par8_lt2.
+have hb24 : (to_nat (PArray.get e4bit m) < to_nat nbiti)%N by apply/nltbP.
 have h4 : (to_nat (PArray.get par4 m) < 2)%N by apply: par4_lt2.
-rewrite /unplace /= hof.
+have hbd := bit48_bound hs2 hb24.
+rewrite hmodc /unplace (div_mulD hb24 hbd) (mod_mulD hb24 hbd) hofb.
+rewrite -hmodc -int_add_mod hinvc.
 have -> : Uint63.lxor (PArray.get par8 c) (PArray.get par4 m)
         = PArray.get par8 u.
-  by rewrite hp (lxorK2 h8 h4).
-by rewrite -hmod -int_add_mod hinv.
+  by rewrite hp (lxorK2 (par8_lt2 hu) h4).
+by rewrite -hmodu -int_add_mod hinvu.
 Qed.
 
 (* and every place in range comes from a member                               *)
 Lemma place_unplace pg gr bt :
   inrange pg gr bt ->
-  membok (unplace pg gr bt) /\ place (unplace pg gr bt) = (pg, gr, bt).
+  membok (unplace pg gr bt) /\
+  place (unplace pg gr bt) = (pg, gr, bt).
 Proof.
 case/and3P => hpg hgr hbt.
 rewrite /unplace /membok /place /=.
-set mp := PArray.get e4of bt.
-set p := Uint63.lxor (PArray.get par8 pg) (PArray.get par4 mp).
-set n := Uint63.add (Uint63.mul gr 2%uint63) p.
-case/and5P: (e4at hbt) => _ _ hof /eqP hbit _.
-have hp2 : (to_nat p < 2)%N.
-  by apply: lxor_lt2; [apply: par8_lt2 | apply: par4_lt2].
-have hgrn : (to_nat gr < ngroupn)%N by apply: ltn_ngroupi.
-(* the number a group and a parity make, and it is a page number              *)
-have hnn : to_nat n = (to_nat gr * 2 + to_nat p)%N.
-  apply: to_nat_mul2D.
-  apply: (@leq_ltn_trans (ngroupn * 2 + 2)).
-    apply: leq_add; last by apply: ltnW.
-    by rewrite leq_pmul2r //; apply: ltnW.
-  by rewrite ngroupnE; apply: (@ltn_nwB 16).
-have hnp : (n <? npagei)%uint63.
-  apply/nltbP; rewrite hnn -/npagen npage_group.
-  apply: (@leq_trans (to_nat gr * 2 + 2)); first by rewrite ltn_add2l.
-  by rewrite -{2}[2%N]mul1n -mulnDl leq_mul2r addn1 hgrn.
-(* and taking it apart again gives the group back, and the parity             *)
-have hnd : Uint63.div n 2%uint63 = gr.
-  apply: to_nat_inj; rewrite to_nat_div to_nat_two hnn.
-  by rewrite divnMDl // divn_small // addn0.
-have hnm : Uint63.mod n 2%uint63 = p.
-  apply: to_nat_inj; rewrite to_nat_mod to_nat_two hnn.
-  by rewrite modnMDl modn_small.
-case/and5P: (e8at hnp) => _ _ _ hiv /eqP hnv.
-(* the outer permutation the number names, and its parity                     *)
-have hpu : PArray.get par8 (PArray.get e8inv n) = p.
-  by case/and5P: (e8at hiv) => _ /eqP <- _ _ _; rewrite hnv.
-split; last by rewrite hnv hnd hbit.
-apply/and4P; split => //.
-have h8 : (to_nat (PArray.get par8 pg) < 2)%N by apply: par8_lt2.
+set s := Uint63.div bt nbiti.
+set b := Uint63.mod bt nbiti.
+set mp := PArray.get e4of b.
+(* the parity and the bit the place names                                     *)
+have h24 : (0 < to_nat nbiti)%N by rewrite nbitiE.
+have hs2 : (to_nat s < 2)%N.
+  rewrite /s to_nat_div nbitiE ltn_divLR //.
+  by apply: leq_trans (nltbP _ _ hbt) _; rewrite nbit48iE.
+have hb24 : (to_nat b < to_nat nbiti)%N by rewrite /b to_nat_mod ltn_mod.
+have hbi : (b <? nbiti)%uint63 by apply/nltbP.
+case/and5P: (e4at hbi) => _ _ hmp /eqP hbit _.
 have h4 : (to_nat (PArray.get par4 mp) < 2)%N by apply: par4_lt2.
-by apply/eqP; rewrite hpu /p (lxorK2 h8 h4).
+(* the corner the pair and the parity name, and its parity is that parity     *)
+rewrite nclsiE in hpg.
+have [hcr hcd hcm] := pair_page hpg hs2.
+case/and5P: (e8at hcr) => _ _ _ hcv /eqP hcn.
+have hparc : PArray.get par8 (PArray.get e8inv
+                (Uint63.add (Uint63.mul pg 2%uint63) s)) = s.
+  by case/and5P: (e8at hcv) => _ /eqP <- _ _ _; rewrite hcn hcm.
+rewrite hparc.
+set p := Uint63.lxor s (PArray.get par4 mp).
+have hp2 : (to_nat p < 2)%N by exact: lxor_lt2 hs2 h4.
+have [hur hud hum] := pair_page hgr hp2.
+have huv : (PArray.get e8inv (Uint63.add (Uint63.mul gr 2%uint63) p)
+              <? npagei)%uint63 by case/and5P: (e8at hur).
+have hun : PArray.get e8num (PArray.get e8inv
+             (Uint63.add (Uint63.mul gr 2%uint63) p))
+         = Uint63.add (Uint63.mul gr 2%uint63) p.
+  by case/and5P: (e8at hur) => _ _ _ _ /eqP.
+have hparu : PArray.get par8 (PArray.get e8inv
+                (Uint63.add (Uint63.mul gr 2%uint63) p)) = p.
+  by case/and5P: (e8at huv) => _ /eqP <- _ _ _; rewrite hun hum.
+split.
+  apply/and4P; split => //.
+  by apply/eqP; rewrite hparu /p (lxorK2 hs2 h4).
+rewrite hcn hun hcd hud hcm hbit.
+by congr (_, _, _); rewrite -int_add_mod.
 Qed.
 
-(* so the map has exactly one bit for each member.  This one is not a new     *)
-(* fact: reading a place back is what makes it one to one.                    *)
-Lemma place_inj x y : membok x -> membok y -> place x = place y -> x = y.
+(* so the map has exactly one bit for each member                             *)
+Lemma place_inj x y :
+  membok x -> membok y -> place x = place y -> x = y.
 Proof.
 move=> hx hy hE.
 case E: (place y) => [[pg gr] bt].
