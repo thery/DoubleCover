@@ -78,10 +78,11 @@ Hypothesis hfm : fsmoveC.
 (* with the page table -- and not off pgok, which is about corner ranks.      *)
 Lemma pgm_rangeC k pg : (to_nat k < nhn)%N -> (pg <? nclsi)%uint63 ->
   (RowMap.pgmv cpgi k pg <? nclsi)%uint63.
-Proof.
-move=> hk hp; have h0 : (to_nat 0%uint63 < 2)%N by vm_compute.
-by have [h _] := cpgok48P cpgokC hk hp h0.
-Qed.
+(* THE PROOF IS RowPrep's, not one line of it here.  Written out in this     *)
+(* file the little `0 < 2' side goal cost two seconds: the tables of this     *)
+(* environment are what a tactic has to carry past.  In RowPrep there is      *)
+(* nothing to carry.                                                          *)
+Proof. exact: (cpgmv_range cpgokC). Qed.
 
 Lemma grm_rangeC k gr : (to_nat k < nhn)%N -> (gr <? ngroupi)%uint63 ->
   (RowMap.grmv mgri k gr <? ngroupi)%uint63.
