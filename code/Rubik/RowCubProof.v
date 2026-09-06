@@ -47,7 +47,7 @@ Theorem row_of_runp : rowfullp = true ->
 Proof.
 rewrite /rowfullp rowwitspE => hf.
 exact: (real_superflip_row_p
-          (prepassD_eq mswi mloi mhii pgm_rangeC grm_rangeC) fsmoveCP hf).
+          (prepassD_eq cfli mswi mloi mhii pgm_rangeC grm_rangeC) fsmoveCP hf).
 Qed.
 
 Corollary row_of_runp_superflip : rowfullp = true ->

@@ -19,7 +19,7 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
-Require Import Row RowMap RowRun RowFinal RowInst.
+Require Import Row RowMap RowPrep RowRun RowFinal RowInst.
 Require Import RowTabL RowTabP RowTab RowMemb RowLeaf.
 Require Import RowMoveH RowMoveM RowParity RowPartM.
 Require Import RowPartC RowPartU RowMoveC RowMoveU RowMembChk.
@@ -72,11 +72,16 @@ Hypothesis hfm : fsmoveC.
 
 (* ---- what RowLvl's level asks of the move tables ------------------------- *)
 
-(* A move sends a page to a page and a group to a group.  RowInst's pgok and  *)
-(* grok say exactly that and the instance has already settled them.           *)
-Lemma pgm_rangeC k pg : (to_nat k < nhn)%N -> (pg <? npagei)%uint63 ->
-  (RowMap.pgmv mpgi k pg <? npagei)%uint63.
-Proof. by move=> hk hp; apply: (iter_at (iter_at pgokC hk) (ltn_npagei hp)). Qed.
+(* A move sends a CELL to a cell and a group to a group.  A cell is a corner *)
+(* pair, so the one about the pages is read off cpgok48 -- which says, of     *)
+(* each pair and each parity, that the class table lands in range and agrees  *)
+(* with the page table -- and not off pgok, which is about corner ranks.      *)
+Lemma pgm_rangeC k pg : (to_nat k < nhn)%N -> (pg <? nclsi)%uint63 ->
+  (RowMap.pgmv cpgi k pg <? nclsi)%uint63.
+Proof.
+move=> hk hp; have h0 : (to_nat 0%uint63 < 2)%N by vm_compute.
+by have [h _] := cpgok48P cpgokC hk hp h0.
+Qed.
 
 Lemma grm_rangeC k gr : (to_nat k < nhn)%N -> (gr <? ngroupi)%uint63 ->
   (RowMap.grmv mgri k gr <? ngroupi)%uint63.
