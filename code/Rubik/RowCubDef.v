@@ -15,7 +15,8 @@ From Rubik Require Import ssrint63.
 Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
 Require Import Row RowMap RowRun RowFinal RowInst.
-Require Import RowTabL RowTabP RowTab RowMemb RowMembi RowLeaf RowWits.
+Require Import RowTabL RowTabP RowTab RowMemb RowMembi RowLeaf.
+Require Import RowWits RowWitsChk.
 Require Import Lehmer RowCub RowCubi RowCubInst.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import P1Table RowReal.
