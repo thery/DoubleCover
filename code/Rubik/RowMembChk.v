@@ -35,10 +35,10 @@ Lemma memb2tab_okC x : tab_ok flast (memb2tab x).
 Proof. exact: (memb2tab_ok cpartokC upartokC mpartokC). Qed.
 
 Lemma memb2tab_moveC k pg gr bt : (to_nat k < nhn)%N ->
-  inrange pg gr bt ->
-  pt flast (memb2tab (unplace e8invi e4ofi par8i par4i
+  inrange24 pg gr bt ->
+  pt flast (memb2tab (unplace24 e8invi e4ofi par8i par4i
                         (pgmv mpgi k pg) (grmv mgri k gr) (btmv btmvi k bt)))
-  = pt flast (memb2tab (unplace e8invi e4ofi par8i par4i pg gr bt)) * hmv k.
+  = pt flast (memb2tab (unplace24 e8invi e4ofi par8i par4i pg gr bt)) * hmv k.
 Proof.
 exact: (memb2tab_move e8okC e4okC pgokC grokC btokC cpartokC upartokC
                       mpartokC cmvokC mmvokC umvokC hmvokC parokC).

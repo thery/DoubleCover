@@ -87,7 +87,7 @@ Definition mfullf (m : rmap) : bool :=
        let a := PArray.get m (pchk r) in
        let o := poff r in
        iter ngroupn 0
-         (fun g => Uint63.eqb (PArray.get a (Uint63.add o g)) allbits)).
+         (fun g => Uint63.eqb (PArray.get a (Uint63.add o g)) allbits24)).
 
 Section PreF.
 

@@ -18,7 +18,7 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
-Require Import Row RowMap RowRun RowFinal RowInst.
+Require Import Row RowMap RowPrep RowRun RowFinal RowInst.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -42,7 +42,7 @@ Definition dsrch : nat := 16.
 Definition dwl : seq (int * int * int * seq nat) := [::].
 
 Definition dfin : rmap :=
-  mfin d1 d1 d1 d1 d1 d1 d1 dm dstep dtomemb dokmv dsrch 20.
+  mfin d1 d1 d1 d1 d1 d1 d1 d1 dm dstep dtomemb dokmv dsrch 20.
 
 (* ---- what a dummy cannot do ---------------------------------------------- *)
 
@@ -97,10 +97,17 @@ Proof. Admitted.
 Lemma d_btok : btok d1.
 Proof. Admitted.
 
-Lemma d_memb2tab_move k pg gr bt : (to_nat k < nhn)%N -> inrange pg gr bt ->
-  pt flast (dmemb (unplace d1 d1 d1 d1
+Lemma d_memb2tab_move k pg gr bt : (to_nat k < nhn)%N -> inrange24 pg gr bt ->
+  pt flast (dmemb (unplace24 d1 d1 d1 d1
                      (pgmv d1 k pg) (grmv d1 k gr) (btmv d1 k bt)))
-  = pt flast (dmemb (unplace d1 d1 d1 d1 pg gr bt)) * hmv k.
+  = pt flast (dmemb (unplace24 d1 d1 d1 d1 pg gr bt)) * hmv k.
+Proof. Admitted.
+
+(* and the two the corner pair adds                                          *)
+Lemma d_cflok : cflok d1.
+Proof. Admitted.
+
+Lemma d_cpgok : cpgok48 d1 d1 d1 d1.
 Proof. Admitted.
 
 (* and the two the computation would settle: the witnesses do what they say,  *)
@@ -119,5 +126,6 @@ Proof.
 apply: (row_within_20_inst d_e8ok d_e4ok d_memb2tab_ok d_srcok d_halfok
                            d_fsstepP d_leaf_memb d_tomemb_tab
                            d_pgok d_grok d_btok d_memb2tab_move
+                           d_cflok d_cpgok
                            (erefl 20%N) d_witsok d_full).
 Qed.

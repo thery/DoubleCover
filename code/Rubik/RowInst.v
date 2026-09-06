@@ -21,7 +21,7 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
-Require Import Row RowMap RowRun RowFinal Fsinj.
+Require Import Row RowMap RowPrep RowRun RowFinal Fsinj.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -46,8 +46,11 @@ Variable e8num e8inv e4bit e4of par8 par4 : arr.
 Hypothesis he8 : e8ok e8num e8inv par8.
 Hypothesis he4 : e4ok e4bit e4of par4.
 
-(* the prepass: a page to a page, a group to a group, the bits rearranged     *)
-Variable mpg mgr msw mlo mhi : arr.
+(* the prepass: a page to a page, a group to a group, the bits rearranged.    *)
+(* mpg is read at a corner RANK and is what the checks below are stated over; *)
+(* cpg and cfl are what the run itself reads -- the same table split into a   *)
+(* corner PAIR and the parity the move flips.  RowPrep says they agree.       *)
+Variable mpg cpg cfl mgr msw mlo mhi : arr.
 
 (* where a move of H sends a bit, twenty four of them for each of the ten     *)
 Variable btmvt : arr.
@@ -280,7 +283,7 @@ Definition csolvedb (c : int) : bool := Uint63.eqb c csolvedci.
 
 (* two maps, allocated once and swapped at every level                        *)
 Definition mfin : rmap :=
-  run e8num e4bit mpg mgr msw mlo mhi p1 cstep xstep tomemb okmv csolvedb
+  run e8num e4bit cpg cfl mgr msw mlo mhi p1 cstep xstep tomemb okmv csolvedb
       croot sroot dsrch nlev 0 (mkempty tt) (mkempty tt).
 
 Variable wl : seq (int * int * int * seq nat).
@@ -780,7 +783,7 @@ Qed.
 
 (* the moved group, with the two halves named                                 *)
 Lemma grpmvE k v :
-  grpmv msw mlo mhi k v =
+  grpmv24 msw mlo mhi k v =
     (if (PArray.get msw k =? 0)%uint63
      then Uint63.lor (lomv mlo k (Uint63.land v lo12))
             (Uint63.lsl
@@ -798,13 +801,13 @@ Proof. by []. Qed.
 (* Read as v >> 12 alone, a word with a bit above the twenty fourth would     *)
 (* land inside ANOTHER move's twelve bits of the table and come back with     *)
 (* that move's rearrangement; the mask keeps the read inside this one.        *)
-Lemma grpmvP k v bt' : (to_nat k < nhn)%N -> (bt' <? nbiti)%uint63 ->
-  ~~ (Uint63.land (grpmv msw mlo mhi k v) (bitof bt') =? 0)%uint63 ->
+Lemma grpmv24P k v bt' : (to_nat k < nhn)%N -> (bt' <? nbiti)%uint63 ->
+  ~~ (Uint63.land (grpmv24 msw mlo mhi k v) (bitof bt') =? 0)%uint63 ->
   exists2 bt, (bt <? nbiti)%uint63 &
     btmv k bt = bt' /\ ~~ (Uint63.land v (bitof bt) =? 0)%uint63.
 Proof.
 move=> hk hbt hset.
-have hbtd : (bt' <? digits)%uint63 := lt_digits hbt.
+have hbtd : (bt' <? digits)%uint63 := RowPrep.lt_nbiti_digits hbt.
 have hbtn : (to_nat bt' < nbitn)%N := ltn_nbiti hbt.
 rewrite test_bit // grpmvE in hset.
 (* a bit of the moved low half came from the place btmvt takes it from        *)
@@ -850,22 +853,22 @@ move: hset; case: ifP => hsw hset.
   move: hset; rewrite lor_spec => /orP[hb|hb].
     have [bt hbt1 [hbtE hbv]] := hlo _ hbtn hb.
     exists bt => //; split; first by rewrite hbtE hdlo.
-    by rewrite (@test_bit v bt (lt_digits hbt1)).
+    by rewrite (@test_bit v bt (RowPrep.lt_nbiti_digits hbt1)).
   have [hj hje hb'] := hshift _ hb.
   have [bt hbt1 [hbtE hbv]] := hhi _ hj hb'.
   exists bt => //; split; first by rewrite hbtE hdhi hje.
-  by rewrite (@test_bit v bt (lt_digits hbt1)).
+  by rewrite (@test_bit v bt (RowPrep.lt_nbiti_digits hbt1)).
 have hdlo : forall j, dstlo k j = Uint63.add j nhalfi.
   by move=> j; rewrite /dstlo hsw.
 have hdhi : forall j, dsthi k j = j by move=> j; rewrite /dsthi hsw.
 move: hset; rewrite lor_spec => /orP[hb|hb].
   have [bt hbt1 [hbtE hbv]] := hhi _ hbtn hb.
   exists bt => //; split; first by rewrite hbtE hdhi.
-  by rewrite (@test_bit v bt (lt_digits hbt1)).
+  by rewrite (@test_bit v bt (RowPrep.lt_nbiti_digits hbt1)).
 have [hj hje hb'] := hshift _ hb.
 have [bt hbt1 [hbtE hbv]] := hlo _ hj hb'.
 exists bt => //; split; first by rewrite hbtE hdlo hje.
-by rewrite (@test_bit v bt (lt_digits hbt1)).
+by rewrite (@test_bit v bt (RowPrep.lt_nbiti_digits hbt1)).
 Qed.
 
 (* ---- and what the three tables do to a member ---------------------------- *)
@@ -892,7 +895,8 @@ Hypothesis hgr : grok.
 Hypothesis hbt : btok.
 
 Lemma prep_range k pg gr bt : (to_nat k < nhn)%N ->
-  inrange pg gr bt -> inrange (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt).
+  inrange24 pg gr bt ->
+  inrange24 (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt).
 Proof.
 move=> kL /and3P[hp hg hb]; apply/and3P; split.
 - by apply: (iter_at (iter_at hpg kL) (ltn_npagei hp)).
@@ -904,20 +908,46 @@ Qed.
 (* place moves the member by that move of H.  It is where the page, group and *)
 (* bit tables are finally spent.                                              *)
 Hypothesis memb2tab_move : forall k pg gr bt, (to_nat k < nhn)%N ->
-  inrange pg gr bt ->
-  pt flast (memb2tab (unplace e8inv e4of par8 par4
+  inrange24 pg gr bt ->
+  pt flast (memb2tab (unplace24 e8inv e4of par8 par4
                         (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt)))
-  = pt flast (memb2tab (unplace e8inv e4of par8 par4 pg gr bt)) * hmv k.
+  = pt flast (memb2tab (unplace24 e8inv e4of par8 par4 pg gr bt)) * hmv k.
 
-Lemma prep_move k pg gr bt : (to_nat k < nhn)%N -> inrange pg gr bt ->
-  inrange (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt) /\
+Lemma prep_move24 k pg gr bt : (to_nat k < nhn)%N -> inrange24 pg gr bt ->
+  inrange24 (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt) /\
   RowFinal.pos ptab
-    (unplace e8inv e4of par8 par4 (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt))
-  = RowFinal.pos ptab (unplace e8inv e4of par8 par4 pg gr bt) * hmv k.
+    (unplace24 e8inv e4of par8 par4 (pgmv mpg k pg) (grmv mgr k gr) (btmv k bt))
+  = RowFinal.pos ptab (unplace24 e8inv e4of par8 par4 pg gr bt) * hmv k.
 Proof.
 move=> kL hr; split; first by apply: prep_range.
 by rewrite !posE (memb2tab_move kL hr) mulgA.
 Qed.
+
+(* ---- and the same two, on the cell of forty eight bits ------------------- *)
+
+(* TWO MORE CHECKS, and they are the only new ones: the flip is a parity, and *)
+(* the class table with the flip IS the page table split at the corner pair.  *)
+(* Everything else is read off what is above through RowPrep, which proves    *)
+(* that the two places name the same member.                                  *)
+Hypothesis hcflok : cflok cfl.
+Hypothesis hcpg : cpgok48 e8inv mpg cpg cfl.
+
+Lemma hcfl k : (to_nat k < nhn)%N -> (to_nat (PArray.get cfl k) < 2)%N.
+Proof. exact: (RowPrep.hcfl hcflok). Qed.
+
+Lemma grpmvP k v bt' : (to_nat k < nhn)%N -> (bt' <? nbit48i)%uint63 ->
+  ~~ (Uint63.land (grpmv cfl msw mlo mhi k v) (bitof bt') =? 0)%uint63 ->
+  exists2 bt, (bt <? nbit48i)%uint63 &
+    btmv48 cfl btmv k bt = bt' /\ ~~ (Uint63.land v (bitof bt) =? 0)%uint63.
+Proof. exact: (grpmvP48 grpmv24P hcfl). Qed.
+
+Lemma prep_move k pg gr bt : (to_nat k < nhn)%N -> inrange pg gr bt ->
+  inrange (pgmv cpg k pg) (grmv mgr k gr) (btmv48 cfl btmv k bt) /\
+  RowFinal.pos ptab
+    (unplace e8inv e4of par8 par4
+       (pgmv cpg k pg) (grmv mgr k gr) (btmv48 cfl btmv k bt))
+  = RowFinal.pos ptab (unplace e8inv e4of par8 par4 pg gr bt) * hmv k.
+Proof. exact: (prep_move48 he8 hcflok hcpg prep_move24). Qed.
 
 (* ---- and one more the witnesses ask for ---------------------------------- *)
 

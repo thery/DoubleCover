@@ -158,6 +158,16 @@ Definition wgood (l : seq (int * int * int * seq nat)) : bool :=
 (* every witness is in range, at most twenty moves, and solves its member     *)
 Definition witsok : bool := wgood wl.
 
+(* AND THE SAME AT THE NARROW PLACE, which is where the fold marks its        *)
+(* witnesses: the generated list is a list of twenty four bit places, and the *)
+(* fold keeps them as they come.  A word does not care which place its member *)
+(* was named by, so `wok' is the same one.                                    *)
+Definition wgood24 (l : seq (int * int * int * seq nat)) : bool :=
+  all (fun t => let: (pg, gr, bt, w) := t in
+                [&& inrange24 pg gr bt, (seq.size w <= 20)%N &
+                    wok (unplace24 e8inv e4of par8 par4 pg gr bt) w])
+      l.
+
 (* a bit the witness map has set has a witness behind it                      *)
 Lemma wmap_wit (l : seq (int * int * int * seq nat)) pg gr bt :
   inrng pg gr bt -> wgood l -> mtest (wmapof l) pg gr bt ->

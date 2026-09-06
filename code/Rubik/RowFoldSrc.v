@@ -142,11 +142,11 @@ Qed.
 (* above, and the outer edge and middle legs are already stated at any of the *)
 (* sixteen, so they are used unchanged.                                       *)
 Lemma gather_conj_pt r k gr bt : (to_nat r < nrepn)%N -> (to_nat k < nhn)%N ->
-  inrange (gp r k) gr bt ->
-  pt 47 (membinv (unplace e8invi e4ofi par8i par4i (gq r k)
+  inrange24 (gp r k) gr bt ->
+  pt 47 (membinv (unplace24 e8invi e4ofi par8i par4i (gq r k)
                     (sgrmv fsgri (gu r k) (Ptyof (gp r k) bt) gr)
                     (sbtmv fsbti (gu r k) bt)))
-  = ((pt 47 (membinv (unplace e8invi e4ofi par8i par4i (gp r k) gr bt)))
+  = ((pt 47 (membinv (unplace24 e8invi e4ofi par8i par4i (gp r k) gr bt)))
       ^ pt 47 (sy (nth 0%N fren2sym (to_nat (gu r k)))))%g.
 Proof.
 move=> hr hk hin.
@@ -157,7 +157,7 @@ have hb : (to_nat bt < nbitn)%N by apply/nltbP.
 have hg : (to_nat gr < ngroupn)%N by apply/nltbP.
 have hp : (to_nat (Ptyof (gp r k) bt) < nptyn)%N.
   by apply/nltbP; apply: (Row.iter_at (Row.iter_at ptyRCP b0) hb).
-have hin' : inrange (gq r k)
+have hin' : inrange24 (gq r k)
               (sgrmv fsgri (gu r k) (Ptyof (gp r k) bt) gr)
               (sbtmv fsbti (gu r k) bt).
   apply/and3P; split.
@@ -196,7 +196,7 @@ have o6 : up4ok1 (PArray.get e4ofi (sbtmv fsbti (gu r k) bt)).
   by apply: (Row.iter_at up4okC); apply/nltbP; exact: (Row.iter_at e4ofRCP hBn).
 rewrite (pt_membinv e8okC e4okC cpartokC upartokC mpartokC hmvokC hin').
 rewrite (pt_membinv e8okC e4okC cpartokC upartokC mpartokC hmvokC hin).
-rewrite /mcp /mud /mmp /unplace hpar8 epB -epty.
+rewrite /mcp /mud /mmp /unplace24 hpar8 epB -epty.
 apply: (memb_conj_pt hs o1 o2 o3 o4 o5 o6).
 - exact: (gcpart_conj hr hk o1).
 - exact: (upart_conj hu hp hg o3).
@@ -209,12 +209,12 @@ Qed.
 (* and a conjugate inverted is the inverse conjugated, so the statement comes *)
 (* across unchanged.                                                          *)
 Lemma gather_conj_memb r k gr bt :
-  (to_nat r < nrepn)%N -> (to_nat k < nhn)%N -> inrange (gp r k) gr bt ->
+  (to_nat r < nrepn)%N -> (to_nat k < nhn)%N -> inrange24 (gp r k) gr bt ->
   exists2 i, (i < 16)%N &
-    pt 47 (memb2tab (unplace e8invi e4ofi par8i par4i (gq r k)
+    pt 47 (memb2tab (unplace24 e8invi e4ofi par8i par4i (gq r k)
                        (sgrmv fsgri (gu r k) (Ptyof (gp r k) bt) gr)
                        (sbtmv fsbti (gu r k) bt)))
-    = ((pt 47 (memb2tab (unplace e8invi e4ofi par8i par4i (gp r k) gr bt)))
+    = ((pt 47 (memb2tab (unplace24 e8invi e4ofi par8i par4i (gp r k) gr bt)))
         ^ pt 47 (nth [::] sym16ts i))%g.
 Proof.
 move=> hr hk hin.

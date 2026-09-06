@@ -22,7 +22,7 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
-Require Import Row RowMap RowRun RowFinal RowInst.
+Require Import Row RowMap RowPrep RowRun RowFinal RowInst.
 Require Import Lehmer RowTabP RowMemb RowCub RowCubi.
 Require Import Fold RowMask RowSrch RowSrchP RowMark.
 
@@ -172,7 +172,7 @@ Variable e8num e8inv e4bit e4of par8 par4 : arr.
 Hypothesis he8 : e8ok e8num e8inv par8.
 Hypothesis he4 : e4ok e4bit e4of par4.
 
-Variable mpg mgr msw mlo mhi btmvt : arr.
+Variable mpg cpg cfl mgr msw mlo mhi btmvt : arr.
 Variable p1 : PArray.array arr.
 
 (* THE PHASE ONE TABLE IS THE FOLDED ONE, and that fold is not the map's.     *)
@@ -194,7 +194,7 @@ Variable ishm : int.
 Variable prep : rmap -> rmap -> rmap.
 
 Hypothesis prep_eq : forall m dst,
-  prep m dst = prepass mpg mgr msw mlo mhi m dst.
+  prep m dst = prepass cpg cfl mgr msw mlo mhi m dst.
 Variable fsstep : int -> int -> int.
 Variable memb2tab : memb -> seq nat.
 Hypothesis memb2tab_ok : forall x, tab_ok flast (memb2tab x).
@@ -221,11 +221,16 @@ Hypothesis hpg : pgok mpg.
 Hypothesis hgr : grok mgr.
 Hypothesis hbt : btok btmvt.
 
+(* and the two the corner pair adds: the flip is a parity, and the class      *)
+(* table with the flip IS the page table read at the pair                     *)
+Hypothesis hcflok : cflok cfl.
+Hypothesis hcpg : cpgok48 e8inv mpg cpg cfl.
+
 Hypothesis memb2tab_move : forall k pg gr bt, (to_nat k < nhn)%N ->
-  inrange pg gr bt ->
-  pt flast (memb2tab (unplace e8inv e4of par8 par4
+  inrange24 pg gr bt ->
+  pt flast (memb2tab (unplace24 e8inv e4of par8 par4
                         (pgmv mpg k pg) (grmv mgr k gr) (btmv btmvt k bt)))
-  = pt flast (memb2tab (unplace e8inv e4of par8 par4 pg gr bt)) * hmv k.
+  = pt flast (memb2tab (unplace24 e8inv e4of par8 par4 pg gr bt)) * hmv k.
 
 (* ---- what the run carries, in terms of the twenty ------------------------ *)
 
@@ -290,7 +295,7 @@ Qed.
 
 (* two maps, allocated once and swapped at every level                        *)
 Definition ymfin : PArray.array arr :=
-  run e8num e4bit mpg mgr msw mlo mhi p1 (RowInst.cstep fsstep) zstepi
+  run e8num e4bit cpg cfl mgr msw mlo mhi p1 (RowInst.cstep fsstep) zstepi
       ytomemb okmv ycsolved RowInst.croot yrooti dsrch nlev 0
       (mkempty tt) (mkempty tt).
 
@@ -301,8 +306,9 @@ Proof.
 rewrite /ymfin -{2}[nlev]add0n.
 apply: (run_sound he8 he4 ycoord_root yroot_ball yroot_pok ycoord_step
                   yxstep_pok yxstep_pos yleaf_memb yleaf_pos
-                  RowInst.hmv_Sset (RowInst.grpmvP hsrc hhalf)
-                  (RowInst.prep_move memb2tab_ok hpg hgr hbt memb2tab_move));
+                  RowInst.hmv_Sset (RowInst.grpmvP hsrc hhalf hcflok)
+                  (RowInst.prep_move he8 memb2tab_ok hpg hgr hbt
+                     memb2tab_move hcflok hcpg));
   exact: RowInst.sound_mempty.
 Qed.
 
@@ -360,8 +366,9 @@ Proof.
 rewrite /ymfinsk -{2}[nlev]add0n.
 apply: (runsk_sound he8 he4 prep_eq ycoord_root yroot_ball yroot_pok ycoord_step
                     yxstep_pok yxstep_pos yleaf_memb yleaf_pos
-                    RowInst.hmv_Sset (RowInst.grpmvP hsrc hhalf)
-                    (RowInst.prep_move memb2tab_ok hpg hgr hbt memb2tab_move));
+                    RowInst.hmv_Sset (RowInst.grpmvP hsrc hhalf hcflok)
+                    (RowInst.prep_move he8 memb2tab_ok hpg hgr hbt
+                       memb2tab_move hcflok hcpg));
   exact: RowInst.sound_mempty.
 Qed.
 

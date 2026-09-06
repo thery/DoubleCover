@@ -849,7 +849,7 @@ Hypothesis humv : umvok mpg mgr btmvt e8invt e4oft par8t par4t.
 Hypothesis hmvo : hmvok.
 Hypothesis hprk : parok mpg btmvt e4oft par8t par4t.
 
-Local Notation unpl := (unplace e8invt e4oft par8t par4t).
+Local Notation unpl := (unplace24 e8invt e4oft par8t par4t).
 Local Notation prty pg bt :=
   (Uint63.lxor (PArray.get par8t pg) (PArray.get par4t (PArray.get e4oft bt))).
 
@@ -861,10 +861,10 @@ Lemma unplE pg gr bt :
 Proof. by []. Qed.
 
 (* a place in range names a member whose three ranks are in range             *)
-Lemma membrng_unpl pg gr bt : inrange pg gr bt -> membrng (unpl pg gr bt).
+Lemma membrng_unpl pg gr bt : inrange24 pg gr bt -> membrng (unpl pg gr bt).
 Proof.
 (* NOT apply/and3P: what done would evaluate here is the layout tables.       *)
-move=> hr; have [/and4P[h1 h2 h3 _] _] := place_unplace he8 he4 hr.
+move=> hr; have /and4P[h1 h2 h3 _] := membok_unplace24 he8 he4 hr.
 by rewrite /membrng h1 h2 h3.
 Qed.
 
@@ -930,7 +930,7 @@ Lemma mpart_ok r : (r <? nbiti)%uint63 -> partok inM (mpart r).
 Proof. exact: mpartokP hmp. Qed.
 
 (* the member a place names, as a permutation of the forty eight              *)
-Lemma pt_membinv pg gr bt : inrange pg gr bt ->
+Lemma pt_membinv pg gr bt : inrange24 pg gr bt ->
   pt flast (membinv (unpl pg gr bt))
   = pt flast (cpart (mcp (unpl pg gr bt))) *
     pt flast (upart (mud (unpl pg gr bt))) *
@@ -939,7 +939,7 @@ Proof.
 (* NO /= ANYWHERE HERE.  cpart is an mkseq, so a simpl unfolds it into a      *)
 (* forty eight place list and the shape the rewrites look for is gone.        *)
 move=> hr; have hb := membrng_unpl hr.
-have [/and4P[h1 h2 h3 _] _] := place_unplace he8 he4 hr.
+have /and4P[h1 h2 h3 _] := membok_unplace24 he8 he4 hr.
 have hC := partok_tab (cpart_ok h1).
 have hU := partok_tab (upart_ok h2).
 have hM := partok_tab (mpart_ok h3).
@@ -949,7 +949,7 @@ Qed.
 
 (* ---- and the move, part by part ------------------------------------------ *)
 
-Lemma pt_membinv_move k pg gr bt : (to_nat k < nhn)%N -> inrange pg gr bt ->
+Lemma pt_membinv_move k pg gr bt : (to_nat k < nhn)%N -> inrange24 pg gr bt ->
   pt flast (membinv (unpl (pgmv mpg k pg) (grmv mgr k gr) (btmv btmvt k bt)))
   = pt flast (hinv k) * pt flast (membinv (unpl pg gr bt)).
 Proof.
@@ -957,7 +957,7 @@ move=> kL hr; have hr' := prep_range hpgo hgro hbto kL hr.
 have /and3P[hp hg hb] := hr.
 have /and3P[hp' hg' hb'] := hr'.
 rewrite (pt_membinv hr) (pt_membinv hr') !unplE /mcp /mud /mmp.
-have [/and4P[_ o2 o3 _] _] := place_unplace he8 he4 hr.
+have /and4P[_ o2 o3 _] := membok_unplace24 he8 he4 hr.
 have q2 : (PArray.get e8invt
              (Uint63.add (Uint63.mul gr 2%uint63) (prty pg bt))
            <? npagei)%uint63 := o2.
@@ -1018,7 +1018,7 @@ Qed.
 (* memb2tab is membinv inverted, so the move that acted on the left acts on   *)
 (* the right and the other way round -- and the move undone, undone, is the   *)
 (* move.                                                                      *)
-Lemma memb2tab_move k pg gr bt : (to_nat k < nhn)%N -> inrange pg gr bt ->
+Lemma memb2tab_move k pg gr bt : (to_nat k < nhn)%N -> inrange24 pg gr bt ->
   pt flast (memb2tab (unpl (pgmv mpg k pg) (grmv mgr k gr) (btmv btmvt k bt)))
   = pt flast (memb2tab (unpl pg gr bt)) * hmv k.
 Proof.

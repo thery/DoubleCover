@@ -31,7 +31,7 @@ Import GroupScope.
 
 (* MEMBERS THAT FOLD TOGETHER STAND OR FALL TOGETHER, at every depth.         *)
 Lemma PorbC d p q c pg gr bt :
-  inrange p q c -> inrange pg gr bt ->
+  inrange24 p q c -> inrange24 pg gr bt ->
   pchk (fkpt (PArray.get fpgi p)) = pchk (fkpt (PArray.get fpgi pg)) ->
   Uint63.add (poff (fkpt (PArray.get fpgi p)))
     (sgrmv fsgri (fren (PArray.get fpgi p))

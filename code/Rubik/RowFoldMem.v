@@ -113,7 +113,7 @@ have h1 : (sgrmv fsgr (fr p) (fp p c) q <? ngroupi)%uint63.
 have h2 : (sgrmv fsgr (fr pg) (fp pg bt) gr <? ngroupi)%uint63.
   by apply/nltbP; apply: sgrmvR.
 have [he1 he2] := fslot_inj h1 h2 hc hg.
-by split=> //; apply: bitof_inj hb.
+by split=> //; apply: bitof_inj24 hb.
 Qed.
 
 End Same.
@@ -167,7 +167,7 @@ Notation fmem pg gr bt :=
 (* It is where the six sweeps of RowFoldSym are finally spent, and it is the  *)
 (* shape RowInst leaves memb2tab_move in: the algorithm is proved and what    *)
 (* the tables mean is left to the instance.                                   *)
-Hypothesis fold_conj : forall pg gr bt, inrange pg gr bt ->
+Hypothesis fold_conj : forall pg gr bt, inrange24 pg gr bt ->
   exists2 i, (i < 16)%N &
     fmem pg gr bt = (mpos pg gr bt ^ pt 47 (nth [::] sym16ts i))%g.
 
@@ -175,7 +175,7 @@ Hypothesis fold_conj : forall pg gr bt, inrange pg gr bt ->
 (* place is being the same place, so the two are each other's image under two *)
 (* of the sixteen -- and the ball notices neither.                            *)
 Lemma fold_Porb d p q c pg gr bt :
-  inrange p q c -> inrange pg gr bt ->
+  inrange24 p q c -> inrange24 pg gr bt ->
   pchk (fkpt (PArray.get fpg p)) = pchk (fkpt (PArray.get fpg pg)) ->
   Uint63.add (poff (fkpt (PArray.get fpg p))) (sgrmv fsgr (fr p) (fp p c) q)
   = Uint63.add (poff (fkpt (PArray.get fpg pg)))

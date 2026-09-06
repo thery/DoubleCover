@@ -58,7 +58,7 @@ Variable ishm : int.
 Variable prep : rmap -> rmap -> rmap.
 
 Hypothesis prep_eq : forall m dst,
-  prep m dst = prepass mpgi mgri mswi mloi mhii m dst.
+  prep m dst = prepass cpgi cfli mgri mswi mloi mhii m dst.
 
 (* the flip and slice move table's certificate, as RowReal carries it *)
 Hypothesis hfm : fsmoveC.
@@ -95,7 +95,7 @@ Definition ycmfinsp : rmap :=
 
 Definition ycwitsr : rmap :=
   foldr (fun t m => let: (pg, gr, bt, _) := t in mmark m pg gr bt)
-        ycmfinsp rowwits.
+        ycmfinsp rowwits48.
 
 (* ---- the map is sound, and stays sound when the witnesses go in ---------- *)
 
@@ -109,7 +109,7 @@ Proof.
 rewrite /ycmfinsp.
 exact: (ymfinsk_sound e8okC e4okC prep_eq memb2tab_okC srcokC halfokC
           (r_fsstepP hfm) r_leaf_membi r_tomembi_tab
-          pgokC grokC btokC memb2tab_moveC).
+          pgokC grokC btokC cflokC cpgokC memb2tab_moveC).
 Qed.
 
 (* RowFoldCubReal states fwits_sound here rather than in the general file,    *)

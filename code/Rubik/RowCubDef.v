@@ -52,7 +52,7 @@ Definition ishmi : int :=
 Definition rowmapp (n : nat) : rmap :=
   ymfinsk e8numi e4biti
           p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
-          ishmi (prepassD mpgi mgri mswi mloi mhii)
+          ishmi (prepassD cpgi cfli mgri mswi mloi mhii)
           actfsri tomembi okmvv srch n.
 
 (* The same map, over the search that carries the depth as an int.  Nothing   *)
@@ -60,7 +60,7 @@ Definition rowmapp (n : nat) : rmap :=
 Definition rowmappi (n : nat) : rmap :=
   ymfinski e8numi e4biti
            p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
-           ishmi (prepassD mpgi mgri mswi mloi mhii)
+           ishmi (prepassD cpgi cfli mgri mswi mloi mhii)
            actfsri tomembi okmvv srch n.
 
 (* The witnesses go into that map, so there is no second one to hold.  IT IS  *)
@@ -68,11 +68,11 @@ Definition rowmappi (n : nat) : rmap :=
 (* match this against the name the theorem is stated with, and unification    *)
 (* does not fail when a name will not match -- it reduces, and reducing this  *)
 (* is the run again, in the kernel.                                           *)
-Definition rowwitsp : rmap := wmarkof rowwits (rowmapp 20).
+Definition rowwitsp : rmap := wmarkof rowwits48 (rowmapp 20).
 
 (* The same two over the int run.  RowCubProofI shows the two maps equal, so  *)
 (* nothing is proved twice.                                                   *)
-Definition rowwitspi : rmap := wmarkof rowwits (rowmappi 20).
+Definition rowwitspi : rmap := wmarkof rowwits48 (rowmappi 20).
 
 Definition rowfullpi : bool := mfull rowwitspi.
 

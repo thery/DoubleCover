@@ -253,6 +253,12 @@ rowtab: rubik_row_nofold
 	./rubik_row_nofold dumptab layout > ../RowTabL.v
 	./rubik_row_nofold dumptab prep > ../RowTabP.v
 
+# The two the corner pair adds: the class table a cell of forty eight bits is
+# moved by, and the parity each move flips.  A FILE OF ITS OWN, so that
+# rowtab's two are not rewritten to get them.
+rowtabc: rubik_row_nofold
+	./rubik_row_nofold dumptab prep48 > ../RowTabC.v
+
 hball: rubik_row_nofold
 	./rubik_row_nofold hball $(N)
 

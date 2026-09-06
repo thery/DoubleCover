@@ -86,7 +86,7 @@ rewrite /ftest /fget.
 have h1 := Row.iter_at hm hr.
 have h2 := Row.iter_at h1 hg.
 move: h2 => /eqb_spec ->.
-by rewrite (allbitsP hb).
+by rewrite (allbits24P hb).
 Qed.
 
 (* ---- writing ------------------------------------------------------------- *)
@@ -162,7 +162,7 @@ Qed.
 Variable P : int -> int -> int -> Prop.
 
 Hypothesis Porb : forall p q c pg gr bt,
-  inrange p q c -> inrange pg gr bt ->
+  inrange24 p q c -> inrange24 pg gr bt ->
   pchk (fkpt (PArray.get fpg p)) = pchk (fkpt (PArray.get fpg pg)) ->
   Uint63.add (poff (fkpt (PArray.get fpg p)))
              (sgrmv fsgr (fr p) (fp p c) q)
@@ -177,9 +177,9 @@ Hypothesis Porb : forall p q c pg gr bt,
 (* nothing of it.                                                             *)
 Definition soundatf (m : rmap) : Prop :=
   forall pg gr bt,
-    inrange pg gr bt -> ftest fpg fsgr fsbt m pg gr bt -> P pg gr bt.
+    inrange24 pg gr bt -> ftest fpg fsgr fsbt m pg gr bt -> P pg gr bt.
 
-Lemma soundatf_fmark m p q c : inrange p q c ->
+Lemma soundatf_fmark m p q c : inrange24 p q c ->
   P p q c -> soundatf m -> soundatf (fmark fpg fsgr fsbt m p q c).
 Proof.
 move=> hpq hP hm pg gr bt hr.
@@ -195,7 +195,7 @@ Qed.
 Lemma soundatf_setp d r b g v :
   (pchk r <? PArray.length d)%uint63 ->
   soundatf (PArray.set d (pchk r) b) ->
-  (forall pg gr bt, inrange pg gr bt ->
+  (forall pg gr bt, inrange24 pg gr bt ->
      ftest fpg fsgr fsbt (fset (PArray.set d (pchk r) b) r g v) pg gr bt ->
      ftest fpg fsgr fsbt (PArray.set d (pchk r) b) pg gr bt \/ P pg gr bt) ->
   soundatf (PArray.set d (pchk r) (PArray.set b (Uint63.add (poff r) g) v)).
@@ -230,7 +230,7 @@ Qed.
 (* bits the word adds are good where a member reads them.                     *)
 Lemma soundatf_ffor m r G X :
   soundatf m ->
-  (forall pg gr bt, inrange pg gr bt ->
+  (forall pg gr bt, inrange24 pg gr bt ->
      pchk r = pchk (fkpt (PArray.get fpg pg)) ->
      Uint63.add (poff r) G
      = Uint63.add (poff (fkpt (PArray.get fpg pg)))
@@ -281,7 +281,7 @@ Hypothesis sgrmvR : forall pg gr bt,
 Hypothesis sbtmvR : forall pg bt, (sbtmv fsbt (fr pg) bt <? nbiti).
 
 Lemma foldf_all m : mfullf m -> soundatf m ->
-  forall pg gr bt, inrange pg gr bt -> P pg gr bt.
+  forall pg gr bt, inrange24 pg gr bt -> P pg gr bt.
 Proof.
 move=> hm hs pg gr bt hr; apply: (hs _ _ _ hr).
 by apply: (mfullf_ftest (fkptR pg) (sgrmvR pg gr bt) (sbtmvR pg bt) hm).

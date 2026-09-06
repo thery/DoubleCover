@@ -186,9 +186,9 @@ Qed.
 (* AND THE MAP, 812 851 200 words: the run and the witnesses together leave   *)
 (* no bit of the row clear.  This is the long pole and it is only a run.      *)
 Lemma r_full :
-  mfull2 (mfin e8numi e4biti mpgi mgri mswi mloi mhii p1
+  mfull2 (mfin e8numi e4biti cpgi cfli mgri mswi mloi mhii p1
                 actfsri tomemb okmvv srch 20)
-          (wmap rowwits).
+          (wmap rowwits48).
 Proof. Admitted.
 
 (* ---- every member of the row is within twenty ---------------------------- *)
@@ -198,7 +198,7 @@ Theorem real_row_within_20 x : membok par8i par4i x ->
 Proof.
 apply: (row_within_20_inst e8okC e4okC memb2tab_okC srcokC halfokC
           r_fsstepP r_leaf_memb r_tomemb_tab
-          pgokC grokC btokC memb2tab_moveC
+          pgokC grokC btokC memb2tab_moveC cflokC cpgokC
           (erefl 20%N) witsokC r_full).
 Qed.
 
@@ -211,7 +211,7 @@ Theorem real_superflip_row h : h \in H ->
 Proof.
 apply: (superflip_row_within_20 e8okC e4okC memb2tab_okC srcokC halfokC
           r_fsstepP r_leaf_memb r_tomemb_tab
-          pgokC grokC btokC memb2tab_moveC
+          pgokC grokC btokC memb2tab_moveC cflokC cpgokC
           (erefl 20%N) witsokC r_full).
 exact: (row_cover up8invC up8okC up4invC up4okC par8okwC par4okwC).
 Qed.

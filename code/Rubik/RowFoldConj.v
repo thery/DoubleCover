@@ -412,8 +412,8 @@ Notation Gof pg gr bt :=
 Notation Bof pg bt := (sbtmv fsbti (fren (PArray.get fpgi pg)) bt).
 Notation Sof pg := (nth 0%N fren2sym (to_nat (fren (PArray.get fpgi pg)))).
 
-Lemma fold_inrange pg gr bt : inrange pg gr bt ->
-  inrange (Kof pg) (Gof pg gr bt) (Bof pg bt).
+Lemma fold_inrange pg gr bt : inrange24 pg gr bt ->
+  inrange24 (Kof pg) (Gof pg gr bt) (Bof pg bt).
 Proof.
 move=> hr; have /and3P[hpg hgr hbt] := hr.
 have b0 : (to_nat pg < npagen)%N by apply/nltbP.
@@ -457,10 +457,10 @@ Lemma keepNCP : keepNC. Proof. by vm_compute. Qed.
 (* reads the outer edges at par8[pg] xor par4[e4of bt] and the fold writes    *)
 (* at fpar w xor the bit's half, and the three parity sweeps say those are    *)
 (* the same number on both sides.                                             *)
-Lemma fold_conj_pt pg gr bt : inrange pg gr bt ->
-  pt 47 (membinv (unplace e8invi e4ofi par8i par4i
+Lemma fold_conj_pt pg gr bt : inrange24 pg gr bt ->
+  pt 47 (membinv (unplace24 e8invi e4ofi par8i par4i
                    (Kof pg) (Gof pg gr bt) (Bof pg bt)))
-  = ((pt 47 (membinv (unplace e8invi e4ofi par8i par4i pg gr bt)))
+  = ((pt 47 (membinv (unplace24 e8invi e4ofi par8i par4i pg gr bt)))
       ^ pt 47 (sy (Sof pg)))%g.
 Proof.
 move=> hr.
@@ -504,7 +504,7 @@ have o6 : up4ok1 (PArray.get e4ofi (Bof pg bt)).
   by apply: (Row.iter_at up4okC); apply/nltbP; exact: (Row.iter_at e4ofRCP hBn).
 rewrite (pt_membinv e8okC e4okC cpartokC upartokC mpartokC hmvokC hr').
 rewrite (pt_membinv e8okC e4okC cpartokC upartokC mpartokC hmvokC hr).
-rewrite /mcp /mud /mmp /unplace epK epB -epty.
+rewrite /mcp /mud /mmp /unplace24 epK epB -epty.
 apply: (memb_conj_pt hs o1 o2 o3 o4 o5 o6).
 - exact: (cpart_conj b0 o1).
 - exact: (upart_conj hu hp hg o3).
@@ -518,11 +518,11 @@ Qed.
 (* that inverted, and a conjugate inverted is the inverse conjugated, so      *)
 (* the statement comes across unchanged.  This is RowFoldMem.fold_conj, and   *)
 (* with it RowFoldOk's Porb is discharged.                                    *)
-Lemma fold_conj_memb pg gr bt : inrange pg gr bt ->
+Lemma fold_conj_memb pg gr bt : inrange24 pg gr bt ->
   exists2 i, (i < 16)%N &
-    pt 47 (memb2tab (unplace e8invi e4ofi par8i par4i
+    pt 47 (memb2tab (unplace24 e8invi e4ofi par8i par4i
                       (Kof pg) (Gof pg gr bt) (Bof pg bt)))
-    = ((pt 47 (memb2tab (unplace e8invi e4ofi par8i par4i pg gr bt)))
+    = ((pt 47 (memb2tab (unplace24 e8invi e4ofi par8i par4i pg gr bt)))
         ^ pt 47 (nth [::] sym16ts i))%g.
 Proof.
 move=> hr; have /and3P[hpg _ _] := hr.

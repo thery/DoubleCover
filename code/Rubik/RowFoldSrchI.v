@@ -41,7 +41,7 @@ Variables frep fsym : int -> int.
 Variable twsym : int -> int -> int.
 Variables dnlo dnhi fllo flhi : arr.
 
-Local Notation plc := (place e8num e4bit).
+Local Notation plc := (place24 e8num e4bit).
 Local Notation flev := (flevel fsrc fsgr fslo fshi mgr msw mlo mhi).
 Local Notation fmk := (fmark fpg fsgr fsbt).
 Local Notation fmkn := (fmarkn fpg fsgr fsbt).

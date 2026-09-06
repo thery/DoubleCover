@@ -41,7 +41,7 @@ Hypothesis he4 : e4ok e4bit e4of par4.
 Local Notation plc := (place e8num e4bit).
 Local Notation unplc := (unplace e8inv e4of par8 par4).
 
-Variable mpg mgr msw mlo mhi : arr.
+Variable cpg cfl mgr msw mlo mhi : arr.
 
 (* THE PREPASS IS A PARAMETER.  RowMap's is one; RowLvl's prepassD, which     *)
 (* reads each page's chunk once and puts it back once, is another and is      *)
@@ -50,7 +50,7 @@ Variable mpg mgr msw mlo mhi : arr.
 Variable prep : rmap -> rmap -> rmap.
 
 Hypothesis prep_eq : forall m dst,
-  prep m dst = prepass mpg mgr msw mlo mhi m dst.
+  prep m dst = prepass cpg cfl mgr msw mlo mhi m dst.
 
 (* ---- the phase one table, folded, and the moves it names ----------------- *)
 
@@ -140,15 +140,15 @@ Variable hmv : int -> {perm facelet}.
 Hypothesis hmv_Sset : forall k, (to_nat k < nhn)%N -> hmv k \in Sset.
 
 Hypothesis grpmvP : forall k v bt', (to_nat k < nhn)%N ->
-  (bt' <? nbiti) ->
-  ~~ (Uint63.land (RowMap.grpmv msw mlo mhi k v) (bitof bt') =? 0) ->
-  exists2 bt, (bt <? nbiti) &
+  (bt' <? nbit48i) ->
+  ~~ (Uint63.land (RowMap.grpmv cfl msw mlo mhi k v) (bitof bt') =? 0) ->
+  exists2 bt, (bt <? nbit48i) &
     btmv k bt = bt' /\ ~~ (Uint63.land v (bitof bt) =? 0).
 
 Hypothesis prep_move : forall k pg gr bt, (to_nat k < nhn)%N ->
   inrange pg gr bt ->
-  inrange (RowMap.pgmv mpg k pg) (RowMap.grmv mgr k gr) (btmv k bt) /\
-  pos (unplc (RowMap.pgmv mpg k pg) (RowMap.grmv mgr k gr) (btmv k bt))
+  inrange (RowMap.pgmv cpg k pg) (RowMap.grmv mgr k gr) (btmv k bt) /\
+  pos (unplc (RowMap.pgmv cpg k pg) (RowMap.grmv mgr k gr) (btmv k bt))
   = (pos (unplc pg gr bt) * hmv k)%g.
 
 (* ---- the search with the cuts, which is RowRun.srch_sound with two more    *)
@@ -167,9 +167,11 @@ elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hp hm hb.
   rewrite /=; case: (boolP (csolved c)) => [hs|_]; last exact: hm.
   have hok := leaf_memb hc hp hG hs.
   have E : plc (tomemb x) =
-      (mcp (tomemb x),
+      (Uint63.div (PArray.get e8num (mcp (tomemb x))) 2,
        Uint63.div (PArray.get e8num (mud (tomemb x))) 2,
-       PArray.get e4bit (mmp (tomemb x))) by [].
+       Uint63.add (Uint63.mul
+                     (Uint63.mod (PArray.get e8num (mcp (tomemb x))) 2) nbiti)
+                  (PArray.get e4bit (mmp (tomemb x)))) by [].
   move=> pg' gr' bt' hr ht.
   case: (mmarkP (place_range he8 he4 hok E) hr ht) => [[<- <- <-]|hb2];
     last by apply: hm.
@@ -208,9 +210,11 @@ Lemma srchsk0 cut c x msk pv enough mn :
   srchsk cut 0 c x msk pv enough mn =
   (if Uint63.leb enough mn.2 then mn
    else if csolved c
-   then mmarkn mn (mcp (tomemb x))
+   then mmarkn mn (Uint63.div (PArray.get e8num (mcp (tomemb x))) 2)
                   (Uint63.div (PArray.get e8num (mud (tomemb x))) 2)
-                  (PArray.get e4bit (mmp (tomemb x)))
+                  (Uint63.add (Uint63.mul
+                     (Uint63.mod (PArray.get e8num (mcp (tomemb x))) 2) nbiti)
+                     (PArray.get e4bit (mmp (tomemb x))))
    else mn).
 Proof. by []. Qed.
 
@@ -222,17 +226,21 @@ Proof.
 elim: togo c x msk pv mn => [|togo ih] c x msk pv mn hdt hc hp hm hb.
   have hG : posp x \in G := subsetP (ball_sub_gen Sset _) _ hb.
   have E : plc (tomemb x) =
-      (mcp (tomemb x),
+      (Uint63.div (PArray.get e8num (mcp (tomemb x))) 2,
        Uint63.div (PArray.get e8num (mud (tomemb x))) 2,
-       PArray.get e4bit (mmp (tomemb x))) by [].
+       Uint63.add (Uint63.mul
+                     (Uint63.mod (PArray.get e8num (mcp (tomemb x))) 2) nbiti)
+                  (PArray.get e4bit (mmp (tomemb x)))) by [].
   rewrite srchsk0.
   (* the stop hands back what it was given                                    *)
   case: ifP => _; first exact: hm.
   case: ifP => [hs|_]; last exact: hm.
   have hok := leaf_memb hc hp hG hs.
-  case: (mmarkn1 mn (mcp (tomemb x))
+  case: (mmarkn1 mn (Uint63.div (PArray.get e8num (mcp (tomemb x))) 2)
            (Uint63.div (PArray.get e8num (mud (tomemb x))) 2)
-           (PArray.get e4bit (mmp (tomemb x)))) => ->; last exact: hm.
+           (Uint63.add (Uint63.mul
+              (Uint63.mod (PArray.get e8num (mcp (tomemb x))) 2) nbiti)
+              (PArray.get e4bit (mmp (tomemb x))))) => ->; last exact: hm.
   move=> pg' gr' bt' hr ht.
   case: (mmarkP (place_range he8 he4 hok E) hr ht) => [[<- <- <-]|hb2];
     last by apply: hm.

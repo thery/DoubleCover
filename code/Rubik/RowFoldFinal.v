@@ -112,7 +112,7 @@ Qed.
 (* ---- so a full folded map puts every member within the depth ------------- *)
 
 Lemma fmfin_all : mfullf fmfin ->
-  forall pg gr bt, inrange pg gr bt -> PdC nlev pg gr bt.
+  forall pg gr bt, inrange24 pg gr bt -> PdC nlev pg gr bt.
 Proof.
 move=> hm.
 refine (@foldf_all fpgi fsgri fsbti (PdC nlev) fkptT
@@ -135,7 +135,7 @@ Qed.
 (* it before the run would make the first level claim its neighbours are      *)
 (* within one, and they are not.                                             *)
 Lemma fmark_sound m pg gr bt :
-  inrange pg gr bt -> PdC nlev pg gr bt ->
+  inrange24 pg gr bt -> PdC nlev pg gr bt ->
   soundatf fpgi fsgri fsbti (PdC nlev) m ->
   soundatf fpgi fsgri fsbti (PdC nlev) (fmark fpgi fsgri fsbti m pg gr bt).
 Proof. exact: (soundatf_fmark (@PorbC nlev)). Qed.
@@ -185,7 +185,7 @@ exact: soundatf_mkemptyf.
 Qed.
 
 Lemma fmfino_all : mfullf fmfino ->
-  forall pg gr bt, inrange pg gr bt -> PdC nlev pg gr bt.
+  forall pg gr bt, inrange24 pg gr bt -> PdC nlev pg gr bt.
 Proof.
 move=> hm.
 refine (@foldf_all fpgi fsgri fsbti (PdC nlev) fkptT

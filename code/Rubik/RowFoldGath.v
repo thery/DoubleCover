@@ -363,7 +363,7 @@ rewrite e => /cadd_bit[i hi [hb hbj]].
 have hin : (to_nat i < nlon)%N by apply/nltbP; exact: hi.
 exists i; first exact: hin.
 split; first exact: hb.
-apply: esym; apply: (bitof_inj (cbtR_lo hu hk hin) hj).
+apply: esym; apply: (bitof_inj24 (cbtR_lo hu hk hin) hj).
 rewrite -(cbt_lo hu hk hin).
 by move: hbj; rewrite /cloX.
 Qed.
@@ -382,7 +382,7 @@ rewrite e => /cadd_bit[i hi [hb hbj]].
 have hin : (to_nat i < nlon)%N by apply/nltbP; exact: hi.
 exists i; first exact: hin.
 split; first exact: hb.
-apply: esym; apply: (bitof_inj (cbtR_hi hu hk hin) hj).
+apply: esym; apply: (bitof_inj24 (cbtR_hi hu hk hin) hj).
 rewrite -(cbt_hi hu hk hin).
 by move: hbj; rewrite /chiX.
 Qed.

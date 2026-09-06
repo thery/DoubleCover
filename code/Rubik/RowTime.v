@@ -20,7 +20,7 @@ Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
 Require Import Row RowMap RowRun RowFinal RowInst.
 Require Import RowTabL RowTabP RowTab RowMemb RowLeaf.
-Require Import RowWits RowReal.
+Require Import RowWits RowWitsChk RowReal.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 
 Set Implicit Arguments.
@@ -28,6 +28,6 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 Time Eval native_compute in
-  mfull2 (mfin e8numi e4biti mpgi mgri mswi mloi mhii p1
+  mfull2 (mfin e8numi e4biti cpgi cfli mgri mswi mloi mhii p1
                 actfsri tomemb okmvv srch 20)
-          (wmap rowwits).
+          (wmap rowwits48).

@@ -49,7 +49,7 @@ Hypothesis he4 : e4ok e4bit e4of par4.
 Local Notation plc := (place e8num e4bit).
 Local Notation unplc := (unplace e8inv e4of par8 par4).
 
-Variable mpg mgr msw mlo mhi : arr.
+Variable cpg cfl mgr msw mlo mhi : arr.
 
 (* THE PREPASS IS A PARAMETER.  RowMap's is one; RowLvl's prepassD, which     *)
 (* reads each page's chunk once and puts it back once, is another and is      *)
@@ -112,8 +112,14 @@ Definition popi : arr := Eval vm_compute in
 (* How many members the map holds.  One sweep of the whole map, which the run *)
 (* asks for once a level.  The folded count weighs a bit by the size of its   *)
 (* orbit; here a page stands for itself, so the bits are simply added up.     *)
+(*                                                                           *)
+(* ALL FOUR SLICES, AND A PAGE IS A PAIR.  A cell is forty eight bits, so the *)
+(* two slices of a twenty four bit word count half the members.  Nothing      *)
+(* false can come of that -- the count only decides when the cuts and the     *)
+(* early stop come on -- but the stop would come on too soon and the map      *)
+(* would never fill.                                                         *)
 Definition mcount (m : rmap) : int :=
-  ifold npagen 0
+  ifold nclsn 0
     (fun pg acc =>
        ifold ngroupn 0
          (fun gr b =>
@@ -121,9 +127,14 @@ Definition mcount (m : rmap) : int :=
             if Uint63.eqb v 0 then b
             else
               Uint63.add b
-                (Uint63.add (PArray.get popi (Uint63.land v lo12))
-                            (PArray.get popi
-                               (Uint63.land (Uint63.lsr v 12) lo12))))
+                (Uint63.add
+                   (Uint63.add (PArray.get popi (Uint63.land v lo12))
+                               (PArray.get popi
+                                  (Uint63.land (Uint63.lsr v 12) lo12)))
+                   (Uint63.add (PArray.get popi
+                                  (Uint63.land (Uint63.lsr v 24) lo12))
+                               (PArray.get popi
+                                  (Uint63.land (Uint63.lsr v 36) lo12)))))
          acc)
     0.
 
