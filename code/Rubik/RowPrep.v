@@ -380,6 +380,16 @@ have h2 := iter_at h1 (nltbP _ _ hpg).
 by case/andP: (iter_at h2 hs) => hr /eqP he.
 Qed.
 
+(* A MOVE SENDS A CELL TO A CELL, which is the first half of the check read   *)
+(* at either parity.  RowLvl's level asks for exactly this, and it is not     *)
+(* RowInst's pgok: that one is about corner RANKS.                            *)
+Lemma cpgmv_range k pg : (to_nat k < nhn)%N -> (pg <? nclsi)%uint63 ->
+  (pgmv cpg k pg <? nclsi)%uint63.
+Proof.
+move=> hk hp; have h0 : (to_nat 0%uint63 < 2)%N by rewrite to_nat_0.
+by have [h _] := cpgok48P hk hp h0.
+Qed.
+
 (* ---- and the move, which is the twenty four bit move ---------------------- *)
 
 Variable btmv : int -> int -> int.
