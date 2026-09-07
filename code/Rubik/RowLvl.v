@@ -298,16 +298,19 @@ move=> hpg hgr hfit; have [hdiv hmod] := pgidx hpg hgr hfit.
 by rewrite /gget cshftE cmskwE hdiv hmod.
 Qed.
 
+(* THE GUARD IS ON BOTH SIDES.  gor makes no write when the word is already   *)
+(* what it would become, so the page's own write must not either -- otherwise *)
+(* the two levels would differ on exactly the writes the guard removes.       *)
 Lemma pgwrite d pg gr v : (pg <? nclsi) -> (gr <? ngroupi) -> pgfits pg ->
   gor d (grpof pg gr) v
-  = PArray.set d (pgchk pg)
-      (PArray.set (PArray.get d (pgchk pg)) (Uint63.add (pgoff pg) gr)
-         (Uint63.lor
-            (PArray.get (PArray.get d (pgchk pg)) (Uint63.add (pgoff pg) gr))
-            v)).
+  = (let a := PArray.get d (pgchk pg) in
+     let j := Uint63.add (pgoff pg) gr in
+     let old := PArray.get a j in
+     let w := Uint63.lor old v in
+     if Uint63.eqb w old then d else PArray.set d (pgchk pg) (PArray.set a j w)).
 Proof.
 move=> hpg hgr hfit; have [hdiv hmod] := pgidx hpg hgr hfit.
-by rewrite /gor /gset /gget !cshftE !cmskwE hdiv hmod.
+by rewrite /gor !cshftE !cmskwE hdiv hmod.
 Qed.
 
 (* ---- one move over the whole map, reading each page's chunk once --------- *)
@@ -416,7 +419,7 @@ Qed.
 (* nothing above has to thread a length through the run.                      *)
 
 Lemma length_gor d g v : PArray.length (gor d g v) = PArray.length d.
-Proof. by rewrite /gor /gset length_setA. Qed.
+Proof. exact: length_gorE. Qed.
 
 Definition prepmvD (k : int) (src : rmap) (dst : rmap) : rmap :=
   ifold nclsn 0
@@ -434,7 +437,9 @@ Definition prepmvD (k : int) (src : rmap) (dst : rmap) : rmap :=
                  if Uint63.eqb v 0 then b
                  else
                    let j := Uint63.add o' (grm k gr) in
-                   PArray.set b j (Uint63.lor (PArray.get b j) (grpm k v)))
+                   let old := PArray.get b j in
+                   let w := Uint63.lor old (grpm k v) in
+                   if Uint63.eqb w old then b else PArray.set b j w)
               (PArray.get d c'))
        else if pgfits pg then
          let sa := PArray.get src (pgchk pg) in
@@ -471,7 +476,9 @@ symmetry; apply: fold_in_chunkGi.
 move=> gr a hgr ha; cbv zeta; case: ifP => _; first by rewrite set_getA.
 have hgii : (gr <? ngroupi) := introT (nltbP gr ngroupi) hgr.
 have hgi : (grm k gr <? ngroupi) := grm_range hk hgii.
-exact: (pgwrite _ _ hp'i hgi E').
+rewrite (pgwrite _ _ hp'i hgi E'); cbv zeta.
+(* and where the guard skips, the chunk put back is the chunk taken out       *)
+by case: ifP => _; last by []; rewrite set_getA.
 Qed.
 
 (* prepmv0 writes TWICE a word -- the carry into the page read and the move   *)

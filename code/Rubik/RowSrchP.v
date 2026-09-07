@@ -200,7 +200,8 @@ Lemma mmarkn1 mn pg gr bt :
   (mmarkn mn pg gr bt).1 = mn.1.
 Proof.
 case: mn => m n; rewrite /mmarkn /mmark /gor /=.
-by case: ifP => _; [left | right].
+(* the two guards are the same test, so the mark is the mark either way       *)
+by case: ifP => _; left.
 Qed.
 
 (* THE LEAF, RESTATED.  `/=' takes the counting mark apart as well as the     *)

@@ -140,14 +140,19 @@ Definition mcount (m : rmap) : int :=
 
 (* THE SAME MARK, AND A COUNT OF WHAT IT PUTS IN.  The stop has to know how   *)
 (* full the map is, and a bit already set is not new.                         *)
+(* ONE READ OF THE CHUNK TABLE AND ONE OF THE CHUNK, as in RowMap's gor.      *)
+(* Written through gget and gset this read the chunk table twice.             *)
 Definition mmarkn (mn : rmap * int) (pg gr bt : int) : rmap * int :=
   let: (m, n) := mn in
   let g := grpof pg gr in
+  let c := Uint63.lsr g cshft in
+  let i := Uint63.land g cmskw in
+  let a := PArray.get m c in
+  let old := PArray.get a i in
   let v := bitof bt in
-  let old := gget m g in
-  if Uint63.eqb (Uint63.land old v) 0
-  then (gset m g (Uint63.lor old v), Uint63.add n 1)
-  else mn.
+  let w := Uint63.lor old v in
+  if Uint63.eqb w old then mn
+  else (PArray.set m c (PArray.set a i w), Uint63.add n 1).
 
 (* ---- the four numbers, which are Rokicki's own --------------------------- *)
 
