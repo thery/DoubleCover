@@ -121,7 +121,8 @@ case "$1" in
 esac
 
 foldfiles="Fold P1Fold FoldTables P1Fdec P1F_00 P1F_01 P1F_02 P1F_03 P1F_04 \
-  P1FTable P1Table Row RowMap RowPrep Fsinj FsmChk Lehmer RowRun RowFinal \
+  P1FTable P1Table P1Small P1Ts Row RowMap RowPrep Fsinj FsmChk Lehmer \
+  RowRun RowFinal \
   RowInst RowTabP RowTabC RowMemb RowCub RowCubi RowCubInst RowFold Sym16 \
   RowFoldPart RowTabF RowFoldTab RowTabL RowTab RowFoldSym RowMoveH \
   RowPartC RowPartM RowPartU RowLeaf RowUp4ok RowUp8ok RowFoldConj \
@@ -136,7 +137,8 @@ foldfiles="Fold P1Fold FoldTables P1Fdec P1F_00 P1F_01 P1F_02 P1F_03 P1F_04 \
 # THE PLAIN CHAIN, and not one RowFold file in it.  Read off the Requires of
 # RowCubPace, RowCubBool, RowCubDone and RowCubProof.
 rowfiles="Fold P1Fold FoldTables P1Fdec P1F_00 P1F_01 P1F_02 P1F_03 P1F_04 \
-  P1FTable P1Table RowMask Row RowMap RowPrep Fsinj FsmChk Lehmer RowRun \
+  P1FTable P1Table P1Small P1Ts RowMask Row RowMap RowPrep Fsinj FsmChk \
+  Lehmer RowRun \
   RowFinal RowInst RowTabP RowTabC RowMemb RowCub RowCubi RowCubInst \
   RowTabL RowTab \
   RowMoveH RowPartC RowPartM RowPartU RowLeaf RowUp4ok RowUp8ok \
