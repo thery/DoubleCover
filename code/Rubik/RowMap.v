@@ -79,8 +79,25 @@ Definition gset (m : rmap) (g v : int) : rmap :=
   let c := Uint63.lsr g cshft in
   PArray.set m c (PArray.set (PArray.get m c) (Uint63.land g cmskw) v).
 
+(* ONE READ OF THE CHUNK TABLE, ONE OF THE CHUNK, AND NO WRITE UNLESS THE     *)
+(* WORD CHANGES.  Written `gset m g (lor (gget m g) v)' this read the chunk   *)
+(* table twice -- once in gget and once in gset -- and wrote both arrays even *)
+(* when the bits were already there.                                         *)
+(*                                                                            *)
+(* TWO READS IS THE FLOOR: the word cannot be tested without reading it, and  *)
+(* the word cannot be reached without reading the chunk table.  The writes    *)
+(* are what matter, though.  A persistent array keeps a small record of every *)
+(* write, and the search reaches the same member by many different words, so  *)
+(* most of its marks were setting a bit that was already set.  Guarded, the   *)
+(* writes over a whole run are bounded by the number of members and not by    *)
+(* the number of times the search arrives at one.                             *)
 Definition gor (m : rmap) (g v : int) : rmap :=
-  gset m g (Uint63.lor (gget m g) v).
+  let c := Uint63.lsr g cshft in
+  let i := Uint63.land g cmskw in
+  let a := PArray.get m c in
+  let old := PArray.get a i in
+  let w := Uint63.lor old v in
+  if Uint63.eqb w old then m else PArray.set m c (PArray.set a i w).
 
 (* Every chunk gets its own array.  `PArray.make nchunk (PArray.make csize    *)
 (* 0)' runs the inner make once and hands the same array to all 388 slots,    *)
@@ -237,6 +254,28 @@ have [hin2|hin2] := boolP (j <? PArray.length (PArray.get m c))%uint63;
   by left; rewrite /X (@get_oobE _ _ hoo2) default_setE
                    (@get_oobE _ _ (negbTE hin2)).
 by right; split; [apply: grp_eq | rewrite /X (@get_setE _ _ _ hin2)].
+Qed.
+
+(* ---- a write that changes nothing is not made ---------------------------- *)
+
+(* gor skips the write when the word is already what it would become, so it   *)
+(* is no longer gset by definition.  IT STILL READS THE SAME: what everything *)
+(* above it asks of a write is what a read gives afterwards, and on that the  *)
+(* two agree.  Nothing is needed about arrays being equal.                    *)
+Lemma gget_gorE m g v g' :
+  gget (gor m g v) g' = gget (gset m g (Uint63.lor (gget m g) v)) g'.
+Proof.
+rewrite {1}/gor; cbv zeta.
+case: ifP => // /eqb_spec hw.
+case: (gget_gset m g (Uint63.lor (gget m g) v) g') => [->|[hg ->]] //.
+by rewrite -hg /gget hw.
+Qed.
+
+(* and it leaves the chunk table the length it was                            *)
+Lemma length_gorE m g v : PArray.length (gor m g v) = PArray.length m.
+Proof.
+rewrite /gor; cbv zeta.
+by case: ifP => // _; rewrite length_setA.
 Qed.
 
 (* ---- a group number is a page and a group -------------------------------- *)
@@ -487,7 +526,7 @@ Lemma mtest_gor (a : rmap) G V P Q B :
   mtest a P Q B \/
   (G = grpof P Q /\ ~~ (Uint63.land V (bitof B) =? 0)%uint63).
 Proof.
-rewrite /gor /mtest.
+rewrite /mtest gget_gorE.
 case: (gget_gset a G (Uint63.lor (gget a G) V) (grpof P Q)) => [->|[hG ->]].
   by move=> h; left.
 by move=> /test_lor/orP[hin|hnew]; [left; rewrite -hG|right].
@@ -500,7 +539,7 @@ Lemma mmarkP m p g b pg gr bt :
   [/\ p = pg, g = gr & b = bt] \/ mtest m pg gr bt.
 Proof.
 case/and3P => hp hg hb; case/and3P => hpg hgr hbt.
-rewrite /mmark /gor /mtest.
+rewrite /mmark /mtest gget_gorE.
 case: (gget_gset m (grpof p g)
         (Uint63.lor (gget m (grpof p g)) (bitof b)) (grpof pg gr))
     => [->|[hgg ->]]; first by move=> hh; right.
