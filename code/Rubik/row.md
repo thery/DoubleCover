@@ -416,7 +416,30 @@ false, with nothing anywhere saying why.  The fold now reads `allbits24`, and
 widened in place, grep for every READER of it, not for the files that were
 edited.**
 
-**What is left:** `RowCubDef`, `RowCubProof` and the run itself.  Neither can
+### MEASURED AT FORTY EIGHT BITS, 7 September, roquableu
+
+`./mkrowfold.sh ppacei` -- the plain run at thirteen over the int search.
+**THE UNFOLDED MAP.**  The corner pair is this map's and no other: RowFold's
+map keeps twenty four bit cells, 44 chunks and 454 MB, and is untouched.  The
+phase one TABLE is folded here as it is in both runs, and always was.
+
+| | twenty four bits, 1 Sep | forty eight bits, 7 Sep | |
+|---|---|---|---|
+| `mcount (rowmappi 13)` | 2963.8 s | **1662.8 s** | **1.78x** |
+| the map at the baseline | 21 GB | **10.8 GB** | 1.94x |
+| the count | 14 731 320 | **14 731 320** | -- |
+
+The count settles the whole chain: the layout, the tables, the prepass, the
+search and the four slice `mcount` all agree with what the twenty four bit
+chain and the folded chain both hold at thirteen.
+
+**WHAT THE 1.78x IS AND IS NOT.**  At thirteen the search is under one per
+cent -- the same tree walks in 8.4-18.5 s against 2963.8 s -- so this prices
+the MAP and the prepass, which is what the corner pair changed.  It says
+nothing about the twenty level run, where the search dominates and is
+untouched.  Only `pbooli` can say that.
+
+**What is left:** the run itself.  Neither can
 be built on the desktop -- `P1Fdec.v` is generated and absent, and `FsmChk`
 is itself a computation.  Run them with `./mkrowfold.sh pbooli` then
 `pdonei`.
