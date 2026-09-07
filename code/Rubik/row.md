@@ -439,7 +439,35 @@ the MAP and the prepass, which is what the corner pair changed.  It says
 nothing about the twenty level run, where the search dominates and is
 untouched.  Only `pbooli` can say that.
 
-**What is left:** the run itself.  Neither can
+### AND THE RUN, 7 September, roquableu -- `./mkrowfold.sh pbooli`, exit 0
+
+`rowfullpiE : rowfullpi = true`.  The map of forty eight bit cells, twenty
+levels and the witnesses, leaves no bit of the row clear.
+
+| | 24 bits, 4 Sep | 48 bits, 6 Sep | 48 + guard + `o=20`, 7 Sep |
+|---|---|---|---|
+| wall | 39 034 s (10 h 51) | 31 409 s (8 h 43) | **29 631 s (8 h 14)** |
+| user | 34 772 s | 30 250 s | **29 290 s** |
+| sys | 1 284 s | 928 s | **49 s** |
+| peak | 44.38 GB (RES) | ~29 GB (RES) | **13.86 GB** (heap) |
+
+**1.32x on the wall and 3.2x on the memory** against where this began.
+
+**THE SYSTEM TIME IS THE TELL: 1 284 s to 49 s.**  That is the kernel handing
+memory back and forth, and it is what a heap that no longer swells does.
+
+**WHAT IS NOT SEPARATED.**  The guard and `o=20` went in together, so this
+prices the pair.  `OCAMLRUNPARAM='v=0x401' ./mkrowfold.sh pbooli` -- guard
+only, default tolerance -- is the run that would say which did what.
+
+**And the pace agreed**: `ppacei` printed 14 731 320 with the guard, so
+skipping a write that changes nothing is invisible, as it must be.  Its peak
+heap was 12.35 GB against a live set of about 10.3 GB, which is where the
+`o=20` figure of 1.2x the live data was measured on the real program rather
+than on the toy.
+
+**What is left:** `pdonei` at forty eight bits, and the fold chain re-run if
+its banked boolean is wanted over the new `gor`.  Neither can
 be built on the desktop -- `P1Fdec.v` is generated and absent, and `FsmChk`
 is itself a computation.  Run them with `./mkrowfold.sh pbooli` then
 `pdonei`.
