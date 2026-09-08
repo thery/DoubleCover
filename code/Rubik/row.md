@@ -501,14 +501,32 @@ and never looks at the map, so `ffor_setp` lands on the plain or.
 Expected: about the same 1.11x the plain run got, which would put the folded
 run near 5 h 25 against its 6 h 00.  **NOT RUN.**
 
-**And forty eight bits on the FOLDED map is possible** -- the prototype
-already checks it.  A renaming does not send a corner pair to a corner pair,
-but it keeps the corner parity, so the page table splits by parity exactly as
-`sgr` does for groups: `scpg.(s).(parity).(pair)`, 16 x 2 x 20160, built and
-verified at every startup ("all checks passed").  It would take the folded map
-from 0.45 GB to 0.22 GB and halve its writes.  It would still be chunked --
-27 901 440 cells against a `PArray.max_length` of 4 194 303 -- but 22 chunks
-instead of 44.  NOT DONE, and the fold's memory was never the problem.
+### AND THE FOLD CANNOT BE PUT ON CORNER PAIRS -- measured, 8 September
+
+`./rubik_row_nofold pairfold`.  A cell of forty eight bits is a corner pair,
+its two halves the two parities.  **Every renaming keeps the corner parity**,
+so an orbit of pages lies inside ONE parity, and the two halves of a pair are
+always in DIFFERENT orbits.  One renaming can fold both halves to one kept
+pair only if it moves the pairs the same way at either parity, that is only if
+`scpg.(s).(0) = scpg.(s).(1)`.
+
+    renaming  0:     0 of 20160 pairs move differently
+    renaming  1: 20160 of 20160
+    ...
+    14 of 16 renamings disagree, worst 20160 of 20160
+
+Not a near miss: fourteen of the sixteen disagree on EVERY pair.  Only the
+identity and one other agree.
+
+**So the corner pair and the sixteen fold symmetry do not compose.**  A map
+can have one or the other.  The plain map takes the pairing because it has no
+fold; the folded map already takes 14.6x from the symmetry, which is more than
+the 2x the pairing would have given, and its 0.45 GB was never the problem.
+
+An earlier note in this file said the fold could take the pairing because
+`scpg` is well defined.  It is well defined, and that is not enough: what a
+folded cell needs is that ONE renaming serve both parities, which is a
+different question and the answer is no.
 
 **What is left:** `pdonei` at forty eight bits, and the folded boolean re-run
 over the guard.  Neither can
