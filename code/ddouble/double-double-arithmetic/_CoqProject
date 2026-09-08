@@ -1,0 +1,13 @@
+# -R ../fastrelax/drincq-master/src Drincq
+-R "." Double
+
+DWPlus.v 
+Bayleyaux.v
+F2Sum.v
+DWTimesFP.v
+DWTimesDW.v
+DWTimesDW_original.v
+DWDivFP.v
+DWDivDW.v
+F2SumFLX.v
+F2SumFLT.v
