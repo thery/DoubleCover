@@ -589,6 +589,45 @@ through `ltn_nwB 6`.  An `apply: bit48_bound` in its place made the kernel
 evaluate two to the sixty third in unary: no error, ten minutes and counting.
 Same tell as the RowMemb one above.
 
+### AND THE COUNT AT THIRTEEN, 8 September -- 14 727 520, and why
+
+`./mkrowfold.sh fpacei`, the folded map at forty eight bits, printed
+**14 727 520** where the prototype and the twenty four bit folded run both
+give **14 731 320**.  Short by 3 800.
+
+**IT IS THE COUNTER, NOT THE MAP -- and I said the opposite first.**
+`fcount` reads a cell's LOW twenty four bits and prices them at `forb`,
+which the generator sets to the number of pages in the WHOLE cell, both
+halves (`corb.(c) <- !n`).  At twenty four bits a cell was one page and
+that was exact.  At forty eight it is exact only if the two halves carry
+the same number of members.
+
+**THEY DO NOT.**  A page is an OUTER EDGE permutation and tau relabels
+those eight.  Relabelling outer edges alone is no rotation of the cube, so
+the ball is not tau invariant and a cell's two halves are two different
+rows.  The pairing is sound all the same: all it asks is that moves and
+renamings send a pair to a pair, and that is what was measured, 0 of 10 and
+0 of 16.  What it does NOT give is equal populations.
+
+So the error is `Sum_c k1(c) (L(c) - H(c))`, a residue that nearly cancels
+because a cell's two halves are alike without being equal.  3 800 in
+14 731 320 is 0.026 %, which is the size of that residue; a missing member
+would not land that close.
+
+`fcount48` (RowFold.v) reads all four twelve bit slices and prices each
+half at its own share -- half of `forb`, or the whole of it for a cell tau
+fixes, whose high half is empty.  **`fcount` itself is untouched**: the run
+uses it for Rokicki's early stop, so moving it moves the run.  Only
+`RowFoldCubPaceI` is pointed at the new one.
+
+STILL TO BE RUN: `fpacei` again.  It must print 14 731 320.
+
+**The lesson is mine.**  I read the count, saw it differ, and told thery to
+kill a six hour run -- before checking whether the counter had been widened
+with the cell.  It had not.  ASK WHAT THE NUMBER MEASURES BEFORE ACTING ON
+IT.  The run was never at risk: `RowFoldCubBoolI` goes straight to
+`mfullf` and never calls `fcount`.
+
 **What is left:** `pdonei` at forty eight bits, the folded boolean re-run
 over the guard, and the folded 48 bit run.  None can
 be built on the desktop -- `P1Fdec.v` is generated and absent, and `FsmChk`
