@@ -2914,6 +2914,83 @@ let () =
      both halves to one kept pair only if it moves the pairs the same way at
      either parity -- that is, only if scpg.(s).(0) = scpg.(s).(1).  This
      says whether it does, and if not, by how much it misses. *)
+  (* IS THERE ANY RELABELLING THE FOLD KEEPS?  Pairing two permutations by
+     relabelling two cubies survives every MOVE, because relabelling commutes
+     with permuting positions.  It survives a RENAMING only if the renaming
+     leaves the relabelling alone: s o t = t o s.  (0 1) on the corners does
+     not, which is why the corner pair and the fold do not compose.  This
+     asks whether ANY non trivial involution does, on the corners or on the
+     outer edges -- and it asks it of all of them, not of a guess. *)
+  if Array.length Sys.argv > 1 && Sys.argv.(1) = "central" then begin
+    let search name n get =
+      let found = ref 0 in
+      let t = Array.make n 0 in
+      let rec go k used =
+        if !found < 0 then () else
+        if k = n then begin
+          (* an involution, not the identity, commuting with every renaming *)
+          let inv = ref true and triv = ref true in
+          for j = 0 to n - 1 do
+            if t.(t.(j)) <> j then inv := false;
+            if t.(j) <> j then triv := false
+          done;
+          if !inv && not !triv then begin
+            let ok = ref true in
+            for si = 0 to nsym - 1 do
+              let m = get syms.(si) in
+              for j = 0 to n - 1 do
+                if m.(t.(j)) <> t.(m.(j)) then ok := false done
+            done;
+            if !ok then begin
+              incr found;
+              if !found <= 4 then begin
+                Printf.printf "  %s: " name;
+                Array.iter (fun x -> Printf.printf "%d " x) t;
+                print_newline () end
+            end
+          end
+        end else
+          for v = 0 to n - 1 do
+            if used land (1 lsl v) = 0 then begin
+              t.(k) <- v; go (k + 1) (used lor (1 lsl v)) end
+          done in
+      go 0 0;
+      Printf.printf "%s: %d non trivial involutions commute with all %d renamings\n"
+        name !found nsym in
+    print_endline "relabellings the fold would keep:";
+    search "corners (8 cubies)" 8 (fun y -> y.sc);
+    search "outer edges (8 cubies)" 8 (fun y -> Array.init 8 (fun j -> y.se.(j)));
+    (* AND WHAT THEY DO TO A MOVE.  Commuting with the renamings is half of
+       it; the other half is that a move sends a pair to a pair, which is
+       what lets one word be moved whole. *)
+    let tau = [| 2; 3; 0; 1; 6; 7; 4; 5 |] in
+    let pair p = let a = unrank p 8 in
+      let b = Array.make 8 0 in
+      for j = 0 to 7 do b.(j) <- tau.(a.(j)) done; rank b 0 8 in
+    Printf.printf "\ntau = (0 2)(1 3)(4 6)(5 7), an involution on pages: %b\n"
+      (let ok = ref true in
+       for p = 0 to npage - 1 do
+         if pair (pair p) <> p || pair p = p then ok := false done; !ok);
+    let bad = ref 0 in
+    for k = 0 to Array.length hmoves - 1 do
+      let d = ref 0 in
+      for p = 0 to npage - 1 do
+        if mpage.(p).(k) <> pair (mpage.(pair p).(k)) then incr d done;
+      if !d > 0 then begin incr bad;
+        Printf.printf "  move %d: %d of %d pages break the pair\n" k !d npage end
+    done;
+    Printf.printf "moves that break the tau pair: %d of %d\n"
+      !bad (Array.length hmoves);
+    let bads = ref 0 in
+    for si = 0 to nsym - 1 do
+      let d = ref 0 in
+      for p = 0 to npage - 1 do
+        if spg.(si).(p) <> pair (spg.(si).(pair p)) then incr d done;
+      if !d > 0 then incr bads
+    done;
+    Printf.printf "renamings that break the tau pair: %d of %d\n" !bads nsym;
+    exit 0
+  end;
   if Array.length Sys.argv > 1 && Sys.argv.(1) = "pairfold" then begin
     let scpg = Array.init nsym (fun _ -> Array.make_matrix 2 ngroup (-1)) in
     for s = 0 to nsym - 1 do

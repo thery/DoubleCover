@@ -518,15 +518,32 @@ pair only if it moves the pairs the same way at either parity, that is only if
 Not a near miss: fourteen of the sixteen disagree on EVERY pair.  Only the
 identity and one other agree.
 
-**So the corner pair and the sixteen fold symmetry do not compose.**  A map
-can have one or the other.  The plain map takes the pairing because it has no
-fold; the folded map already takes 14.6x from the symmetry, which is more than
-the 2x the pairing would have given, and its 0.45 GB was never the problem.
+**BUT THAT IS ABOUT `(0 1)` AND NOT ABOUT PAIRING.**  `./rubik_row_nofold
+central` asks the general question: pairing by relabelling survives every MOVE
+whatever the relabelling, because relabelling commutes with permuting places;
+it survives a RENAMING when the renaming leaves the relabelling alone,
+`s o t = t o s`.  Enumerated over all 40320 relabellings of the eight corners:
 
-An earlier note in this file said the fold could take the pairing because
-`scpg` is well defined.  It is well defined, and that is not enough: what a
-folded cell needs is that ONE renaming serve both parities, which is a
-different question and the answer is no.
+    corners: 2 3 0 1 6 7 4 5   = (0 2)(1 3)(4 6)(5 7)
+             4 5 6 7 0 1 2 3   = (0 4)(1 5)(2 6)(3 7)
+             6 7 4 5 2 3 0 1   = (0 6)(1 7)(2 4)(3 5)
+    3 non trivial involutions commute with all 16 renamings
+    (and the same three on the outer edges)
+
+and measured on the tables for the first of them:
+
+    tau an involution on pages, no fixed point:  true
+    moves that break the tau pair:      0 of 10
+    renamings that break the tau pair:  0 of 16
+
+**SO THE FOLD CAN TAKE A FORTY EIGHT BIT CELL, through tau and not through
+`(0 1)`.**  0.45 GB to 0.22 GB and half the writes.
+
+**ONE THING IS DIFFERENT and it matters to the layout: tau is EVEN**, a
+product of four transpositions, so the two members of a pair have the SAME
+parity.  In the plain map `(0 1)` is odd and the parity is what tells the two
+halves apart -- `24 * (e8num[cp] mod 2) + e4bit[mp]`.  With tau something else
+has to say which half is which; the smaller of the two ranks would do.
 
 **What is left:** `pdonei` at forty eight bits, and the folded boolean re-run
 over the guard.  Neither can
