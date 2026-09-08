@@ -1,3 +1,12 @@
--R . dwarith 
+-R . dwarith
+
+# Ported from double-double-arithmetic, which is kept for reference only.
+F2SumFLT.v
+F2SumFLX.v
+F2Sum.v
+Bayleyaux.v
+DWPlus.v
+
+# Double words on primitive floats.
 dwarith.v
-dw_ops.v
+dw_updn.v

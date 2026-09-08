@@ -12,3 +12,6 @@ phase1_cap*.tbl
 code/Rubik/glob/
 code/Rubik/RowFoldD*.v
 code/Rubik/depth*.log
+
+# rocq nra cache
+.nra.cache
