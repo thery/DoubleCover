@@ -38,6 +38,16 @@ Lemma Drnd_FLX r :
   Drnd r = round radix2 (FLX_exp prec) (round_mode mode_NE) r.
 Proof. by move=> rge; apply: round_FLT_FLX. Qed.
 
+(* Every primitive float is in the format: the double-word theorems all ask  *)
+(* for this, of every argument.                                               *)
+Lemma Dformat x : generic_format radix2 Dfexp (D2R x).
+Proof. by apply: generic_format_B2R. Qed.
+
+(* The format is FLT: the exponent is bounded below, at -1074, and not above. *)
+(* Overflow is not in the exponent function at all - it is the Dfits test.    *)
+Lemma DfexpE : Dfexp = FLT_exp (SpecFloat.emin prec emax) prec.
+Proof. by []. Qed.
+
 Lemma D2R_add x y :
   Dfin x -> Dfin y -> Dfits (D2R x + D2R y) ->
   D2R (x + y)%float = Drnd (D2R x + D2R y) /\ Dfin (x + y)%float.
