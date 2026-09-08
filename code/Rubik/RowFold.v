@@ -629,6 +629,46 @@ Fixpoint flevng (n : nat) (m d : rmap) : rmap :=
 (* NOT PART OF THE ROW, which only ever asks whether the map is full.  This   *)
 (* is what the prototype's own numbers can be compared with, level by level:  *)
 (* a bit of a kept page stands for as many members as its orbit has pages.    *)
+(* THE SAME COUNT, BUT OVER A CELL OF TWO PAGES.  fcount reads a cell's low  *)
+(* twenty four bits and prices them at forb, which is the number of pages in  *)
+(* the WHOLE cell -- both halves.  That is right only if the two halves carry *)
+(* the same number of members, and nothing here says they do.  This one reads *)
+(* all four twelve bit slices and prices each half at its own share: half of  *)
+(* forb, or the whole of it for a cell tau fixes, whose high half is empty    *)
+(* and adds nothing.                                                         *)
+(*                                                                           *)
+(* A FILE OF ITS OWN would be better still, but fcount is what the RUN uses   *)
+(* for Rokicki's early stop, and moving it moves the run.                     *)
+Definition fcount48 (m : rmap) : int :=
+  ifold nrepn 0
+    (fun r acc =>
+       let orb := PArray.get forb r in
+       (* a cell tau fixes is full at twenty four bits and has one page *)
+       let w := if Uint63.eqb (PArray.get fful r) allbits24
+                then orb else Uint63.div orb 2 in
+       let ca := PArray.get m (pchk r) in
+       let co := poff r in
+       ifold ngroupn 0
+         (fun g b =>
+            let v := PArray.get ca (Uint63.add co g) in
+            if Uint63.eqb v 0 then b
+            else
+              Uint63.add b
+                (Uint63.mul w
+                   (Uint63.add
+                      (Uint63.add
+                         (PArray.get fpop (Uint63.land v lo12))
+                         (PArray.get fpop
+                            (Uint63.land (Uint63.lsr v 12) lo12)))
+                      (Uint63.add
+                         (PArray.get fpop
+                            (Uint63.land (Uint63.lsr v nbiti) lo12))
+                         (PArray.get fpop
+                            (Uint63.land
+                               (Uint63.lsr v (Uint63.add nbiti 12)) lo12))))))
+         acc)
+    0.
+
 Definition fcount (m : rmap) : int :=
   ifold nrepn 0
     (fun r acc =>

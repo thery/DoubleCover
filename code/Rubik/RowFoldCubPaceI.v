@@ -16,6 +16,6 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 (* thrown away: the tables arriving                                           *)
-Time Eval native_compute in fcount forbi fpopi (mkempty tt).
+Time Eval native_compute in fcount48 ffuli forbi fpopi (mkempty tt).
 
-Time Eval native_compute in fcount forbi fpopi (rowmapi 13).
+Time Eval native_compute in fcount48 ffuli forbi fpopi (rowmapi 13).
