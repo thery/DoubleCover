@@ -20,9 +20,14 @@ Definition sensible_format := true.
 Definition type := dwfloat.
 
 (* A double word denotes the sum of its two words, and that sum is exact.     *)
+(* A pair that is not a double word denotes nothing at all: it is read as     *)
+(* Xnan, which Interval takes as the whole line.  So a bad pair is never      *)
+(* unsound, only useless, and no operation has to promise a good one.         *)
 Definition toF (x : type) : Basic.float radix2 :=
   let: DWFloat xh xl := x in
-  Generic.Fadd_exact (PrimitiveFloat.toF xh) (PrimitiveFloat.toF xl).
+  if wellFormed x
+  then Generic.Fadd_exact (PrimitiveFloat.toF xh) (PrimitiveFloat.toF xl)
+  else Basic.Fnan.
 
 Definition toX x := FtoX (toF x).
 Definition toR x := proj_val (toX x).
@@ -51,15 +56,23 @@ Definition fromZ_DN (_ : precision) (n : Z) :=
   fp2dw (PrimitiveFloat.fromZ_DN fprec n).
 Definition fromF (f : Basic.float radix) := fp2dw (PrimitiveFloat.fromF f).
 
-(* A double word is a real number when both its words are, an infinity when   *)
-(* either is, and not a number as soon as either is not.                      *)
+(* A double word is a real number when both its words are and the pair is     *)
+(* one, an infinity when either word is, and not a number otherwise.  A pair  *)
+(* that is not a double word lands in the same class as a NaN, which leaves   *)
+(* it a valid bound, just one that says nothing.                              *)
 Definition classify x :=
   let: DWFloat xh xl := x in
-  match PrimFloat.classify xh, PrimFloat.classify xl with
-  | NaN, _ | _, NaN => Sig.Fnan
-  | PInf, _ | _, PInf => Fpinfty
-  | NInf, _ | _, NInf => Fminfty
-  | _, _ => Freal
+  match PrimFloat.classify xh with
+  | PInf => Fpinfty
+  | NInf => Fminfty
+  | NaN => Sig.Fnan
+  | _ =>
+    match PrimFloat.classify xl with
+    | PInf => Fpinfty
+    | NInf => Fminfty
+    | NaN => Sig.Fnan
+    | _ => if wellFormed x then Freal else Sig.Fnan
+    end
   end.
 
 Definition real x := match classify x with Freal => true | _ => false end.
@@ -74,11 +87,22 @@ Definition valid_ub x := match classify x with Fminfty => false | _ => true end.
 Definition valid_lb x := match classify x with Fpinfty => false | _ => true end.
 
 (* Two double words compare on their high words, and on the low ones when     *)
-(* the high ones agree.                                                       *)
+(* the high ones agree.  Anything that is not a real number compares to       *)
+(* nothing.                                                                   *)
 Definition cmp x y :=
-  match PrimitiveFloat.cmp (dwhi x) (dwhi y) with
-  | Xeq => PrimitiveFloat.cmp (dwlo x) (dwlo y)
-  | c => c
+  match classify x, classify y with
+  | Sig.Fnan, _ | _, Sig.Fnan => Xund
+  | Fminfty, Fminfty => Xeq
+  | Fminfty, _ => Xlt
+  | _, Fminfty => Xgt
+  | Fpinfty, Fpinfty => Xeq
+  | _, Fpinfty => Xlt
+  | Fpinfty, _ => Xgt
+  | Freal, Freal =>
+    match PrimitiveFloat.cmp (dwhi x) (dwhi y) with
+    | Xeq => PrimitiveFloat.cmp (dwlo x) (dwlo y)
+    | c => c
+    end
   end.
 
 Definition min x y :=
@@ -105,23 +129,32 @@ Definition div2 x :=
 Definition pow2_UP (_ : precision) (e : sfactor) :=
   fp2dw (PrimitiveFloat.pow2_UP fprec e).
 
-Definition add_UP (_ : precision) x y := addDwUp x y.
-Definition add_DN (_ : precision) x y := addDwDn x y.
-Definition sub_UP (_ : precision) x y := subDwUp x y.
-Definition sub_DN (_ : precision) x y := subDwDn x y.
-Definition mul_UP (_ : precision) x y := mulDwUp x y.
-Definition mul_DN (_ : precision) x y := mulDwDn x y.
-Definition div_UP (_ : precision) x y := divDwUp x y.
-Definition div_DN (_ : precision) x y := divDwDn x y.
-Definition sqrt_UP (_ : precision) x := sqrtDwUp x.
-Definition sqrt_DN (_ : precision) x := sqrtDwDn x.
+(* An argument that denotes nothing must give a result that denotes nothing,  *)
+(* or the operation would be claiming to know more than it was told.  These   *)
+(* two guards are what carries that through.                                  *)
+Definition onReal (f : type -> type) x := if real x then f x else nan.
+Definition onReal2 (f : type -> type -> type) x y :=
+  if real x && real y then f x y else nan.
+
+Definition add_UP (_ : precision) x y := onReal2 addDwUp x y.
+Definition add_DN (_ : precision) x y := onReal2 addDwDn x y.
+Definition sub_UP (_ : precision) x y := onReal2 subDwUp x y.
+Definition sub_DN (_ : precision) x y := onReal2 subDwDn x y.
+Definition mul_UP (_ : precision) x y := onReal2 mulDwUp x y.
+Definition mul_DN (_ : precision) x y := onReal2 mulDwDn x y.
+Definition div_UP (_ : precision) x y := onReal2 divDwUp x y.
+Definition div_DN (_ : precision) x y := onReal2 divDwDn x y.
+Definition sqrt_UP (_ : precision) x := onReal sqrtDwUp x.
+Definition sqrt_DN (_ : precision) x := onReal sqrtDwDn x.
 
 (* Rounding to an integer is monotone, so rounding a bound of the value       *)
 (* gives a bound of the rounded value.  Only ordinarily tight.                *)
 Definition nearbyint_UP (mode : rounding_mode) x :=
-  fp2dw (PrimitiveFloat.nearbyint_UP mode (addUpFp (dwhi x) (dwlo x))).
+  onReal (fun x => fp2dw (PrimitiveFloat.nearbyint_UP mode
+                            (addUpFp (dwhi x) (dwlo x)))) x.
 Definition nearbyint_DN (mode : rounding_mode) x :=
-  fp2dw (PrimitiveFloat.nearbyint_DN mode (addDnFp (dwhi x) (dwlo x))).
+  onReal (fun x => fp2dw (PrimitiveFloat.nearbyint_DN mode
+                            (addDnFp (dwhi x) (dwlo x)))) x.
 
 (* The midpoint is the plain half sum: rounding to nearest keeps it between   *)
 (* the two, which is all that is asked of it.                                 *)
