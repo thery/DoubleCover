@@ -9,7 +9,7 @@
 From mathcomp Require Import all_ssreflect.
 From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
-Require Import RowFold RowFoldSrch RowFoldCubDef RowFoldCubDefI.
+Require Import RowFold RowFoldTab RowFoldSrch RowFoldCubDef RowFoldCubDefI.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
