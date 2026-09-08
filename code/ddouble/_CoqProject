@@ -8,6 +8,7 @@ Bayleyaux.v
 DWPlus.v
 
 # Double words on primitive floats.
+Imul.v
 TwoSumFLT.v
 dwbridge.v
 dwarith.v
