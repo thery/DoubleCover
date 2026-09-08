@@ -47,7 +47,7 @@ Local Open Scope uint63_scope.
 (* one level of the folded row, UNCUT: the level RowFoldRun.flvl_sound proves *)
 Notation flvlU :=
   (flvl e8numi e4biti
-     fpgi fsrci fsgri fsloi fshii fsbti
+     fpgi fsrci fsrc2i ffuli fsgri fsloi fshii fsbti
      mgri mswi mloi mhii
      p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
      (RowInst.cstep actfsri) zstepi (ytomemb tomemb) okmvv ycsolved

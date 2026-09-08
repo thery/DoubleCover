@@ -76,7 +76,7 @@ Hypothesis leaf_pos : forall c x, coordP c x -> pstok x ->
 
 (* two maps, allocated once and swapped at every level                        *)
 Definition fmfin : rmap :=
-  frun e8numi e4biti fpgi fsrci fsgri fsloi fshii fsbti mgri mswi mloi mhii
+  frun e8numi e4biti fpgi fsrci fsrc2i ffuli fsgri fsloi fshii fsbti mgri mswi mloi mhii
        F frep fsym twsym dnlo dnhi fllo flhi
        cstep xstep tomemb okmv csolved croot sroot dsrch nlev 0
        (mkempty tt) (mkempty tt).
@@ -87,7 +87,7 @@ rewrite /fmfin -{1}[nlev]add0n.
 (* refine, not exact: every one of the fifty eight arguments is named here,  *)
 (* and exact's unification will not take pos on trust.                       *)
 refine (@frun_sound e8numi e8invi e4biti e4ofi par8i par4i e8okC e4okC
-          fpgi fsrci fsgri fsloi fshii fsbti mgri mswi mloi mhii
+          fpgi fsrci fsrc2i ffuli fsgri fsloi fshii fsbti mgri mswi mloi mhii
           F frep fsym twsym dnlo dnhi fllo flhi
           pst cstep xstep tomemb posp okmv csolved croot sroot dsrch
           posC _ _ _ coordP pstok _ _ _ _ _ _ _ _ nlev 0
@@ -111,11 +111,11 @@ Qed.
 
 (* ---- so a full folded map puts every member within the depth ------------- *)
 
-Lemma fmfin_all : mfullf fmfin ->
+Lemma fmfin_all : mfullf ffuli fmfin ->
   forall pg gr bt, inrange24 pg gr bt -> PdC nlev pg gr bt.
 Proof.
 move=> hm.
-refine (@foldf_all fpgi fsgri fsbti (PdC nlev) fkptT
+refine (@foldf_all fpgi fsgri fsbti ffuli ffulT (PdC nlev) fkptT
           (fun pg' gr' bt' => sgrmvT _ _ _) (fun pg' bt' => sbtmvT _ _)
           fmfin hm fmfin_sound).
 Qed.
@@ -153,7 +153,7 @@ Variables forb fpop : arr.
 Variable ishm : int.
 
 Definition fmfino : rmap :=
-  frunsk e8numi e4biti fpgi fsrci fsgri fsloi fshii fsbti mgri mswi mloi mhii
+  frunsk e8numi e4biti fpgi fsrci fsrc2i ffuli fsgri fsloi fshii fsbti mgri mswi mloi mhii
          F frep fsym twsym dnlo dnhi fllo flhi
          cstep xstep tomemb okmv csolved croot sroot dsrch forb fpop ishm
          nlev 0 0%uint63 (mkempty tt) (mkempty tt).
@@ -162,7 +162,7 @@ Lemma fmfino_sound : soundatf fpgi fsgri fsbti (PdC nlev) fmfino.
 Proof.
 rewrite /fmfino -{1}[nlev]add0n.
 refine (@frunsk_sound e8numi e8invi e4biti e4ofi par8i par4i e8okC e4okC
-          fpgi fsrci fsgri fsloi fshii fsbti mgri mswi mloi mhii
+          fpgi fsrci fsrc2i ffuli fsgri fsloi fshii fsbti mgri mswi mloi mhii
           F frep fsym twsym dnlo dnhi fllo flhi
           pst cstep xstep tomemb posp okmv csolved croot sroot dsrch
           posC _ _ _ coordP pstok _ _ _ _ _ _ _ _ forb fpop ishm
@@ -184,11 +184,11 @@ refine (@frunsk_sound e8numi e8invi e4biti e4ofi par8i par4i e8okC e4okC
 exact: soundatf_mkemptyf.
 Qed.
 
-Lemma fmfino_all : mfullf fmfino ->
+Lemma fmfino_all : mfullf ffuli fmfino ->
   forall pg gr bt, inrange24 pg gr bt -> PdC nlev pg gr bt.
 Proof.
 move=> hm.
-refine (@foldf_all fpgi fsgri fsbti (PdC nlev) fkptT
+refine (@foldf_all fpgi fsgri fsbti ffuli ffulT (PdC nlev) fkptT
           (fun pg' gr' bt' => sgrmvT _ _ _) (fun pg' bt' => sbtmvT _ _)
           fmfino hm fmfino_sound).
 Qed.

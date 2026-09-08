@@ -72,7 +72,7 @@ Lemma ishmCP : ishmC. Proof. by vm_compute. Qed.
 
 Notation flvlc :=
   (flvlk e8numi e4biti
-     fpgi fsrci fsgri fsloi fshii fsbti
+     fpgi fsrci fsrc2i ffuli fsgri fsloi fshii fsbti
      mgri mswi mloi mhii
      p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
      fstep xstep tomembi okmvv fsolved croot sroot srch ishmi).

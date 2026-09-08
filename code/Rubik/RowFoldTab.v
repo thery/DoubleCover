@@ -2,8 +2,8 @@
 (*  RowFoldTab.v -- the fold's tables, made arrays.                           *)
 (* =========================================================================  *)
 
-(* RowTabF.v is the numbers, written by ocaml/rubik_row_nofold.ml dumptab     *)
-(* fold; this file makes them arrays.  As in RowTab.v, `Eval vm_compute in'   *)
+(* RowTabF48.v is the numbers, written by ocaml/rubik_row_nofold.ml dumptab   *)
+(* fold48; this file makes them arrays.  As in RowTab.v, `Eval vm_compute in'   *)
 (* is what makes each body an array VALUE: without it the body IS the cons    *)
 (* list, and every read has to walk it.                                       *)
 (*                                                                            *)
@@ -18,7 +18,7 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Table Tabi Rubik333 Diameter Moves Ball.
 Require Import Coordfs Coordfsi Phase1.
-Require Import Row RowMap RowFold RowTabF.
+Require Import Row RowMap RowPrep RowFold RowTabF48.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -29,7 +29,7 @@ Notation arr := (PArray.array int).
 Local Open Scope uint63_scope.
 
 Definition nfpgi  : int := 40320.               (* a page                     *)
-Definition nfsrci : int := 27680.               (* a kept page by ten moves   *)
+Definition nfsrci : int := 14960.               (* a cell by ten moves        *)
 Definition nfsgri : int := 645120.              (* sixteen by two by 20160    *)
 Definition nfsloi : int := 65536.               (* sixteen by 4096            *)
 Definition nfsbti : int := 384.                 (* sixteen by 24              *)
@@ -37,6 +37,8 @@ Definition nfpopi : int := 4096.
 
 Definition fpgi  : arr := Eval vm_compute in mkarr nfpgi 0 fpg_data.
 Definition fsrci : arr := Eval vm_compute in mkarr nfsrci 0 fsrc_data.
+Definition fsrc2i : arr := Eval vm_compute in mkarr nfsrci 0 fsrc2_data.
+Definition ffuli : arr := Eval vm_compute in mkarr nrepi 0 ffull_data.
 Definition fsgri : arr := Eval vm_compute in mkarr nfsgri 0 fsgr_data.
 Definition fsloi : arr := Eval vm_compute in mkarr nfsloi 0 fslo_data.
 Definition fshii : arr := Eval vm_compute in mkarr nfsloi 0 fshi_data.

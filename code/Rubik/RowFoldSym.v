@@ -21,7 +21,7 @@ From Rubik Require Import ssrint63.
 Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord.
 Require Import Coordfs Coordfsi Phase1 Diameter Moves Far Sym16.
 Require Import Row RowMap RowTabL RowTabP RowTab RowMemb.
-Require Import RowFold RowTabF RowFoldTab.
+Require Import RowPrep RowFold RowTabF48 RowFoldTab.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -169,11 +169,27 @@ Definition pgexp (u : int) (pg : int) : int :=
   let iv := nth [::] civs (to_nat u) in
   rank8 (fun j => nth 0%N cv (up8 pg (nth 0%N iv j))).
 
-(* fpg: a page folds to a kept page through the renaming it names, and it     *)
-(* carries its own parity                                                     *)
+(* ---- the pairing, and the two pages of a cell ---------------------------- *)
+
+(* tau relabels the corner cubies by (0 2)(1 3)(4 6)(5 7).  It commutes with  *)
+(* every move, being a relabelling, and with all sixteen renamings, which is  *)
+(* what lets a cell hold two kept pages.  A cell names its half nought page;  *)
+(* its half one page is tau of that.                                          *)
+Definition tauv : seq nat := [:: 2; 3; 0; 1; 6; 7; 4; 5]%N.
+
+Definition taupg (pg : int) : int :=
+  rank8 (fun j => nth 0%N tauv (up8 pg j)).
+
+Definition fkeep2 (c h : int) : int :=
+  let p := PArray.get fkeepi c in
+  if Uint63.eqb h 0 then p else taupg p.
+
+(* fpg: a page folds to ONE OF THE TWO PAGES OF A CELL through the renaming   *)
+(* it names -- which one is the half it names -- and it carries its own       *)
+(* parity.                                                                    *)
 Definition fpgC1 (pg : int) : bool :=
   let w := PArray.get fpgi pg in
-  (pgexp (fren w) pg =? PArray.get fkeepi (fkpt w)) &&
+  (pgexp (fren w) pg =? fkeep2 (fkpt w) (fhlf w)) &&
   (fpar w =? PArray.get par8i pg).
 
 Definition fpgC : bool := iter npagen 0%uint63 fpgC1.
@@ -182,19 +198,43 @@ Definition fpgC : bool := iter npagen 0%uint63 fpgC1.
 (* renaming to read it through.  Rename that kept page and the move sends     *)
 (* the answer to the page being filled -- which is what gathering means.  The *)
 (* parity carried is the SOURCE page's, not the page being filled.            *)
+(* AND THE SAME FOR EACH HALF.  The destination cell's half nought is filled  *)
+(* from the source cell's half h0 through u0, and its half one from h1        *)
+(* through u1; fsrc carries the first and fsrc2 the second.  A cell with one  *)
+(* half has no half one and nothing is asked of it.                           *)
 Definition fsrcC1 (r : int) : bool :=
   iter nhn 0%uint63 (fun k =>
     let w := PArray.get fsrci (Uint63.add (Uint63.mul r nhi) k) in
-    let p := PArray.get fkeepi (fkpt w) in
+    let w2 := PArray.get fsrc2i (Uint63.add (Uint63.mul r nhi) k) in
+    let p := fkeep2 (fkpt w) (fhlf w) in
+    let two := ~~ Uint63.eqb (PArray.get ffuli r) allbits24 in
     (PArray.get mpgi (Uint63.add (Uint63.mul (pgexp (fren w) p) nhi) k)
-       =? PArray.get fkeepi r) &&
-    (fpar w =? PArray.get par8i p)).
+       =? fkeep2 r 0) &&
+    (fpar w =? PArray.get par8i p) &&
+    (if two then
+       let p1 := fkeep2 (fkpt w) (Uint63.land w2 1) in
+       PArray.get mpgi
+         (Uint63.add (Uint63.mul (pgexp (Uint63.lsr w2 1) p1) nhi) k)
+         =? fkeep2 r 1
+     else true)).
 
 Definition fsrcC : bool := iter nrepn 0%uint63 fsrcC1.
+
+(* AND THE MASK COVERS EVERY BIT A MEMBER LANDS ON.  mfullf is an EQUALITY,   *)
+(* so a place outside the mask would be a member the full map never holds.    *)
+(* Forty thousand pages by twenty four bits.                                  *)
+Definition ffulC1 (pg : int) : bool :=
+  let w := PArray.get fpgi pg in
+  iter nbitn 0%uint63 (fun bt =>
+    ~~ (Uint63.land (PArray.get ffuli (fkpt w))
+          (bitof (fbit (fhlf w) (sbtmv fsbti (fren w) bt))) =? 0)).
+
+Definition ffulC : bool := iter npagen 0%uint63 ffulC1.
 
 Lemma fsbtCP : fsbtC. Proof. by vm_compute. Qed.
 Lemma fpgCP : fpgC. Proof. by vm_compute. Qed.
 Lemma fsrcCP : fsrcC. Proof. by vm_compute. Qed.
+Lemma ffulCP : ffulC. Proof. by vm_compute. Qed.
 Lemma fsloCP : fsloC. Proof. by vm_compute. Qed.
 Lemma fshiCP : fshiC. Proof. by vm_compute. Qed.
 Lemma fsgrCP : fsgrC. Proof. by vm_compute. Qed.

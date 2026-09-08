@@ -49,26 +49,42 @@ Qed.
 (* They are named rather than left as hypotheses of the section below because *)
 (* the run asks for them at every depth, of the pair (Pd d, Pd d.+1).         *)
 
-Definition Qlo_st (fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi : arr)
+(* ONE WRITE, AND WHICH HALF OF THE CELL IT GOES TO.  A cell holds two kept   *)
+(* pages, so the level writes twice for one source word: once for the         *)
+(* destination's half nought, once for its half one.  They differ in three    *)
+(* things and this says all three -- which half of the source is read, which  *)
+(* renaming reads it, and where the answer lands.  fsrc carries the first     *)
+(* pair, fsrc2 the second.                                                    *)
+Definition Qlo_st (fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi : arr)
                   (P Q : int -> int -> int -> Prop) : Prop :=
-forall src r k g pg gr bt,
-  (to_nat r < nrepn)%N -> (to_nat k < nhn)%N -> (to_nat g < ngroupn)%N ->
+forall src r k h g pg gr bt,
+  (to_nat r < nrepn)%N -> (to_nat k < nhn)%N -> (to_nat h < 2)%N ->
+  (to_nat g < ngroupn)%N ->
+  (* A CELL THAT TAU FIXES HAS NO HALF ONE, and nothing is ever written to  *)
+  (* one: fful says the cell is full, and the level does not call for it.   *)
+  ~~ ((Uint63.eqb h 1) && Uint63.eqb (PArray.get fful r) allbits24) ->
   soundatf fpg fsgr fsbt P src ->
   let w := PArray.get fsrc (Uint63.add (Uint63.mul r nhi) k) in
+  let w2 := PArray.get fsrc2 (Uint63.add (Uint63.mul r nhi) k) in
+  let u := if Uint63.eqb h 0 then fren w else Uint63.lsr w2 1 in
+  let sh := if Uint63.eqb h 0 then fhlf w else Uint63.land w2 1 in
   let v := PArray.get (PArray.get src (pchk (fkpt w)))
              (Uint63.add (poff (fkpt w)) g) in
-  let lo := Uint63.land v lo12 in
+  let vh := if Uint63.eqb sh 0 then Uint63.land v allbits24
+            else Uint63.land (Uint63.lsr v nbiti) allbits24 in
+  let lo := Uint63.land vh lo12 in
   let l := PArray.get mlo
              (Uint63.add (Uint63.lsl k 12)
-                (PArray.get fslo (Uint63.add (Uint63.lsl (fren w) 12) lo))) in
-  let X := if Uint63.eqb (PArray.get msw k) 0 then l else Uint63.lsl l 12 in
+                (PArray.get fslo (Uint63.add (Uint63.lsl u 12) lo))) in
+  let X := Uint63.lsl l
+             (fofs h (if Uint63.eqb (PArray.get msw k) 0 then 0 else 12)) in
   let G := PArray.get mgr
              (Uint63.add
                 (Uint63.mul
                    (PArray.get fsgr
                       (Uint63.add
                          (Uint63.mul
-                            (Uint63.add (Uint63.mul (fren w) 2) (fpar w))
+                            (Uint63.add (Uint63.mul u 2) (fpar w))
                             ngroupi) g)) nhi) k) in
   inrange24 pg gr bt ->
   pchk r = pchk (fkpt (PArray.get fpg pg)) ->
@@ -77,29 +93,41 @@ forall src r k g pg gr bt,
       (sgrmv fsgr (fren (PArray.get fpg pg))
          (fpar (PArray.get fpg pg) lxor (if bt <? 12 then 0 else 1)) gr) ->
   ~~ (Uint63.land X
-        (bitof (sbtmv fsbt (fren (PArray.get fpg pg)) bt)) =? 0) ->
+        (bitof (fbit (fhlf (PArray.get fpg pg))
+                     (sbtmv fsbt (fren (PArray.get fpg pg)) bt))) =? 0) ->
   Q pg gr bt.
 
-Definition Qhi_st (fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi : arr)
+(* and the same for the high half of the source word                          *)
+Definition Qhi_st (fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi : arr)
                   (P Q : int -> int -> int -> Prop) : Prop :=
-forall src r k g pg gr bt,
-  (to_nat r < nrepn)%N -> (to_nat k < nhn)%N -> (to_nat g < ngroupn)%N ->
+forall src r k h g pg gr bt,
+  (to_nat r < nrepn)%N -> (to_nat k < nhn)%N -> (to_nat h < 2)%N ->
+  (to_nat g < ngroupn)%N ->
+  (* A CELL THAT TAU FIXES HAS NO HALF ONE, and nothing is ever written to  *)
+  (* one: fful says the cell is full, and the level does not call for it.   *)
+  ~~ ((Uint63.eqb h 1) && Uint63.eqb (PArray.get fful r) allbits24) ->
   soundatf fpg fsgr fsbt P src ->
   let w := PArray.get fsrc (Uint63.add (Uint63.mul r nhi) k) in
+  let w2 := PArray.get fsrc2 (Uint63.add (Uint63.mul r nhi) k) in
+  let u := if Uint63.eqb h 0 then fren w else Uint63.lsr w2 1 in
+  let sh := if Uint63.eqb h 0 then fhlf w else Uint63.land w2 1 in
   let v := PArray.get (PArray.get src (pchk (fkpt w)))
              (Uint63.add (poff (fkpt w)) g) in
-  let hi := Uint63.land (Uint63.lsr v 12) lo12 in
-  let h := PArray.get mhi
+  let vh := if Uint63.eqb sh 0 then Uint63.land v allbits24
+            else Uint63.land (Uint63.lsr v nbiti) allbits24 in
+  let hi := Uint63.land (Uint63.lsr vh 12) lo12 in
+  let hb := PArray.get mhi
              (Uint63.add (Uint63.lsl k 12)
-                (PArray.get fshi (Uint63.add (Uint63.lsl (fren w) 12) hi))) in
-  let X := if Uint63.eqb (PArray.get msw k) 0 then Uint63.lsl h 12 else h in
+                (PArray.get fshi (Uint63.add (Uint63.lsl u 12) hi))) in
+  let X := Uint63.lsl hb
+             (fofs h (if Uint63.eqb (PArray.get msw k) 0 then 12 else 0)) in
   let G := PArray.get mgr
              (Uint63.add
                 (Uint63.mul
                    (PArray.get fsgr
                       (Uint63.add
                          (Uint63.mul
-                            (Uint63.add (Uint63.mul (fren w) 2)
+                            (Uint63.add (Uint63.mul u 2)
                                (Uint63.sub 1 (fpar w)))
                             ngroupi) g)) nhi) k) in
   inrange24 pg gr bt ->
@@ -109,20 +137,21 @@ forall src r k g pg gr bt,
       (sgrmv fsgr (fren (PArray.get fpg pg))
          (fpar (PArray.get fpg pg) lxor (if bt <? 12 then 0 else 1)) gr) ->
   ~~ (Uint63.land X
-        (bitof (sbtmv fsbt (fren (PArray.get fpg pg)) bt)) =? 0) ->
+        (bitof (fbit (fhlf (PArray.get fpg pg))
+                     (sbtmv fsbt (fren (PArray.get fpg pg)) bt))) =? 0) ->
   Q pg gr bt.
 
 Section FoldLvl.
 
 (* the six tables a member is read and gathered through *)
-Variable fpg fsrc fsgr fslo fshi fsbt : arr.
+Variable fpg fsrc fsrc2 fful fsgr fslo fshi fsbt : arr.
 
 (* and the move, on groups, halves and bits *)
 Variable mgr msw mlo mhi : arr.
 
-Notation lvmv := (flevmv fsrc fsgr fslo fshi mgr msw mlo mhi).
-Notation lvpg := (flevpg fsrc fsgr fslo fshi mgr msw mlo mhi).
-Notation lvl := (flevel fsrc fsgr fslo fshi mgr msw mlo mhi).
+Notation lvmv := (flevmv fsrc fsrc2 fful fsgr fslo fshi mgr msw mlo mhi).
+Notation lvpg := (flevpg fsrc fsrc2 fful fsgr fslo fshi mgr msw mlo mhi).
+Notation lvl := (flevel fsrc fsrc2 fful fsgr fslo fshi mgr msw mlo mhi).
 Notation sdf := (soundatf fpg fsgr fsbt).
 
 (* what the source claims of a member, and what the level claims of one *)
@@ -138,8 +167,8 @@ Variable P Q : int -> int -> int -> Prop.
 
 Notation srcw r k := (PArray.get fsrc (Uint63.add (Uint63.mul r nhi) k)).
 
-Hypothesis Qlo : Qlo_st fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi P Q.
-Hypothesis Qhi : Qhi_st fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi P Q.
+Hypothesis Qlo : Qlo_st fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi P Q.
+Hypothesis Qhi : Qhi_st fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi P Q.
 
 (* and a member the source claims is claimed by the level too, one level on *)
 Hypothesis PQ : forall pg gr bt, P pg gr bt -> Q pg gr bt.
@@ -162,7 +191,8 @@ Lemma lvstep d r bb G X :
          (sgrmv fsgr (fren (PArray.get fpg pg))
             (fpar (PArray.get fpg pg) lxor (if bt <? 12 then 0 else 1)) gr) ->
      ~~ (Uint63.land X
-           (bitof (sbtmv fsbt (fren (PArray.get fpg pg)) bt)) =? 0) ->
+           (bitof (fbit (fhlf (PArray.get fpg pg))
+                     (sbtmv fsbt (fren (PArray.get fpg pg)) bt))) =? 0) ->
      Q pg gr bt) ->
   sdf Q (PArray.set d (pchk r)
            (PArray.set bb (Uint63.add (poff r) G)
@@ -185,13 +215,70 @@ Lemma lvstep_if d r bb (c : bool) G X :
          (sgrmv fsgr (fren (PArray.get fpg pg))
             (fpar (PArray.get fpg pg) lxor (if bt <? 12 then 0 else 1)) gr) ->
      ~~ (Uint63.land X
-           (bitof (sbtmv fsbt (fren (PArray.get fpg pg)) bt)) =? 0) ->
+           (bitof (fbit (fhlf (PArray.get fpg pg))
+                     (sbtmv fsbt (fren (PArray.get fpg pg)) bt))) =? 0) ->
      Q pg gr bt) ->
   sdf Q (PArray.set d (pchk r)
            (if c then bb
             else PArray.set bb (Uint63.add (poff r) G)
                    (Uint63.lor (PArray.get bb (Uint63.add (poff r) G)) X))).
 Proof. by move=> hin hbb hnew; case: c => //; apply: lvstep. Qed.
+
+(* ---- one half of a cell, moved: two writes ------------------------------ *)
+
+(* flevmvu is the low twelve bits then the high twelve, each under its own    *)
+(* test.  This is those two writes as one lemma, so that flevmv_sound can     *)
+(* use it once for each half of the cell instead of writing the pair out      *)
+(* twice.                                                                     *)
+Lemma flevmvu_sound d r k vh dh glo ghi ub kb sw bb :
+  (pchk r <? PArray.length d) ->
+  sdf Q (PArray.set d (pchk r) bb) ->
+  (forall pg gr bt, inrange24 pg gr bt ->
+     pchk r = pchk (fkpt (PArray.get fpg pg)) ->
+     Uint63.add (poff r)
+       (PArray.get mgr
+          (Uint63.add (Uint63.mul (PArray.get fsgr glo) nhi) k))
+     = Uint63.add (poff (fkpt (PArray.get fpg pg)))
+         (sgrmv fsgr (fren (PArray.get fpg pg))
+            (fpar (PArray.get fpg pg) lxor (if bt <? 12 then 0 else 1)) gr) ->
+     ~~ (Uint63.land
+           (Uint63.lsl
+              (PArray.get mlo
+                 (Uint63.add kb
+                    (PArray.get fslo
+                       (Uint63.add ub (Uint63.land vh lo12)))))
+              (fofs dh (if sw then 0 else 12)))
+           (bitof (fbit (fhlf (PArray.get fpg pg))
+                     (sbtmv fsbt (fren (PArray.get fpg pg)) bt))) =? 0) ->
+     Q pg gr bt) ->
+  (forall pg gr bt, inrange24 pg gr bt ->
+     pchk r = pchk (fkpt (PArray.get fpg pg)) ->
+     Uint63.add (poff r)
+       (PArray.get mgr
+          (Uint63.add (Uint63.mul (PArray.get fsgr ghi) nhi) k))
+     = Uint63.add (poff (fkpt (PArray.get fpg pg)))
+         (sgrmv fsgr (fren (PArray.get fpg pg))
+            (fpar (PArray.get fpg pg) lxor (if bt <? 12 then 0 else 1)) gr) ->
+     ~~ (Uint63.land
+           (Uint63.lsl
+              (PArray.get mhi
+                 (Uint63.add kb
+                    (PArray.get fshi
+                       (Uint63.add ub
+                          (Uint63.land (Uint63.lsr vh 12) lo12)))))
+              (fofs dh (if sw then 12 else 0)))
+           (bitof (fbit (fhlf (PArray.get fpg pg))
+                     (sbtmv fsbt (fren (PArray.get fpg pg)) bt))) =? 0) ->
+     Q pg gr bt) ->
+  sdf Q (PArray.set d (pchk r)
+           (flevmvu fslo fshi mlo mhi mgr fsgr vh dh (poff r)
+              glo ghi ub kb k sw bb)).
+Proof.
+move=> hin hbb hlo hhi; rewrite /flevmvu; cbv zeta.
+case: ifP => _ //.
+apply: lvstep_if => //.
+by apply: lvstep_if => //.
+Qed.
 
 (* ---- one move of H, gathered into the page being filled ------------------ *)
 
@@ -207,12 +294,28 @@ apply: (@ifold_indi _ (fun b' => sdf Q (PArray.set d (pchk r) b')));
     [by apply: ltnW; exact: ngroupn_nwB| |exact: hb].
 move=> g b' hg hb'; cbv zeta.
 case: ifP => _ //.
-(* the high half, on whatever the low half left *)
-apply: lvstep_if => //.
-  (* and the low half, on the page as it stands *)
-  by apply: lvstep_if => // pg gr bt h1 h2 h3;
-     apply: (Qlo hr hk hg hsrc h1 h2 h3).
-by move=> pg gr bt h1 h2 h3; apply: (Qhi hr hk hg hsrc h1 h2 h3).
+have h0L : (to_nat 0%uint63 < 2)%N by rewrite to_nat_0.
+have h1L : (to_nat 1%uint63 < 2)%N by rewrite to_nat_1.
+(* half nought is always there, so its side condition is settled once *)
+have h0G : ~~ ((Uint63.eqb 0 1) && Uint63.eqb (PArray.get fful r) allbits24).
+  by have -> : (Uint63.eqb 0 1) = false by vm_compute.
+(* A CELL IS TWO KEPT PAGES, so one source word is moved twice: into the      *)
+(* destination's half nought, and into its half one where there is one.  Each *)
+(* of those is flevmvu -- the low twelve bits then the high -- and each is    *)
+(* Qlo and Qhi at that half.  THE TEST THAT PICKS THE SECOND HALF IS EXACTLY  *)
+(* THE SIDE CONDITION Qlo and Qhi ask for at half one.                        *)
+case: ifP => hif; last first.
+  apply: flevmvu_sound => // pg gr bt h1 h2 h3.
+  - exact: (Qlo hr hk h0L hg h0G hsrc h1 h2 h3).
+  exact: (Qhi hr hk h0L hg h0G hsrc h1 h2 h3).
+have h1G : ~~ ((Uint63.eqb 1 1) && Uint63.eqb (PArray.get fful r) allbits24).
+  by move: hif; rewrite andbC andbT.
+apply: flevmvu_sound => //.
+- apply: flevmvu_sound => // pg gr bt h1 h2 h3.
+  - exact: (Qlo hr hk h0L hg h0G hsrc h1 h2 h3).
+  exact: (Qhi hr hk h0L hg h0G hsrc h1 h2 h3).
+- move=> pg gr bt h1 h2 h3; exact: (Qlo hr hk h1L hg h1G hsrc h1 h2 h3).
+move=> pg gr bt h1 h2 h3; exact: (Qhi hr hk h1L hg h1G hsrc h1 h2 h3).
 Qed.
 
 (* ---- one kept page: the carry, then the ten moves ------------------------ *)
@@ -254,7 +357,7 @@ move=> hlen hsrc hd; rewrite /flevel.
 (* THE LENGTH DOES NOT MOVE, so the chunk of every kept page stays in range  *)
 (* however many pages have been filled.  It is carried along beside          *)
 (* soundness, and dropped at the end.                                        *)
-set f := (fun r d => flevpg _ _ _ _ _ _ _ _ src r d).
+set f := (fun r d => flevpg _ _ _ _ _ _ _ _ _ _ src r d).
 have [h _] : sdf Q (ifold nrepn 0 f dst) /\
              PArray.length (ifold nrepn 0 f dst) = PArray.length dst; last first.
   exact: h.
@@ -274,10 +377,10 @@ End FoldLvl.
 
 Section FoldRun.
 
-Variable fpg fsrc fsgr fslo fshi fsbt : arr.
+Variable fpg fsrc fsrc2 fful fsgr fslo fshi fsbt : arr.
 Variable mgr msw mlo mhi : arr.
 
-Notation lvl := (flevel fsrc fsgr fslo fshi mgr msw mlo mhi).
+Notation lvl := (flevel fsrc fsrc2 fful fsgr fslo fshi mgr msw mlo mhi).
 Notation sdf := (soundatf fpg fsgr fsbt).
 
 (* what the map claims of a member at each depth: for the row, that it is    *)
@@ -287,9 +390,9 @@ Variable Pd : nat -> int -> int -> int -> Prop.
 Hypothesis PdW : forall d pg gr bt, Pd d pg gr bt -> Pd d.+1 pg gr bt.
 
 Hypothesis Qlod : forall d,
-  Qlo_st fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi (Pd d) (Pd d.+1).
+  Qlo_st fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi (Pd d) (Pd d.+1).
 Hypothesis Qhid : forall d,
-  Qhi_st fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi (Pd d) (Pd d.+1).
+  Qhi_st fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi (Pd d) (Pd d.+1).
 
 (* THE SEARCH IS NOT REDONE HERE.  A level is the gather and then, at the     *)
 (* depths it is asked for, a search that marks what it reaches -- the mark is *)
@@ -316,7 +419,7 @@ Lemma flvlx_sound d m dst :
 Proof.
 move=> hlen hm hd; rewrite /flvlx.
 apply: extP.
-exact: (@flevel_sound fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi
+exact: (@flevel_sound fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi
           (Pd d) (Pd d.+1) (@Qlod d) (@Qhid d)
           (fun pg gr bt (h : Pd d pg gr bt) => @PdW d pg gr bt h)
           m dst hlen hm hd).

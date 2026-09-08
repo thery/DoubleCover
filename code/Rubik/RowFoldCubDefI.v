@@ -39,7 +39,7 @@ Local Open Scope uint63_scope.
 (* THE DEPTH IS AN ARGUMENT and the map is not named, for the reason          *)
 (* RowFoldCubDef gives: a nullary Definition is a value native_compute keeps. *)
 Definition rowmapi (n : nat) : rmap :=
-  frunski e8numi e4biti fpgi fsrci fsgri fsloi fshii fsbti
+  frunski e8numi e4biti fpgi fsrci fsrc2i ffuli fsgri fsloi fshii fsbti
           mgri mswi mloi mhii
           p1ftab frepi fsymi twsymi
           dnlo_data dnhi_data fllo_data flhi_data
@@ -52,4 +52,4 @@ Definition ycwitsoi : rmap :=
            let: (pg, gr, bt, _) := t in fmark fpgi fsgri fsbti m pg gr bt)
         (rowmapi 20) rowwits.
 
-Definition rowfulli : bool := mfullf ycwitsoi.
+Definition rowfulli : bool := mfullf ffuli ycwitsoi.
