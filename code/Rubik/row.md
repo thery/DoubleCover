@@ -620,6 +620,19 @@ fixes, whose high half is empty.  **`fcount` itself is untouched**: the run
 uses it for Rokicki's early stop, so moving it moves the run.  Only
 `RowFoldCubPaceI` is pointed at the new one.
 
+**AND `forb` IS MEASURED, not assumed** (read off `RowTabF48.v`):
+
+    1496 cells                   224 tau fixes, 1272 have two halves
+    sum of forb over all cells   40320   -- every page, so forb is the
+                                            cell's ORBIT IN PAGES
+    fixed cells                  2740 pages
+    two-half cells              37580 pages, and EVERY ONE of the 1272
+                                            has an EVEN forb
+
+So `forb / 2` is the weight of one half of a two-half cell and `forb` is
+the weight of a fixed cell's only half, which is what `fcount48` uses.
+1496 + 1272 = 2768 is where the kept pages went.
+
 STILL TO BE RUN: `fpacei` again.  It must print 14 731 320.
 
 **The lesson is mine.**  I read the count, saw it differ, and told thery to
