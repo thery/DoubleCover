@@ -101,10 +101,11 @@ Lemma forb_same p q c pg gr bt :
   Uint63.add (poff (fkpt (PArray.get fpg p))) (sgrmv fsgr (fr p) (fp p c) q)
   = Uint63.add (poff (fkpt (PArray.get fpg pg)))
                (sgrmv fsgr (fr pg) (fp pg bt) gr) ->
-  ~~ (Uint63.land (bitof (sbtmv fsbt (fr p) c))
-                  (bitof (sbtmv fsbt (fr pg) bt)) =? 0) ->
+  ~~ (Uint63.land (bitof (fbit (fhlf (PArray.get fpg p)) (sbtmv fsbt (fr p) c)))
+                  (bitof (fbit (fhlf (PArray.get fpg pg)) (sbtmv fsbt (fr pg) bt))) =? 0) ->
   [/\ fkpt (PArray.get fpg p) = fkpt (PArray.get fpg pg),
-      sgrmv fsgr (fr p) (fp p c) q = sgrmv fsgr (fr pg) (fp pg bt) gr &
+      sgrmv fsgr (fr p) (fp p c) q = sgrmv fsgr (fr pg) (fp pg bt) gr,
+      fhlf (PArray.get fpg p) = fhlf (PArray.get fpg pg) &
       sbtmv fsbt (fr p) c = sbtmv fsbt (fr pg) bt].
 Proof.
 move=> hc hg hb.
@@ -113,7 +114,15 @@ have h1 : (sgrmv fsgr (fr p) (fp p c) q <? ngroupi)%uint63.
 have h2 : (sgrmv fsgr (fr pg) (fp pg bt) gr <? ngroupi)%uint63.
   by apply/nltbP; apply: sgrmvR.
 have [he1 he2] := fslot_inj h1 h2 hc hg.
-by split=> //; apply: bitof_inj24 hb.
+(* TWO PLACES THAT MEET AGREE ON THE HALF AND ON THE BIT, which is fbit_inj:  *)
+(* the halves are the numbers below twenty four and those above, and nothing  *)
+(* is in both.                                                               *)
+have [hh hbt] :
+    fhlf (PArray.get fpg p) = fhlf (PArray.get fpg pg) /\
+    sbtmv fsbt (fr p) c = sbtmv fsbt (fr pg) bt.
+  apply: (fbit_inj (fhlf_lt2 _) (fhlf_lt2 _) (sbtmvR _ _) (sbtmvR _ _)).
+  by apply: bitof_inj hb; apply: fbit_lt; try exact: fhlf_lt2; exact: sbtmvR.
+by split.
 Qed.
 
 End Same.
@@ -144,7 +153,12 @@ Qed.
 
 Section Porb.
 
-Variable fpg fsgr fsbt fkeep : arr.
+Variable fpg fsgr fsbt : arr.
+
+(* WHERE A CELL'S TWO PAGES ARE.  A cell names its half nought page and its   *)
+(* half one page; which of the two a member folds to is the half its page     *)
+(* names.  The instance is RowFoldSym.fkeep2; here it is only a function.     *)
+Variable kof : int -> int -> int.
 
 Notation fr pg := (fren (PArray.get fpg pg)).
 Notation fp pg bt :=
@@ -158,7 +172,7 @@ Hypothesis sbtmvR : forall pg bt, (sbtmv fsbt (fr pg) bt <? nbiti).
 Variable mpos : int -> int -> int -> {perm facelet}.
 
 Notation fmem pg gr bt :=
-  (mpos (PArray.get fkeep (fkpt (PArray.get fpg pg)))
+  (mpos (kof (fkpt (PArray.get fpg pg)) (fhlf (PArray.get fpg pg)))
         (sgrmv fsgr (fr pg) (fp pg bt) gr)
         (sbtmv fsbt (fr pg) bt)).
 
@@ -180,13 +194,13 @@ Lemma fold_Porb d p q c pg gr bt :
   Uint63.add (poff (fkpt (PArray.get fpg p))) (sgrmv fsgr (fr p) (fp p c) q)
   = Uint63.add (poff (fkpt (PArray.get fpg pg)))
                (sgrmv fsgr (fr pg) (fp pg bt) gr) ->
-  ~~ (Uint63.land (bitof (sbtmv fsbt (fr p) c))
-                  (bitof (sbtmv fsbt (fr pg) bt)) =? 0) ->
+  ~~ (Uint63.land (bitof (fbit (fhlf (PArray.get fpg p)) (sbtmv fsbt (fr p) c)))
+                  (bitof (fbit (fhlf (PArray.get fpg pg)) (sbtmv fsbt (fr pg) bt))) =? 0) ->
   mpos p q c \in ball Sset d -> mpos pg gr bt \in ball Sset d.
 Proof.
 move=> hrp hrg hc hg hb hP.
-have [h1 h2 h3] := forb_same sgrmvR sbtmvR hc hg hb.
-have hsame : fmem p q c = fmem pg gr bt by rewrite h1 h2 h3.
+have [h1 h2 hh h3] := forb_same sgrmvR sbtmvR hc hg hb.
+have hsame : fmem p q c = fmem pg gr bt by rewrite h1 hh h2 h3.
 have [i hi hie] := fold_conj hrp.
 have [j hj hje] := fold_conj hrg.
 have he : (mpos pg gr bt ^ pt 47 (nth [::] sym16ts j))%g

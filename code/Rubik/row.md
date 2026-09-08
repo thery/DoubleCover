@@ -484,6 +484,21 @@ heap was 12.35 GB against a live set of about 10.3 GB, which is where the
 `o=20` figure of 1.2x the live data was measured on the real program rather
 than on the toy.
 
+### AND IN THE FOLD THE GUARD EARNS NOTHING, 8 September -- `booli`, exit 0
+
+| folded boolean run, twenty levels | wall | user | sys |
+|---|---|---|---|
+| unguarded, 3 September | 21 637 s (6 h 00) | 21 520 s | -- |
+| guarded, 8 September | **22 376 s (6 h 13)** | 22 316 s | 61 s |
+
+**3.4 % SLOWER, not faster.**  The guard buys back what the rerooting records
+cost, and in the folded map they cost nothing: the map is 454 MB, it sits in
+memory, and the extra read is paid at every write with nothing returned.  In
+the unfolded map, 6.5 GB, the same guard was worth 1.11x.
+
+So the guard is an UNFOLDED-MAP optimisation.  It stays in the fold because it
+is proved and harmless, but it must not be quoted as a gain there.
+
 ### AND THE SAME GUARD IN THE FOLD, 8 September
 
 `RowFold.ffor` had the identical fault: `fset m r g (lor (fget m r g) v)`,
@@ -545,8 +560,37 @@ parity.  In the plain map `(0 1)` is odd and the parity is what tells the two
 halves apart -- `24 * (e8num[cp] mod 2) + e4bit[mp]`.  With tau something else
 has to say which half is which; the smaller of the two ranks would do.
 
-**What is left:** `pdonei` at forty eight bits, and the folded boolean re-run
-over the guard.  Neither can
+### AND THE FOLD AT FORTY EIGHT BITS, in flight -- 8 September
+
+The cell is built and the chain is being moved onto it.  **1496 cells**
+(2768 kept pages: tau fixes 224 of them and pairs the other 2544), `nchunkf`
+24 against 44.
+
+**THE LAYOUT.**  A cell word is two halves of twenty four bits.  `fpg` gained
+`fhlf`, which half of its cell a kept page is, and `fkpt` is now the CELL.
+`fsrc2` carries the second half of a gather -- the renaming and the source
+half for the destination's half one -- because ONE source cell serves both
+halves and the second half's renaming is not the first's.  `fful` says a cell
+is full at 24 bits, and that is exactly the test that says it has no half one:
+**a cell tau fixes has one page, and nothing may ever be written to its other
+half.**
+
+**THE FOUR NEW LEMMAS the halves cost.**  In `RowFold.v`:
+`fbit h b` (a bit of a cell: `b`, or `24 + b` in the high half), `fbit_inj`,
+`bit_fhalf` (reading a half is reading the cell at that half), and
+**`fbit_half`** -- a word ored into one half is read only in that half, which
+is what makes a write to half nought invisible to half one.  In
+`RowFoldGath.v`: `cX24C` (checked: what the level ors in is twenty four bits
+wide) and `cloX_fofs`/`chiX_fofs`, which split the level's one shift into the
+twelve inside a half and the half itself.
+
+**NWB IS NEVER LEFT TO THE UNIFIER.**  `to_nat_nbiti_add` reaches its bound
+through `ltn_nwB 6`.  An `apply: bit48_bound` in its place made the kernel
+evaluate two to the sixty third in unary: no error, ten minutes and counting.
+Same tell as the RowMemb one above.
+
+**What is left:** `pdonei` at forty eight bits, the folded boolean re-run
+over the guard, and the folded 48 bit run.  None can
 be built on the desktop -- `P1Fdec.v` is generated and absent, and `FsmChk`
 is itself a computation.  Run them with `./mkrowfold.sh pbooli` then
 `pdonei`.

@@ -88,7 +88,7 @@ Definition srchd : nat := 16.
 (* minutes before twenty is paid for.  It is a function and not a value, so   *)
 (* nothing holds a map after it is read.                                      *)
 Definition rowmap (n : nat) : rmap :=
-  frunsk e8numi e4biti fpgi fsrci fsgri fsloi fshii fsbti
+  frunsk e8numi e4biti fpgi fsrci fsrc2i ffuli fsgri fsloi fshii fsbti
          mgri mswi mloi mhii
          p1ftab frepi fsymi twsymi
          dnlo_data dnhi_data fllo_data flhi_data
@@ -107,4 +107,4 @@ Definition ycwitso : rmap :=
 (* keeps the two files apart: RowFoldCubBool says this is true and needs no   *)
 (* proof to say it, and the correctness theorem reads `rowfull = true ->' and *)
 (* never has to look inside the map.                                          *)
-Definition rowfull : bool := mfullf ycwitso.
+Definition rowfull : bool := mfullf ffuli ycwitso.

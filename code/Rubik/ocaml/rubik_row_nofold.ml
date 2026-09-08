@@ -2870,6 +2870,128 @@ let () =
     (* the bits of a half counted, so that the members can be counted: a bit
        of a kept page stands for as many members as its orbit has pages *)
     emit "fpop_data" 4096 (fun i -> popc.(i))
+    end else if which = "fold48" then begin
+    (* THE FOLD ON CORNER PAIRS.  tau = (0 2)(1 3)(4 6)(5 7) commutes with
+       every renaming and, being a relabelling, with every move, so it sends
+       an orbit to an orbit and pairs the kept pages.  A cell of the map is
+       one such pair -- forty eight bits, the low twenty four for the half
+       nought page and the high for the half one.
+
+       IT DOES NOT PAIR ALL OF THEM.  224 orbits tau sends to themselves:
+       the fold has already identified those pages with their partners, so
+       the cell holds one page and its high half is never reached.  `fful'
+       is the mask that says so, and it is the only thing that is not
+       uniform.
+
+       Nothing here is argued.  Every step that could fail says so. *)
+    let tau = [| 2; 3; 0; 1; 6; 7; 4; 5 |] in
+    let pair p =
+      let a = unrank p 8 in
+      let b = Array.make 8 0 in
+      for j = 0 to 7 do b.(j) <- tau.(a.(j)) done; rank b 0 8 in
+    let die m = prerr_endline ("fold48: " ^ m); exit 1 in
+    (* THE TWO HALVES OF A CELL MUST BE A TAU PAIR OF PAGES, so the second
+       representative is not chosen -- it is tau of the first.  Choosing both
+       as the smallest of their own orbits, which is what the twenty four bit
+       fold does, leaves the two halves wanting two different renamings.
+       The walk is therefore seeded per CELL and not per orbit. *)
+    let cell = Array.make npage (-1) in
+    let half = Array.make npage 0 in
+    let sym2 = Array.make npage 0 in
+    let crep = Array.make npage (-1) in
+    let corb = Array.make npage 0 in
+    let ncell = ref 0 in
+    for p = 0 to npage - 1 do
+      if cell.(p) < 0 then begin
+        let c = !ncell in
+        let n = ref 0 in
+        for s = 0 to nsym - 1 do
+          let q = spg.(s).(p) in
+          if cell.(q) < 0 then begin
+            cell.(q) <- c; half.(q) <- 0; sym2.(q) <- sinv.(s); incr n end
+        done;
+        (* HALF ONE IS HALF ZERO THROUGH TAU, page by page, AND IT COPIES THE
+           RENAMING.  Walking the second orbit on its own picks whichever
+           renaming reaches a page first, and when an orbit is smaller than
+           sixteen there are several -- so the two halves end up wanting two
+           different renamings for one word.  Copying is what makes them one. *)
+        for q = 0 to npage - 1 do
+          if cell.(q) = c && half.(q) = 0 then begin
+            let q' = pair q in
+            if cell.(q') < 0 then begin
+              cell.(q') <- c; half.(q') <- 1; sym2.(q') <- sym2.(q); incr n end
+          end
+        done;
+        crep.(c) <- p; corb.(c) <- !n; incr ncell
+      end
+    done;
+    Printf.eprintf "fold48: %d pages -> %d cells\n%!" npage !ncell;
+    (* every page is placed, and read back through its renaming it is itself *)
+    for p = 0 to npage - 1 do
+      if cell.(p) < 0 then die "a page in no cell";
+      let r = if half.(p) = 0 then crep.(cell.(p)) else pair crep.(cell.(p)) in
+      if spg.(sinv.(sym2.(p))).(r) <> p then die "a renaming does not fold back"
+    done;
+    (* tau is even, so the two halves of a cell have one parity between them *)
+    for p = 0 to npage - 1 do
+      if pgpar.(p) <> pgpar.(pair p) then die "tau changes a parity" done;
+    (* a page: its cell, which half of it, the renaming, and its parity *)
+    let pgw p = ((cell.(p) * 2 + half.(p)) * nsym + sym2.(p)) * 2 + pgpar.(p) in
+    (* a cell and a move: the cell gathered from, whether the halves change
+       places, the renaming, and the parity.  BOTH HALVES MUST AGREE on the
+       cell, the renaming and the parity, or one word cannot move whole. *)
+    (* A CELL AND A MOVE.  The destination cell's half nought is gathered
+       from the source cell's half h0 through the renaming u0, and its half
+       one from half h1 through u1.  The source CELL is the same for both --
+       measured, no exception -- so one read of the source word serves both
+       halves; but the two renamings need not be the same, and in 836 of the
+       14960 pairs they are not, because the source cell is one tau fixed
+       and its two pages both sit in half nought.
+
+       fsrc carries the cell, h0, u0 and the parity; fsrc2 carries h1 and u1.
+       A cell with one half has no half one and NOTHING MAY BE WRITTEN THERE:
+       ffull is an equality, so a stray high bit would keep the map from ever
+       being full.  The level reads ffull to know. *)
+    let twoh = Array.make !ncell false in
+    for p = 0 to npage - 1 do
+      if half.(p) = 1 then twoh.(cell.(p)) <- true done;
+    (* THE RENAMING STORED IS THE INVERSE, as it is in the twenty four bit
+       fsrc: fpg names the renaming that folds a page TO its kept page, and
+       fsrc the one that reads the kept page BACK. *)
+    let one r k =
+      let q = mpginv.(r).(k) in
+      (cell.(q), half.(q), sinv.(sym2.(q)), pgpar.(crep.(cell.(q)))) in
+    let srcw c k =
+      let (c0, h0, u0, y0) = one crep.(c) k in
+      if twoh.(c) then begin
+        let (c1, _, _, y1) = one (pair crep.(c)) k in
+        if c1 <> c0 then die "the two halves gather from two different cells";
+        if y1 <> y0 then die "the two halves want two parities"
+      end;
+      ((c0 * 2 + h0) * nsym + u0) * 2 + y0 in
+    let srcw2 c k =
+      if twoh.(c) then
+        let (_, h1, u1, _) = one (pair crep.(c)) k in u1 * 2 + h1
+      else 0 in
+    (* and the mask: forty eight bits, or twenty four where tau fixed the
+       orbit and the high half is never reached *)
+    let full c = if twoh.(c) then (1 lsl 48) - 1 else (1 lsl 24) - 1 in
+    emit "fnrep_data" 1 (fun _ -> !ncell);
+    emit "ffull_data" !ncell full;
+    emit "fkeep_data" !ncell (fun c -> crep.(c));
+    emit "forb_data" !ncell (fun c -> corb.(c));
+    emit "fpg_data" npage pgw;
+    emit "fsrc_data" (!ncell * nh)
+      (fun i -> srcw (i / nh) (i mod nh));
+    emit "fsrc2_data" (!ncell * nh)
+      (fun i -> srcw2 (i / nh) (i mod nh));
+    emit "fsgr_data" (nsym * 2 * ngroup)
+      (fun i -> sgr.(i / (2 * ngroup)).(i / ngroup mod 2).(i mod ngroup));
+    emit "fslo_data" (nsym * 4096) (fun i -> slo.(i / 4096).(i mod 4096));
+    emit "fshi_data" (nsym * 4096) (fun i -> shi.(i / 4096).(i mod 4096));
+    emit "fsbt_data" (nsym * fact4)
+      (fun i -> sbt.(i / fact4).(i mod fact4));
+    emit "fpop_data" 4096 (fun i -> popc.(i))
     end else if which = "prep48" then begin
     (* THE CORNERS PAIRED: the class table and the parity each move flips,
        which is what a map of forty-eight bit cells reads instead of mpg.  A
@@ -2989,6 +3111,20 @@ let () =
       if !d > 0 then incr bads
     done;
     Printf.printf "renamings that break the tau pair: %d of %d\n" !bads nsym;
+    (* AND WHAT TAU DOES TO THE KEPT PAGES.  Tau commutes with the renamings,
+       so it sends an orbit to an orbit and induces an involution on the 2768
+       kept pages.  If it acts freely they pair up and the folded map halves;
+       an orbit tau sends to itself is one the fold has already identified,
+       and pairing it would gain nothing. *)
+    let fixed = ref 0 and moved = ref 0 in
+    for i = 0 to nrep - 1 do
+      let r = reps.(i) in
+      let r' = repof.(pair r) in
+      if r' = r then incr fixed else incr moved
+    done;
+    Printf.printf
+      "kept pages: %d, of which tau fixes %d and pairs %d (-> %d kept pairs)\n"
+      nrep !fixed !moved (!fixed + !moved / 2);
     exit 0
   end;
   if Array.length Sys.argv > 1 && Sys.argv.(1) = "pairfold" then begin

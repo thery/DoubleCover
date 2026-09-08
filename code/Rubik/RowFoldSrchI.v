@@ -34,7 +34,7 @@ Section FSrchI.
 (* ---- RowFoldSrch's own section, declared again --------------------------- *)
 
 Variable e8num e4bit : arr.
-Variable fpg fsrc fsgr fslo fshi fsbt : arr.
+Variable fpg fsrc fsrc2 fful fsgr fslo fshi fsbt : arr.
 Variable mgr msw mlo mhi : arr.
 Variable F : PArray.array arr.
 Variables frep fsym : int -> int.
@@ -42,7 +42,7 @@ Variable twsym : int -> int -> int.
 Variables dnlo dnhi fllo flhi : arr.
 
 Local Notation plc := (place24 e8num e4bit).
-Local Notation flev := (flevel fsrc fsgr fslo fshi mgr msw mlo mhi).
+Local Notation flev := (flevel fsrc fsrc2 fful fsgr fslo fshi mgr msw mlo mhi).
 Local Notation fmk := (fmark fpg fsgr fsbt).
 Local Notation fmkn := (fmarkn fpg fsgr fsbt).
 Local Notation p1g := (fp1g F frep fsym twsym).

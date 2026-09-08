@@ -155,44 +155,55 @@ Qed.
 (* the renaming it names leaves groups and bits alone.  Twenty three seconds  *)
 (* to check, and it is what lets the level's source word be read as members   *)
 (* the source map already claims.                                             *)
+(* BOTH PAGES OF A CELL, and each in its own half: a cell's word holds two    *)
+(* kept pages now, and either of them read back must give the cell it came    *)
+(* from, the half it sits in, and no renaming at all.                         *)
 Definition keepidC : bool :=
   iter nrepn 0%uint63 (fun r =>
-    let pg := PArray.get fkeepi r in
+   iter 2 0%uint63 (fun h =>
+    if (Uint63.eqb h 1) && Uint63.eqb (PArray.get ffuli r) allbits24 then true
+    else
+    let pg := fkeep2 r h in
     let w := PArray.get fpgi pg in
-    (fkpt w =? r)%uint63 &&
+    (fkpt w =? r)%uint63 && (fhlf w =? h)%uint63 &&
     (iter ngroupn 0%uint63 (fun g =>
        iter nptyn 0%uint63 (fun pty =>
          (sgrmv fsgri (fren w) pty g =? g)%uint63)) &&
-     iter nbitn 0%uint63 (fun bt => (sbtmv fsbti (fren w) bt =? bt)%uint63))).
+     iter nbitn 0%uint63 (fun bt => (sbtmv fsbti (fren w) bt =? bt)%uint63)))).
 Lemma keepidCP : keepidC. Proof. by vm_compute. Qed.
 
 (* read through an equation, never straight -- see caddCE *)
 Lemma keepidCE : keepidC =
   iter nrepn 0%uint63 (fun r =>
-    let pg := PArray.get fkeepi r in
+   iter 2 0%uint63 (fun h =>
+    if (Uint63.eqb h 1) && Uint63.eqb (PArray.get ffuli r) allbits24 then true
+    else
+    let pg := fkeep2 r h in
     let w := PArray.get fpgi pg in
-    (fkpt w =? r)%uint63 &&
+    (fkpt w =? r)%uint63 && (fhlf w =? h)%uint63 &&
     (iter ngroupn 0%uint63 (fun g =>
        iter nptyn 0%uint63 (fun pty =>
          (sgrmv fsgri (fren w) pty g =? g)%uint63)) &&
-     iter nbitn 0%uint63 (fun bt => (sbtmv fsbti (fren w) bt =? bt)%uint63))).
+     iter nbitn 0%uint63 (fun bt => (sbtmv fsbti (fren w) bt =? bt)%uint63)))).
 Proof. by []. Qed.
 
-Lemma keepid r : (to_nat r < nrepn)%N ->
-  let w := PArray.get fpgi (PArray.get fkeepi r) in
-  [/\ fkpt w = r,
+Lemma keepid r h : (to_nat r < nrepn)%N -> (to_nat h < 2)%N ->
+  ~~ ((Uint63.eqb h 1) && Uint63.eqb (PArray.get ffuli r) allbits24) ->
+  let w := PArray.get fpgi (fkeep2 r h) in
+  [/\ fkpt w = r, fhlf w = h,
       forall g pty, (to_nat g < ngroupn)%N -> (to_nat pty < nptyn)%N ->
         sgrmv fsgri (fren w) pty g = g
     & forall bt, (to_nat bt < nbitn)%N -> sbtmv fsbti (fren w) bt = bt].
 Proof.
-move=> hr; have h1 := keepidCP; rewrite keepidCE in h1.
-have h2 := Row.iter_at h1 hr; cbv zeta in h2.
-have /andP[/eqP e1 /andP[e2 e3]] := h2.
+move=> hr hh htwo; have h1 := keepidCP; rewrite keepidCE in h1.
+have h2 := Row.iter_at (Row.iter_at h1 hr) hh; cbv zeta in h2.
+move: h2; rewrite (negbTE htwo) => h2.
+have /andP[/andP[/eqP e1 /eqP e0] /andP[e2 e3]] := h2.
 (* NO `//' HERE.  A goal handed to `done' is unfolded and evaluated, and     *)
 (* the first of these three is an equation between reads of the page table:  *)
 (* left to `done' the Qed did not finish in fifteen minutes.  Named, it is   *)
 (* instant.                                                                  *)
-split; first exact: e1.
+split; [exact: e1 | exact: e0 | | ].
   move=> g pty hg hp.
   by apply/eqP; exact: (Row.iter_at (Row.iter_at e2 hg) hp).
 move=> bt hb.
@@ -202,18 +213,21 @@ Qed.
 (* SO THE FOLDED MAP READ AT A KEPT SLOT IS THE SLOT ITSELF.  A bit of the   *)
 (* source word the level reads is a member the source map claims, with no    *)
 (* renaming to undo.                                                         *)
-Lemma keep_ftest src r g bt : (to_nat r < nrepn)%N -> (to_nat g < ngroupn)%N ->
-  (to_nat bt < nbitn)%N ->
-  ftest fpgi fsgri fsbti src (PArray.get fkeepi r) g bt
-  = ~~ (Uint63.land (fget src r g) (bitof bt) =? 0)%uint63.
+(* A WORD OF THE MAP IS TWO PAGES NOW, so which page a bit of it is depends   *)
+(* on the half, and the place inside the word is fbit of the two.             *)
+Lemma keep_ftest src r h g bt : (to_nat r < nrepn)%N -> (to_nat h < 2)%N ->
+  ~~ ((Uint63.eqb h 1) && Uint63.eqb (PArray.get ffuli r) allbits24) ->
+  (to_nat g < ngroupn)%N -> (to_nat bt < nbitn)%N ->
+  ftest fpgi fsgri fsbti src (fkeep2 r h) g bt
+  = ~~ (Uint63.land (fget src r g) (bitof (fbit h bt)) =? 0)%uint63.
 Proof.
-move=> hr hg hb.
-have hpg : (to_nat (PArray.get fkeepi r) < npagen)%N.
-  by apply/nltbP; apply: (Row.iter_at keepRCP hr).
-have hp : (to_nat (Ptyof (PArray.get fkeepi r) bt) < nptyn)%N.
+move=> hr hh htwo hg hb.
+have hpg : (to_nat (fkeep2 r h) < npagen)%N.
+  by apply/nltbP; apply: (Row.iter_at (Row.iter_at keepRCP hr) hh).
+have hp : (to_nat (Ptyof (fkeep2 r h) bt) < nptyn)%N.
   by apply/nltbP; apply: (Row.iter_at (Row.iter_at ptyRCP hpg) hb).
-have := keepid hr; cbv zeta => -[e1 e2 e3].
-by rewrite /ftest e1 (e2 _ _ hg hp) (e3 _ hb).
+have := keepid hr hh htwo; cbv zeta => -[e1 e0 e2 e3].
+by rewrite /ftest e1 e0 (e2 _ _ hg hp) (e3 _ hb).
 Qed.
 
 (* =========================================================================  *)
@@ -307,6 +321,94 @@ Lemma caddXCE : caddXC =
   iter nsymn 0%uint63 (fun u => iter nhn 0%uint63 (fun k =>
     iter nhalfn 0%uint63 (caddXok u k))).
 Proof. by []. Qed.
+
+(* ---- what the level ors in is twenty four bits wide ---------------------- *)
+
+(* A CELL IS TWO HALVES AND THE WRITE GOES INTO ONE OF THEM.  The word the    *)
+(* level shifts into a half must therefore fit in a half; checked, not        *)
+(* argued, because clo and chi are table reads.                               *)
+Definition cX24ok (u k x : int) : bool :=
+  (cloX u k x <? Uint63.lsl one nbiti)%uint63 &&
+  (chiX u k x <? Uint63.lsl one nbiti)%uint63.
+
+Definition cX24C : bool :=
+  iter nsymn 0%uint63 (fun u => iter nhn 0%uint63 (fun k =>
+    iter nhalfn 0%uint63 (cX24ok u k))).
+Lemma cX24CP : cX24C. Proof. by vm_compute. Qed.
+
+Lemma cX24CE : cX24C =
+  iter nsymn 0%uint63 (fun u => iter nhn 0%uint63 (fun k =>
+    iter nhalfn 0%uint63 (cX24ok u k))).
+Proof. by []. Qed.
+
+Lemma cloX_lt24 u k x : (to_nat u < nsymn)%N -> (to_nat k < nhn)%N ->
+  (to_nat x < nhalfn)%N -> (cloX u k x <? Uint63.lsl one nbiti)%uint63.
+Proof.
+move=> hu hk hx.
+have h1 := cX24CP; rewrite cX24CE in h1.
+by have /andP[e _] := Row.iter_at (Row.iter_at (Row.iter_at h1 hu) hk) hx.
+Qed.
+
+Lemma chiX_lt24 u k x : (to_nat u < nsymn)%N -> (to_nat k < nhn)%N ->
+  (to_nat x < nhalfn)%N -> (chiX u k x <? Uint63.lsl one nbiti)%uint63.
+Proof.
+move=> hu hk hx.
+have h1 := cX24CP; rewrite cX24CE in h1.
+by have /andP[_ e] := Row.iter_at (Row.iter_at (Row.iter_at h1 hu) hk) hx.
+Qed.
+
+(* ---- and the level's own shift is that word put in the right half -------- *)
+
+(* The level shifts by fofs: twelve places or none inside a half, and twenty  *)
+(* four more when the destination is the high half.  Split in two that is     *)
+(* cloX, which is the twelve, and then the half.                              *)
+Lemma lsl_fofs w h o : (to_nat h < 2)%N -> (to_nat o < to_nat nbiti)%N ->
+  Uint63.lsl w (fofs h o)
+  = (if Uint63.eqb h 0 then Uint63.lsl w o
+     else Uint63.lsl (Uint63.lsl w o) nbiti).
+Proof.
+move=> hh ho; rewrite /fofs; case: (int_lt2 hh) => -> //=.
+apply: lsl_add_distl.
+apply: (@ltn_nwB 6); first by vm_compute.
+have -> : (2 ^ 6 = 24 + 40)%N by [].
+by rewrite nbitiE ltn_add2l; apply: leq_trans ho _; rewrite nbitiE.
+Qed.
+
+(* one shift, split in two: the twelve inside a half, which is cloX, and then *)
+(* the half itself                                                            *)
+Lemma cloX_fofs u k x h : (to_nat h < 2)%N ->
+  Uint63.lsl (clo u k x)
+    (fofs h (if Uint63.eqb (PArray.get mswi k) 0 then 0 else 12))
+  = (if Uint63.eqb h 0 then cloX u k x
+     else Uint63.lsl (cloX u k x) nbiti).
+Proof.
+move=> hh.
+have hl0 : forall y, Uint63.lsl y 0 = y.
+  by move=> y; apply: to_nat_inj;
+     rewrite to_nat_lslW to_nat_0 expn0 muln1 modn_small ?to_nat_bounded.
+have hoff : (to_nat (if Uint63.eqb (PArray.get mswi k) 0 then 0 else 12)%uint63
+               < to_nat nbiti)%N.
+  by case: (Uint63.eqb (PArray.get mswi k) 0); vm_compute.
+rewrite (lsl_fofs _ hh hoff) /cloX /nloi.
+by case: (Uint63.eqb (PArray.get mswi k) 0); rewrite ?hl0.
+Qed.
+
+Lemma chiX_fofs u k x h : (to_nat h < 2)%N ->
+  Uint63.lsl (chi u k x)
+    (fofs h (if Uint63.eqb (PArray.get mswi k) 0 then 12 else 0))
+  = (if Uint63.eqb h 0 then chiX u k x
+     else Uint63.lsl (chiX u k x) nbiti).
+Proof.
+move=> hh.
+have hl0 : forall y, Uint63.lsl y 0 = y.
+  by move=> y; apply: to_nat_inj;
+     rewrite to_nat_lslW to_nat_0 expn0 muln1 modn_small ?to_nat_bounded.
+have hoff : (to_nat (if Uint63.eqb (PArray.get mswi k) 0 then 12 else 0)%uint63
+               < to_nat nbiti)%N.
+  by case: (Uint63.eqb (PArray.get mswi k) 0); vm_compute.
+rewrite (lsl_fofs _ hh hoff) /chiX /nloi.
+by case: (Uint63.eqb (PArray.get mswi k) 0); rewrite ?hl0.
+Qed.
 
 (* ---- and the bit it lands on is one of the twenty four ------------------- *)
 

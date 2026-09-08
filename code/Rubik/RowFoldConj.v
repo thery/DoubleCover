@@ -40,7 +40,7 @@ Definition pgconjC : bool :=
   iter npagen 0%uint63 (fun pg =>
      let w := PArray.get fpgi pg in
      let lp := psym w in
-     let k := PArray.get fkeepi (fkpt w) in
+     let k := fkeep2 (fkpt w) (fhlf w) in
      all (fun p => nth 0%N lp (up8 pg p) == up8 k (nth 0%N lp p)) (iota 0 8)).
 
 Lemma pgconjCP : pgconjC. Proof. by vm_compute. Qed.
@@ -80,7 +80,7 @@ Lemma cpart_conj pg : (to_nat pg < npagen)%N -> up8ok1 pg ->
            (restr inC (sy (nth 0%N fren2sym (to_nat (fren (PArray.get fpgi pg))))))
   = comp_tab (restr inC (sy (nth 0%N fren2sym (to_nat (fren (PArray.get fpgi pg))))))
              (part cflatp 3 inC cposn cslotn
-                (up8 (PArray.get fkeepi (fkpt (PArray.get fpgi pg))))).
+                (up8 (fkeep2 (fkpt (PArray.get fpgi pg)) (fhlf (PArray.get fpgi pg))))).
 Proof.
 move=> hpg hok.
 set s := nth 0%N fren2sym _.
@@ -354,7 +354,7 @@ Lemma parbtCP : parbtC. Proof. by vm_compute. Qed.
 (* a renaming keeps the parity of a page ... *)
 Definition parKC : bool :=
   iter npagen 0%uint63 (fun pg =>
-    (PArray.get par8i (PArray.get fkeepi (fkpt (PArray.get fpgi pg)))
+    (PArray.get par8i (fkeep2 (fkpt (PArray.get fpgi pg)) (fhlf (PArray.get fpgi pg)))
       =? PArray.get par8i pg)%uint63).
 Lemma parKCP : parKC. Proof. by vm_compute. Qed.
 
@@ -376,8 +376,12 @@ Definition fkptRC : bool :=
   iter npagen 0%uint63 (fun pg => (fkpt (PArray.get fpgi pg) <? nrepi)%uint63).
 Lemma fkptRCP : fkptRC. Proof. by vm_compute. Qed.
 
+(* BOTH PAGES OF A CELL ARE PAGES, not just the one the cell names: the half  *)
+(* one page is tau of it, and a member folds to whichever half its own page   *)
+(* sits in.                                                                   *)
 Definition keepRC : bool :=
-  iter nrepn 0%uint63 (fun r => (PArray.get fkeepi r <? npagei)%uint63).
+  iter nrepn 0%uint63 (fun r =>
+    iter 2 0%uint63 (fun h => (fkeep2 r h <? npagei)%uint63)).
 Lemma keepRCP : keepRC. Proof. by vm_compute. Qed.
 
 Definition sgrRC : bool :=
@@ -403,7 +407,7 @@ Lemma frnRCP : frnRC. Proof. by vm_compute. Qed.
 
 (* ---- so the place a member folds to is a place --------------------------- *)
 
-Notation Kof pg := (PArray.get fkeepi (fkpt (PArray.get fpgi pg))).
+Notation Kof pg := (fkeep2 (fkpt (PArray.get fpgi pg)) (fhlf (PArray.get fpgi pg))).
 Notation Ptyof pg bt :=
   (Uint63.lxor (fpar (PArray.get fpgi pg))
      (if (bt <? 12)%uint63 then 0%uint63 else 1%uint63)).
@@ -426,7 +430,7 @@ have hp : (to_nat (Ptyof pg bt) < nptyn)%N.
   by apply/nltbP; apply: (Row.iter_at (Row.iter_at ptyRCP b0) hb).
 have hg : (to_nat gr < ngroupn)%N by apply/nltbP.
 apply/and3P; split.
-- exact: (Row.iter_at keepRCP hfk).
+- exact: (Row.iter_at (Row.iter_at keepRCP hfk) (fhlf_lt2 _)).
 - exact: (Row.iter_at (Row.iter_at (Row.iter_at sgrRCP hu) hp) hg).
 exact: (Row.iter_at (Row.iter_at sbtRCP hu) hb).
 Qed.
@@ -444,7 +448,7 @@ Lemma e4ofRCP : e4ofRC. Proof. by vm_compute. Qed.
 
 Definition keepNC : bool :=
   iter npagen 0%uint63
-    (fun pg => (PArray.get fkeepi (fkpt (PArray.get fpgi pg)) <? npagei)%uint63).
+    (fun pg => (fkeep2 (fkpt (PArray.get fpgi pg)) (fhlf (PArray.get fpgi pg)) <? npagei)%uint63).
 Lemma keepNCP : keepNC. Proof. by vm_compute. Qed.
 
 (* =========================================================================  *)

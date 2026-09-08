@@ -33,7 +33,7 @@ Local Open Scope uint63_scope.
 Section FSrchIP.
 
 Variable e8num e4bit : arr.
-Variable fpg fsrc fsgr fslo fshi fsbt : arr.
+Variable fpg fsrc fsrc2 fful fsgr fslo fshi fsbt : arr.
 Variable mgr msw mlo mhi : arr.
 Variable F : PArray.array arr.
 Variables frep fsym : int -> int.
@@ -63,11 +63,11 @@ Local Notation fsrsk :=
   (fsrchsk e8num e4bit fpg fsgr fsbt F frep fsym twsym dnlo dnhi fllo flhi
      cstep xstep tomemb okmv csolved ishm).
 Local Notation flvsk :=
-  (flvlsk e8num e4bit fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi
+  (flvlsk e8num e4bit fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi
      F frep fsym twsym dnlo dnhi fllo flhi
      cstep xstep tomemb okmv csolved croot sroot dsrch forb fpop ishm).
 Local Notation frnsk :=
-  (frunsk e8num e4bit fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi
+  (frunsk e8num e4bit fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi
      F frep fsym twsym dnlo dnhi fllo flhi
      cstep xstep tomemb okmv csolved croot sroot dsrch forb fpop ishm).
 
@@ -78,11 +78,11 @@ Local Notation fsrski :=
   (fsrchski e8num e4bit fpg fsgr fsbt F frep fsym twsym dnlo dnhi fllo flhi
      cstep xstep tomemb okmv csolved ishm).
 Local Notation flvski :=
-  (flvlski e8num e4bit fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi
+  (flvlski e8num e4bit fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi
      F frep fsym twsym dnlo dnhi fllo flhi
      cstep xstep tomemb okmv csolved croot sroot dsrch forb fpop ishm).
 Local Notation frnski :=
-  (frunski e8num e4bit fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi
+  (frunski e8num e4bit fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi
      F frep fsym twsym dnlo dnhi fllo flhi
      cstep xstep tomemb okmv csolved croot sroot dsrch forb fpop ishm).
 

@@ -124,7 +124,7 @@ foldfiles="Fold P1Fold FoldTables P1Fdec P1F_00 P1F_01 P1F_02 P1F_03 P1F_04 \
   P1FTable P1Table P1Small P1Ts Row RowMap RowPrep Fsinj FsmChk Lehmer \
   RowRun RowFinal \
   RowInst RowTabP RowTabC RowMemb RowCub RowCubi RowCubInst RowFold Sym16 \
-  RowFoldPart RowTabF RowFoldTab RowTabL RowTab RowFoldSym RowMoveH \
+  RowFoldPart RowTabF RowTabF48 RowFoldTab RowTabL RowTab RowFoldSym RowMoveH \
   RowPartC RowPartM RowPartU RowLeaf RowUp4ok RowUp8ok RowFoldConj \
   RowFoldOk RowFoldEmpty RowFoldGath RowFoldLvl Sym16Row RowFoldMem \
   RowFoldSrc RowFoldTot RowMoveC RowMoveM RowMoveU RowParity \

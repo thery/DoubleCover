@@ -148,7 +148,7 @@ Proof. exact: (fwits_sound wits24C yfcmfin_sound). Qed.
 (* THE ONE THING LEFT IS A BOOLEAN, and it is the run: the folded map that    *)
 (* twenty levels leave, with the thirty two witnesses marked into it, has no  *)
 (* bit of the row clear.                                                      *)
-Theorem real_superflip_row_fold : mfullf yfcwits ->
+Theorem real_superflip_row_fold : mfullf ffuli yfcwits ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
 Proof.
 move=> hf h hh.
@@ -158,7 +158,7 @@ case E : (place24 e8numi e4biti x) => [[pg gr] bt].
 have hr := place24_range e8okC e4okC hx E.
 have hu := unplace24_place24 e8okC e4okC hx E.
 have hall : forall pg' gr' bt', inrange24 pg' gr' bt' -> PdC 20 pg' gr' bt'.
-  refine (@foldf_all fpgi fsgri fsbti (PdC 20) fkptT
+  refine (@foldf_all fpgi fsgri fsbti ffuli ffulT (PdC 20) fkptT
             (fun a b c => sgrmvT _ _ _) (fun a b => sbtmvT _ _)
             yfcwits hf yfcwits_sound).
 have := hall _ _ _ hr.
@@ -202,7 +202,7 @@ Lemma yfcwitso_sound : soundatf fpgi fsgri fsbti (PdC 20) yfcwitso.
 Proof. exact: (fwits_sound wits24C yfcmfino_sound). Qed.
 
 (* THE CERTIFICATE, with the optimizations on *)
-Theorem real_superflip_row_foldo : mfullf yfcwitso ->
+Theorem real_superflip_row_foldo : mfullf ffuli yfcwitso ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
 Proof.
 move=> hf h hh.
@@ -212,7 +212,7 @@ case E : (place24 e8numi e4biti x) => [[pg gr] bt].
 have hr := place24_range e8okC e4okC hx E.
 have hu := unplace24_place24 e8okC e4okC hx E.
 have hall : forall pg' gr' bt', inrange24 pg' gr' bt' -> PdC 20 pg' gr' bt'.
-  refine (@foldf_all fpgi fsgri fsbti (PdC 20) fkptT
+  refine (@foldf_all fpgi fsgri fsbti ffuli ffulT (PdC 20) fkptT
             (fun a b c => sgrmvT _ _ _) (fun a b => sbtmvT _ _)
             yfcwitso hf yfcwitso_sound).
 have := hall _ _ _ hr.
