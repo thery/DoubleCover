@@ -104,3 +104,39 @@ have h1 := fsbtTCP; rewrite fsbtTCE in h1.
 have /andP[hi hd] := h1.
 exact: (get_tot (f := fun v => (v <? nbiti)) hi hd _).
 Qed.
+
+(* ---- and the mask covers every bit a member can land on ------------------ *)
+
+(* mfullf is an EQUALITY, so a place outside the mask would be a member the   *)
+(* full map never holds.  RowFoldSym's ffulC says this for the pages; this    *)
+(* says it at EVERY index, which is the shape RowFoldOk asks for.  A cell     *)
+(* that tau fixes has one page and its mask is twenty four bits, and that is  *)
+(* enough because such a page is a half nought.                               *)
+Definition ffulT1 (w : int) : bool :=
+  iter nbitn 0%uint63 (fun j =>
+    ~~ (Uint63.land (PArray.get ffuli (fkpt w))
+          (bitof (fbit (fhlf w) j)) =? 0)).
+
+Definition ffulTC : bool :=
+  iter (to_nat (PArray.length fpgi)) 0%uint63
+    (fun i => ffulT1 (PArray.get fpgi i)) &&
+  ffulT1 (PArray.default fpgi).
+Lemma ffulTCP : ffulTC. Proof. by vm_compute. Qed.
+
+Lemma ffulTCE : ffulTC =
+  (iter (to_nat (PArray.length fpgi)) 0%uint63
+     (fun i => ffulT1 (PArray.get fpgi i)) &&
+   ffulT1 (PArray.default fpgi)).
+Proof. by []. Qed.
+
+Lemma ffulT pg bt :
+  ~~ (Uint63.land (PArray.get ffuli (fkpt (PArray.get fpgi pg)))
+        (bitof (fbit (fhlf (PArray.get fpgi pg))
+                  (sbtmv fsbti (fren (PArray.get fpgi pg)) bt))) =? 0).
+Proof.
+have h1 := ffulTCP; rewrite ffulTCE in h1.
+have /andP[hi hd] := h1.
+have hw := get_tot (f := ffulT1) hi hd pg.
+by apply: (Row.iter_at hw); apply/nltbP; exact: sbtmvT.
+Qed.
+

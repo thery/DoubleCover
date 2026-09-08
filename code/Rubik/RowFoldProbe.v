@@ -6,7 +6,7 @@
 (* the loading are the same for both.  Measured on gukesh, native:            *)
 (*                                                                            *)
 (*   mfull mempty     72.7 s, and 69.4 s again at the foot of the file        *)
-(*   mfullf memptyf    5.0 s                                                  *)
+(*   mfullf ffuli memptyf    5.0 s                                                  *)
 (*                                                                            *)
 (* 13.9x, against a fold of 14.57x: the scan costs what the map is big, word  *)
 (* for word.                                                                  *)
@@ -28,5 +28,5 @@ Set Implicit Arguments.
 Local Open Scope uint63_scope.
 
 Time Eval native_compute in mfull mempty.
-Time Eval native_compute in mfullf memptyf.
+Time Eval native_compute in mfullf ffuli memptyf.
 Time Eval native_compute in mfull mempty.

@@ -59,7 +59,7 @@ Definition dsrchn : nat := 16.
 Notation fmcnt d :=
   (fcount forbi fpopi
      (fruns e8numi e4biti
-        fpgi fsrci fsgri fsloi fshii fsbti
+        fpgi fsrci fsrc2i ffuli fsgri fsloi fshii fsbti
         mgri mswi mloi mhii
         p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
         fstep xstep tomemb okmvv fsolved croot sroot dsrchn
@@ -67,6 +67,6 @@ Notation fmcnt d :=
 
 
 Notation flv n :=
-  (flevn fsrci fsgri fsloi fshii mgri mswi mloi mhii n (mkempty tt) (mkempty tt)).
+  (flevn fsrci fsrc2i ffuli fsgri fsloi fshii mgri mswi mloi mhii n (mkempty tt) (mkempty tt)).
 
 Time Eval native_compute in fcount forbi fpopi (flv 10).

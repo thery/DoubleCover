@@ -63,8 +63,8 @@ Definition okmvv (pv k : int) : bool :=
 Definition dsrchn : nat := 16.
 
 Notation fmrun d :=
-  (mfullf (fruns e8numi e4biti
-             fpgi fsrci fsgri fsloi fshii fsbti
+  (mfullf ffuli (fruns e8numi e4biti
+             fpgi fsrci fsrc2i ffuli fsgri fsloi fshii fsbti
              mgri mswi mloi mhii
              p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
              fstep xstep tomemb okmvv fsolved croot sroot dsrchn
@@ -73,7 +73,7 @@ Notation fmrun d :=
 (* the empty map first: no level in it at all, so its time is what loading    *)
 (* and the fullness walk cost, and every line after it is that plus the       *)
 (* levels                                                                     *)
-Time Eval native_compute in mfullf memptyf.
+Time Eval native_compute in mfullf ffuli memptyf.
 
 Time Eval native_compute in fmrun 2.
 Time Eval native_compute in fmrun 4.

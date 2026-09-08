@@ -62,7 +62,7 @@ Definition fsolved (c : int) (x : pstt) : bool :=
 (* one level of the folded row, with hcoset's stop on the last one searched   *)
 Notation flvl1 :=
   (flvls e8numi e4biti
-     fpgi fsrci fsgri fsloi fshii fsbti
+     fpgi fsrci fsrc2i ffuli fsgri fsloi fshii fsbti
      mgri mswi mloi mhii
      p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
      fstep xstep tomemb okmvv fsolved croot sroot srch forbi fpopi).

@@ -41,12 +41,14 @@ Lemma PorbC d p q c pg gr bt :
       (sgrmv fsgri (fren (PArray.get fpgi pg))
          (fpar (PArray.get fpgi pg) lxor
             (if (bt <? 12)%uint63 then 0%uint63 else 1%uint63)) gr) ->
-  ~~ (Uint63.land (bitof (sbtmv fsbti (fren (PArray.get fpgi p)) c))
-                  (bitof (sbtmv fsbti (fren (PArray.get fpgi pg)) bt))
+  ~~ (Uint63.land (bitof (fbit (fhlf (PArray.get fpgi p))
+                     (sbtmv fsbti (fren (PArray.get fpgi p)) c)))
+                  (bitof (fbit (fhlf (PArray.get fpgi pg))
+                     (sbtmv fsbti (fren (PArray.get fpgi pg)) bt)))
         =? 0)%uint63 ->
   PdC d p q c -> PdC d pg gr bt.
 Proof.
-apply: (@fold_Porb fpgi fsgri fsbti fkeepi
+apply: (@fold_Porb fpgi fsgri fsbti fkeep2
           (fun pg' gr' bt' => sgrmvT _ _ _) (fun pg' bt' => sbtmvT _ _)
           mposC fold_conjC).
 Qed.

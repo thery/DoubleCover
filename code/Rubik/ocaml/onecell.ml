@@ -29,7 +29,7 @@ let set (t : 'a t) i v : 'a t =
 let get (t : 'a t) i = (reroot t).(i)
 
 let branch = 4
-let nwrite = 10
+let nwrite = try int_of_string (Sys.getenv "NW") with _ -> 10
 
 (* the ten writes put 1, 2, ... 10 into the one cell, one after the other *)
 let rec ifold n x f a = if n = 0 then a else ifold (n - 1) (x + 1) f (f x a)

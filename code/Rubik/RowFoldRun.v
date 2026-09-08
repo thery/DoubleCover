@@ -37,10 +37,10 @@ Local Notation unplc := (unplace24 e8inv e4of par8 par4).
 
 (* ---- the fold, and the move on groups and bits --------------------------- *)
 
-Variable fpg fsrc fsgr fslo fshi fsbt : arr.
+Variable fpg fsrc fsrc2 fful fsgr fslo fshi fsbt : arr.
 Variable mgr msw mlo mhi : arr.
 
-Local Notation flev := (flevel fsrc fsgr fslo fshi mgr msw mlo mhi).
+Local Notation flev := (flevel fsrc fsrc2 fful fsgr fslo fshi mgr msw mlo mhi).
 Local Notation fmk := (fmark fpg fsgr fsbt).
 
 (* ---- the folded phase one table, which nothing here reads ---------------- *)
@@ -68,11 +68,11 @@ Local Notation fsr :=
   (fsrch e8num e4bit fpg fsgr fsbt F frep fsym twsym dnlo dnhi fllo flhi
      cstep xstep tomemb okmv csolved).
 Local Notation flv :=
-  (flvl e8num e4bit fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi
+  (flvl e8num e4bit fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi
      F frep fsym twsym dnlo dnhi fllo flhi
      cstep xstep tomemb okmv csolved croot sroot dsrch).
 Local Notation frn :=
-  (frun e8num e4bit fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi
+  (frun e8num e4bit fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi
      F frep fsym twsym dnlo dnhi fllo flhi
      cstep xstep tomemb okmv csolved croot sroot dsrch).
 
@@ -103,14 +103,16 @@ Hypothesis Porbd : forall d, forall p q c pg gr bt,
   = Uint63.add (poff (fkpt (PArray.get fpg pg)))
       (sgrmv fsgr (fren (PArray.get fpg pg))
          (fpar (PArray.get fpg pg) lxor (if bt <? 12 then 0 else 1)) gr) ->
-  ~~ (Uint63.land (bitof (sbtmv fsbt (fren (PArray.get fpg p)) c))
-                  (bitof (sbtmv fsbt (fren (PArray.get fpg pg)) bt)) =? 0) ->
+  ~~ (Uint63.land (bitof (fbit (fhlf (PArray.get fpg p))
+                     (sbtmv fsbt (fren (PArray.get fpg p)) c)))
+                  (bitof (fbit (fhlf (PArray.get fpg pg))
+                     (sbtmv fsbt (fren (PArray.get fpg pg)) bt))) =? 0) ->
   Pd d p q c -> Pd d pg gr bt.
 
 Hypothesis Qlod : forall d,
-  Qlo_st fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi (Pd d) (Pd d.+1).
+  Qlo_st fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi (Pd d) (Pd d.+1).
 Hypothesis Qhid : forall d,
-  Qhi_st fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi (Pd d) (Pd d.+1).
+  Qhi_st fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi (Pd d) (Pd d.+1).
 
 (* ---- and the five the search owes, which are RowRun's own ---------------- *)
 
@@ -441,11 +443,11 @@ Qed.
 (* ---- the level with everything on, and the run ---------------------------- *)
 
 Local Notation flvsk :=
-  (flvlsk e8num e4bit fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi
+  (flvlsk e8num e4bit fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi
      F frep fsym twsym dnlo dnhi fllo flhi
      cstep xstep tomemb okmv csolved croot sroot dsrch forb fpop ishm).
 Local Notation frnsk :=
-  (frunsk e8num e4bit fpg fsrc fsgr fslo fshi fsbt mgr msw mlo mhi
+  (frunsk e8num e4bit fpg fsrc fsrc2 fful fsgr fslo fshi fsbt mgr msw mlo mhi
      F frep fsym twsym dnlo dnhi fllo flhi
      cstep xstep tomemb okmv csolved croot sroot dsrch forb fpop ishm).
 

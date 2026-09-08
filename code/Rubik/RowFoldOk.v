@@ -66,6 +66,11 @@ Section FoldOk.
 (* which renaming, the renaming on a group, the renaming on a bit             *)
 Variable fpg fsgr fsbt : arr.
 
+(* AND THE MASK.  A cell is owed forty eight bits, except the 224 whose two   *)
+(* pages are the same page, which are owed twenty four.  `fful' is one word a *)
+(* cell saying which.                                                         *)
+Variable fful : arr.
+
 Notation fr pg := (fren (PArray.get fpg pg)).
 Notation fp pg bt :=
   (fpar (PArray.get fpg pg) lxor (if bt <? 12 then 0%uint63 else 1%uint63)).
@@ -75,18 +80,28 @@ Notation fp pg bt :=
 (* A FULL FOLDED MAP ANSWERS EVERY MEMBER.  The three conditions are that the *)
 (* fold lands in range: a kept page, a group of that page, one of the twenty  *)
 (* four bits.  They are checks on the generated tables.                       *)
+(* THE MASK HAS TO COVER EVERY BIT A MEMBER LANDS ON, and that is a walk over *)
+(* the forty thousand pages and the twenty four bits, not an argument: a cell *)
+(* owed only twenty four bits must be one no member reaches in the high half. *)
+(* A mask that asks for too FEW bits can only make the run finish early and   *)
+(* never let a member through, so what is owed here is the other direction.   *)
+Hypothesis ffulR : forall pg bt,
+  ~~ (Uint63.land (PArray.get fful (fkpt (PArray.get fpg pg)))
+        (bitof (fbit (fhlf (PArray.get fpg pg)) (sbtmv fsbt (fr pg) bt)))
+      =? 0).
+
 Lemma mfullf_ftest m pg gr bt :
   (to_nat (fkpt (PArray.get fpg pg)) < nrepn)%N ->
   (to_nat (sgrmv fsgr (fr pg) (fp pg bt) gr) < ngroupn)%N ->
   (sbtmv fsbt (fr pg) bt <? nbiti) ->
-  mfullf m -> ftest fpg fsgr fsbt m pg gr bt.
+  mfullf fful m -> ftest fpg fsgr fsbt m pg gr bt.
 Proof.
 move=> hr hg hb hm.
 rewrite /ftest /fget.
 have h1 := Row.iter_at hm hr.
 have h2 := Row.iter_at h1 hg.
 move: h2 => /eqb_spec ->.
-by rewrite (allbits24P hb).
+exact: ffulR.
 Qed.
 
 (* ---- writing ------------------------------------------------------------- *)
@@ -150,14 +165,14 @@ Lemma ftest_fmark m p q c pg gr bt :
                  (sgrmv fsgr (fr p) (fp p c) q)
       = Uint63.add (poff (fkpt (PArray.get fpg pg)))
                    (sgrmv fsgr (fr pg) (fp pg bt) gr)
-    & ~~ (Uint63.land (bitof (sbtmv fsbt (fr p) c))
-                      (bitof (sbtmv fsbt (fr pg) bt)) =? 0)].
+    & ~~ (Uint63.land (bitof (fbit (fhlf (PArray.get fpg p)) (sbtmv fsbt (fr p) c)))
+                      (bitof (fbit (fhlf (PArray.get fpg pg)) (sbtmv fsbt (fr pg) bt))) =? 0)].
 Proof.
 rewrite /ftest /fmark fget_fforE.
 case: (fget_fset m (fkpt (PArray.get fpg p)) (sgrmv fsgr (fr p) (fp p c) q)
         (Uint63.lor (fget m (fkpt (PArray.get fpg p))
                        (sgrmv fsgr (fr p) (fp p c) q))
-                    (bitof (sbtmv fsbt (fr p) c)))
+                    (bitof (fbit (fhlf (PArray.get fpg p)) (sbtmv fsbt (fr p) c))))
         (fkpt (PArray.get fpg pg)) (sgrmv fsgr (fr pg) (fp pg bt) gr))
   => [->|[h1 [h2 ->]]]; first by move=> h; left.
 move=> /RowMap.test_lor/orP[hin|hnew]; last by right.
@@ -182,8 +197,10 @@ Hypothesis Porb : forall p q c pg gr bt,
              (sgrmv fsgr (fr p) (fp p c) q)
   = Uint63.add (poff (fkpt (PArray.get fpg pg)))
                (sgrmv fsgr (fr pg) (fp pg bt) gr) ->
-  ~~ (Uint63.land (bitof (sbtmv fsbt (fr p) c))
-                  (bitof (sbtmv fsbt (fr pg) bt)) =? 0) ->
+  ~~ (Uint63.land
+        (bitof (fbit (fhlf (PArray.get fpg p)) (sbtmv fsbt (fr p) c)))
+        (bitof (fbit (fhlf (PArray.get fpg pg)) (sbtmv fsbt (fr pg) bt)))
+      =? 0) ->
   P p q c -> P pg gr bt.
 
 (* A MAP IS SOUND WHERE IT NAMES A MEMBER, which is what the plain soundat   *)
@@ -253,7 +270,9 @@ Lemma soundatf_or m r G X :
      Uint63.add (poff r) G
      = Uint63.add (poff (fkpt (PArray.get fpg pg)))
                   (sgrmv fsgr (fr pg) (fp pg bt) gr) ->
-     ~~ (Uint63.land X (bitof (sbtmv fsbt (fr pg) bt)) =? 0) ->
+     ~~ (Uint63.land X
+           (bitof (fbit (fhlf (PArray.get fpg pg)) (sbtmv fsbt (fr pg) bt)))
+         =? 0) ->
      P pg gr bt) ->
   soundatf (fset m r G (Uint63.lor (fget m r G) X)).
 Proof.
@@ -281,7 +300,9 @@ Lemma soundatf_ffor m r G X :
      Uint63.add (poff r) G
      = Uint63.add (poff (fkpt (PArray.get fpg pg)))
                   (sgrmv fsgr (fr pg) (fp pg bt) gr) ->
-     ~~ (Uint63.land X (bitof (sbtmv fsbt (fr pg) bt)) =? 0) ->
+     ~~ (Uint63.land X
+           (bitof (fbit (fhlf (PArray.get fpg pg)) (sbtmv fsbt (fr pg) bt)))
+         =? 0) ->
      P pg gr bt) ->
   soundatf (ffor m r G X).
 Proof.
@@ -319,7 +340,7 @@ Hypothesis sgrmvR : forall pg gr bt,
   (to_nat (sgrmv fsgr (fr pg) (fp pg bt) gr) < ngroupn)%N.
 Hypothesis sbtmvR : forall pg bt, (sbtmv fsbt (fr pg) bt <? nbiti).
 
-Lemma foldf_all m : mfullf m -> soundatf m ->
+Lemma foldf_all m : mfullf fful m -> soundatf m ->
   forall pg gr bt, inrange24 pg gr bt -> P pg gr bt.
 Proof.
 move=> hm hs pg gr bt hr; apply: (hs _ _ _ hr).
