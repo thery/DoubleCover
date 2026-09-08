@@ -8,5 +8,6 @@ Bayleyaux.v
 DWPlus.v
 
 # Double words on primitive floats.
+dwbridge.v
 dwarith.v
 dw_updn.v
