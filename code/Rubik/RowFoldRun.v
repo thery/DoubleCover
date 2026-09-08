@@ -135,7 +135,10 @@ Hypothesis leaf_pos : forall c x, coordP c x -> pstok x ->
 (* ---- the search does not change how long the map is ---------------------- *)
 
 Lemma fmark_len m p q c : PArray.length (fmk m p q c) = PArray.length m.
-Proof. by rewrite /fmark /ffor /fset RowMap.length_setA. Qed.
+Proof.
+rewrite /fmark /ffor; cbv zeta.
+by case: ifP => // _; rewrite RowMap.length_setA.
+Qed.
 
 Lemma fsrch_len togo c x msk pv m :
   PArray.length (fsr togo c x msk pv m) = PArray.length m.
@@ -352,7 +355,8 @@ Lemma fmarkn1 mn pg gr bt :
   (fmkn mn pg gr bt).1 = fmk mn.1 pg gr bt \/ (fmkn mn pg gr bt).1 = mn.1.
 Proof.
 case: mn => m n; rewrite /fmarkn /fmark /ffor /=.
-by case: ifP => _; [left | right].
+(* the two guards are the same test, so the mark is the mark either way       *)
+by case: ifP => _; left.
 Qed.
 
 Lemma fmarkn_len mn pg gr bt :

@@ -484,8 +484,34 @@ heap was 12.35 GB against a live set of about 10.3 GB, which is where the
 `o=20` figure of 1.2x the live data was measured on the real program rather
 than on the toy.
 
-**What is left:** `pdonei` at forty eight bits, and the fold chain re-run if
-its banked boolean is wanted over the new `gor`.  Neither can
+### AND THE SAME GUARD IN THE FOLD, 8 September
+
+`RowFold.ffor` had the identical fault: `fset m r g (lor (fget m r g) v)`,
+three reads and two writes every time, and the searches call `fmark` through
+it at every level but one.  `fmarkn`, used only at the stopping level, was
+guarded already and its comment said so.  Now `ffor` reads the chunk table
+once, the chunk once, and writes only when the word changes, and `fmarkn` is
+the same shape.
+
+`fget_fforE` and `ftest_fforE` say the guarded write READS the same, which is
+all any proof above it asked.  `soundatf_or` is the old `soundatf_ffor`, kept
+for the level -- **the level's own write is not guarded**: it holds the chunk
+and never looks at the map, so `ffor_setp` lands on the plain or.
+
+Expected: about the same 1.11x the plain run got, which would put the folded
+run near 5 h 25 against its 6 h 00.  **NOT RUN.**
+
+**And forty eight bits on the FOLDED map is possible** -- the prototype
+already checks it.  A renaming does not send a corner pair to a corner pair,
+but it keeps the corner parity, so the page table splits by parity exactly as
+`sgr` does for groups: `scpg.(s).(parity).(pair)`, 16 x 2 x 20160, built and
+verified at every startup ("all checks passed").  It would take the folded map
+from 0.45 GB to 0.22 GB and halve its writes.  It would still be chunked --
+27 901 440 cells against a `PArray.max_length` of 4 194 303 -- but 22 chunks
+instead of 44.  NOT DONE, and the fold's memory was never the problem.
+
+**What is left:** `pdonei` at forty eight bits, and the folded boolean re-run
+over the guard.  Neither can
 be built on the desktop -- `P1Fdec.v` is generated and absent, and `FsmChk`
 is itself a computation.  Run them with `./mkrowfold.sh pbooli` then
 `pdonei`.
