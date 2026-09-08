@@ -2907,6 +2907,40 @@ let () =
     print_string (Buffer.contents out);
     exit 0
   end;
+  (* CAN THE FOLD BE PUT ON CORNER PAIRS?  A cell of forty eight bits is a
+     corner pair, its two halves the two parities.  Every renaming keeps the
+     corner parity, so an orbit of pages lies inside one parity and the two
+     halves of a pair are always in DIFFERENT orbits.  One renaming can fold
+     both halves to one kept pair only if it moves the pairs the same way at
+     either parity -- that is, only if scpg.(s).(0) = scpg.(s).(1).  This
+     says whether it does, and if not, by how much it misses. *)
+  if Array.length Sys.argv > 1 && Sys.argv.(1) = "pairfold" then begin
+    let scpg = Array.init nsym (fun _ -> Array.make_matrix 2 ngroup (-1)) in
+    for s = 0 to nsym - 1 do
+      for p = 0 to npage - 1 do
+        let c = e8num.(p) and c' = e8num.(spg.(s).(p)) in
+        scpg.(s).(c land 1).(c lsr 1) <- c' lsr 1
+      done
+    done;
+    let bad = ref 0 and worst = ref (-1) in
+    for s = 0 to nsym - 1 do
+      let d = ref 0 in
+      for g = 0 to ngroup - 1 do
+        if scpg.(s).(0).(g) <> scpg.(s).(1).(g) then incr d
+      done;
+      if !d > 0 then incr bad;
+      if !d > !worst then worst := !d;
+      Printf.printf "renaming %2d: %d of %d pairs move differently\n" s !d ngroup
+    done;
+    Printf.printf
+      "\n%d of %d renamings disagree between the parities, worst %d of %d\n"
+      !bad nsym !worst ngroup;
+    if !bad = 0 then
+      print_endline "THE FOLD CAN BE PUT ON PAIRS: one renaming folds both halves"
+    else
+      print_endline "THE FOLD CANNOT BE PUT ON PAIRS as it stands";
+    exit 0
+  end;
   if Array.length Sys.argv > 1 && Sys.argv.(1) = "check" then check ();
   if Array.length Sys.argv > 2 && Sys.argv.(1) = "hball" then
     hball (int_of_string Sys.argv.(2));
