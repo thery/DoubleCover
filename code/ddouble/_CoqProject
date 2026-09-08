@@ -10,4 +10,6 @@ DWPlus.v
 # Double words on primitive floats.
 dwbridge.v
 dwarith.v
+dwtwosum.v
 dw_updn.v
+dw_ops.v
