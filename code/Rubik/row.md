@@ -456,9 +456,27 @@ levels and the witnesses, leaves no bit of the row clear.
 **THE SYSTEM TIME IS THE TELL: 1 284 s to 49 s.**  That is the kernel handing
 memory back and forth, and it is what a heap that no longer swells does.
 
-**WHAT IS NOT SEPARATED.**  The guard and `o=20` went in together, so this
-prices the pair.  `OCAMLRUNPARAM='v=0x401' ./mkrowfold.sh pbooli` -- guard
-only, default tolerance -- is the run that would say which did what.
+### AND THEY SEPARATE, 8 September -- guard only, default tolerance, exit 0
+
+Both runs guarded, and the allocation is the same to five figures --
+2 181 210 million words either way -- so it is the same work, collected
+differently.
+
+| | guard + `o=20` | guard only |
+|---|---|---|
+| wall | 29 631 s (8 h 14) | **28 351 s (7 h 52)** |
+| user | 29 290 s | 28 095 s |
+| sys | 49 s | 22 s |
+| peak heap | **13.86 GB** | 23.34 GB |
+| major collections | 625 | 131 |
+
+**THE GUARD DID THE SPEED**: 31 409 s before it and 28 351 s after, 1.11x,
+and 39 034 -> 28 351 s against the twenty four bit run, **1.38x**.
+**`o=20` DID THE MEMORY**: it costs 1 280 s of wall, 4.5 %, and buys 9.5 GB.
+Neither does the other's work.
+
+On a 62 GB machine, guard alone and keep the twenty two minutes.  `o=20` is
+what to reach for to put two rows on the machine at once.
 
 **And the pace agreed**: `ppacei` printed 14 731 320 with the guard, so
 skipping a write that changes nothing is invisible, as it must be.  Its peak
