@@ -126,6 +126,20 @@ have [hin2|hin2] := boolP (j <? PArray.length (PArray.get m c))%uint63;
 by right; split; [ | split]; rewrite // /X (@get_setE _ _ _ hin2).
 Qed.
 
+(* ffor skips the write when the word is already what it would become, so it  *)
+(* is no longer fset by definition.  IT STILL READS THE SAME, and a read is   *)
+(* all any proof above it asks of a write.                                    *)
+Lemma fget_fforE m r g v r' g' :
+  fget (ffor m r g v) r' g'
+  = fget (fset m r g (Uint63.lor (fget m r g) v)) r' g'.
+Proof.
+rewrite {1}/ffor; cbv zeta.
+case: ifP => // /eqb_spec hw.
+case: (fget_fset m r g (Uint63.lor (fget m r g) v) r' g')
+  => [->|[h1 [h2 ->]]] //.
+by rewrite /fget -h1 -h2 hw.
+Qed.
+
 (* A BIT A FOLDED MARK SETS IS ITS OWN OR WAS THERE ALREADY, and its own      *)
 (* means the two members fold to the same page, group and bit.                *)
 Lemma ftest_fmark m p q c pg gr bt :
@@ -139,7 +153,7 @@ Lemma ftest_fmark m p q c pg gr bt :
     & ~~ (Uint63.land (bitof (sbtmv fsbt (fr p) c))
                       (bitof (sbtmv fsbt (fr pg) bt)) =? 0)].
 Proof.
-rewrite /ftest /fmark /ffor.
+rewrite /ftest /fmark fget_fforE.
 case: (fget_fset m (fkpt (PArray.get fpg p)) (sgrmv fsgr (fr p) (fp p c) q)
         (Uint63.lor (fget m (fkpt (PArray.get fpg p))
                        (sgrmv fsgr (fr p) (fp p c) q))
@@ -217,9 +231,13 @@ Lemma ffor_setp d r b G X :
   PArray.set d (pchk r)
     (PArray.set b (Uint63.add (poff r) G)
        (Uint63.lor (PArray.get b (Uint63.add (poff r) G)) X))
-  = ffor (PArray.set d (pchk r) b) r G X.
+  = fset (PArray.set d (pchk r) b) r G
+      (Uint63.lor (fget (PArray.set d (pchk r) b) r G) X).
 Proof.
-move=> hin; rewrite /ffor (fget_setp _ _ hin).
+(* THE LEVEL'S OWN WRITE IS NOT GUARDED -- it writes the chunk it is holding  *)
+(* and never looks at the map -- so this lands on the plain or and not on     *)
+(* ffor, which now has the test.                                             *)
+move=> hin; rewrite (fget_setp _ _ hin).
 by apply: fset_setp.
 Qed.
 
@@ -228,6 +246,34 @@ Qed.
 (* Once the array write is read as a map write, every write the level makes   *)
 (* is this: one word ored into one place.  Soundness survives as long as the  *)
 (* bits the word adds are good where a member reads them.                     *)
+Lemma soundatf_or m r G X :
+  soundatf m ->
+  (forall pg gr bt, inrange24 pg gr bt ->
+     pchk r = pchk (fkpt (PArray.get fpg pg)) ->
+     Uint63.add (poff r) G
+     = Uint63.add (poff (fkpt (PArray.get fpg pg)))
+                  (sgrmv fsgr (fr pg) (fp pg bt) gr) ->
+     ~~ (Uint63.land X (bitof (sbtmv fsbt (fr pg) bt)) =? 0) ->
+     P pg gr bt) ->
+  soundatf (fset m r G (Uint63.lor (fget m r G) X)).
+Proof.
+move=> hm hnew pg gr bt hr; rewrite /ftest.
+case: (fget_fset m r G (Uint63.lor (fget m r G) X)
+        (fkpt (PArray.get fpg pg)) (sgrmv fsgr (fr pg) (fp pg bt) gr))
+  => [->|[h1 [h2 ->]]]; first by apply: hm.
+move=> /RowMap.test_lor/orP[hin|hnw]; last by apply: (hnew _ _ _ hr h1 h2).
+apply: (hm _ _ _ hr); rewrite /ftest.
+by have -> : fget m (fkpt (PArray.get fpg pg))
+               (sgrmv fsgr (fr pg) (fp pg bt) gr) = fget m r G
+  by rewrite /fget h1 h2.
+Qed.
+
+(* and the guarded write is that write, because a read cannot tell them apart *)
+Lemma ftest_fforE m r g v (pg gr bt : int) :
+  ftest fpg fsgr fsbt (ffor m r g v) pg gr bt
+  = ftest fpg fsgr fsbt (fset m r g (Uint63.lor (fget m r g) v)) pg gr bt.
+Proof. by rewrite /ftest fget_fforE. Qed.
+
 Lemma soundatf_ffor m r G X :
   soundatf m ->
   (forall pg gr bt, inrange24 pg gr bt ->
@@ -239,15 +285,8 @@ Lemma soundatf_ffor m r G X :
      P pg gr bt) ->
   soundatf (ffor m r G X).
 Proof.
-move=> hm hnew pg gr bt hr; rewrite /ftest /ffor.
-case: (fget_fset m r G (Uint63.lor (fget m r G) X)
-        (fkpt (PArray.get fpg pg)) (sgrmv fsgr (fr pg) (fp pg bt) gr))
-  => [->|[h1 [h2 ->]]]; first by apply: hm.
-move=> /RowMap.test_lor/orP[hin|hnw]; last by apply: (hnew _ _ _ hr h1 h2).
-apply: (hm _ _ _ hr); rewrite /ftest.
-by have -> : fget m (fkpt (PArray.get fpg pg))
-               (sgrmv fsgr (fr pg) (fp pg bt) gr) = fget m r G
-  by rewrite /fget h1 h2.
+move=> hm hnew pg gr bt hr; rewrite ftest_fforE.
+exact: (soundatf_or hm hnew hr).
 Qed.
 
 (* ---- the level's copy, which keeps the depth ----------------------------- *)

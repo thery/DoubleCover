@@ -77,8 +77,20 @@ Definition fset (m : rmap) (r g v : int) : rmap :=
   let c := pchk r in
   PArray.set m c (PArray.set (PArray.get m c) (Uint63.add (poff r) g) v).
 
+(* ONE READ OF THE CHUNK TABLE, ONE OF THE CHUNK, AND NO WRITE UNLESS THE     *)
+(* WORD CHANGES.  This is RowMap's gor, at the folded map.  The search        *)
+(* reaches the same member by many different words, so most of its marks were *)
+(* setting a bit that was already set, and a persistent array keeps a small   *)
+(* record of every write.  fmarkn -- the counting mark, used at the stopping  *)
+(* level -- has had the test all along; fmark, used at every other level,     *)
+(* had not.                                                                   *)
 Definition ffor (m : rmap) (r g v : int) : rmap :=
-  fset m r g (Uint63.lor (fget m r g) v).
+  let c := pchk r in
+  let i := Uint63.add (poff r) g in
+  let a := PArray.get m c in
+  let old := PArray.get a i in
+  let w := Uint63.lor old v in
+  if Uint63.eqb w old then m else PArray.set m c (PArray.set a i w).
 
 (* the map is full when every kept page has all twenty four bits              *)
 Definition mfullf (m : rmap) : bool :=
@@ -156,10 +168,13 @@ Definition fmarkn (mn : rmap * int) (pg gr bt : int) : rmap * int :=
   let r := fkpt w in
   let g := sgrmv u pty gr in
   let v := bitof (sbtmv u bt) in
-  let old := fget m r g in
-  if Uint63.eqb (Uint63.land old v) 0%uint63
-  then (fset m r g (Uint63.lor old v), Uint63.add n 1%uint63)
-  else mn.
+  let c := pchk r in
+  let i := Uint63.add (poff r) g in
+  let a := PArray.get m c in
+  let old := PArray.get a i in
+  let w := Uint63.lor old v in
+  if Uint63.eqb w old then mn
+  else (PArray.set m c (PArray.set a i w), Uint63.add n 1%uint63).
 
 Definition ftest (m : rmap) (pg gr bt : int) : bool :=
   let w := PArray.get fpg pg in

@@ -169,7 +169,7 @@ Lemma lvstep d r bb G X :
               (Uint63.lor (PArray.get bb (Uint63.add (poff r) G)) X))).
 Proof.
 move=> hin hbb hnew.
-by rewrite (ffor_setp _ _ _ hin); apply: soundatf_ffor.
+by rewrite (ffor_setp _ _ _ hin); apply: soundatf_or.
 Qed.
 
 (* A HALF THAT IS ALL NOUGHTS IS NOT WRITTEN AT ALL.  Each of the two writes  *)
