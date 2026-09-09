@@ -1,15 +1,17 @@
 From Stdlib Require Import Reals ZArith Psatz.
 From Stdlib Require Import Floats.
-From Flocq Require Import Core BinarySingleNaN PrimFloat.
+From Flocq Require Import Core Plus_error BinarySingleNaN PrimFloat.
 From mathcomp Require Import ssreflect.
 From dwarith Require Import dwarith dwbridge dwtwosum DWPlus.
 
 (* The unbounded format, where the double-word theorems live.                 *)
 (* Those theorems are all stated for a format with no bottom, and binary64    *)
-(* has one.  Above the smallest normal number the two round alike, so a       *)
-(* value that stays there is read the same way by either, and a double word   *)
-(* that stays there is a double word for both.  That is what carries the      *)
-(* theorems over.                                                             *)
+(* has one.  It turns out to cost nothing: the two formats round every sum    *)
+(* of two binary64 numbers alike, above the bottom of the range because       *)
+(* the bound on the exponent does not bite there, and below it because such   *)
+(* a sum is exact and neither format has anything to round.  Every algorithm  *)
+(* here rounds nothing but such sums, so it computes the same numbers in      *)
+(* both, and its theorems carry over with no condition at all.                *)
 
 Open Scope R_scope.
 
@@ -24,15 +26,31 @@ Notation Xformat := (generic_format radix2 (FLX_exp prec)).
 (* Round to nearest, ties to even, as the ported development names it.        *)
 Notation Dchoice := (fun n : Z => negb (Z.even n)).
 
-(* The two formats round this number the same way: it is normal, or it is     *)
-(* zero, and zero is the one value below the smallest normal they agree on.   *)
-Definition Dsame (r : R) := r = 0 \/ Dnorm <= Rabs r.
-
-(* Zero is the one value below the smallest normal number that the two        *)
-(* formats still agree on, and the algorithms do produce it.                  *)
-Lemma Drnd_FLX0 r : Dsame r -> Drnd r = Xrnd r.
+(* A sum of two binary64 numbers is rounded alike by both formats.  Above     *)
+(* the smallest normal number that is because the bound on the exponent does  *)
+(* not bite.  Below it, every binary64 number is a whole multiple of the      *)
+(* smallest one there is, so such a sum is one too, and being that small it   *)
+(* is itself a binary64 number: neither format has anything to round.  So     *)
+(* the bottom of the range needs no case of its own.                          *)
+Lemma Drnd_FLX_plus a b :
+  generic_format radix2 Dfexp a -> generic_format radix2 Dfexp b ->
+  Drnd (a + b) = Xrnd (a + b).
 Proof.
-by case=> [->|rge]; [rewrite !round_0 | apply: Drnd_FLX].
+move=> Fa Fb.
+have [Hn|Hs] := Rle_lt_dec Dnorm (Rabs (a + b)); first by apply: Drnd_FLX.
+have F : generic_format radix2 Dfexp (a + b).
+  apply: FLT_format_plus_small => //.
+  rewrite Z.add_comm; apply/Rlt_le/(Rlt_le_trans _ Dnorm) => //.
+  by apply: bpow_le; lia.
+by rewrite !round_generic //; apply: generic_format_FLX_FLT F.
+Qed.
+
+Lemma Drnd_FLX_minus a b :
+  generic_format radix2 Dfexp a -> generic_format radix2 Dfexp b ->
+  Drnd (a - b) = Xrnd (a - b).
+Proof.
+move=> Fa Fb; have -> : a - b = a + - b by lra.
+by apply: Drnd_FLX_plus => //; apply: generic_format_opp.
 Qed.
 
 (* Every binary64 number is a number of the format with no bottom: the        *)
@@ -40,16 +58,15 @@ Qed.
 Lemma Dformat_FLX x : Xformat (D2R x).
 Proof. by apply/generic_format_FLX_FLT/Dformat. Qed.
 
-(* And a pair of them whose value is normal is a double word for both.        *)
+(* And a pair of them is a double word for both, with nothing asked at all.   *)
 Lemma Ddw_FLX xh xl :
   generic_format radix2 Dfexp xh -> generic_format radix2 Dfexp xl ->
-  xh = Drnd (xh + xl) -> Dnorm <= Rabs (xh + xl) ->
-  double_word prec (fun n => negb (Z.even n)) xh xl.
+  xh = Drnd (xh + xl) -> double_word prec Dchoice xh xl.
 Proof.
-move=> Fxh Fxl xhE xge.
+move=> Fxh Fxl xhE.
 split; first by split; [apply: generic_format_FLX_FLT Fxh |
                         apply: generic_format_FLX_FLT Fxl].
-by rewrite -Drnd_FLX0; [exact: xhE | by right].
+by rewrite -(Drnd_FLX_plus _ _ Fxh Fxl).
 Qed.
 
 (* Every number twoSum computes is finite: this is its guard, and it is       *)
@@ -88,16 +105,15 @@ Lemma twoSum_FLX a b :
   Dfits (D2R b - D2R ((a + b) - ((a + b) - b))%float) ->
   Dfits (D2R (a - ((a + b) - b))%float +
          D2R (b - ((a + b) - ((a + b) - b)))%float) ->
-  Dsame (D2R a + D2R b) ->
   D2R (dwhi (twoSum a b)) = TwoSum_sum prec Dchoice (D2R a) (D2R b) /\
   D2R (dwlo (twoSum a b)) = TwoSum_err prec Dchoice (D2R a) (D2R b).
 Proof.
-move=> Fa Fb Hs Ha' Hb' Hda Hdb He Hn.
+move=> Fa Fb Hs Ha' Hb' Hda Hdb He.
 have Hp : (1 < prec)%Z by [].
 have [Eh _] := twoSumE _ _ Fa Fb Hs Ha' Hb' Hda Hdb He.
 have Ex := twoSum_exact _ _ Fa Fb Hs Ha' Hb' Hda Hdb He.
 have Hsum : D2R (dwhi (twoSum a b)) = TwoSum_sum prec Dchoice (D2R a) (D2R b).
-  by rewrite Eh TwoSum_sumE Drnd_FLX0.
+  by rewrite Eh TwoSum_sumE (Drnd_FLX_plus _ _ (Dformat a) (Dformat b)).
 split=> //.
 rewrite (TwoSum_correct Hp eq_refl (Dformat_FLX a) (Dformat_FLX b)).
 by rewrite -Hsum; lra.
@@ -107,11 +123,10 @@ Qed.
 Lemma twoSum_FLX_fin a b :
   Dfin a -> Dfin b ->
   DtwoSumFin a b ->
-  Dsame (D2R a + D2R b) ->
   D2R (dwhi (twoSum a b)) = TwoSum_sum prec Dchoice (D2R a) (D2R b) /\
   D2R (dwlo (twoSum a b)) = TwoSum_err prec Dchoice (D2R a) (D2R b).
 Proof.
-move=> Fa Fb [Fs [Fa' [Fb' [Fda [Fdb Fe]]]]] Hn.
+move=> Fa Fb [Fs [Fa' [Fb' [Fda [Fdb Fe]]]]].
 have [_ Hs] := Dfin_add _ _ Fa Fb Fs.
 have [_ Ha'] := Dfin_sub _ _ Fs Fb Fa'.
 have [_ Hb'] := Dfin_sub _ _ Fs Fa' Fb'.
@@ -133,42 +148,36 @@ Lemma fastTwoSum_FLX a b :
   Dfits (D2R a + D2R b) ->
   Dfits (D2R (a + b)%float - D2R a) ->
   Dfits (D2R b - D2R ((a + b) - a)%float) ->
-  Dsame (D2R a + D2R b) ->
-  Dsame (D2R (a + b)%float - D2R a) ->
-  Dsame (D2R b - D2R ((a + b) - a)%float) ->
   D2R (dwhi (fastTwoSum a b)) =
     fst (F2Sum.Fast2Sum prec Dchoice (D2R a) (D2R b)) /\
   D2R (dwlo (fastTwoSum a b)) =
     snd (F2Sum.Fast2Sum prec Dchoice (D2R a) (D2R b)).
 Proof.
-move=> Fa Fb Hs Hz Ht H1 H2 H3.
+move=> Fa Fb Hs Hz Ht.
 have [Eh [El _]] := fastTwoSumE _ _ Fa Fb Hs Hz Ht.
 have [Es Fs] := D2R_add _ _ Fa Fb Hs.
 have [Ez _] := D2R_sub _ _ Fs Fa Hz.
-have Esx : D2R (a + b)%float = Xrnd (D2R a + D2R b).
-  by rewrite Es Drnd_FLX0.
-have Ezx : D2R ((a + b) - a)%float = Xrnd (Xrnd (D2R a + D2R b) - D2R a).
-  by rewrite Ez Esx Drnd_FLX0 // -Esx.
-rewrite Esx in H2; rewrite Ezx in H3.
+have E1 := Drnd_FLX_plus _ _ (Dformat a) (Dformat b).
+have FX : generic_format radix2 Dfexp (Xrnd (D2R a + D2R b)).
+  by rewrite -E1 -Es; apply: Dformat.
+have E2 := Drnd_FLX_minus _ _ FX (Dformat a).
+have FZ : generic_format radix2 Dfexp (Xrnd (Xrnd (D2R a + D2R b) - D2R a)).
+  by rewrite -E2 -E1 -Es -Ez; apply: Dformat.
 rewrite /F2Sum.Fast2Sum /F2SumFLX.Fast2Sum /=.
-split; first by rewrite Eh Drnd_FLX0.
-rewrite El (Drnd_FLX0 _ H1) (Drnd_FLX0 _ H2).
-by apply: Drnd_FLX0.
+split; first by rewrite Eh E1.
+by rewrite El E1 E2 (Drnd_FLX_minus _ _ (Dformat b) FZ).
 Qed.
 
 (* And in the form the program can check.                                     *)
 Lemma fastTwoSum_FLX_fin a b :
   Dfin a -> Dfin b ->
   DfastTwoSumFin a b ->
-  Dsame (D2R a + D2R b) ->
-  Dsame (D2R (a + b)%float - D2R a) ->
-  Dsame (D2R b - D2R ((a + b) - a)%float) ->
   D2R (dwhi (fastTwoSum a b)) =
     fst (F2Sum.Fast2Sum prec Dchoice (D2R a) (D2R b)) /\
   D2R (dwlo (fastTwoSum a b)) =
     snd (F2Sum.Fast2Sum prec Dchoice (D2R a) (D2R b)).
 Proof.
-move=> Fa Fb [Fs [Fz Ft]] H1 H2 H3.
+move=> Fa Fb [Fs [Fz Ft]].
 have [_ Hs] := Dfin_add _ _ Fa Fb Fs.
 have [_ Hz] := Dfin_sub _ _ Fs Fa Fz.
 have [_ Ht] := Dfin_sub _ _ Fb Fz Ft.
@@ -204,28 +213,6 @@ Definition DplusDwDwFin (xh xl yh yl : PrimFloat.float) :=
   Dfin c /\ DfastTwoSumFin sh c /\
   Dfin w /\ DfastTwoSumFin (dwhi v) w.
 
-(* And the ten places where the two formats must round alike.  Each names     *)
-(* the argument of a rounding the program is about to make, so this too is a  *)
-(* test on numbers the program has in hand.                                   *)
-Definition DplusDwDwSame (xh xl yh yl : PrimFloat.float) :=
-  let sh := dwhi (twoSum xh yh) in
-  let sl := dwlo (twoSum xh yh) in
-  let th := dwhi (twoSum xl yl) in
-  let tl := dwlo (twoSum xl yl) in
-  let c := (sl + th)%float in
-  let v := fastTwoSum sh c in
-  let w := (tl + dwlo v)%float in
-  Dsame (D2R xh + D2R yh) /\
-  Dsame (D2R xl + D2R yl) /\
-  Dsame (D2R sl + D2R th) /\
-  Dsame (D2R sh + D2R c) /\
-  Dsame (D2R (sh + c)%float - D2R sh) /\
-  Dsame (D2R c - D2R ((sh + c) - sh)%float) /\
-  Dsame (D2R tl + D2R (dwlo v)) /\
-  Dsame (D2R (dwhi v) + D2R w) /\
-  Dsame (D2R (dwhi v + w)%float - D2R (dwhi v)) /\
-  Dsame (D2R w - D2R ((dwhi v + w) - dwhi v)%float).
-
 (* The composition, written out: the two calls the program makes last.        *)
 Lemma plusDwDwE xh xl yh yl :
   plusDwDw (DWFloat xh xl) (DWFloat yh yl) =
@@ -239,26 +226,25 @@ Proof. by []. Qed.
 
 (* The program computes, number for number, what the ported development       *)
 (* computes: two TwoSum, two Fast2Sum, and the two lone roundings between     *)
-(* them.                                                                      *)
+(* them.  Nothing is asked of the values, only that no step overflow.         *)
 Lemma plusDwDw_FLX xh xl yh yl :
-  DplusDwDwFin xh xl yh yl -> DplusDwDwSame xh xl yh yl ->
+  DplusDwDwFin xh xl yh yl ->
   D2R (dwhi (plusDwDw (DWFloat xh xl) (DWFloat yh yl))) =
     fst (XplusDwDw (D2R xh) (D2R xl) (D2R yh) (D2R yl)) /\
   D2R (dwlo (plusDwDw (DWFloat xh xl) (DWFloat yh yl))) =
     snd (XplusDwDw (D2R xh) (D2R xl) (D2R yh) (D2R yl)).
 Proof.
 move=> [Fxh [Fxl [Fyh [Fyl [T1 [T2 [Fc [G1 [Fw G2]]]]]]]]].
-move=> [S1 [S2 [S3 [S4 [S5 [S6 [S7 [S8 [S9 S10]]]]]]]]].
-have [Esh Esl] := twoSum_FLX_fin _ _ Fxh Fyh T1 S1.
-have [Eth Etl] := twoSum_FLX_fin _ _ Fxl Fyl T2 S2.
+have [Esh Esl] := twoSum_FLX_fin _ _ Fxh Fyh T1.
+have [Eth Etl] := twoSum_FLX_fin _ _ Fxl Fyl T2.
 have [Fsh Fsl] := twoSum_fin _ _ T1.
 have [Fth Ftl] := twoSum_fin _ _ T2.
-have [Evh Evl] := fastTwoSum_FLX_fin _ _ Fsh Fc G1 S4 S5 S6.
+have [Evh Evl] := fastTwoSum_FLX_fin _ _ Fsh Fc G1.
 have [Fvh Fvl] := fastTwoSum_fin _ _ G1.
-have [Ezh Ezl] := fastTwoSum_FLX_fin _ _ Fvh Fw G2 S8 S9 S10.
+have [Ezh Ezl] := fastTwoSum_FLX_fin _ _ Fvh Fw G2.
 have [Ec _] := Dfin_add _ _ Fsl Fth Fc.
 have [Ew _] := Dfin_add _ _ Ftl Fvl Fw.
-rewrite Ec (Drnd_FLX0 _ S3) Esh Esl Eth in Evh Evl.
-rewrite Ew (Drnd_FLX0 _ S7) Etl Evl Evh in Ezh Ezl.
+rewrite Ec (Drnd_FLX_plus _ _ (Dformat _) (Dformat _)) Esh Esl Eth in Evh Evl.
+rewrite Ew (Drnd_FLX_plus _ _ (Dformat _) (Dformat _)) Etl Evl Evh in Ezh Ezl.
 by rewrite plusDwDwE; split; [exact: Ezh | exact: Ezl].
 Qed.
