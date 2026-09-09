@@ -24,9 +24,13 @@ Notation Xformat := (generic_format radix2 (FLX_exp prec)).
 (* Round to nearest, ties to even, as the ported development names it.        *)
 Notation Dchoice := (fun n : Z => negb (Z.even n)).
 
+(* The two formats round this number the same way: it is normal, or it is     *)
+(* zero, and zero is the one value below the smallest normal they agree on.   *)
+Definition Dsame (r : R) := r = 0 \/ Dnorm <= Rabs r.
+
 (* Zero is the one value below the smallest normal number that the two        *)
 (* formats still agree on, and the algorithms do produce it.                  *)
-Lemma Drnd_FLX0 r : r = 0 \/ Dnorm <= Rabs r -> Drnd r = Xrnd r.
+Lemma Drnd_FLX0 r : Dsame r -> Drnd r = Xrnd r.
 Proof.
 by case=> [->|rge]; [rewrite !round_0 | apply: Drnd_FLX].
 Qed.
@@ -61,7 +65,7 @@ Lemma twoSum_FLX a b :
   Dfits (D2R b - D2R ((a + b) - ((a + b) - b))%float) ->
   Dfits (D2R (a - ((a + b) - b))%float +
          D2R (b - ((a + b) - ((a + b) - b)))%float) ->
-  D2R a + D2R b = 0 \/ Dnorm <= Rabs (D2R a + D2R b) ->
+  Dsame (D2R a + D2R b) ->
   D2R (dwhi (twoSum a b)) = TwoSum_sum prec Dchoice (D2R a) (D2R b) /\
   D2R (dwlo (twoSum a b)) = TwoSum_err prec Dchoice (D2R a) (D2R b).
 Proof.
@@ -86,7 +90,7 @@ Lemma twoSum_FLX_fin a b :
   Dfin (b - ((a + b) - ((a + b) - b)))%float ->
   Dfin ((a - ((a + b) - b)) +
         (b - ((a + b) - ((a + b) - b))))%float ->
-  D2R a + D2R b = 0 \/ Dnorm <= Rabs (D2R a + D2R b) ->
+  Dsame (D2R a + D2R b) ->
   D2R (dwhi (twoSum a b)) = TwoSum_sum prec Dchoice (D2R a) (D2R b) /\
   D2R (dwlo (twoSum a b)) = TwoSum_err prec Dchoice (D2R a) (D2R b).
 Proof.
@@ -98,4 +102,52 @@ have [_ Hda] := Dfin_sub _ _ Fa Fa' Fda.
 have [_ Hdb] := Dfin_sub _ _ Fb Fb' Fdb.
 have [_ He] := Dfin_add _ _ Fda Fdb Fe.
 by apply: twoSum_FLX.
+Qed.
+
+(* Fast2Sum computes the same two numbers in both formats.  Here there is no  *)
+(* exactness to lean on - it is exactly the thing the preconditions are       *)
+(* about - so the three operations are matched one by one, which asks         *)
+(* nothing of the arguments.  The preconditions stay where they belong,       *)
+(* inside the proof of the development being ported.                          *)
+Lemma fastTwoSum_FLX a b :
+  Dfin a -> Dfin b ->
+  Dfits (D2R a + D2R b) ->
+  Dfits (D2R (a + b)%float - D2R a) ->
+  Dfits (D2R b - D2R ((a + b) - a)%float) ->
+  Dsame (D2R a + D2R b) ->
+  Dsame (Xrnd (D2R a + D2R b) - D2R a) ->
+  Dsame (D2R b - Xrnd (Xrnd (D2R a + D2R b) - D2R a)) ->
+  D2R (dwhi (fastTwoSum a b)) =
+    fst (F2Sum.Fast2Sum prec Dchoice (D2R a) (D2R b)) /\
+  D2R (dwlo (fastTwoSum a b)) =
+    snd (F2Sum.Fast2Sum prec Dchoice (D2R a) (D2R b)).
+Proof.
+move=> Fa Fb Hs Hz Ht H1 H2 H3.
+have [Eh [El _]] := fastTwoSumE _ _ Fa Fb Hs Hz Ht.
+have E1 : Drnd (D2R a + D2R b) = Xrnd (D2R a + D2R b) by apply: Drnd_FLX0.
+rewrite /F2Sum.Fast2Sum /F2SumFLX.Fast2Sum /=.
+split; first by rewrite Eh E1.
+rewrite El E1 (Drnd_FLX0 _ H2).
+by apply: Drnd_FLX0.
+Qed.
+
+(* And in the form the program can check.                                     *)
+Lemma fastTwoSum_FLX_fin a b :
+  Dfin a -> Dfin b ->
+  Dfin (a + b)%float ->
+  Dfin ((a + b) - a)%float ->
+  Dfin (b - ((a + b) - a))%float ->
+  Dsame (D2R a + D2R b) ->
+  Dsame (Xrnd (D2R a + D2R b) - D2R a) ->
+  Dsame (D2R b - Xrnd (Xrnd (D2R a + D2R b) - D2R a)) ->
+  D2R (dwhi (fastTwoSum a b)) =
+    fst (F2Sum.Fast2Sum prec Dchoice (D2R a) (D2R b)) /\
+  D2R (dwlo (fastTwoSum a b)) =
+    snd (F2Sum.Fast2Sum prec Dchoice (D2R a) (D2R b)).
+Proof.
+move=> Fa Fb Fs Fz Ft H1 H2 H3.
+have [_ Hs] := Dfin_add _ _ Fa Fb Fs.
+have [_ Hz] := Dfin_sub _ _ Fs Fa Fz.
+have [_ Ht] := Dfin_sub _ _ Fb Fz Ft.
+by apply: fastTwoSum_FLX.
 Qed.
