@@ -66,7 +66,7 @@ by rewrite /= -Es -Ea' -Eb' -Eda -Edb.
 Qed.
 
 (* Rounding to nearest with ties to even reads a sign the same way on either  *)
-(* side of zero, which is what Knuth's 2Sum asks of a tie rule.                *)
+(* side of zero, which is what Knuth's 2Sum asks of a tie rule.               *)
 Lemma Dchoice_sym x :
   negb (Z.even x) = negb (negb (Z.even (- (x + 1)))).
 Proof.
@@ -98,4 +98,30 @@ have K := @Knuth (SpecFloat.emin prec emax) prec Hp Hp0 _ Dchoice_sym
             (D2R a) (D2R b) Fa' Fb'.
 rewrite -DfexpE in K.
 by rewrite Eh El !DrndE; lra.
+Qed.
+
+(* The same, in the form a program can check.  An operation that overflowed   *)
+(* returns an infinity, so a finite result is the proof that it did not, and  *)
+(* the six tests below are on numbers the algorithm has just computed.  This  *)
+(* is the guarded reading of the lemma above; the unguarded one is there for  *)
+(* a caller who already knows nothing overflows.                              *)
+Lemma twoSum_exact_fin a b :
+  Dfin a -> Dfin b ->
+  Dfin (a + b)%float ->
+  Dfin ((a + b) - b)%float ->
+  Dfin ((a + b) - ((a + b) - b))%float ->
+  Dfin (a - ((a + b) - b))%float ->
+  Dfin (b - ((a + b) - ((a + b) - b)))%float ->
+  Dfin ((a - ((a + b) - b)) +
+        (b - ((a + b) - ((a + b) - b))))%float ->
+  D2R (dwhi (twoSum a b)) + D2R (dwlo (twoSum a b)) = D2R a + D2R b.
+Proof.
+move=> Fa Fb Fs Fa' Fb' Fda Fdb Fe.
+have [_ Hs] := Dfin_add _ _ Fa Fb Fs.
+have [_ Ha'] := Dfin_sub _ _ Fs Fb Fa'.
+have [_ Hb'] := Dfin_sub _ _ Fs Fa' Fb'.
+have [_ Hda] := Dfin_sub _ _ Fa Fa' Fda.
+have [_ Hdb] := Dfin_sub _ _ Fb Fb' Fdb.
+have [_ He] := Dfin_add _ _ Fda Fdb Fe.
+by apply: twoSum_exact.
 Qed.
