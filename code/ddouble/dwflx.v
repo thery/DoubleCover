@@ -248,3 +248,43 @@ rewrite Ec (Drnd_FLX_plus _ _ (Dformat _) (Dformat _)) Esh Esl Eth in Evh Evl.
 rewrite Ew (Drnd_FLX_plus _ _ (Dformat _) (Dformat _)) Etl Evl Evh in Ezh Ezl.
 by rewrite plusDwDwE; split; [exact: Ezh | exact: Ezl].
 Qed.
+
+(* The unit roundoff, as the ported development writes it.                    *)
+Notation Du := (bpow radix2 (- prec)).
+
+(* What the ported development calls the relative error is the one made by    *)
+(* XplusDwDw, which is to say by the program.                                 *)
+Lemma relative_errorDWDWE xh xl yh yl :
+  relative_errorDWDW prec Dchoice xh xl yh yl =
+  Rabs ((fst (XplusDwDw xh xl yh yl) + snd (XplusDwDw xh xl yh yl) -
+         ((xh + xl) + (yh + yl))) / ((xh + xl) + (yh + yl))).
+Proof. by []. Qed.
+
+(* The sum of two double words, on primitive floats, is within three unit     *)
+(* roundoffs squared of the exact sum.  Nothing is asked of the numbers but   *)
+(* that the two arguments really are double words, that their sum is not      *)
+(* zero, and that no step overflows.                                          *)
+Theorem plusDwDw_relerr xh xl yh yl :
+  DplusDwDwFin xh xl yh yl ->
+  D2R xh = Drnd (D2R xh + D2R xl) ->
+  D2R yh = Drnd (D2R yh + D2R yl) ->
+  (D2R xh + D2R xl) + (D2R yh + D2R yl) <> 0 ->
+  Rabs ((D2R (dwhi (plusDwDw (DWFloat xh xl) (DWFloat yh yl))) +
+         D2R (dwlo (plusDwDw (DWFloat xh xl) (DWFloat yh yl)))) -
+        ((D2R xh + D2R xl) + (D2R yh + D2R yl))) <=
+  3 * Du ^ 2 / (1 - 4 * Du) *
+  Rabs ((D2R xh + D2R xl) + (D2R yh + D2R yl)).
+Proof.
+move=> F Ex Ey Hn.
+have [Eh El] := plusDwDw_FLX xh xl yh yl F.
+have DWx := Ddw_FLX _ _ (Dformat xh) (Dformat xl) Ex.
+have DWy := Ddw_FLX _ _ (Dformat yh) (Dformat yl) Ey.
+have Hp : (1 < prec)%Z by [].
+have Hp3 : (3 <= prec)%Z by [].
+have K := DWPlusDW_relerr_bound Hp eq_refl Hp3 DWx DWy Hn.
+rewrite relative_errorDWDWE in K.
+have HE : forall a b : R, b <> 0 -> Rabs (a - b) = Rabs ((a - b) / b) * Rabs b.
+  by move=> a b b0; rewrite -Rabs_mult; congr Rabs; field.
+rewrite Eh El (HE _ _ Hn).
+by apply: Rmult_le_compat_r; [apply: Rabs_pos | exact: K].
+Qed.
