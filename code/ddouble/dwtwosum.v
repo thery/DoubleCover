@@ -14,6 +14,29 @@ From dwarith Require Import dwarith dwbridge F2SumFLT TwoSumFLT.
 Definition dwhi d := let: DWFloat xh _ := d in xh.
 Definition dwlo d := let: DWFloat _ xl := d in xl.
 
+(* Every number twoSum computes is finite: this is its guard, and it is       *)
+(* what a program can test.                                                   *)
+Definition DtwoSumFin (a b : PrimFloat.float) :=
+  Dfin (a + b)%float /\ Dfin ((a + b) - b)%float /\
+  Dfin ((a + b) - ((a + b) - b))%float /\ Dfin (a - ((a + b) - b))%float /\
+  Dfin (b - ((a + b) - ((a + b) - b)))%float /\
+  Dfin ((a - ((a + b) - b)) +
+        (b - ((a + b) - ((a + b) - b))))%float.
+
+(* The same for fastTwoSum, three operations instead of six.                  *)
+Definition DfastTwoSumFin (a b : PrimFloat.float) :=
+  Dfin (a + b)%float /\ Dfin ((a + b) - a)%float /\
+  Dfin (b - ((a + b) - a))%float.
+
+(* A guarded call returns two finite numbers, so the next step may run.       *)
+Lemma twoSum_fin a b : DtwoSumFin a b ->
+  Dfin (dwhi (twoSum a b)) /\ Dfin (dwlo (twoSum a b)).
+Proof. by move=> [H1 [_ [_ [_ [_ H6]]]]]; split. Qed.
+
+Lemma fastTwoSum_fin a b : DfastTwoSumFin a b ->
+  Dfin (dwhi (fastTwoSum a b)) /\ Dfin (dwlo (fastTwoSum a b)).
+Proof. by move=> [H1 [_ H3]]; split. Qed.
+
 (* Fast2Sum: three operations, and the low word is the exact error of the     *)
 (* high one when b is no larger than a.  That last part is the development's  *)
 (* theorem; here we only say what the program computes.                       *)
@@ -107,16 +130,10 @@ Qed.
 (* a caller who already knows nothing overflows.                              *)
 Lemma twoSum_exact_fin a b :
   Dfin a -> Dfin b ->
-  Dfin (a + b)%float ->
-  Dfin ((a + b) - b)%float ->
-  Dfin ((a + b) - ((a + b) - b))%float ->
-  Dfin (a - ((a + b) - b))%float ->
-  Dfin (b - ((a + b) - ((a + b) - b)))%float ->
-  Dfin ((a - ((a + b) - b)) +
-        (b - ((a + b) - ((a + b) - b))))%float ->
+  DtwoSumFin a b ->
   D2R (dwhi (twoSum a b)) + D2R (dwlo (twoSum a b)) = D2R a + D2R b.
 Proof.
-move=> Fa Fb Fs Fa' Fb' Fda Fdb Fe.
+move=> Fa Fb [Fs [Fa' [Fb' [Fda [Fdb Fe]]]]].
 have [_ Hs] := Dfin_add _ _ Fa Fb Fs.
 have [_ Ha'] := Dfin_sub _ _ Fs Fb Fa'.
 have [_ Hb'] := Dfin_sub _ _ Fs Fa' Fb'.
@@ -156,12 +173,10 @@ Qed.
 Lemma fastTwoSum_exact_fin a b :
   Dfin a -> Dfin b ->
   Rabs (D2R b) <= Rabs (D2R a) ->
-  Dfin (a + b)%float ->
-  Dfin ((a + b) - a)%float ->
-  Dfin (b - ((a + b) - a))%float ->
+  DfastTwoSumFin a b ->
   D2R (dwhi (fastTwoSum a b)) + D2R (dwlo (fastTwoSum a b)) = D2R a + D2R b.
 Proof.
-move=> Fa Fb bLa Fs Fz Ft.
+move=> Fa Fb bLa [Fs [Fz Ft]].
 have [_ Hs] := Dfin_add _ _ Fa Fb Fs.
 have [_ Hz] := Dfin_sub _ _ Fs Fa Fz.
 have [_ Ht] := Dfin_sub _ _ Fb Fz Ft.

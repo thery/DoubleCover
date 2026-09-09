@@ -47,10 +47,24 @@ Definition plusDwDwErr (x y : dwfloat) :=
   let: e := mulUpFp u (addUpFp (abs c) (abs w)) in
   (fastTwoSum vh w, e).
 
+(* The sum of two double words, bounded above.  The two twoSum are exact, so  *)
+(* the exact sum is sh + sl + th + tl with all four numbers in hand, and the  *)
+(* last twoSum is exact too.  So the only thing that can miss is the adding   *)
+(* of the three small ones, and adding them upwards settles that.  Nothing    *)
+(* is estimated and no error bound is needed.                                 *)
 Definition addDwUp (x y : dwfloat) :=
-  let: (d, e) := plusDwDwErr x y in widenUp d e.
+  let: DWFloat xh xl := x in
+  let: DWFloat yh yl := y in
+  let: DWFloat sh sl := twoSum xh yh in
+  let: DWFloat th tl := twoSum xl yl in
+  twoSum sh (addUpFp (addUpFp sl th) tl).
+
 Definition addDwDn (x y : dwfloat) :=
-  let: (d, e) := plusDwDwErr x y in widenDn d e.
+  let: DWFloat xh xl := x in
+  let: DWFloat yh yl := y in
+  let: DWFloat sh sl := twoSum xh yh in
+  let: DWFloat th tl := twoSum xl yl in
+  twoSum sh (addDnFp (addDnFp sl th) tl).
 
 (* Negating a double word is exact, so subtraction is addition.               *)
 Definition negDw d := let: DWFloat xh xl := d in DWFloat (- xh) (- xl).

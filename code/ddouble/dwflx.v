@@ -69,29 +69,6 @@ split; first by split; [apply: generic_format_FLX_FLT Fxh |
 by rewrite -(Drnd_FLX_plus _ _ Fxh Fxl).
 Qed.
 
-(* Every number twoSum computes is finite: this is its guard, and it is       *)
-(* what a program can test.                                                   *)
-Definition DtwoSumFin (a b : PrimFloat.float) :=
-  Dfin (a + b)%float /\ Dfin ((a + b) - b)%float /\
-  Dfin ((a + b) - ((a + b) - b))%float /\ Dfin (a - ((a + b) - b))%float /\
-  Dfin (b - ((a + b) - ((a + b) - b)))%float /\
-  Dfin ((a - ((a + b) - b)) +
-        (b - ((a + b) - ((a + b) - b))))%float.
-
-(* The same for fastTwoSum, three operations instead of six.                  *)
-Definition DfastTwoSumFin (a b : PrimFloat.float) :=
-  Dfin (a + b)%float /\ Dfin ((a + b) - a)%float /\
-  Dfin (b - ((a + b) - a))%float.
-
-(* A guarded call returns two finite numbers, so the next step may run.       *)
-Lemma twoSum_fin a b : DtwoSumFin a b ->
-  Dfin (dwhi (twoSum a b)) /\ Dfin (dwlo (twoSum a b)).
-Proof. by move=> [H1 [_ [_ [_ [_ H6]]]]]; split. Qed.
-
-Lemma fastTwoSum_fin a b : DfastTwoSumFin a b ->
-  Dfin (dwhi (fastTwoSum a b)) /\ Dfin (dwlo (fastTwoSum a b)).
-Proof. by move=> [H1 [_ H3]]; split. Qed.
-
 (* TwoSum computes the same two numbers in both formats.  Each development    *)
 (* proves its own TwoSum error free, so the pair is pinned by the one         *)
 (* rounding that makes the high word, and the two formats agree on that as    *)
