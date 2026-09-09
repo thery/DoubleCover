@@ -284,9 +284,8 @@
 A Rubik's cube is built from twenty-six small cubes: *eight corner pieces*
 with three stickers each, *twelve edge pieces* with two, and *six centre
 pieces* with one. The centres are attached to the core. They spin in place but
-never travel, so they are the frame that everything else is measured against:
-the white face is wherever the white centre is. A face turn moves four corners
-and four edges, and nothing else.
+never travel, so they fix the frame. The white face is wherever the white
+centre is. A face turn moves four corners and four edges, and nothing else.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -317,7 +316,7 @@ edges in any order ($12!$), each flipped or not with the last again forced
 ($2^11$); and a final halving, because corners and edges cannot be rearranged
 independently of each other.
 
-Three details of the pieces matter later. They are named here.
+Three details of the pieces matter later. We name them here.
 
 Each corner has exactly one sticker of the top colour or the bottom colour.
 That sticker can be in three places on the corner: on top, or on one of the
@@ -331,28 +330,27 @@ top and the bottom face. A move can send them to any of the twelve edge slots.
 Which four slots they are in is the third thing to follow.
 
 Turning one face is a _move_, and a half turn counts as one move just like a
-quarter turn. Every scramble can be undone; the question is how many moves the
+quarter turn. Every scramble can be undone. The question is how many moves the
 worst scramble needs. That number is called *God's number*.
 
-Counting a half turn as one move is a choice. It can also be counted as the
-two quarter turns it is made of, which gives a second number for the same
-cube. This note proves a lower bound for each of the two.
+Counting a half turn as one move is a choice. A half turn can also count as two
+moves, and that gives a second number for the same cube. We prove a lower bound
+for each.
 
 In 2010 Rokicki, Kociemba, Davidson and Dethridge showed that it is *20*
-@rokicki2013diameter. Their result has two halves. That twenty moves are always
-enough is the huge half, and how it was obtained is left to the last section of
-this note. That twenty moves are sometimes needed is the other half, and for
-that it is enough to exhibit one scramble and show it cannot be solved in 19.
+@rokicki2013diameter. Their result has two halves. One half is that twenty moves
+always suffice. It is the huge one, and the last section of this note says how
+it was obtained. The other half is that twenty moves are sometimes needed. For
+that it is enough to take one scramble and show it cannot be solved in 19.
 
-This note is about the second half, and about one scramble: the *superflip*,
-drawn in @sflip beside a solved cube. Every corner sticker is where it belongs,
-and every edge is in its own place but turned over, so it shows the colour of
-the face beside it. Turn the whole cube in your hands, or look at it in a
-mirror, and the same pattern comes back: the superflip is one of the rare
-positions that all 48 ways of looking at a cube leave unchanged, and that will
-matter later. A 20-move solution for it is known, so
-showing that no 19-move solution exists puts the superflip at distance exactly
-20. That is what is proved here.
+We take one scramble: the *superflip*, drawn in @sflip beside a solved cube.
+Every corner sticker is where it belongs. Every edge is in its own place but
+turned over, so it shows the colour of the face beside it. Look at the cube
+from any angle, or in a mirror, and the pattern is the same. The superflip is
+one of the rare positions that all 48 ways of looking at a cube leave
+unchanged, and that matters later. A 20-move solution for it is known, so ruling
+out a 19-move solution puts the superflip at distance exactly 20. That is what
+we prove.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -371,27 +369,25 @@ showing that no 19-move solution exists puts the superflip at distance exactly
   caption: [A solved cube, and the superflip.],
 ) <sflip>
 
-That is still a big computation. There are 18 possible moves at each step, so
-19 moves means something like $18^19$ words, far more than could ever be
-listed. Nobody searches like that: the search is cut short using a precomputed
-table, and that is where both the interest and the difficulty lie.
+That is still a big computation. There are 18 moves at each step, so 19 moves
+means about $18^19$ words. No one can list that many. The search is cut short
+with a table computed in advance, and that table is where the difficulty is.
 
-Why do it in a proof assistant at all, here the Rocq prover @rocq (the system
-formerly called Coq)? Because then the result no longer depends on a
-search program being right. What is checked instead is a proof,
-verified by a small kernel, starting from the definition of the cube itself.
+Why use a proof assistant, here the Rocq prover @rocq (the system formerly
+called Coq)? Because the result then does not depend on a search program being
+right. What is checked is a proof, and a small kernel checks it, starting from
+the definition of the cube itself.
 
 = The cube as permutations
 
-The cube is easier to reason about if we stop thinking about it as a solid
-object. Only the coloured stickers matter. There are six faces of nine
-stickers, and the six centre stickers never move relative to each other, so a
-move is just a rearrangement of the *48 remaining stickers*. Number them 0 to
-47, as in @cube3d and @net: eight to a face, taken left to right and top to
-bottom with the centre skipped, so up gets 0--7, left 8--15, front 16--23,
-right 24--31, back 32--39 and down 40--47. These are the numbers the sources
-use, which is what makes the definition of a move checkable against a
-picture.
+The cube is easier to reason about if we stop treating it as a solid object.
+Only the coloured stickers matter. There are six faces of nine stickers, and
+the six centre stickers never move relative to each other. So a move is a
+rearrangement of the *48 remaining stickers*. We number them 0 to 47, as in
+@cube3d and @net: eight to a face, taken left to right and top to bottom with
+the centre skipped, so up gets 0--7, left 8--15, front 16--23, right 24--31,
+back 32--39 and down 40--47. The sources use these numbers, so a move can be
+checked against a picture.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -416,19 +412,18 @@ picture.
   caption: [The cube unfolded, with all forty-eight places numbered.],
 ) <net>
 
-With the places numbered, a move is written down by saying, for each place,
-where the sticker sitting there goes. Turning the top face clockwise carries
-the sticker in corner 0 to corner 2, the one in 2 to 7, the one in 7 to 5 and
-the one in 5 back to 0. That is a four step cycle, written
-$(0 space 2 space 7 space 5)$. The four edge stickers of that face do the same,
-$(1 space 4 space 6 space 3)$. But the turn does not only move the top face:
-it also carries the top row of each side face round to the next one, front to
-left, left to back, back to right, right to front. That is three more cycles,
-$(8 space 32 space 24 space 16)$ and its two companions. @uturn shows the whole
-of it, each square saying which sticker sits there afterwards: the top row of
-the left face holds 16, 17, 18, the stickers that came round from the front.
-The other forty stickers are untouched, and the six centres never move at
-all.
+With the places numbered, a move is written down by saying where the sticker in
+each place goes. Turning the top face clockwise carries the sticker in corner 0
+to corner 2, the one in 2 to 7, the one in 7 to 5 and the one in 5 back to 0.
+That is a four step cycle, written $(0 space 2 space 7 space 5)$. The four edge
+stickers of that face do the same, $(1 space 4 space 6 space 3)$. The turn does
+not only move the top face. It also carries the top row of each side face round
+to the next one: front to left, left to back, back to right, right to front.
+That is three more cycles, $(8 space 32 space 24 space 16)$ and its two
+companions. @uturn shows all of it, each square saying which sticker sits there
+afterwards. The top row of the left face holds 16, 17, 18, the stickers that
+came round from the front. The other forty stickers stay where they are, and
+the six centres never move.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -461,19 +456,16 @@ and back. Each of them can also be done twice or backwards, which gives the
 ]
 
 A scramble is a product of moves, for instance $R U R^(-1) U^(-1)$, a word of
-length 4.
-The set of all scrambles is a group $G$: the *cube group*. Solving a scramble
-in $d$ moves means writing it as a word of $d$ moves, so "solvable in at most
-$d$ moves" says exactly that the scramble lies in the *ball of radius $d$*
-around the solved cube. God's number is the largest distance that occurs, the
-diameter of that ball structure.
+length 4. The set of all scrambles is a group $G$: the *cube group*. Solving a
+scramble in $d$ moves means writing it as a word of $d$ moves. So "solvable in
+at most $d$ moves" says that the scramble lies in the *ball of radius $d$*
+around the solved cube. God's number is the largest distance that occurs.
 
 == The cube in Rocq
 
 The development is built on *mathcomp* @mathcomp, a large library of formalised
-mathematics that already knows about permutations, groups and products. The
-cube file is then just a transcription of the paragraphs above, and it is
-short:
+mathematics that already has permutations, groups and products. The cube file
+is a transcription of the paragraphs above, and it is short:
 
 ```coq
 Definition facelet := 'I_48.
@@ -521,10 +513,10 @@ Definition Spcyc : seq (seq facelet) :=
 Definition superflip : {perm facelet} := \prod_(l <- Spcyc) cyc l.
 ```
 
-That makes it a permutation of the stickers, but by itself it says nothing
-about the cube. A permutation is a legal position only if the faces can
-actually be turned to reach it, that is, only if it lies in $G$. Nothing in the
-definition above gives that, and it has to be proved.
+That makes it a permutation of the stickers, but on its own it says nothing
+about the cube. A permutation is a legal position only if the faces can be
+turned to reach it, that is, only if it lies in $G$. The definition above does
+not give that. It has to be proved.
 
 The proof is one equality. On the left, the superflip as just defined. On the
 right, a word of twenty moves:
@@ -536,14 +528,14 @@ right, a word of twenty moves:
 ]
 
 Both sides are permutations of the 48 stickers. Each is written out as the list
-of the 48 places it sends each place to, and the equality becomes one
-comparison of two lists. Every letter on the right is one of the eighteen
-moves, so the superflip lies in $G$. That same word is also what gives the
-upper bound of 20 for this one position.
+of the 48 places it sends each place to, so the equality is one comparison of
+two lists. Every letter on the right is one of the eighteen moves, so the
+superflip lies in $G$. That same word gives the upper bound of 20 for this one
+position.
 
-Nothing here is assumed. There is no axiom stating what a cube is, and a reader
-who wants to check the model only has to compare the six lists of cycles
-against @net. After this file, stickers are never mentioned again.
+Nothing here is assumed. There is no axiom saying what a cube is. A reader who
+wants to check the model has only to compare the six lists of cycles against
+@net. After this file, stickers are never mentioned again.
 
 = The search in outline
 
@@ -551,25 +543,24 @@ Two classical ideas make the search possible.
 
 == The pruning estimate
 
-The idea is not new, and neither is the way the estimate is obtained. A
-depth-first search that deepens step by step and prunes on an estimate that
-never over-estimates is Korf's IDA\* @korf1985ida; taking the estimate from a
-table of exact distances in a simplified version of the puzzle is a _pattern
-database_ @culberson1998pattern, and Korf solved the cube optimally with three
-of them @korf1997rubik. The summary used here is Kociemba's, from his two-phase
-solver @kociemba.
+Neither idea is new. A depth-first search that deepens step by step and prunes
+on an estimate that is never too big is Korf's IDA\* @korf1985ida. Taking the
+estimate from a table of exact distances in a simplified version of the puzzle
+is a _pattern database_ @culberson1998pattern, and Korf solved the cube
+optimally with three of them @korf1997rubik. The summary used here is
+Kociemba's, from his two-phase solver @kociemba.
 
-Suppose we have a way of estimating, for any scramble, how many moves it needs
-: an estimate that is never larger than the truth, and that changes by at
-most one when a move is made. Call it $h$.
+Suppose we can estimate, for any scramble, how many moves it needs. The
+estimate is never larger than the truth, and one move changes it by at most
+one. Call it $h$.
 
-Such an estimate is a pair of scissors. Walk down the tree of moves, keeping
-track of how many are left. If the estimate for a position is 20 while only 18
-moves remain, that whole branch can be dropped: it cannot possibly reach the
-solved cube in time. @tree shows the picture: below every position the table is
-consulted, and a branch whose estimate exceeds the moves still available is
-abandoned without ever being explored. The estimate is allowed to be too small,
-which only means less cutting; it is never allowed to be too large.
+Such an estimate cuts the tree. Walk down the tree of moves and keep track of
+how many moves are left. If the estimate for a position is 20 while only 18
+moves remain, that whole branch can be dropped: it cannot reach the solved cube
+in time. @tree shows this. Below every position the table is read, and a branch
+whose estimate is larger than the moves still available is dropped without
+being explored. The estimate may be too small, which only means less cutting.
+It may never be too large.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -598,22 +589,21 @@ which only means less cutting; it is never allowed to be too large.
 
 == The origin of the estimate
 
-The trick is to forget most of the cube. Keep only part of the information,
-say how the corners are twisted and where the four middle-layer edges sit, and
-call what is left a *summary*. Many different scrambles share a summary.
-Moves act on summaries just as well as on cubes, and there are few enough
-summaries that a computer can work out, once and for all, the exact distance
-from the solved summary to every other summary. That table of distances is the
-estimate: a scramble needs at least as many moves as its summary does.
+The idea is to forget most of the cube. Keep only part of the information, say
+how the corners are twisted and where the four middle-layer edges sit, and call
+what is left a *summary*. Many scrambles share a summary. Moves act on
+summaries as well as on cubes, and there are few enough summaries that a
+computer can work out, once and for all, the exact distance from the solved
+summary to every other one. That table of distances is the estimate. A scramble
+needs at least as many moves as its summary does.
 
-And here is where the numbering of the stickers earns its keep: a summary is
-read straight off them. @encoding shows the three questions it asks. A corner
-has one sticker belonging to the up or down face, and that sticker sits in one
-of three places, which is 0, 1 or 2. An edge is either the right way round or
-turned over, which is 0 or 1. And the four edges of the middle layer occupy
-four of the twelve edge slots; the figure shades them on the two visible faces,
-where three of the four can be seen. Nothing else about the position is
-recorded.
+A summary is read straight off the sticker numbers. @encoding shows the three
+questions it asks. A corner has one sticker belonging to the up or down face,
+and that sticker sits in one of three places, which is 0, 1 or 2. An edge is
+either the right way round or turned over, which is 0 or 1. The four edges of
+the middle layer occupy four of the twelve edge slots. The figure shades them
+on the two visible faces, where three of the four can be seen. Nothing else
+about the position is recorded.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -646,37 +636,34 @@ The summary is the product of the three answers:
 )
 
 The name comes from Kociemba's solving algorithm, which works in two phases.
-Its first phase has to bring exactly these three answers to zero, and the
-summary is what it watches while doing so. The algorithm itself plays no part
-here. Only the name is borrowed, because it is the one everybody uses for this
-table.
+Its first phase brings exactly these three answers to zero, and the summary is
+what it watches while doing so. The algorithm itself plays no part here. We
+borrow only the name, because it is the one everybody uses for this table.
 
-Two billion is small next to 43 quintillion: *every summary stands for exactly
-19 508 428 800 real scrambles* (that is the division, and it comes out even).
-The table records, for each summary, its distance from the solved summary. No
-entry in it is larger than 12, that being how deep the deepest summary lies
-rather than the value of any position in particular. So four bits hold one
-entry, and the whole table is *1.18 GB*.
+Two billion is small next to 43 quintillion. *Every summary stands for exactly
+19 508 428 800 real scrambles*, and that division comes out even. The table
+records, for each summary, its distance from the solved summary. No entry is
+larger than 12, which is how deep the deepest summary lies. So four bits hold
+one entry, and the whole table is *1.18 GB*.
 
 == A failed search as a proof
 
-The search answers "maybe solvable in $d$ moves" or "no". The *no* is the
-trustworthy side: it means every branch was cut, either because the depth ran
-out or because the table said so. So a negative answer to "is the superflip
-solvable in 19 moves?" is exactly the theorem wanted.
+The search answers "maybe solvable in $d$ moves" or "no". The *no* is the side
+to trust. It means every branch was cut, either because the depth ran out or
+because the table said so. So a no to "is the superflip solvable in 19 moves?"
+is the theorem we want.
 
-Better still, the answer does not depend on the table being right. If an entry
-of the table were too small, the search would merely cut less and take longer.
-Only the two local properties matter: the solved summary has distance 0, and
-one move changes the value by at most one. That is what makes the whole thing
-formalisable at a sane cost: a table with two billion entries never has to be
-proved correct, only checked.
+The answer does not depend on the table being right. If an entry were too
+small, the search would cut less and take longer. Only two local properties
+matter: the solved summary has distance 0, and one move changes the value by at
+most one. That is what brings the cost down. A table with two billion entries
+is never proved correct. It is only checked.
 
 = The search in Rocq
 
 The general principle is one file of about a hundred lines, #src("Search.v"),
-which does not mention the cube at all. It takes a group, a set of moves, an
-estimate $h$, and the two assumptions:
+and it does not mention the cube. It takes a group, a set of moves, an estimate
+$h$, and the two assumptions:
 
 ```coq
 Hypothesis h1    : h 1 = 0.
@@ -699,10 +686,10 @@ Again word by word:
   whether the search has arrived.
 - `Sseq` is the list of moves, the eighteen of them, in the order the search
   walks over them. `S` is the same thing seen as a set.
-- `g * m` is the position `g` followed by the move `m`. The order takes some
-  getting used to: mathcomp applies permutations on the right, so `(g * m) f`
-  is `m (g f)`, and the product reads left to right like a sequence of moves
-  rather than right to left like a composition of functions.
+- `g * m` is the position `g` followed by the move `m`. Mathcomp applies
+  permutations on the right, so `(g * m) f` is `m (g f)`. The product reads
+  left to right, like a sequence of moves, and not right to left like a
+  composition of functions.
 - `h g <= d` is the cut, and `(h (g * m)).+1` is the estimate after a move
   plus one, which is the assumption that one move changes the estimate by at
   most one.
@@ -712,10 +699,10 @@ Again word by word:
 The last line is the contract of the whole development: *if the search returns
 false, the position is not within $d$ moves.*
 
-That is a theorem, proved once, about any estimate satisfying the two
-assumptions. Everything else in the development exists either to discharge
-those two assumptions for the real table, or to make the search fast enough to
-run.
+That is a theorem, proved once, about any estimate that satisfies the two
+assumptions. Everything else in the development is there for one of two
+reasons: to discharge those two assumptions for the real table, or to make the
+search fast enough to run.
 
 *What the table has to satisfy, and what it does not.* #src("Coord.v") asks for
 three things and checks two:
@@ -730,19 +717,20 @@ Hypothesis D0    : D (coord 1) = 0.
 Hypothesis Dstep : forall x m, m \in Sset -> D x <= (D (act x m)).+1.
 ```
 
-`coord` is the summary of a position, `X` being whatever the summaries happen
-to be. `act` is how a move acts on a summary directly, without going back to
-the position it came from: for the phase 1 summary it is two lookups in a move
-table. `coordM` is what makes the pair worth having, and it is the one thing proved
-about the summary itself. It says that summarising after a move gives the same
-answer as acting on the summary. So the search never computes a summary from a
-position. It carries the summary beside the position and brings it up to date
-one move at a time, at the cost of a lookup. It still carries the position: the
-summary cannot say whether the cube is solved, only the position can.
+`coord` is the summary of a position, and `X` is whatever the summaries are.
+`act` is how a move acts on a summary directly, without going back to the
+position it came from. For the phase 1 summary it is two lookups in a move
+table. `coordM` is the one thing proved about the summary itself, and it is
+what makes the pair worth having. It says that summarising after a move gives
+the same answer as acting on the summary. So the search never computes a
+summary from a position. It carries the summary beside the position and brings
+it up to date one move at a time, at the cost of a lookup. It still carries the
+position, because the summary cannot say whether the cube is solved and the
+position can.
 
-Put beside the `search` of #src("Search.v"), the search that actually runs has
-this shape. Names are simplified and the machine-integer details left out; the
-real one is `searchz3` in #src("Farp1.v"):
+Beside the `search` of #src("Search.v"), the search that runs has this shape.
+Names are simplified and the machine-integer details left out. The real one is
+`searchz3` in #src("Farp1.v"):
 
 ```coq
 Fixpoint search (d : nat) (g : gT) (x : summary) (p : move) : bool :=
@@ -771,97 +759,94 @@ number, and that number is read from the table. `D0` and `Dstep` are everything
 asked of it. `D0` says the solved cube gets zero. `Dstep` says that one move
 lowers the estimate by at most one.
 
-That is a weak demand, and it is worth seeing how weak. The table is never
-proved to hold the true distance to the solved cube. A table of zeros passes
-both conditions. It would prune nothing, and the search would run for ever, but
-it would not make the search give a wrong answer.
+That is a weak demand. The table is never proved to hold the true distance to
+the solved cube. A table of zeros passes both conditions. It would prune
+nothing and the search would run for ever, but it would not make the search
+give a wrong answer.
 
 *How the two conditions are checked.* Look again at `Dstep`. Unlike `D0`, it
-does not mention `coord` at all. It speaks of every value `x` in `X`, and not
-only of those values that are the summary of a real position. That is
-deliberate, and it is what makes the check possible. `X` is a finite set of 2.2
-billion values, so the check runs over all of them, and it never has to know
-which of them come from a cube. `D0`
-is then one lookup, and `Dstep` is one sweep: 2.2 billion summaries, eighteen
-moves each, one comparison apiece. Those sweeps are what the _certificate_
-files do: #src("FsmChk.v"), #src("FsrChk.v"), #src("SlrChk.v"),
+does not mention `coord`. It speaks of every value `x` in `X`, and not only of
+the values that are the summary of a real position. That is deliberate, and it
+is what makes the check possible. `X` is a finite set of 2.2 billion values, so
+the check runs over all of them and never has to know which come from a cube.
+`D0` is then one lookup, and `Dstep` is one sweep: 2.2 billion summaries,
+eighteen moves each, one comparison apiece. Those sweeps are what the
+_certificate_ files do: #src("FsmChk.v"), #src("FsrChk.v"), #src("SlrChk.v"),
 #src("P1TsChk.v") and #src("Farp1chk.v"), listed again at the end of this note,
 each ending in its own `Qed`.
 
-Nothing in this asks where the table came from. It can be written by any
-program in any language. Here an OCaml generator writes it out as Rocq source,
-and the two conditions are checked on it afterwards.
+Nothing here asks where the table came from. Any program in any language can
+write it. Ours is an OCaml generator that writes it out as Rocq source, and the
+two conditions are checked on it afterwards.
 
-*Three cuts at the top of the tree.* They are three different arguments and it
-is worth keeping them apart. The first two apply once each, to the first move
-and to the second. The third applies at every move from the third on.
+*Three cuts at the top of the tree.* They are three different arguments and we
+keep them apart. The first two apply once each, to the first move and to the
+second. The third applies at every move from the third on.
 
 *The first move: eighteen become two.* The superflip looks the same from every
 angle. There are 48 ways of putting a cube back into the space it came from:
-any of the six faces can be turned to the top, each of them in four positions,
-which makes twenty-four, and each of those seen in a mirror as well.
-Relabelling the superflip's stickers by any of the 48 gives the superflip back
-again. So the first move may be taken to be $U$ or $U^2$, and the other sixteen
-need not be tried.
+any of the six faces can be turned to the top, each in four positions, which
+makes twenty-four, and each of those seen in a mirror as well. Relabelling the
+superflip's stickers by any of the 48 gives the superflip back. So we may take
+the first move to be $U$ or $U^2$ and leave the other sixteen untried.
 
 *The second move: eighteen become fifteen.* The three that turn the top face
 again are dropped. Turning the top face twice running merges into a single
 turn, so those give a word of nineteen moves or fewer, and the proof covers
 shorter words at a smaller depth rather than by a search of their own.
 
-The three that turn the *bottom* face look just as droppable, and are not. It
-is worth saying why, because it is the case everyone gets wrong. The two turns
-commute, so $U D$ can be rewritten $D U$; but the first move is already pinned
-to the top face by symmetry, and turning the cube over to bring that $D$ back
-to the top gives $U D$ once more. It is a fixed point of both rewritings, so
-neither rewriting removes it. Reid's proof meets the same case and pays for it
-elsewhere: he keeps the bottom-face second move, and uses the symmetries that
-fix the pair of opposite faces to cut his *third* move instead.
+The three that turn the *bottom* face look just as droppable, and they are not.
+Here is why, because this is the case everyone gets wrong. The two turns
+commute, so $U D$ can be rewritten $D U$. But symmetry has already pinned the
+first move to the top face, and turning the cube over to bring that $D$ back to
+the top gives $U D$ again. It is a fixed point of both rewritings, so neither
+one removes it. Reid's proof meets the same case and pays for it elsewhere. He
+keeps the bottom-face second move, and cuts his *third* move instead, using the
+symmetries that fix the pair of opposite faces.
 
 Our own OCaml program had this wrong. It dropped the three bottom-face second
-moves and so searched 24 prefixes where it had to search 30. Nothing about the
-program looked wrong: it ran for hours, it exhausted its tree, and it reported
+moves, so it searched 24 prefixes where it had to search 30. Nothing about the
+program looked wrong. It ran for hours, it exhausted its tree, and it reported
 that no solution of length 19 exists, which is the answer we expected. The
-error only came out when the same reduction had to be proved in Rocq, and the
-proof of the bottom-face case could not be written. This is the whole argument
-for proving a search rather than trusting it. A cut that is too greedy does not
+error came out only when the same reduction had to be proved in Rocq, and the
+proof of the bottom-face case could not be written. This is the argument for
+proving a search rather than trusting it. A cut that is too greedy does not
 make a search fail. It makes it faster, and it makes it agree with you.
 
 *From the third move on: eighteen become fifteen or twelve.* This one is not
 about the superflip and not about the top of the tree. It is one rule, applied
-at every node. A shortest word never turns the same face twice running, since
-the two turns merge into one; and of two opposite faces it never uses both
-orders, since $U D$ and $D U$ give the same position, so fixing one order
-loses nothing. At a node whose last move was on the top, right or front face,
-both halves of the rule bite and *twelve* moves are left. At a node whose last
-move was on the bottom, left or back face, only the first half bites, because
-the opposite pair has already been cut in the other order, and *fifteen* are
-left.
+at every node. A shortest word never turns the same face twice running, because
+the two turns merge into one. Of two opposite faces it never uses both orders,
+because $U D$ and $D U$ give the same position, so fixing one order loses
+nothing. At a node whose last move was on the top, right or front face, both
+halves of the rule bite and *twelve* moves are left. At a node whose last move
+was on the bottom, left or back face, only the first half bites, because the
+opposite pair has already been cut in the other order, and *fifteen* are left.
 
 Applying that rule to the third move is not an extra assumption. The word after
-the second move is reduced like any other, and the proof already knew it; the
-search had simply been throwing the fact away and trying all eighteen.
+the second move is reduced like any other, and the proof already knew it. The
+search had been throwing the fact away and trying all eighteen.
 
 None of the three is obvious, and they interact. The bottom-face second move
 survives only because the rule used from the third move on would otherwise cut
 the same pair of opposite faces twice, once by symmetry and once by the order
-convention. Arguments of that shape are easy to get wrong and hard to test,
-since getting one wrong makes the search faster and leaves the answer looking
-the same. This is what Rocq is for here. Every cut has to be proved before the
-search is allowed to use it, so a cut that does not hold is refused rather than
-rewarded, and cuts that would otherwise be too delicate to trust can be taken.
+convention. Arguments of that shape are easy to get wrong and hard to test. Get
+one wrong and the search is faster and the answer looks the same. This is what
+Rocq is for here. Every cut has to be proved before the search may use it. A cut
+that does not hold is refused rather than rewarded, and we can take cuts that
+would otherwise be too delicate to trust.
 
 So the depth-19 search becomes $2 times 15 = 30$ searches of depth 17. The 30
 are packed into *seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"),
 one per second move and numbered by it, each holding both first moves.
 
-Two of them run far longer than the rest, and they are the two whose second
-move turns the bottom face, $D$ and $D^(-1)$, where the rule above leaves
-fifteen branches and not twelve. Each is cut in two, one first move to a file:
+Two of them run far longer than the rest. They are the two whose second move
+turns the bottom face, $D$ and $D^(-1)$, where the rule above leaves fifteen
+branches and not twelve. We cut each in two, one first move to a file:
 #src("Runp1_09a.v") and #src("Runp1_09b.v") in place of a single `Runp1_09.v`,
 and #src("Runp1_11a.v") and #src("Runp1_11b.v") in place of `Runp1_11.v`.
 Fifteen second moves, two of them split, makes seventeen files. Without the
-split, the run would finish long before those two files did, and would have to
+split, the rest of the run would finish long before those two files and would
 wait for them.
 
 That is how the work is spread over the cores of a machine: seventeen files,
@@ -869,21 +854,21 @@ seventeen `Qed`s, nothing shared.
 
 = The optimisations
 
-The first version worked and was far too slow. Closing the gap between "runs"
-and "finishes" took a series of changes, each one measured before and after.
+The first version worked and was far too slow. Getting it from "runs" to
+"finishes" took a series of changes. We measured each one before and after.
 
 *Counting in unary is the enemy.* The numbers used by the mathcomp library are
 Peano numbers: 5 is literally the successor of the successor of the successor
-of the successor of the successor of zero, so adding $n$ costs $n$ steps and
+of the successor of the successor of zero. So adding $n$ costs $n$ steps, and
 comparing costs as much again. Rocq also offers machine integers, 63 bits wide
 with the missing bit going to the garbage collector, and *persistent arrays* of
-them @armand2010imperative, both of which cost what the hardware costs. That is also how the table is stored: fifteen of its
-four-bit entries to a machine integer. Measured here: a machine-integer operation takes
-about 0.05 microseconds and a Peano-number operation about 1 microsecond, and
-converting between the two costs about 0.07 microseconds _per unit_, so that
-converting the number 495 costs 36 microseconds all by itself. Rewriting the
-inner loop so that indices, table values and the depth comparison never leave
-machine integers gave:
+them @armand2010imperative. Both cost what the hardware costs, and the table is
+stored that way, fifteen of its four-bit entries to a machine integer. Measured
+here: a machine-integer operation takes about 0.05 microseconds and a
+Peano-number operation about 1 microsecond. Converting between the two costs
+about 0.07 microseconds _per unit_, so converting the number 495 costs 36
+microseconds on its own. We rewrote the inner loop so that indices, table
+values and the depth comparison never leave machine integers:
 
 #tbl(([operation], [before], [after]),
   ([reading the summary of a position], [32.0 µs], [*0.10 µs*]),
@@ -892,20 +877,20 @@ machine integers gave:
 )
 
 *`and` and `or` are function calls.* Rocq evaluates both sides of a boolean
-test before combining them, so a guard written "either the value is out of
+test before combining them. So a guard written "either the value is out of
 range, or the expensive check holds" runs the expensive check on _every_ value.
-Rewritten as a nested `if`, it runs only on the values that get past the guard.
+Written as a nested `if`, it runs only on the values that get past the guard.
 Two otherwise identical certificates, one of each shape: *719.7 s against about
-80 s*. The same mistake in the search cost a further factor of 27.8 on one
-guard. Every guard in the development is a nested `if` now.
+80 s*. The same mistake in the search cost another factor of 27.8 on one guard.
+Every guard in the development is a nested `if` now.
 
-*The search itself, twelve times faster.* Before the list of changes, here is
-what the search of #src("Farp1.v") actually carries at each position, since
-none of them make sense otherwise. Four things:
+*The search itself, twelve times faster.* None of the changes make sense until
+one knows what the search of #src("Farp1.v") carries at each position. Four
+things:
 
 - `a`, the position itself as a 48-entry array saying where each sticker went.
-  It is used for one purpose only, to ask "is this the solved cube?", and a
-  fresh one is built for each child by composing `a` with the move's own array.
+  It has one use, to ask "is this the solved cube?", and each branch gets a
+  fresh one by composing `a` with the move's own array.
 - `x`, the three views: for each of the three, the pair of numbers that is its
   summary, the corner twist and the flip-and-slice index. A move takes each
   pair to another pair by two lookups in a move table.
@@ -914,9 +899,9 @@ none of them make sense otherwise. Four things:
 - `d`, how many moves are left.
 
 The estimate is the largest of *nine* lookups: three tables, at each of the
-three views. Now the chain of seven versions in #src("Fast.v"), each proved
-equal to the one before, so that no trust is transferred. Measured on one piece
-at depth 14:
+three views. #src("Fast.v") holds a chain of seven versions, each proved equal
+to the one before, so no trust is transferred. Measured on one piece at depth
+14:
 
 #tbl(([version], [seconds], [what it removes]),
   ([the original], [70.0], []),
@@ -937,96 +922,94 @@ at depth 14:
   ([], [*11.9x*], []),
 )
 
-Four of those six steps are the same mistake in different clothes: work being
-done that a lazier evaluator would have skipped.
+Four of those six steps are the same mistake twice over: work done that a
+lazier evaluator would have skipped.
 
-*Three views of the same position.* Rotating the whole cube about a corner
-axis gives the same position seen differently, and its summary is then a
-different entry of the same table. Each of the three views therefore yields a
-lower bound on the number of moves left, so the largest of them is a lower
-bound too, and never a smaller one than any single view gives. Three times the
-lookups at each position, in exchange for a sharper cut and so a smaller tree.
-This is standard practice in cube solvers, Kociemba's included; what is new
-here is only that the three views are proved to be legitimate.
+*Three views of the same position.* Rotating the whole cube about a corner axis
+gives the same position seen differently, and its summary is then a different
+entry of the same table. So each of the three views gives a lower bound on the
+number of moves left, and the largest of them is a lower bound too. It is never
+smaller than any single view gives. That is three times the lookups at each
+position, in exchange for a sharper cut and a smaller tree. Cube solvers do
+this as a matter of course, Kociemba's included. What is new here is that the
+three views are proved legitimate.
 
-*How the table is written down costs more than the table.* The phase 1 table
-is emitted as Rocq source, one file per block of 2 097 152 entries, 71 of them.
+*How the table is written down costs more than the table.* The phase 1 table is
+emitted as Rocq source, one file per block of 2 097 152 entries, 71 of them.
 Written as a list, a block is a term: two million nested applications of the
-list constructor, each holding a machine integer. That term is what the `.vo`
-stores and what `Require` loads, and it is far larger than the 17 MB of data in
-it. Written instead as an array literal, that is, as a definition whose body
-has already been evaluated to a primitive array, the `.vo` holds one compact
-block of memory. Measured on the same 2 097 152 entries:
+list constructor, each holding a machine integer. The `.vo` stores that term
+and `Require` loads it, and it is far larger than the 17 MB of data in it.
+Written as an array literal, that is, as a definition whose body has already
+been evaluated to a primitive array, the `.vo` holds one compact block of
+memory. Measured on the same 2 097 152 entries:
 
 #tbl(([the block, written as], [its `.vo`], [loaded]),
   ([a list], [37.8 MB], [877 MB]),
   ([an array literal], [*6.0 MB*], [*281 MB*]),
 )
 
-Over all 71 blocks that is 21.5 GB against *5 GB*, and it is what allowed nine
-parallel workers instead of two on a 62 GB machine.
+Over all 71 blocks that is 21.5 GB against *5 GB*. It is what let nine workers
+run in parallel on a 62 GB machine where two had run before.
 
-*Folding the table by symmetry.* The summary is built around the up-down axis:
-the twist counts where each corner's up-or-down sticker sits, and the slice
-says where the four edges between the top and bottom faces are. So a symmetry
-that leaves that axis in place turns a summary into another summary, while one
-that tips the cube onto another axis does not act on these summaries at all.
-Sixteen of the 48 keep the axis, and they sort the 1 013 760 flip-and-slice
-values into *64 430 families*, a factor of *15.73*. Two values in the same
-family are the same distance from solved, so one entry per family is enough: a
-lookup first replaces the value by its family's representative, carrying the
-twist through the same symmetry, and then reads a table 15.73 times smaller.
+*Folding the table by symmetry.* The summary is built around the up-down axis.
+The twist counts where each corner's up-or-down sticker sits, and the slice says
+where the four edges between the top and bottom faces are. A symmetry that
+leaves that axis in place turns a summary into another summary. One that tips
+the cube onto another axis does not act on these summaries at all. Sixteen of
+the 48 keep the axis, and they sort the 1 013 760 flip-and-slice values into
+*64 430 families*, a factor of *15.73*. Two values in the same family are the
+same distance from solved, so one entry per family is enough. A lookup first
+replaces the value by its family's representative, carrying the twist through
+the same symmetry, then reads a table 15.73 times smaller.
 
-That is a different use of symmetry from the three views above, and the two are
-worth telling apart. The three views ask the *same* table three questions and
-keep the largest answer, which sharpens the estimate and cuts the tree. The
-fold asks the *same* question of a *smaller* table, and the estimate does not
-change at all. Symmetry-reduced tables of this kind are standard in cube
-solvers; what the development adds is a proof that the folded table still
-satisfies the two conditions.
+That is a different use of symmetry from the three views above, and we keep the
+two apart. The three views ask the *same* table three questions and keep the
+largest answer, which sharpens the estimate and cuts the tree. The fold asks
+the *same* question of a *smaller* table, and the estimate does not change.
+Symmetry-reduced tables of this kind are standard in cube solvers. What the
+development adds is a proof that the folded table still satisfies the two
+conditions.
 
-This is where the weakness of the two conditions pays. Nowhere does the proof
-say that the folded table holds distances. It says the table passes `D0` and
-`Dstep`, and the search needs nothing more. Had the conditions been written to
-demand true distances instead, the fold would have had to be shown to preserve
-them, which is a harder statement about the sixteen symmetries and about what
-sharing an entry between two summaries does to it. None of that has to be
-faced. The check is run on the folded table just as it was on the flat one, and
-it is the same check.
+This is where the weakness of the two conditions pays. The proof nowhere says
+that the folded table holds distances. It says the table passes `D0` and
+`Dstep`, and the search needs nothing more. Had the conditions demanded true
+distances, we would have had to show that the fold preserves them. That is a
+harder statement about the sixteen symmetries and about what sharing an entry
+between two summaries does. We never face it. The check is run on the folded
+table just as it was on the flat one, and it is the same check.
 
-Nor would demanding more have cost more. A table of true distances is
-recognised by the same single sweep: it holds them exactly when it passes the
+Demanding more would not have cost more either. The same single sweep
+recognises a table of true distances: it holds them exactly when it passes the
 two conditions and, at every summary but the solved one, some move lowers the
 value by exactly one. Asking for less does not buy a cheaper check. It buys the
 freedom to hand the search a table like this one.
 
-The fold costs the search, measured at 1.61 times slower at depth 16, and pays
-everywhere else: a search worker drops from 4.15 GB to *0.85 GB*, so all
-the pieces now run at once instead of in two waves, and checking the table
-drops from about 5.4 processor hours to *1.35*.
+The fold costs the search 1.61 times at depth 16, and it pays everywhere else.
+A search worker drops from 4.15 GB to *0.85 GB*, so all the pieces run at once
+instead of in two waves, and checking the table drops from about 5.4 processor
+hours to *1.35*.
 
 *What remains.* The same search written in OCaml is about three times faster.
-Both were run at radius 19 on the reference machine. The OCaml program visits
+We ran both at radius 19 on the reference machine. The OCaml program visits
 146 065 078 152 positions in 26.4 processor-hours, which is 0.65 microseconds a
-position; Rocq takes 87.6 processor-hours over the same tree, which is 2.16. A
+position. Rocq takes 87.6 processor-hours over the same tree, which is 2.16. A
 factor of *3.3*.
 
-That the two walk the same tree is not assumed. Dividing each of the seventeen
-Rocq pieces by the positions its OCaml counterpart visited gives between 1.98
-and 2.52 microseconds, across pieces that differ in size by a factor of two. A
-Rocq search cutting differently anywhere would show up as scatter there, and
-there is none.
+We do not assume that the two walk the same tree. Dividing each of the
+seventeen Rocq pieces by the positions its OCaml counterpart visited gives
+between 1.98 and 2.52 microseconds, across pieces that differ in size by a
+factor of two. A Rocq search cutting differently anywhere would show up as
+scatter there, and there is none.
 
-So the run takes a night because the tree has 146 billion nodes in it, not
+So the run takes a night because the tree has 146 billion nodes in it, and not
 because the prover is slow. In OCaml the same tree still costs 26
 processor-hours.
 
 = The files
 
-The proof of the twenty is forty-six hand-written Rocq files. What each group
-does. The sources carry
-their own #src("README.md"), which lists the same files, the scripts beside
-them, and how to run the whole thing.
+The proof of the twenty is forty-six hand-written Rocq files. Here is what each
+group does. The sources carry their own #src("README.md"), which lists the same
+files, the scripts beside them, and how to run the whole thing.
 
 #ftbl(([the cube, as mathematics], []),
   ([`Cyc.v`], [cyclic permutations, built from the list of points they move]),
@@ -1077,7 +1060,7 @@ the project file, since they do not exist until the generator has run.
 
 *Outside Rocq*, `ocaml/rubik_par.ml` and `ocaml/rubik_lb.ml` are the reference
 implementation. The Rocq search reproduces their node counts exactly, which is
-how a discrepancy gets caught early, and `bench/p1gen.ml` generates the tables.
+how we catch a disagreement early, and `bench/p1gen.ml` generates the tables.
 The `bench/` directory also keeps the experiments that settled design
 questions, each with its measurements.
 
@@ -1119,10 +1102,10 @@ Xeon with 62 GB and twelve physical cores:
   ([*in total*], [*1 h 02*], [*2 h 35*]),
 )
 
-Two things that table says. The second line is *serial* — 21 minutes of
-processor time inside 23 minutes of wall clock — so it is the longest stage by
-the clock and no number of cores shortens it. And the first and fifth lines
-together are 100 of the 155 processor-minutes, both dominated by the OCaml
+That table says two things. The second line is *serial*, 21 minutes of
+processor time inside 23 minutes of wall clock, so it is the longest stage by
+the clock and no number of cores shortens it. The first and fifth lines
+together are 100 of the 155 processor-minutes, and both are mostly the OCaml
 compiler turning a table into native code.
 
 = The theorem and its cost
@@ -1134,21 +1117,20 @@ Theorem superflip_p1far_real : superflip \notin ball Sset p1depth.
 ```
 
 In words, the superflip is not within `p1depth` moves of the solved cube, where
-the depth is set by one script before the run. It has *no hypotheses left*: the six
-computations it rests on, namely the two summary tables, the three move and
-distance tables and the searches, each live in their own file
-behind their own `Qed`. Asking Rocq what the proof assumes reports only the
-primitives of its machine-integer and array interface. Nothing in the chain is
-admitted.
+one script sets the depth before the run. It has *no hypotheses left*. The six
+computations it rests on are the two summary tables, the three move and
+distance tables and the searches, and each lives in its own file behind its own
+`Qed`. Asking Rocq what the proof assumes reports only the primitives of its
+machine-integer and array interface. Nothing in the chain is admitted.
 
-At depth 19 this says precisely that the superflip cannot be solved in 19
-moves. Two lines then turn it into *God's number $>= 20$*, in
-#src("Diam20.v"): that file is where the two ends of the development meet, the
-cube being defined at the bottom of the chain and the search sitting at the
-top, and it first checks that the searches were indeed run at 19.
+At depth 19 this says that the superflip cannot be solved in 19 moves. Two
+lines in #src("Diam20.v") then turn it into *God's number $>= 20$*. That file is
+where the two ends of the development meet, the cube defined at the bottom of
+the chain and the search sitting at the top, and it first checks that the
+searches really were run at 19.
 
-The run that proves it, measured on the reference machine, twice: once before
-the fold and the two reductions and once after, the same theorem both times.
+We measured the run twice on the reference machine, once before the fold and
+the two reductions and once after. It is the same theorem both times.
 
 #tbl(([radius 19, search depth 17], [before], [after]),
   ([pieces], [18], [*17*]),
@@ -1160,53 +1142,52 @@ the fold and the two reductions and once after, the same theorem both times.
 
 The pieces do not all take the same time. The shortest took 3 h 38 and the
 longest 6 h 36, read from the times at which they finished. The run ends when
-the longest piece ends, so the other sixteen workers are idle before that. Two
-of the fifteen search positions, the ninth and the eleventh, are cut in half
-for this reason. Were they not cut, each would take about 9 h 50, and the whole
-run would take that long. If the work were shared evenly over eighteen workers
-it would take 4 h 54. So about 1 h 40 is lost to idle workers, and to save it
-the eight longest pieces would have to be cut in half as well.
+the longest piece ends, so the other sixteen workers are idle before that. That
+is why two of the fifteen search positions, the ninth and the eleventh, are cut
+in half. Uncut, each would take about 9 h 50 and the whole run would take that
+long. Shared evenly over eighteen workers the run would take 4 h 54. So about
+1 h 40 goes to idle workers, and saving it means cutting the eight longest
+pieces in half as well.
 
 The two columns say that the fold and the two reductions cut the wall clock by
 41% and left the processor time as it was, 3% higher. The gain in wall clock
-comes from the memory: a worker needs 0.85 GB, so seventeen pieces fit at once,
+comes from the memory. A worker needs 0.85 GB, so seventeen pieces fit at once
 where 4.15 GB allowed only nine. The processor time is a surprise. On the small
-test used while the reductions were written, the fold was 1.61 times slower and
+test we used while writing the reductions, the fold was 1.61 times slower and
 the reductions 1.86 times faster. Together that is a saving of about a sixth,
-and the run shows no saving at all. That small test is not to be trusted: it
-subtracts two large numbers, 245 processor-seconds of table loading from 391
-for the whole run, to get 146 of search. The run above is the number to trust
-for the cost of the theorem. Why the two factors do not add up has not been
-measured.
+and the run shows none. We do not trust that small test: it subtracts two large
+numbers, 245 processor-seconds of table loading from 391 for the whole run, to
+get 146 of search. The run above is the number to trust for the cost of the
+theorem. Why the two factors do not add up we have not measured.
 
-*Memory.* A worker holds the loaded table and nothing else that grows: the
-search walks down and back up, so only the current sequence of moves is kept.
+*Memory.* A worker holds the loaded table and nothing else that grows. The
+search walks down and back up, so it keeps only the current sequence of moves.
 The 4.15 GB is identical to three decimals across the nine workers and the same
-at every depth, and the fold is what brings it to 0.85 and lets all seventeen
-pieces run at once.
+at every depth. The fold brings it to 0.85 and lets all seventeen pieces run at
+once.
 
 *What is left.* The proof that God's number is at least 20 costs 87
-processor-hours and one night. That is a measured cost, not an estimate. Two
-savings are in sight and neither is large. The first is the 1 h 40 of idle
-workers at the end of the run, which is a matter of how the work is shared out
-and not of mathematics. The second is the factor of 3.3 against OCaml, and even
-winning all of it would leave 26 processor-hours. The cost is the tree, and the
-tree is 146 billion positions. Nothing else in the chain is known to be
+processor-hours and one night. That is a measured cost, not an estimate. We can
+see two savings and neither is large. The first is the 1 h 40 of idle workers
+at the end of the run, which is a matter of how the work is shared out and not
+of mathematics. The second is the factor of 3.3 against OCaml, and winning all
+of it would still leave 26 processor-hours. The cost is the tree, and the tree
+is 146 billion positions. We know of nothing else in the chain that is
 wasteful.
 
 = Counting in quarter turns
 
 Counted in quarter turns there are twelve moves: the six faces one way and the
 same six back. A half turn is two moves. The answer in that count is *26*
-(#link("http://cube20.org")[cube20.org]). What is proved here is the lower
-half: one position cannot be solved in 25 quarter turns.
+(#link("http://cube20.org")[cube20.org]). We prove the lower half: one position
+cannot be solved in 25 quarter turns.
 
 == The position, and 25 down to 24
 
 The superflip is 24 quarter turns from solved, so it is not far enough away. In
 August 1998 Reid posted a better position to the Cube-Lovers list
 @reid1998fourspot: the *four-spot* with the superflip composed onto it. That
-post is the source of this section and is transcribed beside this note.
+post is the source of this section, and it is transcribed beside this note.
 
 The four-spot exchanges the front and back colours and the left and right
 colours. The centres cannot move, so each of those four faces keeps its own
@@ -1238,12 +1219,12 @@ Reid's position is 26 quarter turns from solved. His word for it is
     D^(-1) space R^(-1) space L space U space F^(-1) space B^(-1)$
 ]
 
-That is 21 face turns, five of them half turns. It is checked by multiplying out
+That is 21 face turns, five of them half turns. We check it by multiplying out
 both sides and comparing two lists of 48 places.
 
 Ruling out 25 is ruling out 24. A quarter turn is five four-cycles of the 48
 stickers, so it is odd, and a manoeuvre of odd length gives an odd position.
-Reid's position is even, so every manoeuvre for it has even length and the
+Reid's position is even. So every manoeuvre for it has even length, and the
 searches stop at 24.
 
 == Reid's six beginnings
@@ -1268,13 +1249,13 @@ rewritten, at the same length, to begin with one of six sequences.
 The rewriting uses three operations that change neither the product nor the
 length: conjugation by one of the sixteen symmetries that fix the position,
 inversion, and cyclic shift with the letters that move to the end relabelled.
-The last is why this position was chosen. #src("HProp2.v") is that argument in
+The last is why we chose this position. #src("HProp2.v") is that argument in
 Rocq, and #src("HBridge.v") carries it to the orientation the search uses.
 
 Reid does not state one hypothesis his proof needs: the manoeuvre cannot be
 shortened. Without it the third turn may cancel the second. The Rocq statement
-carries the hypothesis, at no cost, since a shortest manoeuvre is what is
-wanted anyway.
+carries the hypothesis at no cost, since a shortest manoeuvre is what we want
+anyway.
 
 Six searches follow. The first beginning is two turns long and is searched 22
 further, the other five are three long and are searched 21 further. Each
@@ -1301,7 +1282,7 @@ Reid's H, which is where the H at the front of the file names comes from.
 
 The table holds the distance from solved of each of the 29 billion summaries.
 How many lie at each distance agrees with the column Reid published in 1998,
-and that check is run first. The table is then folded: the sixteen symmetries
+and we run that check first. The table is then folded. The sixteen symmetries
 that keep the up-down axis sort the 190 080 edge values into 12 094 families, a
 factor of 15.72, and one entry is kept per family. That is 883 MB, measured at
 3.86 GB once loaded into the prover.
@@ -1344,7 +1325,7 @@ Theorem qdiam25 : ~ diam_le Sq 25.
 
 `Sq` is the set of the twelve quarter turns, and `diam_le Sq 25` says every
 position is within 25 of them. The line says it is not. Reid's position is the
-witness and his word puts it at 26. Rocq reports only the primitives of its
+witness, and his word puts it at 26. Rocq reports only the primitives of its
 machine-integer and array interface.
 
 #tbl(([], [wall clock], [processor time]),
@@ -1357,8 +1338,8 @@ machine-integer and array interface.
 )
 
 The last row is not the sum of the others. It is the whole chain measured end
-to end from a directory where nothing is built. The OCaml table on the first
-row is built once by hand and is not part of that run.
+to end from a directory where nothing is built. We build the OCaml table on the
+first row once by hand, and it is not part of that run.
 
 The sweeps and the searches are nearly nine tenths of the cost. Checking the
 table rather than trusting it costs about two thirds of what the searches cost.
@@ -1371,14 +1352,14 @@ one search that finds nothing: the superflip for the twenty face turns, the
 four-spot with the superflip on it for the twenty-six quarter turns.
 
 The other half of God's number, that twenty moves always suffice, is the huge
-one, and it is not proved here. What #src("Diameter.v") contains is the
-reduction for it, and that reduction rests on one assumption.
+one, and we do not prove it here. #src("Diameter.v") holds the reduction for
+it, and that reduction rests on one assumption.
 
 The published proofs do not solve all 43 quintillion positions one at a time.
 They cut the cube group into the 2 217 093 120 cosets of a subgroup and solve a
-whole coset at once: one search settles every one of the 19 508 428 800
+whole coset at once. One search settles every one of the 19 508 428 800
 positions in it. The positions in a coset are not all the same distance from
-solved; what the search shows is that none of them is more than 20. A symmetry
+solved. What the search shows is that none of them is more than 20. A symmetry
 of the cube carries one coset to another, and the image is solved by the same
 manoeuvres relabelled, so only one coset per symmetry class is searched. Two
 things are then needed: that the cosets searched cover every class, and that
@@ -1386,22 +1367,23 @@ each search really settles its whole coset.
 
 The first is not a computation, and #src("Canon.v") proves it. Take as
 representative the least member of each class, in the order the finite type
-already carries; the covering property holds because a finite set has a least
+already carries. The covering property holds because a finite set has a least
 element. It is eighty lines and assumes nothing.
 
 The second is the computation itself, the one Rokicki, Kociemba, Davidson and
 Dethridge ran: about a billion seconds of processor time, more than thirty
-processor years, donated by Google, over 55 882 296 families of cosets. There
-is no prospect of repeating that here. What can be done is one coset, to see
-what one costs and whether the pieces are in place. This section reports that
-one coset, the superflip's.
+processor years, donated by Google, over 55 882 296 families of cosets. We
+cannot repeat that. What we can do is one coset, to see what one costs and
+whether the pieces are in place. This section reports that one coset, the
+superflip's.
 
 == Cosets
 
 The subgroup is generated by ten of the eighteen moves: the three turns of the
 top face, the three of the bottom face, and the half turns of the other four.
-Call them the ten. They generate Reid's H, met above. A coset of H is the set of positions
-reached by playing the ten from a fixed position. Every position of the cube lies in exactly one coset.
+Call them the ten. They generate Reid's H, met above. A coset of H is the set of
+positions reached by playing the ten from a fixed position. Every position of
+the cube lies in exactly one coset.
 
 #tbl(([], [count]),
   ([positions of the cube], [43 252 003 274 489 856 000]),
@@ -1411,7 +1393,7 @@ reached by playing the ten from a fixed position. Every position of the cube lie
 )
 
 We did the superflip's coset. We had the superflip already, from the lower
-bound, so it made a good enough example of a coset.
+bound, so it is a good enough example of a coset.
 
 == The coset as one map
 
@@ -1423,13 +1405,13 @@ of forty-eight bits, which is 19 508 428 800 bits.
 
 The search starts at the superflip and plays words, setting the bit of every
 position of the coset it reaches. When every bit is set the theorem follows.
-Thirty-two positions are not reached; each is given a word of twenty moves by
-hand in #src("RowWits.v"). The words are not trusted: #src("RowWitsChk.v")
-plays each one back and asks for the solved cube.
+Thirty-two positions are not reached. We give each of them a word of twenty
+moves by hand in #src("RowWits.v"). We do not trust those words:
+#src("RowWitsChk.v") plays each one back and asks for the solved cube.
 
 == The reused and the new
 
-Nearly everything is reused: the search, the map, the tables that step a whole
+We reuse nearly everything: the search, the map, the tables that step a whole
 map, the ranking of the three numbers, the replay of the leftover words, the
 phase one table and the program that generates it, the cube, the permutations
 and the machine-integer tools.
@@ -1438,20 +1420,20 @@ Four things are new, and none of them is about searching.
 
 - The rank and the sign of a permutation on machine integers. Rocq's library
   has both, but for permutations that cannot be computed.
-- That a position of a coset *is* its three numbers, in both directions. Only one
-  direction was there. Without the other the theorem is about triples of
-  numbers and not about the cube.
+- That a position of a coset *is* its three numbers, in both directions. We had
+  one direction only. Without the other the theorem is about triples of numbers
+  and not about the cube.
 - The link between the summary the search carries and the position it stands
   for. The summary is one machine word, the position forty-eight.
 - Checks on the tables, one per file, so that each reports separately.
 
 == The unsound stop
 
-Cutting a branch on the table is sound: a table that says too little only cuts
-less. Stopping on it is not. The search used to stop when the table said zero
-and take the position it had reached as one of the coset. A table of zeros still
-says too little, so it is still allowed, yet it would stop the search everywhere
-and the theorem would say nothing.
+Cutting a branch on the table is sound, because a table that says too little
+only cuts less. Stopping on it is not. Our search used to stop when the table
+said zero and take the position it had reached as one of the coset. A table of
+zeros still says too little, so it is still allowed, and it would stop the
+search everywhere and the theorem would say nothing.
 
 The search now stops on the position. At the bottom it tests the position it is
 carrying. No part of the proof reads the table, and it costs one comparison.
@@ -1461,19 +1443,19 @@ carrying. No part of the proof reads the table, and it costs one comparison.
 The map is 40 320 pages of 20 160 groups, one page for each way the eight top
 and bottom corners can sit. Sixteen renamings of the cube keep the top and
 bottom faces in place, send the ten to the ten and leave the superflip alone.
-Two pages related by a renaming hold the same answer, so one page of each
-family is enough: 2 768 of the 40 320, a factor of 14.6. A level of the search
-is one pass over the map, so there is 14.6 times less of it to walk. The price
-is undoing a renaming whenever a kept page is read.
+Two pages related by a renaming hold the same answer, so one page of each family
+is enough: 2 768 of the 40 320, a factor of 14.6. A level of the search is one
+pass over the map, so there is 14.6 times less of it to walk. The price is
+undoing a renaming whenever a kept page is read.
 
 The kept pages go in pairs of their own, and a pair shares one word as it does
 on the unfolded side: 1 496 words in place of 2 768. Two hundred and twenty-four
 of the pages are their own partner and use half a word.
 
-The fold has to be proved as well as written: that a renaming sends a member of
-the coset to a member of the coset, that undoing it gives back the position the
-page stood for, and that a map sound after one level is sound after the next.
-That is the largest single part of the coset's proof.
+The fold has to be proved as well as written. A renaming sends a member of the
+coset to a member of the coset. Undoing it gives back the position the page
+stood for. A map sound after one level is sound after the next. That is the
+largest single part of the coset's proof.
 
 == The files
 
@@ -1540,17 +1522,17 @@ same search in both, and both times it filled the map.
 )
 
 The fold is worth 1.3 times on the wall clock and 1.3 times on processor time.
-The run does not follow the size of the map, which is 13 times smaller: most of
+The run does not follow the size of the map, which is 13 times smaller. Most of
 the work is the search at the deepest levels, and that is the same tree on both
-sides. What the map does set is the memory. The unfolded map is 3.25 GB against
+sides. What the map sets is the memory. The unfolded map is 3.25 GB against
 248 MB, and a level reads one map while it writes the other, so the unfolded run
 needed 23.3 GB of a 62 GB machine. Told to collect harder, the same run peaks at
 13.9 GB and takes four per cent longer.
 
 Two earlier folded runs say where the time went. Over words of twenty-four bits,
-holding one corner arrangement each, the run took 6 h 00; the same run again with
-the depth left as a unary numeral instead of a machine integer took 8 h 13.
-Counting in unary is the enemy here too.
+holding one corner arrangement each, the run took 6 h 00. The same run with the
+depth left as a unary numeral instead of a machine integer took 8 h 13. Counting
+in unary is the enemy here too.
 
 The phase one table is 2.9 GB of Rocq source and 4.5 GB once checked, 8 h 48 of
 processor time. It is generated once and shared with the lower-bound work.
@@ -1562,22 +1544,22 @@ Theorem real_row_superflip_fold_runi m :
   m \in H -> superflip * m \in ball Sset 20.
 ```
 
-`H` is the group of the ten and a coset is one of its cosets. Every position of
-the superflip's coset is within twenty moves. Rocq reports only the primitives of
-its machine-integer and array interface. The unfolded run proves the same
+`H` is the group of the ten, and a coset is one of its cosets. Every position of
+the superflip's coset is within twenty moves. Rocq reports only the primitives
+of its machine-integer and array interface. The unfolded run proves the same
 statement from its own map.
 
 = Conclusion
 
-Two lower bounds are proved. No position of the cube is solved in 19 face
-turns, and none in 25 quarter turns. In each case one position is the witness,
-the superflip for the first and the four-spot with the superflip on it for the
-second, and in each case the proof is a search that comes back empty over a
-table of estimated distances.
+We prove two lower bounds. No position of the cube is solved in 19 face turns,
+and none in 25 quarter turns. In each case one position is the witness, the
+superflip for the first and the four-spot with the superflip on it for the
+second. In each case the proof is a search that comes back empty over a table of
+estimated distances.
 
-That 20 and 26 always suffice is not proved here. The upper half is a different
-computation: not one search that finds nothing, but two billion searches that
-must each find everything. One of the two billion was done, and the section
+We do not prove that 20 and 26 always suffice. The upper half is a different
+computation. It is not one search that finds nothing, but two billion searches
+that must each find everything. We did one of the two billion, and the section
 above says what it cost.
 
 The three share a trunk. The cube itself, as permutations of the forty-eight
@@ -1617,7 +1599,7 @@ piece adds to the ones above it.
 One point is worth recording. Our own OCaml prototype for the first bound
 dropped six of the thirty beginnings it should have tried. It ran for hours and
 gave the expected answer. The Rocq proof is what found it. A cut that is too
-greedy does not make a search fail; it makes it faster, and it makes it agree
+greedy does not make a search fail. It makes it faster, and it makes it agree
 with you.
 
 This development was written with the help of Claude, Anthropic's coding
