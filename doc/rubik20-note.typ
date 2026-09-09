@@ -245,7 +245,7 @@
 }
 
 #align(center)[
-  #text(size: 17pt)[*God's number is at least 20:* \ *proving it in Rocq*]
+  #text(size: 17pt)[*Playing with the Rubik Cube and its God's number in Rocq*]
 
   #v(0.9em)
   #text(size: 11pt)[Laurent Théry]
@@ -260,17 +260,21 @@
   #set text(size: 9.8pt)
   #set par(justify: true)
   *Abstract.* God's number, the largest number of face turns needed to solve a
-  Rubik's cube, is twenty. We describe a proof in the Rocq prover of the lower
-  half of that statement: one position, the superflip, cannot be solved in
-  nineteen moves. The search is pruned by a table of two billion entries, every
-  one of them checked inside the prover. Counting a half turn as the two
-  quarter turns it is made of gives a second number, twenty-six, and the lower
-  half of that is proved here too: Michael Reid's position of 1998 cannot be
-  solved in twenty-five quarter turns.
+  Rubik's cube, is twenty. It was settled in 2010 by a computation of
+  thirty-five processor years. That is out of reach in a proof assistant like
+  Rocq. Instead, three smaller results are proved here. First, we prove that
+  twenty is a lower bound: one position, the superflip, cannot be solved in
+  nineteen. A half turn can also count as two moves. The number is then
+  twenty-six. We prove that twenty-six is a lower bound for solving the
+  four-spot with the superflip on it. This is our second result. Finally, the
+  published computation splits the cube into the 2 217 093 120 cosets of a
+  subgroup, one search to a coset. We formalise everything one coset needs, and
+  we apply it to one specific coset: every position of the superflip's coset is
+  solved in twenty moves or fewer. This is our last result.
 
   #v(0.4em)
   *Keywords.* Rubik's cube, God's number, quarter turn, formal proof, Rocq,
-  pruning table.
+  coset.
 ]]
 
 #v(0.6em)
