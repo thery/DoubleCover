@@ -261,7 +261,7 @@
   #set par(justify: true)
   *Abstract.* God's number, the largest number of face turns needed to solve a
   Rubik's cube, is twenty. It was settled in 2010 by a computation of
-  thirty-five processor years, which is out of reach of a proof assistant.
+  thirty-five processor years. That is out of reach of a proof assistant.
   Three smaller results are proved here in Rocq instead. Twenty is a lower
   bound: one position, the superflip, cannot be solved in nineteen. Counting a
   half turn as the two quarter turns it is made of gives a second number,
