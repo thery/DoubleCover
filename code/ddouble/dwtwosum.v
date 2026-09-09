@@ -1,8 +1,8 @@
-From Stdlib Require Import Reals ZArith.
+From Stdlib Require Import Reals ZArith Psatz.
 From Stdlib Require Import Floats.
 From Flocq Require Import Core BinarySingleNaN PrimFloat.
 From mathcomp Require Import ssreflect.
-From dwarith Require Import dwarith dwbridge.
+From dwarith Require Import dwarith dwbridge TwoSumFLT.
 
 (* The two error-free transformations of dwarith.v, read on the reals.        *)
 (* They are, step for step, the TwoSum and Fast2Sum the double-word proofs    *)
@@ -63,4 +63,39 @@ have [Eda Fda] := D2R_sub _ _ Fa Fa' Hda.
 have [Edb Fdb] := D2R_sub _ _ Fb Fb' Hdb.
 have [Ee Fe] := D2R_add _ _ Fda Fdb He.
 by rewrite /= -Es -Ea' -Eb' -Eda -Edb.
+Qed.
+
+(* Rounding to nearest with ties to even reads a sign the same way on either  *)
+(* side of zero, which is what Knuth's 2Sum asks of a tie rule.                *)
+Lemma Dchoice_sym x :
+  negb (Z.even x) = negb (negb (Z.even (- (x + 1)))).
+Proof.
+by rewrite Z.even_opp Z.add_1_r Z.even_succ -Z.negb_even Bool.negb_involutive.
+Qed.
+
+(* TwoSum is error-free: the two words of the result sum to the exact sum of  *)
+(* the two arguments.  Knuth's theorem, read on the program.                  *)
+Lemma twoSum_exact a b :
+  Dfin a -> Dfin b ->
+  Dfits (D2R a + D2R b) ->
+  Dfits (D2R (a + b)%float - D2R b) ->
+  Dfits (D2R (a + b)%float - D2R ((a + b) - b)%float) ->
+  Dfits (D2R a - D2R ((a + b) - b)%float) ->
+  Dfits (D2R b - D2R ((a + b) - ((a + b) - b))%float) ->
+  Dfits (D2R (a - ((a + b) - b))%float +
+         D2R (b - ((a + b) - ((a + b) - b)))%float) ->
+  D2R (dwhi (twoSum a b)) + D2R (dwlo (twoSum a b)) = D2R a + D2R b.
+Proof.
+move=> Fa Fb Hs Ha' Hb' Hda Hdb He.
+have [Eh [El _]] := twoSumE _ _ Fa Fb Hs Ha' Hb' Hda Hdb He.
+have Fa' : generic_format radix2 (FLT_exp (SpecFloat.emin prec emax) prec)
+             (D2R a) by rewrite -DfexpE; apply: Dformat.
+have Fb' : generic_format radix2 (FLT_exp (SpecFloat.emin prec emax) prec)
+             (D2R b) by rewrite -DfexpE; apply: Dformat.
+have Hp : (1 < prec)%Z by [].
+have Hp0 : Prec_gt_0 prec by [].
+have K := @Knuth (SpecFloat.emin prec emax) prec Hp Hp0 _ Dchoice_sym
+            (D2R a) (D2R b) Fa' Fb'.
+rewrite -DfexpE in K.
+by rewrite Eh El !DrndE; lra.
 Qed.
