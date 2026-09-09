@@ -265,9 +265,8 @@
   Rocq. Instead, three smaller results are proved here. First, we prove that
   twenty is a lower bound: one position, the superflip, cannot be solved in
   nineteen. A half turn can also count as two moves. The number is then
-  twenty-six. We prove that twenty-six is a lower bound too: the four-spot with
-  the superflip on it, Michael Reid's position of 1998, cannot be solved in
-  twenty-five quarter turns. This is our second result. Finally, the upper
+  twenty-six. We prove that twenty-six is a lower bound for solving the
+  four-spot with the superflip on it. This is our second result. Finally, the upper
   bound is the other half. The published computation splits it into the
   2 217 093 120 cosets of a subgroup, one search to a coset. We formalise
   everything one coset needs, and we do one coset: every position of the
