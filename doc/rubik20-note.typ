@@ -269,8 +269,8 @@
   four-spot with the superflip on it. This is our second result. Finally, the
   published computation splits the cube into the 2 217 093 120 cosets of a
   subgroup, one search to a coset. We formalise everything one coset needs, and
-  we do one coset: every position of the superflip's coset is solved in twenty
-  moves or fewer. This is our last result.
+  we apply it to one specific coset: every position of the superflip's coset is
+  solved in twenty moves or fewer. This is our last result.
 
   #v(0.4em)
   *Keywords.* Rubik's cube, God's number, quarter turn, formal proof, Rocq,
