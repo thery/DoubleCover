@@ -1413,8 +1413,9 @@ bound, so it made a good enough example of a coset.
 
 A position of a coset is named by three numbers: how the eight top and bottom
 corners sit, how the eight top and bottom edges sit, and how the four middle
-edges sit. The map holds one bit for each, 812 851 200 machine words of
-twenty-four bits, which is 19 508 428 800 bits.
+edges sit. The map holds one bit for each. The arrangements of the corners go
+in pairs, and a pair shares one word, so the map is 406 425 600 machine words
+of forty-eight bits, which is 19 508 428 800 bits.
 
 The search starts at the superflip and plays words, setting the bit of every
 position of the coset it reaches. When every bit is set the theorem follows.
@@ -1460,6 +1461,10 @@ Two pages related by a renaming hold the same answer, so one page of each
 family is enough: 2 768 of the 40 320, a factor of 14.6. A level of the search
 is one pass over the map, so there is 14.6 times less of it to walk. The price
 is undoing a renaming whenever a kept page is read.
+
+The kept pages go in pairs of their own, and a pair shares one word as it does
+on the unfolded side: 1 496 words in place of 2 768. Two hundred and twenty-four
+of the pages are their own partner and use half a word.
 
 The fold has to be proved as well as written: that a renaming sends a member of
 the coset to a member of the coset, that undoing it gives back the position the
@@ -1519,27 +1524,29 @@ That is the largest single part of the coset's proof.
 
 == The cost
 
-The coset adds sixty-six hand-written Rocq files and 15 782 lines to the work
+The coset adds sixty-nine hand-written Rocq files and 17 386 lines to the work
 above, besides the generated tables.
 
 The search ran twice, over the folded map and over the unfolded one, with the
 same search in both, and both times it filled the map.
 
 #tbl(([the run], [wall clock], [processor time], [peak memory]),
-  ([over the folded map], [6 h 00], [5 h 59], [--]),
-  ([over the unfolded map], [10 h 51], [10 h 01], [44.4 GB]),
+  ([over the folded map], [5 h 53], [5 h 51], [--]),
+  ([over the unfolded map], [7 h 52], [7 h 48], [23.3 GB]),
 )
 
-The fold is worth 1.8 times on the wall clock and 1.7 times on processor time.
-The run does not follow the size of the map, which is 14.6 times smaller: most
-of the work is the search at the deepest levels, and that is the same tree on
-both sides. What the map does set is the memory. The unfolded map is 6.5 GB
-against 454 MB, and a level reads one map while it writes the other, so the
-unfolded run needed 44.4 GB of a 62 GB machine.
+The fold is worth 1.3 times on the wall clock and 1.3 times on processor time.
+The run does not follow the size of the map, which is 13 times smaller: most of
+the work is the search at the deepest levels, and that is the same tree on both
+sides. What the map does set is the memory. The unfolded map is 3.25 GB against
+248 MB, and a level reads one map while it writes the other, so the unfolded run
+needed 23.3 GB of a 62 GB machine. Told to collect harder, the same run peaks at
+13.9 GB and takes four per cent longer.
 
-An earlier folded run, identical but for holding the depth left as a unary
-numeral instead of a machine integer, took 8 h 13. Counting in unary is the
-enemy here too.
+Two earlier folded runs say where the time went. Over words of twenty-four bits,
+holding one corner arrangement each, the run took 6 h 00; the same run again with
+the depth left as a unary numeral instead of a machine integer took 8 h 13.
+Counting in unary is the enemy here too.
 
 The phase one table is 2.9 GB of Rocq source and 4.5 GB once checked, 8 h 48 of
 processor time. It is generated once and shared with the lower-bound work.
@@ -1593,14 +1600,14 @@ What each of the three needed of its own:
   words supplied by hand for the positions the search does not reach.
 
 The whole development, counted in hand-written Rocq and leaving out the
-generated tables, is 36 294 lines. Each line of the table counts what that
+generated tables, is 37 898 lines. Each line of the table counts what that
 piece adds to the ones above it.
 
 #tbl(([], [files], [lines]),
   ([the superflip, for the twenty face turns], [53], [14 504]),
   ([the four-spot, for the twenty-six quarter turns], [18], [6 008]),
-  ([one coset of the upper bound], [66], [15 782]),
-  ([*in all*], [*137*], [*36 294*]),
+  ([one coset of the upper bound], [69], [17 386]),
+  ([*in all*], [*140*], [*37 898*]),
 )
 
 One point is worth recording. Our own OCaml prototype for the first bound

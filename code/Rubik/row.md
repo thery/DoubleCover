@@ -641,8 +641,8 @@ with the cell.  It had not.  ASK WHAT THE NUMBER MEASURES BEFORE ACTING ON
 IT.  The run was never at risk: `RowFoldCubBoolI` goes straight to
 `mfullf` and never calls `fcount`.
 
-**What is left:** `pdonei` at forty eight bits, the folded boolean re-run
-over the guard, and the folded 48 bit run.  None can
+**What is left:** `pdonei` at forty eight bits, and `donei` over the folded
+48 bit boolean below.  Neither can
 be built on the desktop -- `P1Fdec.v` is generated and absent, and `FsmChk`
 is itself a computation.  Run them with `./mkrowfold.sh pbooli` then
 `pdonei`.
@@ -650,3 +650,45 @@ is itself a computation.  Run them with `./mkrowfold.sh pbooli` then
 **The level is not an optimisation.**  `RowLvl`'s level reads each page's
 chunk once and puts it back once; the plain prepass writes the chunk table
 once per word.  The memory follows the level, not the cell.
+
+## THE FOLDED RUN AT FORTY EIGHT BITS -- 8 September, roquableu
+
+`./mkrowfold.sh booli`, `RowFoldCubBoolI.v`, over the folded map of forty
+eight bit cells (commit c3c6cfe) with the guard in.  Ended Tue 8 Sep
+23:19:57 CEST.
+
+| folded boolean run, twenty levels | wall | user | sys |
+|---|---|---|---|
+| 24 bits, unguarded, 3 September | 21 637 s (6 h 00) | 21 520 s | -- |
+| 24 bits, guarded, 8 September | 22 376 s (6 h 13) | 22 316 s | 61 s |
+| **48 bits, guarded, 8 September** | **21 176 s (5 h 52 m 56)** | **21 040 s** | **10 s** |
+
+**The cell buys 5.4 % against the guarded run and 2.1 % against the unguarded
+one.**  It is the memory it buys, not the time, and that is what the unfolded
+side said too: at thirteen the corner pair was worth 1.78x, and at twenty
+levels the search dominates and the search is untouched.
+
+**The map, computed off `nchunkf` and `csizef`:** 24 x 1 290 240 = 30 965 760
+words, 248 MB, against 44 x 1 290 240 = 56 770 560 words, 454 MB.  1 496 cells
+where there were 2 768 kept pages -- 224 that tau fixes and 1 272 pairs.
+
+**FOLD AGAINST UNFOLD, both at forty eight bits and both guarded:**
+
+| | wall | user |
+|---|---|---|
+| unfolded, 8 September | 28 351 s (7 h 52) | 28 095 s |
+| folded, 8 September | 21 176 s (5 h 53) | 21 040 s |
+| **ratio** | **1.34x** | **1.34x** |
+
+It was 3.18x on the wall at twenty four bits, and that gap was the unfolded run
+paging.  With the cell halved it no longer pages, so what is left is the work
+itself.
+
+**NOT IN THE LOG: the peak.**  The log carries `time` and nothing else, so the
+folded run's memory at forty eight bits is not measured.
+
+**CHECK BEFORE `donei`:** `ca77dd5` adds `fcount48` to `RowFold.v` and landed
+18:37, an hour into a run that started 17:27.  If that commit reached the tree
+on roquableu while the run was going, `RowFoldCubBoolI.vo` is compiled against
+the earlier `RowFold.vo` and `donei` will say "makes inconsistent assumptions".
+Same shape as the 2 September pull recorded above.
