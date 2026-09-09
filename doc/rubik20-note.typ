@@ -262,14 +262,13 @@
   *Abstract.* God's number, the largest number of face turns needed to solve a
   Rubik's cube, is twenty. It was settled in 2010 by a computation of
   thirty-five processor years, which is out of reach of a proof assistant.
-  Three smaller results are proved here in Rocq instead. That twenty moves are
-  sometimes needed: one position, the superflip, cannot be solved in
-  nineteen. Counting a half turn as the two quarter turns it is made of gives a
-  second number, twenty-six, and the same for it: Michael Reid's position of
-  1998 cannot be solved in twenty-five quarter turns. That twenty moves always
-  suffice is the other half. It asks two billion searches, each of which must
-  find everything, and one of the two billion was run in Rocq to see what one
-  costs.
+  Three smaller results are proved here in Rocq instead. Twenty is a lower
+  bound: one position, the superflip, cannot be solved in nineteen. Counting a
+  half turn as the two quarter turns it is made of gives a second number,
+  twenty-six, and twenty-six is a lower bound too: Michael Reid's position of
+  1998 cannot be solved in twenty-five quarter turns. The upper bound is the
+  other half. It asks two billion searches, each of which must find everything,
+  and one of the two billion was run in Rocq to see what one costs.
 
   #v(0.4em)
   *Keywords.* Rubik's cube, God's number, quarter turn, formal proof, Rocq,
