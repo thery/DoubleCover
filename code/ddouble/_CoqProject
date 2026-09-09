@@ -11,6 +11,7 @@ DWPlus.v
 Imul.v
 TwoSumFLT.v
 dwbridge.v
+dwflx.v
 dwarith.v
 dwtwosum.v
 dw_updn.v

@@ -87,3 +87,27 @@ rewrite div_equiv.
 have := Bdiv_correct _ _ Hprec Hmax mode_NE (Prim2B x) (Prim2B y) yn0.
 by rewrite Rlt_bool_true //; case=> -> [-> _]; rewrite Fx.
 Qed.
+
+(* Addition and subtraction, asked the other way round.  Overflow is what     *)
+(* the Dfits above rules out, and an operation that overflowed returns an     *)
+(* infinity, so a finite result is itself the proof that it did not.  This    *)
+(* is the form a program can test: it looks at what it just computed.         *)
+Lemma Dfin_add x y :
+  Dfin x -> Dfin y -> Dfin (x + y)%float ->
+  D2R (x + y)%float = Drnd (D2R x + D2R y) /\ Dfits (D2R x + D2R y).
+Proof.
+rewrite /Dfin /D2R add_equiv => Fx Fy Fxy.
+have := Bplus_correct _ _ Hprec Hmax mode_NE _ _ Fx Fy.
+case: Rlt_bool_spec => [Hlt [-> _]|Hle [Hov _]]; first by [].
+by move: Fxy Hov; case: Bplus.
+Qed.
+
+Lemma Dfin_sub x y :
+  Dfin x -> Dfin y -> Dfin (x - y)%float ->
+  D2R (x - y)%float = Drnd (D2R x - D2R y) /\ Dfits (D2R x - D2R y).
+Proof.
+rewrite /Dfin /D2R sub_equiv => Fx Fy Fxy.
+have := Bminus_correct _ _ Hprec Hmax mode_NE _ _ Fx Fy.
+case: Rlt_bool_spec => [Hlt [-> _]|Hle [Hov _]]; first by [].
+by move: Fxy Hov; case: Bminus.
+Qed.
