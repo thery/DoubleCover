@@ -15,4 +15,5 @@ dwflx.v
 dwarith.v
 dwtwosum.v
 dw_updn.v
+dwbound.v
 dw_ops.v
