@@ -130,11 +130,58 @@ Definition pow2_UP (_ : precision) (e : sfactor) :=
   fp2dw (PrimitiveFloat.pow2_UP fprec e).
 
 (* An argument that denotes nothing must give a result that denotes nothing,  *)
-(* or the operation would be claiming to know more than it was told.  These   *)
-(* two guards are what carries that through.                                  *)
-Definition onReal (f : type -> type) x := if real x then f x else nan.
+(* or the operation would be claiming to know more than it was told.  And a   *)
+(* result that is not a number is checked for as well: an operation that ran  *)
+(* off the top of the range has no claim to make either, and what it returns  *)
+(* has to be a bound on both sides.  Not a number is such a bound - it is     *)
+(* the whole line - so falling back on it is always allowed, and it is the    *)
+(* one answer that needs nothing proved about the numbers.                    *)
+Definition guard (r : type) := if real r then r else nan.
+
+Definition onReal (f : type -> type) x := if real x then guard (f x) else nan.
 Definition onReal2 (f : type -> type -> type) x y :=
-  if real x && real y then f x y else nan.
+  if real x && real y then guard (f x y) else nan.
+
+(* Whatever the operation did, what comes back is a bound on either side.     *)
+Lemma classify_guard r :
+  classify (guard r) = Freal \/ classify (guard r) = Sig.Fnan.
+Proof.
+rewrite /guard; case E: (real r); last by right.
+by left; move: E; rewrite /real; case: (classify r).
+Qed.
+
+Lemma valid_ub_onReal2 f x y : valid_ub (onReal2 f x y) = true.
+Proof.
+rewrite /onReal2; case: (andb (real x) (real y)) => //.
+by rewrite /valid_ub; case: (classify_guard (f x y)) => ->.
+Qed.
+
+Lemma valid_lb_onReal2 f x y : valid_lb (onReal2 f x y) = true.
+Proof.
+rewrite /onReal2; case: (andb (real x) (real y)) => //.
+by rewrite /valid_lb; case: (classify_guard (f x y)) => ->.
+Qed.
+
+Lemma valid_ub_onReal f x : valid_ub (onReal f x) = true.
+Proof.
+rewrite /onReal; case: (real x) => //.
+by rewrite /valid_ub; case: (classify_guard (f x)) => ->.
+Qed.
+
+Lemma valid_lb_onReal f x : valid_lb (onReal f x) = true.
+Proof.
+rewrite /onReal; case: (real x) => //.
+by rewrite /valid_lb; case: (classify_guard (f x)) => ->.
+Qed.
+
+(* Not a number reads as the whole line, so it is above and below             *)
+(* everything: an operation that gave up says nothing, and nothing is         *)
+(* always true.                                                               *)
+Lemma classify_nan : classify nan = Sig.Fnan.
+Proof. by []. Qed.
+
+Lemma toX_nan : toX nan = Xnan.
+Proof. by []. Qed.
 
 Definition add_UP (_ : precision) x y := onReal2 addDwUp x y.
 Definition add_DN (_ : precision) x y := onReal2 addDwDn x y.
@@ -159,5 +206,51 @@ Definition nearbyint_DN (mode : rounding_mode) x :=
 (* The midpoint is the plain half sum: rounding to nearest keeps it between   *)
 (* the two, which is all that is asked of it.                                 *)
 Definition midpoint x y := div2 (plusDwDw x y).
+
+(* ---------------------------------------------------------------------------*)
+(*  What the signature asks of addition                                       *)
+(* ---------------------------------------------------------------------------*)
+
+(* Half of the obligation needs no arithmetic at all.  Whatever the           *)
+(* operation did, the guard leaves either a real number or nothing, and       *)
+(* neither is an infinity of the wrong sign.                                  *)
+Lemma add_UP_valid_ub p x y : valid_ub (add_UP p x y) = true.
+Proof. exact: valid_ub_onReal2. Qed.
+
+Lemma add_DN_valid_lb p x y : valid_lb (add_DN p x y) = true.
+Proof. exact: valid_lb_onReal2. Qed.
+
+(* The other half comes down to a single inequality, about an operation       *)
+(* given two double words that returned one.  The cases where it gave up are  *)
+(* the whole line, and there is nothing to prove.                             *)
+Lemma add_UP_correct_of :
+  (forall x y, real x = true -> real y = true -> real (addDwUp x y) = true ->
+     le_upper (toX x + toX y)%XR (toX (addDwUp x y))) ->
+  forall p x y, valid_ub x = true -> valid_ub y = true ->
+  valid_ub (add_UP p x y) = true /\
+  le_upper (toX x + toX y)%XR (toX (add_UP p x y)).
+Proof.
+move=> H p x y _ _; split; first exact: add_UP_valid_ub.
+rewrite /add_UP /onReal2.
+case Ex: (real x); last by rewrite toX_nan.
+case Ey: (real y); last by rewrite toX_nan.
+rewrite /guard; case Er: (real (addDwUp x y)); last by rewrite toX_nan.
+by apply: H.
+Qed.
+
+Lemma add_DN_correct_of :
+  (forall x y, real x = true -> real y = true -> real (addDwDn x y) = true ->
+     le_lower (toX (addDwDn x y)) (toX x + toX y)%XR) ->
+  forall p x y, valid_lb x = true -> valid_lb y = true ->
+  valid_lb (add_DN p x y) = true /\
+  le_lower (toX (add_DN p x y)) (toX x + toX y)%XR.
+Proof.
+move=> H p x y _ _; split; first exact: add_DN_valid_lb.
+rewrite /add_DN /onReal2.
+case Ex: (real x); last by rewrite toX_nan.
+case Ey: (real y); last by rewrite toX_nan.
+rewrite /guard; case Er: (real (addDwDn x y)); last by rewrite toX_nan.
+by apply: H.
+Qed.
 
 End DwFloat.
