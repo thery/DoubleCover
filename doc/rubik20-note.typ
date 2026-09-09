@@ -267,8 +267,10 @@
   half turn as the two quarter turns it is made of gives a second number,
   twenty-six, and twenty-six is a lower bound too: Michael Reid's position of
   1998 cannot be solved in twenty-five quarter turns. The upper bound is the
-  other half. It asks two billion searches, each of which must find everything,
-  and one of the two billion was run in Rocq to see what one costs.
+  other half. The published computation splits it into the 2 217 093 120 cosets
+  of a subgroup, one search to a coset. Everything one coset needs is
+  formalised here, and one coset is done: every position of the superflip's
+  coset is solved in twenty moves or fewer.
 
   #v(0.4em)
   *Keywords.* Rubik's cube, God's number, quarter turn, formal proof, Rocq,
