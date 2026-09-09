@@ -245,7 +245,7 @@
 }
 
 #align(center)[
-  #text(size: 17pt)[*God's number is at least 20:* \ *proving it in Rocq*]
+  #text(size: 17pt)[*Playing with the Rubik Cube and its God's number in Rocq*]
 
   #v(0.9em)
   #text(size: 11pt)[Laurent Théry]
@@ -260,17 +260,13 @@
   #set text(size: 9.8pt)
   #set par(justify: true)
   *Abstract.* God's number, the largest number of face turns needed to solve a
-  Rubik's cube, is twenty. We describe a proof in the Rocq prover of the lower
-  half of that statement: one position, the superflip, cannot be solved in
-  nineteen moves. The search is pruned by a table of two billion entries, every
-  one of them checked inside the prover. Counting a half turn as the two
-  quarter turns it is made of gives a second number, twenty-six, and the lower
-  half of that is proved here too: Michael Reid's position of 1998 cannot be
-  solved in twenty-five quarter turns.
+  Rubik's cube, is twenty. 
+  Even if this result required a 35-years CPU computation and
+  is outside Rocq's reach, we explain in this note which results
+  we have been able to get formally in Rocq.
 
   #v(0.4em)
-  *Keywords.* Rubik's cube, God's number, quarter turn, formal proof, Rocq,
-  pruning table.
+  *Keywords.* Rubik's cube, God's number, formal proof, Rocq.
 ]]
 
 #v(0.6em)
