@@ -464,7 +464,8 @@ around the solved cube. God's number is the largest distance that occurs.
 
 == The cube in Rocq
 
-The development is built on *mathcomp* @mathcomp, a large library of formalised
+The development is written in the Rocq prover @rocq, the system formerly called
+Coq, and built on *mathcomp* @mathcomp, a large library of formalised
 mathematics that already has permutations, groups and products. The cube file
 is a transcription of the paragraphs above, and it is short:
 
