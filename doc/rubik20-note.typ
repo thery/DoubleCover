@@ -318,7 +318,8 @@ edges in any order ($12!$), each flipped or not with the last again forced
 ($2^11$); and a final halving, because corners and edges cannot be rearranged
 independently of each other.
 
-Three details of the pieces matter later. We name them here.
+Three details of the pieces matter later. Here they are, each with the name we
+use for it.
 
 Each corner has exactly one sticker of the top colour or the bottom colour.
 That sticker can be in three places on the corner: on top, or on one of the
