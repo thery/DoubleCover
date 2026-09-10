@@ -566,14 +566,18 @@ so it has to be cut down.
 
 == The pruning estimate
 
-Suppose we can estimate, for any scramble, how many moves it needs. We call an
-estimate *admissible* when it is never too big. Ours is admissible, and one
-move changes it by at most one. Call it $h$.
+Walking the tree blindly is what makes it so big. Suppose instead that at each
+position we could say, cheaply, how many moves that position still needs. Then
+a position that needs more moves than we have left is hopeless, and we could
+drop it and everything below it.
 
-Such an estimate cuts the tree. Walk down the tree of moves and keep track of
-how many moves are left. If the estimate for a position is 20 while only 18
-moves remain, that whole branch can be dropped: it cannot reach the solved cube
-in time. @tree shows this. Below every position the table is read, and a branch
+The exact number is out of reach, so we settle for an estimate, and we call it
+$h$. Two things are asked of it. It is never too big, and one move changes it
+by at most one. An estimate that is never too big is called *admissible*.
+
+That is the cut. If the estimate for a position is 20 while only 18 moves
+remain, the whole branch goes: it cannot reach the solved cube in time. @tree
+shows it. Below every position the table is read, and a branch
 whose estimate is larger than the moves still available is dropped without
 being explored. The estimate may be too small, which only means less cutting.
 It may never be too large.
