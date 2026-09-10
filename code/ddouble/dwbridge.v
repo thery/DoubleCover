@@ -112,6 +112,16 @@ case: Rlt_bool_spec => [Hlt [-> _]|Hle [Hov _]]; first by [].
 by move: Fxy Hov; case: Bminus.
 Qed.
 
+Lemma Dfin_mul x y :
+  Dfin x -> Dfin y -> Dfin (x * y)%float ->
+  D2R (x * y)%float = Drnd (D2R x * D2R y) /\ Dfits (D2R x * D2R y).
+Proof.
+rewrite /Dfin /D2R mul_equiv => Fx Fy Fxy.
+have := Bmult_correct _ _ Hprec Hmax mode_NE (Prim2B x) (Prim2B y).
+case: Rlt_bool_spec => [Hlt [-> _]|Hle Hov]; first by [].
+by move: Fxy Hov; case: Bmult.
+Qed.
+
 (* The same question asked backwards: which arguments can have produced a     *)
 (* finite result.  An operation given an infinity returns an infinity or a    *)
 (* NaN, never a number, so a finite result is by itself the proof that both   *)
@@ -131,6 +141,13 @@ by case: (Prim2B a) => [s1|s1||s1 m1 e1 H1];
    case: (Prim2B b) => [s2|s2||s2 m2 e2 H2] //=; case: (Bool.eqb s1 (negb s2)).
 Qed.
 
+Lemma Dfin_mulI a b : Dfin (a * b)%float -> Dfin a /\ Dfin b.
+Proof.
+rewrite /Dfin mul_equiv.
+by case: (Prim2B a) => [s1|s1||s1 m1 e1 H1];
+   case: (Prim2B b) => [s2|s2||s2 m2 e2 H2].
+Qed.
+
 (* Negating a float is exact: it flips the sign bit and touches nothing       *)
 (* else, so it changes the number it stands for by its sign alone and         *)
 (* cannot take it out of the range.  This is what makes a difference of       *)
@@ -139,4 +156,7 @@ Lemma D2R_opp f : D2R (- f)%float = (- D2R f)%R.
 Proof. by rewrite /D2R opp_equiv B2R_Bopp. Qed.
 
 Lemma Dfin_opp f : Dfin f -> Dfin (- f)%float.
+Proof. by rewrite /Dfin opp_equiv; case: (Prim2B f). Qed.
+
+Lemma Dfin_oppI f : Dfin (- f)%float -> Dfin f.
 Proof. by rewrite /Dfin opp_equiv; case: (Prim2B f). Qed.
