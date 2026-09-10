@@ -364,8 +364,9 @@ means about $18^19$ words.
 Three key facts about a position are used in what follows.
 
 - Each corner has exactly one sticker of the top colour or the bottom colour.
-  That sticker can be in three places on the corner: on top, or on one of the
-  corner's two sides. We call this the corner's *twist*.
+  That sticker can be in three places on the corner. It can be on the top or
+  bottom face, which we write 0, or on one of the corner's two sides, which we
+  write 1 and 2. We call this the corner's *twist*.
 - Each edge has a right way round. Put back the other way round, it shows its
   two colours the wrong way about. That is what we call the edge's *flip*.
 - Four of the twelve edges belong in the middle layer, between the top and the
@@ -374,9 +375,10 @@ Three key facts about a position are used in what follows.
   follow.
 
 The superflip gives all three at once. Every corner is home and the right way
-up, so its eight twists are all zero. Every edge is turned over, so its twelve
-flips are all one. Every edge is also in its own slot, so its four slice edges
-are in the slice.
+up, so every top or bottom sticker is on the top or bottom face and its eight
+twists are all zero. Every edge is turned over, so its twelve flips are all
+one. Every edge is also in its own slot, so its four slice edges are in the
+slice.
 
 = The cube as permutations
 
