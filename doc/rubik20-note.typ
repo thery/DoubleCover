@@ -567,8 +567,8 @@ so it has to be cut down.
 == The pruning estimate
 
 Suppose we can estimate, for any scramble, how many moves it needs. The
-estimate is never larger than the truth, and one move changes it by at most
-one. Call it $h$.
+estimate is never too big, and one move changes it by at most one. Call it
+$h$.
 
 Such an estimate cuts the tree. Walk down the tree of moves and keep track of
 how many moves are left. If the estimate for a position is 20 while only 18
