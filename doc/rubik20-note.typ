@@ -554,7 +554,7 @@ root, eighteen branches at every node, and nineteen levels. If the solved cube
 never turns up, no word of nineteen moves solves the superflip. Walked in full
 that tree is the $18^19$ words counted above, so it has to be cut down.
 
-Two classical ideas make the search possible.
+Two classical ideas cut it down.
 
 == The pruning estimate
 
