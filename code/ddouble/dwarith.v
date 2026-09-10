@@ -166,3 +166,19 @@ Definition divDwDw2 (x y : dwfloat) :=
   
 Compute divDwDw2 (plusDwFp (dekker c_const c_const) 1) (dekker c_const c_const).
 
+(* Halving a double word: both words move by one exponent, and neither        *)
+(* rounding loses anything except at the very bottom of the range.            *)
+Definition halfDw d :=
+  let: DWFloat xh xl := d in DWFloat (xh / 2)%float (xl / 2)%float.
+
+(* The square root, by one step of Newton's method: the average of a guess    *)
+(* and the number divided by it.  The machine root of the two words added     *)
+(* is the guess, good to the ordinary sixteen digits, and one step takes      *)
+(* it to the thirty-two a double word holds.                                  *)
+Definition sqrtDw (x : dwfloat) :=
+  let: DWFloat xh xl := x in
+  let: s := fp2dw (PrimFloat.sqrt (xh + xl)%float) in
+  halfDw (plusDwDw s (divDwDw2 x s)).
+
+Compute sqrtDw (fp2dw 2).
+Compute timesDwDw (sqrtDw (fp2dw 2)) (sqrtDw (fp2dw 2)).
