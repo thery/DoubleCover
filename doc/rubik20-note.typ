@@ -359,8 +359,7 @@ we prove.
 ) <sflip>
 
 That is still a big computation. There are 18 moves at each step, so 19 moves
-means about $18^19$ words. No one can list that many. The search is cut short
-with a table computed in advance, and that table is where the difficulty is.
+means about $18^19$ words. No one can list that many.
 
 Three details of the pieces matter later.
 
@@ -464,9 +463,9 @@ around the solved cube. God's number is the largest distance that occurs.
 
 == The cube in Rocq
 
-The development is written in the Rocq prover @rocq, the system formerly called
-Coq, and built on *mathcomp* @mathcomp, a large library of formalised
-mathematics that already has permutations, groups and products. The cube file
+The development is written in the Rocq prover @rocq and built on *mathcomp*
+@mathcomp, a large library of formalised mathematics that already has
+permutations, groups and products. The cube file
 is a transcription of the paragraphs above, and it is short:
 
 ```coq
