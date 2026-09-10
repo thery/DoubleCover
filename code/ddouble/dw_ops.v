@@ -115,10 +115,14 @@ Definition cmp x y :=
     end
   end.
 
+(* The smaller and the larger of two double words.  When they compare         *)
+(* equal the second is returned, not the first: the signature asks for the    *)
+(* pair itself in some of its cases, and two pairs can denote the same        *)
+(* number - or the same infinity - without being the same pair.               *)
 Definition min x y :=
-  match cmp x y with Xeq | Xlt => x | Xgt => y | Xund => nan end.
+  match cmp x y with Xlt => x | Xeq | Xgt => y | Xund => nan end.
 Definition max x y :=
-  match cmp x y with Xeq | Xgt => x | Xlt => y | Xund => nan end.
+  match cmp x y with Xgt => x | Xeq | Xlt => y | Xund => nan end.
 
 Definition neg x := negDw x.
 
@@ -282,6 +286,11 @@ Qed.
 (* A float is finite exactly when it reads as a real number.                  *)
 Definition Dfinb f := PrimitiveFloat.real f.
 
+Lemma DfinbI f : Dfin f -> Dfinb f = true.
+Proof.
+by rewrite /Dfinb -{2}(B2Prim_Prim2B f) PrimitiveFloat.real_is_finite.
+Qed.
+
 Lemma DfinbW f : Dfinb f = true -> Dfin f.
 Proof.
 by rewrite /Dfinb -{1}(B2Prim_Prim2B f) PrimitiveFloat.real_is_finite.
@@ -378,6 +387,21 @@ Qed.
 (* The signature states its product bounds under four sign conditions, so     *)
 (* they are written out here.  The proof does not use them: the bound         *)
 (* holds whatever the signs are, because it never looks at an infinity.       *)
+(* The signature's own way of saying which side of nought a bound is on,      *)
+(* restated here until the module is sealed.                                  *)
+Definition is_non_neg x :=
+  valid_ub x = true /\
+  match toX x with Xnan => True | Xreal r => (0 <= r)%R end.
+Definition is_pos x :=
+  valid_ub x = true /\
+  match toX x with Xnan => True | Xreal r => (0 < r)%R end.
+Definition is_non_pos x :=
+  valid_lb x = true /\
+  match toX x with Xnan => True | Xreal r => (r <= 0)%R end.
+Definition is_neg x :=
+  valid_lb x = true /\
+  match toX x with Xnan => True | Xreal r => (r < 0)%R end.
+
 Definition is_non_neg' x :=
   match toX x with Xnan => valid_ub x = true | Xreal r => (0 <= r)%R end.
 Definition is_non_pos' x :=
@@ -832,4 +856,219 @@ rewrite /guard Rn Hneg (toX_real _ Rx) /=.
 by congr Xreal; rewrite Rabs_left1; [ring | move: (Hn E) Hle; split_Rabs; lra].
 Qed.
 
+(* Rounding to a whole number is monotone, so rounding a bound of the         *)
+(* value bounds the rounded value.  The sum of the two words is taken the     *)
+(* way the bound needs before it is rounded.                                  *)
+Lemma nearbyint_UP_correct mode x :
+  valid_ub (nearbyint_UP mode x) = true /\
+  le_upper (Xnearbyint mode (toX x)) (toX (nearbyint_UP mode x)).
+Proof.
+split; first exact: valid_ub_onReal.
+rewrite /nearbyint_UP /onReal.
+case Rx: (real x); last first.
+  by have -> : toX x = Xnan by move: Rx; rewrite real_correct; case: (toX x).
+have [Fh [Fl _]] := real_fin _ Rx.
+rewrite /guard.
+case Er: (real (fp2dw (PrimitiveFloat.nearbyint_UP mode
+                        (addUpFp (dwhi x) (dwlo x))))); last by rewrite toX_nan.
+rewrite toX_fp2dw (toX_real _ Rx).
+have [_ Hb] := PrimitiveFloat.nearbyint_UP_correct mode
+                 (addUpFp (dwhi x) (dwlo x)).
+move: Hb; case Es: (PrimitiveFloat.toX (addUpFp (dwhi x) (dwlo x)))
+  => [|u] /=; first by move: Er; rewrite real_correct toX_fp2dw;
+     case: (PrimitiveFloat.toX _).
+move=> Hb.
+have Fs : Dfin (addUpFp (dwhi x) (dwlo x)).
+  move: Es; rewrite PrimitiveFloat.toX_Prim2B /Dfin.
+  by case: (Prim2B (addUpFp (dwhi x) (dwlo x))) => [s1|s1||s1 m1 e1 H1].
+have Eu : u = D2R (addUpFp (dwhi x) (dwlo x)).
+  move: Es; rewrite PrimitiveFloat.toX_Prim2B PrimitiveFloat.B2R_BtoX //.
+  by case.
+have Hg := addUpFp_ge _ _ Fh Fl (Dfin_upI _ _ Fs) Fs.
+move: Hb; case: (PrimitiveFloat.toX _) => // w Hb.
+apply: Rle_trans Hb.
+by apply: Rnearbyint_le; rewrite Eu.
+Qed.
+
+Lemma nearbyint_DN_correct mode x :
+  valid_lb (nearbyint_DN mode x) = true /\
+  le_lower (toX (nearbyint_DN mode x)) (Xnearbyint mode (toX x)).
+Proof.
+split; first exact: valid_lb_onReal.
+rewrite /nearbyint_DN /onReal.
+case Rx: (real x); last first.
+  by have -> : toX x = Xnan by move: Rx; rewrite real_correct; case: (toX x).
+have [Fh [Fl _]] := real_fin _ Rx.
+rewrite /guard.
+case Er: (real (fp2dw (PrimitiveFloat.nearbyint_DN mode
+                        (addDnFp (dwhi x) (dwlo x))))); last by rewrite toX_nan.
+rewrite toX_fp2dw (toX_real _ Rx).
+have [_ Hb] := PrimitiveFloat.nearbyint_DN_correct mode
+                 (addDnFp (dwhi x) (dwlo x)).
+move: Hb; case Es: (PrimitiveFloat.toX (addDnFp (dwhi x) (dwlo x)))
+  => [|u] /=; first by move: Er; rewrite real_correct toX_fp2dw;
+     case: (PrimitiveFloat.toX _).
+move=> Hb.
+have Fs : Dfin (addDnFp (dwhi x) (dwlo x)).
+  move: Es; rewrite PrimitiveFloat.toX_Prim2B /Dfin.
+  by case: (Prim2B (addDnFp (dwhi x) (dwlo x))) => [s1|s1||s1 m1 e1 H1].
+have Eu : u = D2R (addDnFp (dwhi x) (dwlo x)).
+  move: Es; rewrite PrimitiveFloat.toX_Prim2B PrimitiveFloat.B2R_BtoX //.
+  by case.
+have Hg := addDnFp_le _ _ Fh Fl (Dfin_dnI _ _ Fs) Fs.
+move: Hb; rewrite /le_lower /=; case: (PrimitiveFloat.toX _) => // w Hb.
+have Hm : (Rnearbyint mode u <=
+           Rnearbyint mode (D2R (dwhi x) + D2R (dwlo x)))%R
+  by apply: Rnearbyint_le; rewrite Eu.
+by move: Hb Hm => /= Hb Hm; lra.
+Qed.
+
+(* Two double words compare on their high words, and that is right for        *)
+(* one reason: rounding is monotone.  A pair rounds back to its own high      *)
+(* word, so if one pair were at or above the other its high word would be     *)
+(* too.  The low words are only looked at when the high ones agree, and       *)
+(* then the two pairs differ by their low words alone.                        *)
+Lemma wellFormed_lt x y :
+  real x = true -> real y = true ->
+  (D2R (dwhi x) < D2R (dwhi y))%R ->
+  (D2R (dwhi x) + D2R (dwlo x) < D2R (dwhi y) + D2R (dwlo y))%R.
+Proof.
+move=> Rx Ry Hlt.
+have [Fxh [Fxl Ewx]] := real_fin _ Rx.
+have [Fyh [Fyl Ewy]] := real_fin _ Ry.
+have Hrnd : forall z : type, Dfin (dwhi z) -> Dfin (dwlo z) ->
+    wellFormed z = true ->
+    Drnd (D2R (dwhi z) + D2R (dwlo z)) = D2R (dwhi z).
+  move=> z; case: z => zh zl Fh Fl Ew.
+  have Fs := Dfin_wf _ _ Fh Ew.
+  by rewrite -(proj1 (Dfin_add _ _ Fh Fl Fs)) (D2R_wf _ _ Fh Fl Ew).
+have Ex := Hrnd _ Fxh Fxl Ewx.
+have Ey := Hrnd _ Fyh Fyl Ewy.
+have Ve : Valid_exp Dfexp by apply: FLT_exp_valid.
+have Vr : Valid_rnd (round_mode mode_NE) by apply: valid_rnd_round_mode.
+case: (Rle_lt_dec (D2R (dwhi y) + D2R (dwlo y))
+                  (D2R (dwhi x) + D2R (dwlo x))) => // Hge.
+have Hm : Drnd (D2R (dwhi y) + D2R (dwlo y)) <=
+          Drnd (D2R (dwhi x) + D2R (dwlo x)) by apply: round_le.
+by move: Hm; rewrite Ex Ey; lra.
+Qed.
+
+(* So the comparison is the comparison of what the pairs denote.              *)
+Lemma cmp_correct x y :
+  cmp x y =
+  match classify x with
+  | Freal =>
+      match classify y with
+      | Freal => Xcmp (toX x) (toX y)
+      | Sig.Fnan => Xund | Fminfty => Xgt | Fpinfty => Xlt
+      end
+  | Sig.Fnan => Xund
+  | Fminfty =>
+      match classify y with
+      | Sig.Fnan => Xund | Fminfty => Xeq | _ => Xlt end
+  | Fpinfty =>
+      match classify y with
+      | Sig.Fnan => Xund | Fpinfty => Xeq | _ => Xgt end
+  end.
+Proof.
+rewrite /cmp; case Ex: (classify x) => //; case Ey: (classify y) => //.
+have Rx : real x = true by rewrite /real Ex.
+have Ry : real y = true by rewrite /real Ey.
+have [Fxh [Fxl _]] := real_fin _ Rx.
+have [Fyh [Fyl _]] := real_fin _ Ry.
+rewrite (toX_real _ Rx) (toX_real _ Ry) /=.
+rewrite !PrimitiveFloat.cmp_correct.
+have Hc : forall g, Dfin g -> PrimitiveFloat.classify g = Freal /\
+                    PrimitiveFloat.toX g = Xreal (D2R g).
+  move=> g Fg; split.
+    by move: (DfinbI _ Fg); rewrite /Dfinb PrimitiveFloat.classify_correct;
+       case: (PrimitiveFloat.classify g).
+  by rewrite PrimitiveFloat.toX_Prim2B PrimitiveFloat.B2R_BtoX.
+have [Cxh Txh] := Hc _ Fxh; have [Cyh Tyh] := Hc _ Fyh.
+have [Cxl Txl] := Hc _ Fxl; have [Cyl Tyl] := Hc _ Fyl.
+rewrite Cxh Cyh Cxl Cyl Txh Tyh Txl Tyl /=.
+case: (Rcompare_spec (D2R (dwhi x)) (D2R (dwhi y))) => Hh.
+- have := wellFormed_lt _ _ Rx Ry Hh.
+  by case: Rcompare_spec => //; lra.
+- rewrite Hh; case: (Rcompare_spec (D2R (dwlo x)) (D2R (dwlo y))) => Hl;
+  by case: Rcompare_spec => //; lra.
+have := wellFormed_lt _ _ Ry Rx Hh.
+by case: Rcompare_spec => //; lra.
+Qed.
+
+(* And so the smaller and the larger are what they say.                       *)
+Lemma min_correct x y :
+  match classify x with
+  | Freal =>
+      match classify y with
+      | Freal => toX (min x y) = Xmin (toX x) (toX y)
+      | Sig.Fnan => classify (min x y) = Sig.Fnan
+      | Fminfty => classify (min x y) = Fminfty
+      | Fpinfty => min x y = x
+      end
+  | Sig.Fnan => classify (min x y) = Sig.Fnan
+  | Fminfty =>
+      match classify y with
+      | Sig.Fnan => classify (min x y) = Sig.Fnan
+      | _ => classify (min x y) = Fminfty
+      end
+  | Fpinfty =>
+      match classify y with
+      | Sig.Fnan => classify (min x y) = Sig.Fnan
+      | Fminfty => classify (min x y) = Fminfty
+      | _ => min x y = y
+      end
+  end.
+Proof.
+rewrite /min cmp_correct.
+case Ex: (classify x); case Ey: (classify y) => //=; rewrite ?Ex ?Ey //.
+have Rx : real x = true by rewrite /real Ex.
+have Ry : real y = true by rewrite /real Ey.
+rewrite (toX_real _ Rx) (toX_real _ Ry) /=.
+case: Rcompare_spec => H;
+  rewrite ?(toX_real _ Rx) ?(toX_real _ Ry) /=; congr Xreal.
+- by rewrite Rmin_left //; lra.
+- by rewrite Rmin_right //; lra.
+by rewrite Rmin_right //; lra.
+Qed.
+
+Lemma max_correct x y :
+  match classify x with
+  | Freal =>
+      match classify y with
+      | Freal => toX (max x y) = Xmax (toX x) (toX y)
+      | Sig.Fnan => classify (max x y) = Sig.Fnan
+      | Fminfty => max x y = x
+      | Fpinfty => classify (max x y) = Fpinfty
+      end
+  | Sig.Fnan => classify (max x y) = Sig.Fnan
+  | Fminfty =>
+      match classify y with
+      | Sig.Fnan => classify (max x y) = Sig.Fnan
+      | Fpinfty => classify (max x y) = Fpinfty
+      | _ => max x y = y
+      end
+  | Fpinfty =>
+      match classify y with
+      | Sig.Fnan => classify (max x y) = Sig.Fnan
+      | _ => classify (max x y) = Fpinfty
+      end
+  end.
+Proof.
+rewrite /max cmp_correct.
+case Ex: (classify x); case Ey: (classify y) => //=; rewrite ?Ex ?Ey //.
+have Rx : real x = true by rewrite /real Ex.
+have Ry : real y = true by rewrite /real Ey.
+rewrite (toX_real _ Rx) (toX_real _ Ry) /=.
+case: Rcompare_spec => H;
+  rewrite ?(toX_real _ Rx) ?(toX_real _ Ry) /=; congr Xreal.
+- by rewrite Rmax_right //; lra.
+- by rewrite Rmax_left //; lra.
+by rewrite Rmax_left //; lra.
+Qed.
+
 End DwFloat.
+
+(* The check that the module meets the signature: every operation and         *)
+(* every obligation, thirty-two of them, in the shape Interval asks for.      *)
+Module DwFloatCheck <: FloatOps := DwFloat.
