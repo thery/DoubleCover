@@ -50,17 +50,90 @@ just says nothing.
 Everything proved is admit-free; the assumptions are the primitive-float and
 primitive-integer axioms and the classical reals, nothing else.
 
-The module is **not** sealed `<: FloatOps` yet. The five operations above are
-what a bound is proved for; sealing asks for the whole signature, which is
-another thirty-odd obligations — `fromZ`, `cmp`, `min`, `max`, `mag`,
-`nearbyint`, `midpoint` and the rest. Most are easy, and until they are done
-Interval's interval arithmetic cannot be built on this module, so a *proved*
-bracket for a whole computation is not available yet.
+**The module meets the signature.** All 32 obligations are proved and the
+check is in the build:
+
+```coq
+Module DwFloatCheck <: FloatOps := DwFloat.
+```
 
 The square root takes its `q` from `sqrtDw` in `dwarith.v`, one step of
 Newton's method on the machine root, which takes it from 16 digits to the 32 a
 double word holds. Nothing about `q` is used in the proof, so the step is free
 to change.
+
+## Interval will not take it, and why
+
+Sealing was supposed to be the last step: Interval's interval arithmetic is a
+functor over a `FloatOps` module, so a sealed module gives intervals over
+double words and a *proved* bracket for a whole computation. It does not, and
+the reason is worth writing down.
+
+**`div2_correct` cannot be proved for this format.** Interval asks for
+
+```coq
+Parameter div2_correct : forall x : type,
+  sensible_format = true ->
+  1 / 256 <= Rabs (toR x) ->
+  toX (div2 x) = (toX x / Xreal 2)%XR.
+```
+
+For a single float the condition `1/256 <= |x|` settles it: such a float is
+normal, and halving a normal float only decrements its exponent. For a pair the
+condition is on the *sum of the two words*. It bounds the high word away from
+zero and says nothing about the low one:
+
+```
+DWFloat 1 (2^-1074)     sum about 1, so the condition holds easily
+                        low word is the smallest subnormal there is
+```
+
+Half of that pair is `0.5 + 2^-1075`. Every binary64 number is a whole multiple
+of `2^-1074`, so any sum of two of them is one as well, and `2^-1075` is not.
+**No pair of floats denotes it**, so no definition of `div2` can meet the
+equation. The condition protects one float completely and a pair only partly.
+
+**The escape the signature offers does not work.** `sensible_format` is the
+module's own field, so setting it to `false` makes `div2_correct` — and
+`midpoint_correct` — vacuous, and that is what this module does. But all three
+of Interval's functors take not `FloatOps` but `FloatOps` with
+`sensible_format` fixed to `true`:
+
+| functor | |
+|---|---|
+| `FloatInterval` | `Error: field sensible_format ... bodies differ` |
+| `FloatIntervalFull` | the same |
+| `TranscendentalFloatFast` | the same |
+
+So the excuse is written into the signature and then made unusable by the
+functors. Both of Interval's own formats set the field to `true`, so nobody
+appears to have reached this before.
+
+**The way through**, when someone takes it, is to narrow the format: a pair
+stops counting as a double word when its low word is subnormal. Then `xl / 2`
+is exact, `div2_correct` is provable, `sensible_format` can be `true`, and the
+functors apply. It costs two float comparisons on every `real` test, and the
+arithmetic then refuses pairs whose low word is below about `2^-1022` — the
+region below `2^-969` in value, where the two-product already gives up.
+
+## Four definitions changed while sealing
+
+Three of them because the old ones were wrong or unprovable, and they are worth
+knowing:
+
+* **`abs` was unsound.** It read the sign of the high word and negated the pair
+  or not. On `DWFloat 1 (-inf)` the high word is unsigned, so it returned the
+  pair unchanged — and that pair is `Fminfty`, not a valid upper bound. It now
+  goes through `onReal`, so a pair that is not a double word gives nothing.
+* **`min` and `max` returned the wrong argument on equality.** The signature
+  asks for the pair itself in some of its cases, and two pairs can denote the
+  same number — or the same infinity — without being the same pair, so
+  `min (DWFloat inf 0) (DWFloat inf 1)` was wrong. Both now return the second.
+* **`mag`** was the high word's magnitude. That is nearly right but needs the
+  half-a-step fact, since a low word of the same sign can push a pair past the
+  high word's exponent. It is now the larger of the two words, one step up,
+  which needs nothing.
+* **`sensible_format`** is `false`, for the reason above.
 
 ## The files
 
@@ -75,7 +148,8 @@ algorithms and their bounds.
 | `dwprod.v` | the two-product, handed to Flocq's own Dekker theorem |
 | `dw_updn.v` | the directed operations: the widening steps and the algorithms |
 | `dwbound.v` | the bounds themselves, from the steps up to `divDwUp_geP` |
-| `dw_ops.v` | the interface: `DwFloat` and the signature's obligations |
+| `dw_ops.v` | the interface: `DwFloat` and all 32 obligations |
+| `test_pi.v` | a smoke test: pi by Machin, and what the operations bracket |
 | `Imul.v`, `TwoSumFLT.v` | Knuth's 2Sum in the bounded format, and its grids |
 | `F2SumFLT.v` | Fast2Sum in the bounded format |
 
@@ -102,6 +176,11 @@ earlier version, which tested seven intermediates, cost 2.6 times as much
 number. The four words given being numbers follows from it, and is read back
 out by `addDw_finI`, `mulDw_finI` and their kin.
 
+**Comparing rests on rounding being monotone.** A pair rounds back to its own
+high word, so if one pair were at or above another its high word would be too.
+That is why comparing high words and then low ones is right, and why
+`wellFormed_lt` needs no case analysis on exponents.
+
 **A test is for what propagation cannot settle.** Division keeps one, `posFp`:
 the divisor has to be bounded away from zero, and no amount of infinity
 travelling establishes that. The root keeps two: the same one, and the sign of
@@ -118,4 +197,5 @@ file now builds in eight.
 
 `test_pi.v` computes pi by Machin's formula with the plain operations — right
 to about thirty-one digits — and then shows what the interface's own
-operations bracket. It is a smoke test, not a proof.
+operations bracket, and what they refuse. It is a smoke test, not a proof: a
+proved bracket needs the functors, and the functors need the section above.
