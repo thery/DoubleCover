@@ -37,6 +37,20 @@ Lemma fastTwoSum_fin a b : DfastTwoSumFin a b ->
   Dfin (dwhi (fastTwoSum a b)) /\ Dfin (dwlo (fastTwoSum a b)).
 Proof. by move=> [H1 [_ H3]]; split. Qed.
 
+(* And backwards: TwoSum's six numbers are all finite as soon as its low      *)
+(* word is.  Each of them is an argument of the operation that made the next, *)
+(* and an operation given an infinity does not return a number, so the last   *)
+(* one carries the whole chain.  That makes one test enough for a call.       *)
+Lemma twoSum_finI a b : Dfin (dwlo (twoSum a b)) -> DtwoSumFin a b.
+Proof.
+move=> Fe.
+have [Fda Fdb] := Dfin_addI _ _ Fe.
+have [_ Fa'] := Dfin_subI _ _ Fda.
+have [Fs Fb'] := Dfin_subI _ _ Fdb.
+have [Fs' _] := Dfin_subI _ _ Fa'.
+by split; [|split; [|split; [|split; [|split]]]].
+Qed.
+
 (* Fast2Sum: three operations, and the low word is the exact error of the     *)
 (* high one when b is no larger than a.  That last part is the development's  *)
 (* theorem; here we only say what the program computes.                       *)
