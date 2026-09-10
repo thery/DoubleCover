@@ -571,9 +571,9 @@ position we could say, cheaply, how many moves that position still needs. Then
 a position that needs more moves than we have left is hopeless, and we could
 drop it and everything below it.
 
-The exact number is out of reach, so we settle for an estimate, and we call it
-$h$. Two things are asked of it. It is never too big, and one move changes it
-by at most one. An estimate that is never too big is called *admissible*.
+We do not know the exact distance, and we do not need it: an estimate is
+enough. We call it $h$. Two things are asked of it. It is never too big, and
+one move changes it by at most one. An estimate that is never too big is called *admissible*.
 
 That is the cut. If the estimate for a position is 20 while only 18 moves
 remain, the whole branch goes: it cannot reach the solved cube in time. @tree
