@@ -295,11 +295,9 @@ Lemma add_UP_correct p x y :
 Proof.
 move=> _ _; split; first exact: valid_ub_onReal2.
 apply: (onReal2_upper (fun x y => (toX x + toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
-have [Fxh [Fxl _]] := real_fin _ Rx.
-have [Fyh [Fyl _]] := real_fin _ Ry.
 have [_ [Fzl _]] := real_fin _ Rz.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /=.
-by apply: addDwUp_geP.
+exact: (addDwUp_geP _ _ Fzl).
 Qed.
 
 Lemma add_DN_correct p x y :
@@ -309,11 +307,9 @@ Lemma add_DN_correct p x y :
 Proof.
 move=> _ _; split; first exact: valid_lb_onReal2.
 apply: (onReal2_lower (fun x y => (toX x + toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
-have [Fxh [Fxl _]] := real_fin _ Rx.
-have [Fyh [Fyl _]] := real_fin _ Ry.
 have [_ [Fzl _]] := real_fin _ Rz.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /le_lower /=.
-by apply: Ropp_le_contravar; apply: addDwDn_leP.
+by apply: Ropp_le_contravar; exact: (addDwDn_leP _ _ Fzl).
 Qed.
 
 (* And the difference, which is the sum with the second double word           *)
@@ -326,11 +322,9 @@ Lemma sub_UP_correct p x y :
 Proof.
 move=> _ _; split; first exact: valid_ub_onReal2.
 apply: (onReal2_upper (fun x y => (toX x - toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
-have [Fxh [Fxl _]] := real_fin _ Rx.
-have [Fyh [Fyl _]] := real_fin _ Ry.
 have [_ [Fzl _]] := real_fin _ Rz.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /=.
-by apply: subDwUp_geP.
+exact: (subDwUp_geP _ _ Fzl).
 Qed.
 
 Lemma sub_DN_correct p x y :
@@ -340,11 +334,9 @@ Lemma sub_DN_correct p x y :
 Proof.
 move=> _ _; split; first exact: valid_lb_onReal2.
 apply: (onReal2_lower (fun x y => (toX x - toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
-have [Fxh [Fxl _]] := real_fin _ Rx.
-have [Fyh [Fyl _]] := real_fin _ Ry.
 have [_ [Fzl _]] := real_fin _ Rz.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /le_lower /=.
-by apply: Ropp_le_contravar; apply: subDwDn_leP.
+by apply: Ropp_le_contravar; exact: (subDwDn_leP _ _ Fzl).
 Qed.
 
 (* The signature states its product bounds under four sign conditions, so     *)
@@ -372,11 +364,9 @@ Lemma mul_UP_correct p x y :
 Proof.
 move=> _; split; first exact: valid_ub_onReal2.
 apply: (onReal2_upper (fun x y => (toX x * toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
-have [Fxh [Fxl _]] := real_fin _ Rx.
-have [Fyh [Fyl _]] := real_fin _ Ry.
 have [_ [Fzl _]] := real_fin _ Rz.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /=.
-by apply: mulDwUp_geP.
+exact: (mulDwUp_geP _ _ Fzl).
 Qed.
 
 Lemma mul_DN_correct p x y :
@@ -388,11 +378,56 @@ Lemma mul_DN_correct p x y :
 Proof.
 move=> _; split; first exact: valid_lb_onReal2.
 apply: (onReal2_lower (fun x y => (toX x * toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
-have [Fxh [Fxl _]] := real_fin _ Rx.
-have [Fyh [Fyl _]] := real_fin _ Ry.
 have [_ [Fzl _]] := real_fin _ Rz.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /le_lower /=.
-by apply: Ropp_le_contravar; apply: mulDwDn_leP.
+by apply: Ropp_le_contravar; exact: (mulDwDn_leP _ _ Fzl).
+Qed.
+
+(* The signature states its quotient bounds under two sign conditions, so     *)
+(* these are written out too.  They are not used either: the operation        *)
+(* only answers when it has bounded the divisor away from zero itself.        *)
+Definition is_real_ub x :=
+  match toX x with Xnan => valid_ub x = true | Xreal _ => True end.
+Definition is_real_lb x :=
+  match toX x with Xnan => valid_lb x = true | Xreal _ => True end.
+Definition is_pos_real x :=
+  match toX x with Xnan => False | Xreal r => (0 < r)%R end.
+Definition is_neg_real x :=
+  match toX x with Xnan => False | Xreal r => (r < 0)%R end.
+
+(* A quotient of two real numbers is a real number when the second is not     *)
+(* zero; otherwise it is the whole line, which is not what is claimed.        *)
+Lemma XdivE a b : b <> 0%R -> (Xreal a / Xreal b)%XR = Xreal (a / b).
+Proof. by move=> Hb; rewrite /Xbind2 /Xdiv' (is_zero_false _ Hb). Qed.
+
+(* And the quotient.  Whatever the algorithm made of the two double           *)
+(* words, the answer is bounded by its own residual, so nothing has to be     *)
+(* known about how it was arrived at.                                         *)
+Lemma div_UP_correct p x y :
+  is_real_ub x /\ is_pos_real y \/ is_real_lb x /\ is_neg_real y ->
+  valid_ub (div_UP p x y) = true /\
+  le_upper (toX x / toX y)%XR (toX (div_UP p x y)).
+Proof.
+move=> _; split; first exact: valid_ub_onReal2.
+apply: (onReal2_upper (fun x y => (toX x / toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
+have [_ [Fzl _]] := real_fin _ Rz.
+have Hnz := divDwUp_nz _ _ Fzl.
+rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) (XdivE _ _ Hnz) /=.
+exact: (divDwUp_geP _ _ Fzl).
+Qed.
+
+Lemma div_DN_correct p x y :
+  is_real_ub x /\ is_neg_real y \/ is_real_lb x /\ is_pos_real y ->
+  valid_lb (div_DN p x y) = true /\
+  le_lower (toX (div_DN p x y)) (toX x / toX y)%XR.
+Proof.
+move=> _; split; first exact: valid_lb_onReal2.
+apply: (onReal2_lower (fun x y => (toX x / toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
+have [_ [Fzl _]] := real_fin _ Rz.
+have Hnz := divDwDn_nz _ _ Fzl.
+rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) (XdivE _ _ Hnz).
+rewrite /le_lower /=.
+by apply: Ropp_le_contravar; exact: (divDwDn_leP _ _ Fzl).
 Qed.
 
 End DwFloat.

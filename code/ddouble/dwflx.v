@@ -2,7 +2,7 @@ From Stdlib Require Import Reals ZArith Psatz.
 From Stdlib Require Import Floats.
 From Flocq Require Import Core Plus_error BinarySingleNaN PrimFloat.
 From mathcomp Require Import ssreflect.
-From dwarith Require Import dwarith dwbridge dwtwosum DWPlus.
+From dwarith Require Import dwarith dwbridge dw_updn dwtwosum DWPlus.
 
 (* The unbounded format, where the double-word theorems live.                 *)
 (* Those theorems are all stated for a format with no bottom, and binary64    *)

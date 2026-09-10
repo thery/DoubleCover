@@ -35,12 +35,13 @@ Definition divDnFp a b := dnFp (a / b)%float.
 Definition dwhi d := let: DWFloat xh _ := d in xh.
 Definition dwlo d := let: DWFloat _ xl := d in xl.
 
-(* Widening a double word by a positive amount, upwards and downwards.  The   *)
-(* final fastTwoSum only tidies the pair; it changes no value.                *)
+(* Widening a double word by a positive amount, upwards and downwards.        *)
+(* The final twoSum only tidies the pair; it changes no value, and it asks    *)
+(* nothing of its two arguments, which a fastTwoSum would.                    *)
 Definition widenUp d f :=
-  let: DWFloat zh zl := d in fastTwoSum zh (addUpFp zl f).
+  let: DWFloat zh zl := d in twoSum zh (addUpFp zl f).
 Definition widenDn d f :=
-  let: DWFloat zh zl := d in fastTwoSum zh (addDnFp zl (- f)).
+  let: DWFloat zh zl := d in twoSum zh (addDnFp zl (- f)).
 
 (* The sum of two double words, together with a bound on its error.  The two  *)
 (* twoSum and the two fastTwoSum are exact, so the whole error is the         *)
@@ -108,24 +109,39 @@ Definition mulDwDn (x y : dwfloat) :=
                               (addDnFp (mulDnFp xl yh) (mulDnFp xl yl)))
                      (- deps)).
 
-(* A double word is at least its high word made smaller by one unit in the    *)
-(* last place, since the low word is at most half of one.                     *)
-Definition magDnDw d := next_down (abs (dwhi d) * (1 - u))%float.
+(* How small a double word can be, from its two words alone: a sum is at      *)
+(* least the first term less the second, in absolute value, and the step      *)
+(* down keeps that true.                                                      *)
+Definition magDnDw d :=
+  let: DWFloat yh yl := d in dnFp (abs yh - abs yl)%float.
+
+(* A number is a usable divisor when it is above zero and not an infinity.    *)
+(* Both tests are needed: an infinity passes the first one and stands for     *)
+(* no number at all.                                                          *)
+Definition posFp m := ((0 <? m) && (m <? infinity))%float.
 
 (* The quotient is not bounded by an analysis of its own algorithm but by     *)
-(* its residual: whatever q is, the true quotient lies within |x - q*y|/|y|   *)
-(* of it, and both are computed with the operations bounded above.            *)
+(* its residual: whatever q is, the true quotient is within the distance      *)
+(* |x - q*y| / |y| of it.  So the algorithm that produced q is free to be     *)
+(* anything at all, and only the residual is computed with care - bounded     *)
+(* on both sides, its two words added in absolute value, and divided by a     *)
+(* divisor made smaller.  When the divisor cannot be told from zero there     *)
+(* is nothing to say, and nothing is what comes back.                         *)
 Definition divDwErr (x y : dwfloat) :=
+  let: m := magDnDw y in
   let: q := divDwDw2 x y in
   let: rup := subDwUp x (mulDwDn q y) in
   let: rdn := subDwDn x (mulDwUp q y) in
-  let: r := addUpFp (abs (dwhi rup)) (abs (dwhi rdn)) in
-  (q, divUpFp r (magDnDw y)).
+  let: r := addUpFp (addUpFp (abs (dwhi rup)) (abs (dwlo rup)))
+                    (addUpFp (abs (dwhi rdn)) (abs (dwlo rdn))) in
+  (q, divUpFp r m, m).
 
 Definition divDwUp (x y : dwfloat) :=
-  let: (d, e) := divDwErr x y in widenUp d e.
+  let: (d, e, m) := divDwErr x y in
+  if posFp m then widenUp d e else DWFloat nan nan.
 Definition divDwDn (x y : dwfloat) :=
-  let: (d, e) := divDwErr x y in widenDn d e.
+  let: (d, e, m) := divDwErr x y in
+  if posFp m then widenDn d e else DWFloat nan nan.
 
 (* The square root is bounded the same way: from a seed of ordinary           *)
 (* precision, the residual x - s*s divided by the sum of the seed and the     *)
