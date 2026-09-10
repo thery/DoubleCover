@@ -358,7 +358,8 @@ we prove.
   caption: [A solved cube, and the superflip.],
 ) <sflip>
 
-That is still a big computation. There are 18 moves at each step.
+That is still a big computation. There are 18 moves at each step, so 19 moves
+means about $18^19$ words.
 
 Three key facts about a position are used in what follows.
 
