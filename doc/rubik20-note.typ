@@ -566,13 +566,6 @@ so it has to be cut down.
 
 == The pruning estimate
 
-Neither idea is new. A depth-first search that deepens step by step and prunes
-on an estimate that is never too big is Korf's IDA\* @korf1985ida. Taking the
-estimate from a table of exact distances in a simplified version of the puzzle
-is a _pattern database_ @culberson1998pattern, and Korf solved the cube
-optimally with three of them @korf1997rubik. The summary used here is
-Kociemba's, from his two-phase solver @kociemba.
-
 Suppose we can estimate, for any scramble, how many moves it needs. The
 estimate is never larger than the truth, and one move changes it by at most
 one. Call it $h$.
@@ -584,6 +577,9 @@ in time. @tree shows this. Below every position the table is read, and a branch
 whose estimate is larger than the moves still available is dropped without
 being explored. The estimate may be too small, which only means less cutting.
 It may never be too large.
+
+None of this is new. A depth-first search that deepens step by step and prunes
+on an estimate that is never too big is Korf's IDA\* @korf1985ida.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -612,13 +608,18 @@ It may never be too large.
 
 == The origin of the estimate
 
-The idea is to forget most of the cube. Keep only part of the information, say
-how the corners are twisted and where the four middle-layer edges sit, and call
-what is left a *summary*. Many scrambles share a summary. Moves act on
+The estimate has to come from somewhere, and the idea is to forget most of the
+cube. Keep only part of the information, say how the corners are twisted and
+where the four middle-layer edges sit, and call what is left a *summary*. Many scrambles share a summary. Moves act on
 summaries as well as on cubes, and there are few enough summaries that a
 computer can work out, once and for all, the exact distance from the solved
 summary to every other one. That table of distances is the estimate. A scramble
 needs at least as many moves as its summary does.
+
+This is not new either. A table of exact distances in a simplified version of a
+puzzle is a _pattern database_ @culberson1998pattern, and Korf solved the cube
+optimally with three of them @korf1997rubik. The summary we use is Kociemba's,
+from his two-phase solver @kociemba.
 
 A summary is read straight off the sticker numbers. @encoding shows the three
 questions it asks. A corner has one sticker belonging to the up or down face,
