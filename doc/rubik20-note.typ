@@ -359,7 +359,7 @@ we prove.
 ) <sflip>
 
 That is still a big computation. There are 18 moves at each step, so 19 moves
-means about $18^19$ words. No one can list that many.
+means about $18^19$ words.
 
 Three key facts about a position are used in what follows.
 
