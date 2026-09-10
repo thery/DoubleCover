@@ -371,10 +371,9 @@ Three key facts about a position are used in what follows.
   round, it shows its two colours the wrong way about, and that we write 1.
   That is what we call the edge's *flip*.
 - Four of the twelve edges belong in the middle layer, between the top and the
-  bottom face. We call that layer the *slice*. A move can send those four edges
-  to any of the twelve edge slots. There are $binom(12, 4) = 495$ ways of
-  choosing four slots out of twelve, and we number them 0 to 494, with 0 for
-  the four slots of the slice itself.
+  bottom face. We call that layer the *slice*. There are $binom(12, 4) = 495$
+  ways of choosing which four of the twelve edge slots those four edges are in,
+  and we number them 0 to 494, with 0 for the four slots of the slice itself.
 
 The three are easy to read on the superflip. Every corner is home and the right way
 up, so every top or bottom sticker is on the top or bottom face and its eight
