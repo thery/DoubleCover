@@ -1,6 +1,7 @@
 From Stdlib Require Import Reals ZArith Psatz.
 From Stdlib Require Import Floats.
 From Flocq Require Import Core Plus_error BinarySingleNaN PrimFloat.
+From Interval Require Import Primitive_ops.
 From mathcomp Require Import ssreflect.
 (* dwtwosum is imported last on purpose: it and dw_updn both name the two     *)
 (* words of a pair, and the proofs below need the name the exactness lemmas   *)
@@ -128,4 +129,92 @@ have G1 := addDnFp_le _ _ Fsl Fth Fa1 Fu1.
 have G2 := addDnFp_le _ _ Fu1 Ftl Fa2 Fu2.
 have E3 := twoSum_exact_fin _ _ Fsh Fu2 T3.
 by rewrite addDwDnE; lra.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The tests the program runs on itself                                      *)
+(* ---------------------------------------------------------------------------*)
+
+(* A float is finite exactly when it reads as a real number, so the test the  *)
+(* program runs is the one the proofs below speak about.                      *)
+Definition Dfinb f := PrimitiveFloat.real f.
+
+Lemma DfinbW f : Dfinb f = true -> Dfin f.
+Proof.
+by rewrite /Dfinb -{1}(B2Prim_Prim2B f) PrimitiveFloat.real_is_finite.
+Qed.
+
+(* Seven tests are run at once, and taken apart one at a time.                *)
+Lemma andb7E (a b c d e f g : bool) :
+  (a && b && c && d && e && f && g)%bool = true ->
+  a = true /\ b = true /\ c = true /\ d = true /\ e = true /\ f = true /\
+  g = true.
+Proof. by case: a; case: b; case: c; case: d; case: e; case: f; case: g. Qed.
+
+(* Everything the upward sum needs to know about itself, in seven tests on    *)
+(* numbers it has just computed.  Both TwoSum calls are covered by their low  *)
+(* word alone, and so is the last one; the three left are the two additions   *)
+(* of the small words and their stepping up.  Nothing here looks at the       *)
+(* arguments: whether those are numbers is the caller's question.             *)
+Definition addUpOk (x y : dwfloat) :=
+  let: DWFloat xh xl := x in
+  let: DWFloat yh yl := y in
+  let sl := dwlo (twoSum xh yh) in
+  let th := dwhi (twoSum xl yl) in
+  let tl := dwlo (twoSum xl yl) in
+  let v := addUpFp sl th in
+  let w := addUpFp v tl in
+  (Dfinb sl && Dfinb tl && Dfinb (sl + th)%float && Dfinb v &&
+   Dfinb (v + tl)%float && Dfinb w &&
+   Dfinb (dwlo (twoSum (dwhi (twoSum xh yh)) w)))%bool.
+
+Definition addDnOk (x y : dwfloat) :=
+  let: DWFloat xh xl := x in
+  let: DWFloat yh yl := y in
+  let sl := dwlo (twoSum xh yh) in
+  let th := dwhi (twoSum xl yl) in
+  let tl := dwlo (twoSum xl yl) in
+  let v := addDnFp sl th in
+  let w := addDnFp v tl in
+  (Dfinb sl && Dfinb tl && Dfinb (sl + th)%float && Dfinb v &&
+   Dfinb (v + tl)%float && Dfinb w &&
+   Dfinb (dwlo (twoSum (dwhi (twoSum xh yh)) w)))%bool.
+
+(* The two bounds again, with their seven finiteness hypotheses replaced      *)
+(* by the one test.  What is left to ask is that the four words given are     *)
+(* numbers, which is the caller's side of the bargain.                        *)
+Theorem addDwUp_geP x y :
+  Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
+  addUpOk x y = true ->
+  D2R (dwhi x) + D2R (dwlo x) + (D2R (dwhi y) + D2R (dwlo y)) <=
+  D2R (dwhi (addDwUp x y)) + D2R (dwlo (addDwUp x y)).
+Proof.
+case: x => xh xl; case: y => yh yl /= Fxh Fxl Fyh Fyl.
+move=> /andb7E[Osl [Otl [Oa1 [Ov [Oa2 [Ow Oz]]]]]].
+apply: addDwUp_ge => //.
+- by apply: twoSum_finI; apply: DfinbW.
+- by apply: twoSum_finI; apply: DfinbW.
+- by apply: DfinbW.
+- by apply: DfinbW.
+- by apply: DfinbW.
+- by apply: DfinbW.
+by apply: twoSum_finI; apply: DfinbW.
+Qed.
+
+Theorem addDwDn_leP x y :
+  Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
+  addDnOk x y = true ->
+  D2R (dwhi (addDwDn x y)) + D2R (dwlo (addDwDn x y)) <=
+  D2R (dwhi x) + D2R (dwlo x) + (D2R (dwhi y) + D2R (dwlo y)).
+Proof.
+case: x => xh xl; case: y => yh yl /= Fxh Fxl Fyh Fyl.
+move=> /andb7E[Osl [Otl [Oa1 [Ov [Oa2 [Ow Oz]]]]]].
+apply: addDwDn_le => //.
+- by apply: twoSum_finI; apply: DfinbW.
+- by apply: twoSum_finI; apply: DfinbW.
+- by apply: DfinbW.
+- by apply: DfinbW.
+- by apply: DfinbW.
+- by apply: DfinbW.
+by apply: twoSum_finI; apply: DfinbW.
 Qed.

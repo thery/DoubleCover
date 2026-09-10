@@ -3,7 +3,7 @@ From Stdlib Require Import Floats PrimInt63.
 From Flocq Require Import Zaux Raux BinarySingleNaN PrimFloat.
 From Interval Require Import Xreal Basic Sig Generic_proof Primitive_ops.
 From mathcomp Require Import ssreflect.
-From dwarith Require Import dwarith dw_updn.
+From dwarith Require Import dwarith dwbridge dw_updn dwbound.
 
 (* Double words as a float format for Interval.                               *)
 (* Phase one: the operations only.  The module is not yet declared to meet    *)
@@ -183,8 +183,15 @@ Proof. by []. Qed.
 Lemma toX_nan : toX nan = Xnan.
 Proof. by []. Qed.
 
-Definition add_UP (_ : precision) x y := onReal2 addDwUp x y.
-Definition add_DN (_ : precision) x y := onReal2 addDwDn x y.
+(* The sum runs its own tests before its answer is believed.  A chain that    *)
+(* ran off the range is not always caught by looking at the end of it: one    *)
+(* step up from minus infinity is a number again.  So the two sums check      *)
+(* every number they made along the way, and give up when one is missing.     *)
+Definition addUpDw x y := if addUpOk x y then addDwUp x y else nan.
+Definition addDnDw x y := if addDnOk x y then addDwDn x y else nan.
+
+Definition add_UP (_ : precision) x y := onReal2 addUpDw x y.
+Definition add_DN (_ : precision) x y := onReal2 addDnDw x y.
 Definition sub_UP (_ : precision) x y := onReal2 subDwUp x y.
 Definition sub_DN (_ : precision) x y := onReal2 subDwDn x y.
 Definition mul_UP (_ : precision) x y := onReal2 mulDwUp x y.
@@ -224,8 +231,8 @@ Proof. exact: valid_lb_onReal2. Qed.
 (* given two double words that returned one.  The cases where it gave up are  *)
 (* the whole line, and there is nothing to prove.                             *)
 Lemma add_UP_correct_of :
-  (forall x y, real x = true -> real y = true -> real (addDwUp x y) = true ->
-     le_upper (toX x + toX y)%XR (toX (addDwUp x y))) ->
+  (forall x y, real x = true -> real y = true -> real (addUpDw x y) = true ->
+     le_upper (toX x + toX y)%XR (toX (addUpDw x y))) ->
   forall p x y, valid_ub x = true -> valid_ub y = true ->
   valid_ub (add_UP p x y) = true /\
   le_upper (toX x + toX y)%XR (toX (add_UP p x y)).
@@ -234,13 +241,13 @@ move=> H p x y _ _; split; first exact: add_UP_valid_ub.
 rewrite /add_UP /onReal2.
 case Ex: (real x); last by rewrite toX_nan.
 case Ey: (real y); last by rewrite toX_nan.
-rewrite /guard; case Er: (real (addDwUp x y)); last by rewrite toX_nan.
+rewrite /guard; case Er: (real (addUpDw x y)); last by rewrite toX_nan.
 by apply: H.
 Qed.
 
 Lemma add_DN_correct_of :
-  (forall x y, real x = true -> real y = true -> real (addDwDn x y) = true ->
-     le_lower (toX (addDwDn x y)) (toX x + toX y)%XR) ->
+  (forall x y, real x = true -> real y = true -> real (addDnDw x y) = true ->
+     le_lower (toX (addDnDw x y)) (toX x + toX y)%XR) ->
   forall p x y, valid_lb x = true -> valid_lb y = true ->
   valid_lb (add_DN p x y) = true /\
   le_lower (toX (add_DN p x y)) (toX x + toX y)%XR.
@@ -249,8 +256,73 @@ move=> H p x y _ _; split; first exact: add_DN_valid_lb.
 rewrite /add_DN /onReal2.
 case Ex: (real x); last by rewrite toX_nan.
 case Ey: (real y); last by rewrite toX_nan.
-rewrite /guard; case Er: (real (addDwDn x y)); last by rewrite toX_nan.
+rewrite /guard; case Er: (real (addDnDw x y)); last by rewrite toX_nan.
 by apply: H.
+Qed.
+
+(* A double word is a real number exactly when both its words are numbers     *)
+(* and the pair is one, and then it denotes their sum.  These two are all     *)
+(* that is needed to read the bounds proved on the program in the shape the   *)
+(* signature asks for.                                                        *)
+Lemma realE x :
+  real x = (Dfinb (dwhi x) && Dfinb (dwlo x) && wellFormed x)%bool.
+Proof.
+case: x => xh xl; rewrite /real /classify /Dfinb.
+rewrite PrimitiveFloat.classify_correct (PrimitiveFloat.classify_correct xl).
+by rewrite /PrimitiveFloat.classify /wellFormed;
+   case: (PrimFloat.classify xh); case: (PrimFloat.classify xl);
+   case: (xh + xl =? xh)%float.
+Qed.
+
+Lemma real_fin x :
+  real x = true -> Dfin (dwhi x) /\ Dfin (dwlo x) /\ wellFormed x = true.
+Proof.
+rewrite realE.
+case Eh: (Dfinb (dwhi x)) => //=; case El: (Dfinb (dwlo x)) => //= Ew.
+by split; [apply: DfinbW|split; [apply: DfinbW|]].
+Qed.
+
+Lemma toXE f : Dfin f -> FtoX (PrimitiveFloat.toF f) = Xreal (D2R f).
+Proof.
+move=> Ff; rewrite -/(PrimitiveFloat.toX f) PrimitiveFloat.toX_Prim2B.
+by rewrite PrimitiveFloat.B2R_BtoX.
+Qed.
+
+Lemma toX_real x :
+  real x = true -> toX x = Xreal (D2R (dwhi x) + D2R (dwlo x)).
+Proof.
+case: x => xh xl Rx; have [Fh [Fl Ew]] := real_fin _ Rx.
+by rewrite /toX /toF Ew Fadd_exact_correct (toXE xh Fh) (toXE xl Fl).
+Qed.
+
+(* The obligation itself.  Both arguments are double words, the tests came    *)
+(* back true, and what the program returned is at or above the exact sum.     *)
+Lemma add_UP_correct p x y :
+  valid_ub x = true -> valid_ub y = true ->
+  valid_ub (add_UP p x y) = true /\
+  le_upper (toX x + toX y)%XR (toX (add_UP p x y)).
+Proof.
+apply: add_UP_correct_of => {p}{}x{}y Rx Ry Rz.
+have [Fxh [Fxl _]] := real_fin _ Rx.
+have [Fyh [Fyl _]] := real_fin _ Ry.
+have Ok : addUpOk x y = true by move: Rz; rewrite /addUpDw; case: addUpOk.
+move: Rz; rewrite /addUpDw Ok => Rz.
+rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /=.
+by apply: addDwUp_geP.
+Qed.
+
+Lemma add_DN_correct p x y :
+  valid_lb x = true -> valid_lb y = true ->
+  valid_lb (add_DN p x y) = true /\
+  le_lower (toX (add_DN p x y)) (toX x + toX y)%XR.
+Proof.
+apply: add_DN_correct_of => {p}{}x{}y Rx Ry Rz.
+have [Fxh [Fxl _]] := real_fin _ Rx.
+have [Fyh [Fyl _]] := real_fin _ Ry.
+have Ok : addDnOk x y = true by move: Rz; rewrite /addDnDw; case: addDnOk.
+move: Rz; rewrite /addDnDw Ok => Rz.
+rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /le_lower /=.
+by apply: Ropp_le_contravar; apply: addDwDn_leP.
 Qed.
 
 End DwFloat.

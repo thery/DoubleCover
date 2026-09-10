@@ -111,3 +111,22 @@ have := Bminus_correct _ _ Hprec Hmax mode_NE _ _ Fx Fy.
 case: Rlt_bool_spec => [Hlt [-> _]|Hle [Hov _]]; first by [].
 by move: Fxy Hov; case: Bminus.
 Qed.
+
+(* The same question asked backwards: which arguments can have produced a     *)
+(* finite result.  An operation given an infinity returns an infinity or a    *)
+(* NaN, never a number, so a finite result is by itself the proof that both   *)
+(* arguments were numbers.  This is what lets a program check a whole chain   *)
+(* of operations by looking only at the last thing it computed.               *)
+Lemma Dfin_addI a b : Dfin (a + b)%float -> Dfin a /\ Dfin b.
+Proof.
+rewrite /Dfin add_equiv.
+by case: (Prim2B a) => [s1|s1||s1 m1 e1 H1];
+   case: (Prim2B b) => [s2|s2||s2 m2 e2 H2] //=; case: (Bool.eqb s1 s2).
+Qed.
+
+Lemma Dfin_subI a b : Dfin (a - b)%float -> Dfin a /\ Dfin b.
+Proof.
+rewrite /Dfin sub_equiv.
+by case: (Prim2B a) => [s1|s1||s1 m1 e1 H1];
+   case: (Prim2B b) => [s2|s2||s2 m2 e2 H2] //=; case: (Bool.eqb s1 (negb s2)).
+Qed.
