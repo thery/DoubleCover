@@ -361,7 +361,7 @@ we prove.
 That is still a big computation. There are 18 moves at each step, so 19 moves
 means about $18^19$ words. No one can list that many.
 
-Three details of the pieces matter later.
+We need three more things about the pieces.
 
 - Each corner has exactly one sticker of the top colour or the bottom colour.
   That sticker can be in three places on the corner: on top, or on one of the
