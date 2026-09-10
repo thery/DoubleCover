@@ -564,8 +564,6 @@ solves the superflip, and twenty is a lower bound. So the proof is a search
 that finds nothing. Walked in full the tree is the $18^19$ words counted above,
 so it has to be cut down.
 
-Two classical ideas cut it down.
-
 == The pruning estimate
 
 Neither idea is new. A depth-first search that deepens step by step and prunes
