@@ -130,3 +130,13 @@ rewrite /Dfin sub_equiv.
 by case: (Prim2B a) => [s1|s1||s1 m1 e1 H1];
    case: (Prim2B b) => [s2|s2||s2 m2 e2 H2] //=; case: (Bool.eqb s1 (negb s2)).
 Qed.
+
+(* Negating a float is exact: it flips the sign bit and touches nothing       *)
+(* else, so it changes the number it stands for by its sign alone and         *)
+(* cannot take it out of the range.  This is what makes a difference of       *)
+(* double words a sum with the second one negated.                            *)
+Lemma D2R_opp f : D2R (- f)%float = (- D2R f)%R.
+Proof. by rewrite /D2R opp_equiv B2R_Bopp. Qed.
+
+Lemma Dfin_opp f : Dfin f -> Dfin (- f)%float.
+Proof. by rewrite /Dfin opp_equiv; case: (Prim2B f). Qed.

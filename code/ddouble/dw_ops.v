@@ -185,15 +185,18 @@ Proof. by []. Qed.
 
 (* The sum runs its own tests before its answer is believed.  A chain that    *)
 (* ran off the range is not always caught by looking at the end of it: one    *)
-(* step up from minus infinity is a number again.  So the two sums check      *)
-(* every number they made along the way, and give up when one is missing.     *)
+(* step up from minus infinity is a number again.  So each of them checks     *)
+(* every number it made along the way, and gives up when one is missing.      *)
 Definition addUpDw x y := if addUpOk x y then addDwUp x y else nan.
 Definition addDnDw x y := if addDnOk x y then addDwDn x y else nan.
 
+Definition subUpDw x y := if subUpOk x y then subDwUp x y else nan.
+Definition subDnDw x y := if subDnOk x y then subDwDn x y else nan.
+
 Definition add_UP (_ : precision) x y := onReal2 addUpDw x y.
 Definition add_DN (_ : precision) x y := onReal2 addDnDw x y.
-Definition sub_UP (_ : precision) x y := onReal2 subDwUp x y.
-Definition sub_DN (_ : precision) x y := onReal2 subDwDn x y.
+Definition sub_UP (_ : precision) x y := onReal2 subUpDw x y.
+Definition sub_DN (_ : precision) x y := onReal2 subDnDw x y.
 Definition mul_UP (_ : precision) x y := onReal2 mulDwUp x y.
 Definition mul_DN (_ : precision) x y := onReal2 mulDwDn x y.
 Definition div_UP (_ : precision) x y := onReal2 divDwUp x y.
@@ -215,48 +218,38 @@ Definition nearbyint_DN (mode : rounding_mode) x :=
 Definition midpoint x y := div2 (plusDwDw x y).
 
 (* ---------------------------------------------------------------------------*)
-(*  What the signature asks of addition                                       *)
+(*  What the signature asks of a two-argument operation                       *)
 (* ---------------------------------------------------------------------------*)
 
-(* Half of the obligation needs no arithmetic at all.  Whatever the           *)
+(* Half of every obligation needs no arithmetic at all: whatever the          *)
 (* operation did, the guard leaves either a real number or nothing, and       *)
-(* neither is an infinity of the wrong sign.                                  *)
-Lemma add_UP_valid_ub p x y : valid_ub (add_UP p x y) = true.
-Proof. exact: valid_ub_onReal2. Qed.
-
-Lemma add_DN_valid_lb p x y : valid_lb (add_DN p x y) = true.
-Proof. exact: valid_lb_onReal2. Qed.
-
-(* The other half comes down to a single inequality, about an operation       *)
-(* given two double words that returned one.  The cases where it gave up are  *)
-(* the whole line, and there is nothing to prove.                             *)
-Lemma add_UP_correct_of :
-  (forall x y, real x = true -> real y = true -> real (addUpDw x y) = true ->
-     le_upper (toX x + toX y)%XR (toX (addUpDw x y))) ->
-  forall p x y, valid_ub x = true -> valid_ub y = true ->
-  valid_ub (add_UP p x y) = true /\
-  le_upper (toX x + toX y)%XR (toX (add_UP p x y)).
+(* neither is an infinity of the wrong sign.  That is valid_ub_onReal2        *)
+(* and valid_lb_onReal2 above.  The other half comes down to a single         *)
+(* inequality, about an operation given two double words that returned        *)
+(* one.  The value it is compared to is left open, so the sum and the         *)
+(* difference use the same two lemmas.  Where the operation gave up, the      *)
+(* answer is the whole line and there is nothing to prove.                    *)
+Lemma onReal2_upper (v : type -> type -> ExtendedR) f x y :
+  (forall x y, real x = true -> real y = true -> real (f x y) = true ->
+     le_upper (v x y) (toX (f x y))) ->
+  le_upper (v x y) (toX (onReal2 f x y)).
 Proof.
-move=> H p x y _ _; split; first exact: add_UP_valid_ub.
-rewrite /add_UP /onReal2.
+move=> H; rewrite /onReal2.
 case Ex: (real x); last by rewrite toX_nan.
 case Ey: (real y); last by rewrite toX_nan.
-rewrite /guard; case Er: (real (addUpDw x y)); last by rewrite toX_nan.
+rewrite /guard; case Er: (real (f x y)); last by rewrite toX_nan.
 by apply: H.
 Qed.
 
-Lemma add_DN_correct_of :
-  (forall x y, real x = true -> real y = true -> real (addDnDw x y) = true ->
-     le_lower (toX (addDnDw x y)) (toX x + toX y)%XR) ->
-  forall p x y, valid_lb x = true -> valid_lb y = true ->
-  valid_lb (add_DN p x y) = true /\
-  le_lower (toX (add_DN p x y)) (toX x + toX y)%XR.
+Lemma onReal2_lower (v : type -> type -> ExtendedR) f x y :
+  (forall x y, real x = true -> real y = true -> real (f x y) = true ->
+     le_lower (toX (f x y)) (v x y)) ->
+  le_lower (toX (onReal2 f x y)) (v x y).
 Proof.
-move=> H p x y _ _; split; first exact: add_DN_valid_lb.
-rewrite /add_DN /onReal2.
+move=> H; rewrite /onReal2.
 case Ex: (real x); last by rewrite toX_nan.
 case Ey: (real y); last by rewrite toX_nan.
-rewrite /guard; case Er: (real (addDnDw x y)); last by rewrite toX_nan.
+rewrite /guard; case Er: (real (f x y)); last by rewrite toX_nan.
 by apply: H.
 Qed.
 
@@ -302,7 +295,8 @@ Lemma add_UP_correct p x y :
   valid_ub (add_UP p x y) = true /\
   le_upper (toX x + toX y)%XR (toX (add_UP p x y)).
 Proof.
-apply: add_UP_correct_of => {p}{}x{}y Rx Ry Rz.
+move=> _ _; split; first exact: valid_ub_onReal2.
+apply: (onReal2_upper (fun x y => (toX x + toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
 have [Fxh [Fxl _]] := real_fin _ Rx.
 have [Fyh [Fyl _]] := real_fin _ Ry.
 have Ok : addUpOk x y = true by move: Rz; rewrite /addUpDw; case: addUpOk.
@@ -316,13 +310,47 @@ Lemma add_DN_correct p x y :
   valid_lb (add_DN p x y) = true /\
   le_lower (toX (add_DN p x y)) (toX x + toX y)%XR.
 Proof.
-apply: add_DN_correct_of => {p}{}x{}y Rx Ry Rz.
+move=> _ _; split; first exact: valid_lb_onReal2.
+apply: (onReal2_lower (fun x y => (toX x + toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
 have [Fxh [Fxl _]] := real_fin _ Rx.
 have [Fyh [Fyl _]] := real_fin _ Ry.
 have Ok : addDnOk x y = true by move: Rz; rewrite /addDnDw; case: addDnOk.
 move: Rz; rewrite /addDnDw Ok => Rz.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /le_lower /=.
 by apply: Ropp_le_contravar; apply: addDwDn_leP.
+Qed.
+
+(* And the difference, which is the sum with the second double word           *)
+(* negated.  Only the values of its two words are used, so nothing has to     *)
+(* be said about the negated pair itself.                                     *)
+Lemma sub_UP_correct p x y :
+  valid_ub x = true -> valid_lb y = true ->
+  valid_ub (sub_UP p x y) = true /\
+  le_upper (toX x - toX y)%XR (toX (sub_UP p x y)).
+Proof.
+move=> _ _; split; first exact: valid_ub_onReal2.
+apply: (onReal2_upper (fun x y => (toX x - toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
+have [Fxh [Fxl _]] := real_fin _ Rx.
+have [Fyh [Fyl _]] := real_fin _ Ry.
+have Ok : subUpOk x y = true by move: Rz; rewrite /subUpDw; case: subUpOk.
+move: Rz; rewrite /subUpDw Ok => Rz.
+rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /=.
+by apply: subDwUp_geP.
+Qed.
+
+Lemma sub_DN_correct p x y :
+  valid_lb x = true -> valid_ub y = true ->
+  valid_lb (sub_DN p x y) = true /\
+  le_lower (toX (sub_DN p x y)) (toX x - toX y)%XR.
+Proof.
+move=> _ _; split; first exact: valid_lb_onReal2.
+apply: (onReal2_lower (fun x y => (toX x - toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
+have [Fxh [Fxl _]] := real_fin _ Rx.
+have [Fyh [Fyl _]] := real_fin _ Ry.
+have Ok : subDnOk x y = true by move: Rz; rewrite /subDnDw; case: subDnOk.
+move: Rz; rewrite /subDnDw Ok => Rz.
+rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /le_lower /=.
+by apply: Ropp_le_contravar; apply: subDwDn_leP.
 Qed.
 
 End DwFloat.
