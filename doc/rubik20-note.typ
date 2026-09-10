@@ -375,7 +375,7 @@ Three key facts about a position are used in what follows.
   to any of the twelve edge slots. Which four slots they are in is one of 495
   choices, and we write 0 for the four slots of the slice itself.
 
-The superflip gives all three at once. Every corner is home and the right way
+The three are easy to read on the superflip. Every corner is home and the right way
 up, so every top or bottom sticker is on the top or bottom face and its eight
 twists are all zero. Every edge is turned over, so its twelve flips are all
 one. Every edge is also in its own slot, so the four middle edges are back in
