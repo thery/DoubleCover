@@ -1,7 +1,6 @@
 From Stdlib Require Import Reals ZArith Psatz.
 From Stdlib Require Import Floats.
 From Flocq Require Import Core Plus_error BinarySingleNaN PrimFloat.
-From Interval Require Import Primitive_ops.
 From mathcomp Require Import ssreflect.
 (* dwtwosum is imported last on purpose: it and dw_updn both name the two     *)
 (* words of a pair, and the proofs below need the name the exactness lemmas   *)
@@ -35,13 +34,47 @@ case: Rlt_bool_spec => [Hlt [-> _]|Hle Hov]; first by [].
 by move: Fp Hov; case: Bpred.
 Qed.
 
+(* A number is neither infinity, so a step never meets the one it is told     *)
+(* to leave alone, and on numbers it is the plain step.                       *)
+Lemma Dnot_ninf x : Dfin x -> (x =? neg_infinity)%float = false.
+Proof.
+rewrite /Dfin eqb_equiv.
+by have -> : Prim2B neg_infinity = B754_infinity true by []; case: (Prim2B x).
+Qed.
+
+Lemma Dnot_pinf x : Dfin x -> (x =? infinity)%float = false.
+Proof.
+rewrite /Dfin eqb_equiv.
+by have -> : Prim2B infinity = B754_infinity false by []; case: (Prim2B x).
+Qed.
+
+(* And the other way: a step that came back a number was given one.  This     *)
+(* is what carries an infinity to the end of a computation - it is the        *)
+(* only place where one could have been lost.                                 *)
+Lemma Dfin_upI a b : Dfin (addUpFp a b) -> Dfin (a + b)%float.
+Proof.
+rewrite /addUpFp /upFp; case E: (_ =? _)%float => //.
+rewrite /Dfin next_up_equiv; move: E; rewrite eqb_equiv.
+have -> : Prim2B neg_infinity = B754_infinity true by [].
+by case: (Prim2B (a + b)%float) => [s1|[]||s1 m1 e1 H1].
+Qed.
+
+Lemma Dfin_dnI a b : Dfin (addDnFp a b) -> Dfin (a + b)%float.
+Proof.
+rewrite /addDnFp /dnFp; case E: (_ =? _)%float => //.
+rewrite /Dfin next_down_equiv; move: E; rewrite eqb_equiv.
+have -> : Prim2B infinity = B754_infinity false by [].
+by case: (Prim2B (a + b)%float) => [s1|[]||s1 m1 e1 H1].
+Qed.
+
 (* A sum rounded and then stepped up is above the exact sum.                  *)
 Lemma addUpFp_ge a b : Dfin a -> Dfin b -> Dfin (a + b)%float ->
   Dfin (addUpFp a b) -> D2R a + D2R b <= D2R (addUpFp a b).
 Proof.
 move=> Fa Fb Fs Fu.
 have Hp0 : Prec_gt_0 prec by [].
-rewrite /addUpFp Dnext_up //.
+move: Fu; rewrite /addUpFp /upFp (Dnot_ninf _ Fs) => Fu.
+rewrite Dnext_up //.
 have [-> _] := Dfin_add _ _ Fa Fb Fs.
 by rewrite DfexpE; apply: succ_round_ge_id.
 Qed.
@@ -52,7 +85,8 @@ Lemma addDnFp_le a b : Dfin a -> Dfin b -> Dfin (a + b)%float ->
 Proof.
 move=> Fa Fb Fs Fd.
 have Hp0 : Prec_gt_0 prec by [].
-rewrite /addDnFp Dnext_down //.
+move: Fd; rewrite /addDnFp /dnFp (Dnot_pinf _ Fs) => Fd.
+rewrite Dnext_down //.
 have [-> _] := Dfin_add _ _ Fa Fb Fs.
 by rewrite DfexpE; apply: pred_round_le_id.
 Qed.
@@ -132,121 +166,71 @@ by rewrite addDwDnE; lra.
 Qed.
 
 (* ---------------------------------------------------------------------------*)
-(*  The tests the program runs on itself                                      *)
+(*  The bounds a caller can use                                               *)
 (* ---------------------------------------------------------------------------*)
 
-(* A float is finite exactly when it reads as a real number, so the test the  *)
-(* program runs is the one the proofs below speak about.                      *)
-Definition Dfinb f := PrimitiveFloat.real f.
-
-Lemma DfinbW f : Dfinb f = true -> Dfin f.
-Proof.
-by rewrite /Dfinb -{1}(B2Prim_Prim2B f) PrimitiveFloat.real_is_finite.
-Qed.
-
-(* Seven tests are run at once, and taken apart one at a time.                *)
-Lemma andb7E (a b c d e f g : bool) :
-  (a && b && c && d && e && f && g)%bool = true ->
-  a = true /\ b = true /\ c = true /\ d = true /\ e = true /\ f = true /\
-  g = true.
-Proof. by case: a; case: b; case: c; case: d; case: e; case: f; case: g. Qed.
-
-(* Everything the upward sum needs to know about itself, in seven tests on    *)
-(* numbers it has just computed.  Both TwoSum calls are covered by their low  *)
-(* word alone, and so is the last one; the three left are the two additions   *)
-(* of the small words and their stepping up.  Nothing here looks at the       *)
-(* arguments: whether those are numbers is the caller's question.             *)
-Definition addUpOk (x y : dwfloat) :=
-  let: DWFloat xh xl := x in
-  let: DWFloat yh yl := y in
-  let sl := dwlo (twoSum xh yh) in
-  let th := dwhi (twoSum xl yl) in
-  let tl := dwlo (twoSum xl yl) in
-  let v := addUpFp sl th in
-  let w := addUpFp v tl in
-  (Dfinb sl && Dfinb tl && Dfinb (sl + th)%float && Dfinb v &&
-   Dfinb (v + tl)%float && Dfinb w &&
-   Dfinb (dwlo (twoSum (dwhi (twoSum xh yh)) w)))%bool.
-
-Definition addDnOk (x y : dwfloat) :=
-  let: DWFloat xh xl := x in
-  let: DWFloat yh yl := y in
-  let sl := dwlo (twoSum xh yh) in
-  let th := dwhi (twoSum xl yl) in
-  let tl := dwlo (twoSum xl yl) in
-  let v := addDnFp sl th in
-  let w := addDnFp v tl in
-  (Dfinb sl && Dfinb tl && Dfinb (sl + th)%float && Dfinb v &&
-   Dfinb (v + tl)%float && Dfinb w &&
-   Dfinb (dwlo (twoSum (dwhi (twoSum xh yh)) w)))%bool.
-
-(* The two bounds again, with their seven finiteness hypotheses replaced      *)
-(* by the one test.  What is left to ask is that the four words given are     *)
-(* numbers, which is the caller's side of the bargain.                        *)
+(* The same two bounds, asking for one thing instead of eleven: that the      *)
+(* four words given are numbers, and that the answer is one.  Nothing that    *)
+(* ran off the range can end in a number, since every step passes an          *)
+(* infinity on, so the answer being a number proves the whole chain was.      *)
 Theorem addDwUp_geP x y :
   Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
-  addUpOk x y = true ->
+  Dfin (dwlo (addDwUp x y)) ->
   D2R (dwhi x) + D2R (dwlo x) + (D2R (dwhi y) + D2R (dwlo y)) <=
   D2R (dwhi (addDwUp x y)) + D2R (dwlo (addDwUp x y)).
 Proof.
-case: x => xh xl; case: y => yh yl /= Fxh Fxl Fyh Fyl.
-move=> /andb7E[Osl [Otl [Oa1 [Ov [Oa2 [Ow Oz]]]]]].
-apply: addDwUp_ge => //.
-- by apply: twoSum_finI; apply: DfinbW.
-- by apply: twoSum_finI; apply: DfinbW.
-- by apply: DfinbW.
-- by apply: DfinbW.
-- by apply: DfinbW.
-- by apply: DfinbW.
-by apply: twoSum_finI; apply: DfinbW.
+case: x => xh xl; case: y => yh yl /= Fxh Fxl Fyh Fyl Fz.
+have T3 := twoSum_finI _ _ Fz.
+have [Fsw _] := T3.
+have [_ Fw] := Dfin_addI _ _ Fsw.
+have Fa2 := Dfin_upI _ _ Fw.
+have [Fv Ftl] := Dfin_addI _ _ Fa2.
+have Fa1 := Dfin_upI _ _ Fv.
+have [Fsl _] := Dfin_addI _ _ Fa1.
+by apply: addDwUp_ge => //; apply: twoSum_finI.
 Qed.
 
 Theorem addDwDn_leP x y :
   Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
-  addDnOk x y = true ->
+  Dfin (dwlo (addDwDn x y)) ->
   D2R (dwhi (addDwDn x y)) + D2R (dwlo (addDwDn x y)) <=
   D2R (dwhi x) + D2R (dwlo x) + (D2R (dwhi y) + D2R (dwlo y)).
 Proof.
-case: x => xh xl; case: y => yh yl /= Fxh Fxl Fyh Fyl.
-move=> /andb7E[Osl [Otl [Oa1 [Ov [Oa2 [Ow Oz]]]]]].
-apply: addDwDn_le => //.
-- by apply: twoSum_finI; apply: DfinbW.
-- by apply: twoSum_finI; apply: DfinbW.
-- by apply: DfinbW.
-- by apply: DfinbW.
-- by apply: DfinbW.
-- by apply: DfinbW.
-by apply: twoSum_finI; apply: DfinbW.
+case: x => xh xl; case: y => yh yl /= Fxh Fxl Fyh Fyl Fz.
+have T3 := twoSum_finI _ _ Fz.
+have [Fsw _] := T3.
+have [_ Fw] := Dfin_addI _ _ Fsw.
+have Fa2 := Dfin_dnI _ _ Fw.
+have [Fv Ftl] := Dfin_addI _ _ Fa2.
+have Fa1 := Dfin_dnI _ _ Fv.
+have [Fsl _] := Dfin_addI _ _ Fa1.
+by apply: addDwDn_le => //; apply: twoSum_finI.
 Qed.
 
 (* A difference is a sum with the second double word negated, and both        *)
-(* its words are negated exactly.  So the test is the sum's test on the       *)
-(* negated pair, and the bound is the sum's bound read through the two        *)
-(* changes of sign.  Whether the negated pair is still a double word is       *)
-(* never asked: only the values of its two words are used.                    *)
-Definition subUpOk (x y : dwfloat) := addUpOk x (negDw y).
-Definition subDnOk (x y : dwfloat) := addDnOk x (negDw y).
-
+(* its words are negated exactly.  So it is the sum's bound read through      *)
+(* the two changes of sign.  Whether the negated pair is still a double       *)
+(* word is never asked: only the values of its two words are used.            *)
 Theorem subDwUp_geP x y :
   Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
-  subUpOk x y = true ->
+  Dfin (dwlo (subDwUp x y)) ->
   D2R (dwhi x) + D2R (dwlo x) - (D2R (dwhi y) + D2R (dwlo y)) <=
   D2R (dwhi (subDwUp x y)) + D2R (dwlo (subDwUp x y)).
 Proof.
-case: y => yh yl Fxh Fxl Fyh Fyl Ok.
+case: y => yh yl Fxh Fxl Fyh Fyl Fz.
 have := addDwUp_geP x (DWFloat (- yh) (- yl))%float
-          Fxh Fxl (Dfin_opp _ Fyh) (Dfin_opp _ Fyl) Ok.
+          Fxh Fxl (Dfin_opp _ Fyh) (Dfin_opp _ Fyl) Fz.
 by rewrite /subDwUp /negDw /= !D2R_opp; lra.
 Qed.
 
 Theorem subDwDn_leP x y :
   Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
-  subDnOk x y = true ->
+  Dfin (dwlo (subDwDn x y)) ->
   D2R (dwhi (subDwDn x y)) + D2R (dwlo (subDwDn x y)) <=
   D2R (dwhi x) + D2R (dwlo x) - (D2R (dwhi y) + D2R (dwlo y)).
 Proof.
-case: y => yh yl Fxh Fxl Fyh Fyl Ok.
+case: y => yh yl Fxh Fxl Fyh Fyl Fz.
 have := addDwDn_leP x (DWFloat (- yh) (- yl))%float
-          Fxh Fxl (Dfin_opp _ Fyh) (Dfin_opp _ Fyl) Ok.
+          Fxh Fxl (Dfin_opp _ Fyh) (Dfin_opp _ Fyl) Fz.
 by rewrite /subDwDn /negDw /= !D2R_opp; lra.
 Qed.
