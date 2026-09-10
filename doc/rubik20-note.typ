@@ -546,13 +546,22 @@ Nothing here is assumed. There is no axiom saying what a cube is. A reader who
 wants to check the model has only to compare the six lists of cycles against
 @net. After this file, stickers are never mentioned again.
 
-= The search in outline
+= The lower bound as a search
 
-A lower bound is a search that comes back empty. To show that the superflip
-cannot be solved in 19 moves, we walk the tree of words: the superflip at the
-root, eighteen branches at every node, and nineteen levels. If the solved cube
-never turns up, no word of nineteen moves solves the superflip. Walked in full
-that tree is the $18^19$ words counted above, so it has to be cut down.
+We are looking for a solution of the superflip. A solution is a word of moves
+that takes the superflip back to the solved cube. The question is whether one
+of nineteen moves or fewer exists.
+
+So we try them all. Start at the superflip. Play one of the eighteen moves and
+look at the cube it gives. If it is solved, the word played so far is a
+solution. If it is not, play another move, and stop when nineteen have been
+played. The words form a tree: the superflip at the root, eighteen branches at
+every node, nineteen levels deep.
+
+If the solved cube never turns up in that tree, no word of nineteen moves
+solves the superflip, and twenty is a lower bound. So the proof is a search
+that finds nothing. Walked in full the tree is the $18^19$ words counted above,
+so it has to be cut down.
 
 Two classical ideas cut it down.
 
