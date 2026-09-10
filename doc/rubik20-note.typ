@@ -322,7 +322,7 @@ Three details of the pieces matter later.
 
 - Each corner has exactly one sticker of the top colour or the bottom colour.
   That sticker can be in three places on the corner: on top, or on one of the
-  corner's two sides. Where it sits is what we call the corner's *twist*.
+  corner's two sides. We call this the corner's *twist*.
 - Each edge has a right way round. Put back the other way round, it shows its
   two colours the wrong way about. That is what we call the edge's *flip*.
 - Four of the twelve edges belong in the middle layer, between the top and the
