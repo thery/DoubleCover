@@ -1,6 +1,6 @@
 From Stdlib Require Import ZArith Reals Psatz.
 From Stdlib Require Import Floats PrimInt63.
-From Flocq Require Import Zaux Raux BinarySingleNaN PrimFloat.
+From Flocq Require Import Zaux Raux Core BinarySingleNaN PrimFloat.
 From Interval Require Import Xreal Basic Sig Generic_proof Primitive_ops.
 From mathcomp Require Import ssreflect.
 From dwarith Require Import dwarith dwbridge dw_updn dwbound.
@@ -16,7 +16,14 @@ From dwarith Require Import dwarith dwbridge dw_updn dwbound.
 Module DwFloat.
 
 Definition radix := radix2.
-Definition sensible_format := true.
+(* A pair of floats cannot always halve what it denotes.  Every binary64      *)
+(* number is a whole multiple of two to the minus one thousand and            *)
+(* seventy-four, so a sum of two of them is one as well; but the pair one     *)
+(* and two to the minus one thousand and seventy-four denotes a number        *)
+(* whose half is not.  So no definition of div2 can meet the equation the     *)
+(* signature asks for, and the format declares itself not sensible, which     *)
+(* is exactly the escape the signature provides for div2 and midpoint.        *)
+Definition sensible_format := false.
 Definition type := dwfloat.
 
 (* A double word denotes the sum of its two words, and that sum is exact.     *)
@@ -115,10 +122,6 @@ Definition max x y :=
 
 Definition neg x := negDw x.
 
-(* The two words of a double word have the sign of their sum, so the sign of  *)
-(* the high word decides.                                                     *)
-Definition abs x :=
-  if PrimFloat.get_sign (dwhi x) then negDw x else x.
 
 (* Scaling by a power of two moves both words by the same amount and is       *)
 (* exact, barring overflow.                                                   *)
@@ -144,6 +147,13 @@ Definition guard (r : type) := if real r then r else nan.
 Definition onReal (f : type -> type) x := if real x then guard (f x) else nan.
 Definition onReal2 (f : type -> type -> type) x y :=
   if real x && real y then guard (f x y) else nan.
+
+(* The two words of a double word have the sign of their sum, so the sign     *)
+(* of the high word decides.  A pair that is not a double word is left        *)
+(* out: its high word says nothing about its low one, so the sign test        *)
+(* would be reading a number that is not there.                               *)
+Definition abs x :=
+  onReal (fun x => if PrimFloat.get_sign (dwhi x) then negDw x else x) x.
 
 (* Whatever the operation did, what comes back is a bound on either side.     *)
 Lemma classify_guard r :
@@ -734,6 +744,92 @@ move: Hh Hl; rewrite /PrimitiveFloat.toR !PrimitiveFloat.toX_Prim2B.
 rewrite !PrimitiveFloat.B2R_BtoX // /PrimitiveFloat.StoZ.
 rewrite -/(D2R (dwhi f)) -/(D2R (dwlo f)).
 by move=> /= Hh Hl; move: (Rabs_triang (D2R (dwhi f)) (D2R (dwlo f))); lra.
+Qed.
+
+(* Halving and the midpoint are what the escape above buys: the signature     *)
+(* asks nothing of them of a format that is not sensible.                     *)
+Lemma div2_correct x :
+  sensible_format = true -> (1 / 256 <= Rabs (toR x))%R ->
+  toX (div2 x) = (toX x / Xreal 2)%XR.
+Proof. by []. Qed.
+
+Lemma midpoint_correct x y :
+  sensible_format = true -> real x = true -> real y = true ->
+  (toR x <= toR y)%R ->
+  real (midpoint x y) = true /\
+  (toR x <= toR (midpoint x y))%R /\ (toR (midpoint x y) <= toR y)%R.
+Proof. by []. Qed.
+
+(* The low word is never larger than the high one.  Above zero that is        *)
+(* half a step being no more than the number itself; at zero it is that       *)
+(* the low word must round away, and a number in the format rounds to         *)
+(* itself, so it was nought to begin with.                                    *)
+Lemma wellFormed_le xh xl : Dfin xh -> Dfin xl ->
+  wellFormed (DWFloat xh xl) = true ->
+  (Rabs (D2R xl) <= Rabs (D2R xh))%R.
+Proof.
+move=> Fh Fl Ew.
+have Hp0 : Prec_gt_0 FloatOps.prec by [].
+have Hu := wellFormedP _ _ Fh Fl Ew.
+case: (Req_dec (D2R xh) 0) => [Ez|Nz]; last first.
+  have Hl := ulp_le_abs radix2 Dfexp (D2R xh) Nz (Dformat xh).
+  by move: Hu Hl; split_Rabs; lra.
+have Fs := Dfin_wf _ _ Fh Ew.
+have [Es _] := Dfin_add _ _ Fh Fl Fs.
+have Eq := D2R_wf _ _ Fh Fl Ew.
+have Hr : Drnd (D2R xl) = D2R xl.
+  by apply: round_generic; apply: Dformat.
+move: Eq; rewrite Es Ez Rplus_0_l Hr => ->.
+by apply: Rle_refl.
+Qed.
+
+(* So the high word decides the sign, and the absolute value is the pair      *)
+(* negated when that sign is set.                                             *)
+(* The sign bit of a number says which side of nought it is on.               *)
+Lemma Dget_sign f : Dfin f ->
+  (PrimFloat.get_sign f = true -> (D2R f <= 0)%R) /\
+  (PrimFloat.get_sign f = false -> (0 <= D2R f)%R).
+Proof.
+move=> Ff.
+have H1 : forall g, Dfin g -> PrimFloat.get_sign g = true -> (D2R g <= 0)%R.
+  move=> g Fg Eg; case: (Rle_lt_dec (D2R g) 0) => // Hpos.
+  have Hbg : PrimitiveFloat.BtoX (Prim2B g) = Xreal (D2R g)
+    by apply: PrimitiveFloat.B2R_BtoX.
+  by move: Eg; rewrite get_sign_equiv (PrimitiveFloat.Bsign_pos _ _ Hbg Hpos).
+split; first exact: H1 _ Ff.
+move=> E; have Fn := Dfin_opp _ Ff.
+have En : PrimFloat.get_sign (- f)%float = true.
+  rewrite get_sign_equiv opp_equiv Bsign_Bopp; last first.
+    by move: Ff; rewrite /Dfin; case: (Prim2B f).
+  by move: E; rewrite get_sign_equiv => ->.
+by have := H1 _ Fn En; rewrite D2R_opp; lra.
+Qed.
+
+(* So the absolute value is the pair negated when that sign is set.           *)
+Lemma abs_correct x :
+  toX (abs x) = Xabs (toX x) /\ valid_ub (abs x) = true.
+Proof.
+split; last exact: valid_ub_onReal.
+rewrite /abs /onReal.
+case Rx: (real x); last first.
+  have -> : toX x = Xnan by move: Rx; rewrite real_correct; case: (toX x).
+  by rewrite toX_nan.
+have [Fh [Fl Ew]] := real_fin _ Rx.
+have Hle : (Rabs (D2R (dwlo x)) <= Rabs (D2R (dwhi x)))%R.
+  move: Fh Fl Ew {Rx}; case: x => xh xl Fh Fl Ew.
+  exact: wellFormed_le.
+have [Hn Hp] := Dget_sign _ Fh.
+case E: (PrimFloat.get_sign (dwhi x)); last first.
+  rewrite /guard Rx (toX_real _ Rx) /=.
+  by congr Xreal; rewrite Rabs_right //; apply: Rle_ge;
+     move: (Hp E) Hle; split_Rabs; lra.
+have Rn : real (negDw x) = true.
+  by move: Rx; rewrite /real classify_neg; case: (classify x).
+have Hneg : toX (negDw x) = (- toX x)%XR.
+  by have := neg_correct x; rewrite /neg; move: Rx; rewrite /real;
+     case: (classify x).
+rewrite /guard Rn Hneg (toX_real _ Rx) /=.
+by congr Xreal; rewrite Rabs_left1; [ring | move: (Hn E) Hle; split_Rabs; lra].
 Qed.
 
 End DwFloat.
