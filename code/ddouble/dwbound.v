@@ -548,6 +548,20 @@ Qed.
 
 (* Making a quotient of bounds smaller: a smaller numerator over a larger     *)
 (* denominator, both kept positive where it matters.                          *)
+(* The residual of x against two bounds of the same quantity, the two         *)
+(* words of each added in absolute value.  It is at or above the distance     *)
+(* from x to that quantity, whichever side the bounds fall.                   *)
+Notation Dresid x z1 z2 :=
+  (addUpFp (addUpFp (abs (dwhi (subDwUp x z1))) (abs (dwlo (subDwUp x z1))))
+           (addUpFp (abs (dwhi (subDwDn x z2))) (abs (dwlo (subDwDn x z2))))).
+
+(* That residual over a divisor made smaller: how far the quotient can be     *)
+(* from q, and how far the root can be from q.                                *)
+Notation Dquo x y q :=
+  (divUpFp (Dresid x (mulDwDn q y) (mulDwUp q y)) (magDnDw y)).
+Notation Droot x q :=
+  (divUpFp (Dresid x (mulDwDn q q) (mulDwUp q q)) (valDnDw q)).
+
 Lemma Rdiv_le_bound a b c d :
   a <= c -> 0 <= c -> 0 < d -> d <= b -> a / b <= c / d.
 Proof.
@@ -591,18 +605,18 @@ Qed.
 (* it is, and that distance is what the operation computes - the residual     *)
 (* bounded on both sides, its words added in absolute value, over a           *)
 (* divisor made smaller.                                                      *)
-Theorem divDwUp_geP x y : Dfin (dwlo (divDwUp x y)) ->
+Theorem divDwUpQ_ge x y q :
+  posFp (magDnDw y) = true ->
+  Dfin (dwlo (widenUp q (Dquo x y q))) ->
   (D2R (dwhi x) + D2R (dwlo x)) / (D2R (dwhi y) + D2R (dwlo y)) <=
-  D2R (dwhi (divDwUp x y)) + D2R (dwlo (divDwUp x y)).
+  D2R (dwhi (widenUp q (Dquo x y q))) + D2R (dwlo (widenUp q (Dquo x y q))).
 Proof.
-rewrite /divDwUp /divDwErr.
-case E: (posFp (magDnDw y)); last by [].
+move=> E.
 have [E1 E2] : (0 <? magDnDw y)%float = true /\
                (magDnDw y <? infinity)%float = true.
   by move: E; rewrite /posFp; case: (0 <? _)%float; case: (_ <? _)%float.
 have [Fm Pm] := Dpos _ E1 E2.
 have Hm := magDnDw_le _ Fm.
-set q := divDwDw2 x y.
 set rup := subDwUp x (mulDwDn q y).
 set rdn := subDwDn x (mulDwUp q y).
 set r := addUpFp (addUpFp (abs (dwhi rup)) (abs (dwlo rup)))
@@ -646,6 +660,16 @@ by apply: (resid_bound _ _ _ _ _ _ _ _ _ _
              Hmd Hmu Hup Hdn HU HD Hr0 Pm Hm He).
 Qed.
 
+(* And the operation itself, which is that with q the seed the algorithm      *)
+(* happens to use.                                                            *)
+Theorem divDwUp_geP x y : Dfin (dwlo (divDwUp x y)) ->
+  (D2R (dwhi x) + D2R (dwlo x)) / (D2R (dwhi y) + D2R (dwlo y)) <=
+  D2R (dwhi (divDwUp x y)) + D2R (dwlo (divDwUp x y)).
+Proof.
+rewrite /divDwUp /divDwErr; case E: (posFp (magDnDw y)); last by [].
+exact: divDwUpQ_ge.
+Qed.
+
 (* The same, the other way round.                                             *)
 Lemma resid_bound_lo X Y Q MD MU RU RD Rr M E :
   MD <= Q * Y -> Q * Y <= MU ->
@@ -675,18 +699,18 @@ Qed.
 
 (* The quotient, bounded below, from the same residual and the same           *)
 (* divisor made smaller.                                                      *)
-Theorem divDwDn_leP x y : Dfin (dwlo (divDwDn x y)) ->
-  D2R (dwhi (divDwDn x y)) + D2R (dwlo (divDwDn x y)) <=
+Theorem divDwDnQ_le x y q :
+  posFp (magDnDw y) = true ->
+  Dfin (dwlo (widenDn q (Dquo x y q))) ->
+  D2R (dwhi (widenDn q (Dquo x y q))) + D2R (dwlo (widenDn q (Dquo x y q))) <=
   (D2R (dwhi x) + D2R (dwlo x)) / (D2R (dwhi y) + D2R (dwlo y)).
 Proof.
-rewrite /divDwDn /divDwErr.
-case E: (posFp (magDnDw y)); last by [].
+move=> E.
 have [E1 E2] : (0 <? magDnDw y)%float = true /\
                (magDnDw y <? infinity)%float = true.
   by move: E; rewrite /posFp; case: (0 <? _)%float; case: (_ <? _)%float.
 have [Fm Pm] := Dpos _ E1 E2.
 have Hm := magDnDw_le _ Fm.
-set q := divDwDw2 x y.
 set rup := subDwUp x (mulDwDn q y).
 set rdn := subDwDn x (mulDwUp q y).
 set r := addUpFp (addUpFp (abs (dwhi rup)) (abs (dwlo rup)))
@@ -730,6 +754,14 @@ by apply: (resid_bound_lo _ _ _ _ _ _ _ _ _ _
              Hmd Hmu Hup Hdn HU HD Hr0 Pm Hm He).
 Qed.
 
+Theorem divDwDn_leP x y : Dfin (dwlo (divDwDn x y)) ->
+  D2R (dwhi (divDwDn x y)) + D2R (dwlo (divDwDn x y)) <=
+  (D2R (dwhi x) + D2R (dwlo x)) / (D2R (dwhi y) + D2R (dwlo y)).
+Proof.
+rewrite /divDwDn /divDwErr; case E: (posFp (magDnDw y)); last by [].
+exact: divDwDnQ_le.
+Qed.
+
 (* An answer that is a number also says the divisor was not zero: the         *)
 (* operation only answers when it has bounded the divisor away from it.       *)
 Lemma divDwUp_nz x y : Dfin (dwlo (divDwUp x y)) ->
@@ -754,4 +786,214 @@ have [E1 E2] : (0 <? magDnDw y)%float = true /\
   by move: E; rewrite /posFp; case: (0 <? _)%float; case: (_ <? _)%float.
 have [Fm Pm] := Dpos _ E1 E2.
 by have := magDnDw_le _ Fm; split_Rabs; lra.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The square root of a double word, bounded                                 *)
+(* ---------------------------------------------------------------------------*)
+
+(* The two tests taken apart.                                                 *)
+Lemma posFpP m : posFp m = true -> Dfin m /\ 0 < D2R m.
+Proof.
+rewrite /posFp => H.
+have [E1 E2] : (0 <? m)%float = true /\ (m <? infinity)%float = true.
+  by move: H; case: (0 <? m)%float; case: (m <? infinity)%float.
+exact: Dpos.
+Qed.
+
+(* A rounded value above zero was above zero before it was rounded: the       *)
+(* rounding of anything at or below zero is at or below zero.                 *)
+Lemma Drnd_pos r : 0 < Drnd r -> 0 < r.
+Proof.
+move=> H; have Hp0 : Prec_gt_0 prec by [].
+case: (Rle_lt_dec r 0) => // Hr.
+have H0 : Drnd r <= Drnd 0 by apply: round_le.
+by move: H0; rewrite round_0; lra.
+Qed.
+
+Lemma DposX xh xl : Dfin (xh + xl)%float -> 0 < D2R (xh + xl)%float ->
+  0 < D2R xh + D2R xl.
+Proof.
+move=> Fs P.
+have [Fh Fl] := Dfin_addI _ _ Fs.
+have [E _] := Dfin_add _ _ Fh Fl Fs.
+by apply: Drnd_pos; rewrite -E.
+Qed.
+
+(* The two words of a double word add up to at least the sum of them          *)
+(* rounded down.                                                              *)
+Lemma valDnDw_le d : Dfin (valDnDw d) ->
+  D2R (valDnDw d) <= D2R (dwhi d) + D2R (dwlo d).
+Proof.
+case: d => h l /= F.
+have Fs := Dfin_dnI _ _ F.
+have [Fh Fl] := Dfin_addI _ _ Fs.
+by apply: addDnFp_le.
+Qed.
+
+(* The residual argument for the root, on the reals and nothing else.  The    *)
+(* root and q differ by the residual over their sum, and that sum is at       *)
+(* least q, because a root is never negative.                                 *)
+Lemma sqrt_resid_bound X Q MD MU RU RD Rr M E :
+  MD <= Q * Q -> Q * Q <= MU ->
+  X - MD <= RU -> RD <= X - MU ->
+  RU <= Rr -> - RD <= Rr -> 0 <= Rr ->
+  0 < M -> M <= Q -> Rr / M <= E -> 0 <= X ->
+  R_sqrt.sqrt X <= Q + E /\ Q - E <= R_sqrt.sqrt X.
+Proof.
+move=> H1 H2 H3 H4 H5 H6 H7 H8 H9 H10 HX.
+have HS := sqrt_pos X.
+have HSS : R_sqrt.sqrt X * R_sqrt.sqrt X = X by apply: sqrt_sqrt.
+have HP : 0 < R_sqrt.sqrt X + Q by lra.
+have HE : R_sqrt.sqrt X - Q = (X - Q * Q) / (R_sqrt.sqrt X + Q).
+  apply: (Rmult_eq_reg_r (R_sqrt.sqrt X + Q)); last by lra.
+  rewrite /Rdiv Rmult_assoc Rinv_l; last by lra.
+  have -> : (R_sqrt.sqrt X - Q) * (R_sqrt.sqrt X + Q) =
+            R_sqrt.sqrt X * R_sqrt.sqrt X - Q * Q by ring.
+  by rewrite HSS Rmult_1_r.
+have HA : X - Q * Q <= Rr by lra.
+have HB : - (X - Q * Q) <= Rr by lra.
+have HM : M <= R_sqrt.sqrt X + Q by lra.
+have U1 := Rdiv_le_bound _ _ _ _ HA H7 H8 HM.
+have U2 := Rdiv_le_bound _ _ _ _ HB H7 H8 HM.
+have HN : (- (X - Q * Q)) / (R_sqrt.sqrt X + Q) =
+          - ((X - Q * Q) / (R_sqrt.sqrt X + Q)) by field; lra.
+rewrite HN -HE in U2; rewrite -HE in U1.
+by split; lra.
+Qed.
+
+(* The root, bounded above and below.  The seed is a Newton step on the       *)
+(* machine root, but nothing about it is used: the bound holds for any q      *)
+(* above zero, and the number itself has to be above zero because the         *)
+(* root of a negative is taken to be nought.                                  *)
+Theorem sqrtDwUpQ_ge x q :
+  posFp (valDnDw q) = true -> posFp (dwhi x + dwlo x)%float = true ->
+  Dfin (dwlo (widenUp q (Droot x q))) ->
+  R_sqrt.sqrt (D2R (dwhi x) + D2R (dwlo x)) <=
+  D2R (dwhi (widenUp q (Droot x q))) + D2R (dwlo (widenUp q (Droot x q))).
+Proof.
+move=> Em Et.
+set m := valDnDw q.
+set rup := subDwUp x (mulDwDn q q).
+set rdn := subDwDn x (mulDwUp q q).
+set r := addUpFp (addUpFp (abs (dwhi rup)) (abs (dwlo rup)))
+                 (addUpFp (abs (dwhi rdn)) (abs (dwlo rdn))).
+move=> Fz.
+have Hw := widenUp_ge _ _ Fz.
+have [_ [_ Fe]] := widenUp_finI _ _ Fz.
+have [Fm Pm] := posFpP _ Em.
+have [Ft Pt] := posFpP _ Et.
+have HX := DposX _ _ Ft Pt.
+have Hq := valDnDw_le _ Fm.
+have Fd := Dfin_upFpI _ Fe.
+have Fr := Dfin_divI _ _ Fd.
+have [FA FB] := Dfin_addI _ _ (Dfin_upI _ _ Fr).
+have [FA1 FA2] := Dfin_addI _ _ (Dfin_upI _ _ FA).
+have [FB1 FB2] := Dfin_addI _ _ (Dfin_upI _ _ FB).
+have Fuh := Dfin_absI _ FA1; have Ful := Dfin_absI _ FA2.
+have Fdh := Dfin_absI _ FB1; have Fdl := Dfin_absI _ FB2.
+have Hup := subDwUp_geP x (mulDwDn q q) Ful.
+have Hdn := subDwDn_leP x (mulDwUp q q) Fdl.
+have [_ [_ [_ Fmd]]] := subDwUp_finI _ _ Ful.
+have [_ [_ [_ Fmu]]] := subDwDn_finI _ _ Fdl.
+have Hmd := mulDwDn_leP _ _ Fmd.
+have Hmu := mulDwUp_geP _ _ Fmu.
+have Hnm : D2R (valDnDw q) <> 0 by lra.
+have He := divUpFp_ge _ _ Fr Hnm Fd Fe.
+have HA := addUpFp_ge _ _ FA1 FA2 (Dfin_upI _ _ FA) FA.
+have HB := addUpFp_ge _ _ FB1 FB2 (Dfin_upI _ _ FB) FB.
+have HR0 := addUpFp_ge _ _ FA FB (Dfin_upI _ _ Fr) Fr.
+have HR : D2R (addUpFp (abs (dwhi rup)) (abs (dwlo rup)))
+        + D2R (addUpFp (abs (dwhi rdn)) (abs (dwlo rdn))) <= D2R r := HR0.
+rewrite !D2R_abs in HA HB.
+have PA1 := Rabs_pos (D2R (dwhi rup)); have PA2 := Rabs_pos (D2R (dwlo rup)).
+have PB1 := Rabs_pos (D2R (dwhi rdn)); have PB2 := Rabs_pos (D2R (dwlo rdn)).
+have QA := Rle_abs (D2R (dwhi rup) + D2R (dwlo rup)).
+have QC := Rle_abs (- (D2R (dwhi rdn) + D2R (dwlo rdn))).
+have TA := Rabs_triang (D2R (dwhi rup)) (D2R (dwlo rup)).
+have TB := Rabs_triang (D2R (dwhi rdn)) (D2R (dwlo rdn)).
+rewrite Rabs_Ropp in QC.
+have Hr0 : 0 <= D2R r by lra.
+have HU : D2R (dwhi rup) + D2R (dwlo rup) <= D2R r by lra.
+have HD : - (D2R (dwhi rdn) + D2R (dwlo rdn)) <= D2R r by lra.
+have [U _] := sqrt_resid_bound _ _ _ _ _ _ _ _ _
+             Hmd Hmu Hup Hdn HU HD Hr0 Pm Hq He (Rlt_le _ _ HX).
+by apply: Rle_trans _ Hw.
+Qed.
+
+(* And the operation, which is that with the Newton step for q.               *)
+Theorem sqrtDwUp_geP x : Dfin (dwlo (sqrtDwUp x)) ->
+  R_sqrt.sqrt (D2R (dwhi x) + D2R (dwlo x)) <=
+  D2R (dwhi (sqrtDwUp x)) + D2R (dwlo (sqrtDwUp x)).
+Proof.
+case: x => xh xl; rewrite /sqrtDwUp /sqrtDwErr.
+case Em: (posFp (valDnDw (sqrtDw (DWFloat xh xl)))); last by [].
+case Et: (posFp (xh + xl)%float); last by [].
+exact: sqrtDwUpQ_ge.
+Qed.
+
+Theorem sqrtDwDnQ_le x q :
+  posFp (valDnDw q) = true -> posFp (dwhi x + dwlo x)%float = true ->
+  Dfin (dwlo (widenDn q (Droot x q))) ->
+  D2R (dwhi (widenDn q (Droot x q))) + D2R (dwlo (widenDn q (Droot x q))) <=
+  R_sqrt.sqrt (D2R (dwhi x) + D2R (dwlo x)).
+Proof.
+move=> Em Et.
+set m := valDnDw q.
+set rup := subDwUp x (mulDwDn q q).
+set rdn := subDwDn x (mulDwUp q q).
+set r := addUpFp (addUpFp (abs (dwhi rup)) (abs (dwlo rup)))
+                 (addUpFp (abs (dwhi rdn)) (abs (dwlo rdn))).
+move=> Fz.
+have Hw := widenDn_le _ _ Fz.
+have [_ [_ Fe]] := widenDn_finI _ _ Fz.
+have [Fm Pm] := posFpP _ Em.
+have [Ft Pt] := posFpP _ Et.
+have HX := DposX _ _ Ft Pt.
+have Hq := valDnDw_le _ Fm.
+have Fd := Dfin_upFpI _ Fe.
+have Fr := Dfin_divI _ _ Fd.
+have [FA FB] := Dfin_addI _ _ (Dfin_upI _ _ Fr).
+have [FA1 FA2] := Dfin_addI _ _ (Dfin_upI _ _ FA).
+have [FB1 FB2] := Dfin_addI _ _ (Dfin_upI _ _ FB).
+have Fuh := Dfin_absI _ FA1; have Ful := Dfin_absI _ FA2.
+have Fdh := Dfin_absI _ FB1; have Fdl := Dfin_absI _ FB2.
+have Hup := subDwUp_geP x (mulDwDn q q) Ful.
+have Hdn := subDwDn_leP x (mulDwUp q q) Fdl.
+have [_ [_ [_ Fmd]]] := subDwUp_finI _ _ Ful.
+have [_ [_ [_ Fmu]]] := subDwDn_finI _ _ Fdl.
+have Hmd := mulDwDn_leP _ _ Fmd.
+have Hmu := mulDwUp_geP _ _ Fmu.
+have Hnm : D2R (valDnDw q) <> 0 by lra.
+have He := divUpFp_ge _ _ Fr Hnm Fd Fe.
+have HA := addUpFp_ge _ _ FA1 FA2 (Dfin_upI _ _ FA) FA.
+have HB := addUpFp_ge _ _ FB1 FB2 (Dfin_upI _ _ FB) FB.
+have HR0 := addUpFp_ge _ _ FA FB (Dfin_upI _ _ Fr) Fr.
+have HR : D2R (addUpFp (abs (dwhi rup)) (abs (dwlo rup)))
+        + D2R (addUpFp (abs (dwhi rdn)) (abs (dwlo rdn))) <= D2R r := HR0.
+rewrite !D2R_abs in HA HB.
+have PA1 := Rabs_pos (D2R (dwhi rup)); have PA2 := Rabs_pos (D2R (dwlo rup)).
+have PB1 := Rabs_pos (D2R (dwhi rdn)); have PB2 := Rabs_pos (D2R (dwlo rdn)).
+have QA := Rle_abs (D2R (dwhi rup) + D2R (dwlo rup)).
+have QC := Rle_abs (- (D2R (dwhi rdn) + D2R (dwlo rdn))).
+have TA := Rabs_triang (D2R (dwhi rup)) (D2R (dwlo rup)).
+have TB := Rabs_triang (D2R (dwhi rdn)) (D2R (dwlo rdn)).
+rewrite Rabs_Ropp in QC.
+have Hr0 : 0 <= D2R r by lra.
+have HU : D2R (dwhi rup) + D2R (dwlo rup) <= D2R r by lra.
+have HD : - (D2R (dwhi rdn) + D2R (dwlo rdn)) <= D2R r by lra.
+have [_ U] := sqrt_resid_bound _ _ _ _ _ _ _ _ _
+             Hmd Hmu Hup Hdn HU HD Hr0 Pm Hq He (Rlt_le _ _ HX).
+by apply: Rle_trans Hw _.
+Qed.
+
+(* And the operation, which is that with the Newton step for q.               *)
+Theorem sqrtDwDn_leP x : Dfin (dwlo (sqrtDwDn x)) ->
+  D2R (dwhi (sqrtDwDn x)) + D2R (dwlo (sqrtDwDn x)) <=
+  R_sqrt.sqrt (D2R (dwhi x) + D2R (dwlo x)).
+Proof.
+case: x => xh xl; rewrite /sqrtDwDn /sqrtDwErr.
+case Em: (posFp (valDnDw (sqrtDw (DWFloat xh xl)))); last by [].
+case Et: (posFp (xh + xl)%float); last by [].
+exact: sqrtDwDnQ_le.
 Qed.

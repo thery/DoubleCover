@@ -143,26 +143,32 @@ Definition divDwDn (x y : dwfloat) :=
   let: (d, e, m) := divDwErr x y in
   if posFp m then widenDn d e else DWFloat nan nan.
 
-(* The square root is bounded the same way: from a seed of ordinary           *)
-(* precision, the residual x - s*s divided by the sum of the seed and the     *)
-(* true root bounds the distance between them.  That sum is not known, so a   *)
-(* little less than twice the seed is used, which is below it whichever way   *)
-(* the seed missed.                                                           *)
-(* Sound, but only as tight as the seed: the residual is used as a width and  *)
-(* not as a correction, so these two bracket the root to ordinary precision.  *)
+(* How small a double word's value can be, from its two words: the sum of     *)
+(* the two, rounded down.                                                     *)
+Definition valDnDw d := let: DWFloat h l := d in addDnFp h l.
+
+(* The square root is bounded by its residual too.  Whatever q is, the        *)
+(* root and q differ by (x - q*q) / (root + q), and the root is never         *)
+(* negative, so the sum below it is q itself - no guess at how good q is      *)
+(* enters the bound.  Two tests: q must be above zero to divide by, and so    *)
+(* must the number itself, because the root of a negative is taken to be      *)
+(* zero and a bound below it would then be a claim about nothing.             *)
 Definition sqrtDwErr (x : dwfloat) :=
   let: DWFloat xh xl := x in
-  let: s := PrimFloat.sqrt (xh + xl)%float in
-  let: q := fp2dw s in
+  let: q := sqrtDw x in
+  let: m := valDnDw q in
   let: rup := subDwUp x (mulDwDn q q) in
   let: rdn := subDwDn x (mulDwUp q q) in
-  let: r := addUpFp (abs (dwhi rup)) (abs (dwhi rdn)) in
-  (q, divUpFp r (next_down ((s + s) * (1 - u - u))%float)).
+  let: r := addUpFp (addUpFp (abs (dwhi rup)) (abs (dwlo rup)))
+                    (addUpFp (abs (dwhi rdn)) (abs (dwlo rdn))) in
+  (q, divUpFp r m, m, (xh + xl)%float).
 
 Definition sqrtDwUp (x : dwfloat) :=
-  let: (d, e) := sqrtDwErr x in widenUp d e.
+  let: (d, e, m, t) := sqrtDwErr x in
+  if posFp m && posFp t then widenUp d e else DWFloat nan nan.
 Definition sqrtDwDn (x : dwfloat) :=
-  let: (d, e) := sqrtDwErr x in widenDn d e.
+  let: (d, e, m, t) := sqrtDwErr x in
+  if posFp m && posFp t then widenDn d e else DWFloat nan nan.
 
 Compute addDwUp (DWFloat 20000000000000004 (-1.75))
                 (DWFloat 20000000000000004 (-1.75)).

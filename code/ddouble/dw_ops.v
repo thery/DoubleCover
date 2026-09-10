@@ -243,6 +243,29 @@ rewrite /guard; case Er: (real (f x y)); last by rewrite toX_nan.
 by apply: H.
 Qed.
 
+(* The same for an operation of one argument.                                 *)
+Lemma onReal_upper (v : type -> ExtendedR) f x :
+  (forall x, real x = true -> real (f x) = true ->
+     le_upper (v x) (toX (f x))) ->
+  le_upper (v x) (toX (onReal f x)).
+Proof.
+move=> H; rewrite /onReal.
+case Ex: (real x); last by rewrite toX_nan.
+rewrite /guard; case Er: (real (f x)); last by rewrite toX_nan.
+by apply: H.
+Qed.
+
+Lemma onReal_lower (v : type -> ExtendedR) f x :
+  (forall x, real x = true -> real (f x) = true ->
+     le_lower (toX (f x)) (v x)) ->
+  le_lower (toX (onReal f x)) (v x).
+Proof.
+move=> H; rewrite /onReal.
+case Ex: (real x); last by rewrite toX_nan.
+rewrite /guard; case Er: (real (f x)); last by rewrite toX_nan.
+by apply: H.
+Qed.
+
 (* A float is finite exactly when it reads as a real number.                  *)
 Definition Dfinb f := PrimitiveFloat.real f.
 
@@ -428,6 +451,33 @@ have Hnz := divDwDn_nz _ _ Fzl.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) (XdivE _ _ Hnz).
 rewrite /le_lower /=.
 by apply: Ropp_le_contravar; exact: (divDwDn_leP _ _ Fzl).
+Qed.
+
+(* And the square root.  Interval reads the root of a negative number as      *)
+(* nought, so a bound below it would be a claim about nothing; that is why    *)
+(* the operation tests the sign of what it is given as well as the sign of    *)
+(* the divisor it needs.                                                      *)
+Lemma sqrt_UP_correct p x :
+  valid_ub (sqrt_UP p x) = true /\
+  le_upper (Xsqrt (toX x)) (toX (sqrt_UP p x)).
+Proof.
+split; first exact: valid_ub_onReal.
+apply: (onReal_upper (fun x => Xsqrt (toX x))) => {p}{}x Rx Rz.
+have [_ [Fzl _]] := real_fin _ Rz.
+rewrite (toX_real _ Rx) (toX_real _ Rz) /=.
+exact: (sqrtDwUp_geP _ Fzl).
+Qed.
+
+Lemma sqrt_DN_correct p x :
+  valid_lb x = true ->
+  valid_lb (sqrt_DN p x) = true /\
+  le_lower (toX (sqrt_DN p x)) (Xsqrt (toX x)).
+Proof.
+move=> _; split; first exact: valid_lb_onReal.
+apply: (onReal_lower (fun x => Xsqrt (toX x))) => {p}{}x Rx Rz.
+have [_ [Fzl _]] := real_fin _ Rz.
+rewrite (toX_real _ Rx) (toX_real _ Rz) /le_lower /=.
+by apply: Ropp_le_contravar; exact: (sqrtDwDn_leP _ Fzl).
 Qed.
 
 End DwFloat.
