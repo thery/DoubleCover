@@ -480,4 +480,143 @@ rewrite (toX_real _ Rx) (toX_real _ Rz) /le_lower /=.
 by apply: Ropp_le_contravar; exact: (sqrtDwDn_leP _ Fzl).
 Qed.
 
+(* ---------------------------------------------------------------------------*)
+(*  What the signature asks of the rest                                       *)
+(* ---------------------------------------------------------------------------*)
+
+(* A pair with nothing in the low word denotes just its high word, and is     *)
+(* a bound on the same side.  That carries over everything the interface      *)
+(* borrows from the primitive floats.                                         *)
+Lemma toX_fp2dw f : toX (fp2dw f) = PrimitiveFloat.toX f.
+Proof.
+have Hz : (f + 0 =? f)%float = false -> PrimitiveFloat.toX f = Xnan.
+  rewrite eqb_equiv add_equiv /PrimitiveFloat.toX /PrimitiveFloat.toF.
+  rewrite -B2SF_Prim2B.
+  have -> : Prim2B 0%float = B754_zero false by [].
+  case: (Prim2B f) => [s1|s1||s1 m1 e1 H1] //=; last first.
+    by rewrite (Beqb_refl _ _ (B754_finite s1 m1 e1 H1)).
+  by case: s1.
+rewrite /toX /toF /fp2dw /wellFormed.
+case E: (f + 0 =? f)%float; last by rewrite (Hz E).
+by rewrite Fadd_exact_correct /= Xadd_0_r.
+Qed.
+
+(* A float that is not an infinity is not classified as one.  The last        *)
+(* case below asks whether the mantissa is of full length, which is how a     *)
+(* normal number is told from a subnormal one; neither is an infinity.        *)
+Lemma Dninf f : (f =? neg_infinity)%float = false ->
+  match PrimFloat.classify f with NInf => false | _ => true end = true.
+Proof.
+rewrite eqb_equiv classify_spec -B2SF_Prim2B.
+have -> : Prim2B neg_infinity = B754_infinity true by [].
+by case: (Prim2B f) => [[]|[]||[] m1 e1 H1] //=;
+   case: (match digits2_pos m1 with 53%positive => true | _ => false end).
+Qed.
+
+Lemma Dpinf f : (f =? infinity)%float = false ->
+  match PrimFloat.classify f with PInf => false | _ => true end = true.
+Proof.
+rewrite eqb_equiv classify_spec -B2SF_Prim2B.
+have -> : Prim2B infinity = B754_infinity false by [].
+by case: (Prim2B f) => [[]|[]||[] m1 e1 H1] //=;
+   case: (match digits2_pos m1 with 53%positive => true | _ => false end).
+Qed.
+
+Lemma valid_ub_fp2dw f :
+  PrimitiveFloat.valid_ub f = true -> valid_ub (fp2dw f) = true.
+Proof.
+rewrite /PrimitiveFloat.valid_ub /valid_ub /classify.
+case E: (f =? neg_infinity)%float => //= _.
+by move: (Dninf _ E); case: (PrimFloat.classify f) => //=;
+   case: (f + 0 =? f)%float.
+Qed.
+
+Lemma valid_lb_fp2dw f :
+  PrimitiveFloat.valid_lb f = true -> valid_lb (fp2dw f) = true.
+Proof.
+rewrite /PrimitiveFloat.valid_lb /valid_lb /classify.
+case E: (f =? infinity)%float => //= _.
+by move: (Dpinf _ E); case: (PrimFloat.classify f) => //=;
+   case: (f + 0 =? f)%float.
+Qed.
+
+(* The obligations that are true by the way the definitions were written.     *)
+Lemma classify_correct f :
+  real f = match classify f with Freal => true | _ => false end.
+Proof. by []. Qed.
+
+Lemma is_nan_correct f :
+  is_nan f = match classify f with Sig.Fnan => true | _ => false end.
+Proof. by []. Qed.
+
+Lemma valid_lb_correct f :
+  valid_lb f = match classify f with Fpinfty => false | _ => true end.
+Proof. by []. Qed.
+
+Lemma valid_ub_correct f :
+  valid_ub f = match classify f with Fminfty => false | _ => true end.
+Proof. by []. Qed.
+
+Lemma nan_correct : classify nan = Sig.Fnan.
+Proof. by []. Qed.
+
+Lemma zero_correct : toX zero = Xreal 0.
+Proof. by []. Qed.
+
+(* A pair denotes a real number exactly when it reads as one.  The other      *)
+(* way round is the reading itself; this way round, a pair that is not a      *)
+(* double word, or has a word that is not a number, denotes nothing.          *)
+Lemma real_correct f :
+  real f = match toX f with Xnan => false | Xreal _ => true end.
+Proof.
+case E: (real f); first by rewrite (toX_real _ E).
+have Hn : forall g, Dfinb g = false -> PrimitiveFloat.toX g = Xnan.
+  move=> g; rewrite /Dfinb PrimitiveFloat.real_correct.
+  by case: (PrimitiveFloat.toX g).
+move: E; rewrite realE; case: f => xh xl /=.
+case Eh: (Dfinb xh) => /=; last first.
+  by rewrite /toX /toF /wellFormed; case: (xh + xl =? xh)%float => //;
+     rewrite Fadd_exact_correct -/(PrimitiveFloat.toX xh) (Hn _ Eh).
+case El: (Dfinb xl) => /=; last first.
+  by rewrite /toX /toF /wellFormed; case: (xh + xl =? xh)%float => //;
+     rewrite Fadd_exact_correct -/(PrimitiveFloat.toX xl) (Hn _ El) Xadd_comm.
+by move=> Ew; rewrite /toX /toF /wellFormed Ew.
+Qed.
+
+(* Whole numbers, powers of two, and the scale factor: each is the            *)
+(* primitive float's own answer, put in the high word.                        *)
+Lemma fromZ_correct n : (Z.abs n <= 256)%Z -> toX (fromZ n) = Xreal (IZR n).
+Proof. by move=> Hn; rewrite /fromZ toX_fp2dw PrimitiveFloat.fromZ_correct. Qed.
+
+Lemma fromZ_UP_correct p n :
+  valid_ub (fromZ_UP p n) = true /\
+  le_upper (Xreal (IZR n)) (toX (fromZ_UP p n)).
+Proof.
+rewrite /fromZ_UP toX_fp2dw.
+have [Hv Hb] := PrimitiveFloat.fromZ_UP_correct fprec n.
+by split => //; apply: valid_ub_fp2dw.
+Qed.
+
+Lemma fromZ_DN_correct p n :
+  valid_lb (fromZ_DN p n) = true /\
+  le_lower (toX (fromZ_DN p n)) (Xreal (IZR n)).
+Proof.
+rewrite /fromZ_DN toX_fp2dw.
+have [Hv Hb] := PrimitiveFloat.fromZ_DN_correct fprec n.
+by split => //; apply: valid_lb_fp2dw.
+Qed.
+
+Lemma pow2_UP_correct p s :
+  valid_ub (pow2_UP p s) = true /\
+  le_upper (Xscale radix2 (Xreal 1) (StoZ s)) (toX (pow2_UP p s)).
+Proof.
+rewrite /pow2_UP toX_fp2dw.
+have [Hv Hb] := PrimitiveFloat.pow2_UP_correct fprec s.
+by split => //; apply: valid_ub_fp2dw.
+Qed.
+
+Lemma ZtoS_correct p z :
+  (z <= StoZ (ZtoS z))%Z \/ toX (pow2_UP p (ZtoS z)) = Xnan.
+Proof. by left; apply: Z.le_refl. Qed.
+
 End DwFloat.

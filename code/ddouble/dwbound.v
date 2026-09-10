@@ -997,3 +997,72 @@ case Em: (posFp (valDnDw (sqrtDw (DWFloat xh xl)))); last by [].
 case Et: (posFp (xh + xl)%float); last by [].
 exact: sqrtDwDnQ_le.
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  What being a double word says                                             *)
+(* ---------------------------------------------------------------------------*)
+
+(* Up to here the pairs were only ever read as the sum of their two words,    *)
+(* and the test they carry was never used.  The rest of the interface -       *)
+(* comparing, taking a magnitude, halving - cannot avoid it, so here is       *)
+(* what it says: the low word is at most half a step of the high one.         *)
+Lemma Dfin_wf xh xl : Dfin xh -> wellFormed (DWFloat xh xl) = true ->
+  Dfin (xh + xl)%float.
+Proof.
+rewrite /wellFormed /Dfin eqb_equiv add_equiv => Fh.
+by case: (Bplus mode_NE (Prim2B xh) (Prim2B xl)) => [s1|s1||s1 m1 e1 H1] //=;
+   move: Fh; case: (Prim2B xh) => [s2|s2||s2 m2 e2 H2] //= _; case: s1.
+Qed.
+
+Lemma D2R_wf xh xl : Dfin xh -> Dfin xl -> wellFormed (DWFloat xh xl) = true ->
+  D2R (xh + xl)%float = D2R xh.
+Proof.
+move=> Fh Fl Ew; have Fs := Dfin_wf _ _ Fh Ew.
+move: Ew; rewrite /wellFormed eqb_equiv /D2R add_equiv.
+move: Fs; rewrite /Dfin add_equiv => Fs.
+rewrite (Beqb_correct _ _ _ _ Fs Fh).
+by case: Req_bool_spec.
+Qed.
+
+(* the low word is at most half a step of the high one *)
+Lemma wellFormedP xh xl : Dfin xh -> Dfin xl ->
+  wellFormed (DWFloat xh xl) = true ->
+  Rabs (D2R xl) <= / 2 * ulp radix2 Dfexp (D2R xh).
+Proof.
+move=> Fh Fl Ew.
+have Hp0 : Prec_gt_0 prec by [].
+have Fs := Dfin_wf _ _ Fh Ew.
+have [Es _] := Dfin_add _ _ Fh Fl Fs.
+have Eq := D2R_wf _ _ Fh Fl Ew.
+have Ve : Valid_exp Dfexp by apply: FLT_exp_valid.
+have Me : Monotone_exp Dfexp by apply: FLT_exp_monotone.
+have H := error_le_half_ulp_round radix2 Dfexp (fun n => negb (Z.even n))
+            (D2R xh + D2R xl).
+have H2 := H Ve Me.
+rewrite -DrndE -Es Eq in H2.
+by move: H2; split_Rabs; lra.
+Qed.
+
+(* negating both words leaves a double word a double word *)
+Lemma wellFormed_neg xh xl : Dfin xh -> Dfin xl ->
+  wellFormed (DWFloat xh xl) = true ->
+  wellFormed (DWFloat (- xh) (- xl))%float = true.
+Proof.
+move=> Fh Fl Ew.
+have Fnh := Dfin_opp _ Fh; have Fnl := Dfin_opp _ Fl.
+have Fs := Dfin_wf _ _ Fh Ew.
+have Eq := D2R_wf _ _ Fh Fl Ew.
+have [Es Hf] := Dfin_add _ _ Fh Fl Fs.
+have Hf' : Dfits (D2R (- xh)%float + D2R (- xl)%float).
+  rewrite !D2R_opp.
+  have -> : (- D2R xh + - D2R xl) = - (D2R xh + D2R xl) by ring.
+  by move: Hf; rewrite DrndE round_NE_opp -DrndE; split_Rabs; lra.
+have [E2 Fn] := D2R_add _ _ Fnh Fnl Hf'.
+have Eval : D2R (- xh + - xl)%float = D2R (- xh)%float.
+  rewrite E2 !D2R_opp.
+  have -> : (- D2R xh + - D2R xl) = - (D2R xh + D2R xl) by ring.
+  by rewrite DrndE round_NE_opp -DrndE -Es Eq.
+move: Fn Fnh Eval; rewrite /wellFormed eqb_equiv /Dfin /D2R !add_equiv.
+move=> Fn Fnh Eval; rewrite (Beqb_correct _ _ _ _ Fn Fnh).
+by case: Req_bool_spec.
+Qed.
