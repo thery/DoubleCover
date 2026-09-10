@@ -318,18 +318,6 @@ edges in any order ($12!$), each flipped or not with the last again forced
 ($2^11$); and a final halving, because corners and edges cannot be rearranged
 independently of each other.
 
-Three details of the pieces matter later.
-
-- Each corner has exactly one sticker of the top colour or the bottom colour.
-  That sticker can be in three places on the corner: on top, or on one of the
-  corner's two sides. We call this the corner's *twist*.
-- Each edge has a right way round. Put back the other way round, it shows its
-  two colours the wrong way about. That is what we call the edge's *flip*.
-- Four of the twelve edges belong in the middle layer, between the top and the
-  bottom face. We call that layer the *slice*. A move can send those four edges
-  to any of the twelve edge slots, and where they sit is the third thing we
-  follow.
-
 Turning one face is a _move_, and a half turn counts as one move just like a
 quarter turn. Every scramble can be undone. The question is how many moves the
 worst scramble needs. That number is called *God's number*.
@@ -374,10 +362,22 @@ That is still a big computation. There are 18 moves at each step, so 19 moves
 means about $18^19$ words. No one can list that many. The search is cut short
 with a table computed in advance, and that table is where the difficulty is.
 
-Why use a proof assistant, here the Rocq prover @rocq (the system formerly
-called Coq)? Because the result then does not depend on a search program being
-right. What is checked is a proof, and a small kernel checks it, starting from
-the definition of the cube itself.
+Three details of the pieces matter later.
+
+- Each corner has exactly one sticker of the top colour or the bottom colour.
+  That sticker can be in three places on the corner: on top, or on one of the
+  corner's two sides. We call this the corner's *twist*.
+- Each edge has a right way round. Put back the other way round, it shows its
+  two colours the wrong way about. That is what we call the edge's *flip*.
+- Four of the twelve edges belong in the middle layer, between the top and the
+  bottom face. We call that layer the *slice*. A move can send those four edges
+  to any of the twelve edge slots, and where they sit is the third thing we
+  follow.
+
+The superflip gives all three at once. Every corner is home and the right way
+up, so its eight twists are all zero. Every edge is turned over, so its twelve
+flips are all one. Every edge is also in its own slot, so its four slice edges
+are in the slice.
 
 = The cube as permutations
 
