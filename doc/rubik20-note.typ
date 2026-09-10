@@ -552,7 +552,7 @@ We are looking for a solution of the superflip. A solution is a word of moves
 that takes the superflip back to the solved cube. The question is whether one
 of nineteen moves or fewer exists.
 
-So we try them all. Start at the superflip. Play one of the eighteen moves and
+A naive way to answer is to try them all. Start at the superflip. Play one of the eighteen moves and
 look at the cube it gives. If it is solved, the word played so far is a
 solution. If it is not, play another move, and stop when nineteen have been
 played. The words form a tree: the superflip at the root, eighteen branches at
