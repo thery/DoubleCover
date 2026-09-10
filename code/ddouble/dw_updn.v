@@ -27,6 +27,7 @@ Definition dnFp s := if (s =? infinity)%float then s else next_down s.
 Definition addUpFp a b := upFp (a + b)%float.
 Definition addDnFp a b := dnFp (a + b)%float.
 Definition mulUpFp a b := upFp (a * b)%float.
+Definition mulDnFp a b := dnFp (a * b)%float.
 Definition divUpFp a b := upFp (a / b)%float.
 Definition divDnFp a b := dnFp (a / b)%float.
 
@@ -80,26 +81,32 @@ Definition negDw d := let: DWFloat xh xl := d in DWFloat (- xh) (- xl).
 Definition subDwUp x y := addDwUp x (negDw y).
 Definition subDwDn x y := addDwDn x (negDw y).
 
-(* The product of two double words, together with a bound on its error.  The  *)
-(* two-product is exact, so the error is the rounding of the four small       *)
-(* terms plus the one term the algorithm drops, xl times yl.                  *)
-Definition timesDwDwErr (x y : dwfloat) :=
+(* Four times the smallest number there is.  The two-product can miss the     *)
+(* product it is given, but never by more than three and a half of those,     *)
+(* so a step of this size covers it wherever it happens.                      *)
+Definition deps := Eval compute in 0x1p-1072%float.
+
+(* The product of two double words, bounded above.  The product of the two    *)
+(* high words comes back as two numbers that all but add up to it, and the    *)
+(* three remaining products are each rounded upwards, so every piece is at    *)
+(* or above the piece it stands for.  Adding them upwards, and the step       *)
+(* above for what the two-product may have missed, keeps that true, and       *)
+(* the last twoSum changes no value.  Nothing is estimated.                   *)
+Definition mulDwUp (x y : dwfloat) :=
   let: DWFloat xh xl := x in
   let: DWFloat yh yl := y in
-  let: DWFloat ch cl1 := twoProd xh yh in
-  let: tl1 := (xh * yl)%float in
-  let: tl2 := (xl * yh)%float in
-  let: cl2 := (tl1 + tl2)%float in
-  let: cl3 := (cl1 + cl2)%float in
-  let: e := addUpFp (mulUpFp u (addUpFp (addUpFp (abs tl1) (abs tl2))
-                                        (addUpFp (abs cl2) (abs cl3))))
-                    (mulUpFp (abs xl) (abs yl)) in
-  (fastTwoSum ch cl3, e).
+  let: DWFloat ch cl := twoProd xh yh in
+  twoSum ch (addUpFp (addUpFp (addUpFp cl (mulUpFp xh yl))
+                              (addUpFp (mulUpFp xl yh) (mulUpFp xl yl)))
+                     deps).
 
-Definition mulDwUp (x y : dwfloat) :=
-  let: (d, e) := timesDwDwErr x y in widenUp d e.
 Definition mulDwDn (x y : dwfloat) :=
-  let: (d, e) := timesDwDwErr x y in widenDn d e.
+  let: DWFloat xh xl := x in
+  let: DWFloat yh yl := y in
+  let: DWFloat ch cl := twoProd xh yh in
+  twoSum ch (addDnFp (addDnFp (addDnFp cl (mulDnFp xh yl))
+                              (addDnFp (mulDnFp xl yh) (mulDnFp xl yl)))
+                     (- deps)).
 
 (* A double word is at least its high word made smaller by one unit in the    *)
 (* last place, since the low word is at most half of one.                     *)

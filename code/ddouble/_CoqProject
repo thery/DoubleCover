@@ -14,6 +14,7 @@ dwbridge.v
 dwflx.v
 dwarith.v
 dwtwosum.v
+dwprod.v
 dw_updn.v
 dwbound.v
 dw_ops.v

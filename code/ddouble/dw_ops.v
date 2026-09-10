@@ -347,4 +347,52 @@ rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /le_lower /=.
 by apply: Ropp_le_contravar; apply: subDwDn_leP.
 Qed.
 
+(* The signature states its product bounds under four sign conditions, so     *)
+(* they are written out here.  The proof does not use them: the bound         *)
+(* holds whatever the signs are, because it never looks at an infinity.       *)
+Definition is_non_neg' x :=
+  match toX x with Xnan => valid_ub x = true | Xreal r => (0 <= r)%R end.
+Definition is_non_pos' x :=
+  match toX x with Xnan => valid_lb x = true | Xreal r => (r <= 0)%R end.
+Definition is_non_neg_real x :=
+  match toX x with Xnan => False | Xreal r => (0 <= r)%R end.
+Definition is_non_pos_real x :=
+  match toX x with Xnan => False | Xreal r => (r <= 0)%R end.
+
+(* And the product.  The two high words are multiplied by Dekker's way,       *)
+(* which gives two numbers that all but add up to their product; the three    *)
+(* remaining products are rounded the way the bound needs; and the whole      *)
+(* is folded back into a pair.                                                *)
+Lemma mul_UP_correct p x y :
+  is_non_neg' x /\ is_non_neg' y \/ is_non_pos' x /\ is_non_pos' y \/
+  is_non_pos_real x /\ is_non_neg_real y \/
+  is_non_neg_real x /\ is_non_pos_real y ->
+  valid_ub (mul_UP p x y) = true /\
+  le_upper (toX x * toX y)%XR (toX (mul_UP p x y)).
+Proof.
+move=> _; split; first exact: valid_ub_onReal2.
+apply: (onReal2_upper (fun x y => (toX x * toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
+have [Fxh [Fxl _]] := real_fin _ Rx.
+have [Fyh [Fyl _]] := real_fin _ Ry.
+have [_ [Fzl _]] := real_fin _ Rz.
+rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /=.
+by apply: mulDwUp_geP.
+Qed.
+
+Lemma mul_DN_correct p x y :
+  is_non_neg_real x /\ is_non_neg_real y \/
+  is_non_pos_real x /\ is_non_pos_real y \/
+  is_non_neg' x /\ is_non_pos' y \/ is_non_pos' x /\ is_non_neg' y ->
+  valid_lb (mul_DN p x y) = true /\
+  le_lower (toX (mul_DN p x y)) (toX x * toX y)%XR.
+Proof.
+move=> _; split; first exact: valid_lb_onReal2.
+apply: (onReal2_lower (fun x y => (toX x * toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
+have [Fxh [Fxl _]] := real_fin _ Rx.
+have [Fyh [Fyl _]] := real_fin _ Ry.
+have [_ [Fzl _]] := real_fin _ Rz.
+rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /le_lower /=.
+by apply: Ropp_le_contravar; apply: mulDwDn_leP.
+Qed.
+
 End DwFloat.
