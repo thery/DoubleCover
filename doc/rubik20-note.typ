@@ -367,18 +367,19 @@ Three key facts about a position are used in what follows.
   That sticker can be in three places on the corner. It can be on the top or
   bottom face, which we write 0, or on one of the corner's two sides, which we
   write 1 and 2. We call this the corner's *twist*.
-- Each edge has a right way round. Put back the other way round, it shows its
-  two colours the wrong way about. That is what we call the edge's *flip*.
+- Each edge has a right way round, which we write 0. Put back the other way
+  round, it shows its two colours the wrong way about, and that we write 1.
+  That is what we call the edge's *flip*.
 - Four of the twelve edges belong in the middle layer, between the top and the
   bottom face. We call that layer the *slice*. A move can send those four edges
-  to any of the twelve edge slots, and where they sit is the third thing we
-  follow.
+  to any of the twelve edge slots. Which four slots they are in is one of 495
+  choices, and we write 0 for the four slots of the slice itself.
 
 The superflip gives all three at once. Every corner is home and the right way
 up, so every top or bottom sticker is on the top or bottom face and its eight
 twists are all zero. Every edge is turned over, so its twelve flips are all
-one. Every edge is also in its own slot, so its four slice edges are in the
-slice.
+one. Every edge is also in its own slot, so the four middle edges are back in
+the four slots of the slice, which is 0.
 
 = The cube as permutations
 
