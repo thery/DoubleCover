@@ -93,21 +93,35 @@ of `2^-1074`, so any sum of two of them is one as well, and `2^-1075` is not.
 **No pair of floats denotes it**, so no definition of `div2` can meet the
 equation. The condition protects one float completely and a pair only partly.
 
-**The escape the signature offers does not work.** `sensible_format` is the
-module's own field, so setting it to `false` makes `div2_correct` — and
-`midpoint_correct` — vacuous, and that is what this module does. But all three
-of Interval's functors take not `FloatOps` but `FloatOps` with
-`sensible_format` fixed to `true`:
+**What the flag actually means.** In both of Interval's own formats it is
+
+```coq
+Definition sensible_format :=
+  match radix_val radix with Zpos (xO _) => true | _ => false end.
+```
+
+— **the radix is even**. That is what it was for: `GenericFloat` and
+`SpecificFloat` are parameterised by radix, `div2` and `pow2_UP` cannot work in
+an odd radix, so those two obligations are excused there, and the interval
+layer then accepts only even radices. All three functors take
+`FloatOps with Definition sensible_format := true`
+(`Float.v:158`, `Float_full.v:29`, `Transcend.v:30`), which is deliberate: odd
+radices are simply not supported above the float layer.
+
+**Our radix is 2.** By the flag's intended meaning we are sensible. We set it
+`false` for a quite different reason — subnormals — which is a fair reading of
+what `div2_correct` *says*, but not of what the flag was for, and it collides
+with that design. The flag conflates two things: the radix being even, and
+halving being exact. For a double word the first holds and the second does not,
+and the signature gives no way to say so.
+
+So setting it `false` is refused by the functors:
 
 | functor | |
 |---|---|
 | `FloatInterval` | `Error: field sensible_format ... bodies differ` |
 | `FloatIntervalFull` | the same |
 | `TranscendentalFloatFast` | the same |
-
-So the excuse is written into the signature and then made unusable by the
-functors. Both of Interval's own formats set the field to `true`, so nobody
-appears to have reached this before.
 
 **The way through**, when someone takes it, is to narrow the format: a pair
 stops counting as a double word when its low word is subnormal. Then `xl / 2`
