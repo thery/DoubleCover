@@ -274,7 +274,7 @@
   search to a coset. A coset contains 19 508 428 800 positions. We formalise
   the correctness of a coset search, and we apply it to one specific coset. It
   follows that every position of the superflip's coset is solved in twenty
-  moves or fewer. This is our last result.
+  moves or less. This is our last result.
 
   #v(0.4em)
   *Keywords.* Rubik's cube, God's number, formal proof, Rocq, group theory.
@@ -551,7 +551,7 @@ wants to check the model has only to compare the six lists of cycles against
 We are looking for a lower bound for the superflip: we want to know that it
 cannot be solved in nineteen moves. A solution is a word of moves that takes
 the superflip back to the solved cube. So the question is whether one of
-nineteen moves or fewer exists.
+nineteen moves or less exists.
 
 A naive way to answer is to try them all. Start at the superflip. Play one of
 the eighteen moves and look at the cube it gives. If it is solved, the word played so far is a
@@ -815,7 +815,7 @@ the first move to be $U$ or $U^2$ and leave the other sixteen untried.
 
 *The second move: eighteen become fifteen.* The three that turn the top face
 again are dropped. Turning the top face twice running merges into a single
-turn, so those give a word of nineteen moves or fewer, and the proof covers
+turn, so those give a word of nineteen moves or less, and the proof covers
 shorter words at a smaller depth rather than by a search of their own.
 
 The three that turn the *bottom* face look just as droppable, and they are not.
