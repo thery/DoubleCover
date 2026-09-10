@@ -15,12 +15,20 @@ Implicit Type f : float.
 (* from the exact one by at most u times the rounded value.                   *)
 Definition u := Eval compute in (1 / 9007199254740992)%float.
 
+(* One step up, and one step down.  A step up from minus infinity would       *)
+(* give a number back, and a step down from plus infinity likewise, which     *)
+(* would hide the fact that something ran off the range.  So a step that      *)
+(* meets the infinity it would undo leaves it alone: the infinity then        *)
+(* travels to the end of the computation, where it is seen.                   *)
+Definition upFp s := if (s =? neg_infinity)%float then s else next_up s.
+Definition dnFp s := if (s =? infinity)%float then s else next_down s.
+
 (* Upper and lower bounds of the three operations, whatever the rounding did. *)
-Definition addUpFp a b := next_up (a + b)%float.
-Definition addDnFp a b := next_down (a + b)%float.
-Definition mulUpFp a b := next_up (a * b)%float.
-Definition divUpFp a b := next_up (a / b)%float.
-Definition divDnFp a b := next_down (a / b)%float.
+Definition addUpFp a b := upFp (a + b)%float.
+Definition addDnFp a b := dnFp (a + b)%float.
+Definition mulUpFp a b := upFp (a * b)%float.
+Definition divUpFp a b := upFp (a / b)%float.
+Definition divDnFp a b := dnFp (a / b)%float.
 
 (* The high word of a double word carries its value, the low word its tail.   *)
 Definition dwhi d := let: DWFloat xh _ := d in xh.

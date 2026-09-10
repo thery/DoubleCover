@@ -183,20 +183,10 @@ Proof. by []. Qed.
 Lemma toX_nan : toX nan = Xnan.
 Proof. by []. Qed.
 
-(* The sum runs its own tests before its answer is believed.  A chain that    *)
-(* ran off the range is not always caught by looking at the end of it: one    *)
-(* step up from minus infinity is a number again.  So each of them checks     *)
-(* every number it made along the way, and gives up when one is missing.      *)
-Definition addUpDw x y := if addUpOk x y then addDwUp x y else nan.
-Definition addDnDw x y := if addDnOk x y then addDwDn x y else nan.
-
-Definition subUpDw x y := if subUpOk x y then subDwUp x y else nan.
-Definition subDnDw x y := if subDnOk x y then subDwDn x y else nan.
-
-Definition add_UP (_ : precision) x y := onReal2 addUpDw x y.
-Definition add_DN (_ : precision) x y := onReal2 addDnDw x y.
-Definition sub_UP (_ : precision) x y := onReal2 subUpDw x y.
-Definition sub_DN (_ : precision) x y := onReal2 subDnDw x y.
+Definition add_UP (_ : precision) x y := onReal2 addDwUp x y.
+Definition add_DN (_ : precision) x y := onReal2 addDwDn x y.
+Definition sub_UP (_ : precision) x y := onReal2 subDwUp x y.
+Definition sub_DN (_ : precision) x y := onReal2 subDwDn x y.
 Definition mul_UP (_ : precision) x y := onReal2 mulDwUp x y.
 Definition mul_DN (_ : precision) x y := onReal2 mulDwDn x y.
 Definition div_UP (_ : precision) x y := onReal2 divDwUp x y.
@@ -253,6 +243,14 @@ rewrite /guard; case Er: (real (f x y)); last by rewrite toX_nan.
 by apply: H.
 Qed.
 
+(* A float is finite exactly when it reads as a real number.                  *)
+Definition Dfinb f := PrimitiveFloat.real f.
+
+Lemma DfinbW f : Dfinb f = true -> Dfin f.
+Proof.
+by rewrite /Dfinb -{1}(B2Prim_Prim2B f) PrimitiveFloat.real_is_finite.
+Qed.
+
 (* A double word is a real number exactly when both its words are numbers     *)
 (* and the pair is one, and then it denotes their sum.  These two are all     *)
 (* that is needed to read the bounds proved on the program in the shape the   *)
@@ -299,8 +297,7 @@ move=> _ _; split; first exact: valid_ub_onReal2.
 apply: (onReal2_upper (fun x y => (toX x + toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
 have [Fxh [Fxl _]] := real_fin _ Rx.
 have [Fyh [Fyl _]] := real_fin _ Ry.
-have Ok : addUpOk x y = true by move: Rz; rewrite /addUpDw; case: addUpOk.
-move: Rz; rewrite /addUpDw Ok => Rz.
+have [_ [Fzl _]] := real_fin _ Rz.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /=.
 by apply: addDwUp_geP.
 Qed.
@@ -314,8 +311,7 @@ move=> _ _; split; first exact: valid_lb_onReal2.
 apply: (onReal2_lower (fun x y => (toX x + toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
 have [Fxh [Fxl _]] := real_fin _ Rx.
 have [Fyh [Fyl _]] := real_fin _ Ry.
-have Ok : addDnOk x y = true by move: Rz; rewrite /addDnDw; case: addDnOk.
-move: Rz; rewrite /addDnDw Ok => Rz.
+have [_ [Fzl _]] := real_fin _ Rz.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /le_lower /=.
 by apply: Ropp_le_contravar; apply: addDwDn_leP.
 Qed.
@@ -332,8 +328,7 @@ move=> _ _; split; first exact: valid_ub_onReal2.
 apply: (onReal2_upper (fun x y => (toX x - toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
 have [Fxh [Fxl _]] := real_fin _ Rx.
 have [Fyh [Fyl _]] := real_fin _ Ry.
-have Ok : subUpOk x y = true by move: Rz; rewrite /subUpDw; case: subUpOk.
-move: Rz; rewrite /subUpDw Ok => Rz.
+have [_ [Fzl _]] := real_fin _ Rz.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /=.
 by apply: subDwUp_geP.
 Qed.
@@ -347,8 +342,7 @@ move=> _ _; split; first exact: valid_lb_onReal2.
 apply: (onReal2_lower (fun x y => (toX x - toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
 have [Fxh [Fxl _]] := real_fin _ Rx.
 have [Fyh [Fyl _]] := real_fin _ Ry.
-have Ok : subDnOk x y = true by move: Rz; rewrite /subDnDw; case: subDnOk.
-move: Rz; rewrite /subDnDw Ok => Rz.
+have [_ [Fzl _]] := real_fin _ Rz.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /le_lower /=.
 by apply: Ropp_le_contravar; apply: subDwDn_leP.
 Qed.
