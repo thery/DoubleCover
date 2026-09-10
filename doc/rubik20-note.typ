@@ -501,6 +501,10 @@ Here is what each line says:
   `@` is local notation turning a plain number into a place.
 - `*` composes two permutations, so `Umove` is the five cycles of @uturn done
   together, and `g ^+ 2` and `g ^-1` are the same turn done twice and undone.
+  Its order is the opposite of the usual one, and it catches the reader who
+  knows how functions compose. Mathcomp applies permutations on the right, so
+  `(g * m) f` is `m (g f)`: a product reads left to right, like a sequence of
+  moves played one after the other.
 - `seq` is a list, and `faces` is the list of the six clockwise quarter turns.
   `moves` runs through it and keeps three moves per face, which is the
   eighteen.
@@ -691,10 +695,8 @@ Again, here is what each line says:
   whether the search has arrived.
 - `Sseq` is the list of moves, the eighteen of them, in the order the search
   walks over them. `S` is the same thing seen as a set.
-- `g * m` is the position `g` followed by the move `m`. Mathcomp applies
-  permutations on the right, so `(g * m) f` is `m (g f)`. The product reads
-  left to right, like a sequence of moves, and not right to left like a
-  composition of functions.
+- `g * m` is the position `g` followed by the move `m`, in the left to right
+  order met above.
 - `h g <= d` is the cut, and `(h (g * m)).+1` is the estimate after a move
   plus one, which is the assumption that one move changes the estimate by at
   most one.
