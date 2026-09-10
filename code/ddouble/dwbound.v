@@ -218,3 +218,35 @@ apply: addDwDn_le => //.
 - by apply: DfinbW.
 by apply: twoSum_finI; apply: DfinbW.
 Qed.
+
+(* A difference is a sum with the second double word negated, and both        *)
+(* its words are negated exactly.  So the test is the sum's test on the       *)
+(* negated pair, and the bound is the sum's bound read through the two        *)
+(* changes of sign.  Whether the negated pair is still a double word is       *)
+(* never asked: only the values of its two words are used.                    *)
+Definition subUpOk (x y : dwfloat) := addUpOk x (negDw y).
+Definition subDnOk (x y : dwfloat) := addDnOk x (negDw y).
+
+Theorem subDwUp_geP x y :
+  Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
+  subUpOk x y = true ->
+  D2R (dwhi x) + D2R (dwlo x) - (D2R (dwhi y) + D2R (dwlo y)) <=
+  D2R (dwhi (subDwUp x y)) + D2R (dwlo (subDwUp x y)).
+Proof.
+case: y => yh yl Fxh Fxl Fyh Fyl Ok.
+have := addDwUp_geP x (DWFloat (- yh) (- yl))%float
+          Fxh Fxl (Dfin_opp _ Fyh) (Dfin_opp _ Fyl) Ok.
+by rewrite /subDwUp /negDw /= !D2R_opp; lra.
+Qed.
+
+Theorem subDwDn_leP x y :
+  Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
+  subDnOk x y = true ->
+  D2R (dwhi (subDwDn x y)) + D2R (dwlo (subDwDn x y)) <=
+  D2R (dwhi x) + D2R (dwlo x) - (D2R (dwhi y) + D2R (dwlo y)).
+Proof.
+case: y => yh yl Fxh Fxl Fyh Fyl Ok.
+have := addDwDn_leP x (DWFloat (- yh) (- yl))%float
+          Fxh Fxl (Dfin_opp _ Fyh) (Dfin_opp _ Fyl) Ok.
+by rewrite /subDwDn /negDw /= !D2R_opp; lra.
+Qed.
