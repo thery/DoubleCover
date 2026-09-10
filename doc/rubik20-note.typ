@@ -361,8 +361,7 @@ we prove.
 That is still a big computation. There are 18 moves at each step, so 19 moves
 means about $18^19$ words. No one can list that many.
 
-Three key facts about a configuration of the Rubik's cube are used in what
-follows.
+Three key facts about a position are used in what follows.
 
 - Each corner has exactly one sticker of the top colour or the bottom colour.
   That sticker can be in three places on the corner: on top, or on one of the
