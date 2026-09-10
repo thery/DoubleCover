@@ -566,9 +566,9 @@ so it has to be cut down.
 
 == The pruning estimate
 
-Suppose we can estimate, for any scramble, how many moves it needs. The
-estimate is never too big, and one move changes it by at most one. Call it
-$h$.
+Suppose we can estimate, for any scramble, how many moves it needs. We call an
+estimate *admissible* when it is never too big. Ours is admissible, and one
+move changes it by at most one. Call it $h$.
 
 Such an estimate cuts the tree. Walk down the tree of moves and keep track of
 how many moves are left. If the estimate for a position is 20 while only 18
@@ -579,7 +579,7 @@ being explored. The estimate may be too small, which only means less cutting.
 It may never be too large.
 
 None of this is new. A depth-first search that deepens step by step and prunes
-on an estimate that is never too big is Korf's IDA\* @korf1985ida.
+on an admissible estimate is Korf's IDA\* @korf1985ida.
 
 #figure(
   cetz.canvas(length: 1cm, {
