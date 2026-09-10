@@ -554,10 +554,10 @@ the superflip back to the solved cube. So the question is whether one of
 nineteen moves or less exists.
 
 A naive way to answer is to try them all. Start at the superflip. Play one of
-the eighteen moves and look at the cube it gives. If it is solved, the word played so far is a
-solution. If it is not, play another move, and stop when nineteen have been
-played. The words form a tree: the superflip at the root, eighteen branches at
-every node, nineteen levels deep.
+the eighteen moves and look at the cube it gives. If we reach the solved cube,
+the word played so far is a solution. If we do not, play another move, and stop
+when nineteen have been played. The words form a tree: the superflip at the
+root, eighteen branches at every node, nineteen levels deep.
 
 If the solved cube never turns up in that tree, no word of nineteen moves
 solves the superflip, and twenty is a lower bound. So the proof is a search
