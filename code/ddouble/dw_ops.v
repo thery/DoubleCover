@@ -1,4 +1,4 @@
-From Stdlib Require Import ZArith Reals.
+From Stdlib Require Import ZArith Reals Psatz.
 From Stdlib Require Import Floats PrimInt63.
 From Flocq Require Import Zaux Raux BinarySingleNaN PrimFloat.
 From Interval Require Import Xreal Basic Sig Generic_proof Primitive_ops.
@@ -78,9 +78,12 @@ Definition classify x :=
 Definition real x := match classify x with Freal => true | _ => false end.
 Definition is_nan x := match classify x with Sig.Fnan => true | _ => false end.
 
-(* The low word is below one unit in the last place of the high one, so the   *)
-(* high word alone gives the magnitude.                                       *)
-Definition mag x := PrimitiveFloat.mag (dwhi x).
+(* The magnitude: the larger of the two words, one binary step up.  The       *)
+(* high word alone would nearly do, but a low word of the same sign can       *)
+(* push the pair past its exponent, and one step covers that with nothing     *)
+(* to prove about how the two words sit.                                      *)
+Definition mag x :=
+  (Z.max (PrimitiveFloat.mag (dwhi x)) (PrimitiveFloat.mag (dwlo x)) + 1)%Z.
 
 (* Only an infinity of the wrong sign is barred from being a bound.           *)
 Definition valid_ub x := match classify x with Fminfty => false | _ => true end.
@@ -618,5 +621,119 @@ Qed.
 Lemma ZtoS_correct p z :
   (z <= StoZ (ZtoS z))%Z \/ toX (pow2_UP p (ZtoS z)) = Xnan.
 Proof. by left; apply: Z.le_refl. Qed.
+
+(* Negating a float turns each class into its mirror, and leaves a number     *)
+(* that is not an infinity one.  The last case asks whether the mantissa      *)
+(* is of full length, which is how a normal number is told from a             *)
+(* subnormal one.                                                             *)
+Lemma Dclassify_opp f :
+  PrimFloat.classify (- f)%float =
+  match PrimFloat.classify f with
+  | PInf => NInf | NInf => PInf
+  | PNormal => NNormal | NNormal => PNormal
+  | PSubn => NSubn | NSubn => PSubn
+  | PZero => NZero | NZero => PZero
+  | NaN => NaN
+  end.
+Proof.
+rewrite !classify_spec -!B2SF_Prim2B opp_equiv.
+by case: (Prim2B f) => [[]|[]||[] m1 e1 H1] //=;
+   case: (match digits2_pos m1 with 53%positive => true | _ => false end).
+Qed.
+
+(* Negating a double word negates what it denotes, and turns an infinity      *)
+(* into the other one.                                                        *)
+(* Negating twice is doing nothing, so being a double word survives a         *)
+(* change of sign both ways round.                                            *)
+Lemma Dopp_opp f : (- - f)%float = f.
+Proof.
+have H : Prim2B (- - f)%float = Prim2B f by rewrite !opp_equiv Bopp_involutive.
+by rewrite -(B2Prim_Prim2B (- - f)%float) H B2Prim_Prim2B.
+Qed.
+
+Lemma wellFormed_negE xh xl : Dfin xh -> Dfin xl ->
+  wellFormed (DWFloat (- xh) (- xl))%float = wellFormed (DWFloat xh xl).
+Proof.
+move=> Fh Fl; case E: (wellFormed (DWFloat xh xl)).
+  exact: wellFormed_neg.
+case E2: (wellFormed (DWFloat (- xh) (- xl))%float) => //.
+have := wellFormed_neg _ _ (Dfin_opp _ Fh) (Dfin_opp _ Fl) E2.
+by rewrite !Dopp_opp E.
+Qed.
+
+(* So a negated pair falls in the mirror class.                               *)
+Lemma classify_neg x :
+  classify (neg x) =
+  match classify x with
+  | Freal => Freal | Sig.Fnan => Sig.Fnan
+  | Fminfty => Fpinfty | Fpinfty => Fminfty
+  end.
+Proof.
+case: x => xh xl; rewrite /neg /negDw /classify !Dclassify_opp.
+have Hw : Dfin xh -> Dfin xl ->
+   ((- xh) + (- xl) =? (- xh))%float = (xh + xl =? xh)%float
+  by move=> *; apply: wellFormed_negE.
+have Hf : forall g,
+   match PrimFloat.classify g with
+   | PInf | NInf | NaN => True | _ => Dfin g end.
+  move=> g; case Ec: (PrimFloat.classify g) => //;
+  by apply: DfinbW; rewrite /Dfinb PrimitiveFloat.classify_correct
+                            /PrimitiveFloat.classify Ec.
+by case Eh: (PrimFloat.classify xh) => //=;
+   case El: (PrimFloat.classify xl) => //=;
+   (rewrite Hw; [by case: (xh + xl =? xh)%float
+                | by have := Hf xh; rewrite Eh
+                | by have := Hf xl; rewrite El]).
+Qed.
+
+(* Negating a double word negates what it denotes.                            *)
+Lemma neg_correct x :
+  match classify x with
+  | Freal => toX (neg x) = (- toX x)%XR
+  | Sig.Fnan => classify (neg x) = Sig.Fnan
+  | Fminfty => classify (neg x) = Fpinfty
+  | Fpinfty => classify (neg x) = Fminfty
+  end.
+Proof.
+case E: (classify x); rewrite ?classify_neg ?E //.
+have Rx : real x = true by rewrite /real E.
+have [Fh [Fl Ew]] := real_fin _ Rx.
+move: Fh Fl Ew; case: x Rx E => xh xl Rx E Fh Fl Ew.
+rewrite (toX_real _ Rx) /toX /toF /neg /negDw.
+rewrite (wellFormed_neg _ _ Fh Fl Ew).
+rewrite Fadd_exact_correct (toXE _ (Dfin_opp _ Fh)) (toXE _ (Dfin_opp _ Fl)).
+by rewrite /= !D2R_opp; congr Xreal; ring.
+Qed.
+
+(* The magnitude bounds the pair: each word is below its own power of         *)
+(* two, so their sum is below the larger of the two, doubled.                 *)
+Lemma mag_correct f : (Rabs (toR f) < bpow radix (StoZ (mag f)))%R.
+Proof.
+have Hh := PrimitiveFloat.mag_correct (dwhi f).
+have Hl := PrimitiveFloat.mag_correct (dwlo f).
+have Hb : forall a b : Z, (a <= Z.max a b)%Z /\ (b <= Z.max a b)%Z.
+  by move=> a b; split; [apply: Z.le_max_l | apply: Z.le_max_r].
+have [Ha Hbb] := Hb (PrimitiveFloat.mag (dwhi f)) (PrimitiveFloat.mag (dwlo f)).
+have Mh := bpow_le radix2 _ _ Ha; have Ml := bpow_le radix2 _ _ Hbb.
+have E1 : bpow radix2
+   ((Z.max (PrimitiveFloat.mag (dwhi f)) (PrimitiveFloat.mag (dwlo f)) + 1)%Z)
+   = (2 * bpow radix2
+   (Z.max (PrimitiveFloat.mag (dwhi f)) (PrimitiveFloat.mag (dwlo f))))%R.
+  by rewrite bpow_plus_1.
+rewrite /mag /StoZ /radix E1.
+case Ex: (real f); last first.
+  have -> : toR f = 0%R.
+    by move: Ex; rewrite real_correct /toR; case: (toX f).
+  rewrite Rabs_R0.
+  by have := bpow_gt_0 radix2
+     (Z.max (PrimitiveFloat.mag (dwhi f)) (PrimitiveFloat.mag (dwlo f))); lra.
+have [Fh [Fl _]] := real_fin _ Ex.
+have -> : toR f = (D2R (dwhi f) + D2R (dwlo f))%R.
+  by rewrite /toR (toX_real _ Ex).
+move: Hh Hl; rewrite /PrimitiveFloat.toR !PrimitiveFloat.toX_Prim2B.
+rewrite !PrimitiveFloat.B2R_BtoX // /PrimitiveFloat.StoZ.
+rewrite -/(D2R (dwhi f)) -/(D2R (dwlo f)).
+by move=> /= Hh Hl; move: (Rabs_triang (D2R (dwhi f)) (D2R (dwlo f))); lra.
+Qed.
 
 End DwFloat.
