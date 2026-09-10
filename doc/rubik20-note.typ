@@ -548,7 +548,13 @@ wants to check the model has only to compare the six lists of cycles against
 
 = The search in outline
 
-Two classical ideas make the search possible.
+A lower bound is a search that comes back empty. To show that the superflip
+cannot be solved in 19 moves, we walk the tree of words: the superflip at the
+root, eighteen branches at every node, and nineteen levels. If the solved cube
+never turns up, no word of nineteen moves solves the superflip. Walked in full
+that tree is the $18^19$ words counted above, so it has to be cut down.
+
+Two classical ideas cut it down.
 
 == The pruning estimate
 
