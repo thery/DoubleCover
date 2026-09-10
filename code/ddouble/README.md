@@ -45,21 +45,22 @@ just says nothing.
 | `sub_UP` / `sub_DN` | the sum with the second word negated | proved |
 | `mul_UP` / `mul_DN` | `mulDwUp` / `mulDwDn` | proved |
 | `div_UP` / `div_DN` | `divDwUp` / `divDwDn` | proved |
-| `sqrt_UP` / `sqrt_DN` | `sqrtDwUp` / `sqrtDwDn` | **not proved** |
+| `sqrt_UP` / `sqrt_DN` | `sqrtDwUp` / `sqrtDwDn` | proved |
 
 Everything proved is admit-free; the assumptions are the primitive-float and
 primitive-integer axioms and the classical reals, nothing else.
 
-The module is deliberately **not** sealed `<: FloatOps`, because that
-declaration is a check of the theorems and the square root is still missing.
+The module is **not** sealed `<: FloatOps` yet. The five operations above are
+what a bound is proved for; sealing asks for the whole signature, which is
+another thirty-odd obligations — `fromZ`, `cmp`, `min`, `max`, `mag`,
+`nearbyint`, `midpoint` and the rest. Most are easy, and until they are done
+Interval's interval arithmetic cannot be built on this module, so a *proved*
+bracket for a whole computation is not available yet.
 
-For the square root, note also that the residual it computes uses only the
-*high* words of the two bounds. A high word does not bound the pair it comes
-from — the same fault the division had before it was proved.
-
-`sqrtDw` in `dwarith.v` is a square root by one step of Newton's method, which
-takes the machine root from 16 digits to the 32 a double word holds. It is not
-yet what `sqrtDwUp` uses.
+The square root takes its `q` from `sqrtDw` in `dwarith.v`, one step of
+Newton's method on the machine root, which takes it from 16 digits to the 32 a
+double word holds. Nothing about `q` is used in the proof, so the step is free
+to change.
 
 ## The files
 
@@ -103,4 +104,18 @@ out by `addDw_finI`, `mulDw_finI` and their kin.
 
 **A test is for what propagation cannot settle.** Division keeps one, `posFp`:
 the divisor has to be bounded away from zero, and no amount of infinity
-travelling establishes that.
+travelling establishes that. The root keeps two: the same one, and the sign of
+what it is given, since the root of a negative is read as nought here.
+
+**Bound the result for an arbitrary `q`, then apply it.** Division and the root
+take a seed from an algorithm nothing is proved about. Stating the bound for
+any `q` at all — `divDwUpQ_ge`, `sqrtDwUpQ_ge` — and applying it to the seed
+keeps the seed's definition out of the proof. That is not only tidier: with the
+seed unfolded, one `have` in the division proof took 574 seconds, and the whole
+file now builds in eight.
+
+## Testing
+
+`test_pi.v` computes pi by Machin's formula with the plain operations — right
+to about thirty-one digits — and then shows what the interface's own
+operations bracket. It is a smoke test, not a proof.
