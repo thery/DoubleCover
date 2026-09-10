@@ -2,6 +2,7 @@
 #set text(font: "New Computer Modern", size: 10.5pt)
 #set par(justify: true, leading: 0.62em)
 #set heading(numbering: "1.1")
+#set list(marker: [-])
 #show heading: it => block(above: 1.2em, below: 0.7em)[#it]
 #show raw: set text(font: "DejaVu Sans Mono", size: 9pt)
 #show figure.caption: set text(size: 9pt)
