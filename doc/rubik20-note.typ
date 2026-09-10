@@ -318,19 +318,17 @@ edges in any order ($12!$), each flipped or not with the last again forced
 ($2^11$); and a final halving, because corners and edges cannot be rearranged
 independently of each other.
 
-Three details of the pieces matter later. Here they are, each with the name we
-use for it.
+Three details of the pieces matter later.
 
-Each corner has exactly one sticker of the top colour or the bottom colour.
-That sticker can be in three places on the corner: on top, or on one of the
-corner's two sides. Which of the three is the corner's *twist*.
-
-Each edge has a right way round. Put back the other way round, it shows its two
-colours the wrong way about. That is the edge's *flip*.
-
-Four of the twelve edges belong in the middle layer, the *slice* between the
-top and the bottom face. A move can send them to any of the twelve edge slots.
-Which four slots they are in is the third thing to follow.
+- Each corner has exactly one sticker of the top colour or the bottom colour.
+  That sticker can be in three places on the corner: on top, or on one of the
+  corner's two sides. Where it sits is what we call the corner's *twist*.
+- Each edge has a right way round. Put back the other way round, it shows its
+  two colours the wrong way about. That is what we call the edge's *flip*.
+- Four of the twelve edges belong in the middle layer, between the top and the
+  bottom face. We call that layer the *slice*. A move can send those four edges
+  to any of the twelve edge slots, and where they sit is the third thing we
+  follow.
 
 Turning one face is a _move_, and a half turn counts as one move just like a
 quarter turn. Every scramble can be undone. The question is how many moves the
