@@ -488,7 +488,7 @@ Definition moves : seq {perm facelet} :=
 Definition G : {group {perm facelet}} := <<Sset>>.
 ```
 
-Word by word:
+Here is what each line says:
 
 - `'I_48` is the type of the whole numbers *below* 48, so the places are
   numbered *0 to 47* and not 1 to 48, everywhere in the sources and in the
@@ -682,7 +682,7 @@ Fixpoint search (d : nat) (g : gT) : bool :=
 Corollary searchN d g : search d g = false -> g \notin ball S d.
 ```
 
-Again word by word:
+Again, here is what each line says:
 
 - `gT` is the group the file works in. It is a variable, so nothing here is
   about the cube; the cube is what it gets instantiated with later.
