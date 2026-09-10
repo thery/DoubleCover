@@ -2,9 +2,6 @@ From Stdlib Require Import Reals ZArith Psatz.
 From Stdlib Require Import Floats.
 From Flocq Require Import Core Plus_error BinarySingleNaN PrimFloat.
 From mathcomp Require Import ssreflect.
-(* dwtwosum is imported last on purpose: it and dw_updn both name the two     *)
-(* words of a pair, and the proofs below need the name the exactness lemmas   *)
-(* are stated with.                                                           *)
 From dwarith Require Import dwarith dwbridge dw_updn dwprod dwtwosum.
 
 (* Widening, and the one step that makes it safe.                             *)
@@ -206,17 +203,49 @@ Qed.
 (*  The bounds a caller can use                                               *)
 (* ---------------------------------------------------------------------------*)
 
-(* The same two bounds, asking for one thing instead of eleven: that the      *)
-(* four words given are numbers, and that the answer is one.  Nothing that    *)
-(* ran off the range can end in a number, since every step passes an          *)
-(* infinity on, so the answer being a number proves the whole chain was.      *)
-Theorem addDwUp_geP x y :
-  Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
-  Dfin (dwlo (addDwUp x y)) ->
+(* Each bound asks for one thing: that the answer is a number.  Nothing       *)
+(* that ran off the range can end in a number, since every step passes an     *)
+(* infinity on, so the answer being a number proves the whole chain was -     *)
+(* the four words given included.  That last part is worth having on its      *)
+(* own, because an operation built on these needs it of their arguments.      *)
+Lemma addDw_finI x y : Dfin (dwlo (addDwUp x y)) ->
+  Dfin (dwhi x) /\ Dfin (dwlo x) /\ Dfin (dwhi y) /\ Dfin (dwlo y).
+Proof.
+case: x => xh xl; case: y => yh yl; rewrite addDwUpE => Fz.
+have [Fsw _] := twoSum_finI _ _ Fz.
+have [_ Fw] := Dfin_addI _ _ Fsw.
+have [Fv Ftl] := Dfin_addI _ _ (Dfin_upI _ _ Fw).
+have [Fsl _] := Dfin_addI _ _ (Dfin_upI _ _ Fv).
+have [Fs1 _] := twoSum_finI _ _ Fsl.
+have [Fs2 _] := twoSum_finI _ _ Ftl.
+have [Fxh Fyh] := Dfin_addI _ _ Fs1.
+by have [Fxl Fyl] := Dfin_addI _ _ Fs2.
+Qed.
+
+Lemma addDwDn_finI x y : Dfin (dwlo (addDwDn x y)) ->
+  Dfin (dwhi x) /\ Dfin (dwlo x) /\ Dfin (dwhi y) /\ Dfin (dwlo y).
+Proof.
+case: x => xh xl; case: y => yh yl; rewrite addDwDnE => Fz.
+have [Fsw _] := twoSum_finI _ _ Fz.
+have [_ Fw] := Dfin_addI _ _ Fsw.
+have [Fv Ftl] := Dfin_addI _ _ (Dfin_dnI _ _ Fw).
+have [Fsl _] := Dfin_addI _ _ (Dfin_dnI _ _ Fv).
+have [Fs1 _] := twoSum_finI _ _ Fsl.
+have [Fs2 _] := twoSum_finI _ _ Ftl.
+have [Fxh Fyh] := Dfin_addI _ _ Fs1.
+by have [Fxl Fyl] := Dfin_addI _ _ Fs2.
+Qed.
+
+Theorem addDwUp_geP x y : Dfin (dwlo (addDwUp x y)) ->
   D2R (dwhi x) + D2R (dwlo x) + (D2R (dwhi y) + D2R (dwlo y)) <=
   D2R (dwhi (addDwUp x y)) + D2R (dwlo (addDwUp x y)).
 Proof.
-case: x => xh xl; case: y => yh yl /= Fxh Fxl Fyh Fyl Fz.
+move=> Fz; have [Fxh [Fxl [Fyh Fyl]]] := addDw_finI _ _ Fz.
+move: Fxh Fxl Fyh Fyl Fz; case: x => xh xl; case: y => yh yl.
+rewrite addDwUpE.
+change (dwhi (DWFloat xh xl)) with xh; change (dwlo (DWFloat xh xl)) with xl.
+change (dwhi (DWFloat yh yl)) with yh; change (dwlo (DWFloat yh yl)) with yl.
+move=> Fxh Fxl Fyh Fyl Fz.
 have T3 := twoSum_finI _ _ Fz.
 have [Fsw _] := T3.
 have [_ Fw] := Dfin_addI _ _ Fsw.
@@ -227,13 +256,16 @@ have [Fsl _] := Dfin_addI _ _ Fa1.
 by apply: addDwUp_ge => //; apply: twoSum_finI.
 Qed.
 
-Theorem addDwDn_leP x y :
-  Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
-  Dfin (dwlo (addDwDn x y)) ->
+Theorem addDwDn_leP x y : Dfin (dwlo (addDwDn x y)) ->
   D2R (dwhi (addDwDn x y)) + D2R (dwlo (addDwDn x y)) <=
   D2R (dwhi x) + D2R (dwlo x) + (D2R (dwhi y) + D2R (dwlo y)).
 Proof.
-case: x => xh xl; case: y => yh yl /= Fxh Fxl Fyh Fyl Fz.
+move=> Fz; have [Fxh [Fxl [Fyh Fyl]]] := addDwDn_finI _ _ Fz.
+move: Fxh Fxl Fyh Fyl Fz; case: x => xh xl; case: y => yh yl.
+rewrite addDwDnE.
+change (dwhi (DWFloat xh xl)) with xh; change (dwlo (DWFloat xh xl)) with xl.
+change (dwhi (DWFloat yh yl)) with yh; change (dwlo (DWFloat yh yl)) with yl.
+move=> Fxh Fxl Fyh Fyl Fz.
 have T3 := twoSum_finI _ _ Fz.
 have [Fsw _] := T3.
 have [_ Fw] := Dfin_addI _ _ Fsw.
@@ -248,27 +280,37 @@ Qed.
 (* its words are negated exactly.  So it is the sum's bound read through      *)
 (* the two changes of sign.  Whether the negated pair is still a double       *)
 (* word is never asked: only the values of its two words are used.            *)
-Theorem subDwUp_geP x y :
-  Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
-  Dfin (dwlo (subDwUp x y)) ->
+Lemma subDwUp_finI x y : Dfin (dwlo (subDwUp x y)) ->
+  Dfin (dwhi x) /\ Dfin (dwlo x) /\ Dfin (dwhi y) /\ Dfin (dwlo y).
+Proof.
+case: y => yh yl Fz.
+have [Fxh [Fxl [Fnh Fnl]]] := addDw_finI _ _ Fz.
+by split => //; split => //; split; apply: Dfin_oppI.
+Qed.
+
+Lemma subDwDn_finI x y : Dfin (dwlo (subDwDn x y)) ->
+  Dfin (dwhi x) /\ Dfin (dwlo x) /\ Dfin (dwhi y) /\ Dfin (dwlo y).
+Proof.
+case: y => yh yl Fz.
+have [Fxh [Fxl [Fnh Fnl]]] := addDwDn_finI _ _ Fz.
+by split => //; split => //; split; apply: Dfin_oppI.
+Qed.
+
+Theorem subDwUp_geP x y : Dfin (dwlo (subDwUp x y)) ->
   D2R (dwhi x) + D2R (dwlo x) - (D2R (dwhi y) + D2R (dwlo y)) <=
   D2R (dwhi (subDwUp x y)) + D2R (dwlo (subDwUp x y)).
 Proof.
-case: y => yh yl Fxh Fxl Fyh Fyl Fz.
-have := addDwUp_geP x (DWFloat (- yh) (- yl))%float
-          Fxh Fxl (Dfin_opp _ Fyh) (Dfin_opp _ Fyl) Fz.
+case: y => yh yl Fz.
+have := addDwUp_geP x (DWFloat (- yh) (- yl))%float Fz.
 by rewrite /subDwUp /negDw /= !D2R_opp; lra.
 Qed.
 
-Theorem subDwDn_leP x y :
-  Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
-  Dfin (dwlo (subDwDn x y)) ->
+Theorem subDwDn_leP x y : Dfin (dwlo (subDwDn x y)) ->
   D2R (dwhi (subDwDn x y)) + D2R (dwlo (subDwDn x y)) <=
   D2R (dwhi x) + D2R (dwlo x) - (D2R (dwhi y) + D2R (dwlo y)).
 Proof.
-case: y => yh yl Fxh Fxl Fyh Fyl Fz.
-have := addDwDn_leP x (DWFloat (- yh) (- yl))%float
-          Fxh Fxl (Dfin_opp _ Fyh) (Dfin_opp _ Fyl) Fz.
+case: y => yh yl Fz.
+have := addDwDn_leP x (DWFloat (- yh) (- yl))%float Fz.
 by rewrite /subDwDn /negDw /= !D2R_opp; lra.
 Qed.
 
@@ -297,18 +339,49 @@ Lemma mulDwDnE xh xl yh yl :
              (- deps)).
 Proof. by rewrite /mulDwDn; case: (twoProd xh yh). Qed.
 
+(* Here too the answer being a number proves the four words given were.       *)
+Lemma mulDw_finI x y : Dfin (dwlo (mulDwUp x y)) ->
+  Dfin (dwhi x) /\ Dfin (dwlo x) /\ Dfin (dwhi y) /\ Dfin (dwlo y).
+Proof.
+case: x => xh xl; case: y => yh yl; rewrite mulDwUpE => Fz.
+have [Fsw _] := twoSum_finI _ _ Fz.
+have [_ FW] := Dfin_addI _ _ Fsw.
+have [FV _] := Dfin_addI _ _ (Dfin_upI _ _ FW).
+have [FS1 FS2] := Dfin_addI _ _ (Dfin_upI _ _ FV).
+have [_ FM1] := Dfin_addI _ _ (Dfin_upI _ _ FS1).
+have [FM2 FM3] := Dfin_addI _ _ (Dfin_upI _ _ FS2).
+have [Fxh Fyl] := Dfin_mulI _ _ (Dfin_mulUpI _ _ FM1).
+have [Fxl Fyh] := Dfin_mulI _ _ (Dfin_mulUpI _ _ FM2).
+by [].
+Qed.
+
+Lemma mulDwDn_finI x y : Dfin (dwlo (mulDwDn x y)) ->
+  Dfin (dwhi x) /\ Dfin (dwlo x) /\ Dfin (dwhi y) /\ Dfin (dwlo y).
+Proof.
+case: x => xh xl; case: y => yh yl; rewrite mulDwDnE => Fz.
+have [Fsw _] := twoSum_finI _ _ Fz.
+have [_ FW] := Dfin_addI _ _ Fsw.
+have [FV _] := Dfin_addI _ _ (Dfin_dnI _ _ FW).
+have [FS1 FS2] := Dfin_addI _ _ (Dfin_dnI _ _ FV).
+have [_ FM1] := Dfin_addI _ _ (Dfin_dnI _ _ FS1).
+have [FM2 FM3] := Dfin_addI _ _ (Dfin_dnI _ _ FS2).
+have [Fxh Fyl] := Dfin_mulI _ _ (Dfin_mulDnI _ _ FM1).
+have [Fxl Fyh] := Dfin_mulI _ _ (Dfin_mulDnI _ _ FM2).
+by [].
+Qed.
+
 (* The pair returned is at or above the exact product.  The product of the    *)
 (* two high words is two numbers that miss it by less than three and a        *)
 (* half of the smallest number there is; the other three products are each    *)
 (* rounded upwards; the four are added upwards, and so is the step that       *)
 (* covers the miss.  The last twoSum changes no value.                        *)
-Theorem mulDwUp_geP x y :
-  Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
-  Dfin (dwlo (mulDwUp x y)) ->
+Theorem mulDwUp_geP x y : Dfin (dwlo (mulDwUp x y)) ->
   (D2R (dwhi x) + D2R (dwlo x)) * (D2R (dwhi y) + D2R (dwlo y)) <=
   D2R (dwhi (mulDwUp x y)) + D2R (dwlo (mulDwUp x y)).
 Proof.
-case: x => xh xl; case: y => yh yl; rewrite mulDwUpE.
+move=> Fz0; have [Fxh [Fxl [Fyh Fyl]]] := mulDw_finI _ _ Fz0.
+move: Fxh Fxl Fyh Fyl Fz0; case: x => xh xl; case: y => yh yl.
+rewrite mulDwUpE.
 change (dwhi (DWFloat xh xl)) with xh; change (dwlo (DWFloat xh xl)) with xl.
 change (dwhi (DWFloat yh yl)) with yh; change (dwlo (DWFloat yh yl)) with yl.
 move=> Fxh Fxl Fyh Fyl Fz.
@@ -343,13 +416,13 @@ move: Hp; rewrite Ddeps in H4; split_Rabs; lra.
 Qed.
 
 (* And downwards, the same pieces the other way.                              *)
-Theorem mulDwDn_leP x y :
-  Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
-  Dfin (dwlo (mulDwDn x y)) ->
+Theorem mulDwDn_leP x y : Dfin (dwlo (mulDwDn x y)) ->
   D2R (dwhi (mulDwDn x y)) + D2R (dwlo (mulDwDn x y)) <=
   (D2R (dwhi x) + D2R (dwlo x)) * (D2R (dwhi y) + D2R (dwlo y)).
 Proof.
-case: x => xh xl; case: y => yh yl; rewrite mulDwDnE.
+move=> Fz0; have [Fxh [Fxl [Fyh Fyl]]] := mulDwDn_finI _ _ Fz0.
+move: Fxh Fxl Fyh Fyl Fz0; case: x => xh xl; case: y => yh yl.
+rewrite mulDwDnE.
 change (dwhi (DWFloat xh xl)) with xh; change (dwlo (DWFloat xh xl)) with xl.
 change (dwhi (DWFloat yh yl)) with yh; change (dwlo (DWFloat yh yl)) with yl.
 move=> Fxh Fxl Fyh Fyl Fz.
@@ -381,4 +454,304 @@ have Hx : (D2R xh + D2R xl) * (D2R yh + D2R yl) =
           D2R xh * D2R yh + D2R xh * D2R yl + D2R xl * D2R yh + D2R xl * D2R yl
   by ring.
 move: Hp; rewrite D2R_opp Ddeps in H4; split_Rabs; lra.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The quotient of two double words, bounded                                 *)
+(* ---------------------------------------------------------------------------*)
+
+(* A quotient rounded and stepped up is above the exact quotient.             *)
+Lemma divUpFp_ge a b : Dfin a -> D2R b <> 0 -> Dfin (a / b)%float ->
+  Dfin (divUpFp a b) -> D2R a / D2R b <= D2R (divUpFp a b).
+Proof.
+move=> Fa Nb Fs Fu; rewrite /divUpFp; apply: (upFp_ge _ _ Fs _ Fu).
+by have [-> _] := Dfin_div _ _ Fa Nb Fs.
+Qed.
+
+(* The divisor made smaller is at or below its magnitude: a sum is at         *)
+(* least the first term less the second, in absolute value.                   *)
+Lemma magDnDw_le y : Dfin (magDnDw y) ->
+  D2R (magDnDw y) <= Rabs (D2R (dwhi y) + D2R (dwlo y)).
+Proof.
+case: y => yh yl /= Fm.
+have Fw := Dfin_dnFpI _ Fm.
+have [Fah Fal] := Dfin_subI _ _ Fw.
+have Ew : D2R (abs yh - abs yl)%float
+        = Drnd (Rabs (D2R yh) - Rabs (D2R yl)).
+  by have [-> _] := Dfin_sub _ _ Fah Fal Fw; rewrite !D2R_abs.
+have := dnFp_le _ _ Fw Ew Fm.
+by move=> H; move: H; split_Rabs; lra.
+Qed.
+
+(* Widening moves the pair by at least the amount asked for.  The twoSum      *)
+(* at the end is exact, so the two words still add up to what they did.       *)
+Lemma widenUpE zh zl f : widenUp (DWFloat zh zl) f = twoSum zh (addUpFp zl f).
+Proof. by []. Qed.
+
+Lemma widenDnE zh zl f :
+  widenDn (DWFloat zh zl) f = twoSum zh (addDnFp zl (- f)).
+Proof. by []. Qed.
+
+(* Widening too passes on what it was given.                                  *)
+Lemma widenUp_finI d f : Dfin (dwlo (widenUp d f)) ->
+  Dfin (dwhi d) /\ Dfin (dwlo d) /\ Dfin f.
+Proof.
+case: d => zh zl; rewrite widenUpE => Fz.
+have [Fsw _] := twoSum_finI _ _ Fz.
+have [Fzh FW] := Dfin_addI _ _ Fsw.
+by have [Fzl Ff] := Dfin_addI _ _ (Dfin_upI _ _ FW).
+Qed.
+
+Lemma widenDn_finI d f : Dfin (dwlo (widenDn d f)) ->
+  Dfin (dwhi d) /\ Dfin (dwlo d) /\ Dfin f.
+Proof.
+case: d => zh zl; rewrite widenDnE => Fz.
+have [Fsw _] := twoSum_finI _ _ Fz.
+have [Fzh FW] := Dfin_addI _ _ Fsw.
+have [Fzl Ff] := Dfin_addI _ _ (Dfin_dnI _ _ FW).
+by split => //; split => //; apply: Dfin_oppI.
+Qed.
+
+Lemma widenUp_ge d f : Dfin (dwlo (widenUp d f)) ->
+  D2R (dwhi d) + D2R (dwlo d) + D2R f <=
+  D2R (dwhi (widenUp d f)) + D2R (dwlo (widenUp d f)).
+Proof.
+case: d => zh zl; rewrite widenUpE.
+change (dwhi (DWFloat zh zl)) with zh; change (dwlo (DWFloat zh zl)) with zl.
+move=> Fz.
+have T := twoSum_finI _ _ Fz.
+have [Fsw _] := T.
+have [Fzh FW] := Dfin_addI _ _ Fsw.
+have Fa := Dfin_upI _ _ FW.
+have [Fzl Ff] := Dfin_addI _ _ Fa.
+have G := addUpFp_ge _ _ Fzl Ff Fa FW.
+have E := twoSum_exact_fin _ _ Fzh FW T.
+by lra.
+Qed.
+
+Lemma widenDn_le d f : Dfin (dwlo (widenDn d f)) ->
+  D2R (dwhi (widenDn d f)) + D2R (dwlo (widenDn d f)) <=
+  D2R (dwhi d) + D2R (dwlo d) - D2R f.
+Proof.
+case: d => zh zl; rewrite widenDnE.
+change (dwhi (DWFloat zh zl)) with zh; change (dwlo (DWFloat zh zl)) with zl.
+move=> Fz.
+have T := twoSum_finI _ _ Fz.
+have [Fsw _] := T.
+have [Fzh FW] := Dfin_addI _ _ Fsw.
+have Fa := Dfin_dnI _ _ FW.
+have [Fzl Ff] := Dfin_addI _ _ Fa.
+have G := addDnFp_le _ _ Fzl Ff Fa FW.
+have E := twoSum_exact_fin _ _ Fzh FW T.
+by move: G; rewrite D2R_opp; lra.
+Qed.
+
+(* Making a quotient of bounds smaller: a smaller numerator over a larger     *)
+(* denominator, both kept positive where it matters.                          *)
+Lemma Rdiv_le_bound a b c d :
+  a <= c -> 0 <= c -> 0 < d -> d <= b -> a / b <= c / d.
+Proof.
+move=> ac c0 d0 db.
+have b0 : 0 < b by lra.
+rewrite /Rdiv; apply: Rle_trans (_ : c * / b <= _).
+  by apply: Rmult_le_compat_r => //; apply/Rlt_le/Rinv_0_lt_compat.
+by apply: Rmult_le_compat_l => //; apply: Rinv_le_contravar.
+Qed.
+
+(* The residual argument itself, on the reals and nothing else.  Whatever     *)
+(* q is, if the residual x - q*y is caught between two numbers, both no       *)
+(* bigger than r, and the divisor's magnitude is at least m, then the true    *)
+(* quotient is within r/m of q.                                               *)
+Lemma resid_bound X Y Q MD MU RU RD Rr M E :
+  MD <= Q * Y -> Q * Y <= MU ->
+  X - MD <= RU -> RD <= X - MU ->
+  RU <= Rr -> - RD <= Rr -> 0 <= Rr ->
+  0 < M -> M <= Rabs Y -> Rr / M <= E ->
+  X / Y <= Q + E.
+Proof.
+move=> H1 H2 H3 H4 H5 H6 H7 H8 H9 H10.
+have [HYn|HYp] : Y < 0 \/ 0 < Y.
+  by move: H9; rewrite /Rabs; case: Rcase_abs => H; [left|right]; lra.
+- have HYne : Y <> 0 by lra.
+  have HE : X / Y = Q + (- (X - Q * Y)) / (- Y) by field.
+  have Hab : - (X - Q * Y) <= Rr by lra.
+  have Hbd : M <= - Y by move: H9; rewrite /Rabs; case: Rcase_abs => H; lra.
+  have := Rdiv_le_bound _ _ _ _ Hab H7 H8 Hbd.
+  by rewrite HE; lra.
+- have HYne : Y <> 0 by lra.
+  have HE : X / Y = Q + (X - Q * Y) / Y by field.
+  have Hab : X - Q * Y <= Rr by lra.
+  have Hbd : M <= Y by move: H9; rewrite /Rabs; case: Rcase_abs => H; lra.
+  have := Rdiv_le_bound _ _ _ _ Hab H7 H8 Hbd.
+  by rewrite HE; lra.
+Qed.
+
+(* The quotient, bounded above.  Nothing is asked of the algorithm that       *)
+(* produced q: the true quotient is within |x - q*y| / |y| of it whatever     *)
+(* it is, and that distance is what the operation computes - the residual     *)
+(* bounded on both sides, its words added in absolute value, over a           *)
+(* divisor made smaller.                                                      *)
+Theorem divDwUp_geP x y : Dfin (dwlo (divDwUp x y)) ->
+  (D2R (dwhi x) + D2R (dwlo x)) / (D2R (dwhi y) + D2R (dwlo y)) <=
+  D2R (dwhi (divDwUp x y)) + D2R (dwlo (divDwUp x y)).
+Proof.
+rewrite /divDwUp /divDwErr.
+case E: (posFp (magDnDw y)); last by [].
+have [E1 E2] : (0 <? magDnDw y)%float = true /\
+               (magDnDw y <? infinity)%float = true.
+  by move: E; rewrite /posFp; case: (0 <? _)%float; case: (_ <? _)%float.
+have [Fm Pm] := Dpos _ E1 E2.
+have Hm := magDnDw_le _ Fm.
+set q := divDwDw2 x y.
+set rup := subDwUp x (mulDwDn q y).
+set rdn := subDwDn x (mulDwUp q y).
+set r := addUpFp (addUpFp (abs (dwhi rup)) (abs (dwlo rup)))
+                 (addUpFp (abs (dwhi rdn)) (abs (dwlo rdn))).
+move=> Fz.
+have Hw := widenUp_ge _ _ Fz.
+have [_ [_ Fe]] := widenUp_finI _ _ Fz.
+have Fd := Dfin_upFpI _ Fe.
+have Fr := Dfin_divI _ _ Fd.
+have [FA FB] := Dfin_addI _ _ (Dfin_upI _ _ Fr).
+have [FA1 FA2] := Dfin_addI _ _ (Dfin_upI _ _ FA).
+have [FB1 FB2] := Dfin_addI _ _ (Dfin_upI _ _ FB).
+have Fuh := Dfin_absI _ FA1; have Ful := Dfin_absI _ FA2.
+have Fdh := Dfin_absI _ FB1; have Fdl := Dfin_absI _ FB2.
+have Hup := subDwUp_geP x (mulDwDn q y) Ful.
+have Hdn := subDwDn_leP x (mulDwUp q y) Fdl.
+have [_ [_ [_ Fmd]]] := subDwUp_finI _ _ Ful.
+have [_ [_ [_ Fmu]]] := subDwDn_finI _ _ Fdl.
+have Hmd := mulDwDn_leP q y Fmd.
+have Hmu := mulDwUp_geP q y Fmu.
+have Hnm : D2R (magDnDw y) <> 0 by lra.
+have He := divUpFp_ge _ _ Fr Hnm Fd Fe.
+have HA := addUpFp_ge _ _ FA1 FA2 (Dfin_upI _ _ FA) FA.
+have HB := addUpFp_ge _ _ FB1 FB2 (Dfin_upI _ _ FB) FB.
+have HR0 := addUpFp_ge _ _ FA FB (Dfin_upI _ _ Fr) Fr.
+have HR : D2R (addUpFp (abs (dwhi rup)) (abs (dwlo rup)))
+        + D2R (addUpFp (abs (dwhi rdn)) (abs (dwlo rdn))) <= D2R r := HR0.
+rewrite !D2R_abs in HA HB.
+have PA1 := Rabs_pos (D2R (dwhi rup)); have PA2 := Rabs_pos (D2R (dwlo rup)).
+have PB1 := Rabs_pos (D2R (dwhi rdn)); have PB2 := Rabs_pos (D2R (dwlo rdn)).
+have QA := Rle_abs (D2R (dwhi rup) + D2R (dwlo rup)).
+have QC := Rle_abs (- (D2R (dwhi rdn) + D2R (dwlo rdn))).
+have TA := Rabs_triang (D2R (dwhi rup)) (D2R (dwlo rup)).
+have TB := Rabs_triang (D2R (dwhi rdn)) (D2R (dwlo rdn)).
+rewrite Rabs_Ropp in QC.
+have Hr0 : 0 <= D2R r by lra.
+have HU : D2R (dwhi rup) + D2R (dwlo rup) <= D2R r by lra.
+have HD : - (D2R (dwhi rdn) + D2R (dwlo rdn)) <= D2R r by lra.
+apply: Rle_trans _ Hw.
+by apply: (resid_bound _ _ _ _ _ _ _ _ _ _
+             Hmd Hmu Hup Hdn HU HD Hr0 Pm Hm He).
+Qed.
+
+(* The same, the other way round.                                             *)
+Lemma resid_bound_lo X Y Q MD MU RU RD Rr M E :
+  MD <= Q * Y -> Q * Y <= MU ->
+  X - MD <= RU -> RD <= X - MU ->
+  RU <= Rr -> - RD <= Rr -> 0 <= Rr ->
+  0 < M -> M <= Rabs Y -> Rr / M <= E ->
+  Q - E <= X / Y.
+Proof.
+move=> H1 H2 H3 H4 H5 H6 H7 H8 H9 H10.
+have [HYn|HYp] : Y < 0 \/ 0 < Y.
+  by move: H9; rewrite /Rabs; case: Rcase_abs => H; [left|right]; lra.
+- have HYne : Y <> 0 by lra.
+  have HE : X / Y = Q + (- (X - Q * Y)) / (- Y) by field.
+  have HN : (X - Q * Y) / (- Y) = - ((- (X - Q * Y)) / (- Y)) by field.
+  have Hab : X - Q * Y <= Rr by lra.
+  have Hbd : M <= - Y by move: H9; rewrite /Rabs; case: Rcase_abs => H; lra.
+  have H := Rdiv_le_bound _ _ _ _ Hab H7 H8 Hbd.
+  by rewrite HN in H; rewrite HE; lra.
+- have HYne : Y <> 0 by lra.
+  have HE : X / Y = Q + (X - Q * Y) / Y by field.
+  have HN : (- (X - Q * Y)) / Y = - ((X - Q * Y) / Y) by field.
+  have Hab : - (X - Q * Y) <= Rr by lra.
+  have Hbd : M <= Y by move: H9; rewrite /Rabs; case: Rcase_abs => H; lra.
+  have H := Rdiv_le_bound _ _ _ _ Hab H7 H8 Hbd.
+  by rewrite HN in H; rewrite HE; lra.
+Qed.
+
+(* The quotient, bounded below, from the same residual and the same           *)
+(* divisor made smaller.                                                      *)
+Theorem divDwDn_leP x y : Dfin (dwlo (divDwDn x y)) ->
+  D2R (dwhi (divDwDn x y)) + D2R (dwlo (divDwDn x y)) <=
+  (D2R (dwhi x) + D2R (dwlo x)) / (D2R (dwhi y) + D2R (dwlo y)).
+Proof.
+rewrite /divDwDn /divDwErr.
+case E: (posFp (magDnDw y)); last by [].
+have [E1 E2] : (0 <? magDnDw y)%float = true /\
+               (magDnDw y <? infinity)%float = true.
+  by move: E; rewrite /posFp; case: (0 <? _)%float; case: (_ <? _)%float.
+have [Fm Pm] := Dpos _ E1 E2.
+have Hm := magDnDw_le _ Fm.
+set q := divDwDw2 x y.
+set rup := subDwUp x (mulDwDn q y).
+set rdn := subDwDn x (mulDwUp q y).
+set r := addUpFp (addUpFp (abs (dwhi rup)) (abs (dwlo rup)))
+                 (addUpFp (abs (dwhi rdn)) (abs (dwlo rdn))).
+move=> Fz.
+have Hw := widenDn_le _ _ Fz.
+have [_ [_ Fe]] := widenDn_finI _ _ Fz.
+have Fd := Dfin_upFpI _ Fe.
+have Fr := Dfin_divI _ _ Fd.
+have [FA FB] := Dfin_addI _ _ (Dfin_upI _ _ Fr).
+have [FA1 FA2] := Dfin_addI _ _ (Dfin_upI _ _ FA).
+have [FB1 FB2] := Dfin_addI _ _ (Dfin_upI _ _ FB).
+have Fuh := Dfin_absI _ FA1; have Ful := Dfin_absI _ FA2.
+have Fdh := Dfin_absI _ FB1; have Fdl := Dfin_absI _ FB2.
+have Hup := subDwUp_geP x (mulDwDn q y) Ful.
+have Hdn := subDwDn_leP x (mulDwUp q y) Fdl.
+have [_ [_ [_ Fmd]]] := subDwUp_finI _ _ Ful.
+have [_ [_ [_ Fmu]]] := subDwDn_finI _ _ Fdl.
+have Hmd := mulDwDn_leP q y Fmd.
+have Hmu := mulDwUp_geP q y Fmu.
+have Hnm : D2R (magDnDw y) <> 0 by lra.
+have He := divUpFp_ge _ _ Fr Hnm Fd Fe.
+have HA := addUpFp_ge _ _ FA1 FA2 (Dfin_upI _ _ FA) FA.
+have HB := addUpFp_ge _ _ FB1 FB2 (Dfin_upI _ _ FB) FB.
+have HR0 := addUpFp_ge _ _ FA FB (Dfin_upI _ _ Fr) Fr.
+have HR : D2R (addUpFp (abs (dwhi rup)) (abs (dwlo rup)))
+        + D2R (addUpFp (abs (dwhi rdn)) (abs (dwlo rdn))) <= D2R r := HR0.
+rewrite !D2R_abs in HA HB.
+have PA1 := Rabs_pos (D2R (dwhi rup)); have PA2 := Rabs_pos (D2R (dwlo rup)).
+have PB1 := Rabs_pos (D2R (dwhi rdn)); have PB2 := Rabs_pos (D2R (dwlo rdn)).
+have QA := Rle_abs (D2R (dwhi rup) + D2R (dwlo rup)).
+have QC := Rle_abs (- (D2R (dwhi rdn) + D2R (dwlo rdn))).
+have TA := Rabs_triang (D2R (dwhi rup)) (D2R (dwlo rup)).
+have TB := Rabs_triang (D2R (dwhi rdn)) (D2R (dwlo rdn)).
+rewrite Rabs_Ropp in QC.
+have Hr0 : 0 <= D2R r by lra.
+have HU : D2R (dwhi rup) + D2R (dwlo rup) <= D2R r by lra.
+have HD : - (D2R (dwhi rdn) + D2R (dwlo rdn)) <= D2R r by lra.
+apply: Rle_trans Hw _.
+by apply: (resid_bound_lo _ _ _ _ _ _ _ _ _ _
+             Hmd Hmu Hup Hdn HU HD Hr0 Pm Hm He).
+Qed.
+
+(* An answer that is a number also says the divisor was not zero: the         *)
+(* operation only answers when it has bounded the divisor away from it.       *)
+Lemma divDwUp_nz x y : Dfin (dwlo (divDwUp x y)) ->
+  D2R (dwhi y) + D2R (dwlo y) <> 0.
+Proof.
+rewrite /divDwUp /divDwErr; case E: (posFp (magDnDw y)); last by [].
+move=> _.
+have [E1 E2] : (0 <? magDnDw y)%float = true /\
+               (magDnDw y <? infinity)%float = true.
+  by move: E; rewrite /posFp; case: (0 <? _)%float; case: (_ <? _)%float.
+have [Fm Pm] := Dpos _ E1 E2.
+by have := magDnDw_le _ Fm; split_Rabs; lra.
+Qed.
+
+Lemma divDwDn_nz x y : Dfin (dwlo (divDwDn x y)) ->
+  D2R (dwhi y) + D2R (dwlo y) <> 0.
+Proof.
+rewrite /divDwDn /divDwErr; case E: (posFp (magDnDw y)); last by [].
+move=> _.
+have [E1 E2] : (0 <? magDnDw y)%float = true /\
+               (magDnDw y <? infinity)%float = true.
+  by move: E; rewrite /posFp; case: (0 <? _)%float; case: (_ <? _)%float.
+have [Fm Pm] := Dpos _ E1 E2.
+by have := magDnDw_le _ Fm; split_Rabs; lra.
 Qed.

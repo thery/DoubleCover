@@ -2,17 +2,13 @@ From Stdlib Require Import Reals ZArith Psatz.
 From Stdlib Require Import Floats.
 From Flocq Require Import Core BinarySingleNaN PrimFloat.
 From mathcomp Require Import ssreflect.
-From dwarith Require Import dwarith dwbridge F2SumFLT TwoSumFLT.
+From dwarith Require Import dwarith dwbridge dw_updn F2SumFLT TwoSumFLT.
 
 (* The two error-free transformations of dwarith.v, read on the reals.        *)
 (* They are, step for step, the TwoSum and Fast2Sum the double-word proofs    *)
 (* are about, so each intermediate is a rounded real operation as soon as no  *)
 (* step overflows.  Nothing here needs the arguments to be normal: that only  *)
 (* comes in when the unbounded format is brought in.                          *)
-
-(* The two words of a double word.                                            *)
-Definition dwhi d := let: DWFloat xh _ := d in xh.
-Definition dwlo d := let: DWFloat _ xl := d in xl.
 
 (* Every number twoSum computes is finite: this is its guard, and it is       *)
 (* what a program can test.                                                   *)

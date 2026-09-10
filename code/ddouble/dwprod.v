@@ -3,7 +3,7 @@ From Stdlib Require Import Floats.
 From Flocq Require Import Core BinarySingleNaN PrimFloat.
 From Flocq Require Import Pff.Pff2Flocq.
 From mathcomp Require Import ssreflect.
-From dwarith Require Import dwarith dwbridge dwtwosum.
+From dwarith Require Import dwarith dwbridge dw_updn dwtwosum.
 
 (* The two-product of dwarith.v, read on the reals.                           *)
 (* Splitting a number in two and multiplying the halves is Dekker's way of    *)

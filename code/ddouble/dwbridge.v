@@ -122,6 +122,16 @@ case: Rlt_bool_spec => [Hlt [-> _]|Hle Hov]; first by [].
 by move: Fxy Hov; case: Bmult.
 Qed.
 
+Lemma Dfin_div x y :
+  Dfin x -> D2R y <> 0%R -> Dfin (x / y)%float ->
+  D2R (x / y)%float = Drnd (D2R x / D2R y) /\ Dfits (D2R x / D2R y).
+Proof.
+rewrite /Dfin /D2R div_equiv => Fx Ny Fxy.
+have := Bdiv_correct _ _ Hprec Hmax mode_NE (Prim2B x) (Prim2B y) Ny.
+case: Rlt_bool_spec => [Hlt [-> _]|Hle Hov]; first by [].
+by move: Fxy Hov; case: Bdiv.
+Qed.
+
 (* The same question asked backwards: which arguments can have produced a     *)
 (* finite result.  An operation given an infinity returns an infinity or a    *)
 (* NaN, never a number, so a finite result is by itself the proof that both   *)
@@ -148,6 +158,15 @@ by case: (Prim2B a) => [s1|s1||s1 m1 e1 H1];
    case: (Prim2B b) => [s2|s2||s2 m2 e2 H2].
 Qed.
 
+(* A quotient says less: dividing a number by an infinity gives zero, so      *)
+(* only the numerator comes back.                                             *)
+Lemma Dfin_divI a b : Dfin (a / b)%float -> Dfin a.
+Proof.
+rewrite /Dfin div_equiv.
+by case: (Prim2B a) => [s1|s1||s1 m1 e1 H1];
+   case: (Prim2B b) => [s2|s2||s2 m2 e2 H2].
+Qed.
+
 (* Negating a float is exact: it flips the sign bit and touches nothing       *)
 (* else, so it changes the number it stands for by its sign alone and         *)
 (* cannot take it out of the range.  This is what makes a difference of       *)
@@ -160,3 +179,42 @@ Proof. by rewrite /Dfin opp_equiv; case: (Prim2B f). Qed.
 
 Lemma Dfin_oppI f : Dfin (- f)%float -> Dfin f.
 Proof. by rewrite /Dfin opp_equiv; case: (Prim2B f). Qed.
+
+(* The absolute value is exact too: it clears the sign bit and nothing        *)
+(* else.                                                                      *)
+Lemma D2R_abs f : D2R (abs f) = Rabs (D2R f).
+Proof. by rewrite /D2R abs_equiv B2R_Babs. Qed.
+
+Lemma Dfin_abs f : Dfin f -> Dfin (abs f).
+Proof. by rewrite /Dfin abs_equiv; case: (Prim2B f). Qed.
+
+Lemma Dfin_absI f : Dfin (abs f) -> Dfin f.
+Proof. by rewrite /Dfin abs_equiv; case: (Prim2B f). Qed.
+
+Lemma D2R_zero : D2R 0%float = 0%R.
+Proof. by []. Qed.
+
+(* Comparing two numbers compares the numbers they stand for.  The second     *)
+(* test below is what a program uses to say that something it has just        *)
+(* computed is a number and above zero: an infinity fails one or the          *)
+(* other, and so does a NaN.                                                  *)
+Lemma Dltb a b : Dfin a -> Dfin b -> (a <? b)%float = true ->
+  (D2R a < D2R b)%R.
+Proof.
+rewrite /Dfin /D2R ltb_equiv => Fa Fb.
+rewrite (Bltb_correct _ _ _ _ Fa Fb).
+by case: Rlt_bool_spec.
+Qed.
+
+Lemma Dpos m : (0 <? m)%float = true -> (m <? infinity)%float = true ->
+  Dfin m /\ (0 < D2R m)%R.
+Proof.
+move=> H0 Hi.
+have Fm : Dfin m.
+  move: H0 Hi; rewrite /Dfin !ltb_equiv.
+  have -> : Prim2B 0%float = B754_zero false by [].
+  have -> : Prim2B infinity = B754_infinity false by [].
+  by case: (Prim2B m) => [s1|[]||s1 m1 e1 H1].
+have F0 : Dfin 0%float by [].
+by split => //; have := Dltb _ _ F0 Fm H0; rewrite D2R_zero.
+Qed.
