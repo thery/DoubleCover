@@ -244,12 +244,14 @@ anything. Measured on this machine, two runs each, seconds:
 
 | goal | bigints | double words |
 |---|---|---|
-| `method_error`, `i_prec 80` | 5.792  5.753 | 1.470  1.473 |
-| `cancellation`, `i_depth 20`, `i_prec 60` | 74.317  74.013 | 39.922  39.480 |
-| `int_range`, `integral` | 2.890  2.856 | 2.857  2.899 |
+| `method_error`, `i_prec 80` | 6.169  5.711 | 1.497  1.454 |
+| `cancellation`, `i_depth 20`, `i_prec 60` | 74.578  74.031 | 39.302  39.752 |
+| `int_range`, `integral` | 2.826  2.876 | 2.919  2.869 |
+| `int_infinite`, `integral` | 0.340  0.339 | 0.357  0.344 |
+| `exp_table`, `i_prec 61` × 64 | 3.887  3.938 | 3.759  3.801 |
 
 About four times quicker on a Taylor model at eighty bits, about twice on a
-bisection run twenty deep at sixty, and level on an integral. The gain is not a
-property of the arithmetic on its own — it is where the tactic spends its time.
-The full table, and the six goals that are too light to measure, are in the
-file.
+bisection run twenty deep at sixty, and level on the other three. The gain is
+not a property of the arithmetic on its own — it is where the tactic spends its
+time. The full table, and the four goals that are too light to measure, are in
+the file.
