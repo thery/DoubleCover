@@ -12,10 +12,10 @@ Open Scope R_scope.
 (* The first two come from Interval's own testsuite, where they are the       *)
 (* reason double precision is not enough: a relative error of five times      *)
 (* ten to the minus eighteen for a rational approximation of the              *)
-(* exponential, and the error of a polynomial one.  Their constants are       *)
-(* whole numbers below two to the fifty-three times a power of two, so        *)
-(* they enter a double word exactly, which is why these two can be run        *)
-(* at all - see the note at the foot of the file.                             *)
+(* exponential, and the error of a polynomial one.  The third is a            *)
+(* difference the tactic cannot see is nought, so it splits the range         *)
+(* twenty times over and the whole cost is the splitting.  The four below     *)
+(* them are light, and are here only to show that they are.                   *)
 
 Notation pow2 := (Raux.bpow Zaux.radix2).
 
@@ -58,6 +58,9 @@ Proof. intros t Ht. Time interval with (i_bisect t, i_taylor t, i_prec 80). Qed.
 Lemma poly_error : forall x, -1/32 <= x <= 1/32 -> Rabs (g x) <= 1e-13.
 Proof. intros x Hx. Time interval with (i_bisect x, i_taylor x, i_prec 90). Qed.
 
+Lemma cancellation : forall x, (0 <= x <= 1)%R -> (Rabs (exp x - exp x) <= 1e-4)%R.
+Proof. intros x H. Time interval with (i_bisect x, i_depth 20, i_prec 60). Qed.
+
 Goal (3.14159265358979 <= PI <= 3.1415926535898)%R.
 Proof. Time interval with (i_prec 80). Qed.
 
@@ -85,6 +88,9 @@ Proof. intros t Ht. Time interval with (i_bisect t, i_taylor t, i_prec 80). Qed.
 Lemma poly_error : forall x, -1/32 <= x <= 1/32 -> Rabs (g x) <= 1e-13.
 Proof. intros x Hx. Time interval with (i_bisect x, i_taylor x, i_prec 90). Qed.
 
+Lemma cancellation : forall x, (0 <= x <= 1)%R -> (Rabs (exp x - exp x) <= 1e-4)%R.
+Proof. intros x H. Time interval with (i_bisect x, i_depth 20, i_prec 60). Qed.
+
 Goal (3.14159265358979 <= PI <= 3.1415926535898)%R.
 Proof. Time interval with (i_prec 80). Qed.
 
@@ -102,34 +108,39 @@ End DoubleWords.
 (* -------------------------------------------------------------------        *)
 (* What it gave, two runs on this machine, seconds:                           *)
 (*                                                                            *)
-(*                                         bigints      double words          *)
-(*   method_error, i_prec 80             5.948 5.831    1.630 1.682           *)
-(*   poly_error,   i_prec 90             0.057 0.056    0.051 0.052           *)
-(*   pi to fifteen digits                0.011 0.019    0.011 0.010           *)
-(*   exp 1 to fifteen digits             0.018 0.021    0.010 0.011           *)
-(*   ln 2 to fifteen digits              0.013 0.019    0.011 0.011           *)
-(*   |sin x / x| <= 1, bisect            0.008 0.009    0.008 0.009           *)
+(*                                        bigints         double words        *)
+(*   method_error, i_prec 80             5.787  5.737     1.456  1.506        *)
+(*   poly_error,   i_prec 90             0.054  0.057     0.051  0.080        *)
+(*   cancellation, depth 20, prec 60    74.603 74.655    39.549 39.577        *)
+(*   pi to fifteen digits                0.012  0.013     0.010  0.011        *)
+(*   exp 1 to fifteen digits             0.012  0.012     0.010  0.011        *)
+(*   ln 2 to fifteen digits              0.013  0.013     0.011  0.011        *)
+(*   |sin x / x| <= 1, bisect            0.008  0.008     0.011  0.012        *)
 (*                                                                            *)
-(* Only the first line says anything.  method_error is the one goal here      *)
-(* that takes seconds rather than hundredths, and on it the double words      *)
-(* are about three and a half times quicker.  Everything below it is at       *)
-(* the level of the noise, and should not be read as a result either way.     *)
+(* Two lines say anything: the two goals that take seconds rather than        *)
+(* hundredths.  method_error is about four times quicker on double words      *)
+(* and cancellation about twice.  The two measure different things:           *)
+(* method_error is a Taylor model at eighty bits, cancellation is the         *)
+(* bisection loop run twenty deep at sixty, where the work is the splitting   *)
+(* and the arithmetic on each piece is plain.  Everything below those two     *)
+(* is at the level of the noise and should not be read as a result either     *)
+(* way.                                                                       *)
 (*                                                                            *)
 (* An earlier run of this file, before method_error was in it, made exp 1     *)
 (* look thirteen times quicker on double words.  That was the first heavy     *)
 (* call warming something up, not arithmetic; the figures above show it       *)
 (* level.  Anything measured in hundredths here is worth nothing.             *)
 (*                                                                            *)
-(* WHY THE FIRST TWO GOALS CAN BE RUN AND THE OTHERS CANNOT GO DEEPER.        *)
+(* WHAT A CONSTANT IN A GOAL IS WORTH.                                        *)
 (* The tactic builds a goal's constants with fromZ_UP and fromZ_DN, and       *)
-(* ours put the whole number in the high word and leave the low one           *)
-(* empty:                                                                     *)
+(* ours split a whole number into its top fifty-three bits and what is        *)
+(* left, so the constant enters as two words:                                 *)
 (*                                                                            *)
-(*   fromZ_UP tt 314159265358979323 = DWFloat 0x1.17078bfda7a84p+58 0         *)
+(*   fromZ_DN tt 314159265358979323 = DWFloat 3.1415926535897933e+17 (-6)     *)
+(*   fromZ_UP tt 314159265358979323 = DWFloat 3.1415926535897933e+17 (-4)     *)
 (*                                                                            *)
-(* So a decimal constant enters at fifty-three bits however many the          *)
-(* arithmetic carries.  The first two goals escape this because their         *)
-(* constants are whole numbers below two to the fifty-three times a power     *)
-(* of two, which a single float already holds exactly.  The others are        *)
-(* decimals, so they are held to fifteen digits and cannot be pushed to       *)
-(* the thirty a double word could reach.                                      *)
+(* - two apart on a number of that size, where a single float is out by       *)
+(* about forty.  A number one float already holds is exact.  Past about       *)
+(* two to the one hundred and fifth the split gives up and the one-word       *)
+(* answer is used again, so a decimal of more than about thirty-one digits    *)
+(* is still held to fifteen.                                                  *)

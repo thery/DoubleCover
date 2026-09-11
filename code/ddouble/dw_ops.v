@@ -3,7 +3,7 @@ From Stdlib Require Import Floats PrimInt63.
 From Flocq Require Import Zaux Raux Core BinarySingleNaN PrimFloat.
 From Interval Require Import Xreal Basic Sig Generic_proof Primitive_ops.
 From mathcomp Require Import ssreflect.
-From dwarith Require Import dwarith dwbridge dw_updn dwbound.
+From dwarith Require Import dwarith dwbridge dwprod dw_updn dwbound.
 
 (* Double words as a float format for Interval.                               *)
 (* Phase one: the operations only.  The module is not yet declared to meet    *)
@@ -12,6 +12,16 @@ From dwarith Require Import dwarith dwbridge dw_updn dwbound.
 (* operation is allowed to be wider than necessary; the ones marked below as  *)
 (* only ordinarily tight can be sharpened later without changing a single     *)
 (* statement.                                                                 *)
+
+(* The whole of the error the two-product can leave is less than one, so a    *)
+(* number this size is pinned down by it to within one.                       *)
+Lemma dekker_le1 :
+  (7 / 2 * bpow radix2 (SpecFloat.emin prec emax) <= 1)%R.
+Proof.
+have H : (bpow radix2 (SpecFloat.emin prec emax) <= bpow radix2 (-2))%R.
+  by apply: bpow_le.
+by move: H; rewrite /= /Z.pow_pos /=; lra.
+Qed.
 
 Module DwFloat.
 
@@ -57,10 +67,6 @@ Definition zero := DWFloat PrimFloat.zero PrimFloat.zero.
 Definition nan := DWFloat PrimFloat.nan PrimFloat.zero.
 
 Definition fromZ (n : Z) := fp2dw (PrimitiveFloat.fromZ n).
-Definition fromZ_UP (_ : precision) (n : Z) :=
-  fp2dw (PrimitiveFloat.fromZ_UP fprec n).
-Definition fromZ_DN (_ : precision) (n : Z) :=
-  fp2dw (PrimitiveFloat.fromZ_DN fprec n).
 Definition fromF (f : Basic.float radix) := fp2dw (PrimitiveFloat.fromF f).
 
 (* A double word is a real number when both its words are and the pair is     *)
@@ -202,6 +208,62 @@ Proof. by []. Qed.
 
 Definition add_UP (_ : precision) x y := onReal2 addDwUp x y.
 Definition add_DN (_ : precision) x y := onReal2 addDwDn x y.
+
+(* A whole number as a double word.  Putting it in the high word alone        *)
+(* would hold fifty-three bits of it and drop the rest, which is what         *)
+(* every constant in a goal is worth after that.  So the number is split      *)
+(* in two: its top fifty-three bits, and what is left.                        *)
+(*                                                                            *)
+(* The split is done on the whole number, never on a float.  The top part     *)
+(* is a whole number of at most fifty-three bits times a power of two, and    *)
+(* each of those two is a float exactly; their product is asked of the        *)
+(* two-product, which gives the product together with its own error.  When    *)
+(* that error is nought the product is the top part to within the only thing  *)
+(* the two-product can leave, which is less than one, and the test for it is  *)
+(* the whole proof that it is.  What is left over is then widened by one      *)
+(* either way, which covers that.  On a number this size one is nothing: the  *)
+(* two bounds come out about two to the ninety-seventh apart instead of the   *)
+(* two to the fifty-third a single float gives.                               *)
+(*                                                                            *)
+(* When anything fails - the number small enough for one float to hold it     *)
+(* whole, a factor too large to be a float, the test not passing - the        *)
+(* one-word answer is used, which is still a bound and for a small number     *)
+(* the exact one.                                                             *)
+
+(* Two to the fifty-third.  A whole number below it is a float exactly.       *)
+Definition mmax := 9007199254740992%Z.
+
+(* The top part, as a multiplier and an exponent, and what is left over.      *)
+Definition splitZ (n : Z) : Z * Z * Z :=
+  let e := Z.max 0 (Z.log2 (Z.abs n) - 52) in
+  let m := (Z.sgn n * (Z.abs n / 2 ^ e))%Z in
+  (m, e, (n - m * 2 ^ e)%Z).
+
+(* The top part as a float, and what is left over, when the two-product       *)
+(* says the product left no error behind.  A number a single float holds      *)
+(* whole is refused here: the one-word answer is already exact for it.        *)
+Definition nearZ (n : Z) : option (PrimFloat.float * Z) :=
+  if (Z.abs n <? mmax)%Z then None else
+  let: (m, e, r) := splitZ n in
+  if ((Z.abs m <? mmax)%Z && (Z.abs (2 ^ e) <? mmax)%Z)%bool then
+    let: DWFloat p q :=
+       twoProd (PrimitiveFloat.fromZ m) (PrimitiveFloat.fromZ (2 ^ e)) in
+    if (q =? 0)%float then Some (p, r) else None
+  else None.
+
+Definition fromZ_UP (p : precision) (n : Z) :=
+  match nearZ n with
+  | Some (a, r) =>
+      add_UP p (fp2dw a) (fp2dw (PrimitiveFloat.fromZ_UP fprec (r + 1)))
+  | None => fp2dw (PrimitiveFloat.fromZ_UP fprec n)
+  end.
+
+Definition fromZ_DN (p : precision) (n : Z) :=
+  match nearZ n with
+  | Some (a, r) =>
+      add_DN p (fp2dw a) (fp2dw (PrimitiveFloat.fromZ_DN fprec (r - 1)))
+  | None => fp2dw (PrimitiveFloat.fromZ_DN fprec n)
+  end.
 Definition sub_UP (_ : precision) x y := onReal2 subDwUp x y.
 Definition sub_DN (_ : precision) x y := onReal2 subDwDn x y.
 Definition mul_UP (_ : precision) x y := onReal2 mulDwUp x y.
@@ -333,30 +395,32 @@ Qed.
 
 (* The obligation itself.  Both arguments are double words, the tests came    *)
 (* back true, and what the program returned is at or above the exact sum.     *)
-Lemma add_UP_correct p x y :
-  valid_ub x = true -> valid_ub y = true ->
-  valid_ub (add_UP p x y) = true /\
-  le_upper (toX x + toX y)%XR (toX (add_UP p x y)).
+Lemma add_UP_le p x y : le_upper (toX x + toX y)%XR (toX (add_UP p x y)).
 Proof.
-move=> _ _; split; first exact: valid_ub_onReal2.
 apply: (onReal2_upper (fun x y => (toX x + toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
 have [_ [Fzl _]] := real_fin _ Rz.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /=.
 exact: (addDwUp_geP _ _ Fzl).
 Qed.
 
-Lemma add_DN_correct p x y :
-  valid_lb x = true -> valid_lb y = true ->
-  valid_lb (add_DN p x y) = true /\
-  le_lower (toX (add_DN p x y)) (toX x + toX y)%XR.
+Lemma add_UP_correct p x y :
+  valid_ub x = true -> valid_ub y = true ->
+  valid_ub (add_UP p x y) = true /\
+  le_upper (toX x + toX y)%XR (toX (add_UP p x y)).
+Proof. by move=> _ _; split; [exact: valid_ub_onReal2 | exact: add_UP_le]. Qed.
+Lemma add_DN_le p x y : le_lower (toX (add_DN p x y)) (toX x + toX y)%XR.
 Proof.
-move=> _ _; split; first exact: valid_lb_onReal2.
 apply: (onReal2_lower (fun x y => (toX x + toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
 have [_ [Fzl _]] := real_fin _ Rz.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) /le_lower /=.
 by apply: Ropp_le_contravar; exact: (addDwDn_leP _ _ Fzl).
 Qed.
 
+Lemma add_DN_correct p x y :
+  valid_lb x = true -> valid_lb y = true ->
+  valid_lb (add_DN p x y) = true /\
+  le_lower (toX (add_DN p x y)) (toX x + toX y)%XR.
+Proof. by move=> _ _; split; [exact: valid_lb_onReal2 | exact: add_DN_le]. Qed.
 (* And the difference, which is the sum with the second double word           *)
 (* negated.  Only the values of its two words are used, so nothing has to     *)
 (* be said about the negated pair itself.                                     *)
@@ -625,22 +689,137 @@ Qed.
 Lemma fromZ_correct n : (Z.abs n <= 256)%Z -> toX (fromZ n) = Xreal (IZR n).
 Proof. by move=> Hn; rewrite /fromZ toX_fp2dw PrimitiveFloat.fromZ_correct. Qed.
 
+(* A float that stands for a number is a number, and stands for that one.     *)
+Lemma toX_D2R a u : PrimitiveFloat.toX a = Xreal u -> Dfin a /\ D2R a = u.
+Proof.
+rewrite PrimitiveFloat.toX_Prim2B /Dfin /D2R => H.
+split; last by rewrite (PrimitiveFloat.BtoX_B2R _ _ H).
+by move: H; case: (Prim2B a) => [s|s||s m e Hm].
+Qed.
+
+(* Nought is a number, and the number it stands for is nought.                *)
+Lemma Dzero : Dfin 0%float /\ D2R 0%float = 0%R.
+Proof. by apply: toX_D2R; apply: PrimitiveFloat.zero_correct. Qed.
+
+(* Two floats that compare equal and are both numbers stand for the same      *)
+(* number.                                                                    *)
+Lemma Deqb a b : (a =? b)%float = true -> Dfin a -> Dfin b -> D2R a = D2R b.
+Proof.
+rewrite eqb_equiv /Dfin /D2R => H Fa Fb.
+by move: H; rewrite (Beqb_correct _ _ _ _ Fa Fb); case: Req_bool_spec.
+Qed.
+
+(* A float that compares equal to nought is nought.                           *)
+Lemma Deqb0 q : (q =? 0)%float = true -> Dfin q /\ D2R q = 0%R.
+Proof.
+move=> Hq; have [F0 V0] := Dzero.
+have Fq : Dfin q.
+  move: Hq F0; rewrite eqb_equiv /Dfin.
+  by case: (Prim2B q) => [s1|s1||s1 m1 e1 H1];
+     case: (Prim2B 0%float) => [s2|s2||s2 m2 e2 H2];
+     rewrite /Beqb /SpecFloat.SFeqb /SpecFloat.SFcompare /=;
+     try case: s1; try case: s2.
+by split => //; rewrite (Deqb _ _ Hq Fq F0).
+Qed.
+
+(* A whole number below two to the fifty-third is a float exactly.  This is   *)
+(* Interval's own statement with its bound on the number widened from two     *)
+(* hundred and fifty-six, which is all the signature asks of it, to the       *)
+(* whole range a single float holds.                                          *)
+Lemma fromZ_exact n : (Z.abs n < mmax)%Z ->
+  PrimitiveFloat.toX (PrimitiveFloat.fromZ n) = Xreal (IZR n).
+Proof.
+rewrite /mmax; case: n => [|q|q] Hq //.
+  rewrite /PrimitiveFloat.fromZ; case: Pos.compare_spec => Hq'.
+  - by move: Hq; rewrite Hq'.
+  - by rewrite (PrimitiveFloat.of_int63_of_pos_exact _ Hq').
+  - by lia.
+rewrite /PrimitiveFloat.fromZ; case: Pos.compare_spec => Hq'.
+- by move: Hq; rewrite Hq'.
+- change (Xreal _) with (- (Xreal (IZR (Zpos q))))%XR.
+  by rewrite -(PrimitiveFloat.of_int63_of_pos_exact _ Hq') PrimitiveFloat.toX_neg.
+- by lia.
+Qed.
+
+(* So the float the test accepts is within one of the top part, which is      *)
+(* the number less what was left over.                                        *)
+Lemma nearZE n a r : nearZ n = Some (a, r) ->
+  PrimitiveFloat.toX a = Xnan \/
+  exists u, PrimitiveFloat.toX a = Xreal u /\
+            (IZR n - IZR r - 1 <= u <= IZR n - IZR r + 1)%R.
+Proof.
+rewrite /nearZ; case En: (Z.abs n <? mmax)%Z => //.
+case E: (splitZ n) => [[m e] r'].
+case Ec: ((Z.abs m <? mmax)%Z && (Z.abs (2 ^ e) <? mmax)%Z)%bool => //.
+have [Hm0 He0] := proj1 (Bool.andb_true_iff _ _) Ec.
+have Hm := proj1 (Z.ltb_lt _ _) Hm0.
+have He := proj1 (Z.ltb_lt _ _) He0.
+case Ep: (twoProd _ _) => [pr q].
+case Eq: (q =? 0)%float => //; case=> <- <-.
+have Hr : (n - r' = m * 2 ^ e)%Z.
+  by move: E; rewrite /splitZ; case=> <- <- <-; ring.
+have [Fq Vq] := Deqb0 _ Eq.
+have [Fm Vm] := toX_D2R _ _ (fromZ_exact _ Hm).
+have [Fe Ve] := toX_D2R _ _ (fromZ_exact _ He).
+have Herr := twoProd_err (PrimitiveFloat.fromZ m)
+                         (PrimitiveFloat.fromZ (2 ^ e)).
+rewrite Ep /= Vm Ve Vq Rplus_0_r in Herr.
+case Ea: (PrimitiveFloat.toX pr) => [|u]; first by left.
+have [Fp Vp] := toX_D2R _ _ Ea.
+right; exists u; split => //.
+have Hmul : (IZR m * IZR (2 ^ e) = IZR n - IZR r')%R.
+  by rewrite -mult_IZR -Hr minus_IZR.
+have Hd := Rabs_le_inv _ _ (Herr Fq).
+rewrite Vp Hmul in Hd.
+have Heps := dekker_le1.
+by lra.
+Qed.
+
+(* So a whole number enters as a double word: the top part exactly, and       *)
+(* what is left bounded the way the answer needs.                             *)
 Lemma fromZ_UP_correct p n :
   valid_ub (fromZ_UP p n) = true /\
   le_upper (Xreal (IZR n)) (toX (fromZ_UP p n)).
 Proof.
-rewrite /fromZ_UP toX_fp2dw.
-have [Hv Hb] := PrimitiveFloat.fromZ_UP_correct fprec n.
-by split => //; apply: valid_ub_fp2dw.
+rewrite /fromZ_UP; case Ee: (nearZ n) => [[a r]|]; last first.
+  rewrite toX_fp2dw.
+  have [Hv Hb] := PrimitiveFloat.fromZ_UP_correct fprec n.
+  by split => //; apply: valid_ub_fp2dw.
+split; first exact: valid_ub_onReal2.
+have Hadd := add_UP_le p (fp2dw a)
+               (fp2dw (PrimitiveFloat.fromZ_UP fprec (r + 1))).
+rewrite !toX_fp2dw in Hadd.
+have [_ Hr] := PrimitiveFloat.fromZ_UP_correct fprec (r + 1).
+have [Ha|[u [Ha Hb]]] := nearZE _ _ _ Ee.
+  by rewrite Ha /= in Hadd; move: Hadd; case: (toX _).
+rewrite Ha in Hadd.
+move: Hr Hadd; case: (PrimitiveFloat.toX _) => [|w] /=;
+  first by move=> _; case: (toX _).
+move=> Hr Hadd; case: (toX _) Hadd => //= z Hz.
+by move: Hb Hr; rewrite plus_IZR; lra.
 Qed.
 
 Lemma fromZ_DN_correct p n :
   valid_lb (fromZ_DN p n) = true /\
   le_lower (toX (fromZ_DN p n)) (Xreal (IZR n)).
 Proof.
-rewrite /fromZ_DN toX_fp2dw.
-have [Hv Hb] := PrimitiveFloat.fromZ_DN_correct fprec n.
-by split => //; apply: valid_lb_fp2dw.
+rewrite /fromZ_DN; case Ee: (nearZ n) => [[a r]|]; last first.
+  rewrite toX_fp2dw.
+  have [Hv Hb] := PrimitiveFloat.fromZ_DN_correct fprec n.
+  by split => //; apply: valid_lb_fp2dw.
+split; first exact: valid_lb_onReal2.
+have Hadd := add_DN_le p (fp2dw a)
+               (fp2dw (PrimitiveFloat.fromZ_DN fprec (r - 1))).
+rewrite !toX_fp2dw in Hadd.
+have [_ Hr] := PrimitiveFloat.fromZ_DN_correct fprec (r - 1).
+have [Ha|[u [Ha Hb]]] := nearZE _ _ _ Ee.
+  by rewrite Ha /= in Hadd; move: Hadd; rewrite /le_lower /=; case: (toX _).
+rewrite Ha in Hadd.
+move: Hr Hadd; rewrite /le_lower /=.
+case: (PrimitiveFloat.toX _) => [|w] /=;
+  first by move=> _; case: (toX _).
+move=> Hr Hadd; case: (toX _) Hadd => //= z Hz.
+by move: Hb Hr; rewrite minus_IZR; lra.
 Qed.
 
 Lemma pow2_UP_correct p s :
