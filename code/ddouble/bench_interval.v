@@ -66,3 +66,25 @@ Goal forall x, (1 <= x <= 2)%R -> (Rabs (sin x / x) <= 1)%R.
 Proof. intros x Hx. Time interval with (i_bisect x, i_prec 80). Qed.
 
 End DoubleWords.
+
+(* -------------------------------------------------------------------        *)
+(* What it gave, two runs on this machine, seconds, i_prec 80:                *)
+(*                                                                            *)
+(*                                          bigints      double words         *)
+(*   pi to fifteen digits                 0.023 0.023    0.013 0.013          *)
+(*   exp 1 to fifteen digits              0.145 0.145    0.010 0.011          *)
+(*   ln 2 to fifteen digits               0.017 0.013    0.011 0.011          *)
+(*   exp x - 1 - x, bisect and taylor     0.020 0.016    0.012 0.012          *)
+(*   |sin x / x| <= 1, bisect             0.008 0.008    0.009 0.008          *)
+(*                                                                            *)
+(* Read it carefully.  These are hundredths of a second, so the only          *)
+(* figure with real daylight round it is exp 1, where the double words        *)
+(* are some thirteen times quicker.  Elsewhere they are a little ahead,       *)
+(* and on the last goal the two are level.                                    *)
+(*                                                                            *)
+(* And remember what is NOT being compared.  Both sides are asked for         *)
+(* fifteen digits, which a single float nearly holds, so this measures        *)
+(* the cost of the machinery and not the worth of the extra digits.  The      *)
+(* comparison that would settle anything - thirty digits, where the           *)
+(* bigints must work and a double word would not have to - cannot be run      *)
+(* until a constant can enter with more than fifty-three bits.                *)
