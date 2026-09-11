@@ -47,6 +47,22 @@ just says nothing.
 | `div_UP` / `div_DN` | `divDwUp` / `divDwDn` | proved |
 | `sqrt_UP` / `sqrt_DN` | `sqrtDwUp` / `sqrtDwDn` | proved |
 
+A whole number enters as two words as well. `fromZ_UP` and `fromZ_DN` split it
+into its top fifty-three bits — a whole number times a power of two, and both
+of those are floats exactly — and what is left. The two-product multiplies the
+two factors and reports its own error, and the test that the error is nought is
+the whole proof that the product is the top part. A number one float already
+holds is left alone, and is exact; a number past about `2^105` falls back to the
+one-word answer, since the power of two would no longer be a float.
+
+```coq
+Compute fromZ_UP tt 314159265358979323846264338327.
+  = DWFloat 3.1415926535897934e+29 (-11868854831207.996)
+```
+
+The two bounds come out about `2^-97` apart instead of the `2^-53` a single
+float gives.
+
 Everything proved is admit-free; the assumptions are the primitive-float and
 primitive-integer axioms and the classical reals, nothing else.
 
@@ -213,3 +229,24 @@ file now builds in eight.
 to about thirty-one digits — and then shows what the interface's own
 operations bracket, and what they refuse. It is a smoke test, not a proof: a
 proved bracket needs the functors, and the functors need the section above.
+
+`bench_interval.v` proves the same goals twice, once by Interval's tactic as it
+ships and once by the same tactic over double words, with `div2_correct`
+admitted so that the functors apply. It is not on the build path — native
+compilation overflows on it — and is run by hand:
+
+```
+coqc -Q . dwarith bench_interval.v
+```
+
+Two of its goals take seconds rather than hundredths, and only those say
+anything. Measured on this machine, two runs each, seconds:
+
+| goal | bigints | double words |
+|---|---|---|
+| `method_error`, `i_prec 80` | 5.787  5.737 | 1.456  1.506 |
+| `cancellation`, `i_depth 20`, `i_prec 60` | 74.603  74.655 | 39.549  39.577 |
+
+About four times quicker on a Taylor model at eighty bits, about twice on a
+bisection run twenty deep at sixty. The full table, and the five goals that are
+too light to measure, are in the file.
