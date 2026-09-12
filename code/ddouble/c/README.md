@@ -11,4 +11,10 @@ Each side is timed with one, two and four powers computed side by side, so
 that the run says both how long one multiplication takes when the next one
 waits for it, and how many the processor sustains when it has work to
 overlap.  The integer multiplication truncates rather than rounds to
-nearest: a choice, it makes the integer side as fast as it can be.
+nearest is timed both ways, so the price of the rounding can be read off
+the two lines.
+
+Nothing in the integer multiplication is decided by a test.  The bit that
+says which way to round, and the bit that says whether the product needs a
+shift, are both as good as random; a branch on either is guessed wrong half
+the time, and the run then says the rounding costs three times what it does.
