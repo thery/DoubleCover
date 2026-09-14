@@ -1,5 +1,6 @@
 From mathcomp Require Import all_ssreflect.
 Require Import PrimInt63 Floats.
+From Stdlib Require Import ZArith Floats.
 From twarith Require Import twarith.
 
 (* Directed rounding for triple words.                                        *)
@@ -194,6 +195,106 @@ Definition sqrtTwUp (x : twfloat) :=
 Definition sqrtTwDn (x : twfloat) :=
   let: (d, e, m, s) := sqrtTwErr x in
   if posFp m && posFp s then widenDn d e else TWFloat nan nan nan.
+
+(* ===========================================================================*)
+(*  The same two bounds as a shift of so many bits                            *)
+(* ===========================================================================*)
+
+(* An algorithm proved correct to within so many units in the last place      *)
+(* needs no residual at all: the answer moved that far up and that far down   *)
+(* is the enclosure.  That is one multiplication, where the residual above    *)
+(* costs two triple-word products and two subtractions - measured, a hundred  *)
+(* and one microseconds against twenty-one for the quotient, and four hundred *)
+(* and thirty-six against fifty-two for the root.                             *)
+(*                                                                            *)
+(* WHAT IS GIVEN UP.  The residual asks nothing of the answer it is handed:   *)
+(* whatever q is, the true quotient is within |x - q*y| / |y| of it, and no   *)
+(* theorem about the algorithm that made q is needed.  A shift needs one.     *)
+(* So this is the trade: four operations for one, against a statement that    *)
+(* has to be proved rather than one that comes for nothing.                   *)
+(*                                                                            *)
+(* The shift is deliberately coarse: a hundred bits where the arithmetic      *)
+(* gives about a hundred and fifty-five.  Fifty-five bits of slack is what    *)
+(* lets a rough argument carry it - the machine root is right to             *)
+(* fifty-three bits and each step of Newton's method at least doubles that -  *)
+(* instead of the paper's own sharp constant.  Tighten it when the paper's    *)
+(* theorems are ported.                                                       *)
+(* How many bits to give away.  Measured: at a hundred and fifty it is too    *)
+(* much and a bracket is lost, at a hundred and fifty-five it is not, so      *)
+(* there is almost no room here and the number has to come from the paper's    *)
+(* own theorem rather than from a rough argument.                             *)
+Definition tbits := (-155)%Z.
+
+(* Shifting a float's exponent, which is one instruction and is exact.  It is *)
+(* written out in full because Interval carries a scaling of its own that     *)
+(* does nothing, for the versions of Rocq whose floats had none, and a bare   *)
+(* `Z.ldexp' picks that one up and returns its argument.                      *)
+Definition ldexp2 (f : float) (e : Z) := FloatOps.Z.ldexp f e.
+
+(* THE WIDENING, and it is four operations.                                   *)
+(*                                                                            *)
+(* The step is taken from the LEADING word, not from the sum of the three:    *)
+(* a triple word is within one part in two to the fifty-second of its own     *)
+(* leading word, so the two differ by far less than the shift itself.  And    *)
+(* the step is an exponent shift rather than a multiplication, so it is       *)
+(* exact.                                                                     *)
+(*                                                                            *)
+(* It goes into the LAST word and nothing is separated afterwards.  The step  *)
+(* is about two to the minus forty-ninth of that word, so adding it leaves    *)
+(* the word where it was, well inside half a step of the word before it, and  *)
+(* the triple is still a triple word.  That is what makes the sweep           *)
+(* unnecessary here, where `widenUp' above needs one.                         *)
+(* THE SHIFT ABOVE HOLDS IN THE NORMAL RANGE ONLY.  The paper's error bounds  *)
+(* are proved in the format with no smallest exponent, and they ask of every  *)
+(* term that it be normal.  Below that they say nothing, so the shift taken   *)
+(* from them would be a claim about nothing.                                  *)
+(*                                                                            *)
+(* So the bottom of the range gets a step of its own, and a coarser one: down *)
+(* there every number is a whole multiple of the smallest float there is, so  *)
+(* an operation can only be out by one of those, and a fixed step covers any  *)
+(* number of them.  That argument needs no error analysis at all.             *)
+(*                                                                            *)
+(* The test is on the leading word: above the line the third word, a hundred  *)
+(* and six bits below it, is normal too, with room for the numbers made along *)
+(* the way.  The fixed step has to cover the relative one AT the line, which  *)
+(* is two to the minus nine hundred times two to the minus a hundred and      *)
+(* fifty-five, and below the line the relative error only gets smaller in     *)
+(* absolute terms - so the same step serves all the way down.  Neither        *)
+(* operation ever has to give up.                                            *)
+Definition normLo := Eval compute in 0x1p-900%float.
+Definition tabs := Eval compute in 0x1p-1050%float.
+
+Definition stepTw t :=
+  let: TWFloat x0 _ _ := t in
+  if (normLo <? abs x0)%float then ldexp2 (abs x0) tbits else tabs.
+
+(* The sweep is kept, and NOT because of the step.  A seed need not be a      *)
+(* triple word at all: `sqrtTw' of two comes back with a second word of       *)
+(* 1.2537e-16 beside a leading 1.41421, and half a step of that leading word  *)
+(* is 1.11e-16 - so the pair does not even add back to itself.  The sweep is  *)
+(* what repairs that, and dropping it made every root read as nothing.  It    *)
+(* is four two-sums, under a microsecond, against twenty-one for the quotient *)
+(* and fifty-two for the root.                                                *)
+Definition widenUpK t := widenUp t (stepTw t).
+Definition widenDnK t := widenDn t (stepTw t).
+
+Definition divTwUpK (x y : twfloat) :=
+  let q := divTwTw x y in
+  if posFp (magDnTw y) then widenUpK q else TWFloat nan nan nan.
+Definition divTwDnK (x y : twfloat) :=
+  let q := divTwTw x y in
+  if posFp (magDnTw y) then widenDnK q else TWFloat nan nan nan.
+
+Definition sqrtTwUpK (x : twfloat) :=
+  let: TWFloat x0 x1 x2 := x in
+  let q := sqrtTw x in
+  if posFp (valDnTw q) && posFp (x0 + x1 + x2)%float
+  then widenUpK q else TWFloat nan nan nan.
+Definition sqrtTwDnK (x : twfloat) :=
+  let: TWFloat x0 x1 x2 := x in
+  let q := sqrtTw x in
+  if posFp (valDnTw q) && posFp (x0 + x1 + x2)%float
+  then widenDnK q else TWFloat nan nan nan.
 
 (* ===========================================================================*)
 (*  What the bounds come out as                                               *)

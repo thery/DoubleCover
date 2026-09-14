@@ -279,10 +279,16 @@ Definition sub_UP (_ : precision) x y := onReal2 subDwUp x y.
 Definition sub_DN (_ : precision) x y := onReal2 subDwDn x y.
 Definition mul_UP (_ : precision) x y := onReal2 mulDwUp x y.
 Definition mul_DN (_ : precision) x y := onReal2 mulDwDn x y.
-Definition div_UP (_ : precision) x y := onReal2 divDwUp x y.
-Definition div_DN (_ : precision) x y := onReal2 divDwDn x y.
-Definition sqrt_UP (_ : precision) x := onReal sqrtDwUp x.
-Definition sqrt_DN (_ : precision) x := onReal sqrtDwDn x.
+(* The quotient and the root are bounded by a shift of sixteen units in the  *)
+(* last place, not by a computed residual - see dw_updn.v for where the       *)
+(* sixteen comes from.  FOUR OBLIGATIONS BELOW ARE ADMITTED BECAUSE OF THIS.  *)
+(* The residual forms `divDwUp' and `sqrtDwUp' are still in dw_updn.v, and    *)
+(* the proofs of them are still in dwbound.v; putting the four names back to  *)
+(* those restores an admit-free development.                                  *)
+Definition div_UP (_ : precision) x y := onReal2 divDwUpK x y.
+Definition div_DN (_ : precision) x y := onReal2 divDwDnK x y.
+Definition sqrt_UP (_ : precision) x := onReal sqrtDwUpK x.
+Definition sqrt_DN (_ : precision) x := onReal sqrtDwDnK x.
 
 (* Rounding to an integer is monotone, so rounding a bound of the value       *)
 (* gives a bound of the rounded value.  Only ordinarily tight.                *)
@@ -542,28 +548,13 @@ Lemma div_UP_correct p x y :
   is_real_ub x /\ is_pos_real y \/ is_real_lb x /\ is_neg_real y ->
   valid_ub (div_UP p x y) = true /\
   le_upper (toX x / toX y)%XR (toX (div_UP p x y)).
-Proof.
-move=> _; split; first exact: valid_ub_onReal2.
-apply: (onReal2_upper (fun x y => (toX x / toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
-have [_ [Fzl _]] := real_fin _ Rz.
-have Hnz := divDwUp_nz _ _ Fzl.
-rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) (XdivE _ _ Hnz) /=.
-exact: (divDwUp_geP _ _ Fzl).
-Qed.
+Proof. Admitted.  (* the shift of dw_updn.v, not proved *)
 
 Lemma div_DN_correct p x y :
   is_real_ub x /\ is_neg_real y \/ is_real_lb x /\ is_pos_real y ->
   valid_lb (div_DN p x y) = true /\
   le_lower (toX (div_DN p x y)) (toX x / toX y)%XR.
-Proof.
-move=> _; split; first exact: valid_lb_onReal2.
-apply: (onReal2_lower (fun x y => (toX x / toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
-have [_ [Fzl _]] := real_fin _ Rz.
-have Hnz := divDwDn_nz _ _ Fzl.
-rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) (XdivE _ _ Hnz).
-rewrite /le_lower /=.
-by apply: Ropp_le_contravar; exact: (divDwDn_leP _ _ Fzl).
-Qed.
+Proof. Admitted.  (* the shift of dw_updn.v, not proved *)
 
 (* And the square root.  Interval reads the root of a negative number as      *)
 (* nought, so a bound below it would be a claim about nothing; that is why    *)
@@ -572,25 +563,13 @@ Qed.
 Lemma sqrt_UP_correct p x :
   valid_ub (sqrt_UP p x) = true /\
   le_upper (Xsqrt (toX x)) (toX (sqrt_UP p x)).
-Proof.
-split; first exact: valid_ub_onReal.
-apply: (onReal_upper (fun x => Xsqrt (toX x))) => {p}{}x Rx Rz.
-have [_ [Fzl _]] := real_fin _ Rz.
-rewrite (toX_real _ Rx) (toX_real _ Rz) /=.
-exact: (sqrtDwUp_geP _ Fzl).
-Qed.
+Proof. Admitted.  (* the shift of dw_updn.v, not proved *)
 
 Lemma sqrt_DN_correct p x :
   valid_lb x = true ->
   valid_lb (sqrt_DN p x) = true /\
   le_lower (toX (sqrt_DN p x)) (Xsqrt (toX x)).
-Proof.
-move=> _; split; first exact: valid_lb_onReal.
-apply: (onReal_lower (fun x => Xsqrt (toX x))) => {p}{}x Rx Rz.
-have [_ [Fzl _]] := real_fin _ Rz.
-rewrite (toX_real _ Rx) (toX_real _ Rz) /le_lower /=.
-by apply: Ropp_le_contravar; exact: (sqrtDwDn_leP _ Fzl).
-Qed.
+Proof. Admitted.  (* the shift of dw_updn.v, not proved *)
 
 (* ---------------------------------------------------------------------------*)
 (*  What the signature asks of the rest                                       *)

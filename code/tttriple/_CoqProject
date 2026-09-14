@@ -7,6 +7,7 @@
 # Triple words on primitive floats.
 twarith.v
 tw_updn.v
+twpaper.v
 tw_ops.v
 test_pi.v
 tw_unsafe.v

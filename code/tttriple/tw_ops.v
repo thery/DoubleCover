@@ -3,7 +3,7 @@ From Stdlib Require Import Floats PrimInt63.
 From Flocq Require Import Zaux Raux Core BinarySingleNaN PrimFloat.
 From Interval Require Import Xreal Basic Sig Generic_proof Primitive_ops.
 From mathcomp Require Import ssreflect.
-From twarith Require Import twarith tw_updn.
+From twarith Require Import twarith tw_updn twpaper.
 
 (* Triple words as a float format for Interval.                               *)
 (*                                                                            *)
@@ -197,10 +197,14 @@ Definition sub_UP (_ : precision) x y := onReal2 subTwUp x y.
 Definition sub_DN (_ : precision) x y := onReal2 subTwDn x y.
 Definition mul_UP (_ : precision) x y := onReal2 mulTwUp x y.
 Definition mul_DN (_ : precision) x y := onReal2 mulTwDn x y.
-Definition div_UP (_ : precision) x y := onReal2 divTwUp x y.
-Definition div_DN (_ : precision) x y := onReal2 divTwDn x y.
-Definition sqrt_UP (_ : precision) x := onReal sqrtTwUp x.
-Definition sqrt_DN (_ : precision) x := onReal sqrtTwDn x.
+(* The paper's Algorithm 14 for the quotient, bounded by a shift of eight    *)
+(* units in the last place - see twpaper.v, where the eight is measured and   *)
+(* not proved.  The root still uses the seed of twarith.v, since Algorithm 15 *)
+(* is not transcribed yet, with the same shift.                               *)
+Definition div_UP (_ : precision) x y := onReal2 divTwUpP x y.
+Definition div_DN (_ : precision) x y := onReal2 divTwDnP x y.
+Definition sqrt_UP (_ : precision) x := onReal sqrtTwUpP x.
+Definition sqrt_DN (_ : precision) x := onReal sqrtTwDnP x.
 
 (* A whole number as a triple word.  Putting it in the leading word alone     *)
 (* would hold fifty-three bits of it and drop the rest, which is what every   *)
