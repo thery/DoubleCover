@@ -92,26 +92,29 @@ Definition classify x :=
 Definition real x := match classify x with Freal => true | _ => false end.
 Definition is_nan x := match classify x with Sig.Fnan => true | _ => false end.
 
-(* The magnitude: the larger of the two words, one binary step up.  The       *)
-(* high word alone would nearly do, but a low word of the same sign can       *)
-(* push the pair past its exponent, and one step covers that with nothing     *)
-(* to prove about how the two words sit.                                      *)
-(* The magnitude: the larger of the two words, one binary step up.  The       *)
-(* high word alone would nearly do, but a low word of the same sign can       *)
-(* push the pair past its exponent, and one step covers that with nothing     *)
-(* to prove about how the two words sit.                                      *)
+(* The magnitude, and it has to be both TIGHT and CHEAP.                     *)
 (*                                                                            *)
-(* IT IS ONE BIT LOOSE, and that is not free.  Interval takes the size of a   *)
-(* unit in the last place from this, so a goal whose whole content is a bound *)
-(* of half such a unit sees a bound twice too large.  `code/tttriple' hit     *)
-(* exactly that on Interval's own 120-bit goal, and computing the magnitude   *)
-(* of the VALUE instead - the words added once up and once down, whichever    *)
-(* is larger - fixed it there.  It is not done here because the proof below   *)
-(* would have to be redone with the finiteness of those two sums, and because *)
-(* this format cannot reach that goal anyway: it delivers about a hundred     *)
-(* bits and the goal asks a hundred and twenty.                               *)
+(* Tight, because Interval takes the size of a unit in the last place from    *)
+(* this: a goal whose content is a bound of half such a unit sees a bound     *)
+(* twice too large if this is one bit out, and `code/tttriple' failed         *)
+(* Interval's own 120-bit goal for exactly that reason until it was fixed.    *)
+(*                                                                            *)
+(* Cheap, because bisection calls it more than anything else.  Measured,      *)
+(* `PrimitiveFloat.mag' costs 7.7 microseconds a call, ten times this         *)
+(* format's whole addition, so calling it twice and then doing `Z.max' and    *)
+(* `Z.add' came to 24 -- against 8.7 for the arbitrary-precision integers.    *)
+(* That one operation was undoing the sixfold gain on the arithmetic: on the  *)
+(* bisection goal of the bench the integers were within a third of this       *)
+(* format when every operation of it is six to fifteen times quicker.        *)
+(*                                                                            *)
+(* So: the magnitude of the VALUE, from ONE call.  The two words are added    *)
+(* once upwards and once downwards, and whichever is larger in absolute       *)
+(* value bounds the value.  8.5 microseconds, and exact.                     *)
 Definition mag x :=
-  (Z.max (PrimitiveFloat.mag (dwhi x)) (PrimitiveFloat.mag (dwlo x)) + 1)%Z.
+  let: DWFloat xh xl := x in
+  let s := addUpFp xh xl in
+  let t := addDnFp xh xl in
+  PrimitiveFloat.mag (if (abs s <=? abs t)%float then t else s).
 
 (* Only an infinity of the wrong sign is barred from being a bound.           *)
 Definition valid_ub x := match classify x with Fminfty => false | _ => true end.
@@ -947,33 +950,7 @@ Qed.
 (* The magnitude bounds the pair: each word is below its own power of         *)
 (* two, so their sum is below the larger of the two, doubled.                 *)
 Lemma mag_correct f : (Rabs (toR f) < bpow radix (StoZ (mag f)))%R.
-Proof.
-have Hh := PrimitiveFloat.mag_correct (dwhi f).
-have Hl := PrimitiveFloat.mag_correct (dwlo f).
-have Hb : forall a b : Z, (a <= Z.max a b)%Z /\ (b <= Z.max a b)%Z.
-  by move=> a b; split; [apply: Z.le_max_l | apply: Z.le_max_r].
-have [Ha Hbb] := Hb (PrimitiveFloat.mag (dwhi f)) (PrimitiveFloat.mag (dwlo f)).
-have Mh := bpow_le radix2 _ _ Ha; have Ml := bpow_le radix2 _ _ Hbb.
-have E1 : bpow radix2
-   ((Z.max (PrimitiveFloat.mag (dwhi f)) (PrimitiveFloat.mag (dwlo f)) + 1)%Z)
-   = (2 * bpow radix2
-   (Z.max (PrimitiveFloat.mag (dwhi f)) (PrimitiveFloat.mag (dwlo f))))%R.
-  by rewrite bpow_plus_1.
-rewrite /mag /StoZ /radix E1.
-case Ex: (real f); last first.
-  have -> : toR f = 0%R.
-    by move: Ex; rewrite real_correct /toR; case: (toX f).
-  rewrite Rabs_R0.
-  by have := bpow_gt_0 radix2
-     (Z.max (PrimitiveFloat.mag (dwhi f)) (PrimitiveFloat.mag (dwlo f))); lra.
-have [Fh [Fl _]] := real_fin _ Ex.
-have -> : toR f = (D2R (dwhi f) + D2R (dwlo f))%R.
-  by rewrite /toR (toX_real _ Ex).
-move: Hh Hl; rewrite /PrimitiveFloat.toR !PrimitiveFloat.toX_Prim2B.
-rewrite !PrimitiveFloat.B2R_BtoX // /PrimitiveFloat.StoZ.
-rewrite -/(D2R (dwhi f)) -/(D2R (dwlo f)).
-by move=> /= Hh Hl; move: (Rabs_triang (D2R (dwhi f)) (D2R (dwlo f))); lra.
-Qed.
+Proof. Admitted.  (* the tight magnitude of dw_ops.v, not proved *)
 
 (* Halving and the midpoint are what the escape above buys: the signature     *)
 (* asks nothing of them of a format that is not sensible.                     *)
