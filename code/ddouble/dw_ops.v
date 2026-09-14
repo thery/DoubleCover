@@ -110,11 +110,19 @@ Definition is_nan x := match classify x with Sig.Fnan => true | _ => false end.
 (* So: the magnitude of the VALUE, from ONE call.  The two words are added    *)
 (* once upwards and once downwards, and whichever is larger in absolute       *)
 (* value bounds the value.  8.5 microseconds, and exact.                     *)
+(* AND THE STEPS CAN LEAVE THE RANGE.  A step up from the largest float there *)
+(* is gives an infinity, and `PrimitiveFloat.mag' of an infinity is the least  *)
+(* exponent there is, not the greatest - so reading it would claim the value   *)
+(* is tiny when it is enormous.  A pair of the largest float and nought is a   *)
+(* double word, and a real one, so this is reachable.  Where the step left     *)
+(* the range the answer is one past the largest exponent instead, which every  *)
+(* sum of two floats is below.                                                 *)
 Definition mag x :=
   let: DWFloat xh xl := x in
   let s := addUpFp xh xl in
   let t := addDnFp xh xl in
-  PrimitiveFloat.mag (if (abs s <=? abs t)%float then t else s).
+  let w := if (abs s <=? abs t)%float then t else s in
+  if (abs w <? infinity)%float then PrimitiveFloat.mag w else 1025%Z.
 
 (* Only an infinity of the wrong sign is barred from being a bound.           *)
 Definition valid_ub x := match classify x with Fminfty => false | _ => true end.
