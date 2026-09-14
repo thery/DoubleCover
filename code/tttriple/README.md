@@ -165,17 +165,24 @@ actually holds, so this is a comparison at equal precision.
 
 | op | bignum 53 | bignum 107 | bignum 159 | double words | triple words |
 |---|---|---|---|---|---|
-| add | 0.053 | 0.050 | 0.087 | **0.008** | 0.035 |
-| mul | 0.046 | 0.088 | 0.152 | **0.012** | 0.114 |
-| div | 0.087 | 0.253 | 0.887 | **0.089** | 1.130 |
-| sqrt | 0.010 | 0.026 | 0.047 | **0.016** | 0.386 |
+| add | 0.055 | 0.051 | 0.094 | **0.009** | 0.035 |
+| mul | 0.047 | 0.111 | 0.162 | **0.011** | 0.100 |
+| div | 0.088 | 0.243 | 0.905 | **0.071** | 0.196 |
+| sqrt | 0.010 | 0.025 | 0.046 | **0.007** | 0.019 |
 
-Against bignums at the same precision:
+Against bignums at the same precision, and both now win on all four:
 
 | | add | mul | div | sqrt |
 |---|---|---|---|---|
-| double words | 6.3x faster | 7.3x faster | 2.8x faster | 1.6x faster |
-| triple words | 2.5x faster | 1.3x faster | **1.3x slower** | **8.2x slower** |
+| double words | 5.7x faster | 10x faster | 3.4x faster | 3.6x faster |
+| triple words | 2.7x faster | 1.6x faster | 4.6x faster | 2.4x faster |
+
+Two changes got the quotient and the root there. The bound is a shift of eight
+units in the last place instead of a computed residual, and the algorithms are
+the paper's (`twpaper.v`) instead of mine. Timed on their own, the paper's
+root is 16.5 µs against 43.5 for Newton's method, and its quotient 10.5 µs
+against 19 for long division — so the paper's are 2.6 and 1.8 times quicker as
+well as tighter.
 
 **THE RESULT: a double word is quicker than bignums at every operation. A
 triple word is quicker at the two that matter most and slower at the other

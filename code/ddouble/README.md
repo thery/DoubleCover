@@ -80,7 +80,12 @@ rest, and that goal passes. The lesson is the general one: a bound that is
 correct can still be the thing that decides whether a tactic concludes, and
 only a measurement tells you which bound that is.
 
-Everything proved is admit-free; the assumptions are the primitive-float and
+**Four obligations are no longer proved.** `div_UP`, `div_DN`, `sqrt_UP` and
+`sqrt_DN` are now bounded by a shift of sixteen units in the last place rather
+than by a computed residual, and that shift is a measurement, not a theorem.
+The residual forms are still in `dw_updn.v` and their proofs are still in
+`dwbound.v`; putting those four names back restores an admit-free development.
+Everything else is admit-free, and the assumptions are the primitive-float and
 primitive-integer axioms and the classical reals, nothing else.
 
 **The module meets the signature.** All 32 obligations are proved and the

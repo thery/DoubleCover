@@ -123,6 +123,43 @@ Definition threeDiv (z x : twfloat) : twfloat :=
   threeProdOneTW (threeProdDW bw z) (sub2Tw (threeProdDW bw x)).
 
 (* ===========================================================================*)
+(*  Algorithm 15 - the square root                                            *)
+(* ===========================================================================*)
+
+(* One and four of the unit roundoff.  It plays for the root the part one     *)
+(* plus two of them plays for the reciprocal: it tilts the seed up by just     *)
+(* enough that the rounding in the middle cannot go the wrong way.            *)
+Definition onep4 := Eval compute in (1 + 4 * 0x1p-53)%float.
+Definition three2 := Eval compute in (3 / 2)%float.
+
+(* The Newton double word for one over the root.  The three steps the paper   *)
+(* writes with a fused multiply-add are two roundings each.                    *)
+Definition sqrtBW (x0 x1 : float) : twfloat :=
+  let s := PrimFloat.sqrt x0 in
+  let a := (onep4 / s)%float in
+  let a' := (a / 2)%float in
+  let: DWFloat h01_1 h11_1 := twoProd a x0 in
+  let h1_1 := (h11_1 + a * x1)%float in
+  let: DWFloat h01_2 h11_2 := twoProd a' h01_1 in
+  let h0_2 := (three2 - h01_2)%float in
+  let h1_2 := (- (h11_2 + a' * h1_1))%float in
+  let: DWFloat b01 b11 := twoProd a h0_2 in
+  let b12 := (b11 + a * h1_2)%float in
+  let: DWFloat bh bl := fastTwoSum b01 b12 in
+  TWFloat bh bl 0.
+
+(* Three halves less a triple word, exact on every word once the leading      *)
+(* word is a half - which is what the middle product is for.                  *)
+Definition sub32Tw t :=
+  let: TWFloat x0 x1 x2 := t in
+  TWFloat (three2 - x0)%float (- x1)%float (- x2)%float.
+
+Definition threeSqRt (x : twfloat) : twfloat :=
+  let bw := sqrtBW (tw0 x) (tw1 x) in
+  let i1 := threeProdDW bw x in
+  threeProdOneTW i1 (sub32Tw (threeProdDW (halfTw bw) i1)).
+
+(* ===========================================================================*)
 (*  The bounds: the answer shifted so many units in the last place            *)
 (* ===========================================================================*)
 
@@ -161,16 +198,17 @@ Definition divTwUpP (x y : twfloat) :=
 Definition divTwDnP (x y : twfloat) :=
   if posFp (magDnTw y) then shiftDn (threeDiv x y) else TWFloat nan nan nan.
 
-(* The root keeps the seed of `twarith.v' for now - Algorithm 15 is not       *)
-(* transcribed yet - and is bounded the same way.                             *)
+(* The root of a negative number is taken to be nought here, so a bound      *)
+(* below it would be a claim about nothing: what it is given has to be above  *)
+(* zero, and so has the answer, which is what the shift is taken from.        *)
 Definition sqrtTwUpP (x : twfloat) :=
   let: TWFloat x0 x1 x2 := x in
-  let q := sqrtTw x in
+  let q := threeSqRt x in
   if posFp (valDnTw q) && posFp (x0 + x1 + x2)%float
   then shiftUp q else TWFloat nan nan nan.
 Definition sqrtTwDnP (x : twfloat) :=
   let: TWFloat x0 x1 x2 := x in
-  let q := sqrtTw x in
+  let q := threeSqRt x in
   if posFp (valDnTw q) && posFp (x0 + x1 + x2)%float
   then shiftDn q else TWFloat nan nan nan.
 
@@ -183,4 +221,6 @@ Compute timesTwTw (threeDiv (fp2tw 1) (fp2tw 3)) (fp2tw 3).
 Compute threeReci (fp2tw 3).
 Compute threeDiv (toTw 1 1e-20 1e-40) (toTw 3 1e-20 1e-40).
 Compute (divTwDnP (fp2tw 1) (fp2tw 3), divTwUpP (fp2tw 1) (fp2tw 3)).
+Compute threeSqRt (fp2tw 2).
+Compute timesTwTw (threeSqRt (fp2tw 2)) (threeSqRt (fp2tw 2)).
 Compute (sqrtTwDnP (fp2tw 2), sqrtTwUpP (fp2tw 2)).

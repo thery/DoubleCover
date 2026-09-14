@@ -1,5 +1,6 @@
 From mathcomp Require Import all_ssreflect.
 Require Import PrimInt63 Floats.
+From Stdlib Require Import ZArith.
 From dwarith Require Import dwarith.
 
 (* Directed rounding for double words.                                        *)
@@ -143,6 +144,52 @@ Definition divDwDn (x y : dwfloat) :=
   let: (d, e, m) := divDwErr x y in
   if posFp m then widenDn d e else DWFloat nan nan.
 
+(* ===========================================================================*)
+(*  The same bound as a shift of so many units in the last place              *)
+(* ===========================================================================*)
+
+(* The residual above computes how wrong the answer is: the product of the    *)
+(* answer with the divisor, taken both ways, subtracted from what was to be   *)
+(* divided, and divided by the divisor.  Four double-word operations, and     *)
+(* measured, five times the cost of the quotient itself.                      *)
+(*                                                                            *)
+(* None of that is needed.  Each of these algorithms is known to be within a  *)
+(* fixed number of units in the last place, so the enclosure is the answer     *)
+(* shifted that far up and that far down - which is exactly what Interval's   *)
+(* own primitive-float module does, `next_up (x + y)', one level down.        *)
+(*                                                                            *)
+(* SIXTEEN, and where it comes from.  The double-word paper proves the sum     *)
+(* within three of the square of the unit roundoff, the product within about   *)
+(* five and the quotient within about ten.  Run on two hundred thousand        *)
+(* random double words (`c/probek.py'), these very algorithms come out at      *)
+(* 1.97, 3.74, 5.82 and 2.14 for the root.  Sixteen is above every one of      *)
+(* them and is a power of two, so the shift is an exponent change and exact.   *)
+(* Sixteen units of a word a hundred and six bits below the leading one is     *)
+(* the leading one shifted down a hundred and two.                            *)
+(*                                                                            *)
+(* NO RANGE TEST IS NEEDED HERE.  The double-word proofs of this development  *)
+(* are in the bounded format, subnormals and all - `F2SumFLT.v',              *)
+(* `TwoSumFLT.v' - so the bound holds everywhere.  That is not so for triple   *)
+(* words, whose proofs have no smallest exponent.                             *)
+Definition dbits := (-102)%Z.
+
+Definition ldexp2 (f : float) (e : Z) := FloatOps.Z.ldexp f e.
+
+(* The step is taken from the LEADING word: a double word is within one part  *)
+(* in two to the fifty-second of it, which is nothing beside the shift.  And  *)
+(* the sweep of `widenUp' is kept, since a seed need not be a double word.    *)
+Definition dstep d := let: DWFloat xh _ := d in ldexp2 (abs xh) dbits.
+
+Definition shiftUp d := widenUp d (dstep d).
+Definition shiftDn d := widenDn d (dstep d).
+
+Definition divDwUpK (x y : dwfloat) :=
+  let q := divDwDw2 x y in
+  if posFp (magDnDw y) then shiftUp q else DWFloat nan nan.
+Definition divDwDnK (x y : dwfloat) :=
+  let q := divDwDw2 x y in
+  if posFp (magDnDw y) then shiftDn q else DWFloat nan nan.
+
 (* How small a double word's value can be, from its two words: the sum of     *)
 (* the two, rounded down.                                                     *)
 Definition valDnDw d := let: DWFloat h l := d in addDnFp h l.
@@ -169,6 +216,17 @@ Definition sqrtDwUp (x : dwfloat) :=
 Definition sqrtDwDn (x : dwfloat) :=
   let: (d, e, m, t) := sqrtDwErr x in
   if posFp m && posFp t then widenDn d e else DWFloat nan nan.
+
+Definition sqrtDwUpK (x : dwfloat) :=
+  let: DWFloat xh xl := x in
+  let q := sqrtDw x in
+  if posFp (valDnDw q) && posFp (xh + xl)%float
+  then shiftUp q else DWFloat nan nan.
+Definition sqrtDwDnK (x : dwfloat) :=
+  let: DWFloat xh xl := x in
+  let q := sqrtDw x in
+  if posFp (valDnDw q) && posFp (xh + xl)%float
+  then shiftDn q else DWFloat nan nan.
 
 Compute addDwUp (DWFloat 20000000000000004 (-1.75))
                 (DWFloat 20000000000000004 (-1.75)).
