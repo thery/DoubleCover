@@ -55,13 +55,30 @@ the whole proof that the product is the top part. A number one float already
 holds is left alone, and is exact; a number past about `2^105` falls back to the
 one-word answer, since the power of two would no longer be a float.
 
+What the two-product may have left is then covered by a step of `deps`, which
+is four of the smallest number there is — the honest size of the thing, since
+the two-product can miss by three and a half of them.
+
 ```coq
 Compute fromZ_UP tt 314159265358979323846264338327.
-  = DWFloat 3.1415926535897934e+29 (-11868854831207.996)
+  = DWFloat 0x1.fb8d3a0e37652p+97 (-0x1.596ddc090d1fcp+43)
 ```
 
-The two bounds come out about `2^-97` apart instead of the `2^-53` a single
+The two bounds come out about `2^-104` apart instead of the `2^-53` a single
 float gives.
+
+**This cost twenty-three bits until it was measured.** The step used to be
+`+1` on the whole number left over — the smallest step available if the
+widening has to stay in the integers, and it does cover the two-product. But
+one is an *absolute* step, so on a constant of twenty-five digits it is
+`2^-80` in relative terms, not `2^-106`. Measured through Interval, the
+enclosure of `3141592653589793238462643 / 10^24` came out `2^-78.3` wide
+where every other operation of this module gives `2^-100` or better, and a
+goal asking for eighty-two bits was refused on its own constants before the
+arithmetic was ever reached. With `deps` it is `2^-101.1`, level with the
+rest, and that goal passes. The lesson is the general one: a bound that is
+correct can still be the thing that decides whether a tactic concludes, and
+only a measurement tells you which bound that is.
 
 Everything proved is admit-free; the assumptions are the primitive-float and
 primitive-integer axioms and the classical reals, nothing else.

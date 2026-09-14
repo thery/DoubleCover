@@ -13,14 +13,15 @@ From dwarith Require Import dwarith dwbridge dwprod dw_updn dwbound.
 (* only ordinarily tight can be sharpened later without changing a single     *)
 (* statement.                                                                 *)
 
-(* The whole of the error the two-product can leave is less than one, so a    *)
-(* number this size is pinned down by it to within one.                       *)
-Lemma dekker_le1 :
-  (7 / 2 * bpow radix2 (SpecFloat.emin prec emax) <= 1)%R.
+(* The whole of the error the two-product can leave, and that a step of deps  *)
+(* covers it.  Both are named out here: inside the module below, `prec' is    *)
+(* the signature's own field and no longer the precision of binary64.         *)
+Definition dkerr := (7 / 2 * bpow radix2 (SpecFloat.emin prec emax))%R.
+
+Lemma deps_ge_dkerr : (dkerr <= D2R deps)%R.
 Proof.
-have H : (bpow radix2 (SpecFloat.emin prec emax) <= bpow radix2 (-2))%R.
-  by apply: bpow_le.
-by move: H; rewrite /= /Z.pow_pos /=; lra.
+rewrite /dkerr Ddeps.
+by have := bpow_gt_0 radix2 (SpecFloat.emin prec emax); lra.
 Qed.
 
 Module DwFloat.
@@ -251,17 +252,27 @@ Definition nearZ (n : Z) : option (PrimFloat.float * Z) :=
     if (q =? 0)%float then Some (p, r) else None
   else None.
 
+(* What the two-product may have left is covered by a step of deps, not by    *)
+(* adding one to the whole number left over.  The two are both bounds, and     *)
+(* the one below is the honest size of the thing: the two-product can miss     *)
+(* by three and a half of the smallest number there is, and deps is four of    *)
+(* them.  Adding one instead was covering that with a step of ONE, which on   *)
+(* a constant of twenty-five digits is the whole of the twenty-sixth bit      *)
+(* onwards - measured, the bracket came out two to the minus seventy-eight     *)
+(* where the arithmetic gives two to the minus a hundred and six.              *)
 Definition fromZ_UP (p : precision) (n : Z) :=
   match nearZ n with
   | Some (a, r) =>
-      add_UP p (fp2dw a) (fp2dw (PrimitiveFloat.fromZ_UP fprec (r + 1)))
+      add_UP p (add_UP p (fp2dw a) (fp2dw (PrimitiveFloat.fromZ_UP fprec r)))
+               (fp2dw deps)
   | None => fp2dw (PrimitiveFloat.fromZ_UP fprec n)
   end.
 
 Definition fromZ_DN (p : precision) (n : Z) :=
   match nearZ n with
   | Some (a, r) =>
-      add_DN p (fp2dw a) (fp2dw (PrimitiveFloat.fromZ_DN fprec (r - 1)))
+      add_DN p (add_DN p (fp2dw a) (fp2dw (PrimitiveFloat.fromZ_DN fprec r)))
+               (fp2dw (- deps))
   | None => fp2dw (PrimitiveFloat.fromZ_DN fprec n)
   end.
 Definition sub_UP (_ : precision) x y := onReal2 subDwUp x y.
@@ -741,12 +752,14 @@ rewrite /PrimitiveFloat.fromZ; case: Pos.compare_spec => Hq'.
 - by lia.
 Qed.
 
-(* So the float the test accepts is within one of the top part, which is      *)
-(* the number less what was left over.                                        *)
+(* So the float the test accepts is within three and a half of the smallest   *)
+(* number there is of the top part, which is the number less what was left    *)
+(* over.  That is all the two-product can leave, and it is what the step of   *)
+(* deps in fromZ_UP pays for.                                                 *)
 Lemma nearZE n a r : nearZ n = Some (a, r) ->
   PrimitiveFloat.toX a = Xnan \/
   exists u, PrimitiveFloat.toX a = Xreal u /\
-            (IZR n - IZR r - 1 <= u <= IZR n - IZR r + 1)%R.
+            (IZR n - IZR r - dkerr <= u <= IZR n - IZR r + dkerr)%R.
 Proof.
 rewrite /nearZ; case En: (Z.abs n <? mmax)%Z => //.
 case E: (splitZ n) => [[m e] r'].
@@ -771,8 +784,7 @@ have Hmul : (IZR m * IZR (2 ^ e) = IZR n - IZR r')%R.
   by rewrite -mult_IZR -Hr minus_IZR.
 have Hd := Rabs_le_inv _ _ (Herr Fq).
 rewrite Vp Hmul in Hd.
-have Heps := dekker_le1.
-by lra.
+by rewrite /dkerr /=; lra.
 Qed.
 
 (* So a whole number enters as a double word: the top part exactly, and       *)
@@ -786,17 +798,28 @@ rewrite /fromZ_UP; case Ee: (nearZ n) => [[a r]|]; last first.
   have [Hv Hb] := PrimitiveFloat.fromZ_UP_correct fprec n.
   by split => //; apply: valid_ub_fp2dw.
 split; first exact: valid_ub_onReal2.
-have Hadd := add_UP_le p (fp2dw a)
-               (fp2dw (PrimitiveFloat.fromZ_UP fprec (r + 1))).
-rewrite !toX_fp2dw in Hadd.
-have [_ Hr] := PrimitiveFloat.fromZ_UP_correct fprec (r + 1).
+(* The first addition puts the top part and what was left over together, the *)
+(* second adds the step that covers the two-product.  Each is an upper bound *)
+(* of what it was given, so the two compose.                                  *)
+have H1 := add_UP_le p (fp2dw a)
+             (fp2dw (PrimitiveFloat.fromZ_UP fprec r)).
+have H2 := add_UP_le p
+             (add_UP p (fp2dw a) (fp2dw (PrimitiveFloat.fromZ_UP fprec r)))
+             (fp2dw deps).
+have Fdeps : Dfin deps by [].
+rewrite !toX_fp2dw in H1; rewrite toX_fp2dw in H2.
+rewrite /PrimitiveFloat.toX (toXE _ Fdeps) in H2.
+have [_ Hr] := PrimitiveFloat.fromZ_UP_correct fprec r.
+have Hde := deps_ge_dkerr.
 have [Ha|[u [Ha Hb]]] := nearZE _ _ _ Ee.
-  by rewrite Ha /= in Hadd; move: Hadd; case: (toX _).
-rewrite Ha in Hadd.
-move: Hr Hadd; case: (PrimitiveFloat.toX _) => [|w] /=;
-  first by move=> _; case: (toX _).
-move=> Hr Hadd; case: (toX _) Hadd => //= z Hz.
-by move: Hb Hr; rewrite plus_IZR; lra.
+  by rewrite Ha /= in H1; move: H1 H2; case: (toX _) => //=; case: (toX _).
+rewrite Ha in H1.
+move: Hr H1 H2;
+  case: (PrimitiveFloat.toX (PrimitiveFloat.fromZ_UP fprec r)) => [|w] /=;
+  first by move=> _; case: (toX _) => //= => _; case: (toX _).
+move=> Hr; case: (toX _) => [|z] /=; first by case: (toX _).
+move=> H1; case: (toX _) => [|y] //= H2.
+lra.
 Qed.
 
 Lemma fromZ_DN_correct p n :
@@ -808,18 +831,28 @@ rewrite /fromZ_DN; case Ee: (nearZ n) => [[a r]|]; last first.
   have [Hv Hb] := PrimitiveFloat.fromZ_DN_correct fprec n.
   by split => //; apply: valid_lb_fp2dw.
 split; first exact: valid_lb_onReal2.
-have Hadd := add_DN_le p (fp2dw a)
-               (fp2dw (PrimitiveFloat.fromZ_DN fprec (r - 1))).
-rewrite !toX_fp2dw in Hadd.
-have [_ Hr] := PrimitiveFloat.fromZ_DN_correct fprec (r - 1).
+have H1 := add_DN_le p (fp2dw a)
+             (fp2dw (PrimitiveFloat.fromZ_DN fprec r)).
+have H2 := add_DN_le p
+             (add_DN p (fp2dw a) (fp2dw (PrimitiveFloat.fromZ_DN fprec r)))
+             (fp2dw (- deps)).
+have Fdeps : Dfin (- deps)%float by [].
+rewrite !toX_fp2dw in H1; rewrite toX_fp2dw in H2.
+rewrite /PrimitiveFloat.toX (toXE _ Fdeps) in H2.
+have [_ Hr] := PrimitiveFloat.fromZ_DN_correct fprec r.
+have Hde : (D2R (- deps)%float <= - dkerr)%R.
+  by rewrite D2R_opp; have := deps_ge_dkerr; lra.
 have [Ha|[u [Ha Hb]]] := nearZE _ _ _ Ee.
-  by rewrite Ha /= in Hadd; move: Hadd; rewrite /le_lower /=; case: (toX _).
-rewrite Ha in Hadd.
-move: Hr Hadd; rewrite /le_lower /=.
-case: (PrimitiveFloat.toX _) => [|w] /=;
-  first by move=> _; case: (toX _).
-move=> Hr Hadd; case: (toX _) Hadd => //= z Hz.
-by move: Hb Hr; rewrite minus_IZR; lra.
+  move: H1 H2; rewrite Ha /le_lower /=.
+  by case: (toX _) => //=; case: (toX _).
+move: Hr H1 H2; rewrite Ha /le_lower /=;
+  case: (PrimitiveFloat.toX (PrimitiveFloat.fromZ_DN fprec r)) => [|w] /=;
+  first by move=> _; case: (toX _) => //= => _; case: (toX _).
+move=> Hr; case: (toX _) => [|z] /=; first by case: (toX _).
+move=> H1; case: (toX _) => [|y] //= H2.
+(* The step down has been computed to a literal by the simplification        *)
+(* above, so the fact about it is put through the same one.                   *)
+by move: Hde => /=; lra.
 Qed.
 
 Lemma pow2_UP_correct p s :
