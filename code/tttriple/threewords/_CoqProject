@@ -1,0 +1,27 @@
+-I .
+-R . threewords
+Nmore.v
+Rmore.v
+Fmore.v
+Rstruct.v
+MULTmore.v
+Fast2Sum_robust_flx.v
+prelim.v
+Uls.v
+TwoSum.v
+Nonoverlap.v
+TWR.v
+Merge.v
+VecSum.v
+VSEB.v
+Thm6.v
+CEThm6.v
+TWSum.v
+ThreeProd.v
+ThreeProdFast.v
+ThreeProdDW.v
+ThreeProdDWFast.v
+ThreeProdOne.v
+ThreeReci.v
+ThreeDiv.v
+ThreeSqRt.v
