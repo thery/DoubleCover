@@ -60,10 +60,10 @@ The same numbers for two words are `2^-97`.
 **Rocq's primitive floats have no fused multiply-add.** So Algorithms 9, 13
 and 15 cannot be transcribed as the paper writes them: every step of the form
 `RN(a + b * c)` becomes two roundings here, and the error-free product is
-Dekker's splitting rather than the one instruction. The paper's *bounds*
-survive that change; the paper's *values* do not. Nothing is lost for our
-purpose, because what is asked of these operations is only a bound, and the
-seed of a division or a root is never trusted at all.
+Dekker's splitting rather than the one instruction. So the paper's *constants*
+do not carry over as they stand, and the number of units in the last place
+that the bound shifts by is measured here rather than taken from the paper —
+`probek.py` does that, on forty thousand random triple words.
 
 **The two sweeps want their terms in order of decreasing size.** This is not
 a tidying matter, and getting it wrong is invisible — the answer is still a
@@ -111,12 +111,26 @@ infinity, so a chain that ran out of range ends in one and the final `real`
 test sees it. `upFp` and `dnFp` leave alone the infinity they would undo, and
 after that no operation needs a guard of its own.
 
-**Bound the result for an arbitrary seed, then apply it.** Division and the
-root take their `q` from an algorithm nothing is proved about — long division
-for the one, two Newton steps for the other. The bound is the residual:
-whatever `q` is, the true quotient is within `|x - q*y| / |y|` of it, and the
-root within `(x - q*q) / q`. So the seed is free to change, and the
-FMA-free transcription of the paper's algorithms costs nothing.
+**Bound by shifting, not by computing.** An algorithm known to be within k
+units in the last place needs no residual: the enclosure is the answer shifted
+k up and k down, which is one exponent change. That is what Interval's own
+primitive-float module does — `next_up (x + y)` — and it works there because
+the hardware is correctly rounded, so one unit suffices. A triple word is not
+correctly rounded, so it is the same with k = 8.
+
+This is a trade, and it went the other way at first. The residual —
+`|x - q*y| / |y|` for the quotient, `(x - q*q) / q` for the root — asks
+*nothing* of the algorithm that produced `q`, so it needed no theorem at all.
+It also cost two triple-word products and two subtractions on every call:
+measured, five times the quotient itself and eight times the root. The shift
+needs a theorem in exchange, and it is a theorem this file does not yet have.
+
+**The shift holds in the normal range only**, because the paper's bounds are
+proved in the format with no smallest exponent. Below that a fixed step is
+used, which needs no error analysis: down there every number is a whole
+multiple of the smallest float, so an operation can only be out by one of
+them. `code/ddouble` is not in that position — its own proofs are in the
+bounded format, subnormals included, so its shift needs no range test.
 
 **A test is for what propagation cannot settle.** Division keeps one — the
 divisor bounded away from zero. The root keeps two: the same one, and the
