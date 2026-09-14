@@ -3,7 +3,7 @@ From Stdlib Require Import Floats PrimInt63.
 From Flocq Require Import Zaux Raux Core BinarySingleNaN PrimFloat.
 From Interval Require Import Xreal Basic Sig Generic_proof Primitive_ops.
 From mathcomp Require Import ssreflect.
-From twarith Require Import twarith tw_updn.
+From twarith Require Import twarith tw_updn twpaper.
 
 (* Triple words as a float format for Interval.                               *)
 (*                                                                            *)
@@ -197,19 +197,14 @@ Definition sub_UP (_ : precision) x y := onReal2 subTwUp x y.
 Definition sub_DN (_ : precision) x y := onReal2 subTwDn x y.
 Definition mul_UP (_ : precision) x y := onReal2 mulTwUp x y.
 Definition mul_DN (_ : precision) x y := onReal2 mulTwDn x y.
-(* The residual forms, NOT the k-bit shift.  The shift is four to eight times *)
-(* quicker and it is written in tw_updn.v, but it is only as good as the seed *)
-(* it shifts, and this seed is not good enough: dividing a third by one plus  *)
-(* two to the minus thirty a hundred times over, the long division drifts     *)
-(* from an error of two to the minus a hundred and fifty-three to two to the  *)
-(* minus twenty-three.  The residual widens honestly around a poor seed; the  *)
-(* shift would give a tight bracket round a wrong number.  So the shift waits *)
-(* for the paper's own algorithms, which come with the bound that makes it    *)
-(* sound.                                                                     *)
-Definition div_UP (_ : precision) x y := onReal2 divTwUp x y.
-Definition div_DN (_ : precision) x y := onReal2 divTwDn x y.
-Definition sqrt_UP (_ : precision) x := onReal sqrtTwUp x.
-Definition sqrt_DN (_ : precision) x := onReal sqrtTwDn x.
+(* The paper's Algorithm 14 for the quotient, bounded by a shift of eight    *)
+(* units in the last place - see twpaper.v, where the eight is measured and   *)
+(* not proved.  The root still uses the seed of twarith.v, since Algorithm 15 *)
+(* is not transcribed yet, with the same shift.                               *)
+Definition div_UP (_ : precision) x y := onReal2 divTwUpP x y.
+Definition div_DN (_ : precision) x y := onReal2 divTwDnP x y.
+Definition sqrt_UP (_ : precision) x := onReal sqrtTwUpP x.
+Definition sqrt_DN (_ : precision) x := onReal sqrtTwDnP x.
 
 (* A whole number as a triple word.  Putting it in the leading word alone     *)
 (* would hold fifty-three bits of it and drop the rest, which is what every   *)
