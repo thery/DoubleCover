@@ -96,6 +96,20 @@ Definition is_nan x := match classify x with Sig.Fnan => true | _ => false end.
 (* high word alone would nearly do, but a low word of the same sign can       *)
 (* push the pair past its exponent, and one step covers that with nothing     *)
 (* to prove about how the two words sit.                                      *)
+(* The magnitude: the larger of the two words, one binary step up.  The       *)
+(* high word alone would nearly do, but a low word of the same sign can       *)
+(* push the pair past its exponent, and one step covers that with nothing     *)
+(* to prove about how the two words sit.                                      *)
+(*                                                                            *)
+(* IT IS ONE BIT LOOSE, and that is not free.  Interval takes the size of a   *)
+(* unit in the last place from this, so a goal whose whole content is a bound *)
+(* of half such a unit sees a bound twice too large.  `code/tttriple' hit     *)
+(* exactly that on Interval's own 120-bit goal, and computing the magnitude   *)
+(* of the VALUE instead - the words added once up and once down, whichever    *)
+(* is larger - fixed it there.  It is not done here because the proof below   *)
+(* would have to be redone with the finiteness of those two sums, and because *)
+(* this format cannot reach that goal anyway: it delivers about a hundred     *)
+(* bits and the goal asks a hundred and twenty.                               *)
 Definition mag x :=
   (Z.max (PrimitiveFloat.mag (dwhi x)) (PrimitiveFloat.mag (dwlo x)) + 1)%Z.
 

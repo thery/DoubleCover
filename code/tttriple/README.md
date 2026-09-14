@@ -241,7 +241,7 @@ answer.
 | pi to 24 digits | 82 | refused | 0.068 | **0.019** | 0.023 |
 | pi to 34 digits | 105 | refused | 0.034 | refused | **0.026** |
 | pi to 45 digits | 150 | refused | 0.039 | refused | **0.037** |
-| Interval's own 120-bit goal | 120 | — | **0.169** | refused | refused |
+| Interval's own 120-bit goal | 120 | — | 0.169 | refused | **0.174** |
 | `method_error` | 80 | — | 5.824 | **1.575** | refused |
 | `poly_error` | 90 | — | 0.122 | **0.108** | 0.135 |
 | `cancellation`, depth 20 | 60 | — | 76.6 | **38.7** | 207.0 |
@@ -275,8 +275,24 @@ is an absolute step and so `1/n` in relative terms).
 
 ## Open
 
-1. **`method_error` and Interval's 120-bit goal are refused, and it is not
-   understood.** What has been ruled out, each by measurement:
+1. **Interval's 120-bit goal was refused, and `mag` was why.** The goal's
+   whole content is a bound of half a unit in the last place, and Interval
+   takes the size of that unit from `F.mag`. The first `mag` here was the
+   largest of the three words with two binary steps added for safety, which
+   is always **one bit too big** — so every ulp bound came out twice too
+   large and the goal could not be proved at any precision. Measured at a
+   point, `RND u - u` came out `±8.67e-19` where bignums give `±4.34e-19`,
+   exactly twice, and the goal's bound is `65537·2^-77 = 4.34e-19`.
+
+   `mag` is now the magnitude of the **value**: the three words added once
+   upwards and once downwards, whichever is larger in absolute value. That
+   agrees with `PrimitiveFloat.mag` exactly, and the goal goes through in
+   0.174 s against bignums' 0.169. `code/ddouble` still has the loose
+   version — its proof of `mag_correct` would have to be redone, and that
+   format cannot reach this goal anyway.
+
+2. **`method_error` is still refused, and that is not understood.** What has
+   been ruled out, each by measurement:
    * *Not precision.* At a point this module encloses `f t - exp t` to
      `6.4e-47` where a double word gives `4.1e-30` and bignums `1.3e-31`.
    * *Not the Taylor model of a quotient*, the only thing `method_error` has
@@ -284,12 +300,18 @@ is an absolute step and so `1/n` in relative terms).
      `Rabs (x/(1+x) - x*(1-x)) <= 3/10` under `i_bisect`/`i_taylor` in 70 ms.
    * *Not a margin.* The same goal is refused with the bound loosened twenty
      times over, to `1e-16`, while a bound of `1` is proved.
-   * *Not `mag`.* It is one bit wider than the double-word one (`-97` against
-     `-98` on `1e-30`), and `PrimitiveFloat.mag 0` is `-2101`, so the `Z.max`
-     is safe.
+   * *Not `mag`* — tightening it fixed the 120-bit goal and left this one
+     refused.
    * *Not `midpoint` or `wellFormed`.* Both are `real` on the values tried.
-2. **Speed, and it is the BOUND that costs, not the algorithm.** Timed on
-   their own, microseconds a call:
+3. **Speed, and one goal where triple words lose.** `cancellation` is 174 s
+   against 77.5 for bignums, 2.2 times slower, although every operation is
+   quicker than the bignum one. The gap is per-call overhead bignums do not
+   pay: every operation goes through `onReal2`, which runs `real` — a
+   `classify` over three words and the two `wellFormed` comparisons — and
+   the sum and the product allocate `seq` cells. On a goal that is a million
+   cheap operations that overhead is the whole cost.
+
+   Timed on their own, microseconds a call:
 
    | | µs |
    |---|---|

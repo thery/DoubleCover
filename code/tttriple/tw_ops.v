@@ -118,9 +118,18 @@ Definition is_nan x := match classify x with Sig.Fnan => true | _ => false end.
 (* leading word alone would nearly do, but the other two can push the triple  *)
 (* past its exponent; the value is below three times the largest word, and    *)
 (* two steps cover that with nothing to prove about how the words sit.        *)
+(* The magnitude, and it has to be TIGHT.  Interval gets the size of a unit  *)
+(* in the last place from this, and a goal whose whole content is a bound of  *)
+(* half such a unit fails if it is one bit out - Interval's own 120-bit goal  *)
+(* is exactly that goal.  So it is not the leading word's magnitude with a    *)
+(* step for safety, which is always one too big; it is the magnitude of the   *)
+(* VALUE, got by adding the three words once upwards and once downwards and   *)
+(* taking whichever of the two is larger in absolute value.                   *)
 Definition mag x :=
-  (Z.max (PrimitiveFloat.mag (tw0 x))
-     (Z.max (PrimitiveFloat.mag (tw1 x)) (PrimitiveFloat.mag (tw2 x))) + 2)%Z.
+  let: TWFloat x0 x1 x2 := x in
+  let s := addUpFp (addUpFp x0 x1) x2 in
+  let t := addDnFp (addDnFp x0 x1) x2 in
+  PrimitiveFloat.mag (if (abs s <=? abs t)%float then t else s).
 
 (* Only an infinity of the wrong sign is barred from being a bound.           *)
 Definition valid_ub x := match classify x with Fminfty => false | _ => true end.
