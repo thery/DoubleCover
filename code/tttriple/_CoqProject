@@ -1,5 +1,9 @@
 -R . twarith
 
+# Double words, for the bench that compares against them.  Build code/ddouble
+# first; nothing here depends on it at compile time except the bench files.
+-Q ../ddouble dwarith
+
 # Triple words on primitive floats.
 twarith.v
 tw_updn.v
