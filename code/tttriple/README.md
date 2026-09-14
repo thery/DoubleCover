@@ -228,21 +228,22 @@ answer.
 
 | goal | bits asked | floats | bignums | double words | triple words |
 |---|---|---|---|---|---|
-| pi to 14 digits | 47 | 0.074 | 0.064 | **0.013** | 0.024 |
-| pi to 24 digits | 82 | refused | 0.069 | **0.018** | 0.028 |
-| pi to 34 digits | 105 | refused | 0.035 | refused | **0.035** |
-| pi to 45 digits | 150 | refused | 0.038 | refused | **0.043** |
-| Interval's own 120-bit goal | 120 | — | **0.195** | refused | refused |
-| `method_error` | 80 | — | 5.449 | **1.897** | refused |
-| `poly_error` | 90 | — | 0.115 | **0.110** | 0.160 |
-| `cancellation`, depth 20 | 60 | — | 77.9 | **42.5** | 418.7 |
+| pi to 14 digits | 47 | 0.054 | 0.064 | **0.014** | 0.018 |
+| pi to 24 digits | 82 | refused | 0.068 | **0.019** | 0.023 |
+| pi to 34 digits | 105 | refused | 0.034 | refused | **0.026** |
+| pi to 45 digits | 150 | refused | 0.039 | refused | **0.037** |
+| Interval's own 120-bit goal | 120 | — | **0.169** | refused | refused |
+| `method_error` | 80 | — | 5.824 | **1.575** | refused |
+| `poly_error` | 90 | — | 0.122 | **0.108** | 0.135 |
+| `cancellation`, depth 20 | 60 | — | 76.6 | **38.7** | 207.0 |
 
-Two things to read off it. **Triple words are the only arithmetic that takes
-the 105- and 150-bit brackets at all**, and they take them in the same time
-bignums take the ones they can do — because the tactic asks for far less than
-a triple word delivers, so it iterates less. And **`cancellation` is where the
-per-operation table shows through**: its cost is the splitting, so precision
-buys nothing and the ten-fold slowness is paid in full.
+Three things to read off it. **Triple words are the only arithmetic that takes
+the 105- and 150-bit brackets at all**, and since the shift replaced the
+residual they take them quicker than bignums take the ones bignums can do.
+**`cancellation` is where the per-operation table shows through**: its cost is
+the splitting, so precision buys nothing, and the sum and the product — which
+the shift did not touch — are paid in full. And **a double word is quickest
+wherever it reaches at all**, which is up to about a hundred bits.
 
 ### What each arithmetic really delivers
 
