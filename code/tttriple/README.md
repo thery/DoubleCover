@@ -177,19 +177,28 @@ how many bits to aim for.
 desktop, seconds. Bignums are asked for the precision each word module
 actually holds, so this is a comparison at equal precision.
 
-| op | bignum 53 | bignum 107 | bignum 159 | double words | triple words |
-|---|---|---|---|---|---|
-| add | 0.055 | 0.051 | 0.094 | **0.009** | 0.035 |
-| mul | 0.047 | 0.111 | 0.162 | **0.011** | 0.100 |
-| div | 0.088 | 0.243 | 0.905 | **0.071** | 0.196 |
-| sqrt | 0.010 | 0.025 | 0.046 | **0.007** | 0.019 |
+| op | bignum 107 | bignum 159 | double words | triple words |
+|---|---|---|---|---|
+| add | 0.053 | 0.088 | **0.008** | 0.036 |
+| mul | 0.091 | 0.169 | **0.013** | 0.104 |
+| div | 0.247 | 0.924 | **0.016** | 0.133 |
+| sqrt | 0.025 | 0.046 | **0.002** | 0.018 |
 
-Against bignums at the same precision, and both now win on all four:
+Against bignums at the same precision, and both win on all four:
 
 | | add | mul | div | sqrt |
 |---|---|---|---|---|
-| double words | 5.7x faster | 10x faster | 3.4x faster | 3.6x faster |
-| triple words | 2.7x faster | 1.6x faster | 4.6x faster | 2.4x faster |
+| double words | 6.6x faster | 7.0x faster | 15.4x faster | 12.5x faster |
+| triple words | 2.4x faster | 1.6x faster | 6.9x faster | 2.6x faster |
+
+**AN EXPONENT SHIFT IS NOT ONE INSTRUCTION HERE.** The step was first written
+as `FloatOps.Z.ldexp`, which is one instruction on the machine and exact. In
+Rocq's evaluator it is nothing of the kind: it goes through `Z.max`, `Z.min`
+and a conversion of a whole number to a machine integer on every call.
+Measured, **4.8 µs against 0.2 µs** for a float multiplication that gives the
+identical answer — and the constant is a power of two, so the multiplication
+is exact as well. That one line was hiding almost the whole gain: the
+double-word division read 0.071 with it and 0.016 without.
 
 Two changes got the quotient and the root there. The bound is a shift of eight
 units in the last place instead of a computed residual, and the algorithms are

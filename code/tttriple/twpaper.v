@@ -173,7 +173,7 @@ Definition threeSqRt (x : twfloat) : twfloat :=
 (* ADMITTED, not proved.  The number comes from running the algorithms, not    *)
 (* from their theorems: the theorems are in `threewords/' but they are about   *)
 (* the paper's steps, and the FMA is not available here.                       *)
-Definition kbits := (-156)%Z.
+Definition kscale := Eval compute in 0x1p-156%float.
 
 (* The paper's bounds hold in the NORMAL range only - they are proved in the  *)
 (* format with no smallest exponent.  Below that the shift would be a claim    *)
@@ -184,7 +184,7 @@ Definition kbits := (-156)%Z.
 (* gets smaller below it, so the same step serves all the way down.            *)
 Definition kstep t :=
   let: TWFloat x0 _ _ := t in
-  if (normLo <? abs x0)%float then ldexp2 (abs x0) kbits else tabs.
+  if (normLo <? abs x0)%float then mulUpFp kscale (abs x0) else tabs.
 
 (* The sweep is kept.  Not for the step - it is far too small to disturb the  *)
 (* words - but because a seed need not be a triple word at all, and the       *)

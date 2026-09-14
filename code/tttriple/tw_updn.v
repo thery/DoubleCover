@@ -223,13 +223,14 @@ Definition sqrtTwDn (x : twfloat) :=
 (* much and a bracket is lost, at a hundred and fifty-five it is not, so      *)
 (* there is almost no room here and the number has to come from the paper's    *)
 (* own theorem rather than from a rough argument.                             *)
-Definition tbits := (-155)%Z.
-
-(* Shifting a float's exponent, which is one instruction and is exact.  It is *)
-(* written out in full because Interval carries a scaling of its own that     *)
-(* does nothing, for the versions of Rocq whose floats had none, and a bare   *)
-(* `Z.ldexp' picks that one up and returns its argument.                      *)
-Definition ldexp2 (f : float) (e : Z) := FloatOps.Z.ldexp f e.
+(* THE STEP IS A MULTIPLICATION, AND NOT AN EXPONENT SHIFT.  Shifting an     *)
+(* exponent is one instruction on the machine, but inside Rocq's evaluator    *)
+(* `FloatOps.Z.ldexp' is not: it goes through `Z.max', `Z.min' and a          *)
+(* conversion of a whole number to a machine integer on every call.           *)
+(* Measured, 4.8 microseconds against 0.2 for a float multiplication, for the *)
+(* same answer.  The constant is a power of two, so the multiplication is     *)
+(* exact.                                                                     *)
+Definition tscale := Eval compute in 0x1p-155%float.
 
 (* THE WIDENING, and it is four operations.                                   *)
 (*                                                                            *)
@@ -266,7 +267,7 @@ Definition tabs := Eval compute in 0x1p-1050%float.
 
 Definition stepTw t :=
   let: TWFloat x0 _ _ := t in
-  if (normLo <? abs x0)%float then ldexp2 (abs x0) tbits else tabs.
+  if (normLo <? abs x0)%float then mulUpFp tscale (abs x0) else tabs.
 
 (* The sweep is kept, and NOT because of the step.  A seed need not be a      *)
 (* triple word at all: `sqrtTw' of two comes back with a second word of       *)
