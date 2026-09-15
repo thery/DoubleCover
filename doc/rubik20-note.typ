@@ -716,8 +716,9 @@ next to the position and updates it with one lookup per move. The position is
 still needed, since only it tells whether the cube is solved.
 
 The `search` of #src("Search.v") is refined to carry the summary along, so that
-it is updated move by move instead of being recomputed from the
-position at each node. It also tries only the moves the rules allow. Here is
+it is updated move by move, which is two lookups in a move table, instead of
+being recomputed at each node from the position, which means reading every
+corner and every edge. It also tries only the moves the rules allow. Here is
 its shape, with names simplified and some details left out; the real one is
 `searchz3` in #src("Farp1.v"):
 
