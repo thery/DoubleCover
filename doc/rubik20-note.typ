@@ -652,6 +652,8 @@ it: one node in two billion.
 
 = The search in Rocq
 
+== The generic search
+
 The search at depth $d$ is implemented in Rocq by a generic search,
 #src("Search.v"), about a hundred lines that never mention the cube. It is
 given a group, a set of moves and an estimate $h$, with only two assumptions
@@ -694,8 +696,9 @@ assumptions. Everything else in the development is there for one of two
 reasons: to discharge those two assumptions for the real table, or to make the
 search fast enough to run.
 
-*What the table has to satisfy, and what it does not.* #src("Coord.v") asks for
-three things and checks two:
+== The summary and its table
+
+#src("Coord.v") asks for three things and checks two:
 
 ```coq
 Variable coord : {perm facelet} -> X.
@@ -769,9 +772,11 @@ Nothing here asks where the table came from. Any program in any language can
 write it. Ours is an OCaml generator that writes it out as Rocq source, and the
 two conditions are checked on it afterwards.
 
-*Three cuts at the top of the tree.* They are three different arguments and we
-keep them apart. The first two apply once each, to the first move and to the
-second. The third applies at every move from the third on.
+== Three cuts at the top of the tree
+
+These are three different arguments and we keep them apart. The first two
+apply once each, to the first move and to the second. The third applies at
+every move from the third on.
 
 *The first move: eighteen become two.* The superflip looks the same from every
 angle. There are 48 ways of putting a cube back into the space it came from:
@@ -847,7 +852,9 @@ seventeen `Qed`s, nothing shared.
 The first version worked and was far too slow. Getting it from "runs" to
 "finishes" took a series of changes. We measured each one before and after.
 
-*Counting in unary is the enemy.* The numbers used by the mathcomp library are
+== Counting in unary is the enemy
+
+The numbers used by the mathcomp library are
 Peano numbers: 5 is literally the successor of the successor of the successor
 of the successor of the successor of zero. So adding $n$ costs $n$ steps, and
 comparing costs as much again. Rocq also offers machine integers, 63 bits wide
@@ -874,7 +881,9 @@ Two otherwise identical certificates, one of each shape: *719.7 s against about
 80 s*. The same mistake in the search cost another factor of 27.8 on one guard.
 Every guard in the development is a nested `if` now.
 
-*The search itself, twelve times faster.* None of the changes make sense until
+== The search itself, twelve times faster
+
+None of the changes make sense until
 one knows what the search of #src("Farp1.v") carries at each position. Four
 things:
 
@@ -915,7 +924,9 @@ to the one before, so no trust is transferred. Measured on one piece at depth
 Four of those six steps are the same mistake twice over: work done that a
 lazier evaluator would have skipped.
 
-*Three views of the same position.* Rotating the whole cube about a corner axis
+== Three views of the same position
+
+Rotating the whole cube about a corner axis
 gives the same position seen differently, and its summary is then a different
 entry of the same table. So each of the three views gives a lower bound on the
 number of moves left, and the largest of them is a lower bound too. It is never
@@ -924,7 +935,9 @@ position, in exchange for a sharper cut and a smaller tree. Cube solvers do
 this as a matter of course, Kociemba's included. What is new here is that the
 three views are proved legitimate.
 
-*How the table is written down costs more than the table.* The phase 1 table is
+== How the table is written down costs more than the table
+
+The phase 1 table is
 emitted as Rocq source, one file per block of 2 097 152 entries, 71 of them.
 Written as a list, a block is a term: two million nested applications of the
 list constructor, each holding a machine integer. The `.vo` stores that term
@@ -941,7 +954,9 @@ memory. Measured on the same 2 097 152 entries:
 Over all 71 blocks that is 21.5 GB against *5 GB*. It is what let nine workers
 run in parallel on a 62 GB machine where two had run before.
 
-*Folding the table by symmetry.* The summary is built around the up-down axis.
+== Folding the table by symmetry
+
+The summary is built around the up-down axis.
 The twist counts where each corner's up-or-down sticker sits, and the slice says
 where the four edges between the top and bottom faces are. A symmetry that
 leaves that axis in place turns a summary into another summary. One that tips
@@ -979,7 +994,9 @@ A search worker drops from 4.15 GB to *0.85 GB*, so all the pieces run at once
 instead of in two waves, and checking the table drops from about 5.4 processor
 hours to *1.35*.
 
-*What remains.* The same search written in OCaml is about three times faster.
+== What remains
+
+The same search written in OCaml is about three times faster.
 We ran both at radius 19 on the reference machine. The OCaml program visits
 146 065 078 152 positions in 26.4 processor-hours, which is 0.65 microseconds a
 position. Rocq takes 87.6 processor-hours over the same tree, which is 2.16. A
