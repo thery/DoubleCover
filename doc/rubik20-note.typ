@@ -556,24 +556,11 @@ search practical. This naive method has to be refined.
 
 == The pruning estimate
 
-Walking the tree blindly is what makes it so big. Suppose instead that at each
-position we could say, cheaply, how many moves that position still needs. Then
-a position that needs more moves than we have left is hopeless, and we could
-drop it and everything below it.
-
-We do not need the exact distance: an estimate is enough. We call it $h$. Two
-things are asked of it. It is never too big, and one move changes it by at most
-one. An estimate that is never too big is called *admissible*.
-
-That is the cut. If the estimate for a position is 20 while only 18 moves
-remain, the whole branch goes: it cannot reach the solved cube in time. @tree
-shows it. Below every position the table is read, and a branch
-whose estimate is larger than the moves still available is dropped without
-being explored. The estimate may be too small, which only means less cutting.
-It may never be too large.
-
-None of this is new. A depth-first search that deepens step by step and prunes
-on an admissible estimate is Korf's IDA\* @korf1985ida.
+A first refinement is to have a criterion that lets us cut in advance the
+branches we are sure cannot succeed. For that we use at each position a cheap
+lower bound $h$ on the number of moves still needed: if $h$ is 20 while only 18
+moves remain, the branch cannot reach the solved cube in time and is cut with
+everything below it, as @tree shows.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -599,6 +586,9 @@ on an admissible estimate is Korf's IDA\* @korf1985ida.
   }),
   caption: [The search, and its scissors.],
 ) <tree>
+
+Such a lower bound is called an *admissible* estimate, and a depth-first search
+that deepens step by step and prunes on one is Korf's IDA\* @korf1985ida.
 
 == The origin of the estimate
 
