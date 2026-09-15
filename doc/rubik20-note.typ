@@ -649,19 +649,6 @@ records, for each summary, its distance from the solved summary. No stored
 distance is larger than 12, so four bits hold one entry and the whole table is
 *1.18 GB*.
 
-== A failed search as a proof
-
-The search answers "maybe solvable in $d$ moves" or "no". The *no* is the side
-to trust. It means every branch was cut, either because the depth ran out or
-because the table said so. So a no to "is the superflip solvable in 19 moves?"
-is the theorem we want.
-
-The answer does not depend on the table being right. If an entry were too
-small, the search would cut less and take longer. Only two local properties
-matter: the solved summary has distance 0, and one move changes the value by at
-most one. That is what brings the cost down. A table with two billion entries
-is never proved correct. It is only checked.
-
 = The search in Rocq
 
 The general principle is one file of about a hundred lines, #src("Search.v"),
