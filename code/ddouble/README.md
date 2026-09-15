@@ -84,9 +84,8 @@ only a measurement tells you which bound that is.
 `sqrt_DN` are now bounded by a shift of sixteen units in the last place rather
 than by a computed residual.
 
-**Sixteen is the paper's own constant.** `double-double-arithmetic/DWDivDW.v`
-holds Theorem 7.1, admit-free, for `DWDivDW2` — which is `divDwDw2` of
-`dwarith.v` step for step:
+**Sixteen is the paper's own constant.** `DWDivDW.v` holds Theorem 7.1,
+admit-free, for `DWDivDW2` — which is `divDwDw2` of `dwarith.v` step for step:
 
 ```coq
 Rabs ((zh + zl - xy) / xy) <= 15*u^2 + 56 * u^3
@@ -97,12 +96,27 @@ next power of two above it, so the shift is an exact exponent change.
 Probing the same algorithm on 200000 random double words (`c/probek.py`) gives
 5.82 units worst case, well inside it.
 
-What is missing is not the constant but the connection: that theorem is stated
-over the reals in the format with no smallest exponent, and generic in the
-precision, while the code runs primitive floats in the bounded format. Porting
-it is the same exercise `F2SumFLT.v` and `TwoSumFLT.v` are for the sum. Until
-then the shift is guarded by a normal-range test, and below the range a fixed
-step is used.
+**That theorem now reaches the program.** It is stated over the reals in the
+format with no smallest exponent, while the code runs primitive floats in the
+bounded one, and `dwdivflx.v` is the road between the two — what `dwflx.v` is
+for the sum. Its `divDwDw2_relerr` is the bound above, said of `divDwDw2` on
+primitive floats:
+
+```coq
+Rabs ((zh + zl - xy) / xy) <= 15 * Du ^ 2 + 56 * Du ^ 3
+```
+
+It asks two things: that the arguments really are double words, and that the
+guard holds — every step of the algorithm a number, and the product and the
+two quotients above the smallest normal number, which is where the two formats
+round alike. The sum needed no such range test, since a sum too small for the
+bounded format to round is exact and so neither format rounds it. A product
+and a quotient have no such property, and that is the whole of why the
+quotient is the harder of the two.
+
+**It does not yet close the four.** What the bound gives is a relative error;
+what `div_UP` and `div_DN` ask is a directed answer, and the step from one to
+the other is not written. The root has no theorem at all.
 The residual forms are still in `dw_updn.v` and their proofs are still in
 `dwbound.v`; putting those four names back restores an admit-free development.
 Everything else is admit-free, and the assumptions are the primitive-float and
@@ -220,16 +234,19 @@ algorithms and their bounds.
 | `dwprod.v` | the two-product, handed to Flocq's own Dekker theorem |
 | `dw_updn.v` | the directed operations: the widening steps and the algorithms |
 | `dwbound.v` | the bounds themselves, from the steps up to `divDwUp_geP` |
+| `dwdivflx.v` | the quotient carried from the paper's format down to the program |
 | `dw_ops.v` | the interface: `DwFloat` and all 32 obligations |
 | `test_pi.v` | a smoke test: pi by Machin, and what the operations bracket |
 | `Imul.v`, `TwoSumFLT.v` | Knuth's 2Sum in the bounded format, and its grids |
 | `F2SumFLT.v` | Fast2Sum in the bounded format |
 
-`dwflx.v` reads double words in the format with no bottom, where the ported
-theorems of `DWPlus.v` live. **Nothing depends on it today**: the bounds are
-all proved directly, so it — and with it `F2SumFLX.v`, `F2Sum.v`,
-`Bayleyaux.v` and `DWPlus.v` — is a spur kept for the error analyses that a
-tighter algorithm would need.
+`dwflx.v` and `dwdivflx.v` read double words in the format with no bottom,
+where the ported theorems of `DWPlus.v` and `DWDivDW.v` live: the first carries
+the sum down to the program, the second the quotient. **Nothing in `dw_ops.v`
+depends on either**: the bounds the interface needs are all proved directly, so
+these two — and with them `F2SumFLX.v`, `F2Sum.v`, `Bayleyaux.v`, `DWPlus.v`,
+`DWTimesFP.v`, `DWTimesDW_original.v` and `DWDivDW.v` — are the error
+analyses, kept for the tighter algorithm that will want them.
 
 `double-double-arithmetic/` is an untouched archive, kept for inspiration.
 Nothing in it is on the build path.

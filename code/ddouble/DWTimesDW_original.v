@@ -68,6 +68,13 @@ Hypothesis Fast2Mult_correct:
 Notation F2P_errorE := (F2P_errorE Fast2Mult_correct).
 
 
+(* The two-product is a VARIABLE, not an axiom.  Declared as a Parameter, as   *)
+(* it was, it is a constant nothing can ever be said of, and `TwoProdE' is     *)
+(* then a hypothesis no instantiation can discharge -- so every theorem below  *)
+(* is out of reach.  As a section variable it is the argument it was meant to  *)
+(* be: hand it Dekker's algorithm and `TwoProdE' holds by reflexivity.         *)
+Variable TwoProd : R -> R -> R * R.
+
 Hypothesis TwoProdE : TwoProd = Fast2Mult. (* or Dekker's algorithm *)
 
 
@@ -717,6 +724,8 @@ Hypothesis Fast2Mult_correct:
 Notation F2P_errorE := (F2P_errorE Fast2Mult_correct).
 
 
+Variable TwoProd : R -> R -> R * R.
+
 Hypothesis TwoProdE : TwoProd = Fast2Mult. (* or Dekker's algorithm *)
 
 
@@ -1283,6 +1292,8 @@ Hypothesis Fast2Mult_correct:
 
 Notation F2P_errorE := (F2P_errorE Fast2Mult_correct).
 
+
+Variable TwoProd : R -> R -> R * R.
 
 Hypothesis TwoProdE : TwoProd = Fast2Mult. (* or Dekker's algorithm *)
 

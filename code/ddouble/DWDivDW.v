@@ -70,9 +70,16 @@ Hypothesis Fast2Mult_correct:
 Notation F2P_errorE := (F2P_errorE Fast2Mult_correct).
 
 
+(* The two-product is a VARIABLE, not an axiom.  Declared as a Parameter, as   *)
+(* it was, it is a constant nothing can ever be said of, and `TwoProdE' is     *)
+(* then a hypothesis no instantiation can discharge -- so every theorem below  *)
+(* is out of reach.  As a section variable it is the argument it was meant to  *)
+(* be: hand it Dekker's algorithm and `TwoProdE' holds by reflexivity.         *)
+Variable TwoProd : R -> R -> R * R.
+
 Hypothesis TwoProdE : TwoProd = Fast2Mult. (* or Dekker's algorithm *)
 
-Notation DWTimesFP := (DWTimesFP p choice).
+Notation DWTimesFP := (DWTimesFP p choice TwoProd).
 
 Lemma dw_u xh xl (DWx: double_word  xh xl):   Rabs xl <= u * Rabs xh.
 Proof.
@@ -1168,11 +1175,11 @@ Notation el:= (snd (Fast2Sum  rh rl)).
 
 
 
-Notation dh := (fst (DWTimesFP9 p choice eh el th)).
-Notation dl :=  (snd (DWTimesFP9 p choice eh el th)).
+Notation dh := (fst (DWTimesFP9 p choice TwoProd eh el th)).
+Notation dl :=  (snd (DWTimesFP9 p choice TwoProd eh el th)).
 Notation mh := (fst (DWPlusFP p choice  dh dl th)).
 Notation  ml := (snd (DWPlusFP p choice  dh dl th)).
-Let  DWDivDW3 := (DWTimesDW12 p choice  xh xl mh ml).
+Let  DWDivDW3 := (DWTimesDW12 p choice TwoProd xh xl mh ml).
 Hypothesis yb: 1 <= yh <= 2 - 2 * u.
 
 
@@ -1368,7 +1375,7 @@ have h59: Rabs omega1 <= 2* u^2.
     by apply: F2Sum_correct_DW.
 have Fth: format th by apply: generic_format_round.
 
-move: (@DWTimesFP9_correct _ _ ZNE Hp3 TwoProdE eh el th DWe Fth).
+move: (@DWTimesFP9_correct _ _ ZNE Hp3 _ TwoProdE eh el th DWe Fth).
  case H:  DWTimesFP9 => [zh zl].
 case.
 by rewrite fstE sndE /e.
@@ -1380,7 +1387,7 @@ have Fth: format th by apply:generic_format_round.
 have DWd : double_word dh dl.
 
 move : (DWTimesFP9_correct ZNE Hp3 TwoProdE DWe Fth).
-case H: (DWTimesFP9 p choice eh el th) => [zh zl].
+case H: (DWTimesFP9 p choice TwoProd eh el th) => [zh zl].
 by case.
 
 case: (DWPlusFP_correct Hp1 ZNE Hp3 Fth DWd).
@@ -1947,12 +1954,12 @@ Notation eh yh yl := (rnd_p ((rh yh) +(rl yh yl))).
 Notation el yh yl := (snd (Fast2Sum (rh yh) (rl yh yl))).
 
 
-Notation dh yh yl := (fst (DWTimesFP9 p choice (eh yh yl) (el yh yl) (th yh))).
-Notation dl yh yl :=  (snd (DWTimesFP9 p choice (eh yh yl) (el yh yl) (th yh))).
+Notation dh yh yl := (fst (DWTimesFP9 p choice TwoProd (eh yh yl) (el yh yl) (th yh))).
+Notation dl yh yl :=  (snd (DWTimesFP9 p choice TwoProd (eh yh yl) (el yh yl) (th yh))).
 Notation mh yh yl := (fst (DWPlusFP p choice  (dh yh yl) (dl yh yl) (th yh))).
 Notation ml yh yl := (snd (DWPlusFP p choice  (dh yh yl) (dl yh yl) (th yh))).
 
-Let  DWDivDW3 xh xl yh yl := (DWTimesDW12 p choice  xh xl (mh yh yl)  (ml yh yl)).
+Let  DWDivDW3 xh xl yh yl := (DWTimesDW12 p choice TwoProd xh xl (mh yh yl)  (ml yh yl)).
 
 Fact  DWDivDW3_Asym_l (xh xl yh yl :R):  
   (DWDivDW3  (-xh) (-xl)  yh yl) =  pair_opp (DWDivDW3  xh xl    yh yl).
@@ -1975,18 +1982,18 @@ Proof.
   have dhE : dh (-yh) (-yl) = -dh (yh) yl.
   rewrite ehE elE thE.
 
-  set dl := DWTimesFP9 _ _ _ _ _.
+  set dl := DWTimesFP9 _ _ _ _ _ _.
   
    case H: DWTimesFP9 => [zh zl].
-      by rewrite /dl (@DWTimesFP9_Asym_r _ _  ZNE TwoProdE  (eh (yh) yl) (el yh yl) ( (th yh))) H.
+      by rewrite /dl (@DWTimesFP9_Asym_r _ _  ZNE _ TwoProdE  (eh (yh) yl) (el yh yl) ( (th yh))) H.
    
     have dlE : dl (-yh) (-yl) = -dl (yh) yl.
   rewrite ehE elE thE.
      
-  set dl := DWTimesFP9 _ _ _ _ _.
+  set dl := DWTimesFP9 _ _ _ _ _ _.
   
    case H: DWTimesFP9 => [zh zl].
-     by rewrite /dl (@DWTimesFP9_Asym_r _ _  ZNE TwoProdE  (eh (yh) yl) (el yh yl) ( (th yh)) ) H.
+     by rewrite /dl (@DWTimesFP9_Asym_r _ _  ZNE _ TwoProdE  (eh (yh) yl) (el yh yl) ( (th yh)) ) H.
    rewrite dhE dlE thE.
    
   
@@ -2057,14 +2064,14 @@ Proof.
   have dhE : dh (-yh) (-yl) = -dh (yh) yl.
   rewrite ehE elE thE.
 
-  set dl := DWTimesFP9 _ _ _ _ _.
+  set dl := DWTimesFP9 _ _ _ _ _ _.
   
    case H: DWTimesFP9 => [zh zl].
       by rewrite /dl DWTimesFP9_Asym_r ?H.
     have dlE : dl (-yh) (-yl) = -dl (yh) yl.
   rewrite ehE elE thE.
      
-  set dl := DWTimesFP9 _ _ _ _ _.
+  set dl := DWTimesFP9 _ _ _ _ _ _.
   
    case H: DWTimesFP9 => [zh zl].
      by rewrite /dl DWTimesFP9_Asym_r ?H.

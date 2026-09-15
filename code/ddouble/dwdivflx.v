@@ -260,33 +260,86 @@ split.
 by rewrite Ezl Etle Ed Epih Edle Erh Erl Etl2e Evh Evl Ech Ecl1 Ecl2 Et.
 Qed.
 
+
 (* ---------------------------------------------------------------------------*)
-(*  And the same thing the paper's own definition computes - NOT DONE         *)
+(*  And the same thing the paper's own definition computes                    *)
 (* ---------------------------------------------------------------------------*)
 
-(* `XtimesDwFp1' above is the paper's `DWTimesFP' step for step, and          *)
-(* `XdivDwDw2' is its `DWDivDW2' but for ONE place: the paper writes the head *)
-(* difference `pih := xh - rh' with no rounding, because that subtraction is  *)
-(* exact, and the program of course rounds it.  `Algo15_pih' of `DWDivDW.v'   *)
-(* is exactly that exactness, so the two agree, and that step is easy.        *)
-(*                                                                            *)
-(* WHAT STOPS IT.  Theorem 7.1 asks two things of the two-product that the    *)
-(* paper's own file leaves as hypotheses, and ONE OF THEM IS FALSE AS          *)
-(* STATED:                                                                    *)
-(*                                                                            *)
-(*   F2Mult_correct : forall a b : R,                                         *)
-(*     a * b = fst (Fast2Mult a b) + snd (Fast2Mult a b)                      *)
-(*                                                                            *)
-(* For ALL reals.  Take a = b = 1/3: the error of the product is not a number *)
-(* of the format, so rounding it loses something and the two sides differ.    *)
-(* The two-product is error free only when its arguments are ALREADY numbers  *)
-(* of the format - that is `mult_error_FLX', and it is what `twoProd_FLX'     *)
-(* above uses.  So Theorem 7.1, as it leaves the file, has an unsatisfiable   *)
-(* hypothesis and cannot be instantiated at all.                              *)
-(*                                                                            *)
-(* THE FIX is in the paper's file, not here: restrict that hypothesis to      *)
-(* formatted arguments.  It is used three times in `DWTimesFP.v' and seven in *)
-(* `DWDivDW.v', and each site has to have the two formats to hand - which it  *)
-(* will, since every argument there is a float.  That is the same kind of      *)
-(* edit as making `TwoProd' a section variable, in the same file, and the two  *)
-(* should be done together.                                                    *)
+(* The paper's two-product, taken to be `Fast2Mult': the rounded product and  *)
+(* the rounding of what it left.  That is what `twoProd_FLX' above says the   *)
+(* program's two-product computes, and the note beside the paper's own        *)
+(* hypothesis - "or Dekker's algorithm" - is that same remark.                *)
+Notation XFast2Mult := (DWTimesFP.Fast2Mult prec Dchoice).
+
+(* The hypothesis the paper leaves open: the two-product is error free.  It   *)
+(* holds of numbers of the format, and only of them, which is what the        *)
+(* hypothesis now asks - the error of a product is itself a number of the     *)
+(* format, so rounding it changes nothing and the pair adds back up.          *)
+Lemma XFast2Mult_correct a b :
+  Xformat a -> Xformat b ->
+  a * b = fst (XFast2Mult a b) + snd (XFast2Mult a b).
+Proof.
+move=> Fa Fb.
+have Hp0 : Prec_gt_0 prec by [].
+have Hf : Xformat (a * b - Xrnd (a * b)).
+  by rewrite -Ropp_minus_distr; apply/generic_format_opp/mult_error_FLX.
+by rewrite /DWTimesFP.Fast2Mult /= (round_generic _ _ _ _ Hf); ring.
+Qed.
+
+(* `XtimesDwFp1' IS the paper's `DWTimesFP': the same two-product, the same   *)
+(* lone product and the same two Fast2Sum, in the same order.                 *)
+Lemma XtimesDwFp1E yh yl t :
+  XtimesDwFp1 yh yl t = DWTimesFP.DWTimesFP prec Dchoice XFast2Mult yh yl t.
+Proof. by []. Qed.
+
+(* And `XdivDwDw2' is the paper's `DWDivDW2' but for ONE place: the paper     *)
+(* writes the head difference `xh - rh' with no rounding, because that        *)
+(* subtraction is exact, and the program of course rounds it.  `Algo15_P' is  *)
+(* that exactness, so the rounding may be dropped and the two are the same.   *)
+Lemma XdivDwDw2E xh xl yh yl :
+  DWPlus.double_word prec Dchoice xh xl ->
+  DWPlus.double_word prec Dchoice yh yl -> yh <> 0 ->
+  XdivDwDw2 xh xl yh yl = DWDivDW2 prec Dchoice XFast2Mult xh xl yh yl.
+Proof.
+move=> DWx DWy yhn0.
+have Hp1 : (1 < prec)%Z by [].
+have Hp4 : (4 <= prec)%Z by [].
+have Hf := Algo15_P Hp1 eq_refl XFast2Mult_correct eq_refl Hp4 yhn0 DWx DWy.
+rewrite /XdivDwDw2 /DWDivDW2 XtimesDwFp1E.
+rewrite (surjective_pairing (DWTimesFP.DWTimesFP _ _ _ _ _ _)) /=.
+by rewrite (round_generic _ _ _ _ Hf).
+Qed.
+
+(* The unit roundoff, as the paper writes it.                                 *)
+Notation Du := (bpow radix2 (- prec)).
+
+(* THE QUOTIENT OF TWO DOUBLE WORDS, ON PRIMITIVE FLOATS.  Theorem 7.1 of    *)
+(* the paper, said of the program: fifteen units in the last place of the low *)
+(* word, and a little.  Two things are asked of the numbers, and nothing      *)
+(* else: that the arguments really are double words, and that the guard hold  *)
+(* - every step a number, and the product and the two quotients in the range  *)
+(* where the two formats agree.                                               *)
+Theorem divDwDw2_relerr xh xl yh yl :
+  DdivDwDw2Fin xh xl yh yl ->
+  D2R xh = Drnd (D2R xh + D2R xl) ->
+  D2R yh = Drnd (D2R yh + D2R yl) ->
+  Rabs ((D2R (dwhi (divDwDw2 (DWFloat xh xl) (DWFloat yh yl))) +
+         D2R (dwlo (divDwDw2 (DWFloat xh xl) (DWFloat yh yl))) -
+         (D2R xh + D2R xl) / (D2R yh + D2R yl)) /
+        ((D2R xh + D2R xl) / (D2R yh + D2R yl))) <=
+  15 * Du ^ 2 + 56 * Du ^ 3.
+Proof.
+move=> F Ex Ey.
+have [Eh El] := divDwDw2_FLX xh xl yh yl F.
+have DWx := Ddw_FLX _ _ (Dformat xh) (Dformat xl) Ex.
+have DWy := Ddw_FLX _ _ (Dformat yh) (Dformat yl) Ey.
+have yhn0 : D2R yh <> 0.
+  case: (F) => [_ [_ [_ [_ [_ [_ [_ [_ [_
+             [_ [_ [_ [_ [_ [_ [_ [Hq1 _]]]]]]]]]]]]]]]]].
+  exact: Dnz_of_norm Hq1.
+have Hp1 : (1 < prec)%Z by [].
+have Hp7 : (7 <= prec)%Z by [].
+have K := DWDDW_correct Hp1 eq_refl XFast2Mult_correct eq_refl DWx DWy Hp7 yhn0.
+rewrite Eh El (XdivDwDw2E _ _ _ _ DWx DWy yhn0).
+exact: K.
+Qed.
