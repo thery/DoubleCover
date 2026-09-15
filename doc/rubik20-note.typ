@@ -646,7 +646,10 @@ phase of Kociemba's solver @kociemba, hence the name *phase 1* used below:
 *Every summary stands for exactly 19 508 428 800 real positions*. The table
 records, for each summary, its distance from the solved summary. No stored
 distance is larger than 12, so four bits hold one entry and the whole table is
-*1.18 GB*.
+*1.18 GB*. This one cut is what makes the search possible: even with the
+reductions described later, the tree still holds about $4.5 dot 10^20$ nodes,
+and the search that runs visits 146 billion positions, one node in three
+billion.
 
 = The search in Rocq
 
