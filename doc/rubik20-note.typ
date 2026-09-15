@@ -643,8 +643,8 @@ phase of Kociemba's solver @kociemba, hence the name *phase 1* used below:
   ([*the phase 1 summary, all three together*], [*2 217 093 120*], []),
 )
 
-Two billion is small next to 43 quintillion. *Every summary stands for exactly
-19 508 428 800 real positions*, and that division comes out even. The table
+*Every summary stands for exactly 19 508 428 800 real positions*, and that
+division comes out even. The table
 records, for each summary, its distance from the solved summary. No entry is
 larger than 12, which is how deep the deepest summary lies. So four bits hold
 one entry, and the whole table is *1.18 GB*.
