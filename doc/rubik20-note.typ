@@ -715,9 +715,10 @@ answer as `act`. So the search never recomputes a summary. It keeps the summary
 next to the position and updates it with one lookup per move. The position is
 still needed, since only it tells whether the cube is solved.
 
-Beside the `search` of #src("Search.v"), the search that runs has this shape.
-Names are simplified and the machine-integer details left out. The real one is
-`searchz3` in #src("Farp1.v"):
+The search that actually runs is the `search` of #src("Search.v") with the
+summary carried alongside the position. Here is its shape, with names
+simplified and the machine-integer details left out; the real one is `searchz3`
+in #src("Farp1.v"):
 
 ```coq
 Fixpoint search (d : nat) (g : gT) (x : summary) (p : move) : bool :=
