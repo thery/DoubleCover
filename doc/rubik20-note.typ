@@ -643,11 +643,10 @@ The summary is the product of the three values:
 )
 
 *Every summary stands for exactly 19 508 428 800 real positions*. The table
-records, for each summary, its distance from the solved summary. No stored
-distance is larger than 12, so four bits hold one entry and the whole table is
-*1.18 GB*. The cut is quite effective. A search at depth 14, for instance,
-visits 470 786 nodes, out of the $1.07 dot 10^15$ the same tree holds without
-it: one node in two billion. In the following, we call this summary the *phase
+records, for each summary, its distance from the solved summary. Four bits hold
+one entry and the whole table is *1.18 GB*. The cut is quite effective. A
+search at depth 14, for instance, visits 470 786 nodes, out of the
+$1.07 dot 10^15$ the same tree holds without it: one node in two billion. In the following, we call this summary the *phase
 1 summary*, after the first phase of Kociemba's solver @kociemba, and *phase 1
 table* the table of its distances.
 
@@ -746,25 +745,32 @@ one job:
 
 == The table and its two conditions
 
-`D0` and `Dstep` are all the search asks of the estimate. For the phase 1
-summary, `D` is a lookup in the phase 1 table, so proving them comes down to
-two statements about that table:
+For the phase 1 summary, `D` is a lookup in the phase 1 table, so `D0` and
+`Dstep` become two statements about that table:
 
 - the entry of the solved summary is zero;
 - every entry is at most one more than the entry reached from it by any of the
   eighteen moves.
 
-Both are boolean and both are closed by computation. The first is one lookup.
-The second is a sweep: 2.2 billion summaries, eighteen moves each, one
-comparison apiece. `Dstep` speaks of every value of `X`, not only of the
-summaries of real positions, and that is what makes the sweep possible. The
-check never has to know which value comes from a cube.
+The table is written by an OCaml program, which walks the summaries breadth
+first from the solved one. The walk stops at nine. So an entry holds the true
+distance of its summary while that is at most nine, and ten for every summary
+further away, whatever its real distance. Four bits hold a number up to
+fifteen, so the exact distances would have fitted in the same table. The walk
+was stopped all the same. Staying under the true distance is the safe side: it
+makes the estimate smaller, never larger.
 
-Nothing is proved about the distances themselves. A table of zeros passes both
-conditions: the search would prune nothing and run for ever, and its answer
-would still be right. So the generator is not trusted. Ours is an OCaml program
-that writes the table out as Rocq source, and the two statements are checked on
-it afterwards.
+The proof checks none of that. The two statements are all it checks, and they
+are enough: together they make the estimate a lower bound on the moves still
+needed, which is what lets a branch be cut. A table of zeros would pass both.
+It would prune nothing and the search would run for ever, but the answer would
+still be right. So the generator is not trusted. It writes the table out as
+Rocq source, and the two statements are checked on it afterwards.
+
+The first is one lookup. The second is a sweep: 2.2 billion summaries, eighteen
+moves each, one comparison apiece. `Dstep` speaks of every value of `X`, not
+only of the summaries of real positions, and that is what makes the sweep
+possible. It never has to know which value comes from a cube.
 
 == Three cuts at the top of the tree
 
