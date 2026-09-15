@@ -762,8 +762,8 @@ give a wrong answer.
 
 *How the two conditions are checked.* In the instantiation with the phase 1
 summary, `coordM` is proved by a mathematical argument, while `D0` and `Dstep`
-are proved by computation, entry by entry. Look again at `Dstep`. Unlike `D0`, it
-does not mention `coord`. It speaks of every value `x` in `X`, and not only of
+are proved by computation, entry by entry. Look again at `Dstep`. Unlike `D0`,
+it does not mention `coord`. It speaks of every value `x` in `X`, and not only of
 the values that are the summary of a real position. That is deliberate, and it
 is what makes the check possible. `X` is a finite set of 2.2 billion values, so
 the check runs over all of them and never has to know which come from a cube.
