@@ -698,8 +698,10 @@ search fast enough to run.
 
 == The summary and its table
 
-The summary and its table are described in their own generic file,
-#src("Coord.v"), which asks for three things and checks two:
+The estimate $h$ is built in a second generic file, #src("Coord.v"). It is
+given the summary of a position, the way a move acts on a summary, and the
+table of distances. Three hypotheses come with them: one about the summary,
+which is proved, and two about the table, which are checked by computation.
 
 ```coq
 Variable coord : {perm facelet} -> X.
