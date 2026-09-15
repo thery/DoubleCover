@@ -594,11 +594,12 @@ that deepens step by step and prunes on one is Korf's IDA\* @korf1985ida.
 
 The estimate has to come from somewhere, and the idea is to forget most of the
 cube. Keep only part of the information, say how the corners are twisted and
-where the four middle-layer edges sit, and call what is left a *summary*. Many scrambles share a summary. Moves act on
-summaries as well as on cubes, and there are few enough summaries that a
-computer can work out, once and for all, the exact distance from the solved
-summary to every other one. That table of distances is the estimate. A scramble
-needs at least as many moves as its summary does.
+where the four middle-layer edges sit, and call what is left a *summary*. Many
+positions can share the same summary. Moves act on summaries as well as on
+cubes, and there are few enough summaries that a computer can work out, once
+and for all, the exact distance from the solved summary to every other one.
+That table of distances is the estimate. A position needs at least as many
+moves as its summary does.
 
 This is not new either. A table of exact distances in a simplified version of a
 puzzle is a _pattern database_ @culberson1998pattern, and Korf solved the cube
