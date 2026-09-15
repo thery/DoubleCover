@@ -633,7 +633,8 @@ about the position is recorded.
   caption: [The three things a summary records.],
 ) <encoding>
 
-The summary is the product of the three values:
+The summary is the product of the three values. It is the summary of the first
+phase of Kociemba's solver @kociemba, hence the name *phase 1* used below:
 
 #tbl(([summary], [values], []),
   ([how the eight corners are twisted], [2 187], [$= 3^7$]),
