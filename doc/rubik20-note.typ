@@ -548,21 +548,17 @@ wants to check the model has only to compare the six lists of cycles against
 
 = Searching for the lower bound
 
-We are looking for a lower bound for the superflip: we want to know that it
-cannot be solved in nineteen moves. A solution is a word of moves that takes
-the superflip back to the solved cube. So the question is whether one of
-nineteen moves or less exists.
-
-A naive way to answer is to try them all. Start at the superflip. Play one of
-the eighteen moves and look at the cube it gives. If we reach the solved cube,
-the word played so far is a solution. If we do not, play another move, and stop
-when nineteen have been played. The words form a tree: the superflip at the
-root, eighteen branches at every node, nineteen levels deep.
-
-If the solved cube never turns up in that tree, no word of nineteen moves
-solves the superflip, and twenty is a lower bound. So the proof is a search
-that finds nothing. Walked in full the tree is the $18^19$ words counted above,
-so it has to be cut down.
+We want to know that the superflip cannot be solved in nineteen moves. A
+solution is a word of moves that takes it back to the solved cube, so the
+question is whether one of nineteen moves or less exists, and the naive way to
+answer is to try them all. Start at the superflip, play one of the eighteen
+moves and look at the cube it gives: if it is the solved cube the word played
+so far is a solution, and if it is not, play another move, stopping when
+nineteen have been played. The words form a tree, the superflip at the root,
+eighteen branches at every node, nineteen levels deep. If the solved cube never
+turns up in it, no word of nineteen moves solves the superflip and twenty is a
+lower bound, so the proof is a search that finds nothing. Walked in full the
+tree is the $18^19$ words counted above, so it has to be cut down.
 
 == The pruning estimate
 
