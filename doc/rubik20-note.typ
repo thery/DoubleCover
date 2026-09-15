@@ -691,11 +691,6 @@ Again, here is what each line says:
 The last line exactly states what we need about the search: *if the search
 returns false, the position is not in the ball of radius $d$.*
 
-That is a theorem, proved once, about any estimate that satisfies the two
-assumptions. Everything else in the development is there for one of two
-reasons: to discharge those two assumptions for the real table, or to make the
-search fast enough to run.
-
 == The summary and its table
 
 The estimate $h$ is built in a second generic file, #src("Coord.v"). It is
