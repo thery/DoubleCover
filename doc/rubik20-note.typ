@@ -603,9 +603,9 @@ of summary comes from Culberson and Schaeffer, who call such a table a _pattern
 database_ @culberson1998pattern, and Korf solved the cube optimally with three
 of them @korf1997rubik.
 
-The summary we have used is Kociemba's, from his two-phase solver @kociemba. It
-is read straight off the sticker numbers, and @encoding shows the three things
-it records. A corner has one sticker belonging to the up or down face,
+The summary we have used is Kociemba's, from his two-phase solver @kociemba.
+@encoding shows the three things it records. A corner has one sticker belonging
+to the up or down face,
 and that sticker sits in one of three places, which is 0, 1 or 2. An edge is
 either the right way round or turned over, which is 0 or 1. The four edges of
 the middle layer occupy four of the twelve edge slots. The figure shades them
