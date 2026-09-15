@@ -648,7 +648,8 @@ distance is larger than 12, so four bits hold one entry and the whole table is
 *1.18 GB*. The cut is quite effective. A search at depth 14, for instance,
 visits 470 786 nodes, out of the $1.07 dot 10^15$ the same tree holds without
 it: one node in two billion. In the following, we call this summary the *phase
-1* summary, after the first phase of Kociemba's solver @kociemba.
+1 summary*, after the first phase of Kociemba's solver @kociemba, and *phase 1
+table* the table of its distances.
 
 = The search in Rocq
 
@@ -746,7 +747,7 @@ one job:
 == The table and its two conditions
 
 `D` is the estimate. It takes a summary and gives back a number, read from the
-table of distances of section 3, the one with an entry per summary. `D0` and
+phase 1 table. `D0` and
 `Dstep` are everything asked of it. `D0` says the solved cube gets zero.
 `Dstep` says that one move lowers the estimate by at most one.
 
