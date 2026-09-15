@@ -718,8 +718,9 @@ still needed, since only it tells whether the cube is solved.
 The `search` of #src("Search.v") is refined to carry the summary along and
 update it move by move. One update is two lookups in a move table, whereas
 computing the summary from the position would go through the eight corners and
-the twelve edges, at every node of the tree. It also tries only the moves the
-rules allow. Here is
+the twelve edges, at every node of the tree. It also plays fewer moves:
+turning the same face twice running is never useful, and the other rules of
+that kind are the subject of the next subsection. Here is
 its shape, with names simplified and some details left out; the real one is
 `searchz3` in #src("Farp1.v"):
 
