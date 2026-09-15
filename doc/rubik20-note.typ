@@ -686,8 +686,8 @@ Again, here is what each line says:
 - `has (fun m => search d' (g * m)) Sseq` tries every move with one fewer
   move available, and answers as soon as one of them succeeds.
 
-The last line is the contract of the whole development: *if the search returns
-false, the position is not within $d$ moves.*
+The last line is what the whole development rests on: *if the search returns
+false, the position is not in the ball of radius $d$.*
 
 That is a theorem, proved once, about any estimate that satisfies the two
 assumptions. Everything else in the development is there for one of two
