@@ -602,10 +602,10 @@ position, compute its summary, and look its distance up in the table. A
 position needs at least as many moves as its summary does, so this is a lower
 bound.
 
-This is not new either. A table of exact distances in a simplified version of a
-puzzle is a _pattern database_ @culberson1998pattern, and Korf solved the cube
-optimally with three of them @korf1997rubik. The summary we use is Kociemba's,
-from his two-phase solver @kociemba.
+This idea of summary comes from Culberson and Schaeffer, who call such a table
+a _pattern database_ @culberson1998pattern. Korf solved the cube optimally with
+three of them @korf1997rubik, and the summary we use is Kociemba's, from his
+two-phase solver @kociemba.
 
 A summary is read straight off the sticker numbers. @encoding shows the three
 questions it asks. A corner has one sticker belonging to the up or down face,
