@@ -747,8 +747,8 @@ one job:
 
 `D` is the estimate. It takes a summary and gives back a number, read from the
 table of distances of section 3, the one with an entry per summary. `D0` and
-`Dstep` are everything asked of it. `D0` says the solved cube gets zero. `Dstep` says that one move
-lowers the estimate by at most one.
+`Dstep` are everything asked of it. `D0` says the solved cube gets zero.
+`Dstep` says that one move lowers the estimate by at most one.
 
 That is a weak demand. The table is never proved to hold the true distance to
 the solved cube. A table of zeros passes both conditions. It would prune
