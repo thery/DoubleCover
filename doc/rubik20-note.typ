@@ -557,8 +557,9 @@ so far is a solution, and if it is not, play another move, stopping when
 nineteen have been played. The words form a tree, the superflip at the root,
 eighteen branches at every node, nineteen levels deep. If the solved cube never
 turns up in it, no word of nineteen moves solves the superflip and twenty is a
-lower bound, so the proof is a search that finds nothing. Walked in full the
-tree is the $18^19$ words counted above, so it has to be cut down.
+lower bound. Proving the bound therefore means going through the whole tree and
+not finding the solved cube in it. Walked in full the tree is the $18^19$ words
+counted above, far too many to try, so the naive approach has to be refined.
 
 == The pruning estimate
 
