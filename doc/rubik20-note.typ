@@ -572,9 +572,9 @@ everything below it, as @tree shows.
     }
     tedge(0, -0.1, 4.6, -0.95)
     tlbl(-7.3, -1.05, [after one move:])
-    tlbl(-5.4, -1.45, [the table says 17])
-    tlbl(-1.8, -1.45, [the table says 20])
-    tlbl(1.8, -1.45, [the table says 11])
+    tlbl(-5.4, -1.45, [$h$ says 17])
+    tlbl(-1.8, -1.45, [$h$ says 20])
+    tlbl(1.8, -1.45, [$h$ says 11])
     tlbl(5.1, -1.05, [$dots.h$])
     tlbl(5.4, -1.45, [and fifteen more])
     tlbl(-1.8, -1.85, text(fill: rgb("#b00"))[#sym.times ~ cut: 20 > 18])
@@ -590,7 +590,7 @@ everything below it, as @tree shows.
 Such a lower bound is called an *admissible* estimate, and a depth-first search
 that deepens step by step and prunes on one is Korf's IDA\* @korf1985ida.
 
-== The origin of the estimate
+== How to get a cheap estimate
 
 The estimate has to come from somewhere, and the idea is to forget most of the
 cube. Keep only part of the information, say how the corners are twisted and
