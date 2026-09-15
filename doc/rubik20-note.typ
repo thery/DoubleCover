@@ -604,8 +604,8 @@ database_ @culberson1998pattern, and Korf solved the cube optimally with three
 of them @korf1997rubik.
 
 The summary we have used is Kociemba's, from his two-phase solver @kociemba. It
-is read straight off the sticker numbers, and @encoding shows the three
-questions it asks. A corner has one sticker belonging to the up or down face,
+is read straight off the sticker numbers, and @encoding shows the three things
+it records. A corner has one sticker belonging to the up or down face,
 and that sticker sits in one of three places, which is 0, 1 or 2. An edge is
 either the right way round or turned over, which is 0 or 1. The four edges of
 the middle layer occupy four of the twelve edge slots. The figure shades them
@@ -615,25 +615,25 @@ about the position is recorded.
 #figure(
   cetz.canvas(length: 1cm, {
     import cetz.draw: *
-    content((-4.4, 4.5), text(size: 9pt)[*a corner*: where is its up sticker?])
+    content((-4.4, 4.5), text(size: 9pt)[*a corner*: the place of its up sticker])
     cubie((-6.2, 2.5), "top")
     cubie((-4.4, 2.5), "front")
     cubie((-2.6, 2.5), "right")
     content((-6.2, 2.15), text(size: 9pt)[0])
     content((-4.4, 2.15), text(size: 9pt)[1])
     content((-2.6, 2.15), text(size: 9pt)[2])
-    content((-4.4, 1.5), text(size: 9pt)[*an edge*: is it turned over?])
+    content((-4.4, 1.5), text(size: 9pt)[*an edge*: turned over or not])
     cubie((-5.3, -0.4), "top")
     cubie((-3.5, -0.4), "front")
     content((-5.3, -0.75), text(size: 9pt)[0])
     content((-3.5, -0.75), text(size: 9pt)[1])
-    content((3.4, 4.5), text(size: 9pt)[*the middle layer*: which four slots?])
+    content((3.4, 4.5), text(size: 9pt)[*the middle layer*: its four slots])
     cube3dn(3.4, hi: (19, 20, 27, 28))
   }),
-  caption: [The three questions a summary asks.],
+  caption: [The three things a summary records.],
 ) <encoding>
 
-The summary is the product of the three answers:
+The summary is the product of the three values:
 
 #tbl(([summary], [values], []),
   ([how the eight corners are twisted], [2 187], [$= 3^7$]),
@@ -643,7 +643,7 @@ The summary is the product of the three answers:
 )
 
 The name comes from Kociemba's solving algorithm, which works in two phases.
-Its first phase brings exactly these three answers to zero, and the summary is
+Its first phase brings exactly these three values to zero, and the summary is
 what it watches while doing so. The algorithm itself plays no part here. We
 borrow only the name, because it is the one everybody uses for this table.
 
