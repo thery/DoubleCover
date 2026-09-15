@@ -597,8 +597,9 @@ cube. Keep only part of the information, say how the corners are twisted and
 where the four middle-layer edges sit, and call what is left a *summary*. Many
 positions can share the same summary. Moves act on summaries as well as on
 cubes, and summaries are few enough to compute the distance of each one to the
-solved summary. That table of distances is the estimate. A position needs at
-least as many moves as its summary does.
+solved summary and keep them all in a table. This gives $h$: take a position,
+compute its summary, and look its distance up in the table. A position needs at
+least as many moves as its summary does, so this is a lower bound.
 
 This is not new either. A table of exact distances in a simplified version of a
 puzzle is a _pattern database_ @culberson1998pattern, and Korf solved the cube
