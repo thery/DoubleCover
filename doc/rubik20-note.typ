@@ -548,18 +548,11 @@ wants to check the model has only to compare the six lists of cycles against
 
 = Searching for the lower bound
 
-We want to know that the superflip cannot be solved in nineteen moves. A
-solution is a word of moves that takes it back to the solved cube, so the
-question is whether one of nineteen moves or less exists, and the naive way to
-answer is to try them all. Start at the superflip, play one of the eighteen
-moves and look at the cube it gives: if it is the solved cube the word played
-so far is a solution, and if it is not, play another move, stopping when
-nineteen have been played. The words form a tree, the superflip at the root,
-eighteen branches at every node, nineteen levels deep. If the solved cube never
-turns up in it, no word of nineteen moves solves the superflip and twenty is a
-lower bound. Proving the bound therefore means going through the whole tree and
-not finding the solved cube in it. Walked in full the tree is the $18^19$ words
-counted above, far too many to try, so the naive approach has to be refined.
+We want to know that the superflip cannot be solved in nineteen moves. The
+naive way is to try every word of at most nineteen moves, starting from the
+superflip: if the solved cube never turns up, the lower bound is twenty. A tree
+of depth 19 with a branching of 18 is $18^19$ words, far too many to make the
+search practical. This naive method has to be refined.
 
 == The pruning estimate
 
