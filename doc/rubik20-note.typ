@@ -701,9 +701,7 @@ search fast enough to run.
 The estimate $h$ is built in a second generic file, #src("Coord.v"). It is
 given the summary of a position, the way a move acts on a summary, and the
 table of distances. Three hypotheses come with them, one about the summary and
-two about the table. When the file is instantiated, the one about the summary
-is proved by a mathematical argument, while the two about the table are proved
-by computation, checking every entry of the table.
+two about the table.
 
 ```coq
 Variable coord : {perm facelet} -> X.
@@ -762,7 +760,9 @@ the solved cube. A table of zeros passes both conditions. It would prune
 nothing and the search would run for ever, but it would not make the search
 give a wrong answer.
 
-*How the two conditions are checked.* Look again at `Dstep`. Unlike `D0`, it
+*How the two conditions are checked.* In the instantiation with the phase 1
+summary, `coordM` is proved by a mathematical argument, while `D0` and `Dstep`
+are proved by computation, entry by entry. Look again at `Dstep`. Unlike `D0`, it
 does not mention `coord`. It speaks of every value `x` in `X`, and not only of
 the values that are the summary of a real position. That is deliberate, and it
 is what makes the check possible. `X` is a finite set of 2.2 billion values, so
