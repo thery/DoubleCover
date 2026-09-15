@@ -158,8 +158,16 @@ Definition XdivDwDw2 (xh xl yh yl : R) : R * R :=
 
 (* Every number the program makes is a number, and every step that rounds a   *)
 (* product or a quotient does so in the range where the two formats agree.    *)
-(* The product also has to be above the line where the two-product stops       *)
-(* missing it, and that line is the higher of the two, so it carries both.     *)
+(* The product also has to be above the line where the two-product stops      *)
+(* missing it, and that line is the higher of the two, so it carries both.    *)
+(*                                                                            *)
+(* THE STEPS SHOULD BE NAMED, NOT WRITTEN OUT, and that is worth doing.  Said *)
+(* of the expressions themselves, as below, each condition carries the whole  *)
+(* of the algorithm up to it: the last is a page, and the proof context is    *)
+(* unreadable.  The same thing said of sixteen named floats with an equation  *)
+(* apiece - `t = xh / yh', `twoProd yh t = DWFloat ch cl1', and so on - asks  *)
+(* exactly as much and every hypothesis stays one line.  The proof below      *)
+(* would lose nothing by it; it is a restatement, not a repair.               *)
 Definition DdivDwDw2Fin (xh xl yh yl : PrimFloat.float) :=
   let t := (xh / yh)%float in
   let ch := dwhi (twoProd yh t) in
