@@ -698,7 +698,8 @@ search fast enough to run.
 
 == The summary and its table
 
-#src("Coord.v") asks for three things and checks two:
+The summary and its table are described in their own generic file,
+#src("Coord.v"), which asks for three things and checks two:
 
 ```coq
 Variable coord : {perm facelet} -> X.
