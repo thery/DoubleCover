@@ -320,8 +320,8 @@ edges in any order ($12!$), each flipped or not with the last again forced
 independently of each other.
 
 Turning one face is a _move_, and a half turn counts as one move just like a
-quarter turn. Every scramble can be undone. The question is how many moves the
-worst scramble needs. That number is called *God's number*.
+quarter turn. Every position can be solved. The question is how many moves the
+worst position needs. That number is called *God's number*.
 
 Counting a half turn as one move is a choice. A half turn can also count as two
 moves, and that gives a second number for the same cube. We prove a lower bound
@@ -331,9 +331,9 @@ In 2010 Rokicki, Kociemba, Davidson and Dethridge showed that it is *20*
 @rokicki2013diameter. Their result has two halves. One half is that twenty moves
 always suffice. It is the huge one, and the last section of this note says how
 it was obtained. The other half is that twenty moves are sometimes needed. For
-that it is enough to take one scramble and show it cannot be solved in 19.
+that it is enough to take one position and show it cannot be solved in 19.
 
-We take one scramble: the *superflip*, drawn in @sflip beside a solved cube.
+We take one position: the *superflip*, drawn in @sflip beside a solved cube.
 Every corner sticker is where it belongs. Every edge is in its own place but
 turned over, so it shows the colour of the face beside it. Look at the cube
 from any angle, or in a mirror, and the pattern is the same. The superflip is
@@ -459,10 +459,10 @@ and back. Each of them can also be done twice or backwards, which gives the
   )
 ]
 
-A scramble is a product of moves, for instance $R U R^(-1) U^(-1)$, a word of
-length 4. The set of all scrambles is a group $G$: the *cube group*. Solving a
-scramble in $d$ moves means writing it as a word of $d$ moves. So "solvable in
-at most $d$ moves" says that the scramble lies in the *ball of radius $d$*
+A position is a product of moves, for instance $R U R^(-1) U^(-1)$, a word of
+length 4. The set of all positions is a group $G$: the *cube group*. Solving a
+position in $d$ moves means writing it as a word of $d$ moves. So "solvable in
+at most $d$ moves" says that the position lies in the *ball of radius $d$*
 around the solved cube. God's number is the largest distance that occurs.
 
 == The cube in Rocq
@@ -495,7 +495,7 @@ Here is what each line says:
   pictures of this note.
 - `{perm facelet}` is the type of *permutations* of those places: a way of
   sending each place to a place, no two of them landing on the same one. That
-  is exactly what a scramble is.
+  is exactly what a position is.
 - `cyc [:: 0@; 2@; 7@; 5@]` is the *cycle* that sends 0 to 2, 2 to 7, 7 to 5
   and 5 back to 0, leaving the other forty-four places where they are. The
   `@` is local notation turning a plain number into a place.
@@ -643,7 +643,7 @@ The summary is the product of the three values:
 )
 
 Two billion is small next to 43 quintillion. *Every summary stands for exactly
-19 508 428 800 real scrambles*, and that division comes out even. The table
+19 508 428 800 real positions*, and that division comes out even. The table
 records, for each summary, its distance from the solved summary. No entry is
 larger than 12, which is how deep the deepest summary lies. So four bits hold
 one entry, and the whole table is *1.18 GB*.
