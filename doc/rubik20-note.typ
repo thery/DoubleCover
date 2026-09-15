@@ -746,11 +746,11 @@ one job:
 
 == The table and its two conditions
 
-`D` is the estimate. It is a variable of the file: any function from summaries
-to numbers will do, and in the instantiation it reads the phase 1 table. `D0`
-and `Dstep` are everything asked of it. `D0` says the
-solved cube gets zero.
-`Dstep` says that one move lowers the estimate by at most one.
+`D` is the estimate, a variable of the file: any function from summaries to
+numbers will do. `D0` and `Dstep` are everything asked of it: `D0` says the
+solved cube gets zero, and `Dstep` says that one move lowers the estimate by at
+most one. When the file is instantiated, `D` becomes the lookup in the phase 1
+table, and these two conditions have to be proved for it.
 
 That is a weak demand. The table is never proved to hold the true distance to
 the solved cube. A table of zeros passes both conditions. It would prune
