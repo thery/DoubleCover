@@ -546,7 +546,7 @@ Nothing here is assumed. There is no axiom saying what a cube is. A reader who
 wants to check the model has only to compare the six lists of cycles against
 @net. After these two files, stickers are never mentioned again.
 
-= The lower bound as a search
+= Searching for the lower bound
 
 We are looking for a lower bound for the superflip: we want to know that it
 cannot be solved in nineteen moves. A solution is a word of moves that takes
