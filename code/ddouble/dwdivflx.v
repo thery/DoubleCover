@@ -128,3 +128,126 @@ have Hf : Xformat (D2R a * D2R b - Xrnd (D2R a * D2R b)).
   by apply: mult_error_FLX; exact: Dformat_FLX.
 by rewrite (round_generic _ _ _ _ Hf).
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The quotient, composed                                                    *)
+(* ---------------------------------------------------------------------------*)
+
+(* What the program computes, written on the reals of the format with no      *)
+(* bottom.  Step for step `divDwDw2' of dwarith.v, with each float operation  *)
+(* replaced by the rounding of the real one.                                  *)
+Definition XtwoProd (a b : R) : R * R :=
+  (Xrnd (a * b), Xrnd (a * b - Xrnd (a * b))).
+
+Definition XtimesDwFp1 (yh yl t : R) : R * R :=
+  let ch := fst (XtwoProd yh t) in
+  let cl1 := snd (XtwoProd yh t) in
+  let cl2 := Xrnd (yl * t) in
+  let v := F2Sum.Fast2Sum prec Dchoice ch cl2 in
+  let tl2 := Xrnd (snd v + cl1) in
+  F2Sum.Fast2Sum prec Dchoice (fst v) tl2.
+
+Definition XdivDwDw2 (xh xl yh yl : R) : R * R :=
+  let t := Xrnd (xh / yh) in
+  let r := XtimesDwFp1 yh yl t in
+  let pih := Xrnd (xh - fst r) in
+  let dl := Xrnd (xl - snd r) in
+  let d := Xrnd (pih + dl) in
+  let tl := Xrnd (d / yh) in
+  F2Sum.Fast2Sum prec Dchoice t tl.
+
+(* Every number the program makes is a number, and every step that rounds a   *)
+(* product or a quotient does so in the range where the two formats agree.    *)
+(* The product also has to be above the line where the two-product stops       *)
+(* missing it, and that line is the higher of the two, so it carries both.     *)
+Definition DdivDwDw2Fin (xh xl yh yl : PrimFloat.float) :=
+  let t := (xh / yh)%float in
+  let ch := dwhi (twoProd yh t) in
+  let cl1 := dwlo (twoProd yh t) in
+  let cl2 := (yl * t)%float in
+  let v := fastTwoSum ch cl2 in
+  let tl2 := (dwlo v + cl1)%float in
+  let rh := dwhi (fastTwoSum (dwhi v) tl2) in
+  let rl := dwlo (fastTwoSum (dwhi v) tl2) in
+  let pih := (xh - rh)%float in
+  let dl := (xl - rl)%float in
+  let d := (pih + dl)%float in
+  let tl := (d / yh)%float in
+  Dfin xh /\ Dfin xl /\ Dfin yh /\ Dfin yl /\ Dfin t /\
+  Dfin ch /\ Dfin cl1 /\ Dfin cl2 /\ DfastTwoSumFin ch cl2 /\
+  Dfin tl2 /\ DfastTwoSumFin (dwhi v) tl2 /\
+  Dfin pih /\ Dfin dl /\ Dfin d /\
+  Dfin tl /\ DfastTwoSumFin t tl /\
+  (Dnorm <= Rabs (D2R xh / D2R yh))%R /\
+  (Dprodlo <= Rabs (D2R yh * D2R t))%R /\
+  (Dnorm <= Rabs (D2R yl * D2R t))%R /\
+  (Dnorm <= Rabs (D2R d / D2R yh))%R.
+
+(* The divisor is not nought, and that comes free with the range condition:   *)
+(* a quotient by nought is read as nought here, and nought is not above the   *)
+(* smallest normal number.                                                    *)
+Lemma Dnz_of_norm a b : (Dnorm <= Rabs (D2R a / D2R b))%R -> D2R b <> 0%R.
+Proof.
+move=> Hn Hb0; move: Hn; rewrite Hb0 /Rdiv Rinv_0 Rmult_0_r Rabs_R0.
+by have := bpow_gt_0 radix2 (SpecFloat.emin prec emax + prec - 1); lra.
+Qed.
+
+(* The composition, written out: the calls the program makes, in order.       *)
+Lemma divDwDw2E xh xl yh yl :
+  divDwDw2 (DWFloat xh xl) (DWFloat yh yl) =
+  (let t := (xh / yh)%float in
+   let: DWFloat rh rl := timesDwFp1 (DWFloat yh yl) t in
+   fastTwoSum t (((xh - rh) + (xl - rl)) / yh)%float).
+Proof. by rewrite /divDwDw2; case: (timesDwFp1 _ _). Qed.
+
+(* THE COMPOSITION.  The program computes, number for number, what the       *)
+(* definition above computes on the reals: one quotient, the two-product, a   *)
+(* product, two Fast2Sum, two differences, a sum, a second quotient and a     *)
+(* third Fast2Sum.  Nothing is asked of the values but that every step be a   *)
+(* number, and that the product and the two quotients be in the range where   *)
+(* the two formats agree.                                                     *)
+Lemma divDwDw2_FLX xh xl yh yl :
+  DdivDwDw2Fin xh xl yh yl ->
+  D2R (dwhi (divDwDw2 (DWFloat xh xl) (DWFloat yh yl))) =
+    fst (XdivDwDw2 (D2R xh) (D2R xl) (D2R yh) (D2R yl)) /\
+  D2R (dwlo (divDwDw2 (DWFloat xh xl) (DWFloat yh yl))) =
+    snd (XdivDwDw2 (D2R xh) (D2R xl) (D2R yh) (D2R yl)).
+Proof.
+move=> [Fxh [Fxl [Fyh [Fyl [Ft [Fch [Fcl1 [Fcl2 [G1 [Ftl2 [G2
+       [Fpih [Fdl [Fd [Ftl [G3 [Hq1 [Hp1 [Hm1 Hq2]]]]]]]]]]]]]]]]]]].
+have Hyh := Dnz_of_norm _ _ Hq1.
+(* the first quotient *)
+have [Et _] := Dfin_div _ _ Fxh Hyh Ft.
+rewrite (Drnd_FLX_div xh yh Hq1) in Et.
+(* the two-product.  The line above which it does not miss is higher than    *)
+(* the one where the two formats agree, so it carries both.                  *)
+have Hnp : (Dnorm <= Rabs (D2R yh * D2R (xh / yh)%float))%R.
+  by apply: Rle_trans Hp1; apply: bpow_le.
+have [Ech Ecl1] := twoProd_FLX yh (xh / yh)%float Fyh Ft Fch Fcl1 Hnp Hp1.
+(* the lone product, and the first Fast2Sum *)
+have [Ecl2 _] := Dfin_mul _ _ Fyl Ft Fcl2.
+rewrite (Drnd_FLX_mult yl (xh / yh)%float Hm1) in Ecl2.
+have [Fvh Fvl] := fastTwoSum_fin _ _ G1.
+have [Evh Evl] := fastTwoSum_FLX_fin _ _ Fch Fcl2 G1.
+(* the sum of the two low words, and the second Fast2Sum *)
+have [Etl2e _] := Dfin_add _ _ Fvl Fcl1 Ftl2.
+rewrite (Drnd_FLX_plus _ _ (Dformat _) (Dformat _)) in Etl2e.
+have [Frh Frl] := fastTwoSum_fin _ _ G2.
+have [Erh Erl] := fastTwoSum_FLX_fin _ _ Fvh Ftl2 G2.
+(* the two differences and their sum, none of which needs a range           *)
+have [Epih _] := Dfin_sub _ _ Fxh Frh Fpih.
+rewrite (Drnd_FLX_minus _ _ (Dformat _) (Dformat _)) in Epih.
+have [Edle _] := Dfin_sub _ _ Fxl Frl Fdl.
+rewrite (Drnd_FLX_minus _ _ (Dformat _) (Dformat _)) in Edle.
+have [Ed _] := Dfin_add _ _ Fpih Fdl Fd.
+rewrite (Drnd_FLX_plus _ _ (Dformat _) (Dformat _)) in Ed.
+(* the second quotient, and the last Fast2Sum *)
+have [Etle _] := Dfin_div _ _ Fd Hyh Ftl.
+rewrite (Drnd_FLX_div _ _ Hq2) in Etle.
+have [Ezh Ezl] := fastTwoSum_FLX_fin _ _ Ft Ftl G3.
+(* And the two sides are the same numbers, rewritten from the outside in.    *)
+rewrite /XdivDwDw2 /XtimesDwFp1 /XtwoProd /=.
+split.
+  by rewrite Ezh Etle Ed Epih Edle Erh Erl Etl2e Evh Evl Ech Ecl1 Ecl2 Et.
+by rewrite Ezl Etle Ed Epih Edle Erh Erl Etl2e Evh Evl Ech Ecl1 Ecl2 Et.
+Qed.
