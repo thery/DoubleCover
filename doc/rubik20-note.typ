@@ -758,12 +758,12 @@ they are enough: together they make the estimate a lower bound on the moves
 still needed, which is what lets a branch be cut. A table of zeros would pass
 both. It would prune nothing and the search would run for ever, but the answer
 would still be right. So the generator is not trusted. It writes the table out
-as Rocq source, and the two statements are checked on it afterwards. The entries do
-not depend on each other. So the second check is cut into slices, one file
-each, and the slices are checked at the same time. It takes ten minutes. Every
-timing in this note is measured on the same machine, the *reference machine*: a
-dual-socket Intel Xeon E5-2667 at 2.9 GHz, twelve cores, twenty-four threads,
-62 GB of memory.
+as Rocq source, and the two statements are checked on it afterwards. The
+entries do not depend on each other. So the second check is cut into slices,
+one file each, and the slices are checked at the same time. It takes ten
+minutes. Every timing in this note is measured on the same machine, the
+*reference machine*: a dual-socket Intel Xeon E5-2667 at 2.9 GHz, twelve cores,
+twenty-four threads, 62 GB of memory.
 
 == Three cuts at the top of the tree
 
