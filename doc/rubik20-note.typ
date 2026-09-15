@@ -717,8 +717,8 @@ still needed, since only it tells whether the cube is solved.
 
 The search that actually runs is the `search` of #src("Search.v") with the
 summary carried alongside the position. Here is its shape, with names
-simplified and the machine-integer details left out; the real one is `searchz3`
-in #src("Farp1.v"):
+simplified and some details left out; the real one is `searchz3` in
+#src("Farp1.v"):
 
 ```coq
 Fixpoint search (d : nat) (g : gT) (x : summary) (p : move) : bool :=
