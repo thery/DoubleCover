@@ -759,8 +759,9 @@ still needed, which is what lets a branch be cut. A table of zeros would pass
 both. It would prune nothing and the search would run for ever, but the answer
 would still be right. So the generator is not trusted. It writes the table out
 as Rocq source, and the two statements are checked on it afterwards. That takes
-ten minutes on the *reference machine*, a dual-socket Xeon with 62 GB and
-twelve physical cores, which is where every timing in this note was measured.
+ten minutes on the *reference machine*, where every timing in this note was
+measured: a dual-socket Intel Xeon E5-2667 at 2.9 GHz, twelve physical cores
+and twenty-four threads, with 62 GB of memory.
 
 == Three cuts at the top of the tree
 
