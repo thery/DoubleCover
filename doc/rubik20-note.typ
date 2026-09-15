@@ -605,8 +605,8 @@ of them @korf1997rubik.
 
 The summary we have used is Kociemba's, from his two-phase solver @kociemba.
 @encoding shows the three things it records. A corner has one sticker belonging
-to the up or down face,
-and that sticker sits in one of three places, which is 0, 1 or 2. An edge is
+to the up or down face, and that sticker sits in one of three places, which is
+0, 1 or 2. An edge is
 either the right way round or turned over, which is 0 or 1. The four edges of
 the middle layer occupy four of the twelve edge slots. The figure shades them
 on the two visible faces, where three of the four can be seen. Nothing else
@@ -641,11 +641,6 @@ The summary is the product of the three values:
   ([where the four middle-layer edges sit], [495], [4 places among 12]),
   ([*the phase 1 summary, all three together*], [*2 217 093 120*], []),
 )
-
-The name comes from Kociemba's solving algorithm, which works in two phases.
-Its first phase brings exactly these three values to zero, and the summary is
-what it watches while doing so. The algorithm itself plays no part here. We
-borrow only the name, because it is the one everybody uses for this table.
 
 Two billion is small next to 43 quintillion. *Every summary stands for exactly
 19 508 428 800 real scrambles*, and that division comes out even. The table
