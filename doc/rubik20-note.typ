@@ -747,8 +747,8 @@ one job:
 == The table and its two conditions
 
 `D` is the estimate. It takes a summary and gives back a number, read from the
-phase 1 table. `D0` and
-`Dstep` are everything asked of it. `D0` says the solved cube gets zero.
+phase 1 table. `D0` and `Dstep` are everything asked of it. `D0` says the
+solved cube gets zero.
 `Dstep` says that one move lowers the estimate by at most one.
 
 That is a weak demand. The table is never proved to hold the true distance to
