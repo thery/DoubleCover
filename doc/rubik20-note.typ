@@ -700,8 +700,8 @@ search fast enough to run.
 
 The estimate $h$ is built in a second generic file, #src("Coord.v"). It is
 given the summary of a position, the way a move acts on a summary, and the
-table of distances. Three hypotheses come with them: one about the summary,
-which is proved, and two about the table, which are checked by computation.
+table of distances. Three hypotheses come with them, one about the summary and
+two about the table.
 
 ```coq
 Variable coord : {perm facelet} -> X.
