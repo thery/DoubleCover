@@ -743,7 +743,9 @@ one job:
 - `p` is the move just played, and `allowed p` is the list of moves the rules
   permit after it. That is where redundant sequences are dropped.
 
-*The two conditions.* `D` is the estimate. It takes a summary and gives back a
+== The table and its two conditions
+
+`D` is the estimate. It takes a summary and gives back a
 number, and that number is read from the table. `D0` and `Dstep` are everything
 asked of it. `D0` says the solved cube gets zero. `Dstep` says that one move
 lowers the estimate by at most one.
@@ -753,11 +755,11 @@ the solved cube. A table of zeros passes both conditions. It would prune
 nothing and the search would run for ever, but it would not make the search
 give a wrong answer.
 
-*How the two conditions are checked.* In the instantiation with the phase 1
+*How they are checked.* In the instantiation with the phase 1
 summary, `coordM` is proved by a mathematical argument, while `D0` and `Dstep`
 are proved by computation, entry by entry. Look again at `Dstep`. Unlike `D0`,
-it does not mention `coord`. It speaks of every value `x` in `X`, and not only of
-the values that are the summary of a real position. That is deliberate, and it
+it does not mention `coord`. It speaks of every value `x` in `X`, and not only
+of the values that are the summary of a real position. That is deliberate, and it
 is what makes the check possible. `X` is a finite set of 2.2 billion values, so
 the check runs over all of them and never has to know which come from a cube.
 `D0` is then one lookup, and `Dstep` is one sweep: 2.2 billion summaries,
