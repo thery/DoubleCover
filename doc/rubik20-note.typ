@@ -758,8 +758,9 @@ they are enough: together they make the estimate a lower bound on the moves
 still needed, which is what lets a branch be cut. A table of zeros would pass
 both. It would prune nothing and the search would run for ever, but the answer
 would still be right. So the generator is not trusted. It writes the table out
-as Rocq source, and the two statements are checked on it afterwards, which
-takes ten minutes on the reference machine.
+as Rocq source, and the two statements are checked on it afterwards. That takes
+ten minutes on the *reference machine*, a dual-socket Xeon with 62 GB and
+twelve physical cores, which is where every timing in this note was measured.
 
 == Three cuts at the top of the tree
 
@@ -1085,8 +1086,7 @@ The tree grows by 12.22 from one level to the next, measured between depths 17
 and 19.
 
 Building the tables costs the same whatever radius is searched afterwards.
-Measured end to end from a clean tree on the reference machine, a dual-socket
-Xeon with 62 GB and twelve physical cores:
+Measured end to end from a clean tree on the reference machine:
 
 #tbl(([], [wall clock], [processor time]),
   ([emitting the tables and compiling them to native code], [17 min 21], [52 min 13]),
