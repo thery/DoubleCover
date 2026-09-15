@@ -753,12 +753,9 @@ For the phase 1 summary, `D` is a lookup in the phase 1 table, so `D0` and
   eighteen moves.
 
 The table is written by an OCaml program, which walks the summaries breadth
-first from the solved one. The walk stops at nine. So an entry holds the true
-distance of its summary while that is at most nine, and ten for every summary
-further away, whatever its real distance. Four bits hold a number up to
-fifteen, so the exact distances would have fitted in the same table. The walk
-was stopped all the same. Staying under the true distance is the safe side: it
-makes the estimate smaller, never larger.
+first from the solved one and writes down the distance it reaches each one at.
+No summary is further than twelve, so an entry is the exact distance and four
+bits hold it.
 
 The proof checks none of that. The two statements are all it checks, and they
 are enough: together they make the estimate a lower bound on the moves still
