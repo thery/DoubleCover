@@ -708,16 +708,12 @@ Hypothesis D0    : D (coord 1) = 0.
 Hypothesis Dstep : forall x m, m \in Sset -> D x <= (D (act x m)).+1.
 ```
 
-`coord` is the summary of a position, and `X` is whatever the summaries are.
-`act` is how a move acts on a summary directly, without going back to the
-position it came from. For the phase 1 summary it is two lookups in a move
-table. `coordM` is the one thing proved about the summary itself, and it is
-what makes the pair worth having. It says that summarising after a move gives
-the same answer as acting on the summary. So the search never computes a
-summary from a position. It carries the summary beside the position and brings
-it up to date one move at a time, at the cost of a lookup. It still carries the
-position, because the summary cannot say whether the cube is solved and the
-position can.
+`X` is the type of summaries and `coord` gives the summary of a position. `act`
+plays a move on a summary directly, by a lookup in a move table, and `coordM`
+says that the two agree: playing a move and then summarising gives the same
+answer as `act`. So the search never recomputes a summary. It keeps the summary
+next to the position and updates it with one lookup per move. The position is
+still needed, since only it tells whether the cube is solved.
 
 Beside the `search` of #src("Search.v"), the search that runs has this shape.
 Names are simplified and the machine-integer details left out. The real one is
