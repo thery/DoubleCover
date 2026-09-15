@@ -652,9 +652,10 @@ it: one node in two billion.
 
 = The search in Rocq
 
-The search is proved once and for all in #src("Search.v"), a file of about a
-hundred lines that never mentions the cube. It works with a group, a set of
-moves, an estimate $h$, and two assumptions on $h$:
+The search at depth $d$ is implemented in Rocq by a generic search,
+#src("Search.v"), about a hundred lines that never mention the cube. It is
+given a group, a set of moves and an estimate $h$, with only two assumptions
+attached to $h$:
 
 ```coq
 Hypothesis h1    : h 1 = 0.
