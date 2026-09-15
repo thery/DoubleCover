@@ -753,14 +753,14 @@ For the phase 1 summary, `D` is a lookup in the phase 1 table, so `D0` and
   eighteen moves.
 
 The table is written by an OCaml program, which walks the summaries breadth
-first from the solved one and writes each summary's distance down. So the
-entries are the exact distances. The proof does not say so, and does not need
-to: the two statements above are all it checks, and they are enough. Together
-they make the estimate a lower bound on the moves still needed, which is what
-lets a branch be cut. A table of zeros would pass both. It would prune nothing
-and the search would run for ever, but the answer would still be right. So the
-generator is not trusted. It writes the table out as Rocq source, and the two
-statements are checked on it afterwards.
+first from the solved one and writes each summary's distance down. The proof
+never says that is what the table holds, and does not need to: the two
+statements above are all it checks, and they are enough. Together they make the
+estimate a lower bound on the moves still needed, which is what lets a branch
+be cut. A table of zeros would pass both. It would prune nothing and the search
+would run for ever, but the answer would still be right. So the generator is
+not trusted. It writes the table out as Rocq source, and the two statements are
+checked on it afterwards.
 
 The first is one lookup. The second is a sweep: 2.2 billion summaries, eighteen
 moves each, one comparison apiece. `Dstep` speaks of every value of `X`, not
