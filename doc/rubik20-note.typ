@@ -633,14 +633,13 @@ about the position is recorded.
   caption: [The three things a summary records.],
 ) <encoding>
 
-The summary is the product of the three values. It is the summary of the first
-phase of Kociemba's solver @kociemba, hence the name *phase 1* used below:
+The summary is the product of the three values:
 
 #tbl(([summary], [values], []),
   ([how the eight corners are twisted], [2 187], [$= 3^7$]),
   ([how the twelve edges are flipped], [2 048], [$= 2^11$]),
   ([where the four middle-layer edges sit], [495], [4 places among 12]),
-  ([*the phase 1 summary, all three together*], [*2 217 093 120*], []),
+  ([*the summary, all three together*], [*2 217 093 120*], []),
 )
 
 *Every summary stands for exactly 19 508 428 800 real positions*. The table
@@ -648,7 +647,8 @@ records, for each summary, its distance from the solved summary. No stored
 distance is larger than 12, so four bits hold one entry and the whole table is
 *1.18 GB*. The cut is quite effective. A search at depth 14, for instance,
 visits 470 786 nodes, out of the $1.07 dot 10^15$ the same tree holds without
-it: one node in two billion.
+it: one node in two billion. In the following, we call this summary the *phase
+1* summary, after the first phase of Kociemba's solver @kociemba.
 
 = The search in Rocq
 
