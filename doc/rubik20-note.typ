@@ -767,9 +767,10 @@ twenty-four threads, 62 GB of memory.
 
 == Three cuts at the top of the tree
 
-These are three different arguments and we keep them apart. The first two
-apply once each, to the first move and to the second. The third applies at
-every move from the third on.
+The tree has eighteen branches at every node, and that is what makes it too
+big. Three arguments cut branches away. They are different arguments and we
+keep them apart. The first applies to the first move, the second to the second
+move, the third to every move from the third on.
 
 *The first move: eighteen become two.* The superflip looks the same from every
 angle. There are 48 ways of putting a cube back into the space it came from:
