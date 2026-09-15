@@ -709,16 +709,16 @@ Hypothesis Dstep : forall x m, m \in Sset -> D x <= (D (act x m)).+1.
 ```
 
 `X` is the type of summaries and `coord` gives the summary of a position. `act`
-plays a move on a summary without going back to the position it came from: the
-result of every move on every summary is worked out once and kept in a *move
-table*, so `act` is a lookup. These tables are small, a few million entries,
-and have nothing to do with the table of distances. `coordM` says that the two
-agree: playing a move and then summarising gives the same answer as `act`.
+plays a move on a summary directly, without going back to the position it came
+from, and `coordM` says that the two agree: playing a move and then summarising
+gives the same answer as `act`.
 
 The `search` of #src("Search.v") is refined to carry the summary along and
-update it move by move. One update is two lookups in the move tables, whereas
-computing the summary from the position would go through the eight corners and
-the twelve edges, at every node of the tree. It also plays fewer moves:
+update it move by move with `act`. For the phase 1 summary, `act` is a lookup
+in a *move table*, which holds the result of every move on every summary: one
+update is then two lookups, whereas computing the summary from the position
+would go through the eight corners and the twelve edges, at every node of the
+tree. It also plays fewer moves:
 turning the same face twice running is never useful, and the other rules of
 that kind are the subject of the next subsection. The position is still
 carried, since only it tells whether the cube is solved. Here is its shape,
