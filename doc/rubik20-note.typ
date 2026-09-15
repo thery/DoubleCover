@@ -758,12 +758,8 @@ they are enough: together they make the estimate a lower bound on the moves
 still needed, which is what lets a branch be cut. A table of zeros would pass
 both. It would prune nothing and the search would run for ever, but the answer
 would still be right. So the generator is not trusted. It writes the table out
-as Rocq source, and the two statements are checked on it afterwards.
-
-The first is one lookup. The second is a sweep: 2.2 billion summaries, eighteen
-moves each, one comparison apiece. `Dstep` speaks of every value of `X`, not
-only of the summaries of real positions, and that is what makes the sweep
-possible. It never has to know which value comes from a cube.
+as Rocq source, and the two statements are checked on it afterwards, which
+takes ten minutes on the reference machine.
 
 == Three cuts at the top of the tree
 
