@@ -718,9 +718,9 @@ update it move by move with `act`. For the phase 1 summary, `act` is a lookup
 in a *move table*, which holds the result of every move on every summary: one
 update is then two lookups, whereas computing the summary from the position
 would go through the eight corners and the twelve edges, at every node of the
-tree. It also plays fewer moves:
-turning the same face twice running is never useful, and the other rules of
-that kind are the subject of the next subsection. The position is still
+tree. It also plays fewer moves: turning the same face twice running is never
+useful, and the other rules of that kind are the subject of the next
+subsection. The position is still
 carried, since only it tells whether the cube is solved. Here is its shape,
 with names simplified and some details left out; the real one is `searchz3` in
 #src("Farp1.v"):
