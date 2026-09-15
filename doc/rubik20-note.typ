@@ -598,13 +598,10 @@ where the four middle-layer edges sit, and call what is left a *summary*. Many
 positions can share the same summary. Moves act on summaries as well as on
 cubes, and summaries are few enough to compute the exact distance of each one
 to the solved summary and keep them all in a table. This gives $h$: take a
-position, compute its summary, and look its distance up in the table. A
-position needs at least as many moves as its summary does, so this is a lower
-bound.
-
-This idea of summary comes from Culberson and Schaeffer, who call such a table
-a _pattern database_ @culberson1998pattern. Korf solved the cube optimally with
-three of them @korf1997rubik.
+position, compute its summary, and look its distance up in the table. This idea
+of summary comes from Culberson and Schaeffer, who call such a table a _pattern
+database_ @culberson1998pattern, and Korf solved the cube optimally with three
+of them @korf1997rubik.
 
 The summary we have used is Kociemba's, from his two-phase solver @kociemba. It
 is read straight off the sticker numbers, and @encoding shows the three
