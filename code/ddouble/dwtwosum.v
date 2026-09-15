@@ -47,6 +47,16 @@ have [Fs' _] := Dfin_subI _ _ Fa'.
 by split; [|split; [|split; [|split; [|split]]]].
 Qed.
 
+(* And the same reading of Fast2Sum, three numbers instead of six.            *)
+Lemma fastTwoSum_finI a b :
+  Dfin (dwlo (fastTwoSum a b)) -> DfastTwoSumFin a b.
+Proof.
+move=> Fe.
+have [_ Fz] := Dfin_subI _ _ Fe.
+have [Fs _] := Dfin_subI _ _ Fz.
+by split; [|split].
+Qed.
+
 (* Fast2Sum: three operations, and the low word is the exact error of the     *)
 (* high one when b is no larger than a.  That last part is the development's  *)
 (* theorem; here we only say what the program computes.                       *)

@@ -185,11 +185,31 @@ Definition DdivDwDw2Fin (xh xl yh yl : PrimFloat.float) :=
   Dfin ch /\ Dfin cl1 /\ Dfin cl2 /\ DfastTwoSumFin ch cl2 /\
   Dfin tl2 /\ DfastTwoSumFin (dwhi v) tl2 /\
   Dfin pih /\ Dfin dl /\ Dfin d /\
-  Dfin tl /\ DfastTwoSumFin t tl /\
+  Dfin tl /\ DfastTwoSumFin t tl.
+
+(* And the range conditions.  Two of them are stated as what they are FOR -   *)
+(* the two formats rounding alike - and not as a magnitude, because a         *)
+(* magnitude would refuse the ordinary case.  The low word of a double word   *)
+(* is often nought, and then `yl * t' is nought and no magnitude condition    *)
+(* can hold of it; a division that comes out exact leaves `d' nought, and     *)
+(* the same again.  Both formats round nought to nought, so what is asked is  *)
+(* that they agree, which nought meets and a normal number meets too.         *)
+Definition DdivDwDw2Rng (xh xl yh yl : PrimFloat.float) :=
+  let t := (xh / yh)%float in
+  let ch := dwhi (twoProd yh t) in
+  let cl1 := dwlo (twoProd yh t) in
+  let cl2 := (yl * t)%float in
+  let v := fastTwoSum ch cl2 in
+  let tl2 := (dwlo v + cl1)%float in
+  let rh := dwhi (fastTwoSum (dwhi v) tl2) in
+  let rl := dwlo (fastTwoSum (dwhi v) tl2) in
+  let pih := (xh - rh)%float in
+  let dl := (xl - rl)%float in
+  let d := (pih + dl)%float in
   (Dnorm <= Rabs (D2R xh / D2R yh))%R /\
   (Dprodlo <= Rabs (D2R yh * D2R t))%R /\
-  (Dnorm <= Rabs (D2R yl * D2R t))%R /\
-  (Dnorm <= Rabs (D2R d / D2R yh))%R.
+  Drnd (D2R yl * D2R t) = Xrnd (D2R yl * D2R t) /\
+  Drnd (D2R d / D2R yh) = Xrnd (D2R d / D2R yh).
 
 (* The divisor is not nought, and that comes free with the range condition:   *)
 (* a quotient by nought is read as nought here, and nought is not above the   *)
@@ -215,14 +235,14 @@ Proof. by rewrite /divDwDw2; case: (timesDwFp1 _ _). Qed.
 (* number, and that the product and the two quotients be in the range where   *)
 (* the two formats agree.                                                     *)
 Lemma divDwDw2_FLX xh xl yh yl :
-  DdivDwDw2Fin xh xl yh yl ->
+  DdivDwDw2Fin xh xl yh yl -> DdivDwDw2Rng xh xl yh yl ->
   D2R (dwhi (divDwDw2 (DWFloat xh xl) (DWFloat yh yl))) =
     fst (XdivDwDw2 (D2R xh) (D2R xl) (D2R yh) (D2R yl)) /\
   D2R (dwlo (divDwDw2 (DWFloat xh xl) (DWFloat yh yl))) =
     snd (XdivDwDw2 (D2R xh) (D2R xl) (D2R yh) (D2R yl)).
 Proof.
 move=> [Fxh [Fxl [Fyh [Fyl [Ft [Fch [Fcl1 [Fcl2 [G1 [Ftl2 [G2
-       [Fpih [Fdl [Fd [Ftl [G3 [Hq1 [Hp1 [Hm1 Hq2]]]]]]]]]]]]]]]]]]].
+       [Fpih [Fdl [Fd [Ftl G3]]]]]]]]]]]]]]] [Hq1 [Hp1 [Hm1 Hq2]]].
 have Hyh := Dnz_of_norm _ _ Hq1.
 (* the first quotient *)
 have [Et _] := Dfin_div _ _ Fxh Hyh Ft.
@@ -234,7 +254,7 @@ have Hnp : (Dnorm <= Rabs (D2R yh * D2R (xh / yh)%float))%R.
 have [Ech Ecl1] := twoProd_FLX yh (xh / yh)%float Fyh Ft Fch Fcl1 Hnp Hp1.
 (* the lone product, and the first Fast2Sum *)
 have [Ecl2 _] := Dfin_mul _ _ Fyl Ft Fcl2.
-rewrite (Drnd_FLX_mult yl (xh / yh)%float Hm1) in Ecl2.
+rewrite Hm1 in Ecl2.
 have [Fvh Fvl] := fastTwoSum_fin _ _ G1.
 have [Evh Evl] := fastTwoSum_FLX_fin _ _ Fch Fcl2 G1.
 (* the sum of the two low words, and the second Fast2Sum *)
@@ -251,7 +271,7 @@ have [Ed _] := Dfin_add _ _ Fpih Fdl Fd.
 rewrite (Drnd_FLX_plus _ _ (Dformat _) (Dformat _)) in Ed.
 (* the second quotient, and the last Fast2Sum *)
 have [Etle _] := Dfin_div _ _ Fd Hyh Ftl.
-rewrite (Drnd_FLX_div _ _ Hq2) in Etle.
+rewrite Hq2 in Etle.
 have [Ezh Ezl] := fastTwoSum_FLX_fin _ _ Ft Ftl G3.
 (* And the two sides are the same numbers, rewritten from the outside in.    *)
 rewrite /XdivDwDw2 /XtimesDwFp1 /XtwoProd /=.
@@ -320,7 +340,7 @@ Notation Du := (bpow radix2 (- prec)).
 (* - every step a number, and the product and the two quotients in the range  *)
 (* where the two formats agree.                                               *)
 Theorem divDwDw2_relerr xh xl yh yl :
-  DdivDwDw2Fin xh xl yh yl ->
+  DdivDwDw2Fin xh xl yh yl -> DdivDwDw2Rng xh xl yh yl ->
   D2R xh = Drnd (D2R xh + D2R xl) ->
   D2R yh = Drnd (D2R yh + D2R yl) ->
   Rabs ((D2R (dwhi (divDwDw2 (DWFloat xh xl) (DWFloat yh yl))) +
@@ -329,17 +349,110 @@ Theorem divDwDw2_relerr xh xl yh yl :
         ((D2R xh + D2R xl) / (D2R yh + D2R yl))) <=
   15 * Du ^ 2 + 56 * Du ^ 3.
 Proof.
-move=> F Ex Ey.
-have [Eh El] := divDwDw2_FLX xh xl yh yl F.
+move=> F G Ex Ey.
+have [Eh El] := divDwDw2_FLX xh xl yh yl F G.
 have DWx := Ddw_FLX _ _ (Dformat xh) (Dformat xl) Ex.
 have DWy := Ddw_FLX _ _ (Dformat yh) (Dformat yl) Ey.
-have yhn0 : D2R yh <> 0.
-  case: (F) => [_ [_ [_ [_ [_ [_ [_ [_ [_
-             [_ [_ [_ [_ [_ [_ [_ [Hq1 _]]]]]]]]]]]]]]]]].
-  exact: Dnz_of_norm Hq1.
+have yhn0 : D2R yh <> 0 by apply: Dnz_of_norm (proj1 G).
 have Hp1 : (1 < prec)%Z by [].
 have Hp7 : (7 <= prec)%Z by [].
 have K := DWDDW_correct Hp1 eq_refl XFast2Mult_correct eq_refl DWx DWy Hp7 yhn0.
 rewrite Eh El (XdivDwDw2E _ _ _ _ DWx DWy yhn0).
 exact: K.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The guard, from the one test a program makes                              *)
+(* ---------------------------------------------------------------------------*)
+
+(* Every number the algorithm makes is a number as soon as the LAST one is.   *)
+(* Each is an argument of the operation that made the next, and an operation  *)
+(* handed an infinity does not give a number back, so the low word of the     *)
+(* answer carries the whole chain.  That is `twoSum_finI' read along the      *)
+(* division, and it is why the interface tests one thing and not sixteen.     *)
+Lemma divDwDw2_finI xh xl yh yl :
+  Dfin yh -> Dfin yl ->
+  Dfin (dwlo (divDwDw2 (DWFloat xh xl) (DWFloat yh yl))) ->
+  DdivDwDw2Fin xh xl yh yl.
+Proof.
+move=> Fyh Fyl.
+rewrite /DdivDwDw2Fin.
+set t := (xh / yh)%float.
+set ch := dwhi (twoProd yh t).
+set cl1 := dwlo (twoProd yh t).
+set cl2 := (yl * t)%float.
+set v := fastTwoSum ch cl2.
+set tl2 := (dwlo v + cl1)%float.
+set rh := dwhi (fastTwoSum (dwhi v) tl2).
+set rl := dwlo (fastTwoSum (dwhi v) tl2).
+set pih := (xh - rh)%float.
+set dl := (xl - rl)%float.
+set d := (pih + dl)%float.
+set tl := (d / yh)%float.
+have Ez : divDwDw2 (DWFloat xh xl) (DWFloat yh yl) = fastTwoSum t tl by [].
+rewrite Ez => Fz.
+have G3 := fastTwoSum_finI _ _ Fz.
+have [Ft Ftl] := Dfin_addI _ _ (proj1 G3).
+have Fd := Dfin_divI _ _ Ftl.
+have [Fpih Fdl] := Dfin_addI _ _ Fd.
+have [Fxh Frh] := Dfin_subI _ _ Fpih.
+have [Fxl Frl] := Dfin_subI _ _ Fdl.
+have G2 := fastTwoSum_finI _ _ Frl.
+have [Fvh Ftl2] := Dfin_addI _ _ (proj1 G2).
+have [Fvl Fcl1] := Dfin_addI _ _ Ftl2.
+have G1 := fastTwoSum_finI _ _ Fvl.
+have [Fch Fcl2] := Dfin_addI _ _ (proj1 G1).
+by tauto.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  From a relative error to a step                                           *)
+(* ---------------------------------------------------------------------------*)
+
+(* Neither the number divided nor the divisor is nought, and that comes free  *)
+(* with the first range condition: a quotient at or above the smallest normal *)
+(* number has both of them away from zero, and a double word whose value is   *)
+(* nought has a nought high word.                                             *)
+Lemma divDwDw2_nz xh xl yh yl :
+  (Dnorm <= Rabs (D2R xh / D2R yh))%R ->
+  D2R xh = Drnd (D2R xh + D2R xl) ->
+  D2R yh = Drnd (D2R yh + D2R yl) ->
+  D2R xh + D2R xl <> 0 /\ D2R yh + D2R yl <> 0.
+Proof.
+move=> Hq Ex Ey.
+have Hp := bpow_gt_0 radix2 (SpecFloat.emin prec emax + prec - 1).
+have Hy := Dnz_of_norm _ _ Hq.
+have Hx : D2R xh <> 0.
+  by move=> Hx0; move: Hq; rewrite Hx0 /Rdiv Rmult_0_l Rabs_R0; lra.
+by split => H0; [apply: Hx; rewrite Ex | apply: Hy; rewrite Ey];
+   rewrite H0 round_0.
+Qed.
+
+(* A ratio bound read as a distance.                                          *)
+Lemma Rabs_of_rel a b c :
+  b <> 0 -> Rabs ((a - b) / b) <= c -> Rabs (a - b) <= c * Rabs b.
+Proof.
+move=> Hb H.
+have -> : Rabs (a - b) = Rabs ((a - b) / b) * Rabs b.
+  by rewrite -Rabs_mult; congr Rabs; field.
+by apply: Rmult_le_compat_r => //; exact: Rabs_pos.
+Qed.
+
+(* The bound as a distance rather than as a ratio.                            *)
+Theorem divDwDw2_err xh xl yh yl :
+  DdivDwDw2Fin xh xl yh yl -> DdivDwDw2Rng xh xl yh yl ->
+  D2R xh = Drnd (D2R xh + D2R xl) ->
+  D2R yh = Drnd (D2R yh + D2R yl) ->
+  Rabs (D2R (dwhi (divDwDw2 (DWFloat xh xl) (DWFloat yh yl))) +
+        D2R (dwlo (divDwDw2 (DWFloat xh xl) (DWFloat yh yl))) -
+        (D2R xh + D2R xl) / (D2R yh + D2R yl)) <=
+  (15 * Du ^ 2 + 56 * Du ^ 3) *
+  Rabs ((D2R xh + D2R xl) / (D2R yh + D2R yl)).
+Proof.
+move=> F G Ex Ey.
+have [Hx Hy] := divDwDw2_nz _ _ _ _ (proj1 G) Ex Ey.
+have Hxy : (D2R xh + D2R xl) / (D2R yh + D2R yl) <> 0.
+  rewrite /Rdiv => /Rmult_integral [H0|H0]; first by case: Hx.
+  by case: (Rinv_neq_0_compat _ Hy).
+by apply: Rabs_of_rel => //; apply: divDwDw2_relerr.
 Qed.
