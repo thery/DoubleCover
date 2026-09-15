@@ -59,8 +59,11 @@ Notation Fast2Sum := (Fast2Sum p choice).
 Notation F2P_prod a b  :=  (fst (Fast2Mult a b)).
 Notation F2P_error a b  :=  (snd (Fast2Mult a b)).
 
+(* Error free OF NUMBERS OF THE FORMAT.  Said of all reals it is false, and   *)
+(* every theorem resting on it is then vacuous -- see DWTimesFP.v.            *)
 Hypothesis Fast2Mult_correct: 
-  forall a b, a * b =  F2P_prod a b +  F2P_error a b.
+  forall a b, format a -> format b ->
+  a * b =  F2P_prod a b +  F2P_error a b.
 
 Notation F2P_errorE := (F2P_errorE Fast2Mult_correct).
 
@@ -705,8 +708,11 @@ Notation Fast2Sum   := (Fast2Sum  p choice).
 Notation F2P_prod a b  :=  (fst (Fast2Mult a b)).
 Notation F2P_error a b  :=  (snd (Fast2Mult a b)).
 
+(* Error free OF NUMBERS OF THE FORMAT.  Said of all reals it is false, and   *)
+(* every theorem resting on it is then vacuous -- see DWTimesFP.v.            *)
 Hypothesis Fast2Mult_correct: 
-  forall a b, a * b =  F2P_prod a b +  F2P_error a b.
+  forall a b, format a -> format b ->
+  a * b =  F2P_prod a b +  F2P_error a b.
 
 Notation F2P_errorE := (F2P_errorE Fast2Mult_correct).
 
@@ -1269,8 +1275,11 @@ Notation Fast2Sum := (Fast2Sum p choice).
 Notation F2P_prod a b  :=  (fst (Fast2Mult a b)).
 Notation F2P_error a b  :=  (snd (Fast2Mult a b)).
 
+(* Error free OF NUMBERS OF THE FORMAT.  Said of all reals it is false, and   *)
+(* every theorem resting on it is then vacuous -- see DWTimesFP.v.            *)
 Hypothesis Fast2Mult_correct: 
-  forall a b, a * b =  F2P_prod a b +  F2P_error a b.
+  forall a b, format a -> format b ->
+  a * b =  F2P_prod a b +  F2P_error a b.
 
 Notation F2P_errorE := (F2P_errorE Fast2Mult_correct).
 

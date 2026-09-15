@@ -61,8 +61,11 @@ Notation F2P_prod a b  :=  (fst (Fast2Mult a b)).
 Notation F2P_error a b  :=  (snd (Fast2Mult a b)).
 
 
+(* Error free OF NUMBERS OF THE FORMAT.  Said of all reals it is false, and   *)
+(* every theorem resting on it is then vacuous -- see DWTimesFP.v.            *)
 Hypothesis Fast2Mult_correct: 
-  forall a b, a * b =  F2P_prod a b +  F2P_error a b.
+  forall a b, format a -> format b ->
+  a * b =  F2P_prod a b +  F2P_error a b.
 
 Notation F2P_errorE := (F2P_errorE Fast2Mult_correct).
 
@@ -553,7 +556,9 @@ Qed.
 (* to move *)
 Fact  DWTimesFP_0_r xh xl : DWTimesFP xh xl 0 = (0, 0).
 Proof.
-by rewrite /DWTimesFP TwoProdE  F2P_errorE /=
+(* No error-freeness is needed here: with nought for the second factor the   *)
+(* two-product is a pair of noughts outright.                                *)
+by rewrite /DWTimesFP TwoProdE /DWTimesFP.Fast2Mult /=
           !(Rmult_0_r, round_0, Rminus_0_r, Rplus_0_r).
 Qed.
 

@@ -147,11 +147,19 @@ Definition Fast2Mult (a b : R) :=
 Notation F2P_prod a b  :=  (fst (Fast2Mult a b)).
 Notation F2P_error a b  :=  (snd (Fast2Mult a b)).
 
+(* The two-product is error free -- OF NUMBERS OF THE FORMAT.  Stated of all  *)
+(* reals, as it was, this is FALSE: for a = b = 1/3 the error of the product   *)
+(* is not a number of the format, so rounding it loses something.  And then    *)
+(* every theorem resting on it is vacuous and cannot be instantiated.  The     *)
+(* two formats where it does hold are `mult_error_FLX' and Dekker's algorithm, *)
+(* and both ask their arguments to be numbers of the format.                   *)
 Hypothesis F2Mult_correct: 
-  forall a b, a * b =  F2P_prod a b +  F2P_error a b.
+  forall a b, format a -> format b ->
+  a * b =  F2P_prod a b +  F2P_error a b.
 
-Fact  F2P_errorE a b: F2P_error a b =  a * b - rnd_p (a * b).
-Proof. rewrite {1}F2Mult_correct /=; ring. Qed.
+Fact  F2P_errorE a b: format a -> format b ->
+  F2P_error a b =  a * b - rnd_p (a * b).
+Proof. move=> Fa Fb; rewrite {1}(F2Mult_correct Fa Fb) /=; ring. Qed.
 
 Definition map_pair A B (f: A -> B) (p: A * A) := (f (fst p), f (snd p)).
 
@@ -617,7 +625,7 @@ have ch2: Rabs ch <= 2.
     apply:round_le; rewrite  /= IZR_Zpower_pos /=; lra.
     have cl1u: Rabs  cl1 <= u.
     have ->: cl1 = xh * y - rnd_p (xh * y)
-         by rewrite  {1}F2Mult_correct TwoProdE /=; ring.
+         by rewrite  {1}(F2Mult_correct (proj1 (proj1 DWx)) Fy) TwoProdE /=; ring.
   
   rewrite  -Ropp_minus_distr  Rabs_Ropp /u.
   have ->: pow (- p) = / 2 * pow (- p) * pow  1.
