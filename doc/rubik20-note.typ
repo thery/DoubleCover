@@ -746,33 +746,25 @@ one job:
 
 == The table and its two conditions
 
-`D` is the estimate, a variable of the file: any function from summaries to
-numbers will do. `D0` and `Dstep` are everything asked of it: `D0` says the
-solved cube gets zero, and `Dstep` says that one move lowers the estimate by at
-most one. When the file is instantiated, `D` becomes the lookup in the phase 1
-table, and these two conditions have to be proved for it.
+`D0` and `Dstep` are all the search asks of the estimate. For the phase 1
+summary, `D` is a lookup in the phase 1 table, so proving them comes down to
+two statements about that table:
 
-That is a weak demand. The table is never proved to hold the true distance to
-the solved cube. A table of zeros passes both conditions. It would prune
-nothing and the search would run for ever, but it would not make the search
-give a wrong answer.
+- the entry of the solved summary is zero;
+- every entry is at most one more than the entry reached from it by any of the
+  eighteen moves.
 
-*How they are checked.* In the instantiation with the phase 1
-summary, `coordM` is proved by a mathematical argument, while `D0` and `Dstep`
-are proved by computation, entry by entry. Look again at `Dstep`. Unlike `D0`,
-it does not mention `coord`. It speaks of every value `x` in `X`, and not only
-of the values that are the summary of a real position. That is deliberate, and it
-is what makes the check possible. `X` is a finite set of 2.2 billion values, so
-the check runs over all of them and never has to know which come from a cube.
-`D0` is then one lookup, and `Dstep` is one sweep: 2.2 billion summaries,
-eighteen moves each, one comparison apiece. Those sweeps are what the
-_certificate_ files do: #src("FsmChk.v"), #src("FsrChk.v"), #src("SlrChk.v"),
-#src("P1TsChk.v") and #src("Farp1chk.v"), listed again at the end of this note,
-each ending in its own `Qed`.
+Both are boolean and both are closed by computation. The first is one lookup.
+The second is a sweep: 2.2 billion summaries, eighteen moves each, one
+comparison apiece. `Dstep` speaks of every value of `X`, not only of the
+summaries of real positions, and that is what makes the sweep possible. The
+check never has to know which value comes from a cube.
 
-Nothing here asks where the table came from. Any program in any language can
-write it. Ours is an OCaml generator that writes it out as Rocq source, and the
-two conditions are checked on it afterwards.
+Nothing is proved about the distances themselves. A table of zeros passes both
+conditions: the search would prune nothing and run for ever, and its answer
+would still be right. So the generator is not trusted. Ours is an OCaml program
+that writes the table out as Rocq source, and the two statements are checked on
+it afterwards.
 
 == Three cuts at the top of the tree
 
