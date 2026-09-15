@@ -643,8 +643,7 @@ phase of Kociemba's solver @kociemba, hence the name *phase 1* used below:
   ([*the phase 1 summary, all three together*], [*2 217 093 120*], []),
 )
 
-*Every summary stands for exactly 19 508 428 800 real positions*, and that
-division comes out even. The table
+*Every summary stands for exactly 19 508 428 800 real positions*. The table
 records, for each summary, its distance from the solved summary. No stored
 distance is larger than 12, so four bits hold one entry and the whole table is
 *1.18 GB*.
