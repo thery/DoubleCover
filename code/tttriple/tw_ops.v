@@ -125,18 +125,22 @@ Definition is_nan x := match classify x with Sig.Fnan => true | _ => false end.
 (* step for safety, which is always one too big; it is the magnitude of the   *)
 (* VALUE, got by adding the three words once upwards and once downwards and   *)
 (* taking whichever of the two is larger in absolute value.                   *)
-(* AND THE STEPS CAN LEAVE THE RANGE.  A step up from the largest float there *)
-(* is gives an infinity, and `PrimitiveFloat.mag' of an infinity is the least  *)
-(* exponent there is, not the greatest - so reading it would claim the value   *)
-(* is tiny when it is enormous.  Where the step left the range the answer is   *)
-(* one past the largest exponent instead, which every sum of three floats is   *)
+(* The three words are added in absolute value, rounded upwards, which is at  *)
+(* or above the value whatever the signs are.  One directed sum, and nothing  *)
+(* to choose between.                                                         *)
+(*                                                                            *)
+(* AND IT CAN LEAVE THE RANGE.  A step up from the largest float there is     *)
+(* gives an infinity, and `PrimitiveFloat.mag' of an infinity is the LEAST    *)
+(* exponent, not the greatest - so reading it would claim the value is tiny   *)
+(* when it is enormous, and a pair of the largest float and nought is a real  *)
+(* triple word, so it is reachable.  Where the sum left the range the answer  *)
+(* is one past the largest exponent, which every sum of three floats is       *)
 (* below.                                                                      *)
 Definition mag x :=
   let: TWFloat x0 x1 x2 := x in
-  let s := addUpFp (addUpFp x0 x1) x2 in
-  let t := addDnFp (addDnFp x0 x1) x2 in
-  let w := if (abs s <=? abs t)%float then t else s in
-  if (abs w <? infinity)%float then PrimitiveFloat.mag w else 1025%Z.
+  let m := addUpFp (addUpFp (PrimFloat.abs x0) (PrimFloat.abs x1))
+                    (PrimFloat.abs x2) in
+  if ((0 <? m) && (m <? infinity))%float then PrimitiveFloat.mag m else 1025%Z.
 
 (* Only an infinity of the wrong sign is barred from being a bound.           *)
 Definition valid_ub x := match classify x with Fminfty => false | _ => true end.

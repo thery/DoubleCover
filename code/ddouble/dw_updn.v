@@ -184,7 +184,21 @@ Definition dscale := Eval compute in 0x1p-102%float.
 (* The step is taken from the LEADING word: a double word is within one part  *)
 (* in two to the fifty-second of it, which is nothing beside the step.  And   *)
 (* the sweep of `widenUp' is kept, since a seed need not be a double word.    *)
-Definition dstep d := let: DWFloat xh _ := d in mulUpFp dscale (abs xh).
+(* AND IT HOLDS IN THE NORMAL RANGE ONLY.  The paper's Theorem 7.1 for this   *)
+(* very division - `double-double-arithmetic/DWDivDW.v', admit-free - is      *)
+(* proved in the format with no smallest exponent, so below that it says      *)
+(* nothing.  The sum of this development IS ported to the bounded format      *)
+(* (`F2SumFLT.v', `TwoSumFLT.v') but the division is not, so the shift needs   *)
+(* the test after all.  Below the line a fixed step is used, which needs no    *)
+(* error analysis: down there every number is a whole multiple of the         *)
+(* smallest float.  The fixed step covers the shifted one AT the line, and    *)
+(* the shifted one only gets smaller below it.                                *)
+Definition dnormLo := Eval compute in 0x1p-950%float.
+Definition dabs := Eval compute in 0x1p-1050%float.
+
+Definition dstep d :=
+  let: DWFloat xh _ := d in
+  if (dnormLo <? abs xh)%float then mulUpFp dscale (abs xh) else dabs.
 
 Definition shiftUp d := widenUp d (dstep d).
 Definition shiftDn d := widenDn d (dstep d).

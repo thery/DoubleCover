@@ -82,7 +82,27 @@ only a measurement tells you which bound that is.
 
 **Four obligations are no longer proved.** `div_UP`, `div_DN`, `sqrt_UP` and
 `sqrt_DN` are now bounded by a shift of sixteen units in the last place rather
-than by a computed residual, and that shift is a measurement, not a theorem.
+than by a computed residual.
+
+**Sixteen is the paper's own constant.** `double-double-arithmetic/DWDivDW.v`
+holds Theorem 7.1, admit-free, for `DWDivDW2` — which is `divDwDw2` of
+`dwarith.v` step for step:
+
+```coq
+Rabs ((zh + zl - xy) / xy) <= 15*u^2 + 56 * u^3
+```
+
+That is fifteen units in the last place of the low word, and sixteen is the
+next power of two above it, so the shift is an exact exponent change.
+Probing the same algorithm on 200000 random double words (`c/probek.py`) gives
+5.82 units worst case, well inside it.
+
+What is missing is not the constant but the connection: that theorem is stated
+over the reals in the format with no smallest exponent, and generic in the
+precision, while the code runs primitive floats in the bounded format. Porting
+it is the same exercise `F2SumFLT.v` and `TwoSumFLT.v` are for the sum. Until
+then the shift is guarded by a normal-range test, and below the range a fixed
+step is used.
 The residual forms are still in `dw_updn.v` and their proofs are still in
 `dwbound.v`; putting those four names back restores an admit-free development.
 Everything else is admit-free, and the assumptions are the primitive-float and

@@ -110,19 +110,22 @@ Definition is_nan x := match classify x with Sig.Fnan => true | _ => false end.
 (* So: the magnitude of the VALUE, from ONE call.  The two words are added    *)
 (* once upwards and once downwards, and whichever is larger in absolute       *)
 (* value bounds the value.  8.5 microseconds, and exact.                     *)
-(* AND THE STEPS CAN LEAVE THE RANGE.  A step up from the largest float there *)
-(* is gives an infinity, and `PrimitiveFloat.mag' of an infinity is the least  *)
-(* exponent there is, not the greatest - so reading it would claim the value   *)
-(* is tiny when it is enormous.  A pair of the largest float and nought is a   *)
-(* double word, and a real one, so this is reachable.  Where the step left     *)
-(* the range the answer is one past the largest exponent instead, which every  *)
-(* sum of two floats is below.                                                 *)
+(* The two words are added in absolute value, rounded upwards, which is at or *)
+(* above the value whatever the signs are.  One directed sum.                 *)
+(*                                                                            *)
+(* AND IT CAN LEAVE THE RANGE.  A step up from the largest float there is     *)
+(* gives an infinity, and `PrimitiveFloat.mag' of an infinity is the LEAST    *)
+(* exponent, not the greatest - so reading it would claim the value is tiny   *)
+(* when it is enormous.  `DWFloat 0x1.fffffffffffffp+1023 0' is a double word *)
+(* and a real one, so it is reachable.  Where the sum left the range the      *)
+(* answer is one past the largest exponent, which every sum of two floats is  *)
+(* below.  The test is for a number above nought and below an infinity, which *)
+(* is what says the sum is a number at all, and it is the form the bound       *)
+(* below is proved from.                                                       *)
 Definition mag x :=
   let: DWFloat xh xl := x in
-  let s := addUpFp xh xl in
-  let t := addDnFp xh xl in
-  let w := if (abs s <=? abs t)%float then t else s in
-  if (abs w <? infinity)%float then PrimitiveFloat.mag w else 1025%Z.
+  let m := addUpFp (PrimFloat.abs xh) (PrimFloat.abs xl) in
+  if ((0 <? m) && (m <? infinity))%float then PrimitiveFloat.mag m else 1025%Z.
 
 (* Only an infinity of the wrong sign is barred from being a bound.           *)
 Definition valid_ub x := match classify x with Fminfty => false | _ => true end.
@@ -958,7 +961,48 @@ Qed.
 (* The magnitude bounds the pair: each word is below its own power of         *)
 (* two, so their sum is below the larger of the two, doubled.                 *)
 Lemma mag_correct f : (Rabs (toR f) < bpow radix (StoZ (mag f)))%R.
-Proof. Admitted.  (* the tight magnitude of dw_ops.v, not proved *)
+Proof.
+(* A pair that denotes nothing is read as nought, and every power is above   *)
+(* nought.                                                                    *)
+case Ex: (real f); last first.
+  have -> : toR f = 0%R by move: Ex; rewrite real_correct /toR; case: (toX f).
+  by rewrite Rabs_R0; apply: bpow_gt_0.
+have [Fh [Fl Hw]] := real_fin _ Ex.
+have -> : toR f = (D2R (dwhi f) + D2R (dwlo f))%R by rewrite /toR (toX_real _ Ex).
+(* Whatever the signs, the value is at most the two words added in absolute  *)
+(* value.                                                                     *)
+have Hab : (Rabs (D2R (dwhi f) + D2R (dwlo f))
+            <= D2R (PrimFloat.abs (dwhi f)) + D2R (PrimFloat.abs (dwlo f)))%R.
+  by rewrite !D2R_abs; apply: Rabs_triang.
+rewrite /mag /StoZ; case: f Ex Fh Fl Hw Hab => xh xl /= Ex Fh Fl Hw Hab.
+set m := addUpFp (PrimFloat.abs xh) (PrimFloat.abs xl).
+case Em: (((0 <? m)%float && (m <? infinity)%float)%bool); last first.
+  (* The sum left the range.  Each word is below the largest power there is,  *)
+  (* so the two of them are below the next one up, which is what is claimed.  *)
+  have E0 : emax = 1024%Z by [].
+  have E : (bpow radix 1025 = bpow radix2 emax * 2)%R.
+    rewrite /radix; have -> : (1025 = emax + 1)%Z by rewrite E0.
+    by rewrite bpow_plus /= /Z.pow_pos /=; lra.
+  have H1 := @abs_B2R_lt_emax _ _ (Prim2B xh).
+  have H2 := @abs_B2R_lt_emax _ _ (Prim2B xl).
+  rewrite /D2R E.
+  have := Rabs_triang (B2R (Prim2B xh)) (B2R (Prim2B xl)).
+  by lra.
+(* The sum is a number above nought, so it is what the magnitude was taken   *)
+(* of, and it is at or above the two words added in absolute value.           *)
+have [H0 Hi] := proj1 (Bool.andb_true_iff _ _) Em.
+have [Fm Hm] := Dpos _ H0 Hi.
+have Fs : Dfin (PrimFloat.abs xh + PrimFloat.abs xl)%float.
+  by apply: Dfin_upFpI; move: Fm; rewrite /m /addUpFp.
+have Hge := addUpFp_ge _ _ (Dfin_abs _ Fh) (Dfin_abs _ Fl) Fs Fm.
+have Hmc := PrimitiveFloat.mag_correct m.
+have Etr : PrimitiveFloat.toR m = D2R m.
+  by rewrite /PrimitiveFloat.toR /PrimitiveFloat.toX (toXE _ Fm).
+rewrite Etr (Rabs_pos_eq _ (Rlt_le _ _ Hm)) in Hmc.
+rewrite /PrimitiveFloat.StoZ in Hmc.
+rewrite /radix -/m in Hge *.
+by lra.
+Qed.
 
 (* Halving and the midpoint are what the escape above buys: the signature     *)
 (* asks nothing of them of a format that is not sensible.                     *)
