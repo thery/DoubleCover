@@ -652,9 +652,9 @@ it: one node in two billion.
 
 = The search in Rocq
 
-The general principle is one file of about a hundred lines, #src("Search.v"),
-and it does not mention the cube. It takes a group, a set of moves, an estimate
-$h$, and the two assumptions:
+The search is proved once and for all in #src("Search.v"), a file of about a
+hundred lines that never mentions the cube. It works with a group, a set of
+moves, an estimate $h$, and two assumptions on $h$:
 
 ```coq
 Hypothesis h1    : h 1 = 0.
