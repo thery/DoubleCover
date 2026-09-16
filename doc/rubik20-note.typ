@@ -774,10 +774,9 @@ eighteen first moves drops an eighteenth of the whole search.
 
 The first rule holds everywhere. $U U$ is $U^2$, a shorter word, and shorter
 words are covered at a smaller depth. So fifteen branches after the first move,
-not eighteen. Opposite faces commute,
-so $U D$ and $D U$ give the same position and one of the two orders is enough.
-Where the last move was on the top, right or front face that leaves *twelve*,
-and *fifteen* elsewhere. This half of the rule is used from the third move on.
+not eighteen. Opposite faces commute, so $U D$ and $D U$ are the same position
+and one of the two orders is enough. Where the last move was on the top, right
+or front face that leaves *twelve*, and *fifteen* elsewhere. This half of the rule is used from the third move on.
 
 The first move is a different argument, and it belongs to the superflip. The
 superflip is unchanged by all 48 relabellings of the cube: any of the six faces
