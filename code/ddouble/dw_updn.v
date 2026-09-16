@@ -275,6 +275,15 @@ Definition divDwDnK (x y : dwfloat) :=
          if ok then shiftDn q else DWFloat nan nan
   else DWFloat nan nan.
 
+(* The last step of the root halves both words, and HALVING IS NOT EXACT: a   *)
+(* word whose last digit is the smallest there is loses that digit.  Doubling *)
+(* always is, so a word that comes back from its half doubled is a word whose *)
+(* half was exact, and that is what this tests -- two multiplications and two *)
+(* comparisons, against an argument about where the bottom of the range is.   *)
+Definition halfOk (d : dwfloat) :=
+  let: DWFloat a b := d in
+  ((a / 2) * 2 =? a)%float && ((b / 2) * 2 =? b)%float.
+
 (* Fast2Sum's own precondition on the last call of the division: the          *)
 (* correction is no larger than what it corrects.  That is what makes the     *)
 (* answer a double word, which is asked of the arguments of a sum of two      *)

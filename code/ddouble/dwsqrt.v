@@ -215,3 +215,108 @@ have HEq : P / 2 - R =
            (P - (S + D)) / 2 + (D - T) / 2 + (S + T - 2 * R) / 2 by field.
 by rewrite HEq; apply: Rabs_le; split; nra.
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The guards the operation tests                                            *)
+(* ---------------------------------------------------------------------------*)
+
+Lemma Deqb_eq x y : Dfin x -> Dfin y -> (x =? y)%float = true ->
+  D2R x = D2R y.
+Proof.
+rewrite /Dfin /D2R eqb_equiv => Fx Fy.
+rewrite (Beqb_correct _ _ _ _ Fx Fy).
+by case: Req_bool_spec.
+Qed.
+
+Lemma Deqb_fin x y : Dfin y -> (x =? y)%float = true -> Dfin x.
+Proof.
+rewrite /Dfin eqb_equiv /Beqb /B2SF.
+case: (Prim2B x) => [sx|sx||sx mx ex Hx] //=.
+by case: sx; case: (Prim2B y) => [sy|sy||sy my ey Hy] //=; case: sy.
+Qed.
+
+(* A root is a number only if what it was taken of was one.                  *)
+Lemma Dfin_sqrtI x : Dfin (PrimFloat.sqrt x) -> Dfin x.
+Proof.
+rewrite /Dfin sqrt_equiv.
+have [_ [Hf _]] := Bsqrt_correct _ _ Hprec Hmax mode_NE (Prim2B x).
+by rewrite Hf; case: (Prim2B x) => [sx|sx||sx mx ex Hx] //=; case: sx.
+Qed.
+
+(* Doubling a number of the format is exact: the same digits, one exponent   *)
+(* up, and the top of the range is what `Dfin' rules out.                    *)
+Lemma Dformat_double z : generic_format radix2 Dfexp z ->
+  generic_format radix2 Dfexp (2 * z).
+Proof.
+have Hp0 : Prec_gt_0 prec by [].
+rewrite DfexpE => Hz.
+case: (FLT_format_generic _ _ _ _ Hz) => f Hf1 Hf2 Hf3.
+apply: generic_format_FLT.
+apply: (FLT_spec _ _ _ _ (Float radix2 (Fnum f) (Fexp f + 1))) => //=; last lia.
+rewrite Hf1 /F2R /= bpow_plus.
+have -> : bpow radix2 1 = 2 by [].
+by ring.
+Qed.
+
+(* HALVING IS NOT EXACT, AND THE OPERATION TESTS IT RATHER THAN REASONING    *)
+(* ABOUT IT.  Halving a word whose last digit is the smallest there is       *)
+(* loses that digit.  Doubling, on the other hand, is always exact, so a     *)
+(* word that comes back from its half doubled is a word whose half was       *)
+(* exact, and that is one multiplication and one comparison.                 *)
+Lemma half_exact a :
+  Dfin a -> Dfin (a / 2)%float -> ((a / 2) * 2 =? a)%float = true ->
+  D2R (a / 2)%float = D2R a / 2.
+Proof.
+move=> Fa Fh Ht.
+have Ft := Deqb_fin _ _ Fa Ht.
+have F2 : Dfin 2%float by [].
+have [Em _] := Dfin_mul _ _ Fh F2 Ft.
+have Ee := Deqb_eq _ _ Ft Fa Ht.
+have E2 : D2R 2%float = 2 by rewrite /D2R; compute; lra.
+rewrite Em E2 in Ee.
+have Hf : generic_format radix2 Dfexp (D2R (a / 2)%float * 2).
+  by rewrite Rmult_comm; apply/Dformat_double/Dformat.
+by rewrite (round_generic _ _ _ _ Hf) in Ee; lra.
+Qed.
+
+(* And the halving of a pair, which is the last step of the root.            *)
+Lemma halfDw_val d :
+  Dfin (dwhi d) -> Dfin (dwlo d) ->
+  Dfin (dwhi (halfDw d)) -> Dfin (dwlo (halfDw d)) ->
+  halfOk d = true ->
+  D2R (dwhi (halfDw d)) + D2R (dwlo (halfDw d)) =
+  (D2R (dwhi d) + D2R (dwlo d)) / 2.
+Proof.
+case: d => a b /= Fa Fb Fha Fhb /andb_prop [H1 H2].
+by rewrite (half_exact _ Fa Fha H1) (half_exact _ Fb Fhb H2); lra.
+Qed.
+
+(* The sum's guard, from the one test a program makes, read as the           *)
+(* division's was.                                                           *)
+Lemma plusDwDw_finI xh xl yh yl :
+  Dfin (dwlo (plusDwDw (DWFloat xh xl) (DWFloat yh yl))) ->
+  DplusDwDwFin xh xl yh yl.
+Proof.
+rewrite /DplusDwDwFin.
+set sh := dwhi (twoSum xh yh).
+set sl := dwlo (twoSum xh yh).
+set th := dwhi (twoSum xl yl).
+set tl := dwlo (twoSum xl yl).
+set c := (sl + th)%float.
+set v := fastTwoSum sh c.
+set w := (tl + dwlo v)%float.
+have Ez : plusDwDw (DWFloat xh xl) (DWFloat yh yl) = fastTwoSum (dwhi v) w
+  by [].
+rewrite Ez => Fz.
+have G2 := fastTwoSum_finI _ _ Fz.
+have [Fvh Fw] := Dfin_addI _ _ (proj1 G2).
+have [Ftl Fvl] := Dfin_addI _ _ Fw.
+have G1 := fastTwoSum_finI _ _ Fvl.
+have [Fsh Fc] := Dfin_addI _ _ (proj1 G1).
+have [Fsl Fth] := Dfin_addI _ _ Fc.
+have T1 := twoSum_finI _ _ Fsl.
+have T2 := twoSum_finI _ _ Ftl.
+have [Fxh Fyh] := Dfin_addI _ _ (proj1 T1).
+have [Fxl Fyl] := Dfin_addI _ _ (proj1 T2).
+by tauto.
+Qed.
