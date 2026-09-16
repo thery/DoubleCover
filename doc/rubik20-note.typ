@@ -809,15 +809,6 @@ proof meets the same case and pays for it elsewhere. He keeps the bottom-face
 second move, and cuts his *third* move instead, using the symmetries that fix
 the pair of opposite faces.
 
-Our own OCaml program had this wrong. It dropped the three bottom-face second
-moves, so it searched 24 prefixes where it had to search 30. Nothing about the
-program looked wrong. It ran for hours, it exhausted its tree, and it reported
-that no solution of length 19 exists, which is the answer we expected. The
-error came out only when the same reduction had to be proved in Rocq, and the
-proof of the bottom-face case could not be written. This is the argument for
-proving a search rather than trusting it. A cut that is too greedy does not
-make a search fail. It makes it faster, and it makes it agree with you.
-
 None of the three is obvious, and they interact. The bottom-face second move
 survives only because the rule used from the third move on would otherwise cut
 the same pair of opposite faces twice, once by symmetry and once by the order
@@ -826,6 +817,15 @@ one wrong and the search is faster and the answer looks the same. This is what
 Rocq is for here. Every cut has to be proved before the search may use it. A cut
 that does not hold is refused rather than rewarded, and we can take cuts that
 would otherwise be too delicate to trust.
+
+Our own OCaml program had that case wrong. It dropped the three bottom-face
+second moves, so it searched 24 prefixes where it had to search 30. Nothing
+about the program looked wrong. It ran for hours, it exhausted its tree, and it reported
+that no solution of length 19 exists, which is the answer we expected. The
+error came out only when the same reduction had to be proved in Rocq, and the
+proof of the bottom-face case could not be written. This is the argument for
+proving a search rather than trusting it. A cut that is too greedy does not
+make a search fail. It makes it faster, and it makes it agree with you.
 
 So the depth-19 search becomes $2 times 15 = 30$ searches of depth 17. The 30
 are packed into *seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"),
