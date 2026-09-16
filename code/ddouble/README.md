@@ -428,6 +428,29 @@ nothing. The divisor's low word times the quotient lands in the subnormal range
 whenever the divisor is *nearly* a single float — its low word tiny but not
 nought — and a computed divisor is very often exactly that.
 
+**The shift on its own is not merely unproved — it is wrong.** Searched in
+exact arithmetic over four hundred thousand pairs, it undershoots. One pair:
+
+```coq
+Definition x := DWFloat 0x1.ccb1c51605c7bp-1015 0.
+Definition y := DWFloat 0x1.f037afc089e2ap-34 0x1.13550516ac418p-140.
+Compute shiftUp (divDwDw2 x y).   (* what the shift alone answers *)
+  = DWFloat 4.5427109195501472e-296 1.4012717105642807e-312
+```
+
+The true quotient is larger than that by `3.5e-314`, so the *upper* bound is
+below the value — about seven million of the smallest numbers there are. The
+reason is plain once seen: the quotient is near `2^-982`, so its low word is
+subnormal and holds eleven bits instead of fifty-three. The pair carries
+sixty-four bits, not a hundred and six, and a step of sixteen units in the last
+place of *that* low word is nowhere near the error. The `dnormLo` branch the
+step used to have does not save it either — the same search finds
+counterexamples for that rule too.
+
+So the guard is not protecting against a hypothetical, and `divOk` refuses this
+pair, and the residual answers `2.6711741982542052e-312`, which is above the
+true value.
+
 **And the arithmetic trips it itself.** When a product or a sum comes out
 exact, the only thing left in the low word is the widening step — `deps`, or
 one `next_up` — and that is a subnormal:
@@ -449,6 +472,12 @@ that the two formats round `yl * t` alike. Where it fails they differ by at most
 Relaxing it means proving the paper's theorem stable under a perturbation of
 that size in one of its steps — `divDwDw2_FLX` would state a bound where it now
 states an equality — which the paper does not give.
+
+**The two conditions that cost nothing are the two that catch it.** In the
+counterexample above `|xh|` is `2^-1015`, far below the `2^-969` the
+two-product asks for, so the `dprodlo` test refuses it whatever happens to
+`yl * t`. Dropping the `yl * t` condition would therefore not let it through —
+and dropping it is what brings the goal back to twenty-six seconds.
 
 **The arithmetic of that relaxation works out, with room.** A disagreement of
 `2^-1074` in `cl2` travels through the remaining steps unchanged until the last
