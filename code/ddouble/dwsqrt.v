@@ -154,3 +154,64 @@ have HT : Rabs (D2R (PrimFloat.sqrt (xh + xl)%float) -
   exact: Rabs_triang.
 by nra.
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  Newton's step, and why sixteen units cover it                             *)
+(* ---------------------------------------------------------------------------*)
+
+(* THE STEP IS QUADRATIC, and that is the whole of why one step suffices.     *)
+(* The guess is within two unit roundoffs of the true root, and the step      *)
+(* squares that: `(S - R)^2 / (2 S)', four squared roundoffs over two, so     *)
+(* two and a half once the divisor is allowed to be a little small.  The      *)
+(* quotient contributes half of its own error, eight, and the sum all of      *)
+(* its, four.  Fourteen and a half in all, which the fifteen below has room   *)
+(* for, and the sixteen of the shift covers with a sixteenth to spare.        *)
+(*                                                                            *)
+(* The quotient is written `T' and pinned by `T * S = R * R' rather than as   *)
+(* `R * R / S', because every bound below then stays a polynomial and `nra'   *)
+(* can see it.  Where a division cannot be avoided it is done by hand, by     *)
+(* multiplying through and cancelling a positive factor.                      *)
+
+Lemma newton_step R S T D P eD eP :
+  0 < R -> 0 < S -> T * S = R * R ->
+  Rabs (S - R) <= 2 * Du * R ->
+  Rabs (D - T) <= eD * T ->
+  Rabs (P - (S + D)) <= eP * (S + D) ->
+  0 <= eD -> eD <= 15 * Du ^ 2 + 56 * Du ^ 3 ->
+  0 <= eP -> eP <= 4 * Du ^ 2 ->
+  Rabs (P / 2 - R) <= 15 * Du ^ 2 * R.
+Proof.
+move=> HR HS HTS HSR HDT HP HeD0 HeD HeP0 HeP.
+have Hu := Du_gt0.
+have Hu1 : Du * 1024 <= 1 by exact: Du_small.
+have HP2 := Dupos 2.
+have HS1 : R * (1 - 2 * Du) <= S by move: HSR; split_Rabs; nra.
+have HS2 : S <= R * (1 + 2 * Du) by move: HSR; split_Rabs; nra.
+have HT0 : 0 < T by nra.
+have HTa : T * (1 - 2 * Du) <= R by nra.
+have HT2 : T <= 2 * R by nra.
+have HTb : T <= R * (1 + 4 * Du) by nra.
+(* Newton's step is quadratic: its error is the square of the guess's *)
+have HE1 : (S + T - 2 * R) * S = (S - R) * (S - R) by nra.
+have HE10 : 0 <= S + T - 2 * R.
+  apply: (Rmult_le_reg_r S); first exact: HS.
+  by rewrite Rmult_0_l HE1; apply: Rle_0_sqr.
+have HE1a : (S + T - 2 * R) * S <= 4 * Du ^ 2 * (R * R).
+  by rewrite HE1; move: HSR; split_Rabs; nra.
+have HE1d : ((S + T - 2 * R) * (1 - 2 * Du) - 4 * Du ^ 2 * R) * R <= 0 by nra.
+have HE1c : (S + T - 2 * R) * (1 - 2 * Du) <= 4 * Du ^ 2 * R by nra.
+have HE1b : S + T - 2 * R <= 5 * Du ^ 2 * R by nra.
+(* the quotient's error and the sum's *)
+have HDb : eD * T <= 16 * Du ^ 2 * R by nra.
+have HD1 : - (16 * Du ^ 2 * R) <= D - T by move: HDT; split_Rabs; nra.
+have HD2 : D - T <= 16 * Du ^ 2 * R by move: HDT; split_Rabs; nra.
+have HSD : S + D <= R * (2 + 8 * Du) by nra.
+have HSD0 : 0 < S + D by nra.
+have HP1 : - (4 * Du ^ 2 * (R * (2 + 8 * Du))) <= P - (S + D)
+  by move: HP; split_Rabs; nra.
+have HP3 : P - (S + D) <= 4 * Du ^ 2 * (R * (2 + 8 * Du))
+  by move: HP; split_Rabs; nra.
+have HEq : P / 2 - R =
+           (P - (S + D)) / 2 + (D - T) / 2 + (S + T - 2 * R) / 2 by field.
+by rewrite HEq; apply: Rabs_le; split; nra.
+Qed.
