@@ -773,18 +773,18 @@ worth far more than the same cut deeper down: dropping one of the eighteen
 first moves drops an eighteenth of everything below the root. Three arguments
 cut branches near the root, one for each of the first three moves. They are
 different arguments and we keep them apart. The third one goes on applying at
-every move below the third as well. The first holds only because the position
-searched is the superflip. The other two hold whatever the position is.
+every move below the third as well. The first one works only because we are
+looking at the superflip. The other two work for any position.
 
 *The first move: eighteen become two.* The superflip looks the same from every
 angle. There are 48 ways of putting a cube back into the space it came from:
 any of the six faces can be turned to the top, each in four positions, which
 makes twenty-four, and each of those seen in a mirror as well. Relabelling the
 superflip's stickers by any of the 48 gives the superflip back. So the eighteen
-first moves fall into two classes, and we may take the first move to be $U$ or
-$U^2$ and leave the other sixteen untried. This is the superflip's own
-argument. A position with no symmetry gives nothing here, and the search would
-begin with all eighteen.
+first moves come down to two, and we may take the first move to be $U$ or
+$U^2$ and leave the other sixteen untried. This works because the position is
+the superflip. For a position with no symmetry there is no such saving, and all
+eighteen first moves have to be tried.
 
 *The second move: eighteen become fifteen.* The three that turn the top face
 again are dropped. Turning the top face twice running merges into a single
