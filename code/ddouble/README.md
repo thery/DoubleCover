@@ -82,8 +82,9 @@ only a measurement tells you which bound that is.
 
 **Four operations are bounded by a shift, not by a residual.** `div_UP`,
 `div_DN`, `sqrt_UP` and `sqrt_DN` are bounded by a shift of sixteen units in
-the last place. The two for the division are proved; the two for the root are
-not.
+the last place. All four are proved. **The development is admit-free**, and its
+assumptions are the primitive-float and primitive-integer axioms and the
+classical reals, nothing else.
 
 **Sixteen is the paper's own constant.** `DWDivDW.v` holds Theorem 7.1,
 admit-free, for `DWDivDW2` — which is `divDwDw2` of `dwarith.v` step for step:
@@ -147,12 +148,44 @@ When the guard does fail the operation answers `Xnan` — the whole line, which
 is always a valid bound and says nothing. In the range where the arithmetic is
 worth using it does not fail.
 
-**The root is still not proved.** It has no theorem at all in the ported
-development, so there is nothing to carry down. Its residual form `sqrtDwUp` is
-still in `dw_updn.v` and its proof still in `dwbound.v`; putting those two names
-back restores an admit-free development. Everything else is admit-free, and the
-assumptions are the primitive-float and primitive-integer axioms and the
-classical reals, nothing else.
+## The root, which had no theorem to carry down
+
+The ported development says nothing about `sqrtDw`, so unlike the sum and the
+quotient the root is not a theorem carried down but one proved here, in
+`dwsqrt.v`.
+
+**One step of Newton's method suffices because the step is quadratic.**
+`sqrtDw` takes the machine root of the two words added as its guess, divides
+the double word by it, adds the two and halves. The guess is within `2u` of the
+true root — two roundings, the two words into one and the root of that. Newton
+squares that:
+
+```
+(S - R)^2 / (2 S)
+```
+
+so four squared roundoffs over two, two and a half once the divisor is allowed
+to be a little small. The quotient of the number by the guess contributes half
+of its own error, eight, and the sum of the two all of its, four. **Fourteen
+and a half against the sixteen of the shift**, which is the margin the whole
+thing turns on.
+
+It leans on everything above it: `divDwDw2_err` for the quotient,
+`plusDwDw_relerr` for the sum, and `divDwDw2_dw` for the quotient being a
+double word — which the sum asks of its arguments, and which is Fast2Sum's
+precondition on the division's last call, tested by `divDwOk`.
+
+**The halving is not exact, and the operation tests it.** A word whose last
+digit is the smallest there is loses that digit when halved. Rather than argue
+about where the bottom of the range is, `halfOk` tests it: doubling is always
+exact, so a word that comes back from its half doubled is a word whose half was
+exact.
+
+**The guard costs more here than for the division.** Measured on 100000 roots:
+the root alone 0.20 seconds, guarded and shifted 0.44, with its residual 2.70.
+The guarded form does the work twice, because `sqrtOk` recomputes what `sqrtDw`
+computes. Sharing them the way `divDwDw2G` shares the division's would take it
+to about 0.25; it is not done.
 
 **The module meets the signature.** All 32 obligations are proved and the
 check is in the build:
@@ -288,6 +321,7 @@ algorithms and their bounds.
 | `dw_updn.v` | the directed operations: the widening steps and the algorithms |
 | `dwbound.v` | the bounds themselves, from the steps up to `divDwUp_geP` |
 | `dwdivflx.v` | the quotient carried from the paper's format down to the program |
+| `dwsqrt.v` | the root: Newton's step, and the error of it |
 | `dw_ops.v` | the interface: `DwFloat` and all 32 obligations |
 | `test_pi.v` | a smoke test: pi by Machin, and what the operations bracket |
 | `Imul.v`, `TwoSumFLT.v` | Knuth's 2Sum in the bounded format, and its grids |
@@ -297,13 +331,13 @@ algorithms and their bounds.
 where the ported theorems of `DWPlus.v` and `DWDivDW.v` live: the first carries
 the sum down to the program, the second the quotient.
 
-**The quotient is the one place where the interface leans on the ported
-development.** `dw_ops.v` takes `div_UP` and `div_DN` from `dwdivflx.v`, and so
-from `DWDivDW.v`, `DWTimesFP.v`, `DWTimesDW_original.v`, `DWPlus.v`,
-`Bayleyaux.v`, `F2Sum.v` and `F2SumFLX.v` behind it. Everything else the
-interface needs is proved directly from the residual, and `dwflx.v` itself is
-not used by it: the sum's bound needs no error analysis, so `dwflx.v` is kept
-for the tighter algorithm that will want it.
+**The quotient and the root are where the interface leans on the ported
+development.** `dw_ops.v` takes `div_UP` and `div_DN` from `dwdivflx.v` and
+`sqrt_UP` and `sqrt_DN` from `dwsqrt.v`, and so from `DWDivDW.v`,
+`DWTimesFP.v`, `DWTimesDW_original.v`, `DWPlus.v`, `Bayleyaux.v`, `F2Sum.v`,
+`F2SumFLX.v` and `dwflx.v` behind them — the root needs the sum's bound, which
+is `dwflx.v`'s. The sum, the product and the whole numbers are still proved
+directly from their residuals and need none of it.
 
 `double-double-arithmetic/` is an untouched archive, kept for inspiration.
 Nothing in it is on the build path.
