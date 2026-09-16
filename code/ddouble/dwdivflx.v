@@ -4,7 +4,7 @@ From Flocq Require Import Core Plus_error Mult_error BinarySingleNaN PrimFloat.
 From Flocq Require Import Pff.Pff2Flocq.
 From mathcomp Require Import ssreflect.
 From dwarith Require Import dwarith dwbridge dw_updn dwtwosum dwprod dwflx.
-From dwarith Require Import dwbound DWDivDW.
+From dwarith Require Import dwbound F2Sum DWDivDW.
 
 (* The quotient of two double words, read in the format with no bottom.       *)
 (*                                                                            *)
@@ -828,3 +828,58 @@ Theorem divDwDnK_leP x y :
   D2R (dwhi (divDwDnK x y)) + D2R (dwlo (divDwDnK x y)) <=
   (D2R (dwhi x) + D2R (dwlo x)) / (D2R (dwhi y) + D2R (dwlo y)).
 Proof. by case: x => xh xl; case: y => yh yl; apply: divDwDnK_le. Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The quotient as a double word                                             *)
+(* ---------------------------------------------------------------------------*)
+
+(* Fast2Sum gives a double word as soon as its second argument is no larger   *)
+(* than its first, and both formats agree on the sum of two numbers with      *)
+(* nothing asked at all, so what holds in the one holds in the other.         *)
+Lemma fastTwoSum_dw a b :
+  Dfin a -> Dfin b -> DfastTwoSumFin a b ->
+  Rabs (D2R b) <= Rabs (D2R a) ->
+  D2R (dwhi (fastTwoSum a b)) =
+  Drnd (D2R (dwhi (fastTwoSum a b)) + D2R (dwlo (fastTwoSum a b))).
+Proof.
+move=> Fa Fb G Hle.
+have Hp1 : (1 < prec)%Z by [].
+have Hsym : forall x, Xrnd (- x) = - Xrnd x.
+  by move=> x; rewrite round_NE_opp.
+have Hb3 : (Zaux.radix_val radix2 <= 3)%Z by [].
+have Hc := F2Sum_correct_abs Hp1 Hsym Hb3 (Dformat_FLX a) (Dformat_FLX b) Hle.
+have [_ HDW] := F2Sum_correct_DW Hp1 Hc.
+have [Eh El] := fastTwoSum_FLX_fin _ _ Fa Fb G.
+rewrite (Drnd_FLX_plus _ _ (Dformat _) (Dformat _)) Eh El.
+exact: HDW.
+Qed.
+
+(* And so the quotient is a double word, once that test has passed.  The      *)
+(* division itself has no use for this - its step is read off both words -    *)
+(* but the square root adds the quotient to a guess, and a sum of two double  *)
+(* words asks that its arguments be double words.                            *)
+Lemma divDwDw2_dw x y :
+  DdivDwDw2Fin (dwhi x) (dwlo x) (dwhi y) (dwlo y) ->
+  divDwOk x y = true ->
+  D2R (dwhi (divDwDw2 x y)) =
+  Drnd (D2R (dwhi (divDwDw2 x y)) + D2R (dwlo (divDwDw2 x y))).
+Proof.
+case: x => xh xl; case: y => yh yl.
+rewrite /DdivDwDw2Fin /divDwOk.
+set t := (xh / yh)%float.
+set ch := dwhi (twoProd yh t).
+set cl1 := dwlo (twoProd yh t).
+set cl2 := (yl * t)%float.
+set v := fastTwoSum ch cl2.
+set tl2 := (dwlo v + cl1)%float.
+set rh := dwhi (fastTwoSum (dwhi v) tl2).
+set rl := dwlo (fastTwoSum (dwhi v) tl2).
+set d := ((xh - rh) + (xl - rl))%float.
+set tl := (d / yh)%float.
+have Ez : divDwDw2 (DWFloat xh xl) (DWFloat yh yl) = fastTwoSum t tl by [].
+rewrite Ez.
+move=> [_ [_ [_ [_ [Ft [_ [_ [_ [_ [_ [_ [_ [_ [_ [Ftl G3]]]]]]]]]]]]]]] Hle.
+apply: fastTwoSum_dw => //.
+have := Dleb _ _ (Dfin_abs _ Ftl) (Dfin_abs _ Ft) Hle.
+by rewrite !D2R_abs.
+Qed.

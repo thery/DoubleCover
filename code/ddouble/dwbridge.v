@@ -206,6 +206,16 @@ rewrite (Bltb_correct _ _ _ _ Fa Fb).
 by case: Rlt_bool_spec.
 Qed.
 
+(* And the same the other way round, which a test of Fast2Sum's own          *)
+(* precondition needs.                                                       *)
+Lemma Dleb a b : Dfin a -> Dfin b -> (a <=? b)%float = true ->
+  (D2R a <= D2R b)%R.
+Proof.
+rewrite /Dfin /D2R leb_equiv => Fa Fb.
+rewrite (Bleb_correct _ _ _ _ Fa Fb).
+by case: Rle_bool_spec.
+Qed.
+
 Lemma Dpos m : (0 <? m)%float = true -> (m <? infinity)%float = true ->
   Dfin m /\ (0 < D2R m)%R.
 Proof.

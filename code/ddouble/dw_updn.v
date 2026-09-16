@@ -275,6 +275,19 @@ Definition divDwDnK (x y : dwfloat) :=
          if ok then shiftDn q else DWFloat nan nan
   else DWFloat nan nan.
 
+(* Fast2Sum's own precondition on the last call of the division: the          *)
+(* correction is no larger than what it corrects.  That is what makes the     *)
+(* answer a double word, which is asked of the arguments of a sum of two      *)
+(* double words.  The division does not need it -- its step is read off both  *)
+(* words -- but the square root, which adds the quotient to a guess, does.    *)
+Definition divDwOk (x y : dwfloat) :=
+  let: DWFloat xh xl := x in
+  let: DWFloat yh yl := y in
+  let: t := (xh / yh)%float in
+  let: DWFloat rh rl := timesDwFp1 y t in
+  let: d := ((xh - rh) + (xl - rl))%float in
+  (abs (d / yh) <=? abs t)%float.
+
 (* The two operations as the proof wants to read them: the test named, and    *)
 (* the division named, instead of the one expression that shares them.        *)
 Lemma divDwUpKE x y :
