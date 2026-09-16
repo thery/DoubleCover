@@ -767,26 +767,32 @@ twenty-four threads, 62 GB of memory.
 
 == Removing redundant moves
 
-Three arguments cut branches away. A cut near the root is worth most: dropping
-one of the eighteen first moves drops an eighteenth of the whole search.
+Many words lead to the same position, and a search that tries them all does the
+same work over and over. Removing them is what brings the tree within reach,
+and the earlier a word is removed the more it saves: dropping one of the
+eighteen first moves drops an eighteenth of the whole search.
 
-*Never the same face twice.* Two turns of the same face merge into one, so a
-word that does it is a shorter word and is covered by a search at a smaller
-depth. That leaves fifteen branches at every move after the first. Two opposite
-faces commute, so only one of the two orders is needed: where the last move was
-on the top, right or front face, *twelve* are left, and *fifteen* elsewhere.
-This second half is used from the third move on.
+The first rule holds everywhere. Two turns of the same face merge into one, so
+a word that turns a face twice running is really a shorter word, and shorter
+words are covered by the searches at smaller depths. That leaves fifteen
+branches at every move after the first, not eighteen. Opposite faces commute,
+so $U D$ and $D U$ give the same position and one of the two orders is enough.
+Where the last move was on the top, right or front face that leaves *twelve*,
+and *fifteen* elsewhere. This half of the rule is used from the third move on.
 
-*The first move: two.* The superflip is unchanged by all 48 relabellings of the
-cube: any of the six faces to the top, each in four positions, and each seen in
-a mirror as well. So the eighteen first moves come down to $U$ and $U^2$. This
-one is the superflip's own saving; another position gives nothing of the kind.
+The first move is a different argument, and it belongs to the superflip. The
+superflip is unchanged by all 48 relabellings of the cube: any of the six faces
+to the top, each in four positions, and each seen in a mirror as well. So the
+eighteen first moves come down to $U$ and $U^2$. Another position gives nothing
+of the kind.
 
-*The second move: fifteen.* The rule above drops the three that turn the top
-face again. The three that turn the *bottom* face look droppable too, and they
-are not: $U D$ and $D U$ are the same position, but the first move is already
-fixed to the top face, and turning the cube upside down takes $D U$ back to
-$U D$. Reid keeps them as well, and cuts his *third* move instead.
+At the second move the two arguments get in each other's way. The rule would
+drop the three turns of the bottom face, since $U D$ and $D U$ are the same
+position. But symmetry has already fixed the first move to the top face, and
+turning the cube upside down takes $D U$ back to $U D$. Cutting by both would
+cut the same pair of faces twice over, so the bottom-face turns stay and the
+second move has fifteen branches. Reid meets the same case, keeps them too, and
+cuts his *third* move instead.
 
 Our own OCaml program dropped them, so it searched 24 prefixes where it had to
 search 30. It ran for hours and gave the answer we expected. The error came out
