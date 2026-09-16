@@ -765,81 +765,40 @@ minutes. Every timing in this note is measured on the same machine, the
 *reference machine*: a dual-socket Intel Xeon E5-2667 at 2.9 GHz, twelve cores,
 twenty-four threads, 62 GB of memory.
 
-== The three cuts
+== Fewer branches
 
-The tree has eighteen branches at every node, and that is what makes it too
-big. Three arguments cut branches away. The first applies at every move. The
-other two apply at the top of the tree, which is where a cut is worth most:
-dropping one of the eighteen first moves drops an eighteenth of everything
-below the root. They are different arguments and we keep them apart.
+Three arguments cut branches away. A cut near the root is worth most: dropping
+one of the eighteen first moves drops an eighteenth of the whole search.
 
-*Everywhere: eighteen become fifteen.* Turning the same face twice running
-merges into a single turn. A word that does it is really a shorter word, and
-shorter words are covered by the searches at smaller depths, not by this one.
-So at every move after the first there are fifteen branches and not eighteen.
+*Never the same face twice.* Two turns of the same face merge into one, so a
+word that does it is a shorter word and is covered by a search at a smaller
+depth. That leaves fifteen branches at every move after the first. Two opposite
+faces commute, so only one of the two orders is needed: where the last move was
+on the top, right or front face, *twelve* are left, and *fifteen* elsewhere.
+This second half is used from the third move on.
 
-There is a second half to the rule. Two opposite faces commute, so $U D$ and
-$D U$ give the same position and one of the two orders may be fixed. Where the
-last move was on the top, right or front face, both halves bite and *twelve*
-moves are left. Where it was on the bottom, left or back face, only the first
-half bites, because the opposite pair has already been cut in the other order,
-and *fifteen* are left. This second half is used from the third move on.
-Applying it there is not an extra assumption: the word after the second move is
-reduced like any other, and the proof already knew it. The search had been
-throwing the fact away and trying all eighteen.
+*The first move: two.* The superflip is unchanged by all 48 relabellings of the
+cube: any of the six faces to the top, each in four positions, and each seen in
+a mirror as well. So the eighteen first moves come down to $U$ and $U^2$. This
+one is the superflip's own saving; another position gives nothing of the kind.
 
-*The first move: eighteen become two.* The superflip looks the same from every
-angle. There are 48 ways of putting a cube back into the space it came from:
-any of the six faces can be turned to the top, each in four positions, which
-makes twenty-four, and each of those seen in a mirror as well. Relabelling the
-superflip's stickers by any of the 48 gives the superflip back. So the eighteen
-first moves come down to two, and we may take the first move to be $U$ or
-$U^2$ and leave the other sixteen untried. This works because the position is
-the superflip. For a position with no symmetry there is no such saving, and all
-eighteen first moves have to be tried.
+*The second move: fifteen.* The rule above drops the three that turn the top
+face again. The three that turn the *bottom* face look droppable too, and they
+are not: $U D$ and $D U$ are the same position, but the first move is already
+fixed to the top face, and turning the cube upside down takes $D U$ back to
+$U D$. Reid keeps them as well, and cuts his *third* move instead.
 
-*The second move: the bottom face stays.* The first move is a turn of the top
-face, so the rule above leaves fifteen second moves. The three that turn the
-*bottom* face look just as droppable, and they are not. This is the case that
-is easy to get wrong. The two turns commute, so $U D$ and $D U$ are the same
-position, and one of the two ought to go. But the first move is already fixed
-to the top face, and turning the cube upside down takes $D U$ back to $U D$.
-Whichever way we rewrite it, $U D$ comes back, so it has to be searched. Reid's
-proof meets the same case and pays for it elsewhere. He keeps the bottom-face
-second move, and cuts his *third* move instead, using the symmetries that fix
-the pair of opposite faces.
+Our own OCaml program dropped them, so it searched 24 prefixes where it had to
+search 30. It ran for hours and gave the answer we expected. The error came out
+only when the cut had to be proved in Rocq, and the proof could not be written.
+A cut that is too greedy does not make a search fail. It makes it faster, and
+it makes it agree with you.
 
-None of the three is obvious, and they interact. The bottom-face second move
-survives only because the rule used from the third move on would otherwise cut
-the same pair of opposite faces twice, once by symmetry and once by the order
-convention. Arguments of that shape are easy to get wrong and hard to test. Get
-one wrong and the search is faster and the answer looks the same. This is what
-Rocq is for here. Every cut has to be proved before the search may use it. A cut
-that does not hold is refused rather than rewarded, and we can take cuts that
-would otherwise be too delicate to trust.
-
-Our own OCaml program had that case wrong. It dropped the three bottom-face
-second moves, so it searched 24 prefixes where it had to search 30. It ran for
-hours and gave the answer we expected. The error came out only when the same
-cut had to be proved in Rocq, and the proof could not be written. A cut that is
-too greedy does not make a search fail. It makes it faster, and it makes it
-agree with you.
-
-So the depth-19 search becomes $2 times 15 = 30$ searches of depth 17. The 30
-are packed into *seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"),
-one per second move and numbered by it, each holding both first moves.
-
-Two of them run far longer than the rest. They are the two whose second move
-turns the bottom face, $D$ and $D^(-1)$, where the rule above leaves fifteen
-branches and not twelve. We cut each in two, one first move to a file:
-#src("Runp1_09a.v") and #src("Runp1_09b.v") in place of a single `Runp1_09.v`,
-and #src("Runp1_11a.v") and #src("Runp1_11b.v") in place of `Runp1_11.v`.
-Fifteen second moves, two of them split, makes seventeen files. Without the
-split, the rest of the run would finish long before those two files and would
-wait for them.
-
-That is how the work is spread over the cores of a machine: seventeen files,
-seventeen `Qed`s, nothing shared.
+So the depth-19 search becomes $2 times 15 = 30$ searches of depth 17, packed
+into *seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"), one per second
+move. The two whose second move turns the bottom face keep fifteen branches
+where the others keep twelve, so they run far longer; each is split in two, and
+the rest of the run does not wait for them.
 
 = The refinements
 
