@@ -792,11 +792,11 @@ turn, so those give a word of nineteen moves or less, and the proof covers
 shorter words at a smaller depth rather than by a search of their own.
 
 The three that turn the *bottom* face look just as droppable, and they are not.
-Here is why, because this is the case everyone gets wrong. The two turns
-commute, so $U D$ can be rewritten $D U$. But symmetry has already pinned the
-first move to the top face, and turning the cube over to bring that $D$ back to
-the top gives $U D$ again. It is a fixed point of both rewritings, so neither
-one removes it. Reid's proof meets the same case and pays for it elsewhere. He
+This is the case that is easy to get wrong. The two turns commute, so $U D$ and
+$D U$ are the same position, and one of the two ought to go. But the first move
+is already fixed to the top face, and turning the cube upside down takes $D U$
+back to $U D$. Whichever way we rewrite it, $U D$ comes back, so it has to be
+searched. Reid's proof meets the same case and pays for it elsewhere. He
 keeps the bottom-face second move, and cuts his *third* move instead, using the
 symmetries that fix the pair of opposite faces.
 
