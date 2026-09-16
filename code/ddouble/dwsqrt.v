@@ -461,3 +461,111 @@ apply: (Rmult_le_reg_r (1 - 4 * Du)); first lra.
 rewrite /Rdiv Rmult_assoc Rinv_l; last lra.
 by rewrite Rmult_1_r; nra.
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  And the two bounds the interface asks for                                 *)
+(* ---------------------------------------------------------------------------*)
+
+(* The shift covers the fifteen units with a sixteenth to spare, and the      *)
+(* answer stands for the root closely enough that reading the step off both   *)
+(* its words costs nothing.                                                   *)
+Theorem sqrtDwUpK_ge xh xl :
+  wellFormed (DWFloat xh xl) = true ->
+  Dfin (dwlo (sqrtDwUpK (DWFloat xh xl))) ->
+  R_sqrt.sqrt (D2R xh + D2R xl) <=
+  D2R (dwhi (sqrtDwUpK (DWFloat xh xl))) +
+  D2R (dwlo (sqrtDwUpK (DWFloat xh xl))).
+Proof.
+move=> Wx; rewrite /sqrtDwUpK.
+case Hok : (sqrtOk (DWFloat xh xl)); last by [].
+move=> Fz.
+have [Fqh [Fql Fs]] := widenUp_finI _ _ Fz.
+have Hstep := dstep_ge _ Fs.
+have Hw := widenUp_ge _ _ Fz.
+have He := sqrtDw_err xh xl Wx Fqh Fql Hok.
+have HR0 : 0 <= R_sqrt.sqrt (D2R xh + D2R xl) by apply: sqrt_pos.
+have Htri := Rabs_triang (D2R (dwhi (sqrtDw (DWFloat xh xl))))
+                         (D2R (dwlo (sqrtDw (DWFloat xh xl)))).
+have Hle := Rle_abs (D2R (dwhi (sqrtDw (DWFloat xh xl))) +
+                     D2R (dwlo (sqrtDw (DWFloat xh xl)))).
+have K2 := Du2; have P2 := Dupos 2; have Hu := Du_gt0.
+have Hu1 := Du_small.
+have Hd240 : 240 * Du ^ 2 <= 1 by nra.
+have Hv : R_sqrt.sqrt (D2R xh + D2R xl) * (1 - 15 * Du ^ 2) <=
+          D2R (dwhi (sqrtDw (DWFloat xh xl))) +
+          D2R (dwlo (sqrtDw (DWFloat xh xl)))
+  by move: He; split_Rabs; lra.
+have Hlow : R_sqrt.sqrt (D2R xh + D2R xl) * (1 - 15 * Du ^ 2) <=
+            Rabs (D2R (dwhi (sqrtDw (DWFloat xh xl)))) +
+            Rabs (D2R (dwlo (sqrtDw (DWFloat xh xl)))) by lra.
+have HDR : 0 <= Du ^ 2 * R_sqrt.sqrt (D2R xh + D2R xl) by nra.
+have Hb1 : 16 * Du ^ 2 *
+           (R_sqrt.sqrt (D2R xh + D2R xl) * (1 - 15 * Du ^ 2)) <=
+           16 * Du ^ 2 *
+           (Rabs (D2R (dwhi (sqrtDw (DWFloat xh xl)))) +
+            Rabs (D2R (dwlo (sqrtDw (DWFloat xh xl))))).
+  by apply: Rmult_le_compat_l; [nra | exact: Hlow].
+have Hb : 15 * Du ^ 2 * R_sqrt.sqrt (D2R xh + D2R xl) <=
+          16 * Du ^ 2 *
+          (Rabs (D2R (dwhi (sqrtDw (DWFloat xh xl)))) +
+           Rabs (D2R (dwlo (sqrtDw (DWFloat xh xl))))) by nra.
+rewrite /shiftUp.
+by move: He Hstep Hb Hw; split_Rabs; lra.
+Qed.
+
+Theorem sqrtDwDnK_le xh xl :
+  wellFormed (DWFloat xh xl) = true ->
+  Dfin (dwlo (sqrtDwDnK (DWFloat xh xl))) ->
+  D2R (dwhi (sqrtDwDnK (DWFloat xh xl))) +
+  D2R (dwlo (sqrtDwDnK (DWFloat xh xl))) <=
+  R_sqrt.sqrt (D2R xh + D2R xl).
+Proof.
+move=> Wx; rewrite /sqrtDwDnK.
+case Hok : (sqrtOk (DWFloat xh xl)); last by [].
+move=> Fz.
+have [Fqh [Fql Fs]] := widenDn_finI _ _ Fz.
+have Hstep := dstep_ge _ Fs.
+have Hw := widenDn_le _ _ Fz.
+have He := sqrtDw_err xh xl Wx Fqh Fql Hok.
+have HR0 : 0 <= R_sqrt.sqrt (D2R xh + D2R xl) by apply: sqrt_pos.
+have Htri := Rabs_triang (D2R (dwhi (sqrtDw (DWFloat xh xl))))
+                         (D2R (dwlo (sqrtDw (DWFloat xh xl)))).
+have Hle := Rle_abs (D2R (dwhi (sqrtDw (DWFloat xh xl))) +
+                     D2R (dwlo (sqrtDw (DWFloat xh xl)))).
+have K2 := Du2; have P2 := Dupos 2; have Hu := Du_gt0.
+have Hu1 := Du_small.
+have Hd240 : 240 * Du ^ 2 <= 1 by nra.
+have Hv : R_sqrt.sqrt (D2R xh + D2R xl) * (1 - 15 * Du ^ 2) <=
+          D2R (dwhi (sqrtDw (DWFloat xh xl))) +
+          D2R (dwlo (sqrtDw (DWFloat xh xl)))
+  by move: He; split_Rabs; lra.
+have Hlow : R_sqrt.sqrt (D2R xh + D2R xl) * (1 - 15 * Du ^ 2) <=
+            Rabs (D2R (dwhi (sqrtDw (DWFloat xh xl)))) +
+            Rabs (D2R (dwlo (sqrtDw (DWFloat xh xl)))) by lra.
+have HDR : 0 <= Du ^ 2 * R_sqrt.sqrt (D2R xh + D2R xl) by nra.
+have Hb1 : 16 * Du ^ 2 *
+           (R_sqrt.sqrt (D2R xh + D2R xl) * (1 - 15 * Du ^ 2)) <=
+           16 * Du ^ 2 *
+           (Rabs (D2R (dwhi (sqrtDw (DWFloat xh xl)))) +
+            Rabs (D2R (dwlo (sqrtDw (DWFloat xh xl))))).
+  by apply: Rmult_le_compat_l; [nra | exact: Hlow].
+have Hb : 15 * Du ^ 2 * R_sqrt.sqrt (D2R xh + D2R xl) <=
+          16 * Du ^ 2 *
+          (Rabs (D2R (dwhi (sqrtDw (DWFloat xh xl)))) +
+           Rabs (D2R (dwlo (sqrtDw (DWFloat xh xl))))) by nra.
+rewrite /shiftDn.
+by move: He Hstep Hb Hw; split_Rabs; lra.
+Qed.
+
+(* The two bounds, said of a pair rather than of its two words.               *)
+Theorem sqrtDwUpK_geP x :
+  wellFormed x = true -> Dfin (dwlo (sqrtDwUpK x)) ->
+  R_sqrt.sqrt (D2R (dwhi x) + D2R (dwlo x)) <=
+  D2R (dwhi (sqrtDwUpK x)) + D2R (dwlo (sqrtDwUpK x)).
+Proof. by case: x => xh xl; apply: sqrtDwUpK_ge. Qed.
+
+Theorem sqrtDwDnK_leP x :
+  wellFormed x = true -> Dfin (dwlo (sqrtDwDnK x)) ->
+  D2R (dwhi (sqrtDwDnK x)) + D2R (dwlo (sqrtDwDnK x)) <=
+  R_sqrt.sqrt (D2R (dwhi x) + D2R (dwlo x)).
+Proof. by case: x => xh xl; apply: sqrtDwDnK_le. Qed.

@@ -3,7 +3,8 @@ From Stdlib Require Import Floats PrimInt63.
 From Flocq Require Import Zaux Raux Core BinarySingleNaN PrimFloat.
 From Interval Require Import Xreal Basic Sig Generic_proof Primitive_ops.
 From mathcomp Require Import ssreflect.
-From dwarith Require Import dwarith dwbridge dwprod dw_updn dwbound dwdivflx.
+From dwarith Require Import dwarith dwbridge dwprod dw_updn dwbound.
+From dwarith Require Import dwdivflx dwsqrt.
 
 (* Double words as a float format for Interval.                               *)
 (* Phase one: the operations only.  The module is not yet declared to meet    *)
@@ -610,13 +611,27 @@ Qed.
 Lemma sqrt_UP_correct p x :
   valid_ub (sqrt_UP p x) = true /\
   le_upper (Xsqrt (toX x)) (toX (sqrt_UP p x)).
-Proof. Admitted.  (* the shift of dw_updn.v, not proved *)
+Proof.
+split; first exact: valid_ub_onReal.
+apply: (onReal_upper (fun x => Xsqrt (toX x))) => {p}{}x Rx Rz.
+have [Fxh [Fxl Wx]] := real_fin _ Rx.
+have [_ [Fzl _]] := real_fin _ Rz.
+rewrite (toX_real _ Rx) (toX_real _ Rz) /=.
+exact: sqrtDwUpK_geP.
+Qed.
 
 Lemma sqrt_DN_correct p x :
   valid_lb x = true ->
   valid_lb (sqrt_DN p x) = true /\
   le_lower (toX (sqrt_DN p x)) (Xsqrt (toX x)).
-Proof. Admitted.  (* the shift of dw_updn.v, not proved *)
+Proof.
+move=> _; split; first exact: valid_lb_onReal.
+apply: (onReal_lower (fun x => Xsqrt (toX x))) => {p}{}x Rx Rz.
+have [Fxh [Fxl Wx]] := real_fin _ Rx.
+have [_ [Fzl _]] := real_fin _ Rz.
+rewrite (toX_real _ Rx) (toX_real _ Rz) /le_lower /=.
+by apply: Ropp_le_contravar; exact: sqrtDwDnK_leP.
+Qed.
 
 (* ---------------------------------------------------------------------------*)
 (*  What the signature asks of the rest                                       *)
