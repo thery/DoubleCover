@@ -737,7 +737,8 @@ case Hx0 : (xh =? 0)%float.
   rewrite Exh Rplus_0_l (round_generic _ _ _ _ Ffl) in E.
   rewrite Exh -E [dwhi _]/= [dwlo _]/= D2R_zero /Rdiv Rplus_0_l Rmult_0_l.
   by lra.
-case Hok : (divOk (DWFloat xh xl) (DWFloat yh yl)); last by [].
+case Hok : (divOk (DWFloat xh xl) (DWFloat yh yl));
+  last by apply: divDwUp_geP.
 move=> Fz.
 have [Fqh [Fql Fs]] := widenUp_finI _ _ Fz.
 have Hstep := dstep_ge _ Fs.
@@ -775,7 +776,8 @@ case Hx0 : (xh =? 0)%float.
   rewrite Exh Rplus_0_l (round_generic _ _ _ _ Ffl) in E.
   rewrite Exh -E [dwhi _]/= [dwlo _]/= D2R_zero /Rdiv Rplus_0_l Rmult_0_l.
   by lra.
-case Hok : (divOk (DWFloat xh xl) (DWFloat yh yl)); last by [].
+case Hok : (divOk (DWFloat xh xl) (DWFloat yh yl));
+  last by apply: divDwDn_leP.
 move=> Fz.
 have [Fqh [Fql Fs]] := widenDn_finI _ _ Fz.
 have Hstep := dstep_ge _ Fs.

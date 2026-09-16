@@ -257,22 +257,33 @@ case: x => xh xl; case: y => yh yl.
 by rewrite /divDwDw2G /divOk /divDwDw2; case: (timesDwFp1 _ _).
 Qed.
 
-(* Nought divided is nought, and it is worth saying so rather than refusing   *)
-(* it: the test above cannot pass on a nought numerator, and an interval      *)
-(* with nought for an endpoint is not a rare thing.                           *)
+(* WHEN THE TEST FAILS THE RESIDUAL ANSWERS, and that is what keeps the       *)
+(* operation total.  The residual form needs no range at all -- it measures   *)
+(* how wrong the answer is rather than appealing to a theorem about it -- so  *)
+(* it covers exactly the cases the shift cannot.  It costs ten times the      *)
+(* division where the shift costs a third, which is why it is the second      *)
+(* choice and not the first.                                                  *)
+(*                                                                            *)
+(* IT IS NOT A RARE PATH.  The two-product stops being exact below two to     *)
+(* the minus nine hundred and sixty-nine, and a Taylor model at eighty bits   *)
+(* divides numbers smaller than that; without this the tactic loses the goal. *)
+(*                                                                            *)
+(* Nought divided is nought, and it is worth saying so rather than sending it *)
+(* down the slow path: the test cannot pass on a nought numerator, and an     *)
+(* interval with nought for an endpoint is not a rare thing.                  *)
 Definition divDwUpK (x y : dwfloat) :=
   let: DWFloat xh _ := x in
   if posFp (magDnDw y) then
     if (xh =? 0)%float then DWFloat 0 0
     else let: (q, ok) := divDwDw2G x y in
-         if ok then shiftUp q else DWFloat nan nan
+         if ok then shiftUp q else divDwUp x y
   else DWFloat nan nan.
 Definition divDwDnK (x y : dwfloat) :=
   let: DWFloat xh _ := x in
   if posFp (magDnDw y) then
     if (xh =? 0)%float then DWFloat 0 0
     else let: (q, ok) := divDwDw2G x y in
-         if ok then shiftDn q else DWFloat nan nan
+         if ok then shiftDn q else divDwDn x y
   else DWFloat nan nan.
 
 (* The last step of the root halves both words, and HALVING IS NOT EXACT: a   *)
@@ -304,7 +315,7 @@ Lemma divDwUpKE x y :
   (let: DWFloat xh _ := x in
    if posFp (magDnDw y) then
      if (xh =? 0)%float then DWFloat 0 0
-     else if divOk x y then shiftUp (divDwDw2 x y) else DWFloat nan nan
+     else if divOk x y then shiftUp (divDwDw2 x y) else divDwUp x y
    else DWFloat nan nan).
 Proof. by case: x => xh xl; rewrite /divDwUpK divDwDw2GE. Qed.
 
@@ -313,7 +324,7 @@ Lemma divDwDnKE x y :
   (let: DWFloat xh _ := x in
    if posFp (magDnDw y) then
      if (xh =? 0)%float then DWFloat 0 0
-     else if divOk x y then shiftDn (divDwDw2 x y) else DWFloat nan nan
+     else if divOk x y then shiftDn (divDwDw2 x y) else divDwDn x y
    else DWFloat nan nan).
 Proof. by case: x => xh xl; rewrite /divDwDnK divDwDw2GE. Qed.
 
@@ -356,10 +367,12 @@ Definition sqrtOk (x : dwfloat) :=
   (dnorm <? (xh + xl))%float && divOk x s && divDwOk x s &&
   halfOk (plusDwDw s (divDwDw2 x s)).
 
+(* And the root falls back on its residual in the same way, for the same      *)
+(* reason: the quotient inside it has the same range to keep.                 *)
 Definition sqrtDwUpK (x : dwfloat) :=
-  if sqrtOk x then shiftUp (sqrtDw x) else DWFloat nan nan.
+  if sqrtOk x then shiftUp (sqrtDw x) else sqrtDwUp x.
 Definition sqrtDwDnK (x : dwfloat) :=
-  if sqrtOk x then shiftDn (sqrtDw x) else DWFloat nan nan.
+  if sqrtOk x then shiftDn (sqrtDw x) else sqrtDwDn x.
 
 Compute addDwUp (DWFloat 20000000000000004 (-1.75))
                 (DWFloat 20000000000000004 (-1.75)).
