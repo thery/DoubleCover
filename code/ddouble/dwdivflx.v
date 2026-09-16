@@ -456,3 +456,109 @@ have Hxy : (D2R xh + D2R xl) / (D2R yh + D2R yl) <> 0.
   by case: (Rinv_neq_0_compat _ Hy).
 by apply: Rabs_of_rel => //; apply: divDwDw2_relerr.
 Qed.
+
+
+(* ---------------------------------------------------------------------------*)
+(*  Sixteen units in the last place cover the paper's fifteen                 *)
+(* ---------------------------------------------------------------------------*)
+
+(* The unit roundoff, and the little arithmetic the margin below needs.       *)
+Lemma Du_gt0 : 0 < Du.
+Proof. by apply: bpow_gt_0. Qed.
+
+Lemma DuE : Du = / 9007199254740992.
+Proof. by []. Qed.
+
+Lemma Du_small : Du * 1024 <= 1.
+Proof. by rewrite DuE; lra. Qed.
+
+Lemma Dumul a : 0 <= a -> a * Du * 1024 <= a.
+Proof.
+move=> Ha; have H1 := Du_small.
+by rewrite -{2}(Rmult_1_r a) Rmult_assoc; apply: Rmult_le_compat_l.
+Qed.
+
+Lemma Dupos k : 0 <= Du ^ k.
+Proof. by have H := Du_gt0; apply: pow_le; lra. Qed.
+
+Lemma Du2 : Du ^ 2 * 1024 <= Du.
+Proof.
+have -> : Du ^ 2 * 1024 = Du * Du * 1024 by ring.
+by apply: Dumul; have := Du_gt0; lra.
+Qed.
+
+Lemma Du3 : Du ^ 3 * 1024 <= Du ^ 2.
+Proof.
+have -> : Du ^ 3 * 1024 = Du ^ 2 * Du * 1024 by ring.
+by apply/Dumul/Dupos.
+Qed.
+
+Lemma Du4 : Du ^ 4 * 1024 <= Du ^ 3.
+Proof.
+have -> : Du ^ 4 * 1024 = Du ^ 3 * Du * 1024 by ring.
+by apply/Dumul/Dupos.
+Qed.
+
+Lemma Du5 : Du ^ 5 * 1024 <= Du ^ 4.
+Proof.
+have -> : Du ^ 5 * 1024 = Du ^ 4 * Du * 1024 by ring.
+by apply/Dumul/Dupos.
+Qed.
+
+(* SIXTEEN COVERS FIFTEEN, and the margin is the whole of the matter.  The    *)
+(* paper's bound is `15 u^2 + 56 u^3' and sixteen is the next power of two    *)
+(* above it, so the shift is an exact change of exponent and a sixteenth of   *)
+(* the step is left over.  That sixteenth is what pays for reading the bound  *)
+(* off the answer rather than off the exact quotient.                         *)
+Lemma Du_margin : 15 * Du ^ 2 + 56 * Du ^ 3 <=
+                  16 * Du ^ 2 * (1 - (15 * Du ^ 2 + 56 * Du ^ 3)).
+Proof.
+have H0 := Du_gt0; have H1 := Du_small.
+have K2 := Du2; have K3 := Du3; have K4 := Du4; have K5 := Du5.
+have P2 := Dupos 2; have P3 := Dupos 3; have P4 := Dupos 4; have P5 := Dupos 5.
+by lra.
+Qed.
+
+(* And so a step of sixteen units in the last place covers the error.         *)
+(*                                                                            *)
+(* THE STEP IS TAKEN FROM BOTH WORDS OF THE ANSWER, not from the high word    *)
+(* alone.  The paper's bound is relative to the exact quotient, and what      *)
+(* stands for the quotient here is the answer: the two words added in         *)
+(* absolute value are at or above it whatever the low word does, and nothing  *)
+(* has to be known about the low word at all.  From the high word alone the   *)
+(* step would need the answer to be a double word - `zl' no larger than `u'   *)
+(* times `zh' - and that is a further theorem, which the paper does not       *)
+(* leave and which Fast2Sum does not give without its own precondition.       *)
+Lemma divDwDw2_step xh xl yh yl (f : R) :
+  DdivDwDw2Fin xh xl yh yl -> DdivDwDw2Rng xh xl yh yl ->
+  D2R xh = Drnd (D2R xh + D2R xl) ->
+  D2R yh = Drnd (D2R yh + D2R yl) ->
+  16 * Du ^ 2 *
+    (Rabs (D2R (dwhi (divDwDw2 (DWFloat xh xl) (DWFloat yh yl)))) +
+     Rabs (D2R (dwlo (divDwDw2 (DWFloat xh xl) (DWFloat yh yl))))) <= f ->
+  Rabs (D2R (dwhi (divDwDw2 (DWFloat xh xl) (DWFloat yh yl))) +
+        D2R (dwlo (divDwDw2 (DWFloat xh xl) (DWFloat yh yl))) -
+        (D2R xh + D2R xl) / (D2R yh + D2R yl)) <= f.
+Proof.
+move=> F G Ex Ey.
+have H := divDwDw2_err _ _ _ _ F G Ex Ey.
+move: H.
+set zh := D2R (dwhi _); set zl := D2R (dwlo _).
+set Z := (D2R xh + D2R xl) / (D2R yh + D2R yl).
+move=> H Hf.
+have Hm := Du_margin.
+have P2 := Dupos 2.
+have Hs : Rabs (zh + zl) <= Rabs zh + Rabs zl by exact: Rabs_triang.
+have Hinv : Rabs Z - Rabs (zh + zl) <= Rabs (zh + zl - Z).
+  by rewrite (Rabs_minus_sym (zh + zl)); exact: Rabs_triang_inv.
+have HZ : (1 - (15 * Du ^ 2 + 56 * Du ^ 3)) * Rabs Z <= Rabs zh + Rabs zl.
+  by rewrite Rmult_minus_distr_r Rmult_1_l; lra.
+have T1 : (15 * Du ^ 2 + 56 * Du ^ 3) * Rabs Z <=
+          16 * Du ^ 2 * ((1 - (15 * Du ^ 2 + 56 * Du ^ 3)) * Rabs Z).
+  rewrite -Rmult_assoc; apply: Rmult_le_compat_r; first exact: Rabs_pos.
+  by exact: Hm.
+have T2 : 16 * Du ^ 2 * ((1 - (15 * Du ^ 2 + 56 * Du ^ 3)) * Rabs Z) <=
+          16 * Du ^ 2 * (Rabs zh + Rabs zl).
+  by apply: Rmult_le_compat_l; [lra | exact: HZ].
+by lra.
+Qed.
