@@ -820,8 +820,9 @@ would otherwise be too delicate to trust.
 
 Our own OCaml program had that case wrong. It dropped the three bottom-face
 second moves, so it searched 24 prefixes where it had to search 30. Nothing
-about the program looked wrong. It ran for hours, it exhausted its tree, and it reported
-that no solution of length 19 exists, which is the answer we expected. The
+about the program looked wrong. It ran for hours, it exhausted its tree, and it
+reported that no solution of length 19 exists, which is the answer we expected.
+The
 error came out only when the same reduction had to be proved in Rocq, and the
 proof of the bottom-face case could not be written. This is the argument for
 proving a search rather than trusting it. A cut that is too greedy does not
