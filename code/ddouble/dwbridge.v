@@ -132,6 +132,13 @@ case: Rlt_bool_spec => [Hlt [-> _]|Hle Hov]; first by [].
 by move: Fxy Hov; case: Bdiv.
 Qed.
 
+(* The square root, which cannot overflow, so nothing is asked of it at all.  *)
+Lemma Dsqrt x : D2R (PrimFloat.sqrt x) = Drnd (R_sqrt.sqrt (D2R x)).
+Proof.
+rewrite /D2R sqrt_equiv.
+by have [-> _] := Bsqrt_correct _ _ Hprec Hmax mode_NE (Prim2B x).
+Qed.
+
 (* The same question asked backwards: which arguments can have produced a     *)
 (* finite result.  An operation given an infinity returns an infinity or a    *)
 (* NaN, never a number, so a finite result is by itself the proof that both   *)
