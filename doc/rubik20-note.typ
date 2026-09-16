@@ -819,14 +819,11 @@ that does not hold is refused rather than rewarded, and we can take cuts that
 would otherwise be too delicate to trust.
 
 Our own OCaml program had that case wrong. It dropped the three bottom-face
-second moves, so it searched 24 prefixes where it had to search 30. Nothing
-about the program looked wrong. It ran for hours, it exhausted its tree, and it
-reported that no solution of length 19 exists, which is the answer we expected.
-The
-error came out only when the same reduction had to be proved in Rocq, and the
-proof of the bottom-face case could not be written. This is the argument for
-proving a search rather than trusting it. A cut that is too greedy does not
-make a search fail. It makes it faster, and it makes it agree with you.
+second moves, so it searched 24 prefixes where it had to search 30. It ran for
+hours and gave the answer we expected. The error came out only when the same
+cut had to be proved in Rocq, and the proof could not be written. A cut that is
+too greedy does not make a search fail. It makes it faster, and it makes it
+agree with you.
 
 So the depth-19 search becomes $2 times 15 = 30$ searches of depth 17. The 30
 are packed into *seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"),
@@ -1572,12 +1569,6 @@ piece adds to the ones above it.
   ([one coset of the upper bound], [69], [17 386]),
   ([*in all*], [*140*], [*37 898*]),
 )
-
-One point is worth recording. Our own OCaml prototype for the first bound
-dropped six of the thirty beginnings it should have tried. It ran for hours and
-gave the expected answer. The Rocq proof is what found it. A cut that is too
-greedy does not make a search fail. It makes it faster, and it makes it agree
-with you.
 
 This development was written with the help of Claude, Anthropic's coding
 assistant.
