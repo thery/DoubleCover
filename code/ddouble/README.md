@@ -428,11 +428,33 @@ nothing. The divisor's low word times the quotient lands in the subnormal range
 whenever the divisor is *nearly* a single float — its low word tiny but not
 nought — and a computed divisor is very often exactly that.
 
+**And the arithmetic trips it itself.** When a product or a sum comes out
+exact, the only thing left in the low word is the widening step — `deps`, or
+one `next_up` — and that is a subnormal:
+
+```coq
+Compute mulDwUp (DWFloat 1 0) (DWFloat 1 0).
+  = DWFloat 1 5.434722104253712e-323
+Compute addDwUp (DWFloat 1 0) (DWFloat 1 0).
+  = DWFloat 2 9.8813129168249309e-324
+```
+
+Divide by such a double word and `yl * t` is subnormal at once. Integers,
+powers of two and factorials are what a series divides by, so it happens
+constantly.
+
 **And that condition is the one least worth having.** What it is there for is
 that the two formats round `yl * t` alike. Where it fails they differ by at most
 `2^-1074`, which against a step of `16 u^2` times the answer is nothing at all.
 Relaxing it means proving the paper's theorem stable under a perturbation of
 that size in one of its steps — `divDwDw2_FLX` would state a bound where it now
-states an equality — which the paper does not give and which is a piece of work
-in itself. Until that is done the choice is the honest one: proved at 42.9, or
-unproved at 24.6.
+states an equality — which the paper does not give.
+
+**The arithmetic of that relaxation works out, with room.** A disagreement of
+`2^-1074` in `cl2` travels through the remaining steps unchanged until the last
+division by `yh`, where it becomes `2^-1074 / |yh|`. Against the step, which is
+`16 u^2` times the answer, that asks for `|x| >= 2^-972` — and the guard
+already asks `|x| >= 2^-969` for the two-product. So the condition can go, and
+what it costs is the eight roundings of `divDwDw2_FLX` restated as a bound
+instead of an equality. Until that is done the choice is the honest one: proved
+at 42.9, or unproved at 24.6.
