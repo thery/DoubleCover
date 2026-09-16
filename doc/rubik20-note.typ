@@ -765,7 +765,7 @@ minutes. Every timing in this note is measured on the same machine, the
 *reference machine*: a dual-socket Intel Xeon E5-2667 at 2.9 GHz, twelve cores,
 twenty-four threads, 62 GB of memory.
 
-== Fewer branches
+== Removing redundant moves
 
 Three arguments cut branches away. A cut near the root is worth most: dropping
 one of the eighteen first moves drops an eighteenth of the whole search.
