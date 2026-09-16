@@ -765,16 +765,28 @@ minutes. Every timing in this note is measured on the same machine, the
 *reference machine*: a dual-socket Intel Xeon E5-2667 at 2.9 GHz, twelve cores,
 twenty-four threads, 62 GB of memory.
 
-== Three cuts at the top of the tree
+== The three cuts
 
 The tree has eighteen branches at every node, and that is what makes it too
-big. Cutting a branch removes everything below it, so a cut near the root is
-worth far more than the same cut deeper down: dropping one of the eighteen
-first moves drops an eighteenth of everything below the root. Three arguments
-cut branches near the root, one for each of the first three moves. They are
-different arguments and we keep them apart. The third one goes on applying at
-every move below the third as well. The first one works only because we are
-looking at the superflip. The other two work for any position.
+big. Three arguments cut branches away. The first applies at every move. The
+other two apply at the top of the tree, which is where a cut is worth most:
+dropping one of the eighteen first moves drops an eighteenth of everything
+below the root. They are different arguments and we keep them apart.
+
+*Everywhere: eighteen become fifteen.* Turning the same face twice running
+merges into a single turn. A word that does it is really a shorter word, and
+shorter words are covered by the searches at smaller depths, not by this one.
+So at every move after the first there are fifteen branches and not eighteen.
+
+There is a second half to the rule. Two opposite faces commute, so $U D$ and
+$D U$ give the same position and one of the two orders may be fixed. Where the
+last move was on the top, right or front face, both halves bite and *twelve*
+moves are left. Where it was on the bottom, left or back face, only the first
+half bites, because the opposite pair has already been cut in the other order,
+and *fifteen* are left. This second half is used from the third move on.
+Applying it there is not an extra assumption: the word after the second move is
+reduced like any other, and the proof already knew it. The search had been
+throwing the fact away and trying all eighteen.
 
 *The first move: eighteen become two.* The superflip looks the same from every
 angle. There are 48 ways of putting a cube back into the space it came from:
@@ -786,19 +798,16 @@ $U^2$ and leave the other sixteen untried. This works because the position is
 the superflip. For a position with no symmetry there is no such saving, and all
 eighteen first moves have to be tried.
 
-*The second move: eighteen become fifteen.* The three that turn the top face
-again are dropped. Turning the top face twice running merges into a single
-turn, so those give a word of nineteen moves or less, and the proof covers
-shorter words at a smaller depth rather than by a search of their own.
-
-The three that turn the *bottom* face look just as droppable, and they are not.
-This is the case that is easy to get wrong. The two turns commute, so $U D$ and
-$D U$ are the same position, and one of the two ought to go. But the first move
-is already fixed to the top face, and turning the cube upside down takes $D U$
-back to $U D$. Whichever way we rewrite it, $U D$ comes back, so it has to be
-searched. Reid's proof meets the same case and pays for it elsewhere. He
-keeps the bottom-face second move, and cuts his *third* move instead, using the
-symmetries that fix the pair of opposite faces.
+*The second move: the bottom face stays.* The first move is a turn of the top
+face, so the rule above leaves fifteen second moves. The three that turn the
+*bottom* face look just as droppable, and they are not. This is the case that
+is easy to get wrong. The two turns commute, so $U D$ and $D U$ are the same
+position, and one of the two ought to go. But the first move is already fixed
+to the top face, and turning the cube upside down takes $D U$ back to $U D$.
+Whichever way we rewrite it, $U D$ comes back, so it has to be searched. Reid's
+proof meets the same case and pays for it elsewhere. He keeps the bottom-face
+second move, and cuts his *third* move instead, using the symmetries that fix
+the pair of opposite faces.
 
 Our own OCaml program had this wrong. It dropped the three bottom-face second
 moves, so it searched 24 prefixes where it had to search 30. Nothing about the
@@ -808,20 +817,6 @@ error came out only when the same reduction had to be proved in Rocq, and the
 proof of the bottom-face case could not be written. This is the argument for
 proving a search rather than trusting it. A cut that is too greedy does not
 make a search fail. It makes it faster, and it makes it agree with you.
-
-*From the third move on: eighteen become fifteen or twelve.* This one is not
-about the superflip and not about the top of the tree. It is one rule, applied
-at every node. A shortest word never turns the same face twice running, because
-the two turns merge into one. Of two opposite faces it never uses both orders,
-because $U D$ and $D U$ give the same position, so fixing one order loses
-nothing. At a node whose last move was on the top, right or front face, both
-halves of the rule bite and *twelve* moves are left. At a node whose last move
-was on the bottom, left or back face, only the first half bites, because the
-opposite pair has already been cut in the other order, and *fifteen* are left.
-
-Applying that rule to the third move is not an extra assumption. The word after
-the second move is reduced like any other, and the proof already knew it. The
-search had been throwing the fact away and trying all eighteen.
 
 None of the three is obvious, and they interact. The bottom-face second move
 survives only because the rule used from the third move on would otherwise cut
