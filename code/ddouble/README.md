@@ -227,12 +227,33 @@ So setting it `false` is refused by the functors:
 | `FloatIntervalFull` | the same |
 | `TranscendentalFloatFast` | the same |
 
-**The way through**, when someone takes it, is to narrow the format: a pair
-stops counting as a double word when its low word is subnormal. Then `xl / 2`
-is exact, `div2_correct` is provable, `sensible_format` can be `true`, and the
-functors apply. It costs two float comparisons on every `real` test, and the
-arithmetic then refuses pairs whose low word is below about `2^-1022` — the
-region below `2^-969` in value, where the two-product already gives up.
+**Refusing a subnormal low word does not do it.** That was the first idea, and
+it is wrong, because the obligation is an equation and so the *result* has to be
+in the format as well. Take `DWFloat 1 0x1p-1022` — a double word, and its low
+word is the smallest normal number there is. Halving both words is exact and
+gives `DWFloat 0.5 0x1p-1023`, whose low word is subnormal, so the narrowed
+format refuses it and `toX (div2 x)` is `Xnan` where the equation asks for
+`Xreal ((1 + 2^-1022) / 2)`. And no other pair denotes that number: a double
+word's high word is the rounding of its value, which pins both words. The same
+argument kills any floor on the low word, since halving walks straight through
+it.
+
+**A floor relative to the high word does do it**, because halving both words
+leaves the ratio alone. Ask that the low word be nought or no smaller than
+`2^-1000` times the high word. Then `div2` keeps the condition, and under the
+obligation's own hypothesis — `1/256 <= |x|`, so the high word is above
+`2^-9` — a low word that is not nought is above `2^-1009`, far into the normal
+range, so halving it is exact. The cost is a multiplication and two comparisons
+on every `real` test, and the arithmetic refuses pairs whose low word is nonzero
+and more than `2^-1000` times smaller than the high word — which the arithmetic
+does not itself produce, since a low word is either nought or about `2^-53` of
+the high one.
+
+**`midpoint_correct` comes with it.** It is the one obligation of the signature
+that asks for a result that is *not* `Xnan`, so the midpoint needs a fallback:
+take the halved sum when it is real and lies between the two, and the left
+endpoint otherwise. That is sound, and bisection loses nothing except in the
+cases where the halved sum would have been refused anyway.
 
 ## Four definitions changed while sealing
 
