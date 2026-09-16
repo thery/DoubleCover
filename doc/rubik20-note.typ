@@ -772,10 +772,9 @@ same work over and over. Removing them is what brings the tree within reach,
 and the earlier a word is removed the more it saves: dropping one of the
 eighteen first moves drops an eighteenth of the whole search.
 
-The first rule holds everywhere. Two turns of the same face merge into one, so
-a word that turns a face twice running is really a shorter word, and shorter
-words are covered by the searches at smaller depths. That leaves fifteen
-branches at every move after the first, not eighteen. Opposite faces commute,
+The first rule holds everywhere. $U U$ is $U^2$, a shorter word, and shorter
+words are covered at a smaller depth. So fifteen branches after the first move,
+not eighteen. Opposite faces commute,
 so $U D$ and $D U$ give the same position and one of the two orders is enough.
 Where the last move was on the top, right or front face that leaves *twelve*,
 and *fifteen* elsewhere. This half of the rule is used from the third move on.
