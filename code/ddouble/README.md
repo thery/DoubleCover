@@ -44,8 +44,8 @@ just says nothing.
 | `add_UP` / `add_DN` | `addDwUp` / `addDwDn` | proved |
 | `sub_UP` / `sub_DN` | the sum with the second word negated | proved |
 | `mul_UP` / `mul_DN` | `mulDwUp` / `mulDwDn` | proved |
-| `div_UP` / `div_DN` | `divDwUp` / `divDwDn` | proved |
-| `sqrt_UP` / `sqrt_DN` | `sqrtDwUp` / `sqrtDwDn` | proved |
+| `div_UP` / `div_DN` | `divDwUpK` / `divDwDnK` | proved |
+| `sqrt_UP` / `sqrt_DN` | `sqrtDwUpK` / `sqrtDwDnK` | proved |
 
 A whole number enters as two words as well. `fromZ_UP` and `fromZ_DN` split it
 into its top fifty-three bits — a whole number times a power of two, and both
@@ -80,9 +80,10 @@ rest, and that goal passes. The lesson is the general one: a bound that is
 correct can still be the thing that decides whether a tactic concludes, and
 only a measurement tells you which bound that is.
 
-**Four obligations are no longer proved.** `div_UP`, `div_DN`, `sqrt_UP` and
-`sqrt_DN` are now bounded by a shift of sixteen units in the last place rather
-than by a computed residual.
+**Four operations are bounded by a shift, not by a residual.** `div_UP`,
+`div_DN`, `sqrt_UP` and `sqrt_DN` are bounded by a shift of sixteen units in
+the last place. The two for the division are proved; the two for the root are
+not.
 
 **Sixteen is the paper's own constant.** `DWDivDW.v` holds Theorem 7.1,
 admit-free, for `DWDivDW2` — which is `divDwDw2` of `dwarith.v` step for step:
@@ -108,19 +109,47 @@ Rabs ((zh + zl - xy) / xy) <= 15 * Du ^ 2 + 56 * Du ^ 3
 
 It asks two things: that the arguments really are double words, and that the
 guard holds — every step of the algorithm a number, and the product and the
-two quotients above the smallest normal number, which is where the two formats
-round alike. The sum needed no such range test, since a sum too small for the
-bounded format to round is exact and so neither format rounds it. A product
-and a quotient have no such property, and that is the whole of why the
-quotient is the harder of the two.
+two quotients out of the subnormal range, which is where the two formats round
+alike. The sum needed no such range test, since a sum too small for the bounded
+format to round is exact and so neither format rounds it. A product and a
+quotient have no such property, and that is the whole of why the quotient is
+the harder of the two.
 
-**It does not yet close the four.** What the bound gives is a relative error;
-what `div_UP` and `div_DN` ask is a directed answer, and the step from one to
-the other is not written. The root has no theorem at all.
-The residual forms are still in `dw_updn.v` and their proofs are still in
-`dwbound.v`; putting those four names back restores an admit-free development.
-Everything else is admit-free, and the assumptions are the primitive-float and
-primitive-integer axioms and the classical reals, nothing else.
+**And so `div_UP` and `div_DN` are proved.** Three things had to be settled
+besides the theorem itself.
+
+*The step is taken from both words of the answer.* The paper's bound is
+relative to the exact quotient, so something computed has to stand for the
+quotient. The two words added in absolute value do, whatever the low word is.
+The high word alone would need the answer to be a double word — `zl` no larger
+than `u` times `zh` — and that is a further theorem, which the paper does not
+leave and which Fast2Sum does not give without its own precondition on the last
+call. `divDwDw2_step` is the arithmetic: `15u² + 56u³` against `16u²`, a
+sixteenth over, and a sixteenth is far more than the `u` the reading costs.
+
+*The range is tested as the division goes.* `divDwDw2G` computes the quotient
+and looks at its own four intermediates on the way, which costs four
+comparisons; computing them again for a separate test would cost as much as the
+division. Two of the four tests have an escape for nought, and must: the low
+word of a double word is often nought, and then `yl·t` is nought, which no
+magnitude test can pass; a division that comes out exact leaves `d` nought, and
+the same again. Both formats round nought to nought, so nought serves as well
+as being normal.
+
+*Nought divided is nought.* No magnitude test can pass on a nought numerator,
+and an interval with nought for an endpoint is not a rare thing, so that case
+is answered directly and exactly rather than refused.
+
+When the guard does fail the operation answers `Xnan` — the whole line, which
+is always a valid bound and says nothing. In the range where the arithmetic is
+worth using it does not fail.
+
+**The root is still not proved.** It has no theorem at all in the ported
+development, so there is nothing to carry down. Its residual form `sqrtDwUp` is
+still in `dw_updn.v` and its proof still in `dwbound.v`; putting those two names
+back restores an admit-free development. Everything else is admit-free, and the
+assumptions are the primitive-float and primitive-integer axioms and the
+classical reals, nothing else.
 
 **The module meets the signature.** All 32 obligations are proved and the
 check is in the build:
@@ -242,11 +271,15 @@ algorithms and their bounds.
 
 `dwflx.v` and `dwdivflx.v` read double words in the format with no bottom,
 where the ported theorems of `DWPlus.v` and `DWDivDW.v` live: the first carries
-the sum down to the program, the second the quotient. **Nothing in `dw_ops.v`
-depends on either**: the bounds the interface needs are all proved directly, so
-these two — and with them `F2SumFLX.v`, `F2Sum.v`, `Bayleyaux.v`, `DWPlus.v`,
-`DWTimesFP.v`, `DWTimesDW_original.v` and `DWDivDW.v` — are the error
-analyses, kept for the tighter algorithm that will want them.
+the sum down to the program, the second the quotient.
+
+**The quotient is the one place where the interface leans on the ported
+development.** `dw_ops.v` takes `div_UP` and `div_DN` from `dwdivflx.v`, and so
+from `DWDivDW.v`, `DWTimesFP.v`, `DWTimesDW_original.v`, `DWPlus.v`,
+`Bayleyaux.v`, `F2Sum.v` and `F2SumFLX.v` behind it. Everything else the
+interface needs is proved directly from the residual, and `dwflx.v` itself is
+not used by it: the sum's bound needs no error analysis, so `dwflx.v` is kept
+for the tighter algorithm that will want it.
 
 `double-double-arithmetic/` is an untouched archive, kept for inspiration.
 Nothing in it is on the build path.

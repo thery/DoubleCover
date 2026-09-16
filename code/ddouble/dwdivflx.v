@@ -4,7 +4,7 @@ From Flocq Require Import Core Plus_error Mult_error BinarySingleNaN PrimFloat.
 From Flocq Require Import Pff.Pff2Flocq.
 From mathcomp Require Import ssreflect.
 From dwarith Require Import dwarith dwbridge dw_updn dwtwosum dwprod dwflx.
-From dwarith Require Import DWDivDW.
+From dwarith Require Import dwbound DWDivDW.
 
 (* The quotient of two double words, read in the format with no bottom.       *)
 (*                                                                            *)
@@ -562,3 +562,269 @@ have T2 : 16 * Du ^ 2 * ((1 - (15 * Du ^ 2 + 56 * Du ^ 3)) * Rabs Z) <=
   by apply: Rmult_le_compat_l; [lra | exact: HZ].
 by lra.
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The guard the operation tests, and the two bounds                         *)
+(* ---------------------------------------------------------------------------*)
+
+Lemma Deqb0 a : Dfin a -> (a =? 0)%float = true -> D2R a = 0.
+Proof.
+rewrite /Dfin /D2R eqb_equiv => Fa.
+have F0 : is_finite (Prim2B 0) = true by [].
+rewrite (Beqb_correct _ _ _ _ Fa F0).
+by case: Req_bool_spec.
+Qed.
+
+Lemma Dbpow_of_rnd e r :
+  (Dfexp (e + 1) <= e)%Z ->
+  bpow radix2 e < Rabs (Drnd r) -> bpow radix2 e <= Rabs r.
+Proof.
+move=> He H; case: (Rle_lt_dec (bpow radix2 e) (Rabs r)) => // Hr; exfalso.
+have Hp0 : Prec_gt_0 prec by [].
+have Ve : Valid_exp Dfexp by rewrite DfexpE; apply: FLT_exp_valid.
+have F : generic_format radix2 Dfexp (bpow radix2 e)
+  by apply: generic_format_bpow.
+have Fo : generic_format radix2 Dfexp (- bpow radix2 e)
+  by apply: generic_format_opp.
+have H1 : Drnd r <= bpow radix2 e.
+  have T : Drnd r <= Drnd (bpow radix2 e).
+    by apply: round_le; move: Hr; split_Rabs; lra.
+  by rewrite (round_generic _ _ _ _ F) in T.
+have H2 : - bpow radix2 e <= Drnd r.
+  have T : Drnd (- bpow radix2 e) <= Drnd r.
+    by apply: round_le; move: Hr; split_Rabs; lra.
+  by rewrite (round_generic _ _ _ _ Fo) in T.
+by move: H; split_Rabs; lra.
+Qed.
+
+Lemma D2R_dnorm : D2R dnorm = Dnorm.
+Proof. by rewrite /D2R /dnorm; compute; lra. Qed.
+
+Lemma D2R_dprodlo : D2R dprodlo = Dprodlo.
+Proof. by rewrite /D2R /dprodlo; compute; lra. Qed.
+
+Lemma Dfin_dnorm : Dfin dnorm.
+Proof. by []. Qed.
+Lemma Dfin_dprodlo : Dfin dprodlo.
+Proof. by []. Qed.
+
+Lemma fexp_norm : (Dfexp (SpecFloat.emin prec emax + prec - 1 + 1) <=
+                   SpecFloat.emin prec emax + prec - 1)%Z.
+Proof. by vm_compute. Qed.
+
+Lemma fexp_prodlo : (Dfexp (SpecFloat.emin prec emax + 2 * prec - 1 + 1) <=
+                     SpecFloat.emin prec emax + 2 * prec - 1)%Z.
+Proof. by vm_compute. Qed.
+
+(* A rounded value above a line has its exact value above it: rounding is     *)
+(* monotone and the line is a number of the format.                           *)
+Lemma Dnorm_of_rnd r : Dnorm < Rabs (Drnd r) -> Dnorm <= Rabs r.
+Proof. by apply: Dbpow_of_rnd fexp_norm. Qed.
+
+Lemma Dprodlo_of_rnd r : Dprodlo < Rabs (Drnd r) -> Dprodlo <= Rabs r.
+Proof. by apply: Dbpow_of_rnd fexp_prodlo. Qed.
+
+(* A test that the program makes, read as a statement about the reals.        *)
+Lemma Dltb_abs a b : Dfin a -> Dfin b -> (a <? abs b)%float = true ->
+  D2R a < Rabs (D2R b).
+Proof.
+move=> Fa Fb H; have := Dltb _ _ Fa (Dfin_abs _ Fb) H.
+by rewrite D2R_abs.
+Qed.
+
+(* THE TEST IS THE RANGE.  Each of the four things `divOk' looks at is the    *)
+(* rounded form of a step the error analysis needs to be normal, and a        *)
+(* rounded value above a line has its exact value above it too.               *)
+Lemma divOk_Rng xh xl yh yl :
+  D2R yh <> 0 ->
+  DdivDwDw2Fin xh xl yh yl ->
+  divOk (DWFloat xh xl) (DWFloat yh yl) = true ->
+  DdivDwDw2Rng xh xl yh yl.
+Proof.
+move=> Hy0 F.
+have [Fxh [Fxl [Fyh [Fyl [Ft [Fch [Fcl1 [Fcl2 [G1 [Ftl2 [G2
+     [Fpih [Fdl [Fd [Ftl G3]]]]]]]]]]]]]]] := F.
+rewrite /divOk /DdivDwDw2Rng.
+move=> /andb_prop [/andb_prop [/andb_prop [H1 H2] H3] H4].
+have [Et _] := Dfin_div _ _ Fxh Hy0 Ft.
+have [Ech _] := Dfin_mul _ _ Fyh Ft Fch.
+have [Ecl2 _] := Dfin_mul _ _ Fyl Ft Fcl2.
+have [Etl _] := Dfin_div _ _ Fd Hy0 Ftl.
+split.
+  apply: Dnorm_of_rnd; rewrite -Et.
+  by have := Dltb_abs _ _ Dfin_dnorm Ft H1; rewrite D2R_dnorm.
+split.
+  apply: Dprodlo_of_rnd; rewrite -Ech.
+  by have := Dltb_abs _ _ Dfin_dprodlo Fch H2; rewrite D2R_dprodlo.
+split.
+  case/Bool.orb_prop: H3 => H3.
+    by rewrite (Deqb0 _ Fyl H3) Rmult_0_l !round_0.
+  apply: Drnd_FLX; apply: Dnorm_of_rnd; rewrite -Ecl2.
+  by have := Dltb_abs _ _ Dfin_dnorm Fcl2 H3; rewrite D2R_dnorm.
+case/Bool.orb_prop: H4 => H4.
+  by rewrite (Deqb0 _ Fd H4) /Rdiv Rmult_0_l !round_0.
+apply: Drnd_FLX; apply: Dnorm_of_rnd; rewrite -Etl.
+by have := Dltb_abs _ _ Dfin_dnorm Ftl H4; rewrite D2R_dnorm.
+Qed.
+
+Lemma Ddscale : D2R dscale = 16 * Du ^ 2.
+Proof. by rewrite /D2R /dscale; compute; lra. Qed.
+
+(* The step the operation takes is at least sixteen units in the last place   *)
+(* of the low word, read off both words of the answer.                        *)
+Lemma dstep_ge q : Dfin (dstep q) ->
+  16 * Du ^ 2 * (Rabs (D2R (dwhi q)) + Rabs (D2R (dwlo q))) <= D2R (dstep q).
+Proof.
+case: q => zh zl; rewrite /dstep => Fs.
+have Fm := Dfin_mulUpI _ _ Fs.
+have [Fsc Fa] := Dfin_mulI _ _ Fm.
+have Fp := Dfin_upI _ _ Fa.
+have [Fah Fal] := Dfin_addI _ _ Fp.
+have Ha := addUpFp_ge _ _ Fah Fal Fp Fa.
+rewrite !D2R_abs in Ha.
+have Hm := mulUpFp_ge _ _ Fsc Fa Fm Fs.
+rewrite Ddscale in Hm.
+have P2 := Dupos 2.
+apply: Rle_trans Hm.
+rewrite [dwhi _]/= [dwlo _]/=.
+by apply: Rmult_le_compat_l; lra.
+Qed.
+
+(* A pair that passes `wellFormed' is a double word: its high word is the     *)
+(* rounding of its value.                                                     *)
+Lemma Dwf_eq xh xl : Dfin xh -> Dfin xl ->
+  wellFormed (DWFloat xh xl) = true -> D2R xh = Drnd (D2R xh + D2R xl).
+Proof.
+move=> Fh Fl Ew.
+have Fs := Dfin_wf _ _ Fh Ew.
+have [Es _] := Dfin_add _ _ Fh Fl Fs.
+by rewrite -Es (D2R_wf _ _ Fh Fl Ew).
+Qed.
+
+(* And its high word is nought only when its value is.                        *)
+Lemma Dhi_nz yh yl : Dfin yh -> Dfin yl ->
+  wellFormed (DWFloat yh yl) = true ->
+  D2R yh + D2R yl <> 0 -> D2R yh <> 0.
+Proof.
+move=> Fh Fl Ew Hn Hh0; apply: Hn.
+have E := Dwf_eq _ _ Fh Fl Ew.
+have Ffl : generic_format radix2 Dfexp (D2R yl) by apply: Dformat.
+rewrite Hh0 Rplus_0_l (round_generic _ _ _ _ Ffl) in E.
+by rewrite Hh0 -E; lra.
+Qed.
+
+Theorem divDwUpK_ge xh xl yh yl :
+  Dfin xh -> Dfin xl -> Dfin yh -> Dfin yl ->
+  wellFormed (DWFloat xh xl) = true -> wellFormed (DWFloat yh yl) = true ->
+  Dfin (dwlo (divDwUpK (DWFloat xh xl) (DWFloat yh yl))) ->
+  (D2R xh + D2R xl) / (D2R yh + D2R yl) <=
+  D2R (dwhi (divDwUpK (DWFloat xh xl) (DWFloat yh yl))) +
+  D2R (dwlo (divDwUpK (DWFloat xh xl) (DWFloat yh yl))).
+Proof.
+move=> Fxh Fxl Fyh Fyl Wx Wy.
+rewrite divDwUpKE.
+case Hp : (posFp (magDnDw (DWFloat yh yl))); last by [].
+have HY : D2R yh + D2R yl <> 0.
+  have [Fm Hm] := posFpP _ Hp.
+  have Hle := magDnDw_le _ Fm.
+  by move=> H0; move: Hle Hm; rewrite [dwhi _]/= [dwlo _]/= H0 Rabs_R0; lra.
+have Hy0 := Dhi_nz _ _ Fyh Fyl Wy HY.
+case Hx0 : (xh =? 0)%float.
+  move=> _.
+  have Exh := Deqb0 _ Fxh Hx0.
+  have E := Dwf_eq _ _ Fxh Fxl Wx.
+  have Ffl : generic_format radix2 Dfexp (D2R xl) by apply: Dformat.
+  rewrite Exh Rplus_0_l (round_generic _ _ _ _ Ffl) in E.
+  rewrite Exh -E [dwhi _]/= [dwlo _]/= D2R_zero /Rdiv Rplus_0_l Rmult_0_l.
+  by lra.
+case Hok : (divOk (DWFloat xh xl) (DWFloat yh yl)); last by [].
+move=> Fz.
+have [Fqh [Fql Fs]] := widenUp_finI _ _ Fz.
+have Hstep := dstep_ge _ Fs.
+have Hw := widenUp_ge _ _ Fz.
+have Ffin := divDwDw2_finI _ _ _ _ Fyh Fyl Fql.
+have Hrng := divOk_Rng _ _ _ _ Hy0 Ffin Hok.
+have Ex := Dwf_eq _ _ Fxh Fxl Wx.
+have Ey := Dwf_eq _ _ Fyh Fyl Wy.
+have Hd := divDwDw2_step _ _ _ _ _ Ffin Hrng Ex Ey Hstep.
+rewrite /shiftUp.
+by move: Hd Hw; split_Rabs; lra.
+Qed.
+
+Theorem divDwDnK_le xh xl yh yl :
+  Dfin xh -> Dfin xl -> Dfin yh -> Dfin yl ->
+  wellFormed (DWFloat xh xl) = true -> wellFormed (DWFloat yh yl) = true ->
+  Dfin (dwlo (divDwDnK (DWFloat xh xl) (DWFloat yh yl))) ->
+  D2R (dwhi (divDwDnK (DWFloat xh xl) (DWFloat yh yl))) +
+  D2R (dwlo (divDwDnK (DWFloat xh xl) (DWFloat yh yl))) <=
+  (D2R xh + D2R xl) / (D2R yh + D2R yl).
+Proof.
+move=> Fxh Fxl Fyh Fyl Wx Wy.
+rewrite divDwDnKE.
+case Hp : (posFp (magDnDw (DWFloat yh yl))); last by [].
+have HY : D2R yh + D2R yl <> 0.
+  have [Fm Hm] := posFpP _ Hp.
+  have Hle := magDnDw_le _ Fm.
+  by move=> H0; move: Hle Hm; rewrite [dwhi _]/= [dwlo _]/= H0 Rabs_R0; lra.
+have Hy0 := Dhi_nz _ _ Fyh Fyl Wy HY.
+case Hx0 : (xh =? 0)%float.
+  move=> _.
+  have Exh := Deqb0 _ Fxh Hx0.
+  have E := Dwf_eq _ _ Fxh Fxl Wx.
+  have Ffl : generic_format radix2 Dfexp (D2R xl) by apply: Dformat.
+  rewrite Exh Rplus_0_l (round_generic _ _ _ _ Ffl) in E.
+  rewrite Exh -E [dwhi _]/= [dwlo _]/= D2R_zero /Rdiv Rplus_0_l Rmult_0_l.
+  by lra.
+case Hok : (divOk (DWFloat xh xl) (DWFloat yh yl)); last by [].
+move=> Fz.
+have [Fqh [Fql Fs]] := widenDn_finI _ _ Fz.
+have Hstep := dstep_ge _ Fs.
+have Hw := widenDn_le _ _ Fz.
+have Ffin := divDwDw2_finI _ _ _ _ Fyh Fyl Fql.
+have Hrng := divOk_Rng _ _ _ _ Hy0 Ffin Hok.
+have Ex := Dwf_eq _ _ Fxh Fxl Wx.
+have Ey := Dwf_eq _ _ Fyh Fyl Wy.
+have Hd := divDwDw2_step _ _ _ _ _ Ffin Hrng Ex Ey Hstep.
+rewrite /shiftDn.
+by move: Hd Hw; split_Rabs; lra.
+Qed.
+
+
+(* The divisor is away from zero, which is the one thing the operation tests  *)
+(* for itself: no amount of an infinity travelling would establish it.        *)
+Lemma divDwUpK_nz x y : Dfin (dwlo (divDwUpK x y)) ->
+  D2R (dwhi y) + D2R (dwlo y) <> 0.
+Proof.
+rewrite divDwUpKE; case: x => xh xl.
+case Hp : (posFp (magDnDw y)); last by [].
+move=> _; have [Fm Hm] := posFpP _ Hp.
+have Hle := magDnDw_le _ Fm.
+by move=> H0; move: Hle Hm; rewrite H0 Rabs_R0; lra.
+Qed.
+
+Lemma divDwDnK_nz x y : Dfin (dwlo (divDwDnK x y)) ->
+  D2R (dwhi y) + D2R (dwlo y) <> 0.
+Proof.
+rewrite divDwDnKE; case: x => xh xl.
+case Hp : (posFp (magDnDw y)); last by [].
+move=> _; have [Fm Hm] := posFpP _ Hp.
+have Hle := magDnDw_le _ Fm.
+by move=> H0; move: Hle Hm; rewrite H0 Rabs_R0; lra.
+Qed.
+
+(* The two bounds, said of a pair rather than of its two words.               *)
+Theorem divDwUpK_geP x y :
+  Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
+  wellFormed x = true -> wellFormed y = true ->
+  Dfin (dwlo (divDwUpK x y)) ->
+  (D2R (dwhi x) + D2R (dwlo x)) / (D2R (dwhi y) + D2R (dwlo y)) <=
+  D2R (dwhi (divDwUpK x y)) + D2R (dwlo (divDwUpK x y)).
+Proof. by case: x => xh xl; case: y => yh yl; apply: divDwUpK_ge. Qed.
+
+Theorem divDwDnK_leP x y :
+  Dfin (dwhi x) -> Dfin (dwlo x) -> Dfin (dwhi y) -> Dfin (dwlo y) ->
+  wellFormed x = true -> wellFormed y = true ->
+  Dfin (dwlo (divDwDnK x y)) ->
+  D2R (dwhi (divDwDnK x y)) + D2R (dwlo (divDwDnK x y)) <=
+  (D2R (dwhi x) + D2R (dwlo x)) / (D2R (dwhi y) + D2R (dwlo y)).
+Proof. by case: x => xh xl; case: y => yh yl; apply: divDwDnK_le. Qed.

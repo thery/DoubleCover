@@ -167,11 +167,14 @@ Definition divDwDn (x y : dwfloat) :=
 (* Sixteen units of a word a hundred and six bits below the leading one is     *)
 (* the leading one shifted down a hundred and two.                            *)
 (*                                                                            *)
-(* NO RANGE TEST IS NEEDED HERE.  The double-word proofs of this development  *)
-(* are in the bounded format, subnormals and all - `F2SumFLT.v',              *)
-(* `TwoSumFLT.v' - so the bound holds everywhere.  That is not so for triple   *)
-(* words, whose proofs have no smallest exponent.                             *)
-(* THE STEP IS A MULTIPLICATION, AND NOT AN EXPONENT SHIFT.  Shifting an     *)
+(* THE SUM NEEDS NO RANGE TEST, THE QUOTIENT DOES.  The sum's proofs in this  *)
+(* development are in the bounded format, subnormals and all - `F2SumFLT.v',  *)
+(* `TwoSumFLT.v' - so its bound holds everywhere.  The quotient's is the      *)
+(* paper's Theorem 7.1, proved in the format with no smallest exponent, so    *)
+(* it has to be told that its steps stay out of the subnormal range; that is  *)
+(* `divDwDw2G' below.                                                         *)
+(*                                                                            *)
+(* THE STEP IS A MULTIPLICATION, AND NOT AN EXPONENT SHIFT.  Shifting an      *)
 (* exponent is one instruction on the machine, and `FloatOps.Z.ldexp' is      *)
 (* exactly that - but inside Rocq's evaluator it is not one instruction at    *)
 (* all: it goes through `Z.max', `Z.min' and a conversion of a whole number   *)
@@ -181,34 +184,113 @@ Definition divDwDn (x y : dwfloat) :=
 (* constant is a power of two.                                                *)
 Definition dscale := Eval compute in 0x1p-102%float.
 
-(* The step is taken from the LEADING word: a double word is within one part  *)
-(* in two to the fifty-second of it, which is nothing beside the step.  And   *)
-(* the sweep of `widenUp' is kept, since a seed need not be a double word.    *)
-(* AND IT HOLDS IN THE NORMAL RANGE ONLY.  The paper's Theorem 7.1 for this   *)
-(* very division - `double-double-arithmetic/DWDivDW.v', admit-free - is      *)
-(* proved in the format with no smallest exponent, so below that it says      *)
-(* nothing.  The sum of this development IS ported to the bounded format      *)
-(* (`F2SumFLT.v', `TwoSumFLT.v') but the division is not, so the shift needs   *)
-(* the test after all.  Below the line a fixed step is used, which needs no    *)
-(* error analysis: down there every number is a whole multiple of the         *)
-(* smallest float.  The fixed step covers the shifted one AT the line, and    *)
-(* the shifted one only gets smaller below it.                                *)
-Definition dnormLo := Eval compute in 0x1p-950%float.
-Definition dabs := Eval compute in 0x1p-1050%float.
-
+(* THE STEP IS TAKEN FROM BOTH WORDS, and it has to be.  The paper's bound   *)
+(* is relative to the exact quotient, so something computed has to stand for  *)
+(* the quotient, and the two words added in absolute value are at or above    *)
+(* the answer whatever the low word does.  The high word alone would be       *)
+(* enough only if the answer were known to be a double word, which is a       *)
+(* further theorem the paper does not leave - see `divDwDw2_step' of          *)
+(* dwdivflx.v.  The sweep of `widenUp' is kept, since a seed need not be a    *)
+(* double word.                                                               *)
 Definition dstep d :=
-  let: DWFloat xh _ := d in
-  if (dnormLo <? abs xh)%float then mulUpFp dscale (abs xh) else dabs.
+  let: DWFloat xh xl := d in
+  mulUpFp dscale (addUpFp (abs xh) (abs xl)).
 
 Definition shiftUp d := widenUp d (dstep d).
 Definition shiftDn d := widenDn d (dstep d).
 
+(* THE RANGE THE ERROR ANALYSIS NEEDS, AND THE TEST FOR IT.  Theorem 7.1 is   *)
+(* proved in the format with no smallest exponent, so it says nothing about   *)
+(* a step that lands in the subnormal range: down there the bounded format    *)
+(* rounds and the other does not.  Four steps of the division can land there  *)
+(* - the two quotients, the two-product and the lone product - and the test   *)
+(* below is exactly that they do not.  The sum needs no such test, since a    *)
+(* sum too small for the bounded format to round is exact and neither format  *)
+(* rounds it; a product and a quotient have no such property.                 *)
+(*                                                                            *)
+(* TWO OF THE FOUR HAVE AN ESCAPE, AND MUST.  The low word of a double word   *)
+(* is often nought, and then `yl * t' is nought, which no magnitude test can  *)
+(* pass; a division that comes out exact leaves `d' nought, and the same      *)
+(* again.  Both formats round nought to nought, so nought serves as well as   *)
+(* being normal, and the test says so.                                        *)
+(*                                                                            *)
+(* The lines: two to the minus one thousand and twenty-two is the smallest    *)
+(* normal number, and two to the minus nine hundred and sixty-nine is where   *)
+(* the two-product stops being exact.                                         *)
+Definition dnorm := Eval compute in 0x1p-1022%float.
+Definition dprodlo := Eval compute in 0x1p-969%float.
+
+(* The test on its own, for the proof to read.  The operation does not use    *)
+(* this one: it would compute the division a second time.                     *)
+Definition divOk (x y : dwfloat) :=
+  let: DWFloat xh xl := x in
+  let: DWFloat yh yl := y in
+  let: t := (xh / yh)%float in
+  let: DWFloat rh rl := timesDwFp1 y t in
+  let: d := ((xh - rh) + (xl - rl))%float in
+  (dnorm <? abs t)%float && (dprodlo <? abs (yh * t))%float &&
+  ((yl =? 0)%float || (dnorm <? abs (yl * t))%float) &&
+  ((d =? 0)%float || (dnorm <? abs (d / yh))%float).
+
+(* The division, with its own intermediates tested as they are made.          *)
+(* Computing them a second time for the test would cost as much again.        *)
+Definition divDwDw2G (x y : dwfloat) :=
+  let: DWFloat xh xl := x in
+  let: DWFloat yh yl := y in
+  let: t := (xh / yh)%float in
+  let: DWFloat rh rl := timesDwFp1 y t in
+  let: pih := (xh - rh)%float in
+  let: dl := (xl - rl)%float in
+  let: d := (pih + dl)%float in
+  let tl := (d / yh)%float in
+  (fastTwoSum t tl,
+   (dnorm <? abs t)%float && (dprodlo <? abs (yh * t))%float &&
+   ((yl =? 0)%float || (dnorm <? abs (yl * t))%float) &&
+   ((d =? 0)%float || (dnorm <? abs tl)%float)).
+
+Lemma divDwDw2GE x y : divDwDw2G x y = (divDwDw2 x y, divOk x y).
+Proof.
+case: x => xh xl; case: y => yh yl.
+by rewrite /divDwDw2G /divOk /divDwDw2; case: (timesDwFp1 _ _).
+Qed.
+
+(* Nought divided is nought, and it is worth saying so rather than refusing   *)
+(* it: the test above cannot pass on a nought numerator, and an interval      *)
+(* with nought for an endpoint is not a rare thing.                           *)
 Definition divDwUpK (x y : dwfloat) :=
-  let q := divDwDw2 x y in
-  if posFp (magDnDw y) then shiftUp q else DWFloat nan nan.
+  let: DWFloat xh _ := x in
+  if posFp (magDnDw y) then
+    if (xh =? 0)%float then DWFloat 0 0
+    else let: (q, ok) := divDwDw2G x y in
+         if ok then shiftUp q else DWFloat nan nan
+  else DWFloat nan nan.
 Definition divDwDnK (x y : dwfloat) :=
-  let q := divDwDw2 x y in
-  if posFp (magDnDw y) then shiftDn q else DWFloat nan nan.
+  let: DWFloat xh _ := x in
+  if posFp (magDnDw y) then
+    if (xh =? 0)%float then DWFloat 0 0
+    else let: (q, ok) := divDwDw2G x y in
+         if ok then shiftDn q else DWFloat nan nan
+  else DWFloat nan nan.
+
+(* The two operations as the proof wants to read them: the test named, and    *)
+(* the division named, instead of the one expression that shares them.        *)
+Lemma divDwUpKE x y :
+  divDwUpK x y =
+  (let: DWFloat xh _ := x in
+   if posFp (magDnDw y) then
+     if (xh =? 0)%float then DWFloat 0 0
+     else if divOk x y then shiftUp (divDwDw2 x y) else DWFloat nan nan
+   else DWFloat nan nan).
+Proof. by case: x => xh xl; rewrite /divDwUpK divDwDw2GE. Qed.
+
+Lemma divDwDnKE x y :
+  divDwDnK x y =
+  (let: DWFloat xh _ := x in
+   if posFp (magDnDw y) then
+     if (xh =? 0)%float then DWFloat 0 0
+     else if divOk x y then shiftDn (divDwDw2 x y) else DWFloat nan nan
+   else DWFloat nan nan).
+Proof. by case: x => xh xl; rewrite /divDwDnK divDwDw2GE. Qed.
 
 (* How small a double word's value can be, from its two words: the sum of     *)
 (* the two, rounded down.                                                     *)

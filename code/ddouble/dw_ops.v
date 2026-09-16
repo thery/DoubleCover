@@ -3,7 +3,7 @@ From Stdlib Require Import Floats PrimInt63.
 From Flocq Require Import Zaux Raux Core BinarySingleNaN PrimFloat.
 From Interval Require Import Xreal Basic Sig Generic_proof Primitive_ops.
 From mathcomp Require Import ssreflect.
-From dwarith Require Import dwarith dwbridge dwprod dw_updn dwbound.
+From dwarith Require Import dwarith dwbridge dwprod dw_updn dwbound dwdivflx.
 
 (* Double words as a float format for Interval.                               *)
 (* Phase one: the operations only.  The module is not yet declared to meet    *)
@@ -576,13 +576,32 @@ Lemma div_UP_correct p x y :
   is_real_ub x /\ is_pos_real y \/ is_real_lb x /\ is_neg_real y ->
   valid_ub (div_UP p x y) = true /\
   le_upper (toX x / toX y)%XR (toX (div_UP p x y)).
-Proof. Admitted.  (* the shift of dw_updn.v, not proved *)
+Proof.
+move=> _; split; first exact: valid_ub_onReal2.
+apply: (onReal2_upper (fun x y => (toX x / toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
+have [Fxh [Fxl Wx]] := real_fin _ Rx.
+have [Fyh [Fyl Wy]] := real_fin _ Ry.
+have [_ [Fzl _]] := real_fin _ Rz.
+have HY := divDwUpK_nz _ _ Fzl.
+rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) (XdivE _ _ HY) /=.
+exact: divDwUpK_geP.
+Qed.
 
 Lemma div_DN_correct p x y :
   is_real_ub x /\ is_neg_real y \/ is_real_lb x /\ is_pos_real y ->
   valid_lb (div_DN p x y) = true /\
   le_lower (toX (div_DN p x y)) (toX x / toX y)%XR.
-Proof. Admitted.  (* the shift of dw_updn.v, not proved *)
+Proof.
+move=> _; split; first exact: valid_lb_onReal2.
+apply: (onReal2_lower (fun x y => (toX x / toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
+have [Fxh [Fxl Wx]] := real_fin _ Rx.
+have [Fyh [Fyl Wy]] := real_fin _ Ry.
+have [_ [Fzl _]] := real_fin _ Rz.
+have HY := divDwDnK_nz _ _ Fzl.
+rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) (XdivE _ _ HY)
+        /le_lower /=.
+by apply: Ropp_le_contravar; exact: divDwDnK_leP.
+Qed.
 
 (* And the square root.  Interval reads the root of a negative number as      *)
 (* nought, so a bound below it would be a claim about nothing; that is why    *)
