@@ -768,16 +768,17 @@ twenty-four threads, 62 GB of memory.
 == Removing redundant moves
 
 Many words lead to the same position, and a search that tries them all does the
-same work over and over. Removing them is what brings the tree within reach,
-and the earlier a word is removed the more it saves: dropping one of the
-eighteen first moves drops an eighteenth of the whole search.
+same work over and over. Removing them is what brings the tree within reach, and
+the earlier a word is removed the more it saves: dropping one of the eighteen
+first moves drops an eighteenth of the whole search.
 
 Take $U U$. It is $U^2$, a shorter word, and shorter words are covered at a
 smaller depth. So a face is never turned twice running, at any point in the
-word: fifteen branches after the first move, not eighteen. Opposite faces commute, so $U D$ and $D U$ are the same position
-and one of the two orders is enough. Where the last move was on the top, right
-or front face that leaves *twelve*, and *fifteen* elsewhere. This half of the
-rule is used from the third move on.
+word: fifteen branches after the first move, not eighteen. Opposite faces
+commute, so $U D$ and $D U$ are the same position and one of the two orders is
+enough. Where the last move was on the top, right or front face that leaves
+*twelve*, and *fifteen* elsewhere. This half of the rule is used from the third
+move on.
 
 The first move is a different argument, and it belongs to the superflip. The
 superflip is unchanged by all 48 relabellings of the cube: any of the six faces
@@ -796,8 +797,8 @@ cuts his *third* move instead.
 Our own OCaml program dropped them, so it searched 24 prefixes where it had to
 search 30. It ran for hours and gave the answer we expected. The error came out
 only when the cut had to be proved in Rocq, and the proof could not be written.
-A cut that is too greedy does not make a search fail. It makes it faster, and
-it makes it agree with you.
+A cut that is too greedy does not make a search fail. It makes it faster, and it
+makes it agree with you.
 
 So the depth-19 search becomes $2 times 15 = 30$ searches of depth 17, packed
 into *seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"), one per second
