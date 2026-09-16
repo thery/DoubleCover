@@ -394,14 +394,45 @@ anything. Measured on this machine, two runs each, seconds:
 
 | goal | bigints | double words |
 |---|---|---|
-| `method_error`, `i_prec 80` | 6.169  5.711 | 1.497  1.454 |
-| `cancellation`, `i_depth 20`, `i_prec 60` | 74.578  74.031 | 39.302  39.752 |
-| `int_range`, `integral` | 2.826  2.876 | 2.919  2.869 |
-| `int_infinite`, `integral` | 0.340  0.339 | 0.357  0.344 |
-| `exp_table`, `i_prec 61` × 64 | 3.887  3.938 | 3.759  3.801 |
+| `method_error`, `i_prec 80` | 5.83 | 1.42 |
+| `cancellation`, `i_depth 20`, `i_prec 60` | 77.6 | 40.7 |
+| `int_range`, `integral` | 2.87 | 2.89 |
+| `int_infinite`, `integral` | 0.35 | 0.34 |
+| `exp_table`, `i_prec 61` × 64 | 4.21 | 3.82 |
 
 About four times quicker on a Taylor model at eighty bits, about twice on a
 bisection run twenty deep at sixty, and level on the other three. The gain is
 not a property of the arithmetic on its own — it is where the tactic spends its
 time. The full table, and the four goals that are too light to measure, are in
 the file.
+
+## What proving the division cost
+
+The `cancellation` row above used to read 24.6 seconds, when `div_UP` and
+`div_DN` were bounded by the shift with **no guard and no proof**. Proving them
+put a guard on the shift and a residual behind it, and that goal is now 42.9.
+Measured, on that one goal:
+
+| | seconds |
+|---|---|
+| shift always, unproved (what it was) | 24.6 |
+| guard, and the shift taken | 26.2 |
+| guard, and the residual behind it (what it is) | 42.9 |
+
+**The guard is cheap and the fallback is not.** Testing costs 7%; taking the
+residual costs 68%, because it is ten times a division and it is taken often.
+
+**One condition accounts for all of it.** Dropping the test on `yl * t` alone
+brings the goal back to about 26 seconds; dropping the test on `d / yh` changes
+nothing. The divisor's low word times the quotient lands in the subnormal range
+whenever the divisor is *nearly* a single float — its low word tiny but not
+nought — and a computed divisor is very often exactly that.
+
+**And that condition is the one least worth having.** What it is there for is
+that the two formats round `yl * t` alike. Where it fails they differ by at most
+`2^-1074`, which against a step of `16 u^2` times the answer is nothing at all.
+Relaxing it means proving the paper's theorem stable under a perturbation of
+that size in one of its steps — `divDwDw2_FLX` would state a bound where it now
+states an equality — which the paper does not give and which is a piece of work
+in itself. Until that is done the choice is the honest one: proved at 42.9, or
+unproved at 24.6.
