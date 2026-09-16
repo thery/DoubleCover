@@ -128,9 +128,12 @@ call. `divDwDw2_step` is the arithmetic: `15u² + 56u³` against `16u²`, a
 sixteenth over, and a sixteenth is far more than the `u` the reading costs.
 
 *The range is tested as the division goes.* `divDwDw2G` computes the quotient
-and looks at its own four intermediates on the way, which costs four
-comparisons; computing them again for a separate test would cost as much as the
-division. Two of the four tests have an escape for nought, and must: the low
+and looks at its own four intermediates on the way; computing them again for a
+separate test would cost as much as the division. Measured on 200000 divisions,
+twice each: the quotient alone 0.22 seconds, the quotient with its guard and its
+shift 0.29, the quotient with its residual 2.15. The guard and the shift
+together cost a third over the bare division, where the residual costs ten
+times it. Two of the four tests have an escape for nought, and must: the low
 word of a double word is often nought, and then `yl·t` is nought, which no
 magnitude test can pass; a division that comes out exact leaves `d` nought, and
 the same again. Both formats round nought to nought, so nought serves as well
