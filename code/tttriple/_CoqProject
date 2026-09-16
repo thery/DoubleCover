@@ -1,7 +1,7 @@
 -R . twarith
 
-# Double words, for the bench that compares against them.  Build code/ddouble
-# first; nothing here depends on it at compile time except the bench files.
+# Double words.  Build code/ddouble first: `tw_ops.v' takes the float-to-real
+# bridge from its `dwbridge.v', and the bench files compare against it.
 -Q ../ddouble dwarith
 
 # Triple words on primitive floats.

@@ -2,8 +2,14 @@ From Stdlib Require Import ZArith Reals Psatz.
 From Stdlib Require Import Floats PrimInt63.
 From Flocq Require Import Zaux Raux Core BinarySingleNaN PrimFloat.
 From Interval Require Import Xreal Basic Sig Generic_proof Primitive_ops.
-From mathcomp Require Import ssreflect.
+From mathcomp Require Import ssreflect ssrbool.
 From twarith Require Import twarith tw_updn twpaper.
+(* The bridge from primitive floats to the reals is the double-word    *)
+(* development's `dwbridge.v'.  It says nothing about pairs -- only     *)
+(* what one primitive float is and what one operation on it does -- so  *)
+(* it serves three words as well as two, and is used rather than        *)
+(* copied.                                                             *)
+From dwarith Require Import dwbridge.
 
 (* Triple words as a float format for Interval.                               *)
 (*                                                                            *)
@@ -432,6 +438,110 @@ by apply: H.
 Qed.
 
 (* ---------------------------------------------------------------------------*)
+(*  Reading a triple word                                                     *)
+(* ---------------------------------------------------------------------------*)
+
+(* A float is finite exactly when it reads as a real number.                  *)
+Definition Dfinb f := PrimitiveFloat.real f.
+
+Lemma DfinbI f : Dfin f -> Dfinb f = true.
+Proof.
+by rewrite /Dfinb -{2}(B2Prim_Prim2B f) PrimitiveFloat.real_is_finite.
+Qed.
+
+Lemma DfinbW f : Dfinb f = true -> Dfin f.
+Proof.
+by rewrite /Dfinb -{1}(B2Prim_Prim2B f) PrimitiveFloat.real_is_finite.
+Qed.
+
+(* A triple word is a real number exactly when all three of its words are     *)
+(* numbers and the triple is one, and then it denotes their sum.              *)
+Lemma realE x :
+  real x = andb (andb (andb (Dfinb (tw0 x)) (Dfinb (tw1 x)))
+                      (Dfinb (tw2 x))) (wellFormed x).
+Proof.
+case: x => x0 x1 x2; rewrite /real /classify /classifyFp /Dfinb.
+rewrite !PrimitiveFloat.classify_correct /PrimitiveFloat.classify /wellFormed.
+by case: (PrimFloat.classify x0); case: (PrimFloat.classify x1);
+   case: (PrimFloat.classify x2);
+   case: (((x0 + x1 =? x0) && (x1 + x2 =? x1))%float).
+Qed.
+
+Lemma real_fin x :
+  real x = true ->
+  Dfin (tw0 x) /\ Dfin (tw1 x) /\ Dfin (tw2 x) /\ wellFormed x = true.
+Proof.
+rewrite realE.
+case E0: (Dfinb (tw0 x)) => //=; case E1: (Dfinb (tw1 x)) => //=.
+case E2: (Dfinb (tw2 x)) => //= Ew.
+by split; [|split; [|split]]; try apply: DfinbW.
+Qed.
+
+Lemma toXE f : Dfin f -> FtoX (PrimitiveFloat.toF f) = Xreal (D2R f).
+Proof.
+move=> Ff; rewrite -/(PrimitiveFloat.toX f) PrimitiveFloat.toX_Prim2B.
+by rewrite PrimitiveFloat.B2R_BtoX.
+Qed.
+
+Lemma toX_real x :
+  real x = true -> toX x = Xreal (D2R (tw0 x) + D2R (tw1 x) + D2R (tw2 x)).
+Proof.
+case: x => x0 x1 x2 Rx; have [F0 [F1 [F2 Ew]]] := real_fin _ Rx.
+rewrite /toX /toF Ew !Fadd_exact_correct.
+by rewrite (toXE x0 F0) (toXE x1 F1) (toXE x2 F2).
+Qed.
+
+Lemma toX_fp2tw f : toX (fp2tw f) = PrimitiveFloat.toX f.
+Proof.
+have Hz : (f + 0 =? f)%float = false -> PrimitiveFloat.toX f = Xnan.
+  rewrite eqb_equiv add_equiv /PrimitiveFloat.toX /PrimitiveFloat.toF.
+  rewrite -B2SF_Prim2B.
+  have -> : Prim2B 0%float = B754_zero false by [].
+  case: (Prim2B f) => [s1|s1||s1 m1 e1 H1] //=; last first.
+    by rewrite (Beqb_refl _ _ (B754_finite s1 m1 e1 H1)).
+  by case: s1.
+rewrite /toX /toF /fp2tw /wellFormed.
+have -> : (0 + 0 =? 0)%float = true by [].
+case E: (f + 0 =? f)%float => /=; last by rewrite (Hz E).
+by rewrite !Fadd_exact_correct /= !Xadd_0_r.
+Qed.
+
+Lemma zero_correct : toX zero = Xreal 0.
+Proof. by []. Qed.
+
+Lemma real_correct f :
+  real f = match toX f with Xnan => false | Xreal _ => true end.
+Proof.
+case E: (real f); first by rewrite (toX_real _ E).
+have Hn : forall g, Dfinb g = false -> PrimitiveFloat.toX g = Xnan.
+  move=> g; rewrite /Dfinb PrimitiveFloat.real_correct.
+  by case: (PrimitiveFloat.toX g).
+move: E; rewrite realE; case: f => x0 x1 x2 /=.
+case E0: (Dfinb x0) => /=; last first.
+  rewrite /toX /toF /wellFormed.
+  case: (((x0 + x1 =? x0) && (x1 + x2 =? x1))%float) => //.
+  rewrite !Fadd_exact_correct -/(PrimitiveFloat.toX x0)
+          -/(PrimitiveFloat.toX x1) -/(PrimitiveFloat.toX x2) (Hn _ E0).
+  by case: (PrimitiveFloat.toX x0); case: (PrimitiveFloat.toX x1);
+     case: (PrimitiveFloat.toX x2).
+case E1: (Dfinb x1) => /=; last first.
+  rewrite /toX /toF /wellFormed.
+  case: (((x0 + x1 =? x0) && (x1 + x2 =? x1))%float) => //.
+  rewrite !Fadd_exact_correct -/(PrimitiveFloat.toX x0)
+          -/(PrimitiveFloat.toX x1) -/(PrimitiveFloat.toX x2) (Hn _ E1).
+  by case: (PrimitiveFloat.toX x0); case: (PrimitiveFloat.toX x1);
+     case: (PrimitiveFloat.toX x2).
+case E2: (Dfinb x2) => /=; last first.
+  rewrite /toX /toF /wellFormed.
+  case: (((x0 + x1 =? x0) && (x1 + x2 =? x1))%float) => //.
+  rewrite !Fadd_exact_correct -/(PrimitiveFloat.toX x0)
+          -/(PrimitiveFloat.toX x1) -/(PrimitiveFloat.toX x2) (Hn _ E2).
+  by case: (PrimitiveFloat.toX x0); case: (PrimitiveFloat.toX x1);
+     case: (PrimitiveFloat.toX x2).
+by move=> Ew; rewrite /toX /toF /wellFormed Ew.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
 (*  What needs the arithmetic, and is not proved yet                          *)
 (* ---------------------------------------------------------------------------*)
 
@@ -470,19 +580,12 @@ Definition is_pos_real x :=
 Definition is_neg_real x :=
   match toX x with Xnan => False | Xreal r => (r < 0)%R end.
 
-Lemma zero_correct : toX zero = Xreal 0.
-Proof. Admitted.
-
-Lemma real_correct f :
-  real f = match toX f with Xnan => false | Xreal _ => true end.
-Proof. Admitted.
-
 Lemma ZtoS_correct p z :
   (z <= StoZ (ZtoS z))%Z \/ toX (pow2_UP p (ZtoS z)) = Xnan.
 Proof. Admitted.
 
 Lemma fromZ_correct n : (Z.abs n <= 256)%Z -> toX (fromZ n) = Xreal (IZR n).
-Proof. Admitted.
+Proof. by move=> Hn; rewrite /fromZ toX_fp2tw PrimitiveFloat.fromZ_correct. Qed.
 
 Lemma fromZ_UP_correct p n :
   valid_ub (fromZ_UP p n) = true /\

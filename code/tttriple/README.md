@@ -15,19 +15,32 @@ in `threewords/`.
 
 ## The state of it
 
-**The shape is checked; the arithmetic is not.** `tw_ops.v` builds a module
-`TwFloat` and the sealing at the bottom of that file,
+**The shape is checked; the arithmetic is mostly not.** `tw_ops.v` builds a
+module `TwFloat` and the sealing at the bottom of that file,
 
 ```coq
 Module TwFloatCheck <: FloatOps := TwFloat.
 ```
 
-is what says it meets Interval's signature. But every obligation that needs a
-fact about the arithmetic is `Admitted`, and they are listed at the top of the
-file. Nothing here may be relied on until that list is empty. It is built in
-this order so that the whole chain — up to Interval's own tactic over triple
+is what says it meets Interval's signature. Most obligations that need a fact
+about the arithmetic are still `Admitted`, and they are listed at the top of
+the file. Nothing here may be relied on until that list is empty. It is built
+in this order so that the whole chain — up to Interval's own tactic over triple
 words — can be assembled and measured before it is proved, which is the order
 the double-word work went in as well.
+
+**The reading is proved.** `realE`, `real_fin` and `toX_real` say when a triple
+denotes a real number and which one — all three of its words are numbers and
+the triple is one, and then it denotes their sum. Every bound on the
+arithmetic will be read into the signature's shape through those, so they come
+first. With them, `zero_correct`, `real_correct` and `fromZ_correct` are
+proved.
+
+**The bridge is `code/ddouble`'s, not a copy.** `dwbridge.v` says what one
+primitive float is as a real number and what one operation on it does, and
+nothing about pairs, so it serves three words as well as two. `tw_ops.v` now
+imports it, which means **`code/ddouble` must be built first** — `_CoqProject`
+already points at it.
 
 ## Building
 
