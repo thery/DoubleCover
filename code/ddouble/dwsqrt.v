@@ -174,42 +174,43 @@ Qed.
 
 Lemma newton_step R S T D P eD eP :
   0 < R -> 0 < S -> T * S = R * R ->
-  Rabs (S - R) <= 2 * Du * R ->
+  Rabs (S - R) <= 21 * Du / 10 * R ->
   Rabs (D - T) <= eD * T ->
   Rabs (P - (S + D)) <= eP * (S + D) ->
   0 <= eD -> eD <= 15 * Du ^ 2 + 56 * Du ^ 3 ->
-  0 <= eP -> eP <= 4 * Du ^ 2 ->
+  0 <= eP -> eP <= 31 * Du ^ 2 / 10 ->
   Rabs (P / 2 - R) <= 15 * Du ^ 2 * R.
 Proof.
 move=> HR HS HTS HSR HDT HP HeD0 HeD HeP0 HeP.
 have Hu := Du_gt0.
 have Hu1 : Du * 1024 <= 1 by exact: Du_small.
 have HP2 := Dupos 2.
-have HS1 : R * (1 - 2 * Du) <= S by move: HSR; split_Rabs; nra.
-have HS2 : S <= R * (1 + 2 * Du) by move: HSR; split_Rabs; nra.
+have HS1 : R * (1 - 21 * Du / 10) <= S by move: HSR; split_Rabs; nra.
+have HS2 : S <= R * (1 + 21 * Du / 10) by move: HSR; split_Rabs; nra.
 have HT0 : 0 < T by nra.
-have HTa : T * (1 - 2 * Du) <= R by nra.
+have HTa : T * (1 - 21 * Du / 10) <= R by nra.
 have HT2 : T <= 2 * R by nra.
-have HTb : T <= R * (1 + 4 * Du) by nra.
+have HTb : T <= R * (1 + 5 * Du) by nra.
 (* Newton's step is quadratic: its error is the square of the guess's *)
 have HE1 : (S + T - 2 * R) * S = (S - R) * (S - R) by nra.
 have HE10 : 0 <= S + T - 2 * R.
   apply: (Rmult_le_reg_r S); first exact: HS.
   by rewrite Rmult_0_l HE1; apply: Rle_0_sqr.
-have HE1a : (S + T - 2 * R) * S <= 4 * Du ^ 2 * (R * R).
+have HE1a : (S + T - 2 * R) * S <= 5 * Du ^ 2 * (R * R).
   by rewrite HE1; move: HSR; split_Rabs; nra.
-have HE1d : ((S + T - 2 * R) * (1 - 2 * Du) - 4 * Du ^ 2 * R) * R <= 0 by nra.
-have HE1c : (S + T - 2 * R) * (1 - 2 * Du) <= 4 * Du ^ 2 * R by nra.
-have HE1b : S + T - 2 * R <= 5 * Du ^ 2 * R by nra.
+have HE1d : ((S + T - 2 * R) * (1 - 21 * Du / 10) - 5 * Du ^ 2 * R) * R <= 0
+  by nra.
+have HE1c : (S + T - 2 * R) * (1 - 21 * Du / 10) <= 5 * Du ^ 2 * R by nra.
+have HE1b : S + T - 2 * R <= 6 * Du ^ 2 * R by nra.
 (* the quotient's error and the sum's *)
 have HDb : eD * T <= 16 * Du ^ 2 * R by nra.
 have HD1 : - (16 * Du ^ 2 * R) <= D - T by move: HDT; split_Rabs; nra.
 have HD2 : D - T <= 16 * Du ^ 2 * R by move: HDT; split_Rabs; nra.
-have HSD : S + D <= R * (2 + 8 * Du) by nra.
+have HSD : S + D <= R * (2 + 10 * Du) by nra.
 have HSD0 : 0 < S + D by nra.
-have HP1 : - (4 * Du ^ 2 * (R * (2 + 8 * Du))) <= P - (S + D)
+have HP1 : - (31 * Du ^ 2 / 10 * (R * (2 + 10 * Du))) <= P - (S + D)
   by move: HP; split_Rabs; nra.
-have HP3 : P - (S + D) <= 4 * Du ^ 2 * (R * (2 + 8 * Du))
+have HP3 : P - (S + D) <= 31 * Du ^ 2 / 10 * (R * (2 + 10 * Du))
   by move: HP; split_Rabs; nra.
 have HEq : P / 2 - R =
            (P - (S + D)) / 2 + (D - T) / 2 + (S + T - 2 * R) / 2 by field.
@@ -319,4 +320,144 @@ have T2 := twoSum_finI _ _ Ftl.
 have [Fxh Fyh] := Dfin_addI _ _ (proj1 T1).
 have [Fxl Fyl] := Dfin_addI _ _ (proj1 T2).
 by tauto.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The root, composed                                                        *)
+(* ---------------------------------------------------------------------------*)
+
+(* The two facts about the sum, said of a pair rather than of its two words. *)
+Lemma plusDwDw_finIP x y :
+  Dfin (dwlo (plusDwDw x y)) ->
+  DplusDwDwFin (dwhi x) (dwlo x) (dwhi y) (dwlo y).
+Proof. by case: x => xh xl; case: y => yh yl; apply: plusDwDw_finI. Qed.
+
+Lemma plusDwDw_relerrP x y :
+  DplusDwDwFin (dwhi x) (dwlo x) (dwhi y) (dwlo y) ->
+  D2R (dwhi x) = Drnd (D2R (dwhi x) + D2R (dwlo x)) ->
+  D2R (dwhi y) = Drnd (D2R (dwhi y) + D2R (dwlo y)) ->
+  (D2R (dwhi x) + D2R (dwlo x)) + (D2R (dwhi y) + D2R (dwlo y)) <> 0 ->
+  Rabs ((D2R (dwhi (plusDwDw x y)) + D2R (dwlo (plusDwDw x y))) -
+        ((D2R (dwhi x) + D2R (dwlo x)) + (D2R (dwhi y) + D2R (dwlo y)))) <=
+  3 * Du ^ 2 / (1 - 4 * Du) *
+  Rabs ((D2R (dwhi x) + D2R (dwlo x)) + (D2R (dwhi y) + D2R (dwlo y))).
+Proof. by case: x => xh xl; case: y => yh yl; apply: plusDwDw_relerr. Qed.
+
+(* A number of the format is its own rounding, so a pair with nothing in the *)
+(* low word is a double word with nothing asked.                             *)
+Lemma Dwf_fp2dw a : D2R a = Drnd (D2R a + D2R 0%float).
+Proof.
+rewrite D2R_zero Rplus_0_r round_generic //.
+exact: Dformat.
+Qed.
+
+(* THE ROOT, COMPOSED.  One step of Newton's method over the quotient's       *)
+(* bound and the sum's.                                                       *)
+Theorem sqrtDw_err xh xl :
+  wellFormed (DWFloat xh xl) = true ->
+  Dfin (dwhi (sqrtDw (DWFloat xh xl))) ->
+  Dfin (dwlo (sqrtDw (DWFloat xh xl))) ->
+  sqrtOk (DWFloat xh xl) = true ->
+  Rabs (D2R (dwhi (sqrtDw (DWFloat xh xl))) +
+        D2R (dwlo (sqrtDw (DWFloat xh xl))) -
+        R_sqrt.sqrt (D2R xh + D2R xl)) <=
+  15 * Du ^ 2 * R_sqrt.sqrt (D2R xh + D2R xl).
+Proof.
+move=> Wx.
+rewrite /sqrtOk.
+set s := fp2dw (PrimFloat.sqrt (xh + xl)%float).
+set dq := divDwDw2 (DWFloat xh xl) s.
+set pw := plusDwDw s dq.
+have Ez : sqrtDw (DWFloat xh xl) = halfDw pw by [].
+rewrite Ez => Fqh Fql.
+move=> /andb_prop [/andb_prop [/andb_prop [Hn Hdiv] Hdw] Hhalf].
+(* finiteness, backwards from the answer *)
+have Fph : Dfin (dwhi pw) by apply: Dfin_divI Fqh.
+have Fpl : Dfin (dwlo pw) by apply: Dfin_divI Fql.
+have Fp := plusDwDw_finIP _ _ Fpl.
+have [Fsq [F0 [Fdqh [Fdql _]]]] := Fp.
+have Fs := Dfin_sqrtI _ Fsq.
+have [Fxh Fxl] := Dfin_addI _ _ Fs.
+have Fin := divDwDw2_finI xh xl (PrimFloat.sqrt (xh + xl)%float) 0%float
+              Fsq F0 Fdql.
+(* the value, and the root of it *)
+have Hp := bpow_gt_0 radix2 (SpecFloat.emin prec emax + prec - 1).
+have Hp0 : Prec_gt_0 prec by [].
+have Ve : Valid_exp Dfexp by rewrite DfexpE; apply: FLT_exp_valid.
+have HnR : Dnorm < D2R (xh + xl)%float.
+  by have := Dltb _ _ Dfin_dnorm Fs Hn; rewrite D2R_dnorm.
+have [EA _] := Dfin_add _ _ Fxh Fxl Fs.
+have HXn : Dnorm <= Rabs (D2R xh + D2R xl).
+  apply: Dnorm_of_rnd; rewrite -EA.
+  have E : Rabs (D2R (xh + xl)%float) = D2R (xh + xl)%float
+    by apply: Rabs_pos_eq; lra.
+  by rewrite E.
+have HX0 : 0 < D2R xh + D2R xl.
+  case: (Rle_lt_dec (D2R xh + D2R xl) 0) => [HX|//].
+  have T : Drnd (D2R xh + D2R xl) <= Drnd 0 by apply: round_le.
+  rewrite round_0 -EA in T.
+  by lra.
+have HR0 : 0 < R_sqrt.sqrt (D2R xh + D2R xl) by apply: sqrt_lt_R0.
+have HRR : R_sqrt.sqrt (D2R xh + D2R xl) * R_sqrt.sqrt (D2R xh + D2R xl)
+         = D2R xh + D2R xl by apply: sqrt_sqrt; lra.
+have Hg := sqrtDw_guess xh xl Fxh Fxl Fs HnR.
+have Hu := Du_gt0.
+have Hu1 := Du_small.
+have Hc : Du * (2 + Du) <= 21 * Du / 10 by nra.
+have HgS : R_sqrt.sqrt (D2R xh + D2R xl) * (1 - 21 * Du / 10) <=
+           D2R (PrimFloat.sqrt (xh + xl)%float)
+  by move: Hg; split_Rabs; nra.
+have HS0 : 0 < D2R (PrimFloat.sqrt (xh + xl)%float) by nra.
+(* the quotient *)
+have Hsn : D2R (PrimFloat.sqrt (xh + xl)%float) <> 0 by lra.
+have Rng := divOk_Rng xh xl _ _ Hsn Fin Hdiv.
+have Ex := Dwf_eq _ _ Fxh Fxl Wx.
+have Ey := Dwf_fp2dw (PrimFloat.sqrt (xh + xl)%float).
+have Ed := divDwDw2_err xh xl _ _ Fin Rng Ex Ey.
+rewrite D2R_zero Rplus_0_r in Ed.
+set T := (D2R xh + D2R xl) / D2R (PrimFloat.sqrt (xh + xl)%float) in Ed *.
+have HT0 : 0 < T by rewrite /T; apply: Rdiv_lt_0_compat; lra.
+have HTa : Rabs T = T by apply: Rabs_pos_eq; lra.
+rewrite HTa in Ed.
+have Ed' : Rabs (D2R (dwhi dq) + D2R (dwlo dq) - T) <=
+           (15 * Du ^ 2 + 56 * Du ^ 3) * T by exact: Ed.
+(* the sum *)
+have Edw := divDwDw2_dw (DWFloat xh xl) s Fin Hdw.
+have Esh : D2R (dwhi s) = D2R (PrimFloat.sqrt (xh + xl)%float) by [].
+have Esl : D2R (dwlo s) = 0 by rewrite /s.
+have Hsmall : 15 * Du ^ 2 + 56 * Du ^ 3 <= / 2.
+  have K2 := Du2; have K3 := Du3.
+  have P2 := Dupos 2; have P3 := Dupos 3.
+  by lra.
+have HD0 : 0 < D2R (dwhi dq) + D2R (dwlo dq)
+  by move: Ed'; split_Rabs; nra.
+have Hne : (D2R (dwhi s) + D2R (dwlo s)) +
+           (D2R (dwhi dq) + D2R (dwlo dq)) <> 0 by rewrite Esh Esl; lra.
+have Ep := plusDwDw_relerrP s dq Fp Ey Edw Hne.
+rewrite Esh Esl Rplus_0_r in Ep.
+have HSDp : 0 < D2R (PrimFloat.sqrt (xh + xl)%float) +
+                (D2R (dwhi dq) + D2R (dwlo dq)) by lra.
+have HSDa : Rabs (D2R (PrimFloat.sqrt (xh + xl)%float) +
+                  (D2R (dwhi dq) + D2R (dwlo dq))) =
+            D2R (PrimFloat.sqrt (xh + xl)%float) +
+            (D2R (dwhi dq) + D2R (dwlo dq)) by apply: Rabs_pos_eq; lra.
+rewrite HSDa in Ep.
+(* the halving *)
+have Eh := halfDw_val pw Fph Fpl Fqh Fql Hhalf.
+rewrite -/pw in Ep.
+rewrite Eh.
+apply: (newton_step _ (D2R (PrimFloat.sqrt (xh + xl)%float)) T
+                    (D2R (dwhi dq) + D2R (dwlo dq)) _
+                    (15 * Du ^ 2 + 56 * Du ^ 3)
+                    (3 * Du ^ 2 / (1 - 4 * Du))) => //.
+- by rewrite /T HRR; field; exact: Hsn.
+- by move: Hg; split_Rabs; nra.
+- by have P2 := Dupos 2; have P3 := Dupos 3; lra.
+- exact: Rle_refl.
+- rewrite /Rdiv; apply: Rmult_le_pos; first by have := Dupos 2; lra.
+  by apply/Rlt_le/Rinv_0_lt_compat; lra.
+have K2 := Du2; have P2 := Dupos 2.
+apply: (Rmult_le_reg_r (1 - 4 * Du)); first lra.
+rewrite /Rdiv Rmult_assoc Rinv_l; last lra.
+by rewrite Rmult_1_r; nra.
 Qed.

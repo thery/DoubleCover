@@ -344,16 +344,22 @@ Definition sqrtDwDn (x : dwfloat) :=
   let: (d, e, m, t) := sqrtDwErr x in
   if posFp m && posFp t then widenDn d e else DWFloat nan nan.
 
+(* THE ROOT'S GUARD.  One step of Newton's method is a quotient, a sum and a  *)
+(* halving, and each of the three asks something.  The value must be normal,  *)
+(* so that the guess has a relative error at all; the quotient must be in     *)
+(* range and must come back as a double word, which is what the sum of two    *)
+(* double words asks of its arguments; and the halving must be exact.  Four   *)
+(* tests, all of them on numbers the operation has computed anyway.           *)
+Definition sqrtOk (x : dwfloat) :=
+  let: DWFloat xh xl := x in
+  let s := fp2dw (PrimFloat.sqrt (xh + xl)%float) in
+  (dnorm <? (xh + xl))%float && divOk x s && divDwOk x s &&
+  halfOk (plusDwDw s (divDwDw2 x s)).
+
 Definition sqrtDwUpK (x : dwfloat) :=
-  let: DWFloat xh xl := x in
-  let q := sqrtDw x in
-  if posFp (valDnDw q) && posFp (xh + xl)%float
-  then shiftUp q else DWFloat nan nan.
+  if sqrtOk x then shiftUp (sqrtDw x) else DWFloat nan nan.
 Definition sqrtDwDnK (x : dwfloat) :=
-  let: DWFloat xh xl := x in
-  let q := sqrtDw x in
-  if posFp (valDnDw q) && posFp (xh + xl)%float
-  then shiftDn q else DWFloat nan nan.
+  if sqrtOk x then shiftDn (sqrtDw x) else DWFloat nan nan.
 
 Compute addDwUp (DWFloat 20000000000000004 (-1.75))
                 (DWFloat 20000000000000004 (-1.75)).
