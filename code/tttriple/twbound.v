@@ -155,3 +155,238 @@ Proof.
 case: l => [|e0 l'] //= F.
 by rewrite (vsebAux_sum _ _ F).
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The cut down to three words, which is the only step that loses anything    *)
+(* ---------------------------------------------------------------------------*)
+
+(* What a triple word stands for.                                             *)
+Definition twval t := D2R (tw0 t) + D2R (tw1 t) + D2R (tw2 t).
+
+(* The tail is folded into the third word, upwards, so what comes out is at   *)
+(* or above what went in.                                                     *)
+Lemma foldUp_finI tl e : Dfin (foldr addUpFp e tl) -> Dfin e /\ finL tl.
+Proof.
+elim: tl => [|a tl IH] //= F.
+have [Fa Fr] := Dfin_addI _ _ (Dfin_upI _ _ F).
+by have [Fe Ftl] := IH Fr.
+Qed.
+
+Lemma foldUp_ge tl e :
+  Dfin (foldr addUpFp e tl) -> D2R e + sumL tl <= D2R (foldr addUpFp e tl).
+Proof.
+elim: tl => [|a tl IH] /=; first by rewrite Rplus_0_r; lra.
+move=> F.
+have Fs := Dfin_upI _ _ F.
+have [Fa Fr] := Dfin_addI _ _ Fs.
+have G := addUpFp_ge _ _ Fa Fr Fs F.
+by have := IH Fr; lra.
+Qed.
+
+(* The second sweep's output being made of numbers proves its input was.      *)
+Lemma vsebAux_finIl l eps : finL (vsebAux eps l) -> Dfin eps /\ finL l.
+Proof.
+elim: l eps => [|e l IH] eps /=; first by case=> Fe _; split.
+case: l IH => [|e' l'] IH /=.
+  move=> [Fy0 [Fy1 _]].
+  have T := twoSum_finI _ _ Fy1.
+  by have [F0 F1] := Dfin_addI _ _ (proj1 T).
+case Ez: (_ =? 0)%float => F.
+  have [Fet _] := Dfin_eqb0 _ Ez.
+  have T := twoSum_finI _ _ Fet.
+  have [F0 F1] := Dfin_addI _ _ (proj1 T).
+  by have [_ Ftl] := IH (dwhi (twoSum eps e)) F; split.
+have [Fr Ft] := finL_cons _ _ F.
+have [Fet Ftl] := IH (dwlo (twoSum eps e)) Ft.
+have T := twoSum_finI _ _ Fet.
+by have [F0 F1] := Dfin_addI _ _ (proj1 T); split.
+Qed.
+
+Lemma vseb_finI l : finL (vseb l) -> finL l.
+Proof.
+case: l => [|e0 l'] //= F.
+by have [Fe0 Fl] := vsebAux_finIl _ _ F; split.
+Qed.
+
+(* A list of three or fewer words read back as a triple word keeps its value  *)
+(* and its numbers: what is missing is filled out with noughts.               *)
+Lemma l2tw_val m : (size m <= 3)%N -> twval (l2tw m) = sumL m.
+Proof.
+case: m => [|a [|b [|c [|d m]]]] //= _;
+  by rewrite /twval /= ?D2R_zero; lra.
+Qed.
+
+Lemma l2tw_finI m : (size m <= 3)%N -> finL (tw2l (l2tw m)) -> finL m.
+Proof.
+by case: m => [|a [|b [|c [|d m]]]] //= _ [Fa [Fb [Fc _]]]; split => //; split.
+Qed.
+
+(* And the second sweep never lengthens a list of three.                      *)
+Lemma vseb3_size a b c : (size (vseb [:: a; b; c]) <= 3)%N.
+Proof.
+rewrite /vseb /=; case: (_ =? 0)%float => /=; last by [].
+by case: (_ =? 0)%float.
+Qed.
+
+(* A triple word read as a list stands for what the triple does.              *)
+Lemma tw2l_sum t : sumL (tw2l t) = twval t.
+Proof. by case: t => x0 x1 x2; rewrite /twval /=; lra. Qed.
+
+(* The cut's answer being made of numbers proves the swept list was, and so   *)
+(* the list it swept.                                                         *)
+Lemma expUp_finI l :
+  finL (tw2l (expUp l)) -> finL (vseb l) /\ finL l.
+Proof.
+rewrite /expUp.
+have K m : (size m <= 3)%N -> finL (tw2l (l2tw m)) -> finL m
+  by move=> Hs Hf; apply: l2tw_finI Hf.
+case E: (vseb l) => [|e0 [|e1 [|e2 tl]]] F.
+- by split=> //; apply: vseb_finI; rewrite E.
+- have Fm := K _ (isT : (size [:: e0] <= 3)%N) F.
+  by split=> //; apply: vseb_finI; rewrite E.
+- have Fm := K _ (isT : (size [:: e0; e1] <= 3)%N) F.
+  by split=> //; apply: vseb_finI; rewrite E.
+have Fm := K _ (vseb3_size _ _ _) F.
+have [Fe0 [Fe1 [Ff _]]] := vseb_finI _ Fm.
+have [Fe2 Ftl] := foldUp_finI _ _ Ff.
+have Fw : finL [:: e0, e1, e2 & tl] by split => //; split => //; split.
+by split=> //; apply: vseb_finI; rewrite E.
+Qed.
+
+(* AND THE CUT IS THE WHOLE ERROR.  What the second sweep leaves is either    *)
+(* three words or fewer, and then nothing is lost at all, or more, and then   *)
+(* the tail is folded into the third word upwards.                            *)
+Lemma expUp_ge l : finL (tw2l (expUp l)) -> sumL l <= twval (expUp l).
+Proof.
+move=> F; have [Fv Fl] := expUp_finI _ F.
+have Hl := vseb_sum _ Fv.
+move: F Fv Hl; rewrite /expUp.
+case E: (vseb l) => [|e0 [|e1 [|e2 tl]]] F Fv Hl.
+- by rewrite (l2tw_val [::] isT); move: Hl; rewrite /=; lra.
+- by rewrite (l2tw_val [:: e0] isT); move: Hl; rewrite /=; lra.
+- by rewrite (l2tw_val [:: e0; e1] isT); move: Hl; rewrite /=; lra.
+have Fm := l2tw_finI _ (vseb3_size _ _ _) F.
+have [Fe0 [Fe1 [Ff _]]] := vseb_finI _ Fm.
+have Hf := foldUp_ge _ _ Ff.
+have Hs := vseb_sum _ Fm.
+rewrite (l2tw_val _ (vseb3_size _ _ _)) Hs.
+by move: Hl Hf; rewrite /= => H1 H2; lra.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  And the same the other way round                                          *)
+(* ---------------------------------------------------------------------------*)
+
+Lemma foldDn_finI tl e : Dfin (foldr addDnFp e tl) -> Dfin e /\ finL tl.
+Proof.
+elim: tl => [|a tl IH] //= F.
+have [Fa Fr] := Dfin_addI _ _ (Dfin_dnI _ _ F).
+by have [Fe Ftl] := IH Fr.
+Qed.
+
+Lemma foldDn_le tl e :
+  Dfin (foldr addDnFp e tl) -> D2R (foldr addDnFp e tl) <= D2R e + sumL tl.
+Proof.
+elim: tl => [|a tl IH] /=; first by rewrite Rplus_0_r; lra.
+move=> F.
+have Fs := Dfin_dnI _ _ F.
+have [Fa Fr] := Dfin_addI _ _ Fs.
+have G := addDnFp_le _ _ Fa Fr Fs F.
+by have := IH Fr; lra.
+Qed.
+
+Lemma expDn_finI l :
+  finL (tw2l (expDn l)) -> finL (vseb l) /\ finL l.
+Proof.
+rewrite /expDn.
+have K m : (size m <= 3)%N -> finL (tw2l (l2tw m)) -> finL m
+  by move=> Hs Hf; apply: l2tw_finI Hf.
+case E: (vseb l) => [|e0 [|e1 [|e2 tl]]] F.
+- by split=> //; apply: vseb_finI; rewrite E.
+- have Fm := K _ (isT : (size [:: e0] <= 3)%N) F.
+  by split=> //; apply: vseb_finI; rewrite E.
+- have Fm := K _ (isT : (size [:: e0; e1] <= 3)%N) F.
+  by split=> //; apply: vseb_finI; rewrite E.
+have Fm := K _ (vseb3_size _ _ _) F.
+have [Fe0 [Fe1 [Ff _]]] := vseb_finI _ Fm.
+have [Fe2 Ftl] := foldDn_finI _ _ Ff.
+have Fw : finL [:: e0, e1, e2 & tl] by split => //; split => //; split.
+by split=> //; apply: vseb_finI; rewrite E.
+Qed.
+
+Lemma expDn_le l : finL (tw2l (expDn l)) -> twval (expDn l) <= sumL l.
+Proof.
+move=> F; have [Fv Fl] := expDn_finI _ F.
+have Hl := vseb_sum _ Fv.
+move: F Fv Hl; rewrite /expDn.
+case E: (vseb l) => [|e0 [|e1 [|e2 tl]]] F Fv Hl.
+- by rewrite (l2tw_val [::] isT); move: Hl; rewrite /=; lra.
+- by rewrite (l2tw_val [:: e0] isT); move: Hl; rewrite /=; lra.
+- by rewrite (l2tw_val [:: e0; e1] isT); move: Hl; rewrite /=; lra.
+have Fm := l2tw_finI _ (vseb3_size _ _ _) F.
+have [Fe0 [Fe1 [Ff _]]] := vseb_finI _ Fm.
+have Hf := foldDn_le _ _ Ff.
+have Hs := vseb_sum _ Fm.
+rewrite (l2tw_val _ (vseb3_size _ _ _)) Hs.
+by move: Hl Hf; rewrite /= => H1 H2; lra.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The sum of two triple words, bounded above                                *)
+(* ---------------------------------------------------------------------------*)
+
+(* Merging the six words changes nothing, the sweep changes nothing, and the  *)
+(* cut is made upwards.  No error analysis enters, and nothing of the paper's *)
+(* is used: the paper is proved for round to nearest, and this is not.        *)
+Theorem addTwUp_ge x y :
+  finL (tw2l (addTwUp x y)) -> twval x + twval y <= twval (addTwUp x y).
+Proof.
+rewrite /addTwUp => F.
+have H := expUp_ge _ F.
+have [_ Fv] := expUp_finI _ F.
+have Hv := vecSum_sum _ Fv.
+by move: H; rewrite Hv Merge_sum !tw2l_sum.
+Qed.
+
+Theorem addTwDn_le x y :
+  finL (tw2l (addTwDn x y)) -> twval (addTwDn x y) <= twval x + twval y.
+Proof.
+rewrite /addTwDn => F.
+have H := expDn_le _ F.
+have [_ Fv] := expDn_finI _ F.
+have Hv := vecSum_sum _ Fv.
+by move: H; rewrite Hv Merge_sum !tw2l_sum.
+Qed.
+
+(* Negating a triple word is exact, so subtraction is the sum of the negated  *)
+(* words and needs nothing new.                                               *)
+Lemma twval_neg t : finL (tw2l (negTw t)) -> twval (negTw t) = - twval t.
+Proof.
+by case: t => x0 x1 x2 _; rewrite /twval /= !D2R_opp; lra.
+Qed.
+
+Lemma finL_negTw t : finL (tw2l (negTw t)) -> finL (tw2l t).
+Proof.
+case: t => x0 x1 x2 /= [F0 [F1 [F2 _]]].
+split; first exact: Dfin_oppI _ F0.
+split; first exact: Dfin_oppI _ F1.
+by split; first exact: Dfin_oppI _ F2.
+Qed.
+
+Theorem subTwUp_ge x y :
+  finL (tw2l (subTwUp x y)) -> finL (tw2l (negTw y)) ->
+  twval x - twval y <= twval (subTwUp x y).
+Proof.
+move=> F Fn; have H := addTwUp_ge x (negTw y) F.
+rewrite (twval_neg _ Fn) in H.
+by move: H; rewrite /subTwUp; lra.
+Qed.
+
+Theorem subTwDn_le x y :
+  finL (tw2l (subTwDn x y)) -> finL (tw2l (negTw y)) ->
+  twval (subTwDn x y) <= twval x - twval y.
+Proof.
+move=> F Fn; have H := addTwDn_le x (negTw y) F.
+rewrite (twval_neg _ Fn) in H.
+by move: H; rewrite /subTwDn; lra.
+Qed.
