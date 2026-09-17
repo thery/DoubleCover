@@ -767,40 +767,45 @@ twenty-four threads, 62 GB of memory.
 
 == Removing redundant moves
 
-Many words lead to the same position. The easy redundancy to remove is the
-repetition of a face: after a $U$ we do not try $U$, $U^2$ or $U^(-1)$, since
-$U U$ is $U^2$ and a shorter word is covered at a smaller depth. That is
-fifteen branches at every move after the first, not eighteen.
+Many words lead to the same position, and the search does not have to try them
+all. Two ideas say which ones may be left out. Both pay most at the top of the
+tree: one first move out of eighteen is an eighteenth of the whole search.
 
-Opposite faces commute, so $U D$ and $D U$ are the same position and one of the
-two orders is enough. Where the last move was on the top, right or front face
-that leaves *twelve*, and *fifteen* elsewhere. This one is used from the third
-move on. A move dropped early saves most: one first move out of eighteen is an
-eighteenth of the search.
+The first idea is that a word need never repeat a face. After a $U$ there is no
+point in trying $U$, $U^2$ or $U^(-1)$, because $U U$ is $U^2$ and that word is
+shorter, so a search at a smaller depth covers it. Fifteen moves are left
+instead of eighteen, at every move after the first.
 
-The second redundancy comes from symmetry. A cube can be relabelled in 48 ways:
-any of the six faces to the top, each in four positions, and each of those seen
-in a mirror as well. A relabelling turns a word into another word of the same
-length. So if it leaves the position we start from unchanged, the two words are
-worth the same and only one of them need be tried.
+Opposite faces are the same argument, one step weaker. $U$ and $D$ commute, so
+$U D$ and $D U$ give the same position and one of the two orders is enough. We
+fix the order: of an opposite pair, the top, right or front face is played
+first. So after a turn of the top face the bottom face is not tried and twelve
+moves are left, while after a turn of the bottom face the top is still allowed
+and fifteen are left. This is used from the third move on.
 
-The superflip is left unchanged by all 48. So the eighteen first moves come
-down to two, $U$ and $U^2$, and the other sixteen are never tried. A position
-with no symmetry gets nothing from this.
+The second idea is symmetry. A cube can be relabelled in 48 ways: any of the
+six faces to the top, each in four positions, and each of those seen in a
+mirror as well. A relabelling takes a word to another word of the same length.
+When the position searched is unchanged by it, the two words are worth the same
+and one of them is enough.
 
-At the second move the two ideas get in each other's way. Redundancy would drop
-the three turns of the bottom face, since $U D$ and $D U$ are the same
-position. But symmetry has already fixed the first move to the top face, and
-turning the cube upside down takes $D U$ back to $U D$. Cutting by both would
-cut the same pair of faces twice over. So the bottom-face turns stay: fifteen
-second moves, and $2 times 15 = 30$ beginnings to search. Reid meets the same
-case, keeps them too, and cuts his *third* move instead.
+The superflip is unchanged by all 48. So the first move is $U$ or $U^2$, and
+the other sixteen are never tried. A position with no symmetry has nothing to
+gain here.
 
-Our own OCaml program dropped them, so it searched 24 prefixes where it had to
-search 30. It ran for hours and gave the answer we expected. The error came out
-only when the cut had to be proved in Rocq, and the proof could not be written.
-A cut that is too greedy does not make a search fail. It makes it faster, and it
-makes it agree with you.
+The two ideas collide at the second move. The first would drop the three turns
+of the bottom face, since $U D$ and $D U$ are the same position. But symmetry
+has already fixed the first move to the top face, and turning the cube upside
+down takes $D U$ back to $U D$. Using both would cut the same pair of faces
+twice over. So the bottom face stays: fifteen second moves, and
+$2 times 15 = 30$ beginnings to search. Reid meets the same case, keeps them as well, and
+cuts his *third* move instead.
+
+Our own OCaml program dropped them, so it searched 24 beginnings where it had
+to search 30. It ran for hours and gave the answer we expected. The error came
+out only when the cut had to be proved in Rocq, and the proof could not be
+written. A cut that is too greedy does not make a search fail. It makes it
+faster, and it makes it agree with you.
 
 Each beginning leaves a search of depth 17. The thirty are packed into
 *seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"), one per second
