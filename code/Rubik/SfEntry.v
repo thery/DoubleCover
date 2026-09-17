@@ -29,4 +29,5 @@ Local Open Scope uint63_scope.
 Eval vm_compute in (ctwistt sftab, coordt sftab).
 
 (* The entry the search reads at the root.  This one needs the real table.    *)
+(* Measured on roquableu with the folded table: 10.                          *)
 Eval vm_compute in Dp1i p1ftab (ctwistt sftab) (coordt sftab).

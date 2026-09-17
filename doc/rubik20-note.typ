@@ -844,9 +844,9 @@ integer.
 
 The superflip itself goes down that chain. As a permutation it is a product of
 twelve two-cycles, one for each flipped edge, $(1 thin 33)$, $(3 thin 9)$,
-$(4 thin 25)$ and so on. #src("Moves.v") turns those cycles into the image
-table `sftab`, and the table into the array `sfti` the search starts from. Each
-step has its lemma:
+$(4 thin 25)$ and so on. #src("Moves.v") turns those cycles into the image table
+`sftab`, and the table into the array `sfti` the search starts from. Each step
+has its lemma:
 
 ```coq
 Lemma sftabE : superflip = pt 47 sftab.
@@ -854,15 +854,20 @@ Lemma sftiE  : superflip = pt 47 (ti2t 47 sfti).
 ```
 
 `pt 47` is the permutation a table stands for, so both say that what runs is
-still the superflip. Its summary is read off the same table, the corner twist
-by `ctwistt` and the flip-and-slice value by `coordt`, and the estimate at the
-root of the search is one expression:
+still the superflip. Its summary is read off the same table, the corner twist by
+`ctwistt` and the flip-and-slice value by `coordt`, and the estimate at the root
+of the search is one expression:
 
 ```coq
 Dp1i (ctwistt sftab) (coordt sftab)
 ```
 
-That lookup goes through the fold to a four-bit field of one 63-bit integer.
+The summary is $(0, 15 space 732 space 735)$: the superflip leaves the corners
+alone, so the twist is zero, and the second number carries the twelve flipped
+edges and the four slice slots. The lookup goes through the fold to a four-bit
+field of one 63-bit integer, and the value there is *ten*. At the root the
+search therefore knows that at least ten moves are needed, and it has nineteen
+to spend, so nothing is cut there.
 
 Functions are treated the same way. A function on a finite domain is tabulated
 once and then read: the action of a move on a summary, the rank of a summary,
