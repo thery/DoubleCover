@@ -1116,6 +1116,26 @@ by move: H2; split_Rabs; lra.
 Qed.
 
 (* negating both words leaves a double word a double word *)
+(* And half a step is what the test really gives, which three words need.     *)
+Lemma wellFormed_half xh xl : Dfin xh -> Dfin xl ->
+  wellFormed (DWFloat xh xl) = true ->
+  (Rabs (D2R xl) <= / 2 * Rabs (D2R xh))%R.
+Proof.
+move=> Fh Fl Ew.
+have Hp0 : Prec_gt_0 FloatOps.prec by [].
+have Hu := wellFormedP _ _ Fh Fl Ew.
+case: (Req_dec (D2R xh) 0) => [Ez|Nz]; last first.
+  have Hl := ulp_le_abs radix2 Dfexp (D2R xh) Nz (Dformat xh).
+  by move: Hu Hl; split_Rabs; lra.
+have Fs := Dfin_wf _ _ Fh Ew.
+have [Es _] := Dfin_add _ _ Fh Fl Fs.
+have Eq := D2R_wf _ _ Fh Fl Ew.
+have Hr : Drnd (D2R xl) = D2R xl.
+  by apply: round_generic; apply: Dformat.
+have E : D2R xl = D2R xh by move: Eq; rewrite Es Ez Rplus_0_l Hr.
+by move: Ez E; split_Rabs; lra.
+Qed.
+
 Lemma wellFormed_neg xh xl : Dfin xh -> Dfin xl ->
   wellFormed (DWFloat xh xl) = true ->
   wellFormed (DWFloat (- xh) (- xl))%float = true.

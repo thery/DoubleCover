@@ -687,9 +687,45 @@ rewrite !Fadd_exact_correct (toXE _ (Dfin_opp _ F0)) (toXE _ (Dfin_opp _ F1))
 by rewrite /= !D2R_opp; congr Xreal; ring.
 Qed.
 
+(* THE LEADING WORD DECIDES THE SIGN.  Each word is within half a step of     *)
+(* the one before it, so the second is at most half the first and the third    *)
+(* at most a quarter of it: what follows the leading word cannot reach it,     *)
+(* and the sum is on the side the leading word is.                             *)
+Lemma wellFormed_lead x0 x1 x2 : Dfin x0 -> Dfin x1 -> Dfin x2 ->
+  wellFormed (TWFloat x0 x1 x2) = true ->
+  (Rabs (D2R x1 + D2R x2) <= Rabs (D2R x0))%R.
+Proof.
+move=> F0 F1 F2; rewrite /wellFormed => /andb_prop [E1 E2].
+have H1 := wellFormed_half x0 x1 F0 F1 E1.
+have H2 := wellFormed_half x1 x2 F1 F2 E2.
+have T := Rabs_triang (D2R x1) (D2R x2).
+by move: H1 H2 T; split_Rabs; lra.
+Qed.
+
 Lemma abs_correct x :
   toX (abs x) = Xabs (toX x) /\ valid_ub (abs x) = true.
-Proof. Admitted.
+Proof.
+split; last exact: valid_ub_onReal.
+rewrite /abs /onReal.
+case Rx: (real x); last first.
+  have -> : toX x = Xnan by move: Rx; rewrite real_correct; case: (toX x).
+  by rewrite toX_nan.
+have [F0 [F1 [F2 Ew]]] := real_fin _ Rx.
+have Hle : (Rabs (D2R (tw1 x) + D2R (tw2 x)) <= Rabs (D2R (tw0 x)))%R.
+  by move: F0 F1 F2 Ew {Rx}; case: x => a b c; exact: wellFormed_lead.
+have [Hn Hp] := Dget_sign _ F0.
+case E: (PrimFloat.get_sign (tw0 x)); last first.
+  rewrite /guard Rx (toX_real _ Rx) /=.
+  by congr Xreal; rewrite Rabs_right //; apply: Rle_ge;
+     move: (Hp E) Hle; split_Rabs; lra.
+have Rn : real (negTw x) = true.
+  by move: Rx; rewrite /real classify_neg; case: (classify x).
+have Hneg : toX (negTw x) = (- toX x)%XR.
+  by have := neg_correct x; rewrite /neg; move: Rx; rewrite /real;
+     case: (classify x).
+rewrite /guard Rn Hneg (toX_real _ Rx) /=.
+by congr Xreal; rewrite Rabs_left1; [ring | move: (Hn E) Hle; split_Rabs; lra].
+Qed.
 
 Lemma cmp_correct x y :
   cmp x y =
