@@ -798,17 +798,17 @@ of the bottom face, since $U D$ and $D U$ are the same position. But symmetry
 has already fixed the first move to the top face, and turning the cube upside
 down takes $D U$ back to $U D$. Using both would cut the same pair of faces
 twice over. So the bottom face stays: fifteen second moves. Two first moves and
-fifteen second moves make thirty *beginnings*, thirty ways of starting the
-word, and the search runs once from each of them. Reid meets the same case,
+fifteen second moves make thirty *prefixes*, the thirty two-move starts a word
+may have, and the search runs once from each of them. Reid meets the same case,
 keeps them as well, and cuts his *third* move instead.
 
-Our own OCaml program dropped them, so it searched 24 beginnings where it had
+Our own OCaml program dropped them, so it searched 24 prefixes where it had
 to search 30. It ran for hours and gave the answer we expected. The error came
 out only when the cut had to be proved in Rocq, and the proof could not be
 written. A cut that is too greedy does not make a search fail. It makes it
 faster, and it makes it agree with you.
 
-Each beginning leaves a search of depth 17. The thirty are packed into
+Each prefix leaves a search of depth 17. The thirty are packed into
 *seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"), one per second
 move. The two whose second move turns the bottom face keep fifteen branches
 where the others keep twelve, so they run far longer; each is split in two, and
@@ -1174,7 +1174,7 @@ stickers, so it is odd, and a manoeuvre of odd length gives an odd position.
 Reid's position is even. So every manoeuvre for it has even length, and the
 searches stop at 24.
 
-== Reid's six beginnings
+== Reid's six prefixes
 
 The argument has two halves and only the second is a computation.
 
@@ -1204,7 +1204,7 @@ shortened. Without it the third turn may cancel the second. The Rocq statement
 carries the hypothesis at no cost, since a shortest manoeuvre is what we want
 anyway.
 
-Six searches follow. The first beginning is two turns long and is searched 22
+Six searches follow. The first prefix is two turns long and is searched 22
 further, the other five are three long and are searched 21 further. Each
 reaches 24 turns.
 
