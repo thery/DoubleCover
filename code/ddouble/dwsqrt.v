@@ -476,7 +476,7 @@ Theorem sqrtDwUpK_ge xh xl :
   D2R (dwhi (sqrtDwUpK (DWFloat xh xl))) +
   D2R (dwlo (sqrtDwUpK (DWFloat xh xl))).
 Proof.
-move=> Wx; rewrite /sqrtDwUpK.
+move=> Wx; rewrite sqrtDwUpKE.
 case Hok : (sqrtOk (DWFloat xh xl)); last by apply: sqrtDwUp_geP.
 move=> Fz.
 have [Fqh [Fql Fs]] := widenUp_finI _ _ Fz.
@@ -520,7 +520,7 @@ Theorem sqrtDwDnK_le xh xl :
   D2R (dwlo (sqrtDwDnK (DWFloat xh xl))) <=
   R_sqrt.sqrt (D2R xh + D2R xl).
 Proof.
-move=> Wx; rewrite /sqrtDwDnK.
+move=> Wx; rewrite sqrtDwDnKE.
 case Hok : (sqrtOk (DWFloat xh xl)); last by apply: sqrtDwDn_leP.
 move=> Fz.
 have [Fqh [Fql Fs]] := widenDn_finI _ _ Fz.

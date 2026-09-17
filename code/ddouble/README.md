@@ -181,11 +181,24 @@ about where the bottom of the range is, `halfOk` tests it: doubling is always
 exact, so a word that comes back from its half doubled is a word whose half was
 exact.
 
-**The guard costs more here than for the division.** Measured on 100000 roots:
-the root alone 0.20 seconds, guarded and shifted 0.44, with its residual 2.70.
-The guarded form does the work twice, because `sqrtOk` recomputes what `sqrtDw`
-computes. Sharing them the way `divDwDw2G` shares the division's would take it
-to about 0.25; it is not done.
+**The guard shares its work, as the division's does.** Read plainly, `sqrtOk`
+works the division out three times over — once for `divOk`, once for
+`divDwOk` and once inside the sum it halves — and `sqrtDw` works it out a
+fourth. `sqrtDwG` does the step once and hands back the answer with its four
+tests beside it, and `divDwDw2GS` is `divDwDw2G` with Fast2Sum's own
+precondition tested as well, since it is read off the same two numbers.
+Measured on 100000 roots, three runs each, seconds:
+
+| | before | now |
+|---|---|---|
+| the root alone | 0.33 | 0.33 |
+| guarded and shifted | 1.33 | 0.53 |
+| with its residual | 4.6 | 4.6 |
+
+**The root has no bound free of its guard.** Its `14.5 u²` leans on
+`divDwDw2_err`, which is the division's and needs the range; so the root's
+guard is the division's with two more beside it, and it cannot go before the
+division's does.
 
 **The module meets the signature.** All 32 obligations are proved and the
 check is in the build:
