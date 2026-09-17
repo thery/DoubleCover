@@ -805,9 +805,9 @@ a search fail. It makes it faster, and it makes it agree with you.
 The search of the last section is written on permutations of the 48 stickers,
 and in that form it is too slow to run. What runs is the same search on machine
 integers and arrays. The path from one to the other is a data refinement: every
-object of the search is given an effective representation, and every step comes
-with a proof that it computes what the step before it computed. The answer rests
-on the search of the last section; the speed rests on the steps.
+object of the search is given an effective representation, and each one is
+proved to agree with the object it stands for. The answer rests on the search
+of the last section; the speed rests on the representations.
 
 == How the objects are encoded
 
