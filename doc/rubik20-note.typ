@@ -767,10 +767,9 @@ twenty-four threads, 62 GB of memory.
 
 == Removing redundant moves
 
-Many words lead to the same position, and a search that tries them all does the
-same work over and over. Removing them is what brings the tree within reach, and
-the earlier a word is removed the more it saves: dropping one of the eighteen
-first moves drops an eighteenth of the whole search.
+Different words lead to the same position, so a search that tries them all
+repeats itself. Dropping a word early saves most: one first move out of
+eighteen is an eighteenth of the search.
 
 Take $U U$. It is $U^2$, a shorter word, and shorter words are covered at a
 smaller depth. So a face is never turned twice running, at any point in the
