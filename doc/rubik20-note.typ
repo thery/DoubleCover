@@ -831,9 +831,20 @@ what the hardware costs. The gain is plain enough. What matters here is that the
 search moves to them without being written a second time. #src("Tabi.v") carries
 the tables of #src("Table.v") as arrays of machine integers, with the bridge
 back: `ti2t` reads such an array as the list of numbers it stands for, and
-`tabi_ok` is `tab_ok` of that list. Every fact proved of lists crosses that
-bridge. From there on a position is 48 machine integers, a summary is two, and
-the phase 1 table is an array of arrays, fifteen four-bit entries to a word.
+`tabi_ok` is `tab_ok` of that list. Each operation comes with a lemma saying
+that the bridge may be crossed either way round. For the product of two
+permutations it reads
+
+```coq
+Lemma ti2t_comp a b :
+  tabi_ok a -> tabi_ok b ->
+  ti2t (comp_tabi a b) = comp_tab (ti2t a) (ti2t b).
+```
+
+Composing two arrays and reading the result back as a list gives what composing
+the two lists gives. Every fact proved of lists crosses that bridge. From there
+on a position is 48 machine integers, a summary is two, and the phase 1 table
+is an array of arrays, fifteen four-bit entries to a word.
 
 == The search, in seven versions
 
