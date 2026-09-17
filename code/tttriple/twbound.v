@@ -30,6 +30,8 @@ Open Scope R_scope.
 Arguments twoSum : simpl never.
 Arguments dwhi : simpl never.
 Arguments dwlo : simpl never.
+Arguments twoProd : simpl never.
+Arguments sortMag : simpl never.
 
 
 (* What a list of floats stands for, and when it is made of numbers.          *)
@@ -156,12 +158,51 @@ case: l => [|e0 l'] //= F.
 by rewrite (vsebAux_sum _ _ F).
 Qed.
 
+(* Reading a sorted or swept list back to the one it came from: each is a     *)
+(* rearrangement or a sweep, so the answer being made of numbers proves the   *)
+(* list was.                                                                  *)
+Lemma insMag_finI x l : finL (insMag x l) -> Dfin x /\ finL l.
+Proof.
+elim: l => [|a l IH] /=; first by case=> Fx _.
+case: (abs a <=? abs x)%float => /=; first by case=> Fx [Fa Fl].
+by case=> Fa /IH [Fx Fl].
+Qed.
+
+Lemma sortMag_finI l : finL (sortMag l) -> finL l.
+Proof.
+elim: l => [|x l IH] //=.
+by rewrite /sortMag /= => /insMag_finI [Fx /IH Fl].
+Qed.
+
+Lemma vecSumAux_finI l es s :
+  vecSumAux l = (es, s) -> finL (s :: es) -> finL l.
+Proof.
+elim: l es s => [|x l IH] es s /=; first by case=> <- <- _.
+case: l IH => [|y l'] IH.
+  by case=> <- <- [Fs _]; split.
+case E: (vecSumAux (y :: l')) => [es' s'] /=.
+case=> <- <- [Fs [Fe Fes']].
+have T := twoSum_finI _ _ Fe.
+have [Fx Fs'] := Dfin_addI _ _ (proj1 T).
+by split => //; apply: (IH _ _ E (conj Fs' Fes')).
+Qed.
+
+Lemma vecSum_finI l : finL (vecSum l) -> finL l.
+Proof.
+rewrite /vecSum; case E: (vecSumAux l) => [es s] F.
+by apply: (vecSumAux_finI _ _ _ E F).
+Qed.
+
 (* ---------------------------------------------------------------------------*)
 (*  The cut down to three words, which is the only step that loses anything    *)
 (* ---------------------------------------------------------------------------*)
 
 (* What a triple word stands for.                                             *)
 Definition twval t := D2R (tw0 t) + D2R (tw1 t) + D2R (tw2 t).
+Arguments twval : simpl never.
+
+Lemma twvalE a b c : twval (TWFloat a b c) = D2R a + D2R b + D2R c.
+Proof. by []. Qed.
 
 (* The tail is folded into the third word, upwards, so what comes out is at   *)
 (* or above what went in.                                                     *)
@@ -389,4 +430,105 @@ Proof.
 move=> F Fn; have H := addTwDn_le x (negTw y) F.
 rewrite (twval_neg _ Fn) in H.
 by move: H; rewrite /subTwDn; lra.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The product of two triple words, bounded                                  *)
+(* ---------------------------------------------------------------------------*)
+
+(* Sixteen of the smallest number there is.  Each of the four two-products    *)
+(* can miss what it was given, but by no more than three and a half of        *)
+(* those, so four of them miss by at most fourteen and this covers them.      *)
+Lemma Dteps :
+  D2R teps = 16 * bpow radix2 (SpecFloat.emin FloatOps.prec FloatOps.emax).
+Proof. by rewrite /D2R /teps; compute; lra. Qed.
+
+Lemma Dnteps :
+  D2R (- teps)%float =
+  - (16 * bpow radix2 (SpecFloat.emin FloatOps.prec FloatOps.emax)).
+Proof. by rewrite /D2R /teps; compute; lra. Qed.
+
+(* WHAT THE PRODUCT IS, and the whole of its error.  Of the nine products in  *)
+(* the expansion of the two triples, the four that carry the value are taken  *)
+(* by a two-product, which returns two words that all but add up to the       *)
+(* product; the five that are smaller than the last word are each rounded in  *)
+(* the direction wanted.  The list is then sorted, swept and cut, and none of *)
+(* those three changes a value except the cut.  So the error is the four      *)
+(* two-products' and the five roundings', and the first is covered by `teps'  *)
+(* while the second is on the right side by construction.                     *)
+Theorem mulTwUp_ge x y :
+  finL (tw2l (mulTwUp x y)) ->
+  twval x * twval y <= twval (mulTwUp x y).
+Proof.
+case: x => x0 x1 x2; case: y => y0 y1 y2.
+rewrite !twvalE /mulTwUp /= => F.
+have H := expUp_ge _ F.
+have [_ Fv] := expUp_finI _ F.
+have Fs := vecSum_finI _ Fv.
+have Fl := sortMag_finI _ Fs.
+rewrite (vecSum_sum _ Fv) sortMag_sum in H.
+move: Fl; rewrite /= => -[Fp00 [Fp01 [Fp10 [Fp11
+        [Fe00 [Fe01 [Fe10 [Fe11 [FM1 [FM2 [FM3 [FM4 [FM5 _]]]]]]]]]]]]].
+(* the four two-products, each within three and a half of the smallest       *)
+have K00 := twoProd_err x0 y0 Fe00.
+have K01 := twoProd_err x0 y1 Fe01.
+have K10 := twoProd_err x1 y0 Fe10.
+have K11 := twoProd_err x1 y1 Fe11.
+(* the five that are simply rounded upwards                                  *)
+have [Fx0 Fy2] := Dfin_mulI _ _ (Dfin_mulUpI _ _ FM1).
+have [Fx2 Fy0] := Dfin_mulI _ _ (Dfin_mulUpI _ _ FM2).
+have [Fx1 Fy2'] := Dfin_mulI _ _ (Dfin_mulUpI _ _ FM3).
+have [Fx2' Fy1] := Dfin_mulI _ _ (Dfin_mulUpI _ _ FM4).
+have G1 := mulUpFp_ge _ _ Fx0 Fy2 (Dfin_mulUpI _ _ FM1) FM1.
+have G2 := mulUpFp_ge _ _ Fx2 Fy0 (Dfin_mulUpI _ _ FM2) FM2.
+have G3 := mulUpFp_ge _ _ Fx1 Fy2' (Dfin_mulUpI _ _ FM3) FM3.
+have G4 := mulUpFp_ge _ _ Fx2' Fy1 (Dfin_mulUpI _ _ FM4) FM4.
+have G5 := mulUpFp_ge _ _ Fx2 Fy2 (Dfin_mulUpI _ _ FM5) FM5.
+have Hb : 0 < bpow radix2 (SpecFloat.emin FloatOps.prec FloatOps.emax)
+  by apply: bpow_gt_0.
+move: H; rewrite /= Dteps => H.
+have Hx : (D2R x0 + D2R x1 + D2R x2) * (D2R y0 + D2R y1 + D2R y2) =
+          D2R x0 * D2R y0 + D2R x0 * D2R y1 + D2R x1 * D2R y0 +
+          D2R x1 * D2R y1 + D2R x0 * D2R y2 + D2R x2 * D2R y0 +
+          D2R x1 * D2R y2 + D2R x2 * D2R y1 + D2R x2 * D2R y2 by ring.
+rewrite Hx.
+by move: K00 K01 K10 K11; split_Rabs; lra.
+Qed.
+
+(* And downwards, the same nine products the other way.                       *)
+Theorem mulTwDn_le x y :
+  finL (tw2l (mulTwDn x y)) ->
+  twval (mulTwDn x y) <= twval x * twval y.
+Proof.
+case: x => x0 x1 x2; case: y => y0 y1 y2.
+rewrite !twvalE /mulTwDn /= => F.
+have H := expDn_le _ F.
+have [_ Fv] := expDn_finI _ F.
+have Fs := vecSum_finI _ Fv.
+have Fl := sortMag_finI _ Fs.
+rewrite (vecSum_sum _ Fv) sortMag_sum in H.
+move: Fl; rewrite /= => -[Fp00 [Fp01 [Fp10 [Fp11
+        [Fe00 [Fe01 [Fe10 [Fe11 [FM1 [FM2 [FM3 [FM4 [FM5 _]]]]]]]]]]]]].
+have K00 := twoProd_err x0 y0 Fe00.
+have K01 := twoProd_err x0 y1 Fe01.
+have K10 := twoProd_err x1 y0 Fe10.
+have K11 := twoProd_err x1 y1 Fe11.
+have [Fx0 Fy2] := Dfin_mulI _ _ (Dfin_mulDnI _ _ FM1).
+have [Fx2 Fy0] := Dfin_mulI _ _ (Dfin_mulDnI _ _ FM2).
+have [Fx1 Fy2'] := Dfin_mulI _ _ (Dfin_mulDnI _ _ FM3).
+have [Fx2' Fy1] := Dfin_mulI _ _ (Dfin_mulDnI _ _ FM4).
+have G1 := mulDnFp_le _ _ Fx0 Fy2 (Dfin_mulDnI _ _ FM1) FM1.
+have G2 := mulDnFp_le _ _ Fx2 Fy0 (Dfin_mulDnI _ _ FM2) FM2.
+have G3 := mulDnFp_le _ _ Fx1 Fy2' (Dfin_mulDnI _ _ FM3) FM3.
+have G4 := mulDnFp_le _ _ Fx2' Fy1 (Dfin_mulDnI _ _ FM4) FM4.
+have G5 := mulDnFp_le _ _ Fx2 Fy2 (Dfin_mulDnI _ _ FM5) FM5.
+have Hb : 0 < bpow radix2 (SpecFloat.emin FloatOps.prec FloatOps.emax)
+  by apply: bpow_gt_0.
+move: H; rewrite /= Dnteps => H.
+have Hx : (D2R x0 + D2R x1 + D2R x2) * (D2R y0 + D2R y1 + D2R y2) =
+          D2R x0 * D2R y0 + D2R x0 * D2R y1 + D2R x1 * D2R y0 +
+          D2R x1 * D2R y1 + D2R x0 * D2R y2 + D2R x2 * D2R y0 +
+          D2R x1 * D2R y2 + D2R x2 * D2R y1 + D2R x2 * D2R y2 by ring.
+rewrite Hx.
+by move: K00 K01 K10 K11; split_Rabs; lra.
 Qed.

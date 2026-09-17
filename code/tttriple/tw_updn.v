@@ -95,24 +95,26 @@ Definition teps := Eval compute in 0x1p-1070%float.
 Definition mulTwUp (x y : twfloat) :=
   let: TWFloat x0 x1 x2 := x in
   let: TWFloat y0 y1 y2 := y in
-  let: DWFloat p00 e00 := twoProd x0 y0 in
-  let: DWFloat p01 e01 := twoProd x0 y1 in
-  let: DWFloat p10 e10 := twoProd x1 y0 in
-  let: DWFloat p11 e11 := twoProd x1 y1 in
+  let d00 := twoProd x0 y0 in
+  let d01 := twoProd x0 y1 in
+  let d10 := twoProd x1 y0 in
+  let d11 := twoProd x1 y1 in
   expUp (vecSum (sortMag
-    [:: p00; p01; p10; p11; e00; e01; e10; e11;
+    [:: dwhi d00; dwhi d01; dwhi d10; dwhi d11;
+        dwlo d00; dwlo d01; dwlo d10; dwlo d11;
         mulUpFp x0 y2; mulUpFp x2 y0;
         mulUpFp x1 y2; mulUpFp x2 y1; mulUpFp x2 y2; teps])).
 
 Definition mulTwDn (x y : twfloat) :=
   let: TWFloat x0 x1 x2 := x in
   let: TWFloat y0 y1 y2 := y in
-  let: DWFloat p00 e00 := twoProd x0 y0 in
-  let: DWFloat p01 e01 := twoProd x0 y1 in
-  let: DWFloat p10 e10 := twoProd x1 y0 in
-  let: DWFloat p11 e11 := twoProd x1 y1 in
+  let d00 := twoProd x0 y0 in
+  let d01 := twoProd x0 y1 in
+  let d10 := twoProd x1 y0 in
+  let d11 := twoProd x1 y1 in
   expDn (vecSum (sortMag
-    [:: p00; p01; p10; p11; e00; e01; e10; e11;
+    [:: dwhi d00; dwhi d01; dwhi d10; dwhi d11;
+        dwlo d00; dwlo d01; dwlo d10; dwlo d11;
         mulDnFp x0 y2; mulDnFp x2 y0;
         mulDnFp x1 y2; mulDnFp x2 y1; mulDnFp x2 y2;
         (- teps)%float])).
