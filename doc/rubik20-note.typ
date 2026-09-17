@@ -783,15 +783,16 @@ first. So after a turn of the top face the bottom face is not tried and twelve
 moves are left, while after a turn of the bottom face the top is still allowed
 and fifteen are left. This is used from the third move on.
 
-The second idea is symmetry. The cube has 48 relabellings: six choices of the
-face put on top, four rotations of that face, and the mirror image of each. A
-relabelling takes a word to another word of the same length. When the position
+The second idea is symmetry. A cube can be relabelled in 48 ways: any of the
+six faces to the top, each in four positions, and each of those seen in a
+mirror as well. A relabelling takes a word to another word of the same length. When the position
 searched is unchanged by it, the two words are worth the same and one of them
 is enough.
 
-The superflip is unchanged by all 48. So one face is enough for the first move,
-we take the top one, arbitrarily, and $U^(-1)$ is the mirror image of $U$. That
-leaves $U$ and $U^2$.
+The superflip is unchanged by all 48. So we need to explore only the turns of
+one face for the first move. We choose arbitrarily the top one. Furthermore,
+again by symmetry, we only have to consider $U$ and $U^2$, since $U^(-1)$ is
+the symmetric of $U$.
 
 The two ideas collide at the second move. The first would drop the three turns
 of the bottom face, since $U D$ and $D U$ are the same position. But symmetry
