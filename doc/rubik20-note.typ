@@ -822,14 +822,13 @@ the other, and a move is one more table of 48 numbers. #src("Tsearch.v") runs
 the search of #src("Search.v") on tables, and proves that the two searches
 answer alike.
 
-A list of the library's numbers is still not what runs. Rocq offers machine
-integers, 63 bits wide with the missing bit going to the garbage collector, and
-*persistent arrays* of them @armand2010imperative. #src("Tabi.v") carries the
-tables of #src("Table.v") as arrays of machine integers, with the bridge back:
-`ti2t` reads such an array as the list of numbers it stands for, and `tabi_ok`
-is `tab_ok` of that list. Each operation comes with a lemma saying that the
-bridge may be crossed either way round. For the product of two permutations it
-reads
+Rocq offers machine integers, 63 bits wide with the missing bit going to the
+garbage collector, and *persistent arrays* of them @armand2010imperative.
+#src("Tabi.v") carries the tables of #src("Table.v") as arrays of machine
+integers, with the bridge back: `ti2t` reads such an array as the list of
+numbers it stands for, and `tabi_ok` is `tab_ok` of that list. Each operation
+comes with a lemma saying that the bridge may be crossed either way round. For
+the product of two permutations it reads
 
 ```coq
 Lemma ti2t_comp a b :
