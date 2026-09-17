@@ -774,19 +774,15 @@ a shorter word is covered at a smaller depth, which leaves fifteen moves instead
 of eighteen. Opposite faces are the same argument, one step weaker: $U D$ and
 $D U$ give the same position, so we play the top, right or front face first, and
 from the third move on that leaves *twelve* moves after a turn of the top face
-and *fifteen* after a turn of the bottom one. The second idea is symmetry. A
-cube can be relabelled in 48 ways: any of the six faces to the top, each in four
-positions, and each of those seen in a mirror as well. A relabelling turns a
-word into another word of the same length, so when it leaves the position
-unchanged one of the two words is enough. The superflip is unchanged by all 48.
-So we need to explore only the turns of one face for the first move. We choose
-arbitrarily the top one, and again by symmetry we only have to consider $U$ and
-$U^2$, since $U^(-1)$ is the symmetric of $U$. The two ideas collide at the
-second move: repetition would drop the three turns of the bottom face, but the
-first move is already fixed to the top face, and turning the cube upside down
-takes $D U$ back to $U D$. So the bottom face stays and fifteen second moves are
-left. Reid meets the same case, keeps them as well, and cuts his *third* move
-instead.
+and *fifteen* after a turn of the bottom one. The second idea is symmetry. The
+superflip is unchanged by all 48 relabellings of the cube. So we need to explore
+only the turns of one face for the first move. We choose arbitrarily the top
+one, and again by symmetry we only have to consider $U$ and $U^2$, since
+$U^(-1)$ is the symmetric of $U$. The two ideas collide at the second move:
+repetition would drop the three turns of the bottom face, but the first move is
+already fixed to the top face, and turning the cube upside down takes $D U$ back
+to $U D$. So the bottom face stays and fifteen second moves are left. Reid meets
+the same case, keeps them as well, and cuts his *third* move instead.
 
 The work is then split at depth two. Two first moves times fifteen second moves
 is thirty *prefixes*, each searched on its own to depth 17, and they are packed
