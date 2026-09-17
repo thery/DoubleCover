@@ -788,13 +788,13 @@ The superflip is left unchanged by all 48. So the eighteen first moves come
 down to two, $U$ and $U^2$, and the other sixteen are never tried. A position
 with no symmetry gets nothing from this.
 
-At the second move the two arguments get in each other's way. The rule would
-drop the three turns of the bottom face, since $U D$ and $D U$ are the same
+At the second move the two ideas get in each other's way. Redundancy would drop
+the three turns of the bottom face, since $U D$ and $D U$ are the same
 position. But symmetry has already fixed the first move to the top face, and
 turning the cube upside down takes $D U$ back to $U D$. Cutting by both would
-cut the same pair of faces twice over, so the bottom-face turns stay and the
-second move has fifteen branches. Reid meets the same case, keeps them too, and
-cuts his *third* move instead.
+cut the same pair of faces twice over. So the bottom-face turns stay: fifteen
+second moves, and $2 times 15 = 30$ beginnings to search. Reid meets the same
+case, keeps them too, and cuts his *third* move instead.
 
 Our own OCaml program dropped them, so it searched 24 prefixes where it had to
 search 30. It ran for hours and gave the answer we expected. The error came out
@@ -802,8 +802,8 @@ only when the cut had to be proved in Rocq, and the proof could not be written.
 A cut that is too greedy does not make a search fail. It makes it faster, and it
 makes it agree with you.
 
-So the depth-19 search becomes $2 times 15 = 30$ searches of depth 17, packed
-into *seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"), one per second
+Each beginning leaves a search of depth 17. The thirty are packed into
+*seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"), one per second
 move. The two whose second move turns the bottom face keep fifteen branches
 where the others keep twelve, so they run far longer; each is split in two, and
 the rest of the run does not wait for them.
