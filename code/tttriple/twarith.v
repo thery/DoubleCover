@@ -1,6 +1,16 @@
 From mathcomp Require Import all_ssreflect.
 Require Import PrimInt63 Floats.
 
+(* THE PAIR AND THE ERROR-FREE TRANSFORMS ARE `code/ddouble''s, NOT A COPY.   *)
+(* `twoSum', `fastTwoSum', the splitting and Dekker's product are the same    *)
+(* lines either way, and they say nothing about pairs beyond returning one.   *)
+(* Declaring them again here would declare a second `dwfloat' with them, and  *)
+(* then nothing proved of the first would apply -- and what is proved of the  *)
+(* first is what the sweeps below need most: `twoSum' is exact               *)
+(* (`dwtwosum.v'), and the two-product misses by at most three and a half of  *)
+(* the smallest number there is (`dwprod.v').                                 *)
+From dwarith Require Export dwarith.
+
 (* Triple words on primitive floats: the algorithms, with nothing proved.     *)
 (*                                                                            *)
 (* A triple word is three binary64 floats standing for their sum.  Three      *)
@@ -15,18 +25,12 @@ Require Import PrimInt63 Floats.
 (* one.  So a value computed here is not the paper's to the last bit; what    *)
 (* is asked of it is only a bound, and a bound survives the change.           *)
 
-(* A pair of floats: what every error-free transform returns.                 *)
-Inductive dwfloat := DWFloat (xh : float) (xl : float).
-
 (* A triple of floats: the format itself.                                     *)
 Inductive twfloat := TWFloat (x0 : float) (x1 : float) (x2 : float).
 
 Implicit Type d : dwfloat.
 Implicit Type t : twfloat.
 Implicit Type f : float.
-
-Definition dwhi d := let: DWFloat xh _ := d in xh.
-Definition dwlo d := let: DWFloat _ xl := d in xl.
 
 Definition tw0 t := let: TWFloat x0 _ _ := t in x0.
 Definition tw1 t := let: TWFloat _ x1 _ := t in x1.
@@ -41,53 +45,6 @@ Definition wellFormed t :=
 
 Definition fp2tw f := TWFloat f 0 0.
 Definition dw2tw d := TWFloat (dwhi d) (dwlo d) 0.
-
-(* ===========================================================================*)
-(*  The error-free transforms                                                 *)
-(* ===========================================================================*)
-
-(* The sum of two floats and the error it left behind, in six operations      *)
-(* and with nothing asked of the two arguments.                              *)
-Definition twoSum (a b : float) :=
- let s := (a + b)%float in
- let a' := (s - b)%float in
- let b' := (s - a')%float in
- let da := (a - a')%float in
- let db := (b - b')%float in DWFloat s (da + db).
-
-(* The same in three operations, correct only when the second argument is no  *)
-(* larger than the first.  Ordering them is the caller's business.            *)
-Definition fastTwoSum (a b : float) :=
- let s := (a + b)%float in
- let z := (s - a)%float in
- DWFloat s (b - z).
-
-(* Two to the twenty-seven, plus one: the constant that splits a binary64     *)
-(* number into two halves of twenty-six and twenty-seven bits.                *)
-Definition c_const := (134217729)%float.
-
-Definition splitC (x : float) :=
-let gamma := (c_const * x)%float in
-let delta := (x - gamma)%float in
-let xh := (gamma + delta)%float in
-let x' :=  (x - xh)%float in DWFloat xh x'.
-
-(* The product of two floats and the error it left behind, by multiplying     *)
-(* the halves.  Unlike the sum this is not always exact: at the very bottom   *)
-(* of the range the two words can miss the product, though never by more      *)
-(* than three and a half of the smallest number there is.                     *)
-Definition dekker (x y : float) :=
-  let: DWFloat xh  xl := splitC x in
-  let: DWFloat yh yl := splitC y in
-  let: pi := (x * y)%float in
-  let: t1 := (- pi + xh * yh)%float in
-  let: t2 := (t1 + xh * yl)%float in
-  let: t3 := (t2 + xl * yh)%float in
-  let: e := (t3 + xl * yl)%float in
-  DWFloat pi e.
-
-Definition twoProd x y := dekker x y.
-
 (* ===========================================================================*)
 (*  Expansions: a list of floats standing for its sum                         *)
 (* ===========================================================================*)

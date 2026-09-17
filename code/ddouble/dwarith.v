@@ -6,6 +6,10 @@ Inductive dwfloat := DWFloat (xh : float) (xl : float).
 Implicit Type d : dwfloat.
 Implicit Type f : float.
 
+(* The two words of a pair, named.                                            *)
+Definition dwhi d := let: DWFloat xh _ := d in xh.
+Definition dwlo d := let: DWFloat _ xl := d in xl.
+
 Definition wellFormed d :=
   let: DWFloat xh xl := d in (xh + xl =? xh)%float.
 

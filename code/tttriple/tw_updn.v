@@ -2,6 +2,7 @@ From mathcomp Require Import all_ssreflect.
 Require Import PrimInt63 Floats.
 From Stdlib Require Import ZArith Floats.
 From twarith Require Import twarith.
+From dwarith Require Export dw_updn.
 
 (* Directed rounding for triple words.                                        *)
 (* An interval bound must never fall on the wrong side of the exact result,   *)
@@ -13,23 +14,13 @@ From twarith Require Import twarith.
 Implicit Type t : twfloat.
 Implicit Type f : float.
 
-(* One step up, and one step down.  A step up from minus infinity would       *)
-(* give a number back, and a step down from plus infinity likewise, which     *)
-(* would hide the fact that something ran off the range.  So a step that      *)
-(* meets the infinity it would undo leaves it alone: the infinity then        *)
-(* travels to the end of the computation, where it is seen.                   *)
-Definition upFp s := if (s =? neg_infinity)%float then s else next_up s.
-Definition dnFp s := if (s =? infinity)%float then s else next_down s.
-
-(* Upper and lower bounds of the four operations, whatever the rounding did.  *)
-Definition addUpFp a b := upFp (a + b)%float.
-Definition addDnFp a b := dnFp (a + b)%float.
+(* THE WIDENING STEPS ARE `code/ddouble''s, NOT A COPY, for the same reason   *)
+(* the error-free transforms are: `upFp', `dnFp' and the six rounded          *)
+(* operations say nothing about pairs, and `dwbound.v' already proves each    *)
+(* of them is on the right side of what it stands for.  Only the two on a     *)
+(* difference are new here.                                                   *)
 Definition subUpFp a b := upFp (a - b)%float.
 Definition subDnFp a b := dnFp (a - b)%float.
-Definition mulUpFp a b := upFp (a * b)%float.
-Definition mulDnFp a b := dnFp (a * b)%float.
-Definition divUpFp a b := upFp (a / b)%float.
-Definition divDnFp a b := dnFp (a / b)%float.
 
 (* ===========================================================================*)
 (*  Cutting an expansion down to three words                                  *)
@@ -147,10 +138,6 @@ Definition absSumUp t :=
   let: TWFloat x0 x1 x2 := t in
   addUpFp (addUpFp (abs x0) (abs x1)) (abs x2).
 
-(* A number is a usable divisor when it is above zero and not an infinity.    *)
-(* Both tests are needed: an infinity passes the first one and stands for     *)
-(* no number at all.                                                          *)
-Definition posFp m := ((0 <? m) && (m <? infinity))%float.
 
 (* The quotient is not bounded by an analysis of its own algorithm but by     *)
 (* its residual: whatever q is, the true quotient is within the distance      *)

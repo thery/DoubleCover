@@ -42,6 +42,21 @@ nothing about pairs, so it serves three words as well as two. `tw_ops.v` now
 imports it, which means **`code/ddouble` must be built first** — `_CoqProject`
 already points at it.
 
+**And so are the pair, the error-free transforms and the widening steps.**
+`twoSum`, `fastTwoSum`, `c_const`, `splitC`, `dekker` and `twoProd` were
+written out here a second time, and with them a second `dwfloat`. They are the
+same lines either way and they say nothing about pairs beyond returning one, so
+`twarith.v` now takes all seven from `dwarith.v`, and `tw_updn.v` takes `upFp`,
+`dnFp`, `addUpFp`, `addDnFp`, `mulUpFp`, `mulDnFp`, `divUpFp`, `divDnFp` and
+`posFp` from `dw_updn.v`; only the two on a difference are new here.
+
+That is not tidying. While the type was declared twice, nothing proved of the
+first applied to the second — and what is proved of the first is most of what
+the sweeps need: `twoSum` is exact in the bounded format (`dwtwosum.v`), the
+two-product misses by at most three and a half of the smallest number there is
+(`dwprod.v`), and each widening step is on the right side of what it stands for
+(`dwbound.v`). All three now apply here as they stand.
+
 ## Building
 
 On the `native` switch (Rocq 9.1.1), with `coq-interval` and `coq-flocq`

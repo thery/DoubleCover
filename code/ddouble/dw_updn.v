@@ -32,10 +32,6 @@ Definition mulDnFp a b := dnFp (a * b)%float.
 Definition divUpFp a b := upFp (a / b)%float.
 Definition divDnFp a b := dnFp (a / b)%float.
 
-(* The high word of a double word carries its value, the low word its tail.   *)
-Definition dwhi d := let: DWFloat xh _ := d in xh.
-Definition dwlo d := let: DWFloat _ xl := d in xl.
-
 (* Widening a double word by a positive amount, upwards and downwards.        *)
 (* The final twoSum only tidies the pair; it changes no value, and it asks    *)
 (* nothing of its two arguments, which a fastTwoSum would.                    *)
