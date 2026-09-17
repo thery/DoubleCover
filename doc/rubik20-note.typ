@@ -768,8 +768,8 @@ twenty-four threads, 62 GB of memory.
 == Removing redundant moves
 
 Many words lead to the same position, and the search does not have to try them
-all. Two ideas say which ones may be left out. Both pay most at the top of the
-tree: one first move out of eighteen is an eighteenth of the whole search.
+all. Two ideas say which ones may be left out. Both pay most near the root: a
+move dropped at the first level takes an eighteenth of the search with it.
 
 The first idea is that a word need never repeat a face. After a $U$ there is no
 point in trying $U$, $U^2$ or $U^(-1)$, because $U U$ is $U^2$ and that word is
