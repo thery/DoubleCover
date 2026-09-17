@@ -839,7 +839,8 @@ Lemma ti2t_comp a b :
 Composing two arrays and reading the result back as a list gives what composing
 the two lists gives. Every fact proved of lists crosses that bridge. From there
 on a position is 48 machine integers, a summary is two, and the phase 1 table is
-an array of arrays, fifteen four-bit entries to a word.
+a persistent array of arrays, fifteen four-bit entries to a 63-bit machine
+integer.
 
 Functions are treated the same way. A function on a finite domain is tabulated
 once and then read: the action of a move on a summary, the rank of a summary,
