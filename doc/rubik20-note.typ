@@ -789,11 +789,11 @@ well. A relabelling takes a word to another word of the same length. When the
 position searched is unchanged by it, the two words are worth the same and one
 of them is enough.
 
-The superflip is unchanged by all 48. A relabelling brings any face to the top,
-so any quarter turn becomes $U$ and any half turn becomes $U^2$. A quarter turn
-never becomes a half turn, so both are kept: the first move is $U$ or $U^2$,
-and the other sixteen are never tried. A position with no symmetry has nothing
-to gain here.
+The superflip is unchanged by all 48. So the six faces are alike, and we pick
+the top one. That leaves $U$, $U^2$ and $U^(-1)$, and a mirror image turns
+$U^(-1)$ into $U$. Two first moves are left, $U$ and $U^2$. Picking the top
+face was our choice; any of the six would have done. A position with no
+symmetry has nothing to gain here.
 
 The two ideas collide at the second move. The first would drop the three turns
 of the bottom face, since $U D$ and $D U$ are the same position. But symmetry
