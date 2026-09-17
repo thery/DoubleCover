@@ -767,52 +767,53 @@ twenty-four threads, 62 GB of memory.
 
 == Removing redundant moves
 
-Many words lead to the same position. The search does not have to try them all.
-Two ideas say which ones to leave out. Both pay most near the root. One first
-move out of eighteen is an eighteenth of the search.
+Many words lead to the same position, and the search does not have to try them
+all. Two ideas say which ones may be left out. Both pay most at the top of the
+tree: one first move out of eighteen is an eighteenth of the whole search.
 
-The first idea is repetition. After a $U$ we do not try $U$, $U^2$ or
-$U^(-1)$. $U U$ is $U^2$. That word is shorter, and a smaller depth covers it.
-So fifteen moves are left at every move after the first, not eighteen.
+The first idea is that a word need never repeat a face. After a $U$ there is no
+point in trying $U$, $U^2$ or $U^(-1)$, because $U U$ is $U^2$ and that word is
+shorter, so a search at a smaller depth covers it. Fifteen moves are left
+instead of eighteen, at every move after the first.
 
-Opposite faces are a weaker case. $U$ and $D$ commute, so $U D$ and $D U$ give
-the same position. One of the two orders is enough. We play the top, right or
-front face first. After a turn of the top face the bottom face is not tried,
-and *twelve* moves are left. After a turn of the bottom face the top one is
-still allowed, and *fifteen* are left. This is used from the third move on.
+Opposite faces are the same argument, one step weaker. $U$ and $D$ commute, so
+$U D$ and $D U$ give the same position and one of the two orders is enough. We
+fix the order: of an opposite pair, the top, right or front face is played
+first. So after a turn of the top face the bottom face is not tried and twelve
+moves are left, while after a turn of the bottom face the top is still allowed
+and fifteen are left. This is used from the third move on.
 
-The second idea is symmetry. A cube can be relabelled in 48 ways. Any of the
-six faces goes to the top, each in four positions, and each of those is also
-seen in a mirror. A relabelling takes a word to a word of the same length. Say
-it leaves the position unchanged. Then the two words are worth the same, and
-one of them is enough.
+The second idea is symmetry. A cube can be relabelled in 48 ways: any of the six
+faces to the top, each in four positions, and each of those seen in a mirror as
+well. A relabelling takes a word to another word of the same length. When the
+position searched is unchanged by it, the two words are worth the same and one
+of them is enough.
 
 The superflip is unchanged by all 48. So one face is enough for the first move,
 we take the top one, and $U^(-1)$ is the mirror image of $U$. That leaves $U$
 and $U^2$.
 
-The two ideas collide at the second move. Repetition would drop the three turns
-of the bottom face. But symmetry has already fixed the first move to the top
-face. Turning the cube upside down takes $D U$ back to $U D$. Using both would
-cut the same pair of faces twice. So the bottom face stays, and fifteen second
-moves are left. Reid meets the same case. He keeps them too, and cuts his
-*third* move instead.
+The two ideas collide at the second move. The first would drop the three turns
+of the bottom face, since $U D$ and $D U$ are the same position. But symmetry
+has already fixed the first move to the top face, and turning the cube upside
+down takes $D U$ back to $U D$. Using both would cut the same pair of faces
+twice over. So the bottom face stays: fifteen second moves. Reid meets the same
+case, keeps them as well, and cuts his *third* move instead.
 
-The work is split at depth two. Two first moves times fifteen second moves is
-thirty *prefixes*. Each prefix is searched on its own, to depth 17, beside the
-others.
+The work is then split at depth two. Two first moves times fifteen second moves
+is thirty *prefixes*, and each one is searched on its own, to depth 17, beside
+the others.
 
-Our own OCaml program dropped them. It searched 24 prefixes where it had to
+Our own OCaml program dropped them, so it searched 24 prefixes where it had to
 search 30. It ran for hours and gave the answer we expected. The error came out
 only when the cut had to be proved in Rocq, and the proof could not be written.
-A cut that is too greedy does not make a search fail. It makes it faster, and
-it makes it agree with you.
+A cut that is too greedy does not make a search fail. It makes it faster, and it
+makes it agree with you.
 
 The thirty are packed into *seventeen files*, #src("Runp1_03.v") to
 #src("Runp1_17.v"), one per second move. The two whose second move turns the
 bottom face keep fifteen branches where the others keep twelve, so they run far
-longer. Each of the two is split in two, and the rest of the run does not wait
-for them.
+longer; each is split in two, and the rest of the run does not wait for them.
 
 = The refinements
 
