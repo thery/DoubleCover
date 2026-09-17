@@ -802,46 +802,47 @@ a search fail. It makes it faster, and it makes it agree with you.
 
 = The refinements
 
-The search of the last section is written on permutations of the 48 stickers.
-Nothing in it computes at a useful speed. What runs is the same search on
-machine integers and arrays, reached in steps. Each step replaces a data
-structure by a faster one and carries a proof that it computes the same thing.
-The answer therefore rests on the search of the last section, and the speed
-rests on the steps.
+The search of the last section is written on permutations of the 48 stickers,
+and in that form it is too slow to run. What runs is the same search on machine
+integers and arrays. The path from one to the other is a data refinement: every
+object of the search is given a machine form, and every step comes with a proof
+that it computes what the step before it computed. The answer rests on the
+search of the last section; the speed rests on the steps.
 
-== A position, as a permutation and as a table
+== How the objects are encoded
 
-A position is a permutation. #src("Table.v") presents one by its image table,
-the list of 48 numbers saying where each sticker goes, with `tab_ok` saying
-which lists are tables. #src("Tsearch.v") runs the search of #src("Search.v")
-on tables instead. Composing two permutations becomes reading one list through
-the other.
+The search handles few objects: a position, a move, the summary of a position,
+and the table of distances. Each has a mathematical form, which is what the
+proofs of the last two sections speak about, and a machine form, which is what
+runs. A position is a permutation of the 48 stickers, and #src("Table.v")
+presents such a permutation by its image table, the list of 48 numbers saying
+where each sticker goes, with `tab_ok` saying which lists are tables. The
+product of two permutations is then the reading of one list through the other,
+and a move is one more table of 48 numbers. #src("Tsearch.v") runs the search of
+#src("Search.v") on tables, and proves that the two searches answer alike.
 
-== Machine integers instead of Peano numbers
-
-The numbers of the mathcomp library are Peano numbers: 5 is the successor of
-the successor of the successor of the successor of the successor of zero. So
-adding $n$ costs $n$ steps. Rocq also offers machine integers, 63 bits wide
-with the missing bit going to the garbage collector, and *persistent arrays* of
-them @armand2010imperative, which cost what the hardware costs. That counting
-in unary is what has to go is not the interesting part. The interesting part is
-that the search may move to machine integers without being written again.
-
-#src("Tabi.v") is the step. It holds the tables of #src("Table.v") on machine
-integers and persistent arrays, and the bridge back: `ti2t` reads a machine
-table as the list of numbers it stands for, and `tabi_ok` is `tab_ok` of that
-list. Every fact proved about lists is carried across that bridge, and the
-search itself never leaves machine integers: an index, a table entry and the
-comparison of depths are all machine words.
+A list of numbers is still slow. The numbers of the mathcomp library are Peano
+numbers: 5 is the successor of the successor of the successor of the successor
+of the successor of zero, so adding $n$ costs $n$ steps. Rocq also offers
+machine integers, 63 bits wide with the missing bit going to the garbage
+collector, and *persistent arrays* of them @armand2010imperative, and both cost
+what the hardware costs. The gain is plain enough. What matters here is that the
+search moves to them without being written a second time. #src("Tabi.v") carries
+the tables of #src("Table.v") as arrays of machine integers, with the bridge
+back: `ti2t` reads such an array as the list of numbers it stands for, and
+`tabi_ok` is `tab_ok` of that list. Every fact proved of lists crosses that
+bridge. From there on a position is 48 machine integers, a summary is two, and
+the phase 1 table is an array of arrays, fifteen four-bit entries to a word.
 
 == The search, in seven versions
 
-#src("Fast.v") is the search on machine integers, written as seven versions.
-Each is proved equal to the one before in #src("FastP.v"), whose last lemma,
-`searchz3nE`, says the fastest version answers as the first does. No trust is
-transferred, so a version may be written any way at all. Each position carries
-four things: the position as a 48-entry table, the summaries of its three
-views, the face turned last, and the moves left. What the six steps take away:
+#src("Fast.v") holds the search on machine integers as seven versions. Each is
+proved equal to the one before in #src("FastP.v"), and the last lemma there,
+`searchz3nE`, states that the seventh answers as the first does. Nothing is
+assumed of a version, so each may be written in whatever way runs best. A
+position carries four things: the position as a 48-entry table, the summaries of
+its three views, the face turned last, and the number of moves left. The six
+steps remove the following.
 
 #tbl(([step], [what it removes]),
   ([2], [Peano arithmetic inside the loop: move indices, the depth test and
@@ -867,9 +868,9 @@ The phase 1 table is emitted as Rocq source, one file per block of 2 097 152
 entries, 71 of them. Written as a list, a block is a term: two million nested
 applications of the list constructor, each holding a machine integer. The `.vo`
 stores that term and `Require` loads it, and it is far larger than the 17 MB of
-data in it. Written as an array literal, that is, as a definition whose body has
-already been evaluated to a persistent array, the `.vo` holds one compact block
-of memory. Measured on the same 2 097 152 entries:
+data in it. Written as an array literal, that is, as a definition whose body is
+already evaluated to a persistent array, the `.vo` holds one compact block of
+memory. Measured on the same 2 097 152 entries:
 
 #tbl(([the block, written as], [its `.vo`], [loaded]),
   ([a list], [37.8 MB], [877 MB]),
@@ -877,47 +878,46 @@ of memory. Measured on the same 2 097 152 entries:
 )
 
 Over all 71 blocks that is 21.5 GB against *5 GB*. It is what let nine workers
-run in parallel on a 62 GB machine where two had run before.
+run at once on a 62 GB machine where two had run before.
 
 == Three views of the same position
 
 Rotating the whole cube about a corner axis gives the same position seen
-differently, and its summary is then a different entry of the same table. So
-each of the three views gives a lower bound on the number of moves left, and
-the largest of them is a lower bound too. That is three times the lookups at
-each position, in exchange for a sharper cut and a smaller tree. Cube solvers
-do this as a matter of course, Kociemba's included. What is new here is that
-the three views are proved legitimate.
+differently, and its summary is then another entry of the same table. Each of
+the three views therefore gives a lower bound on the number of moves left, and
+so does the largest of the three. That costs three times the lookups at a
+position and buys a sharper cut and a smaller tree. Cube solvers do this as a
+matter of course, Kociemba's included. What is new here is that the three views
+are proved legitimate.
 
 == Folding the table by symmetry
 
-The summary is built around the up-down axis. The twist counts where each
-corner's up-or-down sticker sits, and the slice says where the four edges
-between the top and bottom faces are. A symmetry that leaves that axis in place
-turns a summary into another summary. Sixteen of the 48 keep the axis, and they
-sort the 1 013 760 flip-and-slice values into *64 430 families*, a factor of
-*15.73*. Two values in the same family are the same distance from solved, so
-one entry per family is enough. A lookup first replaces the value by its
-family's representative, carrying the twist through the same symmetry, then
-reads a table 15.73 times smaller.
+The summary is built around the up-down axis. The twist records where each
+corner's up-or-down sticker sits, and the slice where the four edges between the
+top and bottom faces are. A symmetry that leaves that axis in place turns a
+summary into another summary. Sixteen of the 48 keep the axis, and they sort the
+1 013 760 flip-and-slice values into *64 430 families*, a factor of *15.73*. Two
+values in one family are the same distance from solved, so one entry per family
+is enough. A lookup replaces the value by its family's representative, carries
+the twist through the same symmetry, and reads a table 15.73 times smaller.
 
-This is a different use of symmetry from the three views above, and we keep the
-two apart. The three views ask the *same* table three questions and keep the
-largest answer. The fold asks the *same* question of a *smaller* table, and the
-estimate does not change. Symmetry-reduced tables are standard in cube solvers.
+This use of symmetry is not the one above, and the two are kept apart. The three
+views put the *same* question to the *same* table three times and keep the
+largest answer. The fold puts the same question to a *smaller* table, and the
+estimate is unchanged. Symmetry-reduced tables are standard in cube solvers.
 What the development adds is a proof that the folded table still satisfies the
 two conditions.
 
-This is where the weakness of those conditions pays. The proof nowhere says
-that the folded table holds distances. It says the table passes `D0` and
-`Dstep`, and the search needs nothing more. Had the conditions demanded true
-distances, we would have had to show that the fold preserves them, which is a
-harder statement about the sixteen symmetries and about what sharing an entry
-between two summaries does. We never face it. The check is run on the folded
-table just as it was on the flat one, and it is the same check.
+The weakness of those conditions pays here. The proof nowhere says that the
+folded table holds distances. It says that the table passes `D0` and `Dstep`,
+and the search asks nothing more. Conditions demanding true distances would have
+required a proof that the fold preserves them, a harder statement about the
+sixteen symmetries and about what sharing an entry between two summaries does.
+That question never arises. The check is run on the folded table as it was on
+the flat one, and it is the same check.
 
-The fold costs the search 1.61 times at depth 16, and it pays everywhere else.
-A search worker drops from 4.15 GB to *0.85 GB*, so all the pieces run at once
+The fold costs the search 1.61 times at depth 16 and pays everywhere else. A
+search worker drops from 4.15 GB to *0.85 GB*, so all the pieces run at once
 instead of in two waves, and checking the table drops from about 5.4 processor
 hours to *1.35*.
 
@@ -926,18 +926,16 @@ hours to *1.35*.
 The same search written in OCaml is about three times faster. We ran both at
 radius 19 on the reference machine. The OCaml program visits 146 065 078 152
 positions in 26.4 processor-hours, which is 0.65 microseconds a position. Rocq
-takes 87.6 processor-hours over the same tree, which is 2.16. A factor of
-*3.3*.
+takes 87.6 processor-hours over the same tree, which is 2.16. A factor of *3.3*.
 
-We do not assume that the two walk the same tree. Dividing each of the
-seventeen Rocq pieces by the positions its OCaml counterpart visited gives
-between 1.98 and 2.52 microseconds, across pieces that differ in size by a
-factor of two. A Rocq search cutting differently anywhere would show up as
-scatter there, and there is none.
+We do not assume that the two walk the same tree. Dividing each of the seventeen
+Rocq pieces by the positions its OCaml counterpart visited gives between 1.98
+and 2.52 microseconds, over pieces that differ in size by a factor of two. A
+Rocq search that cut differently anywhere would show as scatter there, and there
+is none.
 
-So the run takes a night because the tree has 146 billion nodes in it, and not
-because the prover is slow. In OCaml the same tree still costs 26
-processor-hours.
+So the run takes a night because the tree holds 146 billion nodes, not because
+the prover is slow. In OCaml the same tree still costs 26 processor-hours.
 
 = The files
 
