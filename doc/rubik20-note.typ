@@ -854,7 +854,15 @@ Lemma sftiE  : superflip = pt 47 (ti2t 47 sfti).
 ```
 
 `pt 47` is the permutation a table stands for, so both say that what runs is
-still the superflip.
+still the superflip. Its summary is read off the same table, the corner twist
+by `ctwistt` and the flip-and-slice value by `coordt`, and the estimate at the
+root of the search is one expression:
+
+```coq
+Dp1i (ctwistt sftab) (coordt sftab)
+```
+
+That lookup goes through the fold to a four-bit field of one 63-bit integer.
 
 Functions are treated the same way. A function on a finite domain is tabulated
 once and then read: the action of a move on a summary, the rank of a summary,
