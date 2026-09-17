@@ -778,11 +778,15 @@ that leaves *twelve*, and *fifteen* elsewhere. This one is used from the third
 move on. A move dropped early saves most: one first move out of eighteen is an
 eighteenth of the search.
 
-The first move is a different argument, and it belongs to the superflip. The
-superflip is unchanged by all 48 relabellings of the cube: any of the six faces
-to the top, each in four positions, and each seen in a mirror as well. So the
-eighteen first moves come down to $U$ and $U^2$. Another position gives nothing
-of the kind.
+The second redundancy comes from symmetry. A cube can be relabelled in 48 ways:
+any of the six faces to the top, each in four positions, and each of those seen
+in a mirror as well. A relabelling turns a word into another word of the same
+length. So if it leaves the position we start from unchanged, the two words are
+worth the same and only one of them need be tried.
+
+The superflip is left unchanged by all 48. So the eighteen first moves come
+down to two, $U$ and $U^2$, and the other sixteen are never tried. A position
+with no symmetry gets nothing from this.
 
 At the second move the two arguments get in each other's way. The rule would
 drop the three turns of the bottom face, since $U D$ and $D U$ are the same
