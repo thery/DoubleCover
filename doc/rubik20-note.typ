@@ -786,13 +786,13 @@ and fifteen are left. This is used from the third move on.
 The second idea is symmetry. Turn the whole cube in your hands: it is the same
 cube, but the faces have swapped names. There are 48 such relabellings. Six,
 for the face put on top, times four, for the way it is turned, and twice again
-for the mirror image. A relabelling takes a word to another word of the same length. When the
-position searched is unchanged by it, the two words are worth the same and one
-of them is enough.
+for the mirror image. A relabelling takes a word to another word of the same
+length. When the position searched is unchanged by it, the two words are worth
+the same and one of them is enough.
 
 The superflip is unchanged by all 48. So one face is enough for the first move,
-we take the top one, and $U^(-1)$ is the mirror image of $U$. That leaves $U$
-and $U^2$.
+we take the top one, arbitrarily, and $U^(-1)$ is the mirror image of $U$. That
+leaves $U$ and $U^2$.
 
 The two ideas collide at the second move. The first would drop the three turns
 of the bottom face, since $U D$ and $D U$ are the same position. But symmetry
