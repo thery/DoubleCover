@@ -797,10 +797,12 @@ The two ideas collide at the second move. The first would drop the three turns
 of the bottom face, since $U D$ and $D U$ are the same position. But symmetry
 has already fixed the first move to the top face, and turning the cube upside
 down takes $D U$ back to $U D$. Using both would cut the same pair of faces
-twice over. So the bottom face stays: fifteen second moves. Two first moves and
-fifteen second moves make thirty *prefixes*, the thirty two-move starts a word
-may have, and the search runs once from each of them. Reid meets the same case,
-keeps them as well, and cuts his *third* move instead.
+twice over. So the bottom face stays: fifteen second moves. Reid meets the same
+case, keeps them as well, and cuts his *third* move instead.
+
+The work is then split at depth two. Two first moves times fifteen second moves
+is thirty *prefixes*, and each one is searched on its own, to depth 17, beside
+the others.
 
 Our own OCaml program dropped them, so it searched 24 prefixes where it had
 to search 30. It ran for hours and gave the answer we expected. The error came
@@ -808,8 +810,7 @@ out only when the cut had to be proved in Rocq, and the proof could not be
 written. A cut that is too greedy does not make a search fail. It makes it
 faster, and it makes it agree with you.
 
-Each prefix leaves a search of depth 17. The thirty are packed into
-*seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"), one per second
+The thirty are packed into *seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"), one per second
 move. The two whose second move turns the bottom face keep fifteen branches
 where the others keep twelve, so they run far longer; each is split in two, and
 the rest of the run does not wait for them.
