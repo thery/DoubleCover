@@ -444,14 +444,16 @@ anything. Measured on this machine, two runs each, seconds:
 
 | goal | bigints | double words |
 |---|---|---|
-| `method_error`, `i_prec 80` | 5.83 | 1.24 |
-| `cancellation`, `i_depth 20`, `i_prec 60` | 76.2 | 23.3 |
-| `int_range`, `integral` | 2.92 | 2.85 |
-| `int_infinite`, `integral` | 0.35 | 0.34 |
-| `exp_table`, `i_prec 61` × 64 | 4.20 | 3.77 |
+| `method_error`, `i_prec 80` | 5.72 | 1.20 |
+| `poly_error`, `i_prec 90` | 0.057 | 0.051 |
+| `cancellation`, `i_depth 20`, `i_prec 60` | 74.5 | 22.7 |
+| `int_range`, `integral` | 2.83 | 2.88 |
+| `int_infinite`, `integral` | 0.347 | 0.358 |
+| `exp_table`, `i_prec 61` × 64 | 4.10 | 3.71 |
 
-About five times quicker on a Taylor model at eighty bits, about three times
-on a bisection run twenty deep at sixty, and level on the other three. The gain is
+Three runs, the middle one of each row; the spread was under 4%. About five
+times quicker on a Taylor model at eighty bits, about three times on a
+bisection run twenty deep at sixty, and level on the other three. The gain is
 not a property of the arithmetic on its own — it is where the tactic spends its
 time. The full table, and the four goals that are too light to measure, are in
 the file.
@@ -467,7 +469,12 @@ put a guard on the shift and a residual behind it, and the goal went to 42.9.
 | shift always, unproved | 24.6 |
 | guard, and the shift taken | 26.2 |
 | guard, and the residual behind it | 42.9 |
-| **the same, with the arithmetic mended** | **23.3** |
+| **the same, with the arithmetic mended** | **22.7** |
+
+The first three rows were measured earlier on this machine. The bigint column
+of the table above, which nothing here touches, reads 74.5 now where it read
+77.6 then, so about four per cent of that fall is the machine and not the
+code.
 
 **The guard is cheap and the fallback is not.** Testing cost 7%; taking the
 residual cost 68%, because it is ten times a division and it was taken often.
