@@ -1138,3 +1138,15 @@ move: Fn Fnh Eval; rewrite /wellFormed eqb_equiv /Dfin /D2R !add_equiv.
 move=> Fn Fnh Eval; rewrite (Beqb_correct _ _ _ _ Fn Fnh).
 by case: Req_bool_spec.
 Qed.
+
+(* Negating twice is doing nothing, so being a double word survives a         *)
+(* change of sign both ways round.                                            *)
+Lemma wellFormed_negE xh xl : Dfin xh -> Dfin xl ->
+  wellFormed (DWFloat (- xh) (- xl))%float = wellFormed (DWFloat xh xl).
+Proof.
+move=> Fh Fl; case E: (wellFormed (DWFloat xh xl)).
+  exact: wellFormed_neg.
+case E2: (wellFormed (DWFloat (- xh) (- xl))%float) => //.
+have := wellFormed_neg _ _ (Dfin_opp _ Fh) (Dfin_opp _ Fl) E2.
+by rewrite !Dopp_opp E.
+Qed.

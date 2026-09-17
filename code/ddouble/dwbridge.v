@@ -235,3 +235,34 @@ have Fm : Dfin m.
 have F0 : Dfin 0%float by [].
 by split => //; have := Dltb _ _ F0 Fm H0; rewrite D2R_zero.
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  Two facts about one float, wanted by two words and by three              *)
+(* ---------------------------------------------------------------------------*)
+
+(* Negating a float turns each class into its mirror, and leaves a number     *)
+(* that is not an infinity one.  The last case asks whether the mantissa      *)
+(* is of full length, which is how a normal number is told from a             *)
+(* subnormal one.                                                             *)
+Lemma Dclassify_opp f :
+  PrimFloat.classify (- f)%float =
+  match PrimFloat.classify f with
+  | PInf => NInf | NInf => PInf
+  | PNormal => NNormal | NNormal => PNormal
+  | PSubn => NSubn | NSubn => PSubn
+  | PZero => NZero | NZero => PZero
+  | NaN => NaN
+  end.
+Proof.
+rewrite !classify_spec -!B2SF_Prim2B opp_equiv.
+by case: (Prim2B f) => [[]|[]||[] m1 e1 H1] //=;
+   case: (match digits2_pos m1 with 53%positive => true | _ => false end).
+Qed.
+
+(* Negating twice is doing nothing, so being a double word survives a         *)
+(* change of sign both ways round.                                            *)
+Lemma Dopp_opp f : (- - f)%float = f.
+Proof.
+have H : Prim2B (- - f)%float = Prim2B f by rewrite !opp_equiv Bopp_involutive.
+by rewrite -(B2Prim_Prim2B (- - f)%float) H B2Prim_Prim2B.
+Qed.

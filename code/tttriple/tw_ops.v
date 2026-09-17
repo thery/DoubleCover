@@ -9,7 +9,7 @@ From twarith Require Import twarith tw_updn twbound twpaper.
 (* what one primitive float is and what one operation on it does -- so  *)
 (* it serves three words as well as two, and is used rather than        *)
 (* copied.                                                             *)
-From dwarith Require Import dwbridge.
+From dwarith Require Import dwbridge dwsign dwbound.
 
 (* Triple words as a float format for Interval.                               *)
 (*                                                                            *)
@@ -586,9 +586,28 @@ Definition is_pos_real x :=
 Definition is_neg_real x :=
   match toX x with Xnan => False | Xreal r => (r < 0)%R end.
 
+(* A float that is not minus infinity makes a triple that may bound above.    *)
+Lemma Dninf f : (f =? neg_infinity)%float = false ->
+  match PrimFloat.classify f with NInf => false | _ => true end = true.
+Proof.
+rewrite eqb_equiv classify_spec -B2SF_Prim2B.
+have -> : Prim2B neg_infinity = B754_infinity true by [].
+by case: (Prim2B f) => [[]|[]||[] m1 e1 H1] //=;
+   case: (match digits2_pos m1 with 53%positive => true | _ => false end).
+Qed.
+
+Lemma valid_ub_fp2tw f :
+  PrimitiveFloat.valid_ub f = true -> valid_ub (fp2tw f) = true.
+Proof.
+rewrite /PrimitiveFloat.valid_ub /valid_ub /classify /classifyFp.
+case E: (f =? neg_infinity)%float => //= _.
+by move: (Dninf _ E); case: (PrimFloat.classify f) => //= _;
+   case: ((f + 0 =? f)%float && true).
+Qed.
+
 Lemma ZtoS_correct p z :
   (z <= StoZ (ZtoS z))%Z \/ toX (pow2_UP p (ZtoS z)) = Xnan.
-Proof. Admitted.
+Proof. by left; apply: Z.le_refl. Qed.
 
 Lemma fromZ_correct n : (Z.abs n <= 256)%Z -> toX (fromZ n) = Xreal (IZR n).
 Proof. by move=> Hn; rewrite /fromZ toX_fp2tw PrimitiveFloat.fromZ_correct. Qed.
@@ -606,6 +625,48 @@ Proof. Admitted.
 Lemma mag_correct f : (Rabs (toR f) < bpow radix (StoZ (mag f)))%R.
 Proof. Admitted.
 
+(* Being a triple word survives a change of sign: each of the two tests is    *)
+(* the double-word one, and that one survives it.                             *)
+Lemma Dwf_negE a b : Dfin a -> Dfin b ->
+  ((- a) + (- b) =? (- a))%float = (a + b =? a)%float.
+Proof. exact: wellFormed_negE. Qed.
+
+Lemma wellFormed_negT x0 x1 x2 : Dfin x0 -> Dfin x1 -> Dfin x2 ->
+  wellFormed (TWFloat (- x0) (- x1) (- x2))%float =
+  wellFormed (TWFloat x0 x1 x2).
+Proof.
+by move=> F0 F1 F2; rewrite /wellFormed (Dwf_negE _ _ F0 F1) (Dwf_negE _ _ F1 F2).
+Qed.
+
+(* So a negated triple falls in the mirror class.                             *)
+Lemma classify_neg x :
+  classify (neg x) =
+  match classify x with
+  | Freal => Freal | Sig.Fnan => Sig.Fnan
+  | Fminfty => Fpinfty | Fpinfty => Fminfty
+  end.
+Proof.
+case: x => x0 x1 x2.
+rewrite /neg /negTw /classify /classifyFp /wellFormed !Dclassify_opp.
+have Hw : Dfin x0 -> Dfin x1 -> Dfin x2 ->
+   ((((- x0) + (- x1) =? (- x0)) && ((- x1) + (- x2) =? (- x1))))%float =
+   ((x0 + x1 =? x0) && (x1 + x2 =? x1))%float
+  by move=> F0 F1 F2; rewrite (Dwf_negE _ _ F0 F1) (Dwf_negE _ _ F1 F2).
+have Hf : forall g,
+   match PrimFloat.classify g with
+   | PInf | NInf | NaN => True | _ => Dfin g end.
+  move=> g; case Ec: (PrimFloat.classify g) => //;
+  by apply: DfinbW; rewrite /Dfinb PrimitiveFloat.classify_correct
+                            /PrimitiveFloat.classify Ec.
+by case E0: (PrimFloat.classify x0) => //=;
+   case E1: (PrimFloat.classify x1) => //=;
+   case E2: (PrimFloat.classify x2) => //=;
+   (rewrite Hw;
+     [by case: (((x0 + x1 =? x0) && (x1 + x2 =? x1))%float)
+     | by have := Hf x0; rewrite E0 | by have := Hf x1; rewrite E1
+     | by have := Hf x2; rewrite E2]).
+Qed.
+
 Lemma neg_correct x :
   match classify x with
   | Freal => toX (neg x) = (- toX x)%XR
@@ -613,7 +674,18 @@ Lemma neg_correct x :
   | Fminfty => classify (neg x) = Fpinfty
   | Fpinfty => classify (neg x) = Fminfty
   end.
-Proof. Admitted.
+Proof.
+case E: (classify x); rewrite ?classify_neg ?E //.
+have Rx : real x = true by rewrite /real E.
+have [F0 [F1 [F2 Ew]]] := real_fin _ Rx.
+move: F0 F1 F2 Ew; case: x Rx E => x0 x1 x2 Rx E F0 F1 F2 Ew.
+rewrite (toX_real _ Rx) /toX /toF /neg /negTw.
+rewrite (_ : wellFormed (TWFloat (- x0) (- x1) (- x2))%float = true);
+  last by rewrite wellFormed_negT.
+rewrite !Fadd_exact_correct (toXE _ (Dfin_opp _ F0)) (toXE _ (Dfin_opp _ F1))
+        (toXE _ (Dfin_opp _ F2)).
+by rewrite /= !D2R_opp; congr Xreal; ring.
+Qed.
 
 Lemma abs_correct x :
   toX (abs x) = Xabs (toX x) /\ valid_ub (abs x) = true.
@@ -776,7 +848,11 @@ Qed.
 Lemma pow2_UP_correct p s :
   valid_ub (pow2_UP p s) = true /\
   le_upper (Xscale radix2 (Xreal 1) (StoZ s)) (toX (pow2_UP p s)).
-Proof. Admitted.
+Proof.
+rewrite /pow2_UP toX_fp2tw.
+have [Hv Hb] := PrimitiveFloat.pow2_UP_correct fprec s.
+by split => //; apply: valid_ub_fp2tw.
+Qed.
 
 Lemma div_UP_correct p x y :
   is_real_ub x /\ is_pos_real y \/ is_real_lb x /\ is_neg_real y ->
