@@ -783,9 +783,10 @@ first. So after a turn of the top face the bottom face is not tried and twelve
 moves are left, while after a turn of the bottom face the top is still allowed
 and fifteen are left. This is used from the third move on.
 
-The second idea is symmetry. A cube can be relabelled in 48 ways: any of the six
-faces to the top, each in four positions, and each of those seen in a mirror as
-well. A relabelling takes a word to another word of the same length. When the
+The second idea is symmetry. Turn the whole cube in your hands: it is the same
+cube, but the faces have swapped names. There are 48 such relabellings. Six,
+for the face put on top, times four, for the way it is turned, and twice again
+for the mirror image. A relabelling takes a word to another word of the same length. When the
 position searched is unchanged by it, the two words are worth the same and one
 of them is enough.
 
