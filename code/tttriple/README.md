@@ -15,16 +15,35 @@ in `threewords/`.
 
 ## The state of it
 
-**The shape is checked; the arithmetic is mostly not.** `tw_ops.v` builds a
+**The shape is checked; the arithmetic is being proved.** `tw_ops.v` builds a
 module `TwFloat` and the sealing at the bottom of that file,
 
 ```coq
 Module TwFloatCheck <: FloatOps := TwFloat.
 ```
 
-is what says it meets Interval's signature. Most obligations that need a fact
-about the arithmetic are still `Admitted`, and they are listed at the top of
-the file. Nothing here may be relied on until that list is empty. It is built
+is what says it meets Interval's signature. The obligations that need a fact
+about the arithmetic are still `Admitted` unless listed below, and the list is
+at the top of the file. Nothing there may be relied on until that list is
+empty.
+
+**The sum, the difference and the product are proved** — `add_UP_correct`,
+`add_DN_correct`, `sub_UP_correct`, `sub_DN_correct`, `mul_UP_correct`,
+`mul_DN_correct`, from `twbound.v`, admit-free. **They take nothing from the
+paper**, and they could not: the paper is proved for round to nearest
+throughout and these round in a direction. They do not have to. `Merge` and
+`sortMag` move the terms about, `vecSum` and `vseb` are sweeps of `twoSum`
+which is exact, so the only step that loses anything is the cut down to three
+words, and the cut is made in the direction wanted. The product adds one thing:
+what its four two-products can miss, which `twoProd_err` bounds by three and a
+half of the smallest number there is apiece — fourteen against the sixteen of
+`teps`.
+
+**Both are uniform and neither has a guard.** No range condition enters, so
+none is tested: `twoSum` is exact in the bounded format, subnormals included,
+and a two-product's miss is bounded absolutely rather than relatively. That is
+what separates these six from the quotient and the root, which lean on the
+paper's FLX analysis and so keep one. It is built
 in this order so that the whole chain — up to Interval's own tactic over triple
 words — can be assembled and measured before it is proved, which is the order
 the double-word work went in as well.

@@ -3,7 +3,7 @@ From Stdlib Require Import Floats PrimInt63.
 From Flocq Require Import Zaux Raux Core BinarySingleNaN PrimFloat.
 From Interval Require Import Xreal Basic Sig Generic_proof Primitive_ops.
 From mathcomp Require Import ssreflect ssrbool.
-From twarith Require Import twarith tw_updn twpaper.
+From twarith Require Import twarith tw_updn twbound twpaper.
 (* The bridge from primitive floats to the reals is the double-word    *)
 (* development's `dwbridge.v'.  It says nothing about pairs -- only     *)
 (* what one primitive float is and what one operation on it does -- so  *)
@@ -31,14 +31,20 @@ From dwarith Require Import dwbridge.
 (* over triple words, can be assembled and measured before it is proved -     *)
 (* which is the order the double-word work went in as well.                   *)
 (*                                                                            *)
-(* Admitted, and each of them is a real statement about the arithmetic:       *)
-(*   add/sub/mul/div/sqrt _UP_correct and _DN_correct  (ten)                  *)
-(*   fromZ_correct, fromZ_UP_correct, fromZ_DN_correct                        *)
-(*   pow2_UP_correct, ZtoS_correct                                            *)
-(*   zero_correct, real_correct, mag_correct                                  *)
+(* PROVED so far: the reading (`zero_correct', `real_correct',                *)
+(* `fromZ_correct'), and the six bounds on the sum, the difference and the    *)
+(* product -- `add/sub/mul _UP_correct' and `_DN_correct' -- which come from  *)
+(* `twbound.v' and take nothing from the three-word paper.                    *)
+(*                                                                            *)
+(* Still admitted, and each of them is a real statement about the             *)
+(* arithmetic:                                                                *)
+(*   div/sqrt _UP_correct and _DN_correct  (four)                             *)
+(*   fromZ_UP_correct, fromZ_DN_correct                                       *)
+(*   pow2_UP_correct, ZtoS_correct, mag_correct                               *)
 (*   neg_correct, abs_correct, cmp_correct, min_correct, max_correct          *)
 (*   nearbyint_UP_correct, nearbyint_DN_correct                               *)
-(*   div2_correct, midpoint_correct   (excused by `sensible_format = false`)  *)
+(* `div2_correct' and `midpoint_correct' are excused by                       *)
+(* `sensible_format = false' and say nothing.                                 *)
 
 Module TwFloat.
 
@@ -683,25 +689,57 @@ Lemma add_UP_correct p x y :
   valid_ub x = true -> valid_ub y = true ->
   valid_ub (add_UP p x y) = true /\
   le_upper (toX x + toX y)%XR (toX (add_UP p x y)).
-Proof. Admitted.
+Proof.
+move=> _ _; split; first exact: valid_ub_onReal2.
+rewrite /add_UP; apply: (onReal2_upper (fun a b => (toX a + toX b)%XR)) => a b Ra Rb Rr.
+have [F0 [F1 [F2 _]]] := real_fin _ Ra.
+have [G0 [G1 [G2 _]]] := real_fin _ Rb.
+have [H0 [H1 [H2 _]]] := real_fin _ Rr.
+rewrite (toX_real _ Ra) (toX_real _ Rb) (toX_real _ Rr) /=.
+by apply: addTwUp_ge; apply: finL_tw2l.
+Qed.
 
 Lemma add_DN_correct p x y :
   valid_lb x = true -> valid_lb y = true ->
   valid_lb (add_DN p x y) = true /\
   le_lower (toX (add_DN p x y)) (toX x + toX y)%XR.
-Proof. Admitted.
+Proof.
+move=> _ _; split; first exact: valid_lb_onReal2.
+rewrite /add_DN; apply: (onReal2_lower (fun a b => (toX a + toX b)%XR)) => a b Ra Rb Rr.
+have [F0 [F1 [F2 _]]] := real_fin _ Ra.
+have [G0 [G1 [G2 _]]] := real_fin _ Rb.
+have [H0 [H1 [H2 _]]] := real_fin _ Rr.
+rewrite (toX_real _ Ra) (toX_real _ Rb) (toX_real _ Rr) /le_lower /=.
+by apply: Ropp_le_contravar; apply: addTwDn_le; apply: finL_tw2l.
+Qed.
 
 Lemma sub_UP_correct p x y :
   valid_ub x = true -> valid_lb y = true ->
   valid_ub (sub_UP p x y) = true /\
   le_upper (toX x - toX y)%XR (toX (sub_UP p x y)).
-Proof. Admitted.
+Proof.
+move=> _ _; split; first exact: valid_ub_onReal2.
+rewrite /sub_UP; apply: (onReal2_upper (fun a b => (toX a - toX b)%XR)) => a b Ra Rb Rr.
+have [F0 [F1 [F2 _]]] := real_fin _ Ra.
+have [G0 [G1 [G2 _]]] := real_fin _ Rb.
+have [H0 [H1 [H2 _]]] := real_fin _ Rr.
+rewrite (toX_real _ Ra) (toX_real _ Rb) (toX_real _ Rr) /=.
+by apply: subTwUp_ge; apply: finL_tw2l.
+Qed.
 
 Lemma sub_DN_correct p x y :
   valid_lb x = true -> valid_ub y = true ->
   valid_lb (sub_DN p x y) = true /\
   le_lower (toX (sub_DN p x y)) (toX x - toX y)%XR.
-Proof. Admitted.
+Proof.
+move=> _ _; split; first exact: valid_lb_onReal2.
+rewrite /sub_DN; apply: (onReal2_lower (fun a b => (toX a - toX b)%XR)) => a b Ra Rb Rr.
+have [F0 [F1 [F2 _]]] := real_fin _ Ra.
+have [G0 [G1 [G2 _]]] := real_fin _ Rb.
+have [H0 [H1 [H2 _]]] := real_fin _ Rr.
+rewrite (toX_real _ Ra) (toX_real _ Rb) (toX_real _ Rr) /le_lower /=.
+by apply: Ropp_le_contravar; apply: subTwDn_le; apply: finL_tw2l.
+Qed.
 
 Lemma mul_UP_correct p x y :
   is_non_neg' x /\ is_non_neg' y \/ is_non_pos' x /\ is_non_pos' y \/
@@ -709,7 +747,15 @@ Lemma mul_UP_correct p x y :
   is_non_neg_real x /\ is_non_pos_real y ->
   valid_ub (mul_UP p x y) = true /\
   le_upper (toX x * toX y)%XR (toX (mul_UP p x y)).
-Proof. Admitted.
+Proof.
+move=> _; split; first exact: valid_ub_onReal2.
+rewrite /mul_UP; apply: (onReal2_upper (fun a b => (toX a * toX b)%XR)) => a b Ra Rb Rr.
+have [F0 [F1 [F2 _]]] := real_fin _ Ra.
+have [G0 [G1 [G2 _]]] := real_fin _ Rb.
+have [H0 [H1 [H2 _]]] := real_fin _ Rr.
+rewrite (toX_real _ Ra) (toX_real _ Rb) (toX_real _ Rr) /=.
+by apply: mulTwUp_ge; apply: finL_tw2l.
+Qed.
 
 Lemma mul_DN_correct p x y :
   is_non_neg_real x /\ is_non_neg_real y \/
@@ -717,7 +763,15 @@ Lemma mul_DN_correct p x y :
   is_non_neg' x /\ is_non_pos' y \/ is_non_pos' x /\ is_non_neg' y ->
   valid_lb (mul_DN p x y) = true /\
   le_lower (toX (mul_DN p x y)) (toX x * toX y)%XR.
-Proof. Admitted.
+Proof.
+move=> _; split; first exact: valid_lb_onReal2.
+rewrite /mul_DN; apply: (onReal2_lower (fun a b => (toX a * toX b)%XR)) => a b Ra Rb Rr.
+have [F0 [F1 [F2 _]]] := real_fin _ Ra.
+have [G0 [G1 [G2 _]]] := real_fin _ Rb.
+have [H0 [H1 [H2 _]]] := real_fin _ Rr.
+rewrite (toX_real _ Ra) (toX_real _ Rb) (toX_real _ Rr) /le_lower /=.
+by apply: Ropp_le_contravar; apply: mulTwDn_le; apply: finL_tw2l.
+Qed.
 
 Lemma pow2_UP_correct p s :
   valid_ub (pow2_UP p s) = true /\

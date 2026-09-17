@@ -270,6 +270,10 @@ by case: (_ =? 0)%float.
 Qed.
 
 (* A triple word read as a list stands for what the triple does.              *)
+Lemma finL_tw2l t :
+  Dfin (tw0 t) -> Dfin (tw1 t) -> Dfin (tw2 t) -> finL (tw2l t).
+Proof. by case: t => a b c /= F0 F1 F2; split; [|split; [|split]]. Qed.
+
 Lemma tw2l_sum t : sumL (tw2l t) = twval t.
 Proof. by case: t => x0 x1 x2; rewrite /twval /=; lra. Qed.
 
@@ -406,6 +410,14 @@ Proof.
 by case: t => x0 x1 x2 _; rewrite /twval /= !D2R_opp; lra.
 Qed.
 
+Lemma finL_negTwI t : finL (tw2l t) -> finL (tw2l (negTw t)).
+Proof.
+case: t => x0 x1 x2 /= [F0 [F1 [F2 _]]].
+split; first exact: Dfin_opp _ F0.
+split; first exact: Dfin_opp _ F1.
+by split; first exact: Dfin_opp _ F2.
+Qed.
+
 Lemma finL_negTw t : finL (tw2l (negTw t)) -> finL (tw2l t).
 Proof.
 case: t => x0 x1 x2 /= [F0 [F1 [F2 _]]].
@@ -415,19 +427,19 @@ by split; first exact: Dfin_oppI _ F2.
 Qed.
 
 Theorem subTwUp_ge x y :
-  finL (tw2l (subTwUp x y)) -> finL (tw2l (negTw y)) ->
+  finL (tw2l (subTwUp x y)) -> finL (tw2l y) ->
   twval x - twval y <= twval (subTwUp x y).
 Proof.
-move=> F Fn; have H := addTwUp_ge x (negTw y) F.
+move=> F /finL_negTwI Fn; have H := addTwUp_ge x (negTw y) F.
 rewrite (twval_neg _ Fn) in H.
 by move: H; rewrite /subTwUp; lra.
 Qed.
 
 Theorem subTwDn_le x y :
-  finL (tw2l (subTwDn x y)) -> finL (tw2l (negTw y)) ->
+  finL (tw2l (subTwDn x y)) -> finL (tw2l y) ->
   twval (subTwDn x y) <= twval x - twval y.
 Proof.
-move=> F Fn; have H := addTwDn_le x (negTw y) F.
+move=> F /finL_negTwI Fn; have H := addTwDn_le x (negTw y) F.
 rewrite (twval_neg _ Fn) in H.
 by move: H; rewrite /subTwDn; lra.
 Qed.
