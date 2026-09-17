@@ -781,8 +781,8 @@ one, and again by symmetry we only have to consider $U$ and $U^2$, since
 $U^(-1)$ is the symmetric of $U$. The two ideas collide at the second move:
 repetition would drop the three turns of the bottom face, but the first move is
 already fixed to the top face, and turning the cube upside down takes $D U$ back
-to $U D$. So the bottom face stays and fifteen second moves are left. Reid meets
-the same case, keeps them as well, and cuts his *third* move instead.
+to $U D$. So the bottom face stays and fifteen second moves are left. Reid's
+proof of the same bound keeps the bottom-face second moves as well.
 
 The search is then parallelised at depth two. Two first moves times fifteen
 second moves is thirty *prefixes*, each searched on its own to depth 17, and
