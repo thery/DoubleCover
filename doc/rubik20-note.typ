@@ -789,10 +789,9 @@ well. A relabelling takes a word to another word of the same length. When the
 position searched is unchanged by it, the two words are worth the same and one
 of them is enough.
 
-The superflip is unchanged by all 48. And every move can be relabelled into a
-turn of the top face: a quarter turn into $U$, a half turn into $U^2$. So two
-first moves are enough. We take $U$ and $U^2$, and the other sixteen are never
-tried. A position with no symmetry has nothing to gain here.
+The superflip is unchanged by all 48. Any first move can be relabelled into $U$
+or $U^2$, so those two are enough and the other sixteen are never tried. A
+position with no symmetry has nothing to gain here.
 
 The two ideas collide at the second move. The first would drop the three turns
 of the bottom face, since $U D$ and $D U$ are the same position. But symmetry
