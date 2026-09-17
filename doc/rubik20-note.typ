@@ -773,19 +773,19 @@ $U$ there is no point in trying $U$, $U^2$ or $U^(-1)$, since $U U$ is $U^2$ and
 a shorter word is covered at a smaller depth, which leaves fifteen moves instead
 of eighteen. Opposite faces are the same argument, one step weaker: $U D$ and
 $D U$ give the same position, so of the two orders we keep one, and play the
-top, right or front face first. Call that the *order convention*. From the third
-move on it leaves *twelve* moves after a turn of the top, right or front face,
-and *fifteen* after a turn of the bottom, left or back one. The second idea is
-symmetry. The superflip is unchanged by all 48 relabellings of the cube. So we
-need to explore only the turns of one face for the first move. We choose
-arbitrarily the top one, and again by symmetry we only have to consider $U$ and
-$U^2$, since $U^(-1)$ is the symmetric of $U$. The two ideas collide at the
-second move. After $U$, repetition removes $U$, $U^2$ and $U^(-1)$, which leaves
-fifteen. The order convention would remove $D$, $D^2$ and $D^(-1)$ as well and
-leave twelve, but it may not be used here: the first move is already fixed to
-the top face, and turning the cube upside down takes $D U$ back to $U D$. So the
-bottom face stays, and the fifteen second moves after $U$ include $U D$, $U D^2$
-and $U D^(-1)$.
+top, right or front face first. This is what we call the *order convention*.
+From the third move on it leaves *twelve* moves after a turn of the top, right
+or front face, and *fifteen* after a turn of the bottom, left or back one. The
+second idea is symmetry. The superflip is unchanged by all 48 relabellings of
+the cube. So we need to explore only the turns of one face for the first move.
+We choose arbitrarily the top one, and again by symmetry we only have to
+consider $U$ and $U^2$, since $U^(-1)$ is the symmetric of $U$. The two ideas
+collide at the second move. After $U$, repetition removes $U$, $U^2$ and
+$U^(-1)$, which leaves fifteen. The order convention would remove $D$, $D^2$ and
+$D^(-1)$ as well and leave twelve, but it may not be used here: the first move
+is already fixed to the top face, and turning the cube upside down takes $D U$
+back to $U D$. So the bottom face stays, and the fifteen second moves after $U$
+include $U D$, $U D^2$ and $U D^(-1)$.
 
 The search is then parallelised at depth two. Two first moves times fifteen
 second moves is thirty *prefixes*, each searched on its own to depth 17, and
