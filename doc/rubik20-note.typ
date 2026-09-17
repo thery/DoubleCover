@@ -797,9 +797,10 @@ The two ideas collide at the second move. The first would drop the three turns
 of the bottom face, since $U D$ and $D U$ are the same position. But symmetry
 has already fixed the first move to the top face, and turning the cube upside
 down takes $D U$ back to $U D$. Using both would cut the same pair of faces
-twice over. So the bottom face stays: fifteen second moves, and
-$2 times 15 = 30$ beginnings to search. Reid meets the same case, keeps them as well, and
-cuts his *third* move instead.
+twice over. So the bottom face stays: fifteen second moves. Two first moves and
+fifteen second moves make thirty *beginnings*, thirty ways of starting the
+word, and the search runs once from each of them. Reid meets the same case,
+keeps them as well, and cuts his *third* move instead.
 
 Our own OCaml program dropped them, so it searched 24 beginnings where it had
 to search 30. It ran for hours and gave the answer we expected. The error came
