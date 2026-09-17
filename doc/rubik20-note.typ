@@ -842,6 +842,20 @@ on a position is 48 machine integers, a summary is two, and the phase 1 table is
 a persistent array of arrays, fifteen four-bit entries to a 63-bit machine
 integer.
 
+The superflip itself goes down that chain. As a permutation it is a product of
+twelve two-cycles, one for each flipped edge, $(1 thin 33)$, $(3 thin 9)$,
+$(4 thin 25)$ and so on. #src("Moves.v") turns those cycles into the image
+table `sftab`, and the table into the array `sfti` the search starts from. Each
+step has its lemma:
+
+```coq
+Lemma sftabE : superflip = pt 47 sftab.
+Lemma sftiE  : superflip = pt 47 (ti2t 47 sfti).
+```
+
+`pt 47` is the permutation a table stands for, so both say that what runs is
+still the superflip.
+
 Functions are treated the same way. A function on a finite domain is tabulated
 once and then read: the action of a move on a summary, the rank of a summary,
 and the symmetry that the fold uses are all arrays, not computations. The search
