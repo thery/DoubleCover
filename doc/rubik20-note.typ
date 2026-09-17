@@ -846,6 +846,12 @@ the two lists gives. Every fact proved of lists crosses that bridge. From there
 on a position is 48 machine integers, a summary is two, and the phase 1 table
 is an array of arrays, fifteen four-bit entries to a word.
 
+Functions are treated the same way. A function on a finite domain is tabulated
+once and then read: the action of a move on a summary, the rank of a summary,
+and the symmetry that the fold uses are all arrays, not computations. The
+search reads them where the mathematical text applies a function, and each
+table is checked in Rocq like the table of distances.
+
 == The search, in seven versions
 
 #src("Fast.v") holds the search on machine integers as seven versions. Each is
