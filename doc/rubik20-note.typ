@@ -768,13 +768,11 @@ twenty-four threads, 62 GB of memory.
 == Removing redundant moves
 
 Many words lead to the same position, and the search does not have to try them
-all. Two ideas say which ones may be left out. Both pay most near the root: a
-move dropped at the first level takes an eighteenth of the search with it.
-
-The first idea is that a word need never repeat a face. After a $U$ there is no
-point in trying $U$, $U^2$ or $U^(-1)$, because $U U$ is $U^2$ and that word is
-shorter, so a search at a smaller depth covers it. Fifteen moves are left
-instead of eighteen, at every move after the first.
+all. Two ideas say which ones may be left out. The first is that a word need
+never repeat a face. After a $U$ there is no point in trying $U$, $U^2$ or
+$U^(-1)$, because $U U$ is $U^2$ and that word is shorter, so a search at a
+smaller depth covers it. Fifteen moves are left instead of eighteen, at every
+move after the first.
 
 Opposite faces are the same argument, one step weaker. $U$ and $D$ commute, so
 $U D$ and $D U$ give the same position and one of the two orders is enough. We
@@ -783,18 +781,18 @@ first. So after a turn of the top face the bottom face is not tried and twelve
 moves are left, while after a turn of the bottom face the top is still allowed
 and fifteen are left. This is used from the third move on.
 
-The second idea is symmetry. A cube can be relabelled in 48 ways: any of the
-six faces to the top, each in four positions, and each of those seen in a
-mirror as well. A relabelling takes a word to another word of the same length.
-When the position searched is unchanged by it, the two words are worth the same
-and one of them is enough.
+The second is symmetry. A cube can be relabelled in 48 ways: any of the six
+faces to the top, each in four positions, and each of those seen in a mirror as
+well. A relabelling takes a word to another word of the same length. When the
+position searched is unchanged by it, the two words are worth the same and one
+of them is enough.
 
 The superflip is unchanged by all 48. So we need to explore only the turns of
 one face for the first move. We choose arbitrarily the top one. Furthermore,
-again by symmetry, we only have to consider $U$ and $U^2$, since $U^(-1)$ is
-the symmetric of $U$.
+again by symmetry, we only have to consider $U$ and $U^2$, since $U^(-1)$ is the
+symmetric of $U$.
 
-The two ideas collide at the second move. The first would drop the three turns
+The two collide at the second move. Repetition would drop the three turns
 of the bottom face, since $U D$ and $D U$ are the same position. But symmetry
 has already fixed the first move to the top face, and turning the cube upside
 down takes $D U$ back to $U D$. Using both would cut the same pair of faces
