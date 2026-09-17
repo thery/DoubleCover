@@ -805,21 +805,22 @@ a search fail. It makes it faster, and it makes it agree with you.
 The search of the last section is written on permutations of the 48 stickers,
 and in that form it is too slow to run. What runs is the same search on machine
 integers and arrays. The path from one to the other is a data refinement: every
-object of the search is given a machine form, and every step comes with a proof
-that it computes what the step before it computed. The answer rests on the
-search of the last section; the speed rests on the steps.
+object of the search is given an effective representation, and every step comes
+with a proof that it computes what the step before it computed. The answer rests
+on the search of the last section; the speed rests on the steps.
 
 == How the objects are encoded
 
 The search handles few objects: a position, a move, the summary of a position,
 and the table of distances. Each has a mathematical form, which is what the
-proofs of the last two sections speak about, and a machine form, which is what
-runs. A position is a permutation of the 48 stickers, and #src("Table.v")
-presents such a permutation by its image table, the list of 48 numbers saying
-where each sticker goes, with `tab_ok` saying which lists are tables. The
-product of two permutations is then the reading of one list through the other,
-and a move is one more table of 48 numbers. #src("Tsearch.v") runs the search of
-#src("Search.v") on tables, and proves that the two searches answer alike.
+proofs of the last two sections speak about, and an effective representation,
+which is what runs. A position is a permutation of the 48 stickers, and
+#src("Table.v") presents such a permutation by its image table, the list of 48
+numbers saying where each sticker goes, with `tab_ok` saying which lists are
+tables. The product of two permutations is then the reading of one list through
+the other, and a move is one more table of 48 numbers. #src("Tsearch.v") runs
+the search of #src("Search.v") on tables, and proves that the two searches
+answer alike.
 
 A list of numbers is still slow. The numbers of the mathcomp library are Peano
 numbers: 5 is the successor of the successor of the successor of the successor
