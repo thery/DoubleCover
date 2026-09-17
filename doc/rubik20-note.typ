@@ -806,8 +806,8 @@ The search of the last section is written on permutations of the 48 stickers,
 and in that form it is too slow to run. What runs is the same search on machine
 integers and arrays. The path from one to the other is a data refinement: every
 object of the search is given an effective representation, and each one is
-proved to agree with the object it stands for. The answer rests on the search
-of the last section; the speed rests on the representations.
+proved to agree with the object it stands for. The answer rests on the search of
+the last section; the speed rests on the representations.
 
 == How the objects are encoded
 
@@ -822,18 +822,14 @@ the other, and a move is one more table of 48 numbers. #src("Tsearch.v") runs
 the search of #src("Search.v") on tables, and proves that the two searches
 answer alike.
 
-A list of numbers is still slow. The numbers of the mathcomp library are Peano
-numbers: 5 is the successor of the successor of the successor of the successor
-of the successor of zero, so adding $n$ costs $n$ steps. Rocq also offers
-machine integers, 63 bits wide with the missing bit going to the garbage
-collector, and *persistent arrays* of them @armand2010imperative, and both cost
-what the hardware costs. The gain is plain enough. What matters here is that the
-search moves to them without being written a second time. #src("Tabi.v") carries
-the tables of #src("Table.v") as arrays of machine integers, with the bridge
-back: `ti2t` reads such an array as the list of numbers it stands for, and
-`tabi_ok` is `tab_ok` of that list. Each operation comes with a lemma saying
-that the bridge may be crossed either way round. For the product of two
-permutations it reads
+A list of the library's numbers is still not what runs. Rocq offers machine
+integers, 63 bits wide with the missing bit going to the garbage collector, and
+*persistent arrays* of them @armand2010imperative. #src("Tabi.v") carries the
+tables of #src("Table.v") as arrays of machine integers, with the bridge back:
+`ti2t` reads such an array as the list of numbers it stands for, and `tabi_ok`
+is `tab_ok` of that list. Each operation comes with a lemma saying that the
+bridge may be crossed either way round. For the product of two permutations it
+reads
 
 ```coq
 Lemma ti2t_comp a b :
@@ -843,14 +839,14 @@ Lemma ti2t_comp a b :
 
 Composing two arrays and reading the result back as a list gives what composing
 the two lists gives. Every fact proved of lists crosses that bridge. From there
-on a position is 48 machine integers, a summary is two, and the phase 1 table
-is an array of arrays, fifteen four-bit entries to a word.
+on a position is 48 machine integers, a summary is two, and the phase 1 table is
+an array of arrays, fifteen four-bit entries to a word.
 
 Functions are treated the same way. A function on a finite domain is tabulated
 once and then read: the action of a move on a summary, the rank of a summary,
-and the symmetry that the fold uses are all arrays, not computations. The
-search reads them where the mathematical text applies a function, and each
-table is checked in Rocq like the table of distances.
+and the symmetry that the fold uses are all arrays, not computations. The search
+reads them where the mathematical text applies a function, and each table is
+checked in Rocq like the table of distances.
 
 == The search, in seven versions
 
