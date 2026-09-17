@@ -785,8 +785,9 @@ and fifteen are left. This is used from the third move on.
 
 The second idea is symmetry. The cube has 48 relabellings: six choices of the
 face put on top, four rotations of that face, and the mirror image of each. A
-relabelling takes a word to another word of the same length. When the position searched is unchanged by it, the two words are worth
-the same and one of them is enough.
+relabelling takes a word to another word of the same length. When the position
+searched is unchanged by it, the two words are worth the same and one of them
+is enough.
 
 The superflip is unchanged by all 48. So one face is enough for the first move,
 we take the top one, arbitrarily, and $U^(-1)$ is the mirror image of $U$. That
