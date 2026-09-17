@@ -783,15 +783,15 @@ first. So after a turn of the top face the bottom face is not tried and twelve
 moves are left, while after a turn of the bottom face the top is still allowed
 and fifteen are left. This is used from the third move on.
 
-The second idea is symmetry. A cube can be relabelled in 48 ways: any of the
-six faces to the top, each in four positions, and each of those seen in a
-mirror as well. A relabelling takes a word to another word of the same length.
-When the position searched is unchanged by it, the two words are worth the same
-and one of them is enough.
+The second idea is symmetry. A cube can be relabelled in 48 ways: any of the six
+faces to the top, each in four positions, and each of those seen in a mirror as
+well. A relabelling takes a word to another word of the same length. When the
+position searched is unchanged by it, the two words are worth the same and one
+of them is enough.
 
-The superflip is unchanged by all 48. So the first move is $U$ or $U^2$, and
-the other sixteen are never tried. A position with no symmetry has nothing to
-gain here.
+The superflip is unchanged by all 48. So the first move is $U$ or $U^2$, and the
+other sixteen are never tried. A position with no symmetry has nothing to gain
+here.
 
 The two ideas collide at the second move. The first would drop the three turns
 of the bottom face, since $U D$ and $D U$ are the same position. But symmetry
@@ -804,16 +804,16 @@ The work is then split at depth two. Two first moves times fifteen second moves
 is thirty *prefixes*, and each one is searched on its own, to depth 17, beside
 the others.
 
-Our own OCaml program dropped them, so it searched 24 prefixes where it had
-to search 30. It ran for hours and gave the answer we expected. The error came
-out only when the cut had to be proved in Rocq, and the proof could not be
-written. A cut that is too greedy does not make a search fail. It makes it
-faster, and it makes it agree with you.
+Our own OCaml program dropped them, so it searched 24 prefixes where it had to
+search 30. It ran for hours and gave the answer we expected. The error came out
+only when the cut had to be proved in Rocq, and the proof could not be written.
+A cut that is too greedy does not make a search fail. It makes it faster, and it
+makes it agree with you.
 
 The thirty are packed into *seventeen files*, #src("Runp1_03.v") to
-#src("Runp1_17.v"), one per second move. The two whose second move turns the bottom face keep fifteen branches
-where the others keep twelve, so they run far longer; each is split in two, and
-the rest of the run does not wait for them.
+#src("Runp1_17.v"), one per second move. The two whose second move turns the
+bottom face keep fifteen branches where the others keep twelve, so they run far
+longer; each is split in two, and the rest of the run does not wait for them.
 
 = The refinements
 
