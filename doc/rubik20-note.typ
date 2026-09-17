@@ -767,17 +767,16 @@ twenty-four threads, 62 GB of memory.
 
 == Removing redundant moves
 
-Different words lead to the same position, so a search that tries them all
-repeats itself. Dropping a word early saves most: one first move out of
-eighteen is an eighteenth of the search.
+Many words lead to the same position. The easy redundancy to remove is the
+repetition of a face: after a $U$ we do not try $U$, $U^2$ or $U^(-1)$, since
+$U U$ is $U^2$ and a shorter word is covered at a smaller depth. That is
+fifteen branches at every move after the first, not eighteen.
 
-Take $U U$. It is $U^2$, a shorter word, and shorter words are covered at a
-smaller depth. So a face is never turned twice running, at any point in the
-word: fifteen branches after the first move, not eighteen. Opposite faces
-commute, so $U D$ and $D U$ are the same position and one of the two orders is
-enough. Where the last move was on the top, right or front face that leaves
-*twelve*, and *fifteen* elsewhere. This half of the rule is used from the third
-move on.
+Opposite faces commute, so $U D$ and $D U$ are the same position and one of the
+two orders is enough. Where the last move was on the top, right or front face
+that leaves *twelve*, and *fifteen* elsewhere. This one is used from the third
+move on. A move dropped early saves most: one first move out of eighteen is an
+eighteenth of the search.
 
 The first move is a different argument, and it belongs to the superflip. The
 superflip is unchanged by all 48 relabellings of the cube: any of the six faces
