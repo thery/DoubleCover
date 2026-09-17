@@ -469,16 +469,129 @@ Qed.
 (* The shift covers the fifteen units with a sixteenth to spare, and the      *)
 (* answer stands for the root closely enough that reading the step off both   *)
 (* its words costs nothing.                                                   *)
-Theorem sqrtDwUpK_ge xh xl :
-  wellFormed (DWFloat xh xl) = true ->
-  Dfin (dwlo (sqrtDwUpK (DWFloat xh xl))) ->
-  R_sqrt.sqrt (D2R xh + D2R xl) <=
-  D2R (dwhi (sqrtDwUpK (DWFloat xh xl))) +
-  D2R (dwlo (sqrtDwUpK (DWFloat xh xl))).
+(* ---------------------------------------------------------------------------*)
+(*  Taking a small number up, and bringing the root back down                 *)
+(* ---------------------------------------------------------------------------*)
+
+(* Scaling up by a power of two is exact: the same digits with the exponent   *)
+(* moved, and the reals of this format have no top.                           *)
+Lemma Dformat_scale e z : (0 <= e)%Z -> generic_format radix2 Dfexp z ->
+  generic_format radix2 Dfexp (z * bpow radix2 e).
 Proof.
-move=> Wx; rewrite sqrtDwUpKE.
-case Hok : (sqrtOk (DWFloat xh xl)); last by apply: sqrtDwUp_geP.
-move=> Fz.
+have Hp0 : Prec_gt_0 prec by [].
+rewrite DfexpE => He Hz.
+case: (FLT_format_generic _ _ _ _ Hz) => f Hf1 Hf2 Hf3.
+apply: generic_format_FLT.
+apply: (FLT_spec _ _ _ _ (Float radix2 (Fnum f) (Fexp f + e))) => //=; last lia.
+by rewrite Hf1 /F2R /= bpow_plus; ring.
+Qed.
+
+Lemma D2R_dsqscale : D2R dsqscale = bpow radix2 537.
+Proof. by rewrite /D2R /dsqscale; compute; lra. Qed.
+
+Lemma D2R_dsqscaleI : D2R dsqscaleI = bpow radix2 (-537).
+Proof. by rewrite /D2R /dsqscaleI; compute; lra. Qed.
+
+Lemma Dfin_dsqscale : Dfin dsqscale.
+Proof. by []. Qed.
+
+(* A word taken up by the scale, exactly.                                     *)
+Lemma scale_up_exact a : Dfin a -> Dfin (a * dsqscale)%float ->
+  D2R (a * dsqscale)%float = D2R a * bpow radix2 537.
+Proof.
+move=> Fa Fs.
+have [E _] := Dfin_mul _ _ Fa Dfin_dsqscale Fs.
+rewrite E D2R_dsqscale round_generic //.
+by apply: Dformat_scale; [lia | apply: Dformat].
+Qed.
+
+(* And back down, which the operation tests rather than reasons about, as it  *)
+(* does the halving: scaling down can lose digits at the bottom of the range, *)
+(* scaling up cannot, so a word that comes back is a word that went down      *)
+(* exactly.                                                                   *)
+Lemma scale_dn_exact a : Dfin a ->
+  ((a * dsqscaleI) * dsqscale =? a)%float = true ->
+  Dfin (a * dsqscaleI)%float /\
+  D2R (a * dsqscaleI)%float = D2R a * bpow radix2 (-537).
+Proof.
+move=> Fa Ht.
+have Ft := Deqb_fin _ _ Fa Ht.
+have [Fh _] := Dfin_mulI _ _ Ft.
+have [Em _] := Dfin_mul _ _ Fh Dfin_dsqscale Ft.
+have Ee := Deqb_eq _ _ Ft Fa Ht.
+rewrite Em D2R_dsqscale in Ee.
+have Hf : generic_format radix2 Dfexp
+            (D2R (a * dsqscaleI)%float * bpow radix2 537).
+  by apply: Dformat_scale; [lia | apply: Dformat].
+rewrite (round_generic _ _ _ _ Hf) in Ee.
+split => //.
+have Hb2 : bpow radix2 537 * bpow radix2 (-537) = 1.
+  by rewrite -bpow_plus; have -> : (537 + -537 = 0)%Z by lia.
+by rewrite -Ee Rmult_assoc Hb2 Rmult_1_r.
+Qed.
+
+(* The root of a number times the square of the scale is the root times the   *)
+(* scale, whatever the number: below nought both sides are nought.            *)
+Lemma sqrt_scale v :
+  R_sqrt.sqrt (v * bpow radix2 537 * bpow radix2 537) =
+  R_sqrt.sqrt v * bpow radix2 537.
+Proof.
+have Hb := bpow_gt_0 radix2 537.
+case: (Rle_lt_dec 0 v) => Hv; last first.
+  rewrite (sqrt_neg_0 v); last lra.
+  by rewrite sqrt_neg_0; [ring | nra].
+rewrite Rmult_assoc sqrt_mult //; last nra.
+by rewrite sqrt_square //; lra.
+Qed.
+
+(* The four words of a pair the operation has just made are numbers, which no *)
+(* comparison would say: an infinity is above every line.                     *)
+(* The way back, as arithmetic: what the scaling down does to a bound.        *)
+Lemma scale_back_ge u p q : R_sqrt.sqrt u * bpow radix2 537 <= p + q ->
+  R_sqrt.sqrt u <= p * bpow radix2 (-537) + q * bpow radix2 (-537).
+Proof.
+move=> H.
+have Hb := bpow_gt_0 radix2 537.
+have Hb2 : bpow radix2 (-537) * bpow radix2 537 = 1.
+  by rewrite -bpow_plus; have -> : (-537 + 537 = 0)%Z by lia.
+apply: (Rmult_le_reg_r (bpow radix2 537)) => //.
+by rewrite Rmult_plus_distr_r !Rmult_assoc Hb2 !Rmult_1_r.
+Qed.
+
+Lemma scale_back_le u p q : p + q <= R_sqrt.sqrt u * bpow radix2 537 ->
+  p * bpow radix2 (-537) + q * bpow radix2 (-537) <= R_sqrt.sqrt u.
+Proof.
+move=> H.
+have Hb := bpow_gt_0 radix2 537.
+have Hb2 : bpow radix2 (-537) * bpow radix2 537 = 1.
+  by rewrite -bpow_plus; have -> : (-537 + 537 = 0)%Z by lia.
+apply: (Rmult_le_reg_r (bpow radix2 537)) => //.
+by rewrite Rmult_plus_distr_r !Rmult_assoc Hb2 !Rmult_1_r.
+Qed.
+
+Lemma scaleDwhi d f : dwhi (scaleDw d f) = (dwhi d * f)%float.
+Proof. by case: d. Qed.
+
+Lemma scaleDwlo d f : dwlo (scaleDw d f) = (dwlo d * f)%float.
+Proof. by case: d. Qed.
+
+Lemma finOkP a b : finOk (DWFloat a b) = true -> Dfin a /\ Dfin b.
+Proof.
+move=> /andb_prop [H1 H2].
+have [Fa _] := Dfin_eqb0 _ H1.
+have [Fb _] := Dfin_eqb0 _ H2.
+by split; [have [H _] := Dfin_subI _ _ Fa | have [H _] := Dfin_subI _ _ Fb].
+Qed.
+
+Theorem sqrtDwUpS_ge xh xl :
+  wellFormed (DWFloat xh xl) = true ->
+  sqrtOk (DWFloat xh xl) = true ->
+  Dfin (dwlo (shiftUp (sqrtDw (DWFloat xh xl)))) ->
+  R_sqrt.sqrt (D2R xh + D2R xl) <=
+  D2R (dwhi (shiftUp (sqrtDw (DWFloat xh xl)))) +
+  D2R (dwlo (shiftUp (sqrtDw (DWFloat xh xl)))).
+Proof.
+move=> Wx Hok Fz.
 have [Fqh [Fql Fs]] := widenUp_finI _ _ Fz.
 have Hstep := dstep_ge _ Fs.
 have Hw := widenUp_ge _ _ Fz.
@@ -513,16 +626,15 @@ rewrite /shiftUp.
 by move: He Hstep Hb Hw; split_Rabs; lra.
 Qed.
 
-Theorem sqrtDwDnK_le xh xl :
+Theorem sqrtDwDnS_le xh xl :
   wellFormed (DWFloat xh xl) = true ->
-  Dfin (dwlo (sqrtDwDnK (DWFloat xh xl))) ->
-  D2R (dwhi (sqrtDwDnK (DWFloat xh xl))) +
-  D2R (dwlo (sqrtDwDnK (DWFloat xh xl))) <=
+  sqrtOk (DWFloat xh xl) = true ->
+  Dfin (dwlo (shiftDn (sqrtDw (DWFloat xh xl)))) ->
+  D2R (dwhi (shiftDn (sqrtDw (DWFloat xh xl)))) +
+  D2R (dwlo (shiftDn (sqrtDw (DWFloat xh xl)))) <=
   R_sqrt.sqrt (D2R xh + D2R xl).
 Proof.
-move=> Wx; rewrite sqrtDwDnKE.
-case Hok : (sqrtOk (DWFloat xh xl)); last by apply: sqrtDwDn_leP.
-move=> Fz.
+move=> Wx Hok Fz.
 have [Fqh [Fql Fs]] := widenDn_finI _ _ Fz.
 have Hstep := dstep_ge _ Fs.
 have Hw := widenDn_le _ _ Fz.
@@ -555,6 +667,102 @@ have Hb : 15 * Du ^ 2 * R_sqrt.sqrt (D2R xh + D2R xl) <=
            Rabs (D2R (dwlo (sqrtDw (DWFloat xh xl))))) by nra.
 rewrite /shiftDn.
 by move: He Hstep Hb Hw; split_Rabs; lra.
+Qed.
+
+(* AND THE OPERATION ITSELF, which has one more way out than the shift.  What *)
+(* makes the guard fail is a number too small for the two-product inside the  *)
+(* division -- below two to the minus nine hundred and sixty-nine -- and such *)
+(* a number taken up by two to the one thousand and seventy-four lands at or  *)
+(* above one, where all four tests hold.  The root of the scaled number is    *)
+(* the root of the number times two to the five hundred and thirty-seven, so  *)
+(* the answer is brought back down by that, and both scalings are exact.      *)
+Theorem sqrtDwUpK_ge xh xl :
+  wellFormed (DWFloat xh xl) = true ->
+  Dfin (dwlo (sqrtDwUpK (DWFloat xh xl))) ->
+  R_sqrt.sqrt (D2R xh + D2R xl) <=
+  D2R (dwhi (sqrtDwUpK (DWFloat xh xl))) +
+  D2R (dwlo (sqrtDwUpK (DWFloat xh xl))).
+Proof.
+move=> Wx; rewrite sqrtDwUpKE.
+case Hok : (sqrtOk (DWFloat xh xl)); first by apply: sqrtDwUpS_ge.
+have -> : scaleDw (scaleDw (DWFloat xh xl) dsqscale) dsqscale =
+          DWFloat ((xh * dsqscale) * dsqscale) ((xl * dsqscale) * dsqscale)
+  by [].
+set a := ((xh * dsqscale) * dsqscale)%float.
+set b := ((xl * dsqscale) * dsqscale)%float.
+case Hs : (andb (andb (andb (sqrtOk (DWFloat a b)) (finOk (DWFloat a b)))
+                      (wellFormed (DWFloat a b)))
+                (scaleDnOk (shiftUp (sqrtDw (DWFloat a b)))));
+  last by apply: sqrtDwUp_geP.
+move: Hs => /andb_prop [/andb_prop [/andb_prop [Hoks Hfin] Hwf] Hdn].
+have [Fa Fb] := finOkP _ _ Hfin.
+rewrite !scaleDwhi !scaleDwlo => Fzl.
+have [Fql _] := Dfin_mulI _ _ Fzl.
+have Hge := sqrtDwUpS_ge _ _ Hwf Hoks Fql.
+have Tq := twoSum_finI _ _ Fql.
+have [Fqh _] := twoSum_fin _ _ Tq.
+move: Hdn => /andb_prop [Hh Hl].
+have [_ Eh] := scale_dn_exact _ Fqh Hh.
+have [_ El] := scale_dn_exact _ Fql Hl.
+(* what the scaled pair stands for *)
+have [Fm1 _] := Dfin_mulI _ _ Fa.
+have [Fxh _] := Dfin_mulI _ _ Fm1.
+have [Fm2 _] := Dfin_mulI _ _ Fb.
+have [Fxl _] := Dfin_mulI _ _ Fm2.
+have Ea : D2R a = D2R xh * bpow radix2 537 * bpow radix2 537.
+  by rewrite /a (scale_up_exact _ Fm1 Fa) (scale_up_exact _ Fxh Fm1).
+have Eb : D2R b = D2R xl * bpow radix2 537 * bpow radix2 537.
+  by rewrite /b (scale_up_exact _ Fm2 Fb) (scale_up_exact _ Fxl Fm2).
+have Hb := bpow_gt_0 radix2 537.
+have Hsq : R_sqrt.sqrt (D2R a + D2R b) =
+           R_sqrt.sqrt (D2R xh + D2R xl) * bpow radix2 537.
+  rewrite -sqrt_scale Ea Eb; congr R_sqrt.sqrt; ring.
+rewrite Hsq in Hge.
+by rewrite Eh El; apply: scale_back_ge.
+Qed.
+
+Theorem sqrtDwDnK_le xh xl :
+  wellFormed (DWFloat xh xl) = true ->
+  Dfin (dwlo (sqrtDwDnK (DWFloat xh xl))) ->
+  D2R (dwhi (sqrtDwDnK (DWFloat xh xl))) +
+  D2R (dwlo (sqrtDwDnK (DWFloat xh xl))) <=
+  R_sqrt.sqrt (D2R xh + D2R xl).
+Proof.
+move=> Wx; rewrite sqrtDwDnKE.
+case Hok : (sqrtOk (DWFloat xh xl)); first by apply: sqrtDwDnS_le.
+have -> : scaleDw (scaleDw (DWFloat xh xl) dsqscale) dsqscale =
+          DWFloat ((xh * dsqscale) * dsqscale) ((xl * dsqscale) * dsqscale)
+  by [].
+set a := ((xh * dsqscale) * dsqscale)%float.
+set b := ((xl * dsqscale) * dsqscale)%float.
+case Hs : (andb (andb (andb (sqrtOk (DWFloat a b)) (finOk (DWFloat a b)))
+                      (wellFormed (DWFloat a b)))
+                (scaleDnOk (shiftDn (sqrtDw (DWFloat a b)))));
+  last by apply: sqrtDwDn_leP.
+move: Hs => /andb_prop [/andb_prop [/andb_prop [Hoks Hfin] Hwf] Hdn].
+have [Fa Fb] := finOkP _ _ Hfin.
+rewrite !scaleDwhi !scaleDwlo => Fzl.
+have [Fql _] := Dfin_mulI _ _ Fzl.
+have Hge := sqrtDwDnS_le _ _ Hwf Hoks Fql.
+have Tq := twoSum_finI _ _ Fql.
+have [Fqh _] := twoSum_fin _ _ Tq.
+move: Hdn => /andb_prop [Hh Hl].
+have [_ Eh] := scale_dn_exact _ Fqh Hh.
+have [_ El] := scale_dn_exact _ Fql Hl.
+have [Fm1 _] := Dfin_mulI _ _ Fa.
+have [Fxh _] := Dfin_mulI _ _ Fm1.
+have [Fm2 _] := Dfin_mulI _ _ Fb.
+have [Fxl _] := Dfin_mulI _ _ Fm2.
+have Ea : D2R a = D2R xh * bpow radix2 537 * bpow radix2 537.
+  by rewrite /a (scale_up_exact _ Fm1 Fa) (scale_up_exact _ Fxh Fm1).
+have Eb : D2R b = D2R xl * bpow radix2 537 * bpow radix2 537.
+  by rewrite /b (scale_up_exact _ Fm2 Fb) (scale_up_exact _ Fxl Fm2).
+have Hb := bpow_gt_0 radix2 537.
+have Hsq : R_sqrt.sqrt (D2R a + D2R b) =
+           R_sqrt.sqrt (D2R xh + D2R xl) * bpow radix2 537.
+  rewrite -sqrt_scale Ea Eb; congr R_sqrt.sqrt; ring.
+rewrite Hsq in Hge.
+by rewrite Eh El; apply: scale_back_le.
 Qed.
 
 (* The two bounds, said of a pair rather than of its two words.               *)

@@ -195,10 +195,47 @@ Measured on 100000 roots, three runs each, seconds:
 | guarded and shifted | 1.33 | 0.53 |
 | with its residual | 4.6 | 4.6 |
 
-**The root has no bound free of its guard.** Its `14.5 u²` leans on
-`divDwDw2_err`, which is the division's and needs the range; so the root's
-guard is the division's with two more beside it, and it cannot go before the
-division's does.
+**The root has no bound free of its guard**, and below the line it is not
+merely unproved but wrong. Its `14.5 u²` leans on `divDwDw2_err`, which is the
+division's and needs the range. What that range keeps out is a number too
+small for the two-product inside the division: below `2^-969` the two-product
+misses `s·t ≈ x` by up to three and a half of the smallest numbers there are,
+and that miss divided by `2x` is the whole answer. Measured against the exact
+root, 20000 numbers a row:
+
+| x | guard passes | worst error |
+|---|---|---|
+| around 1 | 20000/20000 | 1.99 u² |
+| near `2^-969` | 9555/20000 | 991 u² |
+| very small | 0/20000 | 2·10²⁴ u² |
+
+**So a number that small is taken up, and the root brought back down.** The
+root of a number times four is twice the root of it, and both scalings are by
+a power of two, so both are exact. Taken up by `2^1074` — two steps, since
+that is more than the whole range — such a number lands at or above one, where
+every one of the four tests holds:
+
+| x | guard passes | worst error |
+|---|---|---|
+| near `2^-969`, scaled | 20000/20000 | 2.06 u² |
+| very small, scaled | 20000/20000 | 1.63 u² |
+
+Searched over 300000 numbers: for `x` at or above `2^-969` the guard never
+failed at all, and for `x` below it one scaling was always enough. The way
+back down is tested rather than argued, as the halving is — scaling up cannot
+lose digits, scaling down can — and so is the pair being made of numbers,
+which no comparison says, since an infinity is above every line.
+
+**What it is worth, on `sqrt(2^-1060)`:**
+
+| | the bracket | seconds per 100000 |
+|---|---|---|
+| the residual, as it was | `2^-8.4` wide | 6.1 |
+| taken up and brought back | `2^-101` wide | 1.9 |
+
+Eight bits against a hundred and one, and three times quicker. The residual
+is still behind both, so the operation stays total, but nothing measured
+reaches it any more.
 
 **The module meets the signature.** All 32 obligations are proved and the
 check is in the build:

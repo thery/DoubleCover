@@ -443,20 +443,74 @@ case: x => xh xl.
 by rewrite /sqrtDwG /sqrtDw /sqrtOk divDwDw2GSE.
 Qed.
 
-(* And the root falls back on its residual in the same way, for the same      *)
-(* reason: the quotient inside it has the same range to keep.                 *)
+(* WHEN THE ROOT'S GUARD FAILS, THE NUMBER IS TAKEN UP AND THE ROOT BROUGHT   *)
+(* BACK DOWN.  The root of a number times four is twice the root of it, and   *)
+(* both scalings are by a power of two, so both are exact.  What makes the    *)
+(* guard fail is a number too small for the two-product inside the division   *)
+(* -- below two to the minus nine hundred and sixty-nine -- and a number that *)
+(* small taken up by two to the one thousand and seventy-four lands at or     *)
+(* above one, where every one of the four tests holds.  That is more than the *)
+(* whole range, so it is done in two steps.                                   *)
+(*                                                                            *)
+(* THE WAY BACK IS TESTED, as the halving is.  Scaling down can lose digits   *)
+(* at the bottom of the range; scaling up cannot, so a word that comes back   *)
+(* from its scaling scaled the other way is a word whose scaling was exact.   *)
+(* The root of a number is far above the bottom of the range -- no number     *)
+(* has a root below two to the minus five hundred and thirty-seven -- so the  *)
+(* test passes, but it is cheaper to make it than to prove it.                *)
+Definition dsqscale := Eval compute in 0x1p+537%float.
+Definition dsqscaleI := Eval compute in 0x1p-537%float.
+
+Definition scaleDw (d : dwfloat) (f : float) :=
+  let: DWFloat a b := d in DWFloat (a * f) (b * f).
+
+(* And that the four words are numbers at all, which no comparison says: an   *)
+(* infinity is above every line.  A number less itself is nought, and         *)
+(* nothing else is.                                                           *)
+Definition finOk (d : dwfloat) :=
+  let: DWFloat a b := d in ((a - a =? 0) && (b - b =? 0))%float.
+
+Definition scaleDnOk (d : dwfloat) :=
+  let: DWFloat a b := d in
+  (((a * dsqscaleI) * dsqscale =? a) &&
+   ((b * dsqscaleI) * dsqscale =? b))%float.
+
+(* And the residual is still behind both, so the operation stays total.       *)
 Definition sqrtDwUpK (x : dwfloat) :=
-  let: (q, ok) := sqrtDwG x in if ok then shiftUp q else sqrtDwUp x.
+  let: (q, ok) := sqrtDwG x in
+  if ok then shiftUp q else
+  let: xs := scaleDw (scaleDw x dsqscale) dsqscale in
+  let: (qs, oks) := sqrtDwG xs in
+  if oks && finOk xs && wellFormed xs && scaleDnOk (shiftUp qs)
+  then scaleDw (shiftUp qs) dsqscaleI else sqrtDwUp x.
+
 Definition sqrtDwDnK (x : dwfloat) :=
-  let: (q, ok) := sqrtDwG x in if ok then shiftDn q else sqrtDwDn x.
+  let: (q, ok) := sqrtDwG x in
+  if ok then shiftDn q else
+  let: xs := scaleDw (scaleDw x dsqscale) dsqscale in
+  let: (qs, oks) := sqrtDwG xs in
+  if oks && finOk xs && wellFormed xs && scaleDnOk (shiftDn qs)
+  then scaleDw (shiftDn qs) dsqscaleI else sqrtDwDn x.
+
+Notation Dsqup x := (scaleDw (scaleDw x dsqscale) dsqscale).
 
 Lemma sqrtDwUpKE x :
-  sqrtDwUpK x = if sqrtOk x then shiftUp (sqrtDw x) else sqrtDwUp x.
-Proof. by rewrite /sqrtDwUpK sqrtDwGE. Qed.
+  sqrtDwUpK x =
+  if sqrtOk x then shiftUp (sqrtDw x)
+  else if sqrtOk (Dsqup x) && finOk (Dsqup x) && wellFormed (Dsqup x) &&
+               scaleDnOk (shiftUp (sqrtDw (Dsqup x)))
+       then scaleDw (shiftUp (sqrtDw (Dsqup x))) dsqscaleI
+       else sqrtDwUp x.
+Proof. by rewrite /sqrtDwUpK !sqrtDwGE. Qed.
 
 Lemma sqrtDwDnKE x :
-  sqrtDwDnK x = if sqrtOk x then shiftDn (sqrtDw x) else sqrtDwDn x.
-Proof. by rewrite /sqrtDwDnK sqrtDwGE. Qed.
+  sqrtDwDnK x =
+  if sqrtOk x then shiftDn (sqrtDw x)
+  else if sqrtOk (Dsqup x) && finOk (Dsqup x) && wellFormed (Dsqup x) &&
+               scaleDnOk (shiftDn (sqrtDw (Dsqup x)))
+       then scaleDw (shiftDn (sqrtDw (Dsqup x))) dsqscaleI
+       else sqrtDwDn x.
+Proof. by rewrite /sqrtDwDnK !sqrtDwGE. Qed.
 
 Compute addDwUp (DWFloat 20000000000000004 (-1.75))
                 (DWFloat 20000000000000004 (-1.75)).
