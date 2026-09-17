@@ -791,8 +791,7 @@ of them is enough.
 
 The superflip is unchanged by all 48. So the six faces are the same for the
 search, and so are a turn and its inverse. We take the top face, arbitrarily,
-so our two first moves are $U$ and $U^2$. A position with no symmetry has
-nothing to gain here.
+so our two first moves are $U$ and $U^2$.
 
 The two ideas collide at the second move. The first would drop the three turns
 of the bottom face, since $U D$ and $D U$ are the same position. But symmetry
