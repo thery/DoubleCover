@@ -810,8 +810,8 @@ out only when the cut had to be proved in Rocq, and the proof could not be
 written. A cut that is too greedy does not make a search fail. It makes it
 faster, and it makes it agree with you.
 
-The thirty are packed into *seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"), one per second
-move. The two whose second move turns the bottom face keep fifteen branches
+The thirty are packed into *seventeen files*, #src("Runp1_03.v") to
+#src("Runp1_17.v"), one per second move. The two whose second move turns the bottom face keep fifteen branches
 where the others keep twelve, so they run far longer; each is split in two, and
 the rest of the run does not wait for them.
 
