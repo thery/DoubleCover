@@ -63,9 +63,19 @@ Definition plusDwDwErr (x y : dwfloat) :=
 (* last twoSum is exact too.  So the only thing that can miss is the adding   *)
 (* of the three small ones, and adding them upwards settles that.  Nothing    *)
 (* is estimated and no error bound is needed.                                 *)
+(*                                                                            *)
+(* WHEN BOTH LOW WORDS ARE NOUGHT THE SUM IS EXACT, and the first line says   *)
+(* so.  The twoSum of the two high words is the whole answer then, and the    *)
+(* widening step is not just needless but harmful: `next_up' of nought is     *)
+(* the smallest number there is, so the answer would carry a subnormal low    *)
+(* word where the true low word is nought.  Divide by such a pair and the     *)
+(* division's guard fails on `yl * t' at once -- which is what it cost.  The  *)
+(* line is also the cheaper of the two, since it leaves out the second        *)
+(* twoSum, the two widening steps and the last twoSum.                        *)
 Definition addDwUp (x y : dwfloat) :=
   let: DWFloat xh xl := x in
   let: DWFloat yh yl := y in
+  if ((xl =? 0) && (yl =? 0))%float then twoSum xh yh else
   let: DWFloat sh sl := twoSum xh yh in
   let: DWFloat th tl := twoSum xl yl in
   twoSum sh (addUpFp (addUpFp sl th) tl).
@@ -73,6 +83,7 @@ Definition addDwUp (x y : dwfloat) :=
 Definition addDwDn (x y : dwfloat) :=
   let: DWFloat xh xl := x in
   let: DWFloat yh yl := y in
+  if ((xl =? 0) && (yl =? 0))%float then twoSum xh yh else
   let: DWFloat sh sl := twoSum xh yh in
   let: DWFloat th tl := twoSum xl yl in
   twoSum sh (addDnFp (addDnFp sl th) tl).
@@ -82,6 +93,14 @@ Definition negDw d := let: DWFloat xh xl := d in DWFloat (- xh) (- xl).
 
 Definition subDwUp x y := addDwUp x (negDw y).
 Definition subDwDn x y := addDwDn x (negDw y).
+
+(* Two lines on the range.  Two to the minus one thousand and twenty-two is   *)
+(* the smallest normal number; two to the minus nine hundred and sixty-nine   *)
+(* is where the two-product stops being exact.  Both are used twice below:    *)
+(* by the products, to know when nothing has to be added for what the         *)
+(* two-product may have missed, and by the division's guard.                  *)
+Definition dnorm := Eval compute in 0x1p-1022%float.
+Definition dprodlo := Eval compute in 0x1p-969%float.
 
 (* Four times the smallest number there is.  The two-product can miss the     *)
 (* product it is given, but never by more than three and a half of those,     *)
@@ -94,10 +113,20 @@ Definition deps := Eval compute in 0x1p-1072%float.
 (* or above the piece it stands for.  Adding them upwards, and the step       *)
 (* above for what the two-product may have missed, keeps that true, and       *)
 (* the last twoSum changes no value.  Nothing is estimated.                   *)
+(*                                                                            *)
+(* AND WHEN BOTH LOW WORDS ARE NOUGHT AND THE TWO-PRODUCT IS EXACT, so is     *)
+(* the product, and the first line says so.  The two-product is exact above   *)
+(* `dprodlo', which is what the third test asks of its high word, and then    *)
+(* the pair it returns adds up to the product outright.  Without this line    *)
+(* `mulDwUp (DWFloat 1 0) (DWFloat 1 0)' comes back with a low word of        *)
+(* eleven of the smallest numbers there are, all of it `next_up' noise, and   *)
+(* a pair like that fails the division's guard on `yl * t'.                   *)
 Definition mulDwUp (x y : dwfloat) :=
   let: DWFloat xh xl := x in
   let: DWFloat yh yl := y in
   let: DWFloat ch cl := twoProd xh yh in
+  if ((xl =? 0) && (yl =? 0) && (dprodlo <? abs ch))%float then DWFloat ch cl
+  else
   twoSum ch (addUpFp (addUpFp (addUpFp cl (mulUpFp xh yl))
                               (addUpFp (mulUpFp xl yh) (mulUpFp xl yl)))
                      deps).
@@ -106,6 +135,8 @@ Definition mulDwDn (x y : dwfloat) :=
   let: DWFloat xh xl := x in
   let: DWFloat yh yl := y in
   let: DWFloat ch cl := twoProd xh yh in
+  if ((xl =? 0) && (yl =? 0) && (dprodlo <? abs ch))%float then DWFloat ch cl
+  else
   twoSum ch (addDnFp (addDnFp (addDnFp cl (mulDnFp xh yl))
                               (addDnFp (mulDnFp xl yh) (mulDnFp xl yl)))
                      (- deps)).
@@ -217,11 +248,9 @@ Definition shiftDn d := widenDn d (dstep d).
 (* again.  Both formats round nought to nought, so nought serves as well as   *)
 (* being normal, and the test says so.                                        *)
 (*                                                                            *)
-(* The lines: two to the minus one thousand and twenty-two is the smallest    *)
-(* normal number, and two to the minus nine hundred and sixty-nine is where   *)
-(* the two-product stops being exact.                                         *)
-Definition dnorm := Eval compute in 0x1p-1022%float.
-Definition dprodlo := Eval compute in 0x1p-969%float.
+(* The lines are `dnorm' and `dprodlo' above: two to the minus one thousand   *)
+(* and twenty-two is the smallest normal number, and two to the minus nine    *)
+(* hundred and sixty-nine is where the two-product stops being exact.         *)
 
 (* The test on its own, for the proof to read.  The operation does not use    *)
 (* this one: it would compute the division a second time.                     *)

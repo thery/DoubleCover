@@ -317,7 +317,7 @@ algorithms and their bounds.
 | `dwbridge.v` | primitive floats as reals: `D2R`, `Dfin`, and each operation |
 | `dwarith.v` | the algorithms themselves, on floats, with nothing proved |
 | `dwtwosum.v` | `twoSum` and `fastTwoSum`, the error-free sums, on the reals |
-| `dwprod.v` | the two-product, handed to Flocq's own Dekker theorem |
+| `dwprod.v` | the two-product: its error, and where it has none |
 | `dw_updn.v` | the directed operations: the widening steps and the algorithms |
 | `dwbound.v` | the bounds themselves, from the steps up to `divDwUp_geP` |
 | `dwdivflx.v` | the quotient carried from the paper's format down to the program |
@@ -394,96 +394,107 @@ anything. Measured on this machine, two runs each, seconds:
 
 | goal | bigints | double words |
 |---|---|---|
-| `method_error`, `i_prec 80` | 5.83 | 1.42 |
-| `cancellation`, `i_depth 20`, `i_prec 60` | 77.6 | 40.7 |
-| `int_range`, `integral` | 2.87 | 2.89 |
+| `method_error`, `i_prec 80` | 5.83 | 1.24 |
+| `cancellation`, `i_depth 20`, `i_prec 60` | 76.2 | 23.3 |
+| `int_range`, `integral` | 2.92 | 2.85 |
 | `int_infinite`, `integral` | 0.35 | 0.34 |
-| `exp_table`, `i_prec 61` × 64 | 4.21 | 3.82 |
+| `exp_table`, `i_prec 61` × 64 | 4.20 | 3.77 |
 
-About four times quicker on a Taylor model at eighty bits, about twice on a
-bisection run twenty deep at sixty, and level on the other three. The gain is
+About five times quicker on a Taylor model at eighty bits, about three times
+on a bisection run twenty deep at sixty, and level on the other three. The gain is
 not a property of the arithmetic on its own — it is where the tactic spends its
 time. The full table, and the four goals that are too light to measure, are in
 the file.
 
-## What proving the division cost
+## What the division's guard cost, and how it was paid
 
 The `cancellation` row above used to read 24.6 seconds, when `div_UP` and
 `div_DN` were bounded by the shift with **no guard and no proof**. Proving them
-put a guard on the shift and a residual behind it, and that goal is now 42.9.
-Measured, on that one goal:
+put a guard on the shift and a residual behind it, and the goal went to 42.9.
 
 | | seconds |
 |---|---|
-| shift always, unproved (what it was) | 24.6 |
+| shift always, unproved | 24.6 |
 | guard, and the shift taken | 26.2 |
-| guard, and the residual behind it (what it is) | 42.9 |
+| guard, and the residual behind it | 42.9 |
+| **the same, with the arithmetic mended** | **23.3** |
 
-**The guard is cheap and the fallback is not.** Testing costs 7%; taking the
-residual costs 68%, because it is ten times a division and it is taken often.
+**The guard is cheap and the fallback is not.** Testing cost 7%; taking the
+residual cost 68%, because it is ten times a division and it was taken often.
 
-**One condition accounts for all of it.** Dropping the test on `yl * t` alone
-brings the goal back to about 26 seconds; dropping the test on `d / yh` changes
-nothing. The divisor's low word times the quotient lands in the subnormal range
-whenever the divisor is *nearly* a single float — its low word tiny but not
-nought — and a computed divisor is very often exactly that.
+**One condition accounted for all of it.** Dropping the test on `yl * t` alone
+brought the goal back to about 26 seconds; dropping the test on `d / yh`
+changed nothing. The divisor's low word times the quotient lands in the
+subnormal range whenever the divisor is *nearly* a single float — its low word
+tiny but not nought.
 
-**The shift on its own is not merely unproved — it is wrong.** Searched in
-exact arithmetic over four hundred thousand pairs, it undershoots. One pair:
-
-```coq
-Definition x := DWFloat 0x1.ccb1c51605c7bp-1015 0.
-Definition y := DWFloat 0x1.f037afc089e2ap-34 0x1.13550516ac418p-140.
-Compute shiftUp (divDwDw2 x y).   (* what the shift alone answers *)
-  = DWFloat 4.5427109195501472e-296 1.4012717105642807e-312
-```
-
-The true quotient is larger than that by `3.5e-314`, so the *upper* bound is
-below the value — about seven million of the smallest numbers there are. The
-reason is plain once seen: the quotient is near `2^-982`, so its low word is
-subnormal and holds eleven bits instead of fifty-three. The pair carries
-sixty-four bits, not a hundred and six, and a step of sixteen units in the last
-place of *that* low word is nowhere near the error. The `dnormLo` branch the
-step used to have does not save it either — the same search finds
-counterexamples for that rule too.
-
-So the guard is not protecting against a hypothetical, and `divOk` refuses this
-pair, and the residual answers `2.6711741982542052e-312`, which is above the
-true value.
-
-**And the arithmetic trips it itself.** When a product or a sum comes out
-exact, the only thing left in the low word is the widening step — `deps`, or
-one `next_up` — and that is a subnormal:
+**And the arithmetic was making such divisors itself.** When a product or a
+sum came out exact, the only thing left in the low word was the widening step
+— `deps`, or one `next_up` — and that is a subnormal:
 
 ```coq
-Compute mulDwUp (DWFloat 1 0) (DWFloat 1 0).
+Compute mulDwUp (DWFloat 1 0) (DWFloat 1 0).   (* as it was *)
   = DWFloat 1 5.434722104253712e-323
 Compute addDwUp (DWFloat 1 0) (DWFloat 1 0).
   = DWFloat 2 9.8813129168249309e-324
 ```
 
-Divide by such a double word and `yl * t` is subnormal at once. Integers,
-powers of two and factorials are what a series divides by, so it happens
-constantly.
+The value is exactly 1, and exactly 2. The low word is nothing but noise, and
+divide by such a pair and `yl * t` is subnormal at once. Integers, powers of
+two and factorials are what a series divides by, so it happened constantly.
 
-**And that condition is the one least worth having.** What it is there for is
-that the two formats round `yl * t` alike. Where it fails they differ by at most
-`2^-1074`, which against a step of `16 u^2` times the answer is nothing at all.
-Relaxing it means proving the paper's theorem stable under a perturbation of
-that size in one of its steps — `divDwDw2_FLX` would state a bound where it now
-states an equality — which the paper does not give.
+**So the sum and the product now answer at once when the answer is exact.**
+Both low words nought, and for the product the two-product above `dprodlo` as
+well, and the pair is returned unchanged:
 
-**The two conditions that cost nothing are the two that catch it.** In the
-counterexample above `|xh|` is `2^-1015`, far below the `2^-969` the
-two-product asks for, so the `dprodlo` test refuses it whatever happens to
-`yl * t`. Dropping the `yl * t` condition would therefore not let it through —
-and dropping it is what brings the goal back to twenty-six seconds.
+```coq
+Compute mulDwUp (DWFloat 1 0) (DWFloat 1 0).   (* as it is *)
+  = DWFloat 1 0
+Compute addDwUp (DWFloat 1 0) (DWFloat 1 0).
+  = DWFloat 2 0
+```
 
-**The arithmetic of that relaxation works out, with room.** A disagreement of
-`2^-1074` in `cl2` travels through the remaining steps unchanged until the last
-division by `yh`, where it becomes `2^-1074 / |yh|`. Against the step, which is
-`16 u^2` times the answer, that asks for `|x| >= 2^-972` — and the guard
-already asks `|x| >= 2^-969` for the two-product. So the condition can go, and
-what it costs is the eight roundings of `divDwDw2_FLX` restated as a bound
-instead of an equality. Until that is done the choice is the honest one: proved
-at 42.9, or unproved at 24.6.
+Then the divisor's low word is nought, `divOk` passes on its own escape, and
+the residual is not taken. The division's proof did not change at all.
+
+**The line costs two comparisons, and saves about fifteen operations.**
+Measured in Rocq's evaluator, 300000 calls each, seconds:
+
+| | old | new |
+|---|---|---|
+| `*`, both low words nought | 0.41 | 0.27 |
+| `+`, both low words nought | 0.24 | 0.12 |
+| `*`, low words not nought | 0.39 | 0.45 |
+| `+`, low words not nought | 0.21 | 0.25 |
+
+So about twice as quick where it fires and about 15% slower where it does not.
+On the five goals above the slower side does not show, and the quicker side is
+worth nineteen seconds.
+
+**The bounds are tighter as well**, which is the same thing said the other way:
+an exact product now has an exact answer, where before it carried eleven of the
+smallest numbers there are.
+
+## The relaxation that was not taken
+
+The other way out was to drop the `yl * t` test and prove the paper's theorem
+stable under the disagreement it hides. Where the test fails the two formats
+round `yl * t` differently, but by at most `2^-1074`, which looks like nothing
+against a step of `16 u^2` times the answer.
+
+**It is not nothing.** The disagreement does not travel unchanged: two steps
+later comes `tl2 = rnd(vl + cl1)`, where `2^-1074` is about one unit in the
+last place, so the two runs can part by a whole step. Run in exact arithmetic
+on the pairs the test refuses, with the other three conditions holding:
+
+| | worst |
+|---|---|
+| the program's own error | 3.05 u² |
+| the paper's error | 2.82 u² |
+| the two answers apart | 3.83 u² |
+
+The operation is right either way — both sit far below the paper's fifteen —
+but a *proof* would have to add the gap to the paper's bound, and the room
+between the paper's `15 u^2` and the shift's `16 u^2` is one. So the shift
+would have to go to `32 u^2`, which is one bit of the hundred and six. That is
+a real price, and the line in the sum and the product costs nothing like it.
