@@ -785,9 +785,9 @@ and fifteen are left. This is used from the third move on.
 
 The second idea is symmetry. A cube can be relabelled in 48 ways: any of the
 six faces to the top, each in four positions, and each of those seen in a
-mirror as well. A relabelling takes a word to another word of the same length. When the position
-searched is unchanged by it, the two words are worth the same and one of them
-is enough.
+mirror as well. A relabelling takes a word to another word of the same length.
+When the position searched is unchanged by it, the two words are worth the same
+and one of them is enough.
 
 The superflip is unchanged by all 48. So we need to explore only the turns of
 one face for the first move. We choose arbitrarily the top one. Furthermore,
