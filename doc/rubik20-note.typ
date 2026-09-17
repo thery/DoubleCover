@@ -784,7 +784,7 @@ already fixed to the top face, and turning the cube upside down takes $D U$ back
 to $U D$. So the bottom face stays and fifteen second moves are left. Reid meets
 the same case, keeps them as well, and cuts his *third* move instead.
 
-The work is then split at depth two. Two first moves times fifteen second moves
+The search is then parallelised at depth two. Two first moves times fifteen second moves
 is thirty *prefixes*, each searched on its own to depth 17, and they are packed
 into *seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"), one per second
 move. The two whose second move turns the bottom face keep fifteen branches
