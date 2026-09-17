@@ -60,8 +60,8 @@ Fixpoint vecSumAux (l : seq float) : seq float * float :=
   | [::]    => ([::], 0%float)
   | [:: x]  => ([::], x)
   | x :: l' => let: (es, s) := vecSumAux l' in
-               let: DWFloat si ei1 := twoSum x s in
-               (ei1 :: es, si)
+               let d := twoSum x s in
+               (dwlo d :: es, dwhi d)
   end.
 
 Definition vecSum (l : seq float) : seq float :=
@@ -72,10 +72,10 @@ Definition vecSum (l : seq float) : seq float :=
 Fixpoint vsebAux (eps : float) (l : seq float) : seq float :=
   match l with
   | [::]       => [:: eps]
-  | [:: elast] => let: DWFloat y0 y1 := twoSum eps elast in [:: y0; y1]
-  | e :: l'    => let: DWFloat r et := twoSum eps e in
-                  if (et =? 0)%float then vsebAux r l'
-                  else r :: vsebAux et l'
+  | [:: elast] => let d := twoSum eps elast in [:: dwhi d; dwlo d]
+  | e :: l'    => let d := twoSum eps e in
+                  if (dwlo d =? 0)%float then vsebAux (dwhi d) l'
+                  else dwhi d :: vsebAux (dwlo d) l'
   end.
 
 Definition vseb (l : seq float) : seq float :=
