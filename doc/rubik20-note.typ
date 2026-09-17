@@ -789,9 +789,10 @@ well. A relabelling takes a word to another word of the same length. When the
 position searched is unchanged by it, the two words are worth the same and one
 of them is enough.
 
-The superflip is unchanged by all 48. So the six faces are the same for the
-search, and so are a turn and its inverse. We take the top face, arbitrarily,
-so our two first moves are $U$ and $U^2$.
+The superflip is unchanged by all 48. So for the first move we need to try the
+turns of one face only, and we choose the top one, arbitrarily. By symmetry
+again, only $U$ and $U^2$ have to be tried: $U^(-1)$ is the mirror image of
+$U$.
 
 The two ideas collide at the second move. The first would drop the three turns
 of the bottom face, since $U D$ and $D U$ are the same position. But symmetry
