@@ -919,6 +919,23 @@ the symmetry of the three views, which put the same question to the same table
 three times; the fold puts the same question to a smaller table, and the
 estimate is unchanged.
 
+In the code the change is one definition. The lookup was
+
+```coq
+Definition Dp1i (tw x : int) : int := p1get (p1idx tw x).
+```
+
+and it became
+
+```coq
+Definition Dp1ri (tw r : int) : int :=
+  p1get (p1foldi (frep r) (twsym tw (fsym r))).
+```
+
+`frep r` is the family's representative, `fsym r` the symmetry that carries the
+value to it, and `twsym tw (fsym r)` the twist carried through that same
+symmetry. Three more reads at every lookup, into a table 15.73 times smaller.
+
 Symmetry-reduced tables are standard in cube solvers. What the development adds
 is a proof that the folded table still passes `D0` and `Dstep`, and that is all
 it has to prove: conditions demanding true distances would have required a
