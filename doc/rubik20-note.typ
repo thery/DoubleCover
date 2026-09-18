@@ -1073,6 +1073,18 @@ Proposition 2 of Reid's post.
   )
 ]
 
+In Rocq that is
+
+```coq
+Theorem prop2 (w : seq nat) : qw w -> wp w = P ->
+  (forall u, qw u -> wp u = P -> (seq.size w <= seq.size u)%N) ->
+  exists w', [/\ qw w', seq.size w' = seq.size w, wp w' = P & heads w'].
+```
+
+where `qw w` says that `w` is a word of quarter turns, `wp w` is the position
+it gives, `P` is Reid's position, and `heads w'` says that `w'` begins with one
+of the six. The third line is the hypothesis that `w` is as short as possible.
+
 The rewriting uses three operations that change neither the product nor the
 length: conjugation by one of the sixteen symmetries that fix the position,
 inversion, and cyclic shift with the letters that move to the end relabelled.
