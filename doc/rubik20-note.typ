@@ -831,17 +831,17 @@ From there on a position is 48 machine integers, a summary is two, and the phase
 1 table is an array of arrays, fifteen four-bit entries to a 63-bit machine
 integer. A Rocq array holds at most 4 194 303 entries, and the table needs far
 more, so it is cut into chunks of two million words and the chunk is found by
-shifting the word index. A function on a finite domain is
-tabulated rather than computed, the action of a move on a summary, the rank of a
-summary and the symmetry that the fold uses among them, and each of those tables
-is checked in Rocq like the table of distances. The search itself goes the same
-way: #src("Fast.v") holds it twice, `searchz3` on the objects of the last
-section and `searchz3n` on machine integers and arrays, and `searchz3nE` in
-#src("FastP.v") proves that the two answer alike, asking only that the depth fit
-in a machine integer, that the tables have passed their checks, and that the
-array be a well-formed position. Seven versions lie between the two ends, each
-proved equal to the one before, and together they are 11.9 times faster on one
-piece at depth 14.
+shifting the word index. A function on a finite domain is tabulated rather than
+computed, the action of a move on a summary, the rank of a summary and the
+symmetry that the fold uses among them, and each of those tables is checked in
+Rocq like the table of distances. The search itself goes the same way:
+#src("Fast.v") holds it twice, `searchz3` on the objects of the last section and
+`searchz3n` on machine integers and arrays, and `searchz3nE` in #src("FastP.v")
+proves that the two answer alike, asking only that the depth fit in a machine
+integer, that the tables have passed their checks, and that the array be a
+well-formed position. Seven versions lie between the two ends, each proved equal
+to the one before, and together they are 11.9 times faster on one piece at depth
+14.
 
 The superflip itself goes down that chain. As a permutation it is a product of
 twelve two-cycles, one for each flipped edge, $(1 thin 33)$, $(3 thin 9)$,
