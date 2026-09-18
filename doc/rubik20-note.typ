@@ -940,49 +940,33 @@ else: a search worker drops from 4.15 GB to *0.85 GB*, so all the pieces run at
 once instead of in two waves, and checking the table drops from about 5.4
 processor hours to *1.35*.
 
-= The development
+= The development and its cost
 
-The proof of the twenty is forty-six hand-written Rocq files. The cube and its
-symmetries are #src("Rubik333.v"), #src("Sym.v") and #src("Ball.v"); the
-abstract search and its contract #src("Search.v"), with #src("Coord.v") for the
-estimate and #src("Searchr.v") and #src("Redun.v") for the redundant moves; the
-representations #src("Table.v"), #src("Tabi.v") and #src("ssrint63.v"); the
-summary and its table #src("Coordfs.v"), #src("Fstab.v") and #src("Phase1.v");
-and the search on the real data #src("Farp1.v"), #src("Fast.v"), the seventeen
-pieces #src("Runp1_03.v") to #src("Runp1_17.v"), #src("Farp1inst.v") and
-#src("Diam20.v"). The sources carry their own #src("README.md"), which lists
-every file with what it does, the scripts beside them, and how to run the whole
-thing.
+The statement proved at the top of the chain is
 
-The *certificates* run the checks, each behind its own `Qed`:
-#src("FsmChk.v"), #src("FsrChk.v"), #src("SlrChk.v") and
-#src("P1TsChk.v") for the move and distance tables, #src("Farp1chk.v") for
-the shape of the main table, two more for the table itself, and the `Fold`
-group, #src("FoldOrbit_00.v") to `FoldOrbit_26.v`, for the folded one. Three
-files holding the numbers are kept out of the project file: they do not exist
-until the generator has run. Outside Rocq, `ocaml/rubik_par.ml` and
-`ocaml/rubik_lb.ml` are the reference implementation, whose node counts the
-Rocq search reproduces exactly, and `bench/p1gen.ml` generates the tables.
+```coq
+Theorem superflip_p1far_real : superflip \notin ball Sset p1depth.
+```
 
-#tbl(([], []),
-  ([hand-written Rocq, about the cube], [*45 files, 12 725 lines*]),
-  ([`ssrint63.v`, a general int63 toolbox], [1 308 lines]),
-  ([generated table sources, in the repository], [about 156 000 lines]),
-  ([generated table sources, too big to store], [about 165 MB of literals]),
-  ([OCaml reference programs and generators], [2 749 lines]),
-  ([build and run scripts], [1 031 lines]),
-)
+In words, the superflip is not within `p1depth` moves of the solved cube, where
+one script sets the depth before the run. It has *no hypotheses left*, and
+nothing in the chain is admitted: asking Rocq what the proof assumes reports
+only the primitives of its machine-integer and array interface. At depth 19 it
+says that the superflip cannot be solved in 19 moves, and two lines in
+#src("Diam20.v") turn that into *God's number $>= 20$*, after checking that the
+searches really were run at 19.
 
-The radius-19 search visits these positions, counted by the OCaml program.
-The Rocq search walks the same tree and reproduces the counts at the smaller
-depths, where counting is cheap. The tree grows by 12.22 from one level to the
-next, measured between depths 17 and 19.
-
-#tbl(([], [positions]),
-  ([the smallest piece, `Runp1_11b`], [5 575 767 076]),
-  ([the largest piece, `Runp1_10`], [10 554 835 820]),
-  ([*all seventeen*], [*146 065 078 152*]),
-)
+It is forty-six hand-written files, 12 725 lines about the cube and 1 308 more
+of machine-integer toolbox, beside 156 000 lines of generated tables in the
+repository and 165 MB of them too big to store. The cube and its symmetries are
+#src("Rubik333.v"), #src("Sym.v") and #src("Ball.v"), the abstract search
+#src("Search.v") and #src("Coord.v"), the representations #src("Table.v") and
+#src("Tabi.v"), the summary and its table #src("Coordfs.v") and
+#src("Phase1.v"), and the search on the real data #src("Farp1.v"),
+#src("Fast.v"), the seventeen pieces #src("Runp1_03.v") to #src("Runp1_17.v")
+and #src("Diam20.v"). The checks live in certificate files of their own, each
+behind its own `Qed`, and #src("README.md") lists everything with the scripts
+that run it.
 
 Building the tables costs the same whatever radius is searched afterwards.
 Measured end to end from a clean tree on the reference machine:
@@ -1001,24 +985,11 @@ The second line runs on one core, so more cores do not help. The first and
 fifth are mostly the OCaml compiler turning a table into native code, and
 together they take 100 of the 155 processor-minutes.
 
-= The theorem and its cost
-
-The statement proved at the top of the chain is
-
-```coq
-Theorem superflip_p1far_real : superflip \notin ball Sset p1depth.
-```
-
-In words, the superflip is not within `p1depth` moves of the solved cube, where
-one script sets the depth before the run. It has *no hypotheses left*, and
-nothing in the chain is admitted: asking Rocq what the proof assumes reports
-only the primitives of its machine-integer and array interface. At depth 19 it
-says that the superflip cannot be solved in 19 moves, and two lines in
-#src("Diam20.v") turn that into *God's number $>= 20$*, after checking that the
-searches really were run at 19.
-
-We measured the run twice on the reference machine, once before the fold and
-the two reductions and once after. It is the same theorem both times.
+The search itself visits 146 065 078 152 positions, from 5 575 767 076 in the
+smallest piece to 10 554 835 820 in the largest, and the tree grows by 12.22
+from one level to the next between depths 17 and 19. We measured the run twice,
+once before the fold and the two reductions and once after. It is the same
+theorem both times.
 
 #tbl(([radius 19, search depth 17], [before], [after]),
   ([pieces], [18], [*17*]),
