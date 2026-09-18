@@ -15,17 +15,17 @@ in `threewords/`.
 
 ## The state of it
 
-**The shape is checked; the arithmetic is being proved.** `tw_ops.v` builds a
+**The shape is checked and so is the arithmetic.** `tw_ops.v` builds a
 module `TwFloat` and the sealing at the bottom of that file,
 
 ```coq
 Module TwFloatCheck <: FloatOps := TwFloat.
 ```
 
-is what says it meets Interval's signature. Of its obligations all but three
-are proved, and four of those lean on one named, measured assumption each; the
-three left are the ones `tw_cmpbad.v` refutes. The list is at the top of the
-file.
+is what says it meets Interval's signature. **Every one of its obligations is
+proved**; nothing in it is `Admitted`. Four of them — the quotient and the
+root, each way — lean on one named, measured assumption each, and those two are
+the only things assumed anywhere. The list is at the top of the file.
 
 **The sum, the difference and the product are proved** — `add_UP_correct`,
 `add_DN_correct`, `sub_UP_correct`, `sub_DN_correct`, `mul_UP_correct`,
@@ -90,24 +90,76 @@ the first addition drops the second word, so the test is on the first and the
 third — and the third is at most a quarter of the first, so the leading word
 is above nought and with it the value.
 
-**Comparing on the words is wrong, and `tw_cmpbad.v` shows it.** `cmp` takes
-the leading word, and the next when the ones before agree. For two words that
-is sound: a double word rounds to its own leading word, rounding is monotone,
-so the leading words are in the order the values are. **A triple word does not
-round to its leading word.** Being one is two tests, each on a pair — the
-second word within half a step of the first, the third within half a step of
-the second — and together they do not say that the first plus the other two
-rounds back to the first. The smallest case is one, plus half a step of one,
-plus half a step of that: the first two are a tie and round down because one
-has an even last bit, and the third pushes the sum past the halfway point.
+**Comparing on the words is wrong, and `tw_cmpbad.v` shows it.** The obvious
+rule is the one two words use: take the leading word, and the next when the
+ones before agree. For two words that is sound — a double word rounds to its
+own leading word, rounding is monotone, so the leading words are in the order
+the values are. **A triple word does not round to its leading word.** Being one
+is two tests, each on a pair — the second word within half a step of the first,
+the third within half a step of the second — and together they do not say that
+the first plus the other two rounds back to the first. The smallest case is
+one, plus half a step of one, plus half a step of that: the first two are a tie
+and round down because one has an even last bit, and the third pushes the sum
+past the halfway point.
 
 `tw_cmpbad.v` gives two triple words whose leading words are in one order and
 whose values are in the other, and proves it — the two readings are computed
-exactly and compared as whole numbers. So `cmp_correct`, `min_correct` and
-`max_correct` are not waiting on a proof: they are false as `cmp` stands, and
-they are marked so where they are admitted. A comparison of three words has to
-read the value — the six words of the difference swept exactly, and the sign of
-what leads. Nothing else in the development depends on `cmp`.
+exactly and compared as whole numbers. It is on the build path so the rule
+cannot come back.
+
+**So `cmp` reads the value, and it reads it in two goes.** The value is read
+exactly and as a whole number: every binary64 number is a whole number times a
+power of two, Interval's own `toF` hands over both halves, three of them
+brought to a common power add as whole numbers, and two such compare as whole
+numbers. Nothing is rounded, so there is no error term and no range condition.
+
+**But reading the value is dear, so it is not done unless it has to be.**
+`Prim2SF` gets the mantissa out through `Uint63.to_Z`, which walks sixty-three
+bits one at a time — measured, **29 µs a float**, and a comparison reads six of
+them. Put in front of Interval's tactic that is not a slowdown but a stop. So
+the words are asked first, and they are allowed to answer only when they can
+prove it: are the three words the same, and do the leading words differ by more
+than the two tails can be worth? The second amount is not guessed, it is added
+up — the last two words of each, in absolute value, rounded up. When the gap
+clears it the order is settled whatever the tails are.
+
+Measured, per call:
+
+| | µs |
+|---|---|
+| double-word `cmp` | 0.36 |
+| triple-word, the words-only rule (wrong) | 0.66 |
+| triple-word, the cheap test — what nearly always fires | 1.50 |
+| triple-word, reading the value | 234 |
+
+**And the dear path is rare.** On forty thousand comparisons along a chain of
+computed values it never fired once. In `cancellation` — the most
+comparison-heavy goal in `bench_bands.v`, a deliberate `exp x - exp x` at
+bisection depth twenty — it fired about thirty thousand times out of some
+twenty-three million, **0.13%**, so the average is **1.80 µs**. What the whole
+goal costs, same machine, same session:
+
+| `cmp` | seconds |
+|---|---|
+| the words-only rule (wrong) | 191.7 |
+| cheap test, cheap fallback | 211.2 |
+| cheap test, exact fallback — what is in | **218.1** |
+
+So correctness costs **14% on the worst goal in the suite and nothing on any
+other** — the pi brackets are unchanged. Three quarters of that 14% is the
+cheap test itself, which fires on every call; only a quarter is the rare exact
+path. Against bignums, which is the comparison the tables here make, a
+triple-word `cmp` is **2.7x quicker at 107 bits**.
+
+The exact path could be made cheap rather than rare. `threewords/Nonoverlap.v`
+proves that for a P-nonoverlapping list the tail after the first term is at
+most `2u` of that term's `ufp` — so the sign of the sum is the sign of what
+leads it, and sweeping the six words of the difference would settle the order
+for about what an addition costs. What is missing is the bridge: that file is
+about Flocq reals, `twarith.v`'s `vseb` is about primitive floats, and the
+theorem that the sweep produces a non-overlapping list lives on the Flocq side
+too. It would remove the worst case; it would not help the average, which the
+cheap test already carries.
 
 **The bridge is `code/ddouble`'s, not a copy.** `dwbridge.v` says what one
 primitive float is as a real number and what one operation on it does, and
@@ -198,7 +250,7 @@ the test caught it.
 | `twarith.v` | the algorithms: the error-free transforms, the two sweeps, `sortMag`, `Merge`, and the operations rounded to nearest |
 | `tw_updn.v` | the directed operations: the widening steps and the up and down forms of each |
 | `tw_ops.v` | the interface: `TwFloat`, its obligations, and the sealing |
-| `tw_cmpbad.v` | the pair that shows `cmp` is wrong, and with it `min` and `max` |
+| `tw_cmpbad.v` | the pair that shows comparing on the words is wrong, and that `cmp` gets it right |
 | `test_pi.v` | a smoke test: pi by Machin, and what the interface's operations bracket |
 | `tw_unsafe.v` | `sensible_format := true` with `div2` admitted, so Interval's functors apply |
 | `threewords/` | the paper's development, copied untouched. Nothing on the build path depends on it |
@@ -281,10 +333,17 @@ actually holds, so this is a comparison at equal precision.
 
 | op | bignum 107 | bignum 159 | double words | triple words |
 |---|---|---|---|---|
-| add | 0.053 | 0.088 | **0.008** | 0.036 |
-| mul | 0.091 | 0.169 | **0.013** | 0.104 |
-| div | 0.247 | 0.924 | **0.016** | 0.133 |
-| sqrt | 0.025 | 0.046 | **0.002** | 0.018 |
+| add | 0.050 | 0.085 | **0.009** | 0.042 |
+| mul | 0.089 | 0.166 | **0.013** | 0.116 |
+| div | 0.272 | 0.884 | **0.018** | 0.135 |
+| sqrt | 0.025 | 0.046 | **0.003** | 0.014 |
+| cmp | 0.459 | 0.310 | **0.055** | 0.169 |
+
+Medians of three runs. The `cmp` row is a hundred thousand comparisons, not ten
+thousand: a comparison is far cheaper than an operation. It is the one row
+where the three-word column is not the slowest — against bignums at its own
+precision a triple-word comparison is 1.8x quicker, and 2.7x quicker than
+bignums at 107.
 
 Against bignums at the same precision, and both win on all four:
 
@@ -347,6 +406,12 @@ answer.
 | `method_error` | 80 | — | 5.824 | **1.575** | refused |
 | `poly_error` | 90 | — | 0.122 | **0.108** | 0.135 |
 | `cancellation`, depth 20 | 60 | — | 76.6 | **38.7** | 207.0 |
+
+The `cancellation` row predates the comparison being fixed. Re-measured on one
+machine in one session: 25.2 for double words, 191.7 for triple words with the
+old words-only rule, **218.1** with the comparison that is in — see the
+comparison section above for where the 14% goes. Every other row was unchanged
+by the fix.
 
 Three things to read off it. **Triple words are the only arithmetic that takes
 the 105- and 150-bit brackets at all**, and since the shift replaced the

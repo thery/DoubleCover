@@ -23,17 +23,19 @@ From dwarith Require Import dwbridge dwsign dwbound.
 (* of that kind is promised.  Every statement here is a bound.                *)
 (*                                                                            *)
 (* WHAT IS PROVED AND WHAT IS ASSUMED.  The module below meets the signature  *)
-(* - the sealing at the bottom of the file is what says so.  Of its           *)
-(* obligations all but three are proved.  Four of them - the quotient and     *)
-(* the root, each way - lean on ONE assumption each, `kstep_div` and          *)
-(* `kstep_sqrt` in `twpaper.v`, which say that the step the answer is widened *)
-(* by covers what the algorithm is out by.  Those two are MEASURED on random  *)
-(* triple words and not proved, and they are stated as assumptions in their   *)
-(* own right rather than left hiding inside the obligations, so that          *)
-(* `Print Assumptions` on anything reached through the quotient or the root   *)
-(* names them.  Everything between them and the obligations is proved.        *)
+(* - the sealing at the bottom of the file is what says so - and EVERY ONE OF *)
+(* ITS OBLIGATIONS IS PROVED.  Nothing here is `Admitted'.                    *)
 (*                                                                            *)
-(* PROVED so far: the reading (`zero_correct', `real_correct',                *)
+(* Four of them - the quotient and the root, each way - lean on ONE           *)
+(* assumption each, `kstep_div' and `kstep_sqrt' in `twpaper.v', which say    *)
+(* that the step the answer is widened by covers what the algorithm is out    *)
+(* by.  Those two are MEASURED on random triple words and not proved, and     *)
+(* they are stated as assumptions in their own right rather than left hiding  *)
+(* inside the obligations, so that `Print Assumptions' on anything reached    *)
+(* through the quotient or the root names them.  Everything between them and  *)
+(* the obligations is proved.  Nothing else in the file assumes anything.     *)
+(*                                                                            *)
+(* PROVED: the reading (`zero_correct', `real_correct',                       *)
 (* `fromZ_correct'); the six bounds on the sum, the difference and the        *)
 (* product -- `add/sub/mul _UP_correct' and `_DN_correct' -- which come from  *)
 (* `twbound.v' and take nothing from the three-word paper; the sign           *)
@@ -41,8 +43,11 @@ From dwarith Require Import dwbridge dwsign dwbound.
 (* (`pow2_UP_correct', `ZtoS_correct'); and a whole number as a triple word   *)
 (* (`fromZ_UP_correct', `fromZ_DN_correct'), where the two parts peeled off   *)
 (* are exact and only the last float carries a bound; the magnitude           *)
-(* (`mag_correct'); and rounding to a whole number either way                 *)
-(* (`nearbyint_UP_correct', `nearbyint_DN_correct').                          *)
+(* (`mag_correct'); rounding to a whole number either way                     *)
+(* (`nearbyint_UP_correct', `nearbyint_DN_correct'); and the comparison with  *)
+(* the two that rest on it (`cmp_correct', `min_correct', `max_correct'),     *)
+(* which read the VALUE and not the words - see the note on `cmp' below and   *)
+(* the pair in `tw_cmpbad.v'.                                                 *)
 (*                                                                            *)
 (* PROVED FROM ONE NAMED ASSUMPTION EACH: `div_UP_correct', `div_DN_correct', *)
 (* `sqrt_UP_correct' and `sqrt_DN_correct', from `kstep_div' and              *)
@@ -50,14 +55,7 @@ From dwarith Require Import dwbridge dwsign dwbound.
 (*                                                                            *)
 (* `div2_correct' and `midpoint_correct' are excused by                       *)
 (* `sensible_format = false' and say nothing.                                 *)
-(*                                                                            *)
-(* AND THREE THAT ARE NOT WAITING ON A PROOF BUT ON A DEFINITION.             *)
-(* `cmp_correct', `min_correct' and `max_correct' are FALSE as `cmp' stands,  *)
-(* and `tw_cmpbad.v' shows it: two triple words whose leading words are in    *)
-(* one order and whose values are in the other.  A triple word does not round *)
-(* to its leading word - that is what separates it from a double word, where  *)
-(* comparing on the words is sound - so `cmp' has to read the value.  Nothing *)
-(* else in this file depends on the three.                                    *)
+
 
 Module TwFloat.
 
@@ -171,15 +169,89 @@ Definition mag x :=
 Definition valid_ub x := match classify x with Fminfty => false | _ => true end.
 Definition valid_lb x := match classify x with Fpinfty => false | _ => true end.
 
-(* Three words compare on the leading word, and on the next when the ones     *)
-(* before agree.  Anything that is not a real number compares to nothing.     *)
+(* COMPARING THREE WORDS ON THEIR WORDS IS WRONG, so this does not do that.   *)
+(* A double word rounds to its leading word, so for two words the leading     *)
+(* words are in the order the values are, and comparing on the words is       *)
+(* sound.  A TRIPLE WORD DOES NOT ROUND TO ITS LEADING WORD -- being one is   *)
+(* two tests, each on a pair, and the two together do not give the three-way  *)
+(* statement -- and `tw_cmpbad.v' has the pair that shows what goes wrong:    *)
+(* the smaller leading word on the larger value.  So the words are no use     *)
+(* and the VALUE has to be read.                                             *)
 (*                                                                            *)
-(* AND THIS IS WRONG.  `tw_cmpbad.v' has the pair that shows it: the leading  *)
-(* word does not decide the order, because a triple word does not round back  *)
-(* to its leading word.  For two words it does, which is why the same         *)
-(* definition is sound there.  What is wanted here is the sign of the         *)
-(* difference, swept exactly over the six words.  Left as it is for now, and  *)
-(* the three obligations that rest on it stay admitted and are marked false.  *)
+(* It is read exactly, and as a whole number.  Every binary64 number is a     *)
+(* whole number times a power of two, and Interval's own `toF' hands over     *)
+(* both halves; three of them brought to a common power of two add as whole   *)
+(* numbers, and two such are compared as whole numbers.  Nothing is rounded   *)
+(* anywhere, so there is no error term to bound and no range condition to     *)
+(* test -- which is what the six-word sweep would have cost, since the sign   *)
+(* of a swept sum is the sign of what leads it only once the sweep is known   *)
+(* to separate its terms, and that is the paper's analysis all over again.    *)
+(*                                                                            *)
+(* The numbers are as wide as the exponent range, so a little over two        *)
+(* thousand bits in the worst case and far less in the ordinary one.  The     *)
+(* cost is measured in `bench_ops.v'.                                         *)
+
+(* One float as a whole number times a power of two.  A float that is not a   *)
+(* number does not reach here: the callers test `real' first.                 *)
+Definition fZ (f : PrimFloat.float) : Z * Z :=
+  match PrimitiveFloat.toF f with
+  | Basic.Float s m e => (SpecFloat.cond_Zopp s (Zpos m), e)
+  | _ => (0%Z, 0%Z)
+  end.
+
+(* And a triple word the same way: the three brought down to the smallest of  *)
+(* the three powers, where they add as whole numbers.                         *)
+Definition twZ (t : twfloat) : Z * Z :=
+  let: (m0, e0) := fZ (tw0 t) in
+  let: (m1, e1) := fZ (tw1 t) in
+  let: (m2, e2) := fZ (tw2 t) in
+  let e := Z.min e0 (Z.min e1 e2) in
+  ((Z.shiftl m0 (e0 - e) + Z.shiftl m1 (e1 - e) + Z.shiftl m2 (e2 - e))%Z, e).
+
+Definition cmpZ (t u : twfloat) : comparison :=
+  let: (a, ea) := twZ t in
+  let: (b, eb) := twZ u in
+  let e := Z.min ea eb in
+  Z.compare (Z.shiftl a (ea - e)) (Z.shiftl b (eb - e)).
+
+(* AND READING THE VALUE IS DEAR, so it is not done unless it has to be.      *)
+(* `Prim2SF' takes a float apart into a whole number and a power of two, and  *)
+(* the whole number comes out of `Uint63.to_Z', which walks sixty-three bits  *)
+(* one at a time -- measured, twenty-three microseconds a float, so six of    *)
+(* them is a fifth of a millisecond a comparison.  Put in front of Interval's *)
+(* tactic that is not a slowdown but a stop.                                  *)
+(*                                                                            *)
+(* So the words are asked first, and they are allowed to answer only when     *)
+(* they can prove it.  Two questions, both in floats:                         *)
+(*                                                                            *)
+(*   are the three words the same?              then the values are the same  *)
+(*   do the leading words differ by more than   then the leading words decide *)
+(*     the two tails can be worth?                                            *)
+(*                                                                            *)
+(* The second is what a triple word does NOT give for nothing -- that is      *)
+(* `tw_cmpbad.v' -- so the amount is not guessed, it is added up: the last    *)
+(* two words of each, in absolute value, rounded up.  When the gap clears     *)
+(* that, the order is settled whatever the tails are.  Otherwise the answer   *)
+(* is `Xund', which here means NOT DECIDED rather than not a number, and the  *)
+(* whole number is built after all.                                           *)
+(*                                                                            *)
+(* What is left for the dear path is two values within a step of one another  *)
+(* without being the same, which is rare and is the only case where the       *)
+(* words genuinely say nothing.                                               *)
+Definition tailUp (t : twfloat) :=
+  addUpFp (PrimFloat.abs (tw1 t)) (PrimFloat.abs (tw2 t)).
+Definition tailBoth (x y : twfloat) := addUpFp (tailUp x) (tailUp y).
+
+(* The band is passed in rather than written twice, so it is added up once.   *)
+Definition cmpBand (s : PrimFloat.float) (x y : twfloat) : Xcomparison :=
+  if posFp (subDnFp (subDnFp (tw0 x) (tw0 y)) s) then Xgt
+  else if posFp (subDnFp (- subUpFp (tw0 x) (tw0 y))%float s) then Xlt
+  else Xund.
+
+Definition cmpFast (x y : twfloat) : Xcomparison :=
+  if ((tw0 x =? tw0 y) && (tw1 x =? tw1 y) && (tw2 x =? tw2 y))%float then Xeq
+  else cmpBand (tailBoth x y) x y.
+
 Definition cmp x y :=
   match classify x, classify y with
   | Sig.Fnan, _ | _, Sig.Fnan => Xund
@@ -190,12 +262,8 @@ Definition cmp x y :=
   | _, Fpinfty => Xlt
   | Fpinfty, _ => Xgt
   | Freal, Freal =>
-    match PrimitiveFloat.cmp (tw0 x) (tw0 y) with
-    | Xeq =>
-      match PrimitiveFloat.cmp (tw1 x) (tw1 y) with
-      | Xeq => PrimitiveFloat.cmp (tw2 x) (tw2 y)
-      | c => c
-      end
+    match cmpFast x y with
+    | Xund => match cmpZ x y with Eq => Xeq | Lt => Xlt | Gt => Xgt end
     | c => c
     end
   end.
@@ -1015,6 +1083,154 @@ rewrite /guard Rn Hneg (toX_real _ Rx) /=.
 by congr Xreal; rewrite Rabs_left1; [ring | move: (Hn E) Hle; split_Rabs; lra].
 Qed.
 
+(* ---------------------------------------------------------------------------*)
+(*  The value read exactly, as a whole number times a power of two            *)
+(* ---------------------------------------------------------------------------*)
+
+(* Bringing a whole number down to a smaller power of two is a shift, and a   *)
+(* shift is a multiplication.                                                 *)
+Lemma shiftl_bpow m k e : (0 <= k)%Z ->
+  (IZR (Z.shiftl m k) * bpow radix2 e = IZR m * bpow radix2 (k + e))%R.
+Proof.
+move=> Hk; rewrite Z.shiftl_mul_pow2 // mult_IZR (IZR_Zpower radix2 _ Hk).
+by rewrite bpow_plus; ring.
+Qed.
+
+(* A float that is a number is the whole number `fZ' gives times the power    *)
+(* `fZ' gives, and exactly so.                                                *)
+Lemma fZ_val f : Dfin f ->
+  (IZR (fst (fZ f)) * bpow radix2 (snd (fZ f)) = D2R f)%R.
+Proof.
+move=> Ff; have := toXE _ Ff; rewrite -/(PrimitiveFloat.toX f) /PrimitiveFloat.toX.
+rewrite /fZ; case: (PrimitiveFloat.toF f) => [|| s m e] //=.
+  by case=> <-; rewrite /=; ring.
+by rewrite FtoR_split /F2R /=; case=> <-.
+Qed.
+
+(* And a triple word is the sum of its three, brought to the smallest of the  *)
+(* three powers, where they add as whole numbers.                             *)
+Lemma twZ_val t : finL (tw2l t) ->
+  (IZR (fst (twZ t)) * bpow radix2 (snd (twZ t)) = twval t)%R.
+Proof.
+case: t => x0 x1 x2 [F0 [F1 [F2 _]]].
+have V0 := fZ_val _ F0; have V1 := fZ_val _ F1; have V2 := fZ_val _ F2.
+rewrite /twZ /twval /=.
+case: (fZ x0) V0 => m0 e0 V0; case: (fZ x1) V1 => m1 e1 V1.
+case: (fZ x2) V2 => m2 e2 V2 /=.
+set e := Z.min e0 (Z.min e1 e2).
+have H0 : (0 <= e0 - e)%Z by rewrite /e; have := Z.le_min_l e0 (Z.min e1 e2); lia.
+have H1 : (0 <= e1 - e)%Z.
+  rewrite /e; have := Z.le_min_r e0 (Z.min e1 e2).
+  by have := Z.le_min_l e1 e2; lia.
+have H2 : (0 <= e2 - e)%Z.
+  rewrite /e; have := Z.le_min_r e0 (Z.min e1 e2).
+  by have := Z.le_min_r e1 e2; lia.
+rewrite !plus_IZR !Rmult_plus_distr_r.
+rewrite (shiftl_bpow _ _ _ H0) (shiftl_bpow _ _ _ H1) (shiftl_bpow _ _ _ H2).
+have -> : (e0 - e + e = e0)%Z by lia.
+have -> : (e1 - e + e = e1)%Z by lia.
+have -> : (e2 - e + e = e2)%Z by lia.
+by rewrite V0 V1 V2.
+Qed.
+
+(* So two triple words compare as the two whole numbers do, and that is the   *)
+(* order of the values with nothing rounded and nothing assumed.              *)
+Lemma cmpZ_correct t u : finL (tw2l t) -> finL (tw2l u) ->
+  cmpZ t u = Rcompare (twval t) (twval u).
+Proof.
+move=> Ft Fu; have Vt := twZ_val _ Ft; have Vu := twZ_val _ Fu.
+rewrite /cmpZ.
+case: (twZ t) Vt => a ea Vt; case: (twZ u) Vu => b eb Vu /=.
+set e := Z.min ea eb.
+have Ha : (0 <= ea - e)%Z by rewrite /e; have := Z.le_min_l ea eb; lia.
+have Hb : (0 <= eb - e)%Z by rewrite /e; have := Z.le_min_r ea eb; lia.
+have He : forall m k, (0 <= k)%Z ->
+    (IZR m * bpow radix2 (k + e) = IZR (Z.shiftl m k) * bpow radix2 e)%R.
+  by move=> m k Hk; rewrite (shiftl_bpow _ _ _ Hk).
+rewrite -Vt -Vu /=.
+have -> : (IZR a * bpow radix2 ea = IZR (Z.shiftl a (ea - e)) * bpow radix2 e)%R.
+  by rewrite -(He a _ Ha); congr (IZR a * bpow radix2 _)%R; lia.
+have -> : (IZR b * bpow radix2 eb = IZR (Z.shiftl b (eb - e)) * bpow radix2 e)%R.
+  by rewrite -(He b _ Hb); congr (IZR b * bpow radix2 _)%R; lia.
+by rewrite (Rcompare_mult_r _ _ _ (bpow_gt_0 radix2 e)) Rcompare_IZR.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  And what the cheap test is worth when it answers                          *)
+(* ---------------------------------------------------------------------------*)
+
+(* Two floats that compare equal and are both numbers stand for the same      *)
+(* number.                                                                    *)
+Lemma Deqb a b : (a =? b)%float = true -> Dfin a -> Dfin b -> D2R a = D2R b.
+Proof.
+rewrite eqb_equiv /Dfin /D2R => H Fa Fb.
+by move: H; rewrite (Beqb_correct _ _ _ _ Fa Fb); case: Req_bool_spec.
+Qed.
+
+(* What the last two words can be worth, rounded up, is at or above what      *)
+(* they are worth.                                                            *)
+Lemma tailUp_ge t : Dfin (tailUp t) ->
+  (Rabs (D2R (tw1 t) + D2R (tw2 t)) <= D2R (tailUp t))%R.
+Proof.
+move=> Fu; rewrite /tailUp in Fu *.
+have Fs := Dfin_upI _ _ Fu.
+have [F1 F2] := Dfin_addI _ _ Fs.
+have H := addUpFp_ge _ _ F1 F2 Fs Fu.
+rewrite !D2R_abs in H.
+have T := Rabs_triang (D2R (tw1 t)) (D2R (tw2 t)).
+by lra.
+Qed.
+
+(* WHEN THE CHEAP TEST ANSWERS IT IS RIGHT, and `Xund' is it declining to     *)
+(* answer rather than saying anything about the two.                          *)
+Lemma cmpFast_correct x y : finL (tw2l x) -> finL (tw2l y) ->
+  match cmpFast x y with
+  | Xeq => twval x = twval y
+  | Xlt => (twval x < twval y)%R
+  | Xgt => (twval y < twval x)%R
+  | Xund => True
+  end.
+Proof.
+move=> Fx Fy.
+have [F0 [F1 F2]] := tw2l_finLI _ Fx.
+have [G0 [G1 G2]] := tw2l_finLI _ Fy.
+rewrite /cmpFast.
+case E: (((tw0 x =? tw0 y) && (tw1 x =? tw1 y) && (tw2 x =? tw2 y))%float).
+  move: E => /andb_prop [/andb_prop [E0 E1] E2].
+  by rewrite /twval (Deqb _ _ E0 F0 G0) (Deqb _ _ E1 F1 G1)
+             (Deqb _ _ E2 F2 G2).
+(* What the two tails can be worth together.                                  *)
+have Hs : Dfin (tailBoth x y) ->
+  (Rabs (D2R (tw1 x) + D2R (tw2 x)) + Rabs (D2R (tw1 y) + D2R (tw2 y))
+   <= D2R (tailBoth x y))%R.
+  rewrite /tailBoth => Fs; have Fa := Dfin_upI _ _ Fs.
+  have [Fu Fv] := Dfin_addI _ _ Fa.
+  have H := addUpFp_ge _ _ Fu Fv Fa Fs.
+  have Hu := tailUp_ge _ Fu; have Hv := tailUp_ge _ Fv.
+  by lra.
+(* The leading words, both ways, and what is left after the tails.            *)
+rewrite /cmpBand.
+case Eg: (posFp (subDnFp (subDnFp (tw0 x) (tw0 y)) (tailBoth x y))).
+  have [Fd Hd] := posFpP _ Eg.
+  have Fw := Dfin_dnFpI _ Fd.
+  have [Flo Fs] := Dfin_subI _ _ Fw.
+  have Hlo : (D2R (subDnFp (tw0 x) (tw0 y)) <= D2R (tw0 x) - D2R (tw0 y))%R.
+    by apply: subDnFp_le => //; apply: Dfin_dnFpI Flo.
+  have H := subDnFp_le _ _ Flo Fs Fw Fd.
+  by move: (Hs Fs) Hd Hlo H; rewrite /twval; split_Rabs; lra.
+case El: (posFp (subDnFp (- subUpFp (tw0 x) (tw0 y))%float (tailBoth x y)));
+  last by [].
+have [Fd Hd] := posFpP _ El.
+have Fw := Dfin_dnFpI _ Fd.
+have [Fno Fs] := Dfin_subI _ _ Fw.
+have Fhi := Dfin_oppI _ Fno.
+have Hhi : (D2R (tw0 x) - D2R (tw0 y) <= D2R (subUpFp (tw0 x) (tw0 y)))%R.
+  by apply: subUpFp_ge => //; apply: Dfin_upFpI Fhi.
+have H := subDnFp_le _ _ Fno Fs Fw Fd.
+rewrite D2R_opp in H.
+by move: (Hs Fs) Hd Hhi H; rewrite /twval; split_Rabs; lra.
+Qed.
+
 Lemma cmp_correct x y :
   cmp x y =
   match classify x with
@@ -1031,10 +1247,21 @@ Lemma cmp_correct x y :
       match classify y with
       | Sig.Fnan => Xund | Fpinfty => Xeq | _ => Xgt end
   end.
-(* FALSE as `cmp' stands - see `tw_cmpbad.v'.  The leading word does not      *)
-(* decide the order of the values, because the sum of the three does not      *)
-(* round back to it.                                                          *)
-Proof. Admitted.
+Proof.
+rewrite /cmp; case Ex: (classify x) => //; case Ey: (classify y) => //.
+have Rx : real x = true by rewrite /real Ex.
+have Ry : real y = true by rewrite /real Ey.
+have [F0 [F1 [F2 _]]] := real_fin _ Rx.
+have [G0 [G1 [G2 _]]] := real_fin _ Ry.
+have Flx := finL_tw2l _ F0 F1 F2; have Fly := finL_tw2l _ G0 G1 G2.
+rewrite (toX_real _ Rx) (toX_real _ Ry) /=.
+have := cmpFast_correct _ _ Flx Fly.
+case: (cmpFast x y) => H.
+- by rewrite (Rcompare_Eq _ _ H).
+- by rewrite (Rcompare_Lt _ _ H).
+- by rewrite (Rcompare_Gt _ _ H).
+by rewrite (cmpZ_correct _ _ Flx Fly); case: Rcompare.
+Qed.
 
 Lemma min_correct x y :
   match classify x with
@@ -1058,8 +1285,19 @@ Lemma min_correct x y :
       | _ => min x y = y
       end
   end.
-(* FALSE as `cmp' stands, since `min' is `cmp' - see `tw_cmpbad.v'.           *)
-Proof. Admitted.
+Proof.
+rewrite /min; case Ex: (classify x); case Ey: (classify y);
+  rewrite ?(cmp_correct x y) ?Ex ?Ey //=.
+have Rx : real x = true by rewrite /real Ex.
+have Ry : real y = true by rewrite /real Ey.
+have [a Ea] : exists a, toX x = Xreal a by eexists; exact: toX_real.
+have [b Eb] : exists b, toX y = Xreal b by eexists; exact: toX_real.
+rewrite Ea Eb /Xcmp /Xmin.
+case: Rcompare_spec => H; rewrite ?Ea ?Eb; congr Xreal.
+- by rewrite Rbasic_fun.Rmin_left //; lra.
+- by rewrite Rbasic_fun.Rmin_right //; lra.
+by rewrite Rbasic_fun.Rmin_right //; lra.
+Qed.
 
 Lemma max_correct x y :
   match classify x with
@@ -1083,8 +1321,19 @@ Lemma max_correct x y :
       | _ => classify (max x y) = Fpinfty
       end
   end.
-(* FALSE as `cmp' stands, since `max' is `cmp' - see `tw_cmpbad.v'.           *)
-Proof. Admitted.
+Proof.
+rewrite /max; case Ex: (classify x); case Ey: (classify y);
+  rewrite ?(cmp_correct x y) ?Ex ?Ey //=.
+have Rx : real x = true by rewrite /real Ex.
+have Ry : real y = true by rewrite /real Ey.
+have [a Ea] : exists a, toX x = Xreal a by eexists; exact: toX_real.
+have [b Eb] : exists b, toX y = Xreal b by eexists; exact: toX_real.
+rewrite Ea Eb /Xcmp /Xmax.
+case: Rcompare_spec => H; rewrite ?Ea ?Eb; congr Xreal.
+- by rewrite Rbasic_fun.Rmax_right //; lra.
+- by rewrite Rbasic_fun.Rmax_left //; lra.
+by rewrite Rbasic_fun.Rmax_left //; lra.
+Qed.
 
 Lemma add_UP_correct p x y :
   valid_ub x = true -> valid_ub y = true ->

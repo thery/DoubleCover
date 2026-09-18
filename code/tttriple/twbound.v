@@ -274,6 +274,11 @@ Lemma finL_tw2l t :
   Dfin (tw0 t) -> Dfin (tw1 t) -> Dfin (tw2 t) -> finL (tw2l t).
 Proof. by case: t => a b c /= F0 F1 F2; split; [|split; [|split]]. Qed.
 
+(* And its three words are numbers when it is read as one.                    *)
+Lemma tw2l_finLI t :
+  finL (tw2l t) -> Dfin (tw0 t) /\ Dfin (tw1 t) /\ Dfin (tw2 t).
+Proof. by case: t => a b c [F0 [F1 [F2 _]]]. Qed.
+
 Lemma tw2l_sum t : sumL (tw2l t) = twval t.
 Proof. by case: t => x0 x1 x2; rewrite /twval /=; lra. Qed.
 
@@ -385,6 +390,14 @@ Lemma subDnFp_le a b : Dfin a -> Dfin b -> Dfin (a - b)%float ->
   Dfin (subDnFp a b) -> D2R (subDnFp a b) <= D2R a - D2R b.
 Proof.
 move=> Fa Fb Fs Fd; rewrite /subDnFp; apply: (dnFp_le _ _ Fs _ Fd).
+by have [-> _] := Dfin_sub _ _ Fa Fb Fs.
+Qed.
+
+(* And a difference rounded up is at or above it.                             *)
+Lemma subUpFp_ge a b : Dfin a -> Dfin b -> Dfin (a - b)%float ->
+  Dfin (subUpFp a b) -> D2R a - D2R b <= D2R (subUpFp a b).
+Proof.
+move=> Fa Fb Fs Fu; rewrite /subUpFp; apply: (upFp_ge _ _ Fs _ Fu).
 by have [-> _] := Dfin_sub _ _ Fa Fb Fs.
 Qed.
 

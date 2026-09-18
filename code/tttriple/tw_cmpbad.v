@@ -5,31 +5,40 @@ From Interval Require Import Xreal Basic Sig Generic_proof Primitive_ops.
 From mathcomp Require Import ssreflect ssrbool.
 From twarith Require Import twarith tw_ops.
 
-(* COMPARING THREE WORDS ON THEIR WORDS IS WRONG, AND HERE IS THE PAIR THAT   *)
-(* SHOWS IT.                                                                  *)
+(* WHY `cmp' READS THE VALUE AND NOT THE WORDS.                               *)
 (*                                                                            *)
-(* `TwFloat.cmp' compares on the leading word, and on the next when the ones  *)
-(* before agree.  For two words that is sound, and `code/ddouble' proves it:  *)
-(* a double word rounds to its own leading word, rounding is monotone, so the *)
-(* leading words are in the order the values are.                             *)
+(* The obvious way to compare three words is the way two words are compared:  *)
+(* on the leading word, and on the next when the ones before agree.  For two  *)
+(* words that is sound, and `code/ddouble' proves it -- a double word rounds  *)
+(* to its own leading word, rounding is monotone, so the leading words are in *)
+(* the order the values are.                                                  *)
 (*                                                                            *)
 (* A TRIPLE WORD DOES NOT ROUND TO ITS LEADING WORD.  Being a triple word is  *)
 (* two tests, each on a pair - the second word is within half a step of the   *)
 (* first, and the third within half a step of the second - and the two        *)
 (* together do not say that the first plus the other two rounds back to the   *)
-(* first.  The triple below is the smallest case of it: one, plus half a step *)
-(* of one, plus half a step of that.  The first two are a tie and round to    *)
-(* one because one has an even last bit; add the third and the sum is past    *)
-(* the halfway point, so it rounds up and away.                               *)
+(* first.  `X' below is the smallest case of it: one, plus half a step of     *)
+(* one, plus half a step of that.  The first two are a tie and round to one   *)
+(* because one has an even last bit; add the third and the sum is past the    *)
+(* halfway point, so the three of them round to `1 + 2^-52' and not to one.   *)
 (*                                                                            *)
-(* With that, the leading word says nothing about the order.  `X' below has   *)
-(* the smaller leading word and the larger value.                             *)
+(* With that, the leading word says nothing about the order.  `X' has the     *)
+(* SMALLER leading word and the LARGER value, and `cmpLex' below - the rule   *)
+(* `cmp' used to use - answers less than where the values say more.           *)
 (*                                                                            *)
-(* So `cmp_correct' in `tw_ops.v' is not merely unproved: as `cmp' stands it  *)
-(* is false, and `min_correct' and `max_correct' with it, since `min' and     *)
-(* `max' are `cmp'.  A comparison of three words has to read the value, not   *)
-(* the words - the six words of the difference swept exactly, and the sign of *)
-(* what leads.  Nothing else in the development depends on `cmp'.             *)
+(* This file is what the definition in `tw_ops.v' is answering.  It is kept   *)
+(* on the build path so that the rule cannot come back.                       *)
+
+(* The old rule, written out here and nowhere else.                           *)
+Definition cmpLex (x y : twfloat) :=
+  match PrimitiveFloat.cmp (tw0 x) (tw0 y) with
+  | Xeq =>
+    match PrimitiveFloat.cmp (tw1 x) (tw1 y) with
+    | Xeq => PrimitiveFloat.cmp (tw2 x) (tw2 y)
+    | c => c
+    end
+  | c => c
+  end.
 
 Definition X := TWFloat 0x1p+0%float 0x1p-53%float 0x1p-106%float.
 Definition Y := TWFloat 0x1.0000000000001p+0%float
@@ -72,28 +81,33 @@ suff : (IZR (Zpos mY) < IZR (Zpos mX) * 4)%R by nra.
 by rewrite -(mult_IZR _ 4); apply: IZR_lt; vm_compute.
 Qed.
 
-(* And the leading word of `X' is below the leading word of `Y', so `cmp'     *)
-(* answers less than where the values say more.                               *)
-Lemma cmp_bad : TwFloat.cmp X Y <> Xcmp (TwFloat.toX X) (TwFloat.toX Y).
+(* THE OLD RULE IS WRONG ON THIS PAIR.                                        *)
+Lemma cmpLex_bad : cmpLex X Y <> Xcmp (TwFloat.toX X) (TwFloat.toX Y).
 Proof.
-have -> : TwFloat.cmp X Y = Xlt by vm_compute.
+have -> : cmpLex X Y = Xlt by vm_compute.
 rewrite toXX toXY /Xcmp.
 by case: Rcompare_spec => //; have := YltX; lra.
 Qed.
 
-(* `min' and `max' go the same way: each returns the wrong one of the two.    *)
-Lemma min_bad : TwFloat.toX (TwFloat.min X Y) <>
-                Xmin (TwFloat.toX X) (TwFloat.toX Y).
+(* And it is not a near miss: the rule says less than, the values say more.   *)
+Lemma cmpLex_is_lt : cmpLex X Y = Xlt.
+Proof. by vm_compute. Qed.
+
+(* THE RULE IN USE GETS IT RIGHT.  `cmp_correct' in `tw_ops.v' says so for    *)
+(* every pair; this is the one pair said out loud, and it is computed, not    *)
+(* derived, so it checks the definition and not the proof.                    *)
+Lemma cmp_is_gt : TwFloat.cmp X Y = Xgt.
+Proof. by vm_compute. Qed.
+
+Lemma cmp_good : TwFloat.cmp X Y = Xcmp (TwFloat.toX X) (TwFloat.toX Y).
 Proof.
-have -> : TwFloat.min X Y = X by vm_compute.
-rewrite toXX toXY /Xmin Rbasic_fun.Rmin_right; last by have := YltX; lra.
-by case=> H; have := YltX; lra.
+rewrite cmp_is_gt toXX toXY /Xcmp.
+by case: Rcompare_spec => //; have := YltX; lra.
 Qed.
 
-Lemma max_bad : TwFloat.toX (TwFloat.max X Y) <>
-                Xmax (TwFloat.toX X) (TwFloat.toX Y).
-Proof.
-have -> : TwFloat.max X Y = Y by vm_compute.
-rewrite toXX toXY /Xmax Rbasic_fun.Rmax_left; last by have := YltX; lra.
-by case=> H; have := YltX; lra.
-Qed.
+(* `min' and `max' follow `cmp', so they get it right too.                    *)
+Lemma min_is_Y : TwFloat.min X Y = Y.
+Proof. by vm_compute. Qed.
+
+Lemma max_is_X : TwFloat.max X Y = X.
+Proof. by vm_compute. Qed.
