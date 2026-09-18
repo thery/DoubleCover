@@ -808,28 +808,18 @@ a search fail. It makes it faster, and it makes it agree with you.
 == The effective representation
 
 To run the search we need an effective representation of its objects: of a
-position first of all, and of the permutations that move it. Each representation
-is proved to agree with the object it stands for, so the answer rests on the
-search of the last section and the speed rests on the representations.
-
-The search handles few objects: a position, a move, the summary of a position,
-and the table of distances. Each has a mathematical form, which is what the
-proofs of the last two sections speak about, and an effective representation,
-which is what runs. A position is a permutation of the 48 stickers, and
-#src("Table.v") presents such a permutation by its image table, the list of 48
-numbers saying where each sticker goes, with `tab_ok` saying which lists are
-tables. The product of two permutations is then the reading of one list through
-the other, and a move is one more table of 48 numbers. #src("Tsearch.v") runs
-the search of #src("Search.v") on tables, and proves that the two searches
-answer alike.
-
-Rocq offers machine integers, 63 bits wide with the missing bit going to the
-garbage collector, and *persistent arrays* of them @armand2010imperative.
-#src("Tabi.v") carries the tables of #src("Table.v") as arrays of machine
-integers, with the bridge back: `ti2t` reads such an array as the list of
-numbers it stands for, and `tabi_ok` is `tab_ok` of that list. Each operation
-comes with a lemma saying that the bridge may be crossed either way round. For
-the product of two permutations it reads
+position first of all, and of the permutations that move it. The objects are
+few: a position, a move, the summary of a position, and the table of distances.
+A position is a permutation of the 48 stickers, and #src("Table.v") presents it
+by its image table, the list of 48 numbers saying where each sticker goes, with
+`tab_ok` saying which lists are tables; the product of two permutations is then
+the reading of one list through the other, and a move is one more table.
+#src("Tsearch.v") runs the search of #src("Search.v") on tables. Machine
+integers, 63 bits wide, and *persistent arrays* of them @armand2010imperative
+come next: #src("Tabi.v") carries those tables as arrays of machine integers,
+`ti2t` reads such an array back as the list it stands for, `tabi_ok` is
+`tab_ok` of that list, and each operation has a lemma saying that the bridge
+may be crossed either way round.
 
 ```coq
 Lemma ti2t_comp a b :
@@ -837,11 +827,19 @@ Lemma ti2t_comp a b :
   ti2t (comp_tabi a b) = comp_tab (ti2t a) (ti2t b).
 ```
 
-Composing two arrays and reading the result back as a list gives what composing
-the two lists gives. Every fact proved of lists crosses that bridge. From there
-on a position is 48 machine integers, a summary is two, and the phase 1 table is
-a persistent array of arrays, fifteen four-bit entries to a 63-bit machine
-integer.
+From there on a position is 48 machine integers, a summary is two, and the
+phase 1 table is a persistent array of arrays, fifteen four-bit entries to a
+63-bit machine integer. A function on a finite domain is tabulated rather than
+computed, the action of a move on a summary, the rank of a summary and the
+symmetry that the fold uses among them, and each of those tables is checked in
+Rocq like the table of distances. The search itself goes the same way:
+#src("Fast.v") holds it twice, `searchz3` on the objects of the last section
+and `searchz3n` on machine integers and arrays, and `searchz3nE` in
+#src("FastP.v") proves that the two answer alike, asking only that the depth
+fit in a machine integer, that the tables have passed their checks, and that
+the array be a well-formed position. Seven versions lie between the two ends,
+each proved equal to the one before, and together they are 11.9 times faster on
+one piece at depth 14.
 
 The superflip itself goes down that chain. As a permutation it is a product of
 twelve two-cycles, one for each flipped edge, $(1 thin 33)$, $(3 thin 9)$,
@@ -926,34 +924,28 @@ are proved legitimate.
 
 == Folding the table by symmetry
 
-The summary is built around the up-down axis. The twist records where each
-corner's up-or-down sticker sits, and the slice where the four edges between the
-top and bottom faces are. A symmetry that leaves that axis in place turns a
-summary into another summary. Sixteen of the 48 keep the axis, and they sort the
-1 013 760 flip-and-slice values into *64 430 families*, a factor of *15.73*. Two
-values in one family are the same distance from solved, so one entry per family
-is enough. A lookup replaces the value by its family's representative, carries
-the twist through the same symmetry, and reads a table 15.73 times smaller.
+The summary is built around the up-down axis: the twist records where each
+corner's up-or-down sticker sits, the slice where the four edges between the
+top and bottom faces are. Sixteen of the 48 relabellings keep that axis, and
+they turn one summary into another; they sort the 1 013 760 flip-and-slice
+values into *64 430 families*, a factor of *15.73*. Two values in one family
+are the same distance from solved, so one entry per family is enough, and a
+lookup replaces the value by its family's representative, carries the twist
+through the same symmetry, and reads a table 15.73 times smaller. This is not
+the symmetry of the three views, which put the same question to the same table
+three times; the fold puts the same question to a smaller table, and the
+estimate is unchanged.
 
-This use of symmetry is not the one above, and the two are kept apart. The three
-views put the *same* question to the *same* table three times and keep the
-largest answer. The fold puts the same question to a *smaller* table, and the
-estimate is unchanged. Symmetry-reduced tables are standard in cube solvers.
-What the development adds is a proof that the folded table still satisfies the
-two conditions.
-
-The weakness of those conditions pays here. The proof nowhere says that the
-folded table holds distances. It says that the table passes `D0` and `Dstep`,
-and the search asks nothing more. Conditions demanding true distances would have
-required a proof that the fold preserves them, a harder statement about the
-sixteen symmetries and about what sharing an entry between two summaries does.
-That question never arises. The check is run on the folded table as it was on
-the flat one, and it is the same check.
-
-The fold costs the search 1.61 times at depth 16 and pays everywhere else. A
-search worker drops from 4.15 GB to *0.85 GB*, so all the pieces run at once
-instead of in two waves, and checking the table drops from about 5.4 processor
-hours to *1.35*.
+Symmetry-reduced tables are standard in cube solvers. What the development adds
+is a proof that the folded table still passes `D0` and `Dstep`, and that is all
+it has to prove: conditions demanding true distances would have required a
+proof that the fold preserves them, a harder statement about the sixteen
+symmetries and about what sharing an entry between two summaries does. The
+check is run on the folded table as it was on the flat one, and it is the same
+check. The fold costs the search 1.61 times at depth 16 and pays everywhere
+else: a search worker drops from 4.15 GB to *0.85 GB*, so all the pieces run at
+once instead of in two waves, and checking the table drops from about 5.4
+processor hours to *1.35*.
 
 == Rocq against OCaml
 
@@ -966,10 +958,9 @@ We do not assume that the two walk the same tree. Dividing each of the seventeen
 Rocq pieces by the positions its OCaml counterpart visited gives between 1.98
 and 2.52 microseconds, over pieces that differ in size by a factor of two. A
 Rocq search that cut differently anywhere would show as scatter there, and there
-is none.
-
-So the run takes a night because the tree holds 146 billion nodes, not because
-the prover is slow. In OCaml the same tree still costs 26 processor-hours.
+is none. So the run takes a night because the tree holds 146 billion nodes, not
+because the prover is slow: in OCaml the same tree still costs 26
+processor-hours.
 
 = The files
 
