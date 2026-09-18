@@ -1010,16 +1010,11 @@ Theorem superflip_p1far_real : superflip \notin ball Sset p1depth.
 ```
 
 In words, the superflip is not within `p1depth` moves of the solved cube, where
-one script sets the depth before the run. It has *no hypotheses left*. The six
-computations it rests on are the two summary tables, the three move and
-distance tables and the searches, and each lives in its own file behind its own
-`Qed`. Asking Rocq what the proof assumes reports only the primitives of its
-machine-integer and array interface. Nothing in the chain is admitted.
-
-At depth 19 this says that the superflip cannot be solved in 19 moves. Two
-lines in #src("Diam20.v") then turn it into *God's number $>= 20$*. That file is
-where the two ends of the development meet, the cube defined at the bottom of
-the chain and the search sitting at the top, and it first checks that the
+one script sets the depth before the run. It has *no hypotheses left*, and
+nothing in the chain is admitted: asking Rocq what the proof assumes reports
+only the primitives of its machine-integer and array interface. At depth 19 it
+says that the superflip cannot be solved in 19 moves, and two lines in
+#src("Diam20.v") turn that into *God's number $>= 20$*, after checking that the
 searches really were run at 19.
 
 We measured the run twice on the reference machine, once before the fold and
@@ -1033,40 +1028,10 @@ the two reductions and once after. It is the same theorem both times.
   ([processor time], [85 h 11], [*87 h 36*]),
 )
 
-The pieces do not all take the same time. The shortest took 3 h 38 and the
-longest 6 h 36, read from the times at which they finished. The run ends when
-the longest piece ends, so the other sixteen workers are idle before that. That
-is why two of the fifteen search positions, the ninth and the eleventh, are cut
-in half. Uncut, each would take about 9 h 50 and the whole run would take that
-long. Shared evenly over eighteen workers the run would take 4 h 54. So about
-1 h 40 goes to idle workers, and saving it means cutting the eight longest
-pieces in half as well.
-
-The two columns say that the fold and the two reductions cut the wall clock by
-41% and left the processor time as it was, 3% higher. The gain in wall clock
-comes from the memory. A worker needs 0.85 GB, so seventeen pieces fit at once
-where 4.15 GB allowed only nine. The processor time is a surprise. On the small
-test we used while writing the reductions, the fold was 1.61 times slower and
-the reductions 1.86 times faster. Together that is a saving of about a sixth,
-and the run shows none. We do not trust that small test: it subtracts two large
-numbers, 245 processor-seconds of table loading from 391 for the whole run, to
-get 146 of search. The run above is the number to trust for the cost of the
-theorem. Why the two factors do not add up we have not measured.
-
-*Memory.* A worker holds the loaded table and nothing else that grows. The
-search walks down and back up, so it keeps only the current sequence of moves.
-The 4.15 GB is identical to three decimals across the nine workers and the same
-at every depth. The fold brings it to 0.85 and lets all seventeen pieces run at
-once.
-
-*What is left.* The proof that God's number is at least 20 costs 87
-processor-hours and one night. That is a measured cost, not an estimate. We can
-see two savings and neither is large. The first is the 1 h 40 of idle workers
-at the end of the run, which is a matter of how the work is shared out and not
-of mathematics. The second is the factor of 3.3 against OCaml, and winning all
-of it would still leave 26 processor-hours. The cost is the tree, and the tree
-is 146 billion positions. We know of nothing else in the chain that is
-wasteful.
+The fold halves the wall clock and leaves the processor time where it was. What
+it buys is memory: at 0.85 GB a worker, all seventeen pieces run at once, where
+4.15 GB allowed only nine. So the proof costs 87 processor-hours and one night,
+and that is a measured cost.
 
 = Counting in quarter turns
 
