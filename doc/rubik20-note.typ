@@ -1006,10 +1006,16 @@ and that is a measured cost.
 
 = Counting in quarter turns
 
-Counted in quarter turns there are twelve moves: the six faces one way and the
-same six back. A half turn is two moves. The answer in that count is *26*
-(#link("http://cube20.org")[cube20.org]). We prove the lower half: one position
-cannot be solved in 25 quarter turns.
+Everything so far proves one bound. The rest of the note is two extensions of
+it, this one and the next, both built on the same trunk: the cube, the abstract
+search and its contract, and the rule that any summary with a checked table
+gives an estimate.
+
+The first extension changes the count of moves. In quarter turns there are
+twelve moves, the six faces one way and the same six back, and a half turn is
+two moves. The answer in that count is *26*
+(#link("http://cube20.org")[cube20.org]), and we prove the lower half: one
+position cannot be solved in 25 quarter turns.
 
 == The position, and 25 down to 24
 
