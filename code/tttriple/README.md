@@ -253,7 +253,7 @@ the test caught it.
 | `tw_cmpbad.v` | the pair that shows comparing on the words is wrong, and that `cmp` gets it right |
 | `test_pi.v` | a smoke test: pi by Machin, and what the interface's operations bracket |
 | `tw_unsafe.v` | `sensible_format := true` with `div2` admitted, so Interval's functors apply |
-| `threewords/` | the paper's development, copied untouched. Nothing on the build path depends on it |
+| `threewords/` | the paper's development, copied untouched. Builds on its own (`cd threewords && make`); nothing else on the build path depends on it yet |
 
 ## How a bound is got
 
@@ -442,6 +442,47 @@ the `fromZ` fault in `code/ddouble` was found — its 25-digit row read
 `2^-78.3`, twenty-three bits out of line with every other row in its own
 column, and that is now fixed (`fromZ` used to widen by an integer `1`, which
 is an absolute step and so `1/n` in relative terms).
+
+## What proving `kstep_sqrt` would take
+
+`kstep_div` and `kstep_sqrt` are the only assumptions in the development. The
+root is the better of the two to attack first, because its range half is a
+known manoeuvre: scaling by an **even** power of two is exact on every word,
+lands the argument in a fixed binade and brings the answer back by half the
+exponent, so every intermediate is normal and the paper's FLX bounds apply
+unchanged. `code/ddouble`'s `dwsqrt.v` already does exactly this
+(`dsqscale = 2^537`, `scale_up_exact`, `scale_dn_exact`). Division has no such
+single trick — its quotient's exponent is unconstrained — and `dwdivflx.v` uses
+a guard instead.
+
+The paper's development builds, and `ThreeSqRt_error` is there:
+`|TWval (ThreeSqRt x) - sqrt (TWval x)| <= (24u^3 + 10260u^4) |sqrt (TWval x)|`.
+Four things stand between it and the axiom.
+
+**The seed, which is the only new mathematics.** Our `sqrtBW` is the paper's
+with three fused multiply-adds opened into two roundings each — `RN(v + a*w)`
+becomes `RN(v + RN(a*w))`. The whole assembly touches the seed through just two
+facts, `sqrtB_isDW` and `sqrtBW_x_err_crude` (`|b sqrt x - 1| <= 100u^2`), so
+those two are what has to be re-proved. The second is 55 lines and splits as
+**85u² of Newton residual, which does not move** — it depends on `sqrtA` alone,
+which is unchanged — **plus 11u² of collected rounding, which does.**
+
+**And the headroom there is about seven.** The seed's `100u²` becomes `105u²` at
+`sqrtAux_i2_near_1`, and `ThreeProdOneTW_error_c` takes its tolerance as a
+parameter `c` with `40 <= c <= 112`. So the seed may grow to roughly `107u²` and
+no further without reworking `ThreeProdOne.v`. A crude perturbation of the
+FMA-free seed off the fused one gives about `+23u²` — too much — so the
+`sqrtBW_newton_form` bound has to be re-derived directly rather than perturbed.
+
+**The bridge, mechanical but bulky.** `threeProdDW` and the paper's
+`ThreeProdDW` are line for line the same with `(a + b)%float` where the paper
+has `RND (a + b)`, so each transfer lemma is what `dwbridge.v` already gives for
+one operation, lifted through the sweeps.
+
+**The constant.** The paper proves `24u^3`; `kscale = 2^-156` allows `8u^3`. So
+`kscale` has to widen to `2^-154`, which costs the quotient and the root two
+bits — the `1/3` and `sqrt 2` rows of the table above would read `2^-155.8` and
+`2^-155.5`. Speed would not move; the tactic table would need re-measuring.
 
 ## Open
 
