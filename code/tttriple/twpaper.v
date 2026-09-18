@@ -1,7 +1,9 @@
 From mathcomp Require Import all_ssreflect.
+From Stdlib Require Import ZArith Reals Psatz.
+From Flocq Require Import Core BinarySingleNaN PrimFloat.
 Require Import PrimInt63 Floats.
-From Stdlib Require Import ZArith.
-From twarith Require Import twarith tw_updn.
+From dwarith Require Import dwbridge dwbound.
+From twarith Require Import twarith tw_updn twbound.
 
 (* The paper's own algorithms, on primitive floats.                          *)
 (*                                                                           *)
@@ -21,7 +23,14 @@ From twarith Require Import twarith tw_updn.
 (* inputs, the quotient below is out by 2.3 units in the last place where     *)
 (* the paper's own is out by less, and eight covers it.                       *)
 (*                                                                           *)
-(* Nothing here is proved.                                                    *)
+(* WHAT IS PROVED HERE AND WHAT IS ASSUMED.  The algorithms themselves are    *)
+(* transcriptions and nothing is proved of them.  The SIZE OF THE STEP is     *)
+(* stated below as two assumptions in their own right -- `kstep_div' and      *)
+(* `kstep_sqrt' -- rather than left hiding inside the four obligations of     *)
+(* `tw_ops.v'.  They are the only thing here that is measured rather than     *)
+(* proved, and `Print Assumptions' on anything that leans on the quotient or  *)
+(* the root names them.  Everything between them and the obligations -- the   *)
+(* guards, the widening, the reading into Interval's shape -- is proved.      *)
 
 Implicit Type t : twfloat.
 
@@ -211,6 +220,152 @@ Definition sqrtTwDnP (x : twfloat) :=
   let q := threeSqRt x in
   if posFp (valDnTw q) && posFp (x0 + x1 + x2)%float
   then shiftDn q else TWFloat nan nan nan.
+
+(* ===========================================================================*)
+(*  The step, assumed; the four bounds, proved from it                        *)
+(* ===========================================================================*)
+
+(* THESE TWO ARE MEASURED, NOT PROVED, and they are the whole of what is.     *)
+(* `probek.py' beside this file runs the two algorithms on forty thousand     *)
+(* random triple words and reports how far out they are in units of the last  *)
+(* place of the third word: the quotient by 2.3 and the root by less.  Eight  *)
+(* units is what `kscale' allows, and `kstep' turns that into a step down     *)
+(* from the leading word, with a fixed step below the normal range where the  *)
+(* paper's own bounds say nothing.                                            *)
+(*                                                                            *)
+(* They are stated of the ANSWER's own step, `kstep (threeDiv x y)', because  *)
+(* that is what the operation adds; and with the divisor kept away from       *)
+(* nought and the number under the root kept above it, because outside that   *)
+(* neither algorithm is asked for anything.                                   *)
+Axiom kstep_div : forall x y,
+  finL (tw2l x) -> wellFormed x = true ->
+  finL (tw2l y) -> wellFormed y = true ->
+  twval y <> 0%R ->
+  finL (tw2l (threeDiv x y)) ->
+  (Rabs (twval (threeDiv x y) - twval x / twval y)
+     <= D2R (kstep (threeDiv x y)))%R.
+
+Axiom kstep_sqrt : forall x,
+  finL (tw2l x) -> wellFormed x = true ->
+  (0 < twval x)%R ->
+  finL (tw2l (threeSqRt x)) ->
+  (Rabs (twval (threeSqRt x) - R_sqrt.sqrt (twval x))
+     <= D2R (kstep (threeSqRt x)))%R.
+
+(* Nothing the guards turn away is a number, so the four bounds below have    *)
+(* nothing to say about it.                                                   *)
+Lemma finL_nan3 : finL (tw2l (TWFloat nan nan nan)) -> False.
+Proof. by case. Qed.
+
+(* The divisor is kept away from nought by its own guard.                     *)
+Lemma divGuard_nz y : posFp (magDnTw y) = true -> twval y <> 0%R.
+Proof.
+move=> Hp; have [Fm Hm] := posFpP _ Hp.
+have Hle := magDnTw_le _ Fm.
+by move=> H0; move: Hle Hm; rewrite H0 Rabs_R0; lra.
+Qed.
+
+(* The guard is not merely tested, it is recoverable: the answer's words are  *)
+(* numbers only if the guard let it through.                                  *)
+Lemma divTwUpP_nz x y : finL (tw2l (divTwUpP x y)) -> twval y <> 0%R.
+Proof.
+rewrite /divTwUpP; case Hp: (posFp (magDnTw y)); last by move/finL_nan3.
+by move=> _; apply: divGuard_nz.
+Qed.
+
+Lemma divTwDnP_nz x y : finL (tw2l (divTwDnP x y)) -> twval y <> 0%R.
+Proof.
+rewrite /divTwDnP; case Hp: (posFp (magDnTw y)); last by move/finL_nan3.
+by move=> _; apply: divGuard_nz.
+Qed.
+
+Theorem divTwUpP_ge x y :
+  finL (tw2l x) -> wellFormed x = true ->
+  finL (tw2l y) -> wellFormed y = true ->
+  finL (tw2l (divTwUpP x y)) ->
+  (twval x / twval y <= twval (divTwUpP x y))%R.
+Proof.
+move=> Fx Wx Fy Wy; rewrite /divTwUpP.
+case Hp: (posFp (magDnTw y)); last by move/finL_nan3.
+rewrite /shiftUp => Fw.
+have [Fq Fk] := widenUp_finI _ _ Fw.
+have Hw := widenUp_ge _ _ Fw.
+have Hk := kstep_div _ _ Fx Wx Fy Wy (divGuard_nz _ Hp) Fq.
+by move: Hw Hk; split_Rabs; lra.
+Qed.
+
+Theorem divTwDnP_le x y :
+  finL (tw2l x) -> wellFormed x = true ->
+  finL (tw2l y) -> wellFormed y = true ->
+  finL (tw2l (divTwDnP x y)) ->
+  (twval (divTwDnP x y) <= twval x / twval y)%R.
+Proof.
+move=> Fx Wx Fy Wy; rewrite /divTwDnP.
+case Hp: (posFp (magDnTw y)); last by move/finL_nan3.
+rewrite /shiftDn => Fw.
+have [Fq Fk] := widenDn_finI _ _ Fw.
+have Hw := widenDn_le _ _ Fw.
+have Hk := kstep_div _ _ Fx Wx Fy Wy (divGuard_nz _ Hp) Fq.
+by move: Hw Hk; split_Rabs; lra.
+Qed.
+
+(* The number under the root is kept above nought by its own guard, and that  *)
+(* takes a word about a triple word: being one, the first addition drops the  *)
+(* second word, so what the guard tests is the first word and the third, and  *)
+(* the third is at most a quarter of the first.                               *)
+Lemma sqrtGuard_pos x : finL (tw2l x) -> wellFormed x = true ->
+  posFp ((tw0 x + tw1 x + tw2 x)%float) = true -> (0 < twval x)%R.
+Proof.
+move=> Fl Ew Hp; have [Fs Hs] := posFpP _ Hp.
+apply: wellFormed_posV => //; apply: wellFormed_pos02 => //.
+move: Fl Ew Fs Hs; case: x {Hp} => x0 x1 x2 [F0 [F1 [F2 _]]] /=.
+rewrite /wellFormed => /andb_prop [E1 _] Fs Hs.
+have E01 := D2R_wf _ _ F0 F1 E1.
+have F01 := Dfin_wf _ _ F0 E1.
+have [Es _] := Dfin_add _ _ F01 F2 Fs.
+move: Hs; rewrite Es E01 => Hs.
+have Vr : Valid_rnd (round_mode mode_NE) by apply: valid_rnd_round_mode.
+have Ve : Valid_exp Dfexp by apply: FLT_exp_valid.
+case: (Rle_lt_dec (D2R x0 + D2R x2) 0) => // Hle.
+have : (Drnd (D2R x0 + D2R x2) <= Drnd 0)%R by apply: round_le.
+by rewrite round_0; lra.
+Qed.
+
+Theorem sqrtTwUpP_ge x :
+  finL (tw2l x) -> wellFormed x = true ->
+  finL (tw2l (sqrtTwUpP x)) ->
+  (R_sqrt.sqrt (twval x) <= twval (sqrtTwUpP x))%R.
+Proof.
+move=> Fl Ew; rewrite /sqrtTwUpP.
+case: x Fl Ew => x0 x1 x2 Fl Ew.
+case Hp: (posFp (valDnTw (threeSqRt (TWFloat x0 x1 x2)))
+          && posFp ((x0 + x1 + x2)%float)); last by move/finL_nan3.
+have [_ Hs] := andb_prop _ _ Hp.
+rewrite /shiftUp => Fw.
+have [Fq Fk] := widenUp_finI _ _ Fw.
+have Hw := widenUp_ge _ _ Fw.
+have Hx := sqrtGuard_pos _ Fl Ew Hs.
+have Hk := kstep_sqrt _ Fl Ew Hx Fq.
+by move: Hw Hk; split_Rabs; lra.
+Qed.
+
+Theorem sqrtTwDnP_le x :
+  finL (tw2l x) -> wellFormed x = true ->
+  finL (tw2l (sqrtTwDnP x)) ->
+  (twval (sqrtTwDnP x) <= R_sqrt.sqrt (twval x))%R.
+Proof.
+move=> Fl Ew; rewrite /sqrtTwDnP.
+case: x Fl Ew => x0 x1 x2 Fl Ew.
+case Hp: (posFp (valDnTw (threeSqRt (TWFloat x0 x1 x2)))
+          && posFp ((x0 + x1 + x2)%float)); last by move/finL_nan3.
+have [_ Hs] := andb_prop _ _ Hp.
+rewrite /shiftDn => Fw.
+have [Fq Fk] := widenDn_finI _ _ Fw.
+have Hw := widenDn_le _ _ Fw.
+have Hx := sqrtGuard_pos _ Fl Ew Hs.
+have Hk := kstep_sqrt _ Fl Ew Hx Fq.
+by move: Hw Hk; split_Rabs; lra.
+Qed.
 
 (* ===========================================================================*)
 (*  What they compute                                                         *)

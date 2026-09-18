@@ -22,14 +22,16 @@ From dwarith Require Import dwbridge dwsign dwbound.
 (* not correctly rounded to a hundred and fifty-nine bits, and no equation    *)
 (* of that kind is promised.  Every statement here is a bound.                *)
 (*                                                                            *)
-(* THE SHAPE IS CHECKED, THE ARITHMETIC IS NOT YET.  The module below meets   *)
-(* the signature - the sealing at the bottom of the file is what says so -    *)
-(* but the obligations that need a fact about the arithmetic are `Admitted`,  *)
-(* each marked where it stands.  Those that need nothing of the kind are      *)
-(* proved.  Nothing in this file may be relied on until the list below is     *)
-(* empty.  It is here so that the whole chain, up to Interval's own tactic    *)
-(* over triple words, can be assembled and measured before it is proved -     *)
-(* which is the order the double-word work went in as well.                   *)
+(* WHAT IS PROVED AND WHAT IS ASSUMED.  The module below meets the signature  *)
+(* - the sealing at the bottom of the file is what says so.  Of its           *)
+(* obligations all but three are proved.  Four of them - the quotient and     *)
+(* the root, each way - lean on ONE assumption each, `kstep_div` and          *)
+(* `kstep_sqrt` in `twpaper.v`, which say that the step the answer is widened *)
+(* by covers what the algorithm is out by.  Those two are MEASURED on random  *)
+(* triple words and not proved, and they are stated as assumptions in their   *)
+(* own right rather than left hiding inside the obligations, so that          *)
+(* `Print Assumptions` on anything reached through the quotient or the root   *)
+(* names them.  Everything between them and the obligations is proved.        *)
 (*                                                                            *)
 (* PROVED so far: the reading (`zero_correct', `real_correct',                *)
 (* `fromZ_correct'); the six bounds on the sum, the difference and the        *)
@@ -42,9 +44,10 @@ From dwarith Require Import dwbridge dwsign dwbound.
 (* (`mag_correct'); and rounding to a whole number either way                 *)
 (* (`nearbyint_UP_correct', `nearbyint_DN_correct').                          *)
 (*                                                                            *)
-(* Still admitted, and each of them is a real statement about the             *)
-(* arithmetic:                                                                *)
-(*   div/sqrt _UP_correct and _DN_correct  (four)                             *)
+(* PROVED FROM ONE NAMED ASSUMPTION EACH: `div_UP_correct', `div_DN_correct', *)
+(* `sqrt_UP_correct' and `sqrt_DN_correct', from `kstep_div' and              *)
+(* `kstep_sqrt'.                                                              *)
+(*                                                                            *)
 (* `div2_correct' and `midpoint_correct' are excused by                       *)
 (* `sensible_format = false' and say nothing.                                 *)
 (*                                                                            *)
@@ -1164,28 +1167,71 @@ have [Hv Hb] := PrimitiveFloat.pow2_UP_correct fprec s.
 by split => //; apply: valid_ub_fp2tw.
 Qed.
 
+(* A quotient by nought denotes nothing, and the guard on the divisor is what *)
+(* says the divisor is not nought.                                            *)
+Lemma XdivE a b : b <> 0%R -> (Xreal a / Xreal b)%XR = Xreal (a / b).
+Proof. by move=> Hb; rewrite /Xbind2 /Xdiv' (is_zero_false _ Hb). Qed.
+
+(* THE FOUR THAT LEAN ON THE MEASURED STEP.  Everything below the line the    *)
+(* reading draws is proved; what is assumed is `kstep_div' and `kstep_sqrt'   *)
+(* in `twpaper.v', and those two are named so that `Print Assumptions' on any *)
+(* of the four says which.                                                    *)
 Lemma div_UP_correct p x y :
   is_real_ub x /\ is_pos_real y \/ is_real_lb x /\ is_neg_real y ->
   valid_ub (div_UP p x y) = true /\
   le_upper (toX x / toX y)%XR (toX (div_UP p x y)).
-Proof. Admitted.
+Proof.
+move=> _; split; first exact: valid_ub_onReal2.
+apply: (onReal2_upper (fun x y => (toX x / toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
+have [F0 [F1 [F2 Wx]]] := real_fin _ Rx.
+have [G0 [G1 [G2 Wy]]] := real_fin _ Ry.
+have [H0 [H1 [H2 _]]] := real_fin _ Rz.
+have Flz := finL_tw2l _ H0 H1 H2.
+rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz).
+rewrite (XdivE _ _ (divTwUpP_nz _ _ Flz)) /=.
+by apply: divTwUpP_ge => //; apply: finL_tw2l.
+Qed.
 
 Lemma div_DN_correct p x y :
   is_real_ub x /\ is_neg_real y \/ is_real_lb x /\ is_pos_real y ->
   valid_lb (div_DN p x y) = true /\
   le_lower (toX (div_DN p x y)) (toX x / toX y)%XR.
-Proof. Admitted.
+Proof.
+move=> _; split; first exact: valid_lb_onReal2.
+apply: (onReal2_lower (fun x y => (toX x / toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
+have [F0 [F1 [F2 Wx]]] := real_fin _ Rx.
+have [G0 [G1 [G2 Wy]]] := real_fin _ Ry.
+have [H0 [H1 [H2 _]]] := real_fin _ Rz.
+have Flz := finL_tw2l _ H0 H1 H2.
+rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz).
+rewrite (XdivE _ _ (divTwDnP_nz _ _ Flz)) /le_lower /=.
+by apply: Ropp_le_contravar; apply: divTwDnP_le => //; apply: finL_tw2l.
+Qed.
 
 Lemma sqrt_UP_correct p x :
   valid_ub (sqrt_UP p x) = true /\
   le_upper (Xsqrt (toX x)) (toX (sqrt_UP p x)).
-Proof. Admitted.
+Proof.
+split; first exact: valid_ub_onReal.
+apply: (onReal_upper (fun x => Xsqrt (toX x))) => {p}{}x Rx Rz.
+have [F0 [F1 [F2 Wx]]] := real_fin _ Rx.
+have [H0 [H1 [H2 _]]] := real_fin _ Rz.
+rewrite (toX_real _ Rx) (toX_real _ Rz) /=.
+by apply: sqrtTwUpP_ge => //; apply: finL_tw2l.
+Qed.
 
 Lemma sqrt_DN_correct p x :
   valid_lb x = true ->
   valid_lb (sqrt_DN p x) = true /\
   le_lower (toX (sqrt_DN p x)) (Xsqrt (toX x)).
-Proof. Admitted.
+Proof.
+move=> _; split; first exact: valid_lb_onReal.
+apply: (onReal_lower (fun x => Xsqrt (toX x))) => {p}{}x Rx Rz.
+have [F0 [F1 [F2 Wx]]] := real_fin _ Rx.
+have [H0 [H1 [H2 _]]] := real_fin _ Rz.
+rewrite (toX_real _ Rx) (toX_real _ Rz) /le_lower /=.
+by apply: Ropp_le_contravar; apply: sqrtTwDnP_le => //; apply: finL_tw2l.
+Qed.
 
 (* Rounding to a whole number is monotone, so the three words added in the    *)
 (* direction wanted, rounded to a whole number in the same direction, is on   *)

@@ -377,6 +377,93 @@ by move: Hl Hf; rewrite /= => H1 H2; lra.
 Qed.
 
 (* ---------------------------------------------------------------------------*)
+(*  What the two guards on the quotient and the root are worth                *)
+(* ---------------------------------------------------------------------------*)
+
+(* A difference rounded down is at or below the difference.                   *)
+Lemma subDnFp_le a b : Dfin a -> Dfin b -> Dfin (a - b)%float ->
+  Dfin (subDnFp a b) -> D2R (subDnFp a b) <= D2R a - D2R b.
+Proof.
+move=> Fa Fb Fs Fd; rewrite /subDnFp; apply: (dnFp_le _ _ Fs _ Fd).
+by have [-> _] := Dfin_sub _ _ Fa Fb Fs.
+Qed.
+
+(* The divisor made smaller is at or below its magnitude: a sum is at least   *)
+(* the first term less the other two, in absolute value, and the two steps    *)
+(* down keep that true.                                                       *)
+Lemma magDnTw_le y : Dfin (magDnTw y) -> D2R (magDnTw y) <= Rabs (twval y).
+Proof.
+case: y => y0 y1 y2 /= Fm.
+have Fw2 := Dfin_dnFpI _ Fm.
+have [Fs1 Fa2] := Dfin_subI _ _ Fw2.
+have Fw1 := Dfin_dnFpI _ Fs1.
+have [Fa0 Fa1] := Dfin_subI _ _ Fw1.
+have H2 := subDnFp_le _ _ Fs1 Fa2 Fw2 Fm.
+have H1 := subDnFp_le _ _ Fa0 Fa1 Fw1 Fs1.
+rewrite !D2R_abs in H1 H2.
+by move: H1 H2; rewrite /twval /=; split_Rabs; lra.
+Qed.
+
+(* The three words added downwards are at or below what they add to.          *)
+Lemma valDnTw_le q : Dfin (valDnTw q) -> D2R (valDnTw q) <= twval q.
+Proof.
+case: q => q0 q1 q2 /= F.
+have Fs2 := Dfin_dnI _ _ F.
+have [Fv Fq2] := Dfin_addI _ _ Fs2.
+have Fs1 := Dfin_dnI _ _ Fv.
+have [Fq0 Fq1] := Dfin_addI _ _ Fs1.
+have H2 := addDnFp_le _ _ Fv Fq2 Fs2 F.
+have H1 := addDnFp_le _ _ Fq0 Fq1 Fs1 Fv.
+by move: H1 H2; rewrite /twval /=; lra.
+Qed.
+
+(* WHAT FOLLOWS THE LEADING WORD IS AT MOST THREE QUARTERS OF IT.  The second *)
+(* word is within half a step of the first, and half a step of a number is at *)
+(* most half the number; the third is within half a step of the second, so at *)
+(* most a quarter of the first.  `wellFormed_lead' in `tw_ops.v' throws the   *)
+(* quarter away and keeps one; the guards below need the three quarters,      *)
+(* because what they have to rule out is the value being nought.              *)
+Lemma wellFormed_lead34 t : finL (tw2l t) -> wellFormed t = true ->
+  (Rabs (D2R (tw1 t) + D2R (tw2 t)) <= 3 / 4 * Rabs (D2R (tw0 t)))%R.
+Proof.
+case: t => x0 x1 x2 [F0 [F1 [F2 _]]] /=.
+rewrite /wellFormed => /andb_prop [E1 E2].
+have H1 := wellFormed_half x0 x1 F0 F1 E1.
+have H2 := wellFormed_half x1 x2 F1 F2 E2.
+have T := Rabs_triang (D2R x1) (D2R x2).
+by move: H1 H2 T; split_Rabs; lra.
+Qed.
+
+(* So a triple word whose leading word is above nought is above nought, and   *)
+(* the leading word is what the guard on the root ends up testing: the second *)
+(* word is dropped by the first addition, being a triple word, and the third  *)
+(* is too small to change the sign of the first.                              *)
+Lemma wellFormed_posV t : finL (tw2l t) -> wellFormed t = true ->
+  (0 < D2R (tw0 t))%R -> (0 < twval t)%R.
+Proof.
+move=> Fl Ew H0; have Hq := wellFormed_lead34 _ Fl Ew.
+by move: Hq H0; rewrite /twval; split_Rabs; lra.
+Qed.
+
+(* And the third word alone is at most a quarter of the leading one.          *)
+Lemma wellFormed_quarter t : finL (tw2l t) -> wellFormed t = true ->
+  (Rabs (D2R (tw2 t)) <= / 4 * Rabs (D2R (tw0 t)))%R.
+Proof.
+case: t => x0 x1 x2 [F0 [F1 [F2 _]]] /=.
+rewrite /wellFormed => /andb_prop [E1 E2].
+have H1 := wellFormed_half x0 x1 F0 F1 E1.
+have H2 := wellFormed_half x1 x2 F1 F2 E2.
+by move: H1 H2; split_Rabs; lra.
+Qed.
+
+Lemma wellFormed_pos02 t : finL (tw2l t) -> wellFormed t = true ->
+  (0 < D2R (tw0 t) + D2R (tw2 t))%R -> (0 < D2R (tw0 t))%R.
+Proof.
+move=> Fl Ew H; have Hq := wellFormed_quarter _ Fl Ew.
+by move: Hq H; split_Rabs; lra.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
 (*  Widening a triple word by a step                                          *)
 (* ---------------------------------------------------------------------------*)
 

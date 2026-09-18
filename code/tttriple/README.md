@@ -22,10 +22,10 @@ module `TwFloat` and the sealing at the bottom of that file,
 Module TwFloatCheck <: FloatOps := TwFloat.
 ```
 
-is what says it meets Interval's signature. The obligations that need a fact
-about the arithmetic are still `Admitted` unless listed below, and the list is
-at the top of the file. Nothing there may be relied on until that list is
-empty.
+is what says it meets Interval's signature. Of its obligations all but three
+are proved, and four of those lean on one named, measured assumption each; the
+three left are the ones `tw_cmpbad.v` refutes. The list is at the top of the
+file.
 
 **The sum, the difference and the product are proved** — `add_UP_correct`,
 `add_DN_correct`, `sub_UP_correct`, `sub_DN_correct`, `mul_UP_correct`,
@@ -69,6 +69,26 @@ the rest.
 
 The double-word version peels once and with a two-product, so it pays a step
 of `deps` for what the product can miss. Nothing of that kind is needed here.
+
+**The quotient and the root are proved from one named assumption each.**
+`div_UP_correct`, `div_DN_correct`, `sqrt_UP_correct` and `sqrt_DN_correct` are
+no longer admitted. What they lean on is `kstep_div` and `kstep_sqrt` in
+`twpaper.v`, and those two say only this: the step the answer is widened by
+covers what the algorithm is out by. **They are measured, not proved** —
+`probek.py` runs the two algorithms on forty thousand random triple words and
+reports 2.3 units in the last place for the quotient, where `kscale` allows
+eight — and they are now stated as assumptions in their own right, so
+`Print Assumptions` on anything reached through the quotient or the root says
+`twpaper.kstep_div` in as many words. Before, the same gap was four `Admitted`
+obligations, which said nothing about where it lay.
+
+Everything between the assumption and the obligation is proved: the guards
+(`divGuard_nz`, `sqrtGuard_pos`), the widening (`widenUp_ge`, `widenDn_le`),
+and the reading into Interval's shape. The root's guard is the one that takes
+an argument: what it tests is the three words added, and being a triple word
+the first addition drops the second word, so the test is on the first and the
+third — and the third is at most a quarter of the first, so the leading word
+is above nought and with it the value.
 
 **Comparing on the words is wrong, and `tw_cmpbad.v` shows it.** `cmp` takes
 the leading word, and the next when the ones before agree. For two words that
