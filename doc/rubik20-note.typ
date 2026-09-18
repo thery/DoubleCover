@@ -942,47 +942,17 @@ processor hours to *1.35*.
 
 = The development
 
-The proof of the twenty is forty-six hand-written Rocq files, listed here by
-group; the sources carry their own #src("README.md"), with the scripts and
-how to run them.
-
-#ftbl(([the cube, as mathematics], []),
-  ([`Cyc.v`], [cyclic permutations, built from the list of points they move]),
-  ([`Rubik333.v`], [facelets, the six faces, the eighteen moves, the cube group]),
-  ([`Sym.v`, `Sym16.v`], [the 48 symmetries of the cube; the 16 used by the fold]),
-  ([`Ball.v`], [balls of radius $d$, and what "the diameter is at most $d$" means]),
-  ([`Diameter.v`], [the superflip, its 20-move sequence, and what the upper bound would need]),
-)
-
-#ftbl(([the search, in the abstract], []),
-  ([`Search.v`], [the search and its contract: a false answer is a proof]),
-  ([`Coord.v`], [any summary plus any checked table gives a legal estimate]),
-  ([`Root.v`], [the first move, up to symmetry: $U$ or $U^2$]),
-  ([`Searchr.v`, `Redun.v`], [the rules that forbid redundant move sequences]),
-)
-
-#ftbl(([data structures], []),
-  ([`Table.v`], [permutations written as the table of their images]),
-  ([`Tabi.v`], [the same on machine integers and arrays, and the bridge between]),
-  ([`ssrint63.v`], [the machine-integer toolbox used throughout]),
-)
-
-#ftbl(([the summaries and their tables], []),
-  ([`Coordfs.v`, `Coordfsi.v`], [the edge-flip and slice summary, packed into 24 bits]),
-  ([`Fstab.v`, `FsTable.v`, `Fsparity.v`], [its table and the checks it must pass]),
-  ([`Phase1.v`], [the phase 1 estimate, its table and its certificate, 2215 lines]),
-  ([`Moves.v`], [the eighteen moves and the superflip, as tables]),
-)
-
-#ftbl(([the search on the real data], []),
-  ([`Farp1.v`], [the three viewing angles and the search built on them, 1404 lines]),
-  ([`Far.v`], [the assembly: the superflip is not within $d$ moves, 1124 lines]),
-  ([`Fast.v`, `FastP.v`], [the fast search, and the proof that it is the same search]),
-  ([`Runp1_03.v` .. `_17.v`], [the seventeen pieces, written by a script]),
-  ([`Farp1main.v`], [the theorem over _any_ table: 8 seconds, and no data at all]),
-  ([`Farp1inst.v`], [the same at the real table and the seventeen real runs]),
-  ([`Diam20.v`], [and hence God's number is at least 20]),
-)
+The proof of the twenty is forty-six hand-written Rocq files. The cube and its
+symmetries are #src("Rubik333.v"), #src("Sym.v") and #src("Ball.v"); the
+abstract search and its contract #src("Search.v"), with #src("Coord.v") for the
+estimate and #src("Searchr.v") and #src("Redun.v") for the redundant moves; the
+representations #src("Table.v"), #src("Tabi.v") and #src("ssrint63.v"); the
+summary and its table #src("Coordfs.v"), #src("Fstab.v") and #src("Phase1.v");
+and the search on the real data #src("Farp1.v"), #src("Fast.v"), the seventeen
+pieces #src("Runp1_03.v") to #src("Runp1_17.v"), #src("Farp1inst.v") and
+#src("Diam20.v"). The sources carry their own #src("README.md"), which lists
+every file with what it does, the scripts beside them, and how to run the whole
+thing.
 
 The *certificates* run the checks, each behind its own `Qed`:
 #src("FsmChk.v"), #src("FsrChk.v"), #src("SlrChk.v") and
