@@ -1037,16 +1037,20 @@ edge over.
   caption: [The four-spot, and Reid's position.],
 ) <fspot>
 
-Reid's position is 26 quarter turns from solved. The word he gives for it is
+Reid's position is 26 quarter turns from solved. The word he gives for it, with
+the half turns written out, is
 
 #align(center)[
-  $U^2 space D^2 space L space F^2 space U^(-1) space D space R^2 space B
-    space U^(-1) space D^(-1) space R space L space F^2 space R space U space
-    D^(-1) space R^(-1) space L space U space F^(-1) space B^(-1)$
+  $U space U space D space D space L space F space F space U^(-1) space D space
+    R space R space B space U^(-1) space D^(-1) space R space L space F space F
+    space R space U space D^(-1) space R^(-1) space L space U space F^(-1)
+    space B^(-1)$
 ]
 
-That is 21 face turns, five of them half turns, and we check it by multiplying
-both sides out. Ruling out 25 is ruling out 24: a quarter turn is five
+Twenty-six letters, and twenty-one face turns since five of them are half
+turns. We check the word by multiplying both sides out.
+
+Ruling out 25 is ruling out 24: a quarter turn is five
 four-cycles of the 48 stickers, so it is odd, an odd word gives an odd
 position, and Reid's position is even. Every word for it has even length, so
 the searches stop at 24.
