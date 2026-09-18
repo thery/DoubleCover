@@ -328,10 +328,10 @@ moves, and that gives a second number for the same cube. We prove a lower bound
 for each.
 
 In 2010 Rokicki, Kociemba, Davidson and Dethridge showed that it is *20*
-@rokicki2013diameter. Their result has two halves. One half is that twenty moves
-always suffice. It is the huge one, and the last section of this note says how
-it was obtained. The other half is that twenty moves are sometimes needed. For
-that it is enough to take one position and show it cannot be solved in 19.
+@rokicki2013diameter. Twenty moves always suffice, and twenty moves are
+sometimes needed. The first half is the huge computation, and the last section
+of this note says how it was obtained. For that it is enough to take one
+position and show it cannot be solved in 19.
 
 We take one position: the *superflip*, drawn in @sflip beside a solved cube.
 Every corner sticker is where it belongs. Every edge is in its own place but
@@ -501,8 +501,8 @@ Here is what each line says:
   `@` is local notation turning a plain number into a place.
 - `*` composes two permutations, so `Umove` is the five cycles of @uturn done
   together, and `g ^+ 2` and `g ^-1` are the same turn done twice and undone.
-  Its order is the opposite of the usual one, and it catches the reader who
-  knows how functions compose. Mathcomp applies permutations on the right, so
+  Its order is the opposite of the usual one.
+  Mathcomp applies permutations on the right, so
   `(g * m) f` is `m (g f)`: a product reads left to right, like a sequence of
   moves played one after the other.
 - `seq` is a list, and `faces` is the list of the six clockwise quarter turns.
@@ -717,9 +717,9 @@ The `search` of #src("Search.v") is refined to carry the summary beside the
 position, updating it with `act` at each move. The position is still carried,
 since only it tells whether the cube is solved. The refined search also plays
 fewer moves: turning the same face twice running is never useful, and the other
-rules of that kind are the subject of the next subsection. Here is its shape,
-with names simplified and some details left out; the real one is `searchz3` in
-#src("Farp1.v"):
+rules of that kind are the subject of the next subsection. Its shape, with names
+simplified and some details left out, is the following; the real one is
+`searchz3` in #src("Farp1.v"):
 
 ```coq
 Fixpoint search (d : nat) (g : gT) (x : summary) (p : move) : bool :=
@@ -767,8 +767,8 @@ twenty-four threads, 62 GB of memory.
 
 = Optimising
 
-What follows makes the tree smaller or the run cheaper. None of it changes the
-answer.
+None of what follows changes the answer. It makes the tree smaller or the run
+cheaper.
 
 == Removing redundant moves
 
@@ -1167,8 +1167,7 @@ The second is the computation itself, the one Rokicki, Kociemba, Davidson and
 Dethridge ran: about a billion seconds of processor time, more than thirty
 processor years, donated by Google, over 55 882 296 families of cosets. We
 cannot repeat that. What we can do is one coset, to see what one costs and
-whether the pieces are in place. This section reports that one coset, the
-superflip's.
+whether the pieces are in place. We did the superflip's.
 
 == Cosets
 
