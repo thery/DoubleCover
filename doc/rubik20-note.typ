@@ -1037,7 +1037,7 @@ edge over.
   caption: [The four-spot, and Reid's position.],
 ) <fspot>
 
-Reid's position is 26 quarter turns from solved, by his word
+Reid's position is 26 quarter turns from solved. The word he gives for it is
 
 #align(center)[
   $U^2 space D^2 space L space F^2 space U^(-1) space D space R^2 space B
@@ -1115,7 +1115,7 @@ Theorem qdiam25 : ~ diam_le Sq 25.
 
 `Sq` is the set of the twelve quarter turns and `diam_le Sq 25` says every
 position is within 25 of them. The line says it is not, Reid's position is the
-witness, and his word puts it at 26. Rocq reports only the primitives of its
+witness, and the word Reid gives for it puts it at 26. Rocq reports only the primitives of its
 machine-integer and array interface. The work is eighteen hand-written files and
 6 008 lines. Reid's argument is in #src("HProp2.v"), the search in
 #src("HSearch.v"), the sweeps in #src("HSweep.v"), and the bound in
