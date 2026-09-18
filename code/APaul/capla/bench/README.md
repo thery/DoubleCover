@@ -79,6 +79,49 @@ ccomp, htr_search+0x1f4
   jb   <top>
 ```
 
+## The ratio is a property of the core, not of the code — 2026-09-18
+
+A Capla developer rebuilt this exact gcc from the Fedora packages, got
+assembly identical to the files here, and still measured 55 s against
+ccomp's 2 m 30 s. Same instructions, a 2.7x gap on his machine and 1.09x
+on ours.
+
+The explanation is that this CPU is **hybrid**, and the two core types do
+not run these two loops the same way. Pinning the *same binaries* with
+`taskset` (20000-chunk slice, 2-3 passes each, medians):
+
+| core | gcc -O2 | ccomp | ccomp/gcc | Capla | Capla/gcc |
+|---|---|---|---|---|---|
+| cpu0, P-core (Redwood Cove) | 14.39 s | 15.03 s | **1.04x** | 15.67 s | 1.09x |
+| cpu6, E-core (Crestmont) | 16.55 s | 35.12 s | **2.12x** | 43.66 s | 2.64x |
+| cpu12, LP E-core | 20.61 s | 44.92 s | **2.18x** | — | — |
+
+Nothing else changed: same files, same machine, same run. The gap is 1.04x
+or 2.18x depending only on which core the kernel picked. Our unpinned runs
+landed on P-cores; the developer's machine is in the same regime as our
+E-cores, and his 2.72x / 2.77x sit next to our 2.12x / 2.64x.
+
+The mechanism is in the branch layout, and it is visible in the assembly
+above. Per iteration of the hot loop:
+
+- **gcc takes one branch**: the backward `jae <top>`, with the `je <out>`
+  falling through. The common case — not a candidate, 99.996% of the time
+  — is the taken backward branch, and nothing else.
+- **ccomp takes two**: the forward `jae <inc>` to reach the increment, then
+  the backward `jb <top>`. It puts the common case on a taken *forward*
+  branch instead of letting it fall through.
+
+A core that retires one taken branch per cycle therefore needs at least two
+cycles per iteration for the ccomp loop and one for the gcc loop — a
+ceiling of 2x, which is what the E-cores show. The wide P-core absorbs the
+second taken branch and the two come out level.
+
+**So this is not a codegen-quality difference in the usual sense.** Both
+compilers emit six instructions doing the same work. What separates them is
+which side of the branch the hot path sits on, and that only costs anything
+on a narrow front end. If CompCert laid the common case out as fall-through
+the gap would close on every core.
+
 ## The files
 
 | file | what |
@@ -89,6 +132,10 @@ ccomp, htr_search+0x1f4
 | `ccomp-poly_eval.s` | `poly_eval`, ccomp |
 | `caplab-main.s` | `main` of `test_htr.c`, ccomp |
 | `caplab-htr_search.s` | `htr_search` from `htr.b`, ccomp |
+
+The pinned runs above are reproducible with
+`taskset -c <cpu> ./test_htr 4503599627370496 4503620598890496`;
+`lscpu -e` says which cpu is which core type.
 
 Each was produced with `objdump -d --no-show-raw-insn`.
 
