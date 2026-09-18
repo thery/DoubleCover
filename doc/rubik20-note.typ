@@ -895,31 +895,24 @@ are 11.9 times faster on one piece at depth 14. Only the ends are of interest
 here: whatever the middle versions do for speed, the answer is the abstract
 search's.
 
-== Three views of the same position
+== Two uses of symmetry
 
-Rotating the whole cube about a corner axis gives the same position seen
-differently, and its summary is then another entry of the same table. Each of
-the three views therefore gives a lower bound on the number of moves left, and
-so does the largest of the three. That costs three times the lookups at a
-position and buys a sharper cut and a smaller tree. Cube solvers do this as a
-matter of course, Kociemba's included. What is new here is that the three views
-are proved legitimate.
+The first relabels the position. Rotating the whole cube about a corner axis
+gives the same position seen differently, and its summary is then another entry
+of the same table. Each of the three views therefore gives a lower bound on the
+number of moves left, and so does the largest of the three. That costs three
+lookups at a position instead of one and buys a sharper cut and a smaller tree.
+Cube solvers do this as a matter of course, Kociemba's included; what is new
+here is that the three views are proved legitimate.
 
-== Folding the table by symmetry
-
-The summary is built around the up-down axis: the twist records where each
-corner's up-or-down sticker sits, the slice where the four edges between the
-top and bottom faces are. Sixteen of the 48 relabellings keep that axis, and
-they turn one summary into another; they sort the 1 013 760 flip-and-slice
-values into *64 430 families*, a factor of *15.73*. Two values in one family
-are the same distance from solved, so one entry per family is enough, and a
-lookup replaces the value by its family's representative, carries the twist
-through the same symmetry, and reads a table 15.73 times smaller. This is not
-the symmetry of the three views, which put the same question to the same table
-three times; the fold puts the same question to a smaller table, and the
-estimate is unchanged.
-
-In the code the change is one definition. The lookup was
+The second relabels the table. The summary is built around the up-down axis:
+the twist records where each corner's up-or-down sticker sits, the slice where
+the four edges between the top and bottom faces are. Sixteen of the 48
+relabellings keep that axis and turn one summary into another, and they sort
+the 1 013 760 flip-and-slice values into *64 430 families*, a factor of
+*15.73*. Two values in one family are the same distance from solved, so one
+entry per family is enough. The estimate is therefore unchanged, and only the
+table shrinks. In the code the change is one definition. The lookup was
 
 ```coq
 Definition Dp1i (tw x : int) : int := p1get (p1idx tw x).
