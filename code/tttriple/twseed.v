@@ -674,4 +674,174 @@ have Hu2p : 0 <= u * u by apply: Rle_0_sqr.
 by lra.
 Qed.
 
+(* ---------------------------------------------------------------------------*)
+(*  The chain from the seed to the assembly                                   *)
+(* ---------------------------------------------------------------------------*)
+(*                                                                            *)
+(*  These are the paper's own lemmas with `sqrtBW' replaced by `sqrtBWn' and  *)
+(*  each constant moved by the four the seed costs.  They reach the seed      *)
+(*  through `sqrtBWn_x_err_crude' and `sqrtBn_isDW' and nothing else, which   *)
+(*  is why the substitution is all that is needed.                            *)
+
+(* [b X] against [sqrt x]: 125 for the paper's 121.                           *)
+Lemma sqrtAuxN_bX_le x : isTW x -> 0 < tw0 x ->
+  Rabs (TWval (sqrtBWn (tw0 x) (tw1 x)) * TWval x)
+    <= (1 + 125 * (u * u)) * sqrt (TWval x).
+Proof.
+move=> Hx Hx0.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048 Hp11.
+have HX0 := isTW_TWval_gt0 Hp2 Hp11 Hx Hx0.
+have Hs0 : 0 < sqrt (TWval x) by apply: sqrt_lt_R0.
+have HsX : sqrt (TWval x) * sqrt (TWval x) = TWval x by apply: sqrt_sqrt; lra.
+have Hseed := sqrtBWn_x_err_crude _ Hx Hx0.
+set B := TWval (sqrtBWn (tw0 x) (tw1 x)) in Hseed *.
+set s := sqrt (TWval x) in HsX Hs0 Hseed *.
+have Hgen : forall r b, r * r = TWval x -> b * TWval x = (b * r) * r.
+  by move=> r b <-; ring.
+rewrite (Hgen s B HsX) Rabs_mult (Rabs_pos_eq s); last lra.
+have Hb := Rabs_le_inv _ _ Hseed.
+have Hhalf : 104 * (u * u) <= 1 / 2.
+  have -> : 104 * (u * u) = 104 * u * u by ring.
+  by nra.
+have HBs : Rabs (B * s) <= 1 + 125 * (u * u).
+  rewrite (Rabs_pos_eq (B * s)); last by lra.
+  by lra.
+by apply: Rmult_le_compat_r; lra.
+Qed.
+
+(* [i1 = mul1 b x] against [sqrt x]: 134 for the paper's 130.                 *)
+Lemma sqrtAuxN_i1_le mul1 d1 :
+  (forall b y, isDW b -> isTW y ->
+     Rabs (TWval (mul1 b y) - TWval b * TWval y)
+       <= d1 * Rabs (TWval b * TWval y)) ->
+  0 <= d1 -> d1 <= u * u ->
+  forall x, isTW x -> 0 < tw0 x ->
+    Rabs (TWval (mul1 (sqrtBWn (tw0 x) (tw1 x)) x))
+      <= (1 + 134 * (u * u)) * sqrt (TWval x).
+Proof.
+move=> Herr1 Hd10 Hd1u x Hx Hx0.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048 Hp11.
+have HX0 := isTW_TWval_gt0 Hp2 Hp11 Hx Hx0.
+have Hs0 : 0 < sqrt (TWval x) by apply: sqrt_lt_R0.
+have Fx0 : format (tw0 x) by case: x Hx {Hx0 HX0 Hs0} => x0 x1 x2 [].
+have Hx1s : tw1 x = 0 \/ Rabs (tw1 x) < ulp (tw0 x)
+  by case: x Hx {Hx0 HX0 Hs0 Fx0} => x0 x1 x2 [].
+have HDW : isDW (sqrtBWn (tw0 x) (tw1 x)) by apply: sqrtBn_isDW.
+have He := Herr1 _ _ HDW Hx.
+have HbX := sqrtAuxN_bX_le _ Hx Hx0.
+have -> : TWval (mul1 (sqrtBWn (tw0 x) (tw1 x)) x)
+    = (TWval (mul1 (sqrtBWn (tw0 x) (tw1 x)) x)
+       - TWval (sqrtBWn (tw0 x) (tw1 x)) * TWval x)
+      + TWval (sqrtBWn (tw0 x) (tw1 x)) * TWval x by ring.
+apply: Rle_trans (Rabs_triang _ _) _.
+have Hp := Rabs_pos (TWval (sqrtBWn (tw0 x) (tw1 x)) * TWval x).
+have Hstep : d1 * Rabs (TWval (sqrtBWn (tw0 x) (tw1 x)) * TWval x)
+             + Rabs (TWval (sqrtBWn (tw0 x) (tw1 x)) * TWval x)
+    <= (u * u) * ((1 + 125 * (u * u)) * sqrt (TWval x))
+       + (1 + 125 * (u * u)) * sqrt (TWval x).
+  have H1 : d1 * Rabs (TWval (sqrtBWn (tw0 x) (tw1 x)) * TWval x)
+      <= (u * u) * ((1 + 125 * (u * u)) * sqrt (TWval x)).
+    apply: Rle_trans (_ : (u * u)
+             * Rabs (TWval (sqrtBWn (tw0 x) (tw1 x)) * TWval x) <= _).
+      by apply: Rmult_le_compat_r.
+    by apply: Rmult_le_compat_l; nra.
+  by lra.
+apply: Rle_trans (_ : d1 * Rabs (TWval (sqrtBWn (tw0 x) (tw1 x)) * TWval x)
+                      + Rabs (TWval (sqrtBWn (tw0 x) (tw1 x)) * TWval x) <= _);
+  first by lra.
+apply: Rle_trans Hstep _.
+have Hfac : (u * u) * ((1 + 125 * (u * u)) * sqrt (TWval x))
+            + (1 + 125 * (u * u)) * sqrt (TWval x)
+    = (1 + 126 * (u * u) + 125 * (u * u) * (u * u)) * sqrt (TWval x)
+  by ring.
+rewrite Hfac.
+apply: Rmult_le_compat_r; first lra.
+have Hu4 : 125 * (u * u) * (u * u) <= 8 * (u * u).
+  have -> : 125 * (u * u) * (u * u) = 125 * (u * u) * u * u by ring.
+  have Hs : 0 <= u * u by apply: Rle_0_sqr.
+  have Hc : 125 * (u * u) <= 8 by nra.
+  by nra.
+by lra.
+Qed.
+
+(* The cancellation: the bracket is a half, not a one.  308 for the paper's   *)
+(* 300, and what consumes it has room for both.                               *)
+Lemma sqrtAuxN_bracket_le mul1 d1 :
+  (forall b y, isDW b -> isTW y ->
+     Rabs (TWval (mul1 b y) - TWval b * TWval y)
+       <= d1 * Rabs (TWval b * TWval y)) ->
+  0 <= d1 -> d1 <= u * u ->
+  forall x, isTW x -> 0 < tw0 x ->
+    Rabs ((3 / 2 - (1 / 2)
+             * (TWval (sqrtBWn (tw0 x) (tw1 x))
+                * TWval (sqrtBWn (tw0 x) (tw1 x))) * TWval x)
+          - (TWval (sqrtBWn (tw0 x) (tw1 x)) / 2)
+            * TWval (mul1 (sqrtBWn (tw0 x) (tw1 x)) x))
+      <= 1 / 2 + 308 * (u * u).
+Proof.
+move=> Herr1 Hd10 Hd1u x Hx Hx0.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048 Hp11.
+have HX0 := isTW_TWval_gt0 Hp2 Hp11 Hx Hx0.
+have Hs0 : 0 < sqrt (TWval x) by apply: sqrt_lt_R0.
+have HsX : sqrt (TWval x) * sqrt (TWval x) = TWval x by apply: sqrt_sqrt; lra.
+have Fx0 : format (tw0 x) by case: x Hx {Hx0 HX0 Hs0 HsX} => x0 x1 x2 [].
+have Hx1s : tw1 x = 0 \/ Rabs (tw1 x) < ulp (tw0 x)
+  by case: x Hx {Hx0 HX0 Hs0 HsX Fx0} => x0 x1 x2 [].
+have HDW : isDW (sqrtBWn (tw0 x) (tw1 x)) by apply: sqrtBn_isDW.
+have He := Herr1 _ _ HDW Hx.
+have Hseed := sqrtBWn_x_err_crude _ Hx Hx0.
+set B := TWval (sqrtBWn (tw0 x) (tw1 x)) in He Hseed *.
+set I1 := TWval (mul1 (sqrtBWn (tw0 x) (tw1 x)) x) in He *.
+set s := sqrt (TWval x) in HsX Hs0 Hseed *.
+have Ht := Rabs_le_inv _ _ Hseed.
+have HB2X : forall r b, r * r = TWval x -> b * b * TWval x = (b * r) * (b * r).
+  by move=> r b <-; ring.
+have HBX : B * B * TWval x = (B * s) * (B * s) by apply: HB2X.
+have Hsplit : 3 / 2 - 1 / 2 * (B * B) * TWval x - B / 2 * I1
+    = (3 / 2 - (B * B) * TWval x) - (B / 2) * (I1 - B * TWval x) by field.
+rewrite Hsplit HBX.
+apply: Rle_trans (Rabs_triang _ _) _.
+rewrite Rabs_Ropp.
+have Hhalf : 104 * (u * u) <= 1 / 2.
+  have -> : 104 * (u * u) = 104 * u * u by ring.
+  by nra.
+have Hu4 : 20000 * ((u * u) * (u * u)) <= u * u.
+  have -> : 20000 * ((u * u) * (u * u)) = 20000 * (u * u) * u * u by ring.
+  have Hs2 : 0 <= u * u by apply: Rle_0_sqr.
+  have Hc : 20000 * (u * u) <= 1 by nra.
+  by nra.
+have Hlo : 0 <= B * s by lra.
+have Hsqhi : (B * s) * (B * s) <= (1 + 104 * (u * u)) * (1 + 104 * (u * u))
+  by apply: Rmult_le_compat; nra.
+have Hsqlo : (1 - 104 * (u * u)) * (1 - 104 * (u * u)) <= (B * s) * (B * s)
+  by apply: Rmult_le_compat; nra.
+have Hsq : Rabs (3 / 2 - B * s * (B * s)) <= 1 / 2 + 249 * (u * u)
+  by apply: Rabs_le; nra.
+have Hmix : Rabs (B / 2 * (I1 - B * TWval x)) <= 59 * (u * u).
+  rewrite Rabs_mult.
+  have Hstep : Rabs (B / 2) * Rabs (I1 - B * TWval x)
+      <= Rabs (B / 2) * (d1 * Rabs (B * TWval x))
+    by apply: Rmult_le_compat_l; [apply: Rabs_pos | exact: He].
+  apply: Rle_trans Hstep _.
+  have Hcomb : Rabs (B / 2) * (d1 * Rabs (B * TWval x))
+      = d1 / 2 * Rabs (B * (B * TWval x)).
+    rewrite /Rdiv !Rabs_mult (Rabs_pos_eq (/ 2)); last lra.
+    by field.
+  rewrite Hcomb.
+  have HBBX : B * (B * TWval x) = B * s * (B * s) by rewrite -HBX; ring.
+  rewrite HBBX.
+  have Hpos : Rabs (B * s * (B * s)) <= 2.
+    rewrite (Rabs_pos_eq (B * s * (B * s))); last by apply: Rle_0_sqr.
+    by nra.
+  have Hd2 : 0 <= d1 / 2 by lra.
+  have Hstep2 : d1 / 2 * Rabs (B * s * (B * s)) <= d1 / 2 * 2
+    by apply: Rmult_le_compat_l.
+  apply: Rle_trans Hstep2 _.
+  by nra.
+by lra.
+Qed.
+
 End SecSeedNoFMA.
