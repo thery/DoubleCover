@@ -844,4 +844,129 @@ have Hmix : Rabs (B / 2 * (I1 - B * TWval x)) <= 59 * (u * u).
 by lra.
 Qed.
 
+(* [b i(1)] against one: the SEED ERROR DOUBLED, 210 for the paper's 202.     *)
+Lemma sqrtAuxN_b_i1_le mul1 d1 :
+  (forall b y, isDW b -> isTW y ->
+     Rabs (TWval (mul1 b y) - TWval b * TWval y)
+       <= d1 * Rabs (TWval b * TWval y)) ->
+  0 <= d1 -> d1 <= u * u ->
+  forall x, isTW x -> 0 < tw0 x ->
+    Rabs (TWval (sqrtBWn (tw0 x) (tw1 x))
+          * TWval (mul1 (sqrtBWn (tw0 x) (tw1 x)) x) - 1)
+      <= 210 * (u * u).
+Proof.
+move=> Herr1 Hd10 Hd1u x Hx Hx0.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048 Hp11.
+have HX0 := isTW_TWval_gt0 Hp2 Hp11 Hx Hx0.
+have Hs0 : 0 < sqrt (TWval x) by apply: sqrt_lt_R0.
+have HsX : sqrt (TWval x) * sqrt (TWval x) = TWval x by apply: sqrt_sqrt; lra.
+have Fx0 : format (tw0 x) by case: x Hx {Hx0 HX0 Hs0 HsX} => x0 x1 x2 [].
+have Hx1s : tw1 x = 0 \/ Rabs (tw1 x) < ulp (tw0 x)
+  by case: x Hx {Hx0 HX0 Hs0 HsX Fx0} => x0 x1 x2 [].
+have HDW : isDW (sqrtBWn (tw0 x) (tw1 x)) by apply: sqrtBn_isDW.
+have He1 := Herr1 _ _ HDW Hx.
+have Hseed := sqrtBWn_x_err_crude _ Hx Hx0.
+set B := TWval (sqrtBWn (tw0 x) (tw1 x)) in He1 Hseed *.
+set I1 := TWval (mul1 (sqrtBWn (tw0 x) (tw1 x)) x) in He1 *.
+set s := sqrt (TWval x) in HsX Hs0 Hseed.
+have He1' : Rabs (I1 - B * TWval x) <= (u * u) * Rabs (B * TWval x).
+  apply: Rle_trans He1 _.
+  by apply: Rmult_le_compat_r; first by apply: Rabs_pos.
+have Ht := Rabs_le_inv _ _ Hseed.
+have HBs : Rabs (B * s) <= 1 + 104 * (u * u).
+  by have := Rabs_triang_inv (B * s) 1; rewrite Rabs_R1; lra.
+have Hsplit : B * I1 - 1 = ((B * s) * (B * s) - 1) + B * (I1 - B * TWval x)
+  by rewrite -HsX; ring.
+have Hsq : Rabs ((B * s) * (B * s) - 1)
+    <= (104 * (u * u)) * (2 + 104 * (u * u)).
+  have -> : (B * s) * (B * s) - 1 = (B * s - 1) * ((B * s - 1) + 2) by ring.
+  rewrite Rabs_mult.
+  apply: Rmult_le_compat => //; try apply: Rabs_pos.
+  apply: Rle_trans (Rabs_triang _ _) _.
+  have -> : Rabs 2 = 2 by rewrite Rabs_pos_eq; lra.
+  by lra.
+have Hmulterm : Rabs (B * (I1 - B * TWval x))
+    <= (u * u) * ((1 + 104 * (u * u)) * (1 + 104 * (u * u))).
+  rewrite Rabs_mult.
+  have HBp := Rabs_pos B.
+  have Hstep : Rabs B * Rabs (I1 - B * TWval x)
+      <= Rabs B * ((u * u) * Rabs (B * TWval x))
+    by apply: Rmult_le_compat_l.
+  apply: Rle_trans Hstep _.
+  have HBX : Rabs B * Rabs (B * TWval x) = Rabs (B * s) * Rabs (B * s).
+    by rewrite -!Rabs_mult -HsX; congr (Rabs _); ring.
+  have -> : Rabs B * ((u * u) * Rabs (B * TWval x))
+      = (u * u) * (Rabs B * Rabs (B * TWval x)) by ring.
+  rewrite HBX.
+  apply: Rmult_le_compat_l; first by nra.
+  by apply: Rmult_le_compat => //; apply: Rabs_pos.
+have Ht2 := Rabs_triang ((B * s) * (B * s) - 1) (B * (I1 - B * TWval x)).
+rewrite Hsplit.
+have L2 : u * u <= / 2048 * u by nra.
+have L3 : u * u * u <= / 2048 * (u * u) by nra.
+have L4 : u * u * u * u <= / 2048 * (u * u * u) by nra.
+have L5 : u * u * u * u * u <= / 2048 * (u * u * u * u) by nra.
+have L6 : u * u * u * u * u * u <= / 2048 * (u * u * u * u * u) by nra.
+by clear -Ht2 Hsq Hmulterm Hu0 Hu2048 L2 L3 L4 L5 L6; nra.
+Qed.
+
+(* AND THE NUMBER THE WHOLE THING TURNS ON.  `i(2)' has head one and is       *)
+(* within `108u^2' of it, where the paper's seed reaches `105'.  What         *)
+(* consumes it is `ThreeProdOneTW_error_c', whose tolerance is a parameter    *)
+(* no larger than 112 -- so the four the seed costs fit, with four to spare.  *)
+Lemma sqrtAuxN_i2_near_1 mul1 mul2 d1 d2 :
+  (forall b y, isDW b -> isTW y ->
+     Rabs (TWval (mul1 b y) - TWval b * TWval y)
+       <= d1 * Rabs (TWval b * TWval y)) ->
+  (forall b y, isDW b -> isTW y ->
+     Rabs (TWval (mul2 b y) - TWval b * TWval y)
+       <= d2 * Rabs (TWval b * TWval y)) ->
+  (forall b y, isDW b -> isTW y -> isTW (mul1 b y)) ->
+  0 <= d1 -> d1 <= u * u -> 0 <= d2 -> d2 <= u * u ->
+  forall x, isTW x -> 0 < tw0 x ->
+    Rabs (TWval (sub32TW (mul2 (scaleTW (-1)%Z (sqrtBWn (tw0 x) (tw1 x)))
+                            (mul1 (sqrtBWn (tw0 x) (tw1 x)) x))) - 1)
+      <= 108 * (u * u).
+Proof.
+move=> Herr1 Herr2 Hmul1 Hd10 Hd1u Hd20 Hd2u x Hx Hx0.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048 Hp11.
+have Fx0 : format (tw0 x) by case: x Hx {Hx0} => x0 x1 x2 [].
+have Hx1s : tw1 x = 0 \/ Rabs (tw1 x) < ulp (tw0 x)
+  by case: x Hx {Hx0 Fx0} => x0 x1 x2 [].
+have HDW : isDW (sqrtBWn (tw0 x) (tw1 x)) by apply: sqrtBn_isDW.
+have Hi1 : isTW (mul1 (sqrtBWn (tw0 x) (tw1 x)) x) by apply: Hmul1.
+have Hkey := sqrtAuxN_b_i1_le _ _ Herr1 Hd10 Hd1u _ Hx Hx0.
+have HDWs : isDW (scaleTW (-1)%Z (sqrtBWn (tw0 x) (tw1 x)))
+  by apply: isDW_scale.
+have He2 := Herr2 _ _ HDWs Hi1.
+rewrite TWval_scale in He2.
+have Hpow : pow (-1) = / 2 by rewrite /= /Z.pow_pos /=; lra.
+rewrite Hpow in He2.
+rewrite TWval_sub32TW.
+set B := TWval (sqrtBWn (tw0 x) (tw1 x)) in Hkey He2 *.
+set I1 := TWval (mul1 (sqrtBWn (tw0 x) (tw1 x)) x) in Hkey He2 *.
+set P := TWval (mul2 (scaleTW (-1)%Z (sqrtBWn (tw0 x) (tw1 x)))
+                  (mul1 (sqrtBWn (tw0 x) (tw1 x)) x)) in He2 *.
+have H2 : Rabs (/ 2) = / 2 by rewrite Rabs_pos_eq; lra.
+have Hhalf : Rabs (B * / 2 * I1 - / 2) <= 105 * (u * u).
+  have -> : B * / 2 * I1 - / 2 = (B * I1 - 1) * / 2 by field.
+  by rewrite Rabs_mult H2; lra.
+have Hub : Rabs (B * / 2 * I1) <= / 2 + 105 * (u * u).
+  by have := Rabs_triang_inv (B * / 2 * I1) (/ 2); rewrite H2; lra.
+have Herr : Rabs (P - B * / 2 * I1) <= (u * u) * (/ 2 + 105 * (u * u)).
+  apply: Rle_trans He2 _.
+  apply: Rle_trans (_ : (u * u) * Rabs (B * / 2 * I1) <= _).
+    by apply: Rmult_le_compat_r; first by apply: Rabs_pos.
+  by apply: Rmult_le_compat_l; first by apply: Rle_0_sqr.
+have -> : 3 / 2 - P - 1 = - ((P - B * / 2 * I1) + (B * / 2 * I1 - / 2))
+  by field.
+rewrite Rabs_Ropp.
+apply: Rle_trans (Rabs_triang _ _) _.
+have L3 : u * u * u <= / 2048 * (u * u) by nra.
+have L4 : u * u * u * u <= / 2048 * (u * u * u) by nra.
+nra.
+Qed.
+
 End SecSeedNoFMA.
