@@ -765,41 +765,6 @@ minutes. Every timing in this note is measured on the same machine, the
 *reference machine*: a dual-socket Intel Xeon E5-2667 at 2.9 GHz, twelve cores,
 twenty-four threads, 62 GB of memory.
 
-== Removing redundant moves
-
-Many words lead to the same position, and the search does not have to try them
-all. Two ideas say which ones may be left out. The first is repetition: after a
-$U$ there is no point in trying $U$, $U^2$ or $U^(-1)$, since $U U$ is $U^2$ and
-a shorter word is covered at a smaller depth, which leaves fifteen moves instead
-of eighteen. Opposite faces are the same argument, one step weaker: $U D$ and
-$D U$ give the same position, so of the two orders we keep one, and play the
-top, right or front face first. This is what we call the *order convention*.
-From the third move on it leaves *twelve* moves after a turn of the top, right
-or front face, and *fifteen* after a turn of the bottom, left or back one. The
-second idea is symmetry. The superflip is unchanged by all 48 relabellings of
-the cube. So we need to explore only the turns of one face for the first move.
-We choose arbitrarily the top one, and again by symmetry we only have to
-consider $U$ and $U^2$, since $U^(-1)$ is the symmetric of $U$. The two ideas
-collide at the second move. After $U$, repetition removes $U$, $U^2$ and
-$U^(-1)$, which leaves fifteen. The order convention would remove $D$, $D^2$ and
-$D^(-1)$ as well and leave twelve, but it may not be used here: the first move
-is already fixed to the top face, and turning the cube upside down takes $D U$
-back to $U D$. So the bottom face stays, and the fifteen second moves after $U$
-include $U D$, $U D^2$ and $U D^(-1)$.
-
-The search is then parallelised at depth two. Two first moves times fifteen
-second moves is thirty *prefixes*, each searched on its own to depth 17, and
-they are packed one file per second move, #src("Runp1_03.v") to
-#src("Runp1_17.v"). The two whose second move turns the bottom face keep fifteen
-branches where the others keep twelve, so they run far longer. Each of those two
-is split into two files, #src("Runp1_09a.v") and #src("Runp1_09b.v"),
-#src("Runp1_11a.v") and #src("Runp1_11b.v"), which balances the load and makes
-*seventeen files* in all. Our own OCaml program dropped the bottom-face moves,
-so it searched 24 prefixes where it had to search 30. It ran for hours and gave
-the answer we expected. The error came out only when the cut had to be proved in
-Rocq, and the proof could not be written. A cut that is too greedy does not make
-a search fail. It makes it faster, and it makes it agree with you.
-
 = The refinements
 
 To run the search we need an effective representation of its objects: of a
@@ -912,6 +877,46 @@ memory. Measured on the same 2 097 152 entries:
 
 Over all 71 blocks that is 21.5 GB against *5 GB*. It is what let nine workers
 run at once on a 62 GB machine where two had run before.
+
+= Optimising
+
+What follows makes the tree smaller or the run cheaper. None of it changes the
+answer.
+
+== Removing redundant moves
+
+Many words lead to the same position, and the search does not have to try them
+all. Two ideas say which ones may be left out. The first is repetition: after a
+$U$ there is no point in trying $U$, $U^2$ or $U^(-1)$, since $U U$ is $U^2$ and
+a shorter word is covered at a smaller depth, which leaves fifteen moves instead
+of eighteen. Opposite faces are the same argument, one step weaker: $U D$ and
+$D U$ give the same position, so of the two orders we keep one, and play the
+top, right or front face first. This is what we call the *order convention*.
+From the third move on it leaves *twelve* moves after a turn of the top, right
+or front face, and *fifteen* after a turn of the bottom, left or back one. The
+second idea is symmetry. The superflip is unchanged by all 48 relabellings of
+the cube. So we need to explore only the turns of one face for the first move.
+We choose arbitrarily the top one, and again by symmetry we only have to
+consider $U$ and $U^2$, since $U^(-1)$ is the symmetric of $U$. The two ideas
+collide at the second move. After $U$, repetition removes $U$, $U^2$ and
+$U^(-1)$, which leaves fifteen. The order convention would remove $D$, $D^2$ and
+$D^(-1)$ as well and leave twelve, but it may not be used here: the first move
+is already fixed to the top face, and turning the cube upside down takes $D U$
+back to $U D$. So the bottom face stays, and the fifteen second moves after $U$
+include $U D$, $U D^2$ and $U D^(-1)$.
+
+The search is then parallelised at depth two. Two first moves times fifteen
+second moves is thirty *prefixes*, each searched on its own to depth 17, and
+they are packed one file per second move, #src("Runp1_03.v") to
+#src("Runp1_17.v"). The two whose second move turns the bottom face keep fifteen
+branches where the others keep twelve, so they run far longer. Each of those two
+is split into two files, #src("Runp1_09a.v") and #src("Runp1_09b.v"),
+#src("Runp1_11a.v") and #src("Runp1_11b.v"), which balances the load and makes
+*seventeen files* in all. Our own OCaml program dropped the bottom-face moves,
+so it searched 24 prefixes where it had to search 30. It ran for hours and gave
+the answer we expected. The error came out only when the cut had to be proved in
+Rocq, and the proof could not be written. A cut that is too greedy does not make
+a search fail. It makes it faster, and it makes it agree with you.
 
 == Three views of the same position
 
