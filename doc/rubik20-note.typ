@@ -558,9 +558,9 @@ search practical. This naive method has to be refined.
 
 A first refinement is to have a criterion that lets us cut in advance the
 branches we are sure cannot succeed. For that we use at each position a cheap
-lower bound $h$ on the number of moves still needed: if $h$ is 20 while only 18
-moves remain, the branch cannot reach the solved cube in time and is cut with
-everything below it, as @tree shows.
+lower bound $h$ on the number of moves still needed. If $h$ is 20 while only 18
+moves remain, the branch cannot reach the solved cube in time, and it is cut
+with everything below it, as @tree shows.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -787,7 +787,7 @@ We choose arbitrarily the top one, and again by symmetry we only have to
 consider $U$ and $U^2$, since $U^(-1)$ is the symmetric of $U$. The two ideas
 collide at the second move. After $U$, repetition removes $U$, $U^2$ and
 $U^(-1)$, which leaves fifteen. The order convention would remove $D$, $D^2$ and
-$D^(-1)$ as well and leave twelve, but it may not be used here: the first move
+$D^(-1)$ as well and leave twelve, but it may not be used here. The first move
 is already fixed to the top face, and turning the cube upside down takes $D U$
 back to $U D$. So the bottom face stays, and the fifteen second moves after $U$
 include $U D$, $U D^2$ and $U D^(-1)$.
@@ -810,16 +810,16 @@ a search fail. It makes it faster, and it makes it agree with you.
 To run the search we need an effective representation of its objects: of a
 position first of all, and of the permutations that move it. The objects are
 few: a position, a move, the summary of a position, and the table of distances.
-A position is a permutation of the 48 stickers, and #src("Table.v") presents it
-by its image table, the list of 48 numbers saying where each sticker goes, with
-`tab_ok` saying which lists are tables; the product of two permutations is then
+A position is a permutation of the 48 stickers. #src("Table.v") presents it by
+its image table, the list of 48 numbers saying where each sticker goes, and
+`tab_ok` says which lists are tables. The product of two permutations is then
 the reading of one list through the other, and a move is one more table.
-#src("Tsearch.v") runs the search of #src("Search.v") on tables. Machine
-integers, 63 bits wide, and *persistent arrays* of them @armand2010imperative
-come next: #src("Tabi.v") carries those tables as arrays of machine integers,
-`ti2t` reads such an array back as the list it stands for, `tabi_ok` is `tab_ok`
-of that list, and each operation has a lemma saying that the bridge may be
-crossed either way round.
+#src("Tsearch.v") runs the search of #src("Search.v") on tables. Next come
+machine integers, 63 bits wide, and *persistent arrays* of them
+@armand2010imperative. #src("Tabi.v") carries the tables as arrays of machine
+integers. `ti2t` reads such an array back as the list it stands for, and
+`tabi_ok` is `tab_ok` of that list. Each operation has a lemma saying that the
+bridge may be crossed either way round.
 
 ```coq
 Lemma ti2t_comp a b :
@@ -830,17 +830,15 @@ Lemma ti2t_comp a b :
 From there on a position is 48 machine integers, a summary is two, and the phase
 1 table is an array of arrays, fifteen four-bit entries to a 63-bit machine
 integer. A Rocq array holds at most 4 194 303 entries. The table needs far more,
-so it is cut into chunks of two million words. A function on a finite domain is
-tabulated rather than computed, the action of a move on a summary, the rank of a
-summary and the symmetry that the fold uses among them, and each of those tables
-is checked in Rocq like the table of distances. The search itself goes the same
-way: #src("Fast.v") holds it twice, `searchz3` on the objects of the last
-section and `searchz3n` on machine integers and arrays, and `searchz3nE` in
-#src("FastP.v") proves that the two answer alike, asking only that the depth fit
-in a machine integer, that the tables have passed their checks, and that the
-array be a well-formed position. Seven versions lie between the two ends, each
-proved equal to the one before, and together they are 11.9 times faster on one
-piece at depth 14.
+so it is cut into chunks of two million words. A function on a finite domain is tabulated
+rather than computed. The action of a move on a summary, the rank of a summary
+and the symmetry that the fold uses are all tables, and each is checked in Rocq
+like the table of distances. The search itself goes the same way.
+#src("Fast.v") holds it twice, `searchz3` on the objects of the last section
+and `searchz3n` on machine integers and arrays. `searchz3nE` in
+#src("FastP.v") proves that the two answer alike. Seven versions lie between
+them, each proved equal to the one before, and together they are 11.9 times
+faster on one piece at depth 14.
 
 The superflip itself goes down that chain. As a permutation it is a product of
 twelve two-cycles, one for each flipped edge, $(1 thin 33)$, $(3 thin 9)$,
@@ -854,15 +852,15 @@ Lemma sftiE  : superflip = pt 47 (ti2t 47 sfti).
 ```
 
 `pt 47` is the permutation a table stands for, so both say that what runs is
-still the superflip. Its summary is read off the same table, the corner twist by
-`ctwistt` and the flip-and-slice value by `coordt`, and the estimate at the root
-of the search is one expression:
+still the superflip. Its summary is read off the same table, the corner
+twist by `ctwistt` and the flip-and-slice value by `coordt`. The estimate at
+the root of the search is then one expression:
 
 ```coq
 Dp1i (ctwistt sftab) (coordt sftab)
 ```
 
-The summary is $(0, 15 space 732 space 735)$: the superflip leaves the corners
+The summary is $(0, 15 space 732 space 735)$. The superflip leaves the corners
 alone, so the twist is zero, and the second number carries the twelve flipped
 edges and the four slice slots. The lookup goes through the fold to a four-bit
 field of one 63-bit integer, and the value there is *ten*. At the root the
@@ -931,14 +929,14 @@ symmetry. Three more reads at every lookup, into a table 15.73 times smaller.
 
 Symmetry-reduced tables are standard in cube solvers. What the development adds
 is a proof that the folded table still passes `D0` and `Dstep`, and that is all
-it has to prove: conditions demanding true distances would have required a
-proof that the fold preserves them, a harder statement about the sixteen
+it has to prove. Conditions demanding true distances would have needed a proof
+that the fold preserves them. That is a harder statement, about the sixteen
 symmetries and about what sharing an entry between two summaries does. The
 check is run on the folded table as it was on the flat one, and it is the same
 check. The fold costs the search 1.61 times at depth 16 and pays everywhere
-else: a search worker drops from 4.15 GB to *0.85 GB*, so all the pieces run at
-once instead of in two waves, and checking the table drops from about 5.4
-processor hours to *1.35*.
+else. A search worker drops from 4.15 GB to *0.85 GB*, so all the pieces run at
+once instead of in two waves. Checking the table drops from about 5.4 processor
+hours to *1.35*.
 
 = The development and its cost
 
@@ -1119,12 +1117,10 @@ Theorem qdiam25 : ~ diam_le Sq 25.
 `Sq` is the set of the twelve quarter turns and `diam_le Sq 25` says every
 position is within 25 of them. The line says it is not, Reid's position is the
 witness, and his word puts it at 26. Rocq reports only the primitives of its
-machine-integer and array interface. The work is eighteen hand-written files
-and 6 008 lines: Reid's argument in #src("HProp2.v"), #src("HReid.v") and
-#src("HBridge.v"), the search in #src("HSearch.v"), #src("HCanon.v") and
-#src("HSound.v"), the tables and their sweeps in #src("HChk.v"),
-#src("HSweepC.v"), #src("HSweep.v") and #src("HAdmis.v"), and the assembly in
-#src("HFinal.v") and #src("HAll.v").
+machine-integer and array interface. The work is eighteen hand-written files and
+6 008 lines. Reid's argument is in #src("HProp2.v"), the search in
+#src("HSearch.v"), the sweeps in #src("HSweep.v"), and the bound in
+#src("HAll.v").
 
 #tbl(([], [wall clock], [processor time]),
   ([building the table, in OCaml], [9 min 50], [1 h 43]),
