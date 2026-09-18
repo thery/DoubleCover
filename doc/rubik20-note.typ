@@ -1057,18 +1057,19 @@ the searches stop at 24.
 
 == Reid's six prefixes
 
-Reid's Proposition 2 says that a word which cannot be shortened can be
-rewritten, at the same length, to begin with one of six turns.
+A word for this position that cannot be shortened can be rewritten, at the same
+length, to begin with one of six sequences of quarter turns. That is
+Proposition 2 of Reid's post.
 
 #align(center)[
   #grid(
-    columns: (auto,) * 6,
-    column-gutter: 1.6em,
+    columns: (auto,) * 3,
+    column-gutter: 2.4em,
     row-gutter: 0.5em,
     align: center,
-    $U$, $R$, $F$, $D$, $L$, $B$,
-    $U^2$, $R^2$, $F^2$, $D^2$, $L^2$, $B^2$,
-    $U^(-1)$, $R^(-1)$, $F^(-1)$, $D^(-1)$, $L^(-1)$, $B^(-1)$,
+    $R space U$, $R^(-1) space U space D$, $R^(-1) space U space F^(-1)$,
+    $R^(-1) space U space R^(-1)$, $R^(-1) space U space B^(-1)$,
+    $R^(-1) space U space L^(-1)$,
   )
 ]
 
