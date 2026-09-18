@@ -38,12 +38,12 @@ From dwarith Require Import dwbridge dwsign dwbound.
 (* (`neg_correct', `abs_correct'); the power of two and the scaling           *)
 (* (`pow2_UP_correct', `ZtoS_correct'); and a whole number as a triple word   *)
 (* (`fromZ_UP_correct', `fromZ_DN_correct'), where the two parts peeled off   *)
-(* are exact and only the last float carries a bound.                         *)
+(* are exact and only the last float carries a bound; and the magnitude       *)
+(* (`mag_correct').                                                           *)
 (*                                                                            *)
 (* Still admitted, and each of them is a real statement about the             *)
 (* arithmetic:                                                                *)
 (*   div/sqrt _UP_correct and _DN_correct  (four)                             *)
-(*   mag_correct                                                              *)
 (*   cmp_correct, min_correct, max_correct                                    *)
 (*   nearbyint_UP_correct, nearbyint_DN_correct                               *)
 (* `div2_correct' and `midpoint_correct' are excused by                       *)
@@ -837,8 +837,79 @@ by move: Hr2 H1 H2; rewrite /le_lower /=;
    case: (toX _) => [|v] //=; move=> *; lra.
 Qed.
 
+(* THE LEADING WORD DECIDES THE SIGN.  Each word is within half a step of     *)
+(* the one before it, so the second is at most half the first and the third    *)
+(* at most a quarter of it: what follows the leading word cannot reach it,     *)
+(* and the sum is on the side the leading word is.                             *)
+Lemma wellFormed_lead x0 x1 x2 : Dfin x0 -> Dfin x1 -> Dfin x2 ->
+  wellFormed (TWFloat x0 x1 x2) = true ->
+  (Rabs (D2R x1 + D2R x2) <= Rabs (D2R x0))%R.
+Proof.
+move=> F0 F1 F2; rewrite /wellFormed => /andb_prop [E1 E2].
+have H1 := wellFormed_half x0 x1 F0 F1 E1.
+have H2 := wellFormed_half x1 x2 F1 F2 E2.
+have T := Rabs_triang (D2R x1) (D2R x2).
+by move: H1 H2 T; split_Rabs; lra.
+Qed.
+
+(* The magnitude bounds the triple: the three words are added in absolute     *)
+(* value and rounded upwards, which is at or above whatever the signs make    *)
+(* of them, and the magnitude of that sum is what is returned.                *)
 Lemma mag_correct f : (Rabs (toR f) < bpow radix (StoZ (mag f)))%R.
-Proof. Admitted.
+Proof.
+(* A triple that denotes nothing is read as nought, and every power is above  *)
+(* nought.                                                                    *)
+case Ex: (real f); last first.
+  have -> : toR f = 0%R by move: Ex; rewrite real_correct /toR; case: (toX f).
+  by rewrite Rabs_R0; apply: bpow_gt_0.
+have [F0 [F1 [F2 Ew]]] := real_fin _ Ex.
+have -> : toR f = (D2R (tw0 f) + D2R (tw1 f) + D2R (tw2 f))%R.
+  by rewrite /toR (toX_real _ Ex).
+(* Whatever the signs, the value is at most the three words added in          *)
+(* absolute value.                                                            *)
+have Hab : (Rabs (D2R (tw0 f) + D2R (tw1 f) + D2R (tw2 f))
+            <= D2R (PrimFloat.abs (tw0 f)) + D2R (PrimFloat.abs (tw1 f))
+               + D2R (PrimFloat.abs (tw2 f)))%R.
+  rewrite !D2R_abs.
+  have T1 := Rabs_triang (D2R (tw0 f) + D2R (tw1 f)) (D2R (tw2 f)).
+  have T2 := Rabs_triang (D2R (tw0 f)) (D2R (tw1 f)).
+  by lra.
+rewrite /mag /StoZ; case: f Ex F0 F1 F2 Ew Hab =>
+  x0 x1 x2 /= Ex F0 F1 F2 Ew Hab.
+have Hlead := wellFormed_lead _ _ _ F0 F1 F2 Ew.
+set u := addUpFp (PrimFloat.abs x0) (PrimFloat.abs x1).
+set m := addUpFp u (PrimFloat.abs x2).
+case Em: (((0 <? m)%float && (m <? infinity)%float)%bool); last first.
+  (* The sum left the range.  What follows the leading word cannot reach it,  *)
+  (* so the value is below twice the largest float there is, which is the     *)
+  (* power claimed.                                                           *)
+  have E0 : emax = 1024%Z by [].
+  have E : (bpow radix 1025 = bpow radix2 emax * 2)%R.
+    rewrite /radix; have -> : (1025 = emax + 1)%Z by rewrite E0.
+    by rewrite bpow_plus /= /Z.pow_pos /=; lra.
+  have H0 : (Rabs (D2R x0) < bpow radix2 emax)%R by apply: abs_B2R_lt_emax.
+  have -> : (D2R x0 + D2R x1 + D2R x2 = D2R x0 + (D2R x1 + D2R x2))%R by ring.
+  have T := Rabs_triang (D2R x0) (D2R x1 + D2R x2).
+  by rewrite E; lra.
+(* The sum is a number above nought, so it is what the magnitude was taken    *)
+(* of, and each of the two steps is at or above what it was given.            *)
+have [Hz Hi] := proj1 (Bool.andb_true_iff _ _) Em.
+have [Fm Hm] := Dpos _ Hz Hi.
+have Fs2 : Dfin (u + PrimFloat.abs x2)%float.
+  by apply: Dfin_upFpI; move: Fm; rewrite /m /addUpFp.
+have [Fu Fa2] := Dfin_addI _ _ Fs2.
+have Fs1 : Dfin (PrimFloat.abs x0 + PrimFloat.abs x1)%float.
+  by apply: Dfin_upFpI; move: Fu; rewrite /u /addUpFp.
+have Hge1 := addUpFp_ge _ _ (Dfin_abs _ F0) (Dfin_abs _ F1) Fs1 Fu.
+have Hge2 := addUpFp_ge _ _ Fu Fa2 Fs2 Fm.
+have Hmc := PrimitiveFloat.mag_correct m.
+have Etr : PrimitiveFloat.toR m = D2R m.
+  by rewrite /PrimitiveFloat.toR (toXfE _ Fm).
+rewrite Etr (Rabs_pos_eq _ (Rlt_le _ _ Hm)) in Hmc.
+rewrite /PrimitiveFloat.StoZ in Hmc.
+rewrite /radix -/u -/m in Hge1 Hge2 *.
+by lra.
+Qed.
 
 (* Being a triple word survives a change of sign: each of the two tests is    *)
 (* the double-word one, and that one survives it.                             *)
@@ -900,21 +971,6 @@ rewrite (_ : wellFormed (TWFloat (- x0) (- x1) (- x2))%float = true);
 rewrite !Fadd_exact_correct (toXE _ (Dfin_opp _ F0)) (toXE _ (Dfin_opp _ F1))
         (toXE _ (Dfin_opp _ F2)).
 by rewrite /= !D2R_opp; congr Xreal; ring.
-Qed.
-
-(* THE LEADING WORD DECIDES THE SIGN.  Each word is within half a step of     *)
-(* the one before it, so the second is at most half the first and the third    *)
-(* at most a quarter of it: what follows the leading word cannot reach it,     *)
-(* and the sum is on the side the leading word is.                             *)
-Lemma wellFormed_lead x0 x1 x2 : Dfin x0 -> Dfin x1 -> Dfin x2 ->
-  wellFormed (TWFloat x0 x1 x2) = true ->
-  (Rabs (D2R x1 + D2R x2) <= Rabs (D2R x0))%R.
-Proof.
-move=> F0 F1 F2; rewrite /wellFormed => /andb_prop [E1 E2].
-have H1 := wellFormed_half x0 x1 F0 F1 E1.
-have H2 := wellFormed_half x1 x2 F1 F2 E2.
-have T := Rabs_triang (D2R x1) (D2R x2).
-by move: H1 H2 T; split_Rabs; lra.
 Qed.
 
 Lemma abs_correct x :
