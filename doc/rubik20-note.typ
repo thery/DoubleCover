@@ -874,33 +874,26 @@ and the symmetry that the fold uses are all arrays, not computations. The search
 reads them where the mathematical text applies a function, and each table is
 checked in Rocq like the table of distances.
 
-== The search, in seven versions
+== The search, abstract and effective
 
-#src("Fast.v") holds the search on machine integers as seven versions. Each is
-proved equal to the one before in #src("FastP.v"), and the last lemma there,
-`searchz3nE`, states that the seventh answers as the first does. Nothing is
-assumed of a version, so each may be written in whatever way runs best. A
-position carries four things: the position as a 48-entry table, the summaries of
-its three views, the face turned last, and the number of moves left. The six
-steps remove the following.
+#src("Fast.v") holds the search twice. `searchz3` is the abstract one, written
+on the objects of the last section. `searchz3n` is what runs, on machine
+integers and persistent arrays. #src("FastP.v") ties the two:
 
-#tbl(([step], [what it removes]),
-  ([2], [Peano arithmetic inside the loop: move indices, the depth test and
-         the list of allowed moves all become machine integers, computed once]),
-  ([3], [building the child's 48-entry table before looking at the estimate,
-         when the estimate then rejects the child]),
-  ([4], [comparing all 48 entries against the solved position when the first
-         difference already settles it]),
-  ([5], [the last of the nine lookups once one of them already exceeds the
-         moves left]),
-  ([6], [computing the summaries of all three views when the first view already
-         cuts]),
-  ([7], [keeping the position up to date everywhere: the moves played are
-         carried instead, and the position rebuilt from them only for the
-         solved test]),
-)
+```coq
+Lemma searchz3nE T d a p :
+  (d <= 63)%N -> fsmoveC -> (p < 7)%N ->
+  tabi_ok 47 a -> cubti a -> twP3 a ->
+  searchz3n T d (of_nat d) a [::] (init3 a) p
+    = searchz3 T d a (init3 a) p.
+```
 
-Together they are 11.9 times faster on one piece at depth 14.
+The hypotheses say that the depth fits in a machine integer, that the move
+table passed its check, and that the array is a well-formed position. Between
+the two there are seven versions, each proved equal to the one before, and
+together they are 11.9 times faster on one piece at depth 14. Only the ends are
+of interest here: whatever the middle versions do for speed, the answer is the
+abstract search's.
 
 == The table, as an array literal
 
