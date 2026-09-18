@@ -38,13 +38,13 @@ From dwarith Require Import dwbridge dwsign dwbound.
 (* (`neg_correct', `abs_correct'); the power of two and the scaling           *)
 (* (`pow2_UP_correct', `ZtoS_correct'); and a whole number as a triple word   *)
 (* (`fromZ_UP_correct', `fromZ_DN_correct'), where the two parts peeled off   *)
-(* are exact and only the last float carries a bound; and the magnitude       *)
-(* (`mag_correct').                                                           *)
+(* are exact and only the last float carries a bound; the magnitude           *)
+(* (`mag_correct'); and rounding to a whole number either way                 *)
+(* (`nearbyint_UP_correct', `nearbyint_DN_correct').                          *)
 (*                                                                            *)
 (* Still admitted, and each of them is a real statement about the             *)
 (* arithmetic:                                                                *)
 (*   div/sqrt _UP_correct and _DN_correct  (four)                             *)
-(*   nearbyint_UP_correct, nearbyint_DN_correct                               *)
 (* `div2_correct' and `midpoint_correct' are excused by                       *)
 (* `sensible_format = false' and say nothing.                                 *)
 (*                                                                            *)
@@ -1187,15 +1187,69 @@ Lemma sqrt_DN_correct p x :
   le_lower (toX (sqrt_DN p x)) (Xsqrt (toX x)).
 Proof. Admitted.
 
+(* Rounding to a whole number is monotone, so the three words added in the    *)
+(* direction wanted, rounded to a whole number in the same direction, is on   *)
+(* the right side of the value's own.  Two widening steps rather than the     *)
+(* one a pair needs, and they compose.                                       *)
 Lemma nearbyint_UP_correct mode x :
   valid_ub (nearbyint_UP mode x) = true /\
   le_upper (Xnearbyint mode (toX x)) (toX (nearbyint_UP mode x)).
-Proof. Admitted.
+Proof.
+split; first exact: valid_ub_onReal.
+rewrite /nearbyint_UP /onReal.
+case Rx: (real x); last first.
+  by have -> : toX x = Xnan by move: Rx; rewrite real_correct; case: (toX x).
+have [F0 [F1 [F2 _]]] := real_fin _ Rx.
+set u := addUpFp (addUpFp (tw0 x) (tw1 x)) (tw2 x).
+rewrite /guard.
+case Er: (real (fp2tw (PrimitiveFloat.nearbyint_UP mode u)));
+  last by rewrite toX_nan.
+rewrite toX_fp2tw (toX_real _ Rx).
+have [_ Hb] := PrimitiveFloat.nearbyint_UP_correct mode u.
+move: Hb; case Es: (PrimitiveFloat.toX u) => [|w] /=;
+  first by move: Er; rewrite real_correct toX_fp2tw;
+     case: (PrimitiveFloat.toX _).
+move=> Hb.
+have [Fu Ew] := toX_D2R _ _ Es.
+have Fs2 := Dfin_upI _ _ Fu.
+have [Fv F2'] := Dfin_addI _ _ Fs2.
+have Hge1 := addUpFp_ge _ _ F0 F1 (Dfin_upI _ _ Fv) Fv.
+have Hge2 := addUpFp_ge _ _ Fv F2' Fs2 Fu.
+move: Hb; case: (PrimitiveFloat.toX _) => //= z Hb.
+apply: Rle_trans Hb; apply: Rnearbyint_le.
+by rewrite -Ew; move: Hge1 Hge2; rewrite /u; lra.
+Qed.
 
 Lemma nearbyint_DN_correct mode x :
   valid_lb (nearbyint_DN mode x) = true /\
   le_lower (toX (nearbyint_DN mode x)) (Xnearbyint mode (toX x)).
-Proof. Admitted.
+Proof.
+split; first exact: valid_lb_onReal.
+rewrite /nearbyint_DN /onReal.
+case Rx: (real x); last first.
+  by have -> : toX x = Xnan by move: Rx; rewrite real_correct; case: (toX x).
+have [F0 [F1 [F2 _]]] := real_fin _ Rx.
+set u := addDnFp (addDnFp (tw0 x) (tw1 x)) (tw2 x).
+rewrite /guard.
+case Er: (real (fp2tw (PrimitiveFloat.nearbyint_DN mode u)));
+  last by rewrite toX_nan.
+rewrite toX_fp2tw (toX_real _ Rx).
+have [_ Hb] := PrimitiveFloat.nearbyint_DN_correct mode u.
+move: Hb; case Es: (PrimitiveFloat.toX u) => [|w] /=;
+  first by move: Er; rewrite real_correct toX_fp2tw;
+     case: (PrimitiveFloat.toX _).
+move=> Hb.
+have [Fu Ew] := toX_D2R _ _ Es.
+have Fs2 := Dfin_dnI _ _ Fu.
+have [Fv F2'] := Dfin_addI _ _ Fs2.
+have Hle1 := addDnFp_le _ _ F0 F1 (Dfin_dnI _ _ Fv) Fv.
+have Hle2 := addDnFp_le _ _ Fv F2' Fs2 Fu.
+have Hm : (Rnearbyint mode w <=
+           Rnearbyint mode (D2R (tw0 x) + D2R (tw1 x) + D2R (tw2 x)))%R.
+  by apply: Rnearbyint_le; rewrite -Ew; move: Hle1 Hle2; rewrite /u; lra.
+move: Hb; rewrite /le_lower /=; case: (PrimitiveFloat.toX _) => //= z Hb.
+by move: Hb Hm; lra.
+Qed.
 
 (* The two the signature lets a format decline, and this one declines them:   *)
 (* `sensible_format` is false, so both statements are read with a false       *)
