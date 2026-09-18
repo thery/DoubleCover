@@ -940,21 +940,6 @@ else: a search worker drops from 4.15 GB to *0.85 GB*, so all the pieces run at
 once instead of in two waves, and checking the table drops from about 5.4
 processor hours to *1.35*.
 
-== Rocq against OCaml
-
-The same search written in OCaml is about three times faster. We ran both at
-radius 19 on the reference machine. The OCaml program visits 146 065 078 152
-positions in 26.4 processor-hours, which is 0.65 microseconds a position. Rocq
-takes 87.6 processor-hours over the same tree, which is 2.16. A factor of *3.3*.
-
-We do not assume that the two walk the same tree. Dividing each of the seventeen
-Rocq pieces by the positions its OCaml counterpart visited gives between 1.98
-and 2.52 microseconds, over pieces that differ in size by a factor of two. A
-Rocq search that cut differently anywhere would show as scatter there, and there
-is none. So the run takes a night because the tree holds 146 billion nodes, not
-because the prover is slow: in OCaml the same tree still costs 26
-processor-hours.
-
 = The files
 
 The proof of the twenty is forty-six hand-written Rocq files. Here is what each
@@ -1534,9 +1519,23 @@ What each of the three needed of its own:
   steps a whole map one move at a time, the fold by the sixteen renamings, and
   words supplied by hand for the positions the search does not reach.
 
+The prover is not far behind a program. The same search written in OCaml is
+about three times faster. We ran both at radius 19 on the reference machine. The
+OCaml program visits 146 065 078 152 positions in 26.4 processor-hours, which is
+0.65 microseconds a position. Rocq takes 87.6 processor-hours over the same
+tree, which is 2.16. A factor of *3.3*.
+
+We do not assume that the two walk the same tree. Dividing each of the seventeen
+Rocq pieces by the positions its OCaml counterpart visited gives between 1.98
+and 2.52 microseconds, over pieces that differ in size by a factor of two. A
+Rocq search that cut differently anywhere would show as scatter there, and there
+is none. So the run takes a night because the tree holds 146 billion nodes, not
+because the prover is slow: in OCaml the same tree still costs 26
+processor-hours.
+
 The whole development, counted in hand-written Rocq and leaving out the
-generated tables, is 37 898 lines. Each line of the table counts what that
-piece adds to the ones above it.
+generated tables, is 37 898 lines. Each line of the table counts what that piece
+adds to the ones above it.
 
 #tbl(([], [files], [lines]),
   ([the superflip, for the twenty face turns], [53], [14 504]),
