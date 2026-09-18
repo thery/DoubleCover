@@ -377,6 +377,63 @@ by move: Hl Hf; rewrite /= => H1 H2; lra.
 Qed.
 
 (* ---------------------------------------------------------------------------*)
+(*  Widening a triple word by a step                                          *)
+(* ---------------------------------------------------------------------------*)
+
+(* The step goes into the last word and the sweep puts the three back in      *)
+(* order.  Neither the sweep nor the cut loses anything in the wrong          *)
+(* direction, and the one addition is made in the direction wanted, so the    *)
+(* answer is above what the triple stood for by at least the step.  This is   *)
+(* what the quotient and the root are meant to be read through: the step      *)
+(* itself is not proved -- `twpaper.v' measures it -- but that widening by a  *)
+(* step widens by a step is, and it takes nothing from the paper.             *)
+Lemma widenUp_ge t f :
+  finL (tw2l (widenUp t f)) -> twval t + D2R f <= twval (widenUp t f).
+Proof.
+rewrite /widenUp => F.
+have H := expUp_ge _ F.
+have [_ [F0 [F1 [Fu _]]]] := expUp_finI _ F.
+have Fs := Dfin_upI _ _ Fu.
+have [F2 Ff] := Dfin_addI _ _ Fs.
+have Hg := addUpFp_ge _ _ F2 Ff Fs Fu.
+by move: H; rewrite /twval /=; lra.
+Qed.
+
+Lemma widenDn_le t f :
+  finL (tw2l (widenDn t f)) -> twval (widenDn t f) <= twval t - D2R f.
+Proof.
+rewrite /widenDn => F.
+have H := expDn_le _ F.
+have [_ [F0 [F1 [Fu _]]]] := expDn_finI _ F.
+have Fs := Dfin_dnI _ _ Fu.
+have [F2 Ff] := Dfin_addI _ _ Fs.
+have Hg := addDnFp_le _ _ F2 Ff Fs Fu.
+rewrite D2R_opp in Hg.
+by move: H; rewrite /twval /=; lra.
+Qed.
+
+(* And the words of a widened triple word are numbers only if the ones it     *)
+(* was made from are.                                                         *)
+Lemma widenUp_finI t f :
+  finL (tw2l (widenUp t f)) -> finL (tw2l t) /\ Dfin f.
+Proof.
+rewrite /widenUp => F.
+have [_ [F0 [F1 [Fu _]]]] := expUp_finI _ F.
+have [F2 Ff] := Dfin_addI _ _ (Dfin_upI _ _ Fu).
+by split => //; apply: finL_tw2l.
+Qed.
+
+Lemma widenDn_finI t f :
+  finL (tw2l (widenDn t f)) -> finL (tw2l t) /\ Dfin f.
+Proof.
+rewrite /widenDn => F.
+have [_ [F0 [F1 [Fu _]]]] := expDn_finI _ F.
+have [F2 Ff] := Dfin_addI _ _ (Dfin_dnI _ _ Fu).
+split; last exact: Dfin_oppI Ff.
+by apply: finL_tw2l.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
 (*  The sum of two triple words, bounded above                                *)
 (* ---------------------------------------------------------------------------*)
 
