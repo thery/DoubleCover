@@ -1156,13 +1156,14 @@ two thirds of what the searches cost.
 
 = One coset of the upper half
 
-Everything above is a lower bound, and a lower bound rests on one position and
-one search that finds nothing: the superflip for the twenty face turns, the
-four-spot with the superflip on it for the twenty-six quarter turns.
+So far we have dealt with lower bounds. Each rests on one position and one
+search that finds nothing: the superflip for the twenty face turns, the
+four-spot with the superflip on it for the twenty-six quarter turns. This last
+section is an attempt at the real computation, the upper bound.
 
-The other half of God's number, that twenty moves always suffice, is the huge
-one, and we do not prove it here. #src("Diameter.v") holds the reduction for
-it, and that reduction rests on one assumption.
+That twenty moves always suffice is the huge half, and we do not prove it here.
+#src("Diameter.v") holds the reduction for it, and that reduction rests on one
+assumption.
 
 The published proofs do not solve all 43 quintillion positions one at a time.
 They cut the cube group into the 2 217 093 120 cosets of a subgroup and solve a
