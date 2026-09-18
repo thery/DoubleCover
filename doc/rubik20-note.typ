@@ -1009,8 +1009,8 @@ and that is a measured cost.
 We have proved that God's number is at least 20. We now attack two more
 problems on the same trunk, this one and the next. The first counts the moves
 differently: in quarter turns there are twelve moves, the six faces one way and
-the same six back, and a half turn is two moves. The answer in that count is *26*
-(#link("http://cube20.org")[cube20.org]), and we prove the lower half: one
+the same six back, and a half turn is two moves. The answer in that count is
+*26* (#link("http://cube20.org")[cube20.org]), and we prove the lower half: one
 position cannot be solved in 25 quarter turns.
 
 == The position, and 25 down to 24
