@@ -333,11 +333,11 @@ actually holds, so this is a comparison at equal precision.
 
 | op | bignum 107 | bignum 159 | double words | triple words |
 |---|---|---|---|---|
-| add | 0.050 | 0.085 | **0.009** | 0.042 |
-| mul | 0.089 | 0.166 | **0.013** | 0.116 |
-| div | 0.272 | 0.884 | **0.018** | 0.135 |
-| sqrt | 0.025 | 0.046 | **0.003** | 0.014 |
-| cmp | 0.459 | 0.310 | **0.055** | 0.169 |
+| add | 0.052 | 0.089 | **0.009** | 0.042 |
+| mul | 0.092 | 0.155 | **0.012** | 0.115 |
+| div | 0.256 | 0.871 | **0.017** | 0.136 |
+| sqrt | 0.025 | 0.047 | **0.003** | 0.014 |
+| cmp | 0.448 | 0.318 | **0.055** | 0.162 |
 
 Medians of three runs. The `cmp` row is a hundred thousand comparisons, not ten
 thousand: a comparison is far cheaper than an operation. It is the one row
@@ -398,28 +398,31 @@ answer.
 
 | goal | bits asked | floats | bignums | double words | triple words |
 |---|---|---|---|---|---|
-| pi to 14 digits | 47 | 0.054 | 0.064 | **0.014** | 0.018 |
-| pi to 24 digits | 82 | refused | 0.068 | **0.019** | 0.023 |
-| pi to 34 digits | 105 | refused | 0.034 | refused | **0.026** |
-| pi to 45 digits | 150 | refused | 0.039 | refused | **0.037** |
-| Interval's own 120-bit goal | 120 | — | 0.169 | refused | **0.174** |
-| `method_error` | 80 | — | 5.824 | **1.575** | refused |
-| `poly_error` | 90 | — | 0.122 | **0.108** | 0.135 |
-| `cancellation`, depth 20 | 60 | — | 76.6 | **38.7** | 207.0 |
+| pi to 14 digits | 47 | **0.012** | 0.021 | **0.012** | 0.018 |
+| pi to 24 digits | 82 | refused | 0.335 | **0.014** | 0.016 |
+| pi to 34 digits | 105 | refused | 0.023 | refused | **0.020** |
+| pi to 45 digits | 150 | refused | **0.027** | refused | 0.031 |
+| `method_error` | 80 | — | 5.047 | **1.239** | refused |
+| `poly_error` | 90 | — | 0.057 | **0.047** | 0.095 |
+| `cancellation`, depth 20 | 60 | — | 74.8 | **23.5** | 213.8 |
 
-The `cancellation` row predates the comparison being fixed. Re-measured on one
-machine in one session: 25.2 for double words, 191.7 for triple words with the
-old words-only rule, **218.1** with the comparison that is in — see the
-comparison section above for where the 14% goes. Every other row was unchanged
-by the fix.
+One run, after the comparison was fixed. Interval's own 120-bit goal is not in
+`bench_bands.v` and is not in this table any more; it was 0.169 for bignums
+against 0.174 for triple words when it was measured by hand.
 
-Three things to read off it. **Triple words are the only arithmetic that takes
-the 105- and 150-bit brackets at all**, and since the shift replaced the
-residual they take them quicker than bignums take the ones bignums can do.
-**`cancellation` is where the per-operation table shows through**: its cost is
-the splitting, so precision buys nothing, and the sum and the product — which
-the shift did not touch — are paid in full. And **a double word is quickest
-wherever it reaches at all**, which is up to about a hundred bits.
+Three things to read off it. **Double words and floats do not reach the 105-
+and 150-bit brackets at all**, and triple words do, at a cost that is within a
+few per cent of what bignums pay for the same brackets — bignums take the
+150-bit one slightly quicker, 0.027 against 0.031, and triple words take the
+105-bit one slightly quicker the other way. **`cancellation` is where the
+per-operation table shows through**: its cost is the splitting, so precision
+buys nothing, and the sum and the product — which the shift did not touch — are
+paid in full. And **a double word is quickest wherever it reaches at all**,
+which is up to about a hundred bits.
+
+`cancellation` is also the one goal the comparison being fixed cost anything:
+the old words-only rule takes 191.7 on this machine, the correct one 213.8.
+Every other row is unchanged — see the comparison section above.
 
 ### What each arithmetic really delivers
 
