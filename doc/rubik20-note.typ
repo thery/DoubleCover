@@ -829,9 +829,9 @@ Lemma ti2t_comp a b :
 
 From there on a position is 48 machine integers, a summary is two, and the phase
 1 table is an array of arrays, fifteen four-bit entries to a 63-bit machine
-integer. It has to be one: a Rocq array holds at most 4 194 303 entries, and the
-table needs far more, so it is cut into chunks of two million words and the
-chunk is found by shifting the word index. A function on a finite domain is
+integer. A Rocq array holds at most 4 194 303 entries, and the table needs far
+more, so it is cut into chunks of two million words and the chunk is found by
+shifting the word index. A function on a finite domain is
 tabulated rather than computed, the action of a move on a summary, the rank of a
 summary and the symmetry that the fold uses among them, and each of those tables
 is checked in Rocq like the table of distances. The search itself goes the same
