@@ -70,6 +70,25 @@ the rest.
 The double-word version peels once and with a two-product, so it pays a step
 of `deps` for what the product can miss. Nothing of that kind is needed here.
 
+**Comparing on the words is wrong, and `tw_cmpbad.v` shows it.** `cmp` takes
+the leading word, and the next when the ones before agree. For two words that
+is sound: a double word rounds to its own leading word, rounding is monotone,
+so the leading words are in the order the values are. **A triple word does not
+round to its leading word.** Being one is two tests, each on a pair — the
+second word within half a step of the first, the third within half a step of
+the second — and together they do not say that the first plus the other two
+rounds back to the first. The smallest case is one, plus half a step of one,
+plus half a step of that: the first two are a tie and round down because one
+has an even last bit, and the third pushes the sum past the halfway point.
+
+`tw_cmpbad.v` gives two triple words whose leading words are in one order and
+whose values are in the other, and proves it — the two readings are computed
+exactly and compared as whole numbers. So `cmp_correct`, `min_correct` and
+`max_correct` are not waiting on a proof: they are false as `cmp` stands, and
+they are marked so where they are admitted. A comparison of three words has to
+read the value — the six words of the difference swept exactly, and the sign of
+what leads. Nothing else in the development depends on `cmp`.
+
 **The bridge is `code/ddouble`'s, not a copy.** `dwbridge.v` says what one
 primitive float is as a real number and what one operation on it does, and
 nothing about pairs, so it serves three words as well as two. `tw_ops.v` now
@@ -159,6 +178,7 @@ the test caught it.
 | `twarith.v` | the algorithms: the error-free transforms, the two sweeps, `sortMag`, `Merge`, and the operations rounded to nearest |
 | `tw_updn.v` | the directed operations: the widening steps and the up and down forms of each |
 | `tw_ops.v` | the interface: `TwFloat`, its obligations, and the sealing |
+| `tw_cmpbad.v` | the pair that shows `cmp` is wrong, and with it `min` and `max` |
 | `test_pi.v` | a smoke test: pi by Machin, and what the interface's operations bracket |
 | `tw_unsafe.v` | `sensible_format := true` with `div2` admitted, so Interval's functors apply |
 | `threewords/` | the paper's development, copied untouched. Nothing on the build path depends on it |

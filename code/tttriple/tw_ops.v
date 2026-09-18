@@ -44,10 +44,17 @@ From dwarith Require Import dwbridge dwsign dwbound.
 (* Still admitted, and each of them is a real statement about the             *)
 (* arithmetic:                                                                *)
 (*   div/sqrt _UP_correct and _DN_correct  (four)                             *)
-(*   cmp_correct, min_correct, max_correct                                    *)
 (*   nearbyint_UP_correct, nearbyint_DN_correct                               *)
 (* `div2_correct' and `midpoint_correct' are excused by                       *)
 (* `sensible_format = false' and say nothing.                                 *)
+(*                                                                            *)
+(* AND THREE THAT ARE NOT WAITING ON A PROOF BUT ON A DEFINITION.             *)
+(* `cmp_correct', `min_correct' and `max_correct' are FALSE as `cmp' stands,  *)
+(* and `tw_cmpbad.v' shows it: two triple words whose leading words are in    *)
+(* one order and whose values are in the other.  A triple word does not round *)
+(* to its leading word - that is what separates it from a double word, where  *)
+(* comparing on the words is sound - so `cmp' has to read the value.  Nothing *)
+(* else in this file depends on the three.                                    *)
 
 Module TwFloat.
 
@@ -163,6 +170,13 @@ Definition valid_lb x := match classify x with Fpinfty => false | _ => true end.
 
 (* Three words compare on the leading word, and on the next when the ones     *)
 (* before agree.  Anything that is not a real number compares to nothing.     *)
+(*                                                                            *)
+(* AND THIS IS WRONG.  `tw_cmpbad.v' has the pair that shows it: the leading  *)
+(* word does not decide the order, because a triple word does not round back  *)
+(* to its leading word.  For two words it does, which is why the same         *)
+(* definition is sound there.  What is wanted here is the sign of the         *)
+(* difference, swept exactly over the six words.  Left as it is for now, and  *)
+(* the three obligations that rest on it stay admitted and are marked false.  *)
 Definition cmp x y :=
   match classify x, classify y with
   | Sig.Fnan, _ | _, Sig.Fnan => Xund
@@ -1014,6 +1028,9 @@ Lemma cmp_correct x y :
       match classify y with
       | Sig.Fnan => Xund | Fpinfty => Xeq | _ => Xgt end
   end.
+(* FALSE as `cmp' stands - see `tw_cmpbad.v'.  The leading word does not      *)
+(* decide the order of the values, because the sum of the three does not      *)
+(* round back to it.                                                          *)
 Proof. Admitted.
 
 Lemma min_correct x y :
@@ -1038,6 +1055,7 @@ Lemma min_correct x y :
       | _ => min x y = y
       end
   end.
+(* FALSE as `cmp' stands, since `min' is `cmp' - see `tw_cmpbad.v'.           *)
 Proof. Admitted.
 
 Lemma max_correct x y :
@@ -1062,6 +1080,7 @@ Lemma max_correct x y :
       | _ => classify (max x y) = Fpinfty
       end
   end.
+(* FALSE as `cmp' stands, since `max' is `cmp' - see `tw_cmpbad.v'.           *)
 Proof. Admitted.
 
 Lemma add_UP_correct p x y :
