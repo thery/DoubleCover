@@ -7,3 +7,4 @@ poly.c
 htr.c
 *.s
 *.o
+!bench/*.s
