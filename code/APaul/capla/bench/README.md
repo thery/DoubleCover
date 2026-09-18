@@ -113,8 +113,20 @@ above. Per iteration of the hot loop:
 
 A core that retires one taken branch per cycle therefore needs at least two
 cycles per iteration for the ccomp loop and one for the gcc loop — a
-ceiling of 2x, which is what the E-cores show. The wide P-core absorbs the
-second taken branch and the two come out level.
+ceiling of 2x. That is not a guess: `takenbranch.c` here is two loops of
+five instructions with the same one-cycle dependency chains and branches
+that go the same way every iteration, so prediction is perfect in both.
+The only difference is that A takes one branch per iteration and B takes
+two. Two billion iterations each:
+
+| core | A, one taken | B, two taken | B/A |
+|---|---|---|---|
+| cpu0, P-core | 1.23 s | 1.25 s | 1.02x |
+| cpu6, E-core | 1.48 s | 2.93 s | **1.98x** |
+
+The E-core retires one taken branch per cycle and the second one doubles
+the loop; the P-core takes both in the same cycle and does not notice.
+Exactly the 2x ceiling, and it is the whole of the ccomp/gcc gap.
 
 **So this is not a codegen-quality difference in the usual sense.** Both
 compilers emit six instructions doing the same work. What separates them is
