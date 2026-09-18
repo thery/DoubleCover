@@ -767,6 +767,8 @@ twenty-four threads, 62 GB of memory.
 
 = Optimising
 
+What follows makes the tree smaller or the run cheaper.
+
 == Removing redundant moves
 
 Many words lead to the same position, and the search does not have to try them
