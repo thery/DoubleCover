@@ -116,6 +116,27 @@ the other way: the P-core is only 18% faster than the E-core on gcc's
 code, and 2.39x faster on ccomp's -- the width only pays when the loop
 asks for the second taken branch.
 
+### At full clock
+
+Everything above was taken with **turbo disabled** (`no_turbo = 1`) and a
+30 W package limit, which is why the absolute times looked slow. Turning
+turbo back on (P-cores 4.9 GHz, E-cores 3.8 GHz, EPP `performance`) and
+repeating the full range:
+
+| build | P-core (cpu0) | E-core (cpu6) |
+|---|---|---|
+| `htr_plain.c`, gcc -O2 | 44.62 s | 54.53 s |
+| `htr_plain.c`, ccomp | 45.62 s | 112.32 s |
+| **ccomp / gcc** | **1.02x** | **2.06x** |
+
+The clock nearly tripled and the ratios did not move: 1.02x and 2.06x here
+against 1.06x and 2.15x at base clock, and 1.04x and 2.12x on the slice.
+**The gap is a microarchitectural limit, not a power or clock artifact.**
+
+It also explains why this machine looked half the speed of the developer's
+i7-10750H throughout: at full clock gcc finishes in 44.62 s against his
+55 s. Nothing was ever slower here except the power policy.
+
 The mechanism is in the branch layout, and it is visible in the assembly
 above. Per iteration of the hot loop:
 
