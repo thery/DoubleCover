@@ -997,9 +997,9 @@ Measured end to end from a clean tree on the reference machine:
   ([*in total*], [*1 h 02*], [*2 h 35*]),
 )
 
-The second line is serial, so no number of cores shortens it, and it is the
-longest stage by the clock. The first and fifth together are 100 of the 155
-processor-minutes, mostly the OCaml compiler turning a table into native code.
+The second line runs on one core, so more cores do not help. The first and
+fifth are mostly the OCaml compiler turning a table into native code, and
+together they take 100 of the 155 processor-minutes.
 
 = The theorem and its cost
 
