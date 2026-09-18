@@ -1156,10 +1156,8 @@ two thirds of what the searches cost.
 
 = One coset of the upper half
 
-So far we have dealt with lower bounds. Each rests on one position and one
-search that finds nothing: the superflip for the twenty face turns, the
-four-spot with the superflip on it for the twenty-six quarter turns. This last
-section is an attempt at the real computation, the upper bound.
+So far we have dealt with lower bounds. This last section is an attempt at the
+real computation, the upper bound.
 
 That twenty moves always suffice is the huge half, and we do not prove it here.
 #src("Diameter.v") holds the reduction for it, and that reduction rests on one
