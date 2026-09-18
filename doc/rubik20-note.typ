@@ -1294,54 +1294,14 @@ largest single part of the coset's proof.
 
 == The files
 
-#ftbl(([the coset and its members], []),
-  ([`Row.v`], [a coset, its members, and each member as a bit]),
-  ([`RowMemb.v`, `RowMembi.v`], [the cube a member names, and the member a cube gives]),
-  ([`RowMembChk.v`], [that bridge, with nothing left open]),
-  ([`RowLeaf.v`, `RowInH.v`], [a position of H is its three ranks]),
-  ([`RowInst.v`, `RowReal.v`], [the instance: the superflip's own coset]),
-)
-
-#ftbl(([ranking, and the moves], []),
-  ([`Lehmer.v`], [the rank and the sign of a permutation, on machine integers]),
-  ([`RowUp8ok.v` .. `RowUp4inv.v`], [unranking is a permutation, and undoes the ranking]),
-  ([`RowPar8.v`, `RowPar4.v`, `RowParity.v`], [the parity tables, and how a move shifts a parity]),
-  ([`RowPartC.v`, `RowPartM.v`, `RowPartU.v`], [each of the three parts is a permutation]),
-  ([`RowMoveH.v`, `RowMoveC.v`, `RowMoveM.v`, `RowMoveU.v`], [a move of H is its three halves, each following its table]),
-  ([`RowTab.v`, `RowTabL.v`, `RowTabP.v`, `RowTabF.v`], [the tables themselves, and the checks they pass]),
-)
-
-#ftbl(([the map and the search], []),
-  ([`RowMap.v`], [the map of a coset, and the pass that steps it]),
-  ([`RowRun.v`], [the search, the level loop, and what each owes]),
-  ([`RowLvl.v`], [the pass again, one chunk a page instead of one a word]),
-  ([`RowMask.v`], [the folded phase one table, and the moves worth trying]),
-  ([`RowSrch.v`, `RowSrchP.v`], [the search with the cuts and the early stop, and its proof]),
-  ([`RowMark.v`], [the leftover words marked into the map the run leaves]),
-  ([`RowWits.v`, `RowWitsChk.v`], [those words, and the replay that checks them]),
-  ([`RowFinal.v`], [every member of the coset is within twenty moves]),
-)
-
-#ftbl(([the fold], []),
-  ([`RowFold.v`], [the map folded by the sixteen renamings]),
-  ([`RowFoldSym.v`, `RowFoldConj.v`], [the fold tables are the renamings, and they conjugate]),
-  ([`RowFoldPart.v`, `RowFoldSrc.v`, `RowFoldGath.v`], [a page renamed, then moved]),
-  ([`RowFoldWrite.v`, `RowFoldLvl.v`], [what one write costs, and that a level keeps the map sound]),
-  ([`RowFoldMem.v`, `RowFoldOk.v`], [two members that fold together stand or fall together]),
-  ([`RowFoldTot.v`, `RowFoldPorb.v`], [the fold tables land in range at every index]),
-  ([`RowFoldEmpty.v`, `RowFoldFinal.v`], [the map the run starts from, and the one it leaves]),
-  ([`RowFoldRun.v`, `RowFoldSrch.v`], [the folded search and the folded run are sound]),
-  ([`RowFoldSrchI.v`, `RowFoldSrchIP.v`], [the same search with the depth as an int, and the two are equal]),
-)
-
-#ftbl(([the two runs], []),
-  ([`RowCub.v`, `RowCubi.v`, `RowCubInst.v`], [a position as twenty cubies, carried through the search]),
-  ([`RowCubDef.v`, `RowFoldCubDef.v`, `RowFoldCubDefI.v`], [what each run needs, and not one proof]),
-  ([`RowCubBoolI.v`, `RowFoldCubBoolI.v`], [the two runs: one boolean each, and nothing else]),
-  ([`RowCubReal.v`, `RowFoldCubReal.v`], [the coset on each map, with only that boolean left open]),
-  ([`RowCubProof.v`, `RowCubProofI.v`, `RowFoldCubProof.v`, `RowFoldCubProofI.v`], [what a true boolean buys]),
-  ([`RowCubDoneI.v`, `RowFoldCubDoneI.v`], [run and proof joined: the two theorems]),
-)
+Sixty-nine files, 17 386 lines. The coset and its members are #src("Row.v"),
+#src("RowMemb.v") and #src("RowInst.v"); the ranking and the moves
+#src("Lehmer.v") with the `RowPart`, `RowMove` and `RowTab` groups; the map and
+the search #src("RowMap.v"), #src("RowRun.v"), #src("RowSrch.v") and
+#src("RowFinal.v"); the fold the `RowFold` group; and the two runs the `RowCub`
+and `RowFoldCub` groups, ending in #src("RowCubDoneI.v") and
+#src("RowFoldCubDoneI.v"). #src("README.md") lists every one of them with what
+it does.
 
 == The cost
 
