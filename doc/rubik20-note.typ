@@ -805,13 +805,12 @@ the answer we expected. The error came out only when the cut had to be proved in
 Rocq, and the proof could not be written. A cut that is too greedy does not make
 a search fail. It makes it faster, and it makes it agree with you.
 
-== How the objects are encoded
+== The effective representation
 
 To run the search we need an effective representation of its objects: of a
-position first of all, and of the permutations that move it. Each
-representation is proved to agree with the object it stands for, so the answer
-rests on the search of the last section and the speed rests on the
-representations.
+position first of all, and of the permutations that move it. Each representation
+is proved to agree with the object it stands for, so the answer rests on the
+search of the last section and the speed rests on the representations.
 
 The search handles few objects: a position, a move, the summary of a position,
 and the table of distances. Each has a mathematical form, which is what the
@@ -877,11 +876,10 @@ and the symmetry that the fold uses are all arrays, not computations. The search
 reads them where the mathematical text applies a function, and each table is
 checked in Rocq like the table of distances.
 
-== The search, abstract and effective
-
-#src("Fast.v") holds the search twice. `searchz3` is the abstract one, written
-on the objects of the last section. `searchz3n` is what runs, on machine
-integers and persistent arrays. #src("FastP.v") ties the two:
+The search itself goes the same way. #src("Fast.v") holds it twice. `searchz3`
+is the abstract one, written on the objects of the last section. `searchz3n` is
+what runs, on machine integers and persistent arrays. #src("FastP.v") ties the
+two:
 
 ```coq
 Lemma searchz3nE T d a p :
@@ -891,12 +889,12 @@ Lemma searchz3nE T d a p :
     = searchz3 T d a (init3 a) p.
 ```
 
-The hypotheses say that the depth fits in a machine integer, that the move
-table passed its check, and that the array is a well-formed position. Between
-the two there are seven versions, each proved equal to the one before, and
-together they are 11.9 times faster on one piece at depth 14. Only the ends are
-of interest here: whatever the middle versions do for speed, the answer is the
-abstract search's.
+The hypotheses say that the depth fits in a machine integer, that the move table
+passed its check, and that the array is a well-formed position. Between the two
+there are seven versions, each proved equal to the one before, and together they
+are 11.9 times faster on one piece at depth 14. Only the ends are of interest
+here: whatever the middle versions do for speed, the answer is the abstract
+search's.
 
 == The table, as an array literal
 
