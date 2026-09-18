@@ -101,6 +101,21 @@ or 2.18x depending only on which core the kernel picked. Our unpinned runs
 landed on P-cores; the developer's machine is in the same regime as our
 E-cores, and his 2.72x / 2.77x sit next to our 2.12x / 2.64x.
 
+Confirmed on the **full range**, one run each, same binaries, nothing else
+pinned to those cores:
+
+| build | P-core (cpu0) | E-core (cpu6) | E/P |
+|---|---|---|---|
+| `htr_plain.c`, gcc -O2 | 1 m 59.76 s | 2 m 20.81 s | 1.18x |
+| `htr_plain.c`, ccomp | 2 m 06.79 s | 5 m 02.46 s | 2.39x |
+| **ccomp / gcc** | **1.06x** | **2.15x** | |
+
+All four printed the same 7056503 candidates and the same five values. The
+slice had predicted 1.04x and 2.12x, so it was not hiding anything. Read
+the other way: the P-core is only 18% faster than the E-core on gcc's
+code, and 2.39x faster on ccomp's -- the width only pays when the loop
+asks for the second taken branch.
+
 The mechanism is in the branch layout, and it is visible in the assembly
 above. Per iteration of the hot loop:
 
