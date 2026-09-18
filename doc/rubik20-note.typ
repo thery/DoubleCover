@@ -1014,15 +1014,14 @@ position cannot be solved in 25 quarter turns.
 
 == The position, and 25 down to 24
 
-The superflip is 24 quarter turns from solved, so it is not far enough away. In
-August 1998 Reid posted a better position to the Cube-Lovers list
+The superflip is only 24 quarter turns from solved, so it will not do. Reid
+posted a better position to the Cube-Lovers list in August 1998
 @reid1998fourspot: the *four-spot* with the superflip composed onto it. That
-post is the source of this section, and it is transcribed beside this note.
-
-The four-spot exchanges the front and back colours and the left and right
-colours. The centres cannot move, so each of those four faces keeps its own
-colour in one square, which is the spot the pattern is named after. The
-superflip then turns every edge over.
+post is the source of this section and is transcribed beside this note. The
+four-spot exchanges the front and back colours and the left and right colours;
+the centres cannot move, so each of those faces keeps its own colour in one
+square, the spot the pattern is named after. The superflip then turns every
+edge over.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -1041,7 +1040,7 @@ superflip then turns every edge over.
   caption: [The four-spot, and Reid's position.],
 ) <fspot>
 
-Reid's position is 26 quarter turns from solved. His word for it is
+Reid's position is 26 quarter turns from solved, by his word
 
 #align(center)[
   $U^2 space D^2 space L space F^2 space U^(-1) space D space R^2 space B
@@ -1049,20 +1048,16 @@ Reid's position is 26 quarter turns from solved. His word for it is
     D^(-1) space R^(-1) space L space U space F^(-1) space B^(-1)$
 ]
 
-That is 21 face turns, five of them half turns. We check it by multiplying out
-both sides and comparing two lists of 48 places.
-
-Ruling out 25 is ruling out 24. A quarter turn is five four-cycles of the 48
-stickers, so it is odd, and a manoeuvre of odd length gives an odd position.
-Reid's position is even. So every manoeuvre for it has even length, and the
-searches stop at 24.
+That is 21 face turns, five of them half turns, and we check it by multiplying
+both sides out. Ruling out 25 is ruling out 24: a quarter turn is five
+four-cycles of the 48 stickers, so it is odd, an odd word gives an odd
+position, and Reid's position is even. Every word for it has even length, so
+the searches stop at 24.
 
 == Reid's six prefixes
 
-The argument has two halves and only the second is a computation.
-
-The first is Reid's Proposition 2: a manoeuvre that cannot be shortened can be
-rewritten, at the same length, to begin with one of six sequences.
+Reid's Proposition 2 says that a word which cannot be shortened can be
+rewritten, at the same length, to begin with one of six turns.
 
 #align(center)[
   #grid(
@@ -1079,13 +1074,11 @@ rewritten, at the same length, to begin with one of six sequences.
 The rewriting uses three operations that change neither the product nor the
 length: conjugation by one of the sixteen symmetries that fix the position,
 inversion, and cyclic shift with the letters that move to the end relabelled.
-The last is why we chose this position. #src("HProp2.v") is that argument in
-Rocq, and #src("HBridge.v") carries it to the orientation the search uses.
-
-Reid does not state one hypothesis his proof needs: the manoeuvre cannot be
-shortened. Without it the third turn may cancel the second. The Rocq statement
-carries the hypothesis at no cost, since a shortest manoeuvre is what we want
-anyway.
+The last is why we chose this position. #src("HProp2.v") is the argument in
+Rocq and #src("HBridge.v") carries it to the orientation the search uses. Reid
+leaves one hypothesis unstated, that the word cannot be shortened; without it
+the third turn may cancel the second. We carry it, at no cost, since a shortest
+word is what we want anyway.
 
 Six searches follow. The first prefix is two turns long and is searched 22
 further, the other five are three long and are searched 21 further. Each
@@ -1093,7 +1086,7 @@ reaches 24 turns.
 
 == The summary, and its table
 
-The estimate is built as before, by keeping a summary of the cube:
+The estimate is built as before, by keeping a summary of the cube.
 
 #block(breakable: false)[
   #tbl(([summary], [values], []),
@@ -1110,42 +1103,12 @@ The 24, 22, 20 and 18 fall by two each time because a place taken by an edge is
 taken whichever way round that edge is. These summaries are the cosets of
 Reid's H, which is where the H at the front of the file names comes from.
 
-The table holds the distance from solved of each of the 29 billion summaries.
-How many lie at each distance agrees with the column Reid published in 1998,
-and we run that check first. The table is then folded. The sixteen symmetries
+The table holds the distance from solved of each of the 29 billion summaries,
+and how many lie at each distance agrees with the column Reid published in
+1998, which we check first. The table is then folded: the sixteen symmetries
 that keep the up-down axis sort the 190 080 edge values into 12 094 families, a
-factor of 15.72, and one entry is kept per family. That is 883 MB, measured at
-3.86 GB once loaded into the prover.
-
-== The files
-
-#ftbl(([Reid's argument], []),
-  ([`HCoord.v`], [the three coordinates of a position, on facelet tables]),
-  ([`HRoot.v`], [Reid's six positions, and the three views of them]),
-  ([`HProp2.v`], [manoeuvres as words, and the three rewritings of them]),
-  ([`HReid.v`], [what Proposition 2 rests on]),
-  ([`HBridge.v`], [from Proposition 2 to the position the run searches]),
-)
-
-#ftbl(([the search], []),
-  ([`HSearch.v`], [the quarter-turn search over Reid's table]),
-  ([`HCanon.v`], [the rule the search plays by loses no manoeuvre]),
-  ([`HCut.v`], [a cut throws no manoeuvre away]),
-  ([`HPrefix.v`], [playing a word is stepping the state]),
-  ([`HPok.v`], [the positions the search meets, and the triples it carries]),
-  ([`HRunS.v`, `HSound.v`], [a search that fails is a proof that no word exists]),
-)
-
-#ftbl(([the tables, and the assembly], []),
-  ([`HChk.v`], [the move tables against the coordinates]),
-  ([`HEdge.v`, `HCorner.v`], [a turn acts on the datum, for edges and for corners]),
-  ([`HAgree.v`], [the coordinates agree with the tables, everywhere]),
-  ([`HSweepC.v`], [the three sweeps over the move tables, in six slices]),
-  ([`HSweep.v`], [the sweep over the distance table, cut into twelve jobs]),
-  ([`HAdmis.v`], [what that sweep buys: the estimate is never too big]),
-  ([`HGlue.v`, `HBound.v`], [what the run has to give, and what it gives]),
-  ([`HFinal.v`, `HAll.v`], [the bound assembled, and `qdiam25`]),
-)
+factor of 15.72, and one entry is kept per family. That is 883 MB, and 3.86 GB
+once loaded into the prover.
 
 == The theorem, and its cost
 
@@ -1153,10 +1116,15 @@ factor of 15.72, and one entry is kept per family. That is 883 MB, measured at
 Theorem qdiam25 : ~ diam_le Sq 25.
 ```
 
-`Sq` is the set of the twelve quarter turns, and `diam_le Sq 25` says every
-position is within 25 of them. The line says it is not. Reid's position is the
+`Sq` is the set of the twelve quarter turns and `diam_le Sq 25` says every
+position is within 25 of them. The line says it is not, Reid's position is the
 witness, and his word puts it at 26. Rocq reports only the primitives of its
-machine-integer and array interface.
+machine-integer and array interface. The work is eighteen hand-written files
+and 6 008 lines: Reid's argument in #src("HProp2.v"), #src("HReid.v") and
+#src("HBridge.v"), the search in #src("HSearch.v"), #src("HCanon.v") and
+#src("HSound.v"), the tables and their sweeps in #src("HChk.v"),
+#src("HSweepC.v"), #src("HSweep.v") and #src("HAdmis.v"), and the assembly in
+#src("HFinal.v") and #src("HAll.v").
 
 #tbl(([], [wall clock], [processor time]),
   ([building the table, in OCaml], [9 min 50], [1 h 43]),
@@ -1167,13 +1135,12 @@ machine-integer and array interface.
   ([*the whole chain in Rocq*], [*10 h 32*], [*87 h 29*]),
 )
 
-The last row is not the sum of the others. It is the whole chain measured end
-to end from a directory where nothing is built. We build the OCaml table on the
-first row once by hand, and it is not part of that run.
 
-The sweeps and the searches are nearly nine tenths of the cost. Checking the
-table rather than trusting it costs about two thirds of what the searches cost.
-The quarter-turn work adds eighteen hand-written Rocq files and 6 008 lines.
+The last row is measured end to end from a directory where nothing is built, so
+it is not the sum of the others; the OCaml table of the first row is built once
+by hand and is not part of it. The sweeps and the searches are nearly nine
+tenths of the cost, and checking the table rather than trusting it costs about
+two thirds of what the searches cost.
 
 = One coset of the upper half
 
