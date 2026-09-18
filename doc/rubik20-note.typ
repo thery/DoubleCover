@@ -940,11 +940,11 @@ else: a search worker drops from 4.15 GB to *0.85 GB*, so all the pieces run at
 once instead of in two waves, and checking the table drops from about 5.4
 processor hours to *1.35*.
 
-= The files
+= The development
 
-The proof of the twenty is forty-six hand-written Rocq files. Here is what each
-group does. The sources carry their own #src("README.md"), which lists the same
-files, the scripts beside them, and how to run the whole thing.
+The proof of the twenty is forty-six hand-written Rocq files, listed here by
+group; the sources carry their own #src("README.md"), with the scripts and
+how to run them.
 
 #ftbl(([the cube, as mathematics], []),
   ([`Cyc.v`], [cyclic permutations, built from the list of points they move]),
@@ -984,22 +984,15 @@ files, the scripts beside them, and how to run the whole thing.
   ([`Diam20.v`], [and hence God's number is at least 20]),
 )
 
-The *certificates* are the files that run the checks, each with its own `Qed`.
-Four of them cover the move and distance tables and the second summary table:
-#src("FsmChk.v"), #src("FsrChk.v"), #src("SlrChk.v") and #src("P1TsChk.v").
-#src("Farp1chk.v") checks the shape of the main table. Two more check the main
-table itself, split sixteen ways, and the folded table is checked by the
-`Fold` group, whose slices are #src("FoldOrbit_00.v") to `FoldOrbit_26.v`.
-Three of the files that hold the actual numbers are deliberately kept out of
-the project file, since they do not exist until the generator has run.
-
-*Outside Rocq*, `ocaml/rubik_par.ml` and `ocaml/rubik_lb.ml` are the reference
-implementation. The Rocq search reproduces their node counts exactly, which is
-how we catch a disagreement early, and `bench/p1gen.ml` generates the tables.
-The `bench/` directory also keeps the experiments that settled design
-questions, each with its measurements.
-
-= The development in figures
+The *certificates* run the checks, each behind its own `Qed`:
+#src("FsmChk.v"), #src("FsrChk.v"), #src("SlrChk.v") and
+#src("P1TsChk.v") for the move and distance tables, #src("Farp1chk.v") for
+the shape of the main table, two more for the table itself, and the `Fold`
+group, #src("FoldOrbit_00.v") to `FoldOrbit_26.v`, for the folded one. Three
+files holding the numbers are kept out of the project file: they do not exist
+until the generator has run. Outside Rocq, `ocaml/rubik_par.ml` and
+`ocaml/rubik_lb.ml` are the reference implementation, whose node counts the
+Rocq search reproduces exactly, and `bench/p1gen.ml` generates the tables.
 
 #tbl(([], []),
   ([hand-written Rocq, about the cube], [*45 files, 12 725 lines*]),
@@ -1010,18 +1003,16 @@ questions, each with its measurements.
   ([build and run scripts], [1 031 lines]),
 )
 
-Positions visited by the radius-19 search, counted by the OCaml program. The
-Rocq search walks the same tree, and reproduces these counts exactly at the
-smaller depths where counting it is cheap:
+The radius-19 search visits these positions, counted by the OCaml program.
+The Rocq search walks the same tree and reproduces the counts at the smaller
+depths, where counting is cheap. The tree grows by 12.22 from one level to the
+next, measured between depths 17 and 19.
 
 #tbl(([], [positions]),
   ([the smallest piece, `Runp1_11b`], [5 575 767 076]),
   ([the largest piece, `Runp1_10`], [10 554 835 820]),
   ([*all seventeen*], [*146 065 078 152*]),
 )
-
-The tree grows by 12.22 from one level to the next, measured between depths 17
-and 19.
 
 Building the tables costs the same whatever radius is searched afterwards.
 Measured end to end from a clean tree on the reference machine:
@@ -1036,11 +1027,9 @@ Measured end to end from a clean tree on the reference machine:
   ([*in total*], [*1 h 02*], [*2 h 35*]),
 )
 
-That table says two things. The second line is *serial*, 21 minutes of
-processor time inside 23 minutes of wall clock, so it is the longest stage by
-the clock and no number of cores shortens it. The first and fifth lines
-together are 100 of the 155 processor-minutes, and both are mostly the OCaml
-compiler turning a table into native code.
+The second line is serial, so no number of cores shortens it, and it is the
+longest stage by the clock. The first and fifth together are 100 of the 155
+processor-minutes, mostly the OCaml compiler turning a table into native code.
 
 = The theorem and its cost
 
