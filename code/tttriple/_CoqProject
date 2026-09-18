@@ -4,11 +4,16 @@
 # bridge from its `dwbridge.v', and the bench files compare against it.
 -Q ../ddouble dwarith
 
+# The paper's own development, for the seed of Algorithm 15.  Build it first:
+# `cd threewords && make'.  Nothing else on this list needs it.
+-R threewords threewords
+
 # Triple words on primitive floats.
 twarith.v
 tw_updn.v
 twbound.v
 twpaper.v
+twseed.v
 tw_ops.v
 tw_cmpbad.v
 test_pi.v
