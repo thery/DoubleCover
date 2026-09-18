@@ -1011,10 +1011,10 @@ position cannot be solved in 25 quarter turns.
 
 == The position, and 25 down to 24
 
-The superflip is only 24 quarter turns from solved, so it will not do. Reid
-posted a better position to the Cube-Lovers list in August 1998
-@reid1998fourspot: the *four-spot* with the superflip composed onto it. That
-post is the source of this section and is transcribed beside this note. The
+The superflip is only 24 quarter turns from solved, so it is not far enough.
+Reid posted a better position to the Cube-Lovers list in August 1998
+@reid1998fourspot: the *four-spot* with the superflip composed onto it. The
+post is transcribed beside this note. The
 four-spot exchanges the front and back colours and the left and right colours;
 the centres cannot move, so each of those faces keeps its own colour in one
 square, the spot the pattern is named after. The superflip then turns every
@@ -1047,13 +1047,12 @@ the half turns written out, is
     space B^(-1)$
 ]
 
-Twenty-six letters, and twenty-one face turns since five of them are half
-turns. We check the word by multiplying both sides out.
+The word has twenty-six letters. Counted in face turns it has twenty-one, five
+of them half turns. We check it by multiplying both sides out.
 
-Ruling out 25 is ruling out 24: a quarter turn is five
-four-cycles of the 48 stickers, so it is odd, an odd word gives an odd
-position, and Reid's position is even. Every word for it has even length, so
-the searches stop at 24.
+It is enough to rule out 24. A quarter turn is five four-cycles of the 48
+stickers, so it is odd, and an odd word gives an odd position. Reid's position
+is even, so every word for it has even length. The searches stop at 24.
 
 == Reid's six prefixes
 
@@ -1088,11 +1087,11 @@ of the six. The third line is the hypothesis that `w` is as short as possible.
 The rewriting uses three operations that change neither the product nor the
 length: conjugation by one of the sixteen symmetries that fix the position,
 inversion, and cyclic shift with the letters that move to the end relabelled.
-The last is why we chose this position. #src("HProp2.v") is the argument in
-Rocq and #src("HBridge.v") carries it to the orientation the search uses. Reid
-leaves one hypothesis unstated, that the word cannot be shortened; without it
-the third turn may cancel the second. We carry it, at no cost, since a shortest
-word is what we want anyway.
+The cyclic shift is why this position was chosen. #src("HProp2.v") is the
+argument in Rocq, and #src("HBridge.v") carries it to the orientation the
+search uses. Reid leaves one hypothesis unstated, that the word cannot be
+shortened. Without it the third turn may cancel the second. We state it, and it
+costs nothing, since a shortest word is what we want anyway.
 
 Six searches follow. The first prefix is two turns long and is searched 22
 further, the other five are three long and are searched 21 further. Each
@@ -1115,12 +1114,12 @@ The estimate is built as before, by keeping a summary of the cube.
 
 The 24, 22, 20 and 18 fall by two each time because a place taken by an edge is
 taken whichever way round that edge is. These summaries are the cosets of
-Reid's H, which is where the H at the front of the file names comes from.
+Reid's H. The H at the front of the file names comes from it.
 
-The table holds the distance from solved of each of the 29 billion summaries,
-and how many lie at each distance agrees with the column Reid published in
-1998, which we check first. The table is then folded: the sixteen symmetries
-that keep the up-down axis sort the 190 080 edge values into 12 094 families, a
+The table holds the distance from solved of each of the 29 billion summaries.
+How many lie at each distance agrees with the column Reid published in 1998,
+and we check that first. The table is then folded. The sixteen symmetries that
+keep the up-down axis sort the 190 080 edge values into 12 094 families, a
 factor of 15.72, and one entry is kept per family. That is 883 MB, and 3.86 GB
 once loaded into the prover.
 
@@ -1132,7 +1131,8 @@ Theorem qdiam25 : ~ diam_le Sq 25.
 
 `Sq` is the set of the twelve quarter turns and `diam_le Sq 25` says every
 position is within 25 of them. The line says it is not, Reid's position is the
-witness, and the word Reid gives for it puts it at 26. Rocq reports only the primitives of its
+witness, and the word Reid gives for it puts it at 26. Rocq reports only the
+primitives of its
 machine-integer and array interface. The work is eighteen hand-written files and
 6 008 lines. Reid's argument is in #src("HProp2.v"), the search in
 #src("HSearch.v"), the sweeps in #src("HSweep.v"), and the bound in
