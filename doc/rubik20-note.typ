@@ -895,24 +895,6 @@ are 11.9 times faster on one piece at depth 14. Only the ends are of interest
 here: whatever the middle versions do for speed, the answer is the abstract
 search's.
 
-== The table, as an array literal
-
-The phase 1 table is emitted as Rocq source, one file per block of 2 097 152
-entries, 71 of them. Written as a list, a block is a term: two million nested
-applications of the list constructor, each holding a machine integer. The `.vo`
-stores that term and `Require` loads it, and it is far larger than the 17 MB of
-data in it. Written as an array literal, that is, as a definition whose body is
-already evaluated to a persistent array, the `.vo` holds one compact block of
-memory. Measured on the same 2 097 152 entries:
-
-#tbl(([the block, written as], [its `.vo`], [loaded]),
-  ([a list], [37.8 MB], [877 MB]),
-  ([an array literal], [*6.0 MB*], [*281 MB*]),
-)
-
-Over all 71 blocks that is 21.5 GB against *5 GB*. It is what let nine workers
-run at once on a 62 GB machine where two had run before.
-
 == Three views of the same position
 
 Rotating the whole cube about a corner axis gives the same position seen
