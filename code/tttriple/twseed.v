@@ -2,7 +2,8 @@ From Stdlib Require Import ZArith Reals Psatz.
 From mathcomp Require Import all_ssreflect all_algebra.
 From Flocq Require Import Core Relative Sterbenz Operations Mult_error.
 From threewords Require Import Nmore Rmore Fmore Rstruct MULTmore prelim.
-From threewords Require Import TwoSum TWR ThreeProd ThreeProdDW ThreeSqRt.
+From threewords Require Import TwoSum TWR ThreeProd ThreeProdDW ThreeProdOne.
+From threewords Require Import ThreeSqRt.
 
 (* THE SEED OF ALGORITHM 15, WITH NO FUSED MULTIPLY-ADD.                      *)
 (*                                                                            *)
@@ -52,6 +53,9 @@ Local Notation TwoProd := (TwoProd p radix2 rnd).
 Local Notation Fast2Sum := (Fast2Sum p choice).
 Local Notation isTW := (isTW p).
 Local Notation isDW := (isDW p).
+Local Notation ThreeProdDW := (ThreeProdDW p choice).
+Local Notation ThreeProdOneTW := (ThreeProdOneTW p choice).
+Local Notation head_half := (head_half p).
 
 (* The two facts about one rounding that every bound below is made of.        *)
 Lemma rnd_err v : Rabs (RND v - v) <= u * Rabs v.
@@ -968,5 +972,236 @@ have L3 : u * u * u <= / 2048 * (u * u) by nra.
 have L4 : u * u * u * u <= / 2048 * (u * u * u) by nra.
 nra.
 Qed.
+
+(* The numeric side conditions, with our constants.  The 400 survives: it   *)
+(* had ample slack and the four the seed costs do not use it up.            *)
+Lemma sq_cAn : (1 + 134 * (u * u)) * (1 + 108 * (u * u)) <= 1 + 400 * (u * u).
+Proof.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048 Hp11.
+have L3 : u * u * u <= / 2048 * (u * u) by nra.
+have L4 : u * u * u * u <= / 2048 * (u * u * u) by nra.
+nra.
+Qed.
+
+Lemma sq_cBn :
+  / 2 * ((1 + 134 * (u * u)) * (1 + 134 * (u * u)) * (1 + 104 * (u * u)))
+    <= 1 / 2 + 400 * (u * u).
+Proof.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048 Hp11.
+have L3 : u * u * u <= / 2048 * (u * u) by nra.
+have L4 : u * u * u * u <= / 2048 * (u * u * u) by nra.
+have L5 : u * u * u * u * u <= / 2048 * (u * u * u * u) by nra.
+have L6 : u * u * u * u * u * u <= / 2048 * (u * u * u * u * u) by nra.
+nra.
+Qed.
+
+Lemma sq_cCn :
+  (1 + 125 * (u * u)) * (1 / 2 + 308 * (u * u)) <= 1 / 2 + 400 * (u * u).
+Proof.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048 Hp11.
+have L3 : u * u * u <= / 2048 * (u * u) by nra.
+have L4 : u * u * u * u <= / 2048 * (u * u * u) by nra.
+nra.
+Qed.
+
+(* The Newton residual of the seed, 16500 for the paper's 15200.            *)
+Lemma newton_residual_constN :
+  (104 * (u * u)) * (104 * (u * u)) * ((3 + (104 * (u * u))) / 2)
+    <= 16500 * (u * u * u * u).
+Proof.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048 Hp11.
+have L3 : u * u * u <= / 2048 * (u * u) by nra.
+have L4 : u * u * u * u <= / 2048 * (u * u * u) by nra.
+have L5 : u * u * u * u * u <= / 2048 * (u * u * u * u) by nra.
+have L6 : u * u * u * u * u * u <= / 2048 * (u * u * u * u * u) by nra.
+by nra.
+Qed.
+
+Lemma sqrtN_newton_residual x :
+  isTW x -> 0 < tw0 x ->
+  Rabs (TWval (sqrtBWn (tw0 x) (tw1 x)) * TWval x
+        * (3 / 2 - (1 / 2) * (TWval (sqrtBWn (tw0 x) (tw1 x))
+                              * TWval (sqrtBWn (tw0 x) (tw1 x))) * TWval x)
+        - sqrt (TWval x))
+    <= 16500 * (u * u * u * u) * Rabs (sqrt (TWval x)).
+Proof.
+move=> Hx Hx0.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048 Hp11.
+have HX0 := isTW_TWval_gt0 Hp2 Hp11 Hx Hx0.
+have Hs0 : 0 <= sqrt (TWval x) by apply: sqrt_pos.
+have HsX : sqrt (TWval x) * sqrt (TWval x) = TWval x
+  by apply: sqrt_sqrt; lra.
+have Hseed := sqrtBWn_x_err_crude _ Hx Hx0.
+set B := TWval (sqrtBWn (tw0 x) (tw1 x)) in Hseed *.
+set s := sqrt (TWval x) in HsX Hseed Hs0 *.
+have Hid := sqrt_newton_id s B.
+rewrite HsX in Hid.
+rewrite Hid.
+(* pull [s] out; what is left is the pure-[u] bound.                          *)
+have -> : - s * ((B * s - 1) * (B * s - 1)) * (B * s - 1 + 3) / 2
+    = - (s * (((B * s - 1) * (B * s - 1))
+              * ((B * s - 1 + 3) / 2))) by field.
+rewrite Rabs_Ropp Rabs_mult !(Rabs_pos_eq s) //.
+rewrite [16500 * (u * u * u * u) * s]Rmult_comm.
+apply: Rmult_le_compat_l => //.
+have He := Rabs_le_inv _ _ Hseed.
+have Hsq : (B * s - 1) * (B * s - 1)
+    <= (104 * (u * u))
+       * (104 * (u * u)) by nra.
+have Hsq0 : 0 <= (B * s - 1) * (B * s - 1) by apply: Rle_0_sqr.
+have Hlin : (B * s - 1 + 3) / 2
+    <= (3 + (104 * (u * u))) / 2 by nra.
+have Hlin0 : 0 <= (B * s - 1 + 3) / 2 by nra.
+have Hstep : ((B * s - 1) * (B * s - 1)) * ((B * s - 1 + 3) / 2)
+    <= (104 * (u * u))
+       * (104 * (u * u))
+       * ((3 + (104 * (u * u))) / 2)
+  by apply: Rmult_le_compat.
+rewrite Rabs_pos_eq; last by nra.
+by apply: Rle_trans Hstep _; exact: newton_residual_constN.
+Qed.
+
+(* The numeric core, generic in everything but the constants.               *)
+Lemma sqrtN_error_core B I1 P Y X s d1 d2 d3 :
+  0 < s -> s * s = X ->
+  0 <= d1 -> 0 <= d2 -> 0 <= d3 ->
+  Rabs (B * s - 1) <= 104 * (u * u) ->
+  Rabs I1 <= (1 + 134 * (u * u)) * s ->
+  Rabs (3 / 2 - P - 1) <= 108 * (u * u) ->
+  Rabs (Y - I1 * (3 / 2 - P)) <= d3 * Rabs (I1 * (3 / 2 - P)) ->
+  Rabs (P - B * / 2 * I1) <= d2 * Rabs (B * / 2 * I1) ->
+  Rabs (I1 - B * X) <= d1 * Rabs (B * X) ->
+  Rabs (B * X) <= (1 + 125 * (u * u)) * s ->
+  Rabs (3 / 2 - 1 / 2 * (B * B) * X - B / 2 * I1) <= 1 / 2 + 308 * (u * u) ->
+  Rabs (B * X * (3 / 2 - 1 / 2 * (B * B) * X) - s)
+    <= 16500 * (u * u * u * u) * s ->
+  Rabs (Y - s)
+    <= (d1 * (1 / 2 + 400 * (u * u)) + d2 * (1 / 2 + 400 * (u * u))
+        + d3 * (1 + 400 * (u * u)) + 16500 * (u * u * u * u)) * s.
+Proof.
+move=> Hs0 HsX Hd1 Hd2 Hd3 Hseed Hi1 Hi2 HA HB HC HbX Hbrk HD.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048 Hp11.
+have L2 : u * u <= / 2048 * u by nra.
+have L3 : u * u * u <= / 2048 * (u * u) by nra.
+have L4 : u * u * u * u <= / 2048 * (u * u * u) by nra.
+have L5 : u * u * u * u * u <= / 2048 * (u * u * u * u) by nra.
+have Hu2p : 0 <= u * u by apply: Rle_0_sqr.
+have Hsp : Y - s = Y - I1 * (3 / 2 - P) + - (I1 * (P - B / 2 * I1))
+    + (I1 - B * X) * (3 / 2 - 1 / 2 * (B * B) * X - B / 2 * I1)
+    + (B * X * (3 / 2 - 1 / 2 * (B * B) * X) - s)
+  by apply: sqrt_error_split.
+(* [|3/2 - P| <= 1 + 105u^2] and [|B| s <= 1 + 100u^2]                        *)
+have Hi2u : Rabs (3 / 2 - P) <= 1 + 108 * (u * u).
+  by have := Rabs_triang_inv (3 / 2 - P) 1; rewrite Rabs_R1; lra.
+have Hsa : Rabs s = s by rewrite Rabs_pos_eq; lra.
+have HBu : Rabs B * s <= 1 + 104 * (u * u).
+  have -> : Rabs B * s = Rabs (B * s) by rewrite Rabs_mult Hsa.
+  by have := Rabs_triang_inv (B * s) 1; rewrite Rabs_R1; lra.
+have Hi1p := Rabs_pos I1.
+have HBp := Rabs_pos B.
+(* [A]: the last product.                                                     *)
+have HA' : Rabs (Y - I1 * (3 / 2 - P)) <= d3 * (1 + 400 * (u * u)) * s.
+  apply: Rle_trans HA _.
+  rewrite Rabs_mult.
+  have Hstep : Rabs I1 * Rabs (3 / 2 - P)
+      <= ((1 + 134 * (u * u)) * s) * (1 + 108 * (u * u))
+    by apply: Rmult_le_compat => //; apply: Rabs_pos.
+  have Hstep2 : d3 * (Rabs I1 * Rabs (3 / 2 - P))
+      <= d3 * (((1 + 134 * (u * u)) * s) * (1 + 108 * (u * u)))
+    by apply: Rmult_le_compat_l.
+  apply: Rle_trans Hstep2 _.
+  have Hd3s : 0 <= d3 * s by apply: Rmult_le_pos; lra.
+  have -> : d3 * ((1 + 134 * (u * u)) * s * (1 + 108 * (u * u)))
+      = (d3 * s) * ((1 + 134 * (u * u)) * (1 + 108 * (u * u))) by ring.
+  have -> : d3 * (1 + 400 * (u * u)) * s = (d3 * s) * (1 + 400 * (u * u))
+    by ring.
+  by apply: Rmult_le_compat_l; [exact: Hd3s | exact: sq_cAn].
+(* [B]: the inner product, where [b' = b/2] supplies the [1/2].               *)
+have HB' : Rabs (- (I1 * (P - B / 2 * I1)))
+    <= d2 * (1 / 2 + 400 * (u * u)) * s.
+  rewrite Rabs_Ropp Rabs_mult.
+  have HBe : Rabs (P - B / 2 * I1) <= d2 * Rabs (B * / 2 * I1).
+    by have -> : B / 2 * I1 = B * / 2 * I1 by field.
+  have Hstep : Rabs I1 * Rabs (P - B / 2 * I1)
+      <= Rabs I1 * (d2 * Rabs (B * / 2 * I1))
+    by apply: Rmult_le_compat_l.
+  apply: Rle_trans Hstep _.
+  have Hcomb : Rabs I1 * (d2 * Rabs (B * / 2 * I1))
+      = d2 * / 2 * (Rabs I1 * Rabs I1 * Rabs B).
+    rewrite !Rabs_mult (Rabs_pos_eq (/ 2)); last lra.
+    by field.
+  rewrite Hcomb.
+  (* [|I1|^2 |B| = (|I1|/s)^2 s (|B| s)], written without dividing.           *)
+  have Hsq : Rabs I1 * Rabs I1 * Rabs B
+      <= ((1 + 134 * (u * u)) * (1 + 134 * (u * u))) * s
+         * (1 + 104 * (u * u)).
+    have Hstep2 : Rabs I1 * Rabs I1
+        <= ((1 + 134 * (u * u)) * s) * ((1 + 134 * (u * u)) * s)
+      by apply: Rmult_le_compat.
+    have Hstep3 : Rabs I1 * Rabs I1 * Rabs B
+        <= (((1 + 134 * (u * u)) * s) * ((1 + 134 * (u * u)) * s)) * Rabs B
+      by apply: Rmult_le_compat_r.
+    apply: Rle_trans Hstep3 _.
+    have Hstep4 : (((1 + 134 * (u * u)) * s) * ((1 + 134 * (u * u)) * s))
+                    * Rabs B
+        = ((1 + 134 * (u * u)) * (1 + 134 * (u * u))) * s * (Rabs B * s)
+      by ring.
+    rewrite Hstep4.
+    apply: Rmult_le_compat_l => //.
+    by apply: Rmult_le_pos; nra.
+  have Hd2p : 0 <= d2 * / 2 by lra.
+  have Hstep5 : d2 * / 2 * (Rabs I1 * Rabs I1 * Rabs B)
+      <= d2 * / 2 * (((1 + 134 * (u * u)) * (1 + 134 * (u * u))) * s
+                     * (1 + 104 * (u * u)))
+    by apply: Rmult_le_compat_l.
+  apply: Rle_trans Hstep5 _.
+  have Hd2s : 0 <= d2 * s by apply: Rmult_le_pos; lra.
+  have -> : d2 * / 2 * ((1 + 134 * (u * u)) * (1 + 134 * (u * u)) * s
+                        * (1 + 104 * (u * u)))
+      = (d2 * s) * (/ 2 * ((1 + 134 * (u * u)) * (1 + 134 * (u * u))
+                           * (1 + 104 * (u * u)))) by field.
+  have -> : d2 * (1 / 2 + 400 * (u * u)) * s
+      = (d2 * s) * (1 / 2 + 400 * (u * u)) by ring.
+  by apply: Rmult_le_compat_l; [exact: Hd2s | exact: sq_cBn].
+(* [C]: THE CANCELLATION.  The bracket is [1/2], not [1].                     *)
+have HC' : Rabs ((I1 - B * X) * (3 / 2 - 1 / 2 * (B * B) * X - B / 2 * I1))
+    <= d1 * (1 / 2 + 400 * (u * u)) * s.
+  rewrite Rabs_mult.
+  have Hstep : Rabs (I1 - B * X)
+                 * Rabs (3 / 2 - 1 / 2 * (B * B) * X - B / 2 * I1)
+      <= (d1 * ((1 + 125 * (u * u)) * s)) * (1 / 2 + 308 * (u * u)).
+    apply: Rmult_le_compat => //; try apply: Rabs_pos.
+    apply: Rle_trans HC _.
+    by apply: Rmult_le_compat_l.
+  apply: Rle_trans Hstep _.
+  have Hd1s : 0 <= d1 * s by apply: Rmult_le_pos; lra.
+  have -> : d1 * ((1 + 125 * (u * u)) * s) * (1 / 2 + 308 * (u * u))
+      = (d1 * s) * ((1 + 125 * (u * u)) * (1 / 2 + 308 * (u * u))) by ring.
+  have -> : d1 * (1 / 2 + 400 * (u * u)) * s
+      = (d1 * s) * (1 / 2 + 400 * (u * u)) by ring.
+  by apply: Rmult_le_compat_l; [exact: Hd1s | exact: sq_cCn].
+(* the four, added up.                                                        *)
+rewrite Hsp.
+have T3 := Rabs_triang ((Y - I1 * (3 / 2 - P))
+    + (- (I1 * (P - B / 2 * I1)))
+    + (I1 - B * X) * (3 / 2 - 1 / 2 * (B * B) * X - B / 2 * I1))
+  (B * X * (3 / 2 - 1 / 2 * (B * B) * X) - s).
+have T2 := Rabs_triang ((Y - I1 * (3 / 2 - P))
+    + (- (I1 * (P - B / 2 * I1))))
+  ((I1 - B * X) * (3 / 2 - 1 / 2 * (B * B) * X - B / 2 * I1)).
+have T1 := Rabs_triang (Y - I1 * (3 / 2 - P)) (- (I1 * (P - B / 2 * I1))).
+by lra.
+Qed.
+
+(* WHAT IS LEFT.  `ThreeSqRtAuxN' -- Algorithm 15 with the seed above -- and  *)
+(* its error, which is the paper's `ThreeSqRtAux_error' with the same         *)
+(* substitution.  Everything it consumes is above; it is the last piece on    *)
+(* this side.                                                                 *)
 
 End SecSeedNoFMA.
