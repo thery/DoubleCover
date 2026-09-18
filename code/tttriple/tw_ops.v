@@ -32,16 +32,19 @@ From dwarith Require Import dwbridge dwsign dwbound.
 (* which is the order the double-word work went in as well.                   *)
 (*                                                                            *)
 (* PROVED so far: the reading (`zero_correct', `real_correct',                *)
-(* `fromZ_correct'), and the six bounds on the sum, the difference and the    *)
+(* `fromZ_correct'); the six bounds on the sum, the difference and the        *)
 (* product -- `add/sub/mul _UP_correct' and `_DN_correct' -- which come from  *)
-(* `twbound.v' and take nothing from the three-word paper.                    *)
+(* `twbound.v' and take nothing from the three-word paper; the sign           *)
+(* (`neg_correct', `abs_correct'); the power of two and the scaling           *)
+(* (`pow2_UP_correct', `ZtoS_correct'); and a whole number as a triple word   *)
+(* (`fromZ_UP_correct', `fromZ_DN_correct'), where the two parts peeled off   *)
+(* are exact and only the last float carries a bound.                         *)
 (*                                                                            *)
 (* Still admitted, and each of them is a real statement about the             *)
 (* arithmetic:                                                                *)
 (*   div/sqrt _UP_correct and _DN_correct  (four)                             *)
-(*   fromZ_UP_correct, fromZ_DN_correct                                       *)
-(*   pow2_UP_correct, ZtoS_correct, mag_correct                               *)
-(*   neg_correct, abs_correct, cmp_correct, min_correct, max_correct          *)
+(*   mag_correct                                                              *)
+(*   cmp_correct, min_correct, max_correct                                    *)
 (*   nearbyint_UP_correct, nearbyint_DN_correct                               *)
 (* `div2_correct' and `midpoint_correct' are excused by                       *)
 (* `sensible_format = false' and say nothing.                                 *)
@@ -489,6 +492,18 @@ move=> Ff; rewrite -/(PrimitiveFloat.toX f) PrimitiveFloat.toX_Prim2B.
 by rewrite PrimitiveFloat.B2R_BtoX.
 Qed.
 
+(* The same, said of the float's own reading rather than of the triple's.     *)
+Lemma toXfE f : Dfin f -> PrimitiveFloat.toX f = Xreal (D2R f).
+Proof. exact: toXE. Qed.
+
+(* And the way back: a float that reads as a number is one, and is that one.  *)
+Lemma toX_D2R a u : PrimitiveFloat.toX a = Xreal u -> Dfin a /\ D2R a = u.
+Proof.
+rewrite PrimitiveFloat.toX_Prim2B /Dfin /D2R => H.
+split; last by rewrite (PrimitiveFloat.BtoX_B2R _ _ H).
+by move: H; case: (Prim2B a) => [s|s||s m e Hm].
+Qed.
+
 Lemma toX_real x :
   real x = true -> toX x = Xreal (D2R (tw0 x) + D2R (tw1 x) + D2R (tw2 x)).
 Proof.
@@ -605,6 +620,25 @@ by move: (Dninf _ E); case: (PrimFloat.classify f) => //= _;
    case: ((f + 0 =? f)%float && true).
 Qed.
 
+(* And the mirror of it, for a float that is not plus infinity.               *)
+Lemma Dpinf f : (f =? infinity)%float = false ->
+  match PrimFloat.classify f with PInf => false | _ => true end = true.
+Proof.
+rewrite eqb_equiv classify_spec -B2SF_Prim2B.
+have -> : Prim2B infinity = B754_infinity false by [].
+by case: (Prim2B f) => [[]|[]||[] m1 e1 H1] //=;
+   case: (match digits2_pos m1 with 53%positive => true | _ => false end).
+Qed.
+
+Lemma valid_lb_fp2tw f :
+  PrimitiveFloat.valid_lb f = true -> valid_lb (fp2tw f) = true.
+Proof.
+rewrite /PrimitiveFloat.valid_lb /valid_lb /classify /classifyFp.
+case E: (f =? infinity)%float => //= _.
+by move: (Dpinf _ E); case: (PrimFloat.classify f) => //= _;
+   case: ((f + 0 =? f)%float && true).
+Qed.
+
 Lemma ZtoS_correct p z :
   (z <= StoZ (ZtoS z))%Z \/ toX (pow2_UP p (ZtoS z)) = Xnan.
 Proof. by left; apply: Z.le_refl. Qed.
@@ -612,15 +646,196 @@ Proof. by left; apply: Z.le_refl. Qed.
 Lemma fromZ_correct n : (Z.abs n <= 256)%Z -> toX (fromZ n) = Xreal (IZR n).
 Proof. by move=> Hn; rewrite /fromZ toX_fp2tw PrimitiveFloat.fromZ_correct. Qed.
 
+(* The inequality half of the obligation for the sum, on its own.  The whole  *)
+(* number below is built by adding the parts it was peeled into, so it needs  *)
+(* the inequality before the obligation that carries it is stated.            *)
+Lemma add_UP_le p x y : le_upper (toX x + toX y)%XR (toX (add_UP p x y)).
+Proof.
+rewrite /add_UP; apply: (onReal2_upper (fun a b => (toX a + toX b)%XR)) => a b Ra Rb Rr.
+have [F0 [F1 [F2 _]]] := real_fin _ Ra.
+have [G0 [G1 [G2 _]]] := real_fin _ Rb.
+have [H0 [H1 [H2 _]]] := real_fin _ Rr.
+rewrite (toX_real _ Ra) (toX_real _ Rb) (toX_real _ Rr) /=.
+by apply: addTwUp_ge; apply: finL_tw2l.
+Qed.
+
+Lemma add_DN_le p x y : le_lower (toX (add_DN p x y)) (toX x + toX y)%XR.
+Proof.
+rewrite /add_DN; apply: (onReal2_lower (fun a b => (toX a + toX b)%XR)) => a b Ra Rb Rr.
+have [F0 [F1 [F2 _]]] := real_fin _ Ra.
+have [G0 [G1 [G2 _]]] := real_fin _ Rb.
+have [H0 [H1 [H2 _]]] := real_fin _ Rr.
+rewrite (toX_real _ Ra) (toX_real _ Rb) (toX_real _ Rr) /le_lower /=.
+by apply: Ropp_le_contravar; apply: addTwDn_le; apply: finL_tw2l.
+Qed.
+
+(* A whole number below two to the fifty-third is a float, and the float is   *)
+(* the number.  This is the whole range a single float holds.                 *)
+Lemma fromZ_exact n : (Z.abs n < mmax)%Z ->
+  PrimitiveFloat.toX (PrimitiveFloat.fromZ n) = Xreal (IZR n).
+Proof.
+rewrite /mmax; case: n => [|q|q] Hq //.
+  rewrite /PrimitiveFloat.fromZ; case: Pos.compare_spec => Hq'.
+  - by move: Hq; rewrite Hq'.
+  - by rewrite (PrimitiveFloat.of_int63_of_pos_exact _ Hq').
+  - by lia.
+rewrite /PrimitiveFloat.fromZ; case: Pos.compare_spec => Hq'.
+- by move: Hq; rewrite Hq'.
+- change (Xreal _) with (- (Xreal (IZR (Zpos q))))%XR.
+  by rewrite -(PrimitiveFloat.of_int63_of_pos_exact _ Hq') PrimitiveFloat.toX_neg.
+- by lia.
+Qed.
+
+(* Such a number, scaled up by a power of two, is a float as well - the       *)
+(* scaling moves the exponent and leaves the fifty-three bits where they      *)
+(* were.  Either it runs off the top of the range, and then it is nothing at  *)
+(* all, or it is the product exactly.  Nothing is estimated, so the peeling   *)
+(* below has no error term to pay for.                                        *)
+Lemma ldexp2_exact m e : (Z.abs m < mmax)%Z -> (0 <= e)%Z ->
+  PrimitiveFloat.toX (ldexp2 (PrimitiveFloat.fromZ m) e) = Xnan \/
+  PrimitiveFloat.toX (ldexp2 (PrimitiveFloat.fromZ m) e)
+    = Xreal (IZR m * bpow radix2 e).
+Proof.
+move=> Hm He.
+have [Fm Vm] := toX_D2R _ _ (fromZ_exact _ Hm).
+have Hfmt : generic_format radix2 (SpecFloat.fexp FloatOps.prec FloatOps.emax)
+              (IZR m * bpow radix2 e).
+  rewrite DfexpE; apply: generic_format_FLT.
+  apply: (FLT_spec _ _ _ _ (Defs.Float radix2 m e)) => //=.
+  by have -> : (SpecFloat.emin FloatOps.prec FloatOps.emax = -1074)%Z; [|lia].
+have Hld := Bldexp_correct FloatOps.prec FloatOps.emax Hprec Hmax mode_NE
+              (Prim2B (PrimitiveFloat.fromZ m)) e.
+rewrite /D2R in Vm; rewrite Vm round_generic // in Hld.
+move: Hld; case: Rlt_bool_spec => Hlt.
+  case=> HB [Hf _]; right.
+  have Fld : Dfin (ldexp2 (PrimitiveFloat.fromZ m) e).
+    by rewrite /Dfin /ldexp2 ldexp_equiv Hf.
+  by rewrite (toXfE _ Fld) /D2R /ldexp2 ldexp_equiv HB.
+move=> HB; left.
+rewrite /ldexp2 PrimitiveFloat.toX_Prim2B ldexp_equiv.
+by move: HB; rewrite /binary_overflow /=; case: (Bldexp _ _ _).
+Qed.
+
+(* So one peeling takes off exactly what it says it does: the float it        *)
+(* returns is the number less what is left over, or it is nothing at all.     *)
+(* There is no error term, which is what the scaling above bought.            *)
+Lemma Zabs_sgn n : n <> 0%Z -> Z.abs (Z.sgn n) = 1%Z.
+Proof. by case: n => [|p|p] //=; lia. Qed.
+
+Lemma nearZE n a r : nearZ n = Some (a, r) ->
+  PrimitiveFloat.toX a = Xnan \/
+  PrimitiveFloat.toX a = Xreal (IZR n - IZR r).
+Proof.
+rewrite /nearZ; case En: (Z.abs n <? mmax)%Z => //.
+case E: (splitZ n) => [[m e] r'] [<- <-].
+have Hmx : mmax = (2 ^ 53)%Z by [].
+have Hn : (mmax <= Z.abs n)%Z by apply/Z.ltb_ge.
+have Hn0 : (0 < Z.abs n)%Z by move: Hn; rewrite Hmx; lia.
+have He : (0 <= e)%Z by move: E; rewrite /splitZ; case=> _ <- _; apply: Z.le_max_l.
+have Hr : (n - r' = m * 2 ^ e)%Z.
+  by move: E; rewrite /splitZ; case=> <- <- <-; ring.
+have Hm : (Z.abs m < mmax)%Z.
+  move: E; rewrite /splitZ; case=> <- _ _.
+  (* Fifty-three bits or more are there, so the exponent is the one the      *)
+  (* logarithm gives and not the nought the maximum guards with.             *)
+  have Hl : (53 <= Z.log2 (Z.abs n))%Z.
+    by rewrite -(Z.log2_pow2 53) //; apply: Z.log2_le_mono; rewrite -Hmx.
+  have -> : Z.max 0 (Z.log2 (Z.abs n) - 52) = (Z.log2 (Z.abs n) - 52)%Z.
+    by lia.
+  set k := (Z.log2 (Z.abs n) - 52)%Z.
+  have Hk : (0 < 2 ^ k)%Z by apply: Z.pow_pos_nonneg; rewrite /k; lia.
+  rewrite Z.abs_mul Zabs_sgn; last by move=> Hz; move: Hn0; rewrite Hz /=; lia.
+  rewrite Z.mul_1_l Z.abs_eq; last by apply: Z.div_pos; lia.
+  apply: Z.div_lt_upper_bound => //.
+  rewrite Hmx -Z.pow_add_r; [|by rewrite /k; lia|by []].
+  have -> : (k + 53 = Z.log2 (Z.abs n) + 1)%Z by rewrite /k; ring.
+  by have := Z.log2_spec _ Hn0; lia.
+have -> : (IZR n - IZR r' = IZR m * bpow radix2 e)%R.
+  by rewrite -minus_IZR Hr mult_IZR (IZR_Zpower radix2 _ He).
+exact: ldexp2_exact.
+Qed.
+
+(* A whole number enters as a triple word: the two parts peeled exactly, and *)
+(* what is left of them bounded by the float's own whole-number reading.      *)
+(* Each case below is the same reckoning - the peelings cancel and the last   *)
+(* float's bound is what remains - said once for a part that ran off the top  *)
+(* of the range, where the sum denotes nothing and nothing is a bound.        *)
 Lemma fromZ_UP_correct p n :
   valid_ub (fromZ_UP p n) = true /\
   le_upper (Xreal (IZR n)) (toX (fromZ_UP p n)).
-Proof. Admitted.
+Proof.
+rewrite /fromZ_UP; case E1: (nearZ n) => [[a1 r1]|]; last first.
+  rewrite toX_fp2tw.
+  have [Hv Hb] := PrimitiveFloat.fromZ_UP_correct fprec n.
+  by split => //; apply: valid_ub_fp2tw.
+have [_ Hr1] := PrimitiveFloat.fromZ_UP_correct fprec r1.
+case E2: (nearZ r1) => [[a2 r2]|]; last first.
+  (* One peeling was enough: the part taken off, and the float that bounds   *)
+  (* what was left.                                                          *)
+  split; first exact: valid_ub_onReal2.
+  have H1 := add_UP_le p (fp2tw a1) (fp2tw (PrimitiveFloat.fromZ_UP fprec r1)).
+  rewrite !toX_fp2tw in H1.
+  have [Ha1|Ha1] := nearZE _ _ _ E1.
+    by rewrite Ha1 /= in H1; move: H1; case: (toX _).
+  rewrite Ha1 in H1.
+  by move: Hr1 H1;
+     case: (PrimitiveFloat.toX _) => [|w]; case: (toX _) => [|z] //=;
+     move=> *; lra.
+(* Two peelings, and the same reckoning once more.                            *)
+split; first exact: valid_ub_onReal2.
+have [_ Hr2] := PrimitiveFloat.fromZ_UP_correct fprec r2.
+have H1 := add_UP_le p (fp2tw a1) (fp2tw a2).
+have H2 := add_UP_le p (add_UP p (fp2tw a1) (fp2tw a2))
+             (fp2tw (PrimitiveFloat.fromZ_UP fprec r2)).
+rewrite !toX_fp2tw in H1; rewrite toX_fp2tw in H2.
+have [Ha1|Ha1] := nearZE _ _ _ E1.
+  by rewrite Ha1 /= in H1; move: H1 H2;
+     case: (toX _) => [|u]; case: (toX _) => [|v] //=.
+have [Ha2|Ha2] := nearZE _ _ _ E2.
+  by rewrite Ha1 Ha2 /= in H1; move: H1 H2;
+     case: (toX _) => [|u]; case: (toX _) => [|v] //=.
+rewrite Ha1 Ha2 /= in H1.
+by move: Hr2 H1 H2;
+   case: (PrimitiveFloat.toX _) => [|w]; case: (toX _) => [|u];
+   case: (toX _) => [|v] //=; move=> *; lra.
+Qed.
 
 Lemma fromZ_DN_correct p n :
   valid_lb (fromZ_DN p n) = true /\
   le_lower (toX (fromZ_DN p n)) (Xreal (IZR n)).
-Proof. Admitted.
+Proof.
+rewrite /fromZ_DN; case E1: (nearZ n) => [[a1 r1]|]; last first.
+  rewrite toX_fp2tw.
+  have [Hv Hb] := PrimitiveFloat.fromZ_DN_correct fprec n.
+  by split => //; apply: valid_lb_fp2tw.
+have [_ Hr1] := PrimitiveFloat.fromZ_DN_correct fprec r1.
+case E2: (nearZ r1) => [[a2 r2]|]; last first.
+  split; first exact: valid_lb_onReal2.
+  have H1 := add_DN_le p (fp2tw a1) (fp2tw (PrimitiveFloat.fromZ_DN fprec r1)).
+  rewrite !toX_fp2tw in H1.
+  have [Ha1|Ha1] := nearZE _ _ _ E1.
+    by rewrite Ha1 /= in H1; move: H1; rewrite /le_lower /=; case: (toX _).
+  rewrite Ha1 in H1.
+  by move: Hr1 H1; rewrite /le_lower /=;
+     case: (PrimitiveFloat.toX _) => [|w]; case: (toX _) => [|z] //=;
+     move=> *; lra.
+split; first exact: valid_lb_onReal2.
+have [_ Hr2] := PrimitiveFloat.fromZ_DN_correct fprec r2.
+have H1 := add_DN_le p (fp2tw a1) (fp2tw a2).
+have H2 := add_DN_le p (add_DN p (fp2tw a1) (fp2tw a2))
+             (fp2tw (PrimitiveFloat.fromZ_DN fprec r2)).
+rewrite !toX_fp2tw in H1; rewrite toX_fp2tw in H2.
+have [Ha1|Ha1] := nearZE _ _ _ E1.
+  by rewrite Ha1 /= in H1; move: H1 H2; rewrite /le_lower /=;
+     case: (toX _) => [|u]; case: (toX _) => [|v] //=.
+have [Ha2|Ha2] := nearZE _ _ _ E2.
+  by rewrite Ha1 Ha2 /= in H1; move: H1 H2; rewrite /le_lower /=;
+     case: (toX _) => [|u]; case: (toX _) => [|v] //=.
+rewrite Ha1 Ha2 /= in H1.
+by move: Hr2 H1 H2; rewrite /le_lower /=;
+   case: (PrimitiveFloat.toX _) => [|w]; case: (toX _) => [|u];
+   case: (toX _) => [|v] //=; move=> *; lra.
+Qed.
 
 Lemma mag_correct f : (Rabs (toR f) < bpow radix (StoZ (mag f)))%R.
 Proof. Admitted.
@@ -797,29 +1012,13 @@ Lemma add_UP_correct p x y :
   valid_ub x = true -> valid_ub y = true ->
   valid_ub (add_UP p x y) = true /\
   le_upper (toX x + toX y)%XR (toX (add_UP p x y)).
-Proof.
-move=> _ _; split; first exact: valid_ub_onReal2.
-rewrite /add_UP; apply: (onReal2_upper (fun a b => (toX a + toX b)%XR)) => a b Ra Rb Rr.
-have [F0 [F1 [F2 _]]] := real_fin _ Ra.
-have [G0 [G1 [G2 _]]] := real_fin _ Rb.
-have [H0 [H1 [H2 _]]] := real_fin _ Rr.
-rewrite (toX_real _ Ra) (toX_real _ Rb) (toX_real _ Rr) /=.
-by apply: addTwUp_ge; apply: finL_tw2l.
-Qed.
+Proof. by move=> _ _; split; [exact: valid_ub_onReal2|exact: add_UP_le]. Qed.
 
 Lemma add_DN_correct p x y :
   valid_lb x = true -> valid_lb y = true ->
   valid_lb (add_DN p x y) = true /\
   le_lower (toX (add_DN p x y)) (toX x + toX y)%XR.
-Proof.
-move=> _ _; split; first exact: valid_lb_onReal2.
-rewrite /add_DN; apply: (onReal2_lower (fun a b => (toX a + toX b)%XR)) => a b Ra Rb Rr.
-have [F0 [F1 [F2 _]]] := real_fin _ Ra.
-have [G0 [G1 [G2 _]]] := real_fin _ Rb.
-have [H0 [H1 [H2 _]]] := real_fin _ Rr.
-rewrite (toX_real _ Ra) (toX_real _ Rb) (toX_real _ Rr) /le_lower /=.
-by apply: Ropp_le_contravar; apply: addTwDn_le; apply: finL_tw2l.
-Qed.
+Proof. by move=> _ _; split; [exact: valid_lb_onReal2|exact: add_DN_le]. Qed.
 
 Lemma sub_UP_correct p x y :
   valid_ub x = true -> valid_lb y = true ->

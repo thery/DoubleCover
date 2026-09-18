@@ -55,6 +55,21 @@ arithmetic will be read into the signature's shape through those, so they come
 first. With them, `zero_correct`, `real_correct` and `fromZ_correct` are
 proved.
 
+**A whole number enters exactly, or all but the last float.** `fromZ_UP_correct`
+and `fromZ_DN_correct` are proved. A whole number is peeled twice: the top
+fifty-three bits, the next fifty-three, and what is left. Each peeling is done
+on the whole number and not on a float — what comes off is an integer below
+two to the fifty-third, which one float holds, times a power of two, and
+`ldexp2_exact` says that scaling a float by a power of two is either exact or
+an infinity. So neither peeling estimates anything, and the only bound in the
+answer is the one the primitive float's own `fromZ_UP` gives on what is left
+over. That is where the three words in the table below come from; putting the
+number in the leading word alone would keep fifty-three bits of it and drop
+the rest.
+
+The double-word version peels once and with a two-product, so it pays a step
+of `deps` for what the product can miss. Nothing of that kind is needed here.
+
 **The bridge is `code/ddouble`'s, not a copy.** `dwbridge.v` says what one
 primitive float is as a real number and what one operation on it does, and
 nothing about pairs, so it serves three words as well as two. `tw_ops.v` now
