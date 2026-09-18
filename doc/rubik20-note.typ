@@ -1125,15 +1125,23 @@ once loaded into the prover.
 
 == The theorem, and its cost
 
+The position is settled both ways in #src("HFinal.v"):
+
+```coq
+Theorem targ_dist : targ \in ball Sq 26 /\ targ \notin ball Sq 25.
+```
+
+`targ` is Reid's position and `ball Sq n` is the set of positions within `n`
+quarter turns. The word gives the first half and the six searches give the
+second. The bound follows:
+
 ```coq
 Theorem qdiam25 : ~ diam_le Sq 25.
 ```
 
-`Sq` is the set of the twelve quarter turns and `diam_le Sq 25` says every
-position is within 25 of them. The line says it is not, Reid's position is the
-witness, and the word Reid gives for it puts it at 26. Rocq reports only the
-primitives of its
-machine-integer and array interface. The work is eighteen hand-written files and
+`diam_le Sq 25` says every position is within 25 quarter turns, and the line
+says it is not. Rocq reports only the primitives of its machine-integer and
+array interface. The work is eighteen hand-written files and
 6 008 lines. Reid's argument is in #src("HProp2.v"), the search in
 #src("HSearch.v"), the sweeps in #src("HSweep.v"), and the bound in
 #src("HAll.v").
