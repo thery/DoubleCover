@@ -425,6 +425,29 @@ Qed.
 (*  The seed as a double word, and Newton's form of it                        *)
 (* ---------------------------------------------------------------------------*)
 
+(* The seed is a double word: Fast2Sum gives one as soon as its two arguments *)
+(* are the right way round, which `sqrtB12n_le_B01' says.                     *)
+Lemma sqrtBn_isDW x0 x1 : format x0 -> 0 < x0 ->
+  (x1 = 0 \/ Rabs x1 < ulp x0) ->
+  isDW (sqrtBWn x0 x1).
+Proof.
+move=> Fx0 Hx0 Hx1.
+have F01 : format (sqrtB01 x0).
+  by rewrite /ThreeSqRt.sqrtB01 /MULTmore.TwoProd /=; apply: generic_format_round.
+have F12 : format (sqrtB12n x0 x1).
+  by rewrite /sqrtB12n; apply: generic_format_round.
+have Hord := sqrtB12n_le_B01 _ _ Fx0 Hx0 Hx1.
+have Hmag := magnitude_Fast2Sum Hp2 choice F01 F12 (fun _ => Hord).
+have Hfor := format_Fast2Sum Hp2 choice (sqrtB01 x0) (sqrtB12n x0 x1).
+rewrite /sqrtBWn /sqrtBn.
+case E : (Fast2Sum (sqrtB01 x0) (sqrtB12n x0 x1)) => [s e].
+rewrite E in Hmag Hfor.
+rewrite /magnitudeDWR in Hmag.
+case: Hfor => Fs Fe.
+split => //.
+by right; rewrite dwhE dwlE; lra.
+Qed.
+
 Lemma TWval_sqrtBWn x0 x1 : format x0 -> 0 < x0 ->
   (x1 = 0 \/ Rabs x1 < ulp x0) ->
   TWval (sqrtBWn x0 x1) = sqrtB01 x0 + sqrtB12n x0 x1.
