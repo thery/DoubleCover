@@ -1159,10 +1159,6 @@ two thirds of what the searches cost.
 So far we have dealt with lower bounds. This last section is an attempt at the
 real computation, the upper bound.
 
-That twenty moves always suffice is the huge half, and we do not prove it here.
-#src("Diameter.v") holds the reduction for it, and that reduction rests on one
-assumption.
-
 The published proofs do not solve all 43 quintillion positions one at a time.
 They cut the cube group into the 2 217 093 120 cosets of a subgroup and solve a
 whole coset at once. One search settles every one of the 19 508 428 800
