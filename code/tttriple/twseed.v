@@ -1413,6 +1413,83 @@ Definition ThreeProdDWn (x y : twR) : twR :=
   end.
 
 (* ---------------------------------------------------------------------------*)
+(*  What the product's two missing instructions cost                          *)
+(* ---------------------------------------------------------------------------*)
+
+(* `pow (3 - 2p)' is eight `u^2', and a rounding below it is out by at most   *)
+(* four `u^3'.  Both of `ThreeProdDW''s fused lines sit there, and so do the  *)
+(* products they would have fused, so each costs one more such rounding: four *)
+(* becomes eight, and it is still `u^3'.                                      *)
+Lemma half_pow_e_p e : / 2 * pow (e - p) = / 2 * pow e * u.
+Proof.
+rewrite (u_pow p) -[pow (e - p)]/(pow (e + - p)) bpow_plus.
+by rewrite -[pow (- p)]/(bpow radix2 (- p)); ring.
+Qed.
+
+Lemma eps1n_bound_dw z10m x0 y2 :
+  Rabs z10m <= u * u -> Rabs (x0 * y2) < 4 * (u * u) ->
+  Rabs (z10m + x0 * y2 - RND (z10m + RND (x0 * y2)))
+    <= 8 * (u * u * u).
+Proof.
+move=> H1 H2.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048.
+have Hpw := pow_3m2p p.
+have Hwi : Rabs (x0 * y2) < pow (3 - 2 * p) by rewrite Hpw; nra.
+have E1 := round_err_le Hp2 choice Hwi.
+rewrite half_pow_e_p Hpw in E1.
+have Hb1 : Rabs (x0 * y2 - RND (x0 * y2)) <= 4 * (u * u * u) by nra.
+have Hr : Rabs (RND (x0 * y2)) <= 4 * (u * u) + 4 * (u * u * u).
+  have T := Rabs_triang (RND (x0 * y2) - (x0 * y2)) (x0 * y2).
+  have E : RND (x0 * y2) - x0 * y2 + x0 * y2 = RND (x0 * y2) by ring.
+  by rewrite E Rabs_minus_sym in T; lra.
+have Hw : Rabs (z10m + RND (x0 * y2)) < pow (3 - 2 * p).
+  rewrite Hpw.
+  by have T := Rabs_triang z10m (RND (x0 * y2)); nra.
+have E2 := round_err_le Hp2 choice Hw.
+rewrite half_pow_e_p Hpw in E2.
+have Hb2 : Rabs (z10m + RND (x0 * y2) - RND (z10m + RND (x0 * y2)))
+         <= 4 * (u * u * u) by nra.
+have Hsp : z10m + x0 * y2 - RND (z10m + RND (x0 * y2))
+    = (x0 * y2 - RND (x0 * y2))
+      + (z10m + RND (x0 * y2) - RND (z10m + RND (x0 * y2))) by ring.
+rewrite Hsp.
+by have T := Rabs_triang (x0 * y2 - RND (x0 * y2))
+       (z10m + RND (x0 * y2) - RND (z10m + RND (x0 * y2))); lra.
+Qed.
+
+Lemma eps4n_bound_dw b2 x1 y1 :
+  Rabs b2 <= 4 * (u * u) -> Rabs (x1 * y1) < 2 * (u * u) ->
+  Rabs (b2 + x1 * y1 - RND (b2 + RND (x1 * y1))) <= 8 * (u * u * u).
+Proof.
+move=> H1 H2.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048.
+have Hpw := pow_3m2p p.
+have Hwi : Rabs (x1 * y1) < pow (3 - 2 * p) by rewrite Hpw; nra.
+have E1 := round_err_le Hp2 choice Hwi.
+rewrite half_pow_e_p Hpw in E1.
+have Hb1 : Rabs (x1 * y1 - RND (x1 * y1)) <= 4 * (u * u * u) by nra.
+have Hr : Rabs (RND (x1 * y1)) <= 2 * (u * u) + 4 * (u * u * u).
+  have T := Rabs_triang (RND (x1 * y1) - (x1 * y1)) (x1 * y1).
+  have E : RND (x1 * y1) - x1 * y1 + x1 * y1 = RND (x1 * y1) by ring.
+  by rewrite E Rabs_minus_sym in T; lra.
+have Hw : Rabs (b2 + RND (x1 * y1)) < pow (3 - 2 * p).
+  rewrite Hpw.
+  by have T := Rabs_triang b2 (RND (x1 * y1)); nra.
+have E2 := round_err_le Hp2 choice Hw.
+rewrite half_pow_e_p Hpw in E2.
+have Hb2' : Rabs (b2 + RND (x1 * y1) - RND (b2 + RND (x1 * y1)))
+         <= 4 * (u * u * u) by nra.
+have Hsp : b2 + x1 * y1 - RND (b2 + RND (x1 * y1))
+    = (x1 * y1 - RND (x1 * y1))
+      + (b2 + RND (x1 * y1) - RND (b2 + RND (x1 * y1))) by ring.
+rewrite Hsp.
+by have T := Rabs_triang (x1 * y1 - RND (x1 * y1))
+       (b2 + RND (x1 * y1) - RND (b2 + RND (x1 * y1))); lra.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
 (*  Algorithm 20 without a fused multiply-add                                 *)
 (* ---------------------------------------------------------------------------*)
 
