@@ -997,8 +997,9 @@ position cannot be solved in 25 quarter turns.
 
 The superflip is only 24 quarter turns from solved, so it is not far enough.
 Reid posted a better position to the Cube-Lovers list in August 1998
-@reid1998fourspot: the *four-spot* with the superflip composed onto it. We call
-it *Reid's position*. The post is transcribed beside this note. The four-spot
+@reid1998fourspot: the *superflip composed with four spot*, the four-spot
+pattern with the superflip on top of it. The post is transcribed beside this
+note. The four-spot
 exchanges the front and back
 colours, and the left and right colours. The centres cannot move, so each of
 those four faces keeps its own colour in one square. That square is the spot the
@@ -1018,10 +1019,10 @@ pattern is named after. The superflip then turns every edge over.
       (cO, cW, cO, cB, cR, cG, cO, cY, cO))
     content((4.4, -0.45), text(size: 9pt)[and with the superflip on it])
   }),
-  caption: [The four-spot, and Reid's position.],
+  caption: [The four-spot, and the superflip composed with it.],
 ) <fspot>
 
-Reid's position is 26 quarter turns from solved. The word he gives for it, with
+This position is 26 quarter turns from solved. The word given for it, with
 the half turns written out, is
 
 #align(center)[
@@ -1035,10 +1036,10 @@ The word has twenty-six letters. Counted in face turns it has twenty-one, five
 of them half turns. We check it by multiplying both sides out.
 
 It is enough to rule out 24. A quarter turn is five four-cycles of the 48
-stickers, so it is odd, and an odd word gives an odd position. Reid's position
+stickers, so it is odd, and an odd word gives an odd position. This position
 is even, so every word for it has even length. The searches stop at 24.
 
-== Reid's six prefixes
+== The six prefixes
 
 The twelve quarter turns fall into two kinds for this position. The first kind
 is the turns of the top and bottom faces. The second kind is the turns of the
@@ -1050,18 +1051,17 @@ Two turns of different kinds must then stand next to each other somewhere in
 the word. The cyclic shift brings that pair to the front. The cyclic shift
 moves the first letters of the word to the end, renaming each of them by the
 relabelling that spins the whole cube by half a turn about the up-down axis: it
-sends $B$ to $F$ and $L$ to $R$ and leaves $U$ and $D$ where they are. In
-Reid's example the word begins with $B U^2 L$, and after the shift it ends with
-$F U^2 R$. The new word has the same length and gives the same position. This
-works because the relabelling leaves Reid's position as it is, and that is why
-this position was chosen.
+sends $B$ to $F$ and $L$ to $R$ and leaves $U$ and $D$ where they are. A word that begins with $B U^2 L$ ends, after the shift, with $F U^2 R$. The new word has the same length and gives the same position. This
+works because the relabelling leaves this position as it is, and that is why
+it was chosen.
 
 Two more operations leave the length and the position alone: inversion, and
 renaming by any of the sixteen relabellings that keep the up-down axis. With
 them the pair at the front becomes $R U$ or $R^(-1) U$. The first case is
 already a beginning we can search. In the second, one looks at the third turn:
 most choices fold back into the first case, and five survive. Those five and
-$R U$ are the six beginnings of Reid's Proposition 2:
+$R U$ are the six prefixes the searches start from
+@reid1998fourspot[Proposition 2]:
 
 #align(center)[
   #grid(
@@ -1085,16 +1085,17 @@ Theorem prop2 (w : seq nat) : qw w -> wp w = P ->
 
 
 Here `qw w` says that `w` is a word of quarter turns and `wp w` is the position
-it gives. `P` is Reid's position, and `heads w'` says that `w'` begins with one
+it gives. `P` is that position, and `heads w'` says that `w'` begins with one
 of the six. The second line is the hypothesis that `w` is as short as possible,
-and the third line is the conclusion. Reid leaves that hypothesis out of his
-statement. Without it the third turn may cancel the second. It costs us
+and the third line is the conclusion. The published statement leaves that
+hypothesis out. Without it the third turn may cancel the second. It costs us
 nothing, since a shortest word is what we want anyway.
 
-#src("HProp2.v") holds the argument. Reid's two kinds of turns are the top and
-bottom faces against the other four, which is right in his orientation. In ours
-the front and back faces are the ones that flip an edge, so #src("HBridge.v")
-turns the position onto the other axis and carries the result across.
+#src("HProp2.v") holds the argument. The two kinds of turns are the top and
+bottom faces against the other four, which is right in the published
+orientation. In ours the front and back faces are the ones that flip an edge,
+so #src("HBridge.v") turns the position onto the other axis and carries the
+result across.
 
 This is a much better cut than the one used for the superflip. There the first
 two moves left thirty prefixes to search. Here there are six, one of two turns
@@ -1135,7 +1136,7 @@ The position is settled both ways in #src("HFinal.v"):
 Theorem targ_dist : targ \in ball Sq 26 /\ targ \notin ball Sq 25.
 ```
 
-`targ` is Reid's position and `ball Sq n` is the set of positions within `n`
+`targ` is that position and `ball Sq n` is the set of positions within `n`
 quarter turns. The word gives the first half and the six searches give the
 second. The bound follows:
 
@@ -1145,8 +1146,8 @@ Theorem qdiam25 : ~ diam_le Sq 25.
 
 `diam_le Sq 25` says every position is within 25 quarter turns, and the line
 says it is not. Rocq reports only the primitives of its machine-integer and
-array interface. The work is eighteen hand-written files and 6 008 lines. Reid's
-argument is in #src("HProp2.v"), the search in #src("HSearch.v"), the sweeps in
+array interface. The work is eighteen hand-written files and 6 008 lines. The
+argument above is in #src("HProp2.v"), the search in #src("HSearch.v"), the sweeps in
 #src("HSweep.v"), and the bound in #src("HAll.v").
 
 #tbl(([], [wall clock], [processor time]),
@@ -1347,8 +1348,8 @@ What each of the three needed of its own:
 - *The twenty face turns.* The phase one summary, which is the edge flips and
   the slice, its table, and the certificate that checks the table. Three
   viewing angles of the same search, and seventeen pieces run side by side.
-- *The twenty-six quarter turns.* Reid's Proposition 2, which is the one piece
-  of the development argued by hand rather than computed, and the parity
+- *The twenty-six quarter turns.* The cut to six prefixes, which is the one
+  piece of the development argued by hand rather than computed, and the parity
   argument that turns 25 into 24. A second and much larger summary, 29 billion
   values, with a table of its own and a sweep of its own.
 - *One coset.* A coset held as a map of bits rather than as a tree of
