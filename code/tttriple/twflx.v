@@ -289,3 +289,40 @@ Proof.
 case: m => [|r1 [|r2 m]] //=; rewrite /tw2R /=;
   by congr TWR; rewrite /D2R B2R_Prim2B_0.
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  One operation at a time                                                  *)
+(* ---------------------------------------------------------------------------*)
+
+(* A sum and a difference cross with nothing asked but that the answer is a    *)
+(* number.  This is `Drnd_FLX_plus' read through the bridge.                   *)
+Lemma add_X a b : Dfin a -> Dfin b -> Dfin (a + b)%float ->
+  D2R (a + b)%float = Xrnd (D2R a + D2R b).
+Proof.
+move=> Fa Fb Fs.
+have [E _] := Dfin_add _ _ Fa Fb Fs.
+by rewrite E (Drnd_FLX_plus _ _ (Dformat a) (Dformat b)).
+Qed.
+
+Lemma sub_X a b : Dfin a -> Dfin b -> Dfin (a - b)%float ->
+  D2R (a - b)%float = Xrnd (D2R a - D2R b).
+Proof.
+move=> Fa Fb Fs.
+have [E _] := Dfin_sub _ _ Fa Fb Fs.
+by rewrite E (Drnd_FLX_minus _ _ (Dformat a) (Dformat b)).
+Qed.
+
+(* A product does ask: below the bottom of the range the two formats round it  *)
+(* differently, and `Dprodlo' is where they agree again.                       *)
+Lemma mul_X a b : Dfin a -> Dfin b -> Dfin (a * b)%float ->
+  (Dprodlo <= Rabs (D2R a * D2R b))%R ->
+  D2R (a * b)%float = Xrnd (D2R a * D2R b).
+Proof.
+move=> Fa Fb Fs Hn.
+have [E _] := Dfin_mul _ _ Fa Fb Fs.
+rewrite E; apply: Drnd_FLX.
+apply: Rle_trans Hn.
+have -> : (SpecFloat.emin prec emax + prec - 1
+           = SpecFloat.emin prec emax + 2 * prec - 1 - prec)%Z by ring.
+by apply: bpow_le; have : (0 < prec)%Z by []; lia.
+Qed.
