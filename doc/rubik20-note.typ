@@ -1077,9 +1077,10 @@ search uses. Reid leaves one hypothesis unstated, that the word cannot be
 shortened. Without it the third turn may cancel the second. We state it, and it
 costs nothing, since a shortest word is what we want anyway.
 
-Six searches follow. The first prefix is two turns long and is searched 22
-further, the other five are three long and are searched 21 further. Each reaches
-24 turns.
+This is a much better cut than the one used for the superflip. There the first
+two moves left thirty prefixes to search. Here there are six, one of two turns
+and five of three. Six searches follow. The first prefix is searched 22 turns
+further and the other five 21 further, so each reaches 24 turns.
 
 == The summary, and its table
 
