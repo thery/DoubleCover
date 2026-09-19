@@ -1072,12 +1072,13 @@ The rewriting uses three operations. None of them changes the product or the
 length. They are conjugation by one of the sixteen symmetries that fix the
 position, inversion, and cyclic shift.
 
-The cyclic shift takes letters off the front of the word and puts them at the
-back. They are relabelled on the way, by the half turn of the whole cube about
-the up-down axis. That turn takes $B$ to $F$ and $L$ to $R$, so Reid's example
-takes $B U^2 L$ off the front and puts $F U^2 R$ at the back. It works because
-the half turn leaves the position unchanged, and this is why the position was
-chosen.
+The cyclic shift moves the first few letters of the word to the end. Each
+letter that moves is relabelled: the cube is turned half a turn about the
+up-down axis, so $B$ becomes $F$, $L$ becomes $R$, and $U$ and $D$ stay as they
+are. The result is another word of the same length for the same position. In
+Reid's example the word begins with $B U^2 L$, and after the shift it ends with
+$F U^2 R$. The step is allowed because the position does not change under that
+half turn. This is why the position was chosen.
 
 #src("HProp2.v") is the argument in Rocq, and #src("HBridge.v") carries it to
 the orientation the search uses. Reid leaves one hypothesis unstated, that the
