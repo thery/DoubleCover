@@ -1040,9 +1040,31 @@ is even, so every word for it has even length. The searches stop at 24.
 
 == Reid's six prefixes
 
-A word for this position that cannot be shortened can be rewritten, at the same
-length, to begin with one of six sequences of quarter turns. That is Proposition
-2 of Reid's post.
+Reid's Proposition 2 cuts the search down to six beginnings. The argument runs
+as follows.
+
+The twelve quarter turns fall into two kinds for this position. The first kind
+is the turns of the top and bottom faces. The second kind is the turns of the
+other four faces. A word made only of the first kind cannot give the position.
+A word made only of the second kind cannot flip an edge, and in this position
+every edge is flipped. So any word for the position uses both kinds.
+
+Two turns of different kinds must then stand next to each other somewhere in
+the word. The cyclic shift brings that pair to the front. The cyclic shift
+moves the first letters of the word to the end, renaming each of them by the
+relabelling that spins the whole cube by half a turn about the up-down axis: it
+sends $B$ to $F$ and $L$ to $R$ and leaves $U$ and $D$ where they are. In
+Reid's example the word begins with $B U^2 L$, and after the shift it ends with
+$F U^2 R$. The new word has the same length and gives the same position. This
+works because the relabelling leaves Reid's position as it is, and that is why
+this position was chosen.
+
+Two more operations leave the length and the position alone: inversion, and
+renaming by any of the sixteen relabellings that keep the up-down axis. With
+them the pair at the front becomes $R U$ or $R^(-1) U$. The first case is
+already a beginning we can search. In the second, one looks at the third turn:
+most choices fold back into the first case, and five survive. Those five and
+$R U$ are the six:
 
 #align(center)[
   #grid(
@@ -1056,7 +1078,7 @@ length, to begin with one of six sequences of quarter turns. That is Proposition
   )
 ]
 
-In Rocq that is
+In Rocq the proposition reads
 
 ```coq
 Theorem prop2 (w : seq nat) : qw w -> wp w = P ->
@@ -1064,28 +1086,18 @@ Theorem prop2 (w : seq nat) : qw w -> wp w = P ->
   exists w', [/\ qw w', seq.size w' = seq.size w, wp w' = P & heads w'].
 ```
 
+
 Here `qw w` says that `w` is a word of quarter turns and `wp w` is the position
 it gives. `P` is Reid's position, and `heads w'` says that `w'` begins with one
 of the six. The second line is the hypothesis that `w` is as short as possible,
-and the third line is the conclusion.
+and the third line is the conclusion. Reid leaves that hypothesis out of his
+statement. Without it the third turn may cancel the second. It costs us
+nothing, since a shortest word is what we want anyway.
 
-The rewriting uses three operations. None of them changes the product or the
-length. They are conjugation by one of the sixteen symmetries that fix the
-position, inversion, and cyclic shift.
-
-The cyclic shift moves the first few letters of the word to the end. Each
-letter that moves is renamed. The renaming is one of the 48 relabellings of the
-cube, the one that spins the whole cube by half a turn about the up-down axis:
-it sends $B$ to $F$ and $L$ to $R$, and leaves $U$ and $D$ where they are. In
-Reid's example the word begins with $B U^2 L$, and after the shift it ends with
-$F U^2 R$. The new word has the same length and gives the same position. This
-works because Reid's position is left as it is by that relabelling, and this is
-why it was chosen.
-
-#src("HProp2.v") is the argument in Rocq, and #src("HBridge.v") carries it to
-the orientation the search uses. Reid leaves one hypothesis unstated, that the
-word cannot be shortened. Without it the third turn may cancel the second. We state it, and it
-costs nothing, since a shortest word is what we want anyway.
+#src("HProp2.v") holds the argument. Reid's two kinds of turns are the top and
+bottom faces against the other four, which is right in his orientation. In ours
+the front and back faces are the ones that flip an edge, so #src("HBridge.v")
+turns the position onto the other axis and carries the result across.
 
 This is a much better cut than the one used for the superflip. There the first
 two moves left thirty prefixes to search. Here there are six, one of two turns
