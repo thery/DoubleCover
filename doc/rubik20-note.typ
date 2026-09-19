@@ -1080,8 +1080,8 @@ the half turn leaves the position unchanged, and this is why the position was
 chosen.
 
 #src("HProp2.v") is the argument in Rocq, and #src("HBridge.v") carries it to
-the orientation the search uses. Reid leaves one hypothesis unstated, that the word cannot be
-shortened. Without it the third turn may cancel the second. We state it, and it
+the orientation the search uses. Reid leaves one hypothesis unstated, that the
+word cannot be shortened. Without it the third turn may cancel the second. We state it, and it
 costs nothing, since a shortest word is what we want anyway.
 
 This is a much better cut than the one used for the superflip. There the first
