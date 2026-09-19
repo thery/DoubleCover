@@ -14,6 +14,7 @@ tw_updn.v
 twbound.v
 twpaper.v
 twseed.v
+twflx.v
 tw_ops.v
 tw_cmpbad.v
 test_pi.v
