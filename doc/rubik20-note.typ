@@ -1040,9 +1040,6 @@ is even, so every word for it has even length. The searches stop at 24.
 
 == Reid's six prefixes
 
-Reid's Proposition 2 cuts the search down to six beginnings. The argument runs
-as follows.
-
 The twelve quarter turns fall into two kinds for this position. The first kind
 is the turns of the top and bottom faces. The second kind is the turns of the
 other four faces. A word made only of the first kind cannot give the position.
@@ -1064,7 +1061,7 @@ renaming by any of the sixteen relabellings that keep the up-down axis. With
 them the pair at the front becomes $R U$ or $R^(-1) U$. The first case is
 already a beginning we can search. In the second, one looks at the third turn:
 most choices fold back into the first case, and five survive. Those five and
-$R U$ are the six:
+$R U$ are the six beginnings of Reid's Proposition 2:
 
 #align(center)[
   #grid(
