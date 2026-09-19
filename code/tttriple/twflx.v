@@ -31,8 +31,9 @@ From dwarith Require Import dwbridge dwtwosum dwprod dwflx.
 (* operation by operation.                                                    *)
 
 Notation Dchoice := (fun n : Z => negb (Z.even n)).
-Notation Xrnd := (round radix2 (FLX_exp prec) (round_mode mode_NE)).
-Notation Xformat := (generic_format radix2 (FLX_exp prec)).
+(* `Xrnd' and `Xformat' come from `code/ddouble''s `dwflx.v': stating them     *)
+(* again here, even to the same thing, gives `lra' two atoms where there is    *)
+(* one.                                                                        *)
 
 (* The paper's own names, instantiated at binary64 and round to nearest.      *)
 Notation XTwoSum := (TwoSum prec Dchoice).
@@ -238,3 +239,38 @@ Definition tw2R (t : twfloat) : twR :=
 
 Lemma TWval_tw2R t : TWval (tw2R t) = twval t.
 Proof. by case: t => a b c; rewrite /TWval /twval. Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  TwoProd -- the first one that asks about the range                       *)
+(* ---------------------------------------------------------------------------*)
+
+Notation Dprodlo := (bpow radix2 (SpecFloat.emin prec emax + 2 * prec - 1)).
+Notation XTwoProd := (MULTmore.TwoProd prec radix2 (Znearest Dchoice)).
+
+(* Here the two formats part company, and the condition is the one            *)
+(* `code/ddouble' already isolated: the product must be clear of the bottom of *)
+(* the range.  Above `Dprodlo' the error of a product is a float in both       *)
+(* formats, so the pair is the same pair.  `Dprodlo' is `prec' above the       *)
+(* smallest normal number, so the rounding of the product agrees as well.      *)
+Lemma twoProd_X a b : Dfin (dwlo (twoProd a b)) ->
+  (Dprodlo <= Rabs (D2R a * D2R b))%R ->
+  D2R (dwhi (twoProd a b)) = (XTwoProd (D2R a) (D2R b)).1 /\
+  D2R (dwlo (twoProd a b)) = (XTwoProd (D2R a) (D2R b)).2.
+Proof.
+move=> Fe Hn.
+have Hp : (1 < prec)%Z by [].
+have [Fa [Fb [Fh Eh]]] := twoProd_hi _ _ Fe.
+have Ex := twoProd_exact _ _ Fe Hn.
+have HN : (bpow radix2 (SpecFloat.emin prec emax + prec - 1)
+           <= Rabs (D2R a * D2R b))%R.
+  apply: Rle_trans Hn; apply: bpow_le; lia.
+have Ehx : D2R (dwhi (twoProd a b)) = Xrnd (D2R a * D2R b).
+  by rewrite Eh (Drnd_FLX _ HN).
+have Hp0 : Prec_gt_0 prec by [].
+have Hvr : Valid_rnd (Znearest Dchoice) by apply: valid_rnd_N.
+have Hc := @MULTmore.TwoProd_correct prec Hp0 radix2 (Znearest Dchoice) Hvr
+             _ _ (Dformat_FLX a) (Dformat_FLX b).
+move: Hc; rewrite /MULTmore.TwoProd /= => [] [Hpr Hsum _ _].
+split; first by rewrite Ehx.
+by move: Ex Ehx Hsum; lra.
+Qed.
