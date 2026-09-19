@@ -3,9 +3,9 @@ From Stdlib Require Import Floats.
 From Flocq Require Import Core BinarySingleNaN PrimFloat.
 From mathcomp Require Import all_ssreflect.
 From threewords Require Import Nmore Rmore Fmore Rstruct MULTmore prelim.
-From threewords Require Import TwoSum TWR VecSum.
+From threewords Require Import TwoSum TWR VecSum VSEB.
 From twarith Require Import twarith twbound.
-From dwarith Require Import dwbridge dwtwosum dwflx.
+From dwarith Require Import dwbridge dwtwosum dwprod dwflx.
 
 (* THE BRIDGE: PRIMITIVE FLOATS TO THE PAPER'S REALS.                         *)
 (*                                                                            *)
@@ -110,4 +110,108 @@ Lemma vecSum_X l : finL (vecSum l) -> l2R (vecSum l) = XvecSum (l2R l).
 Proof.
 rewrite /vecSum /VecSum.vecSum; case E: (vecSumAux l) => [es s] F.
 by rewrite (vecSumAux_X _ _ _ E F).
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The second sweep                                                         *)
+(* ---------------------------------------------------------------------------*)
+
+(* The sweep drops a term that came out nought.  Here that is a float test,   *)
+(* there a test on the real number; for a float that is a number the two      *)
+(* agree, and minus nought is caught as well as nought.                       *)
+Lemma Deqb0I a : Dfin a -> D2R a = 0 -> (a =? 0)%float = true.
+Proof.
+move=> Fa H0; rewrite eqb_equiv.
+have F0 : Dfin 0%float by [].
+rewrite (Beqb_correct _ _ _ _ Fa F0).
+have -> : B2R (Prim2B 0%float) = 0 by [].
+by move: H0; rewrite /D2R => ->; case: Req_bool_spec.
+Qed.
+
+(* Resolving the sweep's zero test, out of the way of the recursion.  Cased  *)
+(* in place it asks to generalise a term the conclusion still uses.           *)
+Lemma if_R_eq0 (A : Type) (x : R) (a b : A) :
+  x = 0 -> (if Req_EM_T x 0 then a else b) = a.
+Proof. by move=> ->; case: (Req_EM_T 0 0). Qed.
+
+Lemma if_R_ne0 (A : Type) (x : R) (a b : A) :
+  x <> 0 -> (if Req_EM_T x 0 then a else b) = b.
+Proof. by move=> H; case: (Req_EM_T x 0) => // H0; case: (H H0). Qed.
+
+Lemma vsebAux_one eps e :
+  vsebAux eps [:: e] = [:: dwhi (twoSum eps e); dwlo (twoSum eps e)].
+Proof. by []. Qed.
+
+Lemma XvsebAux_one eps e :
+  VSEB.vsebAux prec Dchoice eps [:: e]
+  = let: DWR y0 y1 := XTwoSum eps e in [:: y0; y1].
+Proof. by []. Qed.
+
+(* With the `let' expanded: left in, the test is not a subterm of the goal    *)
+(* and there is nothing for the case analysis to take hold of.                 *)
+Lemma vsebAux_cons2 eps e y (l : seq PrimFloat.float) :
+  vsebAux eps (e :: y :: l)
+  = if (dwlo (twoSum eps e) =? 0)%float
+    then vsebAux (dwhi (twoSum eps e)) (y :: l)
+    else dwhi (twoSum eps e) :: vsebAux (dwlo (twoSum eps e)) (y :: l).
+Proof. by []. Qed.
+
+(* Stated with the projections rather than a `let'-match: a match on a pair   *)
+(* cannot be taken apart in the goal without generalising what it came from,  *)
+(* and here that is used elsewhere in the conclusion.                         *)
+Lemma XvsebAux_cons2 eps e y (l : seq R) :
+  VSEB.vsebAux prec Dchoice eps (e :: y :: l)
+  = if Req_EM_T (dwl (XTwoSum eps e)) 0
+    then VSEB.vsebAux prec Dchoice (dwh (XTwoSum eps e)) (y :: l)
+    else dwh (XTwoSum eps e)
+         :: VSEB.vsebAux prec Dchoice (dwl (XTwoSum eps e)) (y :: l).
+Proof. by rewrite /VSEB.vsebAux; case: (XTwoSum eps e). Qed.
+
+(* And the sweep itself.  Its output being made of numbers is the hypothesis, *)
+(* as everywhere else; `vsebAux_finIl' in `twbound.v' unpacks it.             *)
+Lemma vsebAux_X eps l : Dfin eps -> finL l -> finL (vsebAux eps l) ->
+  VSEB.vsebAux prec Dchoice (D2R eps) (l2R l) = l2R (vsebAux eps l).
+Proof.
+elim: l eps => [|e l IH] eps Feps Fl F; first by [].
+case: l IH Fl F => [|y l'] IH Fl F.
+  have [Fe _] := Fl.
+  have [Fh [Flo _]] := F.
+  have T := twoSum_finI _ _ Flo.
+  have [Eh El] := twoSum_X _ _ Feps Fe T.
+  have -> : l2R [:: e] = [:: D2R e] by [].
+  have -> : l2R [:: dwhi (twoSum eps e); dwlo (twoSum eps e)]
+          = [:: D2R (dwhi (twoSum eps e)); D2R (dwlo (twoSum eps e))] by [].
+  rewrite El Eh XvsebAux_one.
+  by case: (XTwoSum (D2R eps) (D2R e)).
+have [Fe Fyl] := Fl.
+have Hyl : l2R (y :: l') = D2R y :: l2R l' by [].
+(* one step on both sides, and on the hypothesis, before the tests are met   *)
+rewrite vsebAux_cons2 in F *.
+have -> : l2R [:: e, y & l'] = D2R e :: D2R y :: l2R l' by [].
+rewrite XvsebAux_cons2 -Hyl.
+move: F; case Ez: ((dwlo (twoSum eps e) =? 0)%float) => F.
+  have [Flo Vlo] := Dfin_eqb0 _ Ez.
+  have T := twoSum_finI _ _ Flo.
+  have [Eh El] := twoSum_X _ _ Feps Fe T.
+  have [Fh _] := vsebAux_finIl _ _ F.
+  have Het : dwl (XTwoSum (D2R eps) (D2R e)) = 0 by rewrite -El.
+  rewrite (if_R_eq0 _ _ _ _ Het) -Eh.
+  by apply: IH.
+have [Fh Ft] := F.
+have [Flo _] := vsebAux_finIl _ _ Ft.
+have T := twoSum_finI _ _ Flo.
+have [Eh El] := twoSum_X _ _ Feps Fe T.
+have Het : dwl (XTwoSum (D2R eps) (D2R e)) <> 0.
+  rewrite -El => H0.
+  by move: Ez; rewrite (Deqb0I _ Flo H0).
+rewrite (if_R_ne0 _ _ _ _ Het) -Eh -El [l2R (_ :: _)]/=; congr (_ :: _).
+by apply: IH.
+Qed.
+
+Lemma vseb_X l : finL l -> finL (vseb l) ->
+  VSEB.vseb prec Dchoice (l2R l) = l2R (vseb l).
+Proof.
+case: l => [|e l] // Fl F.
+have [Fe _] := Fl.
+by rewrite /VSEB.vseb /vseb /= (vsebAux_X _ _ Fe (proj2 Fl) F).
 Qed.
