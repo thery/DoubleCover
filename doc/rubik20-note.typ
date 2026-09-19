@@ -1084,11 +1084,12 @@ Theorem prop2 (w : seq nat) : qw w -> wp w = P ->
 ```
 
 Here `qw w` says that `w` is a word of quarter turns and `wp w` is the position
-it gives. `P` is superflip4, and `heads w'` says that `w'` begins with one of
-the six. The second line is the hypothesis that `w` is as short as possible, and
-the third line is the conclusion. The published statement leaves that hypothesis
-out. Without it the third turn may cancel the second. It costs us nothing, since
-a shortest word is what we want anyway.
+it gives. `P` is superflip4, turned onto the axis this argument needs, and
+`heads w'` says that `w'` begins with one of the six. The second line is the
+hypothesis that `w` is as short as possible, and the third line is the
+conclusion. The published statement leaves that hypothesis out. Without it the
+third turn may cancel the second. It costs us nothing, since a shortest word is
+what we want anyway.
 
 #src("HProp2.v") holds the argument. The two kinds of turns are the top and
 bottom faces against the other four, which is right in the published
@@ -1135,9 +1136,9 @@ The position is settled both ways in #src("HFinal.v"):
 Theorem targ_dist : targ \in ball Sq 26 /\ targ \notin ball Sq 25.
 ```
 
-`targ` is superflip4 and `ball Sq n` is the set of positions within `n` quarter
-turns. The word gives the first half and the six searches give the second. The
-bound follows:
+`targ` is superflip4 as the searches meet it, and `ball Sq n` is the set of
+positions within `n` quarter turns. The word gives the first half and the six
+searches give the second. The bound follows:
 
 ```coq
 Theorem qdiam25 : ~ diam_le Sq 25.
