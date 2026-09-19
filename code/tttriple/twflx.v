@@ -274,3 +274,18 @@ move: Hc; rewrite /MULTmore.TwoProd /= => [] [Hpr Hsum _ _].
 split; first by rewrite Ehx.
 by move: Ex Ehx Hsum; lra.
 Qed.
+
+(* The way both developments read a list back as a triple word: a head and    *)
+(* what the cut left, filled out with noughts.                                *)
+Definition l2twR (a : R) (m : seq R) : twR :=
+  match m with
+  | [:: r1, r2 & _] => TWR a r1 r2
+  | [:: r1]         => TWR a r1 0
+  | [::]            => TWR a 0 0
+  end.
+
+Lemma tw2R_l2tw a m : tw2R (l2tw (a :: m)) = l2twR (D2R a) (l2R m).
+Proof.
+case: m => [|r1 [|r2 m]] //=; rewrite /tw2R /=;
+  by congr TWR; rewrite /D2R B2R_Prim2B_0.
+Qed.
