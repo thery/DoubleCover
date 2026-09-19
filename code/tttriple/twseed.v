@@ -2,7 +2,7 @@ From Stdlib Require Import ZArith Reals Psatz.
 From mathcomp Require Import all_ssreflect all_algebra.
 From Flocq Require Import Core Relative Sterbenz Operations Mult_error.
 From threewords Require Import Nmore Rmore Fmore Rstruct MULTmore prelim.
-From threewords Require Import TwoSum TWR ThreeProd ThreeProdDW ThreeProdOne.
+From threewords Require Import TwoSum TWR VecSum ThreeProd ThreeProdDW ThreeProdOne.
 From threewords Require Import ThreeSqRt.
 
 (* THE SEED OF ALGORITHM 15, WITH NO FUSED MULTIPLY-ADD.                      *)
@@ -23,6 +23,12 @@ From threewords Require Import ThreeSqRt.
 (* `sqrtAux_i2_near_1', and `ThreeProdOneTW_error_c' takes its tolerance as a *)
 (* parameter no larger than `112'.  So what comes out below has to stay       *)
 (* under about `107u^2'.                                                      *)
+
+(* The paper's own settings, so that lemmas stated here take their arguments *)
+(* the way the paper's do and its proof text reads across unchanged.          *)
+Set Implicit Arguments.
+Unset Strict Implicit.
+Unset Printing Implicit Defensive.
 
 Section SecSeedNoFMA.
 
@@ -81,6 +87,30 @@ Local Notation sqrtH0_2 := (sqrtH0_2 p choice).
 Local Notation sqrtB01 := (sqrtB01 p choice).
 Local Notation sqrtB11 := (sqrtB11 p choice).
 
+(* AND THE PAPER'S LEMMAS UNDER THEIR OWN NAMES, with the precision and the   *)
+(* rounding already filled in.  Inside the paper's own section those are      *)
+(* section variables and every call reads `lemma Fx0 Hx0'; once the section   *)
+(* closes they become arguments, and a proof copied across would have to      *)
+(* pass them at every call.  Bridged here instead, once, so that the paper's  *)
+(* proof text is reusable word for word.                                      *)
+Local Notation u_le_2048 := (u_le_2048 Hp11).
+Local Notation sqrtA_gt0 := (sqrtA_gt0 Hp2 Hp11 choice).
+Local Notation sqrtA_sq_le := (sqrtA_sq_le Hp2 Hp11 choice).
+Local Notation sqrtA_bound_full := (sqrtA_bound_full Hp2 Hp11 choice).
+Local Notation sqrtH0_1_le := (sqrtH0_1_le Hp2 Hp11 choice).
+Local Notation sqrtH11_1_le := (sqrtH11_1_le Hp2 Hp11 choice).
+Local Notation sqrtB01_ge := (sqrtB01_ge Hp2 Hp11 choice).
+Local Notation sqrtB11_le := (sqrtB11_le Hp2 Hp11 choice).
+Local Notation sqrtH0_2_exact := (sqrtH0_2_exact Hp2 Hp11 choice).
+Local Notation isTW_TWval_gt0 := (isTW_TWval_gt0 Hp2 Hp11).
+Local Notation isTW_tw2_le := (isTW_tw2_le Hp2).
+Local Notation TwoProd_exact := (TwoProd_exact Hp2 choice).
+Local Notation Fast2Sum_correct := (Fast2Sum_correct Hp2 choice).
+Local Notation format_Fast2Sum := (format_Fast2Sum Hp2 choice).
+Local Notation magnitude_Fast2Sum := (magnitude_Fast2Sum Hp2 choice).
+Local Notation format_scale := (format_scale Hp2 choice).
+Local Notation sub32TW_isTW := (sub32TW_isTW Hp2).
+
 (* And the three lines that differ: one rounding becomes two.                 *)
 Definition sqrtH1_1n (x0 x1 : R) : R :=
   RND (sqrtH11_1 x0 + RND (sqrtA x0 * x1)).
@@ -117,8 +147,8 @@ Lemma sqrtA_x1_le x0 x1 : format x0 -> 0 < x0 ->
   Rabs (sqrtA x0 * x1) <= 2 * u * (sqrtA x0 * x0).
 Proof.
 move=> Fx0 Hx0 Hx1; have Hu0 : 0 < u by apply: u_gt_0.
-have HA := sqrtA_gt0 Hp2 Hp11 choice Fx0 Hx0.
-have Hb := tw1_le _ _ Fx0 Hx0 Hx1.
+have HA := sqrtA_gt0 Fx0 Hx0.
+have Hb := tw1_le Fx0 Hx0 Hx1.
 rewrite Rabs_mult (Rabs_pos_eq (sqrtA x0)); last lra.
 by nra.
 Qed.
@@ -132,10 +162,10 @@ Lemma sqrtH1_1n_sum_le x0 x1 : format x0 -> 0 < x0 ->
 Proof.
 move=> Fx0 Hx0 Hx1.
 have Hu0 : 0 < u by apply: u_gt_0.
-have HA := sqrtA_gt0 Hp2 Hp11 choice Fx0 Hx0.
+have HA := sqrtA_gt0 Fx0 Hx0.
 have HP : 0 < sqrtA x0 * x0 by nra.
-have H11 := sqrtH11_1_le Hp2 Hp11 choice Fx0 Hx0.
-have Hax1 := sqrtA_x1_le _ _ Fx0 Hx0 Hx1.
+have H11 := sqrtH11_1_le Fx0 Hx0.
+have Hax1 := sqrtA_x1_le Fx0 Hx0 Hx1.
 have Hr1 : Rabs (RND (sqrtA x0 * x1)) <= (1 + u) * (2 * u * (sqrtA x0 * x0)).
   apply: Rle_trans (rnd_abs _) _.
   by apply: Rmult_le_compat_l; lra.
@@ -149,10 +179,10 @@ Lemma sqrtH1_1n_le x0 x1 : format x0 -> 0 < x0 ->
 Proof.
 move=> Fx0 Hx0 Hx1.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
-have HA := sqrtA_gt0 Hp2 Hp11 choice Fx0 Hx0.
+have Hu2048 := u_le_2048.
+have HA := sqrtA_gt0 Fx0 Hx0.
 have HP : 0 < sqrtA x0 * x0 by nra.
-have Hs := sqrtH1_1n_sum_le _ _ Fx0 Hx0 Hx1.
+have Hs := sqrtH1_1n_sum_le Fx0 Hx0 Hx1.
 rewrite /sqrtH1_1n.
 apply: Rle_trans (rnd_abs _) _.
 apply: Rle_trans (_ : (1 + u) * ((3 * u + 2 * (u * u)) * (sqrtA x0 * x0)) <= _).
@@ -174,11 +204,11 @@ Lemma eps1n_le x0 x1 : format x0 -> 0 < x0 ->
 Proof.
 move=> Fx0 Hx0 Hx1.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
-have HA := sqrtA_gt0 Hp2 Hp11 choice Fx0 Hx0.
+have Hu2048 := u_le_2048.
+have HA := sqrtA_gt0 Fx0 Hx0.
 have HP : 0 < sqrtA x0 * x0 by nra.
-have Hs := sqrtH1_1n_sum_le _ _ Fx0 Hx0 Hx1.
-have Hax1 := sqrtA_x1_le _ _ Fx0 Hx0 Hx1.
+have Hs := sqrtH1_1n_sum_le Fx0 Hx0 Hx1.
+have Hax1 := sqrtA_x1_le Fx0 Hx0 Hx1.
 have E : sqrtH1_1n x0 x1 - (sqrtH11_1 x0 + sqrtA x0 * x1)
        = (RND (sqrtH11_1 x0 + RND (sqrtA x0 * x1))
           - (sqrtH11_1 x0 + RND (sqrtA x0 * x1)))
@@ -213,7 +243,7 @@ Qed.
 Lemma format_sqrtA' x0 : format (sqrtA' x0).
 Proof.
 have -> : sqrtA' x0 = sqrtA x0 * pow (-1) by rewrite /ThreeSqRt.sqrtA' /=; lra.
-apply/(format_scale Hp2 choice); rewrite /ThreeSqRt.sqrtA.
+apply/(format_scale); rewrite /ThreeSqRt.sqrtA.
 by apply: generic_format_round.
 Qed.
 
@@ -223,12 +253,12 @@ Lemma sqrtH11_2_le x0 : format x0 -> 0 < x0 ->
 Proof.
 move=> Fx0 Hx0.
 have Hu0 : 0 < u by apply: u_gt_0.
-have HA := sqrtA_gt0 Hp2 Hp11 choice Fx0 Hx0.
+have HA := sqrtA_gt0 Fx0 Hx0.
 have HA' : sqrtA' x0 = sqrtA x0 / 2 by [].
-have H01 := sqrtH0_1_le Hp2 Hp11 choice Fx0 Hx0.
+have H01 := sqrtH0_1_le Fx0 Hx0.
 have FA2 := format_sqrtA' x0.
 have F01 : format (sqrtH0_1 x0) by apply: generic_format_round.
-have HE2 := TwoProd_exact Hp2 choice FA2 F01.
+have HE2 := TwoProd_exact FA2 F01.
 have -> : sqrtH11_2 x0 = sqrtA' x0 * sqrtH0_1 x0 - sqrtH01_2 x0.
   by rewrite /sqrtH11_2 /sqrtH01_2; lra.
 have -> : sqrtH01_2 x0 = RND (sqrtA' x0 * sqrtH0_1 x0) by [].
@@ -247,11 +277,11 @@ Lemma sqrtH1_2n_sum_le x0 x1 : format x0 -> 0 < x0 ->
 Proof.
 move=> Fx0 Hx0 Hx1.
 have Hu0 : 0 < u by apply: u_gt_0.
-have HA := sqrtA_gt0 Hp2 Hp11 choice Fx0 Hx0.
+have HA := sqrtA_gt0 Fx0 Hx0.
 have HA' : sqrtA' x0 = sqrtA x0 / 2 by [].
 have HP : 0 < sqrtA x0 * x0 by nra.
-have H112 := sqrtH11_2_le _ Fx0 Hx0.
-have H11n := sqrtH1_1n_le _ _ Fx0 Hx0 Hx1.
+have H112 := sqrtH11_2_le Fx0 Hx0.
+have H11n := sqrtH1_1n_le Fx0 Hx0 Hx1.
 have Hmix : Rabs (sqrtA' x0 * sqrtH1_1n x0 x1)
           <= sqrtA' x0 * (4 * u * (sqrtA x0 * x0)).
   rewrite Rabs_mult (Rabs_pos_eq (sqrtA' x0)); last by rewrite HA'; lra.
@@ -274,11 +304,11 @@ Lemma sqrtH1_2n_le x0 x1 : format x0 -> 0 < x0 ->
 Proof.
 move=> Fx0 Hx0 Hx1.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
-have HA := sqrtA_gt0 Hp2 Hp11 choice Fx0 Hx0.
-have Hsq := sqrtA_sq_le Hp2 Hp11 choice Fx0 Hx0.
+have Hu2048 := u_le_2048.
+have HA := sqrtA_gt0 Fx0 Hx0.
+have Hsq := sqrtA_sq_le Fx0 Hx0.
 have HP : 0 < sqrtA x0 * x0 by nra.
-have Hs := sqrtH1_2n_sum_le _ _ Fx0 Hx0 Hx1.
+have Hs := sqrtH1_2n_sum_le Fx0 Hx0 Hx1.
 rewrite /sqrtH1_2n Rabs_Ropp.
 apply: Rle_trans (rnd_abs _) _.
 apply: Rle_trans
@@ -299,13 +329,13 @@ Lemma epsn_le x0 x1 : format x0 -> 0 < x0 ->
 Proof.
 move=> Fx0 Hx0 Hx1.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
-have HA := sqrtA_gt0 Hp2 Hp11 choice Fx0 Hx0.
+have Hu2048 := u_le_2048.
+have HA := sqrtA_gt0 Fx0 Hx0.
 have HA' : sqrtA' x0 = sqrtA x0 / 2 by [].
 have HP : 0 < sqrtA x0 * x0 by nra.
 have HQ : 0 < sqrtA x0 * sqrtA x0 * x0 by nra.
-have Hs := sqrtH1_2n_sum_le _ _ Fx0 Hx0 Hx1.
-have H11n := sqrtH1_1n_le _ _ Fx0 Hx0 Hx1.
+have Hs := sqrtH1_2n_sum_le Fx0 Hx0 Hx1.
+have H11n := sqrtH1_1n_le Fx0 Hx0 Hx1.
 have Hmix : Rabs (sqrtA' x0 * sqrtH1_1n x0 x1)
           <= 2 * u * (sqrtA x0 * sqrtA x0 * x0).
   rewrite Rabs_mult (Rabs_pos_eq (sqrtA' x0)); last by rewrite HA'; lra.
@@ -351,9 +381,9 @@ Lemma sqrtB12n_sum_le x0 x1 : format x0 -> 0 < x0 ->
 Proof.
 move=> Fx0 Hx0 Hx1.
 have Hu0 : 0 < u by apply: u_gt_0.
-have HA := sqrtA_gt0 Hp2 Hp11 choice Fx0 Hx0.
-have Hb11 := sqrtB11_le Hp2 Hp11 choice Fx0 Hx0.
-have Hh12 := sqrtH1_2n_le _ _ Fx0 Hx0 Hx1.
+have HA := sqrtA_gt0 Fx0 Hx0.
+have Hb11 := sqrtB11_le Fx0 Hx0.
+have Hh12 := sqrtH1_2n_le Fx0 Hx0 Hx1.
 have Hmix : Rabs (sqrtA x0 * sqrtH1_2n x0 x1) <= sqrtA x0 * (3 * u).
   rewrite Rabs_mult (Rabs_pos_eq (sqrtA x0)); last lra.
   by apply: Rmult_le_compat_l; lra.
@@ -372,10 +402,10 @@ Lemma sqrtB12n_le_B01 x0 x1 : format x0 -> 0 < x0 ->
 Proof.
 move=> Fx0 Hx0 Hx1.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
-have HA := sqrtA_gt0 Hp2 Hp11 choice Fx0 Hx0.
-have Hb01 := sqrtB01_ge Hp2 Hp11 choice Fx0 Hx0.
-have Hs := sqrtB12n_sum_le _ _ Fx0 Hx0 Hx1.
+have Hu2048 := u_le_2048.
+have HA := sqrtA_gt0 Fx0 Hx0.
+have Hb01 := sqrtB01_ge Fx0 Hx0.
+have Hs := sqrtB12n_sum_le Fx0 Hx0 Hx1.
 rewrite /sqrtB12n.
 apply: Rle_trans (rnd_abs _) _.
 apply: Rle_trans (_ : (1 + u) * ((4 * u + 3 * (u * u)) * sqrtA x0) <= _).
@@ -394,10 +424,10 @@ Lemma etan_le x0 x1 : format x0 -> 0 < x0 ->
 Proof.
 move=> Fx0 Hx0 Hx1.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
-have HA := sqrtA_gt0 Hp2 Hp11 choice Fx0 Hx0.
-have Hh12 := sqrtH1_2n_le _ _ Fx0 Hx0 Hx1.
-have Hs := sqrtB12n_sum_le _ _ Fx0 Hx0 Hx1.
+have Hu2048 := u_le_2048.
+have HA := sqrtA_gt0 Fx0 Hx0.
+have Hh12 := sqrtH1_2n_le Fx0 Hx0 Hx1.
+have Hs := sqrtB12n_sum_le Fx0 Hx0 Hx1.
 have Hmix : Rabs (sqrtA x0 * sqrtH1_2n x0 x1) <= sqrtA x0 * (3 * u).
   rewrite Rabs_mult (Rabs_pos_eq (sqrtA x0)); last lra.
   by apply: Rmult_le_compat_l; lra.
@@ -440,9 +470,9 @@ have F01 : format (sqrtB01 x0).
   by rewrite /ThreeSqRt.sqrtB01 /MULTmore.TwoProd /=; apply: generic_format_round.
 have F12 : format (sqrtB12n x0 x1).
   by rewrite /sqrtB12n; apply: generic_format_round.
-have Hord := sqrtB12n_le_B01 _ _ Fx0 Hx0 Hx1.
-have Hmag := magnitude_Fast2Sum Hp2 choice F01 F12 (fun _ => Hord).
-have Hfor := format_Fast2Sum Hp2 choice (sqrtB01 x0) (sqrtB12n x0 x1).
+have Hord := sqrtB12n_le_B01 Fx0 Hx0 Hx1.
+have Hmag := magnitude_Fast2Sum F01 F12 (fun _ => Hord).
+have Hfor := format_Fast2Sum (sqrtB01 x0) (sqrtB12n x0 x1).
 rewrite /sqrtBWn /sqrtBn.
 case E : (Fast2Sum (sqrtB01 x0) (sqrtB12n x0 x1)) => [s e].
 rewrite E in Hmag Hfor.
@@ -461,8 +491,8 @@ have F01 : format (sqrtB01 x0).
   by rewrite /ThreeSqRt.sqrtB01; apply: generic_format_round.
 have F12 : format (sqrtB12n x0 x1).
   by rewrite /sqrtB12n; apply: generic_format_round.
-have Hord := sqrtB12n_le_B01 _ _ Fx0 Hx0 Hx1.
-have Hc := Fast2Sum_correct Hp2 choice F01 F12 (fun _ => Hord).
+have Hord := sqrtB12n_le_B01 Fx0 Hx0 Hx1.
+have Hc := Fast2Sum_correct F01 F12 (fun _ => Hord).
 by rewrite /sqrtBWn /TWval /sqrtBn Rplus_0_r; exact: Hc.
 Qed.
 
@@ -471,7 +501,7 @@ Qed.
 Lemma seed_num : 9 * (1 + 12 * u + 62 * (u * u)) + 8 <= 18.
 Proof.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
+have Hu2048 := u_le_2048.
 by nra.
 Qed.
 
@@ -483,12 +513,12 @@ Lemma sqrtBWn_newton_form x : isTW x -> 0 < tw0 x ->
 Proof.
 move=> Hx Hx0.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
+have Hu2048 := u_le_2048.
 have Fx0 : format (tw0 x) by case: x Hx {Hx0} => x0 x1 x2 [].
 have Hx1s : tw1 x = 0 \/ Rabs (tw1 x) < ulp (tw0 x)
   by case: x Hx {Hx0 Fx0} => x0 x1 x2 [].
-have HA := sqrtA_gt0 Hp2 Hp11 choice Fx0 Hx0.
-have Hsq := sqrtA_sq_le Hp2 Hp11 choice Fx0 Hx0.
+have HA := sqrtA_gt0 Fx0 Hx0.
+have Hsq := sqrtA_sq_le Fx0 Hx0.
 have HP : 0 < sqrtA (tw0 x) * tw0 x by nra.
 have HA' : sqrtA' (tw0 x) = sqrtA (tw0 x) / 2 by [].
 have FA : format (sqrtA (tw0 x)).
@@ -497,9 +527,9 @@ have FA2 := format_sqrtA' (tw0 x).
 have F01 : format (sqrtH0_1 (tw0 x)).
   by rewrite /ThreeSqRt.sqrtH0_1 /MULTmore.TwoProd /=; apply: generic_format_round.
 have F02 : format (sqrtH0_2 (tw0 x)) by apply: sqrtH0_2_exact.
-have P1 := TwoProd_exact Hp2 choice FA Fx0.
-have P2 := TwoProd_exact Hp2 choice FA2 F01.
-have P3 := TwoProd_exact Hp2 choice FA F02.
+have P1 := TwoProd_exact FA Fx0.
+have P2 := TwoProd_exact FA2 F01.
+have P3 := TwoProd_exact FA F02.
 set eps1 := sqrtH1_1n (tw0 x) (tw1 x)
             - (sqrtH11_1 (tw0 x) + sqrtA (tw0 x) * tw1 x).
 set eps := - sqrtH1_2n (tw0 x) (tw1 x)
@@ -513,7 +543,7 @@ have Hdec : TWval (sqrtBWn (tw0 x) (tw1 x))
     = (1 / 2) * (sqrtA (tw0 x) * sqrtA (tw0 x) * sqrtA (tw0 x)) * tw2 x
       - (1 / 2) * (sqrtA (tw0 x) * sqrtA (tw0 x)) * eps1
       - sqrtA (tw0 x) * eps + eta.
-  rewrite (TWval_sqrtBWn _ _ Fx0 Hx0 Hx1s) TWval_split.
+  rewrite (TWval_sqrtBWn Fx0 Hx0 Hx1s) TWval_split.
   apply: (@newton_form_id (sqrtA (tw0 x)) (sqrtB01 (tw0 x))
             (sqrtB11 (tw0 x)) (sqrtB12n (tw0 x) (tw1 x))
             (sqrtH0_2 (tw0 x)) (sqrtH1_2n (tw0 x) (tw1 x))
@@ -528,7 +558,7 @@ have Hdec : TWval (sqrtBWn (tw0 x) (tw1 x))
   - by rewrite /eta; lra.
   by rewrite /ThreeSqRt.sqrtB01 /ThreeSqRt.sqrtB11; lra.
 rewrite Hdec.
-have Hx2 := isTW_tw2_le Hp2 Hx.
+have Hx2 := isTW_tw2_le Hx.
 have Ha0 : Rabs (tw0 x) = tw0 x by apply: Rabs_pos_eq; lra.
 rewrite Ha0 in Hx2.
 have Heps1 : Rabs eps1 <= 6 * (u * u) * (sqrtA (tw0 x) * tw0 x)
@@ -629,14 +659,14 @@ Lemma sqrtBWn_x_err_crude x : isTW x -> 0 < tw0 x ->
 Proof.
 move=> Hx Hx0.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
+have Hu2048 := u_le_2048.
 have Fx0 : format (tw0 x) by case: x Hx {Hx0} => x0 x1 x2 [].
-have HX0 := isTW_TWval_gt0 Hp2 Hp11 Hx Hx0.
+have HX0 := isTW_TWval_gt0 Hx Hx0.
 have Hs0 : 0 < sqrt (TWval x) by apply: sqrt_lt_R0.
 have HsX : sqrt (TWval x) * sqrt (TWval x) = TWval x by apply: sqrt_sqrt; lra.
-have HA := sqrtA_gt0 Hp2 Hp11 choice Fx0 Hx0.
-have HN := sqrtBWn_newton_form _ Hx Hx0.
-have [Hlo Hhi] := sqrtA_bound_full Hp2 Hp11 choice Hx Hx0.
+have HA := sqrtA_gt0 Fx0 Hx0.
+have HN := sqrtBWn_newton_form Hx Hx0.
+have [Hlo Hhi] := sqrtA_bound_full Hx Hx0.
 set B := TWval (sqrtBWn (tw0 x) (tw1 x)) in HN *.
 set A := sqrtA (tw0 x) in HN HA Hlo Hhi *.
 set s := sqrt (TWval x) in HsX Hs0 Hlo Hhi *.
@@ -694,11 +724,11 @@ Lemma sqrtAuxN_bX_le x : isTW x -> 0 < tw0 x ->
 Proof.
 move=> Hx Hx0.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
-have HX0 := isTW_TWval_gt0 Hp2 Hp11 Hx Hx0.
+have Hu2048 := u_le_2048.
+have HX0 := isTW_TWval_gt0 Hx Hx0.
 have Hs0 : 0 < sqrt (TWval x) by apply: sqrt_lt_R0.
 have HsX : sqrt (TWval x) * sqrt (TWval x) = TWval x by apply: sqrt_sqrt; lra.
-have Hseed := sqrtBWn_x_err_crude _ Hx Hx0.
+have Hseed := sqrtBWn_x_err_crude Hx Hx0.
 set B := TWval (sqrtBWn (tw0 x) (tw1 x)) in Hseed *.
 set s := sqrt (TWval x) in HsX Hs0 Hseed *.
 have Hgen : forall r b, r * r = TWval x -> b * TWval x = (b * r) * r.
@@ -726,15 +756,15 @@ Lemma sqrtAuxN_i1_le mul1 d1 :
 Proof.
 move=> Herr1 Hd10 Hd1u x Hx Hx0.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
-have HX0 := isTW_TWval_gt0 Hp2 Hp11 Hx Hx0.
+have Hu2048 := u_le_2048.
+have HX0 := isTW_TWval_gt0 Hx Hx0.
 have Hs0 : 0 < sqrt (TWval x) by apply: sqrt_lt_R0.
 have Fx0 : format (tw0 x) by case: x Hx {Hx0 HX0 Hs0} => x0 x1 x2 [].
 have Hx1s : tw1 x = 0 \/ Rabs (tw1 x) < ulp (tw0 x)
   by case: x Hx {Hx0 HX0 Hs0 Fx0} => x0 x1 x2 [].
 have HDW : isDW (sqrtBWn (tw0 x) (tw1 x)) by apply: sqrtBn_isDW.
 have He := Herr1 _ _ HDW Hx.
-have HbX := sqrtAuxN_bX_le _ Hx Hx0.
+have HbX := sqrtAuxN_bX_le Hx Hx0.
 have -> : TWval (mul1 (sqrtBWn (tw0 x) (tw1 x)) x)
     = (TWval (mul1 (sqrtBWn (tw0 x) (tw1 x)) x)
        - TWval (sqrtBWn (tw0 x) (tw1 x)) * TWval x)
@@ -787,8 +817,8 @@ Lemma sqrtAuxN_bracket_le mul1 d1 :
 Proof.
 move=> Herr1 Hd10 Hd1u x Hx Hx0.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
-have HX0 := isTW_TWval_gt0 Hp2 Hp11 Hx Hx0.
+have Hu2048 := u_le_2048.
+have HX0 := isTW_TWval_gt0 Hx Hx0.
 have Hs0 : 0 < sqrt (TWval x) by apply: sqrt_lt_R0.
 have HsX : sqrt (TWval x) * sqrt (TWval x) = TWval x by apply: sqrt_sqrt; lra.
 have Fx0 : format (tw0 x) by case: x Hx {Hx0 HX0 Hs0 HsX} => x0 x1 x2 [].
@@ -796,7 +826,7 @@ have Hx1s : tw1 x = 0 \/ Rabs (tw1 x) < ulp (tw0 x)
   by case: x Hx {Hx0 HX0 Hs0 HsX Fx0} => x0 x1 x2 [].
 have HDW : isDW (sqrtBWn (tw0 x) (tw1 x)) by apply: sqrtBn_isDW.
 have He := Herr1 _ _ HDW Hx.
-have Hseed := sqrtBWn_x_err_crude _ Hx Hx0.
+have Hseed := sqrtBWn_x_err_crude Hx Hx0.
 set B := TWval (sqrtBWn (tw0 x) (tw1 x)) in He Hseed *.
 set I1 := TWval (mul1 (sqrtBWn (tw0 x) (tw1 x)) x) in He *.
 set s := sqrt (TWval x) in HsX Hs0 Hseed *.
@@ -861,8 +891,8 @@ Lemma sqrtAuxN_b_i1_le mul1 d1 :
 Proof.
 move=> Herr1 Hd10 Hd1u x Hx Hx0.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
-have HX0 := isTW_TWval_gt0 Hp2 Hp11 Hx Hx0.
+have Hu2048 := u_le_2048.
+have HX0 := isTW_TWval_gt0 Hx Hx0.
 have Hs0 : 0 < sqrt (TWval x) by apply: sqrt_lt_R0.
 have HsX : sqrt (TWval x) * sqrt (TWval x) = TWval x by apply: sqrt_sqrt; lra.
 have Fx0 : format (tw0 x) by case: x Hx {Hx0 HX0 Hs0 HsX} => x0 x1 x2 [].
@@ -870,7 +900,7 @@ have Hx1s : tw1 x = 0 \/ Rabs (tw1 x) < ulp (tw0 x)
   by case: x Hx {Hx0 HX0 Hs0 HsX Fx0} => x0 x1 x2 [].
 have HDW : isDW (sqrtBWn (tw0 x) (tw1 x)) by apply: sqrtBn_isDW.
 have He1 := Herr1 _ _ HDW Hx.
-have Hseed := sqrtBWn_x_err_crude _ Hx Hx0.
+have Hseed := sqrtBWn_x_err_crude Hx Hx0.
 set B := TWval (sqrtBWn (tw0 x) (tw1 x)) in He1 Hseed *.
 set I1 := TWval (mul1 (sqrtBWn (tw0 x) (tw1 x)) x) in He1 *.
 set s := sqrt (TWval x) in HsX Hs0 Hseed.
@@ -935,13 +965,13 @@ Lemma sqrtAuxN_i2_near_1 mul1 mul2 d1 d2 :
 Proof.
 move=> Herr1 Herr2 Hmul1 Hd10 Hd1u Hd20 Hd2u x Hx Hx0.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
+have Hu2048 := u_le_2048.
 have Fx0 : format (tw0 x) by case: x Hx {Hx0} => x0 x1 x2 [].
 have Hx1s : tw1 x = 0 \/ Rabs (tw1 x) < ulp (tw0 x)
   by case: x Hx {Hx0 Fx0} => x0 x1 x2 [].
 have HDW : isDW (sqrtBWn (tw0 x) (tw1 x)) by apply: sqrtBn_isDW.
 have Hi1 : isTW (mul1 (sqrtBWn (tw0 x) (tw1 x)) x) by apply: Hmul1.
-have Hkey := sqrtAuxN_b_i1_le _ _ Herr1 Hd10 Hd1u _ Hx Hx0.
+have Hkey := sqrtAuxN_b_i1_le Herr1 Hd10 Hd1u Hx Hx0.
 have HDWs : isDW (scaleTW (-1)%Z (sqrtBWn (tw0 x) (tw1 x)))
   by apply: isDW_scale.
 have He2 := Herr2 _ _ HDWs Hi1.
@@ -978,7 +1008,7 @@ Qed.
 Lemma sq_cAn : (1 + 134 * (u * u)) * (1 + 108 * (u * u)) <= 1 + 400 * (u * u).
 Proof.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
+have Hu2048 := u_le_2048.
 have L3 : u * u * u <= / 2048 * (u * u) by nra.
 have L4 : u * u * u * u <= / 2048 * (u * u * u) by nra.
 nra.
@@ -989,7 +1019,7 @@ Lemma sq_cBn :
     <= 1 / 2 + 400 * (u * u).
 Proof.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
+have Hu2048 := u_le_2048.
 have L3 : u * u * u <= / 2048 * (u * u) by nra.
 have L4 : u * u * u * u <= / 2048 * (u * u * u) by nra.
 have L5 : u * u * u * u * u <= / 2048 * (u * u * u * u) by nra.
@@ -1001,7 +1031,7 @@ Lemma sq_cCn :
   (1 + 125 * (u * u)) * (1 / 2 + 308 * (u * u)) <= 1 / 2 + 400 * (u * u).
 Proof.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
+have Hu2048 := u_le_2048.
 have L3 : u * u * u <= / 2048 * (u * u) by nra.
 have L4 : u * u * u * u <= / 2048 * (u * u * u) by nra.
 nra.
@@ -1013,7 +1043,7 @@ Lemma newton_residual_constN :
     <= 16500 * (u * u * u * u).
 Proof.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
+have Hu2048 := u_le_2048.
 have L3 : u * u * u <= / 2048 * (u * u) by nra.
 have L4 : u * u * u * u <= / 2048 * (u * u * u) by nra.
 have L5 : u * u * u * u * u <= / 2048 * (u * u * u * u) by nra.
@@ -1031,12 +1061,12 @@ Lemma sqrtN_newton_residual x :
 Proof.
 move=> Hx Hx0.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
-have HX0 := isTW_TWval_gt0 Hp2 Hp11 Hx Hx0.
+have Hu2048 := u_le_2048.
+have HX0 := isTW_TWval_gt0 Hx Hx0.
 have Hs0 : 0 <= sqrt (TWval x) by apply: sqrt_pos.
 have HsX : sqrt (TWval x) * sqrt (TWval x) = TWval x
   by apply: sqrt_sqrt; lra.
-have Hseed := sqrtBWn_x_err_crude _ Hx Hx0.
+have Hseed := sqrtBWn_x_err_crude Hx Hx0.
 set B := TWval (sqrtBWn (tw0 x) (tw1 x)) in Hseed *.
 set s := sqrt (TWval x) in HsX Hseed Hs0 *.
 have Hid := sqrt_newton_id s B.
@@ -1086,7 +1116,7 @@ Lemma sqrtN_error_core B I1 P Y X s d1 d2 d3 :
 Proof.
 move=> Hs0 HsX Hd1 Hd2 Hd3 Hseed Hi1 Hi2 HA HB HC HbX Hbrk HD.
 have Hu0 : 0 < u by apply: u_gt_0.
-have Hu2048 := u_le_2048 Hp11.
+have Hu2048 := u_le_2048.
 have L2 : u * u <= / 2048 * u by nra.
 have L3 : u * u * u <= / 2048 * (u * u) by nra.
 have L4 : u * u * u * u <= / 2048 * (u * u * u) by nra.
@@ -1203,5 +1233,144 @@ Qed.
 (* its error, which is the paper's `ThreeSqRtAux_error' with the same         *)
 (* substitution.  Everything it consumes is above; it is the last piece on    *)
 (* this side.                                                                 *)
+
+(* ---------------------------------------------------------------------------*)
+(*  Algorithm 15 with the seed it can actually compute                        *)
+(* ---------------------------------------------------------------------------*)
+
+Definition ThreeSqRtAuxN (mul1 mul2 mul3 : twR -> twR -> twR) (x : twR)
+    : twR :=
+  let bw := sqrtBWn (tw0 x) (tw1 x) in
+  let i1 := mul1 bw x in
+  mul3 i1 (sub32TW (mul2 (scaleTW (-1)%Z bw) i1)).
+
+Definition ThreeSqRtN (x : twR) : twR :=
+  ThreeSqRtAuxN ThreeProdDW ThreeProdDW ThreeProdOneTW x.
+
+Lemma ThreeSqRtAuxN_error mul1 mul2 mul3 d1 d2 d3 :
+  (forall b y, isDW b -> isTW y -> isTW (mul1 b y)) ->
+  (forall b y, isDW b -> isTW y -> isTW (mul2 b y)) ->
+  (forall b y, isDW b -> isTW y ->
+     Rabs (TWval (mul1 b y) - TWval b * TWval y)
+       <= d1 * Rabs (TWval b * TWval y)) ->
+  (forall b y, isDW b -> isTW y ->
+     Rabs (TWval (mul2 b y) - TWval b * TWval y)
+       <= d2 * Rabs (TWval b * TWval y)) ->
+  (forall a y, isTW a -> isTW y -> tw0 y = 1 ->
+     Rabs (TWval y - 1) <= 108 * (u * u) ->
+     Rabs (TWval (mul3 a y) - TWval a * TWval y)
+       <= d3 * Rabs (TWval a * TWval y)) ->
+  head_half mul2 ->
+  0 <= d1 -> d1 <= u * u -> 0 <= d2 -> d2 <= u * u ->
+  0 <= d3 -> d3 <= u * u ->
+  forall x, isTW x -> 0 < tw0 x ->
+    Rabs (TWval (ThreeSqRtAuxN mul1 mul2 mul3 x) - sqrt (TWval x))
+      <= (d1 * (1 / 2 + 400 * (u * u)) + d2 * (1 / 2 + 400 * (u * u))
+          + d3 * (1 + 400 * (u * u)) + 16500 * (u * u * u * u))
+         * Rabs (sqrt (TWval x)).
+Proof.
+move=> Hmul1 Hmul2 Herr1 Herr2 Herr3 Hhead Hd10 Hd1u Hd20 Hd2u Hd30 Hd3u
+       x Hx Hx0.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048.
+have HX0 : 0 < TWval x by apply: isTW_TWval_gt0.
+have Hs0 : 0 < sqrt (TWval x) by apply: sqrt_lt_R0.
+have HsX : sqrt (TWval x) * sqrt (TWval x) = TWval x by apply: sqrt_sqrt; lra.
+have Fx0 : format (tw0 x) by case: x Hx {Hx0 HX0 Hs0 HsX} => x0 x1 x2 [].
+have Hx1s : tw1 x = 0 \/ Rabs (tw1 x) < ulp (tw0 x)
+  by case: x Hx {Hx0 HX0 Hs0 HsX Fx0} => x0 x1 x2 [].
+have HDW : isDW (sqrtBWn (tw0 x) (tw1 x)) by apply: sqrtBn_isDW.
+have Hi1 : isTW (mul1 (sqrtBWn (tw0 x) (tw1 x)) x) by apply: Hmul1.
+have Hu2p : 0 <= u * u by apply: Rle_0_sqr.
+(* [i(2)]'s head is [1]: the head property, at the [300u^2] the [head_half]  *)
+(* interface asks for -- ample, since [sqrtAuxN_b_i1_le] gives [202u^2].      *)
+have Hkey := sqrtAuxN_b_i1_le Herr1 Hd10 Hd1u Hx Hx0.
+have Hkey300 : Rabs (TWval (sqrtBWn (tw0 x) (tw1 x))
+                     * TWval (mul1 (sqrtBWn (tw0 x) (tw1 x)) x) - 1)
+    <= 300 * (u * u) by lra.
+have Hhalf := Hhead _ _ HDW Hi1 Hkey300.
+have HDWs : isDW (scaleTW (-1)%Z (sqrtBWn (tw0 x) (tw1 x)))
+  by apply: isDW_scale.
+have Hi2TW : isTW (sub32TW (mul2 (scaleTW (-1)%Z (sqrtBWn (tw0 x) (tw1 x)))
+                              (mul1 (sqrtBWn (tw0 x) (tw1 x)) x))).
+  apply: sub32TW_isTW; last exact: Hhalf.
+  by apply: Hmul2.
+have Hi2h : tw0 (sub32TW (mul2 (scaleTW (-1)%Z (sqrtBWn (tw0 x) (tw1 x)))
+                            (mul1 (sqrtBWn (tw0 x) (tw1 x)) x))) = 1
+  by case: (mul2 _ _) Hhalf => t0 t1 t2 /= ->; field.
+(* the eight bounds [sqrtN_error_core] consumes                               *)
+have Hi2v := sqrtAuxN_i2_near_1 Herr1 Herr2 Hmul1 Hd10 Hd1u Hd20 Hd2u Hx Hx0.
+have He3 := Herr3 _ _ Hi1 Hi2TW Hi2h Hi2v.
+have He1 := Herr1 _ _ HDW Hx.
+have He2 := Herr2 _ _ HDWs Hi1.
+rewrite TWval_scale in He2.
+have Hpow : pow (-1) = / 2 by rewrite /= /Z.pow_pos /=; lra.
+rewrite Hpow in He2.
+have Hi1le := sqrtAuxN_i1_le Herr1 Hd10 Hd1u Hx Hx0.
+have Hbrk := sqrtAuxN_bracket_le Herr1 Hd10 Hd1u Hx Hx0.
+have HbXle := sqrtAuxN_bX_le Hx Hx0.
+have Hresid := sqrtN_newton_residual Hx Hx0.
+have Hseed := sqrtBWn_x_err_crude Hx Hx0.
+rewrite TWval_sub32TW in He3 Hi2v.
+have Habs : Rabs (sqrt (TWval x)) = sqrt (TWval x)
+  by rewrite Rabs_pos_eq; lra.
+rewrite Habs in Hresid.
+rewrite /ThreeSqRtAuxN Habs.
+apply: (@sqrtN_error_core (TWval (sqrtBWn (tw0 x) (tw1 x)))
+          (TWval (mul1 (sqrtBWn (tw0 x) (tw1 x)) x))
+          (TWval (mul2 (scaleTW (-1)%Z (sqrtBWn (tw0 x) (tw1 x)))
+                    (mul1 (sqrtBWn (tw0 x) (tw1 x)) x)))
+          _ (TWval x) (sqrt (TWval x)) d1 d2 d3) => //.
+Qed.
+
+Lemma ThreeSqRtN_error x :
+  ties_to_even choice ->
+  isTW x -> 0 < tw0 x ->
+  Rabs (TWval (ThreeSqRtN x) - sqrt (TWval x)) <=
+     (24 * (u * u * u) + 12000 * (u * u * u * u)) * Rabs (sqrt (TWval x)).
+Proof.
+move=> Hc Hx Hx0.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048.
+have Hu2 : u * u <= / 2048 * u by nra.
+have Hu3 : u * u * u <= / 2048 * (u * u) by nra.
+have Hu4 : u * u * u * u <= / 2048 * (u * u * u) by nra.
+have Hu5 : u * u * u * u * u <= / 2048 * (u * u * u * u) by nra.
+have Hu6 : u * u * u * u * u * u <= / 2048 * (u * u * u * u * u) by nra.
+(* the two ends of [ThreeProdOneTW_error_c]'s tolerance window; [105] is     *)
+(* what [sqrtAuxN_i2_near_1] delivers.                                        *)
+have H105a : (40 : R) <= 108 by lra.
+have H105b : (108 : R) <= 112 by lra.
+have Hd0 : 0 <= 105 / 10 * (u * u * u) + 39 * (u * u * u * u) by nra.
+have Hdu : 105 / 10 * (u * u * u) + 39 * (u * u * u * u) <= u * u by nra.
+have He0 : 0 <= 6 * (u * u * u) + 3358 * (u * u * u * u) by nra.
+have Heu : 6 * (u * u * u) + 3358 * (u * u * u * u) <= u * u by nra.
+(* [31 * 105 + 10 = 3358]: Algorithm 20's [delta3] at OUR tolerance.         *)
+have Hd3le : 6 * (u * u * u) + (31 * 108 + 10) * (u * u * u * u)
+    <= 6 * (u * u * u) + 3358 * (u * u * u * u) by lra.
+have Hgen := @ThreeSqRtAuxN_error ThreeProdDW ThreeProdDW ThreeProdOneTW
+  (105 / 10 * (u * u * u) + 39 * (u * u * u * u))
+  (105 / 10 * (u * u * u) + 39 * (u * u * u * u))
+  (6 * (u * u * u) + 3358 * (u * u * u * u))
+  (fun b y Hb Hy =>
+     @ThreeProdDW_isTW p Hp2 (Hp6 Hp11) choice choice_sym b y Hc Hb Hy)
+  (fun b y Hb Hy =>
+     @ThreeProdDW_isTW p Hp2 (Hp6 Hp11) choice choice_sym b y Hc Hb Hy)
+  (fun b y Hb Hy =>
+     @ThreeProdDW_error p Hp2 (Hp6 Hp11) choice choice_sym b y Hc Hb Hy)
+  (fun b y Hb Hy =>
+     @ThreeProdDW_error p Hp2 (Hp6 Hp11) choice choice_sym b y Hc Hb Hy)
+  (fun a y Ha Hy Hy0 Hy1 =>
+     Rle_trans _ _ _
+       (@ThreeProdOneTW_error_c p Hp2 (Hp6 Hp11) choice choice_sym 108 a y Hc
+          H105a H105b Ha Hy Hy0 Hy1)
+       (Rmult_le_compat_r _ _ _ (Rabs_pos _) Hd3le))
+  (ThreeProdDW_head_half Hp2 Hp11 choice_sym Hc)
+  Hd0 Hdu Hd0 Hdu He0 Heu x Hx Hx0.
+rewrite /ThreeSqRtN.
+apply: Rle_trans Hgen _.
+apply: Rmult_le_compat_r; first by apply: Rabs_pos.
+nra.
+Qed.
 
 End SecSeedNoFMA.
