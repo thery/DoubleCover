@@ -4,7 +4,7 @@ From Flocq Require Import Core BinarySingleNaN PrimFloat.
 From mathcomp Require Import all_ssreflect.
 From threewords Require Import Nmore Rmore Fmore Rstruct MULTmore prelim.
 From threewords Require Import TwoSum TWR VecSum VSEB.
-From twarith Require Import twarith twbound.
+From twarith Require Import twarith twbound twpaper twseed.
 From dwarith Require Import dwbridge dwtwosum dwprod dwflx dwsqrt.
 
 (* THE BRIDGE: PRIMITIVE FLOATS TO THE PAPER'S REALS.                         *)
@@ -38,6 +38,7 @@ Notation Dchoice := (fun n : Z => negb (Z.even n)).
 (* The paper's own names, instantiated at binary64 and round to nearest.      *)
 Notation XTwoSum := (TwoSum prec Dchoice).
 Notation XvecSum := (VecSum.vecSum prec Dchoice).
+Notation XvsebK := (VSEB.vsebK prec Dchoice).
 
 (* A list of primitive floats, read as a list of reals.                       *)
 Definition l2R (l : seq PrimFloat.float) : seq R := [seq D2R z | z <- l].
@@ -275,6 +276,10 @@ split; first by rewrite Ehx.
 by move: Ex Ehx Hsum; lra.
 Qed.
 
+(* An element of a list of numbers is a number, the default included.         *)
+Lemma finL_nth l i : finL l -> Dfin (nth 0%float l i).
+Proof. by elim: l i => [|a l IH] [|i] //= [Fa Fl] //; apply: IH. Qed.
+
 (* The way both developments read a list back as a triple word: a head and    *)
 (* what the cut left, filled out with noughts.                                *)
 Definition l2twR (a : R) (m : seq R) : twR :=
@@ -377,4 +382,138 @@ rewrite sqrt_mult_alt //.
 have Hq : R_sqrt.sqrt (bpow radix2 k) * R_sqrt.sqrt (bpow radix2 k)
         = bpow radix2 k by rewrite sqrt_sqrt //; lra.
 by rewrite Rmult_assoc Hq.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  Algorithm 11 across the bridge                                           *)
+(* ---------------------------------------------------------------------------*)
+
+(* What the transfer asks of the two arguments.  Every clause is either a     *)
+(* word being a number -- which the guard in `tw_ops.v' tests anyway -- or a  *)
+(* product being clear of the bottom of the range, which is what the scaling  *)
+(* above is for.                                                              *)
+Definition prodDW_ok (x0 x1 y0 y1 y2 : PrimFloat.float) : Prop :=
+  let b := vecSum [:: dwlo (twoProd x0 y0); dwhi (twoProd x0 y1);
+                      dwhi (twoProd x1 y0)] in
+  let e := vecSum [:: dwhi (twoProd x0 y0); nth 0%float b 0; nth 0%float b 1;
+                      (nth 0%float b 2 + x1 * y1)%float;
+                      ((dwlo (twoProd x1 y0) + x0 * y2)
+                        + dwlo (twoProd x0 y1))%float] in
+  [/\ Dfin x0, Dfin x1, Dfin y0, Dfin y1 & Dfin y2]
+  /\ [/\ Dfin (dwlo (twoProd x0 y0)), Dfin (dwlo (twoProd x0 y1))
+        & Dfin (dwlo (twoProd x1 y0))]
+  /\ [/\ (Dprodlo <= Rabs (D2R x0 * D2R y0))%R,
+         (Dprodlo <= Rabs (D2R x0 * D2R y1))%R &
+         (Dprodlo <= Rabs (D2R x1 * D2R y0))%R]
+  /\ [/\ (Dprodlo <= Rabs (D2R x1 * D2R y1))%R &
+         (Dprodlo <= Rabs (D2R x0 * D2R y2))%R]
+  /\ [/\ Dfin (x1 * y1)%float, Dfin (x0 * y2)%float,
+         Dfin (nth 0%float b 2 + x1 * y1)%float,
+         Dfin (dwlo (twoProd x1 y0) + x0 * y2)%float &
+         Dfin ((dwlo (twoProd x1 y0) + x0 * y2)
+               + dwlo (twoProd x0 y1))%float]
+  /\ finL b
+  /\ finL e
+  /\ finL (vseb [:: nth 0%float e 1; nth 0%float e 2;
+                    nth 0%float e 3; nth 0%float e 4]).
+
+(* The two, with the intermediates handed in rather than bound by a `let':    *)
+(* `nth3', the `let' on a triple and the two `let's on the sweeps all block    *)
+(* rewriting, and none of them survives being named.                          *)
+Lemma threeProdDW_shape x0 x1 x2 y0 y1 y2 b e :
+  b = vecSum [:: dwlo (twoProd x0 y0); dwhi (twoProd x0 y1);
+                 dwhi (twoProd x1 y0)] ->
+  e = vecSum [:: dwhi (twoProd x0 y0); nth 0%float b 0; nth 0%float b 1;
+                 (nth 0%float b 2 + x1 * y1)%float;
+                 ((dwlo (twoProd x1 y0) + x0 * y2)
+                   + dwlo (twoProd x0 y1))%float] ->
+  threeProdDW (TWFloat x0 x1 x2) (TWFloat y0 y1 y2)
+  = l2tw (nth 0%float e 0
+          :: take 2 (vseb [:: nth 0%float e 1; nth 0%float e 2;
+                              nth 0%float e 3; nth 0%float e 4])).
+Proof.
+move=> -> ->; rewrite /threeProdDW.
+by case: (twoProd x0 y0) => ??; case: (twoProd x0 y1) => ??;
+   case: (twoProd x1 y0) => ??.
+Qed.
+
+Lemma ThreeProdDWn_shape (x0 x1 x2 y0 y1 y2 : R) b e :
+  b = XvecSum [:: (XTwoProd x0 y0).2; (XTwoProd x0 y1).1;
+                  (XTwoProd x1 y0).1] ->
+  e = XvecSum [:: (XTwoProd x0 y0).1; nth 0 b 0; nth 0 b 1;
+                  Xrnd (nth 0 b 2 + Xrnd (x1 * y1));
+                  Xrnd (Xrnd ((XTwoProd x1 y0).2 + Xrnd (x0 * y2))
+                        + (XTwoProd x0 y1).2)] ->
+  ThreeProdDWn prec Dchoice (TWR x0 x1 x2) (TWR y0 y1 y2)
+  = l2twR (nth 0 e 0)
+          (XvsebK 2 [:: nth 0 e 1; nth 0 e 2; nth 0 e 3; nth 0 e 4]).
+Proof.
+move=> -> ->; rewrite /ThreeProdDWn /l2twR.
+by case: (XTwoProd x0 y0) => ??; case: (XTwoProd x0 y1) => ??;
+   case: (XTwoProd x1 y0) => ??.
+Qed.
+
+Lemma threeProdDW_X x0 x1 x2 y0 y1 y2 :
+  prodDW_ok x0 x1 y0 y1 y2 ->
+  tw2R (threeProdDW (TWFloat x0 x1 x2) (TWFloat y0 y1 y2))
+  = ThreeProdDWn prec Dchoice
+      (tw2R (TWFloat x0 x1 x2)) (tw2R (TWFloat y0 y1 y2)).
+Proof.
+rewrite /prodDW_ok
+  => [] [[Fx0 Fx1 Fy0 Fy1 Fy2] [[F00m F01m F10m]
+        [[H00 H01 H10] [[H11 H02] [[M11 M02 Fc F31 F3] [Fb [Fe Fv]]]]]]].
+have [Eh00 El00] := twoProd_X _ _ F00m H00.
+have [Eh01 El01] := twoProd_X _ _ F01m H01.
+have [Eh10 El10] := twoProd_X _ _ F10m H10.
+set B := vecSum [:: dwlo (twoProd x0 y0); dwhi (twoProd x0 y1);
+                    dwhi (twoProd x1 y0)] in Fb Fe *.
+set E := vecSum [:: dwhi (twoProd x0 y0); nth 0%float B 0; nth 0%float B 1;
+                    (nth 0%float B 2 + x1 * y1)%float;
+                    ((dwlo (twoProd x1 y0) + x0 * y2)
+                      + dwlo (twoProd x0 y1))%float] in Fe Fv *.
+rewrite (threeProdDW_shape x0 x1 x2 y0 y1 y2 B E erefl erefl).
+have -> : tw2R (TWFloat x0 x1 x2) = TWR (D2R x0) (D2R x1) (D2R x2) by [].
+have -> : tw2R (TWFloat y0 y1 y2) = TWR (D2R y0) (D2R y1) (D2R y2) by [].
+(* the inner sweep, then the outer one, each on the list the other made      *)
+have EB : l2R B = XvecSum [:: (XTwoProd (D2R x0) (D2R y0)).2;
+                              (XTwoProd (D2R x0) (D2R y1)).1;
+                              (XTwoProd (D2R x1) (D2R y0)).1].
+  by rewrite /B (vecSum_X _ Fb) [l2R [:: _; _; _]]/= El00 Eh01 Eh10.
+have EE : l2R E
+        = XvecSum [:: (XTwoProd (D2R x0) (D2R y0)).1;
+                      nth 0 (l2R B) 0; nth 0 (l2R B) 1;
+                      Xrnd (nth 0 (l2R B) 2 + Xrnd (D2R x1 * D2R y1));
+                      Xrnd (Xrnd ((XTwoProd (D2R x1) (D2R y0)).2
+                                  + Xrnd (D2R x0 * D2R y2))
+                            + (XTwoProd (D2R x0) (D2R y1)).2)].
+  rewrite /E (vecSum_X _ Fe).
+  have -> : l2R [:: dwhi (twoProd x0 y0); nth 0%float B 0; nth 0%float B 1;
+                    (nth 0%float B 2 + x1 * y1)%float;
+                    ((dwlo (twoProd x1 y0) + x0 * y2)
+                      + dwlo (twoProd x0 y1))%float]
+          = [:: D2R (dwhi (twoProd x0 y0)); D2R (nth 0%float B 0);
+                D2R (nth 0%float B 1);
+                D2R (nth 0%float B 2 + x1 * y1)%float;
+                D2R ((dwlo (twoProd x1 y0) + x0 * y2)
+                      + dwlo (twoProd x0 y1))%float] by [].
+  rewrite Eh00 !l2R_nth.
+  rewrite (add_X _ _ (@finL_nth B 2 Fb) M11 Fc) (mul_X _ _ Fx1 Fy1 M11 H11).
+  rewrite (add_X _ _ F31 F01m F3) (add_X _ _ F10m M02 F31).
+  by rewrite (mul_X _ _ Fx0 Fy2 M02 H02) El10 El01 l2R_nth.
+rewrite (ThreeProdDWn_shape (D2R x0) (D2R x1) (D2R x2)
+           (D2R y0) (D2R y1) (D2R y2) (l2R B) (l2R E) EB EE).
+rewrite tw2R_l2tw /VSEB.vsebK.
+have -> : [:: nth 0 (l2R E) 1; nth 0 (l2R E) 2; nth 0 (l2R E) 3;
+              nth 0 (l2R E) 4]
+        = l2R [:: nth 0%float E 1; nth 0%float E 2; nth 0%float E 3;
+                  nth 0%float E 4].
+  have -> : l2R [:: nth 0%float E 1; nth 0%float E 2; nth 0%float E 3;
+                    nth 0%float E 4]
+          = [:: D2R (nth 0%float E 1); D2R (nth 0%float E 2);
+                D2R (nth 0%float E 3); D2R (nth 0%float E 4)] by [].
+  by rewrite !l2R_nth.
+have Fl4 : finL [:: nth 0%float E 1; nth 0%float E 2; nth 0%float E 3;
+                    nth 0%float E 4].
+  by do ![split; first by apply: finL_nth].
+by rewrite (vseb_X _ Fl4 Fv) l2R_take.
 Qed.
