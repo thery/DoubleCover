@@ -805,12 +805,14 @@ few: a position, a move, the summary of a position, and the table of distances.
 A position is a permutation of the 48 stickers. #src("Table.v") presents it by
 its image table, the list of 48 numbers saying where each sticker goes. Not
 every list of numbers is such a table, and `tab_ok` is the test: the list has 48
-entries, each of them below 48, and no entry appears twice. The product of two
-permutations is then the reading of one list through the other, and a move is
-one more table. #src("Tsearch.v") runs the search of #src("Search.v") on tables.
-Next come machine integers, 63 bits wide, and *persistent arrays* of them
-@armand2010imperative. #src("Tabi.v") carries the tables as arrays of machine
-integers. `ti2t` reads such an array back as the list it stands for, and
+entries, each of them below 48, and no entry appears twice. Two permutations are
+composed by reading one table through the other. To find where sticker $i$ ends
+up, take entry $i$ of the first table, then use that number as the index into
+the second. A move is a table of the same shape, so playing a move on a position
+is that same reading. #src("Tsearch.v") runs the search of #src("Search.v") on
+tables. Next come machine integers, 63 bits wide, and *persistent arrays* of
+them @armand2010imperative. #src("Tabi.v") carries the tables as arrays of
+machine integers. `ti2t` reads such an array back as the list it stands for, and
 `tabi_ok` is `tab_ok` of that list. Each operation has a lemma saying that the
 bridge may be crossed either way round.
 
