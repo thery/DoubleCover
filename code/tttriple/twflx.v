@@ -5,7 +5,7 @@ From mathcomp Require Import all_ssreflect.
 From threewords Require Import Nmore Rmore Fmore Rstruct MULTmore prelim.
 From threewords Require Import TwoSum TWR VecSum VSEB.
 From twarith Require Import twarith twbound.
-From dwarith Require Import dwbridge dwtwosum dwprod dwflx.
+From dwarith Require Import dwbridge dwtwosum dwprod dwflx dwsqrt.
 
 (* THE BRIDGE: PRIMITIVE FLOATS TO THE PAPER'S REALS.                         *)
 (*                                                                            *)
@@ -325,4 +325,56 @@ apply: Rle_trans Hn.
 have -> : (SpecFloat.emin prec emax + prec - 1
            = SpecFloat.emin prec emax + 2 * prec - 1 - prec)%Z by ring.
 by apply: bpow_le; have : (0 < prec)%Z by []; lia.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  Scaling by a power of two                                                *)
+(* ---------------------------------------------------------------------------*)
+
+(* This is what pays for the products' range condition.  Multiplying a float  *)
+(* by a power of two moves the exponent and leaves the digits, so it is exact *)
+(* as long as it stays in the range -- and nothing has to be said about where *)
+(* the number was to begin with.                                              *)
+Lemma mul_pow_exact a s e : Dfin s -> D2R s = bpow radix2 e -> (0 <= e)%Z ->
+  Dfin a -> Dfin (a * s)%float -> D2R (a * s)%float = D2R a * bpow radix2 e.
+Proof.
+move=> Fs Hs He Fa Fm.
+have [E _] := Dfin_mul _ _ Fa Fs Fm.
+rewrite E Hs round_generic //.
+by apply: Dformat_scale => //; apply: Dformat.
+Qed.
+
+(* A triple word scales word by word, and its value scales with it.           *)
+Lemma twval_scale x0 x1 x2 s e :
+  Dfin s -> D2R s = bpow radix2 e -> (0 <= e)%Z ->
+  Dfin x0 -> Dfin x1 -> Dfin x2 ->
+  Dfin (x0 * s)%float -> Dfin (x1 * s)%float -> Dfin (x2 * s)%float ->
+  twval (TWFloat (x0 * s) (x1 * s) (x2 * s))%float
+  = twval (TWFloat x0 x1 x2) * bpow radix2 e.
+Proof.
+move=> Fs Hs He F0 F1 F2 M0 M1 M2.
+rewrite /twval /= (mul_pow_exact _ _ _ Fs Hs He F0 M0)
+        (mul_pow_exact _ _ _ Fs Hs He F1 M1)
+        (mul_pow_exact _ _ _ Fs Hs He F2 M2).
+by ring.
+Qed.
+
+(* And the root of a number taken up by an EVEN power of two is the root      *)
+(* taken up by half of it, which is why the root can be scaled and the        *)
+(* quotient cannot.                                                           *)
+Lemma sqrt_scale_even (v : R) (k : Z) : (0 <= v)%R ->
+  R_sqrt.sqrt (v * bpow radix2 (2 * k))
+  = R_sqrt.sqrt v * bpow radix2 k.
+Proof.
+move=> Hv.
+have Hp : (0 < bpow radix2 k)%R by apply: bpow_gt_0.
+have -> : bpow radix2 (2 * k) = bpow radix2 k * bpow radix2 k.
+  by rewrite -bpow_plus; congr bpow; ring.
+have -> : v * (bpow radix2 k * bpow radix2 k)
+        = (v * bpow radix2 k) * bpow radix2 k by ring.
+rewrite sqrt_mult_alt; last by nra.
+rewrite sqrt_mult_alt //.
+have Hq : R_sqrt.sqrt (bpow radix2 k) * R_sqrt.sqrt (bpow radix2 k)
+        = bpow radix2 k by rewrite sqrt_sqrt //; lra.
+by rewrite Rmult_assoc Hq.
 Qed.
