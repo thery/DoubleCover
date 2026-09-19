@@ -63,6 +63,8 @@ Local Notation Fast2Sum := (Fast2Sum p choice).
 Local Notation isTW := (isTW p).
 Local Notation isDW := (isDW p).
 Local Notation ThreeProdDW := (ThreeProdDW p choice).
+Local Notation XvecSum := (VecSum.vecSum p choice).
+Local Notation XvsebK := (VSEB.vsebK p choice).
 Local Notation ThreeProdOneTW := (ThreeProdOneTW p choice).
 Local Notation head_half := (head_half p).
 
@@ -1375,5 +1377,46 @@ apply: Rle_trans Hgen _.
 apply: Rmult_le_compat_r; first by apply: Rabs_pos.
 nra.
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  Algorithm 11 without a fused multiply-add                                 *)
+(* ---------------------------------------------------------------------------*)
+
+(* THE SEED IS NOT THE ONLY PLACE.  `ThreeProdDW' wants one twice over -- `c' *)
+(* and `z31' -- and `twpaper.v' does each as two roundings, the same way it    *)
+(* does the seed's three.  So the product `twarith.v' computes is not the      *)
+(* paper's, and the bridge between them cannot be an identity until the        *)
+(* paper's side is written the way the machine does it.  That is this.        *)
+(*                                                                            *)
+(* Everything else is the paper's, line for line: the three two-products, the *)
+(* inner sweep, the outer sweep, the cut to two, and the reading back.         *)
+Definition ThreeProdDWn (x y : twR) : twR :=
+  let: TWR x0 x1 _ := x in
+  let: TWR y0 y1 y2 := y in
+  let: (z00p, z00m) := TwoProd x0 y0 in
+  let: (z01p, z01m) := TwoProd x0 y1 in
+  let: (z10p, z10m) := TwoProd x1 y0 in
+  let b := XvecSum [:: z00m; z01p; z10p] in
+  let b0 := nth 0 b 0 in
+  let b1 := nth 0 b 1 in
+  let b2 := nth 0 b 2 in
+  let c   := RND (b2 + RND (x1 * y1)) in
+  let z31 := RND (z10m + RND (x0 * y2)) in
+  let z3  := RND (z31 + z01m) in
+  let e := XvecSum [:: z00p; b0; b1; c; z3] in
+  let e0 := nth 0 e 0 in
+  match XvsebK 2 [:: nth 0 e 1; nth 0 e 2; nth 0 e 3; nth 0 e 4] with
+  | [:: r1, r2 & _] => TWR e0 r1 r2
+  | [:: r1]         => TWR e0 r1 0
+  | [::]            => TWR e0 0 0
+  end.
+
+(* WHAT IS STILL OWED FOR IT.  Its `d1' -- the number                         *)
+(* `ThreeSqRtAuxN_error' takes as a parameter.  The paper's is                 *)
+(* `10.5u^3 + 39u^4' and its proof already names the two roundings in          *)
+(* question: `eps1' and `eps4' in `ThreeProdDW.v', each bounded there by       *)
+(* `4u^3'.  Ours add one rounding of a product apiece, and a product of two    *)
+(* low words is `u^2' of the leading one, so each extra term is `u^3' again --  *)
+(* the same shape as the seed, and the same reason it can fit.                 *)
 
 End SecSeedNoFMA.
