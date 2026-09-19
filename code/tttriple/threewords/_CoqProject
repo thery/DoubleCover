@@ -1,5 +1,5 @@
 -I .
--R . threewords
+-R . twarith.threewords
 Nmore.v
 Rmore.v
 Fmore.v

@@ -2,8 +2,8 @@ From Stdlib Require Import ZArith Reals Psatz.
 From Stdlib Require Import Floats.
 From Flocq Require Import Core BinarySingleNaN PrimFloat.
 From mathcomp Require Import all_ssreflect.
-From threewords Require Import Nmore Rmore Fmore Rstruct MULTmore prelim.
-From threewords Require Import TwoSum TWR VecSum VSEB.
+From twarith.threewords Require Import Nmore Rmore Fmore Rstruct MULTmore prelim.
+From twarith.threewords Require Import TwoSum TWR VecSum VSEB.
 From twarith Require Import twarith twbound twpaper twseed.
 From dwarith Require Import dwbridge dwtwosum dwprod dwflx dwsqrt.
 
@@ -517,3 +517,4 @@ have Fl4 : finL [:: nth 0%float E 1; nth 0%float E 2; nth 0%float E 3;
   by do ![split; first by apply: finL_nth].
 by rewrite (vseb_X _ Fl4 Fv) l2R_take.
 Qed.
+

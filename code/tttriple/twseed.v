@@ -1,9 +1,9 @@
 From Stdlib Require Import ZArith Reals Psatz.
 From mathcomp Require Import all_ssreflect all_algebra.
 From Flocq Require Import Core Relative Sterbenz Operations Mult_error.
-From threewords Require Import Nmore Rmore Fmore Rstruct MULTmore prelim.
-From threewords Require Import TwoSum TWR VecSum ThreeProd ThreeProdDW ThreeProdOne.
-From threewords Require Import ThreeSqRt.
+From twarith.threewords Require Import Nmore Rmore Fmore Rstruct MULTmore prelim.
+From twarith.threewords Require Import TwoSum TWR VecSum ThreeProd ThreeProdDW ThreeProdOne.
+From twarith.threewords Require Import ThreeSqRt.
 
 (* THE SEED OF ALGORITHM 15, WITH NO FUSED MULTIPLY-ADD.                      *)
 (*                                                                            *)
@@ -60,6 +60,7 @@ Local Notation ulp := (ulp beta fexp).
 Local Notation RND := (round beta fexp rnd).
 Local Notation TwoProd := (TwoProd p radix2 rnd).
 Local Notation Fast2Sum := (Fast2Sum p choice).
+Local Notation Fast2SumS := (Fast2SumS p choice).
 Local Notation isTW := (isTW p).
 Local Notation isDW := (isDW p).
 Local Notation ThreeProdDW := (ThreeProdDW p choice).
@@ -1410,6 +1411,26 @@ Definition ThreeProdDWn (x y : twR) : twR :=
   | [:: r1]         => TWR e0 r1 0
   | [::]            => TWR e0 0 0
   end.
+
+(* ---------------------------------------------------------------------------*)
+(*  Algorithm 20 without a fused multiply-add                                 *)
+(* ---------------------------------------------------------------------------*)
+
+(* And two more.  `p18z31' and `p18z3' are `RN(v + a w)' in the paper and two  *)
+(* roundings in `twpaper.v', exactly as `ThreeProdDW''s `c' and `z31' are.     *)
+(* Written out in one piece rather than through the paper's `p18'/`p20'        *)
+(* names, since every one of them would have needed a variant.                 *)
+Definition ThreeProdOneTWn (x y : twR) : twR :=
+  let: TWR x0 x1 x2 := x in
+  let: TWR _ y1 y2 := y in
+  let: (z01p, z01m) := TwoProd x0 y1 in
+  let: DWR bh bl := Fast2SumS x1 z01p in
+  let z31 := RND (z01m + RND (x1 * y1)) in
+  let z3  := RND (z31 + RND (x0 * y2)) in
+  let s3  := RND (bl + z3) in
+  let e := XvecSum [:: x0; bh; RND (s3 + x2)] in
+  let: DWR r1 r2 := Fast2SumS (nth 0 e 1) (nth 0 e 2) in
+  TWR (nth 0 e 0) r1 r2.
 
 (* WHAT IS STILL OWED FOR IT.  Its `d1' -- the number                         *)
 (* `ThreeSqRtAuxN_error' takes as a parameter.  The paper's is                 *)

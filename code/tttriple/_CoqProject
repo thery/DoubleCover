@@ -1,12 +1,13 @@
+# `-R . twarith' covers `threewords/' as well, so the paper's own development
+# is built under `twarith.threewords' and needs no line of its own.  Giving it
+# one binds the directory twice, and then whichever mapping is read second
+# wins: read first, native compilation cannot find it; read second, nothing
+# can.  Build it before this: `cd threewords && make'.
 -R . twarith
 
 # Double words.  Build code/ddouble first: `tw_ops.v' takes the float-to-real
 # bridge from its `dwbridge.v', and the bench files compare against it.
 -Q ../ddouble dwarith
-
-# The paper's own development, for the seed of Algorithm 15.  Build it first:
-# `cd threewords && make'.  Nothing else on this list needs it.
--R threewords threewords
 
 # Triple words on primitive floats.
 twarith.v
