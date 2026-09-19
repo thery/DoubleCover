@@ -479,10 +479,28 @@ FMA-free seed off the fused one gives about `+23u²` — too much — so the
 has `RND (a + b)`, so each transfer lemma is what `dwbridge.v` already gives for
 one operation, lifted through the sweeps.
 
-**The constant.** The paper proves `24u^3`; `kscale = 2^-156` allows `8u^3`. So
-`kscale` has to widen to `2^-154`, which costs the quotient and the root two
-bits — the `1/3` and `sqrt 2` rows of the table above would read `2^-155.8` and
-`2^-155.5`. Speed would not move; the tactic table would need re-measuring.
+**The constant, and it has now been measured rather than guessed.** The paper
+proves `24u^3`; `kscale = 2^-156` allows `8u^3`. So `kscale` has to widen to
+`2^-154`. Setting it there and re-reading five enclosures at `i_prec 107` —
+relative width of `interval_intro`'s own output, which is a looser measure than
+the table above and not comparable with it, but fine for a before-and-after:
+
+| | at `2^-156` | at `2^-154` | |
+|---|---|---|---|
+| `PI` | 2^-154.2 | 2^-152.7 | +1.5 bits |
+| `1/3` | 2^-155.0 | 2^-153.0 | +2.0 |
+| `sqrt 2` | 2^-154.9 | 2^-153.0 | +1.9 |
+| `exp 1` | 2^-150.2 | 2^-150.0 | +0.1 |
+| a 25-digit rational | 2^-155.0 | 2^-153.0 | +2.0 |
+
+Exactly two bits where the step is used and nothing where it is not — `exp 1`
+is sums and products, which the step never touched. **And no time at all**: the
+150-bit pi bracket takes 0.56 s either way, and all four pi brackets still
+pass.
+
+`kscale` is LEFT AT `2^-156` for now. Widening it before the proof exists
+would spend the two bits and buy nothing; the number to spend them for is
+`kstep_sqrt`, and when that lands the two go together.
 
 ## Open
 
