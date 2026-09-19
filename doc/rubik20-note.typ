@@ -1073,12 +1073,13 @@ length. They are conjugation by one of the sixteen symmetries that fix the
 position, inversion, and cyclic shift.
 
 The cyclic shift moves the first few letters of the word to the end. Each
-letter that moves is relabelled: the cube is turned half a turn about the
-up-down axis, so $B$ becomes $F$, $L$ becomes $R$, and $U$ and $D$ stay as they
-are. The result is another word of the same length for the same position. In
+letter that moves is renamed. The renaming is one of the 48 relabellings of the
+cube, the one that spins the whole cube by half a turn about the up-down axis:
+it sends $B$ to $F$ and $L$ to $R$, and leaves $U$ and $D$ where they are. In
 Reid's example the word begins with $B U^2 L$, and after the shift it ends with
-$F U^2 R$. The step is allowed because the position does not change under that
-half turn. This is why the position was chosen.
+$F U^2 R$. The new word has the same length and gives the same position. This
+works because Reid's position is left as it is by that relabelling, and this is
+why it was chosen.
 
 #src("HProp2.v") is the argument in Rocq, and #src("HBridge.v") carries it to
 the orientation the search uses. Reid leaves one hypothesis unstated, that the
