@@ -997,10 +997,9 @@ position cannot be solved in 25 quarter turns.
 
 The superflip is only 24 quarter turns from solved, so it is not far enough.
 Reid posted a better position to the Cube-Lovers list in August 1998
-@reid1998fourspot: the *superflip composed with four spot*, the four-spot
-pattern with the superflip on top of it. The post is transcribed beside this
-note. The four-spot
-exchanges the front and back
+@reid1998fourspot: the superflip composed with four spot, the four-spot pattern
+with the superflip on top of it. We write it *superflip4*. The post is
+transcribed beside this note. The four-spot exchanges the front and back
 colours, and the left and right colours. The centres cannot move, so each of
 those four faces keeps its own colour in one square. That square is the spot the
 pattern is named after. The superflip then turns every edge over.
@@ -1019,11 +1018,11 @@ pattern is named after. The superflip then turns every edge over.
       (cO, cW, cO, cB, cR, cG, cO, cY, cO))
     content((4.4, -0.45), text(size: 9pt)[and with the superflip on it])
   }),
-  caption: [The four-spot, and the superflip composed with it.],
+  caption: [The four-spot, and superflip4.],
 ) <fspot>
 
-This position is 26 quarter turns from solved. The word given for it, with
-the half turns written out, is
+Superflip4 is 26 quarter turns from solved. The word given for it, with the half
+turns written out, is
 
 #align(center)[
   $U space U space D space D space L space F space F space U^(-1) space D space
@@ -1036,32 +1035,33 @@ The word has twenty-six letters. Counted in face turns it has twenty-one, five
 of them half turns. We check it by multiplying both sides out.
 
 It is enough to rule out 24. A quarter turn is five four-cycles of the 48
-stickers, so it is odd, and an odd word gives an odd position. This position
-is even, so every word for it has even length. The searches stop at 24.
+stickers, so it is odd, and an odd word gives an odd position. Superflip4 is
+even, so every word for it has even length. The searches stop at 24.
 
 == The six prefixes
 
-The twelve quarter turns fall into two kinds for this position. The first kind
-is the turns of the top and bottom faces. The second kind is the turns of the
-other four faces. A word made only of the first kind cannot give the position.
-A word made only of the second kind cannot flip an edge, and in this position
-every edge is flipped. So any word for the position uses both kinds.
+The twelve quarter turns fall into two kinds for superflip4. The first kind is
+the turns of the top and bottom faces. The second kind is the turns of the other
+four faces. A word made only of the first kind cannot give superflip4. A word
+made only of the second kind cannot flip an edge, and in superflip4 every edge
+is flipped. So any word for it uses both kinds.
 
-Two turns of different kinds must then stand next to each other somewhere in
-the word. The cyclic shift brings that pair to the front. The cyclic shift
-moves the first letters of the word to the end, renaming each of them by the
-relabelling that spins the whole cube by half a turn about the up-down axis: it
-sends $B$ to $F$ and $L$ to $R$ and leaves $U$ and $D$ where they are. A word that begins with $B U^2 L$ ends, after the shift, with $F U^2 R$. The new word has the same length and gives the same position. This
-works because the relabelling leaves this position as it is, and that is why
-it was chosen.
+Two turns of different kinds must then stand next to each other somewhere in the
+word. The cyclic shift brings that pair to the front. The cyclic shift moves the
+first letters of the word to the end, renaming each of them by the relabelling
+that spins the whole cube by half a turn about the up-down axis: it sends $B$ to
+$F$ and $L$ to $R$ and leaves $U$ and $D$ where they are. A word that begins
+with $B U^2 L$ ends, after the shift, with $F U^2 R$. The new word has the same
+length and gives the same position. This works because the relabelling leaves
+superflip4 as it is, and that is why it was chosen.
 
 Two more operations leave the length and the position alone: inversion, and
 renaming by any of the sixteen relabellings that keep the up-down axis. With
 them the pair at the front becomes $R U$ or $R^(-1) U$. The first case is
 already a beginning we can search. In the second, one looks at the third turn:
 most choices fold back into the first case, and five survive. Those five and
-$R U$ are the six prefixes the searches start from
-@reid1998fourspot[Proposition 2]:
+$R U$ are the six prefixes the searches start from @reid1998fourspot[Proposition
+2]:
 
 #align(center)[
   #grid(
@@ -1083,13 +1083,12 @@ Theorem prop2 (w : seq nat) : qw w -> wp w = P ->
   exists w', [/\ qw w', seq.size w' = seq.size w, wp w' = P & heads w'].
 ```
 
-
 Here `qw w` says that `w` is a word of quarter turns and `wp w` is the position
-it gives. `P` is that position, and `heads w'` says that `w'` begins with one
-of the six. The second line is the hypothesis that `w` is as short as possible,
-and the third line is the conclusion. The published statement leaves that
-hypothesis out. Without it the third turn may cancel the second. It costs us
-nothing, since a shortest word is what we want anyway.
+it gives. `P` is superflip4, and `heads w'` says that `w'` begins with one of
+the six. The second line is the hypothesis that `w` is as short as possible, and
+the third line is the conclusion. The published statement leaves that hypothesis
+out. Without it the third turn may cancel the second. It costs us nothing, since
+a shortest word is what we want anyway.
 
 #src("HProp2.v") holds the argument. The two kinds of turns are the top and
 bottom faces against the other four, which is right in the published
@@ -1136,9 +1135,9 @@ The position is settled both ways in #src("HFinal.v"):
 Theorem targ_dist : targ \in ball Sq 26 /\ targ \notin ball Sq 25.
 ```
 
-`targ` is that position and `ball Sq n` is the set of positions within `n`
-quarter turns. The word gives the first half and the six searches give the
-second. The bound follows:
+`targ` is superflip4 and `ball Sq n` is the set of positions within `n` quarter
+turns. The word gives the first half and the six searches give the second. The
+bound follows:
 
 ```coq
 Theorem qdiam25 : ~ diam_le Sq 25.
@@ -1147,8 +1146,8 @@ Theorem qdiam25 : ~ diam_le Sq 25.
 `diam_le Sq 25` says every position is within 25 quarter turns, and the line
 says it is not. Rocq reports only the primitives of its machine-integer and
 array interface. The work is eighteen hand-written files and 6 008 lines. The
-argument above is in #src("HProp2.v"), the search in #src("HSearch.v"), the sweeps in
-#src("HSweep.v"), and the bound in #src("HAll.v").
+argument above is in #src("HProp2.v"), the search in #src("HSearch.v"), the
+sweeps in #src("HSweep.v"), and the bound in #src("HAll.v").
 
 #tbl(([], [wall clock], [processor time]),
   ([building the table, in OCaml], [9 min 50], [1 h 43]),
