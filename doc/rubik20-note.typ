@@ -809,7 +809,10 @@ entries, each of them below 48, and no entry appears twice. Two permutations are
 composed by reading one table through the other. To find where sticker $i$ ends
 up, take entry $i$ of the first table, then use that number as the index into
 the second. A move is a table of the same shape, so playing a move on a position
-is that same reading. #src("Tsearch.v") runs the search of #src("Search.v") on
+is that same reading. On four stickers instead of 48, if the first table is
+$(1, 2, 3, 0)$ and the second is $(0, 2, 1, 3)$, the product is $(2, 1, 3, 0)$.
+Entry 0 of the first is 1, entry 1 of the second is 2, so the product sends
+sticker 0 to sticker 2. #src("Tsearch.v") runs the search of #src("Search.v") on
 tables. Next come machine integers, 63 bits wide, and *persistent arrays* of
 them @armand2010imperative. #src("Tabi.v") carries the tables as arrays of
 machine integers. `ti2t` reads such an array back as the list it stands for, and
