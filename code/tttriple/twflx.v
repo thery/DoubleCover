@@ -215,3 +215,26 @@ case: l => [|e l] // Fl F.
 have [Fe _] := Fl.
 by rewrite /VSEB.vseb /vseb /= (vsebAux_X _ _ Fe (proj2 Fl) F).
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The plumbing round the sweeps                                            *)
+(* ---------------------------------------------------------------------------*)
+
+(* Reading a list of floats commutes with taking a prefix and with indexing.   *)
+Lemma l2R_take k l : l2R (take k l) = take k (l2R l).
+Proof. by rewrite /l2R map_take. Qed.
+
+Lemma l2R_nth l i : D2R (nth 0%float l i) = nth 0 (l2R l) i.
+Proof.
+rewrite /l2R.
+have [Hi|Hi] := ltnP i (size l); first by rewrite (nth_map 0%float).
+by rewrite !nth_default ?size_map // /D2R B2R_Prim2B_0.
+Qed.
+
+(* A triple word read from a list: both developments fill a short list out    *)
+(* with noughts, so the two readings agree with nothing asked at all.         *)
+Definition tw2R (t : twfloat) : twR :=
+  TWR (D2R (tw0 t)) (D2R (tw1 t)) (D2R (tw2 t)).
+
+Lemma TWval_tw2R t : TWval (tw2R t) = twval t.
+Proof. by case: t => a b c; rewrite /TWval /twval. Qed.
