@@ -1073,19 +1073,17 @@ Recall the word we gave for it:
 Reading along it, a turn of $cal(C)$ is followed by a turn of $cal(A)$ four
 times, and a turn of $cal(A)$ is followed by a turn of $cal(C)$ five times. We
 take the first pair of the first kind, at the seventh and eighth turns, `F`
-then `U'`.
-
-A word could have pairs of the second kind only. Superflip4 is its own inverse,
-so inverting such a word gives a word for superflip4 again, of the same length,
-and every pair of the second kind becomes one of the first. The inverse of the
-word above is
+then `U'`, and call it $q$. If a word had pairs of the second kind only, we would invert it
+first: superflip4 is its own inverse, so the inverse is again a word for it, of
+the same length, and inverting turns every pair of the second kind into one of
+the first. Here the inverse is
 
 #align(center)[`B F U' L' R D U' R' F' F' L' R' D U B' R' R' D' U F' F' L' D' D' U' U'`]
 
 with five pairs of the first kind and four of the second.
 
-Six turns stand before our pair. Write $x$ for them, `U U D D L F`, and $w$ for
-the rest, so that $x w = P$, where $P$ is superflip4. Then $w = x^(-1) P$, and
+Six turns stand before $q$. Write $x$ for them, `U U D D L F`, and $w$ for the
+rest, so that $x w = P$, where $P$ is superflip4. Then $w = x^(-1) P$, and
 therefore
 
 #align(center)[
@@ -1098,11 +1096,12 @@ time. Moving the six turns to the end and renaming them gives
 
 #align(center)[`F U' D R R B U' D' R L F F R U D' R' L U F' B' U U D D R B`]
 
-a word for superflip4 of the same length, starting with `F U'`. The swap leaves
-`U` and `D` alone, so the two turns at the front are still one from each set.
+a word for superflip4 of the same length, and it starts with $q$. The swap
+leaves `U` and `D` alone, so the two turns of $q$ are still one from each
+set.
 
 Renaming by one of the sixteen relabellings that keep the up-down axis then
-turns the pair at the front into `R U` or `R' U`. The first case is already
+turns $q$ into `R U` or `R' U`. The first case is already
 one of the six. In the second, one looks at the third turn. Most choices fold
 back into the first case, and five survive. One choice is ruled out by
 minimality alone: the turn that cancels the second, which would give a shorter
