@@ -1072,20 +1072,20 @@ next to each other somewhere in it.
 
 Each of the six prefixes starts with a turn from $cal(C)$ followed by a turn
 from $cal(A)$, so we want a word for superflip4 that starts with such a pair.
-We know there is a pair of this kind in the word, and the cyclic shift brings
-it to the front. Let $r$ be the relabelling that swaps front with
-back and left with right, and leaves top and bottom alone: it sends $B$ to $F$,
-$F$ to $B$, $L$ to $R$ and $R$ to $L$. Write the word as $u w$, where $u$ is its
-first few letters. Then $w space u^r$ gives the same position, where $u^r$ is
-$u$ with every letter renamed by $r$. For instance
+We know there is a pair of this kind in the word, but it can be anywhere. To
+bring it to the front, write the word as $u w$, where $u$ is the part before
+the pair. Then $w space u^r$ is again a word for superflip4, of the same
+length, where $u^r$ is $u$ with every letter renamed by $r$. The relabelling
+$r$ swaps front with back and left with right, and leaves top and bottom alone:
+it sends $B$ to $F$, $F$ to $B$, $L$ to $R$ and $R$ to $L$. This move of the
+letters is the cyclic shift. For instance
 
 #align(center)[
   $B U^2 L space w quad "becomes" quad w space F U^2 R .$
 ]
 
-The two words have the same length. This holds because $r$ leaves superflip4
-unchanged, and the position was chosen for that reason. The shift also preserves
-the two sets. $r$ leaves $U$ and $D$ alone and moves the other four faces among
+The new word gives superflip4 because $r$ leaves superflip4 unchanged, and the
+position was chosen for that reason. The shift also preserves the two sets. $r$ leaves $U$ and $D$ alone and moves the other four faces among
 themselves, so a turn of $cal(A)$ stays in $cal(A)$ and a turn of $cal(C)$ stays
 in $cal(C)$. The two turns now at the front are still one from each set.
 
