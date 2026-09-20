@@ -1072,19 +1072,19 @@ Recall the word we gave for it:
 
 Reading along it, a turn of $cal(C)$ is followed by a turn of $cal(A)$ four
 times, and a turn of $cal(A)$ is followed by a turn of $cal(C)$ five times. We
-take the first pair of the first kind, at the seventh and eighth turns, `F`
-then `U'`, and call it $q$. If a word had pairs of the second kind only, we would invert it
-first: superflip4 is its own inverse, so the inverse is again a word for it, of
-the same length, and inverting turns every pair of the second kind into one of
-the first. Here the inverse is
+take the first pair of the first kind, at the seventh and eighth turns, `F` then
+`U'`, and call it $q$. If a word had pairs of the second kind only, we would
+invert it first: superflip4 is its own inverse, so the inverse is again a word
+for it, of the same length, and inverting turns every pair of the second kind
+into one of the first. Here the inverse is
 
 #align(center)[`B F U' L' R D U' R' F' F' L' R' D U B' R' R' D' U F' F' L' D' D' U' U'`]
 
 with, as expected, five pairs of the first kind and four of the second.
 
 Let us go back to our selected pair $q$. Six turns stand before it. Write $x$
-for them, `U U D D L F`, and $w$ for the rest, so that $x w = P$, where $P$ is superflip4. Then $w = x^(-1) P$, and
-therefore
+for them, `U U D D L F`, and $w$ for the rest, so that $x w = P$, where $P$ is
+superflip4. Then $w = x^(-1) P$, and therefore
 
 #align(center)[
   $w (P^(-1) x P) = x^(-1) P P^(-1) x P = P .$
@@ -1097,15 +1097,14 @@ time. Moving the six turns to the end and renaming them gives
 #align(center)[`F U' D R R B U' D' R L F F R U D' R' L U F' B' U U D D R B`]
 
 a word for superflip4 of the same length, and it starts with $q$. The swap
-leaves `U` and `D` alone, so the two turns of $q$ are still one from each
-set.
+leaves `U` and `D` alone, so the two turns of $q$ are still one from each set.
 
 Renaming by one of the sixteen relabellings that keep the up-down axis then
-turns $q$ into `R U` or `R' U`. The first case is already
-one of the six. In the second, one looks at the third turn. Most choices fold
-back into the first case, and five survive. One choice is ruled out by
-minimality alone: the turn that cancels the second, which would give a shorter
-word for superflip4. Those five and `R U` are the six.
+turns $q$ into `R U` or `R' U`. The first case is already one of the six. In the
+second, one looks at the third turn. Most choices fold back into the first case,
+and five survive. One choice is ruled out by minimality alone: the turn that
+cancels the second, which would give a shorter word for superflip4. Those five
+and `R U` are the six.
 
 In Rocq the proposition reads
 
