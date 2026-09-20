@@ -1090,12 +1090,16 @@ superflip4. Then $w = x^(-1) P$, and therefore
   $w (P^(-1) x P) = x^(-1) P P^(-1) x P = P .$
 ]
 
-Written out, $P^(-1) x P$ is no longer than $x$. Conjugating a product is
-conjugating each of its factors, so $P^(-1) x P$ is $x$ with every turn
-conjugated. Conjugating one quarter turn $m$ by $P$ gives one quarter turn
-again, namely $m$ with front and back swapped and left and right swapped, and
-#src("HProp2.v") checks this for each of the twelve quarter turns. So $P^(-1) x P$ is the six turns `U U D D R B`, and $w$
-followed by them,
+$P^(-1) x P$ is not longer than $x$:
+
+#align(center)[
+  $P^(-1) x P = (P^(-1) U P) (P^(-1) U P) (P^(-1) D P) (P^(-1) D P)
+    (P^(-1) L P) (P^(-1) F P) .$
+]
+
+Each factor is a quarter turn again, the same turn with front and back swapped
+and left and right swapped, checked for the twelve in #src("HProp2.v"). So
+$P^(-1) x P$ is `U U D D R B`, and $w$ followed by these six turns,
 
 #align(center)[`F U' D R R B U' D' R L F F R U D' R' L U F' B' U U D D R B`]
 
