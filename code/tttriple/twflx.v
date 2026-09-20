@@ -1052,6 +1052,66 @@ have T2 := Rabs_triang (D2R x0) (D2R x1).
 rewrite /twval /tw0 /tw1 /tw2; lra.
 Qed.
 
+
+(* ---------------------------------------------------------------------------*)
+(*  A well-formed triple of floats is the paper's triple word                  *)
+(* ---------------------------------------------------------------------------*)
+
+(* Above the smallest normal number the bounded format's `ulp' is the          *)
+(* unbounded one's: the exponent floor does not bite.                          *)
+Lemma ulp_FLT_FLX y : (Dnorm <= Rabs y)%R ->
+  ulp radix2 Dfexp y = ulp radix2 (FLX_exp prec) y.
+Proof.
+move=> Hn.
+have Hp := bpow_gt_0 radix2 (SpecFloat.emin prec emax + prec - 1).
+have Hy0 : y <> 0%R.
+  by move=> Hz; move: Hn; rewrite Hz Rabs_R0; lra.
+rewrite !ulp_neq_0 // /cexp DfexpE /FLT_exp /FLX_exp.
+have Hm : (SpecFloat.emin prec emax + prec <= mag radix2 y)%Z.
+  by apply: mag_ge_bpow.
+by congr bpow; lia.
+Qed.
+
+(* `wellFormed' is the paper's `isTW', once both the first and the second      *)
+(* word are clear of the bottom of the range -- and a zero second word         *)
+(* forces a zero third, so that case needs nothing.                            *)
+Lemma wellFormed_isTW t : finL (tw2l t) -> wellFormed t = true ->
+  (Dnorm <= Rabs (D2R (tw0 t)))%R ->
+  (D2R (tw1 t) = 0%R \/ (Dnorm <= Rabs (D2R (tw1 t)))%R) ->
+  isTW prec (tw2R t).
+Proof.
+case: t => x0 x1 x2 [F0 [F1 [F2 _]]].
+rewrite /wellFormed => /andb_prop [E1 E2] Hn0 Hn1.
+rewrite /tw0 in Hn0; rewrite /tw1 in Hn1.
+rewrite /tw2R /tw0 /tw1 /tw2.
+have Hp0 : Prec_gt_0 prec by [].
+have H1 := wellFormedP x0 x1 F0 F1 E1.
+have H2 := wellFormedP x1 x2 F1 F2 E2.
+have Hu0 : (0 < ulp radix2 (FLX_exp prec) (D2R x0))%R.
+  rewrite -(ulp_FLT_FLX _ Hn0) ulp_neq_0; first by apply: bpow_gt_0.
+  have Hp := bpow_gt_0 radix2 (SpecFloat.emin prec emax + prec - 1).
+  by move: Hn0; split_Rabs; lra.
+split; try exact: Dformat_FLX.
+- right; rewrite -(ulp_FLT_FLX _ Hn0).
+  have Hp := ulp_ge_0 radix2 Dfexp (D2R x0).
+  have Hq : (0 < ulp radix2 Dfexp (D2R x0))%R
+    by rewrite (ulp_FLT_FLX _ Hn0).
+  by lra.
+case: Hn1 => [Hz|Hn1]; last first.
+  right; rewrite -(ulp_FLT_FLX _ Hn1).
+  have Hq : (0 < ulp radix2 Dfexp (D2R x1))%R.
+    rewrite ulp_neq_0; first by apply: bpow_gt_0.
+    have Hp := bpow_gt_0 radix2 (SpecFloat.emin prec emax + prec - 1).
+    by move: Hn1; split_Rabs; lra.
+  by lra.
+left; move: H2; rewrite Hz ulp_FLT_0 // => H2.
+have Hs := Dfin_wf _ _ F1 E2.
+have [Es _] := Dfin_add _ _ F1 F2 Hs.
+have Eq := D2R_wf _ _ F1 F2 E2.
+move: Eq; rewrite Es Hz Rplus_0_l => Eq.
+by rewrite -Eq round_generic //; apply: Dformat.
+Qed.
+
 (* WHAT THE STEP HAS TO COVER, AND DOES.                                      *)
 (*                                                                            *)
 (* The root is out by `31u^3' of the answer and the step is `2^-154' of the   *)
@@ -1061,7 +1121,9 @@ Qed.
 (* `2^-156' it would have been a factor of four the wrong way.                *)
 Theorem kstep_sqrt_ok x :
   finL (tw2l x) -> wellFormed x = true -> (0 < twval x)%R ->
-  sqrt_ok x -> isTW prec (tw2R x) ->
+  (Dnorm <= Rabs (D2R (tw0 x)))%R ->
+  (D2R (tw1 x) = 0%R \/ (Dnorm <= Rabs (D2R (tw1 x)))%R) ->
+  sqrt_ok x ->
   finL (tw2l (threeSqRt x)) -> wellFormed (threeSqRt x) = true ->
   (tw_updn.normLo <? abs (tw0 (threeSqRt x)))%float = true ->
   Dfin (kscale * abs (tw0 (threeSqRt x)))%float ->
@@ -1069,7 +1131,8 @@ Theorem kstep_sqrt_ok x :
   (Rabs (twval (threeSqRt x) - R_sqrt.sqrt (twval x))
      <= D2R (kstep (threeSqRt x)))%R.
 Proof.
-move=> Fx Wx Hx0 Hok Hx Fr Wr Hlo Fm Fu.
+move=> Fx Wx Hx0 Hnx0 Hnx1 Hok Fr Wr Hlo Fm Fu.
+have Hx := wellFormed_isTW _ Fx Wx Hnx0 Hnx1.
 have Hx0' : (0 < D2R (tw0 x))%R.
   have Hq := wellFormed_lead34 _ Fx Wx.
   by move: Hq Hx0; rewrite /twval; split_Rabs; lra.
