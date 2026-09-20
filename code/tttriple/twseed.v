@@ -4,7 +4,7 @@ From Flocq Require Import Core Relative Sterbenz Operations Mult_error.
 From twarith.threewords Require Import Nmore Rmore Fmore Rstruct MULTmore prelim.
 From twarith.threewords Require Import TwoSum Nonoverlap TWR VecSum.
 From twarith.threewords Require Import ThreeProd ThreeProdDW ThreeProdOne.
-From twarith.threewords Require Import ThreeSqRt.
+From twarith.threewords Require Import ThreeReci ThreeSqRt.
 From twarith Require Import twprodg.
 
 (* THE SEED OF ALGORITHM 15, WITH NO FUSED MULTIPLY-ADD.                      *)
@@ -94,6 +94,22 @@ Local Notation ThreeProdn_norm_eq := (ThreeProdn_norm_eq Hp2 (Hp6 Hp11) choice_s
 Local Notation cz3n_facts := (cz3n_facts Hp2 (Hp6 Hp11) (choice := choice) choice_sym).
 Local Notation s3n_le_15max := (s3n_le_15max Hp2 (Hp6 Hp11) (choice := choice) choice_sym).
 Local Notation inner_Fnonoverlap_g := (inner_Fnonoverlap_g Hp2 (Hp6 Hp11) choice_sym).
+Local Notation vseb_head3_e1zero_g :=
+  (vseb_head3_e1zero_g Hp2 (Hp6 Hp11) (choice := choice) choice_sym).
+Local Notation vseb_star := (vseb_star Hp2 (choice := choice) choice_sym).
+Local Notation vecSum_head_gap := (vecSum_head_gap Hp2 (choice := choice)).
+Local Notation ThreeProdn_scale := (ThreeProdn_scale p choice).
+Local Notation ThreeProdn_opp := (ThreeProdn_opp p choice_sym).
+Local Notation ThreeProdn_opp_r := (ThreeProdn_opp_r p choice_sym).
+Local Notation ThreeProdn_0l := (ThreeProdn_0l p choice).
+Local Notation ThreeProdn_0r := (ThreeProdn_0r p choice).
+Local Notation isDW_normalize := (isDW_normalize Hp2 choice).
+Local Notation isTW_normalize := (isTW_normalize Hp2 choice).
+Local Notation isTW_zero_lead := (isTW_zero_lead Hp2).
+Local Notation head_gap_gen := (head_gap_gen Hp2 (Hp10 Hp11) choice).
+Local Notation head_one_gen_c := (head_one_gen_c Hp2 (Hp10 Hp11)).
+Local Notation head_one_half := (head_one_half (p := p)).
+Local Notation head_c_ok := (head_c_ok Hp11).
 Local Notation ThreeProdn_isTW := (ThreeProdn_isTW Hp2 (Hp6 Hp11) choice_sym).
 
 (* The two facts about one rounding that every bound below is made of.        *)
@@ -1941,4 +1957,224 @@ apply: (assembly_dw_eps5 (K := 22 * (u * u * u) - 2 * (u * u * u * u))
   have Hu5 : u * u * u * u * u <= / 64 * (u * u * u * u) by nra.
   clear -Hu0 Hu64 Hu2 Hu3 Hu4 Hu5; nra.
 Qed.
+
+(* THE HEAD LEMMA, AND ITS SIXTY DOES NOT MOVE EITHER.                        *)
+(*                                                                            *)
+(* `vecSum_head_gap' asks for two numbers, and only one of them changed:      *)
+(* the low mass is still `9u', and the sum error enters at `u^3' where the    *)
+(* other term is `36u^2'.  Twenty-two for fourteen is invisible here.         *)
+Lemma ThreeProdDWn_head_gap_norm x y :
+  ties_to_even choice -> dw_normP p x -> tw_normP p y ->
+  Rabs (TWval x * TWval y - tw0 (ThreeProdDWn x y))
+    <= / 2 * ulp (tw0 (ThreeProdDWn x y)) + 60 * (u * u).
+Proof.
+move=> Hc Nx Ny.
+case: x Nx => x0 x1 x2 [Nxd ->].
+case: y Ny => y0 y1 y2 Ny.
+have Ny' : tw_norm p y0 y1 y2 by exact: Ny.
+have Nx' : tw_norm p x0 x1 0 by exact: dw_norm_tw_norm Nxd.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu64 := u_le_64.
+rewrite ThreeProdDWn_eq !tw0E !tw1E.
+rewrite (ThreeProdn_norm_eq Nx' Ny').
+have Hz32 : RND (RND (x0 * y1 - RND (x0 * y1)) + RND (0 * y0))
+          = RND (x0 * y1 - RND (x0 * y1)).
+  by rewrite Rmult_0_l round_0 Rplus_0_r round_generic //;
+     apply: generic_format_round.
+rewrite Hz32.
+set bb := XvecSum [:: RND (x0 * y0 - RND (x0 * y0)); RND (x0 * y1);
+  RND (x1 * y0)].
+set e := XvecSum [:: RND (x0 * y0); nth 0 bb 0; nth 0 bb 1;
+  RND (nth 0 bb 2 + RND (x1 * y1));
+  RND (RND (RND (x1 * y0 - RND (x1 * y0)) + RND (x0 * y2))
+     + RND (x0 * y1 - RND (x0 * y1)))].
+rewrite tw0E /TWval.
+have FL5 : {in [:: RND (x0 * y0); nth 0 bb 0; nth 0 bb 1;
+                   RND (nth 0 bb 2 + RND (x1 * y1));
+                   RND (RND (RND (x1 * y0 - RND (x1 * y0)) + RND (x0 * y2))
+                      + RND (x0 * y1 - RND (x0 * y1)))],
+    forall z : R, format z}.
+  have Fbb : {in bb, forall z : R, format z}.
+    apply: (format_vecSum (p := p) Hp2 (choice := choice)) => z; rewrite !inE.
+    by move=> /orP[/eqP->|/orP[/eqP->|/eqP->]]; apply: generic_format_round.
+  have Fnthbb : forall i, format (nth 0 bb i).
+    move=> i; case: (ltnP i (size bb)) => Hi;
+      last by rewrite nth_default //; exact: generic_format_0.
+    by apply: Fbb; apply: mem_nth.
+  move=> z; rewrite !inE.
+  move=> /orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/eqP->]]]];
+    try apply: generic_format_round; apply: Fnthbb.
+(* The star identity: [VSEB] emits the leading VecSum limb unchanged.         *)
+have Hstar : nth 0 (Xvseb e) 0 = nth 0 e 0.
+  case: (Req_dec (nth 0 e 1) 0) => [He1|He1].
+    have [Fc Fz3 Hc8 Hz3b] := cz3n_facts Nx' Ny'.
+    have H := vseb_head3_e1zero_g Nx' Ny' Fc Fz3 Hc8 Hz3b.
+    move: H; rewrite Hz32 -/bb -/e => H.
+    by have [H0 _] := H He1.
+  have Hs := vseb_star FL5 (isT : (1 < 5)%N) He1.
+  by rewrite -/e in Hs; rewrite Hs.
+have HD := inner_sum_errn_dw Hc Nxd Ny'.
+have HB := inner_low_massn_dw Nxd Ny'.
+have HD2 : Rabs ((x0 + x1 + 0) * (y0 + y1 + y2) - sumR e)
+    <= 22 * (u * u * u) - 2 * (u * u * u * u) by exact: HD.
+have HB2 : sumRabs [:: nth 0 bb 0; nth 0 bb 1;
+                       RND (nth 0 bb 2 + RND (x1 * y1));
+                       RND (RND (RND (x1 * y0 - RND (x1 * y0))
+                                 + RND (x0 * y2))
+                          + RND (x0 * y1 - RND (x0 * y1)))] <= 9 * u
+  by exact: HB.
+have HDL : Rabs ((x0 + x1 + 0) * (y0 + y1 + y2)
+    - sumR [:: RND (x0 * y0); nth 0 bb 0; nth 0 bb 1;
+               RND (nth 0 bb 2 + RND (x1 * y1));
+               RND (RND (RND (x1 * y0 - RND (x1 * y0)) + RND (x0 * y2))
+                  + RND (x0 * y1 - RND (x0 * y1)))])
+    <= 22 * (u * u * u) - 2 * (u * u * u * u).
+  by rewrite -(@vecSum_sum p Hp2 choice choice_sym _ FL5) -/e.
+have Hgap := vecSum_head_gap choice_sym
+  (l := [:: RND (x0 * y0); nth 0 bb 0; nth 0 bb 1;
+      RND (nth 0 bb 2 + RND (x1 * y1));
+      RND (RND (RND (x1 * y0 - RND (x1 * y0)) + RND (x0 * y2))
+         + RND (x0 * y1 - RND (x0 * y1)))])
+  (v := (x0 + x1 + 0) * (y0 + y1 + y2))
+  (D := 22 * (u * u * u) - 2 * (u * u * u * u))
+  (B := 9 * u) FL5 (isT : (1 < 5)%N) HDL HB2.
+rewrite Hstar.
+rewrite -/e in Hgap.
+apply: Rle_trans Hgap _.
+have -> : (size [:: RND (x0 * y0); nth 0 bb 0; nth 0 bb 1;
+                    RND (nth 0 bb 2 + RND (x1 * y1));
+                    RND (RND (RND (x1 * y0 - RND (x1 * y0)) + RND (x0 * y2))
+                       + RND (x0 * y1 - RND (x0 * y1)))]).-1 = 4%N by [].
+have HI : INR 4 = 4 by rewrite /=; ring.
+have E4 : (1 + u) ^ 4 = 1 + 4 * u + 6 * (u * u) + 4 * (u * u * u)
+                        + u * u * u * u by ring.
+rewrite HI E4.
+have Hu2 : u * u <= / 64 * u by nra.
+have Hu3 : u * u * u <= / 64 * (u * u) by nra.
+have Hu4 : u * u * u * u <= / 64 * (u * u * u) by nra.
+have Hu5 : u * u * u * u * u <= / 64 * (u * u * u * u) by nra.
+by clear -Hu0 Hu64 Hu2 Hu3 Hu4 Hu5; nra.
+Qed.
+
+
+(* THE PAPER'S WLOG, WORD FOR WORD.                                           *)
+(*                                                                            *)
+(* Scale- and sign-equivariance come off `ThreeProdn''s, and with them the    *)
+(* normalised results lift: nothing here knows about the multiply-add.        *)
+Lemma ThreeProdDWn_scale a b x y :
+  ThreeProdDWn (scaleTW a x) (scaleTW b y) =
+    scaleTW (a + b) (ThreeProdDWn x y).
+Proof.
+rewrite !ThreeProdDWn_eq.
+case: x => x0 x1 x2.
+have -> : TWR (tw0 (scaleTW a (TWR x0 x1 x2)))
+              (tw1 (scaleTW a (TWR x0 x1 x2))) 0
+        = scaleTW a (TWR x0 x1 0) by rewrite /scaleTW /=; congr TWR; ring.
+by rewrite ThreeProdn_scale.
+Qed.
+
+Lemma ThreeProdDWn_opp x y :
+  ThreeProdDWn (negTW x) y = negTW (ThreeProdDWn x y).
+Proof.
+rewrite !ThreeProdDWn_eq.
+case: x => x0 x1 x2.
+have -> : TWR (tw0 (negTW (TWR x0 x1 x2))) (tw1 (negTW (TWR x0 x1 x2))) 0
+        = negTW (TWR x0 x1 0) by rewrite /negTW /=; congr TWR; ring.
+by rewrite ThreeProdn_opp.
+Qed.
+
+Lemma ThreeProdDWn_opp_r x y :
+  ThreeProdDWn x (negTW y) = negTW (ThreeProdDWn x y).
+Proof. by rewrite !ThreeProdDWn_eq ThreeProdn_opp_r. Qed.
+
+Lemma ThreeProdDWn_0l y : ThreeProdDWn (TWR 0 0 0) y = TWR 0 0 0.
+Proof. by rewrite ThreeProdDWn_eq ThreeProdn_0l. Qed.
+
+Lemma ThreeProdDWn_0r x : ThreeProdDWn x (TWR 0 0 0) = TWR 0 0 0.
+Proof. by rewrite ThreeProdDWn_eq ThreeProdn_0r. Qed.
+
+Lemma ThreeProdDWn_error x y :
+  ties_to_even choice -> isDW x -> isTW y ->
+  Rabs (TWval (ThreeProdDWn x y) - TWval x * TWval y) <=
+     (25 * (u * u * u) + 200 * (u * u * u * u)) * Rabs (TWval x * TWval y).
+Proof.
+move=> Hc Hx Hy.
+set C := (25 * _ + _).
+case: (Req_dec (tw0 x) 0) => [x0z | x0n].
+  have Hxz : x = TWR 0 0 0 by apply: isTW_zero_lead => //; exact: isDW_isTW.
+  rewrite Hxz ThreeProdDWn_0l.
+  have -> : TWval (TWR 0 0 0) = 0 by rewrite /TWval; ring.
+  by rewrite Rmult_0_l Rminus_0_r Rabs_R0 Rmult_0_r; apply: Rle_refl.
+case: (Req_dec (tw0 y) 0) => [y0z | y0n].
+  rewrite (isTW_zero_lead Hy y0z) ThreeProdDWn_0r.
+  have -> : TWval (TWR 0 0 0) = 0 by rewrite /TWval; ring.
+  by rewrite Rmult_0_r Rminus_0_r Rabs_R0 Rmult_0_r; apply: Rle_refl.
+have [cx _ [Hxp Hxn]] := isDW_normalize Hx x0n.
+have [cy _ [Hyp Hyn]] := isTW_normalize Hy y0n.
+have Hxsg : 0 < tw0 x \/ tw0 x < 0 by lra.
+have Hysg : 0 < tw0 y \/ tw0 y < 0 by lra.
+apply: (error_scale_transfer (s := (cx + cy)%Z)
+          (r := TWval (ThreeProdDWn x y)) (rxy := TWval x * TWval y) (C := C)).
+case: Hxsg => Hxs; case: Hysg => Hys.
+- have Hn := ThreeProdDWn_error_norm Hc (Hxp Hxs) (Hyp Hys).
+  rewrite ThreeProdDWn_scale !TWval_scale in Hn.
+  rewrite (_ : TWval x * pow cx * (TWval y * pow cy)
+             = TWval x * TWval y * pow (cx + cy)) in Hn;
+    last by rewrite bpow_plus; ring.
+  exact Hn.
+- have Hn := ThreeProdDWn_error_norm Hc (Hxp Hxs) (Hyn Hys).
+  rewrite ThreeProdDWn_scale ThreeProdDWn_opp_r !TWval_scale !TWval_opp in Hn.
+  move: Hn.
+  have E : TWval x * pow cx * (- TWval y * pow cy)
+         = - (TWval x * TWval y * pow (cx + cy)) by rewrite bpow_plus; ring.
+  rewrite E.
+  have E2 : - TWval (ThreeProdDWn x y) * pow (cx + cy)
+              - - (TWval x * TWval y * pow (cx + cy))
+          = - (TWval (ThreeProdDWn x y) * pow (cx + cy)
+               - TWval x * TWval y * pow (cx + cy)) by ring.
+  by rewrite E2 !Rabs_Ropp.
+- have Hn := ThreeProdDWn_error_norm Hc (Hxn Hxs) (Hyp Hys).
+  rewrite ThreeProdDWn_scale ThreeProdDWn_opp !TWval_scale !TWval_opp in Hn.
+  move: Hn.
+  have E : - TWval x * pow cx * (TWval y * pow cy)
+         = - (TWval x * TWval y * pow (cx + cy)) by rewrite bpow_plus; ring.
+  rewrite E.
+  have E2 : - TWval (ThreeProdDWn x y) * pow (cx + cy)
+              - - (TWval x * TWval y * pow (cx + cy))
+          = - (TWval (ThreeProdDWn x y) * pow (cx + cy)
+               - TWval x * TWval y * pow (cx + cy)) by ring.
+  by rewrite E2 !Rabs_Ropp.
+- have Hn := ThreeProdDWn_error_norm Hc (Hxn Hxs) (Hyn Hys).
+  have Hxy : ThreeProdDWn (negTW x) (negTW y) = ThreeProdDWn x y
+    by rewrite ThreeProdDWn_opp ThreeProdDWn_opp_r negTW_id.
+  rewrite ThreeProdDWn_scale Hxy !TWval_scale !TWval_opp in Hn.
+  rewrite (_ : - TWval x * pow cx * (- TWval y * pow cy)
+             = TWval x * TWval y * pow (cx + cy)) in Hn;
+    last by rewrite bpow_plus; ring.
+  exact Hn.
+Qed.
+
+Lemma ThreeProdDWn_head_gap x y :
+  ties_to_even choice -> isDW x -> isTW y -> tw0 x <> 0 -> tw0 y <> 0 ->
+  Rabs (TWval x * TWval y - tw0 (ThreeProdDWn x y))
+    <= / 2 * ulp (tw0 (ThreeProdDWn x y))
+       + 70 * (u * u) * Rabs (TWval x * TWval y).
+Proof.
+move=> Hc; apply: head_gap_gen.
+- exact: ThreeProdDWn_scale.
+- exact: ThreeProdDWn_opp.
+- exact: ThreeProdDWn_opp_r.
+by move=> X Y NX NY; apply: ThreeProdDWn_head_gap_norm.
+Qed.
+
+Lemma ThreeProdDWn_head_half :
+  ties_to_even choice -> head_half ThreeProdDWn.
+Proof.
+move=> Hc; apply: head_one_half.
+  by move=> a b X Y; apply: ThreeProdDWn_scale.
+apply: (head_one_gen_c (c := 300) (mul := ThreeProdDWn) head_c_ok).
+  by move=> X Y HX HY; apply: ThreeProdDWn_isTW.
+by move=> X Y HX HY HX0 HY0; apply: ThreeProdDWn_head_gap.
+Qed.
+
 End SecSeedNoFMA.
