@@ -1043,24 +1043,25 @@ for it has even length.
 We split the twelve quarter turns into two sets:
 
 #align(center)[
-  $A = {U, U^(-1), D, D^(-1)}$, #h(2em)
-  $C = {R, R^(-1), F, F^(-1), L, L^(-1), B, B^(-1)}$.
+  $cal(A) = {U, U^(-1), D, D^(-1)}$, #h(2em)
+  $cal(C) = {R, R^(-1), F, F^(-1), L, L^(-1), B, B^(-1)}$.
 ]
 
-A word made only of turns from $A$ leaves the four middle edges untouched, and
-superflip4 has them flipped, so no such word gives superflip4. A word made only
-of turns from $C$ never flips an edge, and superflip4 has every edge flipped,
-so no such word gives it either. Any word for superflip4 therefore uses turns
-from both sets.
+A word made only of turns from $cal(A)$ leaves the four middle edges untouched,
+and superflip4 has them flipped, so no such word gives superflip4. A word made
+only of turns from $cal(C)$ never flips an edge, and superflip4 has every edge
+flipped, so no such word gives it either. Any word for superflip4 therefore uses
+turns from both sets.
 
-Two turns of different kinds must then stand next to each other somewhere in the
-word. The cyclic shift brings that pair to the front. The cyclic shift moves the
-first letters of the word to the end, renaming each of them by the relabelling
-that spins the whole cube by half a turn about the up-down axis: it sends $B$ to
-$F$ and $L$ to $R$ and leaves $U$ and $D$ where they are. A word that begins
-with $B U^2 L$ ends, after the shift, with $F U^2 R$. The new word has the same
-length and gives the same position. This works because the relabelling leaves
-superflip4 as it is, and that is why it was chosen.
+A turn from $cal(A)$ and a turn from $cal(C)$ must then stand next to each other
+somewhere in the word. The cyclic shift brings that pair to the front. The
+cyclic shift moves the first letters of the word to the end, renaming each of
+them by the relabelling that spins the whole cube by half a turn about the
+up-down axis: it sends $B$ to $F$ and $L$ to $R$ and leaves $U$ and $D$ where
+they are. A word that begins with $B U^2 L$ ends, after the shift, with
+$F U^2 R$. The new word has the same length and gives the same position. This
+works because the relabelling leaves superflip4 as it is, and that is why it was
+chosen.
 
 Two more operations leave the length and the position alone: inversion, and
 renaming by any of the sixteen relabellings that keep the up-down axis. With
@@ -1098,9 +1099,9 @@ conclusion. The published statement leaves that hypothesis out. Without it the
 third turn may cancel the second. It costs us nothing, since a shortest word is
 what we want anyway.
 
-#src("HProp2.v") holds the argument. The two kinds of turns are the top and
-bottom faces against the other four, which is right in the published
-orientation. In ours the front and back faces are the ones that flip an edge,
+#src("HProp2.v") holds the argument. The split into $cal(A)$ and $cal(C)$ is
+the one of the published orientation, where the top and bottom turns are the
+ones that flip an edge. In ours the front and back faces are the ones that flip an edge,
 so #src("HBridge.v") turns the position onto the other axis and carries the
 result across.
 
