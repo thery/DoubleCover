@@ -5,6 +5,7 @@ From twarith.threewords Require Import Nmore Rmore Fmore Rstruct MULTmore prelim
 From twarith.threewords Require Import TwoSum Nonoverlap TWR VecSum.
 From twarith.threewords Require Import ThreeProd ThreeProdDW ThreeProdOne.
 From twarith.threewords Require Import ThreeSqRt.
+From twarith Require Import twprodg.
 
 (* THE SEED OF ALGORITHM 15, WITH NO FUSED MULTIPLY-ADD.                      *)
 (*                                                                            *)
@@ -81,6 +82,19 @@ Local Notation two_p_ge_64 := (two_p_ge_64 (Hp6 Hp11)).
 Local Notation vecSum3 := (vecSum3 Hp2 (choice := choice)).
 Local Notation ThreeProdOneTW := (ThreeProdOneTW p choice).
 Local Notation head_half := (head_half p).
+Local Notation ThreeProdn := (ThreeProdn p choice).
+Local Notation Xvseb := (VSEB.vseb p choice).
+Local Notation Fnonoverlap := (Nonoverlap.Fnonoverlap p).
+Local Notation Pnonoverlap := (Nonoverlap.Pnonoverlap p).
+Local Notation size_vecSum := (size_vecSum p choice).
+Local Notation eps5_bound := (eps5_bound Hp2 (choice := choice)).
+Local Notation xy_ge := (xy_ge Hp2 (Hp6 Hp11)).
+Local Notation assembly_dw_eps5 := (assembly_dw_eps5 (p := p)).
+Local Notation ThreeProdn_norm_eq := (ThreeProdn_norm_eq Hp2 (Hp6 Hp11) choice_sym).
+Local Notation cz3n_facts := (cz3n_facts Hp2 (Hp6 Hp11) (choice := choice) choice_sym).
+Local Notation s3n_le_15max := (s3n_le_15max Hp2 (Hp6 Hp11) (choice := choice) choice_sym).
+Local Notation inner_Fnonoverlap_g := (inner_Fnonoverlap_g Hp2 (Hp6 Hp11) choice_sym).
+Local Notation ThreeProdn_isTW := (ThreeProdn_isTW Hp2 (Hp6 Hp11) choice_sym).
 
 (* The two facts about one rounding that every bound below is made of.        *)
 Lemma rnd_err v : Rabs (RND v - v) <= u * Rabs v.
@@ -1425,6 +1439,30 @@ Definition ThreeProdDWn (x y : twR) : twR :=
   | [::]            => TWR e0 0 0
   end.
 
+(* Algorithm 11 without the fused multiply-add is Algorithm 9 without it, at *)
+(* a zero third limb: `z32 = RN(z01- + RN(0 * y0)) = z01-'.                   *)
+Lemma ThreeProdDWn_eq x y :
+  ThreeProdDWn x y = ThreeProdn (TWR (tw0 x) (tw1 x) 0) y.
+Proof.
+case: x => x0 x1 x2; case: y => y0 y1 y2.
+rewrite /ThreeProdDWn /ThreeProdn.
+have F01m : format (TwoProd x0 y1).2 by apply: generic_format_round.
+case E00 : (TwoProd x0 y0) => [z00p z00m].
+case E01 : (TwoProd x0 y1) => [z01p z01m].
+case E10 : (TwoProd x1 y0) => [z10p z10m].
+have F01 : format z01m by move: F01m; rewrite E01.
+by rewrite Rmult_0_l round_0 Rplus_0_r (round_generic _ _ _ _ F01).
+Qed.
+
+Lemma ThreeProdDWn_isTW x y : isDW x -> isTW y -> isTW (ThreeProdDWn x y).
+Proof.
+move=> Hx Hy.
+rewrite ThreeProdDWn_eq.
+apply: ThreeProdn_isTW => //.
+have Hx' := isDW_isTW Hx.
+by case: x Hx Hx' => x0 x1 x2 [_ _ -> _].
+Qed.
+
 (* ---------------------------------------------------------------------------*)
 (*  What the product's two missing instructions cost                          *)
 (* ---------------------------------------------------------------------------*)
@@ -1796,4 +1834,111 @@ Qed.
 (* low words is `u^2' of the leading one, so each extra term is `u^3' again --  *)
 (* the same shape as the seed, and the same reason it can fit.                 *)
 
+
+(* THEOREM 8 WITHOUT THE FUSED LINES: 25u^3 FOR THE PAPER'S 10.5.             *)
+(*                                                                            *)
+(* The paper spends Section 7.4 on five cases -- a large rounding error       *)
+(* forces a large product, so the worst numerator and the worst denominator   *)
+(* never meet -- and gets `10.5u^3' out of a naive `14u^3'.  Ours would need  *)
+(* every one of those refinements re-proved with the extra roundings in, for  *)
+(* a `d1' that the square root then halves anyway.  We take the naive bound:  *)
+(* `22u^3' over `1 - 4u', which is `25u^3' with room.  The price is paid once *)
+(* in `kscale', and it is a bit or two.                                       *)
+Lemma ThreeProdDWn_error_norm x y :
+  ties_to_even choice -> dw_normP p x -> tw_normP p y ->
+  Rabs (TWval (ThreeProdDWn x y) - TWval x * TWval y) <=
+     (25 * (u * u * u) + 200 * (u * u * u * u)) * Rabs (TWval x * TWval y).
+Proof.
+move=> Hc Nx Ny.
+case: x Nx => x0 x1 x2 [Nxd ->].
+case: y Ny => y0 y1 y2 Ny.
+have Ny' : tw_norm p y0 y1 y2 by exact: Ny.
+have Nx' : tw_norm p x0 x1 0 by exact: dw_norm_tw_norm Nxd.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu64 := u_le_64.
+rewrite ThreeProdDWn_eq !tw0E !tw1E.
+rewrite (ThreeProdn_norm_eq Nx' Ny').
+(* [x2 = 0] collapses [z32 = RN(z01- + RN(0 * y0))] to [z01-].                *)
+have Hz32 : RND (RND (x0 * y1 - RND (x0 * y1)) + RND (0 * y0))
+          = RND (x0 * y1 - RND (x0 * y1)).
+  by rewrite Rmult_0_l round_0 Rplus_0_r round_generic //;
+     apply: generic_format_round.
+rewrite Hz32.
+set bb := XvecSum [:: RND (x0 * y0 - RND (x0 * y0)); RND (x0 * y1);
+  RND (x1 * y0)].
+set c := RND (nth 0 bb 2 + RND (x1 * y1)).
+set z3 := RND (RND (RND (x1 * y0 - RND (x1 * y0)) + RND (x0 * y2))
+             + RND (x0 * y1 - RND (x0 * y1))).
+set e := XvecSum [:: RND (x0 * y0); nth 0 bb 0; nth 0 bb 1; c; z3].
+have HTW3 : TWval (TWR (nth 0 (Xvseb e) 0) (nth 0 (Xvseb e) 1)
+                       (nth 0 (Xvseb e) 2)) = sumR (XvsebK 3 e).
+  rewrite /TWval /VSEB.vsebK.
+  case E : (Xvseb e) => [|v0 [|v1 [|v2 r]]] /=.
+  - ring.
+  - ring.
+  - ring.
+  - rewrite take0 /=; ring.
+rewrite HTW3.
+have HXY : TWval (TWR x0 x1 0) * TWval (TWR y0 y1 y2)
+    = (x0 + x1 + 0) * (y0 + y1 + y2) by rewrite /TWval.
+rewrite HXY.
+have Hsz5 : size e = 5%N by rewrite /e size_vecSum.
+have Fbb : {in bb, forall z, format z}.
+  apply: (format_vecSum (p := p) Hp2 (choice := choice)) => z; rewrite !inE.
+  by move=> /orP[/eqP->|/orP[/eqP->|/eqP->]]; apply: generic_format_round.
+have Fnthbb : forall i, format (nth 0 bb i).
+  move=> i; case: (ltnP i (size bb)) => Hi;
+    last by rewrite nth_default //; exact: generic_format_0.
+  by apply: Fbb; apply: mem_nth.
+have Fe : {in e, forall z, format z}.
+  apply: (format_vecSum (p := p) Hp2 (choice := choice)) => z; rewrite !inE.
+  move=> /orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/eqP->]]]];
+    try apply: generic_format_round; apply: Fnthbb.
+have Fno : Fnonoverlap e.
+  have [Fc Fz3 Hc8 Hz3b] := cz3n_facts Nx' Ny'.
+  have Fno0 := inner_Fnonoverlap_g Nx' Ny' Fc Fz3 Hc8 Hz3b
+                 (s3n_le_15max Nx' Ny').
+  have Fno1 : Fnonoverlap (XvecSum [:: RND (x0 * y0); nth 0 bb 0; nth 0 bb 1;
+      RND (nth 0 bb 2 + RND (x1 * y1));
+      RND (RND (RND (x1 * y0 - RND (x1 * y0)) + RND (x0 * y2))
+         + RND (RND (x0 * y1 - RND (x0 * y1)) + RND (0 * y0)))])
+    by exact: Fno0.
+  by move: Fno1; rewrite Hz32.
+have Hle : (Z.of_nat (size e) <= p + 1)%Z by rewrite Hsz5; lia.
+have [Pno Hsumeq] := VSEB.vseb_Pnonoverlap (p := p) Hp2 choice_sym Hle Fe Fno.
+have Fvse : {in Xvseb e, forall z, format z}
+  by apply: (VSEB.format_vseb (p := p) Hp2 (choice := choice) Fe).
+have HNnaive : Rabs ((x0 + x1 + 0) * (y0 + y1 + y2) - sumR e)
+    <= 22 * (u * u * u) - 2 * (u * u * u * u)
+  by apply: (inner_sum_errn_dw Hc Nxd Ny').
+have Hs5 := eps5_bound Pno Fvse u_le_64.
+have Hxy1 := xy_ge Nx' Ny'.
+have Hident : sumR (XvsebK 3 e) - (x0 + x1 + 0) * (y0 + y1 + y2)
+    = -((sumR (Xvseb e) - sumR (XvsebK 3 e))
+        + ((x0 + x1 + 0) * (y0 + y1 + y2) - sumR e))
+  by rewrite Hsumeq; ring.
+rewrite Hident Rabs_Ropp.
+set S5 := sumR (Xvseb e) - sumR (XvsebK 3 e).
+set N := (x0 + x1 + 0) * (y0 + y1 + y2) - sumR e.
+set r := Rabs ((x0 + x1 + 0) * (y0 + y1 + y2)).
+have Hsm : Rabs (sumR (Xvseb e)) <= r + (22 * (u * u * u)
+    - 2 * (u * u * u * u)).
+  rewrite Hsumeq.
+  have -> : sumR e = (x0 + x1 + 0) * (y0 + y1 + y2) + (- N) by rewrite /N; ring.
+  have := Rabs_triang ((x0 + x1 + 0) * (y0 + y1 + y2)) (- N).
+  by rewrite Rabs_Ropp -/r -/N; move: HNnaive; rewrite -/N; lra.
+apply: (assembly_dw_eps5 (K := 22 * (u * u * u) - 2 * (u * u * u * u))
+          (A := 1 - 4 * u) (N := N) (S5 := S5) (sm := sumR (Xvseb e)) (r := r)).
+- clear -Hu0 Hu64; nra.
+- by rewrite -/r in Hxy1.
+- clear -Hu0 Hu64; nra.
+- by move: HNnaive; rewrite -/N.
+- exact: Hs5.
+- exact: Hsm.
+- have Hu2 : u * u <= / 64 * u by nra.
+  have Hu3 : u * u * u <= / 64 * (u * u) by nra.
+  have Hu4 : u * u * u * u <= / 64 * (u * u * u) by nra.
+  have Hu5 : u * u * u * u * u <= / 64 * (u * u * u * u) by nra.
+  clear -Hu0 Hu64 Hu2 Hu3 Hu4 Hu5; nra.
+Qed.
 End SecSeedNoFMA.
