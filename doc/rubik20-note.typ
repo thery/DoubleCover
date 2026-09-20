@@ -1107,9 +1107,6 @@ length, beginning with $q$.
 
 #align(center)[`F U' D R R B U' D' R L F F R U D' R' L U F' B' U U D D R B`]
 
-The swap leaves `U` and `D` alone, so the two turns of $q$ are still one from
-each set.
-
 Renaming by one of the sixteen relabellings that keep the up-down axis then
 turns $q$ into `R U` or `R' U`. The first case is already one of the six. In the
 second, one looks at the third turn. Most choices fold back into the first case,
