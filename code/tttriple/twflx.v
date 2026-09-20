@@ -872,39 +872,30 @@ Notation XThreeProdOneTWn := (ThreeProdOneTWn prec Dchoice).
 Definition halfTw_ok (t : twfloat) : Prop :=
   let: TWFloat x0 x1 x2 := t in
   [/\ Dfin x0, Dfin x1 & Dfin x2]
-  /\ [/\ Dfin (x0 / 2)%float, Dfin (x1 / 2)%float & Dfin (x2 / 2)%float]
-  /\ [/\ (Dnorm <= Rabs (D2R x0 / 2))%R, (Dnorm <= Rabs (D2R x1 / 2))%R
-       & (Dnorm <= Rabs (D2R x2 / 2))%R].
+  /\ [/\ (D2R (x0 / 2)%float = D2R x0 / 2)%R,
+         (D2R (x1 / 2)%float = D2R x1 / 2)%R
+       & (D2R (x2 / 2)%float = D2R x2 / 2)%R].
 
 Lemma halfTw_X t : halfTw_ok t ->
   tw2R (halfTw t) = scaleTW (-1) (tw2R t).
 Proof.
-case: t => x0 x1 x2 [[F0 F1 F2] [[H0 H1 H2] [N0 N1 N2]]].
-rewrite /halfTw /scaleTW /tw2R /=.
-rewrite (half_X _ F0 H0 N0) (half_X _ F1 H1 N1) (half_X _ F2 H2 N2).
+case: t => x0 x1 x2 [[F0 F1 F2] [H0 H1 H2]].
+rewrite /halfTw /scaleTW /tw2R /= H0 H1 H2.
 by congr TWR; rewrite /= /Z.pow_pos /=; lra.
 Qed.
 
-(* Three halves less a triple word: exact on the leading word by Sterbenz,   *)
-(* and a negation on the other two.                                         *)
+(* Three halves less a triple word: the leading word's subtraction is exact  *)
+(* -- which is a thing the program can see for itself, by the two-sum -- and *)
+(* the other two are negations.                                              *)
 Definition sub32Tw_ok (t : twfloat) : Prop :=
   let: TWFloat x0 x1 x2 := t in
   [/\ Dfin x0, Dfin x1, Dfin x2, Dfin (three2 - x0)%float
-    & (3 / 4 <= D2R x0 <= 3)%R].
+    & (D2R (three2 - x0)%float = 3 / 2 - D2R x0)%R].
 
 Lemma sub32Tw_X t : sub32Tw_ok t -> tw2R (sub32Tw t) = sub32TW (tw2R t).
 Proof.
-case: t => x0 x1 x2 [F0 F1 F2 Fs Hr].
-have Hp0 : Prec_gt_0 prec by [].
-have Ve : Valid_exp Dfexp by rewrite DfexpE; apply: FLT_exp_valid.
-have Mo : Monotone_exp Dfexp by rewrite DfexpE; apply: FLT_exp_monotone.
-have F32 : generic_format radix2 Dfexp (3 / 2)%R
-  by rewrite -Dthree2; apply: Dformat.
-have Fe : generic_format radix2 Dfexp (3 / 2 - D2R x0)%R.
-  by apply: (Sterbenz.sterbenz radix2 Dfexp) => //; [apply: Dformat | lra].
-have [E _] := Dfin_sub _ _ Dfin_three2 F0 Fs.
-rewrite /sub32Tw /sub32TW /tw2R /=.
-by rewrite E Dthree2 round_generic // !D2R_opp.
+case: t => x0 x1 x2 [F0 F1 F2 Fs He].
+by rewrite /sub32Tw /sub32TW /tw2R /= He !D2R_opp.
 Qed.
 
 (* The two products, stated on a triple word rather than on three words.     *)
@@ -1296,16 +1287,84 @@ by apply: DnormT_of_rnd; rewrite -Dsqrt; apply: normFP.
 Qed.
 
 (* Halving, and three halves less a triple word.                              *)
-Definition halfTw_okb (t : twfloat) : bool :=
-  let: TWFloat x0 x1 x2 := t in
-  [&& finF x0, finF x1, finF x2, finF (x0 / 2)%float & finF (x1 / 2)%float]
-  && [&& finF (x2 / 2)%float, normF (x0 / 2)%float, normF (x1 / 2)%float
-       & normF (x2 / 2)%float].
 
-Definition sub32Tw_okb (t : twfloat) : bool :=
-  let: TWFloat x0 x1 x2 := t in
-  [&& finF x0, finF x1, finF x2, finF (three2 - x0)%float
-    & ((3 / 4 <=? x0) && (x0 <=? 3))%float].
+(* ---------------------------------------------------------------------------*)
+(*  Two exactnesses a program can see for itself                              *)
+(* ---------------------------------------------------------------------------*)
+
+Lemma Deqb a b : (a =? b)%float = true -> Dfin a -> Dfin b -> D2R a = D2R b.
+Proof.
+rewrite eqb_equiv /Dfin /D2R => H Fa Fb.
+by move: H; rewrite (Beqb_correct _ _ _ _ Fa Fb); case: Req_bool_spec.
+Qed.
+
+(* HALVING, when doubling brings the word back.  Doubling is exact -- the     *)
+(* format is closed under it upwards, and an overflow is an infinity, which   *)
+(* is not the word it started as -- so a word that comes back is a word whose *)
+(* halving lost nothing.                                                      *)
+Definition halfOkb (a : PrimFloat.float) : bool :=
+  finF (a / 2)%float && finF ((a / 2) * 2)%float && ((a / 2) * 2 =? a)%float.
+
+Lemma half_exact a : Dfin a -> halfOkb a = true ->
+  D2R (a / 2)%float = (D2R a / 2)%R /\ Dfin (a / 2)%float.
+Proof.
+move=> Fa /andP[/andP[Hh Hd] He].
+have Fh := finFP _ Hh; have Fd := finFP _ Hd.
+have Hp0 : Prec_gt_0 prec by [].
+have E2 : D2R 2%float = 2%R by rewrite /D2R; compute; lra.
+have F2 : Dfin 2%float by [].
+have [Em _] := Dfin_mul _ _ Fh F2 Fd.
+have Ff : generic_format radix2 Dfexp (D2R (a / 2)%float * 2)%R.
+  have -> : (D2R (a / 2)%float * 2 = D2R (a / 2)%float * bpow radix2 1)%R
+    by rewrite /= /Z.pow_pos /=; lra.
+  by rewrite DfexpE; apply: Mult_error.mult_bpow_pos_exact_FLT;
+     [rewrite -DfexpE; apply: Dformat | lia].
+have Eq := Deqb _ _ He Fd Fa.
+move: Eq; rewrite Em E2 (round_generic _ _ _ _ Ff) => Eq.
+by split => //; lra.
+Qed.
+
+(* AND A SUBTRACTION, when the two-sum's low word comes out nought.  The      *)
+(* two-sum's two words add up to the exact sum, so a zero low word is the     *)
+(* high word being it.                                                        *)
+Definition subOkb (a b : PrimFloat.float) : bool :=
+  [&& finF (a - b)%float, finF (a + - b)%float,
+      finF ((a + - b) - - b)%float,
+      finF ((a + - b) - ((a + - b) - - b))%float
+    & finF (a - ((a + - b) - - b))%float]
+  && [&& finF (- b - ((a + - b) - ((a + - b) - - b)))%float,
+         finF ((a - ((a + - b) - - b))
+               + (- b - ((a + - b) - ((a + - b) - - b))))%float
+       & (dwlo (twoSum a (- b)) =? 0)%float].
+
+Lemma sub_exact a b : Dfin a -> Dfin b -> subOkb a b = true ->
+  D2R (a - b)%float = (D2R a - D2R b)%R /\ Dfin (a - b)%float.
+Proof.
+move=> Fa Fb /andP[/and5P[Hs Ha1 Ha2 Ha3 Ha4] /and3P[Ha5 Ha6 Hz]].
+have Fs := finFP _ Hs.
+have Fnb : Dfin (- b)%float by apply: Dfin_opp.
+have Hfin : DtwoSumFin a (- b)%float
+  by split; [|split; [|split; [|split; [|split]]]]; apply: finFP.
+have [Eh El] := twoSum_X _ _ Fa Fnb Hfin.
+have Fl : Dfin (dwlo (twoSum a (- b))) by have [] := twoSum_fin _ _ Hfin.
+have Ez : D2R (dwlo (twoSum a (- b))) = 0%R.
+  have E0 : D2R 0%float = 0%R by rewrite /D2R; compute; lra.
+  by rewrite -E0; apply: Deqb.
+have Hp2 : (1 < prec)%Z by [].
+have Hsum := TwoSum_correct_loc (p := prec) Hp2 (choice := Dchoice)
+  Dchoice_sym (Dformat_FLX a) (Dformat_FLX (- b)%float).
+have Hsum' : (dwh (XTwoSum (D2R a) (D2R (- b)%float))
+              + dwl (XTwoSum (D2R a) (D2R (- b)%float))
+              = D2R a + D2R (- b)%float)%R := Hsum.
+have Esh : D2R (dwhi (twoSum a (- b))) = (D2R a - D2R b)%R.
+  by rewrite Eh; move: Hsum'; rewrite -El Ez D2R_opp; lra.
+have Ehi : dwhi (twoSum a (- b)%float) = (a + - b)%float by [].
+have [Eab _] := Dfin_add _ _ Fa Fnb (finFP _ Ha1).
+have [Esb _] := Dfin_sub _ _ Fa Fb Fs.
+split => //.
+rewrite Esb; move: Esh; rewrite Ehi Eab D2R_opp => Esh.
+exact: Esh.
+Qed.
 
 Lemma half_rng a : Dfin a -> Dfin (a / 2)%float ->
   normF (a / 2)%float = true -> (Dnorm <= Rabs (D2R a / 2))%R.
@@ -1317,30 +1376,31 @@ have [E _] := Dfin_div _ _ Fa N2 Fs.
 by apply: DnormT_of_rnd; rewrite -E2 -E; apply: normFP.
 Qed.
 
+Definition halfTw_okb (t : twfloat) : bool :=
+  let: TWFloat x0 x1 x2 := t in
+  [&& finF x0, finF x1, finF x2, halfOkb x0 & halfOkb x1] && halfOkb x2.
+
+Definition sub32Tw_okb (t : twfloat) : bool :=
+  let: TWFloat x0 x1 x2 := t in
+  [&& finF x0, finF x1, finF x2 & subOkb three2 x0].
+
 Lemma halfTw_okbP t : halfTw_okb t = true -> halfTw_ok t.
 Proof.
-case: t => x0 x1 x2 /andP[/and5P[H0 H1 H2 H3 H4] /and4P[H5 H6 H7 H8]].
+case: t => x0 x1 x2 /andP[/and5P[H0 H1 H2 H3 H4] H5].
 have F0 := finFP _ H0; have F1 := finFP _ H1; have F2 := finFP _ H2.
-have G0 := finFP _ H3; have G1 := finFP _ H4; have G2 := finFP _ H5.
-split; first by split.
-split; first by split.
-by split; [apply: half_rng | apply: half_rng | apply: half_rng].
+have [E0 _] := half_exact _ F0 H3.
+have [E1 _] := half_exact _ F1 H4.
+have [E2 _] := half_exact _ F2 H5.
+by split; first by split.
 Qed.
 
 Lemma sub32Tw_okbP t : sub32Tw_okb t = true -> sub32Tw_ok t.
 Proof.
-case: t => x0 x1 x2 /and5P[H0 H1 H2 H3 /andP[Hl Hh]].
+case: t => x0 x1 x2 /and4P[H0 H1 H2 H3].
 have F0 := finFP _ H0; have F1 := finFP _ H1; have F2 := finFP _ H2.
-have Fs := finFP _ H3.
-have E34 : D2R (3 / 4)%float = (3 / 4)%R by rewrite /D2R; compute; lra.
-have E3 : D2R 3%float = 3%R by rewrite /D2R; compute; lra.
-have F34 : Dfin (3 / 4)%float by [].
-have F3 : Dfin 3%float by [].
-split => //; split.
-- by rewrite -E34; apply: Dleb.
-by rewrite -E3; apply: Dleb.
+have [E Fs] := sub_exact _ _ Dfin_three2 F0 H3.
+by split => //; rewrite E Dthree2.
 Qed.
-
 
 Definition fastTwoSumOkb (a b : PrimFloat.float) : bool :=
   [&& finF (a + b)%float, finF ((a + b) - a)%float
