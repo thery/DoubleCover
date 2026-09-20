@@ -1112,7 +1112,10 @@ superflip4 unchanged carries a word for it to another word for it, of the same
 length. Sixteen of the 48 relabellings do that: those that keep the up-down
 axis, the line through the centres of the top and bottom faces. They make the
 letter of $q$ from $cal(A)$ into `U`, and the letter from $cal(C)$ into `R` or
-`R'`, so $q$ becomes `R U` or `R' U`.
+`R'`, so $q$ becomes `R U` or `R' U`. In our example $q$ is `F U'`. The mirror
+that swaps left and right fixes the front face and reverses the direction of
+every turn, so `F U'` becomes `F' U`. A quarter rotation about the up-down axis
+then carries the front face to the right one, and `F' U` becomes `R' U`.
 
 A word starting with `R U` needs nothing more, which is the prefix of two
 turns. When it starts with `R' U` we look at the third turn. Six of the
