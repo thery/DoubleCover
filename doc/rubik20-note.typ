@@ -1100,8 +1100,8 @@ third turn may cancel the second. It costs us nothing, since a shortest word is
 what we want anyway.
 
 #src("HProp2.v") holds the argument. The split into $cal(A)$ and $cal(C)$ is
-the one of the published orientation, where the top and bottom turns are the
-ones that flip an edge. In ours the front and back faces are the ones that flip an edge,
+the one of @reid1998fourspot, where the turns of the top and bottom faces are
+the ones that flip an edge. In our orientation the front and back faces flip,
 so #src("HBridge.v") turns the position onto the other axis and carries the
 result across.
 
