@@ -1079,16 +1079,17 @@ again, has the same length, and takes the two turns in the other order. It
 remains to bring the pair to the front and to rename it so that it reads $R U$
 or $R^(-1) U$.
 
-The turns before the pair can be moved to the end of the word. Each of them is
-renamed on the way, by the swap of front with back and left with right. The new
-word has the same length and still gives superflip4. For instance
+To see how this is done, take a word for superflip4 whose first four turns are
+$B U U L$, and call the rest $w$. Those four can be moved to the end. Each of
+them is renamed on the way, by the swap of front with back and left with right,
+so $B U U L$ becomes $F U U R$, and
 
 #align(center)[
-  $B U^2 L space w quad "becomes" quad w space F U^2 R .$
+  $B U U L space w quad "and" quad w space F U U R$
 ]
 
-The swap leaves $U$ and $D$ alone, so the two turns now at the front are still
-one from each set.
+both give superflip4 and have the same length. The swap leaves $U$ and $D$
+alone, so the two turns now at the front are still one from each set.
 
 Renaming by one of the sixteen relabellings that keep the up-down axis then
 turns the pair at the front into $R U$ or $R^(-1) U$. The first case is already
