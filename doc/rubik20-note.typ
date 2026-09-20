@@ -1033,9 +1033,6 @@ turns written out, is
     space B^(-1)$
 ]
 
-The word has twenty-six letters. Counted in face turns it has twenty-one, five
-of them half turns. We check it by multiplying both sides out.
-
 It is enough to rule out 24. A quarter turn is five four-cycles of the 48
 stickers, so it is odd, and an odd word gives an odd position. Superflip4 is
 even, so every word for it has even length. The searches stop at 24.
