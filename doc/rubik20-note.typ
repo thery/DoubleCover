@@ -1080,7 +1080,7 @@ the first. Here the inverse is
 
 #align(center)[`B F U' L' R D U' R' F' F' L' R' D U B' R' R' D' U F' F' L' D' D' U' U'`]
 
-with five pairs of the first kind and four of the second.
+with, as expected, five pairs of the first kind and four of the second.
 
 Six turns stand before $q$. Write $x$ for them, `U U D D L F`, and $w$ for the
 rest, so that $x w = P$, where $P$ is superflip4. Then $w = x^(-1) P$, and
