@@ -1040,8 +1040,8 @@ for it has even length.
 
 == The six prefixes
 
-Every shortest word for superflip4 can be rewritten, at the same length, so
-that it begins with one of six prefixes @reid1998fourspot:
+Every shortest word for superflip4 can be rewritten, at the same length, so that
+it begins with one of six prefixes @reid1998fourspot:
 
 #align(center)[
   #grid(
@@ -1055,7 +1055,6 @@ that it begins with one of six prefixes @reid1998fourspot:
   )
 ]
 
-
 The searches start from those six. In order to prove this fact, we split the
 twelve quarter turns into two sets:
 
@@ -1067,34 +1066,35 @@ twelve quarter turns into two sets:
 A word made only of turns from $cal(A)$ leaves the four middle edges untouched,
 and superflip4 has them flipped, so no such word gives superflip4. A word made
 only of turns from $cal(C)$ never flips an edge, and superflip4 has every edge
-flipped, so no such word gives it either. Any word for superflip4 therefore
-uses turns from both sets, and a turn from $cal(A)$ and a turn from $cal(C)$
-stand next to each other somewhere in it.
+flipped, so no such word gives it either. Any word for superflip4 therefore uses
+turns from both sets, and a turn from $cal(A)$ and a turn from $cal(C)$ stand
+next to each other somewhere in it.
 
-These two neighbours, one turn from $cal(A)$ and one from $cal(C)$, may sit
-anywhere in the word, while a prefix has to be at the front. The cyclic shift
-moves them there. Let $r$ be the relabelling that
-spins the whole cube by half a turn about the up-down axis: it sends $B$ to
-$F$, $L$ to $R$, and leaves $U$ and $D$ alone. Write the word as $u w$, where
-$u$ is its first few letters. Then $w space u^r$ gives the same position, where
-$u^r$ is $u$ with every letter renamed by $r$. For instance
+Each of the six prefixes starts with a turn from $cal(C)$ followed by a turn
+from $cal(A)$, so we want a word for superflip4 that starts with such a pair.
+The split gives a pair of this kind somewhere inside the word, and the cyclic
+shift brings it to the front. Let $r$ be the relabelling that swaps front with
+back and left with right, and leaves top and bottom alone: it sends $B$ to $F$,
+$F$ to $B$, $L$ to $R$ and $R$ to $L$. Write the word as $u w$, where $u$ is its
+first few letters. Then $w space u^r$ gives the same position, where $u^r$ is
+$u$ with every letter renamed by $r$. For instance
 
 #align(center)[
   $B U^2 L space w quad "becomes" quad w space F U^2 R .$
 ]
 
 The two words have the same length. This holds because $r$ leaves superflip4
-unchanged, and the position was chosen for that reason. The shift also
-preserves the two sets. $r$ fixes $U$ and $D$ and permutes the other four
-faces, so a turn of $cal(A)$ stays in $cal(A)$ and a turn of $cal(C)$ stays in
-$cal(C)$. The two turns now at the front are still one from each set.
+unchanged, and the position was chosen for that reason. The shift also preserves
+the two sets. $r$ leaves $U$ and $D$ alone and moves the other four faces among
+themselves, so a turn of $cal(A)$ stays in $cal(A)$ and a turn of $cal(C)$ stays
+in $cal(C)$. The two turns now at the front are still one from each set.
 
 Two more operations leave the length and the position alone: inversion, and
 renaming by any of the sixteen relabellings that keep the up-down axis. With
 them the pair at the front becomes $R U$ or $R^(-1) U$. The first case is
-already one of the six. In the second, one looks at the third turn: most
-choices fold back into the first case, and five survive. Those five and $R U$
-are the six.
+already one of the six. In the second, one looks at the third turn: most choices
+fold back into the first case, and five survive. Those five and $R U$ are the
+six.
 
 In Rocq the proposition reads
 
