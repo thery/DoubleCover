@@ -1095,12 +1095,14 @@ $P^(-1) x P$ is not longer than $x$:
 
 #align(center)[
   $P^(-1) x P = (P^(-1) mono(U) P) (P^(-1) mono(U) P) (P^(-1) mono(D) P)
-    (P^(-1) mono(D) P) (P^(-1) mono(L) P) (P^(-1) mono(F) P) .$
+    (P^(-1) mono(D) P) (P^(-1) mono(L) P) (P^(-1) mono(F) P)
+    = mono(U) space mono(U) space mono(D) space mono(D) space mono(R) space
+      mono(B) .$
 ]
 
 Each factor is a quarter turn again, the same turn with front and back swapped
-and left and right swapped, checked for the twelve in #src("HProp2.v"). So
-$P^(-1) x P$ is `U U D D R B`, and $q w$ followed by these six turns,
+and left and right swapped, and #src("HProp2.v") checks this for each of the
+twelve quarter turns. So $q w$ followed by those six turns,
 
 #align(center)[`F U' D R R B U' D' R L F F R U D' R' L U F' B' U U D D R B`]
 
