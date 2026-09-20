@@ -323,8 +323,8 @@ Definition mul_DN (_ : precision) x y := onReal2 mulTwDn x y.
 (* is not transcribed yet, with the same shift.                               *)
 Definition div_UP (_ : precision) x y := onReal2 divTwUpP x y.
 Definition div_DN (_ : precision) x y := onReal2 divTwDnP x y.
-Definition sqrt_UP (_ : precision) x := onReal sqrtTwUpP x.
-Definition sqrt_DN (_ : precision) x := onReal sqrtTwDnP x.
+Definition sqrt_UP (_ : precision) x := onReal sqrtTwUpK x.
+Definition sqrt_DN (_ : precision) x := onReal sqrtTwDnK x.
 
 (* A whole number as a triple word.  Putting it in the leading word alone     *)
 (* would hold fifty-three bits of it and drop the rest, which is what every   *)
@@ -1466,7 +1466,7 @@ apply: (onReal_upper (fun x => Xsqrt (toX x))) => {p}{}x Rx Rz.
 have [F0 [F1 [F2 Wx]]] := real_fin _ Rx.
 have [H0 [H1 [H2 _]]] := real_fin _ Rz.
 rewrite (toX_real _ Rx) (toX_real _ Rz) /=.
-by apply: sqrtTwUpP_ge => //; apply: finL_tw2l.
+by apply: sqrtTwUpK_ge => //; apply: finL_tw2l.
 Qed.
 
 Lemma sqrt_DN_correct p x :
@@ -1479,7 +1479,7 @@ apply: (onReal_lower (fun x => Xsqrt (toX x))) => {p}{}x Rx Rz.
 have [F0 [F1 [F2 Wx]]] := real_fin _ Rx.
 have [H0 [H1 [H2 _]]] := real_fin _ Rz.
 rewrite (toX_real _ Rx) (toX_real _ Rz) /le_lower /=.
-by apply: Ropp_le_contravar; apply: sqrtTwDnP_le => //; apply: finL_tw2l.
+by apply: Ropp_le_contravar; apply: sqrtTwDnK_le => //; apply: finL_tw2l.
 Qed.
 
 (* Rounding to a whole number is monotone, so the three words added in the    *)
