@@ -23,12 +23,12 @@ Module TwFloatCheck <: FloatOps := TwFloat.
 ```
 
 is what says it meets Interval's signature. **Every one of its obligations is
-proved**; nothing in it is `Admitted`. Four of them — the quotient and the
-root, each way — lean on one named assumption each, and those two are the only
-things assumed anywhere. The list is at the top of the file. **What the root's
-assumption asks for is now proved** (`threeSqRt_error` in `twflx.v`), bar the
-range guard that the scaling would discharge; see *The root, without a fused
-multiply-add* below. The quotient's is still measured only.
+proved**; nothing in it is `Admitted`. **The root assumes nothing**:
+`Print Assumptions TwFloat.sqrt_UP_correct` names only Rocq's own
+primitive-float axioms and classical reals. What is left is the quotient:
+`div_UP_correct` and `div_DN_correct` lean on `kstep_div`, which is measured,
+not proved, and it is the one thing assumed anywhere. See *The root, without
+a fused multiply-add* below for how the root was settled.
 
 **The sum, the difference and the product are proved** — `add_UP_correct`,
 `add_DN_correct`, `sub_UP_correct`, `sub_DN_correct`, `mul_UP_correct`,
@@ -258,6 +258,7 @@ the test caught it.
 | `twprodg.v` | Section 6.2 of the paper, made generic in `c` and `z3`, and Algorithm 9 without the fused multiply-add |
 | `twseed.v` | the seed, the two products and the root, all with nothing fused: `ThreeSqRtNn_error` |
 | `twflx.v` | the bridge, primitive floats to the paper's reals, ending in `threeSqRt_error` and `kstep_sqrt_testable` |
+| `twsqrt.v` | the root behind its guard: `sqrtTwUpP`, `sqrtTwDnP` and their two bounds |
 | `tw_cmpbad.v` | the pair that shows comparing on the words is wrong, and that `cmp` gets it right |
 | `test_pi.v` | a smoke test: pi by Machin, and what the interface's operations bracket |
 | `tw_unsafe.v` | `sensible_format := true` with `div2` admitted, so Interval's functors apply |
@@ -556,12 +557,18 @@ program can evaluate**, and `Print Assumptions` on it names nothing of ours.
 and `2^-1000`, and false near the top of the range, where Dekker's own
 splitting overflows.
 
-**What is still owed.** Wiring the test into `sqrtTwUpP` and `sqrtTwDnP`, so
-that the obligations go through it rather than through the axiom. Where it
-fails the operation has to do something else — return `nan`, or scale the
-argument into a fixed binade by an even power of two and put half the
-exponent back, the way `dwsqrt.v`'s `sqrtDwUpK` does. That is a change to the
-algorithm, not to a proof, so it is left as a decision rather than made.
+**And the operation tests it.** `twsqrt.v` takes `sqrtTwUpP` and `sqrtTwDnP`
+out of `twpaper.v` and puts them behind that test; where it fails the answer
+is `nan`, which an interval library reads as no information and is always
+sound. `Axiom kstep_sqrt` is gone. `sqrt 2` and `sqrt (3 + eps)` bracket as
+before and all four pi brackets still pass.
+
+**What could still be done.** Where the test fails the operation gives up
+rather than trying again. The other way is `dwsqrt.v`'s: take an even power
+of two out of the argument, run the algorithm in a fixed binade — where every
+one of the clauses holds by construction — and put half the exponent back.
+That would turn the `nan` into an answer. It is a change to the algorithm,
+not to a proof.
 
 ## Open
 
