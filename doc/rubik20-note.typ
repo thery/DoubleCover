@@ -1068,8 +1068,18 @@ and superflip4 has them flipped, so no such word gives superflip4. A word made
 only of turns from $cal(C)$ never flips an edge, and superflip4 has every edge
 flipped, so no such word gives it either. Any word for superflip4 therefore uses
 turns from both sets, and a turn from $cal(A)$ and a turn from $cal(C)$ stand
-next to each other somewhere in it. The word given for superflip4 has $F$ as its
-seventh turn and $U^(-1)$ as its eighth.
+next to each other somewhere in it. Recall the word we gave for superflip4:
+
+#align(center)[
+  $U space U space D space D space L space F space F space U^(-1) space D space
+    R space R space B space U^(-1) space D^(-1) space R space L space F space F
+    space R space U space D^(-1) space R^(-1) space L space U space F^(-1)
+    space B^(-1)$
+]
+
+Its turns from $cal(A)$ and from $cal(C)$ change over at several places, and the
+first pair in the order we need is at positions seven and eight, $F$ then
+$U^(-1)$.
 
 Each of the six prefixes starts with a turn from $cal(C)$ followed by a turn
 from $cal(A)$, so we want a word for superflip4 that starts with such a pair. We
@@ -1080,9 +1090,9 @@ again, has the same length, and takes the two turns in the other order. It
 remains to bring the pair to the front and to rename it so that it reads $R U$
 or $R^(-1) U$.
 
-That pair is in the wrong place, so take that word and write $x$ for
-the six turns before it, $U U D D L F$, and $w$ for the rest, so that $x w = P$,
-where $P$ is superflip4. Then $w = x^(-1) P$, and therefore
+That pair is in the wrong place, so write $x$ for the six turns before it,
+$U U D D L F$, and $w$ for the rest, so that $x w = P$, where $P$ is superflip4.
+Then $w = x^(-1) P$, and therefore
 
 #align(center)[
   $w (P^(-1) x P) = x^(-1) P P^(-1) x P = P .$
