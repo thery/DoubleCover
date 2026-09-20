@@ -4,7 +4,7 @@ From Flocq Require Import Core Relative Sterbenz Operations Mult_error.
 From twarith.threewords Require Import Nmore Rmore Fmore Rstruct MULTmore prelim.
 From twarith.threewords Require Import TwoSum Nonoverlap TWR VecSum.
 From twarith.threewords Require Import ThreeProd ThreeProdDW ThreeProdOne.
-From twarith.threewords Require Import ThreeReci ThreeDiv.
+From twarith.threewords Require Import ThreeReci ThreeDiv ThreeSqRt.
 From twarith Require Import twprodg twseed.
 
 (* ALGORITHM 14 WITHOUT A FUSED MULTIPLY-ADD.                                 *)
@@ -89,6 +89,15 @@ Local Notation reciB11_scale := (reciB11_scale p choice).
 Local Notation reciB11_opp := (reciB11_opp p (choice := choice) choice_sym).
 Local Notation TwoProd_correct := (MULTmore.TwoProd_correct (p := p)).
 Local Notation RN_sym := (RN_sym p beta choice choice_sym).
+Local Notation u_le_2048 := (u_le_2048 Hp11).
+Local Notation sub2TW_isTW := (sub2TW_isTW Hp2).
+Local Notation head_one_gen_c := (head_one_gen_c Hp2 Hp10).
+Local Notation ThreeProdDWn := (ThreeProdDWn p choice).
+Local Notation ThreeProdOneTWn := (ThreeProdOneTWn p choice).
+Local Notation ThreeProdDWn_isTW := (ThreeProdDWn_isTW Hp2 Hp11 choice_sym).
+Local Notation ThreeProdDWn_error := (ThreeProdDWn_error Hp2 Hp11 choice_sym).
+Local Notation ThreeProdDWn_head_gap := (ThreeProdDWn_head_gap Hp2 Hp11 choice_sym).
+Local Notation ThreeProdOneTWn_error_c := (ThreeProdOneTWn_error_c Hp2 Hp11 choice_sym).
 
 (* The two facts about one rounding that every bound below is made of.        *)
 Lemma rndd_err v : Rabs (RND v - v) <= u * Rabs v.
@@ -618,6 +627,319 @@ have HE : TWval (reciBWn x0 x1) * pow (- c)
         = TWval (reciBWn x0 x1) * TWval (TWR x0 x1 x2).
   by rewrite /TWval bpow_opp; field; lra.
 by rewrite HE in Hb.
+Qed.
+
+
+(* ---------------------------------------------------------------------------*)
+(*  The assembly, with the seed's number a parameter                          *)
+(* ---------------------------------------------------------------------------*)
+
+(* The paper writes its own `34' and `35' into `sub2_near_one',               *)
+(* `newton_sq_le' and `div_error_assembly'.  Ours is `40', so the three are   *)
+(* restated with it; nothing else about them changes.                         *)
+Lemma newton_sq_len t :
+  Rabs t <= 40 * (u * u) + 200 * (u * u * u) ->
+  t ^ 2 <= 1700 * (u * u * u * u).
+Proof.
+move=> Ht.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu1024 := u_le_1024.
+have Hp := Rabs_pos t.
+have Hsq : Rabs t * Rabs t = t ^ 2.
+  by rewrite -Rabs_mult Rabs_pos_eq; [ring | apply: Rle_0_sqr].
+have Hu3 : u * u * u <= /1024 * (u * u) by nra.
+have Hu4 : u * u * u * u <= /1024 * (u * u * u) by nra.
+by rewrite -Hsq; nra.
+Qed.
+
+Lemma sub2_near_onen B X P d1 :
+  Rabs (B * X - 1) <= 41 * (u * u) ->
+  Rabs (P - B * X) <= d1 * Rabs (B * X) ->
+  0 <= d1 -> d1 <= u * u ->
+  Rabs (2 - P - 1) <= 43 * (u * u).
+Proof.
+move=> H41 HP Hd10 Hd1u.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu1024 := u_le_1024.
+have Hu2 : u * u <= / 1024 * u by nra.
+have HBXub : Rabs (B * X) <= 1 + 41 * (u * u).
+  by have := Rabs_triang_inv (B * X) 1; rewrite Rabs_R1; lra.
+have Hpos := Rabs_pos (B * X).
+have Hd : d1 * Rabs (B * X) <= u * u * (1 + 41 * (u * u)).
+  by apply: Rmult_le_compat; lra.
+have T := Rabs_triang (1 - B * X) (B * X - P).
+have Hm : Rabs (1 - B * X) = Rabs (B * X - 1) by rewrite Rabs_minus_sym.
+have Hm2 : Rabs (B * X - P) = Rabs (P - B * X) by rewrite Rabs_minus_sym.
+have E : 2 - P - 1 = (1 - B * X) + (B * X - P) by ring.
+by rewrite E; nra.
+Qed.
+
+Lemma div_error_assemblyn a c R0 e1 e2 e3 e4 dd1 dd2 dd3 :
+  0 <= a -> a <= 1 + 41 * (u * u) ->
+  0 <= c -> c <= 1 + 43 * (u * u) ->
+  0 <= R0 -> 0 <= dd1 -> 0 <= dd2 -> dd2 <= u * u -> 0 <= dd3 ->
+  e1 <= dd3 * ((1 + dd2) * (a * R0) * c) ->
+  e2 <= dd2 * (a * R0 * c) ->
+  e3 <= a * R0 * (dd1 * a) ->
+  e4 <= 1700 * (u * u * u * u) * R0 ->
+  e1 + e2 + e3 + e4
+    <= (dd1 * (1 + 83 * (u * u)) + (dd2 + dd3) * (1 + 90 * (u * u))
+        + 1700 * (u * u * u * u)) * R0.
+Proof.
+move=> Ha0 Ha1 Hc0 Hc1 HR0 Hd10 Hd20 Hd2u Hd30 H1 H2 H3 H4.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu1024 := u_le_1024.
+have Hu2 : u * u <= / 1024 * u by nra.
+have Hac : a * c <= 1 + 85 * (u * u) by nra.
+have Hac0 : 0 <= a * c by nra.
+have Haa : a * a <= 1 + 83 * (u * u) by nra.
+have Hd2R : 0 <= dd2 * R0 by nra.
+have Hd1R : 0 <= dd1 * R0 by nra.
+have Hd3R : 0 <= dd3 * R0 by nra.
+have K1 : dd3 * ((1 + dd2) * (a * R0) * c) <= dd3 * (1 + 90 * (u * u)) * R0.
+  have -> : dd3 * ((1 + dd2) * (a * R0) * c)
+      = (dd3 * R0) * ((1 + dd2) * (a * c))
+    by ring.
+  have -> : dd3 * (1 + 90 * (u * u)) * R0 = (dd3 * R0) * (1 + 90 * (u * u))
+    by ring.
+  by apply: Rmult_le_compat_l => //; nra.
+have K2 : dd2 * (a * R0 * c) <= dd2 * (1 + 90 * (u * u)) * R0.
+  have -> : dd2 * (a * R0 * c) = (dd2 * R0) * (a * c) by ring.
+  have -> : dd2 * (1 + 90 * (u * u)) * R0 = (dd2 * R0) * (1 + 90 * (u * u))
+    by ring.
+  by apply: Rmult_le_compat_l => //; nra.
+have K3 : a * R0 * (dd1 * a) <= dd1 * (1 + 83 * (u * u)) * R0.
+  have -> : a * R0 * (dd1 * a) = (dd1 * R0) * (a * a) by ring.
+  have -> : dd1 * (1 + 83 * (u * u)) * R0 = (dd1 * R0) * (1 + 83 * (u * u))
+    by ring.
+  by apply: Rmult_le_compat_l.
+by nra.
+Qed.
+
+(* The core of Theorem 10, on the bare reals, with the seed's number handed   *)
+(* in.  Nothing here knows about triple words: it is the algebraic identity   *)
+(*                                                                            *)
+(*   Y - Z/X = (Y - A i) + (A - B Z) i + (B Z)(X B - P) + Z (B (2 - X B) - 1/X)*)
+(*                                                                            *)
+(* with `i = 2 - P', whose last term is `- Z (B X - 1)^2 / X'.                *)
+Lemma div_error_coren B X Z P A Y d1 d2 d3 :
+  Rabs (B * X - 1) <= 40 * (u * u) + 200 * (u * u * u) ->
+  Rabs (P - B * X) <= d1 * Rabs (B * X) ->
+  Rabs (A - B * Z) <= d2 * Rabs (B * Z) ->
+  Rabs (Y - A * (2 - P)) <= d3 * Rabs (A * (2 - P)) ->
+  0 <= d1 -> d1 <= u * u -> 0 <= d2 -> d2 <= u * u -> 0 <= d3 ->
+  Rabs (Y - Z / X)
+    <= (d1 * (1 + 83 * (u * u)) + (d2 + d3) * (1 + 90 * (u * u))
+        + 1700 * (u * u * u * u)) * Rabs (Z / X).
+Proof.
+move=> HBX HP HA HY Hd10 Hd1u Hd20 Hd2u Hd30.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu1024 := u_le_1024.
+have Hu3 : u * u * u <= / 1024 * (u * u) by nra.
+have HBX41 : Rabs (B * X - 1) <= 41 * (u * u)
+  by clear -HBX Hu0 Hu1024 Hu3; nra.
+have HX0 : X <> 0.
+  move=> HX; move: HBX41; rewrite HX Rmult_0_r.
+  have -> : (0 - 1) = -1 by ring.
+  by rewrite Rabs_Ropp Rabs_R1; clear -Hu0 Hu1024; nra.
+set I := 2 - P in HY *.
+have HI1 : Rabs (I - 1) <= 43 * (u * u)
+  by apply: (sub2_near_onen (B := B) (X := X) (P := P) (d1 := d1)).
+have HIub : Rabs I <= 1 + 43 * (u * u)
+  by have := Rabs_triang_inv I 1; rewrite Rabs_R1; lra.
+have HBXub : Rabs (B * X) <= 1 + 41 * (u * u)
+  by have := Rabs_triang_inv (B * X) 1; rewrite Rabs_R1; lra.
+set R0 := Rabs (Z / X).
+have HR0 : 0 <= R0 by apply: Rabs_pos.
+have Hab : 0 <= Rabs (B * X) by apply: Rabs_pos.
+have Hai : 0 <= Rabs I by apply: Rabs_pos.
+have HBZ : Rabs (B * Z) = Rabs (B * X) * R0.
+  by rewrite /R0 -Rabs_mult; congr Rabs; field.
+have HAub : Rabs A <= (1 + d2) * (Rabs (B * X) * R0).
+  have T := Rabs_triang_inv A (B * Z).
+  by rewrite -HBZ; nra.
+have Hnewton : B * (2 - X * B) - / X = - (B * X - 1) ^ 2 * / X.
+  have H := newton_id B X.
+  have -> : B * (2 - X * B) - / X = ((B * (2 - X * B)) * X - 1) * / X.
+    by field.
+  by rewrite H.
+have Hdecomp : Y - Z / X
+    = (Y - A * I) + (A - B * Z) * I + (B * Z) * (X * B - P)
+      + Z * (B * (2 - X * B) - / X)
+  by rewrite /I; field.
+have E1 : Rabs ((A - B * Z) * I) = Rabs (A - B * Z) * Rabs I
+  by rewrite Rabs_mult.
+have E2 : Rabs ((B * Z) * (X * B - P))
+    = Rabs (B * X) * R0 * Rabs (P - B * X).
+  rewrite Rabs_mult HBZ; congr (_ * _).
+  by rewrite -Rabs_Ropp; congr Rabs; ring.
+have E3 : Rabs (Z * (B * (2 - X * B) - / X)) = (B * X - 1) ^ 2 * R0.
+  rewrite Hnewton.
+  have -> : Z * (- (B * X - 1) ^ 2 * / X) = - ((B * X - 1) ^ 2 * (Z / X))
+    by field.
+  rewrite Rabs_Ropp Rabs_mult -/R0; congr (_ * _).
+  by apply: Rabs_pos_eq; apply: pow2_ge_0.
+have Step1 : Rabs (Y - A * I)
+    <= d3 * ((1 + d2) * (Rabs (B * X) * R0) * Rabs I).
+  apply: Rle_trans HY _.
+  rewrite Rabs_mult; apply: Rmult_le_compat_l => //.
+  by apply: Rmult_le_compat_r.
+have Step2 : Rabs ((A - B * Z) * I) <= d2 * (Rabs (B * X) * R0 * Rabs I).
+  rewrite E1.
+  have -> : d2 * (Rabs (B * X) * R0 * Rabs I) = (d2 * Rabs (B * Z)) * Rabs I
+    by rewrite HBZ; ring.
+  by apply: Rmult_le_compat_r.
+have Step3 : Rabs ((B * Z) * (X * B - P))
+    <= Rabs (B * X) * R0 * (d1 * Rabs (B * X)).
+  rewrite E2; apply: Rmult_le_compat_l; last by [].
+  by apply: Rmult_le_pos.
+have Step4 : Rabs (Z * (B * (2 - X * B) - / X))
+    <= 1700 * (u * u * u * u) * R0.
+  rewrite E3; apply: Rmult_le_compat_r => //.
+  by apply: newton_sq_len.
+have T2 := Rabs_triang (Y - A * I + (A - B * Z) * I) ((B * Z) * (X * B - P)).
+have T3 := Rabs_triang (Y - A * I) ((A - B * Z) * I).
+have T1 := Rabs_triang (Y - A * I + (A - B * Z) * I + (B * Z) * (X * B - P))
+                       (Z * (B * (2 - X * B) - / X)).
+rewrite Hdecomp.
+apply: Rle_trans T1 _.
+have T4 : Rabs (Y - A * I + (A - B * Z) * I + (B * Z) * (X * B - P))
+            + Rabs (Z * (B * (2 - X * B) - / X))
+    <= Rabs (Y - A * I) + Rabs ((A - B * Z) * I)
+       + Rabs ((B * Z) * (X * B - P)) + Rabs (Z * (B * (2 - X * B) - / X))
+  by lra.
+apply: Rle_trans T4 _.
+by apply: (div_error_assemblyn (a := Rabs (B * X)) (c := Rabs I) (R0 := R0)).
+Qed.
+
+
+(* ---------------------------------------------------------------------------*)
+(*  Algorithm 14, with nothing fused anywhere                                 *)
+(* ---------------------------------------------------------------------------*)
+
+Definition ThreeDivAuxN (mul1 mul2 mul3 : twR -> twR -> twR) (z x : twR)
+    : twR :=
+  let bw := reciBWn (tw0 x) (tw1 x) in
+  mul3 (mul2 bw z) (sub2TW (mul1 bw x)).
+
+Definition ThreeDivN (z x : twR) : twR :=
+  ThreeDivAuxN ThreeProdDWn ThreeProdDWn ThreeProdOneTWn z x.
+
+(* The paper's assembly, with its own `35' and `40' become `41' and `43'.     *)
+Lemma ThreeDivAuxN_error mul1 mul2 mul3 d1 d2 d3 :
+  (forall b y, isDW b -> isTW y -> isTW (mul1 b y)) ->
+  (forall b y, isDW b -> isTW y -> isTW (mul2 b y)) ->
+  (forall b y, isDW b -> isTW y ->
+     Rabs (TWval b * TWval y - 1) <= 41 * (u * u) -> tw0 (mul1 b y) = 1) ->
+  (forall b y, isDW b -> isTW y ->
+     Rabs (TWval (mul1 b y) - TWval b * TWval y)
+       <= d1 * Rabs (TWval b * TWval y)) ->
+  (forall b y, isDW b -> isTW y ->
+     Rabs (TWval (mul2 b y) - TWval b * TWval y)
+       <= d2 * Rabs (TWval b * TWval y)) ->
+  (forall a y, isTW a -> isTW y -> tw0 y = 1 ->
+     Rabs (TWval y - 1) <= 43 * (u * u) ->
+     Rabs (TWval (mul3 a y) - TWval a * TWval y)
+       <= d3 * Rabs (TWval a * TWval y)) ->
+  0 <= d1 -> d1 <= u * u -> 0 <= d2 -> d2 <= u * u ->
+  0 <= d3 -> d3 <= u * u ->
+  forall z x, isTW z -> isTW x -> tw0 x <> 0 ->
+    Rabs (TWval (ThreeDivAuxN mul1 mul2 mul3 z x) - TWval z / TWval x)
+      <= (d1 * (1 + 83 * (u * u)) + (d2 + d3) * (1 + 90 * (u * u))
+          + 1700 * (u * u * u * u)) * Rabs (TWval z / TWval x).
+Proof.
+move=> Hmul1 Hmul2 Hhead Herr1 Herr2 Herr3 Hd10 Hd1u Hd20 Hd2u Hd30 Hd3u
+       z x Hz Hx Hx0.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu1024 := u_le_1024.
+have Fx0 : format (tw0 x) by case: x Hx {Hx0} => x0 x1 x2 [].
+have Hx1 : tw1 x = 0 \/ Rabs (tw1 x) < ulp (tw0 x)
+  by case: x Hx {Hx0 Fx0} => x0 x1 x2 [].
+rewrite /ThreeDivAuxN.
+set b := reciBWn (tw0 x) (tw1 x).
+have HDW : isDW b by apply: reciBn_isDW.
+have HBX := reciBWn_x_err Hx Hx0.
+rewrite -/b in HBX.
+have Hu3 : u * u * u <= / 1024 * (u * u) by nra.
+have HBX41 : Rabs (TWval b * TWval x - 1) <= 41 * (u * u)
+  by clear -HBX Hu0 Hu1024 Hu3; nra.
+have Hprod1 : isTW (mul1 b x) by apply: Hmul1.
+have Hhead1 : tw0 (mul1 b x) = 1 by apply: Hhead.
+set i := sub2TW (mul1 b x).
+have Hi : isTW i by apply: (sub2TW_isTW Hprod1).
+have Hi0 : tw0 i = 1
+  by rewrite /i; case: (mul1 b x) Hhead1 => t0 t1 t2 /= ->; ring.
+have HIval : TWval i = 2 - TWval (mul1 b x) by rewrite /i TWval_sub2TW.
+have HI1 : Rabs (TWval i - 1) <= 43 * (u * u).
+  rewrite HIval.
+  apply: (sub2_near_onen (B := TWval b) (X := TWval x)
+            (P := TWval (mul1 b x)) (d1 := d1)) => //.
+  by apply: Herr1.
+have Herr1' := Herr1 _ _ HDW Hx.
+have Herr2' := Herr2 _ _ HDW Hz.
+have Herr3' := Herr3 _ _ (Hmul2 _ _ HDW Hz) Hi Hi0 HI1.
+rewrite HIval in Herr3'.
+by apply: (div_error_coren (B := TWval b) (X := TWval x) (Z := TWval z)
+             (P := TWval (mul1 b x)) (A := TWval (mul2 b z))
+             (Y := TWval (mul3 (mul2 b z) i)) (d1 := d1) (d2 := d2)
+             (d3 := d3)).
+Qed.
+
+(* AND WHAT THE QUOTIENT COMES TO: 56u^3 for the paper's 29.                  *)
+(*                                                                            *)
+(* Twenty-five of it is each of the two double-word products, which the       *)
+(* quotient does NOT halve -- unlike the root, which does -- and six is       *)
+(* Algorithm 20, unchanged.  The paper's 29 is 10.5 + 10.5 + 8 at its own     *)
+(* `d1'; ours is 25 + 25 + 6 at the naive one.                                *)
+Lemma ThreeDivN_error z x :
+  ties_to_even choice ->
+  isTW z -> isTW x -> tw0 x <> 0 ->
+  Rabs (TWval (ThreeDivN z x) - TWval z / TWval x)
+    <= (56 * (u * u * u) + 5000 * (u * u * u * u))
+       * Rabs (TWval z / TWval x).
+Proof.
+move=> Hc Hz Hx Hx0.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu2048 := u_le_2048.
+have Hu2 : u * u <= / 2048 * u by nra.
+have Hu3 : u * u * u <= / 2048 * (u * u) by nra.
+have Hu4 : u * u * u * u <= / 2048 * (u * u * u) by nra.
+have Hu5 : u * u * u * u * u <= / 2048 * (u * u * u * u) by nra.
+have Hu6 : u * u * u * u * u * u <= / 2048 * (u * u * u * u * u) by nra.
+have H43a : (0 : R) <= 43 by lra.
+have H43b : (43 : R) <= 112 by lra.
+have Hd0 : 0 <= 25 * (u * u * u) + 200 * (u * u * u * u) by nra.
+have Hdu : 25 * (u * u * u) + 200 * (u * u * u * u) <= u * u by nra.
+have He0 : 0 <= 6 * (u * u * u) + 2180 * (u * u * u * u) by nra.
+have Heu : 6 * (u * u * u) + 2180 * (u * u * u * u) <= u * u by nra.
+(* [50 * 43 + 30 = 2180]: Algorithm 20's [delta3] at OUR tolerance.           *)
+have Hd3le : 6 * (u * u * u) + (50 * 43 + 30) * (u * u * u * u)
+    <= 6 * (u * u * u) + 2180 * (u * u * u * u) by lra.
+have Hcu : (41 : R) * u <= / 4 by nra.
+have Hhead : forall b y, isDW b -> isTW y ->
+    Rabs (TWval b * TWval y - 1) <= 41 * (u * u) ->
+    tw0 (ThreeProdDWn b y) = 1.
+  apply: (head_one_gen_c Hcu).
+  - by move=> X Y HX HY; apply: ThreeProdDWn_isTW.
+  by move=> X Y HX HY HX0 HY0; apply: ThreeProdDWn_head_gap.
+have Hgen := @ThreeDivAuxN_error ThreeProdDWn ThreeProdDWn ThreeProdOneTWn
+  (25 * (u * u * u) + 200 * (u * u * u * u))
+  (25 * (u * u * u) + 200 * (u * u * u * u))
+  (6 * (u * u * u) + 2180 * (u * u * u * u))
+  (fun b y Hb Hy => ThreeProdDWn_isTW Hb Hy)
+  (fun b y Hb Hy => ThreeProdDWn_isTW Hb Hy)
+  Hhead
+  (fun b y Hb Hy => ThreeProdDWn_error Hc Hb Hy)
+  (fun b y Hb Hy => ThreeProdDWn_error Hc Hb Hy)
+  (fun a y Ha Hy Hy0 Hy1 =>
+     Rle_trans _ _ _
+       (ThreeProdOneTWn_error_c Hc H43a H43b Ha Hy Hy0 Hy1)
+       (Rmult_le_compat_r _ _ _ (Rabs_pos _) Hd3le))
+  Hd0 Hdu Hd0 Hdu He0 Heu z x Hz Hx Hx0.
+rewrite /ThreeDivN.
+apply: Rle_trans Hgen _.
+apply: Rmult_le_compat_r; first by apply: Rabs_pos.
+nra.
 Qed.
 
 End SecDivNoFMA.
