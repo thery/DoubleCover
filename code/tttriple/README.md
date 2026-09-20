@@ -24,8 +24,11 @@ Module TwFloatCheck <: FloatOps := TwFloat.
 
 is what says it meets Interval's signature. **Every one of its obligations is
 proved**; nothing in it is `Admitted`. Four of them — the quotient and the
-root, each way — lean on one named, measured assumption each, and those two are
-the only things assumed anywhere. The list is at the top of the file.
+root, each way — lean on one named assumption each, and those two are the only
+things assumed anywhere. The list is at the top of the file. **What the root's
+assumption asks for is now proved** (`threeSqRt_error` in `twflx.v`), bar the
+range guard that the scaling would discharge; see *The root, without a fused
+multiply-add* below. The quotient's is still measured only.
 
 **The sum, the difference and the product are proved** — `add_UP_correct`,
 `add_DN_correct`, `sub_UP_correct`, `sub_DN_correct`, `mul_UP_correct`,
@@ -74,10 +77,11 @@ of `deps` for what the product can miss. Nothing of that kind is needed here.
 `div_UP_correct`, `div_DN_correct`, `sqrt_UP_correct` and `sqrt_DN_correct` are
 no longer admitted. What they lean on is `kstep_div` and `kstep_sqrt` in
 `twpaper.v`, and those two say only this: the step the answer is widened by
-covers what the algorithm is out by. **They are measured, not proved** —
-`probek.py` runs the two algorithms on forty thousand random triple words and
-reports 2.3 units in the last place for the quotient, where `kscale` allows
-eight — and they are now stated as assumptions in their own right, so
+covers what the algorithm is out by. **The root's half is now proved** — see
+below — **and the quotient's is still measured**: `probek.py` runs the two
+algorithms on forty thousand random triple words and reports 2.3 units in the
+last place for the quotient. Both are stated as assumptions in their own
+right, so
 `Print Assumptions` on anything reached through the quotient or the root says
 `twpaper.kstep_div` in as many words. Before, the same gap was four `Admitted`
 obligations, which said nothing about where it lay.
@@ -250,6 +254,10 @@ the test caught it.
 | `twarith.v` | the algorithms: the error-free transforms, the two sweeps, `sortMag`, `Merge`, and the operations rounded to nearest |
 | `tw_updn.v` | the directed operations: the widening steps and the up and down forms of each |
 | `tw_ops.v` | the interface: `TwFloat`, its obligations, and the sealing |
+| `twpaper.v` | the paper's algorithms on primitive floats: Algorithms 9, 11, 14, 15, 18, 20, and the step |
+| `twprodg.v` | Section 6.2 of the paper, made generic in `c` and `z3`, and Algorithm 9 without the fused multiply-add |
+| `twseed.v` | the seed, the two products and the root, all with nothing fused: `ThreeSqRtNn_error` |
+| `twflx.v` | the bridge, primitive floats to the paper's reals, ending in `threeSqRt_error` |
 | `tw_cmpbad.v` | the pair that shows comparing on the words is wrong, and that `cmp` gets it right |
 | `test_pi.v` | a smoke test: pi by Machin, and what the interface's operations bracket |
 | `tw_unsafe.v` | `sensible_format := true` with `div2` admitted, so Interval's functors apply |
@@ -443,47 +451,71 @@ the `fromZ` fault in `code/ddouble` was found — its 25-digit row read
 column, and that is now fixed (`fromZ` used to widen by an integer `1`, which
 is an absolute step and so `1/n` in relative terms).
 
-## What proving `kstep_sqrt` would take
+## The root, without a fused multiply-add
 
-`kstep_div` and `kstep_sqrt` are the only assumptions in the development. The
-root is the better of the two to attack first, because its range half is a
+`kstep_div` and `kstep_sqrt` are the only assumptions in the development.
+The root is the better of the two to attack, because its range half is a
 known manoeuvre: scaling by an **even** power of two is exact on every word,
 lands the argument in a fixed binade and brings the answer back by half the
 exponent, so every intermediate is normal and the paper's FLX bounds apply
 unchanged. `code/ddouble`'s `dwsqrt.v` already does exactly this
-(`dsqscale = 2^537`, `scale_up_exact`, `scale_dn_exact`). Division has no such
-single trick — its quotient's exponent is unconstrained — and `dwdivflx.v` uses
-a guard instead.
+(`dsqscale = 2^537`). Division has no such single trick — its quotient's
+exponent is unconstrained — and `dwdivflx.v` uses a guard instead.
 
-The paper's development builds, and `ThreeSqRt_error` is there:
-`|TWval (ThreeSqRt x) - sqrt (TWval x)| <= (24u^3 + 10260u^4) |sqrt (TWval x)|`.
-Four things stand between it and the axiom.
+**Rocq's primitive floats have no fused multiply-add.** Every `RN(v + a w)`
+in the paper is two roundings here, `RN(v + RN(a w))`, and there are seven of
+them in Algorithm 15: three in the seed, two in Algorithm 11 (`c` and `z31`)
+and two in Algorithm 20 (`z31` and `z3`). So the paper's `ThreeSqRt_error` is
+about a different program from the one that runs, and the whole chain had to
+be re-derived.
 
-**The seed, which is the only new mathematics.** Our `sqrtBW` is the paper's
-with three fused multiply-adds opened into two roundings each — `RN(v + a*w)`
-becomes `RN(v + RN(a*w))`. The whole assembly touches the seed through just two
-facts, `sqrtB_isDW` and `sqrtBW_x_err_crude` (`|b sqrt x - 1| <= 100u^2`), so
-those two are what has to be re-proved. The second is 55 lines and splits as
-**85u² of Newton residual, which does not move** — it depends on `sqrtA` alone,
-which is unchanged — **plus 11u² of collected rounding, which does.**
+**The move that made it tractable.** Section 6.2 — the part that proves the
+inner `VecSum` F-nonoverlapping and `VSEB`'s star identity for it — never asks
+what `c` and `z3` *are*. It asks four things: that both are in the format,
+that `|c| <= 8u^2` and `|z3| <= 12u^2`, and that `|RN(c + z3)|` is within
+fifteen `ulp` of the larger of the two middle words. `twprodg.v` is the
+paper's own proof text with those two made variables and those four made
+hypotheses — nine lemmas, from `s3_le_16max` to `vseb_head3_e1zero` — and the
+split version satisfies all four. The fifteen does not move either: the two
+new roundings cost a factor `(1 + u)` apiece and the constant comes out at
+14.74 where the paper's came out at 14.
 
-**And the headroom there is about seven.** The seed's `100u²` becomes `105u²` at
-`sqrtAux_i2_near_1`, and `ThreeProdOneTW_error_c` takes its tolerance as a
-parameter `c` with `40 <= c <= 112`. So the seed may grow to roughly `107u²` and
-no further without reworking `ThreeProdOne.v`. A crude perturbation of the
-FMA-free seed off the fused one gives about `+23u²` — too much — so the
-`sqrtBW_newton_form` bound has to be re-derived directly rather than perturbed.
+**What the constants did.**
 
-**The bridge, mechanical but bulky.** `threeProdDW` and the paper's
-`ThreeProdDW` are line for line the same with `(a + b)%float` where the paper
-has `RND (a + b)`, so each transfer lemma is what `dwbridge.v` already gives for
-one operation, lifted through the sweeps.
+| | paper | here | why |
+|---|---|---|---|
+| seed, `\|b sqrt x - 1\|` | 100u² | 104u² | three split lines, 8u² apiece at `u^2` |
+| `ThreeProdDWn` (Alg 11) | 10.5u³ | 25u³ | Section 7.4's five refinement cases not ported |
+| `ThreeProdOneTWn` (Alg 20) | 6u³ + (31c+10)u⁴ | 6u³ + (50c+30)u⁴ | only the `c u^4` side moves |
+| **`ThreeSqRtNn`** | **24u³** | **31u³** | 25 halved twice, plus 6 |
 
-**The constant, and it has now been measured rather than guessed.** The paper
-proves `24u^3`; `kscale = 2^-156` allows `8u^3`. So `kscale` has to widen to
-`2^-154`. Setting it there and re-reading five enclosures at `i_prec 107` —
-relative width of `interval_intro`'s own output, which is a looser measure than
-the table above and not comparable with it, but fine for a before-and-after:
+The `25` is the one real loss, and it is deliberate. Section 7.4 exists to
+keep the worst numerator away from the worst denominator, and every one of its
+five cases would have to be re-proved with the extra roundings in — for a `d1`
+that the square root then halves anyway. The naive bound is `22u^3` over
+`1 - 4u`, which is 25 with room. The seed's `104u^2` is against a ceiling of
+about 107 (`ThreeProdOneTW_error_c` takes its tolerance as a parameter no
+larger than 112, and `sqrtAuxN_i2_near_1` delivers 108), so it fits with four
+to spare.
+
+**The bridge.** `twflx.v` matches the two developments operation by operation:
+sums need nothing but finiteness (`dwflx.v` settled that), products need to be
+clear of the bottom of the range, and the seed adds a square root, a division,
+a halving and a Sterbenz subtraction. The result is `threeSqRt_X` — the
+primitive floats compute `ThreeSqRtNn` — and then `threeSqRt_error`:
+
+    |twval (threeSqRt x) - sqrt (twval x)| <= (31u^3 + 22500u^4) |sqrt (twval x)|
+
+under one guard, `sqrt_ok`, which is the six guards of its parts at the
+arguments the algorithm gives them.
+
+**And the two bits.** `31u^3` is `31 * 2^-159`, which is `3.875 * 2^-156` — so
+the measured `kscale = 2^-156` does **not** cover the proved bound, and
+`2^-154` does, with three per cent to spare. `kscale_needed` in `twflx.v` is
+the arithmetic. The probing measured 2.3 units of the last place and the proof
+says 3.9, so the two are within a factor of two: the bits are the price of the
+proof, not of the algorithm. Measured before the proof existed, at
+`i_prec 107`, on the relative width of `interval_intro`'s own output:
 
 | | at `2^-156` | at `2^-154` | |
 |---|---|---|---|
@@ -494,13 +526,15 @@ the table above and not comparable with it, but fine for a before-and-after:
 | a 25-digit rational | 2^-155.0 | 2^-153.0 | +2.0 |
 
 Exactly two bits where the step is used and nothing where it is not — `exp 1`
-is sums and products, which the step never touched. **And no time at all**: the
-150-bit pi bracket takes 0.56 s either way, and all four pi brackets still
-pass.
+is sums and products, which the step never touched — **and no time at all**:
+the 150-bit pi bracket takes 0.56 s either way.
 
-`kscale` is LEFT AT `2^-156` for now. Widening it before the proof exists
-would spend the two bits and buy nothing; the number to spend them for is
-`kstep_sqrt`, and when that lands the two go together.
+**What is still owed.** `sqrt_ok` itself. Discharging it from the hypotheses
+`kstep_sqrt` is stated with needs the scaling: `sqrtTwUpP` and `sqrtTwDnP`
+would take an even power of two out of the argument, run the algorithm in a
+fixed binade and put half the exponent back, the way `dwsqrt.v`'s `sqrtDwUpK`
+does. That is a change to the algorithm, not to a proof, so it is left as a
+decision rather than made.
 
 ## Open
 
