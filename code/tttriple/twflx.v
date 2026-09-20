@@ -951,3 +951,52 @@ rewrite (threeProdOneTW_XT _ _ Hp3) (sub32Tw_X _ Hsub)
         (threeProdDW_XT _ _ Hp1) Ebw.
 by case: x {Hseed Hp1 Hhalf Hp2 Hsub Hp3 Hrest Ebw}.
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  What Algorithm 15 is out by, on primitive floats                          *)
+(* ---------------------------------------------------------------------------*)
+
+Notation Xu := (u prec radix2).
+
+Lemma Dchoice_te : ties_to_even Dchoice.
+Proof. by []. Qed.
+
+Lemma Dchoice_sym : forall x : Z, Dchoice x = ~~ Dchoice (- (x + 1))%Z.
+Proof.
+move=> x /=; rewrite Z.even_opp Z.even_add /=.
+by case: (Z.even x).
+Qed.
+
+(* THE ROOT'S ERROR, READ BACK.  `ThreeSqRtNn_error' says the algorithm is    *)
+(* out by `31u^3 + 22500u^4' of the root; `threeSqRt_X' says the primitive    *)
+(* floats compute it; so this is the two put together, with `sqrt_ok' the     *)
+(* only thing left to pay for.                                                *)
+Theorem threeSqRt_error x :
+  sqrt_ok x -> isTW prec (tw2R x) -> (0 < D2R (tw0 x))%R ->
+  (Rabs (twval (threeSqRt x) - R_sqrt.sqrt (twval x))
+     <= (31 * (Xu * Xu * Xu) + 22500 * (Xu * Xu * Xu * Xu))
+        * Rabs (R_sqrt.sqrt (twval x)))%R.
+Proof.
+move=> Hok Hx Hx0.
+have Hp2 : (1 < prec)%Z by [].
+have Hp11 : (11 <= prec)%Z by [].
+have Ht0 : TWR.tw0 (tw2R x) = D2R (tw0 x) by case: x {Hok Hx Hx0}.
+have H := ThreeSqRtNn_error Hp2 Hp11 Dchoice_sym Dchoice_te Hx
+            (ltac:(by rewrite Ht0) : (0 < TWR.tw0 (tw2R x))%R).
+rewrite -!TWval_tw2R (threeSqRt_X _ Hok).
+exact: H.
+Qed.
+
+(* AND WHAT THE STEP HAS TO BE.  `31u^3' is `31 * 2^-159', which is           *)
+(* `3.875 * 2^-156' -- so the measured `kscale = 2^-156' does not cover the   *)
+(* proved bound, and `2^-154' does, with three per cent to spare.  The        *)
+(* measurement said 2.3 units of the last place and the proof says 3.9, so    *)
+(* the two are within a factor of two of each other; the bits are the price   *)
+(* of the proof, not of the algorithm.                                        *)
+Lemma kscale_needed :
+  (31 * (Xu * Xu * Xu) + 22500 * (Xu * Xu * Xu * Xu)
+     <= bpow radix2 (-154))%R.
+Proof.
+have -> : Xu = bpow radix2 (-53) by rewrite (u_pow prec).
+rewrite /bpow /= /Z.pow_pos /=; lra.
+Qed.
