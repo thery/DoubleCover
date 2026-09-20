@@ -342,26 +342,53 @@ how many bits to aim for.
 desktop, seconds. Bignums are asked for the precision each word module
 actually holds, so this is a comparison at equal precision.
 
-| op | bignum 107 | bignum 159 | double words | triple words |
-|---|---|---|---|---|
-| add | 0.052 | 0.089 | **0.009** | 0.042 |
-| mul | 0.092 | 0.155 | **0.012** | 0.115 |
-| div | 0.256 | 0.871 | **0.017** | 0.136 |
-| sqrt | 0.025 | 0.047 | **0.003** | 0.014 |
-| cmp | 0.448 | 0.318 | **0.055** | 0.162 |
+| op | bignum 107 | bignum 159 | double words | triple words | was |
+|---|---|---|---|---|---|
+| add | 0.050 | 0.085 | **0.009** | 0.119 | 0.042 |
+| mul | 0.089 | 0.157 | **0.012** | 0.141 | 0.115 |
+| div | 0.258 | 0.616 | **0.018** | 1.404 | 0.136 |
+| sqrt | 0.026 | 0.047 | **0.003** | 0.084 | 0.014 |
+| cmp | 0.262 | 0.340 | **0.052** | 0.163 | 0.162 |
 
-Medians of three runs. The `cmp` row is a hundred thousand comparisons, not ten
+Medians of three runs. **The `was` column is before the quotient and the root
+were proved**, and the bignum and double-word columns reproduce their old
+numbers to within noise, so what moved is the triple-word arithmetic and not
+the machine.
+
+**PROVING THEM COST A GREAT DEAL OF TIME, and the reason is structural.** The
+operation now evaluates a guard — `divOkT`, `sqrtOkT` — and then, if it holds,
+computes the answer. The guard re-runs the whole algorithm and every one of
+its intermediates, and each clause of it re-runs its own subexpression again
+(`mulF a b` computes `a * b` inside `prodF`, having already asked for it as
+`finF`). So the quotient pays for the algorithm at least twice over plus the
+tests, and `divTwUpK` calls `divTwUpQ` up to seven times looking for a way
+round. Ten times slower is about what that predicts.
+
+**The fix is known and is the double-word development's own pattern**:
+`divDwDw2GS` there returns `(result, ok)` in one pass and `divDwDw2GSE` proves
+that pair equals the two computed separately. A `threeDivG`/`threeSqRtG` of
+the same shape would compute the answer and the flag together, and cost the
+algorithm plus the tests rather than twice the algorithm plus the tests. It is
+mechanical work and it is not done.
+
+The sum and the product moved too, by less, and that is a different cause:
+`kscale` is three bits wider, so every widened answer carries larger low words
+and the sweeps below them do more. That one is the honest price of the proof,
+not of the arrangement. The `cmp` row is a hundred thousand comparisons, not ten
 thousand: a comparison is far cheaper than an operation. It is the one row
 where the three-word column is not the slowest — against bignums at its own
 precision a triple-word comparison is 1.8x quicker, and 2.7x quicker than
 bignums at 107.
 
-Against bignums at the same precision, and both win on all four:
+Against bignums at the same precision, a double word still wins on all four;
+a triple word now wins on none of them, where before the guards it won on all
+four:
 
 | | add | mul | div | sqrt |
 |---|---|---|---|---|
-| double words | 6.6x faster | 7.0x faster | 15.4x faster | 12.5x faster |
-| triple words | 2.4x faster | 1.6x faster | 6.9x faster | 2.6x faster |
+| double words | 5.6x faster | 7.4x faster | 14.3x faster | 8.7x faster |
+| triple words | 0.7x | 1.1x | 0.4x | 0.6x |
+| triple words, before | 2.4x faster | 1.6x faster | 6.9x faster | 2.6x faster |
 
 **AN EXPONENT SHIFT IS NOT ONE INSTRUCTION HERE.** The step was first written
 as `FloatOps.Z.ldexp`, which is one instruction on the machine and exact. In
