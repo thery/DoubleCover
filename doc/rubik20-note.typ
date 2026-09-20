@@ -1070,17 +1070,21 @@ Recall the word we gave for it:
 
 #align(center)[`U U D D L F F U' D R R B U' D' R L F F R U D' R' L U F' B'`]
 
-The two sets first meet at the fourth and fifth turns, `D` then `L`: a turn of
-$cal(A)$ followed by one of $cal(C)$. Since superflip4 is its own inverse, we
-may invert the word, which reverses the order of its turns and inverts each
-one:
+Reading along it, a turn of $cal(C)$ is followed by a turn of $cal(A)$ four
+times, and a turn of $cal(A)$ is followed by a turn of $cal(C)$ five times. We
+take the first pair of the first kind, at the seventh and eighth turns, `F`
+then `U'`.
+
+A word could have pairs of the second kind only. Superflip4 is its own inverse,
+so inverting such a word gives a word for superflip4 again, of the same length,
+and every pair of the second kind becomes one of the first. The inverse of the
+word above is
 
 #align(center)[`B F U' L' R D U' R' F' F' L' R' D U B' R' R' D' U F' F' L' D' D' U' U'`]
 
-This is again a word for superflip4, of the same length. Its second and third
-turns are `F` then `U'`, a turn of $cal(C)$ followed by one of $cal(A)$.
+with five pairs of the first kind and four of the second.
 
-Only the first turn `B` stands before that pair. Write $x$ for it and $w$ for
+Six turns stand before our pair. Write $x$ for them, `U U D D L F`, and $w$ for
 the rest, so that $x w = P$, where $P$ is superflip4. Then $w = x^(-1) P$, and
 therefore
 
@@ -1089,14 +1093,13 @@ therefore
 ]
 
 For this position $P^(-1) x P$ is $x$ with front and back swapped and left and
-right swapped, so here it is `F`. #src("HProp2.v") checks that one turn at a
-time. Moving `B` to the end and renaming it gives
+right swapped, here `U U D D R B`. #src("HProp2.v") checks that one turn at a
+time. Moving the six turns to the end and renaming them gives
 
-#align(center)[`F U' L' R D U' R' F' F' L' R' D U B' R' R' D' U F' F' L' D' D' U' U' F`]
+#align(center)[`F U' D R R B U' D' R L F F R U D' R' L U F' B' U U D D R B`]
 
-which is a word for superflip4 of the same length starting with `F U'`. The
-swap leaves `U` and `D` alone, so the two turns at the front are still one from
-each set.
+a word for superflip4 of the same length, starting with `F U'`. The swap leaves
+`U` and `D` alone, so the two turns at the front are still one from each set.
 
 Renaming by one of the sixteen relabellings that keep the up-down axis then
 turns the pair at the front into `R U` or `R' U`. The first case is already
