@@ -1197,16 +1197,16 @@ The published proofs do not solve all 43 quintillion positions one at a time.
 They cut the cube group into the 2 217 093 120 cosets of a subgroup and solve a
 whole coset at once. One search settles every one of the 19 508 428 800
 positions in it. The positions in a coset are not all the same distance from
-solved. What the search shows is that none of them is more than 20. A symmetry
-of the cube carries one coset to another, and the image is solved by the same
+solved. The search shows that none of them is more than 20. A symmetry of the
+cube carries one coset to another, and the image is solved by the same
 manoeuvres relabelled, so only one coset per symmetry class is searched. Two
-things are then needed: that the cosets searched cover every class, and that
-each search really settles its whole coset.
+things are then needed. The cosets searched must cover every class, and each
+search must settle its whole coset.
 
-The first is not a computation, and #src("Canon.v") proves it. Take as
-representative the least member of each class, in the order the finite type
-already carries. The covering property holds because a finite set has a least
-element. It is eighty lines and assumes nothing.
+#src("Canon.v") proves the first, and it is not a computation. As the
+representative of a class we take its least member, in the order the type of
+positions already carries. Every class is covered, because a finite set that is
+not empty has a least member. The file is eighty lines and assumes nothing.
 
 The second is the computation itself. Rokicki, Kociemba, Davidson and Dethridge
 ran it over 55 882 296 families of cosets. It took about a billion seconds of
@@ -1230,8 +1230,8 @@ exactly one coset.
   ([cosets we did], [1]),
 )
 
-We did the superflip's coset. We had the superflip already, from the lower
-bound, so it is a good enough example of a coset.
+We already had the superflip from the lower bound, so its coset is a convenient
+example.
 
 == The coset as one map
 
@@ -1267,24 +1267,25 @@ Four things are new, and none of them is about searching.
 
 == The unsound stop
 
-Cutting a branch on the table is sound, because a table that says too little
-only cuts less. Stopping on it is not. Our search used to stop when the table
-said zero and take the position it had reached as one of the coset. A table of
-zeros still says too little, so it is still allowed, and it would stop the
-search everywhere and the theorem would say nothing.
+A table that underestimates only cuts less, so cutting a branch on it is sound.
+Stopping on it is not. Our search used to stop when the table gave zero, and
+take the position it had reached as one of the coset. A table of zeros
+underestimates everywhere, so it passes the two conditions. It would stop the
+search at once, and the theorem would say nothing.
 
 The search now stops on the position. At the bottom it tests the position it is
-carrying. No part of the proof reads the table, and it costs one comparison.
+carrying. The proof no longer reads the table there, and the test costs one
+comparison.
 
 == Folding the map
 
 The map is 40 320 pages of 20 160 groups, one page for each way the eight top
 and bottom corners can sit. Sixteen renamings of the cube keep the top and
-bottom faces in place, send the ten to the ten and leave the superflip alone.
-Two pages related by a renaming hold the same answer, so one page of each family
-is enough: 2 768 of the 40 320, a factor of 14.6. A level of the search is one
-pass over the map, so there is 14.6 times less of it to walk. The price is
-undoing a renaming whenever a kept page is read.
+bottom faces in place, map the ten generators among themselves, and leave the
+superflip alone. Two pages related by a renaming hold the same answer, so one
+page of each family is enough: 2 768 of the 40 320, a factor of 14.6. A level of
+the search is one pass over the map, so there is 14.6 times less of it to walk.
+The price is undoing a renaming whenever a kept page is read.
 
 The kept pages go in pairs of their own, and a pair shares one word as it does
 on the unfolded side: 1 496 words in place of 2 768. Two hundred and twenty-four
@@ -1322,15 +1323,15 @@ same search in both, and both times it filled the map.
 The fold is worth 1.3 times on the wall clock and 1.3 times on processor time.
 The run does not follow the size of the map, which is 13 times smaller. Most of
 the work is the search at the deepest levels, and that is the same tree on both
-sides. What the map sets is the memory. The unfolded map is 3.25 GB against 248
-MB, and a level reads one map while it writes the other, so the unfolded run
-needed 23.3 GB of a 62 GB machine. Told to collect harder, the same run peaks at
-13.9 GB and takes four per cent longer.
+sides. The map sets the memory. The unfolded map is 3.25 GB against 248 MB, and
+a level reads one map while it writes the other, so the unfolded run needed 23.3
+GB of a 62 GB machine. With the garbage collector set to work harder, the same
+run peaks at 13.9 GB and takes four per cent longer.
 
 Two earlier folded runs say where the time went. Over words of twenty-four bits,
 holding one corner arrangement each, the run took 6 h 00. The same run with the
-depth left as a unary numeral instead of a machine integer took 8 h 13. Counting
-in unary is the enemy here too.
+depth left as a unary numeral instead of a machine integer took 8 h 13, so the
+unary depth cost 2 h 13.
 
 The phase one table is 2.9 GB of Rocq source and 4.5 GB once checked, 8 h 48 of
 processor time. It is generated once and shared with the lower-bound work.
@@ -1342,7 +1343,7 @@ Theorem real_row_superflip_fold_runi m :
   m \in H -> superflip * m \in ball Sset 20.
 ```
 
-`H` is the group of the ten, and a coset is one of its cosets. Every position of
+`H` is the subgroup above, and a coset is one of its cosets. Every position of
 the superflip's coset is within twenty moves. Rocq reports only the primitives
 of its machine-integer and array interface. The unfolded run proves the same
 statement from its own map.
