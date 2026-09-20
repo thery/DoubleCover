@@ -1073,7 +1073,7 @@ Recall the word we gave for it:
 Reading along it, a turn of $cal(C)$ is followed by a turn of $cal(A)$ four
 times, and a turn of $cal(A)$ is followed by a turn of $cal(C)$ five times. We
 take the first pair of the first kind, at the seventh and eighth turns, `F` then
-`U'`, and call it $q$. If a word had pairs of the second kind only, we would
+`U'`, and call that two-letter word $q$. If a word had pairs of the second kind only, we would
 invert it first: superflip4 is its own inverse, so the inverse is again a word
 for it, of the same length, and inverting turns every pair of the second kind
 into one of the first. Here the inverse is
