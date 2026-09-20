@@ -1071,23 +1071,24 @@ turns from both sets, and a turn from $cal(A)$ and a turn from $cal(C)$ stand
 next to each other somewhere in it.
 
 Each of the six prefixes starts with a turn from $cal(C)$ followed by a turn
-from $cal(A)$, so we want a word for superflip4 that starts with such a pair.
-We know there is a pair of this kind in the word, but it can be anywhere. To
-bring it to the front, write the word as $u w$, where $u$ is the part before
-the pair. Then $w space u^r$ is again a word for superflip4, of the same
-length, where $u^r$ is $u$ with every letter renamed by $r$. The relabelling
-$r$ swaps front with back and left with right, and leaves top and bottom alone:
-it sends $B$ to $F$, $F$ to $B$, $L$ to $R$ and $R$ to $L$. This move of the
-letters is the cyclic shift. For instance
+from $cal(A)$, so we want a word for superflip4 that starts with such a pair. We
+know there is a pair of this kind in the word, but it can be anywhere. To bring
+it to the front, write the word as $u w$, where $u$ is the part before the pair.
+Then $w space u^r$ is again a word for superflip4, of the same length, where
+$u^r$ is $u$ with every letter renamed by $r$. The relabelling $r$ swaps front
+with back and left with right, and leaves top and bottom alone: it sends $B$ to
+$F$, $F$ to $B$, $L$ to $R$ and $R$ to $L$. This move of the letters is the
+cyclic shift. For instance
 
 #align(center)[
   $B U^2 L space w quad "becomes" quad w space F U^2 R .$
 ]
 
 The new word gives superflip4 because $r$ leaves superflip4 unchanged, and the
-position was chosen for that reason. The shift also preserves the two sets. $r$ leaves $U$ and $D$ alone and moves the other four faces among
-themselves, so a turn of $cal(A)$ stays in $cal(A)$ and a turn of $cal(C)$ stays
-in $cal(C)$. The two turns now at the front are still one from each set.
+position was chosen for that reason. The shift also preserves the two sets. $r$
+leaves $U$ and $D$ alone and moves the other four faces among themselves, so a
+turn of $cal(A)$ stays in $cal(A)$ and a turn of $cal(C)$ stays in $cal(C)$. The
+two turns now at the front are still one from each set.
 
 Two more operations leave the length and the position alone: inversion, and
 renaming by any of the sixteen relabellings that keep the up-down axis. With
