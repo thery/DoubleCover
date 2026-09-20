@@ -1107,14 +1107,17 @@ length, beginning with $q$.
 
 #align(center)[`F U' D R R B U' D' R L F F R U D' R' L U F' B' U U D D R B`]
 
-The second step renames the word. The sixteen relabellings that keep the
-up-down axis turn the letter of $q$ from $cal(A)$ into `U`, and the letter from
-$cal(C)$ into `R` or `R'`. So $q$ becomes `R U` or `R' U`.
+The second step renames the faces. A relabelling of the cube that leaves
+superflip4 unchanged carries a word for it to another word for it, of the same
+length. Sixteen of the 48 relabellings do that: those that keep the up-down
+axis, the line through the centres of the top and bottom faces. They make the
+letter of $q$ from $cal(A)$ into `U`, and the letter from $cal(C)$ into `R` or
+`R'`, so $q$ becomes `R U` or `R' U`.
 
-Words beginning with `R U` are searched as they are, which gives the prefix of
-two turns. In the case `R' U` the third turn is looked at. Six of the possible
-turns give words that a relabelling or an inversion brings back to the `R U`
-case, and five do not. Those five are the prefixes of three turns.
+A word starting with `R U` needs nothing more, which is the prefix of two
+turns. When it starts with `R' U` we look at the third turn. Six of the
+possible turns give words that a relabelling or an inversion brings back to the
+`R U` case, and five do not. Those five are the prefixes of three turns.
 
 In Rocq the proposition reads
 
