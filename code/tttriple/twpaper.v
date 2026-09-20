@@ -180,12 +180,14 @@ Definition threeSqRt (x : twfloat) : twfloat :=
 (* by 1.7 and Algorithm 14 by 2.3.  Eight of those units is the leading word  *)
 (* shifted down a hundred and fifty-six, and that is what this was.            *)
 (*                                                                            *)
-(* `twflx.v' now proves the root: `31u^3 + 22500u^4' of the answer, which is  *)
-(* 3.9 units, not 2.3 -- so the measurement was right about the algorithm and *)
-(* wrong about what could be shown of it, and the constant has to go up by    *)
-(* two bits to a hundred and fifty-four.  `kscale_needed' in `twflx.v' is the *)
-(* arithmetic.  The division is still measured only.                          *)
-Definition kscale := Eval compute in 0x1p-154%float.
+(* `twflx.v' now proves both.  The root is out by `31u^3' of the answer and   *)
+(* the quotient by `56u^3', which are 3.9 and 7 units of that last place      *)
+(* where the probing measured 2.3 -- so the measurement was right about the   *)
+(* algorithms and wrong about what could be shown of them.  Seven units wants *)
+(* a hundred and fifty-three, three bits above what was measured and one      *)
+(* above what the root alone would need.  `kscale_needed' in `twflx.v' is the *)
+(* arithmetic.                                                                *)
+Definition kscale := Eval compute in 0x1p-153%float.
 
 (* The paper's bounds hold in the NORMAL range only - they are proved in the  *)
 (* format with no smallest exponent.  Below that the shift would be a claim    *)

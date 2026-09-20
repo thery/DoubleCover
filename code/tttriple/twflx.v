@@ -1074,8 +1074,8 @@ Qed.
 (* the two are within a factor of two of each other; the bits are the price   *)
 (* of the proof, not of the algorithm.                                        *)
 Lemma kscale_needed :
-  (31 * (Xu * Xu * Xu) + 22500 * (Xu * Xu * Xu * Xu)
-     <= bpow radix2 (-154))%R.
+  (56 * (Xu * Xu * Xu) + 5000 * (Xu * Xu * Xu * Xu)
+     <= bpow radix2 (-153))%R.
 Proof.
 have -> : Xu = bpow radix2 (-53) by rewrite (u_pow prec).
 rewrite /bpow /= /Z.pow_pos /=; lra.
@@ -1085,7 +1085,7 @@ Qed.
 (*  And `kstep_sqrt' itself, where the guard holds                            *)
 (* ---------------------------------------------------------------------------*)
 
-Lemma Dkscale : D2R kscale = bpow radix2 (-154).
+Lemma Dkscale : D2R kscale = bpow radix2 (-153).
 Proof. by rewrite /D2R /kscale; compute; lra. Qed.
 
 Lemma DnormLo : D2R tw_updn.normLo = bpow radix2 (-900).
@@ -1225,7 +1225,7 @@ have Fk : Dfin kscale by rewrite /Dfin /kscale; compute.
 (* the step, read as a number *)
 have Estep : D2R (kstep r) = D2R (dw_updn.mulUpFp kscale (abs (tw0 r))).
   by move: Hlo; rewrite /kstep; case: (r) => r0 r1 r2 /= ->.
-have Hge : (bpow radix2 (-154) * Rabs (D2R (tw0 r)) <= D2R (kstep r))%R.
+have Hge : (bpow radix2 (-153) * Rabs (D2R (tw0 r)) <= D2R (kstep r))%R.
   rewrite Estep -Dkscale -D2R_abs.
   by apply: dwbound.mulUpFp_ge.
 (* the leading word carries the value *)
@@ -1252,9 +1252,9 @@ have Eu : Xu = bpow radix2 (-53) by rewrite (u_pow prec).
 have H52 : bpow radix2 (-52) = (2 * bpow radix2 (-53))%R.
   have -> : (2 = bpow radix2 1)%R by rewrite /= /Z.pow_pos /=; lra.
   by rewrite -bpow_plus.
-have H154 : bpow radix2 (-154) = (32 * (bpow radix2 (-53)
+have H153 : bpow radix2 (-153) = (64 * (bpow radix2 (-53)
              * (bpow radix2 (-53) * bpow radix2 (-53))))%R.
-  have -> : (32 = bpow radix2 5)%R by rewrite /= /Z.pow_pos /=; lra.
+  have -> : (64 = bpow radix2 6)%R by rewrite /= /Z.pow_pos /=; lra.
   by rewrite -!bpow_plus.
 have Hb53 : (0 < bpow radix2 (-53))%R by apply: bpow_gt_0.
 have Hb53s : (bpow radix2 (-53) <= / 1048576)%R.
@@ -1262,7 +1262,7 @@ have Hb53s : (bpow radix2 (-53) <= / 1048576)%R.
     by rewrite /= /Z.pow_pos /=; lra.
   by apply: bpow_le; lia.
 have Hr0 := Rabs_pos (D2R (tw0 r)).
-move: Herr Hlead Hv Hge; rewrite Eu H52 H154.
+move: Herr Hlead Hv Hge; rewrite Eu H52 H153.
 set w := bpow radix2 (-53) in Hb53 Hb53s *.
 set S := R_sqrt.sqrt (twval x) in Hs *.
 set R0 := Rabs (D2R (tw0 r)) in Hr0 *.
@@ -1280,19 +1280,19 @@ have HEs : (E <= 1 / 100)%R by lra.
 have HE1 : (0 < 1 - E)%R by lra.
 (* the scalar margin: 31 against 32, and what the 1.5u of the leading word   *)
 (* and the E of the answer take off it.                                      *)
-have Hscal : (E * (1 + 3 * w) <= 32 * (w * w * w) * (1 - E))%R.
+have Hscal : (E * (1 + 3 * w) <= 64 * (w * w * w) * (1 - E))%R.
   have H1 : (E * (1 + 3 * w) <= 311 / 10 * (w * w * w) * (1 + 3 * w))%R
     by nra.
   have H2 : (311 / 10 * (w * w * w) * (1 + 3 * w)
-             <= 32 * (w * w * w) * (99 / 100))%R by nra.
-  have H3 : (32 * (w * w * w) * (99 / 100) <= 32 * (w * w * w) * (1 - E))%R
+             <= 64 * (w * w * w) * (99 / 100))%R by nra.
+  have H3 : (64 * (w * w * w) * (99 / 100) <= 64 * (w * w * w) * (1 - E))%R
     by nra.
   lra.
 have Hchain : (S * (1 - E) <= (1 + 3 * w) * R0)%R by lra.
 have Hstep1 : (E * (S * (1 - E)) <= E * ((1 + 3 * w) * R0))%R by nra.
-have Hstep2 : (E * ((1 + 3 * w) * R0) <= 32 * (w * w * w) * (1 - E) * R0)%R
+have Hstep2 : (E * ((1 + 3 * w) * R0) <= 64 * (w * w * w) * (1 - E) * R0)%R
   by nra.
-have Hfin : (E * S <= 32 * (w * w * w) * R0)%R by nra.
+have Hfin : (E * S <= 64 * (w * w * w) * R0)%R by nra.
 lra.
 Qed.
 
