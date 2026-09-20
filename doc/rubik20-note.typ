@@ -1094,8 +1094,8 @@ turns and inverts each one:
     U^(-1)$
 ]
 
-This is again a word for superflip4, of the same length, and its second and
-third turns are $F$ then $U^(-1)$, now in the order we want.
+This is again a word for superflip4, of the same length. Its second and third
+turns are $F$ then $U^(-1)$, a turn of $cal(C)$ followed by one of $cal(A)$.
 
 Only the first turn $B$ stands before that pair. Write $x$ for it and $w$ for
 the rest, so that $x w = P$, where $P$ is superflip4. Then $w = x^(-1) P$, and
