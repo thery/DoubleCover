@@ -1004,8 +1004,8 @@ position cannot be solved in 25 quarter turns.
 The superflip is only 24 quarter turns from solved, so it is not far enough.
 Reid posted a better position to the Cube-Lovers list in August 1998
 @reid1998fourspot: the superflip composed with four spot, the four-spot pattern
-with the superflip on top of it. We write it *superflip4*. The post is
-transcribed beside this note. The four-spot exchanges the front and back
+with the superflip on top of it. In the following, we call it *superflip4*. The
+post is transcribed beside this note. The four-spot exchanges the front and back
 colours, and the left and right colours. The centres cannot move, so each of
 those four faces keeps its own colour in one square. That square is the spot the
 pattern is named after. The superflip then turns every edge over.
