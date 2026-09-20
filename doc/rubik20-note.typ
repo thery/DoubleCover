@@ -1036,8 +1036,7 @@ turns written out, is
 The searches only need to go to depth 24. A quarter turn is five four-cycles of
 the 48 stickers, so it is an odd permutation and each move changes the parity
 of the position. Superflip4 is even, like the solved position, so every word
-for it has even length. A word of 25 turns is impossible, and a shorter one has
-at most 24.
+for it has even length.
 
 == The six prefixes
 
