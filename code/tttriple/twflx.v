@@ -1215,3 +1215,363 @@ have Hstep2 : (E * ((1 + 3 * w) * R0) <= 32 * (w * w * w) * (1 - E) * R0)%R
 have Hfin : (E * S <= 32 * (w * w * w) * R0)%R by nra.
 lra.
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The guard, as a test                                                      *)
+(* ---------------------------------------------------------------------------*)
+
+(* `sqrt_ok' is a conjunction of two kinds of clause: a word being a number,  *)
+(* and a value being clear of a line.  Both are testable -- the first because *)
+(* a number less itself is nought and nothing else is, the second because     *)
+(* rounding is monotone and the line is a float, so a ROUNDED value above the *)
+(* line has its exact value above it too.  This is what the double-word       *)
+(* development's `divOk' and `sqrtOk' do, clause for clause.                  *)
+
+Definition tnorm := Eval compute in 0x1p-1022%float.
+
+Lemma D2R_tnorm : D2R tnorm = Dnorm.
+Proof. by rewrite /D2R /tnorm; compute; lra. Qed.
+
+Lemma Dfin_tnorm : Dfin tnorm.
+Proof. by []. Qed.
+
+Lemma fexp_normT : (Dfexp (SpecFloat.emin prec emax + prec - 1 + 1)
+                    <= SpecFloat.emin prec emax + prec - 1)%Z.
+Proof. by vm_compute. Qed.
+
+Lemma DnormT_of_rnd r : (Dnorm < Rabs (Drnd r))%R -> (Dnorm <= Rabs r)%R.
+Proof. by apply: Dbpow_of_rnd fexp_normT. Qed.
+
+(* A number at all. *)
+Definition finF (a : PrimFloat.float) := (a - a =? 0)%float.
+
+Lemma finFP a : finF a = true -> Dfin a.
+Proof.
+by move=> /Dfin_eqb0 [Fa _]; have [H _] := Dfin_subI _ _ Fa.
+Qed.
+
+(* Above the smallest normal number. *)
+Definition normF (a : PrimFloat.float) := (tnorm <? abs a)%float.
+
+Lemma normFP a : Dfin a -> normF a = true -> (Dnorm < Rabs (D2R a))%R.
+Proof.
+move=> Fa H.
+rewrite -D2R_abs -D2R_tnorm.
+by apply: Dltb; [exact: Dfin_tnorm | exact: Dfin_abs | exact: H].
+Qed.
+
+(* Above the line where the two formats round a product alike. *)
+Definition prodF (a : PrimFloat.float) := (dw_updn.dprodlo <? abs a)%float.
+
+Lemma prodFP a : Dfin a -> prodF a = true -> (Dprodlo < Rabs (D2R a))%R.
+Proof.
+move=> Fa H.
+rewrite -D2R_abs -D2R_dprodlo.
+by apply: Dltb; [exact: Dfin_dprodlo | exact: Dfin_abs | exact: H].
+Qed.
+
+(* The three shapes the range clauses come in.                               *)
+Lemma prod_rng a b : Dfin a -> Dfin b -> Dfin (a * b)%float ->
+  prodF (a * b)%float = true -> (Dprodlo <= Rabs (D2R a * D2R b))%R.
+Proof.
+move=> Fa Fb Fs H.
+have [E _] := Dfin_mul _ _ Fa Fb Fs.
+by apply: Dprodlo_of_rnd; rewrite -E; apply: prodFP.
+Qed.
+
+Lemma div_rng a b : Dfin a -> (D2R b <> 0)%R -> Dfin (a / b)%float ->
+  normF (a / b)%float = true -> (Dnorm <= Rabs (D2R a / D2R b))%R.
+Proof.
+move=> Fa Nb Fs H.
+have [E _] := Dfin_div _ _ Fa Nb Fs.
+by apply: DnormT_of_rnd; rewrite -E; apply: normFP.
+Qed.
+
+Lemma sqrt_rng a : Dfin (PrimFloat.sqrt a) ->
+  normF (PrimFloat.sqrt a) = true ->
+  (Dnorm <= Rabs (R_sqrt.sqrt (D2R a)))%R.
+Proof.
+move=> Fs H.
+by apply: DnormT_of_rnd; rewrite -Dsqrt; apply: normFP.
+Qed.
+
+(* Halving, and three halves less a triple word.                              *)
+Definition halfTw_okb (t : twfloat) : bool :=
+  let: TWFloat x0 x1 x2 := t in
+  [&& finF x0, finF x1, finF x2, finF (x0 / 2)%float & finF (x1 / 2)%float]
+  && [&& finF (x2 / 2)%float, normF (x0 / 2)%float, normF (x1 / 2)%float
+       & normF (x2 / 2)%float].
+
+Definition sub32Tw_okb (t : twfloat) : bool :=
+  let: TWFloat x0 x1 x2 := t in
+  [&& finF x0, finF x1, finF x2, finF (three2 - x0)%float
+    & ((3 / 4 <=? x0) && (x0 <=? 3))%float].
+
+Lemma half_rng a : Dfin a -> Dfin (a / 2)%float ->
+  normF (a / 2)%float = true -> (Dnorm <= Rabs (D2R a / 2))%R.
+Proof.
+move=> Fa Fs H.
+have E2 : D2R 2%float = 2%R by rewrite /D2R; compute; lra.
+have N2 : (D2R 2%float <> 0)%R by rewrite E2; lra.
+have [E _] := Dfin_div _ _ Fa N2 Fs.
+by apply: DnormT_of_rnd; rewrite -E2 -E; apply: normFP.
+Qed.
+
+Lemma halfTw_okbP t : halfTw_okb t = true -> halfTw_ok t.
+Proof.
+case: t => x0 x1 x2 /andP[/and5P[H0 H1 H2 H3 H4] /and4P[H5 H6 H7 H8]].
+have F0 := finFP _ H0; have F1 := finFP _ H1; have F2 := finFP _ H2.
+have G0 := finFP _ H3; have G1 := finFP _ H4; have G2 := finFP _ H5.
+split; first by split.
+split; first by split.
+by split; [apply: half_rng | apply: half_rng | apply: half_rng].
+Qed.
+
+Lemma sub32Tw_okbP t : sub32Tw_okb t = true -> sub32Tw_ok t.
+Proof.
+case: t => x0 x1 x2 /and5P[H0 H1 H2 H3 /andP[Hl Hh]].
+have F0 := finFP _ H0; have F1 := finFP _ H1; have F2 := finFP _ H2.
+have Fs := finFP _ H3.
+have E34 : D2R (3 / 4)%float = (3 / 4)%R by rewrite /D2R; compute; lra.
+have E3 : D2R 3%float = 3%R by rewrite /D2R; compute; lra.
+have F34 : Dfin (3 / 4)%float by [].
+have F3 : Dfin 3%float by [].
+split => //; split.
+- by rewrite -E34; apply: Dleb.
+by rewrite -E3; apply: Dleb.
+Qed.
+
+
+Definition fastTwoSumOkb (a b : PrimFloat.float) : bool :=
+  [&& finF (a + b)%float, finF ((a + b) - a)%float
+    & finF (b - ((a + b) - a))%float].
+
+Lemma fastTwoSumOkbP a b : fastTwoSumOkb a b = true -> DfastTwoSumFin a b.
+Proof.
+by move=> /and3P[H1 H2 H3]; split; [|split]; apply: finFP.
+Qed.
+
+Definition fast2SumSOkb (a b : PrimFloat.float) : bool :=
+  if (abs b <=? abs a)%float then fastTwoSumOkb a b else fastTwoSumOkb b a.
+
+Lemma fast2SumSOkbP a b : fast2SumSOkb a b = true -> Dfast2SumSFin a b.
+Proof.
+rewrite /fast2SumSOkb /Dfast2SumSFin.
+by case: (abs b <=? abs a)%float => H; apply: fastTwoSumOkbP.
+Qed.
+
+Definition finLb (l : seq PrimFloat.float) : bool := all finF l.
+
+Lemma finLbP l : finLb l = true -> finL l.
+Proof.
+by elim: l => [|a l IH] //= /andP[Ha Hl]; split; [apply: finFP | apply: IH].
+Qed.
+
+(* Algorithm 11's guard.                                                      *)
+Definition prodDW_okb (x0 x1 y0 y1 y2 : PrimFloat.float) : bool :=
+  let b := vecSum [:: dwlo (twoProd x0 y0); dwhi (twoProd x0 y1);
+                      dwhi (twoProd x1 y0)] in
+  let e := vecSum [:: dwhi (twoProd x0 y0); nth 0%float b 0; nth 0%float b 1;
+                      (nth 0%float b 2 + x1 * y1)%float;
+                      ((dwlo (twoProd x1 y0) + x0 * y2)
+                        + dwlo (twoProd x0 y1))%float] in
+  [&& finF x0, finF x1, finF y0, finF y1 & finF y2]
+  && [&& finF (dwlo (twoProd x0 y0)), finF (dwlo (twoProd x0 y1))
+       & finF (dwlo (twoProd x1 y0))]
+  && [&& finF (x0 * y0)%float, finF (x0 * y1)%float, finF (x1 * y0)%float,
+         finF (x1 * y1)%float & finF (x0 * y2)%float]
+  && [&& prodF (x0 * y0)%float, prodF (x0 * y1)%float, prodF (x1 * y0)%float,
+         prodF (x1 * y1)%float & prodF (x0 * y2)%float]
+  && [&& finF (nth 0%float b 2 + x1 * y1)%float,
+         finF (dwlo (twoProd x1 y0) + x0 * y2)%float
+       & finF ((dwlo (twoProd x1 y0) + x0 * y2)
+               + dwlo (twoProd x0 y1))%float]
+  && [&& finLb b, finLb e
+       & finLb (vseb [:: nth 0%float e 1; nth 0%float e 2;
+                         nth 0%float e 3; nth 0%float e 4])].
+
+Lemma prodDW_okbP x0 x1 y0 y1 y2 :
+  prodDW_okb x0 x1 y0 y1 y2 = true -> prodDW_ok x0 x1 y0 y1 y2.
+Proof.
+move=> /andP[/andP[/andP[/andP[/andP[/and5P[A0 A1 A2 A3 A4]
+        /and3P[B0 B1 B2]] /and5P[C0 C1 C2 C3 C4]]
+        /and5P[D0 D1 D2 D3 D4]] /and3P[E0 E1 E2]] /and3P[G0 G1 G2]].
+have Fx0 := finFP _ A0; have Fx1 := finFP _ A1.
+have Fy0 := finFP _ A2; have Fy1 := finFP _ A3; have Fy2 := finFP _ A4.
+have M00 := finFP _ C0; have M01 := finFP _ C1; have M10 := finFP _ C2.
+have M11 := finFP _ C3; have M02 := finFP _ C4.
+split; first by split.
+split; first by split; apply: finFP.
+split.
+  by split; apply: prod_rng => //; apply: finFP.
+split.
+  by split; apply: prod_rng => //; apply: finFP.
+split.
+  by split; apply: finFP.
+split; first by apply: finLbP.
+by split; apply: finLbP.
+Qed.
+
+(* Algorithm 20's.                                                            *)
+Definition prodOne_okb (x0 x1 x2 y1 y2 : PrimFloat.float) : bool :=
+  let z01p := dwhi (twoProd x0 y1) in
+  let z01m := dwlo (twoProd x0 y1) in
+  let bh := dwhi (fast2SumS x1 z01p) in
+  let bl := dwlo (fast2SumS x1 z01p) in
+  let z31 := (z01m + x1 * y1)%float in
+  let z3 := (z31 + x0 * y2)%float in
+  let s3 := (bl + z3)%float in
+  let e := vecSum [:: x0; bh; (s3 + x2)%float] in
+  [&& finF x0, finF x1, finF x2, finF y1 & finF y2]
+  && [&& finF z01p, finF z01m, finF bh & finF bl]
+  && [&& finF (x0 * y1)%float, finF (x1 * y1)%float & finF (x0 * y2)%float]
+  && [&& prodF (x0 * y1)%float, prodF (x1 * y1)%float & prodF (x0 * y2)%float]
+  && fast2SumSOkb x1 z01p
+  && [&& finF z31, finF z3, finF s3 & finF (s3 + x2)%float]
+  && finLb e
+  && fast2SumSOkb (nth 0%float e 1) (nth 0%float e 2).
+
+Lemma prodOne_okbP x0 x1 x2 y1 y2 :
+  prodOne_okb x0 x1 x2 y1 y2 = true -> prodOne_ok x0 x1 x2 y1 y2.
+Proof.
+move=> /andP[/andP[/andP[/andP[/andP[/andP[/andP[/and5P[A0 A1 A2 A3 A4]
+        /and4P[B0 B1 B2 B3]] /and3P[C0 C1 C2]] /and3P[D0 D1 D2]] Hb]
+        /and4P[E0 E1 E2 E3]] Hfl] Hlast].
+have Fx0 := finFP _ A0; have Fx1 := finFP _ A1; have Fx2 := finFP _ A2.
+have Fy1 := finFP _ A3; have Fy2 := finFP _ A4.
+have M01 := finFP _ C0; have M11 := finFP _ C1; have M02 := finFP _ C2.
+split; first by split.
+split; first by split; apply: finFP.
+split.
+  by split; apply: prod_rng.
+split; first by apply: fast2SumSOkbP.
+split; first by split; apply: finFP.
+split; first by apply: finFP.
+split; first by apply: finLbP.
+by apply: fast2SumSOkbP.
+Qed.
+
+(* The seed's.                                                                *)
+Definition sqrtBW_okb (x0 x1 : PrimFloat.float) : bool :=
+  let s := PrimFloat.sqrt x0 in
+  let a := (onep4 / s)%float in
+  let a' := (a / 2)%float in
+  let h01_1 := dwhi (twoProd a x0) in
+  let h11_1 := dwlo (twoProd a x0) in
+  let h1_1 := (h11_1 + a * x1)%float in
+  let h01_2 := dwhi (twoProd a' h01_1) in
+  let h11_2 := dwlo (twoProd a' h01_1) in
+  let h0_2 := (three2 - h01_2)%float in
+  let h1_2 := (- (h11_2 + a' * h1_1))%float in
+  let b01 := dwhi (twoProd a h0_2) in
+  let b11 := dwlo (twoProd a h0_2) in
+  let b12 := (b11 + a * h1_2)%float in
+  [&& finF x0, finF x1, (0 <? x0)%float, finF a & finF a']
+  && [&& normF s, normF a & normF a']
+  && [&& finF s, finF h11_1, finF h11_2, finF b11 & finF h0_2]
+  && [&& finF h1_2, finF (a * x0)%float, finF (a' * h01_1)%float,
+         finF (a * h0_2)%float & finF (a * x1)%float]
+  && [&& finF (a' * h1_1)%float, finF (a * h1_2)%float, finF h1_1,
+         finF (h11_2 + a' * h1_1)%float & finF b12]
+  && [&& prodF (a * x0)%float, prodF (a' * h01_1)%float,
+         prodF (a * h0_2)%float, prodF (a * x1)%float
+       & prodF (a' * h1_1)%float]
+  && prodF (a * h1_2)%float
+  && fastTwoSumOkb b01 b12.
+
+Lemma sqrtBW_okbP x0 x1 : sqrtBW_okb x0 x1 = true -> sqrtBW_ok x0 x1.
+Proof.
+move=> /andP[/andP[/andP[/andP[/andP[/andP[/andP[/and5P[A0 A1 A2 A3 A4]
+        /and3P[N0 N1 N2]] /and5P[B0 B1 B2 B3 B4]]
+        /and5P[C0 C1 C2 C3 C4]] /and5P[D0 D1 D2 D3 D4]]
+        /and5P[P0 P1 P2 P3 P4]] P5] Hfast].
+have Fx0 := finFP _ A0; have Fx1 := finFP _ A1.
+have Fa := finFP _ A3; have Fa' := finFP _ A4.
+have Fs := finFP _ B0.
+have Hs := normFP _ Fs N0.
+have Hp := bpow_gt_0 radix2 (SpecFloat.emin prec emax + prec - 1).
+have Ns : (D2R (PrimFloat.sqrt x0) <> 0)%R by move: Hs; split_Rabs; lra.
+have Hx0 : (0 < D2R x0)%R.
+  have E0 : D2R 0%float = 0%R by rewrite /D2R; compute; lra.
+  by rewrite -E0; apply: Dltb.
+have Fo4 : Dfin onep4 by apply: Dfin_onep4.
+split; first by split.
+split.
+  split.
+  - by apply: sqrt_rng.
+  - exact: Ns.
+  - by apply: div_rng.
+  by apply: half_rng.
+split; first by split; apply: finFP.
+split.
+  by split; apply: prod_rng => //; apply: finFP.
+split.
+  by apply: prod_rng => //; apply: finFP.
+split; first by split; apply: finFP.
+split; first by apply: finFP.
+by apply: fastTwoSumOkbP.
+Qed.
+
+(* And the whole of Algorithm 15's.                                           *)
+Definition sqrt_okb (x : twfloat) : bool :=
+  let bw := sqrtBW (tw0 x) (tw1 x) in
+  let i1 := threeProdDW bw x in
+  let hb := halfTw bw in
+  let p2 := threeProdDW hb i1 in
+  let s2 := sub32Tw p2 in
+  [&& sqrtBW_okb (tw0 x) (tw1 x),
+      prodDW_okb (tw0 bw) (tw1 bw) (tw0 x) (tw1 x) (tw2 x)
+    & halfTw_okb bw]
+  && [&& prodDW_okb (tw0 hb) (tw1 hb) (tw0 i1) (tw1 i1) (tw2 i1),
+         sub32Tw_okb p2
+       & prodOne_okb (tw0 i1) (tw1 i1) (tw2 i1) (tw1 s2) (tw2 s2)].
+
+Lemma sqrt_okbP x : sqrt_okb x = true -> sqrt_ok x.
+Proof.
+move=> /andP[/and3P[H1 H2 H3] /and3P[H4 H5 H6]].
+split; first by apply: sqrtBW_okbP.
+split; first by apply: prodDW_okbP.
+split; first by apply: halfTw_okbP.
+split; first by apply: prodDW_okbP.
+split; first by apply: sub32Tw_okbP.
+by apply: prodOne_okbP.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  `kstep_sqrt', with every hypothesis a test                                *)
+(* ---------------------------------------------------------------------------*)
+
+(* THIS IS THE AXIOM, WITH NOTHING ASSUMED.  Every hypothesis is a boolean    *)
+(* the program can evaluate: the three words are numbers, the triple is well  *)
+(* formed, the value is above nought, the first two words are clear of the    *)
+(* bottom of the range, and `sqrt_okb' -- the six guards of Algorithm 15's    *)
+(* parts, clause for clause -- comes out true.  What the last one rules out   *)
+(* is a product inside the algorithm underflowing, which is what scaling the  *)
+(* argument into a fixed binade would rule out by construction; until that    *)
+(* is done the test stands in its place, and it is the same test              *)
+(* `code/ddouble' makes for the double-word root.                             *)
+Theorem kstep_sqrt_testable x :
+  finL (tw2l x) -> wellFormed x = true -> (0 < twval x)%R ->
+  normF (tw0 x) = true ->
+  ((tw1 x =? 0)%float || normF (tw1 x)) = true ->
+  sqrt_okb x = true ->
+  finL (tw2l (threeSqRt x)) -> wellFormed (threeSqRt x) = true ->
+  (tw_updn.normLo <? abs (tw0 (threeSqRt x)))%float = true ->
+  finF (kscale * abs (tw0 (threeSqRt x)))%float = true ->
+  finF (dw_updn.mulUpFp kscale (abs (tw0 (threeSqRt x)))) = true ->
+  (Rabs (twval (threeSqRt x) - R_sqrt.sqrt (twval x))
+     <= D2R (kstep (threeSqRt x)))%R.
+Proof.
+move=> Fx Wx Hx0 Hn0 Hn1 Hok Fr Wr Hlo Hm Hu.
+have Fx0 : Dfin (tw0 x).
+  by move: Fx; rewrite /tw2l; case: (x) => x0 x1 x2 [].
+have Fx1 : Dfin (tw1 x).
+  by move: Fx; rewrite /tw2l; case: (x) => x0 x1 x2 [_ []].
+apply: kstep_sqrt_ok => //.
+- by have := normFP _ Fx0 Hn0; lra.
+- case/orP: Hn1 => [Hz|Hn]; first by left; have [] := Dfin_eqb0 _ Hz.
+  by right; have := normFP _ Fx1 Hn; lra.
+- by apply: sqrt_okbP.
+- by apply: finFP.
+by apply: finFP.
+Qed.
