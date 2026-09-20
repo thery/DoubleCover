@@ -7,7 +7,7 @@ From twarith.threewords Require Import TwoSum TWR VecSum VSEB.
 From twarith.threewords Require Import ThreeProd ThreeProdDW ThreeProdOne.
 From twarith.threewords Require Import ThreeSqRt.
 From twarith Require Import twarith twbound twpaper twseed.
-From dwarith Require Import dwbridge dwtwosum dwprod dwflx dwsqrt.
+From dwarith Require Import dwbridge dwtwosum dwprod dwbound dwflx dwsqrt.
 
 (* THE BRIDGE: PRIMITIVE FLOATS TO THE PAPER'S REALS.                         *)
 (*                                                                            *)
@@ -999,4 +999,156 @@ Lemma kscale_needed :
 Proof.
 have -> : Xu = bpow radix2 (-53) by rewrite (u_pow prec).
 rewrite /bpow /= /Z.pow_pos /=; lra.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  And `kstep_sqrt' itself, where the guard holds                            *)
+(* ---------------------------------------------------------------------------*)
+
+Lemma Dkscale : D2R kscale = bpow radix2 (-154).
+Proof. by rewrite /D2R /kscale; compute; lra. Qed.
+
+Lemma DnormLo : D2R tw_updn.normLo = bpow radix2 (-900).
+Proof. by rewrite /D2R /tw_updn.normLo; compute; lra. Qed.
+
+Lemma Dltb a b : Dfin a -> Dfin b -> (a <? b)%float = true ->
+  (D2R a < D2R b)%R.
+Proof.
+rewrite /Dfin /D2R ltb_equiv => Fa Fb.
+rewrite (Bltb_correct _ _ _ _ Fa Fb).
+by case: Rlt_bool_spec.
+Qed.
+
+(* THE LEADING WORD CARRIES ALL BUT A UNIT ROUNDOFF OF THE VALUE.             *)
+(*                                                                            *)
+(* `wellFormed' says the second word is at most half an `ulp' of the first    *)
+(* and the third at most half the second.  Above the smallest normal number   *)
+(* an `ulp' is at most `2u' of what it is an `ulp' of, so the two together    *)
+(* come to `1.5u' of the leading word and no more.                            *)
+Lemma wellFormed_lead_tight t : finL (tw2l t) -> wellFormed t = true ->
+  (Dnorm <= Rabs (D2R (tw0 t)))%R ->
+  (Rabs (twval t)
+     <= (1 + 3 / 2 * bpow radix2 (-52)) * Rabs (D2R (tw0 t)))%R.
+Proof.
+case: t => x0 x1 x2 [F0 [F1 [F2 _]]].
+rewrite /wellFormed => /andb_prop [E1 E2] Hn.
+rewrite /tw0 in Hn.
+have Hp0 : Prec_gt_0 prec by [].
+have H1 := wellFormedP x0 x1 F0 F1 E1.
+have H2 := wellFormed_half x1 x2 F1 F2 E2.
+have Hu1 : (ulp radix2 Dfexp (D2R x0) <= Rabs (D2R x0) * bpow radix2 (-52))%R.
+  have -> : (-52 = 1 - prec)%Z by [].
+  by apply: ulp_FLT_le.
+have Hb := bpow_gt_0 radix2 (-52).
+have Hx0 := Rabs_pos (D2R x0).
+have Hx1 := Rabs_pos (D2R x1).
+have HX : (0 <= Rabs (D2R x0) * bpow radix2 (-52))%R by nra.
+have Hx1b : (Rabs (D2R x1)
+             <= / 2 * (Rabs (D2R x0) * bpow radix2 (-52)))%R by lra.
+have Hx2b : (Rabs (D2R x2)
+             <= / 4 * (Rabs (D2R x0) * bpow radix2 (-52)))%R by lra.
+have T := Rabs_triang (D2R x0 + D2R x1) (D2R x2).
+have T2 := Rabs_triang (D2R x0) (D2R x1).
+rewrite /twval /tw0 /tw1 /tw2; lra.
+Qed.
+
+(* WHAT THE STEP HAS TO COVER, AND DOES.                                      *)
+(*                                                                            *)
+(* The root is out by `31u^3' of the answer and the step is `2^-154' of the   *)
+(* leading word.  `31u^3' is `0.96875 * 2^-154', and the leading word is all  *)
+(* but `1.5u' of the answer, so the one clears the other with three per cent  *)
+(* to spare.  That three per cent is the whole of the margin: at the measured *)
+(* `2^-156' it would have been a factor of four the wrong way.                *)
+Theorem kstep_sqrt_ok x :
+  finL (tw2l x) -> wellFormed x = true -> (0 < twval x)%R ->
+  sqrt_ok x -> isTW prec (tw2R x) ->
+  finL (tw2l (threeSqRt x)) -> wellFormed (threeSqRt x) = true ->
+  (tw_updn.normLo <? abs (tw0 (threeSqRt x)))%float = true ->
+  Dfin (kscale * abs (tw0 (threeSqRt x)))%float ->
+  Dfin (dw_updn.mulUpFp kscale (abs (tw0 (threeSqRt x)))) ->
+  (Rabs (twval (threeSqRt x) - R_sqrt.sqrt (twval x))
+     <= D2R (kstep (threeSqRt x)))%R.
+Proof.
+move=> Fx Wx Hx0 Hok Hx Fr Wr Hlo Fm Fu.
+have Hx0' : (0 < D2R (tw0 x))%R.
+  have Hq := wellFormed_lead34 _ Fx Wx.
+  by move: Hq Hx0; rewrite /twval; split_Rabs; lra.
+have Herr := threeSqRt_error _ Hok Hx Hx0'.
+set r := threeSqRt x in Fr Wr Hlo Fm Fu Herr *.
+have Fr0 : Dfin (tw0 r).
+  by move: Fr; rewrite /tw2l; case: (r) => r0 r1 r2 [].
+have Far0 : Dfin (abs (tw0 r)) by apply: Dfin_abs.
+have Fk : Dfin kscale by rewrite /Dfin /kscale; compute.
+(* the step, read as a number *)
+have Estep : D2R (kstep r) = D2R (dw_updn.mulUpFp kscale (abs (tw0 r))).
+  by move: Hlo; rewrite /kstep; case: (r) => r0 r1 r2 /= ->.
+have Hge : (bpow radix2 (-154) * Rabs (D2R (tw0 r)) <= D2R (kstep r))%R.
+  rewrite Estep -Dkscale -D2R_abs.
+  by apply: dwbound.mulUpFp_ge.
+(* the leading word carries the value *)
+have Hn : (Dnorm <= Rabs (D2R (tw0 r)))%R.
+  have Hn1 : (D2R tw_updn.normLo < Rabs (D2R (tw0 r)))%R
+    by rewrite -D2R_abs; apply: Dltb.
+  move: Hn1; rewrite DnormLo => Hn1.
+  apply: Rle_trans (Rlt_le _ _ Hn1).
+  by apply: bpow_le; rewrite /SpecFloat.emin /=; lia.
+have Hlead := wellFormed_lead_tight _ Fr Wr Hn.
+(* and the arithmetic *)
+have Hs : (0 < R_sqrt.sqrt (twval x))%R by apply: sqrt_lt_R0.
+have Hsa : Rabs (R_sqrt.sqrt (twval x)) = R_sqrt.sqrt (twval x)
+  by apply: Rabs_pos_eq; lra.
+rewrite Hsa in Herr.
+have Hv : (R_sqrt.sqrt (twval x) * (1 - (31 * (Xu * Xu * Xu)
+             + 22500 * (Xu * Xu * Xu * Xu))) <= Rabs (twval r))%R.
+  have T := Rabs_triang_inv (twval r) (R_sqrt.sqrt (twval x)).
+  have T2 : (Rabs (R_sqrt.sqrt (twval x)) - Rabs (twval r)
+             <= Rabs (twval r - R_sqrt.sqrt (twval x)))%R
+    by move: T; rewrite Rabs_minus_sym; split_Rabs; lra.
+  by move: T2; rewrite Hsa; lra.
+have Eu : Xu = bpow radix2 (-53) by rewrite (u_pow prec).
+have H52 : bpow radix2 (-52) = (2 * bpow radix2 (-53))%R.
+  have -> : (2 = bpow radix2 1)%R by rewrite /= /Z.pow_pos /=; lra.
+  by rewrite -bpow_plus.
+have H154 : bpow radix2 (-154) = (32 * (bpow radix2 (-53)
+             * (bpow radix2 (-53) * bpow radix2 (-53))))%R.
+  have -> : (32 = bpow radix2 5)%R by rewrite /= /Z.pow_pos /=; lra.
+  by rewrite -!bpow_plus.
+have Hb53 : (0 < bpow radix2 (-53))%R by apply: bpow_gt_0.
+have Hb53s : (bpow radix2 (-53) <= / 1048576)%R.
+  have -> : (/ 1048576 = bpow radix2 (-20))%R
+    by rewrite /= /Z.pow_pos /=; lra.
+  by apply: bpow_le; lia.
+have Hr0 := Rabs_pos (D2R (tw0 r)).
+move: Herr Hlead Hv Hge; rewrite Eu H52 H154.
+set w := bpow radix2 (-53) in Hb53 Hb53s *.
+set S := R_sqrt.sqrt (twval x) in Hs *.
+set R0 := Rabs (D2R (tw0 r)) in Hr0 *.
+move=> Herr Hlead Hv Hge.
+set V := Rabs (twval r) in Hlead Hv *.
+set E := (31 * (w * w * w) + 22500 * (w * w * w * w))%R in Herr Hv *.
+have Ht : (0 <= w * w * w)%R by nra.
+have Ht4 : (0 <= w * w * w * w)%R by nra.
+have Hw2 : (w * w <= / 1048576 * w)%R by nra.
+have Hw3 : (w * w * w <= / 1048576 * (w * w))%R by nra.
+have Hw4 : (w * w * w * w <= / 1048576 * (w * w * w))%R by nra.
+have HE0 : (0 <= E)%R by rewrite /E; lra.
+have HEu : (E <= 311 / 10 * (w * w * w))%R by rewrite /E; lra.
+have HEs : (E <= 1 / 100)%R by lra.
+have HE1 : (0 < 1 - E)%R by lra.
+(* the scalar margin: 31 against 32, and what the 1.5u of the leading word   *)
+(* and the E of the answer take off it.                                      *)
+have Hscal : (E * (1 + 3 * w) <= 32 * (w * w * w) * (1 - E))%R.
+  have H1 : (E * (1 + 3 * w) <= 311 / 10 * (w * w * w) * (1 + 3 * w))%R
+    by nra.
+  have H2 : (311 / 10 * (w * w * w) * (1 + 3 * w)
+             <= 32 * (w * w * w) * (99 / 100))%R by nra.
+  have H3 : (32 * (w * w * w) * (99 / 100) <= 32 * (w * w * w) * (1 - E))%R
+    by nra.
+  lra.
+have Hchain : (S * (1 - E) <= (1 + 3 * w) * R0)%R by lra.
+have Hstep1 : (E * (S * (1 - E)) <= E * ((1 + 3 * w) * R0))%R by nra.
+have Hstep2 : (E * ((1 + 3 * w) * R0) <= 32 * (w * w * w) * (1 - E) * R0)%R
+  by nra.
+have Hfin : (E * S <= 32 * (w * w * w) * R0)%R by nra.
+lra.
 Qed.
