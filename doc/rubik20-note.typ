@@ -1072,7 +1072,8 @@ flipped, so no such word gives it either. Any word for superflip4 therefore
 uses turns from both sets, and a turn from $cal(A)$ and a turn from $cal(C)$
 stand next to each other somewhere in it.
 
-The cyclic shift brings that pair to the front. Let $r$ be the relabelling that
+That pair may sit anywhere in the word, while a prefix has to be at the front.
+The cyclic shift is what moves it there. Let $r$ be the relabelling that
 spins the whole cube by half a turn about the up-down axis: it sends $B$ to
 $F$, $L$ to $R$, and leaves $U$ and $D$ alone. Write the word as $u w$, where
 $u$ is its first few letters. Then $w space u^r$ gives the same position, where
