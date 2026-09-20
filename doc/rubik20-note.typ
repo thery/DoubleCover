@@ -1084,11 +1084,11 @@ $u^r$ is $u$ with every letter renamed by $r$. For instance
 ]
 
 The two words have the same length. This works because $r$ leaves superflip4 as
-it is, and that is why this position was chosen. It asks for nothing else, and
-in particular nothing about the split. What the split needs is that $r$ keeps
-the two sets: it fixes $U$ and $D$ and permutes the other four faces, so a turn
-of $cal(A)$ stays in $cal(A)$ and a turn of $cal(C)$ stays in $cal(C)$. The
-pair at the front is still one turn from each set.
+it is, and that is why this position was chosen. The shift also keeps the two
+sets, which is what the argument needs: $r$ fixes $U$ and $D$ and permutes the
+other four faces, so a turn of $cal(A)$ stays in $cal(A)$ and a turn of
+$cal(C)$ stays in $cal(C)$. The pair now at the front is still one turn from
+each set.
 
 Two more operations leave the length and the position alone: inversion, and
 renaming by any of the sixteen relabellings that keep the up-down axis. With
