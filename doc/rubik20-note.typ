@@ -1077,22 +1077,27 @@ two turns can be in either order. If the turn from $cal(A)$ comes first, invert
 the word: superflip4 is its own inverse, so the inverted word gives superflip4
 again, has the same length, and takes the two turns in the other order. It
 remains to bring the pair to the front and to rename it so that it reads $R U$
-or $R^(-1) U$. To bring it to the front, write the word as $u w$, where $u$ is
-the part before the pair. Then $w space u^r$ is again a word for superflip4, of
-the same length, where $u^r$ is $u$ with every letter renamed by $r$. The
-relabelling $r$ swaps front with back and left with right, and leaves top and
-bottom alone: it sends $B$ to $F$, $F$ to $B$, $L$ to $R$ and $R$ to $L$. This
-move of the letters is the cyclic shift. For instance
+or $R^(-1) U$.
+
+Bringing it to the front means moving the letters before it to the end. In any
+group, if $a$ is the product of those letters and $b$ the product of the rest,
+then $b (b^(-1) a b) = a b$, so the letters that move have to be conjugated by
+the position itself. That is worth doing only if they stay quarter turns, and
+here they do: conjugating a quarter turn by superflip4 gives another quarter
+turn, and on the twelve turns this conjugation acts as the renaming $r$ that
+swaps front with back and left with right and leaves top and bottom alone.
+#src("HProp2.v") checks that move by move and then proves the shift. Writing
+the word as $u w$, the new word is $w space u^r$, where $u^r$ is $u$ with every
+letter renamed by $r$. For instance
 
 #align(center)[
   $B U^2 L space w quad "becomes" quad w space F U^2 R .$
 ]
 
-The new word gives superflip4 because $r$ leaves superflip4 unchanged, and the
-position was chosen for that reason. The shift also preserves the two sets. $r$
-leaves $U$ and $D$ alone and moves the other four faces among themselves, so a
-turn of $cal(A)$ stays in $cal(A)$ and a turn of $cal(C)$ stays in $cal(C)$. The
-two turns now at the front are still one from each set.
+The two words have the same length and give superflip4. The renaming also keeps
+the two sets, since it leaves $U$ and $D$ alone and moves the other four faces
+among themselves, so the two turns now at the front are still one from each
+set.
 
 Renaming by one of the sixteen relabellings that keep the up-down axis then
 turns the pair at the front into $R U$ or $R^(-1) U$. The first case is already
