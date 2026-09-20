@@ -257,7 +257,7 @@ the test caught it.
 | `twpaper.v` | the paper's algorithms on primitive floats: Algorithms 9, 11, 14, 15, 18, 20, and the step |
 | `twprodg.v` | Section 6.2 of the paper, made generic in `c` and `z3`, and Algorithm 9 without the fused multiply-add |
 | `twseed.v` | the seed, the two products and the root, all with nothing fused: `ThreeSqRtNn_error` |
-| `twflx.v` | the bridge, primitive floats to the paper's reals, ending in `threeSqRt_error` |
+| `twflx.v` | the bridge, primitive floats to the paper's reals, ending in `threeSqRt_error` and `kstep_sqrt_testable` |
 | `tw_cmpbad.v` | the pair that shows comparing on the words is wrong, and that `cmp` gets it right |
 | `test_pi.v` | a smoke test: pi by Machin, and what the interface's operations bracket |
 | `tw_unsafe.v` | `sensible_format := true` with `div2` admitted, so Interval's functors apply |
@@ -529,12 +529,39 @@ Exactly two bits where the step is used and nothing where it is not — `exp 1`
 is sums and products, which the step never touched — **and no time at all**:
 the 150-bit pi bracket takes 0.56 s either way.
 
-**What is still owed.** `sqrt_ok` itself. Discharging it from the hypotheses
-`kstep_sqrt` is stated with needs the scaling: `sqrtTwUpP` and `sqrtTwDnP`
-would take an even power of two out of the argument, run the algorithm in a
-fixed binade and put half the exponent back, the way `dwsqrt.v`'s `sqrtDwUpK`
-does. That is a change to the algorithm, not to a proof, so it is left as a
-decision rather than made.
+**And the guard is a test.** `sqrt_ok` is a conjunction of two kinds of
+clause: a word being a number, and a value being clear of a line. Both are
+testable — the first because a number less itself is nought and nothing else
+is, the second because rounding is monotone and the line is a float, so a
+rounded value above the line has its exact value above it too. That is what
+`code/ddouble`'s `divOk` and `sqrtOk` do, and `sqrt_okb` does it clause for
+clause for all six guards of Algorithm 15's parts. Two clauses were not about
+a line at all and had to be restated as what they really were:
+
+- **halving**, which `halfTw` does to all three words and the seed's third is
+  nought — the clause wanted is the halving being *exact*, and a word that
+  comes back when doubled is a word whose halving lost nothing;
+- **`3/2 - x0`**, where at the call site `x0` is exactly a half and Sterbenz
+  does not apply, although the subtraction is exact. The two-sum settles it
+  in general: its two words add up to the exact sum, so a zero low word is
+  the high word being it.
+
+A third came from the products: a triple word read off an integer has two
+zero words, and a product that is nought needs no line, both formats
+rounding it to nought. Flocq's `Dekker` already takes that disjunction.
+
+So `kstep_sqrt_testable` is the axiom with **every hypothesis a boolean the
+program can evaluate**, and `Print Assumptions` on it names nothing of ours.
+`sqrt_okb` comes out true on 1, 2, pi to a hundred and sixty bits, `2^-1060`
+and `2^-1000`, and false near the top of the range, where Dekker's own
+splitting overflows.
+
+**What is still owed.** Wiring the test into `sqrtTwUpP` and `sqrtTwDnP`, so
+that the obligations go through it rather than through the axiom. Where it
+fails the operation has to do something else — return `nan`, or scale the
+argument into a fixed binade by an even power of two and put half the
+exponent back, the way `dwsqrt.v`'s `sqrtDwUpK` does. That is a change to the
+algorithm, not to a proof, so it is left as a decision rather than made.
 
 ## Open
 
