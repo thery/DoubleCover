@@ -1033,9 +1033,15 @@ turns written out, is
     space B^(-1)$
 ]
 
-It is enough to rule out 24. A quarter turn is five four-cycles of the 48
-stickers, so it is odd, and an odd word gives an odd position. Superflip4 is
-even, so every word for it has even length. The searches stop at 24.
+To rule out 25 the searches would have to reach depth 25. Depth 24 is enough,
+and parity is the reason. A position is a permutation of the 48 stickers, and
+it is even or odd according to the sign of that permutation. The solved
+position is even. A quarter turn is five four-cycles of the stickers, which is
+an odd permutation, so every move changes the parity. A word of $n$ quarter
+turns therefore gives an even position when $n$ is even, and an odd one when
+$n$ is odd. Superflip4 is even, so every word for it has even length. A word of
+25 turns is thus impossible, and a word of at most 25 turns has at most 24.
+That is what the searches cover.
 
 == The six prefixes
 
