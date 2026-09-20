@@ -1,6 +1,7 @@
 From Stdlib Require Import ZArith Reals Psatz.
 From Stdlib Require Import Floats.
 From Flocq Require Import Core BinarySingleNaN PrimFloat.
+From Flocq Require Import Pff.Pff2Flocq.
 From mathcomp Require Import all_ssreflect.
 From twarith.threewords Require Import Nmore Rmore Fmore Rstruct MULTmore prelim.
 From twarith.threewords Require Import TwoSum TWR VecSum VSEB.
@@ -278,6 +279,94 @@ split; first by rewrite Ehx.
 by move: Ex Ehx Hsum; lra.
 Qed.
 
+
+(* ---------------------------------------------------------------------------*)
+(*  A product that is nought                                                  *)
+(* ---------------------------------------------------------------------------*)
+
+(* `Dprodlo' is where the two formats round a product alike, and a product    *)
+(* that is nought needs no such line: both round it to nought.  Flocq's       *)
+(* `Dekker' already takes the disjunction, and `code/ddouble' happened to     *)
+(* pick the right branch; this picks either.  It matters because a triple     *)
+(* word read off an integer has two zero words, so `sqrt 2' would otherwise   *)
+(* fail the guard.                                                            *)
+Definition mulOkR (a b : R) : Prop :=
+  (a * b = 0)%R \/ (Dprodlo <= Rabs (a * b))%R.
+
+Theorem twoProd_exactO a b : Dfin (dwlo (twoProd a b)) ->
+  mulOkR (D2R a) (D2R b) ->
+  D2R (dwhi (twoProd a b)) + D2R (dwlo (twoProd a b)) = (D2R a * D2R b)%R.
+Proof.
+rewrite dekkerE /= => Fe Hn.
+have [Ft3 Ftatb] := Dfin_addI _ _ Fe.
+have [Fta Ftb] := Dfin_mulI _ _ Ftatb.
+have [Ft2 Ftahb] := Dfin_addI _ _ Ft3.
+have [_ Fhb] := Dfin_mulI _ _ Ftahb.
+have [Ft1 Fhatb] := Dfin_addI _ _ Ft2.
+have [Fha _] := Dfin_mulI _ _ Fhatb.
+have [Fnpi Fhahb] := Dfin_addI _ _ Ft1.
+have Fpi := Dfin_oppI _ Fnpi.
+have [Fa Fb] := Dfin_mulI _ _ Fpi.
+have [_ [_ [Eha Eta]]] := splitCE _ Fta.
+have [_ [_ [Ehb Etb]]] := splitCE _ Ftb.
+rewrite (proj1 (Dfin_add _ _ Ft3 Ftatb Fe)).
+rewrite (proj1 (Dfin_add _ _ Ft2 Ftahb Ft3)).
+rewrite (proj1 (Dfin_add _ _ Ft1 Fhatb Ft2)).
+rewrite (proj1 (Dfin_add _ _ Fnpi Fhahb Ft1)).
+rewrite (proj1 (Dfin_mul _ _ Fta Ftb Ftatb)).
+rewrite (proj1 (Dfin_mul _ _ Fta Fhb Ftahb)).
+rewrite (proj1 (Dfin_mul _ _ Fha Ftb Fhatb)).
+rewrite (proj1 (Dfin_mul _ _ Fha Fhb Fhahb)).
+rewrite D2R_opp (proj1 (Dfin_mul _ _ Fa Fb Fpi)).
+rewrite Eha Eta Ehb Etb.
+have Hp0 : Prec_gt_0 prec by [].
+have Hp4 : (4 <= prec)%Z by [].
+have Hemin : (SpecFloat.emin prec emax < 0)%Z by [].
+have Fa2 : generic_format radix2 (FLT_exp (SpecFloat.emin prec emax) prec)
+             (D2R a) by rewrite -DfexpE; apply: Dformat.
+have Fb2 : generic_format radix2 (FLT_exp (SpecFloat.emin prec emax) prec)
+             (D2R b) by rewrite -DfexpE; apply: Dformat.
+have Hbeta : (radix_val radix2 = 2%Z) \/ Z.Even prec by left.
+have [H _] := Dekker radix2 (SpecFloat.emin prec emax) prec
+   (fun n => negb (Z.even n)) Hp4 Hemin (D2R a) (D2R b) Fa2 Fb2 Hbeta.
+rewrite -DfexpE -!DrndE in H.
+by rewrite -H //; exact: Hn.
+Qed.
+
+Lemma twoProd_XO a b : Dfin (dwlo (twoProd a b)) ->
+  mulOkR (D2R a) (D2R b) ->
+  D2R (dwhi (twoProd a b)) = (XTwoProd (D2R a) (D2R b)).1 /\
+  D2R (dwlo (twoProd a b)) = (XTwoProd (D2R a) (D2R b)).2.
+Proof.
+move=> Fe Hn.
+have Hp : (1 < prec)%Z by [].
+have [Fa [Fb [Fh Eh]]] := twoProd_hi _ _ Fe.
+have Ex := twoProd_exactO _ _ Fe Hn.
+have Ehx : D2R (dwhi (twoProd a b)) = Xrnd (D2R a * D2R b).
+  rewrite Eh; case: Hn => [Hz|Hn]; last first.
+    apply: Drnd_FLX; apply: Rle_trans Hn; apply: bpow_le; lia.
+  by rewrite Hz round_0 round_0.
+have Hp0 : Prec_gt_0 prec by [].
+have Hvr : Valid_rnd (Znearest Dchoice) by apply: valid_rnd_N.
+have Hc := @MULTmore.TwoProd_correct prec Hp0 radix2 (Znearest Dchoice) Hvr
+             _ _ (Dformat_FLX a) (Dformat_FLX b).
+move: Hc; rewrite /MULTmore.TwoProd /= => [] [Hpr Hsum _ _].
+split; first by rewrite Ehx.
+by move: Ex Ehx Hsum; lra.
+Qed.
+
+Lemma mul_XO a b : Dfin a -> Dfin b -> Dfin (a * b)%float ->
+  mulOkR (D2R a) (D2R b) ->
+  D2R (a * b)%float = Xrnd (D2R a * D2R b).
+Proof.
+move=> Fa Fb Fs Hn.
+have [E _] := Dfin_mul _ _ Fa Fb Fs.
+rewrite E; case: Hn => [Hz|Hn]; last first.
+  apply: Drnd_FLX; apply: Rle_trans Hn; apply: bpow_le.
+  by have : (0 < prec)%Z by []; lia.
+by rewrite Hz round_0 round_0.
+Qed.
+
 (* An element of a list of numbers is a number, the default included.         *)
 Lemma finL_nth l i : finL l -> Dfin (nth 0%float l i).
 Proof. by elim: l i => [|a l IH] [|i] //= [Fa Fl] //; apply: IH. Qed.
@@ -404,11 +493,11 @@ Definition prodDW_ok (x0 x1 y0 y1 y2 : PrimFloat.float) : Prop :=
   [/\ Dfin x0, Dfin x1, Dfin y0, Dfin y1 & Dfin y2]
   /\ [/\ Dfin (dwlo (twoProd x0 y0)), Dfin (dwlo (twoProd x0 y1))
         & Dfin (dwlo (twoProd x1 y0))]
-  /\ [/\ (Dprodlo <= Rabs (D2R x0 * D2R y0))%R,
-         (Dprodlo <= Rabs (D2R x0 * D2R y1))%R &
-         (Dprodlo <= Rabs (D2R x1 * D2R y0))%R]
-  /\ [/\ (Dprodlo <= Rabs (D2R x1 * D2R y1))%R &
-         (Dprodlo <= Rabs (D2R x0 * D2R y2))%R]
+  /\ [/\ mulOkR (D2R x0) (D2R y0),
+         mulOkR (D2R x0) (D2R y1) &
+         mulOkR (D2R x1) (D2R y0)]
+  /\ [/\ mulOkR (D2R x1) (D2R y1) &
+         mulOkR (D2R x0) (D2R y2)]
   /\ [/\ Dfin (x1 * y1)%float, Dfin (x0 * y2)%float,
          Dfin (nth 0%float b 2 + x1 * y1)%float,
          Dfin (dwlo (twoProd x1 y0) + x0 * y2)%float &
@@ -464,9 +553,9 @@ Proof.
 rewrite /prodDW_ok
   => [] [[Fx0 Fx1 Fy0 Fy1 Fy2] [[F00m F01m F10m]
         [[H00 H01 H10] [[H11 H02] [[M11 M02 Fc F31 F3] [Fb [Fe Fv]]]]]]].
-have [Eh00 El00] := twoProd_X _ _ F00m H00.
-have [Eh01 El01] := twoProd_X _ _ F01m H01.
-have [Eh10 El10] := twoProd_X _ _ F10m H10.
+have [Eh00 El00] := twoProd_XO _ _ F00m H00.
+have [Eh01 El01] := twoProd_XO _ _ F01m H01.
+have [Eh10 El10] := twoProd_XO _ _ F10m H10.
 set B := vecSum [:: dwlo (twoProd x0 y0); dwhi (twoProd x0 y1);
                     dwhi (twoProd x1 y0)] in Fb Fe *.
 set E := vecSum [:: dwhi (twoProd x0 y0); nth 0%float B 0; nth 0%float B 1;
@@ -499,9 +588,9 @@ have EE : l2R E
                 D2R ((dwlo (twoProd x1 y0) + x0 * y2)
                       + dwlo (twoProd x0 y1))%float] by [].
   rewrite Eh00 !l2R_nth.
-  rewrite (add_X _ _ (@finL_nth B 2 Fb) M11 Fc) (mul_X _ _ Fx1 Fy1 M11 H11).
+  rewrite (add_X _ _ (@finL_nth B 2 Fb) M11 Fc) (mul_XO _ _ Fx1 Fy1 M11 H11).
   rewrite (add_X _ _ F31 F01m F3) (add_X _ _ F10m M02 F31).
-  by rewrite (mul_X _ _ Fx0 Fy2 M02 H02) El10 El01 l2R_nth.
+  by rewrite (mul_XO _ _ Fx0 Fy2 M02 H02) El10 El01 l2R_nth.
 rewrite (ThreeProdDWn_shape (D2R x0) (D2R x1) (D2R x2)
            (D2R y0) (D2R y1) (D2R y2) (l2R B) (l2R E) EB EE).
 rewrite tw2R_l2tw /VSEB.vsebK.
@@ -594,9 +683,9 @@ Definition prodOne_ok (x0 x1 x2 y1 y2 : PrimFloat.float) : Prop :=
   let e := vecSum [:: x0; bh; (s3 + x2)%float] in
   [/\ Dfin x0, Dfin x1, Dfin x2, Dfin y1 & Dfin y2]
   /\ [/\ Dfin z01p, Dfin z01m, Dfin bh & Dfin bl]
-  /\ [/\ (Dprodlo <= Rabs (D2R x0 * D2R y1))%R,
-         (Dprodlo <= Rabs (D2R x1 * D2R y1))%R
-       & (Dprodlo <= Rabs (D2R x0 * D2R y2))%R]
+  /\ [/\ mulOkR (D2R x0) (D2R y1),
+         mulOkR (D2R x1) (D2R y1)
+       & mulOkR (D2R x0) (D2R y2)]
   /\ Dfast2SumSFin x1 z01p
   /\ [/\ Dfin (x1 * y1)%float, Dfin (x0 * y2)%float, Dfin z31, Dfin z3
        & Dfin s3]
@@ -659,7 +748,7 @@ rewrite /prodOne_ok
   => [] [[Fx0 Fx1 Fx2 Fy1 Fy2] [[Fz01p Fz01m Fbh Fbl]
         [[H01 H11 H02] [Hb [[M11 M02 Fz31 Fz3 Fs3]
           [Fs3x [Fe Hlast]]]]]]].
-have [Eh01 El01] := twoProd_X _ _ Fz01m H01.
+have [Eh01 El01] := twoProd_XO _ _ Fz01m H01.
 set z01p := dwhi (twoProd x0 y1) in Fz01p Hb Fe Hlast Eh01 *.
 set z01m := dwlo (twoProd x0 y1) in Fz01m Fz31 El01 Fz3 Fs3 Fs3x Fe Hlast *.
 set bh := dwhi (fast2SumS x1 z01p) in Fbh Fe Hlast *.
@@ -684,7 +773,7 @@ have EE : l2R E
                 D2R ((bl + ((z01m + x1 * y1) + x0 * y2)) + x2)%float] by [].
   rewrite (add_X _ _ Fs3 Fx2 Fs3x) (add_X _ _ Fbl Fz3 Fs3).
   rewrite (add_X _ _ Fz31 M02 Fz3) (add_X _ _ Fz01m M11 Fz31).
-  by rewrite (mul_X _ _ Fx1 Fy1 M11 H11) (mul_X _ _ Fx0 Fy2 M02 H02).
+  by rewrite (mul_XO _ _ Fx1 Fy1 M11 H11) (mul_XO _ _ Fx0 Fy2 M02 H02).
 rewrite (ThreeProdOneTWn_shape (D2R x0) (D2R x1) (D2R x2)
            (D2R y0) (D2R y1) (D2R y2) (D2R z01p) (D2R z01m)
            (D2R bh) (D2R bl) (l2R E)); last by rewrite EE.
@@ -784,12 +873,12 @@ Definition sqrtBW_ok (x0 x1 : PrimFloat.float) : Prop :=
          (Dnorm <= Rabs (D2R onep4 / D2R s))%R
        & (Dnorm <= Rabs (D2R a / 2))%R]
   /\ [/\ Dfin h11_1, Dfin h11_2, Dfin b11, Dfin h0_2 & Dfin h1_2]
-  /\ [/\ (Dprodlo <= Rabs (D2R a * D2R x0))%R,
-         (Dprodlo <= Rabs (D2R a' * D2R h01_1))%R,
-         (Dprodlo <= Rabs (D2R a * D2R h0_2))%R,
-         (Dprodlo <= Rabs (D2R a * D2R x1))%R
-       & (Dprodlo <= Rabs (D2R a' * D2R h1_1))%R]
-  /\ (Dprodlo <= Rabs (D2R a * D2R h1_2))%R
+  /\ [/\ mulOkR (D2R a) (D2R x0),
+         mulOkR (D2R a') (D2R h01_1),
+         mulOkR (D2R a) (D2R h0_2),
+         mulOkR (D2R a) (D2R x1)
+       & mulOkR (D2R a') (D2R h1_1)]
+  /\ mulOkR (D2R a) (D2R h1_2)
   /\ [/\ Dfin (a * x1)%float, Dfin h1_1, Dfin (a' * h1_1)%float,
          Dfin (h11_2 + a' * h1_1)%float & Dfin (a * h1_2)%float]
   /\ Dfin b12
@@ -815,16 +904,16 @@ have Ea' : D2R (a / 2)%float = XsqrtA' (D2R x0).
   by rewrite (half_X _ Fa Fa' Ha') Ea.
 set a' := (a / 2)%float in Fa' P2 P5 Ma1 Ea' *.
 (* the first two-product and the first split line                            *)
-have [Eh01_1 Eh11_1] := twoProd_X _ _ F11_1 P1.
+have [Eh01_1 Eh11_1] := twoProd_XO _ _ F11_1 P1.
 rewrite Ea in Eh01_1 Eh11_1.
 set h01_1 := dwhi (twoProd a x0) in P2 Eh01_1 *.
 set h11_1 := dwlo (twoProd a x0) in F11_1 Eh11_1 *.
 have Eh1_1 : D2R (h11_1 + a * x1)%float = XsqrtH1_1n (D2R x0) (D2R x1).
-  rewrite (add_X _ _ F11_1 Max1 F1_1) (mul_X _ _ Fa Fx1 Max1 P4) Ea Eh11_1.
+  rewrite (add_X _ _ F11_1 Max1 F1_1) (mul_XO _ _ Fa Fx1 Max1 P4) Ea Eh11_1.
   by rewrite /sqrtH1_1n.
 set h1_1 := (h11_1 + a * x1)%float in F1_1 P5 Ma1 Eh1_1 *.
 (* the second two-product, the exact subtraction and the second split line   *)
-have [Eh01_2 Eh11_2] := twoProd_X _ _ F11_2 P2.
+have [Eh01_2 Eh11_2] := twoProd_XO _ _ F11_2 P2.
 rewrite Ea' Eh01_1 in Eh01_2 Eh11_2.
 set h01_2 := dwhi (twoProd a' h01_1) in Eh01_2 *.
 set h11_2 := dwlo (twoProd a' h01_1) in F11_2 Eh11_2 *.
@@ -835,16 +924,16 @@ have Eh0_2 : D2R (three2 - h01_2)%float = XsqrtH0_2 (D2R x0).
      apply: (sqrtH0_2_exact Hp2 Hp11 Dchoice); [apply: Dformat_FLX | lra].
 set h0_2 := (three2 - h01_2)%float in F0_2 P3 Eh0_2 *.
 have Eh1_2 : D2R (- (h11_2 + a' * h1_1))%float = XsqrtH1_2n (D2R x0) (D2R x1).
-  rewrite D2R_opp (add_X _ _ F11_2 Ma1 F21) (mul_X _ _ Fa' F1_1 Ma1 P5).
+  rewrite D2R_opp (add_X _ _ F11_2 Ma1 F21) (mul_XO _ _ Fa' F1_1 Ma1 P5).
   by rewrite Ea' Eh11_2 Eh1_1 /sqrtH1_2n.
 set h1_2 := (- (h11_2 + a' * h1_1))%float in F1_2 P6 Ma2 Eh1_2 *.
 (* the third two-product and the last split line                             *)
-have [Eb01 Eb11] := twoProd_X _ _ Fb11 P3.
+have [Eb01 Eb11] := twoProd_XO _ _ Fb11 P3.
 rewrite Ea Eh0_2 in Eb01 Eb11.
 set b01 := dwhi (twoProd a h0_2) in Eb01 *.
 set b11 := dwlo (twoProd a h0_2) in Fb11 Eb11 *.
 have Eb12 : D2R (b11 + a * h1_2)%float = XsqrtB12n (D2R x0) (D2R x1).
-  rewrite (add_X _ _ Fb11 Ma2 Fb12) (mul_X _ _ Fa F1_2 Ma2 P6) Ea Eb11 Eh1_2.
+  rewrite (add_X _ _ Fb11 Ma2 Fb12) (mul_XO _ _ Fa F1_2 Ma2 P6) Ea Eb11 Eh1_2.
   by rewrite /sqrtB12n.
 set b12 := (b11 + a * h1_2)%float in Fb12 Hfast Eb12 *.
 (* and the Fast2Sum that ends it                                             *)
@@ -1261,14 +1350,21 @@ rewrite -D2R_abs -D2R_dprodlo.
 by apply: Dltb; [exact: Dfin_dprodlo | exact: Dfin_abs | exact: H].
 Qed.
 
-(* The three shapes the range clauses come in.                               *)
-Lemma prod_rng a b : Dfin a -> Dfin b -> Dfin (a * b)%float ->
-  prodF (a * b)%float = true -> (Dprodlo <= Rabs (D2R a * D2R b))%R.
+(* And the test: either factor being nought, or the product above the line.   *)
+Definition mulF (a b : PrimFloat.float) : bool :=
+  [|| (a =? 0)%float, (b =? 0)%float | prodF (a * b)%float].
+
+Lemma mulFP a b : Dfin a -> Dfin b -> Dfin (a * b)%float ->
+  mulF a b = true -> mulOkR (D2R a) (D2R b).
 Proof.
-move=> Fa Fb Fs H.
-have [E _] := Dfin_mul _ _ Fa Fb Fs.
+move=> Fa Fb Fs /or3P[Hz|Hz|Hp].
+- by left; have [_ ->] := Dfin_eqb0 _ Hz; lra.
+- by left; have [_ ->] := Dfin_eqb0 _ Hz; lra.
+right; have [E _] := Dfin_mul _ _ Fa Fb Fs.
 by apply: Dprodlo_of_rnd; rewrite -E; apply: prodFP.
 Qed.
+
+(* The other two shapes the range clauses come in.                           *)
 
 Lemma div_rng a b : Dfin a -> (D2R b <> 0)%R -> Dfin (a / b)%float ->
   normF (a / b)%float = true -> (Dnorm <= Rabs (D2R a / D2R b))%R.
@@ -1440,8 +1536,7 @@ Definition prodDW_okb (x0 x1 y0 y1 y2 : PrimFloat.float) : bool :=
        & finF (dwlo (twoProd x1 y0))]
   && [&& finF (x0 * y0)%float, finF (x0 * y1)%float, finF (x1 * y0)%float,
          finF (x1 * y1)%float & finF (x0 * y2)%float]
-  && [&& prodF (x0 * y0)%float, prodF (x0 * y1)%float, prodF (x1 * y0)%float,
-         prodF (x1 * y1)%float & prodF (x0 * y2)%float]
+  && [&& mulF x0 y0, mulF x0 y1, mulF x1 y0, mulF x1 y1 & mulF x0 y2]
   && [&& finF (nth 0%float b 2 + x1 * y1)%float,
          finF (dwlo (twoProd x1 y0) + x0 * y2)%float
        & finF ((dwlo (twoProd x1 y0) + x0 * y2)
@@ -1463,9 +1558,9 @@ have M11 := finFP _ C3; have M02 := finFP _ C4.
 split; first by split.
 split; first by split; apply: finFP.
 split.
-  by split; apply: prod_rng => //; apply: finFP.
+  by split; apply: mulFP => //; apply: finFP.
 split.
-  by split; apply: prod_rng => //; apply: finFP.
+  by split; apply: mulFP => //; apply: finFP.
 split.
   by split; apply: finFP.
 split; first by apply: finLbP.
@@ -1485,7 +1580,7 @@ Definition prodOne_okb (x0 x1 x2 y1 y2 : PrimFloat.float) : bool :=
   [&& finF x0, finF x1, finF x2, finF y1 & finF y2]
   && [&& finF z01p, finF z01m, finF bh & finF bl]
   && [&& finF (x0 * y1)%float, finF (x1 * y1)%float & finF (x0 * y2)%float]
-  && [&& prodF (x0 * y1)%float, prodF (x1 * y1)%float & prodF (x0 * y2)%float]
+  && [&& mulF x0 y1, mulF x1 y1 & mulF x0 y2]
   && fast2SumSOkb x1 z01p
   && [&& finF z31, finF z3, finF s3 & finF (s3 + x2)%float]
   && finLb e
@@ -1503,7 +1598,7 @@ have M01 := finFP _ C0; have M11 := finFP _ C1; have M02 := finFP _ C2.
 split; first by split.
 split; first by split; apply: finFP.
 split.
-  by split; apply: prod_rng.
+  by split; apply: mulFP.
 split; first by apply: fast2SumSOkbP.
 split; first by split; apply: finFP.
 split; first by apply: finFP.
@@ -1533,10 +1628,8 @@ Definition sqrtBW_okb (x0 x1 : PrimFloat.float) : bool :=
          finF (a * h0_2)%float & finF (a * x1)%float]
   && [&& finF (a' * h1_1)%float, finF (a * h1_2)%float, finF h1_1,
          finF (h11_2 + a' * h1_1)%float & finF b12]
-  && [&& prodF (a * x0)%float, prodF (a' * h01_1)%float,
-         prodF (a * h0_2)%float, prodF (a * x1)%float
-       & prodF (a' * h1_1)%float]
-  && prodF (a * h1_2)%float
+  && [&& mulF a x0, mulF a' h01_1, mulF a h0_2, mulF a x1 & mulF a' h1_1]
+  && mulF a h1_2
   && fastTwoSumOkb b01 b12.
 
 Lemma sqrtBW_okbP x0 x1 : sqrtBW_okb x0 x1 = true -> sqrtBW_ok x0 x1.
@@ -1564,9 +1657,9 @@ split.
   by apply: half_rng.
 split; first by split; apply: finFP.
 split.
-  by split; apply: prod_rng => //; apply: finFP.
+  by split; apply: mulFP => //; apply: finFP.
 split.
-  by apply: prod_rng => //; apply: finFP.
+  by apply: mulFP => //; apply: finFP.
 split; first by split; apply: finFP.
 split; first by apply: finFP.
 by apply: fastTwoSumOkbP.
