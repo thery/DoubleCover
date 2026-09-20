@@ -860,3 +860,94 @@ rewrite /XsqrtBWn /sqrtBWn /sqrtBn /tw2R /=.
 have E0 : D2R 0%float = 0%R by rewrite /D2R; compute; lra.
 by rewrite Ebh Ebl E0.
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  Algorithm 15                                                              *)
+(* ---------------------------------------------------------------------------*)
+
+Notation XThreeProdDWn := (ThreeProdDWn prec Dchoice).
+Notation XThreeProdOneTWn := (ThreeProdOneTWn prec Dchoice).
+
+(* Halving a triple word, word by word.                                      *)
+Definition halfTw_ok (t : twfloat) : Prop :=
+  let: TWFloat x0 x1 x2 := t in
+  [/\ Dfin x0, Dfin x1 & Dfin x2]
+  /\ [/\ Dfin (x0 / 2)%float, Dfin (x1 / 2)%float & Dfin (x2 / 2)%float]
+  /\ [/\ (Dnorm <= Rabs (D2R x0 / 2))%R, (Dnorm <= Rabs (D2R x1 / 2))%R
+       & (Dnorm <= Rabs (D2R x2 / 2))%R].
+
+Lemma halfTw_X t : halfTw_ok t ->
+  tw2R (halfTw t) = scaleTW (-1) (tw2R t).
+Proof.
+case: t => x0 x1 x2 [[F0 F1 F2] [[H0 H1 H2] [N0 N1 N2]]].
+rewrite /halfTw /scaleTW /tw2R /=.
+rewrite (half_X _ F0 H0 N0) (half_X _ F1 H1 N1) (half_X _ F2 H2 N2).
+by congr TWR; rewrite /= /Z.pow_pos /=; lra.
+Qed.
+
+(* Three halves less a triple word: exact on the leading word by Sterbenz,   *)
+(* and a negation on the other two.                                         *)
+Definition sub32Tw_ok (t : twfloat) : Prop :=
+  let: TWFloat x0 x1 x2 := t in
+  [/\ Dfin x0, Dfin x1, Dfin x2, Dfin (three2 - x0)%float
+    & (3 / 4 <= D2R x0 <= 3)%R].
+
+Lemma sub32Tw_X t : sub32Tw_ok t -> tw2R (sub32Tw t) = sub32TW (tw2R t).
+Proof.
+case: t => x0 x1 x2 [F0 F1 F2 Fs Hr].
+have Hp0 : Prec_gt_0 prec by [].
+have Ve : Valid_exp Dfexp by rewrite DfexpE; apply: FLT_exp_valid.
+have Mo : Monotone_exp Dfexp by rewrite DfexpE; apply: FLT_exp_monotone.
+have F32 : generic_format radix2 Dfexp (3 / 2)%R
+  by rewrite -Dthree2; apply: Dformat.
+have Fe : generic_format radix2 Dfexp (3 / 2 - D2R x0)%R.
+  by apply: (Sterbenz.sterbenz radix2 Dfexp) => //; [apply: Dformat | lra].
+have [E _] := Dfin_sub _ _ Dfin_three2 F0 Fs.
+rewrite /sub32Tw /sub32TW /tw2R /=.
+by rewrite E Dthree2 round_generic // !D2R_opp.
+Qed.
+
+(* The two products, stated on a triple word rather than on three words.     *)
+Lemma threeProdDW_XT (X Y : twfloat) :
+  prodDW_ok (tw0 X) (tw1 X) (tw0 Y) (tw1 Y) (tw2 Y) ->
+  tw2R (threeProdDW X Y) = XThreeProdDWn (tw2R X) (tw2R Y).
+Proof.
+by case: X => x0 x1 x2; case: Y => y0 y1 y2; apply: threeProdDW_X.
+Qed.
+
+Lemma threeProdOneTW_XT (X Y : twfloat) :
+  prodOne_ok (tw0 X) (tw1 X) (tw2 X) (tw1 Y) (tw2 Y) ->
+  tw2R (threeProdOneTW X Y) = XThreeProdOneTWn (tw2R X) (tw2R Y).
+Proof.
+by case: X => x0 x1 x2; case: Y => y0 y1 y2; apply: threeProdOneTW_X.
+Qed.
+
+(* What the whole of Algorithm 15 asks.  Every clause is one of the three     *)
+(* above, at the argument the algorithm gives it.                             *)
+Definition sqrt_ok (x : twfloat) : Prop :=
+  let bw := sqrtBW (tw0 x) (tw1 x) in
+  let i1 := threeProdDW bw x in
+  let hb := halfTw bw in
+  let p2 := threeProdDW hb i1 in
+  let s2 := sub32Tw p2 in
+  sqrtBW_ok (tw0 x) (tw1 x)
+  /\ prodDW_ok (tw0 bw) (tw1 bw) (tw0 x) (tw1 x) (tw2 x)
+  /\ halfTw_ok bw
+  /\ prodDW_ok (tw0 hb) (tw1 hb) (tw0 i1) (tw1 i1) (tw2 i1)
+  /\ sub32Tw_ok p2
+  /\ prodOne_ok (tw0 i1) (tw1 i1) (tw2 i1) (tw1 s2) (tw2 s2).
+
+(* AND THE WHOLE OF ALGORITHM 15 CROSSES.                                     *)
+Lemma threeSqRt_X x : sqrt_ok x ->
+  tw2R (threeSqRt x) = ThreeSqRtNn prec Dchoice (tw2R x).
+Proof.
+rewrite /sqrt_ok /threeSqRt /ThreeSqRtNn /ThreeSqRtAuxN
+  => [] [Hseed [Hp1 [Hhalf [Hp2 Hrest]]]].
+have [Hsub Hp3] := Hrest.
+have Ebw : tw2R (sqrtBW (tw0 x) (tw1 x))
+         = XsqrtBWn (D2R (tw0 x)) (D2R (tw1 x)) by apply: sqrtBW_X.
+rewrite (threeProdOneTW_XT _ _ Hp3) (sub32Tw_X _ Hsub)
+        (threeProdDW_XT _ _ Hp2) (halfTw_X _ Hhalf)
+        (threeProdDW_XT _ _ Hp1) Ebw.
+by case: x {Hseed Hp1 Hhalf Hp2 Hsub Hp3 Hrest Ebw}.
+Qed.
