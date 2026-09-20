@@ -1140,9 +1140,9 @@ The estimate is built as before, by keeping a summary of the cube.
 ]
 
 The 24, 22, 20 and 18 fall by two each time because a place taken by an edge is
-taken whichever way round that edge is. These summaries are the cosets of a subgroup of
-the cube group, Reid's own, and the file names of this section start with H
-after it.
+taken whichever way round that edge is. These summaries are the cosets of a
+subgroup of the cube group, Reid's own, and the file names of this section start
+with H after it.
 
 The table holds the distance from solved of each of the 29 billion summaries.
 How many lie at each distance agrees with the column Reid published in 1998, and
