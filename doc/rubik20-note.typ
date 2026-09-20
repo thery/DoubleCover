@@ -1061,29 +1061,30 @@ A word made only of turns from $cal(A)$ leaves the four middle edges untouched,
 and superflip4 has them flipped, so no such word gives superflip4. A word made
 only of turns from $cal(C)$ never flips an edge, and superflip4 has every edge
 flipped, so no such word gives it either. Any word for superflip4 therefore uses
-turns from both sets, and a turn from $cal(A)$ and a turn from $cal(C)$ stand
-next to each other somewhere in it.
+turns from both sets, so somewhere in it a two-letter subword has one turn from
+each set.
 
 Each of the six prefixes starts with a turn from $cal(C)$ followed by a turn
-from $cal(A)$, so we want a word for superflip4 that starts with such a pair.
+from $cal(A)$, so we want a word for superflip4 that starts with such a
+subword.
 Recall the word we gave for it:
 
 #align(center)[`U U D D L F F U' D R R B U' D' R L F F R U D' R' L U F' B'`]
 
-Reading along it, a turn of $cal(C)$ is followed by a turn of $cal(A)$ four
-times, and a turn of $cal(A)$ is followed by a turn of $cal(C)$ five times. We
-take the first pair of the first kind, at the seventh and eighth turns, `F` then
-`U'`, and call that two-letter word $q$. If a word had pairs of the second kind
-only, we would invert it first: superflip4 is its own inverse, so the inverse is again a word
-for it, of the same length, and inverting turns every pair of the second kind
-into one of the first. Here the inverse is
+Reading along it, four two-letter subwords have a turn of $cal(C)$ followed by
+a turn of $cal(A)$, and five have them the other way round. We take the first
+of the four, at the seventh and eighth turns, `F` then `U'`, and call that
+subword $q$. A word may have subwords of the second kind only. We would then
+invert it first: superflip4 is its own inverse, so the inverse is again a word
+for it, of the same length, and inverting turns every subword of the second
+kind into one of the first. Here the inverse is
 
 #align(center)[`B F U' L' R D U' R' F' F' L' R' D U B' R' R' D' U F' F' L' D' D' U' U'`]
 
-with, as expected, five pairs of the first kind and four of the second.
+with, as expected, five subwords of the first kind and four of the second.
 
-Let us go back to our two-letter word $q$. Six turns stand before it. Write $x$
-for them, `U U D D L F`, and $w$ for what follows $q$, so that $x q w = P$,
+Let us go back to our two-letter subword $q$. Six turns stand before it. Write
+$x$ for them, `U U D D L F`, and $w$ for what follows $q$, so that $x q w = P$,
 where $P$ is superflip4. Then $q w = x^(-1) P$, and therefore
 
 #align(center)[
@@ -1093,8 +1094,8 @@ where $P$ is superflip4. Then $q w = x^(-1) P$, and therefore
 $P^(-1) x P$ is not longer than $x$:
 
 #align(center)[
-  $P^(-1) x P = (P^(-1) U P) (P^(-1) U P) (P^(-1) D P) (P^(-1) D P)
-    (P^(-1) L P) (P^(-1) F P) .$
+  $P^(-1) x P = (P^(-1) mono(U) P) (P^(-1) mono(U) P) (P^(-1) mono(D) P)
+    (P^(-1) mono(D) P) (P^(-1) mono(L) P) (P^(-1) mono(F) P) .$
 ]
 
 Each factor is a quarter turn again, the same turn with front and back swapped
