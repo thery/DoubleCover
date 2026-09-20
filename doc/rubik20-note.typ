@@ -1102,13 +1102,14 @@ $P^(-1) x P$ is not longer than $x$:
 
 Each factor is a quarter turn again, the same turn with front and back swapped
 and left and right swapped, and #src("HProp2.v") checks this for each of the
-twelve quarter turns. So $q w$ followed by those six turns,
+twelve quarter turns. This finishes the first step: $q w$ followed by those six
+turns is a word for superflip4 of the same length as the one we started from,
+and it begins with $q$.
 
 #align(center)[`F U' D R R B U' D' R L F F R U D' R' L U F' B' U U D D R B`]
 
-is a word for superflip4 of the same length as the one we started from, and it
-starts with $q$. The swap leaves `U` and `D` alone, so the two turns of $q$ are
-still one from each set.
+The swap leaves `U` and `D` alone, so the two turns of $q$ are still one from
+each set.
 
 Renaming by one of the sixteen relabellings that keep the up-down axis then
 turns $q$ into `R U` or `R' U`. The first case is already one of the six. In the
