@@ -1140,8 +1140,9 @@ The estimate is built as before, by keeping a summary of the cube.
 ]
 
 The 24, 22, 20 and 18 fall by two each time because a place taken by an edge is
-taken whichever way round that edge is. These summaries are the cosets of Reid's
-H. The H at the front of the file names comes from it.
+taken whichever way round that edge is. These summaries are the cosets of a subgroup of
+the cube group, Reid's own, and the file names of this section start with H
+after it.
 
 The table holds the distance from solved of each of the 29 billion summaries.
 How many lie at each distance agrees with the column Reid published in 1998, and
@@ -1215,10 +1216,12 @@ pieces are in place. We did the superflip's.
 
 == Cosets
 
-Ten of the eighteen moves generate Reid's H: the three turns of the top face,
-the three of the bottom face, and the half turns of the other four. A coset of H
-is the set of positions reached by playing those ten from a fixed position.
-Every position of the cube lies in exactly one coset.
+Ten of the eighteen moves generate the subgroup $H$ of Kociemba and
+Thistlethwaite: the three turns of the top face, the three of the bottom face,
+and the half turns of the other four. It is not the subgroup of the last
+section, which is Reid's. A coset of H is the set of positions reached by
+playing those ten from a fixed position. Every position of the cube lies in
+exactly one coset.
 
 #tbl(([], [count]),
   ([positions of the cube], [43 252 003 274 489 856 000]),
