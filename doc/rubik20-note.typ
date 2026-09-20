@@ -1079,19 +1079,27 @@ again, has the same length, and takes the two turns in the other order. It
 remains to bring the pair to the front and to rename it so that it reads $R U$
 or $R^(-1) U$.
 
-To see how this is done, take a word for superflip4 whose first four turns are
-$x = B U U L$, and call the rest $w$, so that $x w = P$, where $P$ is
-superflip4. Then $w = x^(-1) P$, and therefore
+Take the word for superflip4 printed above. Its seventh turn is $F$ and its
+eighth is $U^(-1)$, a turn of $cal(C)$ followed by one of $cal(A)$. Write $x$
+for the six turns before them, $U U D D L F$, and $w$ for the rest, so that
+$x w = P$, where $P$ is superflip4. Then $w = x^(-1) P$, and therefore
 
 #align(center)[
   $w (P^(-1) x P) = x^(-1) P P^(-1) x P = P .$
 ]
 
-So $w$ followed by $P^(-1) x P$ gives superflip4 again. For this position
-$P^(-1) x P$ is again a word of quarter turns of the same length: it is $x$
-with front and back swapped and left and right swapped, that is $F U U R$.
-#src("HProp2.v") checks that one turn at a time. The swap leaves $U$ and $D$
-alone, so the two turns now at the front are still one from each set.
+For this position $P^(-1) x P$ is $x$ with front and back swapped and left and
+right swapped, so it is $U U D D R B$, again six quarter turns.
+#src("HProp2.v") checks that one turn at a time. The word
+
+#align(center)[
+  $F U^(-1) D R R B U^(-1) D^(-1) R L F F R U D^(-1) R^(-1) L U F^(-1) B^(-1)
+   space U U D D R B$
+]
+
+is therefore another word for superflip4, of the same length, and it starts
+with the pair. The swap leaves $U$ and $D$ alone, so the two turns at the front
+are still one from each set.
 
 Renaming by one of the sixteen relabellings that keep the up-down axis then
 turns the pair at the front into $R U$ or $R^(-1) U$. The first case is already
