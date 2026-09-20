@@ -1068,8 +1068,8 @@ and superflip4 has them flipped, so no such word gives superflip4. A word made
 only of turns from $cal(C)$ never flips an edge, and superflip4 has every edge
 flipped, so no such word gives it either. Any word for superflip4 therefore uses
 turns from both sets, and a turn from $cal(A)$ and a turn from $cal(C)$ stand
-next to each other somewhere in it. In the word printed above, the seventh turn
-is $F$ and the eighth is $U^(-1)$.
+next to each other somewhere in it. The word given for superflip4 has $F$ as its
+seventh turn and $U^(-1)$ as its eighth.
 
 Each of the six prefixes starts with a turn from $cal(C)$ followed by a turn
 from $cal(A)$, so we want a word for superflip4 that starts with such a pair. We
@@ -1080,7 +1080,7 @@ again, has the same length, and takes the two turns in the other order. It
 remains to bring the pair to the front and to rename it so that it reads $R U$
 or $R^(-1) U$.
 
-That pair is in the wrong place, so take the same word again and write $x$ for
+That pair is in the wrong place, so take that word and write $x$ for
 the six turns before it, $U U D D L F$, and $w$ for the rest, so that $x w = P$,
 where $P$ is superflip4. Then $w = x^(-1) P$, and therefore
 
