@@ -518,3 +518,180 @@ have Fl4 : finL [:: nth 0%float E 1; nth 0%float E 2; nth 0%float E 3;
 by rewrite (vseb_X _ Fl4 Fv) l2R_take.
 Qed.
 
+
+(* ---------------------------------------------------------------------------*)
+(*  Fast2Sum, and the swap                                                    *)
+(* ---------------------------------------------------------------------------*)
+
+Notation XFast2Sum := (TwoSum.Fast2Sum prec Dchoice).
+Notation XFast2SumS := (TwoSum.Fast2SumS prec Dchoice).
+
+(* `Dleb' the other way round: the swap has to be read on both branches.      *)
+Lemma DlebF a b : Dfin a -> Dfin b -> (a <=? b)%float = false ->
+  (D2R b < D2R a)%R.
+Proof.
+rewrite /Dfin /D2R leb_equiv => Fa Fb.
+rewrite (Bleb_correct _ _ _ _ Fa Fb).
+by case: Rle_bool_spec => // H _.
+Qed.
+
+(* The three-word paper's `Fast2Sum' is the double-word paper's, written on   *)
+(* `DWR' instead of a pair, so `dwflx.v' settles this one too.                *)
+Lemma fastTwoSum_X a b : Dfin a -> Dfin b -> DfastTwoSumFin a b ->
+  D2R (dwhi (fastTwoSum a b)) = dwh (XFast2Sum (D2R a) (D2R b)) /\
+  D2R (dwlo (fastTwoSum a b)) = dwl (XFast2Sum (D2R a) (D2R b)).
+Proof. by move=> Fa Fb H; apply: fastTwoSum_FLX_fin. Qed.
+
+Lemma XFast2SumS_le a b : (Rabs b <= Rabs a)%R ->
+  XFast2SumS a b = XFast2Sum a b.
+Proof.
+by rewrite /TwoSum.Fast2SumS => H; case: (Rle_dec (Rabs b) (Rabs a)).
+Qed.
+
+Lemma XFast2SumS_gt a b : (Rabs a < Rabs b)%R ->
+  XFast2SumS a b = XFast2Sum b a.
+Proof.
+rewrite /TwoSum.Fast2SumS => H.
+by case: (Rle_dec (Rabs b) (Rabs a)) => // H1; lra.
+Qed.
+
+Definition Dfast2SumSFin (a b : PrimFloat.float) : Prop :=
+  if (abs b <=? abs a)%float then DfastTwoSumFin a b else DfastTwoSumFin b a.
+
+Lemma fast2SumS_X a b : Dfin a -> Dfin b -> Dfast2SumSFin a b ->
+  D2R (dwhi (fast2SumS a b)) = dwh (XFast2SumS (D2R a) (D2R b)) /\
+  D2R (dwlo (fast2SumS a b)) = dwl (XFast2SumS (D2R a) (D2R b)).
+Proof.
+move=> Fa Fb.
+have Faa : Dfin (abs a) by apply: Dfin_abs.
+have Fab : Dfin (abs b) by apply: Dfin_abs.
+have [E|E] : ((abs b <=? abs a)%float = true) \/ ((abs b <=? abs a)%float = false)
+  by case: (abs b <=? abs a)%float; [left|right].
+- rewrite /Dfast2SumSFin /fast2SumS E => H.
+  have Hle : (Rabs (D2R b) <= Rabs (D2R a))%R
+    by rewrite -!D2R_abs; apply: Dleb.
+  by rewrite (XFast2SumS_le _ _ Hle); apply: fastTwoSum_X.
+rewrite /Dfast2SumSFin /fast2SumS E => H.
+have Hgt : (Rabs (D2R a) < Rabs (D2R b))%R
+  by rewrite -!D2R_abs; apply: DlebF.
+by rewrite (XFast2SumS_gt _ _ Hgt); apply: fastTwoSum_X.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  Algorithm 20                                                              *)
+(* ---------------------------------------------------------------------------*)
+
+Definition prodOne_ok (x0 x1 x2 y1 y2 : PrimFloat.float) : Prop :=
+  let z01p := dwhi (twoProd x0 y1) in
+  let z01m := dwlo (twoProd x0 y1) in
+  let bh := dwhi (fast2SumS x1 z01p) in
+  let bl := dwlo (fast2SumS x1 z01p) in
+  let z31 := (z01m + x1 * y1)%float in
+  let z3 := (z31 + x0 * y2)%float in
+  let s3 := (bl + z3)%float in
+  let e := vecSum [:: x0; bh; (s3 + x2)%float] in
+  [/\ Dfin x0, Dfin x1, Dfin x2, Dfin y1 & Dfin y2]
+  /\ [/\ Dfin z01p, Dfin z01m, Dfin bh & Dfin bl]
+  /\ [/\ (Dprodlo <= Rabs (D2R x0 * D2R y1))%R,
+         (Dprodlo <= Rabs (D2R x1 * D2R y1))%R
+       & (Dprodlo <= Rabs (D2R x0 * D2R y2))%R]
+  /\ Dfast2SumSFin x1 z01p
+  /\ [/\ Dfin (x1 * y1)%float, Dfin (x0 * y2)%float, Dfin z31, Dfin z3
+       & Dfin s3]
+  /\ Dfin (s3 + x2)%float
+  /\ finL e
+  /\ Dfast2SumSFin (nth 0%float e 1) (nth 0%float e 2).
+
+Lemma threeProdOneTW_shape x0 x1 x2 y0 y1 y2 z01p z01m bh bl e :
+  twoProd x0 y1 = DWFloat z01p z01m ->
+  fast2SumS x1 z01p = DWFloat bh bl ->
+  e = vecSum [:: x0; bh;
+        ((bl + ((z01m + x1 * y1) + x0 * y2)) + x2)%float] ->
+  threeProdOneTW (TWFloat x0 x1 x2) (TWFloat y0 y1 y2)
+  = let: DWFloat r1 r2 := fast2SumS (nth 0%float e 1) (nth 0%float e 2) in
+    TWFloat (nth 0%float e 0) r1 r2.
+Proof. by move=> H1 H2 ->; rewrite /threeProdOneTW /p18head H1 H2 /nth3. Qed.
+
+Lemma ThreeProdOneTWn_shape (x0 x1 x2 y0 y1 y2 : R) z01p z01m bh bl e :
+  XTwoProd x0 y1 = (z01p, z01m) ->
+  XFast2SumS x1 z01p = DWR bh bl ->
+  e = XvecSum [:: x0; bh;
+        Xrnd (Xrnd (bl + Xrnd (Xrnd (z01m + Xrnd (x1 * y1))
+                               + Xrnd (x0 * y2))) + x2)] ->
+  ThreeProdOneTWn prec Dchoice (TWR x0 x1 x2) (TWR y0 y1 y2)
+  = let: DWR r1 r2 := XFast2SumS (nth 0 e 1) (nth 0 e 2) in
+    TWR (nth 0 e 0) r1 r2.
+Proof.
+move=> H1 H2 ->.
+by rewrite (ThreeProdOneTWn_unfold prec Dchoice) H1 H2.
+Qed.
+
+(* Reading back the last `Fast2Sum' of an algorithm: both sides end the same  *)
+(* way, a double word spread over the last two limbs.                         *)
+Lemma tw2R_f2s e0 d D :
+  D2R (dwhi d) = dwh D -> D2R (dwlo d) = dwl D ->
+  tw2R (let: DWFloat r1 r2 := d in TWFloat e0 r1 r2)
+  = let: DWR r1 r2 := D in TWR (D2R e0) r1 r2.
+Proof.
+case: d => a b; case: D => c d0 /= Eh El.
+by rewrite /tw2R /= Eh El.
+Qed.
+
+Lemma dwE (d : dwfloat) : d = DWFloat (dwhi d) (dwlo d).
+Proof. by case: d. Qed.
+
+Lemma XdwE (d : dwR) : d = DWR (dwh d) (dwl d).
+Proof. by case: d. Qed.
+
+Lemma XTwoProdE (a b : R) :
+  XTwoProd a b = ((XTwoProd a b).1, (XTwoProd a b).2).
+Proof. by case: XTwoProd. Qed.
+
+Lemma threeProdOneTW_X x0 x1 x2 y0 y1 y2 :
+  prodOne_ok x0 x1 x2 y1 y2 ->
+  tw2R (threeProdOneTW (TWFloat x0 x1 x2) (TWFloat y0 y1 y2))
+  = ThreeProdOneTWn prec Dchoice
+      (tw2R (TWFloat x0 x1 x2)) (tw2R (TWFloat y0 y1 y2)).
+Proof.
+rewrite /prodOne_ok
+  => [] [[Fx0 Fx1 Fx2 Fy1 Fy2] [[Fz01p Fz01m Fbh Fbl]
+        [[H01 H11 H02] [Hb [[M11 M02 Fz31 Fz3 Fs3]
+          [Fs3x [Fe Hlast]]]]]]].
+have [Eh01 El01] := twoProd_X _ _ Fz01m H01.
+set z01p := dwhi (twoProd x0 y1) in Fz01p Hb Fe Hlast Eh01 *.
+set z01m := dwlo (twoProd x0 y1) in Fz01m Fz31 El01 Fz3 Fs3 Fs3x Fe Hlast *.
+set bh := dwhi (fast2SumS x1 z01p) in Fbh Fe Hlast *.
+set bl := dwlo (fast2SumS x1 z01p) in Fbl Fs3 Fs3x Fe Hlast *.
+have [Ebh Ebl] := fast2SumS_X _ _ Fx1 Fz01p Hb.
+rewrite -/z01p -/bh -/bl in Ebh Ebl.
+set E := vecSum [:: x0; bh; ((bl + ((z01m + x1 * y1) + x0 * y2))
+                             + x2)%float] in Fe Hlast *.
+rewrite (threeProdOneTW_shape x0 x1 x2 y0 y1 y2 z01p z01m bh bl E
+           (dwE _) (dwE _) erefl).
+have -> : tw2R (TWFloat x0 x1 x2) = TWR (D2R x0) (D2R x1) (D2R x2) by [].
+have -> : tw2R (TWFloat y0 y1 y2) = TWR (D2R y0) (D2R y1) (D2R y2) by [].
+have EE : l2R E
+        = XvecSum [:: D2R x0; D2R bh;
+            Xrnd (Xrnd (D2R bl
+                        + Xrnd (Xrnd (D2R z01m + Xrnd (D2R x1 * D2R y1))
+                                + Xrnd (D2R x0 * D2R y2))) + D2R x2)].
+  rewrite /E (vecSum_X _ Fe).
+  have -> : l2R [:: x0; bh; ((bl + ((z01m + x1 * y1) + x0 * y2))
+                             + x2)%float]
+          = [:: D2R x0; D2R bh;
+                D2R ((bl + ((z01m + x1 * y1) + x0 * y2)) + x2)%float] by [].
+  rewrite (add_X _ _ Fs3 Fx2 Fs3x) (add_X _ _ Fbl Fz3 Fs3).
+  rewrite (add_X _ _ Fz31 M02 Fz3) (add_X _ _ Fz01m M11 Fz31).
+  by rewrite (mul_X _ _ Fx1 Fy1 M11 H11) (mul_X _ _ Fx0 Fy2 M02 H02).
+rewrite (ThreeProdOneTWn_shape (D2R x0) (D2R x1) (D2R x2)
+           (D2R y0) (D2R y1) (D2R y2) (D2R z01p) (D2R z01m)
+           (D2R bh) (D2R bl) (l2R E)); last by rewrite EE.
+- have [EH EL] := fast2SumS_X _ _ (finL_nth E 1 Fe) (finL_nth E 2 Fe) Hlast.
+  rewrite -/E in EH EL.
+  rewrite (tw2R_f2s _ _ (XFast2SumS (nth 0 (l2R E) 1) (nth 0 (l2R E) 2)));
+    first by rewrite l2R_nth.
+  + by rewrite -!l2R_nth; exact: EH.
+  by rewrite -!l2R_nth; exact: EL.
+- by rewrite Eh01 El01; case: (XTwoProd (D2R x0) (D2R y1)).
+by rewrite Ebh Ebl; case: (XFast2SumS (D2R x1) (D2R z01p)).
+Qed.
