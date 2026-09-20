@@ -1101,8 +1101,10 @@ set.
 
 Renaming by one of the sixteen relabellings that keep the up-down axis then
 turns the pair at the front into $R U$ or $R^(-1) U$. The first case is already
-one of the six. In the second, one looks at the third turn: most choices fold
-back into the first case, and five survive. Those five and $R U$ are the six.
+one of the six. In the second, one looks at the third turn. Most choices fold
+back into the first case, and five survive. One choice is ruled out by
+minimality alone: the turn that cancels the second, which would give a shorter
+word for superflip4. Those five and $R U$ are the six.
 
 In Rocq the proposition reads
 
