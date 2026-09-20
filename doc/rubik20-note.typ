@@ -639,9 +639,9 @@ The summary is the product of the three values:
 
 *Every summary stands for exactly 19 508 428 800 real positions*. The table
 records, for each summary, its distance from the solved summary. Four bits hold
-one entry and the whole table is *1.18 GB*. The cut is quite effective. A search at depth 14 visits
-470 786 nodes. Without the cut the same tree holds $1.07 dot 10^15$ of them,
-so the search sees one node in two billion. We call this summary the *phase 1
+one entry and the whole table is *1.18 GB*. The cut is quite effective. A
+search at depth 14 visits 470 786 nodes. Without the cut the same tree holds
+$1.07 dot 10^15$ of them, so the search sees one node in two billion. We call this summary the *phase 1
 summary*, after the first phase of Kociemba's solver @kociemba, and its table
 of distances the *phase 1 table*.
 
