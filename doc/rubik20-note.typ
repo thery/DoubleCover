@@ -1108,20 +1108,13 @@ length, beginning with $q$.
 #align(center)[`F U' D R R B U' D' R L F F R U D' R' L U F' B' U U D D R B`]
 
 The second step renames the word. The sixteen relabellings that keep the
-up-down axis can always turn the letter of $q$ from $cal(A)$ into `U`: a mirror
-reverses the direction of a turn, and turning the cube over exchanges top and
-bottom. That leaves the four rotations about the up-down axis, which send the
-side faces round, `R` to `F` to `L` to `B`, and keep the direction. So $q$
-becomes `R U` or `R' U`.
+up-down axis turn the letter of $q$ from $cal(A)$ into `U`, and the letter from
+$cal(C)$ into `R` or `R'`. So $q$ becomes `R U` or `R' U`.
 
-Words beginning with `R U` are searched as they are, and that is the prefix of
-two turns. In the case `R' U` the third turn is looked at. It cannot be `U'`,
-which would cancel the `U` and give a shorter word, so eleven turns remain. Six
-of them fold back into the first case: `R' U U` is `R' U2`, which a relabelling
-turns into `R U2`, and `R' U D'` becomes `R U D'`, while `R' U B`, `R' U R`,
-`R' U F` and `R' U L` invert to `R U B'`, `R U R'`, `R U F'` and `R U L'`. The
-five that survive are `R' U D`, `R' U F'`, `R' U R'`, `R' U B'` and `R' U L'`.
-With `R U` they are the six.
+Words beginning with `R U` are searched as they are, which gives the prefix of
+two turns. In the case `R' U` the third turn is looked at. Six of the possible
+turns give words that a relabelling or an inversion brings back to the `R U`
+case, and five do not. Those five are the prefixes of three turns.
 
 In Rocq the proposition reads
 
