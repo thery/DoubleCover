@@ -2,7 +2,8 @@ From Stdlib Require Import ZArith Reals Psatz.
 From mathcomp Require Import all_ssreflect all_algebra.
 From Flocq Require Import Core Relative Sterbenz Operations Mult_error.
 From twarith.threewords Require Import Nmore Rmore Fmore Rstruct MULTmore prelim.
-From twarith.threewords Require Import TwoSum TWR VecSum ThreeProd ThreeProdDW ThreeProdOne.
+From twarith.threewords Require Import TwoSum Nonoverlap TWR VecSum.
+From twarith.threewords Require Import ThreeProd ThreeProdDW ThreeProdOne.
 From twarith.threewords Require Import ThreeSqRt.
 
 (* THE SEED OF ALGORITHM 15, WITH NO FUSED MULTIPLY-ADD.                      *)
@@ -1487,6 +1488,57 @@ have Hsp : b2 + x1 * y1 - RND (b2 + RND (x1 * y1))
 rewrite Hsp.
 by have T := Rabs_triang (x1 * y1 - RND (x1 * y1))
        (b2 + RND (x1 * y1) - RND (b2 + RND (x1 * y1))); lra.
+Qed.
+
+(* THE PAPER'S DECOMPOSITION, WITH THE TWO FUSED LINES LET GO.                *)
+(*                                                                            *)
+(* `sumR_e_decomp' asks that `c' and `z31' BE the fused expressions, and its  *)
+(* conclusion then states what the product is out by in terms of the very     *)
+(* differences those expressions make small.  But the identity is algebraic:  *)
+(* the two hypotheses are used for one thing only, to know `c' and `z3' are   *)
+(* in the format, which `vecSum' wants.  Asked for that instead, the same     *)
+(* proof serves a `c' and a `z31' computed any way at all -- ours included.   *)
+Lemma sumR_e_decomp_gen x0 x1 x2 y0 y1 y2
+    z00p z00m z01p z01m z10p z10m b c z31 z32 z3 :
+  format x0 -> format x1 -> format y0 -> format y1 ->
+  TwoProd x0 y0 = (z00p, z00m) ->
+  TwoProd x0 y1 = (z01p, z01m) ->
+  TwoProd x1 y0 = (z10p, z10m) ->
+  b = XvecSum [:: z00m; z01p; z10p] ->
+  format c -> format z3 ->
+  (x0 + x1 + x2) * (y0 + y1 + y2) -
+    sumR (XvecSum [:: z00p; nth 0 b 0; nth 0 b 1; c; z3]) =
+    (x1 * y2 + x2 * y1 + x2 * y2) + (z10m + x0 * y2 - z31)
+    + (z01m + x2 * y0 - z32) + (z31 + z32 - z3) + (nth 0 b 2 + x1 * y1 - c).
+Proof.
+move=> Fx0 Fx1 Fy0 Fy1 HP00 HP01 HP10 Hb Fc Fz3.
+have Ez00 : z00p + z00m = x0 * y0
+  by have := TwoProd_exact Fx0 Fy0; rewrite HP00.
+have Ez01 : z01p + z01m = x0 * y1
+  by have := TwoProd_exact Fx0 Fy1; rewrite HP01.
+have Ez10 : z10p + z10m = x1 * y0
+  by have := TwoProd_exact Fx1 Fy0; rewrite HP10.
+have Fz00p : format z00p by have := TwoProd_fmt1 Hp2 choice Fx0 Fy0; rewrite HP00.
+have Fz00m : format z00m by have := TwoProd_fmt2 Hp2 choice Fx0 Fy0; rewrite HP00.
+have Fz01p : format z01p by have := TwoProd_fmt1 Hp2 choice Fx0 Fy1; rewrite HP01.
+have Fz10p : format z10p by have := TwoProd_fmt1 Hp2 choice Fx1 Fy0; rewrite HP10.
+have Eb : nth 0 b 0 + nth 0 b 1 + nth 0 b 2 = z00m + z01p + z10p.
+  by rewrite Hb (vecSum3 Hp2 choice_sym Fz00m Fz01p Fz10p) /=; ring.
+have Fb : {in b, forall z, format z}.
+  rewrite Hb; apply: (@format_vecSum p Hp2 choice).
+  by move=> z; rewrite !inE => /or3P[] /eqP-> //.
+have Hsz : size b = 3%N by rewrite Hb size_vecSum.
+have Fb0 : format (nth 0 b 0) by apply: Fb; rewrite mem_nth // Hsz.
+have Fb1 : format (nth 0 b 1) by apply: Fb; rewrite mem_nth // Hsz.
+have Ee : sumR (XvecSum [:: z00p; nth 0 b 0; nth 0 b 1; c; z3]) =
+          z00p + nth 0 b 0 + nth 0 b 1 + c + z3.
+  rewrite (@vecSum_sum p Hp2 choice choice_sym); last first.
+    by move=> z; rewrite !inE =>
+      /orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/orP[/eqP->|/eqP->]]]] //.
+  by rewrite /=; ring.
+rewrite Ee.
+apply: (@error_decomp x0 x1 x2 y0 y1 y2 z00p z00m z01p z01m z10p z10m
+          (nth 0 b 0) (nth 0 b 1) (nth 0 b 2) c z31 z32 z3) => //.
 Qed.
 
 (* ---------------------------------------------------------------------------*)
