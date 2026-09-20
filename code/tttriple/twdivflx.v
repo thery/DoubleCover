@@ -163,3 +163,238 @@ rewrite (threeProdOneTW_XT _ _ Hp3) (sub2Tw_X _ Hsub)
         (threeProdDW_XT _ _ Hp1) (threeProdDW_XT _ _ Hp2) Ebw.
 by case: x {Hseed Hp1 Hp2 Hsub Hp3 Ebw}.
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The guard, as a test                                                      *)
+(* ---------------------------------------------------------------------------*)
+
+Definition reciBW_okb (x0 x1 : PrimFloat.float) : bool :=
+  let a := (onep / x0)%float in
+  let pe := twoProd a x0 in
+  let h11 := ((dwhi pe - onep) + dwlo pe)%float in
+  let h1 := (- h11 - a * x1)%float in
+  let b01 := dwhi (twoProd a onem) in
+  let b11 := dwlo (twoProd a onem) in
+  let b12 := (b11 + a * h1)%float in
+  [&& finF x0, finF x1, (0 <? abs x0)%float, finF a & normF a]
+  && [&& finF (dwlo pe), finF (dwhi pe - onep)%float, finF h11,
+         finF b11 & finF b12]
+  && [&& finF (a * x0)%float, finF (a * onem)%float, finF (a * x1)%float,
+         finF h1 & finF (a * h1)%float]
+  && [&& mulF a x0, mulF a onem, mulF a x1 & mulF a h1]
+  && fastTwoSumOkb b01 b12.
+
+Lemma reciBW_okbP x0 x1 : reciBW_okb x0 x1 = true -> reciBW_ok x0 x1.
+Proof.
+move=> /andP[/andP[/andP[/andP[/and5P[A0 A1 A2 A3 A4]
+        /and5P[B0 B1 B2 B3 B4]] /and5P[C0 C1 C2 C3 C4]]
+        /and4P[D0 D1 D2 D3]] Hfast].
+have Fx0 := finFP _ A0; have Fx1 := finFP _ A1; have Fa := finFP _ A3.
+have Hn : (Dnorm < Rabs (D2R (onep / x0)%float))%R by apply: normFP.
+have Hp := bpow_gt_0 radix2 (SpecFloat.emin prec emax + prec - 1).
+have Nx0 : (D2R x0 <> 0)%R.
+  have Fax : Dfin (abs x0) by apply: Dfin_abs.
+  have H0 : Dfin 0%float by [].
+  have E0 : D2R 0%float = 0%R by rewrite /D2R; compute; lra.
+  have := Dltb _ _ H0 Fax A2; rewrite E0 D2R_abs; split_Rabs; lra.
+split; first by split => //; apply: finFP.
+split.
+  by apply: DnormT_of_rnd; have [E _] := Dfin_div _ _ Dfin_onep Nx0 Fa;
+     rewrite -E.
+split; first by split; apply: finFP.
+split.
+  by split; apply: mulFP => //; apply: finFP.
+split; first by split; apply: finFP.
+by apply: fastTwoSumOkbP.
+Qed.
+
+Definition sub2Tw_okb (t : twfloat) : bool :=
+  let: TWFloat x0 x1 x2 := t in
+  [&& finF x0, finF x1, finF x2 & subOkb 2 x0].
+
+Lemma sub2Tw_okbP t : sub2Tw_okb t = true -> sub2Tw_ok t.
+Proof.
+case: t => x0 x1 x2 /and4P[H0 H1 H2 H3].
+have F0 := finFP _ H0; have F1 := finFP _ H1; have F2 := finFP _ H2.
+have F2f : Dfin 2%float by [].
+have E2 : D2R 2%float = 2%R by rewrite /D2R; compute; lra.
+have [E Fs] := sub_exact _ _ F2f F0 H3.
+by split => //; rewrite E E2.
+Qed.
+
+Definition div_okb (z x : twfloat) : bool :=
+  let bw := reciBW (tw0 x) (tw1 x) in
+  let i1 := threeProdDW bw x in
+  let s2 := sub2Tw i1 in
+  let az := threeProdDW bw z in
+  [&& reciBW_okb (tw0 x) (tw1 x),
+      prodDW_okb (tw0 bw) (tw1 bw) (tw0 x) (tw1 x) (tw2 x),
+      prodDW_okb (tw0 bw) (tw1 bw) (tw0 z) (tw1 z) (tw2 z),
+      sub2Tw_okb i1
+    & prodOne_okb (tw0 az) (tw1 az) (tw2 az) (tw1 s2) (tw2 s2)].
+
+Lemma div_okbP z x : div_okb z x = true -> div_ok z x.
+Proof.
+move=> /and5P[H1 H2 H3 H4 H5].
+split; first by apply: reciBW_okbP.
+split; first by apply: prodDW_okbP.
+split; first by apply: prodDW_okbP.
+split; first by apply: sub2Tw_okbP.
+by apply: prodOne_okbP.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  What the quotient is out by, and that the step covers it                  *)
+(* ---------------------------------------------------------------------------*)
+
+Theorem threeDiv_error z x :
+  div_ok z x -> isTW prec (tw2R z) -> isTW prec (tw2R x) ->
+  (D2R (tw0 x) <> 0)%R ->
+  (Rabs (twval (threeDiv z x) - twval z / twval x)
+     <= (56 * (Xu * Xu * Xu) + 5000 * (Xu * Xu * Xu * Xu))
+        * Rabs (twval z / twval x))%R.
+Proof.
+move=> Hok Hz Hx Hx0.
+have Hp2 : (1 < prec)%Z by [].
+have Hp11 : (11 <= prec)%Z by [].
+have Ht0 : TWR.tw0 (tw2R x) = D2R (tw0 x) by case: x {Hok Hx Hx0}.
+have H := ThreeDivN_error Hp2 Hp11 Dchoice_sym Dchoice_te Hz Hx
+            (ltac:(by rewrite Ht0) : TWR.tw0 (tw2R x) <> 0%R).
+rewrite -!TWval_tw2R (threeDiv_X _ _ Hok).
+exact: H.
+Qed.
+
+(* Fifty-six against the sixty-four that `2^-153' makes, less what the        *)
+(* leading word and the answer's own error take off: it clears with an        *)
+(* eighth to spare.                                                           *)
+Theorem kstep_div_ok z x :
+  finL (tw2l z) -> wellFormed z = true ->
+  finL (tw2l x) -> wellFormed x = true ->
+  (Dnorm <= Rabs (D2R (tw0 z)))%R ->
+  (D2R (tw1 z) = 0%R \/ (Dnorm <= Rabs (D2R (tw1 z)))%R) ->
+  (Dnorm <= Rabs (D2R (tw0 x)))%R ->
+  (D2R (tw1 x) = 0%R \/ (Dnorm <= Rabs (D2R (tw1 x)))%R) ->
+  (D2R (tw0 x) <> 0)%R ->
+  div_ok z x ->
+  finL (tw2l (threeDiv z x)) -> wellFormed (threeDiv z x) = true ->
+  (tw_updn.normLo <? abs (tw0 (threeDiv z x)))%float = true ->
+  Dfin (kscale * abs (tw0 (threeDiv z x)))%float ->
+  Dfin (dw_updn.mulUpFp kscale (abs (tw0 (threeDiv z x)))) ->
+  (Rabs (twval (threeDiv z x) - twval z / twval x)
+     <= D2R (kstep (threeDiv z x)))%R.
+Proof.
+move=> Fz Wz Fx Wx Hnz0 Hnz1 Hnx0 Hnx1 Hx0 Hok Fr Wr Hlo Fm Fu.
+have Hz := wellFormed_isTW _ Fz Wz Hnz0 Hnz1.
+have Hx := wellFormed_isTW _ Fx Wx Hnx0 Hnx1.
+have Herr := threeDiv_error _ _ Hok Hz Hx Hx0.
+set r := threeDiv z x in Fr Wr Hlo Fm Fu Herr *.
+have Fr0 : Dfin (tw0 r).
+  by move: Fr; rewrite /tw2l; case: (r) => r0 r1 r2 [].
+have Far0 : Dfin (abs (tw0 r)) by apply: Dfin_abs.
+have Fk : Dfin kscale by rewrite /Dfin /kscale; compute.
+have Estep : D2R (kstep r) = D2R (dw_updn.mulUpFp kscale (abs (tw0 r))).
+  by move: Hlo; rewrite /kstep; case: (r) => r0 r1 r2 /= ->.
+have Hge : (bpow radix2 (-153) * Rabs (D2R (tw0 r)) <= D2R (kstep r))%R.
+  rewrite Estep -Dkscale -D2R_abs.
+  by apply: dwbound.mulUpFp_ge.
+have Hn : (Dnorm <= Rabs (D2R (tw0 r)))%R.
+  have Hn1 : (D2R tw_updn.normLo < Rabs (D2R (tw0 r)))%R
+    by rewrite -D2R_abs; apply: Dltb.
+  move: Hn1; rewrite DnormLo => Hn1.
+  apply: Rle_trans (Rlt_le _ _ Hn1).
+  by apply: bpow_le; rewrite /SpecFloat.emin /=; lia.
+have Hlead := wellFormed_lead_tight _ Fr Wr Hn.
+(* the leading word carries all but `1.5u' of the value, so it is within an   *)
+(* eighth of the answer itself                                                *)
+have Hv : (Rabs (twval z / twval x)
+           * (1 - (56 * (Xu * Xu * Xu) + 5000 * (Xu * Xu * Xu * Xu)))
+           <= Rabs (twval r))%R.
+  have T := Rabs_triang_inv (twval r) (twval z / twval x).
+  have T2 : (Rabs (twval z / twval x) - Rabs (twval r)
+             <= Rabs (twval r - twval z / twval x))%R
+    by move: T; rewrite Rabs_minus_sym; split_Rabs; lra.
+  by lra.
+have Eu : Xu = bpow radix2 (-53) by rewrite (u_pow prec).
+have H52 : bpow radix2 (-52) = (2 * bpow radix2 (-53))%R.
+  have -> : (2 = bpow radix2 1)%R by rewrite /= /Z.pow_pos /=; lra.
+  by rewrite -bpow_plus.
+have H153 : bpow radix2 (-153) = (64 * (bpow radix2 (-53)
+             * (bpow radix2 (-53) * bpow radix2 (-53))))%R.
+  have -> : (64 = bpow radix2 6)%R by rewrite /= /Z.pow_pos /=; lra.
+  by rewrite -!bpow_plus.
+have Hb53 : (0 < bpow radix2 (-53))%R by apply: bpow_gt_0.
+have Hb53s : (bpow radix2 (-53) <= / 1048576)%R.
+  have -> : (/ 1048576 = bpow radix2 (-20))%R
+    by rewrite /= /Z.pow_pos /=; lra.
+  by apply: bpow_le; lia.
+have Hr0 := Rabs_pos (D2R (tw0 r)).
+have Hs0 := Rabs_pos (twval z / twval x).
+move: Herr Hlead Hv Hge; rewrite Eu H52 H153.
+set w := bpow radix2 (-53) in Hb53 Hb53s *.
+set S := Rabs (twval z / twval x) in Hs0 *.
+set R0 := Rabs (D2R (tw0 r)) in Hr0 *.
+move=> Herr Hlead Hv Hge.
+set V := Rabs (twval r) in Hlead Hv *.
+set E := (56 * (w * w * w) + 5000 * (w * w * w * w))%R in Herr Hv *.
+have Ht : (0 <= w * w * w)%R by nra.
+have Ht4 : (0 <= w * w * w * w)%R by nra.
+have Hw2 : (w * w <= / 1048576 * w)%R by nra.
+have Hw3 : (w * w * w <= / 1048576 * (w * w))%R by nra.
+have Hw4 : (w * w * w * w <= / 1048576 * (w * w * w))%R by nra.
+have HE0 : (0 <= E)%R by rewrite /E; lra.
+have HEu : (E <= 561 / 10 * (w * w * w))%R by rewrite /E; lra.
+have HEs : (E <= 1 / 100)%R by lra.
+have HE1 : (0 < 1 - E)%R by lra.
+have Hscal : (E * (1 + 3 * w) <= 64 * (w * w * w) * (1 - E))%R.
+  have H1 : (E * (1 + 3 * w) <= 561 / 10 * (w * w * w) * (1 + 3 * w))%R
+    by nra.
+  have H2 : (561 / 10 * (w * w * w) * (1 + 3 * w)
+             <= 64 * (w * w * w) * (99 / 100))%R by nra.
+  have H3 : (64 * (w * w * w) * (99 / 100) <= 64 * (w * w * w) * (1 - E))%R
+    by nra.
+  lra.
+have Hchain : (S * (1 - E) <= (1 + 3 * w) * R0)%R by lra.
+have Hstep1 : (E * (S * (1 - E)) <= E * ((1 + 3 * w) * R0))%R by nra.
+have Hstep2 : (E * ((1 + 3 * w) * R0) <= 64 * (w * w * w) * (1 - E) * R0)%R
+  by nra.
+have Hfin : (E * S <= 64 * (w * w * w) * R0)%R by nra.
+lra.
+Qed.
+
+(* And with every hypothesis a test.                                          *)
+Theorem kstep_div_testable z x :
+  finL (tw2l z) -> wellFormed z = true ->
+  finL (tw2l x) -> wellFormed x = true ->
+  normF (tw0 z) = true -> ((tw1 z =? 0)%float || normF (tw1 z)) = true ->
+  normF (tw0 x) = true -> ((tw1 x =? 0)%float || normF (tw1 x)) = true ->
+  div_okb z x = true ->
+  finL (tw2l (threeDiv z x)) -> wellFormed (threeDiv z x) = true ->
+  (tw_updn.normLo <? abs (tw0 (threeDiv z x)))%float = true ->
+  finF (kscale * abs (tw0 (threeDiv z x)))%float = true ->
+  finF (dw_updn.mulUpFp kscale (abs (tw0 (threeDiv z x)))) = true ->
+  (Rabs (twval (threeDiv z x) - twval z / twval x)
+     <= D2R (kstep (threeDiv z x)))%R.
+Proof.
+move=> Fz Wz Fx Wx Hz0 Hz1 Hx0 Hx1 Hok Fr Wr Hlo Hm Hu.
+have Ftz0 : Dfin (tw0 z).
+  by move: Fz; rewrite /tw2l; case: (z) => z0 z1 z2 [].
+have Ftz1 : Dfin (tw1 z).
+  by move: Fz; rewrite /tw2l; case: (z) => z0 z1 z2 [_ []].
+have Ftx0 : Dfin (tw0 x).
+  by move: Fx; rewrite /tw2l; case: (x) => x0 x1 x2 [].
+have Ftx1 : Dfin (tw1 x).
+  by move: Fx; rewrite /tw2l; case: (x) => x0 x1 x2 [_ []].
+have Hp := bpow_gt_0 radix2 (SpecFloat.emin prec emax + prec - 1).
+have Hnx0 := normFP _ Ftx0 Hx0.
+apply: kstep_div_ok => //.
+- by have := normFP _ Ftz0 Hz0; lra.
+- case/orP: Hz1 => [Hzz|Hn]; first by left; have [] := Dfin_eqb0 _ Hzz.
+  by right; have := normFP _ Ftz1 Hn; lra.
+- by lra.
+- case/orP: Hx1 => [Hzz|Hn]; first by left; have [] := Dfin_eqb0 _ Hzz.
+  by right; have := normFP _ Ftx1 Hn; lra.
+- by move: Hnx0; split_Rabs; lra.
+- by apply: div_okbP.
+- by apply: finFP.
+by apply: finFP.
+Qed.

@@ -19,6 +19,7 @@ twseed.v
 twdivn.v
 twflx.v
 twdivflx.v
+twdiv.v
 twsqrt.v
 tw_ops.v
 tw_cmpbad.v

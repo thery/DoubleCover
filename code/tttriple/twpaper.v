@@ -23,14 +23,13 @@ From twarith Require Import twarith tw_updn twbound.
 (* inputs, the quotient below is out by 2.3 units in the last place where     *)
 (* the paper's own is out by less, and eight covers it.                       *)
 (*                                                                           *)
-(* WHAT IS PROVED HERE AND WHAT IS ASSUMED.  The algorithms themselves are    *)
-(* transcriptions and nothing is proved of them.  The SIZE OF THE STEP is     *)
-(* stated below as two assumptions in their own right -- `kstep_div' and      *)
-(* `kstep_sqrt' -- rather than left hiding inside the four obligations of     *)
-(* `tw_ops.v'.  They are the only thing here that is measured rather than     *)
-(* proved, and `Print Assumptions' on anything that leans on the quotient or  *)
-(* the root names them.  Everything between them and the obligations -- the   *)
-(* guards, the widening, the reading into Interval's shape -- is proved.      *)
+(* WHAT IS PROVED HERE.  The algorithms themselves are transcriptions and     *)
+(* nothing is proved of them in this file.  The SIZE OF THE STEP was measured *)
+(* and assumed; it is now proved, in `twflx.v' for the root and `twdivflx.v'  *)
+(* for the quotient, both through a guard the operation evaluates -- see      *)
+(* `twsqrt.v' and `twdiv.v'.  Nothing in this development is assumed any      *)
+(* more.  Everything between the step and the obligations -- the guards, the  *)
+(* widening, the reading into Interval's shape -- was always proved.          *)
 
 Implicit Type t : twfloat.
 
@@ -216,41 +215,26 @@ Definition divTwDnP (x y : twfloat) :=
 (* through a test rather than through an assumption.                         *)
 
 (* ===========================================================================*)
-(*  The step, assumed; the four bounds, proved from it                        *)
+(*  The step, proved; the four bounds, proved from it                         *)
 (* ===========================================================================*)
 
-(* THESE TWO ARE THE WHOLE OF WHAT IS ASSUMED.                                *)
+(* NOTHING HERE IS ASSUMED ANY MORE.                                          *)
 (*                                                                            *)
 (* `probek.py' beside this file runs the two algorithms on forty thousand     *)
 (* random triple words and reports how far out they are in units of the last  *)
-(* place of the third word: the quotient by 2.3 and the root by less.         *)
+(* place of the third word: the quotient by 2.3 and the root by less.  That   *)
+(* was what `kscale' was set by, and it was set too small: the root is out by *)
+(* `31u^3' of the answer and the quotient by `56u^3', which are 3.9 and 7 of  *)
+(* those units, so the constant went up three bits to `2^-153'.  The          *)
+(* measurement was right about the algorithms and wrong about what could be   *)
+(* shown of them.                                                             *)
+(*                                                                            *)
 (* `kstep' turns `kscale' into a step down from the leading word, with a      *)
 (* fixed step below the normal range where the paper's own bounds say         *)
-(* nothing.                                                                   *)
-(*                                                                            *)
-(* THE ROOT IS NOW PROVED, bar one thing.  `threeSqRt_error' in `twflx.v'     *)
-(* says Algorithm 15 is out by `31u^3 + 22500u^4' of the answer -- 3.9 units  *)
-(* of that last place, which is why `kscale' is two bits wider than the       *)
-(* measurement asked.  What stands between that and this axiom is `sqrt_ok',  *)
-(* the range guard: every product inside has to be clear of the bottom of     *)
-(* the range, and what would give that is scaling the argument into a fixed   *)
-(* binade by an even power of two, the way `code/ddouble''s `sqrtDwUpK'       *)
-(* does.  That is a change to `sqrtTwUpP' and `sqrtTwDnP', not to a proof.    *)
-(*                                                                            *)
-(* THE QUOTIENT IS MEASURED ONLY.                                             *)
-(*                                                                            *)
-(* They are stated of the ANSWER's own step, `kstep (threeDiv x y)', because  *)
-(* that is what the operation adds; and with the divisor kept away from       *)
-(* nought and the number under the root kept above it, because outside that   *)
-(* neither algorithm is asked for anything.                                   *)
-Axiom kstep_div : forall x y,
-  finL (tw2l x) -> wellFormed x = true ->
-  finL (tw2l y) -> wellFormed y = true ->
-  twval y <> 0%R ->
-  finL (tw2l (threeDiv x y)) ->
-  (Rabs (twval (threeDiv x y) - twval x / twval y)
-     <= D2R (kstep (threeDiv x y)))%R.
-
+(* nothing.  The bounds are stated of the ANSWER's own step, because that is  *)
+(* what the operation adds; and with the divisor kept away from nought and    *)
+(* the number under the root kept above it, because outside that neither      *)
+(* algorithm is asked for anything.                                           *)
 Lemma finL_nan3 : finL (tw2l (TWFloat nan nan nan)) -> False.
 Proof. by case. Qed.
 
@@ -274,36 +258,6 @@ Lemma divTwDnP_nz x y : finL (tw2l (divTwDnP x y)) -> twval y <> 0%R.
 Proof.
 rewrite /divTwDnP; case Hp: (posFp (magDnTw y)); last by move/finL_nan3.
 by move=> _; apply: divGuard_nz.
-Qed.
-
-Theorem divTwUpP_ge x y :
-  finL (tw2l x) -> wellFormed x = true ->
-  finL (tw2l y) -> wellFormed y = true ->
-  finL (tw2l (divTwUpP x y)) ->
-  (twval x / twval y <= twval (divTwUpP x y))%R.
-Proof.
-move=> Fx Wx Fy Wy; rewrite /divTwUpP.
-case Hp: (posFp (magDnTw y)); last by move/finL_nan3.
-rewrite /shiftUp => Fw.
-have [Fq Fk] := widenUp_finI _ _ Fw.
-have Hw := widenUp_ge _ _ Fw.
-have Hk := kstep_div _ _ Fx Wx Fy Wy (divGuard_nz _ Hp) Fq.
-by move: Hw Hk; split_Rabs; lra.
-Qed.
-
-Theorem divTwDnP_le x y :
-  finL (tw2l x) -> wellFormed x = true ->
-  finL (tw2l y) -> wellFormed y = true ->
-  finL (tw2l (divTwDnP x y)) ->
-  (twval (divTwDnP x y) <= twval x / twval y)%R.
-Proof.
-move=> Fx Wx Fy Wy; rewrite /divTwDnP.
-case Hp: (posFp (magDnTw y)); last by move/finL_nan3.
-rewrite /shiftDn => Fw.
-have [Fq Fk] := widenDn_finI _ _ Fw.
-have Hw := widenDn_le _ _ Fw.
-have Hk := kstep_div _ _ Fx Wx Fy Wy (divGuard_nz _ Hp) Fq.
-by move: Hw Hk; split_Rabs; lra.
 Qed.
 
 (* The number under the root is kept above nought by its own guard, and that  *)

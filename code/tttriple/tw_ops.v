@@ -3,7 +3,7 @@ From Stdlib Require Import Floats PrimInt63.
 From Flocq Require Import Zaux Raux Core BinarySingleNaN PrimFloat.
 From Interval Require Import Xreal Basic Sig Generic_proof Primitive_ops.
 From mathcomp Require Import ssreflect ssrbool.
-From twarith Require Import twarith tw_updn twbound twpaper twsqrt.
+From twarith Require Import twarith tw_updn twbound twpaper twdiv twsqrt.
 (* The bridge from primitive floats to the reals is the double-word    *)
 (* development's `dwbridge.v'.  It says nothing about pairs -- only     *)
 (* what one primitive float is and what one operation on it does -- so  *)
@@ -26,14 +26,12 @@ From dwarith Require Import dwbridge dwsign dwbound.
 (* - the sealing at the bottom of the file is what says so - and EVERY ONE OF *)
 (* ITS OBLIGATIONS IS PROVED.  Nothing here is `Admitted'.                    *)
 (*                                                                            *)
-(* Four of them - the quotient and the root, each way - lean on ONE           *)
-(* assumption each, `kstep_div' and `kstep_sqrt' in `twpaper.v', which say    *)
-(* that the step the answer is widened by covers what the algorithm is out    *)
-(* by.  Those two are MEASURED on random triple words and not proved, and     *)
-(* they are stated as assumptions in their own right rather than left hiding  *)
-(* inside the obligations, so that `Print Assumptions' on anything reached    *)
-(* through the quotient or the root names them.  Everything between them and  *)
-(* the obligations is proved.  Nothing else in the file assumes anything.     *)
+(* AND NOTHING IS ASSUMED.  The quotient and the root leant on one measured   *)
+(* number each; both are now proved.  `Print Assumptions' on any obligation   *)
+(* names only Rocq's own primitive-float axioms and classical reals.  The     *)
+(* two algorithms carry a guard, which the operation evaluates and which      *)
+(* answers `nan' where it fails - and for the root, where it fails the        *)
+(* number is scaled into the band instead.                                    *)
 (*                                                                            *)
 (* PROVED: the reading (`zero_correct', `real_correct',                       *)
 (* `fromZ_correct'); the six bounds on the sum, the difference and the        *)
@@ -49,9 +47,9 @@ From dwarith Require Import dwbridge dwsign dwbound.
 (* which read the VALUE and not the words - see the note on `cmp' below and   *)
 (* the pair in `tw_cmpbad.v'.                                                 *)
 (*                                                                            *)
-(* PROVED FROM ONE NAMED ASSUMPTION EACH: `div_UP_correct', `div_DN_correct', *)
-(* `sqrt_UP_correct' and `sqrt_DN_correct', from `kstep_div' and              *)
-(* `kstep_sqrt'.                                                              *)
+(* PROVED THROUGH A GUARD: `div_UP_correct', `div_DN_correct',                *)
+(* `sqrt_UP_correct' and `sqrt_DN_correct', from `kstep_div_testable' and     *)
+(* `kstep_sqrt_testable' in `twdivflx.v' and `twflx.v'.                       *)
 (*                                                                            *)
 (* `div2_correct' and `midpoint_correct' are excused by                       *)
 (* `sensible_format = false' and say nothing.                                 *)
@@ -321,8 +319,8 @@ Definition mul_DN (_ : precision) x y := onReal2 mulTwDn x y.
 (* units in the last place - see twpaper.v, where the eight is measured and   *)
 (* not proved.  The root still uses the seed of twarith.v, since Algorithm 15 *)
 (* is not transcribed yet, with the same shift.                               *)
-Definition div_UP (_ : precision) x y := onReal2 divTwUpP x y.
-Definition div_DN (_ : precision) x y := onReal2 divTwDnP x y.
+Definition div_UP (_ : precision) x y := onReal2 divTwUpQ x y.
+Definition div_DN (_ : precision) x y := onReal2 divTwDnQ x y.
 Definition sqrt_UP (_ : precision) x := onReal sqrtTwUpK x.
 Definition sqrt_DN (_ : precision) x := onReal sqrtTwDnK x.
 
@@ -1422,7 +1420,7 @@ Lemma XdivE a b : b <> 0%R -> (Xreal a / Xreal b)%XR = Xreal (a / b).
 Proof. by move=> Hb; rewrite /Xbind2 /Xdiv' (is_zero_false _ Hb). Qed.
 
 (* THE FOUR THAT LEAN ON THE MEASURED STEP.  Everything below the line the    *)
-(* reading draws is proved; what is assumed is `kstep_div' and `kstep_sqrt'   *)
+(* reading draws is proved, and so now is the step the two operations add    *)
 (* in `twpaper.v', and those two are named so that `Print Assumptions' on any *)
 (* of the four says which.                                                    *)
 Lemma div_UP_correct p x y :
@@ -1437,8 +1435,8 @@ have [G0 [G1 [G2 Wy]]] := real_fin _ Ry.
 have [H0 [H1 [H2 _]]] := real_fin _ Rz.
 have Flz := finL_tw2l _ H0 H1 H2.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz).
-rewrite (XdivE _ _ (divTwUpP_nz _ _ Flz)) /=.
-by apply: divTwUpP_ge => //; apply: finL_tw2l.
+rewrite (XdivE _ _ (divTwUpQ_nz _ _ Flz)) /=.
+by apply: divTwUpQ_ge => //; apply: finL_tw2l.
 Qed.
 
 Lemma div_DN_correct p x y :
@@ -1453,8 +1451,8 @@ have [G0 [G1 [G2 Wy]]] := real_fin _ Ry.
 have [H0 [H1 [H2 _]]] := real_fin _ Rz.
 have Flz := finL_tw2l _ H0 H1 H2.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz).
-rewrite (XdivE _ _ (divTwDnP_nz _ _ Flz)) /le_lower /=.
-by apply: Ropp_le_contravar; apply: divTwDnP_le => //; apply: finL_tw2l.
+rewrite (XdivE _ _ (divTwDnQ_nz _ _ Flz)) /le_lower /=.
+by apply: Ropp_le_contravar; apply: divTwDnQ_le => //; apply: finL_tw2l.
 Qed.
 
 Lemma sqrt_UP_correct p x :

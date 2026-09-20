@@ -23,12 +23,11 @@ Module TwFloatCheck <: FloatOps := TwFloat.
 ```
 
 is what says it meets Interval's signature. **Every one of its obligations is
-proved**; nothing in it is `Admitted`. **The root assumes nothing**:
-`Print Assumptions TwFloat.sqrt_UP_correct` names only Rocq's own
-primitive-float axioms and classical reals. What is left is the quotient:
-`div_UP_correct` and `div_DN_correct` lean on `kstep_div`, which is measured,
-not proved, and it is the one thing assumed anywhere. See *The root, without
-a fused multiply-add* below for how the root was settled.
+proved**; nothing in it is `Admitted`. **And nothing is assumed**:
+`Print Assumptions` on any obligation — the quotient and the root included —
+names only Rocq's own primitive-float axioms and classical reals. Both leant
+on one measured number until they were proved; see *The root* and
+*The quotient* below.
 
 **The sum, the difference and the product are proved** — `add_UP_correct`,
 `add_DN_correct`, `sub_UP_correct`, `sub_DN_correct`, `mul_UP_correct`,
@@ -258,7 +257,10 @@ the test caught it.
 | `twprodg.v` | Section 6.2 of the paper, made generic in `c` and `z3`, and Algorithm 9 without the fused multiply-add |
 | `twseed.v` | the seed, the two products and the root, all with nothing fused: `ThreeSqRtNn_error` |
 | `twflx.v` | the bridge, primitive floats to the paper's reals, ending in `threeSqRt_error` and `kstep_sqrt_testable` |
-| `twsqrt.v` | the root behind its guard: `sqrtTwUpP`, `sqrtTwDnP` and their two bounds |
+| `twdivn.v` | the quotient's seed and Algorithm 14, both without the fused lines: `ThreeDivN_error` |
+| `twdivflx.v` | the quotient's bridge, ending in `threeDiv_error` and `kstep_div_testable` |
+| `twdiv.v` | the quotient behind its guard: `divTwUpQ`, `divTwDnQ` and their two bounds |
+| `twsqrt.v` | the root behind its guard and its scaling: `sqrtTwUpK`, `sqrtTwDnK` and their two bounds |
 | `tw_cmpbad.v` | the pair that shows comparing on the words is wrong, and that `cmp` gets it right |
 | `test_pi.v` | a smoke test: pi by Machin, and what the interface's operations bracket |
 | `tw_unsafe.v` | `sensible_format := true` with `div2` admitted, so Interval's functors apply |
@@ -510,9 +512,11 @@ primitive floats compute `ThreeSqRtNn` — and then `threeSqRt_error`:
 under one guard, `sqrt_ok`, which is the six guards of its parts at the
 arguments the algorithm gives them.
 
-**And the two bits.** `31u^3` is `31 * 2^-159`, which is `3.875 * 2^-156` — so
-the measured `kscale = 2^-156` does **not** cover the proved bound, and
-`2^-154` does, with three per cent to spare. `kscale_needed` in `twflx.v` is
+**And the bits.** `31u^3` is `31 * 2^-159`, which is `3.875 * 2^-156` — so
+the measured `kscale = 2^-156` does **not** cover the proved bound. The
+quotient's `56u^3` is 7 of those units, which is what settles the constant:
+`kscale = 2^-153`, three bits above the measurement and one above what the
+root alone would need. `kscale_needed` in `twflx.v` is
 the arithmetic. The probing measured 2.3 units of the last place and the proof
 says 3.9, so the two are within a factor of two: the bits are the price of the
 proof, not of the algorithm. Measured before the proof existed, at
@@ -563,12 +567,57 @@ is `nan`, which an interval library reads as no information and is always
 sound. `Axiom kstep_sqrt` is gone. `sqrt 2` and `sqrt (3 + eps)` bracket as
 before and all four pi brackets still pass.
 
-**What could still be done.** Where the test fails the operation gives up
-rather than trying again. The other way is `dwsqrt.v`'s: take an even power
-of two out of the argument, run the algorithm in a fixed binade — where every
-one of the clauses holds by construction — and put half the exponent back.
-That would turn the `nan` into an answer. It is a change to the algorithm,
-not to a proof.
+**And where it fails, the number is moved into the band.** `sqrtOkT` holds
+for a leading word from about `2^-969` up to about `2^996`, and the two ends
+fail for different reasons: at the top Dekker's splitting takes a word up by
+`2^27 + 1` and reaches infinity just below `2^997`; at the bottom the step is
+a proportion of the leading word and the second word sits 53 bits below the
+first. **One scale serves both ways**, and it is `2^160` — the failing bottom
+lands in `[2^-914, 2^-809]`, the failing top in `[2^835, 2^864)`, both well
+inside. 160 is even, which is what lets the answer come back by half of it.
+Scaling up is exact and needs no test; scaling down is tested, by scaling
+back. Behind all three paths is still `nan`, so the operation is total.
+`sqrt 0x1p+1000` and `sqrt 0x1p-1060` now bracket where they gave nothing.
+
+## The quotient
+
+Algorithm 14 is the reciprocal's Newton double word and **three products**,
+and the three products were already done for the root. What was left is the
+seed, whose five lines the paper writes with two fused multiply-adds:
+
+| | paper | here |
+|---|---|---|
+| `h1 <- RN(-h11 - a x1)` | 3u² | 6u² |
+| `b12 <- RN(b11 + a h1)` | 4u² | 7u² |
+| the Newton step, against `a` | 7u² | 13u² |
+| `\|b x - 1\|` | 34u² + 123u³ | **40u² + 200u³** |
+| **`ThreeDivN`** | 29u³ | **56u³ + 5000u⁴** |
+
+The square of the starting error does not move — it is `a` alone, which is
+unchanged — so all six of the extra `u²` are the seed's. The paper writes its
+own `34` and `35` into `sub2_near_one`, `newton_sq_le` and
+`div_error_assembly`; ours is `40`, so the three are restated with it and the
+assembly's 71, 107 and 1165 become 83, 90 and 1700.
+
+Twenty-five of the fifty-six is each of the two double-word products, which
+the quotient does **not** halve — unlike the root, which does — and six is
+Algorithm 20, unchanged.
+
+**The `h11` line is where the machine and the paper part company in shape and
+meet in value.** The paper writes one fused `RN(a x0 - (1 + 2u))`; the machine
+takes the two-product's low word round the houses, `(p - (1 + 2u)) + e`. They
+agree because `p` **is** `1 + 2u` — that is what tilting `a` by it was for —
+so the subtraction is nought and what is left is `e`, which is the fused
+line's value.
+
+The guard is `div_okb`, the same two kinds of clause as the root's, and
+`twdiv.v` puts `divTwUpQ`/`divTwDnQ` behind it. `Axiom kstep_div` is gone.
+
+**What could still be done.** Where the quotient's guard fails the operation
+gives up. Scaling would work here too — `z/x` scales by `2^(a-b)` when `z` and
+`x` scale by `2^a` and `2^b`, so both can be normalised independently and the
+answer corrected — but unlike the root it needs two scalings and a subtraction
+of exponents, and it is not done.
 
 ## Open
 
