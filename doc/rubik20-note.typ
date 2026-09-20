@@ -1023,15 +1023,10 @@ with the superflip on top of it. In the following, we call it *superflip4*.
   caption: [The four-spot, and superflip4.],
 ) <fspot>
 
-Superflip4 is 26 quarter turns from solved. The word given for it, with the half
-turns written out, is
+Superflip4 is 26 quarter turns from solved. Here is the word given for it, with
+the half turns written out and $U^(-1)$ written `U'`:
 
-#align(center)[
-  $U space U space D space D space L space F space F space U^(-1) space D space
-    R space R space B space U^(-1) space D^(-1) space R space L space F space F
-    space R space U space D^(-1) space R^(-1) space L space U space F^(-1)
-    space B^(-1)$
-]
+#align(center)[`U U D D L F F U' D R R B U' D' R L F F R U D' R' L U F' B'`]
 
 The searches only need to go to depth 24. A quarter turn is five four-cycles of
 the 48 stickers, so it is an odd permutation and each move changes the parity
@@ -1074,25 +1069,14 @@ Each of the six prefixes starts with a turn from $cal(C)$ followed by a turn
 from $cal(A)$, so we want a word for superflip4 that starts with such a pair.
 Recall the word we gave for it:
 
-#align(center)[
-  $U space U space D space D space L space F space F space U^(-1) space D space
-    R space R space B space U^(-1) space D^(-1) space R space L space F space F
-    space R space U space D^(-1) space R^(-1) space L space U space F^(-1)
-    space B^(-1)$
-]
+#align(center)[`U U D D L F F U' D R R B U' D' R L F F R U D' R' L U F' B'`]
 
-The two sets first meet at the fourth and fifth turns, $D$ then $L$. That is a
-turn of $cal(A)$ before one of $cal(C)$, the wrong way round. Since superflip4
-is its own inverse, we may invert the word, which reverses the order of its
-turns and inverts each one:
+The two sets first meet at the fourth and fifth turns, $D$ then $L$: a turn of
+$cal(A)$ followed by one of $cal(C)$. Since superflip4 is its own inverse, we
+may invert the word, which reverses the order of its turns and inverts each
+one:
 
-#align(center)[
-  $B space F space U^(-1) space L^(-1) space R space D space U^(-1) space
-    R^(-1) space F^(-1) space F^(-1) space L^(-1) space R^(-1) space D space U
-    space B^(-1) space R^(-1) space R^(-1) space D^(-1) space U space F^(-1)
-    space F^(-1) space L^(-1) space D^(-1) space D^(-1) space U^(-1) space
-    U^(-1)$
-]
+#align(center)[`B F U' L' R D U' R' F' F' L' R' D U B' R' R' D' U F' F' L' D' D' U' U'`]
 
 This is again a word for superflip4, of the same length. Its second and third
 turns are $F$ then $U^(-1)$, a turn of $cal(C)$ followed by one of $cal(A)$.
@@ -1109,12 +1093,7 @@ For this position $P^(-1) x P$ is $x$ with front and back swapped and left and
 right swapped, so here it is $F$. #src("HProp2.v") checks that one turn at a
 time. Moving $B$ to the end and renaming it gives
 
-#align(center)[
-  $F space U^(-1) space L^(-1) space R space D space U^(-1) space R^(-1) space
-    F^(-1) space F^(-1) space L^(-1) space R^(-1) space D space U space B^(-1)
-    space R^(-1) space R^(-1) space D^(-1) space U space F^(-1) space F^(-1)
-    space L^(-1) space D^(-1) space D^(-1) space U^(-1) space U^(-1) space F$
-]
+#align(center)[`F U' L' R D U' R' F' F' L' R' D U B' R' R' D' U F' F' L' D' D' U' U' F`]
 
 which is a word for superflip4 of the same length starting with $F U^(-1)$. The
 swap leaves $U$ and $D$ alone, so the two turns at the front are still one from
