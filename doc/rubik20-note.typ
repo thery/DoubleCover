@@ -1033,13 +1033,11 @@ turns written out, is
     space B^(-1)$
 ]
 
-The searches only need to go to depth 24. A position is a permutation of the 48
-stickers, and it is even or odd according to the sign of that permutation. The
-solved position is even. A quarter turn is five four-cycles of the stickers,
-which is an odd permutation, so every move changes the parity. A word of $n$
-quarter turns gives an even position when $n$ is even, and an odd one when $n$
-is odd. Superflip4 is even, so every word for it has even length. A word of 25
-turns is impossible, and a word of at most 25 turns has at most 24.
+The searches only need to go to depth 24. A quarter turn is five four-cycles of
+the 48 stickers, so it is an odd permutation and each move changes the parity
+of the position. Superflip4 is even, like the solved position, so every word
+for it has even length. A word of 25 turns is impossible, and a shorter one has
+at most 24.
 
 == The six prefixes
 
