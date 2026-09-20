@@ -1068,7 +1068,11 @@ and superflip4 has them flipped, so no such word gives superflip4. A word made
 only of turns from $cal(C)$ never flips an edge, and superflip4 has every edge
 flipped, so no such word gives it either. Any word for superflip4 therefore uses
 turns from both sets, and a turn from $cal(A)$ and a turn from $cal(C)$ stand
-next to each other somewhere in it. Recall the word we gave for superflip4:
+next to each other somewhere in it.
+
+Each of the six prefixes starts with a turn from $cal(C)$ followed by a turn
+from $cal(A)$, so we want a word for superflip4 that starts with such a pair.
+Recall the word we gave for it:
 
 #align(center)[
   $U space U space D space D space L space F space F space U^(-1) space D space
@@ -1077,39 +1081,44 @@ next to each other somewhere in it. Recall the word we gave for superflip4:
     space B^(-1)$
 ]
 
-Its turns from $cal(A)$ and from $cal(C)$ change over at several places, and the
-first pair in the order we need is at positions seven and eight, $F$ then
-$U^(-1)$.
+The two sets first meet at the fourth and fifth turns, $D$ then $L$. That is a
+turn of $cal(A)$ before one of $cal(C)$, the wrong way round. Since superflip4
+is its own inverse, we may invert the word, which reverses the order of its
+turns and inverts each one:
 
-Each of the six prefixes starts with a turn from $cal(C)$ followed by a turn
-from $cal(A)$, so we want a word for superflip4 that starts with such a pair. We
-know there is a pair of this kind in the word, but it can be anywhere, and the
-two turns can be in either order. If the turn from $cal(A)$ comes first, invert
-the word: superflip4 is its own inverse, so the inverted word gives superflip4
-again, has the same length, and takes the two turns in the other order. It
-remains to bring the pair to the front and to rename it so that it reads $R U$
-or $R^(-1) U$.
+#align(center)[
+  $B space F space U^(-1) space L^(-1) space R space D space U^(-1) space
+    R^(-1) space F^(-1) space F^(-1) space L^(-1) space R^(-1) space D space U
+    space B^(-1) space R^(-1) space R^(-1) space D^(-1) space U space F^(-1)
+    space F^(-1) space L^(-1) space D^(-1) space D^(-1) space U^(-1) space
+    U^(-1)$
+]
 
-That pair is in the wrong place, so write $x$ for the six turns before it,
-$U U D D L F$, and $w$ for the rest, so that $x w = P$, where $P$ is superflip4.
-Then $w = x^(-1) P$, and therefore
+This is again a word for superflip4, of the same length, and its second and
+third turns are $F$ then $U^(-1)$, now in the order we want.
+
+Only the first turn $B$ stands before that pair. Write $x$ for it and $w$ for
+the rest, so that $x w = P$, where $P$ is superflip4. Then $w = x^(-1) P$, and
+therefore
 
 #align(center)[
   $w (P^(-1) x P) = x^(-1) P P^(-1) x P = P .$
 ]
 
 For this position $P^(-1) x P$ is $x$ with front and back swapped and left and
-right swapped, so it is $U U D D R B$, again six quarter turns. #src("HProp2.v")
-checks that one turn at a time. The word
+right swapped, so here it is $F$. #src("HProp2.v") checks that one turn at a
+time. Moving $B$ to the end and renaming it gives
 
 #align(center)[
-  $F U^(-1) D R R B U^(-1) D^(-1) R L F F R U D^(-1) R^(-1) L U F^(-1) B^(-1)
-   space U U D D R B$
+  $F space U^(-1) space L^(-1) space R space D space U^(-1) space R^(-1) space
+    F^(-1) space F^(-1) space L^(-1) space R^(-1) space D space U space B^(-1)
+    space R^(-1) space R^(-1) space D^(-1) space U space F^(-1) space F^(-1)
+    space L^(-1) space D^(-1) space D^(-1) space U^(-1) space U^(-1) space F$
 ]
 
-is therefore another word for superflip4, of the same length, and it starts with
-the pair. The swap leaves $U$ and $D$ alone, so the two turns at the front are
-still one from each set.
+which is a word for superflip4 of the same length starting with $F U^(-1)$. The
+swap leaves $U$ and $D$ alone, so the two turns at the front are still one from
+each set.
 
 Renaming by one of the sixteen relabellings that keep the up-down axis then
 turns the pair at the front into $R U$ or $R^(-1) U$. The first case is already
