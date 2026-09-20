@@ -767,87 +767,123 @@ twenty-four threads, 62 GB of memory.
 
 == Removing redundant moves
 
-Many words lead to the same position, and a search that tries them all does the
-same work over and over. Removing them is what brings the tree within reach,
-and the earlier a word is removed the more it saves: dropping one of the
-eighteen first moves drops an eighteenth of the whole search.
+Many words lead to the same position, and the search does not have to try them
+all. Two ideas say which ones may be left out. The first is repetition: after a
+$U$ there is no point in trying $U$, $U^2$ or $U^(-1)$, since $U U$ is $U^2$ and
+a shorter word is covered at a smaller depth, which leaves fifteen moves instead
+of eighteen. Opposite faces are the same argument, one step weaker: $U D$ and
+$D U$ give the same position, so of the two orders we keep one, and play the
+top, right or front face first. This is what we call the *order convention*.
+From the third move on it leaves *twelve* moves after a turn of the top, right
+or front face, and *fifteen* after a turn of the bottom, left or back one. The
+second idea is symmetry. The superflip is unchanged by all 48 relabellings of
+the cube. So we need to explore only the turns of one face for the first move.
+We choose arbitrarily the top one, and again by symmetry we only have to
+consider $U$ and $U^2$, since $U^(-1)$ is the symmetric of $U$. The two ideas
+collide at the second move. After $U$, repetition removes $U$, $U^2$ and
+$U^(-1)$, which leaves fifteen. The order convention would remove $D$, $D^2$ and
+$D^(-1)$ as well and leave twelve, but it may not be used here: the first move
+is already fixed to the top face, and turning the cube upside down takes $D U$
+back to $U D$. So the bottom face stays, and the fifteen second moves after $U$
+include $U D$, $U D^2$ and $U D^(-1)$.
 
-The first rule holds everywhere. Two turns of the same face merge into one, so
-a word that turns a face twice running is really a shorter word, and shorter
-words are covered by the searches at smaller depths. That leaves fifteen
-branches at every move after the first, not eighteen. Opposite faces commute,
-so $U D$ and $D U$ give the same position and one of the two orders is enough.
-Where the last move was on the top, right or front face that leaves *twelve*,
-and *fifteen* elsewhere. This half of the rule is used from the third move on.
-
-The first move is a different argument, and it belongs to the superflip. The
-superflip is unchanged by all 48 relabellings of the cube: any of the six faces
-to the top, each in four positions, and each seen in a mirror as well. So the
-eighteen first moves come down to $U$ and $U^2$. Another position gives nothing
-of the kind.
-
-At the second move the two arguments get in each other's way. The rule would
-drop the three turns of the bottom face, since $U D$ and $D U$ are the same
-position. But symmetry has already fixed the first move to the top face, and
-turning the cube upside down takes $D U$ back to $U D$. Cutting by both would
-cut the same pair of faces twice over, so the bottom-face turns stay and the
-second move has fifteen branches. Reid meets the same case, keeps them too, and
-cuts his *third* move instead.
-
-Our own OCaml program dropped them, so it searched 24 prefixes where it had to
-search 30. It ran for hours and gave the answer we expected. The error came out
-only when the cut had to be proved in Rocq, and the proof could not be written.
-A cut that is too greedy does not make a search fail. It makes it faster, and
-it makes it agree with you.
-
-So the depth-19 search becomes $2 times 15 = 30$ searches of depth 17, packed
-into *seventeen files*, #src("Runp1_03.v") to #src("Runp1_17.v"), one per second
-move. The two whose second move turns the bottom face keep fifteen branches
-where the others keep twelve, so they run far longer; each is split in two, and
-the rest of the run does not wait for them.
+The search is then parallelised at depth two. Two first moves times fifteen
+second moves is thirty *prefixes*, each searched on its own to depth 17, and
+they are packed one file per second move, #src("Runp1_03.v") to
+#src("Runp1_17.v"). The two whose second move turns the bottom face keep fifteen
+branches where the others keep twelve, so they run far longer. Each of those two
+is split into two files, #src("Runp1_09a.v") and #src("Runp1_09b.v"),
+#src("Runp1_11a.v") and #src("Runp1_11b.v"), which balances the load and makes
+*seventeen files* in all. Our own OCaml program dropped the bottom-face moves,
+so it searched 24 prefixes where it had to search 30. It ran for hours and gave
+the answer we expected. The error came out only when the cut had to be proved in
+Rocq, and the proof could not be written. A cut that is too greedy does not make
+a search fail. It makes it faster, and it makes it agree with you.
 
 = The refinements
 
-The search of the last section is written on permutations of the 48 stickers.
-Nothing in it computes at a useful speed. What runs is the same search on
-machine integers and arrays, reached in steps. Each step replaces a data
-structure by a faster one and carries a proof that it computes the same thing.
-The answer therefore rests on the search of the last section, and the speed
-rests on the steps.
+The search of the last section is written on permutations of the 48 stickers,
+and in that form it is too slow to run. What runs is the same search on machine
+integers and arrays. The path from one to the other is a data refinement: every
+object of the search is given an effective representation, and each one is
+proved to agree with the object it stands for. The answer rests on the search of
+the last section; the speed rests on the representations.
 
-== A position, as a permutation and as a table
+== How the objects are encoded
 
-A position is a permutation. #src("Table.v") presents one by its image table,
-the list of 48 numbers saying where each sticker goes, with `tab_ok` saying
-which lists are tables. #src("Tsearch.v") runs the search of #src("Search.v")
-on tables instead. Composing two permutations becomes reading one list through
-the other.
+The search handles few objects: a position, a move, the summary of a position,
+and the table of distances. Each has a mathematical form, which is what the
+proofs of the last two sections speak about, and an effective representation,
+which is what runs. A position is a permutation of the 48 stickers, and
+#src("Table.v") presents such a permutation by its image table, the list of 48
+numbers saying where each sticker goes, with `tab_ok` saying which lists are
+tables. The product of two permutations is then the reading of one list through
+the other, and a move is one more table of 48 numbers. #src("Tsearch.v") runs
+the search of #src("Search.v") on tables, and proves that the two searches
+answer alike.
 
-== Machine integers instead of Peano numbers
+Rocq offers machine integers, 63 bits wide with the missing bit going to the
+garbage collector, and *persistent arrays* of them @armand2010imperative.
+#src("Tabi.v") carries the tables of #src("Table.v") as arrays of machine
+integers, with the bridge back: `ti2t` reads such an array as the list of
+numbers it stands for, and `tabi_ok` is `tab_ok` of that list. Each operation
+comes with a lemma saying that the bridge may be crossed either way round. For
+the product of two permutations it reads
 
-The numbers of the mathcomp library are Peano numbers: 5 is the successor of
-the successor of the successor of the successor of the successor of zero. So
-adding $n$ costs $n$ steps. Rocq also offers machine integers, 63 bits wide
-with the missing bit going to the garbage collector, and *persistent arrays* of
-them @armand2010imperative, which cost what the hardware costs. That counting
-in unary is what has to go is not the interesting part. The interesting part is
-that the search may move to machine integers without being written again.
+```coq
+Lemma ti2t_comp a b :
+  tabi_ok a -> tabi_ok b ->
+  ti2t (comp_tabi a b) = comp_tab (ti2t a) (ti2t b).
+```
 
-#src("Tabi.v") is the step. It holds the tables of #src("Table.v") on machine
-integers and persistent arrays, and the bridge back: `ti2t` reads a machine
-table as the list of numbers it stands for, and `tabi_ok` is `tab_ok` of that
-list. Every fact proved about lists is carried across that bridge, and the
-search itself never leaves machine integers: an index, a table entry and the
-comparison of depths are all machine words.
+Composing two arrays and reading the result back as a list gives what composing
+the two lists gives. Every fact proved of lists crosses that bridge. From there
+on a position is 48 machine integers, a summary is two, and the phase 1 table is
+a persistent array of arrays, fifteen four-bit entries to a 63-bit machine
+integer.
+
+The superflip itself goes down that chain. As a permutation it is a product of
+twelve two-cycles, one for each flipped edge, $(1 thin 33)$, $(3 thin 9)$,
+$(4 thin 25)$ and so on. #src("Moves.v") turns those cycles into the image table
+`sftab`, and the table into the array `sfti` the search starts from. Each step
+has its lemma:
+
+```coq
+Lemma sftabE : superflip = pt 47 sftab.
+Lemma sftiE  : superflip = pt 47 (ti2t 47 sfti).
+```
+
+`pt 47` is the permutation a table stands for, so both say that what runs is
+still the superflip. Its summary is read off the same table, the corner twist by
+`ctwistt` and the flip-and-slice value by `coordt`, and the estimate at the root
+of the search is one expression:
+
+```coq
+Dp1i (ctwistt sftab) (coordt sftab)
+```
+
+The summary is $(0, 15 space 732 space 735)$: the superflip leaves the corners
+alone, so the twist is zero, and the second number carries the twelve flipped
+edges and the four slice slots. The lookup goes through the fold to a four-bit
+field of one 63-bit integer, and the value there is *ten*. At the root the
+search therefore knows that at least ten moves are needed, and it has nineteen
+to spend, so nothing is cut there.
+
+Functions are treated the same way. A function on a finite domain is tabulated
+once and then read: the action of a move on a summary, the rank of a summary,
+and the symmetry that the fold uses are all arrays, not computations. The search
+reads them where the mathematical text applies a function, and each table is
+checked in Rocq like the table of distances.
 
 == The search, in seven versions
 
-#src("Fast.v") is the search on machine integers, written as seven versions.
-Each is proved equal to the one before in #src("FastP.v"), whose last lemma,
-`searchz3nE`, says the fastest version answers as the first does. No trust is
-transferred, so a version may be written any way at all. Each position carries
-four things: the position as a 48-entry table, the summaries of its three
-views, the face turned last, and the moves left. What the six steps take away:
+#src("Fast.v") holds the search on machine integers as seven versions. Each is
+proved equal to the one before in #src("FastP.v"), and the last lemma there,
+`searchz3nE`, states that the seventh answers as the first does. Nothing is
+assumed of a version, so each may be written in whatever way runs best. A
+position carries four things: the position as a 48-entry table, the summaries of
+its three views, the face turned last, and the number of moves left. The six
+steps remove the following.
 
 #tbl(([step], [what it removes]),
   ([2], [Peano arithmetic inside the loop: move indices, the depth test and
@@ -873,9 +909,9 @@ The phase 1 table is emitted as Rocq source, one file per block of 2 097 152
 entries, 71 of them. Written as a list, a block is a term: two million nested
 applications of the list constructor, each holding a machine integer. The `.vo`
 stores that term and `Require` loads it, and it is far larger than the 17 MB of
-data in it. Written as an array literal, that is, as a definition whose body has
-already been evaluated to a persistent array, the `.vo` holds one compact block
-of memory. Measured on the same 2 097 152 entries:
+data in it. Written as an array literal, that is, as a definition whose body is
+already evaluated to a persistent array, the `.vo` holds one compact block of
+memory. Measured on the same 2 097 152 entries:
 
 #tbl(([the block, written as], [its `.vo`], [loaded]),
   ([a list], [37.8 MB], [877 MB]),
@@ -883,47 +919,46 @@ of memory. Measured on the same 2 097 152 entries:
 )
 
 Over all 71 blocks that is 21.5 GB against *5 GB*. It is what let nine workers
-run in parallel on a 62 GB machine where two had run before.
+run at once on a 62 GB machine where two had run before.
 
 == Three views of the same position
 
 Rotating the whole cube about a corner axis gives the same position seen
-differently, and its summary is then a different entry of the same table. So
-each of the three views gives a lower bound on the number of moves left, and
-the largest of them is a lower bound too. That is three times the lookups at
-each position, in exchange for a sharper cut and a smaller tree. Cube solvers
-do this as a matter of course, Kociemba's included. What is new here is that
-the three views are proved legitimate.
+differently, and its summary is then another entry of the same table. Each of
+the three views therefore gives a lower bound on the number of moves left, and
+so does the largest of the three. That costs three times the lookups at a
+position and buys a sharper cut and a smaller tree. Cube solvers do this as a
+matter of course, Kociemba's included. What is new here is that the three views
+are proved legitimate.
 
 == Folding the table by symmetry
 
-The summary is built around the up-down axis. The twist counts where each
-corner's up-or-down sticker sits, and the slice says where the four edges
-between the top and bottom faces are. A symmetry that leaves that axis in place
-turns a summary into another summary. Sixteen of the 48 keep the axis, and they
-sort the 1 013 760 flip-and-slice values into *64 430 families*, a factor of
-*15.73*. Two values in the same family are the same distance from solved, so
-one entry per family is enough. A lookup first replaces the value by its
-family's representative, carrying the twist through the same symmetry, then
-reads a table 15.73 times smaller.
+The summary is built around the up-down axis. The twist records where each
+corner's up-or-down sticker sits, and the slice where the four edges between the
+top and bottom faces are. A symmetry that leaves that axis in place turns a
+summary into another summary. Sixteen of the 48 keep the axis, and they sort the
+1 013 760 flip-and-slice values into *64 430 families*, a factor of *15.73*. Two
+values in one family are the same distance from solved, so one entry per family
+is enough. A lookup replaces the value by its family's representative, carries
+the twist through the same symmetry, and reads a table 15.73 times smaller.
 
-This is a different use of symmetry from the three views above, and we keep the
-two apart. The three views ask the *same* table three questions and keep the
-largest answer. The fold asks the *same* question of a *smaller* table, and the
-estimate does not change. Symmetry-reduced tables are standard in cube solvers.
+This use of symmetry is not the one above, and the two are kept apart. The three
+views put the *same* question to the *same* table three times and keep the
+largest answer. The fold puts the same question to a *smaller* table, and the
+estimate is unchanged. Symmetry-reduced tables are standard in cube solvers.
 What the development adds is a proof that the folded table still satisfies the
 two conditions.
 
-This is where the weakness of those conditions pays. The proof nowhere says
-that the folded table holds distances. It says the table passes `D0` and
-`Dstep`, and the search needs nothing more. Had the conditions demanded true
-distances, we would have had to show that the fold preserves them, which is a
-harder statement about the sixteen symmetries and about what sharing an entry
-between two summaries does. We never face it. The check is run on the folded
-table just as it was on the flat one, and it is the same check.
+The weakness of those conditions pays here. The proof nowhere says that the
+folded table holds distances. It says that the table passes `D0` and `Dstep`,
+and the search asks nothing more. Conditions demanding true distances would have
+required a proof that the fold preserves them, a harder statement about the
+sixteen symmetries and about what sharing an entry between two summaries does.
+That question never arises. The check is run on the folded table as it was on
+the flat one, and it is the same check.
 
-The fold costs the search 1.61 times at depth 16, and it pays everywhere else.
-A search worker drops from 4.15 GB to *0.85 GB*, so all the pieces run at once
+The fold costs the search 1.61 times at depth 16 and pays everywhere else. A
+search worker drops from 4.15 GB to *0.85 GB*, so all the pieces run at once
 instead of in two waves, and checking the table drops from about 5.4 processor
 hours to *1.35*.
 
@@ -932,18 +967,16 @@ hours to *1.35*.
 The same search written in OCaml is about three times faster. We ran both at
 radius 19 on the reference machine. The OCaml program visits 146 065 078 152
 positions in 26.4 processor-hours, which is 0.65 microseconds a position. Rocq
-takes 87.6 processor-hours over the same tree, which is 2.16. A factor of
-*3.3*.
+takes 87.6 processor-hours over the same tree, which is 2.16. A factor of *3.3*.
 
-We do not assume that the two walk the same tree. Dividing each of the
-seventeen Rocq pieces by the positions its OCaml counterpart visited gives
-between 1.98 and 2.52 microseconds, across pieces that differ in size by a
-factor of two. A Rocq search cutting differently anywhere would show up as
-scatter there, and there is none.
+We do not assume that the two walk the same tree. Dividing each of the seventeen
+Rocq pieces by the positions its OCaml counterpart visited gives between 1.98
+and 2.52 microseconds, over pieces that differ in size by a factor of two. A
+Rocq search that cut differently anywhere would show as scatter there, and there
+is none.
 
-So the run takes a night because the tree has 146 billion nodes in it, and not
-because the prover is slow. In OCaml the same tree still costs 26
-processor-hours.
+So the run takes a night because the tree holds 146 billion nodes, not because
+the prover is slow. In OCaml the same tree still costs 26 processor-hours.
 
 = The files
 
@@ -1166,7 +1199,7 @@ stickers, so it is odd, and a manoeuvre of odd length gives an odd position.
 Reid's position is even. So every manoeuvre for it has even length, and the
 searches stop at 24.
 
-== Reid's six beginnings
+== Reid's six prefixes
 
 The argument has two halves and only the second is a computation.
 
@@ -1196,7 +1229,7 @@ shortened. Without it the third turn may cancel the second. The Rocq statement
 carries the hypothesis at no cost, since a shortest manoeuvre is what we want
 anyway.
 
-Six searches follow. The first beginning is two turns long and is searched 22
+Six searches follow. The first prefix is two turns long and is searched 22
 further, the other five are three long and are searched 21 further. Each
 reaches 24 turns.
 

@@ -1672,6 +1672,122 @@ Definition ThreeProdOneTWn (x y : twR) : twR :=
   let: DWR r1 r2 := Fast2SumS (nth 0 e 1) (nth 0 e 2) in
   TWR (nth 0 e 0) r1 r2.
 
+Local Notation z00m_bound := (z00m_bound Hp2 choice).
+Local Notation z01p_bound := (z01p_bound Hp2 choice).
+Local Notation z10p_bound_dw := (z10p_bound_dw Hp2 choice).
+Local Notation z3_bound_dw := (z3_bound_dw Hp2 (Hp6 Hp11) choice).
+Local Notation c_bound_dw := (c_bound_dw Hp2 (Hp6 Hp11) choice).
+Local Notation vecSumAux_run_le := (vecSumAux_run_le Hp2 choice).
+Local Notation vecSum_head_sep := (vecSum_head_sep Hp2 (choice := choice)).
+Local Notation vecSum_nth0 := (vecSum_nth0 p choice).
+Local Notation ulp_2u := (ulp_2u beta Hp2).
+
+(* The one bound of the four that does move -- and it does not move far.      *)
+(* `c' is `RN(b2 + x1 y1)' in the paper and `RN(b2 + RN(x1 y1))' here, and    *)
+(* the inner rounding cannot take a number under `2u^2' past `2u^2': the      *)
+(* bound is in the format, so rounding to it is the worst that can happen.    *)
+(* Six stays six.                                                             *)
+Lemma cn_bound_dw b2 x1 y1 :
+  Rabs b2 <= 4 * (u * u) -> Rabs (x1 * y1) < 2 * (u * u) ->
+  Rabs (RND (b2 + RND (x1 * y1))) <= 6 * (u * u).
+Proof.
+move=> H1 H2.
+have Hu0 : 0 < u by apply: u_gt_0.
+have F2 : format (2 * (u * u))
+  by apply: (format_imul_u2 (k := 2)); have := two_p_ge_64; lia.
+have F6 : format (6 * (u * u))
+  by apply: (format_imul_u2 (k := 6)); have := two_p_ge_64; lia.
+have H2' : Rabs (RND (x1 * y1)) <= 2 * (u * u)
+  by apply: Rabs_round_le_r => //; lra.
+apply: Rabs_round_le_r => //.
+by have := Rabs_triang b2 (RND (x1 * y1)); lra.
+Qed.
+
+(* [B] WITHOUT THE FUSED LINES, AND THE NINE DOES NOT MOVE EITHER.            *)
+(*                                                                            *)
+(* The four entries below the leading one are still `O(u)': the first two are *)
+(* the running sum and its error, which the missing multiply-add never        *)
+(* touches, and the last two are `c' and `z3', still six and seven `u^2'.     *)
+Lemma inner_low_massn_dw x0 x1 y0 y1 y2 :
+  dw_norm p x0 x1 -> tw_norm p y0 y1 y2 ->
+  let bb := XvecSum
+    [:: RND (x0 * y0 - RND (x0 * y0)); RND (x0 * y1); RND (x1 * y0)] in
+  sumRabs [:: nth 0 bb 0; nth 0 bb 1;
+              RND (nth 0 bb 2 + RND (x1 * y1));
+              RND (RND (RND (x1 * y0 - RND (x1 * y0)) + RND (x0 * y2))
+                 + RND (x0 * y1 - RND (x0 * y1)))]
+    <= 9 * u.
+Proof.
+move=> Nxd Ny bb.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu64 := u_le_64.
+have Nx' : tw_norm p x0 x1 0 by exact: dw_norm_tw_norm Nxd.
+have Fin : {in [:: RND (x0 * y0 - RND (x0 * y0)); RND (x0 * y1);
+                  RND (x1 * y0)], forall z : R, format z}.
+  by move=> z; rewrite !inE => /or3P[] /eqP-> //; apply: generic_format_round.
+have Hrun := vecSumAux_run_le Fin.
+have Hsep := vecSum_head_sep choice_sym Fin (isT : (1 < 3)%N).
+have Hz00m : Rabs (RND (x0 * y0 - RND (x0 * y0))) <= 2 * u.
+  rewrite round_generic; first by apply: (z00m_bound Nx' Ny).
+  have [[Fx0 Fx1 Fx2] _ _ _ _] := Nx'.
+  have [[Fy0 Fy1 Fy2] _ _ _ _] := Ny.
+  rewrite (_ : x0 * y0 - RND (x0 * y0) = -(RND (x0 * y0) - x0 * y0));
+    last by ring.
+  by apply: generic_format_opp; apply: format_err_mul.
+have Hz01p : Rabs (RND (x0 * y1)) <= 4 * u by apply: (z01p_bound Nx' Ny).
+have Hz10p : Rabs (RND (x1 * y0)) <= 2 * u by apply: (z10p_bound_dw Nxd Ny).
+have Hb0 : Rabs (nth 0 bb 0) <= (1 + u) ^ 3 * (8 * u).
+  rewrite /bb vecSum_nth0.
+  apply: Rle_trans Hrun _.
+  have Hs3 : sumRabs [:: RND (x0 * y0 - RND (x0 * y0)); RND (x0 * y1);
+                         RND (x1 * y0)] <= 8 * u by rewrite /=; lra.
+  have Hp3 : (0:R) <= (1 + u) ^ 3 by apply: pow_le; lra.
+  by have -> : size [:: RND (x0 * y0 - RND (x0 * y0)); RND (x0 * y1);
+                        RND (x1 * y0)] = 3%N by []; nra.
+have Hb1 : Rabs (nth 0 bb 1) <= u * Rabs (nth 0 bb 0).
+  have Hu2 := ulp_2u (nth 0 bb 0).
+  by move: Hsep; rewrite -/bb => Hsep; lra.
+have Hz10m : Rabs (RND (x1 * y0 - RND (x1 * y0))) <= u * u.
+  rewrite round_generic; first by apply: (z10m_bound_dw Nxd Ny).
+  have [[Fx0 Fx1 Fx2] _ _ _ _] := Nx'.
+  have [[Fy0 Fy1 Fy2] _ _ _ _] := Ny.
+  rewrite (_ : x1 * y0 - RND (x1 * y0) = -(RND (x1 * y0) - x1 * y0));
+    last by ring.
+  by apply: generic_format_opp; apply: format_err_mul.
+have Hz01m : Rabs (RND (x0 * y1 - RND (x0 * y1))) <= 2 * (u * u).
+  rewrite round_generic; first by apply: (z01m_bound Nx' Ny).
+  have [[Fx0 Fx1 Fx2] _ _ _ _] := Nx'.
+  have [[Fy0 Fy1 Fy2] _ _ _ _] := Ny.
+  rewrite (_ : x0 * y1 - RND (x0 * y1) = -(RND (x0 * y1) - x0 * y1));
+    last by ring.
+  by apply: generic_format_opp; apply: format_err_mul.
+have Hx0y2 := x0y2_bound Nx' Ny.
+have Hx1y1 := x1y1_bound_dw Nxd Ny.
+have Hz31 : Rabs (RND (RND (x1 * y0 - RND (x1 * y0)) + RND (x0 * y2)))
+         <= 5 * (u * u) by apply: (z31n_bound_dw Hz10m Hx0y2).
+have Hz3 : Rabs (RND (RND (RND (x1 * y0 - RND (x1 * y0)) + RND (x0 * y2))
+                     + RND (x0 * y1 - RND (x0 * y1)))) <= 7 * (u * u)
+  by apply: (z3_bound_dw Hz31 Hz01m).
+have Hb2 : Rabs (nth 0 bb 2) <= 4 * (u * u).
+  have Hb2eq : nth 0 bb 2 = RND (x0 * y1) + RND (x1 * y0)
+      - RND (RND (x0 * y1) + RND (x1 * y0)).
+    rewrite /bb (vecSum3 choice_sym (generic_format_round _ _ _ _)
+      (generic_format_round _ _ _ _) (generic_format_round _ _ _ _)) /=; ring.
+  by rewrite Hb2eq; apply: (b2_bound Nx' Ny).
+have Hc6 : Rabs (RND (nth 0 bb 2 + RND (x1 * y1))) <= 6 * (u * u)
+  by apply: (cn_bound_dw Hb2 Hx1y1).
+have E3 : (1 + u) ^ 3 = 1 + 3 * u + 3 * (u * u) + u * u * u by ring.
+have Hu2 : u * u <= / 64 * u by nra.
+have Hu3 : u * u * u <= / 64 * (u * u) by nra.
+have Hu4 : u * u * u * u <= / 64 * (u * u * u) by nra.
+have Hs4 : forall a b c d : R,
+    sumRabs [:: a; b; c; d] = Rabs a + Rabs b + Rabs c + Rabs d.
+  by move=> a b c d; rewrite /=; ring.
+rewrite Hs4 E3 in Hb0 *.
+have Hb0p := Rabs_pos (nth 0 bb 0).
+by clear -Hb0 Hb1 Hc6 Hz3 Hu0 Hu64 Hu2 Hu3 Hu4 Hb0p; nra.
+Qed.
+
 (* WHAT IS STILL OWED FOR IT.  Its `d1' -- the number                         *)
 (* `ThreeSqRtAuxN_error' takes as a parameter.  The paper's is                 *)
 (* `10.5u^3 + 39u^4' and its proof already names the two roundings in          *)
