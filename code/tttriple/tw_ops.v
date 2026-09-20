@@ -319,8 +319,8 @@ Definition mul_DN (_ : precision) x y := onReal2 mulTwDn x y.
 (* units in the last place - see twpaper.v, where the eight is measured and   *)
 (* not proved.  The root still uses the seed of twarith.v, since Algorithm 15 *)
 (* is not transcribed yet, with the same shift.                               *)
-Definition div_UP (_ : precision) x y := onReal2 divTwUpQ x y.
-Definition div_DN (_ : precision) x y := onReal2 divTwDnQ x y.
+Definition div_UP (_ : precision) x y := onReal2 divTwUpK x y.
+Definition div_DN (_ : precision) x y := onReal2 divTwDnK x y.
 Definition sqrt_UP (_ : precision) x := onReal sqrtTwUpK x.
 Definition sqrt_DN (_ : precision) x := onReal sqrtTwDnK x.
 
@@ -1435,8 +1435,8 @@ have [G0 [G1 [G2 Wy]]] := real_fin _ Ry.
 have [H0 [H1 [H2 _]]] := real_fin _ Rz.
 have Flz := finL_tw2l _ H0 H1 H2.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz).
-rewrite (XdivE _ _ (divTwUpQ_nz _ _ Flz)) /=.
-by apply: divTwUpQ_ge => //; apply: finL_tw2l.
+rewrite (XdivE _ _ (divTwUpK_nz _ _ (finL_tw2l _ G0 G1 G2) Flz)) /=.
+by apply: divTwUpK_ge => //; apply: finL_tw2l.
 Qed.
 
 Lemma div_DN_correct p x y :
@@ -1451,8 +1451,8 @@ have [G0 [G1 [G2 Wy]]] := real_fin _ Ry.
 have [H0 [H1 [H2 _]]] := real_fin _ Rz.
 have Flz := finL_tw2l _ H0 H1 H2.
 rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz).
-rewrite (XdivE _ _ (divTwDnQ_nz _ _ Flz)) /le_lower /=.
-by apply: Ropp_le_contravar; apply: divTwDnQ_le => //; apply: finL_tw2l.
+rewrite (XdivE _ _ (divTwDnK_nz _ _ (finL_tw2l _ G0 G1 G2) Flz)) /le_lower /=.
+by apply: Ropp_le_contravar; apply: divTwDnK_le => //; apply: finL_tw2l.
 Qed.
 
 Lemma sqrt_UP_correct p x :

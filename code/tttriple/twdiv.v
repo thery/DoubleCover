@@ -3,6 +3,7 @@ From Stdlib Require Import Floats.
 From Flocq Require Import Core BinarySingleNaN PrimFloat.
 From mathcomp Require Import all_ssreflect.
 From twarith Require Import twarith twbound tw_updn twpaper twflx twdivflx.
+From twarith Require Import twsqrt.
 From dwarith Require Import dwbridge dwtwosum dwprod dwflx.
 
 (* THE QUOTIENT, WITH ITS GUARD TESTED.                                       *)
@@ -93,7 +94,505 @@ have Hk := divOkT_step _ _ Fx Wx Fy Wy Fq Hok.
 by move: Hw Hk; split_Rabs; lra.
 Qed.
 
-(* What it computes.                                                          *)
-Compute (divTwDnQ (fp2tw 1) (fp2tw 3), divTwUpQ (fp2tw 1) (fp2tw 3)).
-Compute (divTwDnQ (toTw 1 1e-20 1e-40) (toTw 3 1e-20 1e-40),
-         divTwUpQ (toTw 1 1e-20 1e-40) (toTw 3 1e-20 1e-40)).
+
+(* ---------------------------------------------------------------------------*)
+(*  When the guard fails, the two numbers are moved into the band             *)
+(* ---------------------------------------------------------------------------*)
+
+(* WHERE THE GUARD HOLDS, MEASURED.  Unlike the root's, every failure of      *)
+(* `divOkT' is inside `div_okb' -- the algorithm's own products -- and none   *)
+(* is in the step: at `2^-800' over one the three clauses about the answer    *)
+(* are all true and `div_okb' is false.  So what has to be moved is the two   *)
+(* arguments, not the answer.                                                 *)
+(*                                                                            *)
+(* At the top it is Dekker's splitting, which takes a word up by `2^27 + 1':   *)
+(* it overflows on `z' itself above about `2^997', and on the seed `a ~ 1/x0' *)
+(* when `x0' is below about `2^-997'.  At the bottom it is the products of    *)
+(* the last step falling under `Dprodlo = 2^-969'.                            *)
+(*                                                                            *)
+(* THE QUOTIENT SCALES BY THE DIFFERENCE, not by half the sum, so there is no *)
+(* evenness to respect and each argument can be moved on its own.  Six ways   *)
+(* round cover every failure measured: both up, both down -- where the        *)
+(* quotient does not move at all and the answer needs no correction -- and    *)
+(* each of the two alone either way, where the answer is corrected by the     *)
+(* same power the other way.  Two to the five hundredth is the shift: it      *)
+(* takes `2^-1070' to `2^-570' and `2^1000' to `2^500', both well inside.     *)
+Definition ddup := Eval compute in 0x1p+500%float.
+Definition dddn := Eval compute in 0x1p-500%float.
+
+Lemma D2R_ddup : D2R ddup = bpow radix2 500.
+Proof. by rewrite /D2R /ddup; compute; lra. Qed.
+
+Lemma Dfin_ddup : Dfin ddup.
+Proof. by []. Qed.
+
+Lemma De500 : (0 <= 500)%Z.
+Proof. by lia. Qed.
+
+(* A scaling up, and a scaling down, each with what the operation tests.      *)
+Lemma scUp t : finL (tw2l t) -> finTwb (scaleTw t ddup) = true ->
+  finL (tw2l (scaleTw t ddup)) /\
+  (twval (scaleTw t ddup) = twval t * bpow radix2 500)%R.
+Proof.
+move=> Fl Ht; have Fs := finTwbP _ Ht.
+by split => //; apply: (twval_scale_upT _ _ _ Dfin_ddup D2R_ddup De500).
+Qed.
+
+Lemma scDn t : finL (tw2l t) -> scaleOkb t dddn ddup = true ->
+  finL (tw2l (scaleTw t dddn)) /\
+  (twval (scaleTw t dddn) = twval t * bpow radix2 (-500))%R.
+Proof.
+move=> Fl Ht.
+have [Fs Ee] := twval_scale_dnT _ _ _ _ Dfin_ddup D2R_ddup De500 Fl Ht.
+split => //.
+rewrite -Ee Rmult_assoc.
+have -> : (bpow radix2 500 * bpow radix2 (-500) = (1 : R)).
+  by rewrite -bpow_plus; have -> : (500 + -500 = 0)%Z by lia.
+by rewrite Rmult_1_r.
+Qed.
+
+(* THE ONE LEMMA ALL SIX WAYS ROUND USE.  It knows nothing of how the three   *)
+(* scalings were come by, only what they did to the three values: the         *)
+(* quotient of the two scaled numbers is the quotient scaled by the           *)
+(* difference of the two exponents, so the answer comes back by its opposite. *)
+Lemma divUpQ_scale_ge z x zs xs qs ea eb :
+  finL (tw2l zs) -> wellFormed zs = true ->
+  finL (tw2l xs) -> wellFormed xs = true ->
+  finL (tw2l (divTwUpQ zs xs)) ->
+  (twval zs = twval z * bpow radix2 ea)%R ->
+  (twval xs = twval x * bpow radix2 eb)%R ->
+  (twval qs = twval (divTwUpQ zs xs) * bpow radix2 (eb - ea))%R ->
+  (twval z / twval x <= twval qs)%R.
+Proof.
+move=> Fzs Wzs Fxs Wxs Fq Ez Ex Eq.
+have Hge := divTwUpQ_ge _ _ Fzs Wzs Fxs Wxs Fq.
+have Nxs := divTwUpQ_nz _ _ Fq.
+have Ha := bpow_gt_0 radix2 ea.
+have Hb := bpow_gt_0 radix2 eb.
+have Nx : twval x <> (0 : R) by move: Nxs; rewrite Ex; nra.
+have Hd : (bpow radix2 (eb - ea) > 0)%R by apply: bpow_gt_0.
+have Hba : (bpow radix2 (eb - ea) * bpow radix2 (ea - eb) = (1 : R)).
+  by rewrite -bpow_plus; have -> : (eb - ea + (ea - eb) = 0)%Z by lia.
+have Ediv : (bpow radix2 (ea - eb) = bpow radix2 ea / bpow radix2 eb)%R.
+  by rewrite /Rdiv -bpow_opp -bpow_plus; congr bpow; lia.
+have Eqd : (twval zs / twval xs
+            = twval z / twval x * bpow radix2 (ea - eb))%R.
+  rewrite Ez Ex Ediv.
+  by field; split; [lra | exact: Nx].
+rewrite Eqd in Hge.
+rewrite Eq.
+apply: (Rmult_le_reg_r (bpow radix2 (ea - eb)));
+  first by apply: bpow_gt_0.
+have -> : (twval (divTwUpQ zs xs) * bpow radix2 (eb - ea)
+           * bpow radix2 (ea - eb) = twval (divTwUpQ zs xs))%R.
+  by rewrite Rmult_assoc Hba Rmult_1_r.
+by [].
+Qed.
+
+
+Lemma divDnQ_scale_le z x zs xs qs ea eb :
+  finL (tw2l zs) -> wellFormed zs = true ->
+  finL (tw2l xs) -> wellFormed xs = true ->
+  finL (tw2l (divTwDnQ zs xs)) ->
+  (twval zs = twval z * bpow radix2 ea)%R ->
+  (twval xs = twval x * bpow radix2 eb)%R ->
+  (twval qs = twval (divTwDnQ zs xs) * bpow radix2 (eb - ea))%R ->
+  (twval qs <= twval z / twval x)%R.
+Proof.
+move=> Fzs Wzs Fxs Wxs Fq Ez Ex Eq.
+have Hle := divTwDnQ_le _ _ Fzs Wzs Fxs Wxs Fq.
+have Nxs := divTwDnQ_nz _ _ Fq.
+have Ha := bpow_gt_0 radix2 ea.
+have Hb := bpow_gt_0 radix2 eb.
+have Nx : twval x <> (0 : R) by move: Nxs; rewrite Ex; nra.
+have Hba : (bpow radix2 (eb - ea) * bpow radix2 (ea - eb) = (1 : R)).
+  by rewrite -bpow_plus; have -> : (eb - ea + (ea - eb) = 0)%Z by lia.
+have Ediv : (bpow radix2 (ea - eb) = bpow radix2 ea / bpow radix2 eb)%R.
+  by rewrite /Rdiv -bpow_opp -bpow_plus; congr bpow; lia.
+have Eqd : (twval zs / twval xs
+            = twval z / twval x * bpow radix2 (ea - eb))%R.
+  rewrite Ez Ex Ediv.
+  by field; split; [lra | exact: Nx].
+rewrite Eqd in Hle.
+rewrite Eq.
+apply: (Rmult_le_reg_r (bpow radix2 (ea - eb)));
+  first by apply: bpow_gt_0.
+have -> : (twval (divTwDnQ zs xs) * bpow radix2 (eb - ea)
+           * bpow radix2 (ea - eb) = twval (divTwDnQ zs xs))%R.
+  by rewrite Rmult_assoc Hba Rmult_1_r.
+by [].
+Qed.
+
+(* THE SIX WAYS ROUND.  The direct call first; then both numbers moved        *)
+(* together, where the quotient does not move and the answer needs no         *)
+(* correction; then each of them alone either way, where it does.  Every way  *)
+(* is tested, and what is behind all seven is `nan', so the operation is      *)
+(* total.                                                                     *)
+Definition divTwUpK (z x : twfloat) :=
+  let q0 := divTwUpQ z x in
+  if finTwb q0 then q0 else
+  let zu := scaleTw z ddup in let xu := (scaleTw x ddup) in
+  let zd := scaleTw z dddn in let xd := (scaleTw x dddn) in
+  if [&& finTwb zu, wellFormed zu, finTwb xu, wellFormed xu
+       & finTwb (divTwUpQ zu xu)] then divTwUpQ zu xu else
+  if [&& scaleOkb z dddn ddup, wellFormed zd, scaleOkb x dddn ddup,
+         wellFormed xd & finTwb (divTwUpQ zd xd)] then divTwUpQ zd xd else
+  if [&& finTwb zu, wellFormed zu, finTwb (divTwUpQ zu x)
+       & scaleOkb (divTwUpQ zu x) dddn ddup]
+  then scaleTw (divTwUpQ zu x) dddn else
+  if [&& scaleOkb z dddn ddup, wellFormed zd, finTwb (divTwUpQ zd x)
+       & finTwb (scaleTw (divTwUpQ zd x) ddup)]
+  then scaleTw (divTwUpQ zd x) ddup else
+  if [&& finTwb xu, wellFormed xu, finTwb (divTwUpQ z xu)
+       & finTwb (scaleTw (divTwUpQ z xu) ddup)]
+  then scaleTw (divTwUpQ z xu) ddup else
+  if [&& scaleOkb x dddn ddup, wellFormed xd, finTwb (divTwUpQ z xd)
+       & scaleOkb (divTwUpQ z xd) dddn ddup]
+  then scaleTw (divTwUpQ z xd) dddn else
+  TWFloat nan nan nan.
+
+Definition divTwDnK (z x : twfloat) :=
+  let q0 := divTwDnQ z x in
+  if finTwb q0 then q0 else
+  let zu := scaleTw z ddup in let xu := (scaleTw x ddup) in
+  let zd := scaleTw z dddn in let xd := (scaleTw x dddn) in
+  if [&& finTwb zu, wellFormed zu, finTwb xu, wellFormed xu
+       & finTwb (divTwDnQ zu xu)] then divTwDnQ zu xu else
+  if [&& scaleOkb z dddn ddup, wellFormed zd, scaleOkb x dddn ddup,
+         wellFormed xd & finTwb (divTwDnQ zd xd)] then divTwDnQ zd xd else
+  if [&& finTwb zu, wellFormed zu, finTwb (divTwDnQ zu x)
+       & scaleOkb (divTwDnQ zu x) dddn ddup]
+  then scaleTw (divTwDnQ zu x) dddn else
+  if [&& scaleOkb z dddn ddup, wellFormed zd, finTwb (divTwDnQ zd x)
+       & finTwb (scaleTw (divTwDnQ zd x) ddup)]
+  then scaleTw (divTwDnQ zd x) ddup else
+  if [&& finTwb xu, wellFormed xu, finTwb (divTwDnQ z xu)
+       & finTwb (scaleTw (divTwDnQ z xu) ddup)]
+  then scaleTw (divTwDnQ z xu) ddup else
+  if [&& scaleOkb x dddn ddup, wellFormed xd, finTwb (divTwDnQ z xd)
+       & scaleOkb (divTwDnQ z xd) dddn ddup]
+  then scaleTw (divTwDnQ z xd) dddn else
+  TWFloat nan nan nan.
+
+Lemma bpow0R : bpow radix2 0 = (1 : R).
+Proof. by []. Qed.
+
+Lemma twval_id t : (twval t = twval t * bpow radix2 0)%R.
+Proof. by rewrite bpow0R Rmult_1_r. Qed.
+
+Theorem divTwUpK_ge x y :
+  finL (tw2l x) -> wellFormed x = true ->
+  finL (tw2l y) -> wellFormed y = true ->
+  finL (tw2l (divTwUpK x y)) ->
+  (twval x / twval y <= twval (divTwUpK x y))%R.
+Proof.
+move=> Fx Wx Fy Wy; rewrite /divTwUpK.
+case Hq: (finTwb (divTwUpQ x y)).
+  by move=> _; apply: divTwUpQ_ge => //; apply: finTwbP.
+case H1: [&& finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup),
+             finTwb (scaleTw y ddup), wellFormed (scaleTw y ddup)
+           & finTwb (divTwUpQ (scaleTw x ddup) (scaleTw y ddup))].
+  move=> _; have /and5P[Fzu Wzu Fxu Wxu Fq1] := H1.
+  have [Fzu' Ezu] := scUp _ Fx Fzu.
+  have [Fxu' Exu] := scUp _ Fy Fxu.
+  apply: (divUpQ_scale_ge x y (scaleTw x ddup) (scaleTw y ddup) _ 500 500).
+  - exact: Fzu'.
+  - exact: Wzu.
+  - exact: Fxu'.
+  - exact: Wxu.
+  - by apply: finTwbP.
+  - exact: Ezu.
+  - exact: Exu.
+  exact: (twval_id (divTwUpQ (scaleTw x ddup) (scaleTw y ddup))).
+case H2: [&& scaleOkb x dddn ddup, wellFormed (scaleTw x dddn),
+             scaleOkb y dddn ddup, wellFormed (scaleTw y dddn)
+           & finTwb (divTwUpQ (scaleTw x dddn) (scaleTw y dddn))].
+  move=> _; have /and5P[Hzd Wzd Hxd Wxd Fq2] := H2.
+  have [Fzd Ezd] := scDn _ Fx Hzd.
+  have [Fxd Exd] := scDn _ Fy Hxd.
+  apply: (divUpQ_scale_ge x y (scaleTw x dddn) (scaleTw y dddn) _ (-500) (-500)).
+  - exact: Fzd.
+  - exact: Wzd.
+  - exact: Fxd.
+  - exact: Wxd.
+  - by apply: finTwbP.
+  - exact: Ezd.
+  - exact: Exd.
+  exact: (twval_id (divTwUpQ (scaleTw x dddn) (scaleTw y dddn))).
+case H3: [&& finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup),
+             finTwb (divTwUpQ (scaleTw x ddup) y)
+           & scaleOkb (divTwUpQ (scaleTw x ddup) y) dddn ddup].
+  move=> _; have /and4P[Fzu Wzu Fq3 Hsc] := H3.
+  have [Fzu' Ezu] := scUp _ Fx Fzu.
+  have [_ Eans] := scDn _ (finTwbP _ Fq3) Hsc.
+  apply: (divUpQ_scale_ge x y (scaleTw x ddup) y _ 500 0).
+  - exact: Fzu'.
+  - exact: Wzu.
+  - exact: Fy.
+  - exact: Wy.
+  - by apply: finTwbP.
+  - exact: Ezu.
+  - exact: (twval_id y).
+  exact: Eans.
+case H4: [&& scaleOkb x dddn ddup, wellFormed (scaleTw x dddn),
+             finTwb (divTwUpQ (scaleTw x dddn) y)
+           & finTwb (scaleTw (divTwUpQ (scaleTw x dddn) y) ddup)].
+  move=> _; have /and4P[Hzd Wzd Fq4 Fans] := H4.
+  have [Fzd Ezd] := scDn _ Fx Hzd.
+  have [_ Eans] := scUp _ (finTwbP _ Fq4) Fans.
+  apply: (divUpQ_scale_ge x y (scaleTw x dddn) y _ (-500) 0).
+  - exact: Fzd.
+  - exact: Wzd.
+  - exact: Fy.
+  - exact: Wy.
+  - by apply: finTwbP.
+  - exact: Ezd.
+  - exact: (twval_id y).
+  exact: Eans.
+case H5: [&& finTwb (scaleTw y ddup), wellFormed (scaleTw y ddup),
+             finTwb (divTwUpQ x (scaleTw y ddup))
+           & finTwb (scaleTw (divTwUpQ x (scaleTw y ddup)) ddup)].
+  move=> _; have /and4P[Fxu Wxu Fq5 Fans] := H5.
+  have [Fxu' Exu] := scUp _ Fy Fxu.
+  have [_ Eans] := scUp _ (finTwbP _ Fq5) Fans.
+  apply: (divUpQ_scale_ge x y x (scaleTw y ddup) _ 0 500).
+  - exact: Fx.
+  - exact: Wx.
+  - exact: Fxu'.
+  - exact: Wxu.
+  - by apply: finTwbP.
+  - exact: (twval_id x).
+  - exact: Exu.
+  exact: Eans.
+case H6: [&& scaleOkb y dddn ddup, wellFormed (scaleTw y dddn),
+             finTwb (divTwUpQ x (scaleTw y dddn))
+           & scaleOkb (divTwUpQ x (scaleTw y dddn)) dddn ddup].
+  move=> _; have /and4P[Hxd Wxd Fq6 Hsc] := H6.
+  have [Fxd Exd] := scDn _ Fy Hxd.
+  have [_ Eans] := scDn _ (finTwbP _ Fq6) Hsc.
+  apply: (divUpQ_scale_ge x y x (scaleTw y dddn) _ 0 (-500)).
+  - exact: Fx.
+  - exact: Wx.
+  - exact: Fxd.
+  - exact: Wxd.
+  - by apply: finTwbP.
+  - exact: (twval_id x).
+  - exact: Exd.
+  exact: Eans.
+by move/finL_nan3.
+Qed.
+
+Theorem divTwDnK_le x y :
+  finL (tw2l x) -> wellFormed x = true ->
+  finL (tw2l y) -> wellFormed y = true ->
+  finL (tw2l (divTwDnK x y)) ->
+  (twval (divTwDnK x y) <= twval x / twval y)%R.
+Proof.
+move=> Fx Wx Fy Wy; rewrite /divTwDnK.
+case Hq: (finTwb (divTwDnQ x y)).
+  by move=> _; apply: divTwDnQ_le => //; apply: finTwbP.
+case H1: [&& finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup),
+             finTwb (scaleTw y ddup), wellFormed (scaleTw y ddup)
+           & finTwb (divTwDnQ (scaleTw x ddup) (scaleTw y ddup))].
+  move=> _; have /and5P[Fzu Wzu Fxu Wxu Fq1] := H1.
+  have [Fzu' Ezu] := scUp _ Fx Fzu.
+  have [Fxu' Exu] := scUp _ Fy Fxu.
+  apply: (divDnQ_scale_le x y (scaleTw x ddup) (scaleTw y ddup) _ 500 500).
+  - exact: Fzu'.
+  - exact: Wzu.
+  - exact: Fxu'.
+  - exact: Wxu.
+  - by apply: finTwbP.
+  - exact: Ezu.
+  - exact: Exu.
+  exact: (twval_id (divTwDnQ (scaleTw x ddup) (scaleTw y ddup))).
+case H2: [&& scaleOkb x dddn ddup, wellFormed (scaleTw x dddn),
+             scaleOkb y dddn ddup, wellFormed (scaleTw y dddn)
+           & finTwb (divTwDnQ (scaleTw x dddn) (scaleTw y dddn))].
+  move=> _; have /and5P[Hzd Wzd Hxd Wxd Fq2] := H2.
+  have [Fzd Ezd] := scDn _ Fx Hzd.
+  have [Fxd Exd] := scDn _ Fy Hxd.
+  apply: (divDnQ_scale_le x y (scaleTw x dddn) (scaleTw y dddn) _ (-500) (-500)).
+  - exact: Fzd.
+  - exact: Wzd.
+  - exact: Fxd.
+  - exact: Wxd.
+  - by apply: finTwbP.
+  - exact: Ezd.
+  - exact: Exd.
+  exact: (twval_id (divTwDnQ (scaleTw x dddn) (scaleTw y dddn))).
+case H3: [&& finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup),
+             finTwb (divTwDnQ (scaleTw x ddup) y)
+           & scaleOkb (divTwDnQ (scaleTw x ddup) y) dddn ddup].
+  move=> _; have /and4P[Fzu Wzu Fq3 Hsc] := H3.
+  have [Fzu' Ezu] := scUp _ Fx Fzu.
+  have [_ Eans] := scDn _ (finTwbP _ Fq3) Hsc.
+  apply: (divDnQ_scale_le x y (scaleTw x ddup) y _ 500 0).
+  - exact: Fzu'.
+  - exact: Wzu.
+  - exact: Fy.
+  - exact: Wy.
+  - by apply: finTwbP.
+  - exact: Ezu.
+  - exact: (twval_id y).
+  exact: Eans.
+case H4: [&& scaleOkb x dddn ddup, wellFormed (scaleTw x dddn),
+             finTwb (divTwDnQ (scaleTw x dddn) y)
+           & finTwb (scaleTw (divTwDnQ (scaleTw x dddn) y) ddup)].
+  move=> _; have /and4P[Hzd Wzd Fq4 Fans] := H4.
+  have [Fzd Ezd] := scDn _ Fx Hzd.
+  have [_ Eans] := scUp _ (finTwbP _ Fq4) Fans.
+  apply: (divDnQ_scale_le x y (scaleTw x dddn) y _ (-500) 0).
+  - exact: Fzd.
+  - exact: Wzd.
+  - exact: Fy.
+  - exact: Wy.
+  - by apply: finTwbP.
+  - exact: Ezd.
+  - exact: (twval_id y).
+  exact: Eans.
+case H5: [&& finTwb (scaleTw y ddup), wellFormed (scaleTw y ddup),
+             finTwb (divTwDnQ x (scaleTw y ddup))
+           & finTwb (scaleTw (divTwDnQ x (scaleTw y ddup)) ddup)].
+  move=> _; have /and4P[Fxu Wxu Fq5 Fans] := H5.
+  have [Fxu' Exu] := scUp _ Fy Fxu.
+  have [_ Eans] := scUp _ (finTwbP _ Fq5) Fans.
+  apply: (divDnQ_scale_le x y x (scaleTw y ddup) _ 0 500).
+  - exact: Fx.
+  - exact: Wx.
+  - exact: Fxu'.
+  - exact: Wxu.
+  - by apply: finTwbP.
+  - exact: (twval_id x).
+  - exact: Exu.
+  exact: Eans.
+case H6: [&& scaleOkb y dddn ddup, wellFormed (scaleTw y dddn),
+             finTwb (divTwDnQ x (scaleTw y dddn))
+           & scaleOkb (divTwDnQ x (scaleTw y dddn)) dddn ddup].
+  move=> _; have /and4P[Hxd Wxd Fq6 Hsc] := H6.
+  have [Fxd Exd] := scDn _ Fy Hxd.
+  have [_ Eans] := scDn _ (finTwbP _ Fq6) Hsc.
+  apply: (divDnQ_scale_le x y x (scaleTw y dddn) _ 0 (-500)).
+  - exact: Fx.
+  - exact: Wx.
+  - exact: Fxd.
+  - exact: Wxd.
+  - by apply: finTwbP.
+  - exact: (twval_id x).
+  - exact: Exd.
+  exact: Eans.
+by move/finL_nan3.
+Qed.
+
+Lemma scale_nz t s e :
+  (twval (scaleTw t s) = twval t * bpow radix2 e)%R ->
+  twval (scaleTw t s) <> (0 : R) -> twval t <> (0 : R).
+Proof.
+by move=> E H; move: H; rewrite E; have := bpow_gt_0 radix2 e; nra.
+Qed.
+
+Lemma divTwUpK_nz x y :
+  finL (tw2l y) -> finL (tw2l (divTwUpK x y)) -> twval y <> (0 : R).
+Proof.
+move=> Fy; rewrite /divTwUpK.
+case Hq: (finTwb (divTwUpQ x y)).
+  by move=> _; apply: (divTwUpQ_nz x y); apply: finTwbP.
+case H1: [&& finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup),
+             finTwb (scaleTw y ddup), wellFormed (scaleTw y ddup)
+           & finTwb (divTwUpQ (scaleTw x ddup) (scaleTw y ddup))].
+  move=> _; have /and5P[Fzu Wzu Fxu Wxu Fq] := H1.
+  have [_ Exu] := scUp _ Fy Fxu.
+  by apply: (scale_nz _ _ _ Exu);
+     apply: (divTwUpQ_nz (scaleTw x ddup) (scaleTw y ddup)); apply: finTwbP.
+case H2: [&& scaleOkb x dddn ddup, wellFormed (scaleTw x dddn),
+             scaleOkb y dddn ddup, wellFormed (scaleTw y dddn)
+           & finTwb (divTwUpQ (scaleTw x dddn) (scaleTw y dddn))].
+  move=> _; have /and5P[Hzd Wzd Hxd Wxd Fq] := H2.
+  have [_ Exd] := scDn _ Fy Hxd.
+  by apply: (scale_nz _ _ _ Exd);
+     apply: (divTwUpQ_nz (scaleTw x dddn) (scaleTw y dddn)); apply: finTwbP.
+case H3: [&& finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup),
+             finTwb (divTwUpQ (scaleTw x ddup) y)
+           & scaleOkb (divTwUpQ (scaleTw x ddup) y) dddn ddup].
+  move=> _; have /and4P[Fzu Wzu Fq Hsc] := H3.
+  by apply: (divTwUpQ_nz (scaleTw x ddup) y); apply: finTwbP.
+case H4: [&& scaleOkb x dddn ddup, wellFormed (scaleTw x dddn),
+             finTwb (divTwUpQ (scaleTw x dddn) y)
+           & finTwb (scaleTw (divTwUpQ (scaleTw x dddn) y) ddup)].
+  move=> _; have /and4P[Hzd Wzd Fq Fans] := H4.
+  by apply: (divTwUpQ_nz (scaleTw x dddn) y); apply: finTwbP.
+case H5: [&& finTwb (scaleTw y ddup), wellFormed (scaleTw y ddup),
+             finTwb (divTwUpQ x (scaleTw y ddup))
+           & finTwb (scaleTw (divTwUpQ x (scaleTw y ddup)) ddup)].
+  move=> _; have /and4P[Fxu Wxu Fq Fans] := H5.
+  have [_ Exu] := scUp _ Fy Fxu.
+  by apply: (scale_nz _ _ _ Exu);
+     apply: (divTwUpQ_nz x (scaleTw y ddup)); apply: finTwbP.
+case H6: [&& scaleOkb y dddn ddup, wellFormed (scaleTw y dddn),
+             finTwb (divTwUpQ x (scaleTw y dddn))
+           & scaleOkb (divTwUpQ x (scaleTw y dddn)) dddn ddup].
+  move=> _; have /and4P[Hxd Wxd Fq Hsc] := H6.
+  have [_ Exd] := scDn _ Fy Hxd.
+  by apply: (scale_nz _ _ _ Exd);
+     apply: (divTwUpQ_nz x (scaleTw y dddn)); apply: finTwbP.
+by move/finL_nan3.
+Qed.
+
+Lemma divTwDnK_nz x y :
+  finL (tw2l y) -> finL (tw2l (divTwDnK x y)) -> twval y <> (0 : R).
+Proof.
+move=> Fy; rewrite /divTwDnK.
+case Hq: (finTwb (divTwDnQ x y)).
+  by move=> _; apply: (divTwDnQ_nz x y); apply: finTwbP.
+case H1: [&& finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup),
+             finTwb (scaleTw y ddup), wellFormed (scaleTw y ddup)
+           & finTwb (divTwDnQ (scaleTw x ddup) (scaleTw y ddup))].
+  move=> _; have /and5P[Fzu Wzu Fxu Wxu Fq] := H1.
+  have [_ Exu] := scUp _ Fy Fxu.
+  by apply: (scale_nz _ _ _ Exu);
+     apply: (divTwDnQ_nz (scaleTw x ddup) (scaleTw y ddup)); apply: finTwbP.
+case H2: [&& scaleOkb x dddn ddup, wellFormed (scaleTw x dddn),
+             scaleOkb y dddn ddup, wellFormed (scaleTw y dddn)
+           & finTwb (divTwDnQ (scaleTw x dddn) (scaleTw y dddn))].
+  move=> _; have /and5P[Hzd Wzd Hxd Wxd Fq] := H2.
+  have [_ Exd] := scDn _ Fy Hxd.
+  by apply: (scale_nz _ _ _ Exd);
+     apply: (divTwDnQ_nz (scaleTw x dddn) (scaleTw y dddn)); apply: finTwbP.
+case H3: [&& finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup),
+             finTwb (divTwDnQ (scaleTw x ddup) y)
+           & scaleOkb (divTwDnQ (scaleTw x ddup) y) dddn ddup].
+  move=> _; have /and4P[Fzu Wzu Fq Hsc] := H3.
+  by apply: (divTwDnQ_nz (scaleTw x ddup) y); apply: finTwbP.
+case H4: [&& scaleOkb x dddn ddup, wellFormed (scaleTw x dddn),
+             finTwb (divTwDnQ (scaleTw x dddn) y)
+           & finTwb (scaleTw (divTwDnQ (scaleTw x dddn) y) ddup)].
+  move=> _; have /and4P[Hzd Wzd Fq Fans] := H4.
+  by apply: (divTwDnQ_nz (scaleTw x dddn) y); apply: finTwbP.
+case H5: [&& finTwb (scaleTw y ddup), wellFormed (scaleTw y ddup),
+             finTwb (divTwDnQ x (scaleTw y ddup))
+           & finTwb (scaleTw (divTwDnQ x (scaleTw y ddup)) ddup)].
+  move=> _; have /and4P[Fxu Wxu Fq Fans] := H5.
+  have [_ Exu] := scUp _ Fy Fxu.
+  by apply: (scale_nz _ _ _ Exu);
+     apply: (divTwDnQ_nz x (scaleTw y ddup)); apply: finTwbP.
+case H6: [&& scaleOkb y dddn ddup, wellFormed (scaleTw y dddn),
+             finTwb (divTwDnQ x (scaleTw y dddn))
+           & scaleOkb (divTwDnQ x (scaleTw y dddn)) dddn ddup].
+  move=> _; have /and4P[Hxd Wxd Fq Hsc] := H6.
+  have [_ Exd] := scDn _ Fy Hxd.
+  by apply: (scale_nz _ _ _ Exd);
+     apply: (divTwDnQ_nz x (scaleTw y dddn)); apply: finTwbP.
+by move/finL_nan3.
+Qed.
+
+(* What it computes: the middle of the range direct, and the ends by the way  *)
+(* round -- a dividend too small, a divisor too small, and both too large.    *)
+Compute (divTwDnK (fp2tw 1) (fp2tw 3), divTwUpK (fp2tw 1) (fp2tw 3)).
+Compute (divTwDnK (toTw 1 1e-20 1e-40) (toTw 3 1e-20 1e-40),
+         divTwUpK (toTw 1 1e-20 1e-40) (toTw 3 1e-20 1e-40)).
+Compute (divTwDnK (fp2tw 0x1p-1070) (fp2tw 1),
+         divTwUpK (fp2tw 0x1p-1070) (fp2tw 1)).
+Compute (divTwDnK (fp2tw 1) (fp2tw 0x1p-1070),
+         divTwUpK (fp2tw 1) (fp2tw 0x1p-1070)).
+Compute (divTwDnK (fp2tw 0x1p+1000) (fp2tw 0x1p+1000),
+         divTwUpK (fp2tw 0x1p+1000) (fp2tw 0x1p+1000)).
