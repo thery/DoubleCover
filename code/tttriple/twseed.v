@@ -67,6 +67,18 @@ Local Notation isDW := (isDW p).
 Local Notation ThreeProdDW := (ThreeProdDW p choice).
 Local Notation XvecSum := (VecSum.vecSum p choice).
 Local Notation XvsebK := (VSEB.vsebK p choice).
+(* The product's own lemmas, bridged the same way as the root's.             *)
+Local Notation z10m_bound_dw := (z10m_bound_dw Hp2 choice).
+Local Notation z01m_bound := (z01m_bound Hp2 choice).
+Local Notation x0y2_bound := (x0y2_bound Hp2).
+Local Notation x1y1_bound_dw := (x1y1_bound_dw (p := p)).
+Local Notation b2_bound := (b2_bound Hp2 choice).
+Local Notation eps3_bound_dw := (eps3_bound_dw Hp2 choice).
+Local Notation x1y2_bound_dw := (x1y2_bound_dw Hp2).
+Local Notation u_le_64 := (u_le_64 (Hp6 Hp11)).
+Local Notation format_imul_u2 := (format_imul_u2 Hp2).
+Local Notation two_p_ge_64 := (two_p_ge_64 (Hp6 Hp11)).
+Local Notation vecSum3 := (vecSum3 Hp2 (choice := choice)).
 Local Notation ThreeProdOneTW := (ThreeProdOneTW p choice).
 Local Notation head_half := (head_half p).
 
@@ -1490,6 +1502,24 @@ by have T := Rabs_triang (x1 * y1 - RND (x1 * y1))
        (b2 + RND (x1 * y1) - RND (b2 + RND (x1 * y1))); lra.
 Qed.
 
+(* The middle line's own size does not move: four `u^2' rounds to four `u^2', *)
+(* so the sum is still under five.                                            *)
+Lemma z31n_bound_dw z10m x0 y2 :
+  Rabs z10m <= u * u -> Rabs (x0 * y2) < 4 * (u * u) ->
+  Rabs (RND (z10m + RND (x0 * y2))) <= 5 * (u * u).
+Proof.
+move=> H1 H2.
+have Hu0 : 0 < u by apply: u_gt_0.
+have F4 : format (4 * (u * u))
+  by apply: (format_imul_u2 (k := 4)); have := two_p_ge_64; lia.
+have F5 : format (5 * (u * u))
+  by apply: (format_imul_u2 (k := 5)); have := two_p_ge_64; lia.
+have H2' : Rabs (RND (x0 * y2)) <= 4 * (u * u)
+  by apply: Rabs_round_le_r => //; lra.
+apply: Rabs_round_le_r => //.
+by have := Rabs_triang z10m (RND (x0 * y2)); lra.
+Qed.
+
 (* THE PAPER'S DECOMPOSITION, WITH THE TWO FUSED LINES LET GO.                *)
 (*                                                                            *)
 (* `sumR_e_decomp' asks that `c' and `z31' BE the fused expressions, and its  *)
@@ -1523,7 +1553,7 @@ have Fz00m : format z00m by have := TwoProd_fmt2 Hp2 choice Fx0 Fy0; rewrite HP0
 have Fz01p : format z01p by have := TwoProd_fmt1 Hp2 choice Fx0 Fy1; rewrite HP01.
 have Fz10p : format z10p by have := TwoProd_fmt1 Hp2 choice Fx1 Fy0; rewrite HP10.
 have Eb : nth 0 b 0 + nth 0 b 1 + nth 0 b 2 = z00m + z01p + z10p.
-  by rewrite Hb (vecSum3 Hp2 choice_sym Fz00m Fz01p Fz10p) /=; ring.
+  by rewrite Hb (vecSum3 choice_sym Fz00m Fz01p Fz10p) /=; ring.
 have Fb : {in b, forall z, format z}.
   rewrite Hb; apply: (@format_vecSum p Hp2 choice).
   by move=> z; rewrite !inE => /or3P[] /eqP-> //.
@@ -1539,6 +1569,87 @@ have Ee : sumR (XvecSum [:: z00p; nth 0 b 0; nth 0 b 1; c; z3]) =
 rewrite Ee.
 apply: (@error_decomp x0 x1 x2 y0 y1 y2 z00p z00m z01p z01m z10p z10m
           (nth 0 b 0) (nth 0 b 1) (nth 0 b 2) c z31 z32 z3) => //.
+Qed.
+
+(* AND THE PRODUCT'S INNER SUM, 22 FOR THE PAPER'S 14.                        *)
+(*                                                                            *)
+(* Everything is the paper's `inner_sum_err_dw' but the two numbers: `eps1'   *)
+(* and `eps4' come in at `8u^3' where the paper has `4u^3', and the four      *)
+(* terms add to 22 instead of 14.  `eps0' and `eps3' do not move at all --    *)
+(* neither is a fused line.                                                   *)
+Lemma inner_sum_errn_dw x0 x1 y0 y1 y2 :
+  ties_to_even choice -> dw_norm p x0 x1 -> tw_norm p y0 y1 y2 ->
+  let bb := XvecSum
+    [:: RND (x0 * y0 - RND (x0 * y0)); RND (x0 * y1); RND (x1 * y0)] in
+  Rabs ((x0 + x1 + 0) * (y0 + y1 + y2)
+        - sumR (XvecSum
+            [:: RND (x0 * y0); nth 0 bb 0; nth 0 bb 1;
+                RND (nth 0 bb 2 + RND (x1 * y1));
+                RND (RND (RND (x1 * y0 - RND (x1 * y0))
+                          + RND (x0 * y2))
+                   + RND (x0 * y1 - RND (x0 * y1)))]))
+    <= 22 * (u * u * u) - 2 * (u * u * u * u).
+Proof.
+move=> Hc Nxd Ny bb.
+have Hu0 : 0 < u by apply: u_gt_0.
+have Hu64 := u_le_64.
+have Nx' : tw_norm p x0 x1 0 by exact: dw_norm_tw_norm Nxd.
+set z01m := RND (x0 * y1 - RND (x0 * y1)).
+set z10m := RND (x1 * y0 - RND (x1 * y0)).
+set c := RND (nth 0 bb 2 + RND (x1 * y1)).
+set z31 := RND (z10m + RND (x0 * y2)).
+set z3 := RND (z31 + z01m).
+have Fc : format c by apply: generic_format_round.
+have Fz3 : format z3 by apply: generic_format_round.
+have Hdecomp := @sumR_e_decomp_gen x0 x1 0 y0 y1 y2
+  (RND (x0 * y0)) (RND (x0 * y0 - RND (x0 * y0)))
+  (RND (x0 * y1)) z01m (RND (x1 * y0)) z10m bb c z31 z01m z3
+  (ltac:(by case: Nx' => -[]) : format x0)
+  (ltac:(by case: Nx' => -[]) : format x1)
+  (ltac:(by case: Ny => -[]) : format y0)
+  (ltac:(by case: Ny => -[]) : format y1)
+  erefl erefl erefl erefl Fc Fz3.
+have HN : (x0 + x1 + 0) * (y0 + y1 + y2)
+          - sumR (XvecSum [:: RND (x0 * y0); nth 0 bb 0; nth 0 bb 1; c; z3])
+        = x1 * y2 + (z10m + x0 * y2 - z31) + (z31 + z01m - z3)
+          + (nth 0 bb 2 + x1 * y1 - c) by rewrite Hdecomp; ring.
+have Hz10m : Rabs z10m <= u * u.
+  rewrite /z10m round_generic; first by apply: (z10m_bound_dw Nxd Ny).
+  have [[Fx0 Fx1 Fx2] _ _ _ _] := Nx'.
+  have [[Fy0 Fy1 Fy2] _ _ _ _] := Ny.
+  rewrite (_ : x1 * y0 - RND (x1 * y0) = -(RND (x1 * y0) - x1 * y0));
+    last by ring.
+  by apply: generic_format_opp; apply: format_err_mul.
+have Hz01m : Rabs z01m <= 2 * (u * u).
+  rewrite /z01m round_generic;
+    first by apply: (z01m_bound Nx' Ny).
+  have [[Fx0 Fx1 Fx2] _ _ _ _] := Nx'.
+  have [[Fy0 Fy1 Fy2] _ _ _ _] := Ny.
+  rewrite (_ : x0 * y1 - RND (x0 * y1) = -(RND (x0 * y1) - x0 * y1));
+    last by ring.
+  by apply: generic_format_opp; apply: format_err_mul.
+have Hx0y2 := x0y2_bound Nx' Ny.
+have Hx1y1 := x1y1_bound_dw Nxd Ny.
+have Hb2 : Rabs (nth 0 bb 2) <= 4 * (u * u).
+  have Hb2eq : nth 0 bb 2 = RND (x0 * y1) + RND (x1 * y0)
+      - RND (RND (x0 * y1) + RND (x1 * y0)).
+    rewrite /bb (vecSum3 choice_sym (generic_format_round _ _ _ _)
+      (generic_format_round _ _ _ _) (generic_format_round _ _ _ _)) /=; ring.
+  by rewrite Hb2eq; apply: (b2_bound Nx' Ny).
+have Hz31 : Rabs z31 <= 5 * (u * u) by apply: (z31n_bound_dw Hz10m Hx0y2).
+have Heps0 := x1y2_bound_dw Nxd Ny.
+have Heps1 : Rabs (z10m + x0 * y2 - z31) <= 8 * (u * u * u)
+  by apply: (eps1n_bound_dw Hz10m Hx0y2).
+have Heps3 : Rabs (z31 + z01m - z3) <= 4 * (u * u * u)
+  by apply: (eps3_bound_dw Hz31 Hz01m).
+have Heps4 : Rabs (nth 0 bb 2 + x1 * y1 - c) <= 8 * (u * u * u)
+  by apply: (eps4n_bound_dw Hb2 Hx1y1).
+rewrite HN.
+have T1 := Rabs_triang (x1 * y2 + (z10m + x0 * y2 - z31)
+                        + (z31 + z01m - z3)) (nth 0 bb 2 + x1 * y1 - c).
+have T2 := Rabs_triang (x1 * y2 + (z10m + x0 * y2 - z31)) (z31 + z01m - z3).
+have T3 := Rabs_triang (x1 * y2) (z10m + x0 * y2 - z31).
+by lra.
 Qed.
 
 (* ---------------------------------------------------------------------------*)
