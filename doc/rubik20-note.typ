@@ -1040,11 +1040,18 @@ for it has even length.
 
 == The six prefixes
 
-The twelve quarter turns fall into two kinds for superflip4. The first kind is
-the turns of the top and bottom faces. The second kind is the turns of the other
-four faces. A word made only of the first kind cannot give superflip4. A word
-made only of the second kind cannot flip an edge, and in superflip4 every edge
-is flipped. So any word for it uses both kinds.
+We split the twelve quarter turns into two sets:
+
+#align(center)[
+  $A = {U, U^(-1), D, D^(-1)}$, #h(2em)
+  $C = {R, R^(-1), F, F^(-1), L, L^(-1), B, B^(-1)}$.
+]
+
+A word made only of turns from $A$ leaves the four middle edges untouched, and
+superflip4 has them flipped, so no such word gives superflip4. A word made only
+of turns from $C$ never flips an edge, and superflip4 has every edge flipped,
+so no such word gives it either. Any word for superflip4 therefore uses turns
+from both sets.
 
 Two turns of different kinds must then stand next to each other somewhere in the
 word. The cyclic shift brings that pair to the front. The cyclic shift moves the
