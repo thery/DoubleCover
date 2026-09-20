@@ -16,7 +16,9 @@ twbound.v
 twpaper.v
 twprodg.v
 twseed.v
+twdivn.v
 twflx.v
+twdivflx.v
 twsqrt.v
 tw_ops.v
 tw_cmpbad.v
