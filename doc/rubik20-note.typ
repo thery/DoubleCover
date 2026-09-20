@@ -1079,29 +1079,16 @@ again, has the same length, and takes the two turns in the other order. It
 remains to bring the pair to the front and to rename it so that it reads $R U$
 or $R^(-1) U$.
 
-Bringing it to the front means playing the letters before it at the end
-instead. That alone does not give superflip4 again, since the two parts of the
-word do not commute. Each letter that moves has to be replaced first: a turn
-$m$ becomes $P^(-1) m P$, where $P$ is superflip4. With $a$ the product of the
-letters that move and $b$ the product of the rest, this is the identity
-$b (b^(-1) a b) = a b$, which holds in any group.
-
-Here $P^(-1) m P$ is again a quarter turn, so one letter is replaced by one
-letter and the word keeps its length. On the twelve turns the replacement acts
-as the renaming $r$ that swaps front with back and left with right and leaves
-top and bottom alone. #src("HProp2.v") checks this
-one turn at a time, and then proves the shift. Writing the word as $u w$, the
-new word is $w space u^r$, where $u^r$ is $u$ with every letter renamed by $r$.
-For instance
+The turns before the pair can be moved to the end of the word. Each of them is
+renamed on the way, by the swap of front with back and left with right. The new
+word has the same length and still gives superflip4. For instance
 
 #align(center)[
   $B U^2 L space w quad "becomes" quad w space F U^2 R .$
 ]
 
-The two words have the same length and give superflip4. The renaming also keeps
-the two sets, since it leaves $U$ and $D$ alone and moves the other four faces
-among themselves, so the two turns now at the front are still one from each
-set.
+The swap leaves $U$ and $D$ alone, so the two turns now at the front are still
+one from each set.
 
 Renaming by one of the sixteen relabellings that keep the up-down axis then
 turns the pair at the front into $R U$ or $R^(-1) U$. The first case is already
