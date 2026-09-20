@@ -1109,18 +1109,18 @@ length, beginning with $q$.
 
 The second step renames the faces. A relabelling of the cube that leaves
 superflip4 unchanged carries a word for it to another word for it, of the same
-length. Sixteen of the 48 relabellings do that. The superflip is unchanged by all 48,
-but the four-spot is not: it leaves the top and bottom faces alone and
+length. Sixteen of the 48 relabellings do that. The superflip is unchanged by
+all 48, but the four-spot is not: it leaves the top and bottom faces alone and
 exchanges the colours of the other four in pairs, so it singles out the up-down
 axis, the line through the centres of the top and bottom faces. A relabelling
 that moves that axis carries the four-spot to the same pattern about another
 axis, which is another position. The sixteen that keep the axis are the ones
-that leave superflip4 alone. They make the
-letter of $q$ from $cal(A)$ into `U`, and the letter from $cal(C)$ into `R` or
-`R'`, so $q$ becomes `R U` or `R' U`. In our example $q$ is `F U'`. The mirror
-that swaps left and right fixes the front face and reverses the direction of
-every turn, so `F U'` becomes `F' U`. A quarter rotation about the up-down axis
-then carries the front face to the right one, and `F' U` becomes `R' U`.
+that leave superflip4 alone. They make the letter of $q$ from $cal(A)$ into `U`,
+and the letter from $cal(C)$ into `R` or `R'`, so $q$ becomes `R U` or `R' U`.
+In our example $q$ is `F U'`. The mirror that swaps left and right fixes the
+front face and reverses the direction of every turn, so `F U'` becomes `F' U`. A
+quarter rotation about the up-down axis then carries the front face to the right
+one, and `F' U` becomes `R' U`.
 
 A word starting with `R U` needs nothing more, which is the prefix of two
 turns. When it starts with `R' U` we look at the third turn. Six of the
