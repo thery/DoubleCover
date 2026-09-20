@@ -1053,15 +1053,20 @@ only of turns from $cal(C)$ never flips an edge, and superflip4 has every edge
 flipped, so no such word gives it either. Any word for superflip4 therefore uses
 turns from both sets.
 
-A turn from $cal(A)$ and a turn from $cal(C)$ must then stand next to each other
-somewhere in the word. The cyclic shift brings that pair to the front. The
-cyclic shift moves the first letters of the word to the end, renaming each of
-them by the relabelling that spins the whole cube by half a turn about the
-up-down axis: it sends $B$ to $F$ and $L$ to $R$ and leaves $U$ and $D$ where
-they are. A word that begins with $B U^2 L$ ends, after the shift, with
-$F U^2 R$. The new word has the same length and gives the same position. This
-works because the relabelling leaves superflip4 as it is, and that is why it was
-chosen.
+A turn from $cal(A)$ and a turn from $cal(C)$ must then stand next to each
+other somewhere in the word, and the cyclic shift brings that pair to the
+front. Let $r$ be the relabelling that spins the whole cube by half a turn
+about the up-down axis: it sends $B$ to $F$, $L$ to $R$, and leaves $U$ and $D$
+alone. Write the word as $u w$, where $u$ is its first few letters. Then
+$w space u^r$ gives the same position, where $u^r$ is $u$ with every letter
+renamed by $r$. For instance
+
+#align(center)[
+  $B U^2 L space w quad "becomes" quad w space F U^2 R .$
+]
+
+The two words have the same length. This works because $r$ leaves superflip4 as
+it is, and that is why this position was chosen.
 
 Two more operations leave the length and the position alone: inversion, and
 renaming by any of the sixteen relabellings that keep the up-down axis. With
@@ -1100,8 +1105,7 @@ third turn may cancel the second. It costs us nothing, since a shortest word is
 what we want anyway.
 
 #src("HProp2.v") holds the argument. The split into $cal(A)$ and $cal(C)$ is
-the one of @reid1998fourspot, where the turns of the top and bottom faces are
-the ones that flip an edge. In our orientation the front and back faces flip,
+the one of @reid1998fourspot. In our orientation the front and back faces flip,
 so #src("HBridge.v") turns the position onto the other axis and carries the
 result across.
 
