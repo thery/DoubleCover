@@ -1082,8 +1082,8 @@ the first. Here the inverse is
 
 with, as expected, five pairs of the first kind and four of the second.
 
-Six turns stand before $q$. Write $x$ for them, `U U D D L F`, and $w$ for the
-rest, so that $x w = P$, where $P$ is superflip4. Then $w = x^(-1) P$, and
+Let us go back to our selected pair $q$. Six turns stand before it. Write $x$
+for them, `U U D D L F`, and $w$ for the rest, so that $x w = P$, where $P$ is superflip4. Then $w = x^(-1) P$, and
 therefore
 
 #align(center)[
