@@ -1072,8 +1072,8 @@ next to each other somewhere in it.
 
 Each of the six prefixes starts with a turn from $cal(C)$ followed by a turn
 from $cal(A)$, so we want a word for superflip4 that starts with such a pair.
-The split gives a pair of this kind somewhere inside the word, and the cyclic
-shift brings it to the front. Let $r$ be the relabelling that swaps front with
+We know there is a pair of this kind in the word, and the cyclic shift brings
+it to the front. Let $r$ be the relabelling that swaps front with
 back and left with right, and leaves top and bottom alone: it sends $B$ to $F$,
 $F$ to $B$, $L$ to $R$ and $R$ to $L$. Write the word as $u w$, where $u$ is its
 first few letters. Then $w space u^r$ gives the same position, where $u^r$ is
