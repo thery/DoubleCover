@@ -1107,12 +1107,21 @@ length, beginning with $q$.
 
 #align(center)[`F U' D R R B U' D' R L F F R U D' R' L U F' B' U U D D R B`]
 
-Renaming by one of the sixteen relabellings that keep the up-down axis then
-turns $q$ into `R U` or `R' U`. The first case is already one of the six. In the
-second, one looks at the third turn. Most choices fold back into the first case,
-and five survive. One choice is ruled out by minimality alone: the turn that
-cancels the second, which would give a shorter word for superflip4. Those five
-and `R U` are the six.
+The second step renames the word. The sixteen relabellings that keep the
+up-down axis can always turn the letter of $q$ from $cal(A)$ into `U`: a mirror
+reverses the direction of a turn, and turning the cube over exchanges top and
+bottom. That leaves the four rotations about the up-down axis, which send the
+side faces round, `R` to `F` to `L` to `B`, and keep the direction. So $q$
+becomes `R U` or `R' U`.
+
+Words beginning with `R U` are searched as they are, and that is the prefix of
+two turns. In the case `R' U` the third turn is looked at. It cannot be `U'`,
+which would cancel the `U` and give a shorter word, so eleven turns remain. Six
+of them fold back into the first case: `R' U U` is `R' U2`, which a relabelling
+turns into `R U2`, and `R' U D'` becomes `R U D'`, while `R' U B`, `R' U R`,
+`R' U F` and `R' U L` invert to `R U B'`, `R U R'`, `R U F'` and `R U L'`. The
+five that survive are `R' U D`, `R' U F'`, `R' U R'`, `R' U B'` and `R' U L'`.
+With `R U` they are the six.
 
 In Rocq the proposition reads
 
