@@ -1072,14 +1072,17 @@ next to each other somewhere in it.
 
 Each of the six prefixes starts with a turn from $cal(C)$ followed by a turn
 from $cal(A)$, so we want a word for superflip4 that starts with such a pair. We
-know there is a pair of this kind in the word, but it can be anywhere. This
-takes two steps: the pair is brought to the front, and then renamed so that it
-reads $R U$ or $R^(-1) U$. To bring it to the front, write the word as $u w$,
-where $u$ is the part before the pair. Then $w space u^r$ is again a word for
-superflip4, of the same length, where $u^r$ is $u$ with every letter renamed by
-$r$. The relabelling $r$ swaps front with back and left with right, and leaves
-top and bottom alone: it sends $B$ to $F$, $F$ to $B$, $L$ to $R$ and $R$ to
-$L$. This move of the letters is the cyclic shift. For instance
+know there is a pair of this kind in the word, but it can be anywhere, and the
+two turns can be in either order. If the turn from $cal(A)$ comes first, invert
+the word: superflip4 is its own inverse, so the inverted word gives superflip4
+again, has the same length, and takes the two turns in the other order. It
+remains to bring the pair to the front and to rename it so that it reads $R U$
+or $R^(-1) U$. To bring it to the front, write the word as $u w$, where $u$ is
+the part before the pair. Then $w space u^r$ is again a word for superflip4, of
+the same length, where $u^r$ is $u$ with every letter renamed by $r$. The
+relabelling $r$ swaps front with back and left with right, and leaves top and
+bottom alone: it sends $B$ to $F$, $F$ to $B$, $L$ to $R$ and $R$ to $L$. This
+move of the letters is the cyclic shift. For instance
 
 #align(center)[
   $B U^2 L space w quad "becomes" quad w space F U^2 R .$
@@ -1091,12 +1094,10 @@ leaves $U$ and $D$ alone and moves the other four faces among themselves, so a
 turn of $cal(A)$ stays in $cal(A)$ and a turn of $cal(C)$ stays in $cal(C)$. The
 two turns now at the front are still one from each set.
 
-Two more operations leave the length and the position alone: inversion, and
-renaming by any of the sixteen relabellings that keep the up-down axis. With
-them the pair at the front becomes $R U$ or $R^(-1) U$. The first case is
-already one of the six. In the second, one looks at the third turn: most choices
-fold back into the first case, and five survive. Those five and $R U$ are the
-six.
+Renaming by one of the sixteen relabellings that keep the up-down axis then
+turns the pair at the front into $R U$ or $R^(-1) U$. The first case is already
+one of the six. In the second, one looks at the third turn: most choices fold
+back into the first case, and five survive. Those five and $R U$ are the six.
 
 In Rocq the proposition reads
 
