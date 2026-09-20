@@ -1086,9 +1086,10 @@ $m$ becomes $P^(-1) m P$, where $P$ is superflip4. With $a$ the product of the
 letters that move and $b$ the product of the rest, this is the identity
 $b (b^(-1) a b) = a b$, which holds in any group.
 
-The replacement is simple here, because $P^(-1) m P$ is again a quarter turn.
-On the twelve turns it acts as the renaming $r$ that swaps front with back and
-left with right and leaves top and bottom alone. #src("HProp2.v") checks this
+Here $P^(-1) m P$ is again a quarter turn, so one letter is replaced by one
+letter and the word keeps its length. On the twelve turns the replacement acts
+as the renaming $r$ that swaps front with back and left with right and leaves
+top and bottom alone. #src("HProp2.v") checks this
 one turn at a time, and then proves the shift. Writing the word as $u w$, the
 new word is $w space u^r$, where $u^r$ is $u$ with every letter renamed by $r$.
 For instance
