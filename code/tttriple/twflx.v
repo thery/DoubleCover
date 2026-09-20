@@ -4,6 +4,8 @@ From Flocq Require Import Core BinarySingleNaN PrimFloat.
 From mathcomp Require Import all_ssreflect.
 From twarith.threewords Require Import Nmore Rmore Fmore Rstruct MULTmore prelim.
 From twarith.threewords Require Import TwoSum TWR VecSum VSEB.
+From twarith.threewords Require Import ThreeProd ThreeProdDW ThreeProdOne.
+From twarith.threewords Require Import ThreeSqRt.
 From twarith Require Import twarith twbound twpaper twseed.
 From dwarith Require Import dwbridge dwtwosum dwprod dwflx dwsqrt.
 
@@ -694,4 +696,167 @@ rewrite (ThreeProdOneTWn_shape (D2R x0) (D2R x1) (D2R x2)
   by rewrite -!l2R_nth; exact: EL.
 - by rewrite Eh01 El01; case: (XTwoProd (D2R x0) (D2R y1)).
 by rewrite Ebh Ebl; case: (XFast2SumS (D2R x1) (D2R z01p)).
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  The seed of Algorithm 15                                                  *)
+(* ---------------------------------------------------------------------------*)
+
+(* The paper's own names, at binary64.                                        *)
+Notation XsqrtS := (sqrtS prec Dchoice).
+Notation XsqrtA := (sqrtA prec Dchoice).
+Notation XsqrtA' := (sqrtA' prec Dchoice).
+Notation XsqrtH0_1 := (sqrtH0_1 prec Dchoice).
+Notation XsqrtH11_1 := (sqrtH11_1 prec Dchoice).
+Notation XsqrtH01_2 := (sqrtH01_2 prec Dchoice).
+Notation XsqrtH11_2 := (sqrtH11_2 prec Dchoice).
+Notation XsqrtH0_2 := (sqrtH0_2 prec Dchoice).
+Notation XsqrtB01 := (sqrtB01 prec Dchoice).
+Notation XsqrtB11 := (sqrtB11 prec Dchoice).
+Notation XsqrtH1_1n := (sqrtH1_1n prec Dchoice).
+Notation XsqrtH1_2n := (sqrtH1_2n prec Dchoice).
+Notation XsqrtB12n := (sqrtB12n prec Dchoice).
+Notation XsqrtBn := (sqrtBn prec Dchoice).
+Notation XsqrtBWn := (sqrtBWn prec Dchoice).
+
+(* The two operations `code/ddouble' did not need.                            *)
+Lemma sqrt_X a : (Dnorm <= Rabs (R_sqrt.sqrt (D2R a)))%R ->
+  D2R (PrimFloat.sqrt a) = Xrnd (R_sqrt.sqrt (D2R a)).
+Proof. by move=> H; rewrite Dsqrt (Drnd_FLX _ H). Qed.
+
+Lemma div_X a b : Dfin a -> (D2R b <> 0)%R -> Dfin (a / b)%float ->
+  (Dnorm <= Rabs (D2R a / D2R b))%R ->
+  D2R (a / b)%float = Xrnd (D2R a / D2R b).
+Proof.
+move=> Fa Nb Fd Hn.
+by have [E _] := Dfin_div _ _ Fa Nb Fd; rewrite E (Drnd_FLX _ Hn).
+Qed.
+
+(* Halving is exact as long as it stays normal: the format is closed under a  *)
+(* power of two and there is nothing left to round.                           *)
+Lemma half_X a : Dfin a -> Dfin (a / 2)%float ->
+  (Dnorm <= Rabs (D2R a / 2))%R -> D2R (a / 2)%float = (D2R a / 2)%R.
+Proof.
+move=> Fa Fd Hn.
+have E2 : D2R 2%float = 2%R by rewrite /D2R; compute; lra.
+have N2 : (D2R 2%float <> 0)%R by rewrite E2; lra.
+rewrite (div_X _ _ Fa N2 Fd); last by rewrite E2.
+have Hp2 : (1 < prec)%Z by [].
+rewrite E2 round_generic //.
+have -> : (D2R a / 2 = D2R a * bpow radix2 (-1))%R
+  by rewrite /= /Z.pow_pos /=; lra.
+by apply: ((format_scale Hp2 Dchoice (D2R a) (-1)).2); apply: Dformat_FLX.
+Qed.
+
+Lemma Dfin_onep4 : Dfin onep4.
+Proof. by rewrite /Dfin /onep4; compute. Qed.
+
+Lemma Dfin_three2 : Dfin three2.
+Proof. by rewrite /Dfin /three2; compute. Qed.
+
+(* The literals.                                                              *)
+Lemma Donep4 : D2R onep4 = (1 + 4 * u prec radix2)%R.
+Proof. by rewrite /D2R /onep4 (u_pow prec); compute; lra. Qed.
+
+Lemma Dthree2 : D2R three2 = (3 / 2)%R.
+Proof. by rewrite /D2R /three2; compute; lra. Qed.
+
+(* What the transfer asks of the seed.  Every clause is a word being a        *)
+(* number, or a product or a quotient being clear of the bottom of the        *)
+(* range -- which is what the scaling is for.                                 *)
+Definition sqrtBW_ok (x0 x1 : PrimFloat.float) : Prop :=
+  let s := PrimFloat.sqrt x0 in
+  let a := (onep4 / s)%float in
+  let a' := (a / 2)%float in
+  let h01_1 := dwhi (twoProd a x0) in
+  let h11_1 := dwlo (twoProd a x0) in
+  let h1_1 := (h11_1 + a * x1)%float in
+  let h01_2 := dwhi (twoProd a' h01_1) in
+  let h11_2 := dwlo (twoProd a' h01_1) in
+  let h0_2 := (three2 - h01_2)%float in
+  let h1_2 := (- (h11_2 + a' * h1_1))%float in
+  let b01 := dwhi (twoProd a h0_2) in
+  let b11 := dwlo (twoProd a h0_2) in
+  let b12 := (b11 + a * h1_2)%float in
+  [/\ Dfin x0, Dfin x1, (0 < D2R x0)%R, Dfin a & Dfin a']
+  /\ [/\ (Dnorm <= Rabs (R_sqrt.sqrt (D2R x0)))%R,
+         (D2R s <> 0)%R,
+         (Dnorm <= Rabs (D2R onep4 / D2R s))%R
+       & (Dnorm <= Rabs (D2R a / 2))%R]
+  /\ [/\ Dfin h11_1, Dfin h11_2, Dfin b11, Dfin h0_2 & Dfin h1_2]
+  /\ [/\ (Dprodlo <= Rabs (D2R a * D2R x0))%R,
+         (Dprodlo <= Rabs (D2R a' * D2R h01_1))%R,
+         (Dprodlo <= Rabs (D2R a * D2R h0_2))%R,
+         (Dprodlo <= Rabs (D2R a * D2R x1))%R
+       & (Dprodlo <= Rabs (D2R a' * D2R h1_1))%R]
+  /\ (Dprodlo <= Rabs (D2R a * D2R h1_2))%R
+  /\ [/\ Dfin (a * x1)%float, Dfin h1_1, Dfin (a' * h1_1)%float,
+         Dfin (h11_2 + a' * h1_1)%float & Dfin (a * h1_2)%float]
+  /\ Dfin b12
+  /\ DfastTwoSumFin b01 b12.
+
+Lemma sqrtBW_X x0 x1 :
+  sqrtBW_ok x0 x1 ->
+  tw2R (sqrtBW x0 x1) = XsqrtBWn (D2R x0) (D2R x1).
+Proof.
+rewrite /sqrtBW_ok
+  => [] [[Fx0 Fx1 Hx0 Fa Fa'] [[Hs Ns Ha Ha']
+        [[F11_1 F11_2 Fb11 F0_2 F1_2] [[P1 P2 P3 P4 P5]
+          [P6 [[Max1 F1_1 Ma1 F21 Ma2] [Fb12 Hfast]]]]]]].
+have Hp2 : (1 < prec)%Z by [].
+have Hp11 : (11 <= prec)%Z by [].
+(* the reciprocal and its half                                               *)
+have Es : D2R (PrimFloat.sqrt x0) = XsqrtS (D2R x0) by apply: sqrt_X.
+set s := PrimFloat.sqrt x0 in Ns Ha Fa Es *.
+have Ea : D2R (onep4 / s)%float = XsqrtA (D2R x0).
+  by rewrite (div_X _ _ Dfin_onep4 Ns Fa Ha) Donep4 Es.
+set a := (onep4 / s)%float in Fa Fa' Ha' P1 P3 P4 P6 Max1 Ma2 Ea *.
+have Ea' : D2R (a / 2)%float = XsqrtA' (D2R x0).
+  by rewrite (half_X _ Fa Fa' Ha') Ea.
+set a' := (a / 2)%float in Fa' P2 P5 Ma1 Ea' *.
+(* the first two-product and the first split line                            *)
+have [Eh01_1 Eh11_1] := twoProd_X _ _ F11_1 P1.
+rewrite Ea in Eh01_1 Eh11_1.
+set h01_1 := dwhi (twoProd a x0) in P2 Eh01_1 *.
+set h11_1 := dwlo (twoProd a x0) in F11_1 Eh11_1 *.
+have Eh1_1 : D2R (h11_1 + a * x1)%float = XsqrtH1_1n (D2R x0) (D2R x1).
+  rewrite (add_X _ _ F11_1 Max1 F1_1) (mul_X _ _ Fa Fx1 Max1 P4) Ea Eh11_1.
+  by rewrite /sqrtH1_1n.
+set h1_1 := (h11_1 + a * x1)%float in F1_1 P5 Ma1 Eh1_1 *.
+(* the second two-product, the exact subtraction and the second split line   *)
+have [Eh01_2 Eh11_2] := twoProd_X _ _ F11_2 P2.
+rewrite Ea' Eh01_1 in Eh01_2 Eh11_2.
+set h01_2 := dwhi (twoProd a' h01_1) in Eh01_2 *.
+set h11_2 := dwlo (twoProd a' h01_1) in F11_2 Eh11_2 *.
+have F01_2 : Dfin h01_2 by have [_ [_ []]] := twoProd_hi _ _ F11_2.
+have Eh0_2 : D2R (three2 - h01_2)%float = XsqrtH0_2 (D2R x0).
+  rewrite (sub_X _ _ Dfin_three2 F01_2 F0_2) Dthree2 Eh01_2.
+  by rewrite /sqrtH0_2 round_generic //;
+     apply: (sqrtH0_2_exact Hp2 Hp11 Dchoice); [apply: Dformat_FLX | lra].
+set h0_2 := (three2 - h01_2)%float in F0_2 P3 Eh0_2 *.
+have Eh1_2 : D2R (- (h11_2 + a' * h1_1))%float = XsqrtH1_2n (D2R x0) (D2R x1).
+  rewrite D2R_opp (add_X _ _ F11_2 Ma1 F21) (mul_X _ _ Fa' F1_1 Ma1 P5).
+  by rewrite Ea' Eh11_2 Eh1_1 /sqrtH1_2n.
+set h1_2 := (- (h11_2 + a' * h1_1))%float in F1_2 P6 Ma2 Eh1_2 *.
+(* the third two-product and the last split line                             *)
+have [Eb01 Eb11] := twoProd_X _ _ Fb11 P3.
+rewrite Ea Eh0_2 in Eb01 Eb11.
+set b01 := dwhi (twoProd a h0_2) in Eb01 *.
+set b11 := dwlo (twoProd a h0_2) in Fb11 Eb11 *.
+have Eb12 : D2R (b11 + a * h1_2)%float = XsqrtB12n (D2R x0) (D2R x1).
+  rewrite (add_X _ _ Fb11 Ma2 Fb12) (mul_X _ _ Fa F1_2 Ma2 P6) Ea Eb11 Eh1_2.
+  by rewrite /sqrtB12n.
+set b12 := (b11 + a * h1_2)%float in Fb12 Hfast Eb12 *.
+(* and the Fast2Sum that ends it                                             *)
+have Fb01 : Dfin b01 by have [_ [_ []]] := twoProd_hi _ _ Fb11.
+have [Ebh Ebl] := fastTwoSum_X _ _ Fb01 Fb12 Hfast.
+rewrite Eb01 Eb12 in Ebh Ebl.
+rewrite /sqrtBW -/s -/a -/a'.
+rewrite (dwE (twoProd a x0)) -/h01_1 -/h11_1 -/h1_1.
+rewrite (dwE (twoProd a' h01_1)) -/h01_2 -/h11_2 -/h0_2 -/h1_2.
+rewrite (dwE (twoProd a h0_2)) -/b01 -/b11 -/b12.
+rewrite (dwE (fastTwoSum b01 b12)).
+rewrite /XsqrtBWn /sqrtBWn /sqrtBn /tw2R /=.
+have E0 : D2R 0%float = 0%R by rewrite /D2R; compute; lra.
+by rewrite Ebh Ebl E0.
 Qed.
