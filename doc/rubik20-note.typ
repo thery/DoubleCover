@@ -1125,26 +1125,10 @@ turns. When it starts with `R' U` we look at the third turn. Six of the
 possible turns give words that a relabelling or an inversion brings back to the
 `R U` case, and five do not. Those five are the prefixes of three turns.
 
-In Rocq the proposition reads
-
-```coq
-Theorem prop2 (w : seq nat) : qw w -> wp w = P ->
-  (forall u, qw u -> wp u = P -> (seq.size w <= seq.size u)%N) ->
-  exists w', [/\ qw w', seq.size w' = seq.size w, wp w' = P & heads w'].
-```
-
-Here `qw w` says that `w` is a word of quarter turns and `wp w` is the position
-it gives. `P` is superflip4, turned onto the axis this argument needs, and
-`heads w'` says that `w'` begins with one of the six. The second line is the
-hypothesis that `w` is as short as possible, and the third line is the
-conclusion. The published statement leaves that hypothesis out. Without it the
-third turn may cancel the second. It costs us nothing, since a shortest word is
-what we want anyway.
-
-#src("HProp2.v") holds the argument. The split into $cal(A)$ and $cal(C)$ is
-the one of @reid1998fourspot. In our orientation the front and back faces flip,
-so #src("HBridge.v") turns the position onto the other axis and carries the
-result across.
+The argument is in #src("HProp2.v"), and the split into $cal(A)$ and $cal(C)$
+is the one of @reid1998fourspot. In our orientation the front and back faces
+flip, so #src("HBridge.v") turns the position onto the other axis and carries
+the result across.
 
 This is a much better cut than the one used for the superflip. There the first
 two moves left thirty prefixes to search. Here there are six, one of two turns
