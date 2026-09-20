@@ -1100,9 +1100,7 @@ $P^(-1) x P$ is not longer than $x$:
       mono(B) .$
 ]
 
-Conjugation by $P$ swaps front with back and left with right, which
-#src("HProp2.v") checks for each of the twelve quarter turns. The first step is
-done: $q w$ followed by those six turns is a word for superflip4 of the same
+The first step is done: $q w$ followed by those six turns is a word for superflip4 of the same
 length, beginning with $q$.
 
 #align(center)[`F U' D R R B U' D' R L F F R U D' R' L U F' B' U U D D R B`]
