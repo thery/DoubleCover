@@ -1082,12 +1082,12 @@ into one of the first. Here the inverse is
 
 with, as expected, five pairs of the first kind and four of the second.
 
-Let us go back to our selected pair $q$. Six turns stand before it. Write $x$
-for them, `U U D D L F`, and $w$ for the rest, so that $x w = P$, where $P$ is
-superflip4. Then $w = x^(-1) P$, and therefore
+Let us go back to our two-letter word $q$. Six turns stand before it. Write $x$
+for them, `U U D D L F`, and $w$ for what follows $q$, so that $x q w = P$,
+where $P$ is superflip4. Then $q w = x^(-1) P$, and therefore
 
 #align(center)[
-  $w (P^(-1) x P) = x^(-1) P P^(-1) x P = P .$
+  $q w (P^(-1) x P) = x^(-1) P P^(-1) x P = P .$
 ]
 
 $P^(-1) x P$ is not longer than $x$:
@@ -1099,7 +1099,7 @@ $P^(-1) x P$ is not longer than $x$:
 
 Each factor is a quarter turn again, the same turn with front and back swapped
 and left and right swapped, checked for the twelve in #src("HProp2.v"). So
-$P^(-1) x P$ is `U U D D R B`, and $w$ followed by these six turns,
+$P^(-1) x P$ is `U U D D R B`, and $q w$ followed by these six turns,
 
 #align(center)[`F U' D R R B U' D' R L F F R U D' R' L U F' B' U U D D R B`]
 
