@@ -451,14 +451,14 @@ and back. Each of them can also be done twice or backwards, which gives the
     column-gutter: 1.6em,
     row-gutter: 0.5em,
     align: center,
-    $U$, $R$, $F$, $D$, $L$, $B$,
-    $U^2$, $R^2$, $F^2$, $D^2$, $L^2$, $B^2$,
-    $U^(-1)$, $R^(-1)$, $F^(-1)$, $D^(-1)$, $L^(-1)$, $B^(-1)$,
+    `U`, `R`, `F`, `D`, `L`, `B`,
+    `U2`, `R2`, `F2`, `D2`, `L2`, `B2`,
+    `U'`, `R'`, `F'`, `D'`, `L'`, `B'`,
   )
 ]
 
-A position is a product of moves, for instance $R U R^(-1) U^(-1)$, a word of
-length 4. The set of all positions is a group $G$: the *cube group*. Solving a
+A move turned twice is written `U2`, and a move turned backwards `U'`. A
+position is a product of moves, for instance `R U R' U'`, a word of length 4. The set of all positions is a group $G$: the *cube group*. Solving a
 position in $d$ moves means writing it as a word of $d$ moves. So "solvable in
 at most $d$ moves" says that the position lies in the *ball of radius $d$*
 around the solved cube. God's number is the largest distance that occurs.
@@ -766,23 +766,23 @@ What follows makes the tree smaller or the run cheaper.
 
 Many words lead to the same position, and the search does not have to try them
 all. Two ideas say which ones may be left out. The first is repetition. After a
-$U$ we do not try $U$, $U^2$ or $U^(-1)$. $U U$ is $U^2$, so the word is
+`U` we do not try `U`, `U2` or `U'`. `U U` is `U2`, so the word is
 shorter, and shorter words are covered at a smaller depth. That leaves fifteen
 moves instead of eighteen. Opposite faces give a weaker version of the same
-argument. $U D$ and $D U$ give the same position, so we keep only one of the two
+argument. `U D` and `D U` give the same position, so we keep only one of the two
 orders. We play the top, right or front face first. This is what we call the
 *order convention*. From the third move on it leaves *twelve* moves after a turn
 of the top, right or front face, and *fifteen* after a turn of the bottom, left
 or back one. The second idea is symmetry. The superflip is unchanged by all 48
 relabellings of the cube. So we need to explore only the turns of one face for
 the first move. We choose arbitrarily the top one, and again by symmetry we only
-have to consider $U$ and $U^2$, since $U^(-1)$ is the symmetric of $U$. The two
-ideas collide at the second move. After $U$, repetition removes $U$, $U^2$ and
-$U^(-1)$, which leaves fifteen. The order convention would remove $D$, $D^2$ and
-$D^(-1)$ as well and leave twelve, but it may not be used here. The first move
-is already fixed to the top face, and turning the cube upside down takes $D U$
-back to $U D$. So the bottom face stays, and the fifteen second moves after $U$
-include $U D$, $U D^2$ and $U D^(-1)$.
+have to consider `U` and `U2`, since `U'` is the symmetric of `U`. The two
+ideas collide at the second move. After `U`, repetition removes `U`, `U2` and
+`U'`, which leaves fifteen. The order convention would remove `D`, `D2` and
+`D'` as well and leave twelve, but it may not be used here. The first move
+is already fixed to the top face, and turning the cube upside down takes `D U`
+back to `U D`. So the bottom face stays, and the fifteen second moves after `U`
+include `U D`, `U D2` and `U D'`.
 
 The search is then parallelised at depth two. Two first moves times fifteen
 second moves is thirty *prefixes*. Each is searched on its own to depth 17. They
@@ -1024,7 +1024,7 @@ with the superflip on top of it. In the following, we call it *superflip4*.
 ) <fspot>
 
 Superflip4 is 26 quarter turns from solved. Here is the word given for it, with
-the half turns written out and $U^(-1)$ written `U'`:
+the half turns written out:
 
 #align(center)[`U U D D L F F U' D R R B U' D' R L F F R U D' R' L U F' B'`]
 
@@ -1044,9 +1044,8 @@ it begins with one of six prefixes @reid1998fourspot:
     column-gutter: 2.4em,
     row-gutter: 0.5em,
     align: center,
-    $R space U$, $R^(-1) space U space D$, $R^(-1) space U space F^(-1)$,
-    $R^(-1) space U space R^(-1)$, $R^(-1) space U space B^(-1)$,
-    $R^(-1) space U space L^(-1)$,
+    `R U`, `R' U D`, `R' U F'`,
+    `R' U R'`, `R' U B'`, `R' U L'`,
   )
 ]
 
@@ -1054,8 +1053,8 @@ The searches start from those six. In order to prove this fact, we split the
 twelve quarter turns into two sets:
 
 #align(center)[
-  $cal(A) = {U, U^(-1), D, D^(-1)}$, #h(2em)
-  $cal(C) = {R, R^(-1), F, F^(-1), L, L^(-1), B, B^(-1)}$.
+  $cal(A) = {$ `U`, `U'`, `D`, `D'` $}$, #h(2em)
+  $cal(C) = {$ `R`, `R'`, `F`, `F'`, `L`, `L'`, `B`, `B'` $}$.
 ]
 
 A word made only of turns from $cal(A)$ leaves the four middle edges untouched,
@@ -1071,7 +1070,7 @@ Recall the word we gave for it:
 
 #align(center)[`U U D D L F F U' D R R B U' D' R L F F R U D' R' L U F' B'`]
 
-The two sets first meet at the fourth and fifth turns, $D$ then $L$: a turn of
+The two sets first meet at the fourth and fifth turns, `D` then `L`: a turn of
 $cal(A)$ followed by one of $cal(C)$. Since superflip4 is its own inverse, we
 may invert the word, which reverses the order of its turns and inverts each
 one:
@@ -1079,9 +1078,9 @@ one:
 #align(center)[`B F U' L' R D U' R' F' F' L' R' D U B' R' R' D' U F' F' L' D' D' U' U'`]
 
 This is again a word for superflip4, of the same length. Its second and third
-turns are $F$ then $U^(-1)$, a turn of $cal(C)$ followed by one of $cal(A)$.
+turns are `F` then `U'`, a turn of $cal(C)$ followed by one of $cal(A)$.
 
-Only the first turn $B$ stands before that pair. Write $x$ for it and $w$ for
+Only the first turn `B` stands before that pair. Write $x$ for it and $w$ for
 the rest, so that $x w = P$, where $P$ is superflip4. Then $w = x^(-1) P$, and
 therefore
 
@@ -1090,21 +1089,21 @@ therefore
 ]
 
 For this position $P^(-1) x P$ is $x$ with front and back swapped and left and
-right swapped, so here it is $F$. #src("HProp2.v") checks that one turn at a
-time. Moving $B$ to the end and renaming it gives
+right swapped, so here it is `F`. #src("HProp2.v") checks that one turn at a
+time. Moving `B` to the end and renaming it gives
 
 #align(center)[`F U' L' R D U' R' F' F' L' R' D U B' R' R' D' U F' F' L' D' D' U' U' F`]
 
-which is a word for superflip4 of the same length starting with $F U^(-1)$. The
-swap leaves $U$ and $D$ alone, so the two turns at the front are still one from
+which is a word for superflip4 of the same length starting with `F U'`. The
+swap leaves `U` and `D` alone, so the two turns at the front are still one from
 each set.
 
 Renaming by one of the sixteen relabellings that keep the up-down axis then
-turns the pair at the front into $R U$ or $R^(-1) U$. The first case is already
+turns the pair at the front into `R U` or `R' U`. The first case is already
 one of the six. In the second, one looks at the third turn. Most choices fold
 back into the first case, and five survive. One choice is ruled out by
 minimality alone: the turn that cancels the second, which would give a shorter
-word for superflip4. Those five and $R U$ are the six.
+word for superflip4. Those five and `R U` are the six.
 
 In Rocq the proposition reads
 
