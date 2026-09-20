@@ -1080,15 +1080,17 @@ remains to bring the pair to the front and to rename it so that it reads $R U$
 or $R^(-1) U$.
 
 To see how this is done, take a word for superflip4 whose first four turns are
-$B U U L$, and call the rest $w$. Those four can be moved to the end. Each of
-them is renamed on the way, by the swap of front with back and left with right,
-so $B U U L$ becomes $F U U R$, and
+$x = B U U L$, and call the rest $w$, so that $x w = P$, where $P$ is
+superflip4. Then $w = x^(-1) P$, and therefore
 
 #align(center)[
-  $B U U L space w quad "and" quad w space F U U R$
+  $w (P^(-1) x P) = x^(-1) P P^(-1) x P = P .$
 ]
 
-both give superflip4 and have the same length. The swap leaves $U$ and $D$
+So $w$ followed by $P^(-1) x P$ gives superflip4 again. For this position
+$P^(-1) x P$ is again a word of quarter turns of the same length: it is $x$
+with front and back swapped and left and right swapped, that is $F U U R$.
+#src("HProp2.v") checks that one turn at a time. The swap leaves $U$ and $D$
 alone, so the two turns now at the front are still one from each set.
 
 Renaming by one of the sixteen relabellings that keep the up-down axis then
