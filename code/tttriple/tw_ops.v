@@ -3,7 +3,7 @@ From Stdlib Require Import Floats PrimInt63.
 From Flocq Require Import Zaux Raux Core BinarySingleNaN PrimFloat.
 From Interval Require Import Xreal Basic Sig Generic_proof Primitive_ops.
 From mathcomp Require Import ssreflect ssrbool.
-From twarith Require Import twarith tw_updn twbound twpaper.
+From twarith Require Import twarith tw_updn twbound twpaper twsqrt.
 (* The bridge from primitive floats to the reals is the double-word    *)
 (* development's `dwbridge.v'.  It says nothing about pairs -- only     *)
 (* what one primitive float is and what one operation on it does -- so  *)

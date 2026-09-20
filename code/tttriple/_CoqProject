@@ -17,6 +17,7 @@ twpaper.v
 twprodg.v
 twseed.v
 twflx.v
+twsqrt.v
 tw_ops.v
 tw_cmpbad.v
 test_pi.v

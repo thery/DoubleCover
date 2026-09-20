@@ -210,19 +210,8 @@ Definition divTwUpP (x y : twfloat) :=
 Definition divTwDnP (x y : twfloat) :=
   if posFp (magDnTw y) then shiftDn (threeDiv x y) else TWFloat nan nan nan.
 
-(* The root of a negative number is taken to be nought here, so a bound      *)
-(* below it would be a claim about nothing: what it is given has to be above  *)
-(* zero, and so has the answer, which is what the shift is taken from.        *)
-Definition sqrtTwUpP (x : twfloat) :=
-  let: TWFloat x0 x1 x2 := x in
-  let q := threeSqRt x in
-  if posFp (valDnTw q) && posFp (x0 + x1 + x2)%float
-  then shiftUp q else TWFloat nan nan nan.
-Definition sqrtTwDnP (x : twfloat) :=
-  let: TWFloat x0 x1 x2 := x in
-  let q := threeSqRt x in
-  if posFp (valDnTw q) && posFp (x0 + x1 + x2)%float
-  then shiftDn q else TWFloat nan nan nan.
+(* The root's own guard, and its two bounds, are in `twsqrt.v': they go     *)
+(* through a test rather than through an assumption.                         *)
 
 (* ===========================================================================*)
 (*  The step, assumed; the four bounds, proved from it                        *)
@@ -260,15 +249,6 @@ Axiom kstep_div : forall x y,
   (Rabs (twval (threeDiv x y) - twval x / twval y)
      <= D2R (kstep (threeDiv x y)))%R.
 
-Axiom kstep_sqrt : forall x,
-  finL (tw2l x) -> wellFormed x = true ->
-  (0 < twval x)%R ->
-  finL (tw2l (threeSqRt x)) ->
-  (Rabs (twval (threeSqRt x) - R_sqrt.sqrt (twval x))
-     <= D2R (kstep (threeSqRt x)))%R.
-
-(* Nothing the guards turn away is a number, so the four bounds below have    *)
-(* nothing to say about it.                                                   *)
 Lemma finL_nan3 : finL (tw2l (TWFloat nan nan nan)) -> False.
 Proof. by case. Qed.
 
@@ -346,42 +326,6 @@ have : (Drnd (D2R x0 + D2R x2) <= Drnd 0)%R by apply: round_le.
 by rewrite round_0; lra.
 Qed.
 
-Theorem sqrtTwUpP_ge x :
-  finL (tw2l x) -> wellFormed x = true ->
-  finL (tw2l (sqrtTwUpP x)) ->
-  (R_sqrt.sqrt (twval x) <= twval (sqrtTwUpP x))%R.
-Proof.
-move=> Fl Ew; rewrite /sqrtTwUpP.
-case: x Fl Ew => x0 x1 x2 Fl Ew.
-case Hp: (posFp (valDnTw (threeSqRt (TWFloat x0 x1 x2)))
-          && posFp ((x0 + x1 + x2)%float)); last by move/finL_nan3.
-have [_ Hs] := andb_prop _ _ Hp.
-rewrite /shiftUp => Fw.
-have [Fq Fk] := widenUp_finI _ _ Fw.
-have Hw := widenUp_ge _ _ Fw.
-have Hx := sqrtGuard_pos _ Fl Ew Hs.
-have Hk := kstep_sqrt _ Fl Ew Hx Fq.
-by move: Hw Hk; split_Rabs; lra.
-Qed.
-
-Theorem sqrtTwDnP_le x :
-  finL (tw2l x) -> wellFormed x = true ->
-  finL (tw2l (sqrtTwDnP x)) ->
-  (twval (sqrtTwDnP x) <= R_sqrt.sqrt (twval x))%R.
-Proof.
-move=> Fl Ew; rewrite /sqrtTwDnP.
-case: x Fl Ew => x0 x1 x2 Fl Ew.
-case Hp: (posFp (valDnTw (threeSqRt (TWFloat x0 x1 x2)))
-          && posFp ((x0 + x1 + x2)%float)); last by move/finL_nan3.
-have [_ Hs] := andb_prop _ _ Hp.
-rewrite /shiftDn => Fw.
-have [Fq Fk] := widenDn_finI _ _ Fw.
-have Hw := widenDn_le _ _ Fw.
-have Hx := sqrtGuard_pos _ Fl Ew Hs.
-have Hk := kstep_sqrt _ Fl Ew Hx Fq.
-by move: Hw Hk; split_Rabs; lra.
-Qed.
-
 (* ===========================================================================*)
 (*  What they compute                                                         *)
 (* ===========================================================================*)
@@ -393,4 +337,3 @@ Compute threeDiv (toTw 1 1e-20 1e-40) (toTw 3 1e-20 1e-40).
 Compute (divTwDnP (fp2tw 1) (fp2tw 3), divTwUpP (fp2tw 1) (fp2tw 3)).
 Compute threeSqRt (fp2tw 2).
 Compute timesTwTw (threeSqRt (fp2tw 2)) (threeSqRt (fp2tw 2)).
-Compute (sqrtTwDnP (fp2tw 2), sqrtTwUpP (fp2tw 2)).
