@@ -1310,9 +1310,9 @@ moves to the ten moves, so it maps $H$ to itself, and each leaves the superflip
 unchanged, so it maps the superflip's coset to itself. A member and its image
 under such a renaming need the same number of moves, so two pages related by a
 renaming hold the same answer. One page of each family is then enough: 2 768 of
-the 40 320, a factor of 14.6. A level of
-the search is one pass over the map, so there is 14.6 times less of it to walk.
-The price is undoing a renaming whenever a kept page is read.
+the 40 320, a factor of 14.6. A level of the search is one pass over the map,
+so there is 14.6 times less of it to walk. The price is undoing a renaming
+whenever a kept page is read.
 
 The kept pages go in pairs of their own, and a pair shares one word as it does
 on the unfolded side: 1 496 words in place of 2 768. Two hundred and twenty-four
