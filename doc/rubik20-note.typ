@@ -1223,12 +1223,12 @@ pieces are in place. We did the superflip's.
 
 Ten of the eighteen moves generate the subgroup $H$ of Kociemba and
 Thistlethwaite: `U`, `U2`, `U'`, `D`, `D2`, `D'`, `R2`, `L2`, `F2` and `B2`.
-They are the moves that leave the phase 1 summary alone: they do not twist a
-corner, do not flip an edge and keep the four middle edges in the middle layer.
-A coset of $H$ is the set of positions reached by playing those ten from a fixed
-position, so a coset is a value of that summary, and there are as many cosets as
-summaries. It is not the subgroup of the last section, which is Reid's. Every
-position of the cube lies in exactly one coset.
+They are the moves that do not change the phase 1 summary: they do not twist a
+corner, they do not flip an edge, and they keep the four middle edges in the
+middle layer. A coset of $H$ is the set of positions reached by playing those
+ten from a fixed position, so a coset is a value of that summary, and there are
+as many cosets as summaries. It is not the subgroup of the last section, which
+is Reid's. Every position of the cube lies in exactly one coset.
 
 #tbl(([], [count]),
   ([positions of the cube], [43 252 003 274 489 856 000]),
