@@ -1127,7 +1127,12 @@ possible turns give words that a relabelling or an inversion brings back to the
 
 == The summary, and its table
 
-The estimate is built as before, by keeping a summary of the cube.
+The estimate is built as before, by keeping a summary of the cube, but the
+summary is not the one of the first bound. The corner twist is kept, the same 2
+187 values. The edge flips and the slice are replaced by where the four middle
+edges sit and how they are flipped, and by which four corner places hold the top
+corners. This is the summary Reid's solver uses in the quarter-turn count, and
+it is the one his published distance counts are about.
 
 #block(breakable: false)[
   #tbl(([summary], [values], []),
@@ -1140,17 +1145,19 @@ The estimate is built as before, by keeping a summary of the cube.
   )
 ]
 
-The 24, 22, 20 and 18 fall by two each time because a place taken by an edge is
-taken whichever way round that edge is. These summaries are the cosets of a
-subgroup of the cube group, Reid's own, and the file names of this section start
-with H after it.
+Each of the four edges can sit in any free slot, either way round. That gives 24
+choices for the first, and two fewer for each of the others, since a slot taken
+is taken whichever way round the edge in it lies. A summary is the coset of a
+subgroup H of the cube group, which is why the file names of this section start
+with H. It is not the subgroup of the first bound, and the summaries are
+thirteen times as many, 29 billion against 2.2 billion.
 
 The table holds the distance from solved of each of the 29 billion summaries.
-How many lie at each distance agrees with the column Reid published in 1998, and
-we check that first. The table is then folded. The sixteen symmetries that keep
-the up-down axis sort the 190 080 edge values into 12 094 families, a factor of
-15.72, and one entry is kept per family. That is 883 MB, and 3.86 GB once loaded
-into the prover.
+The number of summaries at each distance agrees with the column published in
+1998, and we check that first. The table is then folded. The sixteen symmetries
+that keep the up-down axis sort the 190 080 edge values into 12 094 families, a
+factor of 15.72, and one entry is kept per family. That is 883 MB, and 3.86 GB
+once loaded into the prover.
 
 == The theorem, and its cost
 
