@@ -1263,8 +1263,9 @@ too, with the cube, the permutations and the machine-integer tools.
 
 Four things are new, and none of them is about searching.
 
-- The rank and the sign of a permutation on machine integers. Rocq's library
-  has both, but for permutations that cannot be computed.
+- The rank and the sign of a permutation. Rocq's library has both, but for
+  permutations that do not compute, so we need their effective version on
+  machine integers.
 - That a position of a coset *is* its three numbers, in both directions. We had
   one direction only. Without the other the theorem is about triples of numbers
   and not about the cube.
