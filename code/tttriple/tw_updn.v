@@ -37,23 +37,28 @@ Definition subDnFp a b := dnFp (a - b)%float.
 (* the one before it, and only then is the tail small enough that rounding    *)
 (* it costs nothing.  The last sweep, on the three words that are left,       *)
 (* changes no value at all - it only separates them again.                    *)
-Definition expUp (l : seq float) :=
-  match vseb l with
-  | [:: e0, e1, e2 & tl] => l2tw (vseb [:: e0; e1; foldr addUpFp e2 tl])
-  | m => l2tw m
-  end.
+(* This is what the cut MEANS, and every bound below is proved of it: sweep,  *)
+(* keep two words, fold the rest into the third, separate again.  What the    *)
+(* operations actually call is `expUpF'/`expDnF' underneath, which is the same *)
+(* walk with no list in it -- `expF_eq' in `twarith.v' says the two agree, so  *)
+(* no proof here has to look at the arrangement.                              *)
+Definition expUp (l : seq float) := cutTw addUpFp (vseb l).
+Definition expDn (l : seq float) := cutTw addDnFp (vseb l).
 
-Definition expDn (l : seq float) :=
-  match vseb l with
-  | [:: e0, e1, e2 & tl] => l2tw (vseb [:: e0; e1; foldr addDnFp e2 tl])
-  | m => l2tw m
-  end.
+Definition expUpF := expF addUpFp.
+Definition expDnF := expF addDnFp.
+
+Lemma expUpF_eq l : expUpF l = expUp l.
+Proof. by rewrite /expUpF /expUp expF_eq. Qed.
+
+Lemma expDnF_eq l : expDnF l = expDn l.
+Proof. by rewrite /expDnF /expDn expF_eq. Qed.
 
 (* Widening a triple word by a positive amount, upwards and downwards.        *)
 Definition widenUp t f :=
-  expUp [:: tw0 t; tw1 t; addUpFp (tw2 t) f].
+  expUpF [:: tw0 t; tw1 t; addUpFp (tw2 t) f].
 Definition widenDn t f :=
-  expDn [:: tw0 t; tw1 t; addDnFp (tw2 t) (- f)].
+  expDnF [:: tw0 t; tw1 t; addDnFp (tw2 t) (- f)].
 
 (* ===========================================================================*)
 (*  Sum and difference                                                        *)
@@ -66,10 +71,10 @@ Definition widenDn t f :=
 (* cutting upwards settles that.  Nothing is estimated and no error bound     *)
 (* is needed.                                                                 *)
 Definition addTwUp (x y : twfloat) :=
-  expUp (vecSum6 (Merge (tw2l x) (tw2l y))).
+  expUpF (vecSum6 (Merge (tw2l x) (tw2l y))).
 
 Definition addTwDn (x y : twfloat) :=
-  expDn (vecSum6 (Merge (tw2l x) (tw2l y))).
+  expDnF (vecSum6 (Merge (tw2l x) (tw2l y))).
 
 (* Negating a triple word is exact, so subtraction is addition.               *)
 Definition subTwUp x y := addTwUp x (negTw y).
@@ -139,7 +144,7 @@ Definition mulTwUp (x y : twfloat) :=
   let d01 := twoProd x0 y1 in
   let d10 := twoProd x1 y0 in
   let d11 := twoProd x1 y1 in
-  expUp (vecSum14
+  expUpF (vecSum14
     [:: dwhi d00; dwhi d01; dwhi d10; dwlo d00;
         dwhi d11; dwlo d01; dwlo d10;
         mulUp0 x0 y2; mulUp0 x2 y0; dwlo d11;
@@ -153,7 +158,7 @@ Definition mulTwDn (x y : twfloat) :=
   let d01 := twoProd x0 y1 in
   let d10 := twoProd x1 y0 in
   let d11 := twoProd x1 y1 in
-  expDn (vecSum14
+  expDnF (vecSum14
     [:: dwhi d00; dwhi d01; dwhi d10; dwlo d00;
         dwhi d11; dwlo d01; dwlo d10;
         mulDn0 x0 y2; mulDn0 x2 y0; dwlo d11;

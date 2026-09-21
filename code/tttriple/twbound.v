@@ -205,23 +205,27 @@ Lemma twvalE a b c : twval (TWFloat a b c) = D2R a + D2R b + D2R c.
 Proof. by []. Qed.
 
 (* The tail is folded into the third word, upwards, so what comes out is at   *)
-(* or above what went in.                                                     *)
-Lemma foldUp_finI tl e : Dfin (foldr addUpFp e tl) -> Dfin e /\ finL tl.
+(* or above what went in.  THE FOLD IS TO THE LEFT: a walk that carries an    *)
+(* accumulator can only add the terms in the order it meets them, and the     *)
+(* induction is the one it was -- each step rounds the way the bound needs.   *)
+Lemma foldUp_finI tl e : Dfin (foldl addUpFp e tl) -> Dfin e /\ finL tl.
 Proof.
-elim: tl => [|a tl IH] //= F.
-have [Fa Fr] := Dfin_addI _ _ (Dfin_upI _ _ F).
-by have [Fe Ftl] := IH Fr.
+elim: tl e => [|a tl IH] e //= F.
+have [Fs Ftl] := IH _ F.
+have [Fe Fa] := Dfin_addI _ _ (Dfin_upI _ _ Fs).
+by split => //; split.
 Qed.
 
 Lemma foldUp_ge tl e :
-  Dfin (foldr addUpFp e tl) -> D2R e + sumL tl <= D2R (foldr addUpFp e tl).
+  Dfin (foldl addUpFp e tl) -> D2R e + sumL tl <= D2R (foldl addUpFp e tl).
 Proof.
-elim: tl => [|a tl IH] /=; first by rewrite Rplus_0_r; lra.
+elim: tl e => [|a tl IH] e /=; first by rewrite Rplus_0_r; lra.
 move=> F.
-have Fs := Dfin_upI _ _ F.
-have [Fa Fr] := Dfin_addI _ _ Fs.
-have G := addUpFp_ge _ _ Fa Fr Fs F.
-by have := IH Fr; lra.
+have [Fs Ftl] := foldUp_finI _ _ F.
+have Fsum := Dfin_upI _ _ Fs.
+have [Fe Fa] := Dfin_addI _ _ Fsum.
+have G := addUpFp_ge _ _ Fe Fa Fsum Fs.
+by have := IH _ F; lra.
 Qed.
 
 (* The second sweep's output being made of numbers proves its input was.      *)
@@ -287,7 +291,7 @@ Proof. by case: t => x0 x1 x2; rewrite /twval /=; lra. Qed.
 Lemma expUp_finI l :
   finL (tw2l (expUp l)) -> finL (vseb l) /\ finL l.
 Proof.
-rewrite /expUp.
+rewrite /expUp /cutTw.
 have K m : (size m <= 3)%N -> finL (tw2l (l2tw m)) -> finL m
   by move=> Hs Hf; apply: l2tw_finI Hf.
 case E: (vseb l) => [|e0 [|e1 [|e2 tl]]] F.
@@ -310,7 +314,7 @@ Lemma expUp_ge l : finL (tw2l (expUp l)) -> sumL l <= twval (expUp l).
 Proof.
 move=> F; have [Fv Fl] := expUp_finI _ F.
 have Hl := vseb_sum _ Fv.
-move: F Fv Hl; rewrite /expUp.
+move: F Fv Hl; rewrite /expUp /cutTw.
 case E: (vseb l) => [|e0 [|e1 [|e2 tl]]] F Fv Hl.
 - by rewrite (l2tw_val [::] isT); move: Hl; rewrite /=; lra.
 - by rewrite (l2tw_val [:: e0] isT); move: Hl; rewrite /=; lra.
@@ -327,28 +331,30 @@ Qed.
 (*  And the same the other way round                                          *)
 (* ---------------------------------------------------------------------------*)
 
-Lemma foldDn_finI tl e : Dfin (foldr addDnFp e tl) -> Dfin e /\ finL tl.
+Lemma foldDn_finI tl e : Dfin (foldl addDnFp e tl) -> Dfin e /\ finL tl.
 Proof.
-elim: tl => [|a tl IH] //= F.
-have [Fa Fr] := Dfin_addI _ _ (Dfin_dnI _ _ F).
-by have [Fe Ftl] := IH Fr.
+elim: tl e => [|a tl IH] e //= F.
+have [Fs Ftl] := IH _ F.
+have [Fe Fa] := Dfin_addI _ _ (Dfin_dnI _ _ Fs).
+by split => //; split.
 Qed.
 
 Lemma foldDn_le tl e :
-  Dfin (foldr addDnFp e tl) -> D2R (foldr addDnFp e tl) <= D2R e + sumL tl.
+  Dfin (foldl addDnFp e tl) -> D2R (foldl addDnFp e tl) <= D2R e + sumL tl.
 Proof.
-elim: tl => [|a tl IH] /=; first by rewrite Rplus_0_r; lra.
+elim: tl e => [|a tl IH] e /=; first by rewrite Rplus_0_r; lra.
 move=> F.
-have Fs := Dfin_dnI _ _ F.
-have [Fa Fr] := Dfin_addI _ _ Fs.
-have G := addDnFp_le _ _ Fa Fr Fs F.
-by have := IH Fr; lra.
+have [Fs Ftl] := foldDn_finI _ _ F.
+have Fsum := Dfin_dnI _ _ Fs.
+have [Fe Fa] := Dfin_addI _ _ Fsum.
+have G := addDnFp_le _ _ Fe Fa Fsum Fs.
+by have := IH _ F; lra.
 Qed.
 
 Lemma expDn_finI l :
   finL (tw2l (expDn l)) -> finL (vseb l) /\ finL l.
 Proof.
-rewrite /expDn.
+rewrite /expDn /cutTw.
 have K m : (size m <= 3)%N -> finL (tw2l (l2tw m)) -> finL m
   by move=> Hs Hf; apply: l2tw_finI Hf.
 case E: (vseb l) => [|e0 [|e1 [|e2 tl]]] F.
@@ -368,7 +374,7 @@ Lemma expDn_le l : finL (tw2l (expDn l)) -> twval (expDn l) <= sumL l.
 Proof.
 move=> F; have [Fv Fl] := expDn_finI _ F.
 have Hl := vseb_sum _ Fv.
-move: F Fv Hl; rewrite /expDn.
+move: F Fv Hl; rewrite /expDn /cutTw.
 case E: (vseb l) => [|e0 [|e1 [|e2 tl]]] F Fv Hl.
 - by rewrite (l2tw_val [::] isT); move: Hl; rewrite /=; lra.
 - by rewrite (l2tw_val [:: e0] isT); move: Hl; rewrite /=; lra.
@@ -490,7 +496,7 @@ Qed.
 Lemma widenUp_ge t f :
   finL (tw2l (widenUp t f)) -> twval t + D2R f <= twval (widenUp t f).
 Proof.
-rewrite /widenUp => F.
+rewrite /widenUp expUpF_eq => F.
 have H := expUp_ge _ F.
 have [_ [F0 [F1 [Fu _]]]] := expUp_finI _ F.
 have Fs := Dfin_upI _ _ Fu.
@@ -502,7 +508,7 @@ Qed.
 Lemma widenDn_le t f :
   finL (tw2l (widenDn t f)) -> twval (widenDn t f) <= twval t - D2R f.
 Proof.
-rewrite /widenDn => F.
+rewrite /widenDn expDnF_eq => F.
 have H := expDn_le _ F.
 have [_ [F0 [F1 [Fu _]]]] := expDn_finI _ F.
 have Fs := Dfin_dnI _ _ Fu.
@@ -517,7 +523,7 @@ Qed.
 Lemma widenUp_finI t f :
   finL (tw2l (widenUp t f)) -> finL (tw2l t) /\ Dfin f.
 Proof.
-rewrite /widenUp => F.
+rewrite /widenUp expUpF_eq => F.
 have [_ [F0 [F1 [Fu _]]]] := expUp_finI _ F.
 have [F2 Ff] := Dfin_addI _ _ (Dfin_upI _ _ Fu).
 by split => //; apply: finL_tw2l.
@@ -526,7 +532,7 @@ Qed.
 Lemma widenDn_finI t f :
   finL (tw2l (widenDn t f)) -> finL (tw2l t) /\ Dfin f.
 Proof.
-rewrite /widenDn => F.
+rewrite /widenDn expDnF_eq => F.
 have [_ [F0 [F1 [Fu _]]]] := expDn_finI _ F.
 have [F2 Ff] := Dfin_addI _ _ (Dfin_dnI _ _ Fu).
 split; last exact: Dfin_oppI Ff.
@@ -543,7 +549,7 @@ Qed.
 Theorem addTwUp_ge x y :
   finL (tw2l (addTwUp x y)) -> twval x + twval y <= twval (addTwUp x y).
 Proof.
-rewrite /addTwUp vecSum6_eq => F.
+rewrite /addTwUp expUpF_eq vecSum6_eq => F.
 have H := expUp_ge _ F.
 have [_ Fv] := expUp_finI _ F.
 have Hv := vecSum_sum _ Fv.
@@ -553,7 +559,7 @@ Qed.
 Theorem addTwDn_le x y :
   finL (tw2l (addTwDn x y)) -> twval (addTwDn x y) <= twval x + twval y.
 Proof.
-rewrite /addTwDn vecSum6_eq => F.
+rewrite /addTwDn expDnF_eq vecSum6_eq => F.
 have H := expDn_le _ F.
 have [_ Fv] := expDn_finI _ F.
 have Hv := vecSum_sum _ Fv.
@@ -688,7 +694,7 @@ Theorem mulTwUp_ge x y :
   twval x * twval y <= twval (mulTwUp x y).
 Proof.
 case: x => x0 x1 x2; case: y => y0 y1 y2.
-rewrite !twvalE /mulTwUp vecSum14_eq /= => F.
+rewrite !twvalE /mulTwUp expUpF_eq vecSum14_eq /= => F.
 have H := expUp_ge _ F.
 have [_ Fv] := expUp_finI _ F.
 have Fl := vecSum_finI _ Fv.
@@ -728,7 +734,7 @@ Theorem mulTwDn_le x y :
   twval (mulTwDn x y) <= twval x * twval y.
 Proof.
 case: x => x0 x1 x2; case: y => y0 y1 y2.
-rewrite !twvalE /mulTwDn vecSum14_eq /= => F.
+rewrite !twvalE /mulTwDn expDnF_eq vecSum14_eq /= => F.
 have H := expDn_le _ F.
 have [_ Fv] := expDn_finI _ F.
 have Fl := vecSum_finI _ Fv.

@@ -72,20 +72,20 @@ the rest.
 The double-word version peels once and with a two-product, so it pays a step
 of `deps` for what the product can miss. Nothing of that kind is needed here.
 
-**The quotient and the root are proved from one named assumption each.**
+**The quotient and the root assume nothing, and carry a guard instead.**
 `div_UP_correct`, `div_DN_correct`, `sqrt_UP_correct` and `sqrt_DN_correct` are
-no longer admitted. What they lean on is `kstep_div` and `kstep_sqrt` in
-`twpaper.v`, and those two say only this: the step the answer is widened by
-covers what the algorithm is out by. **The root's half is now proved** — see
-below — **and the quotient's is still measured**: `probek.py` runs the two
-algorithms on forty thousand random triple words and reports 2.3 units in the
-last place for the quotient. Both are stated as assumptions in their own
-right, so
-`Print Assumptions` on anything reached through the quotient or the root says
-`twpaper.kstep_div` in as many words. Before, the same gap was four `Admitted`
-obligations, which said nothing about where it lay.
+proved. What they used to lean on was one measured number each, stated as
+`Axiom kstep_div` and `Axiom kstep_sqrt` in `twpaper.v`; both axioms are gone.
+In their place the step the answer is widened by is proved to cover what the
+algorithm is out by, under a range condition the operation **evaluates** —
+`div_okb` and `sqrt_okb`, whose every hypothesis is a boolean test on numbers
+the algorithm has in hand. Where the test fails the quotient answers `nan`,
+which Interval reads as the whole line; the root does better and scales the
+number into the band. `probek.py`, which ran the two algorithms on forty
+thousand random triple words and reported 2.3 units in the last place for the
+quotient, is what the bound used to rest on and is now only a sanity check.
 
-Everything between the assumption and the obligation is proved: the guards
+Everything between the guard and the obligation is proved: the guards
 (`divGuard_nz`, `sqrtGuard_pos`), the widening (`widenUp_ge`, `widenDn_le`),
 and the reading into Interval's shape. The root's guard is the one that takes
 an argument: what it tests is the three words added, and being a triple word
@@ -281,7 +281,7 @@ now `TWFloat 6 0x1.8000000000001p-157 0`, and dividing by it works.
 
 | file | what it holds |
 |---|---|
-| `twarith.v` | the algorithms: the error-free transforms, the two sweeps, `sortMag`, `Merge`, and the operations rounded to nearest |
+| `twarith.v` | the algorithms: the error-free transforms, the two sweeps, `vecSum` unrolled at six and fourteen, the second sweep fused with the cut (`expF`), `sortMag`, `Merge`, and the operations rounded to nearest |
 | `tw_updn.v` | the directed operations: the widening steps and the up and down forms of each |
 | `tw_ops.v` | the interface: `TwFloat`, its obligations, and the sealing |
 | `twpaper.v` | the paper's algorithms on primitive floats: Algorithms 9, 11, 14, 15, 18, 20, and the step |
@@ -431,15 +431,46 @@ are known to be in, and the bound never uses the order — only that the sum is
 unchanged. That is mul 11.5 to 8.0 and add 4.0 to 3.5, and it costs nothing
 in reach: the 105- and 150-bit brackets still prove.
 
-**What is left, and what it is worth.** `vseb` over fourteen terms is
-thirteen nested branches, so it cannot be unrolled the way the quotient's
-was. The way to do it is to fuse it with the fold that follows: make
-`expUp`'s right fold a left fold, so a producer can carry an accumulator,
-then walk `vsebAux` once emitting two words and accumulating the rest, with
-no list at all. Measured on a prototype that skips `vseb` entirely — an upper
-bound on what is achievable, not an implementation — the sum would go to
-about 2 microseconds and the product to about 5. That is 1.6x, and it is not
-done.
+**And `vseb` was done too, for a seventh of a product and not a third.**
+`vseb` over fourteen terms is thirteen nested branches, so it cannot be
+unrolled at a fixed length the way `vecSum` was. What it can be is fused with
+the cut that follows it: the cut keeps the first two words the sweep emits and
+adds everything below into the third, so a walk carrying an accumulator needs
+no list at all — and it does not separate a second time either, because the
+three words come out named. `expUp`'s right fold became a left fold, which is
+what an accumulator can carry; the bound did not care, since every step rounds
+the way the bound needs whatever order the terms come in.
+
+`expF` in `twarith.v` is that walk, written once over an abstract `add` and
+instantiated at `addUpFp` and `addDnFp`; `expF_eq` says it equals the cut as
+the bounds are stated about it, so no proof in `twbound.v` looks at the
+arrangement. Both sweeps needed their unfolding **stated** rather than
+simplified — `simpl` takes `twoSum` apart as well, and then the two sides of
+every equality stop looking alike.
+
+Timed with both arrangements in one process, same inputs and same build, the
+operation on its own and not through the module:
+
+| | on lists | fused |
+|---|---|---|
+| `addTwUp` | 2.75 | **2.40** |
+| `mulTwUp` | 7.2 | **6.15** |
+
+**That is 1.15x, and the prototype said 1.6x.** The prototype skipped `vseb`
+altogether, so it was measuring a ceiling: what fusing saves is the cons cells
+and the second separation, not one two-sum of the arithmetic — the walk still
+performs every one of them. Through the module the sum moves by less than the
+noise and the product reads 7.7 against 8.0.
+
+Where `method_error` is concerned it is worth more than that, because the
+tactic pays the cut on every bisection: **4.9 seconds against 6.1**, and every
+bracket still proves at the same precision.
+
+**What is left.** The lists that are *handed in* are still lists: `Merge`
+builds six cells for the sum and the product writes fourteen out. Feeding the
+words in named would mean unrolling the walk at a fixed length, which is
+thirty-two cases at six and eight thousand at fourteen — worth doing for the
+sum, not for the product.
 
 ### Every goal at the same precision
 
@@ -708,55 +739,31 @@ of exponents, and it is not done.
    The midpoint is now the half of the sum that *does* sweep, `addTwUp`, held
    between the two ends by `min` and `max`: a bound rounded outwards can leave
    the range it was cut from, and then the end is the answer. `method_error`
-   proves in 6.4 s.
-3. **Speed: the sum and the product are still on lists.** `cancellation` is
-   229 s against 221 for bignums **at the same 159 bits** — level. At the
-   sixty bits the goal asks for, bignums take 76.7, and that is the number to
-   quote only if one is willing to compare a tenth of the work with the whole
-   of it. What is left is the product: 2.5 microseconds of arithmetic against
-   8.5 of `sortMag`, `vecSum`, `vseb` and the cut, all allocating `seq` cells
-   at 44 to 73 nanoseconds an operation where a double word's straight-line
-   code runs at 16. The quotient and the root are off the lists;
-   `prodDWF_eq` shows how — unroll the sweep for the fixed size and prove
-   the answer is the same. The sum and the product have not been done.
+   proves in 4.9 s.
+3. **Speed: the lists that are handed in.** Both sweeps are off `seq` now —
+   `vecSum` is unrolled at the two lengths it is used at and `vseb` is fused
+   with the cut into one walk — and what is left is the list each operation
+   *builds* before any sweep runs: `Merge`'s six cells for the sum, the
+   product's fourteen written out. Feeding the words in named means unrolling
+   the fused walk at a fixed length, which is thirty-two cases at six and
+   eight thousand at fourteen: worth doing for the sum, not for the product.
 
-   Timed on their own, microseconds a call:
+   Timed on their own, microseconds a call, five thousand a loop:
 
    | | µs |
    |---|---|
-   | `plusTwTw` | 3 |
-   | `timesTwTw` | 9 |
-   | `divTwTw`, three rounds of long division | 21 |
-   | `sqrtTw`, two Newton steps, rounded to nearest | 52 |
-   | `mulTwUp` | 10 |
-   | `divTwUp` | **101** |
-   | `sqrtTwUp` | **436** |
+   | `plusTwTw`, rounded to nearest | 2.8 |
+   | `timesTwTw`, rounded to nearest | 8.4 |
+   | `mulTwUp` | 6.2 |
+   | `divTwTw`, three rounds of long division | 25 |
+   | `sqrtTw`, two Newton steps | 49 |
+   | `divTwUp`, the long-division route | 98 |
+   | `sqrtTwUp`, the Newton route | 408 |
 
-   The seed is cheap. The residual bound costs five times the seed for the
-   quotient and eight times for the root — and the four operations it performs
-   (`mulTwDn q q`, `mulTwUp q q` and two subtractions) come to about 26 µs by
-   the rows above, so roughly 350 µs of the root's 436 is unaccounted for.
-   The likely cause is that `q` is recomputed rather than shared across its
-   three uses in the `let:` chain of `sqrtTwErr`. That is the first thing to
-   measure, and it is worth more than anything in the algorithms.
+   The last two are **not** what the format uses. `tw_ops.v` takes the
+   quotient and the root from the paper's Algorithms 14 and 15
+   (`divTwUpQ`, `sqrtTwUpP`), which are 14 and 15 µs through the module —
+   seven and twenty-seven times quicker than the routes above. Those two rows
+   are kept because they are what an obvious implementation costs, and the gap
+   is the whole argument for using the paper's.
 
-   **Where the sum's time goes**, µs a call, each pass timed on top of the one
-   before:
-
-   | | cumulative | this pass |
-   |---|---|---|
-   | one `twoSum`, the unit of cost | 0.2 | |
-   | `Merge`, and building the two three-lists | 0.7 | 0.7 |
-   | and `vecSum` | 1.4 | 0.7 |
-   | and `vseb` | 2.1 | 0.7 |
-   | and `expUp`'s cut and separation | 2.7 | 0.6 |
-
-   A double word's sum is 0.8 µs and does **three** two-sums. This does
-   **eleven**, and spends a quarter of its time building lists before any
-   arithmetic happens: eleven times 0.2 plus 0.7 is 2.9 against 2.7 measured,
-   so nothing is unexplained. Two savings, neither of which touches a bound:
-   `expUp` separates a second time after cutting, which is 22 per cent and
-   goes away if the tail is folded in *before* the single separation; and the
-   `seq` representation is another 26 per cent. That would be about 1.4 µs,
-   within 1.8 times a double word, which is what one more word should cost.
-3. **The obligations.** The list at the top of `tw_ops.v`, one at a time.

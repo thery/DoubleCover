@@ -163,6 +163,189 @@ Definition l2tw (l : seq float) :=
   | [::]                => TWFloat 0 0 0
   end.
 
+(* ===========================================================================*)
+(*  The second sweep and the cut, in one walk and with no list                *)
+(* ===========================================================================*)
+
+(* `vseb' over the product's fourteen terms is thirteen nested branches, so it *)
+(* cannot be unrolled at a fixed length the way `vecSum' was.  What can be     *)
+(* done instead is to fuse it with the cut that follows it: the cut keeps the  *)
+(* first two words the sweep emits and adds everything below into the third,   *)
+(* so a walk carrying an accumulator needs no list at all -- and it does not   *)
+(* separate a second time either, because the three words come out named.      *)
+(*                                                                            *)
+(* THE ADDITION IS A PARAMETER.  The cut adds upwards for an upper bound and   *)
+(* downwards for a lower one, and everything below is the same walk either     *)
+(* way, so it is written once over an abstract `add' and instantiated twice.    *)
+(*                                                                            *)
+(* AND THE FOLD IS A LEFT FOLD.  A right fold starts from the last word the    *)
+(* sweep emits, which a single forward walk cannot reach without holding the   *)
+(* list; a left fold starts from the first, which is what an accumulator       *)
+(* carries.  No bound cares which: every step rounds the way the bound needs   *)
+(* whatever order the terms come in.                                          *)
+
+(* The two sweeps unfold one step at a time, and the step is stated rather    *)
+(* than simplified: `simpl' would take `twoSum' apart as well, and then the    *)
+(* two sides of every equality below stop looking alike.                      *)
+Lemma vsebAuxE eps e e' l :
+  vsebAux eps (e :: e' :: l) =
+  (if (dwlo (twoSum eps e) =? 0)%float
+   then vsebAux (dwhi (twoSum eps e)) (e' :: l)
+   else dwhi (twoSum eps e) :: vsebAux (dwlo (twoSum eps e)) (e' :: l)).
+Proof. by []. Qed.
+
+(* And it never comes back empty, which is what says the cut has a third word *)
+(* to fold into whenever it has a second.                                     *)
+Lemma vsebAux_cons l eps : exists x m, vsebAux eps l = x :: m.
+Proof.
+elim: l eps => [|e l' IH] eps; first by exists eps, [::].
+case: l' IH => [|e' l''] IH.
+  by exists (dwhi (twoSum eps e)), [:: dwlo (twoSum eps e)].
+rewrite vsebAuxE; case: (dwlo (twoSum eps e) =? 0)%float; first by apply: IH.
+by exists (dwhi (twoSum eps e)), (vsebAux (dwlo (twoSum eps e)) (e' :: l'')).
+Qed.
+
+Section Fused.
+
+Variable add : float -> float -> float.
+
+(* The cut itself, over the list the sweep would have built.                  *)
+Definition cutTw (m : seq float) : twfloat :=
+  match m with
+  | [:: e0, e1, e2 & tl] => l2tw (vseb [:: e0; e1; foldl add e2 tl])
+  | m                    => l2tw m
+  end.
+
+(* Three words separated again, written out: this is `vseb' at length three    *)
+(* read back as a triple word, which is what the cut did on a fresh list.     *)
+Definition vsebF3 (a b c : float) : twfloat :=
+  let d1 := twoSum a b in
+  if (dwlo d1 =? 0)%float
+  then let d2 := twoSum (dwhi d1) c in TWFloat (dwhi d2) (dwlo d2) 0
+  else let d2 := twoSum (dwlo d1) c in TWFloat (dwhi d1) (dwhi d2) (dwlo d2).
+
+Lemma vsebF3_eq a b c : vsebF3 a b c = l2tw (vseb [:: a; b; c]).
+Proof. by rewrite /vsebF3 /vseb /=; case: (_ =? 0)%float. Qed.
+
+(* The walk once two words are out: everything after them is folded in.       *)
+Fixpoint vsebAcc (eps acc : float) (l : seq float) : float :=
+  match l with
+  | [::]    => add acc eps
+  | [:: e]  => let d := twoSum eps e in add (add acc (dwhi d)) (dwlo d)
+  | e :: l' => let d := twoSum eps e in
+               if (dwlo d =? 0)%float then vsebAcc (dwhi d) acc l'
+               else vsebAcc (dwlo d) (add acc (dwhi d)) l'
+  end.
+
+Lemma vsebAccE eps acc e e' l :
+  vsebAcc eps acc (e :: e' :: l) =
+  (if (dwlo (twoSum eps e) =? 0)%float
+   then vsebAcc (dwhi (twoSum eps e)) acc (e' :: l)
+   else vsebAcc (dwlo (twoSum eps e)) (add acc (dwhi (twoSum eps e))) (e' :: l)).
+Proof. by []. Qed.
+
+Lemma vsebAcc_eq l eps acc : vsebAcc eps acc l = foldl add acc (vsebAux eps l).
+Proof.
+elim: l eps acc => [|e l' IH] eps acc //.
+case: l' IH => [|e' l''] IH //.
+rewrite vsebAccE vsebAuxE.
+by case: (dwlo (twoSum eps e) =? 0)%float; rewrite IH.
+Qed.
+
+(* The same walk before the accumulator has its seed: the first word out is    *)
+(* the seed, and there always is one.                                         *)
+Fixpoint vsebAcc0 (eps : float) (l : seq float) : float :=
+  match l with
+  | [::]    => eps
+  | [:: e]  => let d := twoSum eps e in add (dwhi d) (dwlo d)
+  | e :: l' => let d := twoSum eps e in
+               if (dwlo d =? 0)%float then vsebAcc0 (dwhi d) l'
+               else vsebAcc (dwlo d) (dwhi d) l'
+  end.
+
+Definition foldl1 (m : seq float) :=
+  if m is x :: tl then foldl add x tl else 0%float.
+
+Lemma vsebAcc0E eps e e' l :
+  vsebAcc0 eps (e :: e' :: l) =
+  (if (dwlo (twoSum eps e) =? 0)%float
+   then vsebAcc0 (dwhi (twoSum eps e)) (e' :: l)
+   else vsebAcc (dwlo (twoSum eps e)) (dwhi (twoSum eps e)) (e' :: l)).
+Proof. by []. Qed.
+
+Lemma vsebAcc0_eq l eps : vsebAcc0 eps l = foldl1 (vsebAux eps l).
+Proof.
+elim: l eps => [|e l' IH] eps //.
+case: l' IH => [|e' l''] IH //.
+rewrite vsebAcc0E vsebAuxE.
+case: (dwlo (twoSum eps e) =? 0)%float; first by apply: IH.
+by rewrite vsebAcc_eq.
+Qed.
+
+(* The walk with one word out, which is where the answer can still come back  *)
+(* two words and not three.                                                   *)
+Fixpoint vsebF1 (e0 eps : float) (l : seq float) : twfloat :=
+  match l with
+  | [::]    => TWFloat e0 eps 0
+  | [:: e]  => let d := twoSum eps e in vsebF3 e0 (dwhi d) (dwlo d)
+  | e :: l' => let d := twoSum eps e in
+               if (dwlo d =? 0)%float then vsebF1 e0 (dwhi d) l'
+               else vsebF3 e0 (dwhi d) (vsebAcc0 (dwlo d) l')
+  end.
+
+Lemma vsebF1E e0 eps e e' l :
+  vsebF1 e0 eps (e :: e' :: l) =
+  (if (dwlo (twoSum eps e) =? 0)%float
+   then vsebF1 e0 (dwhi (twoSum eps e)) (e' :: l)
+   else vsebF3 e0 (dwhi (twoSum eps e))
+          (vsebAcc0 (dwlo (twoSum eps e)) (e' :: l))).
+Proof. by []. Qed.
+
+Lemma vsebF1_eq l e0 eps : vsebF1 e0 eps l = cutTw (e0 :: vsebAux eps l).
+Proof.
+elim: l e0 eps => [|e l' IH] e0 eps //.
+case: l' IH => [|e' l''] IH; first by rewrite /= vsebF3_eq.
+rewrite vsebF1E vsebAuxE.
+case: (dwlo (twoSum eps e) =? 0)%float; first by apply: IH.
+have [x [m Em]] := vsebAux_cons (e' :: l'') (dwlo (twoSum eps e)).
+by rewrite vsebAcc0_eq Em vsebF3_eq.
+Qed.
+
+(* And the walk with nothing out yet, which is the whole of it.               *)
+Fixpoint vsebF0 (eps : float) (l : seq float) : twfloat :=
+  match l with
+  | [::]    => TWFloat eps 0 0
+  | [:: e]  => let d := twoSum eps e in TWFloat (dwhi d) (dwlo d) 0
+  | e :: l' => let d := twoSum eps e in
+               if (dwlo d =? 0)%float then vsebF0 (dwhi d) l'
+               else vsebF1 (dwhi d) (dwlo d) l'
+  end.
+
+Lemma vsebF0E eps e e' l :
+  vsebF0 eps (e :: e' :: l) =
+  (if (dwlo (twoSum eps e) =? 0)%float
+   then vsebF0 (dwhi (twoSum eps e)) (e' :: l)
+   else vsebF1 (dwhi (twoSum eps e)) (dwlo (twoSum eps e)) (e' :: l)).
+Proof. by []. Qed.
+
+Lemma vsebF0_eq l eps : vsebF0 eps l = cutTw (vsebAux eps l).
+Proof.
+elim: l eps => [|e l' IH] eps //.
+case: l' IH => [|e' l''] IH //.
+rewrite vsebF0E vsebAuxE.
+by case: (dwlo (twoSum eps e) =? 0)%float; rewrite ?IH ?vsebF1_eq.
+Qed.
+
+(* The sweep and the cut together: one walk, and the only list is the one     *)
+(* handed in.                                                                 *)
+Definition expF (l : seq float) : twfloat :=
+  if l is e :: l' then vsebF0 e l' else TWFloat 0 0 0.
+
+Lemma expF_eq l : expF l = cutTw (vseb l).
+Proof. by case: l => [|e l'] //=; apply: vsebF0_eq. Qed.
+
+End Fused.
+
 (* Three floats as a triple word: both sweeps, and nothing lost.              *)
 Definition toTw (a b c : float) := l2tw (vseb (vecSum [:: a; b; c])).
 
