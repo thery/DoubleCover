@@ -1125,10 +1125,9 @@ turns. When it starts with `R' U` we look at the third turn. Six of the
 possible turns give words that a relabelling or an inversion brings back to the
 `R U` case, and five do not. Those five are the prefixes of three turns.
 
-The argument is in #src("HProp2.v"), and the split into $cal(A)$ and $cal(C)$
-is the one of @reid1998fourspot. In our orientation the front and back faces
-flip, so #src("HBridge.v") turns the position onto the other axis and carries
-the result across.
+In our orientation the front and back faces are the ones that flip an edge, so
+#src("HBridge.v") turns the position onto the other axis and carries the result
+across.
 
 This is a much better cut than the one used for the superflip. There the first
 two moves left thirty prefixes to search. Here there are six, one of two turns
