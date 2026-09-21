@@ -1297,8 +1297,8 @@ costs one comparison.
 
 == Folding the map
 
-The map is 40 320 pages of 20 160 groups, one page for each way the eight top
-and bottom corners can sit.
+The map is 40 320 pages of 20 160 groups, one page for each arrangement of the
+eight top and bottom corners.
 
 The fold works because of the position we chose. Sixteen of the 48 renamings of
 the cube keep the top and bottom faces in place. Each of them sends the ten
@@ -1319,9 +1319,10 @@ coset to a member of the coset. Undoing it gives back the position the page
 stood for. A map sound after one level is sound after the next. That is the
 largest single part of the coset's proof.
 
-== The files
+== The files and the cost
 
-Sixty-nine files, 17 386 lines. The coset and its members are #src("Row.v"),
+The coset adds sixty-nine hand-written files and 17 386 lines, besides the
+generated tables. The coset and its members are #src("Row.v"),
 #src("RowMemb.v") and #src("RowInst.v"); the ranking and the moves
 #src("Lehmer.v") with the `RowPart`, `RowMove` and `RowTab` groups; the map and
 the search #src("RowMap.v"), #src("RowRun.v"), #src("RowSrch.v") and
@@ -1329,11 +1330,6 @@ the search #src("RowMap.v"), #src("RowRun.v"), #src("RowSrch.v") and
 and `RowFoldCub` groups, ending in #src("RowCubDoneI.v") and
 #src("RowFoldCubDoneI.v"). #src("README.md") lists every one of them with what
 it does.
-
-== The cost
-
-The coset adds sixty-nine hand-written Rocq files and 17 386 lines to the work
-above, besides the generated tables.
 
 The search ran twice, over the folded map and over the unfolded one, with the
 same search in both, and both times it filled the map.
