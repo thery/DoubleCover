@@ -875,13 +875,26 @@ of exponents, and it is not done.
    | `mulTwUp` | 6.2 |
    | `divTwTw`, three rounds of long division | 25 |
    | `sqrtTw`, two Newton steps | 49 |
-   | `divTwUp`, the long-division route | 98 |
-   | `sqrtTwUp`, the Newton route | 408 |
+   | `divTwUpQ`, the paper's Algorithm 14 | 14.0 |
+   | `sqrtTwUpP`, the paper's Algorithm 15 | 14.0 |
 
-   The last two are **not** what the format uses. `tw_ops.v` takes the
-   quotient and the root from the paper's Algorithms 14 and 15
-   (`divTwUpQ`, `sqrtTwUpP`), which are 14 and 15 µs through the module —
-   seven and twenty-seven times quicker than the routes above. Those two rows
-   are kept because they are what an obvious implementation costs, and the gap
-   is the whole argument for using the paper's.
+   The first two are the seeds, and **they are not what the format uses**:
+   `tw_ops.v` takes the quotient and the root from Algorithms 14 and 15. An
+   earlier version of this table quoted 98 and 408 microseconds for
+   `divTwUp` and `sqrtTwUp`, the residual-bound route. Those were **dead
+   code** — nothing called them — and quoting them here was measuring
+   something the format does not run. They have been deleted.
+
+   Where the quotient's fourteen microseconds go, measured the same way:
+
+   | | µs |
+   |---|---|
+   | `threeDivG`, the algorithm and its flag | 10.6 |
+   | the guard's remaining tests | 2.2 |
+   | `shiftUp`, the widening | 1.2 |
+
+   So the algorithm is three quarters of it and there is no large saving left
+   in the wrapper. Sharing `abs (tw0 q)`, which the guard computes three times
+   and `kstep` twice more, is worth 0.2 µs — one and a half per cent, and not
+   worth the proof it would need.
 

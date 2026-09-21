@@ -343,10 +343,13 @@ Definition sub_UP (_ : precision) x y := onReal2 subTwUp x y.
 Definition sub_DN (_ : precision) x y := onReal2 subTwDn x y.
 Definition mul_UP (_ : precision) x y := onReal2 mulTwUp x y.
 Definition mul_DN (_ : precision) x y := onReal2 mulTwDn x y.
-(* The paper's Algorithm 14 for the quotient, bounded by a shift of eight    *)
-(* units in the last place - see twpaper.v, where the eight is measured and   *)
-(* not proved.  The root still uses the seed of twarith.v, since Algorithm 15 *)
-(* is not transcribed yet, with the same shift.                               *)
+(* The paper's Algorithm 14 for the quotient and Algorithm 15 for the root,  *)
+(* each bounded by `kstep' and each behind a guard the operation evaluates.   *)
+(* `divTwUpK' and `sqrtTwUpK' are `twdiv.v''s and `twsqrt.v''s -- they add   *)
+(* the ways round a failed guard to `divTwUpQ' and `sqrtTwUpP'.  Both names   *)
+(* were once declared in `tw_updn.v' as well, for the long-division and       *)
+(* Newton routes, and which one arrived here was decided by the order of the  *)
+(* imports above.  Those are gone; see the note in `tw_updn.v'.               *)
 Definition div_UP (_ : precision) x y := onReal2 divTwUpK x y.
 Definition div_DN (_ : precision) x y := onReal2 divTwDnK x y.
 Definition sqrt_UP (_ : precision) x := onReal sqrtTwUpK x.
