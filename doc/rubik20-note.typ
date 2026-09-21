@@ -1275,7 +1275,7 @@ Four things are new, and none of them is about searching.
   for. The summary is one machine word, the position forty-eight.
 - Checks on the tables, one per file, so that each reports separately.
 
-== The unsound stop
+== Where the search stops
 
 A table that underestimates only cuts less, so cutting a branch on it is sound.
 Stopping on it is not. Our search used to stop when the table gave zero, and
