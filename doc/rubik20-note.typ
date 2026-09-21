@@ -1198,17 +1198,15 @@ about two thirds of what the searches cost.
 = One coset of the upper half
 
 So far we have dealt with lower bounds. This last section is an attempt at the
-real computation, the upper bound.
-
-The published proofs do not solve all 43 quintillion positions one at a time.
-They cut the cube group into the 2 217 093 120 cosets of a subgroup and solve a
-whole coset at once. One search settles every one of the 19 508 428 800
-positions in it. The positions in a coset are not all the same distance from
-solved. The search shows that none of them is more than 20. A symmetry of the
-cube carries one coset to another, and the image is solved by the same
-manoeuvres relabelled, so only one coset per symmetry class is searched. Two
-things are then needed. The cosets searched must cover every class, and each
-search must settle its whole coset.
+real computation, the upper bound. The published proofs do not solve all 43
+quintillion positions one at a time. They cut the cube group into the 2 217 093
+120 cosets of a subgroup and solve a whole coset at once. One search settles
+every one of the 19 508 428 800 positions in it. The positions in a coset are
+not all the same distance from solved. The search shows that none of them is
+more than 20. A symmetry of the cube carries one coset to another, and the image
+is solved by the same manoeuvres relabelled, so only one coset per symmetry
+class is searched. Two things are then needed. The cosets searched must cover
+every class, and each search must settle its whole coset.
 
 #src("Canon.v") proves the first, and it is not a computation. As the
 representative of a class we take its least member, in the order the type of
