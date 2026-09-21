@@ -1222,9 +1222,9 @@ pieces are in place. We did the superflip's.
 == Cosets
 
 Ten of the eighteen moves generate the subgroup $H$ of Kociemba and
-Thistlethwaite: `U`, `U2`, `U'`, `D`, `D2`, `D'`, `R2`, `L2`, `F2` and `B2`. It is not the subgroup of the last
-section, which is Reid's. A coset of H is the set of positions reached by
-playing those ten from a fixed position. Every position of the cube lies in
+Thistlethwaite: `U`, `U2`, `U'`, `D`, `D2`, `D'`, `R2`, `L2`, `F2` and `B2`. It
+is not the subgroup of the last section, which is Reid's. A coset of $H$ is the
+set of positions reached by playing those ten from a fixed position. Every position of the cube lies in
 exactly one coset.
 
 #tbl(([], [count]),
