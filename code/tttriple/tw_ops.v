@@ -117,20 +117,48 @@ Definition classifyFp f :=
   | _ => None
   end.
 
+(* WRITTEN WITHOUT THE OPTION.  `classifyFp' answers `Some' or `None', and    *)
+(* three of those are three allocations on a path that every operation walks  *)
+(* several times over -- `I.mul' alone asks for it fourteen times, four of    *)
+(* them inside the two comparisons `sign_large_' makes against nought.  The   *)
+(* nested match below is the same function and allocates nothing;             *)
+(* `classifyE' says so, for the proofs that read the old shape.               *)
 Definition classify x :=
   let: TWFloat x0 x1 x2 := x in
-  match classifyFp x0 with
-  | Some c => c
-  | None =>
-    match classifyFp x1 with
-    | Some c => c
-    | None =>
-      match classifyFp x2 with
-      | Some c => c
-      | None => if wellFormed x then Freal else Sig.Fnan
+  match PrimFloat.classify x0 with
+  | PInf => Fpinfty | NInf => Fminfty | NaN => Sig.Fnan
+  | _ =>
+    match PrimFloat.classify x1 with
+    | PInf => Fpinfty | NInf => Fminfty | NaN => Sig.Fnan
+    | _ =>
+      match PrimFloat.classify x2 with
+      | PInf => Fpinfty | NInf => Fminfty | NaN => Sig.Fnan
+      | _ => if wellFormed x then Freal else Sig.Fnan
       end
     end
   end.
+
+Lemma classifyE x :
+  classify x =
+  (let: TWFloat x0 x1 x2 := x in
+   match classifyFp x0 with
+   | Some c => c
+   | None =>
+     match classifyFp x1 with
+     | Some c => c
+     | None =>
+       match classifyFp x2 with
+       | Some c => c
+       | None => if wellFormed x then Freal else Sig.Fnan
+       end
+     end
+   end).
+Proof.
+case: x => x0 x1 x2; rewrite /classify /classifyFp.
+by case: (PrimFloat.classify x0) => //;
+   case: (PrimFloat.classify x1) => //;
+   case: (PrimFloat.classify x2).
+Qed.
 
 Definition real x := match classify x with Freal => true | _ => false end.
 Definition is_nan x := match classify x with Sig.Fnan => true | _ => false end.
