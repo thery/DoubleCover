@@ -385,10 +385,14 @@ module actually holds, so this is a comparison at equal precision.
 
 | op | bignums 159 | double words | triple words | triple, before |
 |---|---|---|---|---|
-| add | 18.0 | **0.5** | 3.5 | 4.0 |
-| mul | 28.0 | **1.0** | 8.0 | 11.5 |
-| div | 56.5 | **1.5** | 14.5 | 35.7 |
-| sqrt | 55.5 | **2.5** | 15.0 | 37.0 |
+| add | 18.0 | **0.5** | 3.45 | 4.0 |
+| mul | 28.0 | **1.0** | 7.7 | 11.5 |
+| div | 56.5 | **1.5** | 14.05 | 35.7 |
+| sqrt | 55.5 | **2.5** | 14.55 | 37.0 |
+
+The triple-word column was taken again after `vseb` was fused, twenty thousand
+operations a loop and the minimum of five, which is why it carries a second
+figure; the other three columns are the two-thousand ones and have not moved.
 
 **A triple word beats bignums at its own precision on all four**, by 3.7x to
 4.5x. Against a double word it costs 6x on the root, 8x on the sum, 10x on the
@@ -431,10 +435,10 @@ are known to be in, and the bound never uses the order — only that the sum is
 unchanged. That is mul 11.5 to 8.0 and add 4.0 to 3.5, and it costs nothing
 in reach: the 105- and 150-bit brackets still prove.
 
-**And `vseb` was done too, for a seventh of a product and not a third.**
-`vseb` over fourteen terms is thirteen nested branches, so it cannot be
-unrolled at a fixed length the way `vecSum` was. What it can be is fused with
-the cut that follows it: the cut keeps the first two words the sweep emits and
+**And `vseb` is fused with the cut.** `vseb` over fourteen terms is thirteen
+nested branches, so it cannot be unrolled at a fixed length the way `vecSum`
+was. What can be done instead is to fuse it with the cut that follows: the cut
+keeps the first two words the sweep emits and
 adds everything below into the third, so a walk carrying an accumulator needs
 no list at all — and it does not separate a second time either, because the
 three words come out named. `expUp`'s right fold became a left fold, which is
@@ -500,24 +504,23 @@ At 159 bits, which is what a triple word holds:
 | pi to 24 digits | **0.013** | 0.016 |
 | pi to 34 digits | **0.015** | 0.019 |
 | pi to 45 digits | **0.019** | 0.047 |
-| `method_error` | 8.54 | **6.09** |
-| `poly_error` | **0.066** | 0.075 |
-| `cancellation` | 220.9 | **229.1** |
+| `method_error` | 8.54 | **4.70** |
+| `poly_error` | **0.066** | 0.070 |
+| `cancellation` | 220.9 | **194.3** |
 
 **A double word is two to six times quicker than bignums wherever it reaches.
-A triple word is level with them**: quicker on `method_error`, level on
-`cancellation`, within noise on the four brackets. That is the honest
-reading, and it is a different one from the table above, where bignums are
-asked for less work than they are being compared against.
+A triple word is level with them, and ahead on the two goals that do real
+work**: 4.7 seconds against 8.5 on `method_error`, 194 against 221 on
+`cancellation`, within noise on the four brackets and on `poly_error`. That is
+the honest reading, and it is a different one from the table above, where
+bignums are asked for less work than they are being compared against.
 
-Each figure is taken in a process of its own. Making the quotient and the
-root twice as quick moved `cancellation` from 282.7 to 229.1, and did **not**
-move `I.exp`, which is 6.2 milliseconds either way: **the exponential is not
-quotient-bound, it is product-bound**, and the product is the operation still
-written on lists. A product is 2.5 microseconds of arithmetic against 8.5 of
-list machinery — 3 of them `sortMag` over fourteen terms, 2.5 `vecSum`, 3
-`vseb` and the cut. That is the next thing worth doing, and it is the one
-that would move this row.
+Each figure is taken in a process of its own. `cancellation` has come down in
+two steps: 282.7 before the guards were made one pass, 229.1 after, and 194.3
+once `vseb` was fused with the cut. Neither step moved `I.exp`, which is 6.2
+milliseconds throughout — **the exponential is not quotient-bound, it is
+product-bound**, and what is left of the product's list cost is the fourteen
+terms it writes out before any sweep runs.
 
 One more thing worth noticing: bignums get **quicker** going from 107 bits to
 159 on the pi brackets — at 107 they cannot reach the tight ones without
