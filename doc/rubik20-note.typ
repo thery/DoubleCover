@@ -1227,8 +1227,8 @@ They are the moves that do not change the phase 1 summary: they do not twist a
 corner, they do not flip an edge, and they keep the four middle edges in the
 middle layer. A coset of $H$ is the set of positions we get from one position
 using only these ten moves. A coset is therefore one value of the summary, and
-there are as many cosets as summaries. It is not the subgroup of the last
-section, which is Reid's. Every position of the cube lies in exactly one coset.
+there are as many cosets as summaries. Every position of the cube lies in
+exactly one coset.
 
 #tbl(([], [count]),
   ([positions of the cube], [43 252 003 274 489 856 000]),
