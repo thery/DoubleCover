@@ -496,7 +496,7 @@ Qed.
 Lemma widenUp_ge t f :
   finL (tw2l (widenUp t f)) -> twval t + D2R f <= twval (widenUp t f).
 Proof.
-rewrite /widenUp expUpF_eq => F.
+rewrite widenUpTwE => F.
 have H := expUp_ge _ F.
 have [_ [F0 [F1 [Fu _]]]] := expUp_finI _ F.
 have Fs := Dfin_upI _ _ Fu.
@@ -508,7 +508,7 @@ Qed.
 Lemma widenDn_le t f :
   finL (tw2l (widenDn t f)) -> twval (widenDn t f) <= twval t - D2R f.
 Proof.
-rewrite /widenDn expDnF_eq => F.
+rewrite widenDnTwE => F.
 have H := expDn_le _ F.
 have [_ [F0 [F1 [Fu _]]]] := expDn_finI _ F.
 have Fs := Dfin_dnI _ _ Fu.
@@ -523,7 +523,7 @@ Qed.
 Lemma widenUp_finI t f :
   finL (tw2l (widenUp t f)) -> finL (tw2l t) /\ Dfin f.
 Proof.
-rewrite /widenUp expUpF_eq => F.
+rewrite widenUpTwE => F.
 have [_ [F0 [F1 [Fu _]]]] := expUp_finI _ F.
 have [F2 Ff] := Dfin_addI _ _ (Dfin_upI _ _ Fu).
 by split => //; apply: finL_tw2l.
@@ -532,7 +532,7 @@ Qed.
 Lemma widenDn_finI t f :
   finL (tw2l (widenDn t f)) -> finL (tw2l t) /\ Dfin f.
 Proof.
-rewrite /widenDn expDnF_eq => F.
+rewrite widenDnTwE => F.
 have [_ [F0 [F1 [Fu _]]]] := expDn_finI _ F.
 have [F2 Ff] := Dfin_addI _ _ (Dfin_dnI _ _ Fu).
 split; last exact: Dfin_oppI Ff.

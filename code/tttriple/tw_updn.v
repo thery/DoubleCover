@@ -54,11 +54,20 @@ Proof. by rewrite /expUpF /expUp expF_eq. Qed.
 Lemma expDnF_eq l : expDnF l = expDn l.
 Proof. by rewrite /expDnF /expDn expF_eq. Qed.
 
-(* Widening a triple word by a positive amount, upwards and downwards.        *)
+(* Widening a triple word by a positive amount, upwards and downwards.  The   *)
+(* list here is always three long, so `expF3' does it with no list at all and *)
+(* `widenUpE' says that is the same answer.                                   *)
 Definition widenUp t f :=
-  expUpF [:: tw0 t; tw1 t; addUpFp (tw2 t) f].
+  expF3 (tw0 t) (tw1 t) (addUpFp (tw2 t) f).
 Definition widenDn t f :=
-  expDnF [:: tw0 t; tw1 t; addDnFp (tw2 t) (- f)].
+  expF3 (tw0 t) (tw1 t) (addDnFp (tw2 t) (- f)).
+
+Lemma widenUpTwE t f : widenUp t f = expUp [:: tw0 t; tw1 t; addUpFp (tw2 t) f].
+Proof. by rewrite /widenUp (expF3_eq addUpFp) -/(expUpF _) expUpF_eq. Qed.
+
+Lemma widenDnTwE t f :
+  widenDn t f = expDn [:: tw0 t; tw1 t; addDnFp (tw2 t) (- f)].
+Proof. by rewrite /widenDn (expF3_eq addDnFp) -/(expDnF _) expDnF_eq. Qed.
 
 (* ===========================================================================*)
 (*  Sum and difference                                                        *)

@@ -700,8 +700,16 @@ guard's pieces are each at the noise floor — `magDnTw` 0.4 µs, the four
 `normF` tests 0.6, `wellFormed q` 0.2, the three `abs`/`finF` tests 0.2.
 
 So the quotient's fourteen microseconds are 10.6 algorithm, 2.2 guard, 1.2
-shift, and there is nothing left in the guard worth a proof. What is left is
-the algorithm.
+shift, and there is nothing left in the guard worth a proof.
+
+**The shift had one thing left in it.** `widenUp` cuts a list of exactly three
+words, and `expF` walked it as a list like any other. At three the walk is two
+nested tests and four cases, and since nothing is ever folded there it needs no
+`add` at all — `expF3` in `twarith.v`, with `expF3_eq` for the proofs. The
+widening reads **0.85 microseconds against 0.50**, and every quotient and every
+root goes through it once: `divTwUpQ` 12.4 to 11.8. All six goals still prove.
+
+What is left after that is the algorithm.
 
 ## The root, without a fused multiply-add
 

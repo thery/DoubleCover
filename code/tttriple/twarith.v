@@ -346,6 +346,28 @@ Proof. by case: l => [|e l'] //=; apply: vsebF0_eq. Qed.
 
 End Fused.
 
+(* AND AT LENGTH THREE, WHICH IS WHAT THE WIDENING HANDS IT.  `widenUp' cuts  *)
+(* a list of exactly three words, so nothing is ever folded -- `cutTw' keeps  *)
+(* all three and `add' is never applied, which is why this takes no `add' at  *)
+(* all.  Two nested tests, four cases, and no list: the walk reads 0.85       *)
+(* microseconds on a three-list against 0.50 written out, and every quotient  *)
+(* and every root goes through it once.                                       *)
+Definition expF3 (a0 a1 a2 : float) : twfloat :=
+  let: DWFloat s0 e1 := twoSum a0 a1 in
+  if (e1 =? 0)%float
+  then let: DWFloat t0 t1 := twoSum s0 a2 in TWFloat t0 t1 0
+  else let: DWFloat u1 u2 := twoSum e1 a2 in
+       let: DWFloat h1 l1 := twoSum s0 u1 in
+       if (l1 =? 0)%float
+       then let: DWFloat h2 l2 := twoSum h1 u2 in TWFloat h2 l2 0
+       else let: DWFloat h2 l2 := twoSum l1 u2 in TWFloat h1 h2 l2.
+
+Lemma expF3_eq add a0 a1 a2 : expF3 a0 a1 a2 = expF add [:: a0; a1; a2].
+Proof.
+rewrite /expF3 /expF /= /vsebF3.
+by case: (_ =? 0)%float => //=; case: (_ =? 0)%float.
+Qed.
+
 (* Three floats as a triple word: both sweeps, and nothing lost.              *)
 Definition toTw (a b c : float) := l2tw (vseb (vecSum [:: a; b; c])).
 
