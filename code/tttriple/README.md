@@ -367,6 +367,7 @@ bignums at 159.
 |---|---|
 | `bench/ops_template.v` | one operation at a time, fixed same-size operands |
 | `bench/goals_template.v` | the seven goals through Interval's tactic |
+| `bench/cancel_probe.v` | the bound-and-depth sweep that shows `cancellation` is not a precision benchmark |
 | `bench_ops.v` | the old all-in-one-process version; **it reads about 2.7x high** on whatever runs last and is kept only as the record of that mistake |
 | `bench_bands.v` | the goals at the precision each **goal** asks for, rather than each format's own |
 | `bench_prec.v` | the goals at each format's width, all modules in one file |
