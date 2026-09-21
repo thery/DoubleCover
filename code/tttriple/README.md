@@ -515,6 +515,18 @@ work**: 4.7 seconds against 8.5 on `method_error`, 194 against 221 on
 the honest reading, and it is a different one from the table above, where
 bignums are asked for less work than they are being compared against.
 
+**And `cancellation` gets nothing at all from the extra word.** What it
+evaluates at every node is `exp x - exp x` over a range, and the width that
+comes back is the dependency, not the rounding: over `[0,1]` all three
+arithmetics return `0x1.b7e151628aed3p+1`, which is `2(e-1)`, and over a node
+of width `2^-20` at a half they all return `0x1.a612a61275772p-19`, which is
+`2 sqrt(e) 2^-20`. The leading words agree bit for bit; a triple word's second
+and third words sit far below anything that matters. So the bisection goes to
+the same depth whichever arithmetic is under it, and the whole of the time
+difference in the row above is the cost of one operation times the same count
+of them. That is why precision buys nothing here and why the row moves only
+when an operation gets quicker.
+
 Each figure is taken in a process of its own. `cancellation` has come down in
 two steps: 282.7 before the guards were made one pass, 229.1 after, and 194.3
 once `vseb` was fused with the cut. Neither step moved `I.exp`, which is 6.2
