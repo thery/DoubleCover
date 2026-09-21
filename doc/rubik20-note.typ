@@ -1266,9 +1266,10 @@ Four things are new, and none of them is about searching.
 - The rank and the sign of a permutation. Rocq's library has both, but for
   permutations that do not compute, so we need their effective version on
   machine integers.
-- That a position of a coset *is* its three numbers, in both directions. We had
-  one direction only. Without the other the theorem is about triples of numbers
-  and not about the cube.
+- That a position of a coset and its three numbers determine each other. We had
+  one way only, from a position to its numbers. Without the other way, from the
+  numbers back to a position, the theorem would be about triples of numbers and
+  not about the cube.
 - The link between the summary the search carries and the position it stands
   for. The summary is one machine word, the position forty-eight.
 - Checks on the tables, one per file, so that each reports separately.
