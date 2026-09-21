@@ -502,6 +502,51 @@ words in named would mean unrolling the walk at a fixed length, which is
 thirty-two cases at six and eight thousand at fourteen. **It was tried at six
 and it gains nothing** — see below.
 
+### What a word format is actually worth, in bits
+
+**This is the benchmark `cancellation` fails to be**, and it is the same
+expression with the bisection taken away. Evaluate `exp x - exp x` at a
+**point** and the dependency vanishes; what is left is the arithmetic's own
+rounding, and the tightest bound that can be proved reads the format's
+precision straight off:
+
+```coq
+Goal Rabs (exp 1 - exp 1) <= 1e-44.   (* triple words prove this, 1e-45 they do not *)
+```
+
+It costs milliseconds, it needs no depth, and `i_prec` moves the bignum rows
+exactly as it should — which is what says the method measures what it claims.
+
+| | nominal bits | tightest bound proved | same as bignums at |
+|---|---|---|---|
+| primitive floats | 53 | `1e-15` | **53** |
+| double words | 107 | `1e-28` | **~97** |
+| triple words | 159 | `1e-44` | **~148** |
+
+Bignums, for the calibration: 53 bits give `1e-15`, 85 give `1e-25`, 95 give
+`1e-27`, 100 give `1e-29`, 140 give `1e-41`, 145 `1e-43`, 148 `1e-44`, 152
+`1e-45`, 159 `1e-47`, 200 `1e-55`. Floats and bignums-at-53 agree exactly,
+which is the control.
+
+**Both word formats lose about ten bits end to end** — a double word delivers
+what 97 bits of bignum delivers where it holds 107, a triple word 148 where it
+holds 159. That is more than the two to seven bits the per-operation table
+below shows, because a whole `exp` is many operations deep.
+
+**And at equal delivered accuracy the advantage is not what the arithmetic
+suggests:**
+
+| same bound, both sides | word format | bignums | |
+|---|---|---|---|
+| `1e-15` | floats **0.007** | 53 bits: 0.010 | 1.4x |
+| `1e-28` | double **0.012** | 100 bits: 0.014 | 1.2x |
+| `1e-44` | triple 0.024 | 148 bits: **0.022** | bignums ahead |
+
+A triple word is **level with bignums, not ahead**. Its four-to-six-fold
+advantage per operation does not survive the tactic, because a goal like this
+one is mostly `I.exp`'s series and per-call overhead rather than raw
+arithmetic — `I.exp` itself is only 1.34x bignums where `F.mul_UP` is 4.6x.
+
 ### Every goal, at each format's own precision
 
 `bench/run_goals.sh` runs all seven goals over one module in a **process of its
@@ -532,9 +577,13 @@ Four things to read off it.
 reaches** — `method_error` 1.56 against 6.07, `cancellation` 25.4 against
 145.7 — and it reaches up to about a hundred bits.
 
-**A triple word now beats bignums on every row it is compared with**, by 2.1x
-on `method_error` and 1.26x on `cancellation`, and level on the brackets. It
-was level overall before the clean-up and is ahead now.
+**A triple word is about level with bignums, and the 2.1x on `method_error` in
+the table is an artefact of asking bignums for 159 bits.** That goal needs 70:
+bignums refuse it at 60, and prove it in 5.34 seconds at 70, 5.27 at 80, 5.67
+at 107 and 9.52 at 159. Against their best, 5.27, a triple word's 4.46 is
+**1.2x** and a double word's 1.56 is **3.4x**. Quoting the 159-bit column
+against a goal that wants 70 flatters the triple word, exactly as quoting the
+60-bit column on `cancellation` flatters bignums.
 
 **Only a triple word reaches the two tight brackets**, and it takes the
 105-bit one more than twice as quickly as bignums do.
