@@ -680,13 +680,18 @@ worked out again. Checked across every file, by matching each `X` against its
 Two places were still doing work twice. Both are real and both measure at
 almost nothing, which is the point of writing them down.
 
-**`halfOkb` did the division four times a word.** It was
+**`halfOkb` did the division four times a word, and now does it once.** It was
 `finF (a / 2) && finF ((a / 2) * 2) && ((a / 2) * 2 =? a)` — three halvings and
-two doublings — and `threeSqRtG` computes `halfTw bw` beside it, so each of
-the three words was halved four times over. Sharing inside the test is free
-and changes no statement; it is done. Handing the half in from outside would
-change `halfTw_okb`'s shape and reach four proofs, and the whole of it is
-**0.80 microseconds to 0.70** in a root of fourteen, so it is not done.
+two doublings — and `threeSqRtG` computes `halfTw bw` beside it, so each of the
+three words was halved four times over. `halfOkbv a h` now takes the half the
+algorithm already has and `halfTw_okbv t u` the triple of them, with
+`halfOkb a := halfOkbv a (a / 2)` and `halfTw_okb t := halfTw_okbv t (halfTw t)`
+so that the old statement is the new one at that argument. **No proof needed
+changing** — `half_exact` and `halfTw_okbP` read exactly as they did, and
+`threeSqRtGE` still closes by conversion. Measured on the expression itself,
+`halfTw bw` beside its test goes **0.80 microseconds to 0.70**; in a root of
+fourteen that is under one per cent, which is why it is worth having only
+because it cost nothing.
 
 **The outer guard reads `abs (tw0 q)` three times**, and `kstep` inside
 `shiftUp` reads it twice more and recomputes `kscale * abs (tw0 q)`. Sharing

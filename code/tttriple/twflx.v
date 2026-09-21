@@ -1407,16 +1407,18 @@ Qed.
 (* format is closed under it upwards, and an overflow is an infinity, which   *)
 (* is not the word it started as -- so a word that comes back is a word whose *)
 (* halving lost nothing.                                                      *)
-(* The halving ONCE.  Written out, `a / 2' appears three times and            *)
-(* `(a / 2) * 2' twice, and the algorithm above has computed the half         *)
-(* already -- so the test used to do the division four times over for each    *)
-(* word.  Sharing inside the test is free and changes no statement; handing   *)
-(* the half in from outside would change `halfTw_okb''s shape, and is worth   *)
-(* a tenth of a microsecond in a root of fourteen, so it is not done.         *)
-Definition halfOkb (a : PrimFloat.float) : bool :=
-  let h := (a / 2)%float in
+(* THE HALVING ONCE, AND FROM OUTSIDE.  Written out, the test was             *)
+(* `finF (a / 2) && finF ((a / 2) * 2) && ((a / 2) * 2 =? a)' -- three         *)
+(* halvings and two doublings -- and `threeSqRtG' computes `halfTw bw' beside  *)
+(* it, so every word was halved FOUR times over.  `halfOkbv' takes the half    *)
+(* the algorithm already has, and `halfOkb' is it applied to `a / 2', so the   *)
+(* old statement is the new one at that argument and every proof below reads   *)
+(* the same.                                                                  *)
+Definition halfOkbv (a h : PrimFloat.float) : bool :=
   let d := (h * 2)%float in
   finF h && finF d && (d =? a)%float.
+
+Definition halfOkb (a : PrimFloat.float) : bool := halfOkbv a (a / 2)%float.
 
 Lemma half_exact a : Dfin a -> halfOkb a = true ->
   D2R (a / 2)%float = (D2R a / 2)%R /\ Dfin (a / 2)%float.
@@ -1490,9 +1492,13 @@ have [E _] := Dfin_div _ _ Fa N2 Fs.
 by apply: DnormT_of_rnd; rewrite -E2 -E; apply: normFP.
 Qed.
 
-Definition halfTw_okb (t : twfloat) : bool :=
+Definition halfTw_okbv (t u : twfloat) : bool :=
   let: TWFloat x0 x1 x2 := t in
-  [&& finF x0, finF x1, finF x2, halfOkb x0 & halfOkb x1] && halfOkb x2.
+  let: TWFloat h0 h1 h2 := u in
+  [&& finF x0, finF x1, finF x2, halfOkbv x0 h0 & halfOkbv x1 h1]
+  && halfOkbv x2 h2.
+
+Definition halfTw_okb (t : twfloat) : bool := halfTw_okbv t (halfTw t).
 
 Definition sub32Tw_okb (t : twfloat) : bool :=
   let: TWFloat x0 x1 x2 := t in
@@ -1983,7 +1989,7 @@ Definition threeSqRtG (x : twfloat) : twfloat * bool :=
   let: (p2, k3) := prodDWG hb i1 in
   let s2 := sub32Tw p2 in
   let: (q, k5) := prodOneG i1 s2 in
-  (q, [&& k0, k1 & halfTw_okb bw] && [&& k3, sub32Tw_okb p2 & k5]).
+  (q, [&& k0, k1 & halfTw_okbv bw hb] && [&& k3, sub32Tw_okb p2 & k5]).
 
 Lemma threeSqRtGE x : threeSqRtG x = (threeSqRt x, sqrt_okb x).
 Proof.
