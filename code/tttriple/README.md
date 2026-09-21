@@ -473,8 +473,8 @@ bracket still proves at the same precision.
 **What is left.** The lists that are *handed in* are still lists: `Merge`
 builds six cells for the sum and the product writes fourteen out. Feeding the
 words in named would mean unrolling the walk at a fixed length, which is
-thirty-two cases at six and eight thousand at fourteen — worth doing for the
-sum, not for the product.
+thirty-two cases at six and eight thousand at fourteen. **It was tried at six
+and it gains nothing** — see below.
 
 ### Every goal at the same precision
 
@@ -607,6 +607,24 @@ holds 101 to 104 — and it buys nothing whatever on a goal whose intervals have
 already opened up. `cancellation` is that goal: its width is the dependency,
 so all three arithmetics return the same interval and the extra word is paid
 for and not used.
+
+### The walk unrolled at six, which gains nothing
+
+`vecSum6` builds a six-word list and the fused walk traverses it, so the walk
+looked like the next thing to write out at a fixed length. It was generated
+rather than written by hand — `Eval cbv` over the walk's own constants, leaving
+`twoSum` folded, so the answer is `expF`'s by construction and the equation is
+`by []`.
+
+Generated **with** `zeta` it is **three times slower**: stripping the `let`s
+duplicates every shared two-sum and the evaluator recomputes them. That is
+worth knowing on its own, and it is why `expF3` for the widening was written by
+hand with its sharing kept.
+
+Generated **without** `zeta` it is level with the list version — 0.059
+microseconds against 0.062, which is noise. So the traversal was never the
+cost: what a six-cell list costs to build and walk is below what can be
+measured here, and the arithmetic is the whole of it. The walk stays as it is.
 
 ### `Merge` was tried and put back
 
@@ -946,8 +964,8 @@ of exponents, and it is not done.
    with the cut into one walk — and what is left is the list each operation
    *builds* before any sweep runs: `Merge`'s six cells for the sum, the
    product's fourteen written out. Feeding the words in named means unrolling
-   the fused walk at a fixed length, which is thirty-two cases at six and
-   eight thousand at fourteen: worth doing for the sum, not for the product.
+   the fused walk at a fixed length. It was tried at six and gains nothing:
+   the list the walk traverses was never the cost.
 
    Timed on their own, microseconds a call, five thousand a loop:
 
