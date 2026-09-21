@@ -27,13 +27,43 @@ Definition divOkT (z x : twfloat) : bool :=
          finF (kscale * abs (tw0 q))%float
        & finF (dw_updn.mulUpFp kscale (abs (tw0 q)))].
 
+(* AND THE SAME, IN ONE PASS.  Written as it is above, the quotient is       *)
+(* worked out three times over: once inside `divOkT', once inside `div_okb'  *)
+(* under it, and once again for the answer.  `threeDivG' does it once and    *)
+(* hands back the flag beside it, and `threeDivGE' says the pair is the two  *)
+(* computed apart -- so `divTwUpQE' below is the definition above, and every *)
+(* proof goes through the equation and never sees the arrangement.           *)
 Definition divTwUpQ (z x : twfloat) :=
-  if posFp (magDnTw x) && divOkT z x
-  then shiftUp (threeDiv z x) else TWFloat nan nan nan.
+  let: (q, ok) := threeDivG z x in
+  if posFp (magDnTw x)
+     && ([&& normF (tw0 z), ((tw1 z =? 0)%float || normF (tw1 z)),
+             normF (tw0 x) & ((tw1 x =? 0)%float || normF (tw1 x))]
+         && [&& ok, wellFormed q,
+                (tw_updn.normLo <? abs (tw0 q))%float,
+                finF (kscale * abs (tw0 q))%float
+              & finF (dw_updn.mulUpFp kscale (abs (tw0 q)))])
+  then shiftUp q else TWFloat nan nan nan.
 
 Definition divTwDnQ (z x : twfloat) :=
-  if posFp (magDnTw x) && divOkT z x
-  then shiftDn (threeDiv z x) else TWFloat nan nan nan.
+  let: (q, ok) := threeDivG z x in
+  if posFp (magDnTw x)
+     && ([&& normF (tw0 z), ((tw1 z =? 0)%float || normF (tw1 z)),
+             normF (tw0 x) & ((tw1 x =? 0)%float || normF (tw1 x))]
+         && [&& ok, wellFormed q,
+                (tw_updn.normLo <? abs (tw0 q))%float,
+                finF (kscale * abs (tw0 q))%float
+              & finF (dw_updn.mulUpFp kscale (abs (tw0 q)))])
+  then shiftDn q else TWFloat nan nan nan.
+
+Lemma divTwUpQE z x :
+  divTwUpQ z x = if posFp (magDnTw x) && divOkT z x
+                 then shiftUp (threeDiv z x) else TWFloat nan nan nan.
+Proof. by rewrite /divTwUpQ /divOkT threeDivGE. Qed.
+
+Lemma divTwDnQE z x :
+  divTwDnQ z x = if posFp (magDnTw x) && divOkT z x
+                 then shiftDn (threeDiv z x) else TWFloat nan nan nan.
+Proof. by rewrite /divTwDnQ /divOkT threeDivGE. Qed.
 
 Open Scope R_scope.
 
@@ -50,14 +80,14 @@ Qed.
 
 Lemma divTwUpQ_nz x y : finL (tw2l (divTwUpQ x y)) -> twval y <> (0 : R).
 Proof.
-rewrite /divTwUpQ; case Hp: (posFp (magDnTw y) && divOkT x y);
+rewrite divTwUpQE; case Hp: (posFp (magDnTw y) && divOkT x y);
   last by move/finL_nan3.
 by have [H _] := andb_prop _ _ Hp; move=> _; apply: divGuard_nz.
 Qed.
 
 Lemma divTwDnQ_nz x y : finL (tw2l (divTwDnQ x y)) -> twval y <> (0 : R).
 Proof.
-rewrite /divTwDnQ; case Hp: (posFp (magDnTw y) && divOkT x y);
+rewrite divTwDnQE; case Hp: (posFp (magDnTw y) && divOkT x y);
   last by move/finL_nan3.
 by have [H _] := andb_prop _ _ Hp; move=> _; apply: divGuard_nz.
 Qed.
@@ -68,7 +98,7 @@ Theorem divTwUpQ_ge x y :
   finL (tw2l (divTwUpQ x y)) ->
   (twval x / twval y <= twval (divTwUpQ x y))%R.
 Proof.
-move=> Fx Wx Fy Wy; rewrite /divTwUpQ.
+move=> Fx Wx Fy Wy; rewrite divTwUpQE.
 case Hp: (posFp (magDnTw y) && divOkT x y); last by move/finL_nan3.
 have [_ Hok] := andb_prop _ _ Hp.
 rewrite /shiftUp => Fw.
@@ -84,7 +114,7 @@ Theorem divTwDnQ_le x y :
   finL (tw2l (divTwDnQ x y)) ->
   (twval (divTwDnQ x y) <= twval x / twval y)%R.
 Proof.
-move=> Fx Wx Fy Wy; rewrite /divTwDnQ.
+move=> Fx Wx Fy Wy; rewrite divTwDnQE.
 case Hp: (posFp (magDnTw y) && divOkT x y); last by move/finL_nan3.
 have [_ Hok] := andb_prop _ _ Hp.
 rewrite /shiftDn => Fw.
@@ -223,56 +253,161 @@ have -> : (twval (divTwDnQ zs xs) * bpow radix2 (eb - ea)
 by [].
 Qed.
 
+(* A NOUGHT ON TOP.  The guard asks the answer for a leading word above the  *)
+(* smallest normal number, because the step it is widened by is `kscale'      *)
+(* times that word; nought is not such a word, so every one of the seven     *)
+(* ways below refuses a quotient of nought and hands back `nan'.  There is    *)
+(* nothing there to refuse: nought over a number that is not nought is        *)
+(* exactly nought, and an exact answer needs no widening.  Nor is it a        *)
+(* corner.  Interval's own exponential divides by an enclosure whose lower    *)
+(* end is nought, and without this line the whole enclosure comes back as     *)
+(* nothing -- which is what `bench_bands.v' was reading as a refusal.         *)
+Definition zeroTwb (t : twfloat) : bool :=
+  [&& finTwb t, (tw0 t =? 0)%float, (tw1 t =? 0)%float & (tw2 t =? 0)%float].
+
+Lemma D2R_zero : D2R 0%float = (0 : R).
+Proof. by []. Qed.
+
+Lemma twval_zero3 : twval (TWFloat 0%float 0%float 0%float) = (0 : R).
+Proof. by rewrite /twval /= !D2R_zero; lra. Qed.
+
+Lemma zeroTwbP t : zeroTwb t = true -> twval t = (0 : R).
+Proof.
+have F0 : Dfin 0%float by [].
+case: t => a b c /and4P[/and3P[Fa Fb Fc] Ea Eb Ec].
+rewrite /twval /= (Deqb _ _ Ea (finFP _ Fa) F0) (Deqb _ _ Eb (finFP _ Fb) F0)
+        (Deqb _ _ Ec (finFP _ Fc) F0) !D2R_zero.
+by lra.
+Qed.
+
 (* THE SIX WAYS ROUND.  The direct call first; then both numbers moved        *)
 (* together, where the quotient does not move and the answer needs no         *)
 (* correction; then each of them alone either way, where it does.  Every way  *)
 (* is tested, and what is behind all seven is `nan', so the operation is      *)
 (* total.                                                                     *)
 Definition divTwUpK (z x : twfloat) :=
+  if zeroTwb z && posFp (magDnTw x) then TWFloat 0%float 0%float 0%float else
   let q0 := divTwUpQ z x in
   if finTwb q0 then q0 else
   let zu := scaleTw z ddup in let xu := (scaleTw x ddup) in
   let zd := scaleTw z dddn in let xd := (scaleTw x dddn) in
+  let a1 := divTwUpQ zu xu in
   if [&& finTwb zu, wellFormed zu, finTwb xu, wellFormed xu
-       & finTwb (divTwUpQ zu xu)] then divTwUpQ zu xu else
+       & finTwb a1] then a1 else
+  let a2 := divTwUpQ zd xd in
   if [&& scaleOkb z dddn ddup, wellFormed zd, scaleOkb x dddn ddup,
-         wellFormed xd & finTwb (divTwUpQ zd xd)] then divTwUpQ zd xd else
-  if [&& finTwb zu, wellFormed zu, finTwb (divTwUpQ zu x)
-       & scaleOkb (divTwUpQ zu x) dddn ddup]
-  then scaleTw (divTwUpQ zu x) dddn else
-  if [&& scaleOkb z dddn ddup, wellFormed zd, finTwb (divTwUpQ zd x)
-       & finTwb (scaleTw (divTwUpQ zd x) ddup)]
-  then scaleTw (divTwUpQ zd x) ddup else
-  if [&& finTwb xu, wellFormed xu, finTwb (divTwUpQ z xu)
-       & finTwb (scaleTw (divTwUpQ z xu) ddup)]
-  then scaleTw (divTwUpQ z xu) ddup else
-  if [&& scaleOkb x dddn ddup, wellFormed xd, finTwb (divTwUpQ z xd)
-       & scaleOkb (divTwUpQ z xd) dddn ddup]
-  then scaleTw (divTwUpQ z xd) dddn else
+         wellFormed xd & finTwb a2] then a2 else
+  let a3 := divTwUpQ zu x in
+  if [&& finTwb zu, wellFormed zu, finTwb a3
+       & scaleOkb a3 dddn ddup]
+  then scaleTw a3 dddn else
+  let a4 := divTwUpQ zd x in
+  if [&& scaleOkb z dddn ddup, wellFormed zd, finTwb a4
+       & finTwb (scaleTw a4 ddup)]
+  then scaleTw a4 ddup else
+  let a5 := divTwUpQ z xu in
+  if [&& finTwb xu, wellFormed xu, finTwb a5
+       & finTwb (scaleTw a5 ddup)]
+  then scaleTw a5 ddup else
+  let a6 := divTwUpQ z xd in
+  if [&& scaleOkb x dddn ddup, wellFormed xd, finTwb a6
+       & scaleOkb a6 dddn ddup]
+  then scaleTw a6 dddn else
   TWFloat nan nan nan.
 
 Definition divTwDnK (z x : twfloat) :=
+  if zeroTwb z && posFp (magDnTw x) then TWFloat 0%float 0%float 0%float else
   let q0 := divTwDnQ z x in
   if finTwb q0 then q0 else
   let zu := scaleTw z ddup in let xu := (scaleTw x ddup) in
   let zd := scaleTw z dddn in let xd := (scaleTw x dddn) in
+  let a1 := divTwDnQ zu xu in
   if [&& finTwb zu, wellFormed zu, finTwb xu, wellFormed xu
-       & finTwb (divTwDnQ zu xu)] then divTwDnQ zu xu else
+       & finTwb a1] then a1 else
+  let a2 := divTwDnQ zd xd in
   if [&& scaleOkb z dddn ddup, wellFormed zd, scaleOkb x dddn ddup,
-         wellFormed xd & finTwb (divTwDnQ zd xd)] then divTwDnQ zd xd else
-  if [&& finTwb zu, wellFormed zu, finTwb (divTwDnQ zu x)
-       & scaleOkb (divTwDnQ zu x) dddn ddup]
-  then scaleTw (divTwDnQ zu x) dddn else
-  if [&& scaleOkb z dddn ddup, wellFormed zd, finTwb (divTwDnQ zd x)
-       & finTwb (scaleTw (divTwDnQ zd x) ddup)]
-  then scaleTw (divTwDnQ zd x) ddup else
-  if [&& finTwb xu, wellFormed xu, finTwb (divTwDnQ z xu)
-       & finTwb (scaleTw (divTwDnQ z xu) ddup)]
-  then scaleTw (divTwDnQ z xu) ddup else
-  if [&& scaleOkb x dddn ddup, wellFormed xd, finTwb (divTwDnQ z xd)
-       & scaleOkb (divTwDnQ z xd) dddn ddup]
-  then scaleTw (divTwDnQ z xd) dddn else
+         wellFormed xd & finTwb a2] then a2 else
+  let a3 := divTwDnQ zu x in
+  if [&& finTwb zu, wellFormed zu, finTwb a3
+       & scaleOkb a3 dddn ddup]
+  then scaleTw a3 dddn else
+  let a4 := divTwDnQ zd x in
+  if [&& scaleOkb z dddn ddup, wellFormed zd, finTwb a4
+       & finTwb (scaleTw a4 ddup)]
+  then scaleTw a4 ddup else
+  let a5 := divTwDnQ z xu in
+  if [&& finTwb xu, wellFormed xu, finTwb a5
+       & finTwb (scaleTw a5 ddup)]
+  then scaleTw a5 ddup else
+  let a6 := divTwDnQ z xd in
+  if [&& scaleOkb x dddn ddup, wellFormed xd, finTwb a6
+       & scaleOkb a6 dddn ddup]
+  then scaleTw a6 dddn else
   TWFloat nan nan nan.
+
+(* Each way round is named, so the test and the answer are the same call.     *)
+(* Written out it is two quotients a branch and up to twelve in all.          *)
+Lemma divTwUpKE z x :
+  divTwUpK z x =
+  (if zeroTwb z && posFp (magDnTw x) then TWFloat 0%float 0%float 0%float else
+   if finTwb (divTwUpQ z x) then divTwUpQ z x else
+   if [&& finTwb (scaleTw z ddup), wellFormed (scaleTw z ddup),
+          finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup)
+        & finTwb (divTwUpQ (scaleTw z ddup) (scaleTw x ddup))]
+   then divTwUpQ (scaleTw z ddup) (scaleTw x ddup) else
+   if [&& scaleOkb z dddn ddup, wellFormed (scaleTw z dddn),
+          scaleOkb x dddn ddup, wellFormed (scaleTw x dddn)
+        & finTwb (divTwUpQ (scaleTw z dddn) (scaleTw x dddn))]
+   then divTwUpQ (scaleTw z dddn) (scaleTw x dddn) else
+   if [&& finTwb (scaleTw z ddup), wellFormed (scaleTw z ddup),
+          finTwb (divTwUpQ (scaleTw z ddup) x)
+        & scaleOkb (divTwUpQ (scaleTw z ddup) x) dddn ddup]
+   then scaleTw (divTwUpQ (scaleTw z ddup) x) dddn else
+   if [&& scaleOkb z dddn ddup, wellFormed (scaleTw z dddn),
+          finTwb (divTwUpQ (scaleTw z dddn) x)
+        & finTwb (scaleTw (divTwUpQ (scaleTw z dddn) x) ddup)]
+   then scaleTw (divTwUpQ (scaleTw z dddn) x) ddup else
+   if [&& finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup),
+          finTwb (divTwUpQ z (scaleTw x ddup))
+        & finTwb (scaleTw (divTwUpQ z (scaleTw x ddup)) ddup)]
+   then scaleTw (divTwUpQ z (scaleTw x ddup)) ddup else
+   if [&& scaleOkb x dddn ddup, wellFormed (scaleTw x dddn),
+          finTwb (divTwUpQ z (scaleTw x dddn))
+        & scaleOkb (divTwUpQ z (scaleTw x dddn)) dddn ddup]
+   then scaleTw (divTwUpQ z (scaleTw x dddn)) dddn else
+   TWFloat nan nan nan).
+Proof. by []. Qed.
+
+Lemma divTwDnKE z x :
+  divTwDnK z x =
+  (if zeroTwb z && posFp (magDnTw x) then TWFloat 0%float 0%float 0%float else
+   if finTwb (divTwDnQ z x) then divTwDnQ z x else
+   if [&& finTwb (scaleTw z ddup), wellFormed (scaleTw z ddup),
+          finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup)
+        & finTwb (divTwDnQ (scaleTw z ddup) (scaleTw x ddup))]
+   then divTwDnQ (scaleTw z ddup) (scaleTw x ddup) else
+   if [&& scaleOkb z dddn ddup, wellFormed (scaleTw z dddn),
+          scaleOkb x dddn ddup, wellFormed (scaleTw x dddn)
+        & finTwb (divTwDnQ (scaleTw z dddn) (scaleTw x dddn))]
+   then divTwDnQ (scaleTw z dddn) (scaleTw x dddn) else
+   if [&& finTwb (scaleTw z ddup), wellFormed (scaleTw z ddup),
+          finTwb (divTwDnQ (scaleTw z ddup) x)
+        & scaleOkb (divTwDnQ (scaleTw z ddup) x) dddn ddup]
+   then scaleTw (divTwDnQ (scaleTw z ddup) x) dddn else
+   if [&& scaleOkb z dddn ddup, wellFormed (scaleTw z dddn),
+          finTwb (divTwDnQ (scaleTw z dddn) x)
+        & finTwb (scaleTw (divTwDnQ (scaleTw z dddn) x) ddup)]
+   then scaleTw (divTwDnQ (scaleTw z dddn) x) ddup else
+   if [&& finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup),
+          finTwb (divTwDnQ z (scaleTw x ddup))
+        & finTwb (scaleTw (divTwDnQ z (scaleTw x ddup)) ddup)]
+   then scaleTw (divTwDnQ z (scaleTw x ddup)) ddup else
+   if [&& scaleOkb x dddn ddup, wellFormed (scaleTw x dddn),
+          finTwb (divTwDnQ z (scaleTw x dddn))
+        & scaleOkb (divTwDnQ z (scaleTw x dddn)) dddn ddup]
+   then scaleTw (divTwDnQ z (scaleTw x dddn)) dddn else
+   TWFloat nan nan nan).
+Proof. by []. Qed.
 
 Lemma bpow0R : bpow radix2 0 = (1 : R).
 Proof. by []. Qed.
@@ -286,7 +421,10 @@ Theorem divTwUpK_ge x y :
   finL (tw2l (divTwUpK x y)) ->
   (twval x / twval y <= twval (divTwUpK x y))%R.
 Proof.
-move=> Fx Wx Fy Wy; rewrite /divTwUpK.
+move=> Fx Wx Fy Wy; rewrite divTwUpKE.
+case Hz: (zeroTwb x && posFp (magDnTw y)).
+  move=> _; have /andP[Hz0 _] := Hz.
+  by rewrite (zeroTwbP _ Hz0) twval_zero3 /Rdiv Rmult_0_l; lra.
 case Hq: (finTwb (divTwUpQ x y)).
   by move=> _; apply: divTwUpQ_ge => //; apply: finTwbP.
 case H1: [&& finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup),
@@ -388,7 +526,10 @@ Theorem divTwDnK_le x y :
   finL (tw2l (divTwDnK x y)) ->
   (twval (divTwDnK x y) <= twval x / twval y)%R.
 Proof.
-move=> Fx Wx Fy Wy; rewrite /divTwDnK.
+move=> Fx Wx Fy Wy; rewrite divTwDnKE.
+case Hz: (zeroTwb x && posFp (magDnTw y)).
+  move=> _; have /andP[Hz0 _] := Hz.
+  by rewrite (zeroTwbP _ Hz0) twval_zero3 /Rdiv Rmult_0_l; lra.
 case Hq: (finTwb (divTwDnQ x y)).
   by move=> _; apply: divTwDnQ_le => //; apply: finTwbP.
 case H1: [&& finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup),
@@ -494,7 +635,9 @@ Qed.
 Lemma divTwUpK_nz x y :
   finL (tw2l y) -> finL (tw2l (divTwUpK x y)) -> twval y <> (0 : R).
 Proof.
-move=> Fy; rewrite /divTwUpK.
+move=> Fy; rewrite divTwUpKE.
+case Hz: (zeroTwb x && posFp (magDnTw y)).
+  by move=> _; have /andP[_ Hy0] := Hz; apply: divGuard_nz.
 case Hq: (finTwb (divTwUpQ x y)).
   by move=> _; apply: (divTwUpQ_nz x y); apply: finTwbP.
 case H1: [&& finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup),
@@ -541,7 +684,9 @@ Qed.
 Lemma divTwDnK_nz x y :
   finL (tw2l y) -> finL (tw2l (divTwDnK x y)) -> twval y <> (0 : R).
 Proof.
-move=> Fy; rewrite /divTwDnK.
+move=> Fy; rewrite divTwDnKE.
+case Hz: (zeroTwb x && posFp (magDnTw y)).
+  by move=> _; have /andP[_ Hy0] := Hz; apply: divGuard_nz.
 case Hq: (finTwb (divTwDnQ x y)).
   by move=> _; apply: (divTwDnQ_nz x y); apply: finTwbP.
 case H1: [&& finTwb (scaleTw x ddup), wellFormed (scaleTw x ddup),

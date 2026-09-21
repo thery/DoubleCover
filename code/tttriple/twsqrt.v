@@ -30,15 +30,43 @@ Definition sqrtOkT (x : twfloat) : bool :=
 (* The root of a negative number is taken to be nought here, so a bound      *)
 (* below it would be a claim about nothing: what it is given has to be above  *)
 (* zero, and so has the answer, which is what the shift is taken from.        *)
+(* IN ONE PASS.  Written as above, the root is worked out three times: once *)
+(* for `sqrtOkT', once for `sqrt_okb' under it, and once for the answer.     *)
+(* `threeSqRtG' does it once, and the two lemmas below say the pair is the   *)
+(* two computed apart, so no proof has to look at the arrangement.           *)
 Definition sqrtTwUpP (x : twfloat) :=
-  let q := threeSqRt x in
-  if posFp (valDnTw q) && posFp ((tw0 x + tw1 x + tw2 x)%float) && sqrtOkT x
+  let: (q, ok) := threeSqRtG x in
+  if posFp (valDnTw q) && posFp ((tw0 x + tw1 x + tw2 x)%float)
+     && [&& normF (tw0 x), ((tw1 x =? 0)%float || normF (tw1 x)), ok,
+             wellFormed q
+           & [&& (tw_updn.normLo <? abs (tw0 q))%float,
+                 finF (kscale * abs (tw0 q))%float
+               & finF (dw_updn.mulUpFp kscale (abs (tw0 q)))]]
   then shiftUp q else TWFloat nan nan nan.
 
 Definition sqrtTwDnP (x : twfloat) :=
-  let q := threeSqRt x in
-  if posFp (valDnTw q) && posFp ((tw0 x + tw1 x + tw2 x)%float) && sqrtOkT x
+  let: (q, ok) := threeSqRtG x in
+  if posFp (valDnTw q) && posFp ((tw0 x + tw1 x + tw2 x)%float)
+     && [&& normF (tw0 x), ((tw1 x =? 0)%float || normF (tw1 x)), ok,
+             wellFormed q
+           & [&& (tw_updn.normLo <? abs (tw0 q))%float,
+                 finF (kscale * abs (tw0 q))%float
+               & finF (dw_updn.mulUpFp kscale (abs (tw0 q)))]]
   then shiftDn q else TWFloat nan nan nan.
+
+Lemma sqrtTwUpPE x :
+  sqrtTwUpP x =
+  (if posFp (valDnTw (threeSqRt x)) && posFp ((tw0 x + tw1 x + tw2 x)%float)
+      && sqrtOkT x
+   then shiftUp (threeSqRt x) else TWFloat nan nan nan).
+Proof. by rewrite /sqrtTwUpP /sqrtOkT threeSqRtGE. Qed.
+
+Lemma sqrtTwDnPE x :
+  sqrtTwDnP x =
+  (if posFp (valDnTw (threeSqRt x)) && posFp ((tw0 x + tw1 x + tw2 x)%float)
+      && sqrtOkT x
+   then shiftDn (threeSqRt x) else TWFloat nan nan nan).
+Proof. by rewrite /sqrtTwDnP /sqrtOkT threeSqRtGE. Qed.
 
 Open Scope R_scope.
 
@@ -57,7 +85,7 @@ Theorem sqrtTwUpP_ge x :
   finL (tw2l (sqrtTwUpP x)) ->
   (R_sqrt.sqrt (twval x) <= twval (sqrtTwUpP x))%R.
 Proof.
-move=> Fl Ew; rewrite /sqrtTwUpP.
+move=> Fl Ew; rewrite sqrtTwUpPE.
 case Hp: (posFp (valDnTw (threeSqRt x))
           && posFp ((tw0 x + tw1 x + tw2 x)%float) && sqrtOkT x);
   last by move/finL_nan3.
@@ -76,7 +104,7 @@ Theorem sqrtTwDnP_le x :
   finL (tw2l (sqrtTwDnP x)) ->
   (twval (sqrtTwDnP x) <= R_sqrt.sqrt (twval x))%R.
 Proof.
-move=> Fl Ew; rewrite /sqrtTwDnP.
+move=> Fl Ew; rewrite sqrtTwDnPE.
 case Hp: (posFp (valDnTw (threeSqRt x))
           && posFp ((tw0 x + tw1 x + tw2 x)%float) && sqrtOkT x);
   last by move/finL_nan3.

@@ -543,7 +543,7 @@ Qed.
 Theorem addTwUp_ge x y :
   finL (tw2l (addTwUp x y)) -> twval x + twval y <= twval (addTwUp x y).
 Proof.
-rewrite /addTwUp => F.
+rewrite /addTwUp vecSum6_eq => F.
 have H := expUp_ge _ F.
 have [_ Fv] := expUp_finI _ F.
 have Hv := vecSum_sum _ Fv.
@@ -553,7 +553,7 @@ Qed.
 Theorem addTwDn_le x y :
   finL (tw2l (addTwDn x y)) -> twval (addTwDn x y) <= twval x + twval y.
 Proof.
-rewrite /addTwDn => F.
+rewrite /addTwDn vecSum6_eq => F.
 have H := expDn_le _ F.
 have [_ Fv] := expDn_finI _ F.
 have Hv := vecSum_sum _ Fv.
@@ -612,6 +612,64 @@ Lemma Dteps :
   D2R teps = 16 * bpow radix2 (SpecFloat.emin FloatOps.prec FloatOps.emax).
 Proof. by rewrite /D2R /teps; compute; lra. Qed.
 
+Lemma Descale_pos : (0 <= D2R escale)%R.
+Proof. by rewrite /D2R /escale; compute; lra. Qed.
+
+Lemma Dfin_teps : Dfin teps.
+Proof. by []. Qed.
+
+(* The step the product is widened by is at least the fixed one: it is the   *)
+(* larger of the two, and the test that picks it is a test on the numbers.   *)
+Lemma Dpstep w : Dfin (pstep w) ->
+  (16 * bpow radix2 (SpecFloat.emin FloatOps.prec FloatOps.emax)
+     <= D2R (pstep w))%R.
+Proof.
+rewrite -Dteps /pstep; case E: (_ <? _)%float => Fst; last by lra.
+by have := Dltb _ _ Dfin_teps Fst E; lra.
+Qed.
+
+Lemma Dnpstep w : Dfin (pstep w) ->
+  (D2R (- pstep w)%float
+     <= - (16 * bpow radix2 (SpecFloat.emin FloatOps.prec FloatOps.emax)))%R.
+Proof.
+move=> Fst; have := Dpstep _ Fst.
+by rewrite D2R_opp; lra.
+Qed.
+
+(* A product with a nought in it needs no rounding, and the finiteness that  *)
+(* carries the whole computation goes through it just the same.              *)
+Lemma Dfin_mulUp0I a b : Dfin (mulUp0 a b) -> Dfin (a * b)%float.
+Proof. by rewrite /mulUp0; case: ifP => // _; apply: Dfin_mulUpI. Qed.
+
+Lemma Dfin_mulDn0I a b : Dfin (mulDn0 a b) -> Dfin (a * b)%float.
+Proof. by rewrite /mulDn0; case: ifP => // _; apply: Dfin_mulDnI. Qed.
+
+Lemma mulUp0_ge a b : Dfin a -> Dfin b -> Dfin (a * b)%float ->
+  Dfin (mulUp0 a b) -> (D2R a * D2R b <= D2R (mulUp0 a b))%R.
+Proof.
+move=> Fa Fb Fs; rewrite /mulUp0; case E: (_ || _)%float; last first.
+  by move=> Fu; apply: mulUpFp_ge.
+move=> _.
+have E0 : Drnd (0 : R) = (0 : R) by rewrite DrndE round_0.
+have [-> _] := Dfin_mul _ _ Fa Fb Fs.
+have [Ez|Ez] := orP E.
+  by have [_ ->] := Dfin_eqb0 _ Ez; rewrite Rmult_0_l E0; lra.
+by have [_ ->] := Dfin_eqb0 _ Ez; rewrite Rmult_0_r E0; lra.
+Qed.
+
+Lemma mulDn0_le a b : Dfin a -> Dfin b -> Dfin (a * b)%float ->
+  Dfin (mulDn0 a b) -> (D2R (mulDn0 a b) <= D2R a * D2R b)%R.
+Proof.
+move=> Fa Fb Fs; rewrite /mulDn0; case E: (_ || _)%float; last first.
+  by move=> Fu; apply: mulDnFp_le.
+move=> _.
+have E0 : Drnd (0 : R) = (0 : R) by rewrite DrndE round_0.
+have [-> _] := Dfin_mul _ _ Fa Fb Fs.
+have [Ez|Ez] := orP E.
+  by have [_ ->] := Dfin_eqb0 _ Ez; rewrite Rmult_0_l E0; lra.
+by have [_ ->] := Dfin_eqb0 _ Ez; rewrite Rmult_0_r E0; lra.
+Qed.
+
 Lemma Dnteps :
   D2R (- teps)%float =
   - (16 * bpow radix2 (SpecFloat.emin FloatOps.prec FloatOps.emax)).
@@ -630,32 +688,32 @@ Theorem mulTwUp_ge x y :
   twval x * twval y <= twval (mulTwUp x y).
 Proof.
 case: x => x0 x1 x2; case: y => y0 y1 y2.
-rewrite !twvalE /mulTwUp /= => F.
+rewrite !twvalE /mulTwUp vecSum14_eq /= => F.
 have H := expUp_ge _ F.
 have [_ Fv] := expUp_finI _ F.
-have Fs := vecSum_finI _ Fv.
-have Fl := sortMag_finI _ Fs.
-rewrite (vecSum_sum _ Fv) sortMag_sum in H.
-move: Fl; rewrite /= => -[Fp00 [Fp01 [Fp10 [Fp11
-        [Fe00 [Fe01 [Fe10 [Fe11 [FM1 [FM2 [FM3 [FM4 [FM5 _]]]]]]]]]]]]].
+have Fl := vecSum_finI _ Fv.
+rewrite (vecSum_sum _ Fv) in H.
+move: Fl; rewrite /= => -[Fp00 [Fp01 [Fp10 [Fe00
+        [Fp11 [Fe01 [Fe10 [FM1 [FM2 [Fe11 [FM3 [FM4 [FM5 [Fst _]]]]]]]]]]]]]].
+have Hs := Dpstep _ Fst.
 (* the four two-products, each within three and a half of the smallest       *)
 have K00 := twoProd_err x0 y0 Fe00.
 have K01 := twoProd_err x0 y1 Fe01.
 have K10 := twoProd_err x1 y0 Fe10.
 have K11 := twoProd_err x1 y1 Fe11.
 (* the five that are simply rounded upwards                                  *)
-have [Fx0 Fy2] := Dfin_mulI _ _ (Dfin_mulUpI _ _ FM1).
-have [Fx2 Fy0] := Dfin_mulI _ _ (Dfin_mulUpI _ _ FM2).
-have [Fx1 Fy2'] := Dfin_mulI _ _ (Dfin_mulUpI _ _ FM3).
-have [Fx2' Fy1] := Dfin_mulI _ _ (Dfin_mulUpI _ _ FM4).
-have G1 := mulUpFp_ge _ _ Fx0 Fy2 (Dfin_mulUpI _ _ FM1) FM1.
-have G2 := mulUpFp_ge _ _ Fx2 Fy0 (Dfin_mulUpI _ _ FM2) FM2.
-have G3 := mulUpFp_ge _ _ Fx1 Fy2' (Dfin_mulUpI _ _ FM3) FM3.
-have G4 := mulUpFp_ge _ _ Fx2' Fy1 (Dfin_mulUpI _ _ FM4) FM4.
-have G5 := mulUpFp_ge _ _ Fx2 Fy2 (Dfin_mulUpI _ _ FM5) FM5.
+have [Fx0 Fy2] := Dfin_mulI _ _ (Dfin_mulUp0I _ _ FM1).
+have [Fx2 Fy0] := Dfin_mulI _ _ (Dfin_mulUp0I _ _ FM2).
+have [Fx1 Fy2'] := Dfin_mulI _ _ (Dfin_mulUp0I _ _ FM3).
+have [Fx2' Fy1] := Dfin_mulI _ _ (Dfin_mulUp0I _ _ FM4).
+have G1 := mulUp0_ge _ _ Fx0 Fy2 (Dfin_mulUp0I _ _ FM1) FM1.
+have G2 := mulUp0_ge _ _ Fx2 Fy0 (Dfin_mulUp0I _ _ FM2) FM2.
+have G3 := mulUp0_ge _ _ Fx1 Fy2' (Dfin_mulUp0I _ _ FM3) FM3.
+have G4 := mulUp0_ge _ _ Fx2' Fy1 (Dfin_mulUp0I _ _ FM4) FM4.
+have G5 := mulUp0_ge _ _ Fx2 Fy2 (Dfin_mulUp0I _ _ FM5) FM5.
 have Hb : 0 < bpow radix2 (SpecFloat.emin FloatOps.prec FloatOps.emax)
   by apply: bpow_gt_0.
-move: H; rewrite /= Dteps => H.
+move: H; rewrite /= => H.
 have Hx : (D2R x0 + D2R x1 + D2R x2) * (D2R y0 + D2R y1 + D2R y2) =
           D2R x0 * D2R y0 + D2R x0 * D2R y1 + D2R x1 * D2R y0 +
           D2R x1 * D2R y1 + D2R x0 * D2R y2 + D2R x2 * D2R y0 +
@@ -670,30 +728,30 @@ Theorem mulTwDn_le x y :
   twval (mulTwDn x y) <= twval x * twval y.
 Proof.
 case: x => x0 x1 x2; case: y => y0 y1 y2.
-rewrite !twvalE /mulTwDn /= => F.
+rewrite !twvalE /mulTwDn vecSum14_eq /= => F.
 have H := expDn_le _ F.
 have [_ Fv] := expDn_finI _ F.
-have Fs := vecSum_finI _ Fv.
-have Fl := sortMag_finI _ Fs.
-rewrite (vecSum_sum _ Fv) sortMag_sum in H.
-move: Fl; rewrite /= => -[Fp00 [Fp01 [Fp10 [Fp11
-        [Fe00 [Fe01 [Fe10 [Fe11 [FM1 [FM2 [FM3 [FM4 [FM5 _]]]]]]]]]]]]].
+have Fl := vecSum_finI _ Fv.
+rewrite (vecSum_sum _ Fv) in H.
+move: Fl; rewrite /= => -[Fp00 [Fp01 [Fp10 [Fe00
+        [Fp11 [Fe01 [Fe10 [FM1 [FM2 [Fe11 [FM3 [FM4 [FM5 [Fst _]]]]]]]]]]]]]].
+have Hs := Dnpstep _ (Dfin_oppI _ Fst).
 have K00 := twoProd_err x0 y0 Fe00.
 have K01 := twoProd_err x0 y1 Fe01.
 have K10 := twoProd_err x1 y0 Fe10.
 have K11 := twoProd_err x1 y1 Fe11.
-have [Fx0 Fy2] := Dfin_mulI _ _ (Dfin_mulDnI _ _ FM1).
-have [Fx2 Fy0] := Dfin_mulI _ _ (Dfin_mulDnI _ _ FM2).
-have [Fx1 Fy2'] := Dfin_mulI _ _ (Dfin_mulDnI _ _ FM3).
-have [Fx2' Fy1] := Dfin_mulI _ _ (Dfin_mulDnI _ _ FM4).
-have G1 := mulDnFp_le _ _ Fx0 Fy2 (Dfin_mulDnI _ _ FM1) FM1.
-have G2 := mulDnFp_le _ _ Fx2 Fy0 (Dfin_mulDnI _ _ FM2) FM2.
-have G3 := mulDnFp_le _ _ Fx1 Fy2' (Dfin_mulDnI _ _ FM3) FM3.
-have G4 := mulDnFp_le _ _ Fx2' Fy1 (Dfin_mulDnI _ _ FM4) FM4.
-have G5 := mulDnFp_le _ _ Fx2 Fy2 (Dfin_mulDnI _ _ FM5) FM5.
+have [Fx0 Fy2] := Dfin_mulI _ _ (Dfin_mulDn0I _ _ FM1).
+have [Fx2 Fy0] := Dfin_mulI _ _ (Dfin_mulDn0I _ _ FM2).
+have [Fx1 Fy2'] := Dfin_mulI _ _ (Dfin_mulDn0I _ _ FM3).
+have [Fx2' Fy1] := Dfin_mulI _ _ (Dfin_mulDn0I _ _ FM4).
+have G1 := mulDn0_le _ _ Fx0 Fy2 (Dfin_mulDn0I _ _ FM1) FM1.
+have G2 := mulDn0_le _ _ Fx2 Fy0 (Dfin_mulDn0I _ _ FM2) FM2.
+have G3 := mulDn0_le _ _ Fx1 Fy2' (Dfin_mulDn0I _ _ FM3) FM3.
+have G4 := mulDn0_le _ _ Fx2' Fy1 (Dfin_mulDn0I _ _ FM4) FM4.
+have G5 := mulDn0_le _ _ Fx2 Fy2 (Dfin_mulDn0I _ _ FM5) FM5.
 have Hb : 0 < bpow radix2 (SpecFloat.emin FloatOps.prec FloatOps.emax)
   by apply: bpow_gt_0.
-move: H; rewrite /= Dnteps => H.
+move: H; rewrite /= => H.
 have Hx : (D2R x0 + D2R x1 + D2R x2) * (D2R y0 + D2R y1 + D2R y2) =
           D2R x0 * D2R y0 + D2R x0 * D2R y1 + D2R x1 * D2R y0 +
           D2R x1 * D2R y1 + D2R x0 * D2R y2 + D2R x2 * D2R y0 +

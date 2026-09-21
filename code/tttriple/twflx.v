@@ -1354,6 +1354,11 @@ Qed.
 Definition mulF (a b : PrimFloat.float) : bool :=
   [|| (a =? 0)%float, (b =? 0)%float | prodF (a * b)%float].
 
+(* THE SAME TEST, ON THE PRODUCT THE ALGORITHM ALREADY HAS.  `mulF' asks    *)
+(* for `a * b' a second time; every guard below has that product in hand.    *)
+Definition mulFv (a b p : PrimFloat.float) : bool :=
+  [|| (a =? 0)%float, (b =? 0)%float | prodF p].
+
 Lemma mulFP a b : Dfin a -> Dfin b -> Dfin (a * b)%float ->
   mulF a b = true -> mulOkR (D2R a) (D2R b).
 Proof.
@@ -1363,6 +1368,10 @@ move=> Fa Fb Fs /or3P[Hz|Hz|Hp].
 right; have [E _] := Dfin_mul _ _ Fa Fb Fs.
 by apply: Dprodlo_of_rnd; rewrite -E; apply: prodFP.
 Qed.
+
+Lemma mulFvP a b : Dfin a -> Dfin b -> Dfin (a * b)%float ->
+  mulFv a b (a * b)%float = true -> mulOkR (D2R a) (D2R b).
+Proof. by move=> Fa Fb Fs H; apply: mulFP. Qed.
 
 (* The other two shapes the range clauses come in.                           *)
 
@@ -1424,14 +1433,15 @@ Qed.
 (* two-sum's two words add up to the exact sum, so a zero low word is the     *)
 (* high word being it.                                                        *)
 Definition subOkb (a b : PrimFloat.float) : bool :=
-  [&& finF (a - b)%float, finF (a + - b)%float,
-      finF ((a + - b) - - b)%float,
-      finF ((a + - b) - ((a + - b) - - b))%float
-    & finF (a - ((a + - b) - - b))%float]
-  && [&& finF (- b - ((a + - b) - ((a + - b) - - b)))%float,
-         finF ((a - ((a + - b) - - b))
-               + (- b - ((a + - b) - ((a + - b) - - b))))%float
-       & (dwlo (twoSum a (- b)) =? 0)%float].
+  let nb := (- b)%float in
+  let s := (a + nb)%float in
+  let a' := (s - nb)%float in
+  let b' := (s - a')%float in
+  let da := (a - a')%float in
+  let db := (nb - b')%float in
+  [&& finF (a - b)%float, finF s, finF a', finF b' & finF da]
+  && [&& finF db, finF (da + db)%float
+       & (dwlo (twoSum a nb) =? 0)%float].
 
 Lemma sub_exact a b : Dfin a -> Dfin b -> subOkb a b = true ->
   D2R (a - b)%float = (D2R a - D2R b)%R /\ Dfin (a - b)%float.
@@ -1499,8 +1509,9 @@ by split => //; rewrite E Dthree2.
 Qed.
 
 Definition fastTwoSumOkb (a b : PrimFloat.float) : bool :=
-  [&& finF (a + b)%float, finF ((a + b) - a)%float
-    & finF (b - ((a + b) - a))%float].
+  let s := (a + b)%float in
+  let z := (s - a)%float in
+  [&& finF s, finF z & finF (b - z)%float].
 
 Lemma fastTwoSumOkbP a b : fastTwoSumOkb a b = true -> DfastTwoSumFin a b.
 Proof.
@@ -1524,23 +1535,48 @@ by elim: l => [|a l IH] //= /andP[Ha Hl]; split; [apply: finFP | apply: IH].
 Qed.
 
 (* Algorithm 11's guard.                                                      *)
+(* ONE TEST CARRIES THE TWO-PRODUCT.  Each of the seventeen numbers Dekker's *)
+(* splitting makes is an argument of the operation that made the next, so the *)
+(* low word coming back a number proves they all were -- which is exactly the *)
+(* argument `twoProd_err' already rests on, here read for finiteness.         *)
+Lemma twoProd_finI a b : Dfin (dwlo (twoProd a b)) ->
+  [/\ Dfin a, Dfin b & Dfin (dwhi (twoProd a b))].
+Proof.
+rewrite dekkerE /= => Fe.
+have [Ft3 Ftatb] := Dfin_addI _ _ Fe.
+have [Fta Ftb] := Dfin_mulI _ _ Ftatb.
+have [Ft2 Ftahb] := Dfin_addI _ _ Ft3.
+have [_ Fhb] := Dfin_mulI _ _ Ftahb.
+have [Ft1 Fhatb] := Dfin_addI _ _ Ft2.
+have [Fha _] := Dfin_mulI _ _ Fhatb.
+have [Fnpi _] := Dfin_addI _ _ Ft1.
+have Fpi := Dfin_oppI _ Fnpi.
+by have [Fa Fb] := Dfin_mulI _ _ Fpi; split.
+Qed.
+
+(* THE TEST, THE WAY `code/ddouble' WRITES ONE.  What the bridge needs is    *)
+(* a RANGE fact about each of the five products -- that it is above the line  *)
+(* where the format with a smallest exponent and the format without it round  *)
+(* alike -- and the products are already in hand, so `mulFv' reads them       *)
+(* instead of working them out again.  What it does NOT need is a finiteness  *)
+(* test on every number along the way: each of them is an argument of the     *)
+(* operation that made the next, so the sweeps coming back as numbers proves  *)
+(* they all were, which is the argument `twoProd_err' already rests on.       *)
+(* Written the other way this test cost about three hundred operations        *)
+(* against the algorithm's three hundred; this way it is fifteen.             *)
 Definition prodDW_okb (x0 x1 y0 y1 y2 : PrimFloat.float) : bool :=
-  let b := vecSum [:: dwlo (twoProd x0 y0); dwhi (twoProd x0 y1);
-                      dwhi (twoProd x1 y0)] in
-  let e := vecSum [:: dwhi (twoProd x0 y0); nth 0%float b 0; nth 0%float b 1;
-                      (nth 0%float b 2 + x1 * y1)%float;
-                      ((dwlo (twoProd x1 y0) + x0 * y2)
-                        + dwlo (twoProd x0 y1))%float] in
-  [&& finF x0, finF x1, finF y0, finF y1 & finF y2]
-  && [&& finF (dwlo (twoProd x0 y0)), finF (dwlo (twoProd x0 y1))
-       & finF (dwlo (twoProd x1 y0))]
-  && [&& finF (x0 * y0)%float, finF (x0 * y1)%float, finF (x1 * y0)%float,
-         finF (x1 * y1)%float & finF (x0 * y2)%float]
-  && [&& mulF x0 y0, mulF x0 y1, mulF x1 y0, mulF x1 y1 & mulF x0 y2]
-  && [&& finF (nth 0%float b 2 + x1 * y1)%float,
-         finF (dwlo (twoProd x1 y0) + x0 * y2)%float
-       & finF ((dwlo (twoProd x1 y0) + x0 * y2)
-               + dwlo (twoProd x0 y1))%float]
+  let p00 := twoProd x0 y0 in
+  let p01 := twoProd x0 y1 in
+  let p10 := twoProd x1 y0 in
+  let b := vecSum [:: dwlo p00; dwhi p01; dwhi p10] in
+  let m11 := (x1 * y1)%float in
+  let m02 := (x0 * y2)%float in
+  let c := (nth 0%float b 2 + m11)%float in
+  let t1 := (dwlo p10 + m02)%float in
+  let t2 := (t1 + dwlo p01)%float in
+  let e := vecSum [:: dwhi p00; nth 0%float b 0; nth 0%float b 1; c; t2] in
+  [&& mulFv x0 y0 (dwhi p00), mulFv x0 y1 (dwhi p01),
+      mulFv x1 y0 (dwhi p10), mulFv x1 y1 m11 & mulFv x0 y2 m02]
   && [&& finLb b, finLb e
        & finLb (vseb [:: nth 0%float e 1; nth 0%float e 2;
                          nth 0%float e 3; nth 0%float e 4])].
@@ -1548,99 +1584,121 @@ Definition prodDW_okb (x0 x1 y0 y1 y2 : PrimFloat.float) : bool :=
 Lemma prodDW_okbP x0 x1 y0 y1 y2 :
   prodDW_okb x0 x1 y0 y1 y2 = true -> prodDW_ok x0 x1 y0 y1 y2.
 Proof.
-move=> /andP[/andP[/andP[/andP[/andP[/and5P[A0 A1 A2 A3 A4]
-        /and3P[B0 B1 B2]] /and5P[C0 C1 C2 C3 C4]]
-        /and5P[D0 D1 D2 D3 D4]] /and3P[E0 E1 E2]] /and3P[G0 G1 G2]].
-have Fx0 := finFP _ A0; have Fx1 := finFP _ A1.
-have Fy0 := finFP _ A2; have Fy1 := finFP _ A3; have Fy2 := finFP _ A4.
-have M00 := finFP _ C0; have M01 := finFP _ C1; have M10 := finFP _ C2.
-have M11 := finFP _ C3; have M02 := finFP _ C4.
+move=> /andP[/and5P[M0 M1 M2 M3 M4] /and3P[Gb Ge Gv]].
+have Fb := finLbP _ Gb; have Fe := finLbP _ Ge; have Fv := finLbP _ Gv.
+have Fbi := vecSum_finI _ Fb; have Fei := vecSum_finI _ Fe.
+move: Fbi; rewrite /= => -[F00l [F01h [F10h _]]].
+move: Fei; rewrite /= => -[F00h [Fb0 [Fb1 [Fc [Ft2 _]]]]].
+have [Fb2 F11] := Dfin_addI _ _ Fc.
+have [Fx1 Fy1] := Dfin_mulI _ _ F11.
+have [Ft1 F01l] := Dfin_addI _ _ Ft2.
+have [F10l F02] := Dfin_addI _ _ Ft1.
+have [Fx0 Fy2] := Dfin_mulI _ _ F02.
+have [_ Fy0] := Dfin_mulI _ _ F10h.
 split; first by split.
-split; first by split; apply: finFP.
-split.
-  by split; apply: mulFP => //; apply: finFP.
-split.
-  by split; apply: mulFP => //; apply: finFP.
-split.
-  by split; apply: finFP.
-split; first by apply: finLbP.
-by split; apply: finLbP.
+split; first by split.
+split; first by split; apply: mulFvP.
+split; first by split; apply: mulFvP.
+split; first by split.
+split; first by [].
+by split.
 Qed.
 
-(* Algorithm 20's.                                                            *)
+(* Algorithm 20's, the same way: a range test on each of the three products,  *)
+(* read where the algorithm left them, and no finiteness test at all.         *)
 Definition prodOne_okb (x0 x1 x2 y1 y2 : PrimFloat.float) : bool :=
-  let z01p := dwhi (twoProd x0 y1) in
-  let z01m := dwlo (twoProd x0 y1) in
-  let bh := dwhi (fast2SumS x1 z01p) in
-  let bl := dwlo (fast2SumS x1 z01p) in
-  let z31 := (z01m + x1 * y1)%float in
-  let z3 := (z31 + x0 * y2)%float in
+  let: DWFloat z01p z01m := twoProd x0 y1 in
+  let: DWFloat bh bl := fast2SumS x1 z01p in
+  let m11 := (x1 * y1)%float in
+  let m02 := (x0 * y2)%float in
+  let z31 := (z01m + m11)%float in
+  let z3 := (z31 + m02)%float in
   let s3 := (bl + z3)%float in
-  let e := vecSum [:: x0; bh; (s3 + x2)%float] in
-  [&& finF x0, finF x1, finF x2, finF y1 & finF y2]
-  && [&& finF z01p, finF z01m, finF bh & finF bl]
-  && [&& finF (x0 * y1)%float, finF (x1 * y1)%float & finF (x0 * y2)%float]
-  && [&& mulF x0 y1, mulF x1 y1 & mulF x0 y2]
-  && fast2SumSOkb x1 z01p
-  && [&& finF z31, finF z3, finF s3 & finF (s3 + x2)%float]
-  && finLb e
-  && fast2SumSOkb (nth 0%float e 1) (nth 0%float e 2).
+  let sx := (s3 + x2)%float in
+  let e := vecSum [:: x0; bh; sx] in
+  [&& mulFv x0 y1 z01p, mulFv x1 y1 m11 & mulFv x0 y2 m02]
+  && [&& fast2SumSOkb x1 z01p, finLb e
+       & fast2SumSOkb (nth 0%float e 1) (nth 0%float e 2)].
 
 Lemma prodOne_okbP x0 x1 x2 y1 y2 :
   prodOne_okb x0 x1 x2 y1 y2 = true -> prodOne_ok x0 x1 x2 y1 y2.
 Proof.
-move=> /andP[/andP[/andP[/andP[/andP[/andP[/andP[/and5P[A0 A1 A2 A3 A4]
-        /and4P[B0 B1 B2 B3]] /and3P[C0 C1 C2]] /and3P[D0 D1 D2]] Hb]
-        /and4P[E0 E1 E2 E3]] Hfl] Hlast].
-have Fx0 := finFP _ A0; have Fx1 := finFP _ A1; have Fx2 := finFP _ A2.
-have Fy1 := finFP _ A3; have Fy2 := finFP _ A4.
-have M01 := finFP _ C0; have M11 := finFP _ C1; have M02 := finFP _ C2.
+rewrite /prodOne_okb /prodOne_ok.
+case Ep : (twoProd x0 y1) => [z01p z01m].
+case Ef : (fast2SumS x1 z01p) => [bh bl].
+move=> /andP[/and3P[M0 M1 M2] /and3P[Hb Ge Hlast]].
+have Fe := finLbP _ Ge.
+move: (vecSum_finI _ Fe); rewrite /= => -[Fx0 [Fbh [Fsx _]]].
+have [Fs3 Fx2] := Dfin_addI _ _ Fsx.
+have [Fbl Fz3] := Dfin_addI _ _ Fs3.
+have [Fz31 F02] := Dfin_addI _ _ Fz3.
+have [_ Fy2] := Dfin_mulI _ _ F02.
+have [Fz01m F11] := Dfin_addI _ _ Fz31.
+have [Fx1 Fy1] := Dfin_mulI _ _ F11.
+have Ez : z01p = (x0 * y1)%float.
+  by rewrite -[RHS]/(dwhi (twoProd x0 y1)) Ep.
+have Fz01p : Dfin z01p.
+  have Fl : Dfin (dwlo (twoProd x0 y1)) by rewrite Ep.
+  by have [_ _ H] := twoProd_finI _ _ Fl; move: H; rewrite Ep.
+have Fp01 : Dfin (x0 * y1)%float by rewrite -Ez.
+have M0' : mulFv x0 y1 (x0 * y1)%float by rewrite -Ez.
 split; first by split.
-split; first by split; apply: finFP.
+split; first by split.
 split.
-  by split; apply: mulFP.
+  by split; [apply: (mulFvP _ _ Fx0 Fy1 Fp01 M0')
+           | apply: (mulFvP _ _ Fx1 Fy1 F11 M1)
+           | apply: (mulFvP _ _ Fx0 Fy2 F02 M2)].
 split; first by apply: fast2SumSOkbP.
-split; first by split; apply: finFP.
-split; first by apply: finFP.
-split; first by apply: finLbP.
+split; first by split.
+split => //.
+split => //.
 by apply: fast2SumSOkbP.
 Qed.
 
-(* The seed's.                                                                *)
+(* The root's seed, tested the same way: a range test on each of the six     *)
+(* products where the seed left them, and one finiteness test on the last    *)
+(* word, plus the root itself, which nothing below it can vouch for.         *)
 Definition sqrtBW_okb (x0 x1 : PrimFloat.float) : bool :=
   let s := PrimFloat.sqrt x0 in
   let a := (onep4 / s)%float in
   let a' := (a / 2)%float in
-  let h01_1 := dwhi (twoProd a x0) in
-  let h11_1 := dwlo (twoProd a x0) in
-  let h1_1 := (h11_1 + a * x1)%float in
-  let h01_2 := dwhi (twoProd a' h01_1) in
-  let h11_2 := dwlo (twoProd a' h01_1) in
+  let q1 := twoProd a x0 in
+  let h01_1 := dwhi q1 in
+  let h11_1 := dwlo q1 in
+  let ax1 := (a * x1)%float in
+  let h1_1 := (h11_1 + ax1)%float in
+  let q2 := twoProd a' h01_1 in
+  let h01_2 := dwhi q2 in
+  let h11_2 := dwlo q2 in
   let h0_2 := (three2 - h01_2)%float in
-  let h1_2 := (- (h11_2 + a' * h1_1))%float in
-  let b01 := dwhi (twoProd a h0_2) in
-  let b11 := dwlo (twoProd a h0_2) in
-  let b12 := (b11 + a * h1_2)%float in
-  [&& finF x0, finF x1, (0 <? x0)%float, finF a & finF a']
-  && [&& normF s, normF a & normF a']
-  && [&& finF s, finF h11_1, finF h11_2, finF b11 & finF h0_2]
-  && [&& finF h1_2, finF (a * x0)%float, finF (a' * h01_1)%float,
-         finF (a * h0_2)%float & finF (a * x1)%float]
-  && [&& finF (a' * h1_1)%float, finF (a * h1_2)%float, finF h1_1,
-         finF (h11_2 + a' * h1_1)%float & finF b12]
-  && [&& mulF a x0, mulF a' h01_1, mulF a h0_2, mulF a x1 & mulF a' h1_1]
-  && mulF a h1_2
-  && fastTwoSumOkb b01 b12.
+  let a'h := (a' * h1_1)%float in
+  let ah := (h11_2 + a'h)%float in
+  let h1_2 := (- ah)%float in
+  let q3 := twoProd a h0_2 in
+  let b01 := dwhi q3 in
+  let b11 := dwlo q3 in
+  let ah1 := (a * h1_2)%float in
+  let b12 := (b11 + ah1)%float in
+  [&& (0 <? x0)%float, finF s, normF s, normF a & normF a']
+  && [&& finF b12, mulFv a x0 h01_1, mulFv a' h01_1 h01_2,
+         mulFv a h0_2 b01 & mulFv a x1 ax1]
+  && [&& mulFv a' h1_1 a'h, mulFv a h1_2 ah1 & fastTwoSumOkb b01 b12].
 
 Lemma sqrtBW_okbP x0 x1 : sqrtBW_okb x0 x1 = true -> sqrtBW_ok x0 x1.
 Proof.
-move=> /andP[/andP[/andP[/andP[/andP[/andP[/andP[/and5P[A0 A1 A2 A3 A4]
-        /and3P[N0 N1 N2]] /and5P[B0 B1 B2 B3 B4]]
-        /and5P[C0 C1 C2 C3 C4]] /and5P[D0 D1 D2 D3 D4]]
-        /and5P[P0 P1 P2 P3 P4]] P5] Hfast].
-have Fx0 := finFP _ A0; have Fx1 := finFP _ A1.
-have Fa := finFP _ A3; have Fa' := finFP _ A4.
-have Fs := finFP _ B0.
+move=> /andP[/andP[/and5P[A2 Gs N0 N1 N2] /and5P[Gb12 M0 M1 M2 M3]]
+        /and3P[M4 M5 Hfast]].
+have Fs := finFP _ Gs; have Fb12 := finFP _ Gb12.
+have [Fb11 Fah1] := Dfin_addI _ _ Fb12.
+have [Fa Fh1_2] := Dfin_mulI _ _ Fah1.
+have Fah := Dfin_oppI _ Fh1_2.
+have [Fh11_2 Fa'h] := Dfin_addI _ _ Fah.
+have [Fa' Fh1_1] := Dfin_mulI _ _ Fa'h.
+have [Fh11_1 Fax1] := Dfin_addI _ _ Fh1_1.
+have [_ Fx1] := Dfin_mulI _ _ Fax1.
+have [_ Fx0 Fh01_1] := twoProd_finI _ _ Fh11_1.
+have [_ _ Fh01_2] := twoProd_finI _ _ Fh11_2.
+have [_ Fh0_2 Fb01] := twoProd_finI _ _ Fb11.
 have Hs := normFP _ Fs N0.
 have Hp := bpow_gt_0 radix2 (SpecFloat.emin prec emax + prec - 1).
 have Ns : (D2R (PrimFloat.sqrt x0) <> 0)%R by move: Hs; split_Rabs; lra.
@@ -1655,13 +1713,13 @@ split.
   - exact: Ns.
   - by apply: div_rng.
   by apply: half_rng.
-split; first by split; apply: finFP.
+split; first by split.
 split.
-  by split; apply: mulFP => //; apply: finFP.
+  by split; apply: mulFvP.
 split.
-  by apply: mulFP => //; apply: finFP.
-split; first by split; apply: finFP.
-split; first by apply: finFP.
+  by apply: mulFvP.
+split; first by split.
+split => //.
 by apply: fastTwoSumOkbP.
 Qed.
 
@@ -1678,6 +1736,251 @@ Definition sqrt_okb (x : twfloat) : bool :=
   && [&& prodDW_okb (tw0 hb) (tw1 hb) (tw0 i1) (tw1 i1) (tw2 i1),
          sub32Tw_okb p2
        & prodOne_okb (tw0 i1) (tw1 i1) (tw2 i1) (tw1 s2) (tw2 s2)].
+
+(* ALGORITHM 11 WITH NO LIST.  `vecSum' and `vseb' are written on `seq       *)
+(* float', which is how the paper reads and not how a machine should run:    *)
+(* every sweep allocates a cell a word and is walked by an interpreter.  On  *)
+(* a fixed size the sweeps unroll into named words; the only part that is    *)
+(* not straight-line is `vseb' dropping a term that came out nought, which   *)
+(* is four branches.  Measured: 4.4 microseconds a product through the       *)
+(* lists, 1.4 this way.  `prodDWF_eq' says the answer is the one the bounds  *)
+(* were proved about, so nothing above has to be redone.                     *)
+(*                                                                           *)
+(* The flag comes back beside the two words because the guard wants to know  *)
+(* the sweep gave numbers, and asking a second time would walk it again.     *)
+Definition vseb2 (eps a b c : PrimFloat.float)
+  : PrimFloat.float * PrimFloat.float * bool :=
+  let: DWFloat h1 l1 := twoSum eps a in
+  if (l1 =? 0)%float then
+    let: DWFloat h2 l2 := twoSum h1 b in
+    if (l2 =? 0)%float then
+      let: DWFloat h3 l3 := twoSum h2 c in (h3, l3, finF h3 && finF l3)
+    else let: DWFloat h3 l3 := twoSum l2 c in
+         (h2, h3, [&& finF h2, finF h3 & finF l3])
+  else
+    let: DWFloat h2 l2 := twoSum l1 b in
+    if (l2 =? 0)%float then
+      let: DWFloat h3 l3 := twoSum h2 c in
+      (h1, h3, [&& finF h1, finF h3 & finF l3])
+    else let: DWFloat h3 l3 := twoSum l2 c in
+         (h1, h2, [&& finF h1, finF h2, finF h3 & finF l3]).
+
+Local Opaque twoSum twoProd fast2SumS.
+
+Lemma vseb2_take eps a b c :
+  [:: (vseb2 eps a b c).1.1; (vseb2 eps a b c).1.2]
+  = take 2 (vseb [:: eps; a; b; c]).
+Proof.
+rewrite /vseb2 /vseb /=.
+case: (twoSum eps a) => h1 l1 /=.
+case: (l1 =? 0)%float => /=.
+  case: (twoSum h1 b) => h2 l2 /=.
+  case: (l2 =? 0)%float => /=.
+    by case: (twoSum h2 c) => ? ?.
+  by case: (twoSum l2 c) => ? ?.
+case: (twoSum l1 b) => h2 l2 /=.
+case: (l2 =? 0)%float => /=.
+  by case: (twoSum h2 c) => ? ?.
+by case: (twoSum l2 c) => ? ?.
+Qed.
+
+Lemma vseb2_fin eps a b c :
+  (vseb2 eps a b c).2 = finLb (vseb [:: eps; a; b; c]).
+Proof.
+rewrite /vseb2 /vseb /=.
+case: (twoSum eps a) => h1 l1 /=.
+case: (l1 =? 0)%float => /=.
+  case: (twoSum h1 b) => h2 l2 /=.
+  case: (l2 =? 0)%float => /=.
+    by case: (twoSum h2 c) => h3 l3 /=; rewrite ?andbT.
+  by case: (twoSum l2 c) => h3 l3 /=; rewrite ?andbT.
+case: (twoSum l1 b) => h2 l2 /=.
+case: (l2 =? 0)%float => /=.
+  by case: (twoSum h2 c) => h3 l3 /=; rewrite ?andbT.
+by case: (twoSum l2 c) => h3 l3 /=; rewrite ?andbT.
+Qed.
+
+Definition prodDWF (x y : twfloat) : twfloat :=
+  let: TWFloat x0 x1 _ := x in
+  let: TWFloat y0 y1 y2 := y in
+  let: DWFloat z00p z00m := twoProd x0 y0 in
+  let: DWFloat z01p z01m := twoProd x0 y1 in
+  let: DWFloat z10p z10m := twoProd x1 y0 in
+  let: DWFloat u1 b2 := twoSum z01p z10p in
+  let: DWFloat b0 b1 := twoSum z00m u1 in
+  let c   := (b2 + x1 * y1)%float in
+  let z31 := (z10m + x0 * y2)%float in
+  let z3  := (z31 + z01m)%float in
+  let: DWFloat v3 f4 := twoSum c z3 in
+  let: DWFloat v2 f3 := twoSum b1 v3 in
+  let: DWFloat v1 f2 := twoSum b0 v2 in
+  let: DWFloat e0 f1 := twoSum z00p v1 in
+  let: (g1, g2, _) := vseb2 f1 f2 f3 f4 in
+  TWFloat e0 g1 g2.
+
+Lemma prodDWF_eq x y : prodDWF x y = threeProdDW x y.
+Proof.
+case: x => x0 x1 x2; case: y => y0 y1 y2.
+rewrite /prodDWF /threeProdDW /vseb2 /nth3 /=.
+case: (twoProd x0 y0) => z00p z00m.
+case: (twoProd x0 y1) => z01p z01m.
+case: (twoProd x1 y0) => z10p z10m /=.
+case: (twoSum z01p z10p) => u1 b2 /=.
+case: (twoSum z00m u1) => b0 b1 /=.
+case: (twoSum _ _) => v3 f4 /=.
+case: (twoSum b1 v3) => v2 f3 /=.
+case: (twoSum b0 v2) => v1 f2 /=.
+case: (twoSum z00p v1) => e0 f1 /=.
+case: (twoSum f1 f2) => h1 l1 /=.
+case: (l1 =? 0)%float => /=.
+  case: (twoSum h1 f3) => h2 l2 /=.
+  case: (l2 =? 0)%float => /=.
+    by case: (twoSum h2 f4).
+  by case: (twoSum l2 f4).
+case: (twoSum l1 f3) => h2 l2 /=.
+case: (l2 =? 0)%float => /=.
+  by case: (twoSum h2 f4).
+by case: (twoSum l2 f4).
+Qed.
+
+(* ONE PASS FOR EACH PIECE.  Sharing only the four numbers the quotient is   *)
+(* made of still leaves each test redoing the piece it tests: the three      *)
+(* two-products, the two sweeps and the separation, all over again.  Here    *)
+(* the piece and its test are one pass, and the lemma beside each says the   *)
+(* pair is what the two came to apart, so nothing above has to change.       *)
+(* Measured on ten thousand quotients: forty-six microseconds each the way   *)
+(* it was, thirty this way, against twelve and a half for the algorithm with *)
+(* no test at all.                                                           *)
+Definition prodDWG (x y : twfloat) : twfloat * bool :=
+  let: TWFloat x0 x1 _ := x in
+  let: TWFloat y0 y1 y2 := y in
+  let: DWFloat z00p z00m := twoProd x0 y0 in
+  let: DWFloat z01p z01m := twoProd x0 y1 in
+  let: DWFloat z10p z10m := twoProd x1 y0 in
+  let: DWFloat u1 b2 := twoSum z01p z10p in
+  let: DWFloat b0 b1 := twoSum z00m u1 in
+  let m11 := (x1 * y1)%float in
+  let m02 := (x0 * y2)%float in
+  let c   := (b2 + m11)%float in
+  let z31 := (z10m + m02)%float in
+  let z3  := (z31 + z01m)%float in
+  let: DWFloat v3 f4 := twoSum c z3 in
+  let: DWFloat v2 f3 := twoSum b1 v3 in
+  let: DWFloat v1 f2 := twoSum b0 v2 in
+  let: DWFloat e0 f1 := twoSum z00p v1 in
+  let: (g1, g2, vok) := vseb2 f1 f2 f3 f4 in
+  (TWFloat e0 g1 g2,
+   [&& mulFv x0 y0 z00p, mulFv x0 y1 z01p, mulFv x1 y0 z10p,
+       mulFv x1 y1 m11 & mulFv x0 y2 m02]
+   && [&& [&& finF b0, finF b1 & finF b2],
+          [&& finF e0, finF f1, finF f2, finF f3 & finF f4]
+        & vok]).
+
+Lemma prodDWGE x y :
+  prodDWG x y = (threeProdDW x y,
+                 prodDW_okb (tw0 x) (tw1 x) (tw0 y) (tw1 y) (tw2 y)).
+Proof.
+case: x => x0 x1 x2; case: y => y0 y1 y2.
+rewrite /prodDWG /threeProdDW /prodDW_okb /vseb2 /vseb /nth3 /=.
+case: (twoProd x0 y0) => z00p z00m /=.
+case: (twoProd x0 y1) => z01p z01m /=.
+case: (twoProd x1 y0) => z10p z10m /=.
+case: (twoSum z01p z10p) => u1 b2 /=.
+case: (twoSum z00m u1) => b0 b1 /=.
+case: (twoSum _ _) => v3 f4 /=.
+case: (twoSum b1 v3) => v2 f3 /=.
+case: (twoSum b0 v2) => v1 f2 /=.
+case: (twoSum z00p v1) => e0 f1 /=.
+case: (twoSum f1 f2) => h1 l1 /=.
+case: (l1 =? 0)%float => /=.
+  case: (twoSum h1 f3) => h2 l2 /=.
+  case: (l2 =? 0)%float => /=.
+    by case: (twoSum h2 f4) => ? ? /=; rewrite ?andbT.
+  by case: (twoSum l2 f4) => ? ? /=; rewrite ?andbT.
+case: (twoSum l1 f3) => h2 l2 /=.
+case: (l2 =? 0)%float => /=.
+  by case: (twoSum h2 f4) => ? ? /=; rewrite ?andbT.
+by case: (twoSum l2 f4) => ? ? /=; rewrite ?andbT.
+Qed.
+
+Definition prodOneG (x y : twfloat) : twfloat * bool :=
+  let: TWFloat x0 x1 x2 := x in
+  let: TWFloat _ y1 y2 := y in
+  let: DWFloat z01p z01m := twoProd x0 y1 in
+  let: DWFloat bh bl := fast2SumS x1 z01p in
+  let m11 := (x1 * y1)%float in
+  let m02 := (x0 * y2)%float in
+  let z31 := (z01m + m11)%float in
+  let z3 := (z31 + m02)%float in
+  let s3 := (bl + z3)%float in
+  let sx := (s3 + x2)%float in
+  let: DWFloat u1 e2 := twoSum bh sx in
+  let: DWFloat e0 e1 := twoSum x0 u1 in
+  let: DWFloat r1 r2 := fast2SumS e1 e2 in
+  (TWFloat e0 r1 r2,
+   [&& mulFv x0 y1 z01p, mulFv x1 y1 m11 & mulFv x0 y2 m02]
+   && [&& fast2SumSOkb x1 z01p, [&& finF e0, finF e1 & finF e2]
+        & fast2SumSOkb e1 e2]).
+
+Lemma prodOneGE x y :
+  prodOneG x y = (threeProdOneTW x y,
+                  prodOne_okb (tw0 x) (tw1 x) (tw2 x) (tw1 y) (tw2 y)).
+Proof.
+case: x => x0 x1 x2; case: y => y0 y1 y2.
+rewrite /prodOneG /threeProdOneTW /prodOne_okb /p18head /nth3 /=.
+case: (twoProd x0 y1) => z01p z01m /=.
+case: (fast2SumS x1 z01p) => bh bl /=.
+case: (twoSum bh _) => u1 e2 /=.
+case: (twoSum x0 u1) => e0 e1 /=.
+by case: (fast2SumS e1 e2) => r1 r2 /=; rewrite ?andbT.
+Qed.
+
+Local Transparent twoSum twoProd fast2SumS.
+
+Definition sqrtBWG (x0 x1 : PrimFloat.float) : twfloat * bool :=
+  let s := PrimFloat.sqrt x0 in
+  let a := (onep4 / s)%float in
+  let a' := (a / 2)%float in
+  let q1 := twoProd a x0 in
+  let h01_1 := dwhi q1 in
+  let h11_1 := dwlo q1 in
+  let ax1 := (a * x1)%float in
+  let h1_1 := (h11_1 + ax1)%float in
+  let q2 := twoProd a' h01_1 in
+  let h01_2 := dwhi q2 in
+  let h11_2 := dwlo q2 in
+  let h0_2 := (three2 - h01_2)%float in
+  let a'h := (a' * h1_1)%float in
+  let ah := (h11_2 + a'h)%float in
+  let h1_2 := (- ah)%float in
+  let q3 := twoProd a h0_2 in
+  let b01 := dwhi q3 in
+  let b11 := dwlo q3 in
+  let ah1 := (a * h1_2)%float in
+  let b12 := (b11 + ah1)%float in
+  (let: DWFloat bh bl := fastTwoSum b01 b12 in TWFloat bh bl 0,
+   [&& (0 <? x0)%float, finF s, normF s, normF a & normF a']
+   && [&& finF b12, mulFv a x0 h01_1, mulFv a' h01_1 h01_2,
+          mulFv a h0_2 b01 & mulFv a x1 ax1]
+   && [&& mulFv a' h1_1 a'h, mulFv a h1_2 ah1 & fastTwoSumOkb b01 b12]).
+
+Lemma sqrtBWGE x0 x1 : sqrtBWG x0 x1 = (sqrtBW x0 x1, sqrtBW_okb x0 x1).
+Proof. by []. Qed.
+
+(* The root's answer and flag in one pass, as `code/ddouble's `sqrtDwG'.      *)
+Definition threeSqRtG (x : twfloat) : twfloat * bool :=
+  let: (bw, k0) := sqrtBWG (tw0 x) (tw1 x) in
+  let: (i1, k1) := prodDWG bw x in
+  let hb := halfTw bw in
+  let: (p2, k3) := prodDWG hb i1 in
+  let s2 := sub32Tw p2 in
+  let: (q, k5) := prodOneG i1 s2 in
+  (q, [&& k0, k1 & halfTw_okb bw] && [&& k3, sub32Tw_okb p2 & k5]).
+
+Lemma threeSqRtGE x : threeSqRtG x = (threeSqRt x, sqrt_okb x).
+Proof.
+by rewrite /threeSqRtG /threeSqRt /sqrt_okb sqrtBWGE !prodDWGE prodOneGE.
+Qed.
 
 Lemma sqrt_okbP x : sqrt_okb x = true -> sqrt_ok x.
 Proof.

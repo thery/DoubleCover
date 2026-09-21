@@ -66,10 +66,10 @@ Definition widenDn t f :=
 (* cutting upwards settles that.  Nothing is estimated and no error bound     *)
 (* is needed.                                                                 *)
 Definition addTwUp (x y : twfloat) :=
-  expUp (vecSum (Merge (tw2l x) (tw2l y))).
+  expUp (vecSum6 (Merge (tw2l x) (tw2l y))).
 
 Definition addTwDn (x y : twfloat) :=
-  expDn (vecSum (Merge (tw2l x) (tw2l y))).
+  expDn (vecSum6 (Merge (tw2l x) (tw2l y))).
 
 (* Negating a triple word is exact, so subtraction is addition.               *)
 Definition subTwUp x y := addTwUp x (negTw y).
@@ -85,6 +85,36 @@ Definition subTwDn x y := addTwDn x (negTw y).
 (* wherever it happens.                                                       *)
 Definition teps := Eval compute in 0x1p-1070%float.
 
+(* AND WHERE THAT STEP IS PUT.  Sixteen times the smallest number there is   *)
+(* is enough for the bound, but it is not a word of the answer: beside a     *)
+(* leading word of one it is a subnormal a thousand bits below the third     *)
+(* word's place.  A triple word carrying such a word can never be divided    *)
+(* by -- the quotient needs `a * x1' with `a' about one over `x0', and that  *)
+(* product falls under the line where the paper's bounds hold -- and every   *)
+(* exact product has one: `2 * 3' comes back as six and a subnormal.  That   *)
+(* was Interval's exponential failing on three words.                        *)
+(*                                                                          *)
+(* So the step is taken at the last word's own place as well: two to the     *)
+(* minus a hundred and fifty-nine of the leading product, which is about one *)
+(* step of a third word and so costs nothing, ADDED TO the fixed step, which *)
+(* is the only part the bound uses.  Above or below the line, the sum is at  *)
+(* least the fixed step, so the proof is the one it was.                     *)
+Definition escale := Eval compute in 0x1p-159%float.
+
+Definition pstep w :=
+  let r := mulUpFp escale (abs w) in
+  if (teps <? r)%float then r else teps.
+
+(* AND THE FIVE SMALL PRODUCTS.  Rounding a product upwards takes nought to  *)
+(* the smallest number there is, and five of those beside a leading word of  *)
+(* six make another word that is not a word of the answer.  A product with a *)
+(* nought in it is nought exactly, and nought is its own bound either way,   *)
+(* so there is nothing to round.                                             *)
+Definition mulUp0 a b :=
+  if ((a =? 0) || (b =? 0))%float then (a * b)%float else mulUpFp a b.
+Definition mulDn0 a b :=
+  if ((a =? 0) || (b =? 0))%float then (a * b)%float else mulDnFp a b.
+
 (* The product of two triple words, bounded above.  Of the nine products      *)
 (* the four that carry the value come back as two numbers each that all but   *)
 (* add up to them; the five that are smaller than the last word of the        *)
@@ -92,6 +122,16 @@ Definition teps := Eval compute in 0x1p-1070%float.
 (* it stands for, and the step above covers what the two-products may have    *)
 (* missed.  The sweep changes no value, and cutting down to three words       *)
 (* upwards keeps the answer above the product.                                *)
+(*                                                                            *)
+(* THE TERMS ARE WRITTEN IN ORDER INSTEAD OF SORTED.  The sweeps want their   *)
+(* terms by decreasing size, and the fourteen are written in the order the    *)
+(* nine products come in, which is not that order -- the low word of the      *)
+(* leading two-product is about `u' and sits behind three terms that are      *)
+(* about `u^2'.  Sorting them cost three microseconds of a product's eleven,  *)
+(* an insertion sort over fourteen words, and the bound does not use the      *)
+(* order at all: `vecSum' and `vseb' are exact whatever order they are given  *)
+(* and the proof only ever asks that the sum is unchanged.  So the terms go   *)
+(* in the order their sizes are known to be in, and the sort is gone.         *)
 Definition mulTwUp (x y : twfloat) :=
   let: TWFloat x0 x1 x2 := x in
   let: TWFloat y0 y1 y2 := y in
@@ -99,11 +139,12 @@ Definition mulTwUp (x y : twfloat) :=
   let d01 := twoProd x0 y1 in
   let d10 := twoProd x1 y0 in
   let d11 := twoProd x1 y1 in
-  expUp (vecSum (sortMag
-    [:: dwhi d00; dwhi d01; dwhi d10; dwhi d11;
-        dwlo d00; dwlo d01; dwlo d10; dwlo d11;
-        mulUpFp x0 y2; mulUpFp x2 y0;
-        mulUpFp x1 y2; mulUpFp x2 y1; mulUpFp x2 y2; teps])).
+  expUp (vecSum14
+    [:: dwhi d00; dwhi d01; dwhi d10; dwlo d00;
+        dwhi d11; dwlo d01; dwlo d10;
+        mulUp0 x0 y2; mulUp0 x2 y0; dwlo d11;
+        mulUp0 x1 y2; mulUp0 x2 y1; mulUp0 x2 y2;
+        pstep (dwhi d00)]).
 
 Definition mulTwDn (x y : twfloat) :=
   let: TWFloat x0 x1 x2 := x in
@@ -112,12 +153,12 @@ Definition mulTwDn (x y : twfloat) :=
   let d01 := twoProd x0 y1 in
   let d10 := twoProd x1 y0 in
   let d11 := twoProd x1 y1 in
-  expDn (vecSum (sortMag
-    [:: dwhi d00; dwhi d01; dwhi d10; dwhi d11;
-        dwlo d00; dwlo d01; dwlo d10; dwlo d11;
-        mulDnFp x0 y2; mulDnFp x2 y0;
-        mulDnFp x1 y2; mulDnFp x2 y1; mulDnFp x2 y2;
-        (- teps)%float])).
+  expDn (vecSum14
+    [:: dwhi d00; dwhi d01; dwhi d10; dwlo d00;
+        dwhi d11; dwlo d01; dwlo d10;
+        mulDn0 x0 y2; mulDn0 x2 y0; dwlo d11;
+        mulDn0 x1 y2; mulDn0 x2 y1; mulDn0 x2 y2;
+        (- pstep (dwhi d00))%float]).
 
 (* ===========================================================================*)
 (*  Quotient and root                                                         *)

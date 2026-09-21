@@ -407,9 +407,20 @@ Definition nearbyint_DN (mode : rounding_mode) x :=
   onReal (fun x => fp2tw (PrimitiveFloat.nearbyint_DN mode
                             (addDnFp (addDnFp (tw0 x) (tw1 x)) (tw2 x)))) x.
 
-(* The midpoint is the plain half sum: rounding to nearest keeps it between   *)
-(* the two, which is all that is asked of it.                                 *)
-Definition midpoint x y := div2 (plusTwTw x y).
+(* THE MIDPOINT, AND WHY IT IS NOT THE PLAIN HALF SUM.  `plusTwTw' adds to   *)
+(* nearest but does not sweep, so its three words can overlap: a third and a  *)
+(* third came back as `0x1.5555555555556p-1' beside `-0x1.5555555555555p-54', *)
+(* and two thirds of a step of the leading word is more than half of one, so  *)
+(* `wellFormed' is false and the whole triple reads as nothing.  Interval     *)
+(* then has no point to halve its range at, and every goal that bisects is    *)
+(* refused -- which is what `method_error' was.                               *)
+(*                                                                            *)
+(* So the sum is the one that sweeps, and the half of it is held between the  *)
+(* two ends by hand: a bound rounded outwards can leave the range it was cut  *)
+(* from, and the two ends are themselves the answer when it does.             *)
+Definition midpoint x y :=
+  let m := div2 (addTwUp x y) in
+  if real m then max x (min y m) else x.
 
 (* ---------------------------------------------------------------------------*)
 (*  What needs no arithmetic                                                  *)

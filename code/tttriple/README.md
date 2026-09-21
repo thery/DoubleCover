@@ -246,6 +246,37 @@ The real one is `FloatOps.Z.ldexp`, and `ldexp2` in `tw_ops.v` is the name
 written out so it cannot happen twice. It cost `fromZ` an entire word before
 the test caught it.
 
+## And a second trap: a step that is not a word
+
+The product is widened by a fixed step, `teps = 2^-1070`, and that step is
+enough for the bound: of the nine products in the expansion the four that
+carry the value are taken by a two-product, which can only miss by three and
+a half of the smallest float there is, and the five that are smaller are
+rounded the way the bound wants. Nothing has to be estimated.
+
+But `2^-1070` beside a leading word of six **is not a word of the answer**.
+It is a subnormal a thousand bits below where a third word belongs, and every
+*exact* product picks one up: `2 * 3` came back as
+
+```
+TWFloat 6 0x0.0000000000015p-1022 0
+```
+
+Such a triple word can never be divided by. The quotient needs `a * x1` with
+`a` about one over `x0`, and with `x1` that far under `x0` the product falls
+below the line where the paper's bounds hold, so the guard refuses it. Scaling
+does not help either: `x1 / x0` does not move. So `mul` then `div` gave `nan`,
+and Interval's exponential does exactly that — which is what made `exp x <= 3`
+fail over `[0,1]` while `exp 1` on its own was fine.
+
+The step is now taken at the last word's own place: `pstep w` is the larger of
+`teps` and `2^-159` of the leading product, which is about one step of a third
+word and so costs nothing, and only the `teps` part is what the bound uses.
+The five small products got the same treatment — rounding upwards takes nought
+to the smallest float there is, and five of those make another word that is
+not a word of the answer, so `mulUp0` leaves an exact nought alone. `2 * 3` is
+now `TWFloat 6 0x1.8000000000001p-157 0`, and dividing by it works.
+
 ## The files
 
 | file | what it holds |
@@ -322,12 +353,15 @@ Three files, none on the build path. Build `code/ddouble` first, then
 ```
 coqc -native-compiler no -Q . twarith -Q ../ddouble dwarith bench_ops.v
 coqc -native-compiler no -Q . twarith -Q ../ddouble dwarith bench_bands.v
+coqc -native-compiler no -Q . twarith -Q ../ddouble dwarith bench_prec.v
 coqc -native-compiler no -Q . twarith -Q ../ddouble dwarith bench_lift.v
 ```
 
 `bench_ops.v` times the arithmetic with no tactic above it; `bench_bands.v`
-times Interval's tactic over each arithmetic; `bench_lift.v` is the one goal
-in Interval's own sources that asks for more than a double word.
+times Interval's tactic over each arithmetic, at the precision each goal asks
+for; `bench_prec.v` does the same at the precision each format holds;
+`bench_lift.v` is the one goal in Interval's own sources that asks for more
+than a double word.
 
 Interval's tactic decides which arithmetic runs by whether `i_prec` is given
 at all (`src/Tactic.v:80`): **without** it the tactic uses primitive floats at
@@ -338,129 +372,125 @@ how many bits to aim for.
 
 ### One operation at a time
 
-`bench_ops.v`, ten thousand operations each (a thousand for the root), this
-desktop, seconds. Bignums are asked for the precision each word module
-actually holds, so this is a comparison at equal precision.
+**How these are taken, because it matters.** Each module is timed in a
+process of its own, two thousand operations a loop, the minimum of eight
+loops. Running all four modules in one process — which is what `bench_ops.v`
+does, with triple words last — inflates the triple-word rows by about 2.7x:
+the bignum loops fill the heap and the triple-word loop pays the collections.
+That mistake is what made an earlier version of this table read 0.118 for an
+addition that costs 0.042.
 
-| op | bignum 107 | bignum 159 | double words | triple words | was |
-|---|---|---|---|---|---|
-| add | 0.050 | 0.085 | **0.009** | 0.119 | 0.042 |
-| mul | 0.089 | 0.157 | **0.012** | 0.141 | 0.115 |
-| div | 0.258 | 0.616 | **0.018** | 1.404 | 0.136 |
-| sqrt | 0.026 | 0.047 | **0.003** | 0.084 | 0.014 |
-| cmp | 0.262 | 0.340 | **0.052** | 0.163 | 0.162 |
+Microseconds an operation. Bignums are asked for the precision each word
+module actually holds, so this is a comparison at equal precision.
 
-Medians of three runs. **The `was` column is before the quotient and the root
-were proved**, and the bignum and double-word columns reproduce their old
-numbers to within noise, so what moved is the triple-word arithmetic and not
-the machine.
-
-**PROVING THEM COST A GREAT DEAL OF TIME, and the reason is structural.** The
-operation now evaluates a guard — `divOkT`, `sqrtOkT` — and then, if it holds,
-computes the answer. The guard re-runs the whole algorithm and every one of
-its intermediates, and each clause of it re-runs its own subexpression again
-(`mulF a b` computes `a * b` inside `prodF`, having already asked for it as
-`finF`). So the quotient pays for the algorithm at least twice over plus the
-tests, and `divTwUpK` calls `divTwUpQ` up to seven times looking for a way
-round. Ten times slower is about what that predicts.
-
-**The fix is known and is the double-word development's own pattern**:
-`divDwDw2GS` there returns `(result, ok)` in one pass and `divDwDw2GSE` proves
-that pair equals the two computed separately. A `threeDivG`/`threeSqRtG` of
-the same shape would compute the answer and the flag together, and cost the
-algorithm plus the tests rather than twice the algorithm plus the tests. It is
-mechanical work and it is not done.
-
-The sum and the product moved too, by less, and that is a different cause:
-`kscale` is three bits wider, so every widened answer carries larger low words
-and the sweeps below them do more. That one is the honest price of the proof,
-not of the arrangement. The `cmp` row is a hundred thousand comparisons, not ten
-thousand: a comparison is far cheaper than an operation. It is the one row
-where the three-word column is not the slowest — against bignums at its own
-precision a triple-word comparison is 1.8x quicker, and 2.7x quicker than
-bignums at 107.
-
-Against bignums at the same precision, a double word still wins on all four;
-a triple word now wins on none of them, where before the guards it won on all
-four:
-
-| | add | mul | div | sqrt |
+| op | bignums 159 | double words | triple words | triple, before |
 |---|---|---|---|---|
-| double words | 5.6x faster | 7.4x faster | 14.3x faster | 8.7x faster |
-| triple words | 0.7x | 1.1x | 0.4x | 0.6x |
-| triple words, before | 2.4x faster | 1.6x faster | 6.9x faster | 2.6x faster |
+| add | 18.0 | **0.5** | 3.5 | 4.0 |
+| mul | 28.0 | **1.0** | 8.0 | 11.5 |
+| div | 56.5 | **1.5** | 14.5 | 35.7 |
+| sqrt | 55.5 | **2.5** | 15.0 | 37.0 |
 
-**AN EXPONENT SHIFT IS NOT ONE INSTRUCTION HERE.** The step was first written
-as `FloatOps.Z.ldexp`, which is one instruction on the machine and exact. In
-Rocq's evaluator it is nothing of the kind: it goes through `Z.max`, `Z.min`
-and a conversion of a whole number to a machine integer on every call.
-Measured, **4.8 µs against 0.2 µs** for a float multiplication that gives the
-identical answer — and the constant is a power of two, so the multiplication
-is exact as well. That one line was hiding almost the whole gain: the
-double-word division read 0.071 with it and 0.016 without.
+**A triple word beats bignums at its own precision on all four**, by 3.7x to
+4.5x. Against a double word it costs 6x on the root, 8x on the sum, 10x on the
+quotient and 11x on the product.
 
-Two changes got the quotient and the root there. The bound is a shift of eight
-units in the last place instead of a computed residual, and the algorithms are
-the paper's (`twpaper.v`) instead of mine. Timed on their own, the paper's
-root is 16.5 µs against 43.5 for Newton's method, and its quotient 10.5 µs
-against 19 for long division — so the paper's are 2.6 and 1.8 times quicker as
-well as tighter.
+**Why it is not 2x.** The obvious sum — nine products against four — is the
+wrong count. A double word's product uses **one** two-product and finishes
+with a `fastTwoSum`; a triple word's uses **four**, and a quotient nine, and
+without an FMA each two-product is Dekker's splitting, eighteen operations.
+Counted from the code, `divDwDw2` is 34 operations with one two-product and
+`threeDiv` is 298 with nine — 8.8x, which is what the table shows now that
+the guard has been fixed.
 
-**THE RESULT: a double word is quicker than bignums at every operation. A
-triple word is quicker at the two that matter most and slower at the other
-two.** The sum and the product are where three words pay: both are one sweep
-over an expansion and nothing else. The quotient and the root are where the
-implementation is extravagant rather than the idea wrong — `divTwTw` is three
-rounds of long division, each doing a *full* triple-word multiplication, and
-`sqrtTw` is two Newton steps each containing one of those divisions. The
-paper's Algorithms 13 and 15 do the same work in a fraction of that, and
-nothing about the bounds would change if they were used: division and the root
-are bounded by their residual, so the seed is free to be anything.
+**Two things were wrong, and both were mine.**
 
-Beside a double word, a triple word costs 4.4x on the sum, 9.5x on the
-product, 12.7x on the quotient and 24x on the root.
+*The guard was a second pass.* It recomputed the whole algorithm, and every
+`mulF` recomputed the product the algorithm had just made, and it tested
+twenty-one intermediates for being a number. `code/ddouble`'s guard is
+eleven operations and tests no intermediate at all: one range test a product,
+and finiteness by the argument `twoProd_err` already rests on — each number
+is an argument of the operation that made the next, so the last one being a
+number proves they all were. The triple-word guards are now that shape:
+`mulFv` reads the product in hand, `twoProd_finI` carries the finiteness, and
+what is tested is one range fact a product plus the last word. That took the
+quotient from 35.7 to 14.5 and the root from 37 to 15.
 
-**This table was wrong twice before it was right.** The first version had the
-multiplier written as a call, `mult p`, inside each loop body, so every
-iteration recomputed a division and two conversions — and the *addition* row
-then read tenfold against the double word, which is what made thery say it
-was counter-intuitive. It was. A loop that times an operation must hold every
-other value it touches constant, and 2000 iterations was too few to read
-anyway.
+*The sweeps were written on `seq float`.* `vecSum` and `vseb` are how the
+paper reads, and they allocate a cell a word and are walked by an
+interpreter: 44 to 73 nanoseconds an operation against a double word's 16.
+On a fixed size they unroll into named words — over the quotient's **four**
+tail terms `vseb` is four branches — and `prodDWF_eq` says the answer is the
+one the bounds were proved about. Algorithm 11 went from 4.4 microseconds to
+1.4, Algorithm 14 from 11.0 to 4.1.
 
-### Through the tactic
+For the sum and the product only part of that is done. `vecSum` is unrolled
+at both lengths they use, six and fourteen (`vecSum6_eq`, `vecSum14_eq`,
+proved by computation since the chain has no branch), and the product no
+longer sorts its fourteen terms: they are written in the order their sizes
+are known to be in, and the bound never uses the order — only that the sum is
+unchanged. That is mul 11.5 to 8.0 and add 4.0 to 3.5, and it costs nothing
+in reach: the 105- and 150-bit brackets still prove.
 
-`bench_bands.v`, seconds, and `refused` is Interval reporting *"Numerical
-evaluation failed to conclude"* — a bound too wide for the goal, never a wrong
-answer.
+**What is left, and what it is worth.** `vseb` over fourteen terms is
+thirteen nested branches, so it cannot be unrolled the way the quotient's
+was. The way to do it is to fuse it with the fold that follows: make
+`expUp`'s right fold a left fold, so a producer can carry an accumulator,
+then walk `vsebAux` once emitting two words and accumulating the rest, with
+no list at all. Measured on a prototype that skips `vseb` entirely — an upper
+bound on what is achievable, not an implementation — the sum would go to
+about 2 microseconds and the product to about 5. That is 1.6x, and it is not
+done.
 
-| goal | bits asked | floats | bignums | double words | triple words |
-|---|---|---|---|---|---|
-| pi to 14 digits | 47 | **0.012** | 0.021 | **0.012** | 0.018 |
-| pi to 24 digits | 82 | refused | 0.335 | **0.014** | 0.016 |
-| pi to 34 digits | 105 | refused | 0.023 | refused | **0.020** |
-| pi to 45 digits | 150 | refused | **0.027** | refused | 0.031 |
-| `method_error` | 80 | — | 5.047 | **1.239** | refused |
-| `poly_error` | 90 | — | 0.057 | **0.047** | 0.095 |
-| `cancellation`, depth 20 | 60 | — | 74.8 | **23.5** | 213.8 |
+### Every goal at the same precision
 
-One run, after the comparison was fixed. Interval's own 120-bit goal is not in
-`bench_bands.v` and is not in this table any more; it was 0.169 for bignums
-against 0.174 for triple words when it was measured by hand.
+`bench_bands.v` asks bignums for the precision each **goal** needs. That is the
+fair question if one is buying a proof, and not the fair question about the
+arithmetic: `cancellation` asks for sixty bits and a triple word does a
+hundred and fifty-nine on every call whatever is asked. `bench_prec.v` pins
+bignums at each word format's own width and runs all seven goals at both.
 
-Three things to read off it. **Double words and floats do not reach the 105-
-and 150-bit brackets at all**, and triple words do, at a cost that is within a
-few per cent of what bignums pay for the same brackets — bignums take the
-150-bit one slightly quicker, 0.027 against 0.031, and triple words take the
-105-bit one slightly quicker the other way. **`cancellation` is where the
-per-operation table shows through**: its cost is the splitting, so precision
-buys nothing, and the sum and the product — which the shift did not touch — are
-paid in full. And **a double word is quickest wherever it reaches at all**,
-which is up to about a hundred bits.
+At 107 bits, which is what a double word holds:
 
-`cancellation` is also the one goal the comparison being fixed cost anything:
-the old words-only rule takes 191.7 on this machine, the correct one 213.8.
-Every other row is unchanged — see the comparison section above.
+| goal | bignums 107 | double words |
+|---|---|---|
+| pi to 14 digits | 0.029 | **0.012** |
+| pi to 24 digits | 0.074 | **0.015** |
+| pi to 34 digits | refused | refused |
+| pi to 45 digits | refused | refused |
+| `method_error` | 4.95 | **1.16** |
+| `poly_error` | 0.056 | **0.047** |
+| `cancellation` | 127.9 | **22.6** |
+
+At 159 bits, which is what a triple word holds:
+
+| goal | bignums 159 | triple words |
+|---|---|---|
+| pi to 14 digits | **0.018** | 0.020 |
+| pi to 24 digits | **0.013** | 0.016 |
+| pi to 34 digits | **0.015** | 0.019 |
+| pi to 45 digits | **0.019** | 0.047 |
+| `method_error` | 8.54 | **6.09** |
+| `poly_error` | **0.066** | 0.075 |
+| `cancellation` | 220.9 | **229.1** |
+
+**A double word is two to six times quicker than bignums wherever it reaches.
+A triple word is level with them**: quicker on `method_error`, level on
+`cancellation`, within noise on the four brackets. That is the honest
+reading, and it is a different one from the table above, where bignums are
+asked for less work than they are being compared against.
+
+Each figure is taken in a process of its own. Making the quotient and the
+root twice as quick moved `cancellation` from 282.7 to 229.1, and did **not**
+move `I.exp`, which is 6.2 milliseconds either way: **the exponential is not
+quotient-bound, it is product-bound**, and the product is the operation still
+written on lists. A product is 2.5 microseconds of arithmetic against 8.5 of
+list machinery — 3 of them `sortMag` over fourteen terms, 2.5 `vecSum`, 3
+`vseb` and the cut. That is the next thing worth doing, and it is the one
+that would move this row.
+
+One more thing worth noticing: bignums get **quicker** going from 107 bits to
+159 on the pi brackets — at 107 they cannot reach the tight ones without
+bisecting, at 159 they can.
 
 ### What each arithmetic really delivers
 
@@ -664,25 +694,31 @@ of exponents, and it is not done.
    version — its proof of `mag_correct` would have to be redone, and that
    format cannot reach this goal anyway.
 
-2. **`method_error` is still refused, and that is not understood.** What has
-   been ruled out, each by measurement:
-   * *Not precision.* At a point this module encloses `f t - exp t` to
-     `6.4e-47` where a double word gives `4.1e-30` and bignums `1.3e-31`.
-   * *Not the Taylor model of a quotient*, the only thing `method_error` has
-     that `poly_error` has not: both modules prove
-     `Rabs (x/(1+x) - x*(1-x)) <= 3/10` under `i_bisect`/`i_taylor` in 70 ms.
-   * *Not a margin.* The same goal is refused with the bound loosened twenty
-     times over, to `1e-16`, while a bound of `1` is proved.
-   * *Not `mag`* — tightening it fixed the 120-bit goal and left this one
-     refused.
-   * *Not `midpoint` or `wellFormed`.* Both are `real` on the values tried.
-3. **Speed, and one goal where triple words lose.** `cancellation` is 174 s
-   against 77.5 for bignums, 2.2 times slower, although every operation is
-   quicker than the bignum one. The gap is per-call overhead bignums do not
-   pay: every operation goes through `onReal2`, which runs `real` — a
-   `classify` over three words and the two `wellFormed` comparisons — and
-   the sum and the product allocate `seq` cells. On a goal that is a million
-   cheap operations that overhead is the whole cost.
+2. **`method_error` was refused, and it was the midpoint.** It was `midpoint`
+   and `wellFormed` after all — an earlier note here said it was not, on too
+   few values tried. `midpoint x y` was `div2 (plusTwTw x y)`, and `plusTwTw`
+   adds to nearest but does not sweep, so its three words can overlap: a third
+   and a third come back as `0x1.5555555555556p-1` beside
+   `-0x1.5555555555555p-54`, and two thirds of a step of the leading word is
+   more than half of one, so `wellFormed` is false and the whole triple reads
+   as nothing. Interval then has no point to halve its range at and every goal
+   that bisects is refused — which is why `poly_error` and `cancellation` went
+   the same way whenever they were asked to bisect.
+
+   The midpoint is now the half of the sum that *does* sweep, `addTwUp`, held
+   between the two ends by `min` and `max`: a bound rounded outwards can leave
+   the range it was cut from, and then the end is the answer. `method_error`
+   proves in 6.4 s.
+3. **Speed: the sum and the product are still on lists.** `cancellation` is
+   229 s against 221 for bignums **at the same 159 bits** — level. At the
+   sixty bits the goal asks for, bignums take 76.7, and that is the number to
+   quote only if one is willing to compare a tenth of the work with the whole
+   of it. What is left is the product: 2.5 microseconds of arithmetic against
+   8.5 of `sortMag`, `vecSum`, `vseb` and the cut, all allocating `seq` cells
+   at 44 to 73 nanoseconds an operation where a double word's straight-line
+   code runs at 16. The quotient and the root are off the lists;
+   `prodDWF_eq` shows how — unroll the sweep for the fixed size and prove
+   the answer is the same. The sum and the product have not been done.
 
    Timed on their own, microseconds a call:
 

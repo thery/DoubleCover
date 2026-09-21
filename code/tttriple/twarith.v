@@ -67,6 +67,52 @@ Fixpoint vecSumAux (l : seq float) : seq float * float :=
 Definition vecSum (l : seq float) : seq float :=
   let: (es, s0) := vecSumAux l in s0 :: es.
 
+(* THE SWEEP AT THE TWO SIZES IT IS USED AT, WITH NO LIST UNDER IT.          *)
+(* `vecSumAux' builds a pair of a list and a word at every step; at a fixed   *)
+(* length the whole thing is a chain of two-sums on named words and the only  *)
+(* list left is the answer.  There is no branch in it, so the two lemmas are  *)
+(* by computation, and anything of another length falls back on `vecSum'.     *)
+Definition vecSum6 (l : seq float) : seq float :=
+  match l with
+  | [:: a0; a1; a2; a3; a4; a5] =>
+      let: DWFloat s4 e5 := twoSum a4 a5 in
+      let: DWFloat s3 e4 := twoSum a3 s4 in
+      let: DWFloat s2 e3 := twoSum a2 s3 in
+      let: DWFloat s1 e2 := twoSum a1 s2 in
+      let: DWFloat s0 e1 := twoSum a0 s1 in
+      [:: s0; e1; e2; e3; e4; e5]
+  | _ => vecSum l
+  end.
+
+Lemma vecSum6_eq l : vecSum6 l = vecSum l.
+Proof. by case: l => [|a0 [|a1 [|a2 [|a3 [|a4 [|a5 [|a6 l]]]]]]]. Qed.
+
+Definition vecSum14 (l : seq float) : seq float :=
+  match l with
+  | [:: a0; a1; a2; a3; a4; a5; a6; a7; a8; a9; a10; a11; a12; a13] =>
+      let: DWFloat s12 e13 := twoSum a12 a13 in
+      let: DWFloat s11 e12 := twoSum a11 s12 in
+      let: DWFloat s10 e11 := twoSum a10 s11 in
+      let: DWFloat s9 e10 := twoSum a9 s10 in
+      let: DWFloat s8 e9 := twoSum a8 s9 in
+      let: DWFloat s7 e8 := twoSum a7 s8 in
+      let: DWFloat s6 e7 := twoSum a6 s7 in
+      let: DWFloat s5 e6 := twoSum a5 s6 in
+      let: DWFloat s4 e5 := twoSum a4 s5 in
+      let: DWFloat s3 e4 := twoSum a3 s4 in
+      let: DWFloat s2 e3 := twoSum a2 s3 in
+      let: DWFloat s1 e2 := twoSum a1 s2 in
+      let: DWFloat s0 e1 := twoSum a0 s1 in
+      [:: s0; e1; e2; e3; e4; e5; e6; e7; e8; e9; e10; e11; e12; e13]
+  | _ => vecSum l
+  end.
+
+Lemma vecSum14_eq l : vecSum14 l = vecSum l.
+Proof.
+by case: l => [|a0 [|a1 [|a2 [|a3 [|a4 [|a5 [|a6 [|a7 [|a8 [|a9 [|a10
+   [|a11 [|a12 [|a13 [|a14 l]]]]]]]]]]]]]]].
+Qed.
+
 (* The second sweep, front to back, which drops the terms that came out       *)
 (* nought and separates what is left.  The sum is unchanged again.            *)
 Fixpoint vsebAux (eps : float) (l : seq float) : seq float :=

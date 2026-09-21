@@ -179,17 +179,15 @@ Lemma cancellation : forall x, (0 <= x <= 1)%R ->
   (Rabs (exp x - exp x) <= 1e-4)%R.
 Proof. intros x H. Time interval with (i_bisect x, i_depth 20, i_prec 60). Qed.
 
-(* AND THE ONE THIS ARITHMETIC REFUSES AND A DOUBLE WORD TAKES.  It is not    *)
-(* precision: at a point, this module encloses `f t - exp t' to six parts in  *)
-(* ten to the forty-seventh where a double word gives four in ten to the      *)
-(* thirtieth.  It is not the Taylor model of a quotient either, which is the  *)
-(* only thing this goal has that `poly_error' has not - both modules take     *)
-(* such a goal in seventy milliseconds.  And it is not a margin: the same     *)
-(* goal is refused with the bound loosened twenty times over, to 1e-16,       *)
-(* while a bound of one is proved.  Unexplained; see the README.              *)
+(* THE GOAL THIS ARITHMETIC USED TO REFUSE.  It was not precision and it was  *)
+(* not the Taylor model: it was the midpoint.  `plusTwTw' adds to nearest    *)
+(* but does not sweep, so a third and a third came back as three words that  *)
+(* overlap, `wellFormed' was false and the whole triple read as nothing -    *)
+(* Interval then had no point to halve its range at, and every goal that     *)
+(* bisects was refused.  The midpoint is now the swept sum, held between the *)
+(* two ends; see `tw_ops.v'.                                                 *)
 Lemma method_error : forall t : R, Rabs t <= 0.35 ->
   Rabs ((f t - exp t) / exp t) <= 5e-18.
-Proof. Fail (intros t Ht; interval with (i_bisect t, i_taylor t, i_prec 80)).
-Abort.
+Proof. intros t Ht. Time interval with (i_bisect t, i_taylor t, i_prec 80). Qed.
 
 End TripleWords.

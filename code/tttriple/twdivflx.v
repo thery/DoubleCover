@@ -168,28 +168,41 @@ Qed.
 (*  The guard, as a test                                                      *)
 (* ---------------------------------------------------------------------------*)
 
+(* ALGORITHM 13'S TEST, THE WAY `code/ddouble' WRITES ONE: a range test on   *)
+(* each of the four products, read where the seed left them, and ONE         *)
+(* finiteness test.  Everything else follows: the last word is a sum of the  *)
+(* one before it, which is a product of the one before that, all the way     *)
+(* back to the two-products, and `twoProd_finI' carries those.               *)
 Definition reciBW_okb (x0 x1 : PrimFloat.float) : bool :=
   let a := (onep / x0)%float in
   let pe := twoProd a x0 in
-  let h11 := ((dwhi pe - onep) + dwlo pe)%float in
-  let h1 := (- h11 - a * x1)%float in
-  let b01 := dwhi (twoProd a onem) in
-  let b11 := dwlo (twoProd a onem) in
-  let b12 := (b11 + a * h1)%float in
-  [&& finF x0, finF x1, (0 <? abs x0)%float, finF a & normF a]
-  && [&& finF (dwlo pe), finF (dwhi pe - onep)%float, finF h11,
-         finF b11 & finF b12]
-  && [&& finF (a * x0)%float, finF (a * onem)%float, finF (a * x1)%float,
-         finF h1 & finF (a * h1)%float]
-  && [&& mulF a x0, mulF a onem, mulF a x1 & mulF a h1]
+  let ax0 := dwhi pe in
+  let pm := (ax0 - onep)%float in
+  let h11 := (pm + dwlo pe)%float in
+  let ax1 := (a * x1)%float in
+  let h1 := (- h11 - ax1)%float in
+  let bp := twoProd a onem in
+  let b01 := dwhi bp in
+  let b11 := dwlo bp in
+  let ah1 := (a * h1)%float in
+  let b12 := (b11 + ah1)%float in
+  [&& (0 <? abs x0)%float, normF a & finF b12]
+  && [&& mulFv a x0 ax0, mulFv a onem b01, mulFv a x1 ax1 & mulFv a h1 ah1]
   && fastTwoSumOkb b01 b12.
 
 Lemma reciBW_okbP x0 x1 : reciBW_okb x0 x1 = true -> reciBW_ok x0 x1.
 Proof.
-move=> /andP[/andP[/andP[/andP[/and5P[A0 A1 A2 A3 A4]
-        /and5P[B0 B1 B2 B3 B4]] /and5P[C0 C1 C2 C3 C4]]
-        /and4P[D0 D1 D2 D3]] Hfast].
-have Fx0 := finFP _ A0; have Fx1 := finFP _ A1; have Fa := finFP _ A3.
+move=> /andP[/andP[/and3P[A2 A4 Gb12] /and4P[M0 M1 M2 M3]] Hfast].
+have Fb12 := finFP _ Gb12.
+have [Fb11 Fah1] := Dfin_addI _ _ Fb12.
+have [Fa Fh1] := Dfin_mulI _ _ Fah1.
+have [Fnh11 Fax1] := Dfin_subI _ _ Fh1.
+have Fh11 := Dfin_oppI _ Fnh11.
+have [Fpm Fpelo] := Dfin_addI _ _ Fh11.
+have [Fpehi _] := Dfin_subI _ _ Fpm.
+have [_ Fx1] := Dfin_mulI _ _ Fax1.
+have [_ Fx0 _] := twoProd_finI _ _ Fpelo.
+have [_ Fonem Fb01] := twoProd_finI _ _ Fb11.
 have Hn : (Dnorm < Rabs (D2R (onep / x0)%float))%R by apply: normFP.
 have Hp := bpow_gt_0 radix2 (SpecFloat.emin prec emax + prec - 1).
 have Nx0 : (D2R x0 <> 0)%R.
@@ -197,14 +210,14 @@ have Nx0 : (D2R x0 <> 0)%R.
   have H0 : Dfin 0%float by [].
   have E0 : D2R 0%float = 0%R by rewrite /D2R; compute; lra.
   have := Dltb _ _ H0 Fax A2; rewrite E0 D2R_abs; split_Rabs; lra.
-split; first by split => //; apply: finFP.
+split; first by split.
 split.
   by apply: DnormT_of_rnd; have [E _] := Dfin_div _ _ Dfin_onep Nx0 Fa;
      rewrite -E.
-split; first by split; apply: finFP.
+split; first by split.
 split.
-  by split; apply: mulFP => //; apply: finFP.
-split; first by split; apply: finFP.
+  by split; apply: mulFvP.
+split; first by split.
 by apply: fastTwoSumOkbP.
 Qed.
 
@@ -232,6 +245,44 @@ Definition div_okb (z x : twfloat) : bool :=
       prodDW_okb (tw0 bw) (tw1 bw) (tw0 z) (tw1 z) (tw2 z),
       sub2Tw_okb i1
     & prodOne_okb (tw0 az) (tw1 az) (tw2 az) (tw1 s2) (tw2 s2)].
+
+(* THE ANSWER AND THE FLAG IN ONE PASS.  `threeDiv' and `div_okb' are the    *)
+(* same four numbers read twice; here they are read once.  The pair is the    *)
+(* two computed apart, which is what the lemma below says, so nothing above   *)
+(* has to know about it.  This is `code/ddouble's `divDwDw2GS'.               *)
+Definition reciBWG (x0 x1 : PrimFloat.float) : twfloat * bool :=
+  let a := (onep / x0)%float in
+  let pe := twoProd a x0 in
+  let ax0 := dwhi pe in
+  let pm := (ax0 - onep)%float in
+  let h11 := (pm + dwlo pe)%float in
+  let ax1 := (a * x1)%float in
+  let h1 := (- h11 - ax1)%float in
+  let bp := twoProd a onem in
+  let b01 := dwhi bp in
+  let b11 := dwlo bp in
+  let ah1 := (a * h1)%float in
+  let b12 := (b11 + ah1)%float in
+  (let: DWFloat bh bl := fastTwoSum b01 b12 in TWFloat bh bl 0,
+   [&& (0 <? abs x0)%float, normF a & finF b12]
+   && [&& mulFv a x0 ax0, mulFv a onem b01, mulFv a x1 ax1 & mulFv a h1 ah1]
+   && fastTwoSumOkb b01 b12).
+
+Lemma reciBWGE x0 x1 : reciBWG x0 x1 = (reciBW x0 x1, reciBW_okb x0 x1).
+Proof. by []. Qed.
+
+Definition threeDivG (z x : twfloat) : twfloat * bool :=
+  let: (bw, k0) := reciBWG (tw0 x) (tw1 x) in
+  let: (i1, k1) := prodDWG bw x in
+  let s2 := sub2Tw i1 in
+  let: (az, k2) := prodDWG bw z in
+  let: (q, k4) := prodOneG az s2 in
+  (q, [&& k0, k1, k2, sub2Tw_okb i1 & k4]).
+
+Lemma threeDivGE z x : threeDivG z x = (threeDiv z x, div_okb z x).
+Proof.
+by rewrite /threeDivG /threeDiv /div_okb reciBWGE !prodDWGE prodOneGE.
+Qed.
 
 Lemma div_okbP z x : div_okb z x = true -> div_ok z x.
 Proof.
