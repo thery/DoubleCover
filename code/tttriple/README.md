@@ -385,14 +385,17 @@ module actually holds, so this is a comparison at equal precision.
 
 | op | bignums 159 | double words | triple words | triple, before |
 |---|---|---|---|---|
-| add | 18.0 | **0.5** | 3.45 | 4.0 |
-| mul | 28.0 | **1.0** | 7.7 | 11.5 |
-| div | 56.5 | **1.5** | 14.05 | 35.7 |
-| sqrt | 55.5 | **2.5** | 14.55 | 37.0 |
+| add | 18.0 | **0.5** | 3.15 | 4.0 |
+| mul | 28.0 | **1.0** | 7.25 | 11.5 |
+| div | 56.5 | **1.5** | 13.4 | 35.7 |
+| sqrt | 55.5 | **2.5** | 14.0 | 37.0 |
 
-The triple-word column was taken again after `vseb` was fused, twenty thousand
-operations a loop and the minimum of five, which is why it carries a second
-figure; the other three columns are the two-thousand ones and have not moved.
+The triple-word column is taken at twenty thousand operations a loop, the
+minimum of five, which is why it carries a second figure; the other three are
+the two-thousand ones and have not moved. It has come down twice since the
+guards were fixed: `vseb` fused with the cut took add 3.5 to 3.45 and mul 8.0
+to 7.7, and then `classify` without its `option`, the halving handed in and
+`expF3` for the widening took the four to the figures above.
 
 **A triple word beats bignums at its own precision on all four**, by 3.7x to
 4.5x. Against a double word it costs 6x on the root, 8x on the sum, 10x on the
