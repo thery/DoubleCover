@@ -1297,6 +1297,10 @@ costs one comparison.
 
 == Folding the map
 
+The map can be made smaller, and we made it smaller to see what its size does
+to the run. Both maps were searched, the folded one and the unfolded one, and
+the two runs are compared at the end of the section.
+
 The map is 40 320 pages of 20 160 groups, one page for each arrangement of the
 eight top and bottom corners.
 
