@@ -1266,10 +1266,11 @@ Four things are new, and none of them is about searching.
 - The rank and the sign of a permutation. Rocq's library has both, but for
   permutations that do not compute, so we need their effective version on
   machine integers.
-- That a position of a coset and its three numbers determine each other. We had
-  one way only, from a position to its numbers. Without the other way, from the
-  numbers back to a position, the theorem would be about triples of numbers and
-  not about the cube.
+- The way back from three numbers to a position. The search fills a map whose
+  bits are the triples of numbers, so what it proves is a statement about
+  triples. To read it as a statement about the cube we have to turn a triple
+  back into the position it stands for. The other way, from a position to its
+  triple, we already had.
 - The link between the summary the search carries and the position it stands
   for. The summary is one machine word, the position forty-eight.
 - Checks on the tables, one per file, so that each reports separately.
