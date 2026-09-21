@@ -1273,27 +1273,40 @@ Four things are new, and none of them is about searching.
   triple, we already had.
 - The link between the summary the search carries and the position it stands
   for. The summary is one machine word, the position forty-eight.
-- Checks on the tables, one per file, so that each reports separately.
+- A check for each of the tables, each in its own file, so that a failure names
+  the table that failed.
 
 == Where the search stops
 
-A table that underestimates only cuts less, so cutting a branch on it is sound.
-Stopping on it is not. Our search used to stop when the table gave zero, and
-take the position it had reached as one of the coset. A table of zeros
-underestimates everywhere, so it passes the two conditions. It would stop the
-search at once, and the theorem would say nothing.
+The search walks outwards from the superflip, and at each position it looks
+that position up in the phase 1 table of the first bound. The number it gets
+back is never larger than the number of moves needed to bring the position into
+$H$. Cutting a branch when that number is larger than the moves left is sound:
+a table that gives too small a number only cuts less than it could.
 
-The search now stops on the position. At the bottom it tests the position it is
-carrying. The proof no longer reads the table there, and the test costs one
-comparison.
+Marking is another matter. The search marks a bit of the map when the position
+it has reached is a member of the coset. It used to decide that by the table as
+well, treating a lookup of zero as a member. That is not sound. A table of
+zeros gives zero everywhere, and it passes the two conditions an estimate has
+to meet, so nothing rules it out; with it every position would be marked at
+once and the theorem would say nothing.
+
+The search now decides it on the position it has reached, which it carries
+anyway. It tests that position, and the table is not read for this. The test
+costs one comparison.
 
 == Folding the map
 
 The map is 40 320 pages of 20 160 groups, one page for each way the eight top
-and bottom corners can sit. Sixteen renamings of the cube keep the top and
-bottom faces in place, map the ten generators among themselves, and leave the
-superflip alone. Two pages related by a renaming hold the same answer, so one
-page of each family is enough: 2 768 of the 40 320, a factor of 14.6. A level of
+and bottom corners can sit.
+
+The fold works because of the position we chose. Sixteen of the 48 renamings of
+the cube keep the top and bottom faces in place. Each of them sends the ten
+moves to the ten moves, so it maps $H$ to itself, and each leaves the superflip
+unchanged, so it maps the superflip's coset to itself. A member and its image
+under such a renaming need the same number of moves, so two pages related by a
+renaming hold the same answer. One page of each family is then enough: 2 768 of
+the 40 320, a factor of 14.6. A level of
 the search is one pass over the map, so there is 14.6 times less of it to walk.
 The price is undoing a renaming whenever a kept page is read.
 
