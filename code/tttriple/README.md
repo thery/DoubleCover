@@ -348,20 +348,29 @@ counting as a triple word when its last word is subnormal.
 
 ## The bench
 
-Three files, none on the build path. Build `code/ddouble` first, then
+Nothing here is on the build path. Build `code/ddouble` and then
+`code/tttriple`, and run:
 
 ```
-coqc -native-compiler no -Q . twarith -Q ../ddouble dwarith bench_ops.v
-coqc -native-compiler no -Q . twarith -Q ../ddouble dwarith bench_bands.v
-coqc -native-compiler no -Q . twarith -Q ../ddouble dwarith bench_prec.v
-coqc -native-compiler no -Q . twarith -Q ../ddouble dwarith bench_lift.v
+sh bench/run.sh                                  # one operation at a time
+sh bench/run_goals.sh dw107 big107 tw159 big159  # the seven goals
 ```
 
-`bench_ops.v` times the arithmetic with no tactic above it; `bench_bands.v`
-times Interval's tactic over each arithmetic, at the precision each goal asks
-for; `bench_prec.v` does the same at the precision each format holds;
-`bench_lift.v` is the one goal in Interval's own sources that asks for more
-than a double word.
+Both generate one file a module from a template and run **each in its own
+process**, which is the whole point of them: the two tables above were wrong
+twice before they were right, once because every module ran in one process and
+once because the loop let its accumulator drift. `bench/run_goals.sh` takes the
+module names it should run, since `cancellation` alone is three minutes for
+bignums at 159.
+
+| | |
+|---|---|
+| `bench/ops_template.v` | one operation at a time, fixed same-size operands |
+| `bench/goals_template.v` | the seven goals through Interval's tactic |
+| `bench_ops.v` | the old all-in-one-process version; **it reads about 2.7x high** on whatever runs last and is kept only as the record of that mistake |
+| `bench_bands.v` | the goals at the precision each **goal** asks for, rather than each format's own |
+| `bench_prec.v` | the goals at each format's width, all modules in one file |
+| `bench_lift.v` | the one goal in Interval's own sources that asks for more than a double word |
 
 Interval's tactic decides which arithmetic runs by whether `i_prec` is given
 at all (`src/Tactic.v:80`): **without** it the tactic uses primitive floats at
@@ -372,42 +381,55 @@ how many bits to aim for.
 
 ### One operation at a time
 
-**How these are taken, because it matters.** Each module is timed in a
-process of its own, two thousand operations a loop, the minimum of eight
-loops. Running all four modules in one process — which is what `bench_ops.v`
-does, with triple words last — inflates the triple-word rows by about 2.7x:
-the bignum loops fill the heap and the triple-word loop pays the collections.
-That mistake is what made an earlier version of this table read 0.118 for an
-addition that costs 0.042.
+**How these are taken, because it matters.** `bench/run.sh` generates one file
+a module from `bench/ops_template.v` and runs **each in a process of its own**,
+twenty thousand operations a loop, the minimum of five, with an empty loop
+subtracted from every row. Two mistakes are designed out of it, and both were
+made here first:
 
-Microseconds an operation. Bignums are asked for the precision each word
-module actually holds, so this is a comparison at equal precision.
+* *All the modules in one process* — which is what `bench_ops.v` did, with
+  triple words last — inflates whatever runs last by about 2.7x: the earlier
+  loops fill the heap and the later ones pay the collections.
+* *An accumulator that drifts.* A loop that computes `a := a + c` walks `a`
+  away from `c`, so every step times exponent alignment as well as the
+  operation. For bignums 40 binary places apart costs 2.5x what the same size
+  does — 22.8 microseconds against 9.2 — while the word formats are flat. The
+  two operands here are **fixed and the same size**, each with every bit of its
+  mantissa used.
 
-| op | bignums 159 | double words | triple words | triple, before |
-|---|---|---|---|---|
-| add | 18.0 | **0.5** | 3.15 | 4.0 |
-| mul | 28.0 | **1.0** | 7.25 | 11.5 |
-| div | 56.5 | **1.5** | 13.4 | 35.7 |
-| sqrt | 55.5 | **2.5** | 14.0 | 37.0 |
+Microseconds an operation. Bignums appear at all three widths, so each word
+format can be read against bignums at its own precision — the only fair
+comparison — and against the others.
 
-The triple-word column is taken at twenty thousand operations a loop, the
-minimum of five, which is why it carries a second figure; the other three are
-the two-thousand ones and have not moved. It has come down twice since the
-guards were fixed: `vseb` fused with the cut took add 3.5 to 3.45 and mul 8.0
-to 7.7, and then `classify` without its `option`, the halving handed in and
-`expF3` for the widening took the four to the figures above.
+| op | floats 53 | bignums 53 | bignums 107 | **double words** | bignums 159 | **triple words** |
+|---|---|---|---|---|---|---|
+| add | <0.05 | 6.40 | 9.20 | **1.25** | 19.65 | **3.20** |
+| sub | <0.05 | 5.55 | 7.50 | **1.00** | 12.25 | **3.30** |
+| mul | <0.05 | 7.95 | 16.65 | **1.35** | 34.30 | **7.50** |
+| div | <0.05 | 19.35 | 37.25 | **2.15** | 72.25 | **13.65** |
+| sqrt | <0.05 | 19.70 | 43.30 | **2.70** | 83.40 | **14.95** |
+| cmp | <0.05 | 1.65 | 2.20 | **0.35** | 2.85 | **1.15** |
 
-**A triple word beats bignums at its own precision on all four**, by 3.7x to
-4.5x. Against a double word it costs 6x on the root, 8x on the sum, 10x on the
-quotient and 11x on the product.
+A primitive float is below what this harness can resolve — the empty loop is
+0.05 microseconds an iteration and every float row sits on it — so `<0.05` is
+all that can honestly be said.
 
-**Why it is not 2x.** The obvious sum — nine products against four — is the
-wrong count. A double word's product uses **one** two-product and finishes
-with a `fastTwoSum`; a triple word's uses **four**, and a quotient nine, and
-without an FMA each two-product is Dekker's splitting, eighteen operations.
-Counted from the code, `divDwDw2` is 34 operations with one two-product and
-`threeDiv` is 298 with nine — 8.8x, which is what the table shows now that
-the guard has been fixed.
+**Against bignums at its own precision**, a double word is 6.3x to 17.3x
+quicker and a triple word 2.5x to 6.1x:
+
+| | add | sub | mul | div | sqrt | cmp |
+|---|---|---|---|---|---|---|
+| double words vs bignums 107 | 7.4x | 7.5x | 12.3x | 17.3x | 16.0x | 6.3x |
+| triple words vs bignums 159 | 6.1x | 3.7x | 4.6x | 5.3x | 5.6x | 2.5x |
+| triple words vs double words | 2.6x | 3.3x | 5.6x | 6.3x | 5.5x | 3.3x |
+
+**A triple word costs between two and a half and six times a double word**, and
+the spread is the thing to read. The sum is 2.6x, which is about what one more
+word should cost. The product is 5.6x and the quotient 6.3x, and that is not
+waste: a double word's product uses **one** two-product and a triple word's
+**four**, a quotient nine, and without an FMA each two-product is Dekker's
+splitting, eighteen operations. Counted from the code, `divDwDw2` is 34
+operations and `threeDiv` 298.
 
 **Two things were wrong, and both were mine.**
 
@@ -479,44 +501,41 @@ words in named would mean unrolling the walk at a fixed length, which is
 thirty-two cases at six and eight thousand at fourteen. **It was tried at six
 and it gains nothing** — see below.
 
-### Every goal at the same precision
+### Every goal, at each format's own precision
 
-`bench_bands.v` asks bignums for the precision each **goal** needs. That is the
-fair question if one is buying a proof, and not the fair question about the
-arithmetic: `cancellation` asks for sixty bits and a triple word does a
-hundred and fifty-nine on every call whatever is asked. `bench_prec.v` pins
-bignums at each word format's own width and runs all seven goals at both.
+`bench/run_goals.sh` runs all seven goals over one module in a **process of its
+own**, asking bignums for the width each word format actually holds. That is
+the fair question about the arithmetic; asking bignums only for what the goal
+needs — `cancellation` asks for sixty bits and a triple word does a hundred and
+fifty-nine on every call whatever is asked — flatters them, and is a different
+question. Seconds; **refused** is Interval reporting *"Numerical evaluation
+failed to conclude"*, a bound too wide for the goal, never a wrong answer.
 
-At 107 bits, which is what a double word holds:
+| goal | bits it wants | bignums 107 | **double words** | bignums 159 | **triple words** |
+|---|---|---|---|---|---|
+| pi to 14 digits | 47 | 0.028 | **0.014** | 0.030 | 0.050 |
+| pi to 24 digits | 82 | **0.011** | 0.016 | 0.014 | 0.016 |
+| pi to 34 digits | 105 | refused | refused | 0.043 | **0.019** |
+| pi to 45 digits | 150 | refused | refused | **0.020** | 0.036 |
+| `method_error` | 80 | 6.07 | **1.56** | 9.52 | **4.46** |
+| `poly_error` | 90 | 0.062 | **0.061** | 0.070 | 0.066 |
+| `cancellation` | 60 | 145.7 | **25.4** | 224.3 | **178.6** |
 
-| goal | bignums 107 | double words |
-|---|---|---|
-| pi to 14 digits | 0.029 | **0.012** |
-| pi to 24 digits | 0.074 | **0.015** |
-| pi to 34 digits | refused | refused |
-| pi to 45 digits | refused | refused |
-| `method_error` | 4.95 | **1.16** |
-| `poly_error` | 0.056 | **0.047** |
-| `cancellation` | 127.9 | **22.6** |
+Four things to read off it.
 
-At 159 bits, which is what a triple word holds:
+**A double word is four to six times quicker than bignums wherever it
+reaches** — `method_error` 1.56 against 6.07, `cancellation` 25.4 against
+145.7 — and it reaches up to about a hundred bits.
 
-| goal | bignums 159 | triple words |
-|---|---|---|
-| pi to 14 digits | **0.018** | 0.020 |
-| pi to 24 digits | **0.013** | 0.016 |
-| pi to 34 digits | **0.015** | 0.019 |
-| pi to 45 digits | **0.019** | 0.047 |
-| `method_error` | 8.54 | **4.70** |
-| `poly_error` | **0.066** | 0.070 |
-| `cancellation` | 220.9 | **194.3** |
+**A triple word now beats bignums on every row it is compared with**, by 2.1x
+on `method_error` and 1.26x on `cancellation`, and level on the brackets. It
+was level overall before the clean-up and is ahead now.
 
-**A double word is two to six times quicker than bignums wherever it reaches.
-A triple word is level with them, and ahead on the two goals that do real
-work**: 4.7 seconds against 8.5 on `method_error`, 194 against 221 on
-`cancellation`, within noise on the four brackets and on `poly_error`. That is
-the honest reading, and it is a different one from the table above, where
-bignums are asked for less work than they are being compared against.
+**Only a triple word reaches the two tight brackets**, and it takes the
+105-bit one more than twice as quickly as bignums do.
+
+**`poly_error` separates nothing**, because at 90 bits every arithmetic here
+has room to spare.
 
 **And `cancellation` gets nothing at all from the extra word.** What it
 evaluates at every node is `exp x - exp x` over a range, and the width that
@@ -530,16 +549,19 @@ difference in the row above is the cost of one operation times the same count
 of them. That is why precision buys nothing here and why the row moves only
 when an operation gets quicker.
 
-Each figure is taken in a process of its own. `cancellation` has come down in
-two steps: 282.7 before the guards were made one pass, 229.1 after, and 194.3
-once `vseb` was fused with the cut. Neither step moved `I.exp`, which is 6.2
-milliseconds throughout — **the exponential is not quotient-bound, it is
-product-bound**, and what is left of the product's list cost is the fourteen
-terms it writes out before any sweep runs.
+`cancellation` has come down in three steps: 282.7 before the guards were made
+one pass, 229.1 after, 194.3 once `vseb` was fused with the cut, and 178.6
+after the clean-up. None of them moved `I.exp`, which is 6.2 milliseconds
+throughout — **the exponential is not quotient-bound, it is product-bound**.
 
 One more thing worth noticing: bignums get **quicker** going from 107 bits to
 159 on the pi brackets — at 107 they cannot reach the tight ones without
 bisecting, at 159 they can.
+
+And `cancellation` is the goal where primitive floats win outright: **3.80
+seconds** at 53 bits, seven times a double word and forty-seven times a triple
+word. Nothing about the goal needs more than a float, which is the point the
+next paragraph makes.
 
 ### What each arithmetic really delivers
 

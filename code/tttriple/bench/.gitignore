@@ -1,0 +1,7 @@
+gen_*.v
+goal_*.v
+*.vo
+*.vok
+*.vos
+*.glob
+.*.aux
