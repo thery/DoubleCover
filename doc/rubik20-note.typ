@@ -1127,12 +1127,11 @@ possible turns give words that a relabelling or an inversion brings back to the
 
 == The summary, and its table
 
-The estimate is built as before, by keeping a summary of the cube, but the
-summary is not the one of the first bound. The corner twist is kept, the same 2
-187 values. The edge flips and the slice are replaced by where the four middle
-edges sit and how they are flipped, and by which four corner places hold the top
-corners. This is the summary Reid's solver uses in the quarter-turn count, and
-it is the one his published distance counts are about.
+The estimate is built as before. We take the summary Reid uses in the
+quarter-turn count. Against the phase 1 summary of the first bound, it keeps
+the corner twist, the same 2 187 values, and replaces the edge flips and the
+slice by where the four middle edges sit with their flips, and by which four
+corner places hold the top corners.
 
 #block(breakable: false)[
   #tbl(([summary], [values], []),
