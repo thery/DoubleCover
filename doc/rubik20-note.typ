@@ -1125,11 +1125,6 @@ turns. When it starts with `R' U` we look at the third turn. Six of the
 possible turns give words that a relabelling or an inversion brings back to the
 `R U` case, and five do not. Those five are the prefixes of three turns.
 
-This is a much better cut than the one used for the superflip. There the first
-two moves left thirty prefixes to search. Here there are six, one of two turns
-and five of three. Six searches follow. The first prefix is searched 22 turns
-further and the other five 21 further, so each reaches 24 turns.
-
 == The summary, and its table
 
 The estimate is built as before, by keeping a summary of the cube.
