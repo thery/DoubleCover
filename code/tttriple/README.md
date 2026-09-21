@@ -519,7 +519,11 @@ failed to conclude"*, a bound too wide for the goal, never a wrong answer.
 | pi to 45 digits | 150 | refused | refused | **0.020** | 0.036 |
 | `method_error` | 80 | 6.07 | **1.56** | 9.52 | **4.46** |
 | `poly_error` | 90 | 0.062 | **0.061** | 0.070 | 0.066 |
-| `cancellation` | 60 | 145.7 | **25.4** | 224.3 | **178.6** |
+| `cancellation`† | 60 | 145.7 | **25.4** | 224.3 | **178.6** |
+
+† `cancellation` measures bisection cost, not precision — see below. Primitive
+floats do it in **0.21 seconds**, nine hundred times quicker than a triple
+word, and no bound or depth makes it otherwise.
 
 Four things to read off it.
 
@@ -537,22 +541,77 @@ was level overall before the clean-up and is ahead now.
 **`poly_error` separates nothing**, because at 90 bits every arithmetic here
 has room to spare.
 
-**And `cancellation` gets nothing at all from the extra word.** What it
-evaluates at every node is `exp x - exp x` over a range, and the width that
-comes back is the dependency, not the rounding: over `[0,1]` all three
+**`cancellation` IS NOT A PRECISION BENCHMARK, and should not be read as
+one.** It is
+
+```coq
+Goal forall x, (0 <= x <= 1)%R -> (Rabs (exp x - exp x) <= 1e-4)%R.
+Proof. intros x H. interval with (i_bisect x, i_depth 20, i_prec 60). Qed.
+```
+
+and it has **two** dials, the bound and the depth, neither of which is the
+precision. What it evaluates at every node is `exp x - exp x` over a range, so
+the width that comes back is the **dependency**: over `[0,1]` all three
 arithmetics return `0x1.b7e151628aed3p+1`, which is `2(e-1)`, and over a node
 of width `2^-20` at a half they all return `0x1.a612a61275772p-19`, which is
-`2 sqrt(e) 2^-20`. The leading words agree bit for bit; a triple word's second
-and third words sit far below anything that matters. So the bisection goes to
-the same depth whichever arithmetic is under it, and the whole of the time
-difference in the row above is the cost of one operation times the same count
-of them. That is why precision buys nothing here and why the row moves only
-when an operation gets quicker.
+`2 sqrt(e) 2^-20`. The leading words agree bit for bit.
 
-`cancellation` has come down in three steps: 282.7 before the guards were made
-one pass, 229.1 after, 194.3 once `vseb` was fused with the cut, and 178.6
-after the clean-up. None of them moved `I.exp`, which is 6.2 milliseconds
-throughout — **the exponential is not quotient-bound, it is product-bound**.
+Only bisection narrows that, and **bisection costs `2^depth`** — measured, not
+assumed: floats take 15.9 seconds at depth 24 and 145.3 at depth 27, a factor
+of nine for three levels. Depth 27 is a hundred and thirty-four million splits.
+
+So the bound and the depth are locked to each other and the arithmetic never
+enters. Tightening the bound one decade costs three or four levels of depth and
+an order of magnitude of time, for **every** arithmetic alike:
+
+| bound | depth | floats 53 | |
+|---|---|---|---|
+| `1e-4` | 20 | ok | 0.19 s |
+| `1e-5` | 20 | ok | 1.95 |
+| `1e-6` | 20 | **refused** | 0.36 |
+| `1e-6` | 24 | ok | 15.9 |
+| `1e-7` | 24 | **refused** | 48.7 |
+| `1e-7` | 27 | ok | 145.3 |
+
+And precision buys **nothing**. At the bound and depth where floats give up,
+so does everything else, all the way to two hundred bits:
+
+| at `1e-6`, depth 20 | | |
+|---|---|---|
+| floats 53 | refused | 0.36 s |
+| double words | refused | 44.8 |
+| triple words | refused | 372.0 |
+| bignums **200 bits** | refused | 495.2 |
+
+To reach the point where a float's own rounding rather than the dependency is
+the limit one needs a node of width about `2^-50`, which is depth fifty — a
+thousand times more splits than depth forty would already make impossible. A
+double word would need depth a hundred and a triple word a hundred and fifty.
+**No setting of the two dials makes this goal test the arithmetic.**
+
+What it does test is the cost of one cheap operation repeated a million times,
+and there the fastest arithmetic wins outright. As the goal is actually
+written, with `i_prec 60`:
+
+| | seconds |
+|---|---|
+| primitive floats | **0.21** |
+| double words | 25.9 |
+| bignums at 60 bits | 81.6 |
+| triple words | 188.9 |
+
+A triple word is nine hundred times a float on a goal that needs none of it.
+The row in the table above is kept because it is the standard benchmark, but it
+measures per-operation cost and nothing else, and the bignum column in it is
+bignums doing **two and a half times the work the goal asks for**.
+
+**And `i_prec` is discarded by all three word formats.** `tw_ops.v` has
+`PtoP (_ : positive) := tt` and `prec _ := 159`, so the number never reaches
+the arithmetic and does not reach the transcendental code either. A word format
+has one speed and no dial; only bignums have one. That is why every comparison
+here has to name the width bignums were asked for — and why `cancellation` at
+`i_prec 60` against `i_prec 159` reads 188.9 against 178.6 for triple words,
+which is the same number twice.
 
 One more thing worth noticing: bignums get **quicker** going from 107 bits to
 159 on the pi brackets — at 107 they cannot reach the tight ones without
