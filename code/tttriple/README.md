@@ -608,6 +608,38 @@ already opened up. `cancellation` is that goal: its width is the dependency,
 so all three arithmetics return the same interval and the extra word is paid
 for and not used.
 
+### `Merge` was tried and put back
+
+The product stopped sorting its fourteen terms for nothing — the sweeps are
+exact whatever order they are given and the bound only asks that the sum is
+unchanged. The sum has the same shape, `Merge` over six terms, so the same cut
+was tried: write them `x0 y0 x1 y1 x2 y2` and drop the merge.
+
+The arithmetic says it is nearly free. Over random pairs, checked exactly in
+`Z`, every answer is still well formed and still a true enclosure, and the
+worst enclosure is **the same to the bit** at equal size and at `2^-30` and
+`2^-60` apart — one bit wider, 157 against 158, only at `2^-110`. And the sum
+goes **2.40 microseconds to 2.00**.
+
+**The goals say otherwise.** That one bit costs the two that bisect about
+eighteen per cent each:
+
+| | merged | written in order |
+|---|---|---|
+| `poly_error` | **0.086** | 0.107 |
+| `method_error` | **4.67** | 5.74 |
+
+So the sum is 17 per cent quicker and the goals are 18 per cent slower, which
+is the wrong way round. `Merge` is back.
+
+**Why the product could and the sum cannot.** The product's fourteen terms have
+sizes that are known in advance — they are the nine products of two triples,
+and which is bigger than which does not depend on the values. The sum's six do
+not: they come from two separated triples whose relative magnitude is whatever
+the caller passes, so `y0` can land anywhere from above `x0` to below `x2`, and
+only a comparison can say where. Sorting is doing real work there and nothing
+in the term order can replace it.
+
 ### A cheaper addition was tried, and it costs reach
 
 The sum is the operation furthest from what one more word ought to cost: a
