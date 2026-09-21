@@ -23,5 +23,4 @@ twsqrt.v
 twdiv.v
 tw_ops.v
 tw_cmpbad.v
-test_pi.v
 tw_unsafe.v

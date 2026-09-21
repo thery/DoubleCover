@@ -203,7 +203,7 @@ Measured on this desktop, by running the files below.
 
 | | value |
 |---|---|
-| pi by Machin, plain operations (`test_pi.v`) | right to **48.5 digits**, `2^-161` |
+| pi by Machin, plain operations (`nearest/test_pi.v`) | right to **48.5 digits**, `2^-161` |
 | `div_DN`/`div_UP` on 1/3 and 22/7 | `2^-158` apart |
 | `sqrt_DN`/`sqrt_UP` on 2 | `2^-158` apart |
 | `add_DN`/`add_UP` on 2 pi | `2^-162` apart |
@@ -281,7 +281,7 @@ now `TWFloat 6 0x1.8000000000001p-157 0`, and dividing by it works.
 
 | file | what it holds |
 |---|---|
-| `twarith.v` | the algorithms: the error-free transforms, the two sweeps, `vecSum` unrolled at six and fourteen, the second sweep fused with the cut (`expF`), `sortMag`, `Merge`, and the operations rounded to nearest |
+| `twarith.v` | the algorithms: the error-free transforms, the two sweeps, `vecSum` unrolled at six and fourteen, the second sweep fused with the cut (`expF`, and `expF3` at the length the widening uses), and `Merge` |
 | `tw_updn.v` | the directed operations: the widening steps and the up and down forms of each |
 | `tw_ops.v` | the interface: `TwFloat`, its obligations, and the sealing |
 | `twpaper.v` | the paper's algorithms on primitive floats: Algorithms 9, 11, 14, 15, 18, 20, and the step |
@@ -293,7 +293,7 @@ now `TWFloat 6 0x1.8000000000001p-157 0`, and dividing by it works.
 | `twdiv.v` | the quotient behind its guard: `divTwUpQ`, `divTwDnQ` and their two bounds |
 | `twsqrt.v` | the root behind its guard and its scaling: `sqrtTwUpK`, `sqrtTwDnK` and their two bounds |
 | `tw_cmpbad.v` | the pair that shows comparing on the words is wrong, and that `cmp` gets it right |
-| `test_pi.v` | a smoke test: pi by Machin, and what the interface's operations bracket |
+| `nearest/` | **off the build path**: the four operations rounded to nearest, the insertion sort the product used to do, and `test_pi.v`. Nothing calls them; they are what an obvious implementation looks like, and the gap between them and what runs is the argument for the paper's algorithms. See `nearest/README.md` |
 | `tw_unsafe.v` | `sensible_format := true` with `div2` admitted, so Interval's functors apply |
 | `threewords/` | the paper's development, copied untouched. Builds on its own (`cd threewords && make`); nothing else on the build path depends on it yet |
 

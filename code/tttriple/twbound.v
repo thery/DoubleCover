@@ -12,7 +12,7 @@ From dwarith Require Import dwbridge dwtwosum dwprod dwbound.
 (* The paper is proved for round to nearest throughout; these two operations  *)
 (* round in a direction, so none of it applies to them.  It does not have to: *)
 (* every step up to the last one changes no value at all - `Merge' and        *)
-(* `sortMag' move the terms about, and `vecSum' and `vseb' are sweeps of      *)
+(* `Merge' moves the terms about, and `vecSum' and `vseb' are sweeps of       *)
 (* `twoSum', which is exact - so the whole error is the cut down to three      *)
 (* words, and the cut is made in the direction wanted.  That is the same      *)
 (* argument `code/ddouble' makes for its own sum and product.                 *)
@@ -31,7 +31,6 @@ Arguments twoSum : simpl never.
 Arguments dwhi : simpl never.
 Arguments dwlo : simpl never.
 Arguments twoProd : simpl never.
-Arguments sortMag : simpl never.
 
 
 (* What a list of floats stands for, and when it is made of numbers.          *)
@@ -55,15 +54,6 @@ elim: l1 l2 => [|a1 l1 IH1] l2 /=; first by rewrite Rplus_0_l; case: l2.
 elim: l2 => [|a2 l2 IH2] /=; first by rewrite Rplus_0_r.
 by case: (abs a2 <=? abs a1)%float; rewrite /= ?IH1 ?IH2 /=; lra.
 Qed.
-
-(* And so does putting one in order of size.                                  *)
-Lemma insMag_sum x l : sumL (insMag x l) = D2R x + sumL l.
-Proof.
-by elim: l => [|a l IH] /=; [lra | case: (abs a <=? abs x)%float; rewrite /= ?IH; lra].
-Qed.
-
-Lemma sortMag_sum l : sumL (sortMag l) = sumL l.
-Proof. by elim: l => [|x l IH] //=; rewrite /sortMag /= insMag_sum IH. Qed.
 
 (* ---------------------------------------------------------------------------*)
 (*  And neither does either sweep                                             *)
@@ -156,22 +146,6 @@ Lemma vseb_sum l : finL (vseb l) -> sumL (vseb l) = sumL l.
 Proof.
 case: l => [|e0 l'] //= F.
 by rewrite (vsebAux_sum _ _ F).
-Qed.
-
-(* Reading a sorted or swept list back to the one it came from: each is a     *)
-(* rearrangement or a sweep, so the answer being made of numbers proves the   *)
-(* list was.                                                                  *)
-Lemma insMag_finI x l : finL (insMag x l) -> Dfin x /\ finL l.
-Proof.
-elim: l => [|a l IH] /=; first by case=> Fx _.
-case: (abs a <=? abs x)%float => /=; first by case=> Fx [Fa Fl].
-by case=> Fa /IH [Fx Fl].
-Qed.
-
-Lemma sortMag_finI l : finL (sortMag l) -> finL l.
-Proof.
-elim: l => [|x l IH] //=.
-by rewrite /sortMag /= => /insMag_finI [Fx /IH Fl].
 Qed.
 
 Lemma vecSumAux_finI l es s :

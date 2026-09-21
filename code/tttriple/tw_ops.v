@@ -438,7 +438,7 @@ Definition nearbyint_DN (mode : rounding_mode) x :=
   onReal (fun x => fp2tw (PrimitiveFloat.nearbyint_DN mode
                             (addDnFp (addDnFp (tw0 x) (tw1 x)) (tw2 x)))) x.
 
-(* THE MIDPOINT, AND WHY IT IS NOT THE PLAIN HALF SUM.  `plusTwTw' adds to   *)
+(* THE MIDPOINT, AND WHY IT IS NOT THE PLAIN HALF SUM.  `plusTwTw' (now in `nearest/') adds to *)
 (* nearest but does not sweep, so its three words can overlap: a third and a  *)
 (* third came back as `0x1.5555555555556p-1' beside `-0x1.5555555555555p-54', *)
 (* and two thirds of a step of the leading word is more than half of one, so  *)

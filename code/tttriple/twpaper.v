@@ -287,9 +287,9 @@ Qed.
 (* ===========================================================================*)
 
 Compute threeDiv (fp2tw 1) (fp2tw 3).
-Compute timesTwTw (threeDiv (fp2tw 1) (fp2tw 3)) (fp2tw 3).
+Compute mulTwUp (threeDiv (fp2tw 1) (fp2tw 3)) (fp2tw 3).
 Compute threeReci (fp2tw 3).
 Compute threeDiv (toTw 1 1e-20 1e-40) (toTw 3 1e-20 1e-40).
 Compute (divTwDnP (fp2tw 1) (fp2tw 3), divTwUpP (fp2tw 1) (fp2tw 3)).
 Compute threeSqRt (fp2tw 2).
-Compute timesTwTw (threeSqRt (fp2tw 2)) (threeSqRt (fp2tw 2)).
+Compute mulTwUp (threeSqRt (fp2tw 2)) (threeSqRt (fp2tw 2)).

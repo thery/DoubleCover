@@ -44,7 +44,6 @@ Definition wellFormed t :=
   ((x0 + x1 =? x0) && (x1 + x2 =? x1))%float.
 
 Definition fp2tw f := TWFloat f 0 0.
-Definition dw2tw d := TWFloat (dwhi d) (dwlo d) 0.
 (* ===========================================================================*)
 (*  Expansions: a list of floats standing for its sum                         *)
 (* ===========================================================================*)
@@ -126,19 +125,6 @@ Fixpoint vsebAux (eps : float) (l : seq float) : seq float :=
 
 Definition vseb (l : seq float) : seq float :=
   if l is e0 :: l' then vsebAux e0 l' else [::].
-
-(* Putting a list in order of decreasing size.  Both sweeps below ask for     *)
-(* their terms in that order: what they do is push what one term cannot       *)
-(* hold down to the next, and a term out of place is one the sweep walks      *)
-(* past.  Sorting moves the terms about and so changes nothing at all about   *)
-(* what the list stands for.                                                  *)
-Fixpoint insMag (x : float) (l : seq float) : seq float :=
-  match l with
-  | [::] => [:: x]
-  | a :: l' => if (abs a <=? abs x)%float then x :: l else a :: insMag x l'
-  end.
-
-Definition sortMag (l : seq float) : seq float := foldr insMag [::] l.
 
 (* Merging two lists already in order of size keeps them in order of size.    *)
 Fixpoint Merge (l1 : seq float) : seq float -> seq float :=
@@ -371,19 +357,8 @@ Qed.
 (* Three floats as a triple word: both sweeps, and nothing lost.              *)
 Definition toTw (a b c : float) := l2tw (vseb (vecSum [:: a; b; c])).
 
-(* ===========================================================================*)
-(*  The operations, rounded to nearest                                        *)
-(* ===========================================================================*)
-
-(* The sum of two triple words: merge the six terms, sweep, and keep the      *)
-(* first three.  What is dropped is the whole of the error.                    *)
-Definition plusTwTw (x y : twfloat) :=
-  l2tw (take 3 (vseb (vecSum (Merge (tw2l x) (tw2l y))))).
-
 Definition negTw t :=
   let: TWFloat x0 x1 x2 := t in TWFloat (- x0) (- x1) (- x2).
-
-Definition subTwTw x y := plusTwTw x (negTw y).
 
 (* Halving a triple word: every word moves by one exponent, and no rounding   *)
 (* loses anything except at the very bottom of the range.                      *)
@@ -391,58 +366,8 @@ Definition halfTw t :=
   let: TWFloat x0 x1 x2 := t in
   TWFloat (x0 / 2)%float (x1 / 2)%float (x2 / 2)%float.
 
-(* The product of two triple words.  The four products that carry the value   *)
-(* come back as two words each; the five that are smaller than the last word  *)
-(* of the answer are taken as they are.  Which of the thirteen numbers is     *)
-(* the largest depends on the two triple words, so they are put in order      *)
-(* before the sweeps, which is what the sweeps ask for.  Nothing in that      *)
-(* changes what the list stands for, and the first three terms are kept.      *)
-Definition timesTwTw (x y : twfloat) :=
-  let: TWFloat x0 x1 x2 := x in
-  let: TWFloat y0 y1 y2 := y in
-  let: DWFloat p00 e00 := twoProd x0 y0 in
-  let: DWFloat p01 e01 := twoProd x0 y1 in
-  let: DWFloat p10 e10 := twoProd x1 y0 in
-  let: DWFloat p11 e11 := twoProd x1 y1 in
-  l2tw (take 3 (vseb (vecSum (sortMag
-    [:: p00; p01; p10; p11; e00; e01; e10; e11;
-        (x0 * y2)%float; (x2 * y0)%float;
-        (x1 * y2)%float; (x2 * y1)%float; (x2 * y2)%float])))).
-
-Definition timesTwFp x f := timesTwTw x (fp2tw f).
-
-(* The quotient of two triple words, by long division: divide the leading     *)
-(* word of what is left by the leading word of the divisor, take that much    *)
-(* out, and repeat.  Three rounds give the three words.  The rounds after     *)
-(* the first work on a remainder, so nothing about the first one has to be    *)
-(* good.                                                                      *)
-Definition divTwTw (x y : twfloat) :=
-  let y0 := tw0 y in
-  let t1 := (tw0 x / y0)%float in
-  let r1 := subTwTw x (timesTwFp y t1) in
-  let t2 := (tw0 r1 / y0)%float in
-  let r2 := subTwTw r1 (timesTwFp y t2) in
-  let t3 := (tw0 r2 / y0)%float in
-  toTw t1 t2 t3.
-
-(* The square root, by Newton's method: the average of a guess and the        *)
-(* number divided by it.  The machine root of the three words added is the    *)
-(* guess, good to sixteen digits; one step takes it to thirty-two and a       *)
-(* second to sixty-four, which is past the forty-eight a triple word holds.   *)
-Definition sqrtTw (x : twfloat) :=
-  let: TWFloat x0 x1 x2 := x in
-  let s := fp2tw (PrimFloat.sqrt (x0 + x1 + x2)%float) in
-  let s1 := halfTw (plusTwTw s (divTwTw x s)) in
-  halfTw (plusTwTw s1 (divTwTw x s1)).
-
 (* ===========================================================================*)
 (*  What the algorithms compute                                               *)
 (* ===========================================================================*)
 
 Compute toTw 1 1e-20 1e-40.
-Compute plusTwTw (toTw 1 1e-20 1e-40) (toTw 1 1e-20 1e-40).
-Compute timesTwTw (toTw 1 1e-20 1e-40) (toTw 1 1e-20 1e-40).
-Compute divTwTw (fp2tw 1) (fp2tw 3).
-Compute timesTwTw (divTwTw (fp2tw 1) (fp2tw 3)) (fp2tw 3).
-Compute sqrtTw (fp2tw 2).
-Compute timesTwTw (sqrtTw (fp2tw 2)) (sqrtTw (fp2tw 2)).
