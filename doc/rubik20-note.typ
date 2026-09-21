@@ -1404,8 +1404,8 @@ What each of the three needed of its own:
   sixteen renamings. And words given by hand for the positions the search does
   not reach.
 
-The prover is not far behind a program. The same search written in OCaml is
-about three times faster. We ran both at radius 19 on the reference machine. The
+The same search written in OCaml is about three times faster than the one Rocq
+runs. We ran both at radius 19 on the reference machine. The
 OCaml program visits 146 065 078 152 positions in 26.4 processor-hours, which is
 0.65 microseconds a position. Rocq takes 87.6 processor-hours over the same
 tree, which is 2.16. A factor of *3.3*.
