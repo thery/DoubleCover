@@ -533,19 +533,24 @@ what 97 bits of bignum delivers where it holds 107, a triple word 148 where it
 holds 159. That is more than the two to seven bits the per-operation table
 below shows, because a whole `exp` is many operations deep.
 
-**And at equal delivered accuracy the advantage is not what the arithmetic
-suggests:**
+**Measured on arithmetic alone the loss is only four bits.** A degree-sixty
+Horner evaluated at a point — many products and sums, no transcendental —
+gives floats `1e-12` (bignums at 53), double words `1e-27` (bignums between
+100 and 105) and triple words `1e-43` (**bignums at 155**). So the ten bits
+above are `I.exp`'s series, not the format.
 
-| same bound, both sides | word format | bignums | |
-|---|---|---|---|
-| `1e-15` | floats **0.007** | 53 bits: 0.010 | 1.4x |
-| `1e-28` | double **0.012** | 100 bits: 0.014 | 1.2x |
-| `1e-44` | triple 0.024 | 148 bits: **0.022** | bignums ahead |
+**But neither of these two goals measures the arithmetic**, and they fail in
+opposite directions. A single `exp` is mostly `I.exp`'s own machinery: at equal
+delivered precision it reads floats 0.007 against bignums' 0.010, double 0.012
+against 0.014, and triple 0.024 against 0.022 — level, because `I.exp` is only
+1.34x where `F.mul_UP` is 4.6x. The Horner goal is worse still: a hundred and
+twenty operations at 7.5 microseconds is 0.9 milliseconds and the goal takes
+268, so **more than 99 per cent of it is reification and tactic bookkeeping**,
+and every arithmetic reads within 1.4x of every other.
 
-A triple word is **level with bignums, not ahead**. Its four-to-six-fold
-advantage per operation does not survive the tactic, because a goal like this
-one is mostly `I.exp`'s series and per-call overhead rather than raw
-arithmetic — `I.exp` itself is only 1.34x bignums where `F.mul_UP` is 4.6x.
+To see the arithmetic through the tactic a goal must evaluate a *small*
+expression *many* times, which means a bisecting one. That is `method_error`,
+and it is the row to read.
 
 ### Every goal, at each format's own precision
 
@@ -577,13 +582,19 @@ Four things to read off it.
 reaches** — `method_error` 1.56 against 6.07, `cancellation` 25.4 against
 145.7 — and it reaches up to about a hundred bits.
 
-**A triple word is about level with bignums, and the 2.1x on `method_error` in
-the table is an artefact of asking bignums for 159 bits.** That goal needs 70:
-bignums refuse it at 60, and prove it in 5.34 seconds at 70, 5.27 at 80, 5.67
-at 107 and 9.52 at 159. Against their best, 5.27, a triple word's 4.46 is
-**1.2x** and a double word's 1.56 is **3.4x**. Quoting the 159-bit column
-against a goal that wants 70 flatters the triple word, exactly as quoting the
-60-bit column on `cancellation` flatters bignums.
+**A triple word beats bignums delivering the same precision**, by 2.1x on
+`method_error` — 4.46 seconds against 9.52 — and a double word by 3.9x, 1.56
+against 6.07.
+
+**And the comparison has to be at the precision the format delivers, not at
+the least the goal happens to need.** `method_error` can be had from bignums at
+70 bits, where they take 5.34 seconds; at 80, 5.27; at 107, 5.67; at 159, 9.52;
+and at 60 they refuse. Quoting 5.34 against a triple word's 4.46 would be
+**overfitting to an answer one only knows after the fact** — and a proof that
+needs 70 bits does not want a triple word in the first place. A word format has
+no dial: it delivers what it delivers, so it is measured against bignums set to
+that. Tuning bignums down per goal is the same error as `cancellation`'s
+60-bit column, in the other direction.
 
 **Only a triple word reaches the two tight brackets**, and it takes the
 105-bit one more than twice as quickly as bignums do.
