@@ -557,6 +557,109 @@ the `fromZ` fault in `code/ddouble` was found — its 25-digit row read
 column, and that is now fixed (`fromZ` used to widen by an integer `1`, which
 is an absolute step and so `1/n` in relative terms).
 
+### How many bits one operation pins down
+
+The table above is a whole evaluation. This one is a single operation, which
+is the thing to ask about the format itself: give both ends the same point,
+apply the operation, and see how wide the answer is. **What is measured is
+`I.add`, `I.mul`, `I.div` and `I.sqrt` — what coq-interval itself calls** —
+and not the two directed operations read off by hand; on a point input the two
+agree to the bit, which is what `Interval/Float.v:539` says they must
+(`I.add prec (Ibnd x x) (Ibnd y y) = Ibnd (F.add_DN x y) (F.add_UP x y)`).
+
+Bits of the answer the enclosure pins down, `mag(upper) - mag(upper - lower)`:
+
+| op | double words | triple words |
+|---|---|---|
+| nominal | 107 | 159 |
+| add | 104 | **159** |
+| sub | 104 | **159** |
+| mul | 103 | 157 |
+| div | 101 | **152** |
+| sqrt | 101 | **152** |
+
+Steady over seven pairs of inputs. **The sum and the difference lose
+nothing**: three words added and swept are exact, and the only thing that
+rounds is the cut at the third word, which is one step — `2^-159` relative.
+The product loses one or two, which is `pstep`. **The quotient and the root
+lose seven**, and that is `kscale`, the step the answer is widened by, which
+is `2^-153`; it is the algorithm's error bound and not the interface. The
+interface costs the one bit that any two-sided enclosure costs — bignums at
+159 read 158 for the same reason.
+
+**And past a point none of it matters.** Widen the input to a relative width
+of `2^-k` and ask what comes out:
+
+| input width | triple: mul | div | sqrt |
+|---|---|---|---|
+| `2^-160` (a point) | 156 | 152 | 152 |
+| `2^-150` | 149 | 149 | 150 |
+| `2^-140` | 139 | 139 | 140 |
+| `2^-100` | 99 | 99 | 100 |
+| `2^-40` | 39 | 39 | 40 |
+
+Once the input is wider than about `2^-150` **the operation adds nothing at
+all**: the answer has the bits the input had, and the root gains one because
+it halves the relative width. A double word does the same thing at `2^-100`.
+
+So the extra word buys **reach** — 152 to 159 bits held where a double word
+holds 101 to 104 — and it buys nothing whatever on a goal whose intervals have
+already opened up. `cancellation` is that goal: its width is the dependency,
+so all three arithmetics return the same interval and the extra word is paid
+for and not used.
+
+### A cheaper addition was tried, and it costs reach
+
+The sum is the operation furthest from what one more word ought to cost: a
+double word's `addDwUp` is three two-sums and a shortcut, a triple word's is
+about twelve plus three lists, because it does not use the fact that both its
+arguments are **already separated triple words**. It merges six arbitrary
+terms and renormalises from scratch.
+
+So a specialised one was written and measured: pair the terms by position,
+leading with leading, middle with middle, last with last, carry what falls out
+of each pair down to the next, and renormalise the three words that are left.
+Five two-sums and three directed adds, no list at all.
+
+It is sound. Over forty thousand random pairs, checked exactly in `Z`: every
+answer is `wellFormed`, every upper end is at or above the exact sum and every
+lower end at or below it. And it is quick — `addTwUp` 2.55 microseconds to
+**0.65**, which is 3.9x, and 1.86x a double word's 0.35, which is about what
+one more word should cost.
+
+**It still cannot be used, because it loses `poly_error`.** The four brackets
+on pi all prove, the 150-bit one included; `poly_error` is refused.
+
+The reason is worth writing down. Worst enclosure over four thousand pairs,
+bits, with the second argument scaled down so its leading word lines up
+further and further below the first's:
+
+| second argument | paired | general |
+|---|---|---|
+| same size | **154** | 159 |
+| `2^-30` down | 157 | 157 |
+| `2^-60` down | 157 | 158 |
+| `2^-90` down | 158 | 158 |
+
+The loss is worst when the two are the **same** size, and gone when they are
+far apart — so it is not the pairing, it is cancellation in the leading pair.
+**The general route rounds at the answer's last word; the paired route rounds
+at the arguments' last word**, and when the leading words cancel those are not
+the same place at all. Sweeping the tail exactly first, two two-sums more, does
+not help: it reads 152, slightly worse.
+
+That is what the renormalisation is for, and it is why the sum cannot simply be
+shortened. What would work is a test on the leading exponents, taking the
+paired route when they are far enough apart that nothing can cancel and the
+general one otherwise — but that is two algorithms to prove instead of one.
+
+One thing the prototype did catch, and it is the bug this file already
+records once: `addUpFp 0 0` is `next_up 0`, the smallest float there is. Since
+`fromZ 1` is `TWFloat 1 0 0`, **every whole number the tactic makes** came back
+with a subnormal second word a thousand bits below its first, the quotient's
+guard refused it, and the very first bracket on pi failed. `addUp0` leaves a
+sum of two noughts alone, exactly as `mulUp0` does for a product.
+
 ## The root, without a fused multiply-add
 
 `kstep_div` and `kstep_sqrt` are the only assumptions in the development.
