@@ -1407,8 +1407,16 @@ Qed.
 (* format is closed under it upwards, and an overflow is an infinity, which   *)
 (* is not the word it started as -- so a word that comes back is a word whose *)
 (* halving lost nothing.                                                      *)
+(* The halving ONCE.  Written out, `a / 2' appears three times and            *)
+(* `(a / 2) * 2' twice, and the algorithm above has computed the half         *)
+(* already -- so the test used to do the division four times over for each    *)
+(* word.  Sharing inside the test is free and changes no statement; handing   *)
+(* the half in from outside would change `halfTw_okb''s shape, and is worth   *)
+(* a tenth of a microsecond in a root of fourteen, so it is not done.         *)
 Definition halfOkb (a : PrimFloat.float) : bool :=
-  finF (a / 2)%float && finF ((a / 2) * 2)%float && ((a / 2) * 2 =? a)%float.
+  let h := (a / 2)%float in
+  let d := (h * 2)%float in
+  finF h && finF d && (d =? a)%float.
 
 Lemma half_exact a : Dfin a -> halfOkb a = true ->
   D2R (a / 2)%float = (D2R a / 2)%R /\ Dfin (a / 2)%float.

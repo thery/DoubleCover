@@ -660,6 +660,44 @@ with a subnormal second word a thousand bits below its first, the quotient's
 guard refused it, and the very first bracket on pi failed. `addUp0` leaves a
 sum of two noughts alone, exactly as `mulUp0` does for a product.
 
+### The guard inside the computation, and what is left of it
+
+The rule is that a guard must not be a second pass: whatever it tests, the
+algorithm has already computed, and it should be handed over rather than
+worked out again. Checked across every file, by matching each `X` against its
+`X_okb`:
+
+| | |
+|---|---|
+| `reciBWG`, `sqrtBWG` | answer and flag in one pass, every term shared |
+| `prodDWG`, `prodOneG` | the same; `m11` and `m02` named and used twice |
+| `threeDivG`, `threeSqRtG` | one pass, and they hand the flag up |
+| `mulFv` | reads the product in hand, where `mulF` asked for `a * b` again |
+| `sub2Tw_okb`, `sub32Tw_okb`, `halfTw_okb` | test the **input**, not a recomputed output |
+| `subOkb`, `fastTwoSumOkb` | share through `let` |
+| `div_okb`, `sqrt_okb` | second passes by design — they are the specification, and nothing calls them |
+
+Two places were still doing work twice. Both are real and both measure at
+almost nothing, which is the point of writing them down.
+
+**`halfOkb` did the division four times a word.** It was
+`finF (a / 2) && finF ((a / 2) * 2) && ((a / 2) * 2 =? a)` — three halvings and
+two doublings — and `threeSqRtG` computes `halfTw bw` beside it, so each of
+the three words was halved four times over. Sharing inside the test is free
+and changes no statement; it is done. Handing the half in from outside would
+change `halfTw_okb`'s shape and reach four proofs, and the whole of it is
+**0.80 microseconds to 0.70** in a root of fourteen, so it is not done.
+
+**The outer guard reads `abs (tw0 q)` three times**, and `kstep` inside
+`shiftUp` reads it twice more and recomputes `kscale * abs (tw0 q)`. Sharing
+all of it and passing the step straight to `widenUp` times **the same**: the
+guard's pieces are each at the noise floor — `magDnTw` 0.4 µs, the four
+`normF` tests 0.6, `wellFormed q` 0.2, the three `abs`/`finF` tests 0.2.
+
+So the quotient's fourteen microseconds are 10.6 algorithm, 2.2 guard, 1.2
+shift, and there is nothing left in the guard worth a proof. What is left is
+the algorithm.
+
 ## The root, without a fused multiply-add
 
 `kstep_div` and `kstep_sqrt` are the only assumptions in the development.
