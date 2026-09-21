@@ -1366,10 +1366,8 @@ Theorem real_row_superflip_fold_runi m :
   m \in H -> superflip * m \in ball Sset 20.
 ```
 
-`H` is the subgroup above, and a coset is one of its cosets. Every position of
-the superflip's coset is within twenty moves. Rocq reports only the primitives
-of its machine-integer and array interface. The unfolded run proves the same
-statement from its own map.
+`H` is the subgroup above, so the line says that every position of the
+superflip's coset is within twenty moves.
 
 = Conclusion
 
