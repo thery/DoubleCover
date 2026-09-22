@@ -381,6 +381,34 @@ For the two word modules the number asked for changes nothing about the
 arithmetic — `PtoP` throws it away — but it does tell the transcendental code
 how many bits to aim for.
 
+### What the measurements come to
+
+The third word's value is a **range, not a number**, and it depends on how much
+of the goal is plain arithmetic:
+
+| | triple vs bignums at its width |
+|---|---|
+| `F.mul_UP`, the operation itself | **4.5x** |
+| `I.mul`, once Interval's wrapper is on it | 2.3x |
+| `method_error`, Taylor models, polynomial-heavy | 2.1x |
+| `I.exp`, per call | 1.56x |
+| a transcendental goal at the precision limit | **level** |
+
+Three things erode it, in order: the wrapper (72 per cent of a triple-word
+`I.mul` is wrapper against 46 per cent for bignums), `exp`'s series needing
+about 1.5x more terms when the arithmetic is a few bits short of nominal, and
+the extra bisection those wider intervals force when the bound is tight.
+Quoting either end of that range alone is misleading, and this file did so
+twice before it was corrected.
+
+**A double word sits far better**, 12.3x on `mul` and 3.9x on `method_error`,
+for the reason the next section gives: bignum cost is quantised, and a double
+word's whole range fits in one bignum level while a triple word has to pay
+5.6x to reach the next.
+
+**And what a triple word uniquely buys is reach, not speed** — the 105- and
+150-bit brackets, which floats and double words cannot prove at all.
+
 ### Bignum cost is quantised, and that is why the two word formats differ
 
 `BigIntRadix2` keeps a mantissa as a `zn2z` tree of `int63` words, so capacity
