@@ -501,19 +501,17 @@ the word of twenty moves we use to witness it:
 
 = Searching for the lower bound
 
-We want to know that the superflip cannot be solved in nineteen moves. The naive
-way is to try every word of at most nineteen moves, starting from the superflip:
-if the solved cube never turns up, the lower bound is twenty. A tree of depth 19
-with a branching of 18 is $18^19$ words, far too many to make the search
-practical. This naive method has to be refined.
+We want to prove that the superflip cannot be solved in 19 moves. The naive way
+is to try every word of at most 19 moves, starting from the superflip: if the
+solved cube never turns up, the lower bound is 20. That is a tree of depth 19
+and branching 18, so $18^19$ words, far too many. The method has to be refined.
 
 == The pruning estimate
 
-A first refinement is a test that cuts in advance the branches which cannot
-succeed. For that we use at each position a cheap lower bound $h$ on the number
-of moves still needed. If $h$ is 20 and only 18 moves remain, the branch cannot
-reach the solved cube in time. It is cut, with everything below it, as @tree
-shows.
+The first refinement cuts a branch before walking it. At each position we
+compute a cheap lower bound $h$ on the number of moves still needed. If $h$ says
+20 and only 18 moves are left, the branch cannot reach the solved cube in time.
+It is cut, with everything below it, as @tree shows.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -540,29 +538,28 @@ shows.
   caption: [The search, and its scissors.],
 ) <tree>
 
-Such a lower bound is called an *admissible* estimate, and a depth-first search
+Such a lower bound is called an _admissible_ estimate, and a depth-first search
 that deepens step by step and prunes on one is Korf's IDA\* @korf1985ida.
 
 == How to get a cheap estimate
 
-The estimate has to come from somewhere, and the idea is to forget most of the
-cube. Keep only part of the information, say how the corners are twisted and
-where the four middle-layer edges sit, and call what is left a *summary*. Many
-positions can share the same summary. Moves act on summaries as well as on
-cubes. Summaries are few, so we can compute the exact distance of each one to
-the solved summary and keep them all in a table. This gives $h$: take a
-position, compute its summary, and look its distance up in the table. This idea
-of summary comes from Culberson and Schaeffer, who call such a table a _pattern
-database_ @culberson1998pattern, and Korf solved the cube optimally with three
-of them @korf1997rubik.
+The idea is to forget most of the cube. We keep only part of the information,
+say how the corners are twisted and where the four middle-layer edges sit, and
+call what is left a _summary_. Many positions share the same summary, and moves
+act on summaries as well as on positions. Summaries are few, so we compute the
+distance of each one to the solved summary once and for all, and keep them in a
+table. This gives $h$: take a position, compute its summary, look its distance
+up. Culberson and Schaeffer call such a table a _pattern database_
+@culberson1998pattern, and Korf solved the cube optimally with three of them
+@korf1997rubik.
 
-The summary we have used is Kociemba's, from his two-phase solver @kociemba.
-@encoding shows the three things it records. A corner has one sticker belonging
-to the up or down face, and that sticker sits in one of three places, which is
-0, 1 or 2. An edge is either the right way round or turned over, which is 0 or
-1. The four edges of the middle layer occupy four of the twelve edge slots. The
-figure shades them on the two visible faces, where three of the four can be
-seen. Nothing else about the position is recorded.
+We use Kociemba's summary, from his two-phase solver @kociemba, and call it the
+_phase 1 summary_. @encoding shows the three things it records. A corner has one
+sticker belonging to the up or down face, and that sticker sits in one of three
+places, which is 0, 1 or 2. An edge is either the right way round or turned
+over, which is 0 or 1. The four edges of the middle layer occupy four of the
+twelve edge slots. The figure shades them on the two visible faces, where three
+of the four can be seen. Nothing else is recorded.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -594,13 +591,13 @@ The summary is the product of the three values:
   ([*the summary, all three together*], [*2 217 093 120*], []),
 )
 
-*Every summary stands for exactly 19 508 428 800 real positions*. The table
-records, for each summary, its distance from the solved summary. Four bits hold
-one entry and the whole table is *1.18 GB*. The cut is quite effective. A
-search at depth 14 visits 470 786 nodes. Without the cut the same tree holds
-$1.07 dot 10^15$ of them, so the search sees one node in two billion. We call this summary the *phase 1
-summary*, after the first phase of Kociemba's solver @kociemba, and its table
-of distances the *phase 1 table*.
+Every summary stands for exactly 19 508 428 800 positions. The _phase 1 table_
+gives, for each summary, its distance from the solved summary. Four bits hold
+one entry and the whole table is 1.18 GB.
+
+The cut is effective. A search at depth 14 visits 470 786 nodes, where the same
+tree without the cut holds $1.07 dot 10^15$ of them: the search sees one node in
+two billion.
 
 = The search in Rocq
 
