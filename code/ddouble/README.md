@@ -453,10 +453,81 @@ anything. Measured on this machine, two runs each, seconds:
 
 Three runs, the middle one of each row; the spread was under 4%. About five
 times quicker on a Taylor model at eighty bits, about three times on a
-bisection run twenty deep at sixty, and level on the other three. The gain is
+bisection run twenty deep at sixty, and level on the other three. **These ask
+bigints for the precision each goal needs, which flatters them**; the section
+below asks for the width a double word holds, which is the fair question about
+the format. The gain is
 not a property of the arithmetic on its own — it is where the tactic spends its
 time. The full table, and the four goals that are too light to measure, are in
 the file.
+
+## The bench, redone
+
+The table above asks bigints for the precision each **goal** needs. That is
+the fair question if one is buying a particular proof and the wrong one about
+the format, so the measurements below ask bignums for the width a double word
+actually holds. The harness is shared with the triple-word development —
+`../tttriple/bench/run.sh` and `run_goals.sh` — and generates one file a module
+and runs **each in its own process**, twenty thousand operations a loop, the
+minimum of five, with an empty loop subtracted. Two mistakes are designed out
+of it, both made there first: all the modules in one process inflates whatever
+runs last by about 2.7x, and a loop whose accumulator drifts times exponent
+alignment as well as the operation.
+
+**One operation at a time**, microseconds:
+
+| op | floats 53 | bignums 53 | bignums 107 | **double words** | |
+|---|---|---|---|---|---|
+| add | <0.05 | 6.40 | 9.20 | **1.25** | 7.4x |
+| sub | <0.05 | 5.55 | 7.50 | **1.00** | 7.5x |
+| mul | <0.05 | 7.95 | 16.65 | **1.35** | 12.3x |
+| div | <0.05 | 19.35 | 37.25 | **2.15** | 17.3x |
+| sqrt | <0.05 | 19.70 | 43.30 | **2.70** | 16.0x |
+| cmp | <0.05 | 1.65 | 2.20 | **0.35** | 6.3x |
+
+**Why 107 is the right column, and not 120 or 126.** `BigIntRadix2` keeps a
+mantissa as a `zn2z` tree of `int63` words, so capacity goes 63, 126, 252 bits
+and the cost **steps** rather than slides — measured, `mul` is 7.5 µs at 53
+bits, 9.3 at 63, **17.9 at 64**, 16.6 at 107, 18.9 at 126, **31.6 at 127**,
+33.4 at 159. Anything from 64 to 126 bits is the same request, so a double
+word's whole range sits in one bignum level.
+
+**That is also why a double word is so much better placed than a triple
+word.** A bignum going up a level doubles, 16.6 to 33.4. A word format going
+from two floats to three costs **5.6x**, 1.35 to 7.50, because a double-word
+product is one two-product and a triple-word product is nine with a
+fourteen-term sweep after it. So a double word is 12.3x bignums at its own
+width where a triple word is only 4.5x.
+
+**What it delivers, in bits.** `exp x - exp x` at a point has no dependency in
+it, so the tightest bound provable reads the precision off directly. A double
+word proves `1e-28`, which is bignums at about **97 bits**; on plain arithmetic
+— a degree-sixty Horner at a point — it proves `1e-27`, which is bignums at
+about **103**. So it loses four bits on arithmetic and ten through `exp`, the
+extra six being the series, which runs until a term falls below `2^-prec` and
+so takes more terms when the arithmetic is short of its nominal width. Floats
+and bignums at 53 bits agree exactly on this test, which is the control.
+
+**Through the tactic**, one process a goal, bignums at 107:
+
+| goal | bignums 107 | **double words** | |
+|---|---|---|---|
+| pi to 14 digits | 0.028 | **0.014** | 2.0x |
+| pi to 24 digits | **0.011** | 0.016 | |
+| pi to 34 digits | refused | refused | |
+| `method_error` | 6.07 | **1.56** | 3.9x |
+| `poly_error` | 0.062 | **0.061** | level |
+| `cancellation` | 145.7 | **25.4** | 5.7x |
+| `I.exp`, per call | 2.98 ms | **0.42 ms** | 7.1x |
+
+**`cancellation` is not a precision benchmark** and should not be read as one.
+What it evaluates at every node is `exp x - exp x` over a range, so its width
+is the **dependency**, which every arithmetic returns identically; only
+bisection narrows it, at `2^depth`. Primitive floats do it in **0.21
+seconds**, a hundred times quicker than a double word, and at the bound and
+depth where floats give up so does everything else, up to bignums at two
+hundred bits. It measures the cost of one cheap operation a million times over.
+`method_error` is the row to read.
 
 ## What the division's guard cost, and how it was paid
 
