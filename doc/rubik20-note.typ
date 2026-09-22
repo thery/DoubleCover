@@ -261,20 +261,18 @@
   #set text(size: 9.8pt)
   #set par(justify: true)
   #set align(left)
-  *Abstract.* God's number, the largest number of face turns needed to solve a
-  Rubik's cube, is twenty. It was settled in 2010 by a computation of
-  thirty-five processor years. Even though this kind of computation cannot
-  easily be replicated in a proof assistant like Rocq, three smaller results
-  about the Rubik's cube are proved here. First, we prove that twenty is a
-  lower bound: one position, the superflip, cannot be solved in nineteen. A
-  half turn can also count as two moves. The number is then twenty-six. We
-  prove that twenty-six is a lower bound for solving the four-spot with the
-  superflip on it. This is our second result. Finally, the published
-  computation splits the cube into the 2 217 093 120 cosets of a subgroup, one
-  search to a coset. A coset contains 19 508 428 800 positions. We formalise
-  the correctness of a coset search, and we apply it to one specific coset. It
-  follows that every position of the superflip's coset is solved in twenty
-  moves or less. This is our last result.
+  *Abstract.* 
+  One needs no more than 20 turns to solve any Rubik's cube position.
+  This is called God's number and was computed in 2010. This note presents
+  three smaller results
+  about the Rubik's cube that are proved in Rocq. First, we prove that twenty is a
+  lower bound. Second, we change
+  metric (counting half turns as two moves) and
+  prove that in this case twenty-six is a lower bound. Finally, the published
+  computation of God's number (35 CPU years) splits the cube into the 2 217 093 120 cosets of a subgroup, one
+  search to a coset. We formalise
+  the correctness of the coset search, and certify the computation on one such
+  coset.
 
   #v(0.4em)
   *Keywords.* Rubik's cube, God's number, formal proof, Rocq, group theory.
@@ -284,11 +282,8 @@
 
 = The problem
 
-A Rubik's cube is built from twenty-six small cubes: *eight corner pieces* with
-three stickers each, *twelve edge pieces* with two, and *six centre pieces* with
-one. The centres are attached to the core. They spin in place but never travel,
-so they fix the frame. The white face is wherever the white centre is. A face
-turn moves four corners and four edges, and nothing else.
+A Rubik's cube is built from 26 small cubes: 8 for the corners with 3 stickers each, 12 for the edges with 2 stickers, and 6 for the centers. The centers are
+fixed. A turn moves four corners and four edges and rotate a center.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -299,47 +294,29 @@ turn moves four corners and four edges, and nothing else.
       content((3.325, y - 0.225), text(size: 7.5pt)[#label])
       content((3.75, y - 0.225), text(size: 9pt)[#body], anchor: "west")
     }
-    key(3.3, cCor, "c", [8 corner pieces, 3 stickers each])
-    key(2.6, cEdg, "e", [12 edge pieces, 2 stickers each])
-    key(1.9, cCen, "U", [6 centre pieces, 1 sticker, fixed])
+    key(3.3, cCor, "c", [8 corners])
+    key(2.6, cEdg, "e", [12 edges])
+    key(1.9, cCen, "U", [6 centers])
   }),
-  caption: [The three kinds of piece. Every face shows four corner stickers,
-    four edge stickers and one centre.],
 ) <pieces>
 
 Not every arrangement of the pieces can be reached by turning faces. The number
-of arrangements that can be reached is
+of possible arrangements is
 
 $ 8! dot 3^7 dot 12! dot 2^11 slash 2 = 43 space 252 space 003 space 274 space 489 space 856 space 000 approx 4.3 dot 10^19, $
 
-This number is read as follows. The eight corners can be in any order ($8!$).
-Each is twisted one of three ways, but the last one is forced by the other seven
-($3^7$). The twelve edges can be in any order ($12!$). Each is flipped or not,
-and again the last one is forced ($2^11$). The result is then halved, because
-corners and edges cannot be rearranged independently of each other.
+The eight corners can be in any order ($8!$) and their orientations are free except for the last one
+($3^7$). The twelve edges can be in any order ($12!$) and again their orientations are free except the last one($2^11$). The result is then halved, because
+corners and edges are not indenpendent.
 
 Turning one face is a _move_, and a half turn counts as one move just like a
-quarter turn. Every position can be solved. The question is how many moves the
-worst position needs. That number is called *God's number*.
-
+quarter turn. How many moves the
+worst position needs is called _God's number_.
 Counting a half turn as one move is a choice. A half turn can also count as two
 moves, and that gives a second number for the same cube. We prove a lower bound
 for each.
 
-In 2010 Rokicki, Kociemba, Davidson and Dethridge showed that it is *20*
-@rokicki2013diameter. Twenty moves always suffice, and twenty moves are
-sometimes needed. The first half is the huge computation, and the last section
-of this note says how it was obtained. For that it is enough to take one
-position and show it cannot be solved in 19.
-
-We take one position: the *superflip*, drawn in @sflip beside a solved cube.
-Every corner sticker is where it belongs. Every edge is in its own place but
-turned over, so it shows the colour of the face beside it. Look at the cube from
-any angle, or in a mirror, and the pattern is the same. The superflip is one of
-the rare positions that all 48 ways of looking at a cube leave unchanged, and
-that matters later. A 20-move solution for it is known, so ruling out a 19-move
-solution puts the superflip at distance exactly 20. We prove this bound.
-
+We take one position: the *superflip*, 
 #figure(
   cetz.canvas(length: 1cm, {
     import cetz.draw: *
@@ -356,40 +333,43 @@ solution puts the superflip at distance exactly 20. We prove this bound.
   }),
   caption: [A solved cube, and the superflip.],
 ) <sflip>
-
+Every cubes are in its own place,
+but all the edges have the wrong orientation.
+The superflip is left unchanged by 
+all the 48 symmetry of the cube.
+We use it to prove the lower bound.
+A 20-move solution for it is known, so ruling out a 19-move
+solution puts the superflip at distance exactly 20. 
 That is still a big computation. There are 18 moves at each step, so 19 moves
-means about $18^19$ words.
-
-Three key facts about a position are used in what follows.
-
+means exploring $18^19$ words.
+We are going to use three key facts (twist, flip and slice) about a position  :
 - Each corner has exactly one sticker of the top colour or the bottom colour.
-  That sticker can be in three places on the corner. It can be on the top or
-  bottom face, which we write 0, or on one of the corner's two sides, which we
-  write 1 and 2. We call this the corner's *twist*.
-- Each edge has a right way round, which we write 0. Put back the other way
-  round, it shows its two colours the wrong way about, and that we write 1.
-  We call this the edge's *flip*.
+  That sticker can be in three places. on It can be on the top or bottom face, which we write 0, or on one of the corner's two sides, which we
+  write 1 and 2. We call this the corner's _twist_.
+- Each edge can have the right orientation, which we write 0. Showing its two colours the wrong way, we write 1.
+  We call this the edge's _flip_.
 - Four of the twelve edges belong in the middle layer, between the top and the
-  bottom face. We call that layer the *slice*. The four edges can sit in
-  $binom(12, 4) = 495$ sets of four slots. We number these sets 0 to 494.
-  Number 0 is the slice itself.
-
-The three are easy to read on the superflip. Every corner is home and the right
-way up, so every top or bottom sticker is on the top or bottom face and its
-eight twists are all zero. Every edge is turned over, so its twelve flips are
-all one. Every edge is also in its own slot, so the four middle edges are back
-in the four slots of the slice, which is 0.
+  bottom face. We call that layer the _slice_. This is 4 edges out of 12,
+  so this means 
+  $binom(12, 4) = 495$ possible sets.
+  We number these sets 0 to 494 and
+  0 represent the set of the solved cube.
+If we look at the superflip, we get
+00000000 for the twists,
+111111111111 for the flips
+and 0 for the slice.
 
 = The cube as permutations
 
-The cube is easier to reason about if we stop treating it as a solid object.
-Only the coloured stickers matter. There are six faces of nine stickers, and the
-six centre stickers never move relative to each other. So a move is a
-rearrangement of the *48 remaining stickers*. We number them 0 to 47, as in
-@cube3d and @net. Each face has eight of them, taken left to right and top to
+There are several ways of representing 
+the Rubik's. We use the one based on
+stickers. There are six faces of nine stickers, from which we can remove
+the six center stickers that never move. 
+We number the stickers from 0 to 47, as in
+@cube3d and @net.
+So a move is a rearrangement of the 48 stickers.  Each face has eight of them, taken left to right and top to
 bottom, with the centre skipped. Up gets 0--7, left 8--15, front 16--23, right
-24--31, back 32--39 and down 40--47. The sources use these numbers, so a move
-can be checked against a picture.
+24--31, back 32--39 and down 40--47.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -414,18 +394,18 @@ can be checked against a picture.
   caption: [The cube unfolded, with all forty-eight places numbered.],
 ) <net>
 
-With the places numbered, a move is written down by saying where the sticker in
-each place goes. Turn the top face clockwise. The sticker in corner 0 goes to
-corner 2, the one in 2 to 7, the one in 7 to 5, and the one in 5 back to 0. That
-is a four step cycle, written $(0 space 2 space 7 space 5)$. The four edge
+A move is written down by saying where the stickers go. For examle,
+if we turn the top face clockwise,
+tne sticker in corner 0 goes to
+corner 2, the one in 2 to 7, the one in 7 to 5, and the one in 5 back to 0. This 
+is represented by a four step cycle, written $(0 space 2 space 7 space 5)$. The four edge
 stickers of that face do the same, $(1 space 4 space 6 space 3)$. The turn does
 not only move the top face. It also carries the top row of each side face round
 to the next one: front to left, left to back, back to right, right to front.
 That is three more cycles, $(8 space 32 space 24 space 16)$ and its two
 companions. @uturn shows all of it, each square saying which sticker sits there
 afterwards. The top row of the left face holds 16, 17, 18, the stickers that
-came round from the front. The other forty stickers stay where they are, and the
-six centres never move.
+came round from the front. 
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -441,9 +421,9 @@ six centres never move.
   caption: [Everything a clockwise turn of the top face moves.],
 ) <uturn>
 
-Six clockwise quarter turns generate everything: up, right, front, down, left
+There are six clockwise quarter turns: up, right, front, down, left
 and back. Each of them can also be done twice or backwards, which gives the
-*eighteen moves*
+_eighteen moves_
 
 #align(center)[
   #grid(
@@ -458,17 +438,14 @@ and back. Each of them can also be done twice or backwards, which gives the
 ]
 
 A move turned twice is written `U2`, and a move turned backwards `U'`. A
-position is a product of moves, for instance `R U R' U'`, a word of length 4. The set of all positions is a group $G$: the *cube group*. Solving a
+position is a product of moves. For instance `R U R' U'`, a word is of length 4. The set of all positions is a group $G$: the _cube group_. Solving a
 position in $d$ moves means writing it as a word of $d$ moves. So "solvable in
-at most $d$ moves" says that the position lies in the *ball of radius $d$*
-around the solved cube. God's number is the largest distance that occurs.
+at most $d$ moves" says that the position lies in the _ball of radius $d$_
+around the solved cube. God's number is the diameter of the Cayley graph.
 
 == The cube in Rocq
 
-The development is written in the Rocq prover @rocq and built on *mathcomp*
-@mathcomp, a large library of formalised mathematics that already has
-permutations, groups and products. The cube file, #src("Rubik333.v"), is a
-transcription of the paragraphs above, and it is short:
+We use the Rocq prover @rocq and its Mathcomp library @mathcomp for our formalisation.The file, #src("Rubik333.v"), is a direct transcription of Section 1:
 
 ```coq
 Definition facelet := 'I_48.
@@ -486,28 +463,23 @@ Definition G : {group {perm facelet}} := <<Sset>>.
 
 Line by line:
 
-- `'I_48` is the type of the whole numbers *below* 48, so the places are
-  numbered *0 to 47* and not 1 to 48, everywhere in the sources and in the
-  pictures of this note.
-- `{perm facelet}` is the type of *permutations* of those places: a way of
-  sending each place to a place, no two of them landing on the same one. That
-  is exactly what a position is.
-- `cyc [:: 0@; 2@; 7@; 5@]` is the *cycle* that sends 0 to 2, 2 to 7, 7 to 5
+- `'I_48` is the type of numbers *below* 48.
+- `{perm facelet}` is the type of _permutations_ of those facelets.
+- `cyc [:: 0@; 2@; 7@; 5@]` is the _cycle_ that sends 0 to 2, 2 to 7, 7 to 5
   and 5 back to 0, leaving the other forty-four places where they are. The
-  `@` is local notation turning a plain number into a place.
-- `*` composes two permutations, so `Umove` is the five cycles of @uturn done
-  together, and `g ^+ 2` and `g ^-1` are the same turn done twice and undone.
-  Its order is the opposite of the usual one.
+  `@` is local notation turning a plain number into a facelet.
+- The infix symbol`*` composes two permutations, so `Umove` is the cycles of @uturn put
+  together, and `g ^+ 2` and `g ^-1` are the turn done twice and undone.
+  Note that the composition order is the opposite of the usual one :
   Mathcomp applies permutations on the right, so
-  `(g * m) f` is `m (g f)`: a product reads left to right, like a sequence of
-  moves played one after the other.
+  `(g * m) f` is `m (g f)`.
 - `seq` is a list, and `faces` is the list of the six clockwise quarter turns.
   `moves` runs through it and keeps three moves per face, which is the
   eighteen.
 - `<<Sset>>` is the group generated by a set: everything reachable by
-  composing moves, which is the cube group.
+  composing moves. This is the cube group.
 
-The superflip is written down the same way in #src("Diameter.v"), as the twelve
+The superflip is defined in #src("Diameter.v") as the twelve
 swaps that exchange the two stickers of each edge:
 
 ```coq
@@ -518,29 +490,18 @@ Definition Spcyc : seq (seq facelet) :=
 Definition superflip : {perm facelet} := \prod_(l <- Spcyc) cyc l.
 ```
 
-That makes it a permutation of the stickers, but on its own it says nothing
-about the cube. A permutation is a legal position only if the faces can be
-turned to reach it, that is, only if it lies in $G$. The definition above does
-not give that. It has to be proved.
-
-The proof is one equality. On the left, the superflip as just defined. On the
-right, a word of twenty moves:
+That makes it a permutation but
+nothing says a legal position.
+For this, we have to prove that
+it belongs to $G$$.
+The proof is one equality. Here is
+the word of twenty moves we use to witness it:
 
 #align(center)[
   $U space R^2 space F space B space R space B^2 space R space U^2 space L
     space B^2 space R space U^(-1) space D^(-1) space R^2 space F space
     R^(-1) space L space B^2 space U^2 space F^2$
 ]
-
-Both sides are permutations of the 48 stickers. Each is written out as the list
-of the 48 places it sends each place to, so the equality is one comparison of
-two lists. Every letter on the right is one of the eighteen moves, so the
-superflip lies in $G$. That same word gives the upper bound of 20 for this one
-position.
-
-Nothing here is assumed. There is no axiom saying what a cube is. A reader who
-wants to check the model has only to compare the six lists of cycles against
-@net. After these two files, stickers are never mentioned again.
 
 = Searching for the lower bound
 
