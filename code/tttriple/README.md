@@ -515,17 +515,25 @@ triple word's own rounding, so the bisection makes real progress and then the
 *precision* is what stops it. Floats and double words cannot reach these bounds
 at all; the tightest each format proves is its own floor.
 
-| bound | triple words | bignums 150 | bignums 155 | bignums 159 |
-|---|---|---|---|---|
-| `1e-42` | **0.024** | 0.060 | 0.059 | 0.060 |
-| `1e-43` | 0.178 | 0.173 | 0.181 | 0.183 |
-| `1e-44` | **refused** | 1.83 | 1.47 | 1.52 |
-| `1e-45` | refused | refused | refused | 12.5 |
+Minima of five runs — **single runs are worthless at this size**, and a single
+run of the `1e-42` row read 0.024 against 0.060 and looked like a threefold
+win that is not there:
 
-**At the threshold a triple word is level with bignums, and bignums at 150 bits
-reach one decade further.** 0.178 seconds against 0.173 and 0.181 is noise.
-So on this goal a triple word is worth **less** than 150 bits of bignum and
-costs the same.
+| bound | triple words | bignums 150 | bignums 155 |
+|---|---|---|---|
+| `1e-41` | 0.023 | 0.021 | 0.021 |
+| `1e-42` | 0.024 | 0.021 | 0.021 |
+| `1e-43` | **0.166** | 0.171 | 0.181 |
+| `1e-44` | **refused** | 1.60 | 1.52 |
+
+The first two rows measure nothing: at those bounds the tactic succeeds with
+little or no bisection, so the twenty milliseconds is its own overhead. The
+work starts at `1e-43`, eight times more, and `1e-44`, nine times more again.
+
+**And at `1e-43`, where the work is, a triple word is level with bignums —
+0.166 against 0.171 and 0.181 — while bignums at 150 bits reach one decade
+further.** On this goal a triple word is worth **less** than 150 bits of bignum
+and costs the same.
 
 **Why, and it is `exp`.** The series exits when the computed term falls below
 `2^-prec`, so a format whose arithmetic is a few bits short of its nominal
