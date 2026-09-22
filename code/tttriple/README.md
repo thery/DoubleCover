@@ -381,6 +381,46 @@ For the two word modules the number asked for changes nothing about the
 arithmetic — `PtoP` throws it away — but it does tell the transcendental code
 how many bits to aim for.
 
+### Bignum cost is quantised, and that is why the two word formats differ
+
+`BigIntRadix2` keeps a mantissa as a `zn2z` tree of `int63` words, so capacity
+goes 1, 2, 4, 8 words — 63, 126, 252, 504 bits — and the cost of an operation
+steps rather than slides. Measured, `mul` in microseconds against the
+precision asked for:
+
+| bits | 53 | 63 | **64** | 107 | 126 | **127** | 159 | 252 | **253** | 300 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| µs | 7.5 | 9.3 | **17.9** | 16.6 | 18.9 | **31.6** | 33.4 | 33.5 | **50.7** | 57.5 |
+
+The steps fall exactly at 64, 127 and 253. So **asking for 150, 155 or 159
+bits is the same request**, and the three bignum columns elsewhere in this file
+are one column.
+
+**This is what makes a double word so much better placed than a triple word.**
+Compare what each side pays to go up:
+
+| | mul, µs | |
+|---|---|---|
+| bignums, 2 words (107 bits) | 16.6 | |
+| bignums, 4 words (159 bits) | 33.4 | **2.0x** |
+| double word | 1.35 | |
+| triple word | 7.50 | **5.6x** |
+
+A bignum moving from 107 to 159 bits merely moves up a level and **doubles**. A
+word format moving from two floats to three costs **5.6x**, because a
+double-word product is one two-product and a triple-word product is nine, with
+a sweep over fourteen terms after it. So the margin erodes by that ratio:
+a double word is **12.3x** bignums at its own width, a triple word **4.5x**.
+Interval's wrapper then takes 4.5x to 2.3x — 72 per cent of a triple-word
+`I.mul` is wrapper against 46 per cent for bignums — and `exp`'s extra terms
+take it to 1.56x.
+
+**One thing the quantisation does not give bignums.** The 4-word level runs flat
+from 127 to 252 bits per operation, so one might hope for 252 bits at the price
+of 159. Through `exp` that is false, because the series runs to `2^-prec`:
+`I.exp` costs 5.21 ms at 127 bits, 5.84 at 159, 6.80 at 200 and 13.39 at 252.
+Extra width is free per operation and not free per transcendental.
+
 ### One operation at a time
 
 **How these are taken, because it matters.** `bench/run.sh` generates one file
