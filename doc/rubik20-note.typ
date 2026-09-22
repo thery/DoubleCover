@@ -298,6 +298,7 @@ fixed. A turn moves four corners and four edges and rotates a centre.
     key(2.6, cEdg, "e", [12 edges])
     key(1.9, cCen, "U", [6 centres])
   }),
+  caption:[Anatomy of the cube],
 ) <pieces>
 
 Not every arrangement of the pieces can be reached by turning faces. The number
@@ -316,7 +317,9 @@ Counting a half turn as one move is a choice. A half turn can also count as two
 moves, and that gives a second number for the same cube. We prove a lower bound
 for each.
 
-We take one position: the *superflip*, 
+We take one position: the *superflip*.
+Every cubie is in its own place,
+but all the edges have the wrong orientation.
 #figure(
   cetz.canvas(length: 1cm, {
     import cetz.draw: *
@@ -333,31 +336,9 @@ We take one position: the *superflip*,
   }),
   caption: [A solved cube, and the superflip.],
 ) <sflip>
-Every cubie is in its own place,
-but all the edges have the wrong orientation.
 The superflip is left unchanged by 
 all 48 symmetries of the cube.
 We use it to prove the lower bound.
-A 20-move solution for it is known, so ruling out a 19-move
-solution puts the superflip at distance exactly 20. 
-That is still a big computation. There are 18 moves at each step, so 19 moves
-means exploring $18^19$ words.
-We are going to use three key facts (twist, flip and slice) about a position:
-- Each corner has exactly one sticker of the top colour or the bottom colour.
-  That sticker can be in three places. It can be on the top or bottom face, which we write 0, or on one of the corner's two sides, which we
-  write 1 and 2. We call this the corner's _twist_.
-- Each edge can have the right orientation, which we write 0. Showing its two colours the wrong way, we write 1.
-  We call this the edge's _flip_.
-- Four of the twelve edges belong in the middle layer, between the top and the
-  bottom face. We call that layer the _slice_. This is 4 edges out of 12,
-  so this means 
-  $binom(12, 4) = 495$ possible sets.
-  We number these sets 0 to 494 and
-  0 represents the set of the solved cube.
-If we look at the superflip, we get
-00000000 for the twists,
-111111111111 for the flips
-and 0 for the slice.
 
 = The cube as permutations
 
@@ -501,17 +482,19 @@ the word of twenty moves we use to witness it:
 
 = Searching for the lower bound
 
-We want to prove that the superflip cannot be solved in 19 moves. The naive way
-is to try every word of at most 19 moves, starting from the superflip: if the
-solved cube never turns up, the lower bound is 20. That is a tree of depth 19
-and branching 18, so $18^19$ words, far too many. The method has to be refined.
+We want to show that the superflip cannot be solved in nineteen moves or less. The naive
+approach is to try every word of at most 19 moves : starting from the superflip:
+if the solved cube never turns up, a lower bound is 20. A tree of depth 19
+with a branching of 18 is $18^19$ words, far too many to make this naive search
+practical. We need to refine it.
 
 == The pruning estimate
 
-The first refinement cuts a branch before walking it. At each position we
-compute a cheap lower bound $h$ on the number of moves still needed. If $h$ says
-20 and only 18 moves are left, the branch cannot reach the solved cube in time.
-It is cut, with everything below it, as @tree shows.
+A first refinement is to figure out a test that cuts in advance the branches which cannot
+succeed. For that, we associate at each position a coarse lower bound $h$ on the number
+of moves still needed. If $h$ is 20 and only 18 moves remain, the branch cannot
+reach the solved cube in time. It is cut, with everything below it, as @tree
+shows.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -538,20 +521,24 @@ It is cut, with everything below it, as @tree shows.
   caption: [The search, and its scissors.],
 ) <tree>
 
-Such a lower bound is called an _admissible_ estimate, and a depth-first search
-that deepens step by step and prunes on one is Korf's IDA\* @korf1985ida.
+Such a lower bound is called an *admissible* estimate, and a depth-first search
+that deepens step by step and prunes can be found 
+for example in Korf's IDA\* @korf1985ida.
 
-== How to get a cheap estimate
+== Getting a cheap estimate
 
-The idea is to forget most of the cube. We keep only part of the information,
-say how the corners are twisted and where the four middle-layer edges sit, and
-call what is left a _summary_. Many positions share the same summary, and moves
-act on summaries as well as on positions. Summaries are few, so we compute the
-distance of each one to the solved summary once and for all, and keep them in a
-table. This gives $h$: take a position, compute its summary, look its distance
-up. Culberson and Schaeffer call such a table a _pattern database_
-@culberson1998pattern, and Korf solved the cube optimally with three of them
-@korf1997rubik.
+The idea behind our estimate is to forget most 
+of the cubes. Keep only part of the information, say how the corners are twisted and
+where the four middle-layer edges sit, and call what is left a _summary_. Many
+positions can share the same summary. They will
+get the same estimate.
+Moves act on summaries as well as on
+cubes. Summaries are few, so we can compute the exact distance of each one to
+the solved summary and keep them all in a table. This gives $h$: take a
+position, compute its summary, and look its distance up in the table. This idea
+of summary comes from Culberson and Schaeffer, who call such a table a _pattern
+database_ @culberson1998pattern, and Korf solved the cube optimally with three
+of them @korf1997rubik.
 
 We use Kociemba's summary, from his two-phase solver @kociemba, and call it the
 _phase 1 summary_. @encoding shows the three things it records. A corner has one
@@ -588,16 +575,16 @@ The summary is the product of the three values:
   ([how the eight corners are twisted], [2 187], [$= 3^7$]),
   ([how the twelve edges are flipped], [2 048], [$= 2^11$]),
   ([where the four middle-layer edges sit], [495], [4 places among 12]),
-  ([*the summary, all three together*], [*2 217 093 120*], []),
+  ([*the summary*], [*2 217 093 120*], []),
 )
 
-Every summary stands for exactly 19 508 428 800 positions. The _phase 1 table_
-gives, for each summary, its distance from the solved summary. Four bits hold
-one entry and the whole table is 1.18 GB.
-
-The cut is effective. A search at depth 14 visits 470 786 nodes, where the same
-tree without the cut holds $1.07 dot 10^15$ of them: the search sees one node in
-two billion.
+Every summary represents exactly 19 508 428 800 positions. The table
+records, for each summary, its distance from the solved summary. As the distance is at most 12,
+four bits hold one entry and the whole table is _1.18 GB_. The cut is quite effective. A
+search at depth 14 visits 470 786 nodes only. Without the cut the same tree holds
+$1.07 dot 10^15$ of them. We call this summary the _phase 1
+summary_, after the first phase of Kociemba's solver @kociemba, and its table
+of distances the _phase 1 table_.
 
 = The search in Rocq
 
@@ -662,11 +649,9 @@ gives the same answer as `act`.
 
 The `search` of #src("Search.v") is refined to carry the summary beside the
 position, updating it with `act` at each move. The position is still carried,
-since only it tells whether the cube is solved. The refined search also plays
-fewer moves. Turning the same face twice running is never useful, and the next
-subsection gives the other rules of this kind. Below is its shape, with
-simplified names and some details left out. The real one is `searchz3` in
-#src("Farp1.v"):
+in order to tell whether the cube is solved. The refined search is given below
+with simplified names and some details left out (he real one is `searchz3` in
+#src("Farp1.v")) :
 
 ```coq
 Fixpoint search (d : nat) (g : gT) (x : summary) (p : move) : bool :=
@@ -676,19 +661,14 @@ Fixpoint search (d : nat) (g : gT) (x : summary) (p : move) : bool :=
     then has (fun m => search d' (g * m) (act x m) m) (allowed p)
     else false)).
 ```
+Here are some explanation : 
 
-Two things travel down the tree instead of one, and each is used for exactly one
-job:
-
-- `D x <= d` is the cut. It reads the table at the summary `x`, and never looks
-  at the position.
-- `g == 1` asks whether the cube is solved. It reads the position `g`, and
-  never looks at the summary.
-- `g * m` moves the position and `act x m` moves the summary, side by side, one
-  move at a time. That step is `coordM` being used, and it is why the summary
+- `D x <= d` is the cut. It reads the table at the summary `x`.
+- `g == 1` asks whether the cube is solved.
+- `g * m` moves the position and `act x m` moves the summary. The summary
   never has to be recomputed from the position.
 - `p` is the move just played, and `allowed p` is the list of moves the rules
-  permit after it. That is where redundant sequences are dropped.
+  permit after it. This is explained in the next section.
 
 == The table and its two conditions
 
@@ -699,22 +679,21 @@ For the phase 1 summary, `D` is a lookup in the phase 1 table, so `D0` and
 - every entry is at most one more than the entry reached from it by any of the
   eighteen moves.
 
-The table is generated by an OCaml program, and it gives the exact distance. The
-proof does not need that. The two statements above are all it checks, and they
-are enough. Together they make the estimate a lower bound on the moves still
-needed, which is the condition for cutting a branch. A table of zeros would pass
-both. It would prune nothing and the search would run for ever, but the answer
-would still be right. So the generator is not trusted. It writes the table out
-as Rocq source, and the two statements are checked on it afterwards. The entries
-do not depend on each other. So the second check is cut into slices, one file
-each, and the slices are checked at the same time. It takes ten minutes. Every
-timing in this note is measured on the same machine, the *reference machine*: a
+The table is generated by an OCaml program, and it gives the exact distance. 
+The table is not trusted. The two statements above are formally checked 
+by computation. Note that a table full zeros would also pass our checks but
+the associated search would prune nothing.
+The entries of the table do not depend on each other. So the second check,
+the most expensive one is cut into slices, one file.
+The slices are checked in parallel thanks to the Rocq separate compilation. 
+It takes 10 minutes. Every
+timing in this note has been measured on the same machine, the _reference machine_: a
 dual-socket Intel Xeon E5-2667 at 2.9 GHz, twelve cores, twenty-four threads, 62
 GB of memory.
 
 = Optimising
 
-What follows makes the tree smaller or the run cheaper.
+What follows makes the tree search even smaller or the run cheaper.
 
 == Removing redundant moves
 
