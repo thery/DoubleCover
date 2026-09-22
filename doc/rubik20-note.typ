@@ -715,12 +715,16 @@ back to `U D`. So the bottom face stays, and the fifteen second moves after `U`
 include `U D`, `U D2` and `U D'`.
 
 The search is then parallelised at depth two. Two first moves times fifteen
-second moves is thirty *prefixes*. Each is searched on its own to depth 17. They
-are packed one file per second move, #src("Runp1_03.v") to #src("Runp1_17.v").
-The two whose second move turns the bottom face keep fifteen branches where the
-others keep twelve, so they run far longer. Each of those two is split into two
-files, #src("Runp1_09a.v") and #src("Runp1_09b.v"), #src("Runp1_11a.v") and
-#src("Runp1_11b.v"), which balances the load and makes *seventeen files* in all.
+second moves is thirty _prefixes_. Each is searched on its own to depth 17. They
+are packed one file per second move, with both first moves inside. The eighteen
+moves are numbered 0 to 17, three to a face, in the order `U`, `R`, `F`, `D`,
+`L`, `B`, and a file is named after its second move. Numbers 0, 1 and 2 turn the
+top face again and cannot be a second move, so the files start at
+#src("Runp1_03.v"), whose second move is `R`, and run to #src("Runp1_17.v"),
+whose second move is `B'`. Two of them, `D` and `D'`, were measured far the
+longest of the fifteen, so each is split in two, one file per first move:
+#src("Runp1_09a.v") and #src("Runp1_09b.v"), #src("Runp1_11a.v") and
+#src("Runp1_11b.v"). That balances the load and makes _seventeen files_ in all.
 Our own OCaml program dropped the bottom-face moves, so it searched 24 prefixes
 where it had to search 30. It ran for hours and gave the answer we expected. The
 error came out only when the cut had to be proved in Rocq, and the proof could
