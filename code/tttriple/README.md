@@ -502,6 +502,53 @@ words in named would mean unrolling the walk at a fixed length, which is
 thirty-two cases at six and eight thousand at fourteen. **It was tried at six
 and it gains nothing** — see below.
 
+### The sweet spot, where precision genuinely binds
+
+`cancellation` over `[0,1]` cannot be made to test precision, because the
+achievable bound is **exactly the dependency** — measured, floats prove
+`2.6e-6` at depth 20 and refuse `2.5e-6`, and `e·2^-20 = 2.593e-6`. Precision
+would only bind at depth about a hundred and fifty.
+
+**Shrinking the starting interval fixes that.** Take the same expression on
+`[1, 1 + 2^-141]` at depth ten: the dependency is now about the size of a
+triple word's own rounding, so the bisection makes real progress and then the
+*precision* is what stops it. Floats and double words cannot reach these bounds
+at all; the tightest each format proves is its own floor.
+
+| bound | triple words | bignums 150 | bignums 155 | bignums 159 |
+|---|---|---|---|---|
+| `1e-42` | **0.024** | 0.060 | 0.059 | 0.060 |
+| `1e-43` | 0.178 | 0.173 | 0.181 | 0.183 |
+| `1e-44` | **refused** | 1.83 | 1.47 | 1.52 |
+| `1e-45` | refused | refused | refused | 12.5 |
+
+**At the threshold a triple word is level with bignums, and bignums at 150 bits
+reach one decade further.** 0.178 seconds against 0.173 and 0.181 is noise.
+So on this goal a triple word is worth **less** than 150 bits of bignum and
+costs the same.
+
+**Why, and it is `exp`.** The series exits when the computed term falls below
+`2^-prec`, so a format whose arithmetic is a few bits short of its nominal
+width needs *more terms*. Timed in one process, in units of its own `I.mul`:
+
+| | I.mul | I.exp | exp in I.mul units |
+|---|---|---|---|
+| bignums 159 | 61.5 µs | 5.55 ms | **90** |
+| triple words | 26.8 µs | 3.57 ms | **133** |
+| bignums 107 | 32.5 µs | 2.98 ms | **92** |
+| double words | 4.0 µs | 0.42 ms | **105** |
+
+A triple word is 2.3x bignums on `I.mul` and does about 1.5x the terms, which
+leaves 1.56x on `I.exp` — and nothing at all once the extra bisection its wider
+intervals force is paid for as well.
+
+**So the value of the third word depends on what the goal is made of.** The
+more it is plain arithmetic the better it looks — 4.6x on `F.mul_UP`, 2.3x once
+Interval's wrapper is included, 2.1x on `method_error` where Taylor models make
+it polynomial-heavy — and the more it is transcendental the worse, down to
+level here. That is the honest range, and quoting either end alone is
+misleading.
+
 ### What a word format is actually worth, in bits
 
 **This is the benchmark `cancellation` fails to be**, and it is the same
