@@ -111,3 +111,132 @@ have [_ H] := Dekker radix2 (SpecFloat.emin prec emax) prec
    (fun n => negb (Z.even n)) Hp4 Hemin (D2R a) (D2R b) Fa2 Fb2 Hbeta.
 by rewrite -DfexpE -!DrndE in H.
 Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  Where the two-product does not miss at all                                *)
+(* ---------------------------------------------------------------------------*)
+
+(* The smallest product the two-product does not miss: two to the minus nine  *)
+(* hundred and sixty-nine.  Flocq's own theorem gives exactness above it and  *)
+(* only the three-and-a-half smallest numbers below, and dwprod.v takes the   *)
+(* second half of that; this is the first half.                               *)
+Notation Dprodlo := (bpow radix2 (SpecFloat.emin prec emax + 2 * prec - 1)).
+
+Theorem twoProd_exact a b : Dfin (dwlo (twoProd a b)) ->
+  (Dprodlo <= Rabs (D2R a * D2R b))%R ->
+  D2R (dwhi (twoProd a b)) + D2R (dwlo (twoProd a b)) = D2R a * D2R b.
+Proof.
+rewrite dekkerE /= => Fe Hn.
+have [Ft3 Ftatb] := Dfin_addI _ _ Fe.
+have [Fta Ftb] := Dfin_mulI _ _ Ftatb.
+have [Ft2 Ftahb] := Dfin_addI _ _ Ft3.
+have [_ Fhb] := Dfin_mulI _ _ Ftahb.
+have [Ft1 Fhatb] := Dfin_addI _ _ Ft2.
+have [Fha _] := Dfin_mulI _ _ Fhatb.
+have [Fnpi Fhahb] := Dfin_addI _ _ Ft1.
+have Fpi := Dfin_oppI _ Fnpi.
+have [Fa Fb] := Dfin_mulI _ _ Fpi.
+have [_ [_ [Eha Eta]]] := splitCE _ Fta.
+have [_ [_ [Ehb Etb]]] := splitCE _ Ftb.
+rewrite (proj1 (Dfin_add _ _ Ft3 Ftatb Fe)).
+rewrite (proj1 (Dfin_add _ _ Ft2 Ftahb Ft3)).
+rewrite (proj1 (Dfin_add _ _ Ft1 Fhatb Ft2)).
+rewrite (proj1 (Dfin_add _ _ Fnpi Fhahb Ft1)).
+rewrite (proj1 (Dfin_mul _ _ Fta Ftb Ftatb)).
+rewrite (proj1 (Dfin_mul _ _ Fta Fhb Ftahb)).
+rewrite (proj1 (Dfin_mul _ _ Fha Ftb Fhatb)).
+rewrite (proj1 (Dfin_mul _ _ Fha Fhb Fhahb)).
+rewrite D2R_opp (proj1 (Dfin_mul _ _ Fa Fb Fpi)).
+rewrite Eha Eta Ehb Etb.
+have Hp0 : Prec_gt_0 prec by [].
+have Hp4 : (4 <= prec)%Z by [].
+have Hemin : (SpecFloat.emin prec emax < 0)%Z by [].
+have Fa2 : generic_format radix2 (FLT_exp (SpecFloat.emin prec emax) prec)
+             (D2R a) by rewrite -DfexpE; apply: Dformat.
+have Fb2 : generic_format radix2 (FLT_exp (SpecFloat.emin prec emax) prec)
+             (D2R b) by rewrite -DfexpE; apply: Dformat.
+have Hbeta : (radix_val radix2 = 2%Z) \/ Z.Even prec by left.
+have [H _] := Dekker radix2 (SpecFloat.emin prec emax) prec
+   (fun n => negb (Z.even n)) Hp4 Hemin (D2R a) (D2R b) Fa2 Fb2 Hbeta.
+rewrite -DfexpE -!DrndE in H.
+by rewrite -H //; right.
+Qed.
+
+(* The high word of the two-product is the rounded product, and the four      *)
+(* words are numbers as soon as the low word is.                              *)
+Lemma twoProd_hi a b : Dfin (dwlo (twoProd a b)) ->
+  Dfin a /\ Dfin b /\ Dfin (dwhi (twoProd a b)) /\
+  D2R (dwhi (twoProd a b)) = Drnd (D2R a * D2R b).
+Proof.
+rewrite dekkerE /= => Fe.
+have [Ft3 _] := Dfin_addI _ _ Fe.
+have [Ft2 _] := Dfin_addI _ _ Ft3.
+have [Ft1 _] := Dfin_addI _ _ Ft2.
+have [Fnpi _] := Dfin_addI _ _ Ft1.
+have Fpi := Dfin_oppI _ Fnpi.
+have [Fa Fb] := Dfin_mulI _ _ Fpi.
+have [E _] := Dfin_mul a b Fa Fb Fpi.
+by split; [|split; [|split]].
+Qed.
+
+(* A number the program calls nought is a number, and it is nought.           *)
+Lemma Dfin_eqb0 a : (a =? 0)%float = true -> Dfin a /\ D2R a = 0.
+Proof.
+rewrite /Dfin /D2R eqb_equiv /Beqb /SFeqb /SFcompare.
+by case: (Prim2B a) => [s|s||s m e H] //=; case: (get_sign 0) => //=;
+   case: s => //=; case: Z.compare_spec.
+Qed.
+
+(* A number the program calls nought is nought.                               *)
+Lemma Deqb0 a : Dfin a -> (a =? 0)%float = true -> D2R a = 0.
+Proof.
+rewrite /Dfin /D2R eqb_equiv => Fa.
+have F0 : is_finite (Prim2B 0) = true by [].
+rewrite (Beqb_correct _ _ _ _ Fa F0).
+by case: Req_bool_spec.
+Qed.
+
+(* A rounded value above a line has its exact value above it: rounding is     *)
+(* monotone and the line is a number of the format.                          *)
+Lemma Dbpow_of_rnd e r :
+  (Dfexp (e + 1) <= e)%Z ->
+  bpow radix2 e < Rabs (Drnd r) -> bpow radix2 e <= Rabs r.
+Proof.
+move=> He H; case: (Rle_lt_dec (bpow radix2 e) (Rabs r)) => // Hr; exfalso.
+have Hp0 : Prec_gt_0 prec by [].
+have Ve : Valid_exp Dfexp by rewrite DfexpE; apply: FLT_exp_valid.
+have F : generic_format radix2 Dfexp (bpow radix2 e)
+  by apply: generic_format_bpow.
+have Fo : generic_format radix2 Dfexp (- bpow radix2 e)
+  by apply: generic_format_opp.
+have H1 : Drnd r <= bpow radix2 e.
+  have T : Drnd r <= Drnd (bpow radix2 e).
+    by apply: round_le; move: Hr; split_Rabs; lra.
+  by rewrite (round_generic _ _ _ _ F) in T.
+have H2 : - bpow radix2 e <= Drnd r.
+  have T : Drnd (- bpow radix2 e) <= Drnd r.
+    by apply: round_le; move: Hr; split_Rabs; lra.
+  by rewrite (round_generic _ _ _ _ Fo) in T.
+by move: H; split_Rabs; lra.
+Qed.
+
+Lemma D2R_dprodlo : D2R dprodlo = Dprodlo.
+Proof. by rewrite /D2R /dprodlo; compute; lra. Qed.
+
+Lemma Dfin_dprodlo : Dfin dprodlo.
+Proof. by []. Qed.
+
+Lemma fexp_prodlo : (Dfexp (SpecFloat.emin prec emax + 2 * prec - 1 + 1) <=
+                     SpecFloat.emin prec emax + 2 * prec - 1)%Z.
+Proof. by vm_compute. Qed.
+
+Lemma Dprodlo_of_rnd r : Dprodlo < Rabs (Drnd r) -> Dprodlo <= Rabs r.
+Proof. by apply: Dbpow_of_rnd fexp_prodlo. Qed.
+
+Lemma Dltb_abs a b : Dfin a -> Dfin b -> (a <? abs b)%float = true ->
+  D2R a < Rabs (D2R b).
+Proof.
+move=> Fa Fb H; have := Dltb _ _ Fa (Dfin_abs _ Fb) H.
+by rewrite D2R_abs.
+Qed.
+

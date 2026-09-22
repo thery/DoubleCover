@@ -132,6 +132,13 @@ case: Rlt_bool_spec => [Hlt [-> _]|Hle Hov]; first by [].
 by move: Fxy Hov; case: Bdiv.
 Qed.
 
+(* The square root, which cannot overflow, so nothing is asked of it at all.  *)
+Lemma Dsqrt x : D2R (PrimFloat.sqrt x) = Drnd (R_sqrt.sqrt (D2R x)).
+Proof.
+rewrite /D2R sqrt_equiv.
+by have [-> _] := Bsqrt_correct _ _ Hprec Hmax mode_NE (Prim2B x).
+Qed.
+
 (* The same question asked backwards: which arguments can have produced a     *)
 (* finite result.  An operation given an infinity returns an infinity or a    *)
 (* NaN, never a number, so a finite result is by itself the proof that both   *)
@@ -206,6 +213,16 @@ rewrite (Bltb_correct _ _ _ _ Fa Fb).
 by case: Rlt_bool_spec.
 Qed.
 
+(* And the same the other way round, which a test of Fast2Sum's own          *)
+(* precondition needs.                                                       *)
+Lemma Dleb a b : Dfin a -> Dfin b -> (a <=? b)%float = true ->
+  (D2R a <= D2R b)%R.
+Proof.
+rewrite /Dfin /D2R leb_equiv => Fa Fb.
+rewrite (Bleb_correct _ _ _ _ Fa Fb).
+by case: Rle_bool_spec.
+Qed.
+
 Lemma Dpos m : (0 <? m)%float = true -> (m <? infinity)%float = true ->
   Dfin m /\ (0 < D2R m)%R.
 Proof.
@@ -217,4 +234,35 @@ have Fm : Dfin m.
   by case: (Prim2B m) => [s1|[]||s1 m1 e1 H1].
 have F0 : Dfin 0%float by [].
 by split => //; have := Dltb _ _ F0 Fm H0; rewrite D2R_zero.
+Qed.
+
+(* ---------------------------------------------------------------------------*)
+(*  Two facts about one float, wanted by two words and by three              *)
+(* ---------------------------------------------------------------------------*)
+
+(* Negating a float turns each class into its mirror, and leaves a number     *)
+(* that is not an infinity one.  The last case asks whether the mantissa      *)
+(* is of full length, which is how a normal number is told from a             *)
+(* subnormal one.                                                             *)
+Lemma Dclassify_opp f :
+  PrimFloat.classify (- f)%float =
+  match PrimFloat.classify f with
+  | PInf => NInf | NInf => PInf
+  | PNormal => NNormal | NNormal => PNormal
+  | PSubn => NSubn | NSubn => PSubn
+  | PZero => NZero | NZero => PZero
+  | NaN => NaN
+  end.
+Proof.
+rewrite !classify_spec -!B2SF_Prim2B opp_equiv.
+by case: (Prim2B f) => [[]|[]||[] m1 e1 H1] //=;
+   case: (match digits2_pos m1 with 53%positive => true | _ => false end).
+Qed.
+
+(* Negating twice is doing nothing, so being a double word survives a         *)
+(* change of sign both ways round.                                            *)
+Lemma Dopp_opp f : (- - f)%float = f.
+Proof.
+have H : Prim2B (- - f)%float = Prim2B f by rewrite !opp_equiv Bopp_involutive.
+by rewrite -(B2Prim_Prim2B (- - f)%float) H B2Prim_Prim2B.
 Qed.

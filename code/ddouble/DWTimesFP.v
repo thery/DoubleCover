@@ -212,7 +212,12 @@ Qed.
 
 
 
-Parameter TwoProd : R -> R -> R * R.
+(* The two-product is a VARIABLE, not an axiom.  Declared as a Parameter, as   *)
+(* it was, it is a constant nothing can ever be said of, and `TwoProdE' is     *)
+(* then a hypothesis no instantiation can discharge -- so every theorem below  *)
+(* is out of reach.  As a section variable it is the argument it was meant to  *)
+(* be: hand it Dekker's algorithm and `TwoProdE' holds by reflexivity.         *)
+Variable TwoProd : R -> R -> R * R.
 
 Hypothesis TwoProdE : TwoProd = Fast2Mult. (* or Dekker's algorithm *)
 
@@ -1173,6 +1178,8 @@ Notation Hp1 := Hp1_3.
 Notation double_word  := (double_word  p choice ).
 
 
+Variable TwoProd : R -> R -> R * R.
+
 Hypothesis TwoProdE : TwoProd = Fast2Mult. (* or Dekker's algorithm *)
 
 
@@ -1569,6 +1576,8 @@ Notation Hp1 := (Hp1_3 Hp3).
 
 Notation double_word  := (double_word  p choice ).
 
+
+Variable TwoProd : R -> R -> R * R.
 
 Hypothesis TwoProdE : TwoProd = Fast2Mult. (* or Dekker's algorithm *)
 

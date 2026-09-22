@@ -1,13 +1,26 @@
+# `-R . twarith' covers `threewords/' as well, so the paper's own development
+# is built under `twarith.threewords' and needs no line of its own.  Giving it
+# one binds the directory twice, and then whichever mapping is read second
+# wins: read first, native compilation cannot find it; read second, nothing
+# can.  Build it before this: `cd threewords && make'.
 -R . twarith
 
-# Double words, for the bench that compares against them.  Build code/ddouble
-# first; nothing here depends on it at compile time except the bench files.
+# Double words.  Build code/ddouble first: `tw_ops.v' takes the float-to-real
+# bridge from its `dwbridge.v', and the bench files compare against it.
 -Q ../ddouble dwarith
 
 # Triple words on primitive floats.
 twarith.v
 tw_updn.v
+twbound.v
 twpaper.v
+twprodg.v
+twseed.v
+twdivn.v
+twflx.v
+twdivflx.v
+twsqrt.v
+twdiv.v
 tw_ops.v
-test_pi.v
+tw_cmpbad.v
 tw_unsafe.v

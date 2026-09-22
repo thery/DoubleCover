@@ -119,7 +119,7 @@ Definition nearbyint_UP_correct := TwFloat.nearbyint_UP_correct.
 Definition nearbyint_DN_correct := TwFloat.nearbyint_DN_correct.
 
 (* And the two that cannot be had.  The first is false; the second is about   *)
-(* `midpoint`, which is built on `div2` and on `plusTwTw`, for which no       *)
+(* `midpoint`, which is built on `div2` and on the plain half sum, for which no *)
 (* bound is proved either.                                                    *)
 Lemma div2_correct x :
   sensible_format = true -> (1 / 256 <= Rabs (toR x))%R ->

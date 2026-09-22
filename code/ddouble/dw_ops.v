@@ -3,7 +3,8 @@ From Stdlib Require Import Floats PrimInt63.
 From Flocq Require Import Zaux Raux Core BinarySingleNaN PrimFloat.
 From Interval Require Import Xreal Basic Sig Generic_proof Primitive_ops.
 From mathcomp Require Import ssreflect.
-From dwarith Require Import dwarith dwbridge dwprod dw_updn dwbound.
+From dwarith Require Import dwarith dwbridge dwsign dwprod dw_updn dwbound.
+From dwarith Require Import dwdivflx dwsqrt.
 
 (* Double words as a float format for Interval.                               *)
 (* Phase one: the operations only.  The module is not yet declared to meet    *)
@@ -576,13 +577,32 @@ Lemma div_UP_correct p x y :
   is_real_ub x /\ is_pos_real y \/ is_real_lb x /\ is_neg_real y ->
   valid_ub (div_UP p x y) = true /\
   le_upper (toX x / toX y)%XR (toX (div_UP p x y)).
-Proof. Admitted.  (* the shift of dw_updn.v, not proved *)
+Proof.
+move=> _; split; first exact: valid_ub_onReal2.
+apply: (onReal2_upper (fun x y => (toX x / toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
+have [Fxh [Fxl Wx]] := real_fin _ Rx.
+have [Fyh [Fyl Wy]] := real_fin _ Ry.
+have [_ [Fzl _]] := real_fin _ Rz.
+have HY := divDwUpK_nz _ _ Fzl.
+rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) (XdivE _ _ HY) /=.
+exact: divDwUpK_geP.
+Qed.
 
 Lemma div_DN_correct p x y :
   is_real_ub x /\ is_neg_real y \/ is_real_lb x /\ is_pos_real y ->
   valid_lb (div_DN p x y) = true /\
   le_lower (toX (div_DN p x y)) (toX x / toX y)%XR.
-Proof. Admitted.  (* the shift of dw_updn.v, not proved *)
+Proof.
+move=> _; split; first exact: valid_lb_onReal2.
+apply: (onReal2_lower (fun x y => (toX x / toX y)%XR)) => {p}{}x{}y Rx Ry Rz.
+have [Fxh [Fxl Wx]] := real_fin _ Rx.
+have [Fyh [Fyl Wy]] := real_fin _ Ry.
+have [_ [Fzl _]] := real_fin _ Rz.
+have HY := divDwDnK_nz _ _ Fzl.
+rewrite (toX_real _ Rx) (toX_real _ Ry) (toX_real _ Rz) (XdivE _ _ HY)
+        /le_lower /=.
+by apply: Ropp_le_contravar; exact: divDwDnK_leP.
+Qed.
 
 (* And the square root.  Interval reads the root of a negative number as      *)
 (* nought, so a bound below it would be a claim about nothing; that is why    *)
@@ -591,13 +611,27 @@ Proof. Admitted.  (* the shift of dw_updn.v, not proved *)
 Lemma sqrt_UP_correct p x :
   valid_ub (sqrt_UP p x) = true /\
   le_upper (Xsqrt (toX x)) (toX (sqrt_UP p x)).
-Proof. Admitted.  (* the shift of dw_updn.v, not proved *)
+Proof.
+split; first exact: valid_ub_onReal.
+apply: (onReal_upper (fun x => Xsqrt (toX x))) => {p}{}x Rx Rz.
+have [Fxh [Fxl Wx]] := real_fin _ Rx.
+have [_ [Fzl _]] := real_fin _ Rz.
+rewrite (toX_real _ Rx) (toX_real _ Rz) /=.
+exact: sqrtDwUpK_geP.
+Qed.
 
 Lemma sqrt_DN_correct p x :
   valid_lb x = true ->
   valid_lb (sqrt_DN p x) = true /\
   le_lower (toX (sqrt_DN p x)) (Xsqrt (toX x)).
-Proof. Admitted.  (* the shift of dw_updn.v, not proved *)
+Proof.
+move=> _; split; first exact: valid_lb_onReal.
+apply: (onReal_lower (fun x => Xsqrt (toX x))) => {p}{}x Rx Rz.
+have [Fxh [Fxl Wx]] := real_fin _ Rx.
+have [_ [Fzl _]] := real_fin _ Rz.
+rewrite (toX_real _ Rx) (toX_real _ Rz) /le_lower /=.
+by apply: Ropp_le_contravar; exact: sqrtDwDnK_leP.
+Qed.
 
 (* ---------------------------------------------------------------------------*)
 (*  What the signature asks of the rest                                       *)
@@ -875,44 +909,10 @@ Lemma ZtoS_correct p z :
   (z <= StoZ (ZtoS z))%Z \/ toX (pow2_UP p (ZtoS z)) = Xnan.
 Proof. by left; apply: Z.le_refl. Qed.
 
-(* Negating a float turns each class into its mirror, and leaves a number     *)
-(* that is not an infinity one.  The last case asks whether the mantissa      *)
-(* is of full length, which is how a normal number is told from a             *)
-(* subnormal one.                                                             *)
-Lemma Dclassify_opp f :
-  PrimFloat.classify (- f)%float =
-  match PrimFloat.classify f with
-  | PInf => NInf | NInf => PInf
-  | PNormal => NNormal | NNormal => PNormal
-  | PSubn => NSubn | NSubn => PSubn
-  | PZero => NZero | NZero => PZero
-  | NaN => NaN
-  end.
-Proof.
-rewrite !classify_spec -!B2SF_Prim2B opp_equiv.
-by case: (Prim2B f) => [[]|[]||[] m1 e1 H1] //=;
-   case: (match digits2_pos m1 with 53%positive => true | _ => false end).
-Qed.
 
 (* Negating a double word negates what it denotes, and turns an infinity      *)
 (* into the other one.                                                        *)
-(* Negating twice is doing nothing, so being a double word survives a         *)
-(* change of sign both ways round.                                            *)
-Lemma Dopp_opp f : (- - f)%float = f.
-Proof.
-have H : Prim2B (- - f)%float = Prim2B f by rewrite !opp_equiv Bopp_involutive.
-by rewrite -(B2Prim_Prim2B (- - f)%float) H B2Prim_Prim2B.
-Qed.
 
-Lemma wellFormed_negE xh xl : Dfin xh -> Dfin xl ->
-  wellFormed (DWFloat (- xh) (- xl))%float = wellFormed (DWFloat xh xl).
-Proof.
-move=> Fh Fl; case E: (wellFormed (DWFloat xh xl)).
-  exact: wellFormed_neg.
-case E2: (wellFormed (DWFloat (- xh) (- xl))%float) => //.
-have := wellFormed_neg _ _ (Dfin_opp _ Fh) (Dfin_opp _ Fl) E2.
-by rewrite !Dopp_opp E.
-Qed.
 
 (* So a negated pair falls in the mirror class.                               *)
 Lemma classify_neg x :
@@ -1041,27 +1041,9 @@ move: Eq; rewrite Es Ez Rplus_0_l Hr => ->.
 by apply: Rle_refl.
 Qed.
 
+
 (* So the high word decides the sign, and the absolute value is the pair      *)
 (* negated when that sign is set.                                             *)
-(* The sign bit of a number says which side of nought it is on.               *)
-Lemma Dget_sign f : Dfin f ->
-  (PrimFloat.get_sign f = true -> (D2R f <= 0)%R) /\
-  (PrimFloat.get_sign f = false -> (0 <= D2R f)%R).
-Proof.
-move=> Ff.
-have H1 : forall g, Dfin g -> PrimFloat.get_sign g = true -> (D2R g <= 0)%R.
-  move=> g Fg Eg; case: (Rle_lt_dec (D2R g) 0) => // Hpos.
-  have Hbg : PrimitiveFloat.BtoX (Prim2B g) = Xreal (D2R g)
-    by apply: PrimitiveFloat.B2R_BtoX.
-  by move: Eg; rewrite get_sign_equiv (PrimitiveFloat.Bsign_pos _ _ Hbg Hpos).
-split; first exact: H1 _ Ff.
-move=> E; have Fn := Dfin_opp _ Ff.
-have En : PrimFloat.get_sign (- f)%float = true.
-  rewrite get_sign_equiv opp_equiv Bsign_Bopp; last first.
-    by move: Ff; rewrite /Dfin; case: (Prim2B f).
-  by move: E; rewrite get_sign_equiv => ->.
-by have := H1 _ Fn En; rewrite D2R_opp; lra.
-Qed.
 
 (* So the absolute value is the pair negated when that sign is set.           *)
 Lemma abs_correct x :

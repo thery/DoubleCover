@@ -134,16 +134,18 @@ Notation Dsl xh yh := (dwlo (twoSum xh yh)).
 
 Lemma addDwUpE xh xl yh yl :
   addDwUp (DWFloat xh xl) (DWFloat yh yl) =
-  twoSum (dwhi (twoSum xh yh))
+  (if ((xl =? 0)%float && (yl =? 0)%float)%bool then twoSum xh yh else
+   twoSum (dwhi (twoSum xh yh))
     (addUpFp (addUpFp (dwlo (twoSum xh yh)) (dwhi (twoSum xl yl)))
-       (dwlo (twoSum xl yl))).
+       (dwlo (twoSum xl yl)))).
 Proof. by []. Qed.
 
 Lemma addDwDnE xh xl yh yl :
   addDwDn (DWFloat xh xl) (DWFloat yh yl) =
-  twoSum (dwhi (twoSum xh yh))
+  (if ((xl =? 0)%float && (yl =? 0)%float)%bool then twoSum xh yh else
+   twoSum (dwhi (twoSum xh yh))
     (addDnFp (addDnFp (dwlo (twoSum xh yh)) (dwhi (twoSum xl yl)))
-       (dwlo (twoSum xl yl))).
+       (dwlo (twoSum xl yl)))).
 Proof. by []. Qed.
 
 (* The pair returned is at or above the exact sum.  Both twoSum are exact, so *)
@@ -160,8 +162,10 @@ Theorem addDwUp_ge xh xl yh yl :
   DtwoSumFin (Dsh xh yh)
     (addUpFp (addUpFp (Dsl xh yh) (Dsh xl yl)) (Dsl xl yl)) ->
   D2R xh + D2R xl + (D2R yh + D2R yl) <=
-  D2R (dwhi (addDwUp (DWFloat xh xl) (DWFloat yh yl))) +
-  D2R (dwlo (addDwUp (DWFloat xh xl) (DWFloat yh yl))).
+  D2R (dwhi (twoSum (Dsh xh yh)
+       (addUpFp (addUpFp (Dsl xh yh) (Dsh xl yl)) (Dsl xl yl)))) +
+  D2R (dwlo (twoSum (Dsh xh yh)
+       (addUpFp (addUpFp (Dsl xh yh) (Dsh xl yl)) (Dsl xl yl)))).
 Proof.
 move=> Fxh Fxl Fyh Fyl T1 T2 Fa1 Fu1 Fa2 Fu2 T3.
 have [Fsh Fsl] := twoSum_fin _ _ T1.
@@ -171,7 +175,7 @@ have E2 := twoSum_exact_fin _ _ Fxl Fyl T2.
 have G1 := addUpFp_ge _ _ Fsl Fth Fa1 Fu1.
 have G2 := addUpFp_ge _ _ Fu1 Ftl Fa2 Fu2.
 have E3 := twoSum_exact_fin _ _ Fsh Fu2 T3.
-by rewrite addDwUpE; lra.
+by lra.
 Qed.
 
 (* And downwards, the same three steps the other way.                         *)
@@ -184,8 +188,10 @@ Theorem addDwDn_le xh xl yh yl :
   Dfin (addDnFp (addDnFp (Dsl xh yh) (Dsh xl yl)) (Dsl xl yl)) ->
   DtwoSumFin (Dsh xh yh)
     (addDnFp (addDnFp (Dsl xh yh) (Dsh xl yl)) (Dsl xl yl)) ->
-  D2R (dwhi (addDwDn (DWFloat xh xl) (DWFloat yh yl))) +
-  D2R (dwlo (addDwDn (DWFloat xh xl) (DWFloat yh yl))) <=
+  D2R (dwhi (twoSum (Dsh xh yh)
+       (addDnFp (addDnFp (Dsl xh yh) (Dsh xl yl)) (Dsl xl yl)))) +
+  D2R (dwlo (twoSum (Dsh xh yh)
+       (addDnFp (addDnFp (Dsl xh yh) (Dsh xl yl)) (Dsl xl yl)))) <=
   D2R xh + D2R xl + (D2R yh + D2R yl).
 Proof.
 move=> Fxh Fxl Fyh Fyl T1 T2 Fa1 Fu1 Fa2 Fu2 T3.
@@ -196,7 +202,7 @@ have E2 := twoSum_exact_fin _ _ Fxl Fyl T2.
 have G1 := addDnFp_le _ _ Fsl Fth Fa1 Fu1.
 have G2 := addDnFp_le _ _ Fu1 Ftl Fa2 Fu2.
 have E3 := twoSum_exact_fin _ _ Fsh Fu2 T3.
-by rewrite addDwDnE; lra.
+by lra.
 Qed.
 
 (* ---------------------------------------------------------------------------*)
@@ -211,7 +217,13 @@ Qed.
 Lemma addDw_finI x y : Dfin (dwlo (addDwUp x y)) ->
   Dfin (dwhi x) /\ Dfin (dwlo x) /\ Dfin (dwhi y) /\ Dfin (dwlo y).
 Proof.
-case: x => xh xl; case: y => yh yl; rewrite addDwUpE => Fz.
+case: x => xh xl; case: y => yh yl; rewrite addDwUpE.
+case E: ((xl =? 0)%float && (yl =? 0)%float)%bool => Fz.
+  have [E1 E2] := andb_prop _ _ E.
+  have [Fxl _] := Dfin_eqb0 _ E1.
+  have [Fyl _] := Dfin_eqb0 _ E2.
+  have [Fs _] := twoSum_finI _ _ Fz.
+  by have [Fxh Fyh] := Dfin_addI _ _ Fs.
 have [Fsw _] := twoSum_finI _ _ Fz.
 have [_ Fw] := Dfin_addI _ _ Fsw.
 have [Fv Ftl] := Dfin_addI _ _ (Dfin_upI _ _ Fw).
@@ -225,7 +237,13 @@ Qed.
 Lemma addDwDn_finI x y : Dfin (dwlo (addDwDn x y)) ->
   Dfin (dwhi x) /\ Dfin (dwlo x) /\ Dfin (dwhi y) /\ Dfin (dwlo y).
 Proof.
-case: x => xh xl; case: y => yh yl; rewrite addDwDnE => Fz.
+case: x => xh xl; case: y => yh yl; rewrite addDwDnE.
+case E: ((xl =? 0)%float && (yl =? 0)%float)%bool => Fz.
+  have [E1 E2] := andb_prop _ _ E.
+  have [Fxl _] := Dfin_eqb0 _ E1.
+  have [Fyl _] := Dfin_eqb0 _ E2.
+  have [Fs _] := twoSum_finI _ _ Fz.
+  by have [Fxh Fyh] := Dfin_addI _ _ Fs.
 have [Fsw _] := twoSum_finI _ _ Fz.
 have [_ Fw] := Dfin_addI _ _ Fsw.
 have [Fv Ftl] := Dfin_addI _ _ (Dfin_dnI _ _ Fw).
@@ -245,7 +263,13 @@ move: Fxh Fxl Fyh Fyl Fz; case: x => xh xl; case: y => yh yl.
 rewrite addDwUpE.
 change (dwhi (DWFloat xh xl)) with xh; change (dwlo (DWFloat xh xl)) with xl.
 change (dwhi (DWFloat yh yl)) with yh; change (dwlo (DWFloat yh yl)) with yl.
-move=> Fxh Fxl Fyh Fyl Fz.
+move=> Fxh Fxl Fyh Fyl.
+case E: ((xl =? 0)%float && (yl =? 0)%float)%bool => Fz.
+  have [E1 E2] := andb_prop _ _ E.
+  have [_ Exl] := Dfin_eqb0 _ E1.
+  have [_ Eyl] := Dfin_eqb0 _ E2.
+  have Eq := twoSum_exact_fin _ _ Fxh Fyh (twoSum_finI _ _ Fz).
+  by rewrite Exl Eyl; lra.
 have T3 := twoSum_finI _ _ Fz.
 have [Fsw _] := T3.
 have [_ Fw] := Dfin_addI _ _ Fsw.
@@ -265,7 +289,13 @@ move: Fxh Fxl Fyh Fyl Fz; case: x => xh xl; case: y => yh yl.
 rewrite addDwDnE.
 change (dwhi (DWFloat xh xl)) with xh; change (dwlo (DWFloat xh xl)) with xl.
 change (dwhi (DWFloat yh yl)) with yh; change (dwlo (DWFloat yh yl)) with yl.
-move=> Fxh Fxl Fyh Fyl Fz.
+move=> Fxh Fxl Fyh Fyl.
+case E: ((xl =? 0)%float && (yl =? 0)%float)%bool => Fz.
+  have [E1 E2] := andb_prop _ _ E.
+  have [_ Exl] := Dfin_eqb0 _ E1.
+  have [_ Eyl] := Dfin_eqb0 _ E2.
+  have Eq := twoSum_exact_fin _ _ Fxh Fyh (twoSum_finI _ _ Fz).
+  by rewrite Exl Eyl; lra.
 have T3 := twoSum_finI _ _ Fz.
 have [Fsw _] := T3.
 have [_ Fw] := Dfin_addI _ _ Fsw.
@@ -325,25 +355,38 @@ Proof. by rewrite /D2R /deps; compute; lra. Qed.
 (* The product written out, with the words of the two-product named.          *)
 Lemma mulDwUpE xh xl yh yl :
   mulDwUp (DWFloat xh xl) (DWFloat yh yl) =
-  twoSum (dwhi (twoProd xh yh))
+  (if ((xl =? 0)%float && (yl =? 0)%float &&
+       (dprodlo <? abs (dwhi (twoProd xh yh)))%float)%bool then twoProd xh yh
+   else
+   twoSum (dwhi (twoProd xh yh))
     (addUpFp (addUpFp (addUpFp (dwlo (twoProd xh yh)) (mulUpFp xh yl))
                       (addUpFp (mulUpFp xl yh) (mulUpFp xl yl)))
-             deps).
+             deps)).
 Proof. by rewrite /mulDwUp; case: (twoProd xh yh). Qed.
 
 Lemma mulDwDnE xh xl yh yl :
   mulDwDn (DWFloat xh xl) (DWFloat yh yl) =
-  twoSum (dwhi (twoProd xh yh))
+  (if ((xl =? 0)%float && (yl =? 0)%float &&
+       (dprodlo <? abs (dwhi (twoProd xh yh)))%float)%bool then twoProd xh yh
+   else
+   twoSum (dwhi (twoProd xh yh))
     (addDnFp (addDnFp (addDnFp (dwlo (twoProd xh yh)) (mulDnFp xh yl))
                       (addDnFp (mulDnFp xl yh) (mulDnFp xl yl)))
-             (- deps)).
+             (- deps))).
 Proof. by rewrite /mulDwDn; case: (twoProd xh yh). Qed.
 
 (* Here too the answer being a number proves the four words given were.       *)
 Lemma mulDw_finI x y : Dfin (dwlo (mulDwUp x y)) ->
   Dfin (dwhi x) /\ Dfin (dwlo x) /\ Dfin (dwhi y) /\ Dfin (dwlo y).
 Proof.
-case: x => xh xl; case: y => yh yl; rewrite mulDwUpE => Fz.
+case: x => xh xl; case: y => yh yl; rewrite mulDwUpE.
+case Eok: (((xl =? 0)%float && (yl =? 0)%float) &&
+           (dprodlo <? abs (dwhi (twoProd xh yh)))%float)%bool => Fz.
+  have [E12 _] := andb_prop _ _ Eok.
+  have [E1 E2] := andb_prop _ _ E12.
+  have [Fxl _] := Dfin_eqb0 _ E1.
+  have [Fyl _] := Dfin_eqb0 _ E2.
+  by have [Fxh [Fyh _]] := twoProd_hi _ _ Fz.
 have [Fsw _] := twoSum_finI _ _ Fz.
 have [_ FW] := Dfin_addI _ _ Fsw.
 have [FV _] := Dfin_addI _ _ (Dfin_upI _ _ FW).
@@ -358,7 +401,14 @@ Qed.
 Lemma mulDwDn_finI x y : Dfin (dwlo (mulDwDn x y)) ->
   Dfin (dwhi x) /\ Dfin (dwlo x) /\ Dfin (dwhi y) /\ Dfin (dwlo y).
 Proof.
-case: x => xh xl; case: y => yh yl; rewrite mulDwDnE => Fz.
+case: x => xh xl; case: y => yh yl; rewrite mulDwDnE.
+case Eok: (((xl =? 0)%float && (yl =? 0)%float) &&
+           (dprodlo <? abs (dwhi (twoProd xh yh)))%float)%bool => Fz.
+  have [E12 _] := andb_prop _ _ Eok.
+  have [E1 E2] := andb_prop _ _ E12.
+  have [Fxl _] := Dfin_eqb0 _ E1.
+  have [Fyl _] := Dfin_eqb0 _ E2.
+  by have [Fxh [Fyh _]] := twoProd_hi _ _ Fz.
 have [Fsw _] := twoSum_finI _ _ Fz.
 have [_ FW] := Dfin_addI _ _ Fsw.
 have [FV _] := Dfin_addI _ _ (Dfin_dnI _ _ FW).
@@ -384,7 +434,18 @@ move: Fxh Fxl Fyh Fyl Fz0; case: x => xh xl; case: y => yh yl.
 rewrite mulDwUpE.
 change (dwhi (DWFloat xh xl)) with xh; change (dwlo (DWFloat xh xl)) with xl.
 change (dwhi (DWFloat yh yl)) with yh; change (dwlo (DWFloat yh yl)) with yl.
-move=> Fxh Fxl Fyh Fyl Fz.
+move=> Fxh Fxl Fyh Fyl.
+case Eok: (((xl =? 0)%float && (yl =? 0)%float) &&
+           (dprodlo <? abs (dwhi (twoProd xh yh)))%float)%bool => Fz.
+  have [E12 E3] := andb_prop _ _ Eok.
+  have [E1 E2] := andb_prop _ _ E12.
+  have [_ Exl] := Dfin_eqb0 _ E1.
+  have [_ Eyl] := Dfin_eqb0 _ E2.
+  have [_ [_ [Fch Ech]]] := twoProd_hi _ _ Fz.
+  have Hl := Dltb_abs _ _ Dfin_dprodlo Fch E3.
+  rewrite D2R_dprodlo Ech in Hl.
+  have Hex := twoProd_exact _ _ Fz (Dprodlo_of_rnd _ Hl).
+  by rewrite Exl Eyl; lra.
 have T := twoSum_finI _ _ Fz.
 have [Fsum _] := T.
 have [Fch FW] := Dfin_addI _ _ Fsum.
@@ -425,7 +486,18 @@ move: Fxh Fxl Fyh Fyl Fz0; case: x => xh xl; case: y => yh yl.
 rewrite mulDwDnE.
 change (dwhi (DWFloat xh xl)) with xh; change (dwlo (DWFloat xh xl)) with xl.
 change (dwhi (DWFloat yh yl)) with yh; change (dwlo (DWFloat yh yl)) with yl.
-move=> Fxh Fxl Fyh Fyl Fz.
+move=> Fxh Fxl Fyh Fyl.
+case Eok: (((xl =? 0)%float && (yl =? 0)%float) &&
+           (dprodlo <? abs (dwhi (twoProd xh yh)))%float)%bool => Fz.
+  have [E12 E3] := andb_prop _ _ Eok.
+  have [E1 E2] := andb_prop _ _ E12.
+  have [_ Exl] := Dfin_eqb0 _ E1.
+  have [_ Eyl] := Dfin_eqb0 _ E2.
+  have [_ [_ [Fch Ech]]] := twoProd_hi _ _ Fz.
+  have Hl := Dltb_abs _ _ Dfin_dprodlo Fch E3.
+  rewrite D2R_dprodlo Ech in Hl.
+  have Hex := twoProd_exact _ _ Fz (Dprodlo_of_rnd _ Hl).
+  by rewrite Exl Eyl; lra.
 have T := twoSum_finI _ _ Fz.
 have [Fsum _] := T.
 have [Fch FW] := Dfin_addI _ _ Fsum.
@@ -1044,6 +1116,26 @@ by move: H2; split_Rabs; lra.
 Qed.
 
 (* negating both words leaves a double word a double word *)
+(* And half a step is what the test really gives, which three words need.     *)
+Lemma wellFormed_half xh xl : Dfin xh -> Dfin xl ->
+  wellFormed (DWFloat xh xl) = true ->
+  (Rabs (D2R xl) <= / 2 * Rabs (D2R xh))%R.
+Proof.
+move=> Fh Fl Ew.
+have Hp0 : Prec_gt_0 FloatOps.prec by [].
+have Hu := wellFormedP _ _ Fh Fl Ew.
+case: (Req_dec (D2R xh) 0) => [Ez|Nz]; last first.
+  have Hl := ulp_le_abs radix2 Dfexp (D2R xh) Nz (Dformat xh).
+  by move: Hu Hl; split_Rabs; lra.
+have Fs := Dfin_wf _ _ Fh Ew.
+have [Es _] := Dfin_add _ _ Fh Fl Fs.
+have Eq := D2R_wf _ _ Fh Fl Ew.
+have Hr : Drnd (D2R xl) = D2R xl.
+  by apply: round_generic; apply: Dformat.
+have E : D2R xl = D2R xh by move: Eq; rewrite Es Ez Rplus_0_l Hr.
+by move: Ez E; split_Rabs; lra.
+Qed.
+
 Lemma wellFormed_neg xh xl : Dfin xh -> Dfin xl ->
   wellFormed (DWFloat xh xl) = true ->
   wellFormed (DWFloat (- xh) (- xl))%float = true.
@@ -1065,4 +1157,16 @@ have Eval : D2R (- xh + - xl)%float = D2R (- xh)%float.
 move: Fn Fnh Eval; rewrite /wellFormed eqb_equiv /Dfin /D2R !add_equiv.
 move=> Fn Fnh Eval; rewrite (Beqb_correct _ _ _ _ Fn Fnh).
 by case: Req_bool_spec.
+Qed.
+
+(* Negating twice is doing nothing, so being a double word survives a         *)
+(* change of sign both ways round.                                            *)
+Lemma wellFormed_negE xh xl : Dfin xh -> Dfin xl ->
+  wellFormed (DWFloat (- xh) (- xl))%float = wellFormed (DWFloat xh xl).
+Proof.
+move=> Fh Fl; case E: (wellFormed (DWFloat xh xl)).
+  exact: wellFormed_neg.
+case E2: (wellFormed (DWFloat (- xh) (- xl))%float) => //.
+have := wellFormed_neg _ _ (Dfin_opp _ Fh) (Dfin_opp _ Fl) E2.
+by rewrite !Dopp_opp E.
 Qed.

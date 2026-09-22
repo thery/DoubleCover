@@ -44,10 +44,25 @@ Fixpoint divl (p : F.precision) (n : nat) (c a : F.type) : F.type :=
 Fixpoint sqrtl (p : F.precision) (n : nat) (a : F.type) : F.type :=
   match n with O => a | S k => sqrtl p k (F.sqrt_UP p a) end.
 
+(* The comparison.  For three words it reads the VALUE and not the words --   *)
+(* see `tw_cmpbad.v' for why -- so it is worth a column of its own.  The two  *)
+(* values are the loop's own constants and nothing is computed inside, so     *)
+(* this times the comparison and nothing else; the answer is kept so the      *)
+(* calls cannot be thrown away.                                               *)
+Fixpoint cmpl (p : F.precision) (n : nat) (c a : F.type) (k : Z) : Z :=
+  match n with
+  | O => k
+  | S m => cmpl p m c a (k + match F.cmp a c with Xlt => 1 | _ => 0 end)%Z
+  end.
+
 (* The two constants, each computed once.                                     *)
 Definition run (p : F.precision) (n : nat)
     (l : F.precision -> nat -> F.type -> F.type -> F.type) : F.type :=
   let c := mult p in let a := seed p in l p n c a.
+
+(* The comparison loop answers a count, not a float, so it gets its own.      *)
+Definition runc (p : F.precision) (n : nat) : Z :=
+  let c := mult p in let a := seed p in cmpl p n c a 0%Z.
 
 End Loops.
 
@@ -65,6 +80,8 @@ Notation pT := (tw_unsafe.TwFloatU.PtoP 159).
 
 Definition N := 10000%nat.
 Definition Ns := 1000%nat.
+(* A comparison is far cheaper than an operation, so it gets more of them.    *)
+Definition Nc := 100000%nat.
 
 (* ------------------------------------------------------------------ addition *)
 Time Eval vm_compute in LB.run pB53 N LB.addl.
@@ -93,6 +110,13 @@ Time Eval vm_compute in LB.sqrtl pB107 Ns (LB.seed pB107).
 Time Eval vm_compute in LB.sqrtl pB159 Ns (LB.seed pB159).
 Time Eval vm_compute in LD.sqrtl pD Ns (LD.seed pD).
 Time Eval vm_compute in LT.sqrtl pT Ns (LT.seed pT).
+
+(* ----------------------------------------------------------------- comparison *)
+Time Eval vm_compute in LB.runc pB53 Nc.
+Time Eval vm_compute in LB.runc pB107 Nc.
+Time Eval vm_compute in LB.runc pB159 Nc.
+Time Eval vm_compute in LD.runc pD Nc.
+Time Eval vm_compute in LT.runc pT Nc.
 
 (* And that no column gave up: each of these must be a real number.           *)
 Eval vm_compute in (LB.run pB159 10%nat LB.divl, LD.run pD 10%nat LD.divl,

@@ -1,13 +1,15 @@
 From mathcomp Require Import all_ssreflect.
 From Stdlib Require Import ZArith Floats.
 From twarith Require Import twarith tw_updn tw_ops.
+From twarith Require Import nearest.twnearest.
 
 (* A smoke test: the arithmetic run on something worth computing.             *)
 (* The first half computes pi by Machin's formula with the plain operations,  *)
 (* to see how many digits three words really hold.  The second half runs the  *)
 (* interface's own operations and looks at the brackets they give.            *)
-(* Nothing here is proved: it is a test, not a proof, and the obligations of  *)
-(* tw_ops.v are still admitted.                                              *)
+(* Nothing here is proved: it is a test, not a proof.  It lives here rather   *)
+(* than on the build path because its first half is Machin's formula over the *)
+(* ROUND-TO-NEAREST operations, which nothing else uses -- see the README.    *)
 
 (* ---------------------------------------------------------------------------*)
 (*  Pi, by Machin's formula                                                   *)

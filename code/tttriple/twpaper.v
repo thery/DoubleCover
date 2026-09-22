@@ -1,7 +1,9 @@
 From mathcomp Require Import all_ssreflect.
+From Stdlib Require Import ZArith Reals Psatz.
+From Flocq Require Import Core BinarySingleNaN PrimFloat.
 Require Import PrimInt63 Floats.
-From Stdlib Require Import ZArith.
-From twarith Require Import twarith tw_updn.
+From dwarith Require Import dwbridge dwbound.
+From twarith Require Import twarith tw_updn twbound.
 
 (* The paper's own algorithms, on primitive floats.                          *)
 (*                                                                           *)
@@ -21,7 +23,13 @@ From twarith Require Import twarith tw_updn.
 (* inputs, the quotient below is out by 2.3 units in the last place where     *)
 (* the paper's own is out by less, and eight covers it.                       *)
 (*                                                                           *)
-(* Nothing here is proved.                                                    *)
+(* WHAT IS PROVED HERE.  The algorithms themselves are transcriptions and     *)
+(* nothing is proved of them in this file.  The SIZE OF THE STEP was measured *)
+(* and assumed; it is now proved, in `twflx.v' for the root and `twdivflx.v'  *)
+(* for the quotient, both through a guard the operation evaluates -- see      *)
+(* `twsqrt.v' and `twdiv.v'.  Nothing in this development is assumed any      *)
+(* more.  Everything between the step and the obligations -- the guards, the  *)
+(* widening, the reading into Interval's shape -- was always proved.          *)
 
 Implicit Type t : twfloat.
 
@@ -163,17 +171,22 @@ Definition threeSqRt (x : twfloat) : twfloat :=
 (*  The bounds: the answer shifted so many units in the last place            *)
 (* ===========================================================================*)
 
-(* MEASURED, on forty thousand random triple words, in units of the last      *)
-(* place of the third word: the sum is out by 0.9, Algorithm 9 by 1.7,         *)
-(* Algorithm 11 by 1.7 and Algorithm 14 by 2.3.  Eight covers all of them,     *)
-(* and eight units of a word that sits a hundred and fifty-nine bits below    *)
-(* the leading one is the leading one shifted down a hundred and fifty-six.    *)
-(* The probing is `probek.py' beside this file.                                *)
+(* MEASURED FIRST, THEN PROVED, and the proof is what set it.                 *)
 (*                                                                            *)
-(* ADMITTED, not proved.  The number comes from running the algorithms, not    *)
-(* from their theorems: the theorems are in `threewords/' but they are about   *)
-(* the paper's steps, and the FMA is not available here.                       *)
-Definition kscale := Eval compute in 0x1p-156%float.
+(* `probek.py' beside this file runs the two algorithms on forty thousand     *)
+(* random triple words and reports how far out they are in units of the last  *)
+(* place of the third word: the sum by 0.9, Algorithm 9 by 1.7, Algorithm 11  *)
+(* by 1.7 and Algorithm 14 by 2.3.  Eight of those units is the leading word  *)
+(* shifted down a hundred and fifty-six, and that is what this was.            *)
+(*                                                                            *)
+(* `twflx.v' now proves both.  The root is out by `31u^3' of the answer and   *)
+(* the quotient by `56u^3', which are 3.9 and 7 units of that last place      *)
+(* where the probing measured 2.3 -- so the measurement was right about the   *)
+(* algorithms and wrong about what could be shown of them.  Seven units wants *)
+(* a hundred and fifty-three, three bits above what was measured and one      *)
+(* above what the root alone would need.  `kscale_needed' in `twflx.v' is the *)
+(* arithmetic.                                                                *)
+Definition kscale := Eval compute in 0x1p-153%float.
 
 (* The paper's bounds hold in the NORMAL range only - they are proved in the  *)
 (* format with no smallest exponent.  Below that the shift would be a claim    *)
@@ -198,29 +211,85 @@ Definition divTwUpP (x y : twfloat) :=
 Definition divTwDnP (x y : twfloat) :=
   if posFp (magDnTw y) then shiftDn (threeDiv x y) else TWFloat nan nan nan.
 
-(* The root of a negative number is taken to be nought here, so a bound      *)
-(* below it would be a claim about nothing: what it is given has to be above  *)
-(* zero, and so has the answer, which is what the shift is taken from.        *)
-Definition sqrtTwUpP (x : twfloat) :=
-  let: TWFloat x0 x1 x2 := x in
-  let q := threeSqRt x in
-  if posFp (valDnTw q) && posFp (x0 + x1 + x2)%float
-  then shiftUp q else TWFloat nan nan nan.
-Definition sqrtTwDnP (x : twfloat) :=
-  let: TWFloat x0 x1 x2 := x in
-  let q := threeSqRt x in
-  if posFp (valDnTw q) && posFp (x0 + x1 + x2)%float
-  then shiftDn q else TWFloat nan nan nan.
+(* The root's own guard, and its two bounds, are in `twsqrt.v': they go     *)
+(* through a test rather than through an assumption.                         *)
+
+(* ===========================================================================*)
+(*  The step, proved; the four bounds, proved from it                         *)
+(* ===========================================================================*)
+
+(* NOTHING HERE IS ASSUMED ANY MORE.                                          *)
+(*                                                                            *)
+(* `probek.py' beside this file runs the two algorithms on forty thousand     *)
+(* random triple words and reports how far out they are in units of the last  *)
+(* place of the third word: the quotient by 2.3 and the root by less.  That   *)
+(* was what `kscale' was set by, and it was set too small: the root is out by *)
+(* `31u^3' of the answer and the quotient by `56u^3', which are 3.9 and 7 of  *)
+(* those units, so the constant went up three bits to `2^-153'.  The          *)
+(* measurement was right about the algorithms and wrong about what could be   *)
+(* shown of them.                                                             *)
+(*                                                                            *)
+(* `kstep' turns `kscale' into a step down from the leading word, with a      *)
+(* fixed step below the normal range where the paper's own bounds say         *)
+(* nothing.  The bounds are stated of the ANSWER's own step, because that is  *)
+(* what the operation adds; and with the divisor kept away from nought and    *)
+(* the number under the root kept above it, because outside that neither      *)
+(* algorithm is asked for anything.                                           *)
+Lemma finL_nan3 : finL (tw2l (TWFloat nan nan nan)) -> False.
+Proof. by case. Qed.
+
+(* The divisor is kept away from nought by its own guard.                     *)
+Lemma divGuard_nz y : posFp (magDnTw y) = true -> twval y <> 0%R.
+Proof.
+move=> Hp; have [Fm Hm] := posFpP _ Hp.
+have Hle := magDnTw_le _ Fm.
+by move=> H0; move: Hle Hm; rewrite H0 Rabs_R0; lra.
+Qed.
+
+(* The guard is not merely tested, it is recoverable: the answer's words are  *)
+(* numbers only if the guard let it through.                                  *)
+Lemma divTwUpP_nz x y : finL (tw2l (divTwUpP x y)) -> twval y <> 0%R.
+Proof.
+rewrite /divTwUpP; case Hp: (posFp (magDnTw y)); last by move/finL_nan3.
+by move=> _; apply: divGuard_nz.
+Qed.
+
+Lemma divTwDnP_nz x y : finL (tw2l (divTwDnP x y)) -> twval y <> 0%R.
+Proof.
+rewrite /divTwDnP; case Hp: (posFp (magDnTw y)); last by move/finL_nan3.
+by move=> _; apply: divGuard_nz.
+Qed.
+
+(* The number under the root is kept above nought by its own guard, and that  *)
+(* takes a word about a triple word: being one, the first addition drops the  *)
+(* second word, so what the guard tests is the first word and the third, and  *)
+(* the third is at most a quarter of the first.                               *)
+Lemma sqrtGuard_pos x : finL (tw2l x) -> wellFormed x = true ->
+  posFp ((tw0 x + tw1 x + tw2 x)%float) = true -> (0 < twval x)%R.
+Proof.
+move=> Fl Ew Hp; have [Fs Hs] := posFpP _ Hp.
+apply: wellFormed_posV => //; apply: wellFormed_pos02 => //.
+move: Fl Ew Fs Hs; case: x {Hp} => x0 x1 x2 [F0 [F1 [F2 _]]] /=.
+rewrite /wellFormed => /andb_prop [E1 _] Fs Hs.
+have E01 := D2R_wf _ _ F0 F1 E1.
+have F01 := Dfin_wf _ _ F0 E1.
+have [Es _] := Dfin_add _ _ F01 F2 Fs.
+move: Hs; rewrite Es E01 => Hs.
+have Vr : Valid_rnd (round_mode mode_NE) by apply: valid_rnd_round_mode.
+have Ve : Valid_exp Dfexp by apply: FLT_exp_valid.
+case: (Rle_lt_dec (D2R x0 + D2R x2) 0) => // Hle.
+have : (Drnd (D2R x0 + D2R x2) <= Drnd 0)%R by apply: round_le.
+by rewrite round_0; lra.
+Qed.
 
 (* ===========================================================================*)
 (*  What they compute                                                         *)
 (* ===========================================================================*)
 
 Compute threeDiv (fp2tw 1) (fp2tw 3).
-Compute timesTwTw (threeDiv (fp2tw 1) (fp2tw 3)) (fp2tw 3).
+Compute mulTwUp (threeDiv (fp2tw 1) (fp2tw 3)) (fp2tw 3).
 Compute threeReci (fp2tw 3).
 Compute threeDiv (toTw 1 1e-20 1e-40) (toTw 3 1e-20 1e-40).
 Compute (divTwDnP (fp2tw 1) (fp2tw 3), divTwUpP (fp2tw 1) (fp2tw 3)).
 Compute threeSqRt (fp2tw 2).
-Compute timesTwTw (threeSqRt (fp2tw 2)) (threeSqRt (fp2tw 2)).
-Compute (sqrtTwDnP (fp2tw 2), sqrtTwUpP (fp2tw 2)).
+Compute mulTwUp (threeSqRt (fp2tw 2)) (threeSqRt (fp2tw 2)).
