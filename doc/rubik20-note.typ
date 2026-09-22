@@ -1198,26 +1198,20 @@ about two thirds of what the searches cost.
 = One coset of the upper half
 
 So far we have dealt with lower bounds. This last section is an attempt at the
-real computation, the upper bound. The published proofs do not solve all 43
-quintillion positions one at a time. They cut the cube group into the 2 217 093
-120 cosets of a subgroup and solve a whole coset at once. One search settles
-every one of the 19 508 428 800 positions in it. The positions in a coset are
-not all the same distance from solved. The search shows that none of them is
-more than 20. A symmetry of the cube carries one coset to another, and the image
-is solved by the same manoeuvres relabelled, so only one coset per symmetry
-class is searched. Two things are then needed. The cosets searched must cover
-every class, and each search must settle its whole coset.
+real computation, the upper bound.
 
-#src("Canon.v") proves the first, and it is not a computation. As the
-representative of a class we take its least member, in the order the type of
-positions already carries. Every class is covered, because a finite set that is
-not empty has a least member. The file is eighty lines and assumes nothing.
+Here is what it proves, in full. Take the superflip. Play on it any sequence of
+the ten moves `U`, `U2`, `U'`, `D`, `D2`, `D'`, `R2`, `L2`, `F2` and `B2`. There
+are 19 508 428 800 positions that can be reached that way. Every one of them is
+solved in twenty moves or fewer.
 
-The second is the computation itself. Rokicki, Kociemba, Davidson and Dethridge
-ran it over 55 882 296 families of cosets. It took about a billion seconds of
-processor time, more than thirty processor years, given by Google. We cannot
-repeat that. What we can do is one coset, to see what one costs and whether the
-pieces are in place. We did the superflip's.
+The computation that proves it is not the search of the earlier sections. There
+the search was looking for a manoeuvre and had to come back empty; the whole
+difficulty was that it must have left nothing out. Here it is the opposite. Each
+of the 19 508 428 800 positions gets one bit, the computation sets the bit of
+every position it can solve in twenty moves, and the theorem follows when no bit
+is left clear. What runs for six hours is a marking. The rest of this section is
+how the bits get set.
 
 == Cosets
 
@@ -1237,63 +1231,231 @@ exactly one coset.
   ([cosets we did], [1]),
 )
 
-We already had the superflip from the lower bound, so its coset is a convenient
-example.
+The published proofs do not solve all 43 quintillion positions one at a time.
+They solve a whole coset at once. One search settles every one of the
+19 508 428 800 positions in it. The positions in a coset are not all the same
+distance from solved. The search shows that none of them is more than 20. A
+symmetry of the cube carries one coset to another, and the image is solved by
+the same manoeuvres relabelled, so only one coset per symmetry class is
+searched. Two things are then needed. The cosets searched must cover every
+class, and each search must settle its whole coset.
+
+#src("Canon.v") proves the first, and it is not a computation. As the
+representative of a class we take its least member, in the order the type of
+positions already carries. Every class is covered, because a finite set that is
+not empty has a least member. The file is eighty lines and assumes nothing.
+
+The second is the computation itself. Rokicki, Kociemba, Davidson and Dethridge
+ran it over 55 882 296 families of cosets. It took about a billion seconds of
+processor time, more than thirty processor years, given by Google. We cannot
+repeat that. What we can do is one coset, to see what one costs and whether the
+pieces are in place. We did the superflip's, because we already had the
+superflip from the lower bound.
 
 == The coset as one map
 
-A position of a coset is named by three numbers: how the eight top and bottom
-corners sit, how the eight top and bottom edges sit, and how the four middle
-edges sit. The map holds one bit for each. The arrangements of the corners go in
-pairs, and a pair shares one word. The map is then 406 425 600 machine words of
-forty-eight bits, that is 19 508 428 800 bits.
+A position of the coset is named by three numbers: how the eight corners of the
+top and bottom layers sit, how the eight edges of those layers sit, and how the
+four middle edges sit. That is 40 320 by 40 320 by 24 arrangements, but half of
+those triples cannot occur: on the cube the corners and the edges are always
+permuted with the same sign. The map holds one bit for each of the
+19 508 428 800 triples that are left.
 
-The search starts at the superflip and plays words, setting the bit of every
-position of the coset it reaches. When every bit is set the theorem follows.
-Thirty-two positions are not reached. We give each of them a word of twenty
-moves by hand in #src("RowWits.v"). We do not trust those words:
-#src("RowWitsChk.v") plays each one back and asks for the solved cube.
+The bits are laid out the way Rokicki's own program lays them out, and the
+layout is what makes the next subsection cheap. A page is one arrangement of the
+corners. Inside a page, a group is a pair of arrangements of the outer edges,
+the two that differ by exchanging one pair of cubies, and the group's
+twenty-four bits are the twenty-four arrangements of the middle edges, the
+twelve even ones low and the twelve odd ones high. The parity says which
+arrangement of the pair a bit stands for, which is how the impossible half
+disappears with nothing left to store.
 
-== The reused and the new
+A machine word holds forty-eight bits, so one word holds the same group on two
+pages, the corner arrangements of even and odd rank, the odd one in the top
+half. The map is then 20 160 times 20 160 such words: 406 425 600 words, 3.25
+GB. An array in Rocq may hold 4 194 303 entries, so the map is an array of 194
+chunks of two million words. The map and its indexing are #src("Row.v") and
+#src("RowMap.v").
 
-We reuse nearly everything. The search and the map come over unchanged. So do
-the tables that step a whole map, the ranking of the three numbers and the
-replay of the leftover words. The phase one table and its generator come over
-too, with the cube, the permutations and the machine-integer tools.
+The invariant the whole proof turns on is one line: a map is *sound at $d$* when
+every bit it has set is a member of the coset that is within $d$ moves of
+solved. The map the run starts from has one bit set, the superflip's own, and is
+sound at nought. Each of the twenty steps below takes a map sound at $d$ to a
+map sound at $d+1$. If the map that comes out has every bit set, then every
+member is within twenty moves, and that is the theorem.
 
-Four things are new, and none of them is about searching.
+== A level
 
-- The rank and the sign of a permutation. Rocq's library has both, but for
-  permutations that do not compute, so we need their effective version on
-  machine integers.
-- The way back from three numbers to a position. The search fills a map whose
-  bits are the triples of numbers, so what it proves is a statement about
-  triples. To read it as a statement about the cube we have to turn a triple
-  back into the position it stands for. The other way, from a position to its
-  triple, we already had.
-- The link between the summary the search carries and the position it stands
-  for. The summary is one machine word, the position forty-eight.
-- A check for each of the tables, each in its own file, so that a failure names
-  the table that failed.
+The run is twenty levels, level $d$ turning a map sound at $d-1$ into a map
+sound at $d$. A level does two things, and they divide the manoeuvres of length
+$d$ between them.
 
-== Where the search stops
+- The *prepass* plays each of the ten moves of $H$ on the whole map at once. It
+  accounts for every manoeuvre whose last move is in $H$, and that is nearly all
+  of them.
+- The *search* then looks only for the manoeuvres of length $d$ whose last move
+  is not in $H$. It walks them from the superflip one position at a time, the
+  way the searches of the earlier sections do.
 
-The search walks outwards from the superflip, and at each position it looks
-that position up in the phase 1 table of the first bound. The number it gets
-back is never larger than the number of moves needed to bring the position into
-$H$. Cutting a branch when that number is larger than the moves left is sound:
-a table that gives too small a number only cuts less than it could.
+In #src("RowSrch.v") the run is seven lines. It carries the map, the map it
+reads while it writes, and the number of bits the last level left, which is what
+decides whether the cuts below are on.
 
-Marking is another matter. The search marks a bit of the map when the position
-it has reached is a member of the coset. It used to decide that by the table as
-well, treating a lookup of zero as a member. That is not sound. A table of
-zeros gives zero everywhere, and it passes the two conditions an estimate has
-to meet, so nothing rules it out; with it every position would be marked at
-once and the theorem would say nothing.
+```coq
+Fixpoint runsk (n : nat) (d : nat) (n0 : int) (m dst : rmap) : rmap :=
+  if n is n1.+1 then
+    let m' := levelsk (Uint63.ltb ncutb n0) d.+1 m dst in
+    runsk n1 d.+1 (mcount m') m' m
+  else m.
+```
 
-The search now decides it on the position it has reached, which it carries
-anyway. It tests that position, and the table is not read for this. The test
-costs one comparison.
+`levelsk` is the level: the prepass first, then the search if this level is
+still being searched. Counting the bits, `mcount`, is a sweep of the whole map,
+and the run pays for it once a level.
+
+== The prepass
+
+The prepass is what makes a whole coset affordable, and it is the one part of
+the computation that has no counterpart in the lower bounds.
+
+Playing a move of $H$ on a position of the coset does three separate things to
+the three numbers that name it. The corner arrangement goes to another corner
+arrangement, so a page goes to a page. The outer-edge pair goes to another pair,
+so a group goes to a group. The middle arrangement goes to another middle
+arrangement, so the twenty-four bits of the group are rearranged among
+themselves, and that rearrangement depends only on the move and the group it
+came from. It is a table lookup and a shuffle of one machine word.
+
+So the prepass never takes a position apart. It never builds a cube, never ranks
+one, never looks a position up. For each of the ten moves it reads the whole map
+and writes the whole map, and that is all of it. Ten passes over 3.25 GB buy
+every manoeuvre of this length that ends in a move of $H$, and there are
+billions of those.
+
+#src("RowMap.v") has the prepass and the proof that it keeps the map sound.
+#src("RowLvl.v") has it again, written so that a page's chunk is fetched once
+and put back once instead of once a word, and proves the two are the same
+function, so nothing about the cube is proved twice.
+
+== The search
+
+The search is a depth-first walk from the superflip, like the ones in sections 3
+to 5, with two differences. It carries the position it has reached, and when it
+has used up its depth it asks whether that position is a member of the coset. If
+it is, the position's three numbers are computed, and the bit they name is set.
+That is the leaf, and it is two lines of #src("RowSrch.v"):
+
+```coq
+else if csolved c
+     then let: (pg, gr, bt) := plc (tomemb x) in mmark m pg gr bt
+     else m
+```
+
+The membership test is made on the position itself, which the search carries
+anyway, and it costs one comparison. It is worth saying why it is not made on
+the phase 1 table, which is right there and would give the same answer for a
+handful of nanoseconds less. The table is an estimate. A table of zeros is a
+legal estimate -- it passes both conditions of section 4.3, so nothing rules it
+out -- and with a table of zeros every position would look like a member, every
+bit would be set at once, and the theorem would say nothing. Reading membership
+off the table would make the theorem depend on the table being sharp, which
+nothing proves. Reading it off the position makes it depend on nothing.
+
+The other use of the table is a cut, and that one is sound. At each node the
+search looks the position up and gets a number that is never larger than the
+number of moves needed to bring it into $H$. If that number is larger than the
+moves left, the branch cannot reach the coset and is dropped. An estimate that
+is too small only cuts less than it could.
+
+== The cuts and the early stop
+
+A search that offered all eighteen moves at every node would never finish. Four
+things cut it down, three of them Rokicki's.
+
+The first is the moves worth trying. The phase 1 table of section 5.3 is already
+folded by the sixteen symmetries; the copy the search reads, #src("RowMask.v"),
+carries beside each distance the set of moves that bring the position nearer $H$
+and the set that at least do not take it further. Which set is wanted depends on
+how many moves the search has to spare. A node then offers three or four moves
+instead of eighteen. The entry is twenty-eight bits, two to a machine word: four
+bits of distance and four for each of the six faces. Written out one bit a move
+it would take forty-one. A half turn is a quarter turn twice, so the two moves
+of one face cannot differ by more than one step, which leaves fifteen of the
+twenty-seven ways a face can go, and fifteen fit in four bits.
+
+The second is that the last move of a manoeuvre is never a move of $H$. A
+manoeuvre that ends in $H$ is a shorter one followed by moves of $H$, and the
+prepass has already played those.
+
+The third is that low down, a move must go straight at $H$. Once the moves left
+and the distance to $H$ add up to less than five, only the moves that shorten
+the distance by one are followed. A move that wastes a step down there ends in
+moves of $H$, so the prepass catches that manoeuvre too.
+
+The fourth is where the search stops altogether. It runs on the first sixteen
+levels and not on the four above them, and on level sixteen it does not even run
+out: it stops as soon as the map holds 167 million bits plus a third of what
+that level's prepass left. Those are Rokicki's numbers, and every published time
+of his was measured with them on. What is left is finished by the prepasses of
+levels seventeen to twenty.
+
+The second and third cuts only come on once the map holds more than six million
+bits, which on this coset is not before level fourteen, and that too is his
+rule.
+
+Every one of these four is safe, and safe in a way none of the cuts in the
+earlier sections were. There, a cut that lost a manoeuvre would have lost the
+proof, and each one had to be shown to lose nothing. Here nothing is ever proved
+about what the search covers. What is proved is that the map filled. A cut that
+throws a manoeuvre away can only make the map fill later, or leave a bit clear
+at the end -- it can never set a bit that should not be set. This is why a coset
+is easier to prove than a lower bound, and it is why the four cuts above needed
+no argument at all. The one thing that did need an argument is marking, which is
+the subsection above.
+
+== The members left over
+
+Stopping the search at level sixteen, and stopping level sixteen early, leaves
+members the run never reaches. When the two runs ended, thirty-two bits of the
+406 425 600 words were still clear. They are simply the members that no
+manoeuvre the cut search kept, followed by moves of $H$, happened to reach.
+Searching deeper would leave fewer and cost hours; each one left over costs a
+line.
+
+So we give each of the thirty-two a manoeuvre of twenty moves by hand, in
+#src("RowWits.v"). Twenty-eight of them came from our prototype and the last
+four were found one at a time. None of that is believed. #src("RowWitsChk.v")
+plays each of the thirty-two manoeuvres back on the member it claims to solve
+and asks for the solved cube. If the producer had made a mistake, or given a
+manoeuvre of twenty-one moves, or named the wrong member, the check would fail;
+it cannot make the theorem false. The replay is also the only thing in the
+development that tests the two ideas of which facelet is which -- the
+prototype's, which found the manoeuvres, and Rocq's, which builds the member --
+against each other.
+
+The thirty-two are marked into the map at the very end, by #src("RowMark.v"),
+and not at the start. A map sound at $d$ claims every bit it has set is within
+$d$; a witness is within twenty, so seeding one before the run would make level
+one claim its neighbours are within one, and they are not. Marking at the end is
+sound because the map is already sound at twenty when the marks go in.
+
+== The run, and its one boolean
+
+Everything above is one boolean. #src("RowFoldCubDefI.v") builds the map, runs
+the twenty levels, marks the thirty-two and asks whether every bit is set:
+
+```coq
+Definition rowfulli : bool := mfullf ffuli ycwitsoi.
+
+Lemma rowfulliE : rowfulli = true.
+Proof. Time native_cast_no_check (erefl true). Qed.
+```
+
+That `Qed` is the six hours. The file that holds it, #src("RowFoldCubBoolI.v"),
+is one `Require` and one `Lemma`: a file that runs loads no proof, and a file
+that proves runs nothing. Everything else -- that the prepass keeps the map
+sound, that the search marks only members, that a full map is the theorem -- is
+proved beside it, of a map and a run the proof never evaluates.
 
 == Folding the map
 
@@ -1301,8 +1463,7 @@ The map can be made smaller, and we made it smaller to see what its size does
 to the run. Both maps were searched, the folded one and the unfolded one, and
 the two runs are compared at the end of the section.
 
-The map is 40 320 pages of 20 160 groups, one page for each arrangement of the
-eight top and bottom corners.
+The map is 40 320 pages, one for each arrangement of the corners.
 
 The fold works because of the position we chose. Sixteen of the 48 renamings of
 the cube keep the top and bottom faces in place. Each of them sends the ten
@@ -1310,9 +1471,9 @@ moves to the ten moves, so it maps $H$ to itself, and each leaves the superflip
 unchanged, so it maps the superflip's coset to itself. A member and its image
 under such a renaming need the same number of moves, so two pages related by a
 renaming hold the same answer. One page of each family is then enough: 2 768 of
-the 40 320, a factor of 14.6. A level of the search is one pass over the map,
-so there is 14.6 times less of it to walk. The price is undoing a renaming
-whenever a kept page is read.
+the 40 320, a factor of 14.6. A level of the run is one pass over the map, so
+there is 14.6 times less of it to walk. The price is undoing a renaming whenever
+a kept page is read.
 
 The kept pages go in pairs of their own, and a pair shares one word as it does
 on the unfolded side: 1 496 words in place of 2 768. Two hundred and twenty-four
@@ -1322,6 +1483,26 @@ The fold has to be proved as well as written. A renaming sends a member of the
 coset to a member of the coset. Undoing it gives back the position the page
 stood for. A map sound after one level is sound after the next. That is the
 largest single part of the coset's proof.
+
+== The reused and the new
+
+We reuse nearly everything. The abstract search and its contract come over
+unchanged, and so do the cube, the permutations, the machine-integer tools, the
+phase one table and its generator. Each of the new tables has a check of its
+own, in a file of its own, so that a failure names the table that failed.
+
+Five things are new, and only one of them is a search.
+
+- The rank and the sign of a permutation. Rocq's library has both, but for
+  permutations that do not compute, so we need their effective version on
+  machine integers.
+- The link between a position and its three ranks. The map's bits are triples
+  of numbers, so what the run proves is a statement about triples. To read it
+  as a statement about the cube we have to turn a triple back into the position
+  it stands for. The other way we already had.
+- The pass that steps a whole map one move at a time.
+- The fold by the sixteen renamings.
+- Manoeuvres given by hand for the members the run does not reach.
 
 == The files and the cost
 
@@ -1403,7 +1584,7 @@ What each of the three needed of its own:
   positions. That needs five new pieces. The rank and the sign of a
   permutation on machine integers. The link between a position and its three
   ranks. A pass that steps a whole map one move at a time. The fold by the
-  sixteen renamings. And words given by hand for the positions the search does
+  sixteen renamings. And manoeuvres given by hand for the members the run does
   not reach.
 
 The same search written in OCaml is about three times faster than the one Rocq
