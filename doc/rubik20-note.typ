@@ -734,25 +734,35 @@ it faster, and it makes it agree with you.
 
 == The effective representation
 
-To run the search we need an effective representation of its objects: of a
-position first of all, and of the permutations that move it. The objects are
-few: a position, a move, the summary of a position, and the table of distances.
-A position is a permutation of the 48 stickers. #src("Table.v") presents it by
-its image table, the list of 48 numbers saying where each sticker goes. Not
-every list of numbers is such a table, and `tab_ok` is the test: the list has 48
-entries, each of them below 48, and no entry appears twice. Two permutations are
-composed by reading one table through the other. To find where sticker $i$ ends
-up, take entry $i$ of the first table, then use that number as the index into
-the second. A move is a table of the same shape, so playing a move on a position
-is that same reading. On four stickers instead of 48, if the first table is
-$(1, 2, 3, 0)$ and the second is $(0, 2, 1, 3)$, the product is $(2, 1, 3, 0)$.
-Entry 0 of the first is 1, entry 1 of the second is 2, so the product sends
-sticker 0 to sticker 2. #src("Tsearch.v") runs the search of #src("Search.v") on
-tables. Next come machine integers, 63 bits wide, and *persistent arrays* of
-them @armand2010imperative. #src("Tabi.v") carries the tables as arrays of
-machine integers. `ti2t` reads such an array back as the list it stands for, and
-`tabi_ok` is `tab_ok` of that list. Each operation has a lemma saying that the
-bridge may be crossed either way round.
+To run the search its objects have to be in a form Rocq computes with: a
+position first of all, then a move, the summary of a position, and the
+distances. We say _array_ for the small ones, a position or a move, and _table_
+for the big ones, the distances and the other functions written out.
+
+A position is a permutation of the 48 stickers, and we write it as its 48
+images: the number at place $i$ is where the sticker at $i$ goes.
+#src("Table.v") holds that as a list of 48 numbers, and `tab_ok` is the test
+that a list is one: 48 entries, each below 48, none twice. A move is written the
+same way. The move `U` is
+
+#align(center)[`2, 4, 7, 1, 6, 0, 3, 5, 32, 33, 34, ...`]
+
+read off its cycles: sticker 0 goes to 2, sticker 1 to 4, and sticker 8, on the
+left face, goes round to 32 on the back. @uturn shows the same turn the other
+way round, each square holding the sticker that arrives there, so the picture is
+this list reversed.
+
+Playing a move on a position is reading one list through the other. To find
+where sticker $i$ ends up, take entry $i$ of the first list and use that number
+as the index into the second. Playing `U` twice: entry 0 is 2, entry 2 is 7, so
+`U2` sends sticker 0 to 7. #src("Tsearch.v") runs the search of #src("Search.v")
+on lists of this kind.
+
+Next come machine integers, 63 bits wide, and _persistent arrays_ of them
+@armand2010imperative. #src("Tabi.v") carries a position as an array of 48 such
+integers. `ti2t` reads an array back as the list it stands for, and `tabi_ok` is
+`tab_ok` of that list. Each operation has a lemma saying that the bridge may be
+crossed either way round.
 
 ```coq
 Lemma ti2t_comp a b :
@@ -760,15 +770,15 @@ Lemma ti2t_comp a b :
   ti2t (comp_tabi a b) = comp_tab (ti2t a) (ti2t b).
 ```
 
-From there on a position is 48 machine integers and a summary is two. The phase
-1 table is an array of arrays, with fifteen four-bit entries to a 63-bit machine
-integer. A Rocq array holds at most 4 194 303 entries. The table needs far more,
-so it is cut into chunks of two million words.
+From there on a position is an array of 48 machine integers and a summary is two
+of them. The phase 1 table is far too big for one array: a Rocq array holds at
+most 4 194 303 entries, so the table is an array of arrays, cut into chunks of
+two million words, with fifteen four-bit entries to a word.
 
 The superflip itself goes down that chain. As a permutation it is a product of
 twelve two-cycles, one for each flipped edge, $(1 thin 33)$, $(3 thin 9)$,
-$(4 thin 25)$ and so on. #src("Moves.v") turns those cycles into the image table
-`sftab`, and the table into the array `sfti` the search starts from. Each step
+$(4 thin 25)$ and so on. #src("Moves.v") turns those cycles into the list
+`sftab`, and the list into the array `sfti` the search starts from. Each step
 has its lemma:
 
 ```coq
@@ -776,8 +786,8 @@ Lemma sftabE : superflip = pt 47 sftab.
 Lemma sftiE  : superflip = pt 47 (ti2t 47 sfti).
 ```
 
-`pt 47` is the permutation a table stands for, so both say that what runs is
-still the superflip. Its summary is read off the same table, the corner twist by
+`pt 47` is the permutation a list stands for, so both say that what runs is
+still the superflip. Its summary is read off the same list, the corner twist by
 `ctwistt` and the flip-and-slice value by `coordt`. The estimate at the root of
 the search is then one expression:
 
