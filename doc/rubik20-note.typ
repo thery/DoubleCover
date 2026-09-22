@@ -1277,6 +1277,58 @@ GB. An array in Rocq may hold 4 194 303 entries, so the map is an array of 194
 chunks of two million words. The map and its indexing are #src("Row.v") and
 #src("RowMap.v").
 
+#figure(
+  cetz.canvas(length: 1cm, {
+    import cetz.draw: *
+    let tn = 7.5pt
+
+    // ---- the deck of pages ------------------------------------------------
+    for i in range(4) {
+      let o = (3 - i) * 0.13
+      rect((o, o), (1.7 + o, 1.4 + o), fill: white, stroke: 0.4pt)
+    }
+    content((0.85, 0.7), text(size: 8.5pt)[a page])
+    content((0.85, -0.45), text(size: tn)[40 320 pages, one for])
+    content((0.85, -0.78), text(size: tn)[each corner arrangement])
+
+    // ---- one page, opened into its groups ---------------------------------
+    line((2.3, 1.4), (3.5, 1.4), stroke: (dash: "dotted", thickness: 0.4pt))
+    line((2.0, 0.0), (3.5, 0.0), stroke: (dash: "dotted", thickness: 0.4pt))
+    for i in range(7) {
+      rect((3.5, i * 0.2), (5.3, i * 0.2 + 0.2),
+           fill: if i == 4 { luma(205) } else { white }, stroke: 0.4pt)
+    }
+    content((7.7, 1.95), text(size: tn)[20 160 groups in a page, one for])
+    content((7.7, 1.62), text(size: tn)[each pair of outer-edge arrangements,])
+    content((7.7, 1.29), text(size: tn)[and a group is one machine word])
+
+    // ---- that group, as the forty-eight bits of one word ------------------
+    let x0 = 2.6
+    let w = 0.23
+    let xe = x0 + 48 * w
+    line((3.5, 0.8), (x0, -1.2), stroke: (dash: "dotted", thickness: 0.4pt))
+    line((5.3, 0.8), (xe, -1.2), stroke: (dash: "dotted", thickness: 0.4pt))
+    for i in range(48) {
+      rect((x0 + i * w, -1.6), (x0 + (i + 1) * w, -1.2),
+           fill: if i == 19 { luma(205) } else { white }, stroke: 0.3pt)
+    }
+    line((x0 + 24 * w, -1.67), (x0 + 24 * w, -1.13), stroke: 0.9pt)
+    for (k, lb) in ((0, [12 even]), (12, [12 odd]),
+                    (24, [12 even]), (36, [12 odd])) {
+      content((x0 + (k + 6) * w, -1.9), text(size: tn, lb))
+    }
+    content((x0 + 12 * w, -2.25),
+            text(size: tn)[corner arrangement of even rank])
+    content((x0 + 36 * w, -2.25),
+            text(size: tn)[corner arrangement of odd rank])
+  }),
+  caption: [The map, from the outside in. A page for each arrangement of the
+  corners, a group in the page for each pair of outer-edge arrangements, and a
+  bit in the group for each arrangement of the four middle edges, the twelve
+  even ones low and the twelve odd ones high. One word holds the same group on
+  the two pages of a pair.],
+) <maplayout>
+
 The invariant the whole proof turns on is one line: a map is *sound at $d$* when
 every bit it has set is a member of the coset that is within $d$ moves of
 solved. The map the run starts from has one bit set, the superflip's own, and is
