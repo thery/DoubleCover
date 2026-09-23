@@ -620,9 +620,9 @@ Line by line:
   left, and answers as soon as one of them succeeds.
 
 The last line is what we need: if the search returns false, the position is not
-in the ball of radius $d$.
+in the ball of radius $d$. In the next subsections we detail the various optimisation we apply to get our final search.
 
-== Searching with an estimate
+== Searching with a summary
 
 The estimate is built in a second generic file, #src("Coord.v"). It is given the
 summary of a position, the way a move acts on a summary, and the table of
@@ -707,7 +707,7 @@ As our setting and in order to balance
 the parallel computation, we generate
 17 files, most of them holding two searches.
 
-== Composing summaries and folding the table
+== Composing summaries 
 
 Rotating the whole cube about a corner axis
 gives the same position seen differently, and its summary corresponds to another entry
@@ -718,13 +718,12 @@ estimate. That costs three
 lookups at a position instead of one, but
 leads to a smaller tree.
 
-The second relabels the table. The summary is built around the up-down axis: the
-twist records where each corner's up-or-down sticker sits, the slice where the
-four edges between the top and bottom faces are. Sixteen of the 48 relabellings
+== Folding the table
+
+The summary is built around the up-down axis. Sixteen of the 48 relabellings
 keep that axis and turn one summary into another, and they sort the 1 013 760
-flip-and-slice values into *64 430 families*, a factor of *15.73*. Two values in
-one family are the same distance from solved, so one entry per family is enough.
-The estimate is therefore unchanged, and only the table shrinks. In the code the
+flip-and-slice values into 64 430 families.
+One entry per family is enough so the table can be shrinked. In the code the
 change is one definition. The lookup was
 
 ```coq
@@ -742,45 +741,17 @@ Definition Dp1ri (tw r : int) : int :=
 value to it, and `twsym tw (fsym r)` the twist carried through that same
 symmetry. Three more reads at every lookup, into a table 15.73 times smaller.
 
-Symmetry-reduced tables are standard in cube solvers. What the development adds
-is a proof that the folded table still passes `D0` and `Dstep`, and that is all
-it has to prove. Conditions demanding true distances would have needed a proof
-that the fold preserves them. That is a harder statement, about the sixteen
-symmetries and about what sharing an entry between two summaries does. The check
-is run on the folded table as it was on the flat one, and it is the same check.
-The fold costs the search 1.61 times at depth 16 and pays everywhere else. A
-search worker drops from 4.15 GB to *0.85 GB*, so all the pieces run at once
-instead of in two waves. Checking the table drops from about 5.4 processor hours
-to *1.35*.
+Symmetry-reduced tables are standard in cube solvers. Running the search with the
+fold is 1.61 times slower at depth 16.
+But a search worker drops from 4.15 GB to 3.2 GB, so its heavy increate the parallelisation.
+Finally, checking the correctnest of the table drops from about 5.4 processor hours
+to 1.35.
 
 == Conclusion on the first lower bound
 
-The statement proved at the top of the chain is
-
-```coq
-Theorem superflip_p1far_real : superflip \notin ball Sset p1depth.
-```
-
-In words, the superflip is not within `p1depth` moves of the solved cube, where
-one script sets the depth before the run. It has *no hypotheses left*, and
-nothing in the chain is admitted: asking Rocq what the proof assumes reports
-only the primitives of its machine-integer and array interface. At depth 19 it
-says that the superflip cannot be solved in 19 moves, and two lines in
-#src("Diam20.v") turn that into *God's number $>= 20$*, after checking that the
-searches really were run at 19.
-
-It is forty-six hand-written files, 12 725 lines about the cube and 1 308 more
-of machine-integer toolbox, beside 156 000 lines of generated tables in the
-repository and 165 MB of them too big to store. The cube and its symmetries are
-#src("Rubik333.v"), #src("Sym.v") and #src("Ball.v"), the abstract search
-#src("Search.v") and #src("Coord.v"), the representations #src("Table.v") and
-#src("Tabi.v"), the summary and its table #src("Coordfs.v") and
-#src("Phase1.v"), and the search on the real data #src("Farp1.v"),
-#src("Fast.v"), the seventeen pieces #src("Runp1_03.v") to #src("Runp1_17.v")
-and #src("Diam20.v"). The checks live in certificate files of their own, each
-behind its own `Qed`, and #src("README.md") lists everything with the scripts
-that run it.
-
+The complete development for the lower bound 
+is composed of 44 files : 9 about the cube (2500 lines), 15 about the search (5000 lines), 20
+about the tables (5000 lines).
 Building the tables costs the same whatever radius is searched afterwards.
 Measured end to end from a clean tree on the reference machine:
 
