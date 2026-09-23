@@ -829,26 +829,13 @@ written in any way. The answer stays the one the abstract search gives.
 
 == Two uses of symmetry
 
-The first relabels the position. What the table gives is exact, but it is the
-exact distance to a summary of nought, that is, the number of moves that bring
-the position into $H$, and solving asks for more than that. So the number is a
-lower bound on the moves left, and any other lower bound is worth having beside
-it.
-
-The summary is built around the up-down axis. A turn of 120 degrees about a
-corner of the cube carries that axis to the right-left one, and again to the
-front-back one. The same position therefore has three summaries, one for each
-axis, and each of the three is an exact distance to $H$ around its own axis. All
-three are lower bounds on the same number of moves, and they rarely agree, so
-the largest of the three is the one to cut with. That costs three lookups at a
-position instead of one and buys a smaller tree. Cube solvers do this all the
-time, Kociemba's included. What is new here is the proof that the three views
-are legitimate.
-
-The superflip is the exception that shows what is going on: it is unchanged by
-all 48 relabellings, so its three views give the same number, ten, and at the
-root the three buy nothing. Below the root the positions have no symmetry and
-the three differ.
+The first relabels the position. Rotating the whole cube about a corner axis
+gives the same position seen differently, and its summary is then another entry
+of the same table. Each of the three views therefore gives a lower bound on the
+number of moves left, and so does the largest of the three. That costs three
+lookups at a position instead of one and buys a sharper cut and a smaller tree.
+Cube solvers do this all the time, Kociemba's included. What is new here is the
+proof that the three views are legitimate.
 
 The second relabels the table. The summary is built around the up-down axis: the
 twist records where each corner's up-or-down sticker sits, the slice where the
