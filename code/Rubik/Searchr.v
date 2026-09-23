@@ -54,7 +54,7 @@ Hypothesis fc_comm : forall m1 m2, m1 \in S -> m2 \in S ->
 
 (* may a move of face f follow one of face p?  Not if same face, and of an    *)
 (* opposite pair only the smaller index first.                                *)
-Definition okfc (p f : nat) : bool := (f != p) && ~~ ((f == opp p) && (p < f)).
+Definition okfc (p f : nat) : bool := (f != p) && ~~ ((f == opp p) && (f < p)).
 
 (* nfc is not the index of any face, so it means "no previous move"           *)
 Definition okfc0 (p f : nat) : bool := if p < nfc then okfc p f else true.
@@ -65,7 +65,7 @@ Fixpoint reduced (p : nat) (l : seq gT) : bool :=
 
 (* the two defects a word can have, split out because the induction treats    *)
 (* them differently: a merge shortens the word, a swap only reorders it.      *)
-Definition badp (p f : nat) : bool := (f == opp p) && (p < f).
+Definition badp (p f : nat) : bool := (f == opp p) && (f < p).
 
 (* the guard has to mirror okfc0: at p = nfc there is no previous move, so    *)
 (* the first move is unconstrained. Without the guard reducedE is simply      *)
@@ -89,7 +89,7 @@ elim: l p => [//|m l IH] p /=.
 rewrite IH /okfc0 /okfc /badp addn_eq0.
 by case: (p < nfc) => /=; case: (m \in Sseq) => //=;
    case: (fc m == p) => /=; case: (fc m == opp p) => /=;
-   case: (p < fc m) => /=; case: (all (mem Sseq) l) => /=;
+   case: (fc m < p) => /=; case: (all (mem Sseq) l) => /=;
    case: (nosame (fc m) l) => //=.
 Qed.
 
