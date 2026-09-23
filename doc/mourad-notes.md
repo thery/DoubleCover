@@ -103,3 +103,90 @@ the observation that the `r`-gap sits at the left end.
   a split `p`-gap the residual `r`-gap is the leftmost. In `Dst` terms
   (distance to `b`) that is a statement about which index attains the
   minimum, which is what `gap_walk` now lets us reason about.
+
+## 6. Section 5 — generating the polynomials (formalised in `code/APaul/rocq/Shift.v`)
+
+§5 is a different subject from §3.2/§4.1 above: not the search, but the
+*production* of the polynomial that the search runs on.  For every interval
+of `N` consecutive arguments the search needs `P_i(x) = P(x + iN)`, and §5
+builds all of them from one polynomial with **additions only**.
+
+Everything in §5 is exact — the coefficients are fixed-point integers and
+no step rounds.  (The paper says so explicitly and defers error
+propagation to [5], [27].)  So the whole section is algebra over an
+abelian group, which is how `Shift.v` states it.
+
+### The four pieces and where they are
+
+| paper | `Shift.v` |
+|---|---|
+| Definition 5, `Delta_h` | `dif`, `difn i` (and `difh h` for the stride-`N` difference) |
+| Newton interpolation, Fig. 7 | `dif_shiftn` / `dif_shift`, then `newton` |
+| `Delta^d P` constant for `deg P = d` | `degle_const` |
+| tabulated difference shift, Fig. 8 | `tstep`, `tstepE`, `tstep_iter` |
+| straightforward shift, the `C(k, j-i)` Toeplitz matrix | `sstep`, `sstepE`, `sstep1` |
+| hybrid CPU/GPU split by `tS + s` (§5.2) | `hybridE` |
+| hierarchical method, `P(kN+m) = sum_j a_j(k) C(m,j)` | `acoef`, `hierarchicalE`, `acoef_deg` |
+
+"Degree at most `d`" is `degle d f`, i.e. `difn d.+1 f n = 0` for all `n`.
+That is the only notion of degree in the file, and it is the one every
+statement needs.  There is **no functional extensionality**: `difn` looks
+at its argument on finitely many points, so `difn_ext` rewrites under it
+pointwise.  `Shift.v` is admit-free and closed under the global context.
+
+### The two things the proofs actually turn on
+
+- **Newton without a degree hypothesis.**  `dif_shiftn` says
+  `f (n + k) = sum_(i < k+1) (dif^i f n) * C(k, i)` for *every* `f` and
+  `k` — shifting is `(1 + Delta)^k`.  Both shifts of the paper are that
+  one identity: the tabulated one is `k = 1`, the straightforward one is
+  the general `k`.  The degree hypothesis only truncates the sum
+  (`dif_shift_deg`).
+- **The stride-`N` difference lowers the degree.**  `difh_deg`: written in
+  the binomial basis, a shift by `h` is a combination of the differences
+  of order `1..h` — the constant term is gone, so the degree drops by one.
+  Iterating (`difhn_deg`) kills a degree-`d` polynomial in `d+1` shifts,
+  and that is exactly why each `a_j` is again a polynomial in `k`
+  (`acoef_deg`).  This is the step the paper leaves implicit.
+
+### Degree of a concrete polynomial
+
+To use any of this on a polynomial written down with coefficients, the
+file carries a small toolkit: `degleD`, `degle_sum`, `degle_scale`,
+`degle_shift`, `degle_mulX` (multiplying by the argument raises the degree
+by exactly one), `degle_linX` (a power of a monic linear factor), and
+`degle_hpoly` for a Horner form.
+
+## 7. The application: `code/APaul/rocq/ShiftExp.v`
+
+§5.2 deploys a **degree-2** Taylor polynomial over `N = 2^15` arguments,
+which is nowhere near what a hard-to-round search at `m = 35` needs.
+`ShiftExp.v` runs the same machinery on the polynomial `htr.c` actually
+requires: the degree-7 near-minimax approximation `Cheb.v` certifies over
+the whole search interval `[0.25, 0.25001)`, within `2^-160` of `exp`, and
+`htr.c`'s own interval length `N = 2^20`.
+
+- `Pdir n` is that polynomial evaluated exactly at grid point `n`, as an
+  integer over `2^598` (the scaling `Cheb.v` already uses);
+- `Pdir_deg : degle 7 Pdir` — eight entries in the difference table;
+- `PdirE` is the hierarchical identity, `aexp_tab` the tabulated walk,
+  `aexp_hybrid` the §5.2 split;
+- `Pdir_exp` : every value the shifts generate is within `2^-160` of
+  `exp`.  **This is the point of the section**: the shifts do not round,
+  so the single certificate `Cheb.cheb_valid` covers every interval the
+  search will visit — no new approximation and no new error term.
+
+`Pdir_chebE` (the integer form equals `Cheb.P_R` on the grid) is
+**admitted**.  It carries no mathematics: both sides are the same
+polynomial, one with the powers of two inside the integer and one with
+them in the denominator.  What makes it tedious is that the two sides
+write the same operations on `Z` in two notations (mathcomp's ring
+operations against `Z.add`/`Z.mul`).
+
+### Scope traps in `ShiftExp.v`
+
+Mixing mathcomp with `ZArith`/`Reals` costs three delimiters: `%N` is
+`N_scope` (ZArith) rather than `nat_scope`, `%Z` is mathcomp's `int_scope`
+rather than `Z_scope`, and `%R` is mathcomp's `ring_scope` rather than
+`R_scope`.  The file uses `%nat` for nat arithmetic and spells `Z`
+operations out (`Z.add`, `Z.mul`, `Z.pow`).
