@@ -620,7 +620,7 @@ Line by line:
   left, and answers as soon as one of them succeeds.
 
 The last line is what we need: if the search returns false, the position is not
-in the ball of radius $d$. In the next subsections we detail the various optimisation we apply to get our final search.
+in the ball of radius $d$. In the next subsections we detail the various optimisations we apply to get our final search.
 
 == Searching with a summary
 
@@ -723,7 +723,7 @@ leads to a smaller tree.
 The summary is built around the up-down axis. Sixteen of the 48 relabellings
 keep that axis and turn one summary into another, and they sort the 1 013 760
 flip-and-slice values into 64 430 families.
-One entry per family is enough so the table can be shrinked. In the code the
+One entry per family is enough, so the table can be shrunk. In the code the
 change is one definition. The lookup was
 
 ```coq
@@ -742,15 +742,14 @@ value to it, and `twsym tw (fsym r)` the twist carried through that same
 symmetry. Three more reads at every lookup, into a table 15.73 times smaller.
 
 Symmetry-reduced tables are standard in cube solvers. Running the search with the
-fold is 1.61 times slower at depth 16.
-But a search worker drops from 4.15 GB to 3.2 GB, so its heavy increate the parallelisation.
-Finally, checking the correctnest of the table drops from about 5.4 processor hours
-to 1.35.
+fold is 1.61 times slower at depth 16. But a search worker drops from 4.15 GB to
+3.2 GB, which is what lets every piece run at once. Finally, checking the
+correctness of the table drops from about 5.4 processor hours to 1.35.
 
 == Conclusion on the first lower bound
 
 The complete development for the lower bound 
-is composed of 44 files : 9 about the cube (2500 lines), 15 about the search (5000 lines), 20
+is composed of 44 files: 9 about the cube (2500 lines), 15 about the search (5000 lines), 20
 about the tables (5000 lines).
 Building the tables costs the same whatever radius is searched afterwards.
 Measured end to end from a clean tree on the reference machine:
@@ -778,13 +777,13 @@ theorem both times.
 #tbl(([radius 19, search depth 17], [before], [after]),
   ([pieces], [18], [*17*]),
   ([workers], [9], [*18*]),
-  ([memory per worker], [4.15 GB], [*0.85 GB*]),
+  ([memory per worker], [4.15 GB], [*3.2 GB*]),
   ([wall clock], [11 h 13], [*6 h 36*]),
   ([processor time], [85 h 11], [*87 h 36*]),
 )
 
 The fold halves the wall clock and leaves the processor time where it was. What
-it buys is memory: at 0.85 GB a worker, all seventeen pieces run at once, where
+it buys is memory: at 3.2 GB a worker, all seventeen pieces run at once, where
 4.15 GB allowed only nine. So the proof costs 87 processor-hours and one night,
 and that is a measured cost.
 
