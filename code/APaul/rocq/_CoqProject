@@ -11,4 +11,5 @@ Lefevre63.v
 Search.v
 Check.v
 Shift.v
+ShiftBridge.v
 ShiftExp.v
