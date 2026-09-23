@@ -587,9 +587,7 @@ $1.07 dot 10^15$ of them. We call this summary the _phase 1
 summary_, after the first phase of Kociemba's solver @kociemba, and its table
 of distances the _phase 1 table_.
 
-= The search in Rocq
-
-== The generic search
+== Searching in Rocq
 
 The search is generic, #src("Search.v"): a hundred lines that never mention the
 cube. It is given a group, a set of moves and an estimate $h$, and it asks only
@@ -624,7 +622,7 @@ Line by line:
 The last line is what we need: if the search returns false, the position is not
 in the ball of radius $d$.
 
-== The summary and its table
+== Searching with an estimate
 
 The estimate is built in a second generic file, #src("Coord.v"). It is given the
 summary of a position, the way a move acts on a summary, and the table of
@@ -668,7 +666,7 @@ Here are some explanations:
 - `p` is the move just played, and `allowed p` is the list of moves the rules
   permit after it. This is explained in the next section.
 
-== The table and its two conditions
+== Verifying the table
 
 For the phase 1 summary, `D` is a lookup in the phase 1 table, so `D0` and
 `Dstep` become two statements about that table:
@@ -689,153 +687,37 @@ timing in this note has been measured on the same machine, the _reference machin
 dual-socket Intel Xeon E5-2667 at 2.9 GHz, twelve cores, twenty-four threads, 62
 GB of memory.
 
-= Optimising
-
-What follows makes the tree search even smaller or the run cheaper.
-
 == Removing redundant moves
 
-Many words lead to the same position, and the search does not have to try them
-all. Two ideas say which ones may be left out. The first is repetition. After a
-`U` we do not try `U`, `U2` or `U'`. `U U` is `U2`, so the word is
-shorter, and shorter words are covered at a smaller depth. That leaves fifteen
-moves instead of eighteen. Opposite faces give a weaker version of the same
+Many words lead to the same position.
+Two ideas make it possible to left some out.
+The first one is avoiding repetition. For example, after a `U` we do need to explore `U`, `U2` or `U'` : shorter words at a smaller depth will cover these positions. That leaves 15
+moves instead of 18. Opposite faces give a weaker version of the same
 argument. `U D` and `D U` give the same position, so we keep only one of the two
-orders. We play the top, right or front face first. This is what we call the
-*order convention*. From the third move on it leaves *twelve* moves after a turn
-of the top, right or front face, and *fifteen* after a turn of the bottom, left
+orders. We priviledge the top, right or front face first. This is what we call the
+_order convention_. From the second move on it leaves 12 moves after a turn
+of the top, right or front face, and 15 after a turn of the bottom, left
 or back one. The second idea is symmetry. The superflip is unchanged by all 48
 relabellings of the cube. So we need to explore only the turns of one face for
 the first move. We choose arbitrarily the top one, and again by symmetry we only
-have to consider `U` and `U2`, since `U'` is the symmetric of `U`. The two
-ideas collide at the second move. After `U`, repetition removes `U`, `U2` and
-`U'`, which leaves fifteen. The order convention would remove `D`, `D2` and
-`D'` as well and leave twelve, but it may not be used here. The first move
-is already fixed to the top face, and turning the cube upside down takes `D U`
-back to `U D`. So the bottom face stays, and the fifteen second moves after `U`
-include `U D`, `U D2` and `U D'`.
-
+have to consider `U` and `U2`, since `U'` is the symmetric of `U`. 
 The search is then parallelised at depth two. Two first moves times fifteen
-second moves is thirty _prefixes_. Each is searched on its own to depth 17. They
-are packed one file per second move, with both first moves inside. The eighteen
-moves are numbered 0 to 17, three to a face, in the order `U`, `R`, `F`, `D`,
-`L`, `B`, and a file is named after its second move. Numbers 0, 1 and 2 turn the
-top face again and cannot be a second move, so the files start at
-#src("Runp1_03.v"), whose second move is `R`, and run to #src("Runp1_17.v"),
-whose second move is `B'`. Two of them, `D` and `D'`, were measured far the
-longest of the fifteen, so each is split in two, one file per first move:
-#src("Runp1_09a.v") and #src("Runp1_09b.v"), #src("Runp1_11a.v") and
-#src("Runp1_11b.v"). That balances the load and makes _seventeen files_ in all.
-Our own OCaml program dropped the bottom-face moves, so it searched 24 prefixes
-where it had to search 30. It ran for hours and gave the answer we expected. The
-error came out only when the cut had to be proved in Rocq, and the proof could
-not be written. A cut that is too greedy does not make a search fail. It makes
-it faster, and it makes it agree with you.
+second moves is thirty _prefixes_.
+As our setting and in order to balance
+the parallele computation, we generate 
+17 files where most of the files contains
+two searchs.
 
-== The effective representation
+== Composing summaries and.
 
-To run the search its objects have to be in a form Rocq computes with: a
-position first of all, then a move, the summary of a position, and the
-distances. We say _array_ for the small ones, a position or a move, and _table_
-for the big ones, the distances and the other functions written out.
-
-A position is a permutation of the 48 stickers, and we write it as its 48
-images: the number at place $i$ is where the sticker at $i$ goes.
-#src("Table.v") holds that as a list of 48 numbers, and `tab_ok` is the test
-that a list is one: 48 entries, each below 48, none twice. A move is written the
-same way. The move `U` is
-
-#align(center)[`2, 4, 7, 1, 6, 0, 3, 5, 32, 33, 34, ...`]
-
-read off its cycles: sticker 0 goes to 2, sticker 1 to 4, and sticker 8, on the
-left face, goes round to 32 on the back. @uturn shows the same turn the other
-way round, each square holding the sticker that arrives there, so the picture is
-this list reversed.
-
-Playing a move on a position is reading one list through the other. To find
-where sticker $i$ ends up, take entry $i$ of the first list and use that number
-as the index into the second. Playing `U` twice: entry 0 is 2, entry 2 is 7, so
-`U2` sends sticker 0 to 7. #src("Tsearch.v") runs the search of #src("Search.v")
-on lists of this kind.
-
-Next come machine integers, 63 bits wide, and _persistent arrays_ of them
-@armand2010imperative. #src("Tabi.v") carries a position as an array of 48 such
-integers. `ti2t` reads an array back as the list it stands for, and `tabi_ok` is
-`tab_ok` of that list. Each operation has a lemma saying that the bridge may be
-crossed either way round.
-
-```coq
-Lemma ti2t_comp a b :
-  tabi_ok a -> tabi_ok b ->
-  ti2t (comp_tabi a b) = comp_tab (ti2t a) (ti2t b).
-```
-
-From there on a position is an array of 48 machine integers and a summary is two
-of them. The phase 1 table is far too big for one array: a Rocq array holds at
-most 4 194 303 entries, so the table is an array of arrays, cut into chunks of
-two million words, with fifteen four-bit entries to a word.
-
-The superflip itself goes down that chain. As a permutation it is a product of
-twelve two-cycles, one for each flipped edge, $(1 thin 33)$, $(3 thin 9)$,
-$(4 thin 25)$ and so on. #src("Moves.v") turns those cycles into the list
-`sftab`, and the list into the array `sfti` the search starts from. Each step
-has its lemma:
-
-```coq
-Lemma sftabE : superflip = pt 47 sftab.
-Lemma sftiE  : superflip = pt 47 (ti2t 47 sfti).
-```
-
-`pt 47` is the permutation a list stands for, so both say that what runs is
-still the superflip. Its summary is read off the same list, the corner twist by
-`ctwistt` and the flip-and-slice value by `coordt`. The estimate at the root of
-the search is then one expression:
-
-```coq
-Dp1i (ctwistt sftab) (coordt sftab)
-```
-
-The summary is $(0, 15 space 732 space 735)$. The superflip leaves the corners
-alone, so the twist is zero, and the second number carries the twelve flipped
-edges and the four slice slots. The lookup goes through the fold to a four-bit
-field of one 63-bit integer, and the value there is *ten*. At the root the
-search therefore knows that at least ten moves are needed, and it has nineteen
-to spend, so nothing is cut there.
-
-Functions are treated the same way. A function on a finite domain is computed
-once and written into a table. The action of a move on a summary, the rank of a
-summary and the symmetry used by the fold are all tables, not computations. The
-search reads them where the mathematics applies a function. Each of these tables
-is checked in Rocq, like the table of distances.
-
-The search itself goes the same way. #src("Fast.v") holds it twice. `searchz3`
-is the abstract one, written on the objects of the last section. `searchz3n` is
-what runs, on machine integers and persistent arrays. #src("FastP.v") ties the
-two:
-
-```coq
-Lemma searchz3nE T d a p :
-  (d <= 63)%N -> fsmoveC -> (p < 7)%N ->
-  tabi_ok 47 a -> cubti a -> twP3 a ->
-  searchz3n T d (of_nat d) a [::] (init3 a) p
-    = searchz3 T d a (init3 a) p.
-```
-
-The hypotheses say that the depth fits in a machine integer, that the move table
-passed its check, and that the array is a well-formed position. Between the two
-there are seven versions. Each is proved equal to the one before, and together
-they are 11.9 times faster on one piece at depth 14. The middle versions may be
-written in any way. The answer stays the one the abstract search gives.
-
-== Two uses of symmetry
-
-The first relabels the position. Rotating the whole cube about a corner axis
-gives the same position seen differently, and its summary is then another entry
-of the same table. Each of the three views therefore gives a lower bound on the
-number of moves left, and so does the largest of the three. That costs three
-lookups at a position instead of one and buys a sharper cut and a smaller tree.
-Cube solvers do this all the time, Kociemba's included. What is new here is the
-proof that the three views are legitimate.
+Rotating the whole cube about a corner axis
+gives the same position seen differently, and its summary corresponds to another entry
+of the same table. This gives
+three summaries. Taking the maximum 
+of these tree values give an admissible
+estimates. That costs three
+lookups at a position instead of but
+leads to a smaller tree.
 
 The second relabels the table. The summary is built around the up-down axis: the
 twist records where each corner's up-or-down sticker sits, the slice where the
@@ -872,7 +754,7 @@ search worker drops from 4.15 GB to *0.85 GB*, so all the pieces run at once
 instead of in two waves. Checking the table drops from about 5.4 processor hours
 to *1.35*.
 
-= The development and its cost
+== Conclusion on the first lower bound
 
 The statement proved at the top of the chain is
 
