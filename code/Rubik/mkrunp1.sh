@@ -9,15 +9,17 @@
 #   maneuver, which Searchr.searchr_root2m covers at a smaller depth instead.
 #
 #   j = 9, 11 are SPLIT IN TWO, one file per root move.  They are the two D
-#   quarter turns and they are the tail -- MEASURED at n = 16, ~4.5 h and
+#   quarter turns and they were the tail -- MEASURED at n = 16, ~4.5 h and
 #   ~3.3 h against ~7 min for the fastest.  The tail sets the makespan, so
 #   halving it is worth more than the extra table load it costs (14.4 s).
+#   THE MEASUREMENT PREDATES THE FLIPPED CONVENTION: Searchr.okfc now plays
+#   the top, right or front face first, so from the third move on a D, L or B
+#   second move keeps twelve continuations where it kept fifteen, and an R or
+#   F one keeps fifteen where it kept twelve.  The tail should move onto the
+#   R and F pieces, and this split with it.  Measure before trusting it.
 #
-#   j = 9, 10, 11 are NOT dropped, though they turn the D face and the rules
-#   would forbid D after U.  The first move is pinned to the U face by
-#   SYMMETRY, not by the rules, and the two cannot both be applied: U D
-#   commutes to D U, and turning the cube over puts it back.  Reid keeps that
-#   case as well (his R1 L1).
+#   j = 9, 10, 11 are kept, and after the flip the rule keeps them by itself:
+#   U D is the order it allows.  Reid keeps that case as well (his R1 L1).
 #
 # MEMORY: each piece loads the whole phase 1 table.  Since the fold that is
 # p1ftab and not p1tab, so about 0.85 GB and not 4.15 -- MEASURED at n = 16,
