@@ -743,7 +743,7 @@ symmetry. Three more reads at every lookup, into a table 15.73 times smaller.
 
 Symmetry-reduced tables are standard in cube solvers. Running the search with the
 fold is 1.61 times slower at depth 16. But a search worker drops from 4.15 GB to
-3.2 GB, which is what lets every piece run at once. Finally, checking the
+3.6 GB, which is what lets eighteen of them run at once. Finally, checking the
 correctness of the table drops from about 5.4 processor hours to 1.35.
 
 == Conclusion on the first lower bound
@@ -775,17 +775,25 @@ once before the fold and the two reductions and once after. It is the same
 theorem both times.
 
 #tbl(([radius 19, search depth 17], [before], [after]),
-  ([pieces], [18], [*17*]),
+  ([pieces], [18], [*30*]),
   ([workers], [9], [*18*]),
-  ([memory per worker], [4.15 GB], [*3.2 GB*]),
-  ([wall clock], [11 h 13], [*6 h 36*]),
-  ([processor time], [85 h 11], [*87 h 36*]),
+  ([memory per worker], [4.15 GB], [*3.6 GB*]),
+  ([wall clock], [11 h 13], [*5 h 48*]),
+  ([processor time], [85 h 11], [*89 h 27*]),
 )
 
-The fold halves the wall clock and leaves the processor time where it was. What
-it buys is memory: at 3.2 GB a worker, all seventeen pieces run at once, where
-4.15 GB allowed only nine. So the proof costs 87 processor-hours and one night,
-and that is a measured cost.
+The fold cuts the wall clock by half. What it buys is memory: at 3.6 GB a
+worker eighteen pieces run at once, where 4.15 GB allowed only nine.
+
+The thirty pieces are the split that balances the run. Each is one prefix of
+two moves, and they are compiled longest first, since make starts them in the
+order it is given. The pieces are far from equal -- the longest is 5 h 43 of
+processor time and the shortest 1 h 43 -- so the longest one sets the wall
+clock, and 5 h 48 is five minutes off the best that any order of these thirty
+can give. The same search in seventeen pieces took 6 h 33 and 84 processor
+hours, so splitting costs six processor hours and buys three quarters of an
+hour. The proof costs 89 processor-hours and one night, and that is a measured
+cost.
 
 = Counting in quarter turns
 
