@@ -664,7 +664,7 @@ Here are some explanations:
 - `g * m` moves the position and `act x m` moves the summary. The summary
   never has to be recomputed from the position.
 - `p` is the move just played, and `allowed p` is the list of moves the rules
-  permit after it. This is explained in the next section.
+  permit after it. This is explained below.
 
 == Verifying the table
 
@@ -690,13 +690,13 @@ GB of memory.
 == Removing redundant moves
 
 Many words lead to the same position.
-Two ideas make it possible to left some out.
-The first one is avoiding repetition. For example, after a `U` we do need to explore `U`, `U2` or `U'` : shorter words at a smaller depth will cover these positions. That leaves 15
+Two ideas make it possible to leave some out.
+The first one is avoiding repetition. For example, after a `U` we do not need to explore `U`, `U2` or `U'`: shorter words at a smaller depth will cover these positions. That leaves 15
 moves instead of 18. Opposite faces give a weaker version of the same
 argument. `U D` and `D U` give the same position, so we keep only one of the two
-orders. We priviledge the top, right or front face first. This is what we call the
-_order convention_. From the second move on it leaves 12 moves after a turn
-of the top, right or front face, and 15 after a turn of the bottom, left
+orders. We privilege the top, right or front face first. This is what we call the
+_order convention_. From the second move on it leaves 15 moves after a turn
+of the top, right or front face, and 12 after a turn of the bottom, left
 or back one. The second idea is symmetry. The superflip is unchanged by all 48
 relabellings of the cube. So we need to explore only the turns of one face for
 the first move. We choose arbitrarily the top one, and again by symmetry we only
@@ -704,19 +704,18 @@ have to consider `U` and `U2`, since `U'` is the symmetric of `U`.
 The search is then parallelised at depth two. Two first moves times fifteen
 second moves is thirty _prefixes_.
 As our setting and in order to balance
-the parallele computation, we generate 
-17 files where most of the files contains
-two searchs.
+the parallel computation, we generate
+17 files, most of them holding two searches.
 
-== Composing summaries and.
+== Composing summaries and folding the table
 
 Rotating the whole cube about a corner axis
 gives the same position seen differently, and its summary corresponds to another entry
 of the same table. This gives
 three summaries. Taking the maximum 
-of these tree values give an admissible
-estimates. That costs three
-lookups at a position instead of but
+of these three values gives an admissible
+estimate. That costs three
+lookups at a position instead of one, but
 leads to a smaller tree.
 
 The second relabels the table. The summary is built around the up-down axis: the
