@@ -391,7 +391,7 @@ let () =
       while not !found && !m < 18 do
         let f = !m / 3 in
         if use_rules && prev >= 0 &&
-           (f = prev || (not sameonly && f = opp prev && f > prev)) then ()
+           (f = prev || (not sameonly && f = opp prev && f < prev)) then ()
         else begin
           let d' = d + 1 in
           let mcp = moves.(!m).cp and mep = moves.(!m).ep in

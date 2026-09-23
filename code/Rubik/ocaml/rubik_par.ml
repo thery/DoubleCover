@@ -268,7 +268,7 @@ let () =
       let found = ref false and m = ref 0 in
       while not !found && !m < 18 do
         let f = !m / 3 in
-        if not (f = prev || (f = opp prev && f > prev)) then begin
+        if not (f = prev || (f = opp prev && f < prev)) then begin
           step d !m;
           if dfs (d + 1) (rem - 1) f then found := true
         end;
@@ -280,15 +280,13 @@ let () =
   (* root prefixes of length 2.  superflip is fixed by all 48 symmetries and
      is its own inverse, so the first move may be taken to be U or U2.
 
-     ONLY THE SAME FACE IS DROPPED, NOT THE OPPOSITE ONE.  The dfs guard keeps
-     D before U, but here the first move is pinned to the U face by symmetry,
-     and the two rules cannot both be had: U D commutes to D U, and turning
-     the cube over to put that D back on top gives U D again.  A U-face and a
-     D-face turn at the head is a fixed point of both, so dropping f2 = D
-     loses those sequences.  This is Reid's R1 L1 case, which he keeps and
-     cuts instead with the symmetries that fix the pair.
-     Fixed 2026-08-13: the filter used to drop them, which made the search
-     unsound; 30 prefixes now, not 24. *)
+     ONLY THE SAME FACE IS DROPPED.  The dfs guard now keeps U before D, the
+     same way Searchr.okfc does since the convention was flipped, so a D turn
+     as the second move is what the guard allows anyway.  Thirty prefixes, not
+     twenty four.  Before the flip the guard kept D before U and these thirty
+     had to be argued for: dropping f2 = D there loses sequences, since U D
+     commutes to D U and turning the cube over puts the D back on top.  That
+     is Reid's R1 L1 case, which he keeps too. *)
   let prefixes =
     let l = ref [] in
     List.iter (fun m1 ->
