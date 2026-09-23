@@ -18,7 +18,7 @@
     only -- no new approximation, and no new error term. *)
 
 From Stdlib Require Import ZArith Reals.
-From APaulRocq Require Import Cheb.
+From APaulRocq Require Import Cheb ShiftBridge.
 From mathcomp Require Import all_ssreflect all_algebra ssrZ zify.
 From APaulRocq Require Import Shift.
 
@@ -102,6 +102,26 @@ Lemma aexp_hybrid j Sp s t :
     = dtab 7 (aexp j) (t * Sp + s)%nat.
 Proof. by apply: hybridE; apply: aexp_deg. Qed.
 
+(** ** From the ring operations to the ones [Z] is written with
+
+    The shifts are stated with mathcomp's ring operations; [Cheb.v] and
+    the reals are written with [Z.add] and [Z.mul].  On [Z] these are the
+    same functions, so the three conversions hold by definition and the
+    fourth is an induction. *)
+
+Lemma ZaddE (a b : Z) : a + b = Z.add a b.
+Proof. by []. Qed.
+
+Lemma ZmulE (a b : Z) : a * b = Z.mul a b.
+Proof. by []. Qed.
+
+Lemma ZexpE (a : Z) k : a ^+ k = Z.pow a (Z.of_nat k).
+Proof.
+elim: k => [|k IH]; first by rewrite expr0 Z.pow_0_r.
+rewrite exprS IH ZmulE Nat2Z.inj_succ Z.pow_succ_r //.
+exact: Nat2Z.is_nonneg.
+Qed.
+
 (** ** Back to [exp]
 
     Nothing above rounds, so the value the shifts produce for interval [k]
@@ -118,18 +138,37 @@ Proof.
 by elim: n => [//|n IH]; rewrite -GRing.natr1 IH; lia.
 Qed.
 
-(** [Pdir n] over [2^vden] is the polynomial [Cheb.v] certifies.
-
-    ADMITTED.  There is no mathematics left in this one: both sides are
-    the same polynomial, the left one with the powers of two kept in the
-    integer, the right one with them in the denominator.  Proving it is
-    pushing [IZR] through eight products and sums, and the two sides use
-    different notations for the same operations on [Z] (mathcomp's ring
-    operations against [Z.add] and [Z.mul]), which is what makes it
-    tedious rather than hard. *)
+(** [Pdir n] over [2^vden] is the polynomial [Cheb.v] certifies: the same
+    polynomial, once with the powers of two inside the integer and once
+    with them in the denominator. *)
 Lemma Pdir_chebE (n : nat) : IZR (Pdir n) / 2 ^ vden = P_R (xgrid n).
 Proof.
-Admitted.
+pose D := Z.add dlt (Z.of_nat n).
+have PdE : Pdir n =
+  Z.add (Z.mul (Ascaled 0) (Z.pow D (Z.of_nat 0)))
+ (Z.add (Z.mul (Ascaled 1) (Z.pow D (Z.of_nat 1)))
+ (Z.add (Z.mul (Ascaled 2) (Z.pow D (Z.of_nat 2)))
+ (Z.add (Z.mul (Ascaled 3) (Z.pow D (Z.of_nat 3)))
+ (Z.add (Z.mul (Ascaled 4) (Z.pow D (Z.of_nat 4)))
+ (Z.add (Z.mul (Ascaled 5) (Z.pow D (Z.of_nat 5)))
+ (Z.add (Z.mul (Ascaled 6) (Z.pow D (Z.of_nat 6)))
+ (Z.add (Z.mul (Ascaled 7) (Z.pow D (Z.of_nat 7))) Z0))))))).
+  rewrite /Pdir !big_nat_recl // big_geq //.
+  by rewrite !ZaddE !ZmulE !ZexpE /D ZnatrE.
+rewrite PdE /vden.
+rewrite !plus_IZR split8 /Ascaled !term_bridge //.
+rewrite /Aseq /=.
+have DE : IZR D = IZR x0num + IZR (Z.of_nat n) - IZR Cc.
+  by rewrite /D /dlt plus_IZR minus_IZR; ring.
+have xcE : xgrid n - c_R = IZR D / 2 ^ 54.
+  rewrite DE /xgrid /c_R plus_IZR.
+  by field; apply: pow2_neq0.
+rewrite /P_R -xcE.
+field; try apply: pow2_neq0.
+(* what is left are the [k <= 7] side conditions of [term_bridge], in
+   Stdlib's [le] rather than ssreflect's [leq]. *)
+all: by lia.
+Qed.
 
 (** Hence every value the shifts generate is within [2^-160] of [exp]:
     the single certificate of [Cheb.v] covers the whole search, because

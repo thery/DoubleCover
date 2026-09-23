@@ -176,12 +176,24 @@ the whole search interval `[0.25, 0.25001)`, within `2^-160` of `exp`, and
   so the single certificate `Cheb.cheb_valid` covers every interval the
   search will visit — no new approximation and no new error term.
 
-`Pdir_chebE` (the integer form equals `Cheb.P_R` on the grid) is
-**admitted**.  It carries no mathematics: both sides are the same
-polynomial, one with the powers of two inside the integer and one with
-them in the denominator.  What makes it tedious is that the two sides
-write the same operations on `Z` in two notations (mathcomp's ring
-operations against `Z.add`/`Z.mul`).
+`Pdir_chebE` (the integer form equals `Cheb.P_R` on the grid) is **proved**.
+It carries no mathematics: both sides are the same polynomial, one with the
+powers of two inside the integer and one with them in the denominator.  The
+content is an exponent count -- the integer holds `54(7-k)` powers of two and
+the denominator `598`, what is left is `220 + 54k`, and those add to `598`
+whatever `k` is.  That is `term_bridge`.
+
+It lives in a third file, `code/APaul/rocq/ShiftBridge.v`, which loads **no
+mathcomp on purpose**: the statement is about `Z` and `R` only, and with
+mathcomp loaded the `pow` rewriting lemmas pick up the wrong subterms (the
+goal fills with `2 ^ (7 - k)`).  Apart, it compiles in 1.6 s instead of 25.
+
+Nothing is admitted in the three files, and `Pdir_exp` rests on exactly the
+55 axioms `cheb_valid` already carries: 25 `PrimInt63` operation
+declarations, 26 `Uint63Axioms` specifications, and the 4 classical axioms of
+Stdlib's reals.  It adds none.  The proof work of `ShiftExp.v` measures
+4.2 s -- 2.1 s for the eight `term_bridge` rewrites and 1.0 s for the final
+`field`; still nothing evaluates a value of the polynomial.
 
 ### Scope traps in `ShiftExp.v`
 

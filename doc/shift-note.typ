@@ -273,30 +273,45 @@ development and it was certified once, by `Cheb.cheb_valid`. Because the
 shifts do not round, that single certificate covers all $171 space 799$
 interval polynomials. No error is accumulated and none has to be analysed.
 
-= The cost, and what is not proved
+= The cost
 
-`Shift.v` is 513 lines and `ShiftExp.v` is 151. `Shift.v` has no admitted
-statement and every result in it is closed under the global context.
+`Shift.v` is 513 lines, `ShiftBridge.v` 48 and `ShiftExp.v` 190. Nothing in
+them is admitted, and `Pdir_exp` rests on exactly the 55 axioms that
+`Cheb.cheb_valid` already carries. Those are 25 declarations of Rocq's
+primitive 63-bit machine operations, the 26 specifications that say each
+agrees with $ZZ$ arithmetic modulo $2^63$, and the 4 classical axioms
+Stdlib's real numbers are built on. They are the price of `Reals` and
+CoqInterval, and `Pdir_exp` adds none of its own.
 
-Nothing in either file computes. There is no `vm_compute`, no `Eval`, and no
-`native_compute`. Measured with `coqc -time`, every sentence outside the three
-`Require` lines costs $0.058$ seconds in total; the rest of the 25 seconds is
-loading the libraries. The integers are Rocq's binary `Z`, given its abelian
-group structure by mathcomp's `ssrZ`, and not mathcomp's `int`, which is built
-on unary natural numbers. For the same reason the number of arguments,
-$180 space 143 space 985 space 095$, is kept in `Z`: as a `nat` it would be
-that many successors.
-
-One statement is admitted, `Pdir_chebE`:
+The one identity that had to be done by hand is the last one, and it is the
+least interesting.
 
 ```coq
 Lemma Pdir_chebE (n : nat) : IZR (Pdir n) / 2 ^ vden = P_R (xgrid n).
 ```
 
-It says that the integer the shifts carry, divided by its scale, is the
-polynomial of `Cheb.v` at that grid point. The two sides are the same
-polynomial, one keeping the powers of two inside the integer and the other in
-the denominator. What has to be done is to push `IZR` through eight products
-and sums while the two sides spell the operations on `Z` in two different
-notations. It is the only axiom `Pdir_exp` adds to the 55 that
-`Cheb.cheb_valid` already carries.
+The integer the shifts carry, divided by its scale, is the polynomial of
+`Cheb.v` at that grid point. Both sides are the same polynomial; the work is
+to move the powers of two from inside the integer out into the denominator,
+eight times. For one term this is `term_bridge`, and the content of it is an
+exponent count: the integer holds $54(7-k)$ powers of two and the denominator
+$598$, what is left is $220 + 54k$, and $54(7-k) + 220 + 54k = 598$ whatever
+$k$ is.
+
+That lemma lives in `ShiftBridge.v`, which loads no mathcomp on purpose. The
+statement is about $ZZ$ and $RR$ and nothing else, and with mathcomp loaded
+the rewriting lemmas on powers pick up the wrong subterms. Keeping it apart
+also makes it compile in a second and a half rather than twenty five.
+
+Nothing in the development computes a value of the polynomial. There is no
+`vm_compute`, no `Eval` and no `native_compute`. The only arithmetic anywhere
+is `field` normalising powers of two, and the whole of `ShiftExp.v` outside
+its `Require` lines measures $4.2$ seconds: $2.1$ for the eight applications
+of `term_bridge`, $1.0$ for the final `field`.
+
+The integers are Rocq's binary `Z`, given its abelian group structure by
+mathcomp's `ssrZ`, and not mathcomp's `int`, which is built on unary natural
+numbers. For the same reason the number of arguments,
+$180 space 143 space 985 space 095$, is kept in `Z`: as a `nat` it would be
+that many successors, and any tactic asked to decide a bound against it by
+computation would not come back.
