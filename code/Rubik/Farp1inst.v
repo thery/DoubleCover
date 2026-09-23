@@ -12,9 +12,11 @@ Require Import Cyc Ball Table Search Tsearch Tabi Rubik333 Sym Root Coord
         Searchr Redun Searchir P1Small P1Ts P1Fs P1Fsm Phase1 Far Farp1
         Farp1main P1TsChk P1FTable Runp1 FsmChk FsrChk SlrChk
         FoldAtTable.
-Require Import Runp1_03 Runp1_04 Runp1_05 Runp1_06 Runp1_07 Runp1_08.
-Require Import Runp1_09a Runp1_09b Runp1_10 Runp1_11a Runp1_11b Runp1_12.
-Require Import Runp1_13 Runp1_14 Runp1_15 Runp1_16 Runp1_17.
+Require Import Runp1_11a Runp1_09a Runp1_05a Runp1_06a Runp1_08a Runp1_04a.
+Require Import Runp1_07a Runp1_03a Runp1_16a Runp1_10a Runp1_13a Runp1_12a.
+Require Import Runp1_14a Runp1_15a Runp1_17a Runp1_11b Runp1_09b Runp1_05b.
+Require Import Runp1_06b Runp1_08b Runp1_04b Runp1_07b Runp1_03b Runp1_16b.
+Require Import Runp1_10b Runp1_13b Runp1_12b Runp1_14b Runp1_15b Runp1_17b.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -51,13 +53,21 @@ Lemma p1searchd :
       jsnd.
 Proof.
 by apply: all_jsndp1;
-   [exact: p1searchd_03 | exact: p1searchd_04 | exact: p1searchd_05 |
-    exact: p1searchd_06 | exact: p1searchd_07 | exact: p1searchd_08 |
+   [apply: all_rootp1; [exact: p1searchd_03a | exact: p1searchd_03b] |
+    apply: all_rootp1; [exact: p1searchd_04a | exact: p1searchd_04b] |
+    apply: all_rootp1; [exact: p1searchd_05a | exact: p1searchd_05b] |
+    apply: all_rootp1; [exact: p1searchd_06a | exact: p1searchd_06b] |
+    apply: all_rootp1; [exact: p1searchd_07a | exact: p1searchd_07b] |
+    apply: all_rootp1; [exact: p1searchd_08a | exact: p1searchd_08b] |
     apply: all_rootp1; [exact: p1searchd_09a | exact: p1searchd_09b] |
-    exact: p1searchd_10 |
+    apply: all_rootp1; [exact: p1searchd_10a | exact: p1searchd_10b] |
     apply: all_rootp1; [exact: p1searchd_11a | exact: p1searchd_11b] |
-    exact: p1searchd_12 | exact: p1searchd_13 | exact: p1searchd_14 |
-    exact: p1searchd_15 | exact: p1searchd_16 | exact: p1searchd_17].
+    apply: all_rootp1; [exact: p1searchd_12a | exact: p1searchd_12b] |
+    apply: all_rootp1; [exact: p1searchd_13a | exact: p1searchd_13b] |
+    apply: all_rootp1; [exact: p1searchd_14a | exact: p1searchd_14b] |
+    apply: all_rootp1; [exact: p1searchd_15a | exact: p1searchd_15b] |
+    apply: all_rootp1; [exact: p1searchd_16a | exact: p1searchd_16b] |
+    apply: all_rootp1; [exact: p1searchd_17a | exact: p1searchd_17b]].
 Qed.
 
 (* HOISTED, and not proved inside the theorem: there the context holds        *)

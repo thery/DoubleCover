@@ -45,8 +45,15 @@ replace () {   # replace <candidate> <target>, and say whether it moved
   mv "$1" "$2"
 }
 
-WHOLE="3 4 5 6 7 8 10 12 13 14 15 16 17"   # one file, both root moves
-HALVED="9 11"                              # two files, one root move each
+WHOLE=""                                   # one file, both root moves
+HALVED="3 4 5 6 7 8 9 10 11 12 13 14 15 16 17"   # two files, one root move each
+
+# The order make starts them in, longest first, from the depth 19 run of
+# 2026-09-23.  A list scheduler on eighteen workers gives 5 h 37 this way and
+# 6 h 02 in numeric order, simulated on those measured times.  Farp1inst.v
+# requires them in the same order, which is what make actually reads.
+ORDER="11a 09a 05a 06a 08a 04a 07a 03a 16a 10a 13a 12a 14a 15a 17a \
+       11b 09b 05b 06b 08b 04b 07b 03b 16b 10b 13b 12b 14b 15b 17b"
 
 changed=0
 for j in $WHOLE; do
@@ -67,10 +74,10 @@ for j in $HALVED; do
   done
 done
 
-# the seventeen file names, in one place so _CoqProject and the message agree
+# the file names, in one place so _CoqProject and the message agree
 names () {
   for j in $WHOLE; do printf "Runp1_%02d.v\n" "$j"; done
-  for j in $HALVED; do printf "Runp1_%02da.v\nRunp1_%02db.v\n" "$j" "$j"; done
+  for n in $ORDER; do printf "Runp1_%s.v\n" "$n"; done
 }
 
 # THE DEPTH LIVES IN TWO PLACES.  Runp1.v's p1depth is what Farp1inst's
