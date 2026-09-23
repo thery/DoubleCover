@@ -74,6 +74,17 @@ for j in $HALVED; do
   done
 done
 
+# A file that no longer belongs to the split is deleted, not left behind: a
+# stale Runp1_05.v beside Runp1_05a.v confuses every listing and coqdep still
+# reads it.
+for f in Runp1_[0-9][0-9].v Runp1_[0-9][0-9][ab].v; do
+  [ -e "$f" ] || continue
+  keep=0
+  for j in $WHOLE; do [ "$f" = "Runp1_$(printf %02d $j).v" ] && keep=1; done
+  for n in $ORDER; do [ "$f" = "Runp1_$n.v" ] && keep=1; done
+  [ "$keep" = 1 ] || { rm -f "$f"; echo "removed stale $f"; }
+done
+
 # the file names, in one place so _CoqProject and the message agree
 names () {
   for j in $WHOLE; do printf "Runp1_%02d.v\n" "$j"; done
