@@ -360,7 +360,7 @@ bottom, with the centre skipped. Up gets 0--7, left 8--15, front 16--23, right
     bezier((-1.15, 3.75), (1.15, 3.75), (0, 4.55), mark: (end: ">"), stroke: 0.7pt)
     content((0, 4.75), text(size: 9pt)[the move $U$])
   }),
-  caption: [Three of the 6 faces, and the turn of the top one.],
+  caption: [The top, front and right faces, and the turn of the top one.],
 ) <cube3d>
 
 #figure(
@@ -375,7 +375,7 @@ bottom, with the centre skipped. Up gets 0--7, left 8--15, front 16--23, right
   caption: [The cube unfolded, with all 48 places numbered.],
 ) <net>
 
-A move is written down by saying where the stickers go. For example,
+A move sends each sticker to a new place. For example,
 if we turn the top face clockwise,
 the sticker in corner 0 goes to
 corner 2, the one in 2 to 7, the one in 7 to 5, and the one in 5 back to 0. This 
@@ -384,7 +384,7 @@ stickers of that face do the same, $(1 space 4 space 6 space 3)$. The turn does
 not only move the top face. It also carries the top row of each side face round
 to the next one: front to left, left to back, back to right, right to front.
 That is 3 more cycles, $(8 space 32 space 24 space 16)$ and its 2
-companions. @uturn shows all of it, each square saying which sticker sits there
+companions. @uturn shows all of it, each square showing which sticker sits there
 afterwards. The top row of the left face holds 16, 17, 18, the stickers that
 came round from the front. 
 
@@ -419,10 +419,9 @@ _eighteen moves_
 ]
 
 A move turned twice is written `U2`, and a move turned backwards `U'`. A
-position is a product of moves. For instance `R U R' U'`, a word of length 4. The set of all positions is a group $G$: the _cube group_. Solving a
-position in $d$ moves means writing it as a word of $d$ moves. So "solvable in
-at most $d$ moves" says that the position lies in the _ball of radius $d$_
-around the solved cube. God's number is the diameter of the Cayley graph.
+position is a product of moves. For instance `R U R' U'`, a word of length 4. The set of all positions is a group $G$: the _cube group_. A position
+solved in $d$ moves is a word of $d$ moves. The positions solved in at most $d$
+moves form the _ball of radius $d$_ around the solved cube. God's number is the diameter of the Cayley graph.
 
 == The cube in Rocq
 
@@ -471,8 +470,8 @@ Definition Spcyc : seq (seq facelet) :=
 Definition superflip : {perm facelet} := \prod_(l <- Spcyc) cyc l.
 ```
 
-That makes it a permutation but
-nothing says a legal position.
+That makes it a permutation, but
+not yet a legal position.
 For this, we have to prove that
 it belongs to $G$.
 The proof is one equality. Here is
@@ -506,9 +505,9 @@ shows.
     }
     tedge(0, -0.1, 4.6, -0.95)
     tlbl(-7.3, -1.05, [after one move:])
-    tlbl(-5.4, -1.45, [$h$ says 17])
-    tlbl(-1.8, -1.45, [$h$ says 20])
-    tlbl(1.8, -1.45, [$h$ says 11])
+    tlbl(-5.4, -1.45, [$h = 17$])
+    tlbl(-1.8, -1.45, [$h = 20$])
+    tlbl(1.8, -1.45, [$h = 11$])
     tlbl(5.1, -1.05, [$dots.h$])
     tlbl(5.4, -1.45, [and 15 more])
     tlbl(-1.8, -1.85, text(fill: rgb("#b00"))[#sym.times ~ cut: 20 > 18])
@@ -528,7 +527,7 @@ for example in Korf's IDA\* @korf1985ida.
 == Getting a cheap estimate
 
 The idea behind our estimate is to forget most 
-of the cubes. Keep only part of the information, say how the corners are twisted and
+of the cubes. Keep only part of the information, for example how the corners are twisted and
 where the 4 middle-layer edges sit, and call what is left a _summary_. Many
 positions can share the same summary. They will
 get the same estimate.
@@ -607,15 +606,15 @@ Line by line:
 
 - `gT` is the group the file works in. It is a variable, so nothing here is
   about the cube; the cube is supplied at instantiation.
-- `1` is the unit of that group, the solved position for the cube. So
-  `h 1 = 0` says the estimate of a solved cube is zero, and `g == 1` asks
+- `1` is the unit of that group, the solved position for the cube. So by
+  `h 1 = 0` the estimate of a solved cube is zero, and `g == 1` asks
   whether the search has arrived.
 - `Sseq` is the list of the 18 moves, in the order the search walks over
   them, and `S` is the same thing seen as a set.
 - `g * m` is the position `g` followed by the move `m`, in the left to right
   order met above.
 - `h g <= d` is the cut. `(h (g * m)).+1` is the estimate after a move plus
-  one, so `hstep` says that one move changes the estimate by at most one.
+  one, so by `hstep` one move changes the estimate by at most one.
 - `has (fun m => search d' (g * m)) Sseq` tries every move with one fewer move
   left, and answers as soon as one of them succeeds.
 
@@ -639,8 +638,8 @@ Hypothesis Dstep : forall x m, m \in Sset -> D x <= (D (act x m)).+1.
 ```
 
 `X` is the type of summaries and `coord` gives the summary of a position. `act`
-plays a move on a summary directly, without going back to the position it came
-from. `coordM` says the two agree: playing a move and then summarising gives
+applies a move to a summary directly, without going back to the position it came
+from. By `coordM` the two agree: applying a move and then summarising gives
 what `act` gives.
 
 The search of #src("Search.v") is refined to carry the summary beside the
@@ -663,7 +662,7 @@ Here are some explanations:
 - `g == 1` asks whether the cube is solved.
 - `g * m` moves the position and `act x m` moves the summary. The summary
   never has to be recomputed from the position.
-- `p` is the move just played, and `allowed p` is the list of moves the rules
+- `p` is the last move, and `allowed p` is the list of moves the rules
   permit after it. This is explained below.
 
 == Verifying the table
@@ -690,7 +689,7 @@ GB of memory.
 == Removing redundant moves
 
 Many words lead to the same position.
-Two ideas make it possible to leave some out.
+We use 2 ideas to leave some out.
 The first one is avoiding repetition. For example, after a `U` we do not need to explore `U`, `U2` or `U'`: shorter words at a smaller depth will cover these positions. That leaves 15
 moves instead of 18. Opposite faces give a weaker version of the same
 argument. `U D` and `D U` give the same position, so we keep only one of the 2
@@ -701,7 +700,7 @@ or back one. The second idea is symmetry. The superflip is unchanged by all 48
 relabellings of the cube. So we need to explore only the turns of one face for
 the first move. We choose arbitrarily the top one, and again by symmetry we only
 have to consider `U` and `U2`, since `U'` is the symmetric of `U`. 
-The search is then parallelised at depth 2. Two first moves times 15
+The search is then parallelised at depth 2: 2 first moves times 15
 second moves is 30 _prefixes_, and each prefix is searched in a file of its
 own.
 
@@ -718,7 +717,7 @@ leads to a smaller tree.
 
 == Folding the table
 
-The summary is built around the up-down axis. Sixteen of the 48 relabellings
+The summary is built around the up-down axis. Of the 48 relabellings, 16
 keep that axis and turn one summary into another, and they sort the 1 013 760
 flip-and-slice values into 64 430 families.
 One entry per family is enough, so the table can be shrunk. In the code the
@@ -737,7 +736,7 @@ Definition Dp1ri (tw r : int) : int :=
 
 `frep r` is the family's representative, `fsym r` the symmetry that carries the
 value to it, and `twsym tw (fsym r)` the twist carried through that same
-symmetry. Three more reads at every lookup, into a table 15.73 times smaller.
+symmetry. Each lookup costs 3 more reads, into a table 15.73 times smaller.
 
 Symmetry-reduced tables are standard in cube solvers. Running the search with the
 fold is 1.61 times slower at depth 16. But a search worker drops from 4.15 GB to
@@ -789,7 +788,7 @@ order it is given. The pieces are far from equal -- the longest is 5 h 43 of
 processor time and the shortest 1 h 43 -- so the longest one sets the wall
 clock, and 5 h 48 is 5 minutes off the best that any order of these 30
 can give. The same search in 17 pieces took 6 h 33 and 84 processor
-hours, so splitting costs 6 processor hours and buys three quarters of an
+hours, so splitting costs 6 processor hours and saves three quarters of an
 hour. The proof costs 89 processor-hours and one night, and that is a measured
 cost.
 
@@ -885,7 +884,7 @@ kind into one of the first. Here the inverse is
 
 with, as expected, 5 subwords of the first kind and 4 of the second.
 
-Let us go back to our two-letter subword $q$. Six turns stand before it. Write
+Let us go back to our two-letter subword $q$. It has 6 turns before it. Write
 $x$ for them, `U U D D L F`, and $w$ for what follows $q$, so that $x q w = P$,
 where $P$ is superflip4. Then $q w = x^(-1) P$, and therefore
 
@@ -909,7 +908,7 @@ superflip4 of the same length, beginning with $q$.
 
 The second step renames the faces. A relabelling of the cube that leaves
 superflip4 unchanged carries a word for it to another word for it, of the same
-length. Sixteen of the 48 relabellings do that. The superflip is unchanged by
+length. Of the 48 relabellings, 16 do that. The superflip is unchanged by
 all 48, but the four-spot is not: it leaves the top and bottom faces alone and
 exchanges the colours of the other 4 in pairs, so it singles out the up-down
 axis, the line through the centres of the top and bottom faces. A relabelling
@@ -923,8 +922,8 @@ quarter rotation about the up-down axis then carries the front face to the right
 one, and `F' U` becomes `R' U`.
 
 A word starting with `R U` needs nothing more, which is the prefix of 2
-turns. When it starts with `R' U` we look at the third turn. Six of the
-possible turns give words that a relabelling or an inversion brings back to the
+turns. When it starts with `R' U` we look at the third turn. For 6 of the
+possible turns, we get words that a relabelling or an inversion brings back to the
 `R U` case, and 5 do not. Those 5 are the prefixes of 3 turns.
 
 == The summary, and its table
@@ -976,8 +975,8 @@ searches give the second. The bound follows:
 Theorem qdiam25 : ~ diam_le Sq 25.
 ```
 
-`diam_le Sq 25` says every position is within 25 quarter turns, and the line
-says it is not. Rocq reports only the primitives of its machine-integer and
+`diam_le Sq 25` is the property that every position is within 25 quarter
+turns, and the theorem is its negation. Rocq reports only the primitives of its machine-integer and
 array interface. The work is 19 hand-written files and 6 100 lines. The
 argument above is in #src("HProp2.v"), the search in #src("HSearch.v"), the
 sweeps in #src("HSweep.v"), and the bound in #src("HAll.v").
@@ -1002,13 +1001,13 @@ about two thirds of what the searches cost.
 So far we have dealt with lower bounds. This last section is an attempt at the
 real computation, the upper bound.
 
-Here is what it proves, in full. Take the superflip. Play on it any sequence of
+Here is what it proves, in full. Take the superflip. Apply to it any sequence of
 the 10 moves `U`, `U2`, `U'`, `D`, `D2`, `D'`, `R2`, `L2`, `F2` and `B2`. There
 are 19 508 428 800 positions that can be reached that way. Every one of them is
 solved in 20 moves or fewer.
 
 The computation that proves it is not the search of the earlier sections. There
-the search was looking for a manoeuvre and had to come back empty; the whole
+the search was looking for a word and had to come back empty; the whole
 difficulty was that it must have left nothing out. Here it is the opposite. Each
 of the 19 508 428 800 positions gets one bit, the computation sets the bit of
 every position it can solve in 20 moves, and the theorem follows when no bit
@@ -1017,8 +1016,9 @@ how the bits get set.
 
 == Cosets
 
-Ten of the 18 moves generate the subgroup $H$ of Kociemba and
-Thistlethwaite: `U`, `U2`, `U'`, `D`, `D2`, `D'`, `R2`, `L2`, `F2` and `B2`.
+The subgroup $H$ of Kociemba and
+Thistlethwaite is generated by 10 of the 18 moves: `U`, `U2`, `U'`, `D`, `D2`,
+`D'`, `R2`, `L2`, `F2` and `B2`.
 They are the moves that do not change the phase 1 summary: they do not twist a
 corner, they do not flip an edge, and they keep the 4 middle edges in the
 middle layer. A coset of $H$ is the set of positions we get from one position
@@ -1036,10 +1036,10 @@ exactly one coset.
 The published proofs do not solve all 43 quintillion positions one at a time.
 They solve a whole coset at once. One search settles every one of the
 19 508 428 800 positions in it. The positions in a coset are not all the same
-distance from solved. The search shows that none of them is more than 20. A
+distance from solved. None of them is more than 20 moves from solved. A
 symmetry of the cube carries one coset to another, and the image is solved by
-the same manoeuvres relabelled, so only one coset per symmetry class is
-searched. Two things are then needed. The cosets searched must cover every
+the same words relabelled, so only one coset per symmetry class is
+searched. We then need 2 things. The cosets searched must cover every
 class, and each search must settle its whole coset.
 
 #src("Canon.v") proves the first, and it is not a computation. As the
@@ -1069,7 +1069,7 @@ layout is what makes the next subsection cheap. A page is one arrangement of the
 corners. Inside a page, a group is a pair of arrangements of the outer edges,
 the 2 that differ by exchanging one pair of cubies, and the group's
 24 bits are the 24 arrangements of the middle edges, the
-12 even ones low and the 12 odd ones high. The parity says which
+12 even ones low and the 12 odd ones high. The parity determines which
 arrangement of the pair a bit stands for, which is how the impossible half
 disappears with nothing left to store.
 
@@ -1142,13 +1142,13 @@ member is within 20 moves, and that is the theorem.
 == A level
 
 The run is 20 levels, level $d$ turning a map sound at $d-1$ into a map
-sound at $d$. A level does 2 things, and they divide the manoeuvres of length
+sound at $d$. A level does 2 things, and they divide the words of length
 $d$ between them.
 
-- The *prepass* plays each of the 10 moves of $H$ on the whole map at once. It
-  accounts for every manoeuvre whose last move is in $H$, and that is nearly all
+- The *prepass* applies each of the 10 moves of $H$ to the whole map at once. It
+  accounts for every word whose last move is in $H$, and that is nearly all
   of them.
-- The *search* then looks only for the manoeuvres of length $d$ whose last move
+- The *search* then looks only for the words of length $d$ whose last move
   is not in $H$. It walks them from the superflip one position at a time, the
   way the searches of the earlier sections do.
 
@@ -1173,7 +1173,7 @@ and the run pays for it once a level.
 The prepass is what makes a whole coset affordable, and it is the one part of
 the computation that has no counterpart in the lower bounds.
 
-Playing a move of $H$ on a position of the coset does 3 separate things to
+Applying a move of $H$ to a position of the coset does 3 separate things to
 the 3 numbers that name it. The corner arrangement goes to another corner
 arrangement, so a page goes to a page. The outer-edge pair goes to another pair,
 so a group goes to a group. The middle arrangement goes to another middle
@@ -1183,8 +1183,8 @@ came from. It is a table lookup and a shuffle of one machine word.
 
 So the prepass never takes a position apart. It never builds a cube, never ranks
 one, never looks a position up. For each of the 10 moves it reads the whole map
-and writes the whole map, and that is all of it. Ten passes over 3.25 GB buy
-every manoeuvre of this length that ends in a move of $H$, and there are
+and writes the whole map, and that is all of it. The 10 passes over 3.25 GB cover
+every word of this length that ends in a move of $H$, and there are
 billions of those.
 
 #src("RowMap.v") has the prepass and the proof that it keeps the map sound.
@@ -1207,12 +1207,12 @@ else if csolved c
 ```
 
 The membership test is made on the position itself, which the search carries
-anyway, and it costs one comparison. It is worth saying why it is not made on
+anyway, and it costs one comparison. It is worth explaining why it is not made on
 the phase 1 table, which is right there and would give the same answer for a
 handful of nanoseconds less. The table is an estimate. A table of zeros is a
 legal estimate -- it passes both conditions of section 3.5, so nothing rules it
 out -- and with a table of zeros every position would look like a member, every
-bit would be set at once, and the theorem would say nothing. Reading membership
+bit would be set at once, and the theorem would be empty. Reading membership
 off the table would make the theorem depend on the table being sharp, which
 nothing proves. Reading it off the position makes it depend on nothing.
 
@@ -1224,8 +1224,8 @@ is too small only cuts less than it could.
 
 == The cuts and the early stop
 
-A search that offered all 18 moves at every node would never finish. Four
-things cut it down, 3 of them Rokicki's.
+A search that offered all 18 moves at every node would never finish. It is cut
+down by 4 things, 3 of them Rokicki's.
 
 The first is the moves worth trying. The phase 1 table of section 3.8 is already
 folded by the 16 symmetries; the copy the search reads, #src("RowMask.v"),
@@ -1238,14 +1238,14 @@ it would take 41. A half turn is a quarter turn twice, so the 2 moves
 of one face cannot differ by more than one step, which leaves 15 of the
 27 ways a face can go, and 15 fit in 4 bits.
 
-The second is that the last move of a manoeuvre is never a move of $H$. A
-manoeuvre that ends in $H$ is a shorter one followed by moves of $H$, and the
-prepass has already played those.
+The second is that the last move of a word is never a move of $H$. A
+word that ends in $H$ is a shorter one followed by moves of $H$, and the
+prepass has already applied those.
 
 The third is that low down, a move must go straight at $H$. Once the moves left
 and the distance to $H$ add up to less than 5, only the moves that shorten
 the distance by one are followed. A move that wastes a step down there ends in
-moves of $H$, so the prepass catches that manoeuvre too.
+moves of $H$, so the prepass catches that word too.
 
 The fourth is where the search stops altogether. It runs on the first 16
 levels and not on the 4 above them, and on level 16 it does not even run
@@ -1259,10 +1259,10 @@ bits, which on this coset is not before level 14, and that too is his
 rule.
 
 Every one of these 4 is safe, and safe in a way none of the cuts in the
-earlier sections were. There, a cut that lost a manoeuvre would have lost the
+earlier sections were. There, a cut that lost a word would have lost the
 proof, and each one had to be shown to lose nothing. Here nothing is ever proved
 about what the search covers. What is proved is that the map filled. A cut that
-throws a manoeuvre away can only make the map fill later, or leave a bit clear
+throws a word away can only make the map fill later, or leave a bit clear
 at the end -- it can never set a bit that should not be set. This is why a coset
 is easier to prove than a lower bound, and it is why the 4 cuts above needed
 no argument at all. The one thing that did need an argument is marking, which is
@@ -1273,25 +1273,25 @@ the subsection above.
 Stopping the search at level 16, and stopping level 16 early, leaves
 members the run never reaches. When the 2 runs ended, 32 bits of the
 406 425 600 words were still clear. They are simply the members that no
-manoeuvre the cut search kept, followed by moves of $H$, happened to reach.
+word the cut search kept, followed by moves of $H$, happened to reach.
 Searching deeper would leave fewer and cost hours; each one left over costs a
 line.
 
-So we give each of the 32 a manoeuvre of 20 moves by hand, in
-#src("RowWits.v"). Twenty-eight of them came from our prototype and the last
+So we give each of the 32 a word of 20 moves by hand, in
+#src("RowWits.v"). Our prototype gave 28 of them, and the last
 4 were found one at a time. None of that is believed. #src("RowWitsChk.v")
-plays each of the 32 manoeuvres back on the member it claims to solve
+applies each of the 32 words to its member
 and asks for the solved cube. If the producer had made a mistake, or given a
-manoeuvre of 21 moves, or named the wrong member, the check would fail;
+word of 21 moves, or named the wrong member, the check would fail;
 it cannot make the theorem false. The replay is also the only thing in the
 development that tests the 2 ideas of which facelet is which -- the
-prototype's, which found the manoeuvres, and Rocq's, which builds the member --
+prototype's, which found the words, and Rocq's, which builds the member --
 against each other.
 
 The 32 are marked into the map at the very end, by #src("RowMark.v"),
-and not at the start. A map sound at $d$ claims every bit it has set is within
-$d$; a witness is within 20, so seeding one before the run would make level
-one claim its neighbours are within one, and they are not. Marking at the end is
+and not at the start. In a map sound at $d$, every bit set is within
+$d$. A witness is within 20, so seeding one before the run would make level
+one mark its neighbours as within one, and they are not. Marking at the end is
 sound because the map is already sound at 20 when the marks go in.
 
 == The run, and its one boolean
@@ -1320,8 +1320,8 @@ the 2 runs are compared at the end of the section.
 
 The map is 40 320 pages, one for each arrangement of the corners.
 
-The fold works because of the position we chose. Sixteen of the 48 renamings of
-the cube keep the top and bottom faces in place. Each of them sends the 10
+The fold works because of the position we chose. Of the 48 renamings of
+the cube, 16 keep the top and bottom faces in place. Each of them sends the 10
 moves to the 10 moves, so it maps $H$ to itself, and each leaves the superflip
 unchanged, so it maps the superflip's coset to itself. A member and its image
 under such a renaming need the same number of moves, so 2 pages related by a
@@ -1331,8 +1331,8 @@ there is 14.6 times less of it to walk. The price is undoing a renaming whenever
 a kept page is read.
 
 The kept pages go in pairs of their own, and a pair shares one word as it does
-on the unfolded side: 1 496 words in place of 2 768. Two hundred and twenty-four
-of the pages are their own partner and use half a word.
+on the unfolded side: 1 496 words in place of 2 768. There are 224
+pages that are their own partner and use half a word.
 
 The fold has to be proved as well as written. A renaming sends a member of the
 coset to a member of the coset. Undoing it gives back the position the page
@@ -1346,7 +1346,7 @@ unchanged, and so do the cube, the permutations, the machine-integer tools, the
 phase one table and its generator. Each of the new tables has a check of its
 own, in a file of its own, so that a failure names the table that failed.
 
-Five things are new, and only one of them is a search.
+There are 5 new things, and only one of them is a search.
 
 - The rank and the sign of a permutation. Rocq's library has both, but for
   permutations that do not compute, so we need their effective version on
@@ -1357,7 +1357,7 @@ Five things are new, and only one of them is a search.
   it stands for. The other way we already had.
 - The pass that steps a whole map one move at a time.
 - The fold by the 16 renamings.
-- Manoeuvres given by hand for the members the run does not reach.
+- Words given by hand for the members the run does not reach.
 
 == The files and the cost
 
@@ -1387,7 +1387,7 @@ a level reads one map while it writes the other, so the unfolded run needed 23.3
 GB of a 62 GB machine. With the garbage collector set to work harder, the same
 run peaks at 13.9 GB and takes 4 per cent longer.
 
-Two earlier folded runs say where the time went. Over words of 24 bits,
+We made 2 earlier folded runs, which show where the time went. Over words of 24 bits,
 holding one corner arrangement each, the run took 6 h 00. The same run with the
 depth left as a unary numeral instead of a machine integer took 8 h 13, so the
 unary depth cost 2 h 13.
@@ -1402,8 +1402,8 @@ Theorem real_row_superflip_fold_runi m :
   m \in H -> superflip * m \in ball Sset 20.
 ```
 
-`H` is the subgroup above, so the line says that every position of the
-superflip's coset is within 20 moves.
+`H` is the subgroup above, so every position of the superflip's coset is
+within 20 moves.
 
 = Conclusion
 
@@ -1416,11 +1416,11 @@ estimated distances.
 We do not prove that 20 and 26 always suffice. The upper half is a different
 computation. It is not one search that finds nothing, but 2 billion searches
 that must each find everything. We did one of the 2 billion, and the section
-above says what it cost.
+above gives its cost.
 
 The three share a trunk. The cube itself, as permutations of the 48
-facelets, with the 18 moves and the group they generate. Balls, and what
-it means for a position to be within $d$ moves. The abstract search, whose
+facelets, with the 18 moves and the group they generate. Balls, the
+positions within $d$ moves. The abstract search, whose
 contract is that a false answer is a proof. The rule that any summary of a
 position, together with any table that passes one check, gives an estimate that
 is never too big. And the tables themselves, held as machine integers in arrays
@@ -1429,8 +1429,8 @@ rather than as lists of unary numbers.
 What each of the three needed of its own:
 
 - *The 20 face turns.* The phase one summary, which is the edge flips and
-  the slice, its table, and the certificate that checks the table. Three
-  viewing angles of the same search, and 30 pieces run side by side.
+  the slice, its table, and the certificate that checks the table. The same
+  search seen from 3 angles, and 30 pieces run side by side.
 - *The 26 quarter turns.* The cut to 6 prefixes, which is the one
   piece of the development argued by hand rather than computed, and the parity
   argument that turns 25 into 24. A second and much larger summary, 29 billion
@@ -1439,7 +1439,7 @@ What each of the three needed of its own:
   positions. That needs 5 new pieces. The rank and the sign of a
   permutation on machine integers. The link between a position and its 3
   ranks. A pass that steps a whole map one move at a time. The fold by the
-  16 renamings. And manoeuvres given by hand for the members the run does
+  16 renamings. And words given by hand for the members the run does
   not reach.
 
 The same search written in OCaml is about 4.5 times faster than the
