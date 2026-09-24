@@ -598,16 +598,13 @@ Corollary searchN d g : search d g = false -> g \notin ball S d.
 
 Line by line:
 
-- `gT` is the group the file works in. It is a variable, so nothing here is
-  about the cube; the cube is supplied at instantiation.
+- `gT` is the group. It is then instancied with the cube group.
 - `1` is the unit of that group, the solved position for the cube. So by
-  `h 1 = 0` the estimate of a solved cube is zero, and `g == 1` asks
-  whether the search has arrived.
-- `Sseq` is the list of the 18 moves, in the order the search walks over
-  them, and `S` is the same thing seen as a set.
-- `g * m` is the position `g` followed by the move `m`, in the left to right
-  order met above.
-- `h g <= d` is the cut. `(h (g * m)).+1` is the estimate after a move plus
+  `h 1 = 0` we ask the estimate to be 0 on the solved cube is zero, and `g == 1` tests
+  whether the search has reached the solved position.
+- `Sseq` is the list of the 18 moves, and `S` is the same thing seen as a set.
+- `g * m` is the position `g` followed by the move `m`.
+- `h g <= d` is the cut. `(h (g * m)).+1` is the estimate after $m$ plus
   one, so by `hstep` one move changes the estimate by at most one.
 - `has (fun m => search d' (g * m)) Sseq` tries every move with one fewer move
   left, and answers as soon as one of them succeeds.
@@ -657,7 +654,7 @@ Here are some explanations:
 - `g * m` moves the position and `act x m` moves the summary. The summary
   never has to be recomputed from the position.
 - `p` is the last move, and `allowed p` is the list of moves the rules
-  permit after it. This is explained below.
+  permit after it. This is explained in Section 3.6.
 
 == Verifying the table
 
@@ -706,8 +703,7 @@ of the same table. This gives
 3 summaries. Taking the maximum 
 of these 3 values gives an admissible
 estimate. That costs 3
-lookups at a position instead of one, but
-leads to a smaller tree.
+lookups at a position instead of one, but this is worth since we get a much smaller tree.
 
 == Folding the table
 
@@ -715,7 +711,7 @@ The summary is built around the up-down axis. Of the 48 relabellings, 16
 keep that axis and turn one summary into another, and they sort the 1 013 760
 flip-and-slice values into 64 430 families.
 One entry per family is enough, so the table can be shrunk. In the code the
-change is one definition. The lookup was
+change is one definition. The lookup before was
 
 ```coq
 Definition Dp1i (tw x : int) : int := p1get (p1idx tw x).
@@ -772,19 +768,12 @@ theorem both times.
   ([wall clock], [11 h 13], [*5 h 48*]),
   ([processor time], [85 h 11], [*89 h 27*]),
 )
-
-The fold increases the parallelisation: 18 pieces run at once instead of
-9.
-
 The 30 pieces are the split that balances the run. Each is one prefix of
 2 moves, and they are compiled longest first, since make starts them in the
 order it is given. The pieces are far from equal -- the longest is 5 h 43 of
 processor time and the shortest 1 h 43 -- so the longest one sets the wall
 clock, and 5 h 48 is 5 minutes off the best that any order of these 30
-can give. The same search in 17 pieces took 6 h 33 and 84 processor
-hours, so splitting costs 6 processor hours and saves three quarters of an
-hour. The proof costs 89 processor-hours and one night, and that is a measured
-cost.
+can give. 
 
 = Counting in quarter turns
 
