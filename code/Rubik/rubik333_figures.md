@@ -485,3 +485,77 @@ values a twist because `all_powP` hands the instance back at `x`; walking the
 |---|---|---|
 | `fsidx` injective on summaries, then iterate over ranks | **5.87x** | one lemma, no table changes |
 | the 16 symmetry fold | 15.73x | a soundness lemma plus regenerating every table |
+
+## Depth 19 after the flip: OCaml nodes and Rocq time per piece (2026-09-24)
+
+All MEASURED on roquableu unless marked.  The Rocq run is the thirty-piece
+run of 2026-09-23 (`make p1run P1RUN_GB=3 TIMED=1`, -j18): **5 h 48 wall
+(20 893 s), 89 h 27 user (322 002 s)**.
+
+**OCaml, `rubik_par 19 9 $j 18`, 18 jobs**: 137 607 893 106 nodes, user
+68 994 s = 19.2 h, 1 h 30 wall -> **0.50 us a node**.  Rocq 322 002 s over
+the same nodes -> **2.34 us**, a factor of **4.7** (computed).  Before the
+flip: 146 065 078 152 nodes, 26.4 h, factor 3.3.
+
+**OCaml, `rubik_par 19 9 $j 30`, one prefix a job**: the thirty add up to
+137 607 893 106, the same as the 18-job run.  Job i < 15 is `U` then move
+i+3 (piece (i+3)a), job i >= 15 is `U2` then move i-12 (piece (i-12)b);
+moves are face*3 + {quarter, half, inverse}, faces U R F D L B, the same
+numbering as Rocq's `prefixi`.  OCaml per-job times are not recorded here:
+the run was 30 jobs on 18 slots and they are not comparable.
+
+Rocq `user` from the TIMED lines, all 30.
+
+| piece | prefix | OCaml nodes | Rocq user (s) | us / node |
+|---|---|---|---|---|
+| 03a | U R | 4 641 846 214 | 11437 | 2.46 |
+| 03b | U2 R | 5 575 767 076 | 12415 | 2.23 |
+| 04a | U R2 | 4 252 285 387 | 11058 | 2.60 |
+| 04b | U2 R2 | 5 735 843 932 | 13448 | 2.34 |
+| 05a | U R' | 4 642 364 824 | 10778 | 2.32 |
+| 05b | U2 R' | 5 575 767 076 | 14045 | 2.52 |
+| 06a | U F | 4 642 364 824 | 11490 | 2.47 |
+| 06b | U2 F | 5 575 767 076 | 12873 | 2.31 |
+| 07a | U F2 | 4 252 285 387 | 12155 | 2.86 |
+| 07b | U2 F2 | 5 735 843 932 | 11695 | 2.04 |
+| 08a | U F' | 4 641 846 214 | 12137 | 2.61 |
+| 08b | U2 F' | 5 575 767 076 | 12092 | 2.17 |
+| 09a | U D | 8 527 685 275 | 19850 | 2.33 |
+| 09b | U2 D | 3 746 795 767 | 8460 | 2.26 |
+| 10a | U D2 | 3 747 460 927 | 8290 | 2.21 |
+| 10b | U2 D2 | 4 743 337 051 | 8796 | 1.85 |
+| 11a | U D' | 8 527 685 275 | 20591 | 2.41 |
+| 11b | U2 D' | 3 746 795 767 | 10528 | 2.81 |
+| 12a | U L | 3 068 175 427 | 6944 | 2.26 |
+| 12b | U2 L | 3 746 795 767 | 7509 | 2.00 |
+| 13a | U L2 | 3 487 208 797 | 9058 | 2.60 |
+| 13b | U2 L2 | 4 743 337 051 | 11342 | 2.39 |
+| 14a | U L' | 3 067 879 204 | 6127 | 2.00 |
+| 14b | U2 L' | 3 746 795 767 | 8090 | 2.16 |
+| 15a | U B | 3 067 879 204 | 6763 | 2.20 |
+| 15b | U2 B | 3 746 795 767 | 7894 | 2.11 |
+| 16a | U B2 | 3 487 208 797 | 9382 | 2.69 |
+| 16b | U2 B2 | 4 743 337 051 | 10891 | 2.30 |
+| 17a | U B' | 3 068 175 427 | 6834 | 2.23 |
+| 17b | U2 B' | 3 746 795 767 | 8846 | 2.36 |
+
+All 30 (the pieces' `user` add up to 321 818 s of the run's 322 002).
+Spread **1.85 (10b) to 2.86 (07a) us a node, 2.34 overall**, where the note
+said 1.98 to 2.52 over the seventeen pieces before the flip.  The `a` pieces
+(root `U`) average 2.43, the `b` pieces (root `U2`) 2.25.  Pieces with
+IDENTICAL OCaml counts differ by up to 10%: 14a 2.00 / 15a 2.20, 03a 2.46 /
+05a 2.32, 06a 2.47 / 08a 2.61 -- so ~10% is run noise on this machine, and
+the rest of the 1.55x spread is not explained.  Nodes differ by 2.8x between
+the smallest piece (14a, 15a) and the largest (09a, 11a).
+
+**Growth, `rubik_par d 9 $j 18`** (MEASURED): depth 18 = 11 311 611 006
+nodes, so 19/18 = 12.17 (computed).  Depth 17 = 921 729 534 nodes, 18/17 =
+12.27; the mean growth from 17 to 19 is sqrt(19/17) = **12.22**, the same as
+the note's figure from before the flip (computed).
+
+**Radius 14, `rubik_par 14 9 0 1`** (MEASURED): 445 398 nodes, 0.2 s.  The
+note had 470 786, from before the flip.  This is the tree with every
+reduction and all three views, not the plain one-table cut.
+
+**Uncut tree at radius 14** (COMPUTED, a count over the move rules, no cube):
+1.03e15 after the flip, 1.07e15 with the old rule.

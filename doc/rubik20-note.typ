@@ -579,7 +579,7 @@ Every summary represents exactly 19 508 428 800 positions. The table
 records, for each summary, its distance from the solved summary. A distance
 never exceeds 12, so 4 bits hold one entry, 15 of them to a 63-bit
 machine word: the whole table is _1.18 GB_. The cut is quite effective. A
-search at depth 14 visits 470 786 nodes only. Without the cut the same tree holds
+search at depth 14 visits 445 398 nodes only. Without the cut the same tree holds
 $1.03 dot 10^15$ of them. 
 
 == Searching in Rocq
@@ -759,8 +759,8 @@ The second line runs on one core, so more cores do not help. The first and fifth
 are mostly the OCaml compiler turning a table into native code, and together
 they take 100 of the 155 processor-minutes.
 
-The search itself visits 137 607 893 106 positions, from 5 575 767 076 in the
-smallest piece to 10 554 835 820 in the largest, and the tree grows by 12.22
+The search itself visits 137 607 893 106 positions, from 3 067 879 204 in the
+smallest piece to 8 527 685 275 in the largest, and the tree grows by 12.22
 from one level to the next between depths 17 and 19. We measured the run twice,
 once before the fold and the 2 reductions and once after. It is the same
 theorem both times.
@@ -1443,10 +1443,9 @@ OCaml program visits 137 607 893 106 positions in 19.2 processor-hours, which is
 tree, which is 2.34. A factor of *4.7*.
 
 We do not assume that the two walk the same tree. We divide each of the
-17 Rocq pieces by the positions its OCaml counterpart visited. The result
-is between 1.98 and 2.52 microseconds, over pieces that differ in size by a
-factor of 2. A Rocq search that cut differently anywhere would show as scatter
-there, and there is none. So the run takes a night because the tree holds 138
+30 Rocq pieces by the positions its OCaml counterpart visited. The result
+is between 1.85 and 2.86 microseconds, over pieces that differ in size by a
+factor of 2.8. So the run takes a night because the tree holds 138
 billion nodes, not because the prover is slow: in OCaml the same tree still
 costs 19 processor-hours.
 
