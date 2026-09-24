@@ -231,6 +231,27 @@
 
 // One small cubie in the same perspective, with one of its three visible
 // stickers marked.  Used to show what the summary of a position records.
+// A word of moves in raw type, with the pairs starting at the turns in `un`
+// underlined and those starting at the turns in `ov` overlined (turns count
+// from 1).  A turn may be in one pair of each kind.
+#let markword(w, un, ov) = {
+  let ws = w.split(" ")
+  let n = ws.len()
+  for i in range(n) {
+    let k = i + 1
+    let t = raw(ws.at(i))
+    if un.any(a => a == k or a + 1 == k) { t = underline(t) }
+    if ov.any(a => a == k or a + 1 == k) { t = overline(t) }
+    t
+    if k < n {
+      let sp = raw(" ")
+      if un.contains(k) { sp = underline(sp) }
+      if ov.contains(k) { sp = overline(sp) }
+      sp
+    }
+  }
+}
+
 #let cubie(o, marked) = {
   import cetz.draw: *
   let w = (0, 0.8)
@@ -796,7 +817,7 @@ Superflip4 is 26 quarter turns from solved. Here is the word given for it, with
 the half turns written out:
 
 #align(center)[`U U D D L F F U' D R R B U' D' R L F F R U D' R' L U F' B'`]
-We want to prove that this possition cannot be solved in 25 quarter turns.
+We want to prove that this position cannot be solved in 25 quarter turns.
 The parity of permutations saves one level of search (24 instead of 25). A cycle of 4 stickers is
 the product of 3 swaps, so it is an odd permutation. A quarter turn is 5 cycles
 of 4 stickers, so it is odd too. So a word of even length gives an even permutation, and a word of odd length
@@ -833,15 +854,15 @@ A word made only of turns from $cal(A)$ leaves the 4 middle edges untouched,
 and superflip4 has them flipped, so no such word gives superflip4. A word made
 only of turns from $cal(C)$ never flips an edge, and superflip4 has every edge
 flipped, so no such word gives it either. Any word for superflip4 therefore uses
-turns from both sets, so somewhere in it there a two-letter subword 
-composed of a letter of $cal(A)$ and a letter of $cal(C)$.
+turns from both sets, so somewhere in it there is a two-letter subword made of a letter of $cal(A)$ and a letter of $cal(C)$.
 
 Each of the 6 prefixes starts with a turn from $cal(C)$ followed by a turn
 from $cal(A)$, so we want a word for superflip4 that starts with such a
 subword.
 Recall the word we gave for it:
 
-#align(center)[`U U D D L F F U' D R R B U' D' R L F F R U D' R' L U F' B'`]
+#align(center)[#markword("U U D D L F F U' D R R B U' D' R L F F R U D' R' L U F' B'",
+  (7, 12, 19, 23), (4, 9, 14, 21, 24))]
 Reading along it, 4 two-letter subwords have a turn of $cal(C)$ followed by
 a turn of $cal(A)$, and 5 have them the other way round. We take the first
 of the 4, at the seventh and eighth turns, `F` then `U'`, and call that
