@@ -863,13 +863,11 @@ Recall the word we gave for it:
 
 #align(center)[#markword("U U D D L F F U' D R R B U' D' R L F F R U D' R' L U F' B'",
   (7, 12, 19, 23), (4, 9, 14, 21, 24))]
-Reading along it, 4 two-letter subwords have a turn of $cal(C)$ followed by
-a turn of $cal(A)$, and 5 have them the other way round. We take the first
-of the 4, at the seventh and eighth turns, `F` then `U'`, and call that
-subword $q$. A word may have subwords of the second kind only. We would then
+Reading along it, 4 two-letter subwords have the right order and 5 have the wrong. We take `FU'` the first one with the right order, and call it $q$. A word may have had only subwords with wrong order. In 
+that case, we would then
 invert it first: superflip4 is its own inverse, so the inverse is again a word
-for it, of the same length, and inverting turns every subword of the second
-kind into one of the first. Here the inverse is
+for it, of the same length, and 
+the orders are swapped. Here the inverse is
 
 #align(center)[`B F U' L' R D U' R' F' F' L' R' D U B' R' R' D' U F' F' L' D' D' U' U'`]
 
