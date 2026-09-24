@@ -318,7 +318,7 @@ moves, and that gives a second number for the same cube. We prove a lower bound
 for each.
 
 We take one position: the *superflip*.
-Every small cubes is at its right position but all the edges have the wrong orientation.
+Every small cube is at its right position but all the edges have the wrong orientation.
 #figure(
   cetz.canvas(length: 1cm, {
     import cetz.draw: *
@@ -584,7 +584,7 @@ $1.03 dot 10^15$ of them.
 
 == Searching in Rocq
 
-The search is generic and defined in the file #src("Search.v"). It is given a group, a set of moves and an estimate $h$, and 2 hypothesis on $h$:
+The search is generic and defined in the file #src("Search.v"). It is given a group, a set of moves and an estimate $h$, and 2 hypotheses on $h$:
 
 ```coq
 Hypothesis h1    : h 1 = 0.
@@ -1061,7 +1061,7 @@ permuted with the same sign. The map holds one bit for each of the
 The bits are laid out the way Rokicki's own program lays them out, and the
 layout is what makes the next subsection cheap. A page is one arrangement of the
 corners. Inside a page, a group is a pair of arrangements of the outer edges,
-the 2 that differ by exchanging one pair of cubies, and the group's
+the 2 that differ by exchanging 2 edges, and the group's
 24 bits are the 24 arrangements of the middle edges, the
 12 even ones low and the 12 odd ones high. The parity determines which
 arrangement of the pair a bit stands for, which is how the impossible half
