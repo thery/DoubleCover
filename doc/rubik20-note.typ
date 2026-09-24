@@ -767,14 +767,7 @@ minutes more than the best that any order of these 30 pieces can give.
 We have proved that God's number is at least 20. We now count the moves
 differently. In quarter turns there are 12 moves: the 6 faces turned one way,
 and the same 6 turned back. A half turn counts as 2 moves. In this count, the
-answer is *26* (#link("http://cube20.org")[cube20.org]). We prove the lower
-bound: one position cannot be solved in 25 quarter turns.
-
-The parity of permutations saves one level of search. A cycle of 4 stickers is
-the product of 3 swaps, so it is an odd permutation. A quarter turn is 5 cycles
-of 4 stickers, so it is odd too. So a word of even length gives an even permutation, and a word of odd length
-gives an odd one. This argument is in #src("HBound.v").
-
+answer is *26* (#link("http://cube20.org")[cube20.org]). 
 == The position
 
 The superflip is only 24 quarter turns from solved, so it is not far enough.
@@ -803,11 +796,15 @@ Superflip4 is 26 quarter turns from solved. Here is the word given for it, with
 the half turns written out:
 
 #align(center)[`U U D D L F F U' D R R B U' D' R L F F R U D' R' L U F' B'`]
+We want to prove that this possition cannot be solved in 25 quarter turns.
+The parity of permutations saves one level of search (24 instead of 25). A cycle of 4 stickers is
+the product of 3 swaps, so it is an odd permutation. A quarter turn is 5 cycles
+of 4 stickers, so it is odd too. So a word of even length gives an even permutation, and a word of odd length
+gives an odd one. This argument is in #src("HBound.v").
 
 Because of this word of 26 moves, superflip4 is even. So all its words have an
 even length. If superflip4 has no word of at most 24 moves, it is exactly 26
-moves from solved. So the searches only need to go to depth 24.
-
+moves from solved. 
 == The 6 prefixes
 
 Every shortest word for superflip4 can be rewritten, at the same length, so that
@@ -836,8 +833,8 @@ A word made only of turns from $cal(A)$ leaves the 4 middle edges untouched,
 and superflip4 has them flipped, so no such word gives superflip4. A word made
 only of turns from $cal(C)$ never flips an edge, and superflip4 has every edge
 flipped, so no such word gives it either. Any word for superflip4 therefore uses
-turns from both sets, so somewhere in it a two-letter subword has one turn from
-each set.
+turns from both sets, so somewhere in it there a two-letter subword 
+composed of a letter of $cal(A)$ and a letter of $cal(C)$.
 
 Each of the 6 prefixes starts with a turn from $cal(C)$ followed by a turn
 from $cal(A)$, so we want a word for superflip4 that starts with such a
@@ -845,7 +842,6 @@ subword.
 Recall the word we gave for it:
 
 #align(center)[`U U D D L F F U' D R R B U' D' R L F F R U D' R' L U F' B'`]
-
 Reading along it, 4 two-letter subwords have a turn of $cal(C)$ followed by
 a turn of $cal(A)$, and 5 have them the other way round. We take the first
 of the 4, at the seventh and eighth turns, `F` then `U'`, and call that
