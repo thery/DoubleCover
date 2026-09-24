@@ -1458,14 +1458,14 @@ billion nodes, not because the prover is slow: in OCaml the same tree still
 costs 26 processor-hours.
 
 The whole development, counted in hand-written Rocq and leaving out the
-generated tables, is 37 898 lines. Each line of the table counts what that piece
+generated tables, is 37 611 lines. Each line of the table counts what that piece
 adds to the ones above it.
 
 #tbl(([], [files], [lines]),
-  ([the superflip, for the twenty face turns], [53], [14 504]),
-  ([the four-spot, for the twenty-six quarter turns], [18], [6 008]),
-  ([one coset of the upper bound], [69], [17 386]),
-  ([*in all*], [*140*], [*37 898*]),
+  ([the superflip, for the twenty face turns], [45], [13 927]),
+  ([the four-spot, for the twenty-six quarter turns], [19], [6 074]),
+  ([one coset of the upper bound], [70], [17 610]),
+  ([*in all*], [*134*], [*37 611*]),
 )
 
 This development was written with the help of Claude, Anthropic's coding
