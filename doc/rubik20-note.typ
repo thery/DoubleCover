@@ -1,7 +1,7 @@
 #set page(paper: "a4", margin: 2.4cm, numbering: "1")
 #set text(font: "New Computer Modern", size: 10.5pt)
 #set par(justify: true, leading: 0.62em)
-#set heading(numbering: "1.1")
+#set heading(numbering: "1.1", supplement: [section])
 #set list(marker: [-])
 #show heading: it => block(above: 1.2em, below: 0.7em)[#it]
 #show raw: set text(font: "DejaVu Sans Mono", size: 9pt)
@@ -477,7 +477,7 @@ the word of 20 moves we use to witness it:
 
 #align(center)[`U R2 F B R B2 R U2 L B2 R U' D' R2 F R' L B2 U2 F2`]
 
-= Searching for the lower bound
+= Searching for the lower bound <lowerbound>
 
 We want to show that the superflip cannot be solved in 19 moves or less. The naive
 approach is to try every word of at most 19 moves starting from the superflip:
@@ -598,13 +598,13 @@ Corollary searchN d g : search d g = false -> g \notin ball S d.
 
 Line by line:
 
-- `gT` is the group. It is then instancied with the cube group.
-- `1` is the unit of that group, the solved position for the cube. So by
-  `h 1 = 0` we ask the estimate to be 0 on the solved cube is zero, and `g == 1` tests
+- `gT` is the group. It is then instantiated with the cube group.
+- `1` is the unit of that group, the solved position for the cube. So with
+  `h 1 = 0` we ask the estimate to be 0 on the solved cube, and `g == 1` tests
   whether the search has reached the solved position.
 - `Sseq` is the list of the 18 moves, and `S` is the same thing seen as a set.
 - `g * m` is the position `g` followed by the move `m`.
-- `h g <= d` is the cut. `(h (g * m)).+1` is the estimate after $m$ plus
+- `h g <= d` is the cut. `(h (g * m)).+1` is the estimate after `m` plus
   one, so by `hstep` one move changes the estimate by at most one.
 - `has (fun m => search d' (g * m)) Sseq` tries every move with one fewer move
   left, and answers as soon as one of them succeeds.
@@ -654,9 +654,9 @@ Here are some explanations:
 - `g * m` moves the position and `act x m` moves the summary. The summary
   never has to be recomputed from the position.
 - `p` is the last move, and `allowed p` is the list of moves the rules
-  permit after it. This is explained in Section 3.6.
+  permit after it. This is explained in @redundant.
 
-== Verifying the table
+== Verifying the table <verify>
 
 For the phase 1 summary, `D` is a lookup in the phase 1 table, so `D0` and
 `Dstep` become 2 statements about that table:
@@ -677,7 +677,7 @@ timing in this note has been measured on the same machine, the _reference machin
 dual-socket Intel Xeon E5-2667 at 2.9 GHz, 12 cores, 24 threads, 62
 GB of memory.
 
-== Removing redundant moves
+== Removing redundant moves <redundant>
 
 Many words lead to the same position.
 We use 2 ideas to leave some out.
@@ -703,9 +703,9 @@ of the same table. This gives
 3 summaries. Taking the maximum 
 of these 3 values gives an admissible
 estimate. That costs 3
-lookups at a position instead of one, but this is worth since we get a much smaller tree.
+lookups at a position instead of one, but it is worth it since we get a much smaller tree.
 
-== Folding the table
+== Folding the table <foldtab>
 
 The summary is built around the up-down axis. Of the 48 relabellings, 16
 keep that axis and turn one summary into another, and they sort the 1 013 760
@@ -775,7 +775,7 @@ processor time and the shortest 1 h 43 -- so the longest one sets the wall
 clock, and 5 h 48 is 5 minutes off the best that any order of these 30
 can give. 
 
-= Counting in quarter turns
+= Counting in quarter turns <quarter>
 
 We have proved that God's number is at least 20. We now count the moves
 differently: in quarter turns there are 12 moves, the 6 faces one way and
@@ -1177,8 +1177,8 @@ function, so nothing about the cube is proved twice.
 
 == The search
 
-The search is a depth-first walk from the superflip, like the ones in sections 3
-and 4, with 2 differences. It carries the position it has reached, and when it
+The search is a depth-first walk from the superflip, like the ones in sections @lowerbound[]
+and @quarter[], with 2 differences. It carries the position it has reached, and when it
 has used up its depth it asks whether that position is a member of the coset. If
 it is, the position's 3 numbers are computed, and the bit they name is set.
 That is the leaf, and it is 2 lines of #src("RowSrch.v"):
@@ -1193,7 +1193,7 @@ The membership test is made on the position itself, which the search carries
 anyway, and it costs one comparison. It is worth explaining why it is not made on
 the phase 1 table, which is right there and would give the same answer for a
 handful of nanoseconds less. The table is an estimate. A table of zeros is a
-legal estimate -- it passes both conditions of section 3.5, so nothing rules it
+legal estimate -- it passes both conditions of @verify, so nothing rules it
 out -- and with a table of zeros every position would look like a member, every
 bit would be set at once, and the theorem would be empty. Reading membership
 off the table would make the theorem depend on the table being sharp, which
@@ -1210,7 +1210,7 @@ is too small only cuts less than it could.
 A search that offered all 18 moves at every node would never finish. It is cut
 down by 4 things, 3 of them Rokicki's.
 
-The first is the moves worth trying. The phase 1 table of section 3.8 is already
+The first is the moves worth trying. The phase 1 table of @foldtab is already
 folded by the 16 symmetries; the copy the search reads, #src("RowMask.v"),
 carries beside each distance the set of moves that bring the position nearer $H$
 and the set that at least do not take it further. Which set is wanted depends on
