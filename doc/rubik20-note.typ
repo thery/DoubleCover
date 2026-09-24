@@ -307,7 +307,7 @@ of possible arrangements is
 $ 8! dot 3^7 dot 12! dot 2^11 slash 2 = 43 space 252 space 003 space 274 space 489 space 856 space 000 approx 4.3 dot 10^19. $
 
 The 8 corners can be in any order ($8!$) and their orientations are free except for the last one
-($3^7$). The 12 edges can be in any order ($12!$) and again their orientations are free except the last one ($2^11$). The result is then halved, because
+($3^7$). The 12 edges can be in any order ($12!$) and again their orientations are free except the last one ($2^11$). The result is then divided by 2, because
 corners and edges are not independent.
 
 Turning one face is a _move_, and a half turn counts as one move just like a
@@ -318,8 +318,7 @@ moves, and that gives a second number for the same cube. We prove a lower bound
 for each.
 
 We take one position: the *superflip*.
-Every cubie is in its own place,
-but all the edges have the wrong orientation.
+Every small cubes is at its right position but all the edges have the wrong orientation.
 #figure(
   cetz.canvas(length: 1cm, {
     import cetz.draw: *
@@ -417,8 +416,7 @@ _eighteen moves_
     `U'`, `R'`, `F'`, `D'`, `L'`, `B'`,
   )
 ]
-
-A move turned twice is written `U2`, and a move turned backwards `U'`. A
+A move turned _twice_ is written `U2`, and a move turned _backwards_ `U'`. A
 position is a product of moves. For instance `R U R' U'`, a word of length 4. The set of all positions is a group $G$: the _cube group_. A position
 solved in $d$ moves is a word of $d$ moves. The positions solved in at most $d$
 moves form the _ball of radius $d$_ around the solved cube. God's number is the diameter of the Cayley graph.
@@ -443,7 +441,7 @@ Definition G : {group {perm facelet}} := <<Sset>>.
 
 Line by line:
 
-- `'I_48` is the type of numbers *below* 48.
+- `'I_48` is the type of numbers below 48. It is a finite type.
 - `{perm facelet}` is the type of _permutations_ of those facelets.
 - `cyc [:: 0@; 2@; 7@; 5@]` is the _cycle_ that sends 0 to 2, 2 to 7, 7 to 5
   and 5 back to 0, leaving the other 44 places where they are. The
@@ -532,8 +530,8 @@ where the 4 middle-layer edges sit, and call what is left a _summary_. Many
 positions can share the same summary. They will
 get the same estimate.
 Moves act on summaries as well as on
-cubes. Summaries are few, so we can compute the exact distance of each one to
-the solved summary and keep them all in a table. This gives $h$: take a
+cubes. Summaries are few, so we can precompute in a table the exact distance of each one to
+the solved summary. This gives $h$: take a
 position, compute its summary, and look its distance up in the table. This idea
 of summary comes from Culberson and Schaeffer, who call such a table a _pattern
 database_ @culberson1998pattern, and Korf solved the cube optimally with 3
@@ -582,15 +580,11 @@ records, for each summary, its distance from the solved summary. A distance
 never exceeds 12, so 4 bits hold one entry, 15 of them to a 63-bit
 machine word: the whole table is _1.18 GB_. The cut is quite effective. A
 search at depth 14 visits 470 786 nodes only. Without the cut the same tree holds
-$1.03 dot 10^15$ of them. We call this summary the _phase 1
-summary_, after the first phase of Kociemba's solver @kociemba, and its table
-of distances the _phase 1 table_.
+$1.03 dot 10^15$ of them. 
 
 == Searching in Rocq
 
-The search is generic, #src("Search.v"): a hundred lines that never mention the
-cube. It is given a group, a set of moves and an estimate $h$, and it asks only
-2 things of $h$:
+The search is generic and defined in the file #src("Search.v"). It is given a group, a set of moves and an estimate $h$, and 2 hypothesis on $h$:
 
 ```coq
 Hypothesis h1    : h 1 = 0.
