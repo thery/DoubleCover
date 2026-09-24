@@ -304,7 +304,7 @@
 = The problem
 
 A Rubik's cube is built from 26 small cubes: 8 corners with 3 stickers each,
-12 edges with 2 stickers each, and 6 centres. The centres do not move. A turn
+12 edges with 2 stickers each and 6 centres. The centres do not move. A turn
 moves 4 corners and 4 edges, and rotates a centre.
 
 #figure(
@@ -396,7 +396,7 @@ to right and top to bottom, with the centre skipped. Up gets 0--7, left 8--15, f
 A move sends each sticker to a new place. For example,
 if we turn the top face clockwise,
 the sticker in corner 0 goes to
-corner 2, the one in 2 to 7, the one in 7 to 5, and the one in 5 back to 0. This is a cycle of 4 steps, written $(0 space 2 space 7 space 5)$. The 4 edge
+corner 2, the one in 2 to 7, the one in 7 to 5 and the one in 5 back to 0. This is a cycle of 4 steps, written $(0 space 2 space 7 space 5)$. The 4 edge
 stickers of that face do the same: $(1 space 4 space 6 space 3)$. The turn also
 moves the top row of each side face to the next side face: front to left, left
 to back, back to right, right to front. This gives 3 more cycles,
@@ -544,7 +544,7 @@ middle-layer edges are. We call what is left a _summary_. Many positions share
 the same summary, and they get the same estimate. Moves act on summaries as
 well as on cubes. There are few summaries, so we can precompute the exact distance of each one to the solved summary,
 and store it in a table. This
-gives $h$: take a position, compute its summary, and read its distance in the
+gives $h$: take a position, compute its summary and read its distance in the
 table. The idea comes from Culberson and Schaeffer, who call such a table a
 _pattern database_ @culberson1998pattern. Korf solved the cube optimally with 3
 of them @korf1997rubik.
@@ -597,7 +597,7 @@ $1.03 dot 10^15$ nodes.
 == Searching in Rocq
 
 The search is generic. It is defined in the file #src("Search.v"). It takes a
-group, a set of moves, an estimate $h$, and 2 hypotheses on $h$:
+group, a set of moves, an estimate $h$ and 2 hypotheses on $h$:
 
 ```coq
 Hypothesis h1    : h 1 = 0.
@@ -629,7 +629,7 @@ that give our final search.
 == Searching with a summary
 
 The estimate is built in a second generic file, #src("Coord.v"). It takes the
-summary of a position, the action of a move on a summary, and the table of
+summary of a position, the action of a move on a summary and the table of
 distances. It asks one condition on the summary and 2 on the table.
 
 ```coq
@@ -951,27 +951,15 @@ that keep the up-down axis sort the 190 080 edge values into 12 094 families, a
 factor of 15.72, and one entry is kept per family. That is 883 MB, and 3.86 GB
 once loaded into the prover.
 
-== The theorem, and its cost
+== Conclusion on the second lower bound
 
-The position is settled both ways in #src("HFinal.v"):
-
-```coq
-Theorem targ_dist : targ \in ball Sq 26 /\ targ \notin ball Sq 25.
-```
-
-`targ` is superflip4 as the searches meet it, and `ball Sq n` is the set of
-positions within `n` quarter turns. The word gives the first half and the 6
-searches give the second. The bound follows:
-
-```coq
-Theorem qdiam25 : ~ diam_le Sq 25.
-```
-
-`diam_le Sq 25` is the property that every position is within 25 quarter
-turns, and the theorem is its negation. Rocq reports only the primitives of its machine-integer and
-array interface. The work is 19 hand-written files and 6 100 lines. The
-argument above is in #src("HProp2.v"), the search in #src("HSearch.v"), the
-sweeps in #src("HSweep.v"), and the bound in #src("HAll.v").
+The word of 26 moves and the 6 searches together show that superflip4 is
+exactly 26 quarter turns from solved. So in quarter turns, God's number is at
+least 26. The development for this lower bound has 19 files (6 100 lines). The
+argument for the 6 prefixes is in #src("HProp2.v"), the search in
+#src("HSearch.v"), the sweeps in #src("HSweep.v") and the bound in
+#src("HAll.v"). Here are the times, measured from a clean tree on the reference
+machine:
 
 #tbl(([], [wall clock], [processor time]),
   ([building the table, in OCaml], [9 min 50], [1 h 43]),
@@ -982,10 +970,10 @@ sweeps in #src("HSweep.v"), and the bound in #src("HAll.v").
   ([*the whole chain in Rocq*], [*10 h 32*], [*87 h 29*]),
 )
 
-The last row is measured end to end, from a directory where nothing is built. It
-is not the sum of the others. The OCaml table of the first row is built once by
-hand, and it is not part of that run. The sweeps and the searches are nearly
-nine tenths of the cost, and checking the table rather than trusting it costs
+The last row is measured end to end, from a directory where nothing is built.
+It is not the sum of the others. The OCaml table of the first row is built once
+by hand, and it is not part of that run. The sweeps and the searches are nearly
+nine tenths of the cost. Checking the table, instead of trusting it, costs
 about two thirds of what the searches cost.
 
 = One coset of the upper half
@@ -1012,7 +1000,7 @@ The subgroup $H$ of Kociemba and
 Thistlethwaite is generated by 10 of the 18 moves: `U`, `U2`, `U'`, `D`, `D2`,
 `D'`, `R2`, `L2`, `F2` and `B2`.
 They are the moves that do not change the phase 1 summary: they do not twist a
-corner, they do not flip an edge, and they keep the 4 middle edges in the
+corner, they do not flip an edge and they keep the 4 middle edges in the
 middle layer. A coset of $H$ is the set of positions we get from one position
 using only these 10 moves. A coset is therefore one value of the summary, and
 there are as many cosets as summaries. Every position of the cube lies in
@@ -1050,7 +1038,7 @@ superflip from the lower bound.
 == The coset as one map
 
 A position of the coset is named by 3 numbers: how the 8 corners of the
-top and bottom layers sit, how the 8 edges of those layers sit, and how the
+top and bottom layers sit, how the 8 edges of those layers sit and how the
 4 middle edges sit. That is 40 320 by 40 320 by 24 arrangements, but half of
 those triples cannot occur: on the cube the corners and the edges are always
 permuted with the same sign. The map holds one bit for each of the
@@ -1118,7 +1106,7 @@ chunks of 2 million words. The map and its indexing are #src("Row.v") and
             text(size: tn)[corner arrangement of odd rank])
   }),
   caption: [The map, from the outside in. A page for each arrangement of the
-  corners, a group in the page for each pair of outer-edge arrangements, and a
+  corners, a group in the page for each pair of outer-edge arrangements and a
   bit in the group for each arrangement of the 4 middle edges, the 12
   even ones low and the 12 odd ones high. One word holds the same group on
   the 2 pages of a pair.],
@@ -1145,7 +1133,7 @@ $d$ between them.
   way the searches of the earlier sections do.
 
 In #src("RowSrch.v") the run is 7 lines. It carries the map, the map it
-reads while it writes, and the number of bits the last level left, which is what
+reads while it writes and the number of bits the last level left, which is what
 decides whether the cuts below are on.
 
 ```coq
@@ -1204,7 +1192,7 @@ the phase 1 table, which is right there and would give the same answer for a
 handful of nanoseconds less. The table is an estimate. A table of zeros is a
 legal estimate -- it passes both conditions of @verify, so nothing rules it
 out -- and with a table of zeros every position would look like a member, every
-bit would be set at once, and the theorem would be empty. Reading membership
+bit would be set at once and the theorem would be empty. Reading membership
 off the table would make the theorem depend on the table being sharp, which
 nothing proves. Reading it off the position makes it depend on nothing.
 
@@ -1421,7 +1409,7 @@ rather than as lists of unary numbers.
 What each of the three needed of its own:
 
 - *The 20 face turns.* The phase one summary, which is the edge flips and
-  the slice, its table, and the certificate that checks the table. The same
+  the slice, its table and the certificate that checks the table. The same
   search seen from 3 angles, and 30 pieces run side by side.
 - *The 26 quarter turns.* The cut to 6 prefixes, which is the one
   piece of the development argued by hand rather than computed, and the parity
