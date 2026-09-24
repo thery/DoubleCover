@@ -240,13 +240,13 @@
   for i in range(n) {
     let k = i + 1
     let t = raw(ws.at(i))
-    if un.any(a => a == k or a + 1 == k) { t = underline(t) }
-    if ov.any(a => a == k or a + 1 == k) { t = overline(t) }
+    if un.any(a => a == k or a + 1 == k) { t = underline(offset: 3.5pt, t) }
+    if ov.any(a => a == k or a + 1 == k) { t = overline(offset: -9pt, t) }
     t
     if k < n {
       let sp = raw(" ")
-      if un.contains(k) { sp = underline(sp) }
-      if ov.contains(k) { sp = overline(sp) }
+      if un.contains(k) { sp = underline(offset: 3.5pt, sp) }
+      if ov.contains(k) { sp = overline(offset: -9pt, sp) }
       sp
     }
   }
