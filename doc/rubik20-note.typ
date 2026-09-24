@@ -863,15 +863,18 @@ Recall the word we gave for it:
 
 #align(center)[#markword("U U D D L F F U' D R R B U' D' R L F F R U D' R' L U F' B'",
   (7, 12, 19, 23), (4, 9, 14, 21, 24))]
-Reading along it, 4 two-letter subwords have the right order and 5 have the wrong. We take `FU'` the first one with the right order, and call it $q$. A word may have had only subwords with wrong order. In 
+Reading along it, 4 two-letter subwords have the right order and 5 have the
+wrong order. We take the first one with the right order, `F U'`, and call it
+$q$. A word may have had only subwords with the wrong order. In 
 that case, we would then
 invert it first: superflip4 is its own inverse, so the inverse is again a word
 for it, of the same length, and 
 the orders are swapped. Here the inverse is
 
-#align(center)[`B F U' L' R D U' R' F' F' L' R' D U B' R' R' D' U F' F' L' D' D' U' U'`]
+#align(center)[#markword("B F U' L' R D U' R' F' F' L' R' D U B' R' R' D' U F' F' L' D' D' U' U'",
+  (2, 5, 12, 17, 22), (3, 7, 14, 19))]
 
-with, as expected, 5 subwords of the first kind and 4 of the second.
+with, as expected, 5 subwords in the right order and 4 in the wrong order.
 
 Let us go back to our two-letter subword $q$. It has 6 turns before it. Write
 $x$ for them, `U U D D L F`, and $w$ for what follows $q$, so that $x q w = P$,
