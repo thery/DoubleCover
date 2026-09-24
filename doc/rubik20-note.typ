@@ -304,7 +304,7 @@ fixed. A turn moves four corners and four edges and rotates a centre.
 Not every arrangement of the pieces can be reached by turning faces. The number
 of possible arrangements is
 
-$ 8! dot 3^7 dot 12! dot 2^11 slash 2 = 43 space 252 space 003 space 274 space 489 space 856 space 000 approx 4.3 dot 10^19, $
+$ 8! dot 3^7 dot 12! dot 2^11 slash 2 = 43 space 252 space 003 space 274 space 489 space 856 space 000 approx 4.3 dot 10^19. $
 
 The eight corners can be in any order ($8!$) and their orientations are free except for the last one
 ($3^7$). The twelve edges can be in any order ($12!$) and again their orientations are free except the last one ($2^11$). The result is then halved, because
@@ -483,7 +483,7 @@ the word of twenty moves we use to witness it:
 = Searching for the lower bound
 
 We want to show that the superflip cannot be solved in nineteen moves or less. The naive
-approach is to try every word of at most 19 moves : starting from the superflip:
+approach is to try every word of at most 19 moves starting from the superflip:
 if the solved cube never turns up, a lower bound is 20. A tree of depth 19
 with a branching of 18 is $18^19$ words, far too many to make this naive search
 practical. We need to refine it.
@@ -703,9 +703,8 @@ the first move. We choose arbitrarily the top one, and again by symmetry we only
 have to consider `U` and `U2`, since `U'` is the symmetric of `U`. 
 The search is then parallelised at depth two. Two first moves times fifteen
 second moves is thirty _prefixes_.
-As our setting and in order to balance
-the parallel computation, we generate
-17 files, most of them holding two searches.
+In order to balance the parallel computation, we generate
+one file per prefix, thirty files in all.
 
 == Composing summaries 
 
@@ -749,8 +748,8 @@ correctness of the table drops from about 5.4 processor hours to 1.35.
 == Conclusion on the first lower bound
 
 The complete development for the lower bound 
-is composed of 44 files: 9 about the cube (2500 lines), 15 about the search (5000 lines), 20
-about the tables (5000 lines).
+is composed of 45 files: 9 about the cube (2 546 lines), 15 about the search (4 919 lines), 20
+about the tables (5 154 lines), and one of machine-integer tools (1 308 lines).
 Building the tables costs the same whatever radius is searched afterwards.
 Measured end to end from a clean tree on the reference machine:
 
@@ -768,7 +767,7 @@ The second line runs on one core, so more cores do not help. The first and fifth
 are mostly the OCaml compiler turning a table into native code, and together
 they take 100 of the 155 processor-minutes.
 
-The search itself visits 146 065 078 152 positions, from 5 575 767 076 in the
+The search itself visits 137 607 893 106 positions, from 5 575 767 076 in the
 smallest piece to 10 554 835 820 in the largest, and the tree grows by 12.22
 from one level to the next between depths 17 and 19. We measured the run twice,
 once before the fold and the two reductions and once after. It is the same
@@ -980,7 +979,7 @@ Theorem qdiam25 : ~ diam_le Sq 25.
 
 `diam_le Sq 25` says every position is within 25 quarter turns, and the line
 says it is not. Rocq reports only the primitives of its machine-integer and
-array interface. The work is eighteen hand-written files and 6 008 lines. The
+array interface. The work is nineteen hand-written files and 6 074 lines. The
 argument above is in #src("HProp2.v"), the search in #src("HSearch.v"), the
 sweeps in #src("HSweep.v"), and the bound in #src("HAll.v").
 
@@ -1196,7 +1195,7 @@ function, so nothing about the cube is proved twice.
 == The search
 
 The search is a depth-first walk from the superflip, like the ones in sections 3
-to 5, with two differences. It carries the position it has reached, and when it
+and 4, with two differences. It carries the position it has reached, and when it
 has used up its depth it asks whether that position is a member of the coset. If
 it is, the position's three numbers are computed, and the bit they name is set.
 That is the leaf, and it is two lines of #src("RowSrch.v"):
@@ -1211,7 +1210,7 @@ The membership test is made on the position itself, which the search carries
 anyway, and it costs one comparison. It is worth saying why it is not made on
 the phase 1 table, which is right there and would give the same answer for a
 handful of nanoseconds less. The table is an estimate. A table of zeros is a
-legal estimate -- it passes both conditions of section 4.3, so nothing rules it
+legal estimate -- it passes both conditions of section 3.5, so nothing rules it
 out -- and with a table of zeros every position would look like a member, every
 bit would be set at once, and the theorem would say nothing. Reading membership
 off the table would make the theorem depend on the table being sharp, which
@@ -1228,7 +1227,7 @@ is too small only cuts less than it could.
 A search that offered all eighteen moves at every node would never finish. Four
 things cut it down, three of them Rokicki's.
 
-The first is the moves worth trying. The phase 1 table of section 5.3 is already
+The first is the moves worth trying. The phase 1 table of section 3.8 is already
 folded by the sixteen symmetries; the copy the search reads, #src("RowMask.v"),
 carries beside each distance the set of moves that bring the position nearer $H$
 and the set that at least do not take it further. Which set is wanted depends on
@@ -1362,7 +1361,7 @@ Five things are new, and only one of them is a search.
 
 == The files and the cost
 
-The coset adds sixty-nine hand-written files and 17 386 lines, besides the
+The coset adds seventy hand-written files and 17 610 lines, besides the
 generated tables. The coset and its members are #src("Row.v"),
 #src("RowMemb.v") and #src("RowInst.v"); the ranking and the moves
 #src("Lehmer.v") with the `RowPart`, `RowMove` and `RowTab` groups; the map and
@@ -1431,7 +1430,7 @@ What each of the three needed of its own:
 
 - *The twenty face turns.* The phase one summary, which is the edge flips and
   the slice, its table, and the certificate that checks the table. Three
-  viewing angles of the same search, and seventeen pieces run side by side.
+  viewing angles of the same search, and thirty pieces run side by side.
 - *The twenty-six quarter turns.* The cut to six prefixes, which is the one
   piece of the development argued by hand rather than computed, and the parity
   argument that turns 25 into 24. A second and much larger summary, 29 billion
@@ -1443,19 +1442,19 @@ What each of the three needed of its own:
   sixteen renamings. And manoeuvres given by hand for the members the run does
   not reach.
 
-The same search written in OCaml is about three times faster than the one Rocq
-runs. We ran both at radius 19 on the reference machine. The
-OCaml program visits 146 065 078 152 positions in 26.4 processor-hours, which is
-0.65 microseconds a position. Rocq takes 87.6 processor-hours over the same
-tree, which is 2.16. A factor of *3.3*.
+The same search written in OCaml is about four and a half times faster than the
+one Rocq runs. We ran both at radius 19 on the reference machine. The
+OCaml program visits 137 607 893 106 positions in 19.2 processor-hours, which is
+0.50 microseconds a position. Rocq takes 89.5 processor-hours over the same
+tree, which is 2.34. A factor of *4.7*.
 
 We do not assume that the two walk the same tree. We divide each of the
 seventeen Rocq pieces by the positions its OCaml counterpart visited. The result
 is between 1.98 and 2.52 microseconds, over pieces that differ in size by a
 factor of two. A Rocq search that cut differently anywhere would show as scatter
-there, and there is none. So the run takes a night because the tree holds 146
+there, and there is none. So the run takes a night because the tree holds 138
 billion nodes, not because the prover is slow: in OCaml the same tree still
-costs 26 processor-hours.
+costs 19 processor-hours.
 
 The whole development, counted in hand-written Rocq and leaving out the
 generated tables, is 37 611 lines. Each line of the table counts what that piece
