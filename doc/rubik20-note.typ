@@ -583,7 +583,7 @@ records, for each summary, its distance from the solved summary. A distance
 never exceeds 12, so four bits hold one entry, fifteen of them to a 63-bit
 machine word: the whole table is _1.18 GB_. The cut is quite effective. A
 search at depth 14 visits 470 786 nodes only. Without the cut the same tree holds
-$1.07 dot 10^15$ of them. We call this summary the _phase 1
+$1.03 dot 10^15$ of them. We call this summary the _phase 1
 summary_, after the first phase of Kociemba's solver @kociemba, and its table
 of distances the _phase 1 table_.
 
@@ -748,8 +748,8 @@ correctness of the table drops from about 5.4 processor hours to 1.35.
 == Conclusion on the first lower bound
 
 The complete development for the lower bound 
-is composed of 45 files: 9 about the cube (2 546 lines), 15 about the search (4 919 lines), 20
-about the tables (5 154 lines), and one of machine-integer tools (1 308 lines).
+is composed of 44 files: 9 about the cube (2 500 lines), 15 about the search (4 900 lines), 20
+about the tables (5 200 lines).
 Building the tables costs the same whatever radius is searched afterwards.
 Measured end to end from a clean tree on the reference machine:
 
@@ -781,8 +781,8 @@ theorem both times.
   ([processor time], [85 h 11], [*89 h 27*]),
 )
 
-The fold cuts the wall clock by half. What it buys is memory: at 3.6 GB a
-worker eighteen pieces run at once, where 4.15 GB allowed only nine.
+The fold increases the parallelisation: eighteen pieces run at once instead of
+nine.
 
 The thirty pieces are the split that balances the run. Each is one prefix of
 two moves, and they are compiled longest first, since make starts them in the
@@ -979,7 +979,7 @@ Theorem qdiam25 : ~ diam_le Sq 25.
 
 `diam_le Sq 25` says every position is within 25 quarter turns, and the line
 says it is not. Rocq reports only the primitives of its machine-integer and
-array interface. The work is nineteen hand-written files and 6 074 lines. The
+array interface. The work is nineteen hand-written files and 6 100 lines. The
 argument above is in #src("HProp2.v"), the search in #src("HSearch.v"), the
 sweeps in #src("HSweep.v"), and the bound in #src("HAll.v").
 
@@ -1050,7 +1050,8 @@ not empty has a least member. The file is eighty lines and assumes nothing.
 
 The second is the computation itself. Rokicki, Kociemba, Davidson and Dethridge
 ran it over 55 882 296 families of cosets. It took about a billion seconds of
-processor time, more than thirty processor years, given by Google. We cannot
+CPU time, given by Google, which they count as 35 CPU years of a four-core
+desktop processor. We cannot
 repeat that. What we can do is one coset, to see what one costs and whether the
 pieces are in place. We did the superflip's, because we already had the
 superflip from the lower bound.
@@ -1361,7 +1362,7 @@ Five things are new, and only one of them is a search.
 
 == The files and the cost
 
-The coset adds seventy hand-written files and 17 610 lines, besides the
+The coset adds seventy hand-written files and 17 600 lines, besides the
 generated tables. The coset and its members are #src("Row.v"),
 #src("RowMemb.v") and #src("RowInst.v"); the ranking and the moves
 #src("Lehmer.v") with the `RowPart`, `RowMove` and `RowTab` groups; the map and
@@ -1457,14 +1458,14 @@ billion nodes, not because the prover is slow: in OCaml the same tree still
 costs 19 processor-hours.
 
 The whole development, counted in hand-written Rocq and leaving out the
-generated tables, is 37 611 lines. Each line of the table counts what that piece
+generated tables, is 36 300 lines. Each line of the table counts what that piece
 adds to the ones above it.
 
 #tbl(([], [files], [lines]),
-  ([the superflip, for the twenty face turns], [45], [13 927]),
-  ([the four-spot, for the twenty-six quarter turns], [19], [6 074]),
-  ([one coset of the upper bound], [70], [17 610]),
-  ([*in all*], [*134*], [*37 611*]),
+  ([the superflip, for the twenty face turns], [44], [12 600]),
+  ([the four-spot, for the twenty-six quarter turns], [19], [6 100]),
+  ([one coset of the upper bound], [70], [17 600]),
+  ([*in all*], [*133*], [*36 300*]),
 )
 
 This development was written with the help of Claude, Anthropic's coding
