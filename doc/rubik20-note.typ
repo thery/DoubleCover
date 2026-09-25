@@ -1004,7 +1004,7 @@ the bits set to 1 are exactly the positions of $x H$ within 20 moves. If
 no bit is left at 0, every position of the coset is solved in 20 moves
 or fewer. 
 
-== Choosing $H$
+== Choosing $H$ <choosingH>
 
 To derive an effective marking algorithm, the choice 
 of the subgroup $H$ is crucial. The one we chose is 
@@ -1042,14 +1042,13 @@ The phase 1 table gives us the distance to the solved summary. For a position, t
 Remember that we start from $x^(-1)$. We
 build the words of length $d$ one move at a time. Say $k$ moves have been applied to produce $x^(-1) w$, and the table gives $t$ for $x^(-1) w$. If $k + t > d$, no word that continues from there can end in $H$ after $d$ moves: its distance is too high. So we can drop this branch. 
 
-== The coset as one map
+== Structuring the map
 
 A position of the coset is named by 3 numbers: how the 8 corners of the
 top and bottom layers sit, how the 8 edges of those layers sit and how the
 4 middle edges sit. That is 40 320 by 40 320 by 24 arrangements, but half of
 those triples cannot occur: on the cube the corners and the edges are always
-permuted with the same sign. The map holds one bit for each of the
-19 508 428 800 triples that are left.
+permuted with the same sign.
 
 The bits are laid out the way Rokicki's own program lays them out, and the
 layout is what makes the next subsection cheap. A page is one arrangement of the
@@ -1119,73 +1118,49 @@ chunks of 2 million words. The map and its indexing are #src("Row.v") and
   the 2 pages of a pair.],
 ) <maplayout>
 
-The invariant the whole proof turns on is one line: a map is *sound at $d$* when
-every bit it has set is a member of the coset that is within $d$ moves of
-solved. The map the run starts from has one bit set, the superflip's own, and is
-sound at nought. Each of the 20 steps below takes a map sound at $d$ to a
-map sound at $d+1$. If the map that comes out has every bit set, then every
-member is within 20 moves, and that is the theorem.
+== A level and the prepass
 
-== A level
+A map is *sound at $d$* when every bit set to 1 is a position within $d$
+moves of solved. The run starts from the empty map, with no bit set. It
+is sound at 0. Level $d$ turns a map sound at $d-1$ into a map sound at
+$d$. A level does 2 things, and they divide the words of length $d$
+between them.
 
-The run is 20 levels, level $d$ turning a map sound at $d-1$ into a map
-sound at $d$. A level does 2 things, and they divide the words of length
-$d$ between them.
+- The *prepass* applies each of the 10 moves of $H$ to the whole map at
+  once. It covers every word whose last move is in $H$, and that is nearly
+  all of them.
+- The *search* then looks for the words of length $d$ whose last move is
+  not in $H$.
 
-- The *prepass* applies each of the 10 moves of $H$ to the whole map at once. It
-  accounts for every word whose last move is in $H$, and that is nearly all
-  of them.
-- The *search* then looks only for the words of length $d$ whose last move
-  is not in $H$. It walks them from the superflip one position at a time, the
-  way the searches of the earlier sections do.
-
-In #src("RowSrch.v") the run is 7 lines. It carries the map, the map it
-reads while it writes and the number of bits the last level left, which is what
-decides whether the cuts below are on.
-
-```coq
-Fixpoint runsk (n : nat) (d : nat) (n0 : int) (m dst : rmap) : rmap :=
-  if n is n1.+1 then
-    let m' := levelsk (Uint63.ltb ncutb n0) d.+1 m dst in
-    runsk n1 d.+1 (mcount m') m' m
-  else m.
-```
-
-`levelsk` is the level: the prepass first, then the search if this level is
-still being searched. Counting the bits, `mcount`, is a traversal of the whole map,
-and the run pays for it once a level.
-
-== The prepass
-
-The prepass is what makes a whole coset affordable, and it is the one part of
+The prepass is what makes a whole coset affordable. It is the one part of
 the computation that has no counterpart in the lower bounds.
 
 Applying a move of $H$ to a position of the coset does 3 separate things to
 the 3 numbers that name it. The corner arrangement goes to another corner
-arrangement, so a page goes to a page. The outer-edge pair goes to another pair,
-so a group goes to a group. The middle arrangement goes to another middle
-arrangement, so the 24 bits of the group are rearranged among
-themselves, and that rearrangement depends only on the move and the group it
-came from. It is a table lookup and a shuffle of one machine word.
+arrangement, so a page goes to a page. The outer-edge pair goes to another
+pair, so a group goes to a group. The middle arrangement goes to another
+middle arrangement, so the 24 bits of the group are rearranged among
+themselves. This rearrangement depends only on the move and the group. It
+is a table lookup and a shuffle of one machine word.
 
-So the prepass never takes a position apart. It never builds a cube, never ranks
-one, never looks a position up. For each of the 10 moves it reads the whole map
-and writes the whole map, and that is all of it. The 10 passes over 3.25 GB cover
+So the prepass never takes a position apart. It never builds a cube, never
+ranks one, never looks a position up. For each of the 10 moves it reads
+the whole map and writes the whole map. The 10 passes over 3.25 GB cover
 every word of this length that ends in a move of $H$, and there are
 billions of those.
 
 #src("RowMap.v") has the prepass and the proof that it keeps the map sound.
-#src("RowLvl.v") has it again, written so that a page's chunk is fetched once
-and put back once instead of once a word, and proves the two are the same
-function, so nothing about the cube is proved twice.
+#src("RowLvl.v") has it again, written so that a page's chunk is fetched
+once and put back once instead of once a word. It proves the two are the
+same function, so nothing about the cube is proved twice.
 
-== The search
+== Refining the search
 
-The search is a depth-first walk from the superflip, like the ones in sections @lowerbound[]
-and @quarter[], with 2 differences. It carries the position it has reached, and when it
-has used up its depth it asks whether that position is a member of the coset. If
-it is, the position's 3 numbers are computed, and the bit they name is set.
-That is the leaf, and it is 2 lines of #src("RowSrch.v"):
+The search is the enumeration of @choosingH. It is a depth-first walk from
+$x^(-1)$. At each node the table gives the distance to $H$. A branch
+where the moves left are fewer than this distance is dropped. When a word
+has its full length and its position is in $H$, the bit of this position
+is set. This is the leaf, 2 lines of #src("RowSrch.v"):
 
 ```coq
 else if csolved c
@@ -1193,67 +1168,36 @@ else if csolved c
      else m
 ```
 
-The membership test is made on the position itself, which the search carries
-anyway, and it costs one comparison. It is worth explaining why it is not made on
-the phase 1 table, which is right there and would give the same answer for a
-handful of nanoseconds less. The table is an estimate. A table of zeros is a
-legal estimate -- it passes both conditions of @verify, so nothing rules it
-out -- and with a table of zeros every position would look like a member, every
-bit would be set at once and the theorem would be empty. Reading membership
-off the table would make the theorem depend on the table being sharp, which
-nothing proves. Reading it off the position makes it depend on nothing.
+The membership test is made on the position, not on the table. The table
+is only checked to be never too large. A table of zeros passes this
+check. With it, every position would look like a member. So the theorem
+must not depend on the table for membership.
 
-The other use of the table is a cut, and that one is sound. At each node the
-search looks the position up and gets a number that is never larger than the
-number of moves needed to bring it into $H$. If that number is larger than the
-moves left, the branch cannot reach the coset and is dropped. An estimate that
-is too small only cuts less than it could.
+The table entry also records which moves lower the distance and which
+keep it (#src("RowMask.v")). So a node tries 3 or 4 moves instead of 18.
 
-== The cuts and the early stop
+The search is refined in 3 ways, depending on the level.
 
-A search that offered all 18 moves at every node would never finish. It is cut
-down by 4 things, 3 of them Rokicki's.
+- *Levels 1 to 13.* The search is the one above.
+- *Levels 14 to 16.* The prepass covers the words whose last move is in
+  $H$. So the search only needs the others. Near the end of a word, it
+  only tries moves that strictly lower the distance. Near the end means
+  that the moves left and the distance add up to less than 5. The last
+  move is the extreme case: it must go from distance 1 to 0, so it is
+  never a move of $H$. Level 16 also stops early, once the map holds
+  167 million bits plus a third of what its prepass left.
+- *Levels 17 to 20.* There is no search, only the prepass.
 
-The first is the moves worth trying. The phase 1 table of @foldtab is already
-folded by the 16 symmetries; the copy the search reads, #src("RowMask.v"),
-carries beside each distance the set of moves that bring the position nearer $H$
-and the set that at least do not take it further. Which set is wanted depends on
-how many moves the search has to spare. A node then offers 3 or 4 moves
-instead of 18. The entry is 28 bits, 2 to a machine word: 4
-bits of distance and 4 for each of the 6 faces. Written out one bit a move
-it would take 41. A half turn is a quarter turn twice, so the 2 moves
-of one face cannot differ by more than one step, which leaves 15 of the
-27 ways a face can go, and 15 fit in 4 bits.
+The cuts of levels 14 to 16 start when the map holds more than
+6 million bits. On this coset this is level 14. All these numbers are
+Rokicki's.
 
-The second is that the last move of a word is never a move of $H$. A
-word that ends in $H$ is a shorter one followed by moves of $H$, and the
-prepass has already applied those.
-
-The third is that low down, a move must go straight at $H$. Once the moves left
-and the distance to $H$ add up to less than 5, only the moves that shorten
-the distance by one are followed. A move that wastes a step down there ends in
-moves of $H$, so the prepass catches that word too.
-
-The fourth is where the search stops altogether. It runs on the first 16
-levels and not on the 4 above them, and on level 16 it does not even run
-out: it stops as soon as the map holds 167 million bits plus a third of what
-that level's prepass left. Those are Rokicki's numbers, and every published time
-of his was measured with them on. What is left is finished by the prepasses of
-levels 17 to 20.
-
-The second and third cuts only come on once the map holds more than 6 million
-bits, which on this coset is not before level 14, and that too is his
-rule.
-
-Every one of these 4 is safe, and safe in a way none of the cuts in the
-earlier sections were. There, a cut that lost a word would have lost the
-proof, and each one had to be shown to lose nothing. Here nothing is ever proved
-about what the search covers. What is proved is that the map filled. A cut that
-throws a word away can only make the map fill later, or leave a bit clear
-at the end -- it can never set a bit that should not be set. This is why a coset
-is easier to prove than a lower bound, and it is why the 4 cuts above needed
-no argument at all. The one thing that did need an argument is marking, which is
-the subsection above.
+These cuts can lose words. A word can waste a move early and still end
+in $H$. This is allowed. In the earlier sections, a cut that lost a word
+would have lost the proof. Here nothing is proved about what the search
+covers. What is proved is that every bit set is correct. A lost word
+only leaves a bit at 0, and then the final check fails. So the cuts
+need no argument.
 
 == The members left over
 
@@ -1282,6 +1226,22 @@ one mark its neighbours as within one, and they are not. Marking at the end is
 sound because the map is already sound at 20 when the marks go in.
 
 == The run, and its one boolean
+
+In #src("RowSrch.v") the run is 7 lines. It carries the map, the map it
+reads while it writes and the number of bits the last level left. This
+number decides whether the cuts of levels 14 to 16 are on.
+
+```coq
+Fixpoint runsk (n : nat) (d : nat) (n0 : int) (m dst : rmap) : rmap :=
+  if n is n1.+1 then
+    let m' := levelsk (Uint63.ltb ncutb n0) d.+1 m dst in
+    runsk n1 d.+1 (mcount m') m' m
+  else m.
+```
+
+`levelsk` is the level: the prepass first, then the search if this level
+is still being searched. Counting the bits, `mcount`, is a traversal of
+the whole map, and the run pays for it once a level.
 
 Everything above is one boolean. #src("RowFoldCubDefI.v") builds the map, runs
 the 20 levels, marks the 32 and asks whether every bit is set:
