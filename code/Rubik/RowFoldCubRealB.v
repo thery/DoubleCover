@@ -45,11 +45,11 @@ Proof. exact: bitleafE. Qed.
 
 Lemma yleaf_membB c y : ycoordP c y -> ypstok y -> yposp y \in G ->
   ycsolved c -> membok par8i par4i (bitleaf y).
-Proof. by move=> hc hy hg hs; rewrite (ybitleafE hy); exact: yleaf_membi. Qed.
+Proof. by move=> hc hy hg hs; rewrite (ybitleafE hy); exact: (yleaf_membi hc hy hg hs). Qed.
 
 Lemma yfleaf_posB c y : ycoordP c y -> ypstok y -> yposp y \in G ->
   ycsolved c -> posC (bitleaf y) = yposp y.
-Proof. by move=> hc hy hg hs; rewrite (ybitleafE hy); exact: yfleaf_posi. Qed.
+Proof. by move=> hc hy hg hs; rewrite (ybitleafE hy); exact: (yfleaf_posi hc hy hg hs). Qed.
 
 Section FCubRealB.
 
