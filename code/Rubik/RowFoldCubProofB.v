@@ -5,10 +5,28 @@
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
-Require Import Rubik333 Ball Diameter Moves Row RowMap RowFold RowFoldFinal.
-Require Import RowFoldSrch RowFoldSrchI RowFoldSrchIP RowFoldTab FoldTables.
-Require Import P1FTable RowMask RowReal RowWits.
-Require Import FsmChk RowFoldCubDef RowFoldCubProof RowFoldCubRealB RowFoldCubDefB.
+From Rubik Require Import ssrint63.
+Require Import Table Tabi Rubik333 Diameter Moves Ball.
+Require Import Coordfs Coordfsi Phase1.
+Require Import Cyc Sym Root Coord Sym16 Sym16Row.
+Require Import Row RowMap RowRun RowFinal RowInst.
+Require Import RowTabL RowTabP RowTab RowMemb RowLeaf.
+Require Import RowMoveH RowMoveM RowParity RowPartM.
+Require Import RowPartC RowPartU RowMoveC RowMoveU RowMembChk.
+Require Import RowUp8inv RowUp8ok RowUp4inv RowUp4ok RowPar8 RowPar4.
+Require Import RowWits RowWitsChk RowInH.
+Require Import P1Table.
+Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
+Require Import Lehmer RowCub RowCubi RowCubInst RowReal RowMembi FsmChk.
+Require Import Fold FoldTables P1Fdec P1FTable RowMask.
+Require Import RowFold RowFoldOk RowFoldMem RowFoldPart RowTabF RowFoldTab.
+Require Import RowFoldSym RowFoldConj RowFoldGath RowFoldSrc RowFoldLvl.
+Require Import RowFoldWrite RowFoldTot RowFoldPorb RowFoldSrch RowFoldRun.
+Require Import RowFoldEmpty RowFoldFinal RowFoldCubReal.
+Require Import RowFoldCubDef.
+
+Require Import RowFoldSrchI RowFoldSrchIP.
+Require Import RowFoldCubProof RowFoldCubRealB RowFoldCubDefB.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
