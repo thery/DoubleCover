@@ -214,6 +214,7 @@ RowBench13.v
 RowBench13b.v
 RowBenchLast.v
 RowBenchBuf.v
+RowBenchBuf2.v
 
 # THE RUN with the fast leaf (~hours): only ever by name
 RowFoldCubBoolB.v
