@@ -989,13 +989,13 @@ every position of $x H$ is at most 20 moves from solved.
 In this note, we are not going to tackle the problem 
 of how the representatives of the cosets are generated.
 We are going to prove the algorithm that checks 
-that every position of $x H$ is at most 20 moves from solved, for an arbitrary $x$,
-and as an application run it inside Rocq with $x$= superflip. This gives us that all the positions of 
+that , given an arbitrary $x$,
+every position of $x H$ is at most 20 moves from solved. As an applicatio, we then run it inside Rocq taking superflip for $x$. This gives us that all the positions of 
 the superflip coset are at distance at most 20.
 
 == Marking algorithm
 
-For checking that every position of one coset is at most 20 moves from solved,
+For checking that every position of a coset is at most 20 moves from solved,
 we use a _marking_ algorithm. Each position of $x H$ gets one bit.
 This bit is initially set to 0. The marking works iteratively. For each
 level $d$, from 0 to 20, we list the words of length $d$. A word gives a
@@ -1026,9 +1026,8 @@ parallel.
   ([cosets], [2 217 093 120]),
   ([positions in a coset], [19 508 428 800]),
 )
-Note that because of symmetries this number
-can be reduced to 138 639 780. This is what makes 
-this reduction.
+Note that because of symmetries the number of coset
+to check can be reduced to 138 639 780. This is what makes the final computation under 35 CPU years. 
 
 Checking membership for $x H$ is quick. A position $p$ is in $x H$ exactly
   when $x^(-1) p$ is in $H$, that is, when the summary of $x^(-1) p$ is
