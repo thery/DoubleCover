@@ -40,4 +40,4 @@ fi
 
 echo "--- Rocq, core $CORE: E1 13 prepasses empty, E2 run 12, E3 run 13 search 12, E4 run 13"
 make RowFoldCubDefB.vo
-taskset -c $CORE coqc -R . Rubik RowBench13.v 2>&1 | grep -v Warning | grep "Finished\|= "
+taskset -c $CORE coqc -R . Rubik RowBench13.v 2>&1 | grep -v "Warning\|notation-overridden\|^File .*characters"

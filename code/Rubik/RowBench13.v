@@ -16,12 +16,21 @@
 (* the last searched level the run uses the counting search (the early stop's *)
 (* one), in E2, E3 and E4 alike.  The first Eval is thrown away.              *)
 
-From mathcomp Require Import all_ssreflect.
+From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
 From Stdlib Require Import -(notations) PArray.
-Require Import RowFold RowFoldTab RowFoldSrchI RowFoldCubDef RowFoldCubDefB.
-Require Import Farp1 P1FTable RowMask RowCubi RowLeafFast RowInst FoldTables.
-Require Import P1Fdec.
+From Rubik Require Import ssrint63.
+Require Import Table Tabi Rubik333 Diameter Moves Ball.
+Require Import Coordfs Coordfsi Phase1.
+Require Import Row RowMap RowRun RowFinal RowInst.
+Require Import RowTabL RowTabP RowTab RowMemb RowMembi RowLeaf RowWits.
+Require Import Lehmer RowCub RowCubi.
+Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
+Require Import Fold FoldTables P1Fdec P1FTable RowMask.
+Require Import RowFold RowTabF RowFoldTab RowFoldSrch.
+Require Import RowFoldCubDef RowFoldSrchI.
+
+Require Import RowFoldCubDefB RowLeafFast.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
