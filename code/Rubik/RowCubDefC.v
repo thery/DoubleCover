@@ -21,6 +21,7 @@ Require Import P1Table RowReal.
 Require Import Fold FoldTables P1Fdec P1FTable RowMask RowSrch RowMark.
 Require Import RowLvl.
 Require Import RowLeafFast RowSrchC.
+Require Import RowCubDef.                             (* ishmi *)
 Require Import RowCoord RowCoordLeaf.
 
 Set Implicit Arguments.
