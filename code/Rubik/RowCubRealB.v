@@ -25,7 +25,7 @@ Require Import P1Table.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import Lehmer RowCub RowCubi RowCubInst.
 Require Import RowReal RowMembi RowMark RowSrch.
-Require Import RowSrchP RowCubReal RowFoldCubReal RowFoldCubRealB RowLeafFast.
+Require Import RowSrchP RowSrchC RowCubReal RowFoldCubReal RowFoldCubRealB RowLeafFast.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -62,8 +62,9 @@ Hypothesis hfm : fsmoveC.
 
 (* ---- the map the run leaves ---------------------------------------------- *)
 
+(* THE RUN IS RowSrchC's: the prepass only when the cuts are on, as the OCaml *)
 Definition ycmfinspB : rmap :=
-  runsk e8numi e4biti prep F frep fsym twsym dnlo dnhi fllo flhi
+  runskc e8numi e4biti prep F frep fsym twsym dnlo dnhi fllo flhi
         (RowInst.cstep actfsri) zstepi bitleaf okmvv ycsolved
         RowInst.croot yrooti srch ishm 20 0 0%uint63 (mkempty tt) (mkempty tt).
 
@@ -72,7 +73,7 @@ Lemma ycmfinspB_sound :
                  (RowFinal.pos (RowInst.ptab memb2tab)) ycmfinspB 20.
 Proof.
 rewrite /ycmfinspB -{2}[20%N]add0n.
-apply: (runsk_sound e8okC e4okC prep_eq ycoord_root yroot_ball yroot_pok
+apply: (runskc_sound e8okC e4okC prep_eq ycoord_root yroot_ball yroot_pok
           (ycoord_step (r_fsstepP hfm)) yxstep_pok yxstep_pos
           yleaf_membB yleaf_posPB
           RowInst.hmv_Sset (RowInst.grpmvP srcokC halfokC cflokC)

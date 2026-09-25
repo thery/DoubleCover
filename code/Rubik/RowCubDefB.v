@@ -21,7 +21,7 @@ Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import P1Table RowReal.
 Require Import Fold FoldTables P1Fdec P1FTable RowMask RowSrch RowMark.
 Require Import RowLvl.
-Require Import RowLeafFast.
+Require Import RowLeafFast RowSrchC.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -32,8 +32,9 @@ Notation rmap := (PArray.array arr).
 
 Local Open Scope uint63_scope.
 
+(* the level is RowSrchC's: the prepass only when the cuts are on           *)
 Definition rowmappiB (n : nat) : rmap :=
-  runski e8numi e4biti (prepassD cpgi cfli mgri mswi mloi mhii)
+  runskic e8numi e4biti (prepassD cpgi cfli mgri mswi mloi mhii)
          p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
          (RowInst.cstep actfsri) zstepi bitleaf okmvv ycsolved
          RowInst.croot yrooti srch ishmi

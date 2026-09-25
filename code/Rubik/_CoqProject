@@ -187,6 +187,10 @@ RowMark.v
 RowFoldCubDef.v
 RowFoldCubDefI.v
 RowFoldCubProof.v
+RowFoldRunC.v
+RowFoldSrchIC.v
+RowFoldFinalC.v
+RowSrchC.v
 RowFoldCubRealB.v
 RowFoldCubDefB.v
 RowFoldCubProofB.v

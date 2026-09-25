@@ -27,7 +27,7 @@ Require Import RowFold RowFoldOk RowFoldMem RowFoldPart RowTabF RowFoldTab.
 Require Import RowFoldSym RowFoldConj RowFoldGath RowFoldSrc RowFoldLvl.
 Require Import RowFoldWrite RowFoldTot RowFoldPorb RowFoldSrch RowFoldRun.
 Require Import RowFoldEmpty RowFoldFinal.
-Require Import RowFoldCubReal RowLeafFast.
+Require Import RowFoldCubReal RowLeafFast RowFoldRunC RowFoldFinalC.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -65,14 +65,16 @@ Variable ishm : int.
 
 (* ---- the map the run leaves, every optimization on ----------------------- *)
 
+(* THE RUN IS RowFoldRunC's: the prepass only when the cuts are on, as the   *)
+(* OCaml and hcoset do.                                                       *)
 Definition yfcmfinoB : rmap :=
-  fmfino F frep fsym twsym dnlo dnhi fllo flhi
+  fmfinoC F frep fsym twsym dnlo dnhi fllo flhi
          (RowInst.cstep actfsri) zstepi bitleaf okmvv ycsolved
          RowInst.croot yrooti srch 20 forb fpop ishm.
 
 Lemma yfcmfinoB_sound : soundatf fpgi fsgri fsbti (PdC 20) yfcmfinoB.
 Proof.
-refine (@fmfino_sound F frep fsym twsym dnlo dnhi fllo flhi
+refine (@fmfinoC_sound F frep fsym twsym dnlo dnhi fllo flhi
           arr (RowInst.cstep actfsri) zstepi bitleaf yposp okmvv
           ycsolved RowInst.croot yrooti srch 20 ycoordP ypstok
           ycoord_root yroot_ball yroot_pok

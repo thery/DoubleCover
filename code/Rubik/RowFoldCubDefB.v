@@ -3,7 +3,7 @@
 (* =========================================================================  *)
 
 (* RowFoldCubDefI's run with RowLeafFast's bitleaf at the leaf, and nothing   *)
-(* else changed.  Measured to depth fourteen on roquableu: 1 198 s against    *)
+(* else changed but the level.  Measured, before the level, to depth fourteen on roquableu: 1 198 s against    *)
 (* 2 573 s with the old leaf, the same 148 423 860 members.  No proof here.   *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
@@ -19,7 +19,7 @@ Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import Fold FoldTables P1Fdec P1FTable RowMask.
 Require Import RowFold RowTabF RowFoldTab RowFoldSrch.
 Require Import RowFoldCubDef RowFoldSrchI.
-Require Import RowLeafFast.
+Require Import RowLeafFast RowFoldSrchIC.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -30,8 +30,11 @@ Notation rmap := (PArray.array arr).
 
 Local Open Scope uint63_scope.
 
+(* THE LEVEL IS RowFoldSrchIC's: the prepass only when the cuts are on, as    *)
+(* the OCaml and hcoset do -- below six million members the search at that  *)
+(* level is complete and a prepass adds nothing.                             *)
 Definition rowmapiB (n : nat) : rmap :=
-  frunski e8numi e4biti fpgi fsrci fsrc2i ffuli fsgri fsloi fshii fsbti
+  frunskic e8numi e4biti fpgi fsrci fsrc2i ffuli fsgri fsloi fshii fsbti
           mgri mswi mloi mhii
           p1ftab frepi fsymi twsymi
           dnlo_data dnhi_data fllo_data flhi_data

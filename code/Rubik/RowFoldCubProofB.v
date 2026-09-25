@@ -25,7 +25,7 @@ Require Import RowFoldWrite RowFoldTot RowFoldPorb RowFoldSrch RowFoldRun.
 Require Import RowFoldEmpty RowFoldFinal RowFoldCubReal.
 Require Import RowFoldCubDef.
 
-Require Import RowFoldSrchI RowFoldSrchIP.
+Require Import RowFoldSrchI RowFoldSrchIP RowFoldRunC RowFoldSrchIC RowFoldFinalC.
 Require Import RowFoldCubProof RowFoldCubRealB RowFoldCubDefB.
 
 Set Implicit Arguments.
@@ -39,8 +39,8 @@ Lemma rowmapiBE : rowmapiB 20 =
   yfcmfinoB p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
             forbi fpopi ishmi.
 Proof.
-rewrite /yfcmfinoB /fmfino -okmvvdE -ycsolveddE -srchdE.
-by apply: frunski_eq.
+rewrite /yfcmfinoB /fmfinoC -okmvvdE -ycsolveddE -srchdE.
+by apply: frunskic_eq.
 Qed.
 
 Lemma rowfulliBEq : rowfulliB =

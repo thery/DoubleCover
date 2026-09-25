@@ -15,7 +15,7 @@ Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import P1Table RowReal FsmChk.
 Require Import Fold FoldTables P1Fdec P1FTable RowMask.
 Require Import RowSrch RowMark RowLvl RowCubReal RowCubDef.
-Require Import RowSrchP RowCubRealB RowCubDefB.
+Require Import RowSrchP RowSrchC RowCubRealB RowCubDefB.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -27,7 +27,7 @@ Import GroupScope.
 Lemma rowmappiBE : rowmappiB 20 =
   ycmfinspB p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
             ishmi (prepassD cpgi cfli mgri mswi mloi mhii).
-Proof. by rewrite /rowmappiB /ycmfinspB; apply: runski_eq. Qed.
+Proof. by rewrite /rowmappiB /ycmfinspB; apply: runskic_eq. Qed.
 
 Lemma rowwitspiBE : rowwitspiB =
   ycwitsrB p1ftab frepi fsymi twsymi dnlo_data dnhi_data fllo_data flhi_data
