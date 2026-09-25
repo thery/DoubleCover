@@ -13,6 +13,10 @@
 From mathcomp Require Import all_ssreflect.
 From Stdlib Require Import Uint63.
 
+Set Implicit Arguments.
+Unset Strict Implicit.
+Unset Printing Implicit Defensive.
+
 Local Open Scope uint63_scope.
 
 Fixpoint ifold (A : Type) (n : nat) (x : int) (f : int -> A -> A) (a : A) : A :=
