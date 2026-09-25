@@ -194,9 +194,13 @@ RowSrchC.v
 RowFoldCubRealB.v
 RowFoldCubDefB.v
 RowFoldCubProofB.v
+RowFoldCubDefC.v
+RowFoldCubProofC.v
 RowCubRealB.v
 RowCubDefB.v
 RowCubProofB.v
+RowCubDefC.v
+RowCubProofC.v
 RowCubDef.v
 RowCubReal.v
 RowCubProof.v
@@ -218,9 +222,22 @@ RowBenchBuf2.v
 RowBenchTab.v
 RowCoord.v
 RowBenchCoord.v
+RowCoordOk.v
+RowCoordEdge.v
+RowCoordLeaf.v
+RowCoordStep.v
+RowCoordGuard.v
+RowFoldSim.v
+RowSrchSim.v
+RowCoordRun.v
+RowBenchCoordP.v
 
 # THE RUN with the fast leaf (~hours): only ever by name
 RowFoldCubBoolB.v
 RowFoldCubDoneB.v
+RowFoldCubBoolC.v
+RowFoldCubDoneC.v
 RowCubBoolB.v
 RowCubDoneB.v
+RowCubBoolC.v
+RowCubDoneC.v
