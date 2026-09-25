@@ -1020,14 +1020,17 @@ $H$ are other nice properties.
 $H$ contains exactly 19 508 428 800 positions. So a coset is 19 508 428 800 bits,
 about 2.4 GB. This fits in the memory of a desktop machine. There are
 2 217 093 120 cosets. So up to 2 217 093 120 problems can be run in
-parallel.
-
+parallel. 
 #tbl(([], [count]),
   ([positions of the cube], [43 252 003 274 489 856 000]),
   ([cosets], [2 217 093 120]),
   ([positions in a coset], [19 508 428 800]),
 )
-Checking membership for $xH$ is quick. A position $p$ is in $x H$ exactly
+Note that because of symmetries this number
+can be reduced to 404044004. This is what makes 
+this reduction.
+
+Checking membership for $x$$H$ is quick. A position $p$ is in $x H$ exactly
   when $x^(-1) p$ is in $H$, that is, when the summary of $x^(-1) p$ is
   the solved one. The bit of a position $x h$ of the coset is indexed by
   $h$. So we start our enumeration of the words of length $d$ from
@@ -1038,7 +1041,6 @@ Checking membership for $xH$ is quick. A position $p$ is in $x H$ exactly
 The phase 1 table gives us the distance to the solved summary is known. For a position, this is the number of moves needed to bring it into $H$. We use it to cut the enumeration, as in the search of @lowerbound. 
 Remember with start with $x^-1$.We
 build the words of length $d$ one move at a time. Say $k$ moves have been applied to produce $x^-1$$w$, and the table gives for $x^-1$$w$ $t$. If $k + t > d$, no word that continues from there can end in $H$ after $d$ moves : its summary is too high. So we can drop this branch. 
-
 
 == The coset as one map
 
