@@ -282,6 +282,9 @@ row: rubik_row_nofold
 rubik_row_fold: rubik_row_fold.ml
 	$(OCAMLOPT) $< -o $@
 
+rubik_row_exp: rubik_row_exp.ml
+	$(OCAMLOPT) $< -o $@
+
 # The same table folded by the sixteen renamings: 64 430 kept ranks of
 # 1 013 760, so 563 MB where writing every state out costs 17.7 GB.  It is
 # read out of phase1_cap$(ROWCAP).tbl, which is the only thing that needs it.

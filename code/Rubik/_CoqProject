@@ -202,6 +202,7 @@ RowLeafRun14.v
 RowShiftRun14.v
 RowDivBench.v
 RowLeafRun16.v
+RowRun13.v
 
 # THE RUN with the fast leaf (~hours): only ever by name
 RowFoldCubBoolB.v
