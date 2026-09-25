@@ -230,7 +230,7 @@ End FSrchB.
 (* twenty writes, and no make                                                 *)
 Definition zstepb (x : arr) (k : int) (b : arr) : arr :=
   let base := k * nsmli in
-  foldi 20 0
+  Tabi.foldi 20 0
     (setf (fun j => PArray.get tturni
                       (PArray.get offi (base + j)
                        + PArray.get x (PArray.get ymvpi (base + j)))))
