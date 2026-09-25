@@ -188,9 +188,11 @@ RowFoldCubDefI.v
 RowCubDef.v
 RowCubReal.v
 RowCubProof.v
+RowLeafFast.v
 
 # benches: they run when built, so only ever by name: make RowShiftRun14.vo
 RowLeafBench.v
 RowStepBench.v
 RowLeafRun14.v
 RowShiftRun14.v
+RowDivBench.v
