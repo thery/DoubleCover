@@ -1035,7 +1035,7 @@ Checking membership for $x H$ is quick. A position $p$ is in $x H$ exactly
   the solved one. The bit of a position $x h$ of the coset is indexed by
   $h$. So we start our enumeration of the words of length $d$ from
   $x^(-1)$. We apply the $d$ moves of a word. If the position $h$ we
-  reach is in $H$, i.e. if its summary is 1, 
+  reach is in $H$, i.e. if its summary is the solved one, 
   we set the bit of $h$.
 
 The phase 1 table gives us the distance to the solved summary. For a position, this is the number of moves needed to bring it into $H$. We use it to cut the enumeration, as in the search of @lowerbound. 
