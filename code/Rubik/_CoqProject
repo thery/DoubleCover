@@ -232,6 +232,7 @@ RowFoldSim.v
 RowSrchSim.v
 RowCoordRun.v
 RowBenchCoordP.v
+RowBenchCount.v
 
 # THE RUN with the fast leaf (~hours): only ever by name
 RowFoldCubBoolB.v
