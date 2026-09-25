@@ -129,6 +129,7 @@ RowDummy.v
 
 # the folded run, built by name: make RowFoldCubDefI.vo
 P1Fold.v
+P1Fdec.v
 P1F_00.v
 P1F_01.v
 P1F_02.v
@@ -185,6 +186,7 @@ RowSrchP.v
 RowMark.v
 RowFoldCubDef.v
 RowFoldCubDefI.v
+RowFoldCubProof.v
 RowFoldCubRealB.v
 RowFoldCubDefB.v
 RowFoldCubProofB.v
