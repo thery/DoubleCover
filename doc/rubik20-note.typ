@@ -981,13 +981,13 @@ about two thirds of what the searches cost.
 So far we have dealt with lower bounds. This section is about the upper
 bound. Every position of the cube is solved in 20 moves or fewer. The idea of the big computation is the following.
 Take a subgroup $H$ of $G$. Every position $p$ lies in
-exactly one coset $x$$H$. 
-So the problem of proveing that the
+exactly one coset $x H$. 
+So the problem of proving that the
 diameter of $G$ is 20 is reduced to a bunch of 
-independent smaller problems :
-the diameter  of $x$$H$ is 20.
+independent smaller problems:
+the diameter of $x H$ is 20.
 In this note, we are not going to tackle the problem 
-of how the representative of coset are generated.
+of how the representatives of the cosets are generated.
 We are going to prove the algorithm that checks 
 that the diameter of $x$ is 20 for an arbitrary $x$
 and as an application run it inside Rocq with $x$= superflip. This gives us that all the positions of 
@@ -1004,7 +1004,7 @@ the bits set to 1 are exactly the positions of $x H$ within 20 moves. If
 no bit is left at 0, every position of the coset is solved in 20 moves
 or fewer. 
 
-== Chosing $H$
+== Choosing $H$
 
 To derive an effective marking algorithm, the choice 
 of the subgroup $H$ is crucial. The one we chose is 
@@ -1012,11 +1012,11 @@ the one that is associated with the phase 1 summary.
 It is easy to check that applying 
 10 of the 18 moves (`U`, `U2`,
 `U'`, `D`, `D2`, `D'`, `R2`, `L2`, `F2` and `B2`)
-to a position does not its summary.
+to a position does not change its summary.
 In fact, if we take $H$ as the subgroup generated
-by this 10 moves, elements of $x$$H$ are exactly 
-the position that have the same summary than $x$.
-$H$ are other nice properties.
+by these 10 moves, the elements of $x H$ are exactly
+the positions that have the same summary as $x$.
+$H$ has other nice properties.
 $H$ contains exactly 19 508 428 800 positions. So a coset is 19 508 428 800 bits,
 about 2.4 GB. This fits in the memory of a desktop machine. There are
 2 217 093 120 cosets. So up to 2 217 093 120 problems can be run in
@@ -1030,17 +1030,17 @@ Note that because of symmetries this number
 can be reduced to 404044004. This is what makes 
 this reduction.
 
-Checking membership for $x$$H$ is quick. A position $p$ is in $x H$ exactly
+Checking membership for $x H$ is quick. A position $p$ is in $x H$ exactly
   when $x^(-1) p$ is in $H$, that is, when the summary of $x^(-1) p$ is
   the solved one. The bit of a position $x h$ of the coset is indexed by
   $h$. So we start our enumeration of the words of length $d$ from
   $x^(-1)$. We apply the $d$ moves of a word. If the position $h$ we
-  reach is in $H$, i.e. if it is summary is 1, 
+  reach is in $H$, i.e. if its summary is 1, 
   we set the bit of $h$.
 
-The phase 1 table gives us the distance to the solved summary is known. For a position, this is the number of moves needed to bring it into $H$. We use it to cut the enumeration, as in the search of @lowerbound. 
-Remember with start with $x^-1$.We
-build the words of length $d$ one move at a time. Say $k$ moves have been applied to produce $x^-1$$w$, and the table gives for $x^-1$$w$ $t$. If $k + t > d$, no word that continues from there can end in $H$ after $d$ moves : its summary is too high. So we can drop this branch. 
+The phase 1 table gives us the distance to the solved summary. For a position, this is the number of moves needed to bring it into $H$. We use it to cut the enumeration, as in the search of @lowerbound. 
+Remember that we start from $x^(-1)$. We
+build the words of length $d$ one move at a time. Say $k$ moves have been applied to produce $x^(-1) w$, and the table gives $t$ for $x^(-1) w$. If $k + t > d$, no word that continues from there can end in $H$ after $d$ moves: its distance is too high. So we can drop this branch. 
 
 == The coset as one map
 
