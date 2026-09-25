@@ -185,6 +185,9 @@ RowSrchP.v
 RowMark.v
 RowFoldCubDef.v
 RowFoldCubDefI.v
+RowFoldCubRealB.v
+RowFoldCubDefB.v
+RowFoldCubProofB.v
 RowCubDef.v
 RowCubReal.v
 RowCubProof.v
@@ -196,3 +199,8 @@ RowStepBench.v
 RowLeafRun14.v
 RowShiftRun14.v
 RowDivBench.v
+RowLeafRun16.v
+
+# THE RUN with the fast leaf (~hours): only ever by name
+RowFoldCubBoolB.v
+RowFoldCubDoneB.v
