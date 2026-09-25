@@ -94,6 +94,41 @@ Fixpoint bench (f : arr -> memb) (r : nat) (acc : int) : int :=
                      (fun i s => s + msum (f (PArray.get sample i))) acc)
   else acc.
 
+(* ---- two more leaves: no division, and no closure ----------------------- *)
+
+(* A RANK ONLY COMPARES.  3 * cubie + twist orders two different cubies the   *)
+(* way the cubies do, and so does 2 * cubie + flip, and taking 8 off the      *)
+(* middle four moves none of them past another.  So the ranks can be read on  *)
+(* the twenty as they are: no division at all.                               *)
+Definition rawleaf (y : arr) : memb :=
+  (rank8i (fun p => PArray.get y p),
+   rank8i (fun p => PArray.get y (8 + p)),
+   rank4i (fun p => PArray.get y (16 + p))).
+
+(* and the same rank as the OCaml's: the array read in place, no function     *)
+(* called for each comparison                                                 *)
+Definition rankA (a : arr) (off : int) (nn : nat) (ni : int) : int :=
+  ifold nn 0
+    (fun i r =>
+       let ai := PArray.get a (off + i) in
+       let c := ifold nn 0
+                  (fun j c => if i <? j then
+                                (if PArray.get a (off + j) <? ai then c + 1 else c)
+                              else c) 0 in
+       r * (ni - i) + c) 0.
+
+Definition arrleaf (y : arr) : memb :=
+  (rankA y 0 8 8, rankA y 8 8 8, rankA y 16 4 4).
+
+Definition agree2 : bool :=
+  alli 10000 0 (fun i => eqm (rawleaf (PArray.get sample i))
+                             (oldleaf (PArray.get sample i)))
+  && alli 10000 0 (fun i => eqm (arrleaf (PArray.get sample i))
+                                (oldleaf (PArray.get sample i))).
+
+(* IT MUST PRINT true TOO *)
+Eval vm_compute in agree2.
+
 (* the floor: the same loop, a leaf that reads one entry                      *)
 Definition noleaf (y : arr) : memb := (PArray.get y 0, 0, 0).
 
@@ -108,3 +143,9 @@ Time Eval native_compute in bench oldleaf 300 0.
 
 Time Eval native_compute in bench dirleaf 100 0.
 Time Eval native_compute in bench dirleaf 300 0.
+
+Time Eval native_compute in bench rawleaf 100 0.
+Time Eval native_compute in bench rawleaf 300 0.
+
+Time Eval native_compute in bench arrleaf 100 0.
+Time Eval native_compute in bench arrleaf 300 0.
