@@ -129,6 +129,49 @@ Definition agree2 : bool :=
 (* IT MUST PRINT true TOO *)
 Eval vm_compute in agree2.
 
+(* ---- and the rank with a bit mask ---------------------------------------- *)
+
+(* A piece's count is its value less the values already seen below it.  The  *)
+(* values seen are a mask of eight bits, so that count is one read of a       *)
+(* popcount table, and a rank is n steps with no inner loop.  It needs the    *)
+(* values to be 0 .. n-1, which the three tables below make them: the cubie   *)
+(* of a corner, of an outer edge, of a middle edge less eight.  The mask and  *)
+(* the rank so far share one int, the mask in the low eight bits.            *)
+Definition mkt (f : int -> int) : arr :=
+  ifold 24 0 (fun v a => PArray.set a v (f v)) (PArray.make 24 0).
+Definition cq : arr := Eval vm_compute in mkt (fun v => v / 3).
+Definition eq2 : arr := Eval vm_compute in mkt (fun v => v / 2).
+Definition mq : arr :=
+  Eval vm_compute in mkt (fun v => if 16 <=? v then v / 2 - 8 else 0).
+Definition pop8 : arr := Eval vm_compute in
+  ifold 256 0 (fun s a => PArray.set a s
+     (ifold 8 0 (fun b c => c + ((s >> b) land 1)) 0)) (PArray.make 256 0).
+
+Definition rankB (tbl a : arr) (off : int) (nn : nat) (ni : int) : int :=
+  Uint63.lsr
+    (ifold nn 0
+      (fun i st =>
+         let v := PArray.get tbl (PArray.get a (Uint63.add off i)) in
+         let bv := Uint63.lsl 1 v in
+         let seen := Uint63.land st 255 in
+         let c := Uint63.sub v
+                    (PArray.get pop8 (Uint63.land seen (Uint63.sub bv 1))) in
+         Uint63.lor
+           (Uint63.lsl (Uint63.add (Uint63.mul (Uint63.lsr st 8)
+                                               (Uint63.sub ni i)) c) 8)
+           (Uint63.lor seen bv))
+      0) 8.
+
+Definition bitleaf (y : arr) : memb :=
+  (rankB cq y 0 8 8, rankB eq2 y 8 8 8, rankB mq y 16 4 4).
+
+Definition agree3 : bool :=
+  alli 10000 0 (fun i => eqm (bitleaf (PArray.get sample i))
+                             (oldleaf (PArray.get sample i))).
+
+(* IT MUST PRINT true TOO *)
+Eval vm_compute in agree3.
+
 (* the floor: the same loop, a leaf that reads one entry                      *)
 Definition noleaf (y : arr) : memb := (PArray.get y 0, 0, 0).
 
@@ -149,3 +192,6 @@ Time Eval native_compute in bench rawleaf 300 0.
 
 Time Eval native_compute in bench arrleaf 100 0.
 Time Eval native_compute in bench arrleaf 300 0.
+
+Time Eval native_compute in bench bitleaf 100 0.
+Time Eval native_compute in bench bitleaf 300 0.
