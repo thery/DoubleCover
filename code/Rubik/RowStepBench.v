@@ -40,17 +40,21 @@ Fixpoint ifold (A : Type) (n : nat) (x : int) (f : int -> A -> A) (a : A) : A :=
 
 (* the moves: a small generator, the same on both sides, so the walk does not *)
 (* fall into a short cycle                                                    *)
-Definition rnd (s : int) : int := land (s * 1103515245 + 12345) 1073741823.
-Definition mvof (s : int) : int := (s >> 16) mod 18.
+Definition rnd (s : int) : int :=
+  Uint63.land (Uint63.add (Uint63.mul s 1103515245) 12345) 1073741823.
+Definition mvof (s : int) : int := Uint63.mod (Uint63.lsr s 16) 18.
 
 (* ---- the run's way: one packed number ------------------------------------ *)
 
 Definition stepP (c k : int) : int * int :=
-  let c' := RowInst.cstep actfsri c k in
+  (* RowInst.cstep actfsri, written out: ctw is the division, cfs the modulo  *)
+  let c' := Uint63.add (Uint63.mul (acttwii (Uint63.div c nfsi) k) nfsi)
+                       (actfsri (Uint63.mod c nfsi) k) in
   let tw := c' / nfsi in
   (c', Dfoldm p1ftab frepi fsymi twsymi tw (c' - tw * nfsi)).
 
-(* state: the generator, the coordinate, the sum of the table entries read    *)
+(* state: the generator, the coordinate, the sum of the table entries read.  *)
+(* Both walks start at coordinate 0: any rank is a state the tables know.    *)
 Definition walkP (n : nat) : int :=
   let: (_, _, a) :=
     ifold n 0
@@ -59,7 +63,7 @@ Definition walkP (n : nat) : int :=
          let s' := rnd s in
          let: (c', w) := stepP c (mvof s') in
          (s', c', a + mdist w))
-      (1, csolvedci, 0) in a.
+      (1, 0, 0) in a.
 
 (* ---- the OCaml's way: the two halves apart ------------------------------- *)
 
@@ -76,7 +80,7 @@ Definition walkH (n : nat) : int :=
          let s' := rnd s in
          let: (tw', fs', w) := stepH tw fs (mvof s') in
          (s', tw', fs', a + mdist w))
-      (1, 0, csolvedci, 0) in a.
+      (1, 0, 0, 0) in a.
 
 (* ---- the floor: the walk with no step at all ----------------------------- *)
 
