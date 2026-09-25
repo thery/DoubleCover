@@ -170,6 +170,320 @@ Local Notation runski := (RowSrch.runski e8num e4bit prep
                             cstep xstep tomemb okmv csolved croot sroot
                             dsrch ishm).
 
+(* ---- hcoset's last level --------------------------------------------------- *)
+
+(* As in RowFoldRunC: at the last move the child is handed straight to the    *)
+(* search at nought -- the solved test and the mark -- with no table read.    *)
+(* Soundness is srchk_sound at nought; the int searches are equal to these.   *)
+
+Fixpoint srchkL (cut : bool) (togo : nat) (c : int) (x : pst) (msk pv : int)
+               (m : rmap) : rmap :=
+  if togo is togo'.+1 then
+    if togo' is 0 then
+      ifold nmvn 0
+        (fun k m' =>
+           if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then m'
+           else if ~~ okmv pv k then m'
+           else if (if cut then ~~ Uint63.eqb (Uint63.land ishm (Uint63.lsl 1 k)) 0
+                    else false)
+           then m'
+           else srchk cut 0 (cstep c k) (xstep x k) 0 k m')
+        m
+    else
+    ifold nmvn 0
+      (fun k m' =>
+         if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then m'
+         else if ~~ okmv pv k then m'
+         else if (if cut
+                  then (if (togo' == 0)%N
+                        then ~~ Uint63.eqb (Uint63.land ishm
+                                              (Uint63.lsl 1 k)) 0
+                        else false)
+                  else false)
+         then m'
+         else
+           let c' := cstep c k in
+           let w := p1g c' in
+           let nd := Uint63.to_nat (wdist w) in
+           if [&& (nd <= togo')%N
+               & [|| ~~ cut, (nd == togo')%N | (rcuti <= togo' + nd)%N]]
+           then srchkL cut togo' c' (xstep x k) (wmask w (togo' - nd)) k m'
+           else m')
+      m
+  else srchk cut 0 c x msk pv m.
+
+Fixpoint srchskL (cut : bool) (togo : nat) (c : int) (x : pst) (msk pv : int)
+                (enough : int) (mn : rmap * int) : rmap * int :=
+  if Uint63.leb enough mn.2 then mn
+  else if togo is togo'.+1 then
+    if togo' is 0 then
+      ifold nmvn 0
+        (fun k a =>
+           if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then a
+           else if ~~ okmv pv k then a
+           else if (if cut then ~~ Uint63.eqb (Uint63.land ishm (Uint63.lsl 1 k)) 0
+                    else false)
+           then a
+           else srchsk cut 0 (cstep c k) (xstep x k) 0 k enough a)
+        mn
+    else
+    ifold nmvn 0
+      (fun k a =>
+         if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then a
+         else if ~~ okmv pv k then a
+         else if (if cut
+                  then (if (togo' == 0)%N
+                        then ~~ Uint63.eqb (Uint63.land ishm
+                                              (Uint63.lsl 1 k)) 0
+                        else false)
+                  else false)
+         then a
+         else
+           let c' := cstep c k in
+           let w := p1g c' in
+           let nd := Uint63.to_nat (wdist w) in
+           if [&& (nd <= togo')%N
+               & [|| ~~ cut, (nd == togo')%N | (rcuti <= togo' + nd)%N]]
+           then srchskL cut togo' c' (xstep x k) (wmask w (togo' - nd)) k
+                       enough a
+           else a)
+      mn
+  else srchsk cut 0 c x msk pv enough mn.
+
+Fixpoint srchkiL (cut : bool) (togo : nat) (togoi : int) (c : int) (x : pst)
+                (msk pv : int) (m : rmap) : rmap :=
+  if togo is togo'.+1 then
+    if togo' is 0 then
+      ifold nmvn 0
+        (fun k m' =>
+           if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then m'
+           else if ~~ okmv pv k then m'
+           else if (if cut then ~~ Uint63.eqb (Uint63.land ishm (Uint63.lsl 1 k)) 0
+                    else false)
+           then m'
+           else srchki cut 0 0 (cstep c k) (xstep x k) 0 k m')
+        m
+    else
+    let togoi' := Uint63.sub togoi 1 in
+    ifold nmvn 0
+      (fun k m' =>
+         if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then m'
+         else if ~~ okmv pv k then m'
+         else if (if cut
+                  then (if (togo' == 0)%N
+                        then ~~ Uint63.eqb (Uint63.land ishm
+                                              (Uint63.lsl 1 k)) 0
+                        else false)
+                  else false)
+         then m'
+         else
+           let c' := cstep c k in
+           let w := p1g c' in
+           let nd := wdist w in
+           (* && is a function and native_compute is call by value, so        *)
+           (* a conjunction pays all its tests at every node.  Nested,        *)
+           (* the cut test is reached only by a node that passes two.         *)
+           if (if nd <=? togoi'
+               then (if cut
+                     then (if nd =? togoi' then true
+                           else rcutii <=? Uint63.add togoi' nd)
+                     else true)
+               else false)
+           then srchkiL cut togo' togoi' c' (xstep x k)
+                       (wmask w (sslack (Uint63.sub togoi' nd))) k m'
+           else m')
+      m
+  else srchki cut 0 togoi c x msk pv m.
+
+Fixpoint srchskiL (cut : bool) (togo : nat) (togoi : int) (c : int) (x : pst)
+                 (msk pv : int) (enough : int) (mn : rmap * int)
+                 : rmap * int :=
+  if Uint63.leb enough mn.2 then mn
+  else if togo is togo'.+1 then
+    if togo' is 0 then
+      ifold nmvn 0
+        (fun k a =>
+           if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then a
+           else if ~~ okmv pv k then a
+           else if (if cut then ~~ Uint63.eqb (Uint63.land ishm (Uint63.lsl 1 k)) 0
+                    else false)
+           then a
+           else srchski cut 0 0 (cstep c k) (xstep x k) 0 k enough a)
+        mn
+    else
+    let togoi' := Uint63.sub togoi 1 in
+    ifold nmvn 0
+      (fun k a =>
+         if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then a
+         else if ~~ okmv pv k then a
+         else if (if cut
+                  then (if (togo' == 0)%N
+                        then ~~ Uint63.eqb (Uint63.land ishm
+                                              (Uint63.lsl 1 k)) 0
+                        else false)
+                  else false)
+         then a
+         else
+           let c' := cstep c k in
+           let w := p1g c' in
+           let nd := wdist w in
+           (* && is a function and native_compute is call by value, so        *)
+           (* a conjunction pays all its tests at every node.  Nested,        *)
+           (* the cut test is reached only by a node that passes two.         *)
+           if (if nd <=? togoi'
+               then (if cut
+                     then (if nd =? togoi' then true
+                           else rcutii <=? Uint63.add togoi' nd)
+                     else true)
+               else false)
+           then srchskiL cut togo' togoi' c' (xstep x k)
+                        (wmask w (sslack (Uint63.sub togoi' nd))) k enough a
+           else a)
+      mn
+  else srchski cut 0 togoi c x msk pv enough mn.
+
+Lemma lastL_ball x k d : (to_nat k < nmvn)%N -> pstok x -> (1 <= d)%N ->
+  posp x \in ball Sset (d - 1) -> posp (xstep x k) \in ball Sset (d - 0).
+Proof.
+move=> hk hp hd hb; rewrite (xstep_pos hk hp) subn0 -(subnK hd) addn1.
+by apply: ball_step; [exact: hb | apply: mv_Sset; exact: hk].
+Qed.
+
+Lemma srchkL_sound cut togo c x msk pv m d :
+  (togo <= d)%N -> coordP c x -> pstok x ->
+  soundat m d -> posp x \in ball Sset (d - togo) ->
+  soundat (srchkL cut togo c x msk pv m) d.
+Proof.
+elim: togo c x msk pv m => [|togo ih] c x msk pv m hdt hc hp hm hb.
+  apply: srchk_sound; try eassumption.
+case: togo ih hdt hb => [|togo] ih hdt hb.
+  apply: (@ifold_indi _ (fun m' => soundat m' d)); [| |exact: hm].
+    by apply: ltnW; apply: (@ltn_nwB 5).
+  move=> k m' hk hm'.
+  case: ifP => _; first exact: hm'.
+  case: ifP => _; first exact: hm'.
+  case: ifP => _; first exact: hm'.
+  apply: srchk_sound; try eassumption.
+  - exact: leq0n.
+  - exact: coord_step.
+  - exact: xstep_pok.
+  exact: lastL_ball.
+apply: (@ifold_indi _ (fun m' => soundat m' d)); [| |exact: hm].
+  by apply: ltnW; apply: (@ltn_nwB 5).
+move=> k m' hk hm'.
+case: ifP => _; first exact: hm'.
+case: ifP => _; first exact: hm'.
+case: ifP => _; first exact: hm'.
+cbv zeta; case: ifP => hle; last exact: hm'.
+apply: (ih _ _ _ _ _ _ (coord_step hk hp hc) (xstep_pok hk hp) hm');
+    first by apply: ltnW.
+rewrite (xstep_pos hk hp) -(subnSK hdt).
+by apply: ball_step; [exact: hb | apply: mv_Sset; exact: hk].
+Qed.
+
+Lemma srchskL_sound cut togo c x msk pv enough mn d :
+  (togo <= d)%N -> coordP c x -> pstok x ->
+  soundat mn.1 d -> posp x \in ball Sset (d - togo) ->
+  soundat (srchskL cut togo c x msk pv enough mn).1 d.
+Proof.
+elim: togo c x msk pv mn => [|togo ih] c x msk pv mn hdt hc hp hm hb.
+  rewrite /srchskL; case: ifP => _; first exact: hm.
+  apply: srchsk_sound; try eassumption.
+rewrite /srchskL -/srchskL; case: ifP => _; first exact: hm.
+case: togo ih hdt hb => [|togo] ih hdt hb.
+  apply: (@ifold_indi _ (fun a => soundat a.1 d)); [| |exact: hm].
+    by apply: ltnW; apply: (@ltn_nwB 5).
+  move=> k a hk ha.
+  case: ifP => _; first exact: ha.
+  case: ifP => _; first exact: ha.
+  case: ifP => _; first exact: ha.
+  apply: srchsk_sound; try eassumption.
+  - exact: leq0n.
+  - exact: coord_step.
+  - exact: xstep_pok.
+  exact: lastL_ball.
+apply: (@ifold_indi _ (fun a => soundat a.1 d)); [| |exact: hm].
+  by apply: ltnW; apply: (@ltn_nwB 5).
+move=> k a hk ha.
+case: ifP => _; first exact: ha.
+case: ifP => _; first exact: ha.
+case: ifP => _; first exact: ha.
+cbv zeta; case: ifP => hle; last exact: ha.
+apply: (ih _ _ _ _ _ _ (coord_step hk hp hc) (xstep_pok hk hp) ha);
+    first by apply: ltnW.
+rewrite (xstep_pos hk hp) -(subnSK hdt).
+by apply: ball_step; [exact: hb | apply: mv_Sset; exact: hk].
+Qed.
+
+Lemma srchkiL_eq cut togo :
+  forall togoi c x msk pv m, to_nat togoi = togo -> (togo <= 63)%N ->
+  srchkiL cut togo togoi c x msk pv m = srchkL cut togo c x msk pv m.
+Proof.
+elim: togo => [|togo ih] togoi c x msk pv m htg hb.
+  by rewrite /srchkiL /srchkL; apply: srchki_eq.
+case: togo ih htg hb => [|togo] ih htg hb.
+  rewrite /srchkiL /srchkL; apply: ifold_eqf => k m'.
+  case: ifP => _; first by [].
+  case: ifP => _; first by [].
+  case: ifP => _; first by [].
+  by apply: srchki_eq.
+rewrite /srchkiL -/srchkiL /srchkL -/srchkL.
+cbv zeta; apply: ifold_eqf => k m'.
+have hbd : (to_nat togoi < nwB)%N := to_nat_bounded togoi.
+have h1t : (to_nat 1 <= to_nat togoi)%N by rewrite to_nat_1 htg.
+have htg' : to_nat (Uint63.sub togoi 1) = togo.+1.
+  by rewrite (to_nat_sub togoi 1 h1t hbd) to_nat_1 htg subn1.
+have ht62 : (togo.+1 <= 62)%N by rewrite -ltnS.
+case: ifP => _; first by [].
+case: ifP => _; first by [].
+case: ifP => _; first by [].
+set w := mdist _.
+rewrite (condE cut w htg' ht62).
+case: ifP => hif; last by [].
+have hbd' : (to_nat (Uint63.sub togoi 1) < nwB)%N :=
+  to_nat_bounded (Uint63.sub togoi 1).
+have hwle : (to_nat w <= to_nat (Uint63.sub togoi 1))%N.
+  by rewrite htg'; move: hif => /andP[].
+rewrite mmaskiE (to_nat_sub (Uint63.sub togoi 1) w hwle hbd') htg'.
+by apply: ih; [exact: htg' | exact: ltnW].
+Qed.
+
+Lemma srchskiL_eq cut togo :
+  forall togoi c x msk pv enough mn, to_nat togoi = togo -> (togo <= 63)%N ->
+  srchskiL cut togo togoi c x msk pv enough mn
+  = srchskL cut togo c x msk pv enough mn.
+Proof.
+elim: togo => [|togo ih] togoi c x msk pv enough mn htg hb.
+  rewrite /srchskiL /srchskL; case: ifP => _; first by [].
+  by apply: srchski_eq.
+rewrite /srchskiL -/srchskiL /srchskL -/srchskL.
+case: ifP => _; first by [].
+case: togo ih htg hb => [|togo] ih htg hb.
+  apply: ifold_eqf => k a.
+  case: ifP => _; first by [].
+  case: ifP => _; first by [].
+  case: ifP => _; first by [].
+  by apply: srchski_eq.
+cbv zeta; apply: ifold_eqf => k a.
+have hbd : (to_nat togoi < nwB)%N := to_nat_bounded togoi.
+have h1t : (to_nat 1 <= to_nat togoi)%N by rewrite to_nat_1 htg.
+have htg' : to_nat (Uint63.sub togoi 1) = togo.+1.
+  by rewrite (to_nat_sub togoi 1 h1t hbd) to_nat_1 htg subn1.
+have ht62 : (togo.+1 <= 62)%N by rewrite -ltnS.
+case: ifP => _; first by [].
+case: ifP => _; first by [].
+case: ifP => _; first by [].
+set w := mdist _.
+rewrite (condE cut w htg' ht62).
+case: ifP => hif; last by [].
+have hbd' : (to_nat (Uint63.sub togoi 1) < nwB)%N :=
+  to_nat_bounded (Uint63.sub togoi 1).
+have hwle : (to_nat w <= to_nat (Uint63.sub togoi 1))%N.
+  by rewrite htg'; move: hif => /andP[].
+rewrite mmaskiE (to_nat_sub (Uint63.sub togoi 1) w hwle hbd') htg'.
+by apply: ih; [exact: htg' | exact: ltnW].
+Qed.
+
 (* ---- the level with no prepass, and the run ------------------------------ *)
 
 Definition slvlsk (cut : bool) (d : nat) (m' : rmap) : rmap :=
@@ -180,13 +494,10 @@ Definition slvlsk (cut : bool) (d : nat) (m' : rmap) : rmap :=
       if (d == dsrch)%N then
         let n0 := mcount m' in
         let e := Uint63.add enoughb (Uint63.div n0 enoughd) in
-        (srchsk cut d croot sroot (wmask w (d - nd)) 18 e (m', n0)).1
-      else srchk cut d croot sroot (wmask w (d - nd)) 18 m'
+        (srchskL cut d croot sroot (wmask w (d - nd)) 18 e (m', n0)).1
+      else srchkL cut d croot sroot (wmask w (d - nd)) 18 m'
     else m'
   else m'.
-
-Lemma levelskE cut d m dst : levelsk cut d m dst = slvlsk cut d (prep m dst).
-Proof. by []. Qed.
 
 Fixpoint runskc (n : nat) (d : nat) (n0 : int) (m dst : rmap) : rmap :=
   if n is n1.+1 then
@@ -204,9 +515,9 @@ move=> hp; rewrite /slvlsk; cbv zeta.
 case: ifP => _; last exact: hp.
 case: ifP => _; last exact: hp.
 case: ifP => _; last first.
-  apply: srchk_sound; try eassumption; first exact: leqnn.
+  apply: srchkL_sound; try eassumption; first exact: leqnn.
   by rewrite subnn.
-apply: srchsk_sound; try eassumption; first exact: leqnn.
+apply: srchskL_sound; try eassumption; first exact: leqnn.
 by rewrite subnn.
 Qed.
 
@@ -216,7 +527,8 @@ Proof.
 elim: n d n0 m dst => [|n ih] d n0 m dst hm hd; first by rewrite addn0.
 rewrite addnS -addSn /= -/runskc; case: ifP => _.
   apply: ih; last exact: RowRun.soundatW.
-  rewrite -levelskE; apply: levelsk_sound; try eassumption.
+  apply: slvlsk_sound; rewrite !prep_eq.
+  apply: (RowRun.prepass_sound hmv_Sset grpmvP prep_move hm).
   exact: RowRun.soundatW.
 apply: ih; last exact: RowRun.soundatW.
 by apply: slvlsk_sound; exact: RowRun.soundatW.
@@ -233,8 +545,8 @@ Definition slvlski (cut : bool) (d : nat) (m' : rmap) : rmap :=
       if (d == dsrch)%N then
         let n0 := mcount m' in
         let e := Uint63.add enoughb (Uint63.div n0 enoughd) in
-        (srchski cut d di croot sroot msk 18 e (m', n0)).1
-      else srchki cut d di croot sroot msk 18 m'
+        (srchskiL cut d di croot sroot msk 18 e (m', n0)).1
+      else srchkiL cut d di croot sroot msk 18 m'
     else m'
   else m'.
 
@@ -260,7 +572,7 @@ rewrite nleE hd; case: ifP => hle; last by [].
 have hbd : (to_nat (of_nat d) < nwB)%N := to_nat_bounded (of_nat d).
 have hwle : (to_nat w <= to_nat (of_nat d))%N by rewrite hd; exact: hle.
 rewrite mmaskiE (to_nat_sub (of_nat d) w hwle hbd) hd.
-by case: ifP => _; [rewrite srchski_eq | rewrite srchki_eq].
+by case: ifP => _; [rewrite srchskiL_eq | rewrite srchkiL_eq].
 Qed.
 
 Lemma runskic_eq n d n0 m dst : (d + n <= 63)%N ->
