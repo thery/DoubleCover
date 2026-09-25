@@ -983,19 +983,19 @@ bound. Every position of the cube is solved in 20 moves or fewer. The idea of th
 Take a subgroup $H$ of $G$. Every position $p$ lies in
 exactly one coset $x H$. 
 So the problem of proving that the
-diameter of $G$ is 20 is reduced to a bunch of 
+diameter of $G$ is at most 20 is reduced to a bunch of 
 independent smaller problems:
-the diameter of $x H$ is 20.
+every position of $x H$ is at most 20 moves from solved.
 In this note, we are not going to tackle the problem 
 of how the representatives of the cosets are generated.
 We are going to prove the algorithm that checks 
-that the diameter of $x$ is 20 for an arbitrary $x$
+that every position of $x H$ is at most 20 moves from solved, for an arbitrary $x$,
 and as an application run it inside Rocq with $x$= superflip. This gives us that all the positions of 
 the superflip coset are at distance at most 20.
 
 == Marking algorithm
 
-For checking that the distance of one coset is 20,
+For checking that every position of one coset is at most 20 moves from solved,
 we use a _marking_ algorithm. Each position of $x H$ gets one bit.
 This bit is initially set to 0. The marking works iteratively. For each
 level $d$, from 0 to 20, we list the words of length $d$. A word gives a
@@ -1027,7 +1027,7 @@ parallel.
   ([positions in a coset], [19 508 428 800]),
 )
 Note that because of symmetries this number
-can be reduced to 404044004. This is what makes 
+can be reduced to 138 639 780. This is what makes 
 this reduction.
 
 Checking membership for $x H$ is quick. A position $p$ is in $x H$ exactly
