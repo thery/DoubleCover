@@ -1167,50 +1167,42 @@ organised as 194 arrays of 2 097 152 words, the last one not full. The map and i
 
 == Growing the map level by level
 
-A map is *sound at $d$* when every bit set to 1 is a position within $d$
+A map is sound at $d$ when every bit set to 1 is a position within $d$
 moves of solved. The run starts from the empty map, with no bit set. It
 is sound at 0. Level $d$ turns a map sound at $d-1$ into a map sound at
 $d$. The bits already set stay set, and there are 2 ways to set new ones.
 
-- The *search* is the enumeration of the marking algorithm. It lists every
+- The _search_ lists every
   word of length $d$ and sets the bit of each position of the coset it
   reaches. It is complete, but expensive.
-- The *prepass* is a traversal of the map. When the bit of $h$ is set, it
-  sets the bit of $h m$ for each of the 10 moves $m$ of $H$. If $x h$ is
+- The _prepass_ is a traversal of the map. For   every position  $h$ that is set in the map, it
+  directly sets the bit of $h m$ for each of the 10 moves $m$ of $H$. If $x h$ is
   within $d-1$ moves, then $x h m$ is within $d$ moves, and it is in the
-  coset because $m$ is in $H$. So the prepass keeps the map sound. It is
+  coset because $m$ and $x h$ are in $H$. So the prepass keeps the map sound. It is
   cheap, but not complete: it covers the words of length $d$ whose last
   move is in $H$, and misses those that end with one of the other 8 moves.
 
-The 2 work well together. If the prepass runs before the search, the search
+These two operations work well together. If the prepass runs before the search, the search
 can restrict the last move of its words to the 8 moves that are not in $H$:
 the prepass has already set the bits of the others. Finally, the search
-becomes very expensive as $d$ grows, typically beyond level 14.
-
-So the run uses 3 strategies, depending on the level.
+becomes very expensive as $d$ grows, typically beyond level 14. We follow Rokicki's strategy.
+We have 3 variations of the search depending on the level :
 
 - *Levels 1 to 13.* The search alone.
-- *Levels 14 to 16.* The prepass, then the search. The search does not use
-  a move of $H$ as the last move of a word. Near the end of a word, it only
-  tries moves that strictly lower the distance. Near the end means that the
-  moves left and the distance add up to less than 5. Level 16 also stops
-  early, once the map holds 167 million bits plus a third of what its
-  prepass left.
+- *Levels 14 to 16.* The prepass, then the search with the moves not in $H$ for the last move of a word. Near the end of a word, it also only
+  tries moves that strictly lower the distance.
+  By near the end we mean that the number of
+  moves left plus the distance must less than 5. There is a further refinement for Level 16.
+  If $n$ bits are set after its prepass,
+  it stops once the map reachs 167 million bits $+$ $n/3$.
 - *Levels 17 to 20.* The prepass alone.
 
-The run moves from the first strategy to the second when the map holds more
-than 6 million bits. On this coset this is level 14. All these numbers are
-Rokicki's.
-
 The cuts of levels 14 to 16 can lose words. A word can waste a move early
-and still end in $H$. This is allowed. In the earlier sections, a cut that
-lost a word would have lost the proof. Here nothing is proved about what
-the search covers. What is proved is that every bit set is correct. A lost
-word only leaves a bit at 0, and then the final check fails. So the cuts
-need no argument.
+and still end in $H$. What is proved is that every bit set is correct. We don't require
+completness.
 
 The prepass is cheap because applying a move of $H$ to a position of the
-coset does 3 separate things to the 3 numbers that name it. The corner
+coset does 3 separate things to the 3 numbers that corresponds to its position. The corner
 arrangement goes to another corner arrangement, so a page goes to a page.
 The outer-edge pair goes to another pair, so a group goes to a group. The
 middle arrangement goes to another middle arrangement, so the 24 bits of
@@ -1220,10 +1212,12 @@ machine word. So the prepass never takes a position apart. It never builds
 a cube, never ranks one, never looks a position up. For each of the 10
 moves it reads the whole map and writes the whole map.
 
-#src("RowMap.v") has the prepass and the proof that it keeps the map sound.
-#src("RowLvl.v") has it again, written so that the array holding a page is fetched
-once and put back once instead of once a word. It proves the two are the
-same function, so nothing about the cube is proved twice.
+The prepass and the proof that it keeps the map sound are in #src("RowMap.v"). A refined version
+where the array holding a page is fetched
+once and put back once instead of once a word
+is defined  in
+#src("RowLvl.v") and the equivalence with the
+simple prepass is proved.
 
 == Implementing the search
 
