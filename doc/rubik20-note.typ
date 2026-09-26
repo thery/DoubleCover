@@ -1171,8 +1171,9 @@ GB, split into 194 arrays of 2 million words. The map and its indexing are #src(
 A map is *sound at $d$* when every bit set to 1 is a position within $d$
 moves of solved. The run starts from the empty map, with no bit set. It
 is sound at 0. Level $d$ turns a map sound at $d-1$ into a map sound at
-$d$. A level does 2 things, and they divide the words of length $d$
-between them.
+$d$. Up to level 13, a level is a search that lists every word of length
+$d$. From level 14 on, a level does 2 things, and they divide the words of
+length $d$ between them.
 
 - The *prepass* applies each of the 10 moves of $H$ to the whole map at
   once. It covers every word whose last move is in $H$, and that is nearly
@@ -1226,8 +1227,7 @@ keep it (#src("RowMask.v")). So a node tries 3 or 4 moves instead of 18.
 
 The search is refined in 3 ways, depending on the level.
 
-- *Levels 1 to 13.* The search is the one above. It finds every word of
-  length $d$, so the prepass is not needed and not run.
+- *Levels 1 to 13.* The search is the one above, with no prepass.
 - *Levels 14 to 16.* The prepass covers the words whose last move is in
   $H$. So the search only needs the others. Near the end of a word, it
   only tries moves that strictly lower the distance. Near the end means
