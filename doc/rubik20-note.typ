@@ -1100,8 +1100,7 @@ top and bottom layers sit, how the 8 edges of those layers sit and how the
 those triples cannot occur: on the cube the corners and the edges are always
 permuted with the same sign.
 
-We lay out the bits the way Rokicki's own program lays them out, and the
-layout is what makes the next subsection cheap. A page is one arrangement of the
+We lay out the bits the way Rokicki's own program lays them out. A page is one arrangement of the
 corners. Inside a page, a group is a pair of arrangements of the outer edges,
 the 2 that differ by exchanging 2 edges, and the group's
 24 bits are the 24 arrangements of the middle edges, the
