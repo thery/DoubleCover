@@ -1078,7 +1078,7 @@ Note that because of symmetries the number of cosets
 to check can be reduced to 138 639 780. With a further reduction, to
 55 882 296 cosets, the whole computation took about 35 CPU years.
 
-Checking membership for $x H$ is quick. A position $p$ is in $x H$ exactly
+Checking membership for $x H$ can be done effectively. A position $p$ is in $x H$ exactly
 when $x^(-1) p$ is in $H$, that is, when the summary of $x^(-1) p$ is
 the solved one. The bit of a position $x h$ of the coset is indexed by
 $h$. So we start our enumeration of the words of length $d$ from
