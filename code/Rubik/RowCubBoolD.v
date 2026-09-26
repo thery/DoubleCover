@@ -12,4 +12,4 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 Lemma rowfullpiDE : rowfullpiD = true.
-Proof. Time native_cast_no_check (erefl true). Qed.
+Proof. Time native_cast_no_check (erefl true). Time Qed.
