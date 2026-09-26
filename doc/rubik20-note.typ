@@ -1204,34 +1204,33 @@ Rokicki's strategy, which depends on how many bits the map holds:
   the search stops once the map holds 167 million plus $n/3$ bits.
 - *Levels 17 to 20.* The prepass alone.
 
-The 2 thresholds are small. The cuts start when the map is 0.03 % full,
-and the search at level 16 is satisfied with a map about 1 % full: 167
-million bits is under 1 % of the map. The last 4 levels fill the rest. A prepass sets up to 10 new bits for each bit
-already set, so it can multiply the number of bits set by up to 11, and 4
-prepasses by up to $11^4$, more than 14 000. This is where most of the
-marking happens, and it is done by the cheap operation.
+These cuts can lose words: a word can waste a move early and still end in
+$H$. This is allowed. What is proved is that every bit set is correct, not
+that every word is found, so we do not require completeness.
 
-These cuts can lose words. A word can waste a move early
-and still end in $H$. What is proved is that every bit set is correct. We don't require
-completeness.
+In fact, the search does only a small part of the marking. Its 2
+thresholds are small: the cuts start when the map is 0.03 % full, and the
+search at level 16 stops once the map is about 1 % full (167 million bits).
+The last 4 levels fill the rest with the prepass alone. A prepass sets up to
+10 new bits for each bit already set, so it can multiply the number of bits
+set by up to 11, and 4 prepasses by up to $11^4$, more than 14 000. Most of
+the marking is done by the prepass.
 
-The prepass is cheap because applying a move of $H$ to a position of the
-coset does 3 separate things to the 3 numbers that correspond to its position. The corner
-arrangement goes to another corner arrangement, so a page goes to a page.
-The outer-edge pair goes to another pair, so a group goes to a group. The
-middle arrangement goes to another middle arrangement, so the 24 bits of
-the group are rearranged among themselves. This rearrangement depends only
-on the move and the group. It is a table lookup and a shuffle of one
-machine word. So the prepass never takes a position apart. It never builds
-a cube, never ranks one, never looks a position up. For each of the 10
-moves it reads the whole map and writes the whole map.
+This works because the prepass is cheap. Applying a move of $H$ to a
+position of the coset does 3 separate things to the 3 numbers that
+represent it. The corner arrangement goes to another corner arrangement, so
+a page goes to a page. The outer-edge pair goes to another pair, so a group
+goes to a group. The middle arrangement goes to another middle arrangement,
+so the 24 bits of the group are rearranged among themselves. This
+rearrangement depends only on the move and the group. It is a table lookup
+and a shuffle of one machine word. So the prepass never takes a position
+apart. It never builds a cube, never ranks one, never looks a position up.
+For each of the 10 moves it reads the whole map and writes the whole map.
 
-The prepass and the proof that it keeps the map sound are in #src("RowMap.v"). A refined version
-where the array holding a page is fetched
-once and put back once instead of once a word
-is defined  in
-#src("RowLvl.v") and the equivalence with the
-simple prepass is proved.
+The prepass and the proof that it keeps the map sound are in
+#src("RowMap.v"). #src("RowLvl.v") has a faster version, where the array
+holding a page is fetched once and put back once instead of once a word,
+and proves it equal to the first.
 
 == The members left over
 
