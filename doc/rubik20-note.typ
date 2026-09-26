@@ -1096,10 +1096,9 @@ An element of $H$ has the solved summary: no corner is twisted, no edge is
 flipped and the 4 middle edges are in the middle layer. So the element $h$
 that indexes a bit can be represented by 3 numbers: how the 8 corners of the
 top and bottom layers sit, how the 8 edges of those layers sit and how the
-4 middle edges sit. That is 40320 x 40320 x 24 arrangements (8! = 40320 and 4! = 24), but 
-the corners and the edges are always
-permuted with the same sign, this number
-can be further divided by 2.
+4 middle edges sit. That is $40 space 320 times 40 space 320 times 24$ arrangements
+(8! = 40 320 and 4! = 24). The corners and the edges are always permuted
+with the same sign, so this number is divided by 2.
 
 We lay out the bits the way Rokicki's own program lays them out. A page is one arrangement of the
 corners. Inside a page, a group is a pair of arrangements of the outer edges,
@@ -1111,8 +1110,8 @@ disappears with nothing left to store.
 
 The map uses 48 bits of each machine word, so one word holds the same group on 2
 pages, the corner arrangements of even and odd rank, the odd one in the top
-half. The map is then 20160 x 20160 words : 3.25
-GB organised as 194 arrays of 2 million words. The map and its indexing are defined in #src("Row.v") and
+half. The map is then $20 space 160 times 20 space 160$ words: 3.25 GB,
+organised as 194 arrays of 2 097 152 words, the last one not full. The map and its indexing are defined in #src("Row.v") and
 #src("RowMap.v").
 
 #figure(
@@ -1126,7 +1125,7 @@ GB organised as 194 arrays of 2 million words. The map and its indexing are defi
       rect((o, o), (1.7 + o, 1.4 + o), fill: white, stroke: 0.4pt)
     }
     content((0.85, 0.7), text(size: 8.5pt)[a page])
-    content((0.85, -0.45), text(size: tn)[40320 pages, one for])
+    content((0.85, -0.45), text(size: tn)[40 320 pages, one for])
     content((0.85, -0.78), text(size: tn)[each corner arrangement])
 
     // ---- one page, opened into its groups ---------------------------------
@@ -1160,50 +1159,73 @@ GB organised as 194 arrays of 2 million words. The map and its indexing are defi
     content((x0 + 36 * w, -2.25),
             text(size: tn)[corner arrangement of odd rank])
   }),
-  caption: [The map : a page per
+  caption: [The map: a page per
   corner arrangement, a group for each pair of outer-edge arrangements and a
-  bit  for each arrangement of the 4 middle edges, the 12
+  bit for each arrangement of the 4 middle edges, the 12
   even ones low and the 12 odd ones high.],
 ) <maplayout>
 
-== A level and the prepass
+== Growing the map level by level
 
 A map is *sound at $d$* when every bit set to 1 is a position within $d$
 moves of solved. The run starts from the empty map, with no bit set. It
 is sound at 0. Level $d$ turns a map sound at $d-1$ into a map sound at
-$d$. Up to level 13, a level is a search that lists every word of length
-$d$. From level 14 on, a level does 2 things, and they divide the words of
-length $d$ between them.
+$d$. The bits already set stay set, and there are 2 ways to set new ones.
 
-- The *prepass* applies each of the 10 moves of $H$ to the whole map at
-  once. It covers every word whose last move is in $H$, and that is nearly
-  all of them.
-- The *search* then looks for the words of length $d$ whose last move is
-  not in $H$.
+- The *search* is the enumeration of the marking algorithm. It lists every
+  word of length $d$ and sets the bit of each position of the coset it
+  reaches. It is complete, but expensive.
+- The *prepass* is a traversal of the map. When the bit of $h$ is set, it
+  sets the bit of $h m$ for each of the 10 moves $m$ of $H$. If $x h$ is
+  within $d-1$ moves, then $x h m$ is within $d$ moves, and it is in the
+  coset because $m$ is in $H$. So the prepass keeps the map sound. It is
+  cheap, but not complete: it covers the words of length $d$ whose last
+  move is in $H$, and misses those that end with one of the other 8 moves.
 
-The prepass is what makes a whole coset affordable. It is the one part of
-the computation that has no counterpart in the lower bounds.
+The 2 work well together. If the prepass runs before the search, the search
+can restrict the last move of its words to the 8 moves that are not in $H$:
+the prepass has already set the bits of the others. Finally, the search
+becomes very expensive as $d$ grows, typically beyond level 14.
 
-Applying a move of $H$ to a position of the coset does 3 separate things to
-the 3 numbers that name it. The corner arrangement goes to another corner
-arrangement, so a page goes to a page. The outer-edge pair goes to another
-pair, so a group goes to a group. The middle arrangement goes to another
-middle arrangement, so the 24 bits of the group are rearranged among
-themselves. This rearrangement depends only on the move and the group. It
-is a table lookup and a shuffle of one machine word.
+So the run uses 3 strategies, depending on the level.
 
-So the prepass never takes a position apart. It never builds a cube, never
-ranks one, never looks a position up. For each of the 10 moves it reads
-the whole map and writes the whole map. The 10 passes over 3.25 GB cover
-every word of this length that ends in a move of $H$, and there are
-billions of those.
+- *Levels 1 to 13.* The search alone.
+- *Levels 14 to 16.* The prepass, then the search. The search does not use
+  a move of $H$ as the last move of a word. Near the end of a word, it only
+  tries moves that strictly lower the distance. Near the end means that the
+  moves left and the distance add up to less than 5. Level 16 also stops
+  early, once the map holds 167 million bits plus a third of what its
+  prepass left.
+- *Levels 17 to 20.* The prepass alone.
+
+The run moves from the first strategy to the second when the map holds more
+than 6 million bits. On this coset this is level 14. All these numbers are
+Rokicki's.
+
+The cuts of levels 14 to 16 can lose words. A word can waste a move early
+and still end in $H$. This is allowed. In the earlier sections, a cut that
+lost a word would have lost the proof. Here nothing is proved about what
+the search covers. What is proved is that every bit set is correct. A lost
+word only leaves a bit at 0, and then the final check fails. So the cuts
+need no argument.
+
+The prepass is cheap because applying a move of $H$ to a position of the
+coset does 3 separate things to the 3 numbers that name it. The corner
+arrangement goes to another corner arrangement, so a page goes to a page.
+The outer-edge pair goes to another pair, so a group goes to a group. The
+middle arrangement goes to another middle arrangement, so the 24 bits of
+the group are rearranged among themselves. This rearrangement depends only
+on the move and the group. It is a table lookup and a shuffle of one
+machine word. So the prepass never takes a position apart. It never builds
+a cube, never ranks one, never looks a position up. For each of the 10
+moves it reads the whole map and writes the whole map.
 
 #src("RowMap.v") has the prepass and the proof that it keeps the map sound.
 #src("RowLvl.v") has it again, written so that the array holding a page is fetched
 once and put back once instead of once a word. It proves the two are the
 same function, so nothing about the cube is proved twice.
 
-== Refining the search
+== Implementing the search
 
 The search is the enumeration of @choosingH. It is a depth-first walk from
 $x^(-1)$. At each node the table gives the distance to $H$. A branch
@@ -1224,29 +1246,6 @@ must not depend on the table for membership.
 
 The table entry also records which moves lower the distance and which
 keep it (#src("RowMask.v")). So a node tries 3 or 4 moves instead of 18.
-
-The search is refined in 3 ways, depending on the level.
-
-- *Levels 1 to 13.* The search is the one above, with no prepass.
-- *Levels 14 to 16.* The prepass covers the words whose last move is in
-  $H$. So the search only needs the others. Near the end of a word, it
-  only tries moves that strictly lower the distance. Near the end means
-  that the moves left and the distance add up to less than 5. The last
-  move is the extreme case: it must go from distance 1 to 0, so it is
-  never a move of $H$. Level 16 also stops early, once the map holds
-  167 million bits plus a third of what its prepass left.
-- *Levels 17 to 20.* There is no search, only the prepass.
-
-The cuts of levels 14 to 16 start when the map holds more than
-6 million bits. On this coset this is level 14. All these numbers are
-Rokicki's.
-
-These cuts can lose words. A word can waste a move early and still end
-in $H$. This is allowed. In the earlier sections, a cut that lost a word
-would have lost the proof. Here nothing is proved about what the search
-covers. What is proved is that every bit set is correct. A lost word
-only leaves a bit at 0, and then the final check fails. So the cuts
-need no argument.
 
 == The members left over
 
