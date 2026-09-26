@@ -35,7 +35,7 @@ Proof. by rewrite /rowmapiD /yfwmfinoD /crootD -okmvvdE -ycsolveddE -srchdE. Qed
 Lemma rowfulliDEq : rowfulliD =
   mfullf ffuli (yfwwitsoD p1ftab frepi fsymi twsymi dnlo_data dnhi_data
                           fllo_data flhi_data forbi fpopi ishmi).
-Proof. by rewrite /rowfulliD /ycwitsoiD rowmapiDE. Qed.
+Proof. by rewrite /rowfulliD /ycwitsoiD /yfwwitsoD rowmapiDE. Qed.
 
 Theorem row_of_runD : rowfulliD = true ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.

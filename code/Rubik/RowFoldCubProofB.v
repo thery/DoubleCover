@@ -46,7 +46,7 @@ Qed.
 Lemma rowfulliBEq : rowfulliB =
   mfullf ffuli (yfcwitsoB p1ftab frepi fsymi twsymi dnlo_data dnhi_data
                           fllo_data flhi_data forbi fpopi ishmi).
-Proof. by rewrite /rowfulliB /ycwitsoiB rowmapiBE. Qed.
+Proof. by rewrite /rowfulliB /ycwitsoiB /yfcwitsoB rowmapiBE. Qed.
 
 Theorem row_of_runB : rowfulliB = true ->
   forall h, h \in H -> superflip^-1 * h \in ball Sset 20.
