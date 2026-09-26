@@ -1088,7 +1088,14 @@ we set the bit of $h$.
 
 The phase 1 table gives us the distance to the solved summary. For a position, this is the number of moves needed to bring it into $H$. We use it to cut the enumeration, as in the search of @lowerbound. 
 Remember that we start from $x^(-1)$. We
-build the words of length $d$ one move at a time. Say $k$ moves have been applied to produce $x^(-1) w$, and the table gives $t$ for $x^(-1) w$. If $k + t > d$, no word that continues from there can end in $H$ after $d$ moves: its distance is too high. So we can drop this branch. 
+build the words of length $d$ one move at a time. Say $k$ moves have been applied to produce $x^(-1) w$, and the table gives $t$ for $x^(-1) w$. If $k + t > d$, no word that continues from there can end in $H$ after $d$ moves: its distance is too high. So we can drop this branch.
+
+The membership test is made on the position, not on the table. The table
+is only checked to be never too large, and a table of zeros passes this
+check: with it, every position would look like a member. So the theorem
+must not depend on the table for membership. The table entry also records
+which moves lower the distance and which keep it (#src("RowMask.v")), so a
+node tries 3 or 4 moves instead of 18.
 
 == Structuring the map
 
@@ -1178,31 +1185,31 @@ $d$. The bits already set stay set, and there are 2 ways to set new ones.
 - The _prepass_ is a traversal of the map. For   every position  $h$ that is set in the map, it
   directly sets the bit of $h m$ for each of the 10 moves $m$ of $H$. If $x h$ is
   within $d-1$ moves, then $x h m$ is within $d$ moves, and it is in the
-  coset because $m$ and $x h$ are in $H$. So the prepass keeps the map sound. It is
+  coset because $h$ and $m$ are in $H$. So the prepass keeps the map sound. It is
   cheap, but not complete: it covers the words of length $d$ whose last
   move is in $H$, and misses those that end with one of the other 8 moves.
 
 These two operations work well together. If the prepass runs before the search, the search
 can restrict the last move of its words to the 8 moves that are not in $H$:
 the prepass has already set the bits of the others. Finally, the search
-becomes very expensive as $d$ grows, typically beyond level 14. We follow Rokicki's strategy.
-We have 3 variations of the search depending on the level :
+becomes very expensive as $d$ grows, typically beyond level 14. We follow
+Rokicki's strategy, which depends on how many bits the map holds:
 
-- *Levels 1 to 13.* The search alone.
-- *Levels 14 to 16.* The prepass, then the search with the moves not in $H$ for the last move of a word. Near the end of a word, it also only
-  tries moves that strictly lower the distance.
-  By near the end we mean that the number of
-  moves left plus the distance must less than 5. There is a further refinement for Level 16.
-  If $n$ bits are set after its prepass,
-  it stops once the map reachs 167 million bits $+$ $n/3$.
+- *While the map holds at most 6 million bits.* The search alone.
+- *Once it holds more, up to level 16.* The prepass, then the search with
+  the moves not in $H$ for the last move of a word. Near the end of a word,
+  it also only tries moves that strictly lower the distance. By near the end
+  we mean that the number of moves left plus the distance is less than 5.
+  Level 16 has a further refinement. If $n$ bits are set after its prepass,
+  the search stops once the map holds 167 million plus $n/3$ bits.
 - *Levels 17 to 20.* The prepass alone.
 
-The cuts of levels 14 to 16 can lose words. A word can waste a move early
+These cuts can lose words. A word can waste a move early
 and still end in $H$. What is proved is that every bit set is correct. We don't require
-completness.
+completeness.
 
 The prepass is cheap because applying a move of $H$ to a position of the
-coset does 3 separate things to the 3 numbers that corresponds to its position. The corner
+coset does 3 separate things to the 3 numbers that correspond to its position. The corner
 arrangement goes to another corner arrangement, so a page goes to a page.
 The outer-edge pair goes to another pair, so a group goes to a group. The
 middle arrangement goes to another middle arrangement, so the 24 bits of
@@ -1218,28 +1225,6 @@ once and put back once instead of once a word
 is defined  in
 #src("RowLvl.v") and the equivalence with the
 simple prepass is proved.
-
-== Implementing the search
-
-The search is the enumeration of @choosingH. It is a depth-first walk from
-$x^(-1)$. At each node the table gives the distance to $H$. A branch
-where the moves left are fewer than this distance is dropped. When a word
-has its full length and its position is in $H$, the bit of this position
-is set. This is the leaf, 2 lines of #src("RowSrch.v"):
-
-```coq
-else if csolved c
-     then let: (pg, gr, bt) := plc (tomemb x) in mmark m pg gr bt
-     else m
-```
-
-The membership test is made on the position, not on the table. The table
-is only checked to be never too large. A table of zeros passes this
-check. With it, every position would look like a member. So the theorem
-must not depend on the table for membership.
-
-The table entry also records which moves lower the distance and which
-keep it (#src("RowMask.v")). So a node tries 3 or 4 moves instead of 18.
 
 == The members left over
 
@@ -1271,7 +1256,7 @@ sound because the map is already sound at 20 when the marks go in.
 
 In #src("RowSrchN.v") the run is 10 lines. It carries the map, the map it
 reads while it writes and the number of bits set so far. This number decides
-whether the cuts of levels 14 to 16 are on.
+whether the cuts are on.
 
 ```coq
 Fixpoint runskn (n : nat) (d : nat) (n0 : int) (m dst : rmap) : rmap :=
