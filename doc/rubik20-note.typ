@@ -1065,7 +1065,7 @@ the 2 that differ by exchanging 2 edges, and the group's
 arrangement of the pair a bit stands for, which is how the impossible half
 disappears with nothing left to store.
 
-A machine word holds 48 bits, so one word holds the same group on 2
+The map uses 48 bits of each machine word, so one word holds the same group on 2
 pages, the corner arrangements of even and odd rank, the odd one in the top
 half. The map is then 20 160 times 20 160 such words: 406 425 600 words, 3.25
 GB, split into 194 arrays of 2 million words. The map and its indexing are #src("Row.v") and
