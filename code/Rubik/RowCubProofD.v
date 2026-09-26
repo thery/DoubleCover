@@ -20,7 +20,7 @@ Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import P1Table RowReal FsmChk.
 Require Import Fold FoldTables P1Fdec P1FTable RowMask.
 Require Import RowSrch RowMark RowLvl RowSrchC RowLeafFast.
-Require Import RowCubDefB RowCubProofB RowCubDefD RowCubRealD.
+Require Import RowCubDef RowCubDefB RowCubProofB RowCubDefD RowCubRealD.
 Require Import RowCoord RowCoordLeaf RowCoordStep RowCoordRun.
 Require Import RowSrchN RowSrchNSim RowCubReal.
 

@@ -16,7 +16,7 @@ Require Import RowTabL RowTabP RowTab RowMemb RowLeaf RowWits.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import Lehmer RowCub RowCubi RowCubInst RowReal RowMembi FsmChk.
 Require Import Fold FoldTables P1Fdec P1FTable RowMask.
-Require Import RowFold RowFoldSrch RowFoldCubDef RowFoldCubProof.
+Require Import RowFold RowFoldTab RowFoldSrch RowFoldCubDef RowFoldCubProof.
 Require Import RowFoldSrchI RowFoldSrchIC RowLeafFast.
 Require Import RowCoord RowCoordLeaf RowFoldN RowFoldNSim RowFoldCubDefD.
 
