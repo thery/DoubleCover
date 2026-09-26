@@ -197,6 +197,8 @@ RowFoldCubDefB.v
 RowFoldCubProofB.v
 RowFoldCubDefC.v
 RowFoldCubProofC.v
+RowFoldCubDefD.v
+RowFoldCubProofD.v
 RowCubRealB.v
 RowCubDefB.v
 RowCubProofB.v
@@ -231,8 +233,11 @@ RowCoordGuard.v
 RowFoldSim.v
 RowSrchSim.v
 RowCoordRun.v
+RowFoldN.v
+RowFoldNSim.v
 RowBenchCoordP.v
 RowBenchCount.v
+RowBenchCountF.v
 RowSrchN.v
 RowSrchNSim.v
 RowCubRealD.v
@@ -245,6 +250,8 @@ RowFoldCubBoolB.v
 RowFoldCubDoneB.v
 RowFoldCubBoolC.v
 RowFoldCubDoneC.v
+RowFoldCubBoolD.v
+RowFoldCubDoneD.v
 RowCubBoolB.v
 RowCubDoneB.v
 RowCubBoolC.v
