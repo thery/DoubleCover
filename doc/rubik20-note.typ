@@ -1002,7 +1002,11 @@ level $d$, from 0 to 20, we list the words of length $d$. A word gives a
 position. If this position is in $x H$, we set its bit to 1. At the end,
 the bits set to 1 are exactly the positions of $x H$ within 20 moves. If
 no bit is left at 0, every position of the coset is solved in 20 moves
-or fewer. 
+or fewer.
+
+We call the bits of a coset its _map_. The bits are stored in machine words.
+An array in Rocq may hold 4 194 303 entries, so a map larger than that is an
+array of chunks, each chunk an array of words.
 
 == Choosing $H$ <choosingH>
 
@@ -1044,7 +1048,9 @@ build the words of length $d$ one move at a time. Say $k$ moves have been applie
 
 == Structuring the map
 
-A position of the coset is named by 3 numbers: how the 8 corners of the
+An element of $H$ has the solved summary: no corner is twisted, no edge is
+flipped and the 4 middle edges are in the middle layer. So the element $h$
+that indexes a bit is named by 3 numbers: how the 8 corners of the
 top and bottom layers sit, how the 8 edges of those layers sit and how the
 4 middle edges sit. That is 40 320 by 40 320 by 24 arrangements, but half of
 those triples cannot occur: on the cube the corners and the edges are always
@@ -1062,8 +1068,7 @@ disappears with nothing left to store.
 A machine word holds 48 bits, so one word holds the same group on 2
 pages, the corner arrangements of even and odd rank, the odd one in the top
 half. The map is then 20 160 times 20 160 such words: 406 425 600 words, 3.25
-GB. An array in Rocq may hold 4 194 303 entries, so the map is an array of 194
-chunks of 2 million words. The map and its indexing are #src("Row.v") and
+GB, in 194 chunks of 2 million words. The map and its indexing are #src("Row.v") and
 #src("RowMap.v").
 
 #figure(
