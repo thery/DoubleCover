@@ -983,19 +983,19 @@ bound. Every position of the cube is solved in 20 moves or fewer. The idea of th
 Take a subgroup $H$ of $G$. Every position $p$ lies in
 exactly one coset $x H$. 
 So the problem of proving that the
-diameter of $G$ is at most 20 is reduced to a bunch of 
+diameter of $G$ is at most 20 is reduced to many
 independent smaller problems:
 every position of $x H$ is at most 20 moves from solved.
 In this note, we are not going to tackle the problem 
 of how the representatives of the cosets are generated.
 We are going to prove the algorithm that checks 
 that, given an arbitrary $x$,
-every position of $x H$ is at most 20 moves from solved. As an application, we then run it inside Rocq taking superflip for $x$. This gives us that all the positions of 
-the superflip coset are at distance at most 20.
+every position of $x H$ is at most 20 moves from solved. As an application, we then run it inside Rocq with the superflip for $x$. This shows that all the positions of
+the superflip's coset are at distance at most 20.
 
 == Marking algorithm
 
-For checking that every position of a coset is at most 20 moves from solved,
+To check that every position of a coset is at most 20 moves from solved,
 we use a _marking_ algorithm. Each position of $x H$ gets one bit.
 This bit is initially set to 0. The marking works iteratively. For each
 level $d$, from 0 to 20, we list the words of length $d$. A word gives a
@@ -1016,7 +1016,7 @@ to a position does not change its summary.
 In fact, if we take $H$ as the subgroup generated
 by these 10 moves, the elements of $x H$ are exactly
 the positions that have the same summary as $x$.
-$H$ has other nice properties.
+$H$ has other useful properties.
 $H$ contains exactly 19 508 428 800 positions. So a coset is 19 508 428 800 bits,
 about 2.4 GB. This fits in the memory of a desktop machine. There are
 2 217 093 120 cosets. So up to 2 217 093 120 problems can be run in
@@ -1031,12 +1031,12 @@ to check can be reduced to 138 639 780. With a further reduction, to
 55 882 296 cosets, the whole computation took about 35 CPU years.
 
 Checking membership for $x H$ is quick. A position $p$ is in $x H$ exactly
-  when $x^(-1) p$ is in $H$, that is, when the summary of $x^(-1) p$ is
-  the solved one. The bit of a position $x h$ of the coset is indexed by
-  $h$. So we start our enumeration of the words of length $d$ from
-  $x^(-1)$. We apply the $d$ moves of a word. If the position $h$ we
-  reach is in $H$, i.e. if its summary is the solved one, 
-  we set the bit of $h$.
+when $x^(-1) p$ is in $H$, that is, when the summary of $x^(-1) p$ is
+the solved one. The bit of a position $x h$ of the coset is indexed by
+$h$. So we start our enumeration of the words of length $d$ from
+$x^(-1)$. We apply the $d$ moves of a word. If the position $h$ we
+reach is in $H$, that is, if its summary is the solved one,
+we set the bit of $h$.
 
 The phase 1 table gives us the distance to the solved summary. For a position, this is the number of moves needed to bring it into $H$. We use it to cut the enumeration, as in the search of @lowerbound. 
 Remember that we start from $x^(-1)$. We
@@ -1178,7 +1178,8 @@ keep it (#src("RowMask.v")). So a node tries 3 or 4 moves instead of 18.
 
 The search is refined in 3 ways, depending on the level.
 
-- *Levels 1 to 13.* The search is the one above.
+- *Levels 1 to 13.* The search is the one above. It finds every word of
+  length $d$, so the prepass is not needed and not run.
 - *Levels 14 to 16.* The prepass covers the words whose last move is in
   $H$. So the search only needs the others. Near the end of a word, it
   only tries moves that strictly lower the distance. Near the end means
@@ -1227,21 +1228,27 @@ sound because the map is already sound at 20 when the marks go in.
 
 == The run, and its one boolean
 
-In #src("RowSrch.v") the run is 7 lines. It carries the map, the map it
-reads while it writes and the number of bits the last level left. This
-number decides whether the cuts of levels 14 to 16 are on.
+In #src("RowSrchN.v") the run is 10 lines. It carries the map, the map it
+reads while it writes and the number of bits set so far. This number decides
+whether the cuts of levels 14 to 16 are on.
 
 ```coq
-Fixpoint runsk (n : nat) (d : nat) (n0 : int) (m dst : rmap) : rmap :=
+Fixpoint runskn (n : nat) (d : nat) (n0 : int) (m dst : rmap) : rmap :=
   if n is n1.+1 then
-    let m' := levelsk (Uint63.ltb ncutb n0) d.+1 m dst in
-    runsk n1 d.+1 (mcount m') m' m
+    if Uint63.ltb ncutb n0 then
+      let m1 := prep m dst in
+      let mn := slvlskn true d.+1 m1 (mcount m1) in
+      runskn n1 d.+1 mn.2 mn.1 m
+    else
+      let mn := slvlskn false d.+1 m n0 in
+      runskn n1 d.+1 mn.2 mn.1 dst
   else m.
 ```
 
-`levelsk` is the level: the prepass first, then the search if this level
-is still being searched. Counting the bits, `mcount`, is a traversal of
-the whole map, and the run pays for it once a level.
+With the cuts on, a level is the prepass `prep`, then the search
+`slvlskn`. With the cuts off, it is the search alone. The search adds one
+to the count for each bit it sets. Counting the bits of the whole map,
+`mcount`, is done only after a prepass, which reads the whole map anyway.
 
 Everything above is one boolean. #src("RowFoldCubDef.v") builds the map, runs
 the 20 levels, marks the 32 and asks whether every bit is set:
@@ -1321,23 +1328,15 @@ it does.
 The search ran twice, over the folded map and over the unfolded one, with the
 same search in both, and both times it filled the map.
 
-#tbl(([the run], [wall clock], [processor time], [peak memory]),
-  ([over the folded map], [50 min], [50 min], [--]),
-  ([over the unfolded map], [2 h 32], [2 h 31], [--]),
+#tbl(([the run], [wall clock], [processor time]),
+  ([over the folded map], [50 min], [50 min]),
+  ([over the unfolded map], [2 h 32], [2 h 31]),
 )
 
 The fold is worth 3 times on the wall clock and 3 times on processor time.
-The run does not follow the size of the map, which is 13 times smaller. Most of
-the work is the search at the deepest levels, and that is the same tree on both
-sides. The map sets the memory. The unfolded map is 3.25 GB against 248 MB, and
-a level reads one map while it writes the other, so the unfolded run needed 23.3
-GB of a 62 GB machine. With the garbage collector set to work harder, the same
-run peaks at 13.9 GB and takes 4 per cent longer.
-
-We made 2 earlier folded runs, which show where the time went. Over words of 24 bits,
-holding one corner arrangement each, the run took 6 h 00. The same run with the
-depth left as a unary numeral instead of a machine integer took 8 h 13, so the
-unary depth cost 2 h 13.
+The map is 13 times smaller, so the run does not follow the size of the map.
+The map sets the memory. The unfolded map is 3.25 GB against 248 MB, and a
+level reads one map while it writes the other.
 
 The phase one table is 2.9 GB of Rocq source and 4.5 GB once checked, 8 h 48 of
 processor time. It is generated once and shared with the lower-bound work.
@@ -1349,8 +1348,8 @@ Theorem real_superflip_row_fold_runO h :
   h \in H -> superflip^-1 * h \in ball Sset 20.
 ```
 
-`H` is the subgroup above, so every position of the superflip's coset is
-within 20 moves.
+`H` is the subgroup above, and the superflip is its own inverse, so every
+position of the superflip's coset is within 20 moves.
 
 = Conclusion
 
