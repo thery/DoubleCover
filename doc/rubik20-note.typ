@@ -1005,8 +1005,8 @@ no bit is left at 0, every position of the coset is solved in 20 moves
 or fewer.
 
 We call the bits of a coset its _map_. The bits are stored in machine words.
-An array in Rocq may hold 4 194 303 entries, so a map larger than that is an
-array of chunks, each chunk an array of words.
+An array in Rocq may hold 4 194 303 entries, so a larger map is split into
+several arrays.
 
 == Choosing $H$ <choosingH>
 
@@ -1068,7 +1068,7 @@ disappears with nothing left to store.
 A machine word holds 48 bits, so one word holds the same group on 2
 pages, the corner arrangements of even and odd rank, the odd one in the top
 half. The map is then 20 160 times 20 160 such words: 406 425 600 words, 3.25
-GB, in 194 chunks of 2 million words. The map and its indexing are #src("Row.v") and
+GB, split into 194 arrays of 2 million words. The map and its indexing are #src("Row.v") and
 #src("RowMap.v").
 
 #figure(
@@ -1155,7 +1155,7 @@ every word of this length that ends in a move of $H$, and there are
 billions of those.
 
 #src("RowMap.v") has the prepass and the proof that it keeps the map sound.
-#src("RowLvl.v") has it again, written so that a page's chunk is fetched
+#src("RowLvl.v") has it again, written so that the array holding a page is fetched
 once and put back once instead of once a word. It proves the two are the
 same function, so nothing about the cube is proved twice.
 
