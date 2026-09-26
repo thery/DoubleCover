@@ -127,7 +127,7 @@ RowWits.v
 RowWitsChk.v
 RowDummy.v
 
-# the folded run, built by name: make RowFoldCubDefI.vo
+# the folded run, built by name: make RowFoldCubDef.vo
 P1Fold.v
 P1Fdec.v
 P1F_00.v
@@ -185,46 +185,26 @@ RowSrch.v
 RowSrchP.v
 RowMark.v
 RowLvl.v
+RowRunConst.v
 RowFoldCubDef.v
-RowFoldCubDefI.v
 RowFoldCubProof.v
 RowFoldRunC.v
 RowFoldSrchIC.v
 RowFoldFinalC.v
 RowSrchC.v
-RowFoldCubRealB.v
-RowFoldCubDefB.v
-RowFoldCubProofB.v
-RowFoldCubDefC.v
-RowFoldCubProofC.v
-RowFoldCubDefD.v
-RowFoldCubProofD.v
-RowCubRealB.v
-RowCubDefB.v
-RowCubProofB.v
-RowCubDefC.v
-RowCubProofC.v
 RowCubDef.v
 RowCubReal.v
 RowCubProof.v
 RowLeafFast.v
+RowOpt.v
+RowFoldLvlG.v
+RowRealLeaf.v
 
-# benches: they run when built, so only ever by name: make RowShiftRun14.vo
+# benches: they run when built, so only ever by name: make RowBenchCountF.vo
 RowLeafBench.v
 RowStepBench.v
-RowLeafRun14.v
-RowShiftRun14.v
 RowDivBench.v
-RowLeafRun16.v
-RowRun13.v
-RowBench13.v
-RowBench13b.v
-RowBenchLast.v
-RowBenchBuf.v
-RowBenchBuf2.v
-RowBenchTab.v
 RowCoord.v
-RowBenchCoord.v
 RowCoordOk.v
 RowCoordEdge.v
 RowCoordLeaf.v
@@ -235,26 +215,14 @@ RowSrchSim.v
 RowCoordRun.v
 RowFoldN.v
 RowFoldNSim.v
-RowBenchCoordP.v
 RowBenchCount.v
 RowBenchCountF.v
 RowSrchN.v
 RowSrchNSim.v
-RowCubRealD.v
-RowCubDefD.v
-RowCubProofD.v
 RowBenchCountN.v
 
-# THE RUN with the fast leaf (~hours): only ever by name
-RowFoldCubBoolB.v
-RowFoldCubDoneB.v
-RowFoldCubBoolC.v
-RowFoldCubDoneC.v
-RowFoldCubBoolD.v
-RowFoldCubDoneD.v
-RowCubBoolB.v
-RowCubDoneB.v
-RowCubBoolC.v
-RowCubDoneC.v
-RowCubBoolD.v
-RowCubDoneD.v
+# THE RUN (~hours): only ever by name
+RowFoldCubBool.v
+RowFoldCubDone.v
+RowCubBool.v
+RowCubDone.v

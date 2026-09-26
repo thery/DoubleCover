@@ -1,8 +1,6 @@
 (* =========================================================================  *)
-(*  RowCubBool.v -- the plain run's boolean.                                  *)
+(*  RowCubBool.v -- THE PLAIN RUN, the boolean alone.                         *)
 (* =========================================================================  *)
-
-(* One Require, one Lemma.  The long run.  See doc/rowfold-bridge.md.         *)
 
 From mathcomp Require Import all_ssreflect.
 From Stdlib Require Import Uint63.
@@ -13,5 +11,5 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-Lemma rowfullpE : rowfullp = true.
-Proof. Time native_cast_no_check (erefl true). Qed.
+Lemma rowfullpiOT : rowfullpiO = true.
+Proof. Time native_cast_no_check (erefl true). Time Qed.

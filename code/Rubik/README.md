@@ -25,10 +25,10 @@ The published upper bound is one search for each of them. This is one of them,
 proved twice, over two different representations of the same coset.
 
 ```coq
-Theorem real_row_superflip_fold_runi m :
-  m \in H -> superflip * m \in ball Sset 20.        (* RowFoldCubDoneI.v, folded map   *)
-Theorem real_row_superflip_cub_runi m :
-  m \in H -> superflip * m \in ball Sset 20.        (* RowCubDoneI.v,     unfolded map *)
+Theorem real_superflip_row_fold_runO h :
+  h \in H -> superflip^-1 * h \in ball Sset 20.    (* RowFoldCubDone.v, folded map   *)
+Theorem real_superflip_row_cub_runO h :
+  h \in H -> superflip^-1 * h \in ball Sset 20.    (* RowCubDone.v,     unfolded map *)
 ```
 
 `Diam20.v` also states `rubik_diameter`, which gives both halves — but the
@@ -277,11 +277,11 @@ The two runs:
 | | |
 |---|---|
 | `RowCub.v`, `RowCubi.v`, `RowCubInst.v` | a position as twenty cubies, carried through the search |
-| `RowCubDef.v`, `RowFoldCubDef.v`, `RowFoldCubDefI.v` | what each run needs, and not one proof |
-| `RowCubBoolI.v`, `RowFoldCubBoolI.v` | the two runs: one boolean each, and nothing else |
+| `RowCubDef.v`, `RowFoldCubDef.v`, `RowRunConst.v`, `RowOpt.v` | what each run needs, and not one proof (RowOpt's fast reads come with their equations) |
+| `RowCubBool.v`, `RowFoldCubBool.v` | the two runs: one boolean each, and nothing else |
 | `RowCubReal.v`, `RowFoldCubReal.v` | the coset on each map, with only that boolean left open |
-| `RowCubProof*.v`, `RowFoldCubProof*.v` | what a true boolean buys |
-| `RowCubDoneI.v`, `RowFoldCubDoneI.v` | run and proof joined: the two theorems |
+| `RowCubProof.v`, `RowFoldCubProof.v` | what a true boolean buys |
+| `RowCubDone.v`, `RowFoldCubDone.v` | run and proof joined: the two theorems |
 
 A run file loads no proof and a proof file runs nothing. That is why the two
 are always separate files, and why a `.vo` banked by a six-hour run must not

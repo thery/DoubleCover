@@ -6,7 +6,7 @@
 (* RowFoldN's run, like RowFoldSrchIC's, does not see how its position is     *)
 (* kept (the same simulation as RowFoldSim), so over hcoset's four numbers it *)
 (* leaves the map it leaves over the twenty cubies; and over those it is      *)
-(* sound (wrun_sound).  The certificate follows as RowFoldCubRealB's does.    *)
+(* sound (wrun_sound).  The certificate follows as RowRealLeaf's does.    *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
@@ -31,7 +31,7 @@ Require Import RowFoldEmpty RowFoldFinal.
 Require Import RowFoldCubReal RowLeafFast RowFoldRunC RowFoldFinalC.
 
 Require Import RowFoldSrchI RowFoldSrchIP RowFoldSrchIC RowFoldSim.
-Require Import RowFoldCubRealB RowFoldN.
+Require Import RowRealLeaf RowFoldN.
 Require Import RowCoord RowCoordLeaf RowCoordStep RowCoordRun.
 
 Set Implicit Arguments.

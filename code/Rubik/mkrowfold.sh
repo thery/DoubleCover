@@ -31,14 +31,7 @@
 #    ./mkrowfold.sh o15      ... depth 15
 #    ./mkrowfold.sh o20      ... depth 20  (run the four side by side)
 #    ./mkrowfold.sh foot     RowFoldFoot -- what the tables alone cost
-#    ./mkrowfold.sh ppace    RowCubPace -- the plain run's footprint at thirteen
-#    ./mkrowfold.sh ppacei   RowCubPaceI -- the same, over the int search
-#    ./mkrowfold.sh fpacei   RowFoldCubPaceI -- the folded run, int search
 #    ./mkrowfold.sh cub13i   RowFoldCub13I -- the search at thirteen, nat vs int
-#    ./mkrowfold.sh booli    RowFoldCubBoolI -- THE FOLDED RUN, int search
-#    ./mkrowfold.sh donei    RowFoldCubDoneI -- the folded theorem, int search
-#    ./mkrowfold.sh pbooli   RowCubBoolI -- THE PLAIN RUN, int search
-#    ./mkrowfold.sh pdonei   RowCubDoneI -- the plain theorem, int search
 #    ./mkrowfold.sh pbool    RowCubBool -- THE PLAIN RUN, the boolean alone
 #    ./mkrowfold.sh pdone    RowCubDone -- the plain run and proof together
 #    ./mkrowfold.sh          build, then RowFoldRun -- the ball of H
@@ -116,7 +109,7 @@ build () {     # build <base>
 # building RowFoldSym and the rest for a run that never reads them is five
 # minutes and more for nothing.
 case "$1" in
-  ppace|ppacei|pbool|pbooli|pdone|pdonei) chain=row ;;
+  pbool|pdone) chain=row ;;
   *)                 chain=fold ;;
 esac
 
@@ -135,7 +128,7 @@ foldfiles="Fold P1Fold FoldTables P1Fdec P1F_00 P1F_01 P1F_02 P1F_03 P1F_04 \
   RowFoldCubDef RowCubDef RowCubReal RowCubProof"
 
 # THE PLAIN CHAIN, and not one RowFold file in it.  Read off the Requires of
-# RowCubPace, RowCubBool, RowCubDone and RowCubProof.
+# RowCubBool, RowCubDone and RowCubProof.
 rowfiles="Fold P1Fold FoldTables P1Fdec P1F_00 P1F_01 P1F_02 P1F_03 P1F_04 \
   P1FTable P1Table P1Small P1Ts RowMask Row RowMap RowPrep Fsinj FsmChk \
   Lehmer RowRun \
@@ -218,93 +211,15 @@ case "$1" in
   pace)  echo "--- RowFoldCubPace (the run at thirteen: watch RES, count 14731320)"
          build RowFoldCubDef
          coqc -R . Rubik RowFoldCubPace.v ;;
-  bool)  echo "--- RowFoldCubBool (THE RUN: the boolean alone, ~9 h)"
-         build RowFoldCubDef
-         coqc -R . Rubik RowFoldCubBool.v ;;
+  bool)  echo "--- RowFoldCubBool (THE RUN: the boolean alone)"
+         make RowFoldCubBool.vo ;;
   proof) echo "--- RowFoldCubProof (what the run buys; it runs nothing)"
-         build RowFoldCubDef
-         coqc -R . Rubik RowFoldCubReal.v
-         coqc -R . Rubik RowFoldCubProof.v ;;
+         make RowFoldCubProof.vo ;;
   done)  echo "--- RowFoldCubDone (THE THEOREM: run and proof together)"
-         build RowFoldCubDef
-         build RowFoldCubBool
-         build RowFoldCubReal
-         build RowFoldCubProof
-         coqc -R . Rubik RowFoldCubDone.v ;;
-  ppace) echo "--- RowCubPace (the plain run at thirteen: watch RES, count 14731320)"
-         build RowSrch
-         build RowSrchP
-         build RowMark
-         build RowLvl
-         build RowCubInst
-         build RowCubDef
-         coqc -R . Rubik RowCubPace.v ;;
-  ppacei) echo "--- RowCubPaceI (thirteen over the int search: count 14731320)"
-         build RowSrch
-         build RowSrchP
-         build RowMark
-         build RowLvl
-         build RowCubInst
-         build RowCubDef
-         coqc -R . Rubik RowCubPaceI.v ;;
-  fpacei) echo "--- RowFoldCubPaceI (folded thirteen, int search: count 14731320)"
-         build RowFoldSrchI
-         build RowFoldCubDef
-         build RowFoldCubDefI
-         coqc -R . Rubik RowFoldCubPaceI.v ;;
-  booli) echo "--- RowFoldCubBoolI (THE FOLDED RUN over the int search, ~8 h)"
-         build RowFoldSrchI
-         build RowFoldCubDef
-         build RowFoldCubDefI
-         coqc -R . Rubik RowFoldCubBoolI.v ;;
-  donei) echo "--- RowFoldCubDoneI (the folded theorem: run and proof)"
-         build RowFoldSrchI
-         build RowFoldSrchIP
-         build RowFoldCubDef
-         build RowFoldCubDefI
-         build RowFoldCubBoolI
-         build RowFoldCubReal
-         build RowFoldCubProof
-         build RowFoldCubProofI
-         coqc -R . Rubik RowFoldCubDoneI.v ;;
+         make RowFoldCubDone.vo ;;
   pbool) echo "--- RowCubBool (THE PLAIN RUN: the boolean alone)"
-         build RowSrch
-         build RowSrchP
-         build RowMark
-         build RowLvl
-         build RowCubInst
-         build RowCubDef
-         coqc -R . Rubik RowCubBool.v ;;
-  pbooli) echo "--- RowCubBoolI (THE PLAIN RUN over the int search)"
-         build RowSrch
-         build RowSrchP
-         build RowMark
-         build RowLvl
-         build RowCubInst
-         build RowCubDef
-         coqc -R . Rubik RowCubBoolI.v ;;
-  pdonei) echo "--- RowCubDoneI (the plain theorem: run and proof)"
-         build RowSrch
-         build RowSrchP
-         build RowMark
-         build RowLvl
-         build RowCubInst
-         build RowCubDef
-         build RowCubBoolI
-         build RowCubReal
-         build RowCubProof
-         build RowCubProofI
-         coqc -R . Rubik RowCubDoneI.v ;;
+         make RowCubBool.vo ;;
   pdone) echo "--- RowCubDone (the plain theorem: run and proof together)"
-         build RowSrch
-         build RowSrchP
-         build RowMark
-         build RowLvl
-         build RowCubInst
-         build RowCubDef
-         build RowCubBool
-         build RowCubReal
-         build RowCubProof
-         coqc -R . Rubik RowCubDone.v ;;
+         make RowCubDone.vo ;;
   *)     echo "--- RowFoldRun (the ball of H)";   coqc -R . Rubik RowFoldRun.v ;;
 esac

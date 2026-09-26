@@ -1,14 +1,14 @@
 #!/bin/sh
 # =========================================================================
-#  bench13.sh -- the superflip row to depth thirteen, three programs, ONE core
+#  bench13.sh -- the superflip row to depth thirteen, hcoset and the OCaml,
+#  ONE core
 #
 #    CORE=2 HCOSET=/path/to/hcoset ./bench13.sh
 #
 #  1. hcoset, its search at 13 ("Tests at 13 ... in T")
 #  2. the OCaml prototype as committed, and rubik_row_exp's variants:
 #     the typed rank, the bit-mask rank, and hcoset's last level
-#  3. the Rocq run to 13 taken apart (RowBench13.v): the prepasses, and the
-#     search at 13 alone as E4 - E3
+#  (the Rocq run to 13 is RowBenchCountF.v: make RowBenchCountF.vo)
 #
 #  SKIP_OCAML=1 skips part 2.  Every count at 13 must agree: 19 186 816 solutions, 13 538 360 new,
 #  14 731 320 done.  Run it alone on the machine.
@@ -38,6 +38,3 @@ printf "no mark (floor):     "; EXP_LAST=1 EXP_NOMARK=1 ROWFOLD=1 taskset -c $CO
 cd ..
 fi
 
-echo "--- Rocq, core $CORE: E1 13 prepasses empty, E2 run 12, E3 run 13 search 12, E4 run 13"
-make RowFoldCubDefB.vo
-taskset -c $CORE coqc -R . Rubik RowBench13.v 2>&1 | grep -v "Warning\|notation-overridden\|^File .*characters"

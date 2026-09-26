@@ -1,29 +1,29 @@
 (* =========================================================================  *)
-(*  RowOpt.v -- what the row search computes at every node, done faster, and *)
-(*  each proved equal to what it replaces.                                   *)
+(*  RowOpt.v -- what the row search computes at every node, done faster, and  *)
+(*  each proved equal to what it replaces.                                    *)
 (* =========================================================================  *)
 
-(* perf on roquableu (RowMinRun.v, native_compute, depth 13) put 14.5 % of   *)
-(* the cycles in Uint63.div and Uint63.rem, which native code calls out of   *)
-(* line as real 64 bit divisions, and about 9.7 % in the type argument a     *)
-(* polymorphic ifold is handed at every call.  Here:                         *)
-(*   - a division by a constant is a multiplication and a shift, and a mod   *)
-(*     is a subtraction;                                                     *)
-(*   - the flip and slice step is two small tables, where it was one of      *)
-(*     48 MB: the flip x slice rank is flip * 495 + slice;                   *)
-(*   - fsgr is four fifteen bit entries a word, 1.3 MB where it was 5 MB;    *)
-(*   - ifoldM is ifold at the one type the searches use it at.               *)
+(* perf on roquableu (native_compute, the folded run to depth 13) put 14.5 %  *)
+(* of the cycles in Uint63.div and Uint63.rem, which native code calls out    *)
+(* of line as real 64 bit divisions, and about 9.7 % in the type argument a   *)
+(* polymorphic ifold is handed at every call.  Here:                          *)
+(*   - a division by a constant is a multiplication and a shift, and a mod    *)
+(*     is a subtraction;                                                      *)
+(*   - the flip and slice step is two small tables, where it was one of       *)
+(*     48 MB: the flip x slice rank is flip * 495 + slice;                    *)
+(*   - fsgr is four fifteen bit entries a word, 1.3 MB where it was 5 MB;     *)
+(*   - ifoldM is ifold at the one type the searches use it at.                *)
 (*                                                                            *)
-(* EVERY FAST FORM FIRST ASKS WHETHER ITS ARGUMENT IS IN THE RANGE IT WAS    *)
-(* CHECKED ON, and computes the original otherwise.  A comparison is far     *)
-(* cheaper than a division, and each equation then holds for every int, so  *)
-(* nothing about ranges reaches the searches that use them.  The ranges are  *)
-(* checked by vm_compute, over the whole of each.                            *)
+(* EVERY FAST FORM FIRST ASKS WHETHER ITS ARGUMENT IS IN THE RANGE IT WAS     *)
+(* CHECKED ON, and computes the original otherwise.  A comparison is far      *)
+(* cheaper than a division, and each equation then holds for every int, so    *)
+(* nothing about ranges reaches the searches that use them.  The ranges are   *)
+(* checked by vm_compute, over the whole of each.                             *)
 (*                                                                            *)
-(* THE RANGE IS ASKED OF THE BLOCK, i lsr 12 <? 4455 and not i <? 18247680:  *)
-(* the proofs then meet no number bigger than a block count.  Eighteen       *)
-(* million in unary, which vm_compute builds as a term, does not fit in      *)
-(* memory.                                                                   *)
+(* THE RANGE IS ASKED OF THE BLOCK, i lsr 12 <? 4455 and not i <? 18247680:   *)
+(* the proofs then meet no number bigger than a block count.  Eighteen        *)
+(* million in unary, which vm_compute builds as a term, does not fit in       *)
+(* memory.                                                                    *)
 
 From Stdlib Require Import ZArith Lia.
 From mathcomp Require Import all_ssreflect.
@@ -32,7 +32,7 @@ From Stdlib Require Import -(notations) PArray.
 From Rubik Require Import ssrint63.
 Require Import Phase1 Row RowMap RowInst RowTab Fold FoldTables P1FTable.
 Require Import P1Fdec RowMask Farp1 RowFold RowFoldTab RowFoldSrch RowSrch.
-Require Import RowFoldCubDef RowFoldN.
+Require Import RowRunConst RowFoldN.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -43,10 +43,10 @@ Notation rmap := (PArray.array arr).
 
 Local Open Scope uint63_scope.
 
-(* ---- a check over every int below na * nb --------------------------------- *)
+(* ---- a check over every int below na * nb -------------------------------- *)
 
-(* A walk of eighteen million ints recurses eighteen million deep; this one  *)
-(* walks na blocks of nb and recurses na + nb deep.                          *)
+(* A walk of eighteen million ints recurses eighteen million deep; this one   *)
+(* walks na blocks of nb and recurses na + nb deep.                           *)
 Definition iter2 (na nb : nat) (b : int) (f : int -> bool) : bool :=
   iter na 0 (fun a => iter nb 0 (fun c => f (Uint63.add (Uint63.mul a b) c))).
 
@@ -60,7 +60,7 @@ have h := iter_at (iter_at hi ha) hc.
 by rewrite [x in f x](int_add_mod x b).
 Qed.
 
-(* ---- a mod is a subtraction, a halving a shift ---------------------------- *)
+(* ---- a mod is a subtraction, a halving a shift --------------------------- *)
 
 Lemma modE i j : i - i / j * j = i mod j.
 Proof.
@@ -75,7 +75,7 @@ rewrite (@to_nat_sub i (i / j * j) h1 iB) hmul to_nat_div.
 by rewrite {1}(divn_eq (to_nat i) (to_nat j)) addKn.
 Qed.
 
-(* a shift by k is a division by b = 2 ^ k                                  *)
+(* a shift by k is a division by b = 2 ^ k                                    *)
 Lemma lsrE x k b : to_nat b = (2 ^ to_nat k)%N -> Uint63.lsr x k = x / b.
 Proof. by move=> hb; apply: to_nat_inj; rewrite to_nat_lsr to_nat_div hb. Qed.
 
@@ -93,15 +93,15 @@ have e2 : lsl one 1 = 2 by [].
 by rewrite e1 e2 in h.
 Qed.
 
-(* ---- division by a constant ----------------------------------------------- *)
+(* ---- division by a constant ---------------------------------------------- *)
 
-(* i / 3 below 4455 * 4096 = 18 247 680 = 1 013 760 * 18: every index of a   *)
-(* three to a word table the search reads, and of the move table             *)
+(* i / 3 below 4455 * 4096 = 18 247 680 = 1 013 760 * 18: every index of a    *)
+(* three to a word table the search reads, and of the move table              *)
 Definition div3m (i : int) : int := Uint63.lsr (Uint63.mul i 11184811) 25.
 Definition div3o (i : int) : int :=
   if Uint63.lsr i 12 <? 4455 then div3m i else i / 3.
 
-(* stated unfolded: matching iter2_at against a name makes Rocq evaluate it *)
+(* stated unfolded: matching iter2_at against a name makes Rocq evaluate it   *)
 Lemma div3chkT : iter2 4455 4096 4096 (fun i => div3m i =? i / 3).
 Proof. by vm_compute. Qed.
 
@@ -114,7 +114,7 @@ rewrite e hn in h.
 by move: (iter2_at div3chkT (erefl _) (erefl _) h) => /neqbP/to_nat_inj.
 Qed.
 
-(* i / 15 below 495 * 2048 = 1 013 760: every index of a fifteen to a word   *)
+(* i / 15 below 495 * 2048 = 1 013 760: every index of a fifteen to a word    *)
 (* table the search reads                                                     *)
 Definition div15m (i : int) : int := Uint63.lsr (Uint63.mul i 559241) 23.
 Definition div15o (i : int) : int :=
@@ -132,8 +132,8 @@ rewrite e hn in h.
 by move: (iter2_at div15chkT (erefl _) (erefl _) h) => /neqbP/to_nat_inj.
 Qed.
 
-(* x / 495 below 529 * 2048 = 1 083 392: every coordinate shifted by eleven *)
-(* (under 2187 * 495 = 1 082 565), and every flip and slice rank             *)
+(* x / 495 below 529 * 2048 = 1 083 392: every coordinate shifted by eleven   *)
+(* (under 2187 * 495 = 1 082 565), and every flip and slice rank              *)
 Definition div495m (x : int) : int := Uint63.lsr (Uint63.mul x 271147) 27.
 Definition div495o (x : int) : int :=
   if Uint63.lsr x 11 <? 529 then div495m x else x / 495.
@@ -150,10 +150,10 @@ rewrite e hn in h.
 by move: (iter2_at div495chkT (erefl _) (erefl _) h) => /neqbP/to_nat_inj.
 Qed.
 
-(* c / nfsi, nfsi = 2 ^ 11 * 495, as (c lsr 11) / 495: exact for every c     *)
+(* c / nfsi, nfsi = 2 ^ 11 * 495, as (c lsr 11) / 495: exact for every c      *)
 Definition divnfs (c : int) : int := div495o (Uint63.lsr c 11).
 
-(* in Z, where nfsi is not a million nested successors                     *)
+(* in Z, where nfsi is not a million nested successors                        *)
 Lemma divnfsE c : divnfs c = c / nfsi.
 Proof.
 rewrite /divnfs div495oE; apply: to_Z_inj.
@@ -163,7 +163,7 @@ have enfs : to_Z nfsi = (2 ^ 11 * 495)%Z by [].
 rewrite !div_spec lsr_spec e11 e495 enfs Z.div_div //.
 Qed.
 
-(* ---- the reads of the phase one table ------------------------------------- *)
+(* ---- the reads of the phase one table ------------------------------------ *)
 
 (* Fold.get20, get4                                                           *)
 Definition get20O (a : arr) (i : int) : int :=
@@ -230,11 +230,11 @@ Lemma mmaskOE w s :
   mmaskO w s = mmask dnlo_data dnhi_data fllo_data flhi_data w s.
 Proof. by rewrite /mmaskO /mmask; cbv zeta; rewrite !get20OE. Qed.
 
-(* ---- the step of the phase one coordinate ---------------------------------- *)
+(* ---- the step of the phase one coordinate -------------------------------- *)
 
 (* the flip part of the flip x slice move, and the slice part                 *)
-Definition nflipmv : int := 36864.            (* 2048 flips by 18 moves      *)
-Definition nslicemv : int := 8910.            (* 495 slices by 18 moves      *)
+Definition nflipmv : int := 36864.            (* 2048 flips by 18 moves       *)
+Definition nslicemv : int := 8910.            (* 495 slices by 18 moves       *)
 
 Definition fmO : arr := Eval vm_compute in
   ifold (2048 * 18) 0
@@ -252,7 +252,7 @@ Definition smO : arr := Eval vm_compute in
        PArray.set a i (actfsri s k mod 495))
     (PArray.make nslicemv 0).
 
-(* the move of a flip x slice rank, from the two, and as the check reads it  *)
+(* the move of a flip x slice rank, from the two, and as the check reads it   *)
 Definition fsstepO (fs k : int) : int :=
   let f := div495o fs in
   let s := fs - f * 495 in
@@ -268,7 +268,7 @@ Definition fsstepR (fs k : int) : int :=
 Lemma fsstepOE fs k : fsstepO fs k = fsstepR fs k.
 Proof. by rewrite /fsstepO /fsstepR; cbv zeta; rewrite div495oE modE. Qed.
 
-(* every rank and every move: the two tables are the move table            *)
+(* every rank and every move: the two tables are the move table               *)
 Lemma fschkT :
   iter2 495 2048 2048
     (fun fs => iter 18 0 (fun k => fsstepR fs k =? actfsri fs k)).
@@ -287,8 +287,8 @@ Definition cstepO (c k : int) : int :=
 Lemma cstepOE c k : cstepO c k = RowInst.cstep actfsri c k.
 Proof.
 rewrite /cstepO; cbv zeta.
-(* named tests, and `by []' only on the branch where both sides agree: a  *)
-(* `//' on the other one has Rocq unfold both steps, tables and all      *)
+(* named tests, and `by []' only on the branch where both sides agree: a      *)
+(* `//' on the other one has Rocq unfold both steps, tables and all           *)
 case: (nltbP k 18) => hk; last by [].
 case: (nltbP (Uint63.lsr (c - divnfs c * nfsi) 11) 495) => hf; last by [].
 rewrite divnfsE modE in hf *.
@@ -302,9 +302,9 @@ have /neqbP/to_nat_inj hs := iter_at h1 hk18.
 exact: (congr1 (Uint63.add (Uint63.mul (acttwii (c / nfsi) k) nfsi)) hs).
 Qed.
 
-(* ---- the moves a node may take --------------------------------------------- *)
+(* ---- the moves a node may take ------------------------------------------- *)
 
-(* RowFoldCubDef.okmvvd, RowReal.okmvv: the face of a move                    *)
+(* RowRunConst.okmvvd, RowReal.okmvv: the face of a move                      *)
 Definition okmvO (pv k : int) : bool :=
   if (18 <=? pv) then true
   else let fp := div3o pv in
@@ -314,7 +314,7 @@ Definition okmvO (pv k : int) : bool :=
 Lemma okmvOE pv k : okmvO pv k = okmvvd pv k.
 Proof. by rewrite /okmvO /okmvvd !div3oE. Qed.
 
-(* ---- the place of a member -------------------------------------------------- *)
+(* ---- the place of a member ----------------------------------------------- *)
 
 (* Row.place24 at the layout tables                                           *)
 Definition place24O (x : memb) : int * int * int :=
@@ -333,7 +333,7 @@ Definition placeO (x : memb) : int * int * int :=
 Lemma placeOE x : placeO x = place e8numi e4biti x.
 Proof. by rewrite /placeO /place !lsr1E land1E. Qed.
 
-(* ---- fsgr, four entries of fifteen bits a word ----------------------------- *)
+(* ---- fsgr, four entries of fifteen bits a word --------------------------- *)
 
 Definition nfsgrw : int := 161280.            (* 645 120 entries, four a word *)
 
@@ -357,7 +357,8 @@ Proof. by vm_compute. Qed.
 
 (* RowFold.sgrmv at fsgri                                                     *)
 Definition sgrmvO (u pty g : int) : int :=
-  let i := Uint63.add (Uint63.mul (Uint63.add (Uint63.mul u 2) pty) ngroupi) g in
+  let i :=
+    Uint63.add (Uint63.mul (Uint63.add (Uint63.mul u 2) pty) ngroupi) g in
   if Uint63.lsr i 11 <? 315 then gt4 i else PArray.get fsgri i.
 
 Lemma sgrmvOE u pty g : sgrmvO u pty g = sgrmv fsgri u pty g.
@@ -370,7 +371,7 @@ rewrite e hn in h.
 by move: (iter2_at fsgrchkT (erefl _) (erefl _) h) => /neqbP/to_nat_inj.
 Qed.
 
-(* RowFoldN.fmarknw at the folded tables, reading the packed fsgr            *)
+(* RowFoldN.fmarknw at the folded tables, reading the packed fsgr             *)
 Definition fmarknwO (mn : rmap * int) (pg gr bt : int) : rmap * int :=
   let: (m, n) := mn in
   let w := PArray.get fpgi pg in
@@ -395,9 +396,9 @@ case: mn => m n; rewrite /fmarknwO /fmarknw; cbv beta iota zeta.
 by rewrite sgrmvOE.
 Qed.
 
-(* ---- ifold at the searches' type ------------------------------------------- *)
+(* ---- ifold at the searches' type ----------------------------------------- *)
 
-(* RowMap.ifold with its type fixed, so no type argument is passed           *)
+(* RowMap.ifold with its type fixed, so no type argument is passed            *)
 Fixpoint ifoldM (n : nat) (x : int) (f : int -> rmap * int -> rmap * int)
                 (a : rmap * int) : rmap * int :=
   if n is n1.+1 then ifoldM n1 (Uint63.add x 1) f (f x a) else a.

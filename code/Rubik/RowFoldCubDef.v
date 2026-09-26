@@ -1,19 +1,19 @@
 (* =========================================================================  *)
-(*  RowFoldCubDef.v -- everything the run needs, and not one proof.           *)
+(*  RowFoldCubDef.v -- the folded run, and not one proof.                     *)
 (* =========================================================================  *)
 
 (* THE RUN AND THE PROOF ARE TWO FILES BECAUSE THEY LOAD TWO DIFFERENT        *)
-(* THINGS.  What the search reads is tables; what the certificate reads is    *)
+(* THINGS: what the search reads is tables, what the certificate reads is     *)
 (* proofs about the cube.  This file holds the first and names the map, and   *)
-(* RowFoldCubBool asks the one boolean about it, so the process that runs     *)
-(* for hours carries nothing it does not read.                                *)
+(* RowFoldCubBool asks the one boolean about it.                              *)
 (*                                                                            *)
-(* NO Lemma, NO Proof, NO Qed HERE, and that is the point: what a file        *)
-(* requires is what it loads, and a definition needs no proof file.           *)
-(*                                                                            *)
-(* The four definitions RowCubInst and RowReal would have given are written   *)
-(* out with the same bodies, so the terms are the same to the kernel and      *)
-(* RowFoldCubProof still takes RowFoldCubBool's answer by unfolding alone.    *)
+(* Two runs, the second the one RowFoldCubBool runs:                          *)
+(*   - rowmapiD, RowFoldN's run at the tables: the position is four numbers,  *)
+(*     the count is kept as the marks go, and the map is walked only after a  *)
+(*     prepass.  RowFoldCubProof reads its certificate off RowFoldNSim.       *)
+(*   - rowmapiO, the same run with its searches written over the tables       *)
+(*     themselves and RowOpt's faster reads.  RowFoldCubProof shows it equal  *)
+(*     to rowmapiD.                                                           *)
 
 From mathcomp Require Import all_ssreflect all_fingroup.
 From Stdlib Require Import Uint63.
@@ -27,6 +27,9 @@ Require Import Lehmer RowCub RowCubi.
 Require Import Fstab FsTable Searchr Redun Searchir P1Fs P1Fsm Far Farp1.
 Require Import Fold FoldTables P1Fdec P1FTable RowMask.
 Require Import RowFold RowTabF RowFoldTab RowFoldSrch.
+Require Import RowRunConst RowFoldSrchI.
+Require Import RowLeafFast RowFoldSrchIC.
+Require Import RowCoord RowCoordLeaf RowFoldN RowOpt.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -37,74 +40,225 @@ Notation rmap := (PArray.array arr).
 
 Local Open Scope uint63_scope.
 
-(* ---- which of the eighteen are moves of H -------------------------------- *)
+(* ---- the run, over RowFoldN's sections ----------------------------------- *)
 
-(* The solved coordinate is twist nought and the solved flip and slice rank,  *)
-(* which is csolvedci itself.  A move of H is one that leaves it alone.       *)
-Definition fstep (c k : int) : int :=
-  Uint63.add (Uint63.mul (acttwii (Uint63.div c nfsi) k) nfsi)
-             (actfsri (Uint63.mod c nfsi) k).
+(* the root, as four numbers                                                  *)
+Definition crootD : cpos := cofy yrooti.
 
-Definition ishmi : int :=
-  Eval vm_compute in
-  ifold nmvn 0%uint63
-    (fun k a =>
-       if Uint63.eqb (fstep csolvedci k) csolvedci
-       then Uint63.lor a (Uint63.lsl 1%uint63 k) else a)
-    0%uint63.
+Definition rowmapiD (n : nat) : rmap :=
+  wrun e8numi e4biti fpgi fsrci fsrc2i ffuli fsgri fsloi fshii fsbti
+          mgri mswi mloi mhii
+          p1ftab frepi fsymi twsymi
+          dnlo_data dnhi_data fllo_data flhi_data
+          (RowInst.cstep actfsri) cstepx cmemb okmvvd ycsolvedd
+          RowInst.croot crootD srchd forbi fpopi ishmi
+          n 0 0%uint63 (mkempty tt) (mkempty tt).
 
-(* ---- the cube the search carries ----------------------------------------- *)
-
-(* RowCubInst's ycsolved and ytomemb, and RowReal's okmvv and srch, written   *)
-(* out.  Same bodies, so the kernel sees the same terms.                      *)
-(* THE TEST AT EVERY NODE TAKES THE COORDINATE AND NOTHING ELSE.  The search  *)
-(* used to hand it the state as well, and this instance built a forty eight   *)
-(* cell array to fill an argument RowInst's csolvedb never read -- at every   *)
-(* node, since native_compute is call by value.  The argument is gone from    *)
-(* the search itself now, so it cannot come back.                             *)
-Definition ycsolvedd (c : int) : bool := Uint63.eqb c csolvedci.
-
-Definition ytomembd (y : arr) : memb := tomembi (y2ti y).
-
-Definition okmvvd (pv k : int) : bool :=
-  if (18 <=? pv)%uint63 then true
-  else let fp := (pv / 3)%uint63 in
-       let fk := (k / 3)%uint63 in
-       ~~ ((fp =? fk)%uint63 || (fp =? fk + 3)%uint63).
-
-Definition srchd : nat := 16.
-
-(* ---- the map the run leaves, with the witnesses marked in ---------------- *)
-
-(* fmfino's body, with RowFoldCubReal's arguments and RowFoldCubProof's       *)
-(* tables put in.  Every optimization is on: Rokicki's early stop and         *)
-(* hcoset's two cuts, which is what frunsk is.                                *)
-(*                                                                            *)
-(* THE UNMARKED MAP IS NOT NAMED.  A nullary Definition compiles to a top     *)
-(* level value native_compute keeps for good, so naming it would hold the map *)
-(* the marking writes on alive beside the marked one, and every write on a    *)
-(* version something still points at is kept as history.                      *)
-(* THE DEPTH IS AN ARGUMENT, so the footprint can be watched at thirteen in   *)
-(* minutes before twenty is paid for.  It is a function and not a value, so   *)
-(* nothing holds a map after it is read.                                      *)
-Definition rowmap (n : nat) : rmap :=
-  frunsk e8numi e4biti fpgi fsrci fsrc2i ffuli fsgri fsloi fshii fsbti
-         mgri mswi mloi mhii
-         p1ftab frepi fsymi twsymi
-         dnlo_data dnhi_data fllo_data flhi_data
-         (RowInst.cstep actfsri) zstepi ytomembd okmvvd ycsolvedd
-         RowInst.croot yrooti srchd forbi fpopi ishmi
-         n 0 0%uint63 (mkempty tt) (mkempty tt).
-
-Definition ycwitso : rmap :=
+Definition ycwitsoiD : rmap :=
   foldr (fun t m =>
            let: (pg, gr, bt, _) := t in fmark fpgi fsgri fsbti m pg gr bt)
-        (rowmap 20) rowwits.
+        (rowmapiD 20) rowwits.
 
-(* ---- and the boolean the run has to settle ------------------------------- *)
+Definition rowfulliD : bool := mfullf ffuli ycwitsoiD.
 
-(* THE RUN ANSWERS ONE BOOLEAN AND NOTHING ELSE.  Naming it here is what      *)
-(* keeps the two files apart: RowFoldCubBool says this is true and needs no   *)
-(* proof to say it, and the correctness theorem reads `rowfull = true ->' and *)
-(* never has to look inside the map.                                          *)
-Definition rowfull : bool := mfullf ffuli ycwitso.
+(* ---- the same run, optimised --------------------------------------------- *)
+
+(* Its searches over global constants rather than a section's variables,      *)
+(* and each read RowOpt makes faster replaced by its fast form: ifoldM for    *)
+(* ifold, okmvO, cstepO, p1gO, mmaskO, place24O, fmarknwO, and a packed fsgr  *)
+(* in the stopping search's mark; the level is flevelg, which skips a word    *)
+(* already right.                                                             *)
+
+(* ---- the stopping search's mark, reading the packed fsgr ----------------- *)
+
+(* RowFold.fmarkn at the folded tables                                        *)
+Definition fmarknO (mn : rmap * int) (pg gr bt : int) : rmap * int :=
+  let: (m, n) := mn in
+  let w := PArray.get fpgi pg in
+  let u := fren w in
+  let pty := Uint63.lxor (fpar w) (if (bt <? 12) then 0 else 1) in
+  let r := fkpt w in
+  let g := sgrmvO u pty gr in
+  let v := bitof (fbit (fhlf w) (sbtmv fsbti u bt)) in
+  let c := pchk r in
+  let i := Uint63.add (poff r) g in
+  let a := PArray.get m c in
+  let old := PArray.get a i in
+  let w := Uint63.lor old v in
+  if Uint63.eqb w old then mn
+  else (PArray.set m c (PArray.set a i w), Uint63.add n 1).
+
+(* ---- the stopping search ------------------------------------------------- *)
+
+(* RowFoldSrchI.fsrchski                                                      *)
+Fixpoint fsrchskiO (cut : bool) (togo : nat) (togoi : int) (c : int)
+                   (x : cpos) (msk pv : int) (enough : int) (mn : rmap * int)
+                   : rmap * int :=
+  if Uint63.leb enough mn.2 then mn
+  else if togo is togo'.+1 then
+    let togoi' := Uint63.sub togoi 1 in
+    ifoldM RowRun.nmvn 0
+      (fun k a =>
+         if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then a
+         else if ~~ okmvO pv k then a
+         else if (if cut
+                  then (if (togo' == 0)%N
+                        then ~~ Uint63.eqb (Uint63.land ishmi
+                                              (Uint63.lsl 1 k)) 0
+                        else false)
+                  else false)
+         then a
+         else
+           let c' := cstepO c k in
+           let w := p1gO c' in
+           let nd := mdist w in
+           if (if nd <=? togoi'
+               then (if cut
+                     then (if nd =? togoi' then true
+                           else frcutii <=? Uint63.add togoi' nd)
+                     else true)
+               else false)
+           then fsrchskiO cut togo' togoi' c' (cstepx x k)
+                          (mmaskO w (fsslack (Uint63.sub togoi' nd))) k
+                          enough a
+           else a)
+      mn
+  else if ycsolvedd c
+       then let: (pg, gr, bt) := place24O (cmemb x) in fmarknO mn pg gr bt
+       else mn.
+
+(* RowFoldSrchIC.isrchskL                                                     *)
+Fixpoint isrchskLO (cut : bool) (togo : nat) (togoi : int) (c : int)
+                   (x : cpos) (msk pv : int) (enough : int) (mn : rmap * int)
+                   : rmap * int :=
+  if Uint63.leb enough mn.2 then mn
+  else if togo is togo'.+1 then
+    if togo' is 0 then
+      ifoldM RowRun.nmvn 0
+        (fun k a =>
+           if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then a
+           else if ~~ okmvO pv k then a
+           else if cut && ~~ Uint63.eqb (Uint63.land ishmi (Uint63.lsl 1 k)) 0
+           then a
+           else fsrchskiO cut 0 0 (cstepO c k) (cstepx x k) 0 k enough a)
+        mn
+    else
+    let togoi' := Uint63.sub togoi 1 in
+    ifoldM RowRun.nmvn 0
+      (fun k a =>
+         if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then a
+         else if ~~ okmvO pv k then a
+         else if (if cut
+                  then (if (togo' == 0)%N
+                        then ~~ Uint63.eqb (Uint63.land ishmi
+                                              (Uint63.lsl 1 k)) 0
+                        else false)
+                  else false)
+         then a
+         else
+           let c' := cstepO c k in
+           let w := p1gO c' in
+           let nd := mdist w in
+           if (if nd <=? togoi'
+               then (if cut
+                     then (if nd =? togoi' then true
+                           else frcutii <=? Uint63.add togoi' nd)
+                     else true)
+               else false)
+           then isrchskLO cut togo' togoi' c' (cstepx x k)
+                          (mmaskO w (fsslack (Uint63.sub togoi' nd))) k
+                          enough a
+           else a)
+      mn
+  else fsrchskiO cut 0 togoi c x msk pv enough mn.
+
+(* ---- the counting search ------------------------------------------------- *)
+
+(* RowFoldN.wleaf                                                             *)
+Definition wleafO (c : int) (x : cpos) (a : rmap * int) : rmap * int :=
+  if ycsolvedd c then let: (pg, gr, bt) := place24O (cmemb x) in
+                      fmarknwO a pg gr bt
+  else a.
+
+(* RowFoldN.iwsrchL                                                           *)
+Fixpoint iwsrchLO (cut : bool) (togo : nat) (togoi : int) (c : int) (x : cpos)
+                  (msk pv : int) (a : rmap * int) : rmap * int :=
+  if togo is togo'.+1 then
+    if togo' is 0 then
+      ifoldM RowRun.nmvn 0
+        (fun k a' =>
+           if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then a'
+           else if ~~ okmvO pv k then a'
+           else if cut && ~~ Uint63.eqb (Uint63.land ishmi (Uint63.lsl 1 k)) 0
+           then a'
+           else wleafO (cstepO c k) (cstepx x k) a')
+        a
+    else
+    let togoi' := Uint63.sub togoi 1 in
+    ifoldM RowRun.nmvn 0
+      (fun k a' =>
+         if Uint63.eqb (Uint63.land msk (Uint63.lsl 1 k)) 0 then a'
+         else if ~~ okmvO pv k then a'
+         else if (if cut
+                  then (if (togo' == 0)%N
+                        then ~~ Uint63.eqb (Uint63.land ishmi
+                                              (Uint63.lsl 1 k)) 0
+                        else false)
+                  else false)
+         then a'
+         else
+           let c' := cstepO c k in
+           let w := p1gO c' in
+           let nd := mdist w in
+           if (if nd <=? togoi'
+               then (if cut
+                     then (if nd =? togoi' then true
+                           else frcutii <=? Uint63.add togoi' nd)
+                     else true)
+               else false)
+           then iwsrchLO cut togo' togoi' c' (cstepx x k)
+                         (mmaskO w (fsslack (Uint63.sub togoi' nd))) k a'
+           else a')
+      a
+  else wleafO c x a.
+
+(* ---- the level and the run ----------------------------------------------- *)
+
+(* RowFoldN.wslv                                                              *)
+Definition wslvO (cut : bool) (d : nat) (m' : rmap) (nb : int) : rmap * int :=
+  if (d <= srchd)%N then
+    let w := p1gO RowInst.croot in
+    let di := of_nat d in
+    if (mdist w <=? di) then
+      let msk := mmaskO w (fsslack (Uint63.sub di (mdist w))) in
+      if (d == srchd)%N then
+        let e := Uint63.add enoughb (Uint63.div nb enoughd) in
+        isrchskLO cut d di RowInst.croot crootD msk 18 e (m', nb)
+      else iwsrchLO cut d di RowInst.croot crootD msk 18 (m', nb)
+    else (m', nb)
+  else (m', nb).
+
+(* RowFoldN.wrun, the level skipping a word already right                     *)
+Fixpoint wrunO (n : nat) (d : nat) (n0 : int) (m dst : rmap) : rmap :=
+  if n is n1.+1 then
+    if Uint63.ltb ncutb n0 then
+      let m1 := flevelg fsrci fsrc2i ffuli fsgri fsloi fshii mgri mswi mloi mhii
+                        m dst in
+      let a := wslvO true d.+1 m1 (fcount forbi fpopi m1) in
+      wrunO n1 d.+1 a.2 a.1 m
+    else
+      let a := wslvO false d.+1 m n0 in
+      wrunO n1 d.+1 a.2 a.1 dst
+  else m.
+
+(* ---- the map, the witnesses and the boolean ------------------------------ *)
+
+Definition rowmapiO (n : nat) : rmap :=
+  wrunO n 0 0%uint63 (RowFold.mkempty tt) (RowFold.mkempty tt).
+
+Definition ycwitsoiO : rmap :=
+  foldr (fun t m =>
+           let: (pg, gr, bt, _) := t in fmark fpgi fsgri fsbti m pg gr bt)
+        (rowmapiO 20) rowwits.
+
+Definition rowfulliO : bool := mfullf ffuli ycwitsoiO.

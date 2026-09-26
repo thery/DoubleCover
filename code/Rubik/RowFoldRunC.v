@@ -8,7 +8,7 @@
 (* six million threshold the search at that level is complete, so the map it *)
 (* reads needs nothing from the moves of H.  RowFoldSrch's flvlsk runs the    *)
 (* prepass at every level; to depth thirteen that is thirteen passes over the *)
-(* map for nothing, 123 s of a 295 s run, measured (RowBench13).              *)
+(* map for nothing, 123 s of a 295 s run, measured.                           *)
 (*                                                                            *)
 (* HERE: the level searches the map as it is when the cuts are off.  A map    *)
 (* sound at d is sound at d + 1, so nothing new is proved about the cube:     *)
