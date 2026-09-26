@@ -1096,9 +1096,10 @@ An element of $H$ has the solved summary: no corner is twisted, no edge is
 flipped and the 4 middle edges are in the middle layer. So the element $h$
 that indexes a bit can be represented by 3 numbers: how the 8 corners of the
 top and bottom layers sit, how the 8 edges of those layers sit and how the
-4 middle edges sit. That is 40 320 by 40 320 by 24 arrangements, but half of
-those triples cannot occur: on the cube the corners and the edges are always
-permuted with the same sign.
+4 middle edges sit. That is 40320 x 40320 x 24 arrangements (8! = 40320 and 4! = 24), but 
+the corners and the edges are always
+permuted with the same sign, this number
+can be further divided by 2.
 
 We lay out the bits the way Rokicki's own program lays them out. A page is one arrangement of the
 corners. Inside a page, a group is a pair of arrangements of the outer edges,
@@ -1110,8 +1111,8 @@ disappears with nothing left to store.
 
 The map uses 48 bits of each machine word, so one word holds the same group on 2
 pages, the corner arrangements of even and odd rank, the odd one in the top
-half. The map is then 20 160 times 20 160 such words: 406 425 600 words, 3.25
-GB, split into 194 arrays of 2 million words. The map and its indexing are #src("Row.v") and
+half. The map is then 20160 x 20160 words : 3.25
+GB organised as 194 arrays of 2 million words. The map and its indexing are defined in #src("Row.v") and
 #src("RowMap.v").
 
 #figure(
@@ -1125,7 +1126,7 @@ GB, split into 194 arrays of 2 million words. The map and its indexing are #src(
       rect((o, o), (1.7 + o, 1.4 + o), fill: white, stroke: 0.4pt)
     }
     content((0.85, 0.7), text(size: 8.5pt)[a page])
-    content((0.85, -0.45), text(size: tn)[40 320 pages, one for])
+    content((0.85, -0.45), text(size: tn)[40320 pages, one for])
     content((0.85, -0.78), text(size: tn)[each corner arrangement])
 
     // ---- one page, opened into its groups ---------------------------------
@@ -1159,11 +1160,10 @@ GB, split into 194 arrays of 2 million words. The map and its indexing are #src(
     content((x0 + 36 * w, -2.25),
             text(size: tn)[corner arrangement of odd rank])
   }),
-  caption: [The map, from the outside in. A page for each arrangement of the
-  corners, a group in the page for each pair of outer-edge arrangements and a
-  bit in the group for each arrangement of the 4 middle edges, the 12
-  even ones low and the 12 odd ones high. One word holds the same group on
-  the 2 pages of a pair.],
+  caption: [The map : a page per
+  corner arrangement, a group for each pair of outer-edge arrangements and a
+  bit  for each arrangement of the 4 middle edges, the 12
+  even ones low and the 12 odd ones high.],
 ) <maplayout>
 
 == A level and the prepass
