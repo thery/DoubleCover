@@ -999,14 +999,12 @@ To check that every position of a coset is at most 20 moves from solved,
 we use a _marking_ algorithm. Each position of $x H$ gets one bit.
 This bit is initially set to 0. The marking works iteratively. For each
 level $d$, from 0 to 20, we list the words of length $d$. A word gives a
-position. If this position is in $x H$, we set its bit to 1. At the end,
-the bits set to 1 are exactly the positions of $x H$ within 20 moves. If
-no bit is left at 0, every position of the coset is solved in 20 moves
-or fewer.
-
-We call the bits of a coset its _map_. The bits are stored in machine words.
-An array in Rocq may hold 4 194 303 entries, so a larger map is split into
-several arrays.
+position. If this position is in $x H$, we set its bit to 1. We call the
+bits of a coset its _map_. The bits are stored in machine words. An array in
+Rocq may hold 4 194 303 entries, so a larger map is split into several
+arrays. At the end, the bits set to 1 are exactly the positions of $x H$
+within 20 moves. If no bit is left at 0, every position of the coset is
+solved in 20 moves or fewer.
 
 == Choosing $H$ <choosingH>
 
