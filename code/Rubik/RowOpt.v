@@ -286,15 +286,20 @@ Definition cstepO (c k : int) : int :=
 
 Lemma cstepOE c k : cstepO c k = RowInst.cstep actfsri c k.
 Proof.
-rewrite /cstepO; cbv zeta; case: nltbP => hk //; case: nltbP => hf //.
+rewrite /cstepO; cbv zeta.
+(* named tests, and `by []' only on the branch where both sides agree: a  *)
+(* `//' on the other one has Rocq unfold both steps, tables and all      *)
+case: (nltbP k 18) => hk; last by [].
+case: (nltbP (Uint63.lsr (c - divnfs c * nfsi) 11) 495) => hf; last by [].
 rewrite divnfsE modE in hf *.
 rewrite fsstepOE /RowInst.cstep /ctw /cfs.
 have e : Uint63.lsr (c mod nfsi) 11 = c mod nfsi / 2048 by apply: lsrE.
 have hn : to_nat 495 = 495%N by [].
 rewrite e hn in hf.
 have hk18 : (to_nat k < 18)%N by move: hk; have -> : to_nat 18 = 18%N by [].
-have := iter_at (iter2_at fschkT (erefl _) (erefl _) hf) hk18.
-by move=> /neqbP/to_nat_inj ->.
+have h1 := iter2_at fschkT (erefl _) (erefl _) hf.
+have /neqbP/to_nat_inj hs := iter_at h1 hk18.
+exact: (congr1 (Uint63.add (Uint63.mul (acttwii (c / nfsi) k) nfsi)) hs).
 Qed.
 
 (* ---- the moves a node may take --------------------------------------------- *)
