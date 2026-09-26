@@ -1090,10 +1090,10 @@ The phase 1 table gives us the distance to the solved summary. For a position, t
 Remember that we start from $x^(-1)$. We
 build the words of length $d$ one move at a time. Say $k$ moves have been applied to produce $x^(-1) w$, and the table gives $t$ for $x^(-1) w$. If $k + t > d$, no word that continues from there can end in $H$ after $d$ moves: its distance is too high. So we can drop this branch.
 
-The membership test is made on the position, not on the table. The table
-is only checked to be never too large, and a table of zeros passes this
-check: with it, every position would look like a member. So the theorem
-must not depend on the table for membership. The table entry also records
+Membership is not checked as a distance of 0 in the phase 1 table (the
+phase 1 table is only proved to be an estimate). Instead it uses the
+position and its summary.
+An entry of the phase 1 table also records
 which moves lower the distance and which keep it (#src("RowMask.v")), so a
 node tries 3 or 4 moves instead of 18.
 
