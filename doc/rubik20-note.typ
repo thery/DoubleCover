@@ -1006,6 +1006,52 @@ arrays. At the end, the bits set to 1 are exactly the positions of $x H$
 within 20 moves. If no bit is left at 0, every position of the coset is
 solved in 20 moves or fewer.
 
+#figure(
+  cetz.canvas(length: 1cm, {
+    import cetz.draw: *
+    let tn = 7.5pt
+
+    // ---- the map, several arrays -----------------------------------------
+    for i in range(3) {
+      let o = (2 - i) * 0.15
+      rect((o, o), (1.7 + o, 1.4 + o), fill: white, stroke: 0.4pt)
+    }
+    content((0.85, 0.7), text(size: 8.5pt)[an array])
+    content((0.85, -0.45), text(size: tn)[the map, split into])
+    content((0.85, -0.78), text(size: tn)[several arrays])
+
+    // ---- one array, opened into its words -----------------------------------
+    line((2.0, 1.4), (3.5, 1.4), stroke: (dash: "dotted", thickness: 0.4pt))
+    line((1.7, 0.0), (3.5, 0.0), stroke: (dash: "dotted", thickness: 0.4pt))
+    for i in range(7) {
+      rect((3.5, i * 0.2), (5.3, i * 0.2 + 0.2),
+           fill: if i == 4 { luma(205) } else { white }, stroke: 0.4pt)
+    }
+    content((7.4, 1.29), text(size: tn)[an array of machine words,])
+    content((7.4, 0.96), text(size: tn)[at most 4 194 303 of them])
+
+    // ---- that word, as bits -------------------------------------------------
+    let x0 = 2.6
+    let w = 0.3
+    let nb = 16
+    let xe = x0 + nb * w
+    line((3.5, 0.8), (x0, -1.2), stroke: (dash: "dotted", thickness: 0.4pt))
+    line((5.3, 0.8), (xe, -1.2), stroke: (dash: "dotted", thickness: 0.4pt))
+    for i in range(nb) {
+      let b = if i in (1, 4, 5, 9, 14) { 1 } else { 0 }
+      rect((x0 + i * w, -1.6), (x0 + (i + 1) * w, -1.2),
+           fill: if b == 1 { luma(205) } else { white }, stroke: 0.3pt)
+      content((x0 + (i + 0.5) * w, -1.4), text(size: 6.5pt)[#b])
+    }
+    content((xe + 0.35, -1.4), text(size: tn)[...])
+    content((x0 + nb * w / 2, -1.9),
+            text(size: tn)[a word: one bit for each position, set to 1 once reached])
+  }),
+  caption: [The map of a coset. One bit for each position of the coset, the bits
+  kept in machine words and the words in arrays, as many arrays as Rocq's limit
+  on the length of an array asks for.],
+) <mapbits>
+
 == Choosing $H$ <choosingH>
 
 To derive an effective marking algorithm, the choice 
