@@ -1204,6 +1204,13 @@ Rokicki's strategy, which depends on how many bits the map holds:
   the search stops once the map holds 167 million plus $n/3$ bits.
 - *Levels 17 to 20.* The prepass alone.
 
+The 2 thresholds are small. The cuts start when the map is 0.03 % full,
+and the search at level 16 is satisfied with a map about 1 % full: 167
+million bits is under 1 % of the map. The last 4 levels fill the rest. A prepass sets up to 10 new bits for each bit
+already set, so it can multiply the number of bits set by up to 11, and 4
+prepasses by up to $11^4$, more than 14 000. This is where most of the
+marking happens, and it is done by the cheap operation.
+
 These cuts can lose words. A word can waste a move early
 and still end in $H$. What is proved is that every bit set is correct. We don't require
 completeness.
