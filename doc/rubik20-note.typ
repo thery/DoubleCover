@@ -1094,7 +1094,7 @@ build the words of length $d$ one move at a time. Say $k$ moves have been applie
 
 An element of $H$ has the solved summary: no corner is twisted, no edge is
 flipped and the 4 middle edges are in the middle layer. So the element $h$
-that indexes a bit is named by 3 numbers: how the 8 corners of the
+that indexes a bit can be represented by 3 numbers: how the 8 corners of the
 top and bottom layers sit, how the 8 edges of those layers sit and how the
 4 middle edges sit. That is 40 320 by 40 320 by 24 arrangements, but half of
 those triples cannot occur: on the cube the corners and the edges are always
