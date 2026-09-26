@@ -1243,17 +1243,17 @@ Fixpoint runsk (n : nat) (d : nat) (n0 : int) (m dst : rmap) : rmap :=
 is still being searched. Counting the bits, `mcount`, is a traversal of
 the whole map, and the run pays for it once a level.
 
-Everything above is one boolean. #src("RowFoldCubDefI.v") builds the map, runs
+Everything above is one boolean. #src("RowFoldCubDef.v") builds the map, runs
 the 20 levels, marks the 32 and asks whether every bit is set:
 
 ```coq
-Definition rowfulli : bool := mfullf ffuli ycwitsoi.
+Definition rowfulliO : bool := mfullf ffuli ycwitsoiO.
 
-Lemma rowfulliE : rowfulli = true.
-Proof. Time native_cast_no_check (erefl true). Qed.
+Lemma rowfulliOT : rowfulliO = true.
+Proof. Time native_cast_no_check (erefl true). Time Qed.
 ```
 
-That `Qed` is the 6 hours. The file that holds it, #src("RowFoldCubBoolI.v"),
+That `Qed` is the 50 minutes. The file that holds it, #src("RowFoldCubBool.v"),
 is one `Require` and one `Lemma`: a file that runs loads no proof, and a file
 that proves runs nothing. Everything else -- that the prepass keeps the map
 sound, that the search marks only members, that a full map is the theorem -- is
@@ -1308,25 +1308,25 @@ There are 5 new things, and only one of them is a search.
 
 == The files and the cost
 
-The coset adds 70 hand-written files and 17 600 lines, besides the
+The coset adds 86 hand-written files and 23 800 lines, besides the
 generated tables. The coset and its members are #src("Row.v"),
 #src("RowMemb.v") and #src("RowInst.v"); the ranking and the moves
 #src("Lehmer.v") with the `RowPart`, `RowMove` and `RowTab` groups; the map and
 the search #src("RowMap.v"), #src("RowRun.v"), #src("RowSrch.v") and
 #src("RowFinal.v"); the fold the `RowFold` group; and the 2 runs the `RowCub`
-and `RowFoldCub` groups, ending in #src("RowCubDoneI.v") and
-#src("RowFoldCubDoneI.v"). #src("README.md") lists every one of them with what
+and `RowFoldCub` groups, ending in #src("RowCubDone.v") and
+#src("RowFoldCubDone.v"). #src("README.md") lists every one of them with what
 it does.
 
 The search ran twice, over the folded map and over the unfolded one, with the
 same search in both, and both times it filled the map.
 
 #tbl(([the run], [wall clock], [processor time], [peak memory]),
-  ([over the folded map], [5 h 53], [5 h 51], [--]),
-  ([over the unfolded map], [7 h 52], [7 h 48], [23.3 GB]),
+  ([over the folded map], [50 min], [50 min], [--]),
+  ([over the unfolded map], [2 h 32], [2 h 31], [--]),
 )
 
-The fold is worth 1.3 times on the wall clock and 1.3 times on processor time.
+The fold is worth 3 times on the wall clock and 3 times on processor time.
 The run does not follow the size of the map, which is 13 times smaller. Most of
 the work is the search at the deepest levels, and that is the same tree on both
 sides. The map sets the memory. The unfolded map is 3.25 GB against 248 MB, and
@@ -1345,8 +1345,8 @@ processor time. It is generated once and shared with the lower-bound work.
 The statement has no hypothesis left.
 
 ```coq
-Theorem real_row_superflip_fold_runi m :
-  m \in H -> superflip * m \in ball Sset 20.
+Theorem real_superflip_row_fold_runO h :
+  h \in H -> superflip^-1 * h \in ball Sset 20.
 ```
 
 `H` is the subgroup above, so every position of the superflip's coset is
