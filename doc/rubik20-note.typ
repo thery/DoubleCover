@@ -745,8 +745,8 @@ table goes down from about 5.4 processor hours to 1.35.
 == Conclusion on the first lower bound
 
 The development is composed of 
-- 15 files about the cubes (7 300 lines),
-- 15 files about phase 1 table (4 700 lines)
+- 15 files about the cube (7 300 lines),
+- 15 files about the phase 1 table (4 700 lines),
 - 15 files for the lower bound (1 900 lines). 
 Building the tables costs the same for any radius of the search. Here
 are the times, measured from a clean tree on the reference machine:
@@ -955,7 +955,7 @@ once loaded into the prover.
 The word of 26 moves and the 6 searches together show that superflip4 is
 exactly 26 quarter turns from solved. So in quarter turns, God's number is at
 least 26. The development for this lower bound has 18 files of its own (6 000 lines).
-It also uses the 15 files about the cube developed for the firs lower bound. The
+It also uses the 15 files about the cube developed for the first lower bound. The
 argument for the 6 prefixes is in #src("HProp2.v"), the search in
 #src("HSearch.v"), the checks in #src("HSweep.v") and the bound in
 #src("HAll.v"). Here are the times, measured from a clean tree on the reference
