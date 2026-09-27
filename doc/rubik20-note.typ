@@ -1203,20 +1203,25 @@ Rokicki's strategy, which depends on how many bits the map holds:
   Level 16 has a further refinement. If $n$ bits are set after its prepass,
   the search stops once the map holds 167 million plus $n/3$ bits.
 - *Levels 17 to 20.* The prepass alone.
+- *After level 20.* The few bits still at 0 are handled one by one. Each
+  of these members gets a word of at most 20 moves, found with an external
+  solver.
+  We apply the word to the member and check that it gives the solved
+  cube, then set the bit.
 
-These cuts can lose words: a word can waste a move early and still end in
-$H$. This is allowed. What is proved is that every bit set is correct, not
-that every word is found, so we do not require completeness.
+The strategy is clearly not complete: it can lose words. This is allowed:
+what is proved is that every bit set is correct, not that every word is
+found.
 
-In fact, the search does only a small part of the marking. Its 2
-thresholds are small: the cuts start when the map is 0.03 % full, and the
-search at level 16 stops once the map is about 1 % full (167 million bits).
-The last 4 levels fill the rest with the prepass alone. A prepass sets up to
-10 new bits for each bit already set, so it can multiply the number of bits
-set by up to 11, and 4 prepasses by up to $11^4$, more than 14 000. Most of
-the marking is done by the prepass.
+Besides losing words, the search stops very early: the 2 bounds, 6 million
+and 167 million bits, correspond to a map 0.03 % full and about 1 % full. Nevertheless, at level 20 the map is
+almost 100 % full. The last 4 levels do this with the prepass alone. A
+prepass sets up to 10 new bits for each bit already set, so it can multiply
+the number of bits set by up to 11, and 4 prepasses by up to $11^4$, more
+than 14 000. Most of the marking is done by the prepass.
 
-This works because the prepass is cheap. Applying a move of $H$ to a
+Letting the prepass do most of the marking works because the prepass is
+cheap. Applying a move of $H$ to a
 position of the coset does 3 separate things to the 3 numbers that
 represent it. The corner arrangement goes to another corner arrangement, so
 a page goes to a page. The outer-edge pair goes to another pair, so a group
@@ -1433,15 +1438,29 @@ factor of 2.8. So the run takes a night because the tree holds 138
 billion nodes, not because the prover is slow: in OCaml the same tree still
 costs 19 processor-hours.
 
-The whole development, counted in hand-written Rocq and leaving out the
-generated tables, is 36 300 lines. Each line of the table counts what that piece
-adds to the ones above it.
+The whole development is 154 hand-written Rocq files, 44 800 lines. Each
+file is counted once, with the part that needs it; a file needed by several
+parts is counted with what they share.
 
 #tbl(([], [files], [lines]),
-  ([the superflip, for the 20 face turns], [44], [12 600]),
-  ([the four-spot, for the 26 quarter turns], [19], [6 100]),
-  ([one coset of the upper bound], [70], [17 600]),
-  ([*in all*], [*133*], [*36 300*]),
+  ([the cube, shared by all three], [15], [7 300]),
+  ([phase one, shared by the 20 face turns and the coset], [15], [4 700]),
+  ([the 20 face turns], [15], [1 900]),
+  ([the 26 quarter turns], [18], [6 000]),
+  ([one coset, of which the fold is 6 files and 1 000 lines], [91], [24 900]),
+  ([*in all*], [*154*], [*44 800*]),
+)
+
+On top of that come the generated files, written by programs. They hold the
+tables, and the pieces the runs are cut into.
+
+#tbl(([], [files], [lines], [size]),
+  ([shared by all three], [2], [25 000], [2 MB]),
+  ([phase one, shared by the 20 face turns and the coset], [26], [2 129 000], [344 MB]),
+  ([the 20 face turns], [37], [677 000], [108 MB]),
+  ([the 26 quarter turns], [82], [15 612 000], [2 488 MB]),
+  ([one coset], [7], [391 000], [19 MB]),
+  ([*in all*], [*154*], [*18 834 000*], [*2 962 MB*]),
 )
 
 This development was written with the help of Claude, Anthropic's coding
