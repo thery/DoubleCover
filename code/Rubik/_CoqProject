@@ -3,8 +3,6 @@
 ssrint63.v
 Cyc.v
 Ball.v
-Canon.v
-Canseq.v
 Table.v
 Search.v
 Searchr.v
@@ -18,7 +16,6 @@ Root.v
 Coord.v
 Diameter.v
 Moves.v
-Toy.v
 Fspar.v
 Fs_00.v
 Fs_01.v
@@ -125,7 +122,6 @@ RowCubi.v
 RowCubInst.v
 RowWits.v
 RowWitsChk.v
-RowDummy.v
 
 # the folded run, built by name: make RowFoldCubDef.vo
 P1Fold.v
@@ -180,7 +176,6 @@ RowUp8inv.v
 RowReal.v
 RowFoldCubReal.v
 RowMembi.v
-RowOkm.v
 RowSrch.v
 RowSrchP.v
 RowMark.v
@@ -200,10 +195,6 @@ RowOpt.v
 RowFoldLvlG.v
 RowRealLeaf.v
 
-# benches: they run when built, so only ever by name: make RowBenchCountF.vo
-RowLeafBench.v
-RowStepBench.v
-RowDivBench.v
 RowCoord.v
 RowCoordOk.v
 RowCoordEdge.v
@@ -215,11 +206,8 @@ RowSrchSim.v
 RowCoordRun.v
 RowFoldN.v
 RowFoldNSim.v
-RowBenchCount.v
-RowBenchCountF.v
 RowSrchN.v
 RowSrchNSim.v
-RowBenchCountN.v
 
 # THE RUN (~hours): only ever by name
 RowFoldCubBool.v
