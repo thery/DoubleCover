@@ -1270,8 +1270,10 @@ positions are at most 20 moves away; we do not know that they are at distance
 
 The run takes 2 h 32. This is not great: on the same machine hcoset treats the
 coset in 166 s, about 3 minutes, and the OCaml version of hcoset we wrote first
-takes *[to measure]*. The penalty is the memory. The map is 3.25 GB, and a
-level reads one map while it writes the other.
+in 28 min. The penalty is the memory. The map is 3.25 GB, and a level reads one
+map while it writes the other. OCaml hardly notices: with the map made 14.6
+times smaller by the fold below, its run only goes from 30 to 25 min. Rocq is
+another matter.
 
 The superflip coset has symmetries, and they can make the map smaller. The map
 is 40 320 pages, one for each arrangement of the corners. Of the 48 symmetries
@@ -1289,8 +1291,10 @@ stood for, and a map sound after one level is sound after the next. This adds
 30 files and 7 800 lines.
 
 The result is much better. Over the folded map the run takes 50 min, against
-2 h 32 unfolded, a factor of 3; the OCaml version with the folded map takes
-*[to measure]*. The final statement has no hypothesis left.
+2 h 32 unfolded, a factor of 3 where OCaml gains a factor of 1.2. Compared with
+the OCaml run over the same map, Rocq goes from 5 times slower to 2 times
+slower: what Rocq pays for is the size of the map. The final statement has no
+hypothesis left.
 
 ```coq
 Corollary superflip_row_fold h :
