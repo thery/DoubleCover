@@ -990,8 +990,7 @@ In this note, we are not going to tackle the problem
 of how the representatives of the cosets are generated.
 We are going to prove the algorithm that checks 
 that, given an arbitrary $x$,
-every position of $x H$ is at most 20 moves from solved. As an application, we then run it inside Rocq with the superflip for $x$. This shows that all the positions of
-the superflip's coset are at distance at most 20.
+every position of $x H$ is at most 20 moves from solved. As an application, we then run it inside Rocq with the superflip for $x$. This computation proves that all the positions of the superflip's coset are at distance at most 20.
 
 == Marking algorithm
 
@@ -1082,20 +1081,19 @@ Checking membership for $x H$ can be done effectively. A position $p$ is in $x H
 when $x^(-1) p$ is in $H$, that is, when the summary of $x^(-1) p$ is
 the solved one. The bit of a position $x h$ of the coset is indexed by
 $h$. So we start our enumeration of the words of length $d$ from
-$x^(-1)$. We apply the $d$ moves of a word. If the position $h$ we
+$x^(-1)$. We apply the $d$ moves to it. If the resulting position $h$ we
 reach is in $H$, that is, if its summary is the solved one,
 we set the bit of $h$.
 
 The phase 1 table gives us the distance to the solved summary. For a position, this is the number of moves needed to bring it into $H$. We use it to cut the enumeration, as in the search of @lowerbound. 
 Remember that we start from $x^(-1)$. We
-build the words of length $d$ one move at a time. Say $k$ moves have been applied to produce $x^(-1) w$, and the table gives $t$ for $x^(-1) w$. If $k + t > d$, no word that continues from there can end in $H$ after $d$ moves: its distance is too high. So we can drop this branch.
+build the words of length $d$ one move at a time. Say $k$ moves have been applied to produce $x^(-1) w$, and the table gives $t$ for $x^(-1) w$. If $k + t > d$, no word that continues from there can end in $H$ after $d$ moves: its distance is too high. So we can abort this branch.
 
 Membership is not checked as a distance of 0 in the phase 1 table (the
 phase 1 table is only proved to be an estimate). Instead it uses the
 position and its summary.
 An entry of the phase 1 table also records
-which moves lower the distance and which keep it (#src("RowMask.v")), so a
-node tries 3 or 4 moves instead of 18.
+which moves lower the distance and which keep it (#src("RowMask.v")).
 
 == Structuring the map
 
@@ -1198,7 +1196,10 @@ Rokicki's strategy, which depends on how many bits the map holds:
 - *While the map holds at most 6 million bits.* The search alone.
 - *Once it holds more, up to level 16.* The prepass, then the search with
   the moves not in $H$ for the last move of a word. Near the end of a word,
-  it also only tries moves that strictly lower the distance. By near the end
+  it also only tries moves that strictly lower the distance. 
+  Remember that the phase 1 table records
+  this moves. They are usually 3 or 4.
+  By  near the end
   we mean that the number of moves left plus the distance is less than 5.
   Level 16 has a further refinement. If $n$ bits are set after its prepass,
   the search stops once the map holds 167 million plus $n/3$ bits.
@@ -1232,10 +1233,10 @@ and a shuffle of one machine word. So the prepass never takes a position
 apart. It never builds a cube, never ranks one, never looks a position up.
 For each of the 10 moves it reads the whole map and writes the whole map.
 
-The prepass and the proof that it keeps the map sound are in
-#src("RowMap.v"). #src("RowLvl.v") has a faster version, where the array
-holding a page is fetched once and put back once instead of once a word,
-and proves it equal to the first.
+The prepass is defined and proved 
+correct in the file
+#src("RowMap.v").
+The file #src("RowLvl.v") has a faster version. It fetches the array of a page once, not once a word. It proves the 2 versions equal.
 
 == Applying it to the superflip coset
 
@@ -1243,7 +1244,7 @@ We now have a generic algorithm that checks that every member of a coset $x H$
 is within 20 moves. Its proof, for the unfolded map, is 61 hand-written files
 and 17 100 lines, besides the trunk it shares with the lower bound.
 
-We apply it to the coset of the superflip. The table gives the bits set after
+We apply it to the coset of the superflip. The table below gives the bits set after
 each level, over the 19 508 428 800 bits of the map; before level 10 none is
 set. The counts are those of the OCaml translation of the run.
 
@@ -1261,21 +1262,28 @@ set. The counts are those of the OCaml translation of the run.
   ([20], [19 508 428 768], [], [all but 32]),
 )
 
-After level 20, 32 bits are still clear. We give each of them a word of at most
-20 moves, in #src("RowWits.v"). Our prototype gave 28 of them, and the last 4
-were found one at a time. None of that is believed: #src("RowWitsChk.v")
-applies each word to its member and asks for the solved cube. So these 32
-positions are at most 20 moves away; we do not know that they are at distance
-20.
+After level 20, 32 bits are still clear. 
+We have written a two-phase solver in Ocaml. It gives a word of exactly
+20 moves for each of 32 positions.
+These words are  in #src("RowWits.v"). 
+Then the #src("RowWitsChk.v") set
+the bit correspondint to
+these 32 positions making
+the map full.
 
-The run takes 2 h 32. This is not great: on the same machine hcoset treats the
-coset in 166 s, about 3 minutes, and the OCaml version of hcoset we wrote first
-in 28 min. The penalty is the memory. The map is 3.25 GB, and a level reads one
-map while it writes the other. OCaml hardly notices: with the map made 14.6
-times smaller by the fold below, its run only goes from 30 to 25 min. Rocq is
-another matter.
-
-The superflip coset has symmetries, and they can make the map smaller. The map
+The run takes 2 h 32. This is not great.
+On the same machine hcoset, the program used for the big computation, treats the
+coset about 3 minutes.
+This program is highly optimised. 
+We have written an OCaml version of hcoset
+to get a more reasonable comparison.
+The Ocaml run takes in 28 min. The penalty
+we pay in Rocq is the memory. The map is 3.25 GB, and a level reads one
+map while it writes the other. In order
+to alievate the memory problem we take
+advantages of the superflip symmetries.
+It lets us reduce drastically the memory
+required.The map
 is 40 320 pages, one for each arrangement of the corners. Of the 48 symmetries
 of the cube, 16 keep the top and bottom faces in place. Each of them sends the
 10 moves of $H$ to the 10 moves, so it maps $H$ to itself, and each leaves the
@@ -1284,18 +1292,13 @@ its image under such a symmetry need the same number of moves, so 2 pages
 related by a symmetry hold the same answer. One page of each family is then
 enough: 2 768 of the 40 320, a factor of 14.6. The map drops to 248 MB. The
 price is undoing a symmetry whenever a kept page is read.
-
-The fold has to be proved as well as written: a symmetry sends a member of the
-coset to a member of the coset, undoing it gives back the position the page
-stood for, and a map sound after one level is sound after the next. This adds
-30 files and 7 800 lines.
-
-The result is much better. Over the folded map the run takes 50 min, against
-2 h 32 unfolded, a factor of 3 where OCaml gains a factor of 1.2. Compared with
-the OCaml run over the same map, Rocq goes from 5 times slower to 2 times
-slower: what Rocq pays for is the size of the map. The final statement has no
-hypothesis left.
-
+Defining this map and proving it adds
+30 files and 7 800 lines. Over the folded map now the run takes 50 min, against
+2 h 32 unfolded, a factor of 3.
+In comparison, the folded version 
+with our Ocaml version gives only a factor
+of 1.2. This shows that memory is the limiting factor in Rocq.
+The final statement we get is :
 ```coq
 Corollary superflip_row_fold h :
   h \in H -> superflip * h \in ball Sset 20.
@@ -1306,59 +1309,10 @@ Corollary superflip_row_fold h :
 
 = Conclusion
 
-We prove 2 lower bounds. No position of the cube is solved in 19 face turns,
-and none in 25 quarter turns. In each case one position is the witness, the
-superflip for the first and the four-spot with the superflip on it for the
-second. In each case the proof is a search that comes back empty over a table of
-estimated distances.
-
-We do not prove that 20 and 26 always suffice. The upper half is a different
-computation. It is not one search that finds nothing, but 2 billion searches
-that must each find everything. We did one of the 2 billion, and the section
-above gives its cost.
-
-The three share a trunk. The cube itself, as permutations of the 48
-facelets, with the 18 moves and the group they generate. Balls, the
-positions within $d$ moves. The abstract search, whose
-contract is that a false answer is a proof. The rule that any summary of a
-position, together with any table that passes one check, gives an estimate that
-is never too big. And the tables themselves, held as machine integers in arrays
-rather than as lists of unary numbers.
-
-What each of the three needed of its own:
-
-- *The 20 face turns.* The phase one summary, which is the edge flips and
-  the slice, its table and the certificate that checks the table. The same
-  search seen from 3 angles, and 30 pieces run side by side.
-- *The 26 quarter turns.* The cut to 6 prefixes, which is the one
-  piece of the development argued by hand rather than computed, and the parity
-  argument that turns 25 into 24. A second and much larger summary, 29 billion
-  values, with a table of its own and a check of its own.
-- *One coset.* A coset held as a map of bits rather than as a tree of
-  positions. That needs 5 new pieces. The rank and the sign of a
-  permutation on machine integers: Rocq's library has both, but they do not
-  compute. The link between a position and its 3
-  ranks. A pass that steps a whole map one move at a time. The fold by the
-  16 symmetries. And words given by hand for the members the run does
-  not reach.
-
-The same search written in OCaml is about 4.5 times faster than the
-one Rocq runs. We ran both at radius 19 on the reference machine. The
-OCaml program visits 137 607 893 106 positions in 19.2 processor-hours, which is
-0.50 microseconds a position. Rocq takes 89.5 processor-hours over the same
-tree, which is 2.34. A factor of *4.7*.
-
-We do not assume that the two walk the same tree. We divide each of the
-30 Rocq pieces by the positions its OCaml counterpart visited. The result
-is between 1.85 and 2.86 microseconds, over pieces that differ in size by a
-factor of 2.8. So the run takes a night because the tree holds 138
-billion nodes, not because the prover is slow: in OCaml the same tree still
-costs 19 processor-hours.
-
-The whole development is 154 hand-written Rocq files, 44 800 lines. Each
-file is counted once, with the part that needs it; a file needed by several
-parts is counted with what they share.
-
+We hope we have shown for fun it has been. 
+to get three results about the Rubik's cube
+formalized in Rocq.
+The whole development is 154 hand-written Rocq files, 44 800 lines. 
 #tbl(([], [files], [lines]),
   ([the cube, shared by all three], [15], [7 300]),
   ([phase one, shared by the 20 face turns and the coset], [15], [4 700]),
@@ -1379,13 +1333,23 @@ tables, and the pieces the runs are cut into.
   ([one coset], [7], [391 000], [19 MB]),
   ([*in all*], [*154*], [*18 834 000*], [*2 962 MB*]),
 )
-
 This development was written with the help of Claude, Anthropic's coding
 assistant.
-
 The sources are at
 #link("https://github.com/thery/DoubleCover/tree/main/code/Rubik")[`github.com/thery/DoubleCover/code/Rubik`],
 with the note, its figures and Reid's transcribed post beside them.
+
+We have only scratch the suface of the 
+big computation. We are still missing
+the part that deal with coset representatives and its reduction. 
+This seems doable. The
+covering of the coset is another story.
+Our Rocq version is too slow.
+In order to replicate the 35 year computation, we need something
+much faster.
+Solutions like
+Capla (find a ref) seem a promising direction to follow in that respect.
+
 
 
 #pagebreak(weak: true)
