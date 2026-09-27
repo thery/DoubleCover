@@ -360,6 +360,7 @@ orientation.
 ) <sflip>
 The superflip is left unchanged by 
 all 48 symmetries of the cube.
+Reid showed in 1995 that it needs 20 moves @reid1995superflip.
 We use it to prove the lower bound.
 
 = The cube as permutations
@@ -624,8 +625,10 @@ Line by line:
   left, and answers as soon as one of them succeeds.
 
 The last line is what we need. If the search returns false, the position is
-not in the ball of radius $d$. The next subsections describe the improvements
-that give our final search.
+not in the ball of radius $d$. Rocq runs the search by compiling it to native
+code @boespflug2011full, which extends its earlier compiled evaluation
+@gregoire2002compiled. The next subsections describe the improvements that
+give our final search.
 
 == Searching with a summary
 
@@ -980,7 +983,9 @@ about two thirds of what the searches cost.
 = One coset of the upper half
 
 So far we have dealt with lower bounds. This section is about the upper
-bound. Every position of the cube is solved in 20 moves or fewer. The idea of the big computation @rokicki2013diameter is the following.
+bound. Every position of the cube is solved in 20 moves or fewer. Before
+2010, the best bounds were 26 moves @kunkle2007twentysix, then 22
+@rokicki2010twentytwo. The idea of the big computation @rokicki2013diameter is the following.
 Take a subgroup $H$ of $G$. Every position $p$ lies in
 exactly one coset $x H$. 
 So the problem of proving that the
@@ -1000,7 +1005,8 @@ we use a _marking_ algorithm. Each position of $x H$ gets one bit.
 This bit is initially set to 0. The marking works iteratively. For each
 level $d$, from 0 to 20, we list the words of length $d$. A word gives a
 position. If this position is in $x H$, we set its bit to 1. We call the
-bits of a coset its _map_. The bits are stored in machine words. An array in
+bits of a coset its _map_. The bits are stored in machine words. Rocq has
+machine integers and arrays as primitive types @armand2010extending. An array in
 Rocq may hold 4 194 303 entries, so a larger map is split into several
 arrays. At the end, the bits set to 1 are exactly the positions of $x H$
 within 20 moves. If no bit is left at 0, every position of the coset is
