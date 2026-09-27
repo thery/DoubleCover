@@ -336,7 +336,7 @@ number_. Counting a half turn as one move is a choice. A half turn can also
 count as 2 moves. This gives a second number for the same cube. We prove a
 lower bound for each.
 
-We take one position: the *superflip*.
+We take one position: the _superflip_.
 Every small cube is in its place, but every edge is flipped.
 #figure(
   cetz.canvas(length: 1cm, {
@@ -531,8 +531,8 @@ the solved cube in time. It is cut, with everything below it, as @tree shows.
   caption: [The search, and its scissors.],
 ) <tree>
 
-Such a lower bound is called an *admissible* estimate. Korf's IDA\* @korf1985ida is a depth-first search that cuts with such an
-estimate. It raises its depth one step at a time.
+Such a lower bound $h$ is called an _admissible_ estimate. For example,  Korf's IDA\* @korf1985ida is a depth-first search that cuts with such an
+estimate. 
 
 == Getting a fast estimate
 
@@ -601,8 +601,10 @@ group, a set of moves, an estimate $h$ and 2 hypotheses on $h$:
 Hypothesis h1    : h 1 = 0.
 Hypothesis hstep : forall g m, m \in S -> h g <= (h (g * m)).+1.
 
-Fixpoint search (d : nat) (g : gT) : bool := (h g <= d) && ((g == 1) || (if d is
-d'.+1 then has (fun m => search d' (g * m)) Sseq else false)).
+Fixpoint search (d : nat) (g : gT) : bool := 
+  (h g <= d) && 
+  ((g == 1) || (if d is d'.+1 then has (fun m => search d' (g * m)) Sseq 
+                else false)).
 
 Corollary searchN d g : search d g = false -> g \notin ball S d.
 ```
@@ -621,8 +623,7 @@ Line by line:
   left, and answers as soon as one of them succeeds.
 
 The last line is what we need. If the search returns false, the position is
-not in the ball of radius $d$. Rocq runs the search by compiling it to native code @boespflug2011full. This
-extends an earlier compiled evaluation @gregoire2002compiled. The next subsections describe the improvements that
+not in the ball of radius $d$. Rocq runs the search by compiling it to native code @boespflug2011full. The next subsections describe the improvements that
 give our final search.
 
 == Searching with a summary
@@ -683,7 +684,7 @@ But the table is not trusted. The 2 statements above are checked in Rocq by
 computation. A table full of zeros would also pass these checks, but then the
 search would cut nothing. The entries of the table do not depend on each other.
 So the second check, the most expensive one, is cut into slices, one file for
-each slice. The files are checked in parallel, since Rocq compiles files
+each slice. The files are checked in parallel, since files in Rocq can be compiled
 separately. This takes 10 minutes. All the timings in this note are measured on
 the same machine, the _reference machine_: a dual-socket Intel Xeon E5-2667 at
 2.9 GHz, with 12 cores, 24 threads and 62 GB of memory.
@@ -743,9 +744,11 @@ table goes down from about 5.4 processor hours to 1.35.
 
 == Conclusion on the first lower bound
 
-The development for this lower bound has 15 files of its own (1 900 lines).
-It also uses 15 files shared by all 3 results (7 300 lines), and 15 files about
-phase 1 shared with the coset (4 700 lines). Building the tables costs the same for any radius of the search. Here
+The development is composed of 
+- 15 files about the cubes (7 300 lines),
+- 15 files about phase 1 table (4 700 lines)
+- 15 files for the lower bound (1 900 lines). 
+Building the tables costs the same for any radius of the search. Here
 are the times, measured from a clean tree on the reference machine:
 
 #tbl(([], [wall clock], [processor time]),
@@ -791,7 +794,7 @@ answer is *26* (#link("http://cube20.org")[cube20.org]).
 
 The superflip is only 24 quarter turns from solved, so it is not far enough.
 Reid posted a better position to the Cube-Lovers list in August 1998
-@reid1998fourspot: the superflip composed with the four-spot pattern. In the following, we call it *superflip4*.
+@reid1998fourspot: the superflip composed with the four-spot pattern. In the following, we call it _superflip4_.
 
 #figure(
   cetz.canvas(length: 1cm, {
@@ -952,7 +955,7 @@ once loaded into the prover.
 The word of 26 moves and the 6 searches together show that superflip4 is
 exactly 26 quarter turns from solved. So in quarter turns, God's number is at
 least 26. The development for this lower bound has 18 files of its own (6 000 lines).
-It also uses the 15 files shared by all 3 results. The
+It also uses the 15 files about the cube developed for the firs lower bound. The
 argument for the 6 prefixes is in #src("HProp2.v"), the search in
 #src("HSearch.v"), the checks in #src("HSweep.v") and the bound in
 #src("HAll.v"). Here are the times, measured from a clean tree on the reference
