@@ -5,6 +5,7 @@
 #set list(marker: [-])
 #show heading: it => block(above: 1.2em, below: 0.7em)[#it]
 #show raw: set text(font: "DejaVu Sans Mono", size: 9pt)
+#show regex("\\b(Rocq|OCaml|Capla)\\b"): smallcaps
 #show figure.caption: set text(size: 9pt)
 // Every drawing sits in a light frame.
 #show figure: it => block(width: 100%)[
@@ -979,7 +980,7 @@ about two thirds of what the searches cost.
 = One coset of the upper half
 
 So far we have dealt with lower bounds. This section is about the upper
-bound. Every position of the cube is solved in 20 moves or fewer. The idea of the big computation is the following.
+bound. Every position of the cube is solved in 20 moves or fewer. The idea of the big computation @rokicki2013diameter is the following.
 Take a subgroup $H$ of $G$. Every position $p$ lies in
 exactly one coset $x H$. 
 So the problem of proving that the
@@ -1105,7 +1106,7 @@ top and bottom layers sit, how the 8 edges of those layers sit and how the
 (8! = 40 320 and 4! = 24). The corners and the edges are always permuted
 with the same sign, so this number is divided by 2.
 
-We lay out the bits the way Rokicki's own program lays them out. A page is one arrangement of the
+We lay out the bits the way Rokicki's own program, hcoset, lays them out. A page is one arrangement of the
 corners. Inside a page, a group is a pair of arrangements of the outer edges,
 the 2 that differ by exchanging 2 edges, and the group's
 24 bits are the 24 arrangements of the middle edges, the
@@ -1196,10 +1197,8 @@ Rokicki's strategy, which depends on how many bits the map holds:
 - *While the map holds at most 6 million bits.* The search alone.
 - *Once it holds more, up to level 16.* The prepass, then the search with
   the moves not in $H$ for the last move of a word. Near the end of a word,
-  it also only tries moves that strictly lower the distance. 
-  Remember that the phase 1 table records
-  this moves. They are usually 3 or 4.
-  By  near the end
+  it also only tries moves that strictly lower the distance. The phase 1
+  table records these moves, and there are usually 3 or 4. By near the end
   we mean that the number of moves left plus the distance is less than 5.
   Level 16 has a further refinement. If $n$ bits are set after its prepass,
   the search stops once the map holds 167 million plus $n/3$ bits.
@@ -1262,29 +1261,20 @@ set. The counts are those of the OCaml translation of the run.
   ([20], [19 508 428 768], [], [all but 32]),
 )
 
-After level 20, 32 bits are still clear. 
-We have written a two-phase solver in Ocaml. It gives a word of exactly
-20 moves for each of 32 positions.
-These words are  in #src("RowWits.v"). 
-Then the #src("RowWitsChk.v") set
-the bit correspondint to
-these 32 positions making
-the map full.
+After level 20, 32 bits are still clear. We have written a two-phase solver
+in OCaml. It gives a word of exactly 20 moves for each of the 32 positions. The
+words are in #src("RowWits.v"). #src("RowWitsChk.v") checks each word by
+applying it to its position. #src("RowMark.v") then sets the 32 bits, and the
+map is full.
 
-The run takes 2 h 32. This is not great.
-On the same machine hcoset, the program used for the big computation, treats the
-coset about 3 minutes.
-This program is highly optimised. 
-We have written an OCaml version of hcoset
-to get a more reasonable comparison.
-The Ocaml run takes in 28 min. The penalty
-we pay in Rocq is the memory. The map is 3.25 GB, and a level reads one
-map while it writes the other. In order
-to alievate the memory problem we take
-advantages of the superflip symmetries.
-It lets us reduce drastically the memory
-required.The map
-is 40 320 pages, one for each arrangement of the corners. Of the 48 symmetries
+The run takes 2 h 32. This is not great. On the same machine, hcoset, the
+program used for the big computation, treats the coset in about 3 minutes. But
+hcoset is highly optimised. For a fairer comparison, we have written an OCaml
+version of hcoset. It takes 28 min. The penalty we pay in Rocq is the memory.
+The map is 3.25 GB, and a level reads one map while it writes the other.
+
+To reduce the memory, we use the symmetries of the superflip. The map is 40 320
+pages, one for each arrangement of the corners. Of the 48 symmetries
 of the cube, 16 keep the top and bottom faces in place. Each of them sends the
 10 moves of $H$ to the 10 moves, so it maps $H$ to itself, and each leaves the
 superflip unchanged, so it maps the superflip's coset to itself. A member and
@@ -1292,13 +1282,12 @@ its image under such a symmetry need the same number of moves, so 2 pages
 related by a symmetry hold the same answer. One page of each family is then
 enough: 2 768 of the 40 320, a factor of 14.6. The map drops to 248 MB. The
 price is undoing a symmetry whenever a kept page is read.
-Defining this map and proving it adds
-30 files and 7 800 lines. Over the folded map now the run takes 50 min, against
-2 h 32 unfolded, a factor of 3.
-In comparison, the folded version 
-with our Ocaml version gives only a factor
-of 1.2. This shows that memory is the limiting factor in Rocq.
-The final statement we get is :
+
+Defining the folded map and proving it correct adds 30 files and 7 800 lines.
+Over the folded map, the run takes 50 min, against 2 h 32 unfolded: a factor
+of 3. With our OCaml version, the same fold gives only a factor of 1.2. So
+memory is the limiting factor in Rocq. The final statement is:
+
 ```coq
 Corollary superflip_row_fold h :
   h \in H -> superflip * h \in ball Sset 20.
@@ -1309,10 +1298,10 @@ Corollary superflip_row_fold h :
 
 = Conclusion
 
-We hope we have shown for fun it has been. 
-to get three results about the Rubik's cube
-formalized in Rocq.
-The whole development is 154 hand-written Rocq files, 44 800 lines. 
+We hope we have shown how much fun it has been to formalise 3 results about
+the Rubik's cube in Rocq. The whole development is 154 hand-written Rocq files,
+44 800 lines.
+
 #tbl(([], [files], [lines]),
   ([the cube, shared by all three], [15], [7 300]),
   ([phase one, shared by the 20 face turns and the coset], [15], [4 700]),
@@ -1333,23 +1322,19 @@ tables, and the pieces the runs are cut into.
   ([one coset], [7], [391 000], [19 MB]),
   ([*in all*], [*154*], [*18 834 000*], [*2 962 MB*]),
 )
+
+We have only scratched the surface of the big computation. We are still
+missing the part that deals with the coset representatives and their
+reduction. This seems doable. Covering the cosets is another story: our Rocq
+version is too slow. To replicate the 35 CPU-year computation, we need
+something much faster. Languages like Capla @capla, which comes with a formally
+verified compiler, seem a promising direction.
+
 This development was written with the help of Claude, Anthropic's coding
 assistant.
 The sources are at
 #link("https://github.com/thery/DoubleCover/tree/main/code/Rubik")[`github.com/thery/DoubleCover/code/Rubik`],
 with the note, its figures and Reid's transcribed post beside them.
-
-We have only scratch the suface of the 
-big computation. We are still missing
-the part that deal with coset representatives and its reduction. 
-This seems doable. The
-covering of the coset is another story.
-Our Rocq version is too slow.
-In order to replicate the 35 year computation, we need something
-much faster.
-Solutions like
-Capla (find a ref) seem a promising direction to follow in that respect.
-
 
 
 #pagebreak(weak: true)
