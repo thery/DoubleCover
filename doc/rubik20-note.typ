@@ -1293,32 +1293,12 @@ The result is much better. Over the folded map the run takes 50 min, against
 *[to measure]*. The final statement has no hypothesis left.
 
 ```coq
-Theorem real_superflip_row_fold_runO h :
-  h \in H -> superflip^-1 * h \in ball Sset 20.
+Corollary superflip_row_fold h :
+  h \in H -> superflip * h \in ball Sset 20.
 ```
 
-`H` is the subgroup above, and the superflip is its own inverse, so every
-position of the superflip's coset is within 20 moves.
-
-== The reused and the new
-
-We reuse nearly everything. The abstract search and its contract come over
-unchanged, and so do the cube, the permutations, the machine-integer tools, the
-phase one table and its generator. Each of the new tables has a check of its
-own, in a file of its own, so that a failure names the table that failed.
-
-There are 5 new things, and only one of them is a search.
-
-- The rank and the sign of a permutation. Rocq's library has both, but for
-  permutations that do not compute, so we need their effective version on
-  machine integers.
-- The link between a position and its 3 ranks. The map's bits are triples
-  of numbers, so what the run proves is a statement about triples. To read it
-  as a statement about the cube we have to turn a triple back into the position
-  it stands for. The other way we already had.
-- The pass that steps a whole map one move at a time.
-- The fold by the 16 symmetries.
-- Words given by hand for the members the run does not reach.
+`H` is the subgroup above, so every position of the superflip's coset is within
+20 moves.
 
 = Conclusion
 
@@ -1352,7 +1332,8 @@ What each of the three needed of its own:
   values, with a table of its own and a check of its own.
 - *One coset.* A coset held as a map of bits rather than as a tree of
   positions. That needs 5 new pieces. The rank and the sign of a
-  permutation on machine integers. The link between a position and its 3
+  permutation on machine integers: Rocq's library has both, but they do not
+  compute. The link between a position and its 3
   ranks. A pass that steps a whole map one move at a time. The fold by the
   16 symmetries. And words given by hand for the members the run does
   not reach.
