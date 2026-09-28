@@ -23,27 +23,37 @@ main (int argc, char *argv[])
   double x0 = strtod (argv[2], NULL), x1 = strtod (argv[3], NULL);
   int m = atoi (argv[4]);
   int print_all = argc > 5 && strcmp (argv[5], "-c") == 0;
-  struct cands c;
+  // the array: 64 candidates a chunk to start with, then as many as
+  // search says there are
+  unsigned long cap = (unsigned long) ((x1 - x0) / (x0 > 0 ? x0 : -x0)
+                                       * 0x1p53 / 0x1p20 + 1) * 64;
+  struct cand *a = malloc (cap * sizeof (struct cand));
+  unsigned long n;
+  for (;;) {
 #ifdef WITH_MPFR
-  if (strcmp (argv[1], "mpfr") == 0)
-    c = search (eval_mpfr, low_mpfr, eval_mpfr, x0, x1, m);
-  else
+    if (strcmp (argv[1], "mpfr") == 0)
+      n = search (eval_mpfr, low_mpfr, eval_mpfr, x0, x1, m, a, cap);
+    else
 #endif
-  {
-    fix_init ();
-    c = search (eval_fix, low_fix, eval_fix, x0, x1, m);
+    {
+      fix_init ();
+      n = search (eval_fix, low_fix, eval_fix, x0, x1, m, a, cap);
+    }
+    if (n <= cap) break;
+    cap = n;
+    a = realloc (a, cap * sizeof (struct cand));
   }
   unsigned long found = 0;
-  for (unsigned long i = 0; i < c.n; i++) {
-    if (print_all) printf ("c %la\n", c.a[i].x);
-    if (c.a[i].v == 1) {
-      printf ("%la\n", c.a[i].x);
+  for (unsigned long i = 0; i < n; i++) {
+    if (print_all) printf ("c %la\n", a[i].x);
+    if (a[i].v == 1) {
+      printf ("%la\n", a[i].x);
       found ++;
     }
-    else if (c.a[i].v == 2)
-      printf ("u %la\n", c.a[i].x);
+    else if (a[i].v == 2)
+      printf ("u %la\n", a[i].x);
   }
-  printf ("%lu checks, found %lu hard-to-round\n", c.n, found);
-  free (c.a);
+  printf ("%lu checks, found %lu hard-to-round\n", n, found);
+  free (a);
   return 0;
 }

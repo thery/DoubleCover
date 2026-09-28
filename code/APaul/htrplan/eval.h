@@ -1,7 +1,5 @@
 // The evaluators that can be given to search.
 
-#include <math.h>
-
 // the initial program: MPFR, trusted
 double low_mpfr (double x);
 void eval_mpfr (double *h, double *l, double *s, double x);

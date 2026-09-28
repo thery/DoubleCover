@@ -33,11 +33,13 @@ Code: `code/APaul/htr.c` and `code/APaul/htrplan/`. Numbers are marked
 For an interval $[x_0, x_1)$ and a level $m$:
 
 $ (S) #h(2em) forall x in [x_0, x_1), #h(0.5em) x "hard to round at level"
-  m #h(0.5em) => #h(0.5em) (x, v) in "search"(x_0, x_1, m) "with" v != 0. $
+  m #h(0.5em) => #h(0.5em) (x, v) in a "with" v != 0. $
 
-`search` returns an array of candidates $(x, v)$, where the *verdict* $v$ is
-1 (hard), 0 (not hard) or 2 (undecided). The array may hold false cases,
-never miss a true one.
+`search` fills the caller's array $a$ with the candidates $(x, v)$, where the
+*verdict* $v$ is 1 (hard), 0 (not hard) or 2 (undecided), and returns their
+number; (S) holds when that number fits in $a$ (otherwise the caller calls
+again with a larger $a$). The array may hold false cases, never miss a true
+one.
 
 = How the search works
 
@@ -74,8 +76,14 @@ window covers that, $i$ is a candidate.
   the exponent $e$ and the check of a candidate are code of Program 2, built
   on them, and the result is an array, not a printout. Proved once, for all
   evaluators that meet their specifications.
-- *Program 3*: evaluators in integer arithmetic, no MPFR, proved to meet
-  the specifications.
+- *Program 3*: evaluators in integer arithmetic, proved to meet the
+  specifications.
+
+Programs 2 and 3 are *self-contained*: they call no library, not even libc
+or libm. The integers are arrays of 32-bit limbs with our own operations,
+and doubles are read and built from their 64 bits (`dbl.h`), instead of
+libm's `frexp`, `ldexp` and `nextafter`. Only the driver, `main.c`, uses
+libc, to read the arguments and print the array; it is outside the proof.
 
 = The specifications and the dependencies
 
@@ -145,8 +153,10 @@ E1..E3 for Program 3
 #listing("/code/APaul/htrplan/search.h")
 
 *Code*: `htr.c`'s `search`, with the calls to MPFR replaced by the
-evaluators, and a new function `check` on top of `eval_check`. The diff,
-from `make search.diff`:
+evaluators, a new function `check` on top of `eval_check`, the calls to
+libm replaced by `dbl.h` (`frexp` by `dexpo`, `ldexp` by `dscale`,
+`nextafter` by `dpred`), and the candidates stored in the caller's array.
+The diff, from `make search.diff`:
 
 #listing("/code/APaul/htrplan/search.diff", lang: "diff")
 
@@ -189,8 +199,11 @@ Tang's method:
 + multiply by $2^(j slash 256)$, taken from a table of 256 constants; then
   $exp x = 2^k dot 2^(j slash 256) dot exp r$.
 
-Every quantity is an integer $Z$ standing for $Z dot 2^(-200)$. Code:
-@annex-code.
+Every quantity is an integer $Z$ standing for $Z dot 2^(-200)$. An integer
+is 8 limbs of 32 bits (256 bits, two's complement for a sign), and the code
+has its own add, subtract, multiply-then-shift, divide by a small integer,
+compare and bit length, as `htr_plain.c` does. The proof of (E) is over
+`Z`; one lemma per limb operation ties it to the limbs. Code: @annex-code.
 
 *The one bound:*
 
@@ -268,18 +281,24 @@ unchanged.
 
 = Annex: Program 3 <annex-code>
 
+`dbl.h`, shared with Program 2:
+
+#listing("/code/APaul/htrplan/dbl.h")
+
 #listing("/code/APaul/htrplan/fix.h")
 
 #listing("/code/APaul/htrplan/eval_fix.c")
 
 The constants come from `gen_fix.c` (with MPFR); they are not trusted, since
-each is certified.
+each is certified. This version gives bit for bit the same $h$, $l$, $s$ and
+$d$ as an earlier one written with GMP, on $10^6$ random points from $-634$
+to $709.7$ (*measured*).
 
 = Annex: the test <annex-test>
 
 `make test` compares, line by line, the candidates and the hard cases of
 `htr.c`, Program 2 with MPFR, and Program 2 with Program 3 (`htr3`, linked
-without MPFR). *Measured*, 2026-09-28:
+with nothing but libc, for `main.c`). *Measured*, 2026-09-28:
 
 #table(
   columns: 3,
@@ -289,19 +308,19 @@ without MPFR). *Measured*, 2026-09-28:
   [from $-0.25$ down], [498 078], [identical; one hard case; none undecided],
 )
 
-*Timing*, on the first slice (*measured*, medians of three alternated
-runs, cpu0, turbo off):
+*Timing*, on the first slice (*measured*, medians of five alternated runs,
+cpu0, turbo off):
 
 #table(
   columns: 2,
   stroke: 0.5pt,
   [*program*], [*time*],
-  [`htr.c`], [7.13 s],
-  [Program 2 + MPFR], [7.90 s],
-  [Program 2 + Tang], [7.11 s],
+  [`htr.c`], [7.21 s],
+  [Program 2 + MPFR], [7.97 s],
+  [Program 2 + Tang], [7.23 s],
 )
 
-Program 2 + MPFR is 11% slower because its `eval_check` is `dd_exp`: each
+Program 2 + MPFR is 10% slower because its `eval_check` is `dd_exp`: each
 candidate is evaluated at 161 bits, where `htr.c`'s `check` uses
 $53 + m = 88$ (reasoned from the code, not profiled). Program 2 with Tang
 costs no more than `htr.c`.
