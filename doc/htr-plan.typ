@@ -165,9 +165,10 @@ Program 3:
 
 #listing("/code/APaul/htrplan/dbl.h")
 
-*Back to Program 1.* `eval_seed` = `eval_check` = `htr.c`'s `dd_exp`
-($kappa approx 158$), `eval_low` = `htr.c`'s `ref_exp` (rounding toward
-zero meets E3). The candidates are then exactly `htr.c`'s. The decision may
+*Back to Program 1.* `eval_seed` = `htr.c`'s `dd_exp` ($kappa approx
+158$), `eval_low` = `htr.c`'s `ref_exp` (rounding toward zero meets E3),
+`eval_check` = `check_mpfr`, the same as `dd_exp` at 120 bits
+($kappa approx 120$). The candidates are then exactly `htr.c`'s. The decision may
 differ from `htr.c`'s `check` only within `CHECK_ERR` of the threshold,
 where Program 2 answers undecided; on the test slices the two agree
 (@annex-test). The exact instantiation is in @annex-mpfr.
@@ -275,12 +276,13 @@ MPFR is used in `dd_exp` (`eval_seed`, `eval_check`), `ref_exp`
 Program 1 is recovered by the call
 
 ```c
-search (eval_mpfr, low_mpfr, eval_mpfr, x0, x1, m)
+search (eval_mpfr, low_mpfr, check_mpfr, x0, x1, m, a, cap)
 ```
 
-(`main.c`), with the two functions of `eval_mpfr.c`. `eval_mpfr` is
+(`main.c`), with the three functions of `eval_mpfr.c`. `eval_mpfr` is
 `htr.c`'s `dd_exp` unchanged; `low_mpfr` is `htr.c`'s `ref_exp`
-unchanged.
+unchanged; `check_mpfr` is `dd_exp` at 120 bits instead of 161, because the
+check is called once per candidate.
 
 #listing("/code/APaul/htrplan/eval_mpfr.c")
 
@@ -318,15 +320,18 @@ cpu0, turbo off):
   columns: 2,
   stroke: 0.5pt,
   [*program*], [*time*],
-  [`htr.c`], [7.21 s],
-  [Program 2 + MPFR], [7.97 s],
-  [Program 2 + Tang], [7.23 s],
+  [`htr.c`], [7.23 s],
+  [Program 2 + MPFR], [7.67 s],
+  [Program 2 + Tang], [7.30 s],
 )
 
-Program 2 + MPFR is 10% slower because its `eval_check` is `dd_exp`: each
-candidate is evaluated at 161 bits, where `htr.c`'s `check` uses
-$53 + m = 88$ (reasoned from the code, not profiled). Program 2 with Tang
-costs no more than `htr.c`.
+Program 2 + MPFR is 6% slower than `htr.c`. With `dd_exp` (161 bits) as
+`eval_check` it was 10% slower (7.97 s against 7.21 s); its own
+`check_mpfr`, the same code at 120 bits (enough for $kappa >= 118$), gained
+0.30 s. The rest, about 1.1 $mu$s a candidate (*computed*), is 120 bits
+against the 88 of `htr.c`'s `check`, plus the split into three doubles
+(reasoned from the code, not profiled). Program 2 with Tang costs about as
+much as `htr.c`.
 
 There are many candidates because the drift, about $2^48$ units, is much
 wider than the target $2^29$ (*computed*): about 41 per chunk, as in
