@@ -1,5 +1,5 @@
-// Program 2: the search of htr.c, line for line, with dd_exp replaced by
-// eval, ref_exp by expo, and check by report.
+// Program 2, the generic search: the search of htr.c, line for line,
+// with dd_exp replaced by eval, ref_exp by expo, and check by report.
 
 #include <assert.h>
 #include <math.h>
