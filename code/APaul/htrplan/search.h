@@ -25,7 +25,8 @@ typedef double (*low_t) (double x);
 // eval_check decides each candidate: it must meet E1 and E2 with
 // kappa >= KAPPA_CHECK.  Its error is then at most one unit of 2^-64 on
 // the fractional part of exp(x) 2^(54-e), and the conversion to 64 bits
-// adds two more: CHECK_ERR.
+// adds two more: CHECK_ERR.  KAPPA_CHECK is a choice that keeps the proof
+// simple: about 95 bits would do for m = 35, with a larger CHECK_ERR.
 #define KAPPA_CHECK 118
 #define CHECK_ERR 3
 

@@ -94,11 +94,29 @@ window covers that, $i$ is a candidate.
   [E3], [$d <= exp x < d + "ulp"(d)$], [`eval_low`],
 )
 
-*$kappa$* is the number of correct bits. For `eval_seed`, the proof of the
-window (2b) fixes it, since the evaluator's error is one of the errors the
-window must cover: about 118 is enough (*computed*). For `eval_check`,
-Program 2's code asks $kappa >= 118$: then its error is below the last bit
-of a 64-bit fractional part. Program 3 gives 158 for both.
+*What each evaluator is for.* The three answer different questions, are
+called at different rates, and need different precisions ($kappa$ is the
+number of correct bits):
+
+#table(
+  columns: 4,
+  stroke: 0.5pt,
+  [*evaluator*], [*question*], [*calls*], [*precision needed*],
+  [`eval_low`], [which binade is $exp x$ in?], [2 per interval],
+    [a few bits, but from below],
+  [`eval_seed`], [where does the line start, with what slope?],
+    [1 per chunk], [its error must fit in the margin of the window (2c)],
+  [`eval_check`], [is this candidate hard?],
+    [1 per candidate, about 41 per chunk (*read*)],
+    [about $54 + m$ bits and a margin: about 95 for $m = 35$ (*computed*)],
+)
+
+So the evaluator to make fast is `eval_check`, and it is not the one that
+needs the most precision. A lower precision only widens the undecided band,
+and undecided candidates are kept. The $kappa >= 118$ that `search.h` asks
+of `eval_check` is a choice, not a requirement: it keeps the error below one
+unit of $2^(-64)$, which makes 2d simple. Program 3 gives 158 for all
+three.
 
 *The dependencies.* Each line needs the lines below it.
 
@@ -176,6 +194,16 @@ Every quantity is an integer $Z$ standing for $Z dot 2^(-200)$. Code:
 
 $ (E) #h(2em) |y dot 2^(k - 200) - exp x| <= "err" dot 2^(k - 200), #h(2em)
   "err" = 2^40. $
+
+*Why (E) is all that matters.* Program 3 never rounds in MPFR's sense:
+every operation is on integers, with an explicit floor. Each decision is
+taken on the interval $[y - "err", y + "err"]$, which contains the exact
+value by (E): the exponent and `eval_low` stop on an `assert` when the
+interval does not decide, and the check answers undecided. So a lack of
+precision gives more undecided answers or a stop, never a wrong answer.
+Correctness rests on (E) alone. (E) is not proved yet; the evidence so far
+is the error budget below (*computed*), ten points against MPFR at 400
+bits, and the test slices (*measured*, @annex-test).
 
 *From (E) to E1–E3.*
 
