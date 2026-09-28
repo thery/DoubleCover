@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -O3 -march=native -std=c11
 LDFLAGS = -lmpfr -lgmp -lm
 
-TARGETS = al htr htr_plain record cheb al_miss
+TARGETS = al htr htr2 htr_plain record cheb al_miss
 
 all: $(TARGETS)
 
@@ -12,6 +12,12 @@ all: $(TARGETS)
 # dd_exp values as a Rocq array (rocq/Data.v); cheb: emits the degree-7
 # polynomial coefficients for the search interval (rocq/Cheb.v).
 htr: htr.c
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+
+# htr2: the search of doc/htr.md (Zimmermann): one Taylor polynomial of
+# degree k-1 per subrange of up to 2^32 doubles, walked by a table of
+# differences on l-word integers; no drift in the window.
+htr2: htr2.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 # htr_plain: the whole search in one self-contained plain-C file -- the
