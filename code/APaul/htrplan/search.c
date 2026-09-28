@@ -1,10 +1,10 @@
 // Program 2, the generic search: the search of htr.c, line for line,
 // with dd_exp replaced by eval_seed, ref_exp by eval_low, and check by
-// a check written here on top of eval_check.
+// a check written here on top of eval_check.  Self-contained: libm's
+// frexp, ldexp and nextafter are replaced by dexpo, dscale and dpred
+// (dbl.h), and the array is the caller's.
 
-#include <stdlib.h>
-#include <assert.h>
-#include <math.h>
+#include "dbl.h"
 #include "search.h"
 
 // given x, -1 < x < 1, return the 64-bit value corresponding
@@ -13,7 +13,7 @@ static uint64_t
 get_uint64 (double x)
 {
   assert (-1 < x && x < 1);
-  x = ldexp (x, 64);
+  x = dscale (x, 64);
   if (x >= 0) return x;
   uint64_t ret = (uint64_t) (-x);
   return ~ret + (uint64_t) 1;
@@ -28,10 +28,10 @@ check (check_t eval_check, int e, double x, int m)
 {
   double h, l, s;
   eval_check (&h, &l, &s, x);
-  l = ldexp (l, 54 - e);
+  l = dscale (l, 54 - e);
   if (l >= 1.0) l -= 1.0;
   while (l < 0) l += 1.0;
-  s = ldexp (s, 54 - e);
+  s = dscale (s, 54 - e);
   uint64_t F = get_uint64 (l) + get_uint64 (s);
   uint64_t d = F < -F ? F : -F;
   uint64_t T = 1ul << (64 - m);
@@ -40,41 +40,39 @@ check (check_t eval_check, int e, double x, int m)
   return 2;
 }
 
-// add the candidate x with its verdict v to the array r
+// add the candidate x with its verdict v to the array a of capacity cap,
+// if there is room; count it in any case
 static void
-report (struct cands *r, unsigned long *size, double x, int v)
+report (struct cand *a, unsigned long cap, unsigned long *nc, double x,
+        int v)
 {
-  if (r->n == *size) {
-    *size = *size ? 2 * *size : 1024;
-    r->a = realloc (r->a, *size * sizeof (struct cand));
-    assert (r->a != NULL);
+  if (*nc < cap) {
+    a[*nc].x = x;
+    a[*nc].v = v;
   }
-  r->a[r->n].x = x;
-  r->a[r->n].v = v;
-  r->n ++;
+  (*nc) ++;
 }
 
 // search hard-to-round cases of exp in [x0,x1)
 // with at least m identical bits after round bit
-struct cands
+unsigned long
 search (seed_t eval_seed, low_t eval_low, check_t eval_check,
-        double x0, double x1, int m)
+        double x0, double x1, int m, struct cand *a, unsigned long cap)
 {
-  struct cands r = { NULL, 0 };
-  unsigned long size = 0;
+  unsigned long nc = 0;
   uint64_t n = 1ul << 20;
   int e, e0, e1;
 
   // check ulp(x0) = ulp(nextbelow(x1))
-  frexp (x0, &e0);
-  frexp (nextafter (x1, x0), &e1);
+  e0 = dexpo (x0);
+  e1 = dexpo (dpred (x1));
   assert (e0 == e1);
 
-  double ux = ldexp (1.0, e0 - 53); // ux = ulp(x)
+  double ux = pow2 (e0 - 53); // ux = ulp(x)
 
   // check exp(x) lies in the same binade in [x0, x1)
-  frexp (eval_low (x0), &e);
-  frexp (eval_low (nextafter (x1, x0)), &e1);
+  e = dexpo (eval_low (x0));
+  e1 = dexpo (eval_low (dpred (x1)));
   assert (e == e1);
 
   double h, l, s;
@@ -86,19 +84,19 @@ search (seed_t eval_seed, low_t eval_low, check_t eval_check,
 
     // prepare loop
     // A is the bits of h+l after the round bit
-    h = ldexp (h, 54 - e); // now ulp(h) = 2
-    l = ldexp (l, 54 - e);
+    h = dscale (h, 54 - e); // now ulp(h) = 2
+    l = dscale (l, 54 - e);
     // we now have -2 < l < 2
     if (l >= 1.0) l -= 1.0;
     while (l < 0) l += 1.0;
     assert (0 <= l && l < 1);
-    s = ldexp (s, 54 - e);
+    s = dscale (s, 54 - e);
     uint64_t lu = get_uint64 (l), su = get_uint64 (s);
     uint64_t A = lu + su;
     // scale the derivatives too
-    dh = ldexp (dh, 54 - e);
-    dl = ldexp (dl, 54 - e);
-    dd = ldexp (dd, 54 - e);
+    dh = dscale (dh, 54 - e);
+    dl = dscale (dl, 54 - e);
+    dd = dscale (dd, 54 - e);
     uint64_t B = get_uint64 (dh) + get_uint64 (dl);
     // the maximal error is bounded by dd/2*n^2
     dd = dd / 2.0 * n * n;
@@ -110,7 +108,7 @@ search (seed_t eval_seed, low_t eval_low, check_t eval_check,
     for (uint64_t i = 0; i < n; i++) {
       if (__builtin_expect (A < 2*E, 0)) { // found potential hard-to-round case
         double xi = x + i * ux;
-        report (&r, &size, xi, check (eval_check, e, xi, m));
+        report (a, cap, &nc, xi, check (eval_check, e, xi, m));
       }
       A += B;
     }
@@ -118,5 +116,5 @@ search (seed_t eval_seed, low_t eval_low, check_t eval_check,
     if (x > x1)
       n = (x1 - x) / ux;
   }
-  return r;
+  return nc;
 }

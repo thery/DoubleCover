@@ -4,7 +4,7 @@
 // where e is the exponent of exp(x): 2^(e-1) <= exp(x) < 2^e.
 // The theorem:
 //   (S) for every double x in [x0, x1) hard to round at level m,
-//       the array search returns holds (x, v) with v != 0,
+//       if search returns nc <= cap, a[0..nc) holds (x, v) with v != 0,
 // provided the three evaluators meet their specifications below.  They
 // are the only external functions: the exponent and the check are built
 // on top of them in search.c.
@@ -39,9 +39,9 @@ typedef void (*check_t) (double *h, double *l, double *s, double x);
 // 2 undecided.
 struct cand { double x; int v; };
 
-// search returns every candidate, in increasing order, in an array of n
-// elements allocated with malloc; the caller frees it.
-struct cands { struct cand *a; unsigned long n; };
-
-struct cands search (seed_t eval_seed, low_t eval_low, check_t eval_check,
-                     double x0, double x1, int m);
+// search stores the candidates, in increasing order, in the caller's array
+// a of capacity cap, and returns their number nc.  When nc > cap, only the
+// first cap are stored, and the caller must call again with a larger a.
+unsigned long search (seed_t eval_seed, low_t eval_low, check_t eval_check,
+                      double x0, double x1, int m,
+                      struct cand *a, unsigned long cap);

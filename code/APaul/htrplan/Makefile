@@ -13,9 +13,9 @@ htrp: main.c search.c search.h eval.h eval_mpfr.c eval_fix.c fix.h fix_table.h
 	$(CC) $(CFLAGS) -DWITH_MPFR -o $@ main.c search.c eval_mpfr.c eval_fix.c \
 	  $(LDFLAGS)
 
-# Program 3 alone, linked without MPFR: htr3 fix ...
+# Program 3 alone, linked with nothing but libc (for main.c): htr3 fix ...
 htr3: main.c search.c search.h eval.h eval_fix.c fix.h fix_table.h
-	$(CC) $(CFLAGS) -o $@ main.c search.c eval_fix.c -lgmp -lm
+	$(CC) $(CFLAGS) -o $@ main.c search.c eval_fix.c
 
 # the three programs on a slice of 10000 chunks around the first hard case:
 # htr.c itself, Program 2 with MPFR, and Program 2 with Program 3 (htr3,
