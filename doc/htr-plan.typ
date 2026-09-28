@@ -75,8 +75,9 @@ window covers that, $i$ is a candidate.
 
 = The contract and the dependencies
 
-*The contract.* `eval` returns $h + l + s approx exp x$ (three doubles);
-`expo` returns $e$; `report` checks a candidate.
+*The contract.* `eval`$(x)$ returns $h + l + s approx exp x$ (three
+doubles); `expo`$(x)$ returns an integer; `report` calls `check`$(x, m)$,
+which returns 0 to reject a candidate.
 
 #table(
   columns: 3,
@@ -84,8 +85,8 @@ window covers that, $i$ is a candidate.
   [], [*requirement*], [*used by*],
   [E1], [$|h + l + s - exp x| <= 2^(-kappa) exp x$], [2b],
   [E2], [$|l| < 2^(e - 53)$ and $|s| < 2^(e - 54)$], [2a],
-  [E3], [`expo` returns exactly $e$], [2a],
-  [E4], [`report` never rejects a hard $x$], [(T)],
+  [E3], [$2^("expo"(x) - 1) <= exp x < 2^("expo"(x))$], [2a],
+  [E4], [$"dist"(Y(x), ZZ) < 2^(-m) => "check"(x, m) != 0$], [(T)],
 )
 
 *$kappa$* is the number of correct bits of `eval`. The code of Program 2

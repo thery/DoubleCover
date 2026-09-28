@@ -16,15 +16,16 @@
 // E2 lets the search read the bits after the round bit from l and s alone.
 typedef void (*eval_t) (double *h, double *l, double *s, double x);
 
-// expo (x) returns e:
-//   (E3) e is exactly the exponent of exp(x)
+// expo (x) returns e, the exponent of exp(x):
+//   (E3) 2^(expo(x) - 1) <= exp(x) < 2^expo(x)
 // The search scales h, l, s by 2^(54-e), and checks that e is the same
 // at both ends of [x0, x1).
 typedef int (*expo_t) (double x);
 
 // report (x, m) is called on every candidate x.  S is about these calls.
-// A report that filters the candidates must keep every hard x (E4 in
-// doc/htr-plan.typ).
+// A report that filters the candidates with a check (x, m), returning 0
+// to reject, must keep every hard x:
+//   (E4) dist (exp(x) 2^(54-e), Z) < 2^-m  =>  check (x, m) != 0
 typedef void (*report_t) (double x, int m);
 
 void search (eval_t eval, expo_t expo, report_t report,
