@@ -1,5 +1,6 @@
 // Program 2, the generic search: the search of htr.c, line for line,
-// with dd_exp replaced by eval, ref_exp by expo, and check by report.
+// with dd_exp replaced by eval_seed, ref_exp by eval_low, and check by
+// a check written here on top of eval_check.
 
 #include <assert.h>
 #include <math.h>
@@ -17,11 +18,32 @@ get_uint64 (double x)
   return ~ret + (uint64_t) 1;
 }
 
+// is x hard to round at level m: 1 yes, 0 no, 2 undecided.  e is the
+// exponent of exp(x).  F is the fractional part of exp(x) 2^(54-e), times
+// 2^64, read from l and s as A is; d is its distance to the nearest
+// integer; F is within CHECK_ERR of the exact value (E1, E2).
+static int
+check (eval_t eval_check, int e, double x, int m)
+{
+  double h, l, s;
+  eval_check (&h, &l, &s, x);
+  l = ldexp (l, 54 - e);
+  if (l >= 1.0) l -= 1.0;
+  while (l < 0) l += 1.0;
+  s = ldexp (s, 54 - e);
+  uint64_t F = get_uint64 (l) + get_uint64 (s);
+  uint64_t d = F < -F ? F : -F;
+  uint64_t T = 1ul << (64 - m);
+  if (d + CHECK_ERR < T) return 1;
+  if (d >= T + CHECK_ERR) return 0;
+  return 2;
+}
+
 // search hard-to-round cases of exp in [x0,x1)
 // with at least m identical bits after round bit
 void
-search (eval_t eval, expo_t expo, report_t report,
-        double x0, double x1, int m)
+search (eval_t eval_seed, low_t eval_low, eval_t eval_check,
+        report_t report, double x0, double x1, int m)
 {
   uint64_t n = 1ul << 20;
   int e, e0, e1;
@@ -34,14 +56,14 @@ search (eval_t eval, expo_t expo, report_t report,
   double ux = ldexp (1.0, e0 - 53); // ux = ulp(x)
 
   // check exp(x) lies in the same binade in [x0, x1)
-  e = expo (x0);
-  e1 = expo (nextafter (x1, x0));
+  frexp (eval_low (x0), &e);
+  frexp (eval_low (nextafter (x1, x0)), &e1);
   assert (e == e1);
 
   double h, l, s;
   double x = x0;
   while (x < x1) {
-    eval (&h, &l, &s, x);
+    eval_seed (&h, &l, &s, x);
     double dh = h * ux, dl = l * ux; // 1st derivative, multiplied by ux
     double dd = h * ux * ux; // 2nd derivative, multiplied by ux^2
 
@@ -71,7 +93,7 @@ search (eval_t eval, expo_t expo, report_t report,
     for (uint64_t i = 0; i < n; i++) {
       if (__builtin_expect (A < 2*E, 0)) { // found potential hard-to-round case
         double xi = x + i * ux;
-        report (xi, m);
+        report (xi, m, check (eval_check, e, xi, m));
       }
       A += B;
     }

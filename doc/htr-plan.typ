@@ -66,50 +66,56 @@ window covers that, $i$ is a candidate.
 
 - *Program 1*, `htr.c`: evaluates $exp$ with MPFR in three functions.
   Not proved; it is the reference (@annex-p1).
-- *Program 2*, the generic search: `htr.c` with the three functions as
-  parameters `eval`, `expo`, `report`, which must meet a contract E1–E4.
-  Proved once, for all parameters that meet it. With MPFR's functions as
-  parameters, it is Program 1 again.
-- *Program 3*: parameters for Program 2 in integer arithmetic, no MPFR,
-  proved to meet E1–E4.
+- *Program 2*, the generic search: `htr.c` with three *evaluators* of
+  $exp$ as parameters, `eval_seed`, `eval_low`, `eval_check`. An evaluator
+  only promises a bound on $exp x$. The two decisions, the exponent $e$ and
+  the check of a candidate, are code of Program 2. Proved once, for all
+  evaluators that meet their specifications.
+- *Program 3*: evaluators in integer arithmetic, no MPFR, proved to meet
+  the specifications.
 
-= The contract and the dependencies
+= The specifications and the dependencies
 
-*The contract.* `eval`$(x)$ returns $h + l + s approx exp x$ (three
-doubles); `expo`$(x)$ returns an integer; `report` calls `check`$(x, m)$,
-which returns 0 to reject a candidate.
+*The evaluators.*
+
+- `eval_seed`$(x)$ gives the line at each chunk start, and `eval_check`$(x)$
+  the value to decide a candidate. Both return three doubles
+  $h + l + s approx exp x$.
+- `eval_low`$(x)$ returns one double $d$, a lower bound of $exp x$.
 
 #table(
   columns: 3,
   stroke: 0.5pt,
-  [], [*requirement*], [*used by*],
-  [E1], [$|h + l + s - exp x| <= 2^(-kappa) exp x$], [2b],
-  [E2], [$|l| < 2^(e - 53)$ and $|s| < 2^(e - 54)$], [2a],
-  [E3], [$2^("expo"(x) - 1) <= exp x < 2^("expo"(x))$], [2a],
-  [E4], [$"dist"(Y(x), ZZ) < 2^(-m) => "check"(x, m) != 0$], [(T)],
+  [], [*specification*], [*of*],
+  [E1], [$|h + l + s - exp x| <= 2^(-kappa) exp x$],
+    [`eval_seed`, `eval_check`],
+  [E2], [$|l| < 2^(e - 53)$ and $|s| < 2^(e - 54)$],
+    [`eval_seed`, `eval_check`],
+  [E3], [$d <= exp x < d + "ulp"(d)$], [`eval_low`],
 )
 
-*$kappa$* is the number of correct bits of `eval`. The code of Program 2
-does not fix it; the proof of 2b does, since `eval`'s error is one of the
-errors the window must cover. About 118 is enough (*computed*): `eval`'s
-error is then below the last bit of `A`. Program 3 gives 158.
+*$kappa$* is the number of correct bits. For `eval_seed`, the proof of the
+window (2b) fixes it, since the evaluator's error is one of the errors the
+window must cover: about 118 is enough (*computed*). For `eval_check`,
+Program 2's code asks $kappa >= 118$: then its error is below the last bit
+of a 64-bit fractional part. Program 3 gives 158 for both.
 
 *The dependencies.* Each line needs the lines below it.
 
 #block(breakable: false, width: 100%, fill: luma(245), inset: 8pt, text(size: 8.5pt)[```
 (T) every hard x in [x0, x1) is printed
- |-- (S) the search passes every hard x to report          needs E1 E2 E3
- |    |-- 2a the conversions to 64 bits      needs E2 E3    to do
- |    |-- 2b the window covers the errors    needs E1       to do, the hard point
- |    |-- 2c the inner loop                                 done, Scan.v
- |    `-- 2d the chunks cover [x0, x1)                      done, ScanAll.v
- `-- report prints every hard x it is given               needs E4
+ `-- (S) search reports every hard x with a verdict v != 0
+      |-- 2a the exponent e is exact               needs E3       to do, easy
+      |-- 2b the conversions to 64 bits           needs E2, 2a   to do
+      |-- 2c the window covers the errors         needs E1       to do, HARD
+      |-- 2d the check never rejects a hard x     needs E1 E2    to do, easy
+      |-- 2e the inner loop                                      done, Scan.v
+      `-- 2f the chunks cover [x0, x1)                           done, ScanAll.v
 
-E1..E4 for Program 3
- |-- (E) the integer y is within 2^-160 of exp x            to do
- |-- 3a (E) + the split of y           => E1 with kappa = 158, E2
- |-- 3b (E) + an assert on y           => E3
- `-- 3c (E) + the distance test        => E4
+E1..E3 for Program 3
+ |-- (E) the integer y is within 2^-160 of exp x                 to do
+ |-- 3a (E) + the split of y                 => E1 with kappa = 158, E2
+ `-- 3b (E) + y - err cut to 53 bits          => E3
 ```])
 
 = Program 2: the generic search <sec-p2>
@@ -118,27 +124,44 @@ E1..E4 for Program 3
 
 #listing("/code/APaul/htrplan/search.h")
 
-*Code*: `htr.c`'s `search` with four changes (`make search.diff`):
+*Code*: `htr.c`'s `search`, with the calls to MPFR replaced by the
+evaluators, and a new function `check` on top of `eval_check`. The diff,
+from `make search.diff`:
 
 #listing("/code/APaul/htrplan/search.diff", lang: "diff")
 
+*Back to Program 1.* `eval_seed` = `eval_check` = `htr.c`'s `dd_exp`
+($kappa approx 158$), `eval_low` = `htr.c`'s `ref_exp` (rounding toward
+zero meets E3). The candidates are then exactly `htr.c`'s. The decision may
+differ from `htr.c`'s `check` only within `CHECK_ERR` of the threshold,
+where Program 2 answers undecided; on the test slices the two agree
+(@annex-test).
+
 *Obligations.*
 
-- *2a.* `h`, `l`, `s` are scaled by $2^(54 - e)$ and cut into 64-bit
+- *2a.* $e$ is the exponent of `eval_low`$(x)$, exact by E3, since
+  $exp x < d + "ulp"(d) <= 2^e$.
+- *2b.* `h`, `l`, `s` are scaled by $2^(54 - e)$ and cut into 64-bit
   integers (`get_uint64`), with sums modulo $2^64$. This reads the right bits
-  only if $e$ is exact (E3) and $l$, $s$ are small (E2).
-- *2b.* The code's window is $2^(64-m)$ + drift (*read*). Four errors are
-  not in it: `eval`'s ($kappa$); the drift uses the curvature at the start of
-  the chunk, not its maximum; the truncations of `B` add up over $n$ steps;
-  `A` is truncated. The proof must show they fit in the margin, or add a
-  term to `E`.
-- *2c, 2d.* Done: `Scan.v`, `ScanAll.v`.
+  only if $e$ is exact (2a) and $l$, $s$ are small (E2).
+- *2c.* The code's window is $2^(64-m)$ + drift (*read*). Four errors are
+  not in it: `eval_seed`'s ($kappa$); the drift uses the curvature at the
+  start of the chunk, not its maximum; the truncations of `B` add up over $n$
+  steps; `A` is truncated. The proof must show they fit in the margin, or
+  add a term to `E`.
+- *2d.* `check` reads the fractional part $F$ of $Y(x)$ as the search reads
+  `A`, within `CHECK_ERR` = 3 units of $2^(-64)$: one for E1, two for the
+  truncations. With $d$ the distance of $F$ to the nearest integer, it
+  answers 1 if $d + 3 < 2^(64 - m)$, 0 if $d >= 2^(64 - m) + 3$, 2
+  otherwise. So 0 means $"dist"(Y(x), ZZ) >= 2^(-m)$.
+- *2e, 2f.* Done: `Scan.v`, `ScanAll.v`.
 
 = Program 3: the proved evaluator <sec-p3>
 
-`eval_fix.c` provides `eval_fix`, `expo_fix` and `check_fix` (the check in
-`report`). All three start from `fix_exp`, which computes an integer $y$
-and an integer $k$ with $exp x approx y dot 2^(k - 200)$, by Tang's method:
+`eval_fix.c` provides `eval_fix`, used as `eval_seed` and `eval_check`, and
+`low_fix`, used as `eval_low`. Both start from `fix_exp`, which computes an
+integer $y$ and an integer $k$ with $exp x approx y dot 2^(k - 200)$, by
+Tang's method:
 
 + write $x = N ln 2 slash 256 + r$, with $N$ an integer and
   $|r| <= 2^(-9.5)$; then $N = 256 k + j$ with $0 <= j < 256$;
@@ -146,23 +169,24 @@ and an integer $k$ with $exp x approx y dot 2^(k - 200)$, by Tang's method:
 + multiply by $2^(j slash 256)$, taken from a table of 256 constants; then
   $exp x = 2^k dot 2^(j slash 256) dot exp r$.
 
-Every quantity is an integer $Z$ standing for $Z dot 2^(-200)$. `check_fix`
-answers hard, not hard, or *undecided* when the error of $y$ does not allow
-to decide; undecided cases are printed. Code: @annex-code.
+Every quantity is an integer $Z$ standing for $Z dot 2^(-200)$. Code:
+@annex-code.
 
 *The one bound:*
 
-$ (E) #h(2em) |y dot 2^(k - 200) - exp x| <= 2^(-160) dot 2^k. $
+$ (E) #h(2em) |y dot 2^(k - 200) - exp x| <= "err" dot 2^(k - 200), #h(2em)
+  "err" = 2^40. $
 
-*From (E) to E1–E4.*
+*From (E) to E1–E3.*
 
 - *3a.* $h$, $l$, $s$ are the first three blocks of 53 bits of $y$: they lose
   less than $2^(-158)$ relative (E1, $kappa = 158$), and each is below the
-  last bit of the one before (E2).
-- *3b.* The code asserts that $y$ is not within its error of a power of 2,
-  so $y$ and $exp x$ have the same exponent (E3).
-- *3c.* `check_fix` answers "not hard" only if the distance of $y$ to the
-  grid, minus $2^(-160)$, is still at least $2^(-m)$ (E4).
+  last bit of the one before (E2). E2 is relative to $e$: `fix_exp` asserts
+  that $y$ is not within `err` of a power of 2, so $y$ has the exponent of
+  $exp x$.
+- *3b.* $d$ is $y - "err"$ cut down to 53 bits, so $d <= exp x$. The code
+  asserts that $y + "err"$ stays below the next 53-bit value, so
+  $exp x < d + "ulp"(d)$ (E3).
 
 *Proof of (E).* One lemma per step of `fix_exp`. Errors in units of
 $2^(-200)$, *computed*:
@@ -182,8 +206,8 @@ $2^(-200)$, *computed*:
 
 = What to do
 
-+ 2a and 2b: proves (S) for any parameters, and fixes $kappa$.
-+ (E) and 3a–3c: Program 3 meets the contract.
++ 2a to 2d: proves (S) for any evaluators, and fixes $kappa$.
++ (E), 3a and 3b: Program 3 meets the specifications.
 + The whole range: Program 2 only works for $|x| < 1 slash 2$, one binade at a
   time, and above $x = -634$ (@annex-limits).
 + Tie the Rocq models to the C (or its Capla port): not tried yet.
@@ -193,8 +217,8 @@ $2^(-200)$, *computed*:
 
 = Annex: Program 1, `htr.c` <annex-p1>
 
-MPFR is used in `dd_exp` (`eval`), `ref_exp` (`expo`) and `check` (in
-`report`).
+MPFR is used in `dd_exp` (`eval_seed`, `eval_check`), `ref_exp`
+(`eval_low`) and `check`, which Program 2 replaces by its own check.
 
 #listing("/code/APaul/htr.c")
 
@@ -220,6 +244,11 @@ without MPFR). *Measured*, 2026-09-28:
   [from $0.25$ up], [410 325], [identical; one hard case; none undecided],
   [from $-0.25$ down], [498 078], [identical; one hard case; none undecided],
 )
+
+*Timing.* The three evaluators cost nothing: `htr3` takes 7.14 s on the
+first slice, against 7.11 s with the previous interface, where Program 3
+had its own `expo` and `check` (*measured*, medians of three alternated
+runs, cpu0, turbo off). The check is one `fix_exp` per candidate in both.
 
 There are many candidates because the drift, about $2^48$ units, is much
 wider than the target $2^29$ (*computed*): about 41 per chunk, as in

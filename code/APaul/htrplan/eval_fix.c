@@ -77,17 +77,6 @@ fix_exp (mpz_t y, double x)
   return (N - j) / FIX_TAB;
 }
 
-int
-expo_fix (double x)
-{
-  mpz_t y;
-  mpz_init (y);
-  long k = fix_exp (y, x);
-  int e = (int) mpz_sizeinbase (y, 2) - FIX_P + k;
-  mpz_clear (y);
-  return e;
-}
-
 // the top 53 bits of y, as a double scaled by 2^sc; y keeps the rest
 static double
 top53 (mpz_t y, long sc)
@@ -117,32 +106,24 @@ eval_fix (double *h, double *l, double *s, double x)
   mpz_clear (y);
 }
 
-// Is x hard to round at level m: is exp(x) 2^(54-e) within 2^-m of an
-// integer?  y has nb bits; its top 54 are the integer part, the other
-// nb - 54 bits the fraction.  Returns 1 (hard), 0 (not hard), or 2 when
-// the error of y does not allow to decide; a caller that builds a
-// superset keeps the undecided ones.
-int
-check_fix (double x, int m)
+
+// exp(x) from below: y - err, cut down to 53 bits.  The assert checks
+// that y + err stays below the next 53-bit value, so d + ulp(d) > exp(x).
+double
+low_fix (double x)
 {
-  mpz_t y, low, d, t;
-  mpz_inits (y, low, d, t, NULL);
-  fix_exp (y, x);
-  long f = (long) mpz_sizeinbase (y, 2) - 54;   // bits of the fraction
-  mpz_fdiv_r_2exp (low, y, f);                 // the fraction, times 2^f
-  mpz_set_ui (d, 0);
-  mpz_setbit (d, f);
-  mpz_sub (d, d, low);                         // distance to the next integer
-  if (mpz_cmp (low, d) < 0) mpz_set (d, low);  // d = the distance, times 2^f
-  mpz_set_ui (t, 0);
-  mpz_setbit (t, f - m);                       // the threshold 2^-m, times 2^f
-  int r;
-  mpz_add (low, d, err);
-  if (mpz_cmp (low, t) < 0) r = 1;
-  else {
-    mpz_sub (low, d, err);
-    r = mpz_cmp (low, t) >= 0 ? 0 : 2;
-  }
-  mpz_clears (y, low, d, t, NULL);
-  return r;
+  mpz_t y, t;
+  mpz_inits (y, t, NULL);
+  long k = fix_exp (y, x);
+  mpz_sub (y, y, err);
+  long sh = (long) mpz_sizeinbase (y, 2) - 53;
+  mpz_fdiv_q_2exp (t, y, sh);
+  double d = ldexp (mpz_get_d (t), sh + k - FIX_P);
+  mpz_add_ui (t, t, 1);
+  mpz_mul_2exp (t, t, sh);
+  mpz_add (y, y, err);
+  mpz_add (y, y, err);
+  assert (mpz_cmp (y, t) < 0);
+  mpz_clears (y, t, NULL);
+  return d;
 }
