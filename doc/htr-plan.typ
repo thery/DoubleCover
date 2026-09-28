@@ -155,7 +155,7 @@ from `make search.diff`:
 zero meets E3). The candidates are then exactly `htr.c`'s. The decision may
 differ from `htr.c`'s `check` only within `CHECK_ERR` of the threshold,
 where Program 2 answers undecided; on the test slices the two agree
-(@annex-test).
+(@annex-test). The exact instantiation is in @annex-mpfr.
 
 *Obligations.*
 
@@ -251,6 +251,20 @@ MPFR is used in `dd_exp` (`eval_seed`, `eval_check`), `ref_exp`
 (`eval_low`) and `check`, which Program 2 replaces by its own check.
 
 #listing("/code/APaul/htr.c")
+
+= Annex: the MPFR instantiation <annex-mpfr>
+
+Program 1 is recovered by the call
+
+```c
+search (eval_mpfr, low_mpfr, eval_mpfr, x0, x1, m)
+```
+
+(`main.c`), with the two functions of `eval_mpfr.c`. `eval_mpfr` is
+`htr.c`'s `dd_exp` unchanged; `low_mpfr` is `htr.c`'s `ref_exp`
+unchanged.
+
+#listing("/code/APaul/htrplan/eval_mpfr.c")
 
 = Annex: Program 3 <annex-code>
 
