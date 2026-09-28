@@ -1,6 +1,6 @@
 --- htr.c
 +++ search.c
-@@ -9,10 +9,31 @@
+@@ -9,11 +9,34 @@
    uint64_t ret = (uint64_t) (-x);
    return ~ret + (uint64_t) 1;
  }
@@ -9,7 +9,7 @@
 +// 2^64, read from l and s as A is; d is its distance to the nearest
 +// integer; F is within CHECK_ERR of the exact value (E1, E2).
 +static int
-+check (eval_t eval_check, int e, double x, int m)
++check (check_t eval_check, int e, double x, int m)
 +{
 +  double h, l, s;
 +  eval_check (&h, &l, &s, x);
@@ -29,13 +29,16 @@
 -static void
 -search (double x0, double x1, int m)
 +// with at least m identical bits after round bit
-+void
-+search (eval_t eval_seed, low_t eval_low, eval_t eval_check,
-+        report_t report, double x0, double x1, int m)
++struct cands
++search (seed_t eval_seed, low_t eval_low, check_t eval_check,
++        double x0, double x1, int m)
  {
++  struct cands r = { NULL, 0 };
++  unsigned long size = 0;
    uint64_t n = 1ul << 20;
    int e, e0, e1;
-@@ -25,17 +46,14 @@
+ 
+@@ -25,17 +48,14 @@
    double ux = ldexp (1.0, e0 - 53); // ux = ulp(x)
  
    // check exp(x) lies in the same binade in [x0, x1)
@@ -56,12 +59,18 @@
      double dh = h * ux, dl = l * ux; // 1st derivative, multiplied by ux
      double dd = h * ux * ux; // 2nd derivative, multiplied by ux^2
  
-@@ -65,7 +83,7 @@
+@@ -65,7 +85,7 @@
      for (uint64_t i = 0; i < n; i++) {
        if (__builtin_expect (A < 2*E, 0)) { // found potential hard-to-round case
          double xi = x + i * ux;
 -        check (xi, m);
-+        report (xi, m, check (eval_check, e, xi, m));
++        report (&r, &size, xi, check (eval_check, e, xi, m));
        }
        A += B;
      }
+@@ -73,4 +93,5 @@
+     if (x > x1)
+       n = (x1 - x) / ux;
+   }
++  return r;
+ }
