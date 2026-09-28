@@ -17,6 +17,55 @@
 
 Names set in `monospace` are the Rocq identifiers of the two files.
 
+= The function $f$
+
+Everything in section 5 is about a function
+
+$ f : NN -> V $
+
+where $V$ is any abelian group (a `zmodType` in Rocq). So $f$ is a sequence:
+it has a value at $0, 1, 2, dots$ and nowhere else. Between $n$ and $n+1$
+there is nothing, so asking whether $f$ is continuous or differentiable makes
+no sense. The only things we can do with $f$ are read its values and add or
+subtract them, and that is all section 5 needs. This is the setting of
+`Shift.v`.
+
+*An example: the exponential.* Here is how the search gets such a function.
+It starts with a function on the reals and ends with a sequence of integers.
+
++ $exp : RR -> RR$, the function whose hard cases we look for.
++ $P_RR : RR -> RR$, a polynomial of degree 7 that approximates $exp$
+  near the search interval (`P_R`, in `Cheb.v`).
++ $P : NN -> ZZ$, the values of $P_RR$ at the arguments of the search.
+  The $n$-th argument is $x_n = x_0 + n slash 2^54$. Scaled by $2^598$,
+  $P_RR (x_n)$ is an integer, and that integer is $P(n)$ (`Pdir`, with
+  `Pdir_chebE` proving the equality).
+
+The first two are differentiable, and this is used once: `cheb_valid` bounds
+$|exp - P_RR|$ by $2^(-160)$ with CoqInterval's Taylor models, which rest on
+derivatives. Section 5 itself never uses it. The third one is our $f$, with
+$V = ZZ$. This is the setting of `ShiftExp.v`.
+
+*The precision lost.* All of it is lost in the first step, before section 5
+starts.
+
+#table(
+  columns: 3,
+  align: (left, left, left),
+  stroke: 0.5pt,
+  [*step*], [*loss*], [*where*],
+  [$exp -> P_RR$, the approximation], [at most $2^(-160)$], [`cheb_valid`],
+  [$P_RR -> P$, the scaling to integers], [none, an equality], [`Pdir_chebE`],
+  [the shifts of section 5], [none, integer additions], [`Shift.v`],
+  [overall, at every argument], [at most $2^(-160)$], [`Pdir_exp`],
+)
+
+The price of an exact shift is size: we keep all 598 fractional bits, so a
+value of $P$ is about 600 bits. The paper also says section 5 is exact, and
+defers error propagation to its references [5] and [27]. An implementation
+that truncates the coefficients to fewer bits would lose some precision at
+each addition, and the losses would add up. That case is not formalised.
+
 = The problem
 
 The hard-to-round search does not work on the exponential. It works on a
@@ -48,6 +97,12 @@ The paper's $Delta$ is
 Definition dif f : nat -> V := fun n => f n.+1 - f n.
 Definition difn i f : nat -> V := iter i dif f.
 ```
+
+It is a finite difference, not a derivative: there are no limits, only a
+subtraction of two neighbouring values. For example, with $f(n) = n^2$ we get
+$Delta f (n) = (n+1)^2 - n^2 = 2n + 1$, then $Delta^2 f (n) = 2$ and
+$Delta^3 f (n) = 0$. Each application of $Delta$ lowers the degree by one, as
+a derivative would, but it is computed with one subtraction.
 
 A polynomial is a function from arguments to values, sampled at the integers.
 We never need polynomials as a datatype, and we never need their coefficients:

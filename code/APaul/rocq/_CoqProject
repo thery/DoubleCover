@@ -13,3 +13,4 @@ Check.v
 Shift.v
 ShiftBridge.v
 ShiftExp.v
+SearchShift.v
