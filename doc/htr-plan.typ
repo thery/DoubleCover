@@ -32,10 +32,12 @@ Code: `code/APaul/htr.c` and `code/APaul/htrplan/`. Numbers are marked
 
 For an interval $[x_0, x_1)$ and a level $m$:
 
-$ (T) #h(2em) forall x in [x_0, x_1), #h(0.5em) x "hard to round at level"
-  m #h(0.5em) => #h(0.5em) x "is printed". $
+$ (S) #h(2em) forall x in [x_0, x_1), #h(0.5em) x "hard to round at level"
+  m #h(0.5em) => #h(0.5em) (x, v) in "search"(x_0, x_1, m) "with" v != 0. $
 
-The program may print false cases, never miss a true one.
+`search` returns an array of candidates $(x, v)$, where the *verdict* $v$ is
+1 (hard), 0 (not hard) or 2 (undecided). The array may hold false cases,
+never miss a true one.
 
 = How the search works
 
@@ -55,8 +57,8 @@ unit is $2^(-64)$):
 - the *window* is `E` = $2^(64 - m)$ + drift.
 
 The inner loop adds `B` to `A` $n$ times. Each $i$ where `A` is within `E` of
-an integer is a *candidate*: it is passed to `report`, which checks it
-with a precise evaluation and prints it if it is hard.
+an integer is a *candidate*: it is checked with a precise evaluation and
+added to the array with its verdict.
 
 *Why it works.* If $x + i u$ is hard, $Y$ is within $2^(-m)$ of an
 integer, so the line is within $2^(-m)$ + drift + errors of it. If the
@@ -68,8 +70,9 @@ window covers that, $i$ is a candidate.
   Not proved; it is the reference (@annex-p1).
 - *Program 2*, the generic search: `htr.c` with three *evaluators* of
   $exp$ as parameters, `eval_seed`, `eval_low`, `eval_check`. An evaluator
-  only promises a bound on $exp x$. The two decisions, the exponent $e$ and
-  the check of a candidate, are code of Program 2. Proved once, for all
+  only promises a bound on $exp x$. They are its only external functions:
+  the exponent $e$ and the check of a candidate are code of Program 2, built
+  on them, and the result is an array, not a printout. Proved once, for all
   evaluators that meet their specifications.
 - *Program 3*: evaluators in integer arithmetic, no MPFR, proved to meet
   the specifications.
@@ -121,14 +124,13 @@ three.
 *The dependencies.* Each line needs the lines below it.
 
 #block(breakable: false, width: 100%, fill: luma(245), inset: 8pt, text(size: 8.5pt)[```
-(T) every hard x in [x0, x1) is printed
- `-- (S) search reports every hard x with a verdict v != 0
-      |-- 2a the exponent e is exact               needs E3       to do, easy
-      |-- 2b the conversions to 64 bits           needs E2, 2a   to do
-      |-- 2c the window covers the errors         needs E1       to do, HARD
-      |-- 2d the check never rejects a hard x     needs E1 E2    to do, easy
-      |-- 2e the inner loop                                      done, Scan.v
-      `-- 2f the chunks cover [x0, x1)                           done, ScanAll.v
+(S) every hard x in [x0, x1) is in the array, with a verdict v != 0
+ |-- 2a the exponent e is exact               needs E3       to do, easy
+ |-- 2b the conversions to 64 bits           needs E2, 2a   to do
+ |-- 2c the window covers the errors         needs E1       to do, HARD
+ |-- 2d the check never rejects a hard x     needs E1 E2    to do, easy
+ |-- 2e the inner loop                                      done, Scan.v
+ `-- 2f the chunks cover [x0, x1)                           done, ScanAll.v
 
 E1..E3 for Program 3
  |-- (E) the integer y is within 2^-160 of exp x                 to do
@@ -153,7 +155,7 @@ from `make search.diff`:
 zero meets E3). The candidates are then exactly `htr.c`'s. The decision may
 differ from `htr.c`'s `check` only within `CHECK_ERR` of the threshold,
 where Program 2 answers undecided; on the test slices the two agree
-(@annex-test).
+(@annex-test). The exact instantiation is in @annex-mpfr.
 
 *Obligations.*
 
@@ -249,6 +251,20 @@ MPFR is used in `dd_exp` (`eval_seed`, `eval_check`), `ref_exp`
 (`eval_low`) and `check`, which Program 2 replaces by its own check.
 
 #listing("/code/APaul/htr.c")
+
+= Annex: the MPFR instantiation <annex-mpfr>
+
+Program 1 is recovered by the call
+
+```c
+search (eval_mpfr, low_mpfr, eval_mpfr, x0, x1, m)
+```
+
+(`main.c`), with the two functions of `eval_mpfr.c`. `eval_mpfr` is
+`htr.c`'s `dd_exp` unchanged; `low_mpfr` is `htr.c`'s `ref_exp`
+unchanged.
+
+#listing("/code/APaul/htrplan/eval_mpfr.c")
 
 = Annex: Program 3 <annex-code>
 

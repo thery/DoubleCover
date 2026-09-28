@@ -2,6 +2,7 @@
 // with dd_exp replaced by eval_seed, ref_exp by eval_low, and check by
 // a check written here on top of eval_check.
 
+#include <stdlib.h>
 #include <assert.h>
 #include <math.h>
 #include "search.h"
@@ -23,7 +24,7 @@ get_uint64 (double x)
 // 2^64, read from l and s as A is; d is its distance to the nearest
 // integer; F is within CHECK_ERR of the exact value (E1, E2).
 static int
-check (eval_t eval_check, int e, double x, int m)
+check (check_t eval_check, int e, double x, int m)
 {
   double h, l, s;
   eval_check (&h, &l, &s, x);
@@ -39,12 +40,28 @@ check (eval_t eval_check, int e, double x, int m)
   return 2;
 }
 
+// add the candidate x with its verdict v to the array r
+static void
+report (struct cands *r, unsigned long *size, double x, int v)
+{
+  if (r->n == *size) {
+    *size = *size ? 2 * *size : 1024;
+    r->a = realloc (r->a, *size * sizeof (struct cand));
+    assert (r->a != NULL);
+  }
+  r->a[r->n].x = x;
+  r->a[r->n].v = v;
+  r->n ++;
+}
+
 // search hard-to-round cases of exp in [x0,x1)
 // with at least m identical bits after round bit
-void
-search (eval_t eval_seed, low_t eval_low, eval_t eval_check,
-        report_t report, double x0, double x1, int m)
+struct cands
+search (seed_t eval_seed, low_t eval_low, check_t eval_check,
+        double x0, double x1, int m)
 {
+  struct cands r = { NULL, 0 };
+  unsigned long size = 0;
   uint64_t n = 1ul << 20;
   int e, e0, e1;
 
@@ -93,7 +110,7 @@ search (eval_t eval_seed, low_t eval_low, eval_t eval_check,
     for (uint64_t i = 0; i < n; i++) {
       if (__builtin_expect (A < 2*E, 0)) { // found potential hard-to-round case
         double xi = x + i * ux;
-        report (xi, m, check (eval_check, e, xi, m));
+        report (&r, &size, xi, check (eval_check, e, xi, m));
       }
       A += B;
     }
@@ -101,4 +118,5 @@ search (eval_t eval_seed, low_t eval_low, eval_t eval_check,
     if (x > x1)
       n = (x1 - x) / ux;
   }
+  return r;
 }
