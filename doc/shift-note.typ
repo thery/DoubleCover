@@ -17,6 +17,31 @@
 
 Names set in `monospace` are the Rocq identifiers of the two files.
 
+= Three functions
+
+The search is about the exponential, but section 5 never sees it. Between
+the two there are three functions, and it helps to keep them apart.
+
++ $exp : RR -> RR$. The function whose hard cases we look for. It is
+  differentiable, but section 5 never uses that.
++ $P_RR : RR -> RR$, a polynomial of degree 7 that approximates $exp$
+  near the search interval (`P_R`, from `Cheb.v`). It is differentiable too,
+  and again that is never used.
++ $P : NN -> ZZ$, the values of $P_RR$ at the arguments of the search.
+  The $n$-th argument is $x_n = x_0 + n slash 2^54$. Scaled by $2^598$,
+  $P_RR (x_n)$ is an integer, and that integer is $P(n)$ (`Pdir`, with
+  `Pdir_chebE` proving the equality).
+
+Section 5 works on the third one only. $P$ is a sequence: it is defined only
+at $0, 1, 2, dots$. Asking whether $P$ is continuous or differentiable makes
+no sense, because between $n$ and $n+1$ there is nothing. The only things we
+can do with $P$ are read its values and add or subtract them.
+
+That is why `Shift.v` takes an arbitrary function
+$f : NN -> V$, where $V$ is any abelian group (a `zmodType`). All we use is
+that values can be added and subtracted. The exponential file `ShiftExp.v`
+then takes $V = ZZ$ and $f = P$.
+
 = The problem
 
 The hard-to-round search does not work on the exponential. It works on a
@@ -48,6 +73,12 @@ The paper's $Delta$ is
 Definition dif f : nat -> V := fun n => f n.+1 - f n.
 Definition difn i f : nat -> V := iter i dif f.
 ```
+
+It is a finite difference, not a derivative: there are no limits, only a
+subtraction of two neighbouring values. For example, with $f(n) = n^2$ we get
+$Delta f (n) = (n+1)^2 - n^2 = 2n + 1$, then $Delta^2 f (n) = 2$ and
+$Delta^3 f (n) = 0$. Each application of $Delta$ lowers the degree by one, as
+a derivative would, but it is computed with one subtraction.
 
 A polynomial is a function from arguments to values, sampled at the integers.
 We never need polynomials as a datatype, and we never need their coefficients:
