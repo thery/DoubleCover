@@ -41,8 +41,30 @@ It starts with a function on the reals and ends with a sequence of integers.
   $P_RR (x_n)$ is an integer, and that integer is $P(n)$ (`Pdir`, with
   `Pdir_chebE` proving the equality).
 
-The first two are differentiable, but section 5 never uses that. The third one
-is our $f$, with $V = ZZ$. This is the setting of `ShiftExp.v`.
+The first two are differentiable, and this is used once: `cheb_valid` bounds
+$|exp - P_RR|$ by $2^(-160)$ with CoqInterval's Taylor models, which rest on
+derivatives. Section 5 itself never uses it. The third one is our $f$, with
+$V = ZZ$. This is the setting of `ShiftExp.v`.
+
+*The precision lost.* All of it is lost in the first step, before section 5
+starts.
+
+#table(
+  columns: 3,
+  align: (left, left, left),
+  stroke: 0.5pt,
+  [*step*], [*loss*], [*where*],
+  [$exp -> P_RR$, the approximation], [at most $2^(-160)$], [`cheb_valid`],
+  [$P_RR -> P$, the scaling to integers], [none, an equality], [`Pdir_chebE`],
+  [the shifts of section 5], [none, integer additions], [`Shift.v`],
+  [overall, at every argument], [at most $2^(-160)$], [`Pdir_exp`],
+)
+
+The price of an exact shift is size: we keep all 598 fractional bits, so a
+value of $P$ is about 600 bits. The paper also says section 5 is exact, and
+defers error propagation to its references [5] and [27]. An implementation
+that truncates the coefficients to fewer bits would lose some precision at
+each addition, and the losses would add up. That case is not formalised.
 
 = The problem
 
