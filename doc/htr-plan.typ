@@ -156,9 +156,14 @@ E1..E3 for Program 3
 evaluators, a new function `check` on top of `eval_check`, the calls to
 libm replaced by `dbl.h` (`frexp` by `dexpo`, `ldexp` by `dscale`,
 `nextafter` by `dpred`), and the candidates stored in the caller's array.
-The diff, from `make search.diff`:
+The complete code, `search.c`:
 
-#listing("/code/APaul/htrplan/search.diff", lang: "diff")
+#listing("/code/APaul/htrplan/search.c")
+
+and `dbl.h`, the doubles read and built from their bits, shared with
+Program 3:
+
+#listing("/code/APaul/htrplan/dbl.h")
 
 *Back to Program 1.* `eval_seed` = `eval_check` = `htr.c`'s `dd_exp`
 ($kappa approx 158$), `eval_low` = `htr.c`'s `ref_exp` (rounding toward
@@ -281,9 +286,7 @@ unchanged.
 
 = Annex: Program 3 <annex-code>
 
-`dbl.h`, shared with Program 2:
-
-#listing("/code/APaul/htrplan/dbl.h")
+`dbl.h` is shown with Program 2 (@sec-p2).
 
 #listing("/code/APaul/htrplan/fix.h")
 
