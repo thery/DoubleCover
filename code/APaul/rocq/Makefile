@@ -24,6 +24,7 @@ Check.vo: Search.vo Cheb.vo
 ShiftExp.vo: Shift.vo ShiftBridge.vo Cheb.vo
 SearchShift.vo: Shift.vo Search.vo Check.vo Cheb.vo
 TaylorScan.vo: Shift.vo
+TaylorLink.vo: TaylorReal.vo TaylorScan.vo Shift.vo
 
 %.vo: %.v
 	coqc $(COQFLAGS) $<

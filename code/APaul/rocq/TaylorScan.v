@@ -12,7 +12,7 @@
     - [scanE]: the walk returns exactly the [j < n] passing the test;
     - [scan_complete]: every [j] with [P j] within [E] of a multiple of
       [M] is returned.
-    What is left to connect it to [exp] is stated at the end. *)
+    The link to [exp] is in [TaylorReal.v] and [TaylorLink.v]. *)
 
 From mathcomp Require Import all_ssreflect all_algebra.
 From APaulRocq Require Import Shift.
@@ -90,16 +90,6 @@ Qed.
 
 End Scan.
 
-(** ** What is left: from [exp] to [scan_complete]'s hypothesis
-
-    Write [a_i = exp(x0) u^i / (i! v)], [rho] a bound on the Taylor
-    remainder, and [frac] the fractional part.  The note's hypotheses are
-      (H_A)  [|A_i - M frac(a_i)| < 1]           the evaluation of exp,
-      (H_T)  [|exp(x0 + j u)/v - sum_i a_i j^i| <= rho]   for [j <= n],
-      (H_E)  [E >= M (2^-m + rho) + (1 + n + ... + n^(k-1))].
-    The lemma to prove, over the reals:
-      if [dist(exp(x0 + j u)/v, Z) < 2^-m] and [j < n], then there is an
-      integer [w] with [|P j - M w| <= E].
-    Its proof: [M a_i j^i] and [M frac(a_i) j^i] differ by a multiple of
-    [M], since [j^i] is an integer; [|M frac(a_i) - A_i| j^i < n^i]; add
-    (H_T) times [M]; take [w] from the nearest integer to [exp/v]. *)
+(** The step from [exp] to the hypothesis of [scan_complete] is
+    [TaylorReal.real_lemma]; [TaylorLink.scan_exp] puts the two
+    together. *)
