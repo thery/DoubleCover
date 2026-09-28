@@ -14,3 +14,4 @@ Shift.v
 ShiftBridge.v
 ShiftExp.v
 SearchShift.v
+TaylorScan.v
