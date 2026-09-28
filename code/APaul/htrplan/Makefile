@@ -41,7 +41,7 @@ htr_slice: ../htr.c
 	$(CC) $(CFLAGS) -o $@ htr_slice.c $(LDFLAGS)
 
 # the diff between htr.c's search and search.c, shown in doc/htr-plan.typ
-FUNS = '/^\/\/ given x, -1 < x < 1/,/^}$$/p;/^\/\/ search hard-to-round cases of exp in \[x0,x1)/,/^}$$/p'
+FUNS = '/^\/\/ given x, -1 < x < 1/,/^}$$/p;/^\/\/ is x hard to round at level m/,/^}$$/p;/^\/\/ search hard-to-round cases of exp in \[x0,x1)/,/^}$$/p'
 search.diff: ../htr.c search.c
 	sed -n $(FUNS) ../htr.c > htr_search.tmp
 	sed -n $(FUNS) search.c > search.tmp
