@@ -36,3 +36,22 @@ eval_mpfr (double *h, double *l, double *s, double x)
   *s = mpfr_get_d (t, MPFR_RNDN);
   mpfr_clear (t);
 }
+
+// eval_check: as dd_exp, at CHECK_PREC bits.  Rounding gives 2^-CHECK_PREC
+// relative; t - h is exact, and t - h - l has at most CHECK_PREC - 106
+// bits, so s is exact: E1 holds with kappa = CHECK_PREC >= KAPPA_CHECK.
+#define CHECK_PREC 120
+void
+check_mpfr (double *h, double *l, double *s, double x)
+{
+  mpfr_t t;
+  mpfr_init2 (t, CHECK_PREC);
+  mpfr_set_d (t, x, MPFR_RNDN);
+  mpfr_exp (t, t, MPFR_RNDN);
+  *h = mpfr_get_d (t, MPFR_RNDN);
+  mpfr_sub_d (t, t, *h, MPFR_RNDN);
+  *l = mpfr_get_d (t, MPFR_RNDN);
+  mpfr_sub_d (t, t, *l, MPFR_RNDN);
+  *s = mpfr_get_d (t, MPFR_RNDN);
+  mpfr_clear (t);
+}

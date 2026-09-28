@@ -32,7 +32,7 @@ main (int argc, char *argv[])
   for (;;) {
 #ifdef WITH_MPFR
     if (strcmp (argv[1], "mpfr") == 0)
-      n = search (eval_mpfr, low_mpfr, eval_mpfr, x0, x1, m, a, cap);
+      n = search (eval_mpfr, low_mpfr, check_mpfr, x0, x1, m, a, cap);
     else
 #endif
     {

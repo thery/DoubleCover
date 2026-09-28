@@ -165,9 +165,10 @@ Program 3:
 
 #listing("/code/APaul/htrplan/dbl.h")
 
-*Back to Program 1.* `eval_seed` = `eval_check` = `htr.c`'s `dd_exp`
-($kappa approx 158$), `eval_low` = `htr.c`'s `ref_exp` (rounding toward
-zero meets E3). The candidates are then exactly `htr.c`'s. The decision may
+*Back to Program 1.* `eval_seed` = `htr.c`'s `dd_exp` ($kappa approx
+158$), `eval_low` = `htr.c`'s `ref_exp` (rounding toward zero meets E3),
+`eval_check` = `check_mpfr`, the same as `dd_exp` at 120 bits
+($kappa approx 120$). The candidates are then exactly `htr.c`'s. The decision may
 differ from `htr.c`'s `check` only within `CHECK_ERR` of the threshold,
 where Program 2 answers undecided; on the test slices the two agree
 (@annex-test). The exact instantiation is in @annex-mpfr.
@@ -275,12 +276,13 @@ MPFR is used in `dd_exp` (`eval_seed`, `eval_check`), `ref_exp`
 Program 1 is recovered by the call
 
 ```c
-search (eval_mpfr, low_mpfr, eval_mpfr, x0, x1, m)
+search (eval_mpfr, low_mpfr, check_mpfr, x0, x1, m, a, cap)
 ```
 
-(`main.c`), with the two functions of `eval_mpfr.c`. `eval_mpfr` is
+(`main.c`), with the three functions of `eval_mpfr.c`. `eval_mpfr` is
 `htr.c`'s `dd_exp` unchanged; `low_mpfr` is `htr.c`'s `ref_exp`
-unchanged.
+unchanged; `check_mpfr` is `dd_exp` at 120 bits instead of 161, because the
+check is called once per candidate.
 
 #listing("/code/APaul/htrplan/eval_mpfr.c")
 
@@ -293,9 +295,7 @@ unchanged.
 #listing("/code/APaul/htrplan/eval_fix.c")
 
 The constants come from `gen_fix.c` (with MPFR); they are not trusted, since
-each is certified. This version gives bit for bit the same $h$, $l$, $s$ and
-$d$ as an earlier one written with GMP, on $10^6$ random points from $-634$
-to $709.7$ (*measured*).
+each is certified.
 
 = Annex: the test <annex-test>
 
@@ -318,15 +318,16 @@ cpu0, turbo off):
   columns: 2,
   stroke: 0.5pt,
   [*program*], [*time*],
-  [`htr.c`], [7.21 s],
-  [Program 2 + MPFR], [7.97 s],
-  [Program 2 + Tang], [7.23 s],
+  [`htr.c`], [7.23 s],
+  [Program 2 + MPFR], [7.67 s],
+  [Program 2 + Tang], [7.30 s],
 )
 
-Program 2 + MPFR is 10% slower because its `eval_check` is `dd_exp`: each
-candidate is evaluated at 161 bits, where `htr.c`'s `check` uses
-$53 + m = 88$ (reasoned from the code, not profiled). Program 2 with Tang
-costs no more than `htr.c`.
+Program 2 + MPFR is 6% slower than `htr.c`: its `check_mpfr` evaluates at
+120 bits where `htr.c`'s `check` uses $53 + m = 88$, and splits the result
+into three doubles, about 1.1 $mu$s more a candidate (*computed*; the cause
+is reasoned from the code, not profiled). Program 2 with Tang costs about as
+much as `htr.c`.
 
 There are many candidates because the drift, about $2^48$ units, is much
 wider than the target $2^29$ (*computed*): about 41 per chunk, as in
