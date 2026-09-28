@@ -17,30 +17,32 @@
 
 Names set in `monospace` are the Rocq identifiers of the two files.
 
-= Three functions
+= The function $f$
 
-The search is about the exponential, but section 5 never sees it. Between
-the two there are three functions, and it helps to keep them apart.
+Everything in section 5 is about a function
 
-+ $exp : RR -> RR$. The function whose hard cases we look for. It is
-  differentiable, but section 5 never uses that.
+$ f : NN -> V $
+
+where $V$ is any abelian group (a `zmodType` in Rocq). So $f$ is a sequence:
+it has a value at $0, 1, 2, dots$ and nowhere else. Between $n$ and $n+1$
+there is nothing, so asking whether $f$ is continuous or differentiable makes
+no sense. The only things we can do with $f$ are read its values and add or
+subtract them, and that is all section 5 needs. This is the setting of
+`Shift.v`.
+
+*An example: the exponential.* Here is how the search gets such a function.
+It starts with a function on the reals and ends with a sequence of integers.
+
++ $exp : RR -> RR$, the function whose hard cases we look for.
 + $P_RR : RR -> RR$, a polynomial of degree 7 that approximates $exp$
-  near the search interval (`P_R`, from `Cheb.v`). It is differentiable too,
-  and again that is never used.
+  near the search interval (`P_R`, in `Cheb.v`).
 + $P : NN -> ZZ$, the values of $P_RR$ at the arguments of the search.
   The $n$-th argument is $x_n = x_0 + n slash 2^54$. Scaled by $2^598$,
   $P_RR (x_n)$ is an integer, and that integer is $P(n)$ (`Pdir`, with
   `Pdir_chebE` proving the equality).
 
-Section 5 works on the third one only. $P$ is a sequence: it is defined only
-at $0, 1, 2, dots$. Asking whether $P$ is continuous or differentiable makes
-no sense, because between $n$ and $n+1$ there is nothing. The only things we
-can do with $P$ are read its values and add or subtract them.
-
-That is why `Shift.v` takes an arbitrary function
-$f : NN -> V$, where $V$ is any abelian group (a `zmodType`). All we use is
-that values can be added and subtracted. The exponential file `ShiftExp.v`
-then takes $V = ZZ$ and $f = P$.
+The first two are differentiable, but section 5 never uses that. The third one
+is our $f$, with $V = ZZ$. This is the setting of `ShiftExp.v`.
 
 = The problem
 
