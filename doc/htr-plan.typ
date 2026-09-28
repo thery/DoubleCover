@@ -289,10 +289,22 @@ without MPFR). *Measured*, 2026-09-28:
   [from $-0.25$ down], [498 078], [identical; one hard case; none undecided],
 )
 
-*Timing.* The three evaluators cost nothing: `htr3` takes 7.14 s on the
-first slice, against 7.11 s with the previous interface, where Program 3
-had its own `expo` and `check` (*measured*, medians of three alternated
-runs, cpu0, turbo off). The check is one `fix_exp` per candidate in both.
+*Timing*, on the first slice (*measured*, medians of three alternated
+runs, cpu0, turbo off):
+
+#table(
+  columns: 2,
+  stroke: 0.5pt,
+  [*program*], [*time*],
+  [`htr.c`], [7.13 s],
+  [Program 2 + MPFR], [7.90 s],
+  [Program 2 + Tang], [7.11 s],
+)
+
+Program 2 + MPFR is 11% slower because its `eval_check` is `dd_exp`: each
+candidate is evaluated at 161 bits, where `htr.c`'s `check` uses
+$53 + m = 88$ (reasoned from the code, not profiled). Program 2 with Tang
+costs no more than `htr.c`.
 
 There are many candidates because the drift, about $2^48$ units, is much
 wider than the target $2^29$ (*computed*): about 41 per chunk, as in
