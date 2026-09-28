@@ -1,4 +1,4 @@
-// The evaluator of Program 1 (htr.c): exp with MPFR, trusted.
+// The evaluator of the initial program (htr.c): exp with MPFR, trusted.
 // Also check, which decides a candidate; it is not part of the superset.
 
 #include <stdio.h>

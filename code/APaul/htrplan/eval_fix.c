@@ -1,5 +1,5 @@
-// The evaluator of Program 3: exp with integers only (GMP's mpz), to be
-// proved.  Tang's scheme:
+// Program 3, the proved evaluator: exp with integers only (GMP's mpz).
+// Tang's scheme:
 //   x = N ln2/256 + r, N = 256 k + j, 0 <= j < 256, |r| <= 2^-9.5
 //   exp(x) = 2^k * 2^(j/256) * exp(r)
 // A fixed-point number is an integer X standing for X / 2^FIX_P.
@@ -115,4 +115,34 @@ eval_fix (double *h, double *l, double *s, double x)
   *l = top53 (y, k - FIX_P);
   *s = top53 (y, k - FIX_P);
   mpz_clear (y);
+}
+
+// Is x hard to round at level m: is exp(x) 2^(54-e) within 2^-m of an
+// integer?  y has nb bits; its top 54 are the integer part, the other
+// nb - 54 bits the fraction.  Returns 1 (hard), 0 (not hard), or 2 when
+// the error of y does not allow to decide; a caller that builds a
+// superset keeps the undecided ones.
+int
+check_fix (double x, int m)
+{
+  mpz_t y, low, d, t;
+  mpz_inits (y, low, d, t, NULL);
+  fix_exp (y, x);
+  long f = (long) mpz_sizeinbase (y, 2) - 54;   // bits of the fraction
+  mpz_fdiv_r_2exp (low, y, f);                 // the fraction, times 2^f
+  mpz_set_ui (d, 0);
+  mpz_setbit (d, f);
+  mpz_sub (d, d, low);                         // distance to the next integer
+  if (mpz_cmp (low, d) < 0) mpz_set (d, low);  // d = the distance, times 2^f
+  mpz_set_ui (t, 0);
+  mpz_setbit (t, f - m);                       // the threshold 2^-m, times 2^f
+  int r;
+  mpz_add (low, d, err);
+  if (mpz_cmp (low, t) < 0) r = 1;
+  else {
+    mpz_sub (low, d, err);
+    r = mpz_cmp (low, t) >= 0 ? 0 : 2;
+  }
+  mpz_clears (y, low, d, t, NULL);
+  return r;
 }

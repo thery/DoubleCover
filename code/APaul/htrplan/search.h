@@ -1,4 +1,4 @@
-// Program 2: the search of htr.c with the evaluator as a parameter.
+// Program 2, the generic search: htr.c with the evaluator as a parameter.
 
 #include <stdint.h>
 
