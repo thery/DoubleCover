@@ -15,3 +15,5 @@ ShiftBridge.v
 ShiftExp.v
 SearchShift.v
 TaylorScan.v
+TaylorReal.v
+TaylorLink.v

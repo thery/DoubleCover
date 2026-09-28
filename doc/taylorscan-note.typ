@@ -11,7 +11,7 @@
   text(size: 7.5pt, raw(read(path), lang: "coq", block: true)))
 
 #align(center)[
-  #text(size: 17pt)[*Reading `TaylorScan.v`*]
+  #text(size: 17pt)[*Reading `TaylorScan.v`, `TaylorReal.v` and `TaylorLink.v`*]
 
   #v(0.4em)
   #text(size: 10pt)[Zimmermann's hard-to-round search in Rocq, for a
@@ -20,10 +20,18 @@
 
 #v(1em)
 
-The file is `code/APaul/rocq/TaylorScan.v`. It states the search of
-`doc/htr.md` and proves that the search part of it misses nothing. This note
-explains the idea, then the file line by line. The full file is in the
-annex.
+Three files in `code/APaul/rocq/` state the search of `doc/htr.md` and prove
+that it misses no hard-to-round case, assuming the evaluation of $exp$ and
+its Taylor bound:
+
+- `TaylorScan.v`: the search over the integers, and that it returns every
+  $j$ where the integer polynomial is close to a multiple of $M$;
+- `TaylorReal.v`: the step from $exp$ to that integer polynomial, on the
+  real numbers;
+- `TaylorLink.v`: the two put together, in the final theorem `scan_exp`.
+
+This note explains the idea, then the files. The three files are in the
+annexes. None has an `Admitted`.
 
 = The problem
 
@@ -187,32 +195,106 @@ Theorem scan_complete j (w : int) :
 If $P(j)$ is within $E$ of a multiple of $M$, then $j$ is a candidate. It
 is `scanE` and `hitP` put together. The file has no `Admitted`.
 
-= What is not proved yet
+= From $exp$ to the scan: `TaylorReal.v`
 
-`scan_complete` talks about $P$, not about $exp$. To reach $exp$, one more
-statement is needed: *if $x_0 + j u$ is hard to round, then $P(j)$ is
-within $E$ of a multiple of $M$*. It holds under the three assumptions of the
-note:
+`scan_complete` talks about $P$, not about $exp$. `TaylorReal.v` makes the
+step between them: *if $x_0 + j u$ is hard to round, then $P(j)$ is within
+$E$ of a multiple of $M$*. It holds under the three assumptions of the note.
+With $a_i = exp(x_0) u^i slash (i! v)$ the exact coefficients and $rho$ a
+bound on the Taylor remainder:
 
-- (H_A) each $A_i$ is within 1 of $M$ times the fractional part of the
-  exact coefficient $a_i = exp(x_0) u^i slash (i! v)$: this is the
-  evaluation of $exp$, done once per subrange;
-- (H_T) the Taylor remainder is at most a known $rho$;
+- (H_A) each $A_i$ is within 1 of $M$ times the fractional part of $a_i$:
+  this is the evaluation of $exp$, done once per subrange;
+- (H_T) $exp(x_0 + j u) slash v$ is within $rho$ of
+  $a_0 + a_1 j + dots + a_(k-1) j^(k-1)$;
 - (H_E) $E >= M (2^(-m) + rho) + (1 + n + dots + n^(k-1))$.
 
-Its proof is arithmetic on real numbers: $M a_i j^i$ and $M "frac"(a_i) j^i$
-differ by a multiple of $M$, because $j^i$ is an integer; each $A_i$ adds an
-error below $j^i < n^i$; the remainder adds at most $M rho$. It is written
-at the end of the file as a comment.
+The file is plain Rocq on real numbers (the Stdlib library, no mathcomp).
+In it, $exp$ does not appear: the value $exp(x_0 + j u) slash v$ is a real
+$y$, and $2^(-m)$ a real $epsilon$. Two definitions:
 
-Two details also separate the file from the C program `htr2_fix.c`:
+- `sumR k f` is $f(0) + dots + f(k-1)$;
+- `Pz A k j` is the integer $A_0 + A_1 j + dots + A_(k-1) j^(k-1)$.
 
-- the C builds the first table in place from $P(0), dots, P(k-1)$ (steps 3
-  and 4 of the note), where the file takes `dtab` directly; and the file's
-  table has one more row, which is 0;
-- the C reduces every number modulo $M$ after each addition, where the file
-  keeps exact integers and reduces only in the test; the two give the same
-  test, because reduction modulo $M$ commutes with addition.
+The lemma:
+
+```coq
+Lemma real_lemma (k n j : nat) (M E : Z) (a : nat -> R) (A : nat -> Z)
+    (rho eps y : R) :
+  (0 < M)%Z -> (j <= n)%nat ->
+  (forall i, (i < k)%nat -> Rabs (IZR (A i) - IZR M * frac_part (a i)) < 1) ->
+  Rabs (y - sumR k (fun i => a i * INR j ^ i)) <= rho ->
+  IZR M * (eps + rho) + sumR k (fun i => INR n ^ i) <= IZR E ->
+  (exists z : Z, Rabs (y - IZR z) < eps) ->
+  exists w : Z, (Z.abs (Pz A k j - M * w) <= E)%Z.
+```
+
+`IZR` and `INR` turn an integer and a natural number into a real;
+`frac_part r` is $r$ minus its integer part. The three middle hypotheses are
+(H_A), (H_T) and (H_E); the last one says $y$ is within $epsilon$ of an
+integer $z$.
+
+*The proof in four lines.* Write each $a_i$ as its integer part plus its
+fractional part.
+
++ $M a_i j^i$ and $M "frac"(a_i) j^i$ differ by $M$ times an integer,
+  because $j^i$ is an integer. So $M times sum a_i j^i$ is
+  $sum M "frac"(a_i) j^i$ plus $M K$ for an integer $K$.
++ Replacing each $M "frac"(a_i)$ by $A_i$ costs less than $j^i <= n^i$, by
+  (H_A): the total error is at most $1 + n + dots + n^(k-1)$.
++ Replacing $sum a_i j^i$ by $y$ costs at most $M rho$, by (H_T); and $y$ is
+  within $epsilon$ of $z$, so $M y$ is within $M epsilon$ of $M z$.
++ Take $w = z - K$: $P(j) - M w$ is the sum of the three errors, at most
+  $E$ by (H_E).
+
+The file proves it with five small lemmas on `sumR`: two sums can be added,
+multiplied by a constant, compared term by term, bounded by the triangle
+inequality, and `Pz` read in the reals is the real sum (`IZR_Pz`).
+
+= The final theorem: `TaylorLink.v`
+
+`TaylorScan.v` is written with the mathcomp library, whose integers are the
+type `int` and whose polynomial is `hpoly A`; `TaylorReal.v` uses Rocq's `Z`
+and `Pz`. `TaylorLink.v` connects them:
+
+- `hpoly_Pz`: `hpoly A j` and `Pz` compute the same integer (`Z_of_int`
+  turns a mathcomp `int` into a `Z`);
+- `scan_completeZ`: `scan_complete`, restated with `Z` and `Pz`;
+- `scan_exp`: `real_lemma` followed by `scan_completeZ`.
+
+```coq
+Theorem scan_exp (A : seq int) (M E : int) (n j : nat) (a : nat -> R)
+    (rho eps y : R) :
+  Z.lt 0 (Z_of_int M) -> Z.lt (Z.mul 2 (Z_of_int E)) (Z_of_int M) ->
+  (j < n)%N ->
+  (H_A) -> (H_T) -> (H_E) ->
+  (exists z : Z, Rlt (Rabs (Rminus y (IZR z))) eps) ->
+  j \in scan A M E n.
+```
+
+(written here with (H_A), (H_T), (H_E) for the three hypotheses; the file
+spells them out). In words: *if $exp(x_0 + j u) slash v$ is within $2^(-m)$
+of an integer, then $j$ is a candidate*. The search misses no hard-to-round
+case. The file writes the real and `Z` operations as functions (`Rle`,
+`Rplus`, `Z.add`, ...) because mathcomp takes over the infix notations
+$<=$, $+$, ... for its own types.
+
+`Print Assumptions scan_exp` lists only the two axioms Rocq's real numbers
+are built on.
+
+= What is assumed
+
+- (H_A), the evaluation of $exp$: for `htr2_fix.c`, it is the bound of its
+  Tang evaluator at 448 bits, not yet proved.
+- (H_T), the Taylor bound for $exp$ with its remainder: a theorem of
+  analysis, not yet proved here.
+- Two details separate the files from the C program `htr2_fix.c`:
+  - the C builds the first table in place from $P(0), dots, P(k-1)$ (steps
+    3 and 4 of the note), where `TaylorScan.v` takes `dtab` directly; and
+    its table has one more row, which is 0;
+  - the C reduces every number modulo $M$ after each addition, where the
+    file keeps exact integers and reduces only in the test; the two give
+    the same test, because reduction modulo $M$ commutes with addition.
 
 #counter(heading).update(0)
 #set heading(numbering: "A.1")
@@ -220,3 +302,11 @@ Two details also separate the file from the C program `htr2_fix.c`:
 = Annex: `TaylorScan.v`
 
 #listing("/code/APaul/rocq/TaylorScan.v")
+
+= Annex: `TaylorReal.v`
+
+#listing("/code/APaul/rocq/TaylorReal.v")
+
+= Annex: `TaylorLink.v`
+
+#listing("/code/APaul/rocq/TaylorLink.v")
