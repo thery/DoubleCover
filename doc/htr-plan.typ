@@ -295,9 +295,7 @@ check is called once per candidate.
 #listing("/code/APaul/htrplan/eval_fix.c")
 
 The constants come from `gen_fix.c` (with MPFR); they are not trusted, since
-each is certified. This version gives bit for bit the same $h$, $l$, $s$ and
-$d$ as an earlier one written with GMP, on $10^6$ random points from $-634$
-to $709.7$ (*measured*).
+each is certified.
 
 = Annex: the test <annex-test>
 
@@ -325,12 +323,10 @@ cpu0, turbo off):
   [Program 2 + Tang], [7.30 s],
 )
 
-Program 2 + MPFR is 6% slower than `htr.c`. With `dd_exp` (161 bits) as
-`eval_check` it was 10% slower (7.97 s against 7.21 s); its own
-`check_mpfr`, the same code at 120 bits (enough for $kappa >= 118$), gained
-0.30 s. The rest, about 1.1 $mu$s a candidate (*computed*), is 120 bits
-against the 88 of `htr.c`'s `check`, plus the split into three doubles
-(reasoned from the code, not profiled). Program 2 with Tang costs about as
+Program 2 + MPFR is 6% slower than `htr.c`: its `check_mpfr` evaluates at
+120 bits where `htr.c`'s `check` uses $53 + m = 88$, and splits the result
+into three doubles, about 1.1 $mu$s more a candidate (*computed*; the cause
+is reasoned from the code, not profiled). Program 2 with Tang costs about as
 much as `htr.c`.
 
 There are many candidates because the drift, about $2^48$ units, is much
