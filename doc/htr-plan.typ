@@ -95,10 +95,16 @@ Program 2 is `htr.c` with its three MPFR functions turned into parameters:
 
 #code("/code/APaul/htrplan/search.h")
 
-The search itself, `search.c`, is `htr.c`'s `search` line for line, except
-for the three names:
+The search itself, `search.c`, is `htr.c`'s `get_uint64` and `search`
+(@annex-p1) with only these changes: the three parameters in the header, and
+the three calls. The rest is identical. The diff, produced by `make
+search.diff`:
 
-#code("/code/APaul/htrplan/search.c")
+#block(width: 100%, fill: luma(245), inset: 6pt,
+  text(size: 7.5pt, raw(read("/code/APaul/htrplan/search.diff"),
+    lang: "diff", block: true)))
+
+The unused `uh` is dropped.
 
 == The instantiation that gives back Program 1
 
@@ -115,9 +121,8 @@ Take for the parameters `htr.c`'s own three functions, in `eval_mpfr.c`:
     caller (`main.c`) prints the hard cases],
 )
 
-#code("/code/APaul/htrplan/eval_mpfr.c")
-
-With them, Program 2 is Program 1 again: the test prints the same
+The code of the three is Program 1's, with only the two changes in the
+table. With them, Program 2 is Program 1 again: the test prints the same
 candidates and the same hard cases as `htr.c` itself, line for line
 (@sec-test).
 
