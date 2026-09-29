@@ -42,7 +42,7 @@ Proof. exact: is_polyCb_hpoly. Qed.
 
 (** The main loop, step 6, for any test [p]: test the first entry, then
     shift the table. *)
-Fixpoint walk (p : int -> bool) (j : nat) (t : seq int) (c : nat) :
+Fixpoint walk (p : pred int) (j : nat) (t : seq int) (c : nat) :
     seq nat :=
   if c is c'.+1 then
     let rest := walk p j.+1 (tstep t) c' in
@@ -67,7 +67,7 @@ Lemma scanE p : scan p = [seq j <- iota 0 n | p (P j)].
 Proof. exact: walkE. Qed.
 
 (** The test of the note on the first entry: steps 5 and 6. *)
-Definition hit (b : int) : bool := ((b + E) %% M)%Z <= E *+ 2.
+Definition hit : pred int := [pred b | ((b + E) %% M)%Z <= E *+ 2].
 
 (** The search of the note: the scan with [hit]. *)
 Definition hscan : seq nat := scan hit.
@@ -80,7 +80,7 @@ move=> EM; rewrite ler_norml => /andP[l r].
 have lo : 0 <= b - M * w + E by rewrite -lerBlDr sub0r.
 have hi : b - M * w + E < M.
   by apply: Order.POrderTheory.le_lt_trans EM; rewrite mulr2n lerD2r.
-rewrite /hit.
+rewrite /hit /=.
 have -> : b + E = w * M + (b - M * w + E).
   by rewrite [w * M]mulrC addrA [M * w + _]addrC subrK.
 rewrite modzMDl modz_small ?lo ?hi //.
