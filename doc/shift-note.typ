@@ -94,8 +94,8 @@ enters once, at the very end, and is the subject of section 9.
 The paper's $Delta$ is
 
 ```coq
-Definition dif f : nat -> V := fun n => f n.+1 - f n.
-Definition difn i f : nat -> V := iter i dif f.
+Definition diff f : nat -> V := fun n => f n.+1 - f n.
+Definition diffn i f : nat -> V := iter i diff f.
 ```
 
 It is a finite difference, not a derivative: there are no limits, only a
@@ -105,21 +105,36 @@ $Delta^3 f (n) = 0$. Each application of $Delta$ lowers the degree by one, as
 a derivative would, but it is computed with one subtraction.
 
 A polynomial is a function from arguments to values, sampled at the integers.
-We never need polynomials as a datatype, and we never need their coefficients:
-the only thing we need is the degree, and the degree is this.
+A polynomial of degree at most $d$ is written in the binomial basis:
 
 ```coq
-Definition degle d f := forall n, difn d.+1 f n = 0.
+Definition is_poly d f :=
+  exists l : seq V, forall n, f n = \sum_(i < d.+1) l`_i *+ 'C(n, i).
 ```
 
-A function has degree at most $d$ when its $(d+1)$-st difference vanishes
-everywhere. For a polynomial in the ordinary sense this is the usual degree.
-Every statement below uses this one and no other.
+Its value at $n$ is $l_0 C(n, 0) + dots + l_d C(n, d)$ for some
+$l_0, dots, l_d$ in $V$. The basis is the binomials $C(n, i)$, not the powers
+$n^i$: $V$ can add but not divide, and $C(n, 2) = (n^2 - n) slash 2$ has no
+coefficients in $V$ in the basis of the powers.
+
+The link with differences is an equivalence:
+
+```coq
+Lemma is_polyP d f : is_poly d f <-> forall n, diffn d.+1 f n = 0.
+```
+
+A function is a polynomial of degree at most $d$ exactly when its $(d+1)$-st
+difference is zero everywhere. From left to right, by Pascal's rule
+$Delta C(n, i+1) = C(n, i)$ (`diff_binS`): each difference lowers the
+degree by one (`diffn_binom`). From right to left, by Newton's formula (next
+section), with the differences at $0$ as the coefficients $l_i$. The
+statements below take `is_poly` as hypothesis; their proofs use the
+difference side of `is_polyP`.
 
 Two remarks on the Rocq. First, there is no functional extensionality in
-either file. `difn i f n` reads $f$ at finitely many points, so a pointwise
+either file. `diffn i f n` reads $f$ at finitely many points, so a pointwise
 equality between two functions is enough to rewrite underneath it; that is
-`difn_ext`, and it is proved by induction like everything else. Second, `dif`
+`diffn_ext`, and it is proved by induction like everything else. Second, `diff`
 is an operator on functions, not on a syntax of polynomials, so the file needs
 no polynomial library at all.
 
@@ -128,8 +143,8 @@ no polynomial library at all.
 Everything in section 5 comes from one identity.
 
 ```coq
-Lemma dif_shiftn f n k :
-  f (n + k)%N = \sum_(0 <= i < k.+1) (difn i f n) *+ 'C(k, i).
+Lemma diff_shiftn f n k :
+  f (n + k)%N = \sum_(0 <= i < k.+1) (diffn i f n) *+ 'C(k, i).
 ```
 
 Read it as: to move $k$ steps forward, take the differences at the point you
@@ -141,7 +156,7 @@ $(1 + Delta)^k$, and the binomial theorem does the rest.
 This is worth insisting on, because it is where the two algorithms of the
 paper come from. They are not two ideas. They are this one identity read at
 $k = 1$ and at general $k$. A degree hypothesis is needed only to stop the sum
-at $d$ rather than at $k$, which is `dif_shift_deg`, and from it Newton's
+at $d$ rather than at $k$, which is `diff_shift_deg`, and from it Newton's
 interpolation `newton`.
 
 = The difference table
@@ -150,7 +165,7 @@ The object the algorithms carry is the list of the first $d+1$ differences at
 the current argument.
 
 ```coq
-Definition dtab d f n : seq V := mkseq (fun i => difn i f n) d.+1.
+Definition dtab d f n : seq V := mkseq (fun i => diffn i f n) d.+1.
 ```
 
 Its first entry is the value $f(n)$; the others are what is needed to move on.
@@ -171,7 +186,7 @@ Take the paper's own example, $P(x) = x^3$, of degree $3$, so four entries.
 ]
 
 The table at $n = 0$ is $(0, 1, 6, 6)$. The bottom row is constant, which is
-`degle_const`: the $d$-th difference of a polynomial of degree $d$ does not
+`diffn_const`: when the $(d+1)$-st difference is zero, the $d$-th does not
 move. Below it everything is zero, and `nth_dtab` says that reading past the
 end of the table gives $0$, which is the right answer rather than an accident.
 
@@ -184,7 +199,7 @@ it.
 Definition tstep t : seq V :=
   mkseq (fun i => nth 0 t i + nth 0 t i.+1) (size t).
 
-Lemma tstepE d f n : degle d f -> tstep (dtab d f n) = dtab d f n.+1.
+Lemma tstepE d f n : is_poly d f -> tstep (dtab d f n) = dtab d f n.+1.
 ```
 
 On the table above: $(0, 1, 6, 6)$ becomes $(0+1, 1+6, 6+6, 6+0) = (1, 7, 12,
@@ -194,10 +209,10 @@ Iterating gives the walk along consecutive intervals.
 
 ```coq
 Lemma tstep_iter d f n k :
-  degle d f -> iter k tstep (dtab d f n) = dtab d f (n + k)%N.
+  is_poly d f -> iter k tstep (dtab d f n) = dtab d f (n + k)%N.
 ```
 
-The proof of `tstepE` is the recurrence `dif_stepE`, which says
+The proof of `tstepE` is the recurrence `diff_stepE`, which says
 $Delta^i f(n+1) = Delta^i f(n) + Delta^(i+1) f(n)$, together with the remark
 about reading past the end: at the last row the missing term is $0$ because
 the polynomial has degree $d$.
@@ -212,7 +227,7 @@ Definition sstep k t : seq V :=
   mkseq (fun i => \sum_(l < size t) (nth 0 t (i + l)%N) *+ 'C(k, l)) (size t).
 
 Lemma sstepE d f n k :
-  degle d f -> sstep k (dtab d f n) = dtab d f (n + k)%N.
+  is_poly d f -> sstep k (dtab d f n) = dtab d f (n + k)%N.
 ```
 
 On $(0, 1, 6, 6)$ with $k = 2$ the first entry is
@@ -230,7 +245,7 @@ the thread.
 
 ```coq
 Lemma hybridE d f Sz s nt :
-  degle d f ->
+  is_poly d f ->
   iter s tstep (sstep (nt * Sz)%N (dtab d f 0%N)) = dtab d f (nt * Sz + s)%N.
 ```
 
@@ -247,7 +262,7 @@ the function $m |-> P(k N + m)$ is a polynomial of degree at most $d$, so
 Newton's formula expands it in the binomial basis:
 
 ```coq
-Definition acoef j k : V := difn j (fun m => P (k * N + m)%N) 0%N.
+Definition acoef j k : V := diffn j (fun m => P (k * N + m)%N) 0%N.
 
 Lemma hierarchicalE k m :
   P (k * N + m)%N = \sum_(j < d.+1) acoef j k *+ 'C(m, j).
@@ -271,16 +286,16 @@ The degrees falling by one along that row is the heart of the matter, and it
 is the step the paper states without proof. In Rocq it is a lemma of its own.
 
 ```coq
-Definition difh h f : nat -> V := fun n => f (n + h)%N - f n.
+Definition diffh h f : nat -> V := fun n => f (n + h)%N - f n.
 
-Lemma difh_deg e h f : degle e.+1 f -> degle e (difh h f).
+Lemma diffh_deg e h f : is_poly e.+1 f -> is_poly e (diffh h f).
 ```
 
 A difference over a stride of $h$ arguments lowers the degree by one. The
 reason is Newton again: written out, a shift by $h$ is a combination of the
 differences of order $1$ to $h$, and the constant term is absent. Iterating it
-$d+1$ times annihilates a polynomial of degree $d$ (`difhn_deg`), and stepping
-$k$ by one turns $P$ into its shift by $N$ (`difn_acoef`). Put together, they
+$d+1$ times annihilates a polynomial of degree $d$ (`diffhn_deg`), and stepping
+$k$ by one turns $P$ into its shift by $N$ (`diffn_acoef`). Put together, they
 give `acoef_deg`: every $a_j$ has degree at most $d$ in $k$.
 
 = The polynomial of the search

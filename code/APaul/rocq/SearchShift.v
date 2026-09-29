@@ -26,7 +26,7 @@ Local Open Scope ring_scope.
 
 (** ** Multiplying by an affine function raises the degree by one
 
-    [Shift.degle_mulL] does it for a monic factor [c + n]; the chunk
+    [Shift.is_poly_mulL] does it for a monic factor [c + n]; the chunk
     start is [c + 2^20 n], so we need any slope [a]. *)
 
 Section DegreeAffine.
@@ -34,40 +34,47 @@ Section DegreeAffine.
 Variable R : nzRingType.
 Implicit Types f : nat -> R.
 
-Lemma difn_scaler i (a : R) f n :
-  difn i (fun m => f m * a) n = difn i f n * a.
-Proof. by elim: i n => [//|i IH] n; rewrite !difnS /dif !IH mulrBl. Qed.
+Lemma diffn_scaler i (a : R) f n :
+  diffn i (fun m => f m * a) n = diffn i f n * a.
+Proof. by elim: i n => [//|i IH] n; rewrite !diffnS /diff !IH mulrBl. Qed.
 
-Lemma degle_scaler d (a : R) f : degle d f -> degle d (fun n => f n * a).
-Proof. by move=> fd n; rewrite difn_scaler fd mul0r. Qed.
-
-Lemma degle_ext d f g : (forall m, f m = g m) -> degle d f -> degle d g.
-Proof. by move=> fg fd n; rewrite -(difn_ext _ _ fg). Qed.
-
-Lemma dif_mulA (c a : R) f n :
-  dif (fun m => f m * (c + a * m%:R)) n
-    = dif f n * (c + a + a * n%:R) + f n * a.
+Lemma is_poly_scaler d (a : R) f :
+  is_poly d f -> is_poly d (fun n => f n * a).
 Proof.
-rewrite /dif -natr1 [a * _]mulrDr mulr1 addrA [c + a + _]addrAC.
+by move=> /is_polyP fd; apply/is_polyP => n; rewrite diffn_scaler fd mul0r.
+Qed.
+
+Lemma is_poly_ext d f g : (forall m, f m = g m) -> is_poly d f -> is_poly d g.
+Proof.
+move=> fg /is_polyP fd; apply/is_polyP => n.
+by rewrite -(diffn_ext _ _ fg) fd.
+Qed.
+
+Lemma diff_mulA (c a : R) f n :
+  diff (fun m => f m * (c + a * m%:R)) n
+    = diff f n * (c + a + a * n%:R) + f n * a.
+Proof.
+rewrite /diff -natr1 [a * _]mulrDr mulr1 addrA [c + a + _]addrAC.
 set u := c + a * n%:R.
 by rewrite mulrBl [f n * (u + a)]mulrDr opprD addrA subrK.
 Qed.
 
-Lemma degle_mulA d (c a : R) f :
-  degle d f -> degle d.+1 (fun n => f n * (c + a * n%:R)).
+Lemma is_poly_mulA d (c a : R) f :
+  is_poly d f -> is_poly d.+1 (fun n => f n * (c + a * n%:R)).
 Proof.
-elim: d c f => [|d IH] c f fd n.
-  transitivity (dif (fun m => f m * (c + a * m%:R)) n.+1
-              - dif (fun m => f m * (c + a * m%:R)) n); first by [].
-  rewrite !dif_mulA.
-  have f0 : forall m, dif f m = 0 by move=> m; apply: (fd m).
-  by rewrite !f0 !mul0r !add0r -mulrBl -/(dif f n) f0 mul0r.
-rewrite difnSr.
-have -> : difn d.+2 (dif (fun m => f m * (c + a * m%:R))) n
-        = difn d.+2 (fun m => dif f m * (c + a + a * m%:R) + f m * a) n.
-  by apply: difn_ext => m; rewrite dif_mulA.
-apply: degleD; last exact: degle_scaler.
-by apply: IH => m; rewrite -difnSr; apply: (fd m).
+move=> /is_polyP; elim: d c f => [|d IH] c f fd; apply/is_polyP => n.
+  transitivity (diff (fun m => f m * (c + a * m%:R)) n.+1
+              - diff (fun m => f m * (c + a * m%:R)) n); first by [].
+  rewrite !diff_mulA.
+  have f0 : forall m, diff f m = 0 by move=> m; apply: (fd m).
+  by rewrite !f0 !mul0r !add0r -mulrBl -/(diff f n) f0 mul0r.
+rewrite diffnSr.
+have -> : diffn d.+2 (diff (fun m => f m * (c + a * m%:R))) n
+        = diffn d.+2 (fun m => diff f m * (c + a + a * m%:R) + f m * a) n.
+  by apply: diffn_ext => m; rewrite diff_mulA.
+move: n; apply/is_polyP; apply: is_polyD.
+  by apply: IH => m; rewrite -diffnSr; apply: (fd m).
+by apply: is_poly_scaler; apply/is_polyP.
 Qed.
 
 End DegreeAffine.
@@ -78,12 +85,12 @@ Lemma ZnatrE (n : nat) : (n%:R : Z) = Z.of_nat n.
 Proof. by elim: n => [//|n IH]; rewrite -GRing.natr1 IH; lia. Qed.
 
 (** The chunk start [v + k 2^log2N - Cc], written as [c + a k]. *)
-Lemma polyV_deg (v : Z) : degle 7 (polyV v).
+Lemma polyV_deg (v : Z) : is_poly 7 (polyV v).
 Proof.
 pose c : Z := Z.sub v Cc.
 pose a : Z := Z.pow 2 log2N.
 pose l (k : nat) : Z := c + a * k%:R.
-apply: (degle_ext (f :=
+apply: (is_poly_ext (f :=
   (fun k => ((((((A7 * l k + C6) * l k + C5) * l k + C4) * l k + C3)
               * l k + C2) * l k + C1) * l k + C0))).
   move=> k; rewrite /l /c /a ZnatrE /polyV /polyHorner.
@@ -93,15 +100,15 @@ apply: (degle_ext (f :=
           = Z.add (Z.sub v Cc) (Z.mul (Z.pow 2 log2N) (Z.of_nat k))).
     by ring.
   by rewrite E.
-have cst e (b : Z) : degle e (fun _ : nat => b).
-  by apply: (degleW (leq0n _)); apply: degle_const0.
-do 7! (apply: degleD; last exact: cst; apply: degle_mulA).
+have cst e (b : Z) : is_poly e (fun _ : nat => b).
+  by apply: (is_polyW (leq0n _)); apply: is_poly_const.
+do 7! (apply: is_polyD; last exact: cst; apply: is_poly_mulA).
 exact: cst.
 Qed.
 
 (** ** The first table, from eight Horner values
 
-    [pdiff] turns the samples [f 0 .. f s] into [dif f 0 .. dif f (s-1)];
+    [pdiff] turns the samples [f 0 .. f s] into [diff f 0 .. diff f (s-1)];
     the [i]-th entry of the table is the head of the [i]-th iterate. *)
 
 Definition pdiff (s : seq Z) : seq Z :=
@@ -111,7 +118,7 @@ Definition tabl (s : seq Z) : seq Z :=
   mkseq (fun i => head 0 (iter i pdiff s)) (size s).
 
 Lemma pdiff_mkseq (f : nat -> Z) s :
-  pdiff (mkseq f s) = mkseq (dif f) s.-1.
+  pdiff (mkseq f s) = mkseq (diff f) s.-1.
 Proof.
 rewrite /pdiff size_mkseq; apply/(@eq_from_nth _ 0).
   by rewrite !size_mkseq.
@@ -122,7 +129,7 @@ by rewrite !nth_mkseq.
 Qed.
 
 Lemma iter_pdiff (f : nat -> Z) s i :
-  iter i pdiff (mkseq f s) = mkseq (difn i f) (s - i).
+  iter i pdiff (mkseq f s) = mkseq (diffn i f) (s - i).
 Proof.
 elim: i => [|i IH]; first by rewrite subn0.
 by rewrite iterS IH pdiff_mkseq subnS.
@@ -162,7 +169,7 @@ Definition hrc63s (v : Z) (n : nat) : list Z :=
 
 (** ** The walk is the search *)
 
-Lemma walkE g f k n : degle 7 f ->
+Lemma walkE g f k n : is_poly 7 f ->
   walk g k (dtab 7 f k) n
     = List.concat (List.map (fun j => g j (f j)) (List.seq k n)).
 Proof.

@@ -109,8 +109,12 @@ is `Shift.v`, already proved:
 
 - `dtab d f j` is the table of $f$ at $j$, with $d + 1$ rows;
 - `tstep` is one step;
-- `tstepE`: if $f$ has degree at most $d$ (`degle d f`), one step turns the
-  table at $j$ into the table at $j + 1$.
+- `is_poly d f` says that $f$ is a polynomial of degree at most $d$, that is
+  $f(j) = l_0 C(j, 0) + dots + l_d C(j, d)$ for some coefficients $l_i$
+  (the binomial basis: the coefficients need not be divided); `is_polyP`
+  says this holds exactly when $Delta^(d+1) f$ is zero everywhere;
+- `tstepE`: if $f$ is a polynomial of degree at most $d$ (`is_poly d f`),
+  one step turns the table at $j$ into the table at $j + 1$.
 
 = The file, line by line
 
@@ -142,7 +146,7 @@ form: $A_0 + j (A_1 + j (A_2 + dots))$. Its degree is at most the length of
 
 ```coq
 Definition dg := size A.
-Lemma degleP : degle dg P.
+Lemma is_poly_P : is_poly dg P.
 ```
 
 *The test*, the formula of section 2:

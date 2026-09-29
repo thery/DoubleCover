@@ -120,42 +120,44 @@ abelian group, which is how `Shift.v` states it.
 
 | paper | `Shift.v` |
 |---|---|
-| Definition 5, `Delta_h` | `dif`, `difn i` (and `difh h` for the stride-`N` difference) |
-| Newton interpolation, Fig. 7 | `dif_shiftn` / `dif_shift`, then `newton` |
-| `Delta^d P` constant for `deg P = d` | `degle_const` |
+| Definition 5, `Delta_h` | `diff`, `diffn i` (and `diffh h` for the stride-`N` difference) |
+| Newton interpolation, Fig. 7 | `diff_shiftn` / `diff_shift`, then `newton` |
+| `Delta^d P` constant for `deg P = d` | `diffn_const` |
 | tabulated difference shift, Fig. 8 | `tstep`, `tstepE`, `tstep_iter` |
 | straightforward shift, the `C(k, j-i)` Toeplitz matrix | `sstep`, `sstepE`, `sstep1` |
 | hybrid CPU/GPU split by `tS + s` (§5.2) | `hybridE` |
 | hierarchical method, `P(kN+m) = sum_j a_j(k) C(m,j)` | `acoef`, `hierarchicalE`, `acoef_deg` |
 
-"Degree at most `d`" is `degle d f`, i.e. `difn d.+1 f n = 0` for all `n`.
+"Degree at most `d`" is `is_poly d f`: `f n` is a combination of the
+binomials `'C(n, i)`, `i <= d`; `is_polyP` shows it is equivalent to
+`diffn d.+1 f n = 0` for all `n`.
 That is the only notion of degree in the file, and it is the one every
-statement needs.  There is **no functional extensionality**: `difn` looks
-at its argument on finitely many points, so `difn_ext` rewrites under it
+statement needs.  There is **no functional extensionality**: `diffn` looks
+at its argument on finitely many points, so `diffn_ext` rewrites under it
 pointwise.  `Shift.v` is admit-free and closed under the global context.
 
 ### The two things the proofs actually turn on
 
-- **Newton without a degree hypothesis.**  `dif_shiftn` says
-  `f (n + k) = sum_(i < k+1) (dif^i f n) * C(k, i)` for *every* `f` and
+- **Newton without a degree hypothesis.**  `diff_shiftn` says
+  `f (n + k) = sum_(i < k+1) (diff^i f n) * C(k, i)` for *every* `f` and
   `k` — shifting is `(1 + Delta)^k`.  Both shifts of the paper are that
   one identity: the tabulated one is `k = 1`, the straightforward one is
   the general `k`.  The degree hypothesis only truncates the sum
-  (`dif_shift_deg`).
-- **The stride-`N` difference lowers the degree.**  `difh_deg`: written in
+  (`diff_shift_deg`).
+- **The stride-`N` difference lowers the degree.**  `diffh_deg`: written in
   the binomial basis, a shift by `h` is a combination of the differences
   of order `1..h` — the constant term is gone, so the degree drops by one.
-  Iterating (`difhn_deg`) kills a degree-`d` polynomial in `d+1` shifts,
+  Iterating (`diffhn_deg`) kills a degree-`d` polynomial in `d+1` shifts,
   and that is exactly why each `a_j` is again a polynomial in `k`
   (`acoef_deg`).  This is the step the paper leaves implicit.
 
 ### Degree of a concrete polynomial
 
 To use any of this on a polynomial written down with coefficients, the
-file carries a small toolkit: `degleD`, `degle_sum`, `degle_scale`,
-`degle_shift`, `degle_mulX` (multiplying by the argument raises the degree
-by exactly one), `degle_linX` (a power of a monic linear factor), and
-`degle_hpoly` for a Horner form.
+file carries a small toolkit: `is_polyD`, `is_poly_sum`, `is_poly_scale`,
+`is_poly_shift`, `is_poly_mulX` (multiplying by the argument raises the degree
+by exactly one), `is_poly_linX` (a power of a monic linear factor), and
+`is_poly_hpoly` for a Horner form.
 
 ## 7. The application: `code/APaul/rocq/ShiftExp.v`
 
@@ -168,7 +170,7 @@ the whole search interval `[0.25, 0.25001)`, within `2^-160` of `exp`, and
 
 - `Pdir n` is that polynomial evaluated exactly at grid point `n`, as an
   integer over `2^598` (the scaling `Cheb.v` already uses);
-- `Pdir_deg : degle 7 Pdir` — eight entries in the difference table;
+- `Pdir_deg : is_poly 7 Pdir` — eight entries in the difference table;
 - `PdirE` is the hierarchical identity, `aexp_tab` the tabulated walk,
   `aexp_hybrid` the §5.2 split;
 - `Pdir_exp` : every value the shifts generate is within `2^-160` of
