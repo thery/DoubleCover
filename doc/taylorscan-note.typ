@@ -28,7 +28,7 @@ its Taylor bound:
   $j$ where the integer polynomial is close to a multiple of $M$;
 - `TaylorReal.v`: the step from $exp$ to that integer polynomial, on the
   real numbers;
-- `TaylorLink.v`: the two put together, in the final theorem `scan_exp`.
+- `TaylorLink.v`: the two put together, in the final theorem `hscan_exp`.
 
 This note explains the idea, then the files. The three files are in the
 annexes. None has an `Admitted`.
@@ -173,17 +173,22 @@ Fixpoint walk (p : int -> bool) (j : nat) (t : seq int) (c : nat) :
 `nth 0 t 0` is the first entry, the current value $P(j)$. The result is the
 list of candidates.
 
-*The test of the note*, the formula of section 2:
+*The scan* with a test `p` starts the walk from the table of $P$ at 0:
+
+```coq
+Definition scan p : seq nat := walk p 0 (dtab dg P 0) n.
+```
+
+*The test of the note*, the formula of section 2, and the search of the
+note, the scan with this test:
 
 ```coq
 Definition hit (b : int) : bool := ((b + E) %% M)%Z <= E *+ 2.
+Definition hscan : seq nat := scan hit.
 ```
 
-*The search* is the walk with this test, from the table of $P$ at 0:
-
-```coq
-Definition scan : seq nat := walk hit 0 (dtab dg P 0) n.
-```
+`walk` and `scan` work with any test; `hscan` is the search of the note, and
+the results that depend on its test are stated on it.
 
 = What is proved
 
@@ -192,7 +197,7 @@ Definition scan : seq nat := walk hit 0 (dtab dg P 0) n.
 ```coq
 Lemma walkE p i c :
   walk p i (dtab dg P i) c = [seq j <- iota i c | p (P j)].
-Lemma scanE : scan = [seq j <- iota 0 n | hit (P j)].
+Lemma scanE p : scan p = [seq j <- iota 0 n | p (P j)].
 ```
 
 The walk returns exactly the $j < n$ whose $P(j)$ passes the test: the fast
@@ -214,8 +219,8 @@ the interval $[0, 2 E]$ does not wrap around.
 *The main theorem.*
 
 ```coq
-Theorem scan_complete j (w : int) :
-  E *+ 2 < M -> (j < n)%N -> `|P j - M * w| <= E -> j \in scan.
+Theorem hscan_complete j (w : int) :
+  E *+ 2 < M -> (j < n)%N -> `|P j - M * w| <= E -> j \in hscan.
 ```
 
 If $P(j)$ is within $E$ of a multiple of $M$, then $j$ is a candidate. It is `scanE` and `hitP` put together. The file has no
@@ -223,7 +228,7 @@ If $P(j)$ is within $E$ of a multiple of $M$, then $j$ is a candidate. It is `sc
 
 = From $exp$ to the scan: `TaylorReal.v`
 
-`scan_complete` talks about $P$, not about $exp$. `TaylorReal.v` makes the
+`hscan_complete` talks about $P$, not about $exp$. `TaylorReal.v` makes the
 step between them: *if $x_0 + j u$ is hard to round, then $P(j)$ is within
 $E$ of a multiple of $M$*. It holds under the three assumptions of the note.
 With $a_i = exp(x_0) u^i slash (i! v)$ the exact coefficients and $rho$ a
@@ -285,17 +290,17 @@ and `Pz`. `TaylorLink.v` connects them:
 
 - `hpoly_Pz`: `hpoly A j` and `Pz` compute the same integer (`Z_of_int`
   turns a mathcomp `int` into a `Z`);
-- `scan_completeZ`: `scan_complete`, restated with `Z` and `Pz`;
-- `scan_exp`: `real_lemma` followed by `scan_completeZ`.
+- `hscan_completeZ`: `hscan_complete`, restated with `Z` and `Pz`;
+- `hscan_exp`: `real_lemma` followed by `hscan_completeZ`.
 
 ```coq
-Theorem scan_exp (A : seq int) (M E : int) (n j : nat) (a : nat -> R)
+Theorem hscan_exp (A : seq int) (M E : int) (n j : nat) (a : nat -> R)
     (rho eps y : R) :
   Z.lt 0 (Z_of_int M) -> Z.lt (Z.mul 2 (Z_of_int E)) (Z_of_int M) ->
   (j < n)%N ->
   (H_A) -> (H_T) -> (H_E) ->
   (exists z : Z, Rlt (Rabs (Rminus y (IZR z))) eps) ->
-  j \in scan A M E n.
+  j \in hscan A M E n.
 ```
 
 (written here with (H_A), (H_T), (H_E) for the three hypotheses; the file
@@ -305,7 +310,7 @@ case. The file writes the real and `Z` operations as functions (`Rle`,
 `Rplus`, `Z.add`, ...) because mathcomp takes over the infix notations
 $<=$, $+$, ... for its own types.
 
-`Print Assumptions scan_exp` lists only the two axioms Rocq's real numbers
+`Print Assumptions hscan_exp` lists only the two axioms Rocq's real numbers
 are built on.
 
 = What is assumed
