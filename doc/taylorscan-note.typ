@@ -162,7 +162,7 @@ keeps the current table `t` and the current index `j`, tests the first
 entry, then takes one step; `c` counts the doubles left:
 
 ```coq
-Fixpoint walk (p : int -> bool) (j : nat) (t : seq int) (c : nat) :
+Fixpoint walk (p : pred int) (j : nat) (t : seq int) (c : nat) :
     seq nat :=
   if c is c'.+1 then
     let rest := walk p j.+1 (tstep t) c' in
@@ -183,7 +183,7 @@ Definition scan p : seq nat := walk p 0 (dtab dg P 0) n.
 note, the scan with this test:
 
 ```coq
-Definition hit (b : int) : bool := ((b + E) %% M)%Z <= E *+ 2.
+Definition hit : pred int := [pred b | ((b + E) %% M)%Z <= E *+ 2].
 Definition hscan : seq nat := scan hit.
 ```
 
