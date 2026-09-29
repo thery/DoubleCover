@@ -75,8 +75,9 @@ comparison can test.
 = The table of differences
 
 The *difference* of a sequence $f$ at $j$ is $Delta f (j) = f(j+1) - f(j)$. For a
-polynomial of degree $d$, taking $d$ differences leaves a constant, and
-$d + 1$ differences leave 0. The *table* at $j$ is the list
+polynomial of degree $d$, the $d$-th difference $Delta^d f(j)$ does not
+depend on $j$: it is $d!$ times the leading coefficient. So the
+$(d+1)$-th difference is 0 for every $j$. The *table* at $j$ is the list
 $f(j), Delta f(j), Delta^2 f(j), dots$.
 
 Example with $f(j) = j^2$: the table at $j = 0$ is $[0, 1, 2]$ (the value
