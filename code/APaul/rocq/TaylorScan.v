@@ -9,8 +9,8 @@
 
     This file states the algorithm over the integers and proves the
     part that does not depend on [exp]:
-    - [scanE]: the walk returns exactly the [j < n] passing the test;
-    - [scan_complete]: every [j] with [P j] within [E] of a multiple of
+    - [scanE]: for any test, the scan returns exactly the [j < n] passing it;
+    - [hscan_complete]: every [j] with [P j] within [E] of a multiple of
       [M] is returned.
     The link to [exp] is in [TaylorReal.v] and [TaylorLink.v]. *)
 
@@ -40,30 +40,37 @@ Definition dg := size A.
 Lemma is_polyCb_P : is_poly C_basis dg P.
 Proof. exact: is_polyCb_hpoly. Qed.
 
-(** The test on the first entry of the table: steps 5 and 6 of the note. *)
-Definition hit (b : int) : bool := ((b + E) %% M)%Z <= E *+ 2.
-
-(** The main loop, step 6: test the first entry, then shift the table. *)
-Fixpoint walk (j : nat) (t : seq int) (c : nat) : seq nat :=
+(** The main loop, step 6, for any test [p]: test the first entry, then
+    shift the table. *)
+Fixpoint walk (p : int -> bool) (j : nat) (t : seq int) (c : nat) :
+    seq nat :=
   if c is c'.+1 then
-    let rest := walk j.+1 (tstep t) c' in
-    if hit (nth 0 t 0) then j :: rest else rest
+    let rest := walk p j.+1 (tstep t) c' in
+    if p (nth 0 t 0) then j :: rest else rest
   else [::].
 
-(** The search: the table at [0], steps 3 and 4, then the walk. *)
-Definition scan : seq nat := walk 0 (dtab dg P 0) n.
-
-(** The walk returns exactly the [j] in [[i, i + c)] whose [P j] passes
-    the test. *)
-Lemma walkE i c : walk i (dtab dg P i) c = [seq j <- iota i c | hit (P j)].
+(** Whatever the test, the walk returns exactly the [j] in [[i, i + c)]
+    whose [P j] passes it: the table computes [P j] correctly. *)
+Lemma walkE p i c :
+  walk p i (dtab dg P i) c = [seq j <- iota i c | p (P j)].
 Proof.
 elim: c i => [//|c IH] i /=.
 rewrite tstepE; last exact: is_polyCb_P.
 by rewrite IH.
 Qed.
 
-Lemma scanE : scan = [seq j <- iota 0 n | hit (P j)].
+(** The search with the test [p]: the table at [0], steps 3 and 4, then
+    the walk. *)
+Definition scan p : seq nat := walk p 0 (dtab dg P 0) n.
+
+Lemma scanE p : scan p = [seq j <- iota 0 n | p (P j)].
 Proof. exact: walkE. Qed.
+
+(** The test of the note on the first entry: steps 5 and 6. *)
+Definition hit (b : int) : bool := ((b + E) %% M)%Z <= E *+ 2.
+
+(** The search of the note: the scan with [hit]. *)
+Definition hscan : seq nat := scan hit.
 
 (** If [b] is within [E] of a multiple [M w] of [M], and [2 E < M], then
     [b] passes the test: [(b + E) mod M] is [b - M w + E], in [[0, 2 E]]. *)
@@ -81,15 +88,15 @@ by rewrite mulr2n lerD2r.
 Qed.
 
 (** The completeness of the scan, with no reference to [exp]. *)
-Theorem scan_complete j (w : int) :
-  E *+ 2 < M -> (j < n)%N -> `|P j - M * w| <= E -> j \in scan.
+Theorem hscan_complete j (w : int) :
+  E *+ 2 < M -> (j < n)%N -> `|P j - M * w| <= E -> j \in hscan.
 Proof.
 move=> EM jn Pw.
-by rewrite scanE mem_filter (hitP EM Pw) /= mem_iota /= add0n.
+by rewrite /hscan scanE mem_filter (hitP EM Pw) /= mem_iota /= add0n.
 Qed.
 
 End Scan.
 
-(** The step from [exp] to the hypothesis of [scan_complete] is
-    [TaylorReal.real_lemma]; [TaylorLink.scan_exp] puts the two
+(** The step from [exp] to the hypothesis of [hscan_complete] is
+    [TaylorReal.real_lemma]; [TaylorLink.hscan_exp] puts the two
     together. *)
