@@ -37,8 +37,8 @@ Definition P : nat -> int := hpoly A.
     it exactly (the note uses [size A] rows: the last one here is [0]). *)
 Definition dg := size A.
 
-Lemma degleP : degle dg P.
-Proof. exact: degle_hpoly. Qed.
+Lemma is_poly_P : is_poly dg P.
+Proof. exact: is_poly_hpoly. Qed.
 
 (** The test on the first row of the table: steps 5 and 6 of the note. *)
 Definition hit (b : int) : bool := ((b + E) %% M)%Z <= E *+ 2.
@@ -58,7 +58,7 @@ Definition scan : seq nat := walk 0 (dtab dg P 0) n.
 Lemma walkE i c : walk i (dtab dg P i) c = [seq j <- iota i c | hit (P j)].
 Proof.
 elim: c i => [//|c IH] i /=.
-rewrite tstepE; last exact: degleP.
+rewrite tstepE; last exact: is_poly_P.
 by rewrite IH.
 Qed.
 
