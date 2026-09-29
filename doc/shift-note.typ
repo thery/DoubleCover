@@ -105,7 +105,8 @@ $Delta^3 f (n) = 0$. Each application of $Delta$ lowers the degree by one, as
 a derivative would, but it is computed with one subtraction.
 
 A polynomial is a function from arguments to values, sampled at the integers.
-A polynomial of degree at most $d$ is written in the binomial basis:
+A polynomial of degree at most $d$ is written in the basis
+$C(n, 0), dots, C(n, d)$ instead of $1, n, dots, n^d$:
 
 ```coq
 Definition is_poly d f :=
@@ -113,9 +114,12 @@ Definition is_poly d f :=
 ```
 
 Its value at $n$ is $l_0 C(n, 0) + dots + l_d C(n, d)$ for some
-$l_0, dots, l_d$ in $V$. The basis is the binomials $C(n, i)$, not the powers
-$n^i$: $V$ can add but not divide, and $C(n, 2) = (n^2 - n) slash 2$ has no
-coefficients in $V$ in the basis of the powers.
+$l_0, dots, l_d$ in $V$. Each $C(n, i) = n (n-1) dots (n-i+1) slash i!$ is a
+polynomial of degree $i$ in $n$: $C(n, 0) = 1$, $C(n, 1) = n$,
+$C(n, 2) = (n^2 - n) slash 2$. So `is_poly` is an ordinary polynomial,
+written in another basis. The powers $n^i$ would not do: $V$ can add but not
+divide, and $C(n, 2)$ has the coefficients $1/2$ and $-1/2$ in the basis of
+the powers.
 
 The link with differences is an equivalence:
 
