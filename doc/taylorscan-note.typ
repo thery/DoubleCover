@@ -74,7 +74,7 @@ comparison can test.
 
 = The table of differences
 
-The *difference* of a sequence $f$ is $Delta f (j) = f(j+1) - f(j)$. For a
+The *difference* of a sequence $f$ at $j$ is $Delta f (j) = f(j+1) - f(j)$. For a
 polynomial of degree $d$, taking $d$ differences leaves a constant, and
 $d + 1$ differences leave 0. The *table* at $j$ is the list
 $f(j), Delta f(j), Delta^2 f(j), dots$.
