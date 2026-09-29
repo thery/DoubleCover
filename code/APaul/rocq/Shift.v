@@ -191,13 +191,19 @@ Proof. by move=> fd; rewrite -[n in LHS]add0n; apply: diff_shift_deg. Qed.
 
 (** ** Polynomials
 
-    A polynomial of degree at most [d]: its value at [n] is
-    [l_0 C(n, 0) + ... + l_d C(n, d)] for some [l_0, ..., l_d] in [V].  The
-    basis is the binomials [C(n, i)], not the powers [n^i]: [V] can add but
+    A polynomial of degree at most [d] in a basis [b]: its value at [n] is
+    [l_0 b_0(n) + ... + l_d b_d(n)] for some [l_0, ..., l_d] in [V].  Two
+    bases: the usual one, [U_basis i n = n^i], and the binomial one,
+    [C_basis i n = C(n, i)].  Every polynomial in the usual basis is one in
+    the binomial basis ([is_poly_UC]), but not conversely: [V] can add but
     not divide, and [C(n, 2) = (n^2 - n) / 2] has no coefficients in [V] in
-    the basis of the powers. *)
-Definition is_poly d f :=
-  exists l : seq V, forall n, f n = \sum_(i < d.+1) l`_i *+ 'C(n, i).
+    the usual basis.  In the binomial basis, being a polynomial of degree
+    at most [d] is equivalent to a zero [d+1]-st difference ([is_polyCbP]). *)
+Definition U_basis (i n : nat) : nat := n ^ i.
+Definition C_basis (i n : nat) : nat := 'C(n, i).
+
+Definition is_poly (b : nat -> nat -> nat) d f :=
+  exists l : seq V, forall n, f n = \sum_(i < d.+1) l`_i *+ b i n.
 
 (** Pascal's rule, read as a difference: [diff C(., i + 1) = C(., i)]. *)
 Lemma diff_binS c i n : diff (fun m => c *+ 'C(m, i.+1)) n = c *+ 'C(n, i).
@@ -215,7 +221,7 @@ Qed.
     [d+1]-st difference is zero everywhere.  From left to right by
     [diffn_binom]; from right to left by Newton's formula, with the
     differences at [0] as coefficients. *)
-Lemma is_polyP d f : is_poly d f <-> forall n, diffn d.+1 f n = 0.
+Lemma is_polyCbP d f : is_poly C_basis d f <-> forall n, diffn d.+1 f n = 0.
 Proof.
 split=> [[l fl] n|fd]; last first.
   exists (mkseq (fun i => diffn i f 0%N) d.+1) => n.
@@ -227,14 +233,62 @@ rewrite diffn_sum big_nat big1 // => i /andP[_ id].
 exact: diffn_binom.
 Qed.
 
-Lemma is_polyW d e f : (d <= e)%N -> is_poly d f -> is_poly e f.
+Lemma is_polyCbW d e f : (d <= e)%N -> is_poly C_basis d f -> is_poly C_basis e f.
 Proof.
-by move=> de /is_polyP fd; apply/is_polyP => n; apply: (diffn_zero fd).
+by move=> de /is_polyCbP fd; apply/is_polyCbP => n; apply: (diffn_zero fd).
+Qed.
+
+(** Multiplying [f] by the argument raises by one the order of the
+    difference that vanishes: [diff (f X) = (diff f) X + f(. + 1)]. *)
+Lemma diff_mulX f n : diff (fun m => f m *+ m) n = diff f n *+ n + f n.+1.
+Proof. by rewrite /diff mulrSr addrAC mulrnBl. Qed.
+
+Lemma diffn_mulX d f :
+  (forall n, diffn d.+1 f n = 0) ->
+  forall n, diffn d.+2 (fun m => f m *+ m) n = 0.
+Proof.
+elim: d f => [|d IH] f fd n.
+  transitivity (diff (fun m : nat => f m *+ m) n.+1
+              - diff (fun m : nat => f m *+ m) n); first by [].
+  rewrite !diff_mulX.
+  have f0 : forall m, diff f m = 0 by move=> m; apply: (fd m).
+  by rewrite !f0 !mul0rn !add0r; apply: (fd n.+1).
+rewrite diffnSr.
+have -> : diffn d.+2 (diff (fun m : nat => f m *+ m)) n
+        = diffn d.+2 (fun m : nat => diff f m *+ m + f m.+1) n.
+  by apply: diffn_ext => m; rewrite diff_mulX.
+rewrite diffn_add (IH (diff f)) ?add0r; last first.
+  by move=> m; rewrite -diffnSr; apply: fd.
+have -> : diffn d.+2 (fun m : nat => f m.+1) n
+        = diffn d.+2 (fun m : nat => f (1 + m)%N) n by apply: diffn_ext.
+by rewrite diffn_shift; apply: fd.
+Qed.
+
+(** The [(i+1)]-st difference of [c n^i] is zero. *)
+Lemma diffn_pow c i n : diffn i.+1 (fun m => c *+ (m ^ i)) n = 0.
+Proof.
+elim: i n => [|i IH] n; first by rewrite /diffn /= /diff !expn0 subrr.
+have -> : diffn i.+2 (fun m => c *+ (m ^ i.+1)) n
+        = diffn i.+2 (fun m => (c *+ (m ^ i)) *+ m) n.
+  by apply: diffn_ext => m; rewrite expnSr mulrnA.
+exact: diffn_mulX.
+Qed.
+
+(** A polynomial in the usual basis is one in the binomial basis: its
+    [d+1]-st difference is zero, by [diffn_pow]. *)
+Lemma is_poly_UC d f : is_poly U_basis d f -> is_poly C_basis d f.
+Proof.
+move=> [l fl]; apply/is_polyCbP => n.
+have -> : diffn d.+1 f n
+        = diffn d.+1 (fun m => \sum_(0 <= i < d.+1) l`_i *+ (m ^ i)) n.
+  by apply: diffn_ext => m; rewrite fl big_mkord.
+rewrite diffn_sum big_nat big1 // => i /andP[_ id].
+by apply: (diffn_zero (d := i)) => // m; apply: diffn_pow.
 Qed.
 
 End Difference.
 
-Arguments is_poly {V} d f.
+Arguments is_poly {V} b d f.
 
 (** ** The difference table and the two shifts *)
 
@@ -252,9 +306,10 @@ Proof. exact: size_mkseq. Qed.
 
 (** Reading past the end of the table gives [0], which for a degree-[d]
     polynomial is the right value: the entries past the end are null. *)
-Lemma nth_dtab d f n i : is_poly d f -> nth 0 (dtab d f n) i = diffn i f n.
+Lemma nth_dtab d f n i :
+  is_poly C_basis d f -> nth 0 (dtab d f n) i = diffn i f n.
 Proof.
-move=> /is_polyP fd; case: (ltnP i d.+1) => [id|di]; first by rewrite nth_mkseq.
+move=> /is_polyCbP fd; case: (ltnP i d.+1) => [id|di]; first by rewrite nth_mkseq.
 by rewrite nth_default ?size_dtab // (diffn_zero fd).
 Qed.
 
@@ -268,7 +323,7 @@ Definition tstep t : seq V :=
 Lemma size_tstep t : size (tstep t) = size t.
 Proof. exact: size_mkseq. Qed.
 
-Lemma tstepE d f n : is_poly d f -> tstep (dtab d f n) = dtab d f n.+1.
+Lemma tstepE d f n : is_poly C_basis d f -> tstep (dtab d f n) = dtab d f n.+1.
 Proof.
 move=> fd; apply: (@eq_from_nth _ 0) => [|i].
   by rewrite size_tstep !size_dtab.
@@ -278,7 +333,7 @@ Qed.
 
 (** Iterating it walks the table along consecutive arguments. *)
 Lemma tstep_iter d f n k :
-  is_poly d f -> iter k tstep (dtab d f n) = dtab d f (n + k)%N.
+  is_poly C_basis d f -> iter k tstep (dtab d f n) = dtab d f (n + k)%N.
 Proof.
 move=> fd; elim: k n => [|k IH] n; first by rewrite addn0.
 by rewrite iterSr tstepE // IH addSnnS.
@@ -296,9 +351,9 @@ Lemma size_sstep k t : size (sstep k t) = size t.
 Proof. exact: size_mkseq. Qed.
 
 Lemma sstepE d f n k :
-  is_poly d f -> sstep k (dtab d f n) = dtab d f (n + k)%N.
+  is_poly C_basis d f -> sstep k (dtab d f n) = dtab d f (n + k)%N.
 Proof.
-move=> fd; have /is_polyP fz := fd; apply: (@eq_from_nth _ 0) => [|i].
+move=> fd; have /is_polyCbP fz := fd; apply: (@eq_from_nth _ 0) => [|i].
   by rewrite size_sstep !size_dtab.
 rewrite size_sstep size_dtab => id.
 rewrite nth_mkseq ?size_dtab // nth_mkseq //.
@@ -310,7 +365,8 @@ by move=> m; rewrite -diffnD; apply: (diffn_zero fz); exact: leq_addr.
 Qed.
 
 (** One straightforward step is one tabulated step. *)
-Lemma sstep1 d f n : is_poly d f -> sstep 1 (dtab d f n) = tstep (dtab d f n).
+Lemma sstep1 d f n :
+  is_poly C_basis d f -> sstep 1 (dtab d f n) = tstep (dtab d f n).
 Proof. by move=> fd; rewrite sstepE // tstepE // addn1. Qed.
 
 (** *** The hybrid split of Section 5.2
@@ -318,7 +374,7 @@ Proof. by move=> fd; rewrite sstepE // tstepE // addn1. Qed.
     A shift by [t S + s] is [t] straightforward steps of size [S] on the
     CPU followed by [s] tabulated steps inside a GPU thread. *)
 Lemma hybridE d f Sz s nt :
-  is_poly d f ->
+  is_poly C_basis d f ->
   iter s tstep (sstep (nt * Sz)%N (dtab d f 0%N)) = dtab d f (nt * Sz + s)%N.
 Proof. by move=> fd; rewrite sstepE // tstep_iter // add0n. Qed.
 
@@ -341,31 +397,30 @@ Section Degree.
 Variable V : zmodType.
 Implicit Types (f g : nat -> V).
 
-Lemma is_poly_const (c : V) : is_poly 0 (fun _ : nat => c).
-Proof. by apply/is_polyP => n; rewrite /diffn /= /diff subrr. Qed.
+Lemma is_polyCb_const (c : V) : is_poly C_basis 0 (fun _ : nat => c).
+Proof. by apply/is_polyCbP => n; rewrite /diffn /= /diff subrr. Qed.
 
-Lemma is_polyD d f g :
-  is_poly d f -> is_poly d g -> is_poly d (fun n => f n + g n).
+Lemma is_polyCbD d f g :
+  is_poly C_basis d f -> is_poly C_basis d g ->
+  is_poly C_basis d (fun n => f n + g n).
 Proof.
-move=> /is_polyP fd /is_polyP gd; apply/is_polyP => n.
+move=> /is_polyCbP fd /is_polyCbP gd; apply/is_polyCbP => n.
 by rewrite diffn_add fd gd addr0.
 Qed.
 
-Lemma is_poly_shift d f : is_poly d f -> is_poly d (fun n => f n.+1).
+Lemma is_polyCb_shift d f :
+  is_poly C_basis d f -> is_poly C_basis d (fun n => f n.+1).
 Proof.
-move=> /is_polyP fd; apply/is_polyP => n.
+move=> /is_polyCbP fd; apply/is_polyCbP => n.
 have -> : diffn d.+1 (fun m : nat => f m.+1) n
         = diffn d.+1 (fun m : nat => f (1 + m)%N) n by apply: diffn_ext => m.
 by rewrite diffn_shift.
 Qed.
 
-(** The one place a degree goes up: [diff (f X) = (diff f) X + f(. + 1)]. *)
-Lemma diff_mulX f n : diff (fun m => f m *+ m) n = diff f n *+ n + f n.+1.
-Proof. by rewrite /diff mulrSr addrAC mulrnBl. Qed.
-
-Lemma is_poly_mulX d f : is_poly d f -> is_poly d.+1 (fun n => f n *+ n).
+Lemma is_polyCb_mulX d f :
+  is_poly C_basis d f -> is_poly C_basis d.+1 (fun n => f n *+ n).
 Proof.
-move=> /is_polyP; elim: d f => [|d IH] f fd; apply/is_polyP => n.
+move=> /is_polyCbP; elim: d f => [|d IH] f fd; apply/is_polyCbP => n.
   transitivity (diff (fun m : nat => f m *+ m) n.+1
               - diff (fun m : nat => f m *+ m) n); first by [].
   rewrite !diff_mulX.
@@ -375,29 +430,29 @@ rewrite diffnSr.
 have -> : diffn d.+2 (diff (fun m : nat => f m *+ m)) n
         = diffn d.+2 (fun m : nat => diff f m *+ m + f m.+1) n.
   by apply: diffn_ext => m; rewrite diff_mulX.
-move: n; apply/is_polyP; apply: is_polyD.
+move: n; apply/is_polyCbP; apply: is_polyCbD.
   by apply: IH => m; rewrite -diffnSr; apply: (fd m).
-by apply: is_poly_shift; apply/is_polyP.
+by apply: is_polyCb_shift; apply/is_polyCbP.
 Qed.
 
 (** Degree passes through a finite sum of terms. *)
-Lemma is_poly_sum d (F : nat -> nat -> V) r :
-  (forall j, j \in r -> is_poly d (F j)) ->
-  is_poly d (fun n => \sum_(j <- r) F j n).
+Lemma is_polyCb_sum d (F : nat -> nat -> V) r :
+  (forall j, j \in r -> is_poly C_basis d (F j)) ->
+  is_poly C_basis d (fun n => \sum_(j <- r) F j n).
 Proof.
-move=> Fd; apply/is_polyP => n; rewrite diffn_sum big1_seq // => j /andP[_ jr].
-by have /is_polyP := Fd j jr; apply.
+move=> Fd; apply/is_polyCbP => n; rewrite diffn_sum big1_seq // => j /andP[_ jr].
+by have /is_polyCbP := Fd j jr; apply.
 Qed.
 
 (** A polynomial in Horner form, least significant coefficient first. *)
 Fixpoint hpoly (c : seq V) : nat -> V :=
   if c is a :: c' then fun n => a + (hpoly c' n) *+ n else fun _ => 0.
 
-Lemma is_poly_hpoly c : is_poly (size c) (hpoly c).
+Lemma is_polyCb_hpoly c : is_poly C_basis (size c) (hpoly c).
 Proof.
-elim: c => [|a c IH]; first by apply/is_polyP => n; apply: diffn_eq0.
-apply: is_polyD; last exact: is_poly_mulX.
-exact: (is_polyW (leq0n _) (is_poly_const a)).
+elim: c => [|a c IH]; first by apply/is_polyCbP => n; apply: diffn_eq0.
+apply: is_polyCbD; last exact: is_polyCb_mulX.
+exact: (is_polyCbW (leq0n _) (is_polyCb_const a)).
 Qed.
 
 End Degree.
@@ -418,9 +473,10 @@ Lemma diffn_scale i (a : R) f n :
   diffn i (fun m => a * f m) n = a * diffn i f n.
 Proof. by elim: i n => [//|i IH] n; rewrite !diffnS /diff !IH mulrBr. Qed.
 
-Lemma is_poly_scale d (a : R) f : is_poly d f -> is_poly d (fun n => a * f n).
+Lemma is_polyCb_scale d (a : R) f :
+  is_poly C_basis d f -> is_poly C_basis d (fun n => a * f n).
 Proof.
-by move=> /is_polyP fd; apply/is_polyP => n; rewrite diffn_scale fd mulr0.
+by move=> /is_polyCbP fd; apply/is_polyCbP => n; rewrite diffn_scale fd mulr0.
 Qed.
 
 Lemma mulrB1l (a b u : R) : a * (u + 1) - b * u = (a - b) * (u + 1) + b.
@@ -430,10 +486,10 @@ Lemma diff_mulL (c : R) f n :
   diff (fun m => f m * (c + m%:R)) n = diff f n * (c + n.+1%:R) + f n.
 Proof. by rewrite /diff -natr1 addrA; exact: mulrB1l. Qed.
 
-Lemma is_poly_mulL d (c : R) f :
-  is_poly d f -> is_poly d.+1 (fun n => f n * (c + n%:R)).
+Lemma is_polyCb_mulL d (c : R) f :
+  is_poly C_basis d f -> is_poly C_basis d.+1 (fun n => f n * (c + n%:R)).
 Proof.
-move=> /is_polyP; elim: d c f => [|d IH] c f fd; apply/is_polyP => n.
+move=> /is_polyCbP; elim: d c f => [|d IH] c f fd; apply/is_polyCbP => n.
   transitivity (diff (fun m => f m * (c + m%:R)) n.+1
               - diff (fun m => f m * (c + m%:R)) n); first by [].
   rewrite !diff_mulL.
@@ -444,19 +500,19 @@ have -> : diffn d.+2 (diff (fun m => f m * (c + m%:R))) n
         = diffn d.+2 (fun m => diff f m * (c + 1 + m%:R) + f m) n.
   apply: diffn_ext => m; rewrite diff_mulL -natr1 addrA.
   by rewrite [(c + m%:R + 1)]addrAC.
-move: n; apply/is_polyP; apply: is_polyD; last exact/is_polyP.
+move: n; apply/is_polyCbP; apply: is_polyCbD; last exact/is_polyCbP.
 by apply: IH => m; rewrite -diffnSr; apply: (fd m).
 Qed.
 
 (** A power of a monic linear factor has exactly that degree. *)
-Lemma is_poly_linX k (c : R) : is_poly k (fun n => (c + n%:R) ^+ k).
+Lemma is_polyCb_linX k (c : R) : is_poly C_basis k (fun n => (c + n%:R) ^+ k).
 Proof.
-elim: k => [|k IH]; apply/is_polyP => n.
+elim: k => [|k IH]; apply/is_polyCbP => n.
   by rewrite /diffn /= /diff !expr0 subrr.
 have -> : diffn k.+2 (fun m => (c + m%:R) ^+ k.+1) n
         = diffn k.+2 (fun m => (c + m%:R) ^+ k * (c + m%:R)) n.
   by apply: diffn_ext => m; rewrite exprSr.
-by move: n; apply/is_polyP; apply: is_poly_mulL.
+by move: n; apply/is_polyCbP; apply: is_polyCb_mulL.
 Qed.
 
 End DegreeRing.
@@ -487,9 +543,9 @@ rewrite /diffh diff_shiftn big_nat_recl //= bin0 mulr1n.
 by rewrite addrAC subrr add0r.
 Qed.
 
-Lemma diffh_deg e h f : is_poly e.+1 f -> is_poly e (diffh h f).
+Lemma diffh_deg e h f : is_poly C_basis e.+1 f -> is_poly C_basis e (diffh h f).
 Proof.
-move=> /is_polyP fe; apply/is_polyP => n.
+move=> /is_polyCbP fe; apply/is_polyCbP => n.
 have -> : diffn e.+1 (diffh h f) n
         = diffn e.+1
             (fun m => \sum_(0 <= i < h) diffn i.+1 f m *+ 'C(h, i.+1)) n.
@@ -502,37 +558,38 @@ by rewrite mul0rn.
 Qed.
 
 (** [e+1] shifts by [h] annihilate a polynomial of degree at most [e]. *)
-Lemma diffhn_deg e h f : is_poly e f -> forall n, iter e.+1 (diffh h) f n = 0.
+Lemma diffhn_deg e h f :
+  is_poly C_basis e f -> forall n, iter e.+1 (diffh h) f n = 0.
 Proof.
-elim: e f => [|e IH] f /is_polyP fe n.
+elim: e f => [|e IH] f /is_polyCbP fe n.
   have fc : forall m, f m.+1 = f m.
     by move=> m; move: (fe m); rewrite /diffn /= /diff => /eqP;
        rewrite subr_eq0 => /eqP.
   have fk : forall c m, f (m + c)%N = f m.
     by move=> c; elim: c => [m|c IHc m]; rewrite ?addn0 // addnS fc IHc.
   by rewrite /= /diffh fk subrr.
-by rewrite iterSr; apply: IH; apply: diffh_deg; apply/is_polyP.
+by rewrite iterSr; apply: IH; apply: diffh_deg; apply/is_polyCbP.
 Qed.
 
 Variables (d N : nat) (P : nat -> V).
-Hypothesis Pd : is_poly d P.
+Hypothesis Pd : is_poly C_basis d P.
 
 (** [acoef j k] is the [j]-th coefficient of [P (k N + .)] in the binomial
     basis, that is the [j]-th entry of the difference table of the [k]-th
     interval. *)
 Definition acoef j k : V := diffn j (fun m => P (k * N + m)%N) 0%N.
 
-Lemma acoef_deg0 k : is_poly d (fun m => P (k * N + m)%N).
+Lemma acoef_deg0 k : is_poly C_basis d (fun m => P (k * N + m)%N).
 Proof.
-have /is_polyP Pz := Pd.
-by apply/is_polyP => n; rewrite diffn_shift Pz.
+have /is_polyCbP Pz := Pd.
+by apply/is_polyCbP => n; rewrite diffn_shift Pz.
 Qed.
 
 (** The interpolation of Section 5: the [k]-th polynomial of the search,
     in the binomial basis, has the [a_j (k)] as coefficients. *)
 Lemma hierarchicalE k m :
   P (k * N + m)%N = \sum_(j < d.+1) acoef j k *+ 'C(m, j).
-Proof. by apply: newton; apply/is_polyP; exact: acoef_deg0. Qed.
+Proof. by apply: newton; apply/is_polyCbP; exact: acoef_deg0. Qed.
 
 (** The difference table of the [k]-th interval is exactly the vector of
     the [a_j (k)], so running the shifts on the [a_j] produces every
@@ -555,9 +612,9 @@ have -> : (k.+1 * N + m = k * N + m + N)%N.
 by [].
 Qed.
 
-Lemma acoef_deg j : is_poly d (acoef j).
+Lemma acoef_deg j : is_poly C_basis d (acoef j).
 Proof.
-apply/is_polyP => k; rewrite /acoef diffn_acoef.
+apply/is_polyCbP => k; rewrite /acoef diffn_acoef.
 have -> : diffn j (fun m => iter d.+1 (diffh N) P (k * N + m)%N) 0%N
         = diffn j (fun _ : nat => 0) 0%N.
   by apply: diffn_ext => m; apply: diffhn_deg.

@@ -67,11 +67,11 @@ Definition dgr_paper : nat := 2.
 
 (** ** [Pdir] has a difference table of eight entries *)
 
-Lemma Pdir_deg : is_poly 7 Pdir.
+Lemma Pdir_deg : is_poly C_basis 7 Pdir.
 Proof.
-apply: is_poly_sum => k; rewrite mem_index_iota => /andP[_ k8].
-apply: (is_polyW (d := k)); first by rewrite -ltnS.
-by apply: is_poly_scale; apply: is_poly_linX.
+apply: is_polyCb_sum => k; rewrite mem_index_iota => /andP[_ k8].
+apply: (is_polyCbW (d := k)); first by rewrite -ltnS.
+by apply: is_polyCb_scale; apply: is_polyCb_linX.
 Qed.
 
 (** ** Section 5 on this polynomial *)
@@ -87,7 +87,7 @@ Proof. exact: hierarchicalE Pdir_deg k m. Qed.
 
 (** Each coefficient is itself a degree-7 polynomial in the interval
     index, so it has its own eight-entry difference table. *)
-Lemma aexp_deg j : is_poly 7 (aexp j).
+Lemma aexp_deg j : is_poly C_basis 7 (aexp j).
 Proof. exact: acoef_deg Pdir_deg j. Qed.
 
 (** Walking the intervals one at a time: additions only (Figure 8). *)

@@ -128,8 +128,10 @@ abelian group, which is how `Shift.v` states it.
 | hybrid CPU/GPU split by `tS + s` (§5.2) | `hybridE` |
 | hierarchical method, `P(kN+m) = sum_j a_j(k) C(m,j)` | `acoef`, `hierarchicalE`, `acoef_deg` |
 
-"Degree at most `d`" is `is_poly d f`: `f n` is a combination of the
-binomials `'C(n, i)`, `i <= d`; `is_polyP` shows it is equivalent to
+"Degree at most `d`" is `is_poly b d f` in a basis `b`, the usual one
+`U_basis` or the binomial one `C_basis`; `is_poly_UC` goes from the first to
+the second (not back, over the integers); `is_polyCbP` shows the binomial one
+is equivalent to
 `diffn d.+1 f n = 0` for all `n`.
 That is the only notion of degree in the file, and it is the one every
 statement needs.  There is **no functional extensionality**: `diffn` looks
@@ -154,10 +156,10 @@ pointwise.  `Shift.v` is admit-free and closed under the global context.
 ### Degree of a concrete polynomial
 
 To use any of this on a polynomial written down with coefficients, the
-file carries a small toolkit: `is_polyD`, `is_poly_sum`, `is_poly_scale`,
-`is_poly_shift`, `is_poly_mulX` (multiplying by the argument raises the degree
-by exactly one), `is_poly_linX` (a power of a monic linear factor), and
-`is_poly_hpoly` for a Horner form.
+file carries a small toolkit: `is_polyCbD`, `is_polyCb_sum`, `is_polyCb_scale`,
+`is_polyCb_shift`, `is_polyCb_mulX` (multiplying by the argument raises the degree
+by exactly one), `is_polyCb_linX` (a power of a monic linear factor), and
+`is_polyCb_hpoly` for a Horner form.
 
 ## 7. The application: `code/APaul/rocq/ShiftExp.v`
 
@@ -170,7 +172,7 @@ the whole search interval `[0.25, 0.25001)`, within `2^-160` of `exp`, and
 
 - `Pdir n` is that polynomial evaluated exactly at grid point `n`, as an
   integer over `2^598` (the scaling `Cheb.v` already uses);
-- `Pdir_deg : is_poly 7 Pdir` — eight entries in the difference table;
+- `Pdir_deg : is_poly C_basis 7 Pdir` — eight entries in the difference table;
 - `PdirE` is the hierarchical identity, `aexp_tab` the tabulated walk,
   `aexp_hybrid` the §5.2 split;
 - `Pdir_exp` : every value the shifts generate is within `2^-160` of

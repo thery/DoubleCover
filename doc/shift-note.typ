@@ -105,35 +105,53 @@ $Delta^3 f (n) = 0$. Each application of $Delta$ lowers the degree by one, as
 a derivative would, but it is computed with one subtraction.
 
 A polynomial is a function from arguments to values, sampled at the integers.
-A polynomial of degree at most $d$ is written in the basis
-$C(n, 0), dots, C(n, d)$ instead of $1, n, dots, n^d$:
+A polynomial of degree at most $d$ is defined in a basis $b$:
 
 ```coq
-Definition is_poly d f :=
-  exists l : seq V, forall n, f n = \sum_(i < d.+1) l`_i *+ 'C(n, i).
+Definition U_basis (i n : nat) : nat := n ^ i.
+Definition C_basis (i n : nat) : nat := 'C(n, i).
+
+Definition is_poly (b : nat -> nat -> nat) d f :=
+  exists l : seq V, forall n, f n = \sum_(i < d.+1) l`_i *+ b i n.
 ```
 
-Its value at $n$ is $l_0 C(n, 0) + dots + l_d C(n, d)$ for some
-$l_0, dots, l_d$ in $V$. Each $C(n, i) = n (n-1) dots (n-i+1) slash i!$ is a
-polynomial of degree $i$ in $n$: $C(n, 0) = 1$, $C(n, 1) = n$,
-$C(n, 2) = (n^2 - n) slash 2$. So `is_poly` is an ordinary polynomial,
-written in another basis. The powers $n^i$ would not do: $V$ can add but not
-divide, and $C(n, 2)$ has the coefficients $1/2$ and $-1/2$ in the basis of
-the powers.
+`is_poly b d f` says that $f(n) = l_0 b_0(n) + dots + l_d b_d(n)$ for some
+$l_0, dots, l_d$ in $V$. Two bases: the usual one, `U_basis`, with
+$f(n) = l_0 + l_1 n + dots + l_d n^d$; and the binomial one, `C_basis`, with
+$f(n) = l_0 C(n, 0) + dots + l_d C(n, d)$. Each
+$C(n, i) = n (n-1) dots (n-i+1) slash i!$ is a polynomial of degree $i$ in
+$n$: $C(n, 0) = 1$, $C(n, 1) = n$, $C(n, 2) = (n^2 - n) slash 2$.
 
-The link with differences is an equivalence:
+The two are not equivalent when $V$ is the integers. A polynomial in the
+usual basis is one in the binomial basis:
 
 ```coq
-Lemma is_polyP d f : is_poly d f <-> forall n, diffn d.+1 f n = 0.
+Lemma is_poly_UC d f : is_poly U_basis d f -> is_poly C_basis d f.
 ```
 
-A function is a polynomial of degree at most $d$ exactly when its $(d+1)$-st
-difference is zero everywhere. From left to right, by Pascal's rule
-$Delta C(n, i+1) = C(n, i)$ (`diff_binS`): each difference lowers the
-degree by one (`diffn_binom`). From right to left, by Newton's formula (next
-section), with the differences at $0$ as the coefficients $l_i$. The
-statements below take `is_poly` as hypothesis; their proofs use the
-difference side of `is_polyP`.
+but not conversely: $C(n, 2)$ has the coefficient 1 in the binomial basis,
+and $1/2$ and $-1/2$ in the usual one, and $V$ can add but not divide.
+
+In the binomial basis, being a polynomial is equivalent to a zero
+difference:
+
+```coq
+Lemma is_polyCbP d f :
+  is_poly C_basis d f <-> forall n, diffn d.+1 f n = 0.
+```
+
+A function is a polynomial of degree at most $d$ in the binomial basis
+exactly when its $(d+1)$-st difference is zero everywhere. From left to
+right, by Pascal's rule $Delta C(n, i+1) = C(n, i)$ (`diff_binS`): each
+difference lowers the degree by one (`diffn_binom`). From right to left, by
+Newton's formula (next section), with the differences at $0$ as the
+coefficients $l_i$. `is_poly_UC` follows: the $(d+1)$-st difference of
+$c n^i$ is zero for $i <= d$ (`diffn_pow`).
+
+The statements below take `is_poly C_basis` as hypothesis; their proofs use
+the difference side of `is_polyCbP`. A lemma whose name starts with
+`is_poly` holds in any basis; `is_polyCb` marks one about the binomial
+basis, `is_polyUb` one about the usual basis.
 
 Two remarks on the Rocq. First, there is no functional extensionality in
 either file. `diffn i f n` reads $f$ at finitely many points, so a pointwise
@@ -203,7 +221,7 @@ it.
 Definition tstep t : seq V :=
   mkseq (fun i => nth 0 t i + nth 0 t i.+1) (size t).
 
-Lemma tstepE d f n : is_poly d f -> tstep (dtab d f n) = dtab d f n.+1.
+Lemma tstepE d f n : is_poly C_basis d f -> tstep (dtab d f n) = dtab d f n.+1.
 ```
 
 On the table above: $(0, 1, 6, 6)$ becomes $(0+1, 1+6, 6+6, 6+0) = (1, 7, 12,
@@ -213,7 +231,7 @@ Iterating gives the walk along consecutive intervals.
 
 ```coq
 Lemma tstep_iter d f n k :
-  is_poly d f -> iter k tstep (dtab d f n) = dtab d f (n + k)%N.
+  is_poly C_basis d f -> iter k tstep (dtab d f n) = dtab d f (n + k)%N.
 ```
 
 The proof of `tstepE` is the recurrence `diff_stepE`, which says
@@ -231,7 +249,7 @@ Definition sstep k t : seq V :=
   mkseq (fun i => \sum_(l < size t) (nth 0 t (i + l)%N) *+ 'C(k, l)) (size t).
 
 Lemma sstepE d f n k :
-  is_poly d f -> sstep k (dtab d f n) = dtab d f (n + k)%N.
+  is_poly C_basis d f -> sstep k (dtab d f n) = dtab d f (n + k)%N.
 ```
 
 On $(0, 1, 6, 6)$ with $k = 2$ the first entry is
@@ -249,7 +267,7 @@ the thread.
 
 ```coq
 Lemma hybridE d f Sz s nt :
-  is_poly d f ->
+  is_poly C_basis d f ->
   iter s tstep (sstep (nt * Sz)%N (dtab d f 0%N)) = dtab d f (nt * Sz + s)%N.
 ```
 
@@ -292,7 +310,7 @@ is the step the paper states without proof. In Rocq it is a lemma of its own.
 ```coq
 Definition diffh h f : nat -> V := fun n => f (n + h)%N - f n.
 
-Lemma diffh_deg e h f : is_poly e.+1 f -> is_poly e (diffh h f).
+Lemma diffh_deg e h f : is_poly C_basis e.+1 f -> is_poly C_basis e (diffh h f).
 ```
 
 A difference over a stride of $h$ arguments lowers the degree by one. The
