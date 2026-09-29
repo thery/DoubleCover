@@ -74,15 +74,25 @@ comparison can test.
 
 = The table of differences
 
-The *difference* of a sequence $f$ at $j$ is $Delta f (j) = f(j+1) - f(j)$. For a
-polynomial of degree $d$, the $d$-th difference $Delta^d f(j)$ does not
-depend on $j$: it is $d!$ times the leading coefficient. So the
-$(d+1)$-th difference is 0 for every $j$. The *table* at $j$ is the list
-$f(j), Delta f(j), Delta^2 f(j), dots$.
+The *difference* of a sequence $f$ is the sequence
+$ Delta f (j) = f(j+1) - f(j). $
+Applying it again gives the higher differences, each one the difference of
+the previous one:
+$ Delta^0 f = f, #h(2em) Delta^(i+1) f (j) = Delta^i f (j+1) - Delta^i f (j). $
+For a polynomial of degree $d$, each difference lowers the degree by one. So
+the $d$-th difference $Delta^d f(j)$ does not depend on $j$: it is $d!$
+times the leading coefficient; and the $(d+1)$-th difference is 0 for every
+$j$. The *table* at $j$ is the list $f(j), Delta f(j), Delta^2 f(j), dots$.
 
-Example with $f(j) = j^2$: the table at $j = 0$ is $[0, 1, 2]$ (the value
-0, then $1 - 0 = 1$, then $(4 - 1) - (1 - 0) = 2$). *One step* adds each
-row to the one below it:
+Example with $f(j) = j^2$:
+
+- $Delta f (j) = (j+1)^2 - j^2 = 2 j + 1$;
+- $Delta^2 f (j) = (2 (j+1) + 1) - (2 j + 1) = 2$, which does not depend
+  on $j$ ($2!$ times the leading coefficient 1);
+- $Delta^3 f (j) = 2 - 2 = 0$.
+
+So the table at $j = 0$ is $[0, 1, 2]$. *One step* adds each row to the one
+below it, and gives the table at $j + 1$:
 
 #table(
   columns: 4,
