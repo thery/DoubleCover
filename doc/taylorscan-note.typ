@@ -111,15 +111,17 @@ is `Shift.v`, already proved:
 - `dtab d f j` is the table of $f$ at $j$, the line
   $f(j), Delta f(j), dots, Delta^d f(j)$ of $d + 1$ entries;
 - `tstep` is one step: it computes the line of $j + 1$ from the line of $j$;
-- `is_poly d f` says that $f$ is a polynomial of degree at most $d$ in the
-  basis $C(j, 0), dots, C(j, d)$ instead of $1, j, dots, j^d$:
-  $f(j) = l_0 C(j, 0) + dots + l_d C(j, d)$ for some coefficients $l_i$. Each
-  $C(j, i) = j (j-1) dots (j-i+1) slash i!$ is a polynomial of degree $i$ in
-  $j$ ($C(j, 0) = 1$, $C(j, 1) = j$, $C(j, 2) = (j^2 - j) slash 2$), so this
-  is an ordinary polynomial written in another basis; it is the basis where
-  integer values have integer coefficients. `is_polyP` says this holds
-  exactly when $Delta^(d+1) f$ is zero everywhere;
-- `tstepE`: if $f$ is a polynomial of degree at most $d$ (`is_poly d f`),
+- `is_poly b d f` says that $f$ is a polynomial of degree at most $d$ in the
+  basis $b$: $f(j) = l_0 b_0(j) + dots + l_d b_d(j)$ for some coefficients
+  $l_i$. The usual basis `U_basis` is $1, j, dots, j^d$; the binomial basis
+  `C_basis` is $C(j, 0), dots, C(j, d)$, where
+  $C(j, i) = j (j-1) dots (j-i+1) slash i!$ is a polynomial of degree $i$
+  in $j$ ($C(j, 2) = (j^2 - j) slash 2$). A polynomial in the usual basis is
+  one in the binomial basis (`is_poly_UC`), not conversely: $C(j, 2)$ has
+  no integer coefficients in the usual basis. `is_polyCbP` says that $f$ is
+  a polynomial in the binomial basis exactly when $Delta^(d+1) f$ is zero
+  everywhere;
+- `tstepE`: if $f$ is a polynomial of degree at most $d$ (`is_poly C_basis d f`),
   one step turns the table at $j$ into the table at $j + 1$.
 
 = The file, line by line
@@ -152,7 +154,7 @@ form: $A_0 + j (A_1 + j (A_2 + dots))$. Its degree is at most the length of
 
 ```coq
 Definition dg := size A.
-Lemma is_poly_P : is_poly dg P.
+Lemma is_polyCb_P : is_poly C_basis dg P.
 ```
 
 *The test*, the formula of section 2:

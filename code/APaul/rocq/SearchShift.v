@@ -26,7 +26,7 @@ Local Open Scope ring_scope.
 
 (** ** Multiplying by an affine function raises the degree by one
 
-    [Shift.is_poly_mulL] does it for a monic factor [c + n]; the chunk
+    [Shift.is_polyCb_mulL] does it for a monic factor [c + n]; the chunk
     start is [c + 2^20 n], so we need any slope [a]. *)
 
 Section DegreeAffine.
@@ -38,17 +38,15 @@ Lemma diffn_scaler i (a : R) f n :
   diffn i (fun m => f m * a) n = diffn i f n * a.
 Proof. by elim: i n => [//|i IH] n; rewrite !diffnS /diff !IH mulrBl. Qed.
 
-Lemma is_poly_scaler d (a : R) f :
-  is_poly d f -> is_poly d (fun n => f n * a).
+Lemma is_polyCb_scaler d (a : R) f :
+  is_poly C_basis d f -> is_poly C_basis d (fun n => f n * a).
 Proof.
-by move=> /is_polyP fd; apply/is_polyP => n; rewrite diffn_scaler fd mul0r.
+by move=> /is_polyCbP fd; apply/is_polyCbP => n; rewrite diffn_scaler fd mul0r.
 Qed.
 
-Lemma is_poly_ext d f g : (forall m, f m = g m) -> is_poly d f -> is_poly d g.
-Proof.
-move=> fg /is_polyP fd; apply/is_polyP => n.
-by rewrite -(diffn_ext _ _ fg) fd.
-Qed.
+Lemma is_poly_ext b d f g :
+  (forall m, f m = g m) -> is_poly b d f -> is_poly b d g.
+Proof. by move=> fg [l fl]; exists l => n; rewrite -fg fl. Qed.
 
 Lemma diff_mulA (c a : R) f n :
   diff (fun m => f m * (c + a * m%:R)) n
@@ -59,10 +57,10 @@ set u := c + a * n%:R.
 by rewrite mulrBl [f n * (u + a)]mulrDr opprD addrA subrK.
 Qed.
 
-Lemma is_poly_mulA d (c a : R) f :
-  is_poly d f -> is_poly d.+1 (fun n => f n * (c + a * n%:R)).
+Lemma is_polyCb_mulA d (c a : R) f :
+  is_poly C_basis d f -> is_poly C_basis d.+1 (fun n => f n * (c + a * n%:R)).
 Proof.
-move=> /is_polyP; elim: d c f => [|d IH] c f fd; apply/is_polyP => n.
+move=> /is_polyCbP; elim: d c f => [|d IH] c f fd; apply/is_polyCbP => n.
   transitivity (diff (fun m => f m * (c + a * m%:R)) n.+1
               - diff (fun m => f m * (c + a * m%:R)) n); first by [].
   rewrite !diff_mulA.
@@ -72,9 +70,9 @@ rewrite diffnSr.
 have -> : diffn d.+2 (diff (fun m => f m * (c + a * m%:R))) n
         = diffn d.+2 (fun m => diff f m * (c + a + a * m%:R) + f m * a) n.
   by apply: diffn_ext => m; rewrite diff_mulA.
-move: n; apply/is_polyP; apply: is_polyD.
+move: n; apply/is_polyCbP; apply: is_polyCbD.
   by apply: IH => m; rewrite -diffnSr; apply: (fd m).
-by apply: is_poly_scaler; apply/is_polyP.
+by apply: is_polyCb_scaler; apply/is_polyCbP.
 Qed.
 
 End DegreeAffine.
@@ -85,7 +83,7 @@ Lemma ZnatrE (n : nat) : (n%:R : Z) = Z.of_nat n.
 Proof. by elim: n => [//|n IH]; rewrite -GRing.natr1 IH; lia. Qed.
 
 (** The chunk start [v + k 2^log2N - Cc], written as [c + a k]. *)
-Lemma polyV_deg (v : Z) : is_poly 7 (polyV v).
+Lemma polyV_deg (v : Z) : is_poly C_basis 7 (polyV v).
 Proof.
 pose c : Z := Z.sub v Cc.
 pose a : Z := Z.pow 2 log2N.
@@ -100,9 +98,9 @@ apply: (is_poly_ext (f :=
           = Z.add (Z.sub v Cc) (Z.mul (Z.pow 2 log2N) (Z.of_nat k))).
     by ring.
   by rewrite E.
-have cst e (b : Z) : is_poly e (fun _ : nat => b).
-  by apply: (is_polyW (leq0n _)); apply: is_poly_const.
-do 7! (apply: is_polyD; last exact: cst; apply: is_poly_mulA).
+have cst e (b : Z) : is_poly C_basis e (fun _ : nat => b).
+  by apply: (is_polyCbW (leq0n _)); apply: is_polyCb_const.
+do 7! (apply: is_polyCbD; last exact: cst; apply: is_polyCb_mulA).
 exact: cst.
 Qed.
 
@@ -169,7 +167,7 @@ Definition hrc63s (v : Z) (n : nat) : list Z :=
 
 (** ** The walk is the search *)
 
-Lemma walkE g f k n : is_poly 7 f ->
+Lemma walkE g f k n : is_poly C_basis 7 f ->
   walk g k (dtab 7 f k) n
     = List.concat (List.map (fun j => g j (f j)) (List.seq k n)).
 Proof.
