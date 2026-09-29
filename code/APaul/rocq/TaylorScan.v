@@ -10,7 +10,7 @@
     This file states the algorithm over the integers and proves the
     part that does not depend on [exp]:
     - [scanE]: the walk returns exactly the [j < n] passing the test;
-    - [scan_complete_hit]: every [j] with [P j] within [E] of a multiple of
+    - [scan_complete]: every [j] with [P j] within [E] of a multiple of
       [M] is returned.
     The link to [exp] is in [TaylorReal.v] and [TaylorLink.v]. *)
 
@@ -59,15 +59,14 @@ rewrite tstepE; last exact: is_polyCb_P.
 by rewrite IH.
 Qed.
 
-(** The search with the test [p]: the table at [0], steps 3 and 4, then
-    the walk. *)
-Definition scan p : seq nat := walk p 0 (dtab dg P 0) n.
-
-Lemma scanE p : scan p = [seq j <- iota 0 n | p (P j)].
-Proof. exact: walkE. Qed.
-
 (** The test of the note on the first entry: steps 5 and 6. *)
 Definition hit (b : int) : bool := ((b + E) %% M)%Z <= E *+ 2.
+
+(** The search: the table at [0], steps 3 and 4, then the walk with [hit]. *)
+Definition scan : seq nat := walk hit 0 (dtab dg P 0) n.
+
+Lemma scanE : scan = [seq j <- iota 0 n | hit (P j)].
+Proof. exact: walkE. Qed.
 
 (** If [b] is within [E] of a multiple [M w] of [M], and [2 E < M], then
     [b] passes the test: [(b + E) mod M] is [b - M w + E], in [[0, 2 E]]. *)
@@ -85,8 +84,8 @@ by rewrite mulr2n lerD2r.
 Qed.
 
 (** The completeness of the scan, with no reference to [exp]. *)
-Theorem scan_complete_hit j (w : int) :
-  E *+ 2 < M -> (j < n)%N -> `|P j - M * w| <= E -> j \in scan hit.
+Theorem scan_complete j (w : int) :
+  E *+ 2 < M -> (j < n)%N -> `|P j - M * w| <= E -> j \in scan.
 Proof.
 move=> EM jn Pw.
 by rewrite scanE mem_filter (hitP EM Pw) /= mem_iota /= add0n.
@@ -94,6 +93,6 @@ Qed.
 
 End Scan.
 
-(** The step from [exp] to the hypothesis of [scan_complete_hit] is
-    [TaylorReal.real_lemma]; [TaylorLink.scan_exp_hit] puts the two
+(** The step from [exp] to the hypothesis of [scan_complete] is
+    [TaylorReal.real_lemma]; [TaylorLink.scan_exp] puts the two
     together. *)

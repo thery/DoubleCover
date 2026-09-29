@@ -1,9 +1,9 @@
 (** * Zimmermann's search (doc/htr.md): linking the reals to the scan
 
     [TaylorReal.real_lemma] ends on [Pz], a sum over [Z], and
-    [TaylorScan.scan_complete_hit] starts on [hpoly], a Horner form over
+    [TaylorScan.scan_complete] starts on [hpoly], a Horner form over
     [int].  This file proves they are the same polynomial, and restates
-    [scan_complete_hit] over [Z], in the shape [real_lemma] produces. *)
+    [scan_complete] over [Z], in the shape [real_lemma] produces. *)
 
 From Stdlib Require Import ZArith Reals Lia.
 From APaulRocq Require Import TaylorReal.
@@ -38,16 +38,16 @@ elim: A => [//|a A IH].
 by rewrite [size _]/= PzS /= -IH; lia.
 Qed.
 
-(** [scan_complete_hit] over [Z], with the polynomial written as [Pz]. *)
-Theorem scan_completeZ_hit (A : seq int) (M E : int) (n j : nat) (w : Z) :
+(** [scan_complete] over [Z], with the polynomial written as [Pz]. *)
+Theorem scan_completeZ (A : seq int) (M E : int) (n j : nat) (w : Z) :
   Z.lt (Z.mul 2 (Z_of_int E)) (Z_of_int M) -> (j < n)%N ->
   Z.le (Z.abs (Z.sub (Pz (fun i => Z_of_int (nth 0%R A i)) (size A) j)
                      (Z.mul (Z_of_int M) w)))
        (Z_of_int E) ->
-  j \in scan A n (hit M E).
+  j \in scan A M E n.
 Proof.
 rewrite -hpoly_Pz => EM jn Pw.
-by apply: (@scan_complete_hit A M E n j (int_of_Z w) _ jn); rewrite /P; lia.
+by apply: (@scan_complete A M E n j (int_of_Z w) _ jn); rewrite /P; lia.
 Qed.
 
 (** The search misses nothing.  [y] stands for [exp(x0 + j u) / v], [a i]
@@ -56,7 +56,7 @@ Qed.
     Taylor bound [rho], and (H_E) on [E], if [y] is within [eps] of an
     integer then [j] is a candidate.  Real numbers are written with prefix
     functions ([Rle], [Rplus], ...), since mathcomp owns the infix ones. *)
-Theorem scan_exp_hit (A : seq int) (M E : int) (n j : nat) (a : nat -> R)
+Theorem scan_exp (A : seq int) (M E : int) (n j : nat) (a : nat -> R)
     (rho eps y : R) :
   Z.lt 0 (Z_of_int M) -> Z.lt (Z.mul 2 (Z_of_int E)) (Z_of_int M) ->
   (j < n)%N ->
@@ -69,10 +69,10 @@ Theorem scan_exp_hit (A : seq int) (M E : int) (n j : nat) (a : nat -> R)
              (sumR (size A) (fun i => pow (INR n) i)))
       (IZR (Z_of_int E)) ->
   (exists z : Z, Rlt (Rabs (Rminus y (IZR z))) eps) ->
-  j \in scan A n (hit M E).
+  j \in scan A M E n.
 Proof.
 move=> M0 EM jn HA HT HE Hz.
 have jn' : Peano.le j n by apply/leP; exact: ltnW.
 have [w Hw] := real_lemma _ _ _ _ _ _ _ _ _ _ M0 jn' HA HT HE Hz.
-exact: scan_completeZ_hit EM jn Hw.
+exact: scan_completeZ EM jn Hw.
 Qed.
