@@ -64,8 +64,8 @@ Proof. exact: iterSr. Qed.
 Lemma diffnD i j f : diffn (i + j)%N f = diffn i (diffn j f).
 Proof. by rewrite /diffn iterD. Qed.
 
-(** The recurrence the tabulated shift runs on: a row of the table moves
-    forward by adding the row below it. *)
+(** The recurrence the tabulated shift runs on: entry [i] of the table
+    moves forward by adding entry [i + 1]. *)
 Lemma diff_stepE i f n : diffn i f n.+1 = diffn i f n + diffn i.+1 f n.
 Proof. by rewrite diffnS /diff addrC subrK. Qed.
 
@@ -251,7 +251,7 @@ Lemma size_dtab d f n : size (dtab d f n) = d.+1.
 Proof. exact: size_mkseq. Qed.
 
 (** Reading past the end of the table gives [0], which for a degree-[d]
-    polynomial is the right value: the rows below the table are null. *)
+    polynomial is the right value: the entries past the end are null. *)
 Lemma nth_dtab d f n i : is_poly d f -> nth 0 (dtab d f n) i = diffn i f n.
 Proof.
 move=> /is_polyP fd; case: (ltnP i d.+1) => [id|di]; first by rewrite nth_mkseq.
@@ -260,7 +260,7 @@ Qed.
 
 (** *** The tabulated difference shift (Figure 8)
 
-    One step adds each row to the one below it.  Only additions, and they
+    One step adds to each entry the next one.  Only additions, and they
     are the multi-precision additions the GPU kernel performs. *)
 Definition tstep t : seq V :=
   mkseq (fun i => nth 0 t i + nth 0 t i.+1) (size t).

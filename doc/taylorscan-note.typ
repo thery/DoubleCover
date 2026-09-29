@@ -91,8 +91,9 @@ Example with $f(j) = j^2$:
   on $j$ ($2!$ times the leading coefficient 1);
 - $Delta^3 f (j) = 2 - 2 = 0$.
 
-So the table at $j = 0$ is $[0, 1, 2]$. *One step* adds each row to the one
-below it, and gives the table at $j + 1$:
+So the table at $j = 0$ is $[0, 1, 2]$. Below, each line is the table at one
+$j$. *One step* computes the line of $j + 1$ from the line of $j$: each entry
+is the entry above it plus its right neighbour in the line above.
 
 #table(
   columns: 4,
@@ -107,8 +108,9 @@ below it, and gives the table at $j + 1$:
 The first column gives $0, 1, 4, 9$: the squares, with additions only. This
 is `Shift.v`, already proved:
 
-- `dtab d f j` is the table of $f$ at $j$, with $d + 1$ rows;
-- `tstep` is one step;
+- `dtab d f j` is the table of $f$ at $j$, the line
+  $f(j), Delta f(j), dots, Delta^d f(j)$ of $d + 1$ entries;
+- `tstep` is one step: it computes the line of $j + 1$ from the line of $j$;
 - `is_poly d f` says that $f$ is a polynomial of degree at most $d$, that is
   $f(j) = l_0 C(j, 0) + dots + l_d C(j, d)$ for some coefficients $l_i$
   (the binomial basis: the coefficients need not be divided); `is_polyP`
@@ -156,7 +158,7 @@ Definition hit (b : int) : bool := ((b + E) %% M)%Z <= E *+ 2.
 ```
 
 *The walk*, step 6 of the note. It keeps the current table `t` and the
-current index `j`, tests the first row, then takes one step; `c` counts the
+current index `j`, tests the first entry, then takes one step; `c` counts the
 doubles left:
 
 ```coq
@@ -167,7 +169,7 @@ Fixpoint walk (j : nat) (t : seq int) (c : nat) : seq nat :=
   else [::].
 ```
 
-`nth 0 t 0` is the first row, the current value $P(j)$. The result is the
+`nth 0 t 0` is the first entry, the current value $P(j)$. The result is the
 list of candidates.
 
 *The search* starts the walk from the table of $P$ at 0:
@@ -188,7 +190,7 @@ The walk returns exactly the $j < n$ whose $P(j)$ passes the test: the fast
 computation with additions gives the same answer as evaluating $P$ at every
 $j$. The proof (`walkE`) goes by induction on the number of doubles left;
 at each step `tstepE` says the table after one step is the table at the next
-index, whose first row is $P(j+1)$.
+index, whose first entry is $P(j+1)$.
 
 *The test catches every $b$ close to a multiple of $M$.*
 
@@ -306,7 +308,7 @@ are built on.
 - Two details separate the files from the C program `htr2_fix.c`:
   - the C builds the first table in place from $P(0), dots, P(k-1)$ (steps
     3 and 4 of the note), where `TaylorScan.v` takes `dtab` directly; and
-    its table has one more row, which is 0;
+    its table has one more entry, which is 0;
   - the C reduces every number modulo $M$ after each addition, where the
     file keeps exact integers and reduces only in the test; the two give
     the same test, because reduction modulo $M$ commutes with addition.

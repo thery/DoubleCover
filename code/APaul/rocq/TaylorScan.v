@@ -33,17 +33,17 @@ Variables (A : seq int) (M E : int) (n : nat).
 (** The polynomial, in Horner form. *)
 Definition P : nat -> int := hpoly A.
 
-(** Its degree is at most [size A], so a table of [size A + 1] rows walks
-    it exactly (the note uses [size A] rows: the last one here is [0]). *)
+(** Its degree is at most [size A], so a table of [size A + 1] entries walks
+    it exactly (the note uses [size A] entries: the last one here is [0]). *)
 Definition dg := size A.
 
 Lemma is_poly_P : is_poly dg P.
 Proof. exact: is_poly_hpoly. Qed.
 
-(** The test on the first row of the table: steps 5 and 6 of the note. *)
+(** The test on the first entry of the table: steps 5 and 6 of the note. *)
 Definition hit (b : int) : bool := ((b + E) %% M)%Z <= E *+ 2.
 
-(** The main loop, step 6: test the first row, then shift the table. *)
+(** The main loop, step 6: test the first entry, then shift the table. *)
 Fixpoint walk (j : nat) (t : seq int) (c : nat) : seq nat :=
   if c is c'.+1 then
     let rest := walk j.+1 (tstep t) c' in
