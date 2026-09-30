@@ -10,8 +10,9 @@
     A line of the table is [(x0, n, B)] with [B_i = P(i) mod beta^l] for
     [i < k], the output of step 3 of the search.  [line_ok] states the
     six conditions under which the search on that line misses no hard
-    case; [check_table] tests them all with one boolean function, and
-    [check_tableP] proves that a [true] answer gives [table_ok]. *)
+    case; [check_table] tests them all with one boolean function.  This
+    file holds the definitions only; [ExpProof.check_tableP] proves that
+    a [true] answer gives [table_ok]. *)
 
 From Stdlib Require Import ZArith Reals Lia Lra List.
 From Flocq Require Import Core.
@@ -201,13 +202,3 @@ Definition check_line (M0 n : Z) (B : list Z) : bool :=
 Definition check_table (t : list (Z * Z * list Z)) : bool :=
   Z.ltb (2 * E) beta_l && Z.leb m lbits &&
   forallb (fun r => match r with (M0, n, B) => check_line M0 n B end) t.
-
-(** ** Correctness *)
-
-Theorem check_lineP M0 n B : check_line M0 n B = true -> line_ok M0 n B.
-Proof.
-Admitted.
-
-Theorem check_tableP t : check_table t = true -> table_ok t.
-Proof.
-Admitted.
