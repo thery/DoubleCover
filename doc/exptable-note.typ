@@ -121,7 +121,7 @@ Definition beta : Z := 2 ^ 64.    (* the machine word basis            *)
 Definition l : Z := 5.            (* words of an A_i or a B_i          *)
 Definition k : nat := 8.          (* terms of the Taylor polynomial    *)
 Definition m : Z := 43.           (* identical bits after the round bit *)
-Definition E : Z := 2 ^ 278.      (* the window of the search (a guess) *)
+Definition E : Z := 0x400001 * 2 ^ 256.  (* the window of htr3.c    *)
 Definition xbin : Z := 9.         (* x ranges over [2^xbin, 2^(xbin+1)) *)
 Definition guard : Z := 64.       (* extra bits in the exp enclosure   *)
 ```
@@ -136,13 +136,11 @@ B[0][l-1] += ERR;
 ```
 
 `ERR` is added to the top word of $B_0$, so its $E$ is
-$#raw("0x400001") dot 2^256 = 2^278 + 2^256$. The checker takes a slightly
-smaller value, $E = 2^278$. Condition 5 says $E$ is *at least* a bound
-computed from the line, so it holds for every larger $E$; condition 6
-holds for both ($2 E < 2^320$). So a table that passes with $2^278$ also
-satisfies the six conditions with the $E$ of `htr3.c`. For comparison,
-`doc/htr.md` asks $E >= beta^ell (2^(-43) + 2^(-43.7) + 2^(-91))$, and line
-1 alone needs $E >= 2^277.59$.
+$#raw("0x400001") dot 2^256 = 2^278 + 2^256$, and that is the value in
+`ExpCheck.v`. For comparison, `doc/htr.md` asks $E >= beta^ell (2^(-43) +
+2^(-43.7) + 2^(-91))$, and line 1 alone needs $E >= 2^277.59$. Condition 5
+says $E$ is *at least* a bound computed from the line, so a larger $E$ only
+makes it easier.
 
 `guard` is the number of bits beyond $beta^ell$ and $v$ at which $exp$ is
 enclosed; it changes the cost, not the result.
@@ -254,9 +252,9 @@ $ rho = exp(x_1) (n u)^k / (k! v) approx 2^(-44.00). $
 $beta^ell 2^(-m) = 2^277$, $beta^ell rho approx 2^276.00$ and
 $1 + n + dots + n^7 approx 2^229.51$, a total of about $2^277.59$. The
 checker bounds $rho$ from above with $U_1$ and verifies that the total is at
-most $E = 2^278$.
+most $E = 2^278 + 2^256$.
 
-*Condition 6* is on the whole table: $2 E = 2^279 < beta^ell = 2^320$.
+*Condition 6* is on the whole table: $2 E = 2^279 + 2^257 < beta^ell = 2^320$.
 
 On this line `check_line` answers `true`; the line then satisfies the six
 conditions, by the theorem.
@@ -296,8 +294,8 @@ Lemma lines_okNN : forall s, In s ExpDataNN.lines ->
 
 In words: *every line of the table, read by `parse`, is a subrange
 $[x_0, x_1]$ with its $n$ and its $B_0, dots, B_7$ that satisfies the six
-conditions of section 4*, for the parameters of section 5 ($E = 2^278$),
-and so also for the $E = 2^278 + 2^256$ of `htr3.c` (section 5). Conditions
+conditions of section 4*, for the parameters of section 5, with the $E$ of
+`htr3.c`. Conditions
 3 to 6 are the hypotheses of `hscan_exp` in `TaylorLink.v`, which says that
 the search then misses no $x_0 + j u$ with $exp(x_0 + j u) slash v$ within
 $2^(-m)$ of an integer; the two are not yet joined in one Rocq theorem.
@@ -411,9 +409,6 @@ agrees with the Rocq checker on the first 10 lines.
 - The coverage on the whole table in Rocq: `ExpCover.v` and the files it
   generates are tested on 30 lines; the run on the 67 486 lines is the next
   one on `roquableu` (Python finds no gap).
-- The $E$ of `htr3.c` in Rocq itself: the run is for $E = 2^278$, and the
-  step to the larger $E$ of `htr3.c` is the argument of section 5, not a
-  Rocq lemma.
 - The parser: that `parse` reads a line as the text says. It agrees with
   `gen.py` on the first 10 lines, but it is not proved.
 - The search itself: that is `TaylorLink.v`, which this check feeds.
