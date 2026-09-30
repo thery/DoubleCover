@@ -127,7 +127,8 @@ Definition guard : Z := 64.       (* extra bits in the exp enclosure   *)
 ```
 
 *The value of $E$.* $E$ is not in the table: it is a constant of the search
-program. The program that reads `in_lt`, `htr3.c`, uses the same $E$ for
+program. The program that reads `in_lt`, `htr3.c` (in `code/APaul/`),
+uses the same $E$ for
 every line:
 
 ```c
