@@ -275,6 +275,9 @@ to `true`.
 $"FIRST" + "COUNT"$ of `in_lt` as the Rocq list `table` (it only parses; $K$
 and $L$ must be `k` and `l`). `make` builds the files and `ExpRun.v`.
 
+The table is in the repository as `code/exptable/in_lt.xz`; `xz -dk
+in_lt.xz` gives `in_lt`, and `sha256sum -c in_lt.sha256` checks it.
+
 The whole table is checked in slices. `mkslices.sh in_lt 15` cuts it into
 15 slices of 4 500 lines, `ExpData00.v` to `ExpData14.v`, and writes for each
 a file `ExpRunNN.v` that proves `check_table` answers `true` on the slice,
