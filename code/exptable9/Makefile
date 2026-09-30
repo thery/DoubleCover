@@ -19,6 +19,10 @@ sample-all: SampleAll.vo
 SampleAll.vo: SampleAll.v ExpProof.vo ExpParseSpec.vo $(RUNS:.v=.vo)
 	coqc $(COQFLAGS) $<
 
+# The bit-flip test: make test
+test: ExpMutate.vo
+ExpMutate.vo: ExpCheck.vo ExpParse.vo MutData.vo
+
 %.vo: %.v
 	coqc $(COQFLAGS) $<
 

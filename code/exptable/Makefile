@@ -24,6 +24,10 @@ all-slices: ExpAll.vo
 ExpAll.vo: ExpAll.v ExpProof.vo ExpCover.vo ExpParseSpec.vo $(SLICES:.v=.vo) $(COVERS:.v=.vo)
 	coqc $(COQFLAGS) $<
 
+# The bit-flip test: make test
+test: ExpMutate.vo
+ExpMutate.vo: ExpCheck.vo ExpData.vo
+
 %.vo: %.v
 	coqc $(COQFLAGS) $<
 
