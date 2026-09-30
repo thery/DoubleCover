@@ -2,6 +2,7 @@
 
 ExpCheck.v
 ExpParse.v
+ExpCover.v
 ExpTaylor.v
 ExpArith.v
 ExpEncl.v

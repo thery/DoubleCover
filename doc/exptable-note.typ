@@ -126,11 +126,26 @@ Definition xbin : Z := 9.         (* x ranges over [2^xbin, 2^(xbin+1)) *)
 Definition guard : Z := 64.       (* extra bits in the exp enclosure   *)
 ```
 
-$E = 2^278$ is our choice, not a value read from the search: `doc/htr.md`
-asks $E >= beta^ell (2^(-43) + 2^(-43.7) + 2^(-91))$, which is below
-$2^278$, and line 1 needs $E >= 2^277.59$. The value the search uses must be
-put here. `guard` is the number of bits beyond $beta^ell$ and $v$ at which
-$exp$ is enclosed; it changes the cost, not the result.
+*The value of $E$.* $E$ is not in the table: it is a constant of the search
+program. The program that reads `in_lt`, `htr3.c`, uses the same $E$ for
+every line:
+
+```c
+static uint64_t ERR = 0x400001; // ceil(2^64*(2^-43+2^-43+2^-90))
+B[0][l-1] += ERR;
+```
+
+`ERR` is added to the top word of $B_0$, so its $E$ is
+$#raw("0x400001") dot 2^256 = 2^278 + 2^256$. The checker takes a slightly
+smaller value, $E = 2^278$. Condition 5 says $E$ is *at least* a bound
+computed from the line, so it holds for every larger $E$; condition 6
+holds for both ($2 E < 2^320$). So a table that passes with $2^278$ also
+satisfies the six conditions with the $E$ of `htr3.c`. For comparison,
+`doc/htr.md` asks $E >= beta^ell (2^(-43) + 2^(-43.7) + 2^(-91))$, and line
+1 alone needs $E >= 2^277.59$.
+
+`guard` is the number of bits beyond $beta^ell$ and $v$ at which $exp$ is
+enclosed; it changes the cost, not the result.
 
 = How one line is checked: `check_line`
 
@@ -281,11 +296,14 @@ Lemma lines_okNN : forall s, In s ExpDataNN.lines ->
 
 In words: *every line of the table, read by `parse`, is a subrange
 $[x_0, x_1]$ with its $n$ and its $B_0, dots, B_7$ that satisfies the six
-conditions of section 4*, for the parameters of section 5 ($E = 2^278$).
-Conditions 3 to 6 are the hypotheses of `hscan_exp` in `TaylorLink.v`,
-which says that the search then misses no $x_0 + j u$ with $exp(x_0 + j u)
-slash v$ within $2^(-m)$ of an integer; the two are not yet joined in one
-Rocq theorem.
+conditions of section 4*, for the parameters of section 5 ($E = 2^278$),
+and so also for the $E = 2^278 + 2^256$ of `htr3.c` (section 5). Conditions
+3 to 6 are the hypotheses of `hscan_exp` in `TaylorLink.v`, which says that
+the search then misses no $x_0 + j u$ with $exp(x_0 + j u) slash v$ within
+$2^(-m)$ of an integer; the two are not yet joined in one Rocq theorem.
+`htr3.c` tests only the top word of $B_0$ against $2 dot #raw("ERR")$,
+which keeps every candidate of the test $B_0 <= 2 E$ of `doc/htr.md` and
+adds a few: it misses nothing more.
 
 The run was made on `roquableu` (an Intel Xeon E5-2667 server, 24
 threads), with `native_compute`; all times are measured:
@@ -302,6 +320,53 @@ A slice of 4 500 lines takes 209 s alone, 0.046 s a line, and each worker
 uses about 605 MB. Run 14 at once, a slice takes up to 30% longer, the
 cores being shared. The whole table is about one hour of processor time
 (57 minutes for slices 01 to 14, plus 3.5 for slice 00).
+
+= The lines cover the whole range
+
+Each line is checked alone by `check_line`; that the lines, put together,
+leave no input out is a separate check, in `ExpCover.v`. A line covers the
+significands $M_0, M_0 + 1, dots, M_0 + n$, that is the inputs $x_0 + j u$
+for $j = 0, dots, n$. The next line must start one ulp further:
+$ M_0' = M_0 + n + 1. $
+
+- `contig` parses the lines of a slice (no $exp$) and tests this for each
+  pair of consecutive lines;
+- `joins` tests it between the last line of a slice and the first line of
+  the next;
+- `cover_ok` is the theorem: if every slice passes `contig`, the slices
+  pass `joins`, and every line satisfies the six conditions, then every
+  significand $M$ from the first $M_0$ of the table to the last $M_0 + n$
+  lies in $[M_0, M_0 + n]$ of a line that satisfies the six conditions.
+
+`ExpAll.v` applies it to the 15 slices:
+
+```coq
+Theorem table_cover M :
+  firstM ExpData00.lines <= M <= lastM ExpData14.lines ->
+  exists s M0 n B, In s (concat (ExpData00.lines :: rest)) /\
+    parse s = Some (M0, n, B) /\ line_ok M0 n B /\ M0 <= M <= M0 + n.
+```
+
+and `range_all` states the two ends. For `in_lt` they are (computed with
+Python from the file; the Rocq run evaluates the same numbers):
+
+#align(center, table(columns: 3, align: (left, right, left),
+  stroke: 0.4pt, inset: 4pt,
+  [], [significand], [input],
+  [first $M_0$], [$5743361827745868$], [$x = #raw("0x1.4678ea18f304cp+9") approx 652.94464$],
+  [last $M_0 + n$], [$6243314768165359$], [$x = #raw("0x1.62e42fefa39efp+9") approx 709.78271$],
+))
+
+That is $499 952 940 419 492$ inputs. The first one is where $exp$ enters
+the binade $[2^942, 2^943)$, since $x_0 approx 942 ln 2$; the last one is the
+$x_1$ that `doc/htr.md` gives for the binade $[2^1023, 2^1024)$, the largest
+double whose $exp$ is finite. So the table covers every double from the
+one where $exp$ reaches $2^942$ to the one where it overflows.
+
+Each slice is checked in its own file `ExpCoverNN.v` with `native_compute`:
+parsing costs about 15 ms a line on the desktop (measured on 300 lines),
+about 70 s a slice. Tested on a table of 30 lines in 3 slices: it passes,
+and with one line removed it fails on the slice that holds the gap.
 
 = Running it
 
@@ -321,7 +386,8 @@ and runs `check_line` on it, answers `true`, with `native_compute`. These
 files use `ExpCheck.v` and `ExpParse.v` only, so the proofs can change
 without running them again. `make -j15 slices` runs them in parallel;
 `make all-slices` then builds `ExpAll.v`: every line of every slice reads
-as a line that satisfies the six conditions (`check_rawP`).
+as a line that satisfies the six conditions (`check_rawP`), and, with the
+files `ExpCoverNN.v`, the lines cover the whole range (section 10).
 
 The text form matters for the cost. Measured on 300 lines on the desktop,
 Rocq reads the lines as strings in 0.5 s (168 MB), but the same numbers
@@ -342,12 +408,12 @@ agrees with the Rocq checker on the first 10 lines.
 
 = What is not checked
 
-- That the lines cover the whole range: each line is checked alone, and
-  nothing relates $x_0$ of a line to $x_1$ of the previous one.
-- The value of $E$ that the search actually uses: the run is for
-  $E = 2^278$ (see the parameters). A different $E$ is a change to
-  `ExpCheck.v`, and the run must be made again (about 5 minutes on
-  `roquableu`).
+- The coverage on the whole table in Rocq: `ExpCover.v` and the files it
+  generates are tested on 30 lines; the run on the 67 486 lines is the next
+  one on `roquableu` (Python finds no gap).
+- The $E$ of `htr3.c` in Rocq itself: the run is for $E = 2^278$, and the
+  step to the larger $E$ of `htr3.c` is the argument of section 5, not a
+  Rocq lemma.
 - The parser: that `parse` reads a line as the text says. It agrees with
   `gen.py` on the first 10 lines, but it is not proved.
 - The search itself: that is `TaylorLink.v`, which this check feeds.
@@ -370,3 +436,6 @@ agrees with the Rocq checker on the first 10 lines.
 
 = `ExpTaylor.v`
 #listing("../code/exptable/ExpTaylor.v")
+
+= `ExpCover.v`
+#listing("../code/exptable/ExpCover.v")

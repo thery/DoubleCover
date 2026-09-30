@@ -7,16 +7,20 @@ ExpData.vo: ExpData.v
 ExpCheck.vo: ExpCheck.v
 ExpTaylor.vo ExpArith.vo ExpEncl.vo: ExpCheck.vo
 ExpParse.vo: ExpCheck.vo
+ExpCover.vo: ExpCheck.vo ExpParse.vo
 ExpProof.vo: ExpCheck.vo ExpParse.vo ExpTaylor.vo ExpArith.vo ExpEncl.vo
 ExpRun.vo: ExpRun.v ExpCheck.vo ExpProof.vo ExpData.vo
 
 # The slices made by mkslices.sh: make -j15 slices, then make all-slices.
 SLICES := $(sort $(wildcard ExpRun[0-9][0-9].v))
-slices: $(SLICES:.v=.vo)
+COVERS := $(sort $(wildcard ExpCover[0-9][0-9].v))
+slices: $(SLICES:.v=.vo) $(COVERS:.v=.vo)
 $(SLICES:.v=.vo): ExpRun%.vo: ExpRun%.v ExpData%.vo ExpCheck.vo ExpParse.vo
 	coqc $(COQFLAGS) $<
+$(COVERS:.v=.vo): ExpCover%.vo: ExpCover%.v ExpData%.vo ExpCover.vo
+	coqc $(COQFLAGS) $<
 all-slices: ExpAll.vo
-ExpAll.vo: ExpAll.v ExpProof.vo $(SLICES:.v=.vo)
+ExpAll.vo: ExpAll.v ExpProof.vo ExpCover.vo $(SLICES:.v=.vo) $(COVERS:.v=.vo)
 	coqc $(COQFLAGS) $<
 
 %.vo: %.v
