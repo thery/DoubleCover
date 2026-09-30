@@ -30,6 +30,28 @@ boolean function whose answer `true` is proved to imply the six
 conditions. The same method was used on the smaller table `in_lt`
 (`doc/exptable-note.typ`); this note is complete by itself.
 
+= Summary
+
+- *The sample passes.* 22 files of the archive, 7 136 lines (about 1% of
+  it), chosen over the whole range: the largest binades, $x$ near
+  $plus.minus 1$, negative $x$, and subnormal outputs. For each file,
+  Rocq proves that every line, read as its text says, satisfies the six
+  conditions (section 5) under which the search misses no hard case on
+  it. No line fails.
+- *$E$ is inferred, not read from the search program* (section 6):
+  $E = #raw("0x600001") dot 2^320$, that is $3 dot 2^(-43)$ in units of
+  $beta^ell$, rounded up on the top word. The $n$ of each line keeps both
+  the rounding term and the Taylor term at or below $2^(-43)$, so the
+  window must hold three terms of $2^(-43)$. With the window of the
+  program for `in_lt`, `0x400001`, the lines near $x = plus.minus 1$ fail
+  the window condition, although their $B_i$ are right. The $E$ of the
+  program that reads these tables is still to be confirmed.
+- *The bit-flip test passes* (section 11): changing one bit of any
+  coefficient $B_i$, or moving $x_0$, makes the check fail.
+- *The whole archive* (687 184 lines) would take about 19.5 hours of
+  processor time, about 1.3 hours on 15 workers of `roquableu` (scaled from
+  the sample, not measured).
+
 = Proof by a checker, for a reader who does not use Rocq
 
 Rocq is a proof assistant: it accepts a theorem only with a proof it can
@@ -46,7 +68,7 @@ own programs. The files here use both sides:
   program on it, sees `true`, and applies the theorem.
 
 So one does not need to trust the program, or to read it: what one must
-read is the statement of the six conditions (section 4). The run is done
+read is the statement of the six conditions (section 5). The run is done
 by the evaluator `native_compute`, which compiles the program to machine
 code.
 
@@ -110,7 +132,7 @@ positive and in $[2^9, 2^10)$:
   the smallest normal binade are all multiples of $2^(-1074)$: there
   $v = 2^(-1075)$ whatever $e$. Both cases are
   $ v = 2^(max(e, -1022) - 53). $
-- *$k = 9$, $ell = 6$, and $E$* (section 5).
+- *$k = 9$, $ell = 6$, and $E$* (section 6).
 
 = The six conditions
 
@@ -246,7 +268,7 @@ $ x_0 = #raw("-0x1.74910d52d3051p+9") approx -745.133219, quad n = 20778149366, 
 ))
 
 It is the case `in_lt` does not have: $x$ is negative and $exp(x)$ is below
-the smallest positive double. The run of section 10 checks this line as it
+the smallest positive double. The run of section 11 checks this line as it
 checks all the others: `check_raw` reads the text with `parse`, then gives
 the numbers to `check_line`. The numbers below are the checker's own values
 when it says so; the others are computed with `check_line.py`'s integer
@@ -255,7 +277,7 @@ $exp$ at 1200 bits (Python, not a proof).
 *Reading the line.* `parse` finds the sign `-`, the fraction digits
 `74910d52d3051`, the exponent `+9`, then $n$ in decimal and 54 words
 `0x...`, grouped by six, the least significant first, into
-$B_0, dots, B_8$ (section 9 states and proves this reading). So
+$B_0, dots, B_8$ (section 10 states and proves this reading). So
 $S_0 = -(16^13 + #raw("0x74910d52d3051")) = -6554261109157969$ and
 $e_x = 9$.
 
@@ -426,7 +448,7 @@ checks by evaluation that `check_line` answers `false` on each of them, in
   inputs (the files of `in_lt` have such a check, `ExpCover.v` in
   `code/exptable`; here the subranges change binade of $x$ within a file,
   and the check is not written).
-- The value of $E$ of Paul's program (section 5): $E$ is inferred.
+- The value of $E$ of Paul's program (section 6): $E$ is inferred.
 - The search itself: that is `TaylorLink.v`, which this check feeds.
 
 #pagebreak()
