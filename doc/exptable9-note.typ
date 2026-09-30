@@ -232,6 +232,113 @@ since $n$ is large; at `in-1074`, $exp(x_0)$ is in
 $[2^(-1075), 2^(-1074))$, so $exp(x) slash v$ stays between 1 and 2, and
 $rho$ is tiny. All three need less than $E approx 2^342.585$.
 
+= Line 1 of `in-1074`, step by step
+
+The first line of `in-1074` is (the $B_i$ are shown by their most
+significant word only; each has six):
+
+$ x_0 = #raw("-0x1.74910d52d3051p+9") approx -745.133219, quad n = 20778149366, $
+
+#align(center, table(columns: 3, stroke: 0.4pt, inset: 4pt,
+  [$B_0$ = `0x1bec60` ...], [$B_1$ = `0x3bec60` ...], [$B_2$ = `0x5bec60` ...],
+  [$B_3$ = `0x7bec60` ...], [$B_4$ = `0x9bec60` ...], [$B_5$ = `0xbbec60` ...],
+  [$B_6$ = `0xdbec60` ...], [$B_7$ = `0xfbec60` ...], [$B_8$ = `0x11bec60` ...],
+))
+
+It is the case `in_lt` does not have: $x$ is negative and $exp(x)$ is below
+the smallest positive double. The run of section 10 checks this line as it
+checks all the others: `check_raw` reads the text with `parse`, then gives
+the numbers to `check_line`. The numbers below are the checker's own values
+when it says so; the others are computed with `check_line.py`'s integer
+$exp$ at 1200 bits (Python, not a proof).
+
+*Reading the line.* `parse` finds the sign `-`, the fraction digits
+`74910d52d3051`, the exponent `+9`, then $n$ in decimal and 54 words
+`0x...`, grouped by six, the least significant first, into
+$B_0, dots, B_8$ (section 9 states and proves this reading). So
+$S_0 = -(16^13 + #raw("0x74910d52d3051")) = -6554261109157969$ and
+$e_x = 9$.
+
+*Condition 1: $u$ is constant.* $u = 2^(9 - 52) = 2^(-43)$. The inputs are
+$(S_0 + j) 2^(-43)$ for $j = 0, dots, n$, from $x_0 approx -745.133219$ to
+$x_1 = (S_0 + n) 2^(-43) approx -745.130857$, with
+$S_0 + n = -6554240331008603$. Both significands are negative with absolute
+values in $[2^52, 2^53)$, so every input has exponent 9: the search walks
+towards 0 without leaving the binade $(-2^10, -2^9]$.
+
+*Enclosures of $exp$ (checker's values).* Interval's $exp$ at 501 bits
+($beta^ell$, 384 bits, plus 53, plus `guard` = 64) returns, for $x_0$,
+$L_0 = p_0 dot 2^(-1594)$ with $p_0$ an integer of 520 bits and
+$U_0 = L_0 + 271017 dot 2^(-1594)$, a relative width of about $2^(-501)$;
+at $x_1$, $L_1 = p_1 dot 2^(-1594)$, $p_1$ of 520 bits, and
+$U_1 = L_1 + 266797 dot 2^(-1594)$.
+
+*Condition 2: $v$ is constant.* $L_0$ is in $[2^(-1075), 2^(-1074))$, so
+$e = -1075$: $exp(x_0)$ is below the smallest normal double $2^(-1022)$,
+and $v = 2^(max(-1075, -1022) - 53) = 2^(-1075)$, half the distance
+$2^(-1074)$ between two subnormal doubles. The test is
+$U_1 < 2^(-1022 + 1)$; in fact $U_1 < 2^(-1074)$, so every $exp(x)$ of the
+line stays in $[2^(-1075), 2^(-1074))$: between 0 and the smallest positive
+double, $exp(x) slash v$ goes from $1$ to $exp(x_1) slash v approx
+1.002365$.
+
+*Condition 3: the $A_i$, then the $B_i$.* For each $i$ the checker forms
+$T = beta^ell a_i slash v$ at both ends of the enclosure, finds the same
+integer part $q$ of $T slash beta^ell$ and the same nearest integer $R$ of
+$T$, and takes $A_i = R - q beta^ell$:
+
+#align(center, table(columns: 4, align: (center, right, right, left),
+  stroke: 0.4pt, inset: 4pt,
+  [$i$], [$a_i slash v$], [$q$], [$A_i$, top word],
+  [0], [$1 + 2^(-43.20)$], [1], [`0x1bec60`],
+  [1], [$1.14 dot 10^(-13) approx 2^(-43)$], [0], [`0x200000`],
+  [2], [$6.46 dot 10^(-27) approx 2^(-87)$], [0], [`0x0`],
+  [3], [$2.45 dot 10^(-40)$], [0], [`0x0`],
+  [4], [$6.96 dot 10^(-54)$], [0], [`0x0`],
+  [5], [$1.58 dot 10^(-67)$], [0], [`0x0`],
+  [6], [$3.00 dot 10^(-81)$], [0], [`0x0`],
+  [7], [$4.87 dot 10^(-95)$], [0], [`0x0`],
+  [8], [$6.92 dot 10^(-109)$], [0], [`0x0`],
+))
+
+The top words of the $A_i$ are the checker's; the other columns are
+Python's. Here $a_i slash v = (a_0 slash v) 2^(-43 i) slash i!$, and only
+$A_0$ and $A_1$ reach the top word. The checker then computes
+$P(0), dots, P(8)$ modulo $beta^ell$ and finds exactly the nine $B_i$ of
+the line (checker's value `true`): on the top word,
+$P(i) = A_0 + i A_1 + dots$ is `0x1bec60` $+ i dot$ `0x200000`, which is the
+column of top words above.
+
+Note $a_0 slash v = exp(x_0) slash v = 1 + 2^(-43.20)$: $exp(x_0)$ is
+within $2^(-43)$ of $v = 2^(-1075)$, the midpoint between 0 and the
+smallest positive double. So $x_0$ itself is a candidate of the search
+($j = 0$). This is expected: the file starts at the first double whose
+$exp$ is at least $2^(-1075)$, and one step $u$ of $x$ moves $exp(x)$ by a
+relative $2^(-43)$.
+
+*Condition 4: (H_T).* The Taylor theorem gives the bound, with
+$ rho = exp(x_1) (n u)^9 / (9! v) approx 2^(-97.00), $
+tiny, because $exp(x_1) slash v$ is only about 1 here, where it is about
+$2^53$ for a normal output.
+
+*Condition 5: (H_E).* The three terms of the window are
+$beta^ell 2^(-43) = 2^341$, $beta^ell rho approx 2^287$ and
+$1 + n + dots + n^8 approx 2^274.20$: about $2^341.0000$ in all. The
+checker replaces $exp(x_1)$ by $U_1 = q_1 dot 2^(-1594)$, with
+$q_1 = p_1 + 266797$, and tests one integer inequality (`window_ok`). With
+$beta^ell rho <= q_1 n^9 2^g slash 9!$ where
+$g = -1594 + 384 - 43 dot 9 - (-1075) = -522$ (checker's value), and
+$C = 2^341 + (1 + n + dots + n^8)$, it tests
+$ q_1 n^9 + C dot 9! dot 2^522 <= E dot 9! dot 2^522, $
+the window condition multiplied by $9! dot 2^522$, with
+$E = #raw("0x600001") dot 2^320$ (checker's value `true`).
+
+*Condition 6* is on the whole table:
+$2 E = #raw("0xc00002") dot 2^320 < beta^ell = 2^384$.
+
+On this line `check_line` answers `true`; the line then satisfies the six
+conditions, by the theorem.
+
 = The theorems
 
 ```coq
