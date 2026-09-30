@@ -400,7 +400,11 @@ threads) with `make -j15 sample`; all 22 files pass. Measured:
   [`Qed` of `in2`, `in-1` (665 lines)], [57 s, 65 s],
   [`make -j15 sample`, wall], [1 min 11 s],
   [`make -j15 sample`, processor], [12 min 10 s],
+  [`make sample-all` (with `SampleAll.v`)], [12.6 s],
 ))
+
+`make sample-all` then builds `SampleAll.v`: for each of the 22 files,
+every line, read as its text says, satisfies the six conditions.
 
 That is about 0.1 s of processor time a line. At that rate the whole
 archive, 687 184 lines, would take about 19.5 hours of processor time,
