@@ -1,0 +1,9 @@
+*.vo
+*.vok
+*.vos
+*.glob
+.*.aux
+.lia.cache
+ExpData[0-9][0-9].v
+ExpRun[0-9][0-9].v
+ExpAll.v
