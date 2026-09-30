@@ -279,12 +279,21 @@ The table is in the repository as `code/exptable/in_lt.xz`; `xz -dk
 in_lt.xz` gives `in_lt`, and `sha256sum -c in_lt.sha256` checks it.
 
 The whole table is checked in slices. `mkslices.sh in_lt 15` cuts it into
-15 slices of 4 500 lines, `ExpData00.v` to `ExpData14.v`, and writes for each
-a file `ExpRunNN.v` that proves `check_table` answers `true` on the slice,
-with `native_compute`. These files use `ExpCheck.v` only, so the proofs can
-change without running them again. `make -j15 slices` runs them in parallel;
-`make all-slices` then builds `ExpAll.v`, which gives `table_ok` for each
-slice.
+15 slices of 4 500 lines. `ExpData00.v` to `ExpData14.v` hold the lines
+*verbatim*, as primitive strings (`genraw.py`); the Rocq function `parse`
+(`ExpParse.v`) reads each one into $(M_0, n, B)$ during the evaluation. For
+each slice, `ExpRunNN.v` proves that `check_raw`, which parses every line
+and runs `check_line` on it, answers `true`, with `native_compute`. These
+files use `ExpCheck.v` and `ExpParse.v` only, so the proofs can change
+without running them again. `make -j15 slices` runs them in parallel;
+`make all-slices` then builds `ExpAll.v`: every line of every slice reads
+as a line that satisfies the six conditions (`check_rawP`).
+
+The text form matters for the cost. Measured on 300 lines on the desktop,
+Rocq reads the lines as strings in 0.5 s (168 MB), but the same numbers
+written as decimal integers in 55 s (1.1 GB), and in hexadecimal in 28 s:
+building each 320-bit number as a Rocq term is what is slow. The check of
+the 300 lines then takes 21.5 s with `native_compute`.
 
 Measured on the first 10 lines, on the desktop: `check_table` evaluates to
 `true` in 2.48 s with `vm_compute`, and in 0.75 s with `native_compute` once
