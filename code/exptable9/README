@@ -1,0 +1,16 @@
+The check of Paul Zimmermann's tables for k = 9, l = 6.
+
+The whole archive (687184 lines in 2203 files in<e>, one per binade
+[2^(e-1), 2^e) of exp x) is all.tar.bz2, sha256
+f509e74ec47064ede889eea481decf2a8f8f7a57fcba875796bd17413e58b85e, from
+Paul (filesender).  sample.tar.xz holds 22 of its files, 7136 lines.
+
+  tar xJf sample.tar.xz
+  ./mksample.sh in1024 in1023 in1000 in900 in700 in500 in300 in100 in10 \
+     in2 in1-0 in0-0 in-1 in-100 in-500 in-900 in-1000 in-1021 in-1022 \
+     in-1023 in-1050 in-1074
+  make -j15 sample
+
+E = 0x600001 * 2^320 is inferred from the data (every line keeps the
+rounding term and the Taylor term below 2^-43), not read from Paul's
+program.
