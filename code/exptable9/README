@@ -15,3 +15,11 @@ Paul (filesender).  sample.tar.xz holds 22 of its files, 7136 lines.
 E = 0x600001 * 2^320 is inferred from the data (every line keeps the
 rounding term and the Taylor term below 2^-43), not read from Paul's
 program.
+
+The whole archive (it is too large for git): copy all.tar.bz2 here, then
+
+  ulimit -s unlimited
+  ./fullrun.sh all.tar.bz2 20 2>&1 | tee full.log
+
+which unpacks it into tables/, writes one Data_N.v and Run_N.v per file,
+runs them with 20 workers and builds SampleAll.v over all the files.

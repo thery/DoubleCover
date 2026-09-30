@@ -8,3 +8,5 @@ Data_*.v
 Run_*.v
 __pycache__/
 SampleAll.v
+tables/
+mksample.log
