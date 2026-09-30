@@ -10,6 +10,7 @@ Paul (filesender).  sample.tar.xz holds 22 of its files, 7136 lines.
      in2 in1-0 in0-0 in-1 in-100 in-500 in-900 in-1000 in-1021 in-1022 \
      in-1023 in-1050 in-1074
   make -j15 sample
+  make sample-all        # SampleAll.v: the theorem, one lemma per file
 
 E = 0x600001 * 2^320 is inferred from the data (every line keeps the
 rounding term and the Taylor term below 2^-43), not read from Paul's
