@@ -389,13 +389,35 @@ make sample-all           # SampleAll.v
 ```
 
 `Run_N.v` depends on `ExpCheck.v` and `ExpParse.v` only, so the proofs can
-change without running the tables again. On the desktop, 20 lines take
-3.1 s (measured, compilation of the checker included), about 0.15 s a
-line. The run of the sample on `roquableu` is still to be made.
+change without running the tables again.
+
+The sample was run on `roquableu` (an Intel Xeon E5-2667 server, 24
+threads) with `make -j15 sample`; all 22 files pass. Measured:
+
+#align(center, table(columns: 2, align: (left, right),
+  stroke: 0.4pt, inset: 4pt,
+  [`Qed` of a file of 294 lines], [26 to 34 s],
+  [`Qed` of `in2`, `in-1` (665 lines)], [57 s, 65 s],
+  [`make -j15 sample`, wall], [1 min 11 s],
+  [`make -j15 sample`, processor], [12 min 10 s],
+))
+
+That is about 0.1 s of processor time a line. At that rate the whole
+archive, 687 184 lines, would take about 19.5 hours of processor time,
+about 1.3 hours on 15 workers (scaled, not measured).
+
+*The bit-flip test* (`ExpMutate.v`, `make test`) makes sure every
+coefficient and $x_0$ is really checked. On the first line of `in1024`,
+`in2` and `in-1074`, which pass, it changes one bit of one $B_i$ (the
+lowest bit, bit 192 and the top bit 383, for each of the 9 coefficients),
+or moves $x_0$ by one ulp either way, or changes bit 0, 20 or 51 of $|S_0|$
+(for a negative $S_0$, of its two's complement): 32 changes a line. Rocq
+checks by evaluation that `check_line` answers `false` on each of them, in
+13.5 s on the desktop (measured).
 
 = What is not checked
 
-- The sample run itself, and the rest of the archive.
+- The rest of the archive (the sample is about 1% of it).
 - That the lines of a file, or of the archive, cover the whole range of
   inputs (the files of `in_lt` have such a check, `ExpCover.v` in
   `code/exptable`; here the subranges change binade of $x$ within a file,

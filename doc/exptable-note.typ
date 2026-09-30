@@ -466,6 +466,14 @@ line. At 0.075 s a line, the 67 486 lines would take about 1.4 h on one core
 (scaled, not measured). Changing one bit of a $B_i$, moving $x_0$ by one
 ulp, or doubling $n$ makes `check_line` answer `false` on line 1.
 
+*The bit-flip test* (`ExpMutate.v`, `make test`) makes sure every
+coefficient and $x_0$ is really checked. On the first three lines of
+`in_lt`, which pass, it changes one bit of one $B_i$ (the lowest bit, bit
+160 and the top bit 319, for each of the 8 coefficients), or moves $x_0$ by
+one ulp either way, or changes bit 0, 20 or 51 of its significand: 29
+changes a line. Rocq checks by evaluation that `check_line` answers `false`
+on each of them, in 7.8 s on the desktop (measured).
+
 `check_line.py` computes the same six conditions for one line in Python, with
 its own integer $exp$ at 1200 bits. It is a reference, not a proof; it
 agrees with the Rocq checker on the first 10 lines.
