@@ -259,8 +259,11 @@ It is proved once, in `ExpProof.v` (annex B), from four files:
 - `ExpArith.v`: each integer test of the checker, read in the real numbers;
 - `ExpTaylor.v`: the Taylor remainder, condition 4.
 
-In `ExpArith.v`, the two lemmas on condition 3, `coefA_ok` and `coefs_ok`,
-are still `Admitted`; every other lemma of the five files is proved.
+No lemma is admitted. The theorem rests on the axioms of Rocq's real
+numbers (`sig_forall_dec`, `sig_not_dec`), functional extensionality and the
+excluded middle (`classic`), which the libraries bring in, and on the
+declarations of the primitive 63-bit integers that the Interval library
+computes with.
 
 A table is then checked by one computation: `ExpRun.v` proves
 `table_ok table` by `apply check_tableP` and evaluating `check_table table`
