@@ -16,10 +16,13 @@ E = 0x600001 * 2^320 is inferred from the data (every line keeps the
 rounding term and the Taylor term below 2^-43), not read from Paul's
 program.
 
-The whole archive (it is too large for git): copy all.tar.bz2 here, then
+The whole archive is in archive/, as five parts tables0..4.tar.bz2 (under
+100 MB each, the size GitHub accepts), with their SHA256SUMS; together they
+hold exactly the 2203 files of Paul's all.tar.bz2.  Then
 
   ulimit -s unlimited
-  ./fullrun.sh all.tar.bz2 20 2>&1 | tee full.log
+  ./fullrun.sh 20 2>&1 | tee full.log
 
-which unpacks it into tables/, writes one Data_N.v and Run_N.v per file,
-runs them with 20 workers and builds SampleAll.v over all the files.
+checks the parts, unpacks them into tables/, writes one Data_N.v and
+Run_N.v per file, runs them with 20 workers and builds SampleAll.v over all
+the files.
