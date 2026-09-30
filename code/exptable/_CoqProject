@@ -1,6 +1,7 @@
 -R . ExpTable
 
 ExpCheck.v
+ExpParse.v
 ExpTaylor.v
 ExpArith.v
 ExpEncl.v

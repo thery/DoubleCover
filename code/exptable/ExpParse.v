@@ -1,0 +1,158 @@
+(** * Reading the lines of the table from their text
+
+    A line of [in_lt] is kept verbatim as a primitive string:
+
+      0x1.4678ea18f304cp+9 7412951889 0x6b4736c9ee3e2c16 ... 0x3be38432b106019d
+
+    that is [x0] in hexadecimal, [n] in decimal, then [k * l] words in
+    hexadecimal, each [B_i] being [l] words, the least significant first.
+    [parse] turns such a line into [(M0, n, B)] with [x0 = M0 * 2^uexp]; a
+    line of another shape gives [None], and [check_raw] then answers
+    [false]. *)
+
+From Stdlib Require Import ZArith List PrimString PrimStringAxioms Uint63.
+From ExpTable Require Import ExpCheck.
+Import ListNotations.
+
+Open Scope Z_scope.
+
+(** ** Characters *)
+
+Definition c_space : int := 32%uint63.   (* ' ' *)
+Definition c_0 : int := 48%uint63.       (* '0' *)
+Definition c_9 : int := 57%uint63.       (* '9' *)
+Definition c_a : int := 97%uint63.       (* 'a' *)
+Definition c_f : int := 102%uint63.      (* 'f' *)
+Definition c_x : int := 120%uint63.      (* 'x' *)
+Definition c_dot : int := 46%uint63.     (* '.' *)
+Definition c_p : int := 112%uint63.      (* 'p' *)
+Definition c_plus : int := 43%uint63.    (* '+' *)
+Definition c_1 : int := 49%uint63.       (* '1' *)
+
+(** The value of a hexadecimal digit, or [None]. *)
+Definition hexd (c : int) : option Z :=
+  if (c_0 <=? c)%uint63 && (c <=? c_9)%uint63 then Some (to_Z (c - c_0))
+  else if (c_a <=? c)%uint63 && (c <=? c_f)%uint63
+  then Some (to_Z (c - c_a) + 10)
+  else None.
+
+(** The value of a decimal digit, or [None]. *)
+Definition decd (c : int) : option Z :=
+  if (c_0 <=? c)%uint63 && (c <=? c_9)%uint63 then Some (to_Z (c - c_0))
+  else None.
+
+(** ** Numbers *)
+
+(** The number written with the digits [cs] in base [b], most
+    significant first; [None] if a character is not a digit. *)
+Fixpoint digits (d : int -> option Z) (b acc : Z) (cs : list int)
+  : option Z :=
+  match cs with
+  | [] => Some acc
+  | c :: cs' =>
+    match d c with
+    | Some v => digits d b (acc * b + v) cs'
+    | None => None
+    end
+  end.
+
+Definition hexv (cs : list int) : option Z :=
+  match cs with [] => None | _ => digits hexd 16 0 cs end.
+
+Definition decv (cs : list int) : option Z :=
+  match cs with [] => None | _ => digits decd 10 0 cs end.
+
+(** A word [0xhh...h]. *)
+Definition wordv (cs : list int) : option Z :=
+  match cs with
+  | c0 :: cx :: cs' =>
+    if (c0 =? c_0)%uint63 && (cx =? c_x)%uint63 then hexv cs' else None
+  | _ => None
+  end.
+
+(** The characters before the first [p], and those after it. *)
+Fixpoint split_p (cs : list int) : list int * list int :=
+  match cs with
+  | [] => ([], [])
+  | c :: cs' =>
+    if (c =? c_p)%uint63 then ([], cs')
+    else let (a, b) := split_p cs' in (c :: a, b)
+  end.
+
+(** [x0 = 0x1.hhhhhhhhhhhhhp+E] with at most 13 digits after the point
+    (trailing zeros may be left out) and [E = xbin]: its significand. *)
+Definition x0v (cs : list int) : option Z :=
+  match cs with
+  | c0 :: cx :: c1 :: cd :: cs' =>
+    if (c0 =? c_0)%uint63 && (cx =? c_x)%uint63 && (c1 =? c_1)%uint63 &&
+       (cd =? c_dot)%uint63 then
+      let (fr, ex) := split_p cs' in
+      match fr, ex with
+      | _ :: _, cplus :: ce =>
+        if (cplus =? c_plus)%uint63 && Nat.leb (List.length fr) 13 then
+          match digits hexd 16 1 fr, decv ce with
+          | Some f, Some e =>
+            if Z.eqb e xbin
+            then Some (f * 16 ^ Z.of_nat (13 - List.length fr))
+            else None
+          | _, _ => None
+          end
+        else None
+      | _, _ => None
+      end
+    else None
+  | _ => None
+  end.
+
+(** ** Lines *)
+
+(** The fields of a line, separated by single spaces. *)
+Fixpoint fields (cur : list int) (cs : list int) : list (list int) :=
+  match cs with
+  | [] => [rev cur]
+  | c :: cs' =>
+    if (c =? c_space)%uint63 then rev cur :: fields [] cs'
+    else fields (c :: cur) cs'
+  end.
+
+(** [w_0 + w_1 beta + ... ], the words least significant first. *)
+Definition wsum (ws : list Z) : Z := fold_right (fun w a => w + beta * a) 0 ws.
+
+(** The [B_i], each of [l] words, from the list of all words. *)
+Fixpoint group (c : nat) (ws : list Z) : list Z :=
+  match c with
+  | O => []
+  | S c' => wsum (firstn (Z.to_nat l) ws) :: group c' (skipn (Z.to_nat l) ws)
+  end.
+
+(** All the words, or [None] if one is not a word. *)
+Fixpoint wordsv (fs : list (list int)) : option (list Z) :=
+  match fs with
+  | [] => Some []
+  | f :: fs' =>
+    match wordv f, wordsv fs' with
+    | Some w, Some ws => Some (w :: ws)
+    | _, _ => None
+    end
+  end.
+
+Definition parse (s : string) : option (Z * Z * list Z) :=
+  match fields [] (to_list s) with
+  | fx :: fn :: fw =>
+    if Nat.eqb (List.length fw) (k * Z.to_nat l) then
+      match x0v fx, decv fn, wordsv fw with
+      | Some M0, Some n, Some ws => Some (M0, n, group k ws)
+      | _, _, _ => None
+      end
+    else None
+  | _ => None
+  end.
+
+(** ** The check on the text *)
+
+Definition check_raw (ls : list string) : bool :=
+  Z.ltb (2 * E) beta_l && Z.leb m lbits &&
+  forallb (fun s => match parse s with
+                    | Some (M0, n, B) => check_line M0 n B
+                    | None => false
+                    end) ls.

@@ -2,7 +2,7 @@
 
 From Stdlib Require Import ZArith Reals Lia Lra List Bool.
 From Flocq Require Import Core.
-From ExpTable Require Import ExpCheck ExpTaylor ExpArith ExpEncl.
+From ExpTable Require Import ExpCheck ExpParse ExpTaylor ExpArith ExpEncl.
 
 Open Scope R_scope.
 
@@ -90,3 +90,23 @@ intros M0 n B hin.
 rewrite forallb_forall in hall.
 apply check_lineP; exact (hall _ hin).
 Qed.
+
+(** The same on the text of the lines: each one reads as a line that
+    satisfies the six conditions. *)
+Theorem check_rawP ls : check_raw ls = true ->
+  (2 * E < beta_l)%Z /\
+  forall s, In s ls -> exists M0 n B,
+    parse s = Some (M0, n, B) /\ line_ok M0 n B.
+Proof.
+unfold check_raw; intros h.
+apply andb_prop in h as [h hall].
+apply andb_prop in h as [h2E _].
+split; [apply Z.ltb_lt; exact h2E|].
+intros s hin.
+rewrite forallb_forall in hall.
+specialize (hall _ hin).
+destruct (parse s) as [[[M0 n] B]|]; [|discriminate].
+exists M0, n, B; split; [reflexivity|].
+apply check_lineP; exact hall.
+Qed.
+
