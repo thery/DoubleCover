@@ -269,6 +269,40 @@ A table is then checked by one computation: `ExpRun.v` proves
 `table_ok table` by `apply check_tableP` and evaluating `check_table table`
 to `true`.
 
+= The result: the whole table
+
+All 67 486 lines of `in_lt` pass. The Rocq file `ExpAll.v` proves, for each
+of the 15 slices $"NN" = 00, dots, 14$:
+
+```coq
+Lemma lines_okNN : forall s, In s ExpDataNN.lines ->
+  exists M0 n B, parse s = Some (M0, n, B) /\ line_ok M0 n B.
+```
+
+In words: *every line of the table, read by `parse`, is a subrange
+$[x_0, x_1]$ with its $n$ and its $B_0, dots, B_7$ that satisfies the six
+conditions of section 4*, for the parameters of section 5 ($E = 2^278$).
+Conditions 3 to 6 are the hypotheses of `hscan_exp` in `TaylorLink.v`,
+which says that the search then misses no $x_0 + j u$ with $exp(x_0 + j u)
+slash v$ within $2^(-m)$ of an integer; the two are not yet joined in one
+Rocq theorem.
+
+The run was made on `roquableu` (an Intel Xeon E5-2667 server, 24
+threads), with `native_compute`; all times are measured:
+
+#align(center, table(columns: 3, align: (left, right, right),
+  stroke: 0.4pt, inset: 4pt,
+  [], [wall time], [per slice],
+  [slice 00 alone], [3 min 36 s], [209 s],
+  [slices 01 to 14, 14 at once], [4 min 37 s], [226 to 274 s],
+  [`ExpAll.v`], [7.5 s], [],
+))
+
+A slice of 4 500 lines takes 209 s alone, 0.046 s a line, and each worker
+uses about 605 MB. Run 14 at once, a slice takes up to 30% longer, the
+cores being shared. The whole table is about one hour of processor time
+(57 minutes for slices 01 to 14, plus 3.5 for slice 00).
+
 = Running it
 
 `gen.py in_lt FIRST COUNT K L ExpData.v` writes lines $"FIRST" + 1$ to
@@ -310,7 +344,12 @@ agrees with the Rocq checker on the first 10 lines.
 
 - That the lines cover the whole range: each line is checked alone, and
   nothing relates $x_0$ of a line to $x_1$ of the previous one.
-- The value of $E$ that the search actually uses (see the parameters).
+- The value of $E$ that the search actually uses: the run is for
+  $E = 2^278$ (see the parameters). A different $E$ is a change to
+  `ExpCheck.v`, and the run must be made again (about 5 minutes on
+  `roquableu`).
+- The parser: that `parse` reads a line as the text says. It agrees with
+  `gen.py` on the first 10 lines, but it is not proved.
 - The search itself: that is `TaylorLink.v`, which this check feeds.
 
 #pagebreak()
