@@ -32,7 +32,7 @@ Definition beta : Z := 2 ^ 64.    (* the machine word basis            *)
 Definition l : Z := 5.            (* words of an A_i or a B_i          *)
 Definition k : nat := 8.          (* terms of the Taylor polynomial    *)
 Definition m : Z := 43.           (* identical bits after the round bit *)
-Definition E : Z := 2 ^ 278.      (* the window of the search (a guess) *)
+Definition E : Z := 0x400001 * 2 ^ 256.  (* the window of htr3.c    *)
 Definition xbin : Z := 9.         (* x ranges over [2^xbin, 2^(xbin+1)) *)
 Definition guard : Z := 64.       (* extra bits in the exp enclosure   *)
 
