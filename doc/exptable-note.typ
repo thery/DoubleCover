@@ -304,20 +304,22 @@ which keeps every candidate of the test $B_0 <= 2 E$ of `doc/htr.md` and
 adds a few: it misses nothing more.
 
 The run was made on `roquableu` (an Intel Xeon E5-2667 server, 24
-threads), with `native_compute`; all times are measured:
+threads), with `native_compute`, the 15 checks and the 15 coverage files of
+section 10 at once (`make -j15 slices`), then `make all-slices`; all times
+are measured:
 
 #align(center, table(columns: 3, align: (left, right, right),
   stroke: 0.4pt, inset: 4pt,
-  [], [wall time], [per slice],
-  [slice 00 alone], [3 min 36 s], [209 s],
-  [slices 01 to 14, 14 at once], [4 min 37 s], [226 to 274 s],
-  [`ExpAll.v`], [7.5 s], [],
+  [], [time], [per slice],
+  [15 checks (`ExpRunNN.v`)], [], [227 to 290 s],
+  [15 coverage checks (`ExpCoverNN.v`)], [], [29 to 41 s],
+  [`make -j15 slices`, wall], [5 min 14 s], [],
+  [`make -j15 slices`, processor], [72 min 40 s], [],
+  [`make all-slices` (with `ExpAll.v`)], [10.3 s], [],
 ))
 
-A slice of 4 500 lines takes 209 s alone, 0.046 s a line, and each worker
-uses about 605 MB. Run 14 at once, a slice takes up to 30% longer, the
-cores being shared. The whole table is about one hour of processor time
-(57 minutes for slices 01 to 14, plus 3.5 for slice 00).
+A check of 4 500 lines is 0.050 to 0.064 s a line, the 15 workers sharing
+12 cores, and each worker uses about 605 MB.
 
 = The lines cover the whole range
 
@@ -345,8 +347,8 @@ Theorem table_cover M :
     parse s = Some (M0, n, B) /\ line_ok M0 n B /\ M0 <= M <= M0 + n.
 ```
 
-and `range_all` states the two ends. For `in_lt` they are (computed with
-Python from the file; the Rocq run evaluates the same numbers):
+and `range_all` states the two ends. For `in_lt` they are (proved by
+`range_all` in the run of section 9):
 
 #align(center, table(columns: 3, align: (left, right, left),
   stroke: 0.4pt, inset: 4pt,
@@ -361,10 +363,10 @@ $x_1$ that `doc/htr.md` gives for the binade $[2^1023, 2^1024)$, the largest
 double whose $exp$ is finite. So the table covers every double from the
 one where $exp$ reaches $2^942$ to the one where it overflows.
 
-Each slice is checked in its own file `ExpCoverNN.v` with `native_compute`:
-parsing costs about 15 ms a line on the desktop (measured on 300 lines),
-about 70 s a slice. Tested on a table of 30 lines in 3 slices: it passes,
-and with one line removed it fails on the slice that holds the gap.
+Each slice is checked in its own file `ExpCoverNN.v` with `native_compute`,
+in 29 to 41 s on `roquableu` (section 9); `range_all` proves the two ends
+above in Rocq. On a table of 30 lines with one line removed, the check fails
+on the slice that holds the gap.
 
 = Reading the text of a line: `parse`
 
@@ -411,8 +413,8 @@ Theorem table_cover_text M :
 last $x_1$ lies in the subrange of a line of `in_lt` whose text says
 $x_0$, $n$ and $B_0, dots, B_7$, and these satisfy the six conditions.*
 Its axioms are those of Rocq's real numbers, functional extensionality,
-the excluded middle, and the primitive integers and strings. Tested on a
-table of 30 lines; on the whole table it needs the next run.
+the excluded middle, and the primitive integers and strings. It is proved
+on the whole table (the run of section 9).
 
 = Running it
 
@@ -454,10 +456,6 @@ agrees with the Rocq checker on the first 10 lines.
 
 = What is not checked
 
-- The coverage and the final theorem on the whole table: `ExpCover.v`,
-  `ExpParseSpec.v` and the files `mkslices.sh` generates are tested on 30
-  lines; the run on the 67 486 lines is the next one on `roquableu`
-  (Python finds no gap).
 - The search itself: that is `TaylorLink.v`, which this check feeds.
 
 #pagebreak()
