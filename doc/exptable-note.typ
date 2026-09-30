@@ -193,9 +193,17 @@ $ x_0 = #raw("0x1.4678ea18f304cp+9") approx 652.94464, quad n = 7412951889, $
   [$B_6$ = `0x3be3842f37de852d` ...], [$B_7$ = `0x3be38432b106019d` ...],
 ))
 
-The numbers below are the checker's own values when it says so; the others
-are computed with `check_line.py` (a Python computation with exact integers,
-not a proof), and give the orders of magnitude.
+The run of section 9 checks this line the way it checks all the others:
+`check_raw` reads the text with `parse`, then gives the numbers to
+`check_line`. The numbers below are the checker's own values when it says
+so; the others are computed with `check_line.py` (a Python computation with
+exact integers, not a proof), and give the orders of magnitude.
+
+*Reading the line.* `parse` finds the fields separated by spaces: the
+significand digits `4678ea18f304c` of $x_0$ and the exponent `9` (the
+checker requires it to be 9), then $n$ in decimal, then 40 words `0x...`.
+It groups the words by five, the least significant first, into
+$B_0, dots, B_7$ (section 11 states and proves this reading).
 
 *Condition 1: $u$ is constant.* The significand of $x_0$ is
 $M_0 = #raw("0x14678ea18f304c") = 5743361827745868$, so $x_0 = M_0 u$ with
@@ -205,10 +213,11 @@ $u = 2^(-43)$. Then $x_1 = x_0 + n u$ has significand $M_0 + n =
 $x_1$ are in $[2^9, 2^10)$, where $"ulp"(x) = 2^(-43)$.
 
 *Enclosures of $exp$ (checker's values).* Interval's $exp$ at 437 bits
-returns, for $x_0$, two numbers $L_0 <= exp(x_0) <= U_0$ of the form
-$L_0 = p dot 2^505$ with $p$ an integer of 438 bits, and $U_0 = L_0 +
-2^505$: an enclosure of relative width about $2^(-437)$. The same holds at
-$x_1$.
+($beta^ell$, 320 bits, plus 53 for $v$, plus `guard` = 64) returns, for
+$x_0$, two numbers $L_0 <= exp(x_0) <= U_0$ with $L_0 = p_0 dot 2^505$,
+$p_0$ an integer of 438 bits, and $U_0 = L_0 + 2^505$: an enclosure of
+relative width about $2^(-437)$. At $x_1$ it returns $L_1 = p_1 dot 2^505$,
+$p_1$ of 438 bits, and $U_1 = L_1 + 2 dot 2^505$.
 
 *Condition 2: $v$ is constant.* $L_0$ lies in $[2^942, 2^943)$, so
 $2^942 <= exp(x_0)$ and $e = 942$; the upper end $U_1$ at $x_1$ is below
@@ -251,8 +260,14 @@ $ rho = exp(x_1) (n u)^k / (k! v) approx 2^(-44.00). $
 *Condition 5: (H_E).* The three terms of the window are
 $beta^ell 2^(-m) = 2^277$, $beta^ell rho approx 2^276.00$ and
 $1 + n + dots + n^7 approx 2^229.51$, a total of about $2^277.59$. The
-checker bounds $rho$ from above with $U_1$ and verifies that the total is at
-most $E = 2^278 + 2^256$.
+checker replaces $exp(x_1)$ by $U_1 = q_1 dot 2^505$ ($q_1 = p_1 + 2$),
+which can only make $rho$ larger, and tests one integer inequality
+(`window_ok`). With $beta^ell rho <= q_1 n^8 2^g slash 8!$ where
+$g = 505 + 320 - 43 dot 8 - (942 - 53) = -408$, and
+$C = 2^277 + (1 + n + dots + n^7)$, it tests
+$ q_1 n^8 + C dot 8! dot 2^408 <= E dot 8! dot 2^408, $
+which is the window condition multiplied by $8! dot 2^408$; here
+$E = 2^278 + 2^256$.
 
 *Condition 6* is on the whole table: $2 E = 2^279 + 2^257 < beta^ell = 2^320$.
 
