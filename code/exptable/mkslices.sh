@@ -74,7 +74,9 @@ LASTM=${RANGE#* }
   echo "   significand from the first M0 to the last M0 + n. *)"
   echo
   echo "From Stdlib Require Import ZArith List."
+  echo "From Stdlib Require Import PrimStringAxioms."
   echo "From ExpTable Require Import ExpCheck ExpParse ExpProof ExpCover."
+  echo "From ExpTable Require Import ExpParseSpec."
   echo "Import ListNotations."
   echo "Open Scope Z_scope."
   s=0
@@ -142,5 +144,20 @@ LASTM=${RANGE#* }
     s=$((s + 1))
   done
   echo "constructor."
+  echo "Qed."
+  echo
+  echo "(* The same, on the text: every significand M of the range is in"
+  echo "   [M0, M0 + n] of a line of the table whose text says x0 = M0 2^uexp,"
+  echo "   n and B, and M0, n, B satisfy the six conditions. *)"
+  echo "Theorem table_cover_text M :"
+  echo "  firstM ExpData00.lines <= M <= lastM ExpData$LAST.lines ->"
+  echo "  exists s M0 n B, In s (concat (ExpData00.lines :: rest)) /\\"
+  echo "    line_text (to_list s) M0 n B /\\ line_ok M0 n B /\\"
+  echo "    M0 <= M <= M0 + n."
+  echo "Proof."
+  echo "intros hM."
+  echo "destruct (table_cover M hM) as [s [M0 [n [B [hin [hp [hok hr]]]]]]]."
+  echo "exists s, M0, n, B; split; [exact hin|]."
+  echo "split; [exact (parse_sound _ _ _ _ hp)|split; [exact hok|exact hr]]."
   echo "Qed."
 } > ExpAll.v

@@ -366,6 +366,54 @@ parsing costs about 15 ms a line on the desktop (measured on 300 lines),
 about 70 s a slice. Tested on a table of 30 lines in 3 slices: it passes,
 and with one line removed it fails on the slice that holds the gap.
 
+= Reading the text of a line: `parse`
+
+The files hold the lines of `in_lt` as text, and the Rocq function `parse`
+(`ExpParse.v`) turns a line into its numbers $(M_0, n, B)$. `ExpParseSpec.v`
+says in plain definitions what a line means, and proves that `parse`
+reads exactly that. A line is the text
+
+#align(center)[`0x1.`$F$`p+`$X$ $N$ `0x`$W_0$ `0x`$W_1$ $dots$ `0x`$W_(k ell - 1)$]
+
+with single spaces between the fields, where:
+
+- $F$ is 1 to 13 hexadecimal digits of value $f$, and
+  $M_0 = 16^13 + f dot 16^(13 - |F|)$, so that
+  $x_0 = (1 + f slash 16^(|F|)) 2^9 = M_0 2^(-43)$ (a double may drop the
+  trailing zeros of $F$);
+- $X$ is decimal digits of value 9 (the binade of $x$);
+- $N$ is decimal digits of value $n$;
+- each $W_j$ is hexadecimal digits of value $w_j$, and
+  $B_i = w_(i ell) + w_(i ell + 1) beta + dots + w_(i ell + ell - 1)
+  beta^(ell - 1)$ for $i < k$: the words of $B_i$, least significant
+  first.
+
+A digit is its character: `0` to `9` for $0$ to $9$, `a` to `f` for $10$ to
+$15$. This is `line_text`, and the theorem is
+
+```coq
+Theorem parse_sound s M0 n B :
+  parse s = Some (M0, n, B) -> line_text (to_list s) M0 n B.
+```
+
+whatever `parse` returns is what the text says. With it, `ExpAll.v` states
+the final result on the text itself:
+
+```coq
+Theorem table_cover_text M :
+  firstM ExpData00.lines <= M <= lastM ExpData14.lines ->
+  exists s M0 n B, In s (concat (ExpData00.lines :: rest)) /\
+    line_text (to_list s) M0 n B /\ line_ok M0 n B /\
+    M0 <= M <= M0 + n.
+```
+
+*Every double $x = M 2^(-43)$ from the first $x_0$ of the table to the
+last $x_1$ lies in the subrange of a line of `in_lt` whose text says
+$x_0$, $n$ and $B_0, dots, B_7$, and these satisfy the six conditions.*
+Its axioms are those of Rocq's real numbers, functional extensionality,
+the excluded middle, and the primitive integers and strings. Tested on a
+table of 30 lines; on the whole table it needs the next run.
+
 = Running it
 
 `gen.py in_lt FIRST COUNT K L ExpData.v` writes lines $"FIRST" + 1$ to
@@ -406,11 +454,10 @@ agrees with the Rocq checker on the first 10 lines.
 
 = What is not checked
 
-- The coverage on the whole table in Rocq: `ExpCover.v` and the files it
-  generates are tested on 30 lines; the run on the 67 486 lines is the next
-  one on `roquableu` (Python finds no gap).
-- The parser: that `parse` reads a line as the text says. It agrees with
-  `gen.py` on the first 10 lines, but it is not proved.
+- The coverage and the final theorem on the whole table: `ExpCover.v`,
+  `ExpParseSpec.v` and the files `mkslices.sh` generates are tested on 30
+  lines; the run on the 67 486 lines is the next one on `roquableu`
+  (Python finds no gap).
 - The search itself: that is `TaylorLink.v`, which this check feeds.
 
 #pagebreak()
@@ -434,3 +481,9 @@ agrees with the Rocq checker on the first 10 lines.
 
 = `ExpCover.v`
 #listing("../code/exptable/ExpCover.v")
+
+= `ExpParse.v`
+#listing("../code/exptable/ExpParse.v")
+
+= `ExpParseSpec.v`
+#listing("../code/exptable/ExpParseSpec.v")
