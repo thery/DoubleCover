@@ -1,0 +1,49 @@
+Checking a table file with the Capla search
+===========================================
+
+htr3.b       the search of code/APaul/htr3_new.c for one line of a table, in
+             Capla (gitlab.inria.fr/fresco/capla), with k, l and ERR as
+             arguments: the table of differences, the window ERR on the top
+             word of B_0, the walk j = 0 .. N-1.
+main_htr3.c  C driver (Capla has no input/output): reads a table file in
+             htr3_new.c's format, runs search on each line and prints the
+             candidates x0 + j u, one per line, as htr3_new.c does.
+
+Building.  Needs the Capla compiler in ~/git/capla-compiler (CAPLA=... to
+change it), built in the opam switch capla:
+
+  make          htr3cap: compiled by Capla's verified compiler (ccomp)
+                htr3gcc: the same program written out as C by
+                `ccomp -dcaplac` (unverified backend), then gcc -O2
+
+Checking one file of the table.  The tables are in code/exptable9/archive,
+five parts holding the 2203 files in<e>:
+
+  mkdir tables
+  for P in ../../../../exptable9/archive/tables*.tar.bz2; do
+    tar xjf $P -C tables in1024 2>/dev/null; done
+  ./htr3cap tables/in1024 9 6 0x600000 > in1024.htr
+
+The loop takes in1024 from the part that holds it; without the file name
+it unpacks all 2203 files.
+
+The arguments are the file, k = 9, l = 6 and ERR = 0x600000 (hexadecimal),
+the values of htr3_new.c.  The output lists every candidate of every line
+of the file.  A line with more than 4000000 candidates stops the run.
+
+Cost.  A line costs N steps (its second field).  Measured on the desktop
+(one core, turbo off): 10^7 steps take 1.37 s with htr3cap, 1.13 s with
+htr3gcc.  So a file costs the sum of its N column times 0.137 us:
+
+  awk '{s += $2} END {print s * 0.137e-6 / 86400, "days"}' tables/in1024
+
+  in1024    294 lines   6.1e12 steps   about 10 days      (scaled)
+  in2       665 lines   4.5e15 steps   about 20 years     (scaled)
+  archive               5.6e17 steps   about 2400 years   (scaled)
+
+Test.  On the first line of in-1074 with N cut to 10^6, htr3cap, htr3gcc
+and htr3_new.c print the same 3 candidates.
+
+What is proved is in ../proof: on Capla's semantics, search returns every
+j < N that the hypotheses of hscan_exp make hard to round.  The C driver
+(reading, frexp, x0 + j u, printing) is not proved.
