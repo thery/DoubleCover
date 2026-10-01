@@ -35,7 +35,7 @@ Definition beta : Z := 2 ^ 64.    (* the machine word basis            *)
 Definition l : Z := 6.            (* words of an A_i or a B_i          *)
 Definition k : nat := 9.          (* terms of the Taylor polynomial    *)
 Definition m : Z := 43.           (* identical bits after the round bit *)
-Definition E : Z := 0x600001 * 2 ^ 320.  (* the window (inferred) *)
+Definition E : Z := 0x600000 * 2 ^ 320.  (* the window (inferred) *)
 Definition guard : Z := 64.       (* extra bits in the exp enclosure   *)
 
 (** ** Derived constants and the binary64 format
