@@ -5,17 +5,15 @@ CCOMP := $(CAPLA)/ccomp
 
 all: htr3cap htr3gcc htr
 
-.PHONY: all clean FORCE
-.PRECIOUS: tables/% cut/%
+.PHONY: all clean capla-c FORCE
+.PRECIOUS: tables/% cut/% %.htr %.htrc
 
 # Compiled by Capla's verified compiler.
 htr3cap: htr3.b main_htr3.c
 	$(CCOMP) -O2 htr3.b main_htr3.c -lm -o $@
 
-# The same Capla program, written out as C (unverified backend), then gcc.
-htr3_capla.c: htr3.b
-	cp htr3.b htr3_capla.b && $(CCOMP) -dcaplac -c htr3_capla.b && \
-	  rm -f htr3_capla.b htr3_capla.o
+# The same Capla program, written out as C by Capla's unverified backend
+# (htr3_capla.c, kept in the repository), then gcc: needs only gcc.
 htr3gcc: htr3_capla.c main_htr3.c
 	gcc -O2 htr3_capla.c main_htr3.c -lm -o $@
 
@@ -25,7 +23,7 @@ htr: htr.c
 
 # Checking one file of the table:
 #   make in1024.htr    with htr (htr3_new.c)
-#   make in1024.htrc   with the Capla search, PROG=htr3cap (default) or htr3gcc
+#   make in1024.htrc   with the Capla search, PROG=htr3gcc (default) or htr3cap
 #   make in1024.cmp    both, and compares their candidates
 # RANGE=a-b checks only lines a to b of the file, numbered from 1 (default:
 # all the lines).  The file is taken from the archive into tables/.
@@ -33,7 +31,7 @@ ARCHIVE := ../../../../exptable9/archive
 K := 9
 L := 6
 ERR := 0x600000
-PROG := htr3cap
+PROG := htr3gcc
 RANGE :=
 
 tables/%:
@@ -63,6 +61,16 @@ cut/%: tables/% FORCE
 
 FORCE:
 
+# Regenerates htr3_capla.c from htr3.b (needs the Capla compiler).
+capla-c:
+	cp htr3.b htr3_capla.b && $(CCOMP) -dcaplac -c htr3_capla.b && \
+	  rm -f htr3_capla.b htr3_capla.o
+	{ echo '/* Generated from htr3.b by Capla (`ccomp -dcaplac`, an unverified'; \
+	  echo '   backend): the Capla search written out as C, so that htr3gcc'; \
+	  echo '   needs only gcc.  Regenerate it with `make capla-c` (needs the'; \
+	  echo '   Capla compiler).  Read htr3.b, not this file. */'; echo; \
+	  cat htr3_capla.c; } > htr3_capla.tmp && mv htr3_capla.tmp htr3_capla.c
+
 clean:
-	rm -f htr3cap htr3gcc htr htr3_capla.c *.o
+	rm -f htr3cap htr3gcc htr *.o
 	rm -rf cut
