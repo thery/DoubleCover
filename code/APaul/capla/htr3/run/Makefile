@@ -26,26 +26,31 @@ htr: htr.c
 #   make in1024.htrc   with the Capla search, PROG=htr3gcc (default) or htr3cap
 #   make in1024.cmp    both, and compares their candidates
 # RANGE=a-b checks only lines a to b of the file, numbered from 1 (default:
-# all the lines).  The file is taken from the archive into tables/.
+# all the lines); MAXN=n only the first n inputs of each line (default: all,
+# a run with MAXN is a partial check).  The file is taken from the archive
+# into tables/: INDEX says which part holds it.
 ARCHIVE := ../../../../exptable9/archive
 K := 9
 L := 6
 ERR := 0x600000
 PROG := htr3gcc
 RANGE :=
+MAXN :=
 
 tables/%:
 	mkdir -p tables
-	for P in $(ARCHIVE)/tables*.tar.bz2; do \
-	  tar xjf $$P -C tables $* 2>/dev/null || true; done
-	test -f $@
+	P=$$(awk -v f=$* '$$1 == f { print $$2 }' $(ARCHIVE)/INDEX); \
+	  test -n "$$P" || { echo "$*: not in $(ARCHIVE)/INDEX"; exit 1; }; \
+	  tar xjf $(ARCHIVE)/$$P -C tables --occurrence=1 $*
 
-# The lines of the file in RANGE (rebuilt on every run, as RANGE may change).
+# The lines of the file in RANGE, cut to MAXN inputs (rebuilt on every run,
+# as RANGE and MAXN may change).
 cut/%: tables/% FORCE
 	mkdir -p cut
-	awk -v r=$(RANGE) 'BEGIN { a = 1; b = -1; \
+	awk -v r=$(RANGE) -v m=$(MAXN) 'BEGIN { a = 1; b = -1; \
 	  if (r != "") { split(r, x, "-"); a = x[1]; b = x[2] } } \
-	  NR >= a && (b < 0 || NR <= b)' $< > $@
+	  NR >= a && (b < 0 || NR <= b) { \
+	    if (m != "" && $$2 + 0 > m + 0) $$2 = m; print }' $< > $@
 
 %.htr: htr cut/%
 	./htr cut/$* > $@

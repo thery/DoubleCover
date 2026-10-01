@@ -24,17 +24,21 @@ Building.  Three programs:
 `make htr htr3gcc` needs gcc and GMP only; `make` builds all three.
 
 Checking one file.  The tables are in code/exptable9/archive, five parts
-holding the 2203 files in<e>; make takes the file it needs into tables/.
+holding the 2203 files in<e>; make takes the file it needs into tables/
+(archive/INDEX says which part holds it; about 4 s, once per file).
 
   make in1024.htr                 the candidates of htr
   make in1024.htrc                those of the Capla search (htr3gcc;
                                   PROG=htr3cap for the verified build)
   make in1024.cmp                 both, and checks they are the same
   make in1024.cmp RANGE=10-15     only lines 10 to 15 of the file
+  make in1024.cmp MAXN=1000000    only the first 10^6 inputs of each line
 
-RANGE=a-b keeps lines a to b, numbered from 1; without it the whole file is
-checked.  The outputs list every candidate x0 + j u of the lines checked
-(htr.c prints them in the order its threads find them, so .cmp sorts both).
+RANGE=a-b keeps lines a to b, numbered from 1; MAXN=n keeps the first n
+inputs of each line.  Without them the whole file is checked; with MAXN
+the check is partial.  The outputs list every candidate x0 + j u of the
+lines checked (htr.c prints them in the order its threads find them, so
+.cmp sorts both).
 A line with more than 4000000 candidates stops the Capla run.  Without
 Capla installed, everything above works with the default PROG=htr3gcc.
 
@@ -56,19 +60,37 @@ The two programs, line by line:
   x0 + j u are in main_htr3.c, as in htr.c.  htr.c runs lines in parallel
   (OpenMP); main_htr3.c runs them one after the other.
 
+A quick example, with candidates:
+
+  make in-1074.cmp RANGE=1-1 MAXN=1000000
+
+checks the first 10^6 inputs of the first line of in-1074, in a few
+seconds; both programs print the same 3 candidates, the first three
+inputs of the line:
+
+  -0x1.74910d52d3051p+9
+  -0x1.74910d52d305p+9
+  -0x1.74910d52d304fp+9
+
+A candidate is an input whose top word falls in the window; the search
+misses no hard-to-round input, but each candidate still needs an exact
+check to be one.
+
 Cost.  A line costs N steps (its second field):
 
   awk '{s += $2} END {print s}' tables/in1024
 
-Over the archive (computed): about 2e10 steps a line; at least 6.1e12 a
+Over the archive (computed): about 2e10 steps a line (52 lines have
+N = 1, all the others at least 9e9); at least 6.1e12 a
 file (in1024, in-1074), 1.2e13 for the median file, 4.5e15 for in2.  Time
 per step, measured on the desktop, one core, turbo off (a slow clock chosen
 to compare programs, not to predict a run): 0.069 us with htr, 0.113 us
 with htr3gcc, 0.137 us with htr3cap.  So one line of in1024 takes about
 24 minutes with htr at that speed (scaled); a faster core divides it.
 
-Test.  On in-1074 with every line cut to its first 1038907 inputs, htr and
-htr3cap print the same 3 candidates.  No whole line has been run.
+Tests: the example above, with htr3gcc and with htr3cap; on in-1074 with
+every line cut to its first 1038907 inputs, the same 3 candidates.  No
+whole line has been run.
 
 What is proved is in ../proof: on Capla's semantics, search returns every
 j < N that the hypotheses of hscan_exp make hard to round.  Not proved:
