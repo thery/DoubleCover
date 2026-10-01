@@ -106,10 +106,16 @@ Over the 687 184 lines (all measured with Python on the files):
 
 - $beta = 2^64$ is the word basis, $ell$ the number of words of a
   coefficient.
-- A subrange is $[x_0, x_1]$ with $x_1 = x_0 + n u$, where $u = "ulp"(x)$ is
-  the same for all $x$ in it. The search looks at the $n + 1$ inputs
-  $x_0 + j u$, $j = 0, dots, n$.
-- $v = 1/2 "ulp"(exp x)$, the same for all $x$ in $[x_0, x_1]$.
+- A subrange goes from $x_0$ to $x_1 = x_0 + n u$, where $u = "ulp"(x)$ is
+  the same for all $x$ in it. The parameter `closed` (section 6) says
+  whether $x_1$ is in it. With $d = 0$ when `closed` is `true` and $d = 1$
+  when it is `false`, the search looks at the inputs $x_0 + j u$,
+  $j = 0, dots, n - d$: the subrange is $[x_0, x_1]$ ($n + 1$ inputs) or
+  $[x_0, x_1)$ ($n$ inputs). The last input is
+  $ x_l = x_0 + (n - d) u = S_L u, quad S_L = S_0 + n - d. $
+  The current tables are closed: `closed` is `true`, $d = 0$ and
+  $x_l = x_1$.
+- $v = 1/2 "ulp"(exp x)$, the same for all $x$ in $[x_0, x_l]$.
 - $a_i = exp(x_0) u^i slash i!$, $0 <= i < k$, the Taylor coefficients.
 - $A_i$ is an integer with $0 <= A_i < beta^ell$ and
   $|A_i - beta^ell "frac"(a_i slash v)| < 1$, and
@@ -130,11 +136,11 @@ positive and in $[2^9, 2^10)$:
   $x_0 = S_0 u$, $2^52 <= |S_0| < 2^53$, and $S_0 < 0$ when $x_0 < 0$. The
   inputs are $x_0 + j u = (S_0 + j) u$. Both $e_x$ and $S_0$ are read from
   the text of the line (for `-0x1.74910d52d3051p+9`, $e_x = 9$ and
-  $S_0 = -#raw("0x174910d52d3051")$). The search always goes upwards: $u > 0$ and $x_1 >= x_0$, also
+  $S_0 = -#raw("0x174910d52d3051")$). The search always goes upwards: $u > 0$ and $x_l >= x_0$, also
   when $x_0$ is negative, where it goes towards 0 ($|S_0 + j|$ decreases).
   (The other choice would have been to search away from 0, with
   $x_1 < x_0$ for a negative $x_0$.) Condition 1 checks it on every line:
-  $S_0$ and $S_0 + n$ have the same sign and both have 53 bits.
+  $S_0$ and $S_L$ have the same sign and both have 53 bits.
 - *$v$ for small outputs.* If $2^e <= exp(x) < 2^(e+1)$ with $e >= -1022$,
   the doubles near $exp(x)$ are the multiples of $2^(e - 52)$, and
   $v = 2^(e - 53)$. Below $2^(-1021)$, the subnormal doubles and those of
@@ -147,18 +153,20 @@ positive and in $[2^9, 2^10)$:
 
 For one line, the search misses no hard case when:
 
-+ *$u$ is constant:* $0 <= n$, and $S_0$ and $S_0 + n$ have the same sign
-  and absolute values in $[2^52, 2^53)$, so every $x_0 + j u$ has exponent
-  $e_x$;
++ *$u$ is constant:* $d <= n$ (so a line has at least one input), and
+  $S_0$ and $S_L$ have the same sign and absolute values in
+  $[2^52, 2^53)$, so every $x_0 + j u$ has exponent $e_x$;
 + *$v$ is constant:* $2^e <= exp(x_0)$ and
-  $exp(x_1) < 2^(max(e, -1022) + 1)$, so $v = 2^(max(e, -1022) - 53)$
+  $exp(x_l) < 2^(max(e, -1022) + 1)$, so $v = 2^(max(e, -1022) - 53)$
   fits every $exp(x)$ of the subrange;
 + *(H_A):* there are $A_0, dots, A_(k-1)$ with $0 <= A_i < beta^ell$ and
   $|A_i - beta^ell "frac"(a_i slash v)| < 1$, and the line holds
   $B_i = P(i) mod beta^ell$ for $i < k$;
-+ *(H_T):* for $0 <= j <= n$,
++ *(H_T):* for $0 <= j <= n - d$,
   $ |exp(x_0 + j u) slash v - (a_0 + a_1 j + dots + a_(k-1) j^(k-1)) slash v|
-    <= rho, quad rho = exp(x_1) (n u)^k / (k! v); $
+    <= rho, quad rho = exp(x_l) (n u)^k / (k! v); $
+  the power is $(n u)^k$, not $((n - d) u)^k$: it bounds $(j u)^k$ for
+  every $j <= n$;
 + *(H_E):* $E >= beta^ell (2^(-m) + rho) + (1 + n + dots + n^(k-1))$;
 + *the window is less than half the modulus:* $2 E < beta^ell$.
 
@@ -179,13 +187,19 @@ Definition k : nat := 9.          (* terms of the Taylor polynomial    *)
 Definition m : Z := 43.           (* identical bits after the round bit *)
 Definition E : Z := 0x600000 * 2 ^ 320.  (* the window (inferred) *)
 Definition guard : Z := 64.       (* extra bits in the exp enclosure   *)
+Definition closed : bool := true. (* true: j = 0..n; false: j = 0..n-1 *)
 ```
+
+`closed` says which inputs a line holds (section 4); everything else is
+derived from it: `drop` is $d$, and the checker and the coverage both use
+the last input $S_L = S_0 + n - d$. The current tables are checked with
+`closed` = `true`.
 
 $E$ is not in the tables, and the program that reads these tables is not
 in the repository: *$E$ is inferred from the tables*. Over the 687 184
 lines, the two error terms of condition 5 each reach $2^(-43)$ exactly and
 never more (computed with Python from $n$ and $e_x$ alone, bounding
-$exp(x_1) slash v < 2^54$):
+$exp(x_l) slash v < 2^54$, with `closed` = `true`):
 
 #align(center, table(columns: 3, align: (left, right, left),
   stroke: 0.4pt, inset: 4pt,
@@ -214,11 +228,11 @@ are right).
 `check_line`, with integers only, except for two calls to the certified
 $exp$ of the Interval library.
 
-+ *Condition 1:* integer tests on $n$, $|S_0|$, $|S_0 + n|$ and the sign of
-  $S_0 (S_0 + n)$.
++ *Condition 1:* integer tests on $n$, $|S_0|$, $|S_L|$ and the sign of
+  $S_0 S_L$.
 + *Enclosures.* `encl` builds the double $S_0 2^(e_x - 52)$ as a float of
   Interval and calls its $exp$ at $384 + 53 + 64 = 501$ bits:
-  $L_0 <= exp(x_0) <= U_0$, and the same at $x_1$.
+  $L_0 <= exp(x_0) <= U_0$, and the same at $x_l$: $L_1 <= exp(x_l) <= U_1$.
 + *Condition 2.* $e$ is the exponent of $L_0$; the test is
   $U_1 < 2^(max(e, -1022) + 1)$.
 + *Condition 3.* For each $i$, $T = beta^ell a_i slash v$ is $exp(x_0)$
@@ -229,7 +243,7 @@ $exp$ of the Interval library.
   $beta^ell "frac"(a_i slash v)$. It computes $P(0), dots, P(8)$ modulo
   $beta^ell$ and compares them with the $B_i$.
 + *Condition 4* needs no test: it is the Taylor theorem (`ExpTaylor.v`).
-+ *Condition 5* is one integer inequality, with $exp(x_1)$ replaced by
++ *Condition 5* is one integer inequality, with $exp(x_l)$ replaced by
   $U_1$.
 + *Condition 6* is checked once by `check_raw`.
 
@@ -292,7 +306,8 @@ $S_0 = -(16^13 + #raw("0x74910d52d3051")) = -6554261109157969$ and
 $e_x = 9$.
 
 *Condition 1: $u$ is constant.* $u = 2^(9 - 52) = 2^(-43)$. The inputs are
-$(S_0 + j) 2^(-43)$ for $j = 0, dots, n$, from $x_0 approx -745.133219$ to
+$(S_0 + j) 2^(-43)$ for $j = 0, dots, n$ (the tables are closed, so the
+last input $x_l$ is $x_1$), from $x_0 approx -745.133219$ to
 $x_1 = (S_0 + n) 2^(-43) approx -745.130857$, with
 $S_0 + n = -6554240331008603$. Both significands are negative with absolute
 values in $[2^52, 2^53)$, so every input has exponent 9: the search walks
@@ -460,11 +475,13 @@ checks by evaluation that `check_line` answers `false` on each of them, in
 
 Each line is checked alone; that the lines, put together, leave no input
 out is checked by `ExpCover.v`. A line covers the doubles
-$(S_0 + j) u$, $j = 0, dots, n$; the next line must start at the next
-double after $(S_0 + n) u$, going upwards. Within a binade that is
-$(S_0 + n + 1) u$; at the top of a binade ($S_0 + n + 1 = 2^53$) it is
+$(S_0 + j) u$, $j = 0, dots, n - d$; the next line must start at the next
+double after its last input $x_l = S_L u$, going upwards. Within a binade
+that is $(S_L + 1) u$; at the top of a binade ($S_L + 1 = 2^53$) it is
 $2^52 dot 2 u$, and for negative $x$ at the end of a binade
-($S_0 + n = -2^52$) it is $-(2^53 - 1) dot u slash 2$.
+($S_L = -2^52$) it is $-(2^53 - 1) dot u slash 2$. So even for a half-open
+line ($d = 1$) the next $x_0$ is not always $x_1 = x_0 + n u$: going up
+from a negative binade, $u$ halves.
 
 - `contig` checks this between consecutive lines of a file, by parsing
   only (no $exp$); one file `Cover_N.v` per table file, with
@@ -474,9 +491,9 @@ $2^52 dot 2 u$, and for negative $x$ at the end of a binade
   runs of files that follow each other; `joins` checks the boundaries.
 - `cover_ok` is the theorem: if the files of a run are contiguous, join,
   and all their lines satisfy the six conditions, then every normal double
-  $y = S u'$ between the first $x_0$ and the last $x_1$ of the run lies in
-  $[x_0, x_1]$ of one of its lines, with the same exponent, so
-  $y = x_0 + j u$ for some $0 <= j <= n$. `AllCover.v` states it for each
+  $y = S u'$ between the first $x_0$ and the last $x_l$ of the run lies in
+  $[x_0, x_l]$ of one of its lines, with the same exponent, so
+  $y = x_0 + j u$ for some $0 <= j <= n - d$. `AllCover.v` states it for each
   run, on the text of the lines, as `table_cover_text` does for `in_lt`.
 
 On the archive (checked with Python over all 687 184 lines, exact

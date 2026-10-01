@@ -82,13 +82,14 @@ Proof.
 induction N as [|N IH]; simpl; [|rewrite IH]; unfold Rdiv; ring.
 Qed.
 
-(** Condition 4 of [line_ok], for [j] in [[0, n]]. *)
-Lemma HT_ok (x0 u v : R) (n j : Z) : 0 < u -> 0 < v -> (0 <= j <= n)%Z ->
+(** Condition 4 of [line_ok], for [j] in [[0, jl]], [jl <= n]. *)
+Lemma HT_ok (x0 u v : R) (n jl j : Z) : 0 < u -> 0 < v ->
+  (0 <= j <= jl)%Z -> (jl <= n)%Z ->
   Rabs (exp (x0 + IZR j * u) / v - sumR (fun i => a x0 u i / v * IZR j ^ i) k)
-    <= exp (x0 + IZR n * u) * (IZR n * u) ^ k / (INR (fact k) * v).
+    <= exp (x0 + IZR jl * u) * (IZR n * u) ^ k / (INR (fact k) * v).
 Proof.
-intros Hu Hv [Hj Hjn].
-apply IZR_le in Hj; apply IZR_le in Hjn.
+intros Hu Hv [Hj Hjl] Hln.
+apply IZR_le in Hj; apply IZR_le in Hjl; apply IZR_le in Hln.
 assert (Hh : 0 <= IZR j * u) by (apply Rmult_le_pos; lra).
 (* The sum is the Taylor sum at [h = j u], divided by [v]. *)
 rewrite (sumR_ext _ (fun i => exp x0 * (IZR j * u) ^ i / INR (fact i) / v)).
@@ -101,16 +102,16 @@ replace (exp (x0 + IZR j * u) / v - Sj / v) with
 rewrite Rabs_div, (Rabs_right v) by lra.
 assert (0 < INR (fact k)) by apply INR_fact_lt_0.
 replace (_ / (INR (fact k) * v)) with
-  (exp (x0 + IZR n * u) * (IZR n * u) ^ k / INR (fact k) / v)
+  (exp (x0 + IZR jl * u) * (IZR n * u) ^ k / INR (fact k) / v)
   by (field; lra).
 apply Rmult_le_compat_r; [left; apply Rinv_0_lt_compat; lra|].
 eapply Rle_trans; [apply taylor_exp; lra|].
-(* The bound grows with [j], so [j = n] is the worst case. *)
+(* The bound grows with [j]: [exp] up to [jl], the power up to [n]. *)
 unfold Rdiv; apply Rmult_le_compat_r; [left; apply Rinv_0_lt_compat; lra|].
 apply Rmult_le_compat.
 - left; apply exp_pos.
 - now apply pow_le.
-- destruct (Rle_lt_or_eq_dec _ _ Hjn) as [Hlt|Heq]; [|rewrite Heq; lra].
+- destruct (Rle_lt_or_eq_dec _ _ Hjl) as [Hlt|Heq]; [|rewrite Heq; lra].
   left; apply exp_increasing; nra.
 - apply pow_incr; split; [lra|]; nra.
 Qed.
