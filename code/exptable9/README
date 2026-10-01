@@ -46,6 +46,7 @@ hold exactly the 2203 files of Paul's all.tar.bz2.  Then
   ulimit -s unlimited
   ./fullrun.sh 20 2>&1 | tee full.log
 
-checks the parts (INDEX lists the part holding each file), unpacks them into tables/, writes one Data_N.v,
-Run_N.v and Cover_N.v per file, runs them with 20 workers and builds
-SampleAll.v and AllCover.v over all the files.
+checks the parts (INDEX lists the part holding each file), unpacks them
+into tables/, writes one Data_N.v, Run_N.v and Cover_N.v per file, runs
+them with 20 workers and builds SampleAll.v and AllCover.v over all the
+files.
