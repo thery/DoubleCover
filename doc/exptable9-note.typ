@@ -126,7 +126,11 @@ positive and in $[2^9, 2^10)$:
   with $S_0$ an integer, $2^52 <= |S_0| < 2^53$, negative when $x_0$ is;
   then $u = 2^(e_x - 52)$ and the inputs are
   $x_0 + j u = (S_0 + j) 2^(e_x - 52)$. Both $S_0$ and $e_x$ are read from
-  the line.
+  the line. The search always goes upwards: $u > 0$ and $x_1 >= x_0$, also
+  when $x_0$ is negative, where it goes towards 0 ($|S_0 + j|$ decreases).
+  (The other choice would have been to search away from 0, with
+  $x_1 < x_0$ for a negative $x_0$.) Condition 1 checks it on every line:
+  $S_0$ and $S_0 + n$ have the same sign and both have 53 bits.
 - *$v$ for small outputs.* If $2^e <= exp(x) < 2^(e+1)$ with $e >= -1022$,
   the doubles near $exp(x)$ are the multiples of $2^(e - 52)$, and
   $v = 2^(e - 53)$. Below $2^(-1021)$, the subnormal doubles and those of
