@@ -1,8 +1,8 @@
 (** * Checking a table for the hard-to-round search of exp, by reflection
 
     The search is the one of [doc/htr.md] (Paul Zimmermann), whose
-    notation we keep.  The inputs are cut into subranges [[x0, x1]] with
-    [x1 = x0 + n u], [u = ulp x] and [v = ulp(exp x) / 2] constant on
+    notation we keep.  The inputs are cut into subranges from [x0] to
+    [x1 = x0 + n u], with [u = ulp x] and [v = ulp(exp x) / 2] constant on
     each.  With [a_i = exp x0 u^i / i!], each [A_i] is an integer with
     [0 <= A_i < beta^l] and [|A_i - beta^l frac(a_i/v)| < 1], and
     [P(j) = A_0 + A_1 j + ... + A_(k-1) j^(k-1)].
@@ -11,7 +11,10 @@
     [i < k].  Here [x0] is any normal double, positive or negative, and
     [exp x0] may be subnormal.  [x0] is written [S0 2^(ex - 52)], [S0] an
     integer with [2^52 <= |S0| < 2^53]; then [u = 2^(ex - 52)] and the
-    inputs are [x0 + j u = (S0 + j) 2^(ex - 52)], [j = 0 .. n].
+    inputs are [x0 + j u = (S0 + j) 2^(ex - 52)]: [j = 0 .. n] if the
+    parameter [closed] is [true] (the subrange is [[x0, x1]]), [j = 0 ..
+    n - 1] if it is [false] (the subrange is [[x0, x1)]).  The last input
+    is [x_last = SL 2^(ex - 52)], [SL = S0 + n - drop].
 
     [line_ok] states the six conditions under which the search on a line
     misses no hard case; [check_line] tests them.  This file holds the
@@ -37,6 +40,7 @@ Definition k : nat := 9.          (* terms of the Taylor polynomial    *)
 Definition m : Z := 43.           (* identical bits after the round bit *)
 Definition E : Z := 0x600000 * 2 ^ 320.  (* the window (inferred) *)
 Definition guard : Z := 64.       (* extra bits in the exp enclosure   *)
+Definition closed : bool := false. (* true: j = 0..n; false: j = 0..n-1 *)
 
 (** ** Derived constants and the binary64 format
 
@@ -54,6 +58,9 @@ Definition prec : Z := 53.        (* bits of a double                  *)
 Definition emin : Z := -1022.     (* smallest normal exponent          *)
 Definition iprec : SFBI2.precision :=
   SFBI2.PtoP (Z.to_pos (lbits + prec + guard)).
+
+(** The inputs of a line are [x0 + j u], [j = 0 .. n - drop]. *)
+Definition drop : Z := if closed then 0 else 1.
 
 (** [u = 2^uexp ex] for [x0] in [[2^ex, 2^(ex+1))]. *)
 Definition uexp (ex : Z) : Z := ex - (prec - 1).
@@ -80,19 +87,21 @@ Definition Pz (A : list Z) (j : Z) : Z :=
   fold_right Z.add 0%Z
     (map (fun i => (nth i A 0 * j ^ Z.of_nat i)%Z) (seq 0 k)).
 
-(** The six conditions on a line [(x0, n, B)], [x0 = S0 2^(ex - 52)]. *)
+(** The six conditions on a line [(x0, n, B)], [x0 = S0 2^(ex - 52)],
+    whose last input is [xl = SL 2^(ex - 52)]. *)
 Definition line_ok (S0 ex n : Z) (B : list Z) : Prop :=
   let u := bp (uexp ex) in
+  let SL := (S0 + n - drop)%Z in
   let x0 := IZR S0 * u in
-  let x1 := IZR (S0 + n) * u in
+  let xl := IZR SL * u in
   exists e : Z,
   let v := bp (vexp e) in
-  let rho := exp x1 * (IZR n * u) ^ k / (INR (fact k) * v) in
-  (* 1. u is constant: every S0 + j, j = 0 .. n, has 53 bits *)
-  (0 <= n)%Z /\ (2 ^ 52 <= Z.abs S0 < 2 ^ 53)%Z /\
-  (2 ^ 52 <= Z.abs (S0 + n) < 2 ^ 53)%Z /\ (0 < S0 * (S0 + n))%Z /\
-  (* 2. v is constant on [exp x0, exp x1] *)
-  bp e <= exp x0 /\ exp x1 < bp (Z.max e emin + 1) /\
+  let rho := exp xl * (IZR n * u) ^ k / (INR (fact k) * v) in
+  (* 1. u is constant: every S0 + j, j = 0 .. n - drop, has 53 bits *)
+  (drop <= n)%Z /\ (2 ^ 52 <= Z.abs S0 < 2 ^ 53)%Z /\
+  (2 ^ 52 <= Z.abs SL < 2 ^ 53)%Z /\ (0 < S0 * SL)%Z /\
+  (* 2. v is constant on [exp x0, exp xl] *)
+  bp e <= exp x0 /\ exp xl < bp (Z.max e emin + 1) /\
   (* 3. (H_A), and the table holds P(0) .. P(k-1) *)
   (exists A : list Z, length A = k /\ length B = k /\
     (forall i, (i < k)%nat ->
@@ -101,7 +110,7 @@ Definition line_ok (S0 ex n : Z) (B : list Z) : Prop :=
     (forall i, (i < k)%nat ->
        nth i B 0%Z = (Pz A (Z.of_nat i) mod beta_l)%Z)) /\
   (* 4. (H_T), the Taylor remainder *)
-  (forall j, (0 <= j <= n)%Z ->
+  (forall j, (0 <= j <= n - drop)%Z ->
      Rabs (exp (x0 + IZR j * u) / v -
            sumR (fun i => a x0 u i / v * IZR j ^ i) k) <= rho) /\
   (* 5. (H_E), the window *)
@@ -187,7 +196,7 @@ Fixpoint coefs (mL fL mU fU ve ue : Z) (i : nat) (fk : Z) (c : nat)
 Definition sumn (n : Z) : Z :=
   fold_right Z.add 0 (map (fun i => n ^ Z.of_nat i) (seq 0 k)).
 
-(** (H_E) with [exp x1 <= mU 2^fU]:
+(** (H_E) with [exp xl <= mU 2^fU]:
     [beta^l (2^-m + mU 2^fU (n u)^k / (k! v)) + sumn n <= E]. *)
 Definition window_ok (mU fU ve ue n : Z) : bool :=
   let X := mU * n ^ Z.of_nat k in
@@ -198,12 +207,12 @@ Definition window_ok (mU fU ve ue n : Z) : bool :=
   else Z.leb (X + C * kf * 2 ^ (- g)) (E * kf * 2 ^ (- g)).
 
 Definition check_line (S0 ex n : Z) (B : list Z) : bool :=
-  let S1 := S0 + n in
+  let SL := S0 + n - drop in
   let ue := uexp ex in
-  Z.leb 0 n && Z.leb (2 ^ 52) (Z.abs S0) && Z.ltb (Z.abs S0) (2 ^ 53) &&
-  Z.leb (2 ^ 52) (Z.abs S1) && Z.ltb (Z.abs S1) (2 ^ 53) &&
-  Z.ltb 0 (S0 * S1) && Nat.eqb (length B) k &&
-  match encl S0 ue, encl S1 ue with
+  Z.leb drop n && Z.leb (2 ^ 52) (Z.abs S0) && Z.ltb (Z.abs S0) (2 ^ 53) &&
+  Z.leb (2 ^ 52) (Z.abs SL) && Z.ltb (Z.abs SL) (2 ^ 53) &&
+  Z.ltb 0 (S0 * SL) && Nat.eqb (length B) k &&
+  match encl S0 ue, encl SL ue with
   | Some (mL0, fL0, mU0, fU0), Some (mL1, fL1, mU1, fU1) =>
     let e := Z.log2 mL0 + fL0 in
     let ve := vexp e in

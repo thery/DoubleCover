@@ -1,10 +1,13 @@
 (** * The lines of the table cover a whole range of doubles
 
     A line [(x0, n, B)], [x0 = S0 2^(ex - 52)], covers the doubles
-    [(S0 + j) 2^(ex - 52)], [j = 0 .. n].  [contig] checks on the text
-    that each line stays in one binade and starts at the double right
-    after the last one of the previous line; then the lines hold every
-    double from the first [x0] to the last [x1].  Only [parse] is
+    [(S0 + j) 2^(ex - 52)], [j = 0 .. n - drop] (see [closed] in
+    [ExpCheck]); the last one is [SL = S0 + n - drop].  [contig] checks
+    on the text that each line stays in one binade and starts at the
+    double right after the last one of the previous line; then the lines
+    hold every double from the first [x0] to the last [SL].  The next
+    double is not always [x0 + n u]: going up from a negative [x] that
+    crosses a binade, [u] halves.  Only [parse] is
     evaluated, never [exp].  [joins] lets the table be checked one file
     at a time. *)
 
@@ -45,8 +48,8 @@ Fixpoint chain (p : Z * Z) (ls : list string) : bool :=
   | s :: ls' =>
     match parse s with
     | Some (S0, ex, n, _) =>
-      Z.eqb S0 (fst p) && Z.eqb ex (snd p) && inbin S0 n &&
-      chain (next (S0 + n) ex) ls'
+      Z.eqb S0 (fst p) && Z.eqb ex (snd p) && inbin S0 (n - drop) &&
+      chain (next (S0 + (n - drop)) ex) ls'
     | None => false
     end
   end.
@@ -59,7 +62,7 @@ Definition firstX (ls : list string) : Z * Z :=
   | [] => (0, 0)
   end.
 
-(** The last double [x1] of the last line. *)
+(** The last double [SL] of the last line. *)
 Fixpoint lastX (ls : list string) : Z * Z :=
   match ls with
   | [] => (0, 0)
@@ -67,7 +70,7 @@ Fixpoint lastX (ls : list string) : Z * Z :=
     match ls' with
     | [] =>
       match parse s with
-      | Some (S0, ex, n, _) => (S0 + n, ex)
+      | Some (S0, ex, n, _) => (S0 + (n - drop), ex)
       | None => (0, 0)
       end
     | _ => lastX ls'
@@ -225,7 +228,7 @@ destruct (inbinP _ _ hb) as [hn [h0 [hl hsg]]].
 destruct ls as [|s' ls'].
 - cbn [lastX]; rewrite hs; cbn [fst]; rewrite <- h1; tauto.
 - change (lastX (s :: s' :: ls')) with (lastX (s' :: ls')).
-  destruct (next_ok (S0 + n) ex hl) as [hn1 [hs1 _]].
+  destruct (next_ok (S0 + (n - drop)) ex hl) as [hn1 [hs1 _]].
   destruct (IH _ hc ltac:(discriminate) hn1) as [hl2 hs2].
   split; [exact hl2|rewrite <- h1; tauto].
 Qed.
@@ -237,7 +240,7 @@ Lemma chain_cover p ls S ex : chain p ls = true -> ls <> [] ->
   rank (fst p) (snd p) <= rank S ex <=
     rank (fst (lastX ls)) (snd (lastX ls)) ->
   exists s S0 n B, In s ls /\ parse s = Some (S0, ex, n, B) /\
-    S0 <= S <= S0 + n.
+    S0 <= S <= S0 + (n - drop).
 Proof.
 revert p; induction ls as [|s ls IH]; intros p h hne hp hS hsg hr;
   [congruence|].
@@ -247,15 +250,15 @@ apply andb_prop in h as [h hc]; apply andb_prop in h as [h hb].
 apply andb_prop in h as [h1 h2]; apply Z.eqb_eq in h1, h2.
 destruct p as [Sp ep]; cbn [fst snd] in *; subst Sp ep.
 destruct (inbinP _ _ hb) as [hn [h0 [hl hsl]]].
-assert (he := rank_end S0 ex0 n hn h0 hl hsl).
-destruct (Z_le_gt_dec (rank S ex) (rank S0 ex0 + n)) as [hle|hgt].
-- destruct (rank_line S0 ex0 n S ex hn h0 hl hS hsl hsg ltac:(lia))
+assert (he := rank_end S0 ex0 (n - drop) hn h0 hl hsl).
+destruct (Z_le_gt_dec (rank S ex) (rank S0 ex0 + (n - drop))) as [hle|hgt].
+- destruct (rank_line S0 ex0 (n - drop) S ex hn h0 hl hS hsl hsg ltac:(lia))
     as [-> hr2].
   exists s, S0, n, B; split; [left; reflexivity|split; [exact hs|exact hr2]].
 - destruct ls as [|s' ls'].
   + cbn [lastX] in hr; rewrite hs in hr; cbn [fst snd] in hr; lia.
   + change (lastX (s :: s' :: ls')) with (lastX (s' :: ls')) in hr.
-    destruct (next_ok (S0 + n) ex0 hl) as [hn1 [hs1 hr1]].
+    destruct (next_ok (S0 + (n - drop)) ex0 hl) as [hn1 [hs1 hr1]].
     destruct (IH _ hc ltac:(discriminate) hn1 hS ltac:(tauto)
       ltac:(lia)) as [t [S1 [n1 [B1 [ht [hp1 hr3]]]]]].
     exists t, S1, n1, B1; split; [right; exact ht|split; assumption].
@@ -346,8 +349,8 @@ Qed.
 
 (** If the lists [l0 :: Ls] are each contiguous, join, and hold good
     lines, every normal double [y] between the first [x0] and the last
-    [x1] is a double [x0 + j u] of a line that satisfies the six
-    conditions. *)
+    double [SL u] is a double [x0 + j u], [0 <= j <= n - drop], of a line
+    that satisfies the six conditions. *)
 Theorem cover_ok l0 Ls :
   Forall (fun l => contig l = true) (l0 :: Ls) ->
   Forall lines_good (l0 :: Ls) ->
@@ -357,9 +360,9 @@ Theorem cover_ok l0 Ls :
    val (fst (lastX (last Ls l0))) (snd (lastX (last Ls l0))))%R ->
   exists s S0 n B, In s (concat (l0 :: Ls)) /\
     parse s = Some (S0, ex, n, B) /\ line_ok S0 ex n B /\
-    S0 <= S <= S0 + n /\
+    S0 <= S <= S0 + n - drop /\
     (IZR S0 * bp (uexp ex) <= IZR S * bp (uexp ex) <=
-     IZR (S0 + n) * bp (uexp ex))%R.
+     IZR (S0 + n - drop) * bp (uexp ex))%R.
 Proof.
 intros hc hg hj S ex hS hy.
 destruct (contig_concat l0 Ls hc hj) as [hc1 [hf hl]].
@@ -407,7 +410,7 @@ split.
   rewrite Forall_forall in hg.
   destruct (hg l hl0 s hsl0) as [S1 [ex1 [n1 [B1 [hp1 hok]]]]].
   rewrite hps in hp1; injection hp1 as -> -> -> ->; exact hok.
-- split; [exact hr2|].
+- split; [lia|].
   assert (hu := bp_pos (uexp ex)).
   split; apply Rmult_le_compat_r; try lra; apply IZR_le; lia.
 Qed.

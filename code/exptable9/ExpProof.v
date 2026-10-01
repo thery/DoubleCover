@@ -17,7 +17,7 @@ unfold check_line.
 set (ue := uexp ex).
 destruct (encl S0 ue) as [[[[mL0 fL0] mU0] fU0]|] eqn:h0;
   [|rewrite !andb_false_r; discriminate].
-destruct (encl (S0 + n) ue) as [[[[mL1 fL1] mU1] fU1]|] eqn:h1;
+destruct (encl (S0 + n - drop) ue) as [[[[mL1 fL1] mU1] fU1]|] eqn:h1;
   [|rewrite !andb_false_r; discriminate].
 set (e := (Z.log2 mL0 + fL0)%Z).
 destruct (coefs mL0 fL0 mU0 fU0 (vexp e) ue 0 1 k) as [A|] eqn:hc;
@@ -39,8 +39,10 @@ destruct (encl_ok _ _ _ _ _ _ h0) as [pL0 [pU0 [lo0 up0]]].
 destruct (encl_ok _ _ _ _ _ _ h1) as [pL1 [pU1 [lo1 up1]]].
 exists e; cbv zeta; fold ue.
 assert (hu : 0 < bp ue) by apply bpow_gt_0.
-assert (hx1 : IZR (S0 + n) * bp ue = IZR S0 * bp ue + IZR n * bp ue)
-  by (rewrite plus_IZR; ring).
+assert (hd : (0 <= drop)%Z) by (unfold drop; destruct closed; lia).
+assert (hxl : IZR (S0 + n - drop) * bp ue =
+              IZR S0 * bp ue + IZR (n - drop) * bp ue)
+  by (rewrite minus_IZR, plus_IZR, minus_IZR; ring).
 repeat split.
 - (* 1. u is constant *)
   exact hn.
@@ -65,11 +67,11 @@ repeat split.
     rewrite forallb_forall in hB.
     apply Z.eqb_eq, hB, in_seq; lia.
 - (* 4. (H_T) *)
-  intros j hj; rewrite hx1.
-  apply HT_ok; [exact hu|apply bpow_gt_0|lia].
+  intros j hj; rewrite hxl.
+  apply HT_ok; [exact hu|apply bpow_gt_0|lia|lia].
 - (* 5. (H_E) *)
   apply window_okP with (mU := mU1) (fU := fU1);
-    [exact m_le_lbits|exact hn| |exact hw].
+    [exact m_le_lbits|lia| |exact hw].
   split; [apply Rlt_le, exp_pos|exact up1].
 Qed.
 
