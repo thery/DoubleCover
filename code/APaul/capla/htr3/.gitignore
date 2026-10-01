@@ -1,0 +1,10 @@
+htr3cap
+htr3gcc
+htr3_capla.c
+*.o
+proof/add.v
+proof/*.vo
+proof/*.vok
+proof/*.vos
+proof/*.glob
+proof/.*.aux
