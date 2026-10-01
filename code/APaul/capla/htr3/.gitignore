@@ -1,6 +1,5 @@
 run/htr3cap
 run/htr3gcc
-run/htr3_capla.c
 run/*.o
 proof/add.v
 proof/htr3.v

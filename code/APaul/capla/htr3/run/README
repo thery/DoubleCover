@@ -8,28 +8,35 @@ htr3.b       the same search for one line, in Capla
 main_htr3.c  C driver of htr3.b (Capla has no input/output): reads a table
              file in htr.c's format, runs the search on each line and prints
              the candidates x0 + j u, one per line, as htr.c does.
+htr3_capla.c htr3.b written out as C by Capla (`ccomp -dcaplac`, an
+             unverified backend), kept so that the Capla search runs with
+             gcc alone.  It is generated code, hard to read (renamed
+             variables, a bounds check before each array access): read
+             htr3.b.  `make capla-c` regenerates it (needs Capla).
 
-Building.  `make` builds three programs:
+Building.  Three programs:
 
   htr       htr.c, gcc -O3 -march=native, GMP and OpenMP
+  htr3gcc   htr3_capla.c + main_htr3.c, gcc -O2: needs only gcc
   htr3cap   htr3.b + main_htr3.c by Capla's verified compiler (ccomp);
             needs the Capla compiler in ~/git/capla-compiler (CAPLA=...)
-  htr3gcc   htr3.b written out as C by `ccomp -dcaplac` (unverified
-            backend), then gcc -O2
+
+`make htr htr3gcc` needs gcc and GMP only; `make` builds all three.
 
 Checking one file.  The tables are in code/exptable9/archive, five parts
 holding the 2203 files in<e>; make takes the file it needs into tables/.
 
   make in1024.htr                 the candidates of htr
-  make in1024.htrc                those of the Capla search (htr3cap;
-                                  PROG=htr3gcc for the gcc build)
+  make in1024.htrc                those of the Capla search (htr3gcc;
+                                  PROG=htr3cap for the verified build)
   make in1024.cmp                 both, and checks they are the same
   make in1024.cmp RANGE=10-15     only lines 10 to 15 of the file
 
 RANGE=a-b keeps lines a to b, numbered from 1; without it the whole file is
 checked.  The outputs list every candidate x0 + j u of the lines checked
 (htr.c prints them in the order its threads find them, so .cmp sorts both).
-A line with more than 4000000 candidates stops the Capla run.
+A line with more than 4000000 candidates stops the Capla run.  Without
+Capla installed, everything above works with the default PROG=htr3gcc.
 
 The two programs, line by line:
 
