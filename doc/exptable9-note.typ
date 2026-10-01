@@ -37,10 +37,11 @@ conditions. The same method was used on the smaller table `in_lt`
   $plus.minus 1$, negative $x$, and subnormal outputs. For each file,
   Rocq proves that every line, read as its text says, satisfies the six
   conditions (section 5) under which the search misses no hard case on
-  it. No line fails.
+  it. No line fails. (This run used a window larger by $2^320$; with the
+  $E$ below it is to be made again, section 11.)
 - *$E$ is inferred, not read from the search program* (section 6):
-  $E = #raw("0x600001") dot 2^320$, that is $3 dot 2^(-43)$ in units of
-  $beta^ell$, rounded up on the top word. The $n$ of each line keeps both
+  $E = #raw("0x600000") dot 2^320$, exactly $3 dot 2^(-43)$ in units of
+  $beta^ell$. The $n$ of each line keeps both
   the rounding term and the Taylor term at or below $2^(-43)$, so the
   window must hold three terms of $2^(-43)$. With the window of the
   program for `in_lt`, `0x400001`, the lines near $x = plus.minus 1$ fail
@@ -168,7 +169,7 @@ Definition beta : Z := 2 ^ 64.    (* the machine word basis            *)
 Definition l : Z := 6.            (* words of an A_i or a B_i          *)
 Definition k : nat := 9.          (* terms of the Taylor polynomial    *)
 Definition m : Z := 43.           (* identical bits after the round bit *)
-Definition E : Z := 0x600001 * 2 ^ 320.  (* the window (inferred) *)
+Definition E : Z := 0x600000 * 2 ^ 320.  (* the window (inferred) *)
 Definition guard : Z := 64.       (* extra bits in the exp enclosure   *)
 ```
 
@@ -190,9 +191,10 @@ the window must hold three terms of $2^(-43)$:
 $E >= beta^ell dot 3 dot 2^(-43)$. The search program `htr3.c` for `in_lt`
 writes its window as a constant added to the top word, rounded up:
 `ERR = 0x400001` for $ceil(2^64 (2^(-43) + 2^(-43) + 2^(-90)))$. The same
-rule here gives $ceil(2^64 dot 3 dot 2^(-43)) = #raw("0x600000")$, and
-`0x600001` with the same rounding up, so
-$E = #raw("0x600001") dot 2^320$ (about $2^342.585$). Condition 5 is
+rule here gives $ceil(2^64 dot 3 dot 2^(-43)) = #raw("0x600000")$: the
+bound is an integer, there is nothing to round, and
+$E = #raw("0x600000") dot 2^320 = beta^ell dot 3 dot 2^(-43)$ (about
+$2^342.585$). Condition 5 is
 checked on every line with this value; a wrong guess would make the check
 fail, never pass. The value of `htr3.c`, `0x400001`, is too small here: the
 lines near $x = plus.minus 1$ fail condition 5 with it (while their $B_i$
@@ -353,10 +355,10 @@ $g = -1594 + 384 - 43 dot 9 - (-1075) = -522$ (checker's value), and
 $C = 2^341 + (1 + n + dots + n^8)$, it tests
 $ q_1 n^9 + C dot 9! dot 2^522 <= E dot 9! dot 2^522, $
 the window condition multiplied by $9! dot 2^522$, with
-$E = #raw("0x600001") dot 2^320$ (checker's value `true`).
+$E = #raw("0x600000") dot 2^320$ (checker's value `true`).
 
 *Condition 6* is on the whole table:
-$2 E = #raw("0xc00002") dot 2^320 < beta^ell = 2^384$.
+$2 E = #raw("0xc00000") dot 2^320 < beta^ell = 2^384$.
 
 On this line `check_line` answers `true`; the line then satisfies the six
 conditions, by the theorem.
@@ -414,7 +416,12 @@ make sample-all           # SampleAll.v
 change without running the tables again.
 
 The sample was run on `roquableu` (an Intel Xeon E5-2667 server, 24
-threads) with `make -j15 sample`; all 22 files pass. Measured:
+threads) with `make -j15 sample`, for $E = #raw("0x600001") dot 2^320$, a
+window larger by $2^320$; all 22 files pass. With
+$E = #raw("0x600000") dot 2^320$ the run is to be made again; on the
+desktop, the first line of `in1024`, `in2`, `in-1074`, a line of `in0-*`
+with no fraction digits, and the two lines where the rounding term and the
+Taylor bound are largest (section 6) pass. Measured:
 
 #align(center, table(columns: 2, align: (left, right),
   stroke: 0.4pt, inset: 4pt,
