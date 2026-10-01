@@ -19,7 +19,7 @@ A line (x0, n, B) holds the inputs x0 + j u, j = 0 .. n - d, where d is
 set by the parameter closed of ExpCheck.v: closed = true (d = 0) for the
 closed range [x0, x0 + n u], closed = false (d = 1) for the half-open
 range [x0, x0 + n u).  Its last input is xl = x0 + (n - d) u.  The
-current tables are closed: closed = true.
+current tables are half-open: closed = false.
 
 mksample.sh also writes Cover_N.v, the check (ExpCover.contig, parsing
 only) that the lines of a file follow each other: each line starts at the
@@ -31,13 +31,13 @@ the files whose lines do not follow each other.  AllCover.v has one
 theorem coverK per run: every normal double y = S 2^(ex - 52) between the
 first x0 and the last xl of the run is x0 + j u, 0 <= j <= n - d, in a
 line whose text satisfies the six conditions.  On the whole archive there
-are two runs, from -0x1.74910d52d3051p+9 to -0x1.0000000000001p-53 and
+are two runs, from -0x1.74910d52d3051p+9 to -0x1p-53 and
 from 0x1p-53 to 0x1.62e42fefa39efp+9 (the end of a run is xl of its last
 line); the doubles strictly between them, around 0, are in no table.
 
-E = 0x600000 * 2^320 is inferred from the data (every line keeps the
-rounding term and the Taylor term below 2^-43), not read from Paul's
-program.
+E = 0x600000 * 2^320 is the window ERR = 0x600000 of htr3_new.c, added
+to the top word (every line keeps the rounding term and the Taylor term
+below 2^-43).
 
 The whole archive is in archive/, as five parts tables0..4.tar.bz2 (under
 100 MB each, the size GitHub accepts), with their SHA256SUMS; together they

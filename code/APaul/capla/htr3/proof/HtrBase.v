@@ -173,3 +173,18 @@ Definition vcoef (xs : list int64) (l i : nat) : Z := val (coef xs l i).
 (* The numbers B_0 .. B_(k-1). *)
 Definition vcoefs (xs : list int64) (l k : nat) : list Z :=
   map (vcoef xs l) (seq 0 k).
+
+(* Lists read from an offset. *)
+Lemma nth_skipn_add {A : Type} (l : list A) n k d :
+  List.nth k (skipn n l) d = List.nth (n + k) l d.
+Proof. by elim: l n => [|x l IH] [|n] //=; case: k. Qed.
+
+Lemma skipn_replace_add {A : Type} (l : list A) n k x :
+  skipn n (replace (n + k) l x) = replace k (skipn n l) x.
+Proof. by elim: l n => [|y l IH] [|n] //=; case: k. Qed.
+
+Lemma nth_replace_other {A : Type} (l : list A) k p x d :
+  p <> k -> List.nth p (replace k l x) d = List.nth p l d.
+Proof.
+  elim: l k p => [|y l IH] [|k] [|p] //= H; apply IH; lia.
+Qed.
