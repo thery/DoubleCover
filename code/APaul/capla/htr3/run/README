@@ -44,9 +44,10 @@ lines in parallel, so with several lines its wall time is below its user
 time; compare user times.  On the desktop, turbo off (measured):
 
   make in-1074.cmp RANGE=1-1 MAXN=100000000
-  in-1074.htr: 7.14 s wall, 7.09 s user
-  in-1074.htrc: 10.96 s wall, 10.92 s user        (htr3gcc)
-  in-1074: same candidates
+  in-1074: 1 lines, 100000000 inputs (RANGE=1-1 MAXN=100000000)
+  in-1074.htr: 6.95 s wall, 6.90 s user
+  in-1074.htrc (htr3gcc): 11.08 s wall, 11.02 s user
+  in-1074: same candidates (3)
 
 and 13.97 s user with PROG=htr3cap.
 A line with more than 4000000 candidates stops the Capla run.  Without

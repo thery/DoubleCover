@@ -38,36 +38,41 @@ RANGE :=
 MAXN :=
 
 tables/%:
-	mkdir -p tables
-	P=$$(awk -v f=$* '$$1 == f { print $$2 }' $(ARCHIVE)/INDEX); \
+	@mkdir -p tables
+	@P=$$(awk -v f=$* '$$1 == f { print $$2 }' $(ARCHIVE)/INDEX); \
 	  test -n "$$P" || { echo "$*: not in $(ARCHIVE)/INDEX"; exit 1; }; \
+	  echo "$*: taken from $(ARCHIVE)/$$P"; \
 	  tar xjf $(ARCHIVE)/$$P -C tables --occurrence=1 $*
 
 # The lines of the file in RANGE, cut to MAXN inputs (rebuilt on every run,
 # as RANGE and MAXN may change).
 cut/%: tables/% FORCE
-	mkdir -p cut
-	awk -v r=$(RANGE) -v m=$(MAXN) 'BEGIN { a = 1; b = -1; \
+	@mkdir -p cut
+	@awk -v r=$(RANGE) -v m=$(MAXN) 'BEGIN { a = 1; b = -1; \
 	  if (r != "") { split(r, x, "-"); a = x[1]; b = x[2] } } \
 	  NR >= a && (b < 0 || NR <= b) { \
 	    if (m != "" && $$2 + 0 > m + 0) $$2 = m; print }' $< > $@
+	@echo "$*: $$(wc -l < $@) lines, $$(awk '{s += $$2} END \
+	  {printf "%.0f", s}' $@) inputs (RANGE=$(RANGE) MAXN=$(MAXN))"
 
 # Each run is timed: the times are printed and kept in $@.time.
 TIME = /usr/bin/time -f "$@: %e s wall, %U s user" -o $@.time
 
 %.htr: htr cut/%
-	$(TIME) ./htr cut/$* > $@
+	@$(TIME) ./htr cut/$* > $@
 	@cat $@.time
 
 %.htrc: $(PROG) cut/%
-	$(TIME) ./$(PROG) cut/$* $(K) $(L) $(ERR) > $@
-	@cat $@.time
+	@$(TIME) ./$(PROG) cut/$* $(K) $(L) $(ERR) > $@
+	@sed 's/^\([^:]*\):/\1 ($(PROG)):/' $@.time
 
 # Both, side by side: the candidates of htr and of the Capla search, sorted
 # (htr prints them in thread order), must be the same.
 %.cmp: %.htr %.htrc
-	grep -v '^Processing\|^Done' $*.htr | sort > $*.htr.sorted
-	sort $*.htrc | diff $*.htr.sorted - > $@ && echo "$*: same candidates"
+	@grep -v '^Processing\|^Done' $*.htr | sort > $*.htr.sorted
+	@sort $*.htrc | diff $*.htr.sorted - > $@ && \
+	  echo "$*: same candidates ($$(wc -l < $*.htrc))" || \
+	  { echo "$*: DIFFERENT candidates, see $@"; exit 1; }
 
 FORCE:
 
