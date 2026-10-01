@@ -32,13 +32,13 @@ conditions. The same method was used on the smaller table `in_lt`
 
 = Summary
 
-- *The sample passes.* 22 files of the archive, 7 136 lines (about 1% of
-  it), chosen over the whole range: the largest binades, $x$ near
-  $plus.minus 1$, negative $x$, and subnormal outputs. For each file,
-  Rocq proves that every line, read as its text says, satisfies the six
-  conditions (section 5) under which the search misses no hard case on
-  it. No line fails. (This run used a window larger by $2^320$; with the
-  $E$ below it is to be made again, section 11.)
+- *The whole archive passes.* All 2 203 files, 687 184 lines. Rocq proves
+  that every line, read as its text says, satisfies the six conditions
+  (section 5) under which the search misses no hard case on it, and that
+  the lines cover every double from $-745.133...$ to
+  $#raw("-0x1.0000000000001p-53")$ and from $#raw("0x1p-53")$ to
+  $709.782...$ (section 12). No line fails. The run took 69 min 33 s on
+  `roquableu` with 20 workers (section 11).
 - *$E$ is inferred, not read from the search program* (section 6):
   $E = #raw("0x600000") dot 2^320$, exactly $3 dot 2^(-43)$ in units of
   $beta^ell$. The $n$ of each line keeps both
@@ -49,9 +49,8 @@ conditions. The same method was used on the smaller table `in_lt`
   program that reads these tables is still to be confirmed.
 - *The bit-flip test passes* (section 11): changing one bit of any
   coefficient $B_i$, or moving $x_0$, makes the check fail.
-- *The whole archive* (687 184 lines) would take about 19.5 hours of
-  processor time, about 1.3 hours on 15 workers of `roquableu` (scaled from
-  the sample, not measured).
+- *Not covered:* the inputs $-2^(-53) <= x < 2^(-53)$, in no table; note
+  that $-2^(-53)$ is left out while $2^(-53)$ is covered (section 12).
 
 = Proof by a checker, for a reader who does not use Rocq
 
@@ -423,29 +422,26 @@ make sample-all           # SampleAll.v
 `Run_N.v` depends on `ExpCheck.v` and `ExpParse.v` only, so the proofs can
 change without running the tables again.
 
-The sample was run on `roquableu` (an Intel Xeon E5-2667 server, 24
-threads) with `make -j15 sample`, for $E = #raw("0x600001") dot 2^320$, a
-window larger by $2^320$; all 22 files pass. With
-$E = #raw("0x600000") dot 2^320$ the run is to be made again; on the
-desktop, the first line of `in1024`, `in2`, `in-1074`, a line of `in0-*`
-with no fraction digits, and the two lines where the rounding term and the
-Taylor bound are largest (section 6) pass. Measured:
+*The whole archive.* It is in the repository as five parts,
+`archive/tables0.tar.bz2` to `tables4.tar.bz2` (under 100 MB each), which
+together hold exactly the files of Paul's archive, checked against
+`archive/SHA256SUMS`. `./fullrun.sh 20` unpacks them, writes `Data_N.v`,
+`Run_N.v` and `Cover_N.v` for each file, runs them with 20 workers, and
+builds `SampleAll.v` and `AllCover.v`. It was run on `roquableu` (an Intel
+Xeon E5-2667 server, 12 cores, 24 threads); all measured:
 
 #align(center, table(columns: 2, align: (left, right),
   stroke: 0.4pt, inset: 4pt,
-  [`Qed` of a file of 294 lines], [26 to 34 s],
-  [`Qed` of `in2`, `in-1` (665 lines)], [57 s, 65 s],
-  [`make -j15 sample`, wall], [1 min 11 s],
-  [`make -j15 sample`, processor], [12 min 10 s],
-  [`make sample-all` (with `SampleAll.v`)], [12.6 s],
+  [files, lines], [2 203, 687 184],
+  [`Qed` of a `Run_N.v` of 294 lines], [27 to 36 s],
+  [wall time, all of `fullrun.sh 20`], [69 min 33 s],
+  [processor time (user + system)], [1 129 min + 75 min],
+  [exit status], [0],
 ))
 
-`make sample-all` then builds `SampleAll.v`: for each of the 22 files,
-every line, read as its text says, satisfies the six conditions.
-
-That is about 0.1 s of processor time a line. At that rate the whole
-archive, 687 184 lines, would take about 19.5 hours of processor time,
-about 1.3 hours on 15 workers (scaled, not measured).
+Every `Run_N.v` and `Cover_N.v` passes, and `SampleAll.v` and `AllCover.v`
+are built: the theorems of sections 10 and 12 hold for the whole archive.
+A worker uses about 600 MB.
 
 *The bit-flip test* (`ExpMutate.v`, `make test`) makes sure every
 coefficient and $x_0$ is really checked. On the first line of `in1024`,
@@ -480,7 +476,7 @@ $2^52 dot 2 u$, and for negative $x$ at the end of a binade
   run, on the text of the lines, as `table_cover_text` does for `in_lt`.
 
 On the archive (checked with Python over all 687 184 lines, exact
-integers; the Rocq run is the next one): every file is contiguous, and the
+integers, and proved by the run of section 11): every file is contiguous, and the
 files join everywhere except around 0. The order of the files is `in-1074`,
 ..., `in-1`, `in0-0`, ..., `in0-52`, `in1-52`, ..., `in1-0`, `in2`, ...,
 `in1024` (`in0-`$j$ covers $[-2^(-j), -2^(-j-1))$, `in1-`$j$ covers
@@ -499,9 +495,6 @@ $-2^(-53)$ itself, while $2^(-53)$ is covered.
 
 = What is not checked
 
-- The rest of the archive (the sample is about 1% of it).
-- The coverage on the whole archive in Rocq (section 12): written and
-  tested on small tables; it is part of the next run.
 - The inputs $-2^(-53) <= x < 2^(-53)$, in no table (section 12).
 - The value of $E$ of Paul's program (section 6): $E$ is inferred.
 - The search itself: that is `TaylorLink.v`, which this check feeds.
