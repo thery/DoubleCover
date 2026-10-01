@@ -8,7 +8,7 @@ INC := $(foreach d,$(DIRS),-R $(CAPLA)/$(d) compcert.$(d)) \
        -R . Htr3 -Q ../apaul APaulRocq
 COQC := coqc $(INC)
 
-all: add_proof.vo SearchProof.vo
+all: add_proof.vo SearchProof.vo HtrFinal.vo
 
 # The Capla programs as Rocq terms.
 add.v: add.b
@@ -24,6 +24,7 @@ AddwProof.vo SubwProof.vo: HtrBase.vo
 TstepProof.vo: AddwProof.vo
 DifftabProof.vo: SubwProof.vo
 SearchProof.vo: DifftabProof.vo TstepProof.vo
+HtrFinal.vo: SearchProof.vo ../apaul/TaylorLink.vo ../apaul/HtrMath.vo
 
 # The ports: the Rocq files of code/APaul/rocq (mirror ../apaul) and the proof
 # files of code/exptable9 (mirror ../exptable9), built in the switch capla.
