@@ -25,3 +25,9 @@ exptable9/.*.aux
 rocq_mcp_cache_*
 run/tables/
 run/*.htr
+run/cut/
+run/*.htrc
+run/*.cmp
+run/*.sorted
+run/htr
+!run/htr.c
