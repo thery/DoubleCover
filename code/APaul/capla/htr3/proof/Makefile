@@ -25,9 +25,37 @@ TstepProof.vo: AddwProof.vo
 DifftabProof.vo: SubwProof.vo
 SearchProof.vo: DifftabProof.vo TstepProof.vo
 
+# The ports: the Rocq files of code/APaul/rocq (mirror apaul/) and the proof
+# files of code/exptable9 (mirror exptable9/), built here in the switch capla.
+# The exptable9 files use Interval, built on the opam Flocq: they are compiled
+# without the Capla paths, whose Flocq is another library of the same name.
+PORTCOQC := coqc -Q apaul APaulRocq -Q exptable9 ExpTable9
+APAUL := Shift TaylorScan TaylorReal TaylorLink HtrMath
+EXP := ExpCheck ExpParse ExpParseSpec ExpTaylor ExpArith ExpEncl ExpProof \
+       ExpCover
+ports: $(APAUL:%=apaul/%.vo) $(EXP:%=exptable9/%.vo)
+
+apaul/TaylorScan.vo: apaul/Shift.vo
+apaul/TaylorLink.vo: apaul/Shift.vo apaul/TaylorScan.vo apaul/TaylorReal.vo
+apaul/HtrMath.vo: apaul/HtrDefs.vo apaul/TaylorReal.vo apaul/Shift.vo \
+  apaul/TaylorScan.vo apaul/TaylorLink.vo
+exptable9/ExpParse.vo: exptable9/ExpCheck.vo
+exptable9/ExpParseSpec.vo: exptable9/ExpCheck.vo exptable9/ExpParse.vo
+exptable9/ExpTaylor.vo exptable9/ExpArith.vo exptable9/ExpEncl.vo: \
+  exptable9/ExpCheck.vo
+exptable9/ExpProof.vo: exptable9/ExpCheck.vo exptable9/ExpParse.vo \
+  exptable9/ExpTaylor.vo exptable9/ExpArith.vo exptable9/ExpEncl.vo
+exptable9/ExpCover.vo: exptable9/ExpCheck.vo exptable9/ExpParse.vo
+
+$(filter-out apaul/HtrDefs.vo,$(APAUL:%=apaul/%.vo)) $(EXP:%=exptable9/%.vo): \
+  %.vo: %.v
+	$(PORTCOQC) $<
+
 %.vo: %.v
 	$(COQC) $<
 
 clean:
 	rm -f add.v htr3.v *.vo *.vok *.vos *.glob .*.aux *.o \
-	  apaul/*.vo apaul/*.vok apaul/*.vos apaul/*.glob apaul/.*.aux
+	  apaul/*.vo apaul/*.vok apaul/*.vos apaul/*.glob apaul/.*.aux \
+	  exptable9/*.vo exptable9/*.vok exptable9/*.vos exptable9/*.glob \
+	  exptable9/.*.aux
