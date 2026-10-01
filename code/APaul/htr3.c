@@ -19,6 +19,7 @@
 #include <gmp.h>
 #include <math.h>
 #include <omp.h>
+#include <stdlib.h>
 
 // {a,n} += {b,n} mod B^n
 static void
@@ -42,14 +43,25 @@ sub (uint64_t *a, uint64_t *b, int n) {
   }
 }
 
+// The candidates found, x0 + j u, over all lines: res[0 .. nres).
+static double *res = NULL;
+static uint64_t nres = 0, capres = 0;
+
 static void
 check (double x) {
 #pragma omp critical
   {
-    printf ("%la\n", x);
-    fflush (stdout);
+    if (nres == capres) {
+      capres = capres ? 2 * capres : 1024;
+      res = realloc (res, capres * sizeof (double));
+      assert (res != NULL);
+    }
+    res[nres++] = x;
   }
 }
+
+// Capacity of the candidates of one line.
+#define CAP 4000000
 
 int k = 8; // number of polynomial coefficients (last has degree k-1)
 int l = 5; // number of 64-bit words for each coefficient
@@ -71,20 +83,13 @@ read_params (FILE *fp, double *x0, uint64_t *N, uint64_t B[8][5]) {
   return 0;
 }
 
-// return non-zero in case of end of file
-static int
-doit (FILE *fp)
+// The search for one line, B being B_0 .. B_(k-1) = P(0) .. P(k-1) mod
+// 2^(64 l): the indices i <= N of the candidates, in out[0 .. cap), and
+// their number (which may exceed cap: then only the first cap are in out).
+static uint64_t
+search_line (uint64_t B[8][5], uint64_t N, uint64_t *out, uint64_t cap)
 {
-  double x0, u;
-  uint64_t N;
-  uint64_t B[8][5];
-  int e, ret;
-#pragma omp critical
-  ret = read_params (fp, &x0, &N, B);
-  if (ret != 0)
-    return ret;
-  frexp (x0, &e); // x0 = f*2^e with 1/2 <= |f| < 1
-  u = ldexp (1.0, e - 53);
+  uint64_t count = 0;
   /* initialize table-of-differences: initially we have, with all computations
      modulo 2^(64*l):
      B[0] = A[0]
@@ -103,7 +108,11 @@ doit (FILE *fp)
   B[0][l-1] += ERR;
   for (unsigned long i = 0; i <= N; i++) {
     if (B[0][l-1] <= 2*ERR)
-      check (x0 + i * u);
+      {
+        if (count < cap)
+          out[count] = i;
+        count++;
+      }
     for (int j = 0; j < k-1; j++)
       // add (B[j], B[j+1], l);
       mpn_add_n (B[j], B[j], B[j+1], l); // GMP's mpn_add_n is faster
@@ -111,6 +120,29 @@ doit (FILE *fp)
        B1=A1+3*A2, B2=2*A2, and if i=2 at the next loop, we now have
        B0=A0+2*A1+4*A2, B1=A1+5*A2, B2=2*A2 */
   }
+  return count;
+}
+
+// return non-zero in case of end of file
+static int
+doit (FILE *fp)
+{
+  double x0, u;
+  uint64_t N;
+  uint64_t B[8][5];
+  static uint64_t out[CAP];
+#pragma omp threadprivate(out)
+  int e, ret;
+#pragma omp critical
+  ret = read_params (fp, &x0, &N, B);
+  if (ret != 0)
+    return ret;
+  frexp (x0, &e); // x0 = f*2^e with 1/2 <= |f| < 1
+  u = ldexp (1.0, e - 53);
+  uint64_t cnt = search_line (B, N, out, CAP);
+  assert (cnt <= CAP);
+  for (uint64_t c = 0; c < cnt; c++)
+    check (x0 + out[c] * u);
   return 0;
 }
 
@@ -134,5 +166,8 @@ main (int argc, char *argv[])
   for (int i = 0; i < nthreads; i++)
     doloop (fp);
   fclose (fp);
+  for (uint64_t c = 0; c < nres; c++)
+    printf ("%la\n", res[c]);
+  free (res);
   return 0;
 }
