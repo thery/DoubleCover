@@ -1,0 +1,39 @@
+htr3.c's search, in Capla (gitlab.inria.fr/fresco/capla)
+=========================================================
+
+htr3.b       the search of code/APaul/htr3.c for one line of a table, with
+             k, l and ERR as arguments (htr3.c fixes them in its source):
+             the table of differences, the window on the top word of B_0,
+             the walk j = 0 .. n.  addw/subw are htr3.c's add/sub.
+main_htr3.c  C driver (Capla has no input/output): reads a table file in
+             htr3.c's format and prints the candidates x0 + j u.
+               ./htr3cap FILE K L ERR      e.g.  ./htr3cap in1024 9 6 0x600000
+
+make         builds htr3cap (Capla's verified compiler, ccomp) and htr3gcc
+             (the same program written out as C by `ccomp -dcaplac`, an
+             unverified backend, then gcc -O2).
+
+Tests (2026-10-01, desktop): same output as htr3.c, on 3 lines of in_lt
+(k = 8, l = 5) and on the first line of in1024, in2, in-1074 (k = 9, l = 6),
+n cut to 10^6, with a test window ERR = 2^48 (65 and 1000023 candidates);
+and with the real ERR = 0x600000 on in-1074 line 1, n = 1000 (3 candidates).
+
+Speed, 10^7 steps of in1024 line 1, turbo off, pinned, three runs:
+
+                         P-core (cpu0)   E-core (cpu6)
+  htr3cap (ccomp)        1.37-1.40 s     3.02 s
+  htr3gcc (gcc)          1.10-1.16 s     1.33-1.34 s
+  htr3gcc, -DNDEBUG      0.67-0.69 s
+  htr3.c (gcc + GMP)     0.73-0.77 s     2.49-2.73 s
+  htr3.c, its C add      0.83-0.87 s
+
+The difference on the P-core is Capla's bounds checks: one assert per array
+access in the inner loop, about 40% of the run; without them (-DNDEBUG)
+Capla via gcc is as fast as htr3.c.
+
+proof/  add.b (htr3.c's add, line for line) and add_proof.v: on Capla's
+        semantics, a successful call computes (A + B) mod 2^(64 n) in place
+        (add_spec).  It rests on WP_sound, which is ADMITTED in Capla itself
+        (bfrontend/WP.v), besides the usual CompCert axioms: the result
+        holds if Capla's weakest-precondition calculus is sound.
+        `make -C proof` (about 17 s).
