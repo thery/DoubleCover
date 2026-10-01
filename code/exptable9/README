@@ -27,7 +27,7 @@ two runs, from -0x1.74910d52d3051p+9 to -0x1.0000000000001p-53 and from
 0x1p-53 to 0x1.62e42fefa39efp+9 (the end of a run is x0 + n u of its last
 line); the doubles strictly between them, around 0, are in no table.
 
-E = 0x600001 * 2^320 is inferred from the data (every line keeps the
+E = 0x600000 * 2^320 is inferred from the data (every line keeps the
 rounding term and the Taylor term below 2^-43), not read from Paul's
 program.
 
