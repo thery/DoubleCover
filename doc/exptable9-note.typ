@@ -456,13 +456,53 @@ or moves $x_0$ by one ulp either way, or changes bit 0, 20 or 51 of $|S_0|$
 checks by evaluation that `check_line` answers `false` on each of them, in
 13.5 s on the desktop (measured).
 
+= The lines cover the inputs
+
+Each line is checked alone; that the lines, put together, leave no input
+out is checked by `ExpCover.v`. A line covers the doubles
+$(S_0 + j) u$, $j = 0, dots, n$; the next line must start at the next
+double after $(S_0 + n) u$, going upwards. Within a binade that is
+$(S_0 + n + 1) u$; at the top of a binade ($S_0 + n + 1 = 2^53$) it is
+$2^52 dot 2 u$, and for negative $x$ at the end of a binade
+($S_0 + n = -2^52$) it is $-(2^53 - 1) dot u slash 2$.
+
+- `contig` checks this between consecutive lines of a file, by parsing
+  only (no $exp$); one file `Cover_N.v` per table file, with
+  `native_compute`, about 20 ms a line on the desktop (measured on 300
+  lines).
+- `mksample.sh` orders the files by their first $x_0$ and cuts them into
+  runs of files that follow each other; `joins` checks the boundaries.
+- `cover_ok` is the theorem: if the files of a run are contiguous, join,
+  and all their lines satisfy the six conditions, then every normal double
+  $y = S u'$ between the first $x_0$ and the last $x_1$ of the run lies in
+  $[x_0, x_1]$ of one of its lines, with the same exponent, so
+  $y = x_0 + j u$ for some $0 <= j <= n$. `AllCover.v` states it for each
+  run, on the text of the lines, as `table_cover_text` does for `in_lt`.
+
+On the archive (checked with Python over all 687 184 lines, exact
+integers; the Rocq run is the next one): every file is contiguous, and the
+files join everywhere except around 0. The order of the files is `in-1074`,
+..., `in-1`, `in0-0`, ..., `in0-52`, `in1-52`, ..., `in1-0`, `in2`, ...,
+`in1024` (`in0-`$j$ covers $[-2^(-j), -2^(-j-1))$, `in1-`$j$ covers
+$[2^(-j-1), 2^(-j))$). So there are two runs:
+
+#align(center, table(columns: 3, align: (left, left, left),
+  stroke: 0.4pt, inset: 4pt,
+  [run], [from], [to],
+  [`in-1074` .. `in0-52` (1127 files)], [#raw("-0x1.74910d52d3051p+9") $approx -745.133$], [#raw("-0x1.0000000000001p-53")],
+  [`in1-52` .. `in1024` (1076 files)], [#raw("0x1p-53")], [#raw("0x1.62e42fefa39efp+9") $approx 709.783$],
+))
+
+The doubles in neither run are those with $-2^(-53) <= x < 2^(-53)$: the
+tiny inputs, whose $exp$ is $1$ or a neighbour of $1$, and also
+$-2^(-53)$ itself, while $2^(-53)$ is covered.
+
 = What is not checked
 
 - The rest of the archive (the sample is about 1% of it).
-- That the lines of a file, or of the archive, cover the whole range of
-  inputs (the files of `in_lt` have such a check, `ExpCover.v` in
-  `code/exptable`; here the subranges change binade of $x$ within a file,
-  and the check is not written).
+- The coverage on the whole archive in Rocq (section 12): written and
+  tested on small tables; it is part of the next run.
+- The inputs $-2^(-53) <= x < 2^(-53)$, in no table (section 12).
 - The value of $E$ of Paul's program (section 6): $E$ is inferred.
 - The search itself: that is `TaylorLink.v`, which this check feeds.
 
@@ -490,3 +530,6 @@ checks by evaluation that `check_line` answers `false` on each of them, in
 
 = `ExpTaylor.v`
 #listing("../code/exptable9/ExpTaylor.v")
+
+= `ExpCover.v`
+#listing("../code/exptable9/ExpCover.v")

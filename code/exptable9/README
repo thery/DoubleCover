@@ -11,6 +11,21 @@ Paul (filesender).  sample.tar.xz holds 22 of its files, 7136 lines.
      in-1023 in-1050 in-1074
   make -j15 sample
   make sample-all        # SampleAll.v: the theorem, one lemma per file
+                         # AllCover.v: the coverage, one theorem per run
+
+mksample.sh also writes Cover_N.v, the check (ExpCover.contig, parsing
+only) that the lines of a file follow each other: each line starts at the
+double right after the last double x0 + n u of the previous one, also
+when x crosses a binade.  It orders the files by their first x0 and cuts
+them into maximal runs of files that follow each other (ExpCover.joins);
+it reports on stderr the files that do not join, and leaves out of the
+runs the files whose lines do not follow each other.  AllCover.v has one
+theorem coverK per run: every normal double y = S 2^(ex - 52) between the
+first x0 and the last x1 of the run is x0 + j u, 0 <= j <= n, in a line
+whose text satisfies the six conditions.  On the whole archive there are
+two runs, from -0x1.74910d52d3051p+9 to -0x1.0000000000001p-53 and from
+0x1p-53 to 0x1.62e42fefa39efp+9 (the end of a run is x0 + n u of its last
+line); the doubles strictly between them, around 0, are in no table.
 
 E = 0x600001 * 2^320 is inferred from the data (every line keeps the
 rounding term and the Taylor term below 2^-43), not read from Paul's
@@ -23,6 +38,6 @@ hold exactly the 2203 files of Paul's all.tar.bz2.  Then
   ulimit -s unlimited
   ./fullrun.sh 20 2>&1 | tee full.log
 
-checks the parts, unpacks them into tables/, writes one Data_N.v and
-Run_N.v per file, runs them with 20 workers and builds SampleAll.v over all
-the files.
+checks the parts, unpacks them into tables/, writes one Data_N.v,
+Run_N.v and Cover_N.v per file, runs them with 20 workers and builds
+SampleAll.v and AllCover.v over all the files.
