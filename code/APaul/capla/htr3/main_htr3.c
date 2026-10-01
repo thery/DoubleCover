@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
+#include <assert.h>
 
 uint64_t search(uint64_t *B, uint64_t m, uint64_t k, uint64_t l, uint64_t n,
                 uint64_t err, uint64_t *out, uint64_t cap);
@@ -30,6 +31,7 @@ int main(int argc, char *argv[]) {
       if (fscanf(fp, "%lx", &B[i]) != 1) return 1;
     int e;
     frexp(x0, &e);                  // x0 = f 2^e with 1/2 <= |f| < 1
+    assert(e >= -1021);             // no subnormal input, as htr3_new.c
     double u = ldexp(1.0, e - 53);  // u = ulp(x0)
     uint64_t c = search(B, k * l, k, l, n, err, out, CAP);
     if (c > CAP) { fprintf(stderr, "more than %d candidates\n", CAP); return 1; }

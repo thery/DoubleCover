@@ -3,6 +3,13 @@ htr3gcc
 htr3_capla.c
 *.o
 proof/add.v
+proof/htr3.v
+proof/htr3.b
+proof/apaul/*.vo
+proof/apaul/*.vok
+proof/apaul/*.vos
+proof/apaul/*.glob
+proof/apaul/.*.aux
 proof/*.vo
 proof/*.vok
 proof/*.vos

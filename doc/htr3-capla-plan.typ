@@ -14,12 +14,14 @@
 
 #v(1em)
 
-`code/APaul/capla/htr3/htr3.b` is the search of `code/APaul/htr3.c` in
+`code/APaul/capla/htr3/htr3.b` is the search of `code/APaul/htr3_new.c` in
 Capla, for one line of a table. The goal is a Rocq theorem saying that it
 returns the hard-to-round cases: *on a line that satisfies the six
 conditions (`line_ok` of `code/exptable9`), every input $x_0 + j u$,
-$0 <= j <= n$, with $exp(x_0 + j u) slash v$ within $2^(-m)$ of an
-integer is in the output of `search`.* The output may hold more
+$0 <= j < n$, with $exp(x_0 + j u) slash v$ within $2^(-m)$ of an
+integer is in the output of `search`.* The search walks
+$j = 0, dots, n - 1$, the half-open $[x_0, x_1)$ of `htr3_new.c`. The
+output may hold more
 candidates; the theorem is that none is missed.
 
 = What is assumed
@@ -46,8 +48,8 @@ the README.
   [`addw B m ia ib l`], [$B_(i a) arrow.l B_(i a) + B_(i b) mod beta^ell$ (words $[i a, i a + ell)$)],
   [`subw B m ia ib l`], [$B_(i a) arrow.l B_(i a) - B_(i b) mod beta^ell$],
   [`difftab B m k l`], [for $i = 1 .. k - 1$, for $j = k - 1$ down to $i$: `subw` $j$, $j - 1$],
-  [`step B m k l`], [for $t = 0 .. k - 2$: `addw` $t$, $t + 1$],
-  [`search B m k l n err out cap`], [`difftab`; top word of $B_0$ += `err`; for $j = 0 .. n$: test, record, `step`],
+  [`tstep B m k l`], [for $t = 0 .. k - 2$: `addw` $t$, $t + 1$ (`step` is a Capla keyword)],
+  [`search B m k l n err out cap`], [`difftab`; top word of $B_0$ += `err`; for $j = 0 .. n - 1$: test, record, `tstep`],
 )
 
 = The tasks
@@ -64,9 +66,9 @@ installed there, rocq-mcp can drive them after `rocq_switch`.
   [T1], [`AddwProof.v`], [`addw_spec`: the words of $B_(i a)$ become $(B_(i a) + B_(i b)) mod M$, the others are unchanged], [T0],
   [T2], [`SubwProof.v`], [`subw_spec`: the same with $-$], [T0],
   [T3], [`DifftabProof.v`], [`difftab_spec`: the coefficients become the differences of the input ones, modulo $M$ (`difftabZ`, a plain function on `list Z` defined in T0)], [T0, T2],
-  [T4], [`StepProof.v`], [`step_spec`: the coefficients become `tstepZ` of them modulo $M$ ($B_t + B_(t+1)$, the last one unchanged)], [T0, T1],
-  [T5], [`SearchProof.v`], [`search_spec`: the output is the list of the $j <= n$ whose top word of $B_0$, after `difftabZ`, the window and $j$ `tstepZ`, is at most $2$ `err`], [T0, T3, T4],
-  [T6], [`HtrMath.v`], [no Capla: (a) `difftabZ` of $P(0), dots, P(k-1)$ is the table of differences of $P$ modulo $M$, and $j$ `tstepZ` give $P(j)$ in $B_0$ (from `Shift.v`); (b) the test of `hscan` implies the top-word test; (c) `hscan_exp` for $j <= n$ (the search of `htr3.c` includes $x_1$); written in `code/APaul/rocq` next to `TaylorLink.v`, in the switch `native`, and carried over by T7], [T0],
+  [T4], [`TstepProof.v`], [`tstep_spec`: the coefficients become `tstepZ` of them modulo $M$ ($B_t + B_(t+1)$, the last one unchanged)], [T0, T1],
+  [T5], [`SearchProof.v`], [`search_spec`: the output is the list of the $j < n$ whose top word of $B_0$, after `difftabZ`, the window and $j$ `tstepZ`, is at most $2$ `err`], [T0, T3, T4],
+  [T6], [`HtrMath.v`], [no Capla: (a) `difftabZ` of $P(0), dots, P(k-1)$ is the table of differences of $P$ modulo $M$, and $j$ `tstepZ` give $P(j)$ in $B_0$ (from `Shift.v`); (b) the test of `hscan` implies the top-word test (`hscan_exp` scans $j < n$, as the search does); written in `code/APaul/rocq` next to `TaylorLink.v`, in the switch `native`, and carried over by T7], [T0],
   [T7], [port], [`code/APaul/rocq/{Shift, TaylorScan, TaylorReal, TaylorLink}.v`, `HtrMath.v` and the proof files of `code/exptable9` build in the switch `capla` (Rocq 9.0)], [--, then T6],
   [T8], [`HtrFinal.v`], [the theorem of the introduction: from `line_ok` and the hard input, $j$ is in the output of `search`], [T5, T6, T7],
 )
