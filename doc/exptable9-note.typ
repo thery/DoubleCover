@@ -38,10 +38,11 @@ conditions. The same method was used on the smaller table `in_lt`
 - *$E$ is the window of the search program* `htr3_new.c`: `ERR = 0x600000`
   on the top word, so $E = #raw("0x600000") dot 2^320 = beta^ell dot 3
   dot 2^(-43)$ (section 6).
-- *What is to be run:* the check of the whole archive, 2 203 files and
-  687 184 lines, with `./fullrun.sh 20` on `roquableu` (section 11). Small
-  tables cut from it pass, with the coverage (section 12), as do the lines
-  where the error terms are largest.
+- *The whole archive passes.* All 2 203 files, 687 184 lines. Rocq proves
+  that every line satisfies the six conditions, and that the lines cover
+  every input from $x approx -745.133$ to $-2^(-53)$ and from $2^(-53)$ to
+  $x approx 709.783$ (section 12). No line fails. The run took 104 min 18 s
+  on `roquableu` (section 11).
 - *The bit-flip test passes* (section 11): changing one bit of any
   coefficient $B_i$, or moving $x_0$, makes the check fail.
 - *Not covered:* the inputs $-2^(-53) < x < 2^(-53)$, in no table
@@ -436,14 +437,20 @@ together hold exactly the files of Paul's archive, checked against
 `archive/SHA256SUMS`. `./fullrun.sh 20` unpacks them, writes `Data_N.v`,
 `Run_N.v` and `Cover_N.v` for each file, runs them with 20 workers, and
 builds `SampleAll.v` and `AllCover.v`. It was run on `roquableu` (an Intel
-Xeon E5-2667 server, 12 cores, 24 threads).
+Xeon E5-2667 server, 12 cores, 24 threads); all measured:
 
-The check of the whole archive is still to be run. Before it, on the
-desktop: the half-open checker accepts the two lines where the error
-terms are largest, the first and last lines of `in1024`, the first line of
-`in-1074` and of `in2`, the last line of `in0-52` and the first of
-`in1-52`; and `mksample.sh`, `make sample` and `make sample-all` pass on
-small tables cut from the archive.
+#align(center, table(columns: 2, align: (left, right),
+  stroke: 0.4pt, inset: 4pt,
+  [files, lines], [2 203, 687 184],
+  [wall time, all of `fullrun.sh 20`], [104 min 18 s],
+  [processor time (user + system)], [1 767 min + 123 min],
+  [exit status], [0],
+))
+
+`fullrun.sh` stops at the first failure (`set -e`), so exit status 0 means
+that every `Run_N.v` and `Cover_N.v` passes, and that `SampleAll.v` and
+`AllCover.v` are built: the theorems of sections 10 and 12 hold for the
+whole archive.
 
 *The bit-flip test* (`ExpMutate.v`, `make test`) makes sure every
 coefficient and $x_0$ is really checked. On the first line of `in1024`,
@@ -499,7 +506,6 @@ tiny inputs, whose $exp$ is $1$ or a neighbour of $1$.
 
 = What is not checked
 
-- The whole archive in Rocq: the run of section 11 is still to be made.
 - The inputs $-2^(-53) < x < 2^(-53)$, in no table (section 12).
 - The search itself: that is `TaylorLink.v`, which this check feeds.
 
