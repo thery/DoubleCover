@@ -10,3 +10,5 @@ __pycache__/
 SampleAll.v
 tables/
 mksample.log
+Cover_*.v
+AllCover.v

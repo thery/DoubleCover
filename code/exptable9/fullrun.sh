@@ -7,7 +7,9 @@
 #            archive/SHA256SUMS), which hold Paul's all.tar.bz2
 # It unpacks the tables into tables/, writes Data_N.v and Run_N.v for every
 # file (mksample.sh), runs them all (make -jJ sample), then builds
-# SampleAll.v: every line of every file satisfies the six conditions.
+# SampleAll.v: every line of every file satisfies the six conditions,
+# and AllCover.v: the lines cover the inputs from -745.13 to -2^-53 and
+# from 2^-53 to 709.78 (two runs of files joined end to end).
 set -e
 J=${1:-20}
 ARCH=$2
