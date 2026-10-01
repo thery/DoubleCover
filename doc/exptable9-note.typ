@@ -122,11 +122,15 @@ Over the 687 184 lines (all measured with Python on the files):
 Three things are more general than for `in_lt`, where every $x_0$ was
 positive and in $[2^9, 2^10)$:
 
-- *The sign of $x$, and $u$, vary.* A line gives $x_0 = S_0 dot 2^(e_x - 52)$
-  with $S_0$ an integer, $2^52 <= |S_0| < 2^53$, negative when $x_0$ is;
-  then $u = 2^(e_x - 52)$ and the inputs are
-  $x_0 + j u = (S_0 + j) 2^(e_x - 52)$. Both $S_0$ and $e_x$ are read from
-  the line. The search always goes upwards: $u > 0$ and $x_1 >= x_0$, also
+- *The sign of $x$, and $u$, vary.* $x_0$ is a normal double: if $e_x$ is
+  its exponent, $2^(e_x) <= |x_0| < 2^(e_x + 1)$, then
+  $u = "ulp"(x_0) = 2^(e_x - 52)$, and
+  $ S_0 = x_0 / u $
+  is an integer, the significand of $x_0$ with its sign:
+  $x_0 = S_0 u$, $2^52 <= |S_0| < 2^53$, and $S_0 < 0$ when $x_0 < 0$. The
+  inputs are $x_0 + j u = (S_0 + j) u$. Both $e_x$ and $S_0$ are read from
+  the text of the line (for `-0x1.74910d52d3051p+9`, $e_x = 9$ and
+  $S_0 = -#raw("0x174910d52d3051")$). The search always goes upwards: $u > 0$ and $x_1 >= x_0$, also
   when $x_0$ is negative, where it goes towards 0 ($|S_0 + j|$ decreases).
   (The other choice would have been to search away from 0, with
   $x_1 < x_0$ for a negative $x_0$.) Condition 1 checks it on every line:
