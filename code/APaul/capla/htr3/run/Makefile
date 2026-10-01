@@ -52,11 +52,16 @@ cut/%: tables/% FORCE
 	  NR >= a && (b < 0 || NR <= b) { \
 	    if (m != "" && $$2 + 0 > m + 0) $$2 = m; print }' $< > $@
 
+# Each run is timed: the times are printed and kept in $@.time.
+TIME = /usr/bin/time -f "$@: %e s wall, %U s user" -o $@.time
+
 %.htr: htr cut/%
-	./htr cut/$* > $@
+	$(TIME) ./htr cut/$* > $@
+	@cat $@.time
 
 %.htrc: $(PROG) cut/%
-	./$(PROG) cut/$* $(K) $(L) $(ERR) > $@
+	$(TIME) ./$(PROG) cut/$* $(K) $(L) $(ERR) > $@
+	@cat $@.time
 
 # Both, side by side: the candidates of htr and of the Capla search, sorted
 # (htr prints them in thread order), must be the same.
@@ -78,4 +83,4 @@ capla-c:
 
 clean:
 	rm -f htr3cap htr3gcc htr *.o
-	rm -rf cut
+	rm -rf cut *.time
