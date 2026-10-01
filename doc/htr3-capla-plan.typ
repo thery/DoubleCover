@@ -14,7 +14,7 @@
 
 #v(1em)
 
-`code/APaul/capla/htr3/htr3.b` is the search of `code/APaul/htr3_new.c` in
+`code/APaul/capla/htr3/run/htr3.b` is the search of `code/APaul/htr3_new.c` in
 Capla, for one line of a table. The goal is a Rocq theorem saying that it
 returns the hard-to-round cases: *on a line that satisfies the six
 conditions (`line_ok` of `code/exptable9`), every input $x_0 + j u$,
@@ -29,7 +29,7 @@ candidates; the theorem is that none is missed.
 - *`WP_sound`*, admitted in Capla itself (`bfrontend/WP.v`): every
   result on a Capla program goes through Capla's weakest-precondition
   calculus, whose soundness is not proved yet.
-- *The C driver* `main_htr3.c`: reading the file, $u = "ulp"(x_0)$ by
+- *The C driver* `run/main_htr3.c`: reading the file, $u = "ulp"(x_0)$ by
   `frexp`, printing $x_0 + j u$. The theorem is stated on the numbers of a
   line; that the text of a line means these numbers is `parse_sound` of
   `code/exptable9`, for the Rocq parser, not for the C one.

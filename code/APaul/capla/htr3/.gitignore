@@ -1,7 +1,7 @@
-htr3cap
-htr3gcc
-htr3_capla.c
-*.o
+run/htr3cap
+run/htr3gcc
+run/htr3_capla.c
+run/*.o
 proof/add.v
 proof/htr3.v
 proof/htr3.b
@@ -22,3 +22,6 @@ exptable9/*.vok
 exptable9/*.vos
 exptable9/*.glob
 exptable9/.*.aux
+rocq_mcp_cache_*
+run/tables/
+run/*.htr

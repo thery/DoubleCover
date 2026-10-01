@@ -1,7 +1,7 @@
 (** * What the search of htr3.c computes, on integers
 
     The search of [code/APaul/htr3.c] (and of its Capla version,
-    [code/APaul/capla/htr3/htr3.b]) for one line of a table: the line gives
+    [code/APaul/capla/htr3/run/htr3.b]) for one line of a table: the line gives
     [k] coefficients [b_0 .. b_(k-1)] of [l] words each, the values
     [P(0) .. P(k-1)] of a polynomial modulo [beta^l]; the search turns them
     into the table of differences, adds the window [err] to the top word of
