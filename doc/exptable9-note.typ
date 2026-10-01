@@ -32,25 +32,20 @@ conditions. The same method was used on the smaller table `in_lt`
 
 = Summary
 
-- *The whole archive passes.* All 2 203 files, 687 184 lines. Rocq proves
-  that every line, read as its text says, satisfies the six conditions
-  (section 5) under which the search misses no hard case on it, and that
-  the lines cover every double from $-745.133...$ to
-  $#raw("-0x1.0000000000001p-53")$ and from $#raw("0x1p-53")$ to
-  $709.782...$ (section 12). No line fails. The run took 69 min 33 s on
-  `roquableu` with 20 workers (section 11).
-- *$E$ is inferred, not read from the search program* (section 6):
-  $E = #raw("0x600000") dot 2^320$, exactly $3 dot 2^(-43)$ in units of
-  $beta^ell$. The $n$ of each line keeps both
-  the rounding term and the Taylor term at or below $2^(-43)$, so the
-  window must hold three terms of $2^(-43)$. With the window of the
-  program for `in_lt`, `0x400001`, the lines near $x = plus.minus 1$ fail
-  the window condition, although their $B_i$ are right. The $E$ of the
-  program that reads these tables is still to be confirmed.
+- *The tables are half-open.* A line $(x_0, n, B)$ is searched at
+  $x_0 + j u$ for $j = 0, dots, n - 1$, as `htr3_new.c` does
+  (`for (i = 0; i < N; i++)`); the checker has `closed` = `false`.
+- *$E$ is the window of the search program* `htr3_new.c`: `ERR = 0x600000`
+  on the top word, so $E = #raw("0x600000") dot 2^320 = beta^ell dot 3
+  dot 2^(-43)$ (section 6).
+- *What is to be run:* the check of the whole archive, 2 203 files and
+  687 184 lines, with `./fullrun.sh 20` on `roquableu` (section 11). Small
+  tables cut from it pass, with the coverage (section 12), as do the lines
+  where the error terms are largest.
 - *The bit-flip test passes* (section 11): changing one bit of any
   coefficient $B_i$, or moving $x_0$, makes the check fail.
-- *Not covered:* the inputs $-2^(-53) <= x < 2^(-53)$, in no table; note
-  that $-2^(-53)$ is left out while $2^(-53)$ is covered (section 12).
+- *Not covered:* the inputs $-2^(-53) < x < 2^(-53)$, in no table
+  (section 12).
 
 = Proof by a checker, for a reader who does not use Rocq
 
@@ -91,7 +86,7 @@ integers $B_0, dots, B_8$ of $ell = 6$ words of 64 bits each, the least
 significant word first: 56 fields. For instance, the first line of `in2`
 starts
 
-#align(center)[`0x1.62e42fefa39fp-1 6782714940072 0xb2a413074401254d 0x6ac68b078499736e ...`]
+#align(center)[`0x1.62e42fefa39fp-1 6782714940073 0xb2a413074401254d 0x6ac68b078499736e ...`]
 
 Over the 687 184 lines (all measured with Python on the files):
 
@@ -105,10 +100,16 @@ Over the 687 184 lines (all measured with Python on the files):
 
 - $beta = 2^64$ is the word basis, $ell$ the number of words of a
   coefficient.
-- A subrange is $[x_0, x_1]$ with $x_1 = x_0 + n u$, where $u = "ulp"(x)$ is
-  the same for all $x$ in it. The search looks at the $n + 1$ inputs
-  $x_0 + j u$, $j = 0, dots, n$.
-- $v = 1/2 "ulp"(exp x)$, the same for all $x$ in $[x_0, x_1]$.
+- A subrange goes from $x_0$ to $x_1 = x_0 + n u$, where $u = "ulp"(x)$ is
+  the same for all $x$ in it. The parameter `closed` (section 6) says
+  whether $x_1$ is in it. With $d = 0$ when `closed` is `true` and $d = 1$
+  when it is `false`, the search looks at the inputs $x_0 + j u$,
+  $j = 0, dots, n - d$: the subrange is $[x_0, x_1]$ ($n + 1$ inputs) or
+  $[x_0, x_1)$ ($n$ inputs). The last input is
+  $ x_l = x_0 + (n - d) u = S_L u, quad S_L = S_0 + n - d. $
+  The current tables are half-open: `closed` is `false`, $d = 1$ and
+  $x_l = x_1 - u$.
+- $v = 1/2 "ulp"(exp x)$, the same for all $x$ in $[x_0, x_l]$.
 - $a_i = exp(x_0) u^i slash i!$, $0 <= i < k$, the Taylor coefficients.
 - $A_i$ is an integer with $0 <= A_i < beta^ell$ and
   $|A_i - beta^ell "frac"(a_i slash v)| < 1$, and
@@ -129,11 +130,11 @@ positive and in $[2^9, 2^10)$:
   $x_0 = S_0 u$, $2^52 <= |S_0| < 2^53$, and $S_0 < 0$ when $x_0 < 0$. The
   inputs are $x_0 + j u = (S_0 + j) u$. Both $e_x$ and $S_0$ are read from
   the text of the line (for `-0x1.74910d52d3051p+9`, $e_x = 9$ and
-  $S_0 = -#raw("0x174910d52d3051")$). The search always goes upwards: $u > 0$ and $x_1 >= x_0$, also
+  $S_0 = -#raw("0x174910d52d3051")$). The search always goes upwards: $u > 0$ and $x_l >= x_0$, also
   when $x_0$ is negative, where it goes towards 0 ($|S_0 + j|$ decreases).
   (The other choice would have been to search away from 0, with
   $x_1 < x_0$ for a negative $x_0$.) Condition 1 checks it on every line:
-  $S_0$ and $S_0 + n$ have the same sign and both have 53 bits.
+  $S_0$ and $S_L$ have the same sign and both have 53 bits.
 - *$v$ for small outputs.* If $2^e <= exp(x) < 2^(e+1)$ with $e >= -1022$,
   the doubles near $exp(x)$ are the multiples of $2^(e - 52)$, and
   $v = 2^(e - 53)$. Below $2^(-1021)$, the subnormal doubles and those of
@@ -146,18 +147,20 @@ positive and in $[2^9, 2^10)$:
 
 For one line, the search misses no hard case when:
 
-+ *$u$ is constant:* $0 <= n$, and $S_0$ and $S_0 + n$ have the same sign
-  and absolute values in $[2^52, 2^53)$, so every $x_0 + j u$ has exponent
-  $e_x$;
++ *$u$ is constant:* $d <= n$ (so a line has at least one input), and
+  $S_0$ and $S_L$ have the same sign and absolute values in
+  $[2^52, 2^53)$, so every $x_0 + j u$ has exponent $e_x$;
 + *$v$ is constant:* $2^e <= exp(x_0)$ and
-  $exp(x_1) < 2^(max(e, -1022) + 1)$, so $v = 2^(max(e, -1022) - 53)$
+  $exp(x_l) < 2^(max(e, -1022) + 1)$, so $v = 2^(max(e, -1022) - 53)$
   fits every $exp(x)$ of the subrange;
 + *(H_A):* there are $A_0, dots, A_(k-1)$ with $0 <= A_i < beta^ell$ and
   $|A_i - beta^ell "frac"(a_i slash v)| < 1$, and the line holds
   $B_i = P(i) mod beta^ell$ for $i < k$;
-+ *(H_T):* for $0 <= j <= n$,
++ *(H_T):* for $0 <= j <= n - d$,
   $ |exp(x_0 + j u) slash v - (a_0 + a_1 j + dots + a_(k-1) j^(k-1)) slash v|
-    <= rho, quad rho = exp(x_1) (n u)^k / (k! v); $
+    <= rho, quad rho = exp(x_l) (n u)^k / (k! v); $
+  the power is $(n u)^k$, not $((n - d) u)^k$: it bounds $(j u)^k$ for
+  every $j <= n$;
 + *(H_E):* $E >= beta^ell (2^(-m) + rho) + (1 + n + dots + n^(k-1))$;
 + *the window is less than half the modulus:* $2 E < beta^ell$.
 
@@ -176,15 +179,31 @@ Definition beta : Z := 2 ^ 64.    (* the machine word basis            *)
 Definition l : Z := 6.            (* words of an A_i or a B_i          *)
 Definition k : nat := 9.          (* terms of the Taylor polynomial    *)
 Definition m : Z := 43.           (* identical bits after the round bit *)
-Definition E : Z := 0x600000 * 2 ^ 320.  (* the window (inferred) *)
+Definition E : Z := 0x600000 * 2 ^ 320.  (* the window of htr3_new.c *)
 Definition guard : Z := 64.       (* extra bits in the exp enclosure   *)
+Definition closed : bool := false. (* true: j = 0..n; false: j = 0..n-1 *)
 ```
 
-$E$ is not in the tables, and the program that reads these tables is not
-in the repository: *$E$ is inferred from the tables*. Over the 687 184
-lines, the two error terms of condition 5 each reach $2^(-43)$ exactly and
-never more (computed with Python from $n$ and $e_x$ alone, bounding
-$exp(x_1) slash v < 2^54$):
+`closed` says which inputs a line holds (section 4); everything else is
+derived from it: `drop` is $d$, and the checker and the coverage both use
+the last input $S_L = S_0 + n - d$. The current tables are checked with
+`closed` = `false`.
+
+$E$ is not in the tables: it is a constant of the search program,
+`code/APaul/htr3_new.c`, the same for every line:
+
+```c
+static uint64_t ERR = 0x600000; // ceil(2^64*(3*2^-43))
+B[0][l-1] += ERR;
+```
+
+`ERR` is added to the top word of $B_0$, so
+$E = #raw("0x600000") dot 2^320 = beta^ell dot 3 dot 2^(-43)$ (about
+$2^342.585$): three terms of $2^(-43)$, for the target, the Taylor term and
+the rounding of the $A_i$. The tables are made for it: over the 687 184
+lines, the two error terms of condition 5 each reach $2^(-43)$ and never
+more (computed with Python from $n$ and $e_x$ alone, bounding
+$exp(x_l) slash v < 2^54$):
 
 #align(center, table(columns: 3, align: (left, right, left),
   stroke: 0.4pt, inset: 4pt,
@@ -193,19 +212,7 @@ $exp(x_1) slash v < 2^54$):
   [$rho <= 2^54 (n u)^9 slash 9!$], [$2^(-43.0000)$], [`in-2`, $x_0 = #raw("-0x1.0a2b23f3bab73p+1")$],
 ))
 
-So the $n$ of each line is chosen to keep both terms below $2^(-43)$, and
-the window must hold three terms of $2^(-43)$:
-$E >= beta^ell dot 3 dot 2^(-43)$. The search program `htr3.c` for `in_lt`
-writes its window as a constant added to the top word, rounded up:
-`ERR = 0x400001` for $ceil(2^64 (2^(-43) + 2^(-43) + 2^(-90)))$. The same
-rule here gives $ceil(2^64 dot 3 dot 2^(-43)) = #raw("0x600000")$: the
-bound is an integer, there is nothing to round, and
-$E = #raw("0x600000") dot 2^320 = beta^ell dot 3 dot 2^(-43)$ (about
-$2^342.585$). Condition 5 is
-checked on every line with this value; a wrong guess would make the check
-fail, never pass. The value of `htr3.c`, `0x400001`, is too small here: the
-lines near $x = plus.minus 1$ fail condition 5 with it (while their $B_i$
-are right).
+Condition 5 is checked on every line with this $E$.
 
 = How one line is checked: `check_line`
 
@@ -213,11 +220,11 @@ are right).
 `check_line`, with integers only, except for two calls to the certified
 $exp$ of the Interval library.
 
-+ *Condition 1:* integer tests on $n$, $|S_0|$, $|S_0 + n|$ and the sign of
-  $S_0 (S_0 + n)$.
++ *Condition 1:* integer tests on $n$, $|S_0|$, $|S_L|$ and the sign of
+  $S_0 S_L$.
 + *Enclosures.* `encl` builds the double $S_0 2^(e_x - 52)$ as a float of
   Interval and calls its $exp$ at $384 + 53 + 64 = 501$ bits:
-  $L_0 <= exp(x_0) <= U_0$, and the same at $x_1$.
+  $L_0 <= exp(x_0) <= U_0$, and the same at $x_l$: $L_1 <= exp(x_l) <= U_1$.
 + *Condition 2.* $e$ is the exponent of $L_0$; the test is
   $U_1 < 2^(max(e, -1022) + 1)$.
 + *Condition 3.* For each $i$, $T = beta^ell a_i slash v$ is $exp(x_0)$
@@ -228,7 +235,7 @@ $exp$ of the Interval library.
   $beta^ell "frac"(a_i slash v)$. It computes $P(0), dots, P(8)$ modulo
   $beta^ell$ and compares them with the $B_i$.
 + *Condition 4* needs no test: it is the Taylor theorem (`ExpTaylor.v`).
-+ *Condition 5* is one integer inequality, with $exp(x_1)$ replaced by
++ *Condition 5* is one integer inequality, with $exp(x_l)$ replaced by
   $U_1$.
 + *Condition 6* is checked once by `check_raw`.
 
@@ -245,7 +252,7 @@ computed with Python.
   [$x_0$], [$709.089566$], [$0.693147$ ($ln 2$)], [$-745.133219$],
   [$S_0$], [$6237217781087073$], [$6243314768165360$], [$-6554261109157969$],
   [$e_x$, $u$], [$9$, $2^(-43)$], [$-1$, $2^(-53)$], [$9$, $2^(-43)$],
-  [$n$], [$20778149366$], [$6782714940072$], [$20778149366$],
+  [$n$], [$20778149367$], [$6782714940073$], [$20778149367$],
   [$e$], [$1023$], [$1$], [$-1075$],
   [$v$], [$2^970$], [$2^(-52)$], [$2^(-1075)$],
   [enclosure of $exp(x_0)$], [502 bits, width 2], [502 bits, width 2], [520 bits, width 271017],
@@ -268,7 +275,7 @@ $rho$ is tiny. All three need less than $E approx 2^342.585$.
 The first line of `in-1074` is (the $B_i$ are shown by their most
 significant word only; each has six):
 
-$ x_0 = #raw("-0x1.74910d52d3051p+9") approx -745.133219, quad n = 20778149366, $
+$ x_0 = #raw("-0x1.74910d52d3051p+9") approx -745.133219, quad n = 20778149367, $
 
 #align(center, table(columns: 3, stroke: 0.4pt, inset: 4pt,
   [$B_0$ = `0x1bec60` ...], [$B_1$ = `0x3bec60` ...], [$B_2$ = `0x5bec60` ...],
@@ -291,9 +298,10 @@ $S_0 = -(16^13 + #raw("0x74910d52d3051")) = -6554261109157969$ and
 $e_x = 9$.
 
 *Condition 1: $u$ is constant.* $u = 2^(9 - 52) = 2^(-43)$. The inputs are
-$(S_0 + j) 2^(-43)$ for $j = 0, dots, n$, from $x_0 approx -745.133219$ to
-$x_1 = (S_0 + n) 2^(-43) approx -745.130857$, with
-$S_0 + n = -6554240331008603$. Both significands are negative with absolute
+$(S_0 + j) 2^(-43)$ for $j = 0, dots, n - 1$ (the tables are half-open),
+from $x_0 approx -745.133219$ to the last input
+$x_l = (S_0 + n - 1) 2^(-43) approx -745.130857$, with
+$S_0 + n - 1 = -6554240331008603$. Both significands are negative with absolute
 values in $[2^52, 2^53)$, so every input has exponent 9: the search walks
 towards 0 without leaving the binade $(-2^10, -2^9]$.
 
@@ -428,20 +436,14 @@ together hold exactly the files of Paul's archive, checked against
 `archive/SHA256SUMS`. `./fullrun.sh 20` unpacks them, writes `Data_N.v`,
 `Run_N.v` and `Cover_N.v` for each file, runs them with 20 workers, and
 builds `SampleAll.v` and `AllCover.v`. It was run on `roquableu` (an Intel
-Xeon E5-2667 server, 12 cores, 24 threads); all measured:
+Xeon E5-2667 server, 12 cores, 24 threads).
 
-#align(center, table(columns: 2, align: (left, right),
-  stroke: 0.4pt, inset: 4pt,
-  [files, lines], [2 203, 687 184],
-  [`Qed` of a `Run_N.v` of 294 lines], [27 to 36 s],
-  [wall time, all of `fullrun.sh 20`], [69 min 33 s],
-  [processor time (user + system)], [1 129 min + 75 min],
-  [exit status], [0],
-))
-
-Every `Run_N.v` and `Cover_N.v` passes, and `SampleAll.v` and `AllCover.v`
-are built: the theorems of sections 10 and 12 hold for the whole archive.
-A worker uses about 600 MB.
+The check of the whole archive is still to be run. Before it, on the
+desktop: the half-open checker accepts the two lines where the error
+terms are largest, the first and last lines of `in1024`, the first line of
+`in-1074` and of `in2`, the last line of `in0-52` and the first of
+`in1-52`; and `mksample.sh`, `make sample` and `make sample-all` pass on
+small tables cut from the archive.
 
 *The bit-flip test* (`ExpMutate.v`, `make test`) makes sure every
 coefficient and $x_0$ is really checked. On the first line of `in1024`,
@@ -456,11 +458,13 @@ checks by evaluation that `check_line` answers `false` on each of them, in
 
 Each line is checked alone; that the lines, put together, leave no input
 out is checked by `ExpCover.v`. A line covers the doubles
-$(S_0 + j) u$, $j = 0, dots, n$; the next line must start at the next
-double after $(S_0 + n) u$, going upwards. Within a binade that is
-$(S_0 + n + 1) u$; at the top of a binade ($S_0 + n + 1 = 2^53$) it is
+$(S_0 + j) u$, $j = 0, dots, n - d$; the next line must start at the next
+double after its last input $x_l = S_L u$, going upwards. Within a binade
+that is $(S_L + 1) u$; at the top of a binade ($S_L + 1 = 2^53$) it is
 $2^52 dot 2 u$, and for negative $x$ at the end of a binade
-($S_0 + n = -2^52$) it is $-(2^53 - 1) dot u slash 2$.
+($S_L = -2^52$) it is $-(2^53 - 1) dot u slash 2$. So even for a half-open
+line ($d = 1$) the next $x_0$ is not always $x_1 = x_0 + n u$: going up
+from a negative binade, $u$ halves.
 
 - `contig` checks this between consecutive lines of a file, by parsing
   only (no $exp$); one file `Cover_N.v` per table file, with
@@ -470,13 +474,14 @@ $2^52 dot 2 u$, and for negative $x$ at the end of a binade
   runs of files that follow each other; `joins` checks the boundaries.
 - `cover_ok` is the theorem: if the files of a run are contiguous, join,
   and all their lines satisfy the six conditions, then every normal double
-  $y = S u'$ between the first $x_0$ and the last $x_1$ of the run lies in
-  $[x_0, x_1]$ of one of its lines, with the same exponent, so
-  $y = x_0 + j u$ for some $0 <= j <= n$. `AllCover.v` states it for each
+  $y = S u'$ between the first $x_0$ and the last $x_l$ of the run lies in
+  $[x_0, x_l]$ of one of its lines, with the same exponent, so
+  $y = x_0 + j u$ for some $0 <= j <= n - d$. `AllCover.v` states it for each
   run, on the text of the lines, as `table_cover_text` does for `in_lt`.
 
 On the archive (checked with Python over all 687 184 lines, exact
-integers, and proved by the run of section 11): every file is contiguous, and the
+integers; the Rocq proof is the run of section 11): every line has
+$n >= 1$, every file is contiguous, and the
 files join everywhere except around 0. The order of the files is `in-1074`,
 ..., `in-1`, `in0-0`, ..., `in0-52`, `in1-52`, ..., `in1-0`, `in2`, ...,
 `in1024` (`in0-`$j$ covers $[-2^(-j), -2^(-j-1))$, `in1-`$j$ covers
@@ -485,18 +490,17 @@ $[2^(-j-1), 2^(-j))$). So there are two runs:
 #align(center, table(columns: 3, align: (left, left, left),
   stroke: 0.4pt, inset: 4pt,
   [run], [from], [to],
-  [`in-1074` .. `in0-52` (1127 files)], [#raw("-0x1.74910d52d3051p+9") $approx -745.133$], [#raw("-0x1.0000000000001p-53")],
+  [`in-1074` .. `in0-52` (1127 files)], [#raw("-0x1.74910d52d3051p+9") $approx -745.133$], [#raw("-0x1p-53")],
   [`in1-52` .. `in1024` (1076 files)], [#raw("0x1p-53")], [#raw("0x1.62e42fefa39efp+9") $approx 709.783$],
 ))
 
-The doubles in neither run are those with $-2^(-53) <= x < 2^(-53)$: the
-tiny inputs, whose $exp$ is $1$ or a neighbour of $1$, and also
-$-2^(-53)$ itself, while $2^(-53)$ is covered.
+The doubles in neither run are those with $-2^(-53) < x < 2^(-53)$: the
+tiny inputs, whose $exp$ is $1$ or a neighbour of $1$.
 
 = What is not checked
 
-- The inputs $-2^(-53) <= x < 2^(-53)$, in no table (section 12).
-- The value of $E$ of Paul's program (section 6): $E$ is inferred.
+- The whole archive in Rocq: the run of section 11 is still to be made.
+- The inputs $-2^(-53) < x < 2^(-53)$, in no table (section 12).
 - The search itself: that is `TaylorLink.v`, which this check feeds.
 
 #pagebreak()
