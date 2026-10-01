@@ -38,7 +38,17 @@ RANGE=a-b keeps lines a to b, numbered from 1; MAXN=n keeps the first n
 inputs of each line.  Without them the whole file is checked; with MAXN
 the check is partial.  The outputs list every candidate x0 + j u of the
 lines checked (htr.c prints them in the order its threads find them, so
-.cmp sorts both).
+.cmp sorts both).  Each run is timed: make prints its wall and user
+time and keeps them in in1024.htr.time and in1024.htrc.time.  htr.c runs
+lines in parallel, so with several lines its wall time is below its user
+time; compare user times.  On the desktop, turbo off (measured):
+
+  make in-1074.cmp RANGE=1-1 MAXN=100000000
+  in-1074.htr: 7.14 s wall, 7.09 s user
+  in-1074.htrc: 10.96 s wall, 10.92 s user        (htr3gcc)
+  in-1074: same candidates
+
+and 13.97 s user with PROG=htr3cap.
 A line with more than 4000000 candidates stops the Capla run.  Without
 Capla installed, everything above works with the default PROG=htr3gcc.
 
