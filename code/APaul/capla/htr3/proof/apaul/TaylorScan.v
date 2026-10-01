@@ -1,1 +1,0 @@
-../../../../rocq/TaylorScan.v
