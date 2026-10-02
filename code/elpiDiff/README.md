@@ -9,7 +9,19 @@ mode) and its adjoint (reverse mode) as C++ templates.
 regenerates the expected headers byte for byte, and the generated code passes
 the derivative tests (tangent and adjoint against dual numbers, adjoint against
 finite differences, dot-product test). The plan below restructures it as a
-compiler with explicit intermediate languages.
+compiler with explicit intermediate languages; all four steps are done.
+
+**Reference cases.** The test cases (one directory per case: `primal.elpi`,
+the expected `tangent.hpp`, `adjoint.hpp` or `diagnostics.txt`, and a
+`test.cpp`) are kept outside this repository. Their expected headers were
+regenerated after step 4, the only step that changes the generated code. Every
+change is checked in two ways:
+
+- the regression: every case is regenerated and compared with its expected
+  headers, modulo the names of the generated locals (`t3`, `i7`, `r8`, …), and
+  any Elpi warning counts as a failure;
+- the derivative tests: each `test.cpp` is compiled against the regenerated
+  headers and run.
 
 ## The pipeline, file by file
 
