@@ -506,6 +506,203 @@ the tangent along the first unit vector gives its first component:
 }
 ```
 
+## Tangent or adjoint
+
+### Seeds: dx, and the coefficients of dL
+
+The derivative of a program at a point is a linear map, its Jacobian J, and
+neither mode computes J itself: each applies it to one vector, the *seed*.
+
+- The **tangent** pushes a vector forward. Its seed `x_dot` is dx, a direction
+  in the inputs, and it computes `y_dot`, which is dy = J dx.
+- The **adjoint** pulls a linear form back. Take the scalar L you finally care
+  about; its differential in terms of the outputs is dL = ȳ · dy. The seed
+  `y_bar` is ȳ = ∂L/∂y, the coefficient of dy, and the adjoint computes
+  x̄ = Jᵀ ȳ = ∂L/∂x, the coefficient of dx in dL = x̄ · dx. With ȳ = 1, L is
+  the output itself and x̄ its gradient; with ȳ = 2, L is twice the output;
+  inside a larger computation L = h(f(x)), ȳ = h′(f(x)).
+
+An adjoint therefore accumulates (`x_bar +=`): when x reaches L along several
+paths, its coefficient in dL is the sum of their contributions.
+
+### Two inputs, one output: `g(x, y) = sin(x * y)`
+
+dg = cos(xy) · (y dx + x dy). The generated tangent follows dt1, then dt2, for
+one choice of (dx, dy):
+
+```cpp
+template <typename T>
+T g_tangent(T x, T y, T x_dot, T y_dot, T& result_dot)
+{
+    using std::sin;
+    using std::cos;
+
+    const T t1 = x * y;
+    const T t1_dot = (y * x_dot) + (x * y_dot);
+    const T t2 = sin(t1);
+    const T t2_dot = cos(t1) * t1_dot;
+    result_dot = t2_dot;
+    return t2;
+}
+```
+
+The generated adjoint starts from the coefficient of dg and rewrites it as a
+coefficient of dt1, then splits it between dx and dy; going backwards, it reads
+`t1`, which its forward sweep stores:
+
+```cpp
+template <typename T>
+void g_adjoint(T x, T y, T& x_bar, T& y_bar, T result_bar)
+{
+    using std::cos;
+
+    const T t1 = x * y;
+    const T t2_bar = result_bar;
+    const T t1_bar = cos(t1) * t2_bar;
+    x_bar += y * t1_bar;
+    y_bar += x * t1_bar;
+}
+```
+
+At (x, y) = (2, 3), the gradient (y cos(xy), x cos(xy)) is
+(2.880511, 1.920341):
+
+```cpp
+g_tangent(x, y, 1.0, 0.0, gx);           // dx = 1, dy = 0: gx = ∂g/∂x = 2.880511
+g_tangent(x, y, 0.0, 1.0, gy);           // dx = 0, dy = 1: gy = ∂g/∂y = 1.920341
+g_adjoint(x, y, x_bar, y_bar, 1.0);      // both: x_bar = 2.880511, y_bar = 1.920341
+```
+
+The `1.0` of the three calls is a unit vector each time, but of different
+spaces: the tangent's seed lives in the inputs, of dimension 2, so it takes two
+unit vectors, (1, 0) and (0, 1), to read the two partial derivatives (with
+(1, 1) the tangent gives their sum, 4.800851, and they cannot be told apart);
+the adjoint's seed lives in the output, of dimension 1, whose only unit vector
+is 1.
+
+The tangent gives a *number*, dg for one (dx, dy); the adjoint gives a
+*formula*, dg = x_bar · dx + y_bar · dy, valid for every (dx, dy): one adjoint
+call predicts every tangent call, for instance dg = −0.480085 for
+(dx, dy) = (0.3, −0.7). This is the dot-product test that every case runs,
+ȳ · (J ẋ) = (Jᵀ ȳ) · ẋ. Seeding the adjoint with 2 gives the same numbers as the
+tangent with (2, 0) and (0, 2), by linearity, but the factor is on the other
+side: the tangent moves the input by 2, the adjoint differentiates L = 2g.
+
+### Cost
+
+For `y = f(x)` with n inputs and m outputs, a call of the tangent with the
+i-th unit vector gives column i of J, a call of the adjoint with the j-th unit
+vector gives row j. Each call costs a small constant times the cost of f,
+whatever n and m:
+
+| | gradient of f: ℝⁿ → ℝ | whole Jacobian |
+|---|---|---|
+| tangent | n calls | n calls (columns) |
+| adjoint | 1 call | m calls (rows) |
+
+A gradient is one row: the adjoint gives it in one call, the tangent in n. This
+is why the adjoint is the mode of optimization and machine learning, where a
+single real output depends on many parameters (backpropagation is the adjoint
+mode). The tangent wins when there are more outputs than inputs, and it needs no
+memory: the adjoint runs the computation backwards, so it must store or
+recompute the values of the forward run (the to-be-recorded analysis, below).
+
+### The adjoint as the maximal sharing of the tangents
+
+Partially evaluating the tangent of `g` on its two unit seeds gives two
+programs, one per partial derivative (`y * 1 + x * 0` becomes `y`):
+
+```cpp
+T g_dx(T x, T y, T& result_dot)            T g_dy(T x, T y, T& result_dot)
+{                                          {
+    const T t1 = x * y;                        const T t1 = x * y;
+    const T t2 = sin(t1);                      const T t2 = sin(t1);
+    result_dot = cos(t1) * y;                  result_dot = cos(t1) * x;
+    return t2;                                 return t2;
+}                                          }
+```
+
+Merging them, computing once what they share, gives
+
+```cpp
+const T t1 = x * y;
+const T t2 = sin(t1);
+const T c = cos(t1);
+gx = c * y;
+gy = c * x;
+```
+
+which is the adjoint of `g`, partially evaluated with seed 1: `c` is `t1_bar`.
+
+It is not always so direct. With one more level, `h(x, y) = sin(sin(x * y))`:
+
+```
+h(x: real independent, y: real independent) returns real:
+    let t1 = x * y
+    let t2 = sin(t1)
+    let t3 = sin(t2)
+    return t3
+```
+
+the merged tangents, sharing identical subexpressions only, carry one
+derivative per input through every intermediate value:
+
+```cpp
+const T c1 = cos(t1), c2 = cos(t2);
+const T dx = c2 * (c1 * y);      // 4 multiplications:
+const T dy = c2 * (c1 * x);      // nothing more is identical
+```
+
+The common factor is hidden by the bracketing. Multiplication being
+associative, `c2 * (c1 * y)` is `(c2 * c1) * y`, and maximal sharing computes
+the factor once:
+
+```cpp
+const T k = c2 * c1;             // 3 multiplications
+const T dx = k * y;
+const T dy = k * x;
+```
+
+This is the generated adjoint, where `k` is `t1_bar`, ∂h/∂t1:
+
+```
+h_adjoint(x: real, y: real, x_bar: ref real, y_bar: ref real, result_bar: real):
+    const real t1 = x * y
+    const real t2 = sin(t1)
+    const real t3_bar = result_bar
+    const real t2_bar = cos(t2) * t3_bar
+    const real t1_bar = cos(t1) * t2_bar
+    x_bar += y * t1_bar
+    y_bar += x * t1_bar
+```
+
+In general, the Jacobian is the product of the local Jacobians of the
+operations, J = J₃ · J₂ · J₁. The merged tangents bracket it from the inputs,
+J₃ · (J₂ · (J₁ · [dx dy])), carrying one column per input; the adjoint
+brackets it from the output, ((ȳ · J₃) · J₂) · J₁, carrying one row per
+output. Associativity makes the results equal; the widths make the costs
+differ. For one output, the adjoint is the bracketing that computes each shared
+factor once, the maximal sharing of the vector tangents. Three things go beyond
+what a symbolic sharing of the tangents would do:
+
+- **Distributivity.** When a value is used several times, its derivative is a
+  sum over paths: in `xsin`, ∂/∂x of `x * sin x` is `sin x * 1 + x * cos x`.
+  The accumulations `x_bar +=` factor these sums where the paths meet,
+  a·u + a·v = a·(u + v).
+- **No symbolic search.** Partial evaluation needs the whole computation laid
+  out, then reassociated. A loop whose length is known at run time only
+  (`prodx`), or a branch taken on the data (`03-branch`), cannot be unrolled:
+  the adjoint achieves the same sharing at run time, by running the
+  computation backwards.
+- **Memory.** Going backwards needs the values of the forward run: `t1` kept in
+  `g`, the tape of `prodx`. The merged tangents keep nothing. The
+  to-be-recorded analysis (next section) decides what to store.
+
+Choosing the cheapest bracketing on an arbitrary computation graph is the
+optimal Jacobian accumulation problem, which is NP-complete (Naumann, 2008);
+forward and reverse are two fixed strategies, each optimal at one extreme: one
+input for the tangent, one output for the adjoint.
+
 ## What the adjoint keeps: the to-be-recorded analysis
 
 The reverse sweep multiplies adjoints by partial derivatives, and a partial
