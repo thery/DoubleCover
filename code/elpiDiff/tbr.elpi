@@ -40,6 +40,11 @@ needs M (a-let _ E B) U L :- !,
   if (Needed = tt ; M = forward, records E) (atoms-of-value E AtomsE) (AtomsE = []),
   atom-union U0 FlowsE U,
   atom-union L0 ReadsE L1, atom-union L1 AtomsE L.
+% computes-value: the adjoint also computes the value of the function, so its
+% forward sweep reads the result (mode adjoint-value). Set by annotate.
+func computes-value.
+
+needs forward (a-ret X) U U :- computes-value, !, atoms-of-atom X U.
 needs _ (a-ret X) U [] :- atoms-of-atom X U.      % the tail: the result is this atom; its reverse only touches its bar
 
 % value-needs E R F: for an active value E, R the atoms its reverse reads, F the

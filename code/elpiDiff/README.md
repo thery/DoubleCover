@@ -59,21 +59,25 @@ primal (function "rescale" (arg "x" real inout x\ arg "w" real independent w\
 From this directory:
 
 ```
-elpi -I . <case>/primal.elpi -exec main -- <case> tangent|adjoint [<output directory>]
+elpi -I . <case>/primal.elpi -exec main -- <case> tangent|adjoint|adjoint-value [<output directory>]
 ```
 
-writes `<case>/tangent.hpp` or `<case>/adjoint.hpp`, one header for all the
-well-formed functions, and `<case>/diagnostics.txt` for the refused ones.
+writes `<case>/tangent.hpp`, `<case>/adjoint.hpp` or `<case>/adjoint-value.hpp`,
+one header for all the well-formed functions, and `<case>/diagnostics.txt` for
+the refused ones. There are two reverse modes: `adjoint` computes the
+derivative only (`f_adjoint`), with the smallest forward sweep; `adjoint-value`
+computes the value of the function as well (`f_adjoint_value`): it returns the
+returned value, and writes the dependent argument.
 
 ```
-elpi -I . <case>/primal.elpi -exec terms -- tangent|adjoint
+elpi -I . <case>/primal.elpi -exec terms -- tangent|adjoint|adjoint-value
 ```
 
 prints the generated programs as Elpi terms (L3) instead.
 
 ```
 elpi -I . <case>/primal.elpi -exec dump -- anf|annotated
-elpi -I . <case>/primal.elpi -exec dump -- derivative|simplified|target tangent|adjoint
+elpi -I . <case>/primal.elpi -exec dump -- annotated|derivative|simplified|target tangent|adjoint|adjoint-value
 ```
 
 prints each function of the case at one stage of the pipeline, in a readable
@@ -197,6 +201,46 @@ void xsin_adjoint(T x, T& x_bar, T result_bar)
     double y = adjudge::xsin_tangent(x, 1.0, y_dot);  // y = 0.239713, y_dot = sin x + x cos x = 0.918217
     double x_bar = 0;                                 // accumulated into: start at 0
     adjudge::xsin_adjoint(x, x_bar, 1.0);             // seed 1: x_bar = 0.918217
+}
+```
+
+**`adjoint-value`: the value and the gradient in one call.** `xsin_adjoint`
+computes only the derivative: its forward sweep stops at what the reverse sweep
+reads, and the caller who also wants `xsin(x)` must call it. In mode
+`adjoint-value` the forward sweep reads the result as well, so everything the
+result depends on is *computed*, `t2` included:
+
+```
+xsin(x: real independent) returns real:
+    let t1 = sin(x)    [varied, active, computed]
+    let t2 = x * t1    [varied, active, computed]
+    return t2
+```
+
+and the adjoint returns the value:
+
+```cpp
+template <typename T>
+T xsin_adjoint_value(T x, T& x_bar, T result_bar)
+{
+    using std::sin;
+    using std::cos;
+
+    const T t1 = sin(x);
+    const T t2 = x * t1;
+    const T result = t2;
+    const T t2_bar = result_bar;
+    x_bar += t1 * t2_bar;
+    const T t1_bar = x * t2_bar;
+    x_bar += cos(x) * t1_bar;
+    return result;
+}
+```
+
+```cpp
+{
+    double x = 0.5, x_bar = 0;
+    double y = adjudge::xsin_adjoint_value(x, x_bar, 1.0);  // y = 0.239713, x_bar = 0.918217
 }
 ```
 
@@ -497,6 +541,10 @@ At a let `x = E`, from the sets of the rest of the body: if `x` is active, the
 atoms its partial derivatives read are added to *read*, its operands to
 *useful*; if `x` is read, it is computed, and its operands are added to *read*.
 
+In mode `adjoint-value` the result itself is read at the end of the forward
+sweep, so every value it depends on is computed: the analysis then matters for
+what the loops record and replay, not for the body of the function.
+
 **Where the values come from.** In A-normal form no value is ever overwritten,
 so keeping a value costs nothing: the forward sweep computes it into a constant
 that is still in scope during the reverse sweep. This is what *computed* means
@@ -530,9 +578,12 @@ argument that carries a derivative, then the *seed*, the adjoint of the result:
   sets it to zero first (or to a value it wants to add to);
 - the seed is the adjoint of the result: `1` for a real result, so that the
   call computes the gradient;
-- a `dependent` argument is not touched; its adjoint `y_bar` is the seed;
+- a `dependent` argument is not touched by `f_adjoint`, and receives the value
+  from `f_adjoint_value`; its adjoint `y_bar` is the seed;
 - an `inout` argument is passed by value; its adjoint is the seed on entry and
-  the gradient on exit.
+  the gradient on exit; its new value is not given back, even by
+  `f_adjoint_value`, since the reverse sweep reads the value on entry;
+- `f_adjoint_value` returns the value of a function that returns one.
 
 One call of the adjoint gives the whole gradient, whatever the number of
 inputs, where the tangent gives one directional derivative per call: see the
@@ -585,7 +636,9 @@ Current limits:
 - no branch inside an in-place loop, no scalar recurrence inside a loop body or
   a branch;
 - an in-place loop that contains another one cannot read its array before it;
-- the unused `dependent` array of an adjoint is passed as a non-const reference;
+- the unused `dependent` array of `f_adjoint` is passed as a non-const
+  reference;
+- `f_adjoint_value` does not give back the new value of an `inout` argument;
 - a generated function may not use all its arguments (`-Wunused-parameter`).
 
 ## Plan: a compiler with intermediate languages

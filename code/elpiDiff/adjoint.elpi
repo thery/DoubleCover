@@ -18,28 +18,57 @@ namespace adjudge {
 func recorded dvar.    % an array updated in place whose fold records it, on its tape
 
 % The generated signature: the arguments of the primal, then the adjoint of
-% each argument that has one, then the adjoint of a returned value.
+% each argument that has one, then the adjoint of a returned value. In mode
+% adjoint-value, the adjoint computes the value of the function as well as its
+% derivative: it returns the returned value, and writes the dependent argument.
 %   independent  x_bar is accumulated: the caller initializes it;
-%   dependent    y is not touched; y_bar is the seed, read only;
-%   inout        the primal value is a working copy, by value; its adjoint is
-%                transformed in place: on entry the adjoint of the final value,
-%                on exit the adjoint of the initial value.
-func adjoint afunction ann -> dfunction.
-adjoint (a-function Name Def) (dfunction AName Body) :-
+%   dependent    y is not touched, or receives the value in mode adjoint-value;
+%                y_bar is the seed, read only;
+%   inout        the primal value is a working copy, by value, and the new value
+%                is not given back; its adjoint is transformed in place: on entry
+%                the adjoint of the final value, on exit the adjoint of the
+%                initial value.
+% adjoint Value F D: the adjoint of F, computing its value as well when Value is tt.
+func adjoint bool, afunction ann -> dfunction.
+adjoint tt (a-function Name Def) (dfunction AName Body) :- !,
+  AName is Name ^ "_adjoint_value",
+  with-arguments Def (adjoint-body tt) Body.
+adjoint ff (a-function Name Def) (dfunction AName Body) :-
   AName is Name ^ "_adjoint",
-  with-arguments Def adjoint-body Body.
+  with-arguments Def (adjoint-body ff) Body.
 
-func adjoint-body list (pair decl dvar), aresult, anf ann -> scoped dbody.
-adjoint-body Args Res B R :-
-  std.map Args adjoint-primal Ps, std.map Args adjoint-bar Bss, std.flatten Bss Bs,
+func adjoint-body bool, list (pair decl dvar), aresult, anf ann -> scoped dbody.
+adjoint-body tt Args Res B R :- !,
+  std.map Args (adjoint-primal tt) Ps, std.map Args adjoint-bar Bss, std.flatten Bss Bs,
+  adjoint-seed Res Extra Prologue Seed,
+  (adjoint-result Res =!=> adj forward B Seed FR),
+  std.flatten [Ps, Bs, Extra] Params,
+  sbind FR (adjoint-finish tt Res Params Prologue) R.
+adjoint-body ff Args Res B R :-
+  std.map Args (adjoint-primal ff) Ps, std.map Args adjoint-bar Bss, std.flatten Bss Bs,
   adjoint-seed Res Extra Prologue Seed,
   adj forward B Seed FR,
   std.flatten [Ps, Bs, Extra] Params,
-  sbind FR (adjoint-finish Params Prologue) R.
+  sbind FR (adjoint-finish ff Res Params Prologue) R.
 
-func adjoint-finish list dparam, list dstmt, sweeps -> scoped dbody.
-adjoint-finish Params Prologue (pr Fwd Rev) (done (dbody d-void Params Stmts)) :-
+% The forward sweep, then the reverse sweep, then the returned value.
+func adjoint-finish bool, aresult, list dparam, list dstmt, sweeps -> scoped dbody.
+adjoint-finish tt (a-returns _) Params Prologue (pr Fwd Rev) (done (dbody d-returns-real Params Stmts)) :- !,
+  std.flatten [Fwd, Prologue, Rev, [d-return (d-var result-var)]] Stmts.
+adjoint-finish _ _ Params Prologue (pr Fwd Rev) (done (dbody d-void Params Stmts)) :-
   std.flatten [Fwd, Prologue, Rev] Stmts.
+
+func adjoint-result -> aresult.    % where the value of the function goes, set by adjoint-body in mode adjoint-value
+
+% value-output X S: at the end of the forward sweep, S sends X, the value of the
+% function, where it goes: a local returned at the very end, or the dependent
+% real. A dependent array is written by the map that computes it. Nothing when
+% the adjoint does not compute the value.
+func value-output atom -> list dstmt.
+value-output X [d-define (d-constant real) result-var V] :- adjoint-result (a-returns _), !, spell X V.
+value-output X [d-assign (d-var W) V] :-
+  adjoint-result (a-writes Y), of Y real, argument Y _ dependent, !, stored Y W, spell X V.
+value-output _ [].
 
 % The seed, the adjoint of the result: an argument for a returned value; the
 % adjoint of the written real, read then reset when that real is also an input;
@@ -53,12 +82,13 @@ adjoint-seed (a-writes Y) []
   of Y real, argument Y _ inout, !, stored Y X.
 adjoint-seed _ [] [] (d-real "0").
 
-func adjoint-primal pair decl dvar -> dparam.
-adjoint-primal (pr (decl _ integer _) V) (dparam by-value integer V) :- !.
-adjoint-primal (pr (decl _ T dependent) V) (dparam by-ref-unused T V) :- !.
-adjoint-primal (pr (decl _ real _) V) (dparam by-value real V) :- !.
-adjoint-primal (pr (decl _ T inout) V) (dparam by-value T V) :- !.
-adjoint-primal (pr (decl _ T _) V) (dparam by-cref T V).
+func adjoint-primal bool, pair decl dvar -> dparam.
+adjoint-primal _ (pr (decl _ integer _) V) (dparam by-value integer V) :- !.
+adjoint-primal tt (pr (decl _ T dependent) V) (dparam by-ref T V) :- !.
+adjoint-primal ff (pr (decl _ T dependent) V) (dparam by-ref-unused T V) :- !.
+adjoint-primal _ (pr (decl _ real _) V) (dparam by-value real V) :- !.
+adjoint-primal _ (pr (decl _ T inout) V) (dparam by-value T V) :- !.
+adjoint-primal _ (pr (decl _ T _) V) (dparam by-cref T V).
 
 func adjoint-bar pair decl dvar -> list dparam.
 adjoint-bar (pr (decl _ integer _) _) [] :- !.
@@ -76,7 +106,9 @@ func adj sweep, anf ann, dexpr -> scoped sweeps.
 adj M (a-let (let-ann V A C) E B) Seed R :- !,
   type-of E T,
   with-storage E B (adj-let M E B T V A C Seed) R.
-adj _ (a-ret X) Seed (done (pr [] Rev)) :- if (of X real, bar X BX) (Rev = [d-increment BX Seed]) (Rev = []).
+adj M (a-ret X) Seed (done (pr Fwd Rev)) :-
+  if (M = forward) (value-output X Fwd) (Fwd = []),
+  if (of X real, bar X BX) (Rev = [d-increment BX Seed]) (Rev = []).
 
 func adj-let sweep, value ann, (atom -> anf ann), ty, bool, bool, bool, dexpr, dvar -> scoped sweeps.
 adj-let M E B T V A C Seed N R :-
