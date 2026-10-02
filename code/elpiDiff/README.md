@@ -45,6 +45,142 @@ change is checked in two ways:
 | `dump.elpi` | Readable printers for L1, L1ᵃ and L2, to debug the passes (`dump` mode). |
 | `adjudge.elpi` | The driver: accumulates everything, `main` and `terms`. |
 
+## The languages and their Elpi types
+
+Each intermediate language is a family of Elpi types, so that Elpi's
+typechecker checks that every pass produces a term of the next language. A
+function goes through:
+
+```
+  L0            L1                L1ᵃ              L2            L2′           L3           C++
+function ──▶ afunction bare ──▶ afunction ann ──▶ dfunction ──▶ dfunction ──▶ cfunction ──▶ string
+      normalize          annotate        tangent/adjoint    simplify       lower     function-string
+```
+
+and each arrow is a predicate whose `func` declaration states it:
+
+```elpi
+func normalize function -> afunction bare.                 % anf.elpi
+func well-formed afunction bare -> diagnostic.             % well-formed.elpi, a check on L1
+func annotate bool, afunction bare -> afunction ann.       % annotate.elpi
+func tangent afunction ann -> dfunction.                   % tangent.elpi
+func adjoint bool, afunction ann -> dfunction.             % adjoint.elpi
+func simplify dfunction -> dfunction.                      % simplify.elpi
+func lower dfunction -> cfunction.                         % lower.elpi
+func function-string cfunction -> string.                  % cxx.elpi
+```
+
+The `bool` of `annotate` and `adjoint` says whether the adjoint also computes
+the value of the function (mode `adjoint-value`).
+
+| Language | File | Its types | A variable is |
+|---|---|---|---|
+| L0, the source | `syntax.elpi` | `function`, `definition`, `result`, `term` | an Elpi variable of type `term` |
+| L1, A-normal form | `anf.elpi` | `afunction bare`, `adefinition bare`, `aresult`, `anf bare`, `value bare`, `atom` | an Elpi variable of type `atom` |
+| L1ᵃ, annotated | `anf.elpi` | the same, indexed by `ann` instead of `bare` | an Elpi variable of type `atom` |
+| L2 and L2′, the derivative IR | `derivative.elpi` | `dfunction`, `scoped`, `dbody`, `dparam`, `dpass`, `dreturn`, `dstmt`, `dsort`, `dexpr`, `dvar` | an Elpi variable of type `dvar` |
+| L3, the target | `target.elpi` | `cfunction`, `stmt`, `expr` | a `string`, its C++ name |
+
+Some types are shared by several languages: `ty` (`real`, `integer`,
+`boolean`, `array N`), `role` (`independent`, `dependent`, `inout`,
+`passive`), the operators `unary` and `binary` (`operations.elpi`), and `decl`,
+an argument as plain data.
+
+### L0: `function`, `term`
+
+The input, written by the user. A `term` nests expressions freely; `let`,
+`map` and `fold` bind Elpi variables of type `term` (λ-tree syntax):
+
+```elpi
+type function string -> definition -> function.
+type arg  string -> ty -> role -> (term -> definition) -> definition.
+type body result -> term -> definition.
+type returns ty -> result.          type writes term -> result.
+type num string -> term.            type nat int -> term.
+type op1 unary -> term -> term.     type op2 binary -> term -> term -> term.
+type get term -> term -> term.      type set term -> term -> term -> term.
+type let term -> (term -> term) -> term.
+type ite term -> term -> term -> term.
+type map  term -> term -> (term -> term) -> term.
+type fold term -> term -> term -> (term -> term -> term) -> term.
+```
+
+### L1: `afunction bare`, `anf bare`, `value bare`, `atom`
+
+A-normal form: the constructors mirror those of L0, prefixed with `a-`, but
+the types separate what L0 mixes. A binder binds an `atom`, an operation takes
+`atom`s, a `let` binds a `value` in a body `anf`:
+
+```elpi
+type a-num string -> atom.          type a-nat int -> atom.
+type a-op1 unary -> atom -> value I.
+type a-op2 binary -> atom -> atom -> value I.
+type a-get atom -> atom -> value I. type a-set atom -> atom -> atom -> value I.
+type a-ite atom -> anf I -> anf I -> value I.
+type a-map atom -> atom -> (atom -> anf I) -> value I.
+type a-fold I -> atom -> atom -> atom -> (atom -> atom -> anf I) -> value I.
+type a-let I -> value I -> (atom -> anf I) -> anf I.
+type a-ret atom -> anf I.
+```
+
+So `a-op2 mul (a-op1 sin x) y`, an operation applied to an operation, is
+ill-typed: that operands are atoms is not a property to check, it is a
+consequence of the types. The partial derivatives of the operations are
+expressions over atoms, of their own type `pexpr` (`p-atom`, `p-num`, `p-op1`,
+`p-op2`).
+
+### L1ᵃ: `afunction ann`
+
+The same constructors, with the index `I` instantiated to `ann` instead of
+`bare`: the slot `I` of every `a-let` and `a-fold` holds the results of the
+analyses,
+
+```elpi
+type bare bare.                                    % L1: nothing
+type let-ann  bool -> bool -> bool -> ann.         % varied, active, computed
+type fold-ann bool -> bool -> bool -> ann.         % state varied, state recorded, records
+```
+
+`tangent` and `adjoint` take `afunction ann`: the typechecker refuses to
+differentiate a term that has not been annotated.
+
+### L2 and L2′: `dfunction`
+
+The derivative program, imperative but still without names: its variables are
+Elpi variables of type `dvar`, all bound at the head of the function by
+`scoped`, in the order of their creation, since an adjoint is used far from its
+value. A tangent, an adjoint or a tape is derived from its variable:
+
+```elpi
+type dfunction string -> scoped dbody -> dfunction.
+type named string -> (dvar -> scoped A) -> scoped A.    % an argument, with its C++ name
+type fresh string -> (dvar -> scoped A) -> scoped A.    % a local, with the prefix of its name
+type done  A -> scoped A.
+type dbody dreturn -> list dparam -> list dstmt -> dbody.
+type dot-of dvar -> dvar.   type bar-of dvar -> dvar.   type tape-of dvar -> dvar.
+```
+
+Statements (`d-define`, `d-assign`, `d-increment`, `d-branch`, `d-for`,
+`d-for-back`, `d-push`, `d-pop`, `d-return`) and expressions (`d-var`,
+`d-real`, `d-int`, `d-at`, `d-op1`, `d-op2`) carry no C++: a type is
+`d-constant ty` or `d-mutable`, an argument is passed `by-value`, `by-ref`,
+`by-cref` or `by-ref-unused`. L2′ is not a new type: `simplify` maps
+`dfunction` to `dfunction`.
+
+### L3: `cfunction`
+
+C++ statements, first order, every name a string, every type spelled:
+
+```elpi
+type cfunction string -> string -> list string -> list stmt -> cfunction.   % result type, name, arguments, body
+type declare string -> string -> expr -> stmt.      % type name = init;
+type id string -> expr.  type lit string -> expr.  type call string -> list expr -> expr.
+```
+
+`lower` is the pass where the Elpi variables of type `dvar` become strings
+(`t3`, `t3_bar`, `t1_tape`) and the sorts become C++ types (`const T`,
+`std::vector<T>`); `cxx.elpi` only prints.
+
 ## Usage
 
 A case is a file that accumulates `adjudge` and declares its `primal`
