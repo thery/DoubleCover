@@ -1,0 +1,59 @@
+% anf.elpi — A-normal form.
+%
+% `anf T T'`: T' computes the value of T with every intermediate value named
+% by a `let`; operations apply to atoms, and every body ends with an atom.
+% `norm T K R` is the continuation-passing formulation: the continuation K is a
+% term builder that receives the atom holding the value of T. To sequence two
+% normalizations, the rest is first built under a fresh name (`pi a\ ...`), and
+% the resulting λ-abstraction becomes the continuation of the first one.
+
+namespace adjudge {
+
+func atom term.
+atom (num _) :- !.
+atom (nat _) :- !.
+% a bound variable is declared an atom when its binder is opened
+
+% normalize F F': the body of F in A-normal form, under the binders of its arguments.
+func normalize function -> function.
+normalize (function N D) (function N D1) :- normalize-definition D D1.
+
+func normalize-definition definition -> definition.
+normalize-definition (arg N T R F) (arg N T R F1) :- !, pi x\ atom x =!=> normalize-definition (F x) (F1 x).
+normalize-definition (body R B) (body R B1) :- anf B B1.
+
+func anf term -> term.
+anf T R :- norm T (x\ x) R.
+
+func norm term, (term -> term) -> term.
+norm X K R :- atom X, !, R = K X.
+norm (let E B) K R :- !,
+  (pi x\ atom x =!=> norm (B x) K (Rest x)),
+  norm E Rest R.
+norm (op1 F A) K R :- !, norm A (a\ let (op1 F a) K) R.
+norm (op2 F A B) K R :- !,
+  (pi a\ atom a =!=> norm B (b\ let (op2 F a b) K) (Rest a)),
+  norm A Rest R.
+norm (get A I) K R :- !,
+  (pi a\ atom a =!=> norm I (i\ let (get a i) K) (Rest a)),
+  norm A Rest R.
+norm (set A I V) K R :- !,
+  (pi a\ atom a =!=>
+     ((pi i\ atom i =!=> norm V (v\ let (set a i v) K) (Rest2 a i)),
+      norm I (Rest2 a) (Rest1 a))),
+  norm A Rest1 R.
+norm (ite C T E) K R :- !,
+  anf T T1, anf E E1,
+  norm C (c\ let (ite c T1 E1) K) R.
+norm (map Lo Hi B) K R :- !,
+  (pi i\ atom i =!=> anf (B i) (B1 i)),
+  (pi lo\ atom lo =!=> norm Hi (hi\ let (map lo hi B1) K) (Rest lo)),
+  norm Lo Rest R.
+norm (fold Lo Hi I B) K R :-
+  (pi i\ pi s\ [atom i, atom s] =!=> anf (B i s) (B1 i s)),
+  (pi lo\ atom lo =!=>
+     ((pi hi\ atom hi =!=> norm I (x\ let (fold lo hi x B1) K) (Rest2 lo hi)),
+      norm Hi (Rest2 lo) (Rest1 lo))),
+  norm Lo Rest1 R.
+
+}

@@ -1,0 +1,113 @@
+% tangent.elpi — forward mode: the linearization.
+%
+% The tangent program computes every value together with its tangent, the
+% derivative along the tangents of the independent arguments. For
+% `let x = op F a b`, x_dot is the sum, over the varied operands, of the
+% partial derivative times the tangent of the operand. A value is always
+% computed before its tangent, so no tape is ever needed.
+
+shorten adjudge.{ written-role, declarations, with-arguments, cname, of, type-of, storage-name, varied, fold-varied, open-let, open-fold, open-index, spell, dot, scale, sum, value-type, array-type, new-name, partial1, partial2 }.
+
+namespace adjudge {
+
+% The generated signature: the arguments of the primal, then the tangent of
+% each argument that has one, then `result_dot` for a returned value.
+func tangent function -> cfunction.
+tangent (function Name Def) (cfunction Ret TName Args Stmts) :-
+  TName is Name ^ "_tangent",
+  declarations Def Decls,
+  std.map Decls tangent-primal Ps, std.map Decls tangent-dot Dss, std.flatten Dss Ds,
+  with-arguments Def (r\ b\ tan b S V D, tangent-result r V D Ret Extra Tail),
+  std.flatten [Ps, Ds, Extra] Args, std.append S Tail Stmts.
+
+% Where the result goes: returned, with its tangent in `result_dot`; stored in
+% the written real; an array is written in place, element by element.
+func tangent-result result, expr, expr -> string, list string, list stmt.
+tangent-result (returns _) V D "T" ["T& result_dot"] [assign (id "result_dot") D, return V] :- !.
+tangent-result (writes Y) V D "void" [] [assign (id N) V, assign (id ND) D] :-
+  of Y real, !, cname Y N, ND is N ^ "_dot".
+tangent-result _ _ _ "void" [] [].
+
+func tangent-primal decl -> string.
+tangent-primal (decl N integer _) S :- !, S is "int " ^ N.
+tangent-primal (decl N real R) S :- written-role R, !, S is "T& " ^ N.
+tangent-primal (decl N real _) S :- !, S is "T " ^ N.
+tangent-primal (decl N (array K) R) S :- written-role R, !, array-type K A, S is A ^ "& " ^ N.
+tangent-primal (decl N (array K) _) S :- array-type K A, S is "const " ^ A ^ "& " ^ N.
+
+func tangent-dot decl -> list string.
+tangent-dot (decl _ integer _) [] :- !.
+tangent-dot (decl _ _ passive) [] :- !.
+tangent-dot (decl N real independent) [S] :- !, S is "T " ^ N ^ "_dot".
+tangent-dot (decl N real _) [S] :- !, S is "T& " ^ N ^ "_dot".
+tangent-dot (decl N (array K) independent) [S] :- !, array-type K A, S is "const " ^ A ^ "& " ^ N ^ "_dot".
+tangent-dot (decl N (array K) _) [S] :- array-type K A, S is A ^ "& " ^ N ^ "_dot".
+
+% tan T S V D: S computes T; V and D are the value and the tangent of its tail atom.
+func tan term -> list stmt, expr, expr.
+tan (let E B) S V D :- !,
+  type-of E T, storage-name E B N, if (varied E) (Vr = tt) (Vr = ff),
+  tan-value E T N SE,
+  open-let T N Vr (x\ tan (B x) SB V D),
+  std.append SE SB S.
+tan X [] V D :- spell X V, dot X D.
+
+func tan-value term, ty, string -> list stmt.
+tan-value (op1 F A) T N S :- !,
+  value-type T VT, spell (op1 F A) E,
+  if (varied (op1 F A))
+     (partial1 F A P, tangent-term A P Terms, sum Terms DE, D is N ^ "_dot",
+      S = [declare VT N E, declare "const T" D DE])
+     (S = [declare VT N E]).
+tan-value (op2 F A B) T N S :- !,
+  value-type T VT, spell (op2 F A B) E,
+  if (varied (op2 F A B))
+     (partial2 F A B PA PB, tangent-term A PA TA, tangent-term B PB TB, std.append TA TB Terms,
+      sum Terms DE, D is N ^ "_dot",
+      S = [declare VT N E, declare "const T" D DE])
+     (S = [declare VT N E]).
+tan-value (get A I) _ N S :- !,
+  spell A EA, spell I EI,
+  if (varied A)
+     (dot A DA, D is N ^ "_dot", S = [declare "const T" N (at EA EI), declare "const T" D (at DA EI)])
+     (S = [declare "const T" N (at EA EI)]).
+tan-value (set A I V) _ N S :- !,
+  spell I EI, spell V EV,
+  if (varied (set A I V))
+     (dot V DV, D is N ^ "_dot", S = [assign (at (id N) EI) EV, assign (at (id D) EI) DV])
+     (S = [assign (at (id N) EI) EV]).
+tan-value (ite C Then Else) _ N S :- !,
+  spell C EC, tan Then ST VT DT, tan Else SE VE DE,
+  if (varied (ite C Then Else))
+     (D is N ^ "_dot",
+      std.append ST [assign (id N) VT, assign (id D) DT] BT,
+      std.append SE [assign (id N) VE, assign (id D) DE] BE,
+      S = [allocate "T" N, allocate "T" D, branch EC BT BE])
+     (std.append ST [assign (id N) VT] BT,
+      std.append SE [assign (id N) VE] BE,
+      S = [allocate "T" N, branch EC BT BE]).
+tan-value (map Lo Hi B) _ N [loop I ELo EHi Body] :- !,
+  spell Lo ELo, spell Hi EHi, new-name "i" I,
+  open-index I (i\ tan (B i) SB VB DB),
+  if (varied (map Lo Hi B))
+     (D is N ^ "_dot", std.append SB [assign (at (id N) (id I)) VB, assign (at (id D) (id I)) DB] Body)
+     (std.append SB [assign (at (id N) (id I)) VB] Body).
+tan-value (fold Lo Hi Init B) real N S :- !,
+  spell Lo ELo, spell Hi EHi, spell Init EI, new-name "i" I,
+  open-fold Init B real N I (i\ s\ tan (B i s) SB VB DB),
+  if (fold-varied Init B)
+     (D is N ^ "_dot", dot Init DI,
+      std.append SB [assign (id N) VB, assign (id D) DB] Body,
+      S = [declare "T" N EI, declare "T" D DI, loop I ELo EHi Body])
+     (std.append SB [assign (id N) VB] Body,
+      S = [declare "T" N EI, loop I ELo EHi Body]).
+tan-value (fold Lo Hi Init B) (array K) N [loop I ELo EHi SB] :-
+  spell Lo ELo, spell Hi EHi, new-name "i" I,
+  open-fold Init B (array K) N I (i\ s\ tan (B i s) SB _ _).
+
+% tangent-term A P Ts: the partial derivative P times the tangent of the operand A, when A is varied.
+func tangent-term term, term -> list expr.
+tangent-term A P [E] :- varied A, !, spell P EP, dot A DA, scale EP DA E.
+tangent-term _ _ [].
+
+}

@@ -1,0 +1,71 @@
+% adjudge.elpi — the tool: accumulates the judgments and runs them on a case.
+%
+% A case is a file that accumulates this one and declares its `primal` functions:
+%   elpi -I elpi cases/01-expression/primal.elpi -exec main -- cases/01-expression adjoint
+
+accumulate syntax.
+accumulate operations.
+accumulate anf.
+accumulate "well-formed".
+accumulate activity.
+accumulate tbr.
+accumulate target.
+accumulate tangent.
+accumulate adjoint.
+accumulate cxx.
+accumulate show.
+
+pred primal o:function.
+
+shorten adjudge.{ normalize, well-formed, tangent, adjoint, header-string, transform, report, write-file, show-function }.
+
+% main [Dir, Mode]: reads Dir/primal.elpi and writes Dir/tangent.hpp or
+% Dir/adjoint.hpp, one header for all the well-formed functions, and
+% Dir/diagnostics.txt for the refused ones. main [Dir, Mode, Out] writes into Out instead.
+func main list string.
+main [Dir, Mode] :- !, main [Dir, Mode, Dir].
+main [Dir, Mode, Out] :- !,
+  if (std.mem! ["tangent", "adjoint"] Mode) true
+     (M is "unknown mode `" ^ Mode ^ "`: expected tangent or adjoint", std.fatal-error M),
+  std.findall (primal _) Ps,
+  std.map Ps (p\ f\ p = primal f) Fs0,
+  std.map Fs0 normalize Fs,
+  std.map Fs well-formed Ds,
+  report Out Fs Ds,
+  std.map2-filter Fs Ds (f\ d\ c\ d = ok, transform Mode f c) Cs,
+  if (Cs = []) true
+     (File is Mode ^ ".hpp", Source is Dir ^ "/primal.elpi", header-string Source Cs Text, write-file Out File Text).
+main _ :- std.fatal-error "usage: elpi -I elpi <case>/primal.elpi -exec main -- <case> tangent|adjoint [<output directory>]".
+
+% terms [Mode]: prints the tangent or adjoint program of each well-formed function
+% of the case as an Elpi term, before it is printed as C++.
+func terms list string.
+terms [Mode] :- !,
+  if (std.mem! ["tangent", "adjoint"] Mode) true
+     (M is "unknown mode `" ^ Mode ^ "`: expected tangent or adjoint", std.fatal-error M),
+  std.findall (primal _) Ps,
+  std.map Ps (p\ f\ p = primal f) Fs0,
+  std.map Fs0 normalize Fs,
+  std.forall Fs (f\ sigma D C S\ well-formed f D,
+    if (D = ok) (transform Mode f C, show-function C S, print S) true).
+terms _ :- std.fatal-error "usage: elpi -I elpi <case>/primal.elpi -exec terms -- tangent|adjoint".
+
+namespace adjudge {
+
+func transform string, function -> cfunction.
+transform "tangent" F C :- !, tangent F C.
+transform "adjoint" F C :- adjoint F C.
+
+func report string, list function, list diagnostic.
+report Dir Fs Ds :-
+  std.map2 Fs Ds (f\ d\ l\ sigma N M\ f = function N _, if (d = error M) (l is N ^ ": " ^ M) (l = "")) Ls0,
+  std.filter Ls0 (l\ not (l = "")) Ls,
+  if (Ls = []) true (std.string.concat "\n" Ls Text, Text1 is Text ^ "\n", write-file Dir "diagnostics.txt" Text1).
+
+func write-file string, string, string.
+write-file Dir File Text :-
+  Path is Dir ^ "/" ^ File,
+  open_out Path Out, output Out Text, close_out Out,
+  print "wrote" Path.
+
+}

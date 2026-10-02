@@ -1,0 +1,163 @@
+% adjoint.elpi — reverse mode: the transposition.
+%
+% The adjoint of `let x = e in body` is the adjoint of body followed by the
+% adjoint of e: x_bar, accumulated by every use of x, flows to the operands of
+% e through the partial derivatives. The reverse order is the recursion coming
+% back. Guided by tbr.elpi, the forward sweep computes only the values the
+% reverse sweep reads and records the state of a fold only when it is read;
+% inside a reverse loop or branch, the values that are read are recomputed
+% (replayed) instead of recorded.
+
+shorten adjudge.{ argument, written, declarations, sweep, forward, replay, needs, records, state-live, atom-member, with-arguments, type-of, storage-name, varied, open-let, open-fold, open-index, spell, bar, scale, value-type, array-type, new-name, partial1, partial2, of }.
+
+namespace adjudge {
+
+func recorded string -> string.    % the tape of an array updated in place, set by the fold that records it
+
+% The generated signature: the arguments of the primal, then the adjoint of
+% each argument that has one, then `result_bar` for a returned value.
+%   independent  x_bar is accumulated: the caller initializes it;
+%   dependent    y is not touched; y_bar is the seed, read only;
+%   inout        the primal value is a working copy, by value; its adjoint is
+%                transformed in place: on entry the adjoint of the final value,
+%                on exit the adjoint of the initial value.
+func adjoint function -> cfunction.
+adjoint (function Name Def) (cfunction "void" AName Args Stmts) :-
+  AName is Name ^ "_adjoint",
+  declarations Def Decls,
+  std.map Decls adjoint-primal Ps, std.map Decls adjoint-bar Bss, std.flatten Bss Bs,
+  with-arguments Def (r\ b\ adjoint-seed r Extra Prologue Seed, adj forward b Seed Fwd Rev),
+  std.flatten [Ps, Bs, Extra] Args, std.flatten [Fwd, Prologue, Rev] Stmts.
+
+% The seed, the adjoint of the result: an argument for a returned value; the
+% adjoint of the written real, read then reset when that real is also an input;
+% none for an array, whose adjoint is read element by element.
+func adjoint-seed result -> list string, list stmt, expr.
+adjoint-seed (returns _) ["T result_bar"] [] (id "result_bar") :- !.
+adjoint-seed (writes Y) [] [] (id YB) :- of Y real, argument Y N dependent, !, YB is N ^ "_bar".
+adjoint-seed (writes Y) [] [declare "const T" "result_bar" (id YB), assign (id YB) (lit "T(0)")] (id "result_bar") :-
+  of Y real, argument Y N inout, !, YB is N ^ "_bar".
+adjoint-seed _ [] [] (lit "T(0)").
+
+func adjoint-primal decl -> string.
+adjoint-primal (decl N integer _) S :- !, S is "int " ^ N.
+adjoint-primal (decl N real dependent) S :- !, S is "T& /*" ^ N ^ "*/".
+adjoint-primal (decl N real _) S :- !, S is "T " ^ N.
+adjoint-primal (decl N (array K) dependent) S :- !, array-type K A, S is A ^ "& /*" ^ N ^ "*/".
+adjoint-primal (decl N (array K) inout) S :- !, array-type K A, S is A ^ " " ^ N.
+adjoint-primal (decl N (array K) _) S :- array-type K A, S is "const " ^ A ^ "& " ^ N.
+
+func adjoint-bar decl -> list string.
+adjoint-bar (decl _ integer _) [] :- !.
+adjoint-bar (decl _ _ passive) [] :- !.
+adjoint-bar (decl N real dependent) [S] :- !, S is "T " ^ N ^ "_bar".
+adjoint-bar (decl N real _) [S] :- !, S is "T& " ^ N ^ "_bar".
+adjoint-bar (decl N (array K) dependent) [S] :- !, array-type K A, S is "const " ^ A ^ "& " ^ N ^ "_bar".
+adjoint-bar (decl N (array K) _) [S] :- array-type K A, S is A ^ "& " ^ N ^ "_bar".
+
+% adj M T Seed Fwd Rev: Fwd computes what the reverse sweep of T needs;
+% Rev propagates Seed, the adjoint of T's value, back to the atoms of T.
+% At each let, the body's needs (tbr.elpi) decide whether the binder is useful,
+% hence active, and whether its value is needed, hence computed forward.
+func adj sweep, term, expr -> list stmt, list stmt.
+adj M (let E B) Seed Fwd Rev :- !,
+  type-of E T, storage-name E B N, if (varied E) (V = tt) (V = ff),
+  open-let T N V (x\ adj M (B x) Seed FwdB RevB,
+                     needs M (B x) (U x) (L x),
+                     if (atom-member x (U x)) (Useful = tt) (Useful = ff),
+                     if (atom-member x (L x)) (Needed = tt) (Needed = ff)),
+  if (V = tt, Useful = tt) (A = tt) (A = ff),
+  if (Needed = tt ; M = forward, records E) (fwd-value M E T N FwdE) (FwdE = []),
+  if (A = tt) (bar-declaration T N Decl, rev-value E T N RevE) (Decl = [], RevE = []),
+  std.append FwdE FwdB Fwd,
+  std.flatten [Decl, RevB, RevE] Rev.
+adj _ X Seed [] Rev :- if (of X real, bar X BX) (Rev = [increment BX Seed]) (Rev = []).
+
+func bar-declaration ty, string -> list stmt.
+bar-declaration real N [declare "T" B (lit "T(0)")] :- !, B is N ^ "_bar".
+bar-declaration _ _ [].
+
+% prim M T S V: the primal computation of T, recording when M is forward.
+func prim sweep, term -> list stmt, expr.
+prim M (let E B) S V :- !,
+  type-of E T, storage-name E B N, if (varied E) (Vr = tt) (Vr = ff),
+  fwd-value M E T N SE,
+  open-let T N Vr (x\ prim M (B x) SB V),
+  std.append SE SB S.
+prim _ X [] V :- spell X V.
+
+% fwd-value M E T N S: S computes the value E into N.
+func fwd-value sweep, term, ty, string -> list stmt.
+fwd-value _ (op1 F A) T N [declare VT N E] :- !, value-type T VT, spell (op1 F A) E.
+fwd-value _ (op2 F A B) T N [declare VT N E] :- !, value-type T VT, spell (op2 F A B) E.
+fwd-value _ (get A I) _ N [declare "const T" N (at EA EI)] :- !, spell A EA, spell I EI.
+fwd-value M (set _ I V) _ N S :- !,
+  spell I EI, spell V EV, Elem = at (id N) EI,
+  if (M = forward, recorded N Tape) (S = [push Tape Elem, assign Elem EV]) (S = [assign Elem EV]).
+fwd-value M (ite C Then Else) _ N [allocate "T" N, branch EC BT BE] :- !,
+  spell C EC,
+  prim M Then ST VT, std.append ST [assign (id N) VT] BT,
+  prim M Else SE VE, std.append SE [assign (id N) VE] BE.
+fwd-value M (map Lo Hi B) _ N [loop I ELo EHi Body] :- !,
+  spell Lo ELo, spell Hi EHi, new-name "i" I,
+  open-index I (i\ prim M (B i) SB VB),
+  std.append SB [assign (at (id N) (id I)) VB] Body.
+fwd-value M (fold Lo Hi Init B) real N S :- !,
+  spell Lo ELo, spell Hi EHi, spell Init EI, new-name "i" I, Tape is N ^ "_tape",
+  open-fold Init B real N I (i\ s\ prim M (B i s) SB VB),
+  if (M = forward, state-live Init B)
+     (std.flatten [[push Tape (id N)], SB, [assign (id N) VB]] Body,
+      S = [declare "T" N EI, allocate "std::vector<T>" Tape, loop I ELo EHi Body])
+     (std.append SB [assign (id N) VB] Body,
+      S = [declare "T" N EI, loop I ELo EHi Body]).
+fwd-value M (fold Lo Hi Init B) (array K) N S :-
+  spell Lo ELo, spell Hi EHi, new-name "i" I, Tape is N ^ "_tape",
+  if (M = forward, state-live Init B)
+     (recorded N Tape =!=> open-fold Init B (array K) N I (i\ s\ prim M (B i s) SB _))
+     (open-fold Init B (array K) N I (i\ s\ prim M (B i s) SB _)),
+  if (M = forward, written Init, records (fold Lo Hi Init B)) (Decl = [allocate "std::vector<T>" Tape]) (Decl = []),
+  std.append Decl [loop I ELo EHi SB] S.
+
+% rev-value E T N S: S propagates N_bar, the adjoint of E's value, to the atoms of E.
+func rev-value term, ty, string -> list stmt.
+rev-value (op1 F A) _ N S :- !, X is N ^ "_bar", partial1 F A P, contribution A P X S.
+rev-value (op2 F A B) _ N S :- !,
+  X is N ^ "_bar", partial2 F A B PA PB,
+  contribution A PA X SA, contribution B PB X SB, std.append SA SB S.
+rev-value (get A I) _ N [increment (at BA EI) (id B)] :- !, bar A BA, spell I EI, B is N ^ "_bar".
+rev-value (set _ I V) _ N S :- !,
+  spell I EI, B is N ^ "_bar", Elem = at (id B) EI,
+  if (bar V BV) (S = [increment BV Elem, assign Elem (lit "T(0)")]) (S = [assign Elem (lit "T(0)")]).
+rev-value (ite C Then Else) _ N [branch EC BT BE] :- !,
+  spell C EC, B is N ^ "_bar",
+  adj replay Then (id B) FT RT, std.append FT RT BT,
+  adj replay Else (id B) FE RE, std.append FE RE BE.
+rev-value (map Lo Hi Body) _ N [loop-back I ELo EHi Stmts] :- !,
+  spell Lo ELo, spell Hi EHi, new-name "i" I, B is N ^ "_bar",
+  open-index I (i\ adj replay (Body i) (at (id B) (id I)) F R),
+  std.append F R Stmts.
+rev-value (fold Lo Hi Init Body) real N [loop-back I ELo EHi Stmts | After] :- !,
+  spell Lo ELo, spell Hi EHi, new-name "i" I, new-name "r" R0, R is R0 ^ "_bar",
+  B is N ^ "_bar", Tape is N ^ "_tape",
+  open-fold Init Body real N I (i\ s\ adj replay (Body i s) (id R) F Rv),
+  if (state-live Init Body) (Pop = [pop Tape (id N)]) (Pop = []),
+  std.flatten [Pop, F, [declare "const T" R (id B), assign (id B) (lit "T(0)")], Rv] Stmts,
+  if (bar Init BI) (After = [increment BI (id B)]) (After = []).
+rev-value (fold Lo Hi Init Body) (array K) N [loop-back I ELo EHi Stmts] :-
+  spell Lo ELo, spell Hi EHi, new-name "i" I, Tape is N ^ "_tape",
+  open-fold Init Body (array K) N I (i\ s\ adj replay (Body i s) (lit "T(0)") F Rv,
+                                          if (state-live Init Body) (tail-index (Body i s) Ix) (Ix = lit "0")),
+  if (state-live Init Body) (Pop = [pop Tape (at (id N) Ix)]) (Pop = []),
+  std.flatten [Pop, F, Rv] Stmts.
+
+% contribution A P X S: `A_bar += P * X`, when the operand A carries an adjoint.
+func contribution term, term, string -> list stmt.
+contribution A P X [increment BA E] :- bar A BA, !, spell P EP, scale EP (id X) E.
+contribution _ _ _ [].
+
+% The index written by the update that ends the body of an in-place fold.
+func tail-index term -> expr.
+tail-index (let (set _ I _) (x\ x)) E :- !, spell I E.
+tail-index (let _ B) E :- pi x\ tail-index (B x) E.
+
+}

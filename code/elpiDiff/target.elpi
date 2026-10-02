@@ -1,0 +1,108 @@
+% target.elpi — the target language (C++ statements, first order, names as
+% strings) and how atoms of the object language are spelled in it.
+
+kind expr type.
+type id   string -> expr.                         % a variable
+type lit  string -> expr.                         % a literal, spelled
+type at   expr -> expr -> expr.                   % e[i]
+type call string -> list expr -> expr.            % an operator ("+", "<", "neg") or a function ("sin")
+
+kind stmt type.
+type declare   string -> string -> expr -> stmt.  % type name = init;
+type allocate  string -> string -> stmt.          % type name{};
+type assign    expr -> expr -> stmt.              % lhs = rhs;
+type increment expr -> expr -> stmt.              % lhs += rhs;   the adjoint accumulation
+type branch    expr -> list stmt -> list stmt -> stmt.
+type loop      string -> expr -> expr -> list stmt -> stmt.   % for (i = lo; i < hi; ++i)
+type loop-back string -> expr -> expr -> list stmt -> stmt.   % for (i = hi; i-- > lo;)
+type push      string -> expr -> stmt.            % tape.push_back(e);
+type pop       string -> expr -> stmt.            % lhs = tape.back(); tape.pop_back();
+type return    expr -> stmt.
+
+kind cfunction type.
+type cfunction string -> string -> list string -> list stmt -> cfunction.  % result type, name, arguments, body
+
+shorten adjudge.{ operation1, operation2, extra-arguments, argument, varied-role, of, written, varied, fold-varied }.
+
+namespace adjudge {
+
+% What a transformation knows about a bound variable, set when its binder is opened.
+func cname term -> string.                        % its C++ name: the name of the argument, a fresh local, or the storage updated in place
+func has-dot term -> string.                      % its tangent variable (tangent mode)
+func has-bar term -> string.                      % its adjoint variable (reverse mode)
+
+func new-name string -> string.
+new-name Prefix Name :- new_int K, Name is Prefix ^ int_to_string K.
+
+% spell T E: the C++ expression of an atom, or of a nested operation (partial derivatives).
+func spell term -> expr.
+spell (num S) (lit L) :- !, L is "T(" ^ S ^ ")".
+spell (nat K) (lit S) :- !, S is int_to_string K.
+spell (op1 F A) (call S [EA | Extras]) :- !,
+  operation1 F _ _ S, spell A EA, extra-arguments F Xs, std.map Xs (x\ e\ e = lit x) Extras.
+spell (op2 F A B) (call S [EA, EB]) :- !, operation2 F _ _ _ S, spell A EA, spell B EB.
+spell X (id N) :- cname X N.
+
+% dot X E: the tangent of an atom, T(0) when it has none.
+func dot term -> expr.
+dot X (id D) :- has-dot X D, !.
+dot _ (lit "T(0)").
+
+% bar X E: the adjoint variable of an atom; fails when it carries no derivative.
+func bar term -> expr.
+bar X (id B) :- has-bar X B.
+
+func scale expr, expr -> expr.
+scale (lit "T(1)") E E :- !.
+scale (lit "T(-1)") E (call "neg" [E]) :- !.
+scale P E (call "*" [P, E]).
+
+func sum list expr -> expr.
+sum [] (lit "T(0)") :- !.
+sum [E] E :- !.
+sum [E | Es] (call "+" [E, S]) :- sum Es S.
+
+func value-type ty -> string.
+value-type real "const T" :- !.
+value-type _ "const auto".
+
+func array-type int -> string.
+array-type K S :- S is "std::array<T, " ^ int_to_string K ^ ">".
+
+% The name of the value bound by `let E B`: a fresh local, or, for arrays, the
+% storage updated in place (the loop state, or the written argument).
+func storage-name term, (term -> term) -> string.
+storage-name (set A _ _) _ N :- !, cname A N.
+storage-name (fold _ _ Init _) _ N :- of Init (array _), !, cname Init N.
+storage-name (map _ _ _) (x\ x) N :- written Y, !, cname Y N.
+storage-name _ _ N :- new-name "t" N.
+
+% Opening binders with everything the transformations know about them. A varied
+% value gets a tangent and an adjoint variable; whether its adjoint is used is
+% decided afterwards, from what the body needs (tbr.elpi).
+
+% with-arguments D K: opens the arguments of the definition D, then runs K on its
+% result and its body. An argument is a bound variable like any other: it keeps
+% its C++ name, and it is varied, with `x_dot` and `x_bar`, when its role says so.
+func with-arguments definition, (func result, term).
+with-arguments (body (writes Y) B) K :- !, written Y =!=> K (writes Y) B.
+with-arguments (body R B) K :- !, K R B.
+with-arguments (arg N T R F) K :- varied-role R, !,
+  D is N ^ "_dot", B is N ^ "_bar",
+  pi x\ [argument x N R, of x T, cname x N, varied x, has-dot x D, has-bar x B] =!=> with-arguments (F x) K.
+with-arguments (arg N T R F) K :- pi x\ [argument x N R, of x T, cname x N] =!=> with-arguments (F x) K.
+
+func open-let ty, string, bool, (func term).
+open-let T N ff P :- !, pi x\ [of x T, cname x N] =!=> P x.
+open-let T N tt P :- D is N ^ "_dot", B is N ^ "_bar", pi x\ [of x T, cname x N, varied x, has-dot x D, has-bar x B] =!=> P x.
+
+func open-fold term, (term -> term -> term), ty, string, string, (func term, term).
+open-fold Init B T N I P :- fold-varied Init B, !,
+  D is N ^ "_dot", Bar is N ^ "_bar",
+  pi i\ pi s\ [of i integer, cname i I, of s T, cname s N, varied s, has-dot s D, has-bar s Bar] =!=> P i s.
+open-fold _ _ T N I P :- pi i\ pi s\ [of i integer, cname i I, of s T, cname s N] =!=> P i s.
+
+func open-index string, (func term).
+open-index I P :- pi i\ [of i integer, cname i I] =!=> P i.
+
+}

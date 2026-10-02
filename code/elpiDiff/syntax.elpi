@@ -1,0 +1,134 @@
+% syntax.elpi — the object language: a Wengert list with binders.
+%
+% A function is a term, and every variable of the C++ is a variable bound by an
+% Elpi λ-abstraction (λ-tree syntax): `arg` binds an argument of the function,
+% `let` an intermediate value, `map` and `fold` a loop index and a loop state.
+% The bound variable *is* the value, so versions, scopes and fresh names are
+% handled by the logic, not by symbol tables, and no term names a variable with
+% a string. Loops are the two array combinators of functional programming: `map`
+% (element-wise, no carried state) and `fold` (a recurrence on a carried state,
+% either a real or an array updated in place).
+%
+% Before any analysis, `anf` puts a body in A-normal form: operations apply to
+% atoms only (literals and bound variables) and every body ends with an atom.
+
+% The elementary operations are constants of two types, by arity, declared with
+% their table in operations.elpi. An operator the tool does not know is still a
+% term, which well-formed refuses with a reason.
+kind unary type.
+kind binary type.
+type unknown1 string -> unary.
+type unknown2 string -> binary.
+
+kind term type.
+type num   string -> term.                          % a real literal, spelled as in C++: "2", "0.9"
+type nat   int -> term.                             % an integer literal
+type op1   unary -> term -> term.                   % a unary elementary operation
+type op2   binary -> term -> term -> term.          % a binary elementary operation
+type get   term -> term -> term.                    % a[i]
+type set   term -> term -> term -> term.            % a with a[i] replaced: the next version of a
+type let   term -> (term -> term) -> term.          % let x = e in body
+type ite   term -> term -> term -> term.            % if c then t else e, where c is passive
+type map   term -> term -> (term -> term) -> term.  % the array [ body i | lo <= i < hi ]
+type fold  term -> term -> term -> (term -> term -> term) -> term.
+                                                    % s := init; for lo <= i < hi: s := body i s
+
+kind ty type.
+type real    ty.
+type integer ty.
+type boolean ty.
+type array   int -> ty.                             % an array of reals with a static extent
+
+% The role of an argument. The roles are Tapenade's independent and dependent
+% variables; they are to a C++ function what the modes `i:` and `o:` are to a
+% predicate. What a numerical code calls a parameter, a value that is given and
+% never differentiated, is a passive argument.
+kind role type.
+type independent role.                              % an input we differentiate with respect to
+type dependent   role.                              % a real or an array the function writes and never reads; its derivative is wanted
+type inout       role.                              % a real or an array the function reads, then overwrites: independent and dependent
+type passive     role.                              % neither
+
+kind result type.
+type returns ty -> result.                          % the body's value is returned
+type writes  term -> result.                        % the body's value is stored in this argument
+
+% The definition of a function: one binder per argument, in the order of the
+% C++ signature, then where the result goes and the body. The string is the C++
+% name of the argument, kept for the generated code; the body mentions the
+% bound variable:
+%   function "rescale" (arg "x" real inout x\ arg "w" real independent w\
+%     body (writes x) (op2 mul (op2 mul w x) x))
+kind definition type.
+type arg  string -> ty -> role -> (term -> definition) -> definition.
+type body result -> term -> definition.
+
+kind function type.
+type function string -> definition -> function.
+
+% An argument as plain data, for the signatures of the generated code.
+kind decl type.
+type decl string -> ty -> role -> decl.
+
+namespace adjudge {
+
+% argument X N R: the bound variable X stands for the argument N, of role R. It is
+% set by the judgments that open a definition, `well-formed-definition` and
+% `with-arguments`, together with what each of them knows of an argument.
+func argument term -> string, role.
+
+% written-role R: the function writes an argument of role R.
+func written-role role.
+written-role dependent :- !.
+written-role inout.
+
+% varied-role R: an argument of role R carries a derivative on entry.
+func varied-role role.
+varied-role independent :- !.
+varied-role inout.
+
+% declarations D Ds: the arguments of D as plain data, in order.
+func declarations definition -> list decl.
+declarations (body _ _) [] :- !.
+declarations (arg N T R F) [decl N T R | Ds] :- pi x\ declarations (F x) Ds.
+
+% Sets of atoms, as lists compared with same_term. In a set an atom is a bound variable.
+func atom-member term, list term.
+atom-member X L :- std.exists! L (y\ same_term X y).
+
+func atom-remove term, list term -> list term.
+atom-remove X L R :- std.filter L (y\ not (same_term X y)) R.
+
+func atom-union list term, list term -> list term.      % without duplicates
+atom-union L [] L :- !.
+atom-union L [X|Xs] R :- atom-member X L, !, atom-union L Xs R.
+atom-union L [X|Xs] R :- atom-union [X|L] Xs R.
+
+% atoms-of T L: the bound variables T mentions, its own binders excluded.
+func atoms-of term -> list term.
+atoms-of X [X] :- name X, !.
+atoms-of (num _) [] :- !.
+atoms-of (nat _) [] :- !.
+atoms-of (op1 _ A) L :- !, atoms-of A L.
+atoms-of (op2 _ A B) L :- !, atoms-of-list [A, B] L.
+atoms-of (get A I) L :- !, atoms-of-list [A, I] L.
+atoms-of (set A I V) L :- !, atoms-of-list [A, I, V] L.
+atoms-of (let E B) L :- !,
+  atoms-of E L1,
+  (pi x\ atoms-of (B x) (L2 x), atom-remove x (L2 x) L20),
+  atom-union L1 L20 L.
+atoms-of (ite C T E) L :- !, atoms-of-list [C, T, E] L.
+atoms-of (map Lo Hi B) L :- !,
+  atoms-of-list [Lo, Hi] L1,
+  (pi i\ atoms-of (B i) (L2 i), atom-remove i (L2 i) L20),
+  atom-union L1 L20 L.
+atoms-of (fold Lo Hi I B) L :-
+  atoms-of-list [Lo, Hi, I] L1,
+  (pi i\ pi s\ atoms-of (B i s) (L2 i s), atom-remove i (L2 i s) (L3 s), atom-remove s (L3 s) L20),
+  atom-union L1 L20 L.
+
+func atoms-of-list list term -> list term.
+atoms-of-list [] [] :- !.
+atoms-of-list [T|Ts] L :- atoms-of T L1, atoms-of-list Ts L2, atom-union L1 L2 L.
+
+}
