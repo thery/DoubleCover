@@ -83,6 +83,123 @@ its names may differ from those of the generated C++.
 
 ## The passes on an example
 
+Each example ends with how the generated code is called; the conventions are
+summed up in the next section.
+
+### The simplest: `xsin(x) = x * sin x`
+
+```elpi
+primal (function "xsin" (arg "x" real independent x\ body (returns real) (op2 mul x (op1 sin x)))).
+```
+
+**`anf`: L1.** The nested `sin x` gets a name, `t1`; every operand is now an
+atom.
+
+```
+xsin(x: real independent) returns real:
+    let t1 = sin(x)
+    let t2 = x * t1
+    return t2
+```
+
+**`annotated`: L1ᵃ.** Both values depend on `x` (*varied*) and the result
+depends on both (*active*). `t1` is also *computed* by the forward sweep of the
+adjoint: the partial derivative of `x * t1` with respect to `x` is `t1`, which
+the reverse sweep reads. `t2` is not: nothing reads it.
+
+```
+xsin(x: real independent) returns real:
+    let t1 = sin(x)    [varied, active, computed]
+    let t2 = x * t1    [varied, active]
+    return t2
+```
+
+**`derivative tangent`: L2.** Each value, then its tangent: the sum, over the
+operands, of the partial derivative times the tangent of the operand.
+
+```
+xsin_tangent(x: real, x_dot: real, result_dot: ref real) returns real:
+    const real t1 = sin(x)
+    const real t1_dot = cos(x) * x_dot
+    const real t2 = x * t1
+    const real t2_dot = (t1 * x_dot) + (x * t1_dot)
+    result_dot := t2_dot
+    return t2
+```
+
+**`derivative adjoint`: L2.** The other way round. The forward sweep computes
+`t1`, as the annotation says. The reverse sweep starts from the seed
+`result_bar` and transposes the lets in reverse order: `t2 = x * t1` sends its
+adjoint to both operands, `t1 = sin(x)` sends its own to `x`. `x` is read twice,
+so `x_bar` receives two contributions.
+
+```
+xsin_adjoint(x: real, x_bar: ref real, result_bar: real):
+    const real t1 = sin(x)
+    var real t1_bar = 0
+    var real t2_bar = 0
+    t2_bar += result_bar
+    x_bar += t1 * t2_bar
+    t1_bar += x * t2_bar
+    x_bar += cos(x) * t1_bar
+```
+
+**`simplified adjoint`: L2′.** The accumulators that start at zero and are
+incremented once become constants:
+
+```
+xsin_adjoint(x: real, x_bar: ref real, result_bar: real):
+    const real t1 = sin(x)
+    const real t2_bar = result_bar
+    x_bar += t1 * t2_bar
+    const real t1_bar = x * t2_bar
+    x_bar += cos(x) * t1_bar
+```
+
+**`target`: the C++ of both modes.**
+
+```cpp
+template <typename T>
+T xsin_tangent(T x, T x_dot, T& result_dot)
+{
+    using std::sin;
+    using std::cos;
+
+    const T t1 = sin(x);
+    const T t1_dot = cos(x) * x_dot;
+    const T t2 = x * t1;
+    const T t2_dot = (t1 * x_dot) + (x * t1_dot);
+    result_dot = t2_dot;
+    return t2;
+}
+
+template <typename T>
+void xsin_adjoint(T x, T& x_bar, T result_bar)
+{
+    using std::sin;
+    using std::cos;
+
+    const T t1 = sin(x);
+    const T t2_bar = result_bar;
+    x_bar += t1 * t2_bar;
+    const T t1_bar = x * t2_bar;
+    x_bar += cos(x) * t1_bar;
+}
+```
+
+**Calling it.** The tangent computes the value and its derivative along
+`x_dot`; the adjoint accumulates into `x_bar` the derivative times the seed
+`result_bar`. With one input, both give `sin x + x cos x`:
+
+```cpp
+{
+    double x = 0.5, y_dot;
+    double y = adjudge::xsin_tangent(x, 1.0, y_dot);  // y = 0.239713, y_dot = sin x + x cos x = 0.918217
+    double x_bar = 0;                                 // accumulated into: start at 0
+    adjudge::xsin_adjoint(x, x_bar, 1.0);             // seed 1: x_bar = 0.918217
+}
+```
+
 ### `f(x1, x2) = x1 * x2 + sin x1`
 
 The example of the Wikipedia article on automatic differentiation
@@ -189,11 +306,25 @@ void f_adjoint(T x1, T x2, T& x1_bar, T& x2_bar, T result_bar)
 }
 ```
 
+**Calling it.** One call of the adjoint gives the whole gradient; the tangent
+needs one call per input:
+
+```cpp
+{
+    double x1 = 2, x2 = 3;
+    double x1_bar = 0, x2_bar = 0;
+    adjudge::f_adjoint(x1, x2, x1_bar, x2_bar, 1.0);  // x1_bar = x2 + cos x1 = 2.58385, x2_bar = x1 = 2
+    double d1, d2;
+    adjudge::f_tangent(x1, x2, 1.0, 0.0, d1);         // d1 = 2.58385
+    adjudge::f_tangent(x1, x2, 0.0, 1.0, d2);         // d2 = 2
+}
+```
+
 ### A value the reverse sweep reads: `x = 2 * x; return x * x`
 
-In the first example the forward sweep is empty, because the partial
-derivatives read only arguments. Here (`02-overwrite`) they read an
-intermediate value, which the adjoint must store:
+In the Wikipedia example the forward sweep is empty, because the partial
+derivatives read only arguments. Here (`02-overwrite`), as in `xsin`, they read
+an intermediate value, which the adjoint must store:
 
 ```cpp
 template <typename T>
@@ -254,6 +385,15 @@ void overwrite_adjoint(T x, T& x_bar, T result_bar)
 }
 ```
 
+**Calling it.** The function is `(2x)^2`, its derivative `8x`:
+
+```cpp
+{
+    double x = 3, x_bar = 0;
+    adjudge::overwrite_adjoint(x, x_bar, 1.0);        // x_bar = 8x = 24
+}
+```
+
 A tape is needed only when storage is overwritten, which A-normal form leaves
 to two constructs: the state of a `fold`, next, and an array updated in place
 (`09-array-state`).
@@ -310,6 +450,18 @@ prodx_adjoint(x: const ref real[3], x_bar: ref real[3], result_bar: real):
         x_bar[i5] += t7_bar
 ```
 
+**Calling it.** The adjoint of an array argument is an array, the gradient;
+the tangent along the first unit vector gives its first component:
+
+```cpp
+{
+    std::array<double, 3> x{2, 3, 5}, x_bar{};
+    adjudge::prodx_adjoint(x, x_bar, 1.0);            // x_bar = (15, 10, 6)
+    double d;
+    adjudge::prodx_tangent(x, {1, 0, 0}, d);          // d = 15
+}
+```
+
 ## Using the adjoint: computing a gradient
 
 The adjoint of `f` has the arguments of `f`, then the adjoint `x_bar` of each
@@ -324,28 +476,13 @@ argument that carries a derivative, then the *seed*, the adjoint of the result:
   the gradient on exit.
 
 One call of the adjoint gives the whole gradient, whatever the number of
-inputs, where the tangent gives one directional derivative per call. With the
-generated headers of the examples above and of `02-reference` and `05-map`:
+inputs, where the tangent gives one directional derivative per call: see the
+examples above. An `inout` argument carries the seed in its own adjoint:
 
 ```cpp
-{   // f(x1, x2) = x1 * x2 + sin x1: one call, the whole gradient.
-    double x1 = 2, x2 = 3;
-    double x1_bar = 0, x2_bar = 0;                    // accumulated into: start at 0
-    adjudge::f_adjoint(x1, x2, x1_bar, x2_bar, 1.0);  // seed 1
-    // x1_bar = x2 + cos(x1) = 2.58385, x2_bar = x1 = 2
-
-    // The tangent needs one call per input direction.
-    double d1, d2;
-    adjudge::f_tangent(x1, x2, 1.0, 0.0, d1);         // d1 = 2.58385
-    adjudge::f_tangent(x1, x2, 0.0, 1.0, d2);         // d2 = 2
-}
-{   // prodx(x) = x[0] * x[1] * x[2]: the adjoint of an array is the gradient.
-    std::array<double, 3> x{2, 3, 5}, x_bar{};
-    adjudge::prodx_adjoint(x, x_bar, 1.0);            // x_bar = (15, 10, 6)
-}
-{   // rescale(x, w): x = w * x * x, x inout: x_bar is the seed on entry.
+{   // rescale(x, w): x = w * x * x, x inout (02-reference).
     double x = 2, w = 3;
-    double x_bar = 1, w_bar = 0;
+    double x_bar = 1, w_bar = 0;                      // seed in x_bar
     adjudge::rescale_adjoint(x, w, x_bar, w_bar);     // x_bar = 2 w x = 12, w_bar = x * x = 4
 }
 ```
@@ -356,12 +493,13 @@ j-th unit vector gives row j of J, so m calls give the whole Jacobian of a
 function with m outputs (n calls of the tangent give it column by column):
 
 ```cpp
-// square_scaled(x, y): y[i] = (2 * x[i])^2, y dependent.
-std::array<double, 4> x{1, 2, 3, 4}, y{};
-for (int j = 0; j < 4; ++j) {
-    std::array<double, 4> x_bar{}, y_bar{};
-    y_bar[j] = 1;
-    adjudge::square_scaled_adjoint(x, y, x_bar, y_bar);   // x_bar = row j: 8 x[j] at j, 0 elsewhere
+{   // square_scaled(x, y): y[i] = (2 * x[i])^2, y dependent (05-map).
+    std::array<double, 4> x{1, 2, 3, 4}, y{};
+    for (int j = 0; j < 4; ++j) {
+        std::array<double, 4> x_bar{}, y_bar{};
+        y_bar[j] = 1;
+        adjudge::square_scaled_adjoint(x, y, x_bar, y_bar);   // x_bar = row j: 8 x[j] at j, 0 elsewhere
+    }
 }
 ```
 
