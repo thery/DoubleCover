@@ -8,5 +8,6 @@ ExpTaylor.v
 ExpArith.v
 ExpEncl.v
 ExpProof.v
+ExpHard.v
 MutData.v
 ExpMutate.v

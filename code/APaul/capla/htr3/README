@@ -11,6 +11,17 @@ proof/      the Rocq proofs on Capla's semantics (opam switch capla, Rocq 9.0;
             search returns, when their number is at most cap.  It rests on
             WP_sound, ADMITTED in Capla itself (bfrontend/WP.v), on Capla's
             external_functions_sem and on the standard axioms.
+            HtrTable.v links it to the table check through line_ok
+            (code/exptable9/ExpCheck.v): search_line, on a line with
+            line_ok, every j < n whose input (S0 + j) 2^(ex - 52) is hard
+            (code/exptable9/ExpHard.v) is among the candidates that search
+            returns, run with k = 9, l = 6, err = 0x600000, when their
+            number is at most cap; search_table: check_raw ls = true gives,
+            for every line of ls, line_ok and the conclusion of
+            search_line.  The chain: check_raw -> line_ok -> no hard input
+            missed.  search_line has the assumptions of search_complete;
+            search_table adds the primitive integers and strings used by
+            the check (PrimInt63, Uint63Axioms, PrimString).
 apaul/,     links to code/APaul/rocq and code/exptable9, compiled here in
 exptable9/  the switch capla (`make -C proof ports`).
 
