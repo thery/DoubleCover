@@ -1,0 +1,32 @@
+The search of htr.c for one line, in C, verified with VST (DeepSpec)
+===================================================================
+
+htr3.c        the search part of code/APaul/capla/htr3/run/htr.c, on a flat
+              array of k*l words: add and sub (htr.c's own statements, at two
+              offsets), difftab, tstep, search (returns the candidates j)
+main.c        unverified driver: reads a table file in htr.c's format (each
+              line x0 N k l B..., 1 <= k <= 13, 1 <= l <= 8) and prints the
+              candidates x0 + j u.  Usage: htr3 FILE ERR (e.g. 0x600000)
+htr3_clight.v generated: `clightgen -normalize htr3.c`, what VST reasons on
+
+Words.v       plain Z: words, valZ (the value of a list of words)
+Common.v      the C types, vwords (an array of words as VST values)
+Fdiff.v       forward differences, the in-place passes of difftab
+Spec_add.v    add_spec;  Spec_search.v  search_spec, with window, table,
+              cand, cands (as code/APaul/rocq/HtrDefs.v)
+Verif_add.v, Verif_sub.v, Verif_difftab.v, Verif_tstep.v, Verif_search.v
+              body_<f> : semax_body Vprog Gprog f_<f> <f>_spec
+Verif_htr3.v  htr3_funcs_correct: semax_func over the five functions, so no
+              proof rests on an unproved callee spec
+
+search_spec: on an array holding B_0 .. B_(k-1) (l words each), search
+returns the number of candidates j < n (cands of the table of differences
+with the window err) and writes the first cap of them in out.  Assumptions
+(Print Assumptions): only VST's standard axioms (classical logic,
+functional and propositional extensionality, eq_rect_eq, Ensembles
+extensionality); nothing admitted.  Not proved: main.c, and htr.c's own
+I/O, GMP and OpenMP parts (outside htr3.c).
+
+Build: the opam switch `vst` (Rocq 9.0, CompCert 3.17, VST 2.16):
+  eval $(opam env --root=/home/thery/opam-rocq.9.1.0 --switch=vst)
+  make            htr3 (gcc), htr3_clight.v (clightgen) and the proofs

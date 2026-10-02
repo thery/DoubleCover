@@ -1,0 +1,8 @@
+*.vo
+*.vok
+*.vos
+*.glob
+.*.aux
+.*.cache
+htr3
+htr3_clight.v
