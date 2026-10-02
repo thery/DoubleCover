@@ -25,6 +25,7 @@ compiler with explicit intermediate languages.
 | `derivative.elpi` | L2, the derivative IR: an imperative program over variables bound by Elpi binders, with no C++ names or types. Also how the transformations open the binders of the object language. |
 | `tangent.elpi` | Forward mode: the linearization, from L1ᵃ into L2. |
 | `adjoint.elpi` | Reverse mode: the transposition, with forward sweep, tapes and replay, from L1ᵃ into L2; what to compute, transpose and record is read from the annotations. |
+| `simplify.elpi` | L2 to L2 (L2′): algebra on literals, accumulations that start at zero fused into definitions, literal constants propagated, dead constants removed. |
 | `target.elpi` | L3, the target language: C++ statements, names as strings. |
 | `lower.elpi` | L2 to L3: the only pass that names variables and chooses C++ types. |
 | `cxx.elpi` | Printing the target language as C++. |
@@ -77,10 +78,8 @@ Current limits:
 - no branch inside an in-place loop, no scalar recurrence inside a loop body or
   a branch;
 - an in-place loop that contains another one cannot read its array before it;
-- `pow 0` differentiates to `0 * pow(x, -1)`, NaN at `x = 0`;
 - the unused `dependent` array of an adjoint is passed as a non-const reference;
-- the generated code has redundant patterns (`T x_bar = T(0); x_bar += e;`,
-  `pow(x, 1)`).
+- a generated function may not use all its arguments (`-Wunused-parameter`).
 
 ## Plan: a compiler with intermediate languages
 
@@ -112,8 +111,12 @@ Steps, in this order, each checked against the reference cases:
 3. **Done.** L1ᵃ: `annotate` records the analyses on the term; `tangent` and
    `adjoint` read the annotations and call no analysis, so the adjoint is the
    plain transposition. The generated C++ is unchanged byte for byte.
-4. L2′, simplifications (and the `pow` fixes): the C++ changes, checked by the
-   derivative tests.
+4. **Done.** L2′, simplifications: the partial derivative of `pow 0` is 0 (it
+   was `0 * pow(x, -1)`, NaN at 0), and `simplify` cleans up what the naive
+   differentiation rules produce together. The C++ changes: the adjoints of the
+   reference cases shrink from 640 to 489 lines, the tangents are unchanged;
+   checked by the derivative tests (tangent and adjoint against dual numbers,
+   adjoint against finite differences, dot-product test).
 
 In L2, every variable of a generated function is bound at its head, in the
 order of creation (`scoped`, composed with `sbind`): the adjoint of a value is

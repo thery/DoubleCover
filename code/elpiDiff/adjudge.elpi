@@ -13,6 +13,7 @@ accumulate annotate.
 accumulate derivative.
 accumulate tangent.
 accumulate adjoint.
+accumulate simplify.
 accumulate target.
 accumulate lower.
 accumulate cxx.
@@ -20,7 +21,7 @@ accumulate show.
 
 pred primal o:function.
 
-shorten adjudge.{ check, annotate, expressible, normalize, well-formed, tangent, adjoint, lower, header-string, transform, report, write-file, show-function }.
+shorten adjudge.{ check, annotate, simplify, expressible, normalize, well-formed, tangent, adjoint, lower, header-string, transform, report, write-file, show-function }.
 
 % main [Dir, Mode]: reads Dir/primal.elpi and writes Dir/tangent.hpp or
 % Dir/adjoint.hpp, one header for all the well-formed functions, and
@@ -63,7 +64,7 @@ check F (pr A D) :-
      (A = none, D = error "a function can only write a dependent or inout argument").
 
 func transform string, afunction bare -> cfunction.
-transform Mode F C :- annotate F A, differentiate Mode A D, lower D C.
+transform Mode F C :- annotate F A, differentiate Mode A D, simplify D D1, lower D1 C.
 
 % differentiate Mode F D: the derivative program, in the derivative IR.
 func differentiate string, afunction ann -> dfunction.

@@ -71,6 +71,7 @@ partial1 cos     A (p-op1 neg (p-op1 sin (p-atom A))).
 partial1 exp     A (p-op1 exp (p-atom A)).
 partial1 log     A (p-op2 divide (p-num "1") (p-atom A)).
 partial1 sqrt    A (p-op2 divide (p-num "1") (p-op2 mul (p-num "2") (p-op1 sqrt (p-atom A)))).
+partial1 (pow 0) _ (p-num "0") :- !.                     % x^0 is the constant 1
 partial1 (pow K) A (p-op2 mul (p-num S) (p-op1 (pow K1) (p-atom A))) :- K1 is K - 1, S is int_to_string K.
 
 % partial2 F A B DA DB: the derivatives of `a-op2 F A B` with respect to A and to B.
