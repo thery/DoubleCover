@@ -21,9 +21,11 @@ compiler with explicit intermediate languages.
 | `well-formed.elpi` | Typing and the supported language, as a judgment returning `ok` or `error Reason`. |
 | `activity.elpi` | Forward activity analysis: `varied`, a value depends on an independent argument. |
 | `tbr.elpi` | Backward analysis and to-be-recorded: `useful` values, values the reverse sweep reads, when a fold must record its state. |
-| `target.elpi` | The target language (C++ statements, names as strings), naming of bound variables, opening binders. |
-| `tangent.elpi` | Forward mode: the linearization. |
-| `adjoint.elpi` | Reverse mode: the transposition, with forward sweep, tapes and replay. |
+| `derivative.elpi` | L2, the derivative IR: an imperative program over variables bound by Elpi binders, with no C++ names or types. Also how the transformations open the binders of the object language. |
+| `tangent.elpi` | Forward mode: the linearization, into L2. |
+| `adjoint.elpi` | Reverse mode: the transposition, with forward sweep, tapes and replay, into L2. |
+| `target.elpi` | L3, the target language: C++ statements, names as strings. |
+| `lower.elpi` | L2 to L3: the only pass that names variables and chooses C++ types. |
 | `cxx.elpi` | Printing the target language as C++. |
 | `show.elpi` | Printing a generated function as an Elpi term. |
 | `adjudge.elpi` | The driver: accumulates everything, `main` and `terms`. |
@@ -52,7 +54,7 @@ well-formed functions, and `<case>/diagnostics.txt` for the refused ones.
 elpi -I . <case>/primal.elpi -exec terms -- tangent|adjoint
 ```
 
-prints the generated programs as Elpi terms instead.
+prints the generated programs as Elpi terms (L3) instead.
 
 ## The supported language
 
@@ -81,11 +83,11 @@ Current limits:
 
 ## Plan: a compiler with intermediate languages
 
-Today `tangent.elpi` and `adjoint.elpi` differentiate, choose C++ names and
-choose C++ types in one go, producing C++ statements directly. The goal is to
-separate these concerns into passes between explicit languages, each its own
-Elpi `kind`, so that Elpi's typechecker guarantees the shape of every pass's
-output.
+In the starting point, `tangent.elpi` and `adjoint.elpi` differentiated,
+chose C++ names and chose C++ types in one go, producing C++ statements
+directly. The goal is to separate these concerns into passes between explicit
+languages, each its own Elpi `kind`, so that Elpi's typechecker guarantees the
+shape of every pass's output.
 
 | Language | Content | Invariant | Produced by |
 |---|---|---|---|
@@ -97,10 +99,18 @@ output.
 | L3 Target | `stmt`, names as strings | names and C++ types fixed | `lower` |
 | C++ text | | | `cxx` |
 
-Steps, each checked against the reference cases:
+Steps, in this order, each checked against the reference cases:
 
-1. L1, typed ANF;
-2. L2 and `lower`, generated C++ unchanged byte for byte;
-3. L1ᵃ, the adjoint becomes the plain transposition;
+1. **Done.** L2 and `lower`: differentiation produces the derivative IR, with
+   no C++ names or types; `lower` names the variables and spells the types. The
+   generated C++ is unchanged modulo the names of the generated locals (here it
+   is even unchanged byte for byte).
+2. L1, typed ANF.
+3. L1ᵃ, the adjoint becomes the plain transposition.
 4. L2′, simplifications (and the `pow` fixes): the C++ changes, checked by the
    derivative tests.
+
+In L2, every variable of a generated function is bound at its head, in the
+order of creation (`scoped`, composed with `sbind`): the adjoint of a value is
+computed far from the value, in the reverse sweep, so a variable cannot be bound
+where it is first used.

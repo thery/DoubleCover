@@ -1,7 +1,7 @@
 % adjudge.elpi — the tool: accumulates the judgments and runs them on a case.
 %
 % A case is a file that accumulates this one and declares its `primal` functions:
-%   elpi -I elpi cases/01-expression/primal.elpi -exec main -- cases/01-expression adjoint
+%   elpi -I <elpiDiff> cases/01-expression/primal.elpi -exec main -- cases/01-expression adjoint
 
 accumulate syntax.
 accumulate operations.
@@ -9,15 +9,17 @@ accumulate anf.
 accumulate "well-formed".
 accumulate activity.
 accumulate tbr.
-accumulate target.
+accumulate derivative.
 accumulate tangent.
 accumulate adjoint.
+accumulate target.
+accumulate lower.
 accumulate cxx.
 accumulate show.
 
 pred primal o:function.
 
-shorten adjudge.{ normalize, well-formed, tangent, adjoint, header-string, transform, report, write-file, show-function }.
+shorten adjudge.{ normalize, well-formed, tangent, adjoint, lower, header-string, transform, report, write-file, show-function }.
 
 % main [Dir, Mode]: reads Dir/primal.elpi and writes Dir/tangent.hpp or
 % Dir/adjoint.hpp, one header for all the well-formed functions, and
@@ -35,7 +37,7 @@ main [Dir, Mode, Out] :- !,
   std.map2-filter Fs Ds (f\ d\ c\ d = ok, transform Mode f c) Cs,
   if (Cs = []) true
      (File is Mode ^ ".hpp", Source is Dir ^ "/primal.elpi", header-string Source Cs Text, write-file Out File Text).
-main _ :- std.fatal-error "usage: elpi -I elpi <case>/primal.elpi -exec main -- <case> tangent|adjoint [<output directory>]".
+main _ :- std.fatal-error "usage: elpi -I <elpiDiff> <case>/primal.elpi -exec main -- <case> tangent|adjoint [<output directory>]".
 
 % terms [Mode]: prints the tangent or adjoint program of each well-formed function
 % of the case as an Elpi term, before it is printed as C++.
@@ -48,13 +50,17 @@ terms [Mode] :- !,
   std.map Fs0 normalize Fs,
   std.forall Fs (f\ sigma D C S\ well-formed f D,
     if (D = ok) (transform Mode f C, show-function C S, print S) true).
-terms _ :- std.fatal-error "usage: elpi -I elpi <case>/primal.elpi -exec terms -- tangent|adjoint".
+terms _ :- std.fatal-error "usage: elpi -I <elpiDiff> <case>/primal.elpi -exec terms -- tangent|adjoint".
 
 namespace adjudge {
 
 func transform string, function -> cfunction.
-transform "tangent" F C :- !, tangent F C.
-transform "adjoint" F C :- adjoint F C.
+transform Mode F C :- differentiate Mode F D, lower D C.
+
+% differentiate Mode F D: the derivative program, in the derivative IR.
+func differentiate string, function -> dfunction.
+differentiate "tangent" F D :- !, tangent F D.
+differentiate "adjoint" F D :- adjoint F D.
 
 func report string, list function, list diagnostic.
 report Dir Fs Ds :-
