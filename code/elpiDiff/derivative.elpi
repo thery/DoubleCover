@@ -92,27 +92,32 @@ sflatten-rest Ss X R :- sflatten Ss Rest, sbind Rest (sprepend X) R.
 func sprepend list dstmt, list dstmt -> code.
 sprepend X Y (done Z) :- std.append X Y Z.
 
-% What a transformation knows about a bound variable of the object language,
+% What a transformation knows about a variable bound by L1,
 % set when its binder is opened.
-func stored term -> dvar.                          % the variable of the generated code that holds it
-func has-dot term.                                 % it carries a tangent (tangent mode)
-func has-bar term.                                 % it carries an adjoint (reverse mode)
+func stored atom -> dvar.                          % the variable of the generated code that holds it
+func has-dot atom.                                 % it carries a tangent (tangent mode)
+func has-bar atom.                                 % it carries an adjoint (reverse mode)
 
-% spell T E: an atom, or a nested operation (a partial derivative), as an expression.
-func spell term -> dexpr.
-spell (num S) (d-real S) :- !.
-spell (nat K) (d-int K) :- !.
-spell (op1 F A) (d-op1 F EA) :- !, spell A EA.
-spell (op2 F A B) (d-op2 F EA EB) :- !, spell A EA, spell B EB.
+% spell A E: an atom as an expression.
+func spell atom -> dexpr.
+spell (a-num S) (d-real S) :- !.
+spell (a-nat K) (d-int K) :- !.
 spell X (d-var V) :- stored X V.
 
+% spell-partial P E: a partial derivative as an expression.
+func spell-partial pexpr -> dexpr.
+spell-partial (p-atom A) E :- !, spell A E.
+spell-partial (p-num S) (d-real S) :- !.
+spell-partial (p-op1 F A) (d-op1 F E) :- !, spell-partial A E.
+spell-partial (p-op2 F A B) (d-op2 F EA EB) :- spell-partial A EA, spell-partial B EB.
+
 % dot X E: the tangent of an atom, 0 when it has none.
-func dot term -> dexpr.
+func dot atom -> dexpr.
 dot X (d-var (dot-of V)) :- has-dot X, !, stored X V.
 dot _ (d-real "0").
 
 % bar X E: the adjoint of an atom; fails when it carries no derivative.
-func bar term -> dexpr.
+func bar atom -> dexpr.
 bar X (d-var (bar-of V)) :- has-bar X, stored X V.
 
 func scale dexpr, dexpr -> dexpr.
@@ -128,42 +133,42 @@ sum [E | Es] (d-op2 add E S) :- sum Es S.
 % with-storage E B K R: K applied to the variable that holds the value bound by
 % `let E B`: for arrays, the storage updated in place (the loop state, or the
 % written argument); otherwise a fresh local.
-func with-storage term, (term -> term), (func dvar -> scoped A) -> scoped A.
-with-storage (set A _ _) _ K R :- !, stored A V, K V R.
-with-storage (fold _ _ Init _) _ K R :- of Init (array _), !, stored Init V, K V R.
-with-storage (map _ _ _) (x\ x) K R :- written Y, !, stored Y V, K V R.
+func with-storage value, (atom -> anf), (func dvar -> scoped A) -> scoped A.
+with-storage (a-set A _ _) _ K R :- !, stored A V, K V R.
+with-storage (a-fold _ _ Init _) _ K R :- of Init (array _), !, stored Init V, K V R.
+with-storage (a-map _ _ _) (x\ a-ret x) K R :- written Y, !, stored Y V, K V R.
 with-storage _ _ K (fresh "t" R) :- pi v\ K v (R v).
 
-% Opening binders with everything the transformations know about them. A varied
+% Opening the binders of L1 with everything the transformations know about them. A varied
 % value gets a tangent and an adjoint; whether its adjoint is used is decided
 % afterwards, from what the body needs (tbr.elpi).
 
 % with-arguments D K R: binds the arguments of the definition D, then runs K on
 % the arguments with their variables, the result and the body. An argument is
 % varied, with a tangent and an adjoint, when its role says so.
-func with-arguments definition, (func list (pair decl dvar), result, term -> scoped A) -> scoped A.
+func with-arguments adefinition, (func list (pair decl dvar), aresult, anf -> scoped A) -> scoped A.
 with-arguments D K R :- open-arguments D [] K R.
 
-func open-arguments definition, list (pair decl dvar), (func list (pair decl dvar), result, term -> scoped A) -> scoped A.
-open-arguments (body (writes Y) B) Acc K R :- !, std.rev Acc Args, written Y =!=> K Args (writes Y) B R.
-open-arguments (body Res B) Acc K R :- !, std.rev Acc Args, K Args Res B R.
-open-arguments (arg N T Ro F) Acc K (named N R) :- varied-role Ro, !,
+func open-arguments adefinition, list (pair decl dvar), (func list (pair decl dvar), aresult, anf -> scoped A) -> scoped A.
+open-arguments (a-body (a-writes Y) B) Acc K R :- !, std.rev Acc Args, written Y =!=> K Args (a-writes Y) B R.
+open-arguments (a-body Res B) Acc K R :- !, std.rev Acc Args, K Args Res B R.
+open-arguments (a-arg N T Ro F) Acc K (named N R) :- varied-role Ro, !,
   pi v\ pi x\ [argument x N Ro, of x T, stored x v, varied x, has-dot x, has-bar x] =!=>
     open-arguments (F x) [pr (decl N T Ro) v | Acc] K (R v).
-open-arguments (arg N T Ro F) Acc K (named N R) :-
+open-arguments (a-arg N T Ro F) Acc K (named N R) :-
   pi v\ pi x\ [argument x N Ro, of x T, stored x v] =!=>
     open-arguments (F x) [pr (decl N T Ro) v | Acc] K (R v).
 
-func open-let ty, dvar, bool, (func term).
+func open-let ty, dvar, bool, (func atom).
 open-let T V ff P :- !, pi x\ [of x T, stored x V] =!=> P x.
 open-let T V tt P :- pi x\ [of x T, stored x V, varied x, has-dot x, has-bar x] =!=> P x.
 
-func open-fold term, (term -> term -> term), ty, dvar, dvar, (func term, term).
+func open-fold atom, (atom -> atom -> anf), ty, dvar, dvar, (func atom, atom).
 open-fold Init B T V I P :- fold-varied Init B, !,
   pi i\ pi s\ [of i integer, stored i I, of s T, stored s V, varied s, has-dot s, has-bar s] =!=> P i s.
 open-fold _ _ T V I P :- pi i\ pi s\ [of i integer, stored i I, of s T, stored s V] =!=> P i s.
 
-func open-index dvar, (func term).
+func open-index dvar, (func atom).
 open-index I P :- pi i\ [of i integer, stored i I] =!=> P i.
 
 }

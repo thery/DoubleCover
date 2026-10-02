@@ -9,8 +9,8 @@
 % (element-wise, no carried state) and `fold` (a recurrence on a carried state,
 % either a real or an array updated in place).
 %
-% Before any analysis, `anf` puts a body in A-normal form: operations apply to
-% atoms only (literals and bound variables) and every body ends with an atom.
+% This is L0, the source language. Before any analysis, `normalize` (anf.elpi)
+% translates a function into L1, its A-normal form, a language of its own.
 
 % The elementary operations are constants of two types, by arity, declared with
 % their table in operations.elpi. An operator the tool does not know is still a
@@ -72,11 +72,6 @@ type decl string -> ty -> role -> decl.
 
 namespace adjudge {
 
-% argument X N R: the bound variable X stands for the argument N, of role R. It is
-% set by the judgments that open a definition, `well-formed-definition` and
-% `with-arguments`, together with what each of them knows of an argument.
-func argument term -> string, role.
-
 % written-role R: the function writes an argument of role R.
 func written-role role.
 written-role dependent :- !.
@@ -86,49 +81,5 @@ written-role inout.
 func varied-role role.
 varied-role independent :- !.
 varied-role inout.
-
-% declarations D Ds: the arguments of D as plain data, in order.
-func declarations definition -> list decl.
-declarations (body _ _) [] :- !.
-declarations (arg N T R F) [decl N T R | Ds] :- pi x\ declarations (F x) Ds.
-
-% Sets of atoms, as lists compared with same_term. In a set an atom is a bound variable.
-func atom-member term, list term.
-atom-member X L :- std.exists! L (y\ same_term X y).
-
-func atom-remove term, list term -> list term.
-atom-remove X L R :- std.filter L (y\ not (same_term X y)) R.
-
-func atom-union list term, list term -> list term.      % without duplicates
-atom-union L [] L :- !.
-atom-union L [X|Xs] R :- atom-member X L, !, atom-union L Xs R.
-atom-union L [X|Xs] R :- atom-union [X|L] Xs R.
-
-% atoms-of T L: the bound variables T mentions, its own binders excluded.
-func atoms-of term -> list term.
-atoms-of X [X] :- name X, !.
-atoms-of (num _) [] :- !.
-atoms-of (nat _) [] :- !.
-atoms-of (op1 _ A) L :- !, atoms-of A L.
-atoms-of (op2 _ A B) L :- !, atoms-of-list [A, B] L.
-atoms-of (get A I) L :- !, atoms-of-list [A, I] L.
-atoms-of (set A I V) L :- !, atoms-of-list [A, I, V] L.
-atoms-of (let E B) L :- !,
-  atoms-of E L1,
-  (pi x\ atoms-of (B x) (L2 x), atom-remove x (L2 x) L20),
-  atom-union L1 L20 L.
-atoms-of (ite C T E) L :- !, atoms-of-list [C, T, E] L.
-atoms-of (map Lo Hi B) L :- !,
-  atoms-of-list [Lo, Hi] L1,
-  (pi i\ atoms-of (B i) (L2 i), atom-remove i (L2 i) L20),
-  atom-union L1 L20 L.
-atoms-of (fold Lo Hi I B) L :-
-  atoms-of-list [Lo, Hi, I] L1,
-  (pi i\ pi s\ atoms-of (B i s) (L2 i s), atom-remove i (L2 i s) (L3 s), atom-remove s (L3 s) L20),
-  atom-union L1 L20 L.
-
-func atoms-of-list list term -> list term.
-atoms-of-list [] [] :- !.
-atoms-of-list [T|Ts] L :- atoms-of T L1, atoms-of-list Ts L2, atom-union L1 L2 L.
 
 }

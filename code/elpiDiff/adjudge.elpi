@@ -4,8 +4,8 @@
 %   elpi -I <elpiDiff> cases/01-expression/primal.elpi -exec main -- cases/01-expression adjoint
 
 accumulate syntax.
-accumulate operations.
 accumulate anf.
+accumulate operations.
 accumulate "well-formed".
 accumulate activity.
 accumulate tbr.
@@ -54,17 +54,17 @@ terms _ :- std.fatal-error "usage: elpi -I <elpiDiff> <case>/primal.elpi -exec t
 
 namespace adjudge {
 
-func transform string, function -> cfunction.
+func transform string, afunction -> cfunction.
 transform Mode F C :- differentiate Mode F D, lower D C.
 
 % differentiate Mode F D: the derivative program, in the derivative IR.
-func differentiate string, function -> dfunction.
+func differentiate string, afunction -> dfunction.
 differentiate "tangent" F D :- !, tangent F D.
 differentiate "adjoint" F D :- adjoint F D.
 
-func report string, list function, list diagnostic.
+func report string, list afunction, list diagnostic.
 report Dir Fs Ds :-
-  std.map2 Fs Ds (f\ d\ l\ sigma N M\ f = function N _, if (d = error M) (l is N ^ ": " ^ M) (l = "")) Ls0,
+  std.map2 Fs Ds (f\ d\ l\ sigma N M\ f = a-function N _, if (d = error M) (l is N ^ ": " ^ M) (l = "")) Ls0,
   std.filter Ls0 (l\ not (l = "")) Ls,
   if (Ls = []) true (std.string.concat "\n" Ls Text, Text1 is Text ^ "\n", write-file Dir "diagnostics.txt" Text1).
 

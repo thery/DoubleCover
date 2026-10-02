@@ -15,10 +15,10 @@ compiler with explicit intermediate languages.
 
 | File | Role |
 |---|---|
-| `syntax.elpi` | The object language: a Wengert list with binders (λ-tree syntax). `arg`, `let`, `map` and `fold` bind Elpi variables; no variable is named by a string. Also roles (`independent`, `dependent`, `inout`, `passive`) and atom sets. |
+| `syntax.elpi` | L0, the source language: a Wengert list with binders (λ-tree syntax). `arg`, `let`, `map` and `fold` bind Elpi variables; no variable is named by a string. Also roles (`independent`, `dependent`, `inout`, `passive`). |
+| `anf.elpi` | L1, A-normal form, a language of its own (`atom`, `value`, `anf`), and the translation from L0. Every intermediate value is named by a `let`; that operations apply to atoms is a matter of typing. Also partial-derivative expressions over atoms and atom sets. |
 | `operations.elpi` | The elementary operations: their types, C++ spelling and partial derivatives. The only calculus the tool knows. |
-| `anf.elpi` | A-normal form: every intermediate value is named by a `let`, operations apply to atoms. |
-| `well-formed.elpi` | Typing and the supported language, as a judgment returning `ok` or `error Reason`. |
+| `well-formed.elpi` | Typing and the supported language, on L1, as a judgment returning `ok` or `error Reason`. |
 | `activity.elpi` | Forward activity analysis: `varied`, a value depends on an independent argument. |
 | `tbr.elpi` | Backward analysis and to-be-recorded: `useful` values, values the reverse sweep reads, when a fold must record its state. |
 | `derivative.elpi` | L2, the derivative IR: an imperative program over variables bound by Elpi binders, with no C++ names or types. Also how the transformations open the binders of the object language. |
@@ -105,7 +105,9 @@ Steps, in this order, each checked against the reference cases:
    no C++ names or types; `lower` names the variables and spells the types. The
    generated C++ is unchanged modulo the names of the generated locals (here it
    is even unchanged byte for byte).
-2. L1, typed ANF.
+2. **Done.** L1, typed ANF: the analyses and the transformations work on L1
+   only; a partial derivative is an expression over atoms (`pexpr`). The
+   generated C++ is unchanged byte for byte.
 3. L1ᵃ, the adjoint becomes the plain transposition.
 4. L2′, simplifications (and the `pow` fixes): the C++ changes, checked by the
    derivative tests.

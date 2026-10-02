@@ -1,59 +1,167 @@
-% anf.elpi — A-normal form.
+% anf.elpi — L1, A-normal form, and the translation into it.
 %
-% `anf T T'`: T' computes the value of T with every intermediate value named
-% by a `let`; operations apply to atoms, and every body ends with an atom.
-% `norm T K R` is the continuation-passing formulation: the continuation K is a
-% term builder that receives the atom holding the value of T. To sequence two
-% normalizations, the rest is first built under a fresh name (`pi a\ ...`), and
-% the resulting λ-abstraction becomes the continuation of the first one.
+% L1 is the object language with every intermediate value named by a `let`:
+% an operation applies to atoms, literals or bound variables, and every body
+% ends with an atom. It is a language of its own, not a subset of the source
+% terms, so that this invariant is a matter of typing: a binder of L1 binds an
+% atom, and Elpi's typechecker refuses an operation applied to anything else.
+% Every analysis and both transformations work on L1.
+
+kind atom type.                                     % a literal, or a variable bound by L1
+type a-num string -> atom.                          % a real literal
+type a-nat int -> atom.                             % an integer literal
+
+kind value type.                                    % what a let binds
+type a-op1  unary -> atom -> value.
+type a-op2  binary -> atom -> atom -> value.
+type a-get  atom -> atom -> value.                  % a[i]
+type a-set  atom -> atom -> atom -> value.          % a with a[i] replaced
+type a-ite  atom -> anf -> anf -> value.            % the condition is an atom, the branches are bodies
+type a-map  atom -> atom -> (atom -> anf) -> value.
+type a-fold atom -> atom -> atom -> (atom -> atom -> anf) -> value.
+
+kind anf type.                                      % a body
+type a-let value -> (atom -> anf) -> anf.
+type a-ret atom -> anf.
+
+kind aresult type.
+type a-returns ty -> aresult.
+type a-writes  atom -> aresult.
+
+kind adefinition type.
+type a-arg  string -> ty -> role -> (atom -> adefinition) -> adefinition.
+type a-body aresult -> anf -> adefinition.
+
+kind afunction type.
+type a-function string -> adefinition -> afunction.
+
+% A partial derivative: an expression over atoms, nested,
+% since it is never itself differentiated. The table of
+% partial derivatives is in operations.elpi.
+kind pexpr type.
+type p-atom atom -> pexpr.
+type p-num  string -> pexpr.                % a real literal
+type p-op1  unary -> pexpr -> pexpr.
+type p-op2  binary -> pexpr -> pexpr -> pexpr.
 
 namespace adjudge {
 
-func atom term.
-atom (num _) :- !.
-atom (nat _) :- !.
-% a bound variable is declared an atom when its binder is opened
+% normalize F F': the function F in A-normal form.
+%
+% `norm T K R` is the continuation-passing formulation: the continuation K is
+% a body builder that receives the atom holding the value of T. To sequence two
+% normalizations, the rest is first built under a fresh atom (`pi a\ ...`), and
+% the resulting λ-abstraction becomes the continuation of the first one. A
+% variable of the source becomes an atom when its binder is opened (`as-atom`).
 
-% normalize F F': the body of F in A-normal form, under the binders of its arguments.
-func normalize function -> function.
-normalize (function N D) (function N D1) :- normalize-definition D D1.
+func as-atom term -> atom.
 
-func normalize-definition definition -> definition.
-normalize-definition (arg N T R F) (arg N T R F1) :- !, pi x\ atom x =!=> normalize-definition (F x) (F1 x).
-normalize-definition (body R B) (body R B1) :- anf B B1.
+func normalize function -> afunction.
+normalize (function N D) (a-function N D1) :- normalize-definition D D1.
 
-func anf term -> term.
-anf T R :- norm T (x\ x) R.
+func normalize-definition definition -> adefinition.
+normalize-definition (arg N T R F) (a-arg N T R F1) :- !,
+  pi x\ pi a\ as-atom x a =!=> normalize-definition (F x) (F1 a).
+normalize-definition (body R B) (a-body R1 B1) :- normalize-result R R1, norm-body B B1.
 
-func norm term, (term -> term) -> term.
-norm X K R :- atom X, !, R = K X.
+func normalize-result result -> aresult.
+normalize-result (returns T) (a-returns T) :- !.
+normalize-result (writes Y) (a-writes A) :- as-atom Y A, !.
+normalize-result _ _ :- std.fatal-error "`writes` must name an argument of the function".
+
+func norm-body term -> anf.
+norm-body T R :- norm T a-ret R.
+
+func norm term, (atom -> anf) -> anf.
+norm (num S) K R :- !, R = K (a-num S).
+norm (nat N) K R :- !, R = K (a-nat N).
 norm (let E B) K R :- !,
-  (pi x\ atom x =!=> norm (B x) K (Rest x)),
+  (pi x\ pi a\ as-atom x a =!=> norm (B x) K (Rest a)),
   norm E Rest R.
-norm (op1 F A) K R :- !, norm A (a\ let (op1 F a) K) R.
+norm (op1 F A) K R :- !, norm A (a\ a-let (a-op1 F a) K) R.
 norm (op2 F A B) K R :- !,
-  (pi a\ atom a =!=> norm B (b\ let (op2 F a b) K) (Rest a)),
+  (pi a\ norm B (b\ a-let (a-op2 F a b) K) (Rest a)),
   norm A Rest R.
 norm (get A I) K R :- !,
-  (pi a\ atom a =!=> norm I (i\ let (get a i) K) (Rest a)),
+  (pi a\ norm I (i\ a-let (a-get a i) K) (Rest a)),
   norm A Rest R.
 norm (set A I V) K R :- !,
-  (pi a\ atom a =!=>
-     ((pi i\ atom i =!=> norm V (v\ let (set a i v) K) (Rest2 a i)),
-      norm I (Rest2 a) (Rest1 a))),
+  (pi a\ (pi i\ norm V (v\ a-let (a-set a i v) K) (Rest2 a i)),
+         norm I (Rest2 a) (Rest1 a)),
   norm A Rest1 R.
 norm (ite C T E) K R :- !,
-  anf T T1, anf E E1,
-  norm C (c\ let (ite c T1 E1) K) R.
+  norm-body T T1, norm-body E E1,
+  norm C (c\ a-let (a-ite c T1 E1) K) R.
 norm (map Lo Hi B) K R :- !,
-  (pi i\ atom i =!=> anf (B i) (B1 i)),
-  (pi lo\ atom lo =!=> norm Hi (hi\ let (map lo hi B1) K) (Rest lo)),
+  (pi i\ pi a\ as-atom i a =!=> norm-body (B i) (B1 a)),
+  (pi lo\ norm Hi (hi\ a-let (a-map lo hi B1) K) (Rest lo)),
   norm Lo Rest R.
-norm (fold Lo Hi I B) K R :-
-  (pi i\ pi s\ [atom i, atom s] =!=> anf (B i s) (B1 i s)),
-  (pi lo\ atom lo =!=>
-     ((pi hi\ atom hi =!=> norm I (x\ let (fold lo hi x B1) K) (Rest2 lo hi)),
-      norm Hi (Rest2 lo) (Rest1 lo))),
+norm (fold Lo Hi I B) K R :- !,
+  (pi i\ pi s\ pi a\ pi b\ [as-atom i a, as-atom s b] =!=> norm-body (B i s) (B1 a b)),
+  (pi lo\ (pi hi\ norm I (x\ a-let (a-fold lo hi x B1) K) (Rest2 lo hi)),
+          norm Hi (Rest2 lo) (Rest1 lo)),
   norm Lo Rest1 R.
+norm X K R :- as-atom X A, R = K A.
+
+% argument X N R: the atom X stands for the argument N, of role R. It is set by
+% the judgments that open a definition, `well-formed-definition` and
+% `with-arguments`, together with what each of them knows of an argument.
+func argument atom -> string, role.
+
+% declarations D Ds: the arguments of D as plain data, in order.
+func declarations adefinition -> list decl.
+declarations (a-body _ _) [] :- !.
+declarations (a-arg N T R F) [decl N T R | Ds] :- pi x\ declarations (F x) Ds.
+
+% Sets of atoms, as lists compared with same_term. In a set an atom is a bound variable.
+func atom-member atom, list atom.
+atom-member X L :- std.exists! L (y\ same_term X y).
+
+func atom-remove atom, list atom -> list atom.
+atom-remove X L R :- std.filter L (y\ not (same_term X y)) R.
+
+func atom-union list atom, list atom -> list atom.      % without duplicates
+atom-union L [] L :- !.
+atom-union L [X|Xs] R :- atom-member X L, !, atom-union L Xs R.
+atom-union L [X|Xs] R :- atom-union [X|L] Xs R.
+
+% The bound variables a term of L1 mentions, its own binders excluded.
+func atoms-of-atom atom -> list atom.
+atoms-of-atom X [X] :- name X, !.
+atoms-of-atom _ [].
+
+func atoms-of-atoms list atom -> list atom.
+atoms-of-atoms [] [] :- !.
+atoms-of-atoms [A|As] L :- atoms-of-atom A L1, atoms-of-atoms As L2, atom-union L1 L2 L.
+
+func atoms-of-value value -> list atom.
+atoms-of-value (a-op1 _ A) L :- !, atoms-of-atom A L.
+atoms-of-value (a-op2 _ A B) L :- !, atoms-of-atoms [A, B] L.
+atoms-of-value (a-get A I) L :- !, atoms-of-atoms [A, I] L.
+atoms-of-value (a-set A I V) L :- !, atoms-of-atoms [A, I, V] L.
+atoms-of-value (a-ite C T E) L :- !,
+  atoms-of-atom C L1, atoms-of-anf T L2, atoms-of-anf E L3,
+  atom-union L1 L2 L12, atom-union L12 L3 L.
+atoms-of-value (a-map Lo Hi B) L :- !,
+  atoms-of-atoms [Lo, Hi] L1,
+  (pi i\ atoms-of-anf (B i) (L2 i), atom-remove i (L2 i) L20),
+  atom-union L1 L20 L.
+atoms-of-value (a-fold Lo Hi I B) L :-
+  atoms-of-atoms [Lo, Hi, I] L1,
+  (pi i\ pi s\ atoms-of-anf (B i s) (L2 i s), atom-remove i (L2 i s) (L3 s), atom-remove s (L3 s) L20),
+  atom-union L1 L20 L.
+
+func atoms-of-anf anf -> list atom.
+atoms-of-anf (a-let E B) L :- !,
+  atoms-of-value E L1,
+  (pi x\ atoms-of-anf (B x) (L2 x), atom-remove x (L2 x) L20),
+  atom-union L1 L20 L.
+atoms-of-anf (a-ret X) L :- atoms-of-atom X L.
+
+func atoms-of-pexpr pexpr -> list atom.
+atoms-of-pexpr (p-atom A) L :- !, atoms-of-atom A L.
+atoms-of-pexpr (p-num _) [] :- !.
+atoms-of-pexpr (p-op1 _ A) L :- !, atoms-of-pexpr A L.
+atoms-of-pexpr (p-op2 _ A B) L :- atoms-of-pexpr A L1, atoms-of-pexpr B L2, atom-union L1 L2 L.
 
 }

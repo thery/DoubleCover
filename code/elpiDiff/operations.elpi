@@ -63,22 +63,23 @@ operation2 gt     integer integer boolean ">".
 operation2 ge     real real       boolean ">=" :- !.
 operation2 ge     integer integer boolean ">=".
 
-% partial1 F A D: D is the derivative of `op1 F A` with respect to A, as a term over A.
-func partial1 unary, term -> term.
-partial1 neg     _ (num "-1").
-partial1 sin     A (op1 cos A).
-partial1 cos     A (op1 neg (op1 sin A)).
-partial1 exp     A (op1 exp A).
-partial1 log     A (op2 divide (num "1") A).
-partial1 sqrt    A (op2 divide (num "1") (op2 mul (num "2") (op1 sqrt A))).
-partial1 (pow K) A (op2 mul (num S) (op1 (pow K1) A)) :- K1 is K - 1, S is int_to_string K.
+% partial1 F A D: D is the derivative of `a-op1 F A` with respect to A, an expression over A.
+func partial1 unary, atom -> pexpr.
+partial1 neg     _ (p-num "-1").
+partial1 sin     A (p-op1 cos (p-atom A)).
+partial1 cos     A (p-op1 neg (p-op1 sin (p-atom A))).
+partial1 exp     A (p-op1 exp (p-atom A)).
+partial1 log     A (p-op2 divide (p-num "1") (p-atom A)).
+partial1 sqrt    A (p-op2 divide (p-num "1") (p-op2 mul (p-num "2") (p-op1 sqrt (p-atom A)))).
+partial1 (pow K) A (p-op2 mul (p-num S) (p-op1 (pow K1) (p-atom A))) :- K1 is K - 1, S is int_to_string K.
 
-% partial2 F A B DA DB: the derivatives of `op2 F A B` with respect to A and to B.
-func partial2 binary, term, term -> term, term.
-partial2 add    _ _ (num "1") (num "1").
-partial2 sub    _ _ (num "1") (num "-1").
-partial2 mul    A B B A.
-partial2 divide A B (op2 divide (num "1") B) (op1 neg (op2 divide A (op2 mul B B))).
+% partial2 F A B DA DB: the derivatives of `a-op2 F A B` with respect to A and to B.
+func partial2 binary, atom, atom -> pexpr, pexpr.
+partial2 add    _ _ (p-num "1") (p-num "1").
+partial2 sub    _ _ (p-num "1") (p-num "-1").
+partial2 mul    A B (p-atom B) (p-atom A).
+partial2 divide A B (p-op2 divide (p-num "1") (p-atom B))
+                    (p-op1 neg (p-op2 divide (p-atom A) (p-op2 mul (p-atom B) (p-atom B)))).
 
 % The name of an operator, for diagnostics.
 func unary-name unary -> string.
