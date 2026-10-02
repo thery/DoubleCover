@@ -310,6 +310,63 @@ prodx_adjoint(x: const ref real[3], x_bar: ref real[3], result_bar: real):
         x_bar[i5] += t7_bar
 ```
 
+## Using the adjoint: computing a gradient
+
+The adjoint of `f` has the arguments of `f`, then the adjoint `x_bar` of each
+argument that carries a derivative, then the *seed*, the adjoint of the result:
+
+- the adjoint of an `independent` argument is **accumulated into**: the caller
+  sets it to zero first (or to a value it wants to add to);
+- the seed is the adjoint of the result: `1` for a real result, so that the
+  call computes the gradient;
+- a `dependent` argument is not touched; its adjoint `y_bar` is the seed;
+- an `inout` argument is passed by value; its adjoint is the seed on entry and
+  the gradient on exit.
+
+One call of the adjoint gives the whole gradient, whatever the number of
+inputs, where the tangent gives one directional derivative per call. With the
+generated headers of the examples above and of `02-reference` and `05-map`:
+
+```cpp
+// f(x1, x2) = x1 * x2 + sin x1: one call, the whole gradient.
+double x1 = 2, x2 = 3;
+double x1_bar = 0, x2_bar = 0;                    // accumulated into: start at 0
+adjudge::f_adjoint(x1, x2, x1_bar, x2_bar, 1.0);  // seed 1
+// x1_bar = x2 + cos(x1) = 2.58385, x2_bar = x1 = 2
+
+// The tangent needs one call per input direction.
+double d1, d2;
+adjudge::f_tangent(x1, x2, 1.0, 0.0, d1);         // d1 = 2.58385
+adjudge::f_tangent(x1, x2, 0.0, 1.0, d2);         // d2 = 2
+
+// prodx(x) = x[0] * x[1] * x[2]: the adjoint of an array is the gradient.
+std::array<double, 3> x{2, 3, 5}, x_bar{};
+adjudge::prodx_adjoint(x, x_bar, 1.0);            // x_bar = (15, 10, 6)
+
+// rescale(x, w): x = w * x * x, x inout: x_bar is the seed on entry.
+double x = 2, w = 3;
+double x_bar = 1, w_bar = 0;
+adjudge::rescale_adjoint(x, w, x_bar, w_bar);     // x_bar = 2 w x = 12, w_bar = x * x = 4
+```
+
+For a function with an array result, `y = F(x)`, the adjoint computes
+`x_bar += J^T y_bar`, where J is the Jacobian of F: seeding `y_bar` with the
+j-th unit vector gives row j of J, so m calls give the whole Jacobian of a
+function with m outputs (n calls of the tangent give it column by column):
+
+```cpp
+// square_scaled(x, y): y[i] = (2 * x[i])^2, y dependent.
+std::array<double, 4> x{1, 2, 3, 4}, y{};
+for (int j = 0; j < 4; ++j) {
+    std::array<double, 4> x_bar{}, y_bar{};
+    y_bar[j] = 1;
+    adjudge::square_scaled_adjoint(x, y, x_bar, y_bar);   // x_bar = row j: 8 x[j] at j, 0 elsewhere
+}
+```
+
+The generated functions are templates: `T = double` computes numbers, and an
+instantiation with dual numbers is what the derivative tests use to check them.
+
 ## The supported language
 
 - Types: `real`, `integer`, `boolean`, `array N` (reals, static extent).
