@@ -19,7 +19,7 @@ accumulate show.
 
 pred primal o:function.
 
-shorten adjudge.{ normalize, well-formed, tangent, adjoint, lower, header-string, transform, report, write-file, show-function }.
+shorten adjudge.{ check, expressible, normalize, well-formed, tangent, adjoint, lower, header-string, transform, report, write-file, show-function }.
 
 % main [Dir, Mode]: reads Dir/primal.elpi and writes Dir/tangent.hpp or
 % Dir/adjoint.hpp, one header for all the well-formed functions, and
@@ -30,11 +30,11 @@ main [Dir, Mode, Out] :- !,
   if (std.mem! ["tangent", "adjoint"] Mode) true
      (M is "unknown mode `" ^ Mode ^ "`: expected tangent or adjoint", std.fatal-error M),
   std.findall (primal _) Ps,
-  std.map Ps (p\ f\ p = primal f) Fs0,
-  std.map Fs0 normalize Fs,
-  std.map Fs well-formed Ds,
+  std.map Ps (p\ f\ p = primal f) Fs,
+  std.map Fs check Rs,
+  std.map Rs (r\ d\ sigma A\ r = pr A d) Ds,
   report Out Fs Ds,
-  std.map2-filter Fs Ds (f\ d\ c\ d = ok, transform Mode f c) Cs,
+  std.map-filter Rs (r\ c\ sigma F\ r = pr (some F) ok, transform Mode F c) Cs,
   if (Cs = []) true
      (File is Mode ^ ".hpp", Source is Dir ^ "/primal.elpi", header-string Source Cs Text, write-file Out File Text).
 main _ :- std.fatal-error "usage: elpi -I <elpiDiff> <case>/primal.elpi -exec main -- <case> tangent|adjoint [<output directory>]".
@@ -46,13 +46,20 @@ terms [Mode] :- !,
   if (std.mem! ["tangent", "adjoint"] Mode) true
      (M is "unknown mode `" ^ Mode ^ "`: expected tangent or adjoint", std.fatal-error M),
   std.findall (primal _) Ps,
-  std.map Ps (p\ f\ p = primal f) Fs0,
-  std.map Fs0 normalize Fs,
-  std.forall Fs (f\ sigma D C S\ well-formed f D,
-    if (D = ok) (transform Mode f C, show-function C S, print S) true).
+  std.map Ps (p\ f\ p = primal f) Fs,
+  std.map Fs check Rs,
+  std.forall Rs (r\ sigma F C S\
+    if (r = pr (some F) ok) (transform Mode F C, show-function C S, print S) true).
 terms _ :- std.fatal-error "usage: elpi -I <elpiDiff> <case>/primal.elpi -exec terms -- tangent|adjoint".
 
 namespace adjudge {
+
+% check F R: R pairs F in L1, when it is expressible there, with its diagnostic.
+func check function -> pair (option afunction) diagnostic.
+check F (pr A D) :-
+  if (expressible F)
+     (normalize F F1, well-formed F1 D, A = some F1)
+     (A = none, D = error "a function can only write a dependent or inout argument").
 
 func transform string, afunction -> cfunction.
 transform Mode F C :- differentiate Mode F D, lower D C.
@@ -62,9 +69,9 @@ func differentiate string, afunction -> dfunction.
 differentiate "tangent" F D :- !, tangent F D.
 differentiate "adjoint" F D :- adjoint F D.
 
-func report string, list afunction, list diagnostic.
+func report string, list function, list diagnostic.
 report Dir Fs Ds :-
-  std.map2 Fs Ds (f\ d\ l\ sigma N M\ f = a-function N _, if (d = error M) (l is N ^ ": " ^ M) (l = "")) Ls0,
+  std.map2 Fs Ds (f\ d\ l\ sigma N M\ f = function N _, if (d = error M) (l is N ^ ": " ^ M) (l = "")) Ls0,
   std.filter Ls0 (l\ not (l = "")) Ls,
   if (Ls = []) true (std.string.concat "\n" Ls Text, Text1 is Text ^ "\n", write-file Dir "diagnostics.txt" Text1).
 

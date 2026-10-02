@@ -56,6 +56,7 @@ namespace adjudge {
 
 func as-atom term -> atom.
 
+% normalize F F': the translation of F, which must be expressible (below).
 func normalize function -> afunction.
 normalize (function N D) (a-function N D1) :- normalize-definition D D1.
 
@@ -66,8 +67,21 @@ normalize-definition (body R B) (a-body R1 B1) :- normalize-result R R1, norm-bo
 
 func normalize-result result -> aresult.
 normalize-result (returns T) (a-returns T) :- !.
-normalize-result (writes Y) (a-writes A) :- as-atom Y A, !.
-normalize-result _ _ :- std.fatal-error "`writes` must name an argument of the function".
+normalize-result (writes Y) (a-writes A) :- as-atom Y A.
+
+% expressible F: F has a counterpart in L1, where a function returns its result
+% or writes it into an argument: `a-writes` holds an atom, so L1 cannot say that
+% a function writes into a literal or an expression. The driver refuses an
+% inexpressible function with a diagnostic, like an ill-formed one.
+func expressible function.
+expressible (function _ D) :- expressible-definition D.
+
+func expressible-definition definition.
+expressible-definition (arg _ _ _ F) :- !, pi x\ is-argument x =!=> expressible-definition (F x).
+expressible-definition (body (returns _) _) :- !.
+expressible-definition (body (writes Y) _) :- is-argument Y.
+
+func is-argument term.
 
 func norm-body term -> anf.
 norm-body T R :- norm T a-ret R.
