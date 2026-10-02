@@ -1,0 +1,17 @@
+*.vo
+*.vok
+*.vos
+*.glob
+.*.aux
+.lia.cache
+Data_*.v
+Run_*.v
+__pycache__/
+SampleAll.v
+tables/
+mksample.log
+Cover_*.v
+AllCover.v
+sample/
+.nra.cache
+make.log
