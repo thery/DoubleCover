@@ -5,13 +5,14 @@
 #   make sample-all
 COQFLAGS := -R . ExpTable9
 
-all: ExpProof.vo ExpParseSpec.vo ExpCover.vo
+all: ExpProof.vo ExpParseSpec.vo ExpCover.vo ExpHard.vo
 
 ExpParse.vo: ExpCheck.vo
 ExpParseSpec.vo: ExpCheck.vo ExpParse.vo
 ExpTaylor.vo ExpArith.vo ExpEncl.vo: ExpCheck.vo
 ExpProof.vo: ExpCheck.vo ExpParse.vo ExpTaylor.vo ExpArith.vo ExpEncl.vo
 ExpCover.vo: ExpCheck.vo ExpParse.vo
+ExpHard.vo: ExpCheck.vo
 
 RUNS := $(sort $(wildcard Run_*.v))
 COVERS := $(sort $(wildcard Cover_*.v))

@@ -5,10 +5,10 @@ CAPLA ?= $(HOME)/git/capla-compiler
 DIRS := lib common x86_64 x86 backend cfrontend driver cparser bfrontend
 INC := $(foreach d,$(DIRS),-R $(CAPLA)/$(d) compcert.$(d)) \
        -R $(CAPLA)/MenhirLib MenhirLib \
-       -R . Htr3 -Q ../apaul APaulRocq
+       -R . Htr3 -Q ../apaul APaulRocq -Q ../exptable9 ExpTable9
 COQC := coqc $(INC)
 
-all: add_proof.vo SearchProof.vo HtrFinal.vo
+all: add_proof.vo SearchProof.vo HtrFinal.vo HtrTable.vo
 
 # The Capla programs as Rocq terms.
 add.v: add.b
@@ -25,6 +25,7 @@ TstepProof.vo: AddwProof.vo
 DifftabProof.vo: SubwProof.vo
 SearchProof.vo: DifftabProof.vo TstepProof.vo
 HtrFinal.vo: SearchProof.vo ../apaul/TaylorLink.vo ../apaul/HtrMath.vo
+HtrTable.vo: HtrFinal.vo ../exptable9/ExpProof.vo ../exptable9/ExpHard.vo
 
 # The ports: the Rocq files of code/APaul/rocq (mirror ../apaul) and the proof
 # files of code/exptable9 (mirror ../exptable9), built in the switch capla.
@@ -33,7 +34,7 @@ HtrFinal.vo: SearchProof.vo ../apaul/TaylorLink.vo ../apaul/HtrMath.vo
 PORTCOQC := coqc -Q ../apaul APaulRocq -Q ../exptable9 ExpTable9
 APAUL := Shift TaylorScan TaylorReal TaylorLink HtrMath
 EXP := ExpCheck ExpParse ExpParseSpec ExpTaylor ExpArith ExpEncl ExpProof \
-       ExpCover
+       ExpCover ExpHard
 ports: $(APAUL:%=../apaul/%.vo) $(EXP:%=../exptable9/%.vo)
 
 ../apaul/TaylorScan.vo: ../apaul/Shift.vo
@@ -47,6 +48,7 @@ ports: $(APAUL:%=../apaul/%.vo) $(EXP:%=../exptable9/%.vo)
 ../exptable9/ExpProof.vo: ../exptable9/ExpCheck.vo ../exptable9/ExpParse.vo \
   ../exptable9/ExpTaylor.vo ../exptable9/ExpArith.vo ../exptable9/ExpEncl.vo
 ../exptable9/ExpCover.vo: ../exptable9/ExpCheck.vo ../exptable9/ExpParse.vo
+../exptable9/ExpHard.vo: ../exptable9/ExpCheck.vo
 
 $(filter-out ../apaul/HtrDefs.vo,$(APAUL:%=../apaul/%.vo)) $(EXP:%=../exptable9/%.vo): \
   %.vo: %.v

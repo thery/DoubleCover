@@ -105,19 +105,9 @@ End Reals_Z.
     [E = err beta^(L-1)], [N] inputs [j = 0 .. N-1].  [a i] stands for
     [exp(x0) u^i / (i! v)], [y] for [exp(x0 + j u) / v].
 
-    The link to [line_ok] of [code/exptable9/ExpCheck.v] (not imported:
-    its Flocq is not Capla's) with [k = K], [l = L], [E = err beta^(l-1)]
-    ([err = 0x600000], [l = 6]) and [closed = false] ([n = N]):
-    - condition 3 gives [A], with [length A = K], (H_A) with
-      [a i := a x0 u i / v] (its [fracR] and [frac_part] are both
-      [r - floor r]), and [B_i = P(i) mod beta^l] (its [Pz] is [polyZ]):
-      the array [xs] holds this [B] ([vcoefs] below);
-    - condition 4 gives (H_T) for [j = 0 .. n-1], with the [rho] of the
-      line;
-    - condition 5 is (H_E), with [eps = 2^-m];
-    - conditions 1 and 2 make [u] and [v] constant on the line, so that
-      [x0 + j u] are the doubles of the line and [y] is the number whose
-      distance to an integer says that [x0 + j u] is hard to round. *)
+    The link to [line_ok] of [code/exptable9/ExpCheck.v] is proved in
+    [HtrTable.v]: [search_line] takes [line_ok] as hypothesis and derives
+    from its conditions the hypotheses below. *)
 Theorem search_complete xs m k l n err outs cap e1 result
     (A : list Z) (a : nat -> R) (rho eps y : R) (j : nat) :
   let K := nat_of k in let L := nat_of l in let N := nat_of n in
