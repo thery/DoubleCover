@@ -42,6 +42,7 @@ change is checked in two ways:
 | `lower.elpi` | L2 to L3: the only pass that names variables and chooses C++ types. |
 | `cxx.elpi` | Printing the target language as C++. |
 | `show.elpi` | Printing a generated function as an Elpi term. |
+| `dump.elpi` | Readable printers for L1, L1ᵃ and L2, to debug the passes (`dump` mode). |
 | `adjudge.elpi` | The driver: accumulates everything, `main` and `terms`. |
 
 ## Usage
@@ -69,6 +70,176 @@ elpi -I . <case>/primal.elpi -exec terms -- tangent|adjoint
 ```
 
 prints the generated programs as Elpi terms (L3) instead.
+
+```
+elpi -I . <case>/primal.elpi -exec dump -- anf|annotated
+elpi -I . <case>/primal.elpi -exec dump -- derivative|simplified|target tangent|adjoint
+```
+
+prints each function of the case at one stage of the pipeline, in a readable
+form: L1, L1ᵃ, L2 before and after simplification, or the C++. Diffing two
+stages shows what a pass does. The printer numbers the locals per function, so
+its names may differ from those of the generated C++.
+
+## The passes on an example
+
+### `f(x1, x2) = x1 * x2 + sin x1`
+
+The example of the Wikipedia article on automatic differentiation
+(`00-wikipedia`). The source, L0, is already a Wengert list, written with
+binders:
+
+```elpi
+primal (function "f" (arg "x1" real independent x1\ arg "x2" real independent x2\ body (returns real)
+  (let (op2 mul x1 x2) w3\
+   let (op1 sin x1)    w4\
+   let (op2 add w3 w4) w5\
+   w5))).
+```
+
+**`anf`: L1.** Every intermediate value is named by a `let` and every operand
+is an atom. Here the list does not change; what changes is its type: an operand
+can no longer be an expression.
+
+```
+f(x1: real independent, x2: real independent) returns real:
+    let t1 = x1 * x2
+    let t2 = sin(x1)
+    let t3 = t1 + t2
+    return t3
+```
+
+**`annotated`: L1ᵃ.** The analyses, recorded on each binder. The three values
+depend on the independent arguments (*varied*) and the result depends on them
+(*active*). None is *computed* by the forward sweep of the adjoint: the partial
+derivatives read only `x1` and `x2`, arguments that are never overwritten.
+
+```
+f(x1: real independent, x2: real independent) returns real:
+    let t1 = x1 * x2    [varied, active]
+    let t2 = sin(x1)    [varied, active]
+    let t3 = t1 + t2    [varied, active]
+    return t3
+```
+
+**`derivative tangent`: L2.** The linearization: each value, then its tangent,
+the sum over the operands of the partial derivative times their tangent. No
+names or types of C++ yet: `ref` says how an argument is passed, not how C++
+spells it.
+
+```
+f_tangent(x1: real, x2: real, x1_dot: real, x2_dot: real, result_dot: ref real) returns real:
+    const real t1 = x1 * x2
+    const real t1_dot = (x2 * x1_dot) + (x1 * x2_dot)
+    const real t2 = sin(x1)
+    const real t2_dot = cos(x1) * x1_dot
+    const real t3 = t1 + t2
+    const real t3_dot = t1_dot + t2_dot
+    result_dot := t3_dot
+    return t3
+```
+
+**`derivative adjoint`: L2.** The transposition, rule by rule: an accumulator
+starting at zero for each active value, then the lets in reverse order, each
+sending its adjoint to its operands through the partial derivatives. The
+forward sweep is empty, as the annotations said.
+
+```
+f_adjoint(x1: real, x2: real, x1_bar: ref real, x2_bar: ref real, result_bar: real):
+    var real t1_bar = 0
+    var real t2_bar = 0
+    var real t3_bar = 0
+    t3_bar += result_bar
+    t1_bar += t3_bar
+    t2_bar += t3_bar
+    x1_bar += cos(x1) * t2_bar
+    x1_bar += x2 * t1_bar
+    x2_bar += x1 * t1_bar
+```
+
+**`simplified adjoint`: L2′.** An accumulator whose first use is an
+increment becomes a definition, a constant when nothing else writes it. These
+are the lines of the reverse table of the article.
+
+```
+f_adjoint(x1: real, x2: real, x1_bar: ref real, x2_bar: ref real, result_bar: real):
+    const real t3_bar = result_bar
+    const real t1_bar = t3_bar
+    const real t2_bar = t3_bar
+    x1_bar += cos(x1) * t2_bar
+    x1_bar += x2 * t1_bar
+    x2_bar += x1 * t1_bar
+```
+
+**`target adjoint`: L3, printed as C++.** `lower` chooses the names and the
+types, `cxx` prints.
+
+```cpp
+template <typename T>
+void f_adjoint(T x1, T x2, T& x1_bar, T& x2_bar, T result_bar)
+{
+    using std::cos;
+
+    const T t3_bar = result_bar;
+    const T t1_bar = t3_bar;
+    const T t2_bar = t3_bar;
+    x1_bar += cos(x1) * t2_bar;
+    x1_bar += x2 * t1_bar;
+    x2_bar += x1 * t1_bar;
+}
+```
+
+### A recurrence: `acc = 1; for i: acc *= x[i]`
+
+The product of an array (`07-fold-product`), a `fold`:
+
+```elpi
+primal (function "prodx" (arg "x" (array 3) independent x\ body (returns real)
+  (fold (nat 0) (nat 3) (num "1") i\ acc\
+     op2 mul acc (get x i)))).
+```
+
+**`annotated`: L1ᵃ.** The partial derivative of `acc * x[i]` with respect to
+`x[i]` is `acc`, the state of the fold: the reverse loop reads it, so the
+state is *recorded* before each overwrite, and the fold is *computed* by the
+forward sweep. Inside the reverse loop, `x[i]` is *computed* again (replayed),
+since the other partial derivative reads it; the product is not, nothing reads
+it.
+
+```
+prodx(x: real[3] independent) returns real:
+    let t1 = fold i2 in [0, 3) from s2 = 1:    [varied, active, computed]    [state varied, state recorded, records]
+        let t3 = x[i2]    [varied, active, computed]
+        let t4 = s2 * t3    [varied, active]
+        return t4
+    return t1
+```
+
+**`simplified adjoint`: L2′.** The forward loop pushes the state on a tape; the
+reverse loop pops it, replays `x[i]`, then transposes the body. The state's
+adjoint `t1_bar` is moved into `r6_bar` and reset before the body accumulates
+into it again.
+
+```
+prodx_adjoint(x: const ref real[3], x_bar: ref real[3], result_bar: real):
+    var real t1 = 1
+    tape t1_tape
+    for i2 in [0, 3):
+        push t1 onto t1_tape
+        const real t3 = x[i2]
+        const real t4 = t1 * t3
+        t1 := t4
+    var real t1_bar = result_bar
+    for i5 in [0, 3) downward:
+        t1 := pop t1_tape
+        const real t7 = x[i5]
+        const real r6_bar = t1_bar
+        t1_bar := 0
+        const real t8_bar = r6_bar
+        t1_bar += t7 * t8_bar
+        const real t7_bar = t1 * t8_bar
+        x_bar[i5] += t7_bar
+```
 
 ## The supported language
 

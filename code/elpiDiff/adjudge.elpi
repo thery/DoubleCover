@@ -18,10 +18,11 @@ accumulate target.
 accumulate lower.
 accumulate cxx.
 accumulate show.
+accumulate dump.
 
 pred primal o:function.
 
-shorten adjudge.{ check, annotate, simplify, expressible, normalize, well-formed, tangent, adjoint, lower, header-string, transform, report, write-file, show-function }.
+shorten adjudge.{ check, dump-function, pr-afunction, no-ann, ann-string, pr-dfunction, function-string, annotate, simplify, expressible, normalize, well-formed, tangent, adjoint, lower, header-string, transform, report, write-file, show-function }.
 
 % main [Dir, Mode]: reads Dir/primal.elpi and writes Dir/tangent.hpp or
 % Dir/adjoint.hpp, one header for all the well-formed functions, and
@@ -54,6 +55,15 @@ terms [Mode] :- !,
     if (r = pr (some F) ok) (transform Mode F C, show-function C S, print S) true).
 terms _ :- std.fatal-error "usage: elpi -I <elpiDiff> <case>/primal.elpi -exec terms -- tangent|adjoint".
 
+% dump Stage: prints each function of the case at a stage of the pipeline, in
+% a readable form (dump.elpi): anf, annotated, or, with a mode, derivative,
+% simplified, target.
+func dump list string.
+dump Stage :-
+  std.findall (primal _) Ps,
+  std.map Ps (p\ f\ p = primal f) Fs,
+  std.forall Fs (dump-function Stage).
+
 namespace adjudge {
 
 % check F R: R pairs F in L1, when it is expressible there, with its diagnostic.
@@ -62,6 +72,25 @@ check F (pr A D) :-
   if (expressible F)
      (normalize F F1, well-formed F1 D, A = some F1)
      (A = none, D = error "a function can only write a dependent or inout argument").
+
+func dump-function list string, function.
+dump-function Stage (function N D) :-
+  check (function N D) R,
+  if (R = pr (some F) ok)
+     (dump-stage Stage F Ls, std.string.concat "\n" Ls Text, print Text, print "")
+     (R = pr _ (error M), S is "// " ^ N ^ ": refused: " ^ M, print S, print "").
+
+func dump-stage list string, afunction bare -> list string.
+dump-stage ["anf"] F L :- !, pr-afunction no-ann F L.
+dump-stage ["annotated"] F L :- !, annotate F A, pr-afunction ann-string A L.
+dump-stage ["derivative", Mode] F L :- std.mem! ["tangent", "adjoint"] Mode, !,
+  annotate F A, differentiate Mode A D, pr-dfunction D L.
+dump-stage ["simplified", Mode] F L :- std.mem! ["tangent", "adjoint"] Mode, !,
+  annotate F A, differentiate Mode A D, simplify D D1, pr-dfunction D1 L.
+dump-stage ["target", Mode] F [S] :- std.mem! ["tangent", "adjoint"] Mode, !,
+  transform Mode F C, function-string C S.
+dump-stage _ _ _ :-
+  std.fatal-error "usage: elpi -I <elpiDiff> <case>/primal.elpi -exec dump -- anf|annotated|derivative <mode>|simplified <mode>|target <mode>".
 
 func transform string, afunction bare -> cfunction.
 transform Mode F C :- annotate F A, differentiate Mode A D, simplify D D1, lower D1 C.
