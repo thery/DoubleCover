@@ -5,7 +5,8 @@ CAPLA ?= $(HOME)/git/capla-compiler
 DIRS := lib common x86_64 x86 backend cfrontend driver cparser bfrontend
 INC := $(foreach d,$(DIRS),-R $(CAPLA)/$(d) compcert.$(d)) \
        -R $(CAPLA)/MenhirLib MenhirLib \
-       -R . Htr3 -Q ../apaul APaulRocq -Q ../exptable9 ExpTable9
+       -R . Htr3 -Q ../apaul APaulRocq -Q ../exptable9 ExpTable9 \
+       -Q ../exptablekl ExpTableKL
 COQC := coqc $(INC)
 
 all: add_proof.vo SearchProof.vo HtrFinal.vo HtrTable.vo
@@ -25,17 +26,20 @@ TstepProof.vo: AddwProof.vo
 DifftabProof.vo: SubwProof.vo
 SearchProof.vo: DifftabProof.vo TstepProof.vo
 HtrFinal.vo: SearchProof.vo ../apaul/TaylorLink.vo ../apaul/HtrMath.vo
-HtrTable.vo: HtrFinal.vo ../exptable9/ExpProof.vo ../exptable9/ExpHard.vo
+HtrTable.vo: HtrFinal.vo ../exptablekl/ExpProof.vo ../exptablekl/ExpHard.vo
 
 # The ports: the Rocq files of code/APaul/rocq (mirror ../apaul) and the proof
-# files of code/exptable9 (mirror ../exptable9), built in the switch capla.
-# Capla must be configured with -use-external-Flocq: the exptable9 files use
-# Interval, built on the opam Flocq, and both are loaded together.
-PORTCOQC := coqc -Q ../apaul APaulRocq -Q ../exptable9 ExpTable9
+# files of code/exptable9 and code/exptablekl (mirrors ../exptable9 and
+# ../exptablekl), built in the switch capla.  Capla must be configured with
+# -use-external-Flocq: the table files use Interval, built on the opam Flocq,
+# and both are loaded together.
+PORTCOQC := coqc -Q ../apaul APaulRocq -Q ../exptable9 ExpTable9 \
+  -Q ../exptablekl ExpTableKL
 APAUL := Shift TaylorScan TaylorReal TaylorLink HtrMath
 EXP := ExpCheck ExpParse ExpParseSpec ExpTaylor ExpArith ExpEncl ExpProof \
        ExpCover ExpHard
-ports: $(APAUL:%=../apaul/%.vo) $(EXP:%=../exptable9/%.vo)
+ports: $(APAUL:%=../apaul/%.vo) $(EXP:%=../exptable9/%.vo) \
+  $(EXP:%=../exptablekl/%.vo)
 
 ../apaul/TaylorScan.vo: ../apaul/Shift.vo
 ../apaul/TaylorLink.vo: ../apaul/Shift.vo ../apaul/TaylorScan.vo ../apaul/TaylorReal.vo
@@ -49,9 +53,18 @@ ports: $(APAUL:%=../apaul/%.vo) $(EXP:%=../exptable9/%.vo)
   ../exptable9/ExpTaylor.vo ../exptable9/ExpArith.vo ../exptable9/ExpEncl.vo
 ../exptable9/ExpCover.vo: ../exptable9/ExpCheck.vo ../exptable9/ExpParse.vo
 ../exptable9/ExpHard.vo: ../exptable9/ExpCheck.vo
+../exptablekl/ExpParse.vo: ../exptablekl/ExpCheck.vo
+../exptablekl/ExpParseSpec.vo: ../exptablekl/ExpCheck.vo \
+  ../exptablekl/ExpParse.vo
+../exptablekl/ExpTaylor.vo ../exptablekl/ExpArith.vo ../exptablekl/ExpEncl.vo: \
+  ../exptablekl/ExpCheck.vo
+../exptablekl/ExpProof.vo: ../exptablekl/ExpCheck.vo ../exptablekl/ExpParse.vo \
+  ../exptablekl/ExpTaylor.vo ../exptablekl/ExpArith.vo ../exptablekl/ExpEncl.vo
+../exptablekl/ExpCover.vo: ../exptablekl/ExpCheck.vo ../exptablekl/ExpParse.vo
+../exptablekl/ExpHard.vo: ../exptablekl/ExpCheck.vo
 
-$(filter-out ../apaul/HtrDefs.vo,$(APAUL:%=../apaul/%.vo)) $(EXP:%=../exptable9/%.vo): \
-  %.vo: %.v
+$(filter-out ../apaul/HtrDefs.vo,$(APAUL:%=../apaul/%.vo)) \
+  $(EXP:%=../exptable9/%.vo) $(EXP:%=../exptablekl/%.vo): %.vo: %.v
 	$(PORTCOQC) $<
 
 %.vo: %.v
@@ -67,10 +80,12 @@ mcp:
 	{ for d in $(DIRS); do echo "-R caplalib/$$d compcert.$$d"; done; \
 	  echo "-R caplalib/MenhirLib MenhirLib"; \
 	  echo "-R proof Htr3"; echo "-Q apaul APaulRocq"; \
-	  echo "-Q exptable9 ExpTable9"; } > ../_CoqProject
+	  echo "-Q exptable9 ExpTable9"; \
+	  echo "-Q exptablekl ExpTableKL"; } > ../_CoqProject
 
 clean:
 	rm -f add.v htr3.v *.vo *.vok *.vos *.glob .*.aux *.o \
 	  ../apaul/*.vo ../apaul/*.vok ../apaul/*.vos ../apaul/*.glob ../apaul/.*.aux \
 	  ../exptable9/*.vo ../exptable9/*.vok ../exptable9/*.vos ../exptable9/*.glob \
-	  ../exptable9/.*.aux
+	  ../exptable9/.*.aux ../exptablekl/*.vo ../exptablekl/*.vok \
+	  ../exptablekl/*.vos ../exptablekl/*.glob ../exptablekl/.*.aux
