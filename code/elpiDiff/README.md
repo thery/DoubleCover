@@ -462,6 +462,65 @@ the tangent along the first unit vector gives its first component:
 }
 ```
 
+## What the adjoint keeps: the to-be-recorded analysis
+
+The reverse sweep multiplies adjoints by partial derivatives, and a partial
+derivative may read values of the primal computation: `t1` in `xsin`, the state
+`acc` in `prodx`. Those values must be available when the reverse sweep runs.
+`tbr.elpi` decides which ones, `annotate.elpi` records the decision on L1ᵃ.
+
+**What a partial derivative reads.** It is fixed by the table of
+`operations.elpi`, and only matters when the operand is *varied* (a passive
+operand gets no adjoint, so its partial derivative is never computed):
+
+| Operation | Partial derivatives | The reverse sweep reads |
+|---|---|---|
+| `a + b`, `a - b`, `-a` | `1`, `±1` | nothing |
+| `a * b` | `b` for `a`, `a` for `b` | `b` if `a` is varied, `a` if `b` is varied |
+| `a / b` | `1 / b`, `-(a / (b * b))` | `b` if `a` is varied; `a` and `b` if `b` is varied |
+| `sin a`, `cos a`, `exp a`, `log a`, `sqrt a`, `pow(a, k)` | `cos a`, `-sin a`, `exp a`, `1 / a`, `1 / (2 sqrt a)`, `k pow(a, k-1)` | `a` (nothing for `pow(a, 0)`) |
+| `a[i]`, `a with [i] = v` | | the index `i` |
+| `if c then … else …` | | the condition `c`, and what the branches read |
+| `map`, `fold` over `[lo, hi)` | | the bounds, and what the body reads |
+
+**The analysis.** One pass over each body, from its end to its start, computes
+two sets of atoms:
+
+- *useful*: the atoms the result depends on through derivatives. A let is
+  *active* when its value is varied and useful: only active lets are
+  transposed, so only their partial derivatives are read.
+- *read*: the atoms the reverse sweep of the rest of the body reads. A let
+  whose atom is read is *computed*: its value must be available, and so must
+  the atoms it is computed from, which become read in turn.
+
+At a let `x = E`, from the sets of the rest of the body: if `x` is active, the
+atoms its partial derivatives read are added to *read*, its operands to
+*useful*; if `x` is read, it is computed, and its operands are added to *read*.
+
+**Where the values come from.** In A-normal form no value is ever overwritten,
+so keeping a value costs nothing: the forward sweep computes it into a constant
+that is still in scope during the reverse sweep. This is what *computed* means
+for a let of the function's body: `t1 = sin(x)` in `xsin` and `t1 = 2 * x` in
+`overwrite` are computed by the forward sweep and read by the reverse one; in
+the Wikipedia example the partial derivatives read only the arguments, so the
+forward sweep computes nothing. Only two things are overwritten, and only they
+are recorded on a tape:
+
+- **the state of a `fold`**, when the reverse loop reads it: it is pushed
+  before each iteration and popped back in reverse (`state recorded` on the
+  fold, `prodx`: the partial derivative of `acc * x[i]` with respect to `x[i]`
+  is `acc`);
+- **an array updated in place**, when the reverse loop reads the element
+  overwritten: it is pushed before the update and popped back
+  (`09-array-state`).
+
+Inside a loop or a branch, the other values the reverse sweep reads are
+*recomputed* (replayed) from the restored state rather than recorded: `x[i]` in
+`prodx`, marked *computed* inside the fold, is read again in the reverse loop.
+The analysis of a loop body or a branch is the same, run for this replay. A
+fold that records is run by the forward sweep even when its value is not read
+(`records` on the fold), so that its tape is filled.
+
 ## Using the adjoint: computing a gradient
 
 The adjoint of `f` has the arguments of `f`, then the adjoint `x_bar` of each
