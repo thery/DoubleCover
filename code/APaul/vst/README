@@ -18,6 +18,14 @@ Verif_add.v, Verif_sub.v, Verif_difftab.v, Verif_tstep.v, Verif_search.v
               body_<f> : semax_body Vprog Gprog f_<f> <f>_spec
 Verif_htr3.v  htr3_funcs_correct: semax_func over the five functions, so no
               proof rests on an unproved callee spec
+link/         links to code/APaul/rocq (APaulRocq) and code/exptablekl
+              (ExpTableKL), built here (`make ports`)
+TableCands.v  cands_line: on a line with line_ok, every hard j < n is in
+              cands (HtrMath, TaylorLink.hscan_exp; mathcomp, no VST)
+VstTable.v    vst_search_line, vst_search_table: from line_ok (or
+              check_raw) and the postcondition of search_spec, every hard
+              j < n is among the first count entries of out, when
+              count <= cap
 
 search_spec: on an array holding B_0 .. B_(k-1) (l words each), search
 returns the number of candidates j < n (cands of the table of differences
