@@ -189,6 +189,75 @@ void f_adjoint(T x1, T x2, T& x1_bar, T& x2_bar, T result_bar)
 }
 ```
 
+### A value the reverse sweep reads: `x = 2 * x; return x * x`
+
+In the first example the forward sweep is empty, because the partial
+derivatives read only arguments. Here (`02-overwrite`) they read an
+intermediate value, which the adjoint must store:
+
+```cpp
+template <typename T>
+T overwrite(T x)
+{
+    x = T(2) * x;
+    return x * x;
+}
+```
+
+In the source, the overwritten `x` is a new version, hence a new binder:
+
+```elpi
+primal (function "overwrite" (arg "x" real independent x\ body (returns real)
+  (let (op2 mul (num "2") x) x\
+   op2 mul x x))).
+```
+
+**`annotated`: L1ᵃ.** The partial derivatives of `t1 * t1` are `t1`: the
+reverse sweep reads it, so `t1` is *computed* by the forward sweep. `t2` is
+not: nothing reads it.
+
+```
+overwrite(x: real independent) returns real:
+    let t1 = 2 * x    [varied, active, computed]
+    let t2 = t1 * t1    [varied, active]
+    return t2
+```
+
+**`derivative adjoint`: L2.** The forward sweep stores `t1`, the reverse sweep
+reads it. Storing needs no tape: in A-normal form a value is never overwritten,
+so storing it is computing it into a constant that is still in scope when the
+reverse sweep reads it. `t1_bar` receives one contribution per operand.
+
+```
+overwrite_adjoint(x: real, x_bar: ref real, result_bar: real):
+    const real t1 = 2 * x
+    var real t1_bar = 0
+    var real t2_bar = 0
+    t2_bar += result_bar
+    t1_bar += t1 * t2_bar
+    t1_bar += t1 * t2_bar
+    x_bar += 2 * t1_bar
+```
+
+**`target adjoint`: C++,** after simplification. `t1_bar` stays a variable,
+since it is accumulated twice.
+
+```cpp
+template <typename T>
+void overwrite_adjoint(T x, T& x_bar, T result_bar)
+{
+    const T t1 = T(2) * x;
+    const T t2_bar = result_bar;
+    T t1_bar = t1 * t2_bar;
+    t1_bar += t1 * t2_bar;
+    x_bar += T(2) * t1_bar;
+}
+```
+
+A tape is needed only when storage is overwritten, which A-normal form leaves
+to two constructs: the state of a `fold`, next, and an array updated in place
+(`09-array-state`).
+
 ### A recurrence: `acc = 1; for i: acc *= x[i]`
 
 The product of an array (`07-fold-product`), a `fold`:
