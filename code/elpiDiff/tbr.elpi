@@ -23,14 +23,14 @@ kind sweep type.
 type forward sweep.                % the forward sweep of the adjoint: computes and records
 type replay  sweep.                % a recomputation inside a reverse loop or branch: records nothing
 
-func needs sweep, anf -> list atom, list atom.
-func value-needs value -> list atom, list atom.
-func state-live atom, (atom -> atom -> anf).
-func records value.
-func records-in anf.
+func needs sweep, anf bare -> list atom, list atom.
+func value-needs value bare -> list atom, list atom.
+func state-live atom, (atom -> atom -> anf bare).
+func records value bare.
+func records-in anf bare.
 func read-by atom, pexpr -> list atom.
 
-needs M (a-let E B) U L :- !,
+needs M (a-let _ E B) U L :- !,
   if (varied-value E) (V = tt) (V = ff),
   let-binder E (x\ needs M (B x) (UB x) (LB x),
                   if (atom-member x (UB x)) (Useful = tt) (Useful = ff),
@@ -58,7 +58,7 @@ value-needs (a-ite C T E) R Fl :- !,
 value-needs (a-map Lo Hi B) R Fl :- !,
   (pi i\ needs replay (B i) (U i) (L i), atom-remove i (U i) Fl, atom-remove i (L i) L0),
   atoms-of-atoms [Lo, Hi] RB, atom-union RB L0 R.
-value-needs (a-fold Lo Hi Init B) R Fl :-
+value-needs (a-fold _ Lo Hi Init B) R Fl :-
   fold-binders Init B (i\ s\ needs replay (B i s) (U i s) (L i s),
                           atom-remove i (U i s) (U1 s), atom-remove s (U1 s) U0,
                           atom-remove i (L i s) (L1 s), atom-remove s (L1 s) L0),
@@ -73,10 +73,10 @@ read-by _ _ [].
 state-live Init B :- fold-binders Init B (i\ s\ needs replay (B i s) _ (L i s), atom-member s (L i s)).
 
 % The forward sweep must run a let when a fold in it records something.
-records (a-fold _ _ I B) :- state-live I B, !.
-records (a-fold _ _ I B) :- !, fold-binders I B (i\ s\ records-in (B i s)).
+records (a-fold _ _ _ I B) :- state-live I B, !.
+records (a-fold _ _ _ I B) :- !, fold-binders I B (i\ s\ records-in (B i s)).
 
-records-in (a-let E _) :- records E, !.
-records-in (a-let E B) :- let-binder E (y\ records-in (B y)).
+records-in (a-let _ E _) :- records E, !.
+records-in (a-let _ E B) :- let-binder E (y\ records-in (B y)).
 
 }

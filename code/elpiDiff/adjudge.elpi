@@ -9,6 +9,7 @@ accumulate operations.
 accumulate "well-formed".
 accumulate activity.
 accumulate tbr.
+accumulate annotate.
 accumulate derivative.
 accumulate tangent.
 accumulate adjoint.
@@ -19,7 +20,7 @@ accumulate show.
 
 pred primal o:function.
 
-shorten adjudge.{ check, expressible, normalize, well-formed, tangent, adjoint, lower, header-string, transform, report, write-file, show-function }.
+shorten adjudge.{ check, annotate, expressible, normalize, well-formed, tangent, adjoint, lower, header-string, transform, report, write-file, show-function }.
 
 % main [Dir, Mode]: reads Dir/primal.elpi and writes Dir/tangent.hpp or
 % Dir/adjoint.hpp, one header for all the well-formed functions, and
@@ -55,17 +56,17 @@ terms _ :- std.fatal-error "usage: elpi -I <elpiDiff> <case>/primal.elpi -exec t
 namespace adjudge {
 
 % check F R: R pairs F in L1, when it is expressible there, with its diagnostic.
-func check function -> pair (option afunction) diagnostic.
+func check function -> pair (option (afunction bare)) diagnostic.
 check F (pr A D) :-
   if (expressible F)
      (normalize F F1, well-formed F1 D, A = some F1)
      (A = none, D = error "a function can only write a dependent or inout argument").
 
-func transform string, afunction -> cfunction.
-transform Mode F C :- differentiate Mode F D, lower D C.
+func transform string, afunction bare -> cfunction.
+transform Mode F C :- annotate F A, differentiate Mode A D, lower D C.
 
 % differentiate Mode F D: the derivative program, in the derivative IR.
-func differentiate string, afunction -> dfunction.
+func differentiate string, afunction ann -> dfunction.
 differentiate "tangent" F D :- !, tangent F D.
 differentiate "adjoint" F D :- adjoint F D.
 

@@ -18,7 +18,7 @@ comparison F :- operation2 F _ _ boolean _.
 func varied atom.
 
 % varied-value E, varied-anf B: the value E, the body B depends on an independent argument.
-func varied-value value.
+func varied-value value bare.
 varied-value (a-op1 _ A) :- !, varied A.
 varied-value (a-op2 F _ _) :- comparison F, !, fail.
 varied-value (a-op2 _ A B) :- !, std.exists! [A, B] varied.
@@ -26,23 +26,23 @@ varied-value (a-get A _) :- !, varied A.
 varied-value (a-set A _ V) :- !, std.exists! [A, V] varied.
 varied-value (a-ite _ T E) :- !, std.exists! [T, E] varied-anf.
 varied-value (a-map _ _ B) :- !, pi i\ varied-anf (B i).
-varied-value (a-fold _ _ I B) :- fold-varied I B.
+varied-value (a-fold _ _ _ I B) :- fold-varied I B.
 
-func varied-anf anf.
-varied-anf (a-let E B) :- !, let-binder E (x\ varied-anf (B x)).
+func varied-anf anf bare.
+varied-anf (a-let _ E B) :- !, let-binder E (x\ varied-anf (B x)).
 varied-anf (a-ret X) :- varied X.
 
 % The state of a fold is varied when its initial value is, or when one pass of
 % the body makes it varied starting from a passive state.
-func fold-varied atom, (atom -> atom -> anf).
+func fold-varied atom, (atom -> atom -> anf bare).
 fold-varied I _ :- varied I, !.
 fold-varied _ B :- pi i\ pi s\ varied-anf (B i s).
 
 % Opening binders knowing whether the bound value is varied.
-func let-binder value, (func atom).
+func let-binder value bare, (func atom).
 let-binder E P :- if (varied-value E) (pi x\ varied x =!=> P x) (pi x\ P x).
 
-func fold-binders atom, (atom -> atom -> anf), (func atom, atom).
+func fold-binders atom, (atom -> atom -> anf bare), (func atom, atom).
 fold-binders I B P :- if (fold-varied I B) (pi i\ pi s\ varied s =!=> P i s) (pi i\ pi s\ P i s).
 
 }

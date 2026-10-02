@@ -6,7 +6,7 @@
 % partial derivative times the tangent of the operand. A value is always
 % computed before its tangent, so no tape is ever needed.
 
-shorten adjudge.{ written-role, with-arguments, of, type-of, varied, varied-value, fold-varied, stored, with-storage, open-let, open-fold, open-index, spell, spell-partial, dot, scale, sum, sbind, partial1, partial2 }.
+shorten adjudge.{ written-role, with-arguments, of, type-of, varied, stored, with-storage, open-let, open-fold, open-index, spell, spell-partial, dot, scale, sum, sbind, partial1, partial2 }.
 
 typeabbrev tangent-code (scoped (pair (list dstmt) (pair dexpr dexpr))).   % statements, value and tangent of the tail atom
 
@@ -14,12 +14,12 @@ namespace adjudge {
 
 % The generated signature: the arguments of the primal, then the tangent of
 % each argument that has one, then the tangent of a returned value.
-func tangent afunction -> dfunction.
+func tangent afunction ann -> dfunction.
 tangent (a-function Name Def) (dfunction TName Body) :-
   TName is Name ^ "_tangent",
   with-arguments Def tangent-body Body.
 
-func tangent-body list (pair decl dvar), aresult, anf -> scoped dbody.
+func tangent-body list (pair decl dvar), aresult, anf ann -> scoped dbody.
 tangent-body Args Res B R :-
   std.map Args tangent-primal Ps, std.map Args tangent-dot Dss, std.flatten Dss Ds,
   tan B SB,
@@ -53,15 +53,15 @@ tangent-dot (pr (decl _ T independent) V) [dparam by-cref T (dot-of V)] :- !.
 tangent-dot (pr (decl _ T _) V) [dparam by-ref T (dot-of V)].
 
 % tan T R: the statements computing T, with the value and the tangent of its tail atom.
-func tan anf -> tangent-code.
-tan (a-let E B) R :- !,
-  type-of E T, if (varied-value E) (Vr = tt) (Vr = ff),
+func tan anf ann -> tangent-code.
+tan (a-let (let-ann Vr _ _) E B) R :- !,
+  type-of E T,
   with-storage E B (tan-let E B T Vr) R.
 tan (a-ret X) (done (pr [] (pr V D))) :- spell X V, dot X D.
 
-func tan-let value, (atom -> anf), ty, bool, dvar -> tangent-code.
+func tan-let value ann, (atom -> anf ann), ty, bool, dvar -> tangent-code.
 tan-let E B T Vr N R :-
-  tan-value E T N SE,
+  tan-value E T Vr N SE,
   open-let T N Vr (x\ tan (B x) SB),
   sbind SE (tan-prepend SB) R.
 
@@ -71,45 +71,45 @@ tan-prepend SB SE R :- sbind SB (tan-prepend-done SE) R.
 func tan-prepend-done list dstmt, pair (list dstmt) (pair dexpr dexpr) -> tangent-code.
 tan-prepend-done SE (pr SB VD) (done (pr S VD)) :- std.append SE SB S.
 
-% tan-value E T N S: S computes the value E into N, and its tangent when E is varied.
-func tan-value value, ty, dvar -> code.
-tan-value (a-op1 F A) T N (done S) :- !,
+% tan-value E T Vr N S: S computes the value E into N, and its tangent when E
+% is varied, as Vr says.
+func tan-value value ann, ty, bool, dvar -> code.
+tan-value (a-op1 F A) T Vr N (done S) :- !,
   spell A EA, E = d-op1 F EA,
-  if (varied-value (a-op1 F A))
+  if (Vr = tt)
      (partial1 F A P, tangent-term A P Terms, sum Terms DE,
       S = [d-define (d-constant T) N E, d-define (d-constant real) (dot-of N) DE])
      (S = [d-define (d-constant T) N E]).
-tan-value (a-op2 F A B) T N (done S) :- !,
+tan-value (a-op2 F A B) T Vr N (done S) :- !,
   spell A EA, spell B EB, E = d-op2 F EA EB,
-  if (varied-value (a-op2 F A B))
+  if (Vr = tt)
      (partial2 F A B PA PB, tangent-term A PA TA, tangent-term B PB TB, std.append TA TB Terms,
       sum Terms DE,
       S = [d-define (d-constant T) N E, d-define (d-constant real) (dot-of N) DE])
      (S = [d-define (d-constant T) N E]).
-tan-value (a-get A I) _ N (done S) :- !,
+tan-value (a-get A I) _ _ N (done S) :- !,
   spell A EA, spell I EI,
   if (varied A)
      (dot A DA, S = [d-define (d-constant real) N (d-at EA EI), d-define (d-constant real) (dot-of N) (d-at DA EI)])
      (S = [d-define (d-constant real) N (d-at EA EI)]).
-tan-value (a-set A I V) _ N (done S) :- !,
+tan-value (a-set _ I V) _ Vr N (done S) :- !,
   spell I EI, spell V EV,
-  if (varied-value (a-set A I V))
+  if (Vr = tt)
      (dot V DV, S = [d-assign (d-at (d-var N) EI) EV, d-assign (d-at (d-var (dot-of N)) EI) DV])
      (S = [d-assign (d-at (d-var N) EI) EV]).
-tan-value (a-ite C Then Else) _ N R :- !,
+tan-value (a-ite C Then Else) _ Vr N R :- !,
   spell C EC, tan Then ST, tan Else SE,
-  if (varied-value (a-ite C Then Else)) (Vr = tt) (Vr = ff),
   sbind ST (tan-ite-then SE Vr EC N) R.
-tan-value (a-map Lo Hi B) _ N (fresh "i" R) :- !,
-  spell Lo ELo, spell Hi EHi, if (varied-value (a-map Lo Hi B)) (Vr = tt) (Vr = ff),
-  pi i\ open-index i (x\ tan (B x) (SB i)), sbind (SB i) (tan-map i ELo EHi Vr N) (R i).
-tan-value (a-fold Lo Hi Init B) real N (fresh "i" R) :- !,
-  spell Lo ELo, spell Hi EHi, spell Init EI,
-  if (fold-varied Init B) (Vr = tt, dot Init DI) (Vr = ff, DI = d-real "0"),
-  pi i\ open-fold Init B real N i (x\ s\ tan (B x s) (SB i)), sbind (SB i) (tan-fold i ELo EHi EI DI Vr N) (R i).
-tan-value (a-fold Lo Hi Init B) (array K) N (fresh "i" R) :-
+tan-value (a-map Lo Hi B) _ Vr N (fresh "i" R) :- !,
   spell Lo ELo, spell Hi EHi,
-  pi i\ open-fold Init B (array K) N i (x\ s\ tan (B x s) (SB i)), sbind (SB i) (tan-fold-array i ELo EHi) (R i).
+  pi i\ open-index i (x\ tan (B x) (SB i)), sbind (SB i) (tan-map i ELo EHi Vr N) (R i).
+tan-value (a-fold (fold-ann SVr _ _) Lo Hi Init B) real _ N (fresh "i" R) :- !,
+  spell Lo ELo, spell Hi EHi, spell Init EI,
+  if (SVr = tt) (dot Init DI) (DI = d-real "0"),
+  pi i\ open-fold SVr real N i (x\ s\ tan (B x s) (SB i)), sbind (SB i) (tan-fold i ELo EHi EI DI SVr N) (R i).
+tan-value (a-fold (fold-ann SVr _ _) Lo Hi _ B) (array K) _ N (fresh "i" R) :-
+  spell Lo ELo, spell Hi EHi,
+  pi i\ open-fold SVr (array K) N i (x\ s\ tan (B x s) (SB i)), sbind (SB i) (tan-fold-array i ELo EHi) (R i).
 
 func tan-ite-then tangent-code, bool, dexpr, dvar, pair (list dstmt) (pair dexpr dexpr) -> code.
 tan-ite-then SE Vr EC N BT R :- sbind SE (tan-ite Vr EC N BT) R.

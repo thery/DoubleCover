@@ -16,14 +16,15 @@ compiler with explicit intermediate languages.
 | File | Role |
 |---|---|
 | `syntax.elpi` | L0, the source language: a Wengert list with binders (λ-tree syntax). `arg`, `let`, `map` and `fold` bind Elpi variables; no variable is named by a string. Also roles (`independent`, `dependent`, `inout`, `passive`). |
-| `anf.elpi` | L1, A-normal form, a language of its own (`atom`, `value`, `anf`), and the translation from L0. Every intermediate value is named by a `let`; that operations apply to atoms is a matter of typing. Also partial-derivative expressions over atoms and atom sets. |
+| `anf.elpi` | L1, A-normal form, a language of its own (`atom`, `value I`, `anf I`), and the translation from L0. Every intermediate value is named by a `let`; that operations apply to atoms is a matter of typing. The index `I` is what binders are annotated with: `bare` for L1, `ann` for L1ᵃ. Also partial-derivative expressions over atoms and atom sets. |
 | `operations.elpi` | The elementary operations: their types, C++ spelling and partial derivatives. The only calculus the tool knows. |
 | `well-formed.elpi` | Typing and the supported language, on L1, as a judgment returning `ok` or `error Reason`. |
 | `activity.elpi` | Forward activity analysis: `varied`, a value depends on an independent argument. |
 | `tbr.elpi` | Backward analysis and to-be-recorded: `useful` values, values the reverse sweep reads, when a fold must record its state. |
+| `annotate.elpi` | L1 to L1ᵃ: runs the analyses once and records them on every let (varied, active, computed) and fold (state varied, state recorded, records). |
 | `derivative.elpi` | L2, the derivative IR: an imperative program over variables bound by Elpi binders, with no C++ names or types. Also how the transformations open the binders of the object language. |
-| `tangent.elpi` | Forward mode: the linearization, into L2. |
-| `adjoint.elpi` | Reverse mode: the transposition, with forward sweep, tapes and replay, into L2. |
+| `tangent.elpi` | Forward mode: the linearization, from L1ᵃ into L2. |
+| `adjoint.elpi` | Reverse mode: the transposition, with forward sweep, tapes and replay, from L1ᵃ into L2; what to compute, transpose and record is read from the annotations. |
 | `target.elpi` | L3, the target language: C++ statements, names as strings. |
 | `lower.elpi` | L2 to L3: the only pass that names variables and chooses C++ types. |
 | `cxx.elpi` | Printing the target language as C++. |
@@ -93,7 +94,7 @@ shape of every pass's output.
 |---|---|---|---|
 | L0 Source | `term`, nested expressions | — | `primal` |
 | L1 ANF | own types `atom`, `value`, `anf` | operands are atoms, by typing | `anf` |
-| L1ᵃ Annotated ANF | each `let` tagged active / needed / recorded | analyses done once, as data | `activity` + `tbr` |
+| L1ᵃ Annotated ANF | L1 indexed by `ann`: each `let` and `fold` carries the analyses | analyses done once, as data | `annotate` |
 | L2 Derivative IR | imperative `prog` with binders (`zero`, `accum`, `push`, `pop`, `for-down`, …) | differentiated, no names, no C++ | `tangent` / `adjoint` |
 | L2′ Optimized | same `prog` | — | simplifications |
 | L3 Target | `stmt`, names as strings | names and C++ types fixed | `lower` |
@@ -108,7 +109,9 @@ Steps, in this order, each checked against the reference cases:
 2. **Done.** L1, typed ANF: the analyses and the transformations work on L1
    only; a partial derivative is an expression over atoms (`pexpr`). The
    generated C++ is unchanged byte for byte.
-3. L1ᵃ, the adjoint becomes the plain transposition.
+3. **Done.** L1ᵃ: `annotate` records the analyses on the term; `tangent` and
+   `adjoint` read the annotations and call no analysis, so the adjoint is the
+   plain transposition. The generated C++ is unchanged byte for byte.
 4. L2′, simplifications (and the `pow` fixes): the C++ changes, checked by the
    derivative tests.
 

@@ -6,9 +6,10 @@
 % back. Guided by tbr.elpi, the forward sweep computes only the values the
 % reverse sweep reads and records the state of a fold only when it is read;
 % inside a reverse loop or branch, the values that are read are recomputed
-% (replayed) instead of recorded.
+% (replayed) instead of recorded. These decisions are read from the
+% annotations of L1ᵃ (annotate.elpi).
 
-shorten adjudge.{ argument, written, sweep, forward, replay, needs, records, state-live, atom-member, with-arguments, type-of, varied-value, stored, with-storage, open-let, open-fold, open-index, spell, spell-partial, bar, scale, sbind, sflatten, partial1, partial2, of }.
+shorten adjudge.{ argument, written, sweep, forward, replay, with-arguments, type-of, stored, with-storage, open-let, open-fold, open-index, spell, spell-partial, bar, scale, sbind, sflatten, partial1, partial2, of }.
 
 typeabbrev sweeps (pair (list dstmt) (list dstmt)).     % the forward sweep and the reverse sweep
 
@@ -23,12 +24,12 @@ func recorded dvar.    % an array updated in place whose fold records it, on its
 %   inout        the primal value is a working copy, by value; its adjoint is
 %                transformed in place: on entry the adjoint of the final value,
 %                on exit the adjoint of the initial value.
-func adjoint afunction -> dfunction.
+func adjoint afunction ann -> dfunction.
 adjoint (a-function Name Def) (dfunction AName Body) :-
   AName is Name ^ "_adjoint",
   with-arguments Def adjoint-body Body.
 
-func adjoint-body list (pair decl dvar), aresult, anf -> scoped dbody.
+func adjoint-body list (pair decl dvar), aresult, anf ann -> scoped dbody.
 adjoint-body Args Res B R :-
   std.map Args adjoint-primal Ps, std.map Args adjoint-bar Bss, std.flatten Bss Bs,
   adjoint-seed Res Extra Prologue Seed,
@@ -69,23 +70,18 @@ adjoint-bar (pr (decl _ T _) V) [dparam by-ref T (bar-of V)].
 
 % adj M T Seed R: R holds the forward sweep, computing what the reverse sweep of
 % T needs, and the reverse sweep, propagating Seed, the adjoint of T's value,
-% back to the atoms of T. At each let, the body's needs (tbr.elpi) decide whether
-% the binder is useful, hence active, and whether its value is needed, hence
-% computed forward.
-func adj sweep, anf, dexpr -> scoped sweeps.
-adj M (a-let E B) Seed R :- !,
-  type-of E T, if (varied-value E) (V = tt) (V = ff),
-  with-storage E B (adj-let M E B T V Seed) R.
+% back to the atoms of T. A let is computed when its annotation says so, and
+% transposed when it is active.
+func adj sweep, anf ann, dexpr -> scoped sweeps.
+adj M (a-let (let-ann V A C) E B) Seed R :- !,
+  type-of E T,
+  with-storage E B (adj-let M E B T V A C Seed) R.
 adj _ (a-ret X) Seed (done (pr [] Rev)) :- if (of X real, bar X BX) (Rev = [d-increment BX Seed]) (Rev = []).
 
-func adj-let sweep, value, (atom -> anf), ty, bool, dexpr, dvar -> scoped sweeps.
-adj-let M E B T V Seed N R :-
-  open-let T N V (x\ adj M (B x) Seed SB,
-                     needs M (B x) (U x) (L x),
-                     if (atom-member x (U x)) (Useful = tt) (Useful = ff),
-                     if (atom-member x (L x)) (Needed = tt) (Needed = ff)),
-  if (V = tt, Useful = tt) (A = tt) (A = ff),
-  if (Needed = tt ; M = forward, records E) (fwd-value M E T N FwdE) (FwdE = done []),
+func adj-let sweep, value ann, (atom -> anf ann), ty, bool, bool, bool, dexpr, dvar -> scoped sweeps.
+adj-let M E B T V A C Seed N R :-
+  open-let T N V (x\ adj M (B x) Seed SB),
+  if (C = tt) (fwd-value M E T N FwdE) (FwdE = done []),
   if (A = tt) (bar-declaration T N Decl, rev-value E T N RevE) (Decl = [], RevE = done []),
   sbind SB (adj-let-fwd FwdE RevE Decl) R.
 
@@ -105,13 +101,13 @@ bar-declaration real N [d-define d-mutable (bar-of N) (d-real "0")] :- !.
 bar-declaration _ _ [].
 
 % prim M T R: the primal computation of T, recording when M is forward, with the value of its tail atom.
-func prim sweep, anf -> scoped (pair (list dstmt) dexpr).
-prim M (a-let E B) R :- !,
-  type-of E T, if (varied-value E) (Vr = tt) (Vr = ff),
+func prim sweep, anf ann -> scoped (pair (list dstmt) dexpr).
+prim M (a-let (let-ann Vr _ _) E B) R :- !,
+  type-of E T,
   with-storage E B (prim-let M E B T Vr) R.
 prim _ (a-ret X) (done (pr [] V)) :- spell X V.
 
-func prim-let sweep, value, (atom -> anf), ty, bool, dvar -> scoped (pair (list dstmt) dexpr).
+func prim-let sweep, value ann, (atom -> anf ann), ty, bool, dvar -> scoped (pair (list dstmt) dexpr).
 prim-let M E B T Vr N R :-
   fwd-value M E T N SE,
   open-let T N Vr (x\ prim M (B x) SB),
@@ -124,7 +120,7 @@ func prim-prepend-done list dstmt, pair (list dstmt) dexpr -> scoped (pair (list
 prim-prepend-done SE (pr SB V) (done (pr S V)) :- std.append SE SB S.
 
 % fwd-value M E T N S: S computes the value E into N.
-func fwd-value sweep, value, ty, dvar -> code.
+func fwd-value sweep, value ann, ty, dvar -> code.
 fwd-value _ (a-op1 F A) T N (done [d-define (d-constant T) N (d-op1 F EA)]) :- !, spell A EA.
 fwd-value _ (a-op2 F A B) T N (done [d-define (d-constant T) N (d-op2 F EA EB)]) :- !, spell A EA, spell B EB.
 fwd-value _ (a-get A I) _ N (done [d-define (d-constant real) N (d-at EA EI)]) :- !, spell A EA, spell I EI.
@@ -137,16 +133,16 @@ fwd-value M (a-ite C Then Else) _ N R :- !,
 fwd-value M (a-map Lo Hi B) _ N (fresh "i" R) :- !,
   spell Lo ELo, spell Hi EHi,
   pi i\ open-index i (x\ prim M (B x) (SB i)), sbind (SB i) (fwd-map i ELo EHi N) (R i).
-fwd-value M (a-fold Lo Hi Init B) real N (fresh "i" R) :- !,
+fwd-value M (a-fold (fold-ann SV Live0 _) Lo Hi Init B) real N (fresh "i" R) :- !,
   spell Lo ELo, spell Hi EHi, spell Init EI,
-  if (M = forward, state-live Init B) (Live = tt) (Live = ff),
-  pi i\ open-fold Init B real N i (x\ s\ prim M (B x s) (SB i)), sbind (SB i) (fwd-fold i ELo EHi EI Live N) (R i).
-fwd-value M (a-fold Lo Hi Init B) (array K) N (fresh "i" R) :-
+  if (M = forward, Live0 = tt) (Live = tt) (Live = ff),
+  pi i\ open-fold SV real N i (x\ s\ prim M (B x s) (SB i)), sbind (SB i) (fwd-fold i ELo EHi EI Live N) (R i).
+fwd-value M (a-fold (fold-ann SV Live Records) Lo Hi Init B) (array K) N (fresh "i" R) :-
   spell Lo ELo, spell Hi EHi,
-  if (M = forward, state-live Init B)
-     (recorded N =!=> pi i\ open-fold Init B (array K) N i (x\ s\ prim M (B x s) (SB i)))
-     (pi i\ open-fold Init B (array K) N i (x\ s\ prim M (B x s) (SB i))),
-  if (M = forward, written Init, records (a-fold Lo Hi Init B)) (Decl = [d-tape (tape-of N)]) (Decl = []),
+  if (M = forward, Live = tt)
+     (recorded N =!=> pi i\ open-fold SV (array K) N i (x\ s\ prim M (B x s) (SB i)))
+     (pi i\ open-fold SV (array K) N i (x\ s\ prim M (B x s) (SB i))),
+  if (M = forward, written Init, Records = tt) (Decl = [d-tape (tape-of N)]) (Decl = []),
   pi i\ sbind (SB i) (fwd-fold-array i ELo EHi Decl) (R i).
 
 func fwd-ite-then scoped (pair (list dstmt) dexpr), dexpr, dvar, pair (list dstmt) dexpr -> code.
@@ -171,7 +167,7 @@ func fwd-fold-array dvar, dexpr, dexpr, list dstmt, pair (list dstmt) dexpr -> c
 fwd-fold-array I ELo EHi Decl (pr SB _) (done S) :- std.append Decl [d-for I ELo EHi SB] S.
 
 % rev-value E T N S: S propagates the adjoint of N, the value of E, to the atoms of E.
-func rev-value value, ty, dvar -> code.
+func rev-value value ann, ty, dvar -> code.
 rev-value (a-op1 F A) _ N (done S) :- !, partial1 F A P, contribution A P (bar-of N) S.
 rev-value (a-op2 F A B) _ N (done S) :- !,
   partial2 F A B PA PB,
@@ -189,20 +185,20 @@ rev-value (a-map Lo Hi Body) _ N (fresh "i" R) :- !,
   spell Lo ELo, spell Hi EHi,
   pi i\ open-index i (x\ adj replay (Body x) (d-at (d-var (bar-of N)) (d-var i)) (SB i)),
         sbind (SB i) (rev-loop i ELo EHi [] []) (R i).
-rev-value (a-fold Lo Hi Init Body) real N (fresh "i" R) :- !,
+rev-value (a-fold (fold-ann SV Live _) Lo Hi Init Body) real N (fresh "i" R) :- !,
   spell Lo ELo, spell Hi EHi,
-  if (state-live Init Body) (Pop = [d-pop (tape-of N) (d-var N)]) (Pop = []),
+  if (Live = tt) (Pop = [d-pop (tape-of N) (d-var N)]) (Pop = []),
   if (bar Init BI) (After = [d-increment BI (d-var (bar-of N))]) (After = []),
   pi i\ R i = fresh "r" (R' i), pi r\
-    open-fold Init Body real N i (x\ s\ adj replay (Body x s) (d-var (bar-of r)) (SB i r)),
+    open-fold SV real N i (x\ s\ adj replay (Body x s) (d-var (bar-of r)) (SB i r)),
     sbind (SB i r) (rev-loop i ELo EHi Pop [d-define (d-constant real) (bar-of r) (d-var (bar-of N)),
                                                 d-assign (d-var (bar-of N)) (d-real "0")]) (L i r),
     sbind (L i r) (rev-after After) (R' i r).
-rev-value (a-fold Lo Hi Init Body) (array K) N (fresh "i" R) :-
+rev-value (a-fold (fold-ann SV Live _) Lo Hi _ Body) (array K) N (fresh "i" R) :-
   spell Lo ELo, spell Hi EHi,
-  pi i\ open-fold Init Body (array K) N i (x\ s\ adj replay (Body x s) (d-real "0") (SB i),
-                                                if (state-live Init Body) (tail-index (Body x s) (Ix i)) (Ix i = d-int 0)),
-        if (state-live Init Body) (Pop i = [d-pop (tape-of N) (d-at (d-var N) (Ix i))]) (Pop i = []),
+  pi i\ open-fold SV (array K) N i (x\ s\ adj replay (Body x s) (d-real "0") (SB i),
+                                         if (Live = tt) (tail-index (Body x s) (Ix i)) (Ix i = d-int 0)),
+        if (Live = tt) (Pop i = [d-pop (tape-of N) (d-at (d-var N) (Ix i))]) (Pop i = []),
         sbind (SB i) (rev-loop i ELo EHi (Pop i) []) (R i).
 
 func rev-ite-then scoped sweeps, dexpr, sweeps -> code.
@@ -224,8 +220,8 @@ contribution A P X [d-increment BA E] :- bar A BA, !, spell-partial P EP, scale 
 contribution _ _ _ [].
 
 % The index written by the update that ends the body of an in-place fold.
-func tail-index anf -> dexpr.
-tail-index (a-let (a-set _ I _) (x\ a-ret x)) E :- !, spell I E.
-tail-index (a-let _ B) E :- pi x\ tail-index (B x) E.
+func tail-index anf ann -> dexpr.
+tail-index (a-let _ (a-set _ I _) (x\ a-ret x)) E :- !, spell I E.
+tail-index (a-let _ _ B) E :- pi x\ tail-index (B x) E.
 
 }

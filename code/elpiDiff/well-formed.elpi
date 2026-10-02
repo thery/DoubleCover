@@ -24,16 +24,16 @@ type array-body  atom -> atom -> place.  % the body of an in-place fold: its ind
 
 func written -> atom.                     % the argument a `writes` function stores into, a real or an array
 
-func well-formed afunction -> diagnostic.
+func well-formed afunction bare -> diagnostic.
 well-formed (a-function _ Def) D :- declarations Def Decls, well-formed-definition Decls Def D.
 
 % Opening the definition: an argument has a type, and a name and a role for the diagnostics.
-func well-formed-definition list decl, adefinition -> diagnostic.
+func well-formed-definition list decl, adefinition bare -> diagnostic.
 well-formed-definition Decls (a-arg N T R F) D :- !,
   pi x\ [of x T, argument x N R] =!=> well-formed-definition Decls (F x) D.
 well-formed-definition Decls (a-body Result Body) D :- well-formed-result Decls Result Body D.
 
-func well-formed-result list decl, aresult, anf -> diagnostic.
+func well-formed-result list decl, aresult, anf bare -> diagnostic.
 well-formed-result Decls (a-returns real) Body D :- !,
   if (std.exists! Decls written-decl)
      (D = error "a function that returns a real cannot declare a dependent or inout argument")
@@ -62,15 +62,15 @@ well-formed-result Decls (a-writes Y) Body D :-
      (D = error "a function can only write a dependent or inout argument").
 
 % typecheck P B Ty D: in place P, the body B has type Ty, or D explains why not.
-func typecheck place, anf -> ty, diagnostic.
-typecheck P (a-let E B) T D :- !,
+func typecheck place, anf bare -> ty, diagnostic.
+typecheck P (a-let _ E B) T D :- !,
   if (B = (x\ a-ret x)) (Tail = tt) (Tail = ff),
   typecheck-value P Tail E TE D0,
   if (D0 = ok) (pi x\ of x TE =!=> typecheck P (B x) T D) (D = D0).
 typecheck _ (a-ret X) T D :-
   if (of X T0) (T = T0, D = ok) (D = error "an atom is not bound").
 
-func typecheck-value place, bool, value -> ty, diagnostic.
+func typecheck-value place, bool, value bare -> ty, diagnostic.
 typecheck-value _ _ (a-op1 F A) T D :- !,
   unary-name F S,
   if (not (operation1 F _ _ _))
@@ -103,7 +103,7 @@ typecheck-value top tt (a-map (a-nat L) (a-nat H) B) (array N) D :- !,
      (pi i\ of i integer =!=> typecheck scalar-body (B i) T D0,
       if (D0 = ok) (if (T = real) (D = ok) (D = error "a map must compute reals")) (D = D0)).
 typecheck-value _ _ (a-map _ _ _) real (error "a map must end the function, with integer literal bounds, writing its output") :- !.
-typecheck-value P Tail (a-fold Lo Hi Init B) T D :-
+typecheck-value P Tail (a-fold _ Lo Hi Init B) T D :-
   if (of Lo integer, of Hi integer)
      (if (of Init real)
         (if (P = top)
@@ -134,29 +134,29 @@ in-place-init (array-body _ State) tt Init :- same_term Init State.
 func written-decl decl.
 written-decl (decl _ _ R) :- written-role R.
 
-% type-of E T: the type of a value in a well-formed body.
-func type-of value -> ty.
+% type-of E T: the type of a value in a well-formed body, annotated or not.
+func type-of value I -> ty.
 type-of (a-op1 F A) T :- !, of A TA, operation1 F TA T _.
 type-of (a-op2 F A B) T :- !, of A TA, of B TB, operation2 F TA TB T _.
 type-of (a-get _ _) real :- !.
 type-of (a-set A _ _) T :- !, of A T.
 type-of (a-ite _ _ _) real :- !.
 type-of (a-map (a-nat L) (a-nat H) _) (array N) :- !, N is H - L.
-type-of (a-fold _ _ I _) T :- of I T.
+type-of (a-fold _ _ _ I _) T :- of I T.
 
 % reads-around-inner-loop S B: B ends with an inner in-place loop, and reads the
 % state S before it. Replaying that read in the reverse sweep would see the
 % values the inner loop has not restored yet.
-func reads-around-inner-loop atom, anf.
+func reads-around-inner-loop atom, anf bare.
 reads-around-inner-loop S B :- ends-with-fold B, reads-before-tail S B.
 
-func ends-with-fold anf.
-ends-with-fold (a-let (a-fold _ _ _ _) (x\ a-ret x)) :- !.
-ends-with-fold (a-let _ B) :- pi x\ ends-with-fold (B x).
+func ends-with-fold anf bare.
+ends-with-fold (a-let _ (a-fold _ _ _ _ _) (x\ a-ret x)) :- !.
+ends-with-fold (a-let _ _ B) :- pi x\ ends-with-fold (B x).
 
-func reads-before-tail atom, anf.
-reads-before-tail _ (a-let _ (x\ a-ret x)) :- !, fail.
-reads-before-tail S (a-let E _) :- occurs S E, !.
-reads-before-tail S (a-let _ B) :- pi x\ reads-before-tail S (B x).
+func reads-before-tail atom, anf bare.
+reads-before-tail _ (a-let _ _ (x\ a-ret x)) :- !, fail.
+reads-before-tail S (a-let _ E _) :- occurs S E, !.
+reads-before-tail S (a-let _ _ B) :- pi x\ reads-before-tail S (B x).
 
 }
