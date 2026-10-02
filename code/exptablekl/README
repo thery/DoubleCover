@@ -1,0 +1,63 @@
+The check of Paul Zimmermann's tables where each line gives its own k and l.
+
+A line is
+
+  x0 N k l B_00 .. B_0(l-1) B_10 .. B_(k-1)(l-1)
+
+x0 a double in hexadecimal (%la), N, k and l in decimal, 1 <= k <= 13 and
+1 <= l <= 8, then the k l words of the B_i, each B_i as l words of 64
+bits, the least significant first (the search program is
+/home/thery/claudeExp/htr.c).  The lines are half-open: a line is searched
+at x0 + j u for j = 0 .. N-1, so ExpCheck.v has closed = false.  The
+window is ERR = 0x600000 on the top word of B_0, so for a line of l words
+E = 0x600000 * 2^(64 (l - 1)); the enclosures of exp are computed with
+64 l + 53 + 64 bits.
+
+The parameters that are the same for every line (beta, kmax = 13,
+lmax = 8, m = 43, ERR, guard, closed) are at the top of ExpCheck.v.
+line_ok S0 ex n k l B states the six conditions; the sixth is
+1 <= k <= 13, 1 <= l <= 8 and 2 E < beta^l.
+
+sample.tar.xz holds the first 5 lines of 13 files of the archive, all the
+pairs (k, l) the archive has:
+
+  in0-40 (2,2)  in0-20 (3,2)  in0-10 (4,3)  in0-4 (5,4)  in0-0 (6,4)
+  in2 (7,5)  in-10 (8,5)  in24 (9,6)  in100 (10,7)  in-185 (11,7)
+  in370 (12,8)  in1024 (13,8)  in-1074 (13,8)
+
+  mkdir -p sample; tar xJf sample.tar.xz -C sample
+  ./mksample.sh sample/in*
+  make -j1 sample
+  make -j1 sample-all    # SampleAll.v: the theorem, one lemma per file
+                         # AllCover.v: the coverage, one theorem per run
+  make -j1 test          # ExpMutate.v: the bit-flip test on MutData.v
+
+A line (x0, n, k, l, B) holds the inputs x0 + j u, j = 0 .. n - d, where
+d is set by the parameter closed of ExpCheck.v: closed = true (d = 0) for
+the closed range [x0, x0 + n u], closed = false (d = 1) for the half-open
+range [x0, x0 + n u).  Its last input is xl = x0 + (n - d) u.
+
+mksample.sh also writes Cover_N.v, the check (ExpCover.contig, parsing
+only) that the lines of a file follow each other: each line starts at the
+double right after the last input xl of the previous one, also when x
+crosses a binade.  It orders the files by their first x0 and cuts them
+into maximal runs of files that follow each other (ExpCover.joins); it
+reports on stderr the files that do not join, and leaves out of the runs
+the files whose lines do not follow each other.  AllCover.v has one
+theorem coverK per run: every normal double y = S 2^(ex - 52) between the
+first x0 and the last xl of the run is x0 + j u, 0 <= j <= n - d, in a
+line whose text satisfies the six conditions.  The sample files are cut,
+so each one is a run of its own.
+
+The whole archive (2203 files, 2931305 lines, one file per binade) is
+Paul's all.tar.bz2.  It is in archive/, as thirteen parts
+tables0..12.tar.bz2 (under 100 MB each, the size GitHub accepts), with
+their SHA256SUMS; INDEX lists the part holding each file.  Then
+
+  ulimit -s unlimited
+  ./fullrun.sh 20 2>&1 | tee full.log
+
+checks the parts, unpacks them into tables/, writes one Data_N.v, Run_N.v
+and Cover_N.v per file, runs them with 20 workers and builds SampleAll.v
+and AllCover.v over all the files.  ./fullrun.sh 20 ARCHIVE takes the
+files from the single archive ARCHIVE instead.

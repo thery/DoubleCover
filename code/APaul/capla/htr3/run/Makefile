@@ -1,4 +1,4 @@
-# htr3_new.c's search in Capla.  Needs the opam switch `capla` (Rocq 9.0) and
+# htr.c's search in Capla.  Needs the opam switch `capla` (Rocq 9.0) and
 # the Capla compiler; run `eval $(opam env --switch=capla)` first.
 CAPLA ?= $(HOME)/git/capla-compiler
 CCOMP := $(CAPLA)/ccomp
@@ -17,21 +17,22 @@ htr3cap: htr3.b main_htr3.c
 htr3gcc: htr3_capla.c main_htr3.c
 	gcc -O2 htr3_capla.c main_htr3.c -lm -o $@
 
-# htr3_new.c, Paul Zimmermann's search in C, as htr.c (needs GMP, OpenMP).
+# htr.c, Paul Zimmermann's search in C (needs GMP, OpenMP).
 htr: htr.c
 	gcc -O3 -march=native htr.c -lgmp -fopenmp -lm -o $@
 
 # Checking one file of the table:
-#   make in1024.htr    with htr (htr3_new.c)
+#   make in1024.htr    with htr (htr.c)
 #   make in1024.htrc   with the Capla search, PROG=htr3gcc (default) or htr3cap
 #   make in1024.cmp    both, and compares their candidates
 # RANGE=a-b checks only lines a to b of the file, numbered from 1 (default:
 # all the lines); MAXN=n only the first n inputs of each line (default: all,
-# a run with MAXN is a partial check).  The file is taken from the archive
-# into tables/: INDEX says which part holds it.
-ARCHIVE := ../../../../exptable9/archive
-K := 9
-L := 6
+# a run with MAXN is a partial check).  Each line gives its own k and l.
+# The file is copied into tables/ from TABLES, a directory of in<e> files or
+# a .tar.bz2 archive of them; without TABLES, it is taken from the parts in
+# ARCHIVE, INDEX saying which part holds it.
+ARCHIVE := ../../../../exptablekl/archive
+TABLES :=
 ERR := 0x600000
 PROG := htr3gcc
 RANGE :=
@@ -39,13 +40,20 @@ MAXN :=
 
 tables/%:
 	@mkdir -p tables
-	@P=$$(awk -v f=$* '$$1 == f { print $$2 }' $(ARCHIVE)/INDEX); \
+	@if [ -d "$(TABLES)" ]; then \
+	  cp $(TABLES)/$* tables/ && echo "$*: copied from $(TABLES)"; \
+	elif [ -n "$(TABLES)" ]; then \
+	  echo "$*: taken from $(TABLES)"; \
+	  tar xjf $(TABLES) -C tables --occurrence=1 $*; \
+	else \
+	  P=$$(awk -v f=$* '$$1 == f { print $$2 }' $(ARCHIVE)/INDEX); \
 	  test -n "$$P" || { echo "$*: not in $(ARCHIVE)/INDEX"; exit 1; }; \
 	  echo "$*: taken from $(ARCHIVE)/$$P"; \
-	  tar xjf $(ARCHIVE)/$$P -C tables --occurrence=1 $*
+	  tar xjf $(ARCHIVE)/$$P -C tables --occurrence=1 $*; \
+	fi
 
-# The lines of the file in RANGE, cut to MAXN inputs (rebuilt on every run,
-# as RANGE and MAXN may change).
+# The lines of the file in RANGE, cut to MAXN inputs: only the second field,
+# N, changes (rebuilt on every run, as RANGE and MAXN may change).
 cut/%: tables/% FORCE
 	@mkdir -p cut
 	@awk -v r=$(RANGE) -v m=$(MAXN) 'BEGIN { a = 1; b = -1; \
@@ -63,7 +71,7 @@ TIME = /usr/bin/time -f "$@: %e s wall, %U s user" -o $@.time
 	@cat $@.time
 
 %.htrc: $(PROG) cut/%
-	@$(TIME) ./$(PROG) cut/$* $(K) $(L) $(ERR) > $@
+	@$(TIME) ./$(PROG) cut/$* $(ERR) > $@
 	@sed 's/^\([^:]*\):/\1 ($(PROG)):/' $@.time
 
 # Both, side by side: the candidates of htr and of the Capla search, sorted

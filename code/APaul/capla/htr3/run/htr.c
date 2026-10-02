@@ -2,9 +2,6 @@
 
 // gcc -O3 -march=native htr.c -lgmp -fopenmp -lm
 
-#define k 9 // number of polynomial coefficients (last has degree k-1)
-#define l 6 // number of 64-bit words for each coefficient
-
 // ./a.out in
 // where in contains one line per subrange to check
 // x0 N B0 B1 ... Bk-1
@@ -54,15 +51,24 @@ check (double x) {
   }
 }
 
+#define K 13
+#define L 8
+
 // return non-zero in case of error
 static int
-read_params (FILE *fp, double *x0, uint64_t *N, uint64_t B[k][l]) {
+read_params (FILE *fp, double *x0, uint64_t *N, int *k, int *l, uint64_t B[K][L]) {
   int ret = fscanf (fp, "%la", x0);
   if (ret != 1) return 1;
   ret = fscanf (fp, "%lu", N);
   if (ret != 1) return 1;
-  for (int i = 0; i < k; i++)
-    for (int j = 0; j < l; j++) {
+  ret = fscanf (fp, "%d", k);
+  if (ret != 1) return 1;
+  assert (1 <= *k && *k <= K);
+  ret = fscanf (fp, "%d", l);
+  if (ret != 1) return 1;
+  assert (1 <= *l && *l <= L);
+  for (int i = 0; i < *k; i++)
+    for (int j = 0; j < *l; j++) {
       ret = fscanf (fp, "%lx", &(B[i][j]));
       if (ret != 1) return 1;
     }
@@ -77,10 +83,10 @@ doit (FILE *fp)
 {
   double x0, u;
   uint64_t N;
-  uint64_t B[k][l];
-  int e, ret;
+  uint64_t B[K][L];
+  int e, ret, k, l;
 #pragma omp critical
-  ret = read_params (fp, &x0, &N, B);
+  ret = read_params (fp, &x0, &N, &k, &l, B);
   if (ret != 0)
     return ret;
   frexp (x0, &e); // x0 = f*2^e with 1/2 <= |f| < 1

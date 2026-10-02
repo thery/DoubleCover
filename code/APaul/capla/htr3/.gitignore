@@ -30,3 +30,4 @@ run/*.cmp
 run/*.sorted
 run/htr
 !run/htr.c
+run/*.time
