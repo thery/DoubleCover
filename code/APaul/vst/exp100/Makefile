@@ -22,7 +22,9 @@ REAL := $(REAL_V:.v=.vo)
 PROOFS := exp100_clight.vo Common.vo Spec.vo Rows.vo Verif_simple.vo \
           Verif_bits.vo Verif_mulshr.vo Verif_reduce.vo CoreBounds.vo \
           Verif_core.vo \
-          TopLemmas.vo Verif_top.vo Verif_all.vo
+          TopLemmas.vo Verif_top.vo Verif_all.vo \
+          exp100_main_clight.vo InitConsts.vo Verif_main.vo \
+          Verif_prog.vo
 
 all: $(MODEL) $(REAL) $(PROOFS)
 
@@ -49,6 +51,11 @@ $(MD)/ExpSpec.vo: $(MD)/ExpBound.vo $(MD)/ExpFilter.vo
 exp100_clight.v: $(SRC)/exp100.c $(SRC)/exp100.h $(SRC)/exp100_table.h
 	clightgen -normalize -o $@ $(SRC)/exp100.c
 
+# exp100.c with a main (exp100_main.c includes it), for semax_prog
+exp100_main_clight.v: exp100_main.c $(SRC)/exp100.c $(SRC)/exp100.h \
+  $(SRC)/exp100_table.h
+	clightgen -normalize -o $@ exp100_main.c
+
 %.vo: %.v
 	$(COQC) $(COQFLAGS) $<
 
@@ -60,11 +67,14 @@ Verif_core.vo: Rows.vo CoreBounds.vo
 TopLemmas.vo: Spec.vo
 Verif_top.vo: TopLemmas.vo
 CoreBounds.vo: $(MODEL)
+InitConsts.vo: Common.vo
+Verif_main.vo: Verif_all.vo InitConsts.vo exp100_main_clight.vo
+Verif_prog.vo: Verif_main.vo
 Verif_all.vo: Verif_simple.vo Verif_bits.vo Verif_mulshr.vo Verif_reduce.vo \
   Verif_core.vo TopLemmas.vo Verif_top.vo $(REAL)
 
 clean:
-	rm -f *.vo *.vos *.vok *.glob .*.aux exp100_clight.v
+	rm -f *.vo *.vos *.vok *.glob .*.aux exp100_clight.v exp100_main_clight.v
 	rm -rf $(MD)
 
 .PHONY: all clean
