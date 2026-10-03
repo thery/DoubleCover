@@ -7,7 +7,7 @@
 
 From Stdlib Require Import ZArith Reals Lia Lra.
 From Flocq Require Import Core.
-From Exp100 Require Import ExpConsts ExpModel ExpHard.
+From Exp100 Require Import ExpConsts ExpModel ExpModelBounds ExpHard.
 
 Open Scope R_scope.
 
@@ -31,22 +31,6 @@ set (q := (y / 2 ^ f)%Z) in *; set (lo := (y mod 2 ^ f)%Z) in *.
 destruct (Z.le_gt_cases k q).
 - assert (0 <= (q - k) * 2 ^ f)%Z by nia; lia.
 - assert ((k - q) * 2 ^ f >= 2 ^ f)%Z by nia; lia.
-Qed.
-
-(** If y - D and y + D have b bits, they lie in [2^(b-1), 2^b). *)
-Lemma bitlen_range y b : (D < y)%Z ->
-  bitlen (y - D) = b -> bitlen (y + D) = b ->
-  (1 <= b /\ 2 ^ (b - 1) <= y - D /\ y + D < 2 ^ b)%Z.
-Proof.
-intros Hy Hb1 Hb2; unfold bitlen in Hb1, Hb2.
-assert (HD : (0 < D)%Z) by (unfold D; lia).
-destruct (Z.leb_spec (y - D) 0) as [|_]; [lia|].
-destruct (Z.leb_spec (y + D) 0) as [|_]; [lia|].
-pose proof (Z.log2_spec (y - D) ltac:(lia)).
-pose proof (Z.log2_spec (y + D) ltac:(lia)).
-pose proof (Z.log2_nonneg (y - D)).
-replace (b - 1)%Z with (Z.log2 (y - D)) by lia.
-replace b with (Z.succ (Z.log2 (y + D))) by lia; lia.
 Qed.
 
 Theorem decide_ok y hN z : (D < y)%Z -> decide_Z y hN = 0%Z ->

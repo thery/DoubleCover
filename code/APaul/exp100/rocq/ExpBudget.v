@@ -13,22 +13,11 @@ From Stdlib Require Import ZArith Reals Lia Lra.
 From Flocq Require Import Core.
 From Interval Require Import Tactic.
 From Exp100 Require Import ExpTaylor.
-From Exp100 Require Import ExpConsts ExpModel.
+From Exp100 Require Import ExpConsts ExpModel ExpModelBounds.
 
 Open Scope R_scope.
 
-(** ** The integer side *)
-
-(* C_i is nonnegative. *)
-Lemma Cv_ge0 i : (i <= DEG)%nat -> (0 <= Cv i)%Z.
-Proof.
-intros Hi; rewrite CvE, C_ok by exact Hi.
-apply Z.div_pos; [apply Z.pow_nonneg; lia|apply factN_gt0].
-Qed.
-
-(* C_0 = 2^P. *)
-Lemma Cv0 : Cv 0 = (2 ^ P)%Z.
-Proof. rewrite CvE, C_ok by (unfold DEG; lia); apply Z.div_1_r. Qed.
+(** ** exp and 2^(j/64) *)
 
 (* exp is nondecreasing. *)
 Lemma exp_mono a b : a <= b -> exp a <= exp b.
@@ -50,98 +39,6 @@ assert (H0 : 0 <= IZR j / IZR TAB <= 1).
 unfold Rpower; split.
 - rewrite <- exp_0; apply exp_mono; nra.
 - rewrite <- (exp_ln 2) at 2 by lra; apply exp_mono; nra.
-Qed.
-
-(* T_j >= 2^P. *)
-Lemma Tv_ge j : (0 <= j < TAB)%Z -> (2 ^ P <= Tv j)%Z.
-Proof.
-intros Hj; rewrite TvE; generalize (T_ok j Hj).
-set (t := valZ _); intros Ht.
-destruct (Rpower_TAB_bounds j Hj) as [H1 _].
-assert (H2 : 0 < IZR (2 ^ P)) by (apply IZR_lt; unfold P; lia).
-apply Rabs_le_inv in Ht.
-assert (H : IZR (2 ^ P) - 1 < IZR t) by nra.
-rewrite <- minus_IZR in H; apply lt_IZR in H; lia.
-Qed.
-
-(* floor(a b / 2^P) >= 0 for a, b >= 0. *)
-Lemma mulshr_ge0 a b : (0 <= a)%Z -> (0 <= b)%Z -> (0 <= mulshr a b)%Z.
-Proof.
-intros Ha Hb; rewrite mulshrE.
-apply Z.div_pos; [nia|apply Z.pow_pos_nonneg; unfold P; lia].
-Qed.
-
-(* Every Horner value is >= 0, and the last one is >= C_0. *)
-Lemma horner_from_ge r h k : (0 <= r)%Z -> (k <= DEG)%nat -> (0 <= h)%Z ->
-  (k = O -> Cv 0 <= h)%Z -> (Cv 0 <= horner_from r h k)%Z.
-Proof.
-intros Hr; revert h; induction k as [|i IH]; intros h Hk Hh H0;
-  [now apply H0|].
-cbn [horner_from]; pose proof (mulshr_ge0 h r Hh Hr).
-pose proof (Cv_ge0 i ltac:(lia)).
-apply IH; [lia|lia|intros ->; lia].
-Qed.
-
-Lemma horner_ge r : (0 <= r)%Z -> (2 ^ P <= horner r)%Z.
-Proof.
-intros Hr; rewrite <- Cv0; apply horner_from_ge; auto.
-- apply Cv_ge0; auto.
-- unfold DEG; discriminate.
-Qed.
-
-(* r >= 0 once n is checked. *)
-Lemma rarg_ge0 xb n : (q n <= xfix xb < q (n + 1))%Z -> (0 <= rarg xb n)%Z.
-Proof. unfold rarg; destruct (xsign xb =? 0)%Z; lia. Qed.
-
-(** ** Bounds on X and n: |x| < 1024 *)
-
-(* X = floor(|x| 2^P) < 2^(P + 10). *)
-Lemma xfix_lt xb : (xbexp xb < be_big)%Z -> (0 <= xfix xb < 2 ^ (P + 10))%Z.
-Proof.
-intros Hb.
-assert (He : (0 <= xbexp xb)%Z).
-{ rewrite xbexpE; apply Z.mod_pos_bound; reflexivity. }
-assert (Hm : (0 <= xmant xb < 2 ^ 53)%Z).
-{ unfold xmant; rewrite pow2E, xmant0E by discriminate.
-  pose proof (Z.mod_pos_bound xb (2 ^ mant_bits) ltac:(reflexivity)).
-  destruct (xbexp xb =? 0)%Z; unfold mant_bits in *; lia. }
-assert (Hx : (1 <= xexpo xb <= 1032)%Z).
-{ unfold xexpo; destruct (Z.eqb_spec (xbexp xb) 0); unfold be_big in Hb;
-  lia. }
-unfold xfix; rewrite scaleE.
-set (e := (xexpo xb - expo_shift + P)%Z).
-destruct (Z.leb_spec 0 e) as [He0|He0].
-- assert (H1 : (2 ^ e <= 2 ^ 117)%Z).
-  { apply Z.pow_le_mono_r; unfold e, expo_shift, P in *; lia. }
-  assert (H2 : (0 < 2 ^ e)%Z) by (apply Z.pow_pos_nonneg; lia).
-  change (2 ^ (P + 10))%Z with (2 ^ 53 * 2 ^ 117)%Z; nia.
-- split; [apply Z.div_pos; [lia|apply Z.pow_pos_nonneg; lia]|].
-  assert (H1 : (1 <= 2 ^ (- e))%Z).
-  { apply (Z.pow_le_mono_r 2 0); lia. }
-  apply Z.le_lt_trans with (xmant xb); [|change (2 ^ (P + 10))%Z with
-    (2 ^ 53 * 2 ^ 117)%Z; lia].
-  apply Z.div_le_upper_bound; nia.
-Qed.
-
-(* The checked n is in [0, 2^17 - 1]: q(2^17) >= 2^(P + 10). *)
-Lemma n_bound n X : (0 <= X < 2 ^ (P + 10))%Z -> (q n <= X < q (n + 1))%Z ->
-  (0 <= n /\ n + 1 <= N_bias)%Z.
-Proof.
-intros HX Hq; rewrite !qE in Hq.
-assert (Hc : (2 ^ (P + 10) <= N_bias * valZ ExpTable.LN2 / 2 ^ limb_bits)%Z).
-{ apply Z.leb_le; vm_compute; reflexivity. }
-assert (HL : (0 < valZ ExpTable.LN2)%Z) by (vm_compute; reflexivity).
-set (L := valZ ExpTable.LN2) in *.
-assert (H2 : (0 < 2 ^ limb_bits)%Z) by reflexivity.
-split.
-- destruct (Z.le_gt_cases 0 n) as [|Hn]; [lia|exfalso].
-  assert (H : ((n + 1) * L / 2 ^ limb_bits <= 0)%Z).
-  { apply Z.div_le_upper_bound; nia. }
-  lia.
-- destruct (Z.le_gt_cases (n + 1) N_bias) as [|Hn]; [lia|exfalso].
-  assert (H : (N_bias * L / 2 ^ limb_bits <= n * L / 2 ^ limb_bits)%Z).
-  { apply Z.div_le_mono; [lia|apply Z.mul_le_mono_nonneg_r; lia]. }
-  lia.
 Qed.
 
 (** ** Floors on the reals *)

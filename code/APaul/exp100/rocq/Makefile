@@ -4,7 +4,7 @@
 # Built with Rocq 9.1 and Interval (the switch native).
 COQFLAGS := -R . Exp100
 
-all: ExpSpec.vo
+all: ExpSpec.vo ExpLimbs.vo
 
 # ExpTable.v must be the text gen_v.py writes from the C table
 check-table: gen_v.py ../exp100_table.h ExpTable.v
@@ -19,11 +19,13 @@ ExpTable.vo: ExpTable.v gen_v.py ../exp100_table.h
 	coqc $(COQFLAGS) $<
 ExpConsts.vo: ExpTable.vo
 ExpModel.vo: ExpConsts.vo
+ExpModelBounds.vo: ExpModel.vo
+ExpLimbs.vo: ExpConsts.vo
 ExpBits.vo: ExpModel.vo
 ExpHard.vo: ExpModel.vo
-ExpBudget.vo: ExpModel.vo ExpTaylor.vo
+ExpBudget.vo: ExpModelBounds.vo ExpTaylor.vo
 ExpBound.vo: ExpBits.vo ExpBudget.vo
-ExpFilter.vo: ExpHard.vo
+ExpFilter.vo: ExpModelBounds.vo ExpHard.vo
 ExpSpec.vo: ExpBound.vo ExpFilter.vo
 
 %.vo: %.v
