@@ -12,6 +12,8 @@ Require Import L1facts L1BigStepSem.
 Require Import Exp100Capla.ExpBase Exp100Capla.Bridge Exp100Capla.Specs.
 From Exp100 Require Import ExpNum ExpLimbs.
 From Exp100 Require ExpConsts ExpModel ExpModelBounds.
+Require Import Exp100Capla.ExpCoreProof Exp100Capla.DecideProof.
+Require Import Exp100Capla.ExpTopGen.
 Require Import ProofHeader WP ZifyIntegers.
 Require Import ProofTactics.
 Set Bullet Behavior "Strict Subproofs".
@@ -23,7 +25,7 @@ Theorem maybe_hard_bits_spec xb Ta Ca L2a RMa e1 result :
   eval_funcall ge (Internal maybe_hard_bits188) [Vint64 xb; Ta; Ca; L2a; RMa]
     e1 (Some result) ->
   result = Vint64 (Int64.repr (ExpModel.maybe_hard_Z (Int64.unsigned xb))).
-Admitted.
+Proof. exact: (maybe_hard_bits_gen exp_core_spec decide_spec). Qed.
 
 (* The return code and, on success, M (3 words) and s as exp_encl_Z gives
    them. *)

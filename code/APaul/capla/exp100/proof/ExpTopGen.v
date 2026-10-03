@@ -163,7 +163,7 @@ Proof.
   apply: (WP_sound _ _ _ _ _ _ _ _ _ _ _ _ exec); first (by destruct out).
   change (fn_body FUNC) with BODY; rewrite /BODY.
   wpauto.
-  (* the 8 allocs give zeros; the call of exp_core through its spec *)
+  (* the 8 allocs give zeros; exp_core through its spec *)
   wpenter.
   move=> _ _ CALL.
   have [rc [Erc [Hko Hok]]] := exp_core_spec xb (repeat Int64.zero 6) [Int64.zero]
@@ -177,12 +177,33 @@ Proof.
   wpenter.
   wpcase B.
   all: wpauto.
-  2: { (* rc <> 0: the frees, then res = 1 *)
-       do 9 (first [ move=> ? | idtac "nofree" ]; repeat prog;
-             first [ wpone | wpenter | idtac ]; repeat prog).
-       summ. admit. }
-  summ.
-  admit.
-Admitted.
+  2: { (* rc <> 0: the frees, res stays 1 *)
+       do 9 (try move=> ?; repeat prog; first [ wpone | wpenter | idtac ];
+             repeat prog).
+       have Hrc : Int64.unsigned rc <> 0%Z.
+       { move: B; rewrite /Int64.eq; case: zeq => //. }
+       by rewrite (hard_fail _ _ (Hko Hrc)). }
+  (* rc = 0: y, hN and the scratch arrays from exp_core's spec *)
+  have Hrc : Int64.unsigned rc = 0%Z.
+  { move: B; rewrite /Int64.eq; case: zeq => //. }
+  have [ys' [hN [Ey [Hly [Ly [Eh [Hcore [AX [Aq [Aq1 Ar]]]]]]]]]] := Hok Hrc.
+  case: AX => lX [EX HlX]. case: Aq => lq [Eq HlQ].
+  case: Aq1 => lq1 [Eq1 HlQ1]. case: Ar => lr [Er HlR].
+  rewrite Ey Eh EX Eq Eq1 Er.
+  (* hs[0] = hN, then decide through its spec *)
+  move=> H1 H2; repeat prog.
+  wpauto.
+  have [Hb1 Hb2] := ExpModelBounds.core_bounds _ _ _ Hcore.
+  move=> ? ?; repeat prog.
+  move=> CALL2.
+  move: CALL2; move: H1; rewrite /=; case=> <- CALL2.
+  have Hd := decide_spec ys' hN lX lq lq1 lr _ _ Hly Ly Hb1 Hb2 HlX HlQ HlQ1 HlR
+    CALL2.
+  subst; repeat prog.
+  (* the frees, then res *)
+  do 12 (try move=> ?; repeat prog; first [ wpone | wpenter | idtac ];
+         repeat prog).
+  by rewrite (hard_ok _ _ _ Hcore).
+Qed.
 
 End Top.

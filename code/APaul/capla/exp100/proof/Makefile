@@ -67,7 +67,9 @@ Specs.vo: Bridge.vo $(MD)/ExpModel.vo
 # each spec file: statements first (Admitted), proofs by tasks T2..T13
 NumBasicProof.vo NumSubProof.vo NumLtProof.vo NumMulProof.vo \
   NumBitsProof.vo ReduceProof.vo: Specs.vo $(MD)/ExpModelBounds.vo
-ExpCoreProof.vo: NumAddProof.vo Specs.vo $(MD)/ExpModelBounds.vo
+ExpCoreProof.vo: NumAddProof.vo Specs.vo $(MD)/ExpModelBounds.vo \
+  NumBasicProof.vo NumSubProof.vo NumLtProof.vo NumBitsProof.vo \
+  NumMulProof.vo ReduceProof.vo
 DecideProof.vo: NumAddProof.vo NumBasicProof.vo NumSubProof.vo \
   NumLtProof.vo NumBitsProof.vo
 ExpTopProof.vo: ExpCoreProof.vo DecideProof.vo

@@ -3,40 +3,32 @@ exp100 in Capla, group A: where the work stands
 
 Directory: code/APaul/capla/exp100/proof/ (switch capla). Nothing committed.
 
-Proved (Qed, file builds with `nice -n 19 make <File>.vo`)
-----------------------------------------------------------
+Proved (Qed), each file built by make once at the end
+-----------------------------------------------------
 
-| file             | specs                                         |
-|------------------|-----------------------------------------------|
-| NumBasicProof.v  | num_zero_spec, num_copy_spec, num_pow2_spec, num_low_spec |
-| NumSubProof.v    | num_sub_spec                                  |
-| NumLtProof.v     | num_lt_spec                                   |
-| NumBitsProof.v   | num_bitlen_spec, num_scale_spec               |
+| file             | specs / lemmas                                | make time |
+|------------------|-----------------------------------------------|-----------|
+| NumBasicProof.v  | num_zero, num_copy, num_pow2, num_low (specs) | 21 s      |
+| NumSubProof.v    | num_sub_spec                                  | not timed |
+| NumLtProof.v     | num_lt_spec                                   | not timed |
+| NumBitsProof.v   | num_bitlen_spec, num_scale_spec               | 176 s     |
+| ReduceLemmas.v   | pure lemmas for mul_ln2 / guess_n             | few s     |
+| TopLemmasCapla.v | pure lemmas for the top functions             | few s     |
+| ReduceProof.v    | mul_ln2_spec, guess_n_spec (via mul_ln2_gen, guess_n_gen, num_mul_small as a Section hypothesis) | 27 s |
+| ExpTopGen.v      | maybe_hard_bits_gen (exp_core, decide as Section hypotheses) | 87 s |
 
-None of these functions uses `alloc`. Build times and Print Assumptions:
-see the report (to be re-measured after the Capla rebuild).
+Print Assumptions (num_scale_spec, num_bitlen_spec): WP_sound,
+external_functions_sem, classic, functional_extensionality_dep,
+sig_not_dec, sig_forall_dec.
 
-Files of group A
-----------------
-- GroupALemmas.v: tactics `tidy` (drops exec and the let-bound records),
-  `wsimpl` (evaluates sem_binarith/sem_cmp/divu64/shl64/...), `peek`
-  (clearbody of FUNC, for `Show` probes only); pure lemmas: list6_ext,
-  index1, eq32, val32_replace, limbs_replace, zeros6_aux, pow2_limbs,
-  list_split, limbs_firstn, mod_shift, low_limbs, val32_lt_top,
-  bitlen_top, bitlen_step, val32_write2, val32_write3, scale_pos; word
-  lemmas (Section Words): amt_unsigned, shl_amt, shr_amt, divu32, modu32,
-  and_low, mask_eq, mask_and, bit_amt, unsigned_signed_nonneg,
-  unsigned_neg, split_word.
-- ReduceLemmas.v (pure, for mul_ln2 / guess_n): INV_word, val32_drop1,
-  limbs_skipn1, copy_shift, mul_ln2_value, lor_shift7, bits185,
-  guess_value. NOT YET COMPILED (written during the Capla rebuild).
-- TopLemmasCapla.v (pure, for maybe_hard_bits / exp_encl_bits):
-  encl_fail, encl_ok, hard_fail, hard_ok, core_rc_range, signed_sub160,
-  or_shl32, pack_value, arr6_inv. NOT YET COMPILED.
-- Makefile: rules for GroupALemmas.vo, ReduceLemmas.vo, TopLemmasCapla.vo,
-  NumBitsProof.vo: NumBasicProof.vo.
-
-Not mine any more: DecideProof.v (another agent). Waiting: ExpTopProof.v.
+Open
+----
+- ExpTopProof.v: maybe_hard_bits_spec is now
+  `exact: (maybe_hard_bits_gen exp_core_spec decide_spec)` (Requires
+  ExpCoreProof, DecideProof, ExpTopGen); NOT BUILT: ExpCoreProof.v does not
+  compile at the moment (another agent edits it). exp_encl_bits_spec still
+  Admitted: waits for exp_encl_bits_gen of ExpEnclGen.v (another agent).
+- Then `nice -n 19 make CaplaFinal.vo` and its Print Assumptions.
 
 Traps found
 -----------
@@ -113,3 +105,15 @@ decide's spec now):
    ExpModelBounds.core_bounds on core_Z = inr (val32 ys', signed hN);
    result = repr (decide_Z ...); hard_ok.
 4. frees, return res.
+
+rocq-mcp on the top functions
+-----------------------------
+- Every response carries the context (the function record, about 10 kB
+  shown, truncated) and the goal grows to 100-400 kB: probe with `summ`
+  (feedback field) and wrap risky tactics in `first [ ... | idtac "fail" ]`,
+  since an error message prints the whole goal (one reached 150 kB).
+- A call is limited to about 30 s whatever the timeout: cut the proof in
+  chunks (intro to first wpauto; the call of exp_core; the rest).
+- An argument read from an array (hs[0]) comes as `nth 0 _lv_` with a
+  hypothesis `env ? x = Varr _lv_`: `move: CALL; move: H1; rewrite /=;
+  case=> <- CALL` substitutes it in the call.
