@@ -1,7 +1,7 @@
-# The constants of exp100, certified (step 3 of ../README).
-# ExpTable.v is written by gen_v.py from ../exp100_table.h; the build
-# fails if it is out of date.  Built with Rocq 9.1 and Interval (the
-# switch native).
+# exp100 in Rocq: the constants, the model of exp100.c on Z and its
+# real-number theorems (../PICKUP-common.md).  ExpTable.v is written by
+# gen_v.py from ../exp100_table.h; the build fails if it is out of date.
+# Built with Rocq 9.1 and Interval (the switch native).
 COQFLAGS := -R . Exp100
 
 all: ExpSpec.vo
@@ -13,7 +13,10 @@ check-table: gen_v.py ../exp100_table.h ExpTable.v
 table:
 	./gen_v.py ../exp100_table.h > ExpTable.v
 
-ExpTable.vo: check-table
+# checked again only when the C table, gen_v.py or ExpTable.v change
+ExpTable.vo: ExpTable.v gen_v.py ../exp100_table.h
+	./gen_v.py ../exp100_table.h | cmp - ExpTable.v
+	coqc $(COQFLAGS) $<
 ExpConsts.vo: ExpTable.vo
 ExpModel.vo: ExpConsts.vo
 ExpBits.vo: ExpModel.vo
