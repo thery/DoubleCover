@@ -2,13 +2,11 @@
 
 The definitions of elpiDiff in Rocq, mimicking the Elpi code: the same
 languages, the same constructors with their arguments in the same order, and
-the same evaluators, over the reals of Rocq instead of floats, and the passes,
-one function per Elpi predicate. They are meant to state, then prove, that the
-passes of elpiDiff are correct. There are no theorems yet. The passes written
-so far: the operations table, `normalize`, `well-formed`, the analyses
-(`activity`, `tbr`), `annotate`, `tangent`, `adjoint` and `simplify`, with the
-printer of L2; still to come: `lower`, `cxx`. The passes compute: `Compute` runs them on a function written
-in Rocq.
+the same evaluators, over the reals of Rocq instead of floats, and all the
+passes, one function per Elpi predicate, down to the C++ text. They are meant
+to state, then prove, that the passes of elpiDiff are correct; there are no
+theorems yet. The passes compute: `Compute (main ModeAdjoint "f.elpi" [f])`
+gives the header Elpi writes.
 
 ```
 make            # Rocq 9.1; the development is the logical directory ElpiDiff
@@ -38,6 +36,9 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
 | `Dump.v` | the printer of L2 in `dump.elpi` | `pr_dfunction`: the lines of `dump -- derivative <mode>` |
 | `Adjoint.v` | `adjoint.elpi` | `adjoint` (L1ᵃ to L2), modes `adjoint` and `adjoint-value`: `prim` and `fwd_value`, then `adj` and `rev_value` |
 | `Simplify.v` | `simplify.elpi` | `simplify` (L2 to L2′): `simplify_expr`, `simplify_stmts`, `fuse`, with a fuel |
+| `Lower.v` | `lower.elpi` | `lower` (L2′ to L3), the counter of the names threaded; `lower_all`, the functions of a file |
+| `Cxx.v` | `cxx.elpi` | `function_string`, `header_string`: the C++ text |
+| `Adjudge.v` | the driver of `adjudge.elpi` | `mode`, `check`, `differentiate`, `transform`, `main`: the header and the diagnostics of a case |
 
 ## From Elpi to Rocq
 
@@ -87,6 +88,9 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
   `recorded N`, on a storage, becomes a flag inherited by the variables stored
   in the storage of another; `written Y`, compared with an atom, an identity
   of the arguments.
+- **A counter global to the run.** Elpi's `new-name` draws the numbers of the
+  locals from `new_int`, global to the run, so they are numbered across the
+  functions of a file: `lower` threads the counter.
 - **Relations queried in several modes.** `operation2` has several rows per
   operator and a cut on the first: the table is kept as rows, with one
   function per use (`operation2`, the first row; `operation2_typed`, the
@@ -106,5 +110,6 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
 cases) prints the functions of every case as Rocq terms (`torocq.elpi`), and
 compares what Rocq computes with what Elpi prints: the diagnostics, and the
 derivative programs printed by `pr_dfunction` against `dump -- derivative|simplified
-<mode>`, for the three modes. They are identical, line for line, on all the
-reference cases.
+<mode>`, and the complete C++ headers against those `main` writes, for the three
+modes: 141 comparisons on the reference cases, all identical, line for line and
+character for character.
