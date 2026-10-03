@@ -26,7 +26,7 @@ the files and the order of the work, following steps 1--6 of
 = What was measured
 
 All in the opam switch `vst` (Rocq 9.0, CompCert 3.17, VST 2.16), in a
-scratch directory; nothing was added to the repository but this note.
+scratch directory, then copied to `code/APaul/vst/exp100/` (`make` there, 24 s).
 
 - `clightgen -normalize exp100.c` runs in 0.07 s and gives a file of 110 KB
   (2277 lines); `coqc` takes 2.4 s on it. The union wrappers `exp_encl`
@@ -265,7 +265,7 @@ filter may answer 1 for every $x$, which is sound).
   literal (guessed, not tried).
 - *Two switches.* The constants agent works in `native` (Rocq 9.1); the
   VST proof needs its files in `vst` (Rocq 9.0). Today they compile in
-  both (measured); the `Makefile` of `exp100/vst` should build them there
+  both (measured); the `Makefile` of `code/APaul/vst/exp100` should build them there
   from `../rocq` (as `code/APaul/vst/link` does), so any break shows.
 - *Names.* `ExpConsts.v` defines `valZ`, `limb`, `num`, `NL : nat`;
   `code/APaul/vst/Words.v` has another `valZ` (limbs of 64 bits). Use
@@ -288,9 +288,9 @@ None is needed. In order of use:
 
 Each task is one or two files with fixed statements (written in T0 with
 `Admitted`); the agent replaces the `Admitted` and may use the statements
-of the others, not their proofs. Files in a new directory
-`code/APaul/exp100/vst/`, built in the switch `vst`; the probes of section
-1 are a start for T0 and T1.
+of the others, not their proofs. Files in `code/APaul/vst/exp100/`, built
+in the switch `vst`; the probes of section 1 are there, a start for T0
+and T1.
 
 #table(columns: (auto, auto, 1fr, auto, auto), stroke: 0.4pt, inset: 4pt,
   [task], [file], [proves], [needs], [size (guessed)],

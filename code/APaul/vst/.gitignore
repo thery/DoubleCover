@@ -6,3 +6,4 @@
 .*.cache
 htr3
 htr3_clight.v
+exp100/exp100_clight.v
