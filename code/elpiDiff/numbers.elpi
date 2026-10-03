@@ -1,0 +1,72 @@
+% numbers.elpi — domains of numbers, for the evaluators.
+%
+% A domain is the record of its operations on its numbers, of some type N:
+% how a literal reads, and how the unary and binary operations and the
+% comparisons of operations.elpi compute. The evaluators take a domain as an
+% argument and are polymorphic in N, so the same evaluator computes with
+% floats, and later with dual numbers (a value and a tangent) or with symbolic
+% reals. Elpi does not let a clause fix the type N of a polymorphic predicate,
+% hence a record of functions rather than one clause per domain.
+%
+% Integers (loop bounds, indices) and booleans are the same in every domain:
+% only the reals vary.
+
+kind domain type -> type.
+type domain
+  (func string -> N) ->                    % a real literal, spelled as in the source: "2", "0.9"
+  (func unary, N -> N) ->                  % a unary operation
+  (func binary, N, N -> N) ->              % a binary arithmetic operation
+  (func binary, N, N -> bool) ->           % a comparison
+  domain N.
+
+namespace adjudge {
+
+func dom-lit domain N, string -> N.
+dom-lit (domain L _ _ _) S X :- L S X.
+
+func dom-op1 domain N, unary, N -> N.
+dom-op1 (domain _ O _ _) F X Y :- O F X Y.
+
+func dom-op2 domain N, binary, N, N -> N.
+dom-op2 (domain _ _ O _) F X Y Z :- O F X Y Z.
+
+func dom-cmp domain N, binary, N, N -> bool.
+dom-cmp (domain _ _ _ C) F X Y B :- C F X Y B.
+
+% --- floats ---------------------------------------------------------------------
+% The C++ doubles, computed with Elpi's floats (OCaml's, hence the C library's).
+
+func floats -> domain float.
+floats (domain float-lit float-op1 float-op2 float-cmp).
+
+% A literal is a number, or the quotient of two numbers ("13.0 / 12.0"), a
+% constant expression of C++ computed, as in C++, in floating point.
+func float-lit string -> float.
+float-lit S X :- rex.split " */ *" S [A, B], !, X is string_to_real A / string_to_real B.
+float-lit S X :- X is string_to_real S.
+
+func float-op1 unary, float -> float.
+float-op1 neg X Y :- !, Y is ~ X.
+float-op1 sin X Y :- !, Y is sin X.
+float-op1 cos X Y :- !, Y is cos X.
+float-op1 exp X Y :- !, Y is fexp X.
+float-op1 log X Y :- !, Y is ln X.
+float-op1 sqrt X Y :- !, Y is sqrt X.
+float-op1 (pow K) X Y :- Y is pow X (int_to_real K).
+
+func float-op2 binary, float, float -> float.
+float-op2 add X Y Z :- !, Z is X + Y.
+float-op2 sub X Y Z :- !, Z is X - Y.
+float-op2 mul X Y Z :- !, Z is X * Y.
+float-op2 divide X Y Z :- Z is X / Y.
+
+func float-cmp binary, float, float -> bool.
+float-cmp F X Y B :- if (float-holds F X Y) (B = tt) (B = ff).
+
+func float-holds binary, float, float.
+float-holds lt X Y :- !, X < Y.
+float-holds le X Y :- !, X =< Y.
+float-holds gt X Y :- !, X > Y.
+float-holds ge X Y :- X >= Y.
+
+}

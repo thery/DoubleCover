@@ -43,6 +43,9 @@ change is checked in two ways:
 | `cxx.elpi` | Printing the target language as C++. |
 | `show.elpi` | Printing a generated function as an Elpi term. |
 | `dump.elpi` | Readable printers for L1, L1ᵃ and L2, to debug the passes (`dump` mode). |
+| `numbers.elpi` | Domains of numbers for the evaluators: the record of the operations on the reals of a domain; the domain of floats. |
+| `eval.elpi` | The evaluator of L0, polymorphic in the domain of numbers. |
+| `evaluate.elpi` | Running the functions of a case with the evaluator (`run`, `signatures`); not loaded by `adjudge.elpi`. |
 | `adjudge.elpi` | The driver: accumulates everything, `main` and `terms`. |
 
 ## The languages and their Elpi types
@@ -220,6 +223,43 @@ prints each function of the case at one stage of the pipeline, in a readable
 form: L1, L1ᵃ, L2 before and after simplification, or the C++. Diffing two
 stages shows what a pass does. The printer numbers the locals per function, so
 its names may differ from those of the generated C++.
+
+## Evaluating
+
+`eval.elpi` gives L0 a semantics: `eval D T V` says that the term T has the
+value V, computing its reals in the domain D. It is a big-step evaluator, one
+rule per construct; a binder is opened with the hypothesis `value-of x V`, as
+in the transformations. It is the first step towards checking the generated
+code against the source, and towards a proof in Rocq.
+
+The evaluator is **polymorphic in the domain of numbers**. A domain is a record
+of operations (`numbers.elpi`): how a literal reads, how the operations and the
+comparisons of `operations.elpi` compute. Elpi does not let a clause fix the
+type of a polymorphic predicate, hence a record rather than one clause per
+domain. The domain of floats computes as the C++ doubles do; dual numbers,
+for derivatives, will be another record, with no change to the evaluator.
+Integers (bounds, indices) and booleans are exact in every domain.
+
+The evaluator uses float functions that Elpi 3.7.1 lacks (`fexp`, `pow`,
+`string_to_real`, proposed in LPCIC/elpi#459), so it lives in files that
+`adjudge.elpi` does not load: the tool itself still runs with Elpi 3.7.1. A case
+is evaluated through a file that accumulates `evaluate` and the case,
+
+```
+accumulate evaluate.
+accumulate primal.
+```
+
+```
+elpi -I . -I <case> <that file> -exec run -- f 2.0 3.0         % 6.90929742683
+elpi -I . -I <case> <that file> -exec signatures               % f x1:real:independent x2:real:independent -> returns real
+```
+
+An argument is a real literal, an integer, or, for an array of N reals, N real
+literals in a row; the result is the returned value, or the new value of the
+written argument. On the reference cases, the evaluator agrees with the
+compiled C++ primal at 140 random points (relative tolerance 1e-10, since Elpi
+prints 12 significant digits).
 
 ## The passes on an example
 
