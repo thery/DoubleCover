@@ -2,9 +2,10 @@
 # ExpTable.v is written by gen_v.py from ../exp100_table.h; the build
 # fails if it is out of date.  Built with Rocq 9.1 and Interval (the
 # switch native).
-COQFLAGS := -R . Exp100
+# The real statements use code/exptablekl (built there first).
+COQFLAGS := -R . Exp100 -R ../../../exptablekl ExpTableKL
 
-all: ExpConsts.vo ExpModel.vo
+all: ExpSpec.vo
 
 # ExpTable.v must be the text gen_v.py writes from the C table
 check-table: gen_v.py ../exp100_table.h ExpTable.v
@@ -16,6 +17,10 @@ table:
 ExpTable.vo: check-table
 ExpConsts.vo: ExpTable.vo
 ExpModel.vo: ExpConsts.vo
+ExpBits.vo: ExpModel.vo
+ExpBound.vo: ExpBits.vo
+ExpFilter.vo: ExpModel.vo
+ExpSpec.vo: ExpBound.vo ExpFilter.vo
 
 %.vo: %.v
 	coqc $(COQFLAGS) $<
