@@ -7,3 +7,4 @@ Domain.v
 Eval.v
 EvalAnf.v
 Exec.v
+Normalize.v

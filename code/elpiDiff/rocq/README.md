@@ -2,10 +2,12 @@
 
 The definitions of elpiDiff in Rocq, mimicking the Elpi code: the same
 languages, the same constructors with their arguments in the same order, and
-the same evaluators, over the reals of Rocq instead of floats. They are meant
-to state, then prove, that the passes of elpiDiff are correct. There are no
-theorems yet, and the passes (`normalize`, the analyses, `annotate`, `tangent`,
-`adjoint`, `simplify`, `lower`, `cxx`) are still to be written.
+the same evaluators, over the reals of Rocq instead of floats, and the passes,
+one function per Elpi predicate. They are meant to state, then prove, that the
+passes of elpiDiff are correct. There are no theorems yet. The passes written
+so far: `normalize`; still to come: the operations table, `well-formed`, the
+analyses (`activity`, `tbr`), `annotate`, `tangent`, `adjoint`, `simplify`,
+`lower`, `cxx`.
 
 ```
 make            # Rocq 9.1; the development is the logical directory ElpiDiff
@@ -23,6 +25,7 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
 | `Eval.v` | `eval.elpi` | `val`; the evaluator of L0 (`eval`, `eval_function`) |
 | `EvalAnf.v` | `eval-anf.elpi` | the evaluator of L1 and L1ᵃ (`aeval`, `aeval_function`) |
 | `Exec.v` | `exec.elpi` | the evaluator of L2 (`exec`, `exec_dfunction`) |
+| `Normalize.v` | the pass of `anf.elpi` | `normalize` (L0 to L1: `norm`, `norm_body`, `normalize_definition`), `expressible`, `declarations` |
 
 ## From Elpi to Rocq
 
@@ -50,6 +53,11 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
   Rocq take an underscore (`set` → `Set_`, `let` → `Let_`, `function` →
   `Function_`). A predicate keeps its name with `_` for `-` (`eval-function` →
   `eval_function`).
+- **Passes.** An Elpi pass that opens a binder with a hypothesis relating it
+  to its image (`as-atom x a` in `normalize`) instantiates, in PHOAS, the
+  variables of its input with the terms of its output: `normalize` takes a
+  `term (atom V)`, so a source variable is its atom. A continuation-passing
+  predicate (`norm T K R`) becomes a function taking its continuation.
 - **One declaration per type.** A Rocq inductive is declared in one place:
   the operators of `operations.elpi` are in `unary` and `binary` with
   `unknown1` and `unknown2` of `syntax.elpi`; `v-tape` of `exec.elpi` is in
