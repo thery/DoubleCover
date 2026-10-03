@@ -5,8 +5,8 @@
 
 From Stdlib Require Import ZArith Reals Lia Lra.
 From Flocq Require Import Core.
-From ExpTableKL Require Import ExpCheck ExpHard.
-From Exp100 Require Import ExpConsts ExpModel ExpBits ExpBound ExpFilter.
+From Exp100 Require Import ExpConsts ExpModel ExpHard ExpBits ExpBound
+  ExpFilter.
 
 Open Scope R_scope.
 
