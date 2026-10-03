@@ -97,3 +97,10 @@ Traps
 - A store of (MASK + 1) leaves 4294967295 + 1: replace by 2^32 first.
 - After a store, `unfold vwords; list_solve` closes the list equation;
   for Vlong (Int64.repr (Znth i b)), rewrite <- Znth_vwords first.
+- An index p[i + P / LIMB] leaves Int.divs (Int.repr 160) (Int.repr 32)
+  after forward: rewrite to Int.repr (i + 5) (change, then add_repr).
+- Rewrite only in side goals or after entailer!: a rewrite on the semax
+  goal makes the next forward fail (Delta not canonical).
+- Intros on an inner loop's EX names the variable i0: rename it.
+- data_at_ into the first loop invariant: rewrite data_at__eq,
+  sublist_nil; apply derives_refl.
