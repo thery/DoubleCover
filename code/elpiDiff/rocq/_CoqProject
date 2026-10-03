@@ -7,4 +7,6 @@ Domain.v
 Eval.v
 EvalAnf.v
 Exec.v
+Operations.v
 Normalize.v
+WellFormed.v
