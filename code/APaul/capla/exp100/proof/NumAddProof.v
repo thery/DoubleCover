@@ -1,0 +1,138 @@
+Require Import BinNums ZArith List Lia Utf8.
+Import ListNotations.
+From mathcomp Require Import ssreflect ssrbool ssrfun ssrnat ssrZ zify.
+Require Import Integers Floats Maps Coqlib Errors.
+Require Import Tactics BUtils ListUtils PTreeaux.
+Require Import Syntax BValues BEnv Types.
+Require Import Validity Alias SemPath Ops.
+Require Import SemanticsCommon L1Sem L1ExprSem.
+Require Import L1facts L1BigStepSem.
+Require Import Exp100Capla.ExpBase.
+Require Import ProofHeader WP ZifyIntegers.
+Require Import ProofTactics.
+Set Bullet Behavior "Strict Subproofs".
+Unset SsrOldRewriteGoalsOrder.
+
+(* The end of the loop: the carry is 0 when the sum fits. *)
+Lemma carry_end (a c s B : Z) : (0 <= a)%Z -> (0 <= c)%Z -> (0 < B)%Z ->
+  (a + c * B = s)%Z -> (s < B)%Z -> a = s.
+Proof. move=> Ha Hc HB E Hs; have : c = 0%Z by nia. move=> ?; subst; lia. Qed.
+
+(* One step of the loop, on the numbers: kept out of the WP context, where
+   nia is slow. *)
+Lemma num_add_step xs xs' ys nk (c s : int64) :
+  (nk < 6)%coq_nat -> length xs = 6%nat -> length ys = 6%nat ->
+  length xs' = 6%nat ->
+  List.nth nk xs' Int64.zero = List.nth nk xs Int64.zero ->
+  Int64.unsigned s = (Int64.unsigned c + Int64.unsigned (List.nth nk xs Int64.zero)
+                      + Int64.unsigned (List.nth nk ys Int64.zero))%Z ->
+  (val32 (firstn nk xs') + Int64.unsigned c * base32 nk =
+   val32 (firstn nk xs) + val32 (firstn nk ys))%Z ->
+  (val32 (firstn (S nk) (replace nk xs' (Int64.and s (Int64.repr 4294967295)))) +
+   Int64.unsigned (Int64.shru' s (Int.modu (Int.repr 32) Int64.iwordsize')) *
+     base32 (S nk) =
+   val32 (firstn (S nk) xs) + val32 (firstn (S nk) ys))%Z.
+Proof.
+  move=> Hk Hx Hy Hl Ha Es HV.
+  rewrite !val32_firstn_S ?replace_length ?Hl ?Hx ?Hy //.
+  rewrite firstn_replace nth_replace_same ?Hl // and_mask shru32 base32S.
+  have := Z.div_mod (Int64.unsigned s) (2 ^ 32) ltac:(lia).
+  have := base32_pos nk.
+  move: HV Es; set a := Int64.unsigned (List.nth nk xs _);
+    set b := Int64.unsigned (List.nth nk ys _).
+  nia.
+Qed.
+
+Theorem num_add_spec xs ys e1 result :
+  length xs = 6%nat -> length ys = 6%nat -> limbs xs -> limbs ys ->
+  (val32 xs + val32 ys < 2 ^ 192)%Z ->
+  eval_funcall ge (Internal num_add18)
+    [Varr (map Vint64 xs); Varr (map Vint64 ys)] e1 (Some result) ->
+  exists xs', e1!(param 0 num_add18) = Some (Varr (map Vint64 xs')) /\
+    length xs' = 6%nat /\ limbs xs' /\ val32 xs' = (val32 xs + val32 ys)%Z.
+Proof.
+  move=> Hx Hy Lx Ly Hs.
+  intro_eval_funcall num_add18 out se1 exec.
+  apply_WP_stmt exec out e1 se1.
+  name_var "i" i.
+  name_var "a" A.
+  name_var "b" B.
+  name_var "c" CY.
+  repeat prog.
+  pose Inv := fun (e: env) (se: senv) =>
+    exists k xs' c,
+      e!i = Some (Vint64 k) /\ (Int64.unsigned k <= 6)%Z /\
+      let nk := nat_of k in
+      e!A = Some (Varr (map Vint64 xs')) /\
+      e!CY = Some (Vint64 c) /\
+      (Int64.unsigned c <= 1)%Z /\
+      length xs' = 6%nat /\
+      (forall p, (nk <= p)%coq_nat ->
+         List.nth p xs' Int64.zero = List.nth p xs Int64.zero) /\
+      (forall p, (p < nk)%coq_nat ->
+         (Int64.unsigned (List.nth p xs' Int64.zero) < 2 ^ 32)%Z) /\
+      (val32 (firstn nk xs') + Int64.unsigned c * base32 nk =
+       val32 (firstn nk xs) + val32 (firstn nk ys))%Z.
+  exists Inv; split.
+  - rewrite /Inv.
+    exists (Int64.repr 0), xs, (Int64.repr 0).
+    change (nat_of (Int64.repr 0)) with 0%nat.
+    repeat split => //; try lia.
+  - move=>>.
+    repeat prog.
+    rewrite/Inv /=.
+    intros (k & xs' & c & [= ->] & Hk6 & [= ->] & [= ->] & Hc & Hl & Hout & Hlo & HV)
+      => /=.
+    set nk := nat_of k.
+    simplWP.
+    case END: Int64.ltu; simplWP.
+    + repeat prog.
+      have Hk : (nk < 6)%coq_nat by rewrite /nk /nat_of; clia k.
+      change (Z.to_nat (Int64.unsigned k)) with nk.
+      rewrite !nth_map_V64 ?length_map; try lia.
+      rewrite /sem_binarith /sem_cast /shrink /=.
+      have Ha : List.nth nk xs' Int64.zero = List.nth nk xs Int64.zero
+        by apply: Hout; lia.
+      rewrite Ha.
+      set a := List.nth nk xs Int64.zero.
+      set b := List.nth nk ys Int64.zero.
+      have La : (Int64.unsigned a < 2 ^ 32)%Z by apply: Lx.
+      have Lb : (Int64.unsigned b < 2 ^ 32)%Z by apply: Ly.
+      set s := Int64.add (Int64.add c a) b.
+      have Es : Int64.unsigned s =
+                (Int64.unsigned c + Int64.unsigned a + Int64.unsigned b)%Z.
+      { rewrite /s; have := Int64.unsigned_range a;
+        have := Int64.unsigned_range b; have := Int64.unsigned_range c.
+        clia c, a, b. }
+      have Hk1 : nat_of (Int64.add k (Int64.repr 1)) = S nk.
+      { rewrite /nk /nat_of; clia k. }
+      exists (Int64.add k (Int64.repr 1)),
+        (replace nk xs' (Int64.and s (Int64.repr 4294967295))),
+        (Int64.shru' s (Int.modu (Int.repr 32) Int64.iwordsize')).
+      rewrite Hk1 replace_map; repeat split => //.
+      * clia k.
+      * rewrite shru32.
+        have := Z.div_lt_upper_bound (Int64.unsigned s) (2 ^ 32) 2
+          ltac:(lia) ltac:(lia); lia.
+      * by rewrite replace_length.
+      * move=> p Hp; rewrite nth_replace_other; try lia; apply: Hout; lia.
+      * move=> p Hp.
+        have [Hp'|->] : (p < nk)%coq_nat \/ p = nk by lia.
+        -- rewrite nth_replace_other; try lia; apply: Hlo; lia.
+        -- rewrite nth_replace_same ?Hl // and_mask.
+           have := Z.mod_pos_bound (Int64.unsigned s) (2 ^ 32) ltac:(lia); lia.
+      * exact: (num_add_step xs xs' ys nk c s Hk Hx Hy Hl Ha Es HV).
+    + (* the loop ends with k = 6 *)
+      have Ek : nk = 6%nat by move: END Hk6; rewrite /nk /nat_of; clia k.
+      have F6 : forall l : list int64, length l = 6%nat -> firstn 6 l = l.
+      { by move=> l Hl6; apply: List.firstn_all2; rewrite Hl6. }
+      move: HV; rewrite -/nk Ek (F6 xs') // (F6 xs) // (F6 ys) // => HV.
+      repeat prog.
+      exists xs'; repeat split => //.
+      * move=> p; have [Hp|Hp] : (p < 6)%coq_nat \/ (6 <= p)%coq_nat by lia.
+        -- apply: Hlo; rewrite -/nk Ek; lia.
+        -- rewrite nth_overflow ?Hl //.
+      * apply: (carry_end _ (Int64.unsigned c) _ (base32 6)) => //.
+        all: first [ exact: val32_nonneg | exact: base32_pos
+                   | have := Int64.unsigned_range c; lia ].
+Qed.
