@@ -6,8 +6,8 @@ the same evaluators, over the reals of Rocq instead of floats, and the passes,
 one function per Elpi predicate. They are meant to state, then prove, that the
 passes of elpiDiff are correct. There are no theorems yet. The passes written
 so far: the operations table, `normalize`, `well-formed`, the analyses
-(`activity`, `tbr`), `annotate`, `tangent` and `adjoint`, with the printer of
-L2; still to come: `simplify`, `lower`, `cxx`. The passes compute: `Compute` runs them on a function written
+(`activity`, `tbr`), `annotate`, `tangent`, `adjoint` and `simplify`, with the
+printer of L2; still to come: `lower`, `cxx`. The passes compute: `Compute` runs them on a function written
 in Rocq.
 
 ```
@@ -37,6 +37,7 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
 | `Tangent.v` | `tangent.elpi` | `tangent` (L1ᵃ to L2): `tan`, `tan_value`, `tangent_result`, … |
 | `Dump.v` | the printer of L2 in `dump.elpi` | `pr_dfunction`: the lines of `dump -- derivative <mode>` |
 | `Adjoint.v` | `adjoint.elpi` | `adjoint` (L1ᵃ to L2), modes `adjoint` and `adjoint-value`: `prim` and `fwd_value`, then `adj` and `rev_value` |
+| `Simplify.v` | `simplify.elpi` | `simplify` (L2 to L2′): `simplify_expr`, `simplify_stmts`, `fuse`, with a fuel |
 
 ## From Elpi to Rocq
 
@@ -104,5 +105,6 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
 `~/claudeExp/elpi/tools/rocqtest.py` (outside the repository, with the reference
 cases) prints the functions of every case as Rocq terms (`torocq.elpi`), and
 compares what Rocq computes with what Elpi prints: the diagnostics, and the
-derivative programs printed by `pr_dfunction` against `dump -- derivative
-<mode>`. They are identical, line for line, on all the reference cases.
+derivative programs printed by `pr_dfunction` against `dump -- derivative|simplified
+<mode>`, for the three modes. They are identical, line for line, on all the
+reference cases.

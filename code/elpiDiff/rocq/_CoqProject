@@ -18,3 +18,4 @@ Transform.v
 Tangent.v
 Dump.v
 Adjoint.v
+Simplify.v
