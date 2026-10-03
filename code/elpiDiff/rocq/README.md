@@ -6,8 +6,8 @@ the same evaluators, over the reals of Rocq instead of floats, and the passes,
 one function per Elpi predicate. They are meant to state, then prove, that the
 passes of elpiDiff are correct. There are no theorems yet. The passes written
 so far: the operations table, `normalize`, `well-formed`, the analyses
-(`activity`, `tbr`) and `annotate`; still to come: `tangent`, `adjoint`,
-`simplify`, `lower`, `cxx`. The passes compute: `Compute` runs them on a function written
+(`activity`, `tbr`), `annotate` and `tangent`, with the printer of L2; still to
+come: `adjoint`, `simplify`, `lower`, `cxx`. The passes compute: `Compute` runs them on a function written
 in Rocq.
 
 ```
@@ -33,6 +33,9 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
 | `Activity.v` | `activity.elpi` | `varied`, `varied_value`, `varied_anf`, `fold_varied`, `let_binder`, `fold_binders` |
 | `Tbr.v` | `tbr.elpi` | `sweep`; `needs`, `value_needs`, `read_by`, `records`, `records_in`, `state_live` |
 | `Annotate.v` | `annotate.elpi` | `annotate` (L1 to L1ᵃ), in two traversals |
+| `Transform.v` | the helpers of `derivative.elpi` | `tvar` (the variables of the transformations), `sbind`, `sflatten`, `spell`, `dot`, `bar`, `scale`, `sum`, `with_storage`, the opening of binders, `with_arguments`, `type_of` |
+| `Tangent.v` | `tangent.elpi` | `tangent` (L1ᵃ to L2): `tan`, `tan_value`, `tangent_result`, … |
+| `Dump.v` | the printer of L2 in `dump.elpi` | `pr_dfunction`: the lines of `dump -- derivative <mode>` |
 
 ## From Elpi to Rocq
 
@@ -75,6 +78,13 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
   in one traversal; in PHOAS the closed input is instantiated twice: a first
   traversal computes the annotations into a tree that follows the lets and
   folds, a second rebuilds the term with them.
+- **The transformations.** The variables of L1ᵃ are instantiated with what
+  Elpi's hypotheses say of them (`tvar`: the variable of the generated code
+  that holds it, its type, whether it is varied, its argument), whose stored
+  variable is a variable of the output: a transformation is one traversal.
+  `recorded N`, on a storage, becomes a flag inherited by the variables stored
+  in the storage of another; `written Y`, compared with an atom, an identity
+  of the arguments.
 - **Relations queried in several modes.** `operation2` has several rows per
   operator and a cut on the first: the table is kept as rows, with one
   function per use (`operation2`, the first row; `operation2_typed`, the
@@ -86,3 +96,12 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
   `unknown1` and `unknown2` of `syntax.elpi`; `v-tape` of `exec.elpi` is in
   `val` with the values of `eval.elpi`; the key `returned` of `exec.elpi` is a
   constructor of the keys of the store, next to the variables.
+
+
+## Checking against Elpi
+
+`~/claudeExp/elpi/tools/rocqtest.py` (outside the repository, with the reference
+cases) prints the functions of every case as Rocq terms (`torocq.elpi`), and
+compares what Rocq computes with what Elpi prints: the diagnostics, and the
+derivative programs printed by `pr_dfunction` against `dump -- derivative
+<mode>`. They are identical, line for line, on all the reference cases.
