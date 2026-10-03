@@ -11,7 +11,7 @@ COQFLAGS := -Q . E -Q $(MD) Exp100
 SRC := ../../exp100
 MODEL_SRC := $(SRC)/rocq
 
-MODEL_V := $(MD)/ExpTable.v $(MD)/ExpConsts.v $(MD)/ExpModel.v
+MODEL_V := $(MD)/ExpNum.v $(MD)/ExpTable.v $(MD)/ExpConsts.v $(MD)/ExpModel.v
 MODEL := $(MODEL_V:.v=.vo)
 PROOFS := exp100_clight.vo Common.vo Spec.vo Rows.vo Verif_simple.vo \
           Verif_bits.vo Verif_mulshr.vo Verif_reduce.vo CoreBounds.vo \
@@ -28,7 +28,7 @@ $(MD)/%.v: $(MODEL_SRC)/%.v
 $(MD)/%.vo: $(MD)/%.v
 	$(COQC) -Q $(MD) Exp100 $<
 
-$(MD)/ExpConsts.vo: $(MD)/ExpTable.vo
+$(MD)/ExpConsts.vo: $(MD)/ExpTable.vo $(MD)/ExpNum.vo
 $(MD)/ExpModel.vo: $(MD)/ExpConsts.vo
 
 # keep the copies, which make would delete as intermediate files

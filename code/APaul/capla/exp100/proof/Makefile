@@ -7,12 +7,12 @@ INC := $(foreach d,$(DIRS),-R $(CAPLA)/$(d) compcert.$(d)) \
        -R $(CAPLA)/MenhirLib MenhirLib -R . Exp100Capla -Q $(MD) Exp100
 COQC := coqc $(INC)
 
-# The shared pure-Z model (ExpTable.v ... ExpLimbs.v of ../../../exp100/rocq)
+# The shared pure-Z model (ExpNum.v ... ExpLimbs.v of ../../../exp100/rocq)
 # is copied into $(MD)/ and built there as Exp100, so that no .vo is written
 # next to the Rocq 9.1 builds of ../../../exp100/rocq.  $(MD) is not a Rocq
 # identifier, so -R . Exp100Capla does not map it a second time.
 MODEL_SRC := ../../../exp100/rocq
-MODEL_V := $(MD)/ExpTable.v $(MD)/ExpConsts.v $(MD)/ExpModel.v \
+MODEL_V := $(MD)/ExpNum.v $(MD)/ExpTable.v $(MD)/ExpConsts.v $(MD)/ExpModel.v \
            $(MD)/ExpModelBounds.v $(MD)/ExpLimbs.v
 MODEL := $(MODEL_V:.v=.vo)
 
@@ -26,10 +26,10 @@ $(MD)/%.v: $(MODEL_SRC)/%.v
 $(MD)/%.vo: $(MD)/%.v
 	coqc -Q $(MD) Exp100 $<
 
-$(MD)/ExpConsts.vo: $(MD)/ExpTable.vo
+$(MD)/ExpConsts.vo: $(MD)/ExpTable.vo $(MD)/ExpNum.vo
 $(MD)/ExpModel.vo: $(MD)/ExpConsts.vo
 $(MD)/ExpModelBounds.vo: $(MD)/ExpModel.vo
-$(MD)/ExpLimbs.vo: $(MD)/ExpConsts.vo
+$(MD)/ExpLimbs.vo: $(MD)/ExpNum.vo
 
 # keep the copies, which make would delete as intermediate files
 .SECONDARY: $(MODEL_V)
@@ -43,7 +43,7 @@ exp100.v: ../exp100.b
 
 exp100.vo: exp100.v
 ExpBase.vo: ExpBase.v exp100.vo
-NumAddProof.vo: ExpBase.vo
+NumAddProof.vo: ExpBase.vo $(MD)/ExpLimbs.vo
 Bridge.vo: ExpBase.vo $(MD)/ExpLimbs.vo
 
 %.vo: %.v

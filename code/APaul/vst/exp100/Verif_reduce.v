@@ -13,8 +13,8 @@ Proof.
   rewrite (sublist_split 0 1 NP) by lia.
   rewrite valZ_app, sublist_len_1 by lia.
   change (Zlength [Znth 0 p]) with 1.
-  cbn [Exp100.ExpConsts.valZ].
-  unfold Exp100.ExpConsts.limb, Exp100.ExpConsts.limb_bits in *.
+  cbn [Exp100.ExpNum.valZ].
+  unfold Exp100.ExpNum.limb, Exp100.ExpNum.limb_bits in *.
   rewrite Z.mul_1_r.
   rewrite Z.add_0_r, Z.add_comm, Z.mul_comm, Z.div_add_l by lia.
   rewrite Z.div_small by lia; lia.
@@ -81,10 +81,10 @@ Proof.
     rewrite (sublist_split 0 5 NP), valZ_app by lia.
     replace (sublist 5 NP p) with [Znth 5 p; Znth 6 p] by list_solve.
     rewrite Zlength_sublist by lia.
-    cbn [Exp100.ExpConsts.valZ]; unfold Exp100.ExpConsts.limb_bits.
+    cbn [Exp100.ExpNum.valZ]; unfold Exp100.ExpNum.limb_bits.
     replace (32 * (5 - 0)) with 160 by lia; ring. }
   rewrite Zlength_sublist in HL by lia.
-  unfold Exp100.ExpConsts.limb, Exp100.ExpConsts.limb_bits in *.
+  unfold Exp100.ExpNum.limb, Exp100.ExpNum.limb_bits in *.
   replace (32 * (5 - 0)) with 160 in HL by lia.
   set (a := Znth 5 p) in *; set (b := Znth 6 p) in *.
   set (L := valZ (sublist 0 5 p)) in *.

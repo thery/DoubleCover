@@ -54,12 +54,24 @@ When: after T2, T5 and T6 end, not while their agents edit these files.
 
 Follow-ups found by the Capla bridge (capla/exp100/proof/Bridge.v)
 ------------------------------------------------------------------
-1. Name the base: a Definition limb_base k := 2 ^ (limb_bits * Z.of_nat k)
-   used by ExpLimbs.v; Capla's base32 k is then one rewrite.
-2. Move valZ, limb, limb_bits, num and NL out of ExpConsts.v into a small
-   file without Reals, Interval or Bignums, that ExpLimbs.v imports: every
-   limb proof would stop loading the reals.
-3. valZ_upd is on firstn k xs ++ v :: skipn (S k) xs; VST (upd_Znth) and
-   Capla (replace, see replace_unsigned) each need one conversion lemma.
-4. carry_end is in ExpLimbs.v and NumAddProof.v with the same statement:
-   drop the copy in NumAddProof.v when it switches to the shared lemmas.
+Done for Rocq and Capla:
+1. rocq/ExpNum.v (Stdlib ZArith/List only) holds limb_bits, NL, limb,
+   valZ, num and limb_base k := 2 ^ (limb_bits * Z.of_nat k).
+   ExpConsts.v exports it; ExpLimbs.v imports it alone, so the limb
+   proofs load no reals.  ExpLimbs.v states its lemmas with limb_base;
+   limb_baseE unfolds it.
+2. Capla: base32_limb is base32 k = limb_base k; proof/Makefile copies
+   ExpNum.v with the other model files.
+3. carry_end is only in ExpLimbs.v; NumAddProof.v imports it.
+4. valZ_upd is on firstn k xs ++ v :: skipn (S k) xs; Capla converts with
+   replace_unsigned (Bridge.v).
+
+Left for VST (vst/exp100):
+- Done as text, build NOT yet checked (the vst switch is being rebuilt):
+  Exp100.ExpConsts.X became Exp100.ExpNum.X for X in valZ, limb,
+  limb_bits, num, NL (63 lines of Common.v, Verif_*.v, TopLemmas.v), and
+  the Makefile builds ExpNum.v.  Check: make in vst/exp100.
+- To use valZ_upd: one lemma, upd_Znth i l v = firstn (Z.to_nat i) l ++
+  v :: skipn (S (Z.to_nat i)) l when 0 <= i < Zlength l.
+- Step 2 above: CoreBounds.v and TopLemmas.v to use ExpModelBounds.v and
+  ExpLimbs.v instead of their own copies.

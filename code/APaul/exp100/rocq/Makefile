@@ -17,10 +17,10 @@ table:
 ExpTable.vo: ExpTable.v gen_v.py ../exp100_table.h
 	./gen_v.py ../exp100_table.h | cmp - ExpTable.v
 	coqc $(COQFLAGS) $<
-ExpConsts.vo: ExpTable.vo
+ExpConsts.vo: ExpTable.vo ExpNum.vo
 ExpModel.vo: ExpConsts.vo
 ExpModelBounds.vo: ExpModel.vo
-ExpLimbs.vo: ExpConsts.vo
+ExpLimbs.vo: ExpNum.vo
 ExpBits.vo: ExpModel.vo
 ExpHard.vo: ExpModel.vo
 ExpBudget.vo: ExpModelBounds.vo ExpTaylor.vo

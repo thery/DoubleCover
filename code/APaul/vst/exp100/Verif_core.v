@@ -196,7 +196,7 @@ Proof.
   assert (Bg : 0 <= g < 2 ^ n_bits) by (apply guess_bound; exact BX).
   unfold n_bits in Bg.
   forward_call (gv, Tsh, v_q, g).
-  { unfold limb, Exp100.ExpConsts.limb_bits; zpow; lia. }
+  { unfold limb, Exp100.ExpNum.limb_bits; zpow; lia. }
   Intros ql.
   rename H0 into Hlq, H1 into Hfq, H2 into Hq.
   forward_call (Tsh, Tsh, v_X, v_q, Xl, ql).
@@ -217,7 +217,7 @@ Proof.
   set (n1 := red1 X g).
   assert (B1 : 0 <= n1 < 2 ^ 17) by (apply (red1_bound X g Bg)).
   forward_call (gv, Tsh, v_q1, n1 + 1).
-  { unfold limb, Exp100.ExpConsts.limb_bits; zpow; lia. }
+  { unfold limb, Exp100.ExpNum.limb_bits; zpow; lia. }
   Intros q1l.
   rename H0 into Hlq1, H1 into Hfq1, H2 into Hq1.
   forward_call (Tsh, Tsh, v_X, v_q1, Xl, q1l).
@@ -237,12 +237,12 @@ Proof.
   { apply red_n_bound; unfold X_bits in BX; exact BX. }
   sep_apply (num_data_at_ Tsh ql v_q).
   forward_call (gv, Tsh, v_q, n).
-  { unfold limb, Exp100.ExpConsts.limb_bits; zpow; lia. }
+  { unfold limb, Exp100.ExpNum.limb_bits; zpow; lia. }
   Intros q2l.
   rename H0 into Hlq2, H1 into Hfq2, H2 into Hq2.
   sep_apply (num_data_at_ Tsh q1l v_q1).
   forward_call (gv, Tsh, v_q1, n + 1).
-  { unfold limb, Exp100.ExpConsts.limb_bits; zpow; lia. }
+  { unfold limb, Exp100.ExpNum.limb_bits; zpow; lia. }
   Intros q3l.
   rename H0 into Hlq3, H1 into Hfq3, H2 into Hq3.
   forward_call (Tsh, Tsh, v_X, v_q, Xl, q2l).

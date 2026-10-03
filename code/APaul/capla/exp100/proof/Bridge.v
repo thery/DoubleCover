@@ -2,7 +2,7 @@
 
     Capla holds a number as a list of int64 ([val32], [limbs] of
     ExpBase.v); the shared files hold it as a list of Z ([valZ], [limb] of
-    ExpConsts.v).  The two meet through [map Int64.unsigned]: after one
+    ExpNum.v).  The two meet through [map Int64.unsigned]: after one
     rewrite, every lemma of ExpLimbs.v applies to Capla's lists. *)
 
 Require Import BinNums ZArith List Lia Utf8.
@@ -10,7 +10,7 @@ Import ListNotations.
 From mathcomp Require Import ssreflect ssrbool ssrfun ssrnat ssrZ zify.
 Require Import Integers.
 Require Import Exp100Capla.ExpBase.
-From Exp100 Require Import ExpConsts ExpLimbs.
+From Exp100 Require Import ExpNum ExpLimbs.
 Require Import WP ZifyIntegers ProofTactics.
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -23,7 +23,7 @@ Lemma val32_valZ l : val32 l = valZ (map Int64.unsigned l).
 Proof. by elim: l => [|x l IH] //=; rewrite IH. Qed.
 
 (* The base of k limbs, as the shared files write it. *)
-Lemma base32_limb k : base32 k = (2 ^ (limb_bits * Z.of_nat k))%Z.
+Lemma base32_limb k : base32 k = limb_base k.
 Proof. by []. Qed.
 
 (* Limb p of the values is the value of limb p. *)

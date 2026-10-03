@@ -61,7 +61,7 @@ Proof.
     rename H0 into Hr, H1 into Hrl, H2 into Hc, H3 into Hv. subst i.
     assert (Lx : limb (Znth (Zlength r) a)) by (apply Forall_Znth; auto; lia).
     assert (Ly : limb (Znth (Zlength r) b)) by (apply Forall_Znth; auto; lia).
-    unfold Exp100.ExpConsts.limb, Exp100.ExpConsts.limb_bits in *.
+    unfold Exp100.ExpNum.limb, Exp100.ExpNum.limb_bits in *.
     assert (Ex : @Znth val Vundef (Zlength r)
                    (vwords (r ++ sublist (Zlength r) NL a)) =
                  Vlong (Int64.repr (Znth (Zlength r) a))).
@@ -92,9 +92,9 @@ Proof.
       * apply Z.div_pos; lia.
       * assert (s / 2 ^ 32 < 2)
           by (apply Z.div_lt_upper_bound; unfold s; rep_lia); lia.
-      * rewrite valZ_app; simpl Exp100.ExpConsts.valZ.
+      * rewrite valZ_app; simpl Exp100.ExpNum.valZ.
         rewrite !valZ_sublist_succ by lia.
-        unfold Exp100.ExpConsts.limb_bits.
+        unfold Exp100.ExpNum.limb_bits.
         replace (32 * (Zlength r + 1)) with (32 * Zlength r + 32) by lia.
         rewrite Z.pow_add_r by rep_lia.
         set (P := 2 ^ (32 * Zlength r)) in *.
@@ -109,7 +109,7 @@ Proof.
     rewrite !sublist_same in Hv by lia.
     assert (c = 0).
     { pose proof (valZ_bounds r Hrl).
-      unfold num_bits, Exp100.ExpConsts.limb_bits in *. nia. }
+      unfold num_bits, Exp100.ExpNum.limb_bits in *. nia. }
     subst c.
     Exists r. unfold num. rewrite sublist_nil, app_nil_r. entailer!.
 Qed.
@@ -134,7 +134,7 @@ Proof.
     rename H0 into Hr, H1 into Hrl, H2 into Hc, H3 into Hv. subst i.
     assert (Lx : limb (Znth (Zlength r) a)) by (apply Forall_Znth; auto; lia).
     assert (Ly : limb (Znth (Zlength r) b)) by (apply Forall_Znth; auto; lia).
-    unfold Exp100.ExpConsts.limb, Exp100.ExpConsts.limb_bits in *.
+    unfold Exp100.ExpNum.limb, Exp100.ExpNum.limb_bits in *.
     assert (Ex : @Znth val Vundef (Zlength r)
                    (vwords (r ++ sublist (Zlength r) NL a)) =
                  Vlong (Int64.repr (Znth (Zlength r) a))).
@@ -192,9 +192,9 @@ Proof.
       repeat split.
       * rewrite Zlength_app, Zlength_cons, Zlength_nil; lia.
       * apply Forall_app; split; [exact Hrl|constructor; [lia|constructor]].
-      * rewrite valZ_app; simpl Exp100.ExpConsts.valZ.
+      * rewrite valZ_app; simpl Exp100.ExpNum.valZ.
         rewrite !valZ_sublist_succ by lia.
-        unfold Exp100.ExpConsts.limb_bits.
+        unfold Exp100.ExpNum.limb_bits.
         replace (32 * (Zlength r + 1)) with (32 * Zlength r + 32) by lia.
         rewrite Z.pow_add_r by rep_lia.
         set (P := 2 ^ (32 * Zlength r)) in *.
@@ -207,7 +207,7 @@ Proof.
     rewrite !sublist_same in Hv by lia.
     assert (c = 0).
     { pose proof (valZ_bounds r Hrl).
-      unfold Exp100.ExpConsts.limb_bits in *. rewrite Hr in *. nia. }
+      unfold Exp100.ExpNum.limb_bits in *. rewrite Hr in *. nia. }
     subst c.
     Exists r. unfold num. rewrite sublist_nil, app_nil_r. entailer!.
 Qed.
@@ -229,11 +229,11 @@ Proof.
             (vwords r ++ Zrepeat Vundef (NP - i)) pp;
           data_at sha (tarray tulong NL) (vwords a) pa)).
   - Exists (@nil Z) 0. entailer!.
-    unfold Exp100.ExpConsts.limb_bits; lia.
+    unfold Exp100.ExpNum.limb_bits; lia.
   - Intros.
     rename H0 into Hr, H1 into Hrl, H2 into Hc, H3 into Hv. subst i.
     assert (Lx : limb (Znth (Zlength r) a)) by (apply Forall_Znth; auto; lia).
-    unfold Exp100.ExpConsts.limb, Exp100.ExpConsts.limb_bits in *.
+    unfold Exp100.ExpNum.limb, Exp100.ExpNum.limb_bits in *.
     forward.
     { rewrite Znth_vwords by lia. entailer!. }
     rewrite Znth_vwords by lia.
@@ -258,8 +258,8 @@ Proof.
         set (q := s / 2 ^ 32) in *. set (m := s mod 2 ^ 32) in *.
         clearbody q m.
         rewrite valZ_app, !valZ_sublist_succ by lia.
-        cbn [Exp100.ExpConsts.valZ].
-        unfold Exp100.ExpConsts.limb_bits.
+        cbn [Exp100.ExpNum.valZ].
+        unfold Exp100.ExpNum.limb_bits.
         replace (32 * (Zlength r + 1)) with (32 * Zlength r + 32) by lia.
         rewrite Z.pow_add_r by rep_lia.
         set (P := 2 ^ (32 * Zlength r)) in *.
@@ -274,11 +274,11 @@ Proof.
     forward.
     Exists (r ++ [c]).
     entailer!.
-    + unfold Exp100.ExpConsts.limb, Exp100.ExpConsts.limb_bits in *.
+    + unfold Exp100.ExpNum.limb, Exp100.ExpNum.limb_bits in *.
       repeat split.
       * rewrite Zlength_app, Zlength_cons, Zlength_nil; lia.
       * apply Forall_app; split; [exact Hrl|constructor; [lia|constructor]].
-      * rewrite valZ_app, Hr; cbn [Exp100.ExpConsts.valZ].
-        unfold Exp100.ExpConsts.limb_bits; lia.
+      * rewrite valZ_app, Hr; cbn [Exp100.ExpNum.valZ].
+        unfold Exp100.ExpNum.limb_bits; lia.
     + apply derives_refl'; f_equal. unfold vwords; list_solve.
 Qed.

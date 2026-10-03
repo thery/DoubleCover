@@ -211,8 +211,8 @@ Proof.
         [rewrite ?Zlength_cons, Zlength_nil in H; lia|]).
   destruct ys; [|rewrite !Zlength_cons in H;
                  pose proof (Zlength_nonneg ys); lia].
-  unfold pack; cbn [valW Exp100.ExpConsts.valZ].
-  unfold word_bits, Exp100.ExpConsts.limb_bits.
+  unfold pack; cbn [valW Exp100.ExpNum.valZ].
+  unfold word_bits, Exp100.ExpNum.limb_bits.
   change (2 ^ 64) with (2 ^ 32 * 2 ^ 32).
   repeat rewrite ?Znth_0_cons, ?Znth_pos_cons by lia; simpl (_ - 1).
   ring.
@@ -327,7 +327,7 @@ Definition Dl : list Z := [16; 0; 0; 0; 0; 0].
 Lemma Dl_num : Zlength Dl = 6 /\ Forall limb Dl /\ valZ Dl = 16.
 Proof.
   split; [reflexivity|split; [|reflexivity]].
-  unfold Dl, Exp100.ExpConsts.limb, Exp100.ExpConsts.limb_bits.
+  unfold Dl, Exp100.ExpNum.limb, Exp100.ExpNum.limb_bits.
   repeat constructor; lia.
 Qed.
 

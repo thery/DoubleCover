@@ -14,7 +14,7 @@ Proof.
                                sublist (k + 1) (Zlength xs) xs))
     by (f_equal; list_solve).
   rewrite E.
-  rewrite !valZ_app; simpl Exp100.ExpConsts.valZ.
+  rewrite !valZ_app; simpl Exp100.ExpNum.valZ.
   rewrite !Zlength_sublist, !Zlength_cons, Zlength_nil by lia.
   replace (k - 0) with k by lia; ring.
 Qed.
@@ -39,7 +39,7 @@ Proof.
   { rewrite E at 1; rewrite !valZ_app, !Zlength_sublist by lia.
     reflexivity. }
   rewrite !Zlength_sublist in B0, B1, B2 by lia.
-  unfold Exp100.ExpConsts.limb_bits in *.
+  unfold Exp100.ExpNum.limb_bits in *.
   assert (x2 = 0).
   { assert (2 ^ 160 * (2 ^ 192 * x2) < 2 ^ 352) by nia.
     rewrite Z.mul_assoc, <- Z.pow_add_r in H by lia; simpl Z.add in H; nia. }
@@ -82,7 +82,7 @@ Proof.
             data_at shb (tarray tulong NL) (vwords b) pb)).
     + Exists (Zrepeat 0 12). entailer!.
       split; [|intros k Hk; list_solve].
-      unfold Exp100.ExpConsts.limb, Exp100.ExpConsts.limb_bits.
+      unfold Exp100.ExpNum.limb, Exp100.ExpNum.limb_bits.
       repeat constructor; lia.
     + Intros. rename ps into ps0, H0 into Hl0, H1 into Hp0, H2 into Hz0,
         H3 into Hv0.
@@ -104,13 +104,13 @@ Proof.
               data_at sha (tarray tulong NL) (vwords a) pa;
               data_at shb (tarray tulong NL) (vwords b) pb)).
       * Exists ps0 0. entailer!.
-        simpl Exp100.ExpConsts.valZ; ring.
+        simpl Exp100.ExpNum.valZ; ring.
       * Intros. rename i0 into j, H0 into Hj, H1 into Hl, H2 into Hp,
           H3 into Hc, H4 into Hz, H5 into Hv.
         assert (Lx : limb (Znth i a)) by (apply Forall_Znth; auto; lia).
         assert (Ly : limb (Znth j b)) by (apply Forall_Znth; auto; lia).
         assert (Lp : limb (Znth (i + j) ps)) by (apply Forall_Znth; auto; lia).
-        unfold Exp100.ExpConsts.limb, Exp100.ExpConsts.limb_bits in Lx, Ly, Lp.
+        unfold Exp100.ExpNum.limb, Exp100.ExpNum.limb_bits in Lx, Ly, Lp.
         assert (Ea : @Znth val Vundef i (vwords a) =
                      Vlong (Int64.repr (Znth i a))) by (apply Znth_vwords; lia).
         assert (Eb : @Znth val Vundef j (vwords b) =
@@ -148,7 +148,7 @@ Proof.
           { intros k Hk. rewrite upd_Znth_diff by lia. auto. }
           rewrite valZ_upd by lia.
           rewrite valZ_sublist_succ by lia.
-          unfold Exp100.ExpConsts.limb_bits in *.
+          unfold Exp100.ExpNum.limb_bits in *.
           replace (32 * (i + (j + 1))) with (32 * (i + j) + 32) by lia.
           replace (32 * (i + j)) with (32 * i + 32 * j) in * by lia.
           rewrite !Z.pow_add_r in * by lia.
@@ -211,7 +211,7 @@ Proof.
       * Exists (sublist 5 11 ps).
         assert (Hs : valZ (sublist 5 11 ps) = valZ ps / 2 ^ 160).
         { apply valZ_shift; auto.
-          unfold Exp100.ExpConsts.P, num_bits, Exp100.ExpConsts.limb_bits
+          unfold Exp100.ExpConsts.P, num_bits, Exp100.ExpNum.limb_bits
             in Hfit; lia. }
         unfold num; entailer!.
         { split; [list_solve|]. split; [apply Forall_sublist; auto|].

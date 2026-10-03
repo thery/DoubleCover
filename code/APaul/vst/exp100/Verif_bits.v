@@ -75,7 +75,7 @@ Ltac shift_ok := rewrite ?mods_repr by rep_lia; repeat split; try no_ovf;
 Lemma limb_zeros n : Forall limb (Zrepeat 0 n).
 Proof.
   apply Forall_forall; intros x Hx; apply repeat_spec in Hx; subst x.
-  unfold Exp100.ExpConsts.limb, Exp100.ExpConsts.limb_bits; lia.
+  unfold Exp100.ExpNum.limb, Exp100.ExpNum.limb_bits; lia.
 Qed.
 
 (* One word at q in a row of zeros. *)
@@ -155,7 +155,7 @@ Proof.
     +
       assert (Hai : limb (Znth i a)) by (apply Forall_Znth; auto; lia).
       assert (Hbi : limb (Znth i b)) by (apply Forall_Znth; auto; lia).
-      unfold Exp100.ExpConsts.limb, Exp100.ExpConsts.limb_bits in Hai, Hbi.
+      unfold Exp100.ExpNum.limb, Exp100.ExpNum.limb_bits in Hai, Hbi.
       forward.
       { entailer!. rewrite Znth_vwords' by lia; exact I. }
       forward.
@@ -261,11 +261,11 @@ Proof.
      SEP (data_at sha (tarray tulong NL) (vwords a) pa)).
   - entailer!.
   - assert (Hai : limb (Znth i a)) by (apply Forall_Znth; auto; lia).
-    unfold Exp100.ExpConsts.limb, Exp100.ExpConsts.limb_bits in Hai.
+    unfold Exp100.ExpNum.limb, Exp100.ExpNum.limb_bits in Hai.
     assert (HX := valZ_bounds (sublist 0 i a)
                     ltac:(apply Forall_sublist; auto)).
     rewrite Zlength_sublist in HX by lia; replace (i - 0) with i in HX by lia.
-    unfold Exp100.ExpConsts.limb_bits in HX.
+    unfold Exp100.ExpNum.limb_bits in HX.
     forward_for_simple_bound 32   (* bits of a limb *)
       (EX k : Z,
        PROP ()
@@ -310,7 +310,7 @@ Lemma body_num_pow2 : semax_body Vprog Gprog f_num_pow2 num_pow2_spec.
 Proof.
   start_function.
   rename H into Hf.
-  unfold num_bits, Exp100.ExpConsts.limb_bits in Hf.
+  unfold num_bits, Exp100.ExpNum.limb_bits in Hf.
   forward_call (sha, pa).
   unfold num.
   assert (Hq : 0 <= f / 32 < 6) by (split; [apply Z.div_pos|
@@ -330,9 +330,9 @@ Proof.
   unfold num; entailer!.
   rewrite upd_zeros by lia.
   split3; [list_solve|apply limb_one;
-    unfold Exp100.ExpConsts.limb, Exp100.ExpConsts.limb_bits; lia|].
+    unfold Exp100.ExpNum.limb, Exp100.ExpNum.limb_bits; lia|].
   rewrite valZ_one, Exp100.ExpModel.pow2E by lia.
-  unfold Exp100.ExpConsts.limb_bits; rewrite <- Z.pow_add_r by lia.
+  unfold Exp100.ExpNum.limb_bits; rewrite <- Z.pow_add_r by lia.
   f_equal; pose proof (Z.div_mod f 32); lia.
 Qed.
 
@@ -371,7 +371,7 @@ Proof.
   assert (Hs := valZ_bounds (sublist 0 q b)
                   ltac:(apply Forall_sublist; auto)).
   rewrite Zlength_sublist in Hs by lia; replace (q - 0) with q in Hs by lia.
-  unfold Exp100.ExpConsts.limb_bits in *.
+  unfold Exp100.ExpNum.limb_bits in *.
   rewrite mod_shift by lia.
   rewrite Z.mul_0_r, Z.add_0_r; f_equal; f_equal.
   rewrite <- Z.add_mod_idemp_r, Z.mul_comm by (apply Z.pow_nonzero; lia).
@@ -406,7 +406,7 @@ Lemma body_num_low : semax_body Vprog Gprog f_num_low num_low_spec.
 Proof.
   start_function.
   rename H into Hl, H0 into Hb, H1 into Hf.
-  unfold num_bits, Exp100.ExpConsts.limb_bits in Hf.
+  unfold num_bits, Exp100.ExpNum.limb_bits in Hf.
   assert (Hq : 0 <= f / 32 < 6) by (split; [apply Z.div_pos|
     apply Z.div_lt_upper_bound]; lia).
   assert (Hm : 0 <= f mod 32 < 32) by (apply Z.mod_pos_bound; lia).
@@ -421,7 +421,7 @@ Proof.
           data_at shb (tarray tulong NL) (vwords b) pb)).
   - entailer!.
   - assert (Hbi : limb (Znth i b)) by (apply Forall_Znth; auto; lia).
-    unfold Exp100.ExpConsts.limb, Exp100.ExpConsts.limb_bits in Hbi.
+    unfold Exp100.ExpNum.limb, Exp100.ExpNum.limb_bits in Hbi.
     forward_if.
     { entailer!; no_ovf. }
     + rewrite divs_repr, Int.signed_repr in H0 by rep_lia.
@@ -469,10 +469,10 @@ Proof.
       assert (Hp : 0 < 2 ^ (f mod 32) <= 2 ^ 32) by
         (split; [apply Z.pow_pos_nonneg|apply Z.pow_le_mono_r]; lia).
       assert (Hr := Z.mod_pos_bound (Znth (f / 32) b) (2 ^ (f mod 32))).
-      unfold Exp100.ExpConsts.limb, Exp100.ExpConsts.limb_bits; lia.
+      unfold Exp100.ExpNum.limb, Exp100.ExpNum.limb_bits; lia.
     + rewrite Exp100.ExpModel.lowE, valZ_low_list by
-        (auto; unfold Exp100.ExpConsts.limb_bits; lia).
-      unfold Exp100.ExpConsts.limb_bits.
+        (auto; unfold Exp100.ExpNum.limb_bits; lia).
+      unfold Exp100.ExpNum.limb_bits.
       f_equal; f_equal; pose proof (Z.div_mod f 32); lia.
 Qed.
 
@@ -530,11 +530,11 @@ Proof.
       Exists [w mod 2 ^ 32; w / 2 ^ 32; 0; 0; 0; 0].
       unfold num; entailer!.
       + split.
-        * repeat constructor; unfold Exp100.ExpConsts.limb,
-            Exp100.ExpConsts.limb_bits; lia.
+        * repeat constructor; unfold Exp100.ExpNum.limb,
+            Exp100.ExpNum.limb_bits; lia.
         * rewrite Exp100.ExpModel.scaleE.
           destruct (Z.leb_spec 0 e); [lia|].
-          cbn [Exp100.ExpConsts.valZ]; unfold Exp100.ExpConsts.limb_bits.
+          cbn [Exp100.ExpNum.valZ]; unfold Exp100.ExpNum.limb_bits.
           lia.
   - assert (Hq : 0 <= e / 32 < 4) by (split; [apply Z.div_pos|
       apply Z.div_lt_upper_bound]; lia).
@@ -597,10 +597,10 @@ Proof.
     + list_solve.
     + apply Forall_app; split; [apply limb_zeros|].
       apply Forall_app; split; [|apply limb_zeros].
-      repeat constructor; unfold Exp100.ExpConsts.limb,
-        Exp100.ExpConsts.limb_bits; lia.
+      repeat constructor; unfold Exp100.ExpNum.limb,
+        Exp100.ExpNum.limb_bits; lia.
     + rewrite valZ_app, valZ_app, !valZ_zeros, Zlength_Zrepeat by lia.
-      cbn [Exp100.ExpConsts.valZ]; unfold Exp100.ExpConsts.limb_bits.
+      cbn [Exp100.ExpNum.valZ]; unfold Exp100.ExpNum.limb_bits.
       rewrite Exp100.ExpModel.scaleE.
       rewrite !Z.mul_0_r, !Z.add_0_r, Z.add_0_l, Ev.
       destruct (Z.leb_spec 0 (32 * q + m)); [|lia].

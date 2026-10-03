@@ -17,7 +17,7 @@ Files, in code/APaul/vst/exp100/
                   Exp100; runs clightgen -normalize on ../../exp100/exp100.c;
                   builds the rest as E.  No .vo is written into rocq/.
   Common.v        CompSpecs, Vprog; sizes NL NP NT NC NM (notations);
-                  valZ, limb, limb_bits (abbreviations of ExpConsts);
+                  valZ, limb, limb_bits (abbreviations of ExpNum);
                   word, valW (words of 64 bits, for M); vwords, num;
                   valZ_app, valZ_sublist_succ, valZ_bounds; and_mask32,
                   shru32; consts gv (T, C, LN2, RMAX, INV at gv);
@@ -70,7 +70,7 @@ Traps
 - Two switches: VST is only in switch vst (Rocq 9.0); rocq/ is built in
   native (Rocq 9.1) by others.  Run coqc after the eval above, in the same
   shell, else VST is not found.  The rocq-mcp tools run 9.1: no VST.
-- Name clash: ExpConsts.v has valZ, limb, num, NL : nat (limbs of 32
+- Name clash: ExpNum.v (exported by ExpConsts.v) has valZ, limb, num, NL : nat (limbs of 32
   bits); code/APaul/vst/Words.v has another valZ (64 bits); ExpModel.v has
   K, D, q, low, shr, scale.  None is imported: Common.v gives valZ, limb,
   limb_bits as abbreviations, the rest is written qualified
