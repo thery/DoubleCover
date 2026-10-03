@@ -25,33 +25,7 @@ From Exp100 Require Import ExpNum ExpLimbs.
 From Exp100 Require ExpConsts ExpModel ExpModelBounds.
 Require Import ProofHeader WP ZifyIntegers.
 Require Import ProofTactics.
-(* STUB-BEGIN *)
-Theorem maybe_hard_bits_spec xb Ta Ca L2a RMa e1 result :
-  tables_ok Ta Ca L2a RMa ->
-  eval_funcall ge (Internal maybe_hard_bits188) [Vint64 xb; Ta; Ca; L2a; RMa]
-    e1 (Some result) ->
-  result = Vint64 (Int64.repr (ExpModel.maybe_hard_Z (Int64.unsigned xb))).
-Admitted.
-
-(* The return code and, on success, M (3 words) and s as exp_encl_Z gives
-   them. *)
-Theorem exp_encl_bits_spec xb ms ss Ta Ca L2a RMa e1 result :
-  tables_ok Ta Ca L2a RMa -> length ms = 3%nat -> length ss = 1%nat ->
-  eval_funcall ge (Internal exp_encl_bits155)
-    [Vint64 xb; Varr (map Vint64 ms); Varr (map Vint64 ss); Ta; Ca; L2a; RMa]
-    e1 (Some result) ->
-  exists rc, result = Vint64 rc /\
-    (Int64.unsigned rc <> 0%Z ->
-       ExpModel.exp_encl_Z (Int64.unsigned xb) = inl (Int64.unsigned rc)) /\
-    (Int64.unsigned rc = 0%Z ->
-       exists ms' s,
-         e1!(param 1 exp_encl_bits155) = Some (Varr (map Vint64 ms')) /\
-         length ms' = 3%nat /\
-         e1!(param 2 exp_encl_bits155) = Some (Varr [Vint64 s]) /\
-         ExpModel.exp_encl_Z (Int64.unsigned xb) =
-           inr (valW (map Int64.unsigned ms'), Int64.signed s)).
-Admitted.
-(* STUB-END *)
+Require Import Exp100Capla.ExpTopProof.
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
 
@@ -78,7 +52,7 @@ Qed.
 
 (* |exp x - M 2^s| <= D 2^s, x being the double of the bits xb *)
 Definition encl (xb M s : Z) : Prop :=
-  Rle (Rabs (Rminus (exp (ExpBits.xreal xb))
+  Rle (Rabs (Rminus (Rtrigo_def.exp (ExpBits.xreal xb))
           (Rmult (IZR M) (Raux.bpow Zaux.radix2 s))))
       (Rmult (IZR ExpModel.D) (Raux.bpow Zaux.radix2 s)).
 
