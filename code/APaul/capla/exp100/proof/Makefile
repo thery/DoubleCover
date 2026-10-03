@@ -16,7 +16,11 @@ MODEL_V := $(MD)/ExpNum.v $(MD)/ExpTable.v $(MD)/ExpConsts.v $(MD)/ExpModel.v \
            $(MD)/ExpModelBounds.v $(MD)/ExpLimbs.v
 MODEL := $(MODEL_V:.v=.vo)
 
-all: $(MODEL) NumAddProof.vo Bridge.vo
+PROOFS := NumAddProof.vo NumBasicProof.vo NumSubProof.vo NumLtProof.vo \
+  NumMulProof.vo NumBitsProof.vo ReduceProof.vo ExpCoreProof.vo \
+  DecideProof.vo ExpTopProof.vo RowCall.vo
+
+all: $(MODEL) $(PROOFS)
 
 # the model: a copy of each file, refreshed when the original changes
 $(MD)/%.v: $(MODEL_SRC)/%.v
@@ -42,15 +46,34 @@ exp100.v: ../exp100.b
 	sed -i -E 's/Salloc \(VAR ([0-9]+%positive "[^"]*"), /Salloc (VAR \1) (/' $@
 
 exp100.vo: exp100.v
+
+# the probe of a call with a row T[j] (RowCall.v)
+rowcall.v: rowcall.b
+	$(CAPLA)/ccomp -dcaplarocq -c rowcall.b && rm -f rowcall.o
+RowCall.vo: rowcall.vo
 ExpBase.vo: ExpBase.v exp100.vo
 NumAddProof.vo: ExpBase.vo $(MD)/ExpLimbs.vo
 Bridge.vo: ExpBase.vo $(MD)/ExpLimbs.vo
+Specs.vo: Bridge.vo $(MD)/ExpModel.vo
+# each spec file: statements first (Admitted), proofs by tasks T2..T13
+NumBasicProof.vo NumSubProof.vo NumLtProof.vo NumMulProof.vo \
+  NumBitsProof.vo ReduceProof.vo: Specs.vo $(MD)/ExpModelBounds.vo
+ExpCoreProof.vo: NumAddProof.vo NumBasicProof.vo NumSubProof.vo \
+  NumLtProof.vo NumMulProof.vo NumBitsProof.vo ReduceProof.vo
+DecideProof.vo: NumAddProof.vo NumBasicProof.vo NumSubProof.vo \
+  NumLtProof.vo NumBitsProof.vo
+ExpTopProof.vo: ExpCoreProof.vo DecideProof.vo
 
 %.vo: %.v
 	$(COQC) $<
 
+# rocq-mcp (server rocq-mcp-capla): it reads the load path from this
+# directory's _CoqProject; mcp writes it from INC.
+mcp:
+	echo $(INC) | sed 's/ -\([RQ]\) /\n-\1 /g' > _CoqProject
+
 clean:
-	rm -f exp100.v *.vo *.vok *.vos *.glob .*.aux
+	rm -f exp100.v rowcall.v *.vo *.vok *.vos *.glob .*.aux
 	rm -rf $(MD)
 
-.PHONY: all clean
+.PHONY: all clean mcp
