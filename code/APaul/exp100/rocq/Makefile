@@ -18,7 +18,8 @@ ExpConsts.vo: ExpTable.vo
 ExpModel.vo: ExpConsts.vo
 ExpBits.vo: ExpModel.vo
 ExpHard.vo: ExpModel.vo
-ExpBound.vo: ExpBits.vo ExpTaylor.vo
+ExpBudget.vo: ExpModel.vo ExpTaylor.vo
+ExpBound.vo: ExpBits.vo ExpBudget.vo
 ExpFilter.vo: ExpHard.vo
 ExpSpec.vo: ExpBound.vo ExpFilter.vo
 
