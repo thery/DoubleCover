@@ -6,8 +6,8 @@ the same evaluators, over the reals of Rocq instead of floats, and the passes,
 one function per Elpi predicate. They are meant to state, then prove, that the
 passes of elpiDiff are correct. There are no theorems yet. The passes written
 so far: the operations table, `normalize`, `well-formed`, the analyses
-(`activity`, `tbr`), `annotate` and `tangent`, with the printer of L2; still to
-come: `adjoint`, `simplify`, `lower`, `cxx`. The passes compute: `Compute` runs them on a function written
+(`activity`, `tbr`), `annotate`, `tangent` and `adjoint`, with the printer of
+L2; still to come: `simplify`, `lower`, `cxx`. The passes compute: `Compute` runs them on a function written
 in Rocq.
 
 ```
@@ -36,6 +36,7 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
 | `Transform.v` | the helpers of `derivative.elpi` | `tvar` (the variables of the transformations), `sbind`, `sflatten`, `spell`, `dot`, `bar`, `scale`, `sum`, `with_storage`, the opening of binders, `with_arguments`, `type_of` |
 | `Tangent.v` | `tangent.elpi` | `tangent` (L1ᵃ to L2): `tan`, `tan_value`, `tangent_result`, … |
 | `Dump.v` | the printer of L2 in `dump.elpi` | `pr_dfunction`: the lines of `dump -- derivative <mode>` |
+| `Adjoint.v` | `adjoint.elpi` | `adjoint` (L1ᵃ to L2), modes `adjoint` and `adjoint-value`: `prim` and `fwd_value`, then `adj` and `rev_value` |
 
 ## From Elpi to Rocq
 
