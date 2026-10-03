@@ -4,8 +4,7 @@ Pick-up: T6, exp_encl_bits and maybe_hard_bits
 Files
 -----
   TopLemmas.v   (380 lines, all Qed)  the helper lemmas and body_exp_encl_bits.
-  Verif_top.v   (135 lines)  body_maybe_hard_bits only, ending in
-                `admit. Admitted.` (line 134).
+  Verif_top.v   (215 lines, Qed)  body_maybe_hard_bits.
   Makefile      has TopLemmas.vo in PROOFS, `TopLemmas.vo: Spec.vo` and
                 `Verif_top.vo: TopLemmas.vo`.
 Spec.v, Common.v and the funspecs are unchanged.
@@ -13,6 +12,11 @@ Spec.v, Common.v and the funspecs are unchanged.
 What is proved
 --------------
 - body_exp_encl_bits (TopLemmas.v), no admit.
+- body_maybe_hard_bits (Verif_top.v), no admit.  It uses only the
+  funspecs of Gprog.  Print Assumptions: the standard axioms of VST
+  (prop_ext, functional_extensionality_dep, eq_rect_eq, classic,
+  Extensionality_Ensembles) and the two of ClassicalDedekindReals
+  (sig_not_dec, sig_forall_dec); nothing of exp100.
 - Every helper lemma in TopLemmas.v.
 - 2^P <= y and y + D < 2^192 come from the model, through
   ExpModel.core_relP: the post of exp_core did NOT need to change.
@@ -41,42 +45,18 @@ Helper lemmas (TopLemmas.v)
                     (lo := low y f, hi := pow2 f - lo, d := min) the test
                     pow2 (f - 43) + 16 <? d.
 
-Where body_maybe_hard_bits stands
----------------------------------
-Done, in order: exp_core and its two outcomes; num_zero(d) + d[0] = 16
-(replace_SEP to num Tsh Dl v_d); lo = y - D; hi = y + D; b = bitlen y; the
-`||` test on the bit lengths (forward_if [temp _t'4 ...]) and its return 1;
-e, ve, f (Int64 expressions rewritten to Int64.repr of Z); the f range
-test (forward_if [temp _t'7 ...]) and its return 1.
-
-The hole (Verif_top.v line 133-134) is just before the C statement
-  num_low(lo, y, (int) f);
-Context then: Hcore, Hl, Hf (ys), lo1/hi1 with their values, b, Hb,
-Eb1/Eb2 (the two bit lengths are b), f with Hfz and Ec : 64 <= f /\ f <= 184,
-and Hd : decide_Z (valZ ys) hN = (if pow2 (f-43) + 16 <? d then 0 else 1)
-with d written out with low/pow2.  SEP: num Tsh lo1 v_lo; num Tsh ys v_y;
-num Tsh hi1 v_hi; num Tsh Dl v_d; data_at hN; consts gv; data_at_ v_t.
-
-Plan for the rest
------------------
-1. forward_call (Tsh, Tsh, v_lo, v_y, ys, f).  It leaves 3 side goals
-   (seen): the argument `(int) f`  -> entailer!, then
-   Int.repr (Int64.unsigned (Int64.repr f)) = Int.repr f by unsigned_repr
-   (64 <= f <= 184); the frame num Tsh lo1 v_lo |-- data_at_  -> sep_apply
-   num_free (or unfold num; cancel with data_at_data_at_); 0 <= f < num_bits
-   -> change num_bits with 192; lia.  Intros lo2.
-2. num_pow2(hi, f): same pattern, Intros hi2 (valZ hi2 = pow2 f).
-3. num_sub(hi, lo): pre low y f <= pow2 f by M.lowE, M.pow2E and
-   Z.mod_pos_bound.  Intros hi3.
-4. num_lt(lo, hi) then the if with two num_copy into d: needs a full
-   post, forward_if (EX dd, PROP (Zlength dd = 6; Forall limb dd;
-   valZ dd = if lo <? hi then lo else hi) LOCAL (...) SEP (...)).
-5. num_pow2(t, (int) f - 43): arg Int.sub (Int.repr f) (Int.repr 43);
-   21 <= f - 43.  num_zero(hi); hi[0] = 16; replace_SEP to num Tsh Dl v_hi;
-   num_add(t, hi): pow2 (f-43) + 16 < 2^192.
-6. num_lt(t, d): forward_if; return 0 / return 1.  Post: unfold
-   M.maybe_hard_Z; rewrite Hcore, Hd, then the values; then
-   repeat sep_apply num_free; cancel.
+How body_maybe_hard_bits goes
+-----------------------------
+exp_core and its two outcomes; num_zero(d) + d[0] = 16 (replace_SEP to
+num Tsh Dl v_d); lo = y - D; hi = y + D; b = bitlen y; the `||` test on
+the bit lengths and its return 1; e, ve, f (Int64 expressions rewritten
+to Int64.repr of Z); the f range test and its return 1; decide_f gives
+decide_Z as the last test.  Then hypotheses that mention f's definition
+are cleared (entailer! would substitute f otherwise); num_low,
+num_pow2, num_sub; num_lt and the `if` with the two num_copy, through
+an explicit post (EX dd, valZ dd = min); num_pow2(t, f - 43); num_zero(hi)
++ hi[0] = 16; num_add(t, hi); maybe_hard_Z xb = (t <? d ? 0 : 1) from
+Hcore and decide_f; num_lt(t, d) and the two returns.
 
 Traps met
 ---------
@@ -95,6 +75,14 @@ Traps met
 - `*s = hN - P` asks Int64.min_signed <= hN - 160 <= Int64.max_signed:
   core_bounds.
 - The comparison `f > 184` is Int64.lt (repr 184) (repr f): zlt 184 f.
+- entailer! substitutes an equation `f = expr`: clear it (Hfz) before
+  the calls whose argument is (int) f.
+- `sep_apply num_free` takes the FIRST num of the SEP: name the one to
+  free, `sep_apply (num_free Tsh hi1 v_hi)`.
+- The argument (int) f - 43 leaves a range goal on Int.signed first,
+  then the argument equality.
+- rocq-mcp needs a _CoqProject (-Q . E -Q exp100-model Exp100) and a
+  workspace under /home/thery/claudeExp; this directory has none.
 - The scratchpad is shared with other agents: never write `out.txt` there,
   use a private name (t6_out.txt).
 
@@ -103,5 +91,5 @@ Rebuild
   cd code/APaul/vst/exp100
   eval $(opam env --root=/home/thery/opam-rocq.9.1.0 --switch=vst) && \
     nice -n 19 make Verif_top.vo
-Measured: TopLemmas.v + Verif_top.v about 60 s; Verif_top.v alone about
-42 s on the desktop.
+Measured: Verif_top.v alone 85 s wall on the desktop (nice 19, while
+another Rocq compile ran).
