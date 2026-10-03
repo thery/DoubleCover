@@ -52,10 +52,20 @@ change is checked in two ways:
 
 ## In Rocq
 
-`rocq/` holds the same definitions in Rocq: the same languages, the same
-constructors, and the same evaluators over the reals, towards a proof that the
-passes are correct. See `rocq/README.md` for the correspondence; the passes are
-still to be written there.
+`rocq/` holds the whole tool in Rocq, mimicking the Elpi code: the same
+languages with the same constructors (binders in PHOAS), the same evaluators
+over the reals of Rocq instead of floats, and every pass, one function per Elpi
+predicate, from `normalize` down to the C++ text, chained by `main` as in
+`adjudge.elpi`. The passes compute: `Compute (main ModeAdjoint "f.elpi" [f])`
+gives the header Elpi writes.
+
+The Rocq passes are checked against the Elpi ones on all the reference cases
+(`rocqtest.py`, with the cases): the diagnostics, the derivative programs in L2
+for the three modes before and after simplification, and the complete C++
+headers are identical, 141 comparisons. There are no theorems yet: the
+definitions are meant to state, then prove, that the passes are correct, with
+the evaluators as their semantics. `rocq/README.md` gives the correspondence,
+file by file, and how each construction of Elpi is rendered in Rocq.
 
 ## The languages and their Elpi types
 
