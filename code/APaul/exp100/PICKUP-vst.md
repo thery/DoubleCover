@@ -110,3 +110,18 @@ Traps
 - forward on a return runs entailer! itself: rewrite with the bit lemma
   after forward, then entailer!.
 - Rewrite the inner Int64.repr explicitly before !Int64.unsigned_repr.
+- A C int / 32 or mod 32 leaves ~(Int.repr f = Int.repr Int.min_signed
+  /\ Int.repr 32 = Int.mone): f_equal Int.unsigned on the second part,
+  vm_compute, discriminate (Ltac no_ovf of Verif_bits.v); then divs_repr
+  (Verif_bits.v) and mods_repr.
+- Shift side goals: change (Int.unsigned Int64.iwordsize') with 64.
+- forward turns / and mod into Z.div_eucl and Z.pow_pos, and rep_lia
+  fails on subscripts: remember (e / 32) as q before the forwards.
+- Branch hypotheses come raw (Int.signed (Int.neg (Int.repr 64)) < e):
+  rewrite Int.neg_repr, Int.signed_repr.
+- forward_if absorbs the skip of `if (c) skip; else break;`.
+- forward_loop on a for loop with an init: the first goal is the init.
+- a mod (b*c) = a mod b + b*((a/b) mod c) is Z.rem_mul_r here.
+- A file ending in Admitted builds, so make says up to date: touch it.
+- Iterate fast: helpers in their own file compiled once; grow the body
+  with admit. Admitted. after the furthest point that passes.
