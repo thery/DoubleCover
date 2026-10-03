@@ -13,12 +13,14 @@
 accumulate adjudge.
 accumulate numbers.
 accumulate eval.
+accumulate eval-anf.
 accumulate exec.
 
 shorten adjudge.{ floats, duals, eval-function, read-arguments, val-string, signature-string, ty-string,
                   split-at, definition-decls, seed, dual-strings,
                   l2-program, l2-param-strings, l2-read-arguments, read-argument, exec-dfunction,
-                  check, mode-value, annotate, differentiate, simplify, dname, var-name }.
+                  check, mode-value, annotate, differentiate, simplify, dname, var-name,
+                  aeval-function, normalize, expressible }.
 
 % run [Name | Args]: prints the value of the function Name of the case on Args.
 func run list string.
@@ -43,6 +45,53 @@ tangent [Name | Rest] :- !,
       eval-function Dom (function Name D) Ws V, dual-strings V SV SD, print SV, print SD)
      (M is "no function `" ^ Name ^ "` in the case", std.fatal-error M).
 tangent _ :- std.fatal-error "usage: ... -exec tangent -- <function> <argument>.. / <tangent>..".
+
+% l1-run [Stage, Name | Args]: prints the value of the function Name on Args,
+% computed by the evaluator of L1 on its A-normal form (Stage = anf) or on its
+% annotated form (Stage = annotated), both in the domain of floats. With run,
+% this checks the passes normalize and annotate.
+func l1-run list string.
+l1-run [Stage, Name | Args] :- !,
+  std.findall (primal (function Name _)) Ps,
+  if (Ps = [primal (function Name D) | _]) true (std.fatal-error "no such function"),
+  if (expressible (function Name D)) true (std.fatal-error "the function has no A-normal form"),
+  normalize (function Name D) A, floats Dom, read-arguments D Args Vs,
+  if (Stage = "anf") (aeval-function Dom A Vs V)
+  (if (Stage = "annotated") (annotate ff A A1, aeval-function Dom A1 Vs V)
+     (std.fatal-error "the stage is anf or annotated")),
+  val-string V S, print S.
+l1-run _ :- std.fatal-error "usage: ... -exec l1-run -- anf|annotated <function> <argument>..".
+
+% passes [Name | Args]: evaluates the function Name on Args in L0, in L1 and in
+% L1ᵃ, over floats, and checks that the three values are the same floats: that
+% normalize and annotate preserve the semantics, exactly. Prints "same" or the
+% values.
+func passes list string.
+passes [Name | Args] :- !,
+  std.findall (primal (function Name _)) Ps,
+  if (Ps = [primal (function Name D) | _]) true (std.fatal-error "no such function"),
+  floats Dom, read-arguments D Args Vs,
+  eval-function Dom (function Name D) Vs V0,
+  normalize (function Name D) A, aeval-function Dom A Vs V1,
+  annotate ff A A1, aeval-function Dom A1 Vs V2,
+  if (V0 = V1, V1 = V2) (print "same")
+     (val-string V0 S0, val-string V1 S1, val-string V2 S2, print "L0" S0 "L1" S1 "L1a" S2).
+passes _ :- std.fatal-error "usage: ... -exec passes -- <function> <argument>..".
+
+% l2-same [Mode, Name | Args]: executes the L2 program of Name in Mode before
+% and after simplification, on the same arguments, and checks that they leave
+% the same floats: that simplify preserves the semantics exactly (on finite
+% numbers: it rewrites x * 0 to 0). Prints "same" or both results.
+func l2-same list string.
+l2-same [Mode, Name | Args] :- !,
+  std.findall (primal (function Name _)) Ps,
+  if (Ps = [primal F | _]) true (std.fatal-error "no such function"),
+  l2-program Mode "derivative" F (dfunction N P), l2-program Mode "simplified" F (dfunction N1 P1),
+  floats Dom, l2-read-arguments P Args Vs,
+  exec-dfunction Dom (dfunction N P) Vs F0 R0, exec-dfunction Dom (dfunction N1 P1) Vs F1 R1,
+  if (F0 = F1, R0 = R1) (print "same")
+     (std.map F0 val-string S0, std.map F1 val-string S1, print "derivative" S0 R0 "simplified" S1 R1).
+l2-same _ :- std.fatal-error "usage: ... -exec l2-same -- tangent|adjoint|adjoint-value <function> <argument>..".
 
 % l2-signature [Mode, Stage, Name]: prints the parameters of the L2 program of
 % Name, one per line as name:passing:type, then its result: the tangent, the

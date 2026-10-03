@@ -45,8 +45,9 @@ change is checked in two ways:
 | `dump.elpi` | Readable printers for L1, L1ᵃ and L2, to debug the passes (`dump` mode). |
 | `numbers.elpi` | Domains of numbers for the evaluators: the record of the operations on the reals of a domain; floats, and dual numbers over any domain. |
 | `eval.elpi` | The evaluator of L0, polymorphic in the domain of numbers. |
+| `eval-anf.elpi` | The evaluator of L1 and of L1ᵃ, polymorphic in the annotations. |
 | `exec.elpi` | The evaluator of L2: executes the derivative programs (tangent, adjoint) with a store indexed by their variables. |
-| `evaluate.elpi` | Running the functions of a case with the evaluators (`run`, `tangent`, `signatures`, `l2-run`, `l2-signature`); not loaded by `adjudge.elpi`. |
+| `evaluate.elpi` | Running the functions of a case with the evaluators (`run`, `tangent`, `signatures`, `l1-run`, `passes`, `l2-run`, `l2-signature`, `l2-same`); not loaded by `adjudge.elpi`. |
 | `adjudge.elpi` | The driver: accumulates everything, `main` and `terms`. |
 
 ## The languages and their Elpi types
@@ -292,7 +293,29 @@ checked against the source without any C++: at random points, the tangent gives
 the value and the tangent of the source over dual numbers, the adjoint passes
 the dot-product test ⟨ȳ, J ẋ⟩ = ⟨x̄, ẋ⟩ with J ẋ from the dual numbers, and
 the adjoint-value also gives the value of the source, each before and after
-simplification (530 checks on the reference cases).
+simplification; and the simplified program leaves exactly the same floats as
+the original one (740 checks on the reference cases).
+
+**Every pass, checked by evaluation.** Each language has an evaluator,
+polymorphic in the domain of numbers and sharing the operations of the evaluator
+of L0, so each pass is checked by evaluating its input and its output:
+
+| Pass | From → to | Evaluators | Check |
+|---|---|---|---|
+| `normalize` | L0 → L1 | `eval.elpi`, `eval-anf.elpi` | the same floats, bit for bit (`passes`) |
+| `annotate` | L1 → L1ᵃ | `eval-anf.elpi` on both | the same floats, bit for bit (`passes`) |
+| `tangent` | L1ᵃ → L2 | L0 over dual numbers, `exec.elpi` | the value and the tangent of the source |
+| `adjoint` | L1ᵃ → L2 | L0 over dual numbers, `exec.elpi` | the dot-product test ⟨ȳ, J ẋ⟩ = ⟨x̄, ẋ⟩ |
+| `simplify` | L2 → L2′ | `exec.elpi` on both | the same floats, bit for bit (`l2-same`) |
+| `lower`, `cxx` | L2′ → C++ | L0 and dual numbers, compiled C++ | the primal and the tangent of the source |
+
+L1 and L1ᵃ share one evaluator, polymorphic in the index of L1, since the
+annotations do not change what a program computes. `simplify` is exact on
+finite numbers (it rewrites `x * 0` to `0`). On the reference cases, at random
+points: `normalize` and `annotate` 140 points, the derivative programs and
+`simplify` 740 checks, the compiled C++ 420 checks, all passing. The last line compiles the
+generated C++; L3, the C++ statements, has no evaluator of its own: `lower`
+only names the variables and spells the types.
 
 This checks the generated code against a semantics of the source. On the
 reference cases, at 140 random points and random tangents, the evaluator over
