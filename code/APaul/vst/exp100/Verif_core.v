@@ -355,7 +355,178 @@ Proof.
              (rows_but Ers 17 (map vwords Exp100.ExpTable.C) 16 (gv _C)).
   rewrite <- (table_row Ers NC Exp100.ExpTable.C 16 (gv _C))
     by (auto; rewrite ?Zlength_C; lia).
-  (* missing: the Horner loop (forward_loop), j = Nu & 63, the call
-     num_mulshr(y, T[j], h), *s = hN and return 0; see PICKUP-T5.md *)
-  admit.
-Admitted.
+  (* Horner's loop: h = floor(h r / 2^P) + C_i for i = 15 down to 0 *)
+  clear Bbe Bm H Bv Be HX BX Bg Hq Hlq Hfq ql B1 Hq1 Hlq1 Hfq1 q1l Hq2 Hq3
+    Hchk Bs HlR HfR.
+  assert (E16 : valZ (Znth 16 Exp100.ExpTable.C) < 2 ^ h_bits /\
+    M.horner_from (M.rarg xb n) (valZ (Znth 16 Exp100.ExpTable.C))
+      (Z.to_nat (15 + 1)) = M.horner (M.rarg xb n)).
+  { rewrite <- (Cv_Znth 16) by lia.
+    change (Z.to_nat 16) with 16%nat; change (Z.to_nat (15 + 1)) with 16%nat.
+    split.
+    - pose proof (Cv_bound 16 (le_n _)) as Hc.
+      change (2 ^ Exp100.ExpConsts.P) with (2 ^ 160) in Hc.
+      unfold h_bits; zpow; lia.
+    - rewrite horner_start; reflexivity. }
+  (* a concrete row of C in a goal is evaluated by entailer!: name it *)
+  remember (Znth 16 Exp100.ExpTable.C) as c16 eqn:Ec; clear Ec.
+  forward_loop (EX i : Z, EX hl : list Z,
+    PROP (-1 <= i < 16; Zlength hl = NL; Forall limb hl;
+          valZ hl < 2 ^ h_bits;
+          M.horner_from (M.rarg xb n) (valZ hl) (Z.to_nat (i + 1)) =
+            M.horner (M.rarg xb n))
+    LOCAL (temp _i (Vint (Int.repr i));
+           temp _Nu (Vlong (Int64.repr (M.Nu xb n)));
+           lvar _t (tarray tulong 6) v_t; lvar _h (tarray tulong 6) v_h;
+           lvar _r (tarray tulong 6) v_r; lvar _q1 (tarray tulong 6) v_q1;
+           lvar _q (tarray tulong 6) v_q; lvar _X (tarray tulong 6) v_X;
+           gvars gv; temp _y py; temp _s ps)
+    SEP (data_at Ers (tarray (tarray tulong 6) 17)
+           (map vwords Exp100.ExpTable.C) (gv _C);
+         num Tsh hl v_h; num Tsh rl v_r;
+         num Ers Exp100.ExpTable.RMAX (gv _RMAX); num Tsh Xl v_X;
+         num Tsh q2l v_q; num Tsh q3l v_q1;
+         data_at Ers (tarray (tarray tulong 6) 64)
+           (map vwords Exp100.ExpTable.T) (gv _T);
+         data_at_ Tsh (tarray tulong 6) v_t; data_at_ sh (tarray tulong 6) py;
+         data_at_ sh tlong ps; num Ers Exp100.ExpTable.LN2 (gv _LN2);
+         data_at Ers tulong (Vlong (Int64.repr Exp100.ExpTable.INV)) (gv _INV)))
+  continue: (EX i : Z, EX hl : list Z,
+    PROP (0 <= i < 16; Zlength hl = NL; Forall limb hl;
+          valZ hl < 2 ^ h_bits;
+          M.horner_from (M.rarg xb n) (valZ hl) (Z.to_nat i) =
+            M.horner (M.rarg xb n))
+    LOCAL (temp _i (Vint (Int.repr i));
+           temp _Nu (Vlong (Int64.repr (M.Nu xb n)));
+           lvar _t (tarray tulong 6) v_t; lvar _h (tarray tulong 6) v_h;
+           lvar _r (tarray tulong 6) v_r; lvar _q1 (tarray tulong 6) v_q1;
+           lvar _q (tarray tulong 6) v_q; lvar _X (tarray tulong 6) v_X;
+           gvars gv; temp _y py; temp _s ps)
+    SEP (data_at Ers (tarray (tarray tulong 6) 17)
+           (map vwords Exp100.ExpTable.C) (gv _C);
+         num Tsh hl v_h; num Tsh rl v_r;
+         num Ers Exp100.ExpTable.RMAX (gv _RMAX); num Tsh Xl v_X;
+         num Tsh q2l v_q; num Tsh q3l v_q1;
+         data_at Ers (tarray (tarray tulong 6) 64)
+           (map vwords Exp100.ExpTable.T) (gv _T);
+         data_at_ Tsh (tarray tulong 6) v_t; data_at_ sh (tarray tulong 6) py;
+         data_at_ sh tlong ps; num Ers Exp100.ExpTable.LN2 (gv _LN2);
+         data_at Ers tulong (Vlong (Int64.repr Exp100.ExpTable.INV)) (gv _INV)))
+  break: (EX hl : list Z,
+    PROP (Zlength hl = NL; Forall limb hl; valZ hl < 2 ^ h_bits;
+          valZ hl = M.horner (M.rarg xb n))
+    LOCAL (temp _Nu (Vlong (Int64.repr (M.Nu xb n)));
+           lvar _t (tarray tulong 6) v_t; lvar _h (tarray tulong 6) v_h;
+           lvar _r (tarray tulong 6) v_r; lvar _q1 (tarray tulong 6) v_q1;
+           lvar _q (tarray tulong 6) v_q; lvar _X (tarray tulong 6) v_X;
+           gvars gv; temp _y py; temp _s ps)
+    SEP (data_at Ers (tarray (tarray tulong 6) 17)
+           (map vwords Exp100.ExpTable.C) (gv _C);
+         num Tsh hl v_h; num Tsh rl v_r;
+         num Ers Exp100.ExpTable.RMAX (gv _RMAX); num Tsh Xl v_X;
+         num Tsh q2l v_q; num Tsh q3l v_q1;
+         data_at Ers (tarray (tarray tulong 6) 64)
+           (map vwords Exp100.ExpTable.T) (gv _T);
+         data_at_ Tsh (tarray tulong 6) v_t; data_at_ sh (tarray tulong 6) py;
+         data_at_ sh tlong ps; num Ers Exp100.ExpTable.LN2 (gv _LN2);
+         data_at Ers tulong (Vlong (Int64.repr Exp100.ExpTable.INV))
+           (gv _INV))).
+  { forward. Exists 15 c16. entailer!. }
+  { Intros i hl.
+    forward_if.
+    2: { forward. Exists hl. entailer!.
+         rewrite <- H3; replace (i + 1) with 0 by lia.
+         rewrite horner_from_0; reflexivity. }
+    assert (Hi : (Z.to_nat i <= Exp100.ExpConsts.DEG)%nat)
+      by (change Exp100.ExpConsts.DEG with 16%nat; lia).
+    pose proof (valZ_bounds hl H1) as Bh.
+    destruct (horner_step (valZ hl) (M.rarg xb n) (Z.to_nat i))
+      as [Hm [Hp Hs]]; [lia|exact Br|exact Hi|].
+    forward_call (Tsh, Tsh, Tsh, v_t, v_h, v_r, hl, rl).
+    { rewrite Hr; exact Hm. }
+    Intros tl.
+    rewrite (table_row Ers NC Exp100.ExpTable.C i (gv _C))
+      by (auto; rewrite ?Zlength_C; lia).
+    Intros.
+    destruct (C_num i) as [HlCi HfCi]; [lia|].
+    forward_call (Tsh, Ers, v_t, offset_val (48 * i) (gv _C), tl,
+                  Znth i Exp100.ExpTable.C).
+    { rewrite H7, Hr, <- Cv_Znth by lia.
+      unfold num_bits, h_bits in *; change limb_bits with 32 in *; zpow; lia. }
+    Intros tl'.
+    gather_SEP (num Ers (Znth i Exp100.ExpTable.C) _)
+               (rows_but Ers 17 (map vwords Exp100.ExpTable.C) i (gv _C)).
+    rewrite <- (table_row Ers NC Exp100.ExpTable.C i (gv _C))
+      by (auto; rewrite ?Zlength_C; lia).
+    sep_apply (num_data_at_ Tsh hl v_h).
+    forward_call (Tsh, Tsh, v_h, v_t, tl').
+    sep_apply (num_data_at_ Tsh tl' v_t).
+    Exists i tl'.
+    entailer!.
+    rewrite H10, H7, Hr, <- Cv_Znth by lia.
+    split; [exact Hs|].
+    rewrite <- H3, Z2Nat.inj_add, Nat.add_1_r, horner_from_S by lia.
+    reflexivity. }
+  { Intros i hl.
+    forward.
+    Exists (i - 1) hl.
+    entailer!.
+    replace (i - 1 + 1) with i by lia; exact H3. }
+  Intros hl.
+  rename H into Hlh, H0 into Hfh, H1 into Bh, H2 into Hh.
+  assert (BN : 0 <= M.Nu xb n < 2 ^ 18)
+    by (apply (Nu_bound xb n); unfold n_bits; lia).
+  clear E16 HlC HfC c16.
+  (* j = Nu mod 64 *)
+  forward.
+  change (Int.signed (Int.sub (Int.repr 64) (Int.repr 1))) with (2 ^ 6 - 1).
+  rewrite and_ones by (zpow; rep_lia).
+  assert (Ej : M.Nu xb n mod 2 ^ 6 = M.jidx (M.Nu xb n))
+    by (rewrite M.jidxE; reflexivity).
+  rewrite Ej; clear Ej.
+  assert (Bj : 0 <= M.jidx (M.Nu xb n) < NT)
+    by (rewrite M.jidxE; apply Z.mod_pos_bound; reflexivity).
+  (* y = floor(T_j h / 2^P) *)
+  rewrite (table_row Ers NT Exp100.ExpTable.T (M.jidx (M.Nu xb n)) (gv _T))
+    by (auto; rewrite ?Zlength_T; lia).
+  Intros.
+  destruct (T_num (M.jidx (M.Nu xb n))) as [HlT HfT]; [lia|].
+  forward_call (sh, Ers, Tsh, py, offset_val (48 * M.jidx (M.Nu xb n)) (gv _T),
+                v_h, Znth (M.jidx (M.Nu xb n)) Exp100.ExpTable.T, hl).
+  { rewrite <- Tv_Znth by lia.
+    assert (Bt : 0 <= M.Tv (M.jidx (M.Nu xb n)) < 2 ^ t_bits)
+      by (apply Tv_bound; change Exp100.ExpConsts.TAB with 64; lia).
+    pose proof (valZ_bounds hl Hfh) as Bh0.
+    change (2 ^ (Exp100.ExpConsts.P + num_bits)) with (2 ^ 352).
+    unfold t_bits, h_bits in *; zpow; nia. }
+  Intros yl.
+  rename H into Hly, H0 into Hfy, H1 into Hy.
+  (* *s = Nu / 64 - 2048 *)
+  forward.
+  assert (BNh : 0 <= M.Nu xb n / 2 ^ 6 < 2 ^ 12).
+  { split; [apply Z.div_pos|apply Z.div_lt_upper_bound]; zpow; lia. }
+  { entailer!.
+    rewrite shru_repr by (zpow; rep_lia).
+    rewrite Int64.signed_repr by (zpow; rep_lia).
+    zpow; rep_lia. }
+  change (Int.unsigned (Int.repr 6)) with 6.
+  change (Int.signed (Int.repr 2048)) with 2048.
+  rewrite shru_repr, sub64_repr by (zpow; rep_lia).
+  assert (Eh : M.Nu xb n / 2 ^ 6 - 2048 = M.hidx (M.Nu xb n))
+    by (rewrite M.hidxE; reflexivity).
+  rewrite Eh; clear Eh.
+  assert (Hc : M.core_Z xb = inr (valZ yl, M.hidx (M.Nu xb n))).
+  { rewrite (core_Z_ok xb n Bx Hred HrR), Hy, Hh, <- Tv_Znth by lia.
+    reflexivity. }
+  (* return 0 *)
+  forward.
+  Exists 0 yl (M.hidx (M.Nu xb n)).
+  pose proof (table_row Ers NT Exp100.ExpTable.T (M.jidx (M.Nu xb n)) (gv _T)
+                Bj Zlength_T FcT) as ET.
+  sep_apply (derives_refl' _ _ (eq_sym ET)).
+  sep_apply (num_data_at_ Tsh hl v_h); sep_apply (num_data_at_ Tsh rl v_r).
+  sep_apply (num_data_at_ Tsh Xl v_X); sep_apply (num_data_at_ Tsh q2l v_q).
+  sep_apply (num_data_at_ Tsh q3l v_q1).
+  cbn [Z.eqb]; unfold consts.
+  entailer!.
+Qed.
