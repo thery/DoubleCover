@@ -50,6 +50,13 @@ change is checked in two ways:
 | `evaluate.elpi` | Running the functions of a case with the evaluators (`run`, `tangent`, `signatures`, `l1-run`, `passes`, `l2-run`, `l2-signature`, `l2-same`); not loaded by `adjudge.elpi`. |
 | `adjudge.elpi` | The driver: accumulates everything, `main` and `terms`. |
 
+## In Rocq
+
+`rocq/` holds the same definitions in Rocq: the same languages, the same
+constructors, and the same evaluators over the reals, towards a proof that the
+passes are correct. See `rocq/README.md` for the correspondence; the passes are
+still to be written there.
+
 ## The languages and their Elpi types
 
 Each intermediate language is a family of Elpi types, so that Elpi's
