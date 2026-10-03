@@ -13,9 +13,12 @@
 accumulate adjudge.
 accumulate numbers.
 accumulate eval.
+accumulate exec.
 
 shorten adjudge.{ floats, duals, eval-function, read-arguments, val-string, signature-string, ty-string,
-                  split-at, definition-decls, seed, dual-strings }.
+                  split-at, definition-decls, seed, dual-strings,
+                  l2-program, l2-param-strings, l2-read-arguments, read-argument, exec-dfunction,
+                  check, mode-value, annotate, differentiate, simplify, dname, var-name }.
 
 % run [Name | Args]: prints the value of the function Name of the case on Args.
 func run list string.
@@ -41,6 +44,31 @@ tangent [Name | Rest] :- !,
      (M is "no function `" ^ Name ^ "` in the case", std.fatal-error M).
 tangent _ :- std.fatal-error "usage: ... -exec tangent -- <function> <argument>.. / <tangent>..".
 
+% l2-signature [Mode, Stage, Name]: prints the parameters of the L2 program of
+% Name, one per line as name:passing:type, then its result: the tangent, the
+% adjoint or the adjoint-value (Mode), before or after simplification (Stage:
+% derivative or simplified). The order is that of the generated C++.
+func l2-signature list string.
+l2-signature [Mode, Stage, Name] :- !,
+  std.findall (primal (function Name _)) Ps,
+  if (Ps = [primal F | _]) true (std.fatal-error "no such function"),
+  l2-program Mode Stage F (dfunction _ Body), l2-param-strings Body 1 Ls, std.forall Ls (l\ print l).
+l2-signature _ :- std.fatal-error "usage: ... -exec l2-signature -- tangent|adjoint|adjoint-value derivative|simplified <function>".
+
+% l2-run [Mode, Stage, Name | Args]: executes that program over floats on Args,
+% one argument per parameter, read as for run; prints the final value of each
+% parameter, one per line, then the returned value, or "void".
+func l2-run list string.
+l2-run [Mode, Stage, Name | Args] :- !,
+  std.findall (primal (function Name _)) Ps,
+  if (Ps = [primal F | _]) true (std.fatal-error "no such function"),
+  l2-program Mode Stage F (dfunction N Body), floats Dom,
+  l2-read-arguments Body Args Vs,
+  exec-dfunction Dom (dfunction N Body) Vs Finals Ret,
+  std.forall Finals (v\ sigma S\ val-string v S, print S),
+  if (Ret = [R]) (val-string R SR, print SR) (print "void").
+l2-run _ :- std.fatal-error "usage: ... -exec l2-run -- tangent|adjoint|adjoint-value derivative|simplified <function> <argument>..".
+
 % signatures []: prints the signature of each function of the case, one per
 % line: its name, its arguments as name:type:role, and its result.
 func signatures list string.
@@ -49,6 +77,40 @@ signatures _ :-
   std.forall Ps (p\ sigma F S\ p = primal F, signature-string F S, print S).
 
 namespace adjudge {
+
+% l2-program Mode Stage F P: the L2 program the tool generates for F.
+func l2-program string, string, function -> dfunction.
+l2-program Mode Stage F P :-
+  if (check F (pr (some A) ok)) true (std.fatal-error "the function is refused (see diagnostics)"),
+  mode-value Mode V, annotate V A A1, differentiate Mode A1 P0,
+  if (Stage = "simplified") (simplify P0 P) (P = P0).
+
+% The parameters, as name:passing:type, with their names as the C++ will have them.
+func l2-param-strings scoped dbody, int -> list string.
+l2-param-strings (named N F) K L :- !, pi v\ dname v N =!=> l2-param-strings (F v) K L.
+l2-param-strings (fresh P F) K L :- !, X is P ^ int_to_string K, K1 is K + 1,
+  pi v\ dname v X =!=> l2-param-strings (F v) K1 L.
+l2-param-strings (done (dbody R Ps _)) _ L :-
+  std.map Ps (p\ s\ sigma P T V N W TS\ p = dparam P T V, var-name V N, pass-name P W, ty-string T TS,
+                    s is N ^ ":" ^ W ^ ":" ^ TS) L0,
+  if (R = d-returns-real) (std.append L0 ["-> returns real"] L) (std.append L0 ["-> void"] L).
+
+func pass-name dpass -> string.
+pass-name by-value "value".
+pass-name by-ref "ref".
+pass-name by-cref "cref".
+pass-name by-ref-unused "unused".
+
+% l2-read-arguments Body Ss Vs: one value per parameter, read from Ss by its type.
+func l2-read-arguments scoped dbody, list string -> list (val float).
+l2-read-arguments (named _ F) Ss Vs :- !, pi v\ l2-read-arguments (F v) Ss Vs.
+l2-read-arguments (fresh _ F) Ss Vs :- !, pi v\ l2-read-arguments (F v) Ss Vs.
+l2-read-arguments (done (dbody _ Ps _)) Ss Vs :- l2-read-params Ps Ss Vs.
+
+func l2-read-params list dparam, list string -> list (val float).
+l2-read-params [] [] [] :- !.
+l2-read-params [dparam _ T _ | Ps] Ss [V | Vs] :- !, read-argument T Ss V Rest, l2-read-params Ps Rest Vs.
+l2-read-params _ _ _ :- std.fatal-error "the arguments do not match the parameters".
 
 func signature-string function -> string.
 signature-string (function N D) S :- definition-strings D As R, std.string.concat " " [N | As] S0, S is S0 ^ " -> " ^ R.

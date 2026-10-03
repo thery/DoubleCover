@@ -45,7 +45,8 @@ change is checked in two ways:
 | `dump.elpi` | Readable printers for L1, L1ᵃ and L2, to debug the passes (`dump` mode). |
 | `numbers.elpi` | Domains of numbers for the evaluators: the record of the operations on the reals of a domain; floats, and dual numbers over any domain. |
 | `eval.elpi` | The evaluator of L0, polymorphic in the domain of numbers. |
-| `evaluate.elpi` | Running the functions of a case with the evaluator (`run`, `tangent`, `signatures`); not loaded by `adjudge.elpi`. |
+| `exec.elpi` | The evaluator of L2: executes the derivative programs (tangent, adjoint) with a store indexed by their variables. |
+| `evaluate.elpi` | Running the functions of a case with the evaluators (`run`, `tangent`, `signatures`, `l2-run`, `l2-signature`); not loaded by `adjudge.elpi`. |
 | `adjudge.elpi` | The driver: accumulates everything, `main` and `terms`. |
 
 ## The languages and their Elpi types
@@ -270,6 +271,28 @@ An argument is a real literal, an integer, or, for an array of N reals, N real
 literals in a row; the result is the returned value, or the new value of the
 written argument. For `tangent`, the tangents after `/` are one real for each
 real of an argument that is not passive; a passive real has a zero tangent.
+
+**The derivative programs, executed.** `exec.elpi` is the evaluator of L2.
+L2 is imperative, so it threads a store: a list of pairs of a variable and its
+value, where a variable is a `dvar`, an Elpi variable bound by the function,
+or one derived from it (`bar-of v`, `tape-of v`); the store needs no names. Its
+values and its operations are those of the evaluator of L0, in the same domains
+of numbers; a tape is a list of reals. One evaluator runs every program the tool
+generates, tangents and adjoints, before and after simplification:
+
+```
+elpi … -exec l2-signature -- adjoint simplified f       % x1:value:real x2:value:real x1_bar:ref:real …
+elpi … -exec l2-run -- adjoint simplified f 2.0 3.0 0.0 0.0 1.0
+                                                         % x1_bar = 2.58385316345, x2_bar = 2
+```
+
+The parameters come in the order of the generated C++; `l2-run` prints the
+final value of each, then the returned value. The derivative programs are thus
+checked against the source without any C++: at random points, the tangent gives
+the value and the tangent of the source over dual numbers, the adjoint passes
+the dot-product test ⟨ȳ, J ẋ⟩ = ⟨x̄, ẋ⟩ with J ẋ from the dual numbers, and
+the adjoint-value also gives the value of the source, each before and after
+simplification (530 checks on the reference cases).
 
 This checks the generated code against a semantics of the source. On the
 reference cases, at 140 random points and random tangents, the evaluator over
