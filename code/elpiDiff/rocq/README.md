@@ -5,9 +5,9 @@ languages, the same constructors with their arguments in the same order, and
 the same evaluators, over the reals of Rocq instead of floats, and the passes,
 one function per Elpi predicate. They are meant to state, then prove, that the
 passes of elpiDiff are correct. There are no theorems yet. The passes written
-so far: the operations table, `normalize`, `well-formed`; still to come: the
-analyses (`activity`, `tbr`), `annotate`, `tangent`, `adjoint`, `simplify`,
-`lower`, `cxx`. The passes compute: `Compute` runs them on a function written
+so far: the operations table, `normalize`, `well-formed`, the analyses
+(`activity`, `tbr`) and `annotate`; still to come: `tangent`, `adjoint`,
+`simplify`, `lower`, `cxx`. The passes compute: `Compute` runs them on a function written
 in Rocq.
 
 ```
@@ -29,6 +29,10 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
 | `Operations.v` | the table of `operations.elpi` | `operation1`, `operation2` (the rows, first row or first match), `extra_arguments`, `partial1`, `partial2`, `unary_name`, `binary_name` |
 | `Normalize.v` | the pass of `anf.elpi` | `normalize` (L0 to L1: `norm`, `norm_body`, `normalize_definition`), `expressible`, `declarations` |
 | `WellFormed.v` | `well-formed.elpi` | `diagnostic`; `well_formed`, `typecheck`, `typecheck_value`, `type_of`, `occurs`, `reads_around_inner_loop` |
+| `Atoms.v` | the atom sets and `atoms-of` of `anf.elpi` | `avar` (the variables of the analyses), `same_term`, `atom_member`, `atom_remove`, `atom_union`, `atoms_of_*` |
+| `Activity.v` | `activity.elpi` | `varied`, `varied_value`, `varied_anf`, `fold_varied`, `let_binder`, `fold_binders` |
+| `Tbr.v` | `tbr.elpi` | `sweep`; `needs`, `value_needs`, `read_by`, `records`, `records_in`, `state_live` |
+| `Annotate.v` | `annotate.elpi` | `annotate` (L1 to L1ᵃ), in two traversals |
 
 ## From Elpi to Rocq
 
@@ -65,11 +69,19 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
   its variable (`of x T`, `argument x N R` in `well-formed`), the variables are
   instantiated with the record of that information (`vinfo`), whose identity,
   numbered in order, is what Elpi's `same_term` and `occurs` compare.
+- **A pass whose input and output need different variables.** `annotate`
+  reads its input with the variables of the analyses (`avar`: an identity and
+  whether it is varied) and builds a term over any variables V. Elpi does both
+  in one traversal; in PHOAS the closed input is instantiated twice: a first
+  traversal computes the annotations into a tree that follows the lets and
+  folds, a second rebuilds the term with them.
 - **Relations queried in several modes.** `operation2` has several rows per
   operator and a cut on the first: the table is kept as rows, with one
   function per use (`operation2`, the first row; `operation2_typed`, the
   first row matching given operand types).
-- **One declaration per type.** A Rocq inductive is declared in one place:
+- **One declaration per type.** `comparison`, defined in `activity.elpi` from
+  the operations table, is in `Operations.v`, with the same definition, so that
+  the evaluators use it too. A Rocq inductive is declared in one place:
   the operators of `operations.elpi` are in `unary` and `binary` with
   `unknown1` and `unknown2` of `syntax.elpi`; `v-tape` of `exec.elpi` is in
   `val` with the values of `eval.elpi`; the key `returned` of `exec.elpi` is a

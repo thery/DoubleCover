@@ -9,7 +9,7 @@
    array). *)
 
 From Stdlib Require Import String ZArith List.
-From ElpiDiff Require Import Syntax Domain.
+From ElpiDiff Require Import Syntax Domain Operations.
 
 Import ListNotations.
 Open Scope Z_scope.
@@ -28,10 +28,6 @@ Arguments VArray {N}.  Arguments VTape {N}.
 
 Notation "'let*' x := a 'in' b" := (match a with Some x => b | None => None end)
   (at level 200, x pattern, b at level 200).
-
-(* comparison F (activity.elpi): F gives a boolean. *)
-Definition comparison (f : binary) : bool :=
-  match f with Lt | Le | Gt | Ge => true | _ => false end.
 
 (* std.nth and replace-nth on a list, at an integer index. *)
 Definition nth_z {A : Type} (k : Z) (l : list A) : option A :=

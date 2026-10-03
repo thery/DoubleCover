@@ -10,3 +10,7 @@ Exec.v
 Operations.v
 Normalize.v
 WellFormed.v
+Atoms.v
+Activity.v
+Tbr.v
+Annotate.v

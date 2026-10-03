@@ -71,6 +71,10 @@ Definition operation2_typed (f : binary) (ta tb : ty) : option (ty * string) :=
   | None => None
   end.
 
+(* comparison F (activity.elpi): the first row of F gives a boolean. *)
+Definition comparison (f : binary) : bool :=
+  match operation2 f with Some (_, _, Boolean, _) => true | _ => false end.
+
 Section Partials.
 Variable V : Type.
 
