@@ -89,3 +89,11 @@ Traps
 - split3_data_at_Tarray leaves naturally_aligned (simpl; tauto) and
   m <= Zlength rows (give the equation, lia fails).
 - Forall_Znth of VST is an iff: apply (proj1 (Forall_Znth _ _) H).
+- A name made by `set` does not survive entailer! (it is unfolded): use
+  remember ... eqn:E, keep the needed facts, clear the equations first.
+- simpl on valZ turns 2^32 into Z.pow_pos 2 32 + 0: use cbn [valZ].
+- nia on a carry step with a local definition can run 47 s and fail;
+  abstract the quotient and remainder, rewrite, then lia (< 1 s).
+- A store of (MASK + 1) leaves 4294967295 + 1: replace by 2^32 first.
+- After a store, `unfold vwords; list_solve` closes the list equation;
+  for Vlong (Int64.repr (Znth i b)), rewrite <- Znth_vwords first.
