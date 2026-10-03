@@ -51,3 +51,15 @@ mathematics is shared; the loop proofs of VST serve as a canvas for Capla.
    unchanged.
 
 When: after T2, T5 and T6 end, not while their agents edit these files.
+
+Follow-ups found by the Capla bridge (capla/exp100/proof/Bridge.v)
+------------------------------------------------------------------
+1. Name the base: a Definition limb_base k := 2 ^ (limb_bits * Z.of_nat k)
+   used by ExpLimbs.v; Capla's base32 k is then one rewrite.
+2. Move valZ, limb, limb_bits, num and NL out of ExpConsts.v into a small
+   file without Reals, Interval or Bignums, that ExpLimbs.v imports: every
+   limb proof would stop loading the reals.
+3. valZ_upd is on firstn k xs ++ v :: skipn (S k) xs; VST (upd_Znth) and
+   Capla (replace, see replace_unsigned) each need one conversion lemma.
+4. carry_end is in ExpLimbs.v and NumAddProof.v with the same statement:
+   drop the copy in NumAddProof.v when it switches to the shared lemmas.

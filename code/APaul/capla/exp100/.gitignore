@@ -1,2 +1,4 @@
 test_capla
 proof/exp100.v
+proof/exp100-model/
+proof/_CoqProject
