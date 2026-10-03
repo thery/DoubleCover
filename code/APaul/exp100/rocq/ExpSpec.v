@@ -40,6 +40,8 @@ assert (Hbe : (xbexp xb < be_big)%Z).
   discriminate. }
 pose proof (core_bound xb y hN (xreal xb) Hxb Hc (xreal_is_x xb Hxb Hbe))
   as Hb.
-pose proof (decide_ok y hN _ Hd Hb k) as Hk'.
+assert (Hy : (D < y)%Z).
+{ pose proof (core_y_ge xb y hN Hxb Hc); unfold D, P in *; lia. }
+pose proof (decide_ok y hN _ Hy Hd Hb k) as Hk'.
 unfold vof in Hk; lra.
 Qed.
