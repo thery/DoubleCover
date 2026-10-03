@@ -68,7 +68,7 @@ Design choices (choices, not constraints)
 Error budget (`make budget`, computed by MPFR, rounded up; u = 2^-160)
 --------------------------------------------------------------------
 With r* = x - N ln2/64 the exact reduced argument, r the computed one
-(r <= rmax = ln2/64 + 3u = 0.010830), h the Horner value, p the Taylor
+(r <= rmax = ln2/64 + 3u < 0.010831), h the Horner value, p the Taylor
 polynomial of degree 16, and exp(x) = 2^h 2^(j/64) exp(r*):
 
   source                                       bound
@@ -149,8 +149,12 @@ x the double of bits xb.  Each piece is a file with a fixed statement.
    defined.  No real numbers in this step.
 3. The constants (Rocq, Interval by reflection, or exact rationals): the
    T_j within 1/2 of 2^(j/64) 2^160 (64 goals), LN2 within 1/2 of
-   ln2/64 2^192, RMAX >= ln2/64 2^160 + 3, C_i = floor(2^160 / i!)
-   (exact, by computation).  INV needs no certificate: n is checked.
+   ln2/64 2^192, RMAX = ceil(ln2/64 2^160) + 3 (so r < RMAX gives
+   r u <= rmax), C_i = floor(2^160 / i!) (exact, by computation).  INV
+   needs no certificate: n is checked.  PROVED in rocq/ (ExpConsts.v:
+   T_ok, LN2_ok, RMAX_ok, ltZ_rmax, C_ok, and the Taylor line of the
+   budget, taylor_rem_le); ExpTable.v is generated from exp100_table.h
+   by gen_v.py and make checks that they agree.
 4. The error bound (Rocq, reals, no C): from step 2's integer relations
    and step 3's bounds, |exp(x) - y 2^(h-160)| <= 16 2^(h-160).  The
    pieces are those of the budget table: the Taylor remainder (Rocq's
