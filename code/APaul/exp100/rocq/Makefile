@@ -4,7 +4,7 @@
 # switch native).
 COQFLAGS := -R . Exp100
 
-all: ExpConsts.vo
+all: ExpConsts.vo ExpModel.vo
 
 # ExpTable.v must be the text gen_v.py writes from the C table
 check-table: gen_v.py ../exp100_table.h ExpTable.v
@@ -15,6 +15,7 @@ table:
 
 ExpTable.vo: check-table
 ExpConsts.vo: ExpTable.vo
+ExpModel.vo: ExpConsts.vo
 
 %.vo: %.v
 	coqc $(COQFLAGS) $<
