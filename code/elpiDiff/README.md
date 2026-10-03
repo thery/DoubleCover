@@ -43,9 +43,9 @@ change is checked in two ways:
 | `cxx.elpi` | Printing the target language as C++. |
 | `show.elpi` | Printing a generated function as an Elpi term. |
 | `dump.elpi` | Readable printers for L1, L1ᵃ and L2, to debug the passes (`dump` mode). |
-| `numbers.elpi` | Domains of numbers for the evaluators: the record of the operations on the reals of a domain; the domain of floats. |
+| `numbers.elpi` | Domains of numbers for the evaluators: the record of the operations on the reals of a domain; floats, and dual numbers over any domain. |
 | `eval.elpi` | The evaluator of L0, polymorphic in the domain of numbers. |
-| `evaluate.elpi` | Running the functions of a case with the evaluator (`run`, `signatures`); not loaded by `adjudge.elpi`. |
+| `evaluate.elpi` | Running the functions of a case with the evaluator (`run`, `tangent`, `signatures`); not loaded by `adjudge.elpi`. |
 | `adjudge.elpi` | The driver: accumulates everything, `main` and `terms`. |
 
 ## The languages and their Elpi types
@@ -236,9 +236,17 @@ The evaluator is **polymorphic in the domain of numbers**. A domain is a record
 of operations (`numbers.elpi`): how a literal reads, how the operations and the
 comparisons of `operations.elpi` compute. Elpi does not let a clause fix the
 type of a polymorphic predicate, hence a record rather than one clause per
-domain. The domain of floats computes as the C++ doubles do; dual numbers,
-for derivatives, will be another record, with no change to the evaluator.
-Integers (bounds, indices) and booleans are exact in every domain.
+domain. The domain of floats computes as the C++ doubles do. Integers
+(bounds, indices) and booleans are exact in every domain.
+
+**The tangent, for free.** `duals B` is the domain of dual numbers over any
+domain B: a pair `dual X DX`, a value and its tangent, where each operation
+computes its value in B and its tangent by the chain rule, with the partial
+derivatives of `operations.elpi` computed in B. Evaluating a function in
+`duals floats`, with inputs `dual x dx`, gives its value and its tangent
+dy = J dx: forward differentiation by the evaluator itself, with no
+transformation of the program. Over `duals (duals floats)` the same evaluator
+gives second derivatives.
 
 The evaluator uses float functions that Elpi 3.7.1 lacks (`fexp`, `pow`,
 `string_to_real`, proposed in LPCIC/elpi#459), so it lives in files that
@@ -252,14 +260,22 @@ accumulate primal.
 
 ```
 elpi -I . -I <case> <that file> -exec run -- f 2.0 3.0         % 6.90929742683
+elpi -I . -I <case> <that file> -exec tangent -- f 2.0 3.0 / 1.0 0.0
+                                                               % 6.90929742683   the value
+                                                               % 2.58385316345   ∂f/∂x1 = x2 + cos x1
 elpi -I . -I <case> <that file> -exec signatures               % f x1:real:independent x2:real:independent -> returns real
 ```
 
 An argument is a real literal, an integer, or, for an array of N reals, N real
 literals in a row; the result is the returned value, or the new value of the
-written argument. On the reference cases, the evaluator agrees with the
-compiled C++ primal at 140 random points (relative tolerance 1e-10, since Elpi
-prints 12 significant digits).
+written argument. For `tangent`, the tangents after `/` are one real for each
+real of an argument that is not passive; a passive real has a zero tangent.
+
+This checks the generated code against a semantics of the source. On the
+reference cases, at 140 random points and random tangents, the evaluator over
+floats agrees with the compiled C++ primal, and over dual numbers with the
+compiled tangent that the tool generates, value and tangent (relative tolerance
+1e-10, since Elpi prints 12 significant digits).
 
 ## The passes on an example
 

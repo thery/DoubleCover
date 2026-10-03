@@ -14,7 +14,8 @@ accumulate adjudge.
 accumulate numbers.
 accumulate eval.
 
-shorten adjudge.{ floats, eval-function, read-arguments, val-string, signature-string, ty-string }.
+shorten adjudge.{ floats, duals, eval-function, read-arguments, val-string, signature-string, ty-string,
+                  split-at, definition-decls, seed, dual-strings }.
 
 % run [Name | Args]: prints the value of the function Name of the case on Args.
 func run list string.
@@ -25,6 +26,20 @@ run [Name | Args] :- !,
       val-string V S, print S)
      (M is "no function `" ^ Name ^ "` in the case", std.fatal-error M).
 run _ :- std.fatal-error "usage: elpi -I <elpiDiff> -I <case> <file accumulating evaluate and the case> -exec run -- <function> <argument>..".
+
+% tangent [Name | Args ++ ["/" | Dots]]: prints the value of the function Name
+% on Args, then its tangent along Dots, computed by the same evaluator in the
+% domain of dual numbers over floats. Dots holds one real per real of the
+% arguments that are not passive, in order; a passive real has a zero tangent.
+func tangent list string.
+tangent [Name | Rest] :- !,
+  split-at "/" Rest Args Dots,
+  std.findall (primal (function Name _)) Ps,
+  if (Ps = [primal (function Name D) | _])
+     (floats F, duals F Dom, read-arguments D Args Vs, definition-decls D Decls, seed Decls Vs Dots Ws,
+      eval-function Dom (function Name D) Ws V, dual-strings V SV SD, print SV, print SD)
+     (M is "no function `" ^ Name ^ "` in the case", std.fatal-error M).
+tangent _ :- std.fatal-error "usage: ... -exec tangent -- <function> <argument>.. / <tangent>..".
 
 % signatures []: prints the signature of each function of the case, one per
 % line: its name, its arguments as name:type:role, and its result.
@@ -59,6 +74,39 @@ func read-argument ty, list string -> val float, list string.
 read-argument real [S | Ss] (v-real X) Ss :- !, X is string_to_real S.
 read-argument integer [S | Ss] (v-int K) Ss :- !, K is string_to_int S.
 read-argument (array N) Ss (v-array Xs) Rest :- std.take N Ss Ts, std.drop N Ss Rest, std.map Ts (s\ x\ x is string_to_real s) Xs.
+
+func split-at string, list string -> list string, list string.
+split-at X [X | L] [] L :- !.
+split-at X [Y | L] [Y | A] B :- split-at X L A B.
+
+func definition-decls definition -> list decl.
+definition-decls (body _ _) [] :- !.
+definition-decls (arg N T R F) [decl N T R | Ds] :- pi x\ definition-decls (F x) Ds.
+
+% seed Ds Vs Dots Ws: the arguments Vs as dual numbers, with their tangents
+% taken from Dots for the arguments that are not passive.
+func seed list decl, list (val float), list string -> list (val (dual float)).
+seed [] [] [] [] :- !.
+seed [decl _ integer _ | Ds] [v-int K | Vs] Ss [v-int K | Ws] :- !, seed Ds Vs Ss Ws.
+seed [decl _ real passive | Ds] [v-real X | Vs] Ss [v-real (dual X 0.0) | Ws] :- !, seed Ds Vs Ss Ws.
+seed [decl _ real _ | Ds] [v-real X | Vs] [S | Ss] [v-real (dual X DX) | Ws] :- !,
+  DX is string_to_real S, seed Ds Vs Ss Ws.
+seed [decl _ (array _) passive | Ds] [v-array Xs | Vs] Ss [v-array Ys | Ws] :- !,
+  std.map Xs (x\ y\ y = dual x 0.0) Ys, seed Ds Vs Ss Ws.
+seed [decl _ (array N) _ | Ds] [v-array Xs | Vs] Ss [v-array Ys | Ws] :- !,
+  std.take N Ss Ts, std.drop N Ss Rest,
+  std.map2 Xs Ts (x\ t\ y\ sigma DX\ DX is string_to_real t, y = dual x DX) Ys,
+  seed Ds Vs Rest Ws.
+seed _ _ _ _ :- std.fatal-error "the tangents do not match the declaration of the function".
+
+% dual-strings V SV SD: the value and the tangent of V.
+func dual-strings val (dual float) -> string, string.
+dual-strings (v-real (dual X D)) SX SD :- !, SX is real_to_string X, SD is real_to_string D.
+dual-strings (v-array Ys) SX SD :- !,
+  std.map Ys (y\ s\ sigma X D\ y = dual X D, s is real_to_string X) Xs, std.string.concat " " Xs SX,
+  std.map Ys (y\ s\ sigma X D\ y = dual X D, s is real_to_string D) Ds, std.string.concat " " Ds SD.
+dual-strings (v-int K) S "0" :- !, S is int_to_string K.
+dual-strings (v-bool B) S "0" :- if (B = tt) (S = "true") (S = "false").
 
 func val-string val float -> string.
 val-string (v-real X) S :- !, S is real_to_string X.
