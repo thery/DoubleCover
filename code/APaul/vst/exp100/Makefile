@@ -14,8 +14,9 @@ MODEL_SRC := $(SRC)/rocq
 MODEL_V := $(MD)/ExpTable.v $(MD)/ExpConsts.v $(MD)/ExpModel.v
 MODEL := $(MODEL_V:.v=.vo)
 PROOFS := exp100_clight.vo Common.vo Spec.vo Rows.vo Verif_simple.vo \
-          Verif_bits.vo Verif_mulshr.vo Verif_reduce.vo Verif_core.vo \
-          Verif_top.vo
+          Verif_bits.vo Verif_mulshr.vo Verif_reduce.vo CoreBounds.vo \
+          Verif_core.vo \
+          TopLemmas.vo Verif_top.vo
 
 all: $(MODEL) $(PROOFS)
 
@@ -44,7 +45,10 @@ Common.vo: $(MODEL) exp100_clight.vo
 Spec.vo Rows.vo: Common.vo
 Verif_simple.vo Verif_bits.vo Verif_mulshr.vo Verif_reduce.vo \
   Verif_core.vo Verif_top.vo: Spec.vo
-Verif_core.vo: Rows.vo
+Verif_core.vo: Rows.vo CoreBounds.vo
+TopLemmas.vo: Spec.vo
+Verif_top.vo: TopLemmas.vo
+CoreBounds.vo: $(MODEL)
 
 clean:
 	rm -f *.vo *.vos *.vok *.glob .*.aux exp100_clight.v

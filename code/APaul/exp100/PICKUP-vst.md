@@ -125,3 +125,13 @@ Traps
 - A file ending in Admitted builds, so make says up to date: touch it.
 - Iterate fast: helpers in their own file compiled once; grow the body
   with admit. Admitted. after the furthest point that passes.
+- forward_if hangs with ExpModel functions in LOCAL: Local Opaque the
+  model functions and the tables (unfold then refuses them).
+- In assertions && is the separation-logic and: write andb, orb.
+- [H|->] does not parse under VST: write [H| ->].
+- A call asking data_at_ does not take a num: sep_apply num_data_at_
+  first (also to free local arrays at each return).
+- lia does not evaluate 2^52 here: the zpow tactic of CoreBounds.v.
+- list_solve on a list built from pack ys ran over 400 s: prove the list
+  step as a lemma on an abstract list (upd_prefix of TopLemmas.v).
+- The scratchpad is shared between agents: use private file names.
