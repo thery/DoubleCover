@@ -104,3 +104,9 @@ Traps
 - Intros on an inner loop's EX names the variable i0: rename it.
 - data_at_ into the first loop invariant: rewrite data_at__eq,
   sublist_nil; apply derives_refl.
+- An invariant with sublist 1 (i + 1) p: before entailer! on the first
+  step, change (0 + 1) with 1; rewrite sublist_nil (else a misleading
+  "simplify_Delta" error at the next forward).
+- forward on a return runs entailer! itself: rewrite with the bit lemma
+  after forward, then entailer!.
+- Rewrite the inner Int64.repr explicitly before !Int64.unsigned_repr.
