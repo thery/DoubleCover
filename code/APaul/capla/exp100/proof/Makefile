@@ -83,6 +83,7 @@ ReduceLemmas.vo: Specs.vo
 TopLemmasCapla.vo: Specs.vo $(MD)/ExpModelBounds.vo
 ReduceProof.vo: NumMulProof.vo ReduceLemmas.vo GroupALemmas.vo
 ExpTopGen.vo: TopLemmasCapla.vo GroupALemmas.vo
+ExpEnclGen.vo: TopLemmasCapla.vo GroupALemmas.vo
 ExpTopProof.vo: ExpTopGen.vo
 # the final theorems, on the reals
 CaplaFinal.vo: ExpTopProof.vo $(MD)/ExpSpec.vo
