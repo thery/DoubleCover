@@ -17,7 +17,10 @@ Require Import ProofTactics.
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
 
-Require Import Exp100Capla.NumAddProof.
+Require Import Exp100Capla.NumAddProof Exp100Capla.NumBasicProof.
+Require Import Exp100Capla.NumSubProof Exp100Capla.NumLtProof.
+Require Import Exp100Capla.NumBitsProof Exp100Capla.NumMulProof.
+Require Import Exp100Capla.ReduceProof.
 
 (** ** Symbolic execution one statement at a time
 
@@ -46,6 +49,53 @@ Proof. by []. Qed.
 (* hnf must not unfold it either *)
 Opaque WPc.
 
+(* the rest of the body is not printed *)
+Notation "'WPc' ..." := (WPc _ _ _ _ _ _) (at level 100, only printing).
+
+
+(** ** The function exp_core and its body, as constants *)
+
+Definition core_fun : function :=
+  Eval cbv beta delta [exp_core138 extract_res] in exp_core138.
+
+Lemma exp_core138E : exp_core138 = core_fun.
+Proof. by []. Qed.
+
+Definition core_body : stmt :=
+  Eval cbv beta delta [core_fun fn_body] iota in fn_body core_fun.
+
+Lemma core_bodyE : fn_body core_fun = core_body.
+Proof. by []. Qed.
+
+(** ** The rest of the body as a suffix of core_body, never unfolded *)
+
+(* the first statement of a sequence, and the others *)
+Definition shd (s : stmt) : stmt := match s with Sseq a _ => a | _ => s end.
+Definition srest (s : stmt) : stmt := match s with Sseq _ r => r | _ => Sskip end.
+Definition sis_seq (s : stmt) : bool :=
+  match s with Sseq _ _ => true | _ => false end.
+
+(* the body without its first k statements *)
+Fixpoint tl (k : nat) (s : stmt) : stmt :=
+  match k with O => s | S k => srest (tl k s) end.
+Arguments tl : simpl never.
+
+Lemma seq_split s : sis_seq s = true -> s = Sseq (shd s) (srest s).
+Proof. by case: s. Qed.
+
+(* expose the first statement of the rest, the others stay folded *)
+Ltac open_tl := lazymatch goal with
+  | |- WPc _ _ (tl ?k ?b) _ _ _ =>
+      let h := eval cbv beta iota delta [shd srest tl core_body] in (shd (tl k b)) in
+      lazymatch eval cbv beta iota delta [sis_seq srest tl core_body] in
+        (sis_seq (tl k b)) with
+      | true =>
+          rewrite (seq_split (tl k b) (erefl true));
+          change (shd (tl k b)) with h; change (srest (tl k b))
+            with (tl (S k) b)
+      | false => change (tl k b) with h
+      end
+  end.
 
 (* a statement that calls no function and tests nothing *)
 Ltac nocall a :=
@@ -56,7 +106,7 @@ Ltac nocall a :=
   end.
 
 (* run the next statement when it calls no function and tests nothing *)
-Ltac wpone := lazymatch goal with
+Ltac wpone := try open_tl; lazymatch goal with
   | |- WPc _ _ (Sseq ?a _) _ _ _ =>
       nocall a; rewrite {1}WPcE -?lock; apply: WP_seq_c; simplWP
   | |- WPc _ _ ?a _ _ _ => nocall a; rewrite {1}WPcE -?lock; simplWP
@@ -68,7 +118,7 @@ Ltac wpone := lazymatch goal with
 Ltac wpauto := repeat (wpone; repeat prog).
 
 (* enter the next statement, whatever it is *)
-Ltac wpenter := lazymatch goal with
+Ltac wpenter := try open_tl; lazymatch goal with
   | |- WPc _ _ (Sseq _ _) _ _ _ =>
       rewrite {1}WPcE -?lock; apply: WP_seq_c; simplWP; repeat prog
   | |- WPc _ _ _ _ _ _ => rewrite {1}WPcE -?lock; simplWP; repeat prog
@@ -272,63 +322,6 @@ Qed.
 
 
 
-Section Core.
-
-(* The callees, through their specs only. *)
-Hypothesis num_copy_spec : forall xs ys e1 result,
-  length xs = 6%nat -> length ys = 6%nat ->
-  eval_funcall ge (Internal num_copy12)
-    [Varr (map Vint64 xs); Varr (map Vint64 ys)] e1 (Some result) ->
-  e1!(param 0 num_copy12) = Some (Varr (map Vint64 ys)).
-
-Hypothesis num_sub_spec : forall xs ys e1 result,
-  length xs = 6%nat -> length ys = 6%nat -> limbs xs -> limbs ys ->
-  (val32 ys <= val32 xs)%Z ->
-  eval_funcall ge (Internal num_sub27)
-    [Varr (map Vint64 xs); Varr (map Vint64 ys)] e1 (Some result) ->
-  exists xs', e1!(param 0 num_sub27) = Some (Varr (map Vint64 xs')) /\
-    length xs' = 6%nat /\ limbs xs' /\ val32 xs' = (val32 xs - val32 ys)%Z.
-
-Hypothesis num_lt_spec : forall xs ys e1 result,
-  length xs = 6%nat -> length ys = 6%nat -> limbs xs -> limbs ys ->
-  eval_funcall ge (Internal num_lt35)
-    [Varr (map Vint64 xs); Varr (map Vint64 ys)] e1 (Some result) ->
-  result = Vbool (val32 xs <? val32 ys)%Z.
-
-Hypothesis num_scale_spec : forall xs v e e1 result,
-  length xs = 6%nat -> (Int64.unsigned v < 2 ^ mant53)%Z ->
-  (Int64.signed e < scale_emax)%Z ->
-  eval_funcall ge (Internal num_scale92)
-    [Varr (map Vint64 xs); Vint64 v; Vint64 e] e1 (Some result) ->
-  exists xs', e1!(param 0 num_scale92) = Some (Varr (map Vint64 xs')) /\
-    length xs' = 6%nat /\ limbs xs' /\
-    val32 xs' = ExpModel.scale (Int64.unsigned v) (Int64.signed e).
-
-Hypothesis num_mulshr_spec : forall rs xs ys e1 result,
-  length rs = 6%nat -> length xs = 6%nat -> length ys = 6%nat ->
-  limbs xs -> limbs ys ->
-  (val32 xs * val32 ys < 2 ^ (ExpConsts.P + ExpModel.num_bits))%Z ->
-  eval_funcall ge (Internal num_mulshr59)
-    [Varr (map Vint64 rs); Varr (map Vint64 xs); Varr (map Vint64 ys)]
-    e1 (Some result) ->
-  exists rs', e1!(param 0 num_mulshr59) = Some (Varr (map Vint64 rs')) /\
-    length rs' = 6%nat /\ limbs rs' /\
-    val32 rs' = ExpModel.mulshr (val32 xs) (val32 ys).
-
-Hypothesis mul_ln2_spec : forall qs n e1 result,
-  length qs = 6%nat -> (Int64.unsigned n < 2 ^ limb_bits)%Z ->
-  eval_funcall ge (Internal mul_ln2101)
-    [Varr (map Vint64 qs); Vint64 n; Varr (map Vint64 LN2w)] e1 (Some result) ->
-  exists qs', e1!(param 0 mul_ln2101) = Some (Varr (map Vint64 qs')) /\
-    length qs' = 6%nat /\ limbs qs' /\
-    val32 qs' = ExpModel.q (Int64.unsigned n).
-
-Hypothesis guess_n_spec : forall xs e1 result,
-  length xs = 6%nat -> limbs xs ->
-  eval_funcall ge (Internal guess_n105) [Varr (map Vint64 xs)]
-    e1 (Some result) ->
-  result = Vint64 (Int64.repr (ExpModel.guess (val32 xs))).
-
 (* The return code and, on success, y and hN as core_Z gives them; the
    scratch X q q1 r are left as arrays of 6 words. *)
 Theorem exp_core_spec xb ys hs Xs qs q1s rs hhs ts Ta Ca L2a RMa e1 result :
@@ -354,34 +347,42 @@ Theorem exp_core_spec xb ys hs Xs qs q1s rs hhs ts Ta Ca L2a RMa e1 result :
          arr6 (e1!(param 3 exp_core138)) /\ arr6 (e1!(param 4 exp_core138)) /\
          arr6 (e1!(param 5 exp_core138)) /\ arr6 (e1!(param 6 exp_core138))).
 Proof.
-  case=> -> [-> [-> ->]] Hy Hh HX Hq Hq1 Hr Hhh Ht.
-  intro_eval_funcall exp_core138 out se1 exec.
-  Opaque Tw Cw LN2w RMAXw.
+  move=> Hok Hy Hh HX Hq Hq1 Hr Hhh Ht.
+  Opaque ExpModel.guess ExpModel.q ExpModel.mulshr ExpModel.scale ExpModel.xfix
+    ExpModel.Cv ExpModel.Tv ExpModel.rarg ExpModel.Nu ExpModel.jidx ExpModel.hidx
+    ExpModel.horner_from ExpModel.horner ExpModel.xexpo ExpModel.xmant
+    ExpModel.xsign ExpModel.xbexp ExpModel.reduce ExpModel.core_Z ExpModel.low
+    ExpModel.shr ExpModel.pow2 ExpModel.LN2v ExpModel.RMAXv.
+  rewrite exp_core138E.
+  case/eval_funcall_internal_OK_inv => ?? out se1 ? [<-] [<-] exec; intros ??.
+  hide_envs E value in exec.
+  hide_envs SE (list (list nat)) in exec.
   match goal with H : Some result = outcome_result_value out |- _ =>
     have := H end.
   pattern out, e1, se1.
   apply: (WP_sound _ _ _ _ _ _ _ _ _ _ _ _ exec); first (by destruct out).
-  change (fn_body FUNC) with BODY; rewrite /BODY.
+  rewrite core_bodyE.
+  clear exec.
+  change core_body with (tl 0 core_body).
+  rewrite -[WP]WPcE.
   wpauto.
+  try clear E SE.
   (* |x| >= 1024 *)
   wpenter; wpcase B1.
-  all: wpenter.
+  all: try wpenter.
   1: by move=> ->; apply: rc_fail => //; exact: core_big (negbTE B1).
   (* be = 0 or not: the two paths meet with be = xexpo, mx = xmant *)
+  open_tl.
   match goal with |- WPc ?p ?f (Sseq _ ?R) ?Q ?E ?SE =>
     assert (HG : forall vt vbe vmx,
       vbe = Vint64 (Int64.repr (ExpModel.xexpo (Int64.unsigned xb))) ->
       vmx = Vint64 (Int64.repr (ExpModel.xmant (Int64.unsigned xb))) ->
       WPc p f R Q (PTree.set 193%positive vt (PTree.set 116%positive vbe
         (PTree.set 117%positive vmx E))) (PTree.set 193%positive [] SE)) end.
-  2: { wpenter; wpcase B2; wpenter.
-       - have [E1 E2] := be_merge0 xb B2.
-         by apply: HG.
-       - have [E1 E2] := be_merge1 xb B2.
-         by apply: HG. }
+  2: wpenter; wpcase B2.
+  2: { have [E1 E2] := be_merge0 xb B2.
+       apply: HG; [exact E1 | exact E2]. }
+  2: { have [E1 E2] := be_merge1 xb B2.
+       apply: HG; [exact E1 | exact E2]. }
   move=> vt vbe vmx -> ->.
-  wpauto.
-  all: summ.
 Admitted.
-
-End Core.
