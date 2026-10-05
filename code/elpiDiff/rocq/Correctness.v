@@ -68,13 +68,19 @@ Definition parametric (f : function) : Prop :=
 (* ---------------------------------------------------------------------------
    Stage 1: normalize, from L0 to L1 (A-normal form).
 
-   On any arguments and in any domain of numbers, the A-normal form computes
-   what the source computes: the same value, or the same failure. No other
-   hypothesis: normalize names the intermediate values without reordering
-   what is evaluated, and a branch, a map or a fold body stays a body. *)
+   On any arguments and in any domain of numbers, when the source computes a
+   value, its A-normal form computes the same value: normalize names the
+   intermediate values without reordering what is evaluated, and a branch, a
+   map or a fold body stays a body.
+
+   The converse fails only on a literal the domain cannot read, bound and never
+   used: `let x = Num "abc" in 1` fails in L0, which evaluates the let, while
+   its A-normal form, `ARet (ANum "1")`, gives 1, since a literal is an atom
+   and is read only where it is used. *)
 
 Theorem normalize_correct :
-  forall (N : Type) (D : domain N) (f : function) (args : list (val N)),
+  forall (N : Type) (D : domain N) (f : function) (args : list (val N)) (v : val N),
     parametric f ->
-    aeval_function D (normalize f) args = eval_function D f args.
+    eval_function D f args = Some v ->
+    aeval_function D (normalize f) args = Some v.
 Admitted.
