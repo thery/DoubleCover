@@ -225,9 +225,7 @@ Lemma core_small (xb : int64) :
     (Int64.repr 2047)) (Int64.repr 1033) = false ->
   (ExpModel.xbexp (Int64.unsigned xb) < ExpModel.be_big)%Z.
 Proof.
-  move/negbFE; rewrite -be_val /Int64.ltu; case: zlt => // + _.
-  rewrite /ExpModel.be_big Int64.unsigned_repr; first by rewrite max_unsigned64.
-  lia.
+  by move/negbFE; rewrite /Int64.ltu be_val; case: zlt => // H _.
 Qed.
 
 (* The arguments of num_scale: X = floor(|x| 2^P). *)
@@ -249,13 +247,12 @@ Proof.
             (ExpModel.xexpo x - 915)%Z.
   { have H1 : Int64.unsigned (Int64.repr (ExpModel.xexpo x)) = ExpModel.xexpo x.
     { rewrite Int64.unsigned_repr // max_unsigned64; lia. }
-    rewrite Int64.sub_signed !Int64.signed_repr.
-    all: change Int64.min_signed with (-9223372036854775808)%Z.
-    all: change Int64.max_signed with 9223372036854775807%Z.
-    all: try lia.
-    rewrite Int64.signed_repr //.
-    change Int64.min_signed with (-9223372036854775808)%Z.
-    change Int64.max_signed with 9223372036854775807%Z; lia. }
+    have Sr : forall z, (-2000 <= z <= 2000)%Z -> Int64.signed (Int64.repr z) = z.
+    { move=> z Hz; apply: Int64.signed_repr.
+      change Int64.min_signed with (-9223372036854775808)%Z.
+      change Int64.max_signed with 9223372036854775807%Z; lia. }
+    rewrite Int64.sub_signed (Sr (ExpModel.xexpo x) ltac:(lia)) (Sr 915 ltac:(lia)).
+    by rewrite Sr //; lia. }
   rewrite Em Ee ExpModelBounds.xfixE; split; [lia|split; [lia|]].
   by f_equal; lia.
 Qed.
@@ -322,6 +319,103 @@ Qed.
 
 
 
+(** ** The reduction, on words *)
+
+Section RedWords.
+Transparent Int64.repr Int64.unsigned Int64.sub Int64.add Int64.ltu.
+
+(* a value below 2^20 is its own unsigned word *)
+Lemma unsigned_small20 n : (0 <= n < 1048576)%Z ->
+  Int64.unsigned (Int64.repr n) = n.
+Proof. by move=> H; rewrite Int64.unsigned_repr // max_unsigned64; lia. Qed.
+
+(* n + 1 *)
+Lemma add1_word n : (0 <= n < 524288)%Z ->
+  Int64.add (Int64.repr n) (Int64.repr 1) = Int64.repr (n + 1) /\
+  Int64.unsigned (Int64.repr (n + 1)) = (n + 1)%Z.
+Proof.
+  move=> H.
+  rewrite /Int64.add (unsigned_small20 n ltac:(lia)) (unsigned_small20 1 ltac:(lia)).
+  by split=> //; apply: unsigned_small20; lia.
+Qed.
+
+(* the first correction of the guess, its three paths *)
+Lemma red1_dec X (g : int64) :
+  (X <? ExpModel.q (Int64.unsigned g))%Z = true ->
+  Int64.ltu (Int64.repr 0) g = true ->
+  Int64.sub g (Int64.repr 1) =
+    Int64.repr (ExpModelBounds.red1 X (Int64.unsigned g)).
+Proof.
+  move=> H1; rewrite /Int64.ltu (unsigned_small20 0 ltac:(lia)).
+  case: zlt => // H2 _.
+  rewrite /ExpModelBounds.red1 H1 (proj2 (Z.ltb_lt _ _) H2) /Int64.sub.
+  by rewrite (unsigned_small20 1 ltac:(lia)).
+Qed.
+
+Lemma red1_zero X (g : int64) :
+  (X <? ExpModel.q (Int64.unsigned g))%Z = true ->
+  Int64.ltu (Int64.repr 0) g = false ->
+  g = Int64.repr (ExpModelBounds.red1 X (Int64.unsigned g)).
+Proof.
+  move=> H1; rewrite /Int64.ltu (unsigned_small20 0 ltac:(lia)).
+  case: zlt => // H2 _.
+  rewrite /ExpModelBounds.red1 H1 (proj2 (Z.ltb_ge 0 (Int64.unsigned g)) ltac:(lia)) /=.
+  by rewrite Int64.repr_unsigned.
+Qed.
+
+Lemma red1_keep X (g : int64) :
+  (X <? ExpModel.q (Int64.unsigned g))%Z = false ->
+  g = Int64.repr (ExpModelBounds.red1 X (Int64.unsigned g)).
+Proof. by move=> H1; rewrite /ExpModelBounds.red1 H1 /= Int64.repr_unsigned. Qed.
+
+(* the second correction *)
+Lemma red2_keep X n : (X <? ExpModel.q (n + 1))%Z = true ->
+  Int64.repr n = Int64.repr (ExpModelBounds.red2 X n).
+Proof. by move=> H; rewrite /ExpModelBounds.red2 H. Qed.
+
+Lemma red2_inc X n : (X <? ExpModel.q (n + 1))%Z = false ->
+  Int64.repr (n + 1) = Int64.repr (ExpModelBounds.red2 X n).
+Proof. by move=> H; rewrite /ExpModelBounds.red2 H. Qed.
+
+(* nu for x < 0 and for x >= 0 *)
+Lemma nu_neg n : (0 <= n < 131072)%Z ->
+  Int64.sub (Int64.repr 131072) (Int64.repr (n + 1)) =
+  Int64.repr (2 ^ ExpModelBounds.n_bits - (n + 1)).
+Proof.
+  move=> H; rewrite /Int64.sub (unsigned_small20 131072 ltac:(lia)).
+  by rewrite (unsigned_small20 (n + 1) ltac:(lia)).
+Qed.
+
+Lemma nu_pos n : (0 <= n < 131072)%Z ->
+  Int64.add (Int64.repr 131072) (Int64.repr n) =
+  Int64.repr (2 ^ ExpModelBounds.n_bits + n).
+Proof.
+  move=> H; rewrite /Int64.add (unsigned_small20 131072 ltac:(lia)).
+  by rewrite (unsigned_small20 n ltac:(lia)).
+Qed.
+
+End RedWords.
+
+(* the sign bit of x, as the test neg == 1 reads it *)
+Lemma sign_true (xb : int64) :
+  Int64.eq (Int64.shru' xb (Int.modu (Int.repr 63) Int64.iwordsize'))
+    (Int64.repr 1) = true -> ExpModel.xsign (Int64.unsigned xb) <> 0%Z.
+Proof.
+  rewrite /Int64.eq neg_val (unsigned_small20 1 ltac:(lia)).
+  by case: zeq => // ->.
+Qed.
+
+Lemma sign_false (xb : int64) :
+  Int64.eq (Int64.shru' xb (Int.modu (Int.repr 63) Int64.iwordsize'))
+    (Int64.repr 1) = false -> ExpModel.xsign (Int64.unsigned xb) = 0%Z.
+Proof.
+  rewrite /Int64.eq neg_val (unsigned_small20 1 ltac:(lia)).
+  case: zeq => // H _.
+  have := ExpModelBounds.xsign_bound (Int64.unsigned xb).
+  have := Int64.unsigned_range xb.
+  change Int64.modulus with (2 ^ 64)%Z; lia.
+Qed.
+
 (* The return code and, on success, y and hN as core_Z gives them; the
    scratch X q q1 r are left as arrays of 6 words. *)
 Theorem exp_core_spec xb ys hs Xs qs q1s rs hhs ts Ta Ca L2a RMa e1 result :
@@ -369,7 +463,6 @@ Proof.
   try clear E SE.
   (* |x| >= 1024 *)
   wpenter; wpcase B1.
-  all: try wpenter.
   1: by move=> ->; apply: rc_fail => //; exact: core_big (negbTE B1).
   (* be = 0 or not: the two paths meet with be = xexpo, mx = xmant *)
   open_tl.
@@ -385,4 +478,242 @@ Proof.
   2: { have [E1 E2] := be_merge1 xb B2.
        apply: HG; [exact E1 | exact E2]. }
   move=> vt vbe vmx -> ->.
+  case: Hok => HTa [HCa [HL2 HRM]].
+  subst Ta Ca L2a RMa.
+  Opaque Tw Cw LN2w RMAXw.
+  (* X = floor(|x| 2^P) *)
+  have Hsm := core_small xb B1.
+  have [Hv [He Hsc]] := scale_args _ Hsm.
+  wpenter.
+  move=> _ _ CALL.
+  have [X1 [E1 [HX1 [LX1 VX1]]]] := num_scale_spec _ _ _ _ _ HX Hv He CALL.
+  clear CALL; change (param 0 num_scale92) with (VAR 1%positive "a") in E1.
+  rewrite Hsc in VX1.
+  repeat prog.
+  rewrite E1; clear E1.
+  wpauto.
+  (* the guess of n *)
+  wpenter; move=> _ _ CALL.
+  have [g Hg] : exists g, g = Int64.repr (ExpModel.guess (val32 X1)) by eexists.
+  move: (guess_n_spec _ _ _ HX1 LX1 CALL) => {CALL}; rewrite -Hg => ->.
+  repeat prog.
+  have RX := ExpModelBounds.xfix_bound _ Hsm.
+  have Rg : (0 <= Int64.unsigned g < 2 ^ ExpModelBounds.n_bits)%Z.
+  { have := ExpModelBounds.guess_bound _ RX; rewrite Hg VX1 => H.
+    rewrite Int64.unsigned_repr //; move: H; rewrite /ExpModelBounds.n_bits.
+    change Int64.max_unsigned with 18446744073709551615%Z; lia. }
+  have Hg32 : (Int64.unsigned g < 2 ^ limb_bits)%Z
+    by move: Rg; rewrite /ExpModelBounds.n_bits /limb_bits; lia.
+  wpauto.
+  (* q = q(g), lt = X < q *)
+  wpenter.
+  move=> _ _ CALL.
+  have [q0 [E1 [Hq0 [Lq0 Vq0]]]] := mul_ln2_spec _ _ _ _ Hq Hg32 CALL.
+  clear CALL; change (param 0 mul_ln2101) with (VAR 93%positive "q") in E1.
+  repeat prog.
+  rewrite E1; clear E1.
+  wpauto.
+  wpenter.
+  move=> _ _ CALL.
+  move: (num_lt_spec _ _ _ _ HX1 Hq0 LX1 Lq0 CALL) => {CALL} ->.
+  rewrite VX1 Vq0.
+  repeat prog.
+  wpauto.
+  (* n1 = red1 X g: lowered once if X < q(g) and g > 0 *)
+  have Rg17 : (0 <= Int64.unsigned g < 2 ^ 17)%Z by exact: Rg.
+  wpenter.
+  case L1: (ExpModel.xfix (Int64.unsigned xb) <? ExpModel.q (Int64.unsigned g))%Z;
+    rewrite -?lock; simplWP; repeat prog.
+  all: try wpenter.
+  1: case L2: (Int64.ltu (Int64.repr 0) g); rewrite -?lock; simplWP; repeat prog.
+  1-2: wpenter.
+  all: rewrite /sem_binarith /sem_cast /shrink /=.
+  1: rewrite (red1_dec _ _ L1 L2).
+  2: rewrite (red1_zero _ _ L1 L2).
+  3: rewrite (red1_keep _ _ L1).
+  all: have [n1 Hn1] : exists n1, n1 = ExpModelBounds.red1
+         (ExpModel.xfix (Int64.unsigned xb)) (Int64.unsigned g) by eexists.
+  all: rewrite -Hn1.
+  all: have Rn1 : (0 <= n1 < 2 ^ 17)%Z
+         by rewrite Hn1; exact: ExpModelBounds.red1_bound.
+  all: have [En1 Un1] := add1_word n1 ltac:(lia).
+  all: rewrite En1.
+  all: have Hn132 : (Int64.unsigned (Int64.repr (n1 + 1)) < 2 ^ limb_bits)%Z
+         by rewrite Un1 /limb_bits; lia.
+  (* q1 = q(n1 + 1) *)
+  all: move=> _ _ CALL.
+  all: have [q2 [E1 [Hq2 [Lq2 Vq2]]]] := mul_ln2_spec _ _ _ _ Hq1 Hn132 CALL.
+  all: clear CALL; change (param 0 mul_ln2101) with (VAR 93%positive "q") in E1.
+  all: rewrite Un1 in Vq2.
+  all: repeat prog.
+  all: rewrite E1; clear E1.
+  all: wpauto.
+  all: clear Hn132 En1 Hsc Hv He Hg32.
+  (* n2 = red2 X n1: raised once if X >= q(n1 + 1) *)
+  all: wpenter.
+  all: move=> _ _ CALL.
+  all: move: (num_lt_spec _ _ _ _ HX1 Hq2 LX1 Lq2 CALL) => {CALL} ->.
+  all: rewrite VX1 Vq2.
+  all: repeat prog.
+  all: wpauto.
+  all: wpenter.
+  all: case L3: (ExpModel.xfix (Int64.unsigned xb) <? ExpModel.q (n1 + 1))%Z;
+         rewrite -?lock; simplWP; repeat prog.
+  all: try wpenter.
+  all: rewrite /sem_binarith /sem_cast /shrink /=.
+  all: have [En1 _] := add1_word n1 ltac:(lia).
+  all: rewrite ?En1.
+  all: first [ rewrite (red2_keep _ _ L3) | rewrite (red2_inc _ _ L3) ].
+  all: have [n2 Hn2] : exists n2,
+         n2 = ExpModelBounds.red2 (ExpModel.xfix (Int64.unsigned xb)) n1
+         by eexists.
+  all: rewrite -Hn2.
+  all: have Rn2 : (0 <= n2 <= 2 ^ 17)%Z
+         by rewrite Hn2; exact: ExpModelBounds.red2_bound.
+  all: have Un2 : Int64.unsigned (Int64.repr n2) = n2
+         by apply: unsigned_small20; lia.
+  all: have Hn232 : (Int64.unsigned (Int64.repr n2) < 2 ^ limb_bits)%Z
+         by rewrite Un2 /limb_bits; lia.
+  (* q = q(n2), q1 = q(n2 + 1) *)
+  all: move=> _ _ CALL.
+  all: have [q3 [E1 [Hq3 [Lq3 Vq3]]]] := mul_ln2_spec _ _ _ _ Hq0 Hn232 CALL.
+  all: clear CALL; change (param 0 mul_ln2101) with (VAR 93%positive "q") in E1.
+  all: rewrite Un2 in Vq3.
+  all: repeat prog.
+  all: rewrite E1; clear E1.
+  all: wpauto.
+  all: wpenter.
+  all: rewrite /sem_binarith /sem_cast /shrink /=.
+  all: have [En2 Un21] := add1_word n2 ltac:(lia).
+  all: rewrite En2.
+  all: have Hn2132 : (Int64.unsigned (Int64.repr (n2 + 1)) < 2 ^ limb_bits)%Z
+         by rewrite Un21 /limb_bits; lia.
+  all: move=> _ _ CALL.
+  all: have [q4 [E1 [Hq4 [Lq4 Vq4]]]] := mul_ln2_spec _ _ _ _ Hq2 Hn2132 CALL.
+  all: clear CALL; change (param 0 mul_ln2101) with (VAR 93%positive "q") in E1.
+  all: rewrite Un21 in Vq4.
+  all: repeat prog.
+  all: rewrite E1; clear E1.
+  all: wpauto.
+  all: have Ug : Int64.unsigned g = ExpModel.guess (ExpModel.xfix (Int64.unsigned xb))
+         by rewrite Hg VX1 Int64.unsigned_repr //;
+            have := ExpModelBounds.guess_bound _ RX;
+            rewrite /ExpModelBounds.n_bits;
+            change Int64.max_unsigned with 18446744073709551615%Z; lia.
+  all: have Hred : n2 = ExpModelBounds.red_n (ExpModel.xfix (Int64.unsigned xb))
+         by rewrite Hn2 Hn1 Ug.
+  all: try clear L1; try clear L2; try clear L3.
+  all: clear Un1 En1 Hn232 Hn2132 Vq0 Vq2 Lq0 Lq2 Rg17 Rg Hg Ug Hn1 Hn2.
+  all: repeat match goal with H : env |- _ => clear H end.
+  all: repeat match goal with H : value |- _ => first [clear H | fail 1] end.
+  (* the check q(n2) <= X < q(n2 + 1) *)
+  all: wpenter.
+  all: move=> _ _ CALL.
+  all: move: (num_lt_spec _ _ _ _ HX1 Hq3 LX1 Lq3 CALL) => {CALL} ->.
+  all: rewrite VX1 Vq3.
+  all: repeat prog.
+  all: wpauto.
+  all: wpenter.
+  all: case L4: (ExpModel.xfix (Int64.unsigned xb) <? ExpModel.q n2)%Z;
+         rewrite -?lock; simplWP; repeat prog.
+  all: try wpenter.
+  all: try (move=> ->; apply: rc_fail => //;
+            apply: ExpModelBounds.core_Z_reduce => //;
+            apply: ExpModelBounds.reduce_none; left; rewrite -Hred;
+            exact/Z.ltb_lt).
+  all: move=> _ _ CALL.
+  all: move: (num_lt_spec _ _ _ _ HX1 Hq4 LX1 Lq4 CALL) => {CALL} ->.
+  all: rewrite VX1 Vq4.
+  all: repeat prog.
+  all: wpauto.
+  all: wpenter.
+  all: case L5: (ExpModel.xfix (Int64.unsigned xb) <? ExpModel.q (n2 + 1))%Z;
+         rewrite -?lock; simplWP; repeat prog.
+  all: try wpenter.
+  all: try (move=> ->; apply: rc_fail => //;
+            apply: ExpModelBounds.core_Z_reduce => //;
+            apply: ExpModelBounds.reduce_none; right; rewrite -Hred;
+            exact/Z.ltb_ge).
+  all: have Hrs : ExpModel.reduce (ExpModel.xfix (Int64.unsigned xb)) = Some n2
+         by rewrite Hred; apply: ExpModelBounds.reduce_some; rewrite -Hred;
+            split; [exact/Z.ltb_ge|exact/Z.ltb_lt].
+  all: have Rn2' : (0 <= n2 < 2 ^ 17)%Z
+         by apply: (ExpModelBounds.n_bound _ _ RX);
+            split; [exact/Z.ltb_ge|exact/Z.ltb_lt].
+  all: wpauto.
+  (* r and nu, for x < 0 and for x >= 0: the two paths meet *)
+  all: open_tl.
+  all: match goal with |- WPc ?p ?f (Sseq _ ?R) ?Q ?E ?SE =>
+    assert (HG : forall v220 vr vnu,
+      (exists r', vr = Varr (map Vint64 r') /\ length r' = 6%nat /\ limbs r' /\
+         val32 r' = ExpModel.rarg (Int64.unsigned xb) n2) ->
+      vnu = Vint64 (Int64.repr (ExpModel.Nu (Int64.unsigned xb) n2)) ->
+      WPc p f R Q (PTree.set 220%positive v220 (PTree.set 44%positive vr
+        (PTree.set 128%positive vnu E))) (PTree.set 220%positive [] SE)) end.
+  2,4,6,8,10,12: wpenter; wpcase B3.
+  all: try match goal with
+    | B3 : Int64.eq _ (Int64.repr 1) = true |- _ =>
+      have [Er Enu] := ExpModelBounds.rarg_neg (Int64.unsigned xb) n2 (sign_true _ B3);
+      move=> _ _ CALL;
+      have E1 := num_copy_spec _ _ _ _ Hr Hq4 CALL; clear CALL;
+      change (param 0 num_copy12) with (VAR 1%positive "a") in E1;
+      repeat prog; rewrite E1; clear E1; simplWP; repeat prog;
+      move=> _ _ CALL;
+      have [r1 [E1 [Hr1 [Lr1 Vr1]]]] := num_sub_spec _ _ _ _ Hq4 HX1 Lq4 LX1
+        ltac:(rewrite VX1 Vq4; move/Z.ltb_lt: L5; lia) CALL; clear CALL;
+      change (param 0 num_sub27) with (VAR 1%positive "a") in E1;
+      repeat prog; rewrite E1; clear E1; simplWP; repeat prog;
+      apply: HG; [exists r1; rewrite Er -VX1 -Vq4; repeat split => // |
+                  rewrite /sem_binarith /sem_cast /shrink /= En2 (nu_neg n2 ltac:(lia)) Enu //]
+    | B3 : Int64.eq _ (Int64.repr 1) = false |- _ =>
+      have [Er Enu] := ExpModelBounds.rarg_pos (Int64.unsigned xb) n2 (sign_false _ B3);
+      move=> _ _ CALL;
+      have E1 := num_copy_spec _ _ _ _ Hr HX1 CALL; clear CALL;
+      change (param 0 num_copy12) with (VAR 1%positive "a") in E1;
+      repeat prog; rewrite E1; clear E1; simplWP; repeat prog;
+      move=> _ _ CALL;
+      have [r1 [E1 [Hr1 [Lr1 Vr1]]]] := num_sub_spec _ _ _ _ HX1 Hq3 LX1 Lq3
+        ltac:(rewrite VX1 Vq3; move/Z.ltb_ge: L4; lia) CALL; clear CALL;
+      change (param 0 num_sub27) with (VAR 1%positive "a") in E1;
+      repeat prog; rewrite E1; clear E1; simplWP; repeat prog;
+      apply: HG; [exists r1; rewrite Er -VX1 -Vq3; repeat split => // |
+                  rewrite /sem_binarith /sem_cast /shrink /= (nu_pos n2 ltac:(lia)) Enu //]
+    end.
+  all: move=> v220 vr vnu [r1 [-> [Hr1 [Lr1 Vr1]]]] ->.
+  all: clear Hq0 Hq2 Rn1 Un2 Un21 En2 L4 L5 Hred Vq3 Vq4 Lq3 Lq4 Rn2.
+  all: repeat match goal with H : env |- _ => clear H end.
+  (* r < RMAX *)
+  all: have [HRl [LRM VRM]] := RMAXw_num.
+  all: wpauto.
+  all: wpenter.
+  all: move=> _ _ CALL.
+  all: move: (num_lt_spec _ _ _ _ Hr1 HRl Lr1 LRM CALL) => {CALL} ->.
+  all: rewrite Vr1 VRM.
+  all: repeat prog.
+  all: wpauto.
+  all: wpenter.
+  all: case L6: (ExpModel.rarg (Int64.unsigned xb) n2 <? ExpModel.RMAXv)%Z;
+         rewrite -?lock; simplWP; repeat prog.
+  all: try wpenter.
+  all: try (move=> ->; apply: rc_fail => //;
+            apply: (ExpModelBounds.core_Z_rmax _ _ Hsm Hrs); exact/Z.ltb_ge).
+  (* h = C_16, the row C[16] *)
+  all: rewrite {1}/vtab => -[<-].
+  all: repeat prog.
+  all: have RC16 : List.nth (Z.to_nat (Int64.unsigned (Int64.repr 16)))
+         (map (fun r : list int64 => Varr (map Vint64 r)) Cw) Vundef =
+         Varr (map Vint64 (List.nth 16 Cw []))
+         by rewrite (unsigned_small20 16 ltac:(lia));
+            change (Z.to_nat 16) with 16%nat;
+            rewrite (List.nth_indep _ Vundef (Varr (map Vint64 [])))
+              ?length_map ?length_Cw //;
+            rewrite (List.map_nth (fun r : list int64 => Varr (map Vint64 r))).
+  all: rewrite RC16.
+  all: have [HC16 [LC16 VC16]] := Cw_row 16 ltac:(rewrite /DEG_n; lia).
+  all: move=> _ _ CALL.
+  all: have E1 := num_copy_spec _ _ _ _ Hhh HC16 CALL; clear CALL.
+  all: change (param 0 num_copy12) with (VAR 1%positive "a") in E1.
+  all: repeat prog.
+  all: rewrite E1; clear E1.
+  all: wpauto.
 Admitted.
