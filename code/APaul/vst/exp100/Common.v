@@ -25,9 +25,9 @@ Notation NM := 3%Z.     (* words of 64 bits of the output M *)
 
 (** ** Numbers *)
 
-Notation limb_bits := Exp100.ExpConsts.limb_bits.
-Notation limb := Exp100.ExpConsts.limb.
-Notation valZ := Exp100.ExpConsts.valZ.
+Notation limb_bits := Exp100.ExpNum.limb_bits.
+Notation limb := Exp100.ExpNum.limb.
+Notation valZ := Exp100.ExpNum.valZ.
 
 (** A word of 64 bits, and the number a list of words stands for. *)
 Definition word_bits : Z := 64.
@@ -72,13 +72,13 @@ Qed.
 Lemma valZ_app a b :
   valZ (a ++ b) = valZ a + 2 ^ (limb_bits * Zlength a) * valZ b.
 Proof.
-  induction a as [|w a IH]; cbn [app Exp100.ExpConsts.valZ].
+  induction a as [|w a IH]; cbn [app Exp100.ExpNum.valZ].
   - change (Zlength (@nil Z)) with 0; rewrite Z.mul_0_r, Z.pow_0_r; lia.
   - rewrite IH, Zlength_cons, <- Z.add_1_r.
     replace (limb_bits * (Zlength a + 1))
       with (limb_bits * Zlength a + limb_bits) by lia.
     rewrite Z.pow_add_r
-      by (unfold Exp100.ExpConsts.limb_bits;
+      by (unfold Exp100.ExpNum.limb_bits;
           pose proof (Zlength_nonneg a); lia).
     ring.
 Qed.
@@ -88,7 +88,7 @@ Lemma valZ_sublist_succ xs b : 0 <= b < Zlength xs ->
   valZ (sublist 0 b xs) + 2 ^ (limb_bits * b) * Znth b xs.
 Proof.
   intros Hb; rewrite (sublist_split 0 b (b + 1)) by lia.
-  rewrite valZ_app, sublist_len_1 by lia; simpl Exp100.ExpConsts.valZ.
+  rewrite valZ_app, sublist_len_1 by lia; simpl Exp100.ExpNum.valZ.
   rewrite Zlength_sublist by lia; replace (b - 0) with b by lia; ring.
 Qed.
 
@@ -96,13 +96,13 @@ Qed.
 Lemma valZ_bounds xs : Forall limb xs ->
   0 <= valZ xs < 2 ^ (limb_bits * Zlength xs).
 Proof.
-  induction 1 as [|w xs Hw _ IH]; cbn [Exp100.ExpConsts.valZ].
+  induction 1 as [|w xs Hw _ IH]; cbn [Exp100.ExpNum.valZ].
   - change (Zlength (@nil Z)) with 0; simpl; lia.
   - rewrite Zlength_cons, <- Z.add_1_r, Z.mul_add_distr_l, Z.mul_1_r.
     rewrite Z.add_comm, Z.pow_add_r
-      by (unfold Exp100.ExpConsts.limb_bits;
+      by (unfold Exp100.ExpNum.limb_bits;
           pose proof (Zlength_nonneg xs); lia).
-    unfold Exp100.ExpConsts.limb in Hw; nia.
+    unfold Exp100.ExpNum.limb in Hw; nia.
 Qed.
 
 (** ** Word lemmas *)
@@ -178,7 +178,7 @@ Lemma T_num j : 0 <= j < NT ->
   Forall limb (Znth j Exp100.ExpTable.T).
 Proof.
   intros Hj.
-  assert (Hn : Exp100.ExpConsts.num (Znth j Exp100.ExpTable.T)).
+  assert (Hn : Exp100.ExpNum.num (Znth j Exp100.ExpTable.T)).
   { apply (proj1 (Forall_Znth _ _) Exp100.ExpConsts.num_T).
     replace (Zlength Exp100.ExpTable.T) with NT by reflexivity; lia. }
   destruct Hn as [Hl Hf]; split; [rewrite Zlength_correct, Hl|]; auto.
@@ -189,7 +189,7 @@ Lemma C_num i : 0 <= i < NC ->
   Forall limb (Znth i Exp100.ExpTable.C).
 Proof.
   intros Hi.
-  assert (Hn : Exp100.ExpConsts.num (Znth i Exp100.ExpTable.C)).
+  assert (Hn : Exp100.ExpNum.num (Znth i Exp100.ExpTable.C)).
   { apply (proj1 (Forall_Znth _ _) Exp100.ExpConsts.num_C).
     replace (Zlength Exp100.ExpTable.C) with NC by reflexivity; lia. }
   destruct Hn as [Hl Hf]; split; [rewrite Zlength_correct, Hl|]; auto.

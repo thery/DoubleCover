@@ -19,7 +19,7 @@
 #define TAB 64        // 2^K
 #define DEG 16        // degree of the Taylor polynomial of exp(r)
 #define EXP100_D 16   // error bound of the enclosure, in units of 2^s
-#define M_HARD 43     // hard: exp(x)/v within 2^-M_HARD of an integer
+#define M_HARD 42     // hard: exp(x)/v within 2^-M_HARD of an integer
 #define EMIN (-1022)  // smallest normal exponent of a double
 #define PREC 53       // bits of a double
 
@@ -36,7 +36,7 @@ int exp_encl_bits(uint64_t xb, uint64_t *M, int64_t *s);
 // The same on a double: reads its bits (not part of the verified code).
 int exp_encl(double x, uint64_t *M, int64_t *s);
 
-// The filter: returns 0 only if exp(x)/v is at distance more than 2^-43
+// The filter: returns 0 only if exp(x)/v is at distance more than 2^-42
 // from every integer, for every value of the enclosure (so x is not hard
 // in the sense of code/exptablekl/ExpHard.v); returns 1 otherwise
 // ("maybe hard"), and also whenever the enclosure fails or the binade of

@@ -29,7 +29,7 @@ Open Scope Z_scope.
 (** ** Parameters, as in exp100.h and exp100.c *)
 
 Definition D : Z := 16.          (* EXP100_D, the error bound in units of 2^s *)
-Definition m_hard : Z := 43.     (* M_HARD: hard means within 2^-43 *)
+Definition m_hard : Z := 42.     (* M_HARD: hard means within 2^-42 *)
 Definition emin : Z := -1022.    (* EMIN, the smallest normal exponent *)
 Definition prec : Z := 53.       (* PREC, the bits of a double *)
 Definition inv_shift : Z := 25.  (* INV is 64/ln2 2^25 *)
@@ -260,7 +260,7 @@ Definition bitlen (v : Z) : Z := if v <=? 0 then 0 else Z.log2 v + 1.
     returned 0: 0 only when every value of [y - D, y + D] has the bit
     length of y and, with e = s + bitlen y - 1 and
     f = max(e, emin) - prec - s, f is in [f_min, f_max] and y is at
-    distance more than 2^(f-43) + D from the multiples of 2^f. *)
+    distance more than 2^(f-42) + D from the multiples of 2^f. *)
 Definition decide_Z (y hN : Z) : Z :=
   let s := hN - P in
   let b := bitlen y in

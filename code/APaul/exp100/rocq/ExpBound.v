@@ -7,7 +7,8 @@
 
 From Stdlib Require Import ZArith Reals Lia Lra.
 From Flocq Require Import Core.
-From Exp100 Require Import ExpTaylor ExpConsts ExpModel ExpBits ExpBudget.
+From Exp100 Require Import ExpTaylor ExpConsts ExpModel ExpModelBounds ExpBits
+  ExpBudget.
 
 Open Scope R_scope.
 
@@ -18,8 +19,8 @@ Proof.
 intros _ Hc.
 destruct (core_relP xb y hN Hc) as (n & _ & Hq & _ & -> & _).
 pose proof (horner_ge _ (rarg_ge0 xb n Hq)) as Hh.
-pose proof (Tv_ge (Nu xb n mod TAB)
-              (Z.mod_pos_bound _ TAB ltac:(reflexivity))) as Ht.
+pose proof (proj1 (Tv_bound (Nu xb n mod TAB)
+              (Z.mod_pos_bound _ TAB ltac:(reflexivity)))) as Ht.
 rewrite mulshrE; set (t := Tv _) in *; set (h := horner _) in *.
 assert (H2 : (0 < 2 ^ P)%Z) by (unfold P; lia).
 apply Z.div_le_lower_bound; nia.
@@ -36,7 +37,9 @@ Theorem core_bound xb y hN x : (0 <= xb < 2 ^ 64)%Z ->
 Proof.
 intros _ Hc [Hs1 [Hs2 Hx]]; rewrite bpow_P in Hx.
 destruct (core_relP xb y hN Hc) as (n & Hbe & Hq & Hr & Hy & Hh).
-destruct (n_bound n _ (xfix_lt xb Hbe) Hq) as [Hn0 Hn1].
+destruct (n_bound _ n (xfix_bound xb Hbe) Hq) as [Hn0 Hn1].
+replace (2 ^ n_bits)%Z with N_bias in Hn1 by reflexivity.
+assert (Hn2 : (n + 1 <= N_bias)%Z) by lia; clear Hn1; rename Hn2 into Hn1.
 pose proof (rarg_ge0 xb n Hq) as Hr0.
 pose proof (ltZ_rmax _ Hr) as HR.
 pose proof (red_arg_err xb n x Hs1 Hs2 Hx Hq Hn0 Hn1) as Hred.

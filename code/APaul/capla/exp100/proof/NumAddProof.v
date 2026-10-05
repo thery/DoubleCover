@@ -8,15 +8,11 @@ Require Import Validity Alias SemPath Ops.
 Require Import SemanticsCommon L1Sem L1ExprSem.
 Require Import L1facts L1BigStepSem.
 Require Import Exp100Capla.ExpBase.
+From Exp100 Require Import ExpLimbs.
 Require Import ProofHeader WP ZifyIntegers.
 Require Import ProofTactics.
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
-
-(* The end of the loop: the carry is 0 when the sum fits. *)
-Lemma carry_end (a c s B : Z) : (0 <= a)%Z -> (0 <= c)%Z -> (0 < B)%Z ->
-  (a + c * B = s)%Z -> (s < B)%Z -> a = s.
-Proof. move=> Ha Hc HB E Hs; have : c = 0%Z by nia. move=> ?; subst; lia. Qed.
 
 (* One step of the loop, on the numbers: kept out of the WP context, where
    nia is slow. *)

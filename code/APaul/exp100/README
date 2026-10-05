@@ -4,8 +4,9 @@ exp100: a certified-to-be filter of hard-to-round candidates of exp
 The search htr.c, run with a coarse window, prints many candidates x.
 Each is then filtered at run time: maybe_hard(x) answers 0 only when x is
 surely not hard, in the sense of code/exptablekl/ExpHard.v (with e the
-binade of exp x, v = 2^(max(e, -1022) - 53), x is hard iff exp(x)/v is
-within 2^-43 of an integer).  It may answer 1 for a non-hard x, never 0
+binade of exp x, v = 2^(max(e, -1022) - 53), half an ulp of exp(x), x is
+hard iff exp(x)/v is within 2^-42 of an integer, that is exp(x) is within
+2^-43 ulp of a double or of a midpoint).  It may answer 1 for a non-hard x, never 0
 for a hard one.
 
 Files
@@ -38,10 +39,10 @@ maybe_hard_bits(xb): runs exp_core, then
     exp(x)/v = y / 2^f; 1 if f is outside [64, 184] (cannot happen on
     -745.14 < x < 709.79, where f is in [107, 163]);
   - d = the distance of y to the nearest multiple of 2^f; 0 if
-    d > 2^(f-43) + D, else 1.
+    d > 2^(f-42) + D, else 1.
 Soundness of the 0: every z in [y - D, y + D] is at distance at least
-d - D > 2^(f-43) from the multiples of 2^f, so exp(x)/v = z/2^f is at
-distance more than 2^-43 from every integer.  Subnormal results
+d - D > 2^(f-42) from the multiples of 2^f, so exp(x)/v = z/2^f is at
+distance more than 2^-42 from every integer.  Subnormal results
 (e < -1022, v = 2^-1075) are handled by the same formula, no special case.
 
 Design choices (choices, not constraints)
@@ -61,8 +62,8 @@ Design choices (choices, not constraints)
   checked below RMAX = ceil(ln2/64 2^160) + 3.
 - N = 64 h + j is computed as N + 2^17 (unsigned), j its 6 low bits;
   s = h - 160.
-- The precision, 156 bits, is far more than the 97 bits the decision needs
-  (2^-43 on a value of 2^54); it costs one limb more than 128 bits and
+- The precision, 156 bits, is far more than the 96 bits the decision needs
+  (2^-42 on a value of 2^54); it costs one limb more than 128 bits and
   keeps every error term at a few units of 2^-160.
 
 Error budget (`make budget`, computed by MPFR, rounded up; u = 2^-160)
@@ -102,18 +103,18 @@ with taskset -c 2 on the desktop, turbo off)
   (max error: |MPFR exp(x) - M 2^s| / 2^s, against the bound D = 16)
 
   decision          MPFR hard  maybe_hard=1  unsound  clear non-hard -> 1
-  random            29876      29876         0        0
-  boundaries        79         79            0        0
-  in-1074           1          1             0        0
-  in1-52            512        512           0        0
-No input was within 2^-100 of the threshold 2^-43 (all decisions clear);
+  random            29913      29913         0        0
+  boundaries        83         83            0        0
+  in-1074           2          2             0        0
+  in1-52            1024       1024          0        0
+No input was within 2^-100 of the threshold 2^-42 (all decisions clear);
 on every input maybe_hard agrees with MPFR.  The 7 rejected inputs
 (|x| >= 1024, infinities, NaN) are rejected.
 
 Random: a third uniform in value on (-745.14, 709.79), a third with a
 uniform biased exponent over every normal binade up to 2^9, a third with
 |x| in [2^-60, 2^10).  The hard ones are the tiny x of the second third
-(|x| < about 2^-96: exp(x)/v is then within 2^-43 of 2^53 or 2^54).
+(|x| < about 2^-96: exp(x)/v is then within 2^-42 of 2^53 or 2^54).
 Boundaries: 17 doubles around each of -745.14, -745.13, the x with exp(x)
 near 2^-1075 and 2^-1022, 709.78, log(DBL_MAX), 709.79, +-2^-53, +-2^-54,
 +-1, +-2^-1022, +-2^-60, and around the double nearest k ln2/64 for k = -99
@@ -164,8 +165,8 @@ x the double of bits xb.  Each piece is a file with a fixed statement.
    slack.
 5. The decision (Rocq, reals): with the enclosure of step 4, the integer
    tests of maybe_hard_bits (equal bit lengths of y - D and y + D; d >
-   2^(f-43) + D) imply the binade e = s + bitlen(y) - 1 and
-   |exp(x)/v - z| >= 2^-43 for every integer z, that is not (hard x) with
+   2^(f-42) + D) imply the binade e = s + bitlen(y) - 1 and
+   |exp(x)/v - z| >= 2^-42 for every integer z, that is not (hard x) with
    ExpHard.v's definitions.
 6. Assembly: semax_func over all functions of exp100.c (as Verif_htr3.v),
    then the theorem above.  Not proved: the union wrappers exp_encl and

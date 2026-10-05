@@ -2,8 +2,8 @@
 
     Step 3 of the proof plan of ../README.  The constants are the lists of
     ExpTable.v, copied from exp100_table.h.  A number is a list of limbs
-    of 32 bits, the least significant first, standing for [valZ] (the
-    shape of [valZ] in code/APaul/vst/Words.v, with limbs of 32 bits).
+    of 32 bits, the least significant first, standing for [valZ] of
+    ExpNum.v (the shape of [valZ] in code/APaul/vst/Words.v).
 
     - [T_ok]: [T_j] is within 1/2 of 2^(j/64) 2^160, by exact integer
       computation: (2 T_j - 1)^64 <= 2^64 2^j 2^(64 160) <= (2 T_j + 1)^64.
@@ -18,32 +18,18 @@ From Stdlib Require Import Bool ZArith Reals Lia Lra List.
 From Bignums Require Import BigZ.
 From Interval Require Import Tactic.
 From Exp100 Require Import ExpTable.
+From Exp100 Require Export ExpNum.
 Import ListNotations.
 
 Open Scope Z_scope.
 
 (** ** Parameters, as in exp100.h *)
 
-Definition limb_bits : Z := 32.  (* bits of a limb          *)
-Definition NL : nat := 6.        (* limbs of a number       *)
 Definition P : Z := 160.         (* bits after the point    *)
 Definition TAB : Z := 64.        (* entries of the table T  *)
 Definition DEG : nat := 16.      (* degree of the Taylor polynomial *)
 
-(** ** Numbers *)
-
-(** A limb: an integer in [0, 2^32). *)
-Definition limb (x : Z) : Prop := 0 <= x < 2 ^ limb_bits.
-
-(** The number a list of limbs stands for, least significant limb first. *)
-Fixpoint valZ (ws : list Z) : Z :=
-  match ws with
-  | [] => 0
-  | w :: r => w + 2 ^ limb_bits * valZ r
-  end.
-
-(** A number of exp100.c: [NL] limbs. *)
-Definition num (ws : list Z) : Prop := length ws = NL /\ Forall limb ws.
+(** ** Numbers, checked by computation *)
 
 Definition limbb (x : Z) : bool := (0 <=? x) && (x <? 2 ^ limb_bits).
 
