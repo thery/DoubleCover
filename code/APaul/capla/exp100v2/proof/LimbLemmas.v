@@ -113,3 +113,105 @@ Proof.
 Qed.
 
 End Arr.
+
+(** ** Sums and differences of limbs, from num_add and num_sub *)
+
+Section AddSub.
+Local Open Scope Z_scope.
+
+(* The sum of a carry and two limbs does not wrap. *)
+Lemma add3_unsigned (c x y : int64) :
+  Int64.unsigned c <= 1 -> Int64.unsigned x < 2 ^ 32 ->
+  Int64.unsigned y < 2 ^ 32 ->
+  Int64.unsigned (Int64.add (Int64.add c x) y) =
+  Int64.unsigned c + Int64.unsigned x + Int64.unsigned y.
+Proof.
+  move=> Hc Hx Hy.
+  have := Int64.unsigned_range c; have := Int64.unsigned_range x.
+  have := Int64.unsigned_range y => Ry Rx Rc.
+  rewrite !Int64.add_unsigned (Int64.unsigned_repr (_ + _)).
+  { change Int64.max_unsigned with 18446744073709551615; lia. }
+  rewrite Int64.unsigned_repr //.
+  change Int64.max_unsigned with 18446744073709551615; lia.
+Qed.
+
+(* A limb plus a carry does not wrap. *)
+Lemma add2_unsigned (y c : int64) :
+  Int64.unsigned y < 2 ^ 32 -> Int64.unsigned c <= 1 ->
+  Int64.unsigned (Int64.add y c) = Int64.unsigned y + Int64.unsigned c.
+Proof.
+  move=> Hy Hc.
+  have := Int64.unsigned_range y; have := Int64.unsigned_range c => Rc Ry.
+  rewrite Int64.add_unsigned Int64.unsigned_repr //.
+  change Int64.max_unsigned with 18446744073709551615; lia.
+Qed.
+
+(* x - t, when t <= x. *)
+Lemma sub_unsigned (x t : int64) :
+  Int64.unsigned t <= Int64.unsigned x ->
+  Int64.unsigned (Int64.sub x t) = Int64.unsigned x - Int64.unsigned t.
+Proof.
+  move=> H.
+  have := Int64.unsigned_range x; have := Int64.unsigned_range t => Rt Rx.
+  rewrite /Int64.sub Int64.unsigned_repr //.
+  change Int64.max_unsigned with 18446744073709551615; lia.
+Qed.
+
+(* x + 2^32 - t, when x < t <= 2^32. *)
+Lemma borrow_unsigned (x t : int64) :
+  Int64.unsigned x < Int64.unsigned t <= 2 ^ 32 ->
+  Int64.unsigned (Int64.sub (Int64.add x (Int64.repr 4294967296)) t) =
+  Int64.unsigned x + 2 ^ 32 - Int64.unsigned t.
+Proof.
+  move=> H.
+  have := Int64.unsigned_range x; have := Int64.unsigned_range t => Rt Rx.
+  have E : Int64.unsigned (Int64.add x (Int64.repr 4294967296)) =
+           Int64.unsigned x + 2 ^ 32.
+  { rewrite Int64.add_unsigned (Int64.unsigned_repr 4294967296).
+    { change Int64.max_unsigned with 18446744073709551615; lia. }
+    rewrite Int64.unsigned_repr //.
+    change Int64.max_unsigned with 18446744073709551615; lia. }
+  rewrite sub_unsigned E //; lia.
+Qed.
+
+End AddSub.
+
+(** ** Writes in an array, from num_add and num_sub *)
+
+Section Writes.
+
+Context {n : nat}.
+Implicit Types a : {ffun 'I_n -> int64}.
+
+(* Writing limb k leaves the other limbs. *)
+Lemma setf_other a k v (j : 'I_n) : (j : nat) <> k -> (a ↑[ k ← v ]) j = a j.
+Proof.
+  move=> Hj; rewrite /setf; case: insubP => [k' _ Ek|_] //=.
+  rewrite ffunE; case: eqP => // Ejk; case: Hj; by rewrite Ejk.
+Qed.
+
+(* Limb k is the value written. *)
+Lemma setf_at a k v (Hk : (k < n)%nat) : (a ↑[ k ← v ]) (Ordinal Hk) = v.
+Proof. by rewrite (setfE _ _ _ Hk) ffunE eqxx. Qed.
+
+(* Writing limb k adds it, at its weight, to the k low limbs. *)
+Lemma pval_setf_top a k v : (k < n)%nat ->
+  pval (a ↑[ k ← v ]) k.+1 = pval a k + limb_base k * Int64.unsigned v.
+Proof.
+  move=> Hk.
+  rewrite -[k.+1]/((Ordinal Hk).+1) pvalS setf_at.
+  congr (_ + _); apply: pval_ext => j Hj; apply: setf_other.
+  by move=> E; move: Hj; rewrite E ltnn.
+Qed.
+
+(* Writing limb o adds it, at its weight, to the o low limbs. *)
+Lemma pval_upd a (o : 'I_n) v :
+  pval [ffun j => if j == o then v else a j] o.+1 =
+  pval a o + limb_base o * Int64.unsigned v.
+Proof.
+  rewrite pvalS ffunE eqxx; congr (_ + _).
+  apply: pval_ext => j Hj; rewrite ffunE; case: eqP => // Ej.
+  by move: Hj; rewrite Ej ltnn.
+Qed.
+
+End Writes.

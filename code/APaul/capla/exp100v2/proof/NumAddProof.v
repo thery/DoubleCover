@@ -19,22 +19,6 @@ Open Scope capla_scope.
 Section Lemmas.
 Local Open Scope Z_scope.
 
-(* The sum of a carry and two limbs does not wrap. *)
-Lemma add3_unsigned (c x y : int64) :
-  Int64.unsigned c <= 1 -> Int64.unsigned x < 2 ^ 32 ->
-  Int64.unsigned y < 2 ^ 32 ->
-  Int64.unsigned (Int64.add (Int64.add c x) y) =
-  Int64.unsigned c + Int64.unsigned x + Int64.unsigned y.
-Proof.
-  move=> Hc Hx Hy.
-  have := Int64.unsigned_range c; have := Int64.unsigned_range x.
-  have := Int64.unsigned_range y => Ry Rx Rc.
-  rewrite !Int64.add_unsigned (Int64.unsigned_repr (_ + _)).
-  { change Int64.max_unsigned with 18446744073709551615; lia. }
-  rewrite Int64.unsigned_repr //.
-  change Int64.max_unsigned with 18446744073709551615; lia.
-Qed.
-
 (* One round of the carry loop on the numbers. *)
 Lemma add_step (P A Bb B c x y s : Z) :
   0 <= c <= 1 -> 0 <= x < 2 ^ 32 -> 0 <= y < 2 ^ 32 -> 0 < B ->
@@ -59,27 +43,6 @@ Qed.
 
 Context {n : nat}.
 Implicit Types a : {ffun 'I_n -> int64}.
-
-(* Writing limb k leaves the other limbs. *)
-Lemma setf_other a k v (j : 'I_n) : (j : nat) <> k -> (a ↑[ k ← v ]) j = a j.
-Proof.
-  move=> Hj; rewrite /setf; case: insubP => [k' _ Ek|_] //=.
-  rewrite ffunE; case: eqP => // Ejk; case: Hj; by rewrite Ejk.
-Qed.
-
-(* Limb k is the value written. *)
-Lemma setf_at a k v (Hk : (k < n)%nat) : (a ↑[ k ← v ]) (Ordinal Hk) = v.
-Proof. by rewrite (setfE _ _ _ Hk) ffunE eqxx. Qed.
-
-(* Writing limb k adds it, at its weight, to the k low limbs. *)
-Lemma pval_setf_top a k v : (k < n)%nat ->
-  pval (a ↑[ k ← v ]) k.+1 = pval a k + limb_base k * Int64.unsigned v.
-Proof.
-  move=> Hk.
-  rewrite -[k.+1]/((Ordinal Hk).+1) pvalS setf_at.
-  congr (_ + _); apply: pval_ext => j Hj; apply: setf_other.
-  by move=> E; move: Hj; rewrite E ltnn.
-Qed.
 
 End Lemmas.
 

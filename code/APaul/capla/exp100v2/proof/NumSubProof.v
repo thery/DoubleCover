@@ -8,6 +8,7 @@
 
 From compcert Require Import CaplaProof.
 From Exp100 Require Import ExpNum ExpLimbs.
+Require Import Exp100Capla2.LimbLemmas.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -17,45 +18,6 @@ Open Scope capla_scope.
 
 Section Lemmas.
 Local Open Scope Z_scope.
-
-(* A limb plus a carry does not wrap. *)
-Lemma add2_unsigned (y c : int64) :
-  Int64.unsigned y < 2 ^ 32 -> Int64.unsigned c <= 1 ->
-  Int64.unsigned (Int64.add y c) = Int64.unsigned y + Int64.unsigned c.
-Proof.
-  move=> Hy Hc.
-  have := Int64.unsigned_range y; have := Int64.unsigned_range c => Rc Ry.
-  rewrite Int64.add_unsigned Int64.unsigned_repr //.
-  change Int64.max_unsigned with 18446744073709551615; lia.
-Qed.
-
-(* x - t, when t <= x. *)
-Lemma sub_unsigned (x t : int64) :
-  Int64.unsigned t <= Int64.unsigned x ->
-  Int64.unsigned (Int64.sub x t) = Int64.unsigned x - Int64.unsigned t.
-Proof.
-  move=> H.
-  have := Int64.unsigned_range x; have := Int64.unsigned_range t => Rt Rx.
-  rewrite /Int64.sub Int64.unsigned_repr //.
-  change Int64.max_unsigned with 18446744073709551615; lia.
-Qed.
-
-(* x + 2^32 - t, when x < t <= 2^32. *)
-Lemma borrow_unsigned (x t : int64) :
-  Int64.unsigned x < Int64.unsigned t <= 2 ^ 32 ->
-  Int64.unsigned (Int64.sub (Int64.add x (Int64.repr 4294967296)) t) =
-  Int64.unsigned x + 2 ^ 32 - Int64.unsigned t.
-Proof.
-  move=> H.
-  have := Int64.unsigned_range x; have := Int64.unsigned_range t => Rt Rx.
-  have E : Int64.unsigned (Int64.add x (Int64.repr 4294967296)) =
-           Int64.unsigned x + 2 ^ 32.
-  { rewrite Int64.add_unsigned (Int64.unsigned_repr 4294967296).
-    { change Int64.max_unsigned with 18446744073709551615; lia. }
-    rewrite Int64.unsigned_repr //.
-    change Int64.max_unsigned with 18446744073709551615; lia. }
-  rewrite sub_unsigned E //; lia.
-Qed.
 
 (* One round of the borrow loop on the numbers. *)
 Lemma sub_step (P A Bb B c x y v c' : Z) :
@@ -69,16 +31,6 @@ Qed.
 
 Context {n : nat}.
 Implicit Types a : {ffun 'I_n -> int64}.
-
-(* Writing limb o adds it, at its weight, to the o low limbs. *)
-Lemma pval_upd a (o : 'I_n) v :
-  pval [ffun j => if j == o then v else a j] o.+1 =
-  pval a o + limb_base o * Int64.unsigned v.
-Proof.
-  rewrite pvalS ffunE eqxx; congr (_ + _).
-  apply: pval_ext => j Hj; rewrite ffunE; case: eqP => // Ej.
-  by move: Hj; rewrite Ej ltnn.
-Qed.
 
 End Lemmas.
 
