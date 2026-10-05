@@ -175,8 +175,8 @@ Proof.
     discriminate. }
   Intros dd; rename H3 into Hldd, H4 into Hfdd, H5 into Hvdd.
   rewrite Hvlo2, Hvhi3 in Hvdd.
-  (* t = 2^(f-43) + D *)
-  forward_call (Tsh, v_t, f - 43).
+  (* t = 2^(f-42) + D *)
+  forward_call (Tsh, v_t, f - 42).
   { rewrite Int64.Z_mod_modulus_eq, Z.mod_small by rep_lia.
     rewrite !Int.signed_repr by rep_lia; rep_lia. }
   { entailer!; simpl.
@@ -189,9 +189,9 @@ Proof.
   forward.
   replace_SEP 0 (num Tsh Dl v_hi).
   { entailer!. }
-  assert (Ht : M.pow2 (f - 43) + 16 < 2 ^ 192).
+  assert (Ht : M.pow2 (f - 42) + 16 < 2 ^ 192).
   { rewrite M.pow2E by lia.
-    assert (2 ^ (f - 43) <= 2 ^ 141) by (apply Z.pow_le_mono_r; lia).
+    assert (2 ^ (f - 42) <= 2 ^ 142) by (apply Z.pow_le_mono_r; lia).
     zpow; lia. }
   forward_call (Tsh, Tsh, v_t, v_hi, t1, Dl).
   { rewrite HvD, Hvt1; change num_bits with 192; exact Ht. }

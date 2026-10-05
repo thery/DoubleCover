@@ -269,7 +269,7 @@ fun decide(y: [u64; 6], hN: i64, lo hi d t: mut [u64; 6]) -> u64 {
   num_sub(hi, lo);
   let lt: bool = num_lt(lo, hi);
   if lt { num_copy(d, lo); } else { num_copy(d, hi); }
-  num_pow2(t, f - 43);
+  num_pow2(t, f - 42);
   num_zero(hi);
   hi[0] = 16u64;
   num_add(t, hi);

@@ -1,6 +1,6 @@
 # The Capla exp100 on the new Capla (ccomp installed in the opam switch
-# capla2, see PICKUP-install.md).
-CCOMP ?= $(shell opam var bin --switch=capla2)/ccomp
+# capla3, see PICKUP-install.md).
+CCOMP ?= $(shell opam var bin --switch=capla3)/ccomp
 
 all: test_capla
 

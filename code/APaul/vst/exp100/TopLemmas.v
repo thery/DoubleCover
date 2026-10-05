@@ -372,7 +372,7 @@ Lemma decide_f y hN f :
   let lo := M.low y f in
   let hi := M.pow2 f - lo in
   let d := if lo <? hi then lo else hi in
-  if M.pow2 (f - 43) + 16 <? d then 0 else 1.
+  if M.pow2 (f - 42) + 16 <? d then 0 else 1.
 Proof.
   intros H1 H2 Hf; unfold M.decide_Z, M.D; cbv zeta.
   rewrite H1, H2, Z.eqb_refl; cbn [andb negb].

@@ -1,5 +1,5 @@
 # The proofs of the Capla exp100 (../exp100.b) on the new Capla, after
-# ~/git/capla-proofexamples: Capla installed in the opam switch capla2
+# ~/git/capla-proofexamples: Capla installed in the opam switch capla3
 # (From compcert Require Import CaplaProof), the build by rocq makefile
 # from _RocqProject.
 #

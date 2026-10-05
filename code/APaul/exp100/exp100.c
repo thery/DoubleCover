@@ -240,7 +240,7 @@ int maybe_hard_bits(uint64_t xb) {
   num_sub(hi, lo);
   if (num_lt(lo, hi)) num_copy(d, lo);
   else num_copy(d, hi);
-  // not hard when d > 2^(f-43) + D
+  // not hard when d > 2^(f-42) + D
   num_pow2(t, (int) f - M_HARD);
   num_zero(hi);
   hi[0] = EXP100_D;
