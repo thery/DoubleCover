@@ -650,3 +650,104 @@ Proof.
     apply Hrest; [exact Hsc2 | intros y Hy; simpl; auto | apply Hb2; lia | exact Hwr2 |].
     split; [simpl; auto | discriminate].
 Qed.
+
+(* ---------------------------------------------------------------------------
+   Loops. *)
+
+Lemma sctx_scalar (L : list pv) k c wP (live : pv -> Prop) :
+  Forall (static_ok k) L -> ids_unique L -> (forall p, In p L -> (pn p < c)%nat) ->
+  (forall a, wP = Some a -> exists y, a = AVar y /\ In y L /\ varg (pw y) <> None) ->
+  sctx L k c wP PScalar live Real.
+Proof. intros; constructor; auto; simpl; try (intros; discriminate); exact I. Qed.
+
+Lemma good_map (loP hiP : atom pv) (bP : pv -> anf pv bare) :
+  (forall x, good_body (bP x)) -> good_value (AMap loP hiP bP).
+Proof.
+  intros IHb.
+  gvalue_intro; simpl in Htc |- *.
+  rename b into bA, b0 into bW, b1 into bT.
+  match goal with H : forall (i1 : pv) (i2 : avar), _ |- _ => rename H into HbA end.
+  match goal with H : forall (i1 : pv) (i2 : vinfo), _ |- _ => rename H into HbW end.
+  match goal with H : forall (i1 : pv) (i2 : tvar W), _ |- _ => rename H into HbT end.
+  pose proof (s_static _ _ _ _ _ _ _ Hs) as HL.
+  destruct pp as [| | | ix0 sx0]; simpl in Htc; try discriminate.
+  destruct tail; [| discriminate].
+  destruct loP as [? | ? | l0]; simpl in Htc; try discriminate.
+  destruct hiP as [? | ? | h]; simpl in Htc; try discriminate.
+  destruct (negb (l0 =? 0)%Z) eqn:El; [discriminate |].
+  apply negb_false_iff, Z.eqb_eq in El; subst l0.
+  assert (Hte : te = Array (h - 0)) by (clear - Htc; crush_match Htc).
+  destruct (owner wP PTop) as [o |] eqn:Eo;
+    [| destruct (s_ty _ _ _ _ _ _ _ Hs ltac:(rewrite <- (Htail eq_refl), Hte; exact I) Eo)].
+  destruct wP as [[o' | |] |]; simpl in Eo; try discriminate.
+  destruct (vty (pw o')) as [| | | ny] eqn:Ey; try discriminate; injection Eo as ->.
+  simpl in Hst; injection Hst as Ej; subst j.
+  assert (HtB : typecheck (Some (AVar (pw o))) ScalarBody (S k) (bW (VInfo k Integer None)) = (Real, Ok)).
+  { simpl in Htc; destruct (varg (pw o)) as [[nm [] ] |]; simpl in Htc; try discriminate;
+      destruct (occurs_anf (vid (pw o)) (S k) (bW (anon k))); try discriminate;
+      destruct (typecheck (Some (AVar (pw o))) ScalarBody (S k) (bW (VInfo k Integer None))) as [tb [| mm]];
+      simpl in Htc; try discriminate; destruct (ty_eqb tb Real) eqn:Etb; try discriminate;
+      apply ty_eqb_true in Etb; subst; auto. }
+  destruct (s_written _ _ _ _ _ _ _ Hs _ eq_refl) as [o'' [Eo'' [HoL _]]]; injection Eo'' as <-.
+  assert (Hown : owner (Some (AVar o)) PTop = Some o) by (simpl; rewrite Ey; reflexivity).
+  destruct (Ho o ltac:(first [exact Hown | reflexivity])) as [W1 W2].
+  (* the body, opened *)
+  rewrite open_pairs_sbind.
+  match goal with |- context [open_pairs ?t (S c)] =>
+    destruct (open_pairs t (S c)) as [[sb [vb db]] c2] eqn:Hob end.
+  cbn [open_pairs spell amap].
+  set (vr := varied_anf (S k) (bA (fresh k))).
+  set (ix := PV (fresh k) (VInfo k Integer None) (open_index (DBound (c, c))) (VInt 0) c).
+  assert (Hix : static_ok (S k) ix) by (repeat split; simpl; auto; try lia; discriminate).
+  assert (Hs' : sctx (ix :: L) (S k) (S c) (Some (AVar o)) PScalar
+                  (live_anf (S k) (bW (VInfo k Integer None))) Real).
+  { apply sctx_scalar.
+    - constructor; [exact Hix |]; apply Forall_impl with (P := static_ok k); auto.
+      intros p Hp; apply (static_mono k); auto.
+    - intros p q [<- | Hp] [<- | Hq] E; auto;
+        try (destruct (static_in _ _ _ HL Hq) as [_ [Hq' _]]; simpl in E; lia);
+        try (destruct (static_in _ _ _ HL Hp) as [_ [Hp' _]]; simpl in E; lia).
+      exact (s_unique _ _ _ _ _ _ _ Hs _ _ Hp Hq E).
+    - intros p [<- | Hp]; simpl; [lia |]; pose proof (s_num _ _ _ _ _ _ _ Hs _ Hp); lia.
+    - intros a0 E; injection E as <-; exists o; split; [reflexivity | split; [right; exact HoL |]].
+      destruct (s_written _ _ _ _ _ _ _ Hs _ eq_refl) as [? [E [_ Hg]]]; injection E as <-; exact Hg. }
+  assert (Hlive_b : forall p, In p L -> live_anf (S k) (bW (VInfo k Integer None)) p ->
+                    live_value k (AMap (ANat 0) (ANat h) bW) p).
+  { intros p Hp Hl; unfold live_anf, live_value in *; simpl.
+    rewrite <- (live_cont L k bP bW (pfresh k) (VInfo k Integer None) _ HbW HL eq_refl eq_refl).
+    exact Hl. }
+  assert (Hcons : Forall (fun x => below (S c) x /\ consistent x) (DBound (c, c) :: sc)).
+  { constructor; [simpl; split; [lia | reflexivity] |].
+    apply Forall_impl with (P := fun x => below c x /\ consistent x); auto.
+    intros y [Y1 Y2]; split; [apply (below_mono c); auto | exact Y2]. }
+  assert (Hsc' : scope_ok (ix :: L) (S c) (Some (AVar o)) PScalar (live_anf (S k) (bW (VInfo k Integer None)))
+                   (DBound (c, c) :: sc) wr).
+  { split; [exact Hcons | split; [intros y Hy; right; apply Hw, Hy | split; [| intros o' E; discriminate]]].
+    intros p [<- | Hp] Lp; [split; [left; reflexivity | discriminate] |].
+    destruct (Hr p Hp (Hlive_b p Hp Lp)) as [R1 R2]; split; [right; exact R1 | intros Hd; right; exact (R2 Hd)]. }
+  specialize (IHb ix (ix :: L) (S k) (S c) (Some (AVar o)) PScalar Replay (bA (fresh k))
+                (bW (VInfo k Integer None)) (bT (open_index (DBound (c, c)))) Real (DBound (c, c) :: sc) wr
+                (HbA ix _) (HbW ix _) (HbT ix _) Hs' Hsc' I HtB).
+  match type of IHb with context [open_pairs ?t (S c)] =>
+    replace (open_pairs t (S c)) with ((sb, (vb, db)), c2) in IHb by (rewrite <- Hob; reflexivity) end.
+  destruct IHb as [Hc2 [Hnt Hg]].
+  split; [lia |].
+  split; [unfold notape in *; unfold tan_map; destruct vr; simpl; rewrite existsb_app, Hnt; reflexivity |].
+  assert (Hni : ~ In (DBound (c, c)) sc).
+  { intros I; rewrite Forall_forall in Hb; destruct (Hb _ I) as [Hbl _]; simpl in Hbl; lia. }
+  assert (Hb2 : Forall (fun x => below c2 x /\ consistent x) sc).
+  { apply Forall_impl with (P := fun x => below c x /\ consistent x); auto.
+    intros y [Y1 Y2]; split; [apply (below_mono c); auto; lia | exact Y2]. }
+  intros rest Hrest; unfold tan_map; destruct vr eqn:Hvr; simpl;
+    (apply GoodFor; [exact Hni | reflexivity | exact I | exact I | |]).
+  - apply Hg; intros sc' wr' I1 I2 _ _ [Q1 Q2].
+    apply GoodAssign; [split; [apply I2, W1 | apply I1; left; reflexivity] | exact Q1 |].
+    apply GoodAssign; [split; [apply I2, W2 | apply I1; left; reflexivity] | exact Q2 | constructor].
+  - apply Hrest; [apply incl_refl | apply incl_refl | exact Hb2 | exact Hw |].
+    split; [apply Hw, W1 | intros _; apply Hw, W2].
+  - apply Hg; intros sc' wr' I1 I2 _ _ [Q1 Q2].
+    apply GoodAssign; [split; [apply I2, W1 | apply I1; left; reflexivity] | exact Q1 |].
+    apply GoodAssign; [split; [apply I2, W2 | apply I1; left; reflexivity] | exact I | constructor].
+  - apply Hrest; [apply incl_refl | apply incl_refl | exact Hb2 | exact Hw |].
+    split; [apply Hw, W1 | discriminate].
+Qed.
