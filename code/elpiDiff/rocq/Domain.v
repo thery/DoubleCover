@@ -4,8 +4,10 @@
    how a literal reads, and how the unary and binary operations and the
    comparisons compute. The evaluators take a domain as an argument and are
    polymorphic in N. As an Elpi predicate may fail (no clause for an unknown
-   operator), an operation returns an option; a comparison is decided by an
-   `if` in Elpi, which never fails, and returns a bool.
+   operator), an operation returns an option. A comparison is decided by an
+   `if` in Elpi, which never fails; here it returns an option too, so that a
+   domain may refuse to compare two equal numbers: the partial semantics of
+   Abadi and Plotkin (Smooth.v). The reals and the dual numbers never refuse.
 
    The domain of Elpi's floats becomes the domain of the reals of Rocq: a
    literal is read exactly (as a rational number), and the operations are those
@@ -21,7 +23,7 @@ Record domain (N : Type) : Type := Domain {
   dom_lit : string -> option N;                   (* a real literal, spelled as in the source: "2", "0.9" *)
   dom_op1 : unary -> N -> option N;               (* a unary operation *)
   dom_op2 : binary -> N -> N -> option N;         (* a binary arithmetic operation *)
-  dom_cmp : binary -> N -> N -> bool              (* a comparison *)
+  dom_cmp : binary -> N -> N -> option bool       (* a comparison *)
 }.
 
 Arguments Domain {N}.  Arguments dom_lit {N}.  Arguments dom_op1 {N}.
@@ -122,13 +124,14 @@ Definition real_op2 (f : binary) (x y : R) : option R :=
   | _ => None
   end.
 
-Definition real_cmp (f : binary) (x y : R) : bool :=
+(* A comparison of reals always answers. *)
+Definition real_cmp (f : binary) (x y : R) : option bool :=
   match f with
-  | Lt => if Rlt_dec x y then true else false
-  | Le => if Rle_dec x y then true else false
-  | Gt => if Rgt_dec x y then true else false
-  | Ge => if Rge_dec x y then true else false
-  | _ => false
+  | Lt => Some (if Rlt_dec x y then true else false)
+  | Le => Some (if Rle_dec x y then true else false)
+  | Gt => Some (if Rgt_dec x y then true else false)
+  | Ge => Some (if Rge_dec x y then true else false)
+  | _ => Some false
   end.
 
 Definition reals : domain R := Domain real_lit real_op1 real_op2 real_cmp.
@@ -189,8 +192,8 @@ Definition dual_op2 (f : binary) (a b : dual N) : option (dual N) :=
   | _ => None
   end.
 
-(* A comparison compares the values. *)
-Definition dual_cmp (f : binary) (a b : dual N) : bool :=
+(* A comparison compares the values, in B: it answers when B answers. *)
+Definition dual_cmp (f : binary) (a b : dual N) : option bool :=
   let 'Dual x _ := a in let 'Dual y _ := b in dom_cmp B f x y.
 
 Definition duals : domain (dual N) := Domain dual_lit dual_op1 dual_op2 dual_cmp.

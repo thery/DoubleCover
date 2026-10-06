@@ -47,7 +47,8 @@ Section Eval.
 Variable N : Type.
 Variable D : domain N.
 
-(* Integers compute exactly, reals in the domain; a comparison gives a boolean. *)
+(* Integers compute exactly, reals in the domain; a comparison gives a boolean,
+   or fails where the domain refuses to compare. *)
 Definition int_holds (f : binary) (x y : Z) : bool :=
   match f with
   | Lt => x <? y | Le => x <=? y | Gt => x >? y | Ge => x >=? y
@@ -71,7 +72,7 @@ Definition eval_op1 (f : unary) (a : val N) : option (val N) :=
 Definition eval_op2 (f : binary) (a b : val N) : option (val N) :=
   match a, b with
   | VInt x, VInt y => Some (int_op2 f x y)
-  | VReal x, VReal y => if comparison f then Some (VBool (dom_cmp D f x y))
+  | VReal x, VReal y => if comparison f then let* c := dom_cmp D f x y in Some (VBool c)
                         else let* z := dom_op2 D f x y in Some (VReal z)
   | _, _ => None
   end.

@@ -22,6 +22,7 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
 | `Target.v` | `target.elpi` | L3: `expr`, `stmt`, `cfunction` |
 | `Domain.v` | `numbers.elpi` | `domain`; the reals (`reals`), for Elpi's floats; dual numbers over any domain (`duals`) |
 | `Eval.v` | `eval.elpi` | `val`; the evaluator of L0 (`eval`, `eval_function`) |
+| `Smooth.v` | — | the partial semantics of Abadi and Plotkin: the domain `smooth_reals`, the predicate `defined` |
 | `EvalAnf.v` | `eval-anf.elpi` | the evaluator of L1 and L1ᵃ (`aeval`, `aeval_function`) |
 | `Exec.v` | `exec.elpi` | the evaluator of L2 (`exec`, `exec_dfunction`) |
 | `Operations.v` | the table of `operations.elpi` | `operation1`, `operation2` (the rows, first row or first match), `extra_arguments`, `partial1`, `partial2`, `unary_name`, `binary_name` |
@@ -55,8 +56,12 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
   that the store can compare them.
 - **Relations become functions into `option`.** `None` where the Elpi predicate
   fails: an ill-typed program, an index out of an array, an unknown operator.
-  A comparison is decided by an `if` in Elpi, which never fails: it returns a
-  `bool`.
+- **Comparisons return an option.** A comparison is decided by an `if` in
+  Elpi, which never fails. In Rocq it returns an `option bool`, so that a
+  domain may refuse a tie: the partial semantics of Abadi and Plotkin (POPL
+  2020), where a comparison of two equal reals is undefined (`smooth_reals`,
+  in `Smooth.v`). `reals` and `duals` never refuse: the evaluators of Elpi are
+  mimicked as before.
 - **Numbers.** Elpi's floats become the reals of Rocq (`R`); a literal, a
   string as in Elpi (`"0.9"`, `"13.0 / 12.0"`), is read exactly, as a rational
   number. Elpi's `int` becomes `Z`.

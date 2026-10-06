@@ -5,6 +5,7 @@ Derivative.v
 Target.v
 Domain.v
 Eval.v
+Smooth.v
 EvalAnf.v
 Exec.v
 Operations.v
