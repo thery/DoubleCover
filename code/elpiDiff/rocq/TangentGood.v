@@ -537,3 +537,116 @@ Proof.
       replace (open_pairs t c1) with ((sb, (ve', de')), c2) in IH1 by (rewrite <- Hsb; reflexivity) end.
     exact (proj2 (proj2 IH1)).
 Qed.
+
+(* ---------------------------------------------------------------------------
+   A branch. *)
+
+Lemma sctx_sub L k c wP pp pp' (live live' : pv -> Prop) ty :
+  sctx L k c wP pp live ty -> owner wP pp' = None -> pp' <> PTop -> place_ok L pp' ->
+  sctx L k c wP pp' live' Real.
+Proof. intros Hc Ho Hpp Hpl; destruct Hc; constructor; auto; intros; congruence. Qed.
+
+Lemma good_assign_end sc wr (n : dvar W) e1 e2 (vr : bool) :
+  In n wr -> In (DotOf n) wr \/ vr = false -> expr_ok sc e1 -> expr_ok sc e2 ->
+  good sc wr (if vr then [DAssign (DVar n) e1; DAssign (DVar (DotOf n)) e2] else [DAssign (DVar n) e1]).
+Proof.
+  intros H1 H2 E1 E2; destruct vr.
+  - apply GoodAssign; [exact H1 | exact E1 |]; apply GoodAssign; [| exact E2 | constructor].
+    destruct H2 as [H2 | H2]; [exact H2 | discriminate].
+  - apply GoodAssign; [exact H1 | exact E1 | constructor].
+Qed.
+
+Lemma good_ite (cP : atom pv) (tP eP : anf pv bare) :
+  good_body tP -> good_body eP -> good_value (AIte cP tP eP).
+Proof.
+  intros IHt IHe.
+  gvalue_intro; simpl in Htc, Hst |- *.
+  rename t into tA, e into eA, t0 into tW, e0 into eW, t1 into tT, e1 into eT.
+  assert (Hnot : forall ix sx, pp <> PArray ix sx) by (intros ix sx ->; simpl in Htc; discriminate).
+  assert (Hpp : pp = PTop \/ pp = PBranch \/ pp = PScalar)
+    by (destruct pp as [| | | ix sx]; auto; destruct (Hnot ix sx eq_refl)).
+  assert (Htc' : (if ty_eqb (of_atom (amap pw cP)) Boolean
+                  then let '(t3, d1) := typecheck (option_map (amap pw) wP) InBranch k tW in
+                       let '(t4, d2) := typecheck (option_map (amap pw) wP) InBranch k eW in
+                       if is_ok d1 then if is_ok d2 then if ty_eqb t3 Real && ty_eqb t4 Real
+                         then (Real, Ok) else (Real, Error "both branches must compute a real")
+                       else (Real, d2) else (Real, d1)
+                  else (Real, Error "a branch condition must be a comparison")) = (te, Ok))
+    by (destruct Hpp as [-> | [-> | ->]]; exact Htc).
+  clear Htc.
+  destruct (ty_eqb (of_atom (amap pw cP)) Boolean) eqn:Ecb; [| discriminate].
+  destruct (typecheck (option_map (amap pw) wP) InBranch k tW) as [t3 d1] eqn:HtW.
+  destruct (typecheck (option_map (amap pw) wP) InBranch k eW) as [t4 d2] eqn:HeW.
+  destruct d1, d2; simpl in Htc'; try discriminate.
+  destruct (ty_eqb t3 Real) eqn:E3, (ty_eqb t4 Real) eqn:E4; simpl in Htc'; try discriminate.
+  injection Htc' as <-; apply ty_eqb_true in E3, E4; subst t3 t4.
+  destruct Hst as [N1 N2].
+  assert (Hlc : forall p, cP = AVar p -> In p L /\ live_value k (AIte (amap pw cP) tW eW) p)
+    by (intros p E; split; [auto | subst; unfold live_value; simpl; rewrite Nat.eqb_refl; reflexivity]).
+  destruct (operand_scope _ _ _ _ _ _ _ _ cP Hs Hr Hlc) as [C1 _].
+  (* the two bodies, opened *)
+  rewrite open_pairs_sbind.
+  destruct (open_pairs (tan W (option_map (amap pt) wP) (rebuild (tvar W) tT (annotate_body_t false Replay k tA))) c)
+    as [[st [vt dt]] c1] eqn:Hot.
+  rewrite open_pairs_sbind.
+  destruct (open_pairs (tan W (option_map (amap pt) wP) (rebuild (tvar W) eT (annotate_body_t false Replay k eA))) c1)
+    as [[se' [ve' de']] c2] eqn:Hoe.
+  cbn zeta; simpl.
+  set (vr := varied_anf k tA || varied_anf k eA).
+  set (n := DBound (j, j)).
+  set (sc2 := if vr then DotOf n :: n :: sc else n :: sc).
+  set (wr2 := if vr then DotOf n :: n :: wr else n :: wr).
+  assert (Hsc2 : incl sc sc2) by (unfold sc2; destruct vr; intros y Hy; simpl; auto).
+  assert (Hwr2 : incl wr2 sc2) by (unfold sc2, wr2; destruct vr; intros y Hy; simpl in *; intuition).
+  assert (Hn2 : In n wr2 /\ (In (DotOf n) wr2 \/ vr = false))
+    by (unfold wr2; destruct vr; simpl; auto).
+  assert (Hb2 : forall c', (c <= c')%nat -> Forall (fun x => below c' x /\ consistent x) sc2).
+  { intros c' Hc'; unfold sc2.
+    assert (Hsc : Forall (fun x => below c' x /\ consistent x) sc)
+      by (apply Forall_impl with (P := fun x => below c x /\ consistent x); auto;
+          intros y [Y1 Y2]; split; [apply (below_mono c); auto | exact Y2]).
+    destruct vr; repeat constructor; auto; simpl; lia. }
+  (* a branch body *)
+  assert (Hbr : forall bP bA bW bT (cb cb' : nat) sb vb db,
+            anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gT L) bP bT ->
+            good_body bP -> (c <= cb)%nat ->
+            (forall p, live_anf k bW p -> live_value k (AIte (amap pw cP) tW eW) p) ->
+            typecheck (option_map (amap pw) wP) InBranch k bW = (Real, Ok) ->
+            open_pairs (tan W (option_map (amap pt) wP) (rebuild (tvar W) bT (annotate_body_t false Replay k bA))) cb
+            = ((sb, (vb, db)), cb') ->
+            (cb <= cb')%nat /\ notape sb /\
+            good sc2 wr2 (sb ++ (if vr then [DAssign (DVar n) vb; DAssign (DVar (DotOf n)) db]
+                                 else [DAssign (DVar n) vb]))%list).
+  { intros bP bA bW bT cb cb' sb vb db HA HW HT IH Hcb Hl Htb Hob.
+    assert (Hs' : sctx L k cb wP PBranch (live_anf k bW) Real).
+    { apply (sctx_sub L k cb wP pp PBranch (live_value k (AIte (amap pw cP) tW eW)) _ ty); auto;
+        [apply (sctx_weaken _ _ _ _ _ _ _ _ _ Hs); auto | discriminate | exact I]. }
+    assert (Hsc' : scope_ok L cb wP PBranch (live_anf k bW) sc2 wr2).
+    { split; [apply Hb2, Hcb | split; [exact Hwr2 | split; [| intros o E; discriminate]]].
+      intros p Hp Lp; destruct (Hr p Hp (Hl p Lp)) as [R1 R2]; split; [apply Hsc2, R1 | intros Hd; apply Hsc2, R2, Hd]. }
+    specialize (IH L k cb wP PBranch Replay bA bW bT Real sc2 wr2 HA HW HT Hs' Hsc' I Htb).
+    rewrite Hob in IH; destruct IH as [Hc' [Hnt Hg]].
+    split; [exact Hc' | split; [exact Hnt |]].
+    apply Hg; intros sc' wr' I1 I2 _ _ [Q1 Q2].
+    apply good_assign_end; [apply I2, Hn2 | destruct (proj2 Hn2) as [Hq | Hq]; [left; apply I2, Hq | right; exact Hq]
+                           | exact Q1 | exact Q2]. }
+  destruct (Hbr tP tA tW tT c c1 st vt dt ltac:(assumption) ltac:(assumption) ltac:(assumption) IHt (le_n c)
+              ltac:(unfold live_anf, live_value; intros p H'; simpl; rewrite H', orb_true_r; reflexivity) HtW Hot)
+    as [Hc1 [Hnt1 Hg1]].
+  destruct (Hbr eP eA eW eT c1 c2 se' ve' de' ltac:(assumption) ltac:(assumption) ltac:(assumption) IHe Hc1
+              ltac:(unfold live_anf, live_value; intros p H'; simpl; rewrite H', !orb_true_r; reflexivity) HeW Hoe)
+    as [Hc2 [Hnt2 Hg2]].
+  unfold tan_ite; fold vr n.
+  split; [lia |].
+  split; [unfold notape in *; destruct vr; simpl; rewrite ?existsb_app, ?Hnt1, ?Hnt2; reflexivity |].
+  intros rest Hrest; destruct vr eqn:Hvr; simpl.
+  - apply GoodRealVar; [exact N1 | reflexivity |].
+    apply GoodRealVar; [intros [E | E]; [discriminate | contradiction] | reflexivity |].
+    apply GoodBranch; [apply (expr_ok_incl sc); [exact Hsc2 | apply expr_ok_allv, C1] | exact Hg1 | exact Hg2 |].
+    apply Hrest; [exact Hsc2 | intros y Hy; simpl; auto | apply Hb2; lia | exact Hwr2 |].
+    split; [simpl; auto | intros _; simpl; auto].
+  - apply GoodRealVar; [exact N1 | reflexivity |].
+    apply GoodBranch; [apply (expr_ok_incl sc); [exact Hsc2 | apply expr_ok_allv, C1] | exact Hg1 | exact Hg2 |].
+    apply Hrest; [exact Hsc2 | intros y Hy; simpl; auto | apply Hb2; lia | exact Hwr2 |].
+    split; [simpl; auto | discriminate].
+Qed.
