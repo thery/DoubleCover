@@ -241,8 +241,7 @@ Record ctx_ok (L : list pv) (k c : nat) (s : store R) (wP : option (atom pv)) (p
   c_written : forall a, wP = Some a ->
       exists y, a = AVar y /\ In y L /\ varg (pw y) <> None;
   c_place : place_ok L pp;
-  c_owner : forall o p q, owner wP pp = Some o -> In p L -> In q L -> live p -> live q ->
-      pn p = pn o -> pn q = pn o -> p = q;
+  c_owner : forall o p, owner wP pp = Some o -> In p L -> pn p = pn o -> p = o \/ ~ live p;
   c_inplace : forall o p, owner wP pp = Some o -> In p L -> live p -> pn p = pn o -> store_full s p;
   c_arrays : forall p o, In p L -> live p -> is_array (vty (pw p)) ->
       (varg (pw p) = None \/ wP = Some (AVar p)) -> owner wP pp = Some o -> pn p = pn o;
@@ -871,6 +870,27 @@ Proof.
   - (* AFold *) destruct vt; simpl; rewrite (tof_amap k L) by auto; crush_match Htc.
 Qed.
 
+(* A value stored in place has an array type. *)
+Lemma inplace_array L wP pW tail k (eP : value pv bare) eW te :
+  value_eq (gW L) eP eW ->
+  typecheck_value (option_map (amap pw) wP) pW tail k eW = (te, Ok) ->
+  storage wP tail eP <> None -> is_array te.
+Proof.
+  intros HW Htc Hs.
+  destruct eP, eW; simpl in HW; try contradiction; simpl in Hs; try (destruct Hs; reflexivity);
+    repeat match goal with
+    | H : _ /\ _ |- _ => destruct H
+    | H : atom_eq (gW L) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+    end; subst; simpl in Htc.
+  - destruct pW; simpl in Htc; crush_match Htc; injection Htc as <-; exact I.
+  - destruct pW; simpl in Htc; try (crush_match Htc; fail).
+    destruct tail; [| crush_match Htc].
+    destruct lo, hi; simpl in Htc; crush_match Htc; injection Htc as <-; exact I.
+  - destruct init as [i | |]; simpl in Hs; try (destruct Hs; reflexivity); simpl in Htc.
+    destruct (vty (pw i)) eqn:Ev; try (destruct Hs; reflexivity).
+    crush_match Htc; injection Htc as <-; exact I.
+Qed.
+
 Lemma open_pairs_sbind {A B : Type} (sc : scoped W A) (f : A -> scoped W B) c :
   open_pairs (sbind sc f) c = let '(a, c1) := open_pairs sc c in open_pairs (f a) c1.
 Proof.
@@ -1036,7 +1056,7 @@ Lemma ctx_weaken L k c c' s wP pp (live live' : pv -> Prop) ty :
 Proof.
   intros Hc Hl Hcc; destruct Hc; constructor; auto.
   - intros p Hp; specialize (c_num0 p Hp); lia.
-  - intros o p q Ho Hp Hq Lp Lq; apply c_owner0; auto.
+  - intros o p Ho Hp E; destruct (c_owner0 o p Ho Hp E) as [H | H]; [left; exact H | right; auto].
   - intros o p Ho Hp Lp; apply c_inplace0; auto.
   - intros y H1 H2 H3; destruct (c_top0 y H1 H2 H3) as [A [B C]]; auto.
 Qed.
@@ -1144,124 +1164,120 @@ Proof.
   assert (HxL : ~ In x L) by exact (fresh_notin L k x (aids_below L k HL) Hx).
   assert (Hvid : forall p, In p L -> (vid (pw p) < k)%nat)
     by (intros p Hp; destruct (static_in _ _ _ HL Hp) as [_ [H _]]; exact H).
-  (* the rest reads the variables in scope it read as part of the let *)
-  assert (Hlive_c : forall p, In p L -> live_anf (S k) (cW (VInfo k te None)) p ->
-                              live_anf k (ALet aW eW cW) p).
-  { unfold live_anf; intros p Hp H; simpl.
-    rewrite (live_cont L k cP cW x (VInfo k te None) _ HcW HL Hx eq_refl) in H.
-    rewrite H; apply orb_true_r. }
-  (* after a value stored in place, the rest only returns it *)
-  assert (Hcont_tail : storage wP tail eP <> None ->
-                       forall p, In p L -> ~ live_anf (S k) (cW (VInfo k te None)) p).
-  { intros Hs p Hp Hl.
-    destruct (inplace_value _ _ _ _ _ _ _ _ _ _ _ _ Hc HeW Hte Htail_ty (or_introl Hs)) as [Ht _].
-    destruct (tail_cont L k cP cW x (VInfo k te None) HcW HL Hx Ht) as [_ E].
-    unfold live_anf in Hl; rewrite E in Hl; simpl in Hl; apply Nat.eqb_eq in Hl.
-    specialize (Hvid _ Hp); lia. }
-  (* the value leaves the variables the rest reads unchanged *)
-  assert (Hframe_old : forall p, In p L -> live_anf (S k) (cW (VInfo k te None)) p ->
-            store_get s1 (keyv (stored p)) = store_get s (keyv (stored p)) /\
-            store_get s1 (keyv (DotOf (stored p))) = store_get s (keyv (DotOf (stored p)))).
-  { intros p Hp Hl; destruct (storage wP tail eP) eqn:Es.
-    - destruct (Hcont_tail ltac:(discriminate) p Hp Hl).
-    - pose proof (c_num _ _ _ _ _ _ _ _ Hc _ Hp) as Hpn; subst j.
-      split; apply Hfr1; unfold stored; simpl; try lia; try reflexivity;
-        intros m0 E; injection E as <-; rewrite Ej; split; intros E; inversion E; lia. }
-  set (cW' := cW (VInfo k te None)).
-  assert (Hxs : static_ok (S k) x).
-  { repeat split; simpl; auto; try lia; discriminate. }
-  assert (Hxstore : store_ok s1 x).
-  { split; unfold stored; simpl; rewrite <- Ej; [exact Hn1 |]; intros Hv; apply Hd1; left; exact Hv. }
-  assert (Hc' : ctx_ok (x :: L) (S k) c1 s1 wP pp (live_anf (S k) cW') ty).
-  { constructor.
-    - constructor; [exact Hxs |]; apply Forall_impl with (P := static_ok k); auto.
-      intros p Hp; apply (static_mono k); auto.
-    - intros p q [<- | Hp] [<- | Hq] E; auto.
-      + specialize (Hvid _ Hq); simpl in E; lia.
-      + specialize (Hvid _ Hp); simpl in E; lia.
-      + exact (c_unique _ _ _ _ _ _ _ _ Hc _ _ Hp Hq E).
-    - intros p [<- | Hp]; simpl; [lia |].
-      pose proof (c_num _ _ _ _ _ _ _ _ Hc _ Hp); lia.
-    - intros p [<- | Hp] Hl; [exact Hxstore |].
-      destruct (c_store _ _ _ _ _ _ _ _ Hc _ Hp (Hlive_c _ Hp Hl)) as [S1 S2].
-      destruct (Hframe_old _ Hp Hl) as [F1 F2]; split; [rewrite F1; exact S1 |].
-      intros Hd; rewrite F2; exact (S2 Hd).
-    - intros a0 E; destruct (c_written _ _ _ _ _ _ _ _ Hc _ E) as [y [-> [Hy Hv]]].
-      exists y; split; [reflexivity | split; [right; exact Hy | exact Hv]].
-    - pose proof (c_place _ _ _ _ _ _ _ _ Hc) as Hp; destruct pp; simpl in *; auto.
-      destruct Hp as [A [B C]]; split; [right; exact A | split; [right; exact B | exact C]].
-    - (* one live variable in the storage updated in place *)
-      intros o p q Ho Hp Hq Lp Lq Ep Eq; destruct (storage wP tail eP) eqn:Es.
-      + assert (Hone : forall r, In r (x :: L) -> live_anf (S k) cW' r -> r = x).
-        { intros r [<- | Hr] Lr; [reflexivity |].
-          destruct (Hcont_tail ltac:(discriminate) r Hr Lr). }
-        rewrite (Hone p Hp Lp), (Hone q Hq Lq); reflexivity.
-      + pose proof (c_num _ _ _ _ _ _ _ _ Hc _ (owner_in _ _ _ _ _ _ _ _ _ Hc Ho)) as Ho'.
-        destruct Hp as [<- | Hp]; [simpl in Ep; lia |].
-        destruct Hq as [<- | Hq]; [simpl in Eq; lia |].
-        exact (c_owner _ _ _ _ _ _ _ _ Hc o p q Ho Hp Hq (Hlive_c _ Hp Lp) (Hlive_c _ Hq Lq) Ep Eq).
-    - intros o p Ho Hp Lp Ep; destruct (storage wP tail eP) eqn:Es.
-      + destruct Hp as [<- | Hp]; [| destruct (Hcont_tail ltac:(discriminate) p Hp Lp)].
-        split; unfold stored; simpl; rewrite <- Ej; [exact Hn1 |].
-        apply Hd1; right; discriminate.
-      + pose proof (c_num _ _ _ _ _ _ _ _ Hc _ (owner_in _ _ _ _ _ _ _ _ _ Hc Ho)) as Ho'.
-        destruct Hp as [<- | Hp]; [simpl in Ep; lia |].
-        destruct (c_inplace _ _ _ _ _ _ _ _ Hc o p Ho Hp (Hlive_c _ Hp Lp) Ep) as [S1 S2].
-        destruct (Hframe_old _ Hp Lp) as [F1 F2]; split; [rewrite F1 | rewrite F2]; assumption.
-    - intros p o [<- | Hp] Lp Ha Hg Ho.
-      + destruct (inplace_value _ _ _ _ _ _ _ _ _ _ _ _ Hc HeW Hte Htail_ty (or_intror Ha))
-          as [_ [o' [Ho' Es]]].
-        rewrite Ho in Ho'; injection Ho' as <-; rewrite Es in Hn; destruct Hn as [Hn _].
-        rewrite Ej in Hn; injection Hn; auto.
-      + exact (c_arrays _ _ _ _ _ _ _ _ Hc p o Hp (Hlive_c _ Hp Lp) Ha Hg Ho).
-    - exact (c_ty _ _ _ _ _ _ _ _ Hc).
-    - intros y Hpp Hw Ha.
-      destruct (c_written _ _ _ _ _ _ _ _ Hc _ Hw) as [y' [E [Hy _]]]; injection E as <-.
-      destruct (c_top _ _ _ _ _ _ _ _ Hc y Hpp Hw Ha) as [T1 [T2 [l1 [l2 [A1 [A2 [A3 A4]]]]]]].
-      split; [exact T1 | split; [intros Ly; apply T2, Hlive_c; auto |]].
-      destruct (storage wP tail eP) eqn:Es.
-      + assert (Hsn : storage wP tail eP <> None) by (rewrite Es; discriminate).
-        destruct (inplace_value _ _ _ _ _ _ _ _ _ _ _ _ Hc HeW Hte Htail_ty (or_introl Hsn))
-          as [Ht [o [Ho Es']]].
-        rewrite Hpp, Hw in Ho; simpl in Ho.
-        destruct (vty (pw y)) as [| | | z] eqn:Ey; try discriminate.
-        injection Ho as <-; rewrite Es in Es'; injection Es' as Ed.
-        destruct Hn as [Hnd _]; assert (Eny : n = stored y) by congruence.
-        rewrite Eny in Hn1, Hd1.
-        rewrite (Htail_ty Ht), T1 in Hht.
-        apply (arrays_len_value s1 (stored y) ve z Hn1); [apply Hd1; right; discriminate | exact Hht].
-      + pose proof (c_num _ _ _ _ _ _ _ _ Hc _ Hy) as Hpy.
-        apply (arrays_len_frame c0 (Some n) s s1 y); [exact Hfr1 | lia | | | exists l1, l2; auto];
-          intros m0 E; injection E as <-; rewrite Ej, Hjs; unfold stored;
-          split; intros E; inversion E; lia. }
-  (* the rest of the body *)
-  specialize (IHb x (x :: L) (S k) c1 s1 wP pp m (cA (pa x)) cW' (cT (pt x)) (cD (pd x)) ty v
-                (HcA x _) (HcW x _) (HcT x _) (HcD x _) Hc' Hty Htc Hev).
-  unfold x in IHb; cbn [pt pa pd] in IHb; fold rest in IHb.
-  destruct (open_pairs (tan W (option_map (amap pt) wP) (rebuild (tvar W) (cT (open_let te n vr rec)) rest)) c1)
-    as [[sb [ve' de']] c2] eqn:Hsb.
-  destruct IHb as [Hc12 [Hht' [Hz' [Hrv1 [Hrv2 [s2 [Hrun2 [Hfr2 Hres2]]]]]]]].
-  assert (Hxs' : (~ below c (DBound (j, j)) /\ consistent (DBound (j, j))) \/
-                 exists o, In o L /\ DBound (j, j) = stored o).
-  { destruct (storage wP tail eP) eqn:Es.
-    - right; assert (Hsn : storage wP tail eP <> None) by (rewrite Es; discriminate).
-      destruct (inplace_value _ _ _ _ _ _ _ _ _ _ _ _ Hc HeW Hte Htail_ty (or_introl Hsn))
-        as [_ [o [Ho Es']]].
-      exists o; split; [exact (owner_in _ _ _ _ _ _ _ _ _ Hc Ho) |].
-      rewrite Es in Es'; destruct Hn as [Hnd _]; congruence.
-    - left; rewrite Hjs; simpl; split; [lia | reflexivity]. }
-  rewrite open_pairs_sbind, Hsb; simpl.
-  split; [lia | split; [exact Hht' | split; [exact Hz' |]]].
-  split; [exact (res_vars_let _ L c c1 ve' Hrv1 (Nat.le_trans _ _ _ Hc0 Hc01) Hxs') |].
-  split; [exact (res_vars_let _ L c c1 de' Hrv2 (Nat.le_trans _ _ _ Hc0 Hc01) Hxs') |].
-  exists s2; split; [rewrite run_app, Hrun1; exact Hrun2 | split; [| exact Hres2]].
-  apply (frame_let c c0 c1 _ n s s1 s2); auto.
-  destruct (storage wP tail eP) eqn:Es.
-  - right; assert (Hsn : storage wP tail eP <> None) by (rewrite Es; discriminate).
+  destruct (storage wP tail eP) as [m0 |] eqn:Es.
+  - (* stored in place: the rest only returns the variable *)
+    assert (Hsn : storage wP tail eP <> None) by (rewrite Es; discriminate).
     destruct (inplace_value _ _ _ _ _ _ _ _ _ _ _ _ Hc HeW Hte Htail_ty (or_introl Hsn))
-      as [_ [o [Ho Es']]].
-    unfold inplace; rewrite Ho; simpl; rewrite Es in Es'; destruct Hn as [Hnd _]; congruence.
-  - left; rewrite Ej, Hjs; simpl; lia.
+      as [Ht [o [Ho Es']]].
+    pose proof (inplace_array _ _ _ _ _ _ _ _ HeW Hte Hsn) as Harr.
+    rewrite Es in Es'; injection Es' as Em0; destruct Hn as [Hnd _]; subst m0.
+    destruct (tail_cont L k cP cW x (VInfo k te None) HcW HL Hx Ht) as [Hcx EW].
+    assert (ET : cT (pt x) = ARet (AVar (pt x))).
+    { specialize (HcT x (pt x)); rewrite Hcx in HcT.
+      destruct (cT (pt x)) as [? ? ? | [t' | |]]; simpl in HcT; try contradiction.
+      destruct HcT as [E | I]; [injection E as E; rewrite <- E; reflexivity | apply in_gT in I as [I _]; contradiction]. }
+    assert (ED : cD (pd x) = ARet (AVar (pd x))).
+    { specialize (HcD x (pd x)); rewrite Hcx in HcD.
+      destruct (cD (pd x)) as [? ? ? | [t' | |]]; simpl in HcD; try contradiction.
+      destruct HcD as [E | I]; [injection E as E; rewrite <- E; reflexivity | apply in_gD in I as [I _]; contradiction]. }
+    assert (EA : cA (pa x) = ARet (AVar (pa x))).
+    { specialize (HcA x (pa x)); rewrite Hcx in HcA.
+      destruct (cA (pa x)) as [? ? ? | [t' | |]]; simpl in HcA; try contradiction.
+      destruct HcA as [E | I]; [injection E as E; rewrite <- E; reflexivity | apply in_gA in I as [I _]; contradiction]. }
+    assert (Hva : varied_anf (S k) (cA (pa x)) = vr) by (rewrite EA; reflexivity).
+    simpl in ET, ED, EA; rewrite ED in Hev; simpl in Hev; injection Hev as <-.
+    rewrite EW in Htc; simpl in Htc; injection Htc as <-.
+    unfold rest; rewrite EA; simpl; rewrite ET; simpl.
+    rewrite app_nil_r.
+    assert (Hno : n = stored o) by congruence.
+    assert (HoL : In o L) by exact (owner_in _ _ _ _ _ _ _ _ _ Hc Ho).
+    split; [lia | split; [exact Hht | split; [intros H0; apply Hz; rewrite <- Hva; exact H0 |]]].
+    split; [intros y Hy; simpl in Hy; destruct Hy as [<- | []]; left; exists o; auto |].
+    split; [intros y Hy; simpl in Hy; destruct vr; simpl in Hy; [| contradiction];
+            destruct Hy as [<- | []]; left; exists o; rewrite Hno; auto |].
+    exists s1; split; [exact Hrun1 |].
+    split; [apply (frame_let c c0 c0 _ n s s1 s1); auto; [intros ? ? ? ?; reflexivity |];
+            right; unfold inplace; rewrite Ho; simpl; congruence |].
+    destruct te as [| | | z]; try destruct Harr.
+    exists n; unfold inplace; rewrite Ho; simpl; split; [congruence | split; [exact Hn1 |]].
+    destruct vr; simpl; apply Hd1; right; discriminate.
+  - (* a fresh variable *)
+    destruct Hn as [-> Hc0']; subst j.
+    (* the rest reads the variables in scope it read as part of the let *)
+    assert (Hlive_c : forall p, In p L -> live_anf (S k) (cW (VInfo k te None)) p ->
+                                live_anf k (ALet aW eW cW) p).
+    { unfold live_anf; intros p Hp H; simpl.
+      rewrite (live_cont L k cP cW x (VInfo k te None) _ HcW HL Hx eq_refl) in H.
+      rewrite H; apply orb_true_r. }
+    (* the value leaves the variables in scope unchanged *)
+    assert (Hframe_old : forall p, In p L ->
+              store_get s1 (keyv (stored p)) = store_get s (keyv (stored p)) /\
+              store_get s1 (keyv (DotOf (stored p))) = store_get s (keyv (DotOf (stored p)))).
+    { intros p Hp; pose proof (c_num _ _ _ _ _ _ _ _ Hc _ Hp) as Hpn.
+      split; apply Hfr1; unfold stored; simpl; try lia; try reflexivity;
+        intros m0 E; injection E as <-; split; intros E; inversion E; lia. }
+    set (cW' := cW (VInfo k te None)).
+    assert (Hxs : static_ok (S k) x).
+    { repeat split; simpl; auto; try lia; discriminate. }
+    assert (Hxstore : store_ok s1 x).
+    { split; unfold stored; simpl; [exact Hn1 |]; intros Hv; apply Hd1; left; exact Hv. }
+    assert (Hc' : ctx_ok (x :: L) (S k) c1 s1 wP pp (live_anf (S k) cW') ty).
+    { constructor.
+      - constructor; [exact Hxs |]; apply Forall_impl with (P := static_ok k); auto.
+        intros p Hp; apply (static_mono k); auto.
+      - intros p q [<- | Hp] [<- | Hq] E; auto.
+        + specialize (Hvid _ Hq); simpl in E; lia.
+        + specialize (Hvid _ Hp); simpl in E; lia.
+        + exact (c_unique _ _ _ _ _ _ _ _ Hc _ _ Hp Hq E).
+      - intros p [<- | Hp]; simpl; [lia |].
+        pose proof (c_num _ _ _ _ _ _ _ _ Hc _ Hp); lia.
+      - intros p [<- | Hp] Hl; [exact Hxstore |].
+        destruct (c_store _ _ _ _ _ _ _ _ Hc _ Hp (Hlive_c _ Hp Hl)) as [S1 S2].
+        destruct (Hframe_old _ Hp) as [F1 F2]; split; [rewrite F1; exact S1 |].
+        intros Hd; rewrite F2; exact (S2 Hd).
+      - intros a0 E; destruct (c_written _ _ _ _ _ _ _ _ Hc _ E) as [y [-> [Hy Hv]]].
+        exists y; split; [reflexivity | split; [right; exact Hy | exact Hv]].
+      - pose proof (c_place _ _ _ _ _ _ _ _ Hc) as Hp; destruct pp; simpl in *; auto.
+        destruct Hp as [A [B C]]; split; [right; exact A | split; [right; exact B | exact C]].
+      - intros o p Ho [<- | Hp] Ep.
+        + pose proof (c_num _ _ _ _ _ _ _ _ Hc _ (owner_in _ _ _ _ _ _ _ _ _ Hc Ho)); simpl in Ep; lia.
+        + destruct (c_owner _ _ _ _ _ _ _ _ Hc o p Ho Hp Ep) as [H | H]; [left; exact H |].
+          right; intros Hl; apply H, Hlive_c; auto.
+      - intros o p Ho [<- | Hp] Lp Ep.
+        + pose proof (c_num _ _ _ _ _ _ _ _ Hc _ (owner_in _ _ _ _ _ _ _ _ _ Hc Ho)); simpl in Ep; lia.
+        + destruct (c_inplace _ _ _ _ _ _ _ _ Hc o p Ho Hp (Hlive_c _ Hp Lp) Ep) as [S1 S2].
+          destruct (Hframe_old _ Hp) as [F1 F2]; split; [rewrite F1 | rewrite F2]; assumption.
+      - intros p o [<- | Hp] Lp Ha Hg Ho.
+        + destruct (inplace_value _ _ _ _ _ _ _ _ _ _ _ _ Hc HeW Hte Htail_ty (or_intror Ha))
+            as [_ [o' [Ho' Es']]].
+          rewrite Es in Es'; discriminate.
+        + exact (c_arrays _ _ _ _ _ _ _ _ Hc p o Hp (Hlive_c _ Hp Lp) Ha Hg Ho).
+      - exact (c_ty _ _ _ _ _ _ _ _ Hc).
+      - intros y Hpp Hw Ha.
+        destruct (c_written _ _ _ _ _ _ _ _ Hc _ Hw) as [y' [E [Hy _]]]; injection E as <-.
+        destruct (c_top _ _ _ _ _ _ _ _ Hc y Hpp Hw Ha) as [T1 [T2 [l1 [l2 [A1 [A2 [A3 A4]]]]]]].
+        split; [exact T1 | split; [intros Ly; apply T2, Hlive_c; auto |]].
+        destruct (Hframe_old _ Hy) as [F1 F2]; exists l1, l2; rewrite F1, F2; auto. }
+    (* the rest of the body *)
+    specialize (IHb x (x :: L) (S k) c1 s1 wP pp m (cA (pa x)) cW' (cT (pt x)) (cD (pd x)) ty v
+                  (HcA x _) (HcW x _) (HcT x _) (HcD x _) Hc' Hty Htc Hev).
+    unfold x in IHb; cbn [pt pa pd] in IHb; fold rest in IHb.
+    match type of IHb with context [open_pairs ?t c1] =>
+      destruct (open_pairs t c1) as [[sb [ve' de']] c2] eqn:Hsb end.
+    destruct IHb as [Hc12 [Hht' [Hz' [Hrv1 [Hrv2 [s2 [Hrun2 [Hfr2 Hres2]]]]]]]].
+    assert (Hxs' : (~ below c (DBound (c, c)) /\ consistent (DBound (c, c))) \/
+                   exists o, In o L /\ DBound (c, c) = stored o)
+      by (left; simpl; split; [lia | reflexivity]).
+    rewrite open_pairs_sbind.
+    match goal with |- context [open_pairs ?t c1] =>
+      replace (open_pairs t c1) with ((sb, (ve', de')), c2) by (rewrite <- Hsb; reflexivity) end.
+    simpl.
+    split; [lia | split; [exact Hht' | split; [exact Hz' |]]].
+    split; [exact (res_vars_let _ L c c1 ve' Hrv1 (Nat.le_trans _ _ _ Hc0 Hc01) Hxs') |].
+    split; [exact (res_vars_let _ L c c1 de' Hrv2 (Nat.le_trans _ _ _ Hc0 Hc01) Hxs') |].
+    exists s2; split; [rewrite run_app, Hrun1; exact Hrun2 | split; [| exact Hres2]].
+    apply (frame_let c c0 c1 _ (DBound (c, c)) s s1 s2); auto.
+    left; simpl; lia.
 Qed.
 
 (* ---------------------------------------------------------------------------
@@ -1709,7 +1725,7 @@ Lemma live_owner L k c s wP pp live ty o p :
   pn p = pn o -> p = o.
 Proof.
   intros Hc Ho Hp Lp Lo E.
-  exact (c_owner _ _ _ _ _ _ _ _ Hc o p o Ho Hp (owner_in _ _ _ _ _ _ _ _ _ Hc Ho) Lp Lo E eq_refl).
+  destruct (c_owner _ _ _ _ _ _ _ _ Hc o p Ho Hp E); [auto | contradiction].
 Qed.
 
 (* An update of an array, at the end of the body of an in-place loop. *)
