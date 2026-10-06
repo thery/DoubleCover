@@ -1,5 +1,5 @@
-(* Correctness.v — the correctness theorems of the passes of elpiDiff, stated
-   one section per stage, each against the evaluators.
+(* Correctness.v — the correctness theorems of the passes of elpiDiff, one
+   section per stage, each against the evaluators.
 
    A closed program in PHOAS is a family of terms, one per type of variables
    (`fdef f V`); nothing in Rocq forces the members of the family to be the
