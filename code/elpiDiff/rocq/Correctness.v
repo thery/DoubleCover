@@ -4,11 +4,13 @@
    A closed program in PHOAS is a family of terms, one per type of variables
    (`fdef f V`); nothing in Rocq forces the members of the family to be the
    same term. A pass instantiates its input at one type and the evaluator at
-   another, so the theorems assume that the program is parametric: its
-   instances are related, variable for variable. *)
+   another, so a theorem may assume that the program is parametric: its
+   instances are related, variable for variable. Stage 1 (normalize) does;
+   stage 2 (annotate) does not, since it keeps the instance it is evaluated
+   at and only replaces its annotations. *)
 
 From Stdlib Require Import String ZArith List.
-From ElpiDiff Require Import Syntax Anf Domain Eval EvalAnf Normalize.
+From ElpiDiff Require Import Syntax Anf Domain Eval EvalAnf Normalize Annotate.
 
 Import ListNotations.
 
@@ -195,3 +197,85 @@ Proof.
   intros N D f args v Hf Hev.
   exact (normalize_definition_sim N D [] _ _ (Hf _ _) (fun a v H => match H with end) args v Hev).
 Qed.
+
+(* ---------------------------------------------------------------------------
+   Stage 2: annotate, from L1 to L1ᵃ.
+
+   On any arguments and in any domain of numbers, the annotated function
+   computes exactly what the function computes, failures included: annotate
+   evaluates the instance `afdef a (val N)` itself, only with new annotations
+   (rebuild), and the evaluator ignores the annotations. The tree of
+   annotations is computed from another instance (at avar), but rebuild
+   accepts any tree, falling back to no annotation where the tree does not
+   follow the body: so no parametricity is needed, and the theorem is an
+   equality. *)
+
+Scheme anf_ind' := Induction for anf Sort Prop
+  with value_ind' := Induction for value Sort Prop.
+Combined Scheme anf_value_ind from anf_ind', value_ind'.
+
+Section AnnotateCorrect.
+Variable N : Type.
+Variable D : domain N.
+
+(* A map or a fold computes the same when its body computes the same
+   everywhere (proved by induction on the count, without functional
+   extensionality). *)
+Lemma eval_map_ext (ev1 ev2 : val N -> option (val N)) :
+  (forall w, ev1 w = ev2 w) -> forall n i, eval_map ev1 i n = eval_map ev2 i n.
+Proof.
+  intros Hev n; induction n as [| n IH]; intros i; simpl; [reflexivity |].
+  rewrite Hev, IH; reflexivity.
+Qed.
+
+Lemma eval_fold_ext (ev1 ev2 : val N -> val N -> option (val N)) :
+  (forall w s, ev1 w s = ev2 w s) -> forall n i s, eval_fold ev1 i n s = eval_fold ev2 i n s.
+Proof.
+  intros Hev n; induction n as [| n IH]; intros i s; simpl; [reflexivity |].
+  rewrite Hev; destruct (ev2 (VInt i) s); [apply IH | reflexivity].
+Qed.
+
+(* A body, and a value, rebuilt with any tree of annotations, evaluate as
+   before. *)
+Lemma rebuild_eval :
+  (forall b : anf (val N) bare, forall t, aeval D (rebuild _ b t) = aeval D b) /\
+  (forall e : value (val N) bare, forall t, aeval_value D (rebuild_value _ e t) = aeval_value D e).
+Proof.
+  apply anf_value_ind.
+  - (* ALet *) intros [] e IHe b IHb [a vt rest |]; simpl; rewrite IHe;
+      destruct (aeval_value D e); auto.
+  - (* ARet *) reflexivity.
+  - (* AOp1 *) reflexivity.
+  - (* AOp2 *) reflexivity.
+  - (* AGet *) reflexivity.
+  - (* ASet *) reflexivity.
+  - (* AIte *) intros c t IHt e IHe [| t1 e1 | bt | a bt]; simpl; rewrite IHt, IHe; reflexivity.
+  - (* AMap *) intros lo hi b IHb vt.
+    assert (H : forall bt, aeval_value D (rebuild_value _ (AMap lo hi b) (TMap bt))
+                         = aeval_value D (AMap lo hi b)).
+    { intros bt; simpl; destruct (aeval_atom D lo) as [[] |], (aeval_atom D hi) as [[] |]; auto.
+      rewrite (eval_map_ext _ (fun v => aeval D (b v))); auto. }
+    destruct vt; try apply H; exact (H TRet).
+  - (* AFold *) intros [] lo hi init b IHb vt.
+    assert (H : forall a bt,
+               aeval_value D (AFold a lo hi init (fun i s => rebuild _ (b i s) bt))
+               = aeval_value D (AFold Bare lo hi init b)).
+    { intros a bt; simpl.
+      destruct (aeval_atom D lo) as [[] |], (aeval_atom D hi) as [[] |], (aeval_atom D init); auto.
+      apply eval_fold_ext; auto. }
+    destruct vt; apply H.
+Qed.
+
+Lemma rebuild_definition_eval (d : adefinition (val N) bare) t args :
+  aeval_definition D (rebuild_definition _ d t) args = aeval_definition D d args.
+Proof.
+  revert args; induction d as [n ty r f IHf | r b]; intros [| a args]; simpl; auto.
+  apply (proj1 rebuild_eval).
+Qed.
+
+End AnnotateCorrect.
+
+Theorem annotate_correct :
+  forall (N : Type) (D : domain N) (cv : bool) (a : afunction bare) (args : list (val N)),
+    aeval_function D (annotate cv a) args = aeval_function D a args.
+Proof. intros N D cv a args; apply rebuild_definition_eval. Qed.
