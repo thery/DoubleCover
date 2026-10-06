@@ -72,7 +72,7 @@ Definition tan_map (i : dvar V) (elo ehi : dexpr V) (vr : bool) (n : dvar V)
   if vr then
     [DFor i elo ehi (app sb [DAssign (DAt (DVar n) (DVar i)) vb; DAssign (DAt (DVar (DotOf n)) (DVar i)) db])]
   else
-    [DFor i elo ehi (app sb [DAssign (DAt (DVar n) (DVar i)) vb])].
+    [DFor i elo ehi (app sb [DAssign (DAt (DVar n) (DVar i)) vb; DAssign (DAt (DVar (DotOf n)) (DVar i)) (DReal "0")])].
 
 Definition tan_fold (i : dvar V) (elo ehi ei di : dexpr V) (vr : bool) (n : dvar V)
   (r : list (dstmt V) * (dexpr V * dexpr V)) : list (dstmt V) :=

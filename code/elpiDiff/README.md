@@ -1074,10 +1074,12 @@ instantiation with dual numbers is what the derivative tests use to check them.
 - Operations: `neg`, `sin`, `cos`, `exp`, `log`, `sqrt`, `pow K`; `add`, `sub`,
   `mul`, `divide`; comparisons `lt`, `le`, `gt`, `ge`.
 - A function either returns a real, or writes a single `dependent` or `inout`
-  argument (a real or an array).
+  argument (a real or an array). An `independent` or `inout` argument is a
+  real or an array: an integer carries no derivative. An array the function
+  computes is built, never just another array argument.
 - `ite C T E`: the condition is a comparison, both branches compute a real.
-- `map`: only at the end of the function, with integer literal bounds, writing
-  its output array.
+- `map`: only at the end of the function, from index 0 to an integer literal,
+  writing its output array, which is `dependent` (the map computes all of it).
 - `fold`: a scalar recurrence at the top level of the body, or an in-place
   update of the written array (possibly nested), ending with `set` at the loop
   index.
@@ -1088,6 +1090,7 @@ Current limits:
 - no branch inside an in-place loop, no scalar recurrence inside a loop body or
   a branch;
 - an in-place loop that contains another one cannot read its array before it;
+  an in-place loop nested in another cannot read the state of the outer one;
 - the unused `dependent` array of `f_adjoint` is passed as a non-const
   reference;
 - `f_adjoint_value` does not give back the new value of an `inout` argument;

@@ -6,7 +6,7 @@
 % with a reason, never a failure halfway through. That operations apply to
 % atoms is not checked here: L1 cannot express anything else.
 
-shorten adjudge.{ operation1, operation2, unary-name, binary-name, argument, written-role, declarations }.
+shorten adjudge.{ operation1, operation2, unary-name, binary-name, argument, written-role, varied-role, declarations }.
 
 namespace adjudge {
 
@@ -25,7 +25,17 @@ type array-body  atom -> atom -> place.  % the body of an in-place fold: its ind
 func written -> atom.                     % the argument a `writes` function stores into, a real or an array
 
 func well-formed afunction bare -> diagnostic.
-well-formed (a-function _ Def) D :- declarations Def Decls, well-formed-definition Decls Def D.
+well-formed (a-function _ Def) D :-
+  declarations Def Decls,
+  if (non-real-varied Decls N)
+     (M is "`" ^ N ^ "` is independent or inout: only a real or an array of reals carries a derivative", D = error M)
+     (well-formed-definition Decls Def D).
+
+% non-real-varied Decls N: N is the first argument of Decls that is independent
+% or inout but neither a real nor an array: it would carry no derivative.
+func non-real-varied list decl -> string.
+non-real-varied [decl N T R | _] N :- varied-role R, not (T = real ; T = array _), !.
+non-real-varied [_ | Decls] N :- non-real-varied Decls N.
 
 % Opening the definition: an argument has a type, and a name and a role for the diagnostics.
 func well-formed-definition list decl, adefinition bare -> diagnostic.
@@ -47,7 +57,7 @@ well-formed-result Decls (a-writes Y) Body D :-
      (std.filter Decls written-decl Written,
       if (not (Written = [_]))
          (D = error "a function writes a single dependent or inout argument")
-      (if (Ty = integer)
+      (if (not (Ty = real ; Ty = array _))
          (D = error "only a real or an array of reals can be written")
          ((written Y =!=> typecheck top Body T D0),
           if (D0 = ok)
@@ -68,7 +78,12 @@ typecheck P (a-let _ E B) T D :- !,
   typecheck-value P Tail E TE D0,
   if (D0 = ok) (pi x\ of x TE =!=> typecheck P (B x) T D) (D = D0).
 typecheck _ (a-ret X) T D :-
-  if (of X T0) (T = T0, D = ok) (D = error "an atom is not bound").
+  if (of X T0)
+     (T = T0,
+      if (T0 = array _, argument X NX _, not (written X))
+         (M is "`" ^ NX ^ "` is an argument: an array the function computes must be built, by a map or an in-place loop, not taken from another argument", D = error M)
+         (D = ok))
+     (D = error "an atom is not bound").
 
 func typecheck-value place, bool, value bare -> ty, diagnostic.
 typecheck-value _ _ (a-op1 F A) T D :- !,
@@ -98,10 +113,14 @@ typecheck-value _ _ (a-ite C Then Else) T D :- !,
      (D = error "a branch condition must be a comparison").
 typecheck-value top tt (a-map (a-nat L) (a-nat H) B) (array N) D :- !,
   N is H - L,
-  if (written Y, pi i\ occurs Y (B i))
+  if (not (L = 0))
+     (D = error "a map starts at index 0")
+  (if (written Y, argument Y NY inout)
+     (M is "`" ^ NY ^ "` is inout: a map computes the whole array, so the argument it writes is dependent", D = error M)
+  (if (written Y, pi i\ occurs Y (B i))
      (argument Y NY _, M is "`" ^ NY ^ "` is the array the loop writes: a map cannot read it", D = error M)
      (pi i\ of i integer =!=> typecheck scalar-body (B i) T D0,
-      if (D0 = ok) (if (T = real) (D = ok) (D = error "a map must compute reals")) (D = D0)).
+      if (D0 = ok) (if (T = real) (D = ok) (D = error "a map must compute reals")) (D = D0)))).
 typecheck-value _ _ (a-map _ _ _) real (error "a map must end the function, with integer literal bounds, writing its output") :- !.
 typecheck-value P Tail (a-fold _ Lo Hi Init B) T D :-
   if (of Lo integer, of Hi integer)
@@ -112,8 +131,10 @@ typecheck-value P Tail (a-fold _ Lo Hi Init B) T D :-
            (T = real, D = error "a scalar recurrence inside a loop body or a branch is not supported"))
      (if (of Init (array N), in-place-init P Tail Init)
         (T = array N,
-         if (written Y, pi i\ pi s\ occurs Y (B i s))
-            (argument Y NY _, M is "`" ^ NY ^ "` is the array before the loop that updates it in place: inside that loop, read its current version, the loop state", D = error M)
+         if (pi i\ pi s\ occurs Init (B i s))
+            (if (argument Init NY _)
+               (M is "`" ^ NY ^ "` is the array before the loop that updates it in place: inside that loop, read its current version, the loop state", D = error M)
+               (D = error "an in-place loop nested in another cannot read the state of the outer one: read its own state"))
             (pi i\ pi s\ [of i integer, of s (array N)] =!=> typecheck (array-body i s) (B i s) T1 D0,
          if (D0 = ok)
             (if (T1 = array N)

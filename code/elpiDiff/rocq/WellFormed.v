@@ -130,7 +130,20 @@ Fixpoint typecheck (p : place) (k : nat) (b : anf vinfo bare) : ty * diagnostic 
       let tail := is_tail b' k in
       let '(te, d0) := typecheck_value p tail k e in
       if is_ok d0 then typecheck p (S k) (b' (VInfo k te None)) else (Real, d0)
-  | ARet x => (of_atom x, Ok)
+  | ARet x =>
+      (* a body that computes an array does not end with another array argument *)
+      match x with
+      | AVar v =>
+          let other := match written with Some y => negb (same_atom x y) | None => true end in
+          match varg v with
+          | Some (nx, _) =>
+              if ty_is_array (vty v) && other
+              then (vty v, Error (q nx ++ " is an argument: an array the function computes must be built, by a map or an in-place loop, not taken from another argument"))
+              else (of_atom x, Ok)
+          | None => (of_atom x, Ok)
+          end
+      | _ => (of_atom x, Ok)
+      end
   end
 with typecheck_value (p : place) (tail : bool) (k : nat) (e : value vinfo bare) : ty * diagnostic :=
   match e with
@@ -187,8 +200,13 @@ with typecheck_value (p : place) (tail : bool) (k : nat) (e : value vinfo bare) 
       match p, tail, lo, hi with
       | Top, true, ANat l, ANat h =>
           let n := (h - l)%Z in
+          if negb (l =? 0)%Z then (Array n, Error "a map starts at index 0") else
           match written with
           | Some (AVar y) as w =>
+              match varg y with
+              | Some (ny, Inout) =>
+                  (Array n, Error (q ny ++ " is inout: a map computes the whole array, so the argument it writes is dependent"))
+              | _ =>
               if occurs_anf (vid y) (S k) (b (anon k)) then
                 let ny := match varg y with Some (nm, _) => nm | None => "" end in
                 (Array n, Error (q ny ++ " is the array the loop writes: a map cannot read it"))
@@ -196,6 +214,7 @@ with typecheck_value (p : place) (tail : bool) (k : nat) (e : value vinfo bare) 
                 let '(t, d0) := typecheck ScalarBody (S k) (b (VInfo k Integer None)) in
                 if is_ok d0 then if ty_eqb t Real then (Array n, Ok) else (Array n, Error "a map must compute reals")
                 else (Array n, d0)
+              end
           | _ =>
               let '(t, d0) := typecheck ScalarBody (S k) (b (VInfo k Integer None)) in
               if is_ok d0 then if ty_eqb t Real then (Array n, Ok) else (Array n, Error "a map must compute reals")
@@ -218,15 +237,21 @@ with typecheck_value (p : place) (tail : bool) (k : nat) (e : value vinfo bare) 
           match of_atom init with
           | Array n =>
               if in_place_init written p tail init then
-                let reads_written :=
-                  match written with
-                  | Some (AVar y) => if occurs_anf (vid y) (S (S k)) (b (anon k) (anon (S k))) then Some y else None
+                (* the loop does not read the array before it: the written
+                   argument, or the state of the enclosing in-place loop *)
+                let reads_before :=
+                  match init with
+                  | AVar y => if occurs_anf (vid y) (S (S k)) (b (anon k) (anon (S k))) then Some y else None
                   | _ => None
                   end in
-                match reads_written with
+                match reads_before with
                 | Some y =>
-                    let ny := match varg y with Some (nm, _) => nm | None => "" end in
-                    (Array n, Error (q ny ++ " is the array before the loop that updates it in place: inside that loop, read its current version, the loop state"))
+                    match varg y with
+                    | Some (ny, _) =>
+                        (Array n, Error (q ny ++ " is the array before the loop that updates it in place: inside that loop, read its current version, the loop state"))
+                    | None =>
+                        (Array n, Error "an in-place loop nested in another cannot read the state of the outer one: read its own state")
+                    end
                 | None =>
                     let i := VInfo k Integer None in
                     let s := VInfo (S k) (Array n) None in
@@ -265,7 +290,7 @@ Definition well_formed_result (decls : list decl) (r : aresult vinfo) (b : anf v
                 let ty := vty v in
                 if negb (Nat.eqb (length (filter written_decl decls)) 1)
                 then Error "a function writes a single dependent or inout argument"
-                else if ty_eqb ty Integer then Error "only a real or an array of reals can be written"
+                else if negb (ty_eqb ty Real || ty_is_array ty) then Error "only a real or an array of reals can be written"
                 else
                   let '(t, d0) := typecheck (Some y) Top k b in
                   if is_ok d0 then
@@ -294,8 +319,21 @@ Fixpoint well_formed_definition (decls : list decl) (k : nat) (d : adefinition v
   | ABody r b => well_formed_result decls r b k
   end.
 
+(* non-real-varied: the first argument that is independent or inout but
+   neither a real nor an array: it would carry no derivative. *)
+Fixpoint non_real_varied (ds : list decl) : option string :=
+  match ds with
+  | [] => None
+  | Decl n t r :: ds' =>
+      if varied_role r && negb (ty_eqb t Real || ty_is_array t) then Some n else non_real_varied ds'
+  end.
+
 Definition well_formed (f : afunction bare) : diagnostic :=
-  well_formed_definition (declarations (afdef f unit)) 0 (afdef f vinfo).
+  let decls := declarations (afdef f unit) in
+  match non_real_varied decls with
+  | Some n => Error (q n ++ " is independent or inout: only a real or an array of reals carries a derivative")
+  | None => well_formed_definition decls 0 (afdef f vinfo)
+  end.
 
 (* type-of E T: the type of a value in a well-formed body, annotated or not. *)
 Definition type_of {I : Type} (e : value vinfo I) : option ty :=

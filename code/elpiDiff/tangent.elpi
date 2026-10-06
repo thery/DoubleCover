@@ -127,7 +127,7 @@ func tan-map dvar, dexpr, dexpr, bool, dvar, pair (list dstmt) (pair dexpr dexpr
 tan-map I ELo EHi Vr N (pr SB (pr VB DB)) (done [d-for I ELo EHi Body]) :-
   if (Vr = tt)
      (std.append SB [d-assign (d-at (d-var N) (d-var I)) VB, d-assign (d-at (d-var (dot-of N)) (d-var I)) DB] Body)
-     (std.append SB [d-assign (d-at (d-var N) (d-var I)) VB] Body).
+     (std.append SB [d-assign (d-at (d-var N) (d-var I)) VB, d-assign (d-at (d-var (dot-of N)) (d-var I)) (d-real "0")] Body).
 
 func tan-fold dvar, dexpr, dexpr, dexpr, dexpr, bool, dvar, pair (list dstmt) (pair dexpr dexpr) -> code.
 tan-fold I ELo EHi EI DI Vr N (pr SB (pr VB DB)) (done S) :-
