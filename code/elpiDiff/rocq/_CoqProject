@@ -20,7 +20,10 @@ Tangent.v
 Dump.v
 Adjoint.v
 Simplify.v
+Scoping.v
 Lower.v
 Cxx.v
 Adjudge.v
 Correctness.v
+AnfEquiv.v
+Supported.v
