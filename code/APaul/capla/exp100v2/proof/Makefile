@@ -11,7 +11,9 @@ CCOMP ?= ccomp
 MD := exp100-model
 MODEL_SRC := ../../../exp100/rocq
 MODEL_V := $(MD)/ExpNum.v $(MD)/ExpTable.v $(MD)/ExpConsts.v $(MD)/ExpModel.v \
-           $(MD)/ExpModelBounds.v $(MD)/ExpLimbs.v
+           $(MD)/ExpModelBounds.v $(MD)/ExpLimbs.v \
+           $(MD)/ExpBits.v $(MD)/ExpHard.v $(MD)/ExpTaylor.v $(MD)/ExpBudget.v \
+           $(MD)/ExpBound.v $(MD)/ExpFilter.v $(MD)/ExpSpec.v
 ROCQ_MAKEFILE := Makefile.rocq
 
 all: $(ROCQ_MAKEFILE)

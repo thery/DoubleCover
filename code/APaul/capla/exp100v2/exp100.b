@@ -159,18 +159,18 @@ fun mul_ln2(q: mut [u64; 6], n: u64, LN2: [u64; 6]) {
   }
 }
 
-// the first guess of n: floor(X INV / 2^185), INV = 64/ln2 2^25
-fun guess_n(X: [u64; 6]) -> u64 {
+// the first guess of n: floor(xf INV / 2^185), INV = 64/ln2 2^25
+fun guess_n(xf: [u64; 6]) -> u64 {
   let p: [u64; 7] = { 0, 0, 0, 0, 0, 0, 0 };
-  num_mul_small(p, X, 3098164009u64);
+  num_mul_small(p, xf, 3098164009u64);
   let g: u64 = (p[5] >> 25u32) | (p[6] << 7u32);
   return g;
 }
 
 // The core: y and hs[0] = hN with |exp(x) - y 2^(hN-160)| <= 16 2^(hN-160).
-// Returns 0 on success.  X q q1 r h t are scratch.
+// Returns 0 on success.  xf q q1 r h t are scratch.
 fun exp_core(xb: u64, y: mut [u64; 6], hs: mut [i64; 1],
-             X q q1 r h t: mut [u64; 6],
+             xf q q1 r h t: mut [u64; 6],
              T: [[u64; 6]; 64], C: [[u64; 6]; 17],
              LN2 RMAX: [u64; 6]) -> u64 {
   let neg: u64 = xb >> 63u32;
@@ -182,27 +182,27 @@ fun exp_core(xb: u64, y: mut [u64; 6], hs: mut [i64; 1],
   } else {
     mx = mx | 4503599627370496u64;
   }
-  num_scale(X, mx, (i64) be - 915i64);
-  let n: u64 = guess_n(X);
+  num_scale(xf, mx, (i64) be - 915i64);
+  let n: u64 = guess_n(xf);
   mul_ln2(q, n, LN2);
-  let lt: bool = num_lt(X, q);
+  let lt: bool = num_lt(xf, q);
   if lt { if n > 0 { n = n - 1; } }
   mul_ln2(q1, n + 1, LN2);
-  lt = num_lt(X, q1);
+  lt = num_lt(xf, q1);
   if !lt { n = n + 1; }
   mul_ln2(q, n, LN2);
   mul_ln2(q1, n + 1, LN2);
-  lt = num_lt(X, q);
+  lt = num_lt(xf, q);
   if lt { return 2u64; }
-  lt = num_lt(X, q1);
+  lt = num_lt(xf, q1);
   if !lt { return 2u64; }
   let nu: u64 = 0;
   if neg == 1 {
     num_copy(r, q1);
-    num_sub(r, X);
+    num_sub(r, xf);
     nu = 131072u64 - (n + 1);
   } else {
-    num_copy(r, X);
+    num_copy(r, xf);
     num_sub(r, q);
     nu = 131072u64 + n;
   }
@@ -226,14 +226,14 @@ fun exp_encl_bits(xb: u64, M: mut [u64; 3], s: mut [i64; 1],
                   T: [[u64; 6]; 64], C: [[u64; 6]; 17],
                   LN2 RMAX: [u64; 6]) -> u64 {
   let y: [u64; 6] = { 0, 0, 0, 0, 0, 0 };
-  let X: [u64; 6] = { 0, 0, 0, 0, 0, 0 };
+  let xf: [u64; 6] = { 0, 0, 0, 0, 0, 0 };
   let q: [u64; 6] = { 0, 0, 0, 0, 0, 0 };
   let q1: [u64; 6] = { 0, 0, 0, 0, 0, 0 };
   let r: [u64; 6] = { 0, 0, 0, 0, 0, 0 };
   let h: [u64; 6] = { 0, 0, 0, 0, 0, 0 };
   let t: [u64; 6] = { 0, 0, 0, 0, 0, 0 };
   let hs: [i64; 1] = { 0 };
-  let rc: u64 = exp_core(xb, y, hs, X, q, q1, r, h, t, T, C, LN2, RMAX);
+  let rc: u64 = exp_core(xb, y, hs, xf, q, q1, r, h, t, T, C, LN2, RMAX);
   if rc == 0 {
     for i: u64 = 0 .. 3 {
       M[i] = y[2 * i] | (y[2 * i + 1] << 32u32);
@@ -282,7 +282,7 @@ fun decide(y: [u64; 6], hN: i64, lo hi d t: mut [u64; 6]) -> u64 {
 fun maybe_hard_bits(xb: u64, T: [[u64; 6]; 64], C: [[u64; 6]; 17],
                     LN2 RMAX: [u64; 6]) -> u64 {
   let y: [u64; 6] = { 0, 0, 0, 0, 0, 0 };
-  let X: [u64; 6] = { 0, 0, 0, 0, 0, 0 };
+  let xf: [u64; 6] = { 0, 0, 0, 0, 0, 0 };
   let q: [u64; 6] = { 0, 0, 0, 0, 0, 0 };
   let q1: [u64; 6] = { 0, 0, 0, 0, 0, 0 };
   let r: [u64; 6] = { 0, 0, 0, 0, 0, 0 };
@@ -290,9 +290,9 @@ fun maybe_hard_bits(xb: u64, T: [[u64; 6]; 64], C: [[u64; 6]; 17],
   let t: [u64; 6] = { 0, 0, 0, 0, 0, 0 };
   let hs: [i64; 1] = { 0 };
   let res: u64 = 1;
-  let rc: u64 = exp_core(xb, y, hs, X, q, q1, r, h, t, T, C, LN2, RMAX);
+  let rc: u64 = exp_core(xb, y, hs, xf, q, q1, r, h, t, T, C, LN2, RMAX);
   if rc == 0 {
-    res = decide(y, hs[0], X, q, q1, r);
+    res = decide(y, hs[0], xf, q, q1, r);
   }
   return res;
 }
