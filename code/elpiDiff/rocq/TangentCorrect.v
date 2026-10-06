@@ -1356,6 +1356,16 @@ Proof.
   intros E'; destruct (Hn p Hp) as [H _]; apply H; unfold stored; rewrite E'; reflexivity.
 Qed.
 
+Lemma operand_ok2 L k c s wP pp (live : pv -> Prop) ty (aP : atom pv) n :
+  ctx_ok L k c s wP pp live ty -> (forall p, aP = AVar p -> In p L /\ live p) ->
+  (forall p, aP = AVar p -> pn p <> n) ->
+  forall p, aP = AVar p -> (static_ok k p /\ store_ok s p) /\ (static_ok k p /\ pn p <> n).
+Proof.
+  intros Hc Ha Hn p E; destruct (Ha p E) as [Hp Hl].
+  pose proof (static_in _ _ _ (c_static _ _ _ _ _ _ _ _ Hc) Hp) as Hs.
+  split; [split; [exact Hs | exact (c_store _ _ _ _ _ _ _ _ Hc _ Hp Hl)] | split; [exact Hs | auto]].
+Qed.
+
 Lemma tvaried_amap k (aP : atom pv) :
   (forall p, aP = AVar p -> static_ok k p) -> tvaried_atom (amap pt aP) = varied (amap pa aP).
 Proof.
@@ -1585,4 +1595,151 @@ Proof.
     split; [apply frame_set; [apply frame_refl | reflexivity | auto] |].
     split; [rewrite store_get_set_same, primal_int_op2; reflexivity |].
     intros [H | H]; [discriminate | contradiction].
+Qed.
+
+Lemma xev_DAt s a i :
+  xev s (DAt a i) =
+  match xev s a, xev s i with
+  | Some (VArray l), Some (VInt z) => match nth_z z l with Some x => Some (VReal x) | None => None end
+  | _, _ => None
+  end.
+Proof. reflexivity. Qed.
+
+(* Reading an element of an array. *)
+Lemma sim_get (aP iP : atom pv) : sim_value (AGet aP iP).
+Proof.
+  value_intro. simpl in Htc, Hev, Hst |- *.
+  assert (Hlv : forall p, aP = AVar p -> In p L /\ live_value k (AGet (amap pw aP) (amap pw iP)) p)
+    by (intros p E; split; [auto | subst; unfold live_value; simpl; rewrite Nat.eqb_refl; reflexivity]).
+  assert (Hlv' : forall p, iP = AVar p -> In p L /\ live_value k (AGet (amap pw aP) (amap pw iP)) p)
+    by (intros p E; split; [auto | subst; unfold live_value; simpl; rewrite Nat.eqb_refl, orb_true_r; reflexivity]).
+  assert (Hop := operand_ok _ _ _ _ _ _ _ _ aP j Hc Hlv Hst).
+  assert (Hop' := operand_ok _ _ _ _ _ _ _ _ iP j Hc Hlv' Hst).
+  assert (HaS : forall p, aP = AVar p -> static_ok k p /\ store_ok s p) by (intros; apply Hop; auto).
+  assert (HaN : forall p, aP = AVar p -> static_ok k p /\ pn p <> j) by (intros; apply Hop; auto).
+  assert (Ha1 : forall p, aP = AVar p -> static_ok k p) by (intros; apply HaS; auto).
+  assert (HiS : forall p, iP = AVar p -> static_ok k p /\ store_ok s p) by (intros; apply Hop'; auto).
+  assert (HiN : forall p, iP = AVar p -> static_ok k p /\ pn p <> j) by (intros; apply Hop'; auto).
+  destruct (aeval_atom (duals reals) (amap pd aP)) as [[| | | l |] |] eqn:Ha; try discriminate;
+    destruct (aeval_atom (duals reals) (amap pd iP)) as [[| z | | |] |] eqn:Hi; try discriminate.
+  destruct (nth_z z l) as [d |] eqn:Hn; [| discriminate]; injection Hev as <-.
+  crush_match Htc; injection Htc as <-.
+  destruct (avoid_spell k aP j HaN) as [A1 [A2 [A3 A4]]].
+  destruct (avoid_spell k iP j HiN) as [B1 [B2 [B3 B4]]].
+  assert (Hsa := spell_ok k s aP _ HaS Ha); assert (Hsi := spell_ok k s iP _ HiS Hi).
+  assert (Hv : xev s (DAt (spell (amap pt aP)) (spell (amap pt iP))) = Some (VReal (dfst d))).
+  { rewrite xev_DAt, Hsa, Hsi; simpl; rewrite nth_z_map, Hn; reflexivity. }
+  rewrite (tvaried_amap k aP Ha1).
+  destruct (varied (amap pa aP)) eqn:Hvr; simpl.
+  - (* a varied array: a variable, with a tangent *)
+    destruct aP as [p | |]; simpl in Ha; try discriminate; injection Ha as Ha.
+    destruct (HaS p eq_refl) as [[_ [_ [Hstp [_ [_ [Hdot _]]]]]] [_ Hsd]].
+    assert (Hd : xev s (DAt (dot (amap pt (AVar p))) (spell (amap pt iP))) = Some (VReal (dsnd d))).
+    { simpl in Hvr |- *; rewrite Hdot, Hvr, xev_DAt, Hsi; simpl; rewrite Hstp.
+      change (xev s (DVar (DotOf (stored p)))) with (store_get s (keyv (DotOf (stored p)))).
+      rewrite (Hsd (eq_trans Hdot Hvr)), Ha; simpl; rewrite nth_z_map, Hn; reflexivity. }
+    split; [lia | split; [exact I | split; [discriminate | split; [intros _; exact I |]]]].
+    exists (store_set (store_set s (keyv (DBound (j, j))) (VReal (dfst d))) (keyv (DotOf (DBound (j, j)))) (VReal (dsnd d))).
+    split; [apply run_define2; [exact Hv | rewrite xev_set_other; [exact Hd | apply avoid_at; auto]] |].
+    split; [apply frame_set; [apply frame_set; [apply frame_refl | reflexivity | auto] | reflexivity | auto] |].
+    split; [rewrite store_get_set_other, store_get_set_same; [reflexivity | apply not_eq_sym, keyv_dot_neq] |].
+    intros _; rewrite store_get_set_same; reflexivity.
+  - split; [lia | split; [exact I | split; [| split; [discriminate |]]]].
+    + intros _; pose proof (atom_zero k aP _ Ha1 Hvr Ha) as Hz; simpl in Hz |- *.
+      exact (nth_z_Forall _ z l d Hz Hn).
+    + exists (store_set s (keyv (DBound (j, j))) (VReal (dfst d))).
+      split; [apply run_define; exact Hv |].
+      split; [apply frame_set; [apply frame_refl | reflexivity | auto] |].
+      split; [rewrite store_get_set_same; reflexivity |].
+      intros [Hq | Hq]; [discriminate | contradiction].
+Qed.
+
+Lemma run_assign_at s n ei ev l z e l1 :
+  store_get s (keyv n) = Some (VArray l) -> xev s ei = Some (VInt z) -> xev s ev = Some (VReal e) ->
+  replace_nth_z z e l = Some l1 ->
+  run [DAssign (DAt (DVar n) ei) ev] s = Some (store_set s (keyv n) (VArray l1)).
+Proof.
+  intros Hn Hi Hv Hr; unfold run, xev, keyv in *; simpl; rewrite Hv; simpl.
+  rewrite Hn, Hi, Hr; reflexivity.
+Qed.
+
+Lemma run_two st1 st2 s s1 s2 : run [st1] s = Some s1 -> run [st2] s1 = Some s2 -> run [st1; st2] s = Some s2.
+Proof. intros H1 H2; change [st1; st2] with ([st1] ++ [st2])%list; rewrite run_app, H1; exact H2. Qed.
+
+(* Two live variables with the storage updated in place are the same. *)
+Lemma live_owner L k c s wP pp live ty o p :
+  ctx_ok L k c s wP pp live ty -> owner wP pp = Some o -> In p L -> live p -> live o ->
+  pn p = pn o -> p = o.
+Proof.
+  intros Hc Ho Hp Lp Lo E.
+  exact (c_owner _ _ _ _ _ _ _ _ Hc o p o Ho Hp (owner_in _ _ _ _ _ _ _ _ _ Hc Ho) Lp Lo E eq_refl).
+Qed.
+
+(* An update of an array, at the end of the body of an in-place loop. *)
+Lemma sim_set (aP iP vP : atom pv) : sim_value (ASet aP iP vP).
+Proof.
+  value_intro. simpl in Htc, Hev |- *.
+  destruct pp as [| | | ix sx]; simpl in Htc; try discriminate.
+  destruct (of_atom (amap pw aP)) as [| | | z] eqn:Eat; try discriminate.
+  destruct tail; simpl in Htc; [| discriminate].
+  destruct aP as [a | |]; simpl in Htc, Eat; try discriminate.
+  destruct ((vid (pw a) =? vid (pw sx))%nat) eqn:Ea; simpl in Htc; [| discriminate].
+  destruct (ty_eqb (of_atom (amap pw vP)) Real) eqn:Ev; simpl in Htc; [| discriminate].
+  apply ty_eqb_true in Ev; crush_match Htc; injection Htc as <-.
+  pose proof (c_place _ _ _ _ _ _ _ _ Hc) as [Hix [Hsx [Hixt [Hsxt [Hsxv [Hixg Hsxg]]]]]].
+  assert (Ha : In a L) by auto.
+  pose proof (same_vid _ _ _ _ _ _ _ _ _ _ Hc Ha Hsx Ea); subst a.
+  simpl in Hst; injection Hst as Hj'; subst j.
+  assert (Hlsx : live_value k (ASet (amap pw (AVar sx)) (amap pw iP) (amap pw vP)) sx)
+    by (unfold live_value; simpl; rewrite Nat.eqb_refl; reflexivity).
+  simpl in Hev; destruct (pd sx) as [| | | l |] eqn:Hsxd; try discriminate.
+  destruct (aeval_atom (duals reals) (amap pd iP)) as [[| zi | | |] |] eqn:Hi; try discriminate.
+  destruct (aeval_atom (duals reals) (amap pd vP)) as [[d | | | |] |] eqn:Hv; try discriminate.
+  destruct (replace_nth_z zi d l) as [l1 |] eqn:Hr; [| discriminate]; injection Hev as <-.
+  (* the index and the value are not stored in the array *)
+  assert (Hlv : forall p, iP = AVar p \/ vP = AVar p ->
+            In p L /\ live_value k (ASet (amap pw (AVar sx)) (amap pw iP) (amap pw vP)) p)
+    by (intros p [E | E]; subst; split; auto; unfold live_value; simpl;
+        rewrite Nat.eqb_refl, ?orb_true_r; reflexivity).
+  assert (Hnot : forall p, iP = AVar p \/ vP = AVar p -> pn p <> pn sx).
+  { intros p E Ep; destruct (Hlv p E) as [Hp Lp].
+    pose proof (live_owner _ _ _ _ _ _ _ _ sx p Hc eq_refl Hp Lp Hlsx Ep); subst p.
+    destruct E as [E | E]; subst; simpl in Hi, Hv; congruence. }
+  assert (Hopi := operand_ok2 _ _ _ _ _ _ _ _ iP (pn sx) Hc (fun p E => Hlv p (or_introl E))
+                    (fun p E => Hnot p (or_introl E))).
+  assert (Hopv := operand_ok2 _ _ _ _ _ _ _ _ vP (pn sx) Hc (fun p E => Hlv p (or_intror E))
+                    (fun p E => Hnot p (or_intror E))).
+  assert (HiS : forall p, iP = AVar p -> static_ok k p /\ store_ok s p) by (intros; apply Hopi; auto).
+  assert (HiN : forall p, iP = AVar p -> static_ok k p /\ pn p <> pn sx) by (intros; apply Hopi; auto).
+  assert (HvS : forall p, vP = AVar p -> static_ok k p /\ store_ok s p) by (intros; apply Hopv; auto).
+  assert (HvN : forall p, vP = AVar p -> static_ok k p /\ pn p <> pn sx) by (intros; apply Hopv; auto).
+  destruct (avoid_spell k iP (pn sx) HiN) as [A1 [A2 [A3 A4]]].
+  destruct (avoid_spell k vP (pn sx) HvN) as [B1 [B2 [B3 B4]]].
+  assert (Hsi := spell_ok k s iP _ HiS Hi); assert (Hsv := spell_ok k s vP _ HvS Hv).
+  assert (Hdv := dot_ok k s vP _ HvS Hv).
+  pose proof (static_in _ _ _ (c_static _ _ _ _ _ _ _ _ Hc) Hsx) as Hsxs.
+  destruct Hsxs as [_ [_ [_ [_ [_ [Hdot [_ [_ [Hht _]]]]]]]]].
+  destruct (c_store _ _ _ _ _ _ _ _ Hc sx Hsx Hlsx) as [S1 S2].
+  rewrite Hsxd in S1, S2, Hht; specialize (S2 (eq_trans Hdot Hsxv)).
+  simpl in Hsxv |- *; rewrite Hsxv; simpl.
+  set (s1 := store_set s (keyv (stored sx)) (VArray (map dfst l1))).
+  assert (Hrun1 : run [DAssign (DAt (DVar (stored sx)) (spell (amap pt iP))) (spell (amap pt vP))] s = Some s1).
+  { apply (run_assign_at s _ _ _ (map dfst l) zi (dfst d)); auto.
+    rewrite replace_nth_z_map, Hr; reflexivity. }
+  assert (Hrun2 : run [DAssign (DAt (DVar (DotOf (stored sx))) (spell (amap pt iP))) (dot (amap pt vP))] s1 =
+                  Some (store_set s1 (keyv (DotOf (stored sx))) (VArray (map dsnd l1)))).
+  { apply (run_assign_at s1 _ _ _ (map dsnd l) zi (dsnd d)).
+    - unfold s1; rewrite store_get_set_other; [exact S2 | apply keyv_dot_neq].
+    - unfold s1; rewrite xev_set_other; auto.
+    - unfold s1; rewrite xev_set_other; auto.
+    - rewrite replace_nth_z_map, Hr; reflexivity. }
+  split; [lia | split; [simpl in Hht |- *; rewrite Eat in Hht; rewrite (replace_nth_z_length _ _ _ _ Hr); simpl in Hht; congruence |]].
+  split; [discriminate | split; [intros _; exact I |]].
+  exists (store_set s1 (keyv (DotOf (stored sx))) (VArray (map dsnd l1))).
+  split; [exact (run_two _ _ _ _ _ Hrun1 Hrun2) |].
+  split; [apply frame_set; [unfold s1; apply frame_set; [apply frame_refl | reflexivity | auto]
+                           | reflexivity | auto] |].
+  split; [rewrite store_get_set_other; [unfold s1; rewrite store_get_set_same; reflexivity |
+          apply not_eq_sym, keyv_dot_neq] |].
+  intros _; rewrite store_get_set_same; reflexivity.
 Qed.
