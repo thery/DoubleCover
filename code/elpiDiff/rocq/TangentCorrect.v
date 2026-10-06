@@ -654,6 +654,17 @@ Definition res_vars (L : list pv) (live : pv -> Prop) (c : nat) (e : dexpr W) : 
   forall x, In x (dvars e) ->
   (exists p, In p L /\ live p /\ (x = stored p \/ x = DotOf (stored p))) \/ (~ below c x /\ consistent x).
 
+(* The variables the expression of a tangent reads: the dots of variables in
+   scope, or variables opened by the code. *)
+Definition dot_vars (L : list pv) (live : pv -> Prop) (c : nat) (e : dexpr W) : Prop :=
+  forall x, In x (dvars e) ->
+  (exists p, In p L /\ live p /\ x = DotOf (stored p)) \/ (~ below c x /\ consistent x).
+
+Lemma dot_vars_res L live c e : dot_vars L live c e -> res_vars L live c e.
+Proof.
+  intros H x Hx; destruct (H x Hx) as [[p [Hp [Lp E]]] | Hf]; [left; exists p; auto | right; exact Hf].
+Qed.
+
 Definition live_anf (k : nat) (b : anf vinfo bare) (p : pv) : Prop :=
   occurs_anf (vid (pw p)) k b = true.
 Definition live_value (k : nat) (e : value vinfo bare) (p : pv) : Prop :=
@@ -675,7 +686,7 @@ Definition sim_body (bP : anf pv bare) : Prop :=
     open_pairs (tan W (option_map (amap pt) wP) (rebuild _ bT (annotate_body_t false m k bA))) c in
   (c <= c')%nat /\ has_type ty v /\ (varied_anf k bA = false -> zero v) /\
   res_vars L (fun p => live_anf k bW p \/ owner wP pp = Some p) c ve /\
-  res_vars L (fun p => live_anf k bW p \/ owner wP pp = Some p) c de /\
+  dot_vars L (fun p => live_anf k bW p \/ owner wP pp = Some p) c de /\
   exists s', run ss s = Some s' /\ frame c (inplace wP pp) s s' /\
              body_result ty (inplace wP pp) s' ve de v.
 
@@ -1080,6 +1091,19 @@ Proof.
   rewrite (F (stored p)), (F (DotOf (stored p))); unfold stored in *; simpl; auto.
 Qed.
 
+Lemma dot_vars_let x L (live live' : pv -> Prop) c c1 e :
+  dot_vars (x :: L) live' c1 e -> (c <= c1)%nat -> (forall p, In p L -> live' p -> live p) ->
+  ((~ below c (stored x) /\ consistent (stored x)) \/ exists o, In o L /\ live o /\ stored x = stored o) ->
+  dot_vars L live c e.
+Proof.
+  intros H Hc Hl Hx y Hy; destruct (H y Hy) as [[p [[<- | Hp] [Lp ->]]] | [Hb Hcy]].
+  - destruct Hx as [[Hx Hcx] | [o [Ho [Lo Eo]]]].
+    + right; auto.
+    + left; exists o; rewrite <- Eo; auto.
+  - left; exists p; auto.
+  - right; split; [intros Hb'; apply Hb, (below_mono c); auto | exact Hcy].
+Qed.
+
 Lemma res_vars_let x L (live live' : pv -> Prop) c c1 e :
   res_vars (x :: L) live' c1 e -> (c <= c1)%nat -> (forall p, In p L -> live' p -> live p) ->
   ((~ below c (stored x) /\ consistent (stored x)) \/ exists o, In o L /\ live o /\ stored x = stored o) ->
@@ -1279,7 +1303,7 @@ Proof.
                              live_anf k (ALet aW eW cW) p \/ owner wP pp = Some p)
       by (intros p Hp [H | H]; [left; apply Hlive_c; auto | right; exact H]).
     split; [exact (res_vars_let _ L _ _ c c1 ve' Hrv1 (Nat.le_trans _ _ _ Hc0 Hc01) Hlv' Hxs') |].
-    split; [exact (res_vars_let _ L _ _ c c1 de' Hrv2 (Nat.le_trans _ _ _ Hc0 Hc01) Hlv' Hxs') |].
+    split; [exact (dot_vars_let _ L _ _ c c1 de' Hrv2 (Nat.le_trans _ _ _ Hc0 Hc01) Hlv' Hxs') |].
     exists s2; split; [rewrite run_app, Hrun1; exact Hrun2 | split; [| exact Hres2]].
     apply (frame_let c c0 c1 _ (DBound (c, c)) s s1 s2); auto.
     left; simpl; lia.
@@ -1972,6 +1996,7 @@ Proof.
       specialize (IHt L k c s0 wP PBranch Replay tA tW tT tD Real ve H9 H6 H3 H0
                     (Hc0 PBranch tW eq_refl Hl) I HtW Hev).
       rewrite Hot in IHt; destruct IHt as [_ [Hht [Hz [_ [Hrv [s1 [Hrun [Hfr [Hv Hd]]]]]]]]].
+      apply dot_vars_res in Hrv.
       destruct ve as [[x dx] | | | |]; try contradiction.
       exists st, vt, dt, c, s1, x, dx; repeat split; eauto.
       intros Hv0; apply orb_false_iff in Hv0 as [Hv0 _]; exact (Hz Hv0).
@@ -1981,6 +2006,7 @@ Proof.
         by (apply (ctx_weaken L k c c1 s0 wP PBranch (live_anf k eW)); auto).
       specialize (IHe L k c1 s0 wP PBranch Replay eA eW eT eD Real ve H10 H7 H4 H1 Hce I HeW Hev).
       rewrite Hoe in IHe; destruct IHe as [_ [Hht [Hz [_ [Hrv [s1 [Hrun [Hfr [Hv Hd]]]]]]]]].
+      apply dot_vars_res in Hrv.
       destruct ve as [[x dx] | | | |]; try contradiction.
       exists se', ve', de', c1, s1, x, dx; repeat split; eauto; try lia.
       intros Hv0; apply orb_false_iff in Hv0 as [_ Hv0]; exact (Hz Hv0). }

@@ -150,6 +150,7 @@ Proof.
       match type of IHb with context [open_pairs ?t (S c)] =>
         replace (open_pairs t (S c)) with ((sb, (vb, db)), c2) in IHb by (rewrite <- Hob; reflexivity) end.
       destruct IHb as [_ [_ [Hzb [_ [Hrvd [s3 [Hrun3 [Hfr3 [Hvb Hdb]]]]]]]]].
+      apply dot_vars_res in Hrvd.
       (* the stored array and the index, after the body *)
       assert (Kin : keyv i <> keyv n) by (unfold keyv, i, n; simpl; intros E; inversion E; lia).
       assert (S3n : store_get s3 (keyv n) = store_get s' (keyv n)).
