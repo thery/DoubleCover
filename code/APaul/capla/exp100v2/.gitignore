@@ -1,0 +1,14 @@
+test_capla
+proof/exp100.v
+proof/exp100-model/
+proof/_CoqProject
+proof/rowcall.v
+proof/Makefile.rocq
+proof/Makefile.rocq.conf
+proof/.Makefile.rocq.d
+probe_enter_loop/xname.v
+*.vo
+*.vok
+*.vos
+*.glob
+.*.aux
