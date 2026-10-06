@@ -251,6 +251,30 @@ Record ctx_ok (L : list pv) (k c : nat) (s : store R) (wP : option (atom pv)) (p
       arrays_len s (stored y) (match vty (pw y) with Array n => Z.to_nat n | _ => 0%nat end)
 }.
 
+
+(* The facts of a context that do not depend on the store. *)
+Record sctx (L : list pv) (k c : nat) (wP : option (atom pv)) (pp : pplace)
+  (live : pv -> Prop) (ty : ty) : Prop := {
+  s_static : Forall (static_ok k) L;
+  s_unique : ids_unique L;
+  s_num : forall p, In p L -> (pn p < c)%nat;
+  s_written : forall a, wP = Some a ->
+      exists y, a = AVar y /\ In y L /\ varg (pw y) <> None;
+  s_place : place_ok L pp;
+  s_owner : forall o p, owner wP pp = Some o -> In p L -> pn p = pn o -> p = o \/ ~ live p;
+  s_arrays : forall p o, In p L -> live p -> is_array (vty (pw p)) ->
+      (varg (pw p) = None \/ wP = Some (AVar p)) -> owner wP pp = Some o -> pn p = pn o;
+  s_ty : is_array ty -> owner wP pp <> None;
+  s_top : forall y, pp = PTop -> wP = Some (AVar y) -> is_array (vty (pw y)) ->
+      ty = vty (pw y) /\ (live y -> avaried (pa y) = true)
+}.
+
+Lemma ctx_sctx L k c s wP pp live ty : ctx_ok L k c s wP pp live ty -> sctx L k c wP pp live ty.
+Proof.
+  intros Hc; destruct Hc; constructor; auto.
+  intros y H1 H2 H3; destruct (c_top0 y H1 H2 H3) as [A [B _]]; auto.
+Qed.
+
 (* The keys of the store a run leaves unchanged: those of the variables
    opened before c, except the storage updated in place and its dot. *)
 Fixpoint below (c : nat) (v : dvar W) : Prop :=
@@ -730,15 +754,21 @@ Ltac graph H := apply atom_graph in H; destruct H as [-> ?].
 Lemma static_in L k p : Forall (static_ok k) L -> In p L -> static_ok k p.
 Proof. rewrite Forall_forall; auto. Qed.
 
+Lemma unique_written_s L k c wP pp live ty p y :
+  sctx L k c wP pp live ty -> In p L -> wP = Some y ->
+  (match amap pw y with AVar y0 => (vid (pw p) =? vid y0)%nat | _ => false end) = true ->
+  wP = Some (AVar p).
+Proof.
+  intros Hc Hp Hw Hid; destruct (s_written _ _ _ _ _ _ _ Hc _ Hw) as [q [-> [Hq _]]].
+  simpl in Hid; apply Nat.eqb_eq in Hid.
+  rewrite (s_unique _ _ _ _ _ _ _ Hc _ _ Hq Hp (eq_sym Hid)) in Hw; exact Hw.
+Qed.
+
 Lemma unique_written L k c s wP pp live ty p y :
   ctx_ok L k c s wP pp live ty -> In p L -> wP = Some y ->
   (match amap pw y with AVar y0 => (vid (pw p) =? vid y0)%nat | _ => false end) = true ->
   wP = Some (AVar p).
-Proof.
-  intros Hc Hp Hw Hid; destruct (c_written _ _ _ _ _ _ _ _ Hc _ Hw) as [q [-> [Hq _]]].
-  simpl in Hid; apply Nat.eqb_eq in Hid.
-  rewrite (c_unique _ _ _ _ _ _ _ _ Hc _ _ Hq Hp (eq_sym Hid)) in Hw; exact Hw.
-Qed.
+Proof. intros Hc; generalize (ctx_sctx _ _ _ _ _ _ _ _ Hc); apply unique_written_s. Qed.
 
 (* A body that returns an atom. *)
 Lemma sim_ret (aP : atom pv) : sim_body (ARet aP).
@@ -915,15 +945,19 @@ Proof. revert c; induction sc as [n g IH | p g IH | a]; intros c; simpl; auto; s
 Lemma static_mono k k' p : static_ok k p -> (k <= k')%nat -> static_ok k' p.
 Proof. intros [H1 [H2 H3]] Hk; split; [exact H1 | split; [lia | exact H3]]. Qed.
 
-Lemma owner_in L k c s wP pp live ty o :
-  ctx_ok L k c s wP pp live ty -> owner wP pp = Some o -> In o L.
+Lemma owner_in_s L k c wP pp live ty o :
+  sctx L k c wP pp live ty -> owner wP pp = Some o -> In o L.
 Proof.
   intros Hc Ho; destruct pp as [| | | ix sx]; simpl in Ho; try discriminate.
   - destruct wP as [[y | |] |]; try discriminate; destruct (vty (pw y)); try discriminate.
-    injection Ho as <-; destruct (c_written _ _ _ _ _ _ _ _ Hc _ eq_refl) as [y' [E [Hy _]]].
+    injection Ho as <-; destruct (s_written _ _ _ _ _ _ _ Hc _ eq_refl) as [y' [E [Hy _]]].
     injection E as <-; exact Hy.
-  - injection Ho as <-; apply (c_place _ _ _ _ _ _ _ _ Hc).
+  - injection Ho as <-; apply (s_place _ _ _ _ _ _ _ Hc).
 Qed.
+
+Lemma owner_in L k c s wP pp live ty o :
+  ctx_ok L k c s wP pp live ty -> owner wP pp = Some o -> In o L.
+Proof. intros Hc; generalize (ctx_sctx _ _ _ _ _ _ _ _ Hc); apply owner_in_s. Qed.
 
 (* A fresh pv for a binder of identity k is not in scope. *)
 Lemma fresh_notin L k x :
@@ -970,9 +1004,13 @@ Proof.
   apply in_gW in I as [I _]; destruct (fresh_notin L k x (aids_below L k HL) Hx I).
 Qed.
 
+Lemma same_vid_s L k c wP pp live ty p q :
+  sctx L k c wP pp live ty -> In p L -> In q L -> (vid (pw p) =? vid (pw q))%nat = true -> p = q.
+Proof. intros Hc Hp Hq E; apply Nat.eqb_eq in E; exact (s_unique _ _ _ _ _ _ _ Hc _ _ Hp Hq E). Qed.
+
 Lemma same_vid L k c s wP pp live ty p q :
   ctx_ok L k c s wP pp live ty -> In p L -> In q L -> (vid (pw p) =? vid (pw q))%nat = true -> p = q.
-Proof. intros Hc Hp Hq E; apply Nat.eqb_eq in E; exact (c_unique _ _ _ _ _ _ _ _ Hc _ _ Hp Hq E). Qed.
+Proof. intros Hc; generalize (ctx_sctx _ _ _ _ _ _ _ _ Hc); apply same_vid_s. Qed.
 
 Lemma operation2_typed_scalar f a b t sp : operation2_typed f a b = Some (t, sp) -> ~ is_array t.
 Proof.
@@ -983,8 +1021,8 @@ Qed.
 (* A value that updates an array in place (it has an array type, or the
    tangent pass stores it in place) ends its body, and is stored in the
    storage of the variable updated in place. *)
-Lemma inplace_value L k c s wP pp live ty tail (eP : value pv bare) eW te :
-  ctx_ok L k c s wP pp live ty -> value_eq (gW L) eP eW ->
+Lemma inplace_value_s L k c wP pp live ty tail (eP : value pv bare) eW te :
+  sctx L k c wP pp live ty -> value_eq (gW L) eP eW ->
   typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
   (tail = true -> te = ty) ->
   storage wP tail eP <> None \/ is_array te ->
@@ -1008,8 +1046,8 @@ Proof.
     destruct a as [p | |]; simpl in Htc; try discriminate.
     destruct (vid (pw p) =? vid (pw sx))%nat eqn:E; simpl in Htc; [| discriminate].
     assert (Hp : In p L) by auto.
-    pose proof (c_place _ _ _ _ _ _ _ _ Hc) as [_ [Hsx _]].
-    rewrite (same_vid _ _ _ _ _ _ _ _ _ _ Hc Hp Hsx E); exists sx; auto.
+    pose proof (s_place _ _ _ _ _ _ _ Hc) as [_ [Hsx _]].
+    rewrite (same_vid_s _ _ _ _ _ _ _ _ _ Hc Hp Hsx E); exists sx; auto.
   - (* AIte *) destruct Hin as [Hi | Hi]; [congruence |]; destruct pp; simpl in Htc; crush_match Htc;
       injection Htc as <-; destruct Hi.
   - (* AMap *) destruct pp; simpl in Htc; try (crush_match Htc; fail).
@@ -1017,7 +1055,7 @@ Proof.
     destruct (owner wP PTop) as [o |] eqn:Eo.
     + destruct wP as [[y | |] |]; simpl in Eo; try discriminate.
       destruct (vty (pw y)); try discriminate; injection Eo as <-; exists y; auto.
-    + exfalso; apply (c_ty _ _ _ _ _ _ _ _ Hc); [| exact Eo].
+    + exfalso; apply (s_ty _ _ _ _ _ _ _ Hc); [| exact Eo].
       rewrite <- (Hty eq_refl).
       destruct lo, hi; simpl in Htc; crush_match Htc; injection Htc as <-; exact I.
   - (* AFold *)
@@ -1034,16 +1072,24 @@ Proof.
         -- destruct wP as [y |] eqn:Ew; simpl in Htc; [| discriminate].
            destruct (match amap pw y with AVar y0 => (vid (pw i) =? vid y0)%nat | _ => false end) eqn:E;
              [| discriminate].
-           rewrite (unique_written _ _ _ _ _ _ _ _ _ _ Hc Hi eq_refl E).
+           rewrite (unique_written_s _ _ _ _ _ _ _ _ _ Hc Hi eq_refl E).
            split; [reflexivity |]; exists i; simpl; rewrite Ev; auto.
         -- destruct (vid (pw i) =? vid (pw sx))%nat eqn:E; simpl in Htc; [| discriminate].
-           pose proof (c_place _ _ _ _ _ _ _ _ Hc) as [_ [Hsx _]].
-           pose proof (same_vid _ _ _ _ _ _ _ _ _ _ Hc Hi Hsx E) as ->.
+           pose proof (s_place _ _ _ _ _ _ _ Hc) as [_ [Hsx _]].
+           pose proof (same_vid_s _ _ _ _ _ _ _ _ _ Hc Hi Hsx E) as ->.
            split; [reflexivity |]; exists sx; simpl; auto.
     + destruct Hin as [Hi | Hi]; [congruence |]; destruct pp; simpl in Htc; crush_match Htc;
         injection Htc as <-; destruct Hi.
     + discriminate.
 Qed.
+
+Lemma inplace_value L k c s wP pp live ty tail (eP : value pv bare) eW te :
+  ctx_ok L k c s wP pp live ty -> value_eq (gW L) eP eW ->
+  typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
+  (tail = true -> te = ty) ->
+  storage wP tail eP <> None \/ is_array te ->
+  tail = true /\ exists o, owner wP pp = Some o /\ storage wP tail eP = Some (stored o).
+Proof. intros Hc; generalize (ctx_sctx _ _ _ _ _ _ _ _ Hc); apply inplace_value_s. Qed.
 
 Lemma below_mono c c' v : below c v -> (c <= c')%nat -> below c' v.
 Proof. induction v as [[i j] | v IH | v IH | v IH |]; simpl; auto; lia. Qed.
