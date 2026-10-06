@@ -31,3 +31,8 @@ directory (`..`), and `[rocq dir]` to `../rocq`.
 - `rocqtest.py [rocq dir] [stage..]` compares the passes written in Rocq with
   the Elpi ones on every case: the diagnostics, the derivative programs in L2
   (`pr_dfunction` against `dump`), and the complete C++ headers.
+- `gallinatest.py [code dir]` checks the Gallina output (`gallina` mode, for
+  CertiRocq) against the C++ output, on every case and mode, at random points:
+  the generated functions run in Rocq (`vm_compute`, primitive floats) and
+  compiled from C++ must give the same results; the axioms `fsin`, `fcos`,
+  `fexp`, `flog` are replaced for the test by series accurate to about 1e-12.

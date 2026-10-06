@@ -1,0 +1,293 @@
+% gallina.elpi — printing the derivative IR after simplification (L2′) as
+% Gallina, the language of Rocq, for CertiRocq to compile to C.
+%
+% An alternative to lower.elpi and cxx.elpi. Gallina has no assignment, so
+% the imperative statements of L2′ are threaded: an assignment rebinds its
+% variable (`let x := ... in`, shadowing the previous one); a branch and a loop
+% return the tuple of the variables they assign that are defined before them;
+% a loop is a call to `for_up` or `for_down`, its body a function of the index
+% and of that tuple. The parameters passed by reference are results: the
+% function returns the returned value, if any, then the final value of each,
+% in the order of the signature.
+%
+% Reals are the primitive floats of Rocq (`float`, PrimFloat), which CertiRocq
+% compiles; sin, cos, exp and log, which are not primitive, are declared in
+% the preamble and are to be mapped to the C math library. Integers (indices,
+% integer arguments) are `nat`; an array and a tape are lists of floats. The
+% names are those of lower.elpi (dname, var-name, new-name).
+
+shorten adjudge.{ dname, var-name, new-name }.
+
+namespace adjudge {
+
+% The type of a variable of the generated code, by name, set where it is
+% bound: "R" a real, "Z" an integer, "B" a boolean, "A" an array, "T" a tape.
+func gtype string -> string.
+
+% gname V N: the Gallina name of V, its C++ name unless that is a word of
+% Gallina or a name of the preamble.
+func gname dvar -> string.
+gname V N :- var-name V N0, if (reserved N0) (N is N0 ^ "_") (N = N0).
+
+func reserved string.
+reserved N :- std.mem! ["fun", "in", "let", "if", "then", "else", "match", "end", "as", "return",
+  "with", "fix", "cofix", "forall", "exists", "Type", "Set", "Prop", "S", "O", "ret_", "popped_",
+  "get", "set_at", "add_at", "pop", "pow_int", "for_up", "for_down", "fsin", "fcos", "fexp", "flog", "sqrt"] N.
+
+func ty-code ty -> string.
+ty-code real "R".
+ty-code integer "Z".
+ty-code boolean "B".
+ty-code (array _) "A".
+
+func code-type string -> string.
+code-type "R" "float".
+code-type "Z" "nat".
+code-type "B" "bool".
+code-type "A" "list float".
+code-type "T" "list float".
+
+% --- expressions ---------------------------------------------------------------
+
+% expr-type E C: the type code of E.
+func expr-type dexpr -> string.
+expr-type (d-var V) C :- !, gname V N, gtype N C.
+expr-type (d-real _) "R" :- !.
+expr-type (d-int _) "Z" :- !.
+expr-type (d-at _ _) "R" :- !.
+expr-type (d-op1 _ _) "R" :- !.
+expr-type (d-op2 F _ _) "B" :- comparison-op F, !.
+expr-type (d-op2 _ A _) C :- expr-type A C.
+
+func comparison-op binary.
+comparison-op lt.
+comparison-op le.
+comparison-op gt.
+comparison-op ge.
+
+% A literal, spelled as in the source: a number, or the quotient of two.
+func literal string -> string.
+literal S L :-
+  if (rex.match "^ *\\([^/]*[^/ ]\\) */ *\\([^/ ].*\\)$" S)
+     (rex.replace "^ *\\([^/]*[^/ ]\\) */ *\\([^/ ].*\\)$" "(\\1 / \\2)" S L)
+     (if (rex.match "^-" S) (L is "(" ^ S ^ ")") (L = S)).
+
+% expr-string E S: E as an operand (parenthesized when it is not atomic).
+func expr-string dexpr -> string.
+expr-string (d-var V) N :- !, gname V N.
+expr-string (d-real S) L :- !, literal S L.
+expr-string (d-int K) S :- !, S is int_to_string K ^ "%nat".
+expr-string (d-at A I) S :- !, expr-string A SA, expr-string I SI, S is "(get " ^ SA ^ " " ^ SI ^ ")".
+expr-string (d-op1 neg A) S :- !, expr-string A SA, S is "(- " ^ SA ^ ")".
+expr-string (d-op1 (pow K) A) S :- !, expr-string A SA, S is "(pow_int " ^ SA ^ " (" ^ int_to_string K ^ ")%Z)".
+expr-string (d-op1 F A) S :- !, op1-name F N, expr-string A SA, S is "(" ^ N ^ " " ^ SA ^ ")".
+expr-string (d-op2 F A B) S :-
+  expr-type A C, expr-string A SA, expr-string B SB,
+  if (C = "Z") (int-op2 F SA SB S) (float-op2 F SA SB S).
+
+func op1-name unary -> string.
+op1-name sin "fsin".
+op1-name cos "fcos".
+op1-name exp "fexp".
+op1-name log "flog".
+op1-name sqrt "sqrt".
+
+func float-op2 binary, string, string -> string.
+float-op2 add A B S :- S is "(" ^ A ^ " + " ^ B ^ ")".
+float-op2 sub A B S :- S is "(" ^ A ^ " - " ^ B ^ ")".
+float-op2 mul A B S :- S is "(" ^ A ^ " * " ^ B ^ ")".
+float-op2 divide A B S :- S is "(" ^ A ^ " / " ^ B ^ ")".
+float-op2 lt A B S :- S is "(" ^ A ^ " <? " ^ B ^ ")".
+float-op2 le A B S :- S is "(" ^ A ^ " <=? " ^ B ^ ")".
+float-op2 gt A B S :- S is "(" ^ B ^ " <? " ^ A ^ ")".
+float-op2 ge A B S :- S is "(" ^ B ^ " <=? " ^ A ^ ")".
+
+func int-op2 binary, string, string -> string.
+int-op2 add A B S :- S is "(" ^ A ^ " + " ^ B ^ ")%nat".
+int-op2 sub A B S :- S is "(" ^ A ^ " - " ^ B ^ ")%nat".
+int-op2 mul A B S :- S is "(" ^ A ^ " * " ^ B ^ ")%nat".
+int-op2 lt A B S :- S is "(Nat.ltb " ^ A ^ " " ^ B ^ ")".
+int-op2 le A B S :- S is "(Nat.leb " ^ A ^ " " ^ B ^ ")".
+int-op2 gt A B S :- S is "(Nat.ltb " ^ B ^ " " ^ A ^ ")".
+int-op2 ge A B S :- S is "(Nat.leb " ^ B ^ " " ^ A ^ ")".
+
+% --- the variables a block assigns ------------------------------------------------
+
+% assigned Ss Ns: the names of the variables the statements Ss assign and do
+% not define, in order of first assignment; they are the results of a block.
+func assigned list dstmt -> list string.
+assigned Ss Ns :- std.fold Ss (pr [] []) stmt-assigned (pr Rev _), std.rev Rev Ns.
+
+% stmt-assigned S (pr Assigned Defined): the names assigned (reversed) and
+% defined so far, updated with S.
+func stmt-assigned dstmt, pair (list string) (list string) -> pair (list string) (list string).
+stmt-assigned (d-define _ V _) (pr A D) (pr A [N | D]) :- !, gname V N.
+stmt-assigned (d-real-var V) (pr A D) (pr A [N | D]) :- !, gname V N.
+stmt-assigned (d-tape V) (pr A D) (pr A [N | D]) :- !, gname V N.
+stmt-assigned (d-assign L _) Acc R :- !, lhs-name L N, add-assigned N Acc R.
+stmt-assigned (d-increment L _) Acc R :- !, lhs-name L N, add-assigned N Acc R.
+stmt-assigned (d-push T _) Acc R :- !, gname T N, add-assigned N Acc R.
+stmt-assigned (d-pop T L) Acc R :- !, gname T NT, lhs-name L N, add-assigned NT Acc R1, add-assigned N R1 R.
+stmt-assigned (d-return _) Acc Acc :- !.
+stmt-assigned (d-branch _ T E) (pr A D) (pr A2 D) :- !,
+  assigned T NT, assigned E NE, std.append NT NE Ns, std.fold Ns (pr A D) add-assigned (pr A2 _).
+stmt-assigned (d-for I _ _ B) Acc R :- !, loop-assigned I B Acc R.
+stmt-assigned (d-for-back I _ _ B) Acc R :- loop-assigned I B Acc R.
+
+func loop-assigned dvar, list dstmt, pair (list string) (list string) -> pair (list string) (list string).
+loop-assigned I B (pr A D) (pr A2 D) :-
+  gname I NI, assigned B Ns0, std.filter Ns0 (n\ not (n = NI)) Ns, std.fold Ns (pr A D) add-assigned (pr A2 _).
+
+func add-assigned string, pair (list string) (list string) -> pair (list string) (list string).
+add-assigned N (pr A D) (pr A D) :- (std.mem! A N ; std.mem! D N), !.
+add-assigned N (pr A D) (pr [N | A] D).
+
+% The variable an assignment writes: x, or the array of x[i].
+func lhs-name dexpr -> string.
+lhs-name (d-var V) N :- !, gname V N.
+lhs-name (d-at A _) N :- lhs-name A N.
+
+% A tuple of names, as an expression and as a pattern.
+func tuple list string -> string.
+tuple [N] N :- !.
+tuple Ns S :- std.string.concat ", " Ns S0, S is "(" ^ S0 ^ ")".
+
+func pattern list string -> string.
+pattern [N] N :- !.
+pattern Ns S :- tuple Ns T, S is "'" ^ T.
+
+% --- statements -------------------------------------------------------------------
+
+% stmts-lines In Ss Final Ls: the statements Ss, then the expression Final,
+% as lines indented by In; each statement binds the variables it assigns in
+% the lines that follow it.
+func stmts-lines string, list dstmt, string -> list string.
+stmts-lines In [] Final [L] :- !, L is In ^ Final.
+stmts-lines In [S | Ss] Final Ls :- stmt-lines In S Ss Final Ls.
+
+func stmt-lines string, dstmt, list dstmt, string -> list string.
+stmt-lines In (d-define Sort V E) Ss Final [L | Ls] :- !,
+  gname V N, expr-string E SE, L is In ^ "let " ^ N ^ " := " ^ SE ^ " in",
+  if (Sort = d-constant T) (ty-code T C) (C = "R"),
+  gtype N C =!=> stmts-lines In Ss Final Ls.
+stmt-lines In (d-real-var V) Ss Final [L | Ls] :- !,
+  gname V N, L is In ^ "let " ^ N ^ " := 0 in",
+  gtype N "R" =!=> stmts-lines In Ss Final Ls.
+stmt-lines In (d-tape V) Ss Final [L | Ls] :- !,
+  gname V N, L is In ^ "let " ^ N ^ " := @nil float in",
+  gtype N "T" =!=> stmts-lines In Ss Final Ls.
+stmt-lines In (d-assign L E) Ss Final [S | Ls] :- !,
+  expr-string E SE, update-string L SE S0, S is In ^ S0, stmts-lines In Ss Final Ls.
+stmt-lines In (d-increment (d-var V) E) Ss Final [S | Ls] :- !,
+  gname V N, expr-string E SE, S is In ^ "let " ^ N ^ " := " ^ N ^ " + " ^ SE ^ " in", stmts-lines In Ss Final Ls.
+stmt-lines In (d-increment (d-at A I) E) Ss Final [S | Ls] :- !,
+  lhs-name A N, expr-string I SI, expr-string E SE,
+  S is In ^ "let " ^ N ^ " := add_at " ^ N ^ " " ^ SI ^ " " ^ SE ^ " in", stmts-lines In Ss Final Ls.
+stmt-lines In (d-push T E) Ss Final [S | Ls] :- !,
+  gname T N, expr-string E SE, S is In ^ "let " ^ N ^ " := " ^ SE ^ " :: " ^ N ^ " in", stmts-lines In Ss Final Ls.
+stmt-lines In (d-pop T L) Ss Final [S1, S2 | Ls] :- !,
+  gname T N, S1 is In ^ "let '(popped_, " ^ N ^ ") := pop " ^ N ^ " in",
+  update-string L "popped_" S0, S2 is In ^ S0, stmts-lines In Ss Final Ls.
+stmt-lines In (d-return E) Ss Final [S | Ls] :- !,
+  expr-string E SE, S is In ^ "let ret_ := " ^ SE ^ " in", stmts-lines In Ss Final Ls.
+stmt-lines In (d-branch C T E) Ss Final Ls :- !,
+  assigned [d-branch C T E] Ns,
+  if (Ns = []) (stmts-lines In Ss Final Ls)
+     (expr-string C SC, tuple Ns R, pattern Ns P, In2 is In ^ "    ",
+      stmts-lines In2 T R LT, stmts-lines In2 E R LE,
+      L1 is In ^ "let " ^ P ^ " :=", L2 is In ^ "  if " ^ SC ^ " then", L3 is In ^ "  else",
+      std.last LE LastE, std.drop-last 1 LE LE0, LastE1 is LastE ^ " in",
+      stmts-lines In Ss Final LR,
+      std.flatten [[L1, L2], LT, [L3], LE0, [LastE1], LR] Ls).
+stmt-lines In (d-for I Lo Hi B) Ss Final Ls :- !, loop-lines In "for_up" I Lo Hi B Ss Final Ls.
+stmt-lines In (d-for-back I Lo Hi B) Ss Final Ls :- loop-lines In "for_down" I Lo Hi B Ss Final Ls.
+
+% x := e, or x[i] := e, as a let.
+func update-string dexpr, string -> string.
+update-string (d-var V) SE S :- !, gname V N, S is "let " ^ N ^ " := " ^ SE ^ " in".
+update-string (d-at A I) SE S :- lhs-name A N, expr-string I SI, S is "let " ^ N ^ " := set_at " ^ N ^ " " ^ SI ^ " " ^ SE ^ " in".
+
+% A loop: for_up lo hi (fun i state => body; state) state, rebinding the state.
+func loop-lines string, string, dvar, dexpr, dexpr, list dstmt, list dstmt, string -> list string.
+loop-lines In Loop I Lo Hi B Ss Final Ls :-
+  assigned [d-for I Lo Hi B] Ns,
+  if (Ns = []) (stmts-lines In Ss Final Ls)
+     (gname I NI, expr-string Lo SL, expr-string Hi SH, tuple Ns R, pattern Ns P, In2 is In ^ "    ",
+      (gtype NI "Z" =!=> stmts-lines In2 B R LB),
+      L1 is In ^ "let " ^ P ^ " :=",
+      L2 is In ^ "  " ^ Loop ^ " " ^ SL ^ " " ^ SH ^ " (fun " ^ NI ^ " " ^ P ^ " =>",
+      std.last LB LastB, std.drop-last 1 LB LB0, LastB1 is LastB ^ ") " ^ R ^ " in",
+      stmts-lines In Ss Final LR,
+      std.flatten [[L1, L2], LB0, [LastB1], LR] Ls).
+
+% --- functions ---------------------------------------------------------------------
+
+func gallina-function dfunction -> string.
+gallina-function (dfunction Name S) T :- gallina-scoped Name S T.
+
+func gallina-scoped string, scoped dbody -> string.
+gallina-scoped Name (named N F) T :- !, pi v\ dname v N =!=> gallina-scoped Name (F v) T.
+gallina-scoped Name (fresh P F) T :- !, new-name P N, pi v\ dname v N =!=> gallina-scoped Name (F v) T.
+gallina-scoped Name (done (dbody R Ps Ss)) T :-
+  std.map Ps param-binder Bs, std.string.concat " " Bs SB,
+  std.map Ps param-type Cs,
+  std.map-filter Ps param-result Outs0,
+  if (R = d-returns-real) (Outs = ["ret_" | Outs0], RCs = ["R"]) (Outs = Outs0, RCs = []),
+  std.map-filter Ps param-result-type OCs, std.append RCs OCs ResCs,
+  std.map ResCs code-type ResTs, std.string.concat " * " ResTs ResT,
+  tuple Outs Final,
+  std.map2 Ps Cs (p\ c\ h\ sigma N V\ p = dparam _ _ V, gname V N, h = gtype N c) Hyps,
+  Hyps =!=> stmts-lines "  " Ss Final Ls,
+  std.string.concat "\n" Ls Body,
+  T is "Definition " ^ Name ^ " " ^ SB ^ " : " ^ ResT ^ " :=\n" ^ Body ^ ".\n".
+
+func param-type dparam -> string.
+param-type (dparam _ T _) C :- ty-code T C.
+
+func param-binder dparam -> string.
+param-binder (dparam _ T V) S :- gname V N, ty-code T C, code-type C CT, S is "(" ^ N ^ " : " ^ CT ^ ")".
+
+% The parameters passed by reference are results.
+func param-result dparam -> string.
+param-result (dparam by-ref _ V) N :- gname V N.
+
+func param-result-type dparam -> string.
+param-result-type (dparam by-ref T _) C :- ty-code T C.
+
+func gallina-file string, list dfunction -> string.
+gallina-file Source Fs S :-
+  std.map Fs gallina-function SFs, std.string.concat "\n" SFs SF,
+  std.map Fs (f\ n\ f = dfunction n _) Names, std.string.concat " " Names SN,
+  S is "(* Generated by adjudge from " ^ Source ^ ". Do not edit. *)\n\n"
+     ^ "From Stdlib Require Import Floats List ZArith.\nImport ListNotations.\n"
+     ^ "Set Warnings \"-inexact-float\".\nOpen Scope float_scope.\n\n"
+     ^ "(* The elementary functions that are not primitive floats: to be mapped to\n"
+     ^ "   the C math library (sin, cos, exp, log) when compiling with CertiRocq. *)\n"
+     ^ "Axiom fsin fcos fexp flog : float -> float.\n\n"
+     ^ "(* Arrays and tapes are lists of floats. *)\n"
+     ^ "Definition get (a : list float) (i : nat) : float := nth i a 0.\n"
+     ^ "Fixpoint set_at (a : list float) (i : nat) (x : float) : list float :=\n"
+     ^ "  match a, i with\n  | [], _ => []\n  | _ :: a', O => x :: a'\n  | y :: a', S i' => y :: set_at a' i' x\n  end.\n"
+     ^ "Definition add_at (a : list float) (i : nat) (x : float) : list float := set_at a i (get a i + x).\n"
+     ^ "Definition pop (t : list float) : float * list float :=\n"
+     ^ "  match t with x :: t' => (x, t') | [] => (0, []) end.\n\n"
+     ^ "(* x^k, k an integer. *)\n"
+     ^ "Fixpoint pow_nat (x : float) (n : nat) : float := match n with O => 1 | S n' => x * pow_nat x n' end.\n"
+     ^ "Definition pow_int (x : float) (k : Z) : float :=\n"
+     ^ "  if (k <? 0)%Z then 1 / pow_nat x (Z.to_nat (- k)) else pow_nat x (Z.to_nat k).\n\n"
+     ^ "(* The loops: the body applied to the state at each index of [lo, hi),\n"
+     ^ "   upward, or downward. *)\n"
+     ^ "Fixpoint up {A : Type} (n i : nat) (f : nat -> A -> A) (s : A) : A :=\n"
+     ^ "  match n with O => s | S n' => up n' (S i) f (f i s) end.\n"
+     ^ "Definition for_up {A : Type} (lo hi : nat) (f : nat -> A -> A) (s : A) : A := up (hi - lo) lo f s.\n"
+     ^ "Fixpoint down {A : Type} (n i : nat) (f : nat -> A -> A) (s : A) : A :=\n"
+     ^ "  match n with O => s | S n' => down n' (Nat.pred i) f (f (Nat.pred i) s) end.\n"
+     ^ "Definition for_down {A : Type} (lo hi : nat) (f : nat -> A -> A) (s : A) : A := down (hi - lo) hi f s.\n\n"
+     ^ SF
+     ^ "\n(* To compile with CertiRocq (not tested here), map the axioms to C:\n"
+     ^ "     From CertiRocq.Plugin Require Import CertiRocq.\n"
+     ^ "     CertiRocq Compile " ^ SN ^ "\n"
+     ^ "       Extract Constants [ fsin => \"sin\", fcos => \"cos\", fexp => \"exp\", flog => \"log\" ].\n"
+     ^ "   The C functions must follow CertiRocq's calling convention for floats. *)\n".
+
+}

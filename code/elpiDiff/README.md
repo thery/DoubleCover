@@ -41,6 +41,7 @@ change is checked in two ways:
 | `target.elpi` | L3, the target language: C++ statements, names as strings. |
 | `lower.elpi` | L2 to L3: the only pass that names variables and chooses C++ types. |
 | `cxx.elpi` | Printing the target language as C++. |
+| `gallina.elpi` | Another output, from L2′: the derivative programs as Gallina, the language of Rocq, for CertiRocq to compile to C (`gallina` mode). The assignments are threaded as lets, branches and loops return the variables they assign; reals are primitive floats. |
 | `show.elpi` | Printing a generated function as an Elpi term. |
 | `dump.elpi` | Readable printers for L1, L1ᵃ and L2, to debug the passes (`dump` mode). |
 | `numbers.elpi` | Domains of numbers for the evaluators: the record of the operations on the reals of a domain; floats, and dual numbers over any domain. |
@@ -48,7 +49,7 @@ change is checked in two ways:
 | `eval-anf.elpi` | The evaluator of L1 and of L1ᵃ, polymorphic in the annotations. |
 | `exec.elpi` | The evaluator of L2: executes the derivative programs (tangent, adjoint) with a store indexed by their variables. |
 | `evaluate.elpi` | Running the functions of a case with the evaluators (`run`, `tangent`, `signatures`, `l1-run`, `passes`, `l2-run`, `l2-signature`, `l2-same`); not loaded by `adjudge.elpi`. |
-| `adjudge.elpi` | The driver: accumulates everything, `main` and `terms`. |
+| `adjudge.elpi` | The driver: accumulates everything, `main`, `gallina` and `terms`. |
 
 ## In Rocq
 
@@ -226,6 +227,37 @@ the refused ones. There are two reverse modes: `adjoint` computes the
 derivative only (`f_adjoint`), with the smallest forward sweep; `adjoint-value`
 computes the value of the function as well (`f_adjoint_value`): it returns the
 returned value, and writes the dependent argument.
+
+```
+elpi -I . <case>/primal.elpi -exec gallina -- <case> tangent|adjoint|adjoint-value [<output directory>]
+```
+
+writes the same derivatives as Gallina instead of C++, `<case>/tangent.v`,
+`adjoint.v` or `adjoint_value.v` (`gallina.elpi`), for
+[CertiRocq](https://github.com/CertiRocq/certirocq/wiki/The-CertiRocq-plugin)
+to compile to C. Gallina has no assignment: a function returns its returned
+value, if any, then the final value of each parameter passed by reference, in
+the order of the signature; reals are primitive floats (`float`), integers
+`nat`, arrays and tapes lists of floats. `sin`, `cos`, `exp` and `log` are
+declared as axioms, to be mapped to the C math library when compiling with
+CertiRocq (not tested here). For instance, the tangent of `square_scaled`
+(case 05):
+
+```coq
+Definition square_scaled_tangent (x : list float) (y : list float) (x_dot : list float) (y_dot : list float) : list float * list float :=
+  let '(y, y_dot) :=
+    for_up 0%nat 4%nat (fun i1 '(y, y_dot) =>
+      let t2 := (get x i1) in
+      let t2_dot := (get x_dot i1) in
+      let t3 := (2 * t2) in
+      let t3_dot := (2 * t2_dot) in
+      let t4 := (t3 * t3) in
+      let t4_dot := ((t3 * t3_dot) + (t3 * t3_dot)) in
+      let y := set_at y i1 t4 in
+      let y_dot := set_at y_dot i1 t4_dot in
+      (y, y_dot)) (y, y_dot) in
+  (y, y_dot).
+```
 
 ```
 elpi -I . <case>/primal.elpi -exec terms -- tangent|adjoint|adjoint-value
