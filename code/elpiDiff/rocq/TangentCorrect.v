@@ -2008,3 +2008,63 @@ Proof.
       split; [rewrite store_get_set_same; reflexivity |].
       intros [Hq | Hq]; [discriminate | contradiction].
 Qed.
+
+(* ---------------------------------------------------------------------------
+   Loops. *)
+
+Lemma eval_map_length (ev : val (dual R) -> option (val (dual R))) n i xs :
+  eval_map ev i n = Some xs -> length xs = n.
+Proof.
+  revert i xs; induction n as [| n IH]; intros i xs H; simpl in H; [injection H as <-; reflexivity |].
+  destruct (ev (VInt i)) as [[x | | | |] |]; try discriminate.
+  destruct (eval_map ev (i + 1)%Z n) eqn:E; [| discriminate]; injection H as <-; simpl; f_equal; eauto.
+Qed.
+
+Lemma eval_map_Forall (P : dual R -> Prop) (ev : val (dual R) -> option (val (dual R))) n i xs :
+  (forall z x, ev (VInt z) = Some (VReal x) -> P x) -> eval_map ev i n = Some xs -> Forall P xs.
+Proof.
+  intros HP; revert i xs; induction n as [| n IH]; intros i xs H; simpl in H; [injection H as <-; constructor |].
+  destruct (ev (VInt i)) as [[x | | | |] |] eqn:Ex; try discriminate.
+  destruct (eval_map ev (i + 1)%Z n) eqn:E; [| discriminate]; injection H as <-; constructor; eauto.
+Qed.
+
+(* The loop of a map, with the bound of its indices. *)
+Lemma map_loop_bounded (ev : val (dual R) -> option (val (dual R)))
+  (body : store R -> option (store R)) (i : dvar nat)
+  (Inv : Z -> store R -> list (dual R) -> Prop) (B : Z) :
+  (forall j s acc x, (j < B)%Z -> Inv j s acc -> ev (VInt j) = Some (VReal x) ->
+     exists s', body (store_set s (KVar i) (VInt j)) = Some s' /\ Inv (j + 1)%Z s' (acc ++ [x])%list) ->
+  forall n lo s acc xs, (lo + Z.of_nat n <= B)%Z -> Inv lo s acc -> eval_map ev lo n = Some xs ->
+  exists s', exec_up R body i lo n s = Some s' /\ Inv (lo + Z.of_nat n)%Z s' (acc ++ xs)%list.
+Proof.
+  intros Hstep n; induction n as [| n IH]; intros lo s acc xs HB Hinv Hev; simpl in Hev; cbn [exec_up].
+  - injection Hev as <-; exists s; rewrite app_nil_r, Z.add_0_r; auto.
+  - destruct (ev (VInt lo)) as [[x | | | |] |] eqn:E; try discriminate.
+    destruct (eval_map ev (lo + 1) n) as [xs1 |] eqn:E1; [| discriminate]; injection Hev as <-.
+    assert (H1 : (lo < B)%Z) by lia.
+    assert (H2 : (lo + 1 + Z.of_nat n <= B)%Z) by lia.
+    destruct (Hstep _ _ _ _ H1 Hinv E) as [s1 [Hb Hi]]; rewrite Hb.
+    destruct (IH _ _ _ _ H2 Hi E1) as [s' [He Hi']]; exists s'; split; [exact He |].
+    replace (lo + Z.of_nat (S n))%Z with (lo + 1 + Z.of_nat n)%Z by lia.
+    rewrite <- app_assoc in Hi'; exact Hi'.
+Qed.
+
+Lemma replace_nth_app {B : Type} (a : list B) y z rest :
+  replace_nth (length a) z (a ++ y :: rest)%list = Some (a ++ z :: rest)%list.
+Proof. induction a as [| b a IH]; simpl; [reflexivity | rewrite IH; reflexivity]. Qed.
+
+(* Writing the next element of an array being filled from its start. *)
+Lemma replace_step {A B : Type} (f : A -> B) acc d (l : list B) :
+  (length acc < length l)%nat ->
+  replace_nth_z (Z.of_nat (length acc)) (f d) (map f acc ++ skipn (length acc) l)%list =
+  Some (map f (acc ++ [d]) ++ skipn (length (acc ++ [d])) l)%list.
+Proof.
+  intros H; unfold replace_nth_z.
+  destruct (Z.of_nat (length acc) <? 0)%Z eqn:E; [apply Z.ltb_lt in E; lia |]; rewrite Nat2Z.id.
+  assert (Hs : skipn (length acc) l = nth (length acc) l (f d) :: skipn (S (length acc)) l).
+  { clear E; revert l H; induction acc as [| a acc IH]; intros [| b l] H; simpl in *; try lia; auto.
+    apply IH; lia. }
+  rewrite Hs, map_app, length_app; simpl.
+  rewrite <- (length_map f acc) at 1; rewrite replace_nth_app, <- app_assoc.
+  replace (length acc + 1)%nat with (S (length acc)) by lia; reflexivity.
+Qed.
