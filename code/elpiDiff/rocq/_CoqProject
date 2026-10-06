@@ -29,3 +29,4 @@ Correctness.v
 AnfEquiv.v
 Euclidean.v
 DualsDerive.v
+TangentCorrect.v
