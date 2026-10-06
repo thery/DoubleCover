@@ -21,6 +21,7 @@ Dump.v
 Adjoint.v
 Simplify.v
 Scoping.v
+SimplifyCorrect.v
 Lower.v
 Cxx.v
 Adjudge.v
