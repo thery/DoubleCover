@@ -27,3 +27,5 @@ Cxx.v
 Adjudge.v
 Correctness.v
 AnfEquiv.v
+Euclidean.v
+DualsDerive.v
