@@ -441,6 +441,72 @@ Proof.
     + intros ->; destruct (occurs_anf (vid w) k bW); [reflexivity | discriminate].
 Qed.
 
+(* The final values of the parameters, when each is in the store. *)
+Lemma finals_some (s : store R) (ps : list (dparam nat)) :
+  (forall pw t x, In (DParam pw t x) ps -> exists v, store_get s (KVar x) = Some v) ->
+  exists fs, fold_right (fun o acc => match o with
+                                      | Some v => match acc with Some l => Some (v :: l) | None => None end
+                                      | None => None end) (Some [])
+               (map (fun '(DParam _ _ x) => store_get s (KVar x)) ps) = Some fs /\
+             forall i pw t x, nth_error ps i = Some (DParam pw t x) -> nth_error fs i = store_get s (KVar x).
+Proof.
+  induction ps as [| [pw t x] ps IH]; intros H; simpl.
+  - exists []; split; [reflexivity | intros [|i]; discriminate].
+  - destruct (H pw t x (or_introl eq_refl)) as [v Hv]; rewrite Hv.
+    destruct IH as [fs [Hf Hn]]; [intros pw' t' x' Hin; apply (H pw' t' x'); right; exact Hin |].
+    rewrite Hf; exists (v :: fs); split; [reflexivity |].
+    intros [| i] pw' t' x' Hi; simpl in Hi |- *; [injection Hi as <- <- <-; symmetry; exact Hv | apply Hn with pw' t'; exact Hi].
+Qed.
+
+Lemma nth_error_last {A : Type} (l : list A) d x :
+  nth_error l (length l - 1) = Some x -> last l d = x.
+Proof.
+  induction l as [| a l IH]; [discriminate |].
+  destruct l as [| b l]; [simpl; intros E; injection E; auto |].
+  intros E; change (last (a :: b :: l) d) with (last (b :: l) d); apply IH.
+  simpl in E |- *; rewrite Nat.sub_0_r in *; exact E.
+Qed.
+
+Lemma params_app ps1 ps2 : params (ps1 ++ ps2) = params ps1 ++ params ps2.
+Proof. unfold params; apply map_app. Qed.
+
+Lemma params_primal AL : params (map (tangent_primal W) (map arg_entry AL)) = map stored AL.
+Proof.
+  induction AL as [| p AL IH]; simpl; [reflexivity |]; unfold params in *; simpl; rewrite IH; f_equal.
+  unfold arg_entry; destruct (varg (pw p)) as [[nm r] |]; simpl;
+    [destruct (vty (pw p)); try destruct (written_role r) | ]; reflexivity.
+Qed.
+
+Lemma params_dots AL :
+  Forall (fun p => varg (pw p) <> None) AL ->
+  params (concat (map (tangent_dot W) (map arg_entry AL))) =
+  concat (map (fun p => if has_dot (fst (arg_entry p)) then [DotOf (stored p)] else []) AL).
+Proof.
+  induction 1 as [| p AL Hg HAL IH]; simpl; [reflexivity |].
+  rewrite params_app, IH; f_equal.
+  unfold arg_entry; destruct (varg (pw p)) as [[nm r] |]; [| contradiction].
+  destruct (vty (pw p)), r; reflexivity.
+Qed.
+
+Lemma in_dots AL p :
+  In p AL -> has_dot (fst (arg_entry p)) = true ->
+  In (DotOf (stored p)) (concat (map (fun p => if has_dot (fst (arg_entry p)) then [DotOf (stored p)] else []) AL)).
+Proof.
+  intros Hp Hd; apply in_concat; exists [DotOf (stored p)]; split; [| left; reflexivity].
+  apply in_map_iff; exists p; rewrite Hd; auto.
+Qed.
+
+Lemma in_dots_inv AL y :
+  In y (concat (map (fun p => if has_dot (fst (arg_entry p)) then [DotOf (stored p)] else []) AL)) ->
+  exists p, In p AL /\ y = DotOf (stored p).
+Proof.
+  intros Hy; apply in_concat in Hy as [l [Hl Hy]]; apply in_map_iff in Hl as [p [<- Hp]].
+  destruct (has_dot (fst (arg_entry p))); [destruct Hy as [<- | []]; eauto | destruct Hy].
+Qed.
+
+Lemma in_rev_iff {A : Type} (x : A) l : In x (rev l) <-> In x l.
+Proof. symmetry; apply in_rev. Qed.
+
 (* Running the tangent program over the reals, from the primal arguments and
    the seeded tangents, computes the value and the tangent of the dual
    evaluation of the normal form of f; its statements follow the discipline
@@ -472,10 +538,12 @@ Proof.
   assert (Hds := decls_open dP (map (fun p => (p, tt)) []) [] 0 xs L res bP _ (Hnp pv unit) Ho).
   assert (Hds' : decls f = map (fun p => fst (arg_entry p)) (rev L)) by exact Hds.
   clear Hds; rename Hds' into Hds.
-  rewrite Nat.add_0_l in Htr, Hwfd; set (n := length xs) in *.
+  rewrite Nat.add_0_l in Htr, Hwfd.
+  set (n := length xs) in *.
   set (tr := annotate_definition_t false 0 (afdef (normalize f) avar)) in *.
   destruct (tangent_open dP [] 0 xs L res bP (afdef (normalize f) (tvar W)) tr (tangent_body W)
               (Hnp pv (tvar W)) Ho) as [resT [bT [HrT [HbT Hopen]]]].
+  rewrite Nat.add_0_l in Hopen; fold n in Hopen.
   (* well_formed *)
   unfold well_formed in Hwf; fold (decls f) in Hwf.
   destruct (non_real_varied (decls f)) eqn:Hnrv; [discriminate |].
@@ -503,5 +571,60 @@ Proof.
     repeat split; simpl; auto; try discriminate.
     - intros Hv; apply (non_real_varied_none (decls f) nm t r Hnrv); [apply nth_error_In with i; exact Hd | exact Hv].
     - exact (fits_type nm t r v0 tg Hf0). }
-  admit.
+  assert (Huniq : ids_unique L).
+  { intros p q Hp Hq E; destruct (Hargs' p Hp) as [i [nm [t [r [x0 [-> [Hx [Hd _]]]]]]]].
+    destruct (Hargs' q Hq) as [i' [nm' [t' [r' [x0' [-> [Hx' [Hd' _]]]]]]]]; simpl in E; subst i'.
+    rewrite Hx in Hx'; injection Hx' as <-; rewrite Hd in Hd'; injection Hd' as <- <- <-; reflexivity. }
+  assert (Hnum : forall p, In p L -> (pn p < n)%nat)
+    by (intros p Hp; destruct (Hargs' p Hp) as [? [? [? [? [? [-> [_ [_ Hi]]]]]]]]; exact Hi).
+  assert (Hdot : forall p, In p L -> tdot (pt p) = true -> has_dot (fst (arg_entry p)) = true).
+  { intros p Hp Ht; destruct (Hargs' p Hp) as [i [nm [t [r [x0 [-> [_ [Hd _]]]]]]]].
+    simpl in Ht |- *; pose proof (non_real_varied_none (decls f) nm t r Hnrv (nth_error_In _ _ Hd) Ht) as Hra.
+    destruct t; simpl in Hra |- *; try contradiction; destruct r; simpl in Ht; try discriminate; reflexivity. }
+  set (ext := if existsb written_decl (decls f) then [] else [(KVar (DotOf ResultVar), VReal 0%R)]).
+  set (s0 := prim_entries (rev L) ++ dot_entries (rev L) ++ ext).
+  assert (Hs0 : forall p, In p L ->
+            store_get s0 (keyv (stored p)) = Some (primal (pd p)) /\
+            (has_dot (fst (arg_entry p)) = true -> store_get s0 (keyv (DotOf (stored p))) = Some (tangent (pd p)))).
+  { intros p Hp; unfold s0, keyv, stored; simpl; rewrite !store_get_app.
+    split; [rewrite prim_lookup; auto; apply in_rev; rewrite rev_involutive; exact Hp |].
+    intros Hd; rewrite prim_lookup_dot, dot_lookup; auto; apply in_rev; rewrite rev_involutive; exact Hp. }
+  assert (Hsok : forall p, In p L -> store_ok s0 p).
+  { intros p Hp; destruct (Hs0 p Hp) as [S1 S2]; split; [exact S1 | intros Ht; apply S2, Hdot; auto]. }
+  (* the tangent function, opened *)
+  change (open_pairs (dfbody (Tangent.tangent (annotate false (normalize f))) W) 0)
+    with (open_pairs (open_arguments W (rebuild_definition (tvar W) (afdef (normalize f) (tvar W)) tr) 0
+                        (map arg_entry []) (tangent_body W)) 0).
+  rewrite Hopen; unfold tangent_body; rewrite open_pairs_sbind, Htr.
+  set (wT := match resT with AWrites y => Some y | AReturns _ => None end).
+  destruct (open_pairs (tan W wT (rebuild (tvar W) bT (annotate_body_t false Forward n bA))) n)
+    as [[sb [ve de]] c'] eqn:Hob.
+  assert (HAL : Forall (fun p => tstored (pt p) = stored p /\ varg (pw p) <> None) (rev L)).
+  { apply Forall_forall; intros p Hp; rewrite in_rev_iff in Hp.
+    destruct (Hargs' p Hp) as [? [? [? [? [? [-> _]]]]]]; split; [reflexivity | discriminate]. }
+  assert (HAL' : Forall (fun p => varg (pw p) <> None) (rev L))
+    by (apply Forall_impl with (2 := HAL); intros p [_ H]; exact H).
+  set (pps := map (tangent_primal W) (rev (map arg_entry L)) ++ concat (map (tangent_dot W) (rev (map arg_entry L)))).
+  assert (Hpps : params pps = map stored (rev L) ++
+                 concat (map (fun p => if has_dot (fst (arg_entry p)) then [DotOf (stored p)] else []) (rev L))).
+  { unfold pps; rewrite params_app, <- map_rev, params_primal, params_dots by exact HAL'; reflexivity. }
+  assert (Hpps_ok : forall y, In y (params pps) -> below n y /\ consistent y).
+  { intros y Hy; rewrite Hpps in Hy; apply in_app_or in Hy as [Hy | Hy].
+    - apply in_map_iff in Hy as [p [<- Hp]]; rewrite in_rev_iff in Hp; pose proof (Hnum p Hp).
+      unfold stored; simpl; split; [lia | reflexivity].
+    - apply in_dots_inv in Hy as [p [Hp ->]]; rewrite in_rev_iff in Hp.
+      pose proof (Hnum p Hp); unfold stored; simpl; split; [lia | reflexivity]. }
+  assert (Hreads : forall p, In p L -> In (stored p) (params pps) /\
+                                       (tdot (pt p) = true -> In (DotOf (stored p)) (params pps))).
+  { intros p Hp; rewrite Hpps; split.
+    - apply in_or_app; left; apply in_map; rewrite in_rev_iff; exact Hp.
+    - intros Ht; apply in_or_app; right; apply in_dots; [rewrite in_rev_iff; exact Hp |].
+      apply Hdot; auto. }
+  destruct (wf_result_facts _ _ _ _ Hwf) as [[EW [Hnw HtcB]] | [w [nm [role [EW [Hg [Hwr [H1w [Hraw [HtcB [Hdep Hinout]]]]]]]]]]].
+  - (* the function returns a real *)
+    subst resW; destruct res as [tR | yP]; simpl in HrW; [subst tR | contradiction].
+    destruct resT as [tT | yT]; simpl in HrT; [subst tT | contradiction].
+    admit.
+  - (* the function writes an argument *)
+    admit.
 Admitted.
