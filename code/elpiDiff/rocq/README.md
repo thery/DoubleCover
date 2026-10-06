@@ -3,14 +3,32 @@
 The definitions of elpiDiff in Rocq, mimicking the Elpi code: the same
 languages, the same constructors with their arguments in the same order, and
 the same evaluators, over the reals of Rocq instead of floats, and all the
-passes, one function per Elpi predicate, down to the C++ text. They are meant
-to state, then prove, that the passes of elpiDiff are correct; there are no
-theorems yet. The passes compute: `Compute (main ModeAdjoint "f.elpi" [f])`
-gives the header Elpi writes.
+passes, one function per Elpi predicate, down to the C++ text, and the proofs
+that the passes are correct, with the evaluators as their semantics: the
+tangent mode is proved correct (below). The passes compute:
+`Compute (main ModeAdjoint "f.elpi" [f])` gives the header Elpi writes.
 
 ```
 make            # Rocq 9.1; the development is the logical directory ElpiDiff
 ```
+
+## Theorems
+
+No `Admitted`; `Print Assumptions tangent_mode_correct` lists only the axioms
+of the reals of the standard library (`sig_forall_dec`, `sig_not_dec`,
+`functional_extensionality_dep`, `classic`), which Coquelicot uses as well.
+
+| Theorem | File | Statement |
+|---|---|---|
+| `normalize_correct` | `Correctness.v` | where the source computes a value, in any domain, its A-normal form computes the same (for a parametric source) |
+| `annotate_correct` | `Correctness.v` | the annotated function computes what the function computes |
+| `normalize_parametric` | `AnfEquiv.v` | the normal form of a parametric source is parametric: its instances are related |
+| `simplify_correct` | `SimplifyCorrect.v` | simplify preserves the execution over the reals of a program that follows the scoping discipline `good` and uses no tape |
+| `duals_derive` | `DualsDerive.v` | where f is `defined`, it is Fréchet-differentiable as a function of the reals of its arguments (Coquelicot's `filterdiff` on `Rn`), and the dual numbers compute its derivative |
+| `simulation` | `TangentLoops.v` | the statements tangent generates for a body compute, over the reals, the value and the tangent of its dual evaluation; the activity analysis is sound |
+| `scoping` | `TangentGood.v` | those statements follow the discipline `good` and use no tape |
+| `tangent_simulates_duals` | `TangentTop.v` | theorem 1 for a function: the tangent function, run over the reals on the primal arguments and the seeded tangents, gives the value and the tangent of the dual evaluation of the normal form of f |
+| `tangent_mode_correct` | `TangentMode.v` | the tangent mode is correct: where a parametric, well-formed f is defined at x, it is differentiable at x with a linear derivative df, and `simplify (tangent (annotate false (normalize f)))`, run over the reals on `tangent_inputs (decls f) x dx`, gives the value of f and df applied to the seed of dx (dx on the independent and inout reals, 0 elsewhere) |
 
 ## Files
 
@@ -40,6 +58,17 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
 | `Lower.v` | `lower.elpi` | `lower` (L2′ to L3), the counter of the names threaded; `lower_all`, the functions of a file |
 | `Cxx.v` | `cxx.elpi` | `function_string`, `header_string`: the C++ text |
 | `Adjudge.v` | the driver of `adjudge.elpi` | `mode`, `check`, `differentiate`, `transform`, `main`: the header and the diagnostics of a case |
+| `Scoping.v` | — | `open_pairs`, the opening of a generated function with the numbers simplify and the evaluator use; `good`, the scoping discipline of L2 |
+| `SimplifyCorrect.v` | — | theorem 2: `simplify_correct` |
+| `Correctness.v` | — | `parametric` (PHOAS relations of L0); `normalize_correct`, `annotate_correct` |
+| `AnfEquiv.v` | — | `anf_eq`, the relation of two instances of L1; `normalize_parametric` |
+| `Euclidean.v` | — | `Rn`, R^n as a normed module of Coquelicot; vectors and lists |
+| `DualsDerive.v` | — | theorem 3: the domain of the functions of a point with their derivative; `value_of`, `dual_args`; `duals_derive` |
+| `TangentCorrect.v` | — | theorem 1, the simulation: `pv`, the record of the four instances; the invariants (`static_ok`, `store_ok`, `ctx_ok`); the cases of returns, lets, operations, branches |
+| `TangentLoops.v` | — | the loops of the simulation (map, scalar fold, in-place fold); `simulation` |
+| `TangentGood.v` | — | the scoping discipline of the tangent code: `scoping` |
+| `TangentTop.v` | — | the layout of the tangent function (`seed`, `tangent_inputs`, `tangent_output`); `tangent_simulates_duals` |
+| `TangentMode.v` | — | `tangent_mode_correct` |
 
 ## From Elpi to Rocq
 
