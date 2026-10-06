@@ -30,7 +30,7 @@ directory (`..`), and `[rocq dir]` to `../rocq`.
   syntax of `code/elpiDiff/rocq/Syntax.v`).
 - `rocqtest.py [rocq dir] [stage..]` compares the passes written in Rocq with
   the Elpi ones on every case: the diagnostics, the derivative programs in L2
-  (`pr_dfunction` against `dump`), and the complete C++ headers.
+  (`pr_dfunction` against `dump`), the complete C++ headers, and the Gallina files (`gallina` mode).
 - `gallinatest.py [code dir]` checks the Gallina output (`gallina` mode, for
   CertiRocq) against the C++ output, on every case and mode, at random points:
   the generated functions run in Rocq (`vm_compute`, primitive floats) and

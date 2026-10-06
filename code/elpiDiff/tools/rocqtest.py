@@ -35,10 +35,14 @@ MODULES = "Syntax Anf Normalize WellFormed Annotate Derivative Tangent Dump"
 avail = [s for s in STAGES if (("adjoint" not in s or os.path.exists(os.path.join(ROCQ, "Adjoint.vo")))
                               and ("simplified" not in s or os.path.exists(os.path.join(ROCQ, "Simplify.vo"))))]
 if os.path.exists(os.path.join(ROCQ, "Cxx.vo")): avail += list(CXX)
+# the Gallina output (gallina.elpi, Gallina.v): stage -> mode, as for the C++
+GALLINA = {"gallina-" + m: (m, e) for m, e in [(CXX[k][0], CXX[k][1]) for k in CXX]}
+if os.path.exists(os.path.join(ROCQ, "Gallina.vo")): avail += list(GALLINA)
 stages = sys.argv[2:] or avail
 if os.path.exists(os.path.join(ROCQ, "Adjoint.vo")): MODULES += " Adjoint"
 if os.path.exists(os.path.join(ROCQ, "Simplify.vo")): MODULES += " Simplify"
 if os.path.exists(os.path.join(ROCQ, "Cxx.vo")): MODULES += " Lower Cxx"
+if os.path.exists(os.path.join(ROCQ, "Gallina.vo")): MODULES += " Gallina"
 
 tmp = tempfile.mkdtemp()
 runner = os.path.join(tmp, "run.elpi")
@@ -86,6 +90,11 @@ for c in sorted(os.listdir(CASES)):
         src.append(f'Compute (well_formed (normalize {n}_fn)).')
     wf = [n for n in names if n not in diag]
     for st in stages:
+        if st in GALLINA:
+            if wf:
+                fs = "; ".join("(" + GALLINA[st][1].format(f=n + "_fn") + ")" for n in wf)
+                src.append(f'Compute gallina_file "cases/{c}/primal.elpi" [{fs}].')
+            continue
         if st in CXX:
             if wf:
                 fs = "; ".join("(" + CXX[st][1].format(f=n + "_fn") + ")" for n in wf)
@@ -107,6 +116,22 @@ for c in sorted(os.listdir(CASES)):
         if rocq_d != elpi_d:
             bad += 1; print(f"  {c} {n}: diagnostic Rocq «{rocq_d}» Elpi «{elpi_d}»")
     for st in stages:
+        if st in GALLINA:
+            if not wf:
+                continue
+            out_dir = os.path.join(tmp, c + "-" + st); os.makedirs(out_dir, exist_ok=True)
+            subprocess.run(["elpi", "-I", CODE, os.path.join(CASES, c, "primal.elpi"), "-exec", "gallina", "--",
+                            f"cases/{c}", GALLINA[st][0], out_dir], capture_output=True, text=True,
+                           stdin=subprocess.DEVNULL, cwd=os.path.dirname(CASES))
+            want = open(os.path.join(out_dir, GALLINA[st][0].replace("-", "_") + ".v")).read()
+            got = rocq_strings(results[k]); k += 1; total += 1
+            got = got[0] if got else ""
+            if got != want:
+                bad += 1; print(f"  {c} {st}: the Gallina file differs")
+                import difflib
+                for l in list(difflib.unified_diff(want.splitlines(), got.splitlines(), "elpi", "rocq", lineterm=""))[:12]:
+                    print("    " + l)
+            continue
         if st in CXX:
             if not wf:
                 continue

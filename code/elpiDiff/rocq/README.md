@@ -57,6 +57,7 @@ of the reals of the standard library (`sig_forall_dec`, `sig_not_dec`,
 | `Simplify.v` | `simplify.elpi` | `simplify` (L2 to L2′): `simplify_expr`, `simplify_stmts`, `fuse`, with a fuel |
 | `Lower.v` | `lower.elpi` | `lower` (L2′ to L3), the counter of the names threaded; `lower_all`, the functions of a file |
 | `Cxx.v` | `cxx.elpi` | `function_string`, `header_string`: the C++ text |
+| `Gallina.v` | `gallina.elpi` | `gallina_file`: the derivative programs after simplification as Gallina, for CertiRocq (assignments threaded as lets, loops `for_up`/`for_down`, reals primitive floats) |
 | `Adjudge.v` | the driver of `adjudge.elpi` | `mode`, `check`, `differentiate`, `transform`, `main`: the header and the diagnostics of a case |
 | `Scoping.v` | — | `open_pairs`, the opening of a generated function with the numbers simplify and the evaluator use; `good`, the scoping discipline of L2 |
 | `SimplifyCorrect.v` | — | theorem 2: `simplify_correct` |

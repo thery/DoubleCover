@@ -24,6 +24,7 @@ Scoping.v
 SimplifyCorrect.v
 Lower.v
 Cxx.v
+Gallina.v
 Adjudge.v
 Correctness.v
 AnfEquiv.v
