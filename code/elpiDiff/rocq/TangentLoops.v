@@ -603,3 +603,22 @@ Proof.
       reflexivity.
     + split; [exact Hfrf | split; [exact Hnf | intros _; exact Hdf]].
 Qed.
+
+(* ---------------------------------------------------------------------------
+   The simulation holds for every body and every value: by induction on the
+   pv instance, one case per construct. *)
+
+Theorem simulation :
+  (forall bP : anf pv bare, sim_body bP) /\ (forall eP : value pv bare, sim_value eP).
+Proof.
+  apply anf_value_ind.
+  - intros a e IHe b IHb; destruct a; apply sim_let; auto.
+  - intros a; apply sim_ret.
+  - intros f a; apply sim_op1.
+  - intros f a b; apply sim_op2.
+  - intros a i; apply sim_get.
+  - intros a i v; apply sim_set.
+  - intros c t IHt e IHe; apply sim_ite; auto.
+  - intros lo hi b IHb; apply sim_map; auto.
+  - intros a lo hi init b IHb; apply sim_fold; auto.
+Qed.
