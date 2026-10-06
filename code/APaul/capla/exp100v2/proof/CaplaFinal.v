@@ -22,7 +22,9 @@ Require Exp100Capla2.NumZeroProof Exp100Capla2.NumAddProof
   Exp100Capla2.NumSubProof Exp100Capla2.NumCopyProof Exp100Capla2.NumPow2Proof
   Exp100Capla2.NumLtProof Exp100Capla2.NumLowProof Exp100Capla2.GuessProof
   Exp100Capla2.MulLn2Proof Exp100Capla2.BitlenProof Exp100Capla2.ScaleProof
-  Exp100Capla2.MulSmallProof Exp100Capla2.MulshrProof.
+  Exp100Capla2.MulSmallProof Exp100Capla2.MulshrProof
+  Exp100Capla2.ExpCoreProof Exp100Capla2.DecideProof
+  Exp100Capla2.ExpEnclProof Exp100Capla2.MaybeHardProof.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -211,11 +213,7 @@ Ltac callees :=
   have := num_mulshr_full; have := num_scale_full; have := guess_n_full;
   have := mul_ln2_full; move=> *.
 
-(* To enable once ExpCoreProof.v, DecideProof.v, ExpEnclProof.v and
-   MaybeHardProof.v are proved: add them to the Require at the top
-   (Exp100Capla2.ExpCoreProof Exp100Capla2.DecideProof
-    Exp100Capla2.ExpEnclProof Exp100Capla2.MaybeHardProof)
-   and remove the comment marks below.
+(** ** The closed theorems, no hypothesis left *)
 
 Lemma exp_core_full : exp_core_spec.
 Proof. by callees; apply: ExpCoreProof.exp_core_ok. Qed.
@@ -244,4 +242,3 @@ Print Assumptions maybe_hard_bits_correct.
 Print Assumptions exp_encl_bits_correct.
 Print Assumptions maybe_hard_bits_sem_correct.
 Print Assumptions exp_encl_bits_sem_correct.
-*)
