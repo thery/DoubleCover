@@ -508,6 +508,9 @@ Qed.
 Lemma in_rev_iff {A : Type} (x : A) l : In x (rev l) <-> In x l.
 Proof. symmetry; apply in_rev. Qed.
 
+Lemma dvar_eq_dec (a b : dvar W) : {a = b} + {a <> b}.
+Proof. decide equality; destruct x, x0; decide equality; apply Nat.eq_dec. Qed.
+
 Lemma index_of_written_none ds i : existsb written_decl ds = false -> index_of_written ds i = None.
 Proof.
   revert i; induction ds as [| d ds IH]; intros i H; simpl in *; [reflexivity |].
@@ -523,6 +526,36 @@ Proof.
   intros Hx Hd; unfold tangent_inputs; rewrite Hx; f_equal; [apply map_map |].
   f_equal; rewrite Hd; clear; induction AL as [| p AL IH]; simpl; [reflexivity |].
   rewrite IH; reflexivity.
+Qed.
+
+Lemma index_of_written_unique ds j d k :
+  nth_error ds j = Some d -> written_decl d = true -> length (filter written_decl ds) = 1%nat ->
+  index_of_written ds k = Some (k + j)%nat.
+Proof.
+  revert j k; induction ds as [| d0 ds IH]; intros j k Hj Hw H1; [destruct j; discriminate |].
+  destruct j as [| j]; simpl in Hj, H1 |- *.
+  - injection Hj as ->; rewrite Hw; f_equal; lia.
+  - destruct (written_decl d0) eqn:E0.
+    + simpl in H1; injection H1 as H1.
+      assert (Hin : In d (filter written_decl ds)) by (apply filter_In; split; [apply nth_error_In with j; exact Hj | exact Hw]).
+      destruct (filter written_decl ds); [destruct Hin | discriminate].
+    + rewrite (IH j (S k) Hj Hw H1); f_equal; lia.
+Qed.
+
+Lemma dot_param_position (AL : list pv) j p :
+  Forall (fun p => varg (pw p) <> None) AL -> nth_error AL j = Some p -> has_dot (fst (arg_entry p)) = true ->
+  exists pw0 t0, nth_error (concat (map (tangent_dot W) (map arg_entry AL)))
+                   (length (filter has_dot (firstn j (map (fun q => fst (arg_entry q)) AL)))) =
+                 Some (DParam pw0 t0 (DotOf (stored p))).
+Proof.
+  intros HAL; revert j; induction HAL as [| q AL Hg HAL IH]; intros j Hj Hd; [destruct j; discriminate |].
+  destruct j as [| j]; simpl in Hj |- *.
+  - injection Hj as ->; rewrite tangent_dot_entry by exact Hg; rewrite Hd; simpl.
+    unfold arg_entry in *; destruct (varg (pw p)) as [[nm r] |]; [| contradiction].
+    destruct (vty (pw p)), r; simpl in Hd |- *; try discriminate; eauto.
+  - rewrite tangent_dot_entry by exact Hg.
+    destruct (has_dot (fst (arg_entry q))) eqn:Eq; simpl; [| apply IH; auto].
+    destruct (IH j Hj Hd) as [pw0 [t0 H]]; eauto.
 Qed.
 
 (* Running the tangent program over the reals, from the primal arguments and
@@ -742,5 +775,215 @@ Proof.
       rewrite (Hnth _ _ _ _ Hlast); unfold s3; rewrite store_get_set_other by discriminate.
       unfold s2; rewrite store_get_set_same; reflexivity.
   - (* the function writes an argument *)
-    admit.
-Admitted.
+    subst resW; destruct res as [tR | yP]; simpl in HrW; [contradiction |].
+    destruct yP as [y | | ]; simpl in HrW; try contradiction.
+    apply in_gW in HrW as [HyL Ew]; subst w.
+    destruct resT as [tT | yT]; simpl in HrT; [contradiction |].
+    destruct yT as [yt | | ]; simpl in HrT; try contradiction.
+    apply in_gT in HrT as [_ ->].
+    destruct (Hargs' y HyL) as [j [nm' [t [r [x0 [Ey [Hxj [Hdj Hj]]]]]]]].
+    assert (Hvy : vty (pw y) = t) by (rewrite Ey; reflexivity).
+    assert (Hpy : pn y = j) by (rewrite Ey; reflexivity).
+    rewrite Ey in Hg; simpl in Hg; injection Hg as <- <-.
+    assert (Hdecl_y : fst (arg_entry y) = Decl nm' t r) by (rewrite Ey; reflexivity).
+    assert (Hnw : existsb written_decl (decls f) = true).
+    { apply existsb_exists; exists (Decl nm' t r); split; [apply nth_error_In with j; exact Hdj | exact Hwr]. }
+    assert (Hdy : has_dot (fst (arg_entry y)) = true).
+    { rewrite Hdecl_y; rewrite Hvy in Hraw; destruct t; try destruct Hraw; destruct r; simpl in Hwr |- *;
+        try discriminate; reflexivity. }
+    assert (Hpn_inj : forall p q, In p L -> In q L -> pn p = pn q -> p = q).
+    { intros p q Hp Hq E; destruct (Hargs' p Hp) as [i [? [? [? [? [-> [Hx [Hd _]]]]]]]].
+      destruct (Hargs' q Hq) as [i' [? [? [? [? [-> [Hx' [Hd' _]]]]]]]]; simpl in E; subst i'.
+      rewrite Hx in Hx'; injection Hx' as <-; rewrite Hd in Hd'; injection Hd' as <- <- <-; reflexivity. }
+    rewrite Hvy in HtcB.
+    assert (Hown_cases : owner (Some (AVar y)) PTop = match t with Array _ => Some y | _ => None end)
+      by (simpl; rewrite Hvy; reflexivity).
+    assert (Hctx : ctx_ok L n n s0 (Some (AVar y)) PTop (live_anf n bW) t).
+    { constructor.
+      - exact Hstat.
+      - exact Huniq.
+      - exact Hnum.
+      - intros p Hp _; exact (Hsok p Hp).
+      - intros a0 E; injection E as <-; exists y; split; [reflexivity | split; [exact HyL | rewrite Ey; discriminate]].
+      - exact I.
+      - intros o p Hw0 Hp E; rewrite Hown_cases in Hw0; destruct t; try discriminate; injection Hw0 as <-.
+        left; exact (Hpn_inj p y Hp HyL E).
+      - intros o p Hw0 Hp Lp E; rewrite Hown_cases in Hw0; destruct t; try discriminate; injection Hw0 as <-.
+        rewrite (Hpn_inj p y Hp HyL E); split; [exact (proj1 (Hs0 y HyL)) | exact (proj2 (Hs0 y HyL) Hdy)].
+      - intros p o Hp Lp Ha Hg' Hw0; rewrite Hown_cases in Hw0; destruct t; try discriminate; injection Hw0 as <-.
+        destruct Hg' as [Hg' | Hg'];
+          [destruct (Hargs' p Hp) as [? [? [? [? [? [-> _]]]]]]; discriminate | injection Hg' as ->; reflexivity].
+      - intros Ha; rewrite Hown_cases; destruct t; try destruct Ha; discriminate.
+      - intros y' _ E Ha; injection E as <-; split; [symmetry; exact Hvy | split].
+        + intros Ly; destruct r; simpl in Hwr; try discriminate.
+          * unfold live_anf in Ly; rewrite Hdep in Ly by reflexivity; discriminate.
+          * rewrite Ey; reflexivity.
+        + destruct (static_in _ _ _ Hstat HyL) as [_ [_ [_ [_ [_ [_ [_ [_ [Ht _]]]]]]]]].
+          destruct (Hs0 y HyL) as [S1 S2]; specialize (S2 Hdy).
+          rewrite Hvy in Ha, Ht |- *; destruct t as [| | | z]; try destruct Ha.
+          destruct (pd y) as [| | | l |] eqn:Ep; try contradiction.
+          exists (map dfst l), (map dsnd l); rewrite !length_map; auto. }
+    assert (Hra' : real_or_array t) by (rewrite <- Hvy; exact Hraw).
+    pose proof ((proj1 simulation) bP L n n s0 (Some (AVar y)) PTop Forward bA bW bT bD t v HbA HbW HbT HbD
+                  Hctx Hra' HtcB Hev) as Hsim.
+    match type of Hsim with context [open_pairs ?t0 n] =>
+      replace (open_pairs t0 n) with ((sb, (ve, de)), c') in Hsim by (rewrite <- Hob; reflexivity) end.
+    destruct Hsim as [Hcc [Hht [_ [Hrv1 [Hrv2 [s1 [Hrun1 [Hfr1 Hres]]]]]]]].
+    (* the scoping discipline *)
+    set (sc := params pps).
+    assert (Hscope : scope_ok L n (Some (AVar y)) PTop (live_anf n bW) sc sc).
+    { split; [apply Forall_forall; exact Hpps_ok | split; [apply incl_refl | split]].
+      - intros p Hp _; exact (Hreads p Hp).
+      - intros o Hw0; rewrite Hown_cases in Hw0; destruct t; try discriminate; injection Hw0 as <-.
+        destruct (Hreads y HyL) as [R1 R2]; split; [exact R1 |].
+        unfold sc; rewrite Hpps; apply in_or_app; right; apply in_dots; [rewrite in_rev_iff; exact HyL | exact Hdy]. }
+    pose proof ((proj1 scoping) bP L n n (Some (AVar y)) PTop Forward bA bW bT t sc sc HbA HbW HbT
+                  (ctx_sctx _ _ _ _ _ _ _ _ Hctx) Hscope Hra' HtcB) as Hgood.
+    match type of Hgood with context [open_pairs ?t0 n] =>
+      replace (open_pairs t0 n) with ((sb, (ve, de)), c') in Hgood by (rewrite <- Hob; reflexivity) end.
+    destruct Hgood as [_ [Hnt Hgk]].
+    (* the arguments of the tangent function *)
+    assert (Hin : tangent_inputs (decls f) x dx =
+                  map (fun p => primal (pd p)) (rev L) ++ concat (map dot_in (rev L)) ++ []).
+    { rewrite (inputs_eq (decls f) x dx (rev L)); [rewrite Hnw; reflexivity | fold xs; exact Hxs | exact Hds]. }
+    assert (Hlenp : length (map (out_dparam nat) (pps ++ [])) = length (tangent_inputs (decls f) x dx)).
+    { assert (Hcl : length (concat (map (tangent_dot W) (map arg_entry (rev L)))) =
+                    length (concat (map dot_in (rev L)))).
+      { clear - HAL'; induction HAL' as [| p AL Hg HAL IH]; simpl; auto.
+        rewrite !length_app, IH, tangent_dot_entry by exact Hg; unfold dot_in;
+          destruct (has_dot (fst (arg_entry p))); reflexivity. }
+      rewrite Hin, length_map; unfold pps; rewrite <- map_rev, !length_app, !length_map, Hcl; simpl; lia. }
+    assert (Hs0eq : map (fun '(DParam _ _ x, a) => (KVar x, a))
+                      (combine (map (out_dparam nat) (pps ++ [])) (tangent_inputs (decls f) x dx)) = s0).
+    { rewrite Hin; unfold pps; rewrite <- map_rev, <- app_assoc.
+      rewrite (initial_store (rev L) [] [] HAL eq_refl).
+      unfold s0, ext; rewrite Hnw; reflexivity. }
+    assert (Hidx : index_of_written (decls f) 0 = Some j)
+      by exact (index_of_written_unique (decls f) j _ 0 Hdj Hwr H1w).
+    assert (HLn : length L = n) by (change n with (length xs); rewrite Hxs, length_map, length_rev; reflexivity).
+    assert (Hlds : length (decls f) = n).
+    { rewrite Hds, length_map, length_rev; change n with (length xs); rewrite Hxs, length_map, length_rev; reflexivity. }
+    assert (Hprim_j : nth_error (map (out_dparam nat) pps) j = Some (out_dparam nat (tangent_primal W (arg_entry y)))).
+    { unfold pps; rewrite map_app, nth_error_app1 by (rewrite !length_map, length_rev, length_map; lia).
+      rewrite <- map_rev, !nth_error_map.
+      assert (Hry : nth_error (rev L) j = Some y).
+      { destruct (nth_error (rev L) j) as [q |] eqn:Eq.
+        - destruct (Hargs j q Eq) as [? [? [? [? [-> Hx']]]]]; rewrite Hxj in Hx'; injection Hx' as <-.
+          rewrite Hds, nth_error_map, Eq in Hdj; simpl in Hdj; injection Hdj as -> -> ->; rewrite Ey; reflexivity.
+        - apply nth_error_None in Eq; rewrite length_rev in Eq; lia. }
+      rewrite Hry; reflexivity. }
+    assert (Hdot_j : exists pw0 t0, nth_error (map (out_dparam nat) pps)
+                       (length (decls f) + length (filter has_dot (firstn j (decls f)))) =
+                     Some (out_dparam nat (DParam pw0 t0 (DotOf (stored y))))).
+    { assert (Hry : nth_error (rev L) j = Some y).
+      { destruct (nth_error (rev L) j) as [q |] eqn:Eq.
+        - destruct (Hargs j q Eq) as [? [? [? [? [-> Hx']]]]]; rewrite Hxj in Hx'; injection Hx' as <-.
+          rewrite Hds, nth_error_map, Eq in Hdj; simpl in Hdj; injection Hdj as -> -> ->; rewrite Ey; reflexivity.
+        - apply nth_error_None in Eq; rewrite length_rev in Eq; lia. }
+      destruct (dot_param_position (rev L) j y HAL' Hry Hdy) as [pw0 [t0 Hpos]].
+      exists pw0, t0; unfold pps; rewrite map_app, nth_error_app2 by (rewrite !length_map, length_rev, length_map; lia).
+      rewrite !length_map, length_rev, length_map, HLn, Hlds.
+      replace (n + length (filter has_dot (firstn j (decls f))) - n)%nat
+        with (length (filter has_dot (firstn j (decls f)))) by lia.
+      rewrite <- map_rev, nth_error_map, Hds, Hpos; reflexivity. }
+    (* the parameters keep a value *)
+    assert (Hs0p : forall y0, In y0 (params pps) -> exists w, store_get s0 (keyv y0) = Some w).
+    { intros y0 Hy0; rewrite Hpps in Hy0; apply in_app_or in Hy0 as [Hy0 | Hy0].
+      - apply in_map_iff in Hy0 as [p [<- Hp]]; rewrite in_rev_iff in Hp; destruct (Hs0 p Hp) as [S1 _]; eauto.
+      - apply in_dots_inv in Hy0 as [p [Hp [-> Hd]]]; rewrite in_rev_iff in Hp; destruct (Hs0 p Hp) as [_ S2]; eauto. }
+    assert (Hs1p : forall y0, In y0 (params pps) -> exists w, store_get s1 (keyv y0) = Some w).
+    { intros y0 Hy0.
+      destruct (inplace (Some (AVar y)) PTop) as [m |] eqn:Ein.
+      - destruct (dvar_eq_dec y0 m) as [-> | Hn1]; [| destruct (dvar_eq_dec y0 (DotOf m)) as [-> | Hn2]].
+        + unfold inplace in Ein; rewrite Hown_cases in Ein; destruct t as [| | | z]; try discriminate.
+          injection Ein as <-; destruct Hres as [o [Eo [R1 R2]]]; injection Eo as <-; eauto.
+        + unfold inplace in Ein; rewrite Hown_cases in Ein; destruct t as [| | | z]; try discriminate.
+          injection Ein as <-; destruct Hres as [o [Eo [R1 R2]]]; injection Eo as <-; eauto.
+        + rewrite (Hfr1 y0); [exact (Hs0p y0 Hy0) | exact (proj1 (Hpps_ok y0 Hy0)) | exact (proj2 (Hpps_ok y0 Hy0)) |].
+          intros m' E; injection E as <-; auto.
+      - rewrite (Hfr1 y0); [exact (Hs0p y0 Hy0) | exact (proj1 (Hpps_ok y0 Hy0)) | exact (proj2 (Hpps_ok y0 Hy0)) |].
+        intros m' E; discriminate. }
+    assert (Hty_y : tty (pt y) = t) by (rewrite Ey; reflexivity).
+    assert (Hst_y : tstored (pt y) = stored y) by (rewrite Ey; reflexivity).
+    simpl tangent_result; rewrite Hty_y, Hst_y.
+    destruct t as [| | | z]; try destruct Hra'.
+    + (* a written real *)
+      destruct Hres as [Hve Hde]; destruct v as [dv | | | |]; try contradiction.
+      set (tail := [DAssign (DVar (stored y)) ve; DAssign (DVar (DotOf (stored y))) de] : list (dstmt W)).
+      set (s2 := store_set s1 (keyv (stored y)) (VReal (dfst dv))).
+      set (s3 := store_set s2 (keyv (DotOf (stored y))) (VReal (dsnd dv))).
+      assert (Hde2 : xev s2 de = Some (VReal (dsnd dv))).
+      { unfold s2; rewrite xev_set_other; [exact Hde |].
+        intros y0 Hy0 E; destruct (Hrv2 y0 Hy0) as [[p [_ [_ ->]]] | [Hb Hcy]];
+          [unfold keyv, stored in E; simpl in E; discriminate |].
+        apply keyv_inj in E; [subst y0; apply Hb; simpl; rewrite Hpy; exact Hj | exact Hcy | reflexivity]. }
+      assert (Hrun : run (sb ++ tail) s0 = Some s3).
+      { rewrite run_app, Hrun1; unfold tail; rewrite run_assign_var with (v := VReal (dfst dv)) by exact Hve.
+        fold s2; rewrite run_assign_var with (v := VReal (dsnd dv)) by exact Hde2; reflexivity. }
+      assert (Hfin : forall pw0 t0 y0, In (DParam pw0 t0 y0) (map (out_dparam nat) (pps ++ [])) ->
+                     exists w, store_get s3 (KVar y0) = Some w).
+      { intros pp0 t0 y0 Hy; rewrite app_nil_r in Hy; apply in_map_iff in Hy as [[pp1 t1 y'] [E Hy']].
+        injection E as E1 E2 E3; subst pp0 t0 y0.
+        assert (Hy2 : In y' (params pps)) by (unfold params; apply in_map_iff; eexists; split; [| exact Hy']; reflexivity).
+        change (KVar (out_dvar nat y')) with (keyv y'); unfold s3, s2; rewrite !store_get_set.
+        destruct (key_eqb (keyv (DotOf (stored y))) (keyv y')); [eauto |].
+        destruct (key_eqb (keyv (stored y)) (keyv y')); [eauto |].
+        exact (Hs1p y' Hy2). }
+      destruct (finals_some s3 _ Hfin) as [fs [Hfs [Hlfs Hnth]]].
+      exists DVoid, (pps ++ []), (sb ++ tail), c', (fs, []).
+      split; [unfold pps; rewrite <- app_assoc; reflexivity |].
+      split; [apply Forall_forall; intros y0 Hy0; rewrite app_nil_r in Hy0; exact (proj2 (Hpps_ok y0 Hy0)) |].
+      split; [rewrite app_nil_r; apply Hgk; intros sc' wr' I1 I2 _ _ [Q1 Q2]; unfold tail;
+              destruct (Hreads y HyL) as [R1 _];
+              apply GoodAssign; [apply I2, R1 | exact Q1 |];
+              apply GoodAssign; [apply I2; unfold sc; rewrite Hpps; apply in_or_app; right;
+                                 apply in_dots; [rewrite in_rev_iff; exact HyL | exact Hdy] | exact Q2 | constructor] |].
+      split; [rewrite existsb_app; unfold notape in Hnt; rewrite Hnt; reflexivity |].
+      split.
+      * cbn [exec_scoped]; rewrite Hlenp, Nat.eqb_refl; simpl negb; cbv iota.
+        rewrite Hs0eq; change (exec_stmts reals (map (out_dstmt nat) (sb ++ tail)) s0) with (run (sb ++ tail) s0).
+        rewrite Hrun; simpl; rewrite Hfs; reflexivity.
+      * simpl; rewrite Hidx.
+        destruct Hdot_j as [pw0 [t0 Hdj']].
+        rewrite app_nil_r in Hnth.
+        assert (Hpj : nth_error (map (out_dparam nat) pps) j = Some (DParam ByRef Real (DBound (pn y)))).
+        { rewrite Hprim_j, Ey; destruct r; simpl in Hwr; try discriminate; reflexivity. }
+        assert (Hdj2 : nth_error (map (out_dparam nat) pps) (length (decls f) + length (filter has_dot (firstn j (decls f))))
+                       = Some (DParam pw0 t0 (DotOf (DBound (pn y))))) by (rewrite Hdj'; reflexivity).
+        rewrite (Hnth _ _ _ _ Hpj), (Hnth _ _ _ _ Hdj2).
+        change (KVar (DotOf (DBound (pn y)))) with (keyv (DotOf (stored y))).
+        change (KVar (DBound (pn y))) with (keyv (stored y)).
+        unfold s3, s2; rewrite store_get_set_same, store_get_set_other, store_get_set_same;
+          [reflexivity | intros E; inversion E].
+    + (* a written array, updated in place *)
+      destruct Hres as [o [Eo [R1 R2]]].
+      unfold inplace in Eo; rewrite Hown_cases in Eo; injection Eo as <-.
+      assert (Hrun : run (sb ++ []) s0 = Some s1) by (rewrite app_nil_r; exact Hrun1).
+      assert (Hfin : forall pw0 t0 y0, In (DParam pw0 t0 y0) (map (out_dparam nat) (pps ++ [])) ->
+                     exists w, store_get s1 (KVar y0) = Some w).
+      { intros pp0 t0 y0 Hy; rewrite app_nil_r in Hy; apply in_map_iff in Hy as [[pp1 t1 y'] [E Hy']].
+        injection E as E1 E2 E3; subst pp0 t0 y0.
+        assert (Hy2 : In y' (params pps)) by (unfold params; apply in_map_iff; eexists; split; [| exact Hy']; reflexivity).
+        exact (Hs1p y' Hy2). }
+      destruct (finals_some s1 _ Hfin) as [fs [Hfs [Hlfs Hnth]]].
+      exists DVoid, (pps ++ []), (sb ++ []), c', (fs, []).
+      split; [unfold pps; rewrite <- app_assoc; reflexivity |].
+      split; [apply Forall_forall; intros y0 Hy0; rewrite app_nil_r in Hy0; exact (proj2 (Hpps_ok y0 Hy0)) |].
+      split; [rewrite app_nil_r; apply Hgk; intros; constructor |].
+      split; [rewrite app_nil_r; exact Hnt |].
+      split.
+      * cbn [exec_scoped]; rewrite Hlenp, Nat.eqb_refl; simpl negb; cbv iota.
+        rewrite Hs0eq; change (exec_stmts reals (map (out_dstmt nat) (sb ++ [])) s0) with (run (sb ++ []) s0).
+        rewrite Hrun; simpl; rewrite Hfs; reflexivity.
+      * simpl; rewrite Hidx.
+        destruct Hdot_j as [pw0 [t0 Hdj']].
+        rewrite app_nil_r in Hnth.
+        assert (Hpj : nth_error (map (out_dparam nat) pps) j = Some (DParam ByRef (Array z) (DBound (pn y)))).
+        { rewrite Hprim_j, Ey; destruct r; simpl in Hwr; try discriminate; reflexivity. }
+        assert (Hdj2 : nth_error (map (out_dparam nat) pps) (length (decls f) + length (filter has_dot (firstn j (decls f))))
+                       = Some (DParam pw0 t0 (DotOf (DBound (pn y))))) by (rewrite Hdj'; reflexivity).
+        rewrite (Hnth _ _ _ _ Hpj), (Hnth _ _ _ _ Hdj2).
+        change (KVar (DotOf (DBound (pn y)))) with (keyv (DotOf (stored y))).
+        change (KVar (DBound (pn y))) with (keyv (stored y)).
+        rewrite R1, R2; reflexivity.
+Qed.
