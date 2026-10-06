@@ -653,7 +653,7 @@ Fixpoint dvars (e : dexpr W) : list (dvar W) :=
    the code (at or after c). *)
 Definition res_vars (L : list pv) (c : nat) (e : dexpr W) : Prop :=
   forall x, In x (dvars e) ->
-  (exists p, In p L /\ (x = stored p \/ x = DotOf (stored p))) \/ ~ below c x.
+  (exists p, In p L /\ (x = stored p \/ x = DotOf (stored p))) \/ (~ below c x /\ consistent x).
 
 Definition live_anf (k : nat) (b : anf vinfo bare) (p : pv) : Prop :=
   occurs_anf (vid (pw p)) k b = true.
@@ -1061,14 +1061,15 @@ Qed.
 
 Lemma res_vars_let x L c c1 e :
   res_vars (x :: L) c1 e -> (c <= c1)%nat ->
-  (~ below c (stored x) \/ exists o, In o L /\ stored x = stored o) -> res_vars L c e.
+  ((~ below c (stored x) /\ consistent (stored x)) \/ exists o, In o L /\ stored x = stored o) ->
+  res_vars L c e.
 Proof.
-  intros H Hc Hx y Hy; destruct (H y Hy) as [[p [[<- | Hp] E]] | Hb].
-  - destruct Hx as [Hx | [o [Ho Eo]]].
+  intros H Hc Hx y Hy; destruct (H y Hy) as [[p [[<- | Hp] E]] | [Hb Hcy]].
+  - destruct Hx as [[Hx Hcx] | [o [Ho Eo]]].
     + right; destruct E as [-> | ->]; auto.
     + left; exists o; rewrite <- Eo; auto.
   - left; exists p; auto.
-  - right; intros Hb'; apply Hb, (below_mono c); auto.
+  - right; split; [intros Hb'; apply Hb, (below_mono c); auto | exact Hcy].
 Qed.
 
 Lemma tan_let w a e b :
@@ -1240,14 +1241,15 @@ Proof.
   destruct (open_pairs (tan W (option_map (amap pt) wP) (rebuild (tvar W) (cT (open_let te n vr rec)) rest)) c1)
     as [[sb [ve' de']] c2] eqn:Hsb.
   destruct IHb as [Hc12 [Hht' [Hz' [Hrv1 [Hrv2 [s2 [Hrun2 [Hfr2 Hres2]]]]]]]].
-  assert (Hxs' : ~ below c (DBound (j, j)) \/ exists o, In o L /\ DBound (j, j) = stored o).
+  assert (Hxs' : (~ below c (DBound (j, j)) /\ consistent (DBound (j, j))) \/
+                 exists o, In o L /\ DBound (j, j) = stored o).
   { destruct (storage wP tail eP) eqn:Es.
     - right; assert (Hsn : storage wP tail eP <> None) by (rewrite Es; discriminate).
       destruct (inplace_value _ _ _ _ _ _ _ _ _ _ _ _ Hc HeW Hte Htail_ty (or_introl Hsn))
         as [_ [o [Ho Es']]].
       exists o; split; [exact (owner_in _ _ _ _ _ _ _ _ _ Hc Ho) |].
       rewrite Es in Es'; destruct Hn as [Hnd _]; congruence.
-    - left; rewrite Hjs; simpl; lia. }
+    - left; rewrite Hjs; simpl; split; [lia | reflexivity]. }
   rewrite open_pairs_sbind, Hsb; simpl.
   split; [lia | split; [exact Hht' | split; [exact Hz' |]]].
   split; [exact (res_vars_let _ L c c1 ve' Hrv1 (Nat.le_trans _ _ _ Hc0 Hc01) Hxs') |].
@@ -1832,4 +1834,156 @@ Lemma ctx_sub L k c s s0 wP pp pp' (live live' : pv -> Prop) ty :
   ctx_ok L k c s0 wP pp' live' Real.
 Proof.
   intros Hc Ho Hpp Hpl Hl Hs; destruct Hc; constructor; auto; intros; congruence.
+Qed.
+
+Lemma frame_chain c c' ex s s0 s1 :
+  frame c ex s s0 -> frame c' None s0 s1 -> (c <= c')%nat -> frame c ex s s1.
+Proof.
+  intros F1 F2 Hc v Hb Hcv Hex; rewrite (F2 v (below_mono _ _ _ Hb Hc) Hcv); [apply F1; auto |].
+  intros m E; discriminate.
+Qed.
+
+(* A result expression avoids a variable below c' that no variable in scope
+   is stored in. *)
+Lemma res_vars_avoid L c' e j :
+  res_vars L c' e -> (j < c')%nat -> (forall p, In p L -> pn p <> j) ->
+  avoid (keyv (DBound (j, j))) e /\ avoid (keyv (DotOf (DBound (j, j)))) e.
+Proof.
+  intros H Hj Hn; split; intros x Hx E; destruct (H x Hx) as [[p [Hp [-> | ->]]] | [Hb Hcx]];
+    try (unfold keyv, stored in E; simpl in E; inversion E; apply (Hn p Hp); auto; fail);
+    apply keyv_inj in E; simpl; auto; subst x; simpl in Hb; lia.
+Qed.
+
+(* The end of a branch: its value and tangent stored in n. *)
+Lemma ite_tail L c' j s0 s1 st vt dt (vr : bool) x dx :
+  run st s0 = Some s1 -> xev s1 vt = Some (VReal x) -> xev s1 dt = Some (VReal dx) ->
+  res_vars L c' dt -> (j < c')%nat -> (forall p, In p L -> pn p <> j) ->
+  run (st ++ (if vr then [DAssign (DVar (DBound (j, j))) vt; DAssign (DVar (DotOf (DBound (j, j)))) dt]
+              else [DAssign (DVar (DBound (j, j))) vt]))%list s0 =
+  Some (if vr then store_set (store_set s1 (keyv (DBound (j, j))) (VReal x)) (keyv (DotOf (DBound (j, j)))) (VReal dx)
+        else store_set s1 (keyv (DBound (j, j))) (VReal x)).
+Proof.
+  intros Hr Hv Hd Hres Hj Hn; rewrite run_app, Hr.
+  destruct (res_vars_avoid L c' dt j Hres Hj Hn) as [A1 A2].
+  destruct vr; rewrite run_assign_var with (v := VReal x) by exact Hv; [| reflexivity].
+  rewrite run_assign_var with (v := VReal dx); [reflexivity |].
+  rewrite xev_set_other; auto.
+Qed.
+
+(* A branch: the condition is a boolean in the store, the generated code
+   runs the statements of the branch taken, then stores its value and
+   tangent in n. *)
+Lemma sim_ite (cP : atom pv) (tP eP : anf pv bare) :
+  sim_body tP -> sim_body eP -> sim_value (AIte cP tP eP).
+Proof.
+  intros IHt IHe.
+  value_intro. simpl in Htc, Hev, Hst |- *.
+  rename t into tA, e into eA, t0 into tW, e0 into eW, t1 into tT, e1 into eT, t2 into tD, e2 into eD.
+  (* typing *)
+  assert (Hnot : forall ix sx, pp <> PArray ix sx) by (intros ix sx ->; simpl in Htc; discriminate).
+  assert (Hpp : pp = PTop \/ pp = PBranch \/ pp = PScalar)
+    by (destruct pp as [| | | ix sx]; auto; destruct (Hnot ix sx eq_refl)).
+  assert (Htc' : (if ty_eqb (of_atom (amap pw cP)) Boolean
+                  then let '(t3, d1) := typecheck (option_map (amap pw) wP) InBranch k tW in
+                       let '(t4, d2) := typecheck (option_map (amap pw) wP) InBranch k eW in
+                       if is_ok d1 then if is_ok d2 then if ty_eqb t3 Real && ty_eqb t4 Real
+                         then (Real, Ok) else (Real, Error "both branches must compute a real")
+                       else (Real, d2) else (Real, d1)
+                  else (Real, Error "a branch condition must be a comparison")) = (te, Ok))
+    by (destruct Hpp as [-> | [-> | ->]]; exact Htc).
+  clear Htc.
+  destruct (ty_eqb (of_atom (amap pw cP)) Boolean) eqn:Ecb; [| discriminate].
+  destruct (typecheck (option_map (amap pw) wP) InBranch k tW) as [t3 d1] eqn:HtW.
+  destruct (typecheck (option_map (amap pw) wP) InBranch k eW) as [t4 d2] eqn:HeW.
+  destruct d1, d2; simpl in Htc'; try discriminate.
+  destruct (ty_eqb t3 Real) eqn:E3, (ty_eqb t4 Real) eqn:E4; simpl in Htc'; try discriminate.
+  injection Htc' as <-; apply ty_eqb_true in E3, E4; subst t3 t4.
+  (* the condition *)
+  assert (Hn : forall p, In p L -> pn p <> j)
+    by (intros p Hp E; destruct (Hst p Hp) as [H' _]; apply H'; unfold stored; rewrite E; reflexivity).
+  destruct (aeval_atom (duals reals) (amap pd cP)) as [[| | b | |] |] eqn:Hcd; try discriminate.
+  assert (Hlc : forall p, cP = AVar p -> static_ok k p /\ store_ok s p).
+  { intros p ->; split; [apply (static_in _ _ _ (c_static _ _ _ _ _ _ _ _ Hc)); auto |].
+    apply (c_store _ _ _ _ _ _ _ _ Hc); auto; unfold live_value; simpl; rewrite Nat.eqb_refl; reflexivity. }
+  pose proof (spell_ok k s cP _ Hlc Hcd) as Hsc; simpl in Hsc.
+  (* the two bodies, opened *)
+  rewrite open_pairs_sbind.
+  destruct (open_pairs (tan W (option_map (amap pt) wP) (rebuild (tvar W) tT (annotate_body_t false Replay k tA))) c)
+    as [[st [vt dt]] c1] eqn:Hot.
+  rewrite open_pairs_sbind.
+  destruct (open_pairs (tan W (option_map (amap pt) wP) (rebuild (tvar W) eT (annotate_body_t false Replay k eA))) c1)
+    as [[se' [ve' de']] c2] eqn:Hoe.
+  pose proof (open_pairs_mono (tan W (option_map (amap pt) wP) (rebuild (tvar W) tT (annotate_body_t false Replay k tA))) c) as M1.
+  pose proof (open_pairs_mono (tan W (option_map (amap pt) wP) (rebuild (tvar W) eT (annotate_body_t false Replay k eA))) c1) as M2.
+  rewrite Hot in M1; rewrite Hoe in M2; simpl in M1, M2.
+  cbn zeta; unfold tan_ite.
+  set (vr := varied_anf k tA || varied_anf k eA).
+  set (n := DBound (j, j)).
+  set (s0 := if vr then store_set (store_set s (keyv n) (VReal 0)) (keyv (DotOf n)) (VReal 0)
+             else store_set s (keyv n) (VReal 0)).
+  assert (Hs0 : forall p, In p L -> store_ok s p -> store_ok s0 p).
+  { intros p Hp Hs; pose proof (keyv_bound_neq j (pn p) (fun E => Hn p Hp (eq_sym E))) as [K1 [K2 [K3 K4]]].
+    unfold s0; destruct vr; repeat apply store_ok_set; auto. }
+  assert (Hfr0 : frame c (Some n) s s0)
+    by (unfold s0; destruct vr;
+        [apply frame_set; [apply frame_set; [apply frame_refl | reflexivity | auto] | reflexivity | auto]
+        | apply frame_set; [apply frame_refl | reflexivity | auto]]).
+  assert (Hc0 : forall pp' bW, (pp' = PBranch) ->
+                (forall p, live_anf k bW p -> live_value k (AIte (amap pw cP) tW eW) p) ->
+                ctx_ok L k c s0 wP pp' (live_anf k bW) Real).
+  { intros pp' bW -> Hl; apply (ctx_sub L k c s s0 wP pp PBranch (live_value k (AIte (amap pw cP) tW eW))
+                                 (live_anf k bW) ty Hc); auto; [discriminate | simpl; exact I]. }
+  (* the condition, read after the definitions of n *)
+  assert (Hcn : forall p, cP = AVar p -> static_ok k p /\ pn p <> j)
+    by (intros p E; split; [apply Hlc; auto | apply Hn; subst; auto]).
+  destruct (avoid_spell k cP j Hcn) as [C1 [_ [C3 _]]].
+  assert (Hsc0 : xev s0 (spell (amap pt cP)) = Some (VBool b))
+    by (unfold s0; destruct vr; rewrite ?xev_set_other; auto).
+  (* the branch taken *)
+  assert (Hbody : exists sb vb db cb s1 x dx,
+            run sb s0 = Some s1 /\ frame cb None s0 s1 /\ (c <= cb)%nat /\
+            xev s1 vb = Some (VReal x) /\ xev s1 db = Some (VReal dx) /\ res_vars L cb db /\
+            ve = VReal (Dual x dx) /\ (vr = false -> dx = 0) /\
+            (if b then st else se') = sb /\ (if b then vt else ve') = vb /\ (if b then dt else de') = db).
+  { destruct b.
+    - assert (Hl : forall p, live_anf k tW p -> live_value k (AIte (amap pw cP) tW eW) p)
+        by (unfold live_anf, live_value; intros p H'; simpl; rewrite H', orb_true_r; reflexivity).
+      specialize (IHt L k c s0 wP PBranch Replay tA tW tT tD Real ve H9 H6 H3 H0
+                    (Hc0 PBranch tW eq_refl Hl) I HtW Hev).
+      rewrite Hot in IHt; destruct IHt as [_ [Hht [Hz [_ [Hrv [s1 [Hrun [Hfr [Hv Hd]]]]]]]]].
+      destruct ve as [[x dx] | | | |]; try contradiction.
+      exists st, vt, dt, c, s1, x, dx; repeat split; auto.
+      intros Hv0; apply orb_false_iff in Hv0 as [Hv0 _]; exact (Hz Hv0).
+    - assert (Hl : forall p, live_anf k eW p -> live_value k (AIte (amap pw cP) tW eW) p)
+        by (unfold live_anf, live_value; intros p H'; simpl; rewrite H', !orb_true_r; reflexivity).
+      assert (Hce : ctx_ok L k c1 s0 wP PBranch (live_anf k eW) Real)
+        by (apply (ctx_weaken L k c c1 s0 wP PBranch (live_anf k eW)); auto).
+      specialize (IHe L k c1 s0 wP PBranch Replay eA eW eT eD Real ve H10 H7 H4 H1 Hce I HeW Hev).
+      rewrite Hoe in IHe; destruct IHe as [_ [Hht [Hz [_ [Hrv [s1 [Hrun [Hfr [Hv Hd]]]]]]]]].
+      destruct ve as [[x dx] | | | |]; try contradiction.
+      exists se', ve', de', c1, s1, x, dx; repeat split; auto; try lia.
+      intros Hv0; apply orb_false_iff in Hv0 as [_ Hv0]; exact (Hz Hv0). }
+  destruct Hbody as [sb [vb [db [cb [s1 [x [dx [Hrun [Hfr [Hcb [Hv [Hd [Hrv [-> [Hz [Esb [Evb Edb]]]]]]]]]]]]]]]]].
+  assert (Hj' : (j < cb)%nat) by lia.
+  split; [lia | split; [exact I | split; [intros Hv0; simpl; exact (Hz Hv0) | split; [intros _; exact I |]]]].
+  exists (if vr then store_set (store_set s1 (keyv n) (VReal x)) (keyv (DotOf n)) (VReal dx)
+          else store_set s1 (keyv n) (VReal x)).
+  assert (Hfr1 : frame c (Some n) s s1) by exact (frame_chain c cb _ s s0 s1 Hfr0 Hfr Hcb).
+  destruct vr eqn:Hvr; simpl.
+  - split.
+    + pose proof (ite_tail L cb j s0 s1 sb vb db true x dx Hrun Hv Hd Hrv Hj' Hn) as Htail2.
+      rewrite !run_realvar, run_branch with (b := b) by exact Hsc0.
+      destruct b; subst sb vb db; fold n in Htail2 |- *; unfold s0 in Htail2; simpl in Htail2;
+        match goal with |- (match ?r with _ => _ end) = _ => replace r with (Some (store_set (store_set s1 (keyv n) (VReal x)) (keyv (DotOf n)) (VReal dx))) by (symmetry; exact Htail2) end; reflexivity.
+    + split; [apply frame_set; [apply frame_set; [exact Hfr1 | reflexivity | auto] | reflexivity | auto] |].
+      split; [rewrite store_get_set_other, store_get_set_same; [reflexivity | apply not_eq_sym, keyv_dot_neq] |].
+      intros _; rewrite store_get_set_same; reflexivity.
+  - split.
+    + pose proof (ite_tail L cb j s0 s1 sb vb db false x dx Hrun Hv Hd Hrv Hj' Hn) as Htail2.
+      rewrite !run_realvar, run_branch with (b := b) by exact Hsc0.
+      destruct b; subst sb vb db; fold n in Htail2 |- *; unfold s0 in Htail2; simpl in Htail2;
+        match goal with |- (match ?r with _ => _ end) = _ => replace r with (Some (store_set s1 (keyv n) (VReal x))) by (symmetry; exact Htail2) end; reflexivity.
+    + split; [apply frame_set; [exact Hfr1 | reflexivity | auto] |].
+      split; [rewrite store_get_set_same; reflexivity |].
+      intros [Hq | Hq]; [discriminate | contradiction].
 Qed.
