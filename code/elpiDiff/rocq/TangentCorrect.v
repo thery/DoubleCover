@@ -640,6 +640,21 @@ Qed.
 (* ---------------------------------------------------------------------------
    The simulation. *)
 
+Fixpoint dvars (e : dexpr W) : list (dvar W) :=
+  match e with
+  | DVar x => [x]
+  | DAt a i => dvars a ++ dvars i
+  | DOp1 _ a => dvars a
+  | DOp2 _ a b => dvars a ++ dvars b
+  | _ => []
+  end.
+
+(* The variables an expression of the result reads: in scope, or opened by
+   the code (at or after c). *)
+Definition res_vars (L : list pv) (c : nat) (e : dexpr W) : Prop :=
+  forall x, In x (dvars e) ->
+  (exists p, In p L /\ (x = stored p \/ x = DotOf (stored p))) \/ ~ below c x.
+
 Definition live_anf (k : nat) (b : anf vinfo bare) (p : pv) : Prop :=
   occurs_anf (vid (pw p)) k b = true.
 Definition live_value (k : nat) (e : value vinfo bare) (p : pv) : Prop :=
@@ -660,6 +675,7 @@ Definition sim_body (bP : anf pv bare) : Prop :=
   let '((ss, (ve, de)), c') :=
     open_pairs (tan W (option_map (amap pt) wP) (rebuild _ bT (annotate_body_t false m k bA))) c in
   (c <= c')%nat /\ has_type ty v /\ (varied_anf k bA = false -> zero v) /\
+  res_vars L c ve /\ res_vars L c de /\
   exists s', run ss s = Some s' /\ frame c (inplace wP pp) s s' /\
              body_result ty (inplace wP pp) s' ve de v.
 
@@ -741,6 +757,10 @@ Proof.
     destruct Ety as [-> Hcase]. pose proof Hst as Hst0.
     destruct Hst as [_ [_ [Hstore [_ [_ [Hdot [_ [_ [Hht Hz]]]]]]]]].
     split; [lia | split; [exact Hht | split; [exact Hz |]]].
+    split; [intros x Hx; left; exists p; simpl in Hx; rewrite Hstore in Hx;
+            destruct Hx as [<- | []]; auto |].
+    split; [intros x Hx; left; exists p; simpl in Hx; destruct (tdot (pt p)); simpl in Hx;
+            [rewrite Hstore in Hx; destruct Hx as [<- | []]; auto | contradiction] |].
     exists s; split; [reflexivity | split; [intros ? ? ? ?; reflexivity |]].
     destruct (vty (pw p)) eqn:Ety; try contradiction.
     + (* a real *) pose proof (proj1 Hs) as Hs1.
@@ -758,6 +778,7 @@ Proof.
       exists (stored p); unfold inplace, stored in *; rewrite Eo, Hpo in *; simpl; auto.
   - apply aeval_literal in Hev as [x [Hx ->]]; injection Htc as <-.
     split; [lia | split; [exact I | split; [reflexivity |]]].
+    split; [intros x' [] | split; [intros x' [] |]].
     exists s; split; [reflexivity | split; [intros ? ? ? ?; reflexivity |]].
     simpl; rewrite !xev_DReal, Hx, lit_0; auto.
   - injection Htc as <-; destruct Hty.
@@ -1038,6 +1059,18 @@ Proof.
   rewrite (F (stored p)), (F (DotOf (stored p))); unfold stored in *; simpl; auto.
 Qed.
 
+Lemma res_vars_let x L c c1 e :
+  res_vars (x :: L) c1 e -> (c <= c1)%nat ->
+  (~ below c (stored x) \/ exists o, In o L /\ stored x = stored o) -> res_vars L c e.
+Proof.
+  intros H Hc Hx y Hy; destruct (H y Hy) as [[p [[<- | Hp] E]] | Hb].
+  - destruct Hx as [Hx | [o [Ho Eo]]].
+    + right; destruct E as [-> | ->]; auto.
+    + left; exists o; rewrite <- Eo; auto.
+  - left; exists p; auto.
+  - right; intros Hb'; apply Hb, (below_mono c); auto.
+Qed.
+
 Lemma tan_let w a e b :
   tan W w (ALet a e b) =
   with_storage w e b (fun n rec =>
@@ -1206,9 +1239,19 @@ Proof.
   unfold x in IHb; cbn [pt pa pd] in IHb; fold rest in IHb.
   destruct (open_pairs (tan W (option_map (amap pt) wP) (rebuild (tvar W) (cT (open_let te n vr rec)) rest)) c1)
     as [[sb [ve' de']] c2] eqn:Hsb.
-  destruct IHb as [Hc12 [Hht' [Hz' [s2 [Hrun2 [Hfr2 Hres2]]]]]].
+  destruct IHb as [Hc12 [Hht' [Hz' [Hrv1 [Hrv2 [s2 [Hrun2 [Hfr2 Hres2]]]]]]]].
+  assert (Hxs' : ~ below c (DBound (j, j)) \/ exists o, In o L /\ DBound (j, j) = stored o).
+  { destruct (storage wP tail eP) eqn:Es.
+    - right; assert (Hsn : storage wP tail eP <> None) by (rewrite Es; discriminate).
+      destruct (inplace_value _ _ _ _ _ _ _ _ _ _ _ _ Hc HeW Hte Htail_ty (or_introl Hsn))
+        as [_ [o [Ho Es']]].
+      exists o; split; [exact (owner_in _ _ _ _ _ _ _ _ _ Hc Ho) |].
+      rewrite Es in Es'; destruct Hn as [Hnd _]; congruence.
+    - left; rewrite Hjs; simpl; lia. }
   rewrite open_pairs_sbind, Hsb; simpl.
   split; [lia | split; [exact Hht' | split; [exact Hz' |]]].
+  split; [exact (res_vars_let _ L c c1 ve' Hrv1 (Nat.le_trans _ _ _ Hc0 Hc01) Hxs') |].
+  split; [exact (res_vars_let _ L c c1 de' Hrv2 (Nat.le_trans _ _ _ Hc0 Hc01) Hxs') |].
   exists s2; split; [rewrite run_app, Hrun1; exact Hrun2 | split; [| exact Hres2]].
   apply (frame_let c c0 c1 _ n s s1 s2); auto.
   destruct (storage wP tail eP) eqn:Es.
@@ -1223,14 +1266,6 @@ Qed.
    Expressions read only the variables they mention: a write to another key
    does not change their value. *)
 
-Fixpoint dvars (e : dexpr W) : list (dvar W) :=
-  match e with
-  | DVar x => [x]
-  | DAt a i => dvars a ++ dvars i
-  | DOp1 _ a => dvars a
-  | DOp2 _ a b => dvars a ++ dvars b
-  | _ => []
-  end.
 
 Definition avoid (k : key) (e : dexpr W) : Prop := forall x, In x (dvars e) -> keyv x <> k.
 
@@ -1742,4 +1777,59 @@ Proof.
   split; [rewrite store_get_set_other; [unfold s1; rewrite store_get_set_same; reflexivity |
           apply not_eq_sym, keyv_dot_neq] |].
   intros _; rewrite store_get_set_same; reflexivity.
+Qed.
+
+Lemma run_realvar x ss s :
+  run (DRealVar x :: ss) s = run ss (store_set s (keyv x) (VReal 0)).
+Proof.
+  unfold run, keyv; cbn [map out_dstmt exec_stmts exec].
+  change (dom_lit reals "0") with (real_lit "0"); rewrite lit_0; reflexivity.
+Qed.
+
+Lemma run_branch e t f ss s b :
+  xev s e = Some (VBool b) ->
+  run (DBranch e t f :: ss) s =
+  match run (if b then t else f) s with Some s1 => run ss s1 | None => None end.
+Proof.
+Proof.
+  intros H; unfold run; cbn [map out_dstmt exec_stmts exec]; unfold xev in H; rewrite H.
+  destruct b; reflexivity.
+Qed.
+
+Lemma run_for i lo hi b ss s l h :
+  xev s lo = Some (VInt l) -> xev s hi = Some (VInt h) ->
+  run (DFor i lo hi b :: ss) s =
+  match exec_up R (run b) (out_dvar nat i) l (count l h) s with Some s1 => run ss s1 | None => None end.
+Proof.
+  intros Hl Hh; unfold run; cbn [map out_dstmt exec_stmts exec]; unfold xev in Hl, Hh; rewrite Hl, Hh.
+  reflexivity.
+Qed.
+
+Lemma run_assign_var s x e v ss :
+  xev s e = Some v -> run (DAssign (DVar x) e :: ss) s = run ss (store_set s (keyv x) v).
+Proof. intros H; unfold run, xev, keyv in *; cbn [map out_dstmt exec_stmts exec]; rewrite H; reflexivity. Qed.
+
+(* Writes to the keys of another variable keep a variable related. *)
+Lemma store_ok_set s p k v :
+  k <> keyv (stored p) -> k <> keyv (DotOf (stored p)) -> store_ok s p -> store_ok (store_set s k v) p.
+Proof.
+  intros H1 H2 [S1 S2]; split; [rewrite store_get_set_other; auto |].
+  intros Hd; rewrite store_get_set_other; auto.
+Qed.
+
+Lemma keyv_bound_neq j j' : j <> j' ->
+  keyv (DBound (j, j)) <> keyv (DBound (j', j')) /\ keyv (DBound (j, j)) <> keyv (DotOf (DBound (j', j'))) /\
+  keyv (DotOf (DBound (j, j))) <> keyv (DBound (j', j')) /\
+  keyv (DotOf (DBound (j, j))) <> keyv (DotOf (DBound (j', j'))).
+Proof. intros H; unfold keyv; simpl; repeat split; intros E; inversion E; auto. Qed.
+
+(* The context of a branch or of a loop body without storage updated in
+   place, from the context of the value. *)
+Lemma ctx_sub L k c s s0 wP pp pp' (live live' : pv -> Prop) ty :
+  ctx_ok L k c s wP pp live ty -> owner wP pp' = None -> pp' <> PTop -> place_ok L pp' ->
+  (forall p, live' p -> live p) ->
+  (forall p, In p L -> live p -> store_ok s p -> store_ok s0 p) ->
+  ctx_ok L k c s0 wP pp' live' Real.
+Proof.
+  intros Hc Ho Hpp Hpl Hl Hs; destruct Hc; constructor; auto; intros; congruence.
 Qed.
