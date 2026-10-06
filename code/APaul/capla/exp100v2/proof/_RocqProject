@@ -6,6 +6,13 @@ exp100-model/ExpConsts.v
 exp100-model/ExpModel.v
 exp100-model/ExpModelBounds.v
 exp100-model/ExpLimbs.v
+exp100-model/ExpBits.v
+exp100-model/ExpHard.v
+exp100-model/ExpTaylor.v
+exp100-model/ExpBudget.v
+exp100-model/ExpBound.v
+exp100-model/ExpFilter.v
+exp100-model/ExpSpec.v
 exp100.v
 Bridge.v
 Specs.v
@@ -23,3 +30,8 @@ BitlenProof.v
 ScaleProof.v
 MulSmallProof.v
 MulshrProof.v
+ExpCoreProof.v
+DecideProof.v
+ExpEnclProof.v
+MaybeHardProof.v
+CaplaFinal.v
