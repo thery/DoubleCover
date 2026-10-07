@@ -1,0 +1,24 @@
+The search of one table line followed by exp100's filter, verified with VST
+==========================================================================
+
+htr_filter.c   includes ../htr3.c (htr.c's search of one line, without GMP)
+               and ../../exp100/exp100.c, and adds search_filter: it runs
+               search, then keeps the candidates j whose double x0 + j u,
+               of bits xb0 + j (x0 > 0) or xb0 - j (x0 < 0), gets 1 from
+               maybe_hard_bits.  Tested equal to htr.c -DUSE_FILTER.
+
+FCommon.v          Vprog, the composites of exp100
+Spec_filter.v      search_filter_spec and Gprog (htr3's 5 statements,
+                   exp100's 16, search_filter)
+Verif_filter.v     body_search_filter
+Verif_htrfilter.v  htr_filter_funcs_correct: semax_func over the 22
+                   functions, the 21 earlier body proofs reused
+Bits.v             the bits of x0 + j u; hard_43_42 (within 2^-43 v implies
+                   within 2^-42 v, same v)
+FilterTable.v      vst_search_filter_table: for every line of a table that
+                   passes check_raw, every hard j < n (m = 43) is in the
+                   output of search_filter, when x0 is a normal double of
+                   bits xb0 and the candidates of search fit in cap
+
+Build (switch vst): make.  About 2 minutes.  The .vo of ../ (htr3) must be
+built first (make in ..).
