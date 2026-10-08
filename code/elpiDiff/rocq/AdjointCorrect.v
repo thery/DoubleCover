@@ -438,6 +438,29 @@ Definition fwd_frame (c : nat) (ex : option (dvar W)) (vo : option (aresult (tva
   forall v, below c v -> consistent v -> ~ is_tape v -> ex <> Some v -> vo_target vo <> Some v ->
   store_get s' (keyv v) = store_get s (keyv v).
 
+(* The tapes stay tapes. *)
+Definition tapes_kept (s s' : store R) : Prop :=
+  forall v l, store_get s (keyv (TapeOf v)) = Some (VTape l) -> exists l', store_get s' (keyv (TapeOf v)) = Some (VTape l').
+
+Lemma tapes_kept_refl s : tapes_kept s s.
+Proof. intros v l H; eauto. Qed.
+
+Lemma tapes_kept_trans s s1 s2 : tapes_kept s s1 -> tapes_kept s1 s2 -> tapes_kept s s2.
+Proof. intros H1 H2 v l H; destruct (H1 v l H) as [l1 E]; exact (H2 v l1 E). Qed.
+
+(* Writing a key that is not a tape. *)
+Lemma tapes_kept_set s x w : ~ is_tape x -> consistent x -> tapes_kept s (store_set s (keyv x) w).
+Proof.
+  intros Ht Hc v l H; exists l; rewrite store_get_set_other; auto.
+  intros K; destruct x as [[i j] | x | x | x |]; unfold keyv in K; simpl in K; try discriminate.
+  destruct Ht; exact I.
+Qed.
+
+Lemma tapes_kept_set_tape s v0 l0 : tapes_kept s (store_set s (keyv (TapeOf v0)) (VTape l0)).
+Proof.
+  intros v l H; rewrite store_get_set; destruct (key_eqb (keyv (TapeOf v0)) (keyv (TapeOf v))) eqn:E; eauto.
+Qed.
+
 (* The reverse sweep leaves the keys opened before c unchanged, but the
    tapes, the storage updated in place, and the adjoints of the owners. *)
 Definition rev_frame (c : nat) (ex : option (dvar W)) (O : owners) (s s' : store R) : Prop :=
@@ -515,7 +538,7 @@ Definition asim_body (bP : anf pv bare) : Prop :=
     open_pairs (adj W (option_map (amap pt) wP) vo m (rebuild _ bT (annotate_body_t cv m k bA)) se) c in
   (c <= c')%nat /\
   exists s1, run fw s = Some s1 /\
-    fwd_frame c (inplace wP pp) (if sweep_eqb m Forward then vo else None) s s1 /\
+    fwd_frame c (inplace wP pp) (if sweep_eqb m Forward then vo else None) s s1 /\ tapes_kept s s1 /\
     (m = Forward -> vo_result vo v s1) /\
     forall s2 O, agree_prim c' (inplace wP pp) s1 s2 -> rctx L c wP pp O (useful cv m k bA) s2 ->
       seed_ok c ty se s2 ->
@@ -565,7 +588,8 @@ Proof.
     unfold is_array; destruct (vty (pw p)); simpl in Ea; try discriminate; tauto.
 Qed.
 
-Ltac none_case := eexists; split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity | intros _ ? Et'; discriminate]].
+Ltac none_case := eexists; split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity |
+                     split; [intros _ ? Et'; discriminate | apply tapes_kept_refl]]].
 
 (* The forward sweep of a body that returns an atom: at the top of
    adjoint-value, the value goes where the function leaves it. *)
@@ -579,11 +603,12 @@ Lemma ret_forward L k c s wP pp m (aP : atom pv) ty v vo :
                   (forall t, vo = Some (AReturns t) -> wP = None)) ->
   exists s1, run (if sweep_eqb m Forward then value_output W vo (amap pt aP) else []) s = Some s1 /\
     fwd_frame c (inplace wP pp) (if sweep_eqb m Forward then vo else None) s s1 /\
-    (m = Forward -> vo_result vo v s1).
+    (m = Forward -> vo_result vo v s1) /\ tapes_kept s s1.
 Proof.
 Proof.
   intros Hc HaL Htc Hty Hev Hvo.
-  destruct m; simpl; [| exists s; split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity | discriminate]]].
+  destruct m; simpl; [| exists s; split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity |
+                                                        split; [discriminate | apply tapes_kept_refl]]]].
   destruct (Hvo eq_refl) as [Epp [Hcv [Hy _]]]; subst pp.
   pose proof (a_sctx _ _ _ _ _ _ _ _ _ Hc) as Hs.
   assert (Hx : vo <> None -> xev s (spell (amap pt aP)) = Some (primal v)).
@@ -600,7 +625,8 @@ Proof.
   - specialize (Hx ltac:(discriminate)).
     exists (store_set s (keyv ResultVar) (primal v)).
     split; [unfold run; simpl; unfold xev in Hx; rewrite Hx; reflexivity |].
-    split; [| intros _ t' Et'; simpl in Et'; injection Et' as <-; apply store_get_set_same].
+    split; [| split; [intros _ t' Et'; simpl in Et'; injection Et' as <-; apply store_get_set_same
+                     | apply tapes_kept_set; [simpl; tauto | exact I]]].
     intros v' _ Hcv' _ _ Hne; apply store_get_set_other; intros K; apply keyv_inj in K; [| exact I | exact Hcv'].
     subst v'; apply Hne; reflexivity.
   - specialize (Hx ltac:(discriminate)); specialize (Hy y eq_refl).
@@ -613,12 +639,14 @@ Proof.
     destruct (vty (pw q)) eqn:Evq; try none_case.
     + exists (store_set s (keyv (stored q)) (primal v)).
       split; [unfold run; simpl; unfold xev in Hx; rewrite Hx; reflexivity |].
-      split; [| intros _ t' Et'; injection Et' as <-; apply store_get_set_same].
+      split; [| split; [intros _ t' Et'; injection Et' as <-; apply store_get_set_same
+                       | apply tapes_kept_set; [simpl; tauto | reflexivity]]].
       intros v' _ Hcv' _ _ Hne; apply store_get_set_other; intros K; apply keyv_inj in K; [| reflexivity | exact Hcv'].
       subst v'; apply Hne; unfold vo_target, role_of, stored_of; simpl; rewrite Eg, Hsq, Htq; reflexivity.
     + (* an array, updated in place: the result is in the written argument *)
       exists s; split; [reflexivity |].
       split; [intros ? ? ? ? ? ?; reflexivity |].
+      split; [| apply tapes_kept_refl].
       intros _ t' Et'; injection Et' as <-.
       destruct (s_top _ _ _ _ _ _ _ Hs q eq_refl eq_refl ltac:(rewrite Evq; exact I)) as [Ety _].
       rewrite Evq in Ety; subst ty.
@@ -632,7 +660,8 @@ Proof.
         unfold xev in Hx; simpl in Hx; rewrite Hsp in Hx; unfold stored in Hx |- *; rewrite <- Hpq; exact Hx.
       * discriminate.
       * discriminate.
-  - exists s; split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity | intros _ t' Et'; discriminate]].
+  - exists s; split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity |
+                                              split; [intros _ t' Et'; discriminate | apply tapes_kept_refl]]].
 Qed.
 
 Lemma asim_ret (aP : atom pv) : asim_body (ARet aP).
@@ -644,8 +673,8 @@ Proof.
   cbn [annotate_body_t rebuild adj open_pairs].
   pose proof (a_sctx _ _ _ _ _ _ _ _ _ Hc) as Hs.
   split; [lia |].
-  destruct (ret_forward L k c s wP pp m aP ty v vo Hc H Htc Hty Hev Hvo) as [s1 [Hrun1 [Hfr1 Hvr1]]].
-  exists s1; split; [exact Hrun1 | split; [exact Hfr1 | split; [exact Hvr1 |]]].
+  destruct (ret_forward L k c s wP pp m aP ty v vo Hc H Htc Hty Hev Hvo) as [s1 [Hrun1 [Hfr1 [Hvr1 Htk]]]].
+  exists s1; split; [exact Hrun1 | split; [exact Hfr1 | split; [exact Htk | split; [exact Hvr1 |]]]].
   intros s2 O Hag Hr Hseed.
   pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
   destruct aP as [p | str | z]; simpl in Htc, Hev |- *.
@@ -719,7 +748,7 @@ Definition asim_fwd (eP : value pv bare) : Prop :=
   let '(se, c') :=
     open_pairs (fwd_value W (option_map (amap pt) wP) m (rebuild_value _ eT (annotate_value_t cv k eA)) te n rec) c in
   (c <= c')%nat /\
-  exists s1, run se s = Some s1 /\ fwd_frame c (Some n) None s s1 /\
+  exists s1, run se s = Some s1 /\ fwd_frame c (Some n) None s s1 /\ tapes_kept s s1 /\
              store_get s1 (keyv n) = Some (primal ve).
 
 (* The reverse sweep of an active value computed into n: run from a store
@@ -793,7 +822,8 @@ Proof.
   assert (Hs := aspell_ok k s aP va (operand_store _ _ _ _ _ _ _ _ _ aP Hc Va) Ha).
   exists (store_set s (keyv (DBound (j, j))) (primal ve)).
   split; [apply run_define; rewrite xev_DOp1, Hs; exact (primal_eval_op1 _ _ _ Hev) |].
-  split; [apply fwd_frame_set; reflexivity | apply store_get_set_same].
+  split; [apply fwd_frame_set; reflexivity |
+          split; [apply tapes_kept_set; [simpl; tauto | reflexivity] | apply store_get_set_same]].
 Qed.
 
 Lemma afwd_op2 f (aP bP : atom pv) : asim_fwd (AOp2 f aP bP).
@@ -810,7 +840,8 @@ Proof.
   assert (Hsb := aspell_ok k s bP vb (operand_store _ _ _ _ _ _ _ _ _ bP Hc Vb) Hb).
   exists (store_set s (keyv (DBound (j, j))) (primal ve)).
   split; [apply run_define; rewrite xev_DOp2, Hsa, Hsb; exact (primal_eval_op2 _ _ _ _ Hev) |].
-  split; [apply fwd_frame_set; reflexivity | apply store_get_set_same].
+  split; [apply fwd_frame_set; reflexivity |
+          split; [apply tapes_kept_set; [simpl; tauto | reflexivity] | apply store_get_set_same]].
 Qed.
 
 Lemma afwd_get (aP iP : atom pv) : asim_fwd (AGet aP iP).
@@ -828,7 +859,8 @@ Proof.
   assert (Hsi := aspell_ok k s iP _ (operand_store _ _ _ _ _ _ _ _ _ iP Hc Vi) Hi).
   exists (store_set s (keyv (DBound (j, j))) (VReal (dfst d))).
   split; [apply run_define; unfold xev in *; simpl in *; rewrite Hsa, Hsi; simpl; rewrite nth_z_map, Ez; reflexivity |].
-  split; [apply fwd_frame_set; reflexivity | apply store_get_set_same].
+  split; [apply fwd_frame_set; reflexivity |
+          split; [apply tapes_kept_set; [simpl; tauto | reflexivity] | apply store_get_set_same]].
 Qed.
 
 Lemma replace_nth_z_nth {A : Type} k (x : A) l l1 :
@@ -897,11 +929,13 @@ Proof.
                        | unfold s0; rewrite xev_set_other; [exact Hsv | apply (avoid_tape_spell k); exact Hstv]].
       * unfold run, xev, keyv in *; simpl in *; rewrite Hq, Hsi; simpl; rewrite nth_z_map, Hold; simpl.
         rewrite Hlt; reflexivity.
-    + split; [| unfold s1; apply store_get_set_same].
+    + split; [| split; [apply (tapes_kept_trans _ s0); [apply tapes_kept_set_tape | apply tapes_kept_set; [simpl; tauto | reflexivity]]
+                       | unfold s1; apply store_get_set_same]].
       intros v Hb Hcv Ht Hex Hvo; rewrite (Hframe s0 v Hb Hcv Ht Hex Hvo).
       unfold s0; apply store_get_set_other; intros K; apply keyv_inj in K; [| reflexivity | exact Hcv].
       subst v; apply Ht; exact I.
-  - exists (s1 s); split; [apply Hassign; auto | split; [apply Hframe | unfold s1; apply store_get_set_same]].
+  - exists (s1 s); split; [apply Hassign; auto | split; [apply Hframe |
+      split; [apply tapes_kept_set; [simpl; tauto | reflexivity] | unfold s1; apply store_get_set_same]]].
 Qed.
 
 Ltac rev_intro :=
@@ -1506,6 +1540,46 @@ Lemma adj_let w vo m a e b se :
     Done (app fe fb, app (if ac then bar_declaration W (Transform.type_of e) n else []) (app rb re)))))).
 Proof. reflexivity. Qed.
 
+(* with_storage, opened: as in the tangent simulation, and a fresh storage
+   is not recorded. *)
+Lemma open_with_storage' {A : Type} L k wP (eP : value pv bare) eT vt
+  (bT : tvar W -> anf (tvar W) ann) (K : dvar W -> bool -> scoped W A) c :
+  value_eq (gT L) eP eT -> Forall (static_ok k) L ->
+  (forall a, wP = Some a -> exists y, a = AVar y /\ In y L) ->
+  exists n rec c0,
+    open_pairs (with_storage (option_map (amap pt) wP) (rebuild_value _ eT vt) bT K) c =
+    open_pairs (K n rec) c0 /\
+    match storage wP (Transform.is_tail bT) eP with
+    | Some m => n = m /\ c0 = c
+    | None => n = DBound (c, c) /\ c0 = S c /\ rec = false
+    end.
+Proof.
+  intros HT HL Hw.
+  assert (Hst : forall p, In p L -> tstored (pt p) = stored p /\ tty (pt p) = vty (pw p))
+    by (intros p Hp; destruct (static_in _ _ _ HL Hp) as [_ [_ [H1 [H2 _]]]]; auto).
+  Local Ltac fresh_case' := solve [eexists (DBound (_, _)), false, (S _); simpl; auto].
+  destruct eP as [f a | f a b | a i | a i x | cnd t e | lo hi b | an lo hi init b], eT;
+    simpl in HT; try contradiction; simpl;
+    try fresh_case'; try (destruct vt; fresh_case').
+  - destruct HT as [Ha _]; destruct a as [p | |]; destruct a0; simpl in Ha; try contradiction;
+      try fresh_case'.
+    apply in_gT in Ha as [Hp ->]; destruct (Hst _ Hp) as [E _].
+    exists (stored p), (trecorded (pt p)), c; simpl; rewrite E; auto.
+  - destruct (vt); simpl;
+      (destruct (Transform.is_tail bT); [| fresh_case']);
+      (destruct wP as [[y | |] |]; simpl;
+       [| fresh_case'
+        | fresh_case'
+        | fresh_case']);
+      (destruct (Hw _ eq_refl) as [y' [E Hy]]; injection E as <-;
+       destruct (Hst _ Hy) as [E _]; exists (stored y), (trecorded (pt y)), c; rewrite E; auto).
+  - destruct HT as [_ [_ [Hi _]]]; destruct init as [p | |], init0; simpl in Hi; try contradiction;
+      destruct vt; simpl; try fresh_case';
+      (apply in_gT in Hi as [Hp ->]; destruct (Hst _ Hp) as [E1 E2]; rewrite E2;
+       destruct (vty (pw p)); try fresh_case';
+       exists (stored p), (trecorded (pt p)), c; rewrite E1; auto).
+Qed.
+
 Lemma asim_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
   asim_fwd eP -> asim_rev eP -> act_value eP -> (forall x, asim_body (cP x)) -> asim_body (ALet a eP cP).
 Proof.
@@ -1529,7 +1603,7 @@ Proof.
   cbn [rebuild]. rewrite adj_let. cbv [let_ann].
   rewrite (type_of_ok _ _ _ _ _ _ _ _ vt te HeW HeT HL Hte).
   match goal with |- context [with_storage _ _ _ ?K] => set (Kf := K) end.
-  destruct (open_with_storage L k wP eP eT vt (fun v0 => rebuild _ (cT v0) rest) Kf c HeT HL) as [n [rec [c0 [Hopen Hn]]]].
+  destruct (open_with_storage' L k wP eP eT vt (fun v0 => rebuild _ (cT v0) rest) Kf c HeT HL) as [n [rec [c0 [Hopen Hn]]]].
   { intros a0 E; destruct (s_written _ _ _ _ _ _ _ Hs _ E) as [y [-> [Hy _]]]; eauto. }
   lazymatch goal with |- context [@open_pairs ?A ?t c] =>
     assert (E : @open_pairs A t c = @open_pairs A (Kf n rec) c0) by exact Hopen; rewrite E; clear E end.
