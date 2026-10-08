@@ -228,6 +228,16 @@ Proof.
   - rewrite IH; auto; apply orb_true_r.
 Qed.
 
+Lemma atom_member_remove x y l :
+  same_term x y = false -> atom_member y (atom_remove x l) = atom_member y l.
+Proof.
+  intros H; unfold atom_member, atom_remove; induction l as [| z l IH]; simpl; [reflexivity |].
+  destruct (same_term x z) eqn:E; simpl; rewrite IH.
+  - destruct (same_term y z) eqn:E'; simpl; [| reflexivity].
+    rewrite same_term_sym in E'; pose proof (same_term_trans _ _ _ E E') as T; rewrite T in H; discriminate.
+  - reflexivity.
+Qed.
+
 (* ---------------------------------------------------------------------------
    The pairing: for each storage that carries an adjoint, the tangent of the
    variable it holds (a value of the reals: a real, or an array) times its
@@ -498,6 +508,7 @@ Definition asim_body (bP : anf pv bare) : Prop :=
   aeval (duals reals) bD = Some v ->
   (m = Forward -> pp = PTop /\ (vo = None <-> cv = false) /\
                   forall y, vo = Some (AWrites y) -> option_map (amap pt) wP = Some y) ->
+  (m = Forward -> forall p, In p L -> live_anf k bW p -> vo_target vo = Some (stored p) -> is_array (vty (pw p))) ->
   let '((fw, rv), c') :=
     open_pairs (adj W (option_map (amap pt) wP) vo m (rebuild _ bT (annotate_body_t cv m k bA)) se) c in
   (c <= c')%nat /\
@@ -623,7 +634,7 @@ Qed.
 
 Lemma asim_ret (aP : atom pv) : asim_body (ARet aP).
 Proof.
-  intros L k c s wP pp m bA bW bT bD ty v se vo HA HW HT HD Hc Hty Htc Hev Hvo.
+  intros L k c s wP pp m bA bW bT bD ty v se vo HA HW HT HD Hc Hty Htc Hev Hvo _.
   destruct bA as [| aA], bW as [| aW], bT as [| aT], bD as [| aD]; simpl in HA, HW, HT, HD;
     try contradiction.
   graph HA; graph HW; graph HT; graph HD.
@@ -1393,5 +1404,73 @@ Proof.
     assert (ta_z = 0) as -> by (rewrite Forall_forall in Hz0; apply Hz0; eapply nth_error_In; eauto).
     ring.
 Qed.
+
+(* ---------------------------------------------------------------------------
+   What needs says at a let, of a variable in scope (an identity below k):
+   from the rest of the body, and from the value. *)
+
+Lemma same_term_below (q : avar) k vr : (aid q < k)%nat -> same_term (AVar (AV k vr)) (AVar q) = false.
+Proof. intros H; simpl; apply Nat.eqb_neq; lia. Qed.
+
+Lemma needs_let m k a eA (cA : avar -> anf avar bare) :
+  needs cv m k (ALet a eA cA) =
+  let x := let_binder k eA in
+  let '(ub, lb) := needs cv m (S k) (cA x) in
+  let useful := atom_member (AVar x) ub in
+  let needed := atom_member (AVar x) lb in
+  let '(reads_e, flows_e) := if varied_value k eA && useful then value_needs cv k eA else ([], []) in
+  let atoms_e := if needed || (sweep_eqb m Forward && records cv k eA) then atoms_of_value k eA else [] in
+  (atom_union (atom_remove (AVar x) ub) flows_e,
+   atom_union (atom_union (atom_remove (AVar x) lb) reads_e) atoms_e).
+Proof. reflexivity. Qed.
+
+Section NeedsLet.
+Variables (m : sweep) (k : nat) (a : bare) (eA : value avar bare) (cA : avar -> anf avar bare) (p : pv).
+Hypothesis Hp : (aid (pa p) < k)%nat.
+Let x := let_binder k eA.
+
+Ltac needs_let_tac := rewrite needs_let; unfold x in *; destruct (needs cv m (S k) (cA (let_binder k eA))) as [ub lb]; cbv zeta.
+Ltac split_reads := destruct (varied_value k eA && _); [destruct (value_needs cv k eA) as [r f] |]; cbn [fst snd].
+Ltac below_tac := apply same_term_below; exact Hp.
+
+Lemma useful_let_cont : useful cv m (S k) (cA x) p -> useful cv m k (ALet a eA cA) p.
+Proof.
+  unfold useful; needs_let_tac; intros H; cbn [fst] in H; split_reads;
+    (rewrite atom_member_union, atom_member_remove; [rewrite H; reflexivity | below_tac]).
+Qed.
+
+Lemma tbr_let_cont : tbr cv m (S k) (cA x) p -> tbr cv m k (ALet a eA cA) p.
+Proof.
+  unfold tbr; needs_let_tac; intros H; cbn [snd] in H; split_reads;
+    (rewrite !atom_member_union, atom_member_remove; [rewrite H; reflexivity | below_tac]).
+Qed.
+
+Lemma useful_let_flows :
+  varied_value k eA && atom_member (AVar x) (fst (needs cv m (S k) (cA x))) = true ->
+  vflows k eA p -> useful cv m k (ALet a eA cA) p.
+Proof.
+  unfold useful, vflows; needs_let_tac; intros Ha Hf; cbn [fst] in Ha; rewrite Ha.
+  destruct (value_needs cv k eA) as [r f]; cbn [fst snd] in Hf |- *.
+  rewrite atom_member_union, Hf, orb_true_r; reflexivity.
+Qed.
+
+Lemma tbr_let_reads :
+  varied_value k eA && atom_member (AVar x) (fst (needs cv m (S k) (cA x))) = true ->
+  vreads k eA p -> tbr cv m k (ALet a eA cA) p.
+Proof.
+  unfold tbr, vreads; needs_let_tac; intros Ha Hf; cbn [fst] in Ha; rewrite Ha.
+  destruct (value_needs cv k eA) as [r f]; cbn [fst snd] in Hf |- *.
+  rewrite !atom_member_union, Hf, orb_true_r; reflexivity.
+Qed.
+
+Lemma tbr_let_atoms :
+  atom_member (AVar x) (snd (needs cv m (S k) (cA x))) || (sweep_eqb m Forward && records cv k eA) = true ->
+  vatoms k eA p -> tbr cv m k (ALet a eA cA) p.
+Proof.
+  unfold tbr, vatoms; needs_let_tac; intros Hc Hf; cbn [snd] in Hc; rewrite Hc.
+  split_reads; rewrite !atom_member_union, Hf, orb_true_r; reflexivity.
+Qed.
+
+End NeedsLet.
 
 End Sim.
