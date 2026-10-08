@@ -1031,4 +1031,78 @@ Proof.
     split; [rewrite Hz; ring | auto].
 Qed.
 
+Lemma arev_op2 f (aP bP : atom pv) : asim_rev (AOp2 f aP bP).
+Proof.
+  rev_intro; simpl in Htc, Hst, Hvr |- *; rename f3 into f.
+  split; [lia |]; intros s2 O Hrd Hr Hn Hsh.
+  destruct (comparison f) eqn:Ecmp; [discriminate |].
+  pose proof (s_static _ _ _ _ _ _ _ Hs) as HL.
+  assert (HaL : forall q, aP = AVar q -> In q L) by auto.
+  assert (HbL : forall q, bP = AVar q -> In q L) by auto.
+  cbn [aeval_value] in Hev.
+  destruct (aeval_atom (duals reals) (amap pd aP)) as [va |] eqn:Ha; [| discriminate].
+  destruct (aeval_atom (duals reals) (amap pd bP)) as [vb |] eqn:Hb; [| discriminate].
+  assert (Hnint : forall (rP : atom pv) z, varied (amap pa rP) = true -> aeval_atom (duals reals) (amap pd rP) = Some (VInt z) ->
+                    (forall q, rP = AVar q -> In q L) -> False).
+  { intros rP z Hv Hd HrL; destruct rP as [q | |]; simpl in Hv; try discriminate.
+    simpl in Hd; injection Hd as Ed.
+    destruct (static_in _ _ _ HL (HrL q eq_refl)) as [_ [_ [_ [_ [_ [_ [_ [Hra [Hht _]]]]]]]]].
+    specialize (Hra Hv); rewrite Ed in Hht; destruct (vty (pw q)); simpl in Hra, Hht; auto. }
+  destruct va as [[x dx] | za | | |], vb as [[y dy] | zb | | |]; cbn [eval_op2] in Hev; try discriminate.
+  2:{ exfalso; apply orb_true_iff in Hvr as [Hv | Hv]; [exact (Hnint _ _ Hv Ha HaL) | exact (Hnint _ _ Hv Hb HbL)]. }
+  rewrite Ecmp in Hev; cbn [dom_op2 duals] in Hev.
+  destruct (dual_op2 R reals f (Dual x dx) (Dual y dy)) as [[z dz] |] eqn:Hd; [| discriminate].
+  injection Hev as <-.
+  rewrite (oput_notin O _ _ (Hn eq_refl)).
+  simpl in Hsh; destruct (barv s2 (DBound (j, j))) as [[be | | | |] |] eqn:Ebn; try contradiction.
+  destruct (partial2 f (amap pt aP) (amap pt bP)) as [[p1 p2] |] eqn:Hp;
+    [| destruct f; simpl in Hp; try discriminate; unfold_ops Hd; discriminate].
+  pose proof (dual_op2_coef _ _ _ _ _ _ _ Hd) as Edz.
+  assert (Hrq : forall (rP : atom pv), (forall q, rP = AVar q -> In q L) ->
+            (forall q, rP = AVar q -> vreads k (AOp2 f (amap pa aP) (amap pa bP)) q) ->
+            forall d, aeval_atom (duals reals) (amap pd rP) = Some d -> xev s2 (spell (amap pt rP)) = Some (primal d)).
+  { intros rP HrL Hrr d Hdd; apply (aspell_ok k s2 rP d); auto.
+    intros q E; split; [exact (static_in _ _ _ HL (HrL q E)) | exact (Hrd q (HrL q E) (Hrr q E))]. }
+  assert (Hxa : (f = Mul \/ f = Divide) -> varied (amap pa bP) = true -> xev s2 (spell (amap pt aP)) = Some (VReal x)).
+  { intros Hf Hv; refine (Hrq aP HaL _ _ Ha).
+    intros q E; unfold vreads; simpl; rewrite Ecmp; apply reads_op2; auto; right; subst; auto. }
+  assert (Hyb : ((f = Mul \/ f = Divide) /\ varied (amap pa aP) = true) \/
+                (f = Divide /\ varied (amap pa bP) = true) -> xev s2 (spell (amap pt bP)) = Some (VReal y)).
+  { intros Hc; refine (Hrq bP HbL _ _ Hb).
+    intros q E; unfold vreads; simpl; rewrite Ecmp.
+    destruct Hc as [[Hf Hv] | [-> Hv]]; [apply reads_op2; auto; left; subst; auto | apply reads_op2_div; subst; auto]. }
+  assert (Hfl : forall (rP : atom pv), (rP = aP \/ rP = bP) -> forall q, rP = AVar q ->
+            In q L /\ vflows k (AOp2 f (amap pa aP) (amap pa bP)) q).
+  { intros rP Hr0 q E; split; [destruct Hr0; subst; auto |].
+    unfold vflows; simpl; rewrite Ecmp.
+    destruct (partial2 f (amap pa aP) (amap pa bP)) as [[] |]; simpl; rewrite atom_member_union;
+      (destruct Hr0 as [E0 | E0]; rewrite <- E0, E; simpl; rewrite Nat.eqb_refl; simpl; rewrite ?orb_true_r; reflexivity). }
+  set (O' := (tangent (VReal (Dual z dz)), DBound (j, j)) :: O).
+  assert (Hsub : forall m, In m (map snd O) -> In m (map snd O')) by (intros m Hm; right; exact Hm).
+  assert (Hsp : forall (rP : atom pv), (forall q, rP = AVar q -> In q L) -> forall y0, In y0 (dvars (spell (amap pt rP))) ->
+            consistent y0 /\ forall m, In m (map snd O) -> y0 <> BarOf m).
+  { intros rP HrL y0 Hy; destruct rP as [q | |]; simpl in Hy; try contradiction.
+    destruct Hy as [<- | []]; destruct (static_in _ _ _ HL (HrL q eq_refl)) as [_ [_ [Hsq _]]]; rewrite Hsq.
+    split; [reflexivity | intros m _; unfold stored; discriminate]. }
+  assert (Hbn : forall y0, In y0 (dvars (DVar (BarOf (DBound (j, j))))) ->
+            consistent y0 /\ forall m, In m (map snd O) -> y0 <> BarOf m).
+  { intros y0 [<- | []]; split; [reflexivity | intros m Hm E; injection E as <-; exact (Hn eq_refl Hm)]. }
+  assert (He : xev s2 (DVar (BarOf (DBound (j, j)))) = Some (VReal be)) by exact Ebn.
+  destruct (operand_contrib L k c wP pp (inplace wP pp) O O' s2 aP p1 (BarOf (DBound (j, j))) x dx (coef_a f x y * be) _
+              HL (Hfl aP (or_introl eq_refl)) Hr Hbar Ha Hsub) as [s' [R1 [F1 [S1 [P1 T1]]]]].
+  { intros Hv; apply (contrib_a s2 f _ _ _ x y be p1 p2 Hp He); intros Hf; apply Hyb; left; auto. }
+  destruct (operand_contrib L k c wP pp (inplace wP pp) O O' s' bP p2 (BarOf (DBound (j, j))) y dy (coef_b f x y * be) _
+              HL (Hfl bP (or_intror eq_refl)) (rctx_shapes _ _ _ _ _ _ _ _ Hr S1) Hbar Hb Hsub) as [s3 [R2 [F2 [S2 [P2 _]]]]].
+  { intros Hv; apply (contrib_b s' f _ _ _ x y be p1 p2 Hp).
+    - rewrite T1; [exact Ebn | exact Hbn].
+    - intros Hf; rewrite T1; [exact (Hxa Hf Hv) | exact (Hsp aP HaL)].
+    - intros Hf; rewrite T1; [apply Hyb; right; auto | exact (Hsp bP HbL)]. }
+  exists s3; split.
+  { rewrite run_app; lazymatch goal with |- match ?r with _ => _ end = _ => replace r with (Some s') by (symmetry; exact R1) end.
+    exact R2. }
+  split; [exact (rev_frame_trans _ _ _ _ _ _ F1 F2) |].
+  split; [exact S2 |].
+  rewrite P2, P1; unfold O'; simpl; rewrite Ebn, Edz; ring.
+Qed.
+
 End Sim.
