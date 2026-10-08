@@ -1991,7 +1991,84 @@ Proof.
     - intros o Ho; apply HinO, (r_owner _ _ _ _ _ _ _ Hr o Ho). }
   destruct ac eqn:Eac.
   - (* x is active: its adjoint is declared, then transposed *)
-    admit.
+    assert (Hcond : varied_value k eA && atom_member (AVar (let_binder k eA)) (fst (needs cv m (S k) (cA (let_binder k eA)))) = true)
+      by (rewrite Hneeds; exact Eac).
+    assert (Hvr : vr = true) by (apply andb_true_iff in Hcond; tauto).
+    assert (Ete : te = Real).
+    { destruct te; try destruct (Hra Hvr); [reflexivity |].
+      destruct (inplace_value_s _ _ _ _ _ _ _ _ _ _ _ Hs HeW Hte Htail_ty (or_intror I)) as [_ [o' [_ Es']]].
+      rewrite Es in Es'; discriminate. }
+    subst te. destruct ve as [d | | | |]; try (simpl in Hht; contradiction).
+    set (s2a := store_set s2 (keyv (BarOf (DBound (c, c)))) (VReal 0)).
+    assert (Hd : run (bar_declaration W Real (DBound (c, c))) s2 = Some s2a).
+    { apply run_define; rewrite xev_DReal, lit_0; reflexivity. }
+    assert (Hr2 := Hr' ((tangent (VReal d), DBound (c, c)) :: O) s2a
+                     (or_intror (conj eq_refl (conj eq_refl (conj eq_refl I))))).
+    assert (Hc13 : (c1 <= c3)%nat) by lia.
+    assert (Hag2 : agree_prim c1 (inplace wP pp) s1 s2a)
+      by exact (agree_prim_set_bar c1 (inplace wP pp) s1 s2 (DBound (c, c)) (VReal 0)
+                  (agree_prim_mono _ _ _ _ _ Hag Hc13) (eq_refl c)).
+    assert (Hseed2 : seed_ok (S c) ty se s2a).
+    { split.
+      - intros y0 Hy; destruct (proj1 Hseed y0 Hy) as [H1 H2].
+        split; [exact (below_mono c (S c) y0 H1 (Nat.le_succ_diag_r c)) | exact H2].
+      - intros Ety; destruct (proj2 Hseed Ety) as [b0 Hb0]; exists b0; unfold s2a; rewrite xev_set_other; [exact Hb0 |].
+        intros y0 Hy K; destruct (Hsel y0 Hy) as [Hcy Hny]; apply keyv_inj in K; [exact (Hny K) | exact Hcy | reflexivity]. }
+    destruct (Hrev s2a _ Hag2 Hr2 Hseed2) as [sb [Rrb [Frb [Srb Prb]]]].
+    assert (Hj2 : exists j, DBound (c, c) = DBound (j, j) /\ (j < c2)%nat) by (exists c; split; [reflexivity | lia]).
+    assert (Hst2 : match storage wP tail eP with
+                   | Some m0 => DBound (c, c) = m0
+                   | None => forall p, In p L -> stored p <> DBound (c, c) end) by (rewrite Es; exact Hnotin).
+    assert (Hcc2 : (c <= c2)%nat) by lia.
+    pose proof (IHr L k c2 wP pp tail eA eW eT eD Real (DBound (c, c)) (VReal d) ty vo HeA HeW HeT HeD
+                  (sctx_weaken _ _ _ _ _ _ _ _ _ Hs Hlv_e Hcc2) (a_bar _ _ _ _ _ _ _ _ _ Hc) Hte Htail_ty Hj2 Hst2 Hve Hvr)
+      as IHr'.
+    cbv zeta in IHr'; fold vt in IHr'.
+    lazymatch type of IHr' with context [@open_pairs ?A ?t c2] =>
+      assert (E : @open_pairs A t c2 = (re, c3)) by exact Hre; rewrite E in IHr'; clear E end.
+    destruct IHr' as [_ Hrv].
+    assert (Hrd : forall p, In p L -> vreads k eA p -> live_value k eW p -> ~ is_array (vty (pw p)) ->
+                    store_get sb (keyv (stored p)) = Some (primal (pd p))).
+    { intros p Hp Hrd0 Hlv Hsc.
+      pose proof (scalar_not_inplace _ _ _ _ _ _ _ _ Hs Hp (Hlv_e p Hlv) Hsc) as Hne.
+      assert (Hbp : below c (stored p)) by (unfold stored; simpl; exact (s_num _ _ _ _ _ _ _ Hs p Hp)).
+      rewrite (Frb (stored p) (below_mono c (S c) _ Hbp (Nat.le_succ_diag_r c)) eq_refl ltac:(simpl; tauto) Hne
+                 ltac:(intros m0 E; discriminate)).
+      unfold s2a; rewrite store_get_set_other; [| unfold keyv, stored; simpl; discriminate].
+      rewrite (Hag (stored p) (below_mono c c3 _ Hbp ltac:(lia)) eq_refl I Hne).
+      assert (Hvt0 : vo_target (if sweep_eqb m Forward then vo else None) <> Some (stored p)).
+      { destruct m; simpl; [| discriminate].
+        intros Ht; exact (Hsc (Hvt eq_refl p Hp (Hlv_e p Hlv) Ht)). }
+      rewrite (Fb (stored p) (below_mono c (S c) _ Hbp (Nat.le_succ_diag_r c)) eq_refl ltac:(simpl; tauto) Hne Hvt0).
+      rewrite Hold; [| exact Hp].
+      exact (a_store _ _ _ _ _ _ _ _ _ Hc p Hp (tbr_let_reads m k aA eA cA p Hcond Hrd0)). }
+    assert (Hr3 : rctx L c2 wP pp O (vflows k eA) sb).
+    { constructor.
+      - exact (r_nodup _ _ _ _ _ _ _ Hr).
+      - intros t0 m0 Hin; apply Srb; right; exact Hin.
+      - intros t0 m0 Hin; destruct (r_below _ _ _ _ _ _ _ Hr _ _ Hin) as [j0 [E Hj]]; exists j0; split; [exact E | lia].
+      - intros p Hp Hf Hv; exact (r_useful _ _ _ _ _ _ _ Hr p Hp (useful_let_flows m k aA eA cA p Hcond Hf) Hv).
+      - intros p t0 Hp Hf Hin; exact (r_value _ _ _ _ _ _ _ Hr p t0 Hp (useful_let_flows m k aA eA cA p Hcond Hf) Hin).
+      - exact (r_owner _ _ _ _ _ _ _ Hr). }
+    destruct (Hrv sb O Hrd Hr3 (fun _ => conj Hn_notin (Srb _ _ (or_introl eq_refl)))) as [s3 [R3 [F3 [S3 P3]]]].
+    exists s3; split.
+    { rewrite run_app, Hd, run_app.
+      lazymatch goal with |- match ?r with _ => _ end = _ => replace r with (Some sb) by (symmetry; exact Rrb) end.
+      exact R3. }
+    assert (HO'b : forall m0, In m0 (map snd ((tangent (VReal d), DBound (c, c)) :: O)) ->
+                     In m0 (map snd O) \/ ~ below c (BarOf m0)).
+    { intros m0 [<- | Hm]; [right; simpl; lia | left; exact Hm]. }
+    split.
+    { apply (rev_frame_trans _ _ _ _ s2a).
+      - intros v0 Hb0 Hc0 _ _ _; unfold s2a; apply store_get_set_other; intros K.
+        apply keyv_inj in K; [| reflexivity | exact Hc0]; subst v0; simpl in Hb0; lia.
+      - apply (rev_frame_trans _ _ _ _ sb).
+        + exact (rev_frame_mono c (S c) _ _ _ _ _ Frb (Nat.le_succ_diag_r c) HO'b).
+        + rewrite (oput_notin O _ _ Hn_notin) in F3; exact (rev_frame_mono c c2 _ _ _ _ _ F3 Hcc2 HO'b). }
+    split; [exact S3 |].
+    rewrite P3, (oput_notin O _ _ Hn_notin).
+    etransitivity; [exact Prb |].
+    exact (result_pairing_fresh O ty _ v se s2 (DBound (c, c)) _ Hok eq_refl Hn_notin Hsel).
   - (* x is not active *)
     simpl in Hre; injection Hre as <- <-.
     assert (Hc13 : (c1 <= c2)%nat) by lia.
