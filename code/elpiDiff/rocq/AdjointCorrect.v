@@ -731,7 +731,8 @@ Definition asim_rev (eP : value pv bare) : Prop :=
     open_pairs (rev_value W (option_map (amap pt) wP) vo (rebuild_value _ eT (annotate_value_t cv k eA)) te n) c in
   (c <= c')%nat /\
   forall s2 O,
-    (forall p, In p L -> vreads k eA p -> store_get s2 (keyv (stored p)) = Some (primal (pd p))) ->
+    (forall p, In p L -> vreads k eA p -> live_value k eW p -> ~ is_array (vty (pw p)) ->
+       store_get s2 (keyv (stored p)) = Some (primal (pd p))) ->
     rctx L c wP pp O (vflows k eA) s2 ->
     (storage wP tail eP = None -> ~ In n (map snd O)) ->
     shaped (tangent ve) (barv s2 n) ->
@@ -1046,6 +1047,14 @@ Proof.
   unfold oput; destruct (in_dec dvar_eq_dec_c n (map snd O)); [rewrite oset_snd; auto | intros H; right; exact H].
 Qed.
 
+(* A variable that holds a real or an integer is not an array. *)
+Lemma not_array_val k p :
+  static_ok k p -> (match pd p with VArray _ => False | _ => True end) -> ~ is_array (vty (pw p)).
+Proof.
+  intros [_ [_ [_ [_ [_ [_ [_ [_ [Hht _]]]]]]]]] Hv Ha.
+  destruct (vty (pw p)); try destruct Ha; destruct (pd p); simpl in Hht; auto.
+Qed.
+
 Lemma oput_notin O n t : ~ In n (map snd O) -> oput O n t = (t, n) :: O.
 Proof. intros H; unfold oput; destruct (in_dec dvar_eq_dec_c n (map snd O)); [contradiction | reflexivity]. Qed.
 
@@ -1072,7 +1081,9 @@ Proof.
   assert (He : xev s2 (DVar (BarOf (DBound (j, j)))) = Some (VReal be)) by exact Ebn.
   destruct (adjoint_op1_gen s2 f (AVar (pt q)) _ x dx y dy p be Hp He Hd) as [A [Edy Hc]].
   { intros Hm; assert (Hrq : store_get s2 (keyv (stored q)) = Some (primal (pd q))).
-    { apply (Hrd q Hq); unfold vreads; simpl; exact (reads_op1 f (pt q) (pa q) p Hp Hm Hvr). }
+    { apply (Hrd q Hq); [unfold vreads; simpl; exact (reads_op1 f (pt q) (pa q) p Hp Hm Hvr)
+                         | unfold live_value; simpl; apply Nat.eqb_refl
+                         | apply (not_array_val k); [exact (static_in _ _ _ (s_static _ _ _ _ _ _ _ Hs) Hq) | rewrite Eq; exact I]]. }
     rewrite Eq in Hrq; unfold xev; simpl; rewrite Hsq; exact Hrq. }
   pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
   unfold contribution; simpl; rewrite (Hbar q Hq), Hvr, Hsq.
@@ -1157,17 +1168,23 @@ Proof.
   destruct (partial2 f (amap pt aP) (amap pt bP)) as [[p1 p2] |] eqn:Hp;
     [| destruct f; simpl in Hp; try discriminate; unfold_ops Hd; discriminate].
   pose proof (dual_op2_coef _ _ _ _ _ _ _ Hd) as Edz.
-  assert (Hrq : forall (rP : atom pv), (forall q, rP = AVar q -> In q L) ->
+  assert (Hrq : forall (rP : atom pv), (forall q, rP = AVar q -> In q L) -> (rP = aP \/ rP = bP) ->
             (forall q, rP = AVar q -> vreads k (AOp2 f (amap pa aP) (amap pa bP)) q) ->
-            forall d, aeval_atom (duals reals) (amap pd rP) = Some d -> xev s2 (spell (amap pt rP)) = Some (primal d)).
-  { intros rP HrL Hrr d Hdd; apply (aspell_ok k s2 rP d); auto.
-    intros q E; split; [exact (static_in _ _ _ HL (HrL q E)) | exact (Hrd q (HrL q E) (Hrr q E))]. }
+            forall x' dx', aeval_atom (duals reals) (amap pd rP) = Some (VReal (Dual x' dx')) ->
+            xev s2 (spell (amap pt rP)) = Some (VReal x')).
+  { intros rP HrL Hab Hrr x' dx' Hdd; refine (aspell_ok k s2 rP _ _ Hdd).
+    intros q E; split; [exact (static_in _ _ _ HL (HrL q E)) |].
+    apply (Hrd q (HrL q E) (Hrr q E)).
+    - unfold live_value; simpl; destruct Hab as [<- | <-]; subst rP; simpl; rewrite Nat.eqb_refl; simpl;
+        rewrite ?orb_true_r; reflexivity.
+    - apply (not_array_val k); [exact (static_in _ _ _ HL (HrL q E)) |].
+      subst rP; simpl in Hdd; injection Hdd as ->; exact I. }
   assert (Hxa : (f = Mul \/ f = Divide) -> varied (amap pa bP) = true -> xev s2 (spell (amap pt aP)) = Some (VReal x)).
-  { intros Hf Hv; refine (Hrq aP HaL _ _ Ha).
+  { intros Hf Hv; refine (Hrq aP HaL (or_introl eq_refl) _ _ _ Ha).
     intros q E; unfold vreads; simpl; rewrite Ecmp; apply reads_op2; auto; right; subst; auto. }
   assert (Hyb : ((f = Mul \/ f = Divide) /\ varied (amap pa aP) = true) \/
                 (f = Divide /\ varied (amap pa bP) = true) -> xev s2 (spell (amap pt bP)) = Some (VReal y)).
-  { intros Hc; refine (Hrq bP HbL _ _ Hb).
+  { intros Hc; refine (Hrq bP HbL (or_intror eq_refl) _ _ _ Hb).
     intros q E; unfold vreads; simpl; rewrite Ecmp.
     destruct Hc as [[Hf Hv] | [-> Hv]]; [apply reads_op2; auto; left; subst; auto | apply reads_op2_div; subst; auto]. }
   assert (Hfl : forall (rP : atom pv), (rP = aP \/ rP = bP) -> forall q, rP = AVar q ->
@@ -1225,7 +1242,10 @@ Proof.
   destruct (barv s2 (stored q)) as [[| | | bm |] |] eqn:Eb; try contradiction.
   assert (Hsi : xev s2 (spell (amap pt iP)) = Some (VInt z)).
   { refine (aspell_ok k s2 iP _ _ Hi); intros p E; split; [exact (static_in _ _ _ HL (HiL p E)) |].
-    apply (Hrd p (HiL p E)); subst; unfold vreads; simpl; rewrite Nat.eqb_refl; reflexivity. }
+    apply (Hrd p (HiL p E)); subst; [unfold vreads; simpl; rewrite Nat.eqb_refl; reflexivity
+                                    | unfold live_value; simpl; rewrite Nat.eqb_refl; rewrite ?orb_true_r; reflexivity
+                                    | apply (not_array_val k); [exact (static_in _ _ _ HL (HiL p eq_refl)) |];
+                                      simpl in Hi; injection Hi as ->; exact I]. }
   pose proof (nth_z_map dsnd z l) as Ezt; rewrite Ez in Ezt; simpl in Ezt.
   rewrite length_map in Hshq.
   destruct (nth_z_length z l bm _ Ez Hshq) as [bk Ebk].
@@ -1268,7 +1288,10 @@ Proof.
     lazymatch H with HiL => fail | HvL => fail | _ => clear H end end.
   assert (Hsi : xev s2 (spell (amap pt iP)) = Some (VInt z)).
   { refine (aspell_ok k s2 iP _ _ Hi); intros p E; split; [exact (static_in _ _ _ HL (HiL p E)) |].
-    apply (Hrd p (HiL p E)); subst; unfold vreads; simpl; rewrite Nat.eqb_refl; reflexivity. }
+    apply (Hrd p (HiL p E)); subst; [unfold vreads; simpl; rewrite Nat.eqb_refl; reflexivity
+                                    | unfold live_value; simpl; rewrite Nat.eqb_refl; rewrite ?orb_true_r; reflexivity
+                                    | apply (not_array_val k); [exact (static_in _ _ _ HL (HiL p eq_refl)) |];
+                                      simpl in Hi; injection Hi as ->; exact I]. }
   pose proof (replace_nth_z_map dsnd z (Dual y dy) l) as Ert; rewrite Er in Ert; simpl in Ert.
   simpl in Hsh; destruct (barv s2 (DBound (j, j))) as [[| | | bn |] |] eqn:Ebn; try contradiction.
   rewrite length_map in Hsh.
