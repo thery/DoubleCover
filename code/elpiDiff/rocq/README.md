@@ -48,7 +48,7 @@ the tangent of the body times the seed.
 
 | Milestone | State |
 |---|---|
-| M1, straight-line bodies (operations, `a[i]`, in-place update) | the simulation is proved, `asim_straight` (`AdjointCorrect.v`, no `Admitted`); the top level (arguments, seeds, value) remains |
+| M1, straight-line bodies (operations, `a[i]`, in-place update) | done: `asim_straight` (`AdjointCorrect.v`) and the top level `adjoint_simulates_duals`, `adjoint_straight_duals` (`AdjointTop.v`), before `simplify`; no `Admitted` |
 | M2, branches | to do |
 | M3, maps | to do |
 | M4, M5, folds and tapes | to do |
@@ -61,7 +61,18 @@ operation computes its value (pushing the overwritten element on the tape of a
 recorded storage); the reverse sweep of each operation transposes it, reading
 only scalars that occur in it; typing and activity of the values (a value not
 varied has a zero tangent); the let, with a fresh variable or updated in
-place; returns, with the value adjoint-value leaves; `asim_straight`.
+place; returns, with the value adjoint-value leaves; the reverse sweep keeps the
+value adjoint-value leaves (`vo_kept`: the reverse code of a straight value
+writes only adjoints); `asim_straight`.
+
+Proved in `AdjointTop.v` (`adjoint_simulates_duals`, Qed, for any body
+simulated by `asim_body`): the arguments of the adjoint function laid out in
+the store, the forward context, the prologue and the seed of each result (a
+returned real; a written real, dependent or inout; a written array), the
+reverse sweep from the owners (the arguments with an adjoint), the final
+adjoints read back as the gradient, `<tangent v, yb> = <seed dx, g>`, and the
+value in adjoint-value. Its hypothesis `length dx = in_dim x` was added, and
+the Boolean arguments that carry an adjoint are excluded by well-formedness.
 
 ## Files
 
@@ -105,6 +116,7 @@ place; returns, with the value adjoint-value leaves; `asim_straight`.
 | `TangentMode.v` | — | `tangent_mode_correct` |
 | `AdjointSpec.v` | — | the layout of the adjoint function: `adjoint_inputs` (primal arguments, initial adjoints xb or the seed yb, the seed of a returned value), `adjoint_output` (the gradient: final minus initial adjoints), `value_given` |
 | `AdjointCorrect.v` | — | the adjoint simulation: the pairing of the owners, the contexts of the two sweeps (`actx`, `rctx`), `asim_body`, `asim_fwd`, `asim_rev`; the operations, the let, returns; `asim_straight` |
+| `AdjointTop.v` | — | the adjoint function from its body: `adjoint_simulates_duals` (the gradient against the seed, the value in adjoint-value), `adjoint_straight_duals` for straight-line functions |
 | `AdjointMode.v` | — | `adjoint_mode_correct`, stated (`Admitted`): where f is defined, for every tangent dx, <df (seed dx), yb> = <seed dx, g>, and adjoint-value gives the value back unless f writes an inout argument |
 
 ## From Elpi to Rocq
