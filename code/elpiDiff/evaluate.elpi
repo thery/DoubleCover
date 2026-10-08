@@ -1,7 +1,7 @@
 % evaluate.elpi — running the functions of a case with the evaluators.
 %
 % Not accumulated by adjudge.elpi: the evaluators use float functions of Elpi
-% newer than its release 3.7.1 (fexp, pow, string_to_real), and the tool itself
+% newer than its release 3.7.1 (exp, pow, string_to_real), and the tool itself
 % must keep working without them. A case is evaluated through a file that
 % accumulates this one and the case:
 %   accumulate evaluate.  accumulate primal.

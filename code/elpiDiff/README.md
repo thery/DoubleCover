@@ -299,7 +299,7 @@ dy = J dx: forward differentiation by the evaluator itself, with no
 transformation of the program. Over `duals (duals floats)` the same evaluator
 gives second derivatives.
 
-The evaluator uses float functions that Elpi 3.7.1 lacks (`fexp`, `pow`,
+The evaluator uses float functions that Elpi 3.7.1 lacks (`exp`, `pow`,
 `string_to_real`, proposed in LPCIC/elpi#459), so it lives in files that
 `adjudge.elpi` does not load: the tool itself still runs with Elpi 3.7.1. A case
 is evaluated through a file that accumulates `evaluate` and the case,

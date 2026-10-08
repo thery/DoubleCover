@@ -83,7 +83,7 @@ expr-string (d-op1 (pow K) A) S :- !, expr-string A SA, S is "(pow_int " ^ SA ^ 
 expr-string (d-op1 F A) S :- !, op1-name F N, expr-string A SA, S is "(" ^ N ^ " " ^ SA ^ ")".
 expr-string (d-op2 F A B) S :-
   expr-type A C, expr-string A SA, expr-string B SB,
-  if (C = "Z") (int-op2 F SA SB S) (float-op2 F SA SB S).
+  if (C = "Z") (int-op2 F SA SB S) (gallina-op2 F SA SB S).
 
 func op1-name unary -> string.
 op1-name sin "fsin".
@@ -92,15 +92,15 @@ op1-name exp "fexp".
 op1-name log "flog".
 op1-name sqrt "sqrt".
 
-func float-op2 binary, string, string -> string.
-float-op2 add A B S :- S is "(" ^ A ^ " + " ^ B ^ ")".
-float-op2 sub A B S :- S is "(" ^ A ^ " - " ^ B ^ ")".
-float-op2 mul A B S :- S is "(" ^ A ^ " * " ^ B ^ ")".
-float-op2 divide A B S :- S is "(" ^ A ^ " / " ^ B ^ ")".
-float-op2 lt A B S :- S is "(" ^ A ^ " <? " ^ B ^ ")".
-float-op2 le A B S :- S is "(" ^ A ^ " <=? " ^ B ^ ")".
-float-op2 gt A B S :- S is "(" ^ B ^ " <? " ^ A ^ ")".
-float-op2 ge A B S :- S is "(" ^ B ^ " <=? " ^ A ^ ")".
+func gallina-op2 binary, string, string -> string.
+gallina-op2 add A B S :- S is "(" ^ A ^ " + " ^ B ^ ")".
+gallina-op2 sub A B S :- S is "(" ^ A ^ " - " ^ B ^ ")".
+gallina-op2 mul A B S :- S is "(" ^ A ^ " * " ^ B ^ ")".
+gallina-op2 divide A B S :- S is "(" ^ A ^ " / " ^ B ^ ")".
+gallina-op2 lt A B S :- S is "(" ^ A ^ " <? " ^ B ^ ")".
+gallina-op2 le A B S :- S is "(" ^ A ^ " <=? " ^ B ^ ")".
+gallina-op2 gt A B S :- S is "(" ^ B ^ " <? " ^ A ^ ")".
+gallina-op2 ge A B S :- S is "(" ^ B ^ " <=? " ^ A ^ ")".
 
 func int-op2 binary, string, string -> string.
 int-op2 add A B S :- S is "(" ^ A ^ " + " ^ B ^ ")%nat".

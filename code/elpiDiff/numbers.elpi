@@ -49,7 +49,7 @@ func float-op1 unary, float -> float.
 float-op1 neg X Y :- !, Y is ~ X.
 float-op1 sin X Y :- !, Y is sin X.
 float-op1 cos X Y :- !, Y is cos X.
-float-op1 exp X Y :- !, Y is fexp X.
+float-op1 exp X Y :- !, Y is exp X.
 float-op1 log X Y :- !, Y is ln X.
 float-op1 sqrt X Y :- !, Y is sqrt X.
 float-op1 (pow K) X Y :- Y is pow X (int_to_real K).

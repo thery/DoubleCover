@@ -88,7 +88,7 @@ Definition literal (s : string) : string :=
 Definition op1_name (f : unary) : string :=
   match f with Sin => "fsin" | Cos => "fcos" | Exp => "fexp" | Log => "flog" | Sqrt => "sqrt" | _ => "?" end.
 
-Definition float_op2 (f : binary) (a b : string) : string :=
+Definition gallina_op2 (f : binary) (a b : string) : string :=
   match f with
   | Add => "(" ++ a ++ " + " ++ b ++ ")"
   | Sub => "(" ++ a ++ " - " ++ b ++ ")"
@@ -124,7 +124,7 @@ Fixpoint expr_string (g : env) (e : dexpr string) : string :=
   | DOp1 f a => "(" ++ op1_name f ++ " " ++ expr_string g a ++ ")"
   | DOp2 f a b =>
       if String.eqb (expr_type g a) "Z" then int_op2 f (expr_string g a) (expr_string g b)
-      else float_op2 f (expr_string g a) (expr_string g b)
+      else gallina_op2 f (expr_string g a) (expr_string g b)
   end.
 
 (* --- the variables a block assigns -------------------------------------------- *)
