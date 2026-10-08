@@ -1,0 +1,24 @@
+Reusing the proof of a function in a larger Capla program
+==========================================================
+
+one.b defines one function, zero2.  two.b is one.b followed by another
+function g, never called.  `make` runs `ccomp -dcaplarocq` on both and
+compares the two terms of zero2:
+
+  one.v:  VAR 11 "__tmp__var__"; VAR 9 "a1_1_1_";  VAR 4 "i"; VAR 10 "_i_hi"
+  two.v:  VAR 20 "__tmp__var__"; VAR 18 "a1_1_1_"; VAR 4 "i"; VAR 19 "_i_hi"
+
+The temporaries are numbered after all the identifiers of the file, so adding
+g changes the term of zero2 (the same holds when the larger program's own code
+is placed after the reused one).  A theorem about zero2 proved on one.v (on
+eval_func with one.v's genv) is thus about a different term from zero2 in
+two.v, and cannot be reused there.
+
+In practice: a function proved in one program must be proved again in every
+program that includes it.  Our case: a filter of 17 functions, proved once,
+called from a search program; we declared the filter as an extern in the
+search program, with an axiom stating what it returns.
+
+Question: is there, or is there planned, a way to reuse the proof of a
+function in a larger program (stable numbering of the temporaries, a renaming
+lemma for eval_func, or linking of separately proved programs)?

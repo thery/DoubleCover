@@ -1,0 +1,47 @@
+-R . HtrFilterCapla
+-Q htr-model APaulRocq
+-Q exp100-model Exp100
+-Q tablekl-model ExpTableKL
+-Q vst-model HtrVst
+htr-model/HtrDefs.v
+htr-model/Shift.v
+htr-model/TaylorScan.v
+htr-model/TaylorReal.v
+htr-model/TaylorLink.v
+htr-model/HtrMath.v
+exp100-model/ExpNum.v
+exp100-model/ExpTable.v
+exp100-model/ExpConsts.v
+exp100-model/ExpModel.v
+exp100-model/ExpModelBounds.v
+exp100-model/ExpLimbs.v
+exp100-model/ExpBits.v
+exp100-model/ExpHard.v
+exp100-model/ExpTaylor.v
+exp100-model/ExpBudget.v
+exp100-model/ExpBound.v
+exp100-model/ExpFilter.v
+exp100-model/ExpSpec.v
+tablekl-model/ExpCheck.v
+tablekl-model/ExpParse.v
+tablekl-model/ExpTaylor.v
+tablekl-model/ExpArith.v
+tablekl-model/ExpEncl.v
+tablekl-model/ExpProof.v
+tablekl-model/ExpHard.v
+vst-model/TableCands.v
+htr_filter.v
+HtrWords.v
+DiffPure.v
+WordLemmas.v
+Specs.v
+AddProof.v
+SubProof.v
+TstepProof.v
+DifftabProof.v
+SearchProof.v
+SearchAll.v
+Bits.v
+ExtAxiom.v
+FilterProof.v
+Final.v
