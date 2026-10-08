@@ -237,6 +237,35 @@ Definition barv (s : store R) (n : dvar W) : option (val R) := store_get s (keyv
 
 Definition dotr (a b : list R) : R := fold_right Rplus 0 (map (fun '(p, q) => p * q) (combine a b)).
 
+Lemma dotr_cons a l b m : dotr (a :: l) (b :: m) = a * b + dotr l m.
+Proof. reflexivity. Qed.
+
+(* Changing one element of the second vector. *)
+Lemma dotr_replace n l m m' lk mk w :
+  nth_error l n = Some lk -> nth_error m n = Some mk -> replace_nth n w m = Some m' ->
+  dotr l m' = dotr l m + lk * (w - mk).
+Proof.
+  revert l m m'; induction n as [| n IH]; intros [| a l] [| b m] m' Hl Hm Hr; simpl in *; try discriminate.
+  - injection Hl as <-; injection Hm as <-; injection Hr as <-; rewrite !dotr_cons; ring.
+  - destruct (replace_nth n w m) as [m1 |] eqn:E; [| discriminate]; injection Hr as <-.
+    rewrite !dotr_cons, (IH l m m1 Hl Hm E); ring.
+Qed.
+
+Lemma dotr_sym l m : dotr l m = dotr m l.
+Proof.
+  revert m; induction l as [| a l IH]; intros [| b m]; try reflexivity.
+  rewrite !dotr_cons, IH; ring.
+Qed.
+
+Lemma replace_nth_nth {A : Type} n (w : A) m m' :
+  replace_nth n w m = Some m' -> exists mk, nth_error m n = Some mk /\ nth_error m' n = Some w /\ length m' = length m.
+Proof.
+  revert m m'; induction n as [| n IH]; intros [| b m] m' Hr; simpl in *; try discriminate.
+  - injection Hr as <-; eauto.
+  - destruct (replace_nth n w m) as [m1 |] eqn:E; [| discriminate]; injection Hr as <-.
+    destruct (IH m m1 E) as [mk [A1 [A2 A3]]]; exists mk; simpl; auto.
+Qed.
+
 Definition inner (t : val R) (b : option (val R)) : R :=
   match t, b with
   | VReal x, Some (VReal y) => x * y
@@ -947,6 +976,76 @@ Proof.
   unfold keyv, stored; simpl; discriminate.
 Qed.
 
+(* An accumulation into an element of an array. *)
+Lemma run_increment_at s x ei e bm z bk w bm' :
+  store_get s (keyv x) = Some (VArray bm) -> xev s ei = Some (VInt z) -> nth_z z bm = Some bk ->
+  xev s e = Some (VReal w) -> replace_nth_z z (bk + w) bm = Some bm' ->
+  run [DIncrement (DAt (DVar x) ei) e] s = Some (store_set s (keyv x) (VArray bm')).
+Proof.
+  intros H1 H2 H3 H4 H5; unfold run, xev, keyv in *.
+  change (map (Simplify.out_dstmt nat) [DIncrement (DAt (DVar x) ei) e])
+    with [DIncrement (DAt (DVar (Simplify.out_dvar nat x)) (Simplify.out_dexpr nat ei)) (Simplify.out_dexpr nat e)].
+  cbn [exec_stmts exec]; cbn [xeval]; rewrite H1, H2; cbn; rewrite H3; cbn; rewrite H4; cbn.
+  rewrite H1, H2, H5; reflexivity.
+Qed.
+
+Lemma nth_z_length {A B : Type} z (l : list A) (m : list B) d :
+  nth_z z l = Some d -> length l = length m -> exists e, nth_z z m = Some e.
+Proof.
+  unfold nth_z; destruct (z <? 0)%Z; [discriminate |]; intros H Hl.
+  destruct (nth_error m (Z.to_nat z)) as [e |] eqn:E; [eauto |].
+  apply nth_error_None in E; assert (nth_error l (Z.to_nat z) <> None) by congruence.
+  apply nth_error_Some in H0; lia.
+Qed.
+
+Lemma replace_exists {A : Type} z (m : list A) e w :
+  nth_z z m = Some e -> exists m', replace_nth_z z w m = Some m'.
+Proof.
+  unfold nth_z, replace_nth_z; destruct (z <? 0)%Z; [discriminate |].
+  generalize (Z.to_nat z); clear z; intros n; revert m; induction n as [| n IH]; intros [| b m] H; simpl in *;
+    try discriminate; eauto.
+  destruct (IH m H) as [m' E]; rewrite E; eauto.
+Qed.
+
+(* Replacing the tangent of an owner. *)
+Lemma pairing_oset O s t n t' :
+  owners_ok O -> NoDup (map snd O) -> In (t, n) O ->
+  pairing (oset O n t') s = pairing O s - inner t (barv s n) + inner t' (barv s n).
+Proof.
+  induction O as [| [t0 n0] O IH]; intros Hok Hnd Hin; simpl in Hin |- *; [contradiction |].
+  inversion Hnd as [| ? ? Hn Hnd']; subst.
+  assert (Hok' : owners_ok O) by (intros t1 m I; apply (Hok t1); right; exact I).
+  assert (Hcn : consistent n) by (apply (Hok t); exact Hin).
+  assert (Hcn0 : consistent n0) by (apply (Hok t0); left; reflexivity).
+  destruct Hin as [E | Hin].
+  - injection E as -> ->; rewrite (proj2 (dvar_eq_consistent n n Hcn Hcn) eq_refl); simpl.
+    rewrite oset_notin; auto; ring.
+  - destruct (Simplify.dvar_eq nat n n0) eqn:E.
+    + apply dvar_eq_consistent in E; auto; subst; destruct Hn; apply in_map_iff; exists (t, n0); auto.
+    + simpl; rewrite IH; auto; ring.
+Qed.
+
+Lemma dotr_zero l m : Forall (fun x => x = 0) m -> dotr l m = 0.
+Proof.
+  intros H; revert l; induction H as [| x m Hx Hm IH]; intros [| a l]; try reflexivity.
+  rewrite dotr_cons, IH, Hx; ring.
+Qed.
+
+Lemma oset_snd O n t : map snd (oset O n t) = map snd O.
+Proof.
+  unfold oset; rewrite map_map; apply map_ext; intros [t' n']; destruct (Simplify.dvar_eq nat n n'); reflexivity.
+Qed.
+
+Lemma oput_in O n t : In n (map snd (oput O n t)).
+Proof.
+  unfold oput; destruct (in_dec dvar_eq_dec_c n (map snd O)) as [I | I]; [rewrite oset_snd; exact I | left; reflexivity].
+Qed.
+
+Lemma oput_sub O n t m : In m (map snd O) -> In m (map snd (oput O n t)).
+Proof.
+  unfold oput; destruct (in_dec dvar_eq_dec_c n (map snd O)); [rewrite oset_snd; auto | intros H; right; exact H].
+Qed.
+
 Lemma oput_notin O n t : ~ In n (map snd O) -> oput O n t = (t, n) :: O.
 Proof. intros H; unfold oput; destruct (in_dec dvar_eq_dec_c n (map snd O)); [contradiction | reflexivity]. Qed.
 
@@ -1103,6 +1202,173 @@ Proof.
   split; [exact (rev_frame_trans _ _ _ _ _ _ F1 F2) |].
   split; [exact S2 |].
   rewrite P2, P1; unfold O'; simpl; rewrite Ebn, Edz; ring.
+Qed.
+
+Lemma arev_get (aP iP : atom pv) : asim_rev (AGet aP iP).
+Proof.
+  rev_intro; simpl in Htc, Hst, Hvr |- *.
+  split; [lia |]; intros s2 O Hrd Hr Hn Hsh.
+  pose proof (s_static _ _ _ _ _ _ _ Hs) as HL.
+  destruct aP as [q | |]; simpl in Hvr; try discriminate.
+  assert (Hq : In q L) by auto.
+  assert (HiL : forall p, iP = AVar p -> In p L) by auto.
+  destruct (static_in _ _ _ HL Hq) as [_ [_ [Hsq _]]].
+  cbn [aeval_value amap aeval_atom] in Hev.
+  destruct (pd q) as [| | | l |] eqn:Eq; try discriminate.
+  destruct (aeval_atom (duals reals) (amap pd iP)) as [[| z | | |] |] eqn:Hi; try discriminate.
+  destruct (nth_z z l) as [[x dx] |] eqn:Ez; [| discriminate]; injection Hev as <-.
+  rewrite (oput_notin O _ _ (Hn eq_refl)); cbn [amap] in *.
+  simpl in Hsh; destruct (barv s2 (DBound (j, j))) as [[be | | | |] |] eqn:Ebn; try contradiction.
+  assert (Hfl : vflows k (AGet (AVar (pa q)) (amap pa iP)) q) by (unfold vflows; simpl; rewrite Nat.eqb_refl; reflexivity).
+  pose proof (r_useful _ _ _ _ _ _ _ Hr q Hq Hfl Hvr) as Hin; rewrite Eq in Hin; simpl in Hin.
+  pose proof (r_shape _ _ _ _ _ _ _ Hr _ _ Hin) as Hshq; simpl in Hshq.
+  destruct (barv s2 (stored q)) as [[| | | bm |] |] eqn:Eb; try contradiction.
+  assert (Hsi : xev s2 (spell (amap pt iP)) = Some (VInt z)).
+  { refine (aspell_ok k s2 iP _ _ Hi); intros p E; split; [exact (static_in _ _ _ HL (HiL p E)) |].
+    apply (Hrd p (HiL p E)); subst; unfold vreads; simpl; rewrite Nat.eqb_refl; reflexivity. }
+  pose proof (nth_z_map dsnd z l) as Ezt; rewrite Ez in Ezt; simpl in Ezt.
+  rewrite length_map in Hshq.
+  destruct (nth_z_length z l bm _ Ez Hshq) as [bk Ebk].
+  destruct (replace_exists z bm bk (bk + be) Ebk) as [bm' Ebm'].
+  unfold contribution; simpl; rewrite (Hbar q Hq), Hvr, Hsq.
+  pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
+  exists (store_set s2 (keyv (BarOf (stored q))) (VArray bm')).
+  split; [apply (run_increment_at _ _ _ _ bm z bk be); auto |].
+  split; [apply rev_frame_set; [right; apply in_map_iff; eexists; split; [| exact Hin]; reflexivity | reflexivity] |].
+  assert (Hlen : length bm' = length bm).
+  { unfold replace_nth_z in Ebm'; destruct (z <? 0)%Z; [discriminate |].
+    destruct (replace_nth_nth _ _ _ _ Ebm') as [_ [_ [_ E]]]; exact E. }
+  split.
+  - apply (shaped_set O s2 (VArray (map dsnd l))); auto; [apply (r_shape _ _ _ _ _ _ _ Hr) |].
+    intros t' Ht'; rewrite (r_value _ _ _ _ _ _ _ Hr q t' Hq Hfl Ht'), Eq; simpl; rewrite length_map; lia.
+  - rewrite (pairing_set_in O s2 (VArray (map dsnd l)) (stored q)); auto; [| apply (r_nodup _ _ _ _ _ _ _ Hr)].
+    rewrite Eb, Ebn; simpl.
+    unfold nth_z, replace_nth_z in Ezt, Ebk, Ebm'; destruct (z <? 0)%Z; [discriminate |].
+    rewrite (dotr_replace _ _ _ _ _ _ _ Ezt Ebk Ebm'); ring.
+Qed.
+
+Lemma arev_set (aP iP vP : atom pv) : asim_rev (ASet aP iP vP).
+Proof.
+  rev_intro; simpl in Htc, Hvr |- *.
+  split; [lia |]; intros s2 O Hrd Hr Hn Hsh.
+  pose proof (s_static _ _ _ _ _ _ _ Hs) as HL.
+  pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
+  pose proof (r_nodup _ _ _ _ _ _ _ Hr) as Hnd.
+  cbn [aeval_value] in Hev.
+  destruct (aeval_atom (duals reals) (amap pd aP)) as [[| | | l |] |] eqn:Ha; try discriminate;
+    destruct (aeval_atom (duals reals) (amap pd iP)) as [[| z | | |] |] eqn:Hi; try discriminate;
+    destruct (aeval_atom (duals reals) (amap pd vP)) as [[[y dy] | | | |] |] eqn:Hv; try discriminate.
+  destruct (replace_nth_z z (Dual y dy) l) as [l1 |] eqn:Er; [| discriminate]; injection Hev as <-.
+  destruct aP as [qa | | ]; simpl in Ha; try (apply aeval_literal in Ha as [? [_ E]]; discriminate); try discriminate.
+  injection Ha as Eqa; simpl in Hst.
+  assert (Hqa : In qa L) by auto.
+  assert (HiL : forall p, iP = AVar p -> In p L) by auto.
+  assert (HvL : forall p, vP = AVar p -> In p L) by auto.
+  repeat match goal with H : forall p : pv, _ = AVar p -> In p L |- _ =>
+    lazymatch H with HiL => fail | HvL => fail | _ => clear H end end.
+  assert (Hsi : xev s2 (spell (amap pt iP)) = Some (VInt z)).
+  { refine (aspell_ok k s2 iP _ _ Hi); intros p E; split; [exact (static_in _ _ _ HL (HiL p E)) |].
+    apply (Hrd p (HiL p E)); subst; unfold vreads; simpl; rewrite Nat.eqb_refl; reflexivity. }
+  pose proof (replace_nth_z_map dsnd z (Dual y dy) l) as Ert; rewrite Er in Ert; simpl in Ert.
+  simpl in Hsh; destruct (barv s2 (DBound (j, j))) as [[| | | bn |] |] eqn:Ebn; try contradiction.
+  rewrite length_map in Hsh.
+  rewrite Hst in *.
+  unfold replace_nth_z in Er, Ert; destruct (z <? 0)%Z eqn:Ez0; [discriminate |].
+  destruct (replace_nth_nth _ _ _ _ Ert) as [ta_z [Etz [_ Elen]]].
+  pose proof (replace_nth_length _ _ _ _ Er) as Elen1.
+  destruct (nth_error bn (Z.to_nat z)) as [bk |] eqn:Ebk.
+  2:{ exfalso; apply nth_error_None in Ebk.
+      assert (Hne : nth_error (map dsnd l) (Z.to_nat z) <> None) by congruence.
+      apply nth_error_Some in Hne; rewrite length_map in Hne; lia. }
+  destruct (replace_exists z bn bk 0) as [bn0 Ebn0]; [unfold nth_z; rewrite Ez0; exact Ebk |].
+  set (ei := spell (amap pt iP)) in *.
+  set (n := stored qa) in *.
+  assert (Hcn : consistent n) by (rewrite <- Hst; reflexivity).
+  assert (Helem : forall s, barv s n = Some (VArray bn) -> xev s ei = Some (VInt z) ->
+                    xev s (DAt (DVar (BarOf n)) ei) = Some (VReal bk)).
+  { intros s0 G1 G2; unfold xev, barv, keyv in *; simpl in *; rewrite G1, G2; unfold nth_z; rewrite Ez0; simpl; rewrite Ebk; reflexivity. }
+  assert (Hzero : forall s, barv s n = Some (VArray bn) -> xev s ei = Some (VInt z) ->
+                    run [DAssign (DAt (DVar (BarOf n)) ei) (DReal "0")] s = Some (store_set s (keyv (BarOf n)) (VArray bn0))).
+  { intros s0 G1 G2; apply (run_assign_at s0 (BarOf n) ei (DReal "0") bn z 0 bn0 G1 G2); [rewrite xev_DReal, lit_0; reflexivity | exact Ebn0]. }
+  assert (Hdot0 : dotr (map dsnd l) bn0 = dotr (map dsnd l) bn + ta_z * (0 - bk)).
+  { apply (dotr_replace _ _ _ _ _ _ _ Etz Ebk); unfold replace_nth_z in Ebn0; rewrite Ez0 in Ebn0; exact Ebn0. }
+  assert (Hdot1 : dotr (map dsnd l1) bn = dotr (map dsnd l) bn + bk * (dy - ta_z)).
+  { rewrite (dotr_sym (map dsnd l1)), (dotr_sym (map dsnd l)); exact (dotr_replace _ _ _ _ _ _ _ Ebk Etz Ert). }
+  assert (Hfla : vflows k (ASet (amap pa (AVar qa)) (amap pa iP) (amap pa vP)) qa)
+    by (unfold vflows; cbn [value_needs fst snd atoms_of_atoms atoms_of_atom amap];
+        rewrite atom_member_union, atom_member_var; reflexivity).
+  assert (Hta : forall t, In (t, n) O -> t = VArray (map dsnd l)).
+  { intros t Ht; rewrite (r_value _ _ _ _ _ _ _ Hr qa t Hqa Hfla Ht), Eqa; reflexivity. }
+  assert (Hstep : exists s', run (match bar (amap pt vP) with
+                                  | Some bv => [DIncrement bv (DAt (DVar (BarOf n)) ei)] | None => [] end) s2 = Some s' /\
+            rev_frame c (inplace wP pp) (oput O n (tangent (VArray l1))) s2 s' /\
+            (forall t m, In (t, m) O -> shaped t (barv s' m)) /\
+            pairing O s' = pairing O s2 + dy * bk /\ barv s' n = Some (VArray bn) /\ xev s' ei = Some (VInt z)).
+  { destruct (varied (amap pa vP)) eqn:Evv.
+    - destruct vP as [qv | |]; simpl in Evv; try discriminate.
+      assert (Hqv : In qv L) by auto.
+      destruct (static_in _ _ _ HL Hqv) as [_ [_ [Hsqv _]]].
+      assert (Hflv : vflows k (ASet (amap pa (AVar qa)) (amap pa iP) (amap pa (AVar qv))) qv)
+        by (unfold vflows; cbn [value_needs fst snd atoms_of_atoms atoms_of_atom amap];
+            rewrite atom_member_union, atom_member_union, atom_member_var, !orb_true_r; reflexivity).
+      simpl in Hv; injection Hv as Eqv.
+      pose proof (r_useful _ _ _ _ _ _ _ Hr qv Hqv Hflv Evv) as Hin; rewrite Eqv in Hin; simpl in Hin.
+      pose proof (r_shape _ _ _ _ _ _ _ Hr _ _ Hin) as Hshv; simpl in Hshv.
+      destruct (barv s2 (stored qv)) as [[bv0 | | | |] |] eqn:Eb; try contradiction.
+      assert (Hne : stored qv <> n) by (intros E; rewrite E, Ebn in Eb; discriminate).
+      assert (Hcv : consistent (stored qv)) by (apply (Hok (VReal dy)); exact Hin).
+      simpl; rewrite (Hbar qv Hqv), Evv, Hsqv.
+      exists (store_set s2 (keyv (BarOf (stored qv))) (VReal (bv0 + bk))).
+      split; [apply run_increment; [exact Eb | exact (Helem s2 Ebn Hsi)] |].
+      split; [apply rev_frame_set; [apply oput_sub, in_map_iff; exists (VReal dy, stored qv); auto | exact Hcv] |].
+      split; [apply (shaped_set O s2 (VReal dy)); auto; [apply (r_shape _ _ _ _ _ _ _ Hr) |];
+              intros t' Ht'; rewrite (r_value _ _ _ _ _ _ _ Hr qv t' Hqv Hflv Ht'), Eqv; exact I |].
+      split; [rewrite (pairing_set_in O s2 (VReal dy) (stored qv)); auto; rewrite Eb; simpl; ring |].
+      split; [rewrite barv_set_other; auto |].
+      rewrite xev_set_other; [exact Hsi | apply (avoid_bar_spell k); intros p E; exact (static_in _ _ _ HL (HiL p E))].
+    - assert (Hz : dy = 0).
+      { assert (Hst' : forall q, vP = AVar q -> static_ok k q) by (intros q E; exact (static_in _ _ _ HL (HvL q E))).
+        exact (atom_zero k vP _ Hst' Evv Hv). }
+      assert (Hnb : bar (amap pt vP) = None).
+      { destruct vP as [q | |]; simpl; auto; simpl in Evv; rewrite (Hbar q (HvL q eq_refl)), Evv; reflexivity. }
+      rewrite Hnb; exists s2; split; [reflexivity |].
+      split; [intros ? ? ? ? ? ?; reflexivity | split; [apply (r_shape _ _ _ _ _ _ _ Hr) |]].
+      split; [rewrite Hz; ring | auto]. }
+  destruct Hstep as [s' [R1 [F1 [S1 [P1 [B1 X1]]]]]].
+  exists (store_set s' (keyv (BarOf n)) (VArray bn0)).
+  split.
+  { destruct (bar (amap pt vP)) as [bv |].
+    - change [DIncrement bv (DAt (DVar (BarOf n)) ei); DAssign (DAt (DVar (BarOf n)) ei) (DReal "0")]
+        with (app [DIncrement bv (DAt (DVar (BarOf n)) ei)] [DAssign (DAt (DVar (BarOf n)) ei) (DReal "0")]).
+      rewrite run_app; lazymatch goal with |- match ?r with _ => _ end = _ => replace r with (Some s') by (symmetry; exact R1) end.
+      exact (Hzero s' B1 X1).
+    - injection R1 as <-; exact (Hzero s2 B1 X1). }
+  split; [exact (rev_frame_trans _ _ _ _ _ _ F1 (rev_frame_set _ _ _ _ _ _ (oput_in O n _) Hcn)) |].
+  assert (Hlen0 : length bn0 = length bn) by exact (replace_nth_z_length _ _ _ _ Ebn0).
+  split.
+  { intros t m Htm; destruct (dvar_eq_dec_c n m) as [<- | Enm].
+    - rewrite barv_set_same, (Hta t Htm); simpl; rewrite length_map; lia.
+    - rewrite barv_set_other; auto; [apply (Hok t); exact Htm]. }
+  destruct (in_dec dvar_eq_dec_c n (map snd O)) as [Inn | Inn].
+  - apply in_map_iff in Inn as [[t n'] [En Itn]]; simpl in En; subst n'.
+    pose proof (Hta t Itn) as ->.
+    rewrite (pairing_set_in O s' (VArray (map dsnd l)) n); auto.
+    unfold oput; destruct (in_dec dvar_eq_dec_c n (map snd O)) as [_ | Nn];
+      [| destruct Nn; apply in_map_iff; exists (VArray (map dsnd l), n); auto].
+    rewrite (pairing_oset O s2 (VArray (map dsnd l)) n); auto.
+    rewrite B1, Ebn, P1; simpl; rewrite Hdot0, Hdot1; ring.
+  - rewrite pairing_set_other; auto.
+    rewrite (oput_notin O _ _ Inn); simpl; rewrite Ebn, P1, Hdot1.
+    assert (Hva : avaried (pa qa) = false).
+    { destruct (avaried (pa qa)) eqn:E; [| reflexivity]; exfalso; apply Inn.
+      apply in_map_iff; exists (tangent (pd qa), stored qa); split; [reflexivity |].
+      exact (r_useful _ _ _ _ _ _ _ Hr qa Hqa Hfla E). }
+    destruct (static_in _ _ _ HL Hqa) as [_ [_ [_ [_ [_ [_ [_ [_ [_ Hzq]]]]]]]]].
+    specialize (Hzq Hva); rewrite Eqa in Hzq; simpl in Hzq.
+    assert (Hz0 : Forall (fun x => x = 0) (map dsnd l)) by (apply Forall_map; exact Hzq).
+    rewrite dotr_sym, (dotr_zero bn _ Hz0).
+    assert (ta_z = 0) as -> by (rewrite Forall_forall in Hz0; apply Hz0; eapply nth_error_In; eauto).
+    ring.
 Qed.
 
 End Sim.
