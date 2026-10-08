@@ -214,7 +214,7 @@ Proof.
     (val_dual v (if varied_role r then firstn (nreals v) dx else repeat 0%R (nreals v)) :: seed_args ds x (skipn (nreals v) dx)).
   cbn [map concat]; rewrite tangent_val_dual.
   - f_equal; apply IH; rewrite length_skipn; rewrite nreals_length in *; lia.
-  - destruct (varied_role r); [rewrite firstn_length; rewrite nreals_length; lia | apply repeat_length].
+  - destruct (varied_role r); [rewrite length_firstn; rewrite nreals_length; lia | apply repeat_length].
 Qed.
 
 (* ---------------------------------------------------------------------------
@@ -269,7 +269,7 @@ Proof.
     set (m := nreals v).
     assert (Hm : m = length (reals_of_val v)) by apply nreals_length.
     assert (Hsl : length (slice (Decl nm t r) v dx) = m).
-    { unfold slice; simpl; destruct (varied_role r); [rewrite firstn_length; lia | apply repeat_length]. }
+    { unfold slice; simpl; destruct (varied_role r); [rewrite length_firstn; lia | apply repeat_length]. }
     change (seed (Decl nm t r :: ds) (v :: x) dx) with (slice (Decl nm t r) v dx ++ seed ds x (skipn m dx)).
     cbn [gradient grad_rhs bars_fit] in Hb |- *.
     destruct (has_dot (Decl nm t r)) eqn:Hd.
@@ -280,12 +280,12 @@ Proof.
       set (piece := if written_decl (Decl nm t r) then reals_of_val b else lsub (reals_of_val b) (firstn m xb)).
       assert (Hlp : length piece = m).
       { unfold piece; destruct (written_decl (Decl nm t r)); [lia |].
-        unfold lsub; rewrite length_map, length_combine, firstn_length; lia. }
+        unfold lsub; rewrite length_map, length_combine, length_firstn; lia. }
       exists (piece ++ g); split; [reflexivity |].
       split; [cbn [map concat]; rewrite !length_app; lia |].
       rewrite dotl_app by lia; rewrite Hdg; unfold piece.
       destruct (written_decl (Decl nm t r)); [ring |].
-      rewrite dotl_lsub by (rewrite ?firstn_length; lia); ring.
+      rewrite dotl_lsub by (rewrite ?length_firstn; lia); ring.
     + destruct (IH (skipn m xb) (skipn m dx) bars ltac:(rewrite length_skipn; lia) ltac:(rewrite length_skipn; lia) Hb)
         as [g [Hg [Hlg Hdg]]].
       fold m; rewrite Hg; simpl.
@@ -358,9 +358,9 @@ Proof.
     assert (Hm : m = length (reals_of_val v)) by apply nreals_length.
     assert (Hsl : reals_of_val (TangentCorrect.tangent (pd p)) = slice (Decl nm t r) v dx).
     { rewrite Hp1; apply tangent_val_dual; unfold slice; simpl.
-      destruct (varied_role r); [rewrite firstn_length; lia | apply repeat_length]. }
+      destruct (varied_role r); [rewrite length_firstn; lia | apply repeat_length]. }
     assert (Hm' : length (slice (Decl nm t r) v dx) = m).
-    { unfold slice; simpl; destruct (varied_role r); [rewrite firstn_length; lia | apply repeat_length]. }
+    { unfold slice; simpl; destruct (varied_role r); [rewrite length_firstn; lia | apply repeat_length]. }
     cbn [bars_in owners_of init_sum] in H3, H0 |- *; rewrite Hd1 in H3, H0 |- *.
     change (bar_inputs (Decl nm t r :: ds) (v :: x) xb yb) with
       ((if has_dot (Decl nm t r) then [with_list v (if written_decl (Decl nm t r) then yb else firstn m xb)] else []) ++
@@ -838,6 +838,26 @@ Proof.
     cbv zeta beta iota; fold (stored p); ring.
 Qed.
 
+(* The initial adjoint of the written argument is the seed. *)
+Lemma bars_in_written ds x xb yb dx Ls s w :
+  Forall2 fits ds x -> map dname Ls = ds -> map pd Ls = seed_args ds x dx ->
+  bars_in Ls s (bar_inputs ds x xb yb) -> In w Ls -> has_dot (dname w) = true -> written_decl (dname w) = true ->
+  barv s (stored w) = Some (with_list (TangentCorrect.primal (pd w)) yb).
+Proof.
+  intros H; revert xb dx Ls; induction H as [| [nm t r] v ds x Hf Hfs IH]; intros xb dx Ls Hd Hp Hb Hw Hdw Hww.
+  - destruct Ls; [destruct Hw | discriminate].
+  - destruct Ls as [| p Ls]; [discriminate |]; injection Hd as Hd1 Hd.
+    cbn [seed_args map] in Hp; injection Hp as Hp1 Hp.
+    change (bar_inputs (Decl nm t r :: ds) (v :: x) xb yb) with
+      ((if has_dot (Decl nm t r) then [with_list v (if written_decl (Decl nm t r) then yb else firstn (nreals v) xb)] else []) ++
+       bar_inputs ds x (skipn (nreals v) xb) yb) in Hb.
+    cbn [bars_in] in Hb; rewrite Hd1 in Hb.
+    destruct Hw as [<- | Hw].
+    + rewrite Hd1 in Hdw, Hww; rewrite Hdw, Hww in Hb; destruct Hb as [B _ ].
+      rewrite B, Hp1, primal_val_dual; reflexivity.
+    + destruct (has_dot (Decl nm t r)); [destruct Hb as [_ [_ Hb]] |]; exact (IH _ _ _ Hd Hp Hb Hw Hdw Hww).
+Qed.
+
 Definition ty_size (t : ty) : nat := match t with Real => 1 | Array z => Z.to_nat z | _ => 0 end.
 
 Lemma has_type_size t v : has_type t v -> real_or_array t -> length (reals_of_val (TangentCorrect.primal v)) = ty_size t.
@@ -1214,7 +1234,7 @@ Proof.
       rewrite nreals_length, (has_type_size t (pd y) Hhy Hraw), Hlyb, (has_type_size t v Hhty Hraw); lia. }
     destruct (bar_store (decls f) x xb yb dx (rev L) s0 Hfit Hlxb Hwyb Hra_ds Hdn Hpd HAL' HB) as [_ Hbars0].
     (* the prologue *)
-    set (O := owners_of (rev L)).
+    set (OW := owners_of (rev L)).
     set (ex := inplace (Some (AVar y)) PTop).
     assert (Hex_bar : forall m, ex <> Some (BarOf m)) by (intros m; unfold ex, inplace; rewrite Hown_cases; destruct t; discriminate).
     assert (Hvt0 : forall m, vo_target vo <> Some (BarOf m))
@@ -1225,11 +1245,98 @@ Proof.
               (forall p, In p (rev L) -> p <> y -> barv s2 (stored p) = barv s1 (stored p)) /\
               (exists b, barv s2 (stored y) = Some b /\ shaped (TangentCorrect.tangent (pd y)) (Some b)) /\
               vo_kept vo s1 s2 /\
-              result_pairing O t ex v se s2 = (init_sum (rev L) s0 + dotl (reals_of_val (TangentCorrect.tangent v)) yb)%R).
-    { admit. }
+              result_pairing OW t ex v se s2 = (init_sum (rev L) s0 + dotl (reals_of_val (TangentCorrect.tangent v)) yb)%R).
+    { assert (Hby1 : barv s1 (stored y) = Some (with_list (TangentCorrect.primal (pd y)) yb)).
+      { rewrite (Hbars1 y HyR); exact (bars_in_written (decls f) x xb yb dx (rev L) s0 y Hfit Hdn Hpd Hbars0 HyR Hdy Hywr). }
+      assert (Hpt : tstored (pt y) = stored y /\ tty (pt y) = t /\ targ (pt y) = Some (nm', r))
+        by (rewrite Ey; repeat split; reflexivity).
+      destruct Hpt as [Htst [Htty Htarg]].
+      unfold adjoint_seed, role_of, stored_of, tof in Eseed; rewrite Htty, Htarg, Htst in Eseed.
+      destruct (static_in _ _ _ Hstat HyL) as [_ [_ [_ [_ [_ [_ [_ [_ [_ Hzy]]]]]]]]].
+      assert (Hav : avaried (pa y) = varied_role r) by (rewrite Ey; reflexivity).
+      assert (Hseedv : forall s, barv s (stored y) = Some (VReal (hd 0%R yb)) ->
+                         xev s (DVar (BarOf (stored y))) = Some (VReal (hd 0%R yb))) by (intros s Hs; exact Hs).
+      destruct t as [| | | z]; try destruct Hraw.
+      - (* a real *)
+        assert (Hexn : ex = None) by (unfold ex, inplace; rewrite Hown_cases; reflexivity).
+        destruct v as [d | | | |]; try (simpl in Hhty; contradiction).
+        destruct (pd y) as [dy | | | |] eqn:Epd; try (simpl in Hhy; contradiction).
+        simpl in Hby1.
+        assert (Hyb1 : dotl (reals_of_val (TangentCorrect.tangent (VReal d))) yb = (dsnd d * hd 0%R yb)%R).
+        { simpl in Hlyb; destruct yb as [| y0 [| ]]; simpl in Hlyb; try discriminate; unfold dotl; simpl; ring. }
+        destruct r; simpl in Hwr; try discriminate.
+        + (* dependent *)
+          simpl in Eseed; injection Eseed as <- <-.
+          exists s1; split; [reflexivity |].
+          split; [intros ? ? ? ? ?; reflexivity |].
+          split.
+          { split; [intros y0 [<- | []]; split; [simpl; exact (Hnum y HyL) | reflexivity] |].
+            intros _; exists (hd 0%R yb); exact (Hseedv s1 Hby1). }
+          split; [intros; reflexivity |].
+          split; [exists (VReal (hd 0%R yb)); split; [exact Hby1 | exact I] |].
+          split; [apply vo_kept_refl |].
+          unfold result_pairing; try rewrite Hexn; unfold seed_value; rewrite (Hseedv s1 Hby1), Hyb1.
+          unfold OW; rewrite pairing_split, (written_sum_one (rev L) s1 y Hnd HyR Hdy Hywr Hu), Epd, Hby1.
+          rewrite (init_sum_ext (rev L) s0 s1) by (intros p Hp _ _; apply Hbars1; exact Hp).
+          specialize (Hzy Hav); simpl in Hzy; simpl; rewrite Hzy; ring.
+        + (* inout *)
+          simpl in Eseed; injection Eseed as <- <-.
+          set (sa := store_set s1 (keyv (BarOf ResultVar)) (VReal (hd 0%R yb))).
+          set (s2 := store_set sa (keyv (BarOf (stored y))) (VReal 0%R)).
+          assert (Hky : forall p, In p (rev L) -> p <> y -> keyv (BarOf (stored y)) <> keyv (BarOf (stored p))).
+          { intros p Hp Hne E; unfold keyv, stored in E; simpl in E; injection E as E.
+            apply Hne; exact (Hpn_inj p y (HinL p Hp) HyL (eq_sym E)). }
+          exists s2; split.
+          { change [DDefine (DConstant Real) (BarOf ResultVar) (DVar (BarOf (stored y)));
+                    DAssign (DVar (BarOf (stored y))) (DReal "0")]
+              with ([DDefine (DConstant Real) (BarOf ResultVar) (DVar (BarOf (stored y)))] ++
+                    [DAssign (DVar (BarOf (stored y))) (DReal "0")]).
+            rewrite run_app, (run_define s1 _ _ _ (VReal (hd 0%R yb)) (Hseedv s1 Hby1)).
+            fold sa; rewrite run_assign_var with (v := VReal 0%R) by (rewrite xev_DReal, lit_0; reflexivity).
+            reflexivity. }
+          split; [exact (agree_prim_set_bar c' ex s1 sa (stored y) (VReal 0%R)
+                           (agree_prim_set_bar c' ex s1 s1 ResultVar _ (fun _ _ _ _ _ => eq_refl) I) eq_refl) |].
+          split.
+          { split; [intros y0 [<- | []]; split; exact I |].
+            intros _; exists (hd 0%R yb); change (xev s2 (DVar (BarOf ResultVar))) with (store_get s2 (keyv (BarOf ResultVar))).
+            unfold s2; rewrite store_get_set_other by discriminate; unfold sa; apply store_get_set_same. }
+          split.
+          { intros p Hp Hne; unfold barv, s2, sa.
+            rewrite store_get_set_other by exact (Hky p Hp Hne).
+            rewrite store_get_set_other by discriminate; reflexivity. }
+          split; [exists (VReal 0%R); split; [unfold barv, s2; apply store_get_set_same | exact I] |].
+          split; [apply (vo_kept_trans _ _ sa); apply vo_kept_set_bar; exact I |].
+          unfold result_pairing; try rewrite Hexn; unfold seed_value.
+          change (xev s2 (DVar (BarOf ResultVar))) with (store_get s2 (keyv (BarOf ResultVar))).
+          unfold s2; rewrite store_get_set_other by discriminate; unfold sa; rewrite store_get_set_same; fold sa; fold s2.
+          rewrite Hyb1.
+          unfold OW; rewrite pairing_split, (written_sum_one (rev L) s2 y Hnd HyR Hdy Hywr Hu).
+          assert (Hb2y : barv s2 (stored y) = Some (VReal 0%R)) by (unfold barv, s2; apply store_get_set_same).
+          rewrite Hb2y, inner_zero.
+          rewrite (init_sum_ext (rev L) s0 s2); [ring |].
+          intros p Hp _ Wp; assert (Hne : p <> y) by (intros ->; congruence).
+          unfold barv, s2, sa; rewrite store_get_set_other by exact (Hky p Hp Hne).
+          rewrite store_get_set_other by discriminate; exact (Hbars1 p Hp).
+      - (* an array *)
+        assert (Hexa : ex = Some (stored y)) by (unfold ex, inplace; rewrite Hown_cases; reflexivity).
+        destruct r; simpl in Hwr; try discriminate; simpl in Eseed; injection Eseed as <- <-.
+        all: exists s1; split; [reflexivity |].
+        all: split; [intros ? ? ? ? ?; reflexivity |].
+        all: split; [split; [intros y0 [] | intros E; discriminate] |].
+        all: split; [intros; reflexivity |].
+        all: split; [destruct (bars_in_get _ _ _ y Hbars0 HyR Hdy) as [b [Eb Sb]]; exists b; rewrite (Hbars1 y HyR); auto |].
+        all: split; [apply vo_kept_refl |].
+        all: unfold result_pairing; rewrite Hexa.
+        all: unfold OW; rewrite (pairing_oset_owners (rev L) y _ s1 HnL HyR Hdy Hywr Hu), Hby1.
+        all: rewrite (init_sum_ext (rev L) s0 s1) by (intros p Hp _ _; apply Hbars1; exact Hp).
+        all: f_equal.
+        all: destruct v as [| | | lv |]; try (simpl in Hhty; contradiction).
+        all: destruct (pd y) as [| | | ly |] eqn:Epd; try (simpl in Hhy; contradiction).
+        all: simpl in Hhty, Hhy, Hlyb |- *; rewrite length_map in Hlyb; rewrite length_map, Hhy, <- Hhty, <- Hlyb, firstn_all.
+        all: reflexivity. }
     destruct Hcase as [s2 [R2 [Hag [Hseed [Hb2 [Hby [K2 Hres]]]]]]].
     (* the reverse sweep *)
-    assert (Hr : rctx L n (Some (AVar y)) PTop O (useful cv Forward n bA) s2).
+    assert (Hr : rctx L n (Some (AVar y)) PTop OW (useful cv Forward n bA) s2).
     { constructor.
       - apply owners_nodup; exact HnL.
       - intros t0 m Hi; destruct (in_owners _ _ _ Hi) as [p [Hp [Hd [-> ->]]]].
@@ -1248,7 +1355,7 @@ Proof.
         unfold stored in E; injection E as E; rewrite (Hpn_inj q p (HinL q Hq) Hp (eq_sym E)); reflexivity.
       - intros o E; rewrite Hown_cases in E; destruct t; try discriminate; injection E as <-.
         exact (owners_intro _ _ HyR Hdy). }
-    destruct (Hrev s2 O Hag Hr Hseed) as [s3 [R3 [K3 [F3 [S3 P3]]]]].
+    destruct (Hrev s2 OW Hag Hr Hseed) as [s3 [R3 [K3 [F3 [S3 P3]]]]].
     fold ex in P3; rewrite Hres in P3.
     (* the end of the function *)
     set (ss := fw ++ pro ++ rv).
@@ -1276,7 +1383,7 @@ Proof.
       apply (output_bars cv (rev L) (decls f) [] s3 HAL' Hdn).
       intros p Hp Hd; destruct (HbF p Hp Hd) as [b [Eb _]]; rewrite Eb; discriminate. }
     split; [exact Hlg |].
-    split; [rewrite Hdg, Hgr; fold O; rewrite P3; ring |].
+    split; [rewrite Hdg, Hgr; fold OW; rewrite P3; ring |].
     (* the value in adjoint-value *)
     intros Ecv Hio.
     assert (Er : r = Dependent).
@@ -1299,4 +1406,25 @@ Proof.
     change (KVar (DBound (pn y))) with (keyv (stored y)).
     rewrite (K3 eq_refl (stored y) Hvt_y ltac:(simpl; tauto)), (K2 (stored y) Hvt_y ltac:(simpl; tauto)).
     rewrite (V1 eq_refl (stored y) Hvt_y); reflexivity.
-Admitted.
+Qed.
+
+(* Milestone M1: the adjoint function of a straight-line function (lets of
+   operations, reads and updates of arrays) computes the gradient. *)
+Corollary adjoint_straight_duals (cv : bool) (f : function) (x : list (val R)) (xb yb dx : list R)
+  (v : val (dual R)) :
+  parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->
+  length xb = in_dim x -> length yb = length (reals_of_val (primal v)) -> length dx = in_dim x ->
+  (forall L res bP, open_P (afdef (normalize f) pv) 0 (seed_args (decls f) x dx) [] = Some (L, res, bP) -> straight bP) ->
+  aeval_function (duals reals) (normalize f) (seed_args (decls f) x dx) = Some v ->
+  exists r ps ss k out g,
+    open_pairs (dfbody (Adjoint.adjoint cv (annotate cv (normalize f))) W) 0 = (DBody r ps ss, k) /\
+    exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map (out_dstmt nat) ss))) 0
+      (adjoint_inputs (decls f) x xb yb) = Some out /\
+    adjoint_output (decls f) x xb out = Some g /\ length g = in_dim x /\
+    dotl (reals_of_val (TangentCorrect.tangent v)) yb = dotl (seed (decls f) x dx) g /\
+    (cv = true -> writes_inout (decls f) = false -> value_given (decls f) out = Some (TangentCorrect.primal v)).
+Proof.
+  intros Hp Hw Hf Hxb Hyb Hdx Hs Hev.
+  apply adjoint_simulates_duals; auto.
+  intros L res bP Ho; apply asim_straight, (Hs L res bP Ho).
+Qed.
