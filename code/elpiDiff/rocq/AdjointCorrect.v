@@ -2280,4 +2280,36 @@ Proof.
     apply (rev_frame_mono c (S c) _ _ _ _ _ Frb (Nat.le_succ_diag_r c)); auto.
 Qed.
 
+(* ---------------------------------------------------------------------------
+   Straight-line bodies: the lets bind operations, reads and updates of
+   arrays (no branch, no loop). *)
+
+Definition straight_value {V I : Type} (e : value V I) : Prop :=
+  match e with AOp1 _ _ | AOp2 _ _ _ | AGet _ _ | ASet _ _ _ => True | _ => False end.
+
+Fixpoint straight {V I : Type} (b : anf V I) : Prop :=
+  match b with
+  | ALet _ e b' => straight_value e /\ forall x, straight (b' x)
+  | ARet _ => True
+  end.
+
+Theorem asim_straight : forall bP : anf pv bare, straight bP -> asim_body bP.
+Proof.
+  enough (H : (forall b : anf pv bare, straight b -> asim_body b) /\
+               (forall e : value pv bare, straight_value e -> asim_fwd e /\ asim_rev e /\ act_value e /\ act_owner e))
+    by exact (proj1 H).
+  apply (anf_value_ind pv bare (fun b => straight b -> asim_body b)
+           (fun e => straight_value e -> asim_fwd e /\ asim_rev e /\ act_value e /\ act_owner e)).
+  - intros a e IHe b IHb [He Hb]; destruct (IHe He) as [Hf [Hr [Ha Ho]]].
+    apply asim_let; auto.
+  - intros x _; apply asim_ret.
+  - intros f x _; split; [apply afwd_op1 | split; [apply arev_op1 | split; [apply act_op1 | apply owner_op1]]].
+  - intros f x y _; split; [apply afwd_op2 | split; [apply arev_op2 | split; [apply act_op2 | apply owner_op2]]].
+  - intros x i _; split; [apply afwd_get | split; [apply arev_get | split; [apply act_get | apply owner_get]]].
+  - intros x i y _; split; [apply afwd_set | split; [apply arev_set | split; [apply act_set | apply owner_set]]].
+  - intros c t _ e _ []. 
+  - intros lo hi b _ [].
+  - intros a lo hi init b _ [].
+Qed.
+
 End Sim.
