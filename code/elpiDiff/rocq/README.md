@@ -14,7 +14,8 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
 
 ## Theorems
 
-No `Admitted`; `Print Assumptions tangent_mode_correct` lists only the axioms
+The adjoint modes are stated (`adjoint_mode_correct`, `AdjointMode.v`), not
+yet proved: it is the one `Admitted`. `Print Assumptions tangent_mode_correct` lists only the axioms
 of the reals of the standard library (`sig_forall_dec`, `sig_not_dec`,
 `functional_extensionality_dep`, `classic`), which Coquelicot uses as well.
 
@@ -70,6 +71,8 @@ of the reals of the standard library (`sig_forall_dec`, `sig_not_dec`,
 | `TangentGood.v` | — | the scoping discipline of the tangent code: `scoping` |
 | `TangentTop.v` | — | the layout of the tangent function (`seed`, `tangent_inputs`, `tangent_output`); `tangent_simulates_duals` |
 | `TangentMode.v` | — | `tangent_mode_correct` |
+| `AdjointSpec.v` | — | the layout of the adjoint function: `adjoint_inputs` (primal arguments, initial adjoints xb or the seed yb, the seed of a returned value), `adjoint_output` (the gradient: final minus initial adjoints), `value_given` |
+| `AdjointMode.v` | — | `adjoint_mode_correct`, stated (`Admitted`): where f is defined, for every tangent dx, <df (seed dx), yb> = <seed dx, g>, and adjoint-value gives the value back unless f writes an inout argument |
 
 ## From Elpi to Rocq
 

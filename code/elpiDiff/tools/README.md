@@ -36,3 +36,8 @@ directory (`..`), and `[rocq dir]` to `../rocq`.
   the generated functions run in Rocq (`vm_compute`, primitive floats) and
   compiled from C++ must give the same results; the axioms `fsin`, `fcos`,
   `fexp`, `flog` are replaced for the test by series accurate to about 1e-12.
+- `adjspectest.py [rocq dir]` checks the statement of the adjoint theorem
+  (`rocq/AdjointMode.v`) on every well-formed case, symbolically: Rocq runs the
+  simplified tangent and adjoint programs over the reals on symbolic arguments,
+  adjoints, seed and tangent, and proves with `ring` the dot-product identity
+  <tangent, yb> = <seed dx, g> on the layout of `rocq/AdjointSpec.v`.
