@@ -35,6 +35,7 @@ TangentLoops.v
 TangentGood.v
 TangentTop.v
 TangentMode.v
-AdjointCorrect.v
 AdjointSpec.v
+AdjointCorrect.v
+AdjointTop.v
 AdjointMode.v

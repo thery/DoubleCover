@@ -536,7 +536,7 @@ Definition asim_body (bP : anf pv bare) : Prop :=
   (m = Forward -> forall p, In p L -> live_anf k bW p -> vo_target vo = Some (stored p) -> is_array (vty (pw p))) ->
   let '((fw, rv), c') :=
     open_pairs (adj W (option_map (amap pt) wP) vo m (rebuild _ bT (annotate_body_t cv m k bA)) se) c in
-  (c <= c')%nat /\
+  (c <= c')%nat /\ has_type ty v /\
   exists s1, run fw s = Some s1 /\
     fwd_frame c (inplace wP pp) (if sweep_eqb m Forward then vo else None) s s1 /\ tapes_kept s s1 /\
     (m = Forward -> vo_result vo v s1) /\
@@ -672,7 +672,14 @@ Proof.
   graph HA; graph HW; graph HT; graph HD.
   cbn [annotate_body_t rebuild adj open_pairs].
   pose proof (a_sctx _ _ _ _ _ _ _ _ _ Hc) as Hs.
-  split; [lia |].
+  assert (Hhty : has_type ty v).
+  { destruct aP as [p | str | z]; simpl in Htc, Hev.
+    - injection Hev as <-; destruct (ret_type _ _ _ _ _ _ _ _ Hs (H p eq_refl) Htc) as [-> _].
+      destruct (static_in _ _ _ (s_static _ _ _ _ _ _ _ Hs) (H p eq_refl)) as [_ [_ [_ [_ [_ [_ [_ [_ [Hht _]]]]]]]]].
+      exact Hht.
+    - apply aeval_literal in Hev as [x' [_ ->]]; injection Htc as <-; exact I.
+    - injection Htc as <-; destruct Hty. }
+  split; [lia | split; [exact Hhty |]].
   destruct (ret_forward L k c s wP pp m aP ty v vo Hc H Htc Hty Hev Hvo) as [s1 [Hrun1 [Hfr1 [Hvr1 Htk]]]].
   exists s1; split; [exact Hrun1 | split; [exact Hfr1 | split; [exact Htk | split; [exact Hvr1 |]]]].
   intros s2 O Hag Hr Hseed.
@@ -1962,6 +1969,7 @@ Proof.
         exists s; split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity | split; [apply tapes_kept_refl | discriminate]]]. }
     destruct Hfw as [se1 [R1 [F1 [T1 S1]]]].
     split; [lia |].
+    split; [exact (proj1 (IHa L k wP pp tail eA eW eD (Array z) ve HeA HeW HeD HL Hte Hve)) |].
     exists se1; split; [rewrite app_nil_r; exact R1 |].
     split; [intros v0 Hb0 Hc0 Ht0 He0 _; apply F1; auto; [rewrite <- Hex; exact He0 | discriminate] |].
     split; [exact T1 |].
@@ -2129,8 +2137,8 @@ Proof.
   unfold x in IH; cbn [pt pa pd pw] in IH; fold rest in IH.
   lazymatch type of IH with context [@open_pairs ?A ?t (S c)] =>
     assert (E : @open_pairs A t (S c) = (fb, rb, c1)) by exact Hb; rewrite E in IH; clear E end.
-  destruct IH as [_ [s1 [Rb [Fb [Tb [Vb Hrev]]]]]].
-  split; [lia |].
+  destruct IH as [_ [Hhtv [s1 [Rb [Fb [Tb [Vb Hrev]]]]]]].
+  split; [lia | split; [exact Hhtv |]].
   exists s1; split.
   { rewrite run_app, R1; exact Rb. }
   split.
