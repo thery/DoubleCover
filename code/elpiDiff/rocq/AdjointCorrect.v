@@ -1526,9 +1526,108 @@ End NeedsLet.
 (* The activity analysis is sound for a value: a value that is not varied
    has a zero tangent. *)
 Definition act_value (eP : value pv bare) : Prop :=
-  forall L k eA eD ve,
-  value_eq (gA L) eP eA -> value_eq (gD L) eP eD -> Forall (static_ok k) L ->
-  aeval_value (duals reals) eD = Some ve -> varied_value k eA = false -> zero ve.
+  forall L k wP pp tail eA eW eD te ve,
+  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gD L) eP eD -> Forall (static_ok k) L ->
+  typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
+  aeval_value (duals reals) eD = Some ve ->
+  has_type te ve /\ (varied_value k eA = false -> zero ve) /\ (varied_value k eA = true -> real_or_array te).
+
+Ltac act_intro :=
+  let L := fresh "L" in let k := fresh "k" in
+  intros L k wP pp tail eA eW eD te ve HA HW HD HL Htc Hev;
+  destruct eA, eW, eD; simpl in HA, HW, HD; try contradiction;
+  repeat match goal with
+         | H : _ /\ _ |- _ => destruct H
+         | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         end; subst.
+
+Lemma act_op1 f (aP : atom pv) : act_value (AOp1 f aP).
+Proof.
+  act_intro; simpl in Htc, Hev |- *; rename f2 into f.
+  assert (Ha1 : forall p, aP = AVar p -> static_ok k p) by (intros p E; apply (static_in _ _ _ HL); auto).
+  assert (Hty : te = Real /\ of_atom (amap pw aP) = Real).
+  { destruct f; simpl in Htc; crush_match Htc; split; congruence. }
+  destruct Hty as [-> Hta].
+  destruct (aeval_atom (duals reals) (amap pd aP)) as [va |] eqn:Ha; [| discriminate].
+  pose proof (atom_type k aP va Ha1 Ha) as Htv; rewrite Hta in Htv.
+  destruct va as [[x dx] | | | |]; try contradiction; cbn [eval_op1 dom_op1 duals] in Hev.
+  destruct (dual_op1 R reals f (Dual x dx)) as [[y dy] |] eqn:Hd; [| discriminate]; injection Hev as <-.
+  split; [exact I | split; [| intros _; exact I]].
+  intros Hv; pose proof (atom_zero k aP _ Ha1 Hv Ha) as Hz; simpl in Hz; subst dx.
+  exact (dual_op1_zero f x y dy Hd).
+Qed.
+
+Lemma act_op2 f (aP bP : atom pv) : act_value (AOp2 f aP bP).
+Proof.
+  act_intro; simpl in Htc, Hev |- *; rename f2 into f.
+  assert (Ha1 : forall p, aP = AVar p -> static_ok k p) by (intros p E; apply (static_in _ _ _ HL); auto).
+  assert (Hb1 : forall p, bP = AVar p -> static_ok k p) by (intros p E; apply (static_in _ _ _ HL); auto).
+  destruct (aeval_atom (duals reals) (amap pd aP)) as [va |] eqn:Ha; [| discriminate].
+  destruct (aeval_atom (duals reals) (amap pd bP)) as [vb |] eqn:Hb; [| discriminate].
+  destruct (operation2 f) eqn:Ho2; [| discriminate].
+  destruct (operation2_typed f (of_atom (amap pw aP)) (of_atom (amap pw bP))) as [[t0 sp] |] eqn:Ht2;
+    [| discriminate].
+  injection Htc as <-.
+  pose proof (atom_type k aP va Ha1 Ha) as Hta; pose proof (atom_type k bP vb Hb1 Hb) as Htb.
+  destruct va as [[x dx] | za | | |], vb as [[y dy] | zb | | |]; cbn [eval_op2] in Hev; try discriminate.
+  - simpl in Hta, Htb; destruct (of_atom (amap pw aP)) eqn:Ea; try contradiction.
+    destruct (of_atom (amap pw bP)) eqn:Eb; try contradiction.
+    apply op2_real_type in Ht2; subst t0.
+    destruct (comparison f) eqn:Hcmp; simpl.
+    + cbn [dom_cmp duals dual_cmp] in Hev.
+      destruct (dom_cmp reals f x y) as [bo |]; [| discriminate]; injection Hev as <-.
+      split; [exact I | split; [intros _; exact I | discriminate]].
+    + cbn [dom_op2 duals] in Hev.
+      destruct (dual_op2 R reals f (Dual x dx) (Dual y dy)) as [[z dz] |] eqn:Hd; [| discriminate].
+      injection Hev as <-.
+      split; [exact I | split; [| intros _; exact I]].
+      intros Hv; apply orb_false_iff in Hv as [Hva Hvb].
+      pose proof (atom_zero k aP _ Ha1 Hva Ha) as Hza; pose proof (atom_zero k bP _ Hb1 Hvb Hb) as Hzb.
+      simpl in Hza, Hzb; subst dx dy; exact (dual_op2_zero f x y z dz Hd).
+  - injection Hev as <-; simpl in Hta, Htb; apply has_type_int in Hta, Htb.
+    rewrite Hta, Htb in Ht2.
+    rewrite (int_not_varied k aP za Ha1 Ha), (int_not_varied k bP zb Hb1 Hb).
+    split; [exact (int_op2_type f za zb t0 sp Ht2) |].
+    split; [intros _; destruct f; exact I | destruct (comparison f); discriminate].
+Qed.
+
+Lemma act_get (aP iP : atom pv) : act_value (AGet aP iP).
+Proof.
+  act_intro; simpl in Htc, Hev |- *.
+  assert (Ha1 : forall p, aP = AVar p -> static_ok k p) by (intros p E; apply (static_in _ _ _ HL); auto).
+  destruct (ty_is_array (of_atom (amap pw aP)) && ty_eqb (of_atom (amap pw iP)) Integer); [| discriminate].
+  injection Htc as <-.
+  destruct (aeval_atom (duals reals) (amap pd aP)) as [[| | | l |] |] eqn:Ha; try discriminate;
+    destruct (aeval_atom (duals reals) (amap pd iP)) as [[| z | | |] |]; try discriminate.
+  destruct (nth_z z l) as [d |] eqn:Ez; [| discriminate]; injection Hev as <-.
+  split; [exact I | split; [| intros _; exact I]].
+  intros Hv; pose proof (atom_zero k aP _ Ha1 Hv Ha) as Hz; simpl in Hz.
+  exact (nth_z_Forall _ _ _ _ Hz Ez).
+Qed.
+
+Lemma act_set (aP iP vP : atom pv) : act_value (ASet aP iP vP).
+Proof.
+  act_intro; simpl in Htc, Hev |- *.
+  assert (Ha1 : forall p, aP = AVar p -> static_ok k p) by (intros p E; apply (static_in _ _ _ HL); auto).
+  assert (Hv1 : forall p, vP = AVar p -> static_ok k p) by (intros p E; apply (static_in _ _ _ HL); auto).
+  destruct (aeval_atom (duals reals) (amap pd aP)) as [[| | | l |] |] eqn:Ha; try discriminate;
+    destruct (aeval_atom (duals reals) (amap pd iP)) as [[| z | | |] |]; try discriminate;
+    destruct (aeval_atom (duals reals) (amap pd vP)) as [[d | | | |] |] eqn:Hv; try discriminate.
+  destruct (replace_nth_z z d l) as [l1 |] eqn:Er; [| discriminate]; injection Hev as <-.
+  pose proof (atom_type k aP _ Ha1 Ha) as Hta.
+  assert (Hte : exists n, te = Array n /\ of_atom (amap pw aP) = Array n).
+  { destruct (wplace pp); simpl in Htc; try discriminate.
+    destruct (of_atom (amap pw aP)) eqn:Ea; try discriminate.
+    destruct (_ && _); [injection Htc as <-; eauto | discriminate]. }
+  destruct Hte as [n [-> Ea]]; rewrite Ea in Hta; simpl in Hta.
+  split; [simpl; rewrite (replace_nth_z_length _ _ _ _ Er); exact Hta |].
+  split; [| intros _; exact I].
+  intros Hvr; apply orb_false_iff in Hvr as [Hva Hvv].
+  pose proof (atom_zero k aP _ Ha1 Hva Ha) as Hza; pose proof (atom_zero k vP _ Hv1 Hvv Hv) as Hzv.
+  simpl in Hza, Hzv; exact (replace_nth_z_Forall _ _ _ _ _ Hzv Hza Er).
+Qed.
 
 Lemma adj_let w vo m a e b se :
   adj W w vo m (ALet a e b) se =
