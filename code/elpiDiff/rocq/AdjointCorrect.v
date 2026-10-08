@@ -1709,6 +1709,28 @@ Proof.
          rewrite barv_set_same, inner_zero, (Hp _ (oset_ok _ _ _ Hok) (oset_snd _ _ _)); ring.
 Qed.
 
+(* A reverse frame for more owners and a larger counter, seen from fewer. *)
+Lemma rev_frame_mono c c' ex O O' s s' :
+  rev_frame c' ex O' s s' -> (c <= c')%nat ->
+  (forall m, In m (map snd O') -> In m (map snd O) \/ ~ below c (BarOf m)) ->
+  rev_frame c ex O s s'.
+Proof.
+  intros F Hc HO v Hb Hcv Ht Hex Hbar; apply F; auto.
+  - exact (below_mono _ _ _ Hb Hc).
+  - intros m -> Hm; destruct (HO m Hm) as [H | H]; [exact (Hbar m eq_refl H) | exact (H Hb)].
+Qed.
+
+(* Writing an adjoint keeps the primal keys. *)
+Lemma agree_prim_set_bar c ex s1 s2 n w :
+  agree_prim c ex s1 s2 -> consistent n -> agree_prim c ex s1 (store_set s2 (keyv (BarOf n)) w).
+Proof.
+  intros A Hn v Hb Hcv Hp Hex; rewrite store_get_set_other; [exact (A v Hb Hcv Hp Hex) |].
+  intros K; apply keyv_inj in K; auto; subst v; exact Hp.
+Qed.
+
+Lemma agree_prim_mono c c' ex s1 s2 : agree_prim c' ex s1 s2 -> (c <= c')%nat -> agree_prim c ex s1 s2.
+Proof. intros A Hc v Hb; apply A; exact (below_mono _ _ _ Hb Hc). Qed.
+
 Lemma adj_let w vo m a e b se :
   adj W w vo m (ALet a e b) se =
   let '(vr, ac, cp) := let_ann a in
@@ -1910,7 +1932,77 @@ Proof.
   lazymatch type of IH with context [@open_pairs ?A ?t (S c)] =>
     assert (E : @open_pairs A t (S c) = (fb, rb, c1)) by exact Hb; rewrite E in IH; clear E end.
   destruct IH as [_ [s1 [Rb [Fb [Tb [Vb Hrev]]]]]].
-  admit.
+  split; [lia |].
+  exists s1; split.
+  { rewrite run_app, R1; exact Rb. }
+  split.
+  { intros v0 Hb0 Hc0 Ht0 He0 Hv0.
+    assert (Hc1' : (c <= c1)%nat) by lia.
+    rewrite (Fb v0 (below_mono c (S c) v0 Hb0 (Nat.le_succ_diag_r c)) Hc0 Ht0 He0 Hv0).
+    apply F1; [exact (below_mono c c1 v0 Hb0 Hc1') | exact Hc0 | exact Ht0 |
+               intros E; injection E as <-; simpl in Hb0; lia | discriminate]. }
+  split; [exact (tapes_kept_trans _ _ _ T1 Tb) |].
+  split; [exact Vb |].
+  intros s2 O Hag Hr Hseed.
+  pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
+  assert (Hn_notin : ~ In (DBound (c, c)) (map snd O)).
+  { intros Hin; apply in_map_iff in Hin as [[t0 m0] [E Hin]]; simpl in E; subst m0.
+    destruct (r_below _ _ _ _ _ _ _ Hr _ _ Hin) as [j0 [E Hj]]; injection E as <- _; lia. }
+  assert (Hsel : forall y0, In y0 (dvars se) -> consistent y0 /\ y0 <> BarOf (DBound (c, c))).
+  { intros y0 Hy; destruct (proj1 Hseed y0 Hy) as [Hb0 Hc0]; split; [exact Hc0 |].
+    intros ->; simpl in Hb0; lia. }
+  assert (Hux : useful cv m (S k) (cA (let_binder k eA)) x -> vr = true -> ac = true).
+  { unfold useful; rewrite Hneeds; simpl; intros H1 H2; unfold ac; rewrite H2, H1; reflexivity. }
+  (* the rctx of the rest of the body, for the owners O and possibly x *)
+  assert (Hr' : forall O' sa, (O' = O /\ ac = false /\ sa = s2) \/
+                    (O' = (tangent ve, DBound (c, c)) :: O /\ ac = true /\
+                     sa = store_set s2 (keyv (BarOf (DBound (c, c)))) (VReal 0) /\
+                     shaped (tangent ve) (Some (VReal 0))) ->
+                rctx (x :: L) (S c) wP pp O' (useful cv m (S k) (cA (let_binder k eA))) sa).
+  { intros O' sa HO.
+    assert (Hshb : forall t0 m0, In (t0, m0) O -> shaped t0 (barv sa m0)).
+    { intros t0 m0 Hin; destruct HO as [[-> [_ ->]] | [-> [_ [-> _]]]]; [exact (r_shape _ _ _ _ _ _ _ Hr _ _ Hin) |].
+      rewrite barv_set_other; [exact (r_shape _ _ _ _ _ _ _ Hr _ _ Hin) | reflexivity | exact (Hok _ _ Hin) |].
+      intros E; apply Hn_notin; rewrite E; apply in_map_iff; exists (t0, m0); auto. }
+    assert (HinO : forall t0 m0, In (t0, m0) O -> In (t0, m0) O')
+      by (intros t0 m0 Hin; destruct HO as [[-> _] | [-> _]]; [exact Hin | right; exact Hin]).
+    assert (HO' : forall t0 m0, In (t0, m0) O' -> In (t0, m0) O \/ (t0 = tangent ve /\ m0 = DBound (c, c) /\ ac = true)).
+    { intros t0 m0 Hin; destruct HO as [[-> _] | [-> [Ea _]]]; [left; exact Hin |].
+      destruct Hin as [E | Hin]; [injection E as <- <-; right; auto | left; exact Hin]. }
+    constructor.
+    - destruct HO as [[-> _] | [-> _]]; [exact (r_nodup _ _ _ _ _ _ _ Hr) |].
+      constructor; [exact Hn_notin | exact (r_nodup _ _ _ _ _ _ _ Hr)].
+    - intros t0 m0 Hin; destruct (HO' t0 m0 Hin) as [Hin0 | [-> [-> Ea]]]; [exact (Hshb _ _ Hin0) |].
+      destruct HO as [[_ [E _]] | [_ [_ [-> Hsh0]]]]; [rewrite E in Ea; discriminate |].
+      rewrite barv_set_same; exact Hsh0.
+    - intros t0 m0 Hin; destruct (HO' t0 m0 Hin) as [Hin0 | [_ [-> _]]].
+      + destruct (r_below _ _ _ _ _ _ _ Hr _ _ Hin0) as [j0 [E Hj]]; exists j0; split; [exact E | lia].
+      + exists c; split; [reflexivity | lia].
+    - intros p [<- | Hp] Hu Hv.
+      + assert (Ea : ac = true) by exact (Hux Hu Hv).
+        destruct HO as [[_ [E _]] | [-> _]]; [rewrite E in Ea; discriminate | left; reflexivity].
+      + apply HinO, (r_useful _ _ _ _ _ _ _ Hr p Hp); [| exact Hv].
+        exact (useful_let_cont m k aA eA cA p (Haid p Hp) Hu).
+    - intros p t0 [<- | Hp] Hu Hin.
+      + destruct (HO' _ _ Hin) as [Hin0 | [-> _]]; [| reflexivity].
+        exfalso; apply Hn_notin, in_map_iff; exists (t0, DBound (c, c)); auto.
+      + destruct (HO' _ _ Hin) as [Hin0 | [_ [E _]]]; [| exfalso; exact (Hnotin p Hp E)].
+        exact (r_value _ _ _ _ _ _ _ Hr p t0 Hp (useful_let_cont m k aA eA cA p (Haid p Hp) Hu) Hin0).
+    - intros o Ho; apply HinO, (r_owner _ _ _ _ _ _ _ Hr o Ho). }
+  destruct ac eqn:Eac.
+  - (* x is active: its adjoint is declared, then transposed *)
+    admit.
+  - (* x is not active *)
+    simpl in Hre; injection Hre as <- <-.
+    assert (Hc13 : (c1 <= c2)%nat) by lia.
+    assert (Hseed' : seed_ok (S c) ty se s2).
+    { split; [| exact (proj2 Hseed)]; intros y0 Hy; destruct (proj1 Hseed y0 Hy) as [H1 H2].
+      split; [exact (below_mono c (S c) y0 H1 (Nat.le_succ_diag_r c)) | exact H2]. }
+    destruct (Hrev s2 O (agree_prim_mono _ _ _ _ _ Hag Hc13) (Hr' O s2 (or_introl (conj eq_refl (conj eq_refl eq_refl)))) Hseed')
+      as [sb [Rrb [Frb [Srb Prb]]]].
+    exists sb; split; [rewrite app_nil_r; exact Rrb |].
+    split; [| split; [exact Srb | exact Prb]].
+    apply (rev_frame_mono c (S c) _ _ _ _ _ Frb (Nat.le_succ_diag_r c)); auto.
 Admitted.
 
 End Sim.
