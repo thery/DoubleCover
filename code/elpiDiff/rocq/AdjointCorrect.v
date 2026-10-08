@@ -85,6 +85,74 @@ Proof.
     + rewrite xev_DOp1, xev_DOp2, Ha, xev_DOp2, Hb; reflexivity.
 Qed.
 
+(* The primal part of a dual operation is the operation of the reals. *)
+Lemma primal_eval_op1 f va ve :
+  eval_op1 (duals reals) f va = Some ve -> eval_op1 reals f (primal va) = Some (primal ve).
+Proof.
+  destruct va as [[x dx] | | | |]; simpl; try discriminate.
+  destruct (real_op1 f x) as [y |] eqn:E; simpl; [| discriminate].
+  destruct (dual_partial1 R reals f x y); simpl; [| discriminate].
+  intros H; injection H as <-; reflexivity.
+Qed.
+
+Lemma primal_eval_op2 f va vb ve :
+  eval_op2 (duals reals) f va vb = Some ve -> eval_op2 reals f (primal va) (primal vb) = Some (primal ve).
+Proof.
+  destruct va as [[x dx] | za | | |], vb as [[y dy] | zb | | |]; simpl; try discriminate.
+  - destruct (comparison f).
+    + unfold dual_cmp; simpl; destruct (real_cmp f x y); simpl; [| discriminate].
+      intros H; injection H as <-; reflexivity.
+    + destruct f; simpl; try discriminate; intros H; injection H as <-; reflexivity.
+  - intros H; injection H as <-; destruct f; reflexivity.
+Qed.
+
+(* The value of an atom whose variable holds its value. *)
+Lemma aspell_ok k s (aP : atom pv) d :
+  (forall p, aP = AVar p -> static_ok k p /\ store_get s (keyv (stored p)) = Some (primal (pd p))) ->
+  aeval_atom (duals reals) (amap pd aP) = Some d ->
+  xev s (spell (amap pt aP)) = Some (primal d).
+Proof.
+  intros Hs Hd; destruct aP as [q | str | z].
+  - simpl in Hd; injection Hd as <-; destruct (Hs q eq_refl) as [Hst H].
+    destruct Hst as [_ [_ [Hstore _]]]; unfold xev; simpl; rewrite Hstore; exact H.
+  - apply aeval_literal in Hd as [x [Hx ->]]; simpl; rewrite xev_DReal, Hx; reflexivity.
+  - simpl in Hd; injection Hd as <-; reflexivity.
+Qed.
+
+(* Sets of atoms. *)
+Lemma same_term_trans a b c : same_term a b = true -> same_term b c = true -> same_term a c = true.
+Proof.
+  destruct a, b, c; simpl; try discriminate; intros H1 H2.
+  apply Nat.eqb_eq in H1, H2; apply Nat.eqb_eq; congruence.
+Qed.
+
+Lemma same_term_sym a b : same_term a b = same_term b a.
+Proof. destruct a, b; simpl; auto; apply Nat.eqb_sym. Qed.
+
+Lemma atom_member_union x l l' :
+  atom_member x (atom_union l l') = atom_member x l || atom_member x l'.
+Proof.
+  revert l; induction l' as [| y ys IH]; intros l; simpl; [rewrite orb_false_r; reflexivity |].
+  destruct (atom_member y l) eqn:Ey; rewrite IH; simpl.
+  - destruct (same_term x y) eqn:Exy; simpl; [| reflexivity].
+    unfold atom_member in Ey |- *; apply existsb_exists in Ey as [z [Iz Ez]].
+    replace (existsb (same_term x) l) with true; [reflexivity |].
+    symmetry; apply existsb_exists; exists z; split; [exact Iz | eapply same_term_trans; eauto].
+  - destruct (same_term x y), (atom_member x l), (atom_member x ys); reflexivity.
+Qed.
+
+Lemma atom_member_var q : atom_member (AVar q) [AVar q] = true.
+Proof. simpl; rewrite Nat.eqb_refl; reflexivity. Qed.
+
+Lemma atom_member_atoms q (a : atom avar) l :
+  In a l -> a = AVar q -> atom_member (AVar q) (atoms_of_atoms l) = true.
+Proof.
+  intros Hi ->; induction l as [| b l IH]; simpl in Hi |- *; [contradiction |].
+  rewrite atom_member_union; destruct Hi as [-> | Hi].
+  - simpl; rewrite Nat.eqb_refl; reflexivity.
+  - rewrite IH; auto; apply orb_true_r.
+Qed.
+
 (* ---------------------------------------------------------------------------
    The pairing: for each storage that carries an adjoint, the tangent of the
    variable it holds (a value of the reals: a real, or an array) times its
@@ -111,12 +179,20 @@ Definition shaped (t : val R) (b : option (val R)) : Prop :=
 
 Definition owners := list (val R * dvar W).
 
+Lemma dvar_eq_dec_c (a b : dvar W) : {a = b} + {a <> b}.
+Proof. decide equality; decide equality; apply Nat.eq_dec. Qed.
+
 Definition pairing (O : owners) (s : store R) : R :=
   fold_right (fun '(t, n) acc => inner t (barv s n) + acc) 0 O.
 
 (* The storage n now holds a variable of tangent t. *)
 Definition oset (O : owners) (n : dvar W) (t : val R) : owners :=
   map (fun '(t', n') => if Simplify.dvar_eq nat n n' then (t, n') else (t', n')) O.
+
+(* The storage n now holds a variable of tangent t: it replaces the tangent of
+   the owner of n, or n becomes an owner. *)
+Definition oput (O : owners) (n : dvar W) (t : val R) : owners :=
+  if in_dec dvar_eq_dec_c n (map snd O) then oset O n t else (t, n) :: O.
 
 (* The storages of owners are variables opened by open_pairs. *)
 Definition owners_ok (O : owners) : Prop := forall t n, In (t, n) O -> consistent n.
@@ -333,9 +409,6 @@ Definition asim_body (bP : anf pv bare) : Prop :=
 Lemma rctx_owners_ok L c wP pp O use s : rctx L c wP pp O use s -> owners_ok O.
 Proof. intros Hr t n Hi; destruct (r_below _ _ _ _ _ _ _ Hr t n Hi) as [j [-> _]]; reflexivity. Qed.
 
-Lemma dvar_eq_dec_c (a b : dvar W) : {a = b} + {a <> b}.
-Proof. decide equality; decide equality; apply Nat.eq_dec. Qed.
-
 (* Writing the adjoint of an owner with a value of its shape keeps the shapes. *)
 Lemma shaped_set O s t n w :
   owners_ok O -> (forall t' n', In (t', n') O -> shaped t' (barv s n')) -> In (t, n) O ->
@@ -499,6 +572,217 @@ Proof.
     pose proof (r_value _ _ _ _ _ _ _ Hr p t Hp Hu Ht) as ->.
     unfold result_pairing, inplace; rewrite Eo; simpl; rewrite <- Esp.
     rewrite oset_same; auto; apply (r_nodup _ _ _ _ _ _ _ Hr).
+Qed.
+
+(* The variables the reverse sweep of an active value reads, and those its
+   adjoint flows to. *)
+Definition vreads (k : nat) (e : value avar bare) (p : pv) : Prop :=
+  atom_member (AVar (pa p)) (fst (value_needs cv k e)) = true.
+Definition vflows (k : nat) (e : value avar bare) (p : pv) : Prop :=
+  atom_member (AVar (pa p)) (snd (value_needs cv k e)) = true.
+Definition vatoms (k : nat) (e : value avar bare) (p : pv) : Prop :=
+  atom_member (AVar (pa p)) (atoms_of_value k e) = true.
+
+(* The forward sweep of a value, computed into the variable n (recorded when
+   rec): the value is stored in n. *)
+Definition asim_fwd (eP : value pv bare) : Prop :=
+  forall L k c s wP pp tail eA eW eT eD te n ve ty m rec,
+  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gT L) eP eT -> value_eq (gD L) eP eD ->
+  actx L k c s wP pp (live_value k eW) (vatoms k eA) ty ->
+  typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
+  (tail = true -> te = ty) ->
+  (exists j, n = DBound (j, j) /\ (j < c)%nat) ->
+  match storage wP tail eP with
+  | Some m0 => n = m0
+  | None => forall p, In p L -> stored p <> n
+  end ->
+  (rec = true -> exists l, store_get s (keyv (TapeOf n)) = Some (VTape l)) ->
+  aeval_value (duals reals) eD = Some ve ->
+  let '(se, c') :=
+    open_pairs (fwd_value W (option_map (amap pt) wP) m (rebuild_value _ eT (annotate_value_t cv k eA)) te n rec) c in
+  (c <= c')%nat /\
+  exists s1, run se s = Some s1 /\ fwd_frame c (Some n) None s s1 /\
+             store_get s1 (keyv n) = Some (primal ve).
+
+(* The reverse sweep of an active value computed into n: run from a store
+   holding the values it reads, it moves the adjoint of n to the operands, in
+   proportion to the partial derivatives, keeping the pairing: before, n is
+   an owner with the tangent of the value; after, it is not, or it holds the
+   variable it held before the value (updated in place). *)
+Definition asim_rev (eP : value pv bare) : Prop :=
+  forall L k c wP pp tail eA eW eT eD te n ve ty vo,
+  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gT L) eP eT -> value_eq (gD L) eP eD ->
+  sctx L k c wP pp (live_value k eW) ty ->
+  (forall p, In p L -> tbar (pt p) = avaried (pa p)) ->
+  typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
+  (tail = true -> te = ty) ->
+  (exists j, n = DBound (j, j) /\ (j < c)%nat) ->
+  match storage wP tail eP with
+  | Some m0 => n = m0
+  | None => forall p, In p L -> stored p <> n
+  end ->
+  aeval_value (duals reals) eD = Some ve ->
+  varied_value k eA = true ->
+  let '(re, c') :=
+    open_pairs (rev_value W (option_map (amap pt) wP) vo (rebuild_value _ eT (annotate_value_t cv k eA)) te n) c in
+  (c <= c')%nat /\
+  forall s2 O,
+    (forall p, In p L -> vreads k eA p -> store_get s2 (keyv (stored p)) = Some (primal (pd p))) ->
+    rctx L c wP pp O (vflows k eA) s2 ->
+    shaped (tangent ve) (barv s2 n) ->
+    exists s3, run re s2 = Some s3 /\ rev_frame c (inplace wP pp) (oput O n (tangent ve)) s2 s3 /\
+      (forall t m, In (t, m) O -> shaped t (barv s3 m)) /\
+      pairing O s3 = pairing (oput O n (tangent ve)) s2.
+
+Lemma fwd_frame_set c n vo s w :
+  consistent n -> fwd_frame c (Some n) vo s (store_set s (keyv n) w).
+Proof.
+  intros Hn v _ Hcv _ Hex _; apply store_get_set_other; intros K.
+  apply keyv_inj in K; auto; subst; apply Hex; reflexivity.
+Qed.
+
+Ltac fwd_intro :=
+  let L := fresh "L" in let k := fresh "k" in let c := fresh "c" in let s := fresh "s" in
+  intros L k c s wP pp tail eA eW eT eD te n ve ty m rec HA HW HT HD Hc Htc Htail [j [Ej Hj]] Hst Hrec Hev;
+  destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
+  repeat match goal with
+         | H : _ /\ _ |- _ => destruct H
+         | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         end; subst.
+
+(* An operand of a value, read by its forward sweep, holds its value. *)
+Lemma operand_store L k c s wP pp live (eA : value avar bare) ty (aP : atom pv) :
+  actx L k c s wP pp live (vatoms k eA) ty ->
+  (forall p, aP = AVar p -> In p L /\ vatoms k eA p) ->
+  forall p, aP = AVar p -> static_ok k p /\ store_get s (keyv (stored p)) = Some (primal (pd p)).
+Proof.
+  intros Hc Ha p E; destruct (Ha p E) as [Hp Hv]; split.
+  - exact (static_in _ _ _ (s_static _ _ _ _ _ _ _ (a_sctx _ _ _ _ _ _ _ _ _ Hc)) Hp).
+  - exact (a_store _ _ _ _ _ _ _ _ _ Hc _ Hp Hv).
+Qed.
+
+Lemma afwd_op1 f (aP : atom pv) : asim_fwd (AOp1 f aP).
+Proof.
+  fwd_intro; simpl in Htc, Hev, Hst |- *; rename f3 into f.
+  split; [lia |].
+  destruct (aeval_atom (duals reals) (amap pd aP)) as [va |] eqn:Ha; [| discriminate].
+  assert (Va : forall p, aP = AVar p -> In p L /\ vatoms k (AOp1 f (amap pa aP)) p)
+    by (intros p E; split; [auto | subst; unfold vatoms; simpl; rewrite Nat.eqb_refl; reflexivity]).
+  assert (Hs := aspell_ok k s aP va (operand_store _ _ _ _ _ _ _ _ _ aP Hc Va) Ha).
+  exists (store_set s (keyv (DBound (j, j))) (primal ve)).
+  split; [apply run_define; rewrite xev_DOp1, Hs; exact (primal_eval_op1 _ _ _ Hev) |].
+  split; [apply fwd_frame_set; reflexivity | apply store_get_set_same].
+Qed.
+
+Lemma afwd_op2 f (aP bP : atom pv) : asim_fwd (AOp2 f aP bP).
+Proof.
+  fwd_intro; simpl in Htc, Hev, Hst |- *; rename f3 into f.
+  split; [lia |].
+  destruct (aeval_atom (duals reals) (amap pd aP)) as [va |] eqn:Ha; [| discriminate].
+  destruct (aeval_atom (duals reals) (amap pd bP)) as [vb |] eqn:Hb; [| discriminate].
+  assert (Va : forall p, aP = AVar p -> In p L /\ vatoms k (AOp2 f (amap pa aP) (amap pa bP)) p)
+    by (intros p E; split; [auto | subst; apply (atom_member_atoms (pa p) (AVar (pa p))); simpl; auto]).
+  assert (Vb : forall p, bP = AVar p -> In p L /\ vatoms k (AOp2 f (amap pa aP) (amap pa bP)) p)
+    by (intros p E; split; [auto | subst; apply (atom_member_atoms (pa p) (AVar (pa p))); simpl; auto]).
+  assert (Hsa := aspell_ok k s aP va (operand_store _ _ _ _ _ _ _ _ _ aP Hc Va) Ha).
+  assert (Hsb := aspell_ok k s bP vb (operand_store _ _ _ _ _ _ _ _ _ bP Hc Vb) Hb).
+  exists (store_set s (keyv (DBound (j, j))) (primal ve)).
+  split; [apply run_define; rewrite xev_DOp2, Hsa, Hsb; exact (primal_eval_op2 _ _ _ _ Hev) |].
+  split; [apply fwd_frame_set; reflexivity | apply store_get_set_same].
+Qed.
+
+Lemma afwd_get (aP iP : atom pv) : asim_fwd (AGet aP iP).
+Proof.
+  fwd_intro; simpl in Htc, Hev, Hst |- *.
+  split; [lia |].
+  destruct (aeval_atom (duals reals) (amap pd aP)) as [[| | | l |] |] eqn:Ha; try discriminate;
+    destruct (aeval_atom (duals reals) (amap pd iP)) as [[| z | | |] |] eqn:Hi; try discriminate.
+  destruct (nth_z z l) as [d |] eqn:Ez; [| discriminate]; injection Hev as <-.
+  assert (Va : forall p, aP = AVar p -> In p L /\ vatoms k (AGet (amap pa aP) (amap pa iP)) p)
+    by (intros p E; split; [auto | subst; apply (atom_member_atoms (pa p) (AVar (pa p))); simpl; auto]).
+  assert (Vi : forall p, iP = AVar p -> In p L /\ vatoms k (AGet (amap pa aP) (amap pa iP)) p)
+    by (intros p E; split; [auto | subst; apply (atom_member_atoms (pa p) (AVar (pa p))); simpl; auto]).
+  assert (Hsa := aspell_ok k s aP _ (operand_store _ _ _ _ _ _ _ _ _ aP Hc Va) Ha).
+  assert (Hsi := aspell_ok k s iP _ (operand_store _ _ _ _ _ _ _ _ _ iP Hc Vi) Hi).
+  exists (store_set s (keyv (DBound (j, j))) (VReal (dfst d))).
+  split; [apply run_define; unfold xev in *; simpl in *; rewrite Hsa, Hsi; simpl; rewrite nth_z_map, Ez; reflexivity |].
+  split; [apply fwd_frame_set; reflexivity | apply store_get_set_same].
+Qed.
+
+Lemma replace_nth_z_nth {A : Type} k (x : A) l l1 :
+  replace_nth_z k x l = Some l1 -> exists y, nth_z k l = Some y.
+Proof.
+  unfold replace_nth_z, nth_z; destruct (k <? 0)%Z; [discriminate |].
+  generalize (Z.to_nat k); clear k; intros k; revert l l1.
+  induction k as [| k IH]; intros [| y l] l1; simpl; try discriminate; eauto.
+  destruct (replace_nth k x l) as [l2 |] eqn:E; [| discriminate]; intros _; eapply IH; eauto.
+Qed.
+
+(* An atom reads primal keys only. *)
+Lemma avoid_tape_spell k (aP : atom pv) t :
+  (forall p, aP = AVar p -> static_ok k p) -> avoid (keyv (TapeOf t)) (spell (amap pt aP)).
+Proof.
+  intros H x Hx; destruct aP as [p | |]; simpl in Hx; try contradiction.
+  destruct Hx as [<- | []]; destruct (H p eq_refl) as [_ [_ [Hs _]]]; rewrite Hs.
+  unfold keyv, stored; simpl; discriminate.
+Qed.
+
+Lemma afwd_set (aP iP vP : atom pv) : asim_fwd (ASet aP iP vP).
+Proof.
+  fwd_intro; simpl in Htc, Hev |- *.
+  destruct (aeval_atom (duals reals) (amap pd aP)) as [[| | | l |] |] eqn:Ha; try discriminate;
+    destruct (aeval_atom (duals reals) (amap pd iP)) as [[| z | | |] |] eqn:Hi; try discriminate;
+    destruct (aeval_atom (duals reals) (amap pd vP)) as [[[y dy] | | | |] |] eqn:Hv; try discriminate.
+  destruct (replace_nth_z z (Dual y dy) l) as [l1 |] eqn:Er; [| discriminate]; injection Hev as <-.
+  destruct aP as [q | | ]; simpl in Ha; try (apply aeval_literal in Ha as [? [_ E]]; discriminate); try discriminate.
+  injection Ha as Eq; simpl in Hst.
+  assert (Va : forall p, AVar q = AVar p -> In p L /\ vatoms k (ASet (AVar (pa q)) (amap pa iP) (amap pa vP)) p)
+    by (intros p E; injection E as <-; split; [auto | apply (atom_member_atoms (pa q) (AVar (pa q))); simpl; auto]).
+  assert (Vi : forall p, iP = AVar p -> In p L /\ vatoms k (ASet (AVar (pa q)) (amap pa iP) (amap pa vP)) p)
+    by (intros p E; split; [auto | subst; apply (atom_member_atoms (pa p) (AVar (pa p))); simpl; auto]).
+  assert (Vv : forall p, vP = AVar p -> In p L /\ vatoms k (ASet (AVar (pa q)) (amap pa iP) (amap pa vP)) p)
+    by (intros p E; split; [auto | subst; apply (atom_member_atoms (pa p) (AVar (pa p))); simpl; auto]).
+  destruct (operand_store _ _ _ _ _ _ _ _ _ _ Hc Va q eq_refl) as [Hsq Hq]; rewrite Eq in Hq.
+  assert (Hsi := aspell_ok k s iP _ (operand_store _ _ _ _ _ _ _ _ _ iP Hc Vi) Hi).
+  assert (Hsv := aspell_ok k s vP _ (operand_store _ _ _ _ _ _ _ _ _ vP Hc Vv) Hv).
+  assert (Hsti : forall p, iP = AVar p -> static_ok k p) by (intros p E; apply (operand_store _ _ _ _ _ _ _ _ _ iP Hc Vi p E)).
+  assert (Hstv : forall p, vP = AVar p -> static_ok k p) by (intros p E; apply (operand_store _ _ _ _ _ _ _ _ _ vP Hc Vv p E)).
+  rewrite <- Hst in Hq.
+  pose proof (replace_nth_z_map dfst z (Dual y dy) l) as Hm; rewrite Er in Hm; simpl in Hm.
+  set (s1 := fun s0 => store_set s0 (keyv (DBound (j, j))) (VArray (map dfst l1))).
+  assert (Hassign : forall s0, store_get s0 (keyv (DBound (j, j))) = Some (VArray (map dfst l)) ->
+            xev s0 (spell (amap pt iP)) = Some (VInt z) -> xev s0 (spell (amap pt vP)) = Some (VReal y) ->
+            run [DAssign (DAt (DVar (DBound (j, j))) (spell (amap pt iP))) (spell (amap pt vP))] s0 = Some (s1 s0)).
+  { intros s0 G1 G2 G3; unfold run, xev, keyv in *; simpl in *; rewrite G3; simpl; rewrite G1, G2; simpl.
+    rewrite Hm; reflexivity. }
+  assert (Hframe : forall s0, fwd_frame c (Some (DBound (j, j))) None s0 (s1 s0))
+    by (intros s0; apply fwd_frame_set; reflexivity).
+  destruct (sweep_eqb m Forward && rec) eqn:Erec; simpl; split; try lia.
+  - (* the element overwritten is recorded first *)
+    apply andb_true_iff in Erec as [_ Erec]; destruct (Hrec Erec) as [lt Hlt].
+    destruct (replace_nth_z_nth _ _ _ _ Er) as [old Hold].
+    set (s0 := store_set s (keyv (TapeOf (DBound (j, j)))) (VTape (dfst old :: lt))).
+    assert (Hn0 : store_get s0 (keyv (DBound (j, j))) = Some (VArray (map dfst l)))
+      by (unfold s0; rewrite store_get_set_other; [exact Hq | unfold keyv; simpl; discriminate]).
+    exists (s1 s0); split.
+    + change ([DPush (TapeOf (DBound (j, j))) (DAt (DVar (DBound (j, j))) (spell (amap pt iP)));
+               DAssign (DAt (DVar (DBound (j, j))) (spell (amap pt iP))) (spell (amap pt vP))])
+        with (app [DPush (TapeOf (DBound (j, j))) (DAt (DVar (DBound (j, j))) (spell (amap pt iP)))]
+                  [DAssign (DAt (DVar (DBound (j, j))) (spell (amap pt iP))) (spell (amap pt vP))]).
+      rewrite run_app.
+      replace (run [DPush (TapeOf (DBound (j, j))) (DAt (DVar (DBound (j, j))) (spell (amap pt iP)))] s) with (Some s0).
+      * apply Hassign; [exact Hn0 | unfold s0; rewrite xev_set_other; [exact Hsi | apply (avoid_tape_spell k); exact Hsti]
+                       | unfold s0; rewrite xev_set_other; [exact Hsv | apply (avoid_tape_spell k); exact Hstv]].
+      * unfold run, xev, keyv in *; simpl in *; rewrite Hq, Hsi; simpl; rewrite nth_z_map, Hold; simpl.
+        rewrite Hlt; reflexivity.
+    + split; [| unfold s1; apply store_get_set_same].
+      intros v Hb Hcv Ht Hex Hvo; rewrite (Hframe s0 v Hb Hcv Ht Hex Hvo).
+      unfold s0; apply store_get_set_other; intros K; apply keyv_inj in K; [| reflexivity | exact Hcv].
+      subst v; apply Ht; exact I.
+  - exists (s1 s); split; [apply Hassign; auto | split; [apply Hframe | unfold s1; apply store_get_set_same]].
 Qed.
 
 End Sim.
