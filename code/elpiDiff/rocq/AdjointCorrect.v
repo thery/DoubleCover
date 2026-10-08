@@ -85,6 +85,81 @@ Proof.
     + rewrite xev_DOp1, xev_DOp2, Ha, xev_DOp2, Hb; reflexivity.
 Qed.
 
+(* A partial derivative that is a constant does not read its operand. *)
+Definition pmentions {V : Type} (p : pexpr V) : Prop := match p with PNum _ => False | _ => True end.
+
+Lemma adjoint_op1_gen s f (a : atom (tvar W)) e x dx y dy p be :
+  partial1 f a = Some p -> xev s e = Some (VReal be) ->
+  dual_op1 R reals f (Dual x dx) = Some (Dual y dy) ->
+  (pmentions p -> xev s (spell a) = Some (VReal x)) ->
+  exists A, dy = A * dx /\ xev s (scale (spell_partial p) e) = Some (VReal (A * be)).
+Proof.
+  intros Hp He Hd Ha.
+  destruct p as [| l | |]; try (apply (adjoint_op1 s f a e x dx y dy); auto; apply Ha; exact I).
+  destruct f as [| | | | | | z |]; simpl in Hp; try discriminate; try (destruct z; discriminate);
+    [| destruct z; try discriminate]; injection Hp as <-; unfold_ops Hd; simpl.
+  - rewrite lit_m1 in Hd; injection Hd as _ <-; exists (-1); split; [reflexivity |].
+    rewrite xev_DOp1, He; simpl; f_equal; f_equal; ring.
+  - rewrite lit_0 in Hd; injection Hd as _ <-; exists 0; split; [reflexivity |].
+    rewrite xev_DOp2, xev_DReal, lit_0, He; reflexivity.
+Qed.
+
+(* The reverse sweep of a unary operation reads its operand when the partial
+   derivative mentions it. *)
+Lemma reads_op1 f (a : tvar W) (b : avar) p :
+  partial1 f (AVar a) = Some p -> pmentions p -> avaried b = true ->
+  atom_member (AVar b) (read_by (AVar b) (partial1 f (AVar b))) = true.
+Proof.
+  intros Hp Hm Hb; unfold read_by; simpl; rewrite Hb.
+  destruct f as [| | | | | | z |]; simpl in Hp |- *; try discriminate;
+    try (destruct z; simpl in Hp |- *); try (injection Hp as <-; contradiction);
+    rewrite ?atom_member_union; simpl; rewrite ?Nat.eqb_refl; simpl; rewrite ?orb_true_r; reflexivity.
+Qed.
+
+(* The partial derivatives of the arithmetic operations, at (x, y). *)
+Definition coef_a (f : binary) (x y : R) : R :=
+  match f with Add | Sub => 1 | Mul => y | Divide => 1 / y | _ => 0 end.
+Definition coef_b (f : binary) (x y : R) : R :=
+  match f with Add => 1 | Sub => -1 | Mul => x | Divide => - (x / (y * y)) | _ => 0 end.
+
+Lemma dual_op2_coef f x dx y dy z dz :
+  dual_op2 R reals f (Dual x dx) (Dual y dy) = Some (Dual z dz) ->
+  dz = coef_a f x y * dx + coef_b f x y * dy.
+Proof.
+  intros Hd; destruct f; unfold_ops Hd; try discriminate; injection Hd as _ <-; simpl;
+    unfold Rdiv; rewrite ?Rinv_mult; ring.
+Qed.
+
+(* The contribution to the first operand reads the second one (Mul, Divide). *)
+Lemma contrib_a s f (a b : atom (tvar W)) e x y be pa pb :
+  partial2 f a b = Some (pa, pb) -> xev s e = Some (VReal be) ->
+  ((f = Mul \/ f = Divide) -> xev s (spell b) = Some (VReal y)) ->
+  xev s (scale (spell_partial pa) e) = Some (VReal (coef_a f x y * be)).
+Proof.
+  intros Hp He Hb; destruct f; simpl in Hp; try discriminate; injection Hp as <- <-; cbn [spell_partial coef_a];
+    (apply xev_scale; [| exact He]).
+  - rewrite xev_DReal, lit_1; reflexivity.
+  - rewrite xev_DReal, lit_1; reflexivity.
+  - apply Hb; auto.
+  - rewrite xev_DOp2, xev_DReal, lit_1, Hb; auto.
+Qed.
+
+(* The contribution to the second operand reads the first one (Mul, Divide)
+   and the second one (Divide). *)
+Lemma contrib_b s f (a b : atom (tvar W)) e x y be pa pb :
+  partial2 f a b = Some (pa, pb) -> xev s e = Some (VReal be) ->
+  ((f = Mul \/ f = Divide) -> xev s (spell a) = Some (VReal x)) ->
+  (f = Divide -> xev s (spell b) = Some (VReal y)) ->
+  xev s (scale (spell_partial pb) e) = Some (VReal (coef_b f x y * be)).
+Proof.
+  intros Hp He Ha Hb; destruct f; simpl in Hp; try discriminate; injection Hp as <- <-; cbn [spell_partial coef_b];
+    (apply xev_scale; [| exact He]).
+  - rewrite xev_DReal, lit_1; reflexivity.
+  - rewrite xev_DReal, lit_m1; reflexivity.
+  - apply Ha; auto.
+  - rewrite xev_DOp1, xev_DOp2, Ha, xev_DOp2, Hb; auto.
+Qed.
+
 (* The primal part of a dual operation is the operation of the reals. *)
 Lemma primal_eval_op1 f va ve :
   eval_op1 (duals reals) f va = Some ve -> eval_op1 reals f (primal va) = Some (primal ve).
@@ -629,6 +704,7 @@ Definition asim_rev (eP : value pv bare) : Prop :=
   forall s2 O,
     (forall p, In p L -> vreads k eA p -> store_get s2 (keyv (stored p)) = Some (primal (pd p))) ->
     rctx L c wP pp O (vflows k eA) s2 ->
+    (storage wP tail eP = None -> ~ In n (map snd O)) ->
     shaped (tangent ve) (barv s2 n) ->
     exists s3, run re s2 = Some s3 /\ rev_frame c (inplace wP pp) (oput O n (tangent ve)) s2 s3 /\
       (forall t m, In (t, m) O -> shaped t (barv s3 m)) /\
@@ -783,6 +859,176 @@ Proof.
       unfold s0; apply store_get_set_other; intros K; apply keyv_inj in K; [| reflexivity | exact Hcv].
       subst v; apply Ht; exact I.
   - exists (s1 s); split; [apply Hassign; auto | split; [apply Hframe | unfold s1; apply store_get_set_same]].
+Qed.
+
+Ltac rev_intro :=
+  let L := fresh "L" in let k := fresh "k" in let c := fresh "c" in
+  intros L k c wP pp tail eA eW eT eD te n ve ty vo HA HW HT HD Hs Hbar Htc Htail [j [Ej Hj]] Hst Hev Hvr;
+  destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
+  repeat match goal with
+         | H : _ /\ _ |- _ => destruct H
+         | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         end; subst.
+
+(* An accumulation into a real variable. *)
+Lemma run_increment s x e b v :
+  store_get s (keyv x) = Some (VReal b) -> xev s e = Some (VReal v) ->
+  run [DIncrement (DVar x) e] s = Some (store_set s (keyv x) (VReal (b + v))).
+Proof.
+  intros H1 H2; unfold run, xev, keyv in *.
+  change (map (Simplify.out_dstmt nat) [DIncrement (DVar x) e])
+    with [DIncrement (DVar (Simplify.out_dvar nat x)) (Simplify.out_dexpr nat e)].
+  cbn [exec_stmts exec]; cbn [xeval]; rewrite H1, H2; reflexivity.
+Qed.
+
+(* What the reverse sweep of a binary operation reads. *)
+Lemma reads_op2 f (a b : atom avar) (q : avar) :
+  comparison f = false -> (f = Mul \/ f = Divide) ->
+  ((varied a = true /\ b = AVar q) \/ (varied b = true /\ a = AVar q)) ->
+  atom_member (AVar q) (fst (match partial2 f a b with
+                             | Some (pa, pb) => (atom_union (read_by a (Some pa)) (read_by b (Some pb)), atoms_of_atoms [a; b])
+                             | None => ([], atoms_of_atoms [a; b]) end)) = true.
+Proof.
+  intros _ Hf Hv; destruct Hf as [-> | ->]; simpl; rewrite atom_member_union; unfold read_by;
+    destruct Hv as [[Ha ->] | [Hb ->]]; rewrite ?Ha, ?Hb; simpl;
+    repeat (rewrite ?atom_member_union; simpl); rewrite ?Nat.eqb_refl; simpl;
+    rewrite ?orb_true_r; try reflexivity;
+    destruct (varied a); destruct (varied b); simpl; rewrite ?atom_member_union; simpl;
+    rewrite ?Nat.eqb_refl; simpl; rewrite ?orb_true_r; reflexivity.
+Qed.
+
+Lemma reads_op2_div (a b : atom avar) (q : avar) :
+  varied b = true -> b = AVar q ->
+  atom_member (AVar q) (fst (match partial2 Divide a b with
+                             | Some (pa, pb) => (atom_union (read_by a (Some pa)) (read_by b (Some pb)), atoms_of_atoms [a; b])
+                             | None => ([], atoms_of_atoms [a; b]) end)) = true.
+Proof.
+  intros Hb ->; simpl; rewrite atom_member_union; unfold read_by; simpl in Hb |- *; rewrite Hb.
+  apply orb_true_iff; right; simpl; rewrite !atom_member_union; simpl; rewrite Nat.eqb_refl.
+  destruct (atom_member _ (atoms_of_atom a)); simpl; rewrite ?Nat.eqb_refl; reflexivity.
+Qed.
+
+(* One contribution, to a varied operand q, an owner of tangent t: its
+   adjoint grows by w, the pairing by t * w. *)
+Lemma contrib_step c ex O O' s (q : pv) p x t b0 w :
+  owners_ok O -> NoDup (map snd O) -> In (VReal t, stored q) O ->
+  (forall m, In m (map snd O) -> In m (map snd O')) ->
+  (forall t' n', In (t', n') O -> shaped t' (barv s n')) ->
+  (forall t', In (t', stored q) O -> t' = VReal t) ->
+  tbar (pt q) = true -> tstored (pt q) = stored q ->
+  barv s (stored q) = Some (VReal b0) -> xev s (scale (spell_partial p) (DVar x)) = Some (VReal w) ->
+  let s' := store_set s (keyv (BarOf (stored q))) (VReal (b0 + w)) in
+  run (contribution W (AVar (pt q)) p x) s = Some s' /\
+  rev_frame c ex O' s s' /\ (forall t' n', In (t', n') O -> shaped t' (barv s' n')) /\
+  pairing O s' = pairing O s + t * w.
+Proof.
+  intros Hok Hnd Hin Hsub Hsh Huq Hb Hs Eb Ew s'.
+  unfold contribution; simpl; rewrite Hb, Hs.
+  split; [apply run_increment; [exact Eb | exact Ew] |].
+  split; [apply rev_frame_set; [apply Hsub, in_map_iff; exists (VReal t, stored q); auto | apply (Hok (VReal t)); exact Hin] |].
+  split.
+  - apply (shaped_set O s (VReal t)); auto; intros t' Ht'; rewrite (Huq t' Ht'); exact I.
+  - unfold s'; rewrite (pairing_set_in O s (VReal t) (stored q)); auto; rewrite Eb; simpl; ring.
+Qed.
+
+Lemma rev_frame_trans c ex O s s1 s2 :
+  rev_frame c ex O s s1 -> rev_frame c ex O s1 s2 -> rev_frame c ex O s s2.
+Proof. intros F1 F2 v H1 H2 H3 H4 H5; rewrite (F2 v H1 H2 H3 H4 H5); apply F1; auto. Qed.
+
+(* An atom reads primal keys only: writing an adjoint keeps its value. *)
+Lemma avoid_bar_spell k (aP : atom pv) t :
+  (forall p, aP = AVar p -> static_ok k p) -> avoid (keyv (BarOf t)) (spell (amap pt aP)).
+Proof.
+  intros H x Hx; destruct aP as [p | |]; simpl in Hx; try contradiction.
+  destruct Hx as [<- | []]; destruct (H p eq_refl) as [_ [_ [Hs _]]]; rewrite Hs.
+  unfold keyv, stored; simpl; discriminate.
+Qed.
+
+Lemma oput_notin O n t : ~ In n (map snd O) -> oput O n t = (t, n) :: O.
+Proof. intros H; unfold oput; destruct (in_dec dvar_eq_dec_c n (map snd O)); [contradiction | reflexivity]. Qed.
+
+Lemma arev_op1 f (aP : atom pv) : asim_rev (AOp1 f aP).
+Proof.
+  rev_intro; simpl in Htc, Hst, Hvr |- *; rename f3 into f.
+  split; [lia |]; intros s2 O Hrd Hr Hn Hsh.
+  destruct aP as [q | |]; simpl in Hvr; try discriminate.
+  assert (Hq : In q L) by auto.
+  destruct (static_in _ _ _ (s_static _ _ _ _ _ _ _ Hs) Hq) as [_ [_ [Hsq _]]].
+  cbn [amap aeval_atom aeval_value] in Hev; destruct (pd q) as [[x dx] | | | |] eqn:Eq;
+    cbn [eval_op1 dom_op1 duals] in Hev; try discriminate.
+  destruct (dual_op1 R reals f (Dual x dx)) as [[y dy] |] eqn:Hd; [| discriminate].
+  injection Hev as <-.
+  rewrite (oput_notin O _ _ (Hn eq_refl)); cbn [amap] in *.
+  simpl in Hsh; destruct (barv s2 (DBound (j, j))) as [[be | | | |] |] eqn:Ebn; try contradiction.
+  assert (Hfl : vflows k (AOp1 f (AVar (pa q))) q) by (unfold vflows; simpl; rewrite Nat.eqb_refl; reflexivity).
+  pose proof (r_useful _ _ _ _ _ _ _ Hr q Hq Hfl Hvr) as Hin; rewrite Eq in Hin; simpl in Hin.
+  pose proof (r_shape _ _ _ _ _ _ _ Hr _ _ Hin) as Hshq; simpl in Hshq.
+  destruct (barv s2 (stored q)) as [[b0 | | | |] |] eqn:Eb; try contradiction.
+  destruct (partial1 f (AVar (pt q))) as [p |] eqn:Hp;
+    [| destruct f as [| | | | | | z |]; simpl in Hp; try discriminate; try (destruct z; discriminate);
+       unfold_ops Hd; discriminate].
+  assert (He : xev s2 (DVar (BarOf (DBound (j, j)))) = Some (VReal be)) by exact Ebn.
+  destruct (adjoint_op1_gen s2 f (AVar (pt q)) _ x dx y dy p be Hp He Hd) as [A [Edy Hc]].
+  { intros Hm; assert (Hrq : store_get s2 (keyv (stored q)) = Some (primal (pd q))).
+    { apply (Hrd q Hq); unfold vreads; simpl; exact (reads_op1 f (pt q) (pa q) p Hp Hm Hvr). }
+    rewrite Eq in Hrq; unfold xev; simpl; rewrite Hsq; exact Hrq. }
+  pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
+  unfold contribution; simpl; rewrite (Hbar q Hq), Hvr, Hsq.
+  exists (store_set s2 (keyv (BarOf (stored q))) (VReal (b0 + A * be))).
+  split; [apply run_increment; [exact Eb | exact Hc] |].
+  split; [apply rev_frame_set; [right; apply in_map_iff; exists (VReal dx, stored q); auto | reflexivity] |].
+  split.
+  - apply (shaped_set O s2 (VReal dx)); auto; [apply (r_shape _ _ _ _ _ _ _ Hr) |].
+    intros t' Ht'; rewrite (r_value _ _ _ _ _ _ _ Hr q t' Hq Hfl Ht'), Eq; exact I.
+  - rewrite (pairing_set_in O s2 (VReal dx) (stored q)); auto; [| apply (r_nodup _ _ _ _ _ _ _ Hr)].
+    rewrite Eb, Ebn, Edy; simpl; ring.
+Qed.
+
+Lemma rctx_shapes L c wP pp O use s s' :
+  rctx L c wP pp O use s -> (forall t n, In (t, n) O -> shaped t (barv s' n)) -> rctx L c wP pp O use s'.
+Proof. intros Hr Hs; destruct Hr; constructor; auto. Qed.
+
+(* The contribution to an operand, varied or not. *)
+Lemma operand_contrib L k c wP pp ex O O' s (aP : atom pv) p xv x dx w (use : pv -> Prop) :
+  Forall (static_ok k) L -> (forall q, aP = AVar q -> In q L /\ use q) -> rctx L c wP pp O use s ->
+  (forall q, In q L -> tbar (pt q) = avaried (pa q)) ->
+  aeval_atom (duals reals) (amap pd aP) = Some (VReal (Dual x dx)) ->
+  (forall m, In m (map snd O) -> In m (map snd O')) ->
+  (varied (amap pa aP) = true -> xev s (scale (spell_partial p) (DVar xv)) = Some (VReal w)) ->
+  exists s', run (contribution W (amap pt aP) p xv) s = Some s' /\ rev_frame c ex O' s s' /\
+    (forall t n, In (t, n) O -> shaped t (barv s' n)) /\ pairing O s' = pairing O s + dx * w /\
+    forall e, (forall y, In y (dvars e) -> consistent y /\ forall m, In m (map snd O) -> y <> BarOf m) ->
+      xev s' e = xev s e.
+Proof.
+  intros HL HaL Hr Hbar Ha Hsub Hw.
+  pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
+  destruct (varied (amap pa aP)) eqn:Ev.
+  - destruct aP as [q | |]; simpl in Ev; try discriminate.
+    destruct (HaL q eq_refl) as [Hq Hu].
+    destruct (static_in _ _ _ HL Hq) as [_ [_ [Hsq _]]].
+    simpl in Ha; injection Ha as Eq.
+    pose proof (r_useful _ _ _ _ _ _ _ Hr q Hq Hu Ev) as Hin; rewrite Eq in Hin; simpl in Hin.
+    pose proof (r_shape _ _ _ _ _ _ _ Hr _ _ Hin) as Hsh; simpl in Hsh.
+    destruct (barv s (stored q)) as [[b0 | | | |] |] eqn:Eb; try contradiction.
+    destruct (contrib_step c ex O O' s q p xv dx b0 w Hok (r_nodup _ _ _ _ _ _ _ Hr) Hin Hsub
+                (r_shape _ _ _ _ _ _ _ Hr)
+                (fun t' Ht' => eq_trans (r_value _ _ _ _ _ _ _ Hr q t' Hq Hu Ht') (f_equal tangent Eq))
+                (eq_trans (Hbar q Hq) Ev) Hsq Eb (Hw eq_refl)) as [R1 [R2 [R3 R4]]].
+    eexists; split; [exact R1 | split; [exact R2 | split; [exact R3 | split; [exact R4 |]]]].
+    intros e He; apply xev_set_other; intros y Hy K; destruct (He y Hy) as [Hcy Hny].
+    apply keyv_inj in K; [| exact Hcy | exact (Hok _ _ Hin)].
+    apply (Hny (stored q)); [apply in_map_iff; exists (VReal dx, stored q); auto | exact K].
+  - assert (Hz : dx = 0).
+    { assert (Hst : forall q, aP = AVar q -> static_ok k q) by (intros q E; apply (static_in _ _ _ HL), HaL, E).
+      pose proof (atom_zero k aP _ Hst Ev Ha) as Hz; exact Hz. }
+    assert (Hn : bar (amap pt aP) = None).
+    { destruct aP as [q | |]; simpl; auto; simpl in Ev; rewrite (Hbar q (proj1 (HaL q eq_refl))), Ev; reflexivity. }
+    unfold contribution; rewrite Hn.
+    exists s; split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity | split; [apply (r_shape _ _ _ _ _ _ _ Hr) |]]].
+    split; [rewrite Hz; ring | auto].
 Qed.
 
 End Sim.
