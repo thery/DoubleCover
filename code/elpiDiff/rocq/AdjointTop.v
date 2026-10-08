@@ -482,13 +482,310 @@ Proof.
         rewrite length_firstn; unfold m in *; simpl in *; lia.
 Qed.
 
+Lemma map_primal_seed ds x dx : Forall2 fits ds x -> map TangentCorrect.primal (seed_args ds x dx) = x.
+Proof.
+  intros H; revert dx; induction H as [| [nm t r] v ds x _ _ IH]; intros dx; [reflexivity |].
+  simpl; rewrite primal_val_dual, IH; reflexivity.
+Qed.
+
+(* The keys of the adjoints given to the function. *)
+Lemma bar_keys Ls :
+  Forall (fun p => varg (pw p) <> None) Ls ->
+  map pvar (@map (dparam W) _ (out_dparam nat) (concat (map (adjoint_bar W) (map arg_entry Ls)))) =
+  map (fun p => BarOf (DBound (pn p))) (filter (fun p => has_dot (dname p)) Ls).
+Proof.
+  induction 1 as [| p Ls Hg _ IH]; [reflexivity |].
+  cbn [map concat]; rewrite map_app, map_app.
+  destruct (adjoint_bar_entry p Hg) as [pw0 [t0 E]]; rewrite E, IH; simpl.
+  destruct (has_dot (dname p)); reflexivity.
+Qed.
+
+(* The pairing of the owners: the initial part, and the written argument. *)
+Fixpoint written_sum (Ls : list pv) (s : store R) : R :=
+  match Ls with
+  | [] => 0%R
+  | p :: Ls' =>
+      ((if has_dot (dname p) && written_decl (dname p)
+        then inner (TangentCorrect.tangent (pd p)) (barv s (stored p)) else 0) + written_sum Ls' s)%R
+  end.
+
+Lemma pairing_split Ls s : pairing (owners_of Ls) s = (init_sum Ls s + written_sum Ls s)%R.
+Proof.
+  induction Ls as [| p Ls IH]; simpl; [ring |]; rewrite pairing_app, IH.
+  destruct (has_dot (dname p)), (written_decl (dname p)); simpl; ring.
+Qed.
+
+Lemma init_sum_ext Ls s s' :
+  (forall p, In p Ls -> has_dot (dname p) = true -> written_decl (dname p) = false -> barv s' (stored p) = barv s (stored p)) ->
+  init_sum Ls s' = init_sum Ls s.
+Proof.
+  induction Ls as [| p Ls IH]; intros H; simpl; [reflexivity |].
+  rewrite IH by (intros q Hq; apply H; right; exact Hq).
+  destruct (has_dot (dname p)) eqn:E1, (written_decl (dname p)) eqn:E2; simpl; try reflexivity.
+  rewrite (H p (or_introl eq_refl) E1 E2); reflexivity.
+Qed.
+
+Lemma written_sum_none Ls s : (forall p, In p Ls -> written_decl (dname p) = false) -> written_sum Ls s = 0%R.
+Proof.
+  induction Ls as [| p Ls IH]; intros H; simpl; [reflexivity |].
+  rewrite (H p (or_introl eq_refl)), andb_false_r, IH by (intros q Hq; apply H; right; exact Hq); ring.
+Qed.
+
+Lemma written_sum_one Ls s w :
+  NoDup Ls -> In w Ls -> has_dot (dname w) = true -> written_decl (dname w) = true ->
+  (forall p, In p Ls -> written_decl (dname p) = true -> p = w) ->
+  written_sum Ls s = inner (TangentCorrect.tangent (pd w)) (barv s (stored w)).
+Proof.
+  induction Ls as [| p Ls IH]; intros Hnd Hw Hd Hwd H; [destruct Hw |].
+  inversion Hnd as [| ? ? Hp Hnd']; subst; simpl.
+  destruct Hw as [-> | Hw].
+  - assert (Hz : written_sum Ls s = 0%R).
+    { apply written_sum_none; intros q Hq; destruct (written_decl (dname q)) eqn:E; [| reflexivity].
+      rewrite (H q (or_intror Hq) E) in Hq; contradiction. }
+    rewrite Hz, Hd, Hwd; simpl; ring.
+  - rewrite (IH Hnd' Hw Hd Hwd (fun q Hq => H q (or_intror Hq))).
+    destruct (has_dot (dname p) && written_decl (dname p)) eqn:E; [| ring].
+    apply andb_true_iff in E as [_ E]; rewrite (H p (or_introl eq_refl) E) in Hp; contradiction.
+Qed.
+
+(* The final adjoints of the arguments, in order. *)
+Definition bars_list (Ls : list pv) (s : store R) : list (val R) :=
+  concat (map (fun p => if has_dot (dname p) then match barv s (stored p) with Some b => [b] | None => [] end else []) Ls).
+
+Lemma bars_from_store Ls s :
+  (forall p, In p Ls -> has_dot (dname p) = true ->
+     exists b, barv s (stored p) = Some b /\ shaped (TangentCorrect.tangent (pd p)) (Some b)) ->
+  bars_in Ls s (bars_list Ls s).
+Proof.
+  induction Ls as [| p Ls IH]; intros H; [reflexivity |].
+  unfold bars_list; cbn [map concat bars_in]; fold (bars_list Ls s).
+  destruct (has_dot (dname p)) eqn:E; [| apply IH; intros q Hq; apply H; right; exact Hq].
+  destruct (H p (or_introl eq_refl) E) as [b [Hb Hs]]; rewrite Hb; simpl.
+  split; [reflexivity | split; [exact Hs | apply IH; intros q Hq; apply H; right; exact Hq]].
+Qed.
+
+Lemma bar_inputs_length ds x xb yb :
+  length ds = length x -> length (bar_inputs ds x xb yb) = length (filter has_dot ds).
+Proof.
+  revert x xb; induction ds as [| d ds IH]; intros [| v x] xb Hl; simpl in Hl; try discriminate; [reflexivity |].
+  cbn [bar_inputs filter]; rewrite length_app, IH by lia.
+  destruct (has_dot d); reflexivity.
+Qed.
+
+Lemma bar_params_length Ls :
+  Forall (fun p => varg (pw p) <> None) Ls ->
+  length (concat (map (adjoint_bar W) (map arg_entry Ls))) = length (filter (fun p => has_dot (dname p)) Ls).
+Proof.
+  intros H.
+  transitivity (length (map pvar (@map (dparam W) _ (out_dparam nat) (concat (map (adjoint_bar W) (map arg_entry Ls))))));
+    [rewrite !length_map; reflexivity |].
+  rewrite bar_keys by exact H; apply length_map.
+Qed.
+
+Lemma filter_dname Ls : length (filter has_dot (map dname Ls)) = length (filter (fun p => has_dot (dname p)) Ls).
+Proof. induction Ls as [| p Ls IH]; simpl; [reflexivity |]; destruct (has_dot (dname p)); simpl; auto. Qed.
+
+(* The store at the start, laid out. *)
+Lemma s0_shape cv Ls ds x xb yb eps ein :
+  Forall (fun p => varg (pw p) <> None) Ls -> map dname Ls = ds -> length Ls = length x ->
+  param_store (map (out_dparam nat) (map (adjoint_primal W cv) (map arg_entry Ls) ++
+                                     concat (map (adjoint_bar W) (map arg_entry Ls)) ++ eps))
+              (map (fun p => TangentCorrect.primal (pd p)) Ls ++ bar_inputs ds x xb yb ++ ein) =
+  prim_entries Ls ++ param_store (map (out_dparam nat) (concat (map (adjoint_bar W) (map arg_entry Ls))))
+                                 (bar_inputs ds x xb yb) ++
+  param_store (map (out_dparam nat) eps) ein.
+Proof.
+  intros Hg Hd Hl; rewrite !map_app.
+  rewrite param_store_app by (rewrite !length_map; reflexivity).
+  rewrite primal_store; f_equal.
+  apply param_store_app; rewrite length_map, bar_params_length, bar_inputs_length by (subst; rewrite ?length_map; auto).
+  subst ds; symmetry; apply filter_dname.
+Qed.
+
+Lemma bar_params_inputs Ls ds x xb yb :
+  Forall (fun p => varg (pw p) <> None) Ls -> map dname Ls = ds -> length Ls = length x ->
+  length (@map (dparam W) _ (out_dparam nat) (concat (map (adjoint_bar W) (map arg_entry Ls)))) =
+  length (bar_inputs ds x xb yb).
+Proof.
+  intros Hg Hd Hl; rewrite length_map, bar_params_length, bar_inputs_length by (subst; rewrite ?length_map; auto).
+  subst ds; symmetry; apply filter_dname.
+Qed.
+
+Lemma prim_entries_bar Ls v : store_get (prim_entries Ls) (KVar (BarOf v)) = None.
+Proof. apply store_get_notin; unfold prim_entries; rewrite map_map; intros H; apply in_map_iff in H as [? [E _]]; discriminate. Qed.
+
+Lemma bar_entries_nodup Ls ds x xb yb :
+  Forall (fun p => varg (pw p) <> None) Ls -> NoDup (map pn Ls) -> map dname Ls = ds -> length Ls = length x ->
+  NoDup (map fst (param_store (map (out_dparam nat) (concat (map (adjoint_bar W) (map arg_entry Ls))))
+                              (bar_inputs ds x xb yb))).
+Proof.
+  intros Hg Hnd Hd Hl.
+  rewrite param_store_keys.
+  2: { rewrite length_map, bar_params_length, bar_inputs_length by (subst; rewrite ?length_map; auto).
+       subst ds; symmetry; apply filter_dname. }
+  rewrite <- map_map with (f := pvar) (g := fun y => KVar y), bar_keys by exact Hg.
+  rewrite map_map; apply NoDup_map_inv with (f := fun k => match k with KVar (BarOf (DBound i)) => i | _ => 0%nat end).
+  rewrite map_map; simpl.
+  clear - Hnd; induction Ls as [| p Ls IH]; simpl; [constructor |].
+  inversion Hnd as [| ? ? Hp Hnd']; subst.
+  destruct (has_dot (dname p)); simpl; [constructor; [| exact (IH Hnd')] | exact (IH Hnd')].
+  intros H; apply Hp; apply in_map_iff in H as [q [E Hq]]; apply filter_In in Hq as [Hq _].
+  rewrite <- E; apply in_map; exact Hq.
+Qed.
+
+Lemma store_get_mid (A B E : store R) k v :
+  store_get A k = None -> NoDup (map fst B) -> In (k, v) B -> store_get (A ++ B ++ E) k = Some v.
+Proof. intros HA HB Hin; rewrite store_get_app, HA, store_get_app, (store_get_in B k v HB Hin); reflexivity. Qed.
+
+(* The arguments that carry an adjoint are reals or arrays. *)
+Lemma has_dot_ra ds :
+  non_real_varied ds = None -> (forall d, In d ds -> written_decl d = true -> real_or_array (decl_ty d)) ->
+  Forall (fun d => has_dot d = true -> real_or_array (decl_ty d)) ds.
+Proof.
+  intros Hn Hw; apply Forall_forall; intros [nm t r] Hin Hd.
+  destruct r; [| apply (Hw _ Hin); reflexivity | | destruct t; discriminate].
+  - exact (non_real_varied_none ds nm t Independent Hn Hin eq_refl).
+  - exact (non_real_varied_none ds nm t Inout Hn Hin eq_refl).
+Qed.
+
+Lemma bars_in_get Ls s bars p :
+  bars_in Ls s bars -> In p Ls -> has_dot (dname p) = true ->
+  exists b, barv s (stored p) = Some b /\ shaped (TangentCorrect.tangent (pd p)) (Some b).
+Proof.
+  revert bars; induction Ls as [| q Ls IH]; intros bars Hb Hp Hd; [destruct Hp |].
+  cbn [bars_in] in Hb; destruct Hp as [-> | Hp].
+  - rewrite Hd in Hb; destruct bars as [| b bars]; [contradiction |]; destruct Hb as [B [S _]]; eauto.
+  - destruct (has_dot (dname q)); [destruct bars as [| b bars]; [contradiction |]; destruct Hb as [_ [_ Hb]] |];
+      exact (IH _ Hb Hp Hd).
+Qed.
+
+Lemma in_owners Ls t m :
+  In (t, m) (owners_of Ls) -> exists p, In p Ls /\ has_dot (dname p) = true /\ t = TangentCorrect.tangent (pd p) /\ m = stored p.
+Proof.
+  induction Ls as [| p Ls IH]; simpl; [intros [] |]; intros H; apply in_app_or in H as [H | H].
+  - destruct (has_dot (dname p)) eqn:E; [destruct H as [H | []]; injection H as <- <-; exists p; auto | destruct H].
+  - destruct (IH H) as [q [Hq R]]; exists q; auto.
+Qed.
+
+Lemma owners_intro Ls p :
+  In p Ls -> has_dot (dname p) = true -> In (TangentCorrect.tangent (pd p), stored p) (owners_of Ls).
+Proof.
+  induction Ls as [| q Ls IH]; intros Hp Hd; [destruct Hp |]; simpl; apply in_or_app.
+  destruct Hp as [-> | Hp]; [left; rewrite Hd; left; reflexivity | right; exact (IH Hp Hd)].
+Qed.
+
+Lemma owners_nodup Ls : NoDup (map pn Ls) -> NoDup (map snd (owners_of Ls)).
+Proof.
+  induction Ls as [| p Ls IH]; intros Hnd; simpl; [constructor |].
+  inversion Hnd as [| ? ? Hp Hnd']; subst; rewrite map_app.
+  destruct (has_dot (dname p)); simpl; [constructor; [| exact (IH Hnd')] | exact (IH Hnd')].
+  intros H; apply in_map_iff in H as [[t m] [E H]]; simpl in E; subst m.
+  destruct (in_owners _ _ _ H) as [q [Hq [_ [_ E]]]]; unfold stored in E; injection E as E.
+  apply Hp; rewrite E; apply in_map; exact Hq.
+Qed.
+
+Lemma pairing_ext O s s' : (forall t m, In (t, m) O -> barv s' m = barv s m) -> pairing O s' = pairing O s.
+Proof.
+  induction O as [| [t m] O IH]; intros H; simpl; [reflexivity |].
+  rewrite (H t m (or_introl eq_refl)), IH; [reflexivity |].
+  intros t' m' Hi; apply (H t'); right; exact Hi.
+Qed.
+
+Lemma store_get_in_map (s : store R) k : store_get s k <> None -> exists v, In (k, v) s.
+Proof.
+  induction s as [| [k0 v0] s IH]; simpl; intros H; [contradiction |].
+  destruct (key_eqb k0 k) eqn:E; [apply key_eqb_eq in E; subst; eauto |].
+  destruct (IH H) as [v1 Hv]; eauto.
+Qed.
+
+Lemma key_some (s : store R) k : In k (map fst s) -> store_get s k <> None.
+Proof.
+  induction s as [| [k0 v0] s IH]; simpl; [intros [] |]; intros [E | H]; destruct (key_eqb k0 k) eqn:Ek; try discriminate.
+  - subst; rewrite key_eqb_refl in Ek; discriminate.
+  - exact (IH H).
+Qed.
+
+(* The final values of the parameters, as a map. *)
+Definition final_of (s : store R) (q : dparam nat) : val R :=
+  match store_get s (KVar (pvar q)) with Some w => w | None => VInt 0 end.
+
+Lemma finals_map (s : store R) ps fs :
+  length fs = length ps -> (forall i pw t x, nth_error ps i = Some (DParam pw t x) -> nth_error fs i = store_get s (KVar x)) ->
+  (forall q, In q ps -> store_get s (KVar (pvar q)) <> None) -> fs = map (final_of s) ps.
+Proof.
+  intros Hl Hn Hs; apply nth_error_ext; intros i; rewrite nth_error_map.
+  destruct (nth_error ps i) as [[pw t y] |] eqn:E.
+  - rewrite (Hn i pw t y E); unfold final_of; simpl.
+    pose proof (Hs _ (nth_error_In _ _ E)) as H; simpl in H.
+    destruct (store_get s (KVar y)); [reflexivity | contradiction].
+  - apply nth_error_None; apply nth_error_None in E; lia.
+Qed.
+
+Lemma bars_list_map Ls s :
+  Forall (fun p => varg (pw p) <> None) Ls ->
+  (forall p, In p Ls -> has_dot (dname p) = true -> barv s (stored p) <> None) ->
+  bars_list Ls s = map (final_of s) (@map (dparam W) _ (out_dparam nat) (concat (map (adjoint_bar W) (map arg_entry Ls)))).
+Proof.
+  induction 1 as [| p Ls Hg HL IH]; intros H; [reflexivity |].
+  unfold bars_list; cbn [map concat]; fold (bars_list Ls s); rewrite map_app, map_app.
+  rewrite IH by (intros q Hq; apply H; right; exact Hq); f_equal.
+  destruct (adjoint_bar_entry p Hg) as [pw0 [t0 E]]; rewrite E.
+  destruct (has_dot (dname p)) eqn:Ed; [| reflexivity].
+  specialize (H p (or_introl eq_refl) Ed); unfold barv, keyv, stored in H |- *; simpl in H |- *.
+  unfold final_of; simpl; destruct (store_get s (KVar (BarOf (DBound (pn p))))); [reflexivity | contradiction].
+Qed.
+
+(* Running the body of a function: the finals of the parameters. *)
+Lemma finish_exec (ps : list (dparam W)) (ss : list (dstmt W)) args s0 sF r :
+  length (map (out_dparam nat) ps) = length args -> param_store (map (out_dparam nat) ps) args = s0 ->
+  run ss s0 = Some sF ->
+  exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map (out_dstmt nat) ss))) 0 args =
+  match r with
+  | DReturnsReal => option_map (fun w => (map (final_of sF) (map (out_dparam nat) ps), [w])) (store_get sF Returned)
+  | DVoid => Some (map (final_of sF) (map (out_dparam nat) ps), [])
+  end.
+Proof.
+  intros Hl Hs0 Hr; cbn [exec_scoped]; rewrite Hl, Nat.eqb_refl; cbv iota beta; simpl negb; cbv iota.
+  change (map (fun '(DParam _ _ x, a) => (KVar x, a)) (combine (map (out_dparam nat) ps) args)) with
+    (param_store (map (out_dparam nat) ps) args).
+  rewrite Hs0; change (exec_stmts reals (map (out_dstmt nat) ss) s0) with (run ss s0); rewrite Hr.
+  assert (Hin : forall q, In q (map (out_dparam nat) ps) -> store_get sF (KVar (pvar q)) <> None).
+  { intros q Hq; apply (run_keeps ss s0 sF Hr); rewrite <- Hs0; apply key_some.
+    rewrite param_store_keys by exact Hl; apply in_map_iff; exists q; split; [reflexivity | exact Hq]. }
+  destruct (finals_some sF (map (out_dparam nat) ps)) as [fs [Hfs [Hlfs Hnth]]].
+  { intros pw0 t0 y Hy; pose proof (Hin _ Hy) as H; simpl in H.
+    destruct (store_get sF (KVar y)) as [w |]; [eauto | contradiction]. }
+  cbv zeta; rewrite Hfs.
+  rewrite (finals_map sF (map (out_dparam nat) ps) fs Hlfs Hnth Hin).
+  destruct r; [destruct (store_get sF Returned) |]; reflexivity.
+Qed.
+
+(* The final adjoints of the arguments, read from the finals. *)
+Lemma output_bars cv Ls ds eps (sF : store R) :
+  Forall (fun p => varg (pw p) <> None) Ls -> map dname Ls = ds ->
+  (forall p, In p Ls -> has_dot (dname p) = true -> barv sF (stored p) <> None) ->
+  firstn (length (filter has_dot ds)) (skipn (length ds)
+    (map (final_of sF) (@map (dparam W) _ (out_dparam nat)
+       (map (adjoint_primal W cv) (map arg_entry Ls) ++ concat (map (adjoint_bar W) (map arg_entry Ls)) ++ eps)))) =
+  bars_list Ls sF.
+Proof.
+  intros Hg Hd Hb; rewrite !map_app.
+  rewrite skipn_app, skipn_all2 by (rewrite !length_map; subst; rewrite length_map; lia).
+  rewrite !length_map; subst ds; rewrite length_map, Nat.sub_diag, skipn_O, app_nil_l.
+  rewrite firstn_app.
+  assert (E : length (filter has_dot (map dname Ls)) = length (map (final_of sF) (@map (dparam W) _ (out_dparam nat) (concat (map (adjoint_bar W) (map arg_entry Ls)))))).
+  { rewrite length_map, length_map, bar_params_length, filter_dname by exact Hg; reflexivity. }
+  rewrite E, firstn_all, Nat.sub_diag, firstn_O, app_nil_r.
+  symmetry; apply bars_list_map; assumption.
+Qed.
+
 (* The adjoint function, opened at the numbers simplify uses, from the
    primal arguments, their adjoints and the seed: it computes the gradient,
    the transpose of the tangent of the dual evaluation applied to the seed. *)
 Theorem adjoint_simulates_duals (cv : bool) (f : function) (x : list (val R)) (xb yb dx : list R)
   (v : val (dual R)) :
   parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->
-  length xb = in_dim x -> length yb = length (reals_of_val (primal v)) ->
+  length xb = in_dim x -> length yb = length (reals_of_val (primal v)) -> length dx = in_dim x ->
   (forall L res bP, open_P (afdef (normalize f) pv) 0 (seed_args (decls f) x dx) [] = Some (L, res, bP) ->
      asim_body cv bP) ->
   aeval_function (duals reals) (normalize f) (seed_args (decls f) x dx) = Some v ->
@@ -500,7 +797,7 @@ Theorem adjoint_simulates_duals (cv : bool) (f : function) (x : list (val R)) (x
     dotl (reals_of_val (TangentCorrect.tangent v)) yb = dotl (seed (decls f) x dx) g /\
     (cv = true -> writes_inout (decls f) = false -> value_given (decls f) out = Some (TangentCorrect.primal v)).
 Proof.
-  intros Hpar Hwf Hfit Hlxb Hlyb Hsim Hev.
+  intros Hpar Hwf Hfit Hlxb Hlyb Hldx Hsim Hev.
   set (xs := seed_args (decls f) x dx) in *.
   pose proof (normalize_parametric f Hpar) as Hnp.
   set (dP := afdef (normalize f) pv).
@@ -565,9 +862,177 @@ Proof.
     - destruct (Hargs i p Ep) as [nm [t [r [x0 [-> Hx0]]]]]; rewrite Hx0, nth_error_map, Ep; reflexivity.
     - rewrite nth_error_map, Ep; apply nth_error_None; apply nth_error_None in Ep.
       rewrite length_rev in Ep; lia. }
+  assert (HAL : Forall (fun p => tstored (pt p) = stored p /\ varg (pw p) <> None) (rev L)).
+  { apply Forall_forall; intros p Hp; rewrite in_rev_iff in Hp.
+    destruct (Hargs' p Hp) as [? [? [? [? [? [-> _]]]]]]; split; [reflexivity | discriminate]. }
+  assert (HAL' : Forall (fun p => varg (pw p) <> None) (rev L))
+    by (apply Forall_impl with (2 := HAL); intros p [_ H]; exact H).
+  assert (Hpn_inj : forall p q, In p L -> In q L -> pn p = pn q -> p = q).
+  { intros p q Hp Hq E; destruct (Hargs' p Hp) as [i [? [? [? [? [-> [Hx [Hd _]]]]]]]].
+    destruct (Hargs' q Hq) as [i' [? [? [? [? [-> [Hx' [Hd' _]]]]]]]]; simpl in E; subst i'.
+    rewrite Hx in Hx'; injection Hx' as <-; rewrite Hd in Hd'; injection Hd' as <- <- <-; reflexivity. }
+  assert (Hnd : NoDup (rev L)) by (apply NoDup_map_inv with (f := pn); exact HnL).
+  assert (Hdn : map dname (rev L) = decls f) by (rewrite Hds; reflexivity).
+  assert (Hpd : map pd (rev L) = seed_args (decls f) x dx) by (rewrite <- Hxs; reflexivity).
+  assert (Hxp : map (fun p => TangentCorrect.primal (pd p)) (rev L) = x).
+  { rewrite <- (map_primal_seed (decls f) x dx Hfit), <- Hpd, map_map; reflexivity. }
+  assert (HLn : length (rev L) = length x) by (rewrite <- Hxp, length_map; reflexivity).
+  assert (Hprim : forall p, In p L -> store_get (prim_entries (rev L)) (keyv (stored p)) = Some (TangentCorrect.primal (pd p))).
+  { intros p Hp; apply prim_lookup; [exact HnL | apply in_rev_iff; exact Hp]. }
+  assert (HBnd := bar_entries_nodup (rev L) (decls f) x xb yb HAL' HnL Hdn HLn).
+  rewrite <- map_rev.
   destruct (wf_result_facts _ _ _ _ Hwf) as [[EW [Hnw HtcB]] | [w [nm [role [EW [Hg [Hwr [H1w [Hraw [HtcB [Hdep Hinout]]]]]]]]]]].
   - (* the function returns a real *)
-    admit.
+    subst resW; destruct res as [tR | yP]; simpl in HrW; [subst tR | contradiction].
+    destruct resT as [tT | yT]; simpl in HrT; [subst tT | contradiction].
+    cbn [adjoint_seed]; rewrite open_pairs_sbind.
+    set (vo := (if cv then Some (AReturns Real) else None) : option (aresult (tvar W))).
+    set (se := DVar (BarOf (@ResultVar W))).
+    destruct (open_pairs (adj W None vo Forward (rebuild (tvar W) bT (annotate_body_t cv Forward n bA)) se) n)
+      as [[fw rv] c'] eqn:Hob.
+    (* the store at the start *)
+    set (bps := concat (map (adjoint_bar W) (map arg_entry (rev L)))) in *.
+    set (B := param_store (map (out_dparam nat) bps) (bar_inputs (decls f) x xb yb)) in *.
+    set (s0 := prim_entries (rev L) ++ B ++ [(KVar (BarOf ResultVar), VReal (hd 0%R yb))]).
+    set (ps := map (adjoint_primal W cv) (map arg_entry (rev L)) ++ bps ++ [DParam ByValue Real (BarOf ResultVar)]).
+    assert (Hin : adjoint_inputs (decls f) x xb yb =
+                  map (fun p => TangentCorrect.primal (pd p)) (rev L) ++ bar_inputs (decls f) x xb yb ++ [VReal (hd 0%R yb)])
+      by (unfold adjoint_inputs; rewrite Hnw, Hxp; reflexivity).
+    assert (Hs0eq : param_store (map (out_dparam nat) ps) (adjoint_inputs (decls f) x xb yb) = s0)
+      by (rewrite Hin; unfold ps; rewrite s0_shape by assumption; reflexivity).
+    assert (Hkey_bar : forall k w0, In (k, w0) B -> exists i, k = KVar (BarOf (DBound i))).
+    { intros k w0 Hk; apply (in_map fst) in Hk; simpl in Hk; unfold B in Hk.
+      rewrite param_store_keys in Hk by exact (bar_params_inputs (rev L) (decls f) x xb yb HAL' Hdn HLn).
+      rewrite <- map_map with (f := pvar) (g := fun y => KVar y) in Hk; unfold bps in Hk; rewrite bar_keys in Hk by exact HAL'.
+      apply in_map_iff in Hk as [y [<- Hy]]; apply in_map_iff in Hy as [p [<- _]]; eauto. }
+    assert (HB : forall k w0, In (k, w0) B -> store_get s0 k = Some w0).
+    { intros k w0 Hk; destruct (Hkey_bar k w0 Hk) as [i ->]; apply store_get_mid; [apply prim_entries_bar | exact HBnd | exact Hk]. }
+    assert (Hs0p : forall p, In p L -> store_get s0 (keyv (stored p)) = Some (TangentCorrect.primal (pd p)))
+      by (intros p Hp; unfold s0; rewrite store_get_app, (Hprim p Hp); reflexivity).
+    assert (Hra_ds : Forall (fun d => has_dot d = true -> real_or_array (decl_ty d)) (decls f)).
+    { apply has_dot_ra; [exact Hnrv |]; intros d Hd Hw.
+      assert (existsb written_decl (decls f) = true) by (apply existsb_exists; eauto); congruence. }
+    assert (Hnw' : forall p, In p (rev L) -> written_decl (dname p) = false).
+    { intros p Hp; destruct (written_decl (dname p)) eqn:E; [| reflexivity].
+      assert (existsb written_decl (decls f) = true)
+        by (apply existsb_exists; exists (dname p); split; [rewrite <- Hdn; apply in_map; exact Hp | exact E]); congruence. }
+    assert (Hwyb : Forall2 (fun d v0 => written_decl d = true -> (nreals v0 <= length yb)%nat) (decls f) x).
+    { assert (Hw0 : forall d, In d (decls f) -> written_decl d = false).
+      { intros d Hd; destruct (written_decl d) eqn:E; [| reflexivity].
+        assert (existsb written_decl (decls f) = true) by (apply existsb_exists; eauto); congruence. }
+      clear - Hfit Hw0; induction Hfit as [| d v0 ds x0 _ _ IH]; constructor.
+      - intros Hw; rewrite (Hw0 d (or_introl eq_refl)) in Hw; discriminate.
+      - apply IH; intros d' Hd'; apply Hw0; right; exact Hd'. }
+    destruct (bar_store (decls f) x xb yb dx (rev L) s0 Hfit Hlxb Hwyb Hra_ds Hdn Hpd HAL' HB) as [_ Hbars0].
+    (* the forward sweep *)
+    assert (Hparg : forall p, In p L -> exists nm0 t0 r0 i0 x0, p = arg_pv nm0 t0 r0 i0 x0)
+      by (intros p Hp; destruct (Hargs' p Hp) as [i0 [nm0 [t0 [r0 [x0 [-> _]]]]]]; do 5 eexists; reflexivity).
+    assert (Hactx : actx L n n s0 None PTop (live_anf n bW) (tbr cv Forward n bA) Real).
+    { constructor.
+      - constructor; auto; try (intros; discriminate); try exact I; intros H; destruct H.
+      - intros p Hp; destruct (Hparg p Hp) as [? [? [? [? [? ->]]]]]; reflexivity.
+      - intros p Hp _; exact (Hs0p p Hp).
+      - intros p Hp; destruct (Hparg p Hp) as [? [? [? [? [? ->]]]]]; discriminate. }
+    assert (Hvo : Forward = Forward -> PTop = PTop /\ (vo = None <-> cv = false) /\
+                  (forall y, vo = Some (AWrites y) -> option_map (amap pt) None = Some y) /\
+                  (forall t, vo = Some (AReturns t) -> @None (atom pv) = None)).
+    { intros _; unfold vo; split; [reflexivity | split; [destruct cv; split; intros; congruence |]].
+      split; [intros y E; destruct cv; discriminate | reflexivity]. }
+    assert (Hvt : Forward = Forward -> forall p, In p L -> live_anf n bW p -> vo_target vo = Some (stored p) ->
+                    is_array (vty (pw p))).
+    { intros _ p _ _ E; unfold vo in E; destruct cv; simpl in E; [injection E as E; discriminate | discriminate]. }
+    pose proof (Hsim L n n s0 None PTop Forward bA bW bT bD Real v se vo HbA HbW HbT HbD Hactx I HtcB Hev Hvo Hvt)
+      as HS.
+    cbn [option_map] in HS.
+    lazymatch type of HS with context [@open_pairs ?A ?t n] =>
+      assert (E : @open_pairs A t n = ((fw, rv), c')) by exact Hob; rewrite E in HS; clear E end.
+    destruct HS as [Hcc [Hhty [s1 [R1 [F1 [T1 [V1 Hrev]]]]]]].
+    (* the reverse sweep *)
+    set (O := owners_of (rev L)).
+    assert (HinL : forall p, In p (rev L) -> In p L) by (intros p Hp; apply in_rev_iff; exact Hp).
+    assert (Hvt0 : forall y, vo_target vo <> Some (BarOf y)) by (intros y; unfold vo; destruct cv; discriminate).
+    assert (Hbars1 : forall p, In p (rev L) -> barv s1 (stored p) = barv s0 (stored p)).
+    { intros p Hp; unfold barv; apply F1; [simpl; exact (Hnum p (HinL p Hp)) | reflexivity | simpl; tauto | discriminate | apply Hvt0]. }
+    assert (Hs0r : store_get s0 (keyv (BarOf ResultVar)) = Some (VReal (hd 0%R yb))).
+    { unfold s0, keyv; simpl; rewrite store_get_app, prim_entries_bar, store_get_app.
+      destruct (store_get B (KVar (BarOf ResultVar))) eqn:EB.
+      - exfalso; assert (Hn : store_get B (KVar (BarOf ResultVar)) <> None) by (rewrite EB; discriminate).
+        destruct (in_map_iff fst B (KVar (BarOf ResultVar))) as [H _].
+        destruct (store_get_in_map B _ Hn) as [w0 Hk]; destruct (Hkey_bar _ _ Hk) as [i E]; discriminate.
+      - cbn [store_get]; rewrite key_eqb_refl; reflexivity. }
+    assert (Hs1r : store_get s1 (keyv (BarOf ResultVar)) = Some (VReal (hd 0%R yb)))
+      by (rewrite F1; [exact Hs0r | exact I | exact I | simpl; tauto | discriminate | apply Hvt0]).
+    assert (Hag : agree_prim c' (inplace None PTop) s1 s1) by (intros ? ? ? ? ?; reflexivity).
+    assert (Hr : rctx L n None PTop O (useful cv Forward n bA) s1).
+    { constructor.
+      - apply owners_nodup; exact HnL.
+      - intros t m Hi; destruct (in_owners _ _ _ Hi) as [p [Hp [Hd [-> ->]]]].
+        rewrite (Hbars1 p Hp); destruct (bars_in_get _ _ _ p Hbars0 Hp Hd) as [b [Eb Sb]]; rewrite Eb; exact Sb.
+      - intros t m Hi; destruct (in_owners _ _ _ Hi) as [p [Hp [_ [_ ->]]]]; exists (pn p).
+        split; [reflexivity | exact (Hnum p (HinL p Hp))].
+      - intros p Hp _ Hv; apply owners_intro; [apply in_rev_iff; exact Hp |].
+        destruct (Hargs' p Hp) as [i0 [nm0 [t0 [r0 [x0 [-> [_ [Hd _]]]]]]]]; simpl in Hv.
+        pose proof (non_real_varied_none (decls f) nm0 t0 r0 Hnrv (nth_error_In _ _ Hd) Hv) as Hra.
+        unfold dname, arg_entry; simpl.
+        destruct t0; try destruct Hra; destruct r0; simpl in Hv; try discriminate; reflexivity.
+      - intros p t Hp _ Hi; destruct (in_owners _ _ _ Hi) as [q [Hq [_ [-> E]]]].
+        unfold stored in E; injection E as E; rewrite (Hpn_inj q p (HinL q Hq) Hp (eq_sym E)); reflexivity.
+      - intros o E; discriminate. }
+    assert (Hseed : seed_ok n Real se s1).
+    { split; [intros y [<- | []]; split; exact I |].
+      intros _; exists (hd 0%R yb); exact Hs1r. }
+    destruct (Hrev s1 O Hag Hr Hseed) as [s3 [R3 [K3 [F3 [S3 P3]]]]].
+    destruct v as [d | | | |]; try (simpl in Hhty; contradiction).
+    assert (P3' : pairing O s3 = (init_sum (rev L) s0 + dsnd d * hd 0%R yb)%R).
+    { rewrite P3; unfold result_pairing, seed_value; simpl inplace.
+      change (xev s1 se) with (store_get s1 (keyv (BarOf ResultVar))); rewrite Hs1r.
+      unfold O; rewrite pairing_split, written_sum_none by exact Hnw'.
+      rewrite (init_sum_ext (rev L) s0 s1) by (intros p Hp _ _; apply Hbars1; exact Hp); ring. }
+    (* the end of the function *)
+    set (sF := if cv then store_set s3 Returned (VReal (dfst d)) else s3).
+    assert (Hres3 : cv = true -> store_get s3 (keyv ResultVar) = Some (VReal (dfst d))).
+    { intros Ecv; rewrite (K3 eq_refl ResultVar); [| unfold vo; rewrite Ecv; reflexivity | simpl; tauto].
+      apply (V1 eq_refl); unfold vo; rewrite Ecv; reflexivity. }
+    set (ss := if cv then fw ++ [] ++ rv ++ [DReturn (DVar ResultVar)] else fw ++ [] ++ rv).
+    assert (Hss : run ss s0 = Some sF).
+    { unfold ss, sF; destruct cv eqn:Ecv.
+      - rewrite run_app, R1, run_app, run_nil, run_app, R3.
+        unfold run; cbn [map Simplify.out_dstmt Simplify.out_dexpr Simplify.out_dvar exec_stmts exec xeval].
+        change (KVar ResultVar) with (keyv ResultVar); rewrite (Hres3 eq_refl); reflexivity.
+      - rewrite run_app, R1, run_app, run_nil, R3; reflexivity. }
+    assert (Hb3F : forall m, barv sF m = barv s3 m)
+      by (intros m; unfold sF, barv; destruct cv; [rewrite store_get_set_other by discriminate |]; reflexivity).
+    assert (HbF : forall p, In p (rev L) -> has_dot (dname p) = true ->
+                  exists b, barv sF (stored p) = Some b /\ shaped (TangentCorrect.tangent (pd p)) (Some b)).
+    { intros p Hp Hd; rewrite Hb3F; pose proof (S3 _ _ (owners_intro _ _ Hp Hd)) as Sh.
+      destruct (barv s3 (stored p)) as [b |]; [eauto | simpl in Sh; destruct (TangentCorrect.tangent (pd p)); contradiction]. }
+    assert (HbinF := bars_from_store (rev L) sF HbF).
+    assert (Hfb := bars_in_fit (decls f) x dx (rev L) sF (bars_list (rev L) sF) Hfit Hdn Hpd HbinF).
+    destruct (gradient_dotl (decls f) x xb dx (bars_list (rev L) sF) Hfit Hlxb Hldx Hfb) as [g [Hg [Hlg Hdg]]].
+    assert (Hgr := grad_rhs_pairing (decls f) x xb yb dx (rev L) s0 sF (bars_list (rev L) sF) Hfit Hlxb Hldx Hdn Hpd HbinF Hbars0).
+    assert (HpF : pairing O sF = pairing O s3) by (apply pairing_ext; intros t m _; apply Hb3F).
+    assert (Hlen_ps : length (map (out_dparam nat) ps) = length (adjoint_inputs (decls f) x xb yb)).
+    { rewrite Hin; unfold ps; rewrite map_app, map_app, !length_app.
+      pose proof (bar_params_inputs (rev L) (decls f) x xb yb HAL' Hdn HLn) as Hbl.
+      change (length (map (out_dparam nat) bps) = length (bar_inputs (decls f) x xb yb)) in Hbl.
+      rewrite !length_map in Hbl |- *; simpl; rewrite !length_map; do 2 f_equal; exact Hbl. }
+    pose proof (finish_exec ps ss (adjoint_inputs (decls f) x xb yb) s0 sF (if cv then DReturnsReal else DVoid)
+                  Hlen_ps Hs0eq Hss) as Hex.
+    exists (if cv then DReturnsReal else DVoid), ps, ss, c',
+      (map (final_of sF) (map (out_dparam nat) ps), if cv then [VReal (dfst d)] else []), g.
+    split; [unfold ss, ps, bps; destruct cv; reflexivity |].
+    split; [rewrite Hex; unfold sF; destruct cv; [rewrite store_get_set_same; reflexivity | reflexivity] |].
+    split.
+    { unfold adjoint_output, ps, bps.
+      cbn beta iota; rewrite <- Hg; f_equal.
+      apply (output_bars cv (rev L) (decls f) [DParam ByValue Real (BarOf ResultVar)] sF HAL' Hdn).
+      intros p Hp Hd; destruct (HbF p Hp Hd) as [b [Eb _]]; rewrite Eb; discriminate. }
+    split; [exact Hlg |].
+    split.
+    { rewrite Hdg, Hgr; fold O; rewrite HpF, P3'; simpl in Hlyb.
+      destruct yb as [| y0 [| ]]; simpl in Hlyb; try discriminate.
+      unfold dotl; simpl; ring. }
+    intros Ecv _; unfold value_given; rewrite index_of_written_none by exact Hnw; rewrite Ecv; reflexivity.
   - (* the function writes an argument *)
     admit.
 Admitted.
