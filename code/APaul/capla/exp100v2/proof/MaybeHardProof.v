@@ -10,6 +10,7 @@ From compcert Require Import CaplaProof.
 From Exp100 Require Import ExpNum ExpLimbs.
 From Exp100 Require ExpConsts ExpModel ExpModelBounds.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -29,12 +30,12 @@ Qed.
 Theorem maybe_hard_bits_ok : exp_core_spec -> decide_spec -> maybe_hard_bits_spec.
 Proof.
 move=> EC DE μ xb Ta Ca L2 RM r rl HT.
-enter_func; csteps.
+start; csteps.
 call EC => /(_ HT) [rc0 [y' [hs' [X' [q' [q1' [rr' [h' [t' [-> [-> [Hko Hok]]]]]]]]]]]].
 csteps.
 case EQ: Int64.eq => /=; last first.
 { (* rc <> 0: the result stays 1 *)
-  csteps; cret; split=> //.
+  csteps; fin; split=> //.
   by rewrite /ExpModel.maybe_hard_Z (Hko (rc_neq0 _ EQ)). }
 csteps.
 have [Hly Hcore] := Hok (rc_eq0 _ EQ).
@@ -44,6 +45,6 @@ have Hb' : forall o : 'I_1, - 2 ^ ExpModelBounds.hN_bits <= Int64.signed (hs' o)
              <= 2 ^ ExpModelBounds.hN_bits by move=> o; rewrite E1.
 call DE => /(_ Hly Hy (Hb' _)) [Er [lo' [hi' [d' [t2 ->]]]]].
 csteps.
-cret; split=> //.
+fin; split=> //.
 by rewrite Er E1 /ExpModel.maybe_hard_Z Hcore.
 Qed.

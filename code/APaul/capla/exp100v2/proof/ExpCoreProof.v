@@ -5,6 +5,7 @@ From Exp100 Require Import ExpNum ExpLimbs.
 From Exp100 Require ExpTable ExpConsts ExpModel ExpModelBounds.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
 Require Import Exp100Capla2.LimbLemmas.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -413,10 +414,10 @@ Theorem exp_core_ok :
   exp_core_spec.
 Proof.
 move=> GN ML NA NC NLT NM NS NSB μ xb y hs X q q1 rr h t Ta Ca L2 RM r rl Hok.
-enter_func; csteps.
+start; csteps.
 (* |x| >= 1024 *)
 case B1: Int64.ltu => /=; last first.
-{ csteps; cret.
+{ csteps; fin.
   do 9 eexists; split; first by []. split; first by [].
   by apply: rc_fail; [rewrite /=; lia | exact: core_big]. }
 have Hsm := core_small xb B1.
@@ -503,7 +504,7 @@ all: csteps.
 all: rewrite Vq5 (unsigned_small20 _ (small_le _ Rn2')).
 all: have Hred : n2 = ExpModelBounds.red_n (valA X1) by [].
 all: case LT4: (valA X1 <? ExpModel.q n2) => /=.
-all: lazymatch type of LT4 with _ = true => csteps; cret | _ => idtac end.
+all: lazymatch type of LT4 with _ = true => csteps; fin | _ => idtac end.
 all: lazymatch type of LT4 with _ = true =>
   do 9 eexists; split; [by []|]; split; [by []|];
   apply: rc_fail; first by rewrite /=; lia
@@ -516,7 +517,7 @@ all: csteps.
 all: call NLT => /(_ LX1 Lq6) [-> ->].
 all: rewrite Vq6 (unsigned_small20 _ (small_succ _ Rn2')).
 all: case LT5: (valA X1 <? ExpModel.q (n2 + 1)) => /=.
-all: lazymatch type of LT5 with _ = false => csteps; cret | _ => idtac end.
+all: lazymatch type of LT5 with _ = false => csteps; fin | _ => idtac end.
 all: lazymatch type of LT5 with _ = false =>
   do 9 eexists; split; [by []|]; split; [by []|];
   apply: rc_fail; first by rewrite /=; lia
@@ -562,7 +563,7 @@ all: have [LRM VRM] := RM_row RM HRM.
 all: call NLT => /(_ Lr1 LRM) [-> ->].
 all: rewrite Hr VRM.
 all: case LT6: (ExpModel.rarg (Int64.unsigned xb) n2 <? ExpModel.RMAXv)%Z => /=.
-all: lazymatch type of LT6 with _ = false => csteps; cret | _ => idtac end.
+all: lazymatch type of LT6 with _ = false => csteps; fin | _ => idtac end.
 all: lazymatch type of LT6 with _ = false =>
   do 9 eexists; split; [by []|]; split; [by []|];
   apply: rc_fail; first by rewrite /=; lia
@@ -650,7 +651,7 @@ all: lazymatch type of END with _ = false =>
                2 ^ (ExpConsts.P + ExpModel.num_bits))%Z;
     [by rewrite VTj Eh; exact: table_fit|];
   call NM => /(_ LTj Lh0 Hfit) [y1 [-> [Ly1 Vy1]]];
-  csteps; cret | _ => idtac end.
+  csteps; fin | _ => idtac end.
 all: lazymatch type of END with _ = false => 
   do 9 eexists; split; [by []|]; split; [by []|];
   split; [by []|];

@@ -10,6 +10,7 @@ From compcert Require Import CaplaProof.
 From Exp100 Require Import ExpNum ExpLimbs.
 Require Import Exp100Capla2.LimbLemmas.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -37,7 +38,7 @@ End Lemmas.
 Theorem num_sub_ok : num_sub_spec.
 Proof.
   move=> μ a0 b0 r rl La Lb Hs.
-  enter_func. csteps.
+  start. csteps.
   inv I := { [:: a; c; i; _i_hi] } (fun (a : numA) (c i hi : int64) =>
     Int64.unsigned hi = 6 /\ Int64.unsigned i <= 6 /\
     Int64.unsigned c <= 1 /\
@@ -122,7 +123,7 @@ Proof.
       { by apply: Hlo; rewrite /limb /limb_bits Ev Et; lia. }
       by apply: Hval; rewrite Ev Et; change (Int64.unsigned (Int64.repr 0)) with 0; lia.
   - (* the loop ends with i = 6: the borrow is 0 *)
-    csteps; cret; split=> //= _; csteps; cret.
+    csteps; cret; split=> //= _; csteps; fin.
     have E6 : i0:N = 6%nat by clia i0.
     have L1 : limbsA a1.
     { move=> j; apply: Hlow; rewrite E6; exact: ltn_ord j. }

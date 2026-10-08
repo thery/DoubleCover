@@ -11,6 +11,7 @@ From compcert Require Import CaplaProof.
 From Exp100 Require Import ExpNum ExpLimbs.
 From Exp100 Require ExpConsts ExpModel ExpTable.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -47,7 +48,7 @@ Proof.
 move=> MS μ qq L2 nn r rl HL Hn.
 have HL2 : limbsA L2.
   by apply/limbsA_Forall; rewrite HL; exact: (proj2 ExpConsts.num_LN2).
-enter_func; csteps.
+start; csteps.
 call MS => /(_ HL2 Hn) [p' [-> [Hp Hv]]].
 csteps.
 inv I := { [:: q; i] } (fun qv iv =>
@@ -74,7 +75,7 @@ case END: Int64.ltu => /=.
         by case: Nj; apply: val_inj.
       have [H' ->] := Hq j Hji.
       by congr (fun_of_fin p'); apply: val_inj. }
-- csteps; cret; split=> //= _; csteps; cret.
+- csteps; cret; split=> //= _; csteps; fin.
   have Hi6 : i0:N = 6%nat by move: END Hi; clia.
   have Hall : forall j : 'I_NL, exists H : (j.+1 < NP)%nat, q0 j = p' (Ordinal H).
     by move=> j; apply: Hq; rewrite Hi6; exact: ltn_ord j.

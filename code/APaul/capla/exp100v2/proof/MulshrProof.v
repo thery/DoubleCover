@@ -13,6 +13,7 @@ From Exp100 Require Import ExpNum ExpLimbs.
 From Exp100 Require ExpConsts ExpModel.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
 Require Import Exp100Capla2.LimbLemmas.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -109,7 +110,7 @@ Qed.
 Theorem num_mulshr_ok : num_mulshr_spec.
 Proof.
   move=> μ rr a b r rl Ha Hb Hfit.
-  enter_func. csteps.
+  start. csteps.
 
   inv I := { [:: p; i0] } (fun (pp : {ffun 'I_12 -> int64}) ii =>
     (ii:N <= 6)%nat /\ limbsA pp /\
@@ -222,7 +223,7 @@ Proof.
            have -> : (Int64.add i2 (Int64.repr 1)):N = (i2:N).+1 by clia i2.
            lia.
     + csteps; cret; split=> //= _; csteps.
-      cret.
+      fin.
       have E6' : i2:N = 6%nat by clia i2.
       exists r1; split; first by rewrite /envC /=.
       apply: (mulshr_final p0 r1 _ _ Hl0 _ _ Hfit).

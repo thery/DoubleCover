@@ -12,6 +12,7 @@ From Exp100 Require Import ExpNum ExpLimbs.
 From Exp100 Require ExpConsts ExpModel.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
 Require Import Exp100Capla2.LimbLemmas.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -241,7 +242,7 @@ Qed.
 Theorem num_scale_ok : num_zero_spec -> num_scale_spec.
 Proof.
 move=> NZ μ a v e r rl Hv He.
-enter_func; csteps.
+start; csteps.
 call NZ => ->.
 csteps.
 have Hv0 := Int64.unsigned_range v.
@@ -252,7 +253,7 @@ case NEG: Int64.lt => /=.
 - csteps.
   case G64: Int64.lt => /=.
   + csteps; evalf; csteps.
-    rewrite -!setfE; cret.
+    rewrite -!setfE; fin.
     have He' := neg_amount _ NEG G64.
     set wv := Int64.shru' v _.
     have Hw : Int64.unsigned wv = (Int64.unsigned v / 2 ^ (- Int64.signed e))%Z.
@@ -271,7 +272,7 @@ case NEG: Int64.lt => /=.
     rewrite (valA_write2 _ _ _ _ H1) // limb_base0 Z.mul_1_l E01 Hw ExpModel.scaleE.
     by case: Z.leb_spec; first lia.
   + csteps; evalf; csteps.
-    rewrite -!setfE; cret.
+    rewrite -!setfE; fin.
     have He' := neg_amount_le _ G64.
     have [L0 [L1 E01]] := split_word (Int64.repr 0) ltac:(by []).
     eexists; split; first by [].
@@ -289,7 +290,7 @@ case NEG: Int64.lt => /=.
   csteps.
   rewrite [modu64 _ _]/modu64 E32.
   csteps; evalf; csteps.
-  rewrite -!setfE; cret.
+  rewrite -!setfE; fin.
   have [Eu He0] := nonneg_e _ NEG.
   rewrite /scale_emax in He.
   have Hd : (Int64.unsigned (Int64.divu e (Int64.repr 32)) < 4)%Z.

@@ -11,6 +11,7 @@ From Exp100 Require Import ExpNum ExpLimbs.
 From Exp100 Require ExpConsts ExpModel.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
 Require Import Exp100Capla2.LimbLemmas.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -130,7 +131,7 @@ Qed.
 Theorem num_bitlen_ok : num_bitlen_spec.
 Proof.
 move=> μ a r rl Ha.
-enter_func; csteps.
+start; csteps.
 inv I := { [:: b; i] } (fun bv iv =>
   (iv:N <= 6)%nat /\ bv = Int64.repr (ExpModel.bitlen (pval a iv:N))).
 enter_loop I.
@@ -184,7 +185,7 @@ case END: Int64.ltu => /=.
     have Hl := Ha (Ordinal Hi6).
     rewrite Hbk Ek Z.mod_small; first exact: Hl.
     by rewrite Ei1 (pvalSn a _ Hi6).
-- csteps; cret; split=> //= _; csteps; cret.
+- csteps; cret; split=> //= _; csteps; fin.
   have Ei : i0:N = NL by rewrite /NL; move: END Hi; clia.
   by rewrite Hb Ei pval_all.
 Qed.

@@ -13,6 +13,7 @@ From Exp100 Require Import ExpNum ExpLimbs.
 From Exp100 Require ExpConsts ExpModel ExpModelBounds.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
 Require Import Exp100Capla2.LimbLemmas.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -211,7 +212,7 @@ have Hy16 : (valA y + 16 < 2 ^ ExpModel.num_bits)%Z.
   lia. }
 have Rs : (- 4096 <= Int64.signed hN <= 4096)%Z.
 { by move: RhN; have -> : (2 ^ ExpModelBounds.hN_bits = 4096)%Z by []. }
-enter_func; csteps.
+start; csteps.
 (* d = D, lo = y - D, hi = y + D *)
 call NZ => ->.
 csteps.
@@ -243,7 +244,7 @@ have Rbh := bitlen192 _ (valA192 _ Lhi1).
 (* y - D or y + D out of the binade of y: hard *)
 rewrite (eq_bits _ _ Rbl Rb).
 case B1: (ExpModel.bitlen (valA lo1) =? ExpModel.bitlen (valA y))%Z => /=.
-2: { csteps; cret.
+2: { csteps; fin.
      split; last by do 4 eexists.
      rewrite ExpModelBounds.decide_bits //; left.
      change (ExpModel.bitlen (valA y - 16) <> ExpModel.bitlen (valA y)).
@@ -251,7 +252,7 @@ case B1: (ExpModel.bitlen (valA lo1) =? ExpModel.bitlen (valA y))%Z => /=.
 csteps.
 rewrite (eq_bits _ _ Rbh Rb).
 case B2: (ExpModel.bitlen (valA hi1) =? ExpModel.bitlen (valA y))%Z => /=.
-2: { csteps; cret.
+2: { csteps; fin.
      split; last by do 4 eexists.
      rewrite ExpModelBounds.decide_bits //; right.
      change (ExpModel.bitlen (valA y + 16) <> ExpModel.bitlen (valA y)).
@@ -275,14 +276,14 @@ all: rewrite fs_word EF.
 (* f out of [64, 184]: hard *)
 all: rewrite lt_small; try (apply: small64_le; lia).
 all: case C2: (F <? 64)%Z => /=.
-1,3: csteps; cret; split; last (by do 4 eexists);
+1,3: csteps; fin; split; last (by do 4 eexists);
      rewrite (decide_out (valA y) (Int64.signed hN) F B1 B2 HF) //;
      by left; exact/Z.ltb_lt.
 all: csteps.
 all: clear C1 EF.
 all: rewrite lt_small; try (apply: small64_le; lia).
 all: case C3: (184 <? F)%Z => /=.
-1,3: csteps; cret; split; last (by do 4 eexists);
+1,3: csteps; fin; split; last (by do 4 eexists);
      rewrite (decide_out (valA y) (Int64.signed hN) F B1 B2 HF) //;
      by right; exact/Z.ltb_lt.
 all: move/Z.ltb_ge: C2 => C2; move/Z.ltb_ge: C3 => C3.
@@ -335,6 +336,6 @@ all: csteps.
 all: have Ed := decide_end (valA y) (Int64.signed hN) F B1 B2 HF ltac:(lia).
 all: rewrite C4 -?Vhi3 -?Vlo2 -Vt2 in Ed.
 all: case C5: (valA t2 <? _)%Z => /=.
-all: csteps; cret; split; last (by do 4 eexists).
+all: csteps; fin; split; last (by do 4 eexists).
 all: by rewrite Ed C5.
 Qed.

@@ -6,6 +6,7 @@
 From compcert Require Import CaplaProof.
 From Exp100 Require Import ExpNum ExpLimbs.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -15,7 +16,7 @@ Open Scope capla_scope.
 Theorem num_zero_ok : num_zero_spec.
 Proof.
   move=> μ a0 r rl.
-  enter_func. csteps.
+  start. csteps.
   inv I := { [:: a; i; _i_hi] } (fun (a : numA) (i hi : int64) =>
     Int64.unsigned hi = 6 /\ Int64.unsigned i <= 6 /\
     a = [ffun j : 'I_NL =>
@@ -39,7 +40,7 @@ Proof.
     + have Hj' : (j : nat) <> i0:N by move=> E; apply: Hj; apply: val_inj.
       by case: ifP => H1; case: ifP => H2 //; exfalso; clia i0.
   - (* the loop ends with i = 6: every limb is 0 *)
-    csteps; cret; split=> //= _; csteps; cret.
+    csteps; cret; split=> //= _; csteps; fin.
     rewrite/envC/=; do 2 f_equal; apply/ffunP => j; evalf.
     case: ifP => // H1; exfalso.
     have Hj : (j < 6)%nat := ltn_ord j.

@@ -10,6 +10,7 @@ From Exp100 Require Import ExpNum ExpLimbs.
 From Exp100 Require ExpConsts ExpModel.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
 Require Import Exp100Capla2.LimbLemmas.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -49,7 +50,7 @@ End Lemmas.
 Theorem num_add_ok : num_add_spec.
 Proof.
   move=> μ a0 b0 r rl La Lb Hs.
-  enter_func. csteps.
+  start. csteps.
   inv I := { [:: a; c; i; _i_hi] } (fun (a : numA) (c i hi : int64) =>
     Int64.unsigned hi = 6 /\ Int64.unsigned i <= 6 /\
     Int64.unsigned c <= 1 /\
@@ -103,7 +104,7 @@ Proof.
               (Int64.unsigned (b0 o))) => //; try lia.
     exact: limb_base_pos.
   - (* the loop ends with i = 6: the carry is 0 *)
-    csteps; cret; split=> //= _; csteps; cret.
+    csteps; cret; split=> //= _; csteps; fin.
     have E6 : i0:N = 6%nat by clia i0.
     exists a1; split; first by rewrite/envC/=.
     split.

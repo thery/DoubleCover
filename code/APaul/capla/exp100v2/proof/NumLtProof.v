@@ -8,6 +8,7 @@ From compcert Require Import CaplaProof.
 From Exp100 Require Import ExpNum ExpLimbs.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
 Require Import Exp100Capla2.LimbLemmas.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -53,7 +54,7 @@ Qed.
 Theorem num_lt_ok : num_lt_spec.
 Proof.
 move=> μ a0 b0 r rl Ha Hb.
-enter_func; csteps.
+start; csteps.
 (* the k top limbs of a and b are equal *)
 inv I := { [:: k] } (fun (k : int64) =>
   (k:N <= 6)%nat /\ forall j : 'I_NL, (6 - k:N <= j)%nat -> a0 j = b0 j).
@@ -71,7 +72,7 @@ case LT: Int64.ltu => /=.
   { move=> j /= Hj; apply: Ht; move: Hj; rewrite Hi5; clia k0. }
   case L1: Int64.ltu => /=.
   + (* a_i < b_i: true *)
-    csteps; cret; split=> // _; csteps; cret.
+    csteps; cret; split=> // _; csteps; fin.
     rewrite/envC/=; split=> //.
     have Hab : Int64.unsigned (a0 (Ordinal H)) <
       Int64.unsigned (b0 (Ordinal H)).
@@ -84,7 +85,7 @@ case LT: Int64.ltu => /=.
     { move: L1; rewrite /Int64.ltu; case: Coqlib.zlt => [//|Hn _]; lia. }
     case L2: Int64.ltu => /=.
     * (* a_i > b_i: false *)
-      csteps; cret; split=> // _; csteps; cret.
+      csteps; cret; split=> // _; csteps; fin.
       rewrite/envC/=; split=> //.
       have Hab : Int64.unsigned (b0 (Ordinal H)) <
         Int64.unsigned (a0 (Ordinal H)).
@@ -111,7 +112,7 @@ case LT: Int64.ltu => /=.
       { by have -> : j = Ordinal H by apply: val_inj. }
       by apply: Ht.
 - (* all limbs equal: false *)
-  csteps; cret; split=> //= _; csteps; cret.
+  csteps; cret; split=> //= _; csteps; fin.
   rewrite/envC/=; split=> //.
   have -> : a0 = b0.
   { apply/ffunP => j; apply: Ht; have := ltn_ord j; rewrite /NL; clia k0. }
