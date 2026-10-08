@@ -10,6 +10,7 @@ From Exp100 Require Import ExpNum ExpLimbs.
 From Exp100 Require ExpModel.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
 Require Import Exp100Capla2.LimbLemmas Exp100Capla2.NumPow2Proof.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -182,7 +183,7 @@ pose m := Int64.sub (Int64.shl' (Int64.repr 1)
   (Int.modu (Int64.loword (Int64.modu f (Int64.repr 32))) Int64.iwordsize'))
   (Int64.repr 1).
 pose T := low_target b0 q m.
-enter_func; csteps.
+start; csteps.
 (* the i low words of a are those of the target *)
 inv I := { [:: a; i] } (fun (a : numA) (i : int64) =>
   (i:N <= NL)%nat /\ forall j : 'I_NL, (j < i:N)%nat -> a j = T j).
@@ -235,7 +236,7 @@ case LT: Int64.ltu => /=.
         by have /negbTE -> : (i0:N != q) by rewrite neq_ltn Gq orbT. }
       rewrite -low_targetE; apply: Ha; move: Hi; rewrite /NL; clia i0.
 - (* the end: a is the target *)
-  csteps; cret; split=> //= _; csteps; cret.
+  csteps; cret; split=> //= _; csteps; fin.
   rewrite/envC/=.
   have Ei : (i0:N = 6)%nat by move: Hi; rewrite /NL; clia i0.
   have Ea : a1 = T :> numA.

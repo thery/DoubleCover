@@ -10,6 +10,7 @@ From Exp100 Require Import ExpNum ExpLimbs.
 From Exp100 Require ExpModel.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
 Require Import Exp100Capla2.LimbLemmas.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -129,7 +130,7 @@ Proof. by move=> Hw j; rewrite setf0E //; case: eqP. Qed.
 Lemma num_zero_local : num_zero_spec.
 Proof.
 move=> μ a0 r rl.
-enter_func; csteps.
+start; csteps.
 inv I := { [:: a; i] } (fun (a : numA) (i : int64) =>
   (i:N <= NL)%nat /\ forall j : 'I_NL, (j < i:N)%nat -> a j = Int64.zero).
 enter_loop I.
@@ -147,7 +148,7 @@ case LT: Int64.ltu => /=.
   apply: Ha; have: (nat_of_ord j) <> (i0:N).
   { by move=> E; apply: ne; apply: val_inj. }
   move: Hi; rewrite /NL; clia i0.
-- csteps; cret; split=> //= _; csteps; cret.
+- csteps; cret; split=> //= _; csteps; fin.
   rewrite/envC/=; do 2 f_equal; apply/ffunP => x; rewrite !ffunE.
   have Ei : (i0:N = 6)%nat by move: Hi; rewrite /NL; clia i0.
   congr Vint64; apply: Ha; rewrite Ei; exact: ltn_ord.
@@ -162,10 +163,10 @@ have Hf' : 0 <= Int64.unsigned f < 192.
 { have := Int64.unsigned_range f; move: Hf.
   rewrite /ExpModel.num_bits /limb_bits /NL /=; lia. }
 have E32 : Int64.eq (Int64.repr 32) Int64.zero = false by [].
-enter_func; csteps.
+start; csteps.
 call num_zero_local => /= ->.
 csteps; rewrite /divu64 E32 /=; csteps; rewrite /modu64 E32 /=; csteps.
-cret; rewrite/envC/=.
+fin; rewrite/envC/=.
 eexists; split; first reflexivity.
 have Hw : Int64.unsigned (Int64.shl' (Int64.repr 1)
     (Int.modu (Int64.loword (Int64.modu f (Int64.repr 32))) Int64.iwordsize'))

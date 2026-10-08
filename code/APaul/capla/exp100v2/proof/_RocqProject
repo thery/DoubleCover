@@ -17,6 +17,7 @@ exp100.v
 Bridge.v
 Specs.v
 LimbLemmas.v
+Tactics.v
 NumAddProof.v
 NumZeroProof.v
 NumSubProof.v

@@ -10,6 +10,7 @@ From Exp100 Require Import ExpNum ExpLimbs.
 From Exp100 Require ExpConsts ExpModel.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
 Require Import Exp100Capla2.LimbLemmas.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -43,7 +44,7 @@ Proof. move=> <- <-; ring. Qed.
 Theorem num_mul_small_ok : num_mul_small_spec.
 Proof.
   move=> μ p a w r rl Ha Hw.
-  enter_func. csteps.
+  start. csteps.
   inv I := { [:: p0; c; i] } (fun (pp : {ffun 'I_NP -> int64}) cc ii =>
     (ii:N <= 6)%nat /\
     (forall k : 'I_NP, (k < ii:N)%nat -> limb (Int64.unsigned (pp k))) /\
@@ -86,7 +87,7 @@ Proof.
       apply: step_close E.
       by rewrite /ai; do 2 f_equal; apply: val_inj.
   - csteps; cret; split=> //= _; csteps.
-    cret.
+    fin.
     have E6 : i0:N = 6%nat by clia i0.
     rewrite E6 in Hp0 Hv0.
     eexists; split.

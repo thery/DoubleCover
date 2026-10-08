@@ -9,6 +9,7 @@ From compcert Require Import CaplaProof.
 From Exp100 Require Import ExpNum ExpLimbs.
 From Exp100 Require ExpConsts ExpModel ExpTable.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -50,12 +51,12 @@ Proof. by []. Qed.
 Theorem guess_n_ok : num_mul_small_spec -> guess_n_spec.
 Proof.
 move=> MS μ X r rl HX.
-enter_func; csteps.
+start; csteps.
 have Hw : limb (Int64.unsigned (Int64.repr 3098164009)).
   by rewrite INV_word; exact: ExpConsts.limb_INV.
 call MS => /(_ HX Hw) [p' [-> [Hp Hv]]].
 csteps; evalf; csteps; evalf; csteps.
-cret; split=> //.
+fin; split=> //.
 rewrite /envC /=; evalf.
 rewrite bits185A // Hv INV_word ExpModel.guessE.
 by [].

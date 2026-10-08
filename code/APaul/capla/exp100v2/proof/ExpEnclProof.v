@@ -11,6 +11,7 @@ From Exp100 Require Import ExpNum ExpLimbs.
 From Exp100 Require ExpConsts ExpModel ExpModelBounds.
 Require Import Exp100Capla2.exp100 Exp100Capla2.Bridge Exp100Capla2.Specs.
 Require Import Exp100Capla2.LimbLemmas.
+Require Import Exp100Capla2.Tactics.
 
 Set Bullet Behavior "Strict Subproofs".
 Unset SsrOldRewriteGoalsOrder.
@@ -136,12 +137,12 @@ Ltac enter_loop_m I :=
 Theorem exp_encl_bits_ok : exp_core_spec -> exp_encl_bits_spec.
 Proof.
 move=> EC μ xb M s Ta Ca L2 RM r rl HT.
-enter_func; csteps.
+start; csteps.
 call EC => /(_ HT) [rc0 [y' [hs' [X' [q' [q1' [rr' [h' [t' [-> [-> [Hko Hok]]]]]]]]]]]].
 csteps.
 case EQ: Int64.eq => /=; last first.
 { (* rc <> 0: M and s are left as they are *)
-  csteps; cret.
+  csteps; fin.
   do 3 eexists; split; first reflexivity; split; first reflexivity; split.
   - by move=> H; rewrite /ExpModel.exp_encl_Z (Hko H).
   - by move/(rc_neq0 _ EQ). }
@@ -169,7 +170,7 @@ case END: Int64.ltu => /=.
 - (* the loop is done: s[0] = hs[0] - 160 *)
   csteps.
   cret; split=> //= _.
-  csteps; evalf; csteps; cret.
+  csteps; evalf; csteps; fin.
   do 3 eexists; split; first reflexivity; split; first reflexivity.
   split; first by move=> /(_ (rc_eq0 _ EQ)).
   move=> _.
