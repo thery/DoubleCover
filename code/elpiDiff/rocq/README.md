@@ -15,7 +15,8 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
 ## Theorems
 
 The adjoint modes are stated (`adjoint_mode_correct`, `AdjointMode.v`), not
-yet proved: it is the one `Admitted`. `Print Assumptions tangent_mode_correct` lists only the axioms
+yet proved: it is the one `Admitted`. The proof is in progress
+(`AdjointCorrect.v`, below). `Print Assumptions tangent_mode_correct` lists only the axioms
 of the reals of the standard library (`sig_forall_dec`, `sig_not_dec`,
 `functional_extensionality_dep`, `classic`), which Coquelicot uses as well.
 
@@ -30,6 +31,37 @@ of the reals of the standard library (`sig_forall_dec`, `sig_not_dec`,
 | `scoping` | `TangentGood.v` | those statements follow the discipline `good` and use no tape |
 | `tangent_simulates_duals` | `TangentTop.v` | theorem 1 for a function: the tangent function, run over the reals on the primal arguments and the seeded tangents, gives the value and the tangent of the dual evaluation of the normal form of f |
 | `tangent_mode_correct` | `TangentMode.v` | the tangent mode is correct: where a parametric, well-formed f is defined at x, it is differentiable at x with a linear derivative df, and `simplify (tangent (annotate false (normalize f)))`, run over the reals on `tangent_inputs (decls f) x dx`, gives the value of f and df applied to the seed of dx (dx on the independent and inout reals, 0 elsewhere) |
+
+### The adjoint proof, in progress
+
+The adjoint program is related to the dual evaluation of the source in an
+arbitrary direction dx (the `pv` instance of the tangent proof). The reverse
+sweep keeps the *pairing*: the sum, over the storages that carry an adjoint
+(the owners), of the tangent of the variable they hold times its adjoint.
+Transposing `let x = e` moves the adjoint of x to the operands of e weighted
+by the partial derivatives, which keeps the pairing since the tangent of x is
+the same combination of the tangents of the operands. A body is simulated by
+one lemma for its two sweeps (`asim_body`): its forward sweep computes the
+values its reverse sweep reads (the to-be-recorded analysis, `needs`), and its
+reverse sweep, run from any store that agrees on them, changes the pairing by
+the tangent of the body times the seed.
+
+| Milestone | State |
+|---|---|
+| M1, straight-line bodies (operations, `a[i]`, in-place update) | the simulation is proved, `asim_straight` (`AdjointCorrect.v`, no `Admitted`); the top level (arguments, seeds, value) remains |
+| M2, branches | to do |
+| M3, maps | to do |
+| M4, M5, folds and tapes | to do |
+| M6, `simplify` with tapes, the scoping of the adjoint code | to do |
+| M7, adjoint-value at the top, `adjoint_mode_correct` | to do |
+
+Proved in `AdjointCorrect.v`: the operations are linear in the tangents with
+the spelled partial derivatives as coefficients; the forward sweep of each
+operation computes its value (pushing the overwritten element on the tape of a
+recorded storage); the reverse sweep of each operation transposes it, reading
+only scalars that occur in it; typing and activity of the values (a value not
+varied has a zero tangent); the let, with a fresh variable or updated in
+place; returns, with the value adjoint-value leaves; `asim_straight`.
 
 ## Files
 
@@ -72,6 +104,7 @@ of the reals of the standard library (`sig_forall_dec`, `sig_not_dec`,
 | `TangentTop.v` | — | the layout of the tangent function (`seed`, `tangent_inputs`, `tangent_output`); `tangent_simulates_duals` |
 | `TangentMode.v` | — | `tangent_mode_correct` |
 | `AdjointSpec.v` | — | the layout of the adjoint function: `adjoint_inputs` (primal arguments, initial adjoints xb or the seed yb, the seed of a returned value), `adjoint_output` (the gradient: final minus initial adjoints), `value_given` |
+| `AdjointCorrect.v` | — | the adjoint simulation: the pairing of the owners, the contexts of the two sweeps (`actx`, `rctx`), `asim_body`, `asim_fwd`, `asim_rev`; the operations, the let, returns; `asim_straight` |
 | `AdjointMode.v` | — | `adjoint_mode_correct`, stated (`Admitted`): where f is defined, for every tangent dx, <df (seed dx), yb> = <seed dx, g>, and adjoint-value gives the value back unless f writes an inout argument |
 
 ## From Elpi to Rocq
