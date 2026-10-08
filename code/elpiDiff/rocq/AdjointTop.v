@@ -81,6 +81,155 @@ Proof.
     + right; apply (IH args i); auto.
 Qed.
 
+(* ---------------------------------------------------------------------------
+   Dot products. *)
+
+Lemma dotl_nil_l b : dotl [] b = 0.
+Proof. reflexivity. Qed.
+
+Lemma dotl_cons a l b m : dotl (a :: l) (b :: m) = (a * b + dotl l m)%R.
+Proof. reflexivity. Qed.
+
+Lemma dotl_app a1 a2 b1 b2 :
+  length a1 = length b1 -> dotl (a1 ++ a2) (b1 ++ b2) = (dotl a1 b1 + dotl a2 b2)%R.
+Proof.
+  revert b1; induction a1 as [| a a1 IH]; intros [| b b1] H; simpl in H; try discriminate.
+  - rewrite !app_nil_l; change (dotl [] []) with 0%R; ring.
+  - rewrite <- !app_comm_cons, !dotl_cons, IH by lia; ring.
+Qed.
+
+Lemma dotl_lsub a r q :
+  length a = length r -> length r = length q -> dotl a (lsub r q) = (dotl a r - dotl a q)%R.
+Proof.
+  revert r q; induction a as [| a l IH]; intros [| r rs] [| q qs] H1 H2; simpl in H1, H2; try discriminate.
+  - unfold dotl, lsub; simpl; ring.
+  - change (lsub (r :: rs) (q :: qs)) with ((r - q)%R :: lsub rs qs); rewrite !dotl_cons, IH by lia; ring.
+Qed.
+
+Lemma dotl_repeat0 a m : dotl a (repeat 0%R m) = 0%R.
+Proof.
+  revert m; induction a as [| a l IH]; intros [| m]; try reflexivity.
+  simpl repeat; rewrite dotl_cons, IH; ring.
+Qed.
+
+Lemma inner_dotl t b : shaped t (Some b) -> inner t (Some b) = dotl (reals_of_val t) (reals_of_val b).
+Proof.
+  intros H; destruct t, b; simpl in H |- *; try contradiction; unfold dotl; simpl; try ring; reflexivity.
+Qed.
+
+Lemma nreals_length v : nreals v = length (reals_of_val v).
+Proof. destruct v; reflexivity. Qed.
+
+(* The tangents of the seeded arguments, laid in one list, are the seed. *)
+Lemma pair_with_tangent l B : length B = length l -> map dsnd (pair_with l B) = B.
+Proof.
+  revert B; induction l as [| r l IH]; intros [| b B] H; simpl in H; try discriminate; auto.
+  simpl; f_equal; apply IH; lia.
+Qed.
+
+Lemma tangent_val_dual v B : length B = nreals v -> reals_of_val (TangentCorrect.tangent (val_dual v B)) = B.
+Proof.
+  destruct v as [r | z | bo | l | l]; simpl; intros H.
+  - destruct B as [| b [| ]]; simpl in H; try discriminate; reflexivity.
+  - destruct B; [reflexivity | discriminate].
+  - destruct B; [reflexivity | discriminate].
+  - apply pair_with_tangent; exact H.
+  - destruct B; [reflexivity | discriminate].
+Qed.
+
+Lemma seed_tangents ds x dx :
+  Forall2 fits ds x -> length dx = in_dim x ->
+  seed ds x dx = concat (map (fun d => reals_of_val (TangentCorrect.tangent d)) (seed_args ds x dx)).
+Proof.
+  unfold in_dim, reals_of_args; intros H; revert dx; induction H as [| [nm t r] v ds x Hf Hfs IH]; intros dx Hl;
+    [reflexivity |].
+  cbn [map concat] in Hl |- *; rewrite length_app in Hl.
+  change (seed (Decl nm t r :: ds) (v :: x) dx) with
+    ((if varied_role r then firstn (nreals v) dx else repeat 0%R (nreals v)) ++ seed ds x (skipn (nreals v) dx)).
+  change (seed_args (Decl nm t r :: ds) (v :: x) dx) with
+    (val_dual v (if varied_role r then firstn (nreals v) dx else repeat 0%R (nreals v)) :: seed_args ds x (skipn (nreals v) dx)).
+  cbn [map concat]; rewrite tangent_val_dual.
+  - f_equal; apply IH; rewrite length_skipn; rewrite nreals_length in *; lia.
+  - destruct (varied_role r); [rewrite firstn_length; rewrite nreals_length; lia | apply repeat_length].
+Qed.
+
+(* ---------------------------------------------------------------------------
+   The gradient against the seed. *)
+
+Definition decl_role (d : decl) : role := let 'Decl _ _ r := d in r.
+
+Definition slice (d : decl) (v : val R) (dx : list R) : list R :=
+  if varied_role (decl_role d) then firstn (nreals v) dx else repeat 0%R (nreals v).
+
+(* The sum the gradient computes against the seed: for each argument with an
+   adjoint, the tangent times its final adjoint, minus the tangent times its
+   initial adjoint (the seed of a written argument excepted). *)
+Fixpoint grad_rhs (ds : list decl) (x : list (val R)) (xb dx : list R) (bars : list (val R)) : R :=
+  match ds, x with
+  | d :: ds', v :: x' =>
+      let m := nreals v in
+      if has_dot d then
+        match bars with
+        | b :: bars' =>
+            (dotl (slice d v dx) (reals_of_val b) - (if written_decl d then 0 else dotl (slice d v dx) (firstn m xb))
+             + grad_rhs ds' x' (skipn m xb) (skipn m dx) bars')%R
+        | [] => 0%R
+        end
+      else grad_rhs ds' x' (skipn m xb) (skipn m dx) bars
+  | _, _ => 0%R
+  end.
+
+(* The final adjoints have the shape of their arguments. *)
+Fixpoint bars_fit (ds : list decl) (x : list (val R)) (bars : list (val R)) : Prop :=
+  match ds, x with
+  | d :: ds', v :: x' =>
+      if has_dot d then
+        match bars with
+        | b :: bars' => length (reals_of_val b) = nreals v /\ bars_fit ds' x' bars'
+        | [] => False
+        end
+      else bars_fit ds' x' bars
+  | [], [] => bars = []
+  | _, _ => False
+  end.
+
+Lemma gradient_dotl ds x xb dx bars :
+  Forall2 fits ds x -> length xb = in_dim x -> length dx = in_dim x -> bars_fit ds x bars ->
+  exists g, gradient ds x xb bars = Some g /\ length g = in_dim x /\
+            dotl (seed ds x dx) g = grad_rhs ds x xb dx bars.
+Proof.
+  unfold in_dim, reals_of_args; intros H; revert xb dx bars.
+  induction H as [| [nm t r] v ds x Hf Hfs IH]; intros xb dx bars Hxb Hdx Hb.
+  - simpl in Hb; subst bars; exists []; split; [reflexivity | split; reflexivity].
+  - cbn [map concat] in Hxb, Hdx; rewrite length_app in Hxb, Hdx.
+    set (m := nreals v).
+    assert (Hm : m = length (reals_of_val v)) by apply nreals_length.
+    assert (Hsl : length (slice (Decl nm t r) v dx) = m).
+    { unfold slice; simpl; destruct (varied_role r); [rewrite firstn_length; lia | apply repeat_length]. }
+    change (seed (Decl nm t r :: ds) (v :: x) dx) with (slice (Decl nm t r) v dx ++ seed ds x (skipn m dx)).
+    cbn [gradient grad_rhs bars_fit] in Hb |- *.
+    destruct (has_dot (Decl nm t r)) eqn:Hd.
+    + destruct bars as [| b bars]; [contradiction |]; destruct Hb as [Hlb Hb].
+      destruct (IH (skipn m xb) (skipn m dx) bars ltac:(rewrite length_skipn; lia) ltac:(rewrite length_skipn; lia) Hb)
+        as [g [Hg [Hlg Hdg]]].
+      fold m; rewrite Hg.
+      set (piece := if written_decl (Decl nm t r) then reals_of_val b else lsub (reals_of_val b) (firstn m xb)).
+      assert (Hlp : length piece = m).
+      { unfold piece; destruct (written_decl (Decl nm t r)); [lia |].
+        unfold lsub; rewrite length_map, length_combine, firstn_length; lia. }
+      exists (piece ++ g); split; [reflexivity |].
+      split; [cbn [map concat]; rewrite !length_app; lia |].
+      rewrite dotl_app by lia; rewrite Hdg; unfold piece.
+      destruct (written_decl (Decl nm t r)); [ring |].
+      rewrite dotl_lsub by (rewrite ?firstn_length; lia); ring.
+    + destruct (IH (skipn m xb) (skipn m dx) bars ltac:(rewrite length_skipn; lia) ltac:(rewrite length_skipn; lia) Hb)
+        as [g [Hg [Hlg Hdg]]].
+      fold m; rewrite Hg; simpl.
+      exists (repeat 0%R m ++ g); split; [reflexivity |].
+      split; [cbn [map concat]; rewrite !length_app, repeat_length; lia |].
+      rewrite dotl_app by (rewrite repeat_length; lia); rewrite dotl_repeat0, Hdg; ring.
+Qed.
+
 (* The adjoint function, opened at the numbers simplify uses, from the
    primal arguments, their adjoints and the seed: it computes the gradient,
    the transpose of the tangent of the dual evaluation applied to the seed. *)

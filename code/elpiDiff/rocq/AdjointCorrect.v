@@ -514,6 +514,80 @@ Definition result_pairing (O : owners) (ty : ty) (ex : option (dvar W)) (v : val
 Definition vo_result (vo : option (aresult (tvar W))) (v : val (dual R)) (s : store R) : Prop :=
   forall t, vo_target vo = Some t -> store_get s (keyv t) = Some (primal v).
 
+(* Code that writes only adjoints: it leaves the other keys unchanged. *)
+Definition bar_target (l : dexpr W) : Prop :=
+  match l with DVar x => is_bar x | DAt (DVar x) _ => is_bar x | _ => False end.
+
+Definition bar_stmt (st : dstmt W) : Prop :=
+  match st with
+  | DIncrement l _ | DAssign l _ => bar_target l
+  | DDefine _ x _ => is_bar x
+  | _ => False
+  end.
+
+(* The reverse sweep leaves the value of adjoint-value where it is. *)
+Definition vo_kept (vo : option (aresult (tvar W))) (s s' : store R) : Prop :=
+  forall t, vo_target vo = Some t -> ~ is_bar t -> store_get s' (keyv t) = store_get s (keyv t).
+
+Lemma keyv_bar_other x v : is_bar x -> ~ is_bar v -> keyv x <> keyv v.
+Proof.
+  unfold keyv; intros H1 H2 E; injection E as E; destruct x; simpl in H1; try contradiction.
+  destruct v as [[? ?] | | | |]; simpl in E; try discriminate; apply H2; exact I.
+Qed.
+
+Lemma assign_bar s l w s1 :
+  bar_target l -> assign reals s (Simplify.out_dexpr nat l) w = Some s1 ->
+  exists x w', is_bar x /\ s1 = store_set s (keyv x) w'.
+Proof.
+  intros Hb Ha; destruct l as [x | | | a i | |]; simpl in Hb, Ha; try contradiction.
+  - injection Ha as <-; exists x, w; auto.
+  - destruct a as [x | | | | |]; try contradiction; simpl in Ha.
+    repeat match type of Ha with context [match ?e with _ => _ end] => destruct e end; try discriminate.
+    injection Ha as <-; eexists x, _; split; [exact Hb | reflexivity].
+Qed.
+
+Lemma run_bars ss s s' :
+  Forall bar_stmt ss -> run ss s = Some s' -> forall v, ~ is_bar v -> store_get s' (keyv v) = store_get s (keyv v).
+Proof.
+  revert s; induction ss as [| st ss IH]; intros s Hf Hr v Hv; [injection Hr as <-; reflexivity |].
+  inversion Hf as [| ? ? Hst Hf']; subst.
+  rewrite run_cons in Hr; destruct (exec reals (Simplify.out_dstmt nat st) s) as [s1 |] eqn:E; [| discriminate].
+  rewrite (IH s1 Hf' Hr v Hv).
+  destruct st; simpl in Hst; try contradiction; simpl in E;
+    repeat match type of E with context [match ?e with _ => _ end] =>
+      lazymatch e with assign _ _ _ _ => fail | _ => destruct e end end; try discriminate.
+  - injection E as <-; apply store_get_set_other; exact (keyv_bar_other _ _ Hst Hv).
+  - destruct (assign_bar _ _ _ _ Hst E) as [xb [wb [Hx ->]]]; apply store_get_set_other; exact (keyv_bar_other _ _ Hx Hv).
+  - destruct (assign_bar _ _ _ _ Hst E) as [xb [wb [Hx ->]]]; apply store_get_set_other; exact (keyv_bar_other _ _ Hx Hv).
+Qed.
+
+Lemma vo_kept_bars vo ss s s' : Forall bar_stmt ss -> run ss s = Some s' -> vo_kept vo s s'.
+Proof. intros Hf Hr t _ Hb; exact (run_bars ss s s' Hf Hr t Hb). Qed.
+
+Lemma vo_kept_refl vo s : vo_kept vo s s.
+Proof. intros t _ _; reflexivity. Qed.
+
+Lemma vo_kept_trans vo s s1 s2 : vo_kept vo s s1 -> vo_kept vo s1 s2 -> vo_kept vo s s2.
+Proof. intros H1 H2 t E B; rewrite (H2 t E B); exact (H1 t E B). Qed.
+
+Lemma vo_kept_set_bar vo s x w : is_bar x -> vo_kept vo s (store_set s (keyv x) w).
+Proof. intros Hx t _ Hb; apply store_get_set_other; exact (keyv_bar_other _ _ Hx Hb). Qed.
+
+Lemma bar_some (a : atom (tvar W)) bx : @bar W a = Some bx -> exists x, bx = DVar x /\ is_bar x.
+Proof. destruct a as [y | |]; simpl; try discriminate; destruct (tbar y); intros E; try discriminate; injection E as <-; eexists; split; [reflexivity | exact I]. Qed.
+
+Lemma contribution_bars (a : atom (tvar W)) p x : Forall bar_stmt (contribution W a p x).
+Proof.
+  unfold contribution; destruct (@bar W a) as [bx |] eqn:E; [| constructor].
+  destruct (bar_some a bx E) as [y [-> Hy]]; repeat constructor; exact Hy.
+Qed.
+
+(* Adds the clause of the value to the reverse sweep of bar-only code. *)
+Lemma keep_add (Q : Prop) vo rv s2 (P : store R -> Prop) :
+  Forall bar_stmt rv -> (exists s3, run rv s2 = Some s3 /\ P s3) ->
+  exists s3, run rv s2 = Some s3 /\ (Q -> vo_kept vo s2 s3) /\ P s3.
+Proof. intros Hf [s3 [R H]]; exists s3; split; [exact R | split; [intros _; exact (vo_kept_bars vo rv s2 s3 Hf R) | exact H]]. Qed.
+
 Section Sim.
 Variable cv : bool.                               (* computes-value: mode adjoint-value *)
 
@@ -542,7 +616,8 @@ Definition asim_body (bP : anf pv bare) : Prop :=
     (m = Forward -> vo_result vo v s1) /\
     forall s2 O, agree_prim c' (inplace wP pp) s1 s2 -> rctx L c wP pp O (useful cv m k bA) s2 ->
       seed_ok c ty se s2 ->
-      exists s3, run rv s2 = Some s3 /\ rev_frame c (inplace wP pp) O s2 s3 /\
+      exists s3, run rv s2 = Some s3 /\ (m = Forward -> vo_kept vo s2 s3) /\
+        rev_frame c (inplace wP pp) O s2 s3 /\
         (forall t n, In (t, n) O -> shaped t (barv s3 n)) /\
         pairing O s3 = result_pairing O ty (inplace wP pp) v se s2.
 
@@ -683,6 +758,10 @@ Proof.
   destruct (ret_forward L k c s wP pp m aP ty v vo Hc H Htc Hty Hev Hvo) as [s1 [Hrun1 [Hfr1 [Hvr1 Htk]]]].
   exists s1; split; [exact Hrun1 | split; [exact Hfr1 | split; [exact Htk | split; [exact Hvr1 |]]]].
   intros s2 O Hag Hr Hseed.
+  apply keep_add.
+  { destruct (tof (amap pt aP)); try constructor.
+    destruct (@bar W (amap pt aP)) as [bx |] eqn:Eb; [| constructor].
+    destruct (bar_some _ _ Eb) as [y [-> Hy]]; repeat constructor; exact Hy. }
   pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
   destruct aP as [p | str | z]; simpl in Htc, Hev |- *.
   2:{ apply aeval_literal in Hev as [x [Hx ->]]; injection Htc as <-.
@@ -1846,10 +1925,16 @@ Proof.
        split; [reflexivity | split; [reflexivity | split; [reflexivity | exists p; auto]]]).
 Qed.
 
+(* The reverse sweep of a value leaves the value of adjoint-value where it is. *)
+Definition rev_keeps (eP : value pv bare) : Prop :=
+  forall L eT tr wt vo te n c s2 s3, value_eq (gT L) eP eT ->
+  run (fst (open_pairs (rev_value W wt vo (rebuild_value _ eT tr) te n) c)) s2 = Some s3 -> vo_kept vo s2 s3.
+
 Lemma asim_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
-  asim_fwd eP -> asim_rev eP -> act_value eP -> act_owner eP -> (forall x, asim_body (cP x)) -> asim_body (ALet a eP cP).
+  asim_fwd eP -> asim_rev eP -> rev_keeps eP -> act_value eP -> act_owner eP -> (forall x, asim_body (cP x)) ->
+  asim_body (ALet a eP cP).
 Proof.
-  intros IHf IHr IHa IHo IHb L k c s wP pp m bA bW bT bD ty v se vo HA HW HT HD Hc Hty Htc Hev Hvo Hvt.
+  intros IHf IHr IHk IHa IHo IHb L k c s wP pp m bA bW bT bD ty v se vo HA HW HT HD Hc Hty Htc Hev Hvo Hvt.
   destruct bA as [aA eA cA |], bW as [aW eW cW |], bT as [aT eT cT |], bD as [aD eD cD |];
     simpl in HA, HW, HT, HD; try contradiction.
   destruct HA as [HeA HcA], HW as [HeW HcW], HT as [HeT HcT], HD as [HeD HcD].
@@ -1888,6 +1973,9 @@ Proof.
   rewrite open_pairs_sbind.
   destruct (open_pairs (if ac then rev_value W (option_map (amap pt) wP) vo (rebuild_value (tvar W) eT vt) te n else Done []) c2)
     as [re c3] eqn:Hre.
+  assert (Hkre : ac = true -> forall s2 s3, run re s2 = Some s3 -> vo_kept vo s2 s3).
+  { intros Eac s2' s3' R; rewrite Eac in Hre.
+    apply (IHk L eT vt (option_map (amap pt) wP) vo te n c2 s2' s3' HeT); rewrite Hre; exact R. }
   cbn [open_pairs].
   assert (Hc01 : (c0 <= c1)%nat).
   { pose proof (open_pairs_mono (adj W (option_map (amap pt) wP) vo m (rebuild (tvar W) (cT (open_let te n vr rec)) rest) se) c0) as H0.
@@ -2034,6 +2122,7 @@ Proof.
       { unfold oput; destruct (in_dec dvar_eq_dec_c (stored o) (map snd O)); [reflexivity | contradiction]. }
       rewrite Eput in F3, P3.
       exists s3; split; [exact R3 |].
+      split; [intros _; exact (Hkre ltac:(first [exact Eac | reflexivity]) s2 s3 R3) |].
       split; [apply (rev_frame_mono c c2 _ _ _ _ _ F3 Hc12); intros m0 Hm; left; rewrite oset_snd in Hm; exact Hm |].
       split; [exact S3 | exact P3].
     - simpl in Hre; injection Hre as <- <-.
@@ -2041,6 +2130,7 @@ Proof.
       { pose proof Eac as E'; change (vr && atom_member (AVar (let_binder k eA)) u = false) in E'.
         rewrite Hu, andb_true_r in E'; exact E'. }
       exists s2; split; [reflexivity |].
+      split; [intros _; apply vo_kept_refl |].
       split; [intros ? ? ? ? ? ?; reflexivity | split; [exact (r_shape _ _ _ _ _ _ _ Hr) |]].
       rewrite <- (IHo L k c wP pp _ (Array z) tail eA eW eD ve o HeA HeW HeD Hs Hlv_e Es Ho Hve Hvr).
       rewrite oset_same; [reflexivity | exact Hok | exact (r_nodup _ _ _ _ _ _ _ Hr) | exact Hown]. }
@@ -2220,7 +2310,7 @@ Proof.
         split; [exact (below_mono c (S c) y0 H1 (Nat.le_succ_diag_r c)) | exact H2].
       - intros Ety; destruct (proj2 Hseed Ety) as [b0 Hb0]; exists b0; unfold s2a; rewrite xev_set_other; [exact Hb0 |].
         intros y0 Hy K; destruct (Hsel y0 Hy) as [Hcy Hny]; apply keyv_inj in K; [exact (Hny K) | exact Hcy | reflexivity]. }
-    destruct (Hrev s2a _ Hag2 Hr2 Hseed2) as [sb [Rrb [Frb [Srb Prb]]]].
+    destruct (Hrev s2a _ Hag2 Hr2 Hseed2) as [sb [Rrb [Krb [Frb [Srb Prb]]]]].
     assert (Hj2 : exists j, DBound (c, c) = DBound (j, j) /\ (j < c2)%nat) by (exists c; split; [reflexivity | lia]).
     assert (Hst2 : match storage wP tail eP with
                    | Some m0 => DBound (c, c) = m0
@@ -2261,6 +2351,9 @@ Proof.
     { rewrite run_app, Hd, run_app.
       lazymatch goal with |- match ?r with _ => _ end = _ => replace r with (Some sb) by (symmetry; exact Rrb) end.
       exact R3. }
+    split.
+    { intros Hm; apply (vo_kept_trans _ _ s2a); [apply vo_kept_set_bar; exact I |].
+      apply (vo_kept_trans _ _ sb); [exact (Krb Hm) | exact (Hkre ltac:(first [exact Eac | reflexivity]) sb s3 R3)]. }
     assert (HO'b : forall m0, In m0 (map snd ((tangent (VReal d), DBound (c, c)) :: O)) ->
                      In m0 (map snd O) \/ ~ below c (BarOf m0)).
     { intros m0 [<- | Hm]; [right; simpl; lia | left; exact Hm]. }
@@ -2282,8 +2375,9 @@ Proof.
     { split; [| exact (proj2 Hseed)]; intros y0 Hy; destruct (proj1 Hseed y0 Hy) as [H1 H2].
       split; [exact (below_mono c (S c) y0 H1 (Nat.le_succ_diag_r c)) | exact H2]. }
     destruct (Hrev s2 O (agree_prim_mono _ _ _ _ _ Hag Hc13) (Hr' O s2 (or_introl (conj eq_refl (conj eq_refl eq_refl)))) Hseed')
-      as [sb [Rrb [Frb [Srb Prb]]]].
+      as [sb [Rrb [Krb [Frb [Srb Prb]]]]].
     exists sb; split; [rewrite app_nil_r; exact Rrb |].
+    split; [exact Krb |].
     split; [| split; [exact Srb | exact Prb]].
     apply (rev_frame_mono c (S c) _ _ _ _ _ Frb (Nat.le_succ_diag_r c)); auto.
 Qed.
@@ -2301,6 +2395,18 @@ Fixpoint straight {V I : Type} (b : anf V I) : Prop :=
   | ARet _ => True
   end.
 
+(* The reverse sweep of a straight value writes only adjoints. *)
+Lemma rkeep_straight (eP : value pv bare) : straight_value eP -> rev_keeps eP.
+Proof.
+  intros Hs L eT tr wt vo te n c s2 s3 HT Hr; refine (vo_kept_bars vo _ s2 s3 _ Hr).
+  destruct eP, eT; simpl in Hs, HT; try contradiction; cbn [rebuild_value rev_value open_pairs fst].
+  - destruct (partial1 _ _) as [p |]; [apply contribution_bars | constructor].
+  - destruct (partial2 _ _ _) as [[pa pb] |]; [apply Forall_app; split; apply contribution_bars | constructor].
+  - destruct (@bar W _) as [bx |] eqn:Eb; [| constructor].
+    destruct (bar_some _ _ Eb) as [y [-> Hy]]; repeat constructor; exact Hy.
+  - destruct (@bar W _) as [bx |] eqn:Eb; [destruct (bar_some _ _ Eb) as [y [-> Hy]] |]; repeat constructor; exact Hy.
+Qed.
+
 Theorem asim_straight : forall bP : anf pv bare, straight bP -> asim_body bP.
 Proof.
   enough (H : (forall b : anf pv bare, straight b -> asim_body b) /\
@@ -2309,7 +2415,7 @@ Proof.
   apply (anf_value_ind pv bare (fun b => straight b -> asim_body b)
            (fun e => straight_value e -> asim_fwd e /\ asim_rev e /\ act_value e /\ act_owner e)).
   - intros a e IHe b IHb [He Hb]; destruct (IHe He) as [Hf [Hr [Ha Ho]]].
-    apply asim_let; auto.
+    apply asim_let; auto; apply rkeep_straight; exact He.
   - intros x _; apply asim_ret.
   - intros f x _; split; [apply afwd_op1 | split; [apply arev_op1 | split; [apply act_op1 | apply owner_op1]]].
   - intros f x y _; split; [apply afwd_op2 | split; [apply arev_op2 | split; [apply act_op2 | apply owner_op2]]].
