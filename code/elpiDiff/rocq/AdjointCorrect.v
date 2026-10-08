@@ -1629,6 +1629,86 @@ Proof.
   simpl in Hza, Hzv; exact (replace_nth_z_Forall _ _ _ _ _ Hzv Hza Er).
 Qed.
 
+Lemma sctx_weaken L k c c' wP pp (live live' : pv -> Prop) ty :
+  sctx L k c wP pp live ty -> (forall p, live' p -> live p) -> (c <= c')%nat -> sctx L k c' wP pp live' ty.
+Proof.
+  intros Hc Hl Hcc; constructor.
+  - exact (s_static _ _ _ _ _ _ _ Hc).
+  - exact (s_unique _ _ _ _ _ _ _ Hc).
+  - intros p Hp; pose proof (s_num _ _ _ _ _ _ _ Hc p Hp); lia.
+  - exact (s_written _ _ _ _ _ _ _ Hc).
+  - exact (s_place _ _ _ _ _ _ _ Hc).
+  - intros o p Ho Hp E; destruct (s_owner _ _ _ _ _ _ _ Hc o p Ho Hp E) as [H | H];
+      [left; exact H | right; intros Hl'; apply H, Hl, Hl'].
+  - intros p o Hp Hl' Ha Hg Ho; exact (s_arrays _ _ _ _ _ _ _ Hc p o Hp (Hl _ Hl') Ha Hg Ho).
+  - exact (s_ty _ _ _ _ _ _ _ Hc).
+  - intros y H1 H2 H3; destruct (s_top _ _ _ _ _ _ _ Hc y H1 H2 H3) as [A B];
+      split; [exact A | intros Hl'; apply B, Hl, Hl'].
+Qed.
+
+Lemma actx_weaken L k c c' s wP pp (live live' tb tb' : pv -> Prop) ty :
+  actx L k c s wP pp live tb ty -> (forall p, live' p -> live p) -> (forall p, In p L -> tb' p -> tb p) ->
+  (c <= c')%nat -> actx L k c' s wP pp live' tb' ty.
+Proof.
+  intros Hc Hl Ht Hcc; constructor.
+  - exact (sctx_weaken _ _ _ _ _ _ _ _ _ (a_sctx _ _ _ _ _ _ _ _ _ Hc) Hl Hcc).
+  - exact (a_bar _ _ _ _ _ _ _ _ _ Hc).
+  - intros p Hp H; exact (a_store _ _ _ _ _ _ _ _ _ Hc p Hp (Ht p Hp H)).
+  - exact (a_tape _ _ _ _ _ _ _ _ _ Hc).
+Qed.
+
+(* The variable updated in place is an array. *)
+Lemma owner_array L k c wP pp live ty o :
+  sctx L k c wP pp live ty -> owner wP pp = Some o -> is_array (vty (pw o)).
+Proof.
+  intros Hs Ho; destruct pp as [| | | ix sx]; simpl in Ho; try discriminate.
+  - destruct wP as [[y | |] |]; try discriminate; destruct (vty (pw y)) eqn:E; try discriminate.
+    injection Ho as <-; rewrite E; exact I.
+  - injection Ho as <-; destruct (s_place _ _ _ _ _ _ _ Hs) as [_ [_ [_ [H _]]]]; exact H.
+Qed.
+
+(* A scalar that occurs is not stored in the storage updated in place. *)
+Lemma scalar_not_inplace L k c wP pp (live : pv -> Prop) ty p :
+  sctx L k c wP pp live ty -> In p L -> live p -> ~ is_array (vty (pw p)) -> inplace wP pp <> Some (stored p).
+Proof.
+  intros Hs Hp Hl Ha; unfold inplace; destruct (owner wP pp) as [o |] eqn:Eo; simpl; [| discriminate].
+  intros E; unfold stored in E; injection E as E.
+  destruct (s_owner _ _ _ _ _ _ _ Hs o p Eo Hp (eq_sym E)) as [-> | Hn]; [| contradiction].
+  exact (Ha (owner_array _ _ _ _ _ _ _ _ Hs Eo)).
+Qed.
+
+Lemma inner_zero t : inner t (Some (VReal 0)) = 0.
+Proof. destruct t; simpl; ring. Qed.
+
+Lemma oset_ok O e t : owners_ok O -> owners_ok (oset O e t).
+Proof.
+  intros Hok t' n' Hi.
+  assert (Hm : In n' (map snd (oset O e t))) by (apply in_map_iff; exists (t', n'); auto).
+  rewrite oset_snd in Hm; apply in_map_iff in Hm as [[t0 n0] [E Hi0]]; simpl in E; subst n0.
+  exact (Hok t0 n' Hi0).
+Qed.
+
+(* A fresh owner, whose adjoint is 0, adds nothing to the result pairing. *)
+Lemma result_pairing_fresh O ty ex v se s n t :
+  owners_ok O -> consistent n -> ~ In n (map snd O) ->
+  (forall x, In x (dvars se) -> consistent x /\ x <> BarOf n) ->
+  result_pairing ((t, n) :: O) ty ex v se (store_set s (keyv (BarOf n)) (VReal 0)) =
+  result_pairing O ty ex v se s.
+Proof.
+  intros Hok Hn Hni Hse.
+  assert (Hp : forall O', owners_ok O' -> map snd O' = map snd O ->
+                 pairing O' (store_set s (keyv (BarOf n)) (VReal 0)) = pairing O' s).
+  { intros O' Hok' E; apply pairing_set_other; auto; rewrite E; exact Hni. }
+  assert (Hsv : seed_value se (store_set s (keyv (BarOf n)) (VReal 0)) = seed_value se s).
+  { unfold seed_value; rewrite xev_set_other; [reflexivity |].
+    intros x Hx K; destruct (Hse x Hx) as [Hcx Hxn]; apply keyv_inj in K; [| exact Hcx | exact Hn]; auto. }
+  unfold result_pairing; destruct ty; destruct ex as [e |]; destruct v as [d | | | |]; simpl.
+  all: rewrite ?barv_set_same, ?inner_zero.
+  all: try (rewrite (Hp O Hok eq_refl), ?Hsv; ring).
+  all: destruct (Simplify.dvar_eq nat e n); cbv beta iota;
+         rewrite barv_set_same, inner_zero, (Hp _ (oset_ok _ _ _ Hok) (oset_snd _ _ _)); ring.
+Qed.
+
 Lemma adj_let w vo m a e b se :
   adj W w vo m (ALet a e b) se =
   let '(vr, ac, cp) := let_ann a in
