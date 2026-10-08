@@ -1486,4 +1486,79 @@ Qed.
 
 End NeedsLet.
 
+(* ---------------------------------------------------------------------------
+   A let. *)
+
+(* The activity analysis is sound for a value: a value that is not varied
+   has a zero tangent. *)
+Definition act_value (eP : value pv bare) : Prop :=
+  forall L k eA eD ve,
+  value_eq (gA L) eP eA -> value_eq (gD L) eP eD -> Forall (static_ok k) L ->
+  aeval_value (duals reals) eD = Some ve -> varied_value k eA = false -> zero ve.
+
+Lemma adj_let w vo m a e b se :
+  adj W w vo m (ALet a e b) se =
+  let '(vr, ac, cp) := let_ann a in
+  with_storage w e b (fun n rec =>
+    sbind (adj W w vo m (b (open_let (Transform.type_of e) n vr rec)) se) (fun '(fb, rb) =>
+    sbind (if cp then fwd_value W w m e (Transform.type_of e) n rec else Done []) (fun fe =>
+    sbind (if ac then rev_value W w vo e (Transform.type_of e) n else Done []) (fun re =>
+    Done (app fe fb, app (if ac then bar_declaration W (Transform.type_of e) n else []) (app rb re)))))).
+Proof. reflexivity. Qed.
+
+Lemma asim_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
+  asim_fwd eP -> asim_rev eP -> act_value eP -> (forall x, asim_body (cP x)) -> asim_body (ALet a eP cP).
+Proof.
+  intros IHf IHr IHa IHb L k c s wP pp m bA bW bT bD ty v se vo HA HW HT HD Hc Hty Htc Hev Hvo Hvt.
+  destruct bA as [aA eA cA |], bW as [aW eW cW |], bT as [aT eT cT |], bD as [aD eD cD |];
+    simpl in HA, HW, HT, HD; try contradiction.
+  destruct HA as [HeA HcA], HW as [HeW HcW], HT as [HeT HcT], HD as [HeD HcD].
+  simpl in Htc, Hev.
+  destruct (typecheck_value (option_map (amap pw) wP) (wplace pp) (WellFormed.is_tail cW k) k eW)
+    as [te d0] eqn:Hte.
+  destruct d0; simpl in Htc; [| discriminate].
+  destruct (aeval_value (duals reals) eD) as [ve |] eqn:Hve; [| discriminate].
+  pose proof (a_sctx _ _ _ _ _ _ _ _ _ Hc) as Hs.
+  pose proof (s_static _ _ _ _ _ _ _ Hs) as HL.
+  cbn [annotate_body_t].
+  destruct (needs cv m (S k) (cA (let_binder k eA))) as [u l] eqn:Hneeds.
+  set (vr := varied_value k eA). set (vt := annotate_value_t cv k eA).
+  set (rest := annotate_body_t cv m (S k) (cA (let_binder k eA))).
+  set (ac := vr && atom_member (AVar (let_binder k eA)) u).
+  set (cp := atom_member (AVar (let_binder k eA)) l || sweep_eqb m Forward && records cv k eA).
+  cbn [rebuild]. rewrite adj_let. cbv [let_ann].
+  rewrite (type_of_ok _ _ _ _ _ _ _ _ vt te HeW HeT HL Hte).
+  match goal with |- context [with_storage _ _ _ ?K] => set (Kf := K) end.
+  destruct (open_with_storage L k wP eP eT vt (fun v0 => rebuild _ (cT v0) rest) Kf c HeT HL) as [n [rec [c0 [Hopen Hn]]]].
+  { intros a0 E; destruct (s_written _ _ _ _ _ _ _ Hs _ E) as [y [-> [Hy _]]]; eauto. }
+  lazymatch goal with |- context [@open_pairs ?A ?t c] =>
+    assert (E : @open_pairs A t c = @open_pairs A (Kf n rec) c0) by exact Hopen; rewrite E; clear E end.
+  rewrite <- (is_tail_transfer L k cP cW cT rest HcW HcT) in Hn by
+    (intros p Hp; destruct (static_in _ _ _ HL Hp) as [_ [H1 [_ [_ [_ [_ [H2 _]]]]]]]; auto).
+  set (tail := WellFormed.is_tail cW k) in *.
+  assert (Htail_ty : tail = true -> te = ty).
+  { intros Ht; destruct (tail_cont L k cP cW (pfresh k) (VInfo k te None) HcW HL eq_refl Ht) as [_ E].
+    rewrite E in Htc; simpl in Htc; injection Htc; auto. }
+  unfold Kf; rewrite open_pairs_sbind.
+  destruct (open_pairs (adj W (option_map (amap pt) wP) vo m (rebuild (tvar W) (cT (open_let te n vr rec)) rest) se) c0)
+    as [[fb rb] c1] eqn:Hb.
+  rewrite open_pairs_sbind.
+  destruct (open_pairs (if cp then fwd_value W (option_map (amap pt) wP) m (rebuild_value (tvar W) eT vt) te n rec else Done []) c1)
+    as [fe c2] eqn:Hfe.
+  rewrite open_pairs_sbind.
+  destruct (open_pairs (if ac then rev_value W (option_map (amap pt) wP) vo (rebuild_value (tvar W) eT vt) te n else Done []) c2)
+    as [re c3] eqn:Hre.
+  cbn [open_pairs].
+  assert (Hc01 : (c0 <= c1)%nat).
+  { pose proof (open_pairs_mono (adj W (option_map (amap pt) wP) vo m (rebuild (tvar W) (cT (open_let te n vr rec)) rest) se) c0) as H0.
+    rewrite Hb in H0; exact H0. }
+  assert (Hc12 : (c1 <= c2)%nat).
+  { pose proof (open_pairs_mono (if cp then fwd_value W (option_map (amap pt) wP) m (rebuild_value (tvar W) eT vt) te n rec else Done []) c1) as H0.
+    rewrite Hfe in H0; exact H0. }
+  assert (Hc23 : (c2 <= c3)%nat).
+  { pose proof (open_pairs_mono (if ac then rev_value W (option_map (amap pt) wP) vo (rebuild_value (tvar W) eT vt) te n else Done []) c2) as H0.
+    rewrite Hre in H0; exact H0. }
+  admit.
+Admitted.
+
 End Sim.
