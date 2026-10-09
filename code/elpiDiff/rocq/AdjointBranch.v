@@ -118,6 +118,18 @@ Qed.
 Section Branch.
 Variable cv : bool.
 
+Ltac fwd_intro :=
+  let L := fresh "L" in let k := fresh "k" in let c := fresh "c" in let s := fresh "s" in
+  intros L k c s wP pp tail eA eW eT eD te n ve ty m rec HA HW HT HD Hc Htc Htail [j [Ej Hj]] Hst Hrec Hev;
+  destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
+  repeat match goal with
+         | H : _ /\ _ |- _ => destruct H
+         | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         end; subst.
+
 (* The atoms of a value are variables that occur in it. *)
 Lemma vatoms_live L k (eP : value pv bare) eA eW p :
   value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> Forall (static_ok k) L -> In p L ->
@@ -304,6 +316,117 @@ Proof.
     apply F1; [exact (below_mono c (S c) v0 Hb0 ltac:(lia)) | exact Hc0 | exact Ht0 | | discriminate].
     intros E; injection E as <-; simpl in Hb0; lia. }
   split; [exact (tapes_kept_trans _ _ _ T1 Tb) | exact Vb].
+Qed.
+
+(* A branch body sits in place PBranch, where nothing is updated in place. *)
+Lemma sctx_branch L k c wP pp (live live' : pv -> Prop) ty :
+  sctx L k c wP pp live ty -> (forall p, live' p -> live p) -> sctx L k c wP PBranch live' Real.
+Proof.
+  intros Hs Hl; destruct Hs; constructor; auto; simpl; try (intros; discriminate); try exact I.
+Qed.
+
+(* The forward sweep of a branch: the result is a real variable, assigned by
+   the branch taken after its statements. *)
+Lemma afwd_ite (cP : atom pv) (tP eP : anf pv bare) :
+  psim_body tP -> psim_body eP -> asim_fwd cv (AIte cP tP eP).
+Proof.
+  intros IHt IHe; fwd_intro; simpl in Htc, Hev, Hst |- *.
+  rename t into tA, e into eA, t0 into tW, e0 into eW, t1 into tT, e1 into eT, t2 into tD, e2 into eD.
+  pose proof (a_sctx _ _ _ _ _ _ _ _ _ Hc) as Hs.
+  pose proof (s_static _ _ _ _ _ _ _ Hs) as HL.
+  (* typing *)
+  assert (Hpp : pp = PTop \/ pp = PBranch \/ pp = PScalar)
+    by (destruct pp as [| | | ix sx]; auto; simpl in Htc; discriminate).
+  assert (Htc' : (if ty_eqb (of_atom (amap pw cP)) Boolean
+                  then let '(t3, d1) := typecheck (option_map (amap pw) wP) InBranch k tW in
+                       let '(t4, d2) := typecheck (option_map (amap pw) wP) InBranch k eW in
+                       if is_ok d1 then if is_ok d2 then if ty_eqb t3 Real && ty_eqb t4 Real
+                         then (Real, Ok) else (Real, Error "both branches must compute a real")
+                       else (Real, d2) else (Real, d1)
+                  else (Real, Error "a branch condition must be a comparison")) = (te, Ok))
+    by (destruct Hpp as [-> | [-> | ->]]; exact Htc).
+  clear Htc.
+  destruct (ty_eqb (of_atom (amap pw cP)) Boolean) eqn:Ecb; [| discriminate].
+  destruct (typecheck (option_map (amap pw) wP) InBranch k tW) as [t3 d1] eqn:HtW.
+  destruct (typecheck (option_map (amap pw) wP) InBranch k eW) as [t4 d2] eqn:HeW.
+  destruct d1, d2; simpl in Htc'; try discriminate.
+  destruct (ty_eqb t3 Real) eqn:E3, (ty_eqb t4 Real) eqn:E4; simpl in Htc'; try discriminate.
+  injection Htc' as <-; apply ty_eqb_true in E3, E4; subst t3 t4.
+  (* the condition *)
+  destruct (aeval_atom (duals reals) (amap pd cP)) as [[| | b | |] |] eqn:Hcd; try discriminate.
+  assert (Hcs : forall p, cP = AVar p -> static_ok k p /\ store_get s (keyv (stored p)) = Some (primal (pd p))).
+  { intros p ->; split; [exact (static_in _ _ _ HL (H p eq_refl)) |].
+    apply (a_store _ _ _ _ _ _ _ _ _ Hc p (H p eq_refl)); unfold vatoms; simpl.
+    rewrite !atom_member_union; simpl; rewrite Nat.eqb_refl; reflexivity. }
+  pose proof (aspell_ok k s cP _ Hcs Hcd) as Hsc; simpl in Hsc.
+  (* the two bodies, opened *)
+  rewrite open_pairs_sbind.
+  destruct (open_pairs (prim W (option_map (amap pt) wP) m (rebuild (tvar W) tT (annotate_body_t cv Replay k tA))) c)
+    as [[st vt] c1] eqn:Hot.
+  rewrite open_pairs_sbind.
+  destruct (open_pairs (prim W (option_map (amap pt) wP) m (rebuild (tvar W) eT (annotate_body_t cv Replay k eA))) c1)
+    as [[se' ve'] c2] eqn:Hoe.
+  pose proof (open_pairs_mono (prim W (option_map (amap pt) wP) m (rebuild (tvar W) tT (annotate_body_t cv Replay k tA))) c) as M1.
+  pose proof (open_pairs_mono (prim W (option_map (amap pt) wP) m (rebuild (tvar W) eT (annotate_body_t cv Replay k eA))) c1) as M2.
+  rewrite Hot in M1; rewrite Hoe in M2; simpl in M1, M2.
+  cbn [open_pairs].
+  set (n := DBound (j, j)) in *.
+  set (s0 := store_set s (keyv n) (VReal 0%R)).
+  assert (Hnp : forall p, In p L -> keyv n <> keyv (stored p)).
+  { intros p Hp K; apply keyv_inj in K; [| reflexivity | reflexivity]; exact (Hst p Hp (eq_sym K)). }
+  assert (Hcn : forall p, cP = AVar p -> static_ok k p /\ pn p <> j).
+  { intros p E; split; [exact (proj1 (Hcs p E)) |]; intros Ej'; apply (Hst p (H p E)).
+    unfold stored, n; rewrite Ej'; reflexivity. }
+  destruct (avoid_spell k cP j Hcn) as [C1 _].
+  assert (Hsc0 : xev s0 (spell (amap pt cP)) = Some (VBool b)) by (unfold s0; rewrite xev_set_other; auto).
+  (* the branch taken *)
+  assert (Hctx : forall bW, (forall p, live_anf k bW p -> live_value k (AIte (amap pw cP) tW eW) p) ->
+                  (forall p, In p L -> live_anf k bW p -> vatoms k (AIte (amap pa cP) tA eA) p) ->
+                  forall c', (c <= c')%nat -> actx L k c' s0 wP PBranch (live_anf k bW) (live_anf k bW) Real).
+  { intros bW Hl Ha c' Hcc; constructor.
+    - exact (sctx_weaken _ _ _ _ _ _ _ _ _ (sctx_branch _ _ _ _ _ _ _ _ Hs Hl) (fun p H0 => H0) Hcc).
+    - exact (a_bar _ _ _ _ _ _ _ _ _ Hc).
+    - intros p Hp Hl'; unfold s0; rewrite store_get_set_other by exact (Hnp p Hp).
+      exact (a_store _ _ _ _ _ _ _ _ _ Hc p Hp (Ha p Hp Hl')).
+    - intros p Hp Hr; destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; exists lt.
+      unfold s0; rewrite store_get_set_other; [exact Hlt |]; intros K; apply keyv_inj in K; [discriminate | reflexivity | reflexivity]. }
+  assert (Hbody : exists (sb : list (dstmt W)) (vb : dexpr W) (s1 : store R) (vv : val (dual R)),
+            run sb s0 = Some s1 /\ fwd_frame c None None s0 s1 /\ tapes_kept s0 s1 /\ xev s1 vb = Some (primal vv) /\
+            ve = vv /\ (if b then st else se') = sb /\ (if b then vt else ve') = vb).
+  { destruct b.
+    - assert (Hl : forall p, live_anf k tW p -> live_value k (AIte (amap pw cP) tW eW) p)
+        by (unfold live_anf, live_value; intros p H'; simpl; rewrite H', orb_true_r; reflexivity).
+      assert (Ha : forall p, In p L -> live_anf k tW p -> vatoms k (AIte (amap pa cP) tA eA) p).
+      { intros p Hp Hl'; unfold vatoms; simpl; rewrite !atom_member_union.
+        rewrite (live_atoms L k tP tA tW p H9 H6 HL Hp Hl'), orb_true_r; reflexivity. }
+      specialize (IHt L k c s0 wP PBranch m Replay tA tW tT tD Real ve H9 H6 H3 H0
+                    (Hctx tW Hl Ha c (le_n c)) HtW Hev).
+      rewrite Hot in IHt; destruct IHt as [_ [s1 [Hrun [Hfr [Htk Hv]]]]].
+      exists st, vt, s1, ve; repeat split; auto.
+    - assert (Hl : forall p, live_anf k eW p -> live_value k (AIte (amap pw cP) tW eW) p)
+        by (unfold live_anf, live_value; intros p H'; simpl; rewrite H', !orb_true_r; reflexivity).
+      assert (Ha : forall p, In p L -> live_anf k eW p -> vatoms k (AIte (amap pa cP) tA eA) p).
+      { intros p Hp Hl'; unfold vatoms; simpl; rewrite !atom_member_union.
+        rewrite (live_atoms L k eP eA eW p H10 H7 HL Hp Hl'), !orb_true_r; reflexivity. }
+      specialize (IHe L k c1 s0 wP PBranch m Replay eA eW eT eD Real ve H10 H7 H4 H1
+                    (Hctx eW Hl Ha c1 M1) HeW Hev).
+      rewrite Hoe in IHe; destruct IHe as [_ [s1 [Hrun [Hfr [Htk Hv]]]]].
+      exists se', ve', s1, ve; repeat split; auto.
+      intros v0 Hb0; apply Hfr; exact (below_mono c c1 v0 Hb0 M1). }
+  destruct Hbody as [sb [vb [s1 [vv [Hrun [Hfr [Htk [Hv [<- [Esb Evb]]]]]]]]]].
+  split; [lia |].
+  exists (store_set s1 (keyv n) (primal ve)).
+  split.
+  { rewrite run_realvar; fold s0; rewrite run_branch with (b := b) by exact Hsc0.
+    destruct b; subst sb vb; rewrite run_app, Hrun, run_assign_var with (v := primal ve) by exact Hv; reflexivity. }
+  split.
+  { intros v0 Hb0 Hc0 Ht0 Hne _.
+    rewrite store_get_set_other by (intros K; apply keyv_inj in K; [subst v0; apply Hne; reflexivity | reflexivity | exact Hc0]).
+    rewrite (Hfr v0 Hb0 Hc0 Ht0 ltac:(discriminate) ltac:(discriminate)).
+    unfold s0; apply store_get_set_other; intros K; apply keyv_inj in K; [subst v0; apply Hne; reflexivity | reflexivity | exact Hc0]. }
+  split; [| apply store_get_set_same].
+  apply (tapes_kept_trans _ s1); [apply (tapes_kept_trans _ s0); [apply tapes_kept_set; [simpl; tauto | reflexivity] | exact Htk] |].
+  apply tapes_kept_set; [simpl; tauto | reflexivity].
 Qed.
 
 End Branch.
