@@ -1083,7 +1083,7 @@ Proof.
       - cbn [store_get]; rewrite key_eqb_refl; reflexivity. }
     assert (Hs1r : store_get s1 (keyv (BarOf ResultVar)) = Some (VReal (hd 0%R yb)))
       by (rewrite F1; [exact Hs0r | exact I | exact I | simpl; tauto | discriminate | apply Hvt0]).
-    assert (Hag : agree_prim c' (inplace None PTop) s1 s1) by (intros ? ? ? ?; reflexivity).
+    assert (Hag : agree_prim c' (inplace None PTop) s1 s1) by apply agree_prim_refl.
     assert (Hr : rctx L n None PTop O (useful cv Forward n bA) s1).
     { constructor.
       - apply owners_nodup; exact HnL.
@@ -1315,7 +1315,7 @@ Proof.
         + (* dependent *)
           simpl in Eseed; injection Eseed as <- <-.
           exists s1; split; [reflexivity |].
-          split; [intros ? ? ? ?; reflexivity |].
+          split; [apply agree_prim_refl |].
           split.
           { split; [intros y0 [<- | []]; split; [simpl; exact (Hnum y HyL) | reflexivity] |].
             intros _; exists (hd 0%R yb); exact (Hseedv s1 Hby1). }
@@ -1342,7 +1342,7 @@ Proof.
             fold sa; rewrite run_assign_var with (v := VReal 0%R) by (rewrite xev_DReal, lit_0; reflexivity).
             reflexivity. }
           split; [exact (agree_prim_set_bar c' ex s1 sa (stored y) (VReal 0%R)
-                           (agree_prim_set_bar c' ex s1 s1 ResultVar _ (fun _ _ _ _ => eq_refl) I) eq_refl) |].
+                           (agree_prim_set_bar c' ex s1 s1 ResultVar _ (agree_prim_refl _ _ _) I) eq_refl) |].
           split.
           { split; [intros y0 [<- | []]; split; exact I |].
             intros _; exists (hd 0%R yb); change (xev s2 (DVar (BarOf ResultVar))) with (store_get s2 (keyv (BarOf ResultVar))).
@@ -1368,7 +1368,7 @@ Proof.
         assert (Hexa : ex = Some (stored y)) by (unfold ex, inplace; rewrite Hown_cases; reflexivity).
         destruct r; simpl in Hwr; try discriminate; simpl in Eseed; injection Eseed as <- <-.
         all: exists s1; split; [reflexivity |].
-        all: split; [intros ? ? ? ?; reflexivity |].
+        all: split; [apply agree_prim_refl |].
         all: split; [split; [intros y0 [] | intros E; discriminate] |].
         all: split; [intros; reflexivity |].
         all: split; [destruct (bars_in_get _ _ _ y Hbars0 HyR Hdy) as [b [Eb Sb]]; exists b; rewrite (Hbars1 y HyR); auto |].

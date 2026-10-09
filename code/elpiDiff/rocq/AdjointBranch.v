@@ -1035,7 +1035,7 @@ Proof.
     { split; [intros y [<- | []]; split; [simpl; lia | reflexivity] |].
       intros _; exists bn; exact Hbn1. }
     assert (Htp1 : tapes_ok L s1) by (intros p Hp Hrp; destruct (Htp p Hp Hrp) as [lt Hlt]; exact (proj1 T1 _ _ Hlt)).
-    destruct (Hrev s1 O (fun _ _ _ _ => eq_refl) Hr1 Hseed Htp1) as [s3 [R3 [_ [_ [T3 [F3 [S3 P3]]]]]]].
+    destruct (Hrev s1 O (agree_prim_refl _ _ _) Hr1 Hseed Htp1) as [s3 [R3 [_ [_ [T3 [F3 [S3 P3]]]]]]].
     exists s3; split; [rewrite run_app, R1; exact R3 |].
     assert (Hprim : forall v, below c v -> consistent v -> is_primal v -> store_get s3 (keyv v) = store_get s2 (keyv v)).
     { intros v Hb0 Hc0 Hp0.
@@ -1449,7 +1449,7 @@ Proof.
       assert (Htp1 : tapes_ok (ix :: L) s1).
       { intros p [<- | Hp] Hrc; [discriminate |].
         destruct (Htp p Hp Hrc) as [lt Hlt]; exact (proj1 Ts1 _ _ Hlt). }
-      destruct (Hrev s1 O' (fun _ _ _ _ => eq_refl) Hr1 Hseed Htp1) as [s3 [R3 [_ [_ [T3 [F3 [S3 P3]]]]]]].
+      destruct (Hrev s1 O' (agree_prim_refl _ _ _) Hr1 Hseed Htp1) as [s3 [R3 [_ [_ [T3 [F3 [S3 P3]]]]]]].
       exists s3; split.
       { unfold body; simpl app; rewrite run_app, R1; exact R3. }
       assert (Hp3 : forall v, below c v -> consistent v -> ~ is_tape v -> (forall m, v = BarOf m -> ~ In m (map snd O')) ->

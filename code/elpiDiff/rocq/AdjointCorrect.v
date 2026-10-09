@@ -539,8 +539,13 @@ Definition rev_frame (c : nat) (ex : option (dvar W)) (O : owners) (s s' : store
    reverse sweep, the primal keys opened before c' keep their values (the
    reverse sweep of a loop replays the body before transposing it). *)
 Definition agree_prim (c' : nat) (ex : option (dvar W)) (s1 s2 : store R) : Prop :=
-  forall v, below c' v -> consistent v -> is_primal v ->
-  store_get s2 (keyv v) = store_get s1 (keyv v).
+  (forall v, below c' v -> consistent v -> is_primal v ->
+   store_get s2 (keyv v) = store_get s1 (keyv v)) /\
+  (forall v, below c' v -> consistent v ->
+   store_get s2 (keyv (TapeOf v)) = store_get s1 (keyv (TapeOf v))).
+
+Lemma agree_prim_refl c' ex s : agree_prim c' ex s s.
+Proof. split; intros; reflexivity. Qed.
 
 (* The owners at the start of the reverse sweep of a body: distinct
    storages, opened before c, whose adjoints have the shape of their tangent;
@@ -731,7 +736,7 @@ Proof.
   assert (He : inplace wP pp = Some (stored o)) by (unfold inplace; rewrite Ho; reflexivity).
   destruct (ex_below _ _ _ _ _ _ _ _ Hs He) as [Hb [Hc Hp]].
   rewrite (run_bars rv s2 s3 Hf R (stored o) ltac:(simpl; tauto)).
-  rewrite (Hag (stored o) (below_mono c c' _ Hb Hcc) Hc Hp); exact (Hsx Hl o Ho Hav).
+  rewrite (proj1 Hag (stored o) (below_mono c c' _ Hb Hcc) Hc Hp); exact (Hsx Hl o Ho Hav).
 Qed.
 
 Definition asim_body (bP : anf pv bare) : Prop :=
@@ -1998,12 +2003,15 @@ Qed.
 Lemma agree_prim_set_bar c ex s1 s2 n w :
   agree_prim c ex s1 s2 -> consistent n -> agree_prim c ex s1 (store_set s2 (keyv (BarOf n)) w).
 Proof.
-  intros A Hn v Hb Hcv Hp; rewrite store_get_set_other; [exact (A v Hb Hcv Hp) |].
-  intros K; apply keyv_inj in K; auto; subst v; exact Hp.
+  intros [A B] Hn; split.
+  - intros v Hb Hcv Hp; rewrite store_get_set_other; [exact (A v Hb Hcv Hp) |].
+    intros K; apply keyv_inj in K; auto; subst v; exact Hp.
+  - intros v Hb Hcv; rewrite store_get_set_other; [exact (B v Hb Hcv) |].
+    intros K; apply keyv_inj in K; [discriminate | exact Hn | exact Hcv].
 Qed.
 
 Lemma agree_prim_mono c c' ex s1 s2 : agree_prim c' ex s1 s2 -> (c <= c')%nat -> agree_prim c ex s1 s2.
-Proof. intros A Hc v Hb; apply A; exact (below_mono _ _ _ Hb Hc). Qed.
+Proof. intros [A B] Hc; split; intros v Hb; [apply A | apply B]; exact (below_mono _ _ _ Hb Hc). Qed.
 
 (* A value updated in place that is not varied leaves the tangent of the
    storage as it was: zero. *)
@@ -2305,7 +2313,7 @@ Proof.
           assert (Epn : pn p = pn o) by (unfold stored in E; congruence).
           destruct (s_owner _ _ _ _ _ _ _ Hs o p Ho Hp Epn) as [Epo | Hnl']; [subst p; exact (proj2 (Hio Hl) Hlv) | exact (Hnl' (Hlv_e p Hlv))]. }
         assert (Hbp : below c (stored p)) by (unfold stored; simpl; exact (s_num _ _ _ _ _ _ _ Hs p Hp)).
-        rewrite (Hag (stored p) (below_mono c c3 _ Hbp ltac:(lia)) eq_refl I).
+        rewrite (proj1 Hag (stored p) (below_mono c c3 _ Hbp ltac:(lia)) eq_refl I).
         rewrite (F1 (stored p) Hbp eq_refl ltac:(simpl; tauto) ltac:(rewrite <- Hex; exact Hne) ltac:(discriminate)).
         exact (a_store _ _ _ _ _ _ _ _ _ Hc p Hp (tbr_let_reads m k aA eA cA p Hcond Hrd0)). }
       assert (Hr2 : rctx L c2 wP pp O (vflows k eA) s2).
@@ -2560,7 +2568,7 @@ Proof.
       rewrite (Frb (stored p) (below_mono c (S c) _ Hbp (Nat.le_succ_diag_r c)) eq_refl ltac:(simpl; tauto) Hne
                  ltac:(intros m0 E; discriminate)).
       unfold s2a; rewrite store_get_set_other; [| unfold keyv, stored; simpl; discriminate].
-      rewrite (Hag (stored p) (below_mono c c3 _ Hbp ltac:(lia)) eq_refl I).
+      rewrite (proj1 Hag (stored p) (below_mono c c3 _ Hbp ltac:(lia)) eq_refl I).
       assert (Hvt0 : vo_target (if sweep_eqb m Forward then vo else None) <> Some (stored p)).
       { destruct m; simpl; [| discriminate].
         exact (Hvt eq_refl p Hp (Hlv_e p Hlv)). }
