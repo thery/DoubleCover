@@ -115,8 +115,155 @@ Proof.
     intros q [<- | [<- | Hq]]; [reflexivity | reflexivity | exact (Hid q Hq)].
 Qed.
 
+(* The atoms the partial derivatives read are operands. *)
+Lemma read_by1 f (a : atom avar) y :
+  atom_member y (read_by a (partial1 f a)) = true -> atom_member y (atoms_of_atom a) = true.
+Proof.
+  unfold read_by; destruct (partial1 f a) as [p |] eqn:Ep; [| discriminate].
+  destruct (varied a); [| discriminate].
+  destruct f as [| | | | | | z |]; simpl in Ep; try discriminate; try (destruct z; simpl in Ep);
+    injection Ep as <-; simpl; rewrite ?atom_member_union; simpl; rewrite ?orb_false_r; auto; discriminate.
+Qed.
+
+Lemma read_by_atom (a b : atom avar) y :
+  atom_member y (read_by a (Some (PAtom b))) = true -> atom_member y (atoms_of_atom b) = true.
+Proof. unfold read_by; destruct (varied a); simpl; [auto | discriminate]. Qed.
+
+Lemma read_by_div (a b c : atom avar) y :
+  atom_member y (read_by c (Some (POp2 Divide (PNum "1") (PAtom b)))) = true \/
+  atom_member y (read_by c (Some (POp1 Neg (POp2 Divide (PAtom a) (POp2 Mul (PAtom b) (PAtom b)))))) = true ->
+  atom_member y (atoms_of_atom a) = true \/ atom_member y (atoms_of_atom b) = true.
+Proof.
+  unfold read_by; destruct (varied c); simpl; [| intros [H | H]; discriminate].
+  rewrite !atom_member_union; simpl; intros [H | H]; [right; exact H |].
+  apply orb_true_iff in H as [H | H]; [left; exact H |].
+  rewrite orb_diag in H; right; exact H.
+Qed.
+
+Lemma needs_op2 f (a b : atom avar) y :
+  atom_member y (fst (match partial2 f a b with
+                      | Some (pa, pb) => (atom_union (read_by a (Some pa)) (read_by b (Some pb)), atoms_of_atoms [a; b])
+                      | None => ([], atoms_of_atoms [a; b]) end))
+  || atom_member y (snd (match partial2 f a b with
+                      | Some (pa, pb) => (atom_union (read_by a (Some pa)) (read_by b (Some pb)), atoms_of_atoms [a; b])
+                      | None => ([], atoms_of_atoms [a; b]) end)) = true ->
+  atom_member y (atoms_of_atom a) || atom_member y (atoms_of_atom b) = true.
+Proof.
+  assert (Hs : atom_member y (atoms_of_atoms [a; b]) = atom_member y (atoms_of_atom a) || atom_member y (atoms_of_atom b))
+    by (simpl; rewrite !atom_member_union; simpl; rewrite ?orb_false_r; reflexivity).
+  destruct f; cbn [partial2 fst snd]; rewrite Hs; intros H; apply orb_true_iff in H as [H | H]; auto;
+    unfold read_by in H; destruct (varied a), (varied b); simpl atoms_of_pexpr in H;
+    rewrite ?atom_member_union in H; simpl in H; rewrite ?atom_member_union in H; simpl in H;
+    apply orb_true_iff; repeat (apply orb_true_iff in H as [H | H]); auto; discriminate.
+Qed.
+
 Section Branch.
 Variable cv : bool.
+
+(* What the adjoint code of a body needs occurs in it. *)
+Lemma needs_occurs :
+  (forall bP : anf pv bare, forall G bA bW m k i,
+     anf_eq (gA G) bP bA -> anf_eq (gW G) bP bW -> (forall q, In q G -> aid (pa q) = vid (pw q)) -> (i < k)%nat ->
+     atom_member (AVar (AV i false)) (fst (needs cv m k bA)) || atom_member (AVar (AV i false)) (snd (needs cv m k bA)) = true ->
+     occurs_anf i k bW = true) /\
+  (forall eP : value pv bare, forall G eA eW k i,
+     value_eq (gA G) eP eA -> value_eq (gW G) eP eW -> (forall q, In q G -> aid (pa q) = vid (pw q)) -> (i < k)%nat ->
+     atom_member (AVar (AV i false)) (fst (value_needs cv k eA)) || atom_member (AVar (AV i false)) (snd (value_needs cv k eA)) = true ->
+     occurs_value i k eW = true).
+Proof.
+  apply anf_value_ind.
+  - intros a e IHe b IHb G bA bW m k i HA HW Hid Hi Hn.
+    destruct bA as [aA eA cA | ], bW as [aW eW cW | ]; simpl in HA, HW; try contradiction.
+    destruct HA as [HeA HcA], HW as [HeW HcW]; cbn [occurs_anf].
+    set (x1 := PV (let_binder k eA) (anon k) dummy_tvar (VInt 0%Z) 0).
+    assert (Hid' : forall q, In q (x1 :: G) -> aid (pa q) = vid (pw q)) by (intros q [<- | Hq]; [reflexivity | exact (Hid q Hq)]).
+    assert (IHc : atom_member (AVar (AV i false)) (fst (needs cv m (S k) (cA (let_binder k eA)))) ||
+                  atom_member (AVar (AV i false)) (snd (needs cv m (S k) (cA (let_binder k eA)))) = true ->
+                  occurs_anf i (S k) (cW (anon k)) = true)
+      by exact (IHb x1 (x1 :: G) (cA (let_binder k eA)) (cW (anon k)) m (S k) i (HcA x1 _) (HcW x1 _) Hid' ltac:(lia)).
+    assert (Hval : atom_member (AVar (AV i false)) (fst (value_needs cv k eA)) ||
+                   atom_member (AVar (AV i false)) (snd (value_needs cv k eA)) = true -> occurs_value i k eW = true)
+      by exact (IHe G eA eW k i HeA HeW Hid Hi).
+    assert (Hat : atom_member (AVar (AV i false)) (atoms_of_value k eA) = occurs_value i k eW)
+      by exact ((proj2 atoms_occurs) e G eA eW k i HeA HeW Hid Hi).
+    cbn [needs] in Hn; destruct (needs cv m (S k) (cA (let_binder k eA))) as [ub lb] eqn:Eb.
+    destruct (varied_value k eA && atom_member (AVar (let_binder k eA)) ub);
+      [destruct (value_needs cv k eA) as [rd fl] eqn:Ev |];
+      destruct (atom_member (AVar (let_binder k eA)) lb || _);
+      cbn [fst snd] in Hn, Hval, IHc |- *;
+      rewrite ?atom_member_union, ?atom_member_remove_full in Hn; simpl in Hn;
+      apply orb_true_iff; repeat (apply orb_true_iff in Hn as [Hn | Hn]);
+      repeat (apply andb_true_iff in Hn as [_ Hn]);
+      first [ right; apply IHc; rewrite Hn; try reflexivity; apply orb_true_r
+            | left; apply Hval; rewrite Hn; try reflexivity; apply orb_true_r
+            | left; rewrite <- Hat; exact Hn
+            | discriminate ].
+  - intros x G bA bW m k i HA HW Hid Hi Hn.
+    destruct bA as [ | aA], bW as [ | aW]; simpl in HA, HW; try contradiction.
+    cbn [occurs_anf]; rewrite <- (atoms_atom G x aA aW i HA HW Hid).
+    cbn [needs] in Hn; destruct (sweep_eqb m Forward && cv); cbn [fst snd] in Hn;
+      [rewrite orb_diag in Hn; exact Hn | rewrite orb_false_r in Hn; exact Hn].
+  - intros f x G eA eW k i HA HW Hid Hi Hn.
+    destruct eA, eW; simpl in HA, HW; try contradiction; destruct HA as [<- HA], HW as [_ HW].
+    cbn [occurs_value]; rewrite <- (atoms_atom G x _ _ i HA HW Hid).
+    cbn [value_needs fst snd] in Hn; apply orb_true_iff in Hn as [Hn | Hn]; [exact (read_by1 _ _ _ Hn) | exact Hn].
+  - intros f x y G eA eW k i HA HW Hid Hi Hn.
+    destruct eA, eW; simpl in HA, HW; try contradiction; destruct HA as [<- [HA1 HA2]], HW as [_ [HW1 HW2]].
+    cbn [occurs_value]; rewrite <- (atoms_atom G x _ _ i HA1 HW1 Hid), <- (atoms_atom G y _ _ i HA2 HW2 Hid).
+    cbn [value_needs] in Hn; destruct (comparison f); [simpl in Hn; discriminate |].
+    exact (needs_op2 f _ _ _ Hn).
+  - intros x j G eA eW k i HA HW Hid Hi Hn.
+    destruct eA, eW; simpl in HA, HW; try contradiction; destruct HA as [HA1 HA2], HW as [HW1 HW2].
+    cbn [occurs_value]; rewrite <- (atoms_atom G x _ _ i HA1 HW1 Hid), <- (atoms_atom G j _ _ i HA2 HW2 Hid).
+    cbn [value_needs fst snd] in Hn; apply orb_true_iff in Hn as [Hn | Hn]; apply orb_true_iff; [right | left]; exact Hn.
+  - intros x j y G eA eW k i HA HW Hid Hi Hn.
+    destruct eA, eW; simpl in HA, HW; try contradiction; destruct HA as [HA1 [HA2 HA3]], HW as [HW1 [HW2 HW3]].
+    cbn [occurs_value]; rewrite <- (atoms_atom G x _ _ i HA1 HW1 Hid), <- (atoms_atom G j _ _ i HA2 HW2 Hid),
+      <- (atoms_atom G y _ _ i HA3 HW3 Hid).
+    cbn [value_needs fst snd] in Hn; simpl atoms_of_atoms in Hn; rewrite ?atom_member_union, ?orb_false_r in Hn.
+    repeat (apply orb_true_iff in Hn as [Hn | Hn]); rewrite Hn; rewrite ?orb_true_r; reflexivity.
+  - intros c t IHt e IHe G eA eW k i HA HW Hid Hi Hn.
+    destruct eA as [| | | | cA0 tA0 eA0 | |], eW as [| | | | cW0 tW0 eW0 | |]; simpl in HA, HW; try contradiction; destruct HA as [HA1 [HA2 HA3]], HW as [HW1 [HW2 HW3]].
+    cbn [occurs_value]; rewrite <- (atoms_atom G c _ _ i HA1 HW1 Hid).
+    pose proof (IHt G _ _ Replay k i HA2 HW2 Hid Hi) as Ht; pose proof (IHe G _ _ Replay k i HA3 HW3 Hid Hi) as He.
+    cbn [value_needs] in Hn; destruct (needs cv Replay k tA0) as [ut lt], (needs cv Replay k eA0) as [ue le].
+    cbn [fst snd] in Hn, Ht, He; rewrite !atom_member_union in Hn.
+    repeat (apply orb_true_iff in Hn as [Hn | Hn]);
+      first [rewrite Hn; reflexivity
+            | rewrite Ht by (rewrite Hn; rewrite ?orb_true_r; reflexivity); rewrite ?orb_true_r; reflexivity
+            | rewrite He by (rewrite Hn; rewrite ?orb_true_r; reflexivity); rewrite ?orb_true_r; reflexivity].
+  - intros lo hi b IHb G eA eW k i HA HW Hid Hi Hn.
+    destruct eA as [| | | | | lA hA bA0 |], eW as [| | | | | lW hW bW0 |]; simpl in HA, HW; try contradiction; destruct HA as [HA1 [HA2 HA3]], HW as [HW1 [HW2 HW3]].
+    cbn [occurs_value]; rewrite <- (atoms_atom G lo _ _ i HA1 HW1 Hid), <- (atoms_atom G hi _ _ i HA2 HW2 Hid).
+    assert (Hid' : forall q, In q (opened k :: G) -> aid (pa q) = vid (pw q)) by (intros q [<- | Hq]; [reflexivity | exact (Hid q Hq)]).
+    pose proof (IHb (opened k) (opened k :: G) _ _ Replay (S k) i (HA3 _ _) (HW3 _ _) Hid' ltac:(lia)) as Hb.
+    cbn [pa pw opened] in Hb; cbn [value_needs] in Hn; destruct (needs cv Replay (S k) (bA0 (fresh k))) as [u l].
+    cbn [fst snd] in Hn, Hb; simpl atoms_of_atoms in Hn.
+    rewrite ?atom_member_union, ?atom_member_remove_full, ?orb_false_r in Hn; rewrite same_fresh in Hn by lia; simpl in Hn.
+    repeat (apply orb_true_iff in Hn as [Hn | Hn]);
+      first [rewrite Hn; rewrite ?orb_true_r; reflexivity
+            | rewrite Hb by (rewrite Hn; rewrite ?orb_true_r; reflexivity); rewrite ?orb_true_r; reflexivity].
+  - intros a lo hi init b IHb G eA eW k i HA HW Hid Hi Hn.
+    destruct eA as [| | | | | | aA0 lA hA init0 b0], eW as [| | | | | | aW0 lW hW initW bW0]; simpl in HA, HW; try contradiction.
+    destruct HA as [HA1 [HA2 [HA3 HA4]]], HW as [HW1 [HW2 [HW3 HW4]]].
+    cbn [occurs_value]; rewrite <- (atoms_atom G lo _ _ i HA1 HW1 Hid), <- (atoms_atom G hi _ _ i HA2 HW2 Hid),
+      <- (atoms_atom G init _ _ i HA3 HW3 Hid).
+    set (sv := PV (snd (fold_binders k init0 b0)) (anon (S k)) dummy_tvar (VInt 0%Z) 0).
+    assert (Hid' : forall q, In q (sv :: opened k :: G) -> aid (pa q) = vid (pw q))
+      by (intros q [<- | [<- | Hq]]; [reflexivity | reflexivity | exact (Hid q Hq)]).
+    pose proof (IHb (opened k) sv (sv :: opened k :: G) _ _ Replay (S (S k)) i (HA4 _ _ _ _) (HW4 _ _ _ _) Hid' ltac:(lia)) as Hb.
+    cbn [value_needs] in Hn; unfold sv, fold_binders in Hb; unfold fold_binders in Hn; cbn [fst snd pa pw opened] in Hb; unfold fresh in Hb.
+    destruct (needs cv Replay (S (S k)) (b0 (AV k false) (AV (S k) (fold_varied k init0 b0)))) as [u l].
+    cbn [fst snd] in Hn, Hb; simpl atoms_of_atoms in Hn.
+    rewrite ?atom_member_union, ?atom_member_remove_full, ?orb_false_r in Hn.
+    assert (E1 : same_term (AVar (AV k false)) (AVar (AV i false)) = false) by exact (same_fresh k i ltac:(lia)).
+    assert (E2 : same_term (AVar (AV (S k) (fold_varied k init0 b0))) (AVar (AV i false)) = false)
+      by (unfold same_term; cbn [aid]; apply Nat.eqb_neq; lia).
+    rewrite ?E1, ?E2 in Hn; simpl in Hn.
+    repeat (apply orb_true_iff in Hn as [Hn | Hn]);
+      first [rewrite Hn; rewrite ?orb_true_r; reflexivity
+            | rewrite Hb by (rewrite Hn; rewrite ?orb_true_r; reflexivity); rewrite ?orb_true_r; reflexivity].
+Qed.
 
 Ltac fwd_intro :=
   let L := fresh "L" in let k := fresh "k" in let c := fresh "c" in let s := fresh "s" in
