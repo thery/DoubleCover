@@ -1057,10 +1057,11 @@ Proof.
                   (forall t, vo = Some (AReturns t) -> @None (atom pv) = None)).
     { intros _; unfold vo; split; [reflexivity | split; [destruct cv; split; intros; congruence |]].
       split; [intros y E; destruct cv; discriminate | reflexivity]. }
-    assert (Hvt : Forward = Forward -> forall p, In p L -> live_anf n bW p -> vo_target vo = Some (stored p) ->
-                    is_array (vty (pw p))).
+    assert (Hvt : Forward = Forward -> forall p, In p L -> live_anf n bW p -> vo_target vo <> Some (stored p)).
     { intros _ p _ _ E; unfold vo in E; destruct cv; simpl in E; [injection E as E; discriminate | discriminate]. }
-    pose proof (Hsim L n n s0 None PTop Forward bA bW bT bD Real v se vo HbA HbW HbT HbD Hactx I HtcB Hev Hvo Hvt)
+    assert (Hvb : Forward = Forward -> forall t, vo_target vo = Some t -> below n t /\ consistent t /\ is_primal t).
+    { intros _ t E; unfold vo in E; destruct cv; simpl in E; [injection E as <-; repeat split | discriminate]. }
+    pose proof (Hsim L n n s0 None PTop Forward bA bW bT bD Real v se vo HbA HbW HbT HbD Hactx I HtcB Hev Hvo Hvt Hvb)
       as HS.
     cbn [option_map] in HS.
     lazymatch type of HS with context [@open_pairs ?A ?t n] =>
@@ -1081,7 +1082,7 @@ Proof.
       - cbn [store_get]; rewrite key_eqb_refl; reflexivity. }
     assert (Hs1r : store_get s1 (keyv (BarOf ResultVar)) = Some (VReal (hd 0%R yb)))
       by (rewrite F1; [exact Hs0r | exact I | exact I | simpl; tauto | discriminate | apply Hvt0]).
-    assert (Hag : agree_prim c' (inplace None PTop) s1 s1) by (intros ? ? ? ? ?; reflexivity).
+    assert (Hag : agree_prim c' (inplace None PTop) s1 s1) by (intros ? ? ? ?; reflexivity).
     assert (Hr : rctx L n None PTop O (useful cv Forward n bA) s1).
     { constructor.
       - apply owners_nodup; exact HnL.
@@ -1100,7 +1101,7 @@ Proof.
     assert (Hseed : seed_ok n Real se s1).
     { split; [intros y [<- | []]; split; exact I |].
       intros _; exists (hd 0%R yb); exact Hs1r. }
-    destruct (Hrev s1 O Hag Hr Hseed) as [s3 [R3 [K3 [F3 [S3 P3]]]]].
+    destruct (Hrev s1 O Hag Hr Hseed) as [s3 [R3 [K3 [X3 [F3 [S3 P3]]]]]].
     destruct v as [d | | | |]; try (simpl in Hhty; contradiction).
     assert (P3' : pairing O s3 = (init_sum (rev L) s0 + dsnd d * hd 0%R yb)%R).
     { rewrite P3; unfold result_pairing, seed_value; simpl inplace.
@@ -1250,15 +1251,17 @@ Proof.
       intros t' E; destruct cvw; discriminate. }
     assert (Hvtg : vo_target vo = if cvw then match r, t with Dependent, (Real | Array _) => Some (stored y) | _, _ => None end else None).
     { unfold vo; destruct cvw; [| reflexivity]; rewrite Ey; simpl; destruct r, t; reflexivity. }
-    assert (Hvt : Forward = Forward -> forall p, In p L -> live_anf n bW p -> vo_target vo = Some (stored p) ->
-                    is_array (vty (pw p))).
+    assert (Hvt : Forward = Forward -> forall p, In p L -> live_anf n bW p -> vo_target vo <> Some (stored p)).
     { intros _ p Hp Lp E; rewrite Hvtg in E; destruct cvw; [| discriminate].
       destruct r; try discriminate; destruct t; try discriminate;
         assert (Epn : pn p = pn y) by (unfold stored in E; congruence);
-        rewrite (Hpn_inj p y Hp HyL Epn) in Lp |- *.
-      - unfold live_anf in Lp; rewrite Hdep in Lp by reflexivity; discriminate.
-      - rewrite Hvy; exact I. }
-    pose proof (Hsim L n n s0 (Some (AVar y)) PTop Forward bA bW bT bD t v se vo HbA HbW HbT HbD Hactx Hraw HtcB Hev Hvo Hvt)
+        rewrite (Hpn_inj p y Hp HyL Epn) in Lp;
+        unfold live_anf in Lp; rewrite Hdep in Lp by reflexivity; discriminate. }
+    assert (Hvb : Forward = Forward -> forall t', vo_target vo = Some t' -> below n t' /\ consistent t' /\ is_primal t').
+    { intros _ t' E; rewrite Hvtg in E; destruct cvw; [| discriminate].
+      destruct r; try discriminate; destruct t; try discriminate.
+      all: injection E as <-; unfold stored; simpl; split; [exact (Hnum y HyL) | split; [reflexivity | exact I]]. }
+    pose proof (Hsim L n n s0 (Some (AVar y)) PTop Forward bA bW bT bD t v se vo HbA HbW HbT HbD Hactx Hraw HtcB Hev Hvo Hvt Hvb)
       as HS.
     cbn [option_map amap] in HS.
     lazymatch type of HS with context [@open_pairs ?A ?t0 n] =>
@@ -1306,7 +1309,7 @@ Proof.
         + (* dependent *)
           simpl in Eseed; injection Eseed as <- <-.
           exists s1; split; [reflexivity |].
-          split; [intros ? ? ? ? ?; reflexivity |].
+          split; [intros ? ? ? ?; reflexivity |].
           split.
           { split; [intros y0 [<- | []]; split; [simpl; exact (Hnum y HyL) | reflexivity] |].
             intros _; exists (hd 0%R yb); exact (Hseedv s1 Hby1). }
@@ -1333,7 +1336,7 @@ Proof.
             fold sa; rewrite run_assign_var with (v := VReal 0%R) by (rewrite xev_DReal, lit_0; reflexivity).
             reflexivity. }
           split; [exact (agree_prim_set_bar c' ex s1 sa (stored y) (VReal 0%R)
-                           (agree_prim_set_bar c' ex s1 s1 ResultVar _ (fun _ _ _ _ _ => eq_refl) I) eq_refl) |].
+                           (agree_prim_set_bar c' ex s1 s1 ResultVar _ (fun _ _ _ _ => eq_refl) I) eq_refl) |].
           split.
           { split; [intros y0 [<- | []]; split; exact I |].
             intros _; exists (hd 0%R yb); change (xev s2 (DVar (BarOf ResultVar))) with (store_get s2 (keyv (BarOf ResultVar))).
@@ -1359,7 +1362,7 @@ Proof.
         assert (Hexa : ex = Some (stored y)) by (unfold ex, inplace; rewrite Hown_cases; reflexivity).
         destruct r; simpl in Hwr; try discriminate; simpl in Eseed; injection Eseed as <- <-.
         all: exists s1; split; [reflexivity |].
-        all: split; [intros ? ? ? ? ?; reflexivity |].
+        all: split; [intros ? ? ? ?; reflexivity |].
         all: split; [split; [intros y0 [] | intros E; discriminate] |].
         all: split; [intros; reflexivity |].
         all: split; [destruct (bars_in_get _ _ _ y Hbars0 HyR Hdy) as [b [Eb Sb]]; exists b; rewrite (Hbars1 y HyR); auto |].
@@ -1393,7 +1396,7 @@ Proof.
         unfold stored in E; injection E as E; rewrite (Hpn_inj q p (HinL q Hq) Hp (eq_sym E)); reflexivity.
       - intros o E; rewrite Hown_cases in E; destruct t; try discriminate; injection E as <-.
         exact (owners_intro _ _ HyR Hdy). }
-    destruct (Hrev s2 OW Hag Hr Hseed) as [s3 [R3 [K3 [F3 [S3 P3]]]]].
+    destruct (Hrev s2 OW Hag Hr Hseed) as [s3 [R3 [K3 [X3 [F3 [S3 P3]]]]]].
     fold ex in P3; rewrite Hres in P3.
     (* the end of the function *)
     set (ss := fw ++ pro ++ rv).
