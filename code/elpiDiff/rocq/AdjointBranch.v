@@ -665,21 +665,6 @@ Proof.
   intros q Hq; exact (proj1 (static_in _ _ _ HL Hq)).
 Qed.
 
-(* The index of the set that ends a body, as evaluated. *)
-Fixpoint set_index (b : anf (val (dual R)) bare) : option Z :=
-  match b with
-  | ALet _ e b' =>
-      match aeval_value (duals reals) e with
-      | Some v =>
-          match e, b' v with
-          | ASet _ i _, ARet _ => match aeval_atom (duals reals) i with Some (VInt z) => Some z | _ => None end
-          | _, _ => set_index (b' v)
-          end
-      | None => None
-      end
-  | ARet _ => None
-  end.
-
 (* The tape of the storage updated in place after a body: when it records, the
    element its last set overwrites is pushed. *)
 Definition tape_step (r : bool) (zi : option Z) (st : val (dual R)) (t : option (val R)) : option (val R) :=
@@ -2023,9 +2008,10 @@ Proof.
   exists sf; split.
   { lazymatch goal with |- (match ?r with _ => _ end) = _ => replace r with (Some sf) by (symmetry; exact Hex) end; reflexivity. }
   split; [exact Fs |]. split; [exact Ts |]. split; [exact Ns |].
-  intros Hm; unfold fold_tape; rewrite Hlo, Hhi, Hin; intros _ Hlv tr' Htr'.
+  intros Hm; unfold fold_tape; rewrite Hlo, Hhi, Hin; intros tr' Htr'.
   cbv beta in Htr'; rewrite Htr in Htr'; injection Htr' as <-.
-  apply Tps; unfold live; rewrite Hm, Hlv; reflexivity.
+  split; [intros _ Hlv; apply Tps; unfold live; rewrite Hm, Hlv; reflexivity |].
+  intros Ha; rewrite Er in Ha; destruct Ha.
 Qed.
 
 (* The reverse sweep of a scalar fold: a loop down the steps, popping the
@@ -2099,7 +2085,7 @@ Proof.
   assert (Htape : state_live cv k (amap pa initP) bA = true ->
                   store_get s2 (keyv (TapeOf n)) = Some (VTape (rev (map real_of tr)))).
   { intros Hl; unfold fold_tape in Hft; rewrite Hlo, Hhi, Hin in Hft.
-    exact (Hft ltac:(rewrite Er; reflexivity) Hl tr Htr). }
+    exact (proj1 (Hft tr Htr) ltac:(rewrite Er; reflexivity) Hl). }
   set (N := count l h).
   set (dflt := VReal (Dual 0 0)).
   set (st := fun jn => nth jn (tr ++ [ve]) dflt).

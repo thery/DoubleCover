@@ -693,6 +693,34 @@ Fixpoint fold_trace (ev : val (dual R) -> val (dual R) -> option (val (dual R)))
 
 Definition real_of (v : val (dual R)) : R := match v with VReal d => dfst d | _ => 0 end.
 
+(* The index of the set that ends a body, as evaluated. *)
+Fixpoint set_index (b : anf (val (dual R)) bare) : option Z :=
+  match b with
+  | ALet _ e b' =>
+      match aeval_value (duals reals) e with
+      | Some v =>
+          match e, b' v with
+          | ASet _ i _, ARet _ => match aeval_atom (duals reals) i with Some (VInt z) => Some z | _ => None end
+          | _, _ => set_index (b' v)
+          end
+      | None => None
+      end
+  | ARet _ => None
+  end.
+
+(* The elements the steps of an in-place fold overwrite, from the states
+   before each step. *)
+Fixpoint fold_pushes (b : val (dual R) -> val (dual R) -> anf (val (dual R)) bare) (z : Z)
+  (tr : list (val (dual R))) : list R :=
+  match tr with
+  | [] => []
+  | st :: tr' =>
+      (match set_index (b (VInt z) st), st with
+       | Some zi, VArray l => [match nth_z zi (map dfst l) with Some x => x | None => 0 end]
+       | _, _ => []
+       end ++ fold_pushes b (z + 1) tr')%list
+  end.
+
 Section Sim.
 Variable cv : bool.                               (* computes-value: mode adjoint-value *)
 
@@ -987,46 +1015,94 @@ Definition vatoms (k : nat) (e : value avar bare) (p : pv) : Prop :=
 
 (* The forward sweep of a value, computed into the variable n (recorded when
    rec): the value is stored in n. *)
-(* The tape of a scalar fold whose state is recorded: the states before each
-   step, the last first. *)
+(* The tape of a fold whose state is recorded. For a scalar fold: the states
+   before each step, the last first. For an in-place fold: the elements the
+   steps overwrite, the last first, the storage holding the final array; when
+   the fold records nothing, the storage holds the initial array. *)
 Definition fold_tape (k : nat) (eA : value avar bare) (eW : value vinfo bare) (eD : value (val (dual R)) bare)
   (s : store R) (n : dvar W) : Prop :=
   match eA, eW, eD with
-  | AFold _ _ _ initA bA, AFold _ _ _ initW _, AFold _ lo hi init b =>
-      ty_eqb (of_atom initW) Real = true -> state_live cv k initA bA = true ->
+  | AFold fa loA hiA initA bA, AFold _ _ _ initW _, AFold _ lo hi init b =>
       match aeval_atom (duals reals) lo, aeval_atom (duals reals) hi, aeval_atom (duals reals) init with
       | Some (VInt l), Some (VInt h), Some s0 =>
           forall tr, fold_trace (fun v w => aeval (duals reals) (b v w)) l (count l h) s0 = Some tr ->
-            store_get s (keyv (TapeOf n)) = Some (VTape (rev (map real_of tr)))
+            (ty_eqb (of_atom initW) Real = true -> state_live cv k initA bA = true ->
+               store_get s (keyv (TapeOf n)) = Some (VTape (rev (map real_of tr)))) /\
+            (is_array (of_atom initW) ->
+               (state_live cv k initA bA = true ->
+                  store_get s (keyv (TapeOf n)) = Some (VTape (rev (fold_pushes b l tr))) /\
+                  forall ve, eval_fold (fun v w => aeval (duals reals) (b v w)) l (count l h) s0 = Some ve ->
+                    store_get s (keyv n) = Some (primal ve)) /\
+               (records cv k (AFold fa loA hiA initA bA) = false -> store_get s (keyv n) = Some (primal s0)))
       | _, _, _ => True
       end
   | _, _, _ => True
   end.
 
 Lemma fold_tape_same k eA eW eD s s' n :
-  store_get s' (keyv (TapeOf n)) = store_get s (keyv (TapeOf n)) -> fold_tape k eA eW eD s n -> fold_tape k eA eW eD s' n.
-Proof. intros E H; unfold fold_tape in *; rewrite E; exact H. Qed.
+  store_get s' (keyv (TapeOf n)) = store_get s (keyv (TapeOf n)) -> store_get s' (keyv n) = store_get s (keyv n) ->
+  fold_tape k eA eW eD s n -> fold_tape k eA eW eD s' n.
+Proof. intros E E' H; unfold fold_tape in *; rewrite E, E'; exact H. Qed.
 
-(* A value whose forward sweep records nothing has no tape to give. *)
-Lemma fold_tape_records k eA eW eD s n : records cv k eA = false -> fold_tape k eA eW eD s n.
+(* A fold that is not updated in place carries a real: its tape is the one of
+   a scalar fold. *)
+Lemma fold_tape_scalar L k wP tail (eP : value pv bare) eA eW eD s s' n :
+  value_eq (gW L) eP eW -> storage wP tail eP = None ->
+  store_get s' (keyv (TapeOf n)) = store_get s (keyv (TapeOf n)) ->
+  fold_tape k eA eW eD s n -> fold_tape k eA eW eD s' n.
 Proof.
-  intros Hr; destruct eA as [| | | | | | fa loA hiA initA bA]; try exact I.
-  destruct eW as [| | | | | | ? ? ? ? ?]; try exact I; destruct eD as [| | | | | | ? ? ? ? ?]; try exact I.
-  unfold fold_tape, state_live; simpl in Hr; apply orb_false_iff in Hr as [Hr _].
-  intros _ E; unfold fold_binders in *; simpl in E, Hr; congruence.
+  intros HW Hst E; destruct eA as [| | | | | | fa loA hiA initA bA]; try (intros; exact I).
+  destruct eW as [| | | | | | fw loW hiW initW bW]; try (intros; exact I); destruct eD as [| | | | | | ? ? ? ? ?]; try (intros; exact I).
+  destruct eP as [| | | | | | fp loP hiP initP bP]; simpl in HW; try contradiction.
+  destruct HW as [_ [_ [Hi _]]]; apply atom_graph in Hi as [-> _].
+  assert (Hna : ~ is_array (of_atom (amap pw initP))).
+  { simpl in Hst; destruct initP as [i0 | |]; simpl; try (intros H; exact H).
+    destruct (vty (pw i0)); simpl in Hst; try discriminate; intros H; exact H. }
+  unfold fold_tape; rewrite E.
+  destruct (aeval_atom _ _) as [[| ? | | |] |]; try (intros; exact I).
+  destruct (aeval_atom _ _) as [[| ? | | |] |]; try (intros; exact I).
+  destruct (aeval_atom _ _); try (intros; exact I).
+  intros H tr Htr; split; [exact (proj1 (H tr Htr)) | intros Ha; destruct (Hna Ha)].
 Qed.
 
-(* A value updated in place is no scalar fold. *)
-Lemma fold_tape_inplace L k wP tail (eP : value pv bare) eA eW eD s n :
-  value_eq (gW L) eP eW -> storage wP tail eP <> None -> fold_tape k eA eW eD s n.
+(* A scalar fold whose forward sweep records nothing has no tape to give. *)
+Lemma fold_tape_records L k wP tail (eP : value pv bare) eA eW eD s n :
+  value_eq (gW L) eP eW -> storage wP tail eP = None -> records cv k eA = false -> fold_tape k eA eW eD s n.
 Proof.
-  intros HW Hst; destruct eA as [| | | | | | fa loA hiA initA bA]; try exact I.
+  intros HW Hst Hr; destruct eA as [| | | | | | fa loA hiA initA bA]; try exact I.
   destruct eW as [| | | | | | fw loW hiW initW bW]; try exact I; destruct eD as [| | | | | | ? ? ? ? ?]; try exact I.
   destruct eP as [| | | | | | fp loP hiP initP bP]; simpl in HW; try contradiction.
   destruct HW as [_ [_ [Hi _]]]; apply atom_graph in Hi as [-> _].
-  simpl in Hst; destruct initP as [i0 | |]; simpl in Hst |- *; try (destruct Hst; reflexivity).
-  destruct (vty (pw i0)) eqn:Ev; try (destruct Hst; reflexivity).
-  intros E; discriminate.
+  assert (Hna : ~ is_array (of_atom (amap pw initP))).
+  { simpl in Hst; destruct initP as [i0 | |]; simpl; try (intros H; exact H).
+    destruct (vty (pw i0)); simpl in Hst; try discriminate; intros H; exact H. }
+  unfold fold_tape, state_live in *; simpl in Hr; apply orb_false_iff in Hr as [Hr _].
+  destruct (aeval_atom _ _) as [[| ? | | |] |]; try exact I.
+  destruct (aeval_atom _ _) as [[| ? | | |] |]; try exact I.
+  destruct (aeval_atom _ _); try exact I.
+  intros tr _; split; [intros _ E; unfold fold_binders in *; simpl in E, Hr; congruence | intros Ha; destruct (Hna Ha)].
+Qed.
+
+(* A fold that records nothing leaves its storage as it was: an in-place fold
+   not run in the forward sweep. *)
+Lemma fold_tape_norec L k (eP : value pv bare) eA eW eD s n :
+  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gD L) eP eD -> records cv k eA = false ->
+  (forall fp loP hiP i bP, eP = AFold fp loP hiP (AVar i) bP -> store_get s (keyv n) = Some (primal (pd i))) ->
+  fold_tape k eA eW eD s n.
+Proof.
+  intros HA HW HD Hr Hs; destruct eP as [| | | | | | fp loP hiP initP bP]; simpl in HA, HW, HD;
+    destruct eA; try contradiction; destruct eW; try contradiction; destruct eD; try contradiction; try exact I.
+  destruct HA as [_ [_ [HiA _]]], HW as [_ [_ [HiW _]]], HD as [_ [_ [HiD _]]].
+  apply atom_graph in HiA as [-> _]; apply atom_graph in HiW as [-> _]; apply atom_graph in HiD as [-> _].
+  pose proof Hr as Hr'; unfold state_live in *; simpl in Hr; apply orb_false_iff in Hr as [Hr _].
+  unfold fold_tape.
+  destruct (aeval_atom _ lo1) as [[| ? | | |] |]; try exact I.
+  destruct (aeval_atom _ hi1) as [[| ? | | |] |]; try exact I.
+  destruct (aeval_atom (duals reals) (amap pd initP)) as [s0 |] eqn:Ei; try exact I.
+  intros tr _; split; [intros _ E; unfold state_live, fold_binders in E; simpl in E; congruence |].
+  intros Ha; split; [intros E; unfold state_live, fold_binders in E; simpl in E; congruence | intros _].
+  destruct initP as [i | |]; simpl in Ha, Ei; try destruct Ha.
+  injection Ei as <-; exact (Hs _ _ _ i _ eq_refl).
 Qed.
 
 Definition asim_fwd (eP : value pv bare) : Prop :=
@@ -2326,7 +2402,8 @@ Proof.
     assert (Hex : inplace wP pp = Some (stored o)) by (unfold inplace; rewrite Ho; reflexivity).
     assert (Hn0 : needs cv m (S k) (cA (let_binder k eA)) = (u, l)) by (rewrite EA; exact Hneeds).
     assert (Hfw : exists se1, run fe s = Some se1 /\ fwd_frame c (Some (stored o)) None s se1 /\
-                    tkeep c (Some (stored o)) s se1 /\ (cp = true -> store_get se1 (keyv (stored o)) = Some (primal ve))).
+                    tkeep c (Some (stored o)) s se1 /\ (cp = true -> store_get se1 (keyv (stored o)) = Some (primal ve)) /\
+                    (cp = true -> m = Forward -> fold_tape k eA eW eD se1 (stored o)) /\ (cp = false -> se1 = s)).
     { destruct cp eqn:Ecp.
       - assert (Hc1 : actx L k c s wP pp (live_value k eW) (vatoms k eA) (Array z)).
         { apply (actx_weaken _ _ _ _ _ _ _ _ _ _ _ _ Hc Hlv_e); [| lia].
@@ -2335,10 +2412,12 @@ Proof.
         pose proof (IHf L k c s wP pp tail eA eW eT eD (Array z) (stored o) ve (Array z) m rec HeA HeW HeT HeD Hc1 Hte
                       Htail_ty Hj Hst0 Hrec Hve) as IH.
         cbv zeta in IH; fold vt in IH; rewrite Hfe in IH.
-        destruct IH as [_ [se1 [R1 [F1 [T1 [S1 _]]]]]]; exists se1; auto.
+        destruct IH as [_ [se1 [R1 [F1 [T1 [S1 Ft1]]]]]]; exists se1.
+        split; [exact R1 | split; [exact F1 | split; [exact T1 | split; [intros _; exact S1 | split; [intros _; exact Ft1 | discriminate]]]]].
       - simpl in Hfe; injection Hfe as <- <-.
-        exists s; split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity | split; [apply tkeep_refl | discriminate]]]. }
-    destruct Hfw as [se1 [R1 [F1 [T1 S1]]]].
+        exists s; split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity | split; [apply tkeep_refl | ]]].
+        split; [discriminate | split; [discriminate | reflexivity]]. }
+    destruct Hfw as [se1 [R1 [F1 [T1 [S1 [Ft1 Es1]]]]]].
     split; [lia |].
     split; [exact (proj1 (IHa L k wP pp tail eA eW eD (Array z) ve HeA HeW HeD HL Hte Hve)) |].
     exists se1; split; [rewrite app_nil_r; exact R1 |].
@@ -2410,7 +2489,29 @@ Proof.
         - exact (r_written _ _ _ _ _ _ _ Hr). }
       assert (Hns : storage wP tail eP = None -> ~ In (stored o) (map snd O) /\ shaped (tangent ve) (barv s2 (stored o)))
         by (intros E; rewrite Es in E; discriminate).
-      destruct (Hrv s2 O Hrd Hr2 Hns Htp (fun _ => fold_tape_inplace L k wP tail eP eA eW eD s2 (stored o) HeW Hsn)) as [s3 [R3 [K3 [Kn3 [Kv3 [T3 [F3 [S3 P3]]]]]]]].
+      assert (Hft : pp = PTop -> fold_tape k eA eW eD s2 (stored o)).
+      { intros Hpt; assert (Hmf : m = Forward) by (destruct m; [reflexivity | exfalso; exact (Hrpl eq_refl Hpt)]).
+        assert (Hbo : below c3 (stored o)) by (destruct Hj as [j0 [E Hj0]]; rewrite E; simpl; lia).
+        destruct cp eqn:Ecp.
+        - apply (fold_tape_same _ _ _ _ se1); [exact (proj2 Hag _ Hbo eq_refl) | exact (proj1 Hag _ Hbo eq_refl I) |].
+          exact (Ft1 eq_refl Hmf).
+        - apply (fold_tape_norec L k eP eA eW eD s2 (stored o) HeA HeW HeD).
+          + subst m; unfold cp in Ecp; simpl in Ecp; apply orb_false_iff in Ecp as [_ Ecp]; exact Ecp.
+          + intros fp loP hiP i bP Ep; rewrite Ep in HeW, Es.
+            destruct eW; simpl in HeW; try contradiction.
+            destruct HeW as [_ [_ [Hiw _]]]; destruct init as [iw | |]; try contradiction.
+            apply in_gW in Hiw as [Hi Eiw].
+            assert (Hio' : i = o).
+            { simpl in Es; destruct (vty (pw i)); try discriminate; injection Es as Esi.
+              assert (Epn : pn i = pn o) by (unfold stored in Esi; congruence).
+              destruct (s_owner _ _ _ _ _ _ _ Hs o i Ho Hi Epn) as [E | Hnl]; [exact E | exfalso; apply Hnl].
+              apply Hlv_e; subst iw.
+              unfold live_value; simpl; rewrite Nat.eqb_refl, !orb_true_r; reflexivity. }
+            subst i.
+            rewrite (proj1 Hag _ Hbo eq_refl I), (Es1 eq_refl).
+            assert (Hnl0 : not_in_loop pp) by (rewrite Hpt; exact I).
+            exact (a_owner _ _ _ _ _ _ _ _ _ Hc o Ho (or_introl Hnl0)). }
+      destruct (Hrv s2 O Hrd Hr2 Hns Htp Hft) as [s3 [R3 [K3 [Kn3 [Kv3 [T3 [F3 [S3 P3]]]]]]]].
       assert (Hoin' : In (stored o) (map snd O)) by (apply in_map_iff; eexists; split; [| exact Hown]; reflexivity).
       assert (Eput : oput O (stored o) (tangent ve) = oset O (stored o) (tangent ve)).
       { unfold oput; destruct (in_dec dvar_eq_dec_c (stored o) (map snd O)); [reflexivity | contradiction]. }
@@ -2681,10 +2782,10 @@ Proof.
     assert (Hft : pp = PTop -> fold_tape k eA eW eD sb (DBound (c, c))).
     { intros Hpt.
       destruct m; [| exfalso; exact (Hrpl eq_refl Hpt)].
-      destruct (records cv k eA) eqn:Erc; [| exact (fold_tape_records k eA eW eD sb _ Erc)].
+      destruct (records cv k eA) eqn:Erc; [| exact (fold_tape_records L k wP tail eP eA eW eD sb _ HeW Es Erc)].
       assert (Ecp : cp = true) by (unfold cp; simpl; apply orb_true_r).
       pose proof (proj2 (S1 Ecp) eq_refl) as Ft.
-      apply (fold_tape_same _ _ _ _ se1); [| exact Ft].
+      apply (fold_tape_scalar L k wP tail eP eA eW eD se1 sb); [exact HeW | exact Es | | exact Ft].
       set (nn := DBound (c, c)).
       assert (Hex : inplace wP pp <> Some nn).
       { intros E; destruct (ex_below _ _ _ _ _ _ _ _ Hs E) as [Hbe _]; unfold nn in Hbe; simpl in Hbe; lia. }
