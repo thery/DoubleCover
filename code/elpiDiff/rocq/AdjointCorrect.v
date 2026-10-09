@@ -1112,6 +1112,8 @@ Definition asim_rev (eP : value pv bare) : Prop :=
       (forall v, below c v -> consistent v -> is_primal v -> v <> n -> store_get s3 (keyv v) = store_get s2 (keyv v)) /\
       (not_in_loop pp -> storage wP tail eP <> None -> forall o, owner wP pp = Some o -> avaried (pa o) = false ->
          store_get s3 (keyv n) = store_get s2 (keyv n)) /\
+      (not_in_loop pp -> storage wP tail eP <> None -> forall o, owner wP pp = Some o -> avaried (pa o) = true ->
+         store_get s3 (keyv n) = Some (primal (pd o))) /\
       tkeep c (Some n) s2 s3 /\
       rev_frame_x c (inplace wP pp) n (oput O n (tangent ve)) s2 s3 /\
       (forall t m, In (t, m) O -> shaped t (barv s3 m)) /\
@@ -1120,11 +1122,14 @@ Definition asim_rev (eP : value pv bare) : Prop :=
 (* A value updated in place outside the body of an in-place loop (a map)
    writes an argument that is not inout, and does not read it. *)
 Definition inplace_only (eP : value pv bare) : Prop :=
-  forall L k wP pp tail eW te, value_eq (gW L) eP eW ->
+  forall L k wP pp tail eA eW te, value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> Forall (static_ok k) L ->
   typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
   storage wP tail eP <> None -> not_in_loop pp ->
-  forall o, owner wP pp = Some o ->
-    (forall ny r, varg (pw o) = Some (ny, r) -> r <> Inout) /\ ~ live_value k eW o.
+  (forall p ny r, In p L -> varg (pw p) = Some (ny, r) -> avaried (pa p) = varied_role r) ->
+  (forall y, wP = Some (AVar y) -> exists ny r, varg (pw y) = Some (ny, r) /\ written_role r = true) ->
+  forall o, owner wP pp = Some o -> In o L ->
+    ~ vreads k eA o /\ (avaried (pa o) = true -> varied_value k eA = true) /\
+    (~ live_value k eW o -> avaried (pa o) = false).
 
 Lemma fwd_frame_set c n vo s w :
   consistent n -> fwd_frame c (Some n) vo s (store_set s (keyv n) w).
@@ -2319,8 +2324,6 @@ Proof.
     assert (Hrec : rec = true -> exists l0, store_get s (keyv (TapeOf (stored o))) = Some (VTape l0)).
     { intros Hr0; rewrite <- Em0; apply (a_tape _ _ _ _ _ _ _ _ _ Hc qr Hqr); rewrite <- Erec; exact Hr0. }
     assert (Hex : inplace wP pp = Some (stored o)) by (unfold inplace; rewrite Ho; reflexivity).
-    assert (Hio : not_in_loop pp -> (forall ny r, varg (pw o) = Some (ny, r) -> r <> Inout) /\ ~ live_value k eW o)
-      by (intros Hl; exact (IHi L k wP pp tail eW _ HeW Hte Hsn Hl o Ho)).
     assert (Hn0 : needs cv m (S k) (cA (let_binder k eA)) = (u, l)) by (rewrite EA; exact Hneeds).
     assert (Hfw : exists se1, run fe s = Some se1 /\ fwd_frame c (Some (stored o)) None s se1 /\
                     tkeep c (Some (stored o)) s se1 /\ (cp = true -> store_get se1 (keyv (stored o)) = Some (primal ve))).
@@ -2360,14 +2363,10 @@ Proof.
     rewrite Hbd, !app_nil_l.
     pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
     pose proof (r_owner _ _ _ _ _ _ _ Hr o Ho) as Hown.
-    assert (Hav : not_in_loop pp -> avaried (pa o) = false).
-    { intros Hl; destruct (Hio Hl) as [Hni _].
-      assert (Ewo : wP = Some (AVar o)).
-      { destruct pp as [| | | ix sx]; simpl in Ho, Hl; try discriminate; [| destruct Hl].
-        destruct wP as [[y | |] |]; try discriminate; destruct (vty (pw y)); try discriminate; injection Ho as <-; reflexivity. }
-      destruct (r_written _ _ _ _ _ _ _ Hr o Ewo) as [ny [r [Hvg Hwr]]].
-      rewrite (r_args _ _ _ _ _ _ _ Hr o ny r Hoin Hvg).
-      specialize (Hni ny r Hvg); destruct r; simpl in Hwr; try discriminate; [reflexivity | destruct Hni; reflexivity]. }
+    assert (Hio : not_in_loop pp -> ~ vreads k eA o /\ (avaried (pa o) = true -> varied_value k eA = true) /\
+                    (~ live_value k eW o -> avaried (pa o) = false))
+      by (intros Hl; exact (IHi L k wP pp tail eA eW _ HeA HeW HL Hte Hsn Hl (r_args _ _ _ _ _ _ _ Hr)
+                              (r_written _ _ _ _ _ _ _ Hr) o Ho Hoin)).
     assert (Hres : result_pairing O (Array z) (inplace wP pp) ve se s2 = pairing (oset O (stored o) (tangent ve)) s2)
       by (rewrite Hex; reflexivity).
     rewrite Hres.
@@ -2394,7 +2393,7 @@ Proof.
         { destruct Hdj as [Hl | Hne]; [| exact Hne].
           rewrite Hex; intros E.
           assert (Epn : pn p = pn o) by (unfold stored in E; congruence).
-          destruct (s_owner _ _ _ _ _ _ _ Hs o p Ho Hp Epn) as [Epo | Hnl']; [subst p; exact (proj2 (Hio Hl) Hlv) | exact (Hnl' (Hlv_e p Hlv))]. }
+          destruct (s_owner _ _ _ _ _ _ _ Hs o p Ho Hp Epn) as [Epo | Hnl']; [subst p; exact (proj1 (Hio Hl) Hrd0) | exact (Hnl' (Hlv_e p Hlv))]. }
         assert (Hbp : below c (stored p)) by (unfold stored; simpl; exact (s_num _ _ _ _ _ _ _ Hs p Hp)).
         rewrite (proj1 Hag (stored p) (below_mono c c3 _ Hbp ltac:(lia)) eq_refl I).
         rewrite (F1 (stored p) Hbp eq_refl ltac:(simpl; tauto) ltac:(rewrite <- Hex; exact Hne) ltac:(discriminate)).
@@ -2411,7 +2410,7 @@ Proof.
         - exact (r_written _ _ _ _ _ _ _ Hr). }
       assert (Hns : storage wP tail eP = None -> ~ In (stored o) (map snd O) /\ shaped (tangent ve) (barv s2 (stored o)))
         by (intros E; rewrite Es in E; discriminate).
-      destruct (Hrv s2 O Hrd Hr2 Hns Htp (fun _ => fold_tape_inplace L k wP tail eP eA eW eD s2 (stored o) HeW Hsn)) as [s3 [R3 [K3 [Kn3 [T3 [F3 [S3 P3]]]]]]].
+      destruct (Hrv s2 O Hrd Hr2 Hns Htp (fun _ => fold_tape_inplace L k wP tail eP eA eW eD s2 (stored o) HeW Hsn)) as [s3 [R3 [K3 [Kn3 [Kv3 [T3 [F3 [S3 P3]]]]]]]].
       assert (Hoin' : In (stored o) (map snd O)) by (apply in_map_iff; eexists; split; [| exact Hown]; reflexivity).
       assert (Eput : oput O (stored o) (tangent ve) = oset O (stored o) (tangent ve)).
       { unfold oput; destruct (in_dec dvar_eq_dec_c (stored o) (map snd O)); [reflexivity | contradiction]. }
@@ -2421,9 +2420,12 @@ Proof.
       { intros Hm t0 Ht0 _; destruct (Hvb Hm t0 Ht0) as [Hb0 [Hc0 Hp0]].
         assert (Hl : not_in_loop pp) by (rewrite (proj1 (Hvo Hm)); exact I).
         destruct (dvar_eq_dec_c t0 (stored o)) as [-> | Hne0].
-        - exact (Kn3 Hl Hsn o Ho (Hav Hl)).
+        - destruct (Bool.bool_dec (occurs_value (vid (pw o)) k eW) true) as [Elo | Elo].
+          + exfalso; exact (Hvt Hm o Hoin (Hlv_e o Elo) Ht0).
+          + exact (Kn3 Hl Hsn o Ho (proj2 (proj2 (Hio Hl)) Elo)).
         - exact (K3 t0 (below_mono c c2 t0 Hb0 ltac:(lia)) Hc0 Hp0 Hne0). }
-      split; [intros Hl o0 Ho0 Hav0; rewrite Ho in Ho0; injection Ho0 as <-; rewrite (Hav Hl) in Hav0; discriminate |].
+      split; [intros Hl o0 Ho0 Hav0; rewrite Ho in Ho0; injection Ho0 as <-; rewrite (Kv3 Hl Hsn o Ho Hav0);
+              symmetry; exact (a_owner _ _ _ _ _ _ _ _ _ Hc o Ho (or_introl Hl)) |].
       split; [rewrite Hex; exact (tkeep_mono _ _ _ _ _ T3 Hc12) |].
       split; [apply (rev_frame_x_mono c c2 _ (stored o) _ _ _ _ F3 Hc12);
                 [intros m0 Hm; left; rewrite oset_snd in Hm; exact Hm | right; exact Hex] |].
@@ -2434,7 +2436,8 @@ Proof.
         rewrite Hu, andb_true_r in E'; exact E'. }
       exists s2; split; [reflexivity |].
       split; [intros _; apply vo_kept_refl |].
-      split; [intros Hl o0 Ho0 Hav0; rewrite Ho in Ho0; injection Ho0 as <-; rewrite (Hav Hl) in Hav0; discriminate |].
+      split; [intros Hl o0 Ho0 Hav0; rewrite Ho in Ho0; injection Ho0 as <-; exfalso;
+              pose proof (proj1 (proj2 (Hio Hl)) Hav0) as Hv'; fold vr in Hv'; rewrite Hvr in Hv'; discriminate |].
       split; [apply tkeep_refl |].
       split; [intros ? ? ? ? ? ?; reflexivity | split; [exact (r_shape _ _ _ _ _ _ _ Hr) |]].
       rewrite <- (IHo L k c wP pp _ (Array z) tail eA eW eD ve o HeA HeW HeD Hs Hlv_e Es Ho Hve Hvr
@@ -2691,7 +2694,7 @@ Proof.
       unfold s2a; rewrite store_get_set_other by (intros K; apply keyv_inj in K; [discriminate | reflexivity | reflexivity]).
       rewrite (proj2 Hag nn Hb3 eq_refl).
       exact (proj2 Tb nn Hb1 eq_refl Hex). }
-    destruct (Hrv sb O Hrd Hr3 (fun _ => conj Hn_notin (Srb _ _ (or_introl eq_refl))) Htpb Hft) as [s3 [R3 [K3 [Kn3 [T3 [F3 [S3 P3]]]]]]].
+    destruct (Hrv sb O Hrd Hr3 (fun _ => conj Hn_notin (Srb _ _ (or_introl eq_refl))) Htpb Hft) as [s3 [R3 [K3 [Kn3 [_ [T3 [F3 [S3 P3]]]]]]]].
     exists s3; split.
     { rewrite run_app, Hd, run_app.
       lazymatch goal with |- match ?r with _ => _ end = _ => replace r with (Some sb) by (symmetry; exact Rrb) end.
@@ -2782,9 +2785,12 @@ Lemma asim_rev_bars (eP : value pv bare) :
   asim_rev0 eP ->
   (forall L eT tr wt vo te n c, value_eq (gT L) eP eT ->
      Forall bar_stmt (fst (open_pairs (rev_value W wt vo (rebuild_value _ eT tr) te n) c))) ->
+  (forall L k wP pp tail eW te, value_eq (gW L) eP eW ->
+     typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
+     storage wP tail eP <> None -> not_in_loop pp -> False) ->
   asim_rev eP.
 Proof.
-  intros H0 Hb L k c wP pp tail eA eW eT eD te n ve ty vo HA HW HT HD Hs Hbar Htc Htail Hn Hst Hve Hvr.
+  intros H0 Hb Hnt L k c wP pp tail eA eW eT eD te n ve ty vo HA HW HT HD Hs Hbar Htc Htail Hn Hst Hve Hvr.
   specialize (H0 L k c wP pp tail eA eW eT eD te n ve ty vo HA HW HT HD Hs Hbar Htc Htail Hn Hst Hve Hvr).
   specialize (Hb L eT (annotate_value_t cv k eA) (option_map (amap pt) wP) vo te n c HT).
   destruct (open_pairs (rev_value W (option_map (amap pt) wP) vo (rebuild_value (tvar W) eT (annotate_value_t cv k eA)) te n) c)
@@ -2792,14 +2798,18 @@ Proof.
   destruct H0 as [Hc Hrv]; split; [exact Hc |]; intros s2 O Hrd Hr Hns _.
   destruct (Hrv s2 O (fun p Hp Hrd0 Hlv Hsc => Hrd p Hp Hrd0 Hlv (or_intror (scalar_not_inplace _ _ _ _ _ _ _ _ Hs Hp Hlv Hsc)))
               Hr Hns) as [s3 [R3 [F3 [S3 P3]]]].
-  exists s3; split; [exact R3 |]; split; [| split; [| split; [| split; [exact (rev_frame_x_of _ _ _ _ _ _ F3) | auto]]]].
+  exists s3; split; [exact R3 |]; split; [| split; [| split; [| split; [| split; [exact (rev_frame_x_of _ _ _ _ _ _ F3) | auto]]]]].
   - intros v Hb0 Hc0 Hp0 _; apply (run_bars re s2 s3 Hb R3); destruct v; simpl in Hp0 |- *; tauto.
   - intros _ _ o _ _; destruct Hn as [jn [-> _]]; apply (run_bars re s2 s3 Hb R3); simpl; tauto.
+  - intros Hl Hsn o _ _; exfalso; exact (Hnt L k wP pp tail eW te HW Htc Hsn Hl).
   - exact (tkeep_bars _ _ _ _ _ Hb R3).
 Qed.
 
 (* A straight value is updated in place only in the body of an in-place loop. *)
-Lemma inplace_straight (eP : value pv bare) : straight_value eP -> inplace_only eP.
+Lemma straight_no_top (eP : value pv bare) : straight_value eP ->
+  forall L k wP pp tail eW te, value_eq (gW L) eP eW ->
+    typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
+    storage wP tail eP <> None -> not_in_loop pp -> False.
 Proof.
   intros Hs L k wP pp tail eW te HW Htc Hst Hl.
   destruct eP as [| | | aP iP vP | | |]; simpl in Hs; try contradiction; simpl in Hst; try (destruct Hst; reflexivity).
@@ -2807,6 +2817,12 @@ Proof.
   destruct pp; simpl in Htc, Hl; [| | | destruct Hl];
     repeat match type of Htc with context [match ?e with _ => _ end] => destruct e end; discriminate.
 Qed.
+
+Lemma inplace_straight (eP : value pv bare) : straight_value eP -> inplace_only eP.
+Proof.
+  intros Hs L k wP pp tail eA eW te _ HW _ Htc Hst Hl; exfalso; exact (straight_no_top eP Hs L k wP pp tail eW te HW Htc Hst Hl).
+Qed.
+
 
 Theorem asim_straight : forall bP : anf pv bare, straight bP -> asim_body bP.
 Proof.
@@ -2818,10 +2834,10 @@ Proof.
   - intros a e IHe b IHb [He Hb]; destruct (IHe He) as [Hf [Hr [Ha Ho]]].
     apply asim_let; auto; apply inplace_straight; exact He.
   - intros x _; apply asim_ret.
-  - intros f x Hs; split; [apply afwd_op1 | split; [apply asim_rev_bars; [apply arev_op1 | exact (straight_rev_bars _ Hs)] | split; [apply act_op1 | apply owner_op1]]].
-  - intros f x y Hs; split; [apply afwd_op2 | split; [apply asim_rev_bars; [apply arev_op2 | exact (straight_rev_bars _ Hs)] | split; [apply act_op2 | apply owner_op2]]].
-  - intros x i Hs; split; [apply afwd_get | split; [apply asim_rev_bars; [apply arev_get | exact (straight_rev_bars _ Hs)] | split; [apply act_get | apply owner_get]]].
-  - intros x i y Hs; split; [apply afwd_set | split; [apply asim_rev_bars; [apply arev_set | exact (straight_rev_bars _ Hs)] | split; [apply act_set | apply owner_set]]].
+  - intros f x Hs; split; [apply afwd_op1 | split; [apply asim_rev_bars; [apply arev_op1 | exact (straight_rev_bars _ Hs) | exact (straight_no_top _ Hs)] | split; [apply act_op1 | apply owner_op1]]].
+  - intros f x y Hs; split; [apply afwd_op2 | split; [apply asim_rev_bars; [apply arev_op2 | exact (straight_rev_bars _ Hs) | exact (straight_no_top _ Hs)] | split; [apply act_op2 | apply owner_op2]]].
+  - intros x i Hs; split; [apply afwd_get | split; [apply asim_rev_bars; [apply arev_get | exact (straight_rev_bars _ Hs) | exact (straight_no_top _ Hs)] | split; [apply act_get | apply owner_get]]].
+  - intros x i y Hs; split; [apply afwd_set | split; [apply asim_rev_bars; [apply arev_set | exact (straight_rev_bars _ Hs) | exact (straight_no_top _ Hs)] | split; [apply act_set | apply owner_set]]].
   - intros c t _ e _ []. 
   - intros lo hi b _ [].
   - intros a lo hi init b _ [].

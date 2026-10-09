@@ -276,18 +276,6 @@ Proof.
     (split; [intros nm' r' E'; rewrite Ev in E'; first [discriminate E' | injection E' as _ <-; discriminate] | assumption]).
 Qed.
 
-Lemma inplace_map (loP hiP : atom pv) (bP : pv -> anf pv bare) : inplace_only (AMap loP hiP bP).
-Proof.
-  intros L k wP pp tail eW te HW Htc Hst Hl o Ho.
-  destruct eW as [| | | | | loW hiW bW |]; simpl in HW; try contradiction.
-  destruct (map_typing _ _ _ _ _ _ _ _ Htc) as [-> [-> [-> [h [-> [_ [_ Hy]]]]]]].
-  destruct wP as [[o' | |] |]; simpl in Ho; try discriminate.
-  destruct (vty (pw o')) eqn:Ey; try discriminate; injection Ho as Eo; subst o'.
-  destruct (Hy (pw o) eq_refl) as [Hni Hnocc].
-  split; [exact Hni |].
-  unfold live_value; simpl; rewrite Hnocc; discriminate.
-Qed.
-
 Lemma act_map (loP hiP : atom pv) (bP : pv -> anf pv bare) :
   (forall x, act_body (bP x)) -> act_value (AMap loP hiP bP).
 Proof.
@@ -347,8 +335,8 @@ Qed.
 Lemma owner_ite (cP : atom pv) (tP eP : anf pv bare) : act_owner (AIte cP tP eP).
 Proof. intros L k c wP pp live ty tail eA eW eD ve o _ _ _ _ _ Es; discriminate. Qed.
 
-Lemma inplace_ite (cP : atom pv) (tP eP : anf pv bare) : inplace_only (AIte cP tP eP).
-Proof. intros L k wP pp tail eW te _ _ Hst; destruct Hst; reflexivity. Qed.
+Lemma inplace_ite (cv : bool) (cP : atom pv) (tP eP : anf pv bare) : inplace_only cv (AIte cP tP eP).
+Proof. intros L k wP pp tail eA eW te _ _ _ _ Hst; destruct Hst; reflexivity. Qed.
 
 
 (* Loops. *)
@@ -1130,13 +1118,15 @@ Proof.
     + unfold live_anf, live_value; intros p H'; simpl; rewrite H', orb_true_r; reflexivity.
     + intros p Hp Ht; apply Hreads; [exact Hp |]; unfold tbr in Ht; rewrite !atom_member_union, Ht, orb_true_r; reflexivity.
     + intros p Hp Ht; apply Hflows; [exact Hp |]; unfold useful in Ht; rewrite atom_member_union, Ht; reflexivity.
-    + exists s3; destruct Hs3 as [R3 Hs3]; split; [| exact Hs3].
+    + exists s3; destruct Hs3 as [R3 [K3 [Kn3 Hs3]]].
+      split; [| split; [exact K3 | split; [exact Kn3 | split; [intros _ Hs'; destruct Hs'; reflexivity | exact Hs3]]]].
       rewrite run_branch with (b := true) by exact Hsc; rewrite R3; reflexivity.
   - destruct (Gen eP eA eW eT eD c1 fe re c2 IHe H10 H7 H4 H1 HeW Hev M1 Hoe) as [s3 Hs3].
     + unfold live_anf, live_value; intros p H'; simpl; rewrite H', !orb_true_r; reflexivity.
     + intros p Hp Ht; apply Hreads; [exact Hp |]; unfold tbr in Ht; rewrite !atom_member_union, Ht, !orb_true_r; reflexivity.
     + intros p Hp Ht; apply Hflows; [exact Hp |]; unfold useful in Ht; rewrite atom_member_union, Ht, orb_true_r; reflexivity.
-    + exists s3; destruct Hs3 as [R3 Hs3]; split; [| exact Hs3].
+    + exists s3; destruct Hs3 as [R3 [K3 [Kn3 Hs3]]].
+      split; [| split; [exact K3 | split; [exact Kn3 | split; [intros _ Hs'; destruct Hs'; reflexivity | exact Hs3]]]].
       rewrite run_branch with (b := false) by exact Hsc; rewrite R3; reflexivity.
 Qed.
 
@@ -1563,6 +1553,7 @@ Proof.
   rewrite Eput.
   split; [intros v Hb0 Hc0 Hp0 _; exact (K v Hb0 Hc0 Hp0) |].
   split; [intros _ _ o0 _ _; exact (K n ltac:(unfold n; simpl; exact Hj) eq_refl I) |].
+  split; [intros _ _ o0 Ho0 Hv; injection Ho0 as <-; rewrite Hav in Hv; discriminate |].
   split; [exact T |].
   split.
   { apply rev_frame_x_of; unfold inplace; rewrite Hown; change (Some (stored o)) with (Some n).
@@ -2237,6 +2228,7 @@ Proof.
     { intros v Hv Hcv; unfold s3; apply store_get_set_other; intros Kk; apply keyv_inj in Kk; [subst v; exact (Hv I) | reflexivity | exact Hcv]. }
     split; [intros v Hb0 Hcv Hp Hne; rewrite Kb by (destruct v; simpl in Hp |- *; tauto); exact (K v Hb0 Hcv Hp Hne) |].
     split; [intros _ Hs'; destruct Hs'; exact Hsto |].
+    split; [intros _ Hs'; destruct Hs'; exact Hsto |].
     split; [apply (tkeep_trans _ _ _ sf); [exact Tk | unfold s3; apply tkeep_set; [simpl; tauto | reflexivity]] |].
     split.
     { intros v Hne Hb0 Hcv Ht Hexv Hbo.
@@ -2259,7 +2251,7 @@ Proof.
         rewrite <- (Hbar q Hq); destruct (tbar (pt q)); [discriminate | reflexivity]. }
       exact (atom_zero k initP _ (Hsta initP ltac:(auto)) Hvi Hin). }
     exists sf; split; [rewrite app_nil_r; exact Hrun |].
-    split; [exact K |]. split; [intros _ Hs'; destruct Hs'; exact Hsto |]. split; [exact Tk |]. split; [exact F |]. split; [exact Sh |].
+    split; [exact K |]. split; [intros _ Hs'; destruct Hs'; exact Hsto |]. split; [intros _ Hs'; destruct Hs'; exact Hsto |]. split; [exact Tk |]. split; [exact F |]. split; [exact Sh |].
     rewrite Hpi; simpl in Pp; rewrite Hz0 in Pp; lra.
 Qed.
 
@@ -2329,10 +2321,49 @@ Proof.
   split; [exact Ht | split; [exact Hz | intros _; exact I]].
 Qed.
 
-Lemma inplace_fold a (loP hiP initP : atom pv) (bP : pv -> pv -> anf pv bare) :
-  (forall p, initP = AVar p -> ~ is_array (vty (pw p))) -> inplace_only (AFold a loP hiP initP bP).
+Lemma inplace_map (loP hiP : atom pv) (bP : pv -> anf pv bare) : inplace_only cv (AMap loP hiP bP).
 Proof.
-  intros Hna L k wP pp tail eW te _ _ Hst; exfalso; apply Hst.
+  intros L k wP pp tail eA eW te HA HW HL Htc Hst Hl Hargs Hwr o Ho Hoin.
+  destruct eW as [| | | | | loW hiW bW |]; simpl in HW; try contradiction.
+  destruct (map_typing _ _ _ _ _ _ _ _ Htc) as [-> [-> [Elo [h [Ehi [_ [_ Hy]]]]]]].
+  destruct wP as [[o' | |] |]; simpl in Ho; try discriminate.
+  destruct (vty (pw o')) eqn:Ey; try discriminate; injection Ho as Eo; subst o'.
+  destruct (Hy (pw o) eq_refl) as [Hni Hnocc].
+  (* the written array of a map is dependent: not varied *)
+  assert (Hav : avaried (pa o) = false).
+  { destruct (Hwr o eq_refl) as [nm [r [Hvg Hw]]]; rewrite (Hargs o nm r Hoin Hvg).
+    specialize (Hni nm r Hvg); destruct r; simpl in Hw; try discriminate; [reflexivity | destruct Hni; reflexivity]. }
+  split; [| split; [intros E; rewrite Hav in E; discriminate | intros _; exact Hav]].
+  (* the map does not read it: it does not occur in the body *)
+  destruct eA as [| | | | | loA hiA bA |]; simpl in HA; try contradiction.
+  destruct HA as [HlA [HhA HbA]], HW as [HlW [HhW HbW]].
+  apply atom_graph in HlA as [-> _]; apply atom_graph in HhA as [-> _];
+    apply atom_graph in HlW as [-> _]; apply atom_graph in HhW as [-> _].
+  destruct loP as [? | ? | l0]; simpl in Elo; try discriminate.
+  destruct hiP as [? | ? | h0]; simpl in Ehi; try discriminate.
+  intros Hrd; unfold vreads in Hrd; cbn [value_needs] in Hrd.
+  set (ix := PV (fresh k) (VInfo k Integer None) (open_index (DBound (0%nat, 0%nat))) (VInt 0%Z) 0).
+  assert (HL' : Forall (static_ok (S k)) (ix :: L)).
+  { constructor; [repeat split; simpl; auto; try lia; discriminate |].
+    apply Forall_impl with (P := static_ok k); auto; intros p Hp; apply (static_mono k); auto. }
+  destruct (static_in _ _ _ HL Hoin) as [Eid [Hk _]].
+  assert (Ht : tbr cv Replay (S k) (bA (fresh k)) o).
+  { unfold tbr; destruct (needs cv Replay (S k) (bA (fresh k))) as [u l1]; simpl in Hrd |- *.
+    rewrite atom_member_union, atom_member_remove_full in Hrd; simpl in Hrd.
+    unfold same_term, fresh in Hrd; simpl in Hrd.
+    rewrite (proj2 (Nat.eqb_neq k (aid (pa o)))) in Hrd by lia.
+    simpl in Hrd; exact Hrd. }
+  pose proof (tbr_occurs (ix :: L) (S k) (bP ix) (bA (fresh k)) (bW (VInfo k Integer None)) Replay o
+                (HbA ix (pa ix)) (HbW ix (pw ix)) HL' (or_intror Hoin) (or_introl Ht)) as Hlv.
+  unfold live_anf in Hlv.
+  rewrite (live_cont L k bP bW ix (VInfo k Integer None) _ HbW HL eq_refl eq_refl) in Hlv.
+  rewrite Hnocc in Hlv; discriminate.
+Qed.
+
+Lemma inplace_fold a (loP hiP initP : atom pv) (bP : pv -> pv -> anf pv bare) :
+  (forall p, initP = AVar p -> ~ is_array (vty (pw p))) -> inplace_only cv (AFold a loP hiP initP bP).
+Proof.
+  intros Hna L k wP pp tail eA eW te _ _ _ _ Hst; exfalso; apply Hst.
   destruct initP as [q | |]; simpl; auto. destruct (vty (pw q)) eqn:Eq; auto. destruct (Hna q eq_refl); rewrite Eq; exact I.
 Qed.
 
@@ -2367,13 +2398,13 @@ Theorem asim_branchy :
   (forall b : anf pv bare, forall top, branchy top b ->
      asim_body cv b /\ act_body b /\ (top = false -> psim_body b)) /\
   (forall e : value pv bare, forall top, branchy_value top e ->
-     asim_fwd cv e /\ asim_rev cv e /\ inplace_only e /\ act_value e /\ act_owner e /\
+     asim_fwd cv e /\ asim_rev cv e /\ inplace_only cv e /\ act_value e /\ act_owner e /\
      (top = false -> forall wP tail, storage wP tail e = None)).
 Proof.
   apply (anf_value_ind pv bare
            (fun b => forall top, branchy top b -> asim_body cv b /\ act_body b /\ (top = false -> psim_body b))
            (fun e => forall top, branchy_value top e ->
-              asim_fwd cv e /\ asim_rev cv e /\ inplace_only e /\ act_value e /\ act_owner e /\
+              asim_fwd cv e /\ asim_rev cv e /\ inplace_only cv e /\ act_value e /\ act_owner e /\
               (top = false -> forall wP tail, storage wP tail e = None))).
   - intros a e IHe b IHb top [He Hb].
     destruct (IHe top He) as [Hf [Hr [Hi [Ha [Ho Hst]]]]].
@@ -2383,19 +2414,19 @@ Proof.
     intros x; exact (proj2 (proj2 (IHb x top (Hb x))) Et).
   - intros x top _; split; [apply asim_ret | split; [apply act_ret | intros _; apply psim_ret]].
   - intros f x top _; split; [apply afwd_op1 |].
-    split; [apply asim_rev_bars; [apply arev_op1 | apply straight_rev_bars; exact I] |].
+    split; [apply asim_rev_bars; [apply arev_op1 | apply straight_rev_bars; exact I | apply straight_no_top; exact I] |].
     split; [apply inplace_straight; exact I |].
     split; [apply act_op1 | split; [apply owner_op1 | intros _ wP tail; reflexivity]].
   - intros f x y top _; split; [apply afwd_op2 |].
-    split; [apply asim_rev_bars; [apply arev_op2 | apply straight_rev_bars; exact I] |].
+    split; [apply asim_rev_bars; [apply arev_op2 | apply straight_rev_bars; exact I | apply straight_no_top; exact I] |].
     split; [apply inplace_straight; exact I |].
     split; [apply act_op2 | split; [apply owner_op2 | intros _ wP tail; reflexivity]].
   - intros x i top _; split; [apply afwd_get |].
-    split; [apply asim_rev_bars; [apply arev_get | apply straight_rev_bars; exact I] |].
+    split; [apply asim_rev_bars; [apply arev_get | apply straight_rev_bars; exact I | apply straight_no_top; exact I] |].
     split; [apply inplace_straight; exact I |].
     split; [apply act_get | split; [apply owner_get | intros _ wP tail; reflexivity]].
   - intros x i y top Et; simpl in Et; subst top; split; [apply afwd_set |].
-    split; [apply asim_rev_bars; [apply arev_set | apply straight_rev_bars; exact I] |].
+    split; [apply asim_rev_bars; [apply arev_set | apply straight_rev_bars; exact I | apply straight_no_top; exact I] |].
     split; [apply inplace_straight; exact I |].
     split; [apply act_set | split; [apply owner_set | discriminate]].
   - intros c t IHt e IHe top [Ht He].
