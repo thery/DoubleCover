@@ -487,7 +487,8 @@ Record rctx (L : list pv) (c : nat) (wP : option (atom pv)) (pp : pplace) (O : o
   r_below : forall t n, In (t, n) O -> exists j, n = DBound (j, j) /\ (j < c)%nat;
   r_useful : forall p, In p L -> use p -> avaried (pa p) = true -> In (tangent (pd p), stored p) O;
   r_value : forall p t, In p L -> use p -> In (t, stored p) O -> t = tangent (pd p);
-  r_owner : forall o, owner wP pp = Some o -> In (tangent (pd o), stored o) O
+  r_owner : forall o, owner wP pp = Some o -> In (tangent (pd o), stored o) O;
+  r_args : forall p ny r, In p L -> varg (pw p) = Some (ny, r) -> avaried (pa p) = varied_role r
 }.
 
 (* The seed: read from keys opened before c, a real for a real body. *)
@@ -2216,7 +2217,8 @@ Proof.
         - intros t0 m0 Hin; destruct (r_below _ _ _ _ _ _ _ Hr _ _ Hin) as [j0 [E Hj0]]; exists j0; split; [exact E | lia].
         - intros p Hp Hf Hv; exact (r_useful _ _ _ _ _ _ _ Hr p Hp (useful_let_flows m k aA eA cA p Hcond Hf) Hv).
         - intros p t0 Hp Hf Hin; exact (r_value _ _ _ _ _ _ _ Hr p t0 Hp (useful_let_flows m k aA eA cA p Hcond Hf) Hin).
-        - exact (r_owner _ _ _ _ _ _ _ Hr). }
+        - exact (r_owner _ _ _ _ _ _ _ Hr).
+        - exact (r_args _ _ _ _ _ _ _ Hr). }
       assert (Hns : storage wP tail eP = None -> ~ In (stored o) (map snd O) /\ shaped (tangent ve) (barv s2 (stored o)))
         by (intros E; rewrite Es in E; discriminate).
       destruct (Hrv s2 O Hrd Hr2 Hns Htp) as [s3 [R3 [K3 [T3 [F3 [S3 P3]]]]]].
@@ -2393,7 +2395,8 @@ Proof.
         exfalso; apply Hn_notin, in_map_iff; exists (t0, DBound (c, c)); auto.
       + destruct (HO' _ _ Hin) as [Hin0 | [_ [E _]]]; [| exfalso; exact (Hnotin p Hp E)].
         exact (r_value _ _ _ _ _ _ _ Hr p t0 Hp (useful_let_cont m k aA eA cA p (Haid p Hp) Hu) Hin0).
-    - intros o Ho; apply HinO, (r_owner _ _ _ _ _ _ _ Hr o Ho). }
+    - intros o Ho; apply HinO, (r_owner _ _ _ _ _ _ _ Hr o Ho).
+    - intros p ny r [<- | Hp] Hv; [discriminate | exact (r_args _ _ _ _ _ _ _ Hr p ny r Hp Hv)]. }
   destruct ac eqn:Eac.
   - (* x is active: its adjoint is declared, then transposed *)
     assert (Hcond : varied_value k eA && atom_member (AVar (let_binder k eA)) (fst (needs cv m (S k) (cA (let_binder k eA)))) = true)
@@ -2463,7 +2466,8 @@ Proof.
       - intros t0 m0 Hin; destruct (r_below _ _ _ _ _ _ _ Hr _ _ Hin) as [j0 [E Hj]]; exists j0; split; [exact E | lia].
       - intros p Hp Hf Hv; exact (r_useful _ _ _ _ _ _ _ Hr p Hp (useful_let_flows m k aA eA cA p Hcond Hf) Hv).
       - intros p t0 Hp Hf Hin; exact (r_value _ _ _ _ _ _ _ Hr p t0 Hp (useful_let_flows m k aA eA cA p Hcond Hf) Hin).
-      - exact (r_owner _ _ _ _ _ _ _ Hr). }
+      - exact (r_owner _ _ _ _ _ _ _ Hr).
+      - exact (r_args _ _ _ _ _ _ _ Hr). }
     assert (Htpb : tapes_ok L sb).
     { intros p Hp Hrp; destruct (Htp2 p (or_intror Hp) Hrp) as [lt Hlt]; exact (Trb _ _ Hlt). }
     destruct (Hrv sb O Hrd Hr3 (fun _ => conj Hn_notin (Srb _ _ (or_introl eq_refl))) Htpb) as [s3 [R3 [K3 [T3 [F3 [S3 P3]]]]]].

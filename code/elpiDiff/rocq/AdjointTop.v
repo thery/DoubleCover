@@ -1097,7 +1097,9 @@ Proof.
         destruct t0; try destruct Hra; destruct r0; simpl in Hv; try discriminate; reflexivity.
       - intros p t Hp _ Hi; destruct (in_owners _ _ _ Hi) as [q [Hq [_ [-> E]]]].
         unfold stored in E; injection E as E; rewrite (Hpn_inj q p (HinL q Hq) Hp (eq_sym E)); reflexivity.
-      - intros o E; discriminate. }
+      - intros o E; discriminate.
+      - intros p ny ro Hp Hv; destruct (Hargs' p Hp) as [? [? [? [? [? [-> _]]]]]]; simpl in Hv |- *.
+        injection Hv as _ <-; reflexivity. }
     assert (Hseed : seed_ok n Real se s1).
     { split; [intros y [<- | []]; split; exact I |].
       intros _; exists (hd 0%R yb); exact Hs1r. }
@@ -1396,7 +1398,9 @@ Proof.
       - intros p t0 Hp _ Hi; destruct (in_owners _ _ _ Hi) as [q [Hq [_ [-> E]]]].
         unfold stored in E; injection E as E; rewrite (Hpn_inj q p (HinL q Hq) Hp (eq_sym E)); reflexivity.
       - intros o E; rewrite Hown_cases in E; destruct t; try discriminate; injection E as <-.
-        exact (owners_intro _ _ HyR Hdy). }
+        exact (owners_intro _ _ HyR Hdy).
+      - intros p ny ro Hp Hv; destruct (Hargs' p Hp) as [? [? [? [? [? [-> _]]]]]]; simpl in Hv |- *.
+        injection Hv as _ <-; reflexivity. }
     assert (Htp : tapes_ok L s2) by (intros p Hp Hrp; destruct (Hparg p Hp) as [? [? [? [? [? ->]]]]]; discriminate).
     destruct (Hrev s2 OW Hag Hr Hseed Htp) as [s3 [R3 [K3 [X3 [T3 [F3 [S3 P3]]]]]]].
     fold ex in P3; rewrite Hres in P3.

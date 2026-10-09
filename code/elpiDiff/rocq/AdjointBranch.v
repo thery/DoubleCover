@@ -806,7 +806,8 @@ Proof.
       - intros t m Hi; destruct (r_below _ _ _ _ _ _ _ Hr t m Hi) as [jm [E Hjm]]; exists jm; split; [exact E | lia].
       - intros p Hp Hu Hv; exact (r_useful _ _ _ _ _ _ _ Hr p Hp (Huse p Hp Hu) Hv).
       - intros p t Hp Hu Hi; exact (r_value _ _ _ _ _ _ _ Hr p t Hp (Huse p Hp Hu) Hi).
-      - intros o E; discriminate. }
+      - intros o E; discriminate.
+      - exact (r_args _ _ _ _ _ _ _ Hr). }
     assert (Hseed : seed_ok cb Real (DVar (BarOf n)) s1).
     { split; [intros y [<- | []]; split; [simpl; lia | reflexivity] |].
       intros _; exists bn; exact Hbn1. }
