@@ -535,6 +535,13 @@ Definition rev_frame (c : nat) (ex : option (dvar W)) (O : owners) (s s' : store
   (forall n, v = BarOf n -> ~ In n (map snd O)) ->
   store_get s' (keyv v) = store_get s (keyv v).
 
+(* The reverse sweep of a value may also change the value itself (a fold
+   restores its state). *)
+Definition rev_frame_x (c : nat) (ex : option (dvar W)) (n : dvar W) (O : owners) (s s' : store R) : Prop :=
+  forall v, v <> n -> below c v -> consistent v -> ~ is_tape v -> ex <> Some v ->
+  (forall m, v = BarOf m -> ~ In m (map snd O)) ->
+  store_get s' (keyv v) = store_get s (keyv v).
+
 (* Between the end of the forward sweep of a body and the start of its
    reverse sweep, the primal keys opened before c' keep their values (the
    reverse sweep of a loop replays the body before transposing it). *)
@@ -1103,7 +1110,7 @@ Definition asim_rev (eP : value pv bare) : Prop :=
       (not_in_loop pp -> storage wP tail eP <> None -> forall o, owner wP pp = Some o -> avaried (pa o) = false ->
          store_get s3 (keyv n) = store_get s2 (keyv n)) /\
       tkeep c (Some n) s2 s3 /\
-      rev_frame c (inplace wP pp) (oput O n (tangent ve)) s2 s3 /\
+      rev_frame_x c (inplace wP pp) n (oput O n (tangent ve)) s2 s3 /\
       (forall t m, In (t, m) O -> shaped t (barv s3 m)) /\
       pairing O s3 = pairing (oput O n (tangent ve)) s2.
 
@@ -2055,6 +2062,21 @@ Proof.
   - intros m -> Hm; destruct (HO m Hm) as [H | H]; [exact (Hbar m eq_refl H) | exact (H Hb)].
 Qed.
 
+Lemma rev_frame_x_of c ex n O s s' : rev_frame c ex O s s' -> rev_frame_x c ex n O s s'.
+Proof. intros F v _; exact (F v). Qed.
+
+Lemma rev_frame_x_mono c c' ex n O O' s s' :
+  rev_frame_x c' ex n O' s s' -> (c <= c')%nat ->
+  (forall m, In m (map snd O') -> In m (map snd O) \/ ~ below c (BarOf m)) ->
+  (~ below c n \/ ex = Some n) ->
+  rev_frame c ex O s s'.
+Proof.
+  intros F Hc HO Hn v Hb Hcv Ht Hex Hbar; apply F; auto.
+  - intros ->; destruct Hn as [Hn | Hn]; [exact (Hn Hb) | exact (Hex Hn)].
+  - exact (below_mono _ _ _ Hb Hc).
+  - intros m -> Hm; destruct (HO m Hm) as [H | H]; [exact (Hbar m eq_refl H) | exact (H Hb)].
+Qed.
+
 (* Writing an adjoint keeps the primal keys. *)
 Lemma agree_prim_set_bar c ex s1 s2 n w :
   agree_prim c ex s1 s2 -> consistent n -> agree_prim c ex s1 (store_set s2 (keyv (BarOf n)) w).
@@ -2398,7 +2420,8 @@ Proof.
         - exact (K3 t0 (below_mono c c2 t0 Hb0 ltac:(lia)) Hc0 Hp0 Hne0). }
       split; [intros Hl o0 Ho0 Hav0; rewrite Ho in Ho0; injection Ho0 as <-; rewrite (Hav Hl) in Hav0; discriminate |].
       split; [rewrite Hex; exact (tkeep_mono _ _ _ _ _ T3 Hc12) |].
-      split; [apply (rev_frame_mono c c2 _ _ _ _ _ F3 Hc12); intros m0 Hm; left; rewrite oset_snd in Hm; exact Hm |].
+      split; [apply (rev_frame_x_mono c c2 _ (stored o) _ _ _ _ F3 Hc12);
+                [intros m0 Hm; left; rewrite oset_snd in Hm; exact Hm | right; exact Hex] |].
       split; [exact S3 | exact P3].
     - simpl in Hre; injection Hre as <- <-.
       assert (Hvr : vr = false).
@@ -2691,7 +2714,9 @@ Proof.
         apply keyv_inj in K; [| reflexivity | exact Hc0]; subst v0; simpl in Hb0; lia.
       - apply (rev_frame_trans _ _ _ _ sb).
         + exact (rev_frame_mono c (S c) _ _ _ _ _ Frb (Nat.le_succ_diag_r c) HO'b).
-        + rewrite (oput_notin O _ _ Hn_notin) in F3; exact (rev_frame_mono c c2 _ _ _ _ _ F3 Hcc2 HO'b). }
+        + rewrite (oput_notin O _ _ Hn_notin) in F3.
+          assert (Hnb : ~ below c (DBound (c, c))) by (simpl; lia).
+          exact (rev_frame_x_mono c c2 _ _ _ _ _ _ F3 Hcc2 HO'b (or_introl Hnb)). }
     split; [exact S3 |].
     rewrite P3, (oput_notin O _ _ Hn_notin).
     etransitivity; [exact Prb |].
@@ -2760,7 +2785,7 @@ Proof.
   destruct H0 as [Hc Hrv]; split; [exact Hc |]; intros s2 O Hrd Hr Hns _.
   destruct (Hrv s2 O (fun p Hp Hrd0 Hlv Hsc => Hrd p Hp Hrd0 Hlv (or_intror (scalar_not_inplace _ _ _ _ _ _ _ _ Hs Hp Hlv Hsc)))
               Hr Hns) as [s3 [R3 [F3 [S3 P3]]]].
-  exists s3; split; [exact R3 |]; split; [| split; [| split; [| auto]]].
+  exists s3; split; [exact R3 |]; split; [| split; [| split; [| split; [exact (rev_frame_x_of _ _ _ _ _ _ F3) | auto]]]].
   - intros v Hb0 Hc0 Hp0 _; apply (run_bars re s2 s3 Hb R3); destruct v; simpl in Hp0 |- *; tauto.
   - intros _ _ o _ _; destruct Hn as [jn [-> _]]; apply (run_bars re s2 s3 Hb R3); simpl; tauto.
   - exact (tkeep_bars _ _ _ _ _ Hb R3).

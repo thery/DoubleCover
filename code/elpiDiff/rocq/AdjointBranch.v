@@ -1023,7 +1023,7 @@ Proof.
               (not_in_loop pp -> storage wP tail (AIte cP tP eP) <> None -> forall o, owner wP pp = Some o ->
                  avaried (pa o) = false -> store_get s3 (keyv n) = store_get s2 (keyv n)) /\
               tkeep c (Some n) s2 s3 /\
-              rev_frame c (inplace wP pp) (oput O n (TangentCorrect.tangent ve)) s2 s3 /\
+              rev_frame_x c (inplace wP pp) n (oput O n (TangentCorrect.tangent ve)) s2 s3 /\
               (forall t m, In (t, m) O -> shaped t (barv s3 m)) /\
               pairing O s3 = pairing (oput O n (TangentCorrect.tangent ve)) s2).
   { intros bP bA bW bT bD cb fb rb cb' IH HbA HbW HbT HbD Htcb Hevb Hcb Hob Hlive Htbr Huse.
@@ -1072,7 +1072,7 @@ Proof.
     split; [intros _ Hsn; destruct Hsn; reflexivity |].
     split; [exact (tkeep_none _ _ _ _ (tkeep_mono _ _ _ _ _ (tkeep_trans _ _ _ _ _ T1 T3) Hcb)) |].
     split.
-    { intros v Hb0 Hc0 Ht0 _ Hb'.
+    { apply rev_frame_x_of; intros v Hb0 Hc0 Ht0 _ Hb'.
       rewrite (F3 v (below_mono c cb v Hb0 Hcb) Hc0 Ht0 ltac:(discriminate)).
       - apply F1; [exact (below_mono c cb v Hb0 Hcb) | exact Hc0 | exact Ht0 | discriminate | discriminate].
       - intros m0 E Hm; apply (Hb' m0 E); rewrite (oput_notin O n _ Hn_notin); right; exact Hm. }
@@ -1521,7 +1521,7 @@ Proof.
   split; [intros _ _ o0 _ _; exact (K n ltac:(unfold n; simpl; exact Hj) eq_refl I) |].
   split; [exact T |].
   split.
-  { unfold inplace; rewrite Hown; change (Some (stored o)) with (Some n).
+  { apply rev_frame_x_of; unfold inplace; rewrite Hown; change (Some (stored o)) with (Some n).
     apply (rev_frame_mono c c _ _ _ _ _ F (le_n c)); intros m Hm; left; rewrite oset_snd; exact (proj1 (odel_snd O n m Hm)). }
   split.
   { intros t m Hi; destruct (dvar_eq_dec_c m n) as [-> | Hne].
