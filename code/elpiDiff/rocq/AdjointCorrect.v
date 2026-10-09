@@ -599,12 +599,14 @@ Variable cv : bool.                               (* computes-value: mode adjoin
    primal keys, changes the pairing of the owners in scope as the tangent of
    the body times the seed. *)
 (* Outside the body of an in-place loop, the storage updated in place is
-   given back: the forward sweep of a body leaves it, or its reverse sweep
-   restores it. *)
+   given back when its owner is varied (an inout array): the forward sweep of
+   a body leaves it, or its reverse sweep restores it. A map writes a
+   dependent array, which is not varied and which no body reads. *)
 Definition not_in_loop (pp : pplace) : Prop := match pp with PArray _ _ => False | _ => True end.
 
-Definition same_ex (pp : pplace) (ex : option (dvar W)) (s s' : store R) : Prop :=
-  not_in_loop pp -> forall e, ex = Some e -> store_get s' (keyv e) = store_get s (keyv e).
+Definition same_ex (pp : pplace) (wP : option (atom pv)) (s s' : store R) : Prop :=
+  not_in_loop pp -> forall o, owner wP pp = Some o -> avaried (pa o) = true ->
+  store_get s' (keyv (stored o)) = store_get s (keyv (stored o)).
 
 (* The recorded variables in scope have their tapes. *)
 Definition tapes_ok (L : list pv) (s : store R) : Prop :=
@@ -624,19 +626,36 @@ Proof.
   unfold stored; simpl; split; [exact (s_num _ _ _ _ _ _ _ Hs o Ho) | split; [reflexivity | exact I]].
 Qed.
 
+(* Outside a loop, a live variable stored in place is the owner, a varied array. *)
+Lemma same_ex_read L k c wP pp (live : pv -> Prop) ty p o :
+  sctx L k c wP pp live ty -> not_in_loop pp -> owner wP pp = Some o -> In p L -> stored p = stored o -> live p ->
+  p = o /\ avaried (pa o) = true.
+Proof.
+  intros Hs Hl Ho Hp E Hlv.
+  assert (Epn : pn p = pn o) by (unfold stored in E; injection E as E; exact E).
+  destruct (s_owner _ _ _ _ _ _ _ Hs o p Ho Hp Epn) as [Epo | H]; [subst p | contradiction].
+  split; [reflexivity |].
+  destruct pp as [| | | ix sx]; simpl in Hl, Ho; try discriminate; try contradiction.
+  destruct wP as [[y | |] |]; try discriminate.
+  destruct (vty (pw y)) eqn:Ey; try discriminate; injection Ho as Eyo; subst y.
+  exact (proj2 (s_top _ _ _ _ _ _ _ Hs o eq_refl eq_refl ltac:(rewrite Ey; exact I)) Hlv).
+Qed.
+
 (* Bar-only reverse code gives the storage updated in place back. *)
 Lemma keep_add2 (Q : Prop) L k c c' wP pp live ty vo rv s s1 s2 (P : store R -> Prop) :
-  sctx L k c wP pp live ty -> (c <= c')%nat -> agree_prim c' (inplace wP pp) s1 s2 -> same_ex pp (inplace wP pp) s s1 ->
+  sctx L k c wP pp live ty -> (c <= c')%nat -> agree_prim c' (inplace wP pp) s1 s2 -> same_ex pp wP s s1 ->
   Forall bar_stmt rv -> (exists s3, run rv s2 = Some s3 /\ P s3) ->
-  exists s3, run rv s2 = Some s3 /\ (Q -> vo_kept vo s2 s3) /\ same_ex pp (inplace wP pp) s s3 /\
+  exists s3, run rv s2 = Some s3 /\ (Q -> vo_kept vo s2 s3) /\ same_ex pp wP s s3 /\
     tapes_kept s2 s3 /\ P s3.
 Proof.
   intros Hs Hcc Hag Hsx Hf [s3 [R H]]; exists s3; split; [exact R |].
   split; [intros _; exact (vo_kept_bars vo rv s2 s3 Hf R) |]; split; [| split; [| exact H]].
   2:{ intros v l Hv; exists l; rewrite (run_bars rv s2 s3 Hf R (TapeOf v) ltac:(simpl; tauto)); exact Hv. }
-  intros Hl e He; destruct (ex_below _ _ _ _ _ _ _ _ Hs He) as [Hb [Hc Hp]].
-  rewrite (run_bars rv s2 s3 Hf R e ltac:(destruct e; simpl in Hp |- *; tauto)).
-  rewrite (Hag e (below_mono c c' e Hb Hcc) Hc Hp); exact (Hsx Hl e He).
+  intros Hl o Ho Hav.
+  assert (He : inplace wP pp = Some (stored o)) by (unfold inplace; rewrite Ho; reflexivity).
+  destruct (ex_below _ _ _ _ _ _ _ _ Hs He) as [Hb [Hc Hp]].
+  rewrite (run_bars rv s2 s3 Hf R (stored o) ltac:(simpl; tauto)).
+  rewrite (Hag (stored o) (below_mono c c' _ Hb Hcc) Hc Hp); exact (Hsx Hl o Ho Hav).
 Qed.
 
 Definition asim_body (bP : anf pv bare) : Prop :=
@@ -659,7 +678,7 @@ Definition asim_body (bP : anf pv bare) : Prop :=
     forall s2 O, agree_prim c' (inplace wP pp) s1 s2 -> rctx L c wP pp O (useful cv m k bA) s2 ->
       seed_ok c ty se s2 -> tapes_ok L s2 ->
       exists s3, run rv s2 = Some s3 /\ (m = Forward -> vo_kept vo s2 s3) /\
-        same_ex pp (inplace wP pp) s s3 /\ tapes_kept s2 s3 /\
+        same_ex pp wP s s3 /\ tapes_kept s2 s3 /\
         rev_frame c (inplace wP pp) O s2 s3 /\
         (forall t n, In (t, n) O -> shaped t (barv s3 n)) /\
         pairing O s3 = result_pairing O ty (inplace wP pp) v se s2.
@@ -721,12 +740,12 @@ Lemma ret_forward L k c s wP pp m (aP : atom pv) ty v vo :
                   (forall t, vo = Some (AReturns t) -> wP = None)) ->
   exists s1, run (if sweep_eqb m Forward then value_output W vo (amap pt aP) else []) s = Some s1 /\
     fwd_frame c (inplace wP pp) (if sweep_eqb m Forward then vo else None) s s1 /\
-    (m = Forward -> vo_result vo v s1) /\ tapes_kept s s1 /\ same_ex pp (inplace wP pp) s s1.
+    (m = Forward -> vo_result vo v s1) /\ tapes_kept s s1 /\ same_ex pp wP s s1.
 Proof.
 Proof.
   intros Hc HaL Htc Hty Hev Hvo.
   destruct m; simpl; [| exists s; split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity |
-                                                        split; [discriminate | split; [apply tapes_kept_refl | intros _ e _; reflexivity]]]]].
+                                                        split; [discriminate | split; [apply tapes_kept_refl | intros _ o _ _; reflexivity]]]]].
   destruct (Hvo eq_refl) as [Epp [Hcv [Hy _]]]; subst pp.
   pose proof (a_sctx _ _ _ _ _ _ _ _ _ Hc) as Hs.
   assert (Hx : vo <> None -> xev s (spell (amap pt aP)) = Some (primal v)).
@@ -745,8 +764,7 @@ Proof.
     split; [unfold run; simpl; unfold xev in Hx; rewrite Hx; reflexivity |].
     split; [| split; [intros _ t' Et'; simpl in Et'; injection Et' as <-; apply store_get_set_same
                      | split; [apply tapes_kept_set; [simpl; tauto | exact I] |]]].
-    2:{ intros _ e He; apply store_get_set_other; unfold inplace in He.
-        destruct (owner wP PTop) as [o |]; [| discriminate]; injection He as <-; unfold keyv, stored; discriminate. }
+    2:{ intros _ o _ _; apply store_get_set_other; unfold keyv, stored; discriminate. }
     intros v' _ Hcv' _ _ Hne; apply store_get_set_other; intros K; apply keyv_inj in K; [| exact I | exact Hcv'].
     subst v'; apply Hne; reflexivity.
   - specialize (Hx ltac:(discriminate)); specialize (Hy y eq_refl).
@@ -761,13 +779,13 @@ Proof.
       split; [unfold run; simpl; unfold xev in Hx; rewrite Hx; reflexivity |].
       split; [| split; [intros _ t' Et'; injection Et' as <-; apply store_get_set_same
                        | split; [apply tapes_kept_set; [simpl; tauto | reflexivity] |]]].
-      2:{ intros _ e He; unfold inplace in He; simpl in He; rewrite Evq in He; discriminate. }
+      2:{ intros _ o Ho _; simpl in Ho; rewrite Evq in Ho; discriminate. }
       intros v' _ Hcv' _ _ Hne; apply store_get_set_other; intros K; apply keyv_inj in K; [| reflexivity | exact Hcv'].
       subst v'; apply Hne; unfold vo_target, role_of, stored_of; simpl; rewrite Eg, Hsq, Htq; reflexivity.
     + (* an array, updated in place: the result is in the written argument *)
       exists s; split; [reflexivity |].
       split; [intros ? ? ? ? ? ?; reflexivity |].
-      split; [| split; [apply tapes_kept_refl | intros _ e _; reflexivity]].
+      split; [| split; [apply tapes_kept_refl | intros _ o _ _; reflexivity]].
       intros _ t' Et'; injection Et' as <-.
       destruct (s_top _ _ _ _ _ _ _ Hs q eq_refl eq_refl ltac:(rewrite Evq; exact I)) as [Ety _].
       rewrite Evq in Ety; subst ty.
@@ -782,7 +800,7 @@ Proof.
       * discriminate.
       * discriminate.
   - exists s; split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity |
-                                              split; [intros _ t' Et'; discriminate | split; [apply tapes_kept_refl | intros _ e _; reflexivity]]]].
+                                              split; [intros _ t' Et'; discriminate | split; [apply tapes_kept_refl | intros _ o _ _; reflexivity]]]].
 Qed.
 
 Lemma asim_ret (aP : atom pv) : asim_body (ARet aP).
@@ -2424,7 +2442,9 @@ Proof.
       assert (Hbp : below c (stored p)) by (unfold stored; simpl; exact (s_num _ _ _ _ _ _ _ Hs p Hp)).
       destruct (option_dec_ex (inplace wP pp) (stored p)) as [Hex | Hne].
       { destruct Hdj as [Hl | Hne]; [| contradiction].
-        rewrite (Ksx Hl (stored p) Hex), Hold by exact Hp.
+        unfold inplace in Hex; destruct (owner wP pp) as [o |] eqn:Ho; [| discriminate]; injection Hex as Hex.
+        destruct (same_ex_read _ _ _ _ _ _ _ p o Hs Hl Ho Hp ltac:(unfold stored; rewrite Hex; reflexivity) (Hlv_e p Hlv)) as [Epo Hav]; subst o.
+        rewrite (Ksx Hl p Ho Hav), Hold by exact Hp.
         exact (a_store _ _ _ _ _ _ _ _ _ Hc p Hp (tbr_let_reads m k aA eA cA p Hcond Hrd0)). }
       rewrite (Frb (stored p) (below_mono c (S c) _ Hbp (Nat.le_succ_diag_r c)) eq_refl ltac:(simpl; tauto) Hne
                  ltac:(intros m0 E; discriminate)).
@@ -2458,9 +2478,10 @@ Proof.
       apply K3; [exact (below_mono c c2 t0 Hb0 Hcc2) | exact Hc0 | exact Hp0 |].
       intros ->; simpl in Hb0; lia. }
     split.
-    { intros Hl e He; destruct (ex_below _ _ _ _ _ _ _ _ Hs He) as [Hb0 [Hc0 Hp0]].
+    { intros Hl o Ho Hav; assert (He : inplace wP pp = Some (stored o)) by (unfold inplace; rewrite Ho; reflexivity).
+      remember (stored o) as e eqn:Ee; destruct (ex_below _ _ _ _ _ _ _ _ Hs He) as [Hb0 [Hc0 Hp0]].
       rewrite (K3 e (below_mono c c2 e Hb0 Hcc2) Hc0 Hp0) by (intros ->; simpl in Hb0; lia).
-      rewrite (Ksx Hl e He).
+      rewrite Ee, (Ksx Hl o Ho Hav), <- Ee; clear Ee.
       apply (F1 e (below_mono c c1 e Hb0 ltac:(lia)) Hc0); [destruct e; simpl in Hp0 |- *; tauto | intros E; injection E as E; subst e; simpl in Hb0; lia | discriminate]. }
     split.
     { apply (tapes_kept_trans _ s2a); [unfold s2a; apply tapes_kept_set; [simpl; tauto | reflexivity] |].
@@ -2491,8 +2512,9 @@ Proof.
     exists sb; split; [rewrite app_nil_r; exact Rrb |].
     split; [exact Krb |].
     split.
-    { intros Hl e He; destruct (ex_below _ _ _ _ _ _ _ _ Hs He) as [Hb0 [Hc0 Hp0]].
-      rewrite (Ksx Hl e He).
+    { intros Hl o Ho Hav; assert (He : inplace wP pp = Some (stored o)) by (unfold inplace; rewrite Ho; reflexivity).
+      remember (stored o) as e eqn:Ee; destruct (ex_below _ _ _ _ _ _ _ _ Hs He) as [Hb0 [Hc0 Hp0]].
+      rewrite Ee, (Ksx Hl o Ho Hav), <- Ee; clear Ee.
       apply (F1 e (below_mono c c1 e Hb0 ltac:(lia)) Hc0); [destruct e; simpl in Hp0 |- *; tauto | intros E; injection E as E; subst e; simpl in Hb0; lia | discriminate]. }
     split; [exact Trb |].
     split; [| split; [exact Srb | exact Prb]].
