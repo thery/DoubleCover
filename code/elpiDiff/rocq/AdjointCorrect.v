@@ -1088,7 +1088,8 @@ Definition asim_fwd (eP : value pv bare) : Prop :=
   | Some m0 => n = m0
   | None => forall p, In p L -> stored p <> n
   end ->
-  (rec = true -> exists l, store_get s (keyv (TapeOf n)) = Some (VTape l)) ->
+  (rec = true \/ (m = Forward /\ records cv k eA = true /\ storage wP tail eP <> None /\ ~ not_in_loop pp) ->
+     exists l, store_get s (keyv (TapeOf n)) = Some (VTape l)) ->
   aeval_value (duals reals) eD = Some ve ->
   let '(se, c') :=
     open_pairs (fwd_value W (option_map (amap pt) wP) m (rebuild_value _ eT (annotate_value_t cv k eA)) te n rec) c in
@@ -1312,7 +1313,7 @@ Proof.
     by (intros s0; apply fwd_frame_set; reflexivity).
   destruct (sweep_eqb m Forward && rec) eqn:Erec; simpl; split; try lia.
   - (* the element overwritten is recorded first *)
-    apply andb_true_iff in Erec as [_ Erec]; destruct (Hrec Erec) as [lt Hlt].
+    apply andb_true_iff in Erec as [_ Erec]; destruct (Hrec (or_introl Erec)) as [lt Hlt].
     destruct (replace_nth_z_nth _ _ _ _ Er) as [old Hold].
     set (s0 := store_set s (keyv (TapeOf (DBound (j, j)))) (VTape (dfst old :: lt))).
     assert (Hn0 : store_get s0 (keyv (DBound (j, j))) = Some (VArray (map dfst l)))
@@ -2373,6 +2374,9 @@ Proof.
                    | None => forall p, In p L -> stored p <> stored o end) by (rewrite Es; reflexivity).
     assert (Hrec : rec = true -> exists l0, store_get s (keyv (TapeOf (stored o))) = Some (VTape l0)).
     { intros Hr0; rewrite <- Em0; apply (a_tape _ _ _ _ _ _ _ _ _ Hc qr Hqr); rewrite <- Erec; exact Hr0. }
+    assert (Hrec' : rec = true \/ (m = Forward /\ records cv k eA = true /\ storage wP tail eP <> None /\ ~ not_in_loop pp) ->
+                    exists l0, store_get s (keyv (TapeOf (stored o))) = Some (VTape l0)).
+    { intros [Er | [Em [_ [_ Hl]]]]; [exact (Hrec Er) | exfalso; apply Hl; rewrite (proj1 (Hvo Em)); exact I]. }
     assert (Hex : inplace wP pp = Some (stored o)) by (unfold inplace; rewrite Ho; reflexivity).
     assert (Hn0 : needs cv m (S k) (cA (let_binder k eA)) = (u, l)) by (rewrite EA; exact Hneeds).
     assert (Hfw : exists se1, run fe s = Some se1 /\ fwd_frame c (Some (stored o)) None s se1 /\
@@ -2384,7 +2388,7 @@ Proof.
           intros p Hp Hv; apply (tbr_let_atoms m k aA eA cA p); [| exact Hv].
           rewrite Hn0; exact Ecp. }
         pose proof (IHf L k c s wP pp tail eA eW eT eD (Array z) (stored o) ve (Array z) m rec HeA HeW HeT HeD Hc1 Hte
-                      Htail_ty Hj Hst0 Hrec Hve) as IH.
+                      Htail_ty Hj Hst0 Hrec' Hve) as IH.
         cbv zeta in IH; fold vt in IH; rewrite Hfe in IH.
         destruct IH as [_ [se1 [R1 [F1 [T1 [S1 Ft1]]]]]]; exists se1.
         split; [exact R1 | split; [exact F1 | split; [exact T1 | split; [intros _; exact S1 | split; [intros _; exact Ft1 | discriminate]]]]].
@@ -2536,8 +2540,9 @@ Proof.
       assert (Hst1 : match storage wP tail eP with
                      | Some m0 => DBound (c, c) = m0
                      | None => forall p, In p L -> stored p <> DBound (c, c) end) by (rewrite Es; exact Hnotin).
-      assert (Hr1 : false = true -> exists l0, store_get s (keyv (TapeOf (DBound (c, c)))) = Some (VTape l0))
-        by discriminate.
+      assert (Hr1 : false = true \/ (m = Forward /\ records cv k eA = true /\ storage wP tail eP <> None /\ ~ not_in_loop pp) ->
+                    exists l0, store_get s (keyv (TapeOf (DBound (c, c)))) = Some (VTape l0))
+        by (intros [E | [_ [_ [Hs' _]]]]; [discriminate | exfalso; exact (Hs' Es)]).
       pose proof (IHf L k c1 s wP pp tail eA eW eT eD te (DBound (c, c)) ve ty m false HeA HeW HeT HeD Hc1 Hte
                     Htail_ty Hj1 Hst1 Hr1 Hve) as IH.
       cbv zeta in IH; fold vt in IH; rewrite Hfe in IH.

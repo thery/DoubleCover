@@ -811,8 +811,9 @@ Proof.
   assert (Hst1 : match storage wP tail eP with
                  | Some m0 => DBound (c, c) = m0
                  | None => forall p, In p L -> stored p <> DBound (c, c) end) by (rewrite Es; exact Hnotin).
-  assert (Hr1 : false = true -> exists l0, store_get s (keyv (TapeOf (DBound (c, c)))) = Some (VTape l0))
-    by discriminate.
+  assert (Hr1 : false = true \/ (m = Forward /\ records cv k eA = true /\ storage wP tail eP <> None /\ ~ not_in_loop pp) ->
+                exists l0, store_get s (keyv (TapeOf (DBound (c, c)))) = Some (VTape l0))
+    by (intros [E | [_ [_ [Hs' _]]]]; [discriminate | exfalso; exact (Hs' Es)]).
   pose proof (IHf L k (S c) s wP pp tail eA eW eT eD te (DBound (c, c)) ve ty m false HeA HeW HeT HeD Hc1 Hte
                 Htail_ty Hj1 Hst1 Hr1 Hve) as IH.
   cbv zeta in IH; fold vt in IH; rewrite Hfe in IH.
