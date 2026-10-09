@@ -966,17 +966,21 @@ Definition asim_rev (eP : value pv bare) : Prop :=
     tapes_ok L s2 ->
     exists s3, run re s2 = Some s3 /\
       (forall v, below c v -> consistent v -> is_primal v -> v <> n -> store_get s3 (keyv v) = store_get s2 (keyv v)) /\
+      (not_in_loop pp -> storage wP tail eP <> None -> forall o, owner wP pp = Some o -> avaried (pa o) = false ->
+         store_get s3 (keyv n) = store_get s2 (keyv n)) /\
       tapes_kept s2 s3 /\
       rev_frame c (inplace wP pp) (oput O n (tangent ve)) s2 s3 /\
       (forall t m, In (t, m) O -> shaped t (barv s3 m)) /\
       pairing O s3 = pairing (oput O n (tangent ve)) s2.
 
-(* A value is updated in place only in the body of an in-place loop (until
-   maps and folds, milestones M3-M5). *)
+(* A value updated in place outside the body of an in-place loop (a map)
+   writes an argument that is not inout, and does not read it. *)
 Definition inplace_only (eP : value pv bare) : Prop :=
   forall L k wP pp tail eW te, value_eq (gW L) eP eW ->
   typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
-  storage wP tail eP <> None -> ~ not_in_loop pp.
+  storage wP tail eP <> None -> not_in_loop pp ->
+  forall o, owner wP pp = Some o ->
+    (forall ny r, varg (pw o) = Some (ny, r) -> r <> Inout) /\ ~ live_value k eW o.
 
 Lemma fwd_frame_set c n vo s w :
   consistent n -> fwd_frame c (Some n) vo s (store_set s (keyv n) w).
@@ -2147,7 +2151,8 @@ Proof.
     assert (Hrec : rec = true -> exists l0, store_get s (keyv (TapeOf (stored o))) = Some (VTape l0)).
     { intros Hr0; rewrite <- Em0; apply (a_tape _ _ _ _ _ _ _ _ _ Hc qr Hqr); rewrite <- Erec; exact Hr0. }
     assert (Hex : inplace wP pp = Some (stored o)) by (unfold inplace; rewrite Ho; reflexivity).
-    assert (Hnl : ~ not_in_loop pp) by exact (IHi L k wP pp tail eW _ HeW Hte Hsn).
+    assert (Hio : not_in_loop pp -> (forall ny r, varg (pw o) = Some (ny, r) -> r <> Inout) /\ ~ live_value k eW o)
+      by (intros Hl; exact (IHi L k wP pp tail eW _ HeW Hte Hsn Hl o Ho)).
     assert (Hn0 : needs cv m (S k) (cA (let_binder k eA)) = (u, l)) by (rewrite EA; exact Hneeds).
     assert (Hfw : exists se1, run fe s = Some se1 /\ fwd_frame c (Some (stored o)) None s se1 /\
                     tapes_kept s se1 /\ (cp = true -> store_get se1 (keyv (stored o)) = Some (primal ve))).
@@ -2187,6 +2192,14 @@ Proof.
     rewrite Hbd, !app_nil_l.
     pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
     pose proof (r_owner _ _ _ _ _ _ _ Hr o Ho) as Hown.
+    assert (Hav : not_in_loop pp -> avaried (pa o) = false).
+    { intros Hl; destruct (Hio Hl) as [Hni _].
+      assert (Ewo : wP = Some (AVar o)).
+      { destruct pp as [| | | ix sx]; simpl in Ho, Hl; try discriminate; [| destruct Hl].
+        destruct wP as [[y | |] |]; try discriminate; destruct (vty (pw y)); try discriminate; injection Ho as <-; reflexivity. }
+      destruct (r_written _ _ _ _ _ _ _ Hr o Ewo) as [ny [r [Hvg Hwr]]].
+      rewrite (r_args _ _ _ _ _ _ _ Hr o ny r Hoin Hvg).
+      specialize (Hni ny r Hvg); destruct r; simpl in Hwr; try discriminate; [reflexivity | destruct Hni; reflexivity]. }
     assert (Hres : result_pairing O (Array z) (inplace wP pp) ve se s2 = pairing (oset O (stored o) (tangent ve)) s2)
       by (rewrite Hex; reflexivity).
     rewrite Hres.
@@ -2208,7 +2221,12 @@ Proof.
       assert (Hrd : forall p, In p L -> vreads k eA p -> live_value k eW p ->
                       (not_in_loop pp \/ inplace wP pp <> Some (stored p)) ->
                       store_get s2 (keyv (stored p)) = Some (primal (pd p))).
-      { intros p Hp Hrd0 Hlv [Hl | Hne]; [contradiction |].
+      { intros p Hp Hrd0 Hlv Hdj.
+        assert (Hne : inplace wP pp <> Some (stored p)).
+        { destruct Hdj as [Hl | Hne]; [| exact Hne].
+          rewrite Hex; intros E.
+          assert (Epn : pn p = pn o) by (unfold stored in E; congruence).
+          destruct (s_owner _ _ _ _ _ _ _ Hs o p Ho Hp Epn) as [Epo | Hnl']; [subst p; exact (proj2 (Hio Hl) Hlv) | exact (Hnl' (Hlv_e p Hlv))]. }
         assert (Hbp : below c (stored p)) by (unfold stored; simpl; exact (s_num _ _ _ _ _ _ _ Hs p Hp)).
         rewrite (Hag (stored p) (below_mono c c3 _ Hbp ltac:(lia)) eq_refl I).
         rewrite (F1 (stored p) Hbp eq_refl ltac:(simpl; tauto) ltac:(rewrite <- Hex; exact Hne) ltac:(discriminate)).
@@ -2225,14 +2243,19 @@ Proof.
         - exact (r_written _ _ _ _ _ _ _ Hr). }
       assert (Hns : storage wP tail eP = None -> ~ In (stored o) (map snd O) /\ shaped (tangent ve) (barv s2 (stored o)))
         by (intros E; rewrite Es in E; discriminate).
-      destruct (Hrv s2 O Hrd Hr2 Hns Htp) as [s3 [R3 [K3 [T3 [F3 [S3 P3]]]]]].
+      destruct (Hrv s2 O Hrd Hr2 Hns Htp) as [s3 [R3 [K3 [Kn3 [T3 [F3 [S3 P3]]]]]]].
       assert (Hoin' : In (stored o) (map snd O)) by (apply in_map_iff; eexists; split; [| exact Hown]; reflexivity).
       assert (Eput : oput O (stored o) (tangent ve) = oset O (stored o) (tangent ve)).
       { unfold oput; destruct (in_dec dvar_eq_dec_c (stored o) (map snd O)); [reflexivity | contradiction]. }
       rewrite Eput in F3, P3.
       exists s3; split; [exact R3 |].
-      split; [intros Hm; exfalso; apply Hnl; rewrite (proj1 (Hvo Hm)); exact I |].
-      split; [intros Hl; contradiction |].
+      split.
+      { intros Hm t0 Ht0 _; destruct (Hvb Hm t0 Ht0) as [Hb0 [Hc0 Hp0]].
+        assert (Hl : not_in_loop pp) by (rewrite (proj1 (Hvo Hm)); exact I).
+        destruct (dvar_eq_dec_c t0 (stored o)) as [-> | Hne0].
+        - exact (Kn3 Hl Hsn o Ho (Hav Hl)).
+        - exact (K3 t0 (below_mono c c2 t0 Hb0 ltac:(lia)) Hc0 Hp0 Hne0). }
+      split; [intros Hl o0 Ho0 Hav0; rewrite Ho in Ho0; injection Ho0 as <-; rewrite (Hav Hl) in Hav0; discriminate |].
       split; [exact T3 |].
       split; [apply (rev_frame_mono c c2 _ _ _ _ _ F3 Hc12); intros m0 Hm; left; rewrite oset_snd in Hm; exact Hm |].
       split; [exact S3 | exact P3].
@@ -2242,7 +2265,7 @@ Proof.
         rewrite Hu, andb_true_r in E'; exact E'. }
       exists s2; split; [reflexivity |].
       split; [intros _; apply vo_kept_refl |].
-      split; [intros Hl; contradiction |].
+      split; [intros Hl o0 Ho0 Hav0; rewrite Ho in Ho0; injection Ho0 as <-; rewrite (Hav Hl) in Hav0; discriminate |].
       split; [apply tapes_kept_refl |].
       split; [intros ? ? ? ? ? ?; reflexivity | split; [exact (r_shape _ _ _ _ _ _ _ Hr) |]].
       rewrite <- (IHo L k c wP pp _ (Array z) tail eA eW eD ve o HeA HeW HeD Hs Hlv_e Es Ho Hve Hvr).
@@ -2477,7 +2500,7 @@ Proof.
         - exact (r_written _ _ _ _ _ _ _ Hr). }
     assert (Htpb : tapes_ok L sb).
     { intros p Hp Hrp; destruct (Htp2 p (or_intror Hp) Hrp) as [lt Hlt]; exact (Trb _ _ Hlt). }
-    destruct (Hrv sb O Hrd Hr3 (fun _ => conj Hn_notin (Srb _ _ (or_introl eq_refl))) Htpb) as [s3 [R3 [K3 [T3 [F3 [S3 P3]]]]]].
+    destruct (Hrv sb O Hrd Hr3 (fun _ => conj Hn_notin (Srb _ _ (or_introl eq_refl))) Htpb) as [s3 [R3 [K3 [Kn3 [T3 [F3 [S3 P3]]]]]]].
     exists s3; split.
     { rewrite run_app, Hd, run_app.
       lazymatch goal with |- match ?r with _ => _ end = _ => replace r with (Some sb) by (symmetry; exact Rrb) end.
@@ -2575,18 +2598,19 @@ Proof.
   destruct H0 as [Hc Hrv]; split; [exact Hc |]; intros s2 O Hrd Hr Hns _.
   destruct (Hrv s2 O (fun p Hp Hrd0 Hlv Hsc => Hrd p Hp Hrd0 Hlv (or_intror (scalar_not_inplace _ _ _ _ _ _ _ _ Hs Hp Hlv Hsc)))
               Hr Hns) as [s3 [R3 [F3 [S3 P3]]]].
-  exists s3; split; [exact R3 |]; split; [| split; [| auto]].
+  exists s3; split; [exact R3 |]; split; [| split; [| split; [| auto]]].
   - intros v Hb0 Hc0 Hp0 _; apply (run_bars re s2 s3 Hb R3); destruct v; simpl in Hp0 |- *; tauto.
+  - intros _ _ o _ _; destruct Hn as [jn [-> _]]; apply (run_bars re s2 s3 Hb R3); simpl; tauto.
   - intros v l Hv; exists l; rewrite (run_bars re s2 s3 Hb R3 (TapeOf v) ltac:(simpl; tauto)); exact Hv.
 Qed.
 
 (* A straight value is updated in place only in the body of an in-place loop. *)
 Lemma inplace_straight (eP : value pv bare) : straight_value eP -> inplace_only eP.
 Proof.
-  intros Hs L k wP pp tail eW te HW Htc Hst.
+  intros Hs L k wP pp tail eW te HW Htc Hst Hl.
   destruct eP as [| | | aP iP vP | | |]; simpl in Hs; try contradiction; simpl in Hst; try (destruct Hst; reflexivity).
   destruct eW; simpl in HW; try contradiction; simpl in Htc.
-  destruct pp; simpl in Htc |- *; [| | | intros []];
+  destruct pp; simpl in Htc, Hl; [| | | destruct Hl];
     repeat match type of Htc with context [match ?e with _ => _ end] => destruct e end; discriminate.
 Qed.
 

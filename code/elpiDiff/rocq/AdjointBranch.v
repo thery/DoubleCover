@@ -895,6 +895,8 @@ Proof.
             (forall p, In p L -> useful cv Replay k bA p -> vflows cv k (AIte (amap pa cP) tA eA) p) ->
             exists s3, run (fb ++ rb) s2 = Some s3 /\
               (forall v, below c v -> consistent v -> is_primal v -> v <> n -> store_get s3 (keyv v) = store_get s2 (keyv v)) /\
+              (not_in_loop pp -> storage wP tail (AIte cP tP eP) <> None -> forall o, owner wP pp = Some o ->
+                 avaried (pa o) = false -> store_get s3 (keyv n) = store_get s2 (keyv n)) /\
               tapes_kept s2 s3 /\
               rev_frame c (inplace wP pp) (oput O n (TangentCorrect.tangent ve)) s2 s3 /\
               (forall t m, In (t, m) O -> shaped t (barv s3 m)) /\
@@ -942,6 +944,7 @@ Proof.
                  ltac:(intros m0 E; subst v; destruct Hp0)).
       apply F1; [exact (below_mono c cb v Hb0 Hcb) | exact Hc0 | destruct v; simpl in Hp0 |- *; tauto | discriminate | discriminate]. }
     split; [intros v Hb0 Hc0 Hp0 _; exact (Hprim v Hb0 Hc0 Hp0) |].
+    split; [intros _ Hsn; destruct Hsn; reflexivity |].
     split; [exact (tapes_kept_trans _ _ _ T1 T3) |].
     split.
     { intros v Hb0 Hc0 Ht0 _ Hb'.
@@ -1389,6 +1392,7 @@ Proof.
     destruct Hni; apply in_map_iff; eexists; split; [| exact HoO]; reflexivity. }
   rewrite Eput.
   split; [intros v Hb0 Hc0 Hp0 _; exact (K v Hb0 Hc0 Hp0) |].
+  split; [intros _ _ o0 _ _; exact (K n ltac:(unfold n; simpl; exact Hj) eq_refl I) |].
   split; [exact T |].
   split.
   { unfold inplace; rewrite Hown; change (Some (stored o)) with (Some n).
