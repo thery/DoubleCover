@@ -669,6 +669,19 @@ Lemma keep_add (Q : Prop) vo rv s2 (P : store R -> Prop) :
   exists s3, run rv s2 = Some s3 /\ (Q -> vo_kept vo s2 s3) /\ P s3.
 Proof. intros Hf [s3 [R H]]; exists s3; split; [exact R | split; [intros _; exact (vo_kept_bars vo rv s2 s3 Hf R) | exact H]]. Qed.
 
+(* The states of a fold before each of its steps. *)
+Fixpoint fold_trace (ev : val (dual R) -> val (dual R) -> option (val (dual R))) (i : Z) (n : nat)
+  (s : val (dual R)) : option (list (val (dual R))) :=
+  match n with
+  | O => Some []
+  | S n' => match ev (VInt i) s with
+            | Some s1 => match fold_trace ev (i + 1) n' s1 with Some tr => Some (s :: tr) | None => None end
+            | None => None
+            end
+  end.
+
+Definition real_of (v : val (dual R)) : R := match v with VReal d => dfst d | _ => 0 end.
+
 Section Sim.
 Variable cv : bool.                               (* computes-value: mode adjoint-value *)
 
@@ -964,6 +977,48 @@ Definition vatoms (k : nat) (e : value avar bare) (p : pv) : Prop :=
 
 (* The forward sweep of a value, computed into the variable n (recorded when
    rec): the value is stored in n. *)
+(* The tape of a scalar fold whose state is recorded: the states before each
+   step, the last first. *)
+Definition fold_tape (k : nat) (eA : value avar bare) (eW : value vinfo bare) (eD : value (val (dual R)) bare)
+  (s : store R) (n : dvar W) : Prop :=
+  match eA, eW, eD with
+  | AFold _ _ _ initA bA, AFold _ _ _ initW _, AFold _ lo hi init b =>
+      ty_eqb (of_atom initW) Real = true -> state_live cv k initA bA = true ->
+      match aeval_atom (duals reals) lo, aeval_atom (duals reals) hi, aeval_atom (duals reals) init with
+      | Some (VInt l), Some (VInt h), Some s0 =>
+          forall tr, fold_trace (fun v w => aeval (duals reals) (b v w)) l (count l h) s0 = Some tr ->
+            store_get s (keyv (TapeOf n)) = Some (VTape (rev (map real_of tr)))
+      | _, _, _ => True
+      end
+  | _, _, _ => True
+  end.
+
+Lemma fold_tape_same k eA eW eD s s' n :
+  store_get s' (keyv (TapeOf n)) = store_get s (keyv (TapeOf n)) -> fold_tape k eA eW eD s n -> fold_tape k eA eW eD s' n.
+Proof. intros E H; unfold fold_tape in *; rewrite E; exact H. Qed.
+
+(* A value whose forward sweep records nothing has no tape to give. *)
+Lemma fold_tape_records k eA eW eD s n : records cv k eA = false -> fold_tape k eA eW eD s n.
+Proof.
+  intros Hr; destruct eA as [| | | | | | fa loA hiA initA bA]; try exact I.
+  destruct eW as [| | | | | | ? ? ? ? ?]; try exact I; destruct eD as [| | | | | | ? ? ? ? ?]; try exact I.
+  unfold fold_tape, state_live; simpl in Hr; apply orb_false_iff in Hr as [Hr _].
+  intros _ E; unfold fold_binders in *; simpl in E, Hr; congruence.
+Qed.
+
+(* A value updated in place is no scalar fold. *)
+Lemma fold_tape_inplace L k wP tail (eP : value pv bare) eA eW eD s n :
+  value_eq (gW L) eP eW -> storage wP tail eP <> None -> fold_tape k eA eW eD s n.
+Proof.
+  intros HW Hst; destruct eA as [| | | | | | fa loA hiA initA bA]; try exact I.
+  destruct eW as [| | | | | | fw loW hiW initW bW]; try exact I; destruct eD as [| | | | | | ? ? ? ? ?]; try exact I.
+  destruct eP as [| | | | | | fp loP hiP initP bP]; simpl in HW; try contradiction.
+  destruct HW as [_ [_ [Hi _]]]; apply atom_graph in Hi as [-> _].
+  simpl in Hst; destruct initP as [i0 | |]; simpl in Hst |- *; try (destruct Hst; reflexivity).
+  destruct (vty (pw i0)) eqn:Ev; try (destruct Hst; reflexivity).
+  intros E; discriminate.
+Qed.
+
 Definition asim_fwd (eP : value pv bare) : Prop :=
   forall L k c s wP pp tail eA eW eT eD te n ve ty m rec,
   value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gT L) eP eT -> value_eq (gD L) eP eD ->
@@ -981,7 +1036,7 @@ Definition asim_fwd (eP : value pv bare) : Prop :=
     open_pairs (fwd_value W (option_map (amap pt) wP) m (rebuild_value _ eT (annotate_value_t cv k eA)) te n rec) c in
   (c <= c')%nat /\
   exists s1, run se s = Some s1 /\ fwd_frame c (Some n) None s s1 /\ tkeep c (Some n) s s1 /\
-             store_get s1 (keyv n) = Some (primal ve).
+             store_get s1 (keyv n) = Some (primal ve) /\ (m = Forward -> fold_tape k eA eW eD s1 n).
 
 (* The reverse sweep of an active value computed into n: run from a store
    holding the values it reads, it moves the adjoint of n to the operands, in
@@ -1042,7 +1097,7 @@ Definition asim_rev (eP : value pv bare) : Prop :=
        store_get s2 (keyv (stored p)) = Some (primal (pd p))) ->
     rctx L c wP pp O (vflows k eA) s2 ->
     (storage wP tail eP = None -> ~ In n (map snd O) /\ shaped (tangent ve) (barv s2 n)) ->
-    tapes_ok L s2 ->
+    tapes_ok L s2 -> (pp = PTop -> fold_tape k eA eW eD s2 n) ->
     exists s3, run re s2 = Some s3 /\
       (forall v, below c v -> consistent v -> is_primal v -> v <> n -> store_get s3 (keyv v) = store_get s2 (keyv v)) /\
       (not_in_loop pp -> storage wP tail eP <> None -> forall o, owner wP pp = Some o -> avaried (pa o) = false ->
@@ -1102,7 +1157,7 @@ Proof.
   exists (store_set s (keyv (DBound (j, j))) (primal ve)).
   split; [apply run_define; rewrite xev_DOp1, Hs; exact (primal_eval_op1 _ _ _ Hev) |].
   split; [apply fwd_frame_set; reflexivity |
-          split; [apply tkeep_set; [simpl; tauto | reflexivity] | apply store_get_set_same]].
+          split; [apply tkeep_set; [simpl; tauto | reflexivity] | split; [apply store_get_set_same | intros _; exact I]]].
 Qed.
 
 Lemma afwd_op2 f (aP bP : atom pv) : asim_fwd (AOp2 f aP bP).
@@ -1120,7 +1175,7 @@ Proof.
   exists (store_set s (keyv (DBound (j, j))) (primal ve)).
   split; [apply run_define; rewrite xev_DOp2, Hsa, Hsb; exact (primal_eval_op2 _ _ _ _ Hev) |].
   split; [apply fwd_frame_set; reflexivity |
-          split; [apply tkeep_set; [simpl; tauto | reflexivity] | apply store_get_set_same]].
+          split; [apply tkeep_set; [simpl; tauto | reflexivity] | split; [apply store_get_set_same | intros _; exact I]]].
 Qed.
 
 Lemma afwd_get (aP iP : atom pv) : asim_fwd (AGet aP iP).
@@ -1139,7 +1194,7 @@ Proof.
   exists (store_set s (keyv (DBound (j, j))) (VReal (dfst d))).
   split; [apply run_define; unfold xev in *; simpl in *; rewrite Hsa, Hsi; simpl; rewrite nth_z_map, Ez; reflexivity |].
   split; [apply fwd_frame_set; reflexivity |
-          split; [apply tkeep_set; [simpl; tauto | reflexivity] | apply store_get_set_same]].
+          split; [apply tkeep_set; [simpl; tauto | reflexivity] | split; [apply store_get_set_same | intros _; exact I]]].
 Qed.
 
 Lemma replace_nth_z_nth {A : Type} k (x : A) l l1 :
@@ -1209,12 +1264,12 @@ Proof.
       * unfold run, xev, keyv in *; simpl in *; rewrite Hq, Hsi; simpl; rewrite nth_z_map, Hold; simpl.
         rewrite Hlt; reflexivity.
     + split; [| split; [apply (tkeep_trans _ _ _ s0); [apply tkeep_set_tape; [reflexivity | right; reflexivity] | apply tkeep_set; [simpl; tauto | reflexivity]]
-                       | unfold s1; apply store_get_set_same]].
+                       | split; [unfold s1; apply store_get_set_same | intros _; exact I]]].
       intros v Hb Hcv Ht Hex Hvo; rewrite (Hframe s0 v Hb Hcv Ht Hex Hvo).
       unfold s0; apply store_get_set_other; intros K; apply keyv_inj in K; [| reflexivity | exact Hcv].
       subst v; apply Ht; exact I.
   - exists (s1 s); split; [apply Hassign; auto | split; [apply Hframe |
-      split; [apply tkeep_set; [simpl; tauto | reflexivity] | unfold s1; apply store_get_set_same]]].
+      split; [apply tkeep_set; [simpl; tauto | reflexivity] | split; [unfold s1; apply store_get_set_same | intros _; exact I]]]].
 Qed.
 
 Ltac rev_intro :=
@@ -2250,7 +2305,7 @@ Proof.
         pose proof (IHf L k c s wP pp tail eA eW eT eD (Array z) (stored o) ve (Array z) m rec HeA HeW HeT HeD Hc1 Hte
                       Htail_ty Hj Hst0 Hrec Hve) as IH.
         cbv zeta in IH; fold vt in IH; rewrite Hfe in IH.
-        destruct IH as [_ [se1 [R1 [F1 [T1 S1]]]]]; exists se1; auto.
+        destruct IH as [_ [se1 [R1 [F1 [T1 [S1 _]]]]]]; exists se1; auto.
       - simpl in Hfe; injection Hfe as <- <-.
         exists s; split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity | split; [apply tkeep_refl | discriminate]]]. }
     destruct Hfw as [se1 [R1 [F1 [T1 S1]]]].
@@ -2329,7 +2384,7 @@ Proof.
         - exact (r_written _ _ _ _ _ _ _ Hr). }
       assert (Hns : storage wP tail eP = None -> ~ In (stored o) (map snd O) /\ shaped (tangent ve) (barv s2 (stored o)))
         by (intros E; rewrite Es in E; discriminate).
-      destruct (Hrv s2 O Hrd Hr2 Hns Htp) as [s3 [R3 [K3 [Kn3 [T3 [F3 [S3 P3]]]]]]].
+      destruct (Hrv s2 O Hrd Hr2 Hns Htp (fun _ => fold_tape_inplace L k wP tail eP eA eW eD s2 (stored o) HeW Hsn)) as [s3 [R3 [K3 [Kn3 [T3 [F3 [S3 P3]]]]]]].
       assert (Hoin' : In (stored o) (map snd O)) by (apply in_map_iff; eexists; split; [| exact Hown]; reflexivity).
       assert (Eput : oput O (stored o) (tangent ve) = oset O (stored o) (tangent ve)).
       { unfold oput; destruct (in_dec dvar_eq_dec_c (stored o) (map snd O)); [reflexivity | contradiction]. }
@@ -2366,7 +2421,9 @@ Proof.
   assert (HxL : ~ In x L) by exact (fresh_notin L k x Haid Hx).
   (* the forward sweep of the value *)
   assert (Hfw : exists se1, run fe s = Some se1 /\ fwd_frame c1 (Some (DBound (c, c))) None s se1 /\
-                  tkeep c1 (Some (DBound (c, c))) s se1 /\ (cp = true -> store_get se1 (keyv (DBound (c, c))) = Some (primal ve))).
+                  tkeep c1 (Some (DBound (c, c))) s se1 /\
+                  (cp = true -> store_get se1 (keyv (DBound (c, c))) = Some (primal ve) /\
+                                (m = Forward -> fold_tape k eA eW eD se1 (DBound (c, c))))).
   { destruct cp eqn:Ecp.
     - assert (Hc1 : actx L k c1 s wP pp (live_value k eW) (vatoms k eA) ty).
       { apply (actx_weaken _ _ _ _ _ _ _ _ _ _ _ _ Hc Hlv_e); [| lia].
@@ -2428,7 +2485,7 @@ Proof.
   { constructor; [exact Hs' | | | |].
     - intros p [<- | Hp]; [reflexivity | exact (a_bar _ _ _ _ _ _ _ _ _ Hc p Hp)].
     - intros p [<- | Hp] Ht.
-      + apply S1; unfold tbr in Ht; rewrite Hneeds in Ht; simpl in Ht; unfold cp; rewrite Ht; reflexivity.
+      + apply (fun H => proj1 (S1 H)); unfold tbr in Ht; rewrite Hneeds in Ht; simpl in Ht; unfold cp; rewrite Ht; reflexivity.
       + rewrite Hold; [| exact Hp]; apply (a_store _ _ _ _ _ _ _ _ _ Hc p Hp).
         exact (tbr_let_cont m k aA eA cA p (Haid p Hp) Ht).
     - intros p [<- | Hp] Hr; [discriminate |].
@@ -2588,7 +2645,23 @@ Proof.
         - exact (r_written _ _ _ _ _ _ _ Hr). }
     assert (Htpb : tapes_ok L sb).
     { intros p Hp Hrp; destruct (Htp2 p (or_intror Hp) Hrp) as [lt Hlt]; exact (proj1 Trb _ _ Hlt). }
-    destruct (Hrv sb O Hrd Hr3 (fun _ => conj Hn_notin (Srb _ _ (or_introl eq_refl))) Htpb) as [s3 [R3 [K3 [Kn3 [T3 [F3 [S3 P3]]]]]]].
+    assert (Hft : pp = PTop -> fold_tape k eA eW eD sb (DBound (c, c))).
+    { intros Hpt.
+      destruct m; [| exfalso; exact (Hrpl eq_refl Hpt)].
+      destruct (records cv k eA) eqn:Erc; [| exact (fold_tape_records k eA eW eD sb _ Erc)].
+      assert (Ecp : cp = true) by (unfold cp; simpl; apply orb_true_r).
+      pose proof (proj2 (S1 Ecp) eq_refl) as Ft.
+      apply (fold_tape_same _ _ _ _ se1); [| exact Ft].
+      set (nn := DBound (c, c)).
+      assert (Hex : inplace wP pp <> Some nn).
+      { intros E; destruct (ex_below _ _ _ _ _ _ _ _ Hs E) as [Hbe _]; unfold nn in Hbe; simpl in Hbe; lia. }
+      assert (Hb1 : below (S c) nn) by (unfold nn; simpl; lia).
+      assert (Hb3 : below c3 nn) by (unfold nn; simpl; lia).
+      rewrite (proj2 Trb nn Hb1 eq_refl Hex).
+      unfold s2a; rewrite store_get_set_other by (intros K; apply keyv_inj in K; [discriminate | reflexivity | reflexivity]).
+      rewrite (proj2 Hag nn Hb3 eq_refl).
+      exact (proj2 Tb nn Hb1 eq_refl Hex). }
+    destruct (Hrv sb O Hrd Hr3 (fun _ => conj Hn_notin (Srb _ _ (or_introl eq_refl))) Htpb Hft) as [s3 [R3 [K3 [Kn3 [T3 [F3 [S3 P3]]]]]]].
     exists s3; split.
     { rewrite run_app, Hd, run_app.
       lazymatch goal with |- match ?r with _ => _ end = _ => replace r with (Some sb) by (symmetry; exact Rrb) end.

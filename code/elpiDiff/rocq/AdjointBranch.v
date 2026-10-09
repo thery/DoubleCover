@@ -753,7 +753,7 @@ Proof.
                   (live_anf (S k) (cW (VInfo k te None))) ty).
   { constructor; [exact (sctx_weaken _ _ _ _ _ _ _ _ _ Hs' (fun p H => H) Hc01) | | | |].
     - intros p [<- | Hp]; [reflexivity | exact (a_bar _ _ _ _ _ _ _ _ _ Hc p Hp)].
-    - intros p [<- | Hp] Hl; [exact S1 |].
+    - intros p [<- | Hp] Hl; [exact (proj1 S1) |].
       rewrite Hold; [| exact Hp]; apply (a_store _ _ _ _ _ _ _ _ _ Hc p Hp), Hlive_c; auto.
     - intros p [<- | Hp] Hr; [discriminate |].
       destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; exact (proj1 T1 _ _ Hlt).
@@ -887,7 +887,7 @@ Proof.
     rewrite store_get_set_other by (intros K; apply keyv_inj in K; [subst v0; apply Hne; reflexivity | reflexivity | exact Hc0]).
     rewrite (Hfr v0 Hb0 Hc0 Ht0 ltac:(discriminate) ltac:(discriminate)).
     unfold s0; apply store_get_set_other; intros K; apply keyv_inj in K; [subst v0; apply Hne; reflexivity | reflexivity | exact Hc0]. }
-  split; [| apply store_get_set_same].
+  split; [| split; [apply store_get_set_same | intros _; exact I]].
   apply (tkeep_trans _ _ _ s1); [apply (tkeep_trans _ _ _ s0); [apply tkeep_set; [simpl; tauto | reflexivity] | exact (tkeep_none _ _ _ _ Htk)] |].
   apply tkeep_set; [simpl; tauto | reflexivity].
 Qed.
@@ -960,7 +960,7 @@ Proof.
   assert (M2 : (c1 <= c2)%nat)
     by (lazymatch type of Hoe with @open_pairs _ ?t c1 = _ => pose proof (open_pairs_mono t c1) as Mo; rewrite Hoe in Mo; exact Mo end).
   cbn [open_pairs]; split; [lia |].
-  intros s2 O Hrd Hr Hns Htp.
+  intros s2 O Hrd Hr Hns Htp _.
   set (n := DBound (j, j)) in *.
   destruct (Hns eq_refl) as [Hn_notin Hsh].
   pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
@@ -1233,7 +1233,7 @@ Proof.
   exists sf; split.
   { rewrite (run_for _ _ _ _ _ _ 0 h) by reflexivity.
     lazymatch goal with |- match ?r with _ => _ end = _ => replace r with (Some sf) by (symmetry; exact Hex) end; reflexivity. }
-  split; [exact Hfr | split; [exact Htk | exact Hn']].
+  split; [exact Hfr | split; [exact Htk | split; [exact Hn' | intros _; exact I]]].
 Qed.
 
 
@@ -1293,7 +1293,7 @@ Proof.
   assert (Hc2 : (S c <= c2)%nat)
     by (lazymatch type of Hob with @open_pairs _ ?t _ = _ => pose proof (open_pairs_mono t (S c)) as Mo; rewrite Hob in Mo; exact Mo end).
   cbn [open_pairs spell amap rev_loop]; split; [lia |].
-  intros s2 O Hrd Hr _ Htp.
+  intros s2 O Hrd Hr _ Htp _.
   set (n := DBound (pn o, pn o)) in *.
   set (i := DBound (c, c)) in *.
   pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
