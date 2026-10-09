@@ -414,7 +414,8 @@ Record actx (L : list pv) (k c : nat) (s : store R) (wP : option (atom pv)) (pp 
   a_tape : forall p, In p L -> trecorded (pt p) = true ->
              exists l, store_get s (keyv (TapeOf (stored p))) = Some (VTape l);
   a_owner : forall o, owner wP pp = Some o -> (not_in_loop pp \/ tb o) ->
-             store_get s (keyv (stored o)) = Some (primal (pd o))
+             store_get s (keyv (stored o)) = Some (primal (pd o));
+  a_tid : forall o, owner wP pp = Some o -> not_in_loop pp -> tid (pt o) <> None
 }.
 
 (* The keys of the store. A primal key holds a value of the program; a bar,
@@ -2058,6 +2059,7 @@ Proof.
   - intros o Ho Hor; apply (a_owner _ _ _ _ _ _ _ _ _ Hc o Ho).
     destruct Hor as [Hnl | Ho']; [left; exact Hnl | right].
     exact (Ht o (owner_in_s _ _ _ _ _ _ _ _ (a_sctx _ _ _ _ _ _ _ _ _ Hc) Ho) Ho').
+  - exact (a_tid _ _ _ _ _ _ _ _ _ Hc).
 Qed.
 
 (* The variable updated in place is an array. *)
@@ -2591,7 +2593,7 @@ Proof.
       split; [exact T1' | intros Ly; apply T2', Hlive_c; auto]. }
   assert (Hc' : actx (x :: L) (S k) (S c) se1 wP pp (live_anf (S k) (cW (VInfo k te None)))
                   (tbr cv m (S k) (cA (let_binder k eA))) ty).
-  { constructor; [exact Hs' | | | |].
+  { constructor; [exact Hs' | | | | |].
     - intros p [<- | Hp]; [reflexivity | exact (a_bar _ _ _ _ _ _ _ _ _ Hc p Hp)].
     - intros p [<- | Hp] Ht.
       + apply (fun H => proj1 (S1 H)); unfold tbr in Ht; rewrite Hneeds in Ht; simpl in Ht; unfold cp; rewrite Ht; reflexivity.
@@ -2601,7 +2603,8 @@ Proof.
       destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; exact (proj1 T1 _ _ Hlt).
     - intros o Ho Hor; rewrite Hold; [| exact (owner_in_s _ _ _ _ _ _ _ _ Hs Ho)].
       apply (a_owner _ _ _ _ _ _ _ _ _ Hc o Ho); destruct Hor as [Hl | Ht]; [left; exact Hl | right].
-      exact (tbr_let_cont m k aA eA cA o (Haid o (owner_in_s _ _ _ _ _ _ _ _ Hs Ho)) Ht). }
+      exact (tbr_let_cont m k aA eA cA o (Haid o (owner_in_s _ _ _ _ _ _ _ _ Hs Ho)) Ht).
+    - exact (a_tid _ _ _ _ _ _ _ _ _ Hc). }
   assert (Hvt' : m = Forward -> forall p, In p (x :: L) -> live_anf (S k) (cW (VInfo k te None)) p ->
                    vo_target vo <> Some (stored p)).
   { intros Hm p [<- | Hp] Hl Ht.

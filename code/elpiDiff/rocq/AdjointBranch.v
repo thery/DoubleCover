@@ -858,7 +858,7 @@ Proof.
       split; [exact T1' | intros Ly; apply T2', Hlive_c; auto]. }
   assert (Hc' : actx (x :: L) (S k) c1 se1 wP pp (live_anf (S k) (cW (VInfo k te None)))
                   (live_anf (S k) (cW (VInfo k te None))) ty).
-  { constructor; [exact (sctx_weaken _ _ _ _ _ _ _ _ _ Hs' (fun p H => H) Hc01) | | | |].
+  { constructor; [exact (sctx_weaken _ _ _ _ _ _ _ _ _ Hs' (fun p H => H) Hc01) | | | | |].
     - intros p [<- | Hp]; [reflexivity | exact (a_bar _ _ _ _ _ _ _ _ _ Hc p Hp)].
     - intros p [<- | Hp] Hl; [exact (proj1 S1) |].
       rewrite Hold; [| exact Hp]; apply (a_store _ _ _ _ _ _ _ _ _ Hc p Hp), Hlive_c; auto.
@@ -866,7 +866,8 @@ Proof.
       destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; exact (proj1 T1 _ _ Hlt).
     - intros o Ho Hor; rewrite Hold; [| exact (owner_in_s _ _ _ _ _ _ _ _ Hs Ho)].
       apply (a_owner _ _ _ _ _ _ _ _ _ Hc o Ho); destruct Hor as [Hl | Ht]; [left; exact Hl | right].
-      exact (Hlive_c o (owner_in_s _ _ _ _ _ _ _ _ Hs Ho) Ht). }
+      exact (Hlive_c o (owner_in_s _ _ _ _ _ _ _ _ Hs Ho) Ht).
+    - exact (a_tid _ _ _ _ _ _ _ _ _ Hc). }
   pose proof (IHb x (x :: L) (S k) c1 se1 wP pp m m' (cA (pa x)) (cW (pw x)) (cT (pt x)) (cD (pd x)) ty v
                 (HcA x _) (HcW x _) (HcT x _) (HcD x _) Hc' Htc Hev) as IH.
   unfold x in IH; cbn [pt pa pd pw] in IH; fold rest in IH.
@@ -1179,6 +1180,7 @@ Proof.
       exact (a_store _ _ _ _ _ _ _ _ _ Hc p Hp (Ha p Hp Hl')).
     - intros p Hp Hr; destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; exists lt.
       unfold s0; rewrite store_get_set_other; [exact Hlt |]; intros K; apply keyv_inj in K; [discriminate | reflexivity | reflexivity].
+    - intros o Ho; unfold owner in Ho; destruct wP as [[] |]; discriminate.
     - intros o Ho; unfold owner in Ho; destruct wP as [[] |]; discriminate. }
   assert (Hbody : exists (sb : list (dstmt W)) (vb : dexpr W) (s1 : store R) (vv : val (dual R)),
             run sb s0 = Some s1 /\ fwd_frame c None None s0 s1 /\ tkeep c None s0 s1 /\ xev s1 vb = Some (primal vv) /\
@@ -1335,6 +1337,7 @@ Proof.
       - intros p Hp Ht; apply (Hrd p Hp (Htbr p Hp Ht)); [| left; exact Hnl].
         apply Hlive, (tbr_occurs L k bP bA bW Replay p HbA HbW HL Hp (or_introl Ht)).
       - exact Htp.
+      - intros o Ho; unfold owner in Ho; destruct wP as [[] |]; discriminate.
       - intros o Ho; unfold owner in Ho; destruct wP as [[] |]; discriminate. }
     specialize (IH L k cb s2 wP PBranch Replay bA bW bT bD Real ve (DVar (BarOf n)) vo HbA HbW HbT HbD Hctx I Htcb Hevb
                   ltac:(discriminate) ltac:(discriminate) ltac:(discriminate) ltac:(discriminate) ltac:(discriminate)).
@@ -1516,6 +1519,7 @@ Proof.
           destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; destruct (proj1 Htk' _ _ Hlt) as [l' Hl'].
           exists l'; unfold s''; rewrite store_get_set_other; [exact Hl' |].
           intros K; apply keyv_inj in K; [discriminate | reflexivity | reflexivity].
+        - intros o0 E; discriminate.
         - intros o0 E; discriminate. }
       specialize (IHb ix (ix :: L) (S k) (S c) s'' (Some (AVar o)) PScalar m Replay (bA (fresh k))
                     (bW (VInfo k Integer None)) (bT (open_index (DBound (c, c)))) (bD (VInt z)) Real (VReal d)
@@ -1722,6 +1726,7 @@ Proof.
           destruct (Htp p Hp Hrc) as [lt Hlt]; destruct (proj1 T0 _ _ Hlt) as [l' Hl'].
           exists l'; unfold s''; rewrite store_get_set_other; [exact Hl' |].
           intros Kk; apply keyv_inj in Kk; [discriminate | reflexivity | reflexivity].
+        - intros o0 E; discriminate.
         - intros o0 E; discriminate. }
       specialize (IHb ix (ix :: L) (S k) (S c) s'' (Some (AVar o)) PScalar Replay (bA (fresh k))
                     (bW (VInfo k Integer None)) (bT (open_index (DBound (c, c)))) (bD (VInt z)) Real (VReal (nth jn xs d0))
@@ -2006,6 +2011,7 @@ Proof.
       - intros p [<- | [<- | Hp]] Hrc; try discriminate.
         destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hrc) as [lt Hlt].
         exact (proj1 (tkeep_trans _ _ _ _ _ Tk Tsp) _ _ Hlt).
+      - intros o0 E; discriminate.
       - intros o0 E; discriminate. }
     specialize (IHb ix sx (sx :: ix :: L) (S (S k)) (S c) sp wP PScalar m Replay (bA (pa ix) (pa sx))
                   (bW (pw ix) (pw sx)) (bT (pt ix) (pt sx)) (bD (pd ix) (pd sx)) Real st'
@@ -2316,6 +2322,7 @@ Proof.
       - intros p [<- | [<- | Hp]] Hrc; try discriminate.
         destruct (Htp p Hp Hrc) as [lt Hlt].
         exact (proj1 (tkeep_trans _ _ _ _ _ T0 Tsp) _ _ Hlt).
+      - intros o0 E; discriminate.
       - intros o0 E; discriminate. }
     change (nth (S jn) (tr ++ [VReal dv]) dflt) with (st (S jn)) in Hbd.
     destruct (st (S jn)) as [dj' | | | |] eqn:Est'; try contradiction.
