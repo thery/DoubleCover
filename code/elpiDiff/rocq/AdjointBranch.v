@@ -1045,6 +1045,67 @@ Proof.
       rewrite store_get_set_other by (unfold keyv; simpl; discriminate); reflexivity.
 Qed.
 
+(* The body of an in-place loop: operations and reads, then a set of the
+   state that ends it. *)
+Fixpoint abody (b : anf pv bare) : Prop :=
+  match b with
+  | ALet _ e b' =>
+      match e with
+      | AOp1 _ _ | AOp2 _ _ _ | AGet _ _ => forall x, abody (b' x)
+      | ASet _ _ _ => forall x, b' x = ARet (AVar x)
+      | _ => False
+      end
+  | ARet _ => False
+  end.
+
+Lemma abody_straight b : abody b -> straight b.
+Proof.
+  induction b as [a e b' IH | x]; simpl; [| contradiction].
+  destruct e; try contradiction; intros Hb; (split; [exact I |]); intros x;
+    [apply IH, Hb | apply IH, Hb | apply IH, Hb | rewrite (Hb x); exact I].
+Qed.
+
+Lemma abody_psim b : abody b -> psim_body b.
+Proof.
+  induction b as [a e b' IH | x]; simpl; [| contradiction].
+  destruct e; try contradiction; intros Hb.
+  - apply psim_let; [apply afwd_op1 | apply act_op1 | intros; reflexivity | intros ? ? ? E; discriminate |].
+    intros x; apply IH, Hb.
+  - apply psim_let; [apply afwd_op2 | apply act_op2 | intros; reflexivity | intros ? ? ? E; discriminate |].
+    intros x; apply IH, Hb.
+  - apply psim_let; [apply afwd_get | apply act_get | intros; reflexivity | intros ? ? ? E; discriminate |].
+    intros x; apply IH, Hb.
+  - apply psim_set_let.
+Qed.
+
+Lemma abody_act b : abody b -> act_body b.
+Proof.
+  induction b as [a e b' IH | x]; simpl; [| contradiction].
+  destruct e; try contradiction; intros Hb.
+  - apply act_let; [apply act_op1 | intros x; apply IH, Hb].
+  - apply act_let; [apply act_op2 | intros x; apply IH, Hb].
+  - apply act_let; [apply act_get | intros x; apply IH, Hb].
+  - apply act_let; [apply act_set | intros x; rewrite (Hb x); apply act_ret].
+Qed.
+
+(* Its evaluation ends with the set: it has a set index. *)
+Lemma abody_set_index L b bD v : abody b -> anf_eq (gD L) b bD -> aeval (duals reals) bD = Some v -> set_index bD <> None.
+Proof.
+  revert L bD v; induction b as [a e b' IH | x]; intros L bD v Hb HD Hev; simpl in Hb; [| contradiction].
+  destruct bD as [aD eD cD |]; simpl in HD; try contradiction; destruct HD as [HeD HcD].
+  simpl in Hev; destruct (aeval_value (duals reals) eD) as [ve |] eqn:Hve; [| discriminate].
+  set (x := PV (AV 0 false) (VInfo 0 Real None) dummy_tvar ve 0).
+  destruct e; try contradiction; destruct eD; simpl in HeD; try contradiction;
+    cbn [set_index]; rewrite Hve.
+  1-3: exact (IH x (x :: L) (cD ve) v (Hb x) (HcD x ve) Hev).
+  specialize (HcD x ve); rewrite (Hb x) in HcD.
+  destruct (cD ve) as [? ? ? | [t' | |]]; simpl in HcD; try contradiction.
+  all: simpl in Hve.
+  all: destruct (aeval_atom (duals reals) a1) as [[| | | l |] |]; try discriminate.
+  all: destruct (aeval_atom (duals reals) i0) as [[| z | | |] |]; try discriminate.
+  all: intros E; discriminate.
+Qed.
+
 (* A branch body sits in place PBranch, where nothing is updated in place. *)
 Lemma sctx_branch L k c wP pp (live live' : pv -> Prop) ty :
   sctx L k c wP pp live ty -> (forall p, live' p -> live p) -> sctx L k c wP PBranch live' Real.
@@ -1225,7 +1286,7 @@ Proof.
   assert (M2 : (c1 <= c2)%nat)
     by (lazymatch type of Hoe with @open_pairs _ ?t c1 = _ => pose proof (open_pairs_mono t c1) as Mo; rewrite Hoe in Mo; exact Mo end).
   cbn [open_pairs]; split; [lia |].
-  intros s2 O Hrd Hr Hns Htp _.
+  intros s2 O Hrd Hr Hns Htp _ _.
   set (n := DBound (j, j)) in *.
   destruct (Hns eq_refl) as [Hn_notin Hsh].
   pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
@@ -1275,7 +1336,7 @@ Proof.
       - exact Htp.
       - intros o Ho; unfold owner in Ho; destruct wP as [[] |]; discriminate. }
     specialize (IH L k cb s2 wP PBranch Replay bA bW bT bD Real ve (DVar (BarOf n)) vo HbA HbW HbT HbD Hctx I Htcb Hevb
-                  ltac:(discriminate) ltac:(discriminate) ltac:(discriminate) ltac:(discriminate)).
+                  ltac:(discriminate) ltac:(discriminate) ltac:(discriminate) ltac:(discriminate) ltac:(discriminate)).
     lazymatch type of IH with context [@open_pairs ?A ?t cb] =>
       assert (E : @open_pairs A t cb = ((fb, rb), cb')) by exact Hob; rewrite E in IH; clear E end.
     destruct IH as [_ [Hht [s1 [R1 [F1 [T1 [_ Hrev]]]]]]].
@@ -1560,7 +1621,7 @@ Proof.
   assert (Hc2 : (S c <= c2)%nat)
     by (lazymatch type of Hob with @open_pairs _ ?t _ = _ => pose proof (open_pairs_mono t (S c)) as Mo; rewrite Hob in Mo; exact Mo end).
   cbn [open_pairs spell amap rev_loop]; split; [lia |].
-  intros s2 O Hrd Hr _ Htp _.
+  intros s2 O Hrd Hr _ Htp _ _.
   set (n := DBound (pn o, pn o)) in *.
   set (i := DBound (c, c)) in *.
   pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
@@ -1665,7 +1726,7 @@ Proof.
                     (bW (VInfo k Integer None)) (bT (open_index (DBound (c, c)))) (bD (VInt z)) Real (VReal (nth jn xs d0))
                     (DAt (DVar (BarOf n)) (DVar i)) vo
                     (H10 ix _) (H7 ix _) (H4 ix _) (H1 ix _) Hctx I HtB Hbd
-                    ltac:(discriminate) ltac:(discriminate) ltac:(discriminate) ltac:(discriminate)).
+                    ltac:(discriminate) ltac:(discriminate) ltac:(discriminate) ltac:(discriminate) ltac:(discriminate)).
       lazymatch type of IHb with context [@open_pairs ?A ?t (S c)] =>
         assert (E : @open_pairs A t (S c) = ((fb, rb), c2)) by exact Hob; rewrite E in IHb; clear E end.
       destruct IHb as [_ [_ [s1 [R1 [F1 [T1 [_ Hrev]]]]]]].
@@ -2070,7 +2131,7 @@ Proof.
   assert (Hc2 : (S (S c) <= c2)%nat)
     by (lazymatch type of Hob with @open_pairs _ ?t _ = _ => pose proof (open_pairs_mono t (S (S c))) as Mo; rewrite Hob in Mo; exact Mo end).
   cbn [open_pairs]; split; [lia |].
-  intros s2 O Hrd Hr Hns Htp Hft.
+  intros s2 O Hrd Hr Hns Htp Hft _.
   set (n := DBound (j, j)) in *.
   set (i := DBound (c, c)) in *.
   set (r := DBound (S c, S c)) in *.
@@ -2261,7 +2322,7 @@ Proof.
                   (bW (pw ix) (pw sx)) (bT (pt ix) (pt sx)) (bD (pd ix) (pd sx)) Real (VReal dj')
                   (DVar (BarOf r)) vo
                   (HbA ix _ sx _) (HbW ix _ sx _) (HbT ix _ sx _) (HbD ix _ sx _) Hctx I HtB Hbd
-                  ltac:(discriminate) ltac:(discriminate) ltac:(discriminate) ltac:(discriminate)).
+                  ltac:(discriminate) ltac:(discriminate) ltac:(discriminate) ltac:(discriminate) ltac:(discriminate)).
     lazymatch type of IHb with context [@open_pairs ?A ?t (S (S c))] =>
       assert (E : @open_pairs A t (S (S c)) = ((fb, rb), c2)) by exact Hob; rewrite E in IHb; clear E end.
     destruct IHb as [_ [_ [s1 [R1 [F1 [T1 [_ Hrev]]]]]]].
