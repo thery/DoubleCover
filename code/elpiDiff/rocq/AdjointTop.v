@@ -1481,8 +1481,10 @@ Proof.
   intros L res bP Ho; apply asim_straight, (Hs L res bP Ho).
 Qed.
 
-(* Milestones M2 and M3: the same with branches and maps (an assignment is
-   in no branch; a map writes the result at the end of the function). *)
+(* Milestones M2, M3 and M4: the same with branches, maps and scalar folds
+   (an assignment is in no branch; a map writes the result at the end of the
+   function; a scalar fold records its state on a tape when its reverse loop
+   reads it). *)
 Corollary adjoint_branchy_duals (cv : bool) (f : function) (x : list (val R)) (xb yb dx : list R)
   (v : val (dual R)) :
   parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->
