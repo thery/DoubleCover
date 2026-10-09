@@ -825,7 +825,9 @@ Proof.
       rewrite Hold; [| exact Hp]; apply (a_store _ _ _ _ _ _ _ _ _ Hc p Hp), Hlive_c; auto.
     - intros p [<- | Hp] Hr; [discriminate |].
       destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; exact (proj1 T1 _ _ Hlt).
-    - intros o Ho; rewrite Hold; [exact (a_owner _ _ _ _ _ _ _ _ _ Hc o Ho) | exact (owner_in_s _ _ _ _ _ _ _ _ Hs Ho)]. }
+    - intros o Ho Hor; rewrite Hold; [| exact (owner_in_s _ _ _ _ _ _ _ _ Hs Ho)].
+      apply (a_owner _ _ _ _ _ _ _ _ _ Hc o Ho); destruct Hor as [Hl | Ht]; [left; exact Hl | right].
+      exact (Hlive_c o (owner_in_s _ _ _ _ _ _ _ _ Hs Ho) Ht). }
   pose proof (IHb x (x :: L) (S k) c1 se1 wP pp m m' (cA (pa x)) (cW (pw x)) (cT (pt x)) (cD (pd x)) ty v
                 (HcA x _) (HcW x _) (HcT x _) (HcD x _) Hc' Htc Hev) as IH.
   unfold x in IH; cbn [pt pa pd pw] in IH; fold rest in IH.
@@ -1185,7 +1187,7 @@ Proof.
     rewrite Ey, <- (Htail eq_refl), Hte in Hty; injection Hty as E; symmetry; exact E. }
   (* the written array, at the start *)
   assert (Hown : owner (Some (AVar o)) PTop = Some o) by (simpl; rewrite Ey; reflexivity).
-  pose proof (a_owner _ _ _ _ _ _ _ _ _ Hc o Hown) as A1.
+  pose proof (a_owner _ _ _ _ _ _ _ _ _ Hc o Hown (or_introl I)) as A1.
   destruct (static_in _ _ _ HL HoL) as [_ [_ [_ [_ [_ [_ [_ [_ [Hht _]]]]]]]]].
   rewrite Ey in Hht; destruct (pd o) as [| | | lo |] eqn:Epd; try contradiction; simpl in Hht.
   simpl in A1; set (l1 := map dfst lo) in A1.

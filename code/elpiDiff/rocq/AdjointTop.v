@@ -1248,7 +1248,7 @@ Proof.
       - intros p Hp; destruct (Hparg p Hp) as [? [? [? [? [? ->]]]]]; reflexivity.
       - intros p Hp _; exact (Hs0p p Hp).
       - intros p Hp; destruct (Hparg p Hp) as [? [? [? [? [? ->]]]]]; discriminate.
-      - intros o Eo0; rewrite Hown_cases in Eo0; destruct t; try discriminate; injection Eo0 as <-; exact (Hs0p y HyL). }
+      - intros o Eo0 _; rewrite Hown_cases in Eo0; destruct t; try discriminate; injection Eo0 as <-; exact (Hs0p y HyL). }
     assert (Hvo : Forward = Forward -> PTop = PTop /\ (vo = None <-> cvw = false) /\
                   (forall y', vo = Some (AWrites y') -> option_map (amap pt) (Some (AVar y)) = Some y') /\
                   (forall t', vo = Some (AReturns t') -> Some (AVar y) = None)).

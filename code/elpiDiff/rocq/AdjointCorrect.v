@@ -403,6 +403,9 @@ Definition tbr (cv : bool) (m : sweep) (k : nat) (b : anf avar bare) (p : pv) : 
    simulation (sctx, for the variables that occur, live); the variables whose
    value the adjoint code reads (tbr) hold it in the store; a variable carries
    an adjoint when it is varied; a recorded storage has a tape. *)
+(* A place outside the body of an in-place loop. *)
+Definition not_in_loop (pp : pplace) : Prop := match pp with PArray _ _ => False | _ => True end.
+
 Record actx (L : list pv) (k c : nat) (s : store R) (wP : option (atom pv)) (pp : pplace)
   (live tb : pv -> Prop) (ty : ty) : Prop := {
   a_sctx : sctx L k c wP pp live ty;
@@ -410,7 +413,8 @@ Record actx (L : list pv) (k c : nat) (s : store R) (wP : option (atom pv)) (pp 
   a_store : forall p, In p L -> tb p -> store_get s (keyv (stored p)) = Some (primal (pd p));
   a_tape : forall p, In p L -> trecorded (pt p) = true ->
              exists l, store_get s (keyv (TapeOf (stored p))) = Some (VTape l);
-  a_owner : forall o, owner wP pp = Some o -> store_get s (keyv (stored o)) = Some (primal (pd o))
+  a_owner : forall o, owner wP pp = Some o -> (not_in_loop pp \/ tb o) ->
+             store_get s (keyv (stored o)) = Some (primal (pd o))
 }.
 
 (* The keys of the store. A primal key holds a value of the program; a bar,
@@ -703,7 +707,6 @@ Variable cv : bool.                               (* computes-value: mode adjoin
    given back when its owner is varied (an inout array): the forward sweep of
    a body leaves it, or its reverse sweep restores it. A map writes a
    dependent array, which is not varied and which no body reads. *)
-Definition not_in_loop (pp : pplace) : Prop := match pp with PArray _ _ => False | _ => True end.
 
 Definition same_ex (pp : pplace) (wP : option (atom pv)) (s s' : store R) : Prop :=
   not_in_loop pp -> forall o, owner wP pp = Some o -> avaried (pa o) = true ->
@@ -1996,7 +1999,9 @@ Proof.
   - exact (a_bar _ _ _ _ _ _ _ _ _ Hc).
   - intros p Hp H; exact (a_store _ _ _ _ _ _ _ _ _ Hc p Hp (Ht p Hp H)).
   - exact (a_tape _ _ _ _ _ _ _ _ _ Hc).
-  - exact (a_owner _ _ _ _ _ _ _ _ _ Hc).
+  - intros o Ho Hor; apply (a_owner _ _ _ _ _ _ _ _ _ Hc o Ho).
+    destruct Hor as [Hnl | Ho']; [left; exact Hnl | right].
+    exact (Ht o (owner_in_s _ _ _ _ _ _ _ _ (a_sctx _ _ _ _ _ _ _ _ _ Hc) Ho) Ho').
 Qed.
 
 (* The variable updated in place is an array. *)
@@ -2513,7 +2518,9 @@ Proof.
         exact (tbr_let_cont m k aA eA cA p (Haid p Hp) Ht).
     - intros p [<- | Hp] Hr; [discriminate |].
       destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; exact (proj1 T1 _ _ Hlt).
-    - intros o Ho; rewrite Hold; [exact (a_owner _ _ _ _ _ _ _ _ _ Hc o Ho) | exact (owner_in_s _ _ _ _ _ _ _ _ Hs Ho)]. }
+    - intros o Ho Hor; rewrite Hold; [| exact (owner_in_s _ _ _ _ _ _ _ _ Hs Ho)].
+      apply (a_owner _ _ _ _ _ _ _ _ _ Hc o Ho); destruct Hor as [Hl | Ht]; [left; exact Hl | right].
+      exact (tbr_let_cont m k aA eA cA o (Haid o (owner_in_s _ _ _ _ _ _ _ _ Hs Ho)) Ht). }
   assert (Hvt' : m = Forward -> forall p, In p (x :: L) -> live_anf (S k) (cW (VInfo k te None)) p ->
                    vo_target vo <> Some (stored p)).
   { intros Hm p [<- | Hp] Hl Ht.
