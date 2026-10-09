@@ -254,6 +254,114 @@ Proof. intros L k c wP pp live ty tail eA eW eD ve o _ _ _ _ _ Es; discriminate.
 Lemma inplace_ite (cP : atom pv) (tP eP : anf pv bare) : inplace_only (AIte cP tP eP).
 Proof. intros L k wP pp tail eW te _ _ Hst; destruct Hst; reflexivity. Qed.
 
+
+(* Loops. *)
+Lemma run_forback i lo hi b ss s l h :
+  xev s lo = Some (VInt l) -> xev s hi = Some (VInt h) ->
+  run (DForBack i lo hi b :: ss) s =
+  match exec_down R (run b) (out_dvar nat i) (h - 1) (count l h) s with Some s1 => run ss s1 | None => None end.
+Proof.
+  intros Hl Hh; unfold run; cbn [map out_dstmt exec_stmts exec]; unfold xev in Hl, Hh; rewrite Hl, Hh.
+  reflexivity.
+Qed.
+
+(* A loop down from n - 1 to 0, by an invariant indexed by the next index. *)
+Lemma exec_down_loop (body : store R -> option (store R)) (i : dvar nat) (N : nat) (P : nat -> store R -> Prop) :
+  (forall j s, (j < N)%nat -> P (S j) s -> exists s', body (store_set s (KVar i) (VInt (Z.of_nat j))) = Some s' /\ P j s') ->
+  forall n s, (n <= N)%nat -> P n s -> exists s', exec_down R body i (Z.of_nat n - 1) n s = Some s' /\ P 0%nat s'.
+Proof.
+  intros Hstep n; induction n as [| n IH]; intros s Hn Hp; cbn [exec_down]; [exists s; auto |].
+  replace (Z.of_nat (S n) - 1)%Z with (Z.of_nat n) by lia.
+  destruct (Hstep n s ltac:(lia) Hp) as [s1 [Hb Hp1]]; rewrite Hb.
+  exact (IH s1 ltac:(lia) Hp1).
+Qed.
+
+Lemma eval_map_nth (ev : val (dual R) -> option (val (dual R))) i n xs j d0 :
+  eval_map ev i n = Some xs -> (j < n)%nat -> ev (VInt (i + Z.of_nat j)) = Some (VReal (nth j xs d0)).
+Proof.
+  revert i xs j; induction n as [| n IH]; intros i xs j H Hj; [lia |]; simpl in H.
+  destruct (ev (VInt i)) as [[x | | | |] |] eqn:E; try discriminate.
+  destruct (eval_map ev (i + 1)%Z n) as [xs1 |] eqn:E1; [| discriminate]; injection H as <-.
+  destruct j as [| j]; [simpl; rewrite Z.add_0_r; exact E |].
+  simpl nth; replace (i + Z.of_nat (S j))%Z with (i + 1 + Z.of_nat j)%Z by lia.
+  apply IH; [exact E1 | lia].
+Qed.
+
+Lemma skipn_nth_cons {A : Type} (l : list A) j d :
+  (j < length l)%nat -> skipn j l = nth j l d :: skipn (S j) l.
+Proof. revert l; induction j as [| j IH]; intros [| a l] H; simpl in *; try lia; auto; apply IH; lia. Qed.
+
+Lemma dotr_zero_l l m : Forall (fun x => x = 0) l -> dotr l m = 0.
+Proof.
+  intros H; revert m; induction H as [| x l Hx Hl IH]; intros [| b m]; try reflexivity.
+  rewrite dotr_cons, IH, Hx; ring.
+Qed.
+
+Lemma inner_tangent_zero v b : zero v -> inner (TangentCorrect.tangent v) b = 0.
+Proof.
+  intros Hz; destruct v as [d | | | l |]; simpl in Hz |- *; try (destruct b as [[] |]; reflexivity).
+  - destruct b as [[y | | | |] |]; try reflexivity; rewrite Hz; ring.
+  - destruct b as [[| | | m |] |]; try reflexivity.
+    apply dotr_zero_l; rewrite Forall_map; exact Hz.
+Qed.
+
+Lemma xev_at s a ix l z :
+  store_get s (keyv a) = Some (VArray l) -> store_get s (keyv ix) = Some (VInt z) ->
+  xev s (DAt (DVar a) (DVar ix)) = option_map VReal (nth_z z l).
+Proof.
+  intros Ha Hi; unfold xev, keyv in *; simpl; rewrite Ha, Hi; destruct (nth_z z l); reflexivity.
+Qed.
+
+Lemma nth_z_of_nat {A : Type} (l : list A) j d : (j < length l)%nat -> nth_z (Z.of_nat j) l = Some (nth j l d).
+Proof.
+  intros H; unfold nth_z.
+  replace (Z.of_nat j <? 0)%Z with false by (symmetry; apply Z.ltb_ge; lia).
+  rewrite Nat2Z.id; apply nth_error_nth'; exact H.
+Qed.
+
+(* Owners, without one of them. *)
+Definition odel (O : owners) (n : dvar W) : owners :=
+  filter (fun tm => if dvar_eq_dec_c (snd tm) n then false else true) O.
+
+Lemma odel_in O n t m : In (t, m) (odel O n) <-> In (t, m) O /\ m <> n.
+Proof. unfold odel; rewrite filter_In; simpl; destruct (dvar_eq_dec_c m n); intuition congruence. Qed.
+
+Lemma odel_snd O n m : In m (map snd (odel O n)) -> In m (map snd O) /\ m <> n.
+Proof.
+  intros H; apply in_map_iff in H as [[t m'] [E Hi]]; simpl in E; subst m'.
+  apply odel_in in Hi as [Hi Hn]; split; [apply in_map_iff; exists (t, m); auto | exact Hn].
+Qed.
+
+Lemma odel_nodup O n : NoDup (map snd O) -> NoDup (map snd (odel O n)).
+Proof.
+  induction O as [| [t m] O IH]; intros H; simpl; [constructor |].
+  inversion H as [| ? ? Hm Hd]; subst; unfold odel; simpl.
+  destruct (dvar_eq_dec_c m n); [exact (IH Hd) |]; simpl; constructor; [| exact (IH Hd)].
+  intros Hi; apply Hm, (odel_snd O n m Hi).
+Qed.
+
+Lemma odel_ok O n : owners_ok O -> owners_ok (odel O n).
+Proof. intros H t m Hi; apply odel_in in Hi as [Hi _]; exact (H t m Hi). Qed.
+
+Lemma odel_notin O n : ~ In n (map snd O) -> odel O n = O.
+Proof.
+  induction O as [| [t m] O IH]; intros H; simpl; [reflexivity |]; unfold odel; simpl.
+  destruct (dvar_eq_dec_c m n) as [-> | Hne]; [destruct H; left; reflexivity |].
+  f_equal; apply IH; intros I; apply H; right; exact I.
+Qed.
+
+Lemma pairing_odel O n t s :
+  NoDup (map snd O) -> In (t, n) O -> pairing O s = pairing (odel O n) s + inner t (barv s n).
+Proof.
+  induction O as [| [t0 n0] O IH]; intros Hd Hi; simpl in Hi; [contradiction |].
+  inversion Hd as [| ? ? Hn Hd']; subst; unfold odel; simpl.
+  destruct (dvar_eq_dec_c n0 n) as [-> | Hne].
+  - destruct Hi as [E | Hi]; [injection E as -> | destruct Hn; apply in_map_iff; exists (t, n); auto].
+    fold (odel O n); rewrite odel_notin by exact Hn; simpl; ring.
+  - destruct Hi as [E | Hi]; [injection E as _ E; congruence |].
+    simpl; fold (odel O n); rewrite (IH Hd' Hi); ring.
+Qed.
+
 Section Branch.
 Variable cv : bool.
 
@@ -820,7 +928,8 @@ Proof.
       - intros p Hp Hu Hv; exact (r_useful _ _ _ _ _ _ _ Hr p Hp (Huse p Hp Hu) Hv).
       - intros p t Hp Hu Hi; exact (r_value _ _ _ _ _ _ _ Hr p t Hp (Huse p Hp Hu) Hi).
       - intros o E; discriminate.
-      - exact (r_args _ _ _ _ _ _ _ Hr). }
+      - exact (r_args _ _ _ _ _ _ _ Hr).
+      - exact (r_written _ _ _ _ _ _ _ Hr). }
     assert (Hseed : seed_ok cb Real (DVar (BarOf n)) s1).
     { split; [intros y [<- | []]; split; [simpl; lia | reflexivity] |].
       intros _; exists bn; exact Hbn1. }
@@ -1023,6 +1132,274 @@ Proof.
   { rewrite (run_for _ _ _ _ _ _ 0 h) by reflexivity.
     lazymatch goal with |- match ?r with _ => _ end = _ => replace r with (Some sf) by (symmetry; exact Hex) end; reflexivity. }
   split; [exact Hfr | split; [exact Htk | exact Hn']].
+Qed.
+
+
+(* The reverse sweep of a map: a loop down the indices, replaying the body and
+   transposing it from the adjoint of its element. *)
+Lemma arev_map (loP hiP : atom pv) (bP : pv -> anf pv bare) :
+  (forall x, asim_body cv (bP x)) -> asim_rev cv (AMap loP hiP bP).
+Proof.
+  intros IHb L k c wP pp tail eA eW eT eD te n ve ty vo HA HW HT HD Hs Hbar Htc Htail [j [Ej Hj]] Hst Hev Hvr.
+  pose proof HA as HA0; pose proof HW as HW0.
+  destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
+  repeat match goal with
+         | H : _ /\ _ |- _ => destruct H
+         | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         end; subst.
+  simpl in Htc, Hst |- *.
+  rename b into bA, b0 into bW, b1 into bT, b2 into bD.
+  pose proof (s_static _ _ _ _ _ _ _ Hs) as HL.
+  destruct pp as [| | | ix0 sx0]; simpl in Htc; try discriminate.
+  destruct tail; [| discriminate].
+  destruct loP as [? | ? | l0]; simpl in Htc; try discriminate.
+  destruct hiP as [? | ? | h]; simpl in Htc; try discriminate.
+  destruct (negb (l0 =? 0)%Z) eqn:El; [discriminate |].
+  apply negb_false_iff, Z.eqb_eq in El; subst l0.
+  assert (Hte : te = Array (h - 0)) by (clear - Htc; crush_match Htc).
+  destruct (owner wP PTop) as [o |] eqn:Eo;
+    [| destruct (s_ty _ _ _ _ _ _ _ Hs ltac:(rewrite <- (Htail eq_refl), Hte; exact I) Eo)].
+  destruct wP as [[o' | |] |]; simpl in Eo; try discriminate.
+  destruct (vty (pw o')) as [| | | ny] eqn:Ey; try discriminate; injection Eo as ->.
+  simpl in Hst; injection Hst as Ej; subst j.
+  assert (Hfacts : (exists nm r, varg (pw o) = Some (nm, r) /\ r <> Inout) /\
+                   occurs_anf (vid (pw o)) (S k) (bW (anon k)) = false /\
+                   typecheck (Some (AVar (pw o))) ScalarBody (S k) (bW (VInfo k Integer None)) = (Real, Ok)).
+  { destruct (s_written _ _ _ _ _ _ _ Hs _ eq_refl) as [o'' [Eo'' [_ Hg]]]; injection Eo'' as <-.
+    simpl in Htc; destruct (varg (pw o)) as [[nm [] ] |]; simpl in Htc; try discriminate; [| | | destruct Hg; reflexivity];
+      destruct (occurs_anf (vid (pw o)) (S k) (bW (anon k))); try discriminate;
+      destruct (typecheck (Some (AVar (pw o))) ScalarBody (S k) (bW (VInfo k Integer None))) as [tb [| mm]];
+      simpl in Htc; try discriminate; destruct (ty_eqb tb Real) eqn:Etb; try discriminate;
+      apply ty_eqb_true in Etb; subst; (split; [eexists; eexists; split; [reflexivity | discriminate] | auto]). }
+  destruct Hfacts as [[nm [ro [Hro Hnio]]] [Hnocc HtB]].
+  destruct (s_written _ _ _ _ _ _ _ Hs _ eq_refl) as [o'' [Eo'' [HoL _]]]; injection Eo'' as <-.
+  simpl in Hev; destruct (eval_map (fun v1 => aeval (duals reals) (bD v1)) 0 (count 0 h)) as [xs |] eqn:Hxs;
+    [| discriminate]; injection Hev as <-.
+  (* the written array: dependent, with a zero tangent, and its adjoint *)
+  assert (Ehn : ny = (h - 0)%Z).
+  { destruct (s_top _ _ _ _ _ _ _ Hs o eq_refl eq_refl ltac:(rewrite Ey; exact I)) as [Hty _].
+    rewrite Ey, <- (Htail eq_refl), Hte in Hty; injection Hty as E; symmetry; exact E. }
+  destruct (static_in _ _ _ HL HoL) as [_ [_ [_ [_ [_ [_ [_ [_ [Hht Hzo]]]]]]]]].
+  rewrite Ey in Hht; destruct (pd o) as [| | | lo |] eqn:Epd; try contradiction; simpl in Hht.
+  pose proof (eval_map_length _ _ _ _ Hxs) as Hlx.
+  (* the body, opened *)
+  rewrite open_pairs_sbind.
+  lazymatch goal with |- context [@open_pairs ?A ?t (S c)] => destruct (@open_pairs A t (S c)) as [[fb rb] c2] eqn:Hob end.
+  assert (Hc2 : (S c <= c2)%nat)
+    by (lazymatch type of Hob with @open_pairs _ ?t _ = _ => pose proof (open_pairs_mono t (S c)) as Mo; rewrite Hob in Mo; exact Mo end).
+  cbn [open_pairs spell amap rev_loop]; split; [lia |].
+  intros s2 O Hrd Hr _ Htp.
+  set (n := DBound (pn o, pn o)) in *.
+  set (i := DBound (c, c)) in *.
+  pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
+  pose proof (r_nodup _ _ _ _ _ _ _ Hr) as Hnd.
+  assert (Hown : owner (Some (AVar o)) PTop = Some o) by (simpl; rewrite Ey; reflexivity).
+  pose proof (r_owner _ _ _ _ _ _ _ Hr o Hown) as HoO; rewrite Epd in HoO.
+  assert (Hav : avaried (pa o) = false).
+  { destruct (r_written _ _ _ _ _ _ _ Hr o eq_refl) as [ny' [r' [Hr' Hw']]]; rewrite Hro in Hr'; injection Hr' as <- <-.
+    rewrite (r_args _ _ _ _ _ _ _ Hr o nm ro HoL Hro).
+    destruct ro; simpl in Hw'; try discriminate; first [reflexivity | destruct Hnio; reflexivity]. }
+  pose proof (Hzo Hav) as Hzl; simpl in Hzl.
+  pose proof (r_shape _ _ _ _ _ _ _ Hr _ _ HoO) as Hsh; simpl in Hsh.
+  change (barv s2 (stored o)) with (barv s2 n) in Hsh.
+  destruct (barv s2 n) as [[| | | yb |] |] eqn:Eyb; try contradiction.
+  rewrite length_map in Hsh.
+  assert (Hcount : length xs = count 0 h) by exact Hlx.
+  assert (Hlyb : length yb = count 0 h) by (rewrite <- Hsh, Hht, Ehn, count_nat; lia).
+  set (O' := odel O n).
+  assert (Hnd' : NoDup (map snd O')) by exact (odel_nodup O n Hnd).
+  assert (HnO' : ~ In n (map snd O')) by (intros Hi; apply (odel_snd O n n Hi); reflexivity).
+  (* the variables of the body *)
+  assert (Hlive_b : forall p, In p L -> live_anf (S k) (bW (VInfo k Integer None)) p ->
+                    live_value k (AMap (ANat 0) (ANat h) bW) p /\ pn p <> pn o).
+  { intros p Hp Hl.
+    assert (Hl' : live_value k (AMap (ANat 0) (ANat h) bW) p).
+    { unfold live_anf, live_value in *; simpl.
+      rewrite <- (live_cont L k bP bW (pfresh k) (VInfo k Integer None) _ H7 HL eq_refl eq_refl); exact Hl. }
+    split; [exact Hl' |]; intros E.
+    destruct (s_owner _ _ _ _ _ _ _ Hs o p Hown Hp E) as [-> | Hn]; [| contradiction].
+    unfold live_anf in Hl.
+    rewrite (live_cont L k bP bW (pfresh k) (VInfo k Integer None) _ H7 HL eq_refl eq_refl) in Hl.
+    congruence. }
+  set (body := ([] ++ fb ++ [] ++ rb)%list).
+  set (N := count 0 h).
+  set (P := fun (jn : nat) (s' : store R) =>
+         (forall v, below c v -> consistent v -> is_primal v -> store_get s' (keyv v) = store_get s2 (keyv v)) /\
+         tapes_kept s2 s' /\ rev_frame c (Some n) O' s2 s' /\ barv s' n = Some (VArray yb) /\
+         (forall t m, In (t, m) O' -> shaped t (barv s' m)) /\
+         pairing O' s' = pairing O' s2 + dotr (skipn jn (map dsnd xs)) (skipn jn yb)).
+  assert (Hloop : exists sf, exec_down R (run body) (out_dvar nat i) (Z.of_nat N - 1) N s2 = Some sf /\ P 0%nat sf).
+  { apply (exec_down_loop (run body) (out_dvar nat i) N P); [| lia |].
+    - intros jn s Hjn [K0 [T0 [F0 [B0 [S0 P0]]]]].
+      assert (Hreads : forall p, In p L -> tbr cv Replay (S k) (bA (fresh k)) p -> vreads cv k (AMap (ANat 0) (ANat h) bA) p).
+      { intros p Hp Ht; destruct (static_in _ _ _ HL Hp) as [Eid [Hk _]].
+        unfold tbr in Ht; unfold vreads; cbn [value_needs].
+        destruct (needs cv Replay (S k) (bA (fresh k))) as [u l]; simpl in Ht |- *.
+        rewrite atom_member_union, atom_member_remove_full, Ht.
+        unfold same_term, fresh; simpl.
+        replace (Nat.eqb k (aid (pa p))) with false by (symmetry; apply Nat.eqb_neq; lia).
+        simpl; rewrite ?orb_true_r; reflexivity. }
+      assert (Hflows : forall p, In p L -> useful cv Replay (S k) (bA (fresh k)) p -> vflows cv k (AMap (ANat 0) (ANat h) bA) p).
+      { intros p Hp Ht; destruct (static_in _ _ _ HL Hp) as [Eid [Hk _]].
+        unfold useful in Ht; unfold vflows; cbn [value_needs].
+        destruct (needs cv Replay (S k) (bA (fresh k))) as [u l]; simpl in Ht |- *.
+        rewrite atom_member_remove_full, Ht.
+        unfold same_term, fresh; simpl.
+        replace (Nat.eqb k (aid (pa p))) with false by (symmetry; apply Nat.eqb_neq; lia).
+        reflexivity. }
+      set (z := Z.of_nat jn).
+      set (s'' := store_set s (keyv i) (VInt z)).
+      change (store_set s (KVar (out_dvar nat i)) (VInt z)) with s''.
+      set (ix := PV (fresh k) (VInfo k Integer None) (open_index (DBound (c, c))) (VInt z) c).
+      assert (Hix : static_ok (S k) ix) by (repeat split; simpl; auto; try lia; discriminate).
+      assert (HL' : Forall (static_ok (S k)) (ix :: L)).
+      { constructor; [exact Hix |]; apply Forall_impl with (P := static_ok k); auto.
+        intros p Hp; apply (static_mono k); auto. }
+      assert (Kin : forall v, below c v -> consistent v -> keyv v <> keyv i).
+      { intros v Hb Hcv Kk; apply keyv_inj in Kk; [| exact Hcv | reflexivity]; subst v; unfold i in Hb; simpl in Hb; lia. }
+      set (d0 := Dual 0 0).
+      assert (Hbd : aeval (duals reals) (bD (VInt z)) = Some (VReal (nth jn xs d0))).
+      { pose proof (eval_map_nth _ 0 _ _ jn d0 Hxs Hjn) as E; cbv beta in E; rewrite Z.add_0_l in E; exact E. }
+      assert (Hctx : actx (ix :: L) (S k) (S c) s'' (Some (AVar o)) PScalar
+                       (live_anf (S k) (bW (VInfo k Integer None))) (tbr cv Replay (S k) (bA (fresh k))) Real).
+      { constructor.
+        - apply sctx_scalar.
+          + exact HL'.
+          + intros p q [<- | Hp] [<- | Hq] E; auto;
+              try (destruct (static_in _ _ _ HL Hq) as [_ [Hq' _]]; simpl in E; lia);
+              try (destruct (static_in _ _ _ HL Hp) as [_ [Hp' _]]; simpl in E; lia).
+            exact (s_unique _ _ _ _ _ _ _ Hs _ _ Hp Hq E).
+          + intros p [<- | Hp]; simpl; [lia |]; pose proof (s_num _ _ _ _ _ _ _ Hs _ Hp); lia.
+          + intros a0 E; injection E as <-; exists o; split; [reflexivity | split; [right; exact HoL |]].
+            destruct (s_written _ _ _ _ _ _ _ Hs _ eq_refl) as [? [E [_ Hg]]]; injection E as <-; exact Hg.
+        - intros p [<- | Hp]; [reflexivity | exact (Hbar p Hp)].
+        - intros p [<- | Hp] Ht.
+          + unfold s''; rewrite store_get_set_same; reflexivity.
+          + assert (Hlb : live_anf (S k) (bW (VInfo k Integer None)) p)
+              by exact (tbr_occurs (ix :: L) (S k) (bP ix) (bA (fresh k)) (bW (VInfo k Integer None)) Replay p
+                          (H10 ix (pa ix)) (H7 ix (pw ix)) HL' (or_intror Hp) (or_introl Ht)).
+            destruct (Hlive_b p Hp Hlb) as [Hl' Hpn].
+            pose proof (s_num _ _ _ _ _ _ _ Hs _ Hp) as Hpc.
+            assert (Hbp : below c (stored p)) by (unfold stored; simpl; exact Hpc).
+            unfold s''; rewrite store_get_set_other by (apply not_eq_sym, Kin; [exact Hbp | reflexivity]).
+            rewrite (K0 (stored p) Hbp eq_refl I).
+            exact (Hrd p Hp (Hreads p Hp Ht) Hl' (or_introl I)).
+        - intros p [<- | Hp] Hrc; [discriminate |].
+          destruct (Htp p Hp Hrc) as [lt Hlt]; destruct (T0 _ _ Hlt) as [l' Hl'].
+          exists l'; unfold s''; rewrite store_get_set_other; [exact Hl' |].
+          intros Kk; apply keyv_inj in Kk; [discriminate | reflexivity | reflexivity].
+        - intros o0 E; discriminate. }
+      specialize (IHb ix (ix :: L) (S k) (S c) s'' (Some (AVar o)) PScalar Replay (bA (fresh k))
+                    (bW (VInfo k Integer None)) (bT (open_index (DBound (c, c)))) (bD (VInt z)) Real (VReal (nth jn xs d0))
+                    (DAt (DVar (BarOf n)) (DVar i)) vo
+                    (H10 ix _) (H7 ix _) (H4 ix _) (H1 ix _) Hctx I HtB Hbd
+                    ltac:(discriminate) ltac:(discriminate) ltac:(discriminate)).
+      lazymatch type of IHb with context [@open_pairs ?A ?t (S c)] =>
+        assert (E : @open_pairs A t (S c) = ((fb, rb), c2)) by exact Hob; rewrite E in IHb; clear E end.
+      destruct IHb as [_ [_ [s1 [R1 [F1 [T1 [_ Hrev]]]]]]].
+      cbn [inplace owner option_map sweep_eqb] in F1, Hrev.
+      assert (Hnb : forall v, ~ is_tape v -> below (S c) v -> consistent v -> store_get s1 (keyv v) = store_get s'' (keyv v))
+        by (intros v Ht Hb Hcv; exact (F1 v Hb Hcv Ht ltac:(discriminate) ltac:(discriminate))).
+      assert (Hns : forall v, below c v -> consistent v -> store_get s'' (keyv v) = store_get s (keyv v))
+        by (intros v Hb Hcv; unfold s''; apply store_get_set_other; apply not_eq_sym, Kin; assumption).
+      assert (B1 : barv s1 n = Some (VArray yb)).
+      { unfold barv; etransitivity; [apply Hnb; [simpl; tauto | unfold n; simpl; lia | reflexivity] |].
+        etransitivity; [apply Hns; [unfold n; simpl; exact Hj | reflexivity] |]; exact B0. }
+      assert (I1 : store_get s1 (keyv i) = Some (VInt z)).
+      { etransitivity; [apply Hnb; [simpl; tauto | unfold i; simpl; lia | reflexivity] |]; unfold s''; apply store_get_set_same. }
+      assert (Hyj : xev s1 (DAt (DVar (BarOf n)) (DVar i)) = Some (VReal (nth jn yb 0))).
+      { etransitivity; [exact (xev_at s1 (BarOf n) i yb z B1 I1) |]; unfold z; rewrite (nth_z_of_nat yb jn 0) by lia; reflexivity. }
+      assert (Hown_b : forall t m, In (t, m) O' -> barv s1 m = barv s m).
+      { intros t m Hi; apply odel_in in Hi as [Hi _].
+        destruct (r_below _ _ _ _ _ _ _ Hr t m Hi) as [jm [-> Hjm]]; unfold barv.
+        etransitivity; [apply Hnb; [simpl; tauto | simpl; lia | reflexivity] |].
+        apply Hns; [simpl; lia | reflexivity]. }
+      assert (Ts1 : tapes_kept s2 s1).
+      { apply (tapes_kept_trans _ s); [exact T0 |].
+        apply (tapes_kept_trans _ s''); [unfold s''; apply tapes_kept_set; [simpl; tauto | reflexivity] | exact T1]. }
+      assert (Hr1 : rctx (ix :: L) (S c) (Some (AVar o)) PScalar O' (useful cv Replay (S k) (bA (fresh k))) s1).
+      { constructor.
+        - exact Hnd'.
+        - intros t m Hi; rewrite (Hown_b t m Hi); exact (S0 t m Hi).
+        - intros t m Hi; apply odel_in in Hi as [Hi _].
+          destruct (r_below _ _ _ _ _ _ _ Hr t m Hi) as [jm [E Hjm]]; exists jm; split; [exact E | lia].
+        - intros p [<- | Hp] Hu Hv; [discriminate |].
+          apply odel_in; split; [exact (r_useful _ _ _ _ _ _ _ Hr p Hp (Hflows p Hp Hu) Hv) |].
+          assert (Hlb : live_anf (S k) (bW (VInfo k Integer None)) p)
+            by exact (tbr_occurs (ix :: L) (S k) (bP ix) (bA (fresh k)) (bW (VInfo k Integer None)) Replay p
+                        (H10 ix (pa ix)) (H7 ix (pw ix)) HL' (or_intror Hp) (or_intror Hu)).
+          destruct (Hlive_b p Hp Hlb) as [_ Hpn]; intros E; apply Hpn; unfold stored, n in E; congruence.
+        - intros p t [<- | Hp] Hu Hin.
+          + apply odel_in in Hin as [Hin _].
+            destruct (r_below _ _ _ _ _ _ _ Hr _ _ Hin) as [jm [E Hjm]]; unfold stored in E; simpl in E.
+            injection E as E1 _; lia.
+          + exact (r_value _ _ _ _ _ _ _ Hr p t Hp (Hflows p Hp Hu) (proj1 (proj1 (odel_in O n t (stored p)) Hin))).
+        - intros o0 E; discriminate.
+        - intros p ny0 r0 [<- | Hp] Hv; [discriminate | exact (r_args _ _ _ _ _ _ _ Hr p ny0 r0 Hp Hv)].
+        - exact (r_written _ _ _ _ _ _ _ Hr). }
+      assert (Hseed : seed_ok (S c) Real (DAt (DVar (BarOf n)) (DVar i)) s1).
+      { split; [| intros _; exists (nth jn yb 0); exact Hyj].
+        intros y Hy; simpl in Hy; destruct Hy as [<- | [<- | []]]; split; unfold n, i; simpl; try lia; reflexivity. }
+      assert (Htp1 : tapes_ok (ix :: L) s1).
+      { intros p [<- | Hp] Hrc; [discriminate |].
+        destruct (Htp p Hp Hrc) as [lt Hlt]; exact (Ts1 _ _ Hlt). }
+      destruct (Hrev s1 O' (fun _ _ _ _ => eq_refl) Hr1 Hseed Htp1) as [s3 [R3 [_ [_ [T3 [F3 [S3 P3]]]]]]].
+      exists s3; split.
+      { unfold body; simpl app; rewrite run_app, R1; exact R3. }
+      assert (Hp3 : forall v, below c v -> consistent v -> ~ is_tape v -> (forall m, v = BarOf m -> ~ In m (map snd O')) ->
+                     store_get s3 (keyv v) = store_get s (keyv v)).
+      { intros v Hb Hcv Ht Hbo.
+        rewrite (F3 v (below_mono c (S c) v Hb ltac:(lia)) Hcv Ht ltac:(discriminate) Hbo).
+        rewrite (Hnb v Ht (below_mono c (S c) v Hb ltac:(lia)) Hcv); exact (Hns v Hb Hcv). }
+      split.
+      { intros v Hb Hcv Hpv; rewrite (Hp3 v Hb Hcv ltac:(destruct v; simpl in Hpv |- *; tauto)
+                                    ltac:(intros m0 E; subst v; destruct Hpv)).
+        exact (K0 v Hb Hcv Hpv). }
+      split; [exact (tapes_kept_trans _ _ _ Ts1 T3) |].
+      split; [intros v Hb Hcv Ht Hex Hbo; rewrite (Hp3 v Hb Hcv Ht Hbo); exact (F0 v Hb Hcv Ht Hex Hbo) |].
+      split.
+      { unfold barv; etransitivity; [apply Hp3; [unfold n; simpl; exact Hj | reflexivity | simpl; tauto |] |].
+        - intros m0 E; injection E as <-; exact HnO'.
+        - exact B0. }
+      split; [exact S3 |].
+      rewrite P3; unfold result_pairing, seed_value; rewrite Hyj.
+      rewrite (pairing_ext_own O' s1 s Hown_b), P0.
+      rewrite (skipn_nth_cons (map dsnd xs) jn (dsnd d0)) by (rewrite length_map; lia).
+      rewrite (skipn_nth_cons yb jn 0) by lia.
+      rewrite dotr_cons, map_nth; ring.
+    - split; [intros; reflexivity |].
+      split; [apply tapes_kept_refl |].
+      split; [intros ? ? ? ? ? ?; reflexivity |].
+      split; [exact Eyb |].
+      split; [intros t m Hi; apply odel_in in Hi as [Hi _]; exact (r_shape _ _ _ _ _ _ _ Hr t m Hi) |].
+      rewrite !skipn_all2 by (rewrite ?length_map; lia); unfold dotr; simpl; ring. }
+  destruct Hloop as [sf [Hex [K [T [F [B [Sh Pf]]]]]]].
+  exists sf; split.
+  { rewrite (run_forback _ _ _ _ _ _ 0 h) by reflexivity.
+    assert (Hdown : exec_down R (run body) (out_dvar nat i) (h - 1) N s2 = Some sf).
+    { destruct (Nat.eq_dec N 0) as [E0 | Hn0].
+      - rewrite E0 in Hex |- *; exact Hex.
+      - replace (h - 1)%Z with (Z.of_nat N - 1)%Z by (unfold N in *; rewrite count_nat in *; lia); exact Hex. }
+    lazymatch goal with |- match ?r with _ => _ end = _ => replace r with (Some sf) by (symmetry; exact Hdown) end; reflexivity. }
+  assert (Eput : oput O n (tangent (VArray xs)) = oset O n (tangent (VArray xs))).
+  { unfold oput; destruct (in_dec dvar_eq_dec_c n (map snd O)) as [_ | Hni]; [reflexivity |].
+    destruct Hni; apply in_map_iff; eexists; split; [| exact HoO]; reflexivity. }
+  rewrite Eput.
+  split; [intros v Hb0 Hc0 Hp0 _; exact (K v Hb0 Hc0 Hp0) |].
+  split; [exact T |].
+  split.
+  { unfold inplace; rewrite Hown; change (Some (stored o)) with (Some n).
+    apply (rev_frame_mono c c _ _ _ _ _ F (le_n c)); intros m Hm; left; rewrite oset_snd; exact (proj1 (odel_snd O n m Hm)). }
+  split.
+  { intros t m Hi; destruct (dvar_eq_dec_c m n) as [-> | Hne].
+    - rewrite B; pose proof (r_shape _ _ _ _ _ _ _ Hr t n Hi) as Hs0; rewrite Eyb in Hs0; exact Hs0.
+    - exact (Sh t m (proj2 (odel_in O n t m) (conj Hi Hne))). }
+  rewrite (pairing_odel O n _ sf Hnd HoO), (pairing_oset O s2 _ n _ Hok Hnd HoO), (pairing_odel O n _ s2 Hnd HoO).
+  fold O'; rewrite Pf, B, Eyb, !inner_tangent_zero by exact Hzl.
+  simpl; ring.
 Qed.
 
 (* Bodies of straight lets and branches: an assignment is in no branch. *)
