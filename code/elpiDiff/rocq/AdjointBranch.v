@@ -694,6 +694,31 @@ Definition tape_step (r : bool) (zi : option Z) (st : val (dual R)) (t : option 
 Lemma tape_step_none r st t : tape_step r None st t = t.
 Proof. destruct r; reflexivity. Qed.
 
+(* Two versions of an array that differ at most at the index of a set. *)
+Definition same_except (zi : option Z) (l0 l1 : list R) : Prop :=
+  length l1 = length l0 /\ forall z, zi <> Some z -> nth_z z l1 = nth_z z l0.
+
+Lemma same_except_refl zi l : same_except zi l l.
+Proof. split; auto. Qed.
+
+Lemma replace_nth_other {A : Type} n n' (x : A) l l1 :
+  replace_nth n x l = Some l1 -> n' <> n -> nth_error l1 n' = nth_error l n'.
+Proof.
+  revert n' l l1; induction n as [| n IH]; intros n' [| y l] l1 H Hne; simpl in H; try discriminate.
+  - injection H as <-; destruct n' as [| n']; [lia | reflexivity].
+  - destruct (replace_nth n x l) as [l2 |] eqn:E; [| discriminate]; injection H as <-.
+    destruct n' as [| n']; [reflexivity | simpl; apply (IH n' l l2 E); lia].
+Qed.
+
+Lemma replace_same_except z (y : R) l0 l1 : replace_nth_z z y l0 = Some l1 -> same_except (Some z) l0 l1.
+Proof.
+  unfold replace_nth_z, same_except, nth_z; destruct (z <? 0)%Z eqn:Ez; [discriminate |]; intros H.
+  split; [exact (replace_nth_length _ _ _ _ H) |].
+  intros z' Hne; destruct (z' <? 0)%Z eqn:Ez'; [reflexivity |].
+  apply (replace_nth_other _ _ _ _ _ H).
+  apply Z.ltb_ge in Ez, Ez'; intros E; apply Hne; f_equal; lia.
+Qed.
+
 (* The forward sweep of a branch body: prim computes every let, then the
    value of the body, from the variables that occur in it. *)
 Definition psim_body (bP : anf pv bare) : Prop :=
@@ -709,7 +734,10 @@ Definition psim_body (bP : anf pv bare) : Prop :=
     xev s1 x = Some (primal v) /\
     (forall o, owner wP pp = Some o ->
        store_get s1 (keyv (TapeOf (stored o))) =
-       tape_step (sweep_eqb m Forward && trecorded (pt o)) (set_index bD) (pd o) (store_get s (keyv (TapeOf (stored o))))).
+       tape_step (sweep_eqb m Forward && trecorded (pt o)) (set_index bD) (pd o) (store_get s (keyv (TapeOf (stored o)))) /\
+       (set_index bD <> None -> store_get s1 (keyv (stored o)) = Some (primal v)) /\
+       (forall l0, store_get s (keyv (stored o)) = Some (VArray l0) ->
+          exists l1, store_get s1 (keyv (stored o)) = Some (VArray l1) /\ same_except (set_index bD) l0 l1)).
 
 Lemma prim_let w m a e b :
   prim W w m (ALet a e b) =
@@ -728,7 +756,9 @@ Proof.
   cbn [annotate_body_t rebuild prim open_pairs].
   split; [lia |]; exists s; split; [reflexivity |].
   split; [intros ? ? ? ? ? ?; reflexivity | split; [apply tkeep_refl |]].
-  split; [| intros o _; cbn [set_index]; rewrite tape_step_none; reflexivity].
+  split; [| intros o _; cbn [set_index]; rewrite tape_step_none;
+            split; [reflexivity | split; [intros E; destruct E; reflexivity |
+                                          intros l0 E; exists l0; split; [exact E | apply same_except_refl]]]].
   pose proof (a_sctx _ _ _ _ _ _ _ _ _ Hc) as Hs.
   apply (aspell_ok k s aP); [| exact Hev].
   intros p ->; split; [exact (static_in _ _ _ (s_static _ _ _ _ _ _ _ Hs) (H p eq_refl)) |].
@@ -871,13 +901,14 @@ Proof.
   split; [exact (tkeep_trans _ _ _ _ _ (tkeep_fresh c (S c) _ (inplace wP pp) _ _ T1 ltac:(simpl; lia) (Nat.le_succ_diag_r c))
                                        (tkeep_mono _ _ _ _ _ Tb Hcc1)) |].
   destruct Vb as [Vx Vt]; split; [exact Vx |].
-  intros o Ho; rewrite (Vt o Ho).
+  intros o Ho; destruct (Vt o Ho) as [Vt1 [Vt2 Vt3]].
   assert (Esi : set_index (ALet aD eD cD) = set_index (cD ve)).
   { clear - HeD Hve Hns.
     destruct eP; try (exfalso; eapply Hns; reflexivity);
       destruct eD; simpl in HeD; try contradiction; cbn [set_index]; rewrite Hve; reflexivity. }
-  rewrite Esi; f_equal.
   assert (HoL : In o L) by exact (owner_in_s _ _ _ _ _ _ _ _ Hs Ho).
+  rewrite Esi; split; [| split; [exact Vt2 | intros l0 E0; apply Vt3; rewrite (Hold o HoL); exact E0]].
+  rewrite Vt1; f_equal.
   apply (proj2 T1); [unfold stored; simpl; pose proof (s_num _ _ _ _ _ _ _ Hs o HoL); lia | reflexivity |].
   intros E; injection E as E; apply (Hnotin o HoL); rewrite E; reflexivity.
 Qed.
@@ -973,7 +1004,6 @@ Proof.
     { cbn [aeval_value]; change (aeval_atom (duals reals) (AVar (pd sx))) with (Some (pd sx)); rewrite Epd, Hi, Hv.
       cbn; rewrite Er; reflexivity. }
     unfold set_index; rewrite Hval; rewrite ED; fold set_index; rewrite Hi; reflexivity. }
-  rewrite Esi.
   pose proof (replace_nth_z_map dfst z (Dual y dy) l) as Hm; rewrite Er in Hm; simpl in Hm.
   assert (Hassign : forall s0, store_get s0 (keyv (stored sx)) = Some (VArray (map dfst l)) ->
             xev s0 (spell (amap pt iP)) = Some (VInt z) -> xev s0 (spell (amap pt vP)) = Some (VReal y) ->
@@ -1008,7 +1038,11 @@ Proof.
         subst v0; apply Ht; exact I. }
       split; [apply (tkeep_trans _ _ _ s0); [apply tkeep_set_tape; [reflexivity | right; reflexivity] | apply tkeep_set; [simpl; tauto | reflexivity]] |].
       split; [apply store_get_set_same |].
-      intros o Ho; injection Ho as <-; rewrite Erec0.
+      intros o Ho; injection Ho as <-; rewrite Esi.
+      split; [| split; [intros _; apply store_get_set_same |
+                        intros la E0; rewrite Hq in E0; injection E0 as <-; exists (map dfst l1);
+                        split; [apply store_get_set_same | exact (replace_same_except _ _ _ _ Hm)]]].
+      rewrite Erec0.
       rewrite store_get_set_other by (unfold keyv; simpl; discriminate).
       unfold s0; rewrite store_get_set_same, Epd, Hlt; unfold tape_step; rewrite nth_z_map, Hold; reflexivity.
   - exists (store_set s (keyv (stored sx)) (VArray (map dfst l1))); split.
@@ -1018,7 +1052,11 @@ Proof.
         apply store_get_set_other; intros K; apply keyv_inj in K; [subst v0; apply Hex; reflexivity | reflexivity | exact Hcv]. }
       split; [apply tkeep_set; [simpl; tauto | reflexivity] |].
       split; [apply store_get_set_same |].
-      intros o Ho; injection Ho as <-; rewrite Erec.
+      intros o Ho; injection Ho as <-; rewrite Esi.
+      split; [| split; [intros _; apply store_get_set_same |
+                        intros la E0; rewrite Hq in E0; injection E0 as <-; exists (map dfst l1);
+                        split; [apply store_get_set_same | exact (replace_same_except _ _ _ _ Hm)]]].
+      rewrite Erec.
       rewrite store_get_set_other by (unfold keyv; simpl; discriminate); reflexivity.
 Qed.
 
