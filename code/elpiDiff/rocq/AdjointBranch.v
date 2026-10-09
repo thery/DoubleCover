@@ -1010,7 +1010,7 @@ Proof.
       - exact Htp.
       - intros o Ho; unfold owner in Ho; destruct wP as [[] |]; discriminate. }
     specialize (IH L k cb s2 wP PBranch Replay bA bW bT bD Real ve (DVar (BarOf n)) vo HbA HbW HbT HbD Hctx I Htcb Hevb
-                  ltac:(discriminate) ltac:(discriminate) ltac:(discriminate)).
+                  ltac:(discriminate) ltac:(discriminate) ltac:(discriminate) ltac:(discriminate)).
     lazymatch type of IH with context [@open_pairs ?A ?t cb] =>
       assert (E : @open_pairs A t cb = ((fb, rb), cb')) by exact Hob; rewrite E in IH; clear E end.
     destruct IH as [_ [Hht [s1 [R1 [F1 [T1 [_ Hrev]]]]]]].
@@ -1398,7 +1398,7 @@ Proof.
                     (bW (VInfo k Integer None)) (bT (open_index (DBound (c, c)))) (bD (VInt z)) Real (VReal (nth jn xs d0))
                     (DAt (DVar (BarOf n)) (DVar i)) vo
                     (H10 ix _) (H7 ix _) (H4 ix _) (H1 ix _) Hctx I HtB Hbd
-                    ltac:(discriminate) ltac:(discriminate) ltac:(discriminate)).
+                    ltac:(discriminate) ltac:(discriminate) ltac:(discriminate) ltac:(discriminate)).
       lazymatch type of IHb with context [@open_pairs ?A ?t (S c)] =>
         assert (E : @open_pairs A t (S c) = ((fb, rb), c2)) by exact Hob; rewrite E in IHb; clear E end.
       destruct IHb as [_ [_ [s1 [R1 [F1 [T1 [_ Hrev]]]]]]].

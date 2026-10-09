@@ -750,6 +750,7 @@ Definition asim_body (bP : anf pv bare) : Prop :=
                   (forall t, vo = Some (AReturns t) -> wP = None)) ->
   (m = Forward -> forall p, In p L -> live_anf k bW p -> vo_target vo <> Some (stored p)) ->
   (m = Forward -> forall t, vo_target vo = Some t -> below c t /\ consistent t /\ is_primal t) ->
+  (m = Replay -> pp <> PTop) ->
   let '((fw, rv), c') :=
     open_pairs (adj W (option_map (amap pt) wP) vo m (rebuild _ bT (annotate_body_t cv m k bA)) se) c in
   (c <= c')%nat /\ has_type ty v /\
@@ -886,7 +887,7 @@ Qed.
 
 Lemma asim_ret (aP : atom pv) : asim_body (ARet aP).
 Proof.
-  intros L k c s wP pp m bA bW bT bD ty v se vo HA HW HT HD Hc Hty Htc Hev Hvo _.
+  intros L k c s wP pp m bA bW bT bD ty v se vo HA HW HT HD Hc Hty Htc Hev Hvo _ _ _.
   destruct bA as [| aA], bW as [| aW], bT as [| aT], bD as [| aD]; simpl in HA, HW, HT, HD;
     try contradiction.
   graph HA; graph HW; graph HT; graph HD.
@@ -2132,7 +2133,7 @@ Lemma asim_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
   asim_fwd eP -> asim_rev eP -> inplace_only eP -> act_value eP -> act_owner eP -> (forall x, asim_body (cP x)) ->
   asim_body (ALet a eP cP).
 Proof.
-  intros IHf IHr IHi IHa IHo IHb L k c s wP pp m bA bW bT bD ty v se vo HA HW HT HD Hc Hty Htc Hev Hvo Hvt Hvb.
+  intros IHf IHr IHi IHa IHo IHb L k c s wP pp m bA bW bT bD ty v se vo HA HW HT HD Hc Hty Htc Hev Hvo Hvt Hvb Hrpl.
   destruct bA as [aA eA cA |], bW as [aW eW cW |], bT as [aT eT cT |], bD as [aD eD cD |];
     simpl in HA, HW, HT, HD; try contradiction.
   destruct HA as [HeA HcA], HW as [HeW HcW], HT as [HeT HcT], HD as [HeD HcD].
@@ -2448,7 +2449,7 @@ Proof.
   assert (Hvb' : m = Forward -> forall t, vo_target vo = Some t -> below (S c) t /\ consistent t /\ is_primal t).
   { intros Hm t0 Ht0; destruct (Hvb Hm t0 Ht0) as [H1 H2]; split; [exact (below_mono c (S c) t0 H1 (Nat.le_succ_diag_r c)) | exact H2]. }
   pose proof (IHb x (x :: L) (S k) (S c) se1 wP pp m (cA (pa x)) (cW (pw x)) (cT (pt x)) (cD (pd x)) ty v se vo
-                (HcA x _) (HcW x _) (HcT x _) (HcD x _) Hc' Hty Htc Hev Hvo Hvt' Hvb') as IH.
+                (HcA x _) (HcW x _) (HcT x _) (HcD x _) Hc' Hty Htc Hev Hvo Hvt' Hvb' Hrpl) as IH.
   unfold x in IH; cbn [pt pa pd pw] in IH; fold rest in IH.
   lazymatch type of IH with context [@open_pairs ?A ?t (S c)] =>
     assert (E : @open_pairs A t (S c) = (fb, rb, c1)) by exact Hb; rewrite E in IH; clear E end.

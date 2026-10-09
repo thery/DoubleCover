@@ -1062,7 +1062,7 @@ Proof.
     { intros _ p _ _ E; unfold vo in E; destruct cv; simpl in E; [injection E as E; discriminate | discriminate]. }
     assert (Hvb : Forward = Forward -> forall t, vo_target vo = Some t -> below n t /\ consistent t /\ is_primal t).
     { intros _ t E; unfold vo in E; destruct cv; simpl in E; [injection E as <-; repeat split | discriminate]. }
-    pose proof (Hsim L n n s0 None PTop Forward bA bW bT bD Real v se vo HbA HbW HbT HbD Hactx I HtcB Hev Hvo Hvt Hvb)
+    pose proof (Hsim L n n s0 None PTop Forward bA bW bT bD Real v se vo HbA HbW HbT HbD Hactx I HtcB Hev Hvo Hvt Hvb ltac:(discriminate))
       as HS.
     cbn [option_map] in HS.
     lazymatch type of HS with context [@open_pairs ?A ?t n] =>
@@ -1267,7 +1267,7 @@ Proof.
     { intros _ t' E; rewrite Hvtg in E; destruct cvw; [| discriminate].
       destruct r; try discriminate; destruct t; try discriminate.
       all: injection E as <-; unfold stored; simpl; split; [exact (Hnum y HyL) | split; [reflexivity | exact I]]. }
-    pose proof (Hsim L n n s0 (Some (AVar y)) PTop Forward bA bW bT bD t v se vo HbA HbW HbT HbD Hactx Hraw HtcB Hev Hvo Hvt Hvb)
+    pose proof (Hsim L n n s0 (Some (AVar y)) PTop Forward bA bW bT bD t v se vo HbA HbW HbT HbD Hactx Hraw HtcB Hev Hvo Hvt Hvb ltac:(discriminate))
       as HS.
     cbn [option_map amap] in HS.
     lazymatch type of HS with context [@open_pairs ?A ?t0 n] =>
