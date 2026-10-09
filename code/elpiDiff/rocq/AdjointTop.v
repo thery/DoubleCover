@@ -1481,7 +1481,8 @@ Proof.
   intros L res bP Ho; apply asim_straight, (Hs L res bP Ho).
 Qed.
 
-(* Milestone M2: the same with branches (an assignment is in no branch). *)
+(* Milestones M2 and M3: the same with branches and maps (an assignment is
+   in no branch; a map writes the result at the end of the function). *)
 Corollary adjoint_branchy_duals (cv : bool) (f : function) (x : list (val R)) (xb yb dx : list R)
   (v : val (dual R)) :
   parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->

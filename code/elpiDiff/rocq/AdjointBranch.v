@@ -1502,7 +1502,8 @@ Proof.
   simpl; ring.
 Qed.
 
-(* Bodies of straight lets and branches: an assignment is in no branch. *)
+(* Bodies of straight lets, branches and maps: an assignment is in no branch,
+   a map is at the top, and branches and maps hold no assignment. *)
 Fixpoint branchy (top : bool) (b : anf pv bare) : Prop :=
   match b with
   | ALet _ e b' => branchy_value top e /\ forall x, branchy top (b' x)
@@ -1513,6 +1514,7 @@ with branchy_value (top : bool) (e : value pv bare) : Prop :=
   | AOp1 _ _ | AOp2 _ _ _ | AGet _ _ => True
   | ASet _ _ _ => top = true
   | AIte _ t e => branchy false t /\ branchy false e
+  | AMap _ _ b => top = true /\ forall x, branchy false (b x)
   | _ => False
   end.
 
@@ -1557,7 +1559,12 @@ Proof.
     split; [apply arev_ite; auto |].
     split; [apply inplace_ite |].
     split; [apply act_ite; auto | split; [apply owner_ite | intros _ wP tail; reflexivity]].
-  - intros lo hi b _ top [].
+  - intros lo hi b IHb top [Et Hb]; subst top.
+    split; [apply afwd_map; intros x; exact (proj2 (proj2 (IHb x false (Hb x))) eq_refl) |].
+    split; [apply arev_map; intros x; exact (proj1 (IHb x false (Hb x))) |].
+    split; [apply inplace_map |].
+    assert (Ham : act_value (AMap lo hi b)) by (apply act_map; intros x; exact (proj1 (proj2 (IHb x false (Hb x))))).
+    split; [exact Ham | split; [apply owner_map; exact Ham | discriminate]].
   - intros a lo hi init b _ top [].
 Qed.
 
