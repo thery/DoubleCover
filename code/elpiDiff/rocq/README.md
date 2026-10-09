@@ -50,7 +50,7 @@ the tangent of the body times the seed.
 |---|---|
 | M1, straight-line bodies (operations, `a[i]`, in-place update) | done: `asim_straight` (`AdjointCorrect.v`) and the top level `adjoint_simulates_duals`, `adjoint_straight_duals` (`AdjointTop.v`), before `simplify`; no `Admitted` |
 | M2, branches | done: `asim_branchy` (`AdjointBranch.v`; a branch is replayed in the reverse sweep, `arev_ite`) and the top level `adjoint_branchy_duals` (`AdjointTop.v`), for bodies of straight lets and branches with no assignment in a branch; no `Admitted`. The proof found that adjoint-value lost the original value of an inout array (see `BUGS.md`, fixed in deed0ef) |
-| M3, maps | to do |
+| M3, maps | done: `afwd_map`, `arev_map` (`AdjointBranch.v`): the reverse loop replays the body at each index and transposes it from the adjoint of the element, the written array, dependent, having a zero tangent; `adjoint_branchy_duals` now covers maps at the end of the function; no `Admitted` |
 | M4, M5, folds and tapes | to do |
 | M6, `simplify` with tapes, the scoping of the adjoint code | to do |
 | M7, adjoint-value at the top, `adjoint_mode_correct` | to do |
