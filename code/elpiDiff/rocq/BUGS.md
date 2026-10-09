@@ -48,7 +48,7 @@ target for an inout result (`inout_result`); the generated code does not
 change. No reference case changed; this one was added as the reference case
 `13-branch-inplace`.
 
-## In the test tools (2026-10-07, commit 19f9020)
+## In the test tools (2026-10-08, commit 19f9020)
 
 Not bugs of the generated code: the L2 evaluators had stopped running after
 the float builtins were renamed in Elpi (LPCIC/elpi#459).
