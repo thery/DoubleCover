@@ -873,6 +873,22 @@ Lemma forall2_map {A B C : Type} (f : A -> B) (g : A -> C) (P : B -> C -> Prop) 
   Forall (fun a => P (f a) (g a)) l -> Forall2 P (map f l) (map g l).
 Proof. induction 1; constructor; auto. Qed.
 
+(* The arguments of a function are inout as its declarations say. *)
+Lemma has_inout_eq {V1 : Type} (G : list (V1 * unit)) (d1 : adefinition V1 bare) (d2 : adefinition unit bare) x1 :
+  adefinition_eq G d1 d2 -> has_inout d1 x1 = writes_inout (declarations d2).
+Proof.
+  revert G d2; induction d1 as [n t r f IH | rr b]; intros G [n' t' r' f2 | rr' b'] H; simpl in H; try contradiction.
+  - destruct H as [<- [<- [<- H]]]; simpl; destruct r; try reflexivity; apply (IH x1 ((x1, tt) :: G)); apply H.
+  - reflexivity.
+Qed.
+
+Lemma annotate_cv_decls cv f :
+  parametric f -> annotate_cv cv (normalize f) = (cv && negb (writes_inout (decls f)))%bool.
+Proof.
+  intros Hp; unfold annotate_cv, decls; f_equal; f_equal.
+  apply (has_inout_eq []); exact (normalize_parametric f Hp avar unit).
+Qed.
+
 (* The adjoint function, opened at the numbers simplify uses, from the
    primal arguments, their adjoints and the seed: it computes the gradient,
    the transpose of the tangent of the dual evaluation applied to the seed. *)
@@ -881,7 +897,7 @@ Theorem adjoint_simulates_duals (cv : bool) (f : function) (x : list (val R)) (x
   parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->
   length xb = in_dim x -> length yb = length (reals_of_val (primal v)) -> length dx = in_dim x ->
   (forall L res bP, open_P (afdef (normalize f) pv) 0 (seed_args (decls f) x dx) [] = Some (L, res, bP) ->
-     asim_body cv bP) ->
+     asim_body (annotate_cv cv (normalize f)) bP) ->
   aeval_function (duals reals) (normalize f) (seed_args (decls f) x dx) = Some v ->
   exists r ps ss k out g,
     open_pairs (dfbody (Adjoint.adjoint cv (annotate cv (normalize f))) W) 0 = (DBody r ps ss, k) /\
@@ -892,6 +908,8 @@ Theorem adjoint_simulates_duals (cv : bool) (f : function) (x : list (val R)) (x
     (cv = true -> writes_inout (decls f) = false -> value_given (decls f) out = Some (TangentCorrect.primal v)).
 Proof.
   intros Hpar Hwf Hfit Hlxb Hlyb Hldx Hsim Hev.
+  assert (Ecva := annotate_cv_decls cv f Hpar).
+  set (cva := annotate_cv cv (normalize f)) in *.
   set (xs := seed_args (decls f) x dx) in *.
   pose proof (normalize_parametric f Hpar) as Hnp.
   set (dP := afdef (normalize f) pv).
@@ -901,7 +919,7 @@ Proof.
   specialize (Hsim L res bP Ho).
   destruct (open_P_args dP 0 xs [] L res bP Ho) as [new [EL [Hlen Hargs]]].
   rewrite app_nil_r in EL; subst new.
-  destruct (annotate_open_cv cv dP [] 0 xs L res bP _ (Hnp pv avar) Ho) as [bA [HbA Htr]].
+  destruct (annotate_open_cv cva dP [] 0 xs L res bP _ (Hnp pv avar) Ho) as [bA [HbA Htr]].
   destruct (wf_open dP [] 0 xs L res bP _ (decls f) (Hnp pv vinfo) Ho) as [resW [bW [HrW [HbW Hwfd]]]].
   destruct (eval_open dP [] 0 xs L res bP _ HD Ho) as [bD [HbD HevD]].
   rewrite HevD in Hev.
@@ -910,7 +928,7 @@ Proof.
   clear Hds; rename Hds' into Hds.
   rewrite Nat.add_0_l in Htr, Hwfd.
   set (n := length xs) in *.
-  set (tr := annotate_definition_t cv 0 (afdef (normalize f) avar)) in *.
+  set (tr := annotate_definition_t cva 0 (afdef (normalize f) avar)) in *.
   destruct (tangent_open dP [] 0 xs L res bP (afdef (normalize f) (tvar W)) tr (adjoint_body W cv)
               (Hnp pv (tvar W)) Ho) as [resT [bT [HrT [HbT Hopen]]]].
   rewrite Nat.add_0_l in Hopen; fold n in Hopen.
@@ -979,7 +997,14 @@ Proof.
   - (* the function returns a real *)
     subst resW; destruct res as [tR | yP]; simpl in HrW; [subst tR | contradiction].
     destruct resT as [tT | yT]; simpl in HrT; [subst tT | contradiction].
-    cbn [adjoint_seed]; rewrite open_pairs_sbind.
+    assert (Hwio : writes_inout (decls f) = false).
+    { destruct (writes_inout (decls f)) eqn:E; [| reflexivity].
+      apply existsb_exists in E as [[nm0 t0 r0] [Hd0 E]]; destruct r0; try discriminate.
+      assert (existsb written_decl (decls f) = true) by (apply existsb_exists; exists (Decl nm0 t0 Inout); auto).
+      congruence. }
+    assert (Ecv' : cva = cv) by (rewrite Ecva, Hwio, andb_true_r; reflexivity).
+    clearbody cva; clear Ecva; subst cva.
+    cbn [adjoint_seed inout_result negb]; rewrite andb_true_r, open_pairs_sbind.
     set (vo := (if cv then Some (AReturns Real) else None) : option (aresult (tvar W))).
     set (se := DVar (BarOf (@ResultVar W))).
     destruct (open_pairs (adj W None vo Forward (rebuild (tvar W) bT (annotate_body_t cv Forward n bA)) se) n)
@@ -1148,13 +1173,26 @@ Proof.
     assert (HyR : In y (rev L)) by (apply in_rev_iff; exact HyL).
     assert (Hu : forall p, In p (rev L) -> written_decl (dname p) = true -> p = y).
     { intros p Hp Wp; apply (written_unique (rev L) p y Hnd); [rewrite Hdn; exact H1w | exact Hp | exact HyR | exact Wp | exact Hywr]. }
-    set (vo := (if cv then Some (AWrites (AVar (pt y))) else None) : option (aresult (tvar W))).
+    assert (Hwio : writes_inout (decls f) = match r with Inout => true | _ => false end).
+    { destruct r; [| | apply existsb_exists; exists (Decl nm' t Inout); split; [apply nth_error_In with j; exact Hdj | reflexivity] |].
+      all: destruct (writes_inout (decls f)) eqn:E; [| reflexivity].
+      all: apply existsb_exists in E as [[nm0 t0 r0] [Hd0 E]]; destruct r0; try discriminate.
+      all: rewrite <- Hdn in Hd0; apply in_map_iff in Hd0 as [p [Ep Hp]].
+      all: assert (Wp : written_decl (dname p) = true) by (rewrite Ep; reflexivity).
+      all: rewrite (Hu p Hp Wp), Hdecl_y in Ep; discriminate. }
+    assert (Hir : inout_result W (AWrites (AVar (pt y))) = match r with Inout => true | _ => false end)
+      by (rewrite Ey; destruct r; reflexivity).
+    rewrite Hir.
+    remember (cv && negb (match r with Inout => true | _ => false end))%bool as cvw eqn:Hcvw.
+    assert (Ecvw : cva = cvw) by (rewrite Ecva, Hwio; symmetry; exact Hcvw).
+    clearbody cva; clear Ecva; subst cva.
+    set (vo := (if cvw then Some (AWrites (AVar (pt y))) else None) : option (aresult (tvar W))).
     destruct (adjoint_seed W (AWrites (AVar (pt y)))) as [[extra pro] se] eqn:Eseed.
     assert (Hextra : extra = []).
     { unfold adjoint_seed in Eseed; rewrite Ey in Eseed; simpl in Eseed.
       destruct t, r; simpl in Eseed; injection Eseed as <- _ _; reflexivity. }
     subst extra; rewrite open_pairs_sbind.
-    destruct (open_pairs (adj W (Some (AVar (pt y))) vo Forward (rebuild (tvar W) bT (annotate_body_t cv Forward n bA)) se) n)
+    destruct (open_pairs (adj W (Some (AVar (pt y))) vo Forward (rebuild (tvar W) bT (annotate_body_t cvw Forward n bA)) se) n)
       as [[fw rv] c'] eqn:Hob.
     (* the store at the start *)
     set (bps := concat (map (adjoint_bar W) (map arg_entry (rev L)))) in *.
@@ -1183,7 +1221,7 @@ Proof.
       by (intros p Hp; destruct (Hargs' p Hp) as [i0 [nm0 [t0 [r0 [x1 [-> _]]]]]]; do 5 eexists; reflexivity).
     assert (Hown_cases : owner (Some (AVar y)) PTop = match t with Array _ => Some y | _ => None end)
       by (simpl; rewrite Hvy; reflexivity).
-    assert (Hactx : actx L n n s0 (Some (AVar y)) PTop (live_anf n bW) (tbr cv Forward n bA) t).
+    assert (Hactx : actx L n n s0 (Some (AVar y)) PTop (live_anf n bW) (tbr cvw Forward n bA) t).
     { constructor.
       - constructor.
         + exact Hstat.
@@ -1204,17 +1242,17 @@ Proof.
       - intros p Hp; destruct (Hparg p Hp) as [? [? [? [? [? ->]]]]]; reflexivity.
       - intros p Hp _; exact (Hs0p p Hp).
       - intros p Hp; destruct (Hparg p Hp) as [? [? [? [? [? ->]]]]]; discriminate. }
-    assert (Hvo : Forward = Forward -> PTop = PTop /\ (vo = None <-> cv = false) /\
+    assert (Hvo : Forward = Forward -> PTop = PTop /\ (vo = None <-> cvw = false) /\
                   (forall y', vo = Some (AWrites y') -> option_map (amap pt) (Some (AVar y)) = Some y') /\
                   (forall t', vo = Some (AReturns t') -> Some (AVar y) = None)).
-    { intros _; unfold vo; split; [reflexivity | split; [destruct cv; split; intros; congruence |]].
-      split; [intros y' E; destruct cv; [injection E as <-; reflexivity | discriminate] |].
-      intros t' E; destruct cv; discriminate. }
-    assert (Hvtg : vo_target vo = if cv then match r, t with Dependent, (Real | Array _) => Some (stored y) | _, _ => None end else None).
-    { unfold vo; destruct cv; [| reflexivity]; rewrite Ey; simpl; destruct r, t; reflexivity. }
+    { intros _; unfold vo; split; [reflexivity | split; [destruct cvw; split; intros; congruence |]].
+      split; [intros y' E; destruct cvw; [injection E as <-; reflexivity | discriminate] |].
+      intros t' E; destruct cvw; discriminate. }
+    assert (Hvtg : vo_target vo = if cvw then match r, t with Dependent, (Real | Array _) => Some (stored y) | _, _ => None end else None).
+    { unfold vo; destruct cvw; [| reflexivity]; rewrite Ey; simpl; destruct r, t; reflexivity. }
     assert (Hvt : Forward = Forward -> forall p, In p L -> live_anf n bW p -> vo_target vo = Some (stored p) ->
                     is_array (vty (pw p))).
-    { intros _ p Hp Lp E; rewrite Hvtg in E; destruct cv; [| discriminate].
+    { intros _ p Hp Lp E; rewrite Hvtg in E; destruct cvw; [| discriminate].
       destruct r; try discriminate; destruct t; try discriminate;
         assert (Epn : pn p = pn y) by (unfold stored in E; congruence);
         rewrite (Hpn_inj p y Hp HyL Epn) in Lp |- *.
@@ -1238,7 +1276,7 @@ Proof.
     set (ex := inplace (Some (AVar y)) PTop).
     assert (Hex_bar : forall m, ex <> Some (BarOf m)) by (intros m; unfold ex, inplace; rewrite Hown_cases; destruct t; discriminate).
     assert (Hvt0 : forall m, vo_target vo <> Some (BarOf m))
-      by (intros m; rewrite Hvtg; destruct cv, r, t; discriminate).
+      by (intros m; rewrite Hvtg; destruct cvw, r, t; discriminate).
     assert (Hbars1 : forall p, In p (rev L) -> barv s1 (stored p) = barv s0 (stored p)).
     { intros p Hp; unfold barv; apply F1; [simpl; exact (Hnum p (HinL p Hp)) | reflexivity | simpl; tauto | apply Hex_bar | apply Hvt0]. }
     assert (Hcase : exists s2, run pro s1 = Some s2 /\ agree_prim c' ex s1 s2 /\ seed_ok n t se s2 /\
@@ -1336,7 +1374,7 @@ Proof.
         all: reflexivity. }
     destruct Hcase as [s2 [R2 [Hag [Hseed [Hb2 [Hby [K2 Hres]]]]]]].
     (* the reverse sweep *)
-    assert (Hr : rctx L n (Some (AVar y)) PTop OW (useful cv Forward n bA) s2).
+    assert (Hr : rctx L n (Some (AVar y)) PTop OW (useful cvw Forward n bA) s2).
     { constructor.
       - apply owners_nodup; exact HnL.
       - intros t0 m Hi; destruct (in_owners _ _ _ Hi) as [p [Hp [Hd [-> ->]]]].
@@ -1391,6 +1429,7 @@ Proof.
       assert (writes_inout (decls f) = true) by (apply existsb_exists; exists (Decl nm' t Inout); split; [apply nth_error_In with j; exact Hdj | reflexivity]).
       congruence. }
     subst r.
+    assert (Ecw : cvw = true) by (rewrite Hcvw, Ecv; reflexivity).
     unfold value_given.
     rewrite (index_of_written_unique (decls f) j _ 0 Hdj Hwr H1w), Nat.add_0_l, Hdj.
     rewrite !nth_error_map; unfold ps.
@@ -1402,7 +1441,7 @@ Proof.
         rewrite Hds, nth_error_map, Eq in Hdj; simpl in Hdj; injection Hdj as -> -> ->; rewrite Ey; reflexivity.
       - apply nth_error_None in Eq; rewrite length_rev in Eq; lia. }
     rewrite Hry; cbn [option_map]; unfold final_of; rewrite pvar_primal.
-    assert (Hvt_y : vo_target vo = Some (stored y)) by (rewrite Hvtg, Ecv; destruct t; try destruct Hraw; reflexivity).
+    assert (Hvt_y : vo_target vo = Some (stored y)) by (rewrite Hvtg, Ecw; destruct t; try destruct Hraw; reflexivity).
     change (KVar (DBound (pn y))) with (keyv (stored y)).
     rewrite (K3 eq_refl (stored y) Hvt_y ltac:(simpl; tauto)), (K2 (stored y) Hvt_y ltac:(simpl; tauto)).
     rewrite (V1 eq_refl (stored y) Hvt_y); reflexivity.

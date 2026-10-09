@@ -20,9 +20,16 @@ namespace adjudge {
 % computes the derivative only (Value = ff), or for an adjoint that computes the
 % value of the function as well (Value = tt): then its forward sweep computes
 % everything the result depends on.
+% An inout argument is passed by value: adjoint-value does not give it back,
+% and computing it in place in the forward sweep would overwrite the values
+% the reverse sweep reads; the function is then annotated as by adjoint.
 func annotate bool, afunction bare -> afunction ann.
-annotate tt (a-function N D) (a-function N D1) :- !, computes-value =!=> annotate-definition D D1.
-annotate ff (a-function N D) (a-function N D1) :- annotate-definition D D1.
+annotate tt (a-function N D) (a-function N D1) :- not (has-inout D), !, computes-value =!=> annotate-definition D D1.
+annotate _ (a-function N D) (a-function N D1) :- annotate-definition D D1.
+
+func has-inout adefinition bare.
+has-inout (a-arg _ _ inout _) :- !.
+has-inout (a-arg _ _ _ F) :- pi x\ has-inout (F x).
 
 % The arguments are opened with their activity, as by the transformations.
 func annotate-definition adefinition bare -> adefinition ann.

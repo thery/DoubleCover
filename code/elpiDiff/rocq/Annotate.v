@@ -107,7 +107,20 @@ End Rebuild.
 
 (* annotate Value F: F annotated for a tangent or an adjoint that computes the
    derivative only (Value = false), or for an adjoint that computes the value
-   of the function as well (Value = true). *)
+   of the function as well (Value = true). An inout argument is passed by
+   value: adjoint-value does not give it back, and computing it in place in
+   the forward sweep would overwrite the values the reverse sweep reads; the
+   function is then annotated as by adjoint. *)
+Fixpoint has_inout {V : Type} (d : adefinition V bare) (dummy : V) : bool :=
+  match d with
+  | AArg _ _ Inout _ => true
+  | AArg _ _ _ f => has_inout (f dummy) dummy
+  | ABody _ _ => false
+  end.
+
+Definition annotate_cv (cv : bool) (f : afunction bare) : bool :=
+  cv && negb (has_inout (afdef f avar) (AV 0 false)).
+
 Definition annotate (cv : bool) (f : afunction bare) : afunction ann :=
-  let t := annotate_definition_t cv 0 (afdef f avar) in
+  let t := annotate_definition_t (annotate_cv cv f) 0 (afdef f avar) in
   AFunction (afname f) (fun V => rebuild_definition V (afdef f V) t).

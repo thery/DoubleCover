@@ -251,6 +251,10 @@ Definition adjoint_finish (cv : bool) (res : aresult tvar) (params : list (dpara
   | _, _ => DBody DVoid params (app fwd (app prologue rev))
   end.
 
+(* The function writes an inout argument: adjoint-value does not give it back. *)
+Definition inout_result (res : aresult tvar) : bool :=
+  match res with AWrites y => match role_of y with Some Inout => true | _ => false end | _ => false end.
+
 (* The generated signature: the arguments of the primal, then the adjoint of
    each argument that has one, then the adjoint of a returned value. *)
 Definition adjoint_body (cv : bool) (args : list (decl * dvar V)) (res : aresult tvar) (b : anf tvar ann)
@@ -258,7 +262,7 @@ Definition adjoint_body (cv : bool) (args : list (decl * dvar V)) (res : aresult
   let ps := map (adjoint_primal cv) args in
   let bs := concat (map adjoint_bar args) in
   let '(extra, prologue, seed) := adjoint_seed res in
-  let vo := if cv then Some res else None in
+  let vo := if cv && negb (inout_result res) then Some res else None in
   sbind (adj written vo Forward b seed) (fun sw =>
     Done (adjoint_finish cv res (app ps (app bs extra)) prologue sw)).
 
