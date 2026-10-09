@@ -1101,7 +1101,8 @@ Proof.
     assert (Hseed : seed_ok n Real se s1).
     { split; [intros y [<- | []]; split; exact I |].
       intros _; exists (hd 0%R yb); exact Hs1r. }
-    destruct (Hrev s1 O Hag Hr Hseed) as [s3 [R3 [K3 [X3 [F3 [S3 P3]]]]]].
+    assert (Htp : tapes_ok L s1) by (intros p Hp Hrp; destruct (Hparg p Hp) as [? [? [? [? [? ->]]]]]; discriminate).
+    destruct (Hrev s1 O Hag Hr Hseed Htp) as [s3 [R3 [K3 [X3 [T3 [F3 [S3 P3]]]]]]].
     destruct v as [d | | | |]; try (simpl in Hhty; contradiction).
     assert (P3' : pairing O s3 = (init_sum (rev L) s0 + dsnd d * hd 0%R yb)%R).
     { rewrite P3; unfold result_pairing, seed_value; simpl inplace.
@@ -1396,7 +1397,8 @@ Proof.
         unfold stored in E; injection E as E; rewrite (Hpn_inj q p (HinL q Hq) Hp (eq_sym E)); reflexivity.
       - intros o E; rewrite Hown_cases in E; destruct t; try discriminate; injection E as <-.
         exact (owners_intro _ _ HyR Hdy). }
-    destruct (Hrev s2 OW Hag Hr Hseed) as [s3 [R3 [K3 [X3 [F3 [S3 P3]]]]]].
+    assert (Htp : tapes_ok L s2) by (intros p Hp Hrp; destruct (Hparg p Hp) as [? [? [? [? [? ->]]]]]; discriminate).
+    destruct (Hrev s2 OW Hag Hr Hseed Htp) as [s3 [R3 [K3 [X3 [T3 [F3 [S3 P3]]]]]]].
     fold ex in P3; rewrite Hres in P3.
     (* the end of the function *)
     set (ss := fw ++ pro ++ rv).
