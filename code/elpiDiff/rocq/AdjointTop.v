@@ -1051,7 +1051,8 @@ Proof.
       - constructor; auto; try (intros; discriminate); try exact I; intros H; destruct H.
       - intros p Hp; destruct (Hparg p Hp) as [? [? [? [? [? ->]]]]]; reflexivity.
       - intros p Hp _; exact (Hs0p p Hp).
-      - intros p Hp; destruct (Hparg p Hp) as [? [? [? [? [? ->]]]]]; discriminate. }
+      - intros p Hp; destruct (Hparg p Hp) as [? [? [? [? [? ->]]]]]; discriminate.
+      - intros o E; discriminate. }
     assert (Hvo : Forward = Forward -> PTop = PTop /\ (vo = None <-> cv = false) /\
                   (forall y, vo = Some (AWrites y) -> option_map (amap pt) None = Some y) /\
                   (forall t, vo = Some (AReturns t) -> @None (atom pv) = None)).
@@ -1245,7 +1246,8 @@ Proof.
           * rewrite Ey; reflexivity.
       - intros p Hp; destruct (Hparg p Hp) as [? [? [? [? [? ->]]]]]; reflexivity.
       - intros p Hp _; exact (Hs0p p Hp).
-      - intros p Hp; destruct (Hparg p Hp) as [? [? [? [? [? ->]]]]]; discriminate. }
+      - intros p Hp; destruct (Hparg p Hp) as [? [? [? [? [? ->]]]]]; discriminate.
+      - intros o Eo0; rewrite Hown_cases in Eo0; destruct t; try discriminate; injection Eo0 as <-; exact (Hs0p y HyL). }
     assert (Hvo : Forward = Forward -> PTop = PTop /\ (vo = None <-> cvw = false) /\
                   (forall y', vo = Some (AWrites y') -> option_map (amap pt) (Some (AVar y)) = Some y') /\
                   (forall t', vo = Some (AReturns t') -> Some (AVar y) = None)).

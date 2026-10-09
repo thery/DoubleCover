@@ -409,7 +409,8 @@ Record actx (L : list pv) (k c : nat) (s : store R) (wP : option (atom pv)) (pp 
   a_bar : forall p, In p L -> tbar (pt p) = avaried (pa p);
   a_store : forall p, In p L -> tb p -> store_get s (keyv (stored p)) = Some (primal (pd p));
   a_tape : forall p, In p L -> trecorded (pt p) = true ->
-             exists l, store_get s (keyv (TapeOf (stored p))) = Some (VTape l)
+             exists l, store_get s (keyv (TapeOf (stored p))) = Some (VTape l);
+  a_owner : forall o, owner wP pp = Some o -> store_get s (keyv (stored o)) = Some (primal (pd o))
 }.
 
 (* The keys of the store. A primal key holds a value of the program; a bar,
@@ -1849,6 +1850,7 @@ Proof.
   - exact (a_bar _ _ _ _ _ _ _ _ _ Hc).
   - intros p Hp H; exact (a_store _ _ _ _ _ _ _ _ _ Hc p Hp (Ht p Hp H)).
   - exact (a_tape _ _ _ _ _ _ _ _ _ Hc).
+  - exact (a_owner _ _ _ _ _ _ _ _ _ Hc).
 Qed.
 
 (* The variable updated in place is an array. *)
@@ -2311,14 +2313,15 @@ Proof.
       split; [exact T1' | intros Ly; apply T2', Hlive_c; auto]. }
   assert (Hc' : actx (x :: L) (S k) (S c) se1 wP pp (live_anf (S k) (cW (VInfo k te None)))
                   (tbr cv m (S k) (cA (let_binder k eA))) ty).
-  { constructor; [exact Hs' | | |].
+  { constructor; [exact Hs' | | | |].
     - intros p [<- | Hp]; [reflexivity | exact (a_bar _ _ _ _ _ _ _ _ _ Hc p Hp)].
     - intros p [<- | Hp] Ht.
       + apply S1; unfold tbr in Ht; rewrite Hneeds in Ht; simpl in Ht; unfold cp; rewrite Ht; reflexivity.
       + rewrite Hold; [| exact Hp]; apply (a_store _ _ _ _ _ _ _ _ _ Hc p Hp).
         exact (tbr_let_cont m k aA eA cA p (Haid p Hp) Ht).
     - intros p [<- | Hp] Hr; [discriminate |].
-      destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; exact (T1 _ _ Hlt). }
+      destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; exact (T1 _ _ Hlt).
+    - intros o Ho; rewrite Hold; [exact (a_owner _ _ _ _ _ _ _ _ _ Hc o Ho) | exact (owner_in_s _ _ _ _ _ _ _ _ Hs Ho)]. }
   assert (Hvt' : m = Forward -> forall p, In p (x :: L) -> live_anf (S k) (cW (VInfo k te None)) p ->
                    vo_target vo <> Some (stored p)).
   { intros Hm p [<- | Hp] Hl Ht.

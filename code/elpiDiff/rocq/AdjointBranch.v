@@ -537,12 +537,13 @@ Proof.
       split; [exact T1' | intros Ly; apply T2', Hlive_c; auto]. }
   assert (Hc' : actx (x :: L) (S k) c1 se1 wP pp (live_anf (S k) (cW (VInfo k te None)))
                   (live_anf (S k) (cW (VInfo k te None))) ty).
-  { constructor; [exact (sctx_weaken _ _ _ _ _ _ _ _ _ Hs' (fun p H => H) Hc01) | | |].
+  { constructor; [exact (sctx_weaken _ _ _ _ _ _ _ _ _ Hs' (fun p H => H) Hc01) | | | |].
     - intros p [<- | Hp]; [reflexivity | exact (a_bar _ _ _ _ _ _ _ _ _ Hc p Hp)].
     - intros p [<- | Hp] Hl; [exact S1 |].
       rewrite Hold; [| exact Hp]; apply (a_store _ _ _ _ _ _ _ _ _ Hc p Hp), Hlive_c; auto.
     - intros p [<- | Hp] Hr; [discriminate |].
-      destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; exact (T1 _ _ Hlt). }
+      destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; exact (T1 _ _ Hlt).
+    - intros o Ho; rewrite Hold; [exact (a_owner _ _ _ _ _ _ _ _ _ Hc o Ho) | exact (owner_in_s _ _ _ _ _ _ _ _ Hs Ho)]. }
   pose proof (IHb x (x :: L) (S k) c1 se1 wP pp m m' (cA (pa x)) (cW (pw x)) (cT (pt x)) (cD (pd x)) ty v
                 (HcA x _) (HcW x _) (HcT x _) (HcD x _) Hc' Htc Hev) as IH.
   unfold x in IH; cbn [pt pa pd pw] in IH; fold rest in IH.
@@ -633,7 +634,8 @@ Proof.
     - intros p Hp Hl'; unfold s0; rewrite store_get_set_other by exact (Hnp p Hp).
       exact (a_store _ _ _ _ _ _ _ _ _ Hc p Hp (Ha p Hp Hl')).
     - intros p Hp Hr; destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; exists lt.
-      unfold s0; rewrite store_get_set_other; [exact Hlt |]; intros K; apply keyv_inj in K; [discriminate | reflexivity | reflexivity]. }
+      unfold s0; rewrite store_get_set_other; [exact Hlt |]; intros K; apply keyv_inj in K; [discriminate | reflexivity | reflexivity].
+    - intros o Ho; unfold owner in Ho; destruct wP as [[] |]; discriminate. }
   assert (Hbody : exists (sb : list (dstmt W)) (vb : dexpr W) (s1 : store R) (vv : val (dual R)),
             run sb s0 = Some s1 /\ fwd_frame c None None s0 s1 /\ tapes_kept s0 s1 /\ xev s1 vb = Some (primal vv) /\
             ve = vv /\ (if b then st else se') = sb /\ (if b then vt else ve') = vb).
@@ -786,7 +788,8 @@ Proof.
       - exact Hbar.
       - intros p Hp Ht; apply (Hrd p Hp (Htbr p Hp Ht)); [| left; exact Hnl].
         apply Hlive, (tbr_occurs L k bP bA bW Replay p HbA HbW HL Hp (or_introl Ht)).
-      - exact Htp. }
+      - exact Htp.
+      - intros o Ho; unfold owner in Ho; destruct wP as [[] |]; discriminate. }
     specialize (IH L k cb s2 wP PBranch Replay bA bW bT bD Real ve (DVar (BarOf n)) vo HbA HbW HbT HbD Hctx I Htcb Hevb
                   ltac:(discriminate) ltac:(discriminate) ltac:(discriminate)).
     lazymatch type of IH with context [@open_pairs ?A ?t cb] =>
