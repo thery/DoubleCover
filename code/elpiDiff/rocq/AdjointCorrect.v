@@ -1939,7 +1939,11 @@ Definition act_owner (eP : value pv bare) : Prop :=
   value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gD L) eP eD ->
   sctx L k c wP pp live ty -> (forall p, live_value k eW p -> live p) ->
   storage wP tail eP = Some (stored o) -> owner wP pp = Some o ->
-  aeval_value (duals reals) eD = Some ve -> varied_value k eA = false -> tangent (pd o) = tangent ve.
+  aeval_value (duals reals) eD = Some ve -> varied_value k eA = false ->
+  (forall p ny r, In p L -> varg (pw p) = Some (ny, r) -> avaried (pa p) = varied_role r) ->
+  (forall y, wP = Some (AVar y) -> exists ny r, varg (pw y) = Some (ny, r) /\ written_role r = true) ->
+  forall te, typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) -> (tail = true -> te = ty) ->
+  tangent (pd o) = tangent ve.
 
 Lemma zeros_eq (a b : list R) :
   Forall (fun x => x = 0) a -> Forall (fun x => x = 0) b -> length a = length b -> a = b.
@@ -1957,7 +1961,7 @@ Proof. intros L k c wP pp live ty tail eA eW eD ve o _ _ _ _ _ Es; discriminate.
 
 Lemma owner_set (aP iP vP : atom pv) : act_owner (ASet aP iP vP).
 Proof.
-  intros L k c wP pp live ty tail eA eW eD ve o HA HW HD Hs Hlv Es Ho Hev Hvr.
+  intros L k c wP pp live ty tail eA eW eD ve o HA HW HD Hs Hlv Es Ho Hev Hvr _ _ _ _ _.
   destruct eA, eW, eD; simpl in HA, HW, HD; try contradiction.
   repeat match goal with
          | H : _ /\ _ |- _ => destruct H
@@ -2268,7 +2272,8 @@ Proof.
       split; [intros Hl o0 Ho0 Hav0; rewrite Ho in Ho0; injection Ho0 as <-; rewrite (Hav Hl) in Hav0; discriminate |].
       split; [apply tapes_kept_refl |].
       split; [intros ? ? ? ? ? ?; reflexivity | split; [exact (r_shape _ _ _ _ _ _ _ Hr) |]].
-      rewrite <- (IHo L k c wP pp _ (Array z) tail eA eW eD ve o HeA HeW HeD Hs Hlv_e Es Ho Hve Hvr).
+      rewrite <- (IHo L k c wP pp _ (Array z) tail eA eW eD ve o HeA HeW HeD Hs Hlv_e Es Ho Hve Hvr
+                    (r_args _ _ _ _ _ _ _ Hr) (r_written _ _ _ _ _ _ _ Hr) _ Hte Htail_ty).
       rewrite oset_same; [reflexivity | exact Hok | exact (r_nodup _ _ _ _ _ _ _ Hr) | exact Hown]. }
   destruct Hn as [-> [-> ->]].
   destruct (IHa L k wP pp tail eA eW eD te ve HeA HeW HeD HL Hte Hve) as [Hht [Hz Hra]].

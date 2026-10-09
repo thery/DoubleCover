@@ -248,6 +248,102 @@ Proof.
                 | exact (proj2 (IHe L k wP PBranch _ _ _ Real ve ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) HL HeW Hev) Hve)].
 Qed.
 
+(* The typing of a map: at the top, at the end, from index 0, with a body
+   computing reals in a scalar place. *)
+Lemma map_typing wW pp tail k (lo hi : atom vinfo) (bW : vinfo -> anf vinfo bare) te :
+  typecheck_value wW (wplace pp) tail k (AMap lo hi bW) = (te, Ok) ->
+  pp = PTop /\ tail = true /\ lo = ANat 0 /\
+  exists h, hi = ANat h /\ te = Array (h - 0) /\
+    typecheck wW ScalarBody (S k) (bW (VInfo k Integer None)) = (Real, Ok) /\
+    forall y, wW = Some (AVar y) ->
+      (forall nm r, varg y = Some (nm, r) -> r <> Inout) /\ occurs_anf (vid y) (S k) (bW (anon k)) = false.
+Proof.
+  intros Htc; destruct pp as [| | | ix sx]; simpl in Htc; try discriminate.
+  destruct tail; [| destruct lo, hi; discriminate].
+  destruct lo as [? | ? | l0]; try discriminate; destruct hi as [? | ? | h]; try discriminate.
+  destruct (negb (l0 =? 0)%Z) eqn:El; [discriminate |].
+  apply negb_false_iff, Z.eqb_eq in El; subst l0.
+  split; [reflexivity | split; [reflexivity | split; [reflexivity |]]]; exists h; split; [reflexivity |].
+  destruct wW as [[y | |] |];
+    [destruct (varg y) as [[nm r] |] eqn:Ev; [destruct r |] | | |]; simpl in Htc; try discriminate;
+    repeat match type of Htc with
+           | context [if occurs_anf ?a ?b ?c then _ else _] => destruct (occurs_anf a b c) eqn:?; try discriminate
+           end;
+    destruct (typecheck _ ScalarBody (S k) (bW (VInfo k Integer None))) as [tb [| mm]] eqn:Etb; simpl in Htc; try discriminate;
+    destruct (ty_eqb tb Real) eqn:Er; try discriminate; apply ty_eqb_true in Er; subst tb;
+    injection Htc as <-; (split; [reflexivity | split; [reflexivity |]]);
+    intros y' E; try discriminate; injection E as <-;
+    (split; [intros nm' r' E'; rewrite Ev in E'; first [discriminate E' | injection E' as _ <-; discriminate] | assumption]).
+Qed.
+
+Lemma inplace_map (loP hiP : atom pv) (bP : pv -> anf pv bare) : inplace_only (AMap loP hiP bP).
+Proof.
+  intros L k wP pp tail eW te HW Htc Hst Hl o Ho.
+  destruct eW as [| | | | | loW hiW bW |]; simpl in HW; try contradiction.
+  destruct (map_typing _ _ _ _ _ _ _ _ Htc) as [-> [-> [-> [h [-> [_ [_ Hy]]]]]]].
+  destruct wP as [[o' | |] |]; simpl in Ho; try discriminate.
+  destruct (vty (pw o')) eqn:Ey; try discriminate; injection Ho as Eo; subst o'.
+  destruct (Hy (pw o) eq_refl) as [Hni Hnocc].
+  split; [exact Hni |].
+  unfold live_value; simpl; rewrite Hnocc; discriminate.
+Qed.
+
+Lemma act_map (loP hiP : atom pv) (bP : pv -> anf pv bare) :
+  (forall x, act_body (bP x)) -> act_value (AMap loP hiP bP).
+Proof.
+  intros IHb L k wP pp tail eA eW eD te ve HA HW HD HL Htc Hev.
+  destruct eA as [| | | | | loA hiA bA |], eW as [| | | | | loW hiW bW |], eD as [| | | | | loD hiD bD |];
+    simpl in HA, HW, HD; try contradiction.
+  destruct HA as [HlA [HhA HbA]], HW as [HlW [HhW HbW]], HD as [HlD [HhD HbD]].
+  apply atom_graph in HlA as [-> _]; apply atom_graph in HhA as [-> _];
+    apply atom_graph in HlW as [-> _]; apply atom_graph in HhW as [-> _];
+    apply atom_graph in HlD as [-> _]; apply atom_graph in HhD as [-> _].
+  destruct (map_typing _ _ _ _ _ _ _ _ Htc) as [-> [-> [Elo [h [Ehi [-> [HtB _]]]]]]].
+  destruct loP as [? | ? | l0]; simpl in Elo; try discriminate; injection Elo as ->.
+  destruct hiP as [? | ? | h']; simpl in Ehi; try discriminate; injection Ehi as ->.
+  simpl in Hev; destruct (eval_map (fun v1 => aeval (duals reals) (bD v1)) 0 (count 0 h)) as [xs |] eqn:Hxs;
+    [| discriminate]; injection Hev as <-.
+  split; [simpl; rewrite (eval_map_length _ _ _ _ Hxs), count_nat; reflexivity |].
+  split; [| intros _; exact I].
+  intros Hv; simpl in Hv |- *.
+  refine (eval_map_Forall (fun d => dsnd d = 0) _ _ _ _ _ Hxs).
+  intros z x Hbd.
+  set (ix := PV (fresh k) (VInfo k Integer None) (open_index (DBound (0%nat, 0%nat))) (VInt z) 0).
+  assert (Hix : static_ok (S k) ix) by (repeat split; simpl; auto; try lia; discriminate).
+  assert (HL' : Forall (static_ok (S k)) (ix :: L)).
+  { constructor; [exact Hix |]; apply Forall_impl with (P := static_ok k); auto.
+    intros p Hp; apply (static_mono k); auto. }
+  exact (proj2 (IHb ix (ix :: L) (S k) wP PScalar (bA (fresh k)) (bW (VInfo k Integer None)) (bD (VInt z)) Real (VReal x)
+                  (HbA ix (pa ix)) (HbW ix (pw ix)) (HbD ix (pd ix)) HL' HtB Hbd) Hv).
+Qed.
+
+Lemma owner_map (loP hiP : atom pv) (bP : pv -> anf pv bare) :
+  act_value (AMap loP hiP bP) -> act_owner (AMap loP hiP bP).
+Proof.
+  intros Ha L k c wP pp live ty tail eA eW eD ve o HA HW HD Hs Hlv Es Ho Hev Hvr Hargs Hwr te Htc Htail.
+  pose proof (s_static _ _ _ _ _ _ _ Hs) as HL.
+  destruct (Ha L k wP pp tail eA eW eD te ve HA HW HD HL Htc Hev) as [Hht [Hz _]].
+  specialize (Hz Hvr).
+  destruct eW as [| | | | | loW hiW bW |]; simpl in HW; try contradiction.
+  destruct (map_typing _ _ _ _ _ _ _ _ Htc) as [-> [-> [_ [h [_ [-> [_ Hy]]]]]]].
+  destruct wP as [[o' | |] |]; simpl in Ho; try discriminate.
+  destruct (vty (pw o')) as [| | | ny] eqn:Ey; try discriminate; injection Ho as Eo; subst o'.
+  destruct (Hy (pw o) eq_refl) as [Hni _].
+  destruct (s_written _ _ _ _ _ _ _ Hs _ eq_refl) as [o'' [Eo'' [HoL _]]]; injection Eo'' as <-.
+  destruct (Hwr o eq_refl) as [nm [r [Hvg Hw]]].
+  assert (Hav : avaried (pa o) = false).
+  { rewrite (Hargs o nm r HoL Hvg); specialize (Hni nm r Hvg).
+    destruct r; simpl in Hw; try discriminate; [reflexivity | destruct Hni; reflexivity]. }
+  destruct (static_in _ _ _ HL HoL) as [_ [_ [_ [_ [_ [_ [_ [_ [Hhto Hzo]]]]]]]]].
+  specialize (Hzo Hav).
+  destruct (s_top _ _ _ _ _ _ _ Hs o eq_refl eq_refl ltac:(rewrite Ey; exact I)) as [Ety _].
+  rewrite Ey, <- (Htail eq_refl) in Ety; injection Ety as Ehn.
+  rewrite Ey in Hhto; destruct (pd o) as [| | | lo |]; try contradiction.
+  destruct ve as [| | | xs |]; try contradiction; simpl in Hht, Hhto, Hz, Hzo |- *.
+  f_equal; apply zeros_eq; [apply Forall_map; exact Hzo | apply Forall_map; exact Hz |].
+  rewrite !length_map, Hht, Hhto; congruence.
+Qed.
+
 Lemma owner_ite (cP : atom pv) (tP eP : anf pv bare) : act_owner (AIte cP tP eP).
 Proof. intros L k c wP pp live ty tail eA eW eD ve o _ _ _ _ _ Es; discriminate. Qed.
 
