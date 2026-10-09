@@ -163,6 +163,97 @@ Proof.
   rewrite (H t m (or_introl eq_refl)), IH; [reflexivity |]; intros t' m' Hi; apply (H t'); right; exact Hi.
 Qed.
 
+
+(* The value of a body has the type it is checked at, and a zero tangent when
+   the body is not varied. *)
+Definition act_body (bP : anf pv bare) : Prop :=
+  forall L k wP pp bA bW bD ty v,
+  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gD L) bP bD -> Forall (static_ok k) L ->
+  typecheck (option_map (amap pw) wP) (wplace pp) k bW = (ty, Ok) ->
+  aeval (duals reals) bD = Some v ->
+  has_type ty v /\ (varied_anf k bA = false -> zero v).
+
+Lemma act_ret (aP : atom pv) : act_body (ARet aP).
+Proof.
+  intros L k wP pp bA bW bD ty v HA HW HD HL Htc Hev.
+  destruct bA as [| aA], bW as [| aW], bD as [| aD]; simpl in HA, HW, HD; try contradiction.
+  apply atom_graph in HA as [-> Hin]; apply atom_graph in HW as [-> _]; apply atom_graph in HD as [-> _].
+  assert (H1 : forall p, aP = AVar p -> static_ok k p) by (intros p E; apply (static_in _ _ _ HL); auto).
+  simpl in Htc, Hev |- *.
+  assert (Ety : ty = of_atom (amap pw aP)).
+  { destruct aP as [p | |]; simpl in Htc; [| injection Htc as <-; reflexivity | injection Htc as <-; reflexivity].
+    destruct (varg (pw p)) as [[? ?] |];
+      [destruct (_ && _) | ]; injection Htc as <-; [discriminate | reflexivity | reflexivity]. }
+  subst ty; split; [exact (atom_type k aP v H1 Hev) |].
+  intros Hv; exact (atom_zero k aP v H1 Hv Hev).
+Qed.
+
+Lemma act_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
+  act_value eP -> (forall x, act_body (cP x)) -> act_body (ALet a eP cP).
+Proof.
+  intros IHa IHb L k wP pp bA bW bD ty v HA HW HD HL Htc Hev.
+  destruct bA as [aA eA cA |], bW as [aW eW cW |], bD as [aD eD cD |]; simpl in HA, HW, HD; try contradiction.
+  destruct HA as [HeA HcA], HW as [HeW HcW], HD as [HeD HcD].
+  simpl in Htc, Hev.
+  destruct (typecheck_value (option_map (amap pw) wP) (wplace pp) (WellFormed.is_tail cW k) k eW)
+    as [te d0] eqn:Hte.
+  destruct d0; simpl in Htc; [| discriminate].
+  destruct (aeval_value (duals reals) eD) as [ve |] eqn:Hve; [| discriminate].
+  destruct (IHa L k wP pp _ eA eW eD te ve HeA HeW HeD HL Hte Hve) as [Ht [Hz Hra]].
+  set (vr := varied_value k eA).
+  set (x := PV (let_binder k eA) (VInfo k te None) (open_let te (DBound (0%nat, 0%nat) : dvar W) vr false) ve 0).
+  assert (Hxs : static_ok (S k) x).
+  { repeat split; simpl; auto; try lia; discriminate. }
+  assert (HL' : Forall (static_ok (S k)) (x :: L)).
+  { constructor; [exact Hxs |]; apply Forall_impl with (P := static_ok k); auto.
+    intros p Hp; apply (static_mono k); auto. }
+  exact (IHb x (x :: L) (S k) wP pp (cA (pa x)) (cW (pw x)) (cD (pd x)) ty v
+           (HcA x (pa x)) (HcW x (pw x)) (HcD x (pd x)) HL' Htc Hev).
+Qed.
+
+Lemma act_ite (cP : atom pv) (tP eP : anf pv bare) :
+  act_body tP -> act_body eP -> act_value (AIte cP tP eP).
+Proof.
+  intros IHt IHe L k wP pp tail eA eW eD te ve HA HW HD HL Htc Hev.
+  destruct eA as [| | | | ? tA eA0 | |], eW as [| | | | ? tW eW0 | |], eD as [| | | | ? tD eD0 | |];
+    simpl in HA, HW, HD; try contradiction.
+  repeat match goal with
+         | H : _ /\ _ |- _ => destruct H
+         | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         end; subst.
+  simpl in Htc, Hev |- *.
+  assert (Htc' : (if ty_eqb (of_atom (amap pw cP)) Boolean
+                  then let '(t3, d1) := typecheck (option_map (amap pw) wP) InBranch k tW in
+                       let '(t4, d2) := typecheck (option_map (amap pw) wP) InBranch k eW0 in
+                       if is_ok d1 then if is_ok d2 then if ty_eqb t3 Real && ty_eqb t4 Real
+                         then (Real, Ok) else (Real, Error "both branches must compute a real")
+                       else (Real, d2) else (Real, d1)
+                  else (Real, Error "a branch condition must be a comparison")) = (te, Ok))
+    by (destruct pp; [exact Htc | exact Htc | exact Htc | discriminate]).
+  clear Htc.
+  destruct (ty_eqb (of_atom (amap pw cP)) Boolean); [| discriminate].
+  destruct (typecheck (option_map (amap pw) wP) InBranch k tW) as [t3 d1] eqn:HtW.
+  destruct (typecheck (option_map (amap pw) wP) InBranch k eW0) as [t4 d2] eqn:HeW.
+  destruct d1, d2; simpl in Htc'; try discriminate.
+  destruct (ty_eqb t3 Real) eqn:E3, (ty_eqb t4 Real) eqn:E4; simpl in Htc'; try discriminate.
+  injection Htc' as <-; apply ty_eqb_true in E3, E4; subst t3 t4.
+  destruct (aeval_atom (duals reals) (amap pd cP)) as [[| | b | |] |]; try discriminate.
+  split; [| split; [| intros _; exact I]].
+  - destruct b; [exact (proj1 (IHt L k wP PBranch _ _ _ Real ve ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) HL HtW Hev))
+                | exact (proj1 (IHe L k wP PBranch _ _ _ Real ve ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) HL HeW Hev))].
+  - intros Hv; apply orb_false_iff in Hv as [Hvt Hve].
+    destruct b; [exact (proj2 (IHt L k wP PBranch _ _ _ Real ve ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) HL HtW Hev) Hvt)
+                | exact (proj2 (IHe L k wP PBranch _ _ _ Real ve ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) HL HeW Hev) Hve)].
+Qed.
+
+Lemma owner_ite (cP : atom pv) (tP eP : anf pv bare) : act_owner (AIte cP tP eP).
+Proof. intros L k c wP pp live ty tail eA eW eD ve o _ _ _ _ _ Es; discriminate. Qed.
+
+Lemma inplace_ite (cP : atom pv) (tP eP : anf pv bare) : inplace_only (AIte cP tP eP).
+Proof. intros L k wP pp tail eW te _ _ Hst; destruct Hst; reflexivity. Qed.
+
 Section Branch.
 Variable cv : bool.
 
@@ -752,6 +843,66 @@ Proof.
     + intros p Hp Ht; apply Hflows; [exact Hp |]; unfold useful in Ht; rewrite atom_member_union, Ht, orb_true_r; reflexivity.
     + exists s3; destruct Hs3 as [R3 Hs3]; split; [| exact Hs3].
       rewrite run_branch with (b := false) by exact Hsc; rewrite R3; reflexivity.
+Qed.
+
+
+(* Bodies of straight lets and branches: an assignment is in no branch. *)
+Fixpoint branchy (top : bool) (b : anf pv bare) : Prop :=
+  match b with
+  | ALet _ e b' => branchy_value top e /\ forall x, branchy top (b' x)
+  | ARet _ => True
+  end
+with branchy_value (top : bool) (e : value pv bare) : Prop :=
+  match e with
+  | AOp1 _ _ | AOp2 _ _ _ | AGet _ _ => True
+  | ASet _ _ _ => top = true
+  | AIte _ t e => branchy false t /\ branchy false e
+  | _ => False
+  end.
+
+Theorem asim_branchy :
+  (forall b : anf pv bare, forall top, branchy top b ->
+     asim_body cv b /\ act_body b /\ (top = false -> psim_body b)) /\
+  (forall e : value pv bare, forall top, branchy_value top e ->
+     asim_fwd cv e /\ asim_rev cv e /\ inplace_only e /\ act_value e /\ act_owner e /\
+     (top = false -> forall wP tail, storage wP tail e = None)).
+Proof.
+  apply (anf_value_ind pv bare
+           (fun b => forall top, branchy top b -> asim_body cv b /\ act_body b /\ (top = false -> psim_body b))
+           (fun e => forall top, branchy_value top e ->
+              asim_fwd cv e /\ asim_rev cv e /\ inplace_only e /\ act_value e /\ act_owner e /\
+              (top = false -> forall wP tail, storage wP tail e = None))).
+  - intros a e IHe b IHb top [He Hb].
+    destruct (IHe top He) as [Hf [Hr [Hi [Ha [Ho Hst]]]]].
+    split; [apply asim_let; auto; intros x; exact (proj1 (IHb x top (Hb x))) |].
+    split; [apply act_let; auto; intros x; exact (proj1 (proj2 (IHb x top (Hb x)))) |].
+    intros Et; apply psim_let; [exact Hf | exact Ha | exact (Hst Et) |].
+    intros x; exact (proj2 (proj2 (IHb x top (Hb x))) Et).
+  - intros x top _; split; [apply asim_ret | split; [apply act_ret | intros _; apply psim_ret]].
+  - intros f x top _; split; [apply afwd_op1 |].
+    split; [apply asim_rev_bars; [apply arev_op1 | apply straight_rev_bars; exact I] |].
+    split; [apply inplace_straight; exact I |].
+    split; [apply act_op1 | split; [apply owner_op1 | intros _ wP tail; reflexivity]].
+  - intros f x y top _; split; [apply afwd_op2 |].
+    split; [apply asim_rev_bars; [apply arev_op2 | apply straight_rev_bars; exact I] |].
+    split; [apply inplace_straight; exact I |].
+    split; [apply act_op2 | split; [apply owner_op2 | intros _ wP tail; reflexivity]].
+  - intros x i top _; split; [apply afwd_get |].
+    split; [apply asim_rev_bars; [apply arev_get | apply straight_rev_bars; exact I] |].
+    split; [apply inplace_straight; exact I |].
+    split; [apply act_get | split; [apply owner_get | intros _ wP tail; reflexivity]].
+  - intros x i y top Et; simpl in Et; subst top; split; [apply afwd_set |].
+    split; [apply asim_rev_bars; [apply arev_set | apply straight_rev_bars; exact I] |].
+    split; [apply inplace_straight; exact I |].
+    split; [apply act_set | split; [apply owner_set | discriminate]].
+  - intros c t IHt e IHe top [Ht He].
+    destruct (IHt false Ht) as [At [Ct Pt]], (IHe false He) as [Ae [Ce Pe]].
+    split; [apply afwd_ite; auto |].
+    split; [apply arev_ite; auto |].
+    split; [apply inplace_ite |].
+    split; [apply act_ite; auto | split; [apply owner_ite | intros _ wP tail; reflexivity]].
+  - intros lo hi b _ top [].
+  - intros a lo hi init b _ top [].
 Qed.
 
 End Branch.
