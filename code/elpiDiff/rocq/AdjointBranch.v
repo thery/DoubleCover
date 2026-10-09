@@ -2070,7 +2070,7 @@ Proof.
   exists sf; split.
   { lazymatch goal with |- (match ?r with _ => _ end) = _ => replace r with (Some sf) by (symmetry; exact Hex) end; reflexivity. }
   split; [exact Fs |]. split; [exact Ts |]. split; [exact Ns |].
-  intros Hm; unfold fold_tape; rewrite Hlo, Hhi, Hin; intros tr' Htr'.
+  intros [Hm _]; unfold fold_tape; rewrite Hlo, Hhi, Hin; intros tr' Htr'.
   cbv beta in Htr'; rewrite Htr in Htr'; injection Htr' as <-.
   split; [intros _ Hlv; apply Tps; unfold live; rewrite Hm, Hlv; reflexivity |].
   intros Ha; rewrite Er in Ha; destruct Ha.

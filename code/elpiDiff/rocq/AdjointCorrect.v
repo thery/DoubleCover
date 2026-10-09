@@ -1095,7 +1095,7 @@ Definition asim_fwd (eP : value pv bare) : Prop :=
     open_pairs (fwd_value W (option_map (amap pt) wP) m (rebuild_value _ eT (annotate_value_t cv k eA)) te n rec) c in
   (c <= c')%nat /\
   exists s1, run se s = Some s1 /\ fwd_frame c (Some n) None s s1 /\ tkeep c (Some n) s s1 /\
-             store_get s1 (keyv n) = Some (primal ve) /\ (m = Forward -> fold_tape k eA eW eD s1 n).
+             store_get s1 (keyv n) = Some (primal ve) /\ (m = Forward /\ not_in_loop pp -> fold_tape k eA eW eD s1 n).
 
 (* The reverse sweep of an active value computed into n: run from a store
    holding the values it reads, it moves the adjoint of n to the operands, in
@@ -2381,7 +2381,7 @@ Proof.
     assert (Hn0 : needs cv m (S k) (cA (let_binder k eA)) = (u, l)) by (rewrite EA; exact Hneeds).
     assert (Hfw : exists se1, run fe s = Some se1 /\ fwd_frame c (Some (stored o)) None s se1 /\
                     tkeep c (Some (stored o)) s se1 /\ (cp = true -> store_get se1 (keyv (stored o)) = Some (primal ve)) /\
-                    (cp = true -> m = Forward -> fold_tape k eA eW eD se1 (stored o)) /\ (cp = false -> se1 = s)).
+                    (cp = true -> m = Forward /\ not_in_loop pp -> fold_tape k eA eW eD se1 (stored o)) /\ (cp = false -> se1 = s)).
     { destruct cp eqn:Ecp.
       - assert (Hc1 : actx L k c s wP pp (live_value k eW) (vatoms k eA) (Array z)).
         { apply (actx_weaken _ _ _ _ _ _ _ _ _ _ _ _ Hc Hlv_e); [| lia].
@@ -2472,7 +2472,8 @@ Proof.
       { intros Hpt; assert (Hmf : m = Forward) by (destruct m; [reflexivity | exfalso; exact (Hrpl eq_refl Hpt)]).
         destruct cp eqn:Ecp.
         - apply (fold_tape_same _ _ _ _ se1); [exact (proj2 Hag _ Hbo eq_refl) | exact (proj1 Hag _ Hbo eq_refl I) |].
-          exact (Ft1 eq_refl Hmf).
+          assert (Hnl0 : not_in_loop pp) by (rewrite Hpt; exact I).
+          exact (Ft1 eq_refl (conj Hmf Hnl0)).
         - apply fold_tape_records; subst m; unfold cp in Ecp; simpl in Ecp; apply orb_false_iff in Ecp as [_ Ecp]; exact Ecp. }
       assert (Hinit : not_in_loop pp -> storage wP tail eP <> None -> forall o0, owner wP pp = Some o0 ->
                         avaried (pa o0) = true -> records cv k eA = false ->
@@ -2530,7 +2531,7 @@ Proof.
   assert (Hfw : exists se1, run fe s = Some se1 /\ fwd_frame c1 (Some (DBound (c, c))) None s se1 /\
                   tkeep c1 (Some (DBound (c, c))) s se1 /\
                   (cp = true -> store_get se1 (keyv (DBound (c, c))) = Some (primal ve) /\
-                                (m = Forward -> fold_tape k eA eW eD se1 (DBound (c, c))))).
+                                (m = Forward /\ not_in_loop pp -> fold_tape k eA eW eD se1 (DBound (c, c))))).
   { destruct cp eqn:Ecp.
     - assert (Hc1 : actx L k c1 s wP pp (live_value k eW) (vatoms k eA) ty).
       { apply (actx_weaken _ _ _ _ _ _ _ _ _ _ _ _ Hc Hlv_e); [| lia].
@@ -2760,7 +2761,8 @@ Proof.
       destruct m; [| exfalso; exact (Hrpl eq_refl Hpt)].
       destruct (records cv k eA) eqn:Erc; [| exact (fold_tape_records k eA eW eD sb _ Erc)].
       assert (Ecp : cp = true) by (unfold cp; simpl; apply orb_true_r).
-      pose proof (proj2 (S1 Ecp) eq_refl) as Ft.
+      assert (Hnl0 : not_in_loop pp) by (rewrite Hpt; exact I).
+      pose proof (proj2 (S1 Ecp) (conj eq_refl Hnl0)) as Ft.
       apply (fold_tape_scalar L k wP tail eP eA eW eD se1 sb); [exact HeW | exact Es | | exact Ft].
       set (nn := DBound (c, c)).
       assert (Hex : inplace wP pp <> Some nn).
