@@ -620,7 +620,7 @@ Definition psim_body (bP : anf pv bare) : Prop :=
   let '((sb, x), c') :=
     open_pairs (prim W (option_map (amap pt) wP) m (rebuild _ bT (annotate_body_t cv m' k bA))) c in
   (c <= c')%nat /\
-  exists s1, run sb s = Some s1 /\ fwd_frame c None None s s1 /\ tapes_kept s s1 /\ xev s1 x = Some (primal v).
+  exists s1, run sb s = Some s1 /\ fwd_frame c None None s s1 /\ tkeep c None s s1 /\ xev s1 x = Some (primal v).
 
 Lemma prim_let w m a e b :
   prim W w m (ALet a e b) =
@@ -638,7 +638,7 @@ Proof.
   graph HA; graph HW; graph HT; graph HD.
   cbn [annotate_body_t rebuild prim open_pairs].
   split; [lia |]; exists s; split; [reflexivity |].
-  split; [intros ? ? ? ? ? ?; reflexivity | split; [apply tapes_kept_refl |]].
+  split; [intros ? ? ? ? ? ?; reflexivity | split; [apply tkeep_refl |]].
   pose proof (a_sctx _ _ _ _ _ _ _ _ _ Hc) as Hs.
   apply (aspell_ok k s aP); [| exact Hev].
   intros p ->; split; [exact (static_in _ _ _ (s_static _ _ _ _ _ _ _ Hs) (H p eq_refl)) |].
@@ -756,7 +756,7 @@ Proof.
     - intros p [<- | Hp] Hl; [exact S1 |].
       rewrite Hold; [| exact Hp]; apply (a_store _ _ _ _ _ _ _ _ _ Hc p Hp), Hlive_c; auto.
     - intros p [<- | Hp] Hr; [discriminate |].
-      destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; exact (T1 _ _ Hlt).
+      destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; exact (proj1 T1 _ _ Hlt).
     - intros o Ho; rewrite Hold; [exact (a_owner _ _ _ _ _ _ _ _ _ Hc o Ho) | exact (owner_in_s _ _ _ _ _ _ _ _ Hs Ho)]. }
   pose proof (IHb x (x :: L) (S k) c1 se1 wP pp m m' (cA (pa x)) (cW (pw x)) (cT (pt x)) (cD (pd x)) ty v
                 (HcA x _) (HcW x _) (HcT x _) (HcD x _) Hc' Htc Hev) as IH.
@@ -774,7 +774,10 @@ Proof.
     rewrite (Fb v0 (below_mono c c1 v0 Hb0 ltac:(lia)) Hc0 Ht0 ltac:(discriminate) ltac:(discriminate)).
     apply F1; [exact (below_mono c (S c) v0 Hb0 ltac:(lia)) | exact Hc0 | exact Ht0 | | discriminate].
     intros E; injection E as <-; simpl in Hb0; lia. }
-  split; [exact (tapes_kept_trans _ _ _ T1 Tb) | exact Vb].
+  assert (Hcc1 : (c <= c1)%nat) by lia.
+  split; [| exact Vb].
+  exact (tkeep_trans _ _ _ _ _ (tkeep_fresh c (S c) _ None _ _ T1 ltac:(simpl; lia) (Nat.le_succ_diag_r c))
+                               (tkeep_mono _ _ _ _ _ Tb Hcc1)).
 Qed.
 
 (* A branch body sits in place PBranch, where nothing is updated in place. *)
@@ -851,7 +854,7 @@ Proof.
       unfold s0; rewrite store_get_set_other; [exact Hlt |]; intros K; apply keyv_inj in K; [discriminate | reflexivity | reflexivity].
     - intros o Ho; unfold owner in Ho; destruct wP as [[] |]; discriminate. }
   assert (Hbody : exists (sb : list (dstmt W)) (vb : dexpr W) (s1 : store R) (vv : val (dual R)),
-            run sb s0 = Some s1 /\ fwd_frame c None None s0 s1 /\ tapes_kept s0 s1 /\ xev s1 vb = Some (primal vv) /\
+            run sb s0 = Some s1 /\ fwd_frame c None None s0 s1 /\ tkeep c None s0 s1 /\ xev s1 vb = Some (primal vv) /\
             ve = vv /\ (if b then st else se') = sb /\ (if b then vt else ve') = vb).
   { destruct b.
     - assert (Hl : forall p, live_anf k tW p -> live_value k (AIte (amap pw cP) tW eW) p)
@@ -862,7 +865,7 @@ Proof.
       specialize (IHt L k c s0 wP PBranch m Replay tA tW tT tD Real ve H9 H6 H3 H0
                     (Hctx tW Hl Ha c (le_n c)) HtW Hev).
       rewrite Hot in IHt; destruct IHt as [_ [s1 [Hrun [Hfr [Htk Hv]]]]].
-      exists st, vt, s1, ve; repeat split; auto.
+      destruct Htk as [Hk1 Hk2]; exists st, vt, s1, ve; repeat split; auto.
     - assert (Hl : forall p, live_anf k eW p -> live_value k (AIte (amap pw cP) tW eW) p)
         by (unfold live_anf, live_value; intros p H'; simpl; rewrite H', !orb_true_r; reflexivity).
       assert (Ha : forall p, In p L -> live_anf k eW p -> vatoms k (AIte (amap pa cP) tA eA) p).
@@ -871,7 +874,7 @@ Proof.
       specialize (IHe L k c1 s0 wP PBranch m Replay eA eW eT eD Real ve H10 H7 H4 H1
                     (Hctx eW Hl Ha c1 M1) HeW Hev).
       rewrite Hoe in IHe; destruct IHe as [_ [s1 [Hrun [Hfr [Htk Hv]]]]].
-      exists se', ve', s1, ve; repeat split; auto.
+      destruct (tkeep_mono _ _ _ _ _ Htk M1) as [Hk1 Hk2]; exists se', ve', s1, ve; repeat split; auto.
       intros v0 Hb0; apply Hfr; exact (below_mono c c1 v0 Hb0 M1). }
   destruct Hbody as [sb [vb [s1 [vv [Hrun [Hfr [Htk [Hv [<- [Esb Evb]]]]]]]]]].
   split; [lia |].
@@ -885,8 +888,8 @@ Proof.
     rewrite (Hfr v0 Hb0 Hc0 Ht0 ltac:(discriminate) ltac:(discriminate)).
     unfold s0; apply store_get_set_other; intros K; apply keyv_inj in K; [subst v0; apply Hne; reflexivity | reflexivity | exact Hc0]. }
   split; [| apply store_get_set_same].
-  apply (tapes_kept_trans _ s1); [apply (tapes_kept_trans _ s0); [apply tapes_kept_set; [simpl; tauto | reflexivity] | exact Htk] |].
-  apply tapes_kept_set; [simpl; tauto | reflexivity].
+  apply (tkeep_trans _ _ _ s1); [apply (tkeep_trans _ _ _ s0); [apply tkeep_set; [simpl; tauto | reflexivity] | exact (tkeep_none _ _ _ _ Htk)] |].
+  apply tkeep_set; [simpl; tauto | reflexivity].
 Qed.
 
 Ltac rev_intro :=
@@ -993,7 +996,7 @@ Proof.
               (forall v, below c v -> consistent v -> is_primal v -> v <> n -> store_get s3 (keyv v) = store_get s2 (keyv v)) /\
               (not_in_loop pp -> storage wP tail (AIte cP tP eP) <> None -> forall o, owner wP pp = Some o ->
                  avaried (pa o) = false -> store_get s3 (keyv n) = store_get s2 (keyv n)) /\
-              tapes_kept s2 s3 /\
+              tkeep c (Some n) s2 s3 /\
               rev_frame c (inplace wP pp) (oput O n (TangentCorrect.tangent ve)) s2 s3 /\
               (forall t m, In (t, m) O -> shaped t (barv s3 m)) /\
               pairing O s3 = pairing (oput O n (TangentCorrect.tangent ve)) s2).
@@ -1031,7 +1034,7 @@ Proof.
     assert (Hseed : seed_ok cb Real (DVar (BarOf n)) s1).
     { split; [intros y [<- | []]; split; [simpl; lia | reflexivity] |].
       intros _; exists bn; exact Hbn1. }
-    assert (Htp1 : tapes_ok L s1) by (intros p Hp Hrp; destruct (Htp p Hp Hrp) as [lt Hlt]; exact (T1 _ _ Hlt)).
+    assert (Htp1 : tapes_ok L s1) by (intros p Hp Hrp; destruct (Htp p Hp Hrp) as [lt Hlt]; exact (proj1 T1 _ _ Hlt)).
     destruct (Hrev s1 O (fun _ _ _ _ => eq_refl) Hr1 Hseed Htp1) as [s3 [R3 [_ [_ [T3 [F3 [S3 P3]]]]]]].
     exists s3; split; [rewrite run_app, R1; exact R3 |].
     assert (Hprim : forall v, below c v -> consistent v -> is_primal v -> store_get s3 (keyv v) = store_get s2 (keyv v)).
@@ -1041,7 +1044,7 @@ Proof.
       apply F1; [exact (below_mono c cb v Hb0 Hcb) | exact Hc0 | destruct v; simpl in Hp0 |- *; tauto | discriminate | discriminate]. }
     split; [intros v Hb0 Hc0 Hp0 _; exact (Hprim v Hb0 Hc0 Hp0) |].
     split; [intros _ Hsn; destruct Hsn; reflexivity |].
-    split; [exact (tapes_kept_trans _ _ _ T1 T3) |].
+    split; [exact (tkeep_none _ _ _ _ (tkeep_mono _ _ _ _ _ (tkeep_trans _ _ _ _ _ T1 T3) Hcb)) |].
     split.
     { intros v Hb0 Hc0 Ht0 _ Hb'.
       rewrite (F3 v (below_mono c cb v Hb0 Hcb) Hc0 Ht0 ltac:(discriminate)).
@@ -1144,7 +1147,7 @@ Proof.
     rewrite (live_cont L k bP bW (pfresh k) (VInfo k Integer None) _ H7 HL eq_refl eq_refl) in Hl.
     congruence. }
   set (Inv := fun (z : Z) (s' : store R) (acc : list (dual R)) =>
-         z = Z.of_nat (length acc) /\ fwd_frame c (Some n) None s s' /\ tapes_kept s s' /\
+         z = Z.of_nat (length acc) /\ fwd_frame c (Some n) None s s' /\ tkeep c (Some n) s s' /\
          store_get s' (keyv n) = Some (VArray (map dfst acc ++ skipn (length acc) l1))%list).
   assert (Hloop : exists sf, exec_up R (run bodyst) (out_dvar nat i) 0 (count 0 h) s = Some sf /\
                              Inv (0 + Z.of_nat (count 0 h))%Z sf ([] ++ xs)%list).
@@ -1181,7 +1184,7 @@ Proof.
                        ltac:(intros E; apply Hpn; unfold n, stored in E; congruence) ltac:(discriminate)).
             exact (a_store _ _ _ _ _ _ _ _ _ Hc p Hp (live_vatoms _ _ _ _ _ p HA0 HW0 HL Hp Hl')).
         - intros p [<- | Hp] Hr; [discriminate |].
-          destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; destruct (Htk' _ _ Hlt) as [l' Hl'].
+          destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; destruct (proj1 Htk' _ _ Hlt) as [l' Hl'].
           exists l'; unfold s''; rewrite store_get_set_other; [exact Hl' |].
           intros K; apply keyv_inj in K; [discriminate | reflexivity | reflexivity].
         - intros o0 E; discriminate. }
@@ -1216,12 +1219,12 @@ Proof.
         unfold s''; rewrite store_get_set_other by (apply not_eq_sym, Kin; [exact Hb | exact Hcv]).
         exact (Hfr' v Hb Hcv Ht Hex Hvo). }
       split.
-      { apply (tapes_kept_trans _ s'); [exact Htk' |].
-        apply (tapes_kept_trans _ s''); [unfold s''; apply tapes_kept_set; [simpl; tauto | reflexivity] |].
-        apply (tapes_kept_trans _ s3); [exact T3 |].
-        unfold s4; apply tapes_kept_set; [simpl; tauto | reflexivity]. }
+      { apply (tkeep_trans _ _ _ s'); [exact Htk' |].
+        apply (tkeep_trans _ _ _ s''); [unfold s''; apply tkeep_set; [simpl; tauto | reflexivity] |].
+        apply (tkeep_trans _ _ _ s3); [exact (tkeep_none _ _ _ _ (tkeep_mono _ _ _ _ _ T3 (Nat.le_succ_diag_r c))) |].
+        unfold s4; apply tkeep_set; [simpl; tauto | reflexivity]. }
       unfold s4; apply store_get_set_same.
-    - split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity | split; [apply tapes_kept_refl |]]].
+    - split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity | split; [apply tkeep_refl |]]].
       exact A1. }
   destruct Hloop as [sf [Hex [_ [Hfr [Htk Hn']]]]].
   simpl app in Hn'.
@@ -1327,7 +1330,7 @@ Proof.
   set (N := count 0 h).
   set (P := fun (jn : nat) (s' : store R) =>
          (forall v, below c v -> consistent v -> is_primal v -> store_get s' (keyv v) = store_get s2 (keyv v)) /\
-         tapes_kept s2 s' /\ rev_frame c (Some n) O' s2 s' /\ barv s' n = Some (VArray yb) /\
+         tkeep c (Some n) s2 s' /\ rev_frame c (Some n) O' s2 s' /\ barv s' n = Some (VArray yb) /\
          (forall t m, In (t, m) O' -> shaped t (barv s' m)) /\
          pairing O' s' = pairing O' s2 + dotr (skipn jn (map dsnd xs)) (skipn jn yb)).
   assert (Hloop : exists sf, exec_down R (run body) (out_dvar nat i) (Z.of_nat N - 1) N s2 = Some sf /\ P 0%nat sf).
@@ -1387,7 +1390,7 @@ Proof.
             rewrite (K0 (stored p) Hbp eq_refl I).
             exact (Hrd p Hp (Hreads p Hp Ht) Hl' (or_introl I)).
         - intros p [<- | Hp] Hrc; [discriminate |].
-          destruct (Htp p Hp Hrc) as [lt Hlt]; destruct (T0 _ _ Hlt) as [l' Hl'].
+          destruct (Htp p Hp Hrc) as [lt Hlt]; destruct (proj1 T0 _ _ Hlt) as [l' Hl'].
           exists l'; unfold s''; rewrite store_get_set_other; [exact Hl' |].
           intros Kk; apply keyv_inj in Kk; [discriminate | reflexivity | reflexivity].
         - intros o0 E; discriminate. }
@@ -1416,9 +1419,10 @@ Proof.
         destruct (r_below _ _ _ _ _ _ _ Hr t m Hi) as [jm [-> Hjm]]; unfold barv.
         etransitivity; [apply Hnb; [simpl; tauto | simpl; lia | reflexivity] |].
         apply Hns; [simpl; lia | reflexivity]. }
-      assert (Ts1 : tapes_kept s2 s1).
-      { apply (tapes_kept_trans _ s); [exact T0 |].
-        apply (tapes_kept_trans _ s''); [unfold s''; apply tapes_kept_set; [simpl; tauto | reflexivity] | exact T1]. }
+      assert (Ts1 : tkeep c (Some n) s2 s1).
+      { apply (tkeep_trans _ _ _ s); [exact T0 |].
+        apply (tkeep_trans _ _ _ s''); [unfold s''; apply tkeep_set; [simpl; tauto | reflexivity] |].
+        exact (tkeep_none _ _ _ _ (tkeep_mono _ _ _ _ _ T1 (Nat.le_succ_diag_r c))). }
       assert (Hr1 : rctx (ix :: L) (S c) (Some (AVar o)) PScalar O' (useful cv Replay (S k) (bA (fresh k))) s1).
       { constructor.
         - exact Hnd'.
@@ -1444,7 +1448,7 @@ Proof.
         intros y Hy; simpl in Hy; destruct Hy as [<- | [<- | []]]; split; unfold n, i; simpl; try lia; reflexivity. }
       assert (Htp1 : tapes_ok (ix :: L) s1).
       { intros p [<- | Hp] Hrc; [discriminate |].
-        destruct (Htp p Hp Hrc) as [lt Hlt]; exact (Ts1 _ _ Hlt). }
+        destruct (Htp p Hp Hrc) as [lt Hlt]; exact (proj1 Ts1 _ _ Hlt). }
       destruct (Hrev s1 O' (fun _ _ _ _ => eq_refl) Hr1 Hseed Htp1) as [s3 [R3 [_ [_ [T3 [F3 [S3 P3]]]]]]].
       exists s3; split.
       { unfold body; simpl app; rewrite run_app, R1; exact R3. }
@@ -1457,7 +1461,7 @@ Proof.
       { intros v Hb Hcv Hpv; rewrite (Hp3 v Hb Hcv ltac:(destruct v; simpl in Hpv |- *; tauto)
                                     ltac:(intros m0 E; subst v; destruct Hpv)).
         exact (K0 v Hb Hcv Hpv). }
-      split; [exact (tapes_kept_trans _ _ _ Ts1 T3) |].
+      split; [exact (tkeep_trans _ _ _ _ _ Ts1 (tkeep_none _ _ _ _ (tkeep_mono _ _ _ _ _ T3 (Nat.le_succ_diag_r c)))) |].
       split; [intros v Hb Hcv Ht Hex Hbo; rewrite (Hp3 v Hb Hcv Ht Hbo); exact (F0 v Hb Hcv Ht Hex Hbo) |].
       split.
       { unfold barv; etransitivity; [apply Hp3; [unfold n; simpl; exact Hj | reflexivity | simpl; tauto |] |].
@@ -1470,7 +1474,7 @@ Proof.
       rewrite (skipn_nth_cons yb jn 0) by lia.
       rewrite dotr_cons, map_nth; ring.
     - split; [intros; reflexivity |].
-      split; [apply tapes_kept_refl |].
+      split; [apply tkeep_refl |].
       split; [intros ? ? ? ? ? ?; reflexivity |].
       split; [exact Eyb |].
       split; [intros t m Hi; apply odel_in in Hi as [Hi _]; exact (r_shape _ _ _ _ _ _ _ Hr t m Hi) |].
