@@ -372,6 +372,32 @@ Proof.
   exact (IH s1 ltac:(lia) Hp1).
 Qed.
 
+Lemma run_push s t x v l :
+  store_get s (keyv x) = Some (VReal v) -> store_get s (keyv (TapeOf t)) = Some (VTape l) ->
+  run [DPush (TapeOf t) (DVar x)] s = Some (store_set s (keyv (TapeOf t)) (VTape (v :: l))).
+Proof. intros Hx Ht; unfold run, keyv in *; simpl in *; rewrite Hx, Ht; reflexivity. Qed.
+
+(* A loop up from z computing a fold, by an invariant on the state of the fold
+   and the states before each step done. *)
+Lemma fold_loop (ev : val (dual R) -> val (dual R) -> option (val (dual R)))
+  (body : store R -> option (store R)) (i : dvar nat)
+  (Inv : Z -> store R -> val (dual R) -> list (val (dual R)) -> Prop) :
+  (forall z s st tr st', Inv z s st tr -> ev (VInt z) st = Some st' ->
+     exists s', body (store_set s (KVar i) (VInt z)) = Some s' /\ Inv (z + 1)%Z s' st' (tr ++ [st])%list) ->
+  forall n z s st tr ve, Inv z s st tr -> eval_fold ev z n st = Some ve ->
+  exists s' tr', exec_up R body i z n s = Some s' /\ fold_trace ev z n st = Some tr' /\
+                 Inv (z + Z.of_nat n)%Z s' ve (tr ++ tr')%list.
+Proof.
+  intros Hstep n; induction n as [| n IH]; intros z s st tr ve Hinv Hev; cbn [eval_fold] in Hev; cbn [exec_up fold_trace].
+  - injection Hev as <-; exists s, []; rewrite Z.add_0_r, app_nil_r; auto.
+  - destruct (ev (VInt z) st) as [st1 |] eqn:E; [| discriminate].
+    destruct (Hstep z s st tr st1 Hinv E) as [s1 [Hb Hi1]]; rewrite Hb.
+    destruct (IH (z + 1)%Z s1 st1 (tr ++ [st])%list ve Hi1 Hev) as [s' [tr' [He [Ht Hi']]]].
+    exists s', (st :: tr'); rewrite Ht; split; [exact He | split; [reflexivity |]].
+    replace (z + Z.of_nat (S n))%Z with (z + 1 + Z.of_nat n)%Z by lia.
+    rewrite <- app_assoc in Hi'; simpl app in Hi'; exact Hi'.
+Qed.
+
 Lemma eval_map_nth (ev : val (dual R) -> option (val (dual R))) i n xs j d0 :
   eval_map ev i n = Some xs -> (j < n)%nat -> ev (VInt (i + Z.of_nat j)) = Some (VReal (nth j xs d0)).
 Proof.
@@ -1504,6 +1530,245 @@ Proof.
   rewrite (pairing_odel O n _ sf Hnd HoO), (pairing_oset O s2 _ n _ Hok Hnd HoO), (pairing_odel O n _ s2 Hnd HoO).
   fold O'; rewrite Pf, B, Eyb, !inner_tangent_zero by exact Hzl.
   simpl; ring.
+Qed.
+
+(* The forward sweep of a scalar fold: the state starts from the initial value,
+   and each step pushes it on the tape when it is recorded, then computes the
+   next state by the primal computation of the body. *)
+Lemma afwd_fold a (loP hiP initP : atom pv) (bP : pv -> pv -> anf pv bare) :
+  (forall p, initP = AVar p -> ~ is_array (vty (pw p))) ->
+  (forall x y, psim_body (bP x y)) -> (forall x y, act_body (bP x y)) ->
+  asim_fwd cv (AFold a loP hiP initP bP).
+Proof.
+  intros Hna IHb IHa L k c s wP pp tail eA eW eT eD te n ve ty m rec HA HW HT HD Hc Htc Htail [j [Ej Hj]] Hst Hrec Hev.
+  pose proof HA as HA0; pose proof HW as HW0; pose proof HD as HD0.
+  destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
+  repeat match goal with
+         | H : _ /\ _ |- _ => destruct H
+         | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         end; subst.
+  rename b into bA, b0 into bW, b1 into bT, b2 into bD.
+  match goal with H : forall (i1 : pv) (i2 : avar) (s1 : pv) (s2 : avar), _ |- _ => rename H into HbA end.
+  match goal with H : forall (i1 : pv) (i2 : vinfo) (s1 : pv) (s2 : vinfo), _ |- _ => rename H into HbW end.
+  match goal with H : forall (i1 : pv) (i2 : tvar W) (s1 : pv) (s2 : tvar W), _ |- _ => rename H into HbT end.
+  match goal with H : forall (i1 : pv) (i2 : val (dual R)) (s1 : pv) (s2 : val (dual R)), _ |- _ =>
+    rename H into HbD end.
+  pose proof (a_sctx _ _ _ _ _ _ _ _ _ Hc) as Hs.
+  pose proof (s_static _ _ _ _ _ _ _ Hs) as HL.
+  simpl in Htc.
+  destruct (ty_eqb (of_atom (amap pw loP)) Integer && ty_eqb (of_atom (amap pw hiP)) Integer) eqn:Eb; [| discriminate].
+  destruct (ty_eqb (of_atom (amap pw initP)) Real) eqn:Er.
+  2:{ exfalso; destruct (of_atom (amap pw initP)) as [| | | nA] eqn:Eo; try discriminate.
+      destruct initP as [q | |]; simpl in Eo; try discriminate.
+      exact (Hna q eq_refl ltac:(rewrite Eo; exact I)). }
+  apply ty_eqb_true in Er.
+  destruct pp as [| | | ix0 sx0]; simpl in Htc; try discriminate.
+  destruct (typecheck (option_map (amap pw) wP) ScalarBody (S (S k))
+              (bW (VInfo k Integer None) (VInfo (S k) Real None))) as [tb [| mm]] eqn:HtB;
+    simpl in Htc; try discriminate.
+  destruct (ty_eqb tb Real) eqn:Etb; simpl in Htc; try discriminate.
+  apply ty_eqb_true in Etb; subst tb; injection Htc as <-.
+  cbn [annotate_value_t rebuild_value fold_binders].
+  rewrite (fun w sv live0 recs lo hi init b nn rr =>
+    (eq_refl : fwd_value W w m (AFold (FoldAnn sv live0 recs) lo hi init b) Real nn rr =
+     Fresh "i" (fun i => let '(ix, sx) := open_fold sv Real nn (DBound i) false in
+       sbind (prim W w m (b ix sx)) (fun r => Done (fwd_fold W (DBound i) (spell lo) (spell hi) (spell init) (sweep_eqb m Forward && live0) nn r))))).
+  cbn [open_pairs open_fold].
+  rewrite open_pairs_sbind.
+  lazymatch goal with |- context [@open_pairs ?A ?t (S c)] => destruct (@open_pairs A t (S c)) as [[sb vb] c2] eqn:Hob end.
+  assert (Hc2 : (S c <= c2)%nat)
+    by (lazymatch type of Hob with @open_pairs _ ?t _ = _ => pose proof (open_pairs_mono t (S c)) as Mo; rewrite Hob in Mo; exact Mo end).
+  cbn [open_pairs]; split; [lia |].
+  set (n := DBound (j, j)) in *.
+  set (i := DBound (c, c)) in *.
+  assert (Hsto : storage wP tail (AFold a loP hiP initP bP) = None).
+  { destruct initP as [q | |]; simpl; auto. destruct (vty (pw q)) eqn:Eq; auto. destruct (Hna q eq_refl); rewrite Eq; exact I. }
+  rewrite Hsto in Hst.
+  assert (Hatoms : forall aP, (aP = loP \/ aP = hiP \/ aP = initP) -> forall p, aP = AVar p ->
+                     In p L /\ vatoms k (AFold ann (amap pa loP) (amap pa hiP) (amap pa initP) bA) p).
+  { intros aP HaP p E; split; [destruct HaP as [-> | [-> | ->]]; auto |].
+    unfold vatoms; simpl; rewrite !atom_member_union.
+    destruct HaP as [-> | [-> | ->]]; rewrite E; simpl; rewrite Nat.eqb_refl; simpl; rewrite ?orb_true_r; reflexivity. }
+  pose proof (fun aP H => operand_store _ _ _ _ _ _ _ _ _ aP Hc (Hatoms aP H)) as Hops.
+  simpl in Hev.
+  destruct (aeval_atom (duals reals) (amap pd loP)) as [[| l | | |] |] eqn:Hlo; try discriminate.
+  destruct (aeval_atom (duals reals) (amap pd hiP)) as [[| h | | |] |] eqn:Hhi; try discriminate.
+  destruct (aeval_atom (duals reals) (amap pd initP)) as [s0 |] eqn:Hin; [| discriminate].
+  pose proof (aspell_ok k s loP _ (Hops loP ltac:(auto)) Hlo) as Hslo.
+  pose proof (aspell_ok k s hiP _ (Hops hiP ltac:(auto)) Hhi) as Hshi.
+  pose proof (aspell_ok k s initP _ (Hops initP ltac:(auto)) Hin) as Hsin.
+  assert (Hint : has_type Real s0)
+    by (rewrite <- Er; exact (atom_type k initP s0 (fun p E => proj1 (Hops initP ltac:(auto) p E)) Hin)).
+  destruct s0 as [d0 | | | |]; try contradiction.
+  set (live := sweep_eqb m Forward && state_live cv k (amap pa initP) bA).
+  set (bst := ((if live then [DPush (TapeOf n) (DVar n)] else []) ++ sb ++ [DAssign (DVar n) vb])%list).
+  set (pre := DDefine DMutable n (spell (amap pt initP)) :: (if live then [DTape (TapeOf n)] else [])).
+  assert (Hnot : forall aP, (aP = loP \/ aP = hiP \/ aP = initP) -> forall p, aP = AVar p -> static_ok k p /\ pn p <> j).
+  { intros aP HaP p E; split; [exact (proj1 (Hops aP HaP p E)) |].
+    intros Ep; apply (Hst p (proj1 (Hatoms aP HaP p E))); unfold stored, n; rewrite Ep; reflexivity. }
+  assert (Hsta : forall aP, (aP = loP \/ aP = hiP \/ aP = initP) -> forall p, aP = AVar p -> static_ok k p)
+    by (intros aP HaP p E; exact (proj1 (Hops aP HaP p E))).
+  destruct (avoid_spell k loP j (Hnot loP ltac:(auto))) as [L1 _].
+  destruct (avoid_spell k hiP j (Hnot hiP ltac:(auto))) as [H1' _].
+  destruct (avoid_spell k initP j (Hnot initP ltac:(auto))) as [I1 _].
+  set (s1 := if live then store_set (store_set s (keyv n) (VReal (dfst d0))) (keyv (TapeOf n)) (VTape [])
+             else store_set s (keyv n) (VReal (dfst d0))).
+  assert (Hrun1 : run pre s = Some s1).
+  { unfold pre, s1; destruct live.
+    - change (DDefine DMutable n (spell (amap pt initP)) :: [DTape (TapeOf n)])
+        with ([DDefine DMutable n (spell (amap pt initP))] ++ [DTape (TapeOf n)])%list.
+      rewrite run_app, (run_define _ _ _ _ _ Hsin); reflexivity.
+    - apply run_define; exact Hsin. }
+  assert (Hb1 : forall aP, (aP = loP \/ aP = hiP) -> forall z, xev s (spell (amap pt aP)) = Some (VInt z) ->
+                  xev s1 (spell (amap pt aP)) = Some (VInt z)).
+  { intros aP HaP z Hz; unfold s1; destruct live;
+      repeat rewrite xev_set_other; try exact Hz;
+      try (apply (avoid_tape_spell k); apply Hsta; destruct HaP as [-> | ->]; auto);
+      apply (avoid_spell k aP j (Hnot aP ltac:(destruct HaP as [-> | ->]; auto))). }
+  lazymatch goal with |- context [run ?t s] =>
+    replace (run t s) with (run (pre ++ [DFor i (spell (amap pt loP)) (spell (amap pt hiP)) bst])%list s)
+      by (unfold fwd_fold, pre, bst; destruct live; reflexivity) end.
+  rewrite run_app, Hrun1.
+  rewrite (run_for _ _ _ _ _ _ l h) by (apply Hb1; auto).
+  set (vr := fold_varied k (amap pa initP) bA).
+  set (Inv := fun (z : Z) (s' : store R) (st : val (dual R)) (tr : list (val (dual R))) =>
+    fwd_frame c (Some n) None s s' /\ tkeep c (Some n) s s' /\ store_get s' (keyv n) = Some (primal st) /\
+    has_type Real st /\ (vr = false -> zero st) /\
+    (live = true -> store_get s' (keyv (TapeOf n)) = Some (VTape (rev (map real_of tr))))).
+  assert (Hstep : forall z s' st tr st', Inv z s' st tr -> aeval (duals reals) (bD (VInt z) st) = Some st' ->
+            exists s'', run bst (store_set s' (KVar (out_dvar nat i)) (VInt z)) = Some s'' /\ Inv (z + 1)%Z s'' st' (tr ++ [st])%list).
+  { intros z s' st tr st' [Fr [Tk [Ns [Ht [Hz Tp]]]]] Hbd.
+    destruct st as [ds | | | |]; try contradiction.
+    set (s'' := store_set s' (keyv i) (VInt z)).
+    change (store_set s' (KVar (out_dvar nat i)) (VInt z)) with s''.
+    assert (Kin : forall v, below c v -> consistent v -> keyv v <> keyv i).
+    { intros v Hb Hcv Kk; apply keyv_inj in Kk; [| exact Hcv | reflexivity]; subst v; unfold i in Hb; simpl in Hb; lia. }
+    assert (Hbn : below c n) by (unfold n; simpl; exact Hj).
+    assert (N'' : store_get s'' (keyv n) = Some (VReal (dfst ds)))
+      by (unfold s''; rewrite store_get_set_other by (apply not_eq_sym, Kin; [exact Hbn | reflexivity]); exact Ns).
+    set (sp := if live then store_set s'' (keyv (TapeOf n)) (VTape (dfst ds :: rev (map real_of tr))) else s'').
+    assert (Rp : run (if live then [DPush (TapeOf n) (DVar n)] else []) s'' = Some sp).
+    { unfold sp; destruct live eqn:El; [| reflexivity].
+      apply run_push; [exact N'' |].
+      unfold s''; rewrite store_get_set_other by (intros Kk; apply keyv_inj in Kk; [discriminate | reflexivity | reflexivity]).
+      exact (Tp eq_refl). }
+    assert (Np : store_get sp (keyv n) = Some (VReal (dfst ds))).
+    { unfold sp; destruct live; [rewrite store_get_set_other by (intros Kk; apply keyv_inj in Kk; [discriminate | reflexivity | reflexivity]) |]; exact N''. }
+    assert (Hsp : forall v, below c v -> consistent v -> ~ is_tape v -> store_get sp (keyv v) = store_get s' (keyv v)).
+    { intros v Hb Hcv Htv; unfold sp; destruct live;
+        [rewrite store_get_set_other by (intros Kk; apply keyv_inj in Kk; [subst v; exact (Htv I) | reflexivity | exact Hcv]) |];
+        unfold s''; apply store_get_set_other, not_eq_sym, Kin; assumption. }
+    assert (Tsp : tkeep c (Some n) s' sp).
+    { apply (tkeep_trans _ _ _ s''); [unfold s''; apply tkeep_set; [simpl; tauto | reflexivity] |].
+      unfold sp; destruct live; [apply tkeep_set_tape; [reflexivity | right; reflexivity] | apply tkeep_refl]. }
+    set (ix := PV (fresh k) (VInfo k Integer None) (open_index (DBound (c, c))) (VInt z) c).
+    set (sx := PV (AV (S k) vr) (VInfo (S k) Real None) (TVar n Real None vr vr vr false None) (VReal ds) j).
+    assert (Hix : static_ok (S (S k)) ix) by (repeat split; simpl; auto; try lia; discriminate).
+    assert (Hsx : static_ok (S (S k)) sx) by (repeat split; simpl; auto; try lia; discriminate).
+    assert (HL' : Forall (static_ok (S (S k))) (sx :: ix :: L)).
+    { constructor; [exact Hsx | constructor; [exact Hix |]]; apply Forall_impl with (P := static_ok k); auto.
+      intros p Hp; apply (static_mono k); auto. }
+    assert (Hlive_b : forall p, In p L -> live_anf (S (S k)) (bW (VInfo k Integer None) (VInfo (S k) Real None)) p ->
+              live_value k (AFold ann0 (amap pw loP) (amap pw hiP) (amap pw initP) bW) p).
+    { intros p Hp Hl; unfold live_anf, live_value in *; simpl.
+      rewrite <- (live_cont2 L k bP bW ix sx (VInfo k Integer None) (VInfo (S k) Real None) _ HbW HL eq_refl eq_refl eq_refl eq_refl).
+      rewrite Hl, !orb_true_r; reflexivity. }
+    assert (Hctx : actx (sx :: ix :: L) (S (S k)) (S c) sp wP PScalar
+                     (live_anf (S (S k)) (bW (VInfo k Integer None) (VInfo (S k) Real None)))
+                     (live_anf (S (S k)) (bW (VInfo k Integer None) (VInfo (S k) Real None))) Real).
+    { constructor.
+      - apply sctx_scalar.
+        + exact HL'.
+        + intros p q [<- | [<- | Hp]] [<- | [<- | Hq]] E; auto; simpl in E; try lia;
+            try (destruct (static_in _ _ _ HL Hq) as [_ [Hq' _]]; simpl in E; lia);
+            try (destruct (static_in _ _ _ HL Hp) as [_ [Hp' _]]; simpl in E; lia).
+          exact (s_unique _ _ _ _ _ _ _ Hs _ _ Hp Hq E).
+        + intros p [<- | [<- | Hp]]; simpl; [lia | lia |]; pose proof (s_num _ _ _ _ _ _ _ Hs _ Hp); lia.
+        + intros a0 E; destruct (s_written _ _ _ _ _ _ _ Hs _ E) as [y [-> [Hy Hv]]].
+          exists y; split; [reflexivity | split; [right; right; exact Hy | exact Hv]].
+      - intros p [<- | [<- | Hp]]; [reflexivity | reflexivity | exact (a_bar _ _ _ _ _ _ _ _ _ Hc p Hp)].
+      - intros p [<- | [<- | Hp]] Hl.
+        + exact Np.
+        + unfold sp; destruct live; [rewrite store_get_set_other by (intros Kk; apply keyv_inj in Kk; [discriminate | reflexivity | reflexivity]) |];
+            unfold s''; apply store_get_set_same.
+        + pose proof (s_num _ _ _ _ _ _ _ Hs _ Hp) as Hpc.
+          assert (Hbp : below c (stored p)) by (unfold stored; simpl; exact Hpc).
+          rewrite (Hsp (stored p) Hbp eq_refl ltac:(simpl; tauto)).
+          rewrite (Fr (stored p) Hbp eq_refl ltac:(simpl; tauto) ltac:(intros E; apply (Hst p Hp); unfold stored, n in *; congruence) ltac:(discriminate)).
+          exact (a_store _ _ _ _ _ _ _ _ _ Hc p Hp (live_vatoms _ _ _ _ _ p HA0 HW0 HL Hp (Hlive_b p Hp Hl))).
+      - intros p [<- | [<- | Hp]] Hrc; try discriminate.
+        destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hrc) as [lt Hlt].
+        exact (proj1 (tkeep_trans _ _ _ _ _ Tk Tsp) _ _ Hlt).
+      - intros o0 E; discriminate. }
+    specialize (IHb ix sx (sx :: ix :: L) (S (S k)) (S c) sp wP PScalar m Replay (bA (pa ix) (pa sx))
+                  (bW (pw ix) (pw sx)) (bT (pt ix) (pt sx)) (bD (pd ix) (pd sx)) Real st'
+                  (HbA ix _ sx _) (HbW ix _ sx _) (HbT ix _ sx _) (HbD ix _ sx _) Hctx HtB Hbd).
+    lazymatch type of IHb with context [@open_pairs ?A ?t (S c)] =>
+      assert (E : @open_pairs A t (S c) = ((sb, vb), c2)) by exact Hob; rewrite E in IHb; clear E end.
+    destruct IHb as [_ [s3 [R3 [F3 [T3 X3]]]]].
+    destruct (IHa ix sx (sx :: ix :: L) (S (S k)) wP PScalar (bA (pa ix) (pa sx)) (bW (pw ix) (pw sx)) (bD (pd ix) (pd sx)) Real st'
+                (HbA ix _ sx _) (HbW ix _ sx _) (HbD ix _ sx _) HL' HtB Hbd) as [Hht' Hz'].
+    destruct st' as [ds' | | | |]; try contradiction.
+    set (s4 := store_set s3 (keyv n) (VReal (dfst ds'))).
+    exists s4; split.
+    { unfold bst; rewrite run_app.
+      lazymatch goal with |- match ?r with _ => _ end = _ => replace r with (Some sp) by (symmetry; exact Rp) end.
+      rewrite run_app.
+      lazymatch goal with |- match ?r with _ => _ end = _ => replace r with (Some s3) by (symmetry; exact R3) end.
+      rewrite run_assign_var with (v := VReal (dfst ds')) by exact X3; reflexivity. }
+    split.
+    { intros v Hb Hcv Htv Hex Hvo.
+      unfold s4; rewrite store_get_set_other.
+      2:{ intros K; apply keyv_inj in K; [| reflexivity | exact Hcv]; subst v; apply Hex; reflexivity. }
+      rewrite (F3 v (below_mono c (S c) v Hb (Nat.le_succ_diag_r c)) Hcv Htv ltac:(discriminate) ltac:(discriminate)).
+      rewrite (Hsp v Hb Hcv Htv); exact (Fr v Hb Hcv Htv Hex Hvo). }
+    split.
+    { apply (tkeep_trans _ _ _ s'); [exact Tk |]. apply (tkeep_trans _ _ _ sp); [exact Tsp |].
+      apply (tkeep_trans _ _ _ s3); [exact (tkeep_none _ _ _ _ (tkeep_mono _ _ _ _ _ T3 (Nat.le_succ_diag_r c))) |].
+      unfold s4; apply tkeep_set; [simpl; tauto | reflexivity]. }
+    split; [unfold s4; apply store_get_set_same |].
+    split; [exact Hht' |].
+    split.
+    { intros Hv; apply Hz'.
+      pose proof Hv as Hv'; unfold vr, fold_varied in Hv'; apply orb_false_iff in Hv' as [_ Hb'].
+      unfold sx; cbn [pa]; rewrite Hv; exact Hb'. }
+    intros El; unfold s4; rewrite store_get_set_other by (intros K; apply keyv_inj in K; [discriminate | reflexivity | reflexivity]).
+    etransitivity; [apply (proj2 T3); [exact (below_mono c (S c) n Hbn (Nat.le_succ_diag_r c)) | reflexivity | discriminate] |].
+    unfold sp; rewrite El, store_get_set_same, map_app, rev_app_distr; reflexivity. }
+  assert (Hinit : Inv l s1 (VReal d0) []).
+  { assert (Kn : forall v, consistent v -> v <> n -> keyv v <> keyv n)
+      by (intros v Hcv Hne K; apply keyv_inj in K; [exact (Hne K) | exact Hcv | reflexivity]).
+    split.
+    { intros v Hb Hcv Ht Hex _.
+      assert (Hvn : keyv n <> keyv v) by (apply not_eq_sym, Kn; [exact Hcv | intros ->; apply Hex; reflexivity]).
+      unfold s1; destruct live.
+      - rewrite store_get_set_other; [rewrite store_get_set_other by exact Hvn; reflexivity |].
+        intros K; apply keyv_inj in K; [subst v; exact (Ht I) | reflexivity | exact Hcv].
+      - rewrite store_get_set_other by exact Hvn; reflexivity. }
+    split.
+    { unfold s1; destruct live.
+      - apply (tkeep_trans _ _ _ (store_set s (keyv n) (VReal (dfst d0)))); [apply tkeep_set; [simpl; tauto | reflexivity] |].
+        apply tkeep_set_tape; [reflexivity | right; reflexivity].
+      - apply tkeep_set; [simpl; tauto | reflexivity]. }
+    split.
+    { unfold s1; destruct live; [rewrite store_get_set_other by (intros K; apply keyv_inj in K; [discriminate | reflexivity | reflexivity]) |];
+        apply store_get_set_same. }
+    split; [exact Hint |].
+    split.
+    { intros Hv; unfold vr, fold_varied in Hv; apply orb_false_iff in Hv as [Hvi _].
+      exact (atom_zero k initP _ (Hsta initP ltac:(auto)) Hvi Hin). }
+    intros El; unfold s1; rewrite El; apply store_get_set_same. }
+  destruct (fold_loop (fun v w => aeval (duals reals) (bD v w)) (run bst) (out_dvar nat i) Inv Hstep
+              (count l h) l s1 (VReal d0) [] ve Hinit Hev) as [sf [tr [Hex [Htr [Fs [Ts [Ns [_ [_ Tps]]]]]]]]].
+  exists sf; split.
+  { lazymatch goal with |- (match ?r with _ => _ end) = _ => replace r with (Some sf) by (symmetry; exact Hex) end; reflexivity. }
+  split; [exact Fs |]. split; [exact Ts |]. split; [exact Ns |].
+  intros Hm; unfold fold_tape; rewrite Hlo, Hhi, Hin; intros _ Hlv tr' Htr'.
+  cbv beta in Htr'; rewrite Htr in Htr'; injection Htr' as <-.
+  apply Tps; unfold live; rewrite Hm, Hlv; reflexivity.
 Qed.
 
 (* Bodies of straight lets, branches and maps: an assignment is in no branch,
