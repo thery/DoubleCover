@@ -114,3 +114,196 @@ Proof.
       [exact (HA4 _ _ _ _) | exact (HW4 _ _ _ _) | | lia].
     intros q [<- | [<- | Hq]]; [reflexivity | reflexivity | exact (Hid q Hq)].
 Qed.
+
+Section Branch.
+Variable cv : bool.
+
+(* The atoms of a value are variables that occur in it. *)
+Lemma vatoms_live L k (eP : value pv bare) eA eW p :
+  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> Forall (static_ok k) L -> In p L ->
+  vatoms k eA p -> live_value k eW p.
+Proof.
+  intros HA HW HL Hp; unfold vatoms, live_value; rewrite atom_member_id.
+  destruct (static_in _ _ _ HL Hp) as [Eid [Hk _]].
+  rewrite ((proj2 atoms_occurs) eP L eA eW k (aid (pa p)) HA HW); [rewrite Eid; auto | | lia].
+  intros q Hq; exact (proj1 (static_in _ _ _ HL Hq)).
+Qed.
+
+Lemma live_atoms L k (bP : anf pv bare) bA bW p :
+  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> Forall (static_ok k) L -> In p L ->
+  live_anf k bW p -> atom_member (AVar (pa p)) (atoms_of_anf k bA) = true.
+Proof.
+  intros HA HW HL Hp; unfold live_anf; rewrite atom_member_id.
+  destruct (static_in _ _ _ HL Hp) as [Eid [Hk _]].
+  rewrite ((proj1 atoms_occurs) bP L bA bW k (aid (pa p)) HA HW); [rewrite Eid; auto | | lia].
+  intros q Hq; exact (proj1 (static_in _ _ _ HL Hq)).
+Qed.
+
+(* The forward sweep of a branch body: prim computes every let, then the
+   value of the body, from the variables that occur in it. *)
+Definition psim_body (bP : anf pv bare) : Prop :=
+  forall L k c s wP pp m m' bA bW bT bD ty v,
+  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gT L) bP bT -> anf_eq (gD L) bP bD ->
+  actx L k c s wP pp (live_anf k bW) (live_anf k bW) ty ->
+  typecheck (option_map (amap pw) wP) (wplace pp) k bW = (ty, Ok) ->
+  aeval (duals reals) bD = Some v ->
+  let '((sb, x), c') :=
+    open_pairs (prim W (option_map (amap pt) wP) m (rebuild _ bT (annotate_body_t cv m' k bA))) c in
+  (c <= c')%nat /\
+  exists s1, run sb s = Some s1 /\ fwd_frame c None None s s1 /\ tapes_kept s s1 /\ xev s1 x = Some (primal v).
+
+Lemma prim_let w m a e b :
+  prim W w m (ALet a e b) =
+  let '(vr, _, _) := let_ann a in
+  with_storage w e b (fun n rec =>
+    sbind (fwd_value W w m e (Transform.type_of e) n rec) (fun se =>
+    sbind (prim W w m (b (open_let (Transform.type_of e) n vr rec))) (fun '(sb, x) => Done (app se sb, x)))).
+Proof. reflexivity. Qed.
+
+Lemma psim_ret (aP : atom pv) : psim_body (ARet aP).
+Proof.
+  intros L k c s wP pp m m' bA bW bT bD ty v HA HW HT HD Hc Htc Hev.
+  destruct bA as [| aA], bW as [| aW], bT as [| aT], bD as [| aD]; simpl in HA, HW, HT, HD;
+    try contradiction.
+  graph HA; graph HW; graph HT; graph HD.
+  cbn [annotate_body_t rebuild prim open_pairs].
+  split; [lia |]; exists s; split; [reflexivity |].
+  split; [intros ? ? ? ? ? ?; reflexivity | split; [apply tapes_kept_refl |]].
+  pose proof (a_sctx _ _ _ _ _ _ _ _ _ Hc) as Hs.
+  apply (aspell_ok k s aP); [| exact Hev].
+  intros p ->; split; [exact (static_in _ _ _ (s_static _ _ _ _ _ _ _ Hs) (H p eq_refl)) |].
+  apply (a_store _ _ _ _ _ _ _ _ _ Hc p (H p eq_refl)); unfold live_anf; simpl; apply Nat.eqb_refl.
+Qed.
+
+Lemma psim_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
+  asim_fwd cv eP -> act_value eP -> (forall wP tail, storage wP tail eP = None) -> (forall x, psim_body (cP x)) ->
+  psim_body (ALet a eP cP).
+Proof.
+  intros IHf IHa Hsn IHb L k c s wP pp m m' bA bW bT bD ty v HA HW HT HD Hc Htc Hev.
+  destruct bA as [aA eA cA |], bW as [aW eW cW |], bT as [aT eT cT |], bD as [aD eD cD |];
+    simpl in HA, HW, HT, HD; try contradiction.
+  destruct HA as [HeA HcA], HW as [HeW HcW], HT as [HeT HcT], HD as [HeD HcD].
+  simpl in Htc, Hev.
+  destruct (typecheck_value (option_map (amap pw) wP) (wplace pp) (WellFormed.is_tail cW k) k eW)
+    as [te d0] eqn:Hte.
+  destruct d0; simpl in Htc; [| discriminate].
+  destruct (aeval_value (duals reals) eD) as [ve |] eqn:Hve; [| discriminate].
+  pose proof (a_sctx _ _ _ _ _ _ _ _ _ Hc) as Hs.
+  pose proof (s_static _ _ _ _ _ _ _ Hs) as HL.
+  cbn [annotate_body_t].
+  destruct (needs cv m' (S k) (cA (let_binder k eA))) as [u l] eqn:Hneeds.
+  set (vr := varied_value k eA). set (vt := annotate_value_t cv k eA).
+  set (rest := annotate_body_t cv m' (S k) (cA (let_binder k eA))).
+  cbn [rebuild]. rewrite prim_let. cbv [let_ann].
+  rewrite (type_of_ok _ _ _ _ _ _ _ _ vt te HeW HeT HL Hte).
+  match goal with |- context [with_storage _ _ _ ?K] => set (Kf := K) end.
+  destruct (open_with_storage' L k wP eP eT vt (fun v0 => rebuild _ (cT v0) rest) Kf c HeT HL) as [n [rec [c0 [Hopen Hn]]]].
+  { intros a0 E; destruct (s_written _ _ _ _ _ _ _ Hs _ E) as [y [-> [Hy _]]]; eauto. }
+  lazymatch goal with |- context [@open_pairs ?A ?t c] =>
+    assert (E : @open_pairs A t c = @open_pairs A (Kf n rec) c0) by exact Hopen; rewrite E; clear E end.
+  rewrite <- (is_tail_transfer L k cP cW cT rest HcW HcT) in Hn by
+    (intros p Hp; destruct (static_in _ _ _ HL Hp) as [_ [H1 [_ [_ [_ [_ [H2 _]]]]]]]; auto).
+  set (tail := WellFormed.is_tail cW k) in *.
+  assert (Htail_ty : tail = true -> te = ty).
+  { intros Ht; destruct (tail_cont L k cP cW (pfresh k) (VInfo k te None) HcW HL eq_refl Ht) as [_ E].
+    rewrite E in Htc; simpl in Htc; injection Htc; auto. }
+  assert (Es := Hsn wP tail); rewrite Es in Hn; destruct Hn as [-> [-> ->]].
+  unfold Kf; rewrite open_pairs_sbind.
+  destruct (open_pairs (fwd_value W (option_map (amap pt) wP) m (rebuild_value (tvar W) eT vt) te (DBound (c, c)) false) (S c))
+    as [se c1] eqn:Hfe.
+  rewrite open_pairs_sbind.
+  destruct (open_pairs (prim W (option_map (amap pt) wP) m (rebuild (tvar W) (cT (open_let te (DBound (c, c)) vr false)) rest)) c1)
+    as [[sb xb] c2] eqn:Hob.
+  cbn [open_pairs].
+  assert (Hc01 : (S c <= c1)%nat).
+  { pose proof (open_pairs_mono (fwd_value W (option_map (amap pt) wP) m (rebuild_value (tvar W) eT vt) te (DBound (c, c)) false) (S c)) as H0.
+    rewrite Hfe in H0; exact H0. }
+  pose proof (aids_below L k HL) as Haid.
+  assert (Hlv_e : forall p, live_value k eW p -> live_anf k (ALet aW eW cW) p)
+    by (intros p H0; unfold live_value, live_anf in *; simpl; rewrite H0; reflexivity).
+  destruct (IHa L k wP pp tail eA eW eD te ve HeA HeW HeD HL Hte Hve) as [Hht [Hz Hra]].
+  assert (Hnotin : forall p, In p L -> stored p <> DBound (c, c)).
+  { intros p Hp E; pose proof (s_num _ _ _ _ _ _ _ Hs p Hp) as H0; unfold stored in E; injection E as E; lia. }
+  set (x := PV (let_binder k eA) (VInfo k te None) (open_let te (DBound (c, c)) vr false) ve c).
+  assert (Hx : aid (pa x) = k) by reflexivity.
+  assert (HxL : ~ In x L) by exact (fresh_notin L k x Haid Hx).
+  (* the forward sweep of the value *)
+  assert (Hc1 : actx L k (S c) s wP pp (live_value k eW) (vatoms k eA) ty).
+  { apply (actx_weaken _ _ _ _ _ _ _ _ _ _ _ _ Hc Hlv_e); [| lia].
+    intros p Hp Hv; exact (Hlv_e p (vatoms_live L k eP eA eW p HeA HeW HL Hp Hv)). }
+  assert (Hj1 : exists j, DBound (c, c) = DBound (j, j) /\ (j < S c)%nat) by (exists c; split; [reflexivity | lia]).
+  assert (Hst1 : match storage wP tail eP with
+                 | Some m0 => DBound (c, c) = m0
+                 | None => forall p, In p L -> stored p <> DBound (c, c) end) by (rewrite Es; exact Hnotin).
+  assert (Hr1 : false = true -> exists l0, store_get s (keyv (TapeOf (DBound (c, c)))) = Some (VTape l0))
+    by discriminate.
+  pose proof (IHf L k (S c) s wP pp tail eA eW eT eD te (DBound (c, c)) ve ty m false HeA HeW HeT HeD Hc1 Hte
+                Htail_ty Hj1 Hst1 Hr1 Hve) as IH.
+  cbv zeta in IH; fold vt in IH; rewrite Hfe in IH.
+  destruct IH as [_ [se1 [R1 [F1 [T1 S1]]]]].
+  (* the rest of the body, with x in scope *)
+  assert (Hlive_c : forall p, In p L -> live_anf (S k) (cW (VInfo k te None)) p -> live_anf k (ALet aW eW cW) p).
+  { unfold live_anf; intros p Hp H; simpl.
+    rewrite (live_cont L k cP cW x (VInfo k te None) _ HcW HL Hx eq_refl) in H.
+    rewrite H; apply orb_true_r. }
+  assert (Hold : forall p, In p L -> store_get se1 (keyv (stored p)) = store_get s (keyv (stored p))).
+  { intros p Hp; apply F1; [unfold stored; simpl; pose proof (s_num _ _ _ _ _ _ _ Hs p Hp); lia | reflexivity | simpl; tauto |
+      intros E; apply (Hnotin p Hp); congruence | discriminate]. }
+  assert (Hxs : static_ok (S k) x).
+  { repeat split; simpl; auto; try lia; discriminate. }
+  assert (Hs' : sctx (x :: L) (S k) (S c) wP pp (live_anf (S k) (cW (VInfo k te None))) ty).
+  { constructor.
+    - constructor; [exact Hxs |]; apply Forall_impl with (P := static_ok k); auto.
+      intros p Hp; apply (static_mono k); auto.
+    - intros p q [<- | Hp] [<- | Hq] E; auto.
+      + specialize (Haid _ Hq); destruct (static_in _ _ _ HL Hq) as [E' _]; simpl in E; lia.
+      + specialize (Haid _ Hp); destruct (static_in _ _ _ HL Hp) as [E' _]; simpl in E; lia.
+      + exact (s_unique _ _ _ _ _ _ _ Hs _ _ Hp Hq E).
+    - intros p [<- | Hp]; simpl; [lia |].
+      pose proof (s_num _ _ _ _ _ _ _ Hs _ Hp); lia.
+    - intros a0 E; destruct (s_written _ _ _ _ _ _ _ Hs _ E) as [y [-> [Hy Hv]]].
+      exists y; split; [reflexivity | split; [right; exact Hy | exact Hv]].
+    - pose proof (s_place _ _ _ _ _ _ _ Hs) as Hp; destruct pp; simpl in *; auto.
+      destruct Hp as [A [B C]]; split; [right; exact A | split; [right; exact B | exact C]].
+    - intros o p Ho [<- | Hp] Ep.
+      + pose proof (s_num _ _ _ _ _ _ _ Hs _ (owner_in_s _ _ _ _ _ _ _ _ Hs Ho)); simpl in Ep; lia.
+      + destruct (s_owner _ _ _ _ _ _ _ Hs o p Ho Hp Ep) as [H | H]; [left; exact H |].
+        right; intros Hl; apply H, Hlive_c; auto.
+    - intros p o [<- | Hp] Lp Ha Hg Ho.
+      + destruct (inplace_value_s _ _ _ _ _ _ _ _ _ _ _ Hs HeW Hte Htail_ty (or_intror Ha))
+          as [_ [o' [Ho' Es']]].
+        rewrite Es in Es'; discriminate.
+      + exact (s_arrays _ _ _ _ _ _ _ Hs p o Hp (Hlive_c _ Hp Lp) Ha Hg Ho).
+    - exact (s_ty _ _ _ _ _ _ _ Hs).
+    - intros y Hpp Hw Ha.
+      destruct (s_top _ _ _ _ _ _ _ Hs y Hpp Hw Ha) as [T1' T2'].
+      destruct (s_written _ _ _ _ _ _ _ Hs _ Hw) as [y' [E [Hy _]]]; injection E as <-.
+      split; [exact T1' | intros Ly; apply T2', Hlive_c; auto]. }
+  assert (Hc' : actx (x :: L) (S k) c1 se1 wP pp (live_anf (S k) (cW (VInfo k te None)))
+                  (live_anf (S k) (cW (VInfo k te None))) ty).
+  { constructor; [exact (sctx_weaken _ _ _ _ _ _ _ _ _ Hs' (fun p H => H) Hc01) | | |].
+    - intros p [<- | Hp]; [reflexivity | exact (a_bar _ _ _ _ _ _ _ _ _ Hc p Hp)].
+    - intros p [<- | Hp] Hl; [exact S1 |].
+      rewrite Hold; [| exact Hp]; apply (a_store _ _ _ _ _ _ _ _ _ Hc p Hp), Hlive_c; auto.
+    - intros p [<- | Hp] Hr; [discriminate |].
+      destruct (a_tape _ _ _ _ _ _ _ _ _ Hc p Hp Hr) as [lt Hlt]; exact (T1 _ _ Hlt). }
+  pose proof (IHb x (x :: L) (S k) c1 se1 wP pp m m' (cA (pa x)) (cW (pw x)) (cT (pt x)) (cD (pd x)) ty v
+                (HcA x _) (HcW x _) (HcT x _) (HcD x _) Hc' Htc Hev) as IH.
+  unfold x in IH; cbn [pt pa pd pw] in IH; fold rest in IH.
+  lazymatch type of IH with context [@open_pairs ?A ?t c1] =>
+    assert (E : @open_pairs A t c1 = (sb, xb, c2)) by exact Hob; rewrite E in IH; clear E end.
+  destruct IH as [Hc12 [s1 [Rb [Fb [Tb Vb]]]]].
+  lazymatch goal with |- context [@open_pairs ?A ?t c1] =>
+    assert (E : @open_pairs A t c1 = (sb, xb, c2)) by exact Hob; rewrite E; clear E end.
+  cbn [open_pairs].
+  split; [lia |].
+  exists s1; split; [rewrite run_app, R1; exact Rb |].
+  split.
+  { intros v0 Hb0 Hc0 Ht0 _ _.
+    rewrite (Fb v0 (below_mono c c1 v0 Hb0 ltac:(lia)) Hc0 Ht0 ltac:(discriminate) ltac:(discriminate)).
+    apply F1; [exact (below_mono c (S c) v0 Hb0 ltac:(lia)) | exact Hc0 | exact Ht0 | | discriminate].
+    intros E; injection E as <-; simpl in Hb0; lia. }
+  split; [exact (tapes_kept_trans _ _ _ T1 Tb) | exact Vb].
+Qed.
+
+End Branch.
