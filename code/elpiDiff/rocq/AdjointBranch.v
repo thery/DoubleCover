@@ -665,6 +665,35 @@ Proof.
   intros q Hq; exact (proj1 (static_in _ _ _ HL Hq)).
 Qed.
 
+(* The index of the set that ends a body, as evaluated. *)
+Fixpoint set_index (b : anf (val (dual R)) bare) : option Z :=
+  match b with
+  | ALet _ e b' =>
+      match aeval_value (duals reals) e with
+      | Some v =>
+          match e, b' v with
+          | ASet _ i _, ARet _ => match aeval_atom (duals reals) i with Some (VInt z) => Some z | _ => None end
+          | _, _ => set_index (b' v)
+          end
+      | None => None
+      end
+  | ARet _ => None
+  end.
+
+(* The tape of the storage updated in place after a body: when it records, the
+   element its last set overwrites is pushed. *)
+Definition tape_step (r : bool) (zi : option Z) (st : val (dual R)) (t : option (val R)) : option (val R) :=
+  if r then
+    match zi, st, t with
+    | Some z, VArray l, Some (VTape l0) =>
+        Some (VTape (match nth_z z (map dfst l) with Some x => x | None => 0 end :: l0))
+    | _, _, _ => t
+    end
+  else t.
+
+Lemma tape_step_none r st t : tape_step r None st t = t.
+Proof. destruct r; reflexivity. Qed.
+
 (* The forward sweep of a branch body: prim computes every let, then the
    value of the body, from the variables that occur in it. *)
 Definition psim_body (bP : anf pv bare) : Prop :=
@@ -676,7 +705,11 @@ Definition psim_body (bP : anf pv bare) : Prop :=
   let '((sb, x), c') :=
     open_pairs (prim W (option_map (amap pt) wP) m (rebuild _ bT (annotate_body_t cv m' k bA))) c in
   (c <= c')%nat /\
-  exists s1, run sb s = Some s1 /\ fwd_frame c None None s s1 /\ tkeep c None s s1 /\ xev s1 x = Some (primal v).
+  exists s1, run sb s = Some s1 /\ fwd_frame c (inplace wP pp) None s s1 /\ tkeep c (inplace wP pp) s s1 /\
+    xev s1 x = Some (primal v) /\
+    (forall o, owner wP pp = Some o ->
+       store_get s1 (keyv (TapeOf (stored o))) =
+       tape_step (sweep_eqb m Forward && trecorded (pt o)) (set_index bD) (pd o) (store_get s (keyv (TapeOf (stored o))))).
 
 Lemma prim_let w m a e b :
   prim W w m (ALet a e b) =
@@ -695,6 +728,7 @@ Proof.
   cbn [annotate_body_t rebuild prim open_pairs].
   split; [lia |]; exists s; split; [reflexivity |].
   split; [intros ? ? ? ? ? ?; reflexivity | split; [apply tkeep_refl |]].
+  split; [| intros o _; cbn [set_index]; rewrite tape_step_none; reflexivity].
   pose proof (a_sctx _ _ _ _ _ _ _ _ _ Hc) as Hs.
   apply (aspell_ok k s aP); [| exact Hev].
   intros p ->; split; [exact (static_in _ _ _ (s_static _ _ _ _ _ _ _ Hs) (H p eq_refl)) |].
@@ -702,10 +736,11 @@ Proof.
 Qed.
 
 Lemma psim_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
-  asim_fwd cv eP -> act_value eP -> (forall wP tail, storage wP tail eP = None) -> (forall x, psim_body (cP x)) ->
+  asim_fwd cv eP -> act_value eP -> (forall wP tail, storage wP tail eP = None) ->
+  (forall a0 i0 y0, eP <> ASet a0 i0 y0) -> (forall x, psim_body (cP x)) ->
   psim_body (ALet a eP cP).
 Proof.
-  intros IHf IHa Hsn IHb L k c s wP pp m m' bA bW bT bD ty v HA HW HT HD Hc Htc Hev.
+  intros IHf IHa Hsn Hns IHb L k c s wP pp m m' bA bW bT bD ty v HA HW HT HD Hc Htc Hev.
   destruct bA as [aA eA cA |], bW as [aW eW cW |], bT as [aT eT cT |], bD as [aD eD cD |];
     simpl in HA, HW, HT, HD; try contradiction.
   destruct HA as [HeA HcA], HW as [HeW HcW], HT as [HeT HcT], HD as [HeD HcD].
@@ -828,14 +863,23 @@ Proof.
   split; [lia |].
   exists s1; split; [rewrite run_app, R1; exact Rb |].
   split.
-  { intros v0 Hb0 Hc0 Ht0 _ _.
-    rewrite (Fb v0 (below_mono c c1 v0 Hb0 ltac:(lia)) Hc0 Ht0 ltac:(discriminate) ltac:(discriminate)).
+  { intros v0 Hb0 Hc0 Ht0 Hex _.
+    rewrite (Fb v0 (below_mono c c1 v0 Hb0 ltac:(lia)) Hc0 Ht0 Hex ltac:(discriminate)).
     apply F1; [exact (below_mono c (S c) v0 Hb0 ltac:(lia)) | exact Hc0 | exact Ht0 | | discriminate].
     intros E; injection E as <-; simpl in Hb0; lia. }
   assert (Hcc1 : (c <= c1)%nat) by lia.
-  split; [| exact Vb].
-  exact (tkeep_trans _ _ _ _ _ (tkeep_fresh c (S c) _ None _ _ T1 ltac:(simpl; lia) (Nat.le_succ_diag_r c))
-                               (tkeep_mono _ _ _ _ _ Tb Hcc1)).
+  split; [exact (tkeep_trans _ _ _ _ _ (tkeep_fresh c (S c) _ (inplace wP pp) _ _ T1 ltac:(simpl; lia) (Nat.le_succ_diag_r c))
+                                       (tkeep_mono _ _ _ _ _ Tb Hcc1)) |].
+  destruct Vb as [Vx Vt]; split; [exact Vx |].
+  intros o Ho; rewrite (Vt o Ho).
+  assert (Esi : set_index (ALet aD eD cD) = set_index (cD ve)).
+  { clear - HeD Hve Hns.
+    destruct eP; try (exfalso; eapply Hns; reflexivity);
+      destruct eD; simpl in HeD; try contradiction; cbn [set_index]; rewrite Hve; reflexivity. }
+  rewrite Esi; f_equal.
+  assert (HoL : In o L) by exact (owner_in_s _ _ _ _ _ _ _ _ Hs Ho).
+  apply (proj2 T1); [unfold stored; simpl; pose proof (s_num _ _ _ _ _ _ _ Hs o HoL); lia | reflexivity |].
+  intros E; injection E as E; apply (Hnotin o HoL); rewrite E; reflexivity.
 Qed.
 
 (* A branch body sits in place PBranch, where nothing is updated in place. *)
@@ -922,7 +966,7 @@ Proof.
         rewrite (live_atoms L k tP tA tW p H9 H6 HL Hp Hl'), orb_true_r; reflexivity. }
       specialize (IHt L k c s0 wP PBranch m Replay tA tW tT tD Real ve H9 H6 H3 H0
                     (Hctx tW Hl Ha c (le_n c)) HtW Hev).
-      rewrite Hot in IHt; destruct IHt as [_ [s1 [Hrun [Hfr [Htk Hv]]]]].
+      rewrite Hot in IHt; destruct IHt as [_ [s1 [Hrun [Hfr [Htk [Hv _]]]]]].
       destruct Htk as [Hk1 Hk2]; exists st, vt, s1, ve; repeat split; auto.
     - assert (Hl : forall p, live_anf k eW p -> live_value k (AIte (amap pw cP) tW eW) p)
         by (unfold live_anf, live_value; intros p H'; simpl; rewrite H', !orb_true_r; reflexivity).
@@ -931,7 +975,7 @@ Proof.
         rewrite (live_atoms L k eP eA eW p H10 H7 HL Hp Hl'), !orb_true_r; reflexivity. }
       specialize (IHe L k c1 s0 wP PBranch m Replay eA eW eT eD Real ve H10 H7 H4 H1
                     (Hctx eW Hl Ha c1 M1) HeW Hev).
-      rewrite Hoe in IHe; destruct IHe as [_ [s1 [Hrun [Hfr [Htk Hv]]]]].
+      rewrite Hoe in IHe; destruct IHe as [_ [s1 [Hrun [Hfr [Htk [Hv _]]]]]].
       destruct (tkeep_mono _ _ _ _ _ Htk M1) as [Hk1 Hk2]; exists se', ve', s1, ve; repeat split; auto.
       intros v0 Hb0; apply Hfr; exact (below_mono c c1 v0 Hb0 M1). }
   destruct Hbody as [sb [vb [s1 [vv [Hrun [Hfr [Htk [Hv [<- [Esb Evb]]]]]]]]]].
@@ -1253,7 +1297,7 @@ Proof.
                     (H10 ix _) (H7 ix _) (H4 ix _) (H1 ix _) Hctx HtB Hbd).
       lazymatch type of IHb with context [@open_pairs ?A ?t (S c)] =>
         assert (E : @open_pairs A t (S c) = ((sb, vb), c2)) by exact Hob; rewrite E in IHb; clear E end.
-      destruct IHb as [_ [s3 [R3 [F3 [T3 X3]]]]].
+      destruct IHb as [_ [s3 [R3 [F3 [T3 [X3 _]]]]]].
       assert (Hbn : below (S c) n) by (unfold n; simpl; lia).
       assert (S3n : store_get s3 (keyv n) = store_get s' (keyv n)).
       { rewrite (F3 n Hbn eq_refl ltac:(simpl; tauto) ltac:(discriminate) ltac:(discriminate)).
@@ -1743,7 +1787,7 @@ Proof.
                   (HbA ix _ sx _) (HbW ix _ sx _) (HbT ix _ sx _) (HbD ix _ sx _) Hctx HtB Hbd).
     lazymatch type of IHb with context [@open_pairs ?A ?t (S c)] =>
       assert (E : @open_pairs A t (S c) = ((sb, vb), c2)) by exact Hob; rewrite E in IHb; clear E end.
-    destruct IHb as [_ [s3 [R3 [F3 [T3 X3]]]]].
+    destruct IHb as [_ [s3 [R3 [F3 [T3 [X3 _]]]]]].
     destruct (IHa ix sx (sx :: ix :: L) (S (S k)) wP PScalar (bA (pa ix) (pa sx)) (bW (pw ix) (pw sx)) (bD (pd ix) (pd sx)) Real st'
                 (HbA ix _ sx _) (HbW ix _ sx _) (HbD ix _ sx _) HL' HtB Hbd) as [Hht' Hz'].
     destruct st' as [ds' | | | |]; try contradiction.
@@ -2410,7 +2454,7 @@ Proof.
     destruct (IHe top He) as [Hf [Hr [Hi [Ha [Ho Hst]]]]].
     split; [apply asim_let; auto; intros x; exact (proj1 (IHb x top (Hb x))) |].
     split; [apply act_let; auto; intros x; exact (proj1 (proj2 (IHb x top (Hb x)))) |].
-    intros Et; apply psim_let; [exact Hf | exact Ha | exact (Hst Et) |].
+    intros Et; apply psim_let; [exact Hf | exact Ha | exact (Hst Et) | intros a0 i0 y0 E; subst e; simpl in He; congruence |].
     intros x; exact (proj2 (proj2 (IHb x top (Hb x))) Et).
   - intros x top _; split; [apply asim_ret | split; [apply act_ret | intros _; apply psim_ret]].
   - intros f x top _; split; [apply afwd_op1 |].
