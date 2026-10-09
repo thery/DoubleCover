@@ -38,5 +38,6 @@ TangentMode.v
 AdjointSpec.v
 AdjointCorrect.v
 AdjointBranch.v
+AdjointFold.v
 AdjointTop.v
 AdjointMode.v
