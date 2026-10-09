@@ -157,6 +157,12 @@ Proof.
     apply orb_true_iff; repeat (apply orb_true_iff in H as [H | H]); auto; discriminate.
 Qed.
 
+Lemma pairing_ext_own O s s' : (forall t m, In (t, m) O -> barv s m = barv s' m) -> pairing O s = pairing O s'.
+Proof.
+  induction O as [| [t m] O IH]; intros H; simpl; [reflexivity |].
+  rewrite (H t m (or_introl eq_refl)), IH; [reflexivity |]; intros t' m' Hi; apply (H t'); right; exact Hi.
+Qed.
+
 Section Branch.
 Variable cv : bool.
 
@@ -574,6 +580,178 @@ Proof.
   split; [| apply store_get_set_same].
   apply (tapes_kept_trans _ s1); [apply (tapes_kept_trans _ s0); [apply tapes_kept_set; [simpl; tauto | reflexivity] | exact Htk] |].
   apply tapes_kept_set; [simpl; tauto | reflexivity].
+Qed.
+
+Ltac rev_intro :=
+  let L := fresh "L" in let k := fresh "k" in let c := fresh "c" in
+  intros L k c wP pp tail eA eW eT eD te n ve ty vo HA HW HT HD Hs Hbar Htc Htail [j [Ej Hj]] Hst Hev Hvr;
+  destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
+  repeat match goal with
+         | H : _ /\ _ |- _ => destruct H
+         | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+         end; subst.
+
+Lemma rev_value_ite w vo (c : atom (tvar W)) t e te n :
+  rev_value W w vo (AIte c t e) te n =
+  sbind (adj W w vo Replay t (DVar (BarOf n))) (fun '(ft, rt) =>
+  sbind (adj W w vo Replay e (DVar (BarOf n))) (fun '(fe, re) =>
+    Done [DBranch (spell c) (app ft rt) (app fe re)])).
+Proof. reflexivity. Qed.
+
+Lemma tbr_occurs L k (bP : anf pv bare) bA bW m p :
+  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> Forall (static_ok k) L -> In p L ->
+  (tbr cv m k bA p \/ useful cv m k bA p) -> live_anf k bW p.
+Proof.
+  intros HA HW HL Hp Ht; unfold live_anf.
+  destruct (static_in _ _ _ HL Hp) as [Eid [Hk _]]; rewrite <- Eid.
+  apply ((proj1 needs_occurs) bP L bA bW m k (aid (pa p)) HA HW); [| lia |].
+  - intros q Hq; exact (proj1 (static_in _ _ _ HL Hq)).
+  - unfold tbr, useful in Ht; destruct Ht as [Ht | Ht]; rewrite atom_member_id in Ht; rewrite Ht; [apply orb_true_r | reflexivity].
+Qed.
+
+(* The reverse sweep of a branch: the branch taken is replayed, then
+   transposed from the adjoint of the variable of the let. *)
+Lemma arev_ite (cP : atom pv) (tP eP : anf pv bare) :
+  asim_body cv tP -> asim_body cv eP -> asim_rev cv (AIte cP tP eP).
+Proof.
+  intros IHt IHe; rev_intro; simpl in Htc, Hev, Hst; cbn [rebuild_value annotate_value_t]; rewrite rev_value_ite.
+  rename t into tA, e into eA, t0 into tW, e0 into eW, t1 into tT, e1 into eT, t2 into tD, e2 into eD.
+  pose proof (s_static _ _ _ _ _ _ _ Hs) as HL.
+  (* typing *)
+  assert (Hpp : pp = PTop \/ pp = PBranch \/ pp = PScalar)
+    by (destruct pp as [| | | ix sx]; auto; simpl in Htc; discriminate).
+  assert (Hnl : not_in_loop pp) by (destruct Hpp as [-> | [-> | ->]]; exact I).
+  assert (Htc' : (if ty_eqb (of_atom (amap pw cP)) Boolean
+                  then let '(t3, d1) := typecheck (option_map (amap pw) wP) InBranch k tW in
+                       let '(t4, d2) := typecheck (option_map (amap pw) wP) InBranch k eW in
+                       if is_ok d1 then if is_ok d2 then if ty_eqb t3 Real && ty_eqb t4 Real
+                         then (Real, Ok) else (Real, Error "both branches must compute a real")
+                       else (Real, d2) else (Real, d1)
+                  else (Real, Error "a branch condition must be a comparison")) = (te, Ok))
+    by (destruct Hpp as [-> | [-> | ->]]; exact Htc).
+  clear Htc.
+  destruct (ty_eqb (of_atom (amap pw cP)) Boolean) eqn:Ecb; [| discriminate].
+  destruct (typecheck (option_map (amap pw) wP) InBranch k tW) as [t3 d1] eqn:HtW.
+  destruct (typecheck (option_map (amap pw) wP) InBranch k eW) as [t4 d2] eqn:HeW.
+  destruct d1, d2; simpl in Htc'; try discriminate.
+  destruct (ty_eqb t3 Real) eqn:E3, (ty_eqb t4 Real) eqn:E4; simpl in Htc'; try discriminate.
+  injection Htc' as <-; apply ty_eqb_true in E3, E4; subst t3 t4.
+  destruct (aeval_atom (duals reals) (amap pd cP)) as [[| | b | |] |] eqn:Hcd; try discriminate.
+  (* the two bodies, opened *)
+  rewrite open_pairs_sbind.
+  lazymatch goal with |- context [@open_pairs ?A ?t c] => destruct (@open_pairs A t c) as [[ft rt] c1] eqn:Hot end.
+  assert (M1 : (c <= c1)%nat)
+    by (lazymatch type of Hot with @open_pairs _ ?t c = _ => pose proof (open_pairs_mono t c) as Mo; rewrite Hot in Mo; exact Mo end).
+  cbv iota beta; rewrite open_pairs_sbind.
+  lazymatch goal with |- context [@open_pairs ?A ?t c1] => destruct (@open_pairs A t c1) as [[fe re] c2] eqn:Hoe end.
+  assert (M2 : (c1 <= c2)%nat)
+    by (lazymatch type of Hoe with @open_pairs _ ?t c1 = _ => pose proof (open_pairs_mono t c1) as Mo; rewrite Hoe in Mo; exact Mo end).
+  cbn [open_pairs]; split; [lia |].
+  intros s2 O Hrd Hr Hns Htp.
+  set (n := DBound (j, j)) in *.
+  destruct (Hns eq_refl) as [Hn_notin Hsh].
+  pose proof (rctx_owners_ok _ _ _ _ _ _ _ Hr) as Hok.
+  (* the reads of the reverse sweep of the branch *)
+  assert (Hreads : forall p, In p L ->
+            atom_member (AVar (pa p)) (atom_union (atom_union (atoms_of_atom (amap pa cP)) (snd (needs cv Replay k tA)))
+                                                   (snd (needs cv Replay k eA))) = true ->
+            vreads cv k (AIte (amap pa cP) tA eA) p).
+  { intros p _ Hm; unfold vreads; cbn [value_needs].
+    destruct (needs cv Replay k tA), (needs cv Replay k eA); exact Hm. }
+  assert (Hflows : forall p, In p L ->
+            atom_member (AVar (pa p)) (atom_union (fst (needs cv Replay k tA)) (fst (needs cv Replay k eA))) = true ->
+            vflows cv k (AIte (amap pa cP) tA eA) p).
+  { intros p _ Hm; unfold vflows; cbn [value_needs].
+    destruct (needs cv Replay k tA), (needs cv Replay k eA); exact Hm. }
+  (* the condition *)
+  assert (Hcs : forall p, cP = AVar p -> static_ok k p /\ store_get s2 (keyv (stored p)) = Some (primal (pd p))).
+  { intros p ->; split; [exact (static_in _ _ _ HL (H8 p eq_refl)) |].
+    apply (Hrd p (H8 p eq_refl)); [| unfold live_value; simpl; rewrite Nat.eqb_refl; reflexivity | left; exact Hnl].
+    apply (Hreads p (H8 p eq_refl)); rewrite !atom_member_union; simpl; rewrite Nat.eqb_refl; reflexivity. }
+  pose proof (aspell_ok k s2 cP _ Hcs Hcd) as Hsc; simpl in Hsc.
+  (* the branch taken *)
+  assert (Gen : forall (bP : anf pv bare) bA bW bT bD cb fb rb cb',
+            asim_body cv bP -> anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gT L) bP bT -> anf_eq (gD L) bP bD ->
+            typecheck (option_map (amap pw) wP) InBranch k bW = (Real, Ok) -> aeval (duals reals) bD = Some ve ->
+            (c <= cb)%nat ->
+            open_pairs (adj W (option_map (amap pt) wP) vo Replay (rebuild (tvar W) bT (annotate_body_t cv Replay k bA))
+                          (DVar (BarOf n))) cb = ((fb, rb), cb') ->
+            (forall p, live_anf k bW p -> live_value k (AIte (amap pw cP) tW eW) p) ->
+            (forall p, In p L -> tbr cv Replay k bA p -> vreads cv k (AIte (amap pa cP) tA eA) p) ->
+            (forall p, In p L -> useful cv Replay k bA p -> vflows cv k (AIte (amap pa cP) tA eA) p) ->
+            exists s3, run (fb ++ rb) s2 = Some s3 /\
+              (forall v, below c v -> consistent v -> is_primal v -> v <> n -> store_get s3 (keyv v) = store_get s2 (keyv v)) /\
+              tapes_kept s2 s3 /\
+              rev_frame c (inplace wP pp) (oput O n (TangentCorrect.tangent ve)) s2 s3 /\
+              (forall t m, In (t, m) O -> shaped t (barv s3 m)) /\
+              pairing O s3 = pairing (oput O n (TangentCorrect.tangent ve)) s2).
+  { intros bP bA bW bT bD cb fb rb cb' IH HbA HbW HbT HbD Htcb Hevb Hcb Hob Hlive Htbr Huse.
+    assert (Hctx : actx L k cb s2 wP PBranch (live_anf k bW) (tbr cv Replay k bA) Real).
+    { constructor.
+      - exact (sctx_weaken _ _ _ _ _ _ _ _ _ (sctx_branch _ _ _ _ _ _ _ _ Hs Hlive) (fun p Hm => Hm) Hcb).
+      - exact Hbar.
+      - intros p Hp Ht; apply (Hrd p Hp (Htbr p Hp Ht)); [| left; exact Hnl].
+        apply Hlive, (tbr_occurs L k bP bA bW Replay p HbA HbW HL Hp (or_introl Ht)).
+      - exact Htp. }
+    specialize (IH L k cb s2 wP PBranch Replay bA bW bT bD Real ve (DVar (BarOf n)) vo HbA HbW HbT HbD Hctx I Htcb Hevb
+                  ltac:(discriminate) ltac:(discriminate) ltac:(discriminate)).
+    lazymatch type of IH with context [@open_pairs ?A ?t cb] =>
+      assert (E : @open_pairs A t cb = ((fb, rb), cb')) by exact Hob; rewrite E in IH; clear E end.
+    destruct IH as [_ [Hht [s1 [R1 [F1 [T1 [_ Hrev]]]]]]].
+    destruct ve as [d | | | |]; try (simpl in Hht; contradiction).
+    simpl in Hsh; destruct (barv s2 n) as [[bn | | | |] |] eqn:Ebn; try contradiction.
+    assert (Hown : forall t m, In (t, m) O -> barv s1 m = barv s2 m).
+    { intros t m Hi; destruct (r_below _ _ _ _ _ _ _ Hr t m Hi) as [jm [-> Hjm]]; unfold barv.
+      apply F1; [simpl; lia | reflexivity | simpl; tauto | discriminate | discriminate]. }
+    assert (Hbn1 : barv s1 n = Some (VReal bn)).
+    { rewrite <- Ebn; unfold barv; apply F1; [simpl; lia | reflexivity | simpl; tauto | discriminate | discriminate]. }
+    assert (Hr1 : rctx L cb wP PBranch O (useful cv Replay k bA) s1).
+    { constructor.
+      - exact (r_nodup _ _ _ _ _ _ _ Hr).
+      - intros t m Hi; rewrite (Hown t m Hi); exact (r_shape _ _ _ _ _ _ _ Hr t m Hi).
+      - intros t m Hi; destruct (r_below _ _ _ _ _ _ _ Hr t m Hi) as [jm [E Hjm]]; exists jm; split; [exact E | lia].
+      - intros p Hp Hu Hv; exact (r_useful _ _ _ _ _ _ _ Hr p Hp (Huse p Hp Hu) Hv).
+      - intros p t Hp Hu Hi; exact (r_value _ _ _ _ _ _ _ Hr p t Hp (Huse p Hp Hu) Hi).
+      - intros o E; discriminate. }
+    assert (Hseed : seed_ok cb Real (DVar (BarOf n)) s1).
+    { split; [intros y [<- | []]; split; [simpl; lia | reflexivity] |].
+      intros _; exists bn; exact Hbn1. }
+    assert (Htp1 : tapes_ok L s1) by (intros p Hp Hrp; destruct (Htp p Hp Hrp) as [lt Hlt]; exact (T1 _ _ Hlt)).
+    destruct (Hrev s1 O (fun _ _ _ _ => eq_refl) Hr1 Hseed Htp1) as [s3 [R3 [_ [_ [T3 [F3 [S3 P3]]]]]]].
+    exists s3; split; [rewrite run_app, R1; exact R3 |].
+    assert (Hprim : forall v, below c v -> consistent v -> is_primal v -> store_get s3 (keyv v) = store_get s2 (keyv v)).
+    { intros v Hb0 Hc0 Hp0.
+      rewrite (F3 v (below_mono c cb v Hb0 Hcb) Hc0 ltac:(destruct v; simpl in Hp0 |- *; tauto) ltac:(discriminate)
+                 ltac:(intros m0 E; subst v; destruct Hp0)).
+      apply F1; [exact (below_mono c cb v Hb0 Hcb) | exact Hc0 | destruct v; simpl in Hp0 |- *; tauto | discriminate | discriminate]. }
+    split; [intros v Hb0 Hc0 Hp0 _; exact (Hprim v Hb0 Hc0 Hp0) |].
+    split; [exact (tapes_kept_trans _ _ _ T1 T3) |].
+    split.
+    { intros v Hb0 Hc0 Ht0 _ Hb'.
+      rewrite (F3 v (below_mono c cb v Hb0 Hcb) Hc0 Ht0 ltac:(discriminate)).
+      - apply F1; [exact (below_mono c cb v Hb0 Hcb) | exact Hc0 | exact Ht0 | discriminate | discriminate].
+      - intros m0 E Hm; apply (Hb' m0 E); rewrite (oput_notin O n _ Hn_notin); right; exact Hm. }
+    split; [exact S3 |].
+    rewrite P3, (oput_notin O n _ Hn_notin); unfold result_pairing, seed_value.
+    change (xev s1 (DVar (BarOf n))) with (barv s1 n); rewrite Hbn1.
+    simpl; rewrite (pairing_ext_own O s1 s2 Hown); unfold pairing at 2; fold pairing.
+    cbn [fold_right]; rewrite Ebn; fold (pairing O s2); simpl; ring. }
+  destruct b.
+  - destruct (Gen tP tA tW tT tD c ft rt c1 IHt H9 H6 H3 H0 HtW Hev (le_n c) Hot) as [s3 Hs3].
+    + unfold live_anf, live_value; intros p H'; simpl; rewrite H', orb_true_r; reflexivity.
+    + intros p Hp Ht; apply Hreads; [exact Hp |]; unfold tbr in Ht; rewrite !atom_member_union, Ht, orb_true_r; reflexivity.
+    + intros p Hp Ht; apply Hflows; [exact Hp |]; unfold useful in Ht; rewrite atom_member_union, Ht; reflexivity.
+    + exists s3; destruct Hs3 as [R3 Hs3]; split; [| exact Hs3].
+      rewrite run_branch with (b := true) by exact Hsc; rewrite R3; reflexivity.
+  - destruct (Gen eP eA eW eT eD c1 fe re c2 IHe H10 H7 H4 H1 HeW Hev M1 Hoe) as [s3 Hs3].
+    + unfold live_anf, live_value; intros p H'; simpl; rewrite H', !orb_true_r; reflexivity.
+    + intros p Hp Ht; apply Hreads; [exact Hp |]; unfold tbr in Ht; rewrite !atom_member_union, Ht, !orb_true_r; reflexivity.
+    + intros p Hp Ht; apply Hflows; [exact Hp |]; unfold useful in Ht; rewrite atom_member_union, Ht, orb_true_r; reflexivity.
+    + exists s3; destruct Hs3 as [R3 Hs3]; split; [| exact Hs3].
+      rewrite run_branch with (b := false) by exact Hsc; rewrite R3; reflexivity.
 Qed.
 
 End Branch.
