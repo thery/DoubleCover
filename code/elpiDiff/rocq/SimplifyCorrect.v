@@ -24,7 +24,8 @@
    evaluator the second (`out_dvar`), and they agree on such variables. *)
 
 From Stdlib Require Import String ZArith List Bool Reals QArith Qreals Lra.
-From ElpiDiff Require Import Syntax Derivative Domain Eval Exec Operations Simplify Scoping.
+From ElpiDiff Require Import Syntax Derivative Domain Eval Exec Operations
+  Simplify Scoping.
 From Corelib Require Import ssreflect ssrbool ssrfun.
 Set Bullet Behavior "None".
 
@@ -43,7 +44,8 @@ Definition ex (ss : list (dstmt W)) (s : store) : option store :=
   exec_stmts reals (map outs ss) s.
 
 Lemma ex_cons st ss s :
-  ex (st :: ss) s = match exec reals (outs st) s with Some s1 => ex ss s1 | None => None end.
+  ex (st :: ss) s = match exec reals (outs st) s with Some s1 => ex ss s1 |
+    None => None end.
 Proof. by []. Qed.
 
 Lemma ex_app a b s :
@@ -89,7 +91,8 @@ Qed.
 Lemma get_set_same (s : store) x v : store_get (store_set s x v) x = Some v.
 Proof. by rewrite get_set (proj2 (key_eqb_eq x x) erefl). Qed.
 
-Lemma get_set_other (s : store) x v y : x <> y -> store_get (store_set s x v) y = store_get s y.
+Lemma get_set_other (s : store) x v y : x <> y -> store_get (store_set s x v) y
+  = store_get s y.
 Proof.
 move=> H; rewrite get_set; case E: (key_eqb x y) => //.
 by move/key_eqb_eq: E.
@@ -117,7 +120,8 @@ Lemma dvar_eq_false_neq a b : dvar_eq nat a b = false -> a <> b.
 Proof. by move=> H E; rewrite E dvar_eq_refl in H. Qed.
 
 (* On consistent variables, dvar_eq says true only of equal ones. *)
-Lemma dvar_eq_true_eq a b : consistent a -> consistent b -> dvar_eq nat a b = true -> a = b.
+Lemma dvar_eq_true_eq a b : consistent a -> consistent b -> dvar_eq nat a b
+  = true -> a = b.
 Proof.
 elim: a b => [[i j] | a IH | a IH | a IH |] [[i' j'] | b | b | b |] //=.
 - by move=> -> -> /Nat.eqb_eq ->.
@@ -126,14 +130,16 @@ elim: a b => [[i j] | a IH | a IH | a IH |] [[i' j'] | b | b | b |] //=.
 by move=> Ha Hb /(IH _ Ha Hb) ->.
 Qed.
 
-Lemma neq_dvar_eq_false a b : consistent a -> consistent b -> a <> b -> dvar_eq nat a b = false.
+Lemma neq_dvar_eq_false a b : consistent a -> consistent b -> a <> b ->
+  dvar_eq nat a b = false.
 Proof.
 move=> Ha Hb H; case E: (dvar_eq nat a b) => //.
 by case: H; exact: dvar_eq_true_eq E.
 Qed.
 
 (* Two different consistent variables are different keys of the store. *)
-Lemma key_neq a b : consistent a -> consistent b -> a <> b -> KVar (out a) <> KVar (out b).
+Lemma key_neq a b : consistent a -> consistent b -> a <> b ->
+  KVar (out a) <> KVar (out b).
 Proof. by move=> Ha Hb H [/(out_inj _ _ Ha Hb)]. Qed.
 
 (* ---------------------------------------------------------------------------
@@ -177,7 +183,8 @@ Ltac inv_eval :=
 (* The value of a unary operation: its operand is a real. *)
 Lemma xeval_op1_inv s f a w :
   xeval reals s (DOp1 f a) = Some w ->
-  exists x y, xeval reals s a = Some (VReal x) /\ real_op1 f x = Some y /\ w = VReal y.
+  exists x y, xeval reals s a = Some (VReal x) /\ real_op1 f x = Some y /\ w
+    = VReal y.
 Proof.
 rewrite /=; case: (xeval reals s a) => [[x | | | |] |] //=.
 by case E: (real_op1 f x) => [y |] // [<-]; exists x, y.
@@ -188,7 +195,8 @@ Qed.
 Lemma xeval_op2_inv_l s f a b x w :
   xeval reals s a = Some (VReal x) -> xeval reals s (DOp2 f a b) = Some w ->
   Operations.comparison f = false ->
-  exists y z, xeval reals s b = Some (VReal y) /\ real_op2 f x y = Some z /\ w = VReal z.
+  exists y z, xeval reals s b = Some (VReal y) /\ real_op2 f x y = Some z /\ w
+    = VReal z.
 Proof.
 move=> Ha /= H Hf; move: H; rewrite Ha.
 case: (xeval reals s b) => [[y | | | |] |] //=; rewrite Hf.
@@ -198,7 +206,8 @@ Qed.
 Lemma xeval_op2_inv_r s f a b y w :
   xeval reals s b = Some (VReal y) -> xeval reals s (DOp2 f a b) = Some w ->
   Operations.comparison f = false ->
-  exists x z, xeval reals s a = Some (VReal x) /\ real_op2 f x y = Some z /\ w = VReal z.
+  exists x z, xeval reals s a = Some (VReal x) /\ real_op2 f x y = Some z /\ w
+    = VReal z.
 Proof.
 move=> Hb /= H Hf; move: H; rewrite Hb.
 case: (xeval reals s a) => [[x | | | |] |] //=; rewrite Hf.
@@ -206,11 +215,13 @@ by case E: (real_op2 f x y) => [z |] // [<-]; exists x, z.
 Qed.
 
 (* A real literal operand. *)
-Lemma xeval_lit s l x : real_lit l = Some x -> xeval reals s (oute (DReal l)) = Some (VReal x).
+Lemma xeval_lit s l x : real_lit l = Some x -> xeval reals s (oute (DReal l))
+  = Some (VReal x).
 Proof. by move=> /= ->. Qed.
 
 Lemma simplify_op1_ok s f a w :
-  xeval reals s (oute (DOp1 f a)) = Some w -> xeval reals s (oute (simplify_op1 nat f a)) = Some w.
+  xeval reals s (oute (DOp1 f a)) = Some w ->
+    xeval reals s (oute (simplify_op1 nat f a)) = Some w.
 Proof.
 case: f => [| | | | | | k | g] H; try exact: H.
 - case: a H => [v | l | n | b i | [| | | | | | k | g] a' | g b c] H;
@@ -230,7 +241,8 @@ by rewrite Hx /=; congr (Some (VReal _)); ring.
 Qed.
 
 Lemma simplify_op2_ok s f a b w :
-  xeval reals s (oute (DOp2 f a b)) = Some w -> xeval reals s (oute (simplify_op2 nat f a b)) = Some w.
+  xeval reals s (oute (DOp2 f a b)) = Some w ->
+    xeval reals s (oute (simplify_op2 nat f a b)) = Some w.
 Proof.
 case: f => [| | | | | | | | g] H; try exact: H; rewrite /simplify_op2;
   cbn [out_dexpr] in H.
@@ -285,7 +297,8 @@ by rewrite /= Hx /=; congr (Some (VReal _)); ring.
 Qed.
 
 Lemma xeval_simplify s e w :
-  xeval reals s (oute e) = Some w -> xeval reals s (oute (simplify_expr nat e)) = Some w.
+  xeval reals s (oute e) = Some w -> xeval reals s (oute (simplify_expr nat e))
+    = Some w.
 Proof.
 elim: e w => [v | l | k | a IHa i IHi | f a IHa | f a IHa b IHb] w H;
   try exact: H.
@@ -320,15 +333,19 @@ Inductive gd : list (dvar W) -> list (dvar W) -> list (dstmt W) -> Prop :=
     expr_ok sc e -> ~ In v sc -> consistent v ->
     gd (v :: sc) (v :: wr) r -> gd sc wr (DDefine DMutable v e :: r)
 | GdRealVar sc wr v r :
-    ~ In v sc -> consistent v -> gd (v :: sc) (v :: wr) r -> gd sc wr (DRealVar v :: r)
+    ~ In v sc -> consistent v -> gd (v :: sc) (v :: wr) r ->
+      gd sc wr (DRealVar v :: r)
 | GdTape sc wr v r :
-    ~ In v sc -> consistent v -> gd (v :: sc) (v :: wr) r -> gd sc wr (DTape v :: r)
+    ~ In v sc -> consistent v -> gd (v :: sc) (v :: wr) r ->
+      gd sc wr (DTape v :: r)
 | GdAssign sc wr l e r :
     lhs_ok sc wr l -> expr_ok sc e -> gd sc wr r -> gd sc wr (DAssign l e :: r)
 | GdIncrement sc wr l e r :
-    lhs_ok sc wr l -> expr_ok sc e -> gd sc wr r -> gd sc wr (DIncrement l e :: r)
+    lhs_ok sc wr l -> expr_ok sc e -> gd sc wr r ->
+      gd sc wr (DIncrement l e :: r)
 | GdBranch sc wr c t e r :
-    expr_ok sc c -> gd sc wr t -> gd sc wr e -> gd sc wr r -> gd sc wr (DBranch c t e :: r)
+    expr_ok sc c -> gd sc wr t -> gd sc wr e -> gd sc wr r ->
+      gd sc wr (DBranch c t e :: r)
 | GdFor sc wr i lo hi b r :
     ~ In i sc -> consistent i -> expr_ok sc lo -> expr_ok sc hi ->
     gd (i :: sc) wr b -> gd sc wr r -> gd sc wr (DFor i lo hi b :: r)
@@ -347,10 +364,12 @@ Lemma good_gd sc wr ss : good sc wr ss -> gd sc wr ss.
 Proof. by elim=> *; econstructor. Qed.
 
 (* The variables a block defines, and those it defines writable, in order. *)
-Fixpoint after_scope (sc : list (dvar W)) (ss : list (dstmt W)) : list (dvar W) :=
+Fixpoint after_scope (sc : list (dvar W)) (ss : list (dstmt W)) : list (dvar W)
+  :=
   match ss with
   | [] => sc
-  | DDefine _ v _ :: r | DRealVar v :: r | DTape v :: r => after_scope (v :: sc) r
+  | DDefine _ v _ :: r | DRealVar v :: r | DTape v :: r =>
+    after_scope (v :: sc) r
   | _ :: r => after_scope sc r
   end.
 
@@ -358,7 +377,8 @@ Fixpoint after_wr (wr : list (dvar W)) (ss : list (dstmt W)) : list (dvar W) :=
   match ss with
   | [] => wr
   | DDefine (DConstant _) _ _ :: r => after_wr wr r
-  | DDefine DMutable v _ :: r | DRealVar v :: r | DTape v :: r => after_wr (v :: wr) r
+  | DDefine DMutable v _ :: r | DRealVar v :: r | DTape v :: r =>
+    after_wr (v :: wr) r
   | _ :: r => after_wr wr r
   end.
 
@@ -369,7 +389,8 @@ Fixpoint defs (ss : list (dstmt W)) : list (dvar W) :=
   | _ :: r => defs r
   end.
 
-Lemma in_after_scope y sc ss : In y (after_scope sc ss) <-> In y (defs ss) \/ In y sc.
+Lemma in_after_scope y sc ss : In y (after_scope sc ss) <-> In y (defs ss) \/
+  In y sc.
 Proof.
 elim: ss sc => [| st r IH] sc /=; first by tauto.
 by case: st => *; rewrite /= ?IH /=; tauto.
@@ -382,23 +403,27 @@ by case: st => [[t |] v e | v | v | l e | l e | c t e | i lo hi b | i lo hi b
   | t e | t l | e] /= /IH /=; tauto.
 Qed.
 
-Lemma incl_both {A : Type} (v : A) wr sc : incl wr sc -> incl (v :: wr) (v :: sc).
+Lemma incl_both {A : Type} (v : A) wr sc : incl wr sc ->
+  incl (v :: wr) (v :: sc).
 Proof. by move=> H y [<- | Hy]; [left | right; apply: H]. Qed.
 
 Lemma after_scope_incl sc ss : incl sc (after_scope sc ss).
 Proof. by move=> y Hy; apply/in_after_scope; right. Qed.
 
-Lemma after_incl wr sc ss : incl wr sc -> incl (after_wr wr ss) (after_scope sc ss).
+Lemma after_incl wr sc ss : incl wr sc ->
+  incl (after_wr wr ss) (after_scope sc ss).
 Proof.
 move=> H y Hy; apply/in_after_scope.
 by case: (in_after_wr _ _ _ Hy) => [| /H]; [left | right].
 Qed.
 
 (* The variables defined by a good block are consistent. *)
-Lemma after_consistent sc wr ss : gd sc wr ss -> Forall consistent sc -> Forall consistent (after_scope sc ss).
+Lemma after_consistent sc wr ss : gd sc wr ss -> Forall consistent sc ->
+  Forall consistent (after_scope sc ss).
 Proof. by elim=> //= *; auto. Qed.
 
-(* A good block splits into good blocks, the second in the scope the first ends with. *)
+(* A good block splits into good blocks,
+   the second in the scope the first ends with. *)
 Lemma gd_app_inv sc wr a b :
   gd sc wr (a ++ b) -> gd sc wr a /\ gd (after_scope sc a) (after_wr wr a) b.
 Proof.
@@ -419,23 +444,27 @@ Qed.
    value. *)
 
 Definition agree (sc : list (dvar W)) (s s' : store) : Prop :=
-  (forall x, In x sc -> store_get s (KVar (out x)) = store_get s' (KVar (out x))) /\
+  (forall x, In x sc -> store_get s (KVar (out x))
+    = store_get s' (KVar (out x))) /\
   store_get s Returned = store_get s' Returned.
 
 Lemma agree_refl sc s : agree sc s s.
 Proof. by []. Qed.
 
-Lemma agree_trans sc s1 s2 s3 : agree sc s1 s2 -> agree sc s2 s3 -> agree sc s1 s3.
+Lemma agree_trans sc s1 s2 s3 : agree sc s1 s2 -> agree sc s2 s3 ->
+  agree sc s1 s3.
 Proof.
 move=> [H1 R1] [H2 R2]; split; last by rewrite R1 R2.
 by move=> x Hx; rewrite H1 ?H2.
 Qed.
 
-Lemma agree_incl sc1 sc2 s s' : incl sc1 sc2 -> agree sc2 s s' -> agree sc1 s s'.
+Lemma agree_incl sc1 sc2 s s' : incl sc1 sc2 -> agree sc2 s s' ->
+  agree sc1 s s'.
 Proof. by move=> Hi [H R]; split=> // x /Hi /H. Qed.
 
 (* Writing the same value at the same key keeps the agreement. *)
-Lemma agree_set sc s s' k w : agree sc s s' -> agree sc (store_set s k w) (store_set s' k w).
+Lemma agree_set sc s s' k w : agree sc s s' ->
+  agree sc (store_set s k w) (store_set s' k w).
 Proof.
 move=> [H R]; split=> [x Hx |]; rewrite !get_set.
   by case: (key_eqb k _); auto.
@@ -444,7 +473,8 @@ Qed.
 
 (* Defining a variable extends the scope of the agreement. *)
 Lemma agree_set_cons sc s s' v w :
-  agree sc s s' -> agree (v :: sc) (store_set s (KVar (out v)) w) (store_set s' (KVar (out v)) w).
+  agree sc s s' -> agree (v :: sc) (store_set s (KVar (out v)) w)
+    (store_set s' (KVar (out v)) w).
 Proof.
 move=> Hag; have [H R] := agree_set _ _ _ (KVar (out v)) w Hag; split=> //.
 by move=> x [<- | Hx]; [rewrite !get_set_same | auto].
@@ -466,7 +496,8 @@ Qed.
 
 (* An expression in scope reads the same in two agreeing stores. *)
 Lemma xeval_agree sc s s' e :
-  expr_ok sc e -> agree sc s s' -> xeval reals s (oute e) = xeval reals s' (oute e).
+  expr_ok sc e -> agree sc s s' -> xeval reals s (oute e)
+    = xeval reals s' (oute e).
 Proof.
 move=> He Hag; elim: e He => [v | l | k | a IHa i IHi | f a IHa | f a IHa b IHb]
   //= He.
@@ -502,14 +533,16 @@ by case: f => //=; repeat match goal with |- context [if ?c then _ else _] =>
   case: (c) end.
 Qed.
 
-Lemma lhs_ok_simplify sc wr l : lhs_ok sc wr l -> lhs_ok sc wr (simplify_expr nat l).
+Lemma lhs_ok_simplify sc wr l : lhs_ok sc wr l ->
+  lhs_ok sc wr (simplify_expr nat l).
 Proof.
 by case: l => [| | | [] i | |] //=; intuition; apply: expr_ok_simplify.
 Qed.
 
 (* An assignment in scope, from agreeing stores, leaves agreeing stores. *)
 Lemma assign_agree sc wr l w s s' t :
-  incl wr sc -> lhs_ok sc wr l -> agree sc s s' -> assign reals s (oute l) w = Some t ->
+  incl wr sc -> lhs_ok sc wr l -> agree sc s s' -> assign reals s (oute l) w
+    = Some t ->
   exists t', assign reals s' (oute l) w = Some t' /\ agree sc t t'.
 Proof.
 move=> Hi Hl Hag; case: l Hl => [x | | | [x | | | | |] i | |] //= Hl.
@@ -541,21 +574,25 @@ Qed.
 
 Lemma exec_define s so v e :
   exec reals (outs (DDefine so v e)) s =
-  match xeval reals s (oute e) with Some w => Some (store_set s (KVar (out v)) w) | None => None end.
+  match xeval reals s (oute e) with Some w =>
+    Some (store_set s (KVar (out v)) w) | None => None end.
 Proof. by []. Qed.
 
-Lemma exec_realvar s v : exec reals (outs (DRealVar v)) s = Some (store_set s (KVar (out v)) (VReal 0)).
+Lemma exec_realvar s v : exec reals (outs (DRealVar v)) s
+  = Some (store_set s (KVar (out v)) (VReal 0)).
 Proof.
 change (dom_lit reals "0") with (real_lit "0"); cbn -[real_lit].
 by rewrite lit_0.
 Qed.
 
-Lemma exec_tape s v : exec reals (outs (DTape v)) s = Some (store_set s (KVar (out v)) (VTape [])).
+Lemma exec_tape s v : exec reals (outs (DTape v)) s
+  = Some (store_set s (KVar (out v)) (VTape [])).
 Proof. by []. Qed.
 
 Lemma exec_assign s l e :
   exec reals (outs (DAssign l e)) s =
-  match xeval reals s (oute e) with Some w => assign reals s (oute l) w | None => None end.
+  match xeval reals s (oute e) with Some w => assign reals s (oute l) w |
+    None => None end.
 Proof. by []. Qed.
 
 Lemma exec_increment s l e :
@@ -586,14 +623,16 @@ Proof. by []. Qed.
 Lemma exec_forback s i lo hi b :
   exec reals (outs (DForBack i lo hi b)) s =
   match xeval reals s (oute lo), xeval reals s (oute hi) with
-  | Some (VInt l), Some (VInt h) => exec_down R (ex b) (out i) (h - 1) (count l h) s
+  | Some (VInt l), Some (VInt h) => exec_down R (ex b) (out i) (h - 1)
+    (count l h) s
   | _, _ => None
   end.
 Proof. by []. Qed.
 
 Lemma exec_return s e :
   exec reals (outs (DReturn e)) s =
-  match xeval reals s (oute e) with Some w => Some (store_set s Returned w) | None => None end.
+  match xeval reals s (oute e) with Some w => Some (store_set s Returned w) |
+    None => None end.
 Proof. by []. Qed.
 
 Lemma exec_push s t e :
@@ -642,9 +681,12 @@ Qed.
    Loops: a relation between two stores, kept by the body when the index is
    set to the same value on both sides, is kept by the loop. *)
 
-Lemma exec_up_sim (Rin Rb : store -> store -> Prop) (b1 b2 : store -> option store) i :
-  (forall s s' w, Rin s s' -> Rb (store_set s (KVar i) w) (store_set s' (KVar i) w)) ->
-  (forall s s' t, Rb s s' -> b1 s = Some t -> exists t', b2 s' = Some t' /\ Rin t t') ->
+Lemma exec_up_sim (Rin Rb : store -> store -> Prop)
+  (b1 b2 : store -> option store) i :
+  (forall s s' w, Rin s s' -> Rb (store_set s (KVar i) w)
+    (store_set s' (KVar i) w)) ->
+  (forall s s' t, Rb s s' -> b1 s = Some t -> exists t', b2 s' = Some t' /\
+    Rin t t') ->
   forall n lo s s' t, Rin s s' -> exec_up R b1 i lo n s = Some t ->
   exists t', exec_up R b2 i lo n s' = Some t' /\ Rin t t'.
 Proof.
@@ -655,9 +697,12 @@ have [s1' [-> Hr1]] := Hbody _ _ _ (Hset _ _ (VInt lo) Hr) E.
 exact: IH Hr1 H.
 Qed.
 
-Lemma exec_down_sim (Rin Rb : store -> store -> Prop) (b1 b2 : store -> option store) i :
-  (forall s s' w, Rin s s' -> Rb (store_set s (KVar i) w) (store_set s' (KVar i) w)) ->
-  (forall s s' t, Rb s s' -> b1 s = Some t -> exists t', b2 s' = Some t' /\ Rin t t') ->
+Lemma exec_down_sim (Rin Rb : store -> store -> Prop)
+  (b1 b2 : store -> option store) i :
+  (forall s s' w, Rin s s' -> Rb (store_set s (KVar i) w)
+    (store_set s' (KVar i) w)) ->
+  (forall s s' t, Rb s s' -> b1 s = Some t -> exists t', b2 s' = Some t' /\
+    Rin t t') ->
   forall n hi s s' t, Rin s s' -> exec_down R b1 i hi n s = Some t ->
   exists t', exec_down R b2 i hi n s' = Some t' /\ Rin t t'.
 Proof.
@@ -668,9 +713,11 @@ have [s1' [-> Hr1]] := Hbody _ _ _ (Hset _ _ (VInt hi) Hr) E.
 exact: IH Hr1 H.
 Qed.
 
-(* The agreement on the scope, extended by the index, is kept by setting the index. *)
+(* The agreement on the scope, extended by the index,
+   is kept by setting the index. *)
 Lemma agree_index sc i : forall s s' w, agree sc s s' ->
-  agree (i :: sc) (store_set s (KVar (out i)) w) (store_set s' (KVar (out i)) w).
+  agree (i :: sc) (store_set s (KVar (out i)) w)
+    (store_set s' (KVar (out i)) w).
 Proof. by move=> s s' w; apply: agree_set_cons. Qed.
 
 (* ---------------------------------------------------------------------------
@@ -811,7 +858,8 @@ Qed.
 
 (* A statement kept in front of a refined block. *)
 Lemma sim_keep sc wr h r r' :
-  gd sc wr (h :: r) -> incl wr sc -> sim (after_scope sc [h]) r r' -> sim sc (h :: r) (h :: r').
+  gd sc wr (h :: r) -> incl wr sc -> sim (after_scope sc [h]) r r' ->
+    sim sc (h :: r) (h :: r').
 Proof.
 move=> Hg Hwr Hr; apply: (sim_cons _ (after_scope sc [h])) Hr.
   exact: after_scope_incl.
@@ -825,7 +873,8 @@ Qed.
 
 (* With the same variables in scope, and more writable ones. *)
 Lemma gd_mono sc1 wr1 ss :
-  gd sc1 wr1 ss -> forall sc2 wr2, incl sc1 sc2 -> incl sc2 sc1 -> incl wr1 wr2 -> gd sc2 wr2 ss.
+  gd sc1 wr1 ss -> forall sc2 wr2, incl sc1 sc2 -> incl sc2 sc1 -> incl wr1 wr2
+    -> gd sc2 wr2 ss.
 Proof.
 induction 1; move=> sc2 wr2 H12 H21 Hw; econstructor;
   try (by apply: Hw);
@@ -838,7 +887,8 @@ induction 1; move=> sc2 wr2 H12 H21 Hw; econstructor;
 Qed.
 
 Lemma expr_ok_remove sc1 sc2 v e :
-  expr_ok sc1 e -> mentions_expr nat v e = false -> (forall y, y <> v -> In y sc1 -> In y sc2) ->
+  expr_ok sc1 e -> mentions_expr nat v e = false ->
+    (forall y, y <> v -> In y sc1 -> In y sc2) ->
   expr_ok sc2 e.
 Proof.
 move=> He Hm Hs.
@@ -852,7 +902,8 @@ Qed.
 
 Lemma lhs_ok_remove sc1 sc2 wr1 wr2 v l :
   lhs_ok sc1 wr1 l -> mentions_expr nat v l = false ->
-  (forall y, y <> v -> In y sc1 -> In y sc2) -> (forall y, y <> v -> In y wr1 -> In y wr2) ->
+  (forall y, y <> v -> In y sc1 -> In y sc2) ->
+    (forall y, y <> v -> In y wr1 -> In y wr2) ->
   lhs_ok sc2 wr2 l.
 Proof.
 move=> Hl Hm Hs Hw; case: l Hl Hm => [x | | | [x | | | | |] i | |] //= Hl.
@@ -943,7 +994,8 @@ Qed.
 
 (* Without a writable variable the block never assigns. *)
 Lemma lhs_ok_drop_wr sc wr1 wr2 v l :
-  lhs_ok sc wr1 l -> target nat v l = false -> (forall y, y <> v -> In y wr1 -> In y wr2) ->
+  lhs_ok sc wr1 l -> target nat v l = false ->
+    (forall y, y <> v -> In y wr1 -> In y wr2) ->
   lhs_ok sc wr2 l.
 Proof.
 move=> Hl Ht Hw; case: l Hl Ht => [x | | | [x | | | | |] i | |] //= Hl.
@@ -997,7 +1049,8 @@ Definition lhs_var (l : dexpr nat) : option (dvar nat) :=
 
 (* An assignment writes its variable only. *)
 Lemma assign_set s l w t :
-  assign reals s l w = Some t -> exists x w', lhs_var l = Some x /\ t = store_set s (KVar x) w'.
+  assign reals s l w = Some t -> exists x w', lhs_var l = Some x /\ t
+    = store_set s (KVar x) w'.
 Proof.
 case: l => [x | | | [x | | | | |] i | |] //=.
   by move=> [<-]; exists x, w.
@@ -1009,7 +1062,8 @@ Qed.
 
 Lemma lhs_var_out sc wr l :
   lhs_ok sc wr l -> exists x, In x wr /\ lhs_var (oute l) = Some (out x) /\
-                              forall v, mentions_expr nat v l = false -> dvar_eq nat x v = false.
+                              forall v, mentions_expr nat v l = false ->
+                                dvar_eq nat x v = false.
 Proof.
 case: l => [x | | | [x | | | | |] i | |] //= H; first by exists x.
 exists x; split; first by case: H.
@@ -1017,7 +1071,8 @@ by split=> // v /orb_false_iff [].
 Qed.
 
 Lemma exec_up_inv (Q : store -> Prop) (b : store -> option store) i :
-  (forall s w, Q s -> Q (store_set s (KVar i) w)) -> (forall s t, Q s -> b s = Some t -> Q t) ->
+  (forall s w, Q s -> Q (store_set s (KVar i) w)) ->
+    (forall s t, Q s -> b s = Some t -> Q t) ->
   forall n lo s t, Q s -> exec_up R b i lo n s = Some t -> Q t.
 Proof.
 move=> Hset Hb; elim=> [| n IH] lo s t Hq /=; first by move=> [<-].
@@ -1026,7 +1081,8 @@ by apply: IH; apply: Hb E; apply: Hset.
 Qed.
 
 Lemma exec_down_inv (Q : store -> Prop) (b : store -> option store) i :
-  (forall s w, Q s -> Q (store_set s (KVar i) w)) -> (forall s t, Q s -> b s = Some t -> Q t) ->
+  (forall s w, Q s -> Q (store_set s (KVar i) w)) ->
+    (forall s t, Q s -> b s = Some t -> Q t) ->
   forall n hi s t, Q s -> exec_down R b i hi n s = Some t -> Q t.
 Proof.
 move=> Hset Hb; elim=> [| n IH] hi s t Hq /=; first by move=> [<-].
@@ -1037,7 +1093,8 @@ Qed.
 Lemma preserve_unmentioned sc wr ss v :
   gd sc wr ss -> incl wr sc -> Forall consistent sc -> consistent v ->
   existsb (mentions nat v) ss = false ->
-  forall s t, ex ss s = Some t -> store_get t (KVar (out v)) = store_get s (KVar (out v)).
+  forall s t, ex ss s = Some t -> store_get t (KVar (out v))
+    = store_get s (KVar (out v)).
 Proof.
 elim=> {sc wr ss} [sc wr | sc wr ty x e r He Hx Hcx Hr IH
        | sc wr x e r He Hx Hcx Hr IH | sc wr x r Hx Hcx Hr IH
@@ -1169,7 +1226,8 @@ Qed.
 
 Lemma assign_same sc wr s l a t :
   lhs_ok sc wr l -> xeval reals s (oute l) = Some (VReal a) ->
-  assign reals s (oute l) (VReal a) = Some t -> forall k, store_get t k = store_get s k.
+  assign reals s (oute l) (VReal a) = Some t -> forall k, store_get t k
+    = store_get s k.
 Proof.
 move=> Hl Hx H k; case: l Hl Hx H => [x | | | [x | | | | |] i | |] //= Hl.
   move=> Hx [<-]; rewrite get_set.
@@ -1200,8 +1258,10 @@ Proof. by move=> sc wr ss Hg Hwr Hc; split=> //; exact: frame_sim Hg Hwr. Qed.
 (* The head of a definition, with its expression simplified. *)
 Lemma head_define sc so v e :
   expr_ok sc e ->
-  forall s s' t, agree sc s s' -> exec reals (outs (DDefine so v e)) s = Some t ->
-  exists t', exec reals (outs (DDefine so v (simplify_expr nat e))) s' = Some t' /\ agree (v :: sc) t t'.
+  forall s s' t, agree sc s s' -> exec reals (outs (DDefine so v e)) s
+    = Some t ->
+  exists t', exec reals (outs (DDefine so v (simplify_expr nat e))) s'
+    = Some t' /\ agree (v :: sc) t t'.
 Proof.
 move=> He s s' t Hag; rewrite !exec_define.
 case E: (xeval reals s (oute e)) => [w |] // [<-].
@@ -1212,7 +1272,8 @@ Qed.
 
 (* Simplifying each statement of a block, its expressions and the blocks it
    contains, is correct when simplifying the contained blocks is. *)
-Lemma simplify_stmt_correct n : correct (simplify_stmts nat n) -> correct (map (simplify_stmt nat (S n))).
+Lemma simplify_stmt_correct n : correct (simplify_stmts nat n) ->
+  correct (map (simplify_stmt nat (S n))).
 Proof.
 move=> HA sc wr ss.
 elim=> {sc wr ss} [sc wr | sc wr ty v e r He Hv Hcv Hr IH
@@ -1347,14 +1408,16 @@ Qed.
 
 (* Two stores equal on every key agree with what the first agrees with. *)
 (* A real literal, read by the evaluator. *)
-Lemma xeval_real s l x : real_lit l = Some x -> xeval reals s (DReal l) = Some (VReal x).
+Lemma xeval_real s l x : real_lit l = Some x -> xeval reals s (DReal l)
+  = Some (VReal x).
 Proof. by move=> /= ->. Qed.
 
 Lemma agree_same sc s1 s s' :
   (forall k, store_get s1 k = store_get s k) -> agree sc s s' -> agree sc s1 s'.
 Proof. by move=> He [H R]; split=> [x Hx |]; rewrite He ?H. Qed.
 
-(* An accumulation of zero is dropped: it rewrites the location with its own value. *)
+(* An accumulation of zero is dropped: it rewrites the location with its own
+   value. *)
 Lemma sim_zero_increment sc wr l r r' :
   gd sc wr (DIncrement l (DReal "0") :: r) -> sim sc r r' ->
   sim sc (DIncrement l (DReal "0") :: r) r'.
@@ -1371,7 +1434,8 @@ Qed.
 
 (* A definition no later statement reads is dropped. *)
 Lemma sim_drop_define sc so v e r r' :
-  ~ In v sc -> consistent v -> Forall consistent sc -> sim sc r r' -> sim sc (DDefine so v e :: r) r'.
+  ~ In v sc -> consistent v -> Forall consistent sc -> sim sc r r' ->
+    sim sc (DDefine so v e :: r) r'.
 Proof.
 move=> Hv Hcv Hcs Hr s s' t Hag; rewrite ex_cons exec_define.
 case: (xeval reals s (oute e)) => // w H.
@@ -1396,7 +1460,8 @@ Qed.
 
 (* first_mention splits a block before the first statement that mentions v. *)
 Lemma first_mention_spec v ss b m a :
-  first_mention nat v ss = Some (b, m, a) -> ss = b ++ m :: a /\ existsb (mentions nat v) b = false.
+  first_mention nat v ss = Some (b, m, a) -> ss = b ++ m :: a /\
+    existsb (mentions nat v) b = false.
 Proof.
 elim: ss b => [| st ss IH] b //=.
 case Em: (mentions nat v st).
@@ -1414,7 +1479,8 @@ Fixpoint wdefs (ss : list (dstmt W)) : list (dvar W) :=
   | _ :: r => wdefs r
   end.
 
-Lemma in_after_wr_iff y wr ss : In y (after_wr wr ss) <-> In y (wdefs ss) \/ In y wr.
+Lemma in_after_wr_iff y wr ss : In y (after_wr wr ss) <-> In y (wdefs ss) \/
+  In y wr.
 Proof.
 elim: ss wr => [| st r IH] wr /=; first by tauto.
 by case: st => [[t |] v e | v | v | l e | l e | c t e | i lo hi b | i lo hi b
@@ -1422,7 +1488,8 @@ by case: st => [[t |] v e | v | v | l e | l e | c t e | i lo hi b | i lo hi b
 Qed.
 
 (* A block that does not mention v does not define it. *)
-Lemma defs_unmentioned v ss : existsb (mentions nat v) ss = false -> ~ In v (defs ss).
+Lemma defs_unmentioned v ss : existsb (mentions nat v) ss = false ->
+  ~ In v (defs ss).
 Proof.
 elim: ss => [| st r IH] /=; first by move=> _ [].
 move/orb_false_iff => [Hs /IH Hr].
@@ -1435,12 +1502,16 @@ Qed.
    defined at that accumulation: 0 + e = e, and the statements before it do
    not mention it. *)
 Lemma fuse_fused sc wr v before x e after so :
-  gd sc wr (DDefine DMutable v (DReal "0") :: before ++ DIncrement (DVar x) e :: after) ->
+  gd sc wr (DDefine DMutable v (DReal "0") :: before ++ DIncrement (DVar x) e ::
+    after) ->
   incl wr sc -> Forall consistent sc ->
-  existsb (mentions nat v) before = false -> dvar_eq nat x v = true -> mentions_expr nat v e = false ->
-  so = DMutable \/ (so = DConstant Real /\ existsb (writes nat v) after = false) ->
+  existsb (mentions nat v) before = false -> dvar_eq nat x v = true ->
+    mentions_expr nat v e = false ->
+  so = DMutable \/ (so = DConstant Real /\ existsb (writes nat v) after = false)
+    ->
   gd sc wr (before ++ DDefine so v e :: after) /\
-  sim sc (DDefine DMutable v (DReal "0") :: before ++ DIncrement (DVar x) e :: after)
+  sim sc (DDefine DMutable v (DReal "0") :: before ++ DIncrement (DVar x) e ::
+    after)
          (before ++ DDefine so v e :: after).
 Proof.
 move=> Hg Hwr Hcs Hb Hx He Hso.
@@ -1517,11 +1588,13 @@ Qed.
 
 (* Agreement on the scope but one variable. *)
 Definition agree_ex (v : dvar W) (sc : list (dvar W)) (s s' : store) : Prop :=
-  (forall y, In y sc -> y <> v -> store_get s (KVar (out y)) = store_get s' (KVar (out y))) /\
+  (forall y, In y sc -> y <> v -> store_get s (KVar (out y))
+    = store_get s' (KVar (out y))) /\
   store_get s Returned = store_get s' Returned.
 
 Lemma agree_ex_set_cons v sc s s' y w :
-  agree_ex v sc s s' -> agree_ex v (y :: sc) (store_set s (KVar (out y)) w) (store_set s' (KVar (out y)) w).
+  agree_ex v sc s s' -> agree_ex v (y :: sc) (store_set s (KVar (out y)) w)
+    (store_set s' (KVar (out y)) w).
 Proof.
 move=> [H R]; split; last by rewrite !get_set; case: (key_eqb _ _).
 move=> z [<- | Hz] Hzv; rewrite !get_set.
@@ -1529,13 +1602,15 @@ move=> z [<- | Hz] Hzv; rewrite !get_set.
 by case: (key_eqb _ _); auto.
 Qed.
 
-Lemma agree_ex_set v sc s s' k w : agree_ex v sc s s' -> agree_ex v sc (store_set s k w) (store_set s' k w).
+Lemma agree_ex_set v sc s s' k w : agree_ex v sc s s' ->
+  agree_ex v sc (store_set s k w) (store_set s' k w).
 Proof.
 move=> [H R]; split=> [z Hz Hzv |]; rewrite !get_set; case: (key_eqb _ _) => //.
 exact: H.
 Qed.
 
-Lemma agree_ex_incl v sc1 sc2 s s' : incl sc1 sc2 -> agree_ex v sc2 s s' -> agree_ex v sc1 s s'.
+Lemma agree_ex_incl v sc1 sc2 s s' : incl sc1 sc2 -> agree_ex v sc2 s s' ->
+  agree_ex v sc1 s s'.
 Proof. by move=> Hi [H R]; split=> // y /Hi /H. Qed.
 
 Section Replace.
@@ -1563,16 +1638,19 @@ by case: He => Ha Hb; rewrite IHa ?IHb.
 Qed.
 
 Lemma expr_ok_replace sc1 sc2 e :
-  expr_ok sc1 e -> (forall y, y <> v -> In y sc1 -> In y sc2) -> expr_ok sc2 (re e).
+  expr_ok sc1 e -> (forall y, y <> v -> In y sc1 -> In y sc2) ->
+    expr_ok sc2 (re e).
 Proof.
 move=> He Hs; elim: e He => [y | | | | |] /=; try intuition.
 by case E: (dvar_eq nat y v) => //=; apply: Hs => //; exact: dvar_eq_false_neq.
 Qed.
 
-(* A location assigned is writable, hence not the constant: unchanged by the replacement. *)
+(* A location assigned is writable, hence not the constant: unchanged by the
+   replacement. *)
 Lemma lhs_replace sc wr lh :
   lhs_ok sc wr lh -> incl wr sc -> Forall consistent sc -> ~ In v wr ->
-  exists y i, In y wr /\ y <> v /\ (lh = DVar y /\ re lh = DVar y \/ lh = DAt (DVar y) i /\ re lh = DAt (DVar y) (re i)).
+  exists y i, In y wr /\ y <> v /\ (lh = DVar y /\ re lh = DVar y \/ lh
+    = DAt (DVar y) i /\ re lh = DAt (DVar y) (re i)).
 Proof.
 move=> Hl Hwr Hcs Hv; case: lh Hl => [y | | | [y | | | | |] i | |] //= Hl.
   have Hyv : y <> v by move=> E; subst y.
@@ -1597,8 +1675,10 @@ Qed.
 
 (* The replaced block keeps the discipline, without the constant in scope. *)
 Lemma gd_replace sc0 wr0 ss0 :
-  gd sc0 wr0 ss0 -> Forall consistent sc0 -> In v sc0 -> ~ In v wr0 -> incl wr0 sc0 ->
-  forall sc2, (forall y, y <> v -> In y sc0 -> In y sc2) -> incl sc2 sc0 -> gd sc2 wr0 (map rs ss0).
+  gd sc0 wr0 ss0 -> Forall consistent sc0 -> In v sc0 -> ~ In v wr0 ->
+    incl wr0 sc0 ->
+  forall sc2, (forall y, y <> v -> In y sc0 -> In y sc2) -> incl sc2 sc0 ->
+    gd sc2 wr0 (map rs ss0).
 Proof.
 have Hext : forall (z : dvar W) l1 l2,
     (forall y, y <> v -> In y l1 -> In y l2) ->
@@ -1699,9 +1779,12 @@ Qed.
    its literal, runs as the original: the constant is never assigned, and
    every read of it is replaced by its literal. *)
 Lemma replace_sim sc0 wr0 ss0 :
-  gd sc0 wr0 ss0 -> incl wr0 sc0 -> Forall consistent sc0 -> In v sc0 -> ~ In v wr0 ->
-  forall s s' t, agree_ex v sc0 s s' -> store_get s (KVar (out v)) = Some (VReal x) -> ex ss0 s = Some t ->
-  exists t', ex (map rs ss0) s' = Some t' /\ agree_ex v (after_scope sc0 ss0) t t' /\
+  gd sc0 wr0 ss0 -> incl wr0 sc0 -> Forall consistent sc0 -> In v sc0 ->
+    ~ In v wr0 ->
+  forall s s' t, agree_ex v sc0 s s' -> store_get s (KVar (out v))
+    = Some (VReal x) -> ex ss0 s = Some t ->
+  exists t', ex (map rs ss0) s' = Some t' /\
+    agree_ex v (after_scope sc0 ss0) t t' /\
              store_get t (KVar (out v)) = Some (VReal x).
 Proof.
 have Hnew : forall (y : dvar W) sc wr,
@@ -1843,7 +1926,8 @@ Qed.
 
 End Replace.
 
-Lemma xeval_real_inv s l w : xeval reals s (DReal l) = Some w -> exists x, real_lit l = Some x /\ w = VReal x.
+Lemma xeval_real_inv s l w : xeval reals s (DReal l) = Some w -> exists x,
+  real_lit l = Some x /\ w = VReal x.
 Proof.
 change (xeval reals s (DReal l))
   with (match real_lit l with Some x => Some (VReal x) | None => None end).
@@ -1853,9 +1937,11 @@ Qed.
 (* A constant defined by a literal is replaced by the literal in the rest of
    the block, and its definition dropped. *)
 Lemma fuse_literal sc wr t v l r :
-  gd sc wr (DDefine (DConstant t) v (DReal l) :: r) -> incl wr sc -> Forall consistent sc ->
+  gd sc wr (DDefine (DConstant t) v (DReal l) :: r) -> incl wr sc ->
+    Forall consistent sc ->
   gd sc wr (map (replace_stmt nat v (DReal l)) r) /\
-  sim sc (DDefine (DConstant t) v (DReal l) :: r) (map (replace_stmt nat v (DReal l)) r).
+  sim sc (DDefine (DConstant t) v (DReal l) :: r)
+    (map (replace_stmt nat v (DReal l)) r).
 Proof.
 move=> Hg Hwr Hcs.
 inversion Hg as [| ? ? ? ? ? ? He Hv Hcv Hr | | | | | | | | | | |]; subst.
@@ -1888,7 +1974,8 @@ Qed.
 
 (* A statement kept in front of the fused rest. *)
 Lemma fuse_keep n sc wr st r :
-  correct (fuse nat n) -> gd sc wr (st :: r) -> incl wr sc -> Forall consistent sc ->
+  correct (fuse nat n) -> gd sc wr (st :: r) -> incl wr sc ->
+    Forall consistent sc ->
   gd sc wr (st :: fuse nat n r) /\ sim sc (st :: r) (st :: fuse nat n r).
 Proof.
 move=> HC Hg Hwr Hcs; have [Hst Hr] := gd_app_inv sc wr [st] r Hg.
@@ -1898,7 +1985,8 @@ split; first exact: (gd_app sc wr [st] _ Hst Hg').
 exact: (sim_keep _ _ _ _ _ Hg Hwr Hs').
 Qed.
 
-Lemma correct_compose f g : correct f -> correct g -> correct (fun ss => g (f ss)).
+Lemma correct_compose f g : correct f -> correct g ->
+  correct (fun ss => g (f ss)).
 Proof.
 move=> Hf Hg sc wr ss Hss Hwr Hcs; have [Hf1 Hf2] := Hf _ _ _ Hss Hwr Hcs.
 have [Hg1 Hg2] := Hg _ _ _ Hf1 Hwr Hcs.
@@ -1908,8 +1996,10 @@ Qed.
 (* The mutable case of fuse, when no accumulation is fused: the definition is
    kept, or dropped when the rest does not mention it. *)
 Lemma fuse_mutable_fallback n sc wr v e r :
-  correct (fuse nat n) -> gd sc wr (DDefine DMutable v e :: r) -> incl wr sc -> Forall consistent sc ->
-  let r' := if negb (existsb (mentions nat v) r) then fuse nat n r else DDefine DMutable v e :: fuse nat n r in
+  correct (fuse nat n) -> gd sc wr (DDefine DMutable v e :: r) -> incl wr sc ->
+    Forall consistent sc ->
+  let r' := if negb (existsb (mentions nat v) r) then fuse nat n r else DDefine
+    DMutable v e :: fuse nat n r in
   gd sc wr r' /\ sim sc (DDefine DMutable v e :: r) r'.
 Proof.
 move=> HC Hg Hwr Hcs r'; rewrite /r'.
@@ -1928,9 +2018,11 @@ Qed.
 (* The constant case of fuse, for an expression that is not a literal: the
    definition is kept, or dropped when the fused rest does not mention it. *)
 Lemma fuse_constant_other n sc wr t v e r :
-  correct (fuse nat n) -> gd sc wr (DDefine (DConstant t) v e :: r) -> incl wr sc -> Forall consistent sc ->
+  correct (fuse nat n) -> gd sc wr (DDefine (DConstant t) v e :: r) ->
+    incl wr sc -> Forall consistent sc ->
   let r' := fuse nat n r in
-  let res := if existsb (mentions nat v) r' then DDefine (DConstant t) v e :: r' else r' in
+  let res := if existsb (mentions nat v) r' then DDefine (DConstant t) v e :: r'
+    else r' in
   gd sc wr res /\ sim sc (DDefine (DConstant t) v e :: r) res.
 Proof.
 move=> HC Hg Hwr Hcs r' res; rewrite /res /r'.
@@ -1949,7 +2041,8 @@ Qed.
 
 (* One more unit of fuel for fuse. *)
 Lemma fuse_correct_step n :
-  correct (fuse nat n) -> correct (simplify_stmts nat n) -> correct (fuse nat (S n)).
+  correct (fuse nat n) -> correct (simplify_stmts nat n) ->
+    correct (fuse nat (S n)).
 Proof.
 move=> HC HA sc wr ss Hg Hwr Hcs; case: ss Hg => [| st r] Hg.
   by split=> [| s s' t Hag [<-]]; [exact: GdNil | exists s'].
@@ -1999,7 +2092,8 @@ Qed.
 (* simplify_stmts, fuse and the simplification of each statement are
    correct at every fuel. *)
 Theorem simplify_correct_fuel n :
-  correct (simplify_stmts nat n) /\ correct (fuse nat n) /\ correct (map (simplify_stmt nat n)).
+  correct (simplify_stmts nat n) /\ correct (fuse nat n) /\
+    correct (map (simplify_stmt nat n)).
 Proof.
 elim: n => [| n [HA [HC HM]]].
   split; [| split]; rewrite /correct => sc wr ss;
@@ -2019,12 +2113,14 @@ Lemma exec_simplify_scoped (sc : scoped W (dbody W)) k args :
   match fst (open_pairs sc k) with
   | DBody r ps ss =>
       exec_scoped reals (Done (DBody r (map (out_dparam nat) ps)
-                                      (map outs (simplify_stmts nat (fuel nat ss) ss)))) 0 args
+                                      (map outs (simplify_stmts nat
+                                        (fuel nat ss) ss)))) 0 args
   end.
 Proof. by elim: sc k => [n f IH | p f IH | [r ps ss]] k /=. Qed.
 
 (* The variables of the parameters. *)
-Definition params (ps : list (dparam W)) : list (dvar W) := map (fun '(DParam _ _ x) => x) ps.
+Definition params (ps : list (dparam W)) : list (dvar W) :=
+  map (fun '(DParam _ _ x) => x) ps.
 
 Lemma finals_agree ps s1 s1' :
   agree (params ps) s1 s1' ->
@@ -2039,9 +2135,12 @@ Qed.
 (* A body whose statements are refined, on the variables of the parameters
    and the returned value, returns the same results. *)
 Lemma exec_done_sim r ps ss1 ss2 args res :
-  (forall s0 s1, ex ss1 s0 = Some s1 -> exists s1', ex ss2 s0 = Some s1' /\ agree (params ps) s1 s1') ->
-  exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map outs ss1))) 0 args = Some res ->
-  exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map outs ss2))) 0 args = Some res.
+  (forall s0 s1, ex ss1 s0 = Some s1 -> exists s1', ex ss2 s0 = Some s1' /\
+    agree (params ps) s1 s1') ->
+  exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map outs ss1))) 0
+    args = Some res ->
+  exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map outs ss2))) 0
+    args = Some res.
 Proof.
 move=> Hsim; cbn [exec_scoped].
 case: (negb _) => //.

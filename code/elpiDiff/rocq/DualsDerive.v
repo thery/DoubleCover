@@ -45,8 +45,10 @@
    extensionality; ln uses classic). *)
 
 From Coquelicot Require Import Coquelicot.
-From Stdlib Require Import String ZArith List QArith Qreals Reals DecimalString DecimalPos Lra Lia Ascii.
-From ElpiDiff Require Import Syntax Domain Operations Eval Smooth Correctness Euclidean.
+From Stdlib Require Import String ZArith List QArith Qreals Reals DecimalString
+  DecimalPos Lra Lia Ascii.
+From ElpiDiff Require Import Syntax Domain Operations Eval Smooth Correctness
+  Euclidean.
 From Corelib Require Import ssreflect ssrbool ssrfun.
 Set Bullet Behavior "None".
 
@@ -78,7 +80,8 @@ Proof.
 by rewrite (real_lit_Q _ (-1)%Q) //; congr Some; rewrite /Q2R /=; field.
 Qed.
 
-(* The digits of a decimal number, read from the left: the value of Pos.of_uint_acc. *)
+(* The digits of a decimal number, read from the left: the value of
+   Pos.of_uint_acc. *)
 Fixpoint digits_value (d : Decimal.uint) (m : Z) : Z :=
   match d with
   | Decimal.Nil => m
@@ -98,7 +101,8 @@ Fixpoint digits_length (d : Decimal.uint) : nat :=
   match d with
   | Decimal.Nil => 0
   | Decimal.D0 l | Decimal.D1 l | Decimal.D2 l | Decimal.D3 l | Decimal.D4 l
-  | Decimal.D5 l | Decimal.D6 l | Decimal.D7 l | Decimal.D8 l | Decimal.D9 l => S (digits_length l)
+  | Decimal.D5 l | Decimal.D6 l | Decimal.D7 l | Decimal.D8 l | Decimal.D9 l =>
+    S (digits_length l)
   end.
 
 Lemma read_digits_uint d m k :
@@ -110,7 +114,8 @@ elim: d m k => /= [m k | d IHd m k | d IHd m k | d IHd m k | d IHd m k
   by rewrite ?IHd; congr (_, _, _); lia.
 Qed.
 
-Lemma digits_value_acc d p : digits_value d (Z.pos p) = Z.pos (Pos.of_uint_acc d p).
+Lemma digits_value_acc d p : digits_value d (Z.pos p)
+  = Z.pos (Pos.of_uint_acc d p).
 Proof.
 elim: d p => [p | d IHd p | d IHd p | d IHd p | d IHd p | d IHd p
   | d IHd p | d IHd p | d IHd p | d IHd p | d IHd p];
@@ -122,9 +127,11 @@ Lemma digits_value_of_uint d : digits_value d 0 = Z.of_N (Pos.of_uint d).
 Proof. by elim: d => //= d IHd; rewrite ?digits_value_acc. Qed.
 
 (* the characters of a digit string are digits *)
-Definition is_digit_char (c : ascii) : bool := match digit c with Some _ => true | None => false end.
+Definition is_digit_char (c : ascii) : bool := match digit c with Some _ => true
+  | None => false end.
 
-Lemma uint_chars_digits d : forallb is_digit_char (list_ascii_of_string (NilEmpty.string_of_uint d)) = true.
+Lemma uint_chars_digits d : forallb is_digit_char
+  (list_ascii_of_string (NilEmpty.string_of_uint d)) = true.
 Proof. by elim: d. Qed.
 
 Lemma to_uint_nonnil p : Pos.to_uint p <> Decimal.Nil.
@@ -137,7 +144,8 @@ Lemma digit_not_slash c : is_digit_char c = true -> c <> "/"%char.
 Proof. by case: c => [[] [] [] [] [] [] [] []]. Qed.
 
 Lemma drop_nonspace c l : c <> " "%char ->
-  (fix drop (l : list ascii) := match l with " "%char :: l' => drop l' | _ => l end) (c :: l) = c :: l.
+  (fix drop (l : list ascii) := match l with " "%char :: l' => drop l' | _ =>
+    l end) (c :: l) = c :: l.
 Proof. by case: c => [[] [] [] [] [] [] [] []]. Qed.
 
 Lemma strip_id l :
@@ -163,7 +171,8 @@ have Hs := digit_not_slash c Hc.
 by case: c Hc Hs => [[] [] [] [] [] [] [] []] // _ _; apply: IH.
 Qed.
 
-Lemma read_sign_digit c l : is_digit_char c = true -> read_sign (c :: l) = (1%Z, c :: l).
+Lemma read_sign_digit c l : is_digit_char c = true -> read_sign (c :: l)
+  = (1%Z, c :: l).
 Proof. by case: c => [[] [] [] [] [] [] [] []]. Qed.
 
 Lemma forallb_rev {A} (p : A -> bool) l : forallb p (rev l) = forallb p l.
@@ -172,13 +181,15 @@ elim: l => [| a l IH] //=.
 by rewrite forallb_app IH /= andb_true_r andb_comm.
 Qed.
 
-Lemma hd_digit l c : forallb is_digit_char l = true -> hd_error l = Some c -> is_digit_char c = true.
+Lemma hd_digit l c : forallb is_digit_char l = true -> hd_error l = Some c ->
+  is_digit_char c = true.
 Proof. by case: l => [| a l] //= /andP [Ha _] [<-]. Qed.
 
 (* A nonempty string of digits, after an optional minus sign, is read as the
    number it spells. *)
 Lemma read_decimal_uint (neg : bool) d : d <> Decimal.Nil ->
-  exists q, read_decimal ((if neg then ["-"%char] else []) ++ list_ascii_of_string (NilEmpty.string_of_uint d)) = Some q /\
+  exists q, read_decimal ((if neg then ["-"%char] else []) ++
+    list_ascii_of_string (NilEmpty.string_of_uint d)) = Some q /\
             Q2R q = (if neg then -1 else 1) * IZR (Z.of_N (Pos.of_uint d)).
 Proof.
 move=> Hd; rewrite /read_decimal.
@@ -197,20 +208,25 @@ rewrite /Q2R /=; case: neg; case: (Z.of_N (Pos.of_uint d)) => [| p | p] /=;
   rewrite ?Pos.mul_1_r ?IZR_NEG; field.
 Qed.
 
-Lemma string_of_uint_nonnil d : d <> Decimal.Nil -> NilZero.string_of_uint d = NilEmpty.string_of_uint d.
+Lemma string_of_uint_nonnil d : d <> Decimal.Nil -> NilZero.string_of_uint d
+  = NilEmpty.string_of_uint d.
 Proof. by case: d. Qed.
 
-Lemma uint_chars_nonempty d : d <> Decimal.Nil -> list_ascii_of_string (NilEmpty.string_of_uint d) <> [].
+Lemma uint_chars_nonempty d : d <> Decimal.Nil ->
+  list_ascii_of_string (NilEmpty.string_of_uint d) <> [].
 Proof. by case: d. Qed.
 
-Lemma hd_rev_digit l c : forallb is_digit_char l = true -> hd_error (rev l) = Some c -> c <> " "%char.
+Lemma hd_rev_digit l c : forallb is_digit_char l = true -> hd_error (rev l)
+  = Some c -> c <> " "%char.
 Proof.
 move=> H Hc; apply/(digit_not_space c)/(hd_digit (rev l) _ _ Hc).
 by rewrite forallb_rev.
 Qed.
 
-(* The literal of an integer k, as the operations table spells it, reads as k. *)
-Lemma real_lit_int k : real_lit (NilZero.string_of_int (Z.to_int k)) = Some (IZR k).
+(* The literal of an integer k, as the operations table spells it,
+   reads as k. *)
+Lemma real_lit_int k : real_lit (NilZero.string_of_int (Z.to_int k))
+  = Some (IZR k).
 Proof.
 case: k => [| p | p].
 - by rewrite (real_lit_Q _ 0%Q) //; congr Some; rewrite /Q2R /=; field.
@@ -295,10 +311,12 @@ Lemma val_map_inv_real {A B : Type} (g : A -> B) v y :
   val_map g v = VReal y -> exists x, v = VReal x /\ g x = y.
 Proof. by case: v => //= x [<-]; exists x. Qed.
 
-Lemma val_map_inv_int {A B : Type} (g : A -> B) v k : val_map g v = VInt k -> v = VInt k.
+Lemma val_map_inv_int {A B : Type} (g : A -> B) v k : val_map g v = VInt k -> v
+  = VInt k.
 Proof. by case: v => //= k' [->]. Qed.
 
-Lemma val_map_inv_bool {A B : Type} (g : A -> B) v b : val_map g v = VBool b -> v = VBool b.
+Lemma val_map_inv_bool {A B : Type} (g : A -> B) v b : val_map g v = VBool b ->
+  v = VBool b.
 Proof. by case: v => //= b' [->]. Qed.
 
 Lemma val_map_inv_array {A B : Type} (g : A -> B) v l :
@@ -311,10 +329,14 @@ Proof. by case: f. Qed.
 
 Section Forward.
 Variables (N1 N2 : Type) (D1 : domain N1) (D2 : domain N2) (g : N1 -> N2).
-Hypothesis Hlit : forall s a, dom_lit D1 s = Some a -> dom_lit D2 s = Some (g a).
-Hypothesis Hop1 : forall f a b, dom_op1 D1 f a = Some b -> dom_op1 D2 f (g a) = Some (g b).
-Hypothesis Hop2 : forall f a b c, dom_op2 D1 f a b = Some c -> dom_op2 D2 f (g a) (g b) = Some (g c).
-Hypothesis Hcmp : forall f a b c, dom_cmp D1 f a b = Some c -> dom_cmp D2 f (g a) (g b) = Some c.
+Hypothesis Hlit : forall s a, dom_lit D1 s = Some a -> dom_lit D2 s
+  = Some (g a).
+Hypothesis Hop1 : forall f a b, dom_op1 D1 f a = Some b -> dom_op1 D2 f (g a)
+  = Some (g b).
+Hypothesis Hop2 : forall f a b c, dom_op2 D1 f a b = Some c ->
+  dom_op2 D2 f (g a) (g b) = Some (g c).
+Hypothesis Hcmp : forall f a b c, dom_cmp D1 f a b = Some c ->
+  dom_cmp D2 f (g a) (g b) = Some c.
 
 Lemma eval_op1_forward f a b :
   eval_op1 D1 f a = Some b -> eval_op1 D2 f (val_map g a) = Some (val_map g b).
@@ -324,7 +346,8 @@ by case E: (dom_op1 D1 f x) => [y |] // [<-]; rewrite (Hop1 _ _ _ E).
 Qed.
 
 Lemma eval_op2_forward f a b c :
-  eval_op2 D1 f a b = Some c -> eval_op2 D2 f (val_map g a) (val_map g b) = Some (val_map g c).
+  eval_op2 D1 f a b = Some c -> eval_op2 D2 f (val_map g a) (val_map g b)
+    = Some (val_map g c).
 Proof.
 case: a b => [x | k | ? | ? | ?] [y | k' | ? | ? | ?] //=; last first.
   by move=> [<-]; rewrite int_op2_map.
@@ -333,9 +356,11 @@ case: (comparison f).
 by case E: (dom_op2 D1 f x y) => [z |] // [<-]; rewrite (Hop2 _ _ _ _ E).
 Qed.
 
-Lemma eval_map_forward (ev1 : val N1 -> option (val N1)) (ev2 : val N2 -> option (val N2)) :
+Lemma eval_map_forward (ev1 : val N1 -> option (val N1))
+  (ev2 : val N2 -> option (val N2)) :
   (forall w v, ev1 w = Some v -> ev2 (val_map g w) = Some (val_map g v)) ->
-  forall n i xs, eval_map ev1 i n = Some xs -> eval_map ev2 i n = Some (map g xs).
+  forall n i xs, eval_map ev1 i n = Some xs -> eval_map ev2 i n
+    = Some (map g xs).
 Proof.
 move=> Hev; elim=> [| n IH] i xs /=; first by move=> [<-].
 case E1: (ev1 (VInt i)) => [[x | | | |] |] //.
@@ -345,8 +370,10 @@ Qed.
 
 Lemma eval_fold_forward (ev1 : val N1 -> val N1 -> option (val N1))
   (ev2 : val N2 -> val N2 -> option (val N2)) :
-  (forall w s v, ev1 w s = Some v -> ev2 (val_map g w) (val_map g s) = Some (val_map g v)) ->
-  forall n i s v, eval_fold ev1 i n s = Some v -> eval_fold ev2 i n (val_map g s) = Some (val_map g v).
+  (forall w s v, ev1 w s = Some v -> ev2 (val_map g w) (val_map g s)
+    = Some (val_map g v)) ->
+  forall n i s v, eval_fold ev1 i n s = Some v ->
+    eval_fold ev2 i n (val_map g s) = Some (val_map g v).
 Proof.
 move=> Hev; elim=> [| n IH] i s v /=; first by move=> [<-].
 case E: (ev1 (VInt i) s) => [s1 |] // H.
@@ -419,15 +446,18 @@ End Forward.
 
 Section Reflect.
 Variables (N1 N2 : Type) (D1 : domain N1) (D2 : domain N2) (g : N1 -> N2).
-Hypothesis Rlit : forall s b, dom_lit D2 s = Some b -> exists a, dom_lit D1 s = Some a /\ g a = b.
+Hypothesis Rlit : forall s b, dom_lit D2 s = Some b -> exists a, dom_lit D1 s
+  = Some a /\ g a = b.
 Hypothesis Rop1 : forall f a b, dom_op1 D2 f (g a) = Some b ->
   exists a', dom_op1 D1 f a = Some a' /\ g a' = b.
 Hypothesis Rop2 : forall f a b c, dom_op2 D2 f (g a) (g b) = Some c ->
   exists c', dom_op2 D1 f a b = Some c' /\ g c' = c.
-Hypothesis Rcmp : forall f a b c, dom_cmp D2 f (g a) (g b) = Some c -> dom_cmp D1 f a b = Some c.
+Hypothesis Rcmp : forall f a b c, dom_cmp D2 f (g a) (g b) = Some c ->
+  dom_cmp D1 f a b = Some c.
 
 Lemma eval_op1_reflect f a b :
-  eval_op1 D2 f (val_map g a) = Some b -> exists b1, eval_op1 D1 f a = Some b1 /\ val_map g b1 = b.
+  eval_op1 D2 f (val_map g a) = Some b -> exists b1, eval_op1 D1 f a
+    = Some b1 /\ val_map g b1 = b.
 Proof.
 case: a => //= x.
 case E: (dom_op1 D2 f (g x)) => [y |] // [<-].
@@ -447,9 +477,12 @@ case E: (dom_op2 D2 f (g x) (g y)) => [z |] // [<-].
 by have [c' [-> <-]] := Rop2 _ _ _ _ E; exists (VReal c').
 Qed.
 
-Lemma eval_map_reflect (ev1 : val N1 -> option (val N1)) (ev2 : val N2 -> option (val N2)) :
-  (forall w v, ev2 (val_map g w) = Some v -> exists v1, ev1 w = Some v1 /\ val_map g v1 = v) ->
-  forall n i xs, eval_map ev2 i n = Some xs -> exists xs1, eval_map ev1 i n = Some xs1 /\ map g xs1 = xs.
+Lemma eval_map_reflect (ev1 : val N1 -> option (val N1))
+  (ev2 : val N2 -> option (val N2)) :
+  (forall w v, ev2 (val_map g w) = Some v -> exists v1, ev1 w = Some v1 /\
+    val_map g v1 = v) ->
+  forall n i xs, eval_map ev2 i n = Some xs -> exists xs1, eval_map ev1 i n
+    = Some xs1 /\ map g xs1 = xs.
 Proof.
 move=> Hev; elim=> [| n IH] i xs /=; first by move=> [<-]; exists [].
 case E0: (ev2 (VInt i)) => [[x | | | |] |] //.
@@ -477,7 +510,8 @@ Qed.
    whose image is the value of the second. *)
 Lemma eval_reflect G t1 t2 :
   term_equiv _ _ G t1 t2 -> graph g G ->
-  forall v, eval D2 t2 = Some v -> exists v1, eval D1 t1 = Some v1 /\ val_map g v1 = v.
+  forall v, eval D2 t2 = Some v -> exists v1, eval D1 t1 = Some v1 /\
+    val_map g v1 = v.
 Proof.
 elim=> {G t1 t2} [G x1 x2 Hin | G s | G n | G f a1 a2 Ha IHa
        | G f a1 a2 b1 b2 Ha IHa Hb IHb | G a1 a2 i1 i2 Ha IHa Hi IHi
@@ -558,7 +592,8 @@ End Reflect.
 Section EquivInversion.
 Variables (V1 V2 : Type) (G : list (V1 * V2)).
 
-Lemma equiv_var x1 t2 : term_equiv _ _ G (Var x1) t2 -> exists x2, t2 = Var x2 /\ In (x1, x2) G.
+Lemma equiv_var x1 t2 : term_equiv _ _ G (Var x1) t2 -> exists x2, t2
+  = Var x2 /\ In (x1, x2) G.
 Proof. by inversion 1; eauto. Qed.
 
 Lemma equiv_num s t2 : term_equiv _ _ G (Num s) t2 -> t2 = Num s.
@@ -572,15 +607,18 @@ Lemma equiv_op1 f a1 t2 : term_equiv _ _ G (Op1 f a1) t2 ->
 Proof. by inversion 1; eauto. Qed.
 
 Lemma equiv_op2 f a1 b1 t2 : term_equiv _ _ G (Op2 f a1 b1) t2 ->
-  exists a2 b2, t2 = Op2 f a2 b2 /\ term_equiv _ _ G a1 a2 /\ term_equiv _ _ G b1 b2.
+  exists a2 b2, t2 = Op2 f a2 b2 /\ term_equiv _ _ G a1 a2 /\
+    term_equiv _ _ G b1 b2.
 Proof. by inversion 1; eauto 6. Qed.
 
 Lemma equiv_get a1 i1 t2 : term_equiv _ _ G (Get a1 i1) t2 ->
-  exists a2 i2, t2 = Get a2 i2 /\ term_equiv _ _ G a1 a2 /\ term_equiv _ _ G i1 i2.
+  exists a2 i2, t2 = Get a2 i2 /\ term_equiv _ _ G a1 a2 /\
+    term_equiv _ _ G i1 i2.
 Proof. by inversion 1; eauto 6. Qed.
 
 Lemma equiv_set a1 i1 w1 t2 : term_equiv _ _ G (Set_ a1 i1 w1) t2 ->
-  exists a2 i2 w2, t2 = Set_ a2 i2 w2 /\ term_equiv _ _ G a1 a2 /\ term_equiv _ _ G i1 i2
+  exists a2 i2 w2, t2 = Set_ a2 i2 w2 /\ term_equiv _ _ G a1 a2 /\
+    term_equiv _ _ G i1 i2
                    /\ term_equiv _ _ G w1 w2.
 Proof. by inversion 1; eauto 8. Qed.
 
@@ -590,19 +628,24 @@ Lemma equiv_let e1 b1 t2 : term_equiv _ _ G (Let_ e1 b1) t2 ->
 Proof. by inversion 1; subst; eauto 6. Qed.
 
 Lemma equiv_ite c1 u1 e1 t2 : term_equiv _ _ G (Ite c1 u1 e1) t2 ->
-  exists c2 u2 e2, t2 = Ite c2 u2 e2 /\ term_equiv _ _ G c1 c2 /\ term_equiv _ _ G u1 u2
+  exists c2 u2 e2, t2 = Ite c2 u2 e2 /\ term_equiv _ _ G c1 c2 /\
+    term_equiv _ _ G u1 u2
                    /\ term_equiv _ _ G e1 e2.
 Proof. by inversion 1; eauto 8. Qed.
 
 Lemma equiv_map lo1 hi1 b1 t2 : term_equiv _ _ G (Map lo1 hi1 b1) t2 ->
-  exists lo2 hi2 b2, t2 = Map lo2 hi2 b2 /\ term_equiv _ _ G lo1 lo2 /\ term_equiv _ _ G hi1 hi2
+  exists lo2 hi2 b2, t2 = Map lo2 hi2 b2 /\ term_equiv _ _ G lo1 lo2 /\
+    term_equiv _ _ G hi1 hi2
     /\ forall x1 x2, term_equiv _ _ ((x1, x2) :: G) (b1 x1) (b2 x2).
 Proof. by inversion 1; subst; eauto 8. Qed.
 
-Lemma equiv_fold lo1 hi1 init1 b1 t2 : term_equiv _ _ G (Fold lo1 hi1 init1 b1) t2 ->
-  exists lo2 hi2 init2 b2, t2 = Fold lo2 hi2 init2 b2 /\ term_equiv _ _ G lo1 lo2
+Lemma equiv_fold lo1 hi1 init1 b1 t2 : term_equiv _ _ G (Fold lo1 hi1 init1 b1)
+  t2 ->
+  exists lo2 hi2 init2 b2, t2 = Fold lo2 hi2 init2 b2 /\
+    term_equiv _ _ G lo1 lo2
     /\ term_equiv _ _ G hi1 hi2 /\ term_equiv _ _ G init1 init2
-    /\ forall i1 i2 s1 s2, term_equiv _ _ ((s1, s2) :: (i1, i2) :: G) (b1 i1 s1) (b2 i2 s2).
+    /\ forall i1 i2 s1 s2, term_equiv _ _ ((s1, s2) :: (i1, i2) :: G) (b1 i1 s1)
+      (b2 i2 s2).
 Proof. by inversion 1; subst; eauto 10. Qed.
 
 End EquivInversion.
@@ -620,10 +663,12 @@ Definition real_fun2 (f : binary) (x y : R) : R :=
 
 (* The tangents the dual numbers compute. *)
 Definition dual_tan1 (f : unary) (x dx : R) : R :=
-  match dual_op1 R reals f (Dual x dx) with Some (Dual _ d) => d | None => 0 end.
+  match dual_op1 R reals f (Dual x dx) with Some (Dual _ d) => d | None =>
+    0 end.
 
 Definition dual_tan2 (f : binary) (x dx y dy : R) : R :=
-  match dual_op2 R reals f (Dual x dx) (Dual y dy) with Some (Dual _ d) => d | None => 0 end.
+  match dual_op2 R reals f (Dual x dx) (Dual y dy) with Some (Dual _ d) => d |
+    None => 0 end.
 
 (* The derivative of a unary operation. *)
 Definition derivative1 (f : unary) (x : R) : R :=
@@ -645,10 +690,12 @@ case: f => //= [| | k]; try by case: (Rle_dec x 0).
 by case: (k <? 0)%Z => //; case: (Req_dec_T x 0).
 Qed.
 
-Lemma smooth_op2_real f x y z : smooth_op2 f x y = Some z -> real_op2 f x y = Some z.
+Lemma smooth_op2_real f x y z : smooth_op2 f x y = Some z -> real_op2 f x y
+  = Some z.
 Proof. by case: f => //=; case: (Req_dec_T y 0). Qed.
 
-Lemma smooth_cmp_real f x y c : smooth_cmp f x y = Some c -> real_cmp f x y = Some c.
+Lemma smooth_cmp_real f x y c : smooth_cmp f x y = Some c -> real_cmp f x y
+  = Some c.
 Proof. by rewrite /smooth_cmp; case: (Req_dec_T x y). Qed.
 
 Lemma smooth_op1_fun f x y : smooth_op1 f x = Some y -> y = real_fun1 f x.
@@ -713,7 +760,8 @@ Qed.
 
 (* Where an operation is defined (smooth_reals), it is differentiable, with
    the derivative `derivative1`: the derivatives of the Stdlib. *)
-Lemma is_derive_op1 f x y : smooth_op1 f x = Some y -> is_derive (real_fun1 f) x (derivative1 f x).
+Lemma is_derive_op1 f x y : smooth_op1 f x = Some y ->
+  is_derive (real_fun1 f) x (derivative1 f x).
 Proof.
 move=> H; apply/is_derive_Reals; case: f H => [| | | | | | k | s] /= H.
 - exact: (derivable_pt_lim_opp id x 1 (derivable_pt_lim_id x)).
@@ -731,7 +779,8 @@ Qed.
 (* Where a binary operation is defined, the dual numbers compute its value
    and the tangent of Domain.v. *)
 Lemma dual_op2_spec f x dx y dy z : smooth_op2 f x y = Some z ->
-  dual_op2 R reals f (Dual x dx) (Dual y dy) = Some (Dual z (dual_tan2 f x dx y dy)).
+  dual_op2 R reals f (Dual x dx) (Dual y dy)
+    = Some (Dual z (dual_tan2 f x dx y dy)).
 Proof.
 move/smooth_op2_real; rewrite /dual_tan2.
 by case: f => //= [[<-] | [<-] | [<-] | [<-]].
@@ -767,18 +816,21 @@ Definition fam_lit (s : string) : option fam :=
 
 Definition fam_op1 (f : unary) (p : fam) : option fam :=
   match smooth_op1 f (fst p e0) with
-  | Some _ => Some (fun y => real_fun1 f (fst p y), fun h => dual_tan1 f (fst p e0) (snd p h))
+  | Some _ => Some (fun y => real_fun1 f (fst p y), fun h =>
+    dual_tan1 f (fst p e0) (snd p h))
   | None => None
   end.
 
 Definition fam_op2 (f : binary) (p q : fam) : option fam :=
   match smooth_op2 f (fst p e0) (fst q e0) with
   | Some _ => Some (fun y => real_fun2 f (fst p y) (fst q y),
-                    fun h => dual_tan2 f (fst p e0) (snd p h) (fst q e0) (snd q h))
+                    fun h => dual_tan2 f (fst p e0) (snd p h) (fst q e0)
+                      (snd q h))
   | None => None
   end.
 
-Definition fam_cmp (f : binary) (p q : fam) : option bool := smooth_cmp f (fst p e0) (fst q e0).
+Definition fam_cmp (f : binary) (p q : fam) : option bool :=
+  smooth_cmp f (fst p e0) (fst q e0).
 
 Definition families : domain fam := Domain fam_lit fam_op1 fam_op2 fam_cmp.
 
@@ -789,7 +841,8 @@ Definition dual_at (h : E) (p : fam) : dual R := Dual (fst p e0) (snd p h).
 (* --- the families at e0 are the smooth reals --- *)
 
 Lemma families_reflect_lit s b :
-  dom_lit smooth_reals s = Some b -> exists a, dom_lit families s = Some a /\ at_point e0 a = b.
+  dom_lit smooth_reals s = Some b -> exists a, dom_lit families s = Some a /\
+    at_point e0 a = b.
 Proof. by rewrite /= /fam_lit real_lit_0 => ->; eexists. Qed.
 
 Lemma families_reflect_op1 f a b :
@@ -809,10 +862,12 @@ exact/esym/(smooth_op2_fun _ _ _ _ H).
 Qed.
 
 Lemma families_reflect_cmp f a b c :
-  dom_cmp smooth_reals f (at_point e0 a) (at_point e0 b) = Some c -> dom_cmp families f a b = Some c.
+  dom_cmp smooth_reals f (at_point e0 a) (at_point e0 b) = Some c ->
+    dom_cmp families f a b = Some c.
 Proof. by []. Qed.
 
-(* --- the dual numbers compute the families at e0, with their derivatives --- *)
+(* --- the dual numbers compute the families at e0,
+   with their derivatives --- *)
 
 Lemma families_dual_lit h s a :
   dom_lit families s = Some a -> dom_lit (duals reals) s = Some (dual_at h a).
@@ -822,7 +877,8 @@ by case: (real_lit s) => [x |] //; case: (real_lit "0") => [z |] // [<-].
 Qed.
 
 Lemma families_dual_op1 h f a b :
-  dom_op1 families f a = Some b -> dom_op1 (duals reals) f (dual_at h a) = Some (dual_at h b).
+  dom_op1 families f a = Some b -> dom_op1 (duals reals) f (dual_at h a)
+    = Some (dual_at h b).
 Proof.
 cbn [dom_op1 families]; rewrite /fam_op1 /dual_at.
 case Es: (smooth_op1 f (fst a e0)) => [y |] // [<-].
@@ -832,7 +888,8 @@ by rewrite -(smooth_op1_fun _ _ _ Es).
 Qed.
 
 Lemma families_dual_op2 h f a b c :
-  dom_op2 families f a b = Some c -> dom_op2 (duals reals) f (dual_at h a) (dual_at h b) = Some (dual_at h c).
+  dom_op2 families f a b = Some c -> dom_op2 (duals reals) f (dual_at h a)
+    (dual_at h b) = Some (dual_at h c).
 Proof.
 cbn [dom_op2 families]; rewrite /fam_op2 /dual_at.
 case Es: (smooth_op2 f (fst a e0) (fst b e0)) => [z |] // [<-].
@@ -842,7 +899,8 @@ by rewrite -(smooth_op2_fun _ _ _ _ Es).
 Qed.
 
 Lemma families_dual_cmp h f a b c :
-  dom_cmp families f a b = Some c -> dom_cmp (duals reals) f (dual_at h a) (dual_at h b) = Some c.
+  dom_cmp families f a b = Some c -> dom_cmp (duals reals) f (dual_at h a)
+    (dual_at h b) = Some c.
 Proof. by rewrite /= /fam_cmp /dual_at /=; apply: smooth_cmp_real. Qed.
 
 (* --- the families are good --- *)
@@ -866,7 +924,8 @@ move=> h; rewrite (proj2 (dual_op1_spec _ _ (snd a h) _ Es)).
 exact: Rmult_comm.
 Qed.
 
-Lemma good_op2 f a b c : good a -> good b -> dom_op2 families f a b = Some c -> good c.
+Lemma good_op2 f a b c : good a -> good b -> dom_op2 families f a b = Some c ->
+  good c.
 Proof.
 rewrite /= /fam_op2 /good.
 case Es: (smooth_op2 f (fst a e0) (fst b e0)) => [z |] // Ha Hb [<-].
@@ -892,14 +951,16 @@ Qed.
 
 (* --- at a point, the reals compute the families --- *)
 
-Lemma point_lit y s a : dom_lit families s = Some a -> real_lit s = Some (at_point y a).
+Lemma point_lit y s a : dom_lit families s = Some a -> real_lit s
+  = Some (at_point y a).
 Proof.
 rewrite /= /fam_lit.
 by case: (real_lit s) => [x |] //; case: (real_lit "0") => [z |] // [<-].
 Qed.
 
 Lemma point_op1 y f a b :
-  dom_op1 families f a = Some b -> real_op1 f (at_point y a) = Some (at_point y b).
+  dom_op1 families f a = Some b -> real_op1 f (at_point y a)
+    = Some (at_point y b).
 Proof.
 rewrite /= /fam_op1 /at_point.
 case Es: (smooth_op1 f (fst a e0)) => [z |] // [<-] /=.
@@ -907,7 +968,8 @@ by rewrite /real_fun1; case: f Es.
 Qed.
 
 Lemma point_op2 y f a b c :
-  dom_op2 families f a b = Some c -> real_op2 f (at_point y a) (at_point y b) = Some (at_point y c).
+  dom_op2 families f a b = Some c -> real_op2 f (at_point y a) (at_point y b)
+    = Some (at_point y c).
 Proof.
 rewrite /= /fam_op2 /at_point.
 case Es: (smooth_op2 f (fst a e0) (fst b e0)) => [z |] // [<-] /=.
@@ -937,10 +999,12 @@ Qed.
 
 (* Decides the tests of real comparisons in the goal. *)
 Ltac decide_ifs :=
-  repeat match goal with |- context [match ?d with left _ => _ | right _ => _ end] => destruct d end;
+  repeat match goal with |- context
+    [match ?d with left _ => _ | right _ => _ end] => destruct d end;
   try reflexivity; lra.
 
-Lemma real_cmp_lt f x y x' y' : x < y -> x' < y' -> real_cmp f x y = real_cmp f x' y'.
+Lemma real_cmp_lt f x y x' y' : x < y -> x' < y' -> real_cmp f x y
+  = real_cmp f x' y'.
 Proof. by move=> H H'; case: f => //=; decide_ifs. Qed.
 
 (* A comparison of good families, decided at e0 (no tie), is decided the same
@@ -966,7 +1030,8 @@ Qed.
 Definition ctx_at (y : E) (G : list (val fam)) : list (val fam * val R) :=
   map (fun v => (v, val_map (at_point y) v)) G.
 
-Lemma in_ctx_at y G x1 x2 : In (x1, x2) (ctx_at y G) -> In x1 G /\ x2 = val_map (at_point y) x1.
+Lemma in_ctx_at y G x1 x2 : In (x1, x2) (ctx_at y G) -> In x1 G /\ x2
+  = val_map (at_point y) x1.
 Proof. by rewrite /ctx_at => /(in_map_iff _ _ _) [v [[<- <-] Hv]]. Qed.
 
 (* What the evaluation of a term over the families says about the points
@@ -979,15 +1044,19 @@ Definition near_ok (t1 : term (val fam)) : Prop :=
   eval families t1 = Some v1 ->
   good_val v1 /\
   locally e0 (fun y => forall t2, term_equiv _ _ (ctx_at y G) t1 t2 ->
-                                  eval reals t2 = Some (val_map (at_point y) v1)).
+                                  eval reals t2 = Some
+                                    (val_map (at_point y) v1)).
 
 Lemma eval_map_near (b : val fam -> term (val fam)) G :
   (forall x, near_ok (b x)) -> Forall good_val G ->
-  (exists b2, forall x1 x2, term_equiv _ _ ((x1, x2) :: ctx_at e0 G) (b x1) (b2 x2)) ->
+  (exists b2, forall x1 x2, term_equiv _ _ ((x1, x2) :: ctx_at e0 G) (b x1)
+    (b2 x2)) ->
   forall n i xs, eval_map (fun v => eval families (b v)) i n = Some xs ->
   Forall good xs /\
-  locally e0 (fun y => forall b2, (forall x1 x2, term_equiv _ _ ((x1, x2) :: ctx_at y G) (b x1) (b2 x2)) ->
-              eval_map (fun v => eval reals (b2 v)) i n = Some (map (at_point y) xs)).
+  locally e0 (fun y => forall b2, (forall x1 x2,
+    term_equiv _ _ ((x1, x2) :: ctx_at y G) (b x1) (b2 x2)) ->
+              eval_map (fun v => eval reals (b2 v)) i n
+                = Some (map (at_point y) xs)).
 Proof.
 move=> Hb HG [b0 Hb0]; elim=> [| n IH] i xs /=.
   by move=> [<-]; split; [constructor | apply: filter_forall].
@@ -1004,12 +1073,16 @@ Qed.
 
 Lemma eval_fold_near (b : val fam -> val fam -> term (val fam)) G :
   (forall x s, near_ok (b x s)) -> Forall good_val G ->
-  (exists b2, forall i1 i2 s1 s2, term_equiv _ _ ((s1, s2) :: (i1, i2) :: ctx_at e0 G) (b i1 s1) (b2 i2 s2)) ->
-  forall n i s v, good_val s -> eval_fold (fun w x => eval families (b w x)) i n s = Some v ->
+  (exists b2, forall i1 i2 s1 s2, term_equiv _ _
+    ((s1, s2) :: (i1, i2) :: ctx_at e0 G) (b i1 s1) (b2 i2 s2)) ->
+  forall n i s v, good_val s -> eval_fold (fun w x => eval families (b w x)) i n
+    s = Some v ->
   good_val v /\
   locally e0 (fun y => forall b2,
-    (forall i1 i2 s1 s2, term_equiv _ _ ((s1, s2) :: (i1, i2) :: ctx_at y G) (b i1 s1) (b2 i2 s2)) ->
-    eval_fold (fun w x => eval reals (b2 w x)) i n (val_map (at_point y) s) = Some (val_map (at_point y) v)).
+    (forall i1 i2 s1 s2, term_equiv _ _ ((s1, s2) :: (i1, i2) :: ctx_at y G)
+      (b i1 s1) (b2 i2 s2)) ->
+    eval_fold (fun w x => eval reals (b2 w x)) i n (val_map (at_point y) s)
+      = Some (val_map (at_point y) v)).
 Proof.
 move=> Hb HG [b0 Hb0]; elim=> [| n IH] i s v Hs /=.
   by move=> [<-]; split; last apply: filter_forall.
@@ -1165,7 +1238,8 @@ Lemma eval_definition_near d1 : forall G args v1,
   eval_definition families d1 args = Some v1 ->
   good_val v1 /\
   locally e0 (fun y => forall d2, definition_equiv _ _ (ctx_at y G) d1 d2 ->
-    eval_definition reals d2 (map (val_map (at_point y)) args) = Some (val_map (at_point y) v1)).
+    eval_definition reals d2 (map (val_map (at_point y)) args)
+      = Some (val_map (at_point y) v1)).
 Proof.
 elim: d1 => [n t r f IHf | r b] G [| a args] v1 HG Hargs [d0 Hd0] //= Hev.
   move: Hargs => /Forall_cons_iff [Ha Hargs'].
@@ -1193,20 +1267,24 @@ End Families.
 Definition reals_of_val (v : val R) : list R :=
   match v with VReal r => [r] | VArray l => l | _ => [] end.
 
-Definition reals_of_args (x : list (val R)) : list R := concat (map reals_of_val x).
+Definition reals_of_args (x : list (val R)) : list R :=
+  concat (map reals_of_val x).
 
-Fixpoint lay_list {A : Type} (real : nat -> R -> A) (l : list R) (j : nat) : list A :=
+Fixpoint lay_list {A : Type} (real : nat -> R -> A) (l : list R) (j : nat) :
+  list A :=
   match l with
   | [] => []
   | r :: l' => real j r :: lay_list real l' (S j)
   end.
 
-Fixpoint lay {A : Type} (real : nat -> R -> A) (other : R -> A) (x : list (val R)) (j : nat)
+Fixpoint lay {A : Type} (real : nat -> R -> A) (other : R -> A)
+  (x : list (val R)) (j : nat)
   : list (val A) :=
   match x with
   | [] => []
   | VReal r :: x' => VReal (real j r) :: lay real other x' (S j)
-  | VArray l :: x' => VArray (lay_list real l j) :: lay real other x' (j + length l)
+  | VArray l :: x' => VArray (lay_list real l j) :: lay real other x'
+    (j + length l)
   | VInt k :: x' => VInt k :: lay real other x' j
   | VBool b :: x' => VBool b :: lay real other x' j
   | VTape l :: x' => VTape (map other l) :: lay real other x' j
@@ -1220,10 +1298,12 @@ Definition in_dim (x : list (val R)) : nat := length (reals_of_args x).
 
 (* The number of reals of the value of f at x. *)
 Definition out_dim (f : function) (x : list (val R)) : nat :=
-  match eval_function reals f x with Some v => length (reals_of_val v) | None => 0 end.
+  match eval_function reals f x with Some v => length (reals_of_val v) | None =>
+    0 end.
 
 (* f as a function of the reals of its arguments: from R^n to R^m. *)
-Definition value_of (f : function) (x : list (val R)) (y : Rn (in_dim x)) : Rn (out_dim f x) :=
+Definition value_of (f : function) (x : list (val R)) (y : Rn (in_dim x)) : Rn
+  (out_dim f x) :=
   vec_of_list (out_dim f x)
     (match eval_function reals f (with_reals x (list_of_vec (in_dim x) y)) with
      | Some v => reals_of_val v
@@ -1235,7 +1315,8 @@ Definition value_of (f : function) (x : list (val R)) (y : Rn (in_dim x)) : Rn (
 Definition dual_args (x : list (val R)) (dx : list R) : list (val (dual R)) :=
   lay (fun j r => Dual r (nth j dx 0)) (fun r => Dual r 0) x 0.
 
-Definition primal_val (v : val (dual R)) : val R := val_map (fun d => let 'Dual a _ := d in a) v.
+Definition primal_val (v : val (dual R)) : val R :=
+  val_map (fun d => let 'Dual a _ := d in a) v.
 
 Definition tangent_reals (v : val (dual R)) : list R :=
   match v with
@@ -1249,14 +1330,16 @@ Lemma lay_list_map {A B : Type} (g : A -> B) real l j :
 Proof. by elim: l j => [| r l IH] j //=; rewrite IH. Qed.
 
 Lemma lay_map {A B : Type} (g : A -> B) real other x j :
-  map (val_map g) (lay real other x j) = lay (fun j r => g (real j r)) (fun r => g (other r)) x j.
+  map (val_map g) (lay real other x j) = lay (fun j r => g (real j r))
+    (fun r => g (other r)) x j.
 Proof.
 elim: x j => [| v x IH] j //=.
 by case: v => [r | k | b | l | l] /=; rewrite ?IH ?lay_list_map ?map_map.
 Qed.
 
 Lemma lay_list_ext {A : Type} (real1 real2 : nat -> R -> A) l j :
-  (forall j r, real1 j r = real2 j r) -> lay_list real1 l j = lay_list real2 l j.
+  (forall j r, real1 j r = real2 j r) -> lay_list real1 l j
+    = lay_list real2 l j.
 Proof. by move=> H; elim: l j => [| r l IH] j //=; rewrite H IH. Qed.
 
 Lemma lay_ext {A : Type} (real1 real2 : nat -> R -> A) other1 other2 x j :
@@ -1272,7 +1355,8 @@ Qed.
 (* A function of the position that reads the coordinate at that position is
    a function of the coordinate. *)
 Lemma lay_list_nth {A : Type} (real : nat -> R -> A) pre l rest :
-  lay_list (fun j _ => real j (nth j (pre ++ l ++ rest) 0)) l (length pre) = lay_list real l (length pre).
+  lay_list (fun j _ => real j (nth j (pre ++ l ++ rest) 0)) l (length pre)
+    = lay_list real l (length pre).
 Proof.
 elim: l pre => [| r l IH] pre //=.
 rewrite nth_middle; congr (_ :: _).
@@ -1281,7 +1365,8 @@ by rewrite -(IH (app pre [r])) -app_assoc.
 Qed.
 
 Lemma lay_nth {A : Type} (real : nat -> R -> A) other pre x :
-  lay (fun j _ => real j (nth j (pre ++ reals_of_args x) 0)) other x (length pre)
+  lay (fun j _ => real j (nth j (pre ++ reals_of_args x) 0)) other x
+    (length pre)
   = lay real other x (length pre).
 Proof.
 elim: x pre => [| v x IH] pre //.
@@ -1317,11 +1402,13 @@ Definition val_reals {A : Type} (v : val A) : list A :=
 Lemma reals_of_val_reals v : reals_of_val v = val_reals v.
 Proof. by case: v. Qed.
 
-Lemma val_reals_map {A B : Type} (g : A -> B) v : val_reals (val_map g v) = map g (val_reals v).
+Lemma val_reals_map {A B : Type} (g : A -> B) v : val_reals (val_map g v)
+  = map g (val_reals v).
 Proof. by case: v. Qed.
 
 Lemma tangent_reals_map {A : Type} (g : A -> dual R) v :
-  tangent_reals (val_map g v) = map (fun a => let 'Dual _ t := g a in t) (val_reals v).
+  tangent_reals (val_map g v) = map (fun a => let 'Dual _ t := g a in t)
+    (val_reals v).
 Proof. by case: v => [a | | | l |] //=; rewrite ?map_map //; case: (g a). Qed.
 
 (* ---------------------------------------------------------------------------
@@ -1331,10 +1418,13 @@ Proof. by case: v => [a | | | l |] //=; rewrite ?map_map //; case: (g a). Qed.
 
 Local Notation famn n := ((Rn n -> R) * (Rn n -> R))%type.
 
-Definition fam_lay (n : nat) (x : list (val R)) (j : nat) : list (val (famn n)) :=
-  lay (fun j _ => (coord n j, coord n j)) (fun r => (fun _ => r, fun _ => 0)) x j.
+Definition fam_lay (n : nat) (x : list (val R)) (j : nat) : list (val (famn n))
+  :=
+  lay (fun j _ => (coord n j, coord n j)) (fun r => (fun _ => r, fun _ => 0)) x
+    j.
 
-Definition fam_args (x : list (val R)) : list (val (famn (in_dim x))) := fam_lay (in_dim x) x 0.
+Definition fam_args (x : list (val R)) : list (val (famn (in_dim x))) :=
+  fam_lay (in_dim x) x 0.
 
 (* The arguments are good families at every point: a coordinate is linear,
    hence its own derivative; a constant has derivative 0. *)
@@ -1354,11 +1444,13 @@ Qed.
 (* At a point y of R^n, the arguments are x with its reals replaced by the
    coordinates of y. *)
 Lemma fam_args_at x (y : Rn (in_dim x)) :
-  map (val_map (at_point y)) (fam_args x) = with_reals x (list_of_vec (in_dim x) y).
+  map (val_map (at_point y)) (fam_args x)
+    = with_reals x (list_of_vec (in_dim x) y).
 Proof. by rewrite /fam_args /fam_lay /with_reals lay_map; apply: lay_ext. Qed.
 
 (* The point of x itself. *)
-Definition point_of (x : list (val R)) : Rn (in_dim x) := vec_of_list (in_dim x) (reals_of_args x).
+Definition point_of (x : list (val R)) : Rn (in_dim x) :=
+  vec_of_list (in_dim x) (reals_of_args x).
 
 (* At the point of x, the arguments are x. *)
 Lemma fam_args_point x : map (val_map (at_point (point_of x))) (fam_args x) = x.
@@ -1370,7 +1462,8 @@ Qed.
 (* As dual numbers at the point of x in the direction dx, the arguments are
    the dual arguments seeded with dx. *)
 Lemma fam_args_dual x dx : length dx = in_dim x ->
-  map (val_map (dual_at (point_of x) (vec_of_list (in_dim x) dx))) (fam_args x) = dual_args x dx.
+  map (val_map (dual_at (point_of x) (vec_of_list (in_dim x) dx))) (fam_args x)
+    = dual_args x dx.
 Proof.
 move=> Hdx; rewrite /fam_args /fam_lay /dual_args lay_map.
 rewrite -[RHS](lay_nth (fun j r => Dual r (nth j dx 0)) (fun r => Dual r 0)
@@ -1399,7 +1492,8 @@ Theorem duals_derive (f : function) (x : list (val R)) :
   parametric f -> defined f x ->
   exists v df,
     eval_function smooth_reals f x = Some v /\
-    filterdiff (value_of f x) (locally (vec_of_list (in_dim x) (reals_of_args x))) df /\
+    filterdiff (value_of f x) (locally
+      (vec_of_list (in_dim x) (reals_of_args x))) df /\
     forall dx, length dx = in_dim x ->
       exists vd, eval_function (duals reals) f (dual_args x dx) = Some vd /\
                  primal_val vd = v /\

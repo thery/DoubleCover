@@ -15,7 +15,8 @@
 
 From Stdlib Require Import String ZArith List Bool Reals Lia.
 From Coquelicot Require Import Coquelicot.
-From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Normalize WellFormed
+From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec
+  Normalize WellFormed
   Annotate Tangent Simplify Scoping AnfEquiv Correctness Smooth SimplifyCorrect.
 From ElpiDiff Require TangentCorrect TangentTop.
 From ElpiDiff Require Import Euclidean DualsDerive.
@@ -40,7 +41,8 @@ Proof. by case: v. Qed.
 
 Lemma lay_list_pair (pre B rest l : list R) :
   length B = length l ->
-  lay_list (fun j r => Dual r (nth j (pre ++ B ++ rest) 0%R)) l (length pre) = TangentTop.pair_with l B.
+  lay_list (fun j r => Dual r (nth j (pre ++ B ++ rest) 0%R)) l (length pre)
+    = TangentTop.pair_with l B.
 Proof.
 elim: l pre B => [| r l IH] pre [| b B] //= [Hl].
 rewrite app_nth2 // Nat.sub_diag /=; congr (_ :: _).
@@ -52,9 +54,11 @@ Qed.
 
 Lemma lay_head nm t r v x (pre B rest : list R) :
   fits (Decl nm t r) v -> length B = TangentTop.nreals v ->
-  lay (fun j r => Dual r (nth j (pre ++ B ++ rest) 0%R)) (fun r => Dual r 0%R) (v :: x) (length pre) =
+  lay (fun j r => Dual r (nth j (pre ++ B ++ rest) 0%R)) (fun r => Dual r 0%R)
+    (v :: x) (length pre) =
   TangentTop.val_dual v B ::
-  lay (fun j r => Dual r (nth j (pre ++ B ++ rest) 0%R)) (fun r => Dual r 0%R) x (length pre + TangentTop.nreals v).
+  lay (fun j r => Dual r (nth j (pre ++ B ++ rest) 0%R)) (fun r => Dual r 0%R) x
+    (length pre + TangentTop.nreals v).
 Proof.
 move=> Hf HB.
 destruct v as [rv | z | b | l | l]; destruct t; rewrite /= in Hf HB *;
@@ -95,7 +99,8 @@ by move=> H Hl; rewrite -(Hgen [] H Hl).
 Qed.
 
 Lemma seed_length ds x dx :
-  Forall2 fits ds x -> (in_dim x <= length dx)%nat -> length (seed ds x dx) = in_dim x.
+  Forall2 fits ds x -> (in_dim x <= length dx)%nat -> length (seed ds x dx)
+    = in_dim x.
 Proof.
 rewrite /in_dim /reals_of_args => H.
 elim: H dx => [| [nm t r] v ds' x' Hf Hfs IH] dx Hl //.
@@ -114,7 +119,8 @@ Proof.
 by case: vd => [[a b] | | | l | l] //=; congr VArray; apply: map_ext => -[a b].
 Qed.
 
-Lemma tangent_reals_tangent vd : reals_of_val (TangentCorrect.tangent vd) = tangent_reals vd.
+Lemma tangent_reals_tangent vd : reals_of_val (TangentCorrect.tangent vd)
+  = tangent_reals vd.
 Proof. by case: vd => [[a b] | | | l | l] //=; apply: map_ext => -[a b]. Qed.
 
 (* ---------------------------------------------------------------------------
@@ -171,7 +177,8 @@ Qed.
 (* The same, with zeros in the output-only tangent parameters
    (tangent_inputs). *)
 Theorem tangent_mode_correct (f : function) (x : list (val R)) :
-  parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x -> defined f x ->
+  parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->
+    defined f x ->
   exists v df,
     eval_function smooth_reals f x = Some v /\
     filterdiff (value_of f x) (locally (point_of x)) df /\
@@ -180,7 +187,8 @@ Theorem tangent_mode_correct (f : function) (x : list (val R)) :
         exec_dfunction reals (simplify (tangent (annotate false (normalize f))))
           (tangent_inputs (decls f) x dx) = Some out /\
         tangent_output (decls f) out = Some (v, w) /\
-        reals_of_val w = list_of_vec _ (df (vec_of_list _ (seed (decls f) x dx))).
+        reals_of_val w = list_of_vec _
+          (df (vec_of_list _ (seed (decls f) x dx))).
 Proof.
 move=> Hpar Hwf Hfit Hdef.
 have [v [df [Hs [Hd Hc]]]] := tangent_mode_correct_with TangentTop.zero_dot

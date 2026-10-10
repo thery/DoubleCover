@@ -3,8 +3,10 @@
    or updating an array in place. *)
 
 From Stdlib Require Import String ZArith List Bool Reals Lia Lra.
-From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Operations
-  Normalize WellFormed Atoms Activity Tbr Annotate Transform Tangent Simplify Scoping
+From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec
+  Operations
+  Normalize WellFormed Atoms Activity Tbr Annotate Transform Tangent Simplify
+    Scoping
   AnfEquiv Correctness TangentCorrect.
 
 From Corelib Require Import ssreflect ssrbool ssrfun.
@@ -16,15 +18,18 @@ Open Scope R_scope.
 (* The context of the body of a map or of a scalar fold: no storage updated
    in place. *)
 Lemma ctx_scalar (L : list pv) k c s wP (live : pv -> Prop) :
-  Forall (static_ok k) L -> ids_unique L -> (forall p, In p L -> (pn p < c)%nat) ->
+  Forall (static_ok k) L -> ids_unique L ->
+    (forall p, In p L -> (pn p < c)%nat) ->
   (forall p, In p L -> live p -> store_ok s p) ->
-  (forall a, wP = Some a -> exists y, a = AVar y /\ In y L /\ varg (pw y) <> None) ->
+  (forall a, wP = Some a -> exists y, a = AVar y /\ In y L /\
+    varg (pw y) <> None) ->
   ctx_ok L k c s wP PScalar live Real.
 Proof. by move=> *; constructor. Qed.
 
 (* A write to a variable opened at or after c keeps the frame. *)
 Lemma frame_set_fresh c ex s s' v w :
-  frame c ex s s' -> ~ below c v -> consistent v -> frame c ex s (store_set s' (keyv v) w).
+  frame c ex s s' -> ~ below c v -> consistent v ->
+    frame c ex s (store_set s' (keyv v) w).
 Proof.
 move=> F Hb Hc u Hu Hcu Hex; rewrite store_get_set.
 case E: (key_eqb (keyv v) (keyv u)); last exact: F.
@@ -245,10 +250,14 @@ Qed.
 
 (* The body of a fold, opened as the simulation opens it and as well_formed's
    occurs opens it, has the same occurrences. *)
-Lemma live_cont2 L k (bP : pv -> pv -> anf pv bare) (bW : vinfo -> vinfo -> anf vinfo bare) x y w1 w2 id :
-  (forall i1 i2 s1 s2, anf_eq ((s1, s2) :: (i1, i2) :: gW L) (bP i1 s1) (bW i2 s2)) ->
-  Forall (static_ok k) L -> aid (pa x) = k -> aid (pa y) = S k -> vid w1 = k -> vid w2 = S k ->
-  occurs_anf id (S (S k)) (bW w1 w2) = occurs_anf id (S (S k)) (bW (anon k) (anon (S k))).
+Lemma live_cont2 L k (bP : pv -> pv -> anf pv bare)
+  (bW : vinfo -> vinfo -> anf vinfo bare) x y w1 w2 id :
+  (forall i1 i2 s1 s2, anf_eq ((s1, s2) :: (i1, i2) :: gW L) (bP i1 s1)
+    (bW i2 s2)) ->
+  Forall (static_ok k) L -> aid (pa x) = k -> aid (pa y) = S k -> vid w1 = k ->
+    vid w2 = S k ->
+  occurs_anf id (S (S k)) (bW w1 w2) = occurs_anf id (S (S k))
+    (bW (anon k) (anon (S k))).
 Proof.
 move=> HbW HL Hx Hy Hw1 Hw2.
 apply: (proj1 occurs_transfer (bP x y) ((y, w2) :: (x, w1) :: gW L)
@@ -706,7 +715,8 @@ Qed.
    pv instance, one case per construct. *)
 
 Theorem simulation :
-  (forall bP : anf pv bare, sim_body bP) /\ (forall eP : value pv bare, sim_value eP).
+  (forall bP : anf pv bare, sim_body bP) /\
+    (forall eP : value pv bare, sim_value eP).
 Proof.
 apply: anf_value_ind.
 - by move=> a e IHe b IHb; case: a => *; apply: sim_let.

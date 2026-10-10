@@ -29,9 +29,11 @@ Inductive term_equiv (G : list (V1 * V2)) : term V1 -> term V2 -> Prop :=
 | EqNat k : term_equiv G (Nat k) (Nat k)
 | EqOp1 f a1 a2 : term_equiv G a1 a2 -> term_equiv G (Op1 f a1) (Op1 f a2)
 | EqOp2 f a1 a2 b1 b2 :
-    term_equiv G a1 a2 -> term_equiv G b1 b2 -> term_equiv G (Op2 f a1 b1) (Op2 f a2 b2)
+    term_equiv G a1 a2 -> term_equiv G b1 b2 ->
+      term_equiv G (Op2 f a1 b1) (Op2 f a2 b2)
 | EqGet a1 a2 i1 i2 :
-    term_equiv G a1 a2 -> term_equiv G i1 i2 -> term_equiv G (Get a1 i1) (Get a2 i2)
+    term_equiv G a1 a2 -> term_equiv G i1 i2 ->
+      term_equiv G (Get a1 i1) (Get a2 i2)
 | EqSet a1 a2 i1 i2 v1 v2 :
     term_equiv G a1 a2 -> term_equiv G i1 i2 -> term_equiv G v1 v2 ->
     term_equiv G (Set_ a1 i1 v1) (Set_ a2 i2 v2)
@@ -48,14 +50,16 @@ Inductive term_equiv (G : list (V1 * V2)) : term V1 -> term V2 -> Prop :=
     term_equiv G (Map lo1 hi1 b1) (Map lo2 hi2 b2)
 | EqFold lo1 lo2 hi1 hi2 init1 init2 b1 b2 :
     term_equiv G lo1 lo2 -> term_equiv G hi1 hi2 -> term_equiv G init1 init2 ->
-    (forall i1 i2 s1 s2, term_equiv ((s1, s2) :: (i1, i2) :: G) (b1 i1 s1) (b2 i2 s2)) ->
+    (forall i1 i2 s1 s2, term_equiv ((s1, s2) :: (i1, i2) :: G) (b1 i1 s1)
+      (b2 i2 s2)) ->
     term_equiv G (Fold lo1 hi1 init1 b1) (Fold lo2 hi2 init2 b2).
 
 Inductive result_equiv (G : list (V1 * V2)) : result V1 -> result V2 -> Prop :=
 | EqReturns t : result_equiv G (Returns t) (Returns t)
 | EqWrites y1 y2 : term_equiv G y1 y2 -> result_equiv G (Writes y1) (Writes y2).
 
-Inductive definition_equiv (G : list (V1 * V2)) : definition V1 -> definition V2 -> Prop :=
+Inductive definition_equiv (G : list (V1 * V2)) : definition V1 -> definition V2
+  -> Prop :=
 | EqArg n t r f1 f2 :
     (forall x1 x2, definition_equiv ((x1, x2) :: G) (f1 x1) (f2 x2)) ->
     definition_equiv G (Arg n t r f1) (Arg n t r f2)
@@ -200,7 +204,8 @@ Qed.
 End NormalizeCorrect.
 
 Theorem normalize_correct :
-  forall (N : Type) (D : domain N) (f : function) (args : list (val N)) (v : val N),
+  forall (N : Type) (D : domain N) (f : function) (args : list (val N))
+    (v : val N),
     parametric f ->
     eval_function D f args = Some v ->
     aeval_function D (normalize f) args = Some v.
@@ -238,7 +243,8 @@ Lemma eval_map_ext (ev1 ev2 : val N -> option (val N)) :
 Proof. by move=> Hev; elim=> [| n IH] i //=; rewrite Hev IH. Qed.
 
 Lemma eval_fold_ext (ev1 ev2 : val N -> val N -> option (val N)) :
-  (forall w s, ev1 w s = ev2 w s) -> forall n i s, eval_fold ev1 i n s = eval_fold ev2 i n s.
+  (forall w s, ev1 w s = ev2 w s) -> forall n i s, eval_fold ev1 i n s
+    = eval_fold ev2 i n s.
 Proof.
 by move=> Hev; elim=> [| n IH] i s //=; rewrite Hev; case: (ev2 (VInt i) s).
 Qed.
@@ -246,8 +252,10 @@ Qed.
 (* A body, and a value, rebuilt with any tree of annotations, evaluate as
    before. *)
 Lemma rebuild_eval :
-  (forall b : anf (val N) bare, forall t, aeval D (rebuild _ b t) = aeval D b) /\
-  (forall e : value (val N) bare, forall t, aeval_value D (rebuild_value _ e t) = aeval_value D e).
+  (forall b : anf (val N) bare, forall t, aeval D (rebuild _ b t) = aeval D b)
+    /\
+  (forall e : value (val N) bare, forall t, aeval_value D (rebuild_value _ e t)
+    = aeval_value D e).
 Proof.
 apply: anf_value_ind => //.
 - (* ALet *) move=> [] e IHe b IHb [a vt rest |] /=; rewrite IHe;
@@ -272,7 +280,8 @@ by case: vt => *; apply: H.
 Qed.
 
 Lemma rebuild_definition_eval (d : adefinition (val N) bare) t args :
-  aeval_definition D (rebuild_definition _ d t) args = aeval_definition D d args.
+  aeval_definition D (rebuild_definition _ d t) args
+    = aeval_definition D d args.
 Proof.
 elim: d t args => [n ty r f IHf | r b] t [| a args] //=.
 exact: (proj1 rebuild_eval).
@@ -281,7 +290,8 @@ Qed.
 End AnnotateCorrect.
 
 Theorem annotate_correct :
-  forall (N : Type) (D : domain N) (cv : bool) (a : afunction bare) (args : list (val N)),
+  forall (N : Type) (D : domain N) (cv : bool) (a : afunction bare)
+    (args : list (val N)),
     aeval_function D (annotate cv a) args = aeval_function D a args.
 Proof. by move=> N D cv a args; apply: rebuild_definition_eval. Qed.
 

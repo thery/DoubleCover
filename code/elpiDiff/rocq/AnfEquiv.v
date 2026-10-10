@@ -30,41 +30,50 @@ Definition atom_eq (G : list (V1 * V2)) (a1 : atom V1) (a2 : atom V2) : Prop :=
   | _, _ => False
   end.
 
-Fixpoint anf_eq (G : list (V1 * V2)) (b1 : anf V1 bare) (b2 : anf V2 bare) {struct b1} : Prop :=
+Fixpoint anf_eq (G : list (V1 * V2)) (b1 : anf V1 bare) (b2 : anf V2 bare)
+  {struct b1} : Prop :=
   match b1, b2 with
   | ALet _ e1 c1, ALet _ e2 c2 =>
       value_eq G e1 e2 /\ forall x1 x2, anf_eq ((x1, x2) :: G) (c1 x1) (c2 x2)
   | ARet a1, ARet a2 => atom_eq G a1 a2
   | _, _ => False
   end
-with value_eq (G : list (V1 * V2)) (e1 : value V1 bare) (e2 : value V2 bare) {struct e1} : Prop :=
+with value_eq (G : list (V1 * V2)) (e1 : value V1 bare) (e2 : value V2 bare)
+  {struct e1} : Prop :=
   match e1, e2 with
   | AOp1 f1 a1, AOp1 f2 a2 => f1 = f2 /\ atom_eq G a1 a2
-  | AOp2 f1 a1 b1, AOp2 f2 a2 b2 => f1 = f2 /\ atom_eq G a1 a2 /\ atom_eq G b1 b2
+  | AOp2 f1 a1 b1, AOp2 f2 a2 b2 => f1 = f2 /\ atom_eq G a1 a2 /\
+    atom_eq G b1 b2
   | AGet a1 i1, AGet a2 i2 => atom_eq G a1 a2 /\ atom_eq G i1 i2
-  | ASet a1 i1 v1, ASet a2 i2 v2 => atom_eq G a1 a2 /\ atom_eq G i1 i2 /\ atom_eq G v1 v2
-  | AIte c1 t1 e1, AIte c2 t2 e2 => atom_eq G c1 c2 /\ anf_eq G t1 t2 /\ anf_eq G e1 e2
+  | ASet a1 i1 v1, ASet a2 i2 v2 => atom_eq G a1 a2 /\ atom_eq G i1 i2 /\
+    atom_eq G v1 v2
+  | AIte c1 t1 e1, AIte c2 t2 e2 => atom_eq G c1 c2 /\ anf_eq G t1 t2 /\
+    anf_eq G e1 e2
   | AMap lo1 hi1 b1, AMap lo2 hi2 b2 =>
       atom_eq G lo1 lo2 /\ atom_eq G hi1 hi2 /\
       forall i1 i2, anf_eq ((i1, i2) :: G) (b1 i1) (b2 i2)
   | AFold _ lo1 hi1 init1 b1, AFold _ lo2 hi2 init2 b2 =>
       atom_eq G lo1 lo2 /\ atom_eq G hi1 hi2 /\ atom_eq G init1 init2 /\
-      forall i1 i2 s1 s2, anf_eq ((s1, s2) :: (i1, i2) :: G) (b1 i1 s1) (b2 i2 s2)
+      forall i1 i2 s1 s2, anf_eq ((s1, s2) :: (i1, i2) :: G) (b1 i1 s1)
+        (b2 i2 s2)
   | _, _ => False
   end.
 
-Definition aresult_eq (G : list (V1 * V2)) (r1 : aresult V1) (r2 : aresult V2) : Prop :=
+Definition aresult_eq (G : list (V1 * V2)) (r1 : aresult V1) (r2 : aresult V2) :
+  Prop :=
   match r1, r2 with
   | AReturns t1, AReturns t2 => t1 = t2
   | AWrites y1, AWrites y2 => atom_eq G y1 y2
   | _, _ => False
   end.
 
-Fixpoint adefinition_eq (G : list (V1 * V2)) (d1 : adefinition V1 bare) (d2 : adefinition V2 bare)
+Fixpoint adefinition_eq (G : list (V1 * V2)) (d1 : adefinition V1 bare)
+  (d2 : adefinition V2 bare)
   {struct d1} : Prop :=
   match d1, d2 with
   | AArg n1 t1 r1 f1, AArg n2 t2 r2 f2 =>
-      n1 = n2 /\ t1 = t2 /\ r1 = r2 /\ forall x1 x2, adefinition_eq ((x1, x2) :: G) (f1 x1) (f2 x2)
+      n1 = n2 /\ t1 = t2 /\ r1 = r2 /\ forall x1 x2,
+        adefinition_eq ((x1, x2) :: G) (f1 x1) (f2 x2)
   | ABody r1 b1, ABody r2 b2 => aresult_eq G r1 r2 /\ anf_eq G b1 b2
   | _, _ => False
   end.
@@ -77,7 +86,8 @@ Qed.
 
 End AnfEq.
 
-Arguments atom_eq {V1 V2}.  Arguments anf_eq {V1 V2}.  Arguments value_eq {V1 V2}.
+Arguments atom_eq {V1 V2}.  Arguments anf_eq {V1 V2}.  Arguments value_eq
+  {V1 V2}.
 Arguments aresult_eq {V1 V2}.  Arguments adefinition_eq {V1 V2}.
 
 (* ---------------------------------------------------------------------------
@@ -93,7 +103,8 @@ Variables V1 V2 : Type.
 Lemma norm_eq (G : list (atom V1 * atom V2)) t1 t2 :
   term_equiv _ _ G t1 t2 ->
   forall H, (forall a1 a2, In (a1, a2) G -> atom_eq H a1 a2) ->
-  forall k1 k2, (forall H' a1 a2, incl H H' -> atom_eq H' a1 a2 -> anf_eq H' (k1 a1) (k2 a2)) ->
+  forall k1 k2, (forall H' a1 a2, incl H H' -> atom_eq H' a1 a2 ->
+    anf_eq H' (k1 a1) (k2 a2)) ->
   anf_eq H (norm t1 k1) (norm t2 k2).
 Proof.
 elim=> {G t1 t2} [G x1 x2 Hin | G s | G n | G f a1 a2 Ha IHa
@@ -198,7 +209,8 @@ End NormalizeEq.
 
 (* The normal form of a parametric source program is parametric. *)
 Theorem normalize_parametric (f : function) :
-  parametric f -> forall V1 V2, adefinition_eq [] (afdef (normalize f) V1) (afdef (normalize f) V2).
+  parametric f -> forall V1 V2, adefinition_eq [] (afdef (normalize f) V1)
+    (afdef (normalize f) V2).
 Proof.
 move=> Hf V1 V2 /=.
 by apply: (normalize_definition_eq V1 V2 []) => // a1 a2 [].

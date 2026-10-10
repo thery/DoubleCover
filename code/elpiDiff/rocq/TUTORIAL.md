@@ -898,8 +898,8 @@ AdjointCorrect.v):
 
 Inside loops and branches, the forward code is `prim`, which computes every
 let without recording anything. `psim_body` (AdjointBranch.v) is its
-simulation. You will see these names in the conclusions of `asim_branchy`
-and `asim_nesty`.
+simulation. You will see these names in the conclusion of `asim_nesty`
+(AdjointNesty.v).
 
 ---
 
