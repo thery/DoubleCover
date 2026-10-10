@@ -18,8 +18,10 @@ Open Scope string_scope.
 Open Scope bool_scope.
 
 Section Simplify.
-Variable V : Type.                                (* the variables of the output *)
-Definition W := (nat * V)%type.                   (* the variables of the input *)
+Variable V : Type.                                (* the variables of the output
+  *)
+Definition W := (nat * V)%type.                   (* the variables of the input
+  *)
 
 Fixpoint dvar_eq (a b : dvar W) : bool :=
   match a, b with
@@ -47,7 +49,8 @@ Definition simplify_op2 (f : binary) (a b : dexpr W) : dexpr W :=
   match f with
   | Mul => if is_lit "0" a then DReal "0" else if is_lit "0" b then DReal "0"
            else if is_lit "1" a then b else if is_lit "1" b then a
-           else if is_lit "-1" a then DOp1 Neg b else if is_lit "-1" b then DOp1 Neg a
+           else if is_lit "-1" a then DOp1 Neg b else if is_lit "-1" b then DOp1
+             Neg a
            else DOp2 f a b
   | Add => if is_lit "0" a then b else if is_lit "0" b then a else DOp2 f a b
   | Sub => if is_lit "0" b then a else DOp2 f a b
@@ -79,9 +82,12 @@ Fixpoint mentions (v : dvar W) (s : dstmt W) : bool :=
   | DTape x => dvar_eq x v
   | DAssign a b => mentions_expr v a || mentions_expr v b
   | DIncrement a b => mentions_expr v a || mentions_expr v b
-  | DBranch c t e => mentions_expr v c || existsb (mentions v) t || existsb (mentions v) e
-  | DFor i lo hi b => dvar_eq i v || mentions_expr v lo || mentions_expr v hi || existsb (mentions v) b
-  | DForBack i lo hi b => dvar_eq i v || mentions_expr v lo || mentions_expr v hi || existsb (mentions v) b
+  | DBranch c t e => mentions_expr v c || existsb (mentions v) t ||
+    existsb (mentions v) e
+  | DFor i lo hi b => dvar_eq i v || mentions_expr v lo || mentions_expr v hi ||
+    existsb (mentions v) b
+  | DForBack i lo hi b => dvar_eq i v || mentions_expr v lo ||
+    mentions_expr v hi || existsb (mentions v) b
   | DPush t e => dvar_eq t v || mentions_expr v e
   | DPop t e => dvar_eq t v || mentions_expr v e
   | DReturn e => mentions_expr v e
@@ -124,7 +130,8 @@ Fixpoint replace_stmt (v : dvar W) (l : dexpr W) (s : dstmt W) : dstmt W :=
   | DDefine so x e => DDefine so x (re e)
   | DAssign a b => DAssign (re a) (re b)
   | DIncrement a b => DIncrement (re a) (re b)
-  | DBranch c t e => DBranch (re c) (map (replace_stmt v l) t) (map (replace_stmt v l) e)
+  | DBranch c t e => DBranch (re c) (map (replace_stmt v l) t)
+    (map (replace_stmt v l) e)
   | DFor i lo hi b => DFor i (re lo) (re hi) (map (replace_stmt v l) b)
   | DForBack i lo hi b => DForBack i (re lo) (re hi) (map (replace_stmt v l) b)
   | DPush t e => DPush t (re e)
@@ -133,8 +140,10 @@ Fixpoint replace_stmt (v : dvar W) (l : dexpr W) (s : dstmt W) : dstmt W :=
   | _ => s
   end.
 
-(* first-mention V Ss: the statements of Ss before the first that mentions V, that one, and the rest. *)
-Fixpoint first_mention (v : dvar W) (ss : list (dstmt W)) : option (list (dstmt W) * dstmt W * list (dstmt W)) :=
+(* first-mention V Ss: the statements of Ss before the first that mentions V,
+   that one, and the rest. *)
+Fixpoint first_mention (v : dvar W) (ss : list (dstmt W)) : option
+  (list (dstmt W) * dstmt W * list (dstmt W)) :=
   match ss with
   | [] => None
   | s :: ss' => if mentions v s then Some ([], s, ss')
@@ -144,7 +153,8 @@ Fixpoint first_mention (v : dvar W) (ss : list (dstmt W)) : option (list (dstmt 
                      end
   end.
 
-(* Statements: the expressions and the nested blocks first, then the block (fuse). *)
+(* Statements: the expressions and the nested blocks first,
+   then the block (fuse). *)
 Fixpoint simplify_stmts (n : nat) (ss : list (dstmt W)) : list (dstmt W) :=
   match n with
   | O => ss
@@ -159,9 +169,12 @@ with simplify_stmt (n : nat) (s : dstmt W) : dstmt W :=
       | DDefine so v e => DDefine so v (simplify_expr e)
       | DAssign a b => DAssign (simplify_expr a) (simplify_expr b)
       | DIncrement a b => DIncrement (simplify_expr a) (simplify_expr b)
-      | DBranch c t e => DBranch (simplify_expr c) (simplify_stmts n' t) (simplify_stmts n' e)
-      | DFor i lo hi b => DFor i (simplify_expr lo) (simplify_expr hi) (simplify_stmts n' b)
-      | DForBack i lo hi b => DForBack i (simplify_expr lo) (simplify_expr hi) (simplify_stmts n' b)
+      | DBranch c t e => DBranch (simplify_expr c) (simplify_stmts n' t)
+        (simplify_stmts n' e)
+      | DFor i lo hi b => DFor i (simplify_expr lo) (simplify_expr hi)
+        (simplify_stmts n' b)
+      | DForBack i lo hi b => DForBack i (simplify_expr lo) (simplify_expr hi)
+        (simplify_stmts n' b)
       | DPush t e => DPush t (simplify_expr e)
       | DPop t e => DPop t (simplify_expr e)
       | DReturn e => DReturn (simplify_expr e)
@@ -178,27 +191,32 @@ with fuse (n : nat) (ss : list (dstmt W)) : list (dstmt W) :=
       | [] => []
       | s :: ss' =>
           match s with
-          | DIncrement _ e => if is_lit "0" e then fuse n' ss' else s :: fuse n' ss'
+          | DIncrement _ e => if is_lit "0" e then fuse n' ss' else s :: fuse n'
+            ss'
           | DDefine DMutable v e0 =>
               if is_lit "0" e0 then
                 let fused :=
                   match first_mention v ss' with
                   | Some (before, DIncrement (DVar x) e, after) =>
                       if dvar_eq x v && negb (mentions_expr v e) then
-                        let so := if existsb (writes v) after then DMutable else DConstant Real in
+                        let so := if existsb (writes v) after then DMutable else
+                          DConstant Real in
                         Some (fuse n' (app before (DDefine so v e :: after)))
                       else None
                   | _ => None
                   end in
                 match fused with
                 | Some r => r
-                | None => if negb (existsb (mentions v) ss') then fuse n' ss' else s :: fuse n' ss'
+                | None => if negb (existsb (mentions v) ss') then fuse n' ss'
+                  else s :: fuse n' ss'
                 end
               else s :: fuse n' ss'
           | DDefine (DConstant t) v e =>
               match e with
-              | DReal l => simplify_stmts n' (map (replace_stmt v (DReal l)) ss')
-              | _ => let r := fuse n' ss' in if existsb (mentions v) r then s :: r else r
+              | DReal l => simplify_stmts n'
+                (map (replace_stmt v (DReal l)) ss')
+              | _ => let r := fuse n' ss' in if existsb (mentions v) r then s ::
+                r else r
               end
           | _ => s :: fuse n' ss'
           end
@@ -208,12 +226,15 @@ with fuse (n : nat) (ss : list (dstmt W)) : list (dstmt W) :=
 (* The size of a block, for the fuel. *)
 Fixpoint size (s : dstmt W) : nat :=
   match s with
-  | DBranch _ t e => S (fold_right (fun x n => size x + n) 0 t + fold_right (fun x n => size x + n) 0 e)
-  | DFor _ _ _ b | DForBack _ _ _ b => S (fold_right (fun x n => size x + n) 0 b)
+  | DBranch _ t e => S (fold_right (fun x n => size x + n) 0 t + fold_right
+    (fun x n => size x + n) 0 e)
+  | DFor _ _ _ b | DForBack _ _ _ b => S
+    (fold_right (fun x n => size x + n) 0 b)
   | _ => 1
   end.
 
-Definition fuel (ss : list (dstmt W)) : nat := 2 * fold_right (fun x n => size x + n) 0 ss + 10.
+Definition fuel (ss : list (dstmt W)) : nat :=
+  2 * fold_right (fun x n => size x + n) 0 ss + 10.
 
 (* From the input to the output: the variables of the output. *)
 Fixpoint out_dvar (v : dvar W) : dvar V :=
@@ -243,8 +264,10 @@ Fixpoint out_dstmt (s : dstmt W) : dstmt V :=
   | DAssign a b => DAssign (out_dexpr a) (out_dexpr b)
   | DIncrement a b => DIncrement (out_dexpr a) (out_dexpr b)
   | DBranch c t e => DBranch (out_dexpr c) (map out_dstmt t) (map out_dstmt e)
-  | DFor i lo hi b => DFor (out_dvar i) (out_dexpr lo) (out_dexpr hi) (map out_dstmt b)
-  | DForBack i lo hi b => DForBack (out_dvar i) (out_dexpr lo) (out_dexpr hi) (map out_dstmt b)
+  | DFor i lo hi b => DFor (out_dvar i) (out_dexpr lo) (out_dexpr hi)
+    (map out_dstmt b)
+  | DForBack i lo hi b => DForBack (out_dvar i) (out_dexpr lo) (out_dexpr hi)
+    (map out_dstmt b)
   | DPush t e => DPush (out_dvar t) (out_dexpr e)
   | DPop t e => DPop (out_dvar t) (out_dexpr e)
   | DReturn e => DReturn (out_dexpr e)
@@ -254,12 +277,14 @@ Definition out_dparam (p : dparam W) : dparam V :=
   let 'DParam pw t v := p in DParam pw t (out_dvar v).
 
 (* The variables of the function are opened, numbered in order. *)
-Fixpoint simplify_scoped (s : scoped W (dbody W)) (k : nat) : scoped V (dbody V) :=
+Fixpoint simplify_scoped (s : scoped W (dbody W)) (k : nat) : scoped V (dbody V)
+  :=
   match s with
   | Named n f => Named n (fun v => simplify_scoped (f (k, v)) (S k))
   | Fresh p f => Fresh p (fun v => simplify_scoped (f (k, v)) (S k))
   | Done (DBody r ps ss) =>
-      Done (DBody r (map out_dparam ps) (map out_dstmt (simplify_stmts (fuel ss) ss)))
+      Done (DBody r (map out_dparam ps)
+        (map out_dstmt (simplify_stmts (fuel ss) ss)))
   end.
 
 End Simplify.

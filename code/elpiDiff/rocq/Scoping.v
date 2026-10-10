@@ -72,9 +72,11 @@ Inductive good : list (dvar W) -> list (dvar W) -> list (dstmt W) -> Prop :=
     ~ In v sc -> consistent v ->
     good (v :: sc) (v :: wr) r -> good sc wr (DTape v :: r)
 | GoodAssign sc wr l e r :
-    lhs_ok sc wr l -> expr_ok sc e -> good sc wr r -> good sc wr (DAssign l e :: r)
+    lhs_ok sc wr l -> expr_ok sc e -> good sc wr r ->
+      good sc wr (DAssign l e :: r)
 | GoodIncrement sc wr l e r :
-    lhs_ok sc wr l -> expr_ok sc e -> good sc wr r -> good sc wr (DIncrement l e :: r)
+    lhs_ok sc wr l -> expr_ok sc e -> good sc wr r ->
+      good sc wr (DIncrement l e :: r)
 | GoodBranch sc wr c t e r :
     expr_ok sc c -> good sc wr t -> good sc wr e -> good sc wr r ->
     good sc wr (DBranch c t e :: r)

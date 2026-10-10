@@ -22,17 +22,20 @@ Inductive ltree : Type :=
 | TLet (a : ann) (v : vtree) (rest : ltree)
 | TRet
 with vtree : Type :=
-| TLeaf                                           (* an operation: no body inside *)
+| TLeaf                                           (* an operation: no body
+  inside *)
 | TIte (t e : ltree)
 | TMap (b : ltree)
 | TFold (a : ann) (b : ltree).
 
 Section Annotate.
-Variable cv : bool.                               (* computes-value: mode adjoint-value *)
+Variable cv : bool.                               (* computes-value: mode
+  adjoint-value *)
 
 (* annotate-body M B: B transposed in sweep M. A let is active when it is
    varied and useful to the result; its value is computed by its sweep when the
-   rest of the body reads it, and, in the forward sweep, when a fold in it records. *)
+   rest of the body reads it, and, in the forward sweep,
+     when a fold in it records. *)
 Fixpoint annotate_body_t (m : sweep) (k : nat) (b : anf avar bare) : ltree :=
   match b with
   | ALet _ e b' =>
@@ -43,7 +46,8 @@ Fixpoint annotate_body_t (m : sweep) (k : nat) (b : anf avar bare) : ltree :=
       let needed := atom_member (AVar x) l in
       let active := varied && useful in
       let computed := needed || (sweep_eqb m Forward && records cv k e) in
-      TLet (LetAnn varied active computed) (annotate_value_t k e) (annotate_body_t m (S k) (b' x))
+      TLet (LetAnn varied active computed) (annotate_value_t k e)
+        (annotate_body_t m (S k) (b' x))
   | ARet _ => TRet
   end
 
@@ -57,7 +61,8 @@ with annotate_value_t (k : nat) (e : value avar bare) : vtree :=
       let live := state_live cv k init b in
       let recs := records cv k e in
       let '(i, s) := fold_binders k init b in
-      TFold (FoldAnn varied live recs) (annotate_body_t Replay (S (S k)) (b i s))
+      TFold (FoldAnn varied live recs)
+        (annotate_body_t Replay (S (S k)) (b i s))
   | _ => TLeaf
   end.
 
@@ -79,8 +84,10 @@ Definition no_ann : ann := LetAnn false false false.
 
 Fixpoint rebuild (b : anf V bare) (t : ltree) : anf V ann :=
   match b, t with
-  | ALet _ e b', TLet a vt rest => ALet a (rebuild_value e vt) (fun v => rebuild (b' v) rest)
-  | ALet _ e b', TRet => ALet no_ann (rebuild_value e TLeaf) (fun v => rebuild (b' v) TRet)
+  | ALet _ e b', TLet a vt rest => ALet a (rebuild_value e vt)
+    (fun v => rebuild (b' v) rest)
+  | ALet _ e b', TRet => ALet no_ann (rebuild_value e TLeaf)
+    (fun v => rebuild (b' v) TRet)
   | ARet x, _ => ARet x
   end
 with rebuild_value (e : value V bare) (t : vtree) : value V ann :=
@@ -93,11 +100,14 @@ with rebuild_value (e : value V bare) (t : vtree) : value V ann :=
   | AIte c t e, _ => AIte c (rebuild t TRet) (rebuild e TRet)
   | AMap lo hi b, TMap bt => AMap lo hi (fun i => rebuild (b i) bt)
   | AMap lo hi b, _ => AMap lo hi (fun i => rebuild (b i) TRet)
-  | AFold _ lo hi init b, TFold a bt => AFold a lo hi init (fun i s => rebuild (b i s) bt)
-  | AFold _ lo hi init b, _ => AFold no_ann lo hi init (fun i s => rebuild (b i s) TRet)
+  | AFold _ lo hi init b, TFold a bt => AFold a lo hi init
+    (fun i s => rebuild (b i s) bt)
+  | AFold _ lo hi init b, _ => AFold no_ann lo hi init
+    (fun i s => rebuild (b i s) TRet)
   end.
 
-Fixpoint rebuild_definition (d : adefinition V bare) (t : ltree) : adefinition V ann :=
+Fixpoint rebuild_definition (d : adefinition V bare) (t : ltree) : adefinition V
+  ann :=
   match d with
   | AArg n ty r f => AArg n ty r (fun v => rebuild_definition (f v) t)
   | ABody r b => ABody r (rebuild b t)

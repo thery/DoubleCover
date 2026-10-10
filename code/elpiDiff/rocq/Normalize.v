@@ -15,7 +15,8 @@ From ElpiDiff Require Import Syntax Anf.
 Section Normalize.
 Variable V : Type.                                (* the variables of L1 *)
 
-Definition bind (k : atom V -> anf V bare) : V -> anf V bare := fun v => k (AVar v).
+Definition bind (k : atom V -> anf V bare) : V -> anf V bare := fun v =>
+  k (AVar v).
 
 Fixpoint norm (t : term (atom V)) (k : atom V -> anf V bare) : anf V bare :=
   match t with
@@ -23,9 +24,11 @@ Fixpoint norm (t : term (atom V)) (k : atom V -> anf V bare) : anf V bare :=
   | Nat n => k (ANat n)
   | Let_ e b => norm e (fun a => norm (b a) k)
   | Op1 f a => norm a (fun x => ALet Bare (AOp1 f x) (bind k))
-  | Op2 f a b => norm a (fun x => norm b (fun y => ALet Bare (AOp2 f x y) (bind k)))
+  | Op2 f a b => norm a (fun x => norm b
+    (fun y => ALet Bare (AOp2 f x y) (bind k)))
   | Get a i => norm a (fun x => norm i (fun j => ALet Bare (AGet x j) (bind k)))
-  | Set_ a i v => norm a (fun x => norm i (fun j => norm v (fun w => ALet Bare (ASet x j w) (bind k))))
+  | Set_ a i v => norm a (fun x => norm i
+    (fun j => norm v (fun w => ALet Bare (ASet x j w) (bind k))))
   | Ite c t e =>
       let t1 := norm t (fun x => ARet x) in
       let e1 := norm e (fun x => ARet x) in
@@ -35,12 +38,14 @@ Fixpoint norm (t : term (atom V)) (k : atom V -> anf V bare) : anf V bare :=
       norm lo (fun l => norm hi (fun h => ALet Bare (AMap l h b1) (bind k)))
   | Fold lo hi init b =>
       let b1 := fun v w => norm (b (AVar v) (AVar w)) (fun x => ARet x) in
-      norm lo (fun l => norm hi (fun h => norm init (fun x => ALet Bare (AFold Bare l h x b1) (bind k))))
+      norm lo (fun l => norm hi (fun h =>
+        norm init (fun x => ALet Bare (AFold Bare l h x b1) (bind k))))
   | Var a => k a
   end.
 
 (* norm-body T R: a body, ended by its atom. *)
-Definition norm_body (t : term (atom V)) : anf V bare := norm t (fun x => ARet x).
+Definition norm_body (t : term (atom V)) : anf V bare :=
+  norm t (fun x => ARet x).
 
 (* normalize-result: a written argument is a variable, hence an atom. The case
    of a written literal or expression cannot occur on an expressible function
@@ -75,7 +80,8 @@ Fixpoint expressible_definition (d : definition unit) : bool :=
   | Body (Writes _) _ => false
   end.
 
-Definition expressible (f : function) : bool := expressible_definition (fdef f unit).
+Definition expressible (f : function) : bool :=
+  expressible_definition (fdef f unit).
 
 (* normalize F: the translation of F, which must be expressible. *)
 Definition normalize (f : function) : afunction bare :=

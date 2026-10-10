@@ -18,9 +18,11 @@ Open Scope string_scope.
 Definition return_type (r : dreturn) : string :=
   match r with DReturnsReal => "T" | DVoid => "void" end.
 
-Definition array_type (k : Z) : string := "std::array<T, " ++ z_to_string k ++ ">".
+Definition array_type (k : Z) : string :=
+  "std::array<T, " ++ z_to_string k ++ ">".
 
-Definition value_type (t : ty) : string := match t with Real => "const T" | _ => "const auto" end.
+Definition value_type (t : ty) : string := match t with Real => "const T" | _ =>
+  "const auto" end.
 
 Definition pass_string (p : dpass) (t n : string) : string :=
   match p with
@@ -58,29 +60,35 @@ Fixpoint lower_expr (e : dexpr string) : expr :=
 
 Fixpoint lower_stmt (s : dstmt string) : stmt :=
   match s with
-  | DDefine (DConstant t) v e => Declare (value_type t) (var_name v) (lower_expr e)
+  | DDefine (DConstant t) v e => Declare (value_type t) (var_name v)
+    (lower_expr e)
   | DDefine DMutable v e => Declare "T" (var_name v) (lower_expr e)
   | DRealVar v => Allocate "T" (var_name v)
   | DTape v => Allocate "std::vector<T>" (var_name v)
   | DAssign a b => Assign (lower_expr a) (lower_expr b)
   | DIncrement a b => Increment (lower_expr a) (lower_expr b)
   | DBranch c t e => Branch (lower_expr c) (map lower_stmt t) (map lower_stmt e)
-  | DFor i lo hi b => Loop (var_name i) (lower_expr lo) (lower_expr hi) (map lower_stmt b)
-  | DForBack i lo hi b => LoopBack (var_name i) (lower_expr lo) (lower_expr hi) (map lower_stmt b)
+  | DFor i lo hi b => Loop (var_name i) (lower_expr lo) (lower_expr hi)
+    (map lower_stmt b)
+  | DForBack i lo hi b => LoopBack (var_name i) (lower_expr lo) (lower_expr hi)
+    (map lower_stmt b)
   | DPush t e => Push (var_name t) (lower_expr e)
   | DPop t e => Pop (var_name t) (lower_expr e)
   | DReturn e => Return (lower_expr e)
   end.
 
 (* lower-scoped: the binders named in order, the counter threaded. *)
-Fixpoint lower_scoped (name : string) (s : scoped string (dbody string)) (k : nat) : cfunction * nat :=
+Fixpoint lower_scoped (name : string) (s : scoped string (dbody string))
+  (k : nat) : cfunction * nat :=
   match s with
   | Named n f => lower_scoped name (f n) k
   | Fresh p f => lower_scoped name (f (p ++ z_to_string (Z.of_nat k))) (S k)
-  | Done (DBody r ps ss) => (CFunction (return_type r) name (map param_string ps) (map lower_stmt ss), k)
+  | Done (DBody r ps ss) => (CFunction (return_type r) name
+    (map param_string ps) (map lower_stmt ss), k)
   end.
 
-Definition lower (f : dfunction) (k : nat) : cfunction * nat := lower_scoped (dfname f) (dfbody f string) k.
+Definition lower (f : dfunction) (k : nat) : cfunction * nat :=
+  lower_scoped (dfname f) (dfbody f string) k.
 
 (* The functions of a file, lowered in order; Elpi's new_int starts at 1. *)
 Fixpoint lower_from (fs : list dfunction) (k : nat) : list cfunction :=

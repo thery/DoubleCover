@@ -9,18 +9,23 @@ Inductive expr : Type :=
 | Id (s : string)                                 (* a variable *)
 | Lit (s : string)                                (* a literal, spelled *)
 | At (a i : expr)                                 (* e[i] *)
-| Call (f : string) (args : list expr).           (* an operator ("+", "<", "neg") or a function ("sin") *)
+| Call (f : string) (args : list expr).
+  (* an operator ("+", "<", "neg") or a function ("sin") *)
 
 Inductive stmt : Type :=
 | Declare (t n : string) (e : expr)               (* type name = init; *)
 | Allocate (t n : string)                         (* type name{}; *)
 | Assign (l e : expr)                             (* lhs = rhs; *)
-| Increment (l e : expr)                          (* lhs += rhs;   the adjoint accumulation *)
+| Increment (l e : expr)                          (* lhs += rhs;
+  the adjoint accumulation *)
 | Branch (c : expr) (t e : list stmt)
-| Loop (i : string) (lo hi : expr) (b : list stmt)       (* for (i = lo; i < hi; ++i) *)
-| LoopBack (i : string) (lo hi : expr) (b : list stmt)   (* for (i = hi; i-- > lo;) *)
+| Loop (i : string) (lo hi : expr) (b : list stmt)
+  (* for (i = lo; i < hi; ++i) *)
+| LoopBack (i : string) (lo hi : expr) (b : list stmt)
+  (* for (i = hi; i-- > lo;) *)
 | Push (t : string) (e : expr)                    (* tape.push_back(e); *)
-| Pop (t : string) (e : expr)                     (* lhs = tape.back(); tape.pop_back(); *)
+| Pop (t : string) (e : expr)                     (* lhs = tape.back();
+  tape.pop_back(); *)
 | Return (e : expr).
 
 (* result type, name, arguments, body *)

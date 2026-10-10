@@ -59,7 +59,8 @@ Fixpoint store_get (s : store) (x : key) : option (val N) :=
 Fixpoint store_set (s : store) (x : key) (v : val N) : store :=
   match s with
   | [] => [(x, v)]
-  | (k, w) :: s' => if key_eqb k x then (k, v) :: s' else (k, w) :: store_set s' x v
+  | (k, w) :: s' => if key_eqb k x then (k, v) :: s' else (k, w) :: store_set s'
+    x v
   end.
 
 (* Expressions. *)
@@ -74,16 +75,19 @@ Fixpoint xeval (s : store) (e : dexpr nat) : option (val N) :=
       | _, _ => None
       end
   | DOp1 f a => let* va := xeval s a in eval_op1 D f va
-  | DOp2 f a b => let* va := xeval s a in let* vb := xeval s b in eval_op2 D f va vb
+  | DOp2 f a b => let* va := xeval s a in let* vb :=
+    xeval s b in eval_op2 D f va vb
   end.
 
-(* assign s l v: the location l, a variable or an element of an array, receives v. *)
+(* assign s l v: the location l, a variable or an element of an array,
+   receives v. *)
 Definition assign (s : store) (l : dexpr nat) (v : val N) : option store :=
   match l, v with
   | DVar x, _ => Some (store_set s (KVar x) v)
   | DAt (DVar x) i, VReal e =>
       match store_get s (KVar x), xeval s i with
-      | Some (VArray l), Some (VInt k) => let* l1 := replace_nth_z k e l in Some (store_set s (KVar x) (VArray l1))
+      | Some (VArray l), Some (VInt k) => let* l1 :=
+        replace_nth_z k e l in Some (store_set s (KVar x) (VArray l1))
       | _, _ => None
       end
   | _, _ => None
@@ -91,35 +95,42 @@ Definition assign (s : store) (l : dexpr nat) (v : val N) : option store :=
 
 (* for i in [lo, lo + n), upward, and for i from hi down n indices, downward:
    the body executed with i bound to each index. *)
-Fixpoint exec_up (body : store -> option store) (i : dvar nat) (lo : Z) (n : nat) (s : store)
+Fixpoint exec_up (body : store -> option store) (i : dvar nat) (lo : Z)
+  (n : nat) (s : store)
   : option store :=
   match n with
   | O => Some s
-  | S n' => let* s1 := body (store_set s (KVar i) (VInt lo)) in exec_up body i (lo + 1) n' s1
+  | S n' => let* s1 := body (store_set s (KVar i) (VInt lo)) in exec_up body i
+    (lo + 1) n' s1
   end.
 
-Fixpoint exec_down (body : store -> option store) (i : dvar nat) (hi : Z) (n : nat) (s : store)
+Fixpoint exec_down (body : store -> option store) (i : dvar nat) (hi : Z)
+  (n : nat) (s : store)
   : option store :=
   match n with
   | O => Some s
-  | S n' => let* s1 := body (store_set s (KVar i) (VInt hi)) in exec_down body i (hi - 1) n' s1
+  | S n' => let* s1 := body (store_set s (KVar i) (VInt hi)) in exec_down body i
+    (hi - 1) n' s1
   end.
 
 (* Statements. *)
 Fixpoint exec (st : dstmt nat) (s : store) : option store :=
-  let exec_stmts := fix exec_stmts (l : list (dstmt nat)) (s : store) : option store :=
+  let exec_stmts := fix exec_stmts (l : list (dstmt nat)) (s : store) : option
+    store :=
     match l with
     | [] => Some s
     | st' :: l' => let* s1 := exec st' s in exec_stmts l' s1
     end in
   match st with
   | DDefine _ x e => let* v := xeval s e in Some (store_set s (KVar x) v)
-  | DRealVar x => let* z := dom_lit D "0" in Some (store_set s (KVar x) (VReal z))   (* T x{}: zero *)
+  | DRealVar x => let* z := dom_lit D "0" in Some
+    (store_set s (KVar x) (VReal z))   (* T x{}: zero *)
   | DTape x => Some (store_set s (KVar x) (VTape []))
   | DAssign l e => let* v := xeval s e in assign s l v
   | DIncrement l e =>
       match xeval s l, xeval s e with
-      | Some (VReal a), Some (VReal b) => let* c := dom_op2 D Add a b in assign s l (VReal c)
+      | Some (VReal a), Some (VReal b) => let* c :=
+        dom_op2 D Add a b in assign s l (VReal c)
       | _, _ => None
       end
   | DBranch c t e =>
@@ -135,17 +146,20 @@ Fixpoint exec (st : dstmt nat) (s : store) : option store :=
       end
   | DForBack i lo hi b =>
       match xeval s lo, xeval s hi with
-      | Some (VInt l), Some (VInt h) => exec_down (exec_stmts b) i (h - 1) (count l h) s
+      | Some (VInt l), Some (VInt h) => exec_down (exec_stmts b) i (h - 1)
+        (count l h) s
       | _, _ => None
       end
   | DPush t e =>
       match xeval s e, store_get s (KVar t) with
-      | Some (VReal x), Some (VTape l) => Some (store_set s (KVar t) (VTape (x :: l)))
+      | Some (VReal x), Some (VTape l) =>
+        Some (store_set s (KVar t) (VTape (x :: l)))
       | _, _ => None
       end
   | DPop t l =>
       match store_get s (KVar t) with
-      | Some (VTape (x :: xs)) => assign (store_set s (KVar t) (VTape xs)) l (VReal x)
+      | Some (VTape (x :: xs)) => assign (store_set s (KVar t) (VTape xs)) l
+        (VReal x)
       | _ => None
       end
   | DReturn e => let* v := xeval s e in Some (store_set s Returned v)
@@ -158,7 +172,8 @@ Fixpoint exec_stmts (l : list (dstmt nat)) (s : store) : option store :=
   end.
 
 (* The variables of the function are opened first, numbered in order. *)
-Fixpoint exec_scoped (sc : scoped nat (dbody nat)) (k : nat) (args : list (val N))
+Fixpoint exec_scoped (sc : scoped nat (dbody nat)) (k : nat)
+  (args : list (val N))
   : option (list (val N) * list (val N)) :=
   match sc with
   | Named _ f => exec_scoped (f k) (S k) args
@@ -168,17 +183,21 @@ Fixpoint exec_scoped (sc : scoped nat (dbody nat)) (k : nat) (args : list (val N
       let s0 := map (fun '(DParam _ _ x, a) => (KVar x, a)) (combine ps args) in
       let* s1 := exec_stmts ss s0 in
       let finals := map (fun '(DParam _ _ x) => store_get s1 (KVar x)) ps in
-      let* fs := fold_right (fun o acc => let* v := o in let* l := acc in Some (v :: l)) (Some []) finals in
+      let* fs := fold_right (fun o acc => let* v := o in let* l :=
+        acc in Some (v :: l)) (Some []) finals in
       match r with
       | DReturnsReal => let* v := store_get s1 Returned in Some (fs, [v])
       | DVoid => Some (fs, [])
       end
   end.
 
-Definition exec_dfunction (f : dfunction) (args : list (val N)) : option (list (val N) * list (val N)) :=
+Definition exec_dfunction (f : dfunction) (args : list (val N)) : option
+  (list (val N) * list (val N)) :=
   exec_scoped (dfbody f nat) 0 args.
 
 End Exec.
 
-Arguments store_get {N}.  Arguments store_set {N}.  Arguments xeval {N}.  Arguments assign {N}.
-Arguments exec {N}.  Arguments exec_stmts {N}.  Arguments exec_scoped {N}.  Arguments exec_dfunction {N}.
+Arguments store_get {N}.  Arguments store_set {N}.  Arguments xeval {N}.
+  Arguments assign {N}.
+Arguments exec {N}.  Arguments exec_stmts {N}.  Arguments exec_scoped {N}.
+  Arguments exec_dfunction {N}.

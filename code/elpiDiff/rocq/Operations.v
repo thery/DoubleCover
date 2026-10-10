@@ -37,14 +37,16 @@ Definition operation1 (f : unary) : option (ty * ty * string) :=
   | Unknown1 _ => None
   end.
 
-(* The literal arguments that follow the operand in the C++ call: the exponent of pow. *)
+(* The literal arguments that follow the operand in the C++ call: the exponent
+   of pow. *)
 Definition extra_arguments (f : unary) : list string :=
   match f with
   | Pow k => [z_to_string k]
   | _ => []
   end.
 
-(* operation2 F Type1 Type2 Result Spelling: the rows of an operator, in order. *)
+(* operation2 F Type1 Type2 Result Spelling: the rows of an operator,
+   in order. *)
 Definition operation2_rows (f : binary) : list (ty * ty * ty * string) :=
   match f with
   | Add => [(Real, Real, Real, "+"); (Integer, Integer, Integer, "+")]
@@ -66,7 +68,8 @@ Definition operation2 (f : binary) : option (ty * ty * ty * string) :=
 (* `operation2 F TA TB T S`, known operand types: the result and the spelling
    of the first row that matches them. *)
 Definition operation2_typed (f : binary) (ta tb : ty) : option (ty * string) :=
-  match find (fun '(a, b, _, _) => ty_eqb a ta && ty_eqb b tb) (operation2_rows f) with
+  match find (fun '(a, b, _, _) => ty_eqb a ta && ty_eqb b tb)
+    (operation2_rows f) with
   | Some (_, _, t, s) => Some (t, s)
   | None => None
   end.
@@ -78,7 +81,8 @@ Definition comparison (f : binary) : bool :=
 Section Partials.
 Variable V : Type.
 
-(* partial1 F A D: D is the derivative of `AOp1 F A` with respect to A, an expression over A. *)
+(* partial1 F A D: D is the derivative of `AOp1 F A` with respect to A,
+   an expression over A. *)
 Definition partial1 (f : unary) (a : atom V) : option (pexpr V) :=
   match f with
   | Neg => Some (PNum "-1")
@@ -86,20 +90,25 @@ Definition partial1 (f : unary) (a : atom V) : option (pexpr V) :=
   | Cos => Some (POp1 Neg (POp1 Sin (PAtom a)))
   | Exp => Some (POp1 Exp (PAtom a))
   | Log => Some (POp2 Divide (PNum "1") (PAtom a))
-  | Sqrt => Some (POp2 Divide (PNum "1") (POp2 Mul (PNum "2") (POp1 Sqrt (PAtom a))))
-  | Pow 0 => Some (PNum "0")                                   (* x^0 is the constant 1 *)
-  | Pow k => Some (POp2 Mul (PNum (z_to_string k)) (POp1 (Pow (k - 1)) (PAtom a)))
+  | Sqrt => Some (POp2 Divide (PNum "1")
+    (POp2 Mul (PNum "2") (POp1 Sqrt (PAtom a))))
+  | Pow 0 => Some (PNum "0")                                   (* x^0 is the
+    constant 1 *)
+  | Pow k => Some (POp2 Mul (PNum (z_to_string k))
+    (POp1 (Pow (k - 1)) (PAtom a)))
   | Unknown1 _ => None
   end.
 
-(* partial2 F A B: the derivatives of `AOp2 F A B` with respect to A and to B. *)
+(* partial2 F A B: the derivatives of `AOp2 F A B` with respect to A and to B.
+   *)
 Definition partial2 (f : binary) (a b : atom V) : option (pexpr V * pexpr V) :=
   match f with
   | Add => Some (PNum "1", PNum "1")
   | Sub => Some (PNum "1", PNum "-1")
   | Mul => Some (PAtom b, PAtom a)
   | Divide => Some (POp2 Divide (PNum "1") (PAtom b),
-                    POp1 Neg (POp2 Divide (PAtom a) (POp2 Mul (PAtom b) (PAtom b))))
+                    POp1 Neg (POp2 Divide (PAtom a)
+                      (POp2 Mul (PAtom b) (PAtom b))))
   | _ => None
   end.
 
@@ -111,8 +120,10 @@ Arguments partial1 {V}.  Arguments partial2 {V}.
    it (a negative exponent in Elpi's syntax, `pow (~ 1)`). *)
 Definition unary_name (f : unary) : string :=
   match f with
-  | Neg => "neg" | Sin => "sin" | Cos => "cos" | Exp => "exp" | Log => "log" | Sqrt => "sqrt"
-  | Pow k => if Z.ltb k 0 then "pow (~ " ++ z_to_string (- k) ++ ")" else "pow " ++ z_to_string k
+  | Neg => "neg" | Sin => "sin" | Cos => "cos" | Exp => "exp" | Log => "log" |
+    Sqrt => "sqrt"
+  | Pow k => if Z.ltb k 0 then "pow (~ " ++ z_to_string (- k) ++ ")" else "pow "
+    ++ z_to_string k
   | Unknown1 s => s
   end.
 

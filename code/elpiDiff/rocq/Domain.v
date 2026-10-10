@@ -13,16 +13,19 @@
    literal is read exactly (as a rational number), and the operations are those
    of R. Dual numbers are over any domain, as in Elpi. *)
 
-From Stdlib Require Import String Ascii ZArith List QArith Qreals Reals DecimalString.
+From Stdlib Require Import String Ascii ZArith List QArith Qreals Reals
+  DecimalString.
 From ElpiDiff Require Import Syntax.
 
 Import ListNotations.
 Open Scope R_scope.
 
 Record domain (N : Type) : Type := Domain {
-  dom_lit : string -> option N;                   (* a real literal, spelled as in the source: "2", "0.9" *)
+  dom_lit : string -> option N;                   (* a real literal,
+    spelled as in the source: "2", "0.9" *)
   dom_op1 : unary -> N -> option N;               (* a unary operation *)
-  dom_op2 : binary -> N -> N -> option N;         (* a binary arithmetic operation *)
+  dom_op2 : binary -> N -> N -> option N;
+    (* a binary arithmetic operation *)
   dom_cmp : binary -> N -> N -> option bool       (* a comparison *)
 }.
 
@@ -40,7 +43,8 @@ Definition digit (c : ascii) : option Z :=
 
 (* read_digits l m k: the digits at the head of l appended to m, with their
    number added to k, and the rest of l. *)
-Fixpoint read_digits (l : list ascii) (m : Z) (k : nat) : Z * nat * list ascii :=
+Fixpoint read_digits (l : list ascii) (m : Z) (k : nat) : Z * nat * list ascii
+  :=
   match l with
   | c :: l' => match digit c with
                | Some d => read_digits l' (m * 10 + d)%Z (S k)
@@ -68,11 +72,13 @@ Definition read_decimal (l : list ascii) : option Q :=
                    | c :: l' => if (c =? "e")%char || (c =? "E")%char then
                                   let '(se, l'') := read_sign l' in
                                   let '(x, kx, l4) := read_digits l'' 0 0 in
-                                  if (kx =? 0)%nat then (0%Z, l2) else ((se * x)%Z, l4)
+                                  if (kx =? 0)%nat then (0%Z, l2) else
+                                    ((se * x)%Z, l4)
                                 else (0%Z, l2)
                    | [] => (0%Z, [])
                    end in
-  if ((k1 + k2 =? 0)%nat || negb (match l3 with [] => true | _ => false end))%bool then None
+  if ((k1 + k2 =? 0)%nat || negb (match l3 with [] => true | _ =>
+    false end))%bool then None
   else Some (inject_Z (sg * m2) * Qpower (inject_Z 10) (ex - Z.of_nat k2))%Q.
 
 Definition strip (l : list ascii) : list ascii :=
@@ -97,7 +103,8 @@ Definition read_literal (s : string) : option Q :=
   | None => read_decimal (strip l)
   end.
 
-(* --- the reals ----------------------------------------------------------------
+(* --- the reals
+   ----------------------------------------------------------------
    The domain of floats of Elpi, with the reals of Rocq. *)
 
 Definition real_lit (s : string) : option R :=
@@ -136,7 +143,8 @@ Definition real_cmp (f : binary) (x y : R) : option bool :=
 
 Definition reals : domain R := Domain real_lit real_op1 real_op2 real_cmp.
 
-(* --- dual numbers --------------------------------------------------------------
+(* --- dual numbers
+   --------------------------------------------------------------
    `Dual x dx`: a value and its tangent, over any domain B. An operation
    computes its value in B and its tangent by the chain rule, with the partial
    derivatives of operations.elpi computed in B. *)
@@ -148,7 +156,8 @@ Section Duals.
 Variable N : Type.
 Variable B : domain N.
 
-Local Notation "'let*' x := a 'in' b" := (match a with Some x => b | None => None end)
+Local Notation "'let*' x := a 'in' b" :=
+  (match a with Some x => b | None => None end)
   (at level 200, x name, b at level 200).
 
 (* A literal is a constant: its tangent is zero. *)
@@ -167,7 +176,8 @@ Definition dual_partial1 (f : unary) (x y : N) : option N :=
             let* t2 := dom_op2 B Mul t y in dom_op2 B Divide o t2
   | Pow 0 => dom_lit B "0"
   | Pow k => let* q := dom_op1 B (Pow (k - 1)) x in
-             let* kb := dom_lit B (NilZero.string_of_int (Z.to_int k)) in dom_op2 B Mul kb q
+             let* kb := dom_lit B (NilZero.string_of_int (Z.to_int k)) in
+               dom_op2 B Mul kb q
   | Unknown1 _ => None
   end.
 
@@ -181,12 +191,16 @@ Definition dual_op1 (f : unary) (a : dual N) : option (dual N) :=
 Definition dual_op2 (f : binary) (a b : dual N) : option (dual N) :=
   let 'Dual x dx := a in let 'Dual y dy := b in
   match f with
-  | Add => let* z := dom_op2 B Add x y in let* dz := dom_op2 B Add dx dy in Some (Dual z dz)
-  | Sub => let* z := dom_op2 B Sub x y in let* dz := dom_op2 B Sub dx dy in Some (Dual z dz)
-  | Mul => let* z := dom_op2 B Mul x y in                     (* d(xy) = y dx + x dy *)
+  | Add => let* z := dom_op2 B Add x y in let* dz :=
+    dom_op2 B Add dx dy in Some (Dual z dz)
+  | Sub => let* z := dom_op2 B Sub x y in let* dz :=
+    dom_op2 B Sub dx dy in Some (Dual z dz)
+  | Mul => let* z := dom_op2 B Mul x y in
+    (* d(xy) = y dx + x dy *)
            let* u := dom_op2 B Mul y dx in let* w := dom_op2 B Mul x dy in
            let* dz := dom_op2 B Add u w in Some (Dual z dz)
-  | Divide => let* z := dom_op2 B Divide x y in              (* d(x/y) = (dx - (x/y) dy) / y *)
+  | Divide => let* z := dom_op2 B Divide x y in
+    (* d(x/y) = (dx - (x/y) dy) / y *)
               let* u := dom_op2 B Mul z dy in let* w := dom_op2 B Sub dx u in
               let* dz := dom_op2 B Divide w y in Some (Dual z dz)
   | _ => None
@@ -196,7 +210,8 @@ Definition dual_op2 (f : binary) (a b : dual N) : option (dual N) :=
 Definition dual_cmp (f : binary) (a b : dual N) : option bool :=
   let 'Dual x _ := a in let 'Dual y _ := b in dom_cmp B f x y.
 
-Definition duals : domain (dual N) := Domain dual_lit dual_op1 dual_op2 dual_cmp.
+Definition duals : domain (dual N) := Domain dual_lit dual_op1 dual_op2
+  dual_cmp.
 
 End Duals.
 

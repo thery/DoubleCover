@@ -40,7 +40,8 @@ Definition smooth_op2 (f : binary) (x y : R) : option R :=
 Definition smooth_cmp (f : binary) (x y : R) : option bool :=
   if Req_dec_T x y then None else real_cmp f x y.
 
-Definition smooth_reals : domain R := Domain real_lit smooth_op1 smooth_op2 smooth_cmp.
+Definition smooth_reals : domain R := Domain real_lit smooth_op1 smooth_op2
+  smooth_cmp.
 
 (* The program f is defined at the arguments args, in the sense of Abadi and
    Plotkin: its evaluation compares no two equal reals and applies no

@@ -23,7 +23,8 @@ Open Scope string_scope.
 Open Scope bool_scope.
 
 Section Transform.
-Variable V : Type.                                (* the variables of the generated code *)
+Variable V : Type.                                (* the variables of the
+  generated code *)
 
 Record tvar : Type := TVar {
   tstored : dvar V;                               (* stored x V *)
@@ -32,15 +33,18 @@ Record tvar : Type := TVar {
   tvaried : bool;                                 (* varied x *)
   tdot : bool;                                    (* has-dot x *)
   tbar : bool;                                    (* has-bar x *)
-  trecorded : bool;                               (* recorded N, N its storage *)
-  tid : option nat                                (* the identity of an argument, or of the probe *)
+  trecorded : bool;                               (* recorded N,
+    N its storage *)
+  tid : option nat                                (* the identity of an
+    argument, or of the probe *)
 }.
 
 Definition code := scoped V (list (dstmt V)).
 
 (* sbind S K: K applied to the value of S, under the binders of S followed by
    those K creates. Composing with sbind keeps the order of creation. *)
-Fixpoint sbind {A B : Type} (s : scoped V A) (k : A -> scoped V B) : scoped V B :=
+Fixpoint sbind {A B : Type} (s : scoped V A) (k : A -> scoped V B) : scoped V B
+  :=
   match s with
   | Done x => k x
   | Named n f => Named n (fun v => sbind (f v) k)
@@ -51,7 +55,8 @@ Fixpoint sbind {A B : Type} (s : scoped V A) (k : A -> scoped V B) : scoped V B 
 Fixpoint sflatten (ss : list code) : code :=
   match ss with
   | [] => Done []
-  | s :: ss' => sbind s (fun x => sbind (sflatten ss') (fun y => Done (app x y)))
+  | s :: ss' => sbind s (fun x => sbind (sflatten ss')
+    (fun y => Done (app x y)))
   end.
 
 (* spell A: an atom as an expression. *)
@@ -109,7 +114,8 @@ Fixpoint sum (es : list (dexpr V)) : dexpr V :=
   end.
 
 (* The probe, and the shape (x\ a-ret x): the body only returns its variable. *)
-Definition probe : tvar := TVar ResultVar Real None false false false false (Some 0).
+Definition probe : tvar := TVar ResultVar Real None false false false false
+  (Some 0).
 
 Definition is_tail (b : tvar -> anf tvar ann) : bool :=
   match b probe with
@@ -129,7 +135,8 @@ Definition is_written (written : option (atom tvar)) (a : atom tvar) : bool :=
    `let E B`, with whether that storage is recorded: for arrays, the storage
    updated in place (the loop state, or the written argument); otherwise a
    fresh local. *)
-Definition with_storage {A : Type} (written : option (atom tvar)) (e : value tvar ann)
+Definition with_storage {A : Type} (written : option (atom tvar))
+  (e : value tvar ann)
   (b : tvar -> anf tvar ann) (k : dvar V -> bool -> scoped V A) : scoped V A :=
   match e with
   | ASet (AVar a) _ _ => k (tstored a) (trecorded a)
@@ -151,38 +158,48 @@ Definition with_storage {A : Type} (written : option (atom tvar)) (e : value tva
 Definition open_let (t : ty) (n : dvar V) (vr : bool) (rec : bool) : tvar :=
   TVar n t None vr vr vr rec None.
 
-(* open-fold Varied T N I: the index and the state of a fold, held in I and N. *)
-Definition open_fold (vr : bool) (t : ty) (n i : dvar V) (rec : bool) : tvar * tvar :=
-  (TVar i Integer None false false false false None, TVar n t None vr vr vr rec None).
+(* open-fold Varied T N I: the index and the state of a fold,
+   held in I and N. *)
+Definition open_fold (vr : bool) (t : ty) (n i : dvar V) (rec : bool) : tvar *
+  tvar :=
+  (TVar i Integer None false false false false None,
+    TVar n t None vr vr vr rec None).
 
-Definition open_index (i : dvar V) : tvar := TVar i Integer None false false false false None.
+Definition open_index (i : dvar V) : tvar :=
+  TVar i Integer None false false false false None.
 
 (* with-arguments D K: binds the arguments of the definition D, then runs K on
    the arguments with their variables, the result, the body and the written
    argument. An argument is varied, with a tangent and an adjoint, when its role
    says so. *)
-Fixpoint open_arguments {A : Type} (d : adefinition tvar ann) (pos : nat) (acc : list (decl * dvar V))
-  (k : list (decl * dvar V) -> aresult tvar -> anf tvar ann -> option (atom tvar) -> scoped V A) : scoped V A :=
+Fixpoint open_arguments {A : Type} (d : adefinition tvar ann) (pos : nat)
+  (acc : list (decl * dvar V))
+  (k : list (decl * dvar V) -> aresult tvar -> anf tvar ann ->
+    option (atom tvar) -> scoped V A) : scoped V A :=
   match d with
   | AArg n t r f =>
       Named n (fun v =>
         let vr := varied_role r in
-        let x := TVar (DBound v) t (Some (n, r)) vr vr vr false (Some (S pos)) in
+        let x := TVar (DBound v) t (Some (n, r)) vr vr vr false (Some (S pos))
+          in
         open_arguments (f x) (S pos) ((Decl n t r, DBound v) :: acc) k)
   | ABody (AWrites y) b => k (rev acc) (AWrites y) b (Some y)
   | ABody res b => k (rev acc) res b None
   end.
 
 Definition with_arguments {A : Type} (d : adefinition tvar ann)
-  (k : list (decl * dvar V) -> aresult tvar -> anf tvar ann -> option (atom tvar) -> scoped V A) : scoped V A :=
+  (k : list (decl * dvar V) -> aresult tvar -> anf tvar ann ->
+    option (atom tvar) -> scoped V A) : scoped V A :=
   open_arguments d 0 [] k.
 
 (* type-of E T: the type of a value in a well-formed body (WellFormed.v), with
    the types the transformations know. *)
 Definition type_of (e : value tvar ann) : ty :=
   match e with
-  | AOp1 f a => match operation1 f with Some (ta, t, _) => if ty_eqb (tof a) ta then t else Real | None => Real end
-  | AOp2 f a b => match operation2_typed f (tof a) (tof b) with Some (t, _) => t | None => Real end
+  | AOp1 f a => match operation1 f with Some (ta, t, _) =>
+    if ty_eqb (tof a) ta then t else Real | None => Real end
+  | AOp2 f a b => match operation2_typed f (tof a) (tof b) with Some (t, _) => t
+    | None => Real end
   | AGet _ _ => Real
   | ASet a _ _ => tof a
   | AIte _ _ _ => Real
@@ -193,11 +210,17 @@ Definition type_of (e : value tvar ann) : ty :=
 
 End Transform.
 
-Arguments TVar {V}.  Arguments tstored {V}.  Arguments tty {V}.  Arguments targ {V}.
-Arguments tvaried {V}.  Arguments tdot {V}.  Arguments tbar {V}.  Arguments trecorded {V}.
+Arguments TVar {V}.  Arguments tstored {V}.  Arguments tty {V}.  Arguments targ
+  {V}.
+Arguments tvaried {V}.  Arguments tdot {V}.  Arguments tbar {V}.  Arguments
+  trecorded {V}.
 Arguments tid {V}.
-Arguments sbind {V A B}.  Arguments sflatten {V}.  Arguments spell {V}.  Arguments spell_partial {V}.
-Arguments tvaried_atom {V}.  Arguments tof {V}.  Arguments dot {V}.  Arguments bar {V}.
-Arguments scale {V}.  Arguments sum {V}.  Arguments is_tail {V}.  Arguments is_written {V}.
+Arguments sbind {V A B}.  Arguments sflatten {V}.  Arguments spell {V}.
+  Arguments spell_partial {V}.
+Arguments tvaried_atom {V}.  Arguments tof {V}.  Arguments dot {V}.  Arguments
+  bar {V}.
+Arguments scale {V}.  Arguments sum {V}.  Arguments is_tail {V}.  Arguments
+  is_written {V}.
 Arguments with_storage {V A}.  Arguments open_let {V}.  Arguments open_fold {V}.
-Arguments open_index {V}.  Arguments with_arguments {V A}.  Arguments type_of {V}.
+Arguments open_index {V}.  Arguments with_arguments {V A}.  Arguments type_of
+  {V}.

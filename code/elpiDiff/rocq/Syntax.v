@@ -28,43 +28,58 @@ Inductive binary : Type :=
 | Unknown2 (s : string).
 
 Section Term.
-Variable V : Type.                                (* the type of the bound variables *)
+Variable V : Type.                                (* the type of the bound
+  variables *)
 
 Inductive term : Type :=
 | Var (x : V)                                     (* a bound variable *)
-| Num (s : string)                                (* a real literal, spelled as in C++: "2", "0.9" *)
+| Num (s : string)                                (* a real literal,
+  spelled as in C++: "2", "0.9" *)
 | Nat (k : Z)                                     (* an integer literal *)
-| Op1 (f : unary) (a : term)                      (* a unary elementary operation *)
-| Op2 (f : binary) (a b : term)                   (* a binary elementary operation *)
+| Op1 (f : unary) (a : term)                      (* a unary elementary
+  operation *)
+| Op2 (f : binary) (a b : term)                   (* a binary elementary
+  operation *)
 | Get (a i : term)                                (* a[i] *)
-| Set_ (a i v : term)                              (* a with a[i] replaced: the next version of a *)
+| Set_ (a i v : term)                              (* a with a[i] replaced: the
+  next version of a *)
 | Let_ (e : term) (b : V -> term)                  (* let x = e in b *)
-| Ite (c t e : term)                              (* if c then t else e, where c is passive *)
-| Map (lo hi : term) (b : V -> term)              (* the array [ b i | lo <= i < hi ] *)
-| Fold (lo hi init : term) (b : V -> V -> term).  (* s := init; for lo <= i < hi: s := b i s *)
+| Ite (c t e : term)                              (* if c then t else e,
+  where c is passive *)
+| Map (lo hi : term) (b : V -> term)
+  (* the array [ b i | lo <= i < hi ] *)
+| Fold (lo hi init : term) (b : V -> V -> term).
+  (* s := init; for lo <= i < hi: s := b i s *)
 
 End Term.
 
 Arguments Var {V}.   Arguments Num {V}.  Arguments Nat {V}.  Arguments Op1 {V}.
-Arguments Op2 {V}.   Arguments Get {V}.  Arguments Set_ {V}.  Arguments Let_ {V}.
+Arguments Op2 {V}.   Arguments Get {V}.  Arguments Set_ {V}.  Arguments Let_
+  {V}.
 Arguments Ite {V}.   Arguments Map {V}.  Arguments Fold {V}.
 
 Inductive ty : Type :=
 | Real
 | Integer
 | Boolean
-| Array (n : Z).                                  (* an array of reals with a static extent *)
+| Array (n : Z).                                  (* an array of reals with a
+  static extent *)
 
 (* The role of an argument: Tapenade's independent and dependent variables. *)
 Inductive role : Type :=
-| Independent                                     (* an input we differentiate with respect to *)
-| Dependent                                       (* written and never read; its derivative is wanted *)
-| Inout                                           (* read, then overwritten: independent and dependent *)
+| Independent                                     (* an input we differentiate
+  with respect to *)
+| Dependent                                       (* written and never read;
+  its derivative is wanted *)
+| Inout                                           (* read,
+  then overwritten: independent and dependent *)
 | Passive.                                        (* neither *)
 
 Inductive result (V : Type) : Type :=
-| Returns (t : ty)                                (* the body's value is returned *)
-| Writes (y : term V).                            (* the body's value is stored in this argument *)
+| Returns (t : ty)                                (* the body's value is
+  returned *)
+| Writes (y : term V).                            (* the body's value is stored
+  in this argument *)
 
 Arguments Returns {V}.  Arguments Writes {V}.
 

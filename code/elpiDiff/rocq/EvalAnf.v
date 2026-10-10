@@ -33,7 +33,8 @@ Fixpoint aeval (b : anf (val N) I) : option (val N) :=
 with aeval_value (e : value (val N) I) : option (val N) :=
   match e with
   | AOp1 f a => let* va := aeval_atom a in eval_op1 D f va
-  | AOp2 f a b => let* va := aeval_atom a in let* vb := aeval_atom b in eval_op2 D f va vb
+  | AOp2 f a b => let* va := aeval_atom a in let* vb :=
+    aeval_atom b in eval_op2 D f va vb
   | AGet a i =>
       match aeval_atom a, aeval_atom i with
       | Some (VArray l), Some (VInt k) => let* x := nth_z k l in Some (VReal x)
@@ -41,7 +42,8 @@ with aeval_value (e : value (val N) I) : option (val N) :=
       end
   | ASet a i x =>
       match aeval_atom a, aeval_atom i, aeval_atom x with
-      | Some (VArray l), Some (VInt k), Some (VReal y) => let* l1 := replace_nth_z k y l in Some (VArray l1)
+      | Some (VArray l), Some (VInt k), Some (VReal y) => let* l1 :=
+        replace_nth_z k y l in Some (VArray l1)
       | _, _, _ => None
       end
   | AIte c t e =>
@@ -52,27 +54,32 @@ with aeval_value (e : value (val N) I) : option (val N) :=
       end
   | AMap lo hi b =>
       match aeval_atom lo, aeval_atom hi with
-      | Some (VInt i), Some (VInt j) => let* xs := eval_map (fun v => aeval (b v)) i (count i j) in Some (VArray xs)
+      | Some (VInt i), Some (VInt j) => let* xs :=
+        eval_map (fun v => aeval (b v)) i (count i j) in Some (VArray xs)
       | _, _ => None
       end
   | AFold _ lo hi init b =>
       match aeval_atom lo, aeval_atom hi, aeval_atom init with
-      | Some (VInt i), Some (VInt j), Some s => eval_fold (fun v w => aeval (b v w)) i (count i j) s
+      | Some (VInt i), Some (VInt j), Some s =>
+        eval_fold (fun v w => aeval (b v w)) i (count i j) s
       | _, _, _ => None
       end
   end.
 
-Fixpoint aeval_definition (d : adefinition (val N) I) (args : list (val N)) : option (val N) :=
+Fixpoint aeval_definition (d : adefinition (val N) I) (args : list (val N)) :
+  option (val N) :=
   match d, args with
   | AArg _ _ _ f, a :: args' => aeval_definition (f a) args'
   | ABody _ b, [] => aeval b
   | _, _ => None
   end.
 
-Definition aeval_function (f : afunction I) (args : list (val N)) : option (val N) :=
+Definition aeval_function (f : afunction I) (args : list (val N)) : option
+  (val N) :=
   aeval_definition (afdef f (val N)) args.
 
 End EvalAnf.
 
-Arguments aeval_atom {N}.  Arguments aeval {N} D {I}.  Arguments aeval_value {N} D {I}.
+Arguments aeval_atom {N}.  Arguments aeval {N} D {I}.  Arguments aeval_value {N}
+  D {I}.
 Arguments aeval_definition {N} D {I}.  Arguments aeval_function {N} D {I}.

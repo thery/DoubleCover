@@ -18,15 +18,20 @@ Fixpoint expr_strings (e : expr) : string * string :=
   match e with
   | Id s => (s, s)
   | Lit s => (s, s)
-  | At a i => let x := snd (expr_strings a) ++ "[" ++ fst (expr_strings i) ++ "]" in (x, x)
+  | At a i => let x := snd (expr_strings a) ++ "[" ++ fst (expr_strings i) ++
+    "]" in (x, x)
   | Call f args =>
       match args with
-      | [a] => if String.eqb f "neg" then let x := "-" ++ snd (expr_strings a) in (x, x)
+      | [a] => if String.eqb f "neg" then let x :=
+        "-" ++ snd (expr_strings a) in (x, x)
                else let x := f ++ "(" ++ fst (expr_strings a) ++ ")" in (x, x)
       | [a; b] => if infix_operator f then
-                    let x := snd (expr_strings a) ++ " " ++ f ++ " " ++ snd (expr_strings b) in (x, "(" ++ x ++ ")")
-                  else let x := f ++ "(" ++ String.concat ", " (map (fun a => fst (expr_strings a)) args) ++ ")" in (x, x)
-      | _ => let x := f ++ "(" ++ String.concat ", " (map (fun a => fst (expr_strings a)) args) ++ ")" in (x, x)
+                    let x := snd (expr_strings a) ++ " " ++ f ++ " " ++ snd
+                      (expr_strings b) in (x, "(" ++ x ++ ")")
+                  else let x := f ++ "(" ++ String.concat ", "
+                    (map (fun a => fst (expr_strings a)) args) ++ ")" in (x, x)
+      | _ => let x := f ++ "(" ++ String.concat ", "
+        (map (fun a => fst (expr_strings a)) args) ++ ")" in (x, x)
       end
   end.
 
@@ -41,24 +46,30 @@ Fixpoint stmt_lines (ind : string) (s : stmt) : list string :=
   | Assign a b => [ind ++ bare_string a ++ " = " ++ bare_string b ++ ";"]
   | Increment a b => [ind ++ bare_string a ++ " += " ++ bare_string b ++ ";"]
   | Push t e => [ind ++ t ++ ".push_back(" ++ bare_string e ++ ");"]
-  | Pop t e => [ind ++ bare_string e ++ " = " ++ t ++ ".back(); " ++ t ++ ".pop_back();"]
+  | Pop t e => [ind ++ bare_string e ++ " = " ++ t ++ ".back(); " ++ t ++
+    ".pop_back();"]
   | Return e => [ind ++ "return " ++ bare_string e ++ ";"]
   | Branch c t e =>
       app [ind ++ "if (" ++ bare_string c ++ ") {"]
-          (app (block ind2 t) (app [ind ++ "} else {"] (app (block ind2 e) [ind ++ "}"])))
+          (app (block ind2 t) (app [ind ++ "} else {"]
+            (app (block ind2 e) [ind ++ "}"])))
   | Loop i lo hi b =>
-      app [ind ++ "for (std::size_t " ++ i ++ " = " ++ bare_string lo ++ "; " ++ i ++ " < " ++ bare_string hi ++ "; ++" ++ i ++ ") {"]
+      app [ind ++ "for (std::size_t " ++ i ++ " = " ++ bare_string lo ++ "; " ++
+        i ++ " < " ++ bare_string hi ++ "; ++" ++ i ++ ") {"]
           (app (block ind2 b) [ind ++ "}"])
   | LoopBack i lo hi b =>
-      app [ind ++ "for (std::size_t " ++ i ++ " = " ++ bare_string hi ++ "; " ++ i ++ "-- > " ++ bare_string lo ++ ";) {"]
+      app [ind ++ "for (std::size_t " ++ i ++ " = " ++ bare_string hi ++ "; " ++
+        i ++ "-- > " ++ bare_string lo ++ ";) {"]
           (app (block ind2 b) [ind ++ "}"])
   end.
 
-Definition block_lines (ind : string) (l : list stmt) : list string := List.concat (map (stmt_lines ind) l).
+Definition block_lines (ind : string) (l : list stmt) : list string :=
+  List.concat (map (stmt_lines ind) l).
 
 (* The functions the body calls, in order of first use: the generated function
    starts with `using std::f;` for each. *)
-Definition function_name (f : string) : bool := negb (infix_operator f) && negb (String.eqb f "neg").
+Definition function_name (f : string) : bool :=
+  negb (infix_operator f) && negb (String.eqb f "neg").
 
 Fixpoint expr_functions (acc : list string) (e : expr) : list string :=
   match e with
@@ -66,7 +77,8 @@ Fixpoint expr_functions (acc : list string) (e : expr) : list string :=
   | At a i => expr_functions (expr_functions acc a) i
   | Call f args =>
       let acc1 := fold_left expr_functions args acc in
-      if function_name f then (if existsb (String.eqb f) acc1 then acc1 else f :: acc1) else acc1
+      if function_name f then (if existsb (String.eqb f) acc1 then acc1 else f
+        :: acc1) else acc1
   end.
 
 Fixpoint stmt_functions (acc : list string) (s : stmt) : list string :=
@@ -75,24 +87,32 @@ Fixpoint stmt_functions (acc : list string) (s : stmt) : list string :=
   | Allocate _ _ => acc
   | Assign a b | Increment a b => expr_functions (expr_functions acc a) b
   | Push _ e | Pop _ e | Return e => expr_functions acc e
-  | Branch c t e => fold_left stmt_functions e (fold_left stmt_functions t (expr_functions acc c))
-  | Loop _ lo hi b | LoopBack _ lo hi b => fold_left stmt_functions b (expr_functions (expr_functions acc lo) hi)
+  | Branch c t e => fold_left stmt_functions e
+    (fold_left stmt_functions t (expr_functions acc c))
+  | Loop _ lo hi b | LoopBack _ lo hi b =>
+    fold_left stmt_functions b (expr_functions (expr_functions acc lo) hi)
   end.
 
-Definition called_functions (l : list stmt) : list string := rev (fold_left stmt_functions l []).
+Definition called_functions (l : list stmt) : list string :=
+  rev (fold_left stmt_functions l []).
 
 Definition function_string (c : cfunction) : string :=
   let 'CFunction ret name args body := c in
-  let usings := map (fun f => "    using std::" ++ f ++ ";") (called_functions body) in
+  let usings := map (fun f => "    using std::" ++ f ++ ";")
+    (called_functions body) in
   let prologue := match usings with [] => [] | _ => app usings [""] end in
   let lines := app prologue (block_lines "    " body) in
   let block := match lines with [] => "{" ++ nl ++ "}" ++ nl
-                              | _ => "{" ++ nl ++ String.concat nl lines ++ nl ++ "}" ++ nl end in
-  "template <typename T>" ++ nl ++ ret ++ " " ++ name ++ "(" ++ String.concat ", " args ++ ")" ++ nl ++ block.
+                              | _ => "{" ++ nl ++ String.concat nl lines ++ nl
+                                ++ "}" ++ nl end in
+  "template <typename T>" ++ nl ++ ret ++ " " ++ name ++ "(" ++ String.concat
+    ", " args ++ ")" ++ nl ++ block.
 
 Definition header_string (source : string) (fs : list cfunction) : string :=
   "// Generated by adjudge from " ++ source ++ ". Do not edit." ++ nl
-  ++ "#pragma once" ++ nl ++ nl ++ "#include <array>" ++ nl ++ "#include <cmath>" ++ nl
+  ++ "#pragma once" ++ nl ++ nl ++ "#include <array>" ++ nl ++
+    "#include <cmath>" ++ nl
   ++ "#include <cstddef>" ++ nl ++ "#include <vector>" ++ nl ++ nl
-  ++ "namespace adjudge {" ++ nl ++ nl ++ String.concat nl (map function_string fs) ++ nl
+  ++ "namespace adjudge {" ++ nl ++ nl ++ String.concat nl
+    (map function_string fs) ++ nl
   ++ "} // namespace adjudge" ++ nl.

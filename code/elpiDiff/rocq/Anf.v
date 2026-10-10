@@ -11,21 +11,24 @@ From Stdlib Require Import String ZArith.
 From ElpiDiff Require Import Syntax.
 
 Section Anf.
-Variable V : Type.                                (* the type of the bound atoms *)
+Variable V : Type.                                (* the type of the bound atoms
+  *)
 
 Inductive atom : Type :=
 | AVar (x : V)                                    (* a variable bound by L1 *)
 | ANum (s : string)                               (* a real literal *)
 | ANat (k : Z).                                   (* an integer literal *)
 
-Variable I : Type.                                (* the annotations: bare or ann *)
+Variable I : Type.                                (* the annotations: bare or
+  ann *)
 
 Inductive value : Type :=                         (* what a let binds *)
 | AOp1 (f : unary) (a : atom)
 | AOp2 (f : binary) (a b : atom)
 | AGet (a i : atom)                               (* a[i] *)
 | ASet (a i v : atom)                             (* a with a[i] replaced *)
-| AIte (c : atom) (t e : anf)                     (* the condition is an atom, the branches are bodies *)
+| AIte (c : atom) (t e : anf)                     (* the condition is an atom,
+  the branches are bodies *)
 | AMap (lo hi : atom) (b : V -> anf)
 | AFold (ann : I) (lo hi init : atom) (b : V -> V -> anf)
 with anf : Type :=                                (* a body *)
@@ -52,19 +55,25 @@ Inductive pexpr : Type :=
 End Anf.
 
 Arguments AVar {V}.  Arguments ANum {V}.  Arguments ANat {V}.
-Arguments AOp1 {V I}.  Arguments AOp2 {V I}.  Arguments AGet {V I}.  Arguments ASet {V I}.
+Arguments AOp1 {V I}.  Arguments AOp2 {V I}.  Arguments AGet {V I}.  Arguments
+  ASet {V I}.
 Arguments AIte {V I}.  Arguments AMap {V I}.  Arguments AFold {V I}.
 Arguments ALet {V I}.  Arguments ARet {V I}.
 Arguments AReturns {V}.  Arguments AWrites {V}.
 Arguments AArg {V I}.  Arguments ABody {V I}.
-Arguments PAtom {V}.  Arguments PNum {V}.  Arguments POp1 {V}.  Arguments POp2 {V}.
+Arguments PAtom {V}.  Arguments PNum {V}.  Arguments POp1 {V}.  Arguments POp2
+  {V}.
 
 (* The annotations. *)
 Inductive bare : Type := Bare.                    (* none: L1 *)
 
 Inductive ann : Type :=                           (* L1ᵃ *)
-| LetAnn (varied active computed : bool)          (* on a let: the value is varied, active (varied and useful), computed in its sweep *)
-| FoldAnn (varied recorded records : bool).       (* on a fold: the state is varied, recorded before each overwrite; the fold records something *)
+| LetAnn (varied active computed : bool)
+  (* on a let: the value is varied, active (varied and useful),
+  computed in its sweep *)
+| FoldAnn (varied recorded records : bool).
+  (* on a fold: the state is varied, recorded before each overwrite;
+  the fold records something *)
 
 (* A function of L1: its name and its definition, closed. *)
 Record afunction (I : Type) : Type := AFunction {

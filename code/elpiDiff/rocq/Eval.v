@@ -21,7 +21,8 @@ Inductive val (N : Type) : Type :=
 | VInt (k : Z)
 | VBool (b : bool)
 | VArray (xs : list N)
-| VTape (xs : list N).                            (* a tape, the last value pushed first *)
+| VTape (xs : list N).                            (* a tape,
+  the last value pushed first *)
 
 Arguments VReal {N}.  Arguments VInt {N}.  Arguments VBool {N}.
 Arguments VArray {N}.  Arguments VTape {N}.
@@ -33,14 +34,16 @@ Notation "'let*' x := a 'in' b" := (match a with Some x => b | None => None end)
 Definition nth_z {A : Type} (k : Z) (l : list A) : option A :=
   if k <? 0 then None else nth_error l (Z.to_nat k).
 
-Fixpoint replace_nth {A : Type} (k : nat) (x : A) (l : list A) : option (list A) :=
+Fixpoint replace_nth {A : Type} (k : nat) (x : A) (l : list A) : option (list A)
+  :=
   match k, l with
   | O, _ :: l' => Some (x :: l')
   | S k', y :: l' => let* l1 := replace_nth k' x l' in Some (y :: l1)
   | _, [] => None
   end.
 
-Definition replace_nth_z {A : Type} (k : Z) (x : A) (l : list A) : option (list A) :=
+Definition replace_nth_z {A : Type} (k : Z) (x : A) (l : list A) : option
+  (list A) :=
   if k <? 0 then None else replace_nth (Z.to_nat k) x l.
 
 Section Eval.
@@ -52,7 +55,8 @@ Variable D : domain N.
 Definition int_holds (f : binary) (x y : Z) : bool :=
   match f with
   | Lt => x <? y | Le => x <=? y | Gt => x >? y | Ge => x >=? y
-  | _ => false                                    (* int-holds fails: the `if` of int-op2 gives ff *)
+  | _ => false                                    (* int-holds fails: the `if`
+    of int-op2 gives ff *)
   end.
 
 Definition int_op2 (f : binary) (x y : Z) : val N :=
@@ -72,7 +76,8 @@ Definition eval_op1 (f : unary) (a : val N) : option (val N) :=
 Definition eval_op2 (f : binary) (a b : val N) : option (val N) :=
   match a, b with
   | VInt x, VInt y => Some (int_op2 f x y)
-  | VReal x, VReal y => if comparison f then let* c := dom_cmp D f x y in Some (VBool c)
+  | VReal x, VReal y => if comparison f then let* c :=
+    dom_cmp D f x y in Some (VBool c)
                         else let* z := dom_op2 D f x y in Some (VReal z)
   | _, _ => None
   end.
@@ -80,16 +85,19 @@ Definition eval_op2 (f : binary) (a b : val N) : option (val N) :=
 (* map: the array of the body at each of the n indices from i;
    fold: the state after the body at each of the n indices from i, in order.
    They take the evaluation of the body as an argument. *)
-Fixpoint eval_map (ev : val N -> option (val N)) (i : Z) (n : nat) : option (list N) :=
+Fixpoint eval_map (ev : val N -> option (val N)) (i : Z) (n : nat) : option
+  (list N) :=
   match n with
   | O => Some []
   | S n' => match ev (VInt i) with
-            | Some (VReal x) => let* xs := eval_map ev (i + 1) n' in Some (x :: xs)
+            | Some (VReal x) => let* xs :=
+              eval_map ev (i + 1) n' in Some (x :: xs)
             | _ => None
             end
   end.
 
-Fixpoint eval_fold (ev : val N -> val N -> option (val N)) (i : Z) (n : nat) (s : val N)
+Fixpoint eval_fold (ev : val N -> val N -> option (val N)) (i : Z) (n : nat)
+  (s : val N)
   : option (val N) :=
   match n with
   | O => Some s
@@ -113,7 +121,8 @@ Fixpoint eval (t : term (val N)) : option (val N) :=
       end
   | Set_ a i e =>
       match eval a, eval i, eval e with
-      | Some (VArray l), Some (VInt k), Some (VReal x) => let* l1 := replace_nth_z k x l in Some (VArray l1)
+      | Some (VArray l), Some (VInt k), Some (VReal x) => let* l1 :=
+        replace_nth_z k x l in Some (VArray l1)
       | _, _, _ => None
       end
   | Let_ e b => let* ve := eval e in eval (b ve)
@@ -125,30 +134,35 @@ Fixpoint eval (t : term (val N)) : option (val N) :=
       end
   | Map lo hi b =>
       match eval lo, eval hi with
-      | Some (VInt i), Some (VInt j) => let* xs := eval_map (fun v => eval (b v)) i (count i j) in Some (VArray xs)
+      | Some (VInt i), Some (VInt j) => let* xs :=
+        eval_map (fun v => eval (b v)) i (count i j) in Some (VArray xs)
       | _, _ => None
       end
   | Fold lo hi init b =>
       match eval lo, eval hi, eval init with
-      | Some (VInt i), Some (VInt j), Some s => eval_fold (fun v w => eval (b v w)) i (count i j) s
+      | Some (VInt i), Some (VInt j), Some s =>
+        eval_fold (fun v w => eval (b v w)) i (count i j) s
       | _, _, _ => None
       end
   end.
 
 (* eval_definition d args: d applied to args, in order: the returned value,
    or the new value of the argument it writes. *)
-Fixpoint eval_definition (d : definition (val N)) (args : list (val N)) : option (val N) :=
+Fixpoint eval_definition (d : definition (val N)) (args : list (val N)) : option
+  (val N) :=
   match d, args with
   | Arg _ _ _ f, a :: args' => eval_definition (f a) args'
   | Body _ b, [] => eval b
   | _, _ => None
   end.
 
-Definition eval_function (f : function) (args : list (val N)) : option (val N) :=
+Definition eval_function (f : function) (args : list (val N)) : option (val N)
+  :=
   eval_definition (fdef f (val N)) args.
 
 End Eval.
 
-Arguments eval {N}.  Arguments eval_definition {N}.  Arguments eval_function {N}.
+Arguments eval {N}.  Arguments eval_definition {N}.  Arguments eval_function
+  {N}.
 Arguments eval_op1 {N}.  Arguments eval_op2 {N}.  Arguments int_op2 {N}.
 Arguments eval_map {N}.  Arguments eval_fold {N}.
