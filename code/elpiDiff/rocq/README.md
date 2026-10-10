@@ -15,7 +15,8 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
 ## Theorems
 
 The adjoint modes are stated (`adjoint_mode_correct`, `AdjointMode.v`), not
-yet proved: it is the one `Admitted`. `Print Assumptions tangent_mode_correct` lists only the axioms
+yet proved: it is the one `Admitted`. The proof is in progress
+(`AdjointCorrect.v`, below). `Print Assumptions tangent_mode_correct` lists only the axioms
 of the reals of the standard library (`sig_forall_dec`, `sig_not_dec`,
 `functional_extensionality_dep`, `classic`), which Coquelicot uses as well.
 
@@ -24,12 +25,55 @@ of the reals of the standard library (`sig_forall_dec`, `sig_not_dec`,
 | `normalize_correct` | `Correctness.v` | where the source computes a value, in any domain, its A-normal form computes the same (for a parametric source) |
 | `annotate_correct` | `Correctness.v` | the annotated function computes what the function computes |
 | `normalize_parametric` | `AnfEquiv.v` | the normal form of a parametric source is parametric: its instances are related |
-| `simplify_correct` | `SimplifyCorrect.v` | simplify preserves the execution over the reals of a program that follows the scoping discipline `good` and uses no tape |
+| `simplify_correct_tapes` | `SimplifyCorrect.v` | simplify preserves the execution over the reals of a program that follows the scoping discipline `good`, tapes included (`simplify_correct`, used by the tangent mode, is its tape-free instance) |
 | `duals_derive` | `DualsDerive.v` | where f is `defined`, it is Fréchet-differentiable as a function of the reals of its arguments (Coquelicot's `filterdiff` on `Rn`), and the dual numbers compute its derivative |
 | `simulation` | `TangentLoops.v` | the statements tangent generates for a body compute, over the reals, the value and the tangent of its dual evaluation; the activity analysis is sound |
 | `scoping` | `TangentGood.v` | those statements follow the discipline `good` and use no tape |
 | `tangent_simulates_duals` | `TangentTop.v` | theorem 1 for a function: the tangent function, run over the reals on the primal arguments and the seeded tangents, gives the value and the tangent of the dual evaluation of the normal form of f |
 | `tangent_mode_correct` | `TangentMode.v` | the tangent mode is correct: where a parametric, well-formed f is defined at x, it is differentiable at x with a linear derivative df, and `simplify (tangent (annotate false (normalize f)))`, run over the reals on `tangent_inputs (decls f) x dx`, gives the value of f and df applied to the seed of dx (dx on the independent and inout reals, 0 elsewhere) |
+
+### The adjoint proof, in progress
+
+The adjoint program is related to the dual evaluation of the source in an
+arbitrary direction dx (the `pv` instance of the tangent proof). The reverse
+sweep keeps the *pairing*: the sum, over the storages that carry an adjoint
+(the owners), of the tangent of the variable they hold times its adjoint.
+Transposing `let x = e` moves the adjoint of x to the operands of e weighted
+by the partial derivatives, which keeps the pairing since the tangent of x is
+the same combination of the tangents of the operands. A body is simulated by
+one lemma for its two sweeps (`asim_body`): its forward sweep computes the
+values its reverse sweep reads (the to-be-recorded analysis, `needs`), and its
+reverse sweep, run from any store that agrees on them, changes the pairing by
+the tangent of the body times the seed.
+
+| Milestone | State |
+|---|---|
+| M1, straight-line bodies (operations, `a[i]`, in-place update) | done: `asim_straight` (`AdjointCorrect.v`) and the top level `adjoint_simulates_duals`, `adjoint_straight_duals` (`AdjointTop.v`), before `simplify`; no `Admitted` |
+| M2, branches | done: `asim_branchy` (`AdjointBranch.v`; a branch is replayed in the reverse sweep, `arev_ite`) and the top level `adjoint_branchy_duals` (`AdjointTop.v`), for bodies of straight lets and branches with no assignment in a branch; no `Admitted`. The proof found that adjoint-value lost the original value of an inout array (see `BUGS.md`, fixed in deed0ef) |
+| M3, maps | done: `afwd_map`, `arev_map` (`AdjointBranch.v`): the reverse loop replays the body at each index and transposes it from the adjoint of the element, the written array, dependent, having a zero tangent; `adjoint_branchy_duals` now covers maps at the end of the function; no `Admitted` |
+| M4, scalar folds and tapes | done: `afwd_fold`, `arev_fold` (`AdjointBranch.v`): the forward sweep pushes the state on a tape before each step when the reverse loop reads it (`fold_tape`); the reverse loop pops it, replays the body and transposes it with the state as an extra owner, and the initial value receives the adjoint of the first state; `adjoint_branchy_duals` now covers scalar folds at the top level; no `Admitted` |
+| M5, in-place array folds | done: `afwd_fold_inplace`, `arev_fold_inplace` (`AdjointFold.v`): the forward sweep pushes on the tape of the array the element each step overwrites, when the reverse loop reads it; the reverse loop pops it back before replaying the step; `adjoint_foldy_duals` (`AdjointTop.v`) covers them at the top level. Nests (`AdjointNest*.v`): an outer in-place fold whose body ends with an in-place fold of its state (`fbody`); the outer state is never read by the reverse sweep (`fbody_state_dead`), and each outer step's reverse sweep restores the state and pops what its inner fold pushed (`tail_back`, `arev_fold_nest`); `adjoint_nesty_duals` covers them; no `Admitted`, only the axioms of the reals |
+| M6, `simplify` with tapes, the scoping of the adjoint code | in progress: `simplify_correct_tapes` (`SimplifyCorrect.v`) done, simplify is correct on programs with tapes (a push or a pop now writes its tape, in `simplify.elpi` as well); the scoping discipline `good` of the adjoint code to do |
+| M7, adjoint-value at the top, `adjoint_mode_correct` | to do |
+
+Proved in `AdjointCorrect.v`: the operations are linear in the tangents with
+the spelled partial derivatives as coefficients; the forward sweep of each
+operation computes its value (pushing the overwritten element on the tape of a
+recorded storage); the reverse sweep of each operation transposes it, reading
+only scalars that occur in it; typing and activity of the values (a value not
+varied has a zero tangent); the let, with a fresh variable or updated in
+place; returns, with the value adjoint-value leaves; the reverse sweep keeps the
+value adjoint-value leaves (`vo_kept`: the reverse code of a straight value
+writes only adjoints); `asim_straight`.
+
+Proved in `AdjointTop.v` (`adjoint_simulates_duals`, Qed, for any body
+simulated by `asim_body`): the arguments of the adjoint function laid out in
+the store, the forward context, the prologue and the seed of each result (a
+returned real; a written real, dependent or inout; a written array), the
+reverse sweep from the owners (the arguments with an adjoint), the final
+adjoints read back as the gradient, `<tangent v, yb> = <seed dx, g>`, and the
+value in adjoint-value. Its hypothesis `length dx = in_dim x` was added, and
+the Boolean arguments that carry an adjoint are excluded by well-formedness.
 
 ## Files
 
