@@ -18,12 +18,12 @@ Open Scope list_scope.
 Section Foldy.
 Variable cv : bool.
 
-(* An in-place fold computes an array of its extent, of zero tangent when
-   it is not varied. *)
-Lemma act_fold_inplace a (loP hiP initP : atom pv)
+(* An in-place fold with active bodies computes an array of its extent, of
+   zero tangent when it is not varied. *)
+Lemma act_fold_gen a (loP hiP initP : atom pv)
   (bP : pv -> pv -> anf pv bare) :
   (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
-  (forall x y, abody (bP x y)) -> act_value (AFold a loP hiP initP bP).
+  (forall x y, act_body (bP x y)) -> act_value (AFold a loP hiP initP bP).
 Proof.
 move=> [q [-> Hqa]] Hab L k wP pp tail eA eW eD te ve HA HW HD HL Htc Hev.
 destruct eA, eW, eD; simpl in HA, HW, HD; try contradiction;
@@ -94,7 +94,7 @@ have Hloop : forall nn z0 st,
   have HL' : Forall (static_ok (S (S k))) (sx :: ix :: L).
     apply: Forall_cons Hsx _; apply: Forall_cons Hix _.
     apply: Forall_impl HL => p Hp; by apply: static_mono Hp _; lia.
-  have [Hht Hzz] := abody_act _ (Hab ix sx) (sx :: ix :: L) (S (S k)) wP
+  have [Hht Hzz] := Hab ix sx (sx :: ix :: L) (S (S k)) wP
     (PArray ix sx) (bA (pa ix) (pa sx)) (bW (pw ix) (pw sx))
     (bD (pd ix) (pd sx)) (Array z) st'
     (HbA ix _ sx _) (HbW ix _ sx _) (HbD ix _ sx _) HL' HtB Hs1.
@@ -109,17 +109,17 @@ have [Ht Hz] := Hloop _ _ _ Hty Hz0 Hev.
 by split=> //; split.
 Qed.
 
-(* An in-place fold that is not varied leaves the tangent of its array as
-   it was: zero. *)
-Lemma owner_fold_inplace a (loP hiP initP : atom pv)
+(* An in-place fold with active bodies that is not varied leaves the tangent
+   of its array as it was: zero. *)
+Lemma owner_fold_gen a (loP hiP initP : atom pv)
   (bP : pv -> pv -> anf pv bare) :
   (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
-  (forall x y, abody (bP x y)) -> act_owner (AFold a loP hiP initP bP).
+  (forall x y, act_body (bP x y)) -> act_owner (AFold a loP hiP initP bP).
 Proof.
 move=> Hq Hab L k c wP pp live ty tail eA eW eD ve o HA HW HD Hs Hlv Es Ho Hev
   Hvr Hargs Hwr te Htc Hty.
 have HL := s_static _ _ _ _ _ _ _ Hs.
-have [Hte [Hz _]] := act_fold_inplace _ _ _ _ _ Hq Hab L k wP pp tail
+have [Hte [Hz _]] := act_fold_gen _ _ _ _ _ Hq Hab L k wP pp tail
   eA eW eD te ve HA HW HD HL Htc Hev.
 have {}Hz := Hz Hvr.
 case: Hq Es => q [Eq Hqa] Es; subst initP.
@@ -153,12 +153,12 @@ Qed.
 
 (* Outside loops, an in-place fold updates its init, the written array: the
    reverse sweep does not read it, and the fold is varied when it is. *)
-Lemma inplace_fold_inplace a (loP hiP initP : atom pv)
+Lemma inplace_fold_gen a (loP hiP initP : atom pv)
   (bP : pv -> pv -> anf pv bare) :
   (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
-  (forall x y, abody (bP x y)) -> inplace_only cv (AFold a loP hiP initP bP).
+  inplace_only cv (AFold a loP hiP initP bP).
 Proof.
-move=> [q [-> Hqa]] Hab L k wP pp tail eA eW te HA HW HL Hu Htc Hst Hl Hargs
+move=> [q [-> Hqa]] L k wP pp tail eA eW te HA HW HL Hu Htc Hst Hl Hargs
   Hwr o Ho Hoin.
 case: eA HA => // aA loA hiA iA bA /= [HlA [HhA [HiA HbA]]].
 case: eW HW Htc => // aW loW hiW iW bW /= [HlW [HhW [HiW HbW]]] Htc.
@@ -237,6 +237,29 @@ rewrite (live_cont2 L k bP bW ix sx (pw ix) (pw sx) _ HbW HL erefl erefl
   erefl erefl) Hocc.
 by move=> H; have := H (or_introl Ht).
 Qed.
+
+(* The instances for in-place bodies (abody). *)
+Lemma act_fold_inplace a (loP hiP initP : atom pv)
+  (bP : pv -> pv -> anf pv bare) :
+  (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
+  (forall x y, abody (bP x y)) -> act_value (AFold a loP hiP initP bP).
+Proof.
+by move=> Hq Hab; apply: act_fold_gen Hq _ => x y; apply/abody_act.
+Qed.
+
+Lemma owner_fold_inplace a (loP hiP initP : atom pv)
+  (bP : pv -> pv -> anf pv bare) :
+  (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
+  (forall x y, abody (bP x y)) -> act_owner (AFold a loP hiP initP bP).
+Proof.
+by move=> Hq Hab; apply: owner_fold_gen Hq _ => x y; apply/abody_act.
+Qed.
+
+Lemma inplace_fold_inplace a (loP hiP initP : atom pv)
+  (bP : pv -> pv -> anf pv bare) :
+  (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
+  (forall x y, abody (bP x y)) -> inplace_only cv (AFold a loP hiP initP bP).
+Proof. by move=> Hq _; exact: inplace_fold_gen. Qed.
 
 (* Bodies of straight lets, branches, maps, scalar folds and in-place
    folds: as branchy, with also, at the top, a fold updating its array in

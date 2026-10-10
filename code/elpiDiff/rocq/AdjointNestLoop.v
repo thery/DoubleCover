@@ -330,7 +330,7 @@ have Hstates : forall jn, (jn <= N)%nat -> has_type (Array z) (st jn).
   have HtB' : typecheck (option_map (amap pw) wP) (wplace (PArray ix sx))
       (S (S k)) (bW (pw ix) (pw sx)) = (Array z, Ok)
     by exact: HtB.
-  have [Hht _] := fbody_act_side _ (Hab ix sx) (sx :: ix :: L) (S (S k)) wP
+  have [Hht _] := fbody_act _ (Hab ix sx) (sx :: ix :: L) (S (S k)) wP
     (PArray ix sx) (bA (pa ix) (pa sx)) (bW (pw ix) (pw sx))
     (bD (pd ix) (pd sx)) (Array z) (st (S jn))
     (HbA ix _ sx _) (HbW ix _ sx _) (HbD ix _ sx _) HL' HtB' Hs1.

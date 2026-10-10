@@ -8,7 +8,7 @@ From Stdlib Require Import String ZArith List Bool Reals Lia Lra.
 From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Operations
   Normalize WellFormed Atoms Activity Tbr Annotate Transform Adjoint Simplify Scoping
   AnfEquiv Correctness TangentCorrect TangentLoops TangentGood AdjointCorrect AdjointBranch
-  AdjointFold AdjointFoldy.
+  AdjointFold AdjointFoldy AdjointNestSide.
 From Corelib Require Import ssreflect ssrbool ssrfun.
 Set Bullet Behavior "None".
 
@@ -183,20 +183,6 @@ rewrite Htr fold_pushes_fix => G.
 have Hcnd' : fold_live cv k (AVar (pa s)) bA || rec = true.
   by rewrite orbC /rec -Htl.
 exact: (G tr erefl Hcnd' l1 Hl1).
-Qed.
-
-(* The bodies of the outer loop of a nest compute active values. *)
-Lemma fbody_act b : fbody b -> act_body b.
-Proof.
-elim: b => [a e b' IH | x] //=.
-case: e => // [? ? | ? ? ? | ? ? | fa lo hi [s | ? | ?] bi] //= Hb.
-- by apply: act_let; [exact: act_op1 | move=> x; apply/IH/Hb].
-- by apply: act_let; [exact: act_op2 | move=> x; apply/IH/Hb].
-- by apply: act_let; [exact: act_get | move=> x; apply/IH/Hb].
-case: Hb => [Hsa [Hab Hc]].
-apply: act_let.
-  exact: (act_fold_inplace _ _ _ _ _ (ex_intro _ s (conj erefl Hsa)) Hab).
-by move=> x; rewrite (Hc x); exact: act_ret.
 Qed.
 
 (* The bodies of the outer loop of a nest: their forward sweep. *)
