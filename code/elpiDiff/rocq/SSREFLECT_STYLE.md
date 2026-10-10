@@ -440,3 +440,69 @@ Never write `ltac:(...)` inside terms. Use a named `have H : ... by ...` instead
   Replay = Forward -> P by []` and `Hpb : Replay = Replay -> PScalar <> PTop`.
 - To see a goal cut by truncation, `rocq_step_multi` with `clear -H1 H2 ..`
   prints a short context first.
+
+## Pitfalls met in `AdjointTop_math.v`
+
+- **`Fixpoint .. Proof.` with a local fact using the recursive call**: a ssr
+  `have Hl : .. .` whose proof calls `exec_keeps` makes `Qed` fail with "Cannot
+  guess decreasing argument of fix"; keep the Ltac `assert (Hl : ..).` there
+  (`exec_keeps`).
+- **Ltac tactics keep the Ltac `in` syntax**: `cbn [..] in H1 H2` and
+  `change .. in Hs *` are syntax errors ("[ltac_use_default] expected"); write
+  `cbn [..] in H1, H2 |- *`, `change .. in Hs |- *` (only ssr `rewrite`/`set`
+  take `in H1 H2 *`).
+- **`all:` inside a `have` proof also hits the main goal** (and the other pending
+  goals): the `have` goal is not focused. Chain with `;` instead
+  (`case: (r); case: (t) => [| | | z] //=; case=> E _; ..`), or put the common
+  part before the case split.
+- **`case: x` on a variable used in hypotheses** (`cv`, `r`, `t`, `yb`): use
+  `case: (cv)` / `case Er: (r)` (goal only, with an equation when a hypothesis
+  such as `Hdep : r = Dependent -> ..` must be used), and keep Ltac `destruct`
+  when the hypotheses must change too (`destruct t as [| | | z]; try destruct
+  Hraw`, `destruct v`, `destruct (pd y) eqn:Epd`, `destruct yb as [| y0 [|]]`).
+- **`[<-]` after `case: (t) Hw0 => // z`** rewrites the goal only; when another
+  hypothesis mentions the variable (`E : pn p = pn o`), write `[Eo]; subst o`.
+- **Intro patterns per constructor before `//`**: `case: (t) => [| | | z] //=`
+  names `z` only in the `Array` branch; `case: (t) => //=; last move=> z`
+  followed by a common tactic does not work when the branches differ.
+- **`rewrite Hob` on `open_pairs (adj W (option_map (amap pt) ..) ..) n`**
+  matches `Hob : open_pairs (adj W (Some (AVar (pt y))) ..) n = ..` up to
+  conversion: it replaces the Ltac `lazymatch type of HS with context
+  [@open_pairs ?A ?t n] => assert (E : ..) by exact Hob; rewrite E in HS end`.
+  The premises of `Hsim` given by `ltac:(discriminate)` become named
+  `have Hfr : Forward = Replay -> PTop <> PTop by [].`
+- **`congr Some` fails on `gradient a b c X = gradient a b c Y`** (the `f_equal`
+  after `rewrite -Hg`); write `congr (gradient _ _ _ _)`.
+- **`lia` with a `set` variable** (`bps`) failed where the closing rewrite
+  works: `by rewrite Hin /ps !map_app !length_app /= !length_map Hbl`.
+- **`rewrite store_get_set_other; first exact: Hky ..` failed** (the side goal
+  was not the one expected); pass the premise:
+  `rewrite (store_get_set_other _ _ _ _ (Hky p Hp Hne))`.
+- **Injection of `keyv (BarOf (stored y)) = keyv (BarOf (stored p))`** gives one
+  equation (`-[E]`), while `stored q = stored p` gives two (`case: E => E _`).
+- **`first last` reverses the four goals left by `rewrite oset_notin`**
+  (`[main; a; b; c]` becomes `[c; b; a; main]`).
+- **`move=> /NoDup_cons_iff [..]` in an `elim` intro pattern** leaves the other
+  hypotheses with `map`/`In` unfolded to their `fix` bodies; introduce first and
+  `rewrite /= in Hnd Hw; move/NoDup_cons_iff: Hnd => [..]`.
+- **`remember (e) as x eqn:H`**: `move Hx : (e) => x.` (the equation is
+  `e = x`).
+- **rocq-mcp cost of a 60-hypothesis context**: every failing `rocq_check` dumps
+  15-60K characters. Explore one case with the other one admitted (`have [..] :=
+  ..; first admit.` / `2: admit.`), print a goal through an error that costs
+  nothing (`rocq_step_multi` with `..; match goal with |- ?g => fail 0 g end`,
+  whose failure prints only `g`), check large blocks that are likely right, and
+  never end a block with `Abort.` (the answer lists the whole chain).
+
+## When to keep Stdlib/Ltac in `AdjointTop_math.v`
+
+- `assert` in `exec_keeps` (guard condition) and its `repeat match type of E
+  with .. lazymatch ..` loop; the `repeat match .. destruct e` of
+  `assign_keeps`; `injection E as <-` where `case: E => <-` warns
+  (spurious-ssr-injection).
+- `destruct` on variables used in many hypotheses or `set` definitions: `res`,
+  `resT`, `yP`, `yT`, `t`, `r`, `v`, `pd y` (with `eqn:Epd`), `yb`, `t0`/`r0`
+  in the `rctx` owners case; `clearbody cva`; `cbn [..]`, `cbv iota beta`,
+  `simpl negb`, `simpl inplace`; `change` of one large term (the two-statement
+  prologue, `KVar ResultVar` into `keyv ResultVar`, `xev s2 (DVar ..)`);
+  `simpl; tauto` for `~ is_tape ..` / `~ is_bar ..`; `ring`, `lia`.

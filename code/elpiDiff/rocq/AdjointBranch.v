@@ -32,7 +32,8 @@ rewrite /atom_member /atom_remove; elim: l => [|z l IH] /=.
   by case: (same_term x y).
 case Exz: (same_term x z) => /=; rewrite IH.
   case Exy: (same_term x y) => //=; case Eyz: (same_term y z) => //=.
-  move: Exz Exy Eyz; clear; case: x => // x; case: y => // y; case: z => // z /=.
+  move: Exz Exy Eyz; clear.
+  case: x => // x; case: y => // y; case: z => // z /=.
   by move=> /Nat.eqb_eq ? /Nat.eqb_neq ? /Nat.eqb_eq ?; lia.
 case Exy: (same_term x y); case Eyz: (same_term y z) => //=.
 move: Exz Exy Eyz; clear; case: x => // x; case: y => // y; case: z => // z /=.
@@ -114,7 +115,8 @@ apply anf_value_ind.
 move=> a lo hi init b IHb G [] // a1 l1 h1 i1 b1 [] // a2 l2 h2 i2 b2 k i.
 move=> [HA1 [HA2 [HA3 HA4]]] [HW1 [HW2 [HW3 HW4]]] Hid Hi.
 rewrite /= !atom_member_union /= (atoms_atom G lo _ _ i HA1 HW1 Hid).
-rewrite (atoms_atom G hi _ _ i HA2 HW2 Hid) (atoms_atom G init _ _ i HA3 HW3 Hid).
+rewrite (atoms_atom G hi _ _ i HA2 HW2 Hid).
+rewrite (atoms_atom G init _ _ i HA3 HW3 Hid).
 have Hki : k <> i by lia.
 have HSki : S k <> i by lia.
 rewrite !atom_member_remove_full (same_fresh _ _ Hki) (same_fresh _ _ HSki) /=.
@@ -424,7 +426,8 @@ elim=> [| n IH] z s st tr ve Hinv; cbn [eval_fold exec_up fold_trace].
   by move=> [<-]; exists s, []; rewrite Z.add_0_r app_nil_r.
 case E: (ev (VInt z) st) => [st1 |] //= Hev.
 have [s1 [-> Hi1]] := Hstep z s st tr st1 Hinv E.
-have [s' [tr' [He [-> Hi']]]] := IH (z + 1)%Z s1 st1 (tr ++ [st])%list ve Hi1 Hev.
+have [s' [tr' [He [-> Hi']]]] :=
+  IH (z + 1)%Z s1 st1 (tr ++ [st])%list ve Hi1 Hev.
 exists s', (st :: tr'); split=> //; split=> //.
 have -> : (z + Z.of_nat (S n) = z + 1 + Z.of_nat n)%Z by lia.
 by rewrite -app_assoc in Hi'.
@@ -444,7 +447,9 @@ Qed.
 
 Lemma skipn_nth_cons {A : Type} (l : list A) j d :
   (j < length l)%nat -> skipn j l = nth j l d :: skipn (S j) l.
-Proof. by elim: j l => [| j IH] [| a l] /= H; try lia; auto; apply: IH; lia. Qed.
+Proof.
+by elim: j l => [| j IH] [| a l] /= H; try lia; auto; apply: IH; lia.
+Qed.
 
 Lemma dotr_zero_l l m : Forall (fun x => x = 0) l -> dotr l m = 0.
 Proof.
@@ -758,7 +763,8 @@ Proof. by []. Qed.
 
 Lemma psim_ret (aP : atom pv) : psim_body (ARet aP).
 Proof.
-move=> L k c s wP pp m m' [? ? ? | aA] [? ? ? | aW] [? ? ? | aT] [? ? ? | aD] //=.
+move=> L k c s wP pp m m'
+  [? ? ? | aA] [? ? ? | aW] [? ? ? | aT] [? ? ? | aD] //=.
 move=> ty v /atom_graph [_ H] /atom_graph [-> _] /atom_graph [-> _].
 move=> /atom_graph [-> _] Hc Htc Hev.
 split=> //; exists s; split=> //.
@@ -807,7 +813,8 @@ rewrite -(is_tail_transfer L k cP cW cT rest HcW HcT Hst) in Hn.
 set tail := WellFormed.is_tail cW k in Hte Hn.
 have Htail_ty : tail = true -> te = ty.
   move=> Ht.
-  have [_ E] := tail_cont L k cP cW (pfresh k) (VInfo k te None) HcW HL erefl Ht.
+  have [_ E] :=
+    tail_cont L k cP cW (pfresh k) (VInfo k te None) HcW HL erefl Ht.
   by rewrite E /= in Htc; case: Htc.
 have Es := Hsn wP tail; rewrite Es in Hn; case: Hn => En [Ec0 Erec].
 subst n c0 rec.
@@ -956,7 +963,8 @@ move=> [aA eA cA | ?] [aW eW cW | ?] [aT eT cT | ?] [aD eD cD | ?] ty v;
   move=> HA HW HT HD Hc Htc Hev; rewrite /= in HA HW HT HD; try by [].
 case: HA HW HT HD => [HeA HcA] [HeW HcW] [HeT HcT] [HeD HcD].
 case: eA HeA => // a1 i1 y1 HeA; rewrite /= in HeA.
-case: HeA => /atom_graph [Ea1 HaL] [/atom_graph [Ei1 HiL] /atom_graph [Ey1 HvL]].
+case: HeA => /atom_graph [Ea1 HaL]
+  [/atom_graph [Ei1 HiL] /atom_graph [Ey1 HvL]].
 case: eW HeW Htc Hc => // a2 i2 y2 HeW Htc Hc; rewrite /= in HeW.
 case: HeW => /atom_graph [Ea2 _] [/atom_graph [Ei2 _] /atom_graph [Ey2 _]].
 case: eT HeT => // a3 i3 y3 HeT; rewrite /= in HeT.
@@ -1047,7 +1055,8 @@ have Esi :
     set_index (ALet aD (ASet (AVar (pd sx)) (amap pd iP) (amap pd vP)) cD)
     = Some z.
   have Hval : aeval_value (duals reals)
-      (ASet (AVar (pd sx)) (amap pd iP) (amap pd vP) : value (val (dual R)) bare)
+      (ASet (AVar (pd sx)) (amap pd iP) (amap pd vP)
+       : value (val (dual R)) bare)
       = Some (VArray l1).
     by rewrite /= Epd Hi Hv /= Er.
   by rewrite /set_index Hval ED -/set_index Hi.
@@ -1186,7 +1195,9 @@ Qed.
 (* A branch body sits in place PBranch, where nothing is updated in place. *)
 Lemma sctx_branch L k c wP pp (live live' : pv -> Prop) ty :
   sctx L k c wP pp live ty -> (forall p, live' p -> live p) -> sctx L k c wP PBranch live' Real.
-Proof. by case=> *; constructor; auto; rewrite /=; try (move=> *; discriminate). Qed.
+Proof.
+by case=> *; constructor; auto; rewrite /=; try (move=> *; discriminate).
+Qed.
 
 (* The forward sweep of a branch: the result is a real variable, assigned by
    the branch taken after its statements. *)
@@ -1559,10 +1570,14 @@ have HA0 := HA; have HW0 := HW.
 destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
 repeat match goal with
        | H : _ /\ _ |- _ => destruct H
-       | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gA _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gW _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gT _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gD _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
        end; subst.
 rewrite /= in Htc Hev Hst *.
 rename b into bA, b0 into bW, b1 into bT, b2 into bD.
@@ -1576,7 +1591,8 @@ case El: (negb (l0 =? 0)%Z) Htc => // Htc.
 move/negbFE/Z.eqb_eq: El => El; subst l0.
 have Hte : te = Array (h - 0) by clear -Htc; crush_match Htc.
 have Harr : is_array ty by rewrite -(Htail erefl) Hte.
-case Eo: (owner wP PTop) => [o |]; last by case: (s_ty _ _ _ _ _ _ _ Hs Harr Eo).
+case Eo: (owner wP PTop) => [o |]; last first.
+  by case: (s_ty _ _ _ _ _ _ _ Hs Harr Eo).
 destruct wP as [[o' | |] |]; rewrite /= in Eo; try discriminate.
 case Ey: (vty (pw o')) Eo => [| | | ny] // [Eo]; subst o'.
 rewrite /= in Hst; case: Hst => Ej _; subst j.
@@ -1744,10 +1760,14 @@ have HA0 := HA; have HW0 := HW.
 destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
 repeat match goal with
        | H : _ /\ _ |- _ => destruct H
-       | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gA _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gW _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gT _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gD _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
        end; subst.
 rewrite /= in Htc Hst *.
 rename b into bA, b0 into bW, b1 into bT, b2 into bD.
@@ -1760,7 +1780,8 @@ case El: (negb (l0 =? 0)%Z) Htc => // Htc.
 move/negbFE/Z.eqb_eq: El => El; subst l0.
 have Hte : te = Array (h - 0) by clear -Htc; crush_match Htc.
 have Harr : is_array ty by rewrite -(Htail erefl) Hte.
-case Eo: (owner wP PTop) => [o |]; last by case: (s_ty _ _ _ _ _ _ _ Hs Harr Eo).
+case Eo: (owner wP PTop) => [o |]; last first.
+  by case: (s_ty _ _ _ _ _ _ _ Hs Harr Eo).
 destruct wP as [[o' | |] |]; rewrite /= in Eo; try discriminate.
 case Ey: (vty (pw o')) Eo => [| | | ny] // [Eo]; subst o'.
 rewrite /= in Hst; case: Hst => Ej _; subst j.
@@ -2080,20 +2101,28 @@ have HA0 := HA; have HW0 := HW; have HD0 := HD.
 destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
 repeat match goal with
        | H : _ /\ _ |- _ => destruct H
-       | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gA _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gW _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gT _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gD _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
        end; subst.
 rename b into bA, b0 into bW, b1 into bT, b2 into bD.
-match goal with H : forall (i1 : pv) (i2 : avar) (s1 : pv) (s2 : avar), _ |- _ =>
+match goal with
+  H : forall (i1 : pv) (i2 : avar) (s1 : pv) (s2 : avar), _ |- _ =>
   rename H into HbA end.
-match goal with H : forall (i1 : pv) (i2 : vinfo) (s1 : pv) (s2 : vinfo), _ |- _ =>
+match goal with
+  H : forall (i1 : pv) (i2 : vinfo) (s1 : pv) (s2 : vinfo), _ |- _ =>
   rename H into HbW end.
-match goal with H : forall (i1 : pv) (i2 : tvar W) (s1 : pv) (s2 : tvar W), _ |- _ =>
+match goal with
+  H : forall (i1 : pv) (i2 : tvar W) (s1 : pv) (s2 : tvar W), _ |- _ =>
   rename H into HbT end.
 match goal with
-  H : forall (i1 : pv) (i2 : val (dual R)) (s1 : pv) (s2 : val (dual R)), _ |- _ =>
+  H : forall (i1 : pv) (i2 : val (dual R)) (s1 : pv) (s2 : val (dual R)),
+      _ |- _ =>
   rename H into HbD end.
 have Hs := a_sctx _ _ _ _ _ _ _ _ _ Hc.
 have HL := s_static _ _ _ _ _ _ _ Hs.
@@ -2147,8 +2176,10 @@ have Hl3 : loP = loP \/ loP = hiP \/ loP = initP by left.
 have Hh3 : hiP = loP \/ hiP = hiP \/ hiP = initP by right; left.
 have Hi3 : initP = loP \/ initP = hiP \/ initP = initP by right; right.
 rewrite /= in Hev.
-case Hlo: (aeval_atom (duals reals) (amap pd loP)) Hev => [[| l | | |] |] // Hev.
-case Hhi: (aeval_atom (duals reals) (amap pd hiP)) Hev => [[| h | | |] |] // Hev.
+case Hlo: (aeval_atom (duals reals) (amap pd loP)) Hev
+  => [[| l | | |] |] // Hev.
+case Hhi: (aeval_atom (duals reals) (amap pd hiP)) Hev
+  => [[| h | | |] |] // Hev.
 case Hin: (aeval_atom (duals reals) (amap pd initP)) Hev => [s0 |] // Hev.
 have Hslo := aspell_ok k s loP _ (Hops loP Hl3) Hlo.
 have Hshi := aspell_ok k s hiP _ (Hops hiP Hh3) Hhi.
@@ -2385,20 +2416,28 @@ have HA0 := HA; have HW0 := HW; have HD0 := HD.
 destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
 repeat match goal with
        | H : _ /\ _ |- _ => destruct H
-       | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gA _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gW _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gT _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gD _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
        end; subst.
 rename b into bA, b0 into bW, b1 into bT, b2 into bD.
-match goal with H : forall (i1 : pv) (i2 : avar) (s1 : pv) (s2 : avar), _ |- _ =>
+match goal with
+  H : forall (i1 : pv) (i2 : avar) (s1 : pv) (s2 : avar), _ |- _ =>
   rename H into HbA end.
-match goal with H : forall (i1 : pv) (i2 : vinfo) (s1 : pv) (s2 : vinfo), _ |- _ =>
+match goal with
+  H : forall (i1 : pv) (i2 : vinfo) (s1 : pv) (s2 : vinfo), _ |- _ =>
   rename H into HbW end.
-match goal with H : forall (i1 : pv) (i2 : tvar W) (s1 : pv) (s2 : tvar W), _ |- _ =>
+match goal with
+  H : forall (i1 : pv) (i2 : tvar W) (s1 : pv) (s2 : tvar W), _ |- _ =>
   rename H into HbT end.
 match goal with
-  H : forall (i1 : pv) (i2 : val (dual R)) (s1 : pv) (s2 : val (dual R)), _ |- _ =>
+  H : forall (i1 : pv) (i2 : val (dual R)) (s1 : pv) (s2 : val (dual R)),
+      _ |- _ =>
   rename H into HbD end.
 have HL := s_static _ _ _ _ _ _ _ Hs.
 rewrite /= in Htc.
@@ -2448,8 +2487,10 @@ have Hsto : storage wP tail (AFold a loP hiP initP bP) = None.
 rewrite Hsto in Hst; have [Hn_notin Hsh] := Hns Hsto.
 have {}Hft := Hft erefl.
 rewrite /= in Hev.
-case Hlo: (aeval_atom (duals reals) (amap pd loP)) Hev => [[| l | | |] |] // Hev.
-case Hhi: (aeval_atom (duals reals) (amap pd hiP)) Hev => [[| h | | |] |] // Hev.
+case Hlo: (aeval_atom (duals reals) (amap pd loP)) Hev
+  => [[| l | | |] |] // Hev.
+case Hhi: (aeval_atom (duals reals) (amap pd hiP)) Hev
+  => [[| h | | |] |] // Hev.
 case Hin: (aeval_atom (duals reals) (amap pd initP)) Hev => [s0 |] // Hev.
 have [tr Htr] := fold_trace_exists _ _ _ _ _ Hev.
 have Htape : state_live cv k (amap pa initP) bA = true ->
@@ -2963,17 +3004,23 @@ move=> Hna IHa L k wP pp tail eA eW eD te ve HA HW HD HL Htc Hev.
 destruct eA, eW, eD; simpl in HA, HW, HD; try contradiction;
 repeat match goal with
        | H : _ /\ _ |- _ => destruct H
-       | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gA _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gW _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
+       | H : atom_eq (gD _) _ _ |- _ =>
+         apply atom_graph in H; destruct H as [-> ?]
        end; subst.
 rename b into bA, b0 into bW, b1 into bD.
-match goal with H : forall (i1 : pv) (i2 : avar) (s1 : pv) (s2 : avar), _ |- _ =>
+match goal with
+  H : forall (i1 : pv) (i2 : avar) (s1 : pv) (s2 : avar), _ |- _ =>
   rename H into HbA end.
-match goal with H : forall (i1 : pv) (i2 : vinfo) (s1 : pv) (s2 : vinfo), _ |- _ =>
+match goal with
+  H : forall (i1 : pv) (i2 : vinfo) (s1 : pv) (s2 : vinfo), _ |- _ =>
   rename H into HbW end.
 match goal with
-  H : forall (i1 : pv) (i2 : val (dual R)) (s1 : pv) (s2 : val (dual R)), _ |- _ =>
+  H : forall (i1 : pv) (i2 : val (dual R)) (s1 : pv) (s2 : val (dual R)),
+      _ |- _ =>
   rename H into HbD end.
 have Hsti : forall p, initP = AVar p -> static_ok k p.
   move=> p E; apply: (static_in _ _ _ HL).
