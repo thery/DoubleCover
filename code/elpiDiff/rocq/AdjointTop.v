@@ -20,8 +20,9 @@ Import ListNotations.
 Open Scope list_scope.
 
 (* At the top, the body is no loop body: there is no tail tape to give. *)
-Lemma no_tail_tape_top cv k L b s (B : dvar W -> Prop) :
-  forall ix sx n0, PTop = PArray ix sx -> B n0 -> tail_tape cv k L b s n0.
+Lemma no_tail_tape_top cv k L b bA bD s (B : dvar W -> Prop) :
+  forall ix sx n0, PTop = PArray ix sx -> B n0 ->
+  tail_tape cv k L b bA bD s n0.
 Proof. by []. Qed.
 
 (* The analyses open the arguments as open_P does, in either mode. *)
@@ -1256,7 +1257,7 @@ have [[EW [Hnw HtcB]] | [w [nm [role [EW [Hg [Hwr [H1w [Hraw [HtcB
     move=> p Hp Hrp; have [? [? [? [? [? Ep]]]]] := Hparg p Hp.
     by subst p; discriminate.
   have [s3 [R3 [K3 [X3 [T3 [F3 [S3 [P3 _]]]]]]]] :=
-    Hrev s1 O Hag Hr Hseed Htp (no_tail_tape_top _ _ _ _ _ _).
+    Hrev s1 O Hag Hr Hseed Htp (no_tail_tape_top _ _ _ _ _ _ _ _).
   destruct v as [d | | | |]; try (simpl in Hhty; contradiction).
   have P3' : pairing O s3 = (init_sum (rev L) s0 + dsnd d * hd 0%R yb)%R.
     rewrite P3 /result_pairing /seed_value; simpl inplace.
@@ -1654,7 +1655,7 @@ have Htp : tapes_ok L s2.
   move=> p Hp Hrp; have [? [? [? [? [? Ep]]]]] := Hparg p Hp.
   by subst p; discriminate.
 have [s3 [R3 [K3 [X3 [T3 [F3 [S3 [P3 _]]]]]]]] :=
-  Hrev s2 OW Hag Hr Hseed Htp (no_tail_tape_top _ _ _ _ _ _).
+  Hrev s2 OW Hag Hr Hseed Htp (no_tail_tape_top _ _ _ _ _ _ _ _).
 rewrite -/ex Hres in P3.
 (* the end of the function *)
 set ss := fw ++ pro ++ rv.
@@ -1785,13 +1786,9 @@ Qed.
 
 (* Milestone M5b: the same with, at the top, also nests of in-place folds:
    an in-place fold whose body ends with an inner in-place fold on its
-   state (fbody), given the reverse sweep of such a nest. *)
+   state (fbody). *)
 Corollary adjoint_nesty_duals (cv : bool) (f : function) (x : list (val R)) (xb yb dx : list R)
   (v : val (dual R)) :
-  (forall cv' a loP hiP initP (bP : pv -> pv -> anf pv bare),
-     (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
-     (forall x y, fbody (bP x y)) ->
-     asim_rev cv' (AFold a loP hiP initP bP)) ->
   parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->
   length xb = in_dim x -> length yb = length (reals_of_val (primal v)) -> length dx = in_dim x ->
   (forall L res bP, open_P (afdef (normalize f) pv) 0 (seed_args (decls f) x dx) [] = Some (L, res, bP) -> nesty true bP) ->
@@ -1804,7 +1801,7 @@ Corollary adjoint_nesty_duals (cv : bool) (f : function) (x : list (val R)) (xb 
     dotl (reals_of_val (TangentCorrect.tangent v)) yb = dotl (seed (decls f) x dx) g /\
     (cv = true -> writes_inout (decls f) = false -> value_given (decls f) out = Some (TangentCorrect.primal v)).
 Proof.
-move=> Harev Hp Hw Hf Hxb Hyb Hdx Hs Hev.
+move=> Hp Hw Hf Hxb Hyb Hdx Hs Hev.
 apply: adjoint_simulates_duals => // L res bP Ho.
-exact: (proj1 (proj1 (asim_nesty _ (Harev _)) bP true (Hs L res bP Ho))).
+exact: (proj1 (proj1 (asim_nesty _) bP true (Hs L res bP Ho))).
 Qed.

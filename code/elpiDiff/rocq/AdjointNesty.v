@@ -7,7 +7,8 @@ From Stdlib Require Import String ZArith List Bool Reals Lia Lra.
 From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Operations
   Normalize WellFormed Atoms Activity Tbr Annotate Transform Adjoint Simplify Scoping
   AnfEquiv Correctness TangentCorrect TangentLoops TangentGood AdjointCorrect AdjointBranch
-  AdjointFold AdjointFoldy AdjointNestSide AdjointNestFwd AdjointNest.
+  AdjointFold AdjointFoldy AdjointNestSide AdjointNestFwd AdjointNest
+  AdjointNestRev AdjointNestLoop.
 From Corelib Require Import ssreflect ssrbool ssrfun.
 Set Bullet Behavior "None".
 
@@ -16,13 +17,6 @@ Open Scope list_scope.
 
 Section Nesty.
 Variable cv : bool.
-
-(* The reverse sweep of a nest of in-place folds (being proved in
-   AdjointNest.v). *)
-Hypothesis arev_fold_nest : forall a loP hiP initP
-  (bP : pv -> pv -> anf pv bare),
-  (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
-  (forall x y, fbody (bP x y)) -> asim_rev cv (AFold a loP hiP initP bP).
 
 (* As foldy, with also, at the top, a fold updating its array in place
    whose body ends with an inner in-place fold on its state (fbody). *)

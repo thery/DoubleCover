@@ -1148,17 +1148,23 @@ Qed.
    tail of the body. *)
 Definition ptail (cP : pv -> anf pv bare) : Prop := forall x, cP x = ARet (AVar x).
 
-(* tail-tape K L B S N: when the tail of the body B is a fold, its tape in S
-   (storage N) is the one of fold-tape. A body inside an in-place loop gets it
-   from the enclosing loop: it is the inner in-place fold its step ends
-   with. *)
-Fixpoint tail_tape (k : nat) (L : list pv) (b : anf pv bare) (s : store R) (n : dvar W) : Prop :=
-  match b with
-  | ALet _ eP cP =>
-      (ptail cP -> forall eA eW eD, value_eq (gA L) eP eA -> value_eq (gW L) eP eW ->
-         value_eq (gD L) eP eD -> fold_tape k eA eW eD s n) /\
-      (forall x, tail_tape (S k) (x :: L) (cP x) s n)
-  | ARet _ => True
+(* tail-tape K L B BA BD S N: when the tail of the body B is a fold, its tape
+   in S (storage N) is the one of fold-tape, for its activity (BA) and its
+   evaluation (BD). A body inside an in-place loop gets it from the enclosing
+   loop: it is the inner in-place fold its step ends with. A let is followed
+   on its activity binder and on the value it computes only. *)
+Fixpoint tail_tape (k : nat) (L : list pv) (b : anf pv bare)
+  (bA : anf avar bare) (bD : anf (val (dual R)) bare) (s : store R)
+  (n : dvar W) {struct b} : Prop :=
+  match b, bA, bD with
+  | ALet _ eP cP, ALet _ eA cA, ALet _ eD cD =>
+      (ptail cP -> forall eW, value_eq (gW L) eP eW ->
+         fold_tape k eA eW eD s n) /\
+      (forall x, pa x = let_binder k eA ->
+         aeval_value (duals reals) eD = Some (pd x) ->
+         tail_tape (S k) (x :: L) (cP x) (cA (let_binder k eA)) (cD (pd x))
+           s n)
+  | _, _, _ => True
   end.
 
 Definition asim_body (bP : anf pv bare) : Prop :=
@@ -1182,7 +1188,8 @@ Definition asim_body (bP : anf pv bare) : Prop :=
     (m = Forward -> vo_result vo v s1) /\
     forall s2 O, agree_prim c' (inplace wP pp) s1 s2 -> rctx L c wP pp O (useful cv m k bA) s2 ->
       seed_ok c ty se s2 -> tapes_ok L s2 ->
-      (forall ix sx n0, pp = PArray ix sx -> inplace wP pp = Some n0 -> tail_tape k L bP s2 n0) ->
+      (forall ix sx n0, pp = PArray ix sx -> inplace wP pp = Some n0 ->
+         tail_tape k L bP bA bD s2 n0) ->
       exists s3, run rv s2 = Some s3 /\ (m = Forward -> vo_kept vo s2 s3) /\
         same_ex pp wP s s3 /\ tkeep c (inplace wP pp) s2 s3 /\
         rev_frame c (inplace wP pp) O s2 s3 /\
@@ -1430,14 +1437,15 @@ Lemma fold_tape_same k eA eW eD s s' n :
 Proof. by move=> E E' H; rewrite /fold_tape in H *; rewrite E E'. Qed.
 
 (* The tail tape only reads the tape of the storage and the storage. *)
-Lemma tail_tape_same k L b s s' n :
+Lemma tail_tape_same k L b bA bD s s' n :
   store_get s' (keyv (TapeOf n)) = store_get s (keyv (TapeOf n)) ->
   store_get s' (keyv n) = store_get s (keyv n) ->
-  tail_tape k L b s n -> tail_tape k L b s' n.
+  tail_tape k L b bA bD s n -> tail_tape k L b bA bD s' n.
 Proof.
-move=> Et En; elim: b k L => [a e c IH | x] k L //= [Htl Hnext].
-split=> [Hpt eA eW eD HA HW HD | y]; last exact: IH.
-exact: (fold_tape_same _ _ _ _ s _ _ Et En (Htl Hpt eA eW eD HA HW HD)).
+move=> Et En; elim: b k L bA bD => [a e c IH | x] k L
+  [? eA cA | ?] [? eD cD | ?] //= [Htl Hnext].
+split=> [Hpt eW HW | y Ey Hev]; last exact: IH _ _ _ _ _ (Hnext y Ey Hev).
+exact: (fold_tape_same _ _ _ _ s _ _ Et En (Htl Hpt eW HW)).
 Qed.
 
 (* A fold that is not updated in place carries a real: its tape is the one of
@@ -3176,7 +3184,7 @@ case Es: (storage wP tail eP) Hn => [m0 |] Hn.
     case=> [Hpt | [ix [sx Epp]]]; last first.
       have Hk p : In p L -> (vid (pw p) < k)%nat by case/Htt.
       have Hpt := is_tail_shape L k cP cW HcW Hk Ht.
-      exact: (proj1 (Htt2 ix sx (stored o) Epp Hex) Hpt eA eW eD HeA HeW HeD).
+      exact: (proj1 (Htt2 ix sx (stored o) Epp Hex) Hpt eW HeW).
     have Hmf : m = Forward.
       by destruct m => //; case: (Hrpl erefl Hpt).
     case Ecp: (cp) Ft1 => Ft1.
@@ -3377,8 +3385,8 @@ split.
 split=> //.
 move=> s2 O Hag Hr Hseed Htp Htt2.
 have Htt2' : forall ix sx n0, pp = PArray ix sx -> inplace wP pp = Some n0 ->
-    tail_tape (S k) (x :: L) (cP x) s2 n0.
-  by move=> ix sx n0 E1 E2; exact: (proj2 (Htt2 ix sx n0 E1 E2) x).
+    tail_tape (S k) (x :: L) (cP x) (cA (let_binder k eA)) (cD (pd x)) s2 n0.
+  by move=> ix sx n0 E1 E2; exact: (proj2 (Htt2 ix sx n0 E1 E2) x erefl erefl).
 have Hok := rctx_owners_ok _ _ _ _ _ _ _ Hr.
 have Hn_notin : ~ In (DBound (c, c)) (map snd O).
   move/(in_map_iff _ _ _) => [[t0 m0] [/= E Hin]]; subst m0.
@@ -3532,11 +3540,11 @@ have Htp2 : tapes_ok (x :: L) s2a.
   have [lt Hlt] := Htp q Hq Hrq; exists lt.
   by rewrite /s2a store_get_set_other.
 have Htt2a : forall ix sx n0, pp = PArray ix sx -> inplace wP pp = Some n0 ->
-    tail_tape (S k) (x :: L) (cP x) s2a n0.
+    tail_tape (S k) (x :: L) (cP x) (cA (let_binder k eA)) (cD (pd x)) s2a n0.
   move=> ix sx n0 E1 E2.
   have Hn0 : ~ is_bar n0.
     by move: E2; rewrite /inplace; case: (owner wP pp) => // o [<-].
-  apply: (tail_tape_same _ _ _ s2 _ _ _ _ (Htt2' _ _ _ E1 E2)).
+  apply: (tail_tape_same _ _ _ _ _ s2 _ _ _ _ (Htt2' _ _ _ E1 E2)).
     by rewrite /s2a store_get_set_other //; exact: keyv_bar_other.
   by rewrite /s2a store_get_set_other //; exact: keyv_bar_other.
 have [sb [Rrb [Krb [Ksx [Trb [Frb [Srb [Prb Bb]]]]]]]] :=

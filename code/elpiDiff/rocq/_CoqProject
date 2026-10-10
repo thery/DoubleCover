@@ -44,6 +44,7 @@ AdjointNestSide.v
 AdjointNestFwd.v
 AdjointNest.v
 AdjointNestRev.v
+AdjointNestLoop.v
 AdjointNesty.v
 AdjointTop.v
 AdjointMode.v

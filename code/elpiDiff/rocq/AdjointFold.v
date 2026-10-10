@@ -90,17 +90,20 @@ Qed.
 
 (* A body ending with a set has no tail fold to take a tape from. *)
 Lemma tail_tape_abody (bP : anf pv bare) : abody bP ->
-  forall k L s n, tail_tape cv k L bP s n.
+  forall k L bA bD s n, anf_eq (gA L) bP bA -> tail_tape cv k L bP bA bD s n.
 Proof.
-elim: bP => [a e c IH | x] //= Hab k L s n.
+elim: bP => [a e c IH | x] //= Hab k L [? eA cA | ?] [? eD cD | ?] s n //=
+  [HeA HcA].
 split.
-  move=> _ eA eW eD HA _ _.
-  by case: e Hab HA => [? ? | ? ? ? | ? ? | ? ? ? | ? ? ? | ? ? ? | ? ? ? ? ?] //= _;
-    case: eA.
-move=> y.
-case: e Hab => [? ? | ? ? ? | ? ? | ? ? ? | ? ? ? | ? ? ? | ? ? ? ? ?] //= Hab;
-  try exact: IH y (Hab y) _ _ _ _.
-by rewrite Hab.
+  move=> _ eW _.
+  by case: e Hab HeA => [? ? | ? ? ? | ? ? | ? ? ? | ? ? ? | ? ? ? | ? ? ? ? ?]
+    //= _; case: eA.
+move=> y Ey _.
+have HcA' : anf_eq (gA (y :: L)) (c y) (cA (let_binder k eA)).
+  by rewrite /= Ey; exact: HcA.
+case: e Hab HeA => [? ? | ? ? ? | ? ? | ? ? ? | ? ? ? | ? ? ? | ? ? ? ? ?]
+  // Hab _; try exact: IH y (Hab y) _ _ _ _ _ _ HcA'.
+by rewrite (Hab y).
 Qed.
 
 (* A live fold has a live state or a live innermost fold. *)
@@ -1294,8 +1297,10 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
     have [l'' Hl''] := proj1 Tsp _ _ Hl'.
     exact: (proj1 T1 _ _ Hl'').
   have Htt1 : forall ix0 sx0 n0, PArray ix sx = PArray ix0 sx0 ->
-      Some n = Some n0 -> tail_tape cv (S (S k)) (sx :: ix :: L) (bP ix sx) s1 n0.
-    by move=> ix0 sx0 n0 _ _; exact: tail_tape_abody.
+      Some n = Some n0 -> tail_tape cv (S (S k)) (sx :: ix :: L) (bP ix sx)
+        (bA (pa ix) (pa sx)) (bD (pd ix) (pd sx)) s1 n0.
+    move=> ix0 sx0 n0 _ _.
+    by apply: tail_tape_abody; [exact: Hab | exact: HbA].
   have [s3 [R3 [_ [_ [T3 [RF3 [Sh3 [Pr3 _]]]]]]]] :=
     Hrv s1 O' (agree_prim_refl _ _ _) Hr1 Hseed Htp1 Htt1.
   have Hs3v : forall v, ~ is_bar v -> store_get s3 (keyv v) = store_get s1 (keyv v).

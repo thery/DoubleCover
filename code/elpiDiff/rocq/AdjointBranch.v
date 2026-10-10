@@ -48,14 +48,14 @@ Lemma same_fresh j i : j <> i -> same_term (AVar (fresh j)) (AVar (AV i false)) 
 Proof. by move=> H; apply/Nat.eqb_neq. Qed.
 
 (* Outside the body of an in-place loop, there is no tail tape to give. *)
-Lemma no_tail_tape_branch cv k L b s :
+Lemma no_tail_tape_branch cv k L b bA bD s :
   forall ix sx n0, PBranch = PArray ix sx -> None = Some n0 ->
-  tail_tape cv k L b s n0.
+  tail_tape cv k L b bA bD s n0.
 Proof. by []. Qed.
 
-Lemma no_tail_tape_scalar cv k L b s :
+Lemma no_tail_tape_scalar cv k L b bA bD s :
   forall ix sx n0, PScalar = PArray ix sx -> None = Some n0 ->
-  tail_tape cv k L b s n0.
+  tail_tape cv k L b bA bD s n0.
 Proof. by []. Qed.
 
 Definition dummy_tvar : tvar W := TVar ResultVar Real None false false false false None.
@@ -1571,7 +1571,7 @@ have Gen : forall (bP : anf pv bare) bA bW bT bD cb fb rb cb',
     exact: (proj1 T1 _ _ Hlt).
   have [s3 [R3 [_ [_ [T3 [F3 [S3 [P3 _]]]]]]]] :=
     Hrev s1 O (agree_prim_refl _ _ _) Hr1 Hseed Htp1
-      (no_tail_tape_branch _ _ _ _ _).
+      (no_tail_tape_branch _ _ _ _ _ _ _).
   exists s3; split; first by rewrite run_app R1.
   have Hprim : forall v, below c v -> consistent v -> is_primal v ->
       store_get s3 (keyv v) = store_get s2 (keyv v).
@@ -2097,7 +2097,7 @@ have Hloop : exists sf,
       exact: (proj1 Ts1 _ _ Hlt).
     have [s3 [R3 [_ [_ [T3 [F3 [S3 [P3 _]]]]]]]] :=
       Hrev s1 O' (agree_prim_refl _ _ _) Hr1 Hseed Htp1
-        (no_tail_tape_scalar _ _ _ _ _).
+        (no_tail_tape_scalar _ _ _ _ _ _ _).
     exists s3; split; first by rewrite /body /= run_app R1.
     have Hp3 : forall v, below c v -> consistent v -> ~ is_tape v ->
         (forall m, v = BarOf m -> ~ In m (map snd O')) ->
@@ -2926,7 +2926,7 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
     have [l2 Hl2] := proj1 T1 _ _ Hl1.
     exact: (proj1 Tmid _ _ Hl2).
   have [s3 [R3 [_ [_ [T3 [F3 [S3 [P3 _]]]]]]]] :=
-    Hrev smid O' Hag Hr1 Hseed Htp1 (no_tail_tape_scalar _ _ _ _ _).
+    Hrev smid O' Hag Hr1 Hseed Htp1 (no_tail_tape_scalar _ _ _ _ _ _ _).
   exists s3; split.
     by rewrite /body run_app Rp run_app R1 Rm R3.
   have Hbc : forall v, below c v -> below (S (S c)) v.
