@@ -782,7 +782,7 @@ have Hstep : forall zz s' st tr st', Inv zz s' st tr -> aeval (duals reals) (bD 
   (* the tape gets the element the set overwrites *)
   split.
   { move=> Efr.
-    rewrite (Tp3 Efr _ (etrans T'' (Tp Efr))) fold_pushes_snoc -Ez.
+    rewrite (Tp3 Efr erefl _ (etrans T'' (Tp Efr))) fold_pushes_snoc -Ez.
     by rewrite rev_app_distr -app_assoc. }
   split.
   { move=> Ers; have [tp Htp] := Tr Ers.
@@ -1403,7 +1403,8 @@ split.
   exact: Hn_dead Hnl El.
 do 4!(split=> //).
 (* in a loop body, the state before the fold is back in the storage *)
-move=> Hnl _ o; rewrite Hown => -[<-]; rewrite /fold_back Hlo Hhi Hflv => El.
+move=> Hnl _ o; rewrite Hown => -[<-]; rewrite /fold_back Hlo Hhi Hflv.
+split=> El; last by rewrite Nn El.
 exists tr; split; first exact: Htr.
 split; first by rewrite Nn El Hst0'.
 move=> l0 E; rewrite (Tpf El) /=.

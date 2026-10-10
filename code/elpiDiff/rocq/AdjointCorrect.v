@@ -958,10 +958,10 @@ Definition fold_grow (k : nat) (eA : value avar bare)
   | _, _ => True
   end.
 
-(* The reverse sweep of an in-place fold inside a loop body, from s to s',
-   when its innermost fold is live: it leaves in its storage the state before
+(* The reverse sweep of an in-place fold inside a loop body, from s to s':
+   when its innermost fold is live, it leaves in its storage the state before
    the fold, the value of the owner o, and pops from the tape of the storage
-   the elements the steps pushed. *)
+   the elements the steps pushed; otherwise it leaves the storage as it is. *)
 Definition fold_back (k : nat) (eA : value avar bare)
   (eD : value (val (dual R)) bare) (s s' : store R) (n : dvar W) (o : pv) :
   Prop :=
@@ -969,72 +969,82 @@ Definition fold_back (k : nat) (eA : value avar bare)
   | AFold _ _ _ initA bA, AFold _ lo hi _ b =>
       match aeval_atom (duals reals) lo, aeval_atom (duals reals) hi with
       | Some (VInt l), Some (VInt h) =>
-          fold_live cv k initA bA = true ->
-          exists tr,
-          fold_trace (fun v w => aeval (duals reals) (b v w)) l (count l h)
-            (pd o) = Some tr /\
-          store_get s' (keyv n) = Some (primal (pd o)) /\
-          forall l0,
-          store_get s (keyv (TapeOf n)) =
-            Some (VTape (rev (fold_pushes b l tr) ++ l0)) ->
-          store_get s' (keyv (TapeOf n)) = Some (VTape l0)
+          (fold_live cv k initA bA = true ->
+           exists tr,
+           fold_trace (fun v w => aeval (duals reals) (b v w)) l (count l h)
+             (pd o) = Some tr /\
+           store_get s' (keyv n) = Some (primal (pd o)) /\
+           forall l0,
+           store_get s (keyv (TapeOf n)) =
+             Some (VTape (rev (fold_pushes b l tr) ++ l0)) ->
+           store_get s' (keyv (TapeOf n)) = Some (VTape l0)) /\
+          (fold_live cv k initA bA = false ->
+           store_get s' (keyv n) = store_get s (keyv n))
       | _, _ => True
       end
   | _, _ => True
   end.
 
-(* Whether a body ends with `let x = fold in ret x`, a varied fold whose
-   innermost fold is live. *)
-Fixpoint tail_fold_back (k : nat) (b : anf avar bare) : bool :=
+(* Whether a body ends with `let x = fold in ret x`, a varied fold: then
+   whether its innermost fold is live. *)
+Fixpoint tail_fold_state (k : nat) (b : anf avar bare) : option bool :=
   match b with
   | ALet _ e b' =>
       match e, b' (let_binder k e) with
       | AFold _ _ _ initA bA, ARet (AVar y) =>
-          (aid y =? k)%nat && varied_value k e && fold_live cv k initA bA
-      | _, _ => tail_fold_back (S k) (b' (let_binder k e))
+          if (aid y =? k)%nat && varied_value k e
+          then Some (fold_live cv k initA bA) else None
+      | _, _ => tail_fold_state (S k) (b' (let_binder k e))
       end
-  | ARet _ => false
+  | ARet _ => None
   end.
 
 (* The reverse sweep of a body computing an array in place inside a loop,
    when it ends with such a fold: it leaves the owner as it was before the
-   body. *)
+   body, the tape popped, when the innermost fold is live; it leaves the
+   storage as it is otherwise. *)
 Definition tail_back (k : nat) (bA : anf avar bare)
   (bD : anf (val (dual R)) bare) (wP : option (atom pv)) (pp : pplace)
   (ty : ty) (s s' : store R) : Prop :=
-  ~ not_in_loop pp -> is_array ty -> tail_fold_back k bA = true ->
-  forall o, owner wP pp = Some o ->
-  store_get s' (keyv (stored o)) = Some (primal (pd o)) /\
-  forall l0,
-  store_get s (keyv (TapeOf (stored o))) =
-    Some (VTape (rev (body_pushes bD (pd o)) ++ l0)) ->
-  store_get s' (keyv (TapeOf (stored o))) = Some (VTape l0).
+  ~ not_in_loop pp -> is_array ty -> forall o, owner wP pp = Some o ->
+  match tail_fold_state k bA with
+  | Some true =>
+      store_get s' (keyv (stored o)) = Some (primal (pd o)) /\
+      forall l0,
+      store_get s (keyv (TapeOf (stored o))) =
+        Some (VTape (rev (body_pushes bD (pd o)) ++ l0)) ->
+      store_get s' (keyv (TapeOf (stored o))) = Some (VTape l0)
+  | Some false =>
+      store_get s' (keyv (stored o)) = store_get s (keyv (stored o))
+  | None => True
+  end.
 
-Lemma tail_fold_back_ret k a eA cA :
+Lemma tail_fold_state_ret k a eA cA :
   cA (let_binder k eA) = ARet (AVar (let_binder k eA)) ->
-  tail_fold_back k (ALet a eA cA) = true ->
-  varied_value k eA = true /\
+  tail_fold_state k (ALet a eA cA) =
   match eA with
-  | AFold _ _ _ initA bA => fold_live cv k initA bA = true
-  | _ => False
+  | AFold _ _ _ initA bA =>
+      if varied_value k eA then Some (fold_live cv k initA bA) else None
+  | _ => None
   end.
 Proof.
 move=> E; rewrite /= E.
 case: eA E => //= ? ? ? initA bA E.
-by rewrite E Nat.eqb_refl /= => /andb_true_iff.
+by rewrite E Nat.eqb_refl.
 Qed.
 
-Lemma tail_fold_back_let k a eA cA :
-  tail_fold_back k (ALet a eA cA) = true ->
-  tail_fold_back (S k) (cA (let_binder k eA)) = true \/
-  exists y, cA (let_binder k eA) = ARet (AVar y) /\ aid y = k.
+Lemma tail_fold_state_let k a eA cA :
+  tail_fold_state k (ALet a eA cA) = tail_fold_state (S k) (cA (let_binder k eA))
+  \/ exists y, cA (let_binder k eA) = ARet (AVar y) /\ aid y = k /\
+       exists fa lo hi i b, eA = AFold fa lo hi i b.
 Proof.
 rewrite /=.
-case: eA => [? ? | ? ? ? | ? ? | ? ? ? | ? ? ? | ? ? ? | ? ? ? ? ?] /=;
-  try by move=> H; left.
-case E: (cA _) => [? ? ? | [y | |]] /=; try by move=> H; left.
-move=> /andb_true_iff [/andb_true_iff [/Nat.eqb_eq Ey _] _].
-by right; exists y.
+case: eA => [? ? | ? ? ? | ? ? | ? ? ? | ? ? ? | ? ? ? | fa lo hi i b] /=;
+  try by left.
+case E: (cA _) => [? ? ? | [y | |]] /=; try by left.
+case Ey: (aid y =? k)%nat => /=.
+  by right; exists y; split=> //; split; [exact/Nat.eqb_eq | exists fa, lo, hi, i, b].
+by left.
 Qed.
 
 (* The pushes of a step ending with a fold are those of the fold. *)
@@ -1047,29 +1057,71 @@ Lemma fold_pushes_fix (b : val (dual R) -> val (dual R) -> anf (val (dual R)) ba
      end) z tr = fold_pushes b z tr.
 Proof. by elim=> [| st tr IH] z //=; rewrite IH. Qed.
 
-(* A tail fold whose reverse sweep restores its storage restores the owner
-   and pops the pushes of the step. *)
+(* The reverse sweep of a tail fold, read on the body it ends. *)
 Lemma fold_back_tail L k (eP : value pv bare) eA eD aD cD ve s s' n o :
   value_eq (gA L) eP eA -> value_eq (gD L) eP eD ->
   aeval_value (duals reals) eD = Some ve -> cD ve = ARet (AVar ve) ->
-  match eA with
-  | AFold _ _ _ initA bA => fold_live cv k initA bA = true
-  | _ => False
-  end ->
   fold_back k eA eD s s' n o ->
-  store_get s' (keyv n) = Some (primal (pd o)) /\
-  forall l0,
-  store_get s (keyv (TapeOf n)) =
-    Some (VTape (rev (body_pushes (ALet aD eD cD) (pd o)) ++ l0)) ->
-  store_get s' (keyv (TapeOf n)) = Some (VTape l0).
+  match eA with
+  | AFold _ _ _ initA bA =>
+      if fold_live cv k initA bA then
+        store_get s' (keyv n) = Some (primal (pd o)) /\
+        forall l0,
+        store_get s (keyv (TapeOf n)) =
+          Some (VTape (rev (body_pushes (ALet aD eD cD) (pd o)) ++ l0)) ->
+        store_get s' (keyv (TapeOf n)) = Some (VTape l0)
+      else store_get s' (keyv n) = store_get s (keyv n)
+  | _ => True
+  end.
 Proof.
 case: eA => // ? ? ? initA bA; case: eP => // ? ? ? ? ? HA.
-case: eD => // ? lo hi ? b HD Ev Ec Hfl.
+case: eD => // ? lo hi ? b HD Ev Ec.
 move: Ev; rewrite /= /fold_back.
 case El: (aeval_atom _ lo) => [[| l | | |] |] //.
-case Eh: (aeval_atom _ hi) => [[| h | | |] |] // Ev /(_ Hfl) [tr [Htr [Hn Ht]]].
+case Eh: (aeval_atom _ hi) => [[| h | | |] |] // Ev [Hlv Hdd].
+case Efl: (fold_live _ _ _ _); last exact: Hdd.
+have [tr [Htr [Hn Ht]]] := Hlv Efl.
 split=> // l0; rewrite Ev Ec Htr fold_pushes_fix.
 exact: Ht.
+Qed.
+
+Lemma tail_fold_state_novar k a eA cA :
+  cA (let_binder k eA) = ARet (AVar (let_binder k eA)) ->
+  varied_value k eA = false -> tail_fold_state k (ALet a eA cA) = None.
+Proof.
+move=> E Hv; rewrite tail_fold_state_ret //.
+by case: eA Hv E => //= ? ? ? ? ? ->.
+Qed.
+
+(* The reverse sweep of a body ending with a varied fold is the one of the
+   fold. *)
+Lemma tail_back_fold k a eA cA aD eD cD (s s' : store R) n o :
+  cA (let_binder k eA) = ARet (AVar (let_binder k eA)) ->
+  match eA with
+  | AFold _ _ _ initA bA =>
+      if fold_live cv k initA bA then
+        store_get s' (keyv n) = Some (primal (pd o)) /\
+        forall l0,
+        store_get s (keyv (TapeOf n)) =
+          Some (VTape (rev (body_pushes (ALet aD eD cD) (pd o)) ++ l0)) ->
+        store_get s' (keyv (TapeOf n)) = Some (VTape l0)
+      else store_get s' (keyv n) = store_get s (keyv n)
+  | _ => True
+  end ->
+  match tail_fold_state k (ALet a eA cA) with
+  | Some true =>
+      store_get s' (keyv n) = Some (primal (pd o)) /\
+      forall l0,
+      store_get s (keyv (TapeOf n)) =
+        Some (VTape (rev (body_pushes (ALet aD eD cD) (pd o)) ++ l0)) ->
+      store_get s' (keyv (TapeOf n)) = Some (VTape l0)
+  | Some false => store_get s' (keyv n) = store_get s (keyv n)
+  | None => True
+  end.
+Proof.
+move=> E; rewrite tail_fold_state_ret //.
+case: eA E => // ? ? ? initA bA _.
+by case: (varied_value _ _).
 Qed.
 
 (* A step whose let does not end it pushes what its continuation pushes. *)
@@ -3063,8 +3115,7 @@ case Es: (storage wP tail eP) Hn => [m0 |] Hn.
     split; first exact: tkeep_refl.
     split=> //; split; first exact: (r_shape _ _ _ _ _ _ _ Hr).
     split; last first.
-      move=> _ _ /(tail_fold_back_ret _ _ _ _ EA) [Hv _].
-      by move: Hv; rewrite -/vr Hvr.
+      by move=> _ _ o0 _; rewrite (tail_fold_state_novar _ _ _ _ EA Hvr).
     rewrite -(IHo L k c wP pp _ (Array z) tail eA eW eD ve o HeA HeW HeD Hs
       Hlv_e Es Ho Hve Hvr (r_args _ _ _ _ _ _ _ Hr) (r_written _ _ _ _ _ _ _ Hr)
       _ Hte Htail_ty).
@@ -3178,9 +3229,9 @@ case Es: (storage wP tail eP) Hn => [m0 |] Hn.
       by move=> m0 Hm; left; rewrite oset_snd in Hm.
     by right.
   split=> //; split=> //.
-  move=> Hnl _ /(tail_fold_back_ret _ _ _ _ EA) [_ Hf] o0 Ho0.
-  rewrite Ho in Ho0; case: Ho0 => <-.
-  exact: (fold_back_tail L k eP eA eD aD cD ve s2 s3 _ o HeA HeD Hve ED Hf
+  move=> Hnl _ o0 Ho0; rewrite Ho in Ho0; case: Ho0 => <-.
+  apply: (tail_back_fold _ _ _ _ _ _ _ _ _ _ _ EA).
+  exact: (fold_back_tail L k eP eA eD aD cD ve s2 s3 _ o HeA HeD Hve ED
     (B3 Hnl Hsn o Ho)).
 case: Hn => En [Ec0 Erec]; subst n c0 rec.
 have [Hht [Hz Hra]] := IHa L k wP pp tail eA eW eD te ve HeA HeW HeD HL Hte Hve.
@@ -3438,14 +3489,16 @@ case Eac: (ac) Hre => Hre; last first.
   apply: (rev_frame_mono c (S c) _ _ _ _ _ Frb (Nat.le_succ_diag_r c)).
   by move=> m0 Hm; left.
   split=> //; split=> //.
-  move=> Hnl Harr /tail_fold_back_let [Ht | [y [Ey Eky]]]; last first.
+  move=> Hnl Harr o Ho.
+  case: (tail_fold_state_let k aA eA cA) => [-> | [y [Ey [Eky _]]]]; last first.
     by case: (Hnret y Ey Eky Harr).
-  move=> o Ho; have [Hso Hto] := Bb Hnl Harr Ht o Ho.
-  split=> // l0 E; apply: Hto; move: E.
+  have Bo := Bb Hnl Harr o Ho.
+  case Ets: (tail_fold_state (S k) (cA (let_binder k eA))) Bo => [[|] |] //.
+  move=> [Hso Hto]; split=> // l0 E; apply: Hto; move: E.
   rewrite (body_pushes_let aD eD cD ve (pd o) Hve) // => r Er.
   have [r' Er'] := cont_ret_DA L x cP cA cD (HcA x _) (HcD x _)
     (ex_intro _ r Er).
-  by move: Ht; rewrite /x /= in Er'; rewrite Er'.
+  by move: Ets; rewrite /x /= in Er'; rewrite Er'.
 (* x is active: its adjoint is declared, then transposed *)
 have Hcond : varied_value k eA && atom_member (AVar (let_binder k eA))
     (fst (needs cv m (S k) (cA (let_binder k eA)))) = true.
@@ -3621,14 +3674,20 @@ split=> //; split.
   rewrite P3 (oput_notin O _ _ Hn_notin) Prb.
   exact: (result_pairing_fresh O ty _ v se s2 (DBound (c, c)) _ Hok erefl
     Hn_notin Hsel).
-move=> Hnl Harr /tail_fold_back_let [Ht | [y [Ey Eky]]]; last first.
+move=> Hnl Harr o Ho.
+case: (tail_fold_state_let k aA eA cA) => [-> | [y [Ey [Eky _]]]]; last first.
   by case: (Hnret y Ey Eky Harr).
-move=> o Ho.
 have He : inplace wP pp = Some (stored o) by rewrite /inplace Ho.
 have [Hb0 [Hc0 Hp0]] := ex_below _ _ _ _ _ _ _ _ Hs He.
 have Hne : stored o <> DBound (c, c) by move=> E; rewrite E /= in Hb0; lia.
-have [Hso Hto] := Bb Hnl Harr Ht o Ho.
-split; first by rewrite (K3 _ (below_mono c c2 _ Hb0 Hcc2) Hc0 Hp0 Hne).
+have Hk3 := K3 _ (below_mono c c2 _ Hb0 Hcc2) Hc0 Hp0 Hne.
+have Bo := Bb Hnl Harr o Ho.
+case Ets: (tail_fold_state (S k) (cA (let_binder k eA))) Bo => [[|] |] //;
+  last first.
+  move=> Bo; rewrite Hk3 Bo /s2a store_get_set_other; first exact: keyv_bar_other.
+  by [].
+move=> [Hso Hto].
+split; first by rewrite Hk3.
 move=> l0 E.
 have Hneq : Some (DBound (c, c)) <> Some (stored o).
   by move=> /Some_inj E'; apply: Hne.
@@ -3637,7 +3696,7 @@ rewrite /s2a store_get_set_other; first exact: keyv_bar_other.
 move: E; rewrite (body_pushes_let aD eD cD (VReal d) (pd o) Hve) // => r Er.
 have [r' Er'] := cont_ret_DA L x cP cA cD (HcA x _) (HcD x _)
   (ex_intro _ r Er).
-by move: Ht; rewrite /x /= in Er'; rewrite Er'.
+by move: Ets; rewrite /x /= in Er'; rewrite Er'.
 Qed.
 
 (* ---------------------------------------------------------------------------

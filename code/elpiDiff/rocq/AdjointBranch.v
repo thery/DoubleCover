@@ -798,6 +798,7 @@ Definition psim_body (bP : anf pv bare) : Prop :=
     (forall o, owner wP pp = Some o -> ibody bP ->
        store_get s1 (keyv (stored o)) = Some (primal v) /\
        (sweep_eqb m Forward && (trecorded (pt o) || tail_live k bA) = true ->
+        tid (pt o) = None ->
         forall l0, store_get s (keyv (TapeOf (stored o))) = Some (VTape l0) ->
         store_get s1 (keyv (TapeOf (stored o))) =
           Some (VTape (rev (body_pushes bD (pd o)) ++ l0)))).
@@ -1013,7 +1014,7 @@ have [Hibc [Ebp Etl]] : ibody (cP x) /\
   by move: (Hsn wP tail); rewrite /=; case: (vty (pw q)) Hqa.
 have [Vt1 Vt2] := Vt o Ho Hibc.
 split; first exact: Vt1.
-move=> Hcnd l0 E0; rewrite Ebp; apply: Vt2; first by rewrite -Etl.
+move=> Hcnd Htid l0 E0; rewrite Ebp; apply: Vt2 => //; first by rewrite -Etl.
 rewrite -E0.
 have Hno := s_num _ _ _ _ _ _ _ Hs o HoL.
 apply: (proj2 T1); [by rewrite /stored /=; lia | by [] |].
@@ -1171,7 +1172,7 @@ case Erec: (sweep_eqb m Forward && trecorded (pt sx));
   split; first exact: store_get_set_same.
   move=> o [<-] _.
   split; first exact: store_get_set_same.
-  move=> _ t0; rewrite Hlt => -[<-].
+  move=> _ _ t0; rewrite Hlt => -[<-].
   rewrite store_get_set_other // /s0 store_get_set_same.
   have Ebp : body_pushes
       (ALet aD (ASet (AVar (pd sx)) (amap pd iP) (amap pd vP)) cD) (pd sx) =

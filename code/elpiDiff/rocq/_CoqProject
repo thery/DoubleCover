@@ -40,5 +40,8 @@ AdjointCorrect.v
 AdjointBranch.v
 AdjointFold.v
 AdjointFoldy.v
+AdjointNestSide.v
+AdjointNestFwd.v
+AdjointNest.v
 AdjointTop.v
 AdjointMode.v
