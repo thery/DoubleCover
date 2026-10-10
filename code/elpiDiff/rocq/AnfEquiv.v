@@ -14,6 +14,8 @@
 
 From Stdlib Require Import String ZArith List.
 From ElpiDiff Require Import Syntax Anf Normalize Correctness.
+From Corelib Require Import ssreflect ssrbool ssrfun.
+Set Bullet Behavior "None".
 
 Import ListNotations.
 
@@ -69,7 +71,9 @@ Fixpoint adefinition_eq (G : list (V1 * V2)) (d1 : adefinition V1 bare) (d2 : ad
 
 (* A related pair of atoms stays related in a larger context. *)
 Lemma atom_eq_incl G H a1 a2 : incl G H -> atom_eq G a1 a2 -> atom_eq H a1 a2.
-Proof. destruct a1, a2; simpl; auto. Qed.
+Proof.
+by case: a1 => [x1 | s1 | k1]; case: a2 => [x2 | s2 | k2] //= /(_ (x1, x2)).
+Qed.
 
 End AnfEq.
 
@@ -92,66 +96,88 @@ Lemma norm_eq (G : list (atom V1 * atom V2)) t1 t2 :
   forall k1 k2, (forall H' a1 a2, incl H H' -> atom_eq H' a1 a2 -> anf_eq H' (k1 a1) (k2 a2)) ->
   anf_eq H (norm t1 k1) (norm t2 k2).
 Proof.
-  induction 1 as [G x1 x2 Hin | G s | G n | G f a1 a2 Ha IHa
-                 | G f a1 a2 b1 b2 Ha IHa Hb IHb | G a1 a2 i1 i2 Ha IHa Hi IHi
-                 | G a1 a2 i1 i2 v1 v2 Ha IHa Hi IHi Hv IHv
-                 | G e1 e2 b1 b2 He IHe Hb IHb
-                 | G c1 c2 t1 t2 e1 e2 Hc IHc Ht IHt He IHe
-                 | G lo1 lo2 hi1 hi2 b1 b2 Hlo IHlo Hhi IHhi Hb IHb
-                 | G lo1 lo2 hi1 hi2 init1 init2 b1 b2 Hlo IHlo Hhi IHhi Hinit IHinit Hb IHb];
-    intros H HG k1 k2 Hk; simpl.
-  - (* Var *) apply Hk; [apply incl_refl | apply HG, Hin].
-  - (* Num *) apply Hk; [apply incl_refl | reflexivity].
-  - (* Nat *) apply Hk; [apply incl_refl | reflexivity].
-  - (* Op1 *) apply IHa; auto; intros H' x1 x2 HH' Hx; simpl; split; [auto |].
-    intros y1 y2; apply Hk; [intros z Hz; right; auto | left; reflexivity].
-  - (* Op2 *) apply IHa; auto; intros H' x1 x2 HH' Hx.
-    apply IHb; [intros u1 u2 Hu; apply (atom_eq_incl _ _ H); auto |].
-    intros H'' y1 y2 HH'' Hy; simpl; split; [split; [auto | split; [apply (atom_eq_incl _ _ H'); auto | auto]] |].
-    intros z1 z2; apply Hk; [intros z Hz; right; apply HH'', HH', Hz | left; reflexivity].
-  - (* Get *) apply IHa; auto; intros H' x1 x2 HH' Hx.
-    apply IHi; [intros u1 u2 Hu; apply (atom_eq_incl _ _ H); auto |].
-    intros H'' y1 y2 HH'' Hy; simpl; split; [split; [apply (atom_eq_incl _ _ H'); auto | auto] |].
-    intros z1 z2; apply Hk; [intros z Hz; right; apply HH'', HH', Hz | left; reflexivity].
-  - (* Set *) apply IHa; auto; intros H' x1 x2 HH' Hx.
-    apply IHi; [intros u1 u2 Hu; apply (atom_eq_incl _ _ H); auto |].
-    intros H'' y1 y2 HH'' Hy.
-    apply IHv; [intros u1 u2 Hu; apply (atom_eq_incl _ _ H); [intros z Hz; apply HH'', HH', Hz | auto] |].
-    intros H3 w1 w2 HH3 Hw; simpl; split.
-    + split; [apply (atom_eq_incl _ _ H'); [intros z Hz; apply HH3, HH'', Hz | auto] |].
-      split; [apply (atom_eq_incl _ _ H''); auto | auto].
-    + intros z1 z2; apply Hk; [intros z Hz; right; apply HH3, HH'', HH', Hz | left; reflexivity].
-  - (* Let *) apply IHe; auto; intros H' x1 x2 HH' Hx.
-    apply IHb.
-    + intros u1 u2 [E | Hu]; [inversion E; subst; exact Hx | apply (atom_eq_incl _ _ H); auto].
-    + intros H'' y1 y2 HH'' Hy; apply Hk; [intros z Hz; apply HH'', HH', Hz | exact Hy].
-  - (* Ite *) apply IHc; auto; intros H' x1 x2 HH' Hx; simpl; split.
-    + split; [exact Hx | split].
-      * apply IHt; [intros u1 u2 Hu; apply (atom_eq_incl _ _ H); auto | simpl; auto].
-      * apply IHe; [intros u1 u2 Hu; apply (atom_eq_incl _ _ H); auto | simpl; auto].
-    + intros y1 y2; apply Hk; [intros z Hz; right; auto | left; reflexivity].
-  - (* Map *) apply IHlo; auto; intros H' l1 l2 HH' Hl.
-    apply IHhi; [intros u1 u2 Hu; apply (atom_eq_incl _ _ H); auto |].
-    intros H'' h1 h2 HH'' Hh; simpl; split.
-    + split; [apply (atom_eq_incl _ _ H'); auto | split; [exact Hh |]].
-      intros i1 i2; apply (IHb (AVar i1) (AVar i2)).
-      * intros u1 u2 [E | Hu]; [inversion E; subst; left; reflexivity |].
-        apply (atom_eq_incl _ _ H); [intros z Hz; right; apply HH'', HH', Hz | auto].
-      * simpl; auto.
-    + intros y1 y2; apply Hk; [intros z Hz; right; apply HH'', HH', Hz | left; reflexivity].
-  - (* Fold *) apply IHlo; auto; intros H' l1 l2 HH' Hl.
-    apply IHhi; [intros u1 u2 Hu; apply (atom_eq_incl _ _ H); auto |].
-    intros H'' h1 h2 HH'' Hh.
-    apply IHinit; [intros u1 u2 Hu; apply (atom_eq_incl _ _ H); [intros z Hz; apply HH'', HH', Hz | auto] |].
-    intros H3 x1 x2 HH3 Hx; simpl; split.
-    + split; [apply (atom_eq_incl _ _ H'); [intros z Hz; apply HH3, HH'', Hz | auto] |].
-      split; [apply (atom_eq_incl _ _ H''); auto | split; [exact Hx |]].
-      intros i1 i2 s1 s2; apply (IHb (AVar i1) (AVar i2) (AVar s1) (AVar s2)).
-      * intros u1 u2 [E | [E | Hu]]; [inversion E; subst; left; reflexivity
-                                     | inversion E; subst; right; left; reflexivity |].
-        apply (atom_eq_incl _ _ H); [intros z Hz; right; right; apply HH3, HH'', HH', Hz | auto].
-      * simpl; auto.
-    + intros y1 y2; apply Hk; [intros z Hz; right; apply HH3, HH'', HH', Hz | left; reflexivity].
+elim=> {G t1 t2} [G x1 x2 Hin | G s | G n | G f a1 a2 Ha IHa
+  | G f a1 a2 b1 b2 Ha IHa Hb IHb | G a1 a2 i1 i2 Ha IHa Hi IHi
+  | G a1 a2 i1 i2 v1 v2 Ha IHa Hi IHi Hv IHv
+  | G e1 e2 b1 b2 He IHe Hb IHb
+  | G c1 c2 t1 t2 e1 e2 Hc IHc Ht IHt He IHe
+  | G lo1 lo2 hi1 hi2 b1 b2 Hlo IHlo Hhi IHhi Hb IHb
+  | G lo1 lo2 hi1 hi2 init1 init2 b1 b2 Hlo IHlo Hhi IHhi Hinit IHinit Hb IHb]
+  H HG k1 k2 Hk /=.
+- (* Var *) by apply: Hk (incl_refl _) (HG _ _ Hin).
+- (* Num *) by apply: Hk (incl_refl _) _.
+- (* Nat *) by apply: Hk (incl_refl _) _.
+- (* Op1 *) apply: IHa => // H' x1 x2 HH' Hx /=; split=> // y1 y2.
+  apply: Hk; last by left.
+  by move=> z Hz; right; apply: HH'.
+- (* Op2 *) apply: IHa => // H' x1 x2 HH' Hx.
+  apply: IHb => [u1 u2 Hu | H'' y1 y2 HH'' Hy /=].
+    by apply: (atom_eq_incl _ _ H) HH' _; apply: HG.
+  split.
+    by split=> //; split=> //; apply: (atom_eq_incl _ _ H') HH'' Hx.
+  move=> z1 z2; apply: Hk; last by left.
+  by move=> z Hz; right; apply/HH''/HH'.
+- (* Get *) apply: IHa => // H' x1 x2 HH' Hx.
+  apply: IHi => [u1 u2 Hu | H'' y1 y2 HH'' Hy /=].
+    by apply: (atom_eq_incl _ _ H) HH' _; apply: HG.
+  split; first by split=> //; apply: (atom_eq_incl _ _ H') HH'' Hx.
+  move=> z1 z2; apply: Hk; last by left.
+  by move=> z Hz; right; apply/HH''/HH'.
+- (* Set *) apply: IHa => // H' x1 x2 HH' Hx.
+  apply: IHi => [u1 u2 Hu | H'' y1 y2 HH'' Hy].
+    by apply: (atom_eq_incl _ _ H) HH' _; apply: HG.
+  apply: IHv => [u1 u2 Hu | H3 w1 w2 HH3 Hw /=].
+    apply: (atom_eq_incl _ _ H); last exact: HG.
+    by move=> z Hz; apply/HH''/HH'.
+  split.
+    split; first by apply: (atom_eq_incl _ _ H') Hx => z Hz; apply/HH3/HH''.
+    by split=> //; apply: (atom_eq_incl _ _ H'') HH3 Hy.
+  move=> z1 z2; apply: Hk; last by left.
+  by move=> z Hz; right; apply/HH3/HH''/HH'.
+- (* Let *) apply: IHe => // H' x1 x2 HH' Hx.
+  apply: IHb => [u1 u2 [E | Hu] | H'' y1 y2 HH'' Hy].
+  - by case: E => <- <-.
+  - by apply: (atom_eq_incl _ _ H) HH' _; apply: HG.
+  by apply: Hk => // z Hz; apply/HH''/HH'.
+- (* Ite *) apply: IHc => // H' x1 x2 HH' Hx /=; split.
+    split=> //; split.
+      apply: IHt => [u1 u2 Hu | //].
+      by apply: (atom_eq_incl _ _ H) HH' _; apply: HG.
+    apply: IHe => [u1 u2 Hu | //].
+    by apply: (atom_eq_incl _ _ H) HH' _; apply: HG.
+  move=> y1 y2; apply: Hk; last by left.
+  by move=> z Hz; right; apply: HH'.
+- (* Map *) apply: IHlo => // H' l1 l2 HH' Hl.
+  apply: IHhi => [u1 u2 Hu | H'' h1 h2 HH'' Hh /=].
+    by apply: (atom_eq_incl _ _ H) HH' _; apply: HG.
+  split.
+    split; first exact: (atom_eq_incl _ _ H') HH'' Hl.
+    split=> // i1 i2.
+    apply: (IHb (AVar i1) (AVar i2)) => [u1 u2 [[<- <-] | Hu] | //].
+      by left.
+    apply: (atom_eq_incl _ _ H); last exact: HG.
+    by move=> z Hz; right; apply/HH''/HH'.
+  move=> y1 y2; apply: Hk; last by left.
+  by move=> z Hz; right; apply/HH''/HH'.
+(* Fold *)
+apply: IHlo => // H' l1 l2 HH' Hl.
+apply: IHhi => [u1 u2 Hu | H'' h1 h2 HH'' Hh].
+  by apply: (atom_eq_incl _ _ H) HH' _; apply: HG.
+apply: IHinit => [u1 u2 Hu | H3 x1 x2 HH3 Hx /=].
+  apply: (atom_eq_incl _ _ H); last exact: HG.
+  by move=> z Hz; apply/HH''/HH'.
+split.
+  split; first by apply: (atom_eq_incl _ _ H') Hl => z Hz; apply/HH3/HH''.
+  split; first exact: (atom_eq_incl _ _ H'') HH3 Hh.
+  split=> // i1 i2 s1 s2.
+  apply: (IHb (AVar i1) (AVar i2) (AVar s1) (AVar s2))
+    => [u1 u2 [[<- <-] | [[<- <-] | Hu]] | //].
+  - by left.
+  - by right; left.
+  apply: (atom_eq_incl _ _ H); last exact: HG.
+  by move=> z Hz; right; right; apply/HH3/HH''/HH'.
+move=> y1 y2; apply: Hk; last by left.
+by move=> z Hz; right; apply/HH3/HH''/HH'.
 Qed.
 
 Lemma normalize_definition_eq (G : list (atom V1 * atom V2)) d1 d2 :
@@ -159,14 +185,13 @@ Lemma normalize_definition_eq (G : list (atom V1 * atom V2)) d1 d2 :
   forall H, (forall a1 a2, In (a1, a2) G -> atom_eq H a1 a2) ->
   adefinition_eq H (normalize_definition d1) (normalize_definition d2).
 Proof.
-  induction 1 as [G n t r f1 f2 Hf IHf | G r1 r2 b1 b2 Hr Hb]; intros H HG; simpl.
-  - repeat split; intros x1 x2; apply IHf.
-    intros a1 a2 [E | Ha]; [inversion E; subst; left; reflexivity |].
-    apply (atom_eq_incl _ _ H); [intros z Hz; right; exact Hz | auto].
-  - split.
-    + destruct Hr as [t | y1 y2 Hy]; simpl; [reflexivity |].
-      inversion Hy; subst; simpl; auto.
-    + apply (norm_eq G); auto; simpl; auto.
+elim=> {G d1 d2} [G n t r f1 f2 Hf IHf | G r1 r2 b1 b2 Hr Hb] H HG /=.
+  do 3!split=> //; move=> x1 x2; apply: IHf => a1 a2 [[<- <-] | Ha].
+    by left.
+  apply: (atom_eq_incl _ _ H); last exact: HG.
+  by move=> z Hz; right.
+split; last by apply: (norm_eq G) => // H' a1 a2.
+by case: Hr => [t | y1 y2 Hy] //=; case: Hy => /=; auto.
 Qed.
 
 End NormalizeEq.
@@ -175,6 +200,6 @@ End NormalizeEq.
 Theorem normalize_parametric (f : function) :
   parametric f -> forall V1 V2, adefinition_eq [] (afdef (normalize f) V1) (afdef (normalize f) V2).
 Proof.
-  intros Hf V1 V2; simpl.
-  apply (normalize_definition_eq V1 V2 []); [apply Hf | intros a1 a2 []].
+move=> Hf V1 V2 /=.
+by apply: (normalize_definition_eq V1 V2 []) => // a1 a2 [].
 Qed.

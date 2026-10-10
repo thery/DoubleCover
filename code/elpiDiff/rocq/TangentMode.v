@@ -20,6 +20,9 @@ From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Norm
 From ElpiDiff Require TangentCorrect TangentTop.
 From ElpiDiff Require Import Euclidean DualsDerive.
 
+From Corelib Require Import ssreflect ssrbool ssrfun.
+Set Bullet Behavior "None".
+
 Import ListNotations.
 Open Scope list_scope.
 
@@ -33,18 +36,18 @@ Notation tangent_output := TangentTop.tangent_output.
    The seeded dual arguments of theorem 1 are those of theorem 3. *)
 
 Lemma nreals_length v : TangentTop.nreals v = length (reals_of_val v).
-Proof. destruct v; reflexivity. Qed.
+Proof. by case: v. Qed.
 
 Lemma lay_list_pair (pre B rest l : list R) :
   length B = length l ->
   lay_list (fun j r => Dual r (nth j (pre ++ B ++ rest) 0%R)) l (length pre) = TangentTop.pair_with l B.
 Proof.
-  revert pre B; induction l as [| r l IH]; intros pre B Hl; simpl; [reflexivity |].
-  destruct B as [| b B]; simpl in Hl; [discriminate |].
-  rewrite app_nth2, Nat.sub_diag by lia; simpl; f_equal.
-  replace (S (length pre)) with (length (pre ++ [b])) by (rewrite length_app; simpl; lia).
-  replace (pre ++ b :: B ++ rest) with ((pre ++ [b]) ++ B ++ rest) by (rewrite <- app_assoc; reflexivity).
-  apply IH; lia.
+elim: l pre B => [| r l IH] pre [| b B] //= [Hl].
+rewrite app_nth2 // Nat.sub_diag /=; congr (_ :: _).
+have -> : S (length pre) = length (pre ++ [b]) by rewrite length_app /=; lia.
+have -> : pre ++ b :: B ++ rest = (pre ++ [b]) ++ B ++ rest.
+  by rewrite -app_assoc.
+exact: IH.
 Qed.
 
 Lemma lay_head nm t r v x (pre B rest : list R) :
@@ -53,59 +56,66 @@ Lemma lay_head nm t r v x (pre B rest : list R) :
   TangentTop.val_dual v B ::
   lay (fun j r => Dual r (nth j (pre ++ B ++ rest) 0%R)) (fun r => Dual r 0%R) x (length pre + TangentTop.nreals v).
 Proof.
-  intros Hf HB; destruct v as [rv | z | b | l | l]; destruct t; simpl in Hf; try contradiction;
-    simpl in HB |- *; rewrite ?Nat.add_0_r, ?Nat.add_1_r; f_equal.
-  - destruct B as [| b0 [| ]]; simpl in HB; try discriminate.
-    rewrite app_nth2, Nat.sub_diag by lia; reflexivity.
-  - f_equal; apply lay_list_pair; exact HB.
+move=> Hf HB.
+destruct v as [rv | z | b | l | l]; destruct t; rewrite /= in Hf HB *;
+  try contradiction; rewrite ?Nat.add_0_r ?Nat.add_1_r //.
+  by case: B HB => [| b0 [|]] //= _; rewrite app_nth2 // Nat.sub_diag.
+by rewrite lay_list_pair.
 Qed.
 
 Lemma seed_args_dual ds x dx :
   Forall2 fits ds x -> (in_dim x <= length dx)%nat ->
   TangentTop.seed_args ds x dx = dual_args x (seed ds x dx).
 Proof.
-  unfold dual_args, in_dim, reals_of_args.
-  assert (Hgen : forall pre, Forall2 fits ds x -> (length (concat (map reals_of_val x)) <= length dx)%nat ->
-            lay (fun j r => Dual r (nth j (pre ++ seed ds x dx) 0%R)) (fun r => Dual r 0%R) x (length pre) =
-            TangentTop.seed_args ds x dx).
-  { intros pre H; revert pre dx; induction H as [| [nm t r] v ds x Hf Hfs IH]; intros pre dx Hl; [reflexivity |].
-    cbn [map concat] in Hl; rewrite length_app in Hl.
-    set (m := TangentTop.nreals v).
-    set (B := if varied_role r then firstn m dx else repeat 0%R m).
-    assert (HB : length B = m).
-    { unfold B; destruct (varied_role r); [rewrite firstn_length; unfold m; rewrite nreals_length; lia
-                                          | apply repeat_length]. }
-    change (seed (Decl nm t r :: ds) (v :: x) dx) with (B ++ seed ds x (skipn m dx)).
-    change (TangentTop.seed_args (Decl nm t r :: ds) (v :: x) dx)
-      with (TangentTop.val_dual v B :: TangentTop.seed_args ds x (skipn m dx)).
-    rewrite (lay_head nm t r v x pre B (seed ds x (skipn m dx)) Hf HB); f_equal.
-    replace (length pre + TangentTop.nreals v)%nat with (length (pre ++ B)) by (rewrite length_app, HB; reflexivity).
-    rewrite app_assoc; apply IH.
-    rewrite length_skipn; unfold m; rewrite nreals_length; lia. }
-  intros H Hl; symmetry; exact (Hgen [] H Hl).
+rewrite /dual_args /in_dim /reals_of_args.
+have Hgen : forall pre, Forall2 fits ds x ->
+    (length (concat (map reals_of_val x)) <= length dx)%nat ->
+    lay (fun j r => Dual r (nth j (pre ++ seed ds x dx) 0%R))
+      (fun r => Dual r 0%R) x (length pre) =
+    TangentTop.seed_args ds x dx.
+  move=> pre H.
+  elim: H pre dx => [| [nm t r] v ds' x' Hf Hfs IH] pre dx' Hl //.
+  cbn [map concat] in Hl; rewrite length_app in Hl.
+  set m := TangentTop.nreals v.
+  set B := if varied_role r then firstn m dx' else repeat 0%R m.
+  have HB : length B = m.
+    rewrite /B; case: (varied_role r); last exact: repeat_length.
+    by rewrite length_firstn /m nreals_length; lia.
+  change (seed (Decl nm t r :: ds') (v :: x') dx')
+    with (B ++ seed ds' x' (skipn m dx')).
+  change (TangentTop.seed_args (Decl nm t r :: ds') (v :: x') dx')
+    with (TangentTop.val_dual v B :: TangentTop.seed_args ds' x' (skipn m dx')).
+  rewrite (lay_head nm t r v x' pre B (seed ds' x' (skipn m dx')) Hf HB).
+  congr (_ :: _).
+  have -> : (length pre + TangentTop.nreals v)%nat = length (pre ++ B).
+    by rewrite length_app HB.
+  rewrite app_assoc; apply: IH.
+  by rewrite length_skipn /m nreals_length; lia.
+by move=> H Hl; rewrite -(Hgen [] H Hl).
 Qed.
 
 Lemma seed_length ds x dx :
   Forall2 fits ds x -> (in_dim x <= length dx)%nat -> length (seed ds x dx) = in_dim x.
 Proof.
-  unfold in_dim, reals_of_args; intros H; revert dx; induction H as [| [nm t r] v ds x Hf Hfs IH]; intros dx Hl;
-    [reflexivity |].
-  cbn [map concat] in Hl |- *; rewrite length_app in Hl |- *.
-  change (seed (Decl nm t r :: ds) (v :: x) dx) with
-    ((if varied_role r then firstn (TangentTop.nreals v) dx else repeat 0%R (TangentTop.nreals v)) ++
-     seed ds x (skipn (TangentTop.nreals v) dx)).
-  rewrite length_app, IH by (rewrite length_skipn, nreals_length; lia).
-  rewrite nreals_length; f_equal; destruct (varied_role r);
-    [rewrite firstn_length; lia | apply repeat_length].
+rewrite /in_dim /reals_of_args => H.
+elim: H dx => [| [nm t r] v ds' x' Hf Hfs IH] dx Hl //.
+cbn [map concat] in Hl |- *; rewrite length_app in Hl *.
+change (seed (Decl nm t r :: ds') (v :: x') dx) with
+  ((if varied_role r then firstn (TangentTop.nreals v) dx
+    else repeat 0%R (TangentTop.nreals v)) ++
+   seed ds' x' (skipn (TangentTop.nreals v) dx)).
+rewrite length_app IH; last by rewrite length_skipn nreals_length; lia.
+rewrite nreals_length; congr (_ + _)%nat.
+by case: (varied_role r); [rewrite length_firstn; lia | exact: repeat_length].
 Qed.
 
 Lemma primal_primal_val vd : TangentCorrect.primal vd = primal_val vd.
 Proof.
-  destruct vd as [[a b] | | | l | l]; simpl; auto; f_equal; apply map_ext; intros [a b]; reflexivity.
+by case: vd => [[a b] | | | l | l] //=; congr VArray; apply: map_ext => -[a b].
 Qed.
 
 Lemma tangent_reals_tangent vd : reals_of_val (TangentCorrect.tangent vd) = tangent_reals vd.
-Proof. destruct vd as [[a b] | | | l | l]; simpl; auto; apply map_ext; intros [a b]; reflexivity. Qed.
+Proof. by case: vd => [[a b] | | | l | l] //=; apply: map_ext => -[a b]. Qed.
 
 (* ---------------------------------------------------------------------------
    The final theorem. *)
@@ -131,16 +141,21 @@ Theorem tangent_mode_correct (f : function) (x : list (val R)) :
         tangent_output (decls f) out = Some (v, w) /\
         reals_of_val w = list_of_vec _ (df (vec_of_list _ (seed (decls f) x dx))).
 Proof.
-  intros Hpar Hwf Hfit Hdef.
-  destruct (duals_derive f x Hpar Hdef) as [v [df [Hs [Hd Hdual]]]].
-  exists v, df; split; [exact Hs | split; [exact Hd |]].
-  intros dx Hl.
-  assert (Hl' : length (seed (decls f) x dx) = in_dim x) by (apply seed_length; [exact Hfit | lia]).
-  destruct (Hdual _ Hl') as [vd [Hev [Hp Ht]]].
-  apply (normalize_correct _ _ _ _ _ Hpar) in Hev.
-  rewrite <- seed_args_dual in Hev by (auto; lia).
-  destruct (TangentTop.tangent_simulates_duals f x dx vd Hpar Hwf Hfit Hev)
-    as [r [ps [ss [k [out [Ho [Hc [Hg [Hnt [Hex Hout]]]]]]]]]].
-  exists out, (TangentCorrect.tangent vd); split; [exact (simplify_correct _ _ r ps ss k out Ho Hc Hg Hnt Hex) |].
-  split; [rewrite Hout, primal_primal_val, Hp; reflexivity | rewrite tangent_reals_tangent, Ht; reflexivity].
+move=> Hpar Hwf Hfit Hdef.
+have [v [df [Hs [Hd Hdual]]]] := duals_derive f x Hpar Hdef.
+exists v, df; split; first exact: Hs.
+split; first exact: Hd.
+move=> dx Hl.
+have Hl' : length (seed (decls f) x dx) = in_dim x.
+  by apply: seed_length => //; lia.
+have [vd [Hev [Hp Ht]]] := Hdual _ Hl'.
+move/(normalize_correct _ _ _ _ _ Hpar): Hev => Hev.
+have Hle : (in_dim x <= length dx)%nat by lia.
+rewrite -(seed_args_dual _ _ _ Hfit Hle) in Hev.
+have [r [ps [ss [k [out [Ho [Hc [Hg [Hnt [Hex Hout]]]]]]]]]] :=
+  TangentTop.tangent_simulates_duals f x dx vd Hpar Hwf Hfit Hev.
+exists out, (TangentCorrect.tangent vd); split.
+  exact: (simplify_correct _ _ r ps ss k out Ho Hc Hg Hnt Hex).
+split; first by rewrite Hout primal_primal_val Hp.
+by rewrite tangent_reals_tangent Ht.
 Qed.

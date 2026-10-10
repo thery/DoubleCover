@@ -252,6 +252,46 @@ Reference: the proofs of `mathcomp/boot` (`seq.v`, `ssrnat.v`, `fintype.v`) in
   `match goal with |- (match ?r with _ => _ end) = _ => replace r with .. by .. end`
   stays.
 
+- **`elim` on an inductive predicate whose indices are variables of the goal**
+  (`term_equiv G t1 t2`, `gd sc wr ss`): `elim=> [G x1 x2 Hin | ..]` fails with
+  "G already used"; clear the old variables first: `elim=> {G t1 t2} [G x1 x2 Hin | ..]`.
+- **`rewrite L in H *` with different instances in H and in the goal** (`exec_define`
+  at `s` in H and at `s'` in the goal) rewrites one instance only; write
+  `rewrite !L in H *`. `rewrite ?ex_cons in H *` works for the same reason.
+- **`case: va vb H1 H2 {E1 E2} => [..] [..]`** failed with "Incorrect number of goals
+  (expected 2 tactics)"; case the two values one after the other:
+  `move: H1 H2; case: va {E1} => [p | ..]; case: vb {E2} => [q | ..] //= H1 H2`.
+- **`++` inside a tactic term means `String.append`** when `String` is imported:
+  `rewrite -(IH (pre ++ [r]))` fails with "pre has type list R while it is expected to
+  have type string"; write `app pre [r]` (statements are not affected).
+- **A view in an `elim` intro pattern applies to every branch**:
+  `elim: ss => [| st r IH] //= /orb_false_iff [..]` also applies the view in the
+  nil case; close that case first (`first by move=> _ []`) and use the view on the
+  next line.
+- **`rewrite [map _ _]/=` reduces the whole matched subterm**, so the recursive
+  `map f r` inside is unfolded to its `fix` body and no longer matches the induction
+  hypothesis; use `cbn [map]` (and `cbn [simplify_stmt]`, `cbn [replace_stmt]` for the
+  head) as `simpl map` did.
+- **Intro patterns after `case:` need every constructor argument**: in
+  `case: f => [| | | | | | k |] H` the last branch binds `H` to the `string` argument
+  of `Unknown1`; name all arguments (`[| | | | | | k | g] H`). The same for `case: a H`
+  on a 6-constructor `dexpr` (`[v | l | n | b i | [..] a' | g b c] H`).
+- **`exact: Hsim` where `Hsim : sim sc t t'`** (a `forall` whose premises include the
+  execution `ex t s = Some t0`) failed with "No applicable tactic"; give the premise:
+  `exact: Hsim H`.
+- **`eexists; split; last exact: agree_set`** failed; give the witness
+  (`exists (store_set s' k w); split=> //; exact: agree_set`).
+- **`-1` is `- 1` in `R_scope`**: `have -> : -1 = - 1 by ring` fails with "all matches
+  of the LHS are equal to the RHS"; the term is already the one the lemma expects.
+- **Inside a section, `exact: lem H1 H2` may fail** ("Cannot apply lemma eval_forward")
+  where `exact: (lem _ _ _ H1 H2)` works: give the leading explicit arguments as holes.
+- **rocq-mcp: a comment line followed by a bullet** in a `rocq_check` body gives
+  "Syntax error: [vernac_control] expected"; check without the comments and add them
+  when saving the proof in the file.
+- **`[<- <- <-]` on `Some (st :: b', m', a') = Some (b, m, a)`** where `m` and `a`
+  are lemma parameters used in the induction hypothesis: the goal is rewritten but not
+  the IH; name the equations and `subst b m a`.
+
 ## When to keep Stdlib/Ltac
 
 - `destruct` on a variable used in many hypotheses and in `set` definitions
@@ -279,6 +319,17 @@ Reference: the proofs of `mathcomp/boot` (`seq.v`, `ssrnat.v`, `fintype.v`) in
   (variables used in many hypotheses); the `match goal .. replace r with ..` in
   `sim_ite` (see the pitfall above).
 
+- In `DualsDerive_math.v` and `SimplifyCorrect_math.v`: `inversion` to invert
+  `term_equiv`, `definition_equiv` and `gd` at a constructor (`by inversion 1; eauto 6`
+  in the `equiv_*` lemmas, `inversion Hg as [..]; subst` in `fuse_*`,
+  `gd_app_inv`, `gd_app`, `eval_definition_near`); `gd_mono` and `good_gd` keep their
+  automation (`induction 1; econstructor; try (..)`, a `repeat match goal` splitting
+  `_ || _ = false`); `cbn [..]` for partial reduction (`dual_op1_spec`, `cbn [map]`,
+  `cbn [simplify_stmt]`, `cbn [replace_stmt]`, `cbn [fuse]`); `vm_compute
+  read_literal` (`lit_0`, `lit_1`, `lit_m1`); the Ltac definitions `inv_some`,
+  `inv_eval`, `decide_ifs` (the last one used in `real_cmp_lt` and `point_cmp`);
+  `field`, `ring`, `lra`, `lia`, `tauto`, `intuition`.
+
 ## No inline ltac
 
 Never write `ltac:(...)` inside terms. Use a named `have H : ... by ...` instead.
@@ -304,3 +355,88 @@ Never write `ltac:(...)` inside terms. Use a named `have H : ... by ...` instead
   (without `-native-compiler no` the native step fails because the dependencies have no
   native objects: "Unbound module NElpiDiff_Syntax"; the Rocq part is fine), then delete
   the produced `.vo/.vos/.vok/.glob`.
+
+## Additions from `AdjointCorrect_math.v`
+
+- **`last first` reverses three goals**: after `case: vo => [[t | y] |]` the goals
+  `[AReturns; AWrites; None]` become `[None; AWrites; AReturns]` with `; last first`,
+  and `[AWrites; None; AReturns]` with `; last 2 first`. To put one easy case first,
+  case in two steps (`case: vo => [r |] ..; last first.` for the `None` case, then
+  `case: r => [t | y]` with the easy constructor as the indented side goal).
+- **`case: e => _ H` when `e` occurs in the goal** fails with "_a_ is used in
+  conclusion" (`case: (in_dec ..) => _ H`, `case: (dual_partial1 ..) => //= _ [<-]`);
+  name the argument (`=> I H`, `=> [p |] //= [<-]`).
+- **`//=` in a `case` that moves hypotheses also simplifies them**:
+  `case: z Hp Hd => [| z | z] //= ..` unfolds `real_lit "0"` in `Hd`, and a later
+  `rewrite lit_0 in Hd` finds nothing. Case without `/=` and simplify only the
+  hypothesis that needs it (`=> Hp Hd; rewrite /= in Hp; try discriminate`).
+- **The `return Type` pitfall of `have H : match ..`** shows up only when `H` is
+  passed to a lemma, as an error between `@eq (dvar W)` and
+  `@eq (dvar (prod nat nat))` (`Hst0`, `Hst1`, `Hst2` in `asim_let`); write
+  `match storage wP tail eP return Prop with ..`.
+- **`apply: H` when `H` concludes `False`** fails with "Cannot apply lemma"; use
+  `case: (H ..)` (or `exfalso; exact: H ..`).
+- **`erefl` for a `consistent n` premise** fails ("erefl has type ?x = ?x while it is
+  expected to have type consistent ?n") when `n` is only fixed by a later argument;
+  give the explicit arguments first (`barv_set_other s2 (DBound (c, c)) m0 (VReal 0)
+  erefl ..`, `keyv_inj (BarOf n) v Hn Hcv K`).
+- **Injection of `stored o = stored p`** (`DBound (pn o, pn o)`) gives two equations:
+  `[Hex]` leaves `pn p = pn p ->` in front of the goal and a later `exact` fails;
+  write `[Hex _]` (same for `case: E => E _`).
+- **The `match goal .. replace r with ..` of `sim_ite` was not needed here**:
+  `rewrite run_app R1` closes `run (fe ++ fb) s = ..` after `run fe s = Some se1`, and
+  `rewrite Happ run_app (_ : run [_] s = Some s0)` (with
+  `Happ : forall a b, [a; b] = ([a] ++ [b])%list`) replaces the
+  `change [..; ..] with (app [..] [..])` of `afwd_set`/`arev_set`.
+- **rocq-mcp with a large context** (`asim_let`, 60 hypotheses): a failing command prints
+  20-40K characters and the goal, printed last, is cut by the truncation. To see the
+  goals, run `all: match goal with |- ?g => idtac "GOAL" g end.` in a `rocq_check`:
+  the goals come in the `feedback` field, before the truncated context. Avoid
+  `rocq_step_multi` with several candidates there (each successful candidate prints
+  the full context) and never `Abort.` inside a chain (the answer then lists the
+  whole chain of tactics).
+- **A 700-line proof**: translate it by blocks of 20-40 sentences, each checked from
+  the state the previous block returned, and append each validated block to a scratch
+  file; check the last case first when the cases are independent. The file can keep
+  `Admitted` in place of the proof meanwhile, so that `rocq_start` reaches the later
+  lemmas (with a proof that does not parse under ssreflect, e.g. `rewrite .. by`,
+  the server stops reading the file there and later lemmas are "not found").
+
+## When to keep Stdlib/Ltac in `AdjointCorrect_math.v`
+
+- The macros `unfold_ops`, `none_case`, `fwd_intro`, `rev_intro`, `act_intro`,
+  `needs_let_tac`, `split_reads`, `below_tac`, `fresh_case'` (all unchanged), and the
+  `repeat match goal .. atom_graph ..` of `owner_set`.
+- `repeat match type of H with context [match ?e with _ => _ end] => destruct e end`
+  in `assign_bar`, `straight_no_top`; `crush_match` in `act_op1`; `cbn [..]`,
+  `change .. with ..` and `cbv zeta` (`run_increment_at`, `IH`/`IHr'` in `asim_let`).
+- `destruct` on variables used in many hypotheses or in `set` definitions: `aP`, `vP`,
+  `wP`, `pp`, `m`, `vo`, `te`, `pd q`, `va`/`vb` (`act_op2`), `avaried (pa p)` and
+  `vty (pw p)` in `asim_ret`; `destruct eA, eW, eD` and `destruct bA, bW, bT, bD`.
+- `decide equality` (`dvar_eq_dec_c`), `repeat split; simpl; auto; try lia;
+  discriminate` (`Hxs` in `asim_let`), the `first [..|..]` in `dvar_eq_consistent`,
+  `lia`, `ring`, `congruence`, `eauto`.
+
+## Pitfalls met in `AdjointBranch_math.v`
+
+- `store_get_set_other` (and `barv_set_other`) put the side condition `k <> k'`
+  (set key first) as the FIRST goal: `rewrite store_get_set_other; first by ...`.
+  With `keyv_inj` as a view the consistency proofs follow the same order:
+  `by move=> /(keyv_inj _ _ Hc_set Hc_get)`; name them (`have Hci : consistent i
+  by []`). For `DBound (a, a) = DBound (b, b)` use `[] *; lia` (two equations).
+- `case E: (st (S jn)) H1 H2` only rewrites in the listed hypotheses, unlike
+  `destruct .. eqn:`: rewrite the other hypotheses and the goal by hand before
+  `lra` (`dso (st jn)` stayed folded in `arev_fold`).
+- `case: v H` fails with "v is used in hypothesis st" when a `set` definition
+  mentions `v`: keep `destruct v as [..]` there.
+- `move: (f H) Hw {H}` clears `H` before `f H` is built: `have := f H; clear H`.
+- `subst x` after `atom_graph` can consume an equation of another hypothesis:
+  check which ones remain (`Elo` vanished in `inplace_map`).
+- Name clashes with earlier `have`s inside a long proof (`Hrm` was already a
+  lemma about `atom_remove`): "Hrm already used".
+- `have {H} H := ..` warns (duplicate clear): write `have {}H := ..`.
+- The five `Replay = Forward -> ..` premises of `asim_body`: `move=>
+  /(_ (Hnf _) (Hnf _) (Hnf _) Hpb (Hnf _))` with `Hnf : forall P : Prop,
+  Replay = Forward -> P by []` and `Hpb : Replay = Replay -> PScalar <> PTop`.
+- To see a goal cut by truncation, `rocq_step_multi` with `clear -H1 H2 ..`
+  prints a short context first.

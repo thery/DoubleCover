@@ -10,6 +10,8 @@
 
 From Coquelicot Require Import Coquelicot.
 From Stdlib Require Import Reals List Lia Lra.
+From Corelib Require Import ssreflect ssrbool ssrfun.
+Set Bullet Behavior "None".
 Import ListNotations.
 Open Scope R_scope.
 
@@ -35,12 +37,12 @@ Canonical unit_NormedModuleAux :=
     (NormedModuleAux.Class R_AbsRing unit (ModuleSpace.class _ unit_ModuleSpace) unit_UniformSpace_mixin) unit.
 Lemma unit_NormedModule_mixin : NormedModule.mixin_of R_AbsRing unit_NormedModuleAux.
 Proof.
-  apply (NormedModule.Mixin R_AbsRing unit_NormedModuleAux (fun _ => 0) 1).
-  - intros; simpl; lra.
-  - intros; simpl. rewrite Rmult_0_r; apply Rle_refl.
-  - intros; exact I.
-  - intros x y eps _; simpl; rewrite Rmult_1_l; apply cond_pos.
-  - intros [] _; reflexivity.
+apply: (NormedModule.Mixin R_AbsRing unit_NormedModuleAux (fun _ => 0) 1).
+- by move=> * /=; lra.
+- by move=> * /=; rewrite Rmult_0_r; apply: Rle_refl.
+- by [].
+- by move=> x y eps _ /=; rewrite Rmult_1_l; apply: cond_pos.
+by case.
 Qed.
 Canonical unit_NormedModule :=
   NormedModule.Pack R_AbsRing unit (NormedModule.Class R_AbsRing unit _ unit_NormedModule_mixin) unit.
@@ -72,25 +74,24 @@ Fixpoint list_of_vec (n : nat) : Rn n -> list R :=
   end.
 
 Lemma list_of_vec_length n (v : Rn n) : length (list_of_vec n v) = n.
-Proof. induction n as [| n IH]; simpl; [reflexivity | now rewrite IH]. Qed.
+Proof. by elim: n v => [| n IH] //= v; rewrite IH. Qed.
 
 Lemma list_of_vec_of_list n l : length l = n -> list_of_vec n (vec_of_list n l) = l.
-Proof.
-  revert l; induction n as [| n IH]; intros [| a l] H; simpl in *; try discriminate; auto.
-  now rewrite IH by lia.
-Qed.
+Proof. by elim: n l => [| n IH] [| a l] //= [Hl]; rewrite IH. Qed.
 
 (* The j-th coordinate of a vector, a linear map. *)
 Definition coord (n j : nat) (v : Rn n) : R := nth j (list_of_vec n v) 0.
 
 Lemma coord_linear n j : is_linear (coord n j).
 Proof.
-  revert j; induction n as [| n IH]; intros j.
-  - unfold coord; simpl; destruct j;
-      exact (@is_linear_zero _ (Rn 0) R_NormedModule).
-  - destruct j as [| j]; unfold coord; simpl.
-    + apply is_linear_fst.
-    + apply (is_linear_comp (fun t : R * Rn n => snd t) (coord n j)); [apply is_linear_snd | apply IH].
+elim: n j => [| n IH] j.
+  have Hzero := @is_linear_zero _ (Rn 0) R_NormedModule.
+  by rewrite /coord /=; case: j.
+case: j => [| j]; rewrite /coord /=.
+  exact: is_linear_fst.
+apply: (is_linear_comp (fun t : R * Rn n => snd t) (coord n j)).
+  exact: is_linear_snd.
+exact: IH.
 Qed.
 
 Section Componentwise.
@@ -103,17 +104,20 @@ Lemma filterdiff_vec (e0 : E) (ps : list ((E -> R) * (E -> R))%type) :
   filterdiff (fun y => vec_of_list (length ps) (map (fun p => fst p y) ps)) (locally e0)
              (fun h => vec_of_list (length ps) (map (fun p => snd p h) ps)).
 Proof.
-  induction 1 as [| p ps Hp Hps IH]; simpl.
-  - apply (filterdiff_ext_lin _ (fun _ => zero)); [apply filterdiff_const | now intros].
-  - apply (filterdiff_comp'_2 (fst p) _ (fun (a : R) (v : Rn (length ps)) => (a, v)) e0 (snd p) _
-             (fun (a : R) (v : Rn (length ps)) => (a, v))); auto.
-    apply filterdiff_linear, is_linear_prod; [apply is_linear_fst | apply is_linear_snd].
+elim=> [| p {}ps Hp Hps IH] /=.
+  apply: (filterdiff_ext_lin _ (fun _ => zero)) => //.
+  exact: filterdiff_const.
+set pair := fun (a : R) (v : Rn (length ps)) => (a, v).
+apply: (filterdiff_comp'_2 (fst p) _ pair e0 (snd p) _ pair) => //.
+apply/filterdiff_linear/is_linear_prod.
+  exact: is_linear_fst.
+exact: is_linear_snd.
 Qed.
 (* The same, into R^m for any m equal to the number of functions. *)
 Lemma filterdiff_vec_length (e0 : E) m (ps : list ((E -> R) * (E -> R))%type) :
   length ps = m -> List.Forall (fun p => filterdiff (fst p) (locally e0) (snd p)) ps ->
   filterdiff (fun y => vec_of_list m (map (fun p => fst p y) ps)) (locally e0)
              (fun h => vec_of_list m (map (fun p => snd p h) ps)).
-Proof. intros <-; apply filterdiff_vec. Qed.
+Proof. by move=> <-; apply: filterdiff_vec. Qed.
 
 End Componentwise.

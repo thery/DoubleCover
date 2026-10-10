@@ -11,6 +11,8 @@
 
 From Stdlib Require Import String ZArith List.
 From ElpiDiff Require Import Syntax Anf Domain Eval EvalAnf Normalize Annotate.
+From Corelib Require Import ssreflect ssrbool ssrfun.
+Set Bullet Behavior "None".
 
 Import ListNotations.
 
@@ -92,10 +94,10 @@ Definition env_ok (G : list (atom (val N) * val N)) : Prop :=
 
 Lemma env_ok_cons G a v :
   env_ok G -> aeval_atom D a = Some v -> env_ok ((a, v) :: G).
-Proof. intros HG Ha a' v' [E | H]; [injection E as -> ->; exact Ha | exact (HG _ _ H)]. Qed.
+Proof. by move=> HG Ha a' v' [[<- <-] | /HG]. Qed.
 
 Lemma env_ok_var G w : env_ok G -> env_ok ((AVar w, w) :: G).
-Proof. intros HG; apply env_ok_cons; auto. Qed.
+Proof. by move=> HG; apply: env_ok_cons. Qed.
 
 (* A map or a fold computes the same when its body computes the same, at
    least where the body of the source computes. *)
@@ -103,20 +105,20 @@ Lemma eval_map_sim (ev1 ev2 : val N -> option (val N)) :
   (forall w x, ev2 w = Some x -> ev1 w = Some x) ->
   forall n i xs, eval_map ev2 i n = Some xs -> eval_map ev1 i n = Some xs.
 Proof.
-  intros Hev n; induction n as [| n IH]; intros i xs H; simpl in *; [exact H |].
-  destruct (ev2 (VInt i)) as [[x | | | |] |] eqn:E; try discriminate.
-  rewrite (Hev _ _ E).
-  destruct (eval_map ev2 (i + 1)%Z n) eqn:E'; try discriminate.
-  rewrite (IH _ _ E'); exact H.
+move=> Hev; elim=> [| n IH] i xs //=.
+case E: (ev2 (VInt i)) => [[x | | | |] |] //.
+rewrite (Hev _ _ E).
+case E': (eval_map ev2 (i + 1)%Z n) => [ys |] //.
+by rewrite (IH _ _ E').
 Qed.
 
 Lemma eval_fold_sim (ev1 ev2 : val N -> val N -> option (val N)) :
   (forall w s x, ev2 w s = Some x -> ev1 w s = Some x) ->
   forall n i s x, eval_fold ev2 i n s = Some x -> eval_fold ev1 i n s = Some x.
 Proof.
-  intros Hev n; induction n as [| n IH]; intros i s x H; simpl in *; [exact H |].
-  destruct (ev2 (VInt i) s) eqn:E; try discriminate.
-  rewrite (Hev _ _ _ E); exact (IH _ _ _ H).
+move=> Hev; elim=> [| n IH] i s x //=.
+case E: (ev2 (VInt i) s) => [y |] // H.
+by rewrite (Hev _ _ _ E); apply: IH.
 Qed.
 
 (* Unfolds the evaluation of the source, hypothesis by hypothesis. *)
@@ -136,42 +138,51 @@ Lemma norm_sim G t1 t2 :
   forall k r, (forall a, aeval_atom D a = Some v -> aeval D (k a) = r) ->
   aeval D (norm t1 k) = r.
 Proof.
-  induction 1 as [G x1 x2 Hin | G s | G n | G f a1 a2 Ha IHa
-                 | G f a1 a2 b1 b2 Ha IHa Hb IHb | G a1 a2 i1 i2 Ha IHa Hi IHi
-                 | G a1 a2 i1 i2 v1 v2 Ha IHa Hi IHi Hv IHv
-                 | G e1 e2 b1 b2 He IHe Hb IHb
-                 | G c1 c2 t1 t2 e1 e2 Hc IHc Ht IHt He IHe
-                 | G lo1 lo2 hi1 hi2 b1 b2 Hlo IHlo Hhi IHhi Hb IHb
-                 | G lo1 lo2 hi1 hi2 init1 init2 b1 b2 Hlo IHlo Hhi IHhi Hinit IHinit Hb IHb];
-    intros HG v Hev k r Hk; simpl in Hev |- *; inv_some.
-  - (* Var *) apply Hk, HG, Hin.
-  - (* Num *) apply Hk; simpl; rewrite Heqo; reflexivity.
-  - (* Nat *) apply Hk; reflexivity.
-  - (* Op1 *) apply (IHa HG _ eq_refl); intros x_ Hx; simpl; rewrite Hx, Hev.
-    apply Hk; reflexivity.
-  - (* Op2 *) apply (IHa HG _ eq_refl); intros x_ Hx; apply (IHb HG _ eq_refl); intros y_ Hy.
-    simpl; rewrite Hx, Hy, Hev; apply Hk; reflexivity.
-  - (* Get *) apply (IHa HG _ eq_refl); intros x_ Hx; apply (IHi HG _ eq_refl); intros j_ Hj.
-    simpl; rewrite Hx, Hj, Heqo1; apply Hk; reflexivity.
-  - (* Set *) apply (IHa HG _ eq_refl); intros x_ Hx; apply (IHi HG _ eq_refl); intros j_ Hj.
-    apply (IHv HG _ eq_refl); intros w_ Hw.
-    simpl; rewrite Hx, Hj, Hw, Heqo2; apply Hk; reflexivity.
-  - (* Let *) apply (IHe HG _ eq_refl); intros a_ Ha.
-    exact (IHb a_ _ (env_ok_cons _ _ _ HG Ha) _ Hev _ _ Hk).
-  - (* Ite, then *) apply (IHc HG _ eq_refl); intros x_ Hx.
-    simpl; rewrite Hx, (IHt HG _ Hev (fun x => ARet x) _ (fun a Ha => Ha)); apply Hk; reflexivity.
-  - (* Ite, else *) apply (IHc HG _ eq_refl); intros x_ Hx.
-    simpl; rewrite Hx, (IHe HG _ Hev (fun x => ARet x) _ (fun a Ha => Ha)); apply Hk; reflexivity.
-  - (* Map *) apply (IHlo HG _ eq_refl); intros l_ Hl; apply (IHhi HG _ eq_refl); intros h_ Hh.
-    simpl; rewrite Hl, Hh.
-    erewrite (eval_map_sim _ (fun w => eval D (b2 w))); [apply Hk; reflexivity | | exact Heqo1].
-    intros w x Hw; exact (IHb _ _ (env_ok_var _ _ HG) _ Hw (fun x => ARet x) _ (fun a Ha => Ha)).
-  - (* Fold *) apply (IHlo HG _ eq_refl); intros l_ Hl; apply (IHhi HG _ eq_refl); intros h_ Hh.
-    apply (IHinit HG _ eq_refl); intros x_ Hx.
-    simpl; rewrite Hl, Hh, Hx.
-    erewrite (eval_fold_sim _ (fun w s => eval D (b2 w s))); [apply Hk; reflexivity | | exact Hev].
-    intros w s y Hw.
-    exact (IHb _ _ _ _ (env_ok_var _ _ (env_ok_var _ _ HG)) _ Hw (fun x => ARet x) _ (fun a Ha => Ha)).
+elim=> {G t1 t2} [G x1 x2 Hin | G s | G n | G f a1 a2 Ha IHa
+  | G f a1 a2 b1 b2 Ha IHa Hb IHb | G a1 a2 i1 i2 Ha IHa Hi IHi
+  | G a1 a2 i1 i2 v1 v2 Ha IHa Hi IHi Hv IHv
+  | G e1 e2 b1 b2 He IHe Hb IHb
+  | G c1 c2 t1 t2 e1 e2 Hc IHc Ht IHt He IHe
+  | G lo1 lo2 hi1 hi2 b1 b2 Hlo IHlo Hhi IHhi Hb IHb
+  | G lo1 lo2 hi1 hi2 init1 init2 b1 b2 Hlo IHlo Hhi IHhi Hinit IHinit Hb IHb]
+  HG v Hev k r Hk; rewrite /= in Hev *; inv_some.
+- (* Var *) exact/Hk/HG.
+- (* Num *) by apply: Hk; rewrite /= Heqo.
+- (* Nat *) exact: Hk.
+- (* Op1 *) apply: (IHa HG _ erefl) => x_ Hx /=; rewrite Hx Hev.
+  exact: Hk.
+- (* Op2 *) apply: (IHa HG _ erefl) => x_ Hx.
+  apply: (IHb HG _ erefl) => y_ Hy /=.
+  by rewrite Hx Hy Hev; apply: Hk.
+- (* Get *) apply: (IHa HG _ erefl) => x_ Hx.
+  apply: (IHi HG _ erefl) => j_ Hj /=.
+  by rewrite Hx Hj Heqo1; apply: Hk.
+- (* Set *) apply: (IHa HG _ erefl) => x_ Hx.
+  apply: (IHi HG _ erefl) => j_ Hj.
+  apply: (IHv HG _ erefl) => w_ Hw /=.
+  by rewrite Hx Hj Hw Heqo2; apply: Hk.
+- (* Let *) apply: (IHe HG _ erefl) => a_ Ha.
+  exact: (IHb a_ _ (env_ok_cons _ _ _ HG Ha) _ Hev _ _ Hk).
+- (* Ite, then *) apply: (IHc HG _ erefl) => x_ Hx /=.
+  rewrite Hx (IHt HG _ Hev (fun x => ARet x) _ (fun a Ha => Ha)).
+  exact: Hk.
+- (* Ite, else *) apply: (IHc HG _ erefl) => x_ Hx /=.
+  rewrite Hx (IHe HG _ Hev (fun x => ARet x) _ (fun a Ha => Ha)).
+  exact: Hk.
+- (* Map *) apply: (IHlo HG _ erefl) => l_ Hl.
+  apply: (IHhi HG _ erefl) => h_ Hh /=.
+  rewrite Hl Hh (eval_map_sim _ (fun w => eval D (b2 w)) _ _ _ _ Heqo1).
+    by move=> w x Hw; apply: (IHb _ _ (env_ok_var _ _ HG) _ Hw).
+  exact: Hk.
+(* Fold *)
+apply: (IHlo HG _ erefl) => l_ Hl.
+apply: (IHhi HG _ erefl) => h_ Hh.
+apply: (IHinit HG _ erefl) => x_ Hx /=.
+rewrite Hl Hh Hx (eval_fold_sim _ (fun w s => eval D (b2 w s)) _ _ _ _ _ Hev).
+  move=> w s y Hw.
+  have HGws := env_ok_var _ _ (env_ok_var _ _ HG).
+  by apply: (IHb _ _ _ _ (HGws w s) _ Hw).
+exact: Hk.
 Qed.
 
 Lemma normalize_definition_sim G d1 d2 :
@@ -179,11 +190,11 @@ Lemma normalize_definition_sim G d1 d2 :
   forall args v, eval_definition D d2 args = Some v ->
   aeval_definition D (normalize_definition d1) args = Some v.
 Proof.
-  induction 1 as [G n t r f1 f2 Hf IHf | G r1 r2 b1 b2 Hr Hb]; intros HG args v Hev.
-  - destruct args as [| a args]; [discriminate |]; simpl in *.
-    exact (IHf _ _ (env_ok_var _ _ HG) _ _ Hev).
-  - destruct args; [| discriminate]; simpl in *.
-    exact (norm_sim _ _ _ Hb HG _ Hev (fun x => ARet x) _ (fun a Ha => Ha)).
+elim=> {G d1 d2} [G n t r f1 f2 Hf IHf | G r1 r2 b1 b2 Hr Hb] HG args v Hev.
+  case: args Hev => [| a args] //= Hev.
+  exact: (IHf _ _ (env_ok_var _ _ HG) _ _ Hev).
+case: args Hev => [| a args] //= Hev.
+by apply: (norm_sim _ _ _ Hb HG _ Hev).
 Qed.
 
 End NormalizeCorrect.
@@ -194,8 +205,9 @@ Theorem normalize_correct :
     eval_function D f args = Some v ->
     aeval_function D (normalize f) args = Some v.
 Proof.
-  intros N D f args v Hf Hev.
-  exact (normalize_definition_sim N D [] _ _ (Hf _ _) (fun a v H => match H with end) args v Hev).
+move=> N D f args v Hf Hev.
+apply: (normalize_definition_sim N D [] _ _ (Hf _ _) _ args v Hev).
+by move=> a w [].
 Qed.
 
 (* ---------------------------------------------------------------------------
@@ -223,16 +235,12 @@ Variable D : domain N.
    extensionality). *)
 Lemma eval_map_ext (ev1 ev2 : val N -> option (val N)) :
   (forall w, ev1 w = ev2 w) -> forall n i, eval_map ev1 i n = eval_map ev2 i n.
-Proof.
-  intros Hev n; induction n as [| n IH]; intros i; simpl; [reflexivity |].
-  rewrite Hev, IH; reflexivity.
-Qed.
+Proof. by move=> Hev; elim=> [| n IH] i //=; rewrite Hev IH. Qed.
 
 Lemma eval_fold_ext (ev1 ev2 : val N -> val N -> option (val N)) :
   (forall w s, ev1 w s = ev2 w s) -> forall n i s, eval_fold ev1 i n s = eval_fold ev2 i n s.
 Proof.
-  intros Hev n; induction n as [| n IH]; intros i s; simpl; [reflexivity |].
-  rewrite Hev; destruct (ev2 (VInt i) s); [apply IH | reflexivity].
+by move=> Hev; elim=> [| n IH] i s //=; rewrite Hev; case: (ev2 (VInt i) s).
 Qed.
 
 (* A body, and a value, rebuilt with any tree of annotations, evaluate as
@@ -241,36 +249,33 @@ Lemma rebuild_eval :
   (forall b : anf (val N) bare, forall t, aeval D (rebuild _ b t) = aeval D b) /\
   (forall e : value (val N) bare, forall t, aeval_value D (rebuild_value _ e t) = aeval_value D e).
 Proof.
-  apply anf_value_ind.
-  - (* ALet *) intros [] e IHe b IHb [a vt rest |]; simpl; rewrite IHe;
-      destruct (aeval_value D e); auto.
-  - (* ARet *) reflexivity.
-  - (* AOp1 *) reflexivity.
-  - (* AOp2 *) reflexivity.
-  - (* AGet *) reflexivity.
-  - (* ASet *) reflexivity.
-  - (* AIte *) intros c t IHt e IHe [| t1 e1 | bt | a bt]; simpl; rewrite IHt, IHe; reflexivity.
-  - (* AMap *) intros lo hi b IHb vt.
-    assert (H : forall bt, aeval_value D (rebuild_value _ (AMap lo hi b) (TMap bt))
-                         = aeval_value D (AMap lo hi b)).
-    { intros bt; simpl; destruct (aeval_atom D lo) as [[] |], (aeval_atom D hi) as [[] |]; auto.
-      rewrite (eval_map_ext _ (fun v => aeval D (b v))); auto. }
-    destruct vt; try apply H; exact (H TRet).
-  - (* AFold *) intros [] lo hi init b IHb vt.
-    assert (H : forall a bt,
-               aeval_value D (AFold a lo hi init (fun i s => rebuild _ (b i s) bt))
-               = aeval_value D (AFold Bare lo hi init b)).
-    { intros a bt; simpl.
-      destruct (aeval_atom D lo) as [[] |], (aeval_atom D hi) as [[] |], (aeval_atom D init); auto.
-      apply eval_fold_ext; auto. }
-    destruct vt; apply H.
+apply: anf_value_ind => //.
+- (* ALet *) move=> [] e IHe b IHb [a vt rest |] /=; rewrite IHe;
+    by case: (aeval_value D e).
+- (* AIte *) by move=> c t IHt e IHe [| t1 e1 | bt | a bt] /=; rewrite IHt IHe.
+- (* AMap *) move=> lo hi b IHb vt.
+  have H : forall bt, aeval_value D (rebuild_value _ (AMap lo hi b) (TMap bt))
+                       = aeval_value D (AMap lo hi b).
+    move=> bt /=.
+    case: (aeval_atom D lo) => [[] |] //; case: (aeval_atom D hi) => [[] |] //.
+    by move=> *; rewrite (eval_map_ext _ (fun v => aeval D (b v))).
+  by case: vt => *; try apply: H; exact: (H TRet).
+(* AFold *)
+move=> [] lo hi init b IHb vt.
+have H : forall a bt,
+    aeval_value D (AFold a lo hi init (fun i s => rebuild _ (b i s) bt))
+    = aeval_value D (AFold Bare lo hi init b).
+  move=> a bt /=.
+  case: (aeval_atom D lo) => [[] |] //; case: (aeval_atom D hi) => [[] |] //.
+  by move=> *; case: (aeval_atom D init) => // *; apply: eval_fold_ext.
+by case: vt => *; apply: H.
 Qed.
 
 Lemma rebuild_definition_eval (d : adefinition (val N) bare) t args :
   aeval_definition D (rebuild_definition _ d t) args = aeval_definition D d args.
 Proof.
-  revert args; induction d as [n ty r f IHf | r b]; intros [| a args]; simpl; auto.
-  apply (proj1 rebuild_eval).
+elim: d t args => [n ty r f IHf | r b] t [| a args] //=.
+exact: (proj1 rebuild_eval).
 Qed.
 
 End AnnotateCorrect.
@@ -278,4 +283,4 @@ End AnnotateCorrect.
 Theorem annotate_correct :
   forall (N : Type) (D : domain N) (cv : bool) (a : afunction bare) (args : list (val N)),
     aeval_function D (annotate cv a) args = aeval_function D a args.
-Proof. intros N D cv a args; apply rebuild_definition_eval. Qed.
+Proof. by move=> N D cv a args; apply: rebuild_definition_eval. Qed.
