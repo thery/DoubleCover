@@ -220,3 +220,242 @@ have := Hb (PV (AV 6 false) (VInfo 6 Integer None) dummy_tvar (VInt 0) 6)
   (PV (AV 8 false) (VInfo 8 Real None) dummy_tvar (VInt 0) 8).
 by move=> /(f_equal pn).
 Qed.
+
+(* All the functions of the reference cases (~/claudeExp/elpi/cases) that the
+   tool accepts, besides those above (03-branch is branch_fn, 05-map map_fn,
+   06-fold-sum sumsq_fn, 09-array-state advect_fn); 08-refusal is refused. *)
+
+(* Case 00-wikipedia. *)
+Definition c00_f_fn : function := Function_ "f" (fun V => Arg "x1" Real
+  Independent (fun x1 => Arg "x2" Real Independent (fun x2 => Body (Returns
+  Real) (Let_ (Op2 Mul (Var x1) (Var x2)) (fun x3 => (Let_ (Op1 Sin (Var x1))
+  (fun x4 => (Let_ (Op2 Add (Var x3) (Var x4)) (fun x5 => (Var x5)))))))))).
+
+Lemma c00_f_wf : well_formed (normalize c00_f_fn) = Ok.
+Proof. by vm_compute. Qed.
+
+Lemma c00_f_nesty : nesty_args c00_f_fn.
+Proof.
+move=> x dx L res bP; move: (seed_args _ x dx) => xs.
+case: xs => [| x1 [| x2 [| ? ?]]] //= [_ _ <-] /=.
+by nesty_auto.
+Qed.
+
+(* Case 01-expression. *)
+Definition c01_quad_fn : function := Function_ "quad" (fun V => Arg "x" Real
+  Independent (fun x1 => Body (Returns Real) (Op2 Add (Op2 Mul (Var x1) (Var
+  x1)) (Var x1)))).
+
+Lemma c01_quad_wf : well_formed (normalize c01_quad_fn) = Ok.
+Proof. by vm_compute. Qed.
+
+Lemma c01_quad_nesty : nesty_args c01_quad_fn.
+Proof.
+move=> x dx L res bP; move: (seed_args _ x dx) => xs.
+case: xs => [| x1 [| ? ?]] //= [_ _ <-] /=.
+by nesty_auto.
+Qed.
+
+(* Case 01-partials. *)
+Definition c01_transcend_fn : function := Function_ "transcend" (fun V => Arg
+  "x" Real Independent (fun x1 => Arg "y" Real Independent (fun x2 => Body
+  (Returns Real) (Op2 Sub (Op2 Sub (Op2 Add (Op2 Divide (Op2 Mul (Op1 Sin (Var
+  x1)) (Op1 Exp (Var x2))) (Op1 Sqrt (Var x1))) (Op1 Log (Var x2))) (Op2 Mul
+  (Op1 (Pow 3) (Var x1)) (Op1 Cos (Var x2)))) (Op2 Divide (Var x2) (Var
+  x1)))))).
+
+Lemma c01_transcend_wf : well_formed (normalize c01_transcend_fn) = Ok.
+Proof. by vm_compute. Qed.
+
+Lemma c01_transcend_nesty : nesty_args c01_transcend_fn.
+Proof.
+move=> x dx L res bP; move: (seed_args _ x dx) => xs.
+case: xs => [| x1 [| x2 [| ? ?]]] //= [_ _ <-] /=.
+by nesty_auto.
+Qed.
+
+(* Case 02-overwrite. *)
+Definition c02_overwrite_fn : function := Function_ "overwrite" (fun V => Arg
+  "x" Real Independent (fun x1 => Body (Returns Real) (Let_ (Op2 Mul (Num "2")
+  (Var x1)) (fun x2 => (Op2 Mul (Var x2) (Var x2)))))).
+
+Lemma c02_overwrite_wf : well_formed (normalize c02_overwrite_fn) = Ok.
+Proof. by vm_compute. Qed.
+
+Lemma c02_overwrite_nesty : nesty_args c02_overwrite_fn.
+Proof.
+move=> x dx L res bP; move: (seed_args _ x dx) => xs.
+case: xs => [| x1 [| ? ?]] //= [_ _ <-] /=.
+by nesty_auto.
+Qed.
+
+(* Case 02-reference. *)
+Definition c02_rescale_fn : function := Function_ "rescale" (fun V => Arg "x"
+  Real Inout (fun x1 => Arg "w" Real Independent (fun x2 => Body (Writes (Var
+  x1)) (Op2 Mul (Op2 Mul (Var x2) (Var x1)) (Var x1))))).
+
+Lemma c02_rescale_wf : well_formed (normalize c02_rescale_fn) = Ok.
+Proof. by vm_compute. Qed.
+
+Lemma c02_rescale_nesty : nesty_args c02_rescale_fn.
+Proof.
+move=> x dx L res bP; move: (seed_args _ x dx) => xs.
+case: xs => [| x1 [| x2 [| ? ?]]] //= [_ _ <-] /=.
+by nesty_auto.
+Qed.
+
+(* Case 02-reference. *)
+Definition c02_energy_fn : function := Function_ "energy" (fun V => Arg "x" Real
+  Independent (fun x1 => Arg "w" Real Independent (fun x2 => Arg "e" Real
+  Dependent (fun x3 => Body (Writes (Var x3)) (Op2 Mul (Op2 Mul (Var x2) (Var
+  x1)) (Var x1)))))).
+
+Lemma c02_energy_wf : well_formed (normalize c02_energy_fn) = Ok.
+Proof. by vm_compute. Qed.
+
+Lemma c02_energy_nesty : nesty_args c02_energy_fn.
+Proof.
+move=> x dx L res bP; move: (seed_args _ x dx) => xs.
+case: xs => [| x1 [| x2 [| x3 [| ? ?]]]] //= [_ _ <-] /=.
+by nesty_auto.
+Qed.
+
+(* Case 04-activity. *)
+Definition c04_damped_fn : function := Function_ "damped" (fun V => Arg "x" Real
+  Independent (fun x1 => Arg "nu" Real Passive (fun x2 => Body (Returns Real)
+  (Let_ (Op2 Mul (Var x2) (Var x2)) (fun x3 => (Let_ (Op2 Add (Var x3) (Num
+  "1")) (fun x4 => (Let_ (Op2 Mul (Var x1) (Var x1)) (fun x5 => (Op2 Divide (Var
+  x5) (Var x4))))))))))).
+
+Lemma c04_damped_wf : well_formed (normalize c04_damped_fn) = Ok.
+Proof. by vm_compute. Qed.
+
+Lemma c04_damped_nesty : nesty_args c04_damped_fn.
+Proof.
+move=> x dx L res bP; move: (seed_args _ x dx) => xs.
+case: xs => [| x1 [| x2 [| ? ?]]] //= [_ _ <-] /=.
+by nesty_auto.
+Qed.
+
+(* Case 07-fold-product. *)
+Definition c07_prodx_fn : function := Function_ "prodx" (fun V => Arg "x" (Array
+  3) Independent (fun x1 => Body (Returns Real) (Fold (Nat 0) (Nat 3) (Num "1")
+  (fun x2 x3 => (Op2 Mul (Var x3) (Get (Var x1) (Var x2))))))).
+
+Lemma c07_prodx_wf : well_formed (normalize c07_prodx_fn) = Ok.
+Proof. by vm_compute. Qed.
+
+Lemma c07_prodx_nesty : nesty_args c07_prodx_fn.
+Proof.
+move=> x dx L res bP; move: (seed_args _ x dx) => xs.
+case: xs => [| x1 [| ? ?]] //= [_ _ <-] /=.
+by nesty_auto.
+Qed.
+
+(* Case 11-weno5. *)
+Definition c11_weno5FluxImpl_fn : function := Function_ "weno5FluxImpl" (fun V
+  => Arg "v" (Array 5) Independent (fun x1 => Arg "positive" Integer Passive
+  (fun x2 => Arg "eps" Real Passive (fun x3 => Body (Returns Real) (Let_ (Get
+  (Var x1) (Nat 0)) (fun x4 => (Let_ (Get (Var x1) (Nat 1)) (fun x5 => (Let_
+  (Get (Var x1) (Nat 2)) (fun x6 => (Let_ (Get (Var x1) (Nat 3)) (fun x7 =>
+  (Let_ (Get (Var x1) (Nat 4)) (fun x8 => (Let_ (Op2 Add (Op2 Mul (Num
+  "13.0 / 12.0") (Op1 (Pow 2) (Op2 Add (Op2 Sub (Var x4) (Op2 Mul (Num "2") (Var
+  x5))) (Var x6)))) (Op2 Mul (Num "1.0 / 4.0") (Op1 (Pow 2) (Op2 Add (Op2 Sub
+  (Var x4) (Op2 Mul (Num "4") (Var x5))) (Op2 Mul (Num "3") (Var x6)))))) (fun
+  x9 => (Let_ (Op2 Add (Op2 Mul (Num "13.0 / 12.0") (Op1 (Pow 2) (Op2 Add (Op2
+  Sub (Var x5) (Op2 Mul (Num "2") (Var x6))) (Var x7)))) (Op2 Mul (Num
+  "1.0 / 4.0") (Op1 (Pow 2) (Op2 Sub (Var x5) (Var x7))))) (fun x10 => (Let_
+  (Op2 Add (Op2 Mul (Num "13.0 / 12.0") (Op1 (Pow 2) (Op2 Add (Op2 Sub (Var x6)
+  (Op2 Mul (Num "2") (Var x7))) (Var x8)))) (Op2 Mul (Num "1.0 / 4.0") (Op1 (Pow
+  2) (Op2 Add (Op2 Sub (Op2 Mul (Num "3") (Var x6)) (Op2 Mul (Num "4") (Var
+  x7))) (Var x8))))) (fun x11 => (Let_ (Op2 Gt (Var x2) (Nat 0)) (fun x12 =>
+  (Let_ (Ite (Var x12) (Num "0.3") (Num "0.1")) (fun x13 => (Let_ (Ite (Var x12)
+  (Num "0.1") (Num "0.3")) (fun x14 => (Let_ (Op2 Divide (Var x13) (Op1 (Pow 2)
+  (Op2 Add (Var x3) (Var x9)))) (fun x15 => (Let_ (Op2 Divide (Num "0.6") (Op1
+  (Pow 2) (Op2 Add (Var x3) (Var x10)))) (fun x16 => (Let_ (Op2 Divide (Var x14)
+  (Op1 (Pow 2) (Op2 Add (Var x3) (Var x11)))) (fun x17 => (Let_ (Op2 Add (Op2
+  Add (Var x15) (Var x16)) (Var x17)) (fun x18 => (Let_ (Op2 Divide (Var x15)
+  (Var x18)) (fun x19 => (Let_ (Op2 Divide (Var x16) (Var x18)) (fun x20 =>
+  (Let_ (Op2 Divide (Var x17) (Var x18)) (fun x21 => (Let_ (Ite (Var x12) (Op2
+  Add (Op2 Sub (Op2 Mul (Num "2.0") (Var x4)) (Op2 Mul (Num "7.0") (Var x5)))
+  (Op2 Mul (Num "11.0") (Var x6))) (Op2 Add (Op2 Add (Op2 Mul (Num "-1.0") (Var
+  x4)) (Op2 Mul (Num "5.0") (Var x5))) (Op2 Mul (Num "2.0") (Var x6)))) (fun x22
+  => (Let_ (Ite (Var x12) (Op2 Add (Op2 Add (Op2 Mul (Num "-1.0") (Var x5)) (Op2
+  Mul (Num "5.0") (Var x6))) (Op2 Mul (Num "2.0") (Var x7))) (Op2 Sub (Op2 Add
+  (Op2 Mul (Num "2.0") (Var x5)) (Op2 Mul (Num "5.0") (Var x6))) (Op2 Mul (Num
+  "1.0") (Var x7)))) (fun x23 => (Let_ (Ite (Var x12) (Op2 Sub (Op2 Add (Op2 Mul
+  (Num "2.0") (Var x6)) (Op2 Mul (Num "5.0") (Var x7))) (Op2 Mul (Num "1.0")
+  (Var x8))) (Op2 Add (Op2 Sub (Op2 Mul (Num "11.0") (Var x6)) (Op2 Mul (Num
+  "7.0") (Var x7))) (Op2 Mul (Num "2.0") (Var x8)))) (fun x24 => (Op2 Divide
+  (Op2 Add (Op2 Add (Op2 Mul (Var x19) (Var x22)) (Op2 Mul (Var x20) (Var x23)))
+  (Op2 Mul (Var x21) (Var x24))) (Num
+  "6.0")))))))))))))))))))))))))))))))))))))))))))))))).
+
+Lemma c11_weno5FluxImpl_wf : well_formed (normalize c11_weno5FluxImpl_fn) = Ok.
+Proof. by vm_compute. Qed.
+
+Lemma c11_weno5FluxImpl_nesty : nesty_args c11_weno5FluxImpl_fn.
+Proof.
+move=> x dx L res bP; move: (seed_args _ x dx) => xs.
+case: xs => [| x1 [| x2 [| x3 [| ? ?]]]] //= [_ _ <-] /=.
+by nesty_auto.
+Qed.
+
+(* Case 12-goto. *)
+Definition c12_irreducibleUpdate_fn : function := Function_ "irreducibleUpdate"
+  (fun V => Arg "w" Real Inout (fun x1 => Arg "i" Integer Passive (fun x2 =>
+  Body (Writes (Var x1)) (Let_ (Op2 Mul (Num "1.5") (Var x1)) (fun x3 => (Let_
+  (Op1 Sin (Op2 Add (Var x1) (Num "1"))) (fun x4 => (Let_ (Op1 Sin (Op2 Add (Var
+  x4) (Num "2"))) (fun x5 => (Let_ (Ite (Op2 Gt (Var x2) (Nat 10)) (Let_ (Op1
+  Sin (Op2 Add (Var x5) (Num "3"))) (fun x6 => (Let_ (Op2 Add (Var x4) (Op2 Mul
+  (Num "2") (Var x6))) (fun x7 => (Op1 Sin (Op2 Add (Op2 Add (Var x7) (Var x3))
+  (Num "6"))))))) (Let_ (Op1 Sin (Op2 Add (Var x5) (Num "4"))) (fun x6 => (Let_
+  (Op2 Add (Var x4) (Var x6)) (fun x7 => (Op1 Sin (Op2 Add (Op2 Add (Var x7)
+  (Var x3)) (Num "5")))))))) (fun x6 => (Op1 Sin (Op2 Add (Var x6) (Num
+  "7")))))))))))))).
+
+Lemma c12_irreducibleUpdate_wf :
+  well_formed (normalize c12_irreducibleUpdate_fn) = Ok.
+Proof. by vm_compute. Qed.
+
+Lemma c12_irreducibleUpdate_nesty : nesty_args c12_irreducibleUpdate_fn.
+Proof.
+move=> x dx L res bP; move: (seed_args _ x dx) => xs.
+case: xs => [| x1 [| x2 [| ? ?]]] //= [_ _ <-] /=.
+by nesty_auto.
+Qed.
+
+(* Case 13-branch-inplace. *)
+Definition c13_bri_fn : function := Function_ "bri" (fun V => Arg "u" (Array 2)
+  Inout (fun x1 => Arg "c" Real Independent (fun x2 => Body (Writes (Var x1))
+  (Let_ (Ite (Op2 Gt (Var x2) (Num "0")) (Op2 Mul (Get (Var x1) (Nat 0)) (Get
+  (Var x1) (Nat 0))) (Num "0")) (fun x3 => (Fold (Nat 0) (Nat 2) (Var x1) (fun
+  x4 x5 => (Set_ (Var x5) (Var x4) (Op2 Add (Get (Var x5) (Var x4)) (Var
+  x3)))))))))).
+
+Lemma c13_bri_wf : well_formed (normalize c13_bri_fn) = Ok.
+Proof. by vm_compute. Qed.
+
+Lemma c13_bri_nesty : nesty_args c13_bri_fn.
+Proof.
+move=> x dx L res bP; move: (seed_args _ x dx) => xs.
+case: xs => [| x1 [| x2 [| ? ?]]] //= [_ _ <-] /=.
+by nesty_auto.
+Qed.
+
+(* A one-level in-place loop at a constant index.
+   void constidx(std::array<T,3>& u, T c) { for (i < 3) u[0] = c * u[0]; } *)
+Definition constidx_fn : function := Function_ "constidx" (fun V =>
+  Arg "u" (Array 3) Inout (fun x1 => Arg "c" Real Independent (fun x2 =>
+  Body (Writes (Var x1)) (Fold (Nat 0) (Nat 3) (Var x1) (fun x3 x4 =>
+  (Set_ (Var x4) (Nat 0) (Op2 Mul (Var x2) (Get (Var x4) (Nat 0))))))))).
+
+Lemma constidx_wf : well_formed (normalize constidx_fn) = Ok.
+Proof. by vm_compute. Qed.
+
+Lemma constidx_nesty : nesty_args constidx_fn.
+Proof.
+move=> x dx L res bP; move: (seed_args _ x dx) => xs.
+case: xs => [| x1 [| x2 [| ? ?]]] //= [_ _ <-] /=.
+by nesty_auto.
+Qed.
