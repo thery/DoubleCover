@@ -6,10 +6,10 @@
    The proofs of this file use the ssreflect tactic language. *)
 
 From Stdlib Require Import String ZArith List Bool Reals Lia Lra.
-From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Operations
-  Normalize WellFormed Atoms Activity Tbr Annotate Transform Adjoint Simplify Scoping
-  AnfEquiv Correctness TangentCorrect TangentLoops TangentGood AdjointCorrect AdjointBranch
-  AdjointFold.
+From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec
+  Operations Normalize WellFormed Atoms Activity Tbr Annotate Transform Adjoint
+  Simplify Scoping AnfEquiv Correctness TangentCorrect TangentLoops TangentGood
+  AdjointCorrect AdjointBranch AdjointFold.
 From Corelib Require Import ssreflect ssrbool ssrfun.
 Set Bullet Behavior "None".
 
@@ -28,15 +28,7 @@ Lemma act_fold_gen a (loP hiP initP : atom pv)
 Proof.
 move=> [q [-> Hqa]] Hab L k wP pp tail eA eW eD te ve HA HW HD HL Htc Hev.
 destruct eA, eW, eD; simpl in HA, HW, HD; try contradiction;
-repeat match goal with
-       | H : _ /\ _ |- _ => destruct H
-       | H : atom_eq (gA _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gW _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gD _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       end; subst.
+graph_split.
 rename b into bA, b0 into bW, b1 into bD.
 match goal with
   H : forall (i1 : pv) (i2 : avar) (s1 : pv) (s2 : avar), _ |- _ =>

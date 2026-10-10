@@ -1,4 +1,5 @@
 -R . ElpiDiff
+Dot.v
 Syntax.v
 Anf.v
 Derivative.v

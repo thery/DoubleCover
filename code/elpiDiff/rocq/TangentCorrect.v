@@ -24,13 +24,21 @@
    The simulation proves at the same time that the generated statements
    follow the discipline `good` of Scoping.v, which simplify relies on. *)
 
-From Stdlib Require Import String ZArith List Bool Reals QArith Qreals Lia Lra DecimalString.
-From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Operations
-  Normalize WellFormed Atoms Activity Tbr Annotate Transform Tangent Simplify Scoping
-  AnfEquiv Correctness.
+From Stdlib Require Import String ZArith List Bool Reals QArith Qreals Lia Lra
+  DecimalString.
+From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec
+  Operations Normalize WellFormed Atoms Activity Tbr Annotate Transform Tangent
+  Simplify Scoping AnfEquiv Correctness SimplifyCorrect.
 
 From Corelib Require Import ssreflect ssrbool ssrfun.
 Set Bullet Behavior "None".
+
+(* Facts proved in SimplifyCorrect.v, under the names the files importing
+   this one use. *)
+Notation key_eqb_eq := SimplifyCorrect.key_eqb_eq.
+Notation lit_0 := SimplifyCorrect.lit_0.
+Notation lit_1 := SimplifyCorrect.lit_1.
+Notation lit_m1 := SimplifyCorrect.lit_m1.
 
 Import ListNotations.
 Open Scope R_scope.
@@ -40,35 +48,18 @@ Open Scope R_scope.
    (open_pairs, Scoping.v) and executed after out_dvar. *)
 
 Definition keyv (v : dvar W) : key := KVar (out_dvar nat v).
-Definition xev (s : store R) (e : dexpr W) : option (val R) := xeval reals s (out_dexpr nat e).
+Definition xev (s : store R) (e : dexpr W) : option (val R) := xeval reals s
+  (out_dexpr nat e).
 Definition run (ss : list (dstmt W)) (s : store R) : option (store R) :=
   exec_stmts reals (map (out_dstmt nat) ss) s.
-
-Lemma dvar_eqb_eq (a b : dvar nat) : dvar_eqb a b = true <-> a = b.
-Proof.
-elim: a b => [x | a IH | a IH | a IH |] [y | b | b | b |] /=;
-  try (split; [discriminate | move=> E; discriminate E]).
-- by rewrite Nat.eqb_eq; split=> [-> | [->]].
-- by rewrite IH; split=> [-> | [->]].
-- by rewrite IH; split=> [-> | [->]].
-- by rewrite IH; split=> [-> | [->]].
-by [].
-Qed.
-
-Lemma key_eqb_eq (a b : key) : key_eqb a b = true <-> a = b.
-Proof.
-case: a b => [x |] [y |] /=;
-  try (split; [discriminate | move=> E; discriminate E]).
-  by rewrite dvar_eqb_eq; split=> [-> | [->]].
-by [].
-Qed.
 
 Lemma key_eqb_refl (a : key) : key_eqb a a = true.
 Proof. by apply/key_eqb_eq. Qed.
 
 (* Reading a store after a write. *)
 Lemma store_get_set (s : store R) k v k' :
-  store_get (store_set s k v) k' = if key_eqb k k' then Some v else store_get s k'.
+  store_get (store_set s k v) k' = if key_eqb k k' then Some v else store_get s
+    k'.
 Proof.
 elim: s => [| [k0 w] s IH] //=.
 case E0: (key_eqb k0 k).
@@ -82,41 +73,25 @@ Qed.
 
 (* Executing a block in two parts. *)
 Lemma exec_stmts_app (l1 l2 : list (dstmt nat)) s :
-  exec_stmts reals (l1 ++ l2) s = match exec_stmts reals l1 s with Some s1 => exec_stmts reals l2 s1 | None => None end.
+  exec_stmts reals (l1 ++ l2) s = match exec_stmts reals l1 s with Some s1 =>
+    exec_stmts reals l2 s1 | None => None end.
 Proof.
 elim: l1 s => [| st l1 IH] s //=.
 by case: (exec reals st s) => [s1 |] //; apply: IH.
 Qed.
 
 Lemma run_app ss1 ss2 s :
-  run (ss1 ++ ss2) s = match run ss1 s with Some s1 => run ss2 s1 | None => None end.
+  run (ss1 ++ ss2) s = match run ss1 s with Some s1 => run ss2 s1 | None => None
+    end.
 Proof. by rewrite /run map_app; apply: exec_stmts_app. Qed.
 
 Lemma run_cons st ss s :
-  run (st :: ss) s = match exec reals (out_dstmt nat st) s with Some s1 => run ss s1 | None => None end.
+  run (st :: ss) s = match exec reals (out_dstmt nat st) s with Some s1 => run
+    ss s1 | None => None end.
 Proof. by []. Qed.
 
 Lemma run_nil s : run [] s = Some s.
 Proof. by []. Qed.
-
-(* The literals the tangent programs use. *)
-Lemma lit_0 : real_lit "0" = Some 0.
-Proof.
-rewrite /real_lit; vm_compute (read_literal _); rewrite /Q2R /=.
-by congr Some; ring.
-Qed.
-
-Lemma lit_1 : real_lit "1" = Some 1.
-Proof.
-rewrite /real_lit; vm_compute (read_literal _); rewrite /Q2R /=.
-by congr Some; rewrite Rinv_1; ring.
-Qed.
-
-Lemma lit_m1 : real_lit "-1" = Some (-1).
-Proof.
-rewrite /real_lit; vm_compute (read_literal _); rewrite /Q2R /=.
-by congr Some; rewrite Rinv_1; ring.
-Qed.
 
 (* ---------------------------------------------------------------------------
    Dual values: their primal part and their tangent, as values of the reals. *)
@@ -158,8 +133,10 @@ Definition has_type (t : ty) (v : val (dual R)) : Prop :=
   | _, _ => False
   end.
 
-Definition real_or_array (t : ty) : Prop := match t with Real | Array _ => True | _ => False end.
-Definition is_array (t : ty) : Prop := match t with Array _ => True | _ => False end.
+Definition real_or_array (t : ty) : Prop := match t with Real | Array _ => True
+  | _ => False end.
+Definition is_array (t : ty) : Prop := match t with Array _ => True | _ => False
+  end.
 
 (* ---------------------------------------------------------------------------
    The variables of the simulation: what the analyses know of a variable
@@ -167,7 +144,8 @@ Definition is_array (t : ty) : Prop := match t with Array _ => True | _ => False
    dual value, and the number of the variable of the tangent program that
    stores it. *)
 
-Record pv : Type := PV { pa : avar; pw : vinfo; pt : tvar W; pd : val (dual R); pn : nat }.
+Record pv : Type := PV { pa : avar; pw : vinfo; pt : tvar W; pd : val (dual R);
+  pn : nat }.
 
 Definition stored (p : pv) : dvar W := DBound (pn p, pn p).
 
@@ -187,7 +165,8 @@ Definition amap {A B : Type} (f : A -> B) (a : atom A) : atom B :=
 Definition static_ok (k : nat) (p : pv) : Prop :=
   aid (pa p) = vid (pw p) /\ (vid (pw p) < k)%nat /\
   tstored (pt p) = stored p /\ tty (pt p) = vty (pw p) /\
-  tvaried (pt p) = avaried (pa p) /\ tdot (pt p) = avaried (pa p) /\ tid (pt p) <> Some 0%nat /\
+  tvaried (pt p) = avaried (pa p) /\ tdot (pt p) = avaried (pa p) /\ tid (pt p)
+    <> Some 0%nat /\
   (avaried (pa p) = true -> real_or_array (vty (pw p))) /\
   has_type (vty (pw p)) (pd p) /\ (avaried (pa p) = false -> zero (pd p)).
 
@@ -198,7 +177,8 @@ Definition ids_unique (L : list pv) : Prop :=
    variable has one. *)
 Definition store_ok (s : store R) (p : pv) : Prop :=
   store_get s (keyv (stored p)) = Some (primal (pd p)) /\
-  (tdot (pt p) = true -> store_get s (keyv (DotOf (stored p))) = Some (tangent (pd p))).
+  (tdot (pt p) = true -> store_get s (keyv (DotOf (stored p))) = Some (tangent
+    (pd p))).
 
 (* Where a body sits, with the variables of an in-place loop. *)
 Inductive pplace : Type :=
@@ -215,7 +195,8 @@ Definition wplace (pp : pplace) : place :=
    at the top, the state of an in-place loop in its body. *)
 Definition owner (wP : option (atom pv)) (pp : pplace) : option pv :=
   match pp, wP with
-  | PTop, Some (AVar y) => match vty (pw y) with Array _ => Some y | _ => None end
+  | PTop, Some (AVar y) => match vty (pw y) with Array _ => Some y | _ => None
+    end
   | PArray _ sx, _ => Some sx
   | _, _ => None
   end.
@@ -240,13 +221,15 @@ Definition store_full (s : store R) (p : pv) : Prop :=
 (* The storage of an array and its dot hold arrays of length len. *)
 Definition arrays_len (s : store R) (n : dvar W) (len : nat) : Prop :=
   exists l1 l2, store_get s (keyv n) = Some (VArray l1) /\ length l1 = len /\
-                store_get s (keyv (DotOf n)) = Some (VArray l2) /\ length l2 = len.
+                store_get s (keyv (DotOf n)) = Some (VArray l2) /\ length l2 =
+                  len.
 
 (* The context of a body or a value: the variables in scope L, their binders
    numbered below k and their storage below c, the store s, the written
    argument wP, the place pp, and which variables the rest of the program
    reads (live); ty is the type of the body. *)
-Record ctx_ok (L : list pv) (k c : nat) (s : store R) (wP : option (atom pv)) (pp : pplace)
+Record ctx_ok (L : list pv) (k c : nat) (s : store R) (wP : option (atom pv))
+  (pp : pplace)
   (live : pv -> Prop) (ty : ty) : Prop := {
   c_static : Forall (static_ok k) L;
   c_unique : ids_unique L;
@@ -255,14 +238,18 @@ Record ctx_ok (L : list pv) (k c : nat) (s : store R) (wP : option (atom pv)) (p
   c_written : forall a, wP = Some a ->
       exists y, a = AVar y /\ In y L /\ varg (pw y) <> None;
   c_place : place_ok L pp;
-  c_owner : forall o p, owner wP pp = Some o -> In p L -> pn p = pn o -> p = o \/ ~ live p;
-  c_inplace : forall o p, owner wP pp = Some o -> In p L -> live p -> pn p = pn o -> store_full s p;
+  c_owner : forall o p, owner wP pp = Some o -> In p L -> pn p = pn o -> p = o
+    \/ ~ live p;
+  c_inplace : forall o p, owner wP pp = Some o -> In p L -> live p -> pn p = pn
+    o -> store_full s p;
   c_arrays : forall p o, In p L -> live p -> is_array (vty (pw p)) ->
-      (varg (pw p) = None \/ wP = Some (AVar p)) -> owner wP pp = Some o -> pn p = pn o;
+      (varg (pw p) = None \/ wP = Some (AVar p)) -> owner wP pp = Some o -> pn p
+        = pn o;
   c_ty : is_array ty -> owner wP pp <> None;
   c_top : forall y, pp = PTop -> wP = Some (AVar y) -> is_array (vty (pw y)) ->
       ty = vty (pw y) /\ (live y -> avaried (pa y) = true) /\
-      arrays_len s (stored y) (match vty (pw y) with Array n => Z.to_nat n | _ => 0%nat end)
+      arrays_len s (stored y) (match vty (pw y) with Array n => Z.to_nat n | _
+        => 0%nat end)
 }.
 
 
@@ -275,15 +262,18 @@ Record sctx (L : list pv) (k c : nat) (wP : option (atom pv)) (pp : pplace)
   s_written : forall a, wP = Some a ->
       exists y, a = AVar y /\ In y L /\ varg (pw y) <> None;
   s_place : place_ok L pp;
-  s_owner : forall o p, owner wP pp = Some o -> In p L -> pn p = pn o -> p = o \/ ~ live p;
+  s_owner : forall o p, owner wP pp = Some o -> In p L -> pn p = pn o -> p = o
+    \/ ~ live p;
   s_arrays : forall p o, In p L -> live p -> is_array (vty (pw p)) ->
-      (varg (pw p) = None \/ wP = Some (AVar p)) -> owner wP pp = Some o -> pn p = pn o;
+      (varg (pw p) = None \/ wP = Some (AVar p)) -> owner wP pp = Some o -> pn p
+        = pn o;
   s_ty : is_array ty -> owner wP pp <> None;
   s_top : forall y, pp = PTop -> wP = Some (AVar y) -> is_array (vty (pw y)) ->
       ty = vty (pw y) /\ (live y -> avaried (pa y) = true)
 }.
 
-Lemma ctx_sctx L k c s wP pp live ty : ctx_ok L k c s wP pp live ty -> sctx L k c wP pp live ty.
+Lemma ctx_sctx L k c s wP pp live ty : ctx_ok L k c s wP pp live ty -> sctx L k
+  c wP pp live ty.
 Proof.
 move=> [HS HU HN HSt HW HP HO HI HA HT HTop]; constructor=> //.
 by move=> y H1 H2 H3; case: (HTop y H1 H2 H3) => [A [B _]].
@@ -299,15 +289,18 @@ Fixpoint below (c : nat) (v : dvar W) : Prop :=
   end.
 
 Definition frame (c : nat) (ex : option (dvar W)) (s s' : store R) : Prop :=
-  forall v, below c v -> consistent v -> (forall n, ex = Some n -> v <> n /\ v <> DotOf n) ->
+  forall v, below c v -> consistent v -> (forall n, ex = Some n -> v <> n /\ v
+    <> DotOf n) ->
   store_get s' (keyv v) = store_get s (keyv v).
 
 (* The result of a body: a real, its value and tangent computed by the two
    expressions; an array, left in the storage updated in place. *)
-Definition body_result (t : ty) (ex : option (dvar W)) (s : store R) (ve de : dexpr W)
+Definition body_result (t : ty) (ex : option (dvar W)) (s : store R) (ve de :
+  dexpr W)
   (v : val (dual R)) : Prop :=
   match t with
-  | Array _ => exists o, ex = Some o /\ store_get s (keyv o) = Some (primal v) /\
+  | Array _ => exists o, ex = Some o /\ store_get s (keyv o) = Some (primal v)
+    /\
                          store_get s (keyv (DotOf o)) = Some (tangent v)
   | _ => xev s ve = Some (primal v) /\ xev s de = Some (tangent v)
   end.
@@ -320,27 +313,32 @@ Definition body_result (t : ty) (ex : option (dvar W)) (s : store R) (ve de : de
 
 (* Unfolds the operations of the domains, but not the reading of literals. *)
 Ltac unfold_ops H :=
-  cbv beta iota delta [dual_op1 dual_op2 dual_partial1 dom_op1 dom_op2 dom_lit dom_cmp reals
+  cbv beta iota delta [dual_op1 dual_op2 dual_partial1 dom_op1 dom_op2 dom_lit
+    dom_cmp reals
     duals dual_lit real_op1 real_op2 partial1 partial2] in H.
 
 Lemma xev_DOp1 s f e :
-  xev s (DOp1 f e) = match xev s e with Some va => eval_op1 reals f va | None => None end.
+  xev s (DOp1 f e) = match xev s e with Some va => eval_op1 reals f va | None =>
+    None end.
 Proof. by []. Qed.
 
 Lemma xev_DOp2 s f e1 e2 :
   xev s (DOp2 f e1 e2) =
   match xev s e1 with
-  | Some va => match xev s e2 with Some vb => eval_op2 reals f va vb | None => None end
+  | Some va => match xev s e2 with Some vb => eval_op2 reals f va vb | None =>
+    None end
   | None => None end.
 Proof. by []. Qed.
 
-Lemma xev_DReal s l : xev s (DReal l) = match real_lit l with Some x => Some (VReal x) | None => None end.
+Lemma xev_DReal s l : xev s (DReal l) = match real_lit l with Some x => Some
+  (VReal x) | None => None end.
 Proof. by []. Qed.
 
 Lemma tangent_op1 s f (a : atom (tvar W)) e x dx y dy p :
   xev s (spell a) = Some (VReal x) -> xev s e = Some (VReal dx) ->
   dual_op1 R reals f (Dual x dx) = Some (Dual y dy) -> partial1 f a = Some p ->
-  xev s (DOp1 f (spell a)) = Some (VReal y) /\ xev s (scale (spell_partial p) e) = Some (VReal dy).
+  xev s (DOp1 f (spell a)) = Some (VReal y) /\ xev s (scale (spell_partial p) e)
+    = Some (VReal dy).
 Proof.
 move=> Ha He Hd Hp; rewrite xev_DOp1 Ha.
 destruct f as [| | | | | | k |]; unfold_ops Hd; unfold_ops Hp; try discriminate;
@@ -383,7 +381,8 @@ Qed.
 
 (* scale p e computes the product p * e, omitting a factor 1 or -1. *)
 Lemma xev_scale s p e q r :
-  xev s p = Some (VReal q) -> xev s e = Some (VReal r) -> xev s (scale p e) = Some (VReal (q * r)).
+  xev s p = Some (VReal q) -> xev s e = Some (VReal r) -> xev s (scale p e) =
+    Some (VReal (q * r)).
 Proof.
 move=> Hp He; case: p Hp => [x | s0 | z | a i | f a | f a b] Hp;
   try by rewrite /= xev_DOp2 Hp He.
@@ -398,18 +397,17 @@ case E2: (String.eqb s0 "-1").
 by rewrite xev_DOp2 Hp He.
 Qed.
 
-Lemma xev_sum2 s e1 e2 :
-  xev s (sum [e1; e2]) = xev s (DOp2 Add e1 e2).
-Proof. by []. Qed.
-
 (* For a binary arithmetic operation, at least one operand varied: the sum
    of the partial derivatives times the tangents of the varied operands, the
    others having tangent zero. *)
 Lemma tangent_op2 s f (a b : atom (tvar W)) x y dx dy z dz pa pb :
   xev s (spell a) = Some (VReal x) -> xev s (spell b) = Some (VReal y) ->
-  (tvaried_atom a = true -> xev s (dot a) = Some (VReal dx)) -> (tvaried_atom a = false -> dx = 0) ->
-  (tvaried_atom b = true -> xev s (dot b) = Some (VReal dy)) -> (tvaried_atom b = false -> dy = 0) ->
-  dual_op2 R reals f (Dual x dx) (Dual y dy) = Some (Dual z dz) -> partial2 f a b = Some (pa, pb) ->
+  (tvaried_atom a = true -> xev s (dot a) = Some (VReal dx)) -> (tvaried_atom a
+    = false -> dx = 0) ->
+  (tvaried_atom b = true -> xev s (dot b) = Some (VReal dy)) -> (tvaried_atom b
+    = false -> dy = 0) ->
+  dual_op2 R reals f (Dual x dx) (Dual y dy) = Some (Dual z dz) -> partial2 f a
+    b = Some (pa, pb) ->
   tvaried_atom a || tvaried_atom b = true ->
   xev s (DOp2 f (spell a) (spell b)) = Some (VReal z) /\
   xev s (sum (tangent_term W a pa ++ tangent_term W b pb)) = Some (VReal dz).
@@ -436,14 +434,16 @@ Qed.
    their variables.) *)
 
 (* A pv opened to look into a binder, with identity k. *)
-Definition pfresh (k : nat) : pv := PV (AV k false) (anon k) (probe W) (VInt 0) 0.
+Definition pfresh (k : nat) : pv := PV (AV k false) (anon k) (probe W) (VInt 0)
+  0.
 
 Definition agree (G1 G2 : list (pv * vinfo)) (k : nat) : Prop :=
   (forall p w1 w2, In (p, w1) G1 -> In (p, w2) G2 -> vid w1 = vid w2) /\
   (forall p w, In (p, w) G1 \/ In (p, w) G2 -> (aid (pa p) < k)%nat).
 
 Lemma agree_open G1 G2 k :
-  agree G1 G2 k -> agree ((pfresh k, anon k) :: G1) ((pfresh k, anon k) :: G2) (S k).
+  agree G1 G2 k -> agree ((pfresh k, anon k) :: G1) ((pfresh k, anon k) :: G2)
+    (S k).
 Proof.
 move=> [H1 H2]; split.
   move=> p w1 w2 [E1 | I1] [E2 | I2].
@@ -456,7 +456,8 @@ all: by specialize (H2 p w); intuition lia.
 Qed.
 
 Lemma agree_atom G1 G2 k (a : atom pv) a1 a2 id :
-  agree G1 G2 k -> atom_eq G1 a a1 -> atom_eq G2 a a2 -> occurs_atom id a1 = occurs_atom id a2.
+  agree G1 G2 k -> atom_eq G1 a a1 -> atom_eq G2 a a2 -> occurs_atom id a1 =
+    occurs_atom id a2.
 Proof.
 case=> H _; case: a a1 a2 => [x | ? | ?] [? | ? | ?] [? | ? | ?] //=.
 by move=> I1 I2; rewrite (H _ _ _ I1 I2).
@@ -464,14 +465,17 @@ Qed.
 
 Ltac rewrite_atoms Hg :=
   repeat match goal with
-  | A1 : atom_eq ?G1 ?x ?y1, A2 : atom_eq ?G2 ?x ?y2 |- context [occurs_atom ?id ?y1] =>
+  | A1 : atom_eq ?G1 ?x ?y1, A2 : atom_eq ?G2 ?x ?y2 |- context [occurs_atom ?id
+    ?y1] =>
       rewrite (agree_atom G1 G2 _ x y1 y2 id Hg A1 A2)
   end.
 
 Lemma occurs_transfer :
-  (forall bP : anf pv bare, forall G1 G2 b1 b2 id k, anf_eq G1 bP b1 -> anf_eq G2 bP b2 ->
+  (forall bP : anf pv bare, forall G1 G2 b1 b2 id k, anf_eq G1 bP b1 -> anf_eq
+    G2 bP b2 ->
      agree G1 G2 k -> occurs_anf id k b1 = occurs_anf id k b2) /\
-  (forall eP : value pv bare, forall G1 G2 e1 e2 id k, value_eq G1 eP e1 -> value_eq G2 eP e2 ->
+  (forall eP : value pv bare, forall G1 G2 e1 e2 id k, value_eq G1 eP e1 ->
+    value_eq G2 eP e2 ->
      agree G1 G2 k -> occurs_value id k e1 = occurs_value id k e2).
 Proof.
 apply: anf_value_ind.
@@ -565,7 +569,8 @@ Proof. by rewrite /gD in_map_iff => -[q [E I]]; case: E => <- <-. Qed.
 
 (* A body that only returns the variable it binds, as well_formed sees it
    (opened with anon k), is such for every opening of the pv instance. *)
-Lemma is_tail_shape L k (bP : pv -> anf pv bare) (bW : vinfo -> anf vinfo bare) :
+Lemma is_tail_shape L k (bP : pv -> anf pv bare) (bW : vinfo -> anf vinfo bare)
+  :
   (forall x1 x2, anf_eq ((x1, x2) :: gW L) (bP x1) (bW x2)) ->
   (forall p, In p L -> (vid (pw p) < k)%nat) ->
   WellFormed.is_tail bW k = true -> forall x, bP x = ARet (AVar x).
@@ -579,7 +584,8 @@ by case/in_gW: I => I Ew; subst; have := Hk _ I; lia.
 Qed.
 
 (* well_formed and tangent agree on which bodies only return their variable. *)
-Lemma is_tail_transfer L k (bP : pv -> anf pv bare) (bW : vinfo -> anf vinfo bare)
+Lemma is_tail_transfer L k (bP : pv -> anf pv bare) (bW : vinfo -> anf vinfo
+  bare)
   (bT : tvar W -> anf (tvar W) bare) tr :
   (forall x1 x2, anf_eq ((x1, x2) :: gW L) (bP x1) (bW x2)) ->
   (forall x1 x2, anf_eq ((x1, x2) :: gT L) (bP x1) (bT x2)) ->
@@ -611,7 +617,8 @@ Lemma fold_loop_sim (ev : val (dual R) -> val (dual R) -> option (val (dual R)))
   (body : store R -> option (store R)) (i : dvar nat)
   (Inv : Z -> store R -> val (dual R) -> Prop) :
   (forall j s st st', Inv j s st -> ev (VInt j) st = Some st' ->
-     exists s', body (store_set s (KVar i) (VInt j)) = Some s' /\ Inv (j + 1)%Z s' st') ->
+     exists s', body (store_set s (KVar i) (VInt j)) = Some s' /\ Inv (j + 1)%Z
+       s' st') ->
   forall n lo s st v, Inv lo s st -> eval_fold ev lo n st = Some v ->
   exists s', exec_up R body i lo n s = Some s' /\ Inv (lo + Z.of_nat n)%Z s' v.
 Proof.
@@ -622,25 +629,6 @@ move: Hev; case E: (ev (VInt lo) st) => [st1 |] // Hev.
 have [s1 [Hb Hi]] := Hstep _ _ _ _ Hinv E; rewrite Hb.
 have [s' [He Hi']] := IH _ _ _ _ Hi Hev; exists s'; split=> //.
 by have -> : (lo + Z.of_nat (S n))%Z = (lo + 1 + Z.of_nat n)%Z by lia.
-Qed.
-
-Lemma map_loop_sim (ev : val (dual R) -> option (val (dual R)))
-  (body : store R -> option (store R)) (i : dvar nat)
-  (Inv : Z -> store R -> list (dual R) -> Prop) :
-  (forall j s acc x, Inv j s acc -> ev (VInt j) = Some (VReal x) ->
-     exists s', body (store_set s (KVar i) (VInt j)) = Some s' /\ Inv (j + 1)%Z s' (acc ++ [x])%list) ->
-  forall n lo s acc xs, Inv lo s acc -> eval_map ev lo n = Some xs ->
-  exists s', exec_up R body i lo n s = Some s' /\ Inv (lo + Z.of_nat n)%Z s' (acc ++ xs)%list.
-Proof.
-move=> Hstep n; elim: n => [| n IH] lo s acc xs Hinv Hev; rewrite /= in Hev;
-  cbn [exec_up].
-  by case: Hev => <-; exists s; rewrite app_nil_r Z.add_0_r.
-move: Hev; case E: (ev (VInt lo)) => [[x | | | |] |] //.
-case E1: (eval_map ev (lo + 1) n) => [xs1 |] // [<-].
-have [s1 [Hb Hi]] := Hstep _ _ _ _ Hinv E; rewrite Hb.
-have [s' [He Hi']] := IH _ _ _ _ Hi E1; exists s'; split=> //.
-have -> : (lo + Z.of_nat (S n))%Z = (lo + 1 + Z.of_nat n)%Z by lia.
-by rewrite -app_assoc in Hi'.
 Qed.
 
 (* ---------------------------------------------------------------------------
@@ -657,6 +645,22 @@ case: aP aX => [p | sP | kP] [x | sX | kX] //=.
 - by move=> ->; split.
 by move=> ->; split.
 Qed.
+
+(* The graphs of the instances, on the parts of a value: every conjunction is
+   split, every atom_eq becomes the equation of the atom and the membership
+   of its variable, and the equations are substituted. *)
+Ltac graph_split :=
+  repeat match goal with
+         | H : _ /\ _ |- _ => destruct H
+         | H : atom_eq (gA _) _ _ |- _ =>
+           apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gW _) _ _ |- _ =>
+           apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gT _) _ _ |- _ =>
+           apply atom_graph in H; destruct H as [-> ?]
+         | H : atom_eq (gD _) _ _ |- _ =>
+           apply atom_graph in H; destruct H as [-> ?]
+         end; subst.
 
 Lemma aeval_literal s d : aeval_atom (duals reals) (ANum s) = Some d ->
   exists x, real_lit s = Some x /\ d = VReal (Dual x 0).
@@ -709,15 +713,19 @@ Fixpoint dvars (e : dexpr W) : list (dvar W) :=
 
 (* The variables an expression of the result reads: in scope, or opened by
    the code (at or after c). *)
-Definition res_vars (L : list pv) (live : pv -> Prop) (c : nat) (e : dexpr W) : Prop :=
+Definition res_vars (L : list pv) (live : pv -> Prop) (c : nat) (e : dexpr W) :
+  Prop :=
   forall x, In x (dvars e) ->
-  (exists p, In p L /\ live p /\ (x = stored p \/ x = DotOf (stored p))) \/ (~ below c x /\ consistent x).
+  (exists p, In p L /\ live p /\ (x = stored p \/ x = DotOf (stored p))) \/ (~
+    below c x /\ consistent x).
 
 (* The variables the expression of a tangent reads: the dots of variables in
    scope, or variables opened by the code. *)
-Definition dot_vars (L : list pv) (live : pv -> Prop) (c : nat) (e : dexpr W) : Prop :=
+Definition dot_vars (L : list pv) (live : pv -> Prop) (c : nat) (e : dexpr W) :
+  Prop :=
   forall x, In x (dvars e) ->
-  (exists p, In p L /\ live p /\ x = DotOf (stored p)) \/ (~ below c x /\ consistent x).
+  (exists p, In p L /\ live p /\ x = DotOf (stored p)) \/ (~ below c x /\
+    consistent x).
 
 Lemma dot_vars_res L live c e : dot_vars L live c e -> res_vars L live c e.
 Proof.
@@ -738,12 +746,14 @@ Definition live_value (k : nat) (e : value vinfo bare) (p : pv) : Prop :=
    zero tangent. *)
 Definition sim_body (bP : anf pv bare) : Prop :=
   forall L k c s wP pp m bA bW bT bD ty v,
-  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gT L) bP bT -> anf_eq (gD L) bP bD ->
+  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gT L) bP bT -> anf_eq
+    (gD L) bP bD ->
   ctx_ok L k c s wP pp (live_anf k bW) ty -> real_or_array ty ->
   typecheck (option_map (amap pw) wP) (wplace pp) k bW = (ty, Ok) ->
   aeval (duals reals) bD = Some v ->
   let '((ss, (ve, de)), c') :=
-    open_pairs (tan W (option_map (amap pt) wP) (rebuild _ bT (annotate_body_t false m k bA))) c in
+    open_pairs (tan W (option_map (amap pt) wP) (rebuild _ bT (annotate_body_t
+      false m k bA))) c in
   (c <= c')%nat /\ has_type ty v /\ (varied_anf k bA = false -> zero v) /\
   res_vars L (fun p => live_anf k bW p \/ owner wP pp = Some p) c ve /\
   dot_vars L (fun p => live_anf k bW p \/ owner wP pp = Some p) c de /\
@@ -753,11 +763,14 @@ Definition sim_body (bP : anf pv bare) : Prop :=
 (* Where the tangent pass stores a value (with_storage): the storage of the
    array it updates in place, or the array written by a final map; None for
    a fresh variable. *)
-Definition storage (wP : option (atom pv)) (tail : bool) (eP : value pv bare) : option (dvar W) :=
+Definition storage (wP : option (atom pv)) (tail : bool) (eP : value pv bare) :
+  option (dvar W) :=
   match eP with
   | ASet (AVar a) _ _ => Some (stored a)
-  | AFold _ _ _ (AVar i) _ => match vty (pw i) with Array _ => Some (stored i) | _ => None end
-  | AMap _ _ _ => if tail then match wP with Some (AVar y) => Some (stored y) | _ => None end else None
+  | AFold _ _ _ (AVar i) _ => match vty (pw i) with Array _ => Some (stored i) |
+    _ => None end
+  | AMap _ _ _ => if tail then match wP with Some (AVar y) => Some (stored y) |
+    _ => None end else None
   | _ => None
   end.
 
@@ -765,7 +778,8 @@ Definition storage (wP : option (atom pv)) (tail : bool) (eP : value pv bare) : 
    tangent in the dot of n when it is varied. *)
 Definition sim_value (eP : value pv bare) : Prop :=
   forall L k c s wP pp tail eA eW eT eD te n ve ty,
-  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gT L) eP eT -> value_eq (gD L) eP eD ->
+  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gT L) eP eT ->
+    value_eq (gD L) eP eD ->
   ctx_ok L k c s wP pp (live_value k eW) ty ->
   typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
   (tail = true -> te = ty) ->
@@ -778,8 +792,10 @@ Definition sim_value (eP : value pv bare) : Prop :=
   let vr := varied_value k eA in
   let '(se, c') :=
     open_pairs (tan_value W (option_map (amap pt) wP)
-                  (rebuild_value _ eT (annotate_value_t false k eA)) te vr n) c in
-  (c <= c')%nat /\ has_type te ve /\ (vr = false -> zero ve) /\ (vr = true -> real_or_array te) /\
+                  (rebuild_value _ eT (annotate_value_t false k eA)) te vr n) c
+                    in
+  (c <= c')%nat /\ has_type te ve /\ (vr = false -> zero ve) /\ (vr = true ->
+    real_or_array te) /\
   exists s', run se s = Some s' /\ frame c (Some n) s s' /\
              store_get s' (keyv n) = Some (primal ve) /\
              (vr = true \/ storage wP tail eP <> None ->
@@ -792,7 +808,8 @@ Proof. by move/Forall_forall=> H /H. Qed.
 
 Lemma unique_written_s L k c wP pp live ty p y :
   sctx L k c wP pp live ty -> In p L -> wP = Some y ->
-  (match amap pw y with AVar y0 => (vid (pw p) =? vid y0)%nat | _ => false end) = true ->
+  (match amap pw y with AVar y0 => (vid (pw p) =? vid y0)%nat | _ => false end)
+    = true ->
   wP = Some (AVar p).
 Proof.
 move=> Hc Hp Hw Hid; have [q [Eq [Hq _]]] := s_written _ _ _ _ _ _ _ Hc _ Hw.
@@ -802,7 +819,8 @@ Qed.
 
 Lemma unique_written L k c s wP pp live ty p y :
   ctx_ok L k c s wP pp live ty -> In p L -> wP = Some y ->
-  (match amap pw y with AVar y0 => (vid (pw p) =? vid y0)%nat | _ => false end) = true ->
+  (match amap pw y with AVar y0 => (vid (pw p) =? vid y0)%nat | _ => false end)
+    = true ->
   wP = Some (AVar p).
 Proof. by move=> Hc; exact: unique_written_s (ctx_sctx _ _ _ _ _ _ _ _ Hc). Qed.
 
@@ -890,7 +908,8 @@ Lemma open_with_storage {A : Type} L k wP (eP : value pv bare) eT vt
   value_eq (gT L) eP eT -> Forall (static_ok k) L ->
   (forall a, wP = Some a -> exists y, a = AVar y /\ In y L) ->
   exists n rec c0,
-    open_pairs (with_storage (option_map (amap pt) wP) (rebuild_value _ eT vt) bT K) c =
+    open_pairs (with_storage (option_map (amap pt) wP) (rebuild_value _ eT vt)
+      bT K) c =
     open_pairs (K n rec) c0 /\
     match storage wP (Transform.is_tail bT) eP with
     | Some m => n = m /\ c0 = c
@@ -927,7 +946,8 @@ case: HT => _ [_ [Hi _]]; destruct init as [p | |], init0; simpl in Hi;
 Qed.
 
 Lemma tof_amap k L (a : atom pv) :
-  Forall (static_ok k) L -> (forall p, a = AVar p -> In p L) -> tof (amap pt a) = of_atom (amap pw a).
+  Forall (static_ok k) L -> (forall p, a = AVar p -> In p L) -> tof (amap pt a)
+    = of_atom (amap pw a).
 Proof.
 move=> HL Ha; case: a Ha => [p | |] Ha //=.
 by have [_ [_ [_ [E _]]]] := static_in _ _ _ HL (Ha p erefl).
@@ -937,10 +957,12 @@ Lemma ty_eqb_true a b : ty_eqb a b = true -> a = b.
 Proof. by case: a; case: b => //= ? ? /Z.eqb_eq ->. Qed.
 
 Ltac crush_match H :=
-  repeat (match type of H with context [match ?x with _ => _ end] => destruct x eqn:? end;
+  repeat (match type of H with context [match ?x with _ => _ end] => destruct x
+    eqn:? end;
           simpl in H);
   repeat match goal with
-         | E : (if ?b then _ else _) = Some _ |- _ => destruct b; [| discriminate]
+         | E : (if ?b then _ else _) = Some _ |- _ => destruct b; [|
+           discriminate]
          | E : ty_eqb _ _ = true |- _ => apply ty_eqb_true in E
          end; try congruence.
 
@@ -948,15 +970,12 @@ Ltac crush_match H :=
    gives it. *)
 Lemma type_of_ok L k wW pW tail (eP : value pv bare) eW eT vt te :
   value_eq (gW L) eP eW -> value_eq (gT L) eP eT -> Forall (static_ok k) L ->
-  typecheck_value wW pW tail k eW = (te, Ok) -> Transform.type_of (rebuild_value _ eT vt) = te.
+  typecheck_value wW pW tail k eW = (te, Ok) -> Transform.type_of (rebuild_value
+    _ eT vt) = te.
 Proof.
 move=> HW HT HL Htc.
 destruct eP, eW, eT; simpl in HW, HT; try contradiction;
-  repeat match goal with
-  | H : _ /\ _ |- _ => destruct H
-  | H : atom_eq (gW L) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-  | H : atom_eq (gT L) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-  end; subst; simpl in Htc |- *;
+  graph_split; simpl in Htc |- *;
   try (destruct vt; reflexivity);
   rewrite ?(tof_amap k L) //.
 - (* AOp1 *) crush_match Htc.
@@ -983,10 +1002,7 @@ Proof.
 move=> HW Htc Hs.
 destruct eP, eW; simpl in HW; try contradiction; simpl in Hs;
   try (destruct Hs; reflexivity);
-  repeat match goal with
-  | H : _ /\ _ |- _ => destruct H
-  | H : atom_eq (gW L) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-  end; subst; simpl in Htc.
+  graph_split; simpl in Htc.
 - by destruct pW; simpl in Htc; crush_match Htc; injection Htc as <-.
 - destruct pW; simpl in Htc; try (crush_match Htc; fail).
   destruct tail; last crush_match Htc.
@@ -998,10 +1014,12 @@ by crush_match Htc; injection Htc as <-.
 Qed.
 
 Lemma open_pairs_sbind {A B : Type} (sc : scoped W A) (f : A -> scoped W B) c :
-  open_pairs (sbind sc f) c = let '(a, c1) := open_pairs sc c in open_pairs (f a) c1.
+  open_pairs (sbind sc f) c = let '(a, c1) := open_pairs sc c in open_pairs (f
+    a) c1.
 Proof. by elim: sc c => [n g IH | p g IH | a] c /=; auto. Qed.
 
-Lemma open_pairs_mono {A : Type} (sc : scoped W A) c : (c <= snd (open_pairs sc c))%nat.
+Lemma open_pairs_mono {A : Type} (sc : scoped W A) c : (c <= snd (open_pairs sc
+  c))%nat.
 Proof.
 by elim: sc c => [n g IH | p g IH | a] c /=; auto; have := IH (c, c) (S c); lia.
 Qed.
@@ -1030,12 +1048,14 @@ Lemma fresh_notin L k x :
   (forall p, In p L -> (aid (pa p) < k)%nat) -> aid (pa x) = k -> ~ In x L.
 Proof. by move=> H Hx I; have := H _ I; lia. Qed.
 
-Lemma aids_below L k : Forall (static_ok k) L -> forall p, In p L -> (aid (pa p) < k)%nat.
+Lemma aids_below L k : Forall (static_ok k) L -> forall p, In p L -> (aid (pa p)
+  < k)%nat.
 Proof. by move=> HL p Hp; have [E [H _]] := static_in _ _ _ HL Hp; lia. Qed.
 
 (* The body after a binder, opened as the simulation opens it and as
    well_formed's occurs opens it (anon k), has the same occurrences. *)
-Lemma live_cont L k (cP : pv -> anf pv bare) (cW : vinfo -> anf vinfo bare) x w id :
+Lemma live_cont L k (cP : pv -> anf pv bare) (cW : vinfo -> anf vinfo bare) x w
+  id :
   (forall x1 x2, anf_eq ((x1, x2) :: gW L) (cP x1) (cW x2)) ->
   Forall (static_ok k) L -> aid (pa x) = k -> vid w = k ->
   occurs_anf id (S k) (cW w) = occurs_anf id (S k) (cW (anon k)).
@@ -1055,10 +1075,12 @@ all: by case/in_gW: I => I _; have := aids_below L k HL p I; lia.
 Qed.
 
 (* A body that only returns its variable, opened with w. *)
-Lemma tail_cont L k (cP : pv -> anf pv bare) (cW : vinfo -> anf vinfo bare) x w :
+Lemma tail_cont L k (cP : pv -> anf pv bare) (cW : vinfo -> anf vinfo bare) x w
+  :
   (forall x1 x2, anf_eq ((x1, x2) :: gW L) (cP x1) (cW x2)) ->
   Forall (static_ok k) L -> aid (pa x) = k ->
-  WellFormed.is_tail cW k = true -> cP x = ARet (AVar x) /\ cW w = ARet (AVar w).
+  WellFormed.is_tail cW k = true -> cP x = ARet (AVar x) /\ cW w = ARet (AVar
+    w).
 Proof.
 move=> HcW HL Hx Ht.
 have Hk : forall p, In p L -> (vid (pw p) < k)%nat.
@@ -1071,17 +1093,20 @@ by case/in_gW: I => I _; case: (fresh_notin L k x (aids_below L k HL) Hx I).
 Qed.
 
 Lemma same_vid_s L k c wP pp live ty p q :
-  sctx L k c wP pp live ty -> In p L -> In q L -> (vid (pw p) =? vid (pw q))%nat = true -> p = q.
+  sctx L k c wP pp live ty -> In p L -> In q L -> (vid (pw p) =? vid (pw q))%nat
+    = true -> p = q.
 Proof.
 move=> Hc Hp Hq /Nat.eqb_eq E.
 exact: (s_unique _ _ _ _ _ _ _ Hc _ _ Hp Hq E).
 Qed.
 
 Lemma same_vid L k c s wP pp live ty p q :
-  ctx_ok L k c s wP pp live ty -> In p L -> In q L -> (vid (pw p) =? vid (pw q))%nat = true -> p = q.
+  ctx_ok L k c s wP pp live ty -> In p L -> In q L -> (vid (pw p) =? vid (pw
+    q))%nat = true -> p = q.
 Proof. by move=> Hc; exact: same_vid_s (ctx_sctx _ _ _ _ _ _ _ _ Hc). Qed.
 
-Lemma operation2_typed_scalar f a b t sp : operation2_typed f a b = Some (t, sp) -> ~ is_array t.
+Lemma operation2_typed_scalar f a b t sp : operation2_typed f a b = Some (t, sp)
+  -> ~ is_array t.
 Proof.
 rewrite /operation2_typed => H; destruct f, a, b; rewrite /= in H;
   try discriminate; injection H as <- <-; simpl; auto.
@@ -1095,14 +1120,12 @@ Lemma inplace_value_s L k c wP pp live ty tail (eP : value pv bare) eW te :
   typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
   (tail = true -> te = ty) ->
   storage wP tail eP <> None \/ is_array te ->
-  tail = true /\ exists o, owner wP pp = Some o /\ storage wP tail eP = Some (stored o).
+  tail = true /\ exists o, owner wP pp = Some o /\ storage wP tail eP = Some
+    (stored o).
 Proof.
 move=> Hc HW Htc Hty Hin.
 destruct eP, eW; simpl in HW; try contradiction;
-  repeat match goal with
-  | H : _ /\ _ |- _ => destruct H
-  | H : atom_eq (gW L) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-  end; subst; simpl in Htc, Hin |- *.
+  graph_split; simpl in Htc, Hin |- *.
 - destruct Hin as [Hi | Hi]; first congruence.
   by destruct f0; simpl in Htc; crush_match Htc; injection Htc as <-;
     destruct Hi.
@@ -1173,7 +1196,8 @@ Lemma inplace_value L k c s wP pp live ty tail (eP : value pv bare) eW te :
   typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
   (tail = true -> te = ty) ->
   storage wP tail eP <> None \/ is_array te ->
-  tail = true /\ exists o, owner wP pp = Some o /\ storage wP tail eP = Some (stored o).
+  tail = true /\ exists o, owner wP pp = Some o /\ storage wP tail eP = Some
+    (stored o).
 Proof. by move=> Hc; exact: inplace_value_s (ctx_sctx _ _ _ _ _ _ _ _ Hc). Qed.
 
 Lemma below_mono c c' v : below c v -> (c <= c')%nat -> below c' v.
@@ -1181,7 +1205,8 @@ Proof. by elim: v => [[i j] | v IH | v IH | v IH |] /=; auto; lia. Qed.
 
 (* The frames of a value and of the rest of its let compose. *)
 Lemma frame_let c c0 c1 ex n s s1 s2 :
-  (c <= c0)%nat -> (c0 <= c1)%nat -> frame c0 (Some n) s s1 -> frame c1 ex s1 s2 ->
+  (c <= c0)%nat -> (c0 <= c1)%nat -> frame c0 (Some n) s s1 -> frame c1 ex s1 s2
+    ->
   ~ below c n \/ ex = Some n -> frame c ex s s2.
 Proof.
 move=> H01 H12 F1 F2 Hn v Hb Hcons Hex.
@@ -1193,7 +1218,8 @@ Qed.
 
 (* A context stays a context for fewer live variables and a larger counter. *)
 Lemma ctx_weaken L k c c' s wP pp (live live' : pv -> Prop) ty :
-  ctx_ok L k c s wP pp live ty -> (forall p, live' p -> live p) -> (c <= c')%nat ->
+  ctx_ok L k c s wP pp live ty -> (forall p, live' p -> live p) -> (c <= c')%nat
+    ->
   ctx_ok L k c' s wP pp live' ty.
 Proof.
 move=> Hc Hl Hcc; case: Hc => HS HU HN HSt HW HP HO HI HA HT HTop.
@@ -1205,33 +1231,11 @@ constructor; auto.
 by move=> y H1 H2 H3; case: (HTop y H1 H2 H3) => [A [B C]]; auto.
 Qed.
 
-Lemma arrays_len_value s n v z :
-  store_get s (keyv n) = Some (primal v) -> store_get s (keyv (DotOf n)) = Some (tangent v) ->
-  has_type (Array z) v -> arrays_len s n (Z.to_nat z).
-Proof.
-move=> H1 H2 Ht; case: v H1 H2 Ht => [d | z0 | b | l | l] H1 H2 Ht;
-  try contradiction.
-by rewrite /= in Ht; exists (map dfst l), (map dsnd l); rewrite !length_map.
-Qed.
-
-Lemma arrays_len_frame c ex s s' p len :
-  frame c ex s s' -> (pn p < c)%nat ->
-  (forall m, ex = Some m -> stored p <> m /\ stored p <> DotOf m) ->
-  (forall m, ex = Some m -> DotOf (stored p) <> m /\ DotOf (stored p) <> DotOf m) ->
-  arrays_len s (stored p) len -> arrays_len s' (stored p) len.
-Proof.
-move=> F Hp H1 H2 [l1 [l2 [A1 [A2 [A3 A4]]]]]; exists l1, l2.
-have E1 : store_get s' (keyv (stored p)) = store_get s (keyv (stored p)).
-  by apply: F => //=; auto.
-have E2 : store_get s' (keyv (DotOf (stored p))) =
-          store_get s (keyv (DotOf (stored p))).
-  by apply: F => //=; auto.
-by rewrite E1 E2.
-Qed.
-
 Lemma dot_vars_let x L (live live' : pv -> Prop) c c1 e :
-  dot_vars (x :: L) live' c1 e -> (c <= c1)%nat -> (forall p, In p L -> live' p -> live p) ->
-  ((~ below c (stored x) /\ consistent (stored x)) \/ exists o, In o L /\ live o /\ stored x = stored o) ->
+  dot_vars (x :: L) live' c1 e -> (c <= c1)%nat -> (forall p, In p L -> live' p
+    -> live p) ->
+  ((~ below c (stored x) /\ consistent (stored x)) \/ exists o, In o L /\ live o
+    /\ stored x = stored o) ->
   dot_vars L live c e.
 Proof.
 move=> H Hc Hl Hx y Hy.
@@ -1243,8 +1247,10 @@ right; split=> // Hb'; apply: Hb; exact: (below_mono _ _ _ Hb' Hc).
 Qed.
 
 Lemma res_vars_let x L (live live' : pv -> Prop) c c1 e :
-  res_vars (x :: L) live' c1 e -> (c <= c1)%nat -> (forall p, In p L -> live' p -> live p) ->
-  ((~ below c (stored x) /\ consistent (stored x)) \/ exists o, In o L /\ live o /\ stored x = stored o) ->
+  res_vars (x :: L) live' c1 e -> (c <= c1)%nat -> (forall p, In p L -> live' p
+    -> live p) ->
+  ((~ below c (stored x) /\ consistent (stored x)) \/ exists o, In o L /\ live o
+    /\ stored x = stored o) ->
   res_vars L live c e.
 Proof.
 move=> H Hc Hl Hx y Hy.
@@ -1261,7 +1267,8 @@ Lemma tan_let w a e b :
   with_storage w e b (fun n rec =>
     let vr := match a with LetAnn v _ _ => v | _ => false end in
     sbind (tan_value W w e (Transform.type_of e) vr n) (fun se =>
-    sbind (tan W w (b (open_let (Transform.type_of e) n vr rec))) (fun '(sb, vd) => Done ((se ++ sb)%list, vd)))).
+    sbind (tan W w (b (open_let (Transform.type_of e) n vr rec))) (fun '(sb, vd)
+      => Done ((se ++ sb)%list, vd)))).
 Proof. by []. Qed.
 
 (* A let: the value, stored, then the rest of the body with one more
@@ -1495,7 +1502,8 @@ Qed.
    does not change their value. *)
 
 
-Definition avoid (k : key) (e : dexpr W) : Prop := forall x, In x (dvars e) -> keyv x <> k.
+Definition avoid (k : key) (e : dexpr W) : Prop := forall x, In x (dvars e) ->
+  keyv x <> k.
 
 Lemma xev_set_other s k v e : avoid k e -> xev (store_set s k v) e = xev s e.
 Proof.
@@ -1558,7 +1566,8 @@ case: f Hp => [| | | | | | [| ? | ?] |] //= [<-] /=;
 Qed.
 
 Lemma avoid_partial2 k f (a b : atom (tvar W)) pa pb :
-  avoid k (spell a) -> avoid k (dot a) -> avoid k (spell b) -> avoid k (dot b) ->
+  avoid k (spell a) -> avoid k (dot a) -> avoid k (spell b) -> avoid k (dot b)
+    ->
   partial2 f a b = Some (pa, pb) ->
   avoid k (sum (tangent_term W a pa ++ tangent_term W b pb)).
 Proof.
@@ -1593,10 +1602,12 @@ move/key_eqb_eq: E => E; have [H1 H2] := Hex n erefl; exfalso.
 by case: Hk => Ek; rewrite Ek in E; apply keyv_inj in E; auto.
 Qed.
 
-Lemma store_get_set_same (s : store R) k v : store_get (store_set s k v) k = Some v.
+Lemma store_get_set_same (s : store R) k v : store_get (store_set s k v) k =
+  Some v.
 Proof. by rewrite store_get_set key_eqb_refl. Qed.
 
-Lemma store_get_set_other (s : store R) k k' v : k <> k' -> store_get (store_set s k v) k' = store_get s k'.
+Lemma store_get_set_other (s : store R) k k' v : k <> k' -> store_get (store_set
+  s k v) k' = store_get s k'.
 Proof.
 move=> H; rewrite store_get_set; case E: (key_eqb k k') => //.
 by move/key_eqb_eq: E.
@@ -1612,8 +1623,10 @@ Qed.
    in it. *)
 Lemma operand_ok L k c s wP pp (live : pv -> Prop) ty (aP : atom pv) n :
   ctx_ok L k c s wP pp live ty -> (forall p, aP = AVar p -> In p L /\ live p) ->
-  (forall p, In p L -> stored p <> DBound (n, n) /\ DotOf (stored p) <> DBound (n, n)) ->
-  forall p, aP = AVar p -> (static_ok k p /\ store_ok s p) /\ (static_ok k p /\ pn p <> n).
+  (forall p, In p L -> stored p <> DBound (n, n) /\ DotOf (stored p) <> DBound
+    (n, n)) ->
+  forall p, aP = AVar p -> (static_ok k p /\ store_ok s p) /\ (static_ok k p /\
+    pn p <> n).
 Proof.
 move=> Hc Ha Hn p E; have [Hp Hl] := Ha p E.
 have Hs := static_in _ _ _ (c_static _ _ _ _ _ _ _ _ Hc) Hp.
@@ -1625,7 +1638,8 @@ Qed.
 Lemma operand_ok2 L k c s wP pp (live : pv -> Prop) ty (aP : atom pv) n :
   ctx_ok L k c s wP pp live ty -> (forall p, aP = AVar p -> In p L /\ live p) ->
   (forall p, aP = AVar p -> pn p <> n) ->
-  forall p, aP = AVar p -> (static_ok k p /\ store_ok s p) /\ (static_ok k p /\ pn p <> n).
+  forall p, aP = AVar p -> (static_ok k p /\ store_ok s p) /\ (static_ok k p /\
+    pn p <> n).
 Proof.
 move=> Hc Ha Hn p E; have [Hp Hl] := Ha p E.
 have Hs := static_in _ _ _ (c_static _ _ _ _ _ _ _ _ Hc) Hp.
@@ -1634,7 +1648,8 @@ by split=> //; apply: Hn.
 Qed.
 
 Lemma tvaried_amap k (aP : atom pv) :
-  (forall p, aP = AVar p -> static_ok k p) -> tvaried_atom (amap pt aP) = varied (amap pa aP).
+  (forall p, aP = AVar p -> static_ok k p) -> tvaried_atom (amap pt aP) = varied
+    (amap pa aP).
 Proof.
 case: aP => [p | str | z] H //=.
 by have [_ [_ [_ [_ [E _]]]]] := H p erefl.
@@ -1655,7 +1670,8 @@ Qed.
 
 Lemma atom_type k (aP : atom pv) d :
   (forall p, aP = AVar p -> static_ok k p) ->
-  aeval_atom (duals reals) (amap pd aP) = Some d -> has_type (of_atom (amap pw aP)) d.
+  aeval_atom (duals reals) (amap pd aP) = Some d -> has_type (of_atom (amap pw
+    aP)) d.
 Proof.
 case: aP => [p | str | z] H Hd; last 2 first.
 - by case/aeval_literal: Hd => x [_ ->].
@@ -1664,7 +1680,8 @@ move: Hd => /= [<-].
 by have [_ [_ [_ [_ [_ [_ [_ [_ [Ht _]]]]]]]]] := H p erefl.
 Qed.
 
-Lemma dual_op1_zero f x y dy : dual_op1 R reals f (Dual x 0) = Some (Dual y dy) -> dy = 0.
+Lemma dual_op1_zero f x y dy : dual_op1 R reals f (Dual x 0) = Some (Dual y dy)
+  -> dy = 0.
 Proof.
 rewrite /dual_op1; case: (dom_op1 reals f x) => // r.
 by case: (dual_partial1 R reals f x r) => //= d [_ <-]; ring.
@@ -1681,16 +1698,12 @@ Lemma run_define2 s so so' n e e' v v' :
 Proof. by rewrite /run /xev /keyv /= => -> /= ->. Qed.
 
 Ltac value_intro :=
-  let L := fresh "L" in let k := fresh "k" in let c := fresh "c" in let s := fresh "s" in
-  intros L k c s wP pp tail eA eW eT eD te n ve ty HA HW HT HD Hc Htc Htail [j [Ej Hj]] Hst Hev;
+  let L := fresh "L" in let k := fresh "k" in let c := fresh "c" in let s :=
+    fresh "s" in
+  intros L k c s wP pp tail eA eW eT eD te n ve ty HA HW HT HD Hc Htc Htail [j
+    [Ej Hj]] Hst Hev;
   destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
-  repeat match goal with
-         | H : _ /\ _ |- _ => destruct H
-         | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         end; subst.
+  graph_split.
 
 (* A unary operation. *)
 Lemma sim_op1 f (aP : atom pv) : sim_value (AOp1 f aP).
@@ -1751,7 +1764,8 @@ split; first by rewrite store_get_set_other ?store_get_set_same.
 by move=> _; rewrite store_get_set_same.
 Qed.
 
-Lemma dual_op2_zero f x y z dz : dual_op2 R reals f (Dual x 0) (Dual y 0) = Some (Dual z dz) -> dz = 0.
+Lemma dual_op2_zero f x y z dz : dual_op2 R reals f (Dual x 0) (Dual y 0) = Some
+  (Dual z dz) -> dz = 0.
 Proof.
 move=> H; destruct f; unfold_ops H; try discriminate.
 all: by case: H => _ <-; rewrite /Rdiv; ring.
@@ -1766,7 +1780,8 @@ Proof. by case: t => /=; tauto. Qed.
 (* An integer atom is not varied. *)
 Lemma int_not_varied k (aP : atom pv) z :
   (forall p, aP = AVar p -> static_ok k p) ->
-  aeval_atom (duals reals) (amap pd aP) = Some (VInt z) -> varied (amap pa aP) = false.
+  aeval_atom (duals reals) (amap pd aP) = Some (VInt z) -> varied (amap pa aP) =
+    false.
 Proof.
 case: aP => [p | str | z'] H //= [Hd].
 have [_ [_ [_ [_ [_ [_ [_ [Hv [Ht _]]]]]]]]] := H p erefl.
@@ -1775,11 +1790,13 @@ by case: (avaried (pa p)) Hv => // /(_ erefl); rewrite Ht.
 Qed.
 
 Lemma int_op2_type f (x y : Z) t sp :
-  operation2_typed f Integer Integer = Some (t, sp) -> has_type t (@int_op2 (dual R) f x y).
+  operation2_typed f Integer Integer = Some (t, sp) -> has_type t (@int_op2
+    (dual R) f x y).
 Proof. by case: f => //= -[<- _]. Qed.
 
 Lemma op2_real_type f t sp :
-  operation2_typed f Real Real = Some (t, sp) -> t = if comparison f then Boolean else Real.
+  operation2_typed f Real Real = Some (t, sp) -> t = if comparison f then
+    Boolean else Real.
 Proof. by case: f => //= -[<- _]. Qed.
 
 (* A binary operation. *)
@@ -1906,7 +1923,8 @@ Qed.
 Lemma xev_DAt s a i :
   xev s (DAt a i) =
   match xev s a, xev s i with
-  | Some (VArray l), Some (VInt z) => match nth_z z l with Some x => Some (VReal x) | None => None end
+  | Some (VArray l), Some (VInt z) => match nth_z z l with Some x => Some (VReal
+    x) | None => None end
   | _, _ => None
   end.
 Proof. by []. Qed.
@@ -1983,15 +2001,18 @@ by move=> _; rewrite store_get_set_same.
 Qed.
 
 Lemma run_assign_at s n ei ev l z e l1 :
-  store_get s (keyv n) = Some (VArray l) -> xev s ei = Some (VInt z) -> xev s ev = Some (VReal e) ->
+  store_get s (keyv n) = Some (VArray l) -> xev s ei = Some (VInt z) -> xev s ev
+    = Some (VReal e) ->
   replace_nth_z z e l = Some l1 ->
-  run [DAssign (DAt (DVar n) ei) ev] s = Some (store_set s (keyv n) (VArray l1)).
+  run [DAssign (DAt (DVar n) ei) ev] s = Some (store_set s (keyv n) (VArray
+    l1)).
 Proof.
 move=> Hn Hi Hv Hr; rewrite /run /xev /keyv in Hn Hi Hv *.
 by rewrite /= Hv /= Hn Hi Hr.
 Qed.
 
-Lemma run_two st1 st2 s s1 s2 : run [st1] s = Some s1 -> run [st2] s1 = Some s2 -> run [st1; st2] s = Some s2.
+Lemma run_two st1 st2 s s1 s2 : run [st1] s = Some s1 -> run [st2] s1 = Some s2
+  -> run [st1; st2] s = Some s2.
 Proof.
 move=> H1 H2.
 by rewrite (_ : [st1; st2] = [st1] ++ [st2])%list // run_app H1.
@@ -1999,7 +2020,8 @@ Qed.
 
 (* Two live variables with the storage updated in place are the same. *)
 Lemma live_owner L k c s wP pp live ty o p :
-  ctx_ok L k c s wP pp live ty -> owner wP pp = Some o -> In p L -> live p -> live o ->
+  ctx_ok L k c s wP pp live ty -> owner wP pp = Some o -> In p L -> live p ->
+    live o ->
   pn p = pn o -> p = o.
 Proof.
 move=> Hc Ho Hp Lp Lo E.
@@ -2117,28 +2139,32 @@ Qed.
 Lemma run_for i lo hi b ss s l h :
   xev s lo = Some (VInt l) -> xev s hi = Some (VInt h) ->
   run (DFor i lo hi b :: ss) s =
-  match exec_up R (run b) (out_dvar nat i) l (count l h) s with Some s1 => run ss s1 | None => None end.
+  match exec_up R (run b) (out_dvar nat i) l (count l h) s with Some s1 => run
+    ss s1 | None => None end.
 Proof.
 move=> Hl Hh; rewrite /run; cbn [map out_dstmt exec_stmts exec].
 by rewrite /xev in Hl Hh; rewrite Hl Hh.
 Qed.
 
 Lemma run_assign_var s x e v ss :
-  xev s e = Some v -> run (DAssign (DVar x) e :: ss) s = run ss (store_set s (keyv x) v).
+  xev s e = Some v -> run (DAssign (DVar x) e :: ss) s = run ss (store_set s
+    (keyv x) v).
 Proof.
 by rewrite /run /xev /keyv; cbn [map out_dstmt exec_stmts exec] => ->.
 Qed.
 
 (* Writes to the keys of another variable keep a variable related. *)
 Lemma store_ok_set s p k v :
-  k <> keyv (stored p) -> k <> keyv (DotOf (stored p)) -> store_ok s p -> store_ok (store_set s k v) p.
+  k <> keyv (stored p) -> k <> keyv (DotOf (stored p)) -> store_ok s p ->
+    store_ok (store_set s k v) p.
 Proof.
 move=> H1 H2 [S1 S2]; split; first by rewrite store_get_set_other.
 by move=> Hd; rewrite store_get_set_other //; apply: S2.
 Qed.
 
 Lemma keyv_bound_neq j j' : j <> j' ->
-  keyv (DBound (j, j)) <> keyv (DBound (j', j')) /\ keyv (DBound (j, j)) <> keyv (DotOf (DBound (j', j'))) /\
+  keyv (DBound (j, j)) <> keyv (DBound (j', j')) /\ keyv (DBound (j, j)) <> keyv
+    (DotOf (DBound (j', j'))) /\
   keyv (DotOf (DBound (j, j))) <> keyv (DBound (j', j')) /\
   keyv (DotOf (DBound (j, j))) <> keyv (DotOf (DBound (j', j'))).
 Proof.
@@ -2148,7 +2174,8 @@ Qed.
 (* The context of a branch or of a loop body without storage updated in
    place, from the context of the value. *)
 Lemma ctx_sub L k c s s0 wP pp pp' (live live' : pv -> Prop) ty :
-  ctx_ok L k c s wP pp live ty -> owner wP pp' = None -> pp' <> PTop -> place_ok L pp' ->
+  ctx_ok L k c s wP pp live ty -> owner wP pp' = None -> pp' <> PTop -> place_ok
+    L pp' ->
   (forall p, live' p -> live p) ->
   (forall p, In p L -> live p -> store_ok s p -> store_ok s0 p) ->
   ctx_ok L k c s0 wP pp' live' Real.
@@ -2178,11 +2205,14 @@ Qed.
 
 (* The end of a branch: its value and tangent stored in n. *)
 Lemma ite_tail L live c' j s0 s1 st vt dt (vr : bool) x dx :
-  run st s0 = Some s1 -> xev s1 vt = Some (VReal x) -> xev s1 dt = Some (VReal dx) ->
+  run st s0 = Some s1 -> xev s1 vt = Some (VReal x) -> xev s1 dt = Some (VReal
+    dx) ->
   res_vars L live c' dt -> (j < c')%nat -> (forall p, In p L -> pn p <> j) ->
-  run (st ++ (if vr then [DAssign (DVar (DBound (j, j))) vt; DAssign (DVar (DotOf (DBound (j, j)))) dt]
+  run (st ++ (if vr then [DAssign (DVar (DBound (j, j))) vt; DAssign (DVar
+    (DotOf (DBound (j, j)))) dt]
               else [DAssign (DVar (DBound (j, j))) vt]))%list s0 =
-  Some (if vr then store_set (store_set s1 (keyv (DBound (j, j))) (VReal x)) (keyv (DotOf (DBound (j, j)))) (VReal dx)
+  Some (if vr then store_set (store_set s1 (keyv (DBound (j, j))) (VReal x))
+    (keyv (DotOf (DBound (j, j)))) (VReal dx)
         else store_set s1 (keyv (DBound (j, j))) (VReal x)).
 Proof.
 move=> Hr Hv Hd Hres Hj Hn; rewrite run_app Hr.
@@ -2370,8 +2400,10 @@ case E: (eval_map ev (i + 1)%Z n) H => [l |] // [<-] /=.
 by rewrite (IH _ _ E).
 Qed.
 
-Lemma eval_map_Forall (P : dual R -> Prop) (ev : val (dual R) -> option (val (dual R))) n i xs :
-  (forall z x, ev (VInt z) = Some (VReal x) -> P x) -> eval_map ev i n = Some xs -> Forall P xs.
+Lemma eval_map_Forall (P : dual R -> Prop) (ev : val (dual R) -> option (val
+  (dual R))) n i xs :
+  (forall z x, ev (VInt z) = Some (VReal x) -> P x) -> eval_map ev i n = Some xs
+    -> Forall P xs.
 Proof.
 move=> HP; elim: n i xs => [| n IH] i xs /= H; first by case: H => <-.
 case Ex: (ev (VInt i)) H => [[x | | | |] |] // H.
@@ -2384,9 +2416,12 @@ Lemma map_loop_bounded (ev : val (dual R) -> option (val (dual R)))
   (body : store R -> option (store R)) (i : dvar nat)
   (Inv : Z -> store R -> list (dual R) -> Prop) (B : Z) :
   (forall j s acc x, (j < B)%Z -> Inv j s acc -> ev (VInt j) = Some (VReal x) ->
-     exists s', body (store_set s (KVar i) (VInt j)) = Some s' /\ Inv (j + 1)%Z s' (acc ++ [x])%list) ->
-  forall n lo s acc xs, (lo + Z.of_nat n <= B)%Z -> Inv lo s acc -> eval_map ev lo n = Some xs ->
-  exists s', exec_up R body i lo n s = Some s' /\ Inv (lo + Z.of_nat n)%Z s' (acc ++ xs)%list.
+     exists s', body (store_set s (KVar i) (VInt j)) = Some s' /\ Inv (j + 1)%Z
+       s' (acc ++ [x])%list) ->
+  forall n lo s acc xs, (lo + Z.of_nat n <= B)%Z -> Inv lo s acc -> eval_map ev
+    lo n = Some xs ->
+  exists s', exec_up R body i lo n s = Some s' /\ Inv (lo + Z.of_nat n)%Z s'
+    (acc ++ xs)%list.
 Proof.
 move=> Hstep n.
 elim: n => [| n IH] lo s acc xs HB Hinv Hev; rewrite /= in Hev; cbn [exec_up].
@@ -2408,7 +2443,8 @@ Proof. by elim: a => [| b a IH] //=; rewrite IH. Qed.
 (* Writing the next element of an array being filled from its start. *)
 Lemma replace_step {A B : Type} (f : A -> B) acc d (l : list B) :
   (length acc < length l)%nat ->
-  replace_nth_z (Z.of_nat (length acc)) (f d) (map f acc ++ skipn (length acc) l)%list =
+  replace_nth_z (Z.of_nat (length acc)) (f d) (map f acc ++ skipn (length acc)
+    l)%list =
   Some (map f (acc ++ [d]) ++ skipn (length (acc ++ [d])) l)%list.
 Proof.
 move=> H; rewrite /replace_nth_z.

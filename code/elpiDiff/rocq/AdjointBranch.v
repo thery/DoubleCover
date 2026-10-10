@@ -8,10 +8,12 @@
    of arrays and branches (well_formed: no update, map or fold in a branch). *)
 
 From Stdlib Require Import String ZArith List Bool Reals Lia Lra.
-From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Operations
-  Normalize WellFormed Atoms Activity Tbr Annotate Transform Adjoint Simplify Scoping
-  AnfEquiv Correctness TangentCorrect TangentLoops TangentGood AdjointCorrect.
+From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec
+  Operations Normalize WellFormed Atoms Activity Tbr Annotate Transform Adjoint
+  Simplify Scoping AnfEquiv Correctness TangentCorrect TangentLoops TangentGood
+  AdjointCorrect.
 
+From ElpiDiff Require Import Dot.
 From Corelib Require Import ssreflect ssrbool ssrfun.
 Set Bullet Behavior "None".
 
@@ -22,7 +24,8 @@ Open Scope list_scope.
    The atoms of a body (the analyses, binders opened with fresh) are the
    variables that occur in it (well_formed, binders opened with anon). *)
 
-Lemma atom_member_id x l : atom_member (AVar x) l = atom_member (AVar (AV (aid x) false)) l.
+Lemma atom_member_id x l : atom_member (AVar x) l = atom_member (AVar (AV (aid
+  x) false)) l.
 Proof. by []. Qed.
 
 Lemma atom_member_remove_full x y l :
@@ -40,11 +43,8 @@ move: Exz Exy Eyz; clear; case: x => // x; case: y => // y; case: z => // z /=.
 by move=> /Nat.eqb_neq ? /Nat.eqb_eq ? /Nat.eqb_eq ?; lia.
 Qed.
 
-Lemma atom_member_atoms_cons a l y :
-  atom_member y (atoms_of_atoms (a :: l)) = atom_member y (atoms_of_atom a) || atom_member y (atoms_of_atoms l).
-Proof. exact: atom_member_union. Qed.
-
-Lemma same_fresh j i : j <> i -> same_term (AVar (fresh j)) (AVar (AV i false)) = false.
+Lemma same_fresh j i : j <> i -> same_term (AVar (fresh j)) (AVar (AV i false))
+  = false.
 Proof. by move=> H; apply/Nat.eqb_neq. Qed.
 
 (* Outside the body of an in-place loop, there is no tail tape to give. *)
@@ -58,13 +58,16 @@ Lemma no_tail_tape_scalar cv k L b bA bD s :
   tail_tape cv k L b bA bD s n0.
 Proof. by []. Qed.
 
-Definition dummy_tvar : tvar W := TVar ResultVar Real None false false false false None.
+Definition dummy_tvar : tvar W := TVar ResultVar Real None false false false
+  false None.
 
 (* A variable opened by both analyses at k. *)
-Definition opened (k : nat) : pv := PV (fresh k) (anon k) dummy_tvar (VInt 0%Z) 0.
+Definition opened (k : nat) : pv := PV (fresh k) (anon k) dummy_tvar (VInt 0%Z)
+  0.
 
 Lemma atoms_atom G (aP : atom pv) aA aW i :
-  atom_eq (gA G) aP aA -> atom_eq (gW G) aP aW -> (forall q, In q G -> aid (pa q) = vid (pw q)) ->
+  atom_eq (gA G) aP aA -> atom_eq (gW G) aP aW -> (forall q, In q G -> aid (pa
+    q) = vid (pw q)) ->
   atom_member (AVar (AV i false)) (atoms_of_atom aA) = occurs_atom i aW.
 Proof.
 move=> /atom_graph [-> HA] /atom_graph [-> _] Hid.
@@ -74,11 +77,14 @@ Qed.
 
 Lemma atoms_occurs :
   (forall bP : anf pv bare, forall G bA bW k i,
-     anf_eq (gA G) bP bA -> anf_eq (gW G) bP bW -> (forall q, In q G -> aid (pa q) = vid (pw q)) -> (i < k)%nat ->
+     anf_eq (gA G) bP bA -> anf_eq (gW G) bP bW -> (forall q, In q G -> aid (pa
+       q) = vid (pw q)) -> (i < k)%nat ->
      atom_member (AVar (AV i false)) (atoms_of_anf k bA) = occurs_anf i k bW) /\
   (forall eP : value pv bare, forall G eA eW k i,
-     value_eq (gA G) eP eA -> value_eq (gW G) eP eW -> (forall q, In q G -> aid (pa q) = vid (pw q)) -> (i < k)%nat ->
-     atom_member (AVar (AV i false)) (atoms_of_value k eA) = occurs_value i k eW).
+     value_eq (gA G) eP eA -> value_eq (gW G) eP eW -> (forall q, In q G -> aid
+       (pa q) = vid (pw q)) -> (i < k)%nat ->
+     atom_member (AVar (AV i false)) (atoms_of_value k eA) = occurs_value i k
+       eW).
 Proof.
 apply anf_value_ind.
 - move=> a e IHe b IHb G bA bW k i.
@@ -142,7 +148,8 @@ Qed.
 
 (* The atoms the partial derivatives read are operands. *)
 Lemma read_by1 f (a : atom avar) y :
-  atom_member y (read_by a (partial1 f a)) = true -> atom_member y (atoms_of_atom a) = true.
+  atom_member y (read_by a (partial1 f a)) = true -> atom_member y
+    (atoms_of_atom a) = true.
 Proof.
 rewrite /read_by; case Ep: (partial1 f a) => [p |] //.
 case: (varied a) => //.
@@ -150,27 +157,14 @@ move: Ep; case: f => [| | | | | | [|z|z] |] //=.
 all: move=> [<-] /=; rewrite ?atom_member_union /= ?orb_false_r //.
 Qed.
 
-Lemma read_by_atom (a b : atom avar) y :
-  atom_member y (read_by a (Some (PAtom b))) = true -> atom_member y (atoms_of_atom b) = true.
-Proof. by rewrite /read_by; case: (varied a). Qed.
-
-Lemma read_by_div (a b c : atom avar) y :
-  atom_member y (read_by c (Some (POp2 Divide (PNum "1") (PAtom b)))) = true \/
-  atom_member y (read_by c (Some (POp1 Neg (POp2 Divide (PAtom a) (POp2 Mul (PAtom b) (PAtom b)))))) = true ->
-  atom_member y (atoms_of_atom a) = true \/ atom_member y (atoms_of_atom b) = true.
-Proof.
-rewrite /read_by; case: (varied c) => /=; last by case.
-rewrite !atom_member_union /= => -[H | H]; first by right.
-case/orP: H => H; first by left.
-by rewrite orb_diag in H; right.
-Qed.
-
 Lemma needs_op2 f (a b : atom avar) y :
   atom_member y (fst (match partial2 f a b with
-                      | Some (pa, pb) => (atom_union (read_by a (Some pa)) (read_by b (Some pb)), atoms_of_atoms [a; b])
+                      | Some (pa, pb) => (atom_union (read_by a (Some pa))
+                        (read_by b (Some pb)), atoms_of_atoms [a; b])
                       | None => ([], atoms_of_atoms [a; b]) end))
   || atom_member y (snd (match partial2 f a b with
-                      | Some (pa, pb) => (atom_union (read_by a (Some pa)) (read_by b (Some pb)), atoms_of_atoms [a; b])
+                      | Some (pa, pb) => (atom_union (read_by a (Some pa))
+                        (read_by b (Some pb)), atoms_of_atoms [a; b])
                       | None => ([], atoms_of_atoms [a; b]) end)) = true ->
   atom_member y (atoms_of_atom a) || atom_member y (atoms_of_atom b) = true.
 Proof.
@@ -185,7 +179,8 @@ all: rewrite ?atom_member_union /= ?atom_member_union /= ?orb_false_r.
 all: move=> H; apply/orP; repeat case/orP: H => H; by [|tauto].
 Qed.
 
-Lemma pairing_ext_own O s s' : (forall t m, In (t, m) O -> barv s m = barv s' m) -> pairing O s = pairing O s'.
+Lemma pairing_ext_own O s s' : (forall t m, In (t, m) O -> barv s m = barv s' m)
+  -> pairing O s = pairing O s'.
 Proof.
 elim: O => [|[t m] O IH] H //=.
 have -> : pairing O s = pairing O s'.
@@ -198,7 +193,8 @@ Qed.
    the body is not varied. *)
 Definition act_body (bP : anf pv bare) : Prop :=
   forall L k wP pp bA bW bD ty v,
-  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gD L) bP bD -> Forall (static_ok k) L ->
+  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gD L) bP bD -> Forall
+    (static_ok k) L ->
   typecheck (option_map (amap pw) wP) (wplace pp) k bW = (ty, Ok) ->
   aeval (duals reals) bD = Some v ->
   has_type ty v /\ (varied_anf k bA = false -> zero v).
@@ -274,13 +270,15 @@ Qed.
 
 (* The typing of a map: at the top, at the end, from index 0, with a body
    computing reals in a scalar place. *)
-Lemma map_typing wW pp tail k (lo hi : atom vinfo) (bW : vinfo -> anf vinfo bare) te :
+Lemma map_typing wW pp tail k (lo hi : atom vinfo) (bW : vinfo -> anf vinfo
+  bare) te :
   typecheck_value wW (wplace pp) tail k (AMap lo hi bW) = (te, Ok) ->
   pp = PTop /\ tail = true /\ lo = ANat 0 /\
   exists h, hi = ANat h /\ te = Array (h - 0) /\
     typecheck wW ScalarBody (S k) (bW (VInfo k Integer None)) = (Real, Ok) /\
     forall y, wW = Some (AVar y) ->
-      (forall nm r, varg y = Some (nm, r) -> r <> Inout) /\ occurs_anf (vid y) (S k) (bW (anon k)) = false.
+      (forall nm r, varg y = Some (nm, r) -> r <> Inout) /\ occurs_anf (vid y)
+        (S k) (bW (anon k)) = false.
 Proof.
 case: pp => [| | | ix sx] //= Htc.
 case: tail Htc => [| Htc]; last by case: lo Htc; case: hi.
@@ -357,10 +355,12 @@ congr VArray; apply: zeros_eq; [exact/Forall_map | exact/Forall_map |].
 by rewrite !length_map Hht Hhto Ehn.
 Qed.
 
-Lemma owner_ite (cP : atom pv) (tP eP : anf pv bare) : act_owner (AIte cP tP eP).
+Lemma owner_ite (cP : atom pv) (tP eP : anf pv bare) : act_owner (AIte cP tP
+  eP).
 Proof. by []. Qed.
 
-Lemma inplace_ite (cv : bool) (cP : atom pv) (tP eP : anf pv bare) : inplace_only cv (AIte cP tP eP).
+Lemma inplace_ite (cv : bool) (cP : atom pv) (tP eP : anf pv bare) :
+  inplace_only cv (AIte cP tP eP).
 Proof. by move=> L k wP pp tail eA eW te _ _ _ _ _ []. Qed.
 
 
@@ -368,13 +368,17 @@ Proof. by move=> L k wP pp tail eA eW te _ _ _ _ _ []. Qed.
 Lemma run_forback i lo hi b ss s l h :
   xev s lo = Some (VInt l) -> xev s hi = Some (VInt h) ->
   run (DForBack i lo hi b :: ss) s =
-  match exec_down R (run b) (out_dvar nat i) (h - 1) (count l h) s with Some s1 => run ss s1 | None => None end.
+  match exec_down R (run b) (out_dvar nat i) (h - 1) (count l h) s with Some s1
+    => run ss s1 | None => None end.
 Proof. by rewrite /run /xev => /= -> ->. Qed.
 
 (* A loop down from n - 1 to 0, by an invariant indexed by the next index. *)
-Lemma exec_down_loop (body : store R -> option (store R)) (i : dvar nat) (N : nat) (P : nat -> store R -> Prop) :
-  (forall j s, (j < N)%nat -> P (S j) s -> exists s', body (store_set s (KVar i) (VInt (Z.of_nat j))) = Some s' /\ P j s') ->
-  forall n s, (n <= N)%nat -> P n s -> exists s', exec_down R body i (Z.of_nat n - 1) n s = Some s' /\ P 0%nat s'.
+Lemma exec_down_loop (body : store R -> option (store R)) (i : dvar nat) (N :
+  nat) (P : nat -> store R -> Prop) :
+  (forall j s, (j < N)%nat -> P (S j) s -> exists s', body (store_set s (KVar i)
+    (VInt (Z.of_nat j))) = Some s' /\ P j s') ->
+  forall n s, (n <= N)%nat -> P n s -> exists s', exec_down R body i (Z.of_nat n
+    - 1) n s = Some s' /\ P 0%nat s'.
 Proof.
 move=> Hstep; elim=> [| n IH] s Hn Hp; cbn [exec_down]; first by exists s.
 have -> : (Z.of_nat (S n) - 1)%Z = Z.of_nat n by lia.
@@ -384,20 +388,25 @@ by apply: IH Hp1; lia.
 Qed.
 
 Lemma run_push s t x v l :
-  store_get s (keyv x) = Some (VReal v) -> store_get s (keyv (TapeOf t)) = Some (VTape l) ->
-  run [DPush (TapeOf t) (DVar x)] s = Some (store_set s (keyv (TapeOf t)) (VTape (v :: l))).
+  store_get s (keyv x) = Some (VReal v) -> store_get s (keyv (TapeOf t)) = Some
+    (VTape l) ->
+  run [DPush (TapeOf t) (DVar x)] s = Some (store_set s (keyv (TapeOf t)) (VTape
+    (v :: l))).
 Proof. by rewrite /run /keyv /= => -> ->. Qed.
 
 Lemma run_incr_bar s x n a b :
   barv s x = Some (VReal a) -> barv s n = Some (VReal b) ->
-  run [DIncrement (DVar (BarOf x)) (DVar (BarOf n))] s = Some (store_set s (keyv (BarOf x)) (VReal (a + b))).
+  run [DIncrement (DVar (BarOf x)) (DVar (BarOf n))] s = Some (store_set s (keyv
+    (BarOf x)) (VReal (a + b))).
 Proof. by rewrite /run /barv /keyv /= => -> ->. Qed.
 
 (* The steps of a fold, from its trace. *)
-Lemma fold_trace_step (ev : val (dual R) -> val (dual R) -> option (val (dual R))) z n st ve tr d :
+Lemma fold_trace_step (ev : val (dual R) -> val (dual R) -> option (val (dual
+  R))) z n st ve tr d :
   eval_fold ev z n st = Some ve -> fold_trace ev z n st = Some tr ->
   length tr = n /\ nth 0 (tr ++ [ve]) d = st /\
-  forall jn, (jn < n)%nat -> ev (VInt (z + Z.of_nat jn)) (nth jn tr d) = Some (nth (S jn) (tr ++ [ve]) d).
+  forall jn, (jn < n)%nat -> ev (VInt (z + Z.of_nat jn)) (nth jn tr d) = Some
+    (nth (S jn) (tr ++ [ve]) d).
 Proof.
 elim: n z st tr => [| n IH] z st tr; cbn [eval_fold fold_trace].
   by move=> [<-] [<-]; split=> //; split=> // jn Hj; lia.
@@ -411,7 +420,8 @@ have -> : (z + Z.of_nat (S jn) = z + 1 + Z.of_nat jn)%Z by lia.
 by apply: Hs; lia.
 Qed.
 
-Lemma fold_trace_exists (ev : val (dual R) -> val (dual R) -> option (val (dual R))) z n st ve :
+Lemma fold_trace_exists (ev : val (dual R) -> val (dual R) -> option (val (dual
+  R))) z n st ve :
   eval_fold ev z n st = Some ve -> exists tr, fold_trace ev z n st = Some tr.
 Proof.
 elim: n z st => [| n IH] z st; cbn [eval_fold fold_trace]; first by eauto.
@@ -419,10 +429,14 @@ case: (ev (VInt z) st) => [st1 |] //= He.
 by have [tr ->] := IH (z + 1)%Z st1 He; eauto.
 Qed.
 
-(* A loop down from lo + n - 1 to lo, by an invariant indexed by the number of steps left. *)
-Lemma exec_down_loop_from (body : store R -> option (store R)) (i : dvar nat) (lo : Z) (N : nat) (P : nat -> store R -> Prop) :
-  (forall j s, (j < N)%nat -> P (S j) s -> exists s', body (store_set s (KVar i) (VInt (lo + Z.of_nat j))) = Some s' /\ P j s') ->
-  forall n s, (n <= N)%nat -> P n s -> exists s', exec_down R body i (lo + Z.of_nat n - 1) n s = Some s' /\ P 0%nat s'.
+(* A loop down from lo + n - 1 to lo, by an invariant indexed by the number of
+  steps left. *)
+Lemma exec_down_loop_from (body : store R -> option (store R)) (i : dvar nat)
+  (lo : Z) (N : nat) (P : nat -> store R -> Prop) :
+  (forall j s, (j < N)%nat -> P (S j) s -> exists s', body (store_set s (KVar i)
+    (VInt (lo + Z.of_nat j))) = Some s' /\ P j s') ->
+  forall n s, (n <= N)%nat -> P n s -> exists s', exec_down R body i (lo +
+    Z.of_nat n - 1) n s = Some s' /\ P 0%nat s'.
 Proof.
 move=> Hstep; elim=> [| n IH] s Hn Hp; cbn [exec_down]; first by exists s.
 have -> : (lo + Z.of_nat (S n) - 1)%Z = (lo + Z.of_nat n)%Z by lia.
@@ -437,9 +451,11 @@ Lemma fold_loop (ev : val (dual R) -> val (dual R) -> option (val (dual R)))
   (body : store R -> option (store R)) (i : dvar nat)
   (Inv : Z -> store R -> val (dual R) -> list (val (dual R)) -> Prop) :
   (forall z s st tr st', Inv z s st tr -> ev (VInt z) st = Some st' ->
-     exists s', body (store_set s (KVar i) (VInt z)) = Some s' /\ Inv (z + 1)%Z s' st' (tr ++ [st])%list) ->
+     exists s', body (store_set s (KVar i) (VInt z)) = Some s' /\ Inv (z + 1)%Z
+       s' st' (tr ++ [st])%list) ->
   forall n z s st tr ve, Inv z s st tr -> eval_fold ev z n st = Some ve ->
-  exists s' tr', exec_up R body i z n s = Some s' /\ fold_trace ev z n st = Some tr' /\
+  exists s' tr', exec_up R body i z n s = Some s' /\ fold_trace ev z n st = Some
+    tr' /\
                  Inv (z + Z.of_nat n)%Z s' ve (tr ++ tr')%list.
 Proof.
 move=> Hstep.
@@ -455,7 +471,8 @@ by rewrite -app_assoc in Hi'.
 Qed.
 
 Lemma eval_map_nth (ev : val (dual R) -> option (val (dual R))) i n xs j d0 :
-  eval_map ev i n = Some xs -> (j < n)%nat -> ev (VInt (i + Z.of_nat j)) = Some (VReal (nth j xs d0)).
+  eval_map ev i n = Some xs -> (j < n)%nat -> ev (VInt (i + Z.of_nat j)) = Some
+    (VReal (nth j xs d0)).
 Proof.
 elim: n i xs j => [| n IH] i xs j H Hj; first lia.
 move: H; cbn [eval_map].
@@ -472,10 +489,10 @@ Proof.
 by elim: j l => [| j IH] [| a l] /= H; try lia; auto; apply: IH; lia.
 Qed.
 
-Lemma dotr_zero_l l m : Forall (fun x => x = 0) l -> dotr l m = 0.
+Lemma dotl_zero_l l m : Forall (fun x => x = 0) l -> dotl l m = 0.
 Proof.
 move=> H; elim: H m => [| x l' Hx Hl IH] [| b m] //.
-by rewrite dotr_cons IH Hx; ring.
+by rewrite dotl_cons IH Hx; ring.
 Qed.
 
 Lemma inner_tangent_zero v b : zero v -> inner (TangentCorrect.tangent v) b = 0.
@@ -483,15 +500,17 @@ Proof.
 case: v => [d | | | l |] /= Hz; try by case: b => [[] |].
   by case: b => [[y | | | |] |] //=; rewrite Hz; ring.
 case: b => [[| | | m |] |] //=.
-by apply: dotr_zero_l; rewrite Forall_map.
+by apply: dotl_zero_l; rewrite Forall_map.
 Qed.
 
 Lemma xev_at s a ix l z :
-  store_get s (keyv a) = Some (VArray l) -> store_get s (keyv ix) = Some (VInt z) ->
+  store_get s (keyv a) = Some (VArray l) -> store_get s (keyv ix) = Some (VInt
+    z) ->
   xev s (DAt (DVar a) (DVar ix)) = option_map VReal (nth_z z l).
 Proof. by rewrite /xev /keyv /= => -> ->; case: (nth_z z l). Qed.
 
-Lemma nth_z_of_nat {A : Type} (l : list A) j d : (j < length l)%nat -> nth_z (Z.of_nat j) l = Some (nth j l d).
+Lemma nth_z_of_nat {A : Type} (l : list A) j d : (j < length l)%nat -> nth_z
+  (Z.of_nat j) l = Some (nth j l d).
 Proof.
 move=> H; rewrite /nth_z.
 have -> : (Z.of_nat j <? 0)%Z = false by apply/Z.ltb_ge; lia.
@@ -524,9 +543,6 @@ constructor; last exact: IH.
 by move=> Hi; apply: Hm; case: (odel_snd O n m Hi).
 Qed.
 
-Lemma odel_ok O n : owners_ok O -> owners_ok (odel O n).
-Proof. by move=> H t m /odel_in [Hi _]; exact: H Hi. Qed.
-
 Lemma odel_notin O n : ~ In n (map snd O) -> odel O n = O.
 Proof.
 elim: O => [| [t m] O IH] H //; rewrite /odel /=.
@@ -536,7 +552,8 @@ by congr (_ :: _); apply: IH => I; apply: H; right.
 Qed.
 
 Lemma pairing_odel O n t s :
-  NoDup (map snd O) -> In (t, n) O -> pairing O s = pairing (odel O n) s + inner t (barv s n).
+  NoDup (map snd O) -> In (t, n) O -> pairing O s = pairing (odel O n) s + inner
+    t (barv s n).
 Proof.
 elim: O => [| [t0 n0] O IH] //=.
 move=> /NoDup_cons_iff [Hn Hd'] Hi; rewrite /odel /=.
@@ -554,12 +571,16 @@ Variable cv : bool.
 (* What the adjoint code of a body needs occurs in it. *)
 Lemma needs_occurs :
   (forall bP : anf pv bare, forall G bA bW m k i,
-     anf_eq (gA G) bP bA -> anf_eq (gW G) bP bW -> (forall q, In q G -> aid (pa q) = vid (pw q)) -> (i < k)%nat ->
-     atom_member (AVar (AV i false)) (fst (needs cv m k bA)) || atom_member (AVar (AV i false)) (snd (needs cv m k bA)) = true ->
+     anf_eq (gA G) bP bA -> anf_eq (gW G) bP bW -> (forall q, In q G -> aid (pa
+       q) = vid (pw q)) -> (i < k)%nat ->
+     atom_member (AVar (AV i false)) (fst (needs cv m k bA)) || atom_member
+       (AVar (AV i false)) (snd (needs cv m k bA)) = true ->
      occurs_anf i k bW = true) /\
   (forall eP : value pv bare, forall G eA eW k i,
-     value_eq (gA G) eP eA -> value_eq (gW G) eP eW -> (forall q, In q G -> aid (pa q) = vid (pw q)) -> (i < k)%nat ->
-     atom_member (AVar (AV i false)) (fst (value_needs cv k eA)) || atom_member (AVar (AV i false)) (snd (value_needs cv k eA)) = true ->
+     value_eq (gA G) eP eA -> value_eq (gW G) eP eW -> (forall q, In q G -> aid
+       (pa q) = vid (pw q)) -> (i < k)%nat ->
+     atom_member (AVar (AV i false)) (fst (value_needs cv k eA)) || atom_member
+       (AVar (AV i false)) (snd (value_needs cv k eA)) = true ->
      occurs_value i k eW = true).
 Proof.
 apply anf_value_ind.
@@ -668,21 +689,10 @@ repeat case/orP: Hn => Hn;
         | by rewrite Hb ?orb_true_r // Hn ?orb_true_r ].
 Qed.
 
-Ltac fwd_intro :=
-  let L := fresh "L" in let k := fresh "k" in let c := fresh "c" in let s := fresh "s" in
-  intros L k c s wP pp tail eA eW eT eD te n ve ty m rec HA HW HT HD Hc Htc Htail [j [Ej Hj]] Hst Hrec Hev;
-  destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
-  repeat match goal with
-         | H : _ /\ _ |- _ => destruct H
-         | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         end; subst.
-
 (* The atoms of a value are variables that occur in it. *)
 Lemma vatoms_live L k (eP : value pv bare) eA eW p :
-  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> Forall (static_ok k) L -> In p L ->
+  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> Forall (static_ok k) L -> In
+    p L ->
   vatoms k eA p -> live_value k eW p.
 Proof.
 move=> HA HW HL Hp; rewrite /vatoms /live_value atom_member_id.
@@ -693,7 +703,8 @@ by rewrite ((proj2 atoms_occurs) eP L eA eW k (aid (pa p)) HA HW Hid) ?Eid.
 Qed.
 
 Lemma live_vatoms L k (eP : value pv bare) eA eW p :
-  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> Forall (static_ok k) L -> In p L ->
+  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> Forall (static_ok k) L -> In
+    p L ->
   live_value k eW p -> vatoms k eA p.
 Proof.
 move=> HA HW HL Hp; rewrite /vatoms /live_value atom_member_id.
@@ -704,7 +715,8 @@ by rewrite ((proj2 atoms_occurs) eP L eA eW k (aid (pa p)) HA HW Hid) ?Eid.
 Qed.
 
 Lemma live_atoms L k (bP : anf pv bare) bA bW p :
-  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> Forall (static_ok k) L -> In p L ->
+  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> Forall (static_ok k) L -> In p L
+    ->
   live_anf k bW p -> atom_member (AVar (pa p)) (atoms_of_anf k bA) = true.
 Proof.
 move=> HA HW HL Hp; rewrite /live_anf atom_member_id.
@@ -716,24 +728,20 @@ Qed.
 
 (* The tape of the storage updated in place after a body: when it records, the
    element its last set overwrites is pushed. *)
-Definition tape_step (r : bool) (zi : option Z) (st : val (dual R)) (t : option (val R)) : option (val R) :=
+Definition tape_step (r : bool) (zi : option Z) (st : val (dual R)) (t : option
+  (val R)) : option (val R) :=
   if r then
     match zi, st, t with
     | Some z, VArray l, Some (VTape l0) =>
-        Some (VTape (match nth_z z (map dfst l) with Some x => x | None => 0 end :: l0))
+        Some (VTape (match nth_z z (map dfst l) with Some x => x | None => 0 end
+          :: l0))
     | _, _, _ => t
     end
   else t.
 
-Lemma tape_step_none r st t : tape_step r None st t = t.
-Proof. by case: r. Qed.
-
 (* Two versions of an array that differ at most at the index of a set. *)
 Definition same_except (zi : option Z) (l0 l1 : list R) : Prop :=
   length l1 = length l0 /\ forall z, zi <> Some z -> nth_z z l1 = nth_z z l0.
-
-Lemma same_except_refl zi l : same_except zi l l.
-Proof. by []. Qed.
 
 Lemma replace_nth_other {A : Type} n n' (x : A) l l1 :
   replace_nth n x l = Some l1 -> n' <> n -> nth_error l1 n' = nth_error l n'.
@@ -745,7 +753,8 @@ case: n' => [| n'] //= Hne.
 by apply: (IH n' l l2 E); lia.
 Qed.
 
-Lemma replace_same_except z (y : R) l0 l1 : replace_nth_z z y l0 = Some l1 -> same_except (Some z) l0 l1.
+Lemma replace_same_except z (y : R) l0 l1 : replace_nth_z z y l0 = Some l1 ->
+  same_except (Some z) l0 l1.
 Proof.
 rewrite /replace_nth_z /same_except /nth_z; case Ez: (z <? 0)%Z => // H.
 split; first exact: (replace_nth_length _ _ _ _ H).
@@ -796,16 +805,20 @@ Proof. by []. Qed.
    innermost fold live. *)
 Definition psim_body (bP : anf pv bare) : Prop :=
   forall L k c s wP pp m m' bA bW bT bD ty v,
-  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gT L) bP bT -> anf_eq (gD L) bP bD ->
+  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gT L) bP bT -> anf_eq
+    (gD L) bP bD ->
   actx L k c s wP pp (live_anf k bW) (live_anf k bW) ty ->
   typecheck (option_map (amap pw) wP) (wplace pp) k bW = (ty, Ok) ->
   aeval (duals reals) bD = Some v ->
-  (forall o, owner wP pp = Some o -> sweep_eqb m Forward && tail_live k bA = true ->
+  (forall o, owner wP pp = Some o -> sweep_eqb m Forward && tail_live k bA =
+    true ->
      exists l, store_get s (keyv (TapeOf (stored o))) = Some (VTape l)) ->
   let '((sb, x), c') :=
-    open_pairs (prim W (option_map (amap pt) wP) m (rebuild _ bT (annotate_body_t cv m' k bA))) c in
+    open_pairs (prim W (option_map (amap pt) wP) m (rebuild _ bT
+      (annotate_body_t cv m' k bA))) c in
   (c <= c')%nat /\
-  exists s1, run sb s = Some s1 /\ fwd_frame c (inplace wP pp) None s s1 /\ tkeep c (inplace wP pp) s s1 /\
+  exists s1, run sb s = Some s1 /\ fwd_frame c (inplace wP pp) None s s1 /\
+    tkeep c (inplace wP pp) s s1 /\
     xev s1 x = Some (primal v) /\
     (forall o, owner wP pp = Some o -> ibody o bP ->
        store_get s1 (keyv (stored o)) = Some (primal v) /\
@@ -820,7 +833,8 @@ Lemma prim_let w m a e b :
   let '(vr, _, _) := let_ann a in
   with_storage w e b (fun n rec =>
     sbind (fwd_value W w m e (Transform.type_of e) n rec) (fun se =>
-    sbind (prim W w m (b (open_let (Transform.type_of e) n vr rec))) (fun '(sb, x) => Done (app se sb, x)))).
+    sbind (prim W w m (b (open_let (Transform.type_of e) n vr rec))) (fun '(sb,
+      x) => Done (app se sb, x)))).
 Proof. by []. Qed.
 
 Lemma psim_ret (aP : atom pv) : psim_body (ARet aP).
@@ -1045,7 +1059,8 @@ by move=> E; have := Hnotin o HoL; congruence.
 Qed.
 
 Lemma psim_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
-  asim_fwd cv eP -> act_value eP -> (forall wP tail, storage wP tail eP = None) ->
+  asim_fwd cv eP -> act_value eP -> (forall wP tail, storage wP tail eP = None)
+    ->
   (forall a0 i0 y0, eP <> ASet a0 i0 y0) -> (forall x, psim_body (cP x)) ->
   psim_body (ALet a eP cP).
 Proof. by move=> *; apply: psim_let_typed => // x _. Qed.
@@ -1053,7 +1068,8 @@ Proof. by move=> *; apply: psim_let_typed => // x _. Qed.
 
 (* The set that ends the body of an in-place loop: it updates the state in
    place, pushing the element it overwrites when the state is recorded. *)
-Lemma psim_set_let a (aP iP vP : atom pv) (cP : pv -> anf pv bare) : psim_body (ALet a (ASet aP iP vP) cP).
+Lemma psim_set_let a (aP iP vP : atom pv) (cP : pv -> anf pv bare) : psim_body
+  (ALet a (ASet aP iP vP) cP).
 Proof.
 move=> L k c s wP pp m m'.
 move=> [aA eA cA | ?] [aW eW cW | ?] [aT eT cT | ?] [aD eD cD | ?] ty v;
@@ -1253,28 +1269,10 @@ case: e => // [? ? | ? ? ? | ? ? | ? ? ?] Hb; split=> // x.
 by rewrite (Hb x).
 Qed.
 
-(* Its evaluation ends with the set: it has a set index. *)
-Lemma abody_set_index L b bD v : abody b -> anf_eq (gD L) b bD -> aeval (duals reals) bD = Some v -> set_index bD <> None.
-Proof.
-elim: b L bD v => [a e b' IH | x] L bD v //= Hb.
-case: bD => [aD eD cD | ?] //= [HeD HcD].
-case Hve: (aeval_value (duals reals) eD) => [ve |] // Hev.
-set x := PV (AV 0 false) (VInfo 0 Real None) dummy_tvar ve 0.
-have Hrec : (forall x, abody (b' x)) -> set_index (cD ve) <> None.
-  by move=> Hb'; exact: (IH x (x :: L) (cD ve) v (Hb' x) (HcD x ve) Hev).
-case: e Hb HeD => // [? ? | ? ? ? | ? ? | a1 i1 y1] Hb HeD.
-- by case: eD HeD Hve => //= *; exact: Hrec.
-- by case: eD HeD Hve => //= *; exact: Hrec.
-- by case: eD HeD Hve => //= *; exact: Hrec.
-case: eD HeD Hve => // a2 i2 y2 _ /= Hve.
-move: (HcD x ve); rewrite (Hb x); case: (cD ve) => [? ? ? | ?] //= _.
-case: (aeval_atom (duals reals) a2) Hve => [[| | | l |] |] //.
-by case: (aeval_atom (duals reals) i2) => [[| z | | |] |].
-Qed.
-
 (* A branch body sits in place PBranch, where nothing is updated in place. *)
 Lemma sctx_branch L k c wP pp (live live' : pv -> Prop) ty :
-  sctx L k c wP pp live ty -> (forall p, live' p -> live p) -> sctx L k c wP PBranch live' Real.
+  sctx L k c wP pp live ty -> (forall p, live' p -> live p) -> sctx L k c wP
+    PBranch live' Real.
 Proof.
 by case=> *; constructor; auto; rewrite /=; try (move=> *; discriminate).
 Qed.
@@ -1403,18 +1401,6 @@ apply: (tkeep_trans _ _ _ s1).
 by apply: tkeep_set => //=; tauto.
 Qed.
 
-Ltac rev_intro :=
-  let L := fresh "L" in let k := fresh "k" in let c := fresh "c" in
-  intros L k c wP pp tail eA eW eT eD te n ve ty vo HA HW HT HD Hs Hbar Htc Htail [j [Ej Hj]] Hst Hev Hvr;
-  destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
-  repeat match goal with
-         | H : _ /\ _ |- _ => destruct H
-         | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         end; subst.
-
 Lemma rev_value_ite w vo (c : atom (tvar W)) t e te n :
   rev_value W w vo (AIte c t e) te n =
   sbind (adj W w vo Replay t (DVar (BarOf n))) (fun '(ft, rt) =>
@@ -1423,7 +1409,8 @@ Lemma rev_value_ite w vo (c : atom (tvar W)) t e te n :
 Proof. by []. Qed.
 
 Lemma tbr_occurs L k (bP : anf pv bare) bA bW m p :
-  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> Forall (static_ok k) L -> In p L ->
+  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> Forall (static_ok k) L -> In p L
+    ->
   (tbr cv m k bA p \/ useful cv m k bA p) -> live_anf k bW p.
 Proof.
 move=> HA HW HL Hp Ht; rewrite /live_anf.
@@ -1653,17 +1640,7 @@ move=> IHb L k c s wP pp tail eA eW eT eD te n ve ty m rec HA HW HT HD Hc Htc
   Htail [j [Ej Hj]] Hst Hrec Hev.
 have HA0 := HA; have HW0 := HW.
 destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
-repeat match goal with
-       | H : _ /\ _ |- _ => destruct H
-       | H : atom_eq (gA _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gW _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gT _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gD _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       end; subst.
+graph_split.
 rewrite /= in Htc Hev Hst *.
 rename b into bA, b0 into bW, b1 into bT, b2 into bD.
 have Hs := a_sctx _ _ _ _ _ _ _ _ _ Hc.
@@ -1844,17 +1821,7 @@ move=> IHb L k c wP pp tail eA eW eT eD te n ve ty vo HA HW HT HD Hs Hbar Htc
   Htail [j [Ej Hj]] Hst Hev Hvr.
 have HA0 := HA; have HW0 := HW.
 destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
-repeat match goal with
-       | H : _ /\ _ |- _ => destruct H
-       | H : atom_eq (gA _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gW _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gT _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gD _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       end; subst.
+graph_split.
 rewrite /= in Htc Hst *.
 rename b into bA, b0 into bW, b1 into bT, b2 into bD.
 have HL := s_static _ _ _ _ _ _ _ Hs.
@@ -1944,7 +1911,7 @@ set P := fun (jn : nat) (s' : store R) =>
   tkeep c (Some n) s2 s' /\ rev_frame c (Some n) O' s2 s' /\
   barv s' n = Some (VArray yb) /\
   (forall t m, In (t, m) O' -> shaped t (barv s' m)) /\
-  pairing O' s' = pairing O' s2 + dotr (skipn jn (map dsnd xs)) (skipn jn yb).
+  pairing O' s' = pairing O' s2 + dotl (skipn jn (map dsnd xs)) (skipn jn yb).
 have Hloop : exists sf,
     exec_down R (run body) (out_dvar nat i) (Z.of_nat N - 1) N s2 = Some sf /\
     P 0%nat sf.
@@ -2128,7 +2095,7 @@ have Hloop : exists sf,
     rewrite (pairing_ext_own O' s1 s Hown_b) P0.
     have Hjx : (jn < length (map dsnd xs))%nat by rewrite length_map; lia.
     rewrite (skipn_nth_cons _ _ (dsnd d0) Hjx) (skipn_nth_cons yb jn 0 Hjy).
-    by rewrite dotr_cons map_nth; ring.
+    by rewrite dotl_cons map_nth; ring.
   split=> //; split; first exact: tkeep_refl.
   split; first by [].
   split; first exact: Eyb.
@@ -2137,7 +2104,7 @@ have Hloop : exists sf,
   have E1 : skipn N (map dsnd xs) = [].
     by apply: skipn_all2; rewrite length_map; lia.
   have E2 : skipn N yb = [] by apply: skipn_all2; lia.
-  by rewrite E1 E2 /dotr /=; ring.
+  by rewrite E1 E2 /dotl /=; ring.
 case: Hloop => sf [Hex [K [T [F [B [Sh Pf]]]]]].
 exists sf; split.
   rewrite (run_forback _ _ _ _ _ _ 0 h) //.
@@ -2187,17 +2154,7 @@ move=> Hna IHb IHa L k c s wP pp tail eA eW eT eD te n ve ty m rec HA HW HT HD
   Hc Htc Htail [j [Ej Hj]] Hst Hrec Hev.
 have HA0 := HA; have HW0 := HW; have HD0 := HD.
 destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
-repeat match goal with
-       | H : _ /\ _ |- _ => destruct H
-       | H : atom_eq (gA _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gW _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gT _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gD _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       end; subst.
+graph_split.
 rename b into bA, b0 into bW, b1 into bT, b2 into bD.
 match goal with
   H : forall (i1 : pv) (i2 : avar) (s1 : pv) (s2 : avar), _ |- _ =>
@@ -2504,17 +2461,7 @@ move=> Hna IHb IHa L k c wP pp tail eA eW eT eD te n ve ty vo HA HW HT HD Hs
   Hbar Htc Htail [j [Ej Hj]] Hst Hev Hvr.
 have HA0 := HA; have HW0 := HW; have HD0 := HD.
 destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
-repeat match goal with
-       | H : _ /\ _ |- _ => destruct H
-       | H : atom_eq (gA _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gW _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gT _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gD _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       end; subst.
+graph_split.
 rename b into bA, b0 into bW, b1 into bT, b2 into bD.
 match goal with
   H : forall (i1 : pv) (i2 : avar) (s1 : pv) (s2 : avar), _ |- _ =>
@@ -3088,22 +3035,15 @@ rewrite /s3 (pairing_set_in O sf _ (stored q) _
 by rewrite Ebq Hpi Epq /=; rewrite /= in Pp; lra.
 Qed.
 
-(* A scalar fold computes a real, of zero tangent when its state is not varied. *)
+(* A scalar fold computes a real, of zero tangent when its state is not varied.
+  *)
 Lemma act_fold a (loP hiP initP : atom pv) (bP : pv -> pv -> anf pv bare) :
   (forall p, initP = AVar p -> ~ is_array (vty (pw p))) ->
   (forall x y, act_body (bP x y)) -> act_value (AFold a loP hiP initP bP).
 Proof.
 move=> Hna IHa L k wP pp tail eA eW eD te ve HA HW HD HL Htc Hev.
 destruct eA, eW, eD; simpl in HA, HW, HD; try contradiction;
-repeat match goal with
-       | H : _ /\ _ |- _ => destruct H
-       | H : atom_eq (gA _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gW _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gD _) _ _ |- _ =>
-         apply atom_graph in H; destruct H as [-> ?]
-       end; subst.
+graph_split.
 rename b into bA, b0 into bW, b1 into bD.
 match goal with
   H : forall (i1 : pv) (i2 : avar) (s1 : pv) (s2 : avar), _ |- _ =>
@@ -3171,7 +3111,8 @@ have [Ht Hz] := Hloop _ _ _ Hs0 Hz0 Hev.
 by split=> //; split.
 Qed.
 
-Lemma inplace_map (loP hiP : atom pv) (bP : pv -> anf pv bare) : inplace_only cv (AMap loP hiP bP).
+Lemma inplace_map (loP hiP : atom pv) (bP : pv -> anf pv bare) : inplace_only cv
+  (AMap loP hiP bP).
 Proof.
 move=> L k wP pp tail eA eW te HA HW HL _ Htc Hst Hl Hargs Hwr o Ho Hoin.
 case: eW HW Htc => // loW hiW bW HW Htc.
@@ -3217,7 +3158,8 @@ by rewrite Hnocc.
 Qed.
 
 Lemma inplace_fold a (loP hiP initP : atom pv) (bP : pv -> pv -> anf pv bare) :
-  (forall p, initP = AVar p -> ~ is_array (vty (pw p))) -> inplace_only cv (AFold a loP hiP initP bP).
+  (forall p, initP = AVar p -> ~ is_array (vty (pw p))) -> inplace_only cv
+    (AFold a loP hiP initP bP).
 Proof.
 move=> Hna L k wP pp tail eA eW te _ _ _ _ _ Hst; exfalso; apply: Hst.
 move: Hna; case: (initP) => [q | ? | ?] //= Hna.
@@ -3227,7 +3169,8 @@ by case: (Hna q erefl Har).
 Qed.
 
 Lemma owner_fold a (loP hiP initP : atom pv) (bP : pv -> pv -> anf pv bare) :
-  (forall p, initP = AVar p -> ~ is_array (vty (pw p))) -> act_owner (AFold a loP hiP initP bP).
+  (forall p, initP = AVar p -> ~ is_array (vty (pw p))) -> act_owner (AFold a
+    loP hiP initP bP).
 Proof.
 move=> Hna L k c wP pp live ty tail eA eW eD ve o _ _ _ _ _.
 move: Hna; case: (initP) => [q | ? | ?] //= Hna.
@@ -3251,7 +3194,8 @@ with branchy_value (top : bool) (e : value pv bare) : Prop :=
   | AIte _ t e => branchy false t /\ branchy false e
   | AMap _ _ b => top = true /\ forall x, branchy false (b x)
   | AFold _ _ _ init b =>
-      top = true /\ (forall p, init = AVar p -> ~ is_array (vty (pw p))) /\ forall x y, branchy false (b x y)
+      top = true /\ (forall p, init = AVar p -> ~ is_array (vty (pw p))) /\
+        forall x y, branchy false (b x y)
   end.
 
 End Branch.

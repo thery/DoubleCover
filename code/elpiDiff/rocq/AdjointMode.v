@@ -19,8 +19,8 @@
 
 From Stdlib Require Import String ZArith List Bool Reals Lia.
 From Coquelicot Require Import Coquelicot.
-From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Normalize WellFormed
-  Annotate Adjoint Simplify Correctness Smooth.
+From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec
+  Normalize WellFormed Annotate Adjoint Simplify Correctness Smooth.
 From ElpiDiff Require TangentTop.
 From ElpiDiff Require Import Euclidean DualsDerive AdjointSpec.
 From ElpiDiff Require AdjointClassify AdjointGoodTop AdjointModeProof.
@@ -41,7 +41,8 @@ Notation seed := TangentTop.seed.
    dx, <df (seed dx), yb> = <seed dx, g>; the adjoint-value program also gives
    the value of f back, unless f writes an inout argument. *)
 Theorem adjoint_mode_correct (cv : bool) (f : function) (x : list (val R)) :
-  parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x -> defined f x ->
+  parametric f -> well_formed (normalize f) = Ok ->
+  Forall2 fits (decls f) x -> defined f x ->
   exists v df,
     eval_function smooth_reals f x = Some v /\
     filterdiff (value_of f x) (locally (point_of x)) df /\
@@ -50,9 +51,11 @@ Theorem adjoint_mode_correct (cv : bool) (f : function) (x : list (val R)) :
         exec_dfunction reals (simplify (adjoint cv (annotate cv (normalize f))))
           (adjoint_inputs (decls f) x xb yb) = Some out /\
         adjoint_output (decls f) x xb out = Some g /\ length g = in_dim x /\
-        (cv = true -> writes_inout (decls f) = false -> value_given (decls f) out = Some v) /\
+        (cv = true -> writes_inout (decls f) = false ->
+           value_given (decls f) out = Some v) /\
         forall dx, length dx = in_dim x ->
-          dotl (list_of_vec _ (df (vec_of_list _ (seed (decls f) x dx)))) yb = dotl (seed (decls f) x dx) g.
+          dotl (list_of_vec _ (df (vec_of_list _ (seed (decls f) x dx)))) yb =
+            dotl (seed (decls f) x dx) g.
 Proof.
 move=> Hpar Hwf Hfit Hdef.
 apply: (AdjointModeProof.adjoint_mode_correct_from _ cv f x Hpar Hwf Hfit

@@ -288,14 +288,6 @@ Qed.
 (* ---------------------------------------------------------------------------
    Scopes and numbers. *)
 
-Lemma good_k_mono sc wr c c' ss (Q : list (dvar W) -> list (dvar W) -> Prop) :
-  good_k sc wr c ss Q -> (c <= c')%nat -> good_k sc wr c' ss Q.
-Proof.
-move=> Hg Hc rest Hr; apply: Hg => sc' wr' I1 I2 Hb Hw HQ.
-apply: Hr => //; apply: (Forall_impl _ _ Hb) => x [H1 H2]; split=> //.
-exact: below_mono H1 Hc.
-Qed.
-
 Lemma below_dnum c x :
   below c x <-> (forall j, dnum x = Some j -> (j < c)%nat).
 Proof.
@@ -321,10 +313,6 @@ exists j; split; first lia.
 split=> //; case Eb: (is_barv x); first by left.
 by right=> /HF; lia.
 Qed.
-
-Lemma bar_declaration_array z (n : dvar W) :
-  bar_declaration W (Array z) n = [].
-Proof. by []. Qed.
 
 Lemma fold_slive_records k (eA : value avar bare) :
   fold_slive cv k eA = true -> records cv k eA = true.

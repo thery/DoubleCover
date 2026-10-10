@@ -724,47 +724,20 @@ have Hrest : (forall y, nbody s (cP y)) -> forall t vr,
     w vo _ _ se (S c) (HcA _ _) (HcT _ _)).
 case: e Hab HeA HeT
   => // [f0 a0 | f0 a0 b0 | a0 i0 | a0 i0 v0 | fa0 lo0 hi0 i0 bi0] Hab HeA HeT.
-(* a scalar let: the replay defines its binder, if needed, then replays the rest
-  *)
-- case: eA HeA Enl HcA Hrest => // f1 a1 _ Enl HcA Hrest; case: eT HeT HcT Hrest
-  => // f2 a2 _ HcT Hrest.
-  have := Hrest Hab (type_of (AOp1 f2 a2)) (varied_value k (AOp1 f1 a1)).
+(* an operation or a read: the replay defines its binder, if needed, then
+   replays the rest *)
+1-3: have := Hrest Hab (type_of (rebuild_value _ eT TLeaf))
+    (varied_value k eA);
+  destruct eA; try contradiction; destruct eT; try contradiction;
   cbn [adj let_ann rebuild_value annotate_value_t with_storage open_pairs];
-    rewrite !open_pairs_sbind.
-  case: (open_pairs _ (S c)) => [[fb' rb'] c3] IHr.
-  case: (_ || false); cbn [open_pairs fwd_value]; case: (_ && _); cbn
-    [open_pairs]; move=> s0 s1 Hrun v Hb Hcv.
-  1-4: move: Hrun; rewrite run_app; case Er: (run _ s0) => [sa|] // Hrun.
-  1-4: rewrite (IHr _ _ Hrun v (below_mono c (S c) v Hb (Nat.le_succ_diag_r c))
-    Hcv).
-  1-2: exact: (Hdef _ _ _ _ _ Er).
-  1-2: by move: Er; rewrite /run /= => -[<-].
-- case: eA HeA Enl HcA Hrest => // f1 a1 b1 _ Enl HcA Hrest; case: eT HeT HcT
-  Hrest => // f2 a2 b2 _ HcT Hrest.
-  have := Hrest Hab (type_of (AOp2 f2 a2 b2)) (varied_value k (AOp2 f1 a1 b1)).
-  cbn [adj let_ann rebuild_value annotate_value_t with_storage open_pairs];
-    rewrite !open_pairs_sbind.
-  case: (open_pairs _ (S c)) => [[fb' rb'] c3] IHr.
-  case: (_ || false); cbn [open_pairs fwd_value]; case: (_ && _); cbn
-    [open_pairs]; move=> s0 s1 Hrun v Hb Hcv.
-  1-4: move: Hrun; rewrite run_app; case Er: (run _ s0) => [sa|] // Hrun.
-  1-4: rewrite (IHr _ _ Hrun v (below_mono c (S c) v Hb (Nat.le_succ_diag_r c))
-    Hcv).
-  1-2: exact: (Hdef _ _ _ _ _ Er).
-  1-2: by move: Er; rewrite /run /= => -[<-].
-- case: eA HeA Enl HcA Hrest => // a1 i1 _ Enl HcA Hrest; case: eT HeT HcT Hrest
-  => // a2 i2 _ HcT Hrest.
-  have := Hrest Hab (type_of (AGet a2 i2)) (varied_value k (AGet a1 i1)).
-  cbn [adj let_ann rebuild_value annotate_value_t with_storage open_pairs];
-    rewrite !open_pairs_sbind.
-  case: (open_pairs _ (S c)) => [[fb' rb'] c3] IHr.
-  case: (_ || false); cbn [open_pairs fwd_value]; case: (_ && _); cbn
-    [open_pairs]; move=> s0 s1 Hrun v Hb Hcv.
-  1-4: move: Hrun; rewrite run_app; case Er: (run _ s0) => [sa|] // Hrun.
-  1-4: rewrite (IHr _ _ Hrun v (below_mono c (S c) v Hb (Nat.le_succ_diag_r c))
-    Hcv).
-  1-2: exact: (Hdef _ _ _ _ _ Er).
-  1-2: by move: Er; rewrite /run /= => -[<-].
+  rewrite !open_pairs_sbind;
+  case: (open_pairs _ (S c)) => [[fb' rb'] c3] IHr;
+  case: (_ || false); cbn [open_pairs fwd_value]; case: (_ && _);
+  cbn [open_pairs]; move=> s0 s1 Hrun v Hb Hcv;
+  move: Hrun; rewrite run_app; case Er: (run _ s0) => [sa|] // Hrun;
+  rewrite (IHr _ _ Hrun v (below_mono c (S c) v Hb (Nat.le_succ_diag_r c))
+    Hcv);
+  first [exact: (Hdef _ _ _ _ _ Er) | by move: Er; rewrite /run /= => -[<-]].
 (* the final set: the reverse sweep does not read it (needs of a return in
    Replay is empty), so it is not replayed *)
 - case: eA HeA Enl HcA Hrest => // a1 i1 v1 _ Enl HcA _; case: eT HeT HcT => //
@@ -864,91 +837,69 @@ have [aa [vt [rest ->]]] : exists aa vt rest,
       rebuild _ (cT v) rest).
   by case: t => [aa vt rest|]; [exists aa, vt, rest | exists no_ann, TLeaf,
     TRet].
-have Hbd : forall t0 (m : dvar W), Forall bar_stmt (bar_declaration W t0 m) by
-  case=> * //=; do 2 constructor.
+have Hbd : forall t0 (m : dvar W), Forall bar_stmt (bar_declaration W t0 m).
+  by case=> * //=; do 2 constructor.
 have HopA : is_op e -> is_op eA := is_op_eq _ _ _ HeA.
-case: e Hab HeT HeA HopA
-  => // [f0 a0 | f0 a0 b0 | a0 i0 | a0 i0 v0 | fa0 lo0 hi0 i0 bi0] Hab HeT HeA
-  HopA.
-- case: eT HeT HcT => // f2 a2 HeT HcT.
-  cbn [rebuild_value adj with_storage]; case: (let_ann aa) => [[vv ac] cc]; cbn
-    [open_pairs]; rewrite !open_pairs_sbind.
-  have Hop := HopA I.
-  set x := PV (let_binder k eA) (VInfo 0 Real None)
-    (open_let (type_of (AOp1 f2 a2)) (DBound (c, c)) vv false) (VInt 0) 0.
-  have := IH x s (Hab x) (x :: L) (S k) _ rest w vo _ se (S c) (HcA x (pa x))
-    (Htl' Hop) (HcT x (pt x)).
-  case: (open_pairs _ (S c)) => [[fb' rb'] c3] /= IHr.
-  have Hre := straight_rev_bars (AOp1 f0 a0) I L (AOp1 f2 a2) TLeaf w vo
-    (type_of (AOp1 f2 a2)) (DBound (c, c)) c3 HeT.
+(* the reverse sweep of a straight value writes only adjoints *)
+have Hre : straight_value e -> forall tr te n c0,
+    Forall bar_stmt (fst (open_pairs (rev_value W w vo
+      (rebuild_value _ eT tr) te n) c0)).
+  by move=> Hs tr te n c0; apply: (straight_rev_bars e Hs L) HeT.
+case: e Hab HeT HeA HopA Hre
+  => // [f0 a0 | f0 a0 b0 | a0 i0 | a0 i0 v0 | fa0 lo0 hi0 i0 bi0] Hab HeT
+  HeA HopA Hre.
+(* an operation or a read *)
+1-3: have Hop := HopA I; destruct eT; try contradiction;
+  cbn [rebuild_value adj with_storage];
+  case: (let_ann aa) => [[vv ac] cc]; cbn [open_pairs];
+  rewrite !open_pairs_sbind;
+  lazymatch goal with |- context [open_let ?t (DBound ?d) ?vv false] =>
+    have := IH (PV (let_binder k eA) (VInfo 0 Real None)
+      (open_let t (DBound d) vv false) (VInt 0) 0) s (Hab _) (_ :: L)
+      (S k) _ rest w vo _ se (S c) (HcA _ _) (Htl' Hop) (HcT _ _) end;
+  case: (open_pairs _ (S c)) => [[fb' rb'] c3] /= IHr;
+  have {}Hre := Hre I TLeaf Real (DBound (c, c)) c3;
   case: cc; cbn [open_pairs]; case: ac; cbn [open_pairs] => //=;
   try (apply: Forall_cons; first by []);
-  rewrite ?Forall_app; repeat split; try exact: Hbd; try exact: IHr; try exact:
-    Hre; try by [].
-- case: eT HeT HcT => // f2 a2 b2 HeT HcT.
-  cbn [rebuild_value adj with_storage]; case: (let_ann aa) => [[vv ac] cc]; cbn
-    [open_pairs]; rewrite !open_pairs_sbind.
-  have Hop := HopA I.
-  set x := PV (let_binder k eA) (VInfo 0 Real None)
-    (open_let (type_of (AOp2 f2 a2 b2)) (DBound (c, c)) vv false) (VInt 0) 0.
-  have := IH x s (Hab x) (x :: L) (S k) _ rest w vo _ se (S c) (HcA x (pa x))
-    (Htl' Hop) (HcT x (pt x)).
-  case: (open_pairs _ (S c)) => [[fb' rb'] c3] /= IHr.
-  have Hre := straight_rev_bars (AOp2 f0 a0 b0) I L (AOp2 f2 a2 b2) TLeaf w vo
-    (type_of (AOp2 f2 a2 b2)) (DBound (c, c)) c3 HeT.
-  case: cc; cbn [open_pairs]; case: ac; cbn [open_pairs] => //=;
-  try (apply: Forall_cons; first by []);
-  rewrite ?Forall_app; repeat split; try exact: Hbd; try exact: IHr; try exact:
-    Hre; try by [].
-- case: eT HeT HcT => // a2 i2 HeT HcT.
-  cbn [rebuild_value adj with_storage]; case: (let_ann aa) => [[vv ac] cc]; cbn
-    [open_pairs]; rewrite !open_pairs_sbind.
-  have Hop := HopA I.
-  set x := PV (let_binder k eA) (VInfo 0 Real None)
-    (open_let (type_of (AGet a2 i2)) (DBound (c, c)) vv false) (VInt 0) 0.
-  have := IH x s (Hab x) (x :: L) (S k) _ rest w vo _ se (S c) (HcA x (pa x))
-    (Htl' Hop) (HcT x (pt x)).
-  case: (open_pairs _ (S c)) => [[fb' rb'] c3] /= IHr.
-  have Hre := straight_rev_bars (AGet a0 i0) I L (AGet a2 i2) TLeaf w vo
-    (type_of (AGet a2 i2)) (DBound (c, c)) c3 HeT.
-  case: cc; cbn [open_pairs]; case: ac; cbn [open_pairs] => //=;
-  try (apply: Forall_cons; first by []);
-  rewrite ?Forall_app; repeat split; try exact: Hbd; try exact: IHr; try exact:
-    Hre; try by [].
-- case: eT HeT HcT => // a2 i2 v2 HeT HcT.
-  have Hret : forall y t0 c0, Forall bar_stmt (snd (fst (open_pairs (adj W w vo
-    Replay (rebuild _ (cT y) t0) se) c0))).
-    move=> y t0 c0; have := HcT (PV (AV 0 false) (VInfo 0 Real None) y (VInt 0)
-      0) y; rewrite Hab.
-    case: (cT y) => //= r _; cbn [rebuild adj sweep_eqb open_pairs snd fst].
+  rewrite ?Forall_app; repeat split; try exact: Hbd; try exact: IHr;
+  try exact: Hre; try by [].
+(* the final set: the rest returns the variable *)
+- case: eT HeT HcT Hre => // a2 i2 v2 HeT HcT Hre.
+  have Hret : forall y t0 c0, Forall bar_stmt (snd (fst (open_pairs
+      (adj W w vo Replay (rebuild _ (cT y) t0) se) c0))).
+    move=> y t0 c0.
+    have := HcT (PV (AV 0 false) (VInfo 0 Real None) y (VInt 0) 0) y.
+    rewrite Hab; case: (cT y) => //= r _.
+    cbn [rebuild adj sweep_eqb open_pairs snd fst].
     case: (tof r) => //; case Eb: (bar r) => [bx|] //.
     have [x0 [-> Hx]] := bar_some _ _ Eb.
     by constructor=> //; constructor.
-  have Hre := straight_rev_bars (ASet a0 i0 v0) I L (ASet a2 i2 v2) TLeaf w vo.
+  have {}Hre := Hre I TLeaf.
   cbn [rebuild_value adj]; case: (let_ann aa) => [[vv ac] cc].
   case: a2 HeT Hre => [a3 | s3 | z3] HeT Hre; cbn [with_storage open_pairs];
     rewrite !open_pairs_sbind.
   + have := Hret (open_let (tty a3) (tstored a3) vv (trecorded a3)) rest c.
     case: (open_pairs _ c) => [[fb' rb'] c3] /= IHr.
-    have {}Hre := Hre (tty a3) (tstored a3) c3 HeT.
+    have {}Hre := Hre (tty a3) (tstored a3) c3.
     case: cc; cbn [open_pairs]; case: ac; cbn [open_pairs] => //=;
-    try (apply: Forall_cons; first by []);
-    rewrite ?Forall_app; repeat split; try exact: Hbd; try exact: IHr; try
-      exact: Hre; try by [].
+      try (apply: Forall_cons; first by []);
+      rewrite ?Forall_app; repeat split; try exact: Hbd; try exact: IHr;
+      try exact: Hre; try by [].
   + have := Hret (open_let Real (DBound (c, c)) vv false) rest (S c).
     case: (open_pairs _ (S c)) => [[fb' rb'] c3] /= IHr.
-    have {}Hre := Hre Real (DBound (c, c)) c3 HeT.
+    have {}Hre := Hre Real (DBound (c, c)) c3.
     case: cc; cbn [open_pairs]; case: ac; cbn [open_pairs] => //=;
+      try (apply: Forall_cons; first by []);
+      rewrite ?Forall_app; repeat split; try exact: Hbd; try exact: IHr;
+      try exact: Hre; try by [].
+  have := Hret (open_let Integer (DBound (c, c)) vv false) rest (S c).
+  case: (open_pairs _ (S c)) => [[fb' rb'] c3] /= IHr.
+  have {}Hre := Hre Integer (DBound (c, c)) c3.
+  case: cc; cbn [open_pairs]; case: ac; cbn [open_pairs] => //=;
     try (apply: Forall_cons; first by []);
-    rewrite ?Forall_app; repeat split; try exact: Hbd; try exact: IHr; try
-      exact: Hre; try by [].
-  + have := Hret (open_let Integer (DBound (c, c)) vv false) rest (S c).
-    case: (open_pairs _ (S c)) => [[fb' rb'] c3] /= IHr.
-    have {}Hre := Hre Integer (DBound (c, c)) c3 HeT.
-    case: cc; cbn [open_pairs]; case: ac; cbn [open_pairs] => //=;
-    try (apply: Forall_cons; first by []);
-    rewrite ?Forall_app; repeat split; try exact: Hbd; try exact: IHr; try
-      exact: Hre; try by [].
+    rewrite ?Forall_app; repeat split; try exact: Hbd; try exact: IHr;
+    try exact: Hre; try by [].
+(* the final fold: its tail fold is live *)
 case: (i0) Hab => [s0 | ? | ?] // [_ [_ Hret]].
 case: eA HeA Htl Htl' HopA => // faA loA hiA iA biA _ Htl _ _.
 move: Htl => /=.
@@ -1449,555 +1400,8 @@ have HidL : forall p, In p L -> aid (pa p) = vid (pw p).
   by move=> p Hp; case: (static_in _ _ _ HL Hp).
 have HkL : forall p, In p L -> (vid (pw p) < k)%nat.
   by move=> p Hp; have [_ [Hlt _]] := static_in _ _ _ HL Hp.
-have [Esl | Esl] : state_live cv k (AVar (pa q)) bA = true \/
-    state_live cv k (AVar (pa q)) bA = false.
-  by case: (state_live _ _ _ _); [left | right].
-(* the state of the loop is recorded: its step ends with a set *)
-set live := state_live cv k (AVar (pa q)) bA.
-have Hset : aset_tail (S (S k))
-    (bA (AV k false) (AV (S k) (fold_varied k (AVar (pa q)) bA))) = true.
-  exact: (nbody_live_set L k bP bA bW (AVar (pa q)) z wP Hab HbA HbW HidL HkL
-    HtB Hrai Esl).
-have Habs : forall x y, pa x = AV k false ->
-    pa y = AV (S k) (fold_varied k (AVar (pa q)) bA) -> abody (bP x y).
-  move=> x y Ex Ey.
-  apply: (nbody_abody y (bP x y) (Hab x y) _ (S (S k)) (bA (pa x) (pa y))
-    (HbA x _ y _)).
-  by rewrite Ex Ey.
-(* the tape holds the pushes of the steps, last first, on top of the rest *)
-have Hflv : fold_live cv k (AVar (pa q)) bA = live.
-  set ox := PV (AV k false) (VInfo k Integer None) dummy_tvar (VInt 0) 0.
-  set oy := PV (AV (S k) (fold_varied k (AVar (pa q)) bA))
-    (VInfo (S k) Integer None) dummy_tvar (VInt 0) 0.
-  rewrite /live /fold_live /fold_binders.
-  by rewrite (tail_fold_live_abody cv _ (Habs ox oy erefl erefl) (oy :: ox :: L)
-    _ _ (HbA ox (pa ox) oy (pa oy))).
-have Hrecs : records cv k
-    (AFold ann (amap pa loP) (amap pa hiP) (AVar (pa q)) bA) = live.
-  by rewrite (records_fold_nbody L k ann _ _ bP bA bW _ z wP Hab HbA HbW HidL
-    HkL HtB Hrai) Hflv.
-have [rest [Htape0 Hn_live]] : exists rest,
-    (live = true -> store_get s2 (keyv (TapeOf n)) =
-       Some (VTape (rev (fold_pushes bD l tr) ++ rest))) /\
-    (live = true -> store_get s2 (keyv n) = Some (primal ve)).
-  move: Hft; rewrite /fold_tape Hlo Hhi.
-  change (aeval_atom (duals reals) (amap pd (AVar q))) with (Some (pd q)).
-  move=> /(_ tr Htr) [_ Ha].
-  have Har : is_array (of_atom (AVar (pw q))) by rewrite /= Eqz.
-  case El: live; last by exists [].
-  have [[rest Ht] Hv] := Ha Har (etrans Hflv El).
-  by exists rest; split=> _; [exact: Ht | exact: Hv ve Hev].
-have Hn_dead : not_in_loop pp -> live = false ->
-    store_get s2 (keyv n) = Some (primal (pd q)).
-  by move=> Hnl Hl; apply: Hrec Hnl _; rewrite Hrecs.
-(* the states of the fold are arrays of the type of the state *)
-set vr := fold_varied k (AVar (pa q)) bA.
-have Hvr' : vr = true by rewrite /vr /fold_varied /= Hvq.
-have [Eidq [Hkq [Hstq [Htyq [Htvq [Htdq [Htidq [Hvaq [Hhtq Hzq]]]]]]]]] :=
-  static_in _ _ _ HL HqL.
-have Hstates : forall jn, (jn <= N)%nat -> has_type (Array z) (st jn).
-  elim=> [| jn IH] Hjn; first by rewrite /st Hst0 -Eqz.
-  have Hjn' : (jn <= N)%nat by lia.
-  have Hlt : (jn < count l h)%nat by rewrite -/N; lia.
-  have Hs1 := Hstep jn Hlt.
-  have Ej : st jn = nth jn tr dflt by rewrite /st app_nth1 // Hlen.
-  set ix := PV (fresh k) (VInfo k Integer None) (open_index (DBound (0%nat,
-    0%nat))) (VInt (l + Z.of_nat jn)) 0.
-  set sx := PV (AV (S k) vr) (VInfo (S k) (Array z) None) (TVar (DBound (0%nat,
-    0%nat)) (Array z) None vr vr vr false None)
-              (nth jn tr dflt) 0.
-  have Hix : static_ok (S (S k)) ix by repeat split; rewrite /=; auto; try lia;
-    discriminate.
-  have Hsx : static_ok (S (S k)) sx.
-    repeat split; rewrite /=; auto; try lia; try discriminate; last by rewrite
-      Hvr'.
-    by rewrite -Ej; apply: IH.
-  have HL' : Forall (static_ok (S (S k))) (sx :: ix :: L).
-    constructor=> //; constructor=> //; apply: Forall_impl HL => p Hp; apply:
-      (static_mono k) => //; lia.
-  have HtB' : typecheck (option_map (amap pw) wP) (wplace (PArray ix sx)) (S (S
-    k)) (bW (pw ix) (pw sx)) = (Array z, Ok)
-    by exact: HtB.
-  have [Hht _] := nbody_act _ _ (Hab ix sx) (sx :: ix :: L) (S (S k)) wP (PArray
-    ix sx)
-                    (bA (pa ix) (pa sx)) (bW (pw ix) (pw sx)) (bD (pd ix) (pd
-                      sx)) (Array z) (st (S jn))
-                    (HbA ix _ sx _) (HbW ix _ sx _) (HbD ix _ sx _) HL' HtB'
-                      Hs1.
-  exact: Hht.
-(* the loop: P jn s, the store before the step jn of the reverse loop *)
-set i := DBound (c, c).
-set pop := if live then _ else [].
-set body := (pop ++ fb ++ rb)%list.
-set P := fun (jn : nat) (s : store R) =>
-  (forall v, below c v -> consistent v -> is_primal v -> v <> n -> store_get s
-    (keyv v) = store_get s2 (keyv v)) /\
-  tkeep c (Some n) s2 s /\
-  rev_frame_x c (inplace wP pp) n (oset O n (tangent ve)) s2 s /\
-  (live = true -> store_get s (keyv (TapeOf n)) = Some (VTape (rev (fold_pushes
-    bD l (firstn jn tr)) ++ rest))) /\
-  store_get s (keyv n) = (if live then Some (primal (st jn)) else store_get s2
-    (keyv n)) /\
-  (forall t m, In (t, m) (oset O n (tangent (st jn))) -> shaped t (barv s m)) /\
-  pairing (oset O n (tangent (st jn))) s = pairing (oset O n (tangent ve)) s2.
-have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
-    exists s', run body (store_set s (KVar (out_dvar nat i)) (VInt (l + Z.of_nat
-      jn))) = Some s' /\ P jn s'.
-  move=> jn s Hjn [K0 [T0 [F0 [Tp0 [N0 [Sh0 Pr0]]]]]].
-  set zz := (l + Z.of_nat jn)%Z.
-  set s'' := store_set s (keyv i) (VInt zz).
-  change (store_set s (KVar (out_dvar nat i)) (VInt zz)) with s''.
-  have Ej : st jn = nth jn tr dflt by rewrite /st app_nth1 // Hlen.
-  have Hs1 := Hstep jn Hjn.
-  have Ht0 : has_type (Array z) (nth jn tr dflt) by rewrite -Ej; apply: Hstates;
-    lia.
-  have Ht1 : has_type (Array z) (st (S jn)) by apply: Hstates; lia.
-  have [lj Elj] : exists lj, nth jn tr dflt = VArray lj.
-    by move: Ht0; case: (nth jn tr dflt) => // lj _; exists lj.
-  (* the index and the state of the step *)
-  set ix := PV (fresh k) (VInfo k Integer None) (open_index i) (VInt zz) c.
-  set sx := PV (AV (S k) vr) (VInfo (S k) (Array z) None) (TVar n (Array z) None
-    vr vr vr false None) (nth jn tr dflt) j.
-  have Hix : static_ok (S (S k)) ix by repeat split; rewrite /=; auto; try lia;
-    discriminate.
-  have Hsx : static_ok (S (S k)) sx.
-    by repeat split; rewrite /=; auto; try lia; try discriminate; last by
-      rewrite Hvr'.
-  have HL' : Forall (static_ok (S (S k))) (sx :: ix :: L).
-    constructor=> //; constructor=> //; apply: Forall_impl HL => p Hp; apply:
-      (static_mono k) => //; lia.
-  have Hk' : forall p, In p (sx :: ix :: L) -> (vid (pw p) < S (S k))%nat.
-    move=> p [<- | [<- | Hp]] /=; try lia.
-    by have [_ [Hkp _]] := static_in _ _ _ HL Hp; lia.
-  have Hu' : ids_unique (sx :: ix :: L).
-    move=> p p' [<- | [<- | Hp]] [<- | [<- | Hp']] E //=; move: E => /=; try
-      lia;
-      try (case: (static_in _ _ _ HL Hp') => _ [Hk1 _] /=; lia);
-      try (case: (static_in _ _ _ HL Hp) => _ [Hk1 _] /=; lia).
-    exact: (s_unique _ _ _ _ _ _ _ Hs _ _ Hp Hp').
-  have HtB' : typecheck (option_map (amap pw) wP) (wplace (PArray ix sx)) (S (S
-    k)) (bW (pw ix) (pw sx)) = (Array z, Ok)
-    by exact: HtB.
-  (* the step changes the array only at the index of its set *)
-  have [zi [l1 [x [Hsi [Ev1 [Hx [Hback Hse]]]]]]] :=
-    abody_eval_array _ (Habs ix sx erefl erefl) (sx :: ix :: L) (S (S k)) wP ix
-      sx _ _ (Array z) _ lj Hk' Hu'
-      (or_introl erefl) (HbW ix _ sx _) (HbD ix _ sx _) HtB' Hs1 Elj.
-  (* the index of the pop *)
-  have [iP [Hi [Hti Hsi']]] :=
-    tail_index_abody _ (Habs ix sx erefl erefl) (sx :: ix :: L) (S (S k)) wP ix
-      sx _ (bT (pt ix) (pt sx)) _
-      (annotate_body_t cv Replay (S (S k)) (bA (pa ix) (pa sx))) (Array z) _ Hk'
-        Hu'
-      (or_intror (or_introl erefl)) (HbW ix _ sx _) (HbT ix _ sx _) (HbD ix _ sx
-        _) HtB' Hs1.
-  have HiD : aeval_atom (duals reals) (amap pd iP) = Some (VInt zi).
-    move: Hsi'; rewrite Hsi.
-    by case: (aeval_atom _ _) => [[| z1 | | |] |] // [<-].
-  have Hidx : forall s0, store_get s0 (keyv i) = Some (VInt zz) -> xev s0 (spell
-    (amap pt iP)) = Some (VInt zi).
-    move=> s0 Hs0i.
-    apply: (aspell_ok (S (S k)) s0 iP (VInt zi)) => // p E.
-    by case: Hi E => [-> [<-] | [z1 ->]] //; split.
-  (* the pop restores the element overwritten by the step *)
-  have Hjt : (jn < length tr)%nat by rewrite Hlen.
-  have Hfl : length (firstn jn tr) = jn by apply: firstn_length_le; lia.
-  have Hsi2 : set_index (bD (VInt zz) (nth jn tr dflt)) = Some zi by exact: Hsi.
-  have Epush : fold_pushes bD l (firstn (S jn) tr) = fold_pushes bD l (firstn jn
-    tr) ++ [x].
-    rewrite (firstn_S_nth dflt _ _ Hjt) fold_pushes_snoc Hfl -/zz.
-    rewrite (body_pushes_abody _ (Habs ix sx erefl erefl) (sx :: ix :: L) _ _
-      (HbD ix _ sx _)).
-    by rewrite Hsi2 Elj Hx.
-  have Est1 : st (S jn) = VArray l1 by exact: Ev1.
-  have Kti : keyv (TapeOf n) <> keyv i by rewrite /keyv.
-  have Ktn : keyv (TapeOf n) <> keyv n by rewrite /keyv.
-  have Kin : keyv i <> keyv n by rewrite /keyv /=; case=> E; lia.
-  have [sp [Hrp Hsp]] : exists sp, run pop s'' = Some sp /\
-      sp = if live then store_set (store_set s'' (keyv (TapeOf n))
-        (VTape (rev (fold_pushes bD l (firstn jn tr)) ++ rest))) (keyv n)
-          (VArray (map dfst lj)) else s''.
-    rewrite /pop; case El: (live); last by exists s''.
-    eexists; split; last by [].
-    apply: run_pop_at.
-    - by rewrite /s'' store_get_set_other // (Tp0 El) Epush rev_app_distr.
-    - rewrite store_get_set_other // /s'' store_get_set_other //.
-      by rewrite N0 El Est1.
-    - have Hg : store_get (store_set s'' (keyv (TapeOf n)) (VTape (rev
-      (fold_pushes bD l (firstn jn tr)) ++ rest))) (keyv i) = Some (VInt zz).
-        by rewrite store_get_set_other // /s'' store_get_set_same.
-      by move: (Hidx _ Hg); rewrite -Hti; exact.
-    exact: Hback.
-  (* the replay of the body keeps the keys, its transpose writes adjoints *)
-  have Hrep : forall s0 s1, run fb s0 = Some s1 -> forall v, below (S c) v ->
-    consistent v ->
-      store_get s1 (keyv v) = store_get s0 (keyv v).
-    move: (adj_replay_abody cv _ (Habs ix sx erefl erefl) (sx :: ix :: L) (S (S
-      k)) (option_map (amap pt) wP) vo
-             (bA (pa ix) (pa sx)) (bT (pt ix) (pt sx)) (DReal "0") (S c) (HbA ix
-               _ sx _) (HbT ix _ sx _)).
-    lazymatch goal with |- context [@open_pairs ?A ?t (S c)] =>
-      have E : @open_pairs A t (S c) = ((fb, rb), c2) by exact: Hob end.
-    by rewrite E.
-  have Hbars : Forall bar_stmt rb.
-    move: (adj_rev_bars_abody _ (Habs ix sx erefl erefl) (sx :: ix :: L)
-      (annotate_body_t cv Replay (S (S k)) (bA (pa ix) (pa sx)))
-             (option_map (amap pt) wP) vo (bT (pt ix) (pt sx)) (DReal "0") (S c)
-               (HbT ix _ sx _)).
-    lazymatch goal with |- context [@open_pairs ?A ?t (S c)] =>
-      have E : @open_pairs A t (S c) = ((fb, rb), c2) by exact: Hob end.
-    by rewrite E.
-  (* the context of the body *)
-  have Hlive_b : forall p, In p L -> live_anf (S (S k)) (bW (pw ix) (pw sx)) p
-    ->
-      live_value k (AFold ann0 (amap pw loP) (amap pw hiP) (AVar (pw q)) bW) p
-        /\ pn p <> pn q.
-    move=> p Hp Hl.
-    have Ec := live_cont2 L k bP bW ix sx (pw ix) (pw sx) (vid (pw p)) HbW HL
-      erefl erefl erefl erefl.
-    have Hl' : live_value k (AFold ann0 (amap pw loP) (amap pw hiP) (AVar (pw
-      q)) bW) p.
-      by move: Hl; rewrite /live_anf /live_value /= Ec => ->; rewrite
-        !orb_true_r.
-    split=> // E.
-    case: (s_owner _ _ _ _ _ _ _ Hs q p Hown Hp E) => [Epq | //].
-    by move: Hl; rewrite /live_anf Ec Epq Hocc.
-  have Hjq : pn q = j by move: Hst; rewrite /n /stored => -[].
-  set liveb := live_anf (S (S k)) (bW (pw ix) (pw sx)).
-  have Hsb : sctx (sx :: ix :: L) (S (S k)) (S c) wP (PArray ix sx) liveb (Array
-    z).
-    constructor=> //.
-    - move=> p [<- | [<- | Hp]] /=; try lia.
-      by have := s_num _ _ _ _ _ _ _ Hs _ Hp; lia.
-    - move=> a0 E; have [y [-> [Hy Hv]]] := s_written _ _ _ _ _ _ _ Hs _ E.
-      by exists y; split=> //; split=> //; right; right.
-    - by rewrite /= Hvr'; repeat split; auto.
-    - move=> o p [<-] [<- | [<- | Hp]] Ep; [by left | by move: Ep => /=; lia |].
-      by right=> Hl; case: (Hlive_b p Hp Hl) => _ Hpn; apply: Hpn; rewrite Hjq.
-    - move=> p o [<- | [<- | Hp]] Lp Ha Hgp [<-] //.
-      case: (Hlive_b p Hp Lp) => Hl' _.
-      by rewrite /= -Hjq; exact: (s_arrays _ _ _ _ _ _ _ Hs p q Hp Hl' Ha Hgp
-        Hown).
-  (* the store after the pop *)
-  have Ci : consistent i by [].
-  have Cn : consistent n by [].
-  have Ctn : consistent (TapeOf n) by [].
-  have Kni : keyv n <> keyv i by apply: not_eq_sym.
-  have Kvi : forall v, below c v -> consistent v -> keyv v <> keyv i.
-    by move=> v Hb Cv K; move: Hb; rewrite (keyv_inj _ _ Cv Ci K) /=; lia.
-  have Hsp_v : forall v, below c v -> consistent v -> ~ is_tape v -> v <> n ->
-      store_get sp (keyv v) = store_get s (keyv v).
-    move=> v Hb Cv Tv Hvn.
-    have Kvn : keyv n <> keyv v by move=> K; apply: Hvn; apply: keyv_inj.
-    have Kvt : keyv (TapeOf n) <> keyv v by move=> K; apply: Tv; rewrite
-      -(keyv_inj _ _ Ctn Cv K).
-    have Kiv : keyv i <> keyv v by apply: not_eq_sym; apply: Kvi.
-    rewrite Hsp; case: (live).
-      by rewrite store_get_set_other // store_get_set_other // /s''
-        store_get_set_other.
-    by rewrite /s'' store_get_set_other.
-  have Hsp_n : store_get sp (keyv n) =
-      (if live then Some (primal (st jn)) else store_get s2 (keyv n)).
-    rewrite Hsp; case El: (live).
-      by rewrite store_get_set_same Ej Elj.
-    by move: N0; rewrite El /s'' store_get_set_other.
-  have Hsp_t : live = true -> store_get sp (keyv (TapeOf n)) = Some (VTape (rev
-    (fold_pushes bD l (firstn jn tr)) ++ rest)).
-    by move=> El; rewrite Hsp El store_get_set_other // store_get_set_same.
-  have Hsp_i : store_get sp (keyv i) = Some (VInt zz).
-    rewrite Hsp; case: (live); last by rewrite /s'' store_get_set_same.
-    by rewrite store_get_set_other // store_get_set_other // /s''
-      store_get_set_same.
-  have Tsp : tkeep c (Some n) s sp.
-    apply: (tkeep_trans _ _ _ s''); first by apply: tkeep_set.
-    rewrite Hsp; case: (live); last exact: tkeep_refl.
-    apply: (tkeep_trans _ _ _ (store_set s'' (keyv (TapeOf n)) (VTape (rev
-      (fold_pushes bD l (firstn jn tr)) ++ rest)))).
-      by apply: tkeep_set_tape => //; right.
-    exact: tkeep_set.
-  (* the variables the replay reads hold their values *)
-  set tbb := tbr cv Replay (S (S k)) (bA (pa ix) (pa sx)).
-  have Htb_sx : tbb sx -> live = true by [].
-  have Hst_p : forall p, In p L -> stored p = DBound (pn p, pn p) by [].
-  have Hstore_L : forall p, In p L -> tbb p -> store_get sp (keyv (stored p)) =
-    Some (primal (pd p)).
-    move=> p Hp Htb.
-    have Hl := tbr_occurs cv (sx :: ix :: L) (S (S k)) _ _ _ Replay p (HbA ix _
-      sx _) (HbW ix _ sx _) HL'
-                 (or_intror (or_intror Hp)) (or_introl Htb).
-    case: (Hlive_b p Hp Hl) => Hlv Hpn.
-    have [Eid [Hkp _]] := static_in _ _ _ HL Hp.
-    have Hvr2 : vreads cv k (AFold ann (amap pa loP) (amap pa hiP) (AVar (pa q))
-      bA) p.
-      move: Htb; rewrite /tbb /tbr /vreads; cbn [value_needs fold_binders].
-      case: (needs cv Replay (S (S k)) _) => [u0 l0] /= Hm.
-      rewrite atom_member_union !atom_member_remove ?Hm ?orb_true_r //;
-        by cbn [same_term aid]; rewrite Eid; apply Nat.eqb_neq; lia.
-    have Hsn : stored p <> n.
-      by rewrite Hst_p // /n => -[E _]; apply: Hpn; rewrite Hjq.
-    have Hbp : below c (stored p) by rewrite Hst_p //; exact: (s_num _ _ _ _ _ _
-      _ Hs _ Hp).
-    have Cp : consistent (stored p) by rewrite Hst_p.
-    have Tp : ~ is_tape (stored p) by rewrite Hst_p.
-    have Pp : is_primal (stored p) by rewrite Hst_p.
-    rewrite (Hsp_v _ Hbp Cp Tp Hsn) (K0 _ Hbp Cp Pp Hsn).
-    apply: (Hrd p Hp Hvr2 Hlv); right.
-    rewrite /inplace Hown => -[Eqp]; exfalso; apply: Hsn.
-    by rewrite Hst /stored Eqp.
-  have Hctx : actx (sx :: ix :: L) (S (S k)) (S c) sp wP (PArray ix sx) liveb
-    tbb (Array z).
-    constructor=> //.
-    - by move=> p [<- | [<- | Hp]] //=; exact: Hbar.
-    - move=> p [<- | [<- | Hp]] Htb.
-      + by rewrite Hsp_n (Htb_sx Htb) Ej.
-      + by rewrite Hsp_i.
-      + exact: Hstore_L.
-    - move=> p [<- | [<- | Hp]] Hrc //.
-      have [lt Hlt] := Htp p Hp Hrc.
-      have [l' Hl'] := proj1 T0 _ _ Hlt.
-      exact: (proj1 Tsp _ _ Hl').
-    - move=> o [<-] [// | Htb].
-      by rewrite Hsp_n (Htb_sx Htb) Ej.
-  (* the replay, then the transpose of the body *)
-  have Hra : real_or_array (Array z) by [].
-  have NF : forall A : Prop, Replay = Forward -> A by [].
-  have Hpp : Replay = Replay -> PArray ix sx <> PTop by [].
-  move: (asim_straight cv _ (abody_straight _ (Habs ix sx erefl erefl)) (sx ::
-    ix :: L) (S (S k)) (S c) sp wP
-           (PArray ix sx) Replay _ _ _ _ (Array z) (st (S jn)) (DReal "0") vo
-           (HbA ix _ sx _) (HbW ix _ sx _) (HbT ix _ sx _) (HbD ix _ sx _) Hctx
-             Hra HtB' Hs1
-           (NF _) (NF _) (NF _) Hpp (NF _)).
-  lazymatch goal with |- context [@open_pairs ?A ?t (S c)] =>
-    have E : @open_pairs A t (S c) = ((fb, rb), c2) by exact: Hob end.
-  rewrite E => -[_ [Hht [s1 [R1 [F1 [T1 [_ Hrv]]]]]]].
-  have Ein : inplace wP (PArray ix sx) = Some n by [].
-  have Hs1v : forall v, below (S c) v -> consistent v -> store_get s1 (keyv v) =
-    store_get sp (keyv v).
-    by move=> v; apply: Hrep.
-  have Hok := rctx_owners_ok _ _ _ _ _ _ _ Hr.
-  have On : forall t t', In (t, n) (oset O n t') -> t = t'.
-    move=> t t' /in_map_iff [[a0 b0] [Eab _]]; move: Eab => /=.
-    case: ifP => [_ [-> _] // | Hne [_ Ebn]].
-    by move: Hne; rewrite Ebn /= Nat.eqb_refl.
-  (* the owners of the transpose: the state holds the tangent of st jn *)
-  set O' := oset O n (tangent (st jn)).
-  have HmO : forall t m, In (t, m) O' -> exists t0, In (t0, m) O.
-    move=> t m Hin.
-    have : In m (map snd O) by rewrite -(oset_snd O n (tangent (st jn)));
-      apply/in_map_iff; exists (t, m).
-    by move=> /in_map_iff [[t0 m0] [/= -> Ho1]]; exists t0.
-  have HbO : forall t m, In (t, m) O' -> exists j', m = DBound (j', j') /\ (j' <
-    c)%nat.
-    by move=> t m /HmO [t0 Ho1]; exact: (r_below _ _ _ _ _ _ _ Hr t0 m Ho1).
-  have Hsp_bar : forall v, is_bar v -> store_get sp (keyv v) = store_get s (keyv
-    v).
-    move=> v Bv.
-    have K1 : forall x, ~ is_bar x -> keyv x <> keyv v.
-      by move=> y0 Hy0; apply: not_eq_sym; apply: keyv_bar_other.
-    have Kn1 := K1 n id.
-    have Kt1 := K1 (TapeOf n) id.
-    have Ki1 := K1 i id.
-    rewrite Hsp; case: (live); last by rewrite /s'' store_get_set_other.
-    by rewrite store_get_set_other // store_get_set_other // /s''
-      store_get_set_other.
-  have Hbar1 : forall t m, In (t, m) O' -> barv s1 m = barv s m.
-    move=> t m Hin; have [j' [Em Hj']] := HbO t m Hin.
-    have Bb : below (S c) (BarOf m) by rewrite Em /=; lia.
-    have Cb : consistent (BarOf m) by rewrite Em.
-    by rewrite /barv (Hs1v _ Bb Cb) Hsp_bar.
-  have Htj : has_type (Array z) (st jn) by apply: Hstates; lia.
-  have Hshape1 : forall t m, In (t, m) O' -> shaped t (barv s1 m).
-    move=> t m Hin; rewrite (Hbar1 _ _ Hin).
-    have [j' [Em _]] := HbO t m Hin.
-    have Cm : consistent m by rewrite Em.
-    case: (dvar_eq_dec_c m n) => [Emn | Hne].
-      move: Hin; rewrite Emn => Hin; rewrite (On _ _ Hin).
-      have Hin' := oset_in _ _ (tangent (st (S jn))) Hok Cn HnO.
-      exact: (shaped_array_same z (st (S jn)) (st jn) _ Ht1 Htj (Sh0 _ _ Hin')).
-    case: (oset_mem _ _ _ _ _ Hin) => [Ho1 | [Ee _]].
-      by apply: Sh0; apply: oset_other.
-    by case: Hne; move/(dvar_eq_consistent n m Cn Cm): Ee.
-  set use := useful cv Replay (S (S k)) (bA (pa ix) (pa sx)).
-  have Huse_L : forall p, In p L -> use p ->
-      vflows cv k (AFold ann (amap pa loP) (amap pa hiP) (AVar (pa q)) bA) p /\
-        stored p <> n.
-    move=> p Hp Hu.
-    have Hl := tbr_occurs cv (sx :: ix :: L) (S (S k)) _ _ _ Replay p (HbA ix _
-      sx _) (HbW ix _ sx _) HL'
-                 (or_intror (or_intror Hp)) (or_intror Hu).
-    case: (Hlive_b p Hp Hl) => _ Hpn.
-    have [Eid [Hkp _]] := static_in _ _ _ HL Hp.
-    split; last by rewrite Hst_p // /n => -[E0 _]; apply: Hpn; rewrite Hjq.
-    move: Hu; rewrite /use /useful /vflows; cbn [value_needs fold_binders].
-    case: (needs cv Replay (S (S k)) _) => [u0 l0] /= Hm.
-    rewrite atom_member_union !atom_member_remove ?Hm ?orb_true_r //;
-      by cbn [same_term aid]; rewrite Eid; apply Nat.eqb_neq; lia.
-  have Hr1 : rctx (sx :: ix :: L) (S c) wP (PArray ix sx) O' use s1.
-    constructor.
-    - by rewrite /O' oset_snd; exact: (r_nodup _ _ _ _ _ _ _ Hr).
-    - exact: Hshape1.
-    - by move=> t m Hin; have [j' [-> Hj']] := HbO t m Hin; exists j'; split=>
-      //; lia.
-    - move=> p [<- | [<- | Hp]] Hu Hva.
-      + by rewrite /O' Ej; apply: oset_in.
-      + by move: Hva.
-      + have [Hvf Hsn] := Huse_L p Hp Hu.
-        by apply: oset_other => //; exact: (r_useful _ _ _ _ _ _ _ Hr p Hp Hvf
-          Hva).
-    - move=> p t [<- | [<- | Hp]] Hu Hin.
-      + by rewrite (On _ _ Hin) Ej.
-      + by have [j' [[Ec _] Hj']] := HbO _ _ Hin; lia.
-      + have [Hvf Hsn] := Huse_L p Hp Hu.
-        case: (oset_mem _ _ _ _ _ Hin) => [Ho1 | [Ee _]].
-          exact: (r_value _ _ _ _ _ _ _ Hr p t Hp Hvf Ho1).
-        have Cp : consistent (stored p) by rewrite Hst_p.
-        by case: Hsn; move/(dvar_eq_consistent n _ Cn Cp): Ee.
-    - by move=> o [<-]; rewrite /O' Ej; apply: oset_in.
-    - by move=> p ny r [<- | [<- | Hp]] //; exact: (r_args _ _ _ _ _ _ _ Hr p ny
-      r Hp).
-    - exact: (r_written _ _ _ _ _ _ _ Hr).
-  have Hseed : seed_ok (S c) (Array z) (DReal "0") s1 by split=> // x0 [].
-  have Htp1 : tapes_ok (sx :: ix :: L) s1.
-    move=> p [<- | [<- | Hp]] Hrc //.
-    have [lt Hlt] := Htp p Hp Hrc.
-    have [l' Hl'] := proj1 T0 _ _ Hlt.
-    have [l'' Hl''] := proj1 Tsp _ _ Hl'.
-    exact: (proj1 T1 _ _ Hl'').
-  have Htt1 : forall ix0 sx0 n0, PArray ix sx = PArray ix0 sx0 ->
-      Some n = Some n0 -> tail_tape cv (S (S k)) (sx :: ix :: L) (bP ix sx)
-        (bA (pa ix) (pa sx)) (bD (pd ix) (pd sx)) s1 n0.
-    move=> ix0 sx0 n0 _ _.
-    by apply: (tail_tape_abody cv); [exact: (Habs ix sx erefl erefl) | exact:
-      HbA].
-  have [s3 [R3 [_ [_ [T3 [RF3 [Sh3 [Pr3 _]]]]]]]] :=
-    Hrv s1 O' (agree_prim_refl _ _ _) Hr1 Hseed Htp1 Htt1.
-  have Hs3v : forall v, ~ is_bar v -> store_get s3 (keyv v) = store_get s1 (keyv
-    v).
-    exact: (run_bars _ _ _ Hbars R3).
-  have Hpb : forall v, is_primal v -> ~ is_bar v /\ ~ is_tape v by case=> * //;
-    split.
-  have Btn : below (S c) (TapeOf n) by rewrite /=; lia.
-  have Bn : below (S c) n by rewrite /=; lia.
-  (* the invariant one step down *)
-  exists s3; split.
-    by rewrite /body run_app Hrp run_app R1 R3.
-  split.
-    move=> v Hb Cv Pv Hvn; have [Bv Tv] := Hpb v Pv.
-    have Hb' : below (S c) v by apply: (below_mono c) => //; lia.
-    by rewrite Hs3v // Hs1v // Hsp_v // K0.
-  split.
-    apply: (tkeep_trans _ _ _ s) => //; apply: (tkeep_trans _ _ _ sp) => //.
-    apply: (tkeep_trans _ _ _ s1); first by apply: (tkeep_mono _ (S c)) => //;
-      lia.
-    by apply: (tkeep_mono _ (S c)) => //; lia.
-  split.
-    move=> v Hvn Hb Cv Tv Hex Hbo; rewrite -(F0 v Hvn Hb Cv Tv Hex Hbo).
-    have Hb' : below (S c) v by apply: (below_mono c) => //; lia.
-    rewrite (RF3 v Hb' Cv Tv); last first.
-    - by rewrite Hs1v // Hsp_v.
-    - by move=> m Em; rewrite /O' oset_snd; move: (Hbo m Em); rewrite oset_snd.
-    by rewrite Ein => -[Ev]; apply: Hvn.
-  split.
-    by move=> El; rewrite (Hs3v (TapeOf n) id) (Hs1v _ Btn Ctn); exact: Hsp_t.
-  split.
-    by rewrite (Hs3v n id) (Hs1v _ Bn Cn); exact: Hsp_n.
-  split; first exact: Sh3.
-  have Hbar2 : forall t m, In (t, m) (oset O n (tangent (st (S jn)))) -> barv s1
-    m = barv s m.
-    move=> t m Hin.
-    have : In m (map snd O').
-      by rewrite /O' !oset_snd -(oset_snd O n (tangent (st (S jn))));
-        apply/in_map_iff; exists (t, m).
-    by move=> /in_map_iff [[t0 m0] [/= -> Ho1]]; exact: (Hbar1 _ _ Ho1).
-  by rewrite Pr3 Ein /= oset_oset (pairing_ext_own _ _ _ Hbar2).
-have Hok := rctx_owners_ok _ _ _ _ _ _ _ Hr.
-have Hnd := r_nodup _ _ _ _ _ _ _ Hr.
-have Cn : consistent n by [].
-have HstN : st N = ve by rewrite /st app_nth2 Hlen // Nat.sub_diag.
-have Hst0' : st 0%nat = pd q by exact: Hst0.
-have Htq : has_type (Array z) (pd q) by rewrite -Hst0'; apply: Hstates; lia.
-have Htve : has_type (Array z) ve by rewrite -HstN; apply: Hstates.
-have Hcons : forall t m t', In (t, m) (oset O n t') -> consistent m.
-  move=> t m t' Hin.
-  have : In m (map snd (oset O n t')) by apply/in_map_iff; exists (t, m).
-  by rewrite oset_snd => /in_map_iff [[t0 m0] [/= <- Hi]]; exact: (Hok t0 m0
-    Hi).
-(* before the loop: the final state *)
-have HP : P N s2.
-  split; first by [].
-  split; first exact: tkeep_refl.
-  split; first by move=> *.
-  split; first by move=> El; rewrite firstn_all2 ?Hlen //; exact: Htape0.
-  split; first by case El: live => //; rewrite HstN; exact: Hn_live.
-  split; last by rewrite HstN.
-  move=> t m; rewrite HstN => Hin; have Hm := Hcons _ _ _ Hin.
-  case: (oset_mem _ _ _ _ _ Hin) => [Hi | [Em ->]]; first exact: (r_shape _ _ _
-    _ _ _ _ Hr t m Hi).
-  move/(dvar_eq_consistent n m Cn Hm): Em => <-.
-  exact: (shaped_array_same z (pd q) ve _ Htq Htve (r_shape _ _ _ _ _ _ _ Hr _ _
-    HqO)).
-(* the bounds of the loop, read in the store *)
-have Hlh : forall aP, (aP = loP \/ aP = hiP) -> forall p, aP = AVar p ->
-    static_ok k p /\ store_get s2 (keyv (stored p)) = Some (primal (pd p)).
-  move=> aP HaP p E.
-  have Hp : In p L by case: HaP E => -> E; [exact: HloL p E | exact: HhiL p E].
-  split; first exact: (static_in _ _ _ HL Hp).
-  have Hlp : live_value k
-      (AFold ann0 (amap pw loP) (amap pw hiP) (AVar (pw q)) bW) p.
-    rewrite /live_value /=.
-    by case: HaP E => -> ->; rewrite /= Nat.eqb_refl /= ?orb_true_r.
-  have Hvp : vreads cv k
-      (AFold ann (amap pa loP) (amap pa hiP) (AVar (pa q)) bA) p.
-    rewrite /vreads; cbn [value_needs fold_binders].
-    case: (needs cv Replay (S (S k)) _) => [u0 l0] /=.
-    rewrite !atom_member_union.
-    by case: HaP E => -> ->; rewrite /= Nat.eqb_refl /= ?orb_true_r.
-  apply: (Hrd p Hp Hvp Hlp).
-  case: Hpl => [Epp | _]; first by left; rewrite Epp.
-  right; rewrite /inplace Hown => -[Epq].
-  have Hpi : vty (pw p) = Integer.
-    move/andb_true_iff: Eb => [E1 E2].
-    by case: HaP E => -> E; rewrite E /= in E1 E2;
-      [move/ty_eqb_true: E1 | move/ty_eqb_true: E2].
-  case: (s_owner _ _ _ _ _ _ _ Hs q p Hown Hp (esym Epq)) => [Epq' | Hnl].
-    by exfalso; subst p; rewrite Eqz in Hpi.
-  by exfalso; exact: Hnl Hlp.
-have Hslo := aspell_ok k s2 loP _ (Hlh loP (or_introl erefl)) Hlo.
-have Hshi := aspell_ok k s2 hiP _ (Hlh hiP (or_intror erefl)) Hhi.
-(* after the loop: the initial state *)
-have [sf [Hex Pf]] := exec_down_loop_from (run body) (out_dvar nat i) l N P
-  Hstep' N s2 (le_n N) HP.
-have Hdown : exec_down R (run body) (out_dvar nat i) (h - 1) (count l h) s2 =
-  Some sf.
-  case: (Nat.eq_dec N 0) => [E0 | Hn0].
-    by move: Hex; rewrite -/N E0.
-  have -> : (h - 1 = l + Z.of_nat N - 1)%Z by rewrite /N count_nat in Hn0 |- *;
-    lia.
-  exact: Hex.
-case: Pf => [K [Tk [F [Tpf [Nn [Sh Pr]]]]]].
-have Eo : oset O n (tangent (pd q)) = O by apply: oset_same.
-rewrite Hst0' Eo in Sh Pr.
-exists sf; split.
-  by rewrite (run_forback _ _ _ _ _ _ l h Hslo Hshi) Hdown.
-split; first exact: K.
-split; first by move=> _ _ o; rewrite Hown => -[<-]; rewrite Hvq.
-split.
-  move=> Hnl _ o; rewrite Hown => -[<-] _; rewrite Nn.
-  case El: live; first by rewrite Hst0'.
-  exact: Hn_dead Hnl El.
-do 4!(split=> //).
-(* in a loop body, the state before the fold is back in the storage *)
-move=> Hnl _ o; rewrite Hown => -[<-]; rewrite /fold_back Hlo Hhi Hflv.
-split=> El; last by rewrite Nn El.
-exists tr; split; first exact: Htr.
-split; first by rewrite Nn El Hst0'.
-move=> l0 E; rewrite (Tpf El) /=.
-by move: (Htape0 El); rewrite E => -[/app_inv_head ->].
-(* the state of the loop is not recorded *)
-(* the outer state is not recorded; the tape holds the pushes of the inner
-   folds, when they are live *)
-rewrite Esl.
+(* the tape of the loop: the pushes of its steps, last first, when it
+   records *)
 set live := fold_live cv k (AVar (pa q)) bA.
 have Hrecs : records cv k
     (AFold ann (amap pa loP) (amap pa hiP) (AVar (pa q)) bA) = live.
@@ -2020,10 +1424,10 @@ have Hn_dead : not_in_loop pp -> live = false ->
 (* the states of the fold are arrays of the type of the state *)
 set vr := fold_varied k (AVar (pa q)) bA.
 have Hvr' : vr = true by rewrite /vr /fold_varied /= Hvq.
-have [Eidq [Hkq [Hstq [Htyq [Htvq [Htdq [Htidq [Hvaq [Hhtq Hzq]]]]]]]]] :=
-  static_in _ _ _ HL HqL.
 have Hstates : forall jn, (jn <= N)%nat -> has_type (Array z) (st jn).
-  elim=> [| jn IH] Hjn; first by rewrite /st Hst0 -Eqz.
+  elim=> [| jn IH] Hjn.
+    have [_ [_ [_ [_ [_ [_ [_ [_ [Hhtq _]]]]]]]]] := static_in _ _ _ HL HqL.
+    by rewrite /st Hst0 -Eqz.
   have Hjn' : (jn <= N)%nat by lia.
   have Hlt : (jn < count l h)%nat by rewrite -/N; lia.
   have Hs1 := Hstep jn Hlt.
@@ -2032,7 +1436,7 @@ have Hstates : forall jn, (jn <= N)%nat -> has_type (Array z) (st jn).
     (open_index (DBound (0%nat, 0%nat))) (VInt (l + Z.of_nat jn)) 0.
   set sx := PV (AV (S k) vr) (VInfo (S k) (Array z) None)
     (TVar (DBound (0%nat, 0%nat)) (Array z) None vr vr vr false None)
-              (nth jn tr dflt) 0.
+    (nth jn tr dflt) 0.
   have Hix : static_ok (S (S k)) ix.
     by repeat split; rewrite /=; auto; try lia; discriminate.
   have Hsx : static_ok (S (S k)) sx.
@@ -2043,16 +1447,79 @@ have Hstates : forall jn, (jn <= N)%nat -> has_type (Array z) (st jn).
     constructor=> //; constructor=> //; apply: Forall_impl HL => p Hp.
     by apply: (static_mono k) => //; lia.
   have HtB' : typecheck (option_map (amap pw) wP) (wplace (PArray ix sx))
-      (S (S k)) (bW (pw ix) (pw sx)) = (Array z, Ok)
-    by exact: HtB.
+      (S (S k)) (bW (pw ix) (pw sx)) = (Array z, Ok) by exact: HtB.
   have [Hht _] := nbody_act _ _ (Hab ix sx) (sx :: ix :: L) (S (S k)) wP
     (PArray ix sx) (bA (pa ix) (pa sx)) (bW (pw ix) (pw sx))
     (bD (pd ix) (pd sx)) (Array z) (st (S jn))
     (HbA ix _ sx _) (HbW ix _ sx _) (HbD ix _ sx _) HL' HtB' Hs1.
   exact: Hht.
+(* a recorded state: the step ends with a set, and the loop records *)
+have Hlive_abody : state_live cv k (AVar (pa q)) bA = true ->
+    live = true /\ forall x y, pa x = AV k false -> pa y = AV (S k) vr ->
+    abody (bP x y).
+  move=> Esl.
+  have Hset : aset_tail (S (S k)) (bA (AV k false) (AV (S k) vr)) = true.
+    exact: (nbody_live_set L k bP bA bW (AVar (pa q)) z wP Hab HbA HbW HidL
+      HkL HtB Hrai Esl).
+  have Habs : forall x y, pa x = AV k false -> pa y = AV (S k) vr ->
+      abody (bP x y).
+    move=> x y Ex Ey.
+    apply: (nbody_abody y (bP x y) (Hab x y) _ (S (S k)) (bA (pa x) (pa y))
+      (HbA x _ y _)).
+    by rewrite Ex Ey.
+  split=> //.
+  set ox := PV (AV k false) (VInfo k Integer None) dummy_tvar (VInt 0) 0.
+  set oy := PV (AV (S k) vr) (VInfo (S k) Integer None) dummy_tvar (VInt 0) 0.
+  rewrite /live /fold_live /fold_binders -/vr.
+  rewrite (tail_fold_live_abody cv _ (Habs ox oy erefl erefl)
+    (oy :: ox :: L) _ _ (HbA ox (pa ox) oy (pa oy))).
+  exact: Esl.
+(* an unrecorded state: the liveness of the step is the one of the loop *)
+have Etl_live : state_live cv k (AVar (pa q)) bA = false ->
+    tail_live cv (S (S k)) (bA (AV k false) (AV (S k) vr)) = live.
+  move=> Esl; rewrite /tail_live /live /fold_live /fold_binders -/vr.
+  by case: (tail_fold_live _ _ _) => // ; rewrite Esl.
+(* the variables of the steps *)
+have Hjq : pn q = j by move: Hst; rewrite /n /stored => -[].
+have Hst_p : forall p, In p L -> stored p = DBound (pn p, pn p) by [].
+have Hsn_L : forall p, In p L -> pn p <> pn q -> stored p <> n.
+  by move=> p Hp Hpn; rewrite Hst_p // /n => -[E _]; apply: Hpn; rewrite Hjq.
+have Hlive_b : forall p, In p L ->
+    live_anf (S (S k)) (bW (VInfo k Integer None) (VInfo (S k) (Array z) None))
+      p ->
+    live_value k (AFold ann0 (amap pw loP) (amap pw hiP) (AVar (pw q)) bW) p
+    /\ pn p <> pn q.
+  move=> p Hp Hl.
+  have Ec := live_cont2 L k bP bW (pfresh k) (pfresh (S k))
+    (VInfo k Integer None) (VInfo (S k) (Array z) None) (vid (pw p)) HbW HL
+    erefl erefl erefl erefl.
+  have Hl' : live_value k
+      (AFold ann0 (amap pw loP) (amap pw hiP) (AVar (pw q)) bW) p.
+    by move: Hl; rewrite /live_anf /live_value /= Ec => ->;
+      rewrite !orb_true_r.
+  split=> // E.
+  case: (s_owner _ _ _ _ _ _ _ Hs q p Hown Hp E) => [Epq | //].
+  by move: Hl; rewrite /live_anf Ec Epq Hocc.
+have Hreads_L : forall p, In p L ->
+    tbr cv Replay (S (S k)) (bA (AV k false) (AV (S k) vr)) p ->
+    vreads cv k (AFold ann (amap pa loP) (amap pa hiP) (AVar (pa q)) bA) p.
+  move=> p Hp; have [Eid [Hkp _]] := static_in _ _ _ HL Hp.
+  rewrite /tbr /vreads; cbn [value_needs fold_binders].
+  case: (needs cv Replay (S (S k)) _) => [u0 l0] /= Hm.
+  rewrite atom_member_union !atom_member_remove ?Hm ?orb_true_r //;
+    by cbn [same_term aid]; rewrite Eid; apply Nat.eqb_neq; lia.
+have Hflows_L : forall p, In p L ->
+    useful cv Replay (S (S k)) (bA (AV k false) (AV (S k) vr)) p ->
+    vflows cv k (AFold ann (amap pa loP) (amap pa hiP) (AVar (pa q)) bA) p.
+  move=> p Hp; have [Eid [Hkp _]] := static_in _ _ _ HL Hp.
+  rewrite /useful /vflows; cbn [value_needs fold_binders].
+  case: (needs cv Replay (S (S k)) _) => [u0 l0] /= Hm.
+  rewrite atom_member_union !atom_member_remove ?Hm ?orb_true_r //;
+    by cbn [same_term aid]; rewrite Eid; apply Nat.eqb_neq; lia.
 (* the loop: P jn s, the store before the step jn of the reverse loop *)
 set i := DBound (c, c).
-pose body := (fb ++ rb)%list.
+set pop := if state_live cv k (AVar (pa q)) bA then _ else [].
+set body := (pop ++ fb ++ rb)%list.
 set P := fun (jn : nat) (s : store R) =>
   (forall v, below c v -> consistent v -> is_primal v -> v <> n ->
      store_get s (keyv v) = store_get s2 (keyv v)) /\
@@ -2064,11 +1531,17 @@ set P := fun (jn : nat) (s : store R) =>
     (if live then Some (primal (st jn)) else store_get s2 (keyv n)) /\
   (forall t m, In (t, m) (oset O n (tangent (st jn))) -> shaped t (barv s m)) /\
   pairing (oset O n (tangent (st jn))) s = pairing (oset O n (tangent ve)) s2.
-(* the liveness of the step is the one of the loop *)
-have Etl_live :
-    tail_live cv (S (S k)) (bA (AV k false) (AV (S k) vr)) = live.
-  rewrite /tail_live /live /fold_live /fold_binders -/vr.
-  by case: (tail_fold_live _ _ _) => // ; rewrite Esl.
+have Ci : consistent i by [].
+have Cn : consistent n by [].
+have Ctn : consistent (TapeOf n) by [].
+have Kti : keyv (TapeOf n) <> keyv i by rewrite /keyv.
+have Ktn : keyv (TapeOf n) <> keyv n by rewrite /keyv.
+have Kin : keyv i <> keyv n by rewrite /keyv /=; case=> E; lia.
+have Kni : keyv n <> keyv i by apply: not_eq_sym.
+have Kvi : forall v, below c v -> consistent v -> keyv v <> keyv i.
+  by move=> v Hb Cv K; move: Hb; rewrite (keyv_inj _ _ Cv Ci K) /=; lia.
+have Bn : below (S c) n by rewrite /=; lia.
+have Btn : below (S c) (TapeOf n) by rewrite /=; lia.
 have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
     exists s', run body (store_set s (KVar (out_dvar nat i))
       (VInt (l + Z.of_nat jn))) = Some s' /\ P jn s'.
@@ -2081,6 +1554,9 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
   have Ht0 : has_type (Array z) (nth jn tr dflt).
     by rewrite -Ej; apply: Hstates; lia.
   have Ht1 : has_type (Array z) (st (S jn)) by apply: Hstates; lia.
+  have Htj : has_type (Array z) (st jn) by apply: Hstates; lia.
+  have [lj Elj] : exists lj, nth jn tr dflt = VArray lj.
+    by move: Ht0; case: (nth jn tr dflt) => // lj _; exists lj.
   (* the index and the state of the step *)
   set ix := PV (fresh k) (VInfo k Integer None) (open_index i) (VInt zz) c.
   set sx := PV (AV (S k) vr) (VInfo (S k) (Array z) None)
@@ -2110,10 +1586,7 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
       fold_pushes bD l (firstn jn tr) ++
         body_pushes (bD (VInt zz) (nth jn tr dflt)) (nth jn tr dflt).
     by rewrite (firstn_S_nth dflt _ _ Hjt) fold_pushes_snoc Hfl -/zz.
-  have Kti : keyv (TapeOf n) <> keyv i by rewrite /keyv.
-  have Ktn : keyv (TapeOf n) <> keyv n by rewrite /keyv.
-  have Kin : keyv i <> keyv n by rewrite /keyv /=; case=> E; lia.
-  (* the replay of the body keeps the keys, its transpose writes adjoints *)
+  (* the replay of the body keeps the keys *)
   have Hrep : forall s0 s1, run fb s0 = Some s1 -> forall v, below (S c) v ->
       consistent v -> store_get s1 (keyv v) = store_get s0 (keyv v).
     move: (adj_replay_nbody sx _ (Hab ix sx) (sx :: ix :: L) (S (S k))
@@ -2124,21 +1597,6 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
       have E : @open_pairs A t (S c) = ((fb, rb), c2) by exact: Hob end.
     by rewrite E.
   (* the context of the body *)
-  have Hlive_b : forall p, In p L ->
-      live_anf (S (S k)) (bW (pw ix) (pw sx)) p ->
-      live_value k (AFold ann0 (amap pw loP) (amap pw hiP) (AVar (pw q)) bW) p
-      /\ pn p <> pn q.
-    move=> p Hp Hl.
-    have Ec := live_cont2 L k bP bW ix sx (pw ix) (pw sx) (vid (pw p)) HbW HL
-      erefl erefl erefl erefl.
-    have Hl' : live_value k
-        (AFold ann0 (amap pw loP) (amap pw hiP) (AVar (pw q)) bW) p.
-      by move: Hl; rewrite /live_anf /live_value /= Ec => ->;
-        rewrite !orb_true_r.
-    split=> // E.
-    case: (s_owner _ _ _ _ _ _ _ Hs q p Hown Hp E) => [Epq | //].
-    by move: Hl; rewrite /live_anf Ec Epq Hocc.
-  have Hjq : pn q = j by move: Hst; rewrite /n /stored => -[].
   set liveb := live_anf (S (S k)) (bW (pw ix) (pw sx)).
   have Hsb : sctx (sx :: ix :: L) (S (S k)) (S c) wP (PArray ix sx) liveb
       (Array z).
@@ -2152,79 +1610,145 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
       by right=> Hl; case: (Hlive_b p Hp Hl) => _ Hpn; apply: Hpn; rewrite Hjq.
     - move=> p o [<- | [<- | Hp]] Lp Ha Hgp [<-] //.
       case: (Hlive_b p Hp Lp) => Hl' _.
-      by rewrite /= -Hjq; exact: (s_arrays _ _ _ _ _ _ _ Hs p q Hp Hl' Ha Hgp
-        Hown).
-  (* the store at the start of the step *)
-  have Ci : consistent i by [].
-  have Cn : consistent n by [].
-  have Ctn : consistent (TapeOf n) by [].
-  have Kni : keyv n <> keyv i by apply: not_eq_sym.
-  have Kvi : forall v, below c v -> consistent v -> keyv v <> keyv i.
-    by move=> v Hb Cv K; move: Hb; rewrite (keyv_inj _ _ Cv Ci K) /=; lia.
-  have Hsp_v : forall v, below c v -> consistent v ->
-      store_get s'' (keyv v) = store_get s (keyv v).
-    move=> v Hb Cv.
-    have Kiv : keyv i <> keyv v by apply: not_eq_sym; apply: Kvi.
-    by rewrite /s'' store_get_set_other.
-  have Bn0 : below c n by rewrite /=; lia.
-  have Btn0 : below c (TapeOf n) by rewrite /=; lia.
-  have Hsp_n : store_get s'' (keyv n) =
-      (if live then Some (primal (st (S jn))) else store_get s2 (keyv n)).
-    by rewrite (Hsp_v _ Bn0 Cn) N0.
-  have Hsp_t : live = true -> store_get s'' (keyv (TapeOf n)) =
-      Some (VTape (rev (fold_pushes bD l (firstn (S jn) tr)) ++ rest)).
-    by move=> El; rewrite (Hsp_v _ Btn0 Ctn) (Tp0 El).
-  have Hsp_i : store_get s'' (keyv i) = Some (VInt zz).
-    by rewrite /s'' store_get_set_same.
-  have Tsp : tkeep c (Some n) s s'' by apply: tkeep_set.
-  (* the variables the replay reads hold their values; not the state *)
+      rewrite /= -Hjq.
+      exact: (s_arrays _ _ _ _ _ _ _ Hs p q Hp Hl' Ha Hgp Hown).
   set tbb := tbr cv Replay (S (S k)) (bA (pa ix) (pa sx)).
-  have Htb_sx : ~ tbb sx.
-    have Hsl : tbb sx -> state_live cv k (AVar (pa q)) bA = true by [].
-    by move=> Ht; move: (Hsl Ht); rewrite Esl.
-  have Hst_p : forall p, In p L -> stored p = DBound (pn p, pn p) by [].
+  (* the pop: when the state is recorded, the element the step overwrote is
+     restored in it, and popped from the tape *)
+  have [sp [Hrp [Hsp_v [Hsp_i [Hsp_bar [Tsp [Hsp_sx Hsp_l]]]]]]] :
+      exists sp, run pop s'' = Some sp /\
+      (forall v, below c v -> consistent v -> ~ is_tape v -> v <> n ->
+         store_get sp (keyv v) = store_get s (keyv v)) /\
+      store_get sp (keyv i) = Some (VInt zz) /\
+      (forall v, is_bar v -> store_get sp (keyv v) = store_get s (keyv v)) /\
+      tkeep c (Some n) s sp /\
+      (tbb sx -> store_get sp (keyv (stored sx)) = Some (primal (pd sx))) /\
+      if state_live cv k (AVar (pa q)) bA then
+        store_get sp (keyv n) = Some (primal (st jn)) /\
+        store_get sp (keyv (TapeOf n)) =
+          Some (VTape (rev (fold_pushes bD l (firstn jn tr)) ++ rest))
+      else sp = s''.
+    have Hsv : forall v, below c v -> consistent v ->
+        store_get s'' (keyv v) = store_get s (keyv v).
+      move=> v Hb Cv.
+      have Kiv : keyv i <> keyv v by apply: not_eq_sym; apply: Kvi.
+      by rewrite /s'' store_get_set_other.
+    have Hsbar : forall v, is_bar v ->
+        store_get s'' (keyv v) = store_get s (keyv v).
+      move=> v Bv.
+      have Ki1 : keyv i <> keyv v.
+        by apply: not_eq_sym; apply: keyv_bar_other.
+      by rewrite /s'' store_get_set_other.
+    rewrite /pop; case Esl: (state_live cv k (AVar (pa q)) bA); last first.
+      exists s''; split=> //; split; first by move=> v Hb Cv _ _; exact: Hsv.
+      split; first by rewrite /s'' store_get_set_same.
+      split; first exact: Hsbar.
+      split; first exact: tkeep_set.
+      split=> // Ht.
+      have Hsl : tbb sx -> state_live cv k (AVar (pa q)) bA = true by [].
+      by move: (Hsl Ht); rewrite Esl.
+    have [Elive Habs] := Hlive_abody Esl.
+    (* the step changes the array only at the index of its set *)
+    have [zi [l1 [x [Hsi [Ev1 [Hx [Hback Hse]]]]]]] :=
+      abody_eval_array _ (Habs ix sx erefl erefl) (sx :: ix :: L) (S (S k))
+        wP ix sx _ _ (Array z) _ lj Hk' Hu' (or_introl erefl)
+        (HbW ix _ sx _) (HbD ix _ sx _) HtB' Hs1 Elj.
+    (* the index of the pop *)
+    have [iP [Hi [Hti Hsi']]] :=
+      tail_index_abody _ (Habs ix sx erefl erefl) (sx :: ix :: L) (S (S k))
+        wP ix sx _ (bT (pt ix) (pt sx)) _
+        (annotate_body_t cv Replay (S (S k)) (bA (pa ix) (pa sx))) (Array z)
+        _ Hk' Hu' (or_intror (or_introl erefl)) (HbW ix _ sx _)
+        (HbT ix _ sx _) (HbD ix _ sx _) HtB' Hs1.
+    have HiD : aeval_atom (duals reals) (amap pd iP) = Some (VInt zi).
+      move: Hsi'; rewrite Hsi.
+      by case: (aeval_atom _ _) => [[| z1 | | |] |] // [<-].
+    have Hidx : forall s0, store_get s0 (keyv i) = Some (VInt zz) ->
+        xev s0 (spell (amap pt iP)) = Some (VInt zi).
+      move=> s0 Hs0i.
+      apply: (aspell_ok (S (S k)) s0 iP (VInt zi)) => // p E.
+      by case: Hi E => [-> [<-] | [z1 ->]] //; split.
+    have Hsi2 : set_index (bD (VInt zz) (nth jn tr dflt)) = Some zi.
+      exact: Hsi.
+    have Epush' : fold_pushes bD l (firstn (S jn) tr) =
+        fold_pushes bD l (firstn jn tr) ++ [x].
+      rewrite Epush.
+      rewrite (body_pushes_abody _ (Habs ix sx erefl erefl) (sx :: ix :: L) _
+        _ (HbD ix _ sx _)).
+      by rewrite Hsi2 Elj Hx.
+    have Est1 : st (S jn) = VArray l1 by exact: Ev1.
+    set st1 := store_set s'' (keyv (TapeOf n))
+      (VTape (rev (fold_pushes bD l (firstn jn tr)) ++ rest)).
+    exists (store_set st1 (keyv n) (VArray (map dfst lj))); split.
+      apply: run_pop_at.
+      - by rewrite /s'' store_get_set_other // (Tp0 Elive) Epush'
+          rev_app_distr.
+      - rewrite store_get_set_other // /s'' store_get_set_other //.
+        by rewrite N0 Elive Est1.
+      - have Hg : store_get st1 (keyv i) = Some (VInt zz).
+          by rewrite store_get_set_other // /s'' store_get_set_same.
+        by move: (Hidx _ Hg); rewrite -Hti; exact.
+      exact: Hback.
+    split.
+      move=> v Hb Cv Tv Hvn.
+      have Kvn : keyv n <> keyv v by move=> K; apply: Hvn; apply: keyv_inj.
+      have Kvt : keyv (TapeOf n) <> keyv v.
+        by move=> K; apply: Tv; rewrite -(keyv_inj _ _ Ctn Cv K).
+      rewrite store_get_set_other // store_get_set_other //.
+      exact: Hsv.
+    split.
+      by rewrite store_get_set_other // store_get_set_other // /s''
+        store_get_set_same.
+    split.
+      move=> v Bv.
+      have Kn1 : keyv n <> keyv v.
+        by apply: not_eq_sym; apply: keyv_bar_other.
+      have Kt1 : keyv (TapeOf n) <> keyv v.
+        by apply: not_eq_sym; apply: keyv_bar_other.
+      by rewrite store_get_set_other // store_get_set_other // Hsbar.
+    split.
+      apply: (tkeep_trans _ _ _ s''); first by apply: tkeep_set.
+      apply: (tkeep_trans _ _ _ st1); last exact: tkeep_set.
+      by apply: tkeep_set_tape => //; right.
+    split; first by move=> _; rewrite store_get_set_same /sx /= Elj.
+    split; first by rewrite store_get_set_same Ej Elj.
+    by rewrite store_get_set_other // store_get_set_same.
+  (* the variables the replay reads hold their values *)
   have Hstore_L : forall p, In p L -> tbb p ->
-      store_get s'' (keyv (stored p)) = Some (primal (pd p)).
+      store_get sp (keyv (stored p)) = Some (primal (pd p)).
     move=> p Hp Htb.
     have Hl := tbr_occurs cv (sx :: ix :: L) (S (S k)) _ _ _ Replay p
       (HbA ix _ sx _) (HbW ix _ sx _) HL' (or_intror (or_intror Hp))
       (or_introl Htb).
     case: (Hlive_b p Hp Hl) => Hlv Hpn.
-    have [Eid [Hkp _]] := static_in _ _ _ HL Hp.
-    have Hvr2 : vreads cv k
-        (AFold ann (amap pa loP) (amap pa hiP) (AVar (pa q)) bA) p.
-      move: Htb; rewrite /tbb /tbr /vreads; cbn [value_needs fold_binders].
-      case: (needs cv Replay (S (S k)) _) => [u0 l0] /= Hm.
-      rewrite atom_member_union !atom_member_remove ?Hm ?orb_true_r //;
-        by cbn [same_term aid]; rewrite Eid; apply Nat.eqb_neq; lia.
-    have Hsn : stored p <> n.
-      by rewrite Hst_p // /n => -[E _]; apply: Hpn; rewrite Hjq.
+    have Hsn := Hsn_L p Hp Hpn.
     have Hbp : below c (stored p).
       by rewrite Hst_p //; exact: (s_num _ _ _ _ _ _ _ Hs _ Hp).
     have Cp : consistent (stored p) by rewrite Hst_p.
+    have Tp : ~ is_tape (stored p) by rewrite Hst_p.
     have Pp : is_primal (stored p) by rewrite Hst_p.
-    rewrite (Hsp_v _ Hbp Cp) (K0 _ Hbp Cp Pp Hsn).
-    apply: (Hrd p Hp Hvr2 Hlv); right.
+    rewrite (Hsp_v _ Hbp Cp Tp Hsn) (K0 _ Hbp Cp Pp Hsn).
+    apply: (Hrd p Hp (Hreads_L p Hp Htb) Hlv); right.
     rewrite /inplace Hown => -[Eqp]; exfalso; apply: Hsn.
     by rewrite Hst /stored Eqp.
-  have Hctx : actx (sx :: ix :: L) (S (S k)) (S c) s'' wP (PArray ix sx) liveb
+  have Hctx : actx (sx :: ix :: L) (S (S k)) (S c) sp wP (PArray ix sx) liveb
       tbb (Array z).
     constructor=> //.
     - by move=> p [<- | [<- | Hp]] //=; exact: Hbar.
     - move=> p [<- | [<- | Hp]] Htb.
-      + by case: Htb_sx.
+      + exact: Hsp_sx.
       + by rewrite Hsp_i.
       + exact: Hstore_L.
     - move=> p [<- | [<- | Hp]] Hrc //.
       have [lt Hlt] := Htp p Hp Hrc.
       have [l' Hl'] := proj1 T0 _ _ Hlt.
       exact: (proj1 Tsp _ _ Hl').
-    - by move=> o [<-] [// | Htb]; case: Htb_sx.
+    - by move=> o [<-] [// | Htb]; exact: Hsp_sx.
   (* the replay, then the transpose of the body *)
   have Hra : real_or_array (Array z) by [].
   have NF : forall A : Prop, Replay = Forward -> A by [].
   have Hpp : Replay = Replay -> PArray ix sx <> PTop by [].
-  move: (Hasb ix sx (sx :: ix :: L) (S (S k)) (S c) s'' wP
+  move: (Hasb ix sx (sx :: ix :: L) (S (S k)) (S c) sp wP
            (PArray ix sx) Replay _ _ _ _ (Array z) (st (S jn)) (DReal "0") vo
            (HbA ix _ sx _) (HbW ix _ sx _) (HbT ix _ sx _) (HbD ix _ sx _) Hctx
            Hra HtB' Hs1 (NF _) (NF _) (NF _) Hpp (NF _)).
@@ -2233,7 +1757,7 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
   rewrite E => -[_ [Hht [s1 [R1 [F1 [T1 [_ Hrv]]]]]]].
   have Ein : inplace wP (PArray ix sx) = Some n by [].
   have Hs1v : forall v, below (S c) v -> consistent v ->
-      store_get s1 (keyv v) = store_get s'' (keyv v).
+      store_get s1 (keyv v) = store_get sp (keyv v).
     by move=> v; apply: Hrep.
   have Hok := rctx_owners_ok _ _ _ _ _ _ _ Hr.
   have On : forall t t', In (t, n) (oset O n t') -> t = t'.
@@ -2251,19 +1775,11 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
   have HbO : forall t m, In (t, m) O' -> exists j', m = DBound (j', j') /\
       (j' < c)%nat.
     by move=> t m /HmO [t0 Ho1]; exact: (r_below _ _ _ _ _ _ _ Hr t0 m Ho1).
-  have Hsp_bar : forall v, is_bar v ->
-      store_get s'' (keyv v) = store_get s (keyv v).
-    move=> v Bv.
-    have K1 : forall x, ~ is_bar x -> keyv x <> keyv v.
-      by move=> y0 Hy0; apply: not_eq_sym; apply: keyv_bar_other.
-    have Ki1 := K1 i id.
-    by rewrite /s'' store_get_set_other.
   have Hbar1 : forall t m, In (t, m) O' -> barv s1 m = barv s m.
     move=> t m Hin; have [j' [Em Hj']] := HbO t m Hin.
     have Bb : below (S c) (BarOf m) by rewrite Em /=; lia.
     have Cb : consistent (BarOf m) by rewrite Em.
     by rewrite /barv (Hs1v _ Bb Cb) Hsp_bar.
-  have Htj : has_type (Array z) (st jn) by apply: Hstates; lia.
   have Hshape1 : forall t m, In (t, m) O' -> shaped t (barv s1 m).
     move=> t m Hin; rewrite (Hbar1 _ _ Hin).
     have [j' [Em _]] := HbO t m Hin.
@@ -2285,12 +1801,7 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
       (HbA ix _ sx _) (HbW ix _ sx _) HL' (or_intror (or_intror Hp))
       (or_intror Hu).
     case: (Hlive_b p Hp Hl) => _ Hpn.
-    have [Eid [Hkp _]] := static_in _ _ _ HL Hp.
-    split; last by rewrite Hst_p // /n => -[E0 _]; apply: Hpn; rewrite Hjq.
-    move: Hu; rewrite /use /useful /vflows; cbn [value_needs fold_binders].
-    case: (needs cv Replay (S (S k)) _) => [u0 l0] /= Hm.
-    rewrite atom_member_union !atom_member_remove ?Hm ?orb_true_r //;
-      by cbn [same_term aid]; rewrite Eid; apply Nat.eqb_neq; lia.
+    by split; [exact: Hflows_L | exact: Hsn_L].
   have Hr1 : rctx (sx :: ix :: L) (S c) wP (PArray ix sx) O' use s1.
     constructor.
     - by rewrite /O' oset_snd; exact: (r_nodup _ _ _ _ _ _ _ Hr).
@@ -2301,8 +1812,8 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
       + by rewrite /O' Ej; apply: oset_in.
       + by move: Hva.
       + have [Hvf Hsn] := Huse_L p Hp Hu.
-        by apply: oset_other => //; exact: (r_useful _ _ _ _ _ _ _ Hr p Hp
-          Hvf Hva).
+        apply: oset_other => //.
+        exact: (r_useful _ _ _ _ _ _ _ Hr p Hp Hvf Hva).
     - move=> p t [<- | [<- | Hp]] Hu Hin.
       + by rewrite (On _ _ Hin) Ej.
       + by have [j' [[Ec _] Hj']] := HbO _ _ Hin; lia.
@@ -2312,8 +1823,8 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
         have Cp : consistent (stored p) by rewrite Hst_p.
         by case: Hsn; move/(dvar_eq_consistent n _ Cn Cp): Ee.
     - by move=> o [<-]; rewrite /O' Ej; apply: oset_in.
-    - by move=> p ny r [<- | [<- | Hp]] //; exact: (r_args _ _ _ _ _ _ _ Hr p
-        ny r Hp).
+    - move=> p ny r [<- | [<- | Hp]] //.
+      exact: (r_args _ _ _ _ _ _ _ Hr p ny r Hp).
     - exact: (r_written _ _ _ _ _ _ _ Hr).
   have Hseed : seed_ok (S c) (Array z) (DReal "0") s1 by split=> // x0 [].
   have Htp1 : tapes_ok (sx :: ix :: L) s1.
@@ -2322,21 +1833,20 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
     have [l' Hl'] := proj1 T0 _ _ Hlt.
     have [l'' Hl''] := proj1 Tsp _ _ Hl'.
     exact: (proj1 T1 _ _ Hl'').
-  have Bn : below (S c) n by rewrite /=; lia.
-  have Btn : below (S c) (TapeOf n) by rewrite /=; lia.
-  have Hs1_n : store_get s1 (keyv n) =
-      (if live then Some (primal (st (S jn))) else store_get s2 (keyv n)).
-    by rewrite (Hs1v _ Bn Cn) Hsp_n.
-  have Hs1_t : live = true -> store_get s1 (keyv (TapeOf n)) =
-      Some (VTape (rev (body_pushes (bD (VInt zz) (nth jn tr dflt))
-        (nth jn tr dflt)) ++ (rev (fold_pushes bD l (firstn jn tr)) ++ rest))).
-    move=> El; rewrite (Hs1v _ Btn Ctn) (Hsp_t El) Epush rev_app_distr.
-    by rewrite app_assoc.
-  (* the tail tape of the step: the pushes of its inner fold *)
+  (* the tail tape of the step: none for a set, the pushes of its inner fold
+     otherwise *)
+  have Hs1_n : store_get s1 (keyv n) = store_get sp (keyv n).
+    exact: Hs1v.
+  have Hs1_t : store_get s1 (keyv (TapeOf n)) =
+      store_get sp (keyv (TapeOf n)) by exact: Hs1v.
   have Htt1 : forall ix0 sx0 n0, PArray ix sx = PArray ix0 sx0 ->
       Some n = Some n0 -> tail_tape cv (S (S k)) (sx :: ix :: L) (bP ix sx)
         (bA (pa ix) (pa sx)) (bD (pd ix) (pd sx)) s1 n0.
     move=> ix0 sx0 n0 _ [<-].
+    case Esl: (state_live cv k (AVar (pa q)) bA) Hsp_l => Hsp_l.
+      have [_ Habs] := Hlive_abody Esl.
+      by apply: (tail_tape_abody cv); [exact: (Habs ix sx erefl erefl) |
+        exact: HbA].
     apply: (tail_tape_nbody sx (bP ix sx) (Hab ix sx) (sx :: ix :: L)
       (S (S k)) _ _ s1 n _ (st (S jn)) (HbA ix (pa ix) sx (pa sx))
       (HbD ix (pd ix) sx (pd sx))) => //.
@@ -2346,29 +1856,54 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
       by move: Epa => /(f_equal aid) /=; lia.
     - move=> p [<- | [<- | Hp]] /=; try lia.
       by have [Eid [Hkp _]] := static_in _ _ _ HL Hp; lia.
-    - move=> Et; have El : live = true by rewrite -Etl_live.
-      by rewrite Hs1_n El.
-    by move=> Et; apply: Hs1_t; rewrite -Etl_live.
+    - move=> Et; have El : live = true by rewrite -(Etl_live Esl).
+      rewrite Hs1_n Hsp_l /s'' store_get_set_other //.
+      by move: N0; rewrite El.
+    move=> Et; have El : live = true by rewrite -(Etl_live Esl).
+    rewrite Hs1_t Hsp_l /s'' store_get_set_other // (Tp0 El) Epush.
+    by rewrite rev_app_distr -app_assoc.
   have [s3 [R3 [_ [_ [T3 [RF3 [Sh3 [Pr3 TB3]]]]]]]] :=
     Hrv s1 O' (agree_prim_refl _ _ _) Hr1 Hseed Htp1 Htt1.
-  (* the reverse sweep of the step gives the state back, popping its pushes *)
-  have TB : if live then
-      store_get s3 (keyv (stored sx)) = Some (primal (pd sx)) /\
-      (forall l0, store_get s1 (keyv (TapeOf (stored sx))) =
-         Some (VTape (rev (body_pushes (bD (pd ix) (pd sx)) (pd sx)) ++ l0)) ->
-       store_get s3 (keyv (TapeOf (stored sx))) = Some (VTape l0))
-    else store_get s3 (keyv (stored sx)) = store_get s1 (keyv (stored sx)).
+  (* the reverse sweep of the step gives the state back, popping the pushes
+     of its inner fold *)
+  have [FN FT] : store_get s3 (keyv n) =
+      (if live then Some (primal (st jn)) else store_get s2 (keyv n)) /\
+    (live = true -> store_get s3 (keyv (TapeOf n)) =
+      Some (VTape (rev (fold_pushes bD l (firstn jn tr)) ++ rest))).
+    case Esl: (state_live cv k (AVar (pa q)) bA) Hsp_l => Hsp_l.
+      have [Elive Habs] := Hlive_abody Esl.
+      have Hbars : Forall bar_stmt rb.
+        move: (adj_rev_bars_abody _ (Habs ix sx erefl erefl) (sx :: ix :: L)
+          (annotate_body_t cv Replay (S (S k)) (bA (pa ix) (pa sx)))
+          (option_map (amap pt) wP) vo (bT (pt ix) (pt sx)) (DReal "0") (S c)
+          (HbT ix _ sx _)).
+        lazymatch goal with |- context [@open_pairs ?A ?t (S c)] =>
+          have E2 : @open_pairs A t (S c) = ((fb, rb), c2) by exact: Hob end.
+        by rewrite E2.
+      have Hs3v := run_bars _ _ _ Hbars R3.
+      case: Hsp_l => Hspn Hspt; rewrite Elive.
+      split; first by rewrite (Hs3v n id) Hs1_n.
+      by move=> _; rewrite (Hs3v (TapeOf n) id) Hs1_t.
+    have Hs1_n' : store_get s1 (keyv n) =
+        (if live then Some (primal (st (S jn))) else store_get s2 (keyv n)).
+      by rewrite Hs1_n Hsp_l /s'' store_get_set_other.
     case Ets: (tail_fold_live cv (S (S k)) (bA (AV k false) (AV (S k) vr)))
       => [l0 |].
+      (* an inner fold: its reverse loop pops the state back *)
       have Hn0 : tail_fold_live cv (S (S k)) (bA (AV k false)
           (AV (S k) (fold_varied k (AVar (pa q)) bA))) <> None.
         by rewrite -/vr Ets.
       have [Hts _] := tail_state_nbody L k bP bA (AVar (pa q)) Hab HbA Hvr' Hn0.
-      by have := TB3 (fun H => H) I sx erefl; rewrite Hts -/live.
+      have := TB3 (fun H => H) I sx erefl; rewrite Hts -/live.
+      case El: live => TB; last by split=> //; rewrite TB Hs1_n' El.
+      case: TB => TBn TBt.
+      split; first by rewrite TBn Ej.
+      move=> _; apply: TBt.
+      rewrite Hs1_t Hsp_l /s'' store_get_set_other // (Tp0 El) Epush.
+      by rewrite rev_app_distr -app_assoc.
     (* no inner fold: the reverse sweep writes only adjoints *)
     have El : live = false.
       by rewrite /live /fold_live /fold_binders -/vr Ets Esl.
-    rewrite El.
     have Hbars : Forall bar_stmt rb.
       move: (adj_rev_bars_nbody sx (bP ix sx) (Hab ix sx) (sx :: ix :: L)
         (S (S k)) (bA (pa ix) (pa sx))
@@ -2378,12 +1913,13 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
       lazymatch goal with |- context [@open_pairs ?A ?t (S c)] =>
         have E2 : @open_pairs A t (S c) = ((fb, rb), c2) by exact: Hob end.
       by rewrite E2.
-    exact: (run_bars _ _ _ Hbars R3 (stored sx) id).
+    rewrite El; split=> //.
+    by rewrite (run_bars _ _ _ Hbars R3 n id) Hs1_n' El.
   have Hpb : forall v, is_primal v -> ~ is_bar v /\ ~ is_tape v.
     by case=> * //; split.
   (* the invariant one step down *)
   exists s3; split.
-    by rewrite /body run_app R1 R3.
+    by rewrite /body run_app Hrp run_app R1 R3.
   split.
     move=> v Hb Cv Pv Hvn; have [Bv Tv] := Hpb v Pv.
     have Hb' : below (S c) v by apply: (below_mono c) => //; lia.
@@ -2392,9 +1928,9 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
     - by move=> m Em; move: Pv; rewrite Em.
     by rewrite Ein => -[Env]; apply: Hvn; rewrite Env.
   split.
-    apply: (tkeep_trans _ _ _ s) => //; apply: (tkeep_trans _ _ _ s'') => //.
-    apply: (tkeep_trans _ _ _ s1); first by apply: (tkeep_mono _ (S c)) => //;
-      lia.
+    apply: (tkeep_trans _ _ _ s) => //; apply: (tkeep_trans _ _ _ sp) => //.
+    apply: (tkeep_trans _ _ _ s1).
+      by apply: (tkeep_mono _ (S c)) => //; lia.
     by apply: (tkeep_mono _ (S c)) => //; lia.
   split.
     move=> v Hvn Hb Cv Tv Hex Hbo; rewrite -(F0 v Hvn Hb Cv Tv Hex Hbo).
@@ -2403,22 +1939,8 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
     - by rewrite Hs1v // Hsp_v.
     - by move=> m Em; rewrite /O' oset_snd; move: (Hbo m Em); rewrite oset_snd.
     by rewrite Ein => -[Ev]; apply: Hvn.
-  case El: live TB => TB.
-    split.
-      move=> _; case: TB => _ Tp; apply: Tp.
-      exact: (Hs1_t El).
-    split; first by case: TB => -> _; rewrite Ej.
-    split; first exact: Sh3.
-    have Hbar2 : forall t m, In (t, m) (oset O n (tangent (st (S jn)))) ->
-        barv s1 m = barv s m.
-      move=> t m Hin.
-      have : In m (map snd O').
-        rewrite /O' !oset_snd -(oset_snd O n (tangent (st (S jn)))).
-        by apply/in_map_iff; exists (t, m).
-      by move=> /in_map_iff [[t0 m0] [/= -> Ho1]]; exact: (Hbar1 _ _ Ho1).
-    by rewrite Pr3 Ein /= oset_oset (pairing_ext_own _ _ _ Hbar2).
-  split; first by [].
-  split; first by rewrite TB Hs1_n El.
+  split; first exact: FT.
+  split; first exact: FN.
   split; first exact: Sh3.
   have Hbar2 : forall t m, In (t, m) (oset O n (tangent (st (S jn)))) ->
       barv s1 m = barv s m.
@@ -2430,7 +1952,6 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
   by rewrite Pr3 Ein /= oset_oset (pairing_ext_own _ _ _ Hbar2).
 have Hok := rctx_owners_ok _ _ _ _ _ _ _ Hr.
 have Hnd := r_nodup _ _ _ _ _ _ _ Hr.
-have Cn : consistent n by [].
 have HstN : st N = ve by rewrite /st app_nth2 Hlen // Nat.sub_diag.
 have Hst0' : st 0%nat = pd q by exact: Hst0.
 have Htq : has_type (Array z) (pd q) by rewrite -Hst0'; apply: Hstates; lia.

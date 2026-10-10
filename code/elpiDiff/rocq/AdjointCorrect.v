@@ -14,9 +14,9 @@
    This file: the operations, the pairing. *)
 
 From Stdlib Require Import String ZArith List Bool Reals Lia Lra.
-From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Operations
-  Normalize WellFormed Atoms Activity Tbr Annotate Transform Adjoint Scoping
-  AnfEquiv Correctness TangentCorrect TangentGood.
+From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec
+  Operations Normalize WellFormed Atoms Activity Tbr Annotate Transform Adjoint
+  Scoping AnfEquiv Correctness TangentCorrect TangentGood Dot.
 From Corelib Require Import ssreflect ssrbool ssrfun.
 Set Bullet Behavior "None".
 
@@ -30,7 +30,8 @@ Open Scope R_scope.
 
 Lemma dual_op1_linear f x dx y dy :
   dual_op1 R reals f (Dual x dx) = Some (Dual y dy) ->
-  exists A, dy = A * dx /\ forall d, exists t, dual_op1 R reals f (Dual x d) = Some (Dual y t) /\ t = A * d.
+  exists A, dy = A * dx /\ forall d, exists t, dual_op1 R reals f (Dual x d) =
+    Some (Dual y t) /\ t = A * d.
 Proof.
 rewrite /dual_op1 => Hd.
 case E1: (dom_op1 reals f x) Hd => [y0 |] //.
@@ -38,28 +39,13 @@ case E2: (dual_partial1 R reals f x y0) => [p |] //= [<- <-].
 exists p; split=> // d; by exists (p * d).
 Qed.
 
-Lemma dual_op2_linear f x dx y dy z dz :
-  dual_op2 R reals f (Dual x dx) (Dual y dy) = Some (Dual z dz) ->
-  exists A B, dz = A * dx + B * dy /\
-    forall d e, exists t, dual_op2 R reals f (Dual x d) (Dual y e) = Some (Dual z t) /\ t = A * d + B * e.
-Proof.
-move=> Hd; case: f Hd => Hd; unfold_ops Hd; try discriminate; case: Hd => <- <-.
-- exists 1, 1; split; first by ring.
-  by move=> d e; eexists; split; [reflexivity | rewrite /=; ring].
-- exists 1, (-1); split; first by ring.
-  by move=> d e; eexists; split; [reflexivity | rewrite /=; ring].
-- exists y, x; split; first by ring.
-  by move=> d e; eexists; split; [reflexivity | rewrite /=; ring].
-exists (/ y), (- (x / y / y)); split; first by rewrite /Rdiv; ring.
-by move=> d e; eexists; split; [reflexivity | rewrite /= /Rdiv; ring].
-Qed.
-
 (* The contribution of an operand of an operation of one argument, applied to
    the adjoint e of its result: the derivative times e. *)
 Lemma adjoint_op1 s f (a : atom (tvar W)) e x dx y dy p be :
   xev s (spell a) = Some (VReal x) -> xev s e = Some (VReal be) ->
   dual_op1 R reals f (Dual x dx) = Some (Dual y dy) -> partial1 f a = Some p ->
-  exists A, dy = A * dx /\ xev s (scale (spell_partial p) e) = Some (VReal (A * be)).
+  exists A, dy = A * dx /\ xev s (scale (spell_partial p) e) = Some (VReal (A *
+    be)).
 Proof.
 move=> Ha He Hd Hp.
 have [A [-> HA]] := dual_op1_linear _ _ _ _ _ Hd; exists A; split=> //.
@@ -67,38 +53,16 @@ have [t [Ht <-]] := HA be.
 exact: (proj2 (tangent_op1 s f a e x be y _ p Ha He Ht Hp)).
 Qed.
 
-(* The contributions of the two operands of an operation of two arguments. *)
-Lemma adjoint_op2 s f (a b : atom (tvar W)) e x dx y dy z dz pa pb be :
-  xev s (spell a) = Some (VReal x) -> xev s (spell b) = Some (VReal y) -> xev s e = Some (VReal be) ->
-  dual_op2 R reals f (Dual x dx) (Dual y dy) = Some (Dual z dz) -> partial2 f a b = Some (pa, pb) ->
-  exists A B, dz = A * dx + B * dy /\
-    xev s (scale (spell_partial pa) e) = Some (VReal (A * be)) /\
-    xev s (scale (spell_partial pb) e) = Some (VReal (B * be)).
-Proof.
-move=> Ha Hb He Hd Hp.
-case: f Hd Hp => Hd Hp; unfold_ops Hd; unfold_ops Hp; try discriminate.
-all: case: Hp => <- <-; case: Hd => _ <-; cbn [spell_partial].
-- exists 1, 1; split; first by ring.
-  by split; apply: (xev_scale s) => //; rewrite xev_DReal lit_1.
-- exists 1, (-1); split; first by ring.
-  by split; apply: (xev_scale s) => //; rewrite xev_DReal ?lit_1 ?lit_m1.
-- exists y, x; split; first by ring.
-  by split; apply: (xev_scale s).
-exists (1 / y), (- (x / (y * y))); split.
-  by rewrite /Rdiv Rinv_mult; ring.
-split; apply: (xev_scale s) => //.
-  by rewrite xev_DOp2 xev_DReal lit_1 Hb.
-by rewrite xev_DOp1 xev_DOp2 Ha xev_DOp2 Hb.
-Qed.
-
 (* A partial derivative that is a constant does not read its operand. *)
-Definition pmentions {V : Type} (p : pexpr V) : Prop := match p with PNum _ => False | _ => True end.
+Definition pmentions {V : Type} (p : pexpr V) : Prop := match p with PNum _ =>
+  False | _ => True end.
 
 Lemma adjoint_op1_gen s f (a : atom (tvar W)) e x dx y dy p be :
   partial1 f a = Some p -> xev s e = Some (VReal be) ->
   dual_op1 R reals f (Dual x dx) = Some (Dual y dy) ->
   (pmentions p -> xev s (spell a) = Some (VReal x)) ->
-  exists A, dy = A * dx /\ xev s (scale (spell_partial p) e) = Some (VReal (A * be)).
+  exists A, dy = A * dx /\ xev s (scale (spell_partial p) e) = Some (VReal (A *
+    be)).
 Proof.
 move=> Hp He Hd.
 case: p Hp => [q | l | g q | g q r] Hp Ha;
@@ -131,7 +95,8 @@ Qed.
 Definition coef_a (f : binary) (x y : R) : R :=
   match f with Add | Sub => 1 | Mul => y | Divide => 1 / y | _ => 0 end.
 Definition coef_b (f : binary) (x y : R) : R :=
-  match f with Add => 1 | Sub => -1 | Mul => x | Divide => - (x / (y * y)) | _ => 0 end.
+  match f with Add => 1 | Sub => -1 | Mul => x | Divide => - (x / (y * y)) | _
+    => 0 end.
 
 Lemma dual_op2_coef f x dx y dy z dz :
   dual_op2 R reals f (Dual x dx) (Dual y dy) = Some (Dual z dz) ->
@@ -173,7 +138,8 @@ Qed.
 
 (* The primal part of a dual operation is the operation of the reals. *)
 Lemma primal_eval_op1 f va ve :
-  eval_op1 (duals reals) f va = Some ve -> eval_op1 reals f (primal va) = Some (primal ve).
+  eval_op1 (duals reals) f va = Some ve -> eval_op1 reals f (primal va) = Some
+    (primal ve).
 Proof.
 case: va => [[x dx] | | | |] //=.
 case E: (real_op1 f x) => [y |] //=.
@@ -181,7 +147,8 @@ by case: (dual_partial1 R reals f x y) => [p |] //= [<-].
 Qed.
 
 Lemma primal_eval_op2 f va vb ve :
-  eval_op2 (duals reals) f va vb = Some ve -> eval_op2 reals f (primal va) (primal vb) = Some (primal ve).
+  eval_op2 (duals reals) f va vb = Some ve -> eval_op2 reals f (primal va)
+    (primal vb) = Some (primal ve).
 Proof.
 case: va => [[x dx] | za | | |]; case: vb => [[y dy] | zb | | |] //=.
 - case: (comparison f).
@@ -192,7 +159,8 @@ Qed.
 
 (* The value of an atom whose variable holds its value. *)
 Lemma aspell_ok k s (aP : atom pv) d :
-  (forall p, aP = AVar p -> static_ok k p /\ store_get s (keyv (stored p)) = Some (primal (pd p))) ->
+  (forall p, aP = AVar p -> static_ok k p /\ store_get s (keyv (stored p)) =
+    Some (primal (pd p))) ->
   aeval_atom (duals reals) (amap pd aP) = Some d ->
   xev s (spell (amap pt aP)) = Some (primal d).
 Proof.
@@ -205,7 +173,8 @@ by case: Hd => <-.
 Qed.
 
 (* Sets of atoms. *)
-Lemma same_term_trans a b c : same_term a b = true -> same_term b c = true -> same_term a c = true.
+Lemma same_term_trans a b c : same_term a b = true -> same_term b c = true ->
+  same_term a c = true.
 Proof.
 case: a => [a | a | a]; case: b => [b | b | b]; case: c => [c | c | c] //=.
 by move=> /Nat.eqb_eq -> /Nat.eqb_eq ->; rewrite Nat.eqb_refl.
@@ -252,32 +221,30 @@ Qed.
    variable it holds (a value of the reals: a real, or an array) times its
    adjoint in the store. *)
 
-Definition barv (s : store R) (n : dvar W) : option (val R) := store_get s (keyv (BarOf n)).
-
-Definition dotr (a b : list R) : R := fold_right Rplus 0 (map (fun '(p, q) => p * q) (combine a b)).
-
-Lemma dotr_cons a l b m : dotr (a :: l) (b :: m) = a * b + dotr l m.
-Proof. by []. Qed.
+Definition barv (s : store R) (n : dvar W) : option (val R) := store_get s (keyv
+  (BarOf n)).
 
 (* Changing one element of the second vector. *)
-Lemma dotr_replace n l m m' lk mk w :
-  nth_error l n = Some lk -> nth_error m n = Some mk -> replace_nth n w m = Some m' ->
-  dotr l m' = dotr l m + lk * (w - mk).
+Lemma dotl_replace n l m m' lk mk w :
+  nth_error l n = Some lk -> nth_error m n = Some mk -> replace_nth n w m = Some
+    m' ->
+  dotl l m' = dotl l m + lk * (w - mk).
 Proof.
 elim: n l m m' => [| n IH] [| a l] [| b m] m' //= Hl Hm.
-  by case: Hl => <-; case: Hm => <- [<-]; rewrite !dotr_cons; ring.
+  by case: Hl => <-; case: Hm => <- [<-]; rewrite !dotl_cons; ring.
 case E: (replace_nth n w m) => [m1 |] // [<-].
-by rewrite !dotr_cons (IH l m m1 Hl Hm E); ring.
+by rewrite !dotl_cons (IH l m m1 Hl Hm E); ring.
 Qed.
 
-Lemma dotr_sym l m : dotr l m = dotr m l.
+Lemma dotl_sym l m : dotl l m = dotl m l.
 Proof.
 elim: l m => [| a l IH] [| b m] //.
-by rewrite !dotr_cons IH; ring.
+by rewrite !dotl_cons IH; ring.
 Qed.
 
 Lemma replace_nth_nth {A : Type} n (w : A) m m' :
-  replace_nth n w m = Some m' -> exists mk, nth_error m n = Some mk /\ nth_error m' n = Some w /\ length m' = length m.
+  replace_nth n w m = Some m' -> exists mk, nth_error m n = Some mk /\ nth_error
+    m' n = Some w /\ length m' = length m.
 Proof.
 elim: n m m' => [| n IH] [| b m] m' //=.
   by case=> <-; exists b.
@@ -288,7 +255,7 @@ Qed.
 Definition inner (t : val R) (b : option (val R)) : R :=
   match t, b with
   | VReal x, Some (VReal y) => x * y
-  | VArray l, Some (VArray m) => dotr l m
+  | VArray l, Some (VArray m) => dotl l m
   | _, _ => 0
   end.
 
@@ -310,7 +277,8 @@ Definition pairing (O : owners) (s : store R) : R :=
 
 (* The storage n now holds a variable of tangent t. *)
 Definition oset (O : owners) (n : dvar W) (t : val R) : owners :=
-  map (fun '(t', n') => if Simplify.dvar_eq nat n n' then (t, n') else (t', n')) O.
+  map (fun '(t', n') => if Simplify.dvar_eq nat n n' then (t, n') else (t', n'))
+    O.
 
 (* The storage n now holds a variable of tangent t: it replaces the tangent of
    the owner of n, or n becomes an owner. *)
@@ -318,7 +286,8 @@ Definition oput (O : owners) (n : dvar W) (t : val R) : owners :=
   if in_dec dvar_eq_dec_c n (map snd O) then oset O n t else (t, n) :: O.
 
 (* The storages of owners are variables opened by open_pairs. *)
-Definition owners_ok (O : owners) : Prop := forall t n, In (t, n) O -> consistent n.
+Definition owners_ok (O : owners) : Prop := forall t n, In (t, n) O ->
+  consistent n.
 
 Lemma barv_set_other s n n' w :
   consistent n -> consistent n' -> n <> n' ->
@@ -345,7 +314,8 @@ Qed.
 
 Lemma pairing_set_in O s t n w :
   owners_ok O -> NoDup (map snd O) -> In (t, n) O ->
-  pairing O (store_set s (keyv (BarOf n)) w) = pairing O s - inner t (barv s n) + inner t (Some w).
+  pairing O (store_set s (keyv (BarOf n)) w) = pairing O s - inner t (barv s n)
+    + inner t (Some w).
 Proof.
 elim: O => [| [t' n'] O IH] Ho //= /NoDup_cons_iff [Hn Hd] Hi.
 have Ho' : owners_ok O by move=> t0 m I; apply: (Ho t0); right.
@@ -358,7 +328,8 @@ have Hne : n' <> n.
 by rewrite (barv_set_other _ _ _ _ Hc Hc' (not_eq_sym Hne)) IH //; ring.
 Qed.
 
-Lemma dvar_eq_consistent a b : consistent a -> consistent b -> Simplify.dvar_eq nat a b = true <-> a = b.
+Lemma dvar_eq_consistent a b : consistent a -> consistent b -> Simplify.dvar_eq
+  nat a b = true <-> a = b.
 Proof.
 elim: a b => [[i j] | a IH | a IH | a IH |] [[i' j'] | b | b | b |] //= Ha Hb;
   split=> // E; try discriminate.
@@ -368,7 +339,8 @@ all: first [by congr (_ _); apply/IH | by case: E => E; subst; apply/IH].
 Qed.
 
 (* Replacing the tangent of a storage that is not an owner. *)
-Lemma oset_notin O n t : owners_ok O -> consistent n -> ~ In n (map snd O) -> oset O n t = O.
+Lemma oset_notin O n t : owners_ok O -> consistent n -> ~ In n (map snd O) ->
+  oset O n t = O.
 Proof.
 elim: O => [| [t' n'] O IH] Ho Hn Hi //=.
 have Hc' : consistent n' by apply: (Ho t'); left.
@@ -401,10 +373,12 @@ Qed.
    sweep m: its adjoint is useful (U of needs) or its value is read by the
    adjoint code (L of needs). *)
 
-Definition useful (cv : bool) (m : sweep) (k : nat) (b : anf avar bare) (p : pv) : Prop :=
+Definition useful (cv : bool) (m : sweep) (k : nat) (b : anf avar bare) (p : pv)
+  : Prop :=
   atom_member (AVar (pa p)) (fst (needs cv m k b)) = true.
 
-Definition tbr (cv : bool) (m : sweep) (k : nat) (b : anf avar bare) (p : pv) : Prop :=
+Definition tbr (cv : bool) (m : sweep) (k : nat) (b : anf avar bare) (p : pv) :
+  Prop :=
   atom_member (AVar (pa p)) (snd (needs cv m k b)) = true.
 
 (* The context of the forward sweep: the static facts of the tangent
@@ -412,13 +386,16 @@ Definition tbr (cv : bool) (m : sweep) (k : nat) (b : anf avar bare) (p : pv) : 
    value the adjoint code reads (tbr) hold it in the store; a variable carries
    an adjoint when it is varied; a recorded storage has a tape. *)
 (* A place outside the body of an in-place loop. *)
-Definition not_in_loop (pp : pplace) : Prop := match pp with PArray _ _ => False | _ => True end.
+Definition not_in_loop (pp : pplace) : Prop := match pp with PArray _ _ => False
+  | _ => True end.
 
-Record actx (L : list pv) (k c : nat) (s : store R) (wP : option (atom pv)) (pp : pplace)
+Record actx (L : list pv) (k c : nat) (s : store R) (wP : option (atom pv)) (pp
+  : pplace)
   (live tb : pv -> Prop) (ty : ty) : Prop := {
   a_sctx : sctx L k c wP pp live ty;
   a_bar : forall p, In p L -> tbar (pt p) = avaried (pa p);
-  a_store : forall p, In p L -> tb p -> store_get s (keyv (stored p)) = Some (primal (pd p));
+  a_store : forall p, In p L -> tb p -> store_get s (keyv (stored p)) = Some
+    (primal (pd p));
   a_tape : forall p, In p L -> trecorded (pt p) = true ->
              exists l, store_get s (keyv (TapeOf (stored p))) = Some (VTape l);
   a_owner : forall o, owner wP pp = Some o -> (not_in_loop pp \/ tb o) ->
@@ -428,9 +405,12 @@ Record actx (L : list pv) (k c : nat) (s : store R) (wP : option (atom pv)) (pp 
 
 (* The keys of the store. A primal key holds a value of the program; a bar,
    an adjoint; a tape, recorded values. *)
-Definition is_tape (v : dvar W) : Prop := match v with TapeOf _ => True | _ => False end.
-Definition is_bar (v : dvar W) : Prop := match v with BarOf _ => True | _ => False end.
-Definition is_primal (v : dvar W) : Prop := match v with DBound _ | ResultVar => True | _ => False end.
+Definition is_tape (v : dvar W) : Prop := match v with TapeOf _ => True | _ =>
+  False end.
+Definition is_bar (v : dvar W) : Prop := match v with BarOf _ => True | _ =>
+  False end.
+Definition is_primal (v : dvar W) : Prop := match v with DBound _ | ResultVar =>
+  True | _ => False end.
 
 (* Where adjoint-value leaves the value of the function: the returned value,
    or the written argument when it is dependent (a real is assigned at the end
@@ -448,28 +428,34 @@ Definition vo_target (vo : option (aresult (tvar W))) : option (dvar W) :=
 
 (* The forward sweep leaves the keys opened before c unchanged, but the
    tapes, the storage updated in place, and the target of the value. *)
-Definition fwd_frame (c : nat) (ex : option (dvar W)) (vo : option (aresult (tvar W))) (s s' : store R) : Prop :=
-  forall v, below c v -> consistent v -> ~ is_tape v -> ex <> Some v -> vo_target vo <> Some v ->
+Definition fwd_frame (c : nat) (ex : option (dvar W)) (vo : option (aresult
+  (tvar W))) (s s' : store R) : Prop :=
+  forall v, below c v -> consistent v -> ~ is_tape v -> ex <> Some v ->
+    vo_target vo <> Some v ->
   store_get s' (keyv v) = store_get s (keyv v).
 
 (* The tapes stay tapes. *)
 Definition tapes_kept (s s' : store R) : Prop :=
-  forall v l, store_get s (keyv (TapeOf v)) = Some (VTape l) -> exists l', store_get s' (keyv (TapeOf v)) = Some (VTape l').
+  forall v l, store_get s (keyv (TapeOf v)) = Some (VTape l) -> exists l',
+    store_get s' (keyv (TapeOf v)) = Some (VTape l').
 
 Lemma tapes_kept_refl s : tapes_kept s s.
 Proof. by move=> v l H; exists l. Qed.
 
-Lemma tapes_kept_trans s s1 s2 : tapes_kept s s1 -> tapes_kept s1 s2 -> tapes_kept s s2.
+Lemma tapes_kept_trans s s1 s2 : tapes_kept s s1 -> tapes_kept s1 s2 ->
+  tapes_kept s s2.
 Proof. by move=> H1 H2 v l /H1 [l1 /H2]. Qed.
 
 (* Writing a key that is not a tape. *)
-Lemma tapes_kept_set s x w : ~ is_tape x -> consistent x -> tapes_kept s (store_set s (keyv x) w).
+Lemma tapes_kept_set s x w : ~ is_tape x -> consistent x -> tapes_kept s
+  (store_set s (keyv x) w).
 Proof.
 move=> Ht Hc v l H; exists l; rewrite store_get_set_other // => K.
 by case: x Ht Hc K => [[i j] | x | x | x |] //=.
 Qed.
 
-Lemma tapes_kept_set_tape s v0 l0 : tapes_kept s (store_set s (keyv (TapeOf v0)) (VTape l0)).
+Lemma tapes_kept_set_tape s v0 l0 : tapes_kept s (store_set s (keyv (TapeOf v0))
+  (VTape l0)).
 Proof.
 move=> v l H; rewrite store_get_set.
 by case: (key_eqb (keyv (TapeOf v0)) (keyv (TapeOf v))); [exists l0 | exists l].
@@ -477,32 +463,39 @@ Qed.
 
 (* The tapes of the variables opened before c, but the one of the storage
    updated in place, keep their contents. *)
-Definition tapes_same (c : nat) (ex : option (dvar W)) (s s' : store R) : Prop :=
+Definition tapes_same (c : nat) (ex : option (dvar W)) (s s' : store R) : Prop
+  :=
   forall v, below c v -> consistent v -> ex <> Some v ->
   store_get s' (keyv (TapeOf v)) = store_get s (keyv (TapeOf v)).
 
 Lemma tapes_same_refl c ex s : tapes_same c ex s s.
 Proof. by []. Qed.
 
-Lemma tapes_same_trans c ex s s1 s2 : tapes_same c ex s s1 -> tapes_same c ex s1 s2 -> tapes_same c ex s s2.
+Lemma tapes_same_trans c ex s s1 s2 : tapes_same c ex s s1 -> tapes_same c ex s1
+  s2 -> tapes_same c ex s s2.
 Proof. by move=> H1 H2 v Hb Hc He; rewrite (H2 v Hb Hc He) (H1 v Hb Hc He). Qed.
 
-Lemma tapes_same_mono c c' ex s s' : tapes_same c' ex s s' -> (c <= c')%nat -> tapes_same c ex s s'.
+Lemma tapes_same_mono c c' ex s s' : tapes_same c' ex s s' -> (c <= c')%nat ->
+  tapes_same c ex s s'.
 Proof. by move=> H Hc v Hb; apply: H; apply: below_mono Hb Hc. Qed.
 
-Lemma tapes_same_none c ex s s' : tapes_same c None s s' -> tapes_same c ex s s'.
+Lemma tapes_same_none c ex s s' : tapes_same c None s s' -> tapes_same c ex s
+  s'.
 Proof. by move=> H v Hb Hc _; apply: H. Qed.
 
 (* Writing a key that is not a tape. *)
-Lemma tapes_same_set c ex s x w : ~ is_tape x -> consistent x -> tapes_same c ex s (store_set s (keyv x) w).
+Lemma tapes_same_set c ex s x w : ~ is_tape x -> consistent x -> tapes_same c ex
+  s (store_set s (keyv x) w).
 Proof.
 move=> Ht Hc v _ _ _; rewrite store_get_set_other // => K.
 by case: x Ht Hc K => [[i j] | x | x | x |] //=.
 Qed.
 
-(* Writing the tape of a variable not opened before c, or of the storage updated in place. *)
+(* Writing the tape of a variable not opened before c, or of the storage updated
+  in place. *)
 Lemma tapes_same_set_tape c ex s x w :
-  consistent x -> (~ below c x \/ ex = Some x) -> tapes_same c ex s (store_set s (keyv (TapeOf x)) w).
+  consistent x -> (~ below c x \/ ex = Some x) -> tapes_same c ex s (store_set s
+    (keyv (TapeOf x)) w).
 Proof.
 move=> Hcx Hx v Hb Hc He; rewrite store_get_set_other // => K.
 case: (keyv_inj (TapeOf x) (TapeOf v) Hcx Hc K) => E; subst v.
@@ -517,33 +510,38 @@ Definition tkeep (c : nat) (ex : option (dvar W)) (s s' : store R) : Prop :=
 Lemma tkeep_refl c ex s : tkeep c ex s s.
 Proof. by split; [apply: tapes_kept_refl | apply: tapes_same_refl]. Qed.
 
-Lemma tkeep_trans c ex s s1 s2 : tkeep c ex s s1 -> tkeep c ex s1 s2 -> tkeep c ex s s2.
+Lemma tkeep_trans c ex s s1 s2 : tkeep c ex s s1 -> tkeep c ex s1 s2 -> tkeep c
+  ex s s2.
 Proof.
 move=> [A B] [C D]; split; first exact: tapes_kept_trans A C.
 exact: tapes_same_trans B D.
 Qed.
 
-Lemma tkeep_mono c c' ex s s' : tkeep c' ex s s' -> (c <= c')%nat -> tkeep c ex s s'.
+Lemma tkeep_mono c c' ex s s' : tkeep c' ex s s' -> (c <= c')%nat -> tkeep c ex
+  s s'.
 Proof. by move=> [A B] H; split=> //; apply: tapes_same_mono B H. Qed.
 
 Lemma tkeep_none c ex s s' : tkeep c None s s' -> tkeep c ex s s'.
 Proof. by move=> [A B]; split=> //; apply: tapes_same_none. Qed.
 
 (* The tape of a variable opened after c may change. *)
-Lemma tkeep_fresh c c' x ex s s' : tkeep c' (Some x) s s' -> ~ below c x -> (c <= c')%nat -> tkeep c ex s s'.
+Lemma tkeep_fresh c c' x ex s s' : tkeep c' (Some x) s s' -> ~ below c x -> (c
+  <= c')%nat -> tkeep c ex s s'.
 Proof.
 move=> [A B] Hx Hc; split=> // v Hb Hcv _; apply: B => //.
   exact: below_mono Hb Hc.
 by case=> E; subst v.
 Qed.
 
-Lemma tkeep_set c ex s x w : ~ is_tape x -> consistent x -> tkeep c ex s (store_set s (keyv x) w).
+Lemma tkeep_set c ex s x w : ~ is_tape x -> consistent x -> tkeep c ex s
+  (store_set s (keyv x) w).
 Proof.
 by move=> Ht Hc; split; [apply: tapes_kept_set | apply: tapes_same_set].
 Qed.
 
 Lemma tkeep_set_tape c ex s x l :
-  consistent x -> (~ below c x \/ ex = Some x) -> tkeep c ex s (store_set s (keyv (TapeOf x)) (VTape l)).
+  consistent x -> (~ below c x \/ ex = Some x) -> tkeep c ex s (store_set s
+    (keyv (TapeOf x)) (VTape l)).
 Proof.
 by move=> Hc Hx; split;
   [apply: tapes_kept_set_tape | apply: tapes_same_set_tape].
@@ -551,22 +549,26 @@ Qed.
 
 (* The reverse sweep leaves the keys opened before c unchanged, but the
    tapes, the storage updated in place, and the adjoints of the owners. *)
-Definition rev_frame (c : nat) (ex : option (dvar W)) (O : owners) (s s' : store R) : Prop :=
+Definition rev_frame (c : nat) (ex : option (dvar W)) (O : owners) (s s' : store
+  R) : Prop :=
   forall v, below c v -> consistent v -> ~ is_tape v -> ex <> Some v ->
   (forall n, v = BarOf n -> ~ In n (map snd O)) ->
   store_get s' (keyv v) = store_get s (keyv v).
 
 (* The reverse sweep of a value may also change the value itself (a fold
    restores its state). *)
-Definition rev_frame_x (c : nat) (ex : option (dvar W)) (n : dvar W) (O : owners) (s s' : store R) : Prop :=
-  forall v, v <> n -> below c v -> consistent v -> ~ is_tape v -> ex <> Some v ->
+Definition rev_frame_x (c : nat) (ex : option (dvar W)) (n : dvar W) (O :
+  owners) (s s' : store R) : Prop :=
+  forall v, v <> n -> below c v -> consistent v -> ~ is_tape v -> ex <> Some v
+    ->
   (forall m, v = BarOf m -> ~ In m (map snd O)) ->
   store_get s' (keyv v) = store_get s (keyv v).
 
 (* Between the end of the forward sweep of a body and the start of its
    reverse sweep, the primal keys opened before c' keep their values (the
    reverse sweep of a loop replays the body before transposing it). *)
-Definition agree_prim (c' : nat) (ex : option (dvar W)) (s1 s2 : store R) : Prop :=
+Definition agree_prim (c' : nat) (ex : option (dvar W)) (s1 s2 : store R) : Prop
+  :=
   (forall v, below c' v -> consistent v -> is_primal v ->
    store_get s2 (keyv v) = store_get s1 (keyv v)) /\
   (forall v, below c' v -> consistent v ->
@@ -580,16 +582,22 @@ Proof. by []. Qed.
    every useful varied variable in scope is an owner, with its tangent; the
    storage updated in place is an owner, with the tangent of the variable it
    holds. *)
-Record rctx (L : list pv) (c : nat) (wP : option (atom pv)) (pp : pplace) (O : owners)
+Record rctx (L : list pv) (c : nat) (wP : option (atom pv)) (pp : pplace) (O :
+  owners)
   (use : pv -> Prop) (s : store R) : Prop := {
   r_nodup : NoDup (map snd O);
   r_shape : forall t n, In (t, n) O -> shaped t (barv s n);
-  r_below : forall t n, In (t, n) O -> exists j, n = DBound (j, j) /\ (j < c)%nat;
-  r_useful : forall p, In p L -> use p -> avaried (pa p) = true -> In (tangent (pd p), stored p) O;
-  r_value : forall p t, In p L -> use p -> In (t, stored p) O -> t = tangent (pd p);
+  r_below : forall t n, In (t, n) O -> exists j, n = DBound (j, j) /\ (j <
+    c)%nat;
+  r_useful : forall p, In p L -> use p -> avaried (pa p) = true -> In (tangent
+    (pd p), stored p) O;
+  r_value : forall p t, In p L -> use p -> In (t, stored p) O -> t = tangent (pd
+    p);
   r_owner : forall o, owner wP pp = Some o -> In (tangent (pd o), stored o) O;
-  r_args : forall p ny r, In p L -> varg (pw p) = Some (ny, r) -> avaried (pa p) = varied_role r;
-  r_written : forall y, wP = Some (AVar y) -> exists ny r, varg (pw y) = Some (ny, r) /\ written_role r = true
+  r_args : forall p ny r, In p L -> varg (pw p) = Some (ny, r) -> avaried (pa p)
+    = varied_role r;
+  r_written : forall y, wP = Some (AVar y) -> exists ny r, varg (pw y) = Some
+    (ny, r) /\ written_role r = true
 }.
 
 (* The seed: read from keys opened before c, a real for a real body. *)
@@ -604,7 +612,8 @@ Definition seed_value (se : dexpr W) (s : store R) : R :=
    pairing: the tangent of a real result times the seed; for an array, left
    in the storage updated in place, its tangent replaces the one of the
    storage. *)
-Definition result_pairing (O : owners) (ty : ty) (ex : option (dvar W)) (v : val (dual R))
+Definition result_pairing (O : owners) (ty : ty) (ex : option (dvar W)) (v : val
+  (dual R))
   (se : dexpr W) (s : store R) : R :=
   match ty, ex, v with
   | Array _, Some n, _ => pairing (oset O n (tangent v)) s
@@ -613,7 +622,8 @@ Definition result_pairing (O : owners) (ty : ty) (ex : option (dvar W)) (v : val
   end.
 
 (* What adjoint-value stores at the end of the forward sweep. *)
-Definition vo_result (vo : option (aresult (tvar W))) (v : val (dual R)) (s : store R) : Prop :=
+Definition vo_result (vo : option (aresult (tvar W))) (v : val (dual R)) (s :
+  store R) : Prop :=
   forall t, vo_target vo = Some t -> store_get s (keyv t) = Some (primal v).
 
 (* Code that writes only adjoints: it leaves the other keys unchanged. *)
@@ -629,7 +639,8 @@ Definition bar_stmt (st : dstmt W) : Prop :=
 
 (* The reverse sweep leaves the value of adjoint-value where it is. *)
 Definition vo_kept (vo : option (aresult (tvar W))) (s s' : store R) : Prop :=
-  forall t, vo_target vo = Some t -> ~ is_bar t -> store_get s' (keyv t) = store_get s (keyv t).
+  forall t, vo_target vo = Some t -> ~ is_bar t -> store_get s' (keyv t) =
+    store_get s (keyv t).
 
 Lemma keyv_bar_other x v : is_bar x -> ~ is_bar v -> keyv x <> keyv v.
 Proof.
@@ -650,7 +661,8 @@ by case: Ha => <-; eexists x, _.
 Qed.
 
 Lemma run_bars ss s s' :
-  Forall bar_stmt ss -> run ss s = Some s' -> forall v, ~ is_bar v -> store_get s' (keyv v) = store_get s (keyv v).
+  Forall bar_stmt ss -> run ss s = Some s' -> forall v, ~ is_bar v -> store_get
+    s' (keyv v) = store_get s (keyv v).
 Proof.
 elim: ss s => [| st ss IH] s; first by move=> _ [<-].
 move=> /Forall_cons_iff [Hst Hf] Hr v Hv.
@@ -671,57 +683,57 @@ have [xb [wb [Hx ->]]] := assign_bar _ _ _ _ Hst E.
 by apply: store_get_set_other; exact: keyv_bar_other Hx Hv.
 Qed.
 
-Lemma tkeep_bars c ex ss s s' : Forall bar_stmt ss -> run ss s = Some s' -> tkeep c ex s s'.
+Lemma tkeep_bars c ex ss s s' : Forall bar_stmt ss -> run ss s = Some s' ->
+  tkeep c ex s s'.
 Proof.
 move=> Hf R; have Ht v : ~ is_bar (TapeOf v) by [].
 split=> [v l Hv | v _ _ _]; last exact: run_bars Hf R _ (Ht v).
 by exists l; rewrite (run_bars ss s s' Hf R _ (Ht v)).
 Qed.
 
-Lemma vo_kept_bars vo ss s s' : Forall bar_stmt ss -> run ss s = Some s' -> vo_kept vo s s'.
+Lemma vo_kept_bars vo ss s s' : Forall bar_stmt ss -> run ss s = Some s' ->
+  vo_kept vo s s'.
 Proof. by move=> Hf Hr t _ Hb; apply: run_bars Hf Hr t Hb. Qed.
 
 Lemma vo_kept_refl vo s : vo_kept vo s s.
 Proof. by []. Qed.
 
-Lemma vo_kept_trans vo s s1 s2 : vo_kept vo s s1 -> vo_kept vo s1 s2 -> vo_kept vo s s2.
+Lemma vo_kept_trans vo s s1 s2 : vo_kept vo s s1 -> vo_kept vo s1 s2 -> vo_kept
+  vo s s2.
 Proof. by move=> H1 H2 t E B; rewrite (H2 t E B) (H1 t E B). Qed.
 
-Lemma vo_kept_set_bar vo s x w : is_bar x -> vo_kept vo s (store_set s (keyv x) w).
+Lemma vo_kept_set_bar vo s x w : is_bar x -> vo_kept vo s (store_set s (keyv x)
+  w).
 Proof.
 by move=> Hx t _ Hb; apply: store_get_set_other; exact: keyv_bar_other Hx Hb.
 Qed.
 
-Lemma bar_some (a : atom (tvar W)) bx : @bar W a = Some bx -> exists x, bx = DVar x /\ is_bar x.
+Lemma bar_some (a : atom (tvar W)) bx : @bar W a = Some bx -> exists x, bx =
+  DVar x /\ is_bar x.
 Proof. by case: a => [y | |] //=; case: (tbar y) => // - [<-]; eexists. Qed.
 
-Lemma contribution_bars (a : atom (tvar W)) p x : Forall bar_stmt (contribution W a p x).
+Lemma contribution_bars (a : atom (tvar W)) p x : Forall bar_stmt (contribution
+  W a p x).
 Proof.
 rewrite /contribution; case E: (@bar W a) => [bx |] //.
 by have [y [-> Hy]] := bar_some a bx E; repeat constructor.
 Qed.
 
-(* Adds the clause of the value to the reverse sweep of bar-only code. *)
-Lemma keep_add (Q : Prop) vo rv s2 (P : store R -> Prop) :
-  Forall bar_stmt rv -> (exists s3, run rv s2 = Some s3 /\ P s3) ->
-  exists s3, run rv s2 = Some s3 /\ (Q -> vo_kept vo s2 s3) /\ P s3.
-Proof.
-move=> Hf [s3 [R H]]; exists s3; split=> //; split=> // _.
-exact: vo_kept_bars Hf R.
-Qed.
-
 (* The states of a fold before each of its steps. *)
-Fixpoint fold_trace (ev : val (dual R) -> val (dual R) -> option (val (dual R))) (i : Z) (n : nat)
+Fixpoint fold_trace (ev : val (dual R) -> val (dual R) -> option (val (dual R)))
+  (i : Z) (n : nat)
   (s : val (dual R)) : option (list (val (dual R))) :=
   match n with
   | O => Some []
   | S n' => match ev (VInt i) s with
-            | Some s1 => match fold_trace ev (i + 1) n' s1 with Some tr => Some (s :: tr) | None => None end
+            | Some s1 => match fold_trace ev (i + 1) n' s1 with Some tr => Some
+              (s :: tr) | None => None end
             | None => None
             end
   end.
 
-Definition real_of (v : val (dual R)) : R := match v with VReal d => dfst d | _ => 0 end.
+Definition real_of (v : val (dual R)) : R := match v with VReal d => dfst d | _
+  => 0 end.
 
 (* The index of the set that ends a body, as evaluated. *)
 Fixpoint set_index (b : anf (val (dual R)) bare) : option Z :=
@@ -730,7 +742,8 @@ Fixpoint set_index (b : anf (val (dual R)) bare) : option Z :=
       match aeval_value (duals reals) e with
       | Some v =>
           match e, b' v with
-          | ASet _ i _, ARet _ => match aeval_atom (duals reals) i with Some (VInt z) => Some z | _ => None end
+          | ASet _ i _, ARet _ => match aeval_atom (duals reals) i with Some
+            (VInt z) => Some z | _ => None end
           | _, _ => set_index (b' v)
           end
       | None => None
@@ -756,7 +769,8 @@ Fixpoint body_pushes (b : anf (val (dual R)) bare) (st : val (dual R))
               | _, _ => []
               end
           | AFold _ lo hi _ bi, ARet _ =>
-              match aeval_atom (duals reals) lo, aeval_atom (duals reals) hi with
+              match aeval_atom (duals reals) lo, aeval_atom (duals reals) hi
+                with
               | Some (VInt l), Some (VInt h) =>
                   match fold_trace (fun x y => aeval (duals reals) (bi x y))
                           l (count l h) st with
@@ -765,7 +779,8 @@ Fixpoint body_pushes (b : anf (val (dual R)) bare) (st : val (dual R))
                          match tr with
                          | [] => []
                          | s :: tr' =>
-                             (body_pushes (bi (VInt z) s) s ++ go (z + 1)%Z tr')%list
+                             (body_pushes (bi (VInt z) s) s ++ go (z + 1)%Z
+                               tr')%list
                          end) l tr
                   | None => []
                   end
@@ -780,11 +795,13 @@ Fixpoint body_pushes (b : anf (val (dual R)) bare) (st : val (dual R))
 
 (* The elements the steps of an in-place fold push, from the states before
    each step. *)
-Fixpoint fold_pushes (b : val (dual R) -> val (dual R) -> anf (val (dual R)) bare) (z : Z)
+Fixpoint fold_pushes (b : val (dual R) -> val (dual R) -> anf (val (dual R))
+  bare) (z : Z)
   (tr : list (val (dual R))) : list R :=
   match tr with
   | [] => []
-  | st :: tr' => (body_pushes (b (VInt z) st) st ++ fold_pushes b (z + 1) tr')%list
+  | st :: tr' => (body_pushes (b (VInt z) st) st ++ fold_pushes b (z + 1)
+    tr')%list
   end.
 
 (* Whether the innermost in-place fold of a nest records its states: a step
@@ -840,8 +857,26 @@ case El: (tail_fold_live cv (S (S k)) _) => [l' |] //.
 exact: tail_fold_live_records El Hri.
 Qed.
 
+(* Introducing the hypotheses of asim_fwd and asim_rev, the four instances
+   of a value split along their graphs. *)
+Ltac fwd_intro :=
+  let L := fresh "L" in let k := fresh "k" in let c := fresh "c" in
+  let s := fresh "s" in
+  intros L k c s wP pp tail eA eW eT eD te n ve ty m rec HA HW HT HD Hc Htc
+    Htail [j [Ej Hj]] Hst Hrec Hev;
+  destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
+  graph_split.
+
+Ltac rev_intro :=
+  let L := fresh "L" in let k := fresh "k" in let c := fresh "c" in
+  intros L k c wP pp tail eA eW eT eD te n ve ty vo HA HW HT HD Hs Hbar Htc
+    Htail [j [Ej Hj]] Hst Hev Hvr;
+  destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
+  graph_split.
+
 Section Sim.
-Variable cv : bool.                               (* computes-value: mode adjoint-value *)
+Variable cv : bool.                               (* computes-value: mode
+  adjoint-value *)
 
 (* The simulation of a body, transposed in sweep m with the seed se: its
    forward sweep, run from a store holding the values the adjoint code reads,
@@ -855,17 +890,20 @@ Variable cv : bool.                               (* computes-value: mode adjoin
    a body leaves it, or its reverse sweep restores it. A map writes a
    dependent array, which is not varied and which no body reads. *)
 
-Definition same_ex (pp : pplace) (wP : option (atom pv)) (s s' : store R) : Prop :=
+Definition same_ex (pp : pplace) (wP : option (atom pv)) (s s' : store R) : Prop
+  :=
   not_in_loop pp -> forall o, owner wP pp = Some o -> avaried (pa o) = true ->
   store_get s' (keyv (stored o)) = store_get s (keyv (stored o)).
 
 (* The recorded variables in scope have their tapes. *)
 Definition tapes_ok (L : list pv) (s : store R) : Prop :=
-  forall p, In p L -> trecorded (pt p) = true -> exists l, store_get s (keyv (TapeOf (stored p))) = Some (VTape l).
+  forall p, In p L -> trecorded (pt p) = true -> exists l, store_get s (keyv
+    (TapeOf (stored p))) = Some (VTape l).
 
 (* The storage updated in place is a primal key opened before c. *)
 Lemma ex_below L k c wP pp live ty e :
-  sctx L k c wP pp live ty -> inplace wP pp = Some e -> below c e /\ consistent e /\ is_primal e.
+  sctx L k c wP pp live ty -> inplace wP pp = Some e -> below c e /\ consistent
+    e /\ is_primal e.
 Proof.
 rewrite /inplace => Hs; case Eo: (owner wP pp) => [o |] // [<-].
 have Ho : In o L.
@@ -877,9 +915,11 @@ have Ho : In o L.
 by rewrite /stored /=; split; first exact: (s_num _ _ _ _ _ _ _ Hs o Ho).
 Qed.
 
-(* Outside a loop, a live variable stored in place is the owner, a varied array. *)
+(* Outside a loop, a live variable stored in place is the owner, a varied array.
+  *)
 Lemma same_ex_read L k c wP pp (live : pv -> Prop) ty p o :
-  sctx L k c wP pp live ty -> not_in_loop pp -> owner wP pp = Some o -> In p L -> stored p = stored o -> live p ->
+  sctx L k c wP pp live ty -> not_in_loop pp -> owner wP pp = Some o -> In p L
+    -> stored p = stored o -> live p ->
   p = o /\ avaried (pa o) = true.
 Proof.
 move=> Hs Hl Ho Hp E Hlv.
@@ -895,10 +935,13 @@ exact: (proj2 (s_top _ _ _ _ _ _ _ Hs o erefl erefl Har) Hlv).
 Qed.
 
 (* Bar-only reverse code gives the storage updated in place back. *)
-Lemma keep_add2 (Q : Prop) L k c c' wP pp live ty vo rv s s1 s2 (P : store R -> Prop) :
-  sctx L k c wP pp live ty -> (c <= c')%nat -> agree_prim c' (inplace wP pp) s1 s2 -> same_ex pp wP s s1 ->
+Lemma keep_add2 (Q : Prop) L k c c' wP pp live ty vo rv s s1 s2 (P : store R ->
+  Prop) :
+  sctx L k c wP pp live ty -> (c <= c')%nat -> agree_prim c' (inplace wP pp) s1
+    s2 -> same_ex pp wP s s1 ->
   Forall bar_stmt rv -> (exists s3, run rv s2 = Some s3 /\ P s3) ->
-  exists s3, run rv s2 = Some s3 /\ (Q -> vo_kept vo s2 s3) /\ same_ex pp wP s s3 /\
+  exists s3, run rv s2 = Some s3 /\ (Q -> vo_kept vo s2 s3) /\ same_ex pp wP s
+    s3 /\
     tkeep c (inplace wP pp) s2 s3 /\ P s3.
 Proof.
 move=> Hs Hcc Hag Hsx Hf [s3 [R H]]; exists s3; split=> //.
@@ -916,19 +959,26 @@ Qed.
 (* The tape of a fold whose state is recorded. For a scalar fold: the states
    before each step, the last first. For an in-place fold: the elements the
    steps overwrite, the last first, the storage holding the final array. *)
-Definition fold_tape (k : nat) (eA : value avar bare) (eW : value vinfo bare) (eD : value (val (dual R)) bare)
+Definition fold_tape (k : nat) (eA : value avar bare) (eW : value vinfo bare)
+  (eD : value (val (dual R)) bare)
   (s : store R) (n : dvar W) : Prop :=
   match eA, eW, eD with
   | AFold fa loA hiA initA bA, AFold _ _ _ initW _, AFold _ lo hi init b =>
-      match aeval_atom (duals reals) lo, aeval_atom (duals reals) hi, aeval_atom (duals reals) init with
+      match aeval_atom (duals reals) lo, aeval_atom (duals reals) hi, aeval_atom
+        (duals reals) init with
       | Some (VInt l), Some (VInt h), Some s0 =>
-          forall tr, fold_trace (fun v w => aeval (duals reals) (b v w)) l (count l h) s0 = Some tr ->
-            (ty_eqb (of_atom initW) Real = true -> state_live cv k initA bA = true ->
-               store_get s (keyv (TapeOf n)) = Some (VTape (rev (map real_of tr)))) /\
+          forall tr, fold_trace (fun v w => aeval (duals reals) (b v w)) l
+            (count l h) s0 = Some tr ->
+            (ty_eqb (of_atom initW) Real = true -> state_live cv k initA bA =
+              true ->
+               store_get s (keyv (TapeOf n)) = Some (VTape (rev (map real_of
+                 tr)))) /\
             (is_array (of_atom initW) ->
                (fold_live cv k initA bA = true ->
-                  (exists rest, store_get s (keyv (TapeOf n)) = Some (VTape (rev (fold_pushes b l tr) ++ rest))) /\
-                  forall ve, eval_fold (fun v w => aeval (duals reals) (b v w)) l (count l h) s0 = Some ve ->
+                  (exists rest, store_get s (keyv (TapeOf n)) = Some (VTape (rev
+                    (fold_pushes b l tr) ++ rest))) /\
+                  forall ve, eval_fold (fun v w => aeval (duals reals) (b v w))
+                    l (count l h) s0 = Some ve ->
                     store_get s (keyv n) = Some (primal ve)))
       | _, _, _ => True
       end
@@ -1034,7 +1084,8 @@ by rewrite E Nat.eqb_refl.
 Qed.
 
 Lemma tail_fold_state_let k a eA cA :
-  tail_fold_state k (ALet a eA cA) = tail_fold_state (S k) (cA (let_binder k eA))
+  tail_fold_state k (ALet a eA cA) = tail_fold_state (S k) (cA (let_binder k
+    eA))
   \/ exists y, cA (let_binder k eA) = ARet (AVar y) /\ aid y = k /\
        exists fa lo hi i b, eA = AFold fa lo hi i b.
 Proof.
@@ -1043,12 +1094,14 @@ case: eA => [? ? | ? ? ? | ? ? | ? ? ? | ? ? ? | ? ? ? | fa lo hi i b] /=;
   try by left.
 case E: (cA _) => [? ? ? | [y | |]] /=; try by left.
 case Ey: (aid y =? k)%nat => /=.
-  by right; exists y; split=> //; split; [exact/Nat.eqb_eq | exists fa, lo, hi, i, b].
+  by right; exists y; split=> //; split; [exact/Nat.eqb_eq | exists fa, lo, hi,
+    i, b].
 by left.
 Qed.
 
 (* The pushes of a step ending with a fold are those of the fold. *)
-Lemma fold_pushes_fix (b : val (dual R) -> val (dual R) -> anf (val (dual R)) bare) :
+Lemma fold_pushes_fix (b : val (dual R) -> val (dual R) -> anf (val (dual R))
+  bare) :
   forall tr z,
   (fix go (z : Z) (tr : list (val (dual R))) : list R :=
      match tr with
@@ -1146,7 +1199,8 @@ Qed.
 
 (* A continuation that returns its argument: the let it continues is the
    tail of the body. *)
-Definition ptail (cP : pv -> anf pv bare) : Prop := forall x, cP x = ARet (AVar x).
+Definition ptail (cP : pv -> anf pv bare) : Prop := forall x, cP x = ARet (AVar
+  x).
 
 (* tail-tape K L B BA BD S N: when the tail of the body B is a fold, its tape
    in S (storage N) is the one of fold-tape, for its activity (BA) and its
@@ -1169,24 +1223,32 @@ Fixpoint tail_tape (k : nat) (L : list pv) (b : anf pv bare)
 
 Definition asim_body (bP : anf pv bare) : Prop :=
   forall L k c s wP pp m bA bW bT bD ty v se vo,
-  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gT L) bP bT -> anf_eq (gD L) bP bD ->
+  anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gT L) bP bT -> anf_eq
+    (gD L) bP bD ->
   actx L k c s wP pp (live_anf k bW) (tbr cv m k bA) ty -> real_or_array ty ->
   typecheck (option_map (amap pw) wP) (wplace pp) k bW = (ty, Ok) ->
   aeval (duals reals) bD = Some v ->
   (m = Forward -> pp = PTop /\ (vo = None <-> cv = false) /\
-                  (forall y, vo = Some (AWrites y) -> option_map (amap pt) wP = Some y) /\
+                  (forall y, vo = Some (AWrites y) -> option_map (amap pt) wP =
+                    Some y) /\
                   (forall t, vo = Some (AReturns t) -> wP = None)) ->
-  (m = Forward -> forall p, In p L -> live_anf k bW p -> vo_target vo <> Some (stored p)) ->
-  (m = Forward -> forall t, vo_target vo = Some t -> below c t /\ consistent t /\ is_primal t) ->
+  (m = Forward -> forall p, In p L -> live_anf k bW p -> vo_target vo <> Some
+    (stored p)) ->
+  (m = Forward -> forall t, vo_target vo = Some t -> below c t /\ consistent t
+    /\ is_primal t) ->
   (m = Replay -> pp <> PTop) ->
-  (m = Forward -> cv = true -> forall o, owner wP pp = Some o -> avaried (pa o) = false) ->
+  (m = Forward -> cv = true -> forall o, owner wP pp = Some o -> avaried (pa o)
+    = false) ->
   let '((fw, rv), c') :=
-    open_pairs (adj W (option_map (amap pt) wP) vo m (rebuild _ bT (annotate_body_t cv m k bA)) se) c in
+    open_pairs (adj W (option_map (amap pt) wP) vo m (rebuild _ bT
+      (annotate_body_t cv m k bA)) se) c in
   (c <= c')%nat /\ has_type ty v /\
   exists s1, run fw s = Some s1 /\
-    fwd_frame c (inplace wP pp) (if sweep_eqb m Forward then vo else None) s s1 /\ tkeep c (inplace wP pp) s s1 /\
+    fwd_frame c (inplace wP pp) (if sweep_eqb m Forward then vo else None) s s1
+      /\ tkeep c (inplace wP pp) s s1 /\
     (m = Forward -> vo_result vo v s1) /\
-    forall s2 O, agree_prim c' (inplace wP pp) s1 s2 -> rctx L c wP pp O (useful cv m k bA) s2 ->
+    forall s2 O, agree_prim c' (inplace wP pp) s1 s2 -> rctx L c wP pp O (useful
+      cv m k bA) s2 ->
       seed_ok c ty se s2 -> tapes_ok L s2 ->
       (forall ix sx n0, pp = PArray ix sx -> inplace wP pp = Some n0 ->
          tail_tape k L bP bA bD s2 n0) ->
@@ -1200,11 +1262,14 @@ Definition asim_body (bP : anf pv bare) : Prop :=
 Lemma rctx_owners_ok L c wP pp O use s : rctx L c wP pp O use s -> owners_ok O.
 Proof. by move=> Hr t n /(r_below _ _ _ _ _ _ _ Hr) [j [-> _]]. Qed.
 
-(* Writing the adjoint of an owner with a value of its shape keeps the shapes. *)
+(* Writing the adjoint of an owner with a value of its shape keeps the shapes.
+  *)
 Lemma shaped_set O s t n w :
-  owners_ok O -> (forall t' n', In (t', n') O -> shaped t' (barv s n')) -> In (t, n) O ->
+  owners_ok O -> (forall t' n', In (t', n') O -> shaped t' (barv s n')) -> In
+    (t, n) O ->
   (forall t', In (t', n) O -> shaped t' (Some w)) ->
-  forall t' n', In (t', n') O -> shaped t' (barv (store_set s (keyv (BarOf n)) w) n').
+  forall t' n', In (t', n') O -> shaped t' (barv (store_set s (keyv (BarOf n))
+    w) n').
 Proof.
 move=> Ho Hs Hi Hw t' n' Hi'.
 case: (dvar_eq_dec_c n n') => [E | E].
@@ -1214,7 +1279,8 @@ Qed.
 
 (* The reverse sweep writes only the adjoint of an owner. *)
 Lemma rev_frame_set c ex O s n w :
-  In n (map snd O) -> consistent n -> rev_frame c ex O s (store_set s (keyv (BarOf n)) w).
+  In n (map snd O) -> consistent n -> rev_frame c ex O s (store_set s (keyv
+    (BarOf n)) w).
 Proof.
 move=> Hn Hcn v _ Hcv _ _ Hb; apply: store_get_set_other => K.
 have E := keyv_inj (BarOf n) v Hcn Hcv K; subst v.
@@ -1224,8 +1290,10 @@ Qed.
 (* The type of a body that returns a variable. *)
 Lemma ret_type L k c wP pp live ty p :
   sctx L k c wP pp live ty -> In p L ->
-  typecheck (option_map (amap pw) wP) (wplace pp) k (ARet (AVar (pw p))) = (ty, Ok) ->
-  ty = vty (pw p) /\ (varg (pw p) = None \/ wP = Some (AVar p) \/ ~ is_array (vty (pw p))).
+  typecheck (option_map (amap pw) wP) (wplace pp) k (ARet (AVar (pw p))) = (ty,
+    Ok) ->
+  ty = vty (pw p) /\ (varg (pw p) = None \/ wP = Some (AVar p) \/ ~ is_array
+    (vty (pw p))).
 Proof.
 move=> Hs Hp /=.
 case Eg: (varg (pw p)) => [[nx r] |]; last by case=> <-; split; [|left].
@@ -1238,22 +1306,30 @@ case: ifP => // /negbFE Hid [<-]; split=> //.
 by right; left; apply: unique_written_s; eauto.
 Qed.
 
-Ltac none_case := eexists; split; [reflexivity | split; [intros ? ? ? ? ? ?; reflexivity |
-                     split; [intros _ ? Et'; discriminate | split; [apply tkeep_refl | intros _ ? _; reflexivity]]]].
+Ltac none_case := eexists; split; [reflexivity | split; [intros ? ? ? ? ? ?;
+  reflexivity |
+                     split; [intros _ ? Et'; discriminate | split; [apply
+                       tkeep_refl | intros _ ? _; reflexivity]]]].
 
 (* The forward sweep of a body that returns an atom: at the top of
    adjoint-value, the value goes where the function leaves it. *)
 Lemma ret_forward L k c s wP pp m (aP : atom pv) ty v vo :
-  actx L k c s wP pp (live_anf k (ARet (amap pw aP))) (tbr cv m k (ARet (amap pa aP))) ty ->
+  actx L k c s wP pp (live_anf k (ARet (amap pw aP))) (tbr cv m k (ARet (amap pa
+    aP))) ty ->
   (forall p, aP = AVar p -> In p L) ->
-  typecheck (option_map (amap pw) wP) (wplace pp) k (ARet (amap pw aP)) = (ty, Ok) -> real_or_array ty ->
+  typecheck (option_map (amap pw) wP) (wplace pp) k (ARet (amap pw aP)) = (ty,
+    Ok) -> real_or_array ty ->
   aeval (duals reals) (@ARet _ bare (amap pd aP)) = Some v ->
   (m = Forward -> pp = PTop /\ (vo = None <-> cv = false) /\
-                  (forall y, vo = Some (AWrites y) -> option_map (amap pt) wP = Some y) /\
+                  (forall y, vo = Some (AWrites y) -> option_map (amap pt) wP =
+                    Some y) /\
                   (forall t, vo = Some (AReturns t) -> wP = None)) ->
-  exists s1, run (if sweep_eqb m Forward then value_output W vo (amap pt aP) else []) s = Some s1 /\
-    fwd_frame c (inplace wP pp) (if sweep_eqb m Forward then vo else None) s s1 /\
-    (m = Forward -> vo_result vo v s1) /\ tkeep c (inplace wP pp) s s1 /\ same_ex pp wP s s1.
+  exists s1, run (if sweep_eqb m Forward then value_output W vo (amap pt aP)
+    else []) s = Some s1 /\
+    fwd_frame c (inplace wP pp) (if sweep_eqb m Forward then vo else None) s s1
+      /\
+    (m = Forward -> vo_result vo v s1) /\ tkeep c (inplace wP pp) s s1 /\
+      same_ex pp wP s s1.
 Proof.
 move=> Hc HaL Htc Hty Hev Hvo.
 case: m Hc Hvo => Hc Hvo /=; last first.
@@ -1432,7 +1508,8 @@ Definition vatoms (k : nat) (e : value avar bare) (p : pv) : Prop :=
    rec): the value is stored in n. *)
 
 Lemma fold_tape_same k eA eW eD s s' n :
-  store_get s' (keyv (TapeOf n)) = store_get s (keyv (TapeOf n)) -> store_get s' (keyv n) = store_get s (keyv n) ->
+  store_get s' (keyv (TapeOf n)) = store_get s (keyv (TapeOf n)) -> store_get s'
+    (keyv n) = store_get s (keyv n) ->
   fold_tape k eA eW eD s n -> fold_tape k eA eW eD s' n.
 Proof. by move=> E E' H; rewrite /fold_tape in H *; rewrite E E'. Qed.
 
@@ -1475,7 +1552,8 @@ Qed.
    fold: a scalar recurrence is not typed there. *)
 Lemma fold_tape_in_loop L k wP tail ix sx (eP : value pv bare) eA eW eD te s n :
   value_eq (gW L) eP eW -> storage wP tail eP = None ->
-  typecheck_value (option_map (amap pw) wP) (wplace (PArray ix sx)) tail k eW = (te, Ok) ->
+  typecheck_value (option_map (amap pw) wP) (wplace (PArray ix sx)) tail k eW =
+    (te, Ok) ->
   fold_tape k eA eW eD s n.
 Proof.
 move=> HW Hst Htc.
@@ -1497,7 +1575,8 @@ by split; [rewrite Hnr | move=> Ha; case: (Hna Ha)].
 Qed.
 
 (* A fold whose forward sweep records nothing has no tape to give. *)
-Lemma fold_tape_records k eA eW eD s n : records cv k eA = false -> fold_tape k eA eW eD s n.
+Lemma fold_tape_records k eA eW eD s n : records cv k eA = false -> fold_tape k
+  eA eW eD s n.
 Proof.
 case: eA => // fa loA hiA initA bA.
 case: eW => // ? ? ? ? ?; case: eD => // ? ? ? ? ? Hrec.
@@ -1513,7 +1592,8 @@ Qed.
 
 Definition asim_fwd (eP : value pv bare) : Prop :=
   forall L k c s wP pp tail eA eW eT eD te n ve ty m rec,
-  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gT L) eP eT -> value_eq (gD L) eP eD ->
+  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gT L) eP eT ->
+    value_eq (gD L) eP eD ->
   actx L k c s wP pp (live_value k eW) (vatoms k eA) ty ->
   typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
   (tail = true -> te = ty) ->
@@ -1522,14 +1602,18 @@ Definition asim_fwd (eP : value pv bare) : Prop :=
   | Some m0 => n = m0
   | None => forall p, In p L -> stored p <> n
   end ->
-  (rec = true \/ (m = Forward /\ records cv k eA = true /\ storage wP tail eP <> None /\ ~ not_in_loop pp) ->
+  (rec = true \/ (m = Forward /\ records cv k eA = true /\ storage wP tail eP <>
+    None /\ ~ not_in_loop pp) ->
      exists l, store_get s (keyv (TapeOf n)) = Some (VTape l)) ->
   aeval_value (duals reals) eD = Some ve ->
   let '(se, c') :=
-    open_pairs (fwd_value W (option_map (amap pt) wP) m (rebuild_value _ eT (annotate_value_t cv k eA)) te n rec) c in
+    open_pairs (fwd_value W (option_map (amap pt) wP) m (rebuild_value _ eT
+      (annotate_value_t cv k eA)) te n rec) c in
   (c <= c')%nat /\
-  exists s1, run se s = Some s1 /\ fwd_frame c (Some n) None s s1 /\ tkeep c (Some n) s s1 /\
-             store_get s1 (keyv n) = Some (primal ve) /\ (m = Forward /\ not_in_loop pp -> fold_tape k eA eW eD s1 n) /\
+  exists s1, run se s = Some s1 /\ fwd_frame c (Some n) None s s1 /\ tkeep c
+    (Some n) s s1 /\
+             store_get s1 (keyv n) = Some (primal ve) /\ (m = Forward /\
+               not_in_loop pp -> fold_tape k eA eW eD s1 n) /\
              (m = Forward -> ~ not_in_loop pp -> storage wP tail eP <> None ->
               (forall o, owner wP pp = Some o -> tid (pt o) = None) ->
               fold_grow k eA eD rec s s1 n).
@@ -1543,7 +1627,8 @@ Definition asim_fwd (eP : value pv bare) : Prop :=
    scalars it needs. *)
 Definition asim_rev0 (eP : value pv bare) : Prop :=
   forall L k c wP pp tail eA eW eT eD te n ve ty vo,
-  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gT L) eP eT -> value_eq (gD L) eP eD ->
+  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gT L) eP eT ->
+    value_eq (gD L) eP eD ->
   sctx L k c wP pp (live_value k eW) ty ->
   (forall p, In p L -> tbar (pt p) = avaried (pa p)) ->
   typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
@@ -1556,14 +1641,18 @@ Definition asim_rev0 (eP : value pv bare) : Prop :=
   aeval_value (duals reals) eD = Some ve ->
   varied_value k eA = true ->
   let '(re, c') :=
-    open_pairs (rev_value W (option_map (amap pt) wP) vo (rebuild_value _ eT (annotate_value_t cv k eA)) te n) c in
+    open_pairs (rev_value W (option_map (amap pt) wP) vo (rebuild_value _ eT
+      (annotate_value_t cv k eA)) te n) c in
   (c <= c')%nat /\
   forall s2 O,
-    (forall p, In p L -> vreads k eA p -> live_value k eW p -> ~ is_array (vty (pw p)) ->
+    (forall p, In p L -> vreads k eA p -> live_value k eW p -> ~ is_array (vty
+      (pw p)) ->
        store_get s2 (keyv (stored p)) = Some (primal (pd p))) ->
     rctx L c wP pp O (vflows k eA) s2 ->
-    (storage wP tail eP = None -> ~ In n (map snd O) /\ shaped (tangent ve) (barv s2 n)) ->
-    exists s3, run re s2 = Some s3 /\ rev_frame c (inplace wP pp) (oput O n (tangent ve)) s2 s3 /\
+    (storage wP tail eP = None -> ~ In n (map snd O) /\ shaped (tangent ve)
+      (barv s2 n)) ->
+    exists s3, run re s2 = Some s3 /\ rev_frame c (inplace wP pp) (oput O n
+      (tangent ve)) s2 s3 /\
       (forall t m, In (t, m) O -> shaped t (barv s3 m)) /\
       pairing O s3 = pairing (oput O n (tangent ve)) s2.
 
@@ -1572,7 +1661,8 @@ Definition asim_rev0 (eP : value pv bare) : Prop :=
    opened before it but its own storage. *)
 Definition asim_rev (eP : value pv bare) : Prop :=
   forall L k c wP pp tail eA eW eT eD te n ve ty vo,
-  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gT L) eP eT -> value_eq (gD L) eP eD ->
+  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gT L) eP eT ->
+    value_eq (gD L) eP eD ->
   sctx L k c wP pp (live_value k eW) ty ->
   (forall p, In p L -> tbar (pt p) = avaried (pa p)) ->
   typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
@@ -1585,22 +1675,30 @@ Definition asim_rev (eP : value pv bare) : Prop :=
   aeval_value (duals reals) eD = Some ve ->
   varied_value k eA = true ->
   let '(re, c') :=
-    open_pairs (rev_value W (option_map (amap pt) wP) vo (rebuild_value _ eT (annotate_value_t cv k eA)) te n) c in
+    open_pairs (rev_value W (option_map (amap pt) wP) vo (rebuild_value _ eT
+      (annotate_value_t cv k eA)) te n) c in
   (c <= c')%nat /\
   forall s2 O,
     (forall p, In p L -> vreads k eA p -> live_value k eW p ->
        (not_in_loop pp \/ inplace wP pp <> Some (stored p)) ->
        store_get s2 (keyv (stored p)) = Some (primal (pd p))) ->
     rctx L c wP pp O (vflows k eA) s2 ->
-    (storage wP tail eP = None -> ~ In n (map snd O) /\ shaped (tangent ve) (barv s2 n)) ->
-    tapes_ok L s2 -> (pp = PTop \/ (exists ix sx, pp = PArray ix sx) -> fold_tape k eA eW eD s2 n) ->
-    (not_in_loop pp -> storage wP tail eP <> None -> forall o, owner wP pp = Some o -> avaried (pa o) = true ->
-       records cv k eA = false -> store_get s2 (keyv n) = Some (primal (pd o))) ->
+    (storage wP tail eP = None -> ~ In n (map snd O) /\ shaped (tangent ve)
+      (barv s2 n)) ->
+    tapes_ok L s2 -> (pp = PTop \/ (exists ix sx, pp = PArray ix sx) ->
+      fold_tape k eA eW eD s2 n) ->
+    (not_in_loop pp -> storage wP tail eP <> None -> forall o, owner wP pp =
+      Some o -> avaried (pa o) = true ->
+       records cv k eA = false -> store_get s2 (keyv n) = Some (primal (pd o)))
+         ->
     exists s3, run re s2 = Some s3 /\
-      (forall v, below c v -> consistent v -> is_primal v -> v <> n -> store_get s3 (keyv v) = store_get s2 (keyv v)) /\
-      (not_in_loop pp -> storage wP tail eP <> None -> forall o, owner wP pp = Some o -> avaried (pa o) = false ->
+      (forall v, below c v -> consistent v -> is_primal v -> v <> n -> store_get
+        s3 (keyv v) = store_get s2 (keyv v)) /\
+      (not_in_loop pp -> storage wP tail eP <> None -> forall o, owner wP pp =
+        Some o -> avaried (pa o) = false ->
          store_get s3 (keyv n) = store_get s2 (keyv n)) /\
-      (not_in_loop pp -> storage wP tail eP <> None -> forall o, owner wP pp = Some o -> avaried (pa o) = true ->
+      (not_in_loop pp -> storage wP tail eP <> None -> forall o, owner wP pp =
+        Some o -> avaried (pa o) = true ->
          store_get s3 (keyv n) = Some (primal (pd o))) /\
       tkeep c (Some n) s2 s3 /\
       rev_frame_x c (inplace wP pp) n (oput O n (tangent ve)) s2 s3 /\
@@ -1612,12 +1710,15 @@ Definition asim_rev (eP : value pv bare) : Prop :=
 (* A value updated in place outside the body of an in-place loop (a map)
    writes an argument that is not inout, and does not read it. *)
 Definition inplace_only (eP : value pv bare) : Prop :=
-  forall L k wP pp tail eA eW te, value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> Forall (static_ok k) L ->
+  forall L k wP pp tail eA eW te, value_eq (gA L) eP eA -> value_eq (gW L) eP eW
+    -> Forall (static_ok k) L ->
   ids_unique L ->
   typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
   storage wP tail eP <> None -> not_in_loop pp ->
-  (forall p ny r, In p L -> varg (pw p) = Some (ny, r) -> avaried (pa p) = varied_role r) ->
-  (forall y, wP = Some (AVar y) -> exists ny r, varg (pw y) = Some (ny, r) /\ written_role r = true) ->
+  (forall p ny r, In p L -> varg (pw p) = Some (ny, r) -> avaried (pa p) =
+    varied_role r) ->
+  (forall y, wP = Some (AVar y) -> exists ny r, varg (pw y) = Some (ny, r) /\
+    written_role r = true) ->
   forall o, owner wP pp = Some o -> In o L ->
     ~ vreads k eA o /\ (avaried (pa o) = true -> varied_value k eA = true) /\
     (~ live_value k eW o -> avaried (pa o) = false).
@@ -1629,23 +1730,13 @@ move=> Hn v _ Hcv _ Hex _; apply: store_get_set_other => K.
 by have E := keyv_inj n v Hn Hcv K; subst v; apply: Hex.
 Qed.
 
-Ltac fwd_intro :=
-  let L := fresh "L" in let k := fresh "k" in let c := fresh "c" in let s := fresh "s" in
-  intros L k c s wP pp tail eA eW eT eD te n ve ty m rec HA HW HT HD Hc Htc Htail [j [Ej Hj]] Hst Hrec Hev;
-  destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
-  repeat match goal with
-         | H : _ /\ _ |- _ => destruct H
-         | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         end; subst.
-
 (* An operand of a value, read by its forward sweep, holds its value. *)
-Lemma operand_store L k c s wP pp live (eA : value avar bare) ty (aP : atom pv) :
+Lemma operand_store L k c s wP pp live (eA : value avar bare) ty (aP : atom pv)
+  :
   actx L k c s wP pp live (vatoms k eA) ty ->
   (forall p, aP = AVar p -> In p L /\ vatoms k eA p) ->
-  forall p, aP = AVar p -> static_ok k p /\ store_get s (keyv (stored p)) = Some (primal (pd p)).
+  forall p, aP = AVar p -> static_ok k p /\ store_get s (keyv (stored p)) = Some
+    (primal (pd p)).
 Proof.
 move=> Hc Ha p /Ha [Hp Hv]; split.
   have Hs := a_sctx _ _ _ _ _ _ _ _ _ Hc.
@@ -1738,7 +1829,8 @@ Qed.
 
 (* An atom reads primal keys only. *)
 Lemma avoid_tape_spell k (aP : atom pv) t :
-  (forall p, aP = AVar p -> static_ok k p) -> avoid (keyv (TapeOf t)) (spell (amap pt aP)).
+  (forall p, aP = AVar p -> static_ok k p) -> avoid (keyv (TapeOf t)) (spell
+    (amap pt aP)).
 Proof.
 move=> H x; case: aP H => [p | |] //= H [Ex | []]; subst x.
 have [_ [_ [Hs _]]] := H p erefl; rewrite Hs.
@@ -1828,18 +1920,6 @@ split.
 by split=> //; rewrite /s1 store_get_set_same.
 Qed.
 
-Ltac rev_intro :=
-  let L := fresh "L" in let k := fresh "k" in let c := fresh "c" in
-  intros L k c wP pp tail eA eW eT eD te n ve ty vo HA HW HT HD Hs Hbar Htc Htail [j [Ej Hj]] Hst Hev Hvr;
-  destruct eA, eW, eT, eD; simpl in HA, HW, HT, HD; try contradiction;
-  repeat match goal with
-         | H : _ /\ _ |- _ => destruct H
-         | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         end; subst.
-
 (* An accumulation into a real variable. *)
 Lemma run_increment s x e b v :
   store_get s (keyv x) = Some (VReal b) -> xev s e = Some (VReal v) ->
@@ -1854,7 +1934,9 @@ Lemma reads_op2 f (a b : atom avar) (q : avar) :
   comparison f = false -> (f = Mul \/ f = Divide) ->
   ((varied a = true /\ b = AVar q) \/ (varied b = true /\ a = AVar q)) ->
   atom_member (AVar q) (fst (match partial2 f a b with
-                             | Some (pa, pb) => (atom_union (read_by a (Some pa)) (read_by b (Some pb)), atoms_of_atoms [a; b])
+                             | Some (pa, pb) => (atom_union (read_by a (Some
+                               pa)) (read_by b (Some pb)), atoms_of_atoms [a;
+                               b])
                              | None => ([], atoms_of_atoms [a; b]) end)) = true.
 Proof.
 move=> _ [-> | ->] [[Ha ->] | [Hb ->]];
@@ -1868,7 +1950,9 @@ Qed.
 Lemma reads_op2_div (a b : atom avar) (q : avar) :
   varied b = true -> b = AVar q ->
   atom_member (AVar q) (fst (match partial2 Divide a b with
-                             | Some (pa, pb) => (atom_union (read_by a (Some pa)) (read_by b (Some pb)), atoms_of_atoms [a; b])
+                             | Some (pa, pb) => (atom_union (read_by a (Some
+                               pa)) (read_by b (Some pb)), atoms_of_atoms [a;
+                               b])
                              | None => ([], atoms_of_atoms [a; b]) end)) = true.
 Proof.
 move=> Hb Eb; subst b; rewrite /= atom_member_union /read_by /=.
@@ -1885,10 +1969,12 @@ Lemma contrib_step c ex O O' s (q : pv) p x t b0 w :
   (forall t' n', In (t', n') O -> shaped t' (barv s n')) ->
   (forall t', In (t', stored q) O -> t' = VReal t) ->
   tbar (pt q) = true -> tstored (pt q) = stored q ->
-  barv s (stored q) = Some (VReal b0) -> xev s (scale (spell_partial p) (DVar x)) = Some (VReal w) ->
+  barv s (stored q) = Some (VReal b0) -> xev s (scale (spell_partial p) (DVar
+    x)) = Some (VReal w) ->
   let s' := store_set s (keyv (BarOf (stored q))) (VReal (b0 + w)) in
   run (contribution W (AVar (pt q)) p x) s = Some s' /\
-  rev_frame c ex O' s s' /\ (forall t' n', In (t', n') O -> shaped t' (barv s' n')) /\
+  rev_frame c ex O' s s' /\ (forall t' n', In (t', n') O -> shaped t' (barv s'
+    n')) /\
   pairing O s' = pairing O s + t * w.
 Proof.
 move=> Hok Hnd Hin Hsub Hsh Huq Hb Hs Eb Ew s'.
@@ -1911,7 +1997,8 @@ Qed.
 
 (* An atom reads primal keys only: writing an adjoint keeps its value. *)
 Lemma avoid_bar_spell k (aP : atom pv) t :
-  (forall p, aP = AVar p -> static_ok k p) -> avoid (keyv (BarOf t)) (spell (amap pt aP)).
+  (forall p, aP = AVar p -> static_ok k p) -> avoid (keyv (BarOf t)) (spell
+    (amap pt aP)).
 Proof.
 move=> H x; case: aP H => [p | |] //= H [Ex | []]; subst x.
 have [_ [_ [Hs _]]] := H p erefl; rewrite Hs.
@@ -1920,9 +2007,11 @@ Qed.
 
 (* An accumulation into an element of an array. *)
 Lemma run_increment_at s x ei e bm z bk w bm' :
-  store_get s (keyv x) = Some (VArray bm) -> xev s ei = Some (VInt z) -> nth_z z bm = Some bk ->
+  store_get s (keyv x) = Some (VArray bm) -> xev s ei = Some (VInt z) -> nth_z z
+    bm = Some bk ->
   xev s e = Some (VReal w) -> replace_nth_z z (bk + w) bm = Some bm' ->
-  run [DIncrement (DAt (DVar x) ei) e] s = Some (store_set s (keyv x) (VArray bm')).
+  run [DIncrement (DAt (DVar x) ei) e] s = Some (store_set s (keyv x) (VArray
+    bm')).
 Proof.
 move=> H1 H2 H3 H4 H5; rewrite /run /xev /keyv in H1 H2 H4 *.
 change (map (Simplify.out_dstmt nat) [DIncrement (DAt (DVar x) ei) e])
@@ -1953,7 +2042,8 @@ Qed.
 (* Replacing the tangent of an owner. *)
 Lemma pairing_oset O s t n t' :
   owners_ok O -> NoDup (map snd O) -> In (t, n) O ->
-  pairing (oset O n t') s = pairing O s - inner t (barv s n) + inner t' (barv s n).
+  pairing (oset O n t') s = pairing O s - inner t (barv s n) + inner t' (barv s
+    n).
 Proof.
 elim: O => [| [t0 n0] O IH] Hok //= /NoDup_cons_iff [Hn Hnd] Hin.
 have Hok' : owners_ok O by move=> t1 m I; apply: (Hok t1); right.
@@ -1968,10 +2058,10 @@ case E: (Simplify.dvar_eq nat n n0).
 by rewrite /= IH //; ring.
 Qed.
 
-Lemma dotr_zero l m : Forall (fun x => x = 0) m -> dotr l m = 0.
+Lemma dotl_zero l m : Forall (fun x => x = 0) m -> dotl l m = 0.
 Proof.
 move=> H; elim: H l => [| x m' Hx Hm IH] [| a l] //.
-by rewrite dotr_cons IH Hx; ring.
+by rewrite dotl_cons IH Hx; ring.
 Qed.
 
 Lemma oset_snd O n t : map snd (oset O n t) = map snd O.
@@ -1996,7 +2086,8 @@ Qed.
 
 (* A variable that holds a real or an integer is not an array. *)
 Lemma not_array_val k p :
-  static_ok k p -> (match pd p with VArray _ => False | _ => True end) -> ~ is_array (vty (pw p)).
+  static_ok k p -> (match pd p with VArray _ => False | _ => True end) -> ~
+    is_array (vty (pw p)).
 Proof.
 move=> [_ [_ [_ [_ [_ [_ [_ [_ [Hht _]]]]]]]]] Hv Ha.
 by case: (vty (pw p)) Ha Hht => // ? _; case: (pd p) Hv.
@@ -2062,19 +2153,26 @@ by rewrite Eb Ebn Edy /=; ring.
 Qed.
 
 Lemma rctx_shapes L c wP pp O use s s' :
-  rctx L c wP pp O use s -> (forall t n, In (t, n) O -> shaped t (barv s' n)) -> rctx L c wP pp O use s'.
+  rctx L c wP pp O use s -> (forall t n, In (t, n) O -> shaped t (barv s' n)) ->
+    rctx L c wP pp O use s'.
 Proof. by move=> Hr Hs; case: Hr => *; constructor. Qed.
 
 (* The contribution to an operand, varied or not. *)
-Lemma operand_contrib L k c wP pp ex O O' s (aP : atom pv) p xv x dx w (use : pv -> Prop) :
-  Forall (static_ok k) L -> (forall q, aP = AVar q -> In q L /\ use q) -> rctx L c wP pp O use s ->
+Lemma operand_contrib L k c wP pp ex O O' s (aP : atom pv) p xv x dx w (use : pv
+  -> Prop) :
+  Forall (static_ok k) L -> (forall q, aP = AVar q -> In q L /\ use q) -> rctx L
+    c wP pp O use s ->
   (forall q, In q L -> tbar (pt q) = avaried (pa q)) ->
   aeval_atom (duals reals) (amap pd aP) = Some (VReal (Dual x dx)) ->
   (forall m, In m (map snd O) -> In m (map snd O')) ->
-  (varied (amap pa aP) = true -> xev s (scale (spell_partial p) (DVar xv)) = Some (VReal w)) ->
-  exists s', run (contribution W (amap pt aP) p xv) s = Some s' /\ rev_frame c ex O' s s' /\
-    (forall t n, In (t, n) O -> shaped t (barv s' n)) /\ pairing O s' = pairing O s + dx * w /\
-    forall e, (forall y, In y (dvars e) -> consistent y /\ forall m, In m (map snd O) -> y <> BarOf m) ->
+  (varied (amap pa aP) = true -> xev s (scale (spell_partial p) (DVar xv)) =
+    Some (VReal w)) ->
+  exists s', run (contribution W (amap pt aP) p xv) s = Some s' /\ rev_frame c
+    ex O' s s' /\
+    (forall t n, In (t, n) O -> shaped t (barv s' n)) /\ pairing O s' = pairing
+      O s + dx * w /\
+    forall e, (forall y, In y (dvars e) -> consistent y /\ forall m, In m (map
+      snd O) -> y <> BarOf m) ->
       xev s' e = xev s e.
 Proof.
 move=> HL HaL Hr Hbar Ha Hsub Hw.
@@ -2283,7 +2381,7 @@ rewrite (pairing_set_in O s2 (VArray (map dsnd l)) (stored q)) //.
 rewrite Eb Ebn /=.
 move: Ezt Ebk Ebm'; rewrite /nth_z /replace_nth_z.
 case: (z <? 0)%Z => // Ezt Ebk Ebm'.
-by rewrite (dotr_replace _ _ _ _ _ _ _ Ezt Ebk Ebm'); ring.
+by rewrite (dotl_replace _ _ _ _ _ _ _ Ezt Ebk Ebm'); ring.
 Qed.
 
 Lemma arev_set (aP iP vP : atom pv) : asim_rev0 (ASet aP iP vP).
@@ -2357,13 +2455,13 @@ have Hzero s : barv s n = Some (VArray bn) -> xev s ei = Some (VInt z) ->
     => //.
   by rewrite xev_DReal lit_0.
 have Hdot0 :
-    dotr (map dsnd l) bn0 = dotr (map dsnd l) bn + ta_z * (0 - bk).
-  apply: (dotr_replace _ _ _ _ _ _ _ Etz Ebk).
+    dotl (map dsnd l) bn0 = dotl (map dsnd l) bn + ta_z * (0 - bk).
+  apply: (dotl_replace _ _ _ _ _ _ _ Etz Ebk).
   by move: Ebn0; rewrite /replace_nth_z Ez0.
 have Hdot1 :
-    dotr (map dsnd l1) bn = dotr (map dsnd l) bn + bk * (dy - ta_z).
-  rewrite (dotr_sym (map dsnd l1)) (dotr_sym (map dsnd l)).
-  exact: (dotr_replace _ _ _ _ _ _ _ Ebk Etz Ert).
+    dotl (map dsnd l1) bn = dotl (map dsnd l) bn + bk * (dy - ta_z).
+  rewrite (dotl_sym (map dsnd l1)) (dotl_sym (map dsnd l)).
+  exact: (dotl_replace _ _ _ _ _ _ _ Ebk Etz Ert).
 have Hfla :
     vflows k (ASet (amap pa (AVar qa)) (amap pa iP) (amap pa vP)) qa.
   rewrite /vflows; cbn [value_needs fst snd atoms_of_atoms atoms_of_atom amap].
@@ -2451,7 +2549,7 @@ have Hva : avaried (pa qa) = false.
 have [_ [_ [_ [_ [_ [_ [_ [_ [_ Hzq]]]]]]]]] := static_in _ _ _ HL Hqa.
 have := Hzq Hva; rewrite Eqa /= => {}Hzq.
 have Hz0 : Forall (fun x => x = 0) (map dsnd l) by apply/Forall_map.
-rewrite dotr_sym (dotr_zero bn _ Hz0).
+rewrite dotl_sym (dotl_zero bn _ Hz0).
 have -> : ta_z = 0.
   by move/Forall_forall: Hz0; apply; apply: nth_error_In Etz.
 by ring.
@@ -2461,7 +2559,8 @@ Qed.
    What needs says at a let, of a variable in scope (an identity below k):
    from the rest of the body, and from the value. *)
 
-Lemma same_term_below (q : avar) k vr : (aid q < k)%nat -> same_term (AVar (AV k vr)) (AVar q) = false.
+Lemma same_term_below (q : avar) k vr : (aid q < k)%nat -> same_term (AVar (AV k
+  vr)) (AVar q) = false.
 Proof. by move=> H /=; apply/Nat.eqb_neq; lia. Qed.
 
 Lemma needs_let m k a eA (cA : avar -> anf avar bare) :
@@ -2470,22 +2569,28 @@ Lemma needs_let m k a eA (cA : avar -> anf avar bare) :
   let '(ub, lb) := needs cv m (S k) (cA x) in
   let useful := atom_member (AVar x) ub in
   let needed := atom_member (AVar x) lb in
-  let '(reads_e, flows_e) := if varied_value k eA && useful then value_needs cv k eA else ([], []) in
-  let atoms_e := if needed || (sweep_eqb m Forward && records cv k eA) then atoms_of_value k eA else [] in
+  let '(reads_e, flows_e) := if varied_value k eA && useful then value_needs cv
+    k eA else ([], []) in
+  let atoms_e := if needed || (sweep_eqb m Forward && records cv k eA) then
+    atoms_of_value k eA else [] in
   (atom_union (atom_remove (AVar x) ub) flows_e,
    atom_union (atom_union (atom_remove (AVar x) lb) reads_e) atoms_e).
 Proof. by []. Qed.
 
 Section NeedsLet.
-Variables (m : sweep) (k : nat) (a : bare) (eA : value avar bare) (cA : avar -> anf avar bare) (p : pv).
+Variables (m : sweep) (k : nat) (a : bare) (eA : value avar bare) (cA : avar ->
+  anf avar bare) (p : pv).
 Hypothesis Hp : (aid (pa p) < k)%nat.
 Let x := let_binder k eA.
 
-Ltac needs_let_tac := rewrite needs_let; unfold x in *; destruct (needs cv m (S k) (cA (let_binder k eA))) as [ub lb]; cbv zeta.
-Ltac split_reads := destruct (varied_value k eA && _); [destruct (value_needs cv k eA) as [r f] |]; cbn [fst snd].
+Ltac needs_let_tac := rewrite needs_let; unfold x in *; destruct (needs cv m (S
+  k) (cA (let_binder k eA))) as [ub lb]; cbv zeta.
+Ltac split_reads := destruct (varied_value k eA && _); [destruct (value_needs cv
+  k eA) as [r f] |]; cbn [fst snd].
 Ltac below_tac := apply same_term_below; exact Hp.
 
-Lemma useful_let_cont : useful cv m (S k) (cA x) p -> useful cv m k (ALet a eA cA) p.
+Lemma useful_let_cont : useful cv m (S k) (cA x) p -> useful cv m k (ALet a eA
+  cA) p.
 Proof.
 rewrite /useful; needs_let_tac => /= H; split_reads;
   by rewrite atom_member_union atom_member_remove ?H //; below_tac.
@@ -2498,7 +2603,8 @@ rewrite /tbr; needs_let_tac => /= H; split_reads;
 Qed.
 
 Lemma useful_let_flows :
-  varied_value k eA && atom_member (AVar x) (fst (needs cv m (S k) (cA x))) = true ->
+  varied_value k eA && atom_member (AVar x) (fst (needs cv m (S k) (cA x))) =
+    true ->
   vflows k eA p -> useful cv m k (ALet a eA cA) p.
 Proof.
 rewrite /useful /vflows; needs_let_tac => /= Ha Hf; rewrite Ha.
@@ -2507,7 +2613,8 @@ by rewrite atom_member_union Hf orb_true_r.
 Qed.
 
 Lemma tbr_let_reads :
-  varied_value k eA && atom_member (AVar x) (fst (needs cv m (S k) (cA x))) = true ->
+  varied_value k eA && atom_member (AVar x) (fst (needs cv m (S k) (cA x))) =
+    true ->
   vreads k eA p -> tbr cv m k (ALet a eA cA) p.
 Proof.
 rewrite /tbr /vreads; needs_let_tac => /= Ha Hf; rewrite Ha.
@@ -2516,7 +2623,8 @@ by rewrite !atom_member_union Hf orb_true_r.
 Qed.
 
 Lemma tbr_let_atoms :
-  atom_member (AVar x) (snd (needs cv m (S k) (cA x))) || (sweep_eqb m Forward && records cv k eA) = true ->
+  atom_member (AVar x) (snd (needs cv m (S k) (cA x))) || (sweep_eqb m Forward
+    && records cv k eA) = true ->
   vatoms k eA p -> tbr cv m k (ALet a eA cA) p.
 Proof.
 rewrite /tbr /vatoms; needs_let_tac => /= Hc Hf; rewrite Hc.
@@ -2532,21 +2640,18 @@ End NeedsLet.
    has a zero tangent. *)
 Definition act_value (eP : value pv bare) : Prop :=
   forall L k wP pp tail eA eW eD te ve,
-  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gD L) eP eD -> Forall (static_ok k) L ->
+  value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gD L) eP eD ->
+    Forall (static_ok k) L ->
   typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
   aeval_value (duals reals) eD = Some ve ->
-  has_type te ve /\ (varied_value k eA = false -> zero ve) /\ (varied_value k eA = true -> real_or_array te).
+  has_type te ve /\ (varied_value k eA = false -> zero ve) /\ (varied_value k eA
+    = true -> real_or_array te).
 
 Ltac act_intro :=
   let L := fresh "L" in let k := fresh "k" in
   intros L k wP pp tail eA eW eD te ve HA HW HD HL Htc Hev;
   destruct eA, eW, eD; simpl in HA, HW, HD; try contradiction;
-  repeat match goal with
-         | H : _ /\ _ |- _ => destruct H
-         | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gD _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         end; subst.
+  graph_split.
 
 Lemma act_op1 f (aP : atom pv) : act_value (AOp1 f aP).
 Proof.
@@ -2653,7 +2758,8 @@ exact: (replace_nth_z_Forall _ _ _ _ _ Hzv Hza Er).
 Qed.
 
 Lemma actx_weaken L k c c' s wP pp (live live' tb tb' : pv -> Prop) ty :
-  actx L k c s wP pp live tb ty -> (forall p, live' p -> live p) -> (forall p, In p L -> tb' p -> tb p) ->
+  actx L k c s wP pp live tb ty -> (forall p, live' p -> live p) -> (forall p,
+    In p L -> tb' p -> tb p) ->
   (c <= c')%nat -> actx L k c' s wP pp live' tb' ty.
 Proof.
 move=> Hc Hl Ht Hcc; have Hs := a_sctx _ _ _ _ _ _ _ _ _ Hc; constructor.
@@ -2680,7 +2786,8 @@ Qed.
 
 (* A scalar that occurs is not stored in the storage updated in place. *)
 Lemma scalar_not_inplace L k c wP pp (live : pv -> Prop) ty p :
-  sctx L k c wP pp live ty -> In p L -> live p -> ~ is_array (vty (pw p)) -> inplace wP pp <> Some (stored p).
+  sctx L k c wP pp live ty -> In p L -> live p -> ~ is_array (vty (pw p)) ->
+    inplace wP pp <> Some (stored p).
 Proof.
 move=> Hs Hp Hl Ha; rewrite /inplace.
 case Eo: (owner wP pp) => [o |] //= [E _].
@@ -2704,7 +2811,8 @@ Qed.
 Lemma result_pairing_fresh O ty ex v se s n t :
   owners_ok O -> consistent n -> ~ In n (map snd O) ->
   (forall x, In x (dvars se) -> consistent x /\ x <> BarOf n) ->
-  result_pairing ((t, n) :: O) ty ex v se (store_set s (keyv (BarOf n)) (VReal 0)) =
+  result_pairing ((t, n) :: O) ty ex v se (store_set s (keyv (BarOf n)) (VReal
+    0)) =
   result_pairing O ty ex v se s.
 Proof.
 move=> Hok Hn Hni Hse.
@@ -2737,7 +2845,8 @@ move=> m Ev Hm; subst v.
 by case: (HO m Hm) => [H | H]; [exact: (Hbar m erefl H) | exact: (H Hb)].
 Qed.
 
-Lemma rev_frame_x_of c ex n O s s' : rev_frame c ex O s s' -> rev_frame_x c ex n O s s'.
+Lemma rev_frame_x_of c ex n O s s' : rev_frame c ex O s s' -> rev_frame_x c ex n
+  O s s'.
 Proof. by move=> F v _; exact: F. Qed.
 
 Lemma rev_frame_x_mono c c' ex n O O' s s' :
@@ -2756,7 +2865,8 @@ Qed.
 
 (* Writing an adjoint keeps the primal keys. *)
 Lemma agree_prim_set_bar c ex s1 s2 n w :
-  agree_prim c ex s1 s2 -> consistent n -> agree_prim c ex s1 (store_set s2 (keyv (BarOf n)) w).
+  agree_prim c ex s1 s2 -> consistent n -> agree_prim c ex s1 (store_set s2
+    (keyv (BarOf n)) w).
 Proof.
 move=> [A B] Hn; split.
   move=> v Hb Hcv Hp; rewrite -(A v Hb Hcv Hp).
@@ -2766,7 +2876,8 @@ move=> v Hb Hcv; rewrite -(B v Hb Hcv); apply: store_get_set_other => K.
 by have := keyv_inj (BarOf n) (TapeOf v) Hn Hcv K.
 Qed.
 
-Lemma agree_prim_mono c c' ex s1 s2 : agree_prim c' ex s1 s2 -> (c <= c')%nat -> agree_prim c ex s1 s2.
+Lemma agree_prim_mono c c' ex s1 s2 : agree_prim c' ex s1 s2 -> (c <= c')%nat ->
+  agree_prim c ex s1 s2.
 Proof.
 by move=> [A B] Hc; split=> v Hb; [apply: A | apply: B];
   apply: below_mono Hb Hc.
@@ -2780,13 +2891,17 @@ Definition act_owner (eP : value pv bare) : Prop :=
   sctx L k c wP pp live ty -> (forall p, live_value k eW p -> live p) ->
   storage wP tail eP = Some (stored o) -> owner wP pp = Some o ->
   aeval_value (duals reals) eD = Some ve -> varied_value k eA = false ->
-  (forall p ny r, In p L -> varg (pw p) = Some (ny, r) -> avaried (pa p) = varied_role r) ->
-  (forall y, wP = Some (AVar y) -> exists ny r, varg (pw y) = Some (ny, r) /\ written_role r = true) ->
-  forall te, typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) -> (tail = true -> te = ty) ->
+  (forall p ny r, In p L -> varg (pw p) = Some (ny, r) -> avaried (pa p) =
+    varied_role r) ->
+  (forall y, wP = Some (AVar y) -> exists ny r, varg (pw y) = Some (ny, r) /\
+    written_role r = true) ->
+  forall te, typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW =
+    (te, Ok) -> (tail = true -> te = ty) ->
   tangent (pd o) = tangent ve.
 
 Lemma zeros_eq (a b : list R) :
-  Forall (fun x => x = 0) a -> Forall (fun x => x = 0) b -> length a = length b -> a = b.
+  Forall (fun x => x = 0) a -> Forall (fun x => x = 0) b -> length a = length b
+    -> a = b.
 Proof.
 move=> Ha; elim: Ha b => [| x a' Hx Ha IH] [| y b] //=
   /Forall_cons_iff [Hy Hb] [E].
@@ -2805,15 +2920,7 @@ Proof.
 move=> L k c wP pp live ty tail eA eW eD ve o HA HW HD Hs Hlv Es Ho Hev Hvr
   _ _ _ _ _.
 destruct eA, eW, eD; rewrite /= in HA HW HD; try contradiction.
-repeat match goal with
-       | H : _ /\ _ |- _ => destruct H
-       | H : atom_eq (gA _) _ _ |- _ =>
-           apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gW _) _ _ |- _ =>
-           apply atom_graph in H; destruct H as [-> ?]
-       | H : atom_eq (gD _) _ _ |- _ =>
-           apply atom_graph in H; destruct H as [-> ?]
-       end; subst.
+graph_split.
 destruct aP as [q | |]; rewrite /= in Es; try discriminate.
 case: Es => Eq _.
 have Hq : In q L by auto.
@@ -2844,10 +2951,14 @@ Lemma adj_let w vo m a e b se :
   adj W w vo m (ALet a e b) se =
   let '(vr, ac, cp) := let_ann a in
   with_storage w e b (fun n rec =>
-    sbind (adj W w vo m (b (open_let (Transform.type_of e) n vr rec)) se) (fun '(fb, rb) =>
-    sbind (if cp then fwd_value W w m e (Transform.type_of e) n rec else Done []) (fun fe =>
-    sbind (if ac then rev_value W w vo e (Transform.type_of e) n else Done []) (fun re =>
-    Done (app fe fb, app (if ac then bar_declaration W (Transform.type_of e) n else []) (app rb re)))))).
+    sbind (adj W w vo m (b (open_let (Transform.type_of e) n vr rec)) se) (fun
+      '(fb, rb) =>
+    sbind (if cp then fwd_value W w m e (Transform.type_of e) n rec else Done
+      []) (fun fe =>
+    sbind (if ac then rev_value W w vo e (Transform.type_of e) n else Done [])
+      (fun re =>
+    Done (app fe fb, app (if ac then bar_declaration W (Transform.type_of e) n
+      else []) (app rb re)))))).
 Proof. by []. Qed.
 
 (* with_storage, opened: as in the tangent simulation, and a fresh storage
@@ -2857,10 +2968,12 @@ Lemma open_with_storage' {A : Type} L k wP (eP : value pv bare) eT vt
   value_eq (gT L) eP eT -> Forall (static_ok k) L ->
   (forall a, wP = Some a -> exists y, a = AVar y /\ In y L) ->
   exists n rec c0,
-    open_pairs (with_storage (option_map (amap pt) wP) (rebuild_value _ eT vt) bT K) c =
+    open_pairs (with_storage (option_map (amap pt) wP) (rebuild_value _ eT vt)
+      bT K) c =
     open_pairs (K n rec) c0 /\
     match storage wP (Transform.is_tail bT) eP with
-    | Some m => n = m /\ c0 = c /\ exists q, In q L /\ stored q = m /\ rec = trecorded (pt q)
+    | Some m => n = m /\ c0 = c /\ exists q, In q L /\ stored q = m /\ rec =
+      trecorded (pt q)
     | None => n = DBound (c, c) /\ c0 = S c /\ rec = false
     end.
 Proof.
@@ -2899,7 +3012,8 @@ case: HT => _ [_ [Hi _]]; destruct init as [p | |], init0; simpl in Hi;
      split; [reflexivity | exists p; auto]]]).
 Qed.
 
-Lemma option_dec_ex (o : option (dvar W)) (v : dvar W) : {o = Some v} + {o <> Some v}.
+Lemma option_dec_ex (o : option (dvar W)) (v : dvar W) : {o = Some v} + {o <>
+  Some v}.
 Proof.
 case: o => [w |]; last by right.
 by case: (dvar_eq_dec_c w v) => [-> | H]; [left | right=> - [E]].
@@ -3742,7 +3856,8 @@ have Hk3 := K3 _ (below_mono c c2 _ Hb0 Hcc2) Hc0 Hp0 Hne.
 have Bo := Bb Hnl Harr o Ho.
 case Ets: (tail_fold_state (S k) (cA (let_binder k eA))) Bo => [[|] |] //;
   last first.
-  move=> Bo; rewrite Hk3 Bo /s2a store_get_set_other; first exact: keyv_bar_other.
+  move=> Bo; rewrite Hk3 Bo /s2a store_get_set_other; first exact:
+    keyv_bar_other.
   by [].
 move=> [Hso Hto].
 split; first by rewrite Hk3.
@@ -3758,7 +3873,8 @@ by move: Ets; rewrite /x /= in Er'; rewrite Er'.
 Qed.
 
 Lemma asim_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
-  asim_fwd eP -> asim_rev eP -> inplace_only eP -> act_value eP -> act_owner eP -> (forall x, asim_body (cP x)) ->
+  asim_fwd eP -> asim_rev eP -> inplace_only eP -> act_value eP -> act_owner eP
+    -> (forall x, asim_body (cP x)) ->
   asim_body (ALet a eP cP).
 Proof. by move=> *; apply: asim_let_typed => // x _. Qed.
 
@@ -3768,7 +3884,8 @@ Proof. by move=> *; apply: asim_let_typed => // x _. Qed.
    arrays (no branch, no loop). *)
 
 Definition straight_value {V I : Type} (e : value V I) : Prop :=
-  match e with AOp1 _ _ | AOp2 _ _ _ | AGet _ _ | ASet _ _ _ => True | _ => False end.
+  match e with AOp1 _ _ | AOp2 _ _ _ | AGet _ _ | ASet _ _ _ => True | _ =>
+    False end.
 
 Fixpoint straight {V I : Type} (b : anf V I) : Prop :=
   match b with
@@ -3779,7 +3896,8 @@ Fixpoint straight {V I : Type} (b : anf V I) : Prop :=
 (* The reverse sweep of a straight value writes only adjoints. *)
 Lemma straight_rev_bars (eP : value pv bare) : straight_value eP ->
   forall L eT tr wt vo te n c, value_eq (gT L) eP eT ->
-  Forall bar_stmt (fst (open_pairs (rev_value W wt vo (rebuild_value _ eT tr) te n) c)).
+  Forall bar_stmt (fst (open_pairs (rev_value W wt vo (rebuild_value _ eT tr) te
+    n) c)).
 Proof.
 move=> Hs L eT tr wt vo te n c HT.
 destruct eP, eT; rewrite /= in Hs HT; try contradiction;
@@ -3798,9 +3916,11 @@ Qed.
 Lemma asim_rev_bars (eP : value pv bare) :
   asim_rev0 eP ->
   (forall L eT tr wt vo te n c, value_eq (gT L) eP eT ->
-     Forall bar_stmt (fst (open_pairs (rev_value W wt vo (rebuild_value _ eT tr) te n) c))) ->
+     Forall bar_stmt (fst (open_pairs (rev_value W wt vo (rebuild_value _ eT tr)
+       te n) c))) ->
   (forall L k wP pp tail eW te, value_eq (gW L) eP eW ->
-     typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
+     typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok)
+       ->
      storage wP tail eP <> None -> not_in_loop pp -> False) ->
   (forall a lo hi init b, eP <> AFold a lo hi init b) ->
   asim_rev eP.
@@ -3840,7 +3960,8 @@ Qed.
 (* A straight value is updated in place only in the body of an in-place loop. *)
 Lemma straight_no_top (eP : value pv bare) : straight_value eP ->
   forall L k wP pp tail eW te, value_eq (gW L) eP eW ->
-    typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
+    typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok)
+      ->
     storage wP tail eP <> None -> not_in_loop pp -> False.
 Proof.
 move=> Hs L k wP pp tail eW te HW Htc Hst Hl.
@@ -3852,7 +3973,8 @@ destruct pp; rewrite /= in Htc Hl; [| | | by case: Hl];
     destruct e end; discriminate.
 Qed.
 
-Lemma inplace_straight (eP : value pv bare) : straight_value eP -> inplace_only eP.
+Lemma inplace_straight (eP : value pv bare) : straight_value eP -> inplace_only
+  eP.
 Proof.
 move=> Hs L k wP pp tail eA eW te _ HW _ _ Htc Hst Hl.
 by case: (straight_no_top eP Hs L k wP pp tail eW te HW Htc Hst Hl).

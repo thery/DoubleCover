@@ -7,12 +7,17 @@
    the bodies of loops that run no iteration. *)
 
 From Stdlib Require Import String ZArith List Bool Reals Lia Lra.
-From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Operations
-  Normalize WellFormed Atoms Activity Tbr Annotate Transform Tangent Simplify Scoping
-  AnfEquiv Correctness SimplifyCorrect TangentCorrect TangentLoops.
+From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec
+  Operations Normalize WellFormed Atoms Activity Tbr Annotate Transform Tangent
+  Simplify Scoping AnfEquiv Correctness SimplifyCorrect TangentCorrect
+  TangentLoops.
 
 From Corelib Require Import ssreflect ssrbool ssrfun.
 Set Bullet Behavior "None".
+
+(* Proved in SimplifyCorrect.v, under the name the files importing this one
+   use. *)
+Notation expr_ok_incl := SimplifyCorrect.expr_ok_incl.
 
 Import ListNotations.
 
@@ -21,13 +26,15 @@ Import ListNotations.
 Definition good_k (sc wr : list (dvar W)) (c' : nat) (ss : list (dstmt W))
   (Q : list (dvar W) -> list (dvar W) -> Prop) : Prop :=
   forall rest,
-  (forall sc' wr', incl sc sc' -> incl wr wr' -> Forall (fun x => below c' x /\ consistent x) sc' ->
+  (forall sc' wr', incl sc sc' -> incl wr wr' -> Forall (fun x => below c' x /\
+    consistent x) sc' ->
      incl wr' sc' -> Q sc' wr' -> good sc' wr' rest) ->
   good sc wr (ss ++ rest).
 
 Lemma good_k_app sc wr c1 c2 ss1 ss2 Q1 Q2 :
   good_k sc wr c1 ss1 Q1 ->
-  (forall sc1 wr1, incl sc sc1 -> incl wr wr1 -> Forall (fun x => below c1 x /\ consistent x) sc1 ->
+  (forall sc1 wr1, incl sc sc1 -> incl wr wr1 -> Forall (fun x => below c1 x /\
+    consistent x) sc1 ->
      incl wr1 sc1 -> Q1 sc1 wr1 -> good_k sc1 wr1 c2 ss2 Q2) ->
   good_k sc wr c2 (ss1 ++ ss2) Q2.
 Proof.
@@ -37,31 +44,38 @@ by apply: Hr => // x Hx; [apply: J1; apply: I1 | apply: J2; apply: I2].
 Qed.
 
 Lemma good_k_nil sc wr c (Q : list (dvar W) -> list (dvar W) -> Prop) :
-  Forall (fun x => below c x /\ consistent x) sc -> incl wr sc -> Q sc wr -> good_k sc wr c [] Q.
+  Forall (fun x => below c x /\ consistent x) sc -> incl wr sc -> Q sc wr ->
+    good_k sc wr c [] Q.
 Proof. by move=> Hb Hw HQ rest Hr; apply: Hr => //; apply: incl_refl. Qed.
 
 (* The scope of a body: the variables opened before c, which hold the
    variables in scope the body reads and the storage it updates in place. *)
-Definition scope_ok (L : list pv) (c : nat) (wP : option (atom pv)) (pp : pplace)
+Definition scope_ok (L : list pv) (c : nat) (wP : option (atom pv)) (pp :
+  pplace)
   (live : pv -> Prop) (sc wr : list (dvar W)) : Prop :=
   Forall (fun x => below c x /\ consistent x) sc /\ incl wr sc /\
-  (forall p, In p L -> live p -> In (stored p) sc /\ (tdot (pt p) = true -> In (DotOf (stored p)) sc)) /\
-  (forall o, owner wP pp = Some o -> In (stored o) wr /\ In (DotOf (stored o)) wr).
+  (forall p, In p L -> live p -> In (stored p) sc /\ (tdot (pt p) = true -> In
+    (DotOf (stored p)) sc)) /\
+  (forall o, owner wP pp = Some o -> In (stored o) wr /\ In (DotOf (stored o))
+    wr).
 
 Definition good_body (bP : anf pv bare) : Prop :=
   forall L k c wP pp m bA bW bT ty sc wr,
   anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gT L) bP bT ->
-  sctx L k c wP pp (live_anf k bW) ty -> scope_ok L c wP pp (live_anf k bW) sc wr -> real_or_array ty ->
+  sctx L k c wP pp (live_anf k bW) ty -> scope_ok L c wP pp (live_anf k bW) sc
+    wr -> real_or_array ty ->
   typecheck (option_map (amap pw) wP) (wplace pp) k bW = (ty, Ok) ->
   let '((ss, (ve, de)), c') :=
-    open_pairs (tan W (option_map (amap pt) wP) (rebuild _ bT (annotate_body_t false m k bA))) c in
+    open_pairs (tan W (option_map (amap pt) wP) (rebuild _ bT (annotate_body_t
+      false m k bA))) c in
   (c <= c')%nat /\
   good_k sc wr c' ss (fun sc' _ => expr_ok sc' ve /\ expr_ok sc' de).
 
 Definition good_value (eP : value pv bare) : Prop :=
   forall L k c wP pp tail eA eW eT te n ty sc wr,
   value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gT L) eP eT ->
-  sctx L k c wP pp (live_value k eW) ty -> scope_ok L c wP pp (live_value k eW) sc wr ->
+  sctx L k c wP pp (live_value k eW) ty -> scope_ok L c wP pp (live_value k eW)
+    sc wr ->
   typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
   (tail = true -> te = ty) ->
   (exists j, n = DBound (j, j) /\ (j < c)%nat) ->
@@ -72,7 +86,8 @@ Definition good_value (eP : value pv bare) : Prop :=
   let vr := varied_value k eA in
   let '(se, c') :=
     open_pairs (tan_value W (option_map (amap pt) wP)
-                  (rebuild_value _ eT (annotate_value_t false k eA)) te vr n) c in
+                  (rebuild_value _ eT (annotate_value_t false k eA)) te vr n) c
+                    in
   (c <= c')%nat /\
   good_k sc wr c' se (fun sc' _ => In n sc' /\ (vr = true -> In (DotOf n) sc')).
 
@@ -98,7 +113,8 @@ Qed.
 (* ---------------------------------------------------------------------------
    Expressions in scope: every variable they read is in scope. *)
 
-Definition allv (P : dvar W -> Prop) (e : dexpr W) : Prop := forall x, In x (dvars e) -> P x.
+Definition allv (P : dvar W -> Prop) (e : dexpr W) : Prop := forall x, In x
+  (dvars e) -> P x.
 
 Lemma expr_ok_allv sc e : expr_ok sc e <-> allv (fun x => In x sc) e.
 Proof.
@@ -114,9 +130,6 @@ rewrite IHa IHb; split=> [[H1 H2] y /(in_app_or _ _ _) [Hy | Hy] | H]; auto.
 by split=> y Hy; apply: H; apply: in_or_app; auto.
 Qed.
 
-Lemma expr_ok_incl sc sc' e : incl sc sc' -> expr_ok sc e -> expr_ok sc' e.
-Proof. by move=> I; rewrite !expr_ok_allv => H x Hx; apply/I/H. Qed.
-
 Lemma allv_op1 P f e : allv P e -> allv P (DOp1 f e).
 Proof. by []. Qed.
 Lemma allv_op2 P f e1 e2 : allv P e1 -> allv P e2 -> allv P (DOp2 f e1 e2).
@@ -125,8 +138,7 @@ Lemma allv_at P e1 e2 : allv P e1 -> allv P e2 -> allv P (DAt e1 e2).
 Proof. by move=> H1 H2 x /= /(in_app_or _ _ _) [Hx | Hx]; auto. Qed.
 Lemma allv_lit P l : allv P (DReal l).
 Proof. by move=> x []. Qed.
-Lemma allv_int P z : allv P (DInt z).
-Proof. by move=> x []. Qed.
+
 Lemma allv_scale P p e : allv P p -> allv P e -> allv P (scale p e).
 Proof.
 move=> H1 H2; case: p H1 => [x | s | z | a i | f a | f a b] H1;
@@ -141,7 +153,8 @@ by case: l' Hl IH => [| e' l'] Hl IH //; apply: allv_op2.
 Qed.
 
 Lemma allv_partial1 P f (a : atom (tvar W)) p :
-  allv P (spell a) -> allv P (dot a) -> partial1 f a = Some p -> allv P (scale (spell_partial p) (dot a)).
+  allv P (spell a) -> allv P (dot a) -> partial1 f a = Some p -> allv P (scale
+    (spell_partial p) (dot a)).
 Proof.
 move=> Hs Hd Hp; apply: allv_scale; last exact: Hd.
 destruct f as [| | | | | | z |]; rewrite /= in Hp; try discriminate;
@@ -151,7 +164,8 @@ Qed.
 
 Lemma allv_partial2 P f (a b : atom (tvar W)) pa pb :
   allv P (spell a) -> allv P (dot a) -> allv P (spell b) -> allv P (dot b) ->
-  partial2 f a b = Some (pa, pb) -> allv P (sum (tangent_term W a pa ++ tangent_term W b pb)).
+  partial2 f a b = Some (pa, pb) -> allv P (sum (tangent_term W a pa ++
+    tangent_term W b pb)).
 Proof.
 move=> Hsa Hda Hsb Hdb Hp; apply: allv_sum; rewrite /tangent_term.
 destruct f; rewrite /= in Hp; try discriminate; case: Hp => <- <-;
@@ -163,8 +177,10 @@ Qed.
 
 (* An atom of a value, in scope. *)
 Lemma atom_in_scope k sc (aP : atom pv) :
-  (forall p, aP = AVar p -> static_ok k p /\ In (stored p) sc /\ (tdot (pt p) = true -> In (DotOf (stored p)) sc)) ->
-  allv (fun x => In x sc) (spell (amap pt aP)) /\ allv (fun x => In x sc) (dot (amap pt aP)).
+  (forall p, aP = AVar p -> static_ok k p /\ In (stored p) sc /\ (tdot (pt p) =
+    true -> In (DotOf (stored p)) sc)) ->
+  allv (fun x => In x sc) (spell (amap pt aP)) /\ allv (fun x => In x sc) (dot
+    (amap pt aP)).
 Proof.
 case: aP => [p | |] H /=; try by split=> x [].
 have [[_ [_ [Hst _]]] [H1 H2]] := H p erefl; rewrite Hst; split.
@@ -175,11 +191,14 @@ Qed.
 (* ---------------------------------------------------------------------------
    The operations: definitions of new constants. *)
 
-Lemma good_constants j c sc wr (t : ty) e1 e2 (Q : list (dvar W) -> list (dvar W) -> Prop) :
-  expr_ok sc e1 -> expr_ok sc e2 -> ~ In (DBound (j, j)) sc -> ~ In (DotOf (DBound (j, j))) sc -> (j < c)%nat ->
+Lemma good_constants j c sc wr (t : ty) e1 e2 (Q : list (dvar W) -> list (dvar
+  W) -> Prop) :
+  expr_ok sc e1 -> expr_ok sc e2 -> ~ In (DBound (j, j)) sc -> ~ In (DotOf
+    (DBound (j, j))) sc -> (j < c)%nat ->
   Forall (fun x => below c x /\ consistent x) sc -> incl wr sc ->
   Q (DotOf (DBound (j, j)) :: DBound (j, j) :: sc) wr ->
-  good_k sc wr c [DDefine (DConstant t) (DBound (j, j)) e1; DDefine (DConstant Real) (DotOf (DBound (j, j))) e2] Q.
+  good_k sc wr c [DDefine (DConstant t) (DBound (j, j)) e1; DDefine (DConstant
+    Real) (DotOf (DBound (j, j))) e2] Q.
 Proof.
 move=> H1 H2 N1 N2 Hj Hb Hw HQ rest Hr /=.
 apply: GoodConstant; [exact: H1 | exact: N1 | by [] |].
@@ -191,7 +210,8 @@ by constructor; [split=> /=; [lia | by []] |
                  constructor; [split=> /=; [lia | by []] | exact: Hb]].
 Qed.
 
-Lemma good_constant j c sc wr (t : ty) e1 (Q : list (dvar W) -> list (dvar W) -> Prop) :
+Lemma good_constant j c sc wr (t : ty) e1 (Q : list (dvar W) -> list (dvar W) ->
+  Prop) :
   expr_ok sc e1 -> ~ In (DBound (j, j)) sc -> (j < c)%nat ->
   Forall (fun x => below c x /\ consistent x) sc -> incl wr sc ->
   Q (DBound (j, j) :: sc) wr ->
@@ -206,21 +226,19 @@ Qed.
 
 Ltac gvalue_intro :=
   let L := fresh "L" in let k := fresh "k" in let c := fresh "c" in
-  intros L k c wP pp tail eA eW eT te n ty sc wr HA HW HT Hs [Hb [Hw [Hr Ho]]] Htc Htail [j [Ej Hj]] Hst;
+  intros L k c wP pp tail eA eW eT te n ty sc wr HA HW HT Hs [Hb [Hw [Hr Ho]]]
+    Htc Htail [j [Ej Hj]] Hst;
   destruct eA, eW, eT; simpl in HA, HW, HT; try contradiction;
-  repeat match goal with
-         | H : _ /\ _ |- _ => destruct H
-         | H : atom_eq (gA _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gW _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         | H : atom_eq (gT _) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-         end; subst.
+  graph_split.
 
 (* The facts on an atom of the value: in scope. *)
 Lemma operand_scope L k c wP pp (live : pv -> Prop) ty sc (aP : atom pv) :
   sctx L k c wP pp live ty ->
-  (forall p, In p L -> live p -> In (stored p) sc /\ (tdot (pt p) = true -> In (DotOf (stored p)) sc)) ->
+  (forall p, In p L -> live p -> In (stored p) sc /\ (tdot (pt p) = true -> In
+    (DotOf (stored p)) sc)) ->
   (forall p, aP = AVar p -> In p L /\ live p) ->
-  allv (fun x => In x sc) (spell (amap pt aP)) /\ allv (fun x => In x sc) (dot (amap pt aP)).
+  allv (fun x => In x sc) (spell (amap pt aP)) /\ allv (fun x => In x sc) (dot
+    (amap pt aP)).
 Proof.
 move=> Hs Hr Ha; apply: (atom_in_scope k) => p E; have [Hp Lp] := Ha p E.
 split; first exact: (static_in _ _ _ (s_static _ _ _ _ _ _ _ Hs) Hp).
@@ -359,7 +377,8 @@ by move=> y H1 H2 H3; case: (HTop y H1 H2 H3); auto.
 Qed.
 
 Lemma scope_weaken L c c' wP pp (live live' : pv -> Prop) sc wr :
-  scope_ok L c wP pp live sc wr -> (forall p, live' p -> live p) -> (c <= c')%nat ->
+  scope_ok L c wP pp live sc wr -> (forall p, live' p -> live p) -> (c <=
+    c')%nat ->
   scope_ok L c' wP pp live' sc wr.
 Proof.
 move=> [Hb [Hw [Hr Ho]]] Hl Hc; split.
@@ -386,15 +405,12 @@ Qed.
 (* A varied value is a real or an array. *)
 Lemma varied_real_or_array L k wW pW tail (eP : value pv bare) eA eW te :
   value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> Forall (static_ok k) L ->
-  typecheck_value wW pW tail k eW = (te, Ok) -> varied_value k eA = true -> real_or_array te.
+  typecheck_value wW pW tail k eW = (te, Ok) -> varied_value k eA = true ->
+    real_or_array te.
 Proof.
 move=> HA HW HL Htc Hv.
 destruct eP, eA, eW; rewrite /= in HA HW; try contradiction;
-  repeat match goal with
-  | H : _ /\ _ |- _ => destruct H
-  | H : atom_eq (gA L) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-  | H : atom_eq (gW L) _ _ |- _ => apply atom_graph in H; destruct H as [-> ?]
-  end; subst; rewrite /= in Htc Hv.
+  graph_split; rewrite /= in Htc Hv.
 - by destruct f1; rewrite /= in Htc; crush_match Htc; case: Htc => <-.
 - destruct (comparison f1) eqn:Hcmp; first discriminate.
   crush_match Htc; case: Htc => <-.
@@ -598,7 +614,8 @@ Qed.
    A branch. *)
 
 Lemma sctx_sub L k c wP pp pp' (live live' : pv -> Prop) ty :
-  sctx L k c wP pp live ty -> owner wP pp' = None -> pp' <> PTop -> place_ok L pp' ->
+  sctx L k c wP pp live ty -> owner wP pp' = None -> pp' <> PTop -> place_ok L
+    pp' ->
   sctx L k c wP pp' live' Real.
 Proof.
 by move=> Hc Ho Hpp Hpl; case: Hc => *; constructor; auto; move=> *; congruence.
@@ -606,7 +623,8 @@ Qed.
 
 Lemma good_assign_end sc wr (n : dvar W) e1 e2 (vr : bool) :
   In n wr -> In (DotOf n) wr \/ vr = false -> expr_ok sc e1 -> expr_ok sc e2 ->
-  good sc wr (if vr then [DAssign (DVar n) e1; DAssign (DVar (DotOf n)) e2] else [DAssign (DVar n) e1]).
+  good sc wr (if vr then [DAssign (DVar n) e1; DAssign (DVar (DotOf n)) e2] else
+    [DAssign (DVar n) e1]).
 Proof.
 move=> H1 H2 E1 E2; case: vr H2 => H2.
   apply: GoodAssign; [exact: H1 | exact: E1 |].
@@ -745,8 +763,10 @@ Qed.
    Loops. *)
 
 Lemma sctx_scalar (L : list pv) k c wP (live : pv -> Prop) :
-  Forall (static_ok k) L -> ids_unique L -> (forall p, In p L -> (pn p < c)%nat) ->
-  (forall a, wP = Some a -> exists y, a = AVar y /\ In y L /\ varg (pw y) <> None) ->
+  Forall (static_ok k) L -> ids_unique L -> (forall p, In p L -> (pn p < c)%nat)
+    ->
+  (forall a, wP = Some a -> exists y, a = AVar y /\ In y L /\ varg (pw y) <>
+    None) ->
   sctx L k c wP PScalar live Real.
 Proof. by move=> *; constructor. Qed.
 
@@ -1160,7 +1180,8 @@ Qed.
 
 (* The discipline holds for every body and every value. *)
 Theorem scoping :
-  (forall bP : anf pv bare, good_body bP) /\ (forall eP : value pv bare, good_value eP).
+  (forall bP : anf pv bare, good_body bP) /\ (forall eP : value pv bare,
+    good_value eP).
 Proof.
 apply: anf_value_ind.
 - by move=> a e IHe b IHb; case: a => *; apply: good_let.
