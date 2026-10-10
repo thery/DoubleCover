@@ -734,7 +734,7 @@ have Hstep : forall zz s' st tr st', Inv zz s' st tr -> aeval (duals reals) (bD 
   lazymatch goal with |- context [@open_pairs ?A ?t (S c)] =>
     have E : @open_pairs A t (S c) = ((sb, vb), c2) by exact: Hob end.
   rewrite E => -[_ [s3 [R3 [F3 [T3 [_ Ho3]]]]]].
-  have [Tp3 [Ns3 Se3]] := Ho3 sx erefl.
+  have [Ns3 Tp3] := Ho3 sx erefl (abody_ibody _ (Hab ix sx)).
   have Hsi : set_index (bD (pd ix) (pd sx)) <> None.
     by apply: (abody_set_index (sx :: ix :: L) _ _ st' (Hab ix sx) (HbD ix _ sx _) Hbd).
   have [Hht' _] := abody_act _ (Hab ix sx) (sx :: ix :: L) (S (S k)) wP (PArray ix sx)
@@ -755,15 +755,15 @@ have Hstep : forall zz s' st tr st', Inv zz s' st tr -> aeval (duals reals) (bD 
   split; first exact: Hht'.
   (* the tape gets the element the set overwrites *)
   split.
-  { move=> Efr; rewrite Tp3 T'' Tp // fold_pushes_snoc -Ez.
-    rewrite (body_pushes_abody _ (Hab ix sx) (sx :: ix :: L) _ st
-      (HbD ix _ sx _)).
-    case: (set_index (bD (VInt zz) st)) Hsi => [zi _ | []] //.
-    destruct st; try contradiction.
-    by rewrite /= Efr rev_app_distr. }
+  { move=> Efr.
+    have Ec : sweep_eqb m Forward &&
+        (rs || tail_live cv (S (S k)) (bA (pa ix) (pa sx))) = true.
+      by move: Efr => /andb_true_iff [-> ->].
+    rewrite (Tp3 Ec _ (etrans T'' (Tp Efr))) fold_pushes_snoc -Ez.
+    by rewrite rev_app_distr -app_assoc. }
   split.
   { move=> Ers; have [tl Htl] := Tr Ers.
-    by rewrite Tp3 T'' Htl; apply: Htape. }
+    exact: (proj1 T3 _ _ (etrans T'' Htl)). }
   by rewrite length_app /= Ez; lia. }
 have Hinit : Inv l s0 (pd q) [].
 { split; first exact: Fs0. split; first exact: Ts0. split; first exact: Hs0n.
@@ -808,7 +808,7 @@ have Hiw : is_written (option_map (amap pt) wP) (AVar (pt q)) = false.
   by case: (option_map (amap pt) wP) => [[y | |] |] //=; rewrite Et.
 have Hs0 : s0 = s.
   by rewrite /s0 /dcl Hiw andb_false_r.
-have Efr : sweep_eqb m Forward && rs = true by rewrite /rs Hm Hlv.
+have Efr : sweep_eqb m Forward && rs = true by rewrite /rs Hm /= Hlv.
 have Et0 : t0 = l1 by move: (Ht0 Efr); rewrite Hs0 Hl1 => -[].
 by rewrite (Tps Efr) Et0.
 Qed.

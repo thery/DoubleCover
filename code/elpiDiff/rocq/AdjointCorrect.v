@@ -936,10 +936,11 @@ Definition fold_tape (k : nat) (eA : value avar bare) (eW : value vinfo bare) (e
   end.
 
 (* The forward sweep of an in-place fold inside a loop body, when its
-   innermost fold is live: the elements its steps overwrite are pushed on the
-   tape of its storage, from s to s'. *)
+   innermost fold is live or its state recorded (rec): the elements its steps
+   overwrite are pushed on the tape of its storage, from s to s'. *)
 Definition fold_grow (k : nat) (eA : value avar bare)
-  (eD : value (val (dual R)) bare) (s s' : store R) (n : dvar W) : Prop :=
+  (eD : value (val (dual R)) bare) (rec : bool) (s s' : store R) (n : dvar W) :
+  Prop :=
   match eA, eD with
   | AFold _ _ _ initA bA, AFold _ lo hi init b =>
       match aeval_atom (duals reals) lo, aeval_atom (duals reals) hi,
@@ -948,7 +949,7 @@ Definition fold_grow (k : nat) (eA : value avar bare)
           forall tr,
           fold_trace (fun v w => aeval (duals reals) (b v w)) l (count l h) s0
             = Some tr ->
-          fold_live cv k initA bA = true ->
+          fold_live cv k initA bA || rec = true ->
           forall l0, store_get s (keyv (TapeOf n)) = Some (VTape l0) ->
           store_get s' (keyv (TapeOf n)) =
             Some (VTape (rev (fold_pushes b l tr) ++ l0))
@@ -1471,7 +1472,7 @@ Definition asim_fwd (eP : value pv bare) : Prop :=
              store_get s1 (keyv n) = Some (primal ve) /\ (m = Forward /\ not_in_loop pp -> fold_tape k eA eW eD s1 n) /\
              (m = Forward -> ~ not_in_loop pp -> storage wP tail eP <> None ->
               (forall o, owner wP pp = Some o -> tid (pt o) = None) ->
-              fold_grow k eA eD s s1 n).
+              fold_grow k eA eD rec s s1 n).
 
 (* The reverse sweep of an active value computed into n: run from a store
    holding the values it reads, it moves the adjoint of n to the operands, in

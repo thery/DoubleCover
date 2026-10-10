@@ -744,8 +744,30 @@ apply: (replace_nth_other _ _ _ _ _ H).
 move: Ez Ez' => /Z.ltb_ge Ez /Z.ltb_ge Ez' E; apply: Hne; congr Some; lia.
 Qed.
 
+(* The bodies of in-place loops: operations and reads, then a set of the
+   state or an in-place fold, that ends it. *)
+Fixpoint ibody (b : anf pv bare) : Prop :=
+  match b with
+  | ALet _ e b' =>
+      match e with
+      | AOp1 _ _ | AOp2 _ _ _ | AGet _ _ => forall x, ibody (b' x)
+      | ASet _ _ _ => forall x, b' x = ARet (AVar x)
+      | AFold _ _ _ (AVar s) _ =>
+          is_array (vty (pw s)) /\ forall x, b' x = ARet (AVar x)
+      | _ => False
+      end
+  | ARet _ => False
+  end.
+
+(* Whether the innermost fold of a body is live. *)
+Definition tail_live (k : nat) (b : anf avar bare) : bool :=
+  match tail_fold_live cv k b with Some l => l | None => false end.
+
 (* The forward sweep of a branch body: prim computes every let, then the
-   value of the body, from the variables that occur in it. *)
+   value of the body, from the variables that occur in it. In the body of an
+   in-place loop, the storage of the state gets the value of the body, and its
+   tape the elements the step pushes, when the state is recorded or the
+   innermost fold live. *)
 Definition psim_body (bP : anf pv bare) : Prop :=
   forall L k c s wP pp m m' bA bW bT bD ty v,
   anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gT L) bP bT -> anf_eq (gD L) bP bD ->
@@ -757,12 +779,12 @@ Definition psim_body (bP : anf pv bare) : Prop :=
   (c <= c')%nat /\
   exists s1, run sb s = Some s1 /\ fwd_frame c (inplace wP pp) None s s1 /\ tkeep c (inplace wP pp) s s1 /\
     xev s1 x = Some (primal v) /\
-    (forall o, owner wP pp = Some o ->
-       store_get s1 (keyv (TapeOf (stored o))) =
-       tape_step (sweep_eqb m Forward && trecorded (pt o)) (set_index bD) (pd o) (store_get s (keyv (TapeOf (stored o)))) /\
-       (set_index bD <> None -> store_get s1 (keyv (stored o)) = Some (primal v)) /\
-       (forall l0, store_get s (keyv (stored o)) = Some (VArray l0) ->
-          exists l1, store_get s1 (keyv (stored o)) = Some (VArray l1) /\ same_except (set_index bD) l0 l1)).
+    (forall o, owner wP pp = Some o -> ibody bP ->
+       store_get s1 (keyv (stored o)) = Some (primal v) /\
+       (sweep_eqb m Forward && (trecorded (pt o) || tail_live k bA) = true ->
+        forall l0, store_get s (keyv (TapeOf (stored o))) = Some (VTape l0) ->
+        store_get s1 (keyv (TapeOf (stored o))) =
+          Some (VTape (rev (body_pushes bD (pd o)) ++ l0)))).
 
 Lemma prim_let w m a e b :
   prim W w m (ALet a e b) =
@@ -782,8 +804,7 @@ split=> //; exists s; split=> //.
 split; first by [].
 split; first exact: tkeep_refl.
 split; last first.
-  move=> o _; rewrite tape_step_none; split=> //; split; first by move=> [].
-  by move=> l0 E; exists l0; split=> //; exact: same_except_refl.
+  by move=> o _ [].
 have Hs := a_sctx _ _ _ _ _ _ _ _ _ Hc.
 apply: (aspell_ok k s aP) Hev => p Ep; subst aP.
 split; first exact: (static_in _ _ _ (s_static _ _ _ _ _ _ _ Hs) (H p erefl)).
@@ -947,19 +968,31 @@ split.
     (Nat.le_succ_diag_r c)).
   by rewrite /=; lia.
 case: Vb => Vx Vt; split; first exact: Vx.
-move=> o Ho; have [Vt1 [Vt2 Vt3]] := Vt o Ho.
-have HnD : forall a0 i0 y0, eD <> ASet a0 i0 y0.
-  move=> a0 i0 y0 E; subst eD.
-  case: eP HeD Hns {IHf IHa Hsn Hst1 Hr1 Es HeA HeW HeT Hte} => //= a1 i1 y1.
-  by move=> _ /(_ a1 i1 y1).
+move=> o Ho Hib.
 have HoL := owner_in_s _ _ _ _ _ _ _ _ Hs Ho.
-have Esi : set_index (ALet aD eD cD) = set_index (cD ve).
-  move: HnD Hve; case: (eD) => [? ? | ? ? ? | ? ? | a0 i0 y0 | ? ? ? | ? ? ? |
-    ? ? ? ? ?] HnD Hve; cbn [set_index]; rewrite ?Hve //.
-  by case: (HnD a0 i0 y0).
-rewrite Esi; split; last first.
-  by split=> // l0 E0; apply: Vt3; rewrite (Hold o HoL).
-rewrite Vt1; congr (tape_step _ _ _ _).
+have [Hibc [Ebp Etl]] : ibody (cP x) /\
+    body_pushes (ALet aD eD cD) (pd o) = body_pushes (cD ve) (pd o) /\
+    tail_live k (ALet aA eA cA) = tail_live (S k) (cA (let_binder k eA)).
+  move: Hib HeA HeD Hve Hns Hsn; case Ee: eP =>
+    [f0 a0 | f0 a0 b0 | a0 i0 | a0 i0 y0 | ? ? ? | ? ? ? | ? ? ? i0 ?] //=
+    Hib HeA HeD Hve Hns Hsn.
+  - split; first exact: Hib.
+    case Ea: eA HeA => // [? ?] _; case Ed: eD HeD Hve => // [? ?] _ Ev.
+    by move: Ev; rewrite /= => ->.
+  - split; first exact: Hib.
+    case Ea: eA HeA => // [? ? ?] _.
+    case Ed: eD HeD Hve => // [? ? ?] _ Ev.
+    by move: Ev; rewrite /= => ->.
+  - split; first exact: Hib.
+    case Ea: eA HeA => // [? ?] _; case Ed: eD HeD Hve => // [? ?] _ Ev.
+    by move: Ev; rewrite /= => ->.
+  - by case: (Hns _ _ _ erefl).
+  case Ei: i0 Hib Hsn => [q | ? | ?] // [Hqa _] Hsn.
+  by move: (Hsn wP tail); rewrite /=; case: (vty (pw q)) Hqa.
+have [Vt1 Vt2] := Vt o Ho Hibc.
+split; first exact: Vt1.
+move=> Hcnd l0 E0; rewrite Ebp; apply: Vt2; first by rewrite -Etl.
+rewrite -E0.
 have Hno := s_num _ _ _ _ _ _ _ Hs o HoL.
 apply: (proj2 T1); [by rewrite /stored /=; lia | by [] |].
 by move=> E; have := Hnotin o HoL; congruence.
@@ -1114,14 +1147,20 @@ case Erec: (sweep_eqb m Forward && trecorded (pt sx));
       by apply: tkeep_set_tape => //; right.
     by apply: tkeep_set => //=; tauto.
   split; first exact: store_get_set_same.
-  move=> o [<-]; rewrite Esi.
-  split.
-    rewrite Erec0 store_get_set_other // /s0 store_get_set_same Epd Hlt.
-    by rewrite /tape_step nth_z_map Hold.
-  split; first by move=> _; apply: store_get_set_same.
-  move=> la; rewrite Hq => -[<-]; exists (map dfst l1).
+  move=> o [<-] _.
   split; first exact: store_get_set_same.
-  exact: (replace_same_except _ _ _ _ Hm).
+  move=> _ t0; rewrite Hlt => -[<-].
+  rewrite store_get_set_other // /s0 store_get_set_same.
+  have Ebp : body_pushes
+      (ALet aD (ASet (AVar (pd sx)) (amap pd iP) (amap pd vP)) cD) (pd sx) =
+      [dfst old].
+    have Hval : aeval_value (duals reals)
+        (ASet (AVar (pd sx)) (amap pd iP) (amap pd vP)
+         : value (val (dual R)) bare) = Some (VArray l1).
+      by rewrite /= Epd Hi Hv /= Er.
+    rewrite /body_pushes Hval ED -/body_pushes Hi Epd.
+    by rewrite nth_z_map Hold.
+  by rewrite Ebp.
 exists (store_set s (keyv (stored sx)) (VArray (map dfst l1))); split.
   by rewrite app_nil_r; apply: Hassign.
 split.
@@ -1129,12 +1168,13 @@ split.
   by move=> /(keyv_inj _ _ Hcn Hcv) E; subst v0; apply: Hex.
 split; first by apply: tkeep_set => //=; tauto.
 split; first exact: store_get_set_same.
-move=> o [<-]; rewrite Esi.
-split; first by rewrite Erec store_get_set_other.
-split; first by move=> _; apply: store_get_set_same.
-move=> la; rewrite Hq => -[<-]; exists (map dfst l1).
+move=> o [<-] _.
 split; first exact: store_get_set_same.
-exact: (replace_same_except _ _ _ _ Hm).
+move=> Hcnd; exfalso; move: Hcnd.
+have Etv : tail_live k
+    (ALet aA (ASet (AVar (pa sx)) (amap pa iP) (amap pa vP)) cA) = false.
+  by rewrite /tail_live /=; change (cA _) with (cA (pa x)); rewrite EA.
+by rewrite Etv orb_false_r Erec.
 Qed.
 
 (* The body of an in-place loop: operations and reads, then a set of the
@@ -1149,6 +1189,12 @@ Fixpoint abody (b : anf pv bare) : Prop :=
       end
   | ARet _ => False
   end.
+
+Lemma abody_ibody b : abody b -> ibody b.
+Proof.
+elim: b => [a e b' IH | x] //=.
+by case: e => // *; auto.
+Qed.
 
 Lemma abody_straight b : abody b -> straight b.
 Proof.
