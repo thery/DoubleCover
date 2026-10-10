@@ -47,15 +47,15 @@ L0 source --normalize--> L1 (A-normal form) --annotate--> L1ᵃ (annotated)
    --tangent / adjoint--> L2 (imperative IR) --simplify--> L2′ --lower--> L3 (C++)
 ```
 
-- `normalize` (Normalize.v) names every intermediate value with a `let`.
-- `annotate` (Annotate.v) runs the analyses (activity, to-be-recorded) and
+- [`normalize`](Normalize.v#L87) (Normalize.v) names every intermediate value with a `let`.
+- [`annotate`](Annotate.v#L134) (Annotate.v) runs the analyses (activity, to-be-recorded) and
   stores their verdicts on each `let` and each fold.
-- `tangent` (Tangent.v) and `adjoint` (Adjoint.v) generate derivative code
+- `tangent` (Tangent.v) and [`adjoint`](Adjoint.v#L315) (Adjoint.v) generate derivative code
   in L2, a small imperative language with loops, arrays and tapes.
-- `simplify` (Simplify.v) propagates copies and constants and removes dead
+- [`simplify`](Simplify.v#L292) (Simplify.v) propagates copies and constants and removes dead
   definitions.
-- `lower` (Lower.v) and the printers (Cxx.v) produce C++. These last passes
-  are not proved: the proofs stop at L2′, executed by the evaluator `exec`
+- [`lower`](Lower.v#L90) (Lower.v) and the printers (Cxx.v) produce C++. These last passes
+  are not proved: the proofs stop at L2′, executed by the evaluator [`exec`](Exec.v#L117)
   of Exec.v.
 
 ### A running example
@@ -79,7 +79,7 @@ and the script `tools/torocq.elpi` prints it as a Rocq term of L0:
 Definition f_fn : function := Function_ "f" (fun V => Arg "x" Real Independent (fun x1 => Arg "y" Real Independent (fun x2 => Body (Returns Real) (Op2 Add (Op2 Mul (Var x1) (Var x2)) (Op1 Sin (Var x1)))))).
 ```
 
-After `normalize`, every intermediate value has a name. This is the output
+After [`normalize`](Normalize.v#L87), every intermediate value has a name. This is the output
 of the tool's `dump -- anf`:
 
 ```
@@ -90,7 +90,7 @@ f(x: real independent, y: real independent) returns real:
     return t3
 ```
 
-`annotate` adds the verdicts of the analyses (`dump -- annotated adjoint`).
+[`annotate`](Annotate.v#L134) adds the verdicts of the analyses (`dump -- annotated adjoint`).
 All three lets depend on an independent argument (*varied*) and the result
 depends on them (*useful*), so all three are *active*:
 
@@ -136,7 +136,7 @@ f_adjoint(x: real, y: real, x_bar: ref real, y_bar: ref real, result_bar: real):
     y_bar += x * t1_bar
 ```
 
-After `simplify` (`dump -- simplified adjoint`), each mutable adjoint that is
+After [`simplify`](Simplify.v#L292) (`dump -- simplified adjoint`), each mutable adjoint that is
 written only once becomes a constant:
 
 ```
@@ -164,8 +164,8 @@ declarations, and `f` is defined at `x` in the sense of Abadi and Plotkin
 (its evaluation never compares two equal reals, Smooth.v). `derivative f x
 df` says that `df` is the Fréchet derivative of `f` at `x` (Coquelicot's
 `filterdiff`), and `D f x df dx` is `df` applied to the tangent `dx`, masked
-by `seed` (the arguments that carry no derivative on entry). `run_tangent`
-and `run_adjoint` run the generated, simplified programs over the reals and
+by `seed` (the arguments that carry no derivative on entry). [`run_tangent`](Main.v#L48)
+and [`run_adjoint`](Main.v#L62) run the generated, simplified programs over the reals and
 read their results back. `⟨u, v⟩` is the dot product of two lists of reals
 (Dot.v). The theorems (Main.v):
 
@@ -203,13 +203,13 @@ that passes the dot-product test, ⟨D dx, yb⟩ = ⟨dx, g⟩ for every directi
 `dx`, the defining property of the transpose of the derivative; the
 adjoint-value program also gives back the value of `f`, unless `f` writes
 an inout argument; and the two programs are adjoint to each other. A
-derivative is unique (`filterdiff_locally_unique`, ModesAgree.v), so the
+derivative is unique ([`filterdiff_locally_unique`](ModesAgree.v#L73), ModesAgree.v), so the
 theorems may speak of any derivative `df`.
 
-The detailed forms spell the same out on the encoding: `tangent_mode_correct`
-(TangentMode.v) and `adjoint_mode_correct` (AdjointMode.v) state the runs
-with `exec_dfunction`, `tangent_inputs`, `adjoint_inputs`, `tangent_output`
-and `adjoint_output`, and `adjoint_tangent_agree` (ModesAgree.v) is the
+The detailed forms spell the same out on the encoding: [`tangent_mode_correct`](TangentMode.v#L179)
+(TangentMode.v) and [`adjoint_mode_correct`](AdjointMode.v#L43) (AdjointMode.v) state the runs
+with [`exec_dfunction`](Exec.v#L194), `tangent_inputs`, [`adjoint_inputs`](AdjointSpec.v#L50), `tangent_output`
+and [`adjoint_output`](AdjointSpec.v#L105), and [`adjoint_tangent_agree`](ModesAgree.v#L105) (ModesAgree.v) is the
 corollary relating them. `tangent_inputs` passes 0 in the tangent
 parameters that are outputs only (`result_dot`, the tangent of a written
 dependent argument); the general version, `tangent_mode_correct_with dd r0`,
@@ -221,21 +221,21 @@ never reads them.
 The adjoint proof is built in milestones (README.md has the table):
 - **M1 to M5 are done.** They cover straight-line code, branches, maps,
   scalar folds, and folds that update an array in place, nested to any
-  depth. The result is the top-level corollary `adjoint_nesty_duals`
-  (AdjointTop.v; `adjoint_straight_duals`, `adjoint_branchy_duals` and
-  `adjoint_foldy_duals` are its instances). It relates the adjoint code
-  *before* `simplify` to the dual-number evaluation of the source.
+  depth. The result is the top-level corollary [`adjoint_nesty_duals`](AdjointTop.v#L1736)
+  (AdjointTop.v; [`adjoint_straight_duals`](AdjointTop.v#L1765), [`adjoint_branchy_duals`](AdjointTop.v#L1796) and
+  [`adjoint_foldy_duals`](AdjointTop.v#L1826) are its instances). It relates the adjoint code
+  *before* [`simplify`](Simplify.v#L292) to the dual-number evaluation of the source.
   AdjointExamples.v checks that its class premise holds on real programs.
-- **M6 is done.** `simplify_correct_tapes` (SimplifyCorrect.v) proves
-  that `simplify` is correct on code with tapes, under a scoping discipline
-  called `good`. `agood_fwd` and `agood_adj` (AdjointGoodFwd.v,
-  AdjointGoodRev.v) prove that the code `adj` generates follows it, for
-  every body, and `adjoint_nesty_simplified` (AdjointGoodTop.v) gives the
+- **M6 is done.** [`simplify_correct_tapes`](SimplifyCorrect.v#L2163) (SimplifyCorrect.v) proves
+  that [`simplify`](Simplify.v#L292) is correct on code with tapes, under a scoping discipline
+  called `good`. [`agood_fwd`](AdjointGoodFwd.v#L1092) and [`agood_adj`](AdjointGoodRev.v#L1663) (AdjointGoodFwd.v,
+  AdjointGoodRev.v) prove that the code [`adj`](Adjoint.v#L203) generates follows it, for
+  every body, and [`adjoint_nesty_simplified`](AdjointGoodTop.v#L414) (AdjointGoodTop.v) gives the
   simplified adjoint function.
-- **M7 is done.** `well_formed_nesty` (AdjointClassify.v) shows that every
+- **M7 is done.** [`well_formed_nesty`](AdjointClassify.v#L631) (AdjointClassify.v) shows that every
   well-formed program falls into the class of bodies the proofs handle
-  (section 5.6), and `adjoint_mode_correct` (AdjointMode.v) is proved
-  through `adjoint_mode_correct_from` (AdjointModeProof.v). The development
+  (section 5.6), and [`adjoint_mode_correct`](AdjointMode.v#L43) (AdjointMode.v) is proved
+  through [`adjoint_mode_correct_from`](AdjointModeProof.v#L74) (AdjointModeProof.v). The development
   has no `Admitted`.
 
 ### What you have to trust
@@ -275,24 +275,24 @@ Inductive term : Type :=
 
 `Let_ e b` binds a variable in `b : V -> term`. There is no string name and
 no de Bruijn index. A closed program does not choose `V`: it is a function
-`forall V, ...`. Look at `f_fn` above: `Function_ "f" (fun V => ...)`.
+`forall V, ...`. Look at [`f_fn`](AdjointExamples.v#L45) above: `Function_ "f" (fun V => ...)`.
 
 Why go to that trouble? Because each pass, and each proof, picks the `V` it
 needs and *instantiates* the same program at it. To open a binder `b`, you
 apply it to a variable of your chosen type:
 - the evaluators take `V := val N` (values) and compute `eval (b v)`;
-- `normalize` takes `V := atom V'`, so a source variable *is* its atom in
+- [`normalize`](Normalize.v#L87) takes `V := atom V'`, so a source variable *is* its atom in
   the output;
-- `well_formed` takes `V := vinfo`, a record with an identity, a type and
+- [`well_formed`](WellFormed.v#L403) takes `V := vinfo`, a record with an identity, a type and
   an argument role;
 - the analyses take `V := avar`, an identity with a varied flag;
-- `tangent` and `adjoint` take `V := tvar V'`, a record of everything they
+- `tangent` and [`adjoint`](Adjoint.v#L315) take `V := tvar V'`, a record of everything they
   know of a variable (where it is stored, whether it has a tangent, an
   adjoint, a tape, ...);
 - the L2 evaluator takes `nat`, and the proofs of L2 take `W := nat * nat`.
 
-`annotate` (Annotate.v) shows the idea in two lines. It instantiates its
-input twice: once at `avar` to compute the annotations into a tree `t`, and
+[`annotate`](Annotate.v#L134) (Annotate.v) shows the idea in two lines. It instantiates its
+input twice: once at [`avar`](Atoms.v#L17) to compute the annotations into a tree `t`, and
 once at the output's `V` to rebuild the term with them:
 
 ```
@@ -305,7 +305,7 @@ To look *inside* a binder, an analysis must invent a variable. It numbers
 them: it applies the binder to a variable with identity `k` and continues at
 `S k`. This is why most analyses take an argument `k`, and why you will see
 `anon k`, `fresh k`, `let_binder k e` and `opened k` everywhere. These are
-the variables numbered `k` at the types `vinfo`, `avar`, and so on.
+the variables numbered `k` at the types [`vinfo`](WellFormed.v#L25), [`avar`](Atoms.v#L17), and so on.
 
 ### L1: A-normal form (Anf.v)
 
@@ -341,7 +341,7 @@ example is, in Rocq notation:
 
 ### L2: the derivative IR (Derivative.v)
 
-L2 is imperative. A variable of the generated code is a `dvar`. Its
+L2 is imperative. A variable of the generated code is a [`dvar`](Derivative.v#L17). Its
 derived variables (tangent, adjoint, tape) are built from it by
 constructors, never by renaming:
 
@@ -355,10 +355,10 @@ Inductive dvar : Type :=                          (* a variable of the generated
 ```
 
 So `t1_bar` in the dump is `BarOf t1`, and `t1_tape` is `TapeOf t1`. The
-statements (`dstmt`) are what you expect: `DDefine`, `DAssign`,
+statements ([`dstmt`](Derivative.v#L42)) are what you expect: `DDefine`, `DAssign`,
 `DIncrement` (the `+=` of adjoints), `DBranch`, `DFor`, `DForBack` (a loop
 running downward), and `DTape`, `DPush`, `DPop` for tapes. Generated code is
-wrapped in `scoped`, which binds each fresh local:
+wrapped in [`scoped`](Derivative.v#L81), which binds each fresh local:
 
 ```
 Inductive scoped (A : Type) : Type :=
@@ -371,28 +371,28 @@ Inductive scoped (A : Type) : Type :=
 
 Each language has an evaluator that returns an `option`, `None` when the
 program goes wrong:
-- `eval_function` (Eval.v) runs L0;
-- `aeval_function` (EvalAnf.v) runs L1 and L1ᵃ;
-- `exec_dfunction` (Exec.v) runs L2 over a `store`, a list of
+- [`eval_function`](Eval.v#L159) (Eval.v) runs L0;
+- [`aeval_function`](EvalAnf.v#L77) (EvalAnf.v) runs L1 and L1ᵃ;
+- [`exec_dfunction`](Exec.v#L194) (Exec.v) runs L2 over a `store`, a list of
   `(key, val N)` pairs.
 
-The evaluators of L0 and L1 are parametric in a `domain` of numbers
+The evaluators of L0 and L1 are parametric in a [`domain`](Domain.v#L23) of numbers
 (Domain.v): a record with literals, operations and comparisons. Three
 domains matter:
-- `reals`: the reals of Rocq;
-- `duals`: dual numbers over a domain. A value is a pair (primal value,
+- [`reals`](Domain.v#L144): the reals of Rocq;
+- [`duals`](Domain.v#L213): dual numbers over a domain. A value is a pair (primal value,
   tangent), and evaluating with duals *is* forward-mode differentiation;
-- `smooth_reals` (Smooth.v): the reals, but a comparison of two equal reals
+- [`smooth_reals`](Smooth.v#L43) (Smooth.v): the reals, but a comparison of two equal reals
   is undefined. This is the partial semantics of Abadi and Plotkin, and
   `defined f x` is defined with it.
 
 The values are `val N`: `VReal`, `VInt`, `VBool`, `VArray`, plus `VTape`,
 which only L2 uses.
 
-### The `pv` record: all instances at once
+### The [`pv`](TangentCorrect.v#L147) record: all instances at once
 
 The proofs need to talk about one variable as *every* pass sees it. They
-instantiate the L1 program once more, at the record `pv` (TangentCorrect.v):
+instantiate the L1 program once more, at the record [`pv`](TangentCorrect.v#L147) (TangentCorrect.v):
 
 ```
 Record pv : Type := PV { pa : avar; pw : vinfo; pt : tvar W; pd : val (dual R); pn : nat }.
@@ -400,15 +400,15 @@ Record pv : Type := PV { pa : avar; pw : vinfo; pt : tvar W; pd : val (dual R); 
 Definition stored (p : pv) : dvar W := DBound (pn p, pn p).
 ```
 
-A `pv` bundles:
+A [`pv`](TangentCorrect.v#L147) bundles:
 - `pa`: what the analyses know (identity, varied);
-- `pw`: what `well_formed` knows (identity, type, role);
+- `pw`: what [`well_formed`](WellFormed.v#L403) knows (identity, type, role);
 - `pt`: what the transformations know;
 - `pd`: the value in the dual-number evaluation, that is, the primal value
   and the tangent in direction `dx`;
 - `pn`: the number of the generated variable that stores it.
 
-The body at `pv`, called `bP` in the statements, is the "master copy". The
+The body at [`pv`](TangentCorrect.v#L147), called `bP` in the statements, is the "master copy". The
 four other instances (`bA`, `bW`, `bT`, `bD`) are its projections. The next
 section shows how the proofs say so.
 
@@ -420,12 +420,12 @@ section shows how the proofs say so.
 
 Nothing in Rocq forces `afdef f avar` and `afdef f (val (dual R))` to be the
 same term. A function `fun V => ...` could inspect `V` and do different
-things. So a proof that reasons about the analysis (at `avar`) and the
+things. So a proof that reasons about the analysis (at [`avar`](Atoms.v#L17)) and the
 evaluation (at `val (dual R)`) of the same body must *assume* that the two
 are instances of one term. `parametric f` is that assumption for the source,
-and `normalize_parametric` (AnfEquiv.v) transfers it to L1.
+and [`normalize_parametric`](AnfEquiv.v#L211) (AnfEquiv.v) transfers it to L1.
 
-### `anf_eq`: two instances are the same term
+### [`anf_eq`](AnfEquiv.v#L33): two instances are the same term
 
 AnfEquiv.v defines the relation, by recursion on the first body:
 
@@ -440,14 +440,14 @@ Fixpoint anf_eq (G : list (V1 * V2)) (b1 : anf V1 bare) (b2 : anf V2 bare) {stru
 ```
 
 `G` lists the pairs of variables in scope that correspond. Two variables are
-related when `In (x1, x2) G` (`atom_eq`). Under a binder, the two bodies must
+related when `In (x1, x2) G` ([`atom_eq`](AnfEquiv.v#L25)). Under a binder, the two bodies must
 be related **for any** pair `(x1, x2)` added to `G`. This "for any" is what
 makes the relation strong: you may open the two binders at whatever pair you
 like.
 
-### The graphs `gA`, `gW`, `gT`, `gD`
+### The graphs [`gA`](TangentCorrect.v#L153), [`gW`](TangentCorrect.v#L154), [`gT`](TangentCorrect.v#L155), [`gD`](TangentCorrect.v#L156)
 
-The proofs relate the master copy at `pv` to each projection with a `G` of a
+The proofs relate the master copy at [`pv`](TangentCorrect.v#L147) to each projection with a `G` of a
 special shape (TangentCorrect.v):
 
 ```
@@ -471,14 +471,14 @@ each variable `p` of `L` is seen as `pa p`, `pw p`, `pt p` and `pd p`."
 ### Walking through one let
 
 Take the first let of the example, `let t1 = x * y in rest`, with `L`
-containing `px` and `py` (the `pv` records of `x` and `y`). The hypothesis
+containing `px` and `py` (the [`pv`](TangentCorrect.v#L147) records of `x` and `y`). The hypothesis
 `anf_eq (gD L) bP bD` unfolds to:
 1. `value_eq (gD L) (AOp2 Mul (AVar px) (AVar py)) eD`, so `eD` is
-   `AOp2 Mul (AVar (pd px)) (AVar (pd py))` (the lemma `atom_graph` turns
+   `AOp2 Mul (AVar (pd px)) (AVar (pd py))` (the lemma [`atom_graph`](TangentCorrect.v#L638) turns
    `atom_eq (gD L) (AVar px) a` into `a = AVar (pd px)`);
 2. `forall x1 x2, anf_eq ((x1, x2) :: gD L) (rest_P x1) (rest_D x2)`.
 
-To go under the binder, a proof builds the `pv` record of `t1`, call it
+To go under the binder, a proof builds the [`pv`](TangentCorrect.v#L147) record of `t1`, call it
 `x`, with `pd x` the dual value of `x * y`, `pn x` the number of its
 generated variable, and so on. It then instantiates (2) at `x1 := x` and
 `x2 := pd x`. Now `(x, pd x) :: gD L` is exactly `gD (x :: L)`, so the
@@ -496,29 +496,29 @@ architecture.
 
 ### The chain of theorems
 
-`tangent_mode_correct` composes four results:
-1. `normalize_correct` (Correctness.v): where the source computes a value,
+[`tangent_mode_correct`](TangentMode.v#L179) composes four results:
+1. [`normalize_correct`](Correctness.v#L206) (Correctness.v): where the source computes a value,
    in any domain, its A-normal form computes the same.
-2. `duals_derive` (DualsDerive.v): where `f` is `defined`, it is
+2. [`duals_derive`](DualsDerive.v#L1491) (DualsDerive.v): where `f` is [`defined`](Smooth.v#L50), it is
    differentiable, and evaluating it over dual numbers computes the
    derivative applied to `dx`.
-3. `tangent_simulates_duals_with` (TangentTop.v): the *unsimplified*
+3. [`tangent_simulates_duals_with`](TangentTop.v#L690) (TangentTop.v): the *unsimplified*
    tangent function, run over the reals, gives the primal value and the
    tangent of the dual evaluation of `normalize f`, whatever the initial
    values of its output-only tangent parameters. It also says that this code
    is `good` (well scoped).
-4. `simplify_correct_tapes` (SimplifyCorrect.v): `simplify` preserves the
+4. [`simplify_correct_tapes`](SimplifyCorrect.v#L2163) (SimplifyCorrect.v): [`simplify`](Simplify.v#L292) preserves the
    result of `good` code.
 
 Notice the idea: the derivative is never mentioned in the simulation. The
 generated code is compared to the **dual-number evaluation** of the source,
-which is a program, not a mathematical object. `duals_derive` alone connects
+which is a program, not a mathematical object. [`duals_derive`](DualsDerive.v#L1491) alone connects
 dual numbers with Coquelicot's derivative.
 
-### The simulation of a body: `sim_body`
+### The simulation of a body: [`sim_body`](TangentCorrect.v#L747)
 
-The heart is `sim_body` (TangentCorrect.v), proved for all bodies by
-`simulation` (TangentLoops.v):
+The heart is [`sim_body`](TangentCorrect.v#L747) (TangentCorrect.v), proved for all bodies by
+[`simulation`](TangentLoops.v#L717) (TangentLoops.v):
 
 ```
 Definition sim_body (bP : anf pv bare) : Prop :=
@@ -538,29 +538,29 @@ Definition sim_body (bP : anf pv bare) : Prop :=
 
 The hypotheses, in groups:
 - the four instances are related (section 3);
-- `ctx_ok`: the store `s` holds the primal value of every live variable of
+- [`ctx_ok`](TangentCorrect.v#L231): the store `s` holds the primal value of every live variable of
   `L`, and its tangent when it has one (fields in DEFINITIONS.md);
-- the body type-checks with type `ty`, and its dual evaluation gives `v`.
+- the body type-checks with type [`ty`](Syntax.v#L61), and its dual evaluation gives `v`.
 
-The conclusion is about `open_pairs (tan ...) c`. That is the code `tan`
+The conclusion is about `open_pairs (tan ...) c`. That is the code [`tan`](Tangent.v#L100)
 generates for this body, with its fresh locals numbered from `c` on (see
 below). It says:
 - the numbering advances (`c <= c'`);
 - the value has its type, and it is zero when the body is not varied (the
   activity analysis is sound);
 - the expressions `ve` and `de` (value and tangent) read only what they
-  may (`res_vars`, `dot_vars`);
+  may ([`res_vars`](TangentCorrect.v#L716), [`dot_vars`](TangentCorrect.v#L724));
 - the statements `ss` run from `s` to some `s'` and change nothing old
   except the in-place storage (`frame`);
 - `ve` and `de` evaluate in `s'` to the primal and the tangent of `v`
-  (`body_result`).
+  ([`body_result`](TangentCorrect.v#L298)).
 
-### Numbering generated variables: `open_pairs`
+### Numbering generated variables: [`open_pairs`](Scoping.v#L27)
 
 The generated code binds its locals with `Fresh`. To run it, the evaluator
-numbers them 0, 1, 2, .... `simplify` compares the first component of a
+numbers them 0, 1, 2, .... [`simplify`](Simplify.v#L292) compares the first component of a
 `W = nat * nat` variable and the evaluator compares the second.
-`open_pairs` (Scoping.v) opens the binders with the pair `(c, c)`:
+[`open_pairs`](Scoping.v#L27) (Scoping.v) opens the binders with the pair `(c, c)`:
 
 ```
 Fixpoint open_pairs {A : Type} (s : scoped W A) (k : nat) : A * nat :=
@@ -573,13 +573,13 @@ Fixpoint open_pairs {A : Type} (s : scoped W A) (k : nat) : A * nat :=
 
 So in a statement, `let '((ss, ...), c') := open_pairs (...) c in ...` reads
 "the code generated here, whose fresh variables are numbered from `c` to
-`c'`". A variable is `consistent` when its two numbers agree, and `below c v`
+`c'`". A variable is [`consistent`](Scoping.v#L35) when its two numbers agree, and `below c v`
 says it was opened before `c`, that is, it existed before the code under
 study.
 
-### Scoping and `simplify`
+### Scoping and [`simplify`](Simplify.v#L292)
 
-`simplify` is only correct on code where every variable read is in scope,
+[`simplify`](Simplify.v#L292) is only correct on code where every variable read is in scope,
 every assigned variable is writable, and every defined variable is new. This
 discipline is the inductive `good sc wr ss` of Scoping.v (`sc` = in scope,
 `wr` = writable). Two of its rules:
@@ -592,9 +592,9 @@ discipline is the inductive `good sc wr ss` of Scoping.v (`sc` = in scope,
     In t wr -> expr_ok sc e -> good sc wr r -> good sc wr (DPush t e :: r)
 ```
 
-`scoping` (TangentGood.v) proves that tangent code is `good`.
-`simplify_correct_tapes` (SimplifyCorrect.v) then proves that
-`simplify` preserves the execution of `good` code, tapes included:
+[`scoping`](TangentGood.v#L1182) (TangentGood.v) proves that tangent code is `good`.
+[`simplify_correct_tapes`](SimplifyCorrect.v#L2163) (SimplifyCorrect.v) then proves that
+[`simplify`](Simplify.v#L292) preserves the execution of `good` code, tapes included:
 
 ```
 Theorem simplify_correct_tapes (g : dfunction) (args : list (val R))
@@ -617,7 +617,7 @@ Adjoint code has two parts. The **forward sweep** recomputes the primal
 values the reverse sweep will need, and records on *tapes* the values that
 are about to be overwritten. The **reverse sweep** visits the lets in reverse
 order. For `let x = e`, it adds `∂e/∂a * x_bar` to the adjoint `a_bar` of each
-operand `a`. For a body, `adj` (Adjoint.v) returns the pair (forward,
+operand `a`. For a body, [`adj`](Adjoint.v#L203) (Adjoint.v) returns the pair (forward,
 reverse). Here is the case of a let:
 
 ```
@@ -662,9 +662,9 @@ For our example, with `t3_bar = yb` at the start, the pairing is
 `t3_dot = t1_dot + t2_dot`, and so on down to
 `x_dot * x_bar + y_dot * y_bar`.
 
-### 5.2 `asim_body`: the shape of every adjoint lemma
+### 5.2 [`asim_body`](AdjointCorrect.v#L1224): the shape of every adjoint lemma
 
-`asim_body` (AdjointCorrect.v) is to the adjoint what `sim_body` is to the
+[`asim_body`](AdjointCorrect.v#L1224) (AdjointCorrect.v) is to the adjoint what [`sim_body`](TangentCorrect.v#L747) is to the
 tangent. One lemma covers both sweeps of a body:
 
 ```
@@ -707,19 +707,19 @@ The quantification over `s2` is what lets the proof of a let put the reverse
 code of the rest *between* the forward code of this let and its own reverse
 code.
 
-### 5.3 Contexts: `actx`, `sctx`, `rctx`
+### 5.3 Contexts: [`actx`](AdjointCorrect.v#L392), [`sctx`](TangentCorrect.v#L257), [`rctx`](AdjointCorrect.v#L585)
 
 Three records carry the invariants. Their fields are listed in DEFINITIONS.md
 ("The adjoint contexts"). Here is what each is for:
-- `sctx` holds the facts that do not mention the store. Every variable of
-  `L` is `static_ok` (the four instances agree on it), identities are
-  unique, and the in-place place is sane (`place_ok`). It is shared with the
+- [`sctx`](TangentCorrect.v#L257) holds the facts that do not mention the store. Every variable of
+  `L` is [`static_ok`](TangentCorrect.v#L165) (the four instances agree on it), identities are
+  unique, and the in-place place is sane ([`place_ok`](TangentCorrect.v#L207)). It is shared with the
   tangent proof.
-- `actx` is the context of the **forward** sweep. Its key field is
+- [`actx`](AdjointCorrect.v#L392) is the context of the **forward** sweep. Its key field is
   `a_store`: every variable that the TBR analysis marks *to be recorded*
   (`tb`) has its primal value in the store. This is what makes the reverse
   sweep able to read it.
-- `rctx` is the context of the **reverse** sweep, on the owners `O`. Its key
+- [`rctx`](AdjointCorrect.v#L585) is the context of the **reverse** sweep, on the owners `O`. Its key
   field is `r_useful`: every useful, varied variable in scope is an owner,
   with its tangent.
 
@@ -809,14 +809,14 @@ before each step. The annotation says so: `[state varied, state recorded,
 records]`.
 
 The proofs describe tapes with:
-- `fold_trace`: the list of the states of a fold before each step;
-- `fold_tape`: what the tape holds after the forward sweep;
-- `body_pushes` / `fold_pushes`: what a step of an in-place fold pushes (the
+- [`fold_trace`](AdjointCorrect.v#L723): the list of the states of a fold before each step;
+- [`fold_tape`](AdjointCorrect.v#L962): what the tape holds after the forward sweep;
+- [`body_pushes`](AdjointCorrect.v#L758) / [`fold_pushes`](AdjointCorrect.v#L798): what a step of an in-place fold pushes (the
   element it overwrites);
-- `tail_tape`: the tape the body of an in-place loop receives from its loop;
-- `tail_back`: what the reverse sweep of such a body gives back.
+- [`tail_tape`](AdjointCorrect.v#L1210): the tape the body of an in-place loop receives from its loop;
+- [`tail_back`](AdjointCorrect.v#L1056): what the reverse sweep of such a body gives back.
 
-`tail_tape` takes the activity instance `bA` and the dual instance `bD` of
+[`tail_tape`](AdjointCorrect.v#L1210) takes the activity instance `bA` and the dual instance `bD` of
 the body, and it follows a let only on the value that the let computes:
 
 ```
@@ -835,27 +835,27 @@ Fixpoint tail_tape (k : nat) (L : list pv) (b : anf pv bare)
   end.
 ```
 
-### 5.6 Body classes: why `straight`, `branchy`, `foldy`, `nesty`
+### 5.6 Body classes: why [`straight`](AdjointCorrect.v#L3890), [`branchy`](AdjointBranch.v#L3185), [`foldy`](AdjointFoldy.v#L237), [`nesty`](AdjointNesty.v#L25)
 
 The adjoint proof is not done for all bodies at once. It is done for growing
 *classes* of bodies, one per milestone. Each class is a predicate on the
 master body, and each comes with a theorem "every body of the class has an
-`asim_body`":
-- `straight` (AdjointCorrect.v, theorem `asim_straight`): lets of
+[`asim_body`](AdjointCorrect.v#L1224)":
+- [`straight`](AdjointCorrect.v#L3890) (AdjointCorrect.v, theorem [`asim_straight`](AdjointCorrect.v#L3984)): lets of
   operations, reads `a[i]` and in-place sets;
 - `branchy top` (AdjointBranch.v): adds branches, maps and
   scalar folds. The flag `top` says whether we are at the top of the
   function, since maps and folds are only allowed there;
 - `foldy top` (AdjointFoldy.v): adds folds that update an array in place,
-  whose step is an `abody`, that is, ops and reads ending with a set
-  (AdjointBranch.v). It is now a subclass of `nesty` (`foldy_nesty`), which
+  whose step is an [`abody`](AdjointBranch.v#L1251), that is, ops and reads ending with a set
+  (AdjointBranch.v). It is now a subclass of [`nesty`](AdjointNesty.v#L25) ([`foldy_nesty`](AdjointTop.v#L1730)), which
   carries its theorem;
-- `nesty top` (AdjointNesty.v, `asim_nesty`): adds nests of any depth, an
-  in-place fold whose step is an `nbody`, that is, ops and reads ending with
+- `nesty top` (AdjointNesty.v, [`asim_nesty`](AdjointNesty.v#L46)): adds nests of any depth, an
+  in-place fold whose step is an [`nbody`](AdjointNBody.v#L21), that is, ops and reads ending with
   a set, with an inner in-place fold on its state whose steps are again
   nbodies, or with the state itself (AdjointNBody.v).
 
-Here is `branchy`, to see the pattern:
+Here is [`branchy`](AdjointBranch.v#L3185), to see the pattern:
 
 ```
 Fixpoint branchy (top : bool) (b : anf pv bare) : Prop :=
@@ -880,34 +880,34 @@ state" argument for nests. A class lets each milestone be closed and checked
 before the next one starts. The price is M7: one must show that every
 well-formed program belongs to the last class.
 
-The classes are nested: `straight_branchy`, `branchy_foldy` (AdjointFoldy.v)
-and `foldy_nesty` (AdjointTop.v) show that each class is included in the
-next. So only the largest class needs its own theorem: `adjoint_nesty_duals`
-(AdjointTop.v) goes through `adjoint_simulates_duals`, which needs only the
-`asim_body` of the opened body, given by `asim_nesty`. The corollaries for
-the smaller classes (`adjoint_straight_duals`, `adjoint_branchy_duals`,
-`adjoint_foldy_duals`) follow from it by these inclusions.
+The classes are nested: [`straight_branchy`](AdjointFoldy.v#L258), [`branchy_foldy`](AdjointFoldy.v#L288) (AdjointFoldy.v)
+and [`foldy_nesty`](AdjointTop.v#L1730) (AdjointTop.v) show that each class is included in the
+next. So only the largest class needs its own theorem: [`adjoint_nesty_duals`](AdjointTop.v#L1736)
+(AdjointTop.v) goes through [`adjoint_simulates_duals`](AdjointTop.v#L1002), which needs only the
+[`asim_body`](AdjointCorrect.v#L1224) of the opened body, given by [`asim_nesty`](AdjointNesty.v#L46). The corollaries for
+the smaller classes ([`adjoint_straight_duals`](AdjointTop.v#L1765), [`adjoint_branchy_duals`](AdjointTop.v#L1796),
+[`adjoint_foldy_duals`](AdjointTop.v#L1826)) follow from it by these inclusions.
 
-### 5.7 The pieces of a value: `asim_fwd`, `asim_rev`, `psim_body`
+### 5.7 The pieces of a value: [`asim_fwd`](AdjointCorrect.v#L1593), [`asim_rev`](AdjointCorrect.v#L1662), [`psim_body`](AdjointBranch.v#L806)
 
-`asim_body` of a let is proved from facts about its value (`asim_let`,
+[`asim_body`](AdjointCorrect.v#L1224) of a let is proved from facts about its value ([`asim_let`](AdjointCorrect.v#L3875),
 AdjointCorrect.v):
-- `asim_fwd`: the forward code `fwd_value` stores the primal value;
-- `asim_rev`: the reverse code `rev_value` keeps the pairing, with `n` now
+- [`asim_fwd`](AdjointCorrect.v#L1593): the forward code `fwd_value` stores the primal value;
+- [`asim_rev`](AdjointCorrect.v#L1662): the reverse code `rev_value` keeps the pairing, with `n` now
   owning the tangent of the value;
-- `act_value`: the value has its type, and it is zero when not varied;
-- `act_owner`, `inplace_only`: facts about in-place values.
+- [`act_value`](AdjointCorrect.v#L2641): the value has its type, and it is zero when not varied;
+- [`act_owner`](AdjointCorrect.v#L2888), [`inplace_only`](AdjointCorrect.v#L1712): facts about in-place values.
 
-Inside loops and branches, the forward code is `prim`, which computes every
-let without recording anything. `psim_body` (AdjointBranch.v) is its
-simulation. You will see these names in the conclusion of `asim_nesty`
+Inside loops and branches, the forward code is [`prim`](Adjoint.v#L141), which computes every
+let without recording anything. [`psim_body`](AdjointBranch.v#L806) (AdjointBranch.v) is its
+simulation. You will see these names in the conclusion of [`asim_nesty`](AdjointNesty.v#L46)
 (AdjointNesty.v).
 
 ---
 
 ## 6. Reading one real lemma end to end
 
-### A small one: `tail_fold_state_ret`
+### A small one: [`tail_fold_state_ret`](AdjointCorrect.v#L1072)
 
 ```
 Lemma tail_fold_state_ret k a eA cA :
@@ -927,24 +927,24 @@ Qed.
 
 How to read it:
 - The variables `k a eA cA` are the next identity, the annotation, the
-  value of the let (at `avar`, the instance of the analyses) and its
+  value of the let (at [`avar`](Atoms.v#L17), the instance of the analyses) and its
   continuation.
 - The hypothesis says that the continuation, opened at the let's binder
   (`let_binder k eA`), just returns that binder. In other words the let is
   the **tail** of the body: `let x = e in x`.
-- `tail_fold_state` (AdjointCorrect.v) asks: "does this body end with a
+- [`tail_fold_state`](AdjointCorrect.v#L1040) (AdjointCorrect.v) asks: "does this body end with a
   varied fold, and is its innermost fold live?". The lemma computes the
   answer for a tail let: if the value is a fold, the answer is its
-  `fold_live` when the fold is varied, and `None` otherwise.
-- Why it is there: `tail_back`, the conclusion of `asim_body` about the
-  storage, is stated with `tail_fold_state`. This lemma is the bridge from a
+  [`fold_live`](AdjointCorrect.v#L827) when the fold is varied, and `None` otherwise.
+- Why it is there: [`tail_back`](AdjointCorrect.v#L1056), the conclusion of [`asim_body`](AdjointCorrect.v#L1224) about the
+  storage, is stated with [`tail_fold_state`](AdjointCorrect.v#L1040). This lemma is the bridge from a
   let that ends a body to the fold it contains.
 - The proof: `move=> E` names the hypothesis, `rewrite /= E` unfolds
-  `tail_fold_state` one step and uses `E`, `case: eA E` splits on the value,
+  [`tail_fold_state`](AdjointCorrect.v#L1040) one step and uses `E`, `case: eA E` splits on the value,
   `//=` closes the non-fold cases, and the fold case ends with
   `Nat.eqb_refl` (the binder's identity equals `k`).
 
-### A big one: the hypotheses of `asim_body`
+### A big one: the hypotheses of [`asim_body`](AdjointCorrect.v#L1224)
 
 Let us annotate the statement of section 5.2:
 - `forall L k c s wP pp m bA bW bT bD ty v se vo`: the variables in scope,
@@ -952,10 +952,10 @@ Let us annotate the statement of section 5.2:
   argument, the place, the sweep (`Forward` or `Replay`), the four instances,
   the type, the dual value, the seed (the expression of the adjoint of the
   body's value), and what adjoint-value must output.
-- The four `anf_eq`: section 3.
+- The four [`anf_eq`](AnfEquiv.v#L33): section 3.
 - `actx L k c s wP pp (live_anf k bW) (tbr cv m k bA) ty`: the forward
-  context. The variables of `L` that the body reads (`live_anf`) have the
-  right types, and those that its adjoint code reads (`tbr`, to be recorded)
+  context. The variables of `L` that the body reads ([`live_anf`](TangentCorrect.v#L736)) have the
+  right types, and those that its adjoint code reads ([`tbr`](AdjointCorrect.v#L380), to be recorded)
   are in the store.
 - `real_or_array ty` and `typecheck ... = (ty, Ok)`: the body is well
   typed, and its value is a real or an array (it carries an adjoint).
@@ -965,20 +965,20 @@ Let us annotate the statement of section 5.2:
   and adjoint-value's output target is a fresh primal key that no live
   variable uses. A replay never happens at the top.
 - In the conclusion, the hypotheses of the reverse part are:
-  - `agree_prim`: `s2` agrees with `s1` on the primal keys and tapes;
+  - [`agree_prim`](AdjointCorrect.v#L570): `s2` agrees with `s1` on the primal keys and tapes;
   - `rctx ... O (useful cv m k bA) s2`: the owners are in place;
-  - `seed_ok`: the seed reads only old keys;
-  - `tapes_ok`: the recorded variables have tapes;
-  - `tail_tape`: inside an in-place loop, the tape the loop provides.
+  - [`seed_ok`](AdjointCorrect.v#L604): the seed reads only old keys;
+  - [`tapes_ok`](AdjointCorrect.v#L899): the recorded variables have tapes;
+  - [`tail_tape`](AdjointCorrect.v#L1210): inside an in-place loop, the tape the loop provides.
 - The conclusions of the reverse part: it terminates (`run rv s2 = Some
-  s3`), it changes only adjoints and owned storage (`rev_frame`, `tkeep`,
-  `same_ex`), the owners stay well shaped, the pairing changes as it should
-  (`result_pairing`), and `tail_back` says what happens to the in-place
+  s3`), it changes only adjoints and owned storage ([`rev_frame`](AdjointCorrect.v#L552), [`tkeep`](AdjointCorrect.v#L507),
+  [`same_ex`](AdjointCorrect.v#L893)), the owners stay well shaped, the pairing changes as it should
+  ([`result_pairing`](AdjointCorrect.v#L615)), and [`tail_back`](AdjointCorrect.v#L1056) says what happens to the in-place
   storage.
 
 A good way to learn a statement like this one is to find the place where it
-is *used*. Grep for `asim_body` in AdjointTop.v to see how
-`adjoint_simulates_duals` instantiates each hypothesis at the top of a
+is *used*. Grep for [`asim_body`](AdjointCorrect.v#L1224) in AdjointTop.v to see how
+[`adjoint_simulates_duals`](AdjointTop.v#L1002) instantiates each hypothesis at the top of a
 function.
 
 ---
@@ -998,7 +998,7 @@ cases and continue the last case unbulleted. The conventions are described in
 [SSREFLECT_STYLE.md](SSREFLECT_STYLE.md). Here are the idioms you will meet,
 on real excerpts.
 
-### A complete small proof: `act_ret` (AdjointBranch.v)
+### A complete small proof: [`act_ret`](AdjointBranch.v#L202) (AdjointBranch.v)
 
 ```
 Lemma act_ret (aP : atom pv) : act_body (ARet aP).
@@ -1020,8 +1020,8 @@ Qed.
   `anf`) on the fly: `ALet` with three anonymous fields, or `ARet aA`.
 - `//=`: simplify (`/=`), then close the trivial goals (`//`). Here it kills
   every case where one instance is a `let` and another a `ret`, since
-  `anf_eq` is then `False`.
-- `/atom_graph [-> Hin]`: apply the *view* `atom_graph` to the hypothesis
+  [`anf_eq`](AnfEquiv.v#L33) is then `False`.
+- `/atom_graph [-> Hin]`: apply the *view* [`atom_graph`](TangentCorrect.v#L638) to the hypothesis
   being introduced, then destruct the result. `->` rewrites with the
   equality in the goal. Beware: an ssreflect `->` rewrites the goal only.
 - `have H1 : P.` followed by an indented proof ending in `by ...`: a local
@@ -1062,7 +1062,7 @@ specialized `Htc`".
 ### Induction
 
 `elim: tr z => [| st tr IH] z //=; rewrite IH.` is the whole proof of
-`fold_pushes_fix`: induction on the list `tr`, generalizing `z`, naming the
+[`fold_pushes_fix`](AdjointCorrect.v#L1103): induction on the list `tr`, generalizing `z`, naming the
 head, tail and induction hypothesis, simplifying, then rewriting with the
 hypothesis.
 
@@ -1077,7 +1077,7 @@ Every proof file imports ssreflect, but some older proofs still use plain
 Ltac tactics (`destruct`, `inversion`, `repeat match goal`), and a few Ltac
 definitions remain. You will meet, for instance, this tactic of
 AdjointCorrect.v, which destructs the four instances of a value and turns
-every `atom_eq` into an equation:
+every [`atom_eq`](AnfEquiv.v#L25) into an equation:
 
 ```
 Ltac act_intro :=
@@ -1107,40 +1107,40 @@ The languages and their semantics:
 - `Syntax.v`, `Anf.v`, `Derivative.v`, `Target.v`: read first. They hold
   the inductive types of L0, L1/L1ᵃ, L2, L3.
 - `Domain.v`, `Eval.v`, `EvalAnf.v`, `Exec.v`: read when a statement mentions
-  `eval_function`, `aeval`, `run`, `exec_dfunction` or `store_get`.
-- `Smooth.v`: read when you meet `defined` or `smooth_reals`.
+  [`eval_function`](Eval.v#L159), [`aeval`](EvalAnf.v#L28), [`run`](TangentCorrect.v#L53), [`exec_dfunction`](Exec.v#L194) or [`store_get`](Exec.v#L53).
+- `Smooth.v`: read when you meet [`defined`](Smooth.v#L50) or [`smooth_reals`](Smooth.v#L43).
 - `Operations.v`: the table of operations and of their partial derivatives
-  (`partial1`, `partial2`).
+  ([`partial1`](Operations.v#L86), [`partial2`](Operations.v#L104)).
 
 The passes (no proofs inside):
 - `Normalize.v`, `WellFormed.v`: read `WellFormed.v` when a proof does a case
-  analysis on `typecheck`; it says what the tool accepts.
+  analysis on [`typecheck`](WellFormed.v#L143); it says what the tool accepts.
 - `Atoms.v`, `Activity.v`, `Tbr.v`, `Annotate.v`: the analyses. Read `Tbr.v`
-  (`needs`) before any adjoint proof.
+  ([`needs`](Tbr.v#L40)) before any adjoint proof.
 - `Transform.v`, `Tangent.v`, `Adjoint.v`: the transformations. Keep
   `Adjoint.v` open next to any adjoint proof; it is 274 lines.
 - `Simplify.v`, `Scoping.v`, `Lower.v`, `Cxx.v`, `Gallina.v`, `Dump.v`,
   `Adjudge.v`: the back end and the driver.
 
 The proofs:
-- `Correctness.v`, `AnfEquiv.v`: parametricity, `normalize_correct`,
-  `annotate_correct`. Read for section 3.
+- `Correctness.v`, `AnfEquiv.v`: parametricity, [`normalize_correct`](Correctness.v#L206),
+  [`annotate_correct`](Correctness.v#L292). Read for section 3.
 - `Euclidean.v`, `DualsDerive.v`: dual numbers compute derivatives. Read
   only if you care about the calculus.
-- `SimplifyCorrect.v`: `simplify` is correct. Independent of the rest.
+- `SimplifyCorrect.v`: [`simplify`](Simplify.v#L292) is correct. Independent of the rest.
 - `TangentCorrect.v`, `TangentLoops.v`, `TangentGood.v`, `TangentTop.v`,
   `TangentMode.v`: the tangent proof. Read `TangentCorrect.v` up to
-  `sim_body` before anything adjoint; `pv`, the graphs and the contexts are
+  [`sim_body`](TangentCorrect.v#L747) before anything adjoint; [`pv`](TangentCorrect.v#L147), the graphs and the contexts are
   defined there.
 - `AdjointSpec.v`: the layout of the adjoint function's arguments and
   results.
-- `AdjointCorrect.v`: pairing, contexts, `asim_body`, `asim_let`,
-  operations, `asim_straight`.
-- `AdjointBranch.v`: branches, maps, scalar folds, the class `branchy`.
-- `AdjointFold.v`, `AdjointFoldy.v`: the pieces of in-place folds, `foldy`.
+- `AdjointCorrect.v`: pairing, contexts, [`asim_body`](AdjointCorrect.v#L1224), [`asim_let`](AdjointCorrect.v#L3875),
+  operations, [`asim_straight`](AdjointCorrect.v#L3984).
+- `AdjointBranch.v`: branches, maps, scalar folds, the class [`branchy`](AdjointBranch.v#L3185).
+- `AdjointFold.v`, `AdjointFoldy.v`: the pieces of in-place folds, [`foldy`](AdjointFoldy.v#L237).
 - `AdjointNBody.v`, `AdjointNesty.v`: nests of in-place folds of any depth
-  (milestone M5b), ending in `asim_nesty`.
-- `AdjointTop.v`: the top level, `adjoint_simulates_duals` and the four
+  (milestone M5b), ending in [`asim_nesty`](AdjointNesty.v#L46).
+- `AdjointTop.v`: the top level, [`adjoint_simulates_duals`](AdjointTop.v#L1002) and the four
   corollaries.
 - `AdjointGood.v`, `AdjointGoodFwd.v`, `AdjointGoodRev.v`: the scoping
   discipline of the adjoint code, and its proof for every body (M6).
@@ -1150,17 +1150,17 @@ The proofs:
   simplified run (M6).
 - `AdjointExamples.v`: real programs proved to be in the class of the
   top-level corollary (the theorem is not vacuous).
-- `AdjointModeProof.v`: `adjoint_mode_correct` from the simplified
+- `AdjointModeProof.v`: [`adjoint_mode_correct`](AdjointMode.v#L43) from the simplified
   corollary.
-- `AdjointMode.v`: the theorem `adjoint_mode_correct`, read last.
-- `ModesAgree.v`: the corollary `adjoint_tangent_agree`, the two modes
+- `AdjointMode.v`: the theorem [`adjoint_mode_correct`](AdjointMode.v#L43), read last.
+- `ModesAgree.v`: the corollary [`adjoint_tangent_agree`](ModesAgree.v#L105), the two modes
   agree.
 - `Main.v`: the short statements of the final theorems; read it first.
 
 ### Exploring interactively
 
 - `Print Assumptions tangent_mode_correct.` lists the axioms behind a result.
-  Try it on `adjoint_nesty_duals` to check that it is closed.
+  Try it on [`adjoint_nesty_duals`](AdjointTop.v#L1736) to check that it is closed.
 - `About asim_body.` gives the type and the file of a name.
   `Print tail_tape.` prints a definition.
 - `Search (anf_eq (gA _) _ _).` finds lemmas by pattern. `Search "tail" fold.`
@@ -1181,7 +1181,7 @@ compiled with `-R . ElpiDiff`.
 
 - [DEFINITIONS.md](DEFINITIONS.md): the glossary, concept by concept, then
   file by file. Read its section "Reading a statement: an example" after
-  this tutorial. Note that its description of `tail_tape` predates the
+  this tutorial. Note that its description of [`tail_tape`](AdjointCorrect.v#L1210) predates the
   current form shown in section 5.5.
 - [README.md](README.md): the theorems, the milestones of the adjoint proof,
   the file table, and how the Elpi constructs were translated.

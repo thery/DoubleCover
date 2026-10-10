@@ -8,7 +8,7 @@ recur in the statements. The second part goes through the files one by one.
 Notation used below: `V` is a type of PHOAS variables; `k` is the next
 identity a pass gives to a binder; `c` is the number of the next variable of
 the generated code; `s`, `s1`, `s2`, `s3` are stores of the L2 evaluator;
-`L` is the list of variables in scope (of type `pv`); `O` is a list of owners.
+`L` is the list of variables in scope (of type [`pv`](TangentCorrect.v#L147)); `O` is a list of owners.
 
 ---
 
@@ -16,22 +16,22 @@ the generated code; `s`, `s1`, `s2`, `s3` are stores of the L2 evaluator;
 
 ### The languages and PHOAS
 
-- **L0** (`term`, Syntax.v) is the source language. **L1** (`anf V bare`,
+- **L0** ([`term`](Syntax.v#L34), Syntax.v) is the source language. **L1** (`anf V bare`,
   Anf.v) is its A-normal form: every intermediate value is named by a let, and
   an operation applies to atoms only. **L1ᵃ** (`anf V ann`) is L1 with the
-  annotations of the analyses. **L2** (`dstmt`, Derivative.v) is the
+  annotations of the analyses. **L2** ([`dstmt`](Derivative.v#L42), Derivative.v) is the
   imperative derivative IR the transformations produce, and **L2′** is the
-  same IR after `simplify`. **L3** (`stmt`, Target.v) is first-order C++.
+  same IR after [`simplify`](Simplify.v#L292). **L3** ([`stmt`](Target.v#L15), Target.v) is first-order C++.
 - **PHOAS.** A term is parameterized by the type `V` of its variables, and a
   binder is a Rocq function (`Let_ e (fun x => b)`). A closed program is
   `forall V, …` (`fdef`, `afdef`, `dfbody`). Each pass *instantiates* the
   program at the type of variables it needs:
   - the evaluators instantiate it at values (`val N`);
-  - `normalize` instantiates it at `atom V`;
-  - `well_formed` instantiates it at `vinfo` (identity, type, argument name and role);
-  - the analyses and `annotate` instantiate it at `avar` (identity, varied flag);
-  - `tangent` and `adjoint` instantiate it at `tvar V` (everything the transformations know of a variable);
-  - the evaluator of L2 instantiates it at `nat`, `simplify` at `nat * V`, and the proofs at `W = nat * nat`.
+  - [`normalize`](Normalize.v#L87) instantiates it at `atom V`;
+  - [`well_formed`](WellFormed.v#L403) instantiates it at [`vinfo`](WellFormed.v#L25) (identity, type, argument name and role);
+  - the analyses and [`annotate`](Annotate.v#L134) instantiate it at [`avar`](Atoms.v#L17) (identity, varied flag);
+  - `tangent` and [`adjoint`](Adjoint.v#L315) instantiate it at `tvar V` (everything the transformations know of a variable);
+  - the evaluator of L2 instantiates it at `nat`, [`simplify`](Simplify.v#L292) at `nat * V`, and the proofs at `W = nat * nat`.
 - **Opening a binder at an identity.** To look inside a binder, a pass applies
   it to a variable numbered `k` (`anon k`, `fresh k`, `let_binder k e`,
   `pfresh k`, `opened k`) and goes on at `S k`. For this reason most analyses
@@ -47,17 +47,17 @@ same term. The proofs therefore relate them explicitly.
   in scope that correspond. A binder relates its two bodies on any pair added
   to `G`.
 - `parametric f` says that any two instances of the source are related.
-  `normalize_parametric` transfers this property to L1.
+  [`normalize_parametric`](AnfEquiv.v#L211) transfers this property to L1.
 
-### The `pv` record and the graphs `gA gW gT gD` (TangentCorrect.v)
+### The [`pv`](TangentCorrect.v#L147) record and the graphs `gA gW gT gD` (TangentCorrect.v)
 
 The simulation proofs use one more instance of the L1 program, at
-`pv`, a record that bundles what each pass knows of one variable:
+[`pv`](TangentCorrect.v#L147), a record that bundles what each pass knows of one variable:
 
 | field | type | meaning |
 |---|---|---|
-| `pa` | `avar` | the variable as the analyses see it (identity `aid`, varied flag `avaried`) |
-| `pw` | `vinfo` | the variable as `well_formed` sees it (identity `vid`, type `vty`, argument `varg`) |
+| `pa` | [`avar`](Atoms.v#L17) | the variable as the analyses see it (identity `aid`, varied flag `avaried`) |
+| `pw` | [`vinfo`](WellFormed.v#L25) | the variable as [`well_formed`](WellFormed.v#L403) sees it (identity `vid`, type `vty`, argument `varg`) |
 | `pt` | `tvar W` | the variable as the transformations see it (stored variable, dot, bar, recorded, …) |
 | `pd` | `val (dual R)` | its value in the dual-number evaluation (primal value and tangent) |
 | `pn` | `nat` | the number of the variable of the generated code that stores it |
@@ -66,15 +66,15 @@ The simulation proofs use one more instance of the L1 program, at
   that holds `p`.
 - `gA L`, `gW L`, `gT L` and `gD L` are the lists
   `map (fun p => (p, pa p)) L`, and the same with `pw`, `pt` and `pd`. They
-  are the contexts `G` that relate the `pv` instance to the instances of the
+  are the contexts `G` that relate the [`pv`](TangentCorrect.v#L147) instance to the instances of the
   analyses (A), of well_formed (W), of the transformation (T) and of the
   dual evaluator (D).
 - A simulation lemma therefore starts with hypotheses such as
   `anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gT L) bP bT -> anf_eq (gD L) bP bD`.
   They say that `bA`, `bW`, `bT` and `bD` are the four instances of the
-  `pv` body `bP`, with the variables of `L` mapped by the four projections.
-  Similarly, `amap pw a` maps an atom over `pv` to the corresponding
-  `vinfo` atom.
+  [`pv`](TangentCorrect.v#L147) body `bP`, with the variables of `L` mapped by the four projections.
+  Similarly, `amap pw a` maps an atom over [`pv`](TangentCorrect.v#L147) to the corresponding
+  [`vinfo`](WellFormed.v#L25) atom.
 - `static_ok k p` holds of every variable in scope, independently of the
   store:
   - the identities agree (`aid = vid`) and are below `k`;
@@ -86,8 +86,8 @@ The simulation proofs use one more instance of the L1 program, at
 
 ### The store of L2 and the numbering of the generated variables
 
-- The evaluator of L2 (`exec`) threads a `store`, which is a list of
-  `(key, val)` pairs. A `key` is `KVar v` for a variable `v : dvar nat`
+- The evaluator of L2 ([`exec`](Exec.v#L117)) threads a `store`, which is a list of
+  `(key, val)` pairs. A [`key`](Exec.v#L36) is `KVar v` for a variable `v : dvar nat`
   (`DBound n`, `DotOf v`, `BarOf v`, `TapeOf v`, `ResultVar`), or `Returned`.
 - In the proofs, the generated code is instantiated at `W = nat * nat`, and
   `open_pairs sc c` opens its binders with `(c, c)`, `(c+1, c+1)`, …. It
@@ -96,27 +96,27 @@ The simulation proofs use one more instance of the L1 program, at
   reads "the code the pass generates, with its fresh variables numbered from
   `c` to `c'`".
 - `consistent v`: the two numbers of every `DBound (i, j)` inside `v` are
-  equal. This holds of every variable opened by `open_pairs`.
+  equal. This holds of every variable opened by [`open_pairs`](Scoping.v#L27).
 - `keyv v := KVar (out_dvar nat v)` is the store key of a `W` variable.
   `xev s e` evaluates an expression and `run ss s` executes a block, both
-  over the reals, after `out_dvar`.
+  over the reals, after [`out_dvar`](Simplify.v#L240).
 - `below c v`: the variable `v` (or the variable it is a dot, bar or tape of)
   was opened before `c`. "The keys opened before `c`" are the keys of the
   variables that existed before the code under study ran.
 - `frame c ex s s'` (tangent): every consistent key opened before `c` keeps
-  its value from `s` to `s'`, except the in-place storage `ex` and its dot.
+  its value from `s` to `s'`, except the in-place storage [`ex`](SimplifyCorrect.v#L43) and its dot.
 
 ### Places, owners and in-place storage
 
-- `place` (WellFormed.v) says where a body sits: `Top` (the body of the
+- [`place`](WellFormed.v#L84) (WellFormed.v) says where a body sits: `Top` (the body of the
   function), `InBranch`, `ScalarBody` (the body of a map or of a scalar fold),
   or `ArrayBody index state` (the body of a fold that updates an array in
-  place). `typecheck` refuses some constructs in some places. For example, a
+  place). [`typecheck`](WellFormed.v#L143) refuses some constructs in some places. For example, a
   scalar fold is accepted only at `Top`, and a branch is refused inside
   `ArrayBody`.
-- `pplace` (TangentCorrect.v) is the same over `pv`: `PTop`, `PBranch`,
+- [`pplace`](TangentCorrect.v#L184) (TangentCorrect.v) is the same over [`pv`](TangentCorrect.v#L147): `PTop`, `PBranch`,
   `PScalar`, `PArray ix sx` (index and state of the in-place loop).
-  `wplace` converts a `pplace` to a `place`.
+  [`wplace`](TangentCorrect.v#L188) converts a [`pplace`](TangentCorrect.v#L184) to a [`place`](WellFormed.v#L84).
 - `wP : option (atom pv)` is the written argument: the argument a `Writes`
   function stores into, if any.
 - `owner wP pp` is the variable whose storage a body may update in place:
@@ -126,10 +126,10 @@ The simulation proofs use one more instance of the L1 program, at
 
   `inplace wP pp := option_map stored (owner wP pp)` is the variable of the
   generated code that holds it. In lemma statements, `inplace wP pp` is the
-  `ex` ("excepted") argument of the frame predicates.
+  [`ex`](SimplifyCorrect.v#L43) ("excepted") argument of the frame predicates.
 - `not_in_loop pp` holds unless `pp` is `PArray _ _`, that is, outside the
   body of an in-place loop.
-- `storage wP tail eP` (TangentCorrect.v) says where `with_storage` puts the
+- `storage wP tail eP` (TangentCorrect.v) says where [`with_storage`](Transform.v#L138) puts the
   value of a let:
   - `Some (stored a)` for an `ASet` on `a`;
   - the storage of the initial array for an in-place `AFold`;
@@ -144,8 +144,8 @@ The simulation proofs use one more instance of the L1 program, at
 ### Activity, usefulness and the two sweeps
 
 - **varied** (Activity.v): a value depends on an independent argument.
-  `avaried` is this flag on a variable, `varied_value` / `varied_anf` compute
-  it for a value or a body, and `fold_varied` computes it for the state of a
+  `avaried` is this flag on a variable, [`varied_value`](Activity.v#L21) / `varied_anf` compute
+  it for a value or a body, and [`fold_varied`](Activity.v#L41) computes it for the state of a
   fold.
 - **sweep** (Tbr.v): `Forward` is the forward sweep of the adjoint, which
   computes and records values. `Replay` is a recomputation inside a reverse
@@ -162,14 +162,14 @@ The simulation proofs use one more instance of the L1 program, at
 - **active** = varied and useful. **computed** = the rest of the body reads
   the let (`L`), or, in the forward sweep, a fold in the let records.
   `records` / `records_in` say that a fold records something.
-  `state_live` says that the reverse loop reads the state of a fold, so the
+  [`state_live`](Tbr.v#L120) says that the reverse loop reads the state of a fold, so the
   state is pushed on a tape before each overwrite.
 - These are stored as `LetAnn varied active computed` and
   `FoldAnn varied recorded records` (`recorded` is the result of
-  `state_live`; `annotate` calls it `live`).
+  [`state_live`](Tbr.v#L120); [`annotate`](Annotate.v#L134) calls it `live`).
 - In the proofs: `useful cv m k bA p` means that `p` is in `U`, and
-  `tbr cv m k bA p` (to be recorded) means that `p` is in `L`. `vreads`,
-  `vflows` and `vatoms` are the same memberships for the two components of
+  `tbr cv m k bA p` (to be recorded) means that `p` is in `L`. [`vreads`](AdjointCorrect.v#L1500),
+  [`vflows`](AdjointCorrect.v#L1502) and [`vatoms`](AdjointCorrect.v#L1504) are the same memberships for the two components of
   `value_needs` and for `atoms_of_value`. `live_anf k bW p` /
   `live_value k eW p` mean that `p` occurs in the body or value (`occurs_*`
   of WellFormed.v). In other words, "live" means "read by the rest of the
@@ -177,7 +177,7 @@ The simulation proofs use one more instance of the L1 program, at
 
 ### Transformation variables (`tvar`, Transform.v)
 
-`tvar V` is what `tangent` and `adjoint` know of a source variable:
+`tvar V` is what `tangent` and [`adjoint`](Adjoint.v#L315) know of a source variable:
 - `tstored`: the variable of the generated code that holds it;
 - `tty`: its type;
 - `targ`: its argument name and role, if it is an argument;
@@ -185,9 +185,9 @@ The simulation proofs use one more instance of the L1 program, at
   adjoint;
 - `trecorded`: whether its storage is recorded on a tape;
 - `tid`: an identity, kept for arguments (`Some (S pos)`) and for the
-  `probe` (`Some 0`).
+  [`probe`](Transform.v#L117) (`Some 0`).
 
-`with_storage` chooses the storage of a let. An array is updated in place,
+[`with_storage`](Transform.v#L138) chooses the storage of a let. An array is updated in place,
 in the loop state or in the written argument. Anything else gets a
 `Fresh "t"` local.
 
@@ -195,22 +195,22 @@ in the loop state or in the written argument. Anything else gets a
 
 - `sim_body bP` describes the tangent code of the body `bP`, assuming:
   - the four instances of `bP` are related;
-  - the context is `ctx_ok`;
-  - the body type-checks with type `ty` (a real or an array);
+  - the context is [`ctx_ok`](TangentCorrect.v#L231);
+  - the body type-checks with type [`ty`](Syntax.v#L61) (a real or an array);
   - the dual evaluation gives `v`.
 
-  Then the statements `ss` that `tan` generates satisfy:
+  Then the statements `ss` that [`tan`](Tangent.v#L100) generates satisfy:
   - they number their fresh variables from `c` to `c' >= c`;
   - their value and tangent expressions `ve`, `de` read only live variables
-    or new ones (`res_vars`, `dot_vars`);
+    or new ones ([`res_vars`](TangentCorrect.v#L716), [`dot_vars`](TangentCorrect.v#L724));
   - run from `s`, they reach `s'` with `frame c (inplace wP pp) s s'`;
-  - `body_result` holds: `ve`/`de` evaluate to the primal and tangent of `v`
+  - [`body_result`](TangentCorrect.v#L298) holds: `ve`/`de` evaluate to the primal and tangent of `v`
     for a real, and the in-place storage holds them for an array;
-  - the value has type `ty`, and it is zero when the body is not varied.
+  - the value has type [`ty`](Syntax.v#L61), and it is zero when the body is not varied.
 - `sim_value eP` is the same for one value computed into the variable `n`:
   `n` holds the primal value, and `DotOf n` holds the tangent when the value
   is varied or stored in place.
-- `ctx_ok L k c s wP pp live ty` is the invariant of the context. `sctx` is
+- `ctx_ok L k c s wP pp live ty` is the invariant of the context. [`sctx`](TangentCorrect.v#L257) is
   its part that does not mention the store. Its fields are listed under
   TangentCorrect.v below.
 
@@ -231,18 +231,18 @@ times its adjoint in the store.
   `(t, n)`. This means "the storage `n` now holds a variable of tangent `t`".
 - Transposing `x = e` moves the adjoint of `x` to the operands of `e`, which
   keeps the pairing. Hence the conclusions:
-  - `pairing O s3 = pairing (oput O n (tangent ve)) s2` for a value (`asim_rev`);
-  - `pairing O s3 = result_pairing O ty ex v se s2` for a body (`asim_body`).
+  - `pairing O s3 = pairing (oput O n (tangent ve)) s2` for a value ([`asim_rev`](AdjointCorrect.v#L1662));
+  - `pairing O s3 = result_pairing O ty ex v se s2` for a body ([`asim_body`](AdjointCorrect.v#L1224)).
 
-  `result_pairing` is the pairing of `O` plus the tangent of a real result
-  times the seed `se`. For an array result left in the storage `ex`, it is
+  [`result_pairing`](AdjointCorrect.v#L615) is the pairing of `O` plus the tangent of a real result
+  times the seed `se`. For an array result left in the storage [`ex`](SimplifyCorrect.v#L43), it is
   the pairing with that storage's tangent replaced by the result's.
 
-### The adjoint contexts `actx`, `sctx`, `rctx`
+### The adjoint contexts [`actx`](AdjointCorrect.v#L392), [`sctx`](TangentCorrect.v#L257), [`rctx`](AdjointCorrect.v#L585)
 
 - `actx L k c s wP pp live tb ty` is the context at the start of the forward
   sweep. It contains:
-  - `a_sctx`: the store-independent facts (`sctx`);
+  - `a_sctx`: the store-independent facts ([`sctx`](TangentCorrect.v#L257));
   - `a_bar`: a variable has an adjoint iff it is varied;
   - `a_store`: every `tb` (to-be-recorded) variable has its primal value in
     `s`;
@@ -264,71 +264,71 @@ times its adjoint in the store.
 ### Frames of the adjoint code
 
 - `fwd_frame c ex vo s s'`: the forward sweep leaves unchanged every
-  consistent key opened before `c`, except tapes, the in-place storage `ex`,
+  consistent key opened before `c`, except tapes, the in-place storage [`ex`](SimplifyCorrect.v#L43),
   and the target of the value in adjoint-value (`vo_target vo`).
 - `rev_frame c ex O s s'`: the reverse sweep leaves unchanged every key opened
-  before `c`, except tapes, `ex`, and the adjoints of the owners in `O`.
+  before `c`, except tapes, [`ex`](SimplifyCorrect.v#L43), and the adjoints of the owners in `O`.
   `rev_frame_x … n …` additionally excepts the value's own storage `n` (a
   fold restores its state).
-- `tkeep c ex s s'`: tapes stay tapes (`tapes_kept`), and the tapes of
-  variables opened before `c` keep their contents, except the tape of `ex`
-  (`tapes_same`).
+- `tkeep c ex s s'`: tapes stay tapes ([`tapes_kept`](AdjointCorrect.v#L438)), and the tapes of
+  variables opened before `c` keep their contents, except the tape of [`ex`](SimplifyCorrect.v#L43)
+  ([`tapes_same`](AdjointCorrect.v#L466)).
 - `agree_prim c' ex s1 s2`: the primal keys and the tapes opened before `c'`
   are the same in `s1` (end of the forward sweep) and `s2` (start of the
-  reverse sweep). The argument `ex` is not used in the body of the
+  reverse sweep). The argument [`ex`](SimplifyCorrect.v#L43) is not used in the body of the
   definition.
 - `same_ex pp wP s s'`: outside a loop, the storage of a varied owner (an
   inout array) has the same value in `s` and `s'`.
 - `vo : option (aresult (tvar W))` is what adjoint-value must output. It is
   `None` in mode adjoint or in a replay. `vo_target vo` is where the output
   goes: `ResultVar`, or the storage of a dependent written argument.
-  `vo_result` says that the target holds the primal result after the forward
-  sweep, and `vo_kept` says that the reverse sweep does not change it.
+  [`vo_result`](AdjointCorrect.v#L625) says that the target holds the primal result after the forward
+  sweep, and [`vo_kept`](AdjointCorrect.v#L641) says that the reverse sweep does not change it.
 - `seed_ok c ty se s`: the seed expression reads keys opened before `c`, and
-  it is a real for a real body. `seed_value` is its value.
+  it is a real for a real body. [`seed_value`](AdjointCorrect.v#L608) is its value.
 
-### `asim_body`, `asim_fwd`, `asim_rev`, `psim_body`
+### [`asim_body`](AdjointCorrect.v#L1224), [`asim_fwd`](AdjointCorrect.v#L1593), [`asim_rev`](AdjointCorrect.v#L1662), [`psim_body`](AdjointBranch.v#L806)
 
 - `asim_body cv bP` is the adjoint simulation of a body. It assumes:
   - the four instances are related;
-  - `actx` holds with `live = live_anf k bW` and `tb = tbr cv m k bA`;
-  - the body type-checks with type `ty`, and the dual evaluation gives `v`;
+  - [`actx`](AdjointCorrect.v#L392) holds with `live = live_anf k bW` and `tb = tbr cv m k bA`;
+  - the body type-checks with type [`ty`](Syntax.v#L61), and the dual evaluation gives `v`;
   - side conditions on the sweep: in `Forward` the place is `PTop` and `vo`
     agrees with `cv`; in `Replay` the place is not `PTop`; and so on.
 
   The code `(fw, rv)` that `adj … m … se` generates then satisfies:
-  - `fw` runs from `s` to `s1`, with `fwd_frame`, `tkeep`, and `vo_result`
+  - `fw` runs from `s` to `s1`, with [`fwd_frame`](AdjointCorrect.v#L431), [`tkeep`](AdjointCorrect.v#L507), and [`vo_result`](AdjointCorrect.v#L625)
     in `Forward`;
-  - for every `s2` and `O` with `agree_prim`, `rctx … O (useful …) s2`,
-    `seed_ok`, `tapes_ok`, and (inside an in-place loop) `tail_tape`, the
-    code `rv` runs from `s2` to `s3`, with `vo_kept`, `same_ex`, `tkeep`,
-    `rev_frame`, the owners still shaped, and
+  - for every `s2` and `O` with [`agree_prim`](AdjointCorrect.v#L570), `rctx … O (useful …) s2`,
+    [`seed_ok`](AdjointCorrect.v#L604), [`tapes_ok`](AdjointCorrect.v#L899), and (inside an in-place loop) [`tail_tape`](AdjointCorrect.v#L1210), the
+    code `rv` runs from `s2` to `s3`, with [`vo_kept`](AdjointCorrect.v#L641), [`same_ex`](AdjointCorrect.v#L893), [`tkeep`](AdjointCorrect.v#L507),
+    [`rev_frame`](AdjointCorrect.v#L552), the owners still shaped, and
     `pairing O s3 = result_pairing … s2`.
 - `asim_fwd cv eP` covers the forward code (`fwd_value`) of one value
   computed into `n`. When `n` must be recorded, a tape is present. The code
   stores the primal value in `n`, with `fwd_frame c (Some n) None` and
-  `tkeep`. In `Forward` outside a loop, the tape of a fold is as `fold_tape`
+  [`tkeep`](AdjointCorrect.v#L507). In `Forward` outside a loop, the tape of a fold is as [`fold_tape`](AdjointCorrect.v#L962)
   says.
 - `asim_rev cv eP` covers the reverse code (`rev_value`) of one varied value.
   It assumes:
   - the values its reverse sweep reads are in `s2`;
   - `rctx … O (vflows …) s2`;
   - a fresh storage `n` is not already an owner;
-  - tapes are present (`tapes_ok`), with the contents `fold_tape` gives;
+  - tapes are present ([`tapes_ok`](AdjointCorrect.v#L899)), with the contents [`fold_tape`](AdjointCorrect.v#L962) gives;
   - (outside a loop) the in-place storage holds the owner's primal value.
 
   Under these assumptions:
   - no primal key opened before `c` other than `n` changes;
   - the in-place storage is restored, or left unchanged;
-  - `tkeep` and `rev_frame_x` hold, and the owners stay shaped;
+  - [`tkeep`](AdjointCorrect.v#L507) and [`rev_frame_x`](AdjointCorrect.v#L560) hold, and the owners stay shaped;
   - `pairing O s3 = pairing (oput O n (tangent ve)) s2`.
 
-  `asim_rev0` is an earlier, weaker form used for the operations: it reads
+  [`asim_rev0`](AdjointCorrect.v#L1628) is an earlier, weaker form used for the operations: it reads
   only the scalars it needs.
 - `psim_body cv bP` (AdjointBranch.v) covers the forward computation of a
-  branch body by `prim`. Its value expression evaluates to the primal value.
-  The tape of the owner's storage follows `tape_step`, and the owner's array
-  changes at most at the `set_index`.
+  branch body by [`prim`](Adjoint.v#L141). Its value expression evaluates to the primal value.
+  The tape of the owner's storage follows [`tape_step`](AdjointBranch.v#L731), and the owner's array
+  changes at most at the [`set_index`](AdjointCorrect.v#L739).
 
 ### Recording folds: traces and tapes
 
@@ -343,17 +343,17 @@ times its adjoint in the store.
   - if the step ends with an inner in-place fold instead, the concatenation
     of the pushes of that fold's steps.
 
-  `fold_pushes b z tr` concatenates `body_pushes` over the trace `tr`.
+  `fold_pushes b z tr` concatenates [`body_pushes`](AdjointCorrect.v#L758) over the trace `tr`.
 - `tail_fold_live cv k b` handles a body that ends with a chain of tail
   in-place folds. It returns `Some (state_live …)` of the innermost fold of
   the chain, and `None` when the body does not end with a fold.
   `fold_live cv k init b` is this value for the body of the fold, or the
-  fold's own `state_live` when there is none.
+  fold's own [`state_live`](Tbr.v#L120) when there is none.
 - `fold_tape k eA eW eD s n` describes the tape of a fold value in the store
   `s`, with storage `n`:
   - for a scalar fold whose state is live, `TapeOf n` holds the reals of the
     trace, last first;
-  - for an in-place fold that is `fold_live`, `TapeOf n` starts with
+  - for an in-place fold that is [`fold_live`](AdjointCorrect.v#L827), `TapeOf n` starts with
     `rev (fold_pushes …)`, followed by older contents, and `n` holds the
     final array.
 
@@ -361,10 +361,10 @@ times its adjoint in the store.
 - `ptail cP`: the continuation returns its own variable, so the let it
   continues is the tail of the body.
 - `tail_tape k L b bA bD s n`: for every let of `b` that is the tail,
-  `fold_tape` holds of its value, with the activity instance `bA` and the
+  [`fold_tape`](AdjointCorrect.v#L962) holds of its value, with the activity instance `bA` and the
   dual instance `bD` of `b` fixed: a let is followed only on the value it
   computes (`aeval_value` of its dual instance) and on its activity binder
-  (`let_binder`). Inside an in-place loop, this is how the body receives the
+  ([`let_binder`](Activity.v#L47)). Inside an in-place loop, this is how the body receives the
   tape of the inner fold its step ends with.
 - `tapes_ok L s`: every recorded variable in scope has a tape in `s`.
 
@@ -380,11 +380,11 @@ Lemma fold_tape_in_loop L k wP tail ix sx eP eA eW eD te s n :
   fold_tape k eA eW eD s n.
 ```
 
-`eP` is the `pv` instance of a value and `eW` its well_formed instance. The
+`eP` is the [`pv`](TangentCorrect.v#L147) instance of a value and `eW` its well_formed instance. The
 place `PArray ix sx` is the body of an in-place loop. The hypothesis
 `storage … = None` says that the value is put in a fresh local, so it is not
 stored in place. Under these hypotheses, `typecheck_value` refuses a scalar
-fold at that place, so the value is not a fold, and `fold_tape` is `True`.
+fold at that place, so the value is not a fold, and [`fold_tape`](AdjointCorrect.v#L962) is `True`.
 
 ---
 
@@ -395,22 +395,22 @@ fold at that place, so the value is not a fold, and `fold_tape` is `True`.
 It mirrors `syntax.elpi` in PHOAS. The constructors keep the Elpi names,
 capitalized.
 
-- `unary`: `Neg | Sin | Cos | Exp | Log | Sqrt | Pow k | Unknown1 s`, the unary operations; `Pow k` is x^k.
-- `binary`: `Add | Sub | Mul | Divide | Lt | Le | Gt | Ge | Unknown2 s`; the comparisons are passive.
+- [`unary`](Syntax.v#L20): `Neg | Sin | Cos | Exp | Log | Sqrt | Pow k | Unknown1 s`, the unary operations; `Pow k` is x^k.
+- [`binary`](Syntax.v#L25): `Add | Sub | Mul | Divide | Lt | Le | Gt | Ge | Unknown2 s`; the comparisons are passive.
 - `term V`: `Var x | Num s` (a real literal, spelled) `| Nat k | Op1 f a | Op2 f a b | Get a i | Set_ a i v` (a new version of `a` with `a[i]` replaced) `| Let_ e b | Ite c t e | Map lo hi b` (the array `[b i | lo <= i < hi]`) `| Fold lo hi init b` (`s := init; for i: s := b i s`).
-- `ty`: `Real | Integer | Boolean | Array n` (an array of reals with a static extent).
-- `role`: `Independent` (differentiated with respect to), `Dependent` (written and never read; its derivative is wanted), `Inout` (read then overwritten), `Passive`.
+- [`ty`](Syntax.v#L61): `Real | Integer | Boolean | Array n` (an array of reals with a static extent).
+- [`role`](Syntax.v#L69): `Independent` (differentiated with respect to), `Dependent` (written and never read; its derivative is wanted), `Inout` (read then overwritten), `Passive`.
 - `result V`: `Returns t` (the body's value is returned) or `Writes y` (it is stored in the argument `y`).
 - `definition V`: `Arg n t r f` (one binder per argument, in the order of the C++ signature) or `Body r b`.
-- `function` (record): `fname : string`, `fdef : forall V, definition V`. A closed source function.
-- `decl`: `Decl n t r`, an argument as plain data.
+- [`function`](Syntax.v#L95) (record): `fname : string`, `fdef : forall V, definition V`. A closed source function.
+- [`decl`](Syntax.v#L101): `Decl n t r`, an argument as plain data.
 - `written_role r`: `r` is `Dependent` or `Inout` (the function writes the argument).
 - `varied_role r`: `r` is `Independent` or `Inout` (the argument carries a derivative on entry).
 
 ### Anf.v: L1 and L1ᵃ
 
 These are the types of `anf.elpi`. They are indexed by the annotation type
-`I` (`bare` for L1, `ann` for L1ᵃ). Values and bodies are mutually
+`I` ([`bare`](Anf.v#L68) for L1, [`ann`](Anf.v#L70) for L1ᵃ). Values and bodies are mutually
 inductive.
 
 - `atom V`: `AVar x | ANum s | ANat k`.
@@ -419,8 +419,8 @@ inductive.
 - `aresult V`: `AReturns t | AWrites y`.
 - `adefinition V I`: `AArg n t r f | ABody r b`.
 - `pexpr V`: a partial derivative as a nested expression over atoms: `PAtom a | PNum s | POp1 f a | POp2 f a b`.
-- `bare`: `Bare`, no annotation (L1).
-- `ann`:
+- [`bare`](Anf.v#L68): `Bare`, no annotation (L1).
+- [`ann`](Anf.v#L70):
   - `LetAnn varied active computed`, on a let: the value is varied; it is active (varied and useful); it is computed in its sweep;
   - `FoldAnn varied recorded records`, on a fold: the state is varied; it is recorded before each overwrite; the fold records something.
 - `afunction I` (record): `afname`, `afdef : forall V, adefinition V I`.
@@ -432,7 +432,7 @@ function, in order of creation.
 
 - `dvar V`: `DBound x` (bound by `Named`/`Fresh`) `| DotOf v` (its tangent) `| BarOf v` (its adjoint) `| TapeOf v` (the tape of its successive values) `| ResultVar` (the returned value).
 - `dexpr V`: `DVar v | DReal s | DInt k | DAt a i | DOp1 f a | DOp2 f a b`.
-- `dsort`: `DConstant t` (never reassigned) or `DMutable` (a real, reassigned or accumulated).
+- [`dsort`](Derivative.v#L36): `DConstant t` (never reassigned) or `DMutable` (a real, reassigned or accumulated).
 - `dstmt V`:
   - `DDefine s v e`: a variable and its initial value;
   - `DRealVar v`: a real assigned later in both branches;
@@ -442,20 +442,20 @@ function, in order of creation.
   - `DFor i lo hi b` (upward) and `DForBack i lo hi b` (the same indices, downward);
   - `DPush t e`, `DPop t l` (restores the last recorded value into `l`);
   - `DReturn e`.
-- `dpass`: `ByValue | ByRef` (written) `| ByCref` (read only) `| ByRefUnused` (the caller's storage, never accessed).
-- `dparam`: `DParam p t v`. `dreturn`: `DReturnsReal | DVoid`. `dbody`: `DBody r params stmts`.
+- [`dpass`](Derivative.v#L62): `ByValue | ByRef` (written) `| ByCref` (read only) `| ByRefUnused` (the caller's storage, never accessed).
+- [`dparam`](Derivative.v#L69): `DParam p t v`. [`dreturn`](Derivative.v#L72): `DReturnsReal | DVoid`. [`dbody`](Derivative.v#L76): `DBody r params stmts`.
 - `scoped V A`: `Named n f` (an argument with its C++ name) `| Fresh p f` (a local with a name prefix) `| Done a`. A value under the binders of its variables.
 - `code V := scoped V (list (dstmt V))`.
-- `dfunction` (record): `dfname`, `dfbody : forall V, scoped V (dbody V)`.
+- [`dfunction`](Derivative.v#L108) (record): `dfname`, `dfbody : forall V, scoped V (dbody V)`.
 
 ### Target.v: L3, C++ statements
 
-First order, with names as strings. It is produced by `lower` and printed by
+First order, with names as strings. It is produced by [`lower`](Lower.v#L90) and printed by
 `cxx`.
 
-- `expr`: `Id s | Lit s | At a i | Call f args` (an operator or a function).
-- `stmt`: `Declare t n e | Allocate t n | Assign l e | Increment l e | Branch c t e | Loop i lo hi b | LoopBack i lo hi b | Push t e | Pop t e | Return e`.
-- `cfunction`: `CFunction ret name args body`.
+- [`expr`](Target.v#L8): `Id s | Lit s | At a i | Call f args` (an operator or a function).
+- [`stmt`](Target.v#L15): `Declare t n e | Allocate t n | Assign l e | Increment l e | Branch c t e | Loop i lo hi b | LoopBack i lo hi b | Push t e | Pop t e | Return e`.
+- [`cfunction`](Target.v#L32): `CFunction ret name args body`.
 
 ### Domain.v: domains of numbers
 
@@ -464,15 +464,15 @@ returns an `option`. A comparison returns `option bool`, so that a domain
 may refuse a tie.
 
 - `domain N` (record): `dom_lit : string -> option N` (reads a literal), `dom_op1`, `dom_op2` (arithmetic), `dom_cmp : binary -> N -> N -> option bool`.
-- `digit`, `read_digits`, `read_sign`, `read_decimal`, `strip`, `read_literal`: read a literal string exactly as a rational `Q`. The literal is an optional sign, digits, an optional fraction and an optional exponent, or the quotient of two such numbers (`"13.0 / 12.0"`).
-- `real_lit`, `real_op1`, `real_op2`, `real_cmp`: the operations of the reals (`R`). `real_cmp` always answers.
+- [`digit`](Domain.v#L40), [`read_digits`](Domain.v#L46), [`read_sign`](Domain.v#L56), [`read_decimal`](Domain.v#L64), [`strip`](Domain.v#L84), [`read_literal`](Domain.v#L90): read a literal string exactly as a rational `Q`. The literal is an optional sign, digits, an optional fraction and an optional exponent, or the quotient of two such numbers (`"13.0 / 12.0"`).
+- [`real_lit`](Domain.v#L110), [`real_op1`](Domain.v#L113), [`real_op2`](Domain.v#L125), [`real_cmp`](Domain.v#L135): the operations of the reals (`R`). [`real_cmp`](Domain.v#L135) always answers.
 - `reals : domain R`: the domain that stands for Elpi's floats.
 - `dual N`: `Dual x dx`, a value and its tangent.
 - In section `Duals` (over a domain `B`):
-  - `dual_lit`: a literal with tangent 0;
+  - [`dual_lit`](Domain.v#L164): a literal with tangent 0;
   - `dual_partial1 f x y`: the derivative of `f` at `x`, where `y = f x`;
-  - `dual_op1` and `dual_op2`: the value, and the tangent by the chain rule;
-  - `dual_cmp`: compares the values in `B`;
+  - [`dual_op1`](Domain.v#L185) and [`dual_op2`](Domain.v#L191): the value, and the tangent by the chain rule;
+  - [`dual_cmp`](Domain.v#L210): compares the values in `B`;
   - `duals B : domain (dual N)`.
 - Local notation `let* x := a in b`: the option bind.
 
@@ -486,14 +486,14 @@ may refuse a tie.
 - `eval_map ev i n`: the reals `ev (VInt i) … ev (VInt (i+n-1))`.
 - `eval_fold ev i n s`: the state after `n` steps from `s`.
 - `count i j := Z.to_nat (j - i)`: the number of indices of `[i, j)`.
-- `eval D t`: the big-step evaluator of L0 in the domain `D`. A binder is applied to the value of its variable.
+- `eval D t`: the big-step evaluator of L0 in the domain [`D`](Main.v#L43). A binder is applied to the value of its variable.
 - `eval_definition d args`: applies `d` to `args`. `eval_function f args := eval_definition (fdef f (val N)) args`. The result is the returned value, or the new value of the written argument.
 
 ### Smooth.v: the partial semantics of Abadi and Plotkin
 
-- `smooth_op1`: fails for `Log`/`Sqrt` at `x <= 0` and for a negative power at 0.
-- `smooth_op2`: fails on a division by 0.
-- `smooth_cmp`: fails at a tie (equal operands).
+- [`smooth_op1`](Smooth.v#L24): fails for `Log`/`Sqrt` at `x <= 0` and for a negative power at 0.
+- [`smooth_op2`](Smooth.v#L33): fails on a division by 0.
+- [`smooth_cmp`](Smooth.v#L40): fails at a tie (equal operands).
 - `smooth_reals : domain R`: the reals with these failures.
 - `defined f args := exists v, eval_function smooth_reals f args = Some v`. The evaluation compares no equal reals and applies no operation where it is not differentiable.
 
@@ -504,14 +504,14 @@ change what a program computes.
 
 - `aeval_atom D a`: the value of an atom (a literal is read through `dom_lit`).
 - `aeval D b` / `aeval_value D e`: the evaluators of bodies and values. They are mutually recursive and use the operations of Eval.v.
-- `aeval_definition`, `aeval_function`: apply a definition or function to its arguments.
+- [`aeval_definition`](EvalAnf.v#L69), [`aeval_function`](EvalAnf.v#L77): apply a definition or function to its arguments.
 
 ### Exec.v: evaluator of L2
 
-- `dvar_eqb`: equality of `dvar nat`.
-- `key`: `KVar v | Returned` (where `DReturn` leaves its value). `key_eqb` is its equality.
+- [`dvar_eqb`](Exec.v#L24): equality of `dvar nat`.
+- [`key`](Exec.v#L36): `KVar v | Returned` (where `DReturn` leaves its value). [`key_eqb`](Exec.v#L40) is its equality.
 - `store N := list (key * val N)`.
-- `store_get`: the first binding of a key. `store_set`: updates a key in place, or appends it.
+- [`store_get`](Exec.v#L53): the first binding of a key. [`store_set`](Exec.v#L59): updates a key in place, or appends it.
 - `xeval D s e`: the value of an expression in the store `s`.
 - `assign D s l v`: assigns `v` to a variable or to an element `x[i]`.
 - `exec_up body i lo n s` / `exec_down body i hi n s`: run `body` `n` times, setting `i` to `lo, lo+1, …` / `hi, hi-1, …`.
@@ -521,44 +521,44 @@ change what a program computes.
 
 ### Operations.v: the operation table
 
-- `ty_eqb`: equality of types. `z_to_string`: an integer in decimal.
+- [`ty_eqb`](Operations.v#L18): equality of types. [`z_to_string`](Operations.v#L25): an integer in decimal.
 - `operation1 f`: `Some (operand type, result type, C++ spelling)`, or `None` for an unknown operator.
 - `extra_arguments f`: the literal arguments after the operand in the C++ call (the exponent of `pow`).
 - `operation2_rows f`: the rows `(type1, type2, result, spelling)` of a binary operator, in order.
 - `operation2 f`: the first row. It answers a query with unknown operand types.
 - `operation2_typed f ta tb`: the result type and spelling of the first row matching the operand types.
 - `comparison f`: the first row of `f` returns `Boolean`.
-- `partial1 f a`: the derivative of `AOp1 f a` with respect to `a`, as a `pexpr`.
+- `partial1 f a`: the derivative of `AOp1 f a` with respect to `a`, as a [`pexpr`](Anf.v#L49).
 - `partial2 f a b`: the pair of derivatives of `AOp2 f a b` with respect to `a` and `b`.
-- `unary_name`, `binary_name`: names for diagnostics, as Elpi prints them.
+- [`unary_name`](Operations.v#L121), [`binary_name`](Operations.v#L130): names for diagnostics, as Elpi prints them.
 
-### Normalize.v: `normalize`, from L0 to L1
+### Normalize.v: [`normalize`](Normalize.v#L87), from L0 to L1
 
 - `bind k := fun v => k (AVar v)`: turns a continuation on atoms into a binder.
 - `norm t k`: continuation-passing A-normalization. The source is instantiated at `atom V`, so a source variable *is* its atom.
 - `norm_body t := norm t ARet`: a body ended by its atom.
 - `normalize_result r`: a written argument becomes `AWrites` of its atom. A written expression, which cannot occur on an expressible function, gives the literal 0.
 - `normalize_definition d`: normalizes the body under the argument binders.
-- `expressible_definition`, `expressible f`: the result of `f` is `Returns`, or `Writes (Var _)`.
+- [`expressible_definition`](Normalize.v#L75), `expressible f`: the result of `f` is `Returns`, or `Writes (Var _)`.
 - `normalize f : afunction bare`.
 - `declarations d`: the arguments of an L1 definition as a `list decl`, with the binders opened at `unit`.
 
 ### WellFormed.v: the supported language, as a diagnostic
 
-- `diagnostic`: `Ok | Error m`. `is_ok` tests it. `q s` quotes a name in a message.
-- `vinfo` (record): `vid : nat` (the identity), `vty : ty` (the type), `varg : option (string * role)` (name and role of an argument).
+- [`diagnostic`](WellFormed.v#L20): `Ok | Error m`. [`is_ok`](WellFormed.v#L132) tests it. `q s` quotes a name in a message.
+- [`vinfo`](WellFormed.v#L25) (record): `vid : nat` (the identity), `vty : ty` (the type), `varg : option (string * role)` (name and role of an argument).
 - `anon k := VInfo k Real None`: a variable opened only to look into a binder.
 - `of_atom a`: the type of an atom.
 - `same_atom a b`: the same variable (same `vid`).
-- `occurs_atom y a`, `occurs_anf y k b`, `occurs_value y k e`: the variable of identity `y` occurs. Inner binders are opened with `anon` from `k`.
+- `occurs_atom y a`, `occurs_anf y k b`, `occurs_value y k e`: the variable of identity `y` occurs. Inner binders are opened with [`anon`](WellFormed.v#L34) from `k`.
 - `is_tail b k`: the body `b` (a binder) returns exactly its own variable, that is, has the shape `x\ a-ret x`.
-- `place`: `Top | InBranch | ScalarBody | ArrayBody index state` (see Key concepts).
+- [`place`](WellFormed.v#L84): `Top | InBranch | ScalarBody | ArrayBody index state` (see Key concepts).
 - `written_decl d`: the declaration has a written role. `ty_is_array t`: `t` is an array type.
 - `in_place_init written p tail init`: an in-place fold starts either from the written argument at the end of the function (`Top`, tail) or from the state of the enclosing in-place fold at the end of its body.
 - `ends_with_fold k b`: `b` ends with a fold in tail position.
 - `reads_before_tail s k b`: `b` reads the variable `s` before its tail let.
 - `reads_around_inner_loop s k b`: both hold, that is, the body reads the state `s` before an inner in-place loop that ends it.
-- `typecheck written p k b = (T, D)`: in place `p`, the body `b` has type `T`, or `D` explains why not. `typecheck_value written p tail k e` does the same for one value, where `tail` says that the let ends its body. This encodes all the restrictions: where maps, folds, sets and branches may appear, and what they may read.
+- `typecheck written p k b = (T, D)`: in place `p`, the body `b` has type `T`, or [`D`](Main.v#L43) explains why not. `typecheck_value written p tail k e` does the same for one value, where `tail` says that the let ends its body. This encodes all the restrictions: where maps, folds, sets and branches may appear, and what they may read.
 - `well_formed_result decls r b k`: checks the result against the declarations (single written argument, `Dependent` not read, `Inout` read, …).
 - `well_formed_definition decls k d`: opens the arguments as `VInfo k t (Some (n, r))`, then checks the result.
 - `non_real_varied ds`: the first independent or inout argument that is neither a real nor an array.
@@ -567,13 +567,13 @@ change what a program computes.
 
 ### Atoms.v: sets of atoms
 
-- `avar` (record): `aid : nat` (the identity), `avaried : bool` (varied flag). These are the variables of the analyses.
+- [`avar`](Atoms.v#L17) (record): `aid : nat` (the identity), `avaried : bool` (varied flag). These are the variables of the analyses.
 - `same_term a b`: the same variable (same `aid`).
-- `atom_member`, `atom_remove`, `atom_union`: sets of atoms as lists compared by `same_term`. `atom_union` adds no duplicates.
-- `atoms_of_atom`, `atoms_of_atoms`, `atoms_of_anf k b`, `atoms_of_value k e`, `atoms_of_pexpr p`: the bound variables a term mentions, excluding its own binders.
+- [`atom_member`](Atoms.v#L32), [`atom_remove`](Atoms.v#L35), [`atom_union`](Atoms.v#L40): sets of atoms as lists compared by [`same_term`](Atoms.v#L24). [`atom_union`](Atoms.v#L40) adds no duplicates.
+- [`atoms_of_atom`](Atoms.v#L48), [`atoms_of_atoms`](Atoms.v#L51), `atoms_of_anf k b`, `atoms_of_value k e`, `atoms_of_pexpr p`: the bound variables a term mentions, excluding its own binders.
 - `fresh k := AV k false`: a variable opened to look into a binder.
 
-### Activity.v: `varied`
+### Activity.v: [`varied`](Activity.v#L16)
 
 - `varied a`: the atom is a varied variable.
 - `varied_value k e`, `varied_anf k b`: the value or body depends on an independent argument. A comparison is never varied. A let binder is opened with its varied flag.
@@ -583,7 +583,7 @@ change what a program computes.
 
 ### Tbr.v: to-be-recorded
 
-- `sweep`: `Forward | Replay` (see Key concepts). `sweep_eqb` is its equality.
+- [`sweep`](Tbr.v#L19): `Forward | Replay` (see Key concepts). [`sweep_eqb`](Tbr.v#L25) is its equality.
 - `read_by a p`: the atoms that the partial derivative `p` reads, when the operand `a` is varied.
 - `needs cv m k b = (U, L)`: U the useful atoms of `b`, L the atoms its adjoint code reads by value. A tail atom is in L only in the forward sweep with `cv`.
 - `value_needs cv k e = (R, F)`: for an active value, R the atoms its reverse sweep reads, F the atoms its value depends on. Loop bodies and branches are analyzed in `Replay`.
@@ -592,16 +592,16 @@ change what a program computes.
 
 ### Annotate.v: from L1 to L1ᵃ
 
-The closed input is traversed twice: once at `avar` to compute the
+The closed input is traversed twice: once at [`avar`](Atoms.v#L17) to compute the
 annotations, once at `V` to rebuild the term with them.
 
-- `ltree`: `TLet a v rest | TRet`, and `vtree`: `TLeaf | TIte t e | TMap b | TFold a b`. The annotations in the shape of the lets, the folds and the inner bodies.
+- [`ltree`](Annotate.v#L21): `TLet a v rest | TRet`, and `vtree`: `TLeaf | TIte t e | TMap b | TFold a b`. The annotations in the shape of the lets, the folds and the inner bodies.
 - `annotate_body_t cv m k b`: the annotation tree of a body transposed in sweep `m`:
-  - `varied` is `varied_value`;
+  - [`varied`](Activity.v#L16) is [`varied_value`](Activity.v#L21);
   - `active` is varied and useful;
   - `computed` is needed by the rest, or, in the forward sweep, a fold in the let records.
 - `annotate_value_t cv k e`: the bodies inside a value are annotated in `Replay`. A fold gets `FoldAnn (fold_varied) (state_live) (records)`.
-- `annotate_definition_t cv k d`: opens the arguments with `varied_role`, then annotates the body in `Forward`.
+- `annotate_definition_t cv k d`: opens the arguments with [`varied_role`](Syntax.v#L109), then annotates the body in `Forward`.
 - `no_ann := LetAnn false false false`: the default annotation (never used on matching trees).
 - `rebuild b t`, `rebuild_value e t`, `rebuild_definition d t`: the term over `V` with the annotations of the tree.
 - `has_inout d dummy`: the definition has an `Inout` argument.
@@ -612,7 +612,7 @@ annotations, once at `V` to rebuild the term with them.
 
 - `tvar V` (record): `tstored`, `tty`, `targ`, `tvaried`, `tdot`, `tbar`, `trecorded`, `tid` (see Key concepts).
 - `code := scoped V (list (dstmt V))`.
-- `sbind s k`: the monadic bind of `scoped`. It keeps the binders of `s` followed by those of `k`.
+- `sbind s k`: the monadic bind of [`scoped`](Derivative.v#L81). It keeps the binders of `s` followed by those of `k`.
 - `sflatten ss`: concatenates a list of scoped blocks.
 - `spell a`: an atom as an expression. A variable becomes `DVar (tstored x)`.
 - `spell_partial p`: a partial derivative as an expression.
@@ -620,7 +620,7 @@ annotations, once at `V` to rebuild the term with them.
 - `dot a`: `DVar (DotOf (tstored x))` when `x` has a tangent, `DReal "0"` otherwise.
 - `bar a`: `Some (DVar (BarOf …))` when `x` has an adjoint, `None` otherwise.
 - `scale p e`: `p * e`, simplified for `1` and `-1`. `sum es`: the sum of a list, `0` when empty.
-- `probe`: a `tvar` with `tid = Some 0`, used to test the shape of a body.
+- [`probe`](Transform.v#L117): a `tvar` with `tid = Some 0`, used to test the shape of a body.
 - `is_tail b`: `b probe` returns the probe, that is, the shape `x\ a-ret x`.
 - `is_written written a`: `a` is the written argument (compared by `tid`).
 - `with_storage written e b k`: chooses the storage of `let e b` and passes it to `k` together with its recorded flag:
@@ -647,7 +647,7 @@ annotations, once at `V` to rebuild the term with them.
   - a written real is assigned along with its dot;
   - an array is written in place (no statement).
 - `tangent_term a p`: `[p * dot a]` when `a` is varied, `[]` otherwise.
-- `tan_ite`, `tan_map`, `tan_fold`: the statements for a branch, a map writing `n` and its dot element by element, and a scalar fold with its mutable state and dot.
+- [`tan_ite`](Tangent.v#L64), [`tan_map`](Tangent.v#L75), [`tan_fold`](Tangent.v#L85): the statements for a branch, a map writing `n` and its dot element by element, and a scalar fold with its mutable state and dot.
 - `tan written b`: the tangent code of a body. It returns the statements and the value and tangent of its tail.
 - `tan_value written e t vr n`: computes `e` into `n`, and its tangent into `DotOf n` when `vr`. An in-place fold just runs its body in a `DFor`.
 - `tangent_body args res b written`: the signature (primal parameters, then tangents, then the extra tangent of the result) and the statements.
@@ -655,10 +655,10 @@ annotations, once at `V` to rebuild the term with them.
 
 ### Dump.v: printer of L2
 
-- `ty_string`, `op1_string`, `op2_symbol`: the printed forms of types and operators.
-- `var_name v`: `x`, `x_dot`, `x_bar`, `x_tape`, `result`.
-- `dexpr_strings e`: the top-level form and the operand form (parenthesized when infix). `dexpr_string` is the first.
-- `pass_word`, `param_text`: a parameter, as in `x: const ref real[3]`.
+- [`ty_string`](Dump.v#L12), [`op1_string`](Dump.v#L19), [`op2_symbol`](Dump.v#L26): the printed forms of types and operators.
+- `var_name v`: `x`, `x_dot`, `x_bar`, `x_tape`, [`result`](Syntax.v#L78).
+- `dexpr_strings e`: the top-level form and the operand form (parenthesized when infix). [`dexpr_string`](Dump.v#L56) is the first.
+- [`pass_word`](Dump.v#L58), [`param_text`](Dump.v#L62): a parameter, as in `x: const ref real[3]`.
 - `pr_stmt ind s`: the lines of a statement.
 - `pr_scoped name s k`: names `Fresh` binders `prefix ++ number` from `k`.
 - `pr_dfunction f`: the lines of `dump -- derivative <mode>`.
@@ -703,7 +703,7 @@ annotations, once at `V` to rebuild the term with them.
 - `W := nat * V`: the input is instantiated with pairs, a number (compared) and an output variable (kept).
 - `dvar_eq a b`: compares the numbers.
 - `is_lit s e`: `e` is the literal `s`.
-- `simplify_op1`, `simplify_op2`, `simplify_expr`: algebraic identities (`x^1`, `x^0`, `- - x`, `0 *`, `1 *`, `-1 *`, `+ 0`, `- 0`), bottom-up.
+- [`simplify_op1`](Simplify.v#L40), [`simplify_op2`](Simplify.v#L48), [`simplify_expr`](Simplify.v#L60): algebraic identities (`x^1`, `x^0`, `- - x`, `0 *`, `1 *`, `-1 *`, `+ 0`, `- 0`), bottom-up.
 - `mentions_expr v e`, `mentions v s`: `v` occurs (read or written) in an expression or a statement.
 - `target v l`, `writes v s`: `s` assigns or accumulates into `v`.
 - `replace_expr v l e`, `replace_stmt v l s`: substitute the literal `l` for `v`.
@@ -714,7 +714,7 @@ annotations, once at `V` to rebuild the term with them.
   - removes unused definitions;
   - propagates literal constants.
 - `size s`, `fuel ss := 2 * size + 10`: the fuel.
-- `out_dvar`, `out_dexpr`, `out_dstmt`, `out_dparam`: from `W` to the output variables (drop the numbers).
+- [`out_dvar`](Simplify.v#L240), [`out_dexpr`](Simplify.v#L249), [`out_dstmt`](Simplify.v#L259), [`out_dparam`](Simplify.v#L276): from `W` to the output variables (drop the numbers).
 - `simplify_scoped s k`: opens the binders with `(k, v)`, then simplifies the body.
 - `simplify f : dfunction`.
 
@@ -734,18 +734,18 @@ annotations, once at `V` to rebuild the term with them.
 
 ### Lower.v: L2′ to L3
 
-- `return_type`, `array_type`, `value_type`, `pass_string`, `param_string`: the C++ types and parameters (`T`, `std::array<T, n>`, `const T&`, `T& /*x*/`).
-- `spelling1`, `spelling2`: the C++ spelling of an operator.
-- `lower_expr`, `lower_stmt`: the translation. A real literal becomes `T(s)`, and a tape becomes a `std::vector<T>`.
+- [`return_type`](Lower.v#L18), [`array_type`](Lower.v#L21), [`value_type`](Lower.v#L24), [`pass_string`](Lower.v#L27), [`param_string`](Lower.v#L35): the C++ types and parameters (`T`, `std::array<T, n>`, `const T&`, `T& /*x*/`).
+- [`spelling1`](Lower.v#L45), [`spelling2`](Lower.v#L48): the C++ spelling of an operator.
+- [`lower_expr`](Lower.v#L51), [`lower_stmt`](Lower.v#L61): the translation. A real literal becomes `T(s)`, and a tape becomes a `std::vector<T>`.
 - `lower_scoped name s k`: names the `Fresh` binders with a counter `k`, threaded across the functions, and returns the next value.
 - `lower f k`, `lower_from fs k`, `lower_all fs`: lower the functions of a file, with the counter starting at 1.
 
 ### Cxx.v: printing C++
 
-- `nl`: newline. `infix_operator s`: `s` is an infix C++ operator.
+- [`nl`](Cxx.v#L10): newline. `infix_operator s`: `s` is an infix C++ operator.
 - `expr_strings e`, `bare_string e`: the printed expression, parenthesized as an operand when infix.
 - `stmt_lines ind s`, `block_lines ind l`: the lines of statements.
-- `function_name`, `expr_functions`, `stmt_functions`, `called_functions`: the functions a body calls, in order of first use (for the `using std::f;` lines).
+- [`function_name`](Cxx.v#L71), [`expr_functions`](Cxx.v#L74), [`stmt_functions`](Cxx.v#L84), [`called_functions`](Cxx.v#L96): the functions a body calls, in order of first use (for the `using std::f;` lines).
 - `function_string c`: a template function. `header_string source fs`: the whole header.
 
 ### Gallina.v: printing L2′ as Gallina
@@ -753,102 +753,102 @@ annotations, once at `V` to rebuild the term with them.
 Assignments become shadowing lets. Loops become `for_up` / `for_down` over
 the tuple of the variables they assign. Reals are primitive floats.
 
-- `reserved`, `gname`: the Gallina name of a variable (suffixed `_` when reserved).
-- `ty_code`, `code_type`: type codes `R Z B A T` and their Gallina types.
-- `env`, `gtype`: the environment of variable types.
-- `comparison_op`, `expr_type`, `drop_spaces`, `trim`, `split_slash`, `literal`, `op1_name`, `gallina_op2`, `int_op2`, `expr_string`: expressions.
-- `lhs_name`, `add_assigned`, `stmt_assigned`, `assigned`: the variables a block assigns that are defined before it.
-- `tuple`, `pattern`, `split_last`, `update_string`, `loop_text`, `branch_text`, `stmt_lines`, `stmts_lines`: statements.
-- `param_binder`, `param_result`, `function_text`, `gallina_scoped`, `gallina_function`, `gallina_from`: functions. The `ByRef` parameters are results.
-- `preamble`: the Gallina definitions the output relies on (`get`, `set_at`, `add_at`, `pop`, `for_up`, …).
+- [`reserved`](Gallina.v#L23), [`gname`](Gallina.v#L31): the Gallina name of a variable (suffixed `_` when reserved).
+- [`ty_code`](Gallina.v#L36), [`code_type`](Gallina.v#L40): type codes `R Z B A T` and their Gallina types.
+- [`env`](Gallina.v#L45), [`gtype`](Gallina.v#L47): the environment of variable types.
+- [`comparison_op`](Gallina.v#L56), [`expr_type`](Gallina.v#L59), [`drop_spaces`](Gallina.v#L72), [`trim`](Gallina.v#L75), [`split_slash`](Gallina.v#L79), [`literal`](Gallina.v#L87), [`op1_name`](Gallina.v#L96), [`gallina_op2`](Gallina.v#L100), `int_op2`, [`expr_string`](Gallina.v#L125): expressions.
+- [`lhs_name`](Gallina.v#L144), [`add_assigned`](Gallina.v#L149), [`stmt_assigned`](Gallina.v#L155), [`assigned`](Gallina.v#L176): the variables a block assigns that are defined before it.
+- [`tuple`](Gallina.v#L179), [`pattern`](Gallina.v#L182), [`split_last`](Gallina.v#L188), [`update_string`](Gallina.v#L191), [`loop_text`](Gallina.v#L201), [`branch_text`](Gallina.v#L218), `stmt_lines`, [`stmts_lines`](Gallina.v#L281): statements.
+- [`param_binder`](Gallina.v#L291), [`param_result`](Gallina.v#L295), [`function_text`](Gallina.v#L298), [`gallina_scoped`](Gallina.v#L311), [`gallina_function`](Gallina.v#L319), [`gallina_from`](Gallina.v#L322): functions. The `ByRef` parameters are results.
+- [`preamble`](Gallina.v#L328): the Gallina definitions the output relies on (`get`, `set_at`, `add_at`, `pop`, `for_up`, …).
 - `gallina_file source fs`.
 
 ### Adjudge.v: the driver
 
-- `mode`: `ModeTangent | ModeAdjoint | ModeAdjointValue`. `mode_value m` is `true` for adjoint-value. `mode_name` is its name.
+- [`mode`](Adjudge.v#L16): `ModeTangent | ModeAdjoint | ModeAdjointValue`. `mode_value m` is `true` for adjoint-value. [`mode_name`](Adjudge.v#L21) is its name.
 - `check f`: `(Some (normalize f), well_formed …)` when `f` is expressible.
 - `differentiate m a`: `tangent`, `adjoint false` or `adjoint true`.
 - `transform m a := simplify (differentiate m (annotate (mode_value m) a))`.
 - `main m source fs`: the header of the well-formed functions, if any, and the diagnostics `"name: message"` of the refused ones.
 
-### SimplifyCorrect.v: theorem 2, `simplify_correct_tapes`
+### SimplifyCorrect.v: theorem 2, [`simplify_correct_tapes`](SimplifyCorrect.v#L2163)
 
-The proof shows that `simplify` preserves the execution over the reals of a
+The proof shows that [`simplify`](Simplify.v#L292) preserves the execution over the reals of a
 program that follows `good`, tapes included. It is a simulation between
 stores that agree on the variables in scope.
 
-- Local notations: `W`, `out`, `oute`, `outs` (the `out_*` maps at `nat`), `store`.
-- `ex ss s`: executes a `W` block over the reals, after `out_dstmt`.
-- Ltac `inv_eval`: unfolds an evaluation hypothesis, match by match.
+- Local notations: `W`, [`out`](SimplifyCorrect.v#L37), [`oute`](SimplifyCorrect.v#L38), [`outs`](SimplifyCorrect.v#L39) (the `out_*` maps at `nat`), `store`.
+- `ex ss s`: executes a `W` block over the reals, after [`out_dstmt`](Simplify.v#L259).
+- Ltac [`inv_eval`](SimplifyCorrect.v#L175): unfolds an evaluation hypothesis, match by match.
 - `gd sc wr ss`: `good` without the `DPush`/`DPop` rules (the tangent programs).
 - `after_scope sc ss`, `after_wr wr ss`: the scope and the writable set after a block. `defs ss`, `wdefs ss`: the variables it defines, and those it defines writable.
 - `agree sc s s'`: the two stores agree on the variables of `sc` and on `Returned`. This is not the `agree` of TangentCorrect.v.
 - `sim sc ss1 ss2`: from stores agreeing on `sc`, every run of `ss1` is matched by a run of `ss2` ending in agreeing stores.
 - `lhs_var l`: the variable an assignment target writes.
-- `correct f`: the block transformation `f` keeps `gd` and refines every `gd` block.
+- `correct f`: the block transformation `f` keeps [`gd`](SimplifyCorrect.v#L327) and refines every [`gd`](SimplifyCorrect.v#L327) block.
 - `agree_ex v sc s s'`: agreement on `sc` except `v`.
-- Section `Replace`: assumes `consistent v` and `real_lit l = Some x`, with local notations `re`/`rs` for replacing `v` by the literal `l`.
+- Section `Replace`: assumes `consistent v` and `real_lit l = Some x`, with local notations [`re`](SimplifyCorrect.v#L1621)/[`rs`](SimplifyCorrect.v#L1622) for replacing `v` by the literal `l`.
 - `params ps`: the variables of the parameters.
-- Theorems: `simplify_correct_fuel`, and `simplify_correct_tapes` (refinement: same final parameters and returned value).
+- Theorems: [`simplify_correct_fuel`](SimplifyCorrect.v#L2094), and [`simplify_correct_tapes`](SimplifyCorrect.v#L2163) (refinement: same final parameters and returned value).
 
-### Correctness.v: `normalize_correct`, `annotate_correct`
+### Correctness.v: [`normalize_correct`](Correctness.v#L206), [`annotate_correct`](Correctness.v#L292)
 
-- `term_equiv G t1 t2`, `result_equiv`, `definition_equiv`: two instances of an L0 term are the same term, with the variables of `G : list (V1 * V2)` paired.
+- `term_equiv G t1 t2`, [`result_equiv`](Correctness.v#L57), [`definition_equiv`](Correctness.v#L61): two instances of an L0 term are the same term, with the variables of `G : list (V1 * V2)` paired.
 - `parametric f`: any two instances of `fdef f` are related with `G = []`.
 - `env_ok G`: each pair `(atom, value)` of `G` has the atom evaluating to the value (stage 1).
-- Ltac `inv_some`: unfolds `Some`/`None`/match hypotheses.
+- Ltac [`inv_some`](Correctness.v#L129): unfolds `Some`/`None`/match hypotheses.
 - `Scheme anf_ind'` (with `value_ind'`): the mutual induction scheme on `anf`/`value`.
 - Theorems:
-  - `normalize_correct`: when the source computes a value, its A-normal form computes the same, in any domain;
-  - `annotate_correct`: the annotated function computes what the function computes.
+  - [`normalize_correct`](Correctness.v#L206): when the source computes a value, its A-normal form computes the same, in any domain;
+  - [`annotate_correct`](Correctness.v#L292): the annotated function computes what the function computes.
 
 ### AnfEquiv.v: parametricity of L1
 
 - `atom_eq G a1 a2`: related atoms (paired variables, or equal literals).
 - `anf_eq G b1 b2` / `value_eq G e1 e2`: two instances of an L1 body or value are the same term. A binder relates its bodies on every pair added to `G`. The annotations are not compared.
-- `aresult_eq`, `adefinition_eq`: the same for results and definitions (names, types and roles equal).
-- Theorem `normalize_parametric`: the normal form of a parametric source is parametric.
+- [`aresult_eq`](AnfEquiv.v#L62), [`adefinition_eq`](AnfEquiv.v#L70): the same for results and definitions (names, types and roles equal).
+- Theorem [`normalize_parametric`](AnfEquiv.v#L211): the normal form of a parametric source is parametric.
 
 ### Euclidean.v: R^n in Coquelicot
 
-- `unit_AbelianMonoid_mixin`, `unit_AbelianGroup_mixin`, `unit_ModuleSpace_mixin`, `unit_UniformSpace_mixin` and the canonical structures `unit_AbelianMonoid`, `unit_AbelianGroup`, `unit_ModuleSpace`, `unit_UniformSpace`, `unit_NormedModuleAux`, `unit_NormedModule`: `unit` as the zero normed module.
+- [`unit_AbelianMonoid_mixin`](Euclidean.v#L20), [`unit_AbelianGroup_mixin`](Euclidean.v#L26), [`unit_ModuleSpace_mixin`](Euclidean.v#L31), [`unit_UniformSpace_mixin`](Euclidean.v#L39) and the canonical structures `unit_AbelianMonoid`, `unit_AbelianGroup`, `unit_ModuleSpace`, `unit_UniformSpace`, `unit_NormedModuleAux`, `unit_NormedModule`: `unit` as the zero normed module.
 - `Rn n`: `R × (R × … × unit)` as a `NormedModule R_AbsRing`.
 - `vec_of_list n l`: the first `n` reals of `l`, padded with zeros.
 - `list_of_vec n v`: the coordinates of `v`, in order.
 - `coord n j v`: the j-th coordinate, a linear map.
 
-### DualsDerive.v: theorem 3, `duals_derive`
+### DualsDerive.v: theorem 3, [`duals_derive`](DualsDerive.v#L1491)
 
-Where `f` is `defined` at `x`, it is Fréchet-differentiable (`filterdiff`) as
+Where `f` is [`defined`](Smooth.v#L50) at `x`, it is Fréchet-differentiable (`filterdiff`) as
 a function `value_of f x : R^n -> R^m`, and the dual numbers compute its
 derivative.
 
-- `digits_value`, `digits_length`, `is_digit_char`: lemmas about reading decimal literals.
+- [`digits_value`](DualsDerive.v#L85), [`digits_length`](DualsDerive.v#L100), [`is_digit_char`](DualsDerive.v#L130): lemmas about reading decimal literals.
 - `val_map g v`: maps the numbers of a value by `g`.
 - `graph g G`: every pair of `G` is `(x, val_map g x)`.
 - Sections `Forward` / `Reflect`: assume that the operations of two domains commute with `g` (forward: success transfers; reflect: the converse).
-- Section `EquivInversion`: inversion lemmas on `term_equiv`.
-- `real_fun1`, `real_fun2`: the real operations made total (0 on failure).
-- `dual_tan1`, `dual_tan2`: the tangent the dual numbers compute.
+- Section `EquivInversion`: inversion lemmas on [`term_equiv`](Correctness.v#L26).
+- [`real_fun1`](DualsDerive.v#L658), [`real_fun2`](DualsDerive.v#L661): the real operations made total (0 on failure).
+- [`dual_tan1`](DualsDerive.v#L665), [`dual_tan2`](DualsDerive.v#L669): the tangent the dual numbers compute.
 - `derivative1 f x`: the derivative of a unary operation.
 - Section `Families` (around `e0 : E`):
   - a number is a family `fam := (E -> R) * (E -> R)`, a function and its derivative;
-  - `good p`: `fst p` is differentiable at `e0` with derivative `snd p`. This is not the `good` of Scoping.v. `good_val` lifts it to values;
-  - `fam_lit`, `fam_op1`, `fam_op2`, `fam_cmp`, `families`: the domain of families. It fails where `smooth_reals` fails at `e0`;
+  - `good p`: `fst p` is differentiable at `e0` with derivative `snd p`. This is not the `good` of Scoping.v. [`good_val`](DualsDerive.v#L804) lifts it to values;
+  - [`fam_lit`](DualsDerive.v#L811), [`fam_op1`](DualsDerive.v#L817), [`fam_op2`](DualsDerive.v#L824), [`fam_cmp`](DualsDerive.v#L832), [`families`](DualsDerive.v#L835): the domain of families. It fails where [`smooth_reals`](Smooth.v#L43) fails at `e0`;
   - `at_point y p`: the family at `y`. `dual_at h p`: the family as a dual number at `e0` in direction `h`;
-  - Ltac `decide_ifs`: decides the real comparisons in a goal;
+  - Ltac [`decide_ifs`](DualsDerive.v#L1001): decides the real comparisons in a goal;
   - `ctx_at y G`: relates the family instance to the instance at `y`;
   - `near_ok t1`: for the evaluation of `t1` over families, the value is good, and near `e0` the evaluation over the reals of the instance at `y` gives the value at `y`.
-- `reals_of_val`, `reals_of_args`: the real coordinates (reals and array elements) of a value and of a list of arguments.
-- `lay_list`, `lay real other x j`: rebuilds the arguments, mapping each real coordinate (numbered from `j`) by `real` and each tape element by `other`.
+- [`reals_of_val`](DualsDerive.v#L1267), [`reals_of_args`](DualsDerive.v#L1270): the real coordinates (reals and array elements) of a value and of a list of arguments.
+- [`lay_list`](DualsDerive.v#L1273), `lay real other x j`: rebuilds the arguments, mapping each real coordinate (numbered from `j`) by `real` and each tape element by `other`.
 - `with_reals x r`: `x` with its reals replaced by `r`.
 - `in_dim x`: the number of reals of `x`.
 - `out_dim f x`: the number of reals of the value of `f` at `x`.
 - `value_of f x y`: `f` as a function `Rn (in_dim x) -> Rn (out_dim f x)`.
 - `dual_args x dx`: the arguments as dual numbers, each real with the tangent of `dx` at its position.
-- `primal_val`, `tangent_reals`: the primal value and the list of tangents of a dual value.
-- `val_reals`: `reals_of_val` in any domain.
-- `famn n`, `fam_lay`, `fam_args x`: the arguments as families on `R^n`. The j-th real coordinate is the j-th coordinate function, and a tape element is a constant.
+- [`primal_val`](DualsDerive.v#L1318), [`tangent_reals`](DualsDerive.v#L1321): the primal value and the list of tangents of a dual value.
+- [`val_reals`](DualsDerive.v#L1399): [`reals_of_val`](DualsDerive.v#L1267) in any domain.
+- `famn n`, [`fam_lay`](DualsDerive.v#L1421), `fam_args x`: the arguments as families on `R^n`. The j-th real coordinate is the j-th coordinate function, and a tape element is a constant.
 - `point_of x`: the vector of the reals of `x`.
 
 ### TangentCorrect.v: theorem 1, the simulation (lets, operations, branches)
@@ -856,67 +856,67 @@ derivative.
 The proof shows that the tangent program, run over the reals, computes the
 dual evaluation (see Key concepts).
 
-- `keyv`, `xev`, `run`: the store key of a `W` variable, and evaluation and execution after `out_*`.
-- `dfst`, `dsnd`: the parts of a dual number.
+- [`keyv`](TangentCorrect.v#L50), [`xev`](TangentCorrect.v#L51), [`run`](TangentCorrect.v#L53): the store key of a `W` variable, and evaluation and execution after `out_*`.
+- [`dfst`](TangentCorrect.v#L99), [`dsnd`](TangentCorrect.v#L100): the parts of a dual number.
 - `primal v`, `tangent v`: the primal and tangent parts of a dual value, as values of the reals. This `tangent` is not `Tangent.tangent`.
 - `zero v`: the tangent of `v` is zero.
 - `has_type t v`: `v` is a value of type `t`, an array having the declared extent.
 - `real_or_array t`, `is_array t`: predicates on types.
-- `pv` (record): `pa`, `pw`, `pt`, `pd`, `pn` (see Key concepts). `stored p := DBound (pn p, pn p)`.
-- `gA`, `gW`, `gT`, `gD`: the contexts pairing each `pv` with its projection.
+- [`pv`](TangentCorrect.v#L147) (record): `pa`, `pw`, `pt`, `pd`, `pn` (see Key concepts). `stored p := DBound (pn p, pn p)`.
+- [`gA`](TangentCorrect.v#L153), [`gW`](TangentCorrect.v#L154), [`gT`](TangentCorrect.v#L155), [`gD`](TangentCorrect.v#L156): the contexts pairing each [`pv`](TangentCorrect.v#L147) with its projection.
 - `amap f a`: maps the variable of an atom.
 - `static_ok k p`: see Key concepts.
 - `ids_unique L`: two variables of `L` with the same `vid` are equal.
 - `store_ok s p`: the store holds the primal value in `stored p`, and the tangent in its dot when it has one.
-- `pplace`, `wplace`, `owner`, `inplace`, `place_ok`: see Key concepts.
+- [`pplace`](TangentCorrect.v#L184), [`wplace`](TangentCorrect.v#L188), [`owner`](TangentCorrect.v#L196), [`inplace`](TangentCorrect.v#L204), [`place_ok`](TangentCorrect.v#L207): see Key concepts.
 - `store_full s p`: the store holds both the value and the tangent, even when `p` is not varied.
 - `arrays_len s n len`: `n` and `DotOf n` hold arrays of length `len`.
 - `ctx_ok L k c s wP pp live ty` (record), the invariant of a body:
   - `c_static`: `static_ok k` on `L`;
-  - `c_unique`: `ids_unique`;
+  - `c_unique`: [`ids_unique`](TangentCorrect.v#L173);
   - `c_num`: storages below `c`;
-  - `c_store`: live variables are `store_ok`;
+  - `c_store`: live variables are [`store_ok`](TangentCorrect.v#L178);
   - `c_written`: the written atom is an argument in scope;
-  - `c_place`: `place_ok`;
+  - `c_place`: [`place_ok`](TangentCorrect.v#L207);
   - `c_owner`: a variable sharing the owner's storage is the owner, or is not live;
-  - `c_inplace`: such a live variable is `store_full`;
+  - `c_inplace`: such a live variable is [`store_full`](TangentCorrect.v#L217);
   - `c_arrays`: a live array that is not an argument (or is the written one) lives in the owner's storage;
   - `c_ty`: an array body has an owner;
   - `c_top`: at the top with a written array, the body has its type, it is varied when live, and its storage and dot have the declared length.
 - `sctx L k c wP pp live ty` (record): the store-independent fields (`s_static`, `s_unique`, `s_num`, `s_written`, `s_place`, `s_owner`, `s_arrays`, `s_ty`, `s_top`).
 - `below c v`, `frame c ex s s'`: see Key concepts.
-- `body_result t ex s ve de v`: for a real, `ve`/`de` give the primal/tangent of `v`. For an array, the storage `ex` and its dot hold them.
+- `body_result t ex s ve de v`: for a real, `ve`/`de` give the primal/tangent of `v`. For an array, the storage [`ex`](SimplifyCorrect.v#L43) and its dot hold them.
 - Ltac `unfold_ops H`: unfolds the domain operations, but not the reading of literals.
-- `pfresh k`: a `pv` opened with identity `k` (probe, `VInt 0`, number 0).
-- `agree G1 G2 k`: two `vinfo` contexts give the same identity to a `pv`, below `k`. This is not the `agree` of SimplifyCorrect.v.
-- Ltac `rewrite_atoms`: rewrites `occurs_atom` across related contexts.
+- `pfresh k`: a [`pv`](TangentCorrect.v#L147) opened with identity `k` (probe, `VInt 0`, number 0).
+- `agree G1 G2 k`: two [`vinfo`](WellFormed.v#L25) contexts give the same identity to a [`pv`](TangentCorrect.v#L147), below `k`. This is not the `agree` of SimplifyCorrect.v.
+- Ltac [`rewrite_atoms`](TangentCorrect.v#L466): rewrites [`occurs_atom`](WellFormed.v#L53) across related contexts.
 - `dvars e`: the variables an expression reads.
 - `res_vars L live c e`: `e` reads only stored variables or dots of live variables in scope, or variables opened at or after `c`.
 - `dot_vars L live c e`: the same, with only the dots of variables in scope.
 - `live_anf k b p`, `live_value k e p`: `p` occurs in the body or value.
-- `sim_body bP`, `sim_value eP`, `storage`: see Key concepts.
+- `sim_body bP`, `sim_value eP`, [`storage`](TangentCorrect.v#L766): see Key concepts.
 - `avoid k e`: no variable of `e` has the key `k`.
-- Ltacs `graph`, `fresh_case`, `crush_match`, `value_intro`: proof automation (inverting the four `value_eq`, destructing matches).
+- Ltacs `graph`, [`fresh_case`](TangentCorrect.v#L903), [`crush_match`](TangentCorrect.v#L959), [`value_intro`](TangentCorrect.v#L1700): proof automation (inverting the four `value_eq`, destructing matches).
 
 ### TangentLoops.v: theorem 1, the loops
 
 There are no new definitions. The file proves the cases of the map, the
-scalar fold and the in-place fold, and then `simulation`:
+scalar fold and the in-place fold, and then [`simulation`](TangentLoops.v#L717):
 `(forall bP, sim_body bP) /\ (forall eP, sim_value eP)`.
 
-### TangentGood.v: theorem 1, the scoping discipline (`scoping`)
+### TangentGood.v: theorem 1, the scoping discipline ([`scoping`](TangentGood.v#L1182))
 
 - `good_k sc wr c' ss Q`: `ss` followed by any block that is `good` in every larger scope opened before `c'` where `Q` holds, is `good` from `(sc, wr)`.
 - `scope_ok L c wP pp live sc wr`: `sc` holds consistent variables opened before `c`, including the storage (and dot) of every live variable. The owner's storage and dot are writable.
-- `good_body bP`, `good_value eP`: the analogues of `sim_body`/`sim_value` without store. The generated code keeps the discipline (`good_k`), its result expressions being in scope.
+- `good_body bP`, `good_value eP`: the analogues of [`sim_body`](TangentCorrect.v#L747)/[`sim_value`](TangentCorrect.v#L779) without store. The generated code keeps the discipline ([`good_k`](TangentGood.v#L26)), its result expressions being in scope.
 - `allv P e`: `P` holds of every variable of `e`.
-- Ltac `gvalue_intro`: the introduction pattern of `good_value`.
+- Ltac [`gvalue_intro`](TangentGood.v#L227): the introduction pattern of [`good_value`](TangentGood.v#L74).
 - `default_dual t`: a value of type `t` with zero tangents.
 
-### TangentTop.v: theorem 1 for a function (`tangent_simulates_duals`)
+### TangentTop.v: theorem 1 for a function ([`tangent_simulates_duals`](TangentTop.v#L1151))
 
-- `arg_pv n t r k x`: the `pv` of the k-th argument: identity `k`, stored in the k-th parameter, dual value `x`.
-- `open_P d k xs L`: opens the arguments of the `pv` instance with `arg_pv`, accumulating them last first. It returns the arguments, the result and the body.
+- `arg_pv n t r k x`: the [`pv`](TangentCorrect.v#L147) of the k-th argument: identity `k`, stored in the k-th parameter, dual value `x`.
+- `open_P d k xs L`: opens the arguments of the [`pv`](TangentCorrect.v#L147) instance with [`arg_pv`](TangentTop.v#L23), accumulating them last first. It returns the arguments, the result and the body.
 - `arg_entry p`: the `(decl, stored variable)` that the tangent pass records for an argument.
 - `decls f`: the declarations of the arguments of `f`.
 - `has_dot d`: the argument has a tangent parameter (not integer, not passive).
@@ -926,18 +926,18 @@ scalar fold and the in-place fold, and then `simulation`:
 - `pair_with l t`, `val_dual v t`, `seed_args ds x dx`: the arguments as dual numbers with the seeded tangents.
 - `tangent_inputs ds x dx`: the arguments of the tangent function: the primal values, then the tangent of each argument with a dot, then 0 for the tangent of a returned real.
 - `dot_out d`: the tangent parameter of the argument is an output only (a written dependent argument).
-- `tangent_inputs_with dd r0 ds x dx`: as `tangent_inputs`, with any initial values in the output-only tangent parameters: `dd v` for a written dependent argument of primal `v`, `r0` for the tangent of a returned real. `zero_dot v`: the zero tangent of `v`; `tangent_inputs_zero`: `tangent_inputs` is the instance `tangent_inputs_with zero_dot (VReal 0)`.
-- `open_args_facts`: the facts on the arguments `open_P` opens (positions, distinct numbers, `static_ok`), shared with `adjoint_simulates_duals`.
-- `tangent_simulates_duals_with`: theorem 1 for any initial values in the output-only tangent parameters (fitting their declaration); `tangent_simulates_duals`, its instance with zeros.
+- `tangent_inputs_with dd r0 ds x dx`: as `tangent_inputs`, with any initial values in the output-only tangent parameters: `dd v` for a written dependent argument of primal `v`, `r0` for the tangent of a returned real. `zero_dot v`: the zero tangent of `v`; [`tangent_inputs_zero`](TangentTop.v#L335): `tangent_inputs` is the instance `tangent_inputs_with zero_dot (VReal 0)`.
+- [`open_args_facts`](TangentTop.v#L630): the facts on the arguments [`open_P`](TangentTop.v#L29) opens (positions, distinct numbers, [`static_ok`](TangentCorrect.v#L165)), shared with [`adjoint_simulates_duals`](AdjointTop.v#L1002).
+- [`tangent_simulates_duals_with`](TangentTop.v#L690): theorem 1 for any initial values in the output-only tangent parameters (fitting their declaration); [`tangent_simulates_duals`](TangentTop.v#L1151), its instance with zeros.
 - `index_of_written ds i`: the position of the written argument.
 - `tangent_output ds out`: the value and tangent the tangent function gives: the returned value and the last parameter, or the written argument and its tangent parameter.
 - `prim_entries AL`, `dot_val dd p`, `dot_in dd p`, `dot_entries dd AL`: the initial store of the tangent function.
 
-### TangentMode.v: `tangent_mode_correct`
+### TangentMode.v: [`tangent_mode_correct`](TangentMode.v#L179)
 
 Notations re-export `fits`, `decls`, `seed`, `tangent_inputs`,
-`tangent_output` from TangentTop.v. The theorem combines `duals_derive`,
-`normalize_correct`, `tangent_simulates_duals_with` and `simplify_correct_tapes`. For a
+`tangent_output` from TangentTop.v. The theorem combines [`duals_derive`](DualsDerive.v#L1491),
+[`normalize_correct`](Correctness.v#L206), [`tangent_simulates_duals_with`](TangentTop.v#L690) and [`simplify_correct_tapes`](SimplifyCorrect.v#L2163). For a
 parametric, well-formed `f` defined at `x`:
 - `f` has a value `v` and a derivative `df`;
 - the simplified tangent program on `tangent_inputs (decls f) x dx` returns
@@ -946,14 +946,14 @@ parametric, well-formed `f` defined at `x`:
 `tangent_mode_correct_with dd r0` is the same on `tangent_inputs_with dd r0
 (decls f) x dx`, for any initial values of the output-only tangent parameters
 (`dd v` fitting the declaration of a written dependent argument of primal
-`v`); `tangent_mode_correct` is its instance with zeros.
+`v`); [`tangent_mode_correct`](TangentMode.v#L179) is its instance with zeros.
 
 ### AdjointSpec.v: the layout of the adjoint function
 
 - Notations `has_dot`, `nreals` (from TangentTop.v).
 - `with_list v l`: `v` with its reals replaced by those of `l`.
 - `bar_inputs ds x xb yb`: the adjoints given to the function: the seed `yb` for the written argument, the slices of `xb` for the others with a dot.
-- `adjoint_inputs ds x xb yb`: `x`, then `bar_inputs`, then the seed of a returned real.
+- `adjoint_inputs ds x xb yb`: `x`, then [`bar_inputs`](AdjointSpec.v#L37), then the seed of a returned real.
 - `lsub a b`: elementwise difference.
 - `gradient ds x xb bars`: for each argument with an adjoint, its final minus its initial adjoint (the final value for the written argument); 0 for the others.
 - `value_given ds out`: the value adjoint-value gives back: the returned value, or the final value of a dependent written argument.
@@ -969,34 +969,34 @@ they are now. See Key concepts for pairing, owners, contexts, frames,
 
 - `pmentions p`: the partial derivative is not a constant, so it may read its operand.
 - `coef_a f x y`, `coef_b f x y`: the partial derivatives of the binary arithmetic operations at `(x, y)`.
-- `barv`, `dotr`, `inner`, `shaped`, `owners`, `pairing`, `oset`, `oput`: the pairing.
+- [`barv`](AdjointCorrect.v#L224), `dotr`, [`inner`](AdjointCorrect.v#L255), [`shaped`](AdjointCorrect.v#L263), [`owners`](AdjointCorrect.v#L270), [`pairing`](AdjointCorrect.v#L275), [`oset`](AdjointCorrect.v#L279), [`oput`](AdjointCorrect.v#L285): the pairing.
 - `owners_ok O`: the storages of `O` are consistent.
-- `useful cv m k b p`, `tbr cv m k b p`: `p` is in the U and in the L of `needs`.
+- `useful cv m k b p`, `tbr cv m k b p`: `p` is in the U and in the L of [`needs`](Tbr.v#L40).
 - `not_in_loop pp`.
-- `actx` (record): fields `a_sctx`, `a_bar`, `a_store`, `a_tape`, `a_owner`, `a_tid`.
-- `is_tape`, `is_bar`, `is_primal`: the kind of a store key. A primal key is `DBound _` or `ResultVar`.
+- [`actx`](AdjointCorrect.v#L392) (record): fields `a_sctx`, `a_bar`, `a_store`, `a_tape`, `a_owner`, `a_tid`.
+- [`is_tape`](AdjointCorrect.v#L408), [`is_bar`](AdjointCorrect.v#L410), [`is_primal`](AdjointCorrect.v#L412): the kind of a store key. A primal key is `DBound _` or `ResultVar`.
 - `vo_target vo`: where adjoint-value leaves the value.
-- `fwd_frame`, `tapes_kept`, `tapes_same`, `tkeep`, `rev_frame`, `rev_frame_x`, `agree_prim`: the frames.
-- `rctx` (record): fields `r_nodup`, `r_shape`, `r_below`, `r_useful`, `r_value`, `r_owner`, `r_args`, `r_written`.
-- `seed_ok`, `seed_value`, `result_pairing`, `vo_result`, `vo_kept`.
+- [`fwd_frame`](AdjointCorrect.v#L431), [`tapes_kept`](AdjointCorrect.v#L438), [`tapes_same`](AdjointCorrect.v#L466), [`tkeep`](AdjointCorrect.v#L507), [`rev_frame`](AdjointCorrect.v#L552), [`rev_frame_x`](AdjointCorrect.v#L560), [`agree_prim`](AdjointCorrect.v#L570): the frames.
+- [`rctx`](AdjointCorrect.v#L585) (record): fields `r_nodup`, `r_shape`, `r_below`, `r_useful`, `r_value`, `r_owner`, `r_args`, `r_written`.
+- [`seed_ok`](AdjointCorrect.v#L604), [`seed_value`](AdjointCorrect.v#L608), [`result_pairing`](AdjointCorrect.v#L615), [`vo_result`](AdjointCorrect.v#L625), [`vo_kept`](AdjointCorrect.v#L641).
 - `bar_target l`, `bar_stmt st`: an assignment, accumulation or definition whose target is an adjoint. Such code leaves the other keys unchanged.
-- `fold_trace`, `real_of` (the primal real of a dual value, 0 otherwise), `set_index`, `body_pushes`, `fold_pushes`, `tail_fold_live`, `fold_live`.
+- [`fold_trace`](AdjointCorrect.v#L723), [`real_of`](AdjointCorrect.v#L735) (the primal real of a dual value, 0 otherwise), [`set_index`](AdjointCorrect.v#L739), [`body_pushes`](AdjointCorrect.v#L758), [`fold_pushes`](AdjointCorrect.v#L798), [`tail_fold_live`](AdjointCorrect.v#L811), [`fold_live`](AdjointCorrect.v#L827).
 - In section `Sim` (variable `cv`):
-  - `same_ex`, `tapes_ok`, `fold_tape`, `ptail`, `tail_tape`;
-  - `asim_body`, `asim_fwd`, `asim_rev0`, `asim_rev`;
+  - [`same_ex`](AdjointCorrect.v#L893), [`tapes_ok`](AdjointCorrect.v#L899), [`fold_tape`](AdjointCorrect.v#L962), [`ptail`](AdjointCorrect.v#L1202), [`tail_tape`](AdjointCorrect.v#L1210);
+  - [`asim_body`](AdjointCorrect.v#L1224), [`asim_fwd`](AdjointCorrect.v#L1593), [`asim_rev0`](AdjointCorrect.v#L1628), [`asim_rev`](AdjointCorrect.v#L1662);
   - `vreads k e p`, `vflows k e p`, `vatoms k e p`: `p` is among the reads of the reverse sweep of `e`, the atoms its adjoint flows to, and the atoms of `e`;
   - `inplace_only eP`: a value stored in place outside a loop (a map) writes an argument that it does not read. A varied owner makes the value varied, and an owner that is not live is not varied;
   - `act_value eP`: the activity analysis is sound for a value. It has its type, a zero tangent when not varied, and is a real or array when varied;
   - `act_owner eP`: a value updated in place that is not varied leaves the tangent of its owner unchanged (`tangent (pd o) = tangent ve`);
   - `straight_value e`, `straight b`: bodies whose lets bind only operations, reads and sets (no branch, no loop);
-  - Section `NeedsLet`: `Let x := let_binder k eA`, with local tactics `needs_let_tac`, `split_reads`, `below_tac` for the lemmas on `needs` at a let;
-  - Ltacs `none_case`, `fwd_intro`, `rev_intro`, `act_intro`, `fresh_case'`: proof automation.
-- `dvar_eq_dec_c` is a lemma: decidable equality of `dvar W`.
-- `ptype eP`: the type of a value read through the types of its atoms (`WellFormed.type_of` on the `pv` instance); `ptype_ok`: a well-typed value has it. `asim_let_typed` (and `act_let_typed`, `psim_let_typed` in AdjointBranch.v): the let, its continuation simulated only for the binders of that type; `asim_let`, `act_let`, `psim_let` are their instances. The class `nesty` (AdjointNesty.v) quantifies its lets over those binders only: a fold on a computed init is then scalar.
+  - Section `NeedsLet`: `Let x := let_binder k eA`, with local tactics [`needs_let_tac`](AdjointCorrect.v#L2586), [`split_reads`](AdjointCorrect.v#L2588), [`below_tac`](AdjointCorrect.v#L2590) for the lemmas on [`needs`](Tbr.v#L40) at a let;
+  - Ltacs [`none_case`](AdjointCorrect.v#L1309), [`fwd_intro`](AdjointCorrect.v#L862), [`rev_intro`](AdjointCorrect.v#L870), [`act_intro`](AdjointCorrect.v#L2650), [`fresh_case'`](AdjointCorrect.v#L2984): proof automation.
+- [`dvar_eq_dec_c`](AdjointCorrect.v#L272) is a lemma: decidable equality of `dvar W`.
+- `ptype eP`: the type of a value read through the types of its atoms (`WellFormed.type_of` on the [`pv`](TangentCorrect.v#L147) instance); [`ptype_ok`](AdjointCorrect.v#L3046): a well-typed value has it. [`asim_let_typed`](AdjointCorrect.v#L3086) (and [`act_let_typed`](AdjointBranch.v#L218), [`psim_let_typed`](AdjointBranch.v#L864) in AdjointBranch.v): the let, its continuation simulated only for the binders of that type; [`asim_let`](AdjointCorrect.v#L3875), [`act_let`](AdjointBranch.v#L243), [`psim_let`](AdjointBranch.v#L1061) are their instances. The class [`nesty`](AdjointNesty.v#L25) (AdjointNesty.v) quantifies its lets over those binders only: a fold on a computed init is then scalar.
 
 ### AdjointBranch.v: branches, maps and scalar folds (milestone M2)
 
-- `dummy_tvar`: a placeholder `tvar`. `opened k`: a `pv` opened by both analyses at `k`.
+- [`dummy_tvar`](AdjointBranch.v#L61): a placeholder `tvar`. `opened k`: a [`pv`](TangentCorrect.v#L147) opened by both analyses at `k`.
 - `act_body bP`: the value of a body has its checked type, and a zero tangent when the body is not varied.
 - `odel O n`: the owners without the storage `n`.
 - Section `Branch` (variable `cv`):
@@ -1006,18 +1006,18 @@ they are now. See Key concepts for pairing, owners, contexts, frames,
   - `ibody st b`: the body of an in-place loop on the state `st`: operations and reads, then a set or an in-place fold on `st` that is the tail, or `st` itself;
   - `abody b`: the body of an in-place loop: operations and reads, then a set that is the tail;
   - `branchy top b` / `branchy_value top e`: the shape the file's theorem covers. Sets, maps and folds appear only at the top (`top = true`). Branches, maps and folds contain none of them. A fold is scalar;
-  - Ltacs `fwd_intro`, `rev_intro`.
-- The simulation of `branchy` bodies follows from that of the larger classes: `straight_branchy`, `branchy_foldy` (`AdjointFoldy.v`) and `foldy_nesty` (`AdjointTop.v`) include each class in the next, and `adjoint_straight_duals`, `adjoint_branchy_duals`, `adjoint_foldy_duals` are corollaries of `adjoint_nesty_duals`.
+  - Ltacs [`fwd_intro`](AdjointCorrect.v#L862), [`rev_intro`](AdjointCorrect.v#L870).
+- The simulation of [`branchy`](AdjointBranch.v#L3185) bodies follows from that of the larger classes: [`straight_branchy`](AdjointFoldy.v#L258), [`branchy_foldy`](AdjointFoldy.v#L288) (`AdjointFoldy.v`) and [`foldy_nesty`](AdjointTop.v#L1730) (`AdjointTop.v`) include each class in the next, and [`adjoint_straight_duals`](AdjointTop.v#L1765), [`adjoint_branchy_duals`](AdjointTop.v#L1796), [`adjoint_foldy_duals`](AdjointTop.v#L1826) are corollaries of [`adjoint_nesty_duals`](AdjointTop.v#L1736).
 
 ### AdjointFold.v: folds updating an array in place (milestone M5)
 
 It has no definitions, only lemmas in ssreflect style, in section `Fold`
 (variable `cv`):
-- on `abody` bodies: `tail_index_abody`, `adj_replay_abody`, `adj_rev_bars_abody`, `abody_eval_array`;
-- on owners: `oset_oset`, `oset_in`, `oset_other`, `oset_mem`;
-- `fold_pushes_snoc`, `run_pop_at`;
-- `afwd_fold_body` (`asim_fwd` for an in-place fold, for any class of steps).
-The two sweeps of an in-place fold are `afwd_fold_nbody` and `arev_fold_nbody`
+- on [`abody`](AdjointBranch.v#L1251) bodies: [`tail_index_abody`](AdjointFold.v#L122), [`adj_replay_abody`](AdjointFold.v#L217), [`adj_rev_bars_abody`](AdjointFold.v#L321), [`abody_eval_array`](AdjointFold.v#L431);
+- on owners: [`oset_oset`](AdjointFold.v#L518), [`oset_in`](AdjointFold.v#L524), [`oset_other`](AdjointFold.v#L532), [`oset_mem`](AdjointFold.v#L543);
+- [`fold_pushes_snoc`](AdjointFold.v#L25), [`run_pop_at`](AdjointFold.v#L554);
+- [`afwd_fold_body`](AdjointFold.v#L571) ([`asim_fwd`](AdjointCorrect.v#L1593) for an in-place fold, for any class of steps).
+The two sweeps of an in-place fold are [`afwd_fold_nbody`](AdjointNBody.v#L1268) and [`arev_fold_nbody`](AdjointNBody.v#L1283)
 (AdjointNBody.v).
 
 ### AdjointNBody.v: in-place loops of any depth (milestone M5b)
@@ -1025,38 +1025,38 @@ The two sweeps of an in-place fold are `afwd_fold_nbody` and `arev_fold_nbody`
 In section `NBody` (variable `cv`):
 - `nbody s b`: the body of an in-place loop on the state `s`: operations and
   reads, then a set that is the tail, or an in-place fold on `s` that is the
-  tail and whose steps are again `nbody` on their own state, or `s` itself.
-  `nbody_ind` is its induction principle, through the inner folds.
+  tail and whose steps are again [`nbody`](AdjointNBody.v#L21) on their own state, or `s` itself.
+  [`nbody_ind`](AdjointNBody.v#L59) is its induction principle, through the inner folds.
 - `aset_tail k bA`: the analysed body ends with a set. With
-  `tail_fold_live` (it ends with a fold), it tells the three kinds of steps
-  apart: `nbody_abody`, `nbody_ret_needs`.
+  [`tail_fold_live`](AdjointCorrect.v#L811) (it ends with a fold), it tells the three kinds of steps
+  apart: [`nbody_abody`](AdjointNBody.v#L1013), [`nbody_ret_needs`](AdjointNBody.v#L404).
 - The state of a loop whose step ends with a fold, or gives the state back,
-  is not read by the reverse loop (`nbody_needs`, `nbody_state_dead`,
-  `nbody_ret_dead`), so a recorded state means a step ending with a set
-  (`nbody_live_set`).
-- `nbody_records`, `records_fold_nbody`: a loop records iff it is live
-  (`fold_live`); `nbody_tail_state`, `tail_state_nbody`: a step ending with
-  an inner fold has that liveness as its `tail_fold_state`.
-- The pieces of the simulation of a step: `nbody_ibody`, `nbody_act`,
-  `nbody_psim` (with `psim_fold_nbody`), `adj_replay_nbody`,
-  `adj_rev_bars_nbody`, `tail_tape_nbody`.
-- `afwd_fold_nbody`, `arev_fold_nbody`: the two sweeps of an in-place fold
+  is not read by the reverse loop ([`nbody_needs`](AdjointNBody.v#L200), [`nbody_state_dead`](AdjointNBody.v#L364),
+  [`nbody_ret_dead`](AdjointNBody.v#L444)), so a recorded state means a step ending with a set
+  ([`nbody_live_set`](AdjointNBody.v#L465)).
+- [`nbody_records`](AdjointNBody.v#L522), [`records_fold_nbody`](AdjointNBody.v#L608): a loop records iff it is live
+  ([`fold_live`](AdjointCorrect.v#L827)); [`nbody_tail_state`](AdjointNBody.v#L650), [`tail_state_nbody`](AdjointNBody.v#L1028): a step ending with
+  an inner fold has that liveness as its [`tail_fold_state`](AdjointCorrect.v#L1040).
+- The pieces of the simulation of a step: [`nbody_ibody`](AdjointNBody.v#L131), [`nbody_act`](AdjointNBody.v#L146),
+  [`nbody_psim`](AdjointNBody.v#L1243) (with [`psim_fold_nbody`](AdjointNBody.v#L1078)), [`adj_replay_nbody`](AdjointNBody.v#L691),
+  [`adj_rev_bars_nbody`](AdjointNBody.v#L817), [`tail_tape_nbody`](AdjointNBody.v#L923).
+- [`afwd_fold_nbody`](AdjointNBody.v#L1268), [`arev_fold_nbody`](AdjointNBody.v#L1283): the two sweeps of an in-place fold
   whose steps are nbodies. The reverse loop pops the element a step ending
   with a set overwrote when the state is recorded, gets the state back from
-  the inner fold of a step ending with one (`tail_back`), and leaves it
+  the inner fold of a step ending with one ([`tail_back`](AdjointCorrect.v#L1056)), and leaves it
   otherwise.
-- `nbody_asim`: the adjoint simulation of an nbody, by induction on the
+- [`nbody_asim`](AdjointNBody.v#L2038): the adjoint simulation of an nbody, by induction on the
   depth.
 
 ### AdjointTop.v: the adjoint simulation for a function
 
-- `keeps s s'`: every key present in `s` is present in `s'`. `exec_keeps` is a recursive proof that `exec` keeps keys.
-- `param_store ps args`: the store `exec_scoped` builds from parameters and arguments. `pvar p`: the variable of a parameter.
+- `keeps s s'`: every key present in `s` is present in `s'`. [`exec_keeps`](AdjointTop.v#L93) is a recursive proof that [`exec`](Exec.v#L117) keeps keys.
+- `param_store ps args`: the store [`exec_scoped`](Exec.v#L175) builds from parameters and arguments. `pvar p`: the variable of a parameter.
 - `decl_role d`, `decl_ty d`: the role and type of a declaration.
 - `slice d v dx`: the slice of `dx` for the argument `v`, or zeros when its role is not varied.
 - `grad_rhs ds x xb dx bars`: Σ over arguments with an adjoint of (tangent · final adjoint − tangent · initial adjoint), the initial term omitted for the written argument.
 - `bars_fit ds x bars`: the final adjoints have the sizes of their arguments.
-- `dname p`: the declaration of an argument `pv`.
+- `dname p`: the declaration of an argument [`pv`](TangentCorrect.v#L147).
 - `owners_of Ls`: the arguments with a dot, as owners (tangent, storage).
 - `init_sum Ls s`: Σ tangent · adjoint in `s` over the non-written arguments with a dot.
 - `written_sum Ls s`: the same term for the written argument.
@@ -1064,62 +1064,62 @@ In section `NBody` (variable `cv`):
 - `bars_list Ls s`: the final adjoints of the arguments, in order.
 - `final_of s q`: the final value of a parameter (`VInt 0` when absent).
 - `ty_size t`: 1 for a real, the extent of an array, 0 otherwise.
-- Theorem `adjoint_simulates_duals`: the adjoint function, opened at the numbers `simplify` uses and run on the primal arguments, their adjoints and the seed, computes the gradient, the transpose of the tangent of the dual evaluation applied to the seed.
+- Theorem [`adjoint_simulates_duals`](AdjointTop.v#L1002): the adjoint function, opened at the numbers [`simplify`](Simplify.v#L292) uses and run on the primal arguments, their adjoints and the seed, computes the gradient, the transpose of the tangent of the dual evaluation applied to the seed.
 
-### AdjointMode.v: `adjoint_mode_correct`
+### AdjointMode.v: [`adjoint_mode_correct`](AdjointMode.v#L43)
 
 Notations re-export `fits`, `decls`, `seed`. For a parametric, well-formed `f`
 defined at `x`, with value `v` and derivative `df`:
 - the simplified adjoint program on `adjoint_inputs (decls f) x xb yb`
   produces a gradient `g`;
-- for every `dx`, `<df (seed dx), yb> = <seed dx, g>` (`dotl`);
-- in adjoint-value without an inout argument, `value_given` is `v`.
+- for every `dx`, `<df (seed dx), yb> = <seed dx, g>` ([`dotl`](Dot.v#L11));
+- in adjoint-value without an inout argument, [`value_given`](AdjointSpec.v#L87) is `v`.
 
 ### AdjointGood.v, AdjointGoodFwd.v, AdjointGoodRev.v: the scoping of the adjoint code (milestone M6)
 
 - `fscope L c wP pp rd sc wr`: the scope `sc` (and its writable part `wr`) holds the storage of every variable the code reads (`rd`), and the owner is writable.
-- `tape_fwd`, `tape_rev`: the tape of the owner is declared before its pushes and pops (at the top by the in-place fold itself, in a loop body by the enclosing loop).
-- `bars_ok`: the adjoint (bar) of every useful variable, and of the owner, is declared before it is incremented.
-- `fold_slive k e`: the `state_live` of a fold value, false otherwise.
-- `agood_prim`, `agood_value`: the forward code (`prim`, `fwd_value`) follows `good` from such a scope. `agood_body`, `agood_rev`: so does the code of `adj` and `rev_value`, its reverse part from any extension of the scope the forward part leaves (`rscope`), with no variable the reverse defines clashing with the forward ones (the numbers `F` of the forward part).
-- Theorems `agood_fwd` (AdjointGoodFwd.v) and `agood_adj` (AdjointGoodRev.v): for every body and value, by induction, with no body class.
+- [`tape_fwd`](AdjointGood.v#L96), [`tape_rev`](AdjointGood.v#L194): the tape of the owner is declared before its pushes and pops (at the top by the in-place fold itself, in a loop body by the enclosing loop).
+- [`bars_ok`](AdjointGood.v#L184): the adjoint (bar) of every useful variable, and of the owner, is declared before it is incremented.
+- `fold_slive k e`: the [`state_live`](Tbr.v#L120) of a fold value, false otherwise.
+- [`agood_prim`](AdjointGood.v#L124), [`agood_value`](AdjointGood.v#L140): the forward code ([`prim`](Adjoint.v#L141), `fwd_value`) follows `good` from such a scope. [`agood_body`](AdjointGood.v#L203), [`agood_rev`](AdjointGood.v#L232): so does the code of [`adj`](Adjoint.v#L203) and `rev_value`, its reverse part from any extension of the scope the forward part leaves ([`rscope`](AdjointGood.v#L175)), with no variable the reverse defines clashing with the forward ones (the numbers `F` of the forward part).
+- Theorems [`agood_fwd`](AdjointGoodFwd.v#L1092) (AdjointGoodFwd.v) and [`agood_adj`](AdjointGoodRev.v#L1663) (AdjointGoodRev.v): for every body and value, by induction, with no body class.
 
 ### AdjointExamples.v: the class premise is not vacuous
 
-- `nesty_args f`: the class premise of `adjoint_nesty_duals` for `f`, for every `x`, `dx`.
+- `nesty_args f`: the class premise of [`adjoint_nesty_duals`](AdjointTop.v#L1736) for `f`, for every `x`, `dx`.
 - For nine programs (straight line, branch, map, scalar fold, in-place loop, nests of depth 2 and 3, steps returning their state), `<name>_wf` (well-formed, by `vm_compute`) and `<name>_nesty`.
-- `computed_init_nesty`: a fold whose initial value is computed by a let (the let binds a real, the type of its value).
+- [`computed_init_nesty`](AdjointExamples.v#L211): a fold whose initial value is computed by a let (the let binds a real, the type of its value).
 
-### AdjointClassify.v: every well-formed function is in `nesty`
+### AdjointClassify.v: every well-formed function is in [`nesty`](AdjointNesty.v#L25)
 
 - `fpv k t`: a binder opened at identity `k`, of type `t`, not varied.
 - `hinv H L`, `htyped H`: `H` relates each variable of `L` to one variable of the target instance, of the same type.
-- `tc_op1` … `tc_fold`, `tc_nontail`: what `typecheck` says of each value.
-- `hret`: the arrays a step may not return (not read by the step, or arguments other than the written one).
-- `nbody_wf`, `nesty_false_wf`, `nesty_top_wf`: from `typecheck` on the `vinfo` instance, through a `pv` instance opened at fresh binders, the class of the target instance.
-- Theorem `well_formed_nesty`: a parametric, well-formed function has its opened body in `nesty`.
+- [`tc_op1`](AdjointClassify.v#L137) … [`tc_fold`](AdjointClassify.v#L205), [`tc_nontail`](AdjointClassify.v#L242): what [`typecheck`](WellFormed.v#L143) says of each value.
+- [`hret`](AdjointClassify.v#L265): the arrays a step may not return (not read by the step, or arguments other than the written one).
+- [`nbody_wf`](AdjointClassify.v#L280), [`nesty_false_wf`](AdjointClassify.v#L426), [`nesty_top_wf`](AdjointClassify.v#L483): from [`typecheck`](WellFormed.v#L143) on the [`vinfo`](WellFormed.v#L25) instance, through a [`pv`](TangentCorrect.v#L147) instance opened at fresh binders, the class of the target instance.
+- Theorem [`well_formed_nesty`](AdjointClassify.v#L631): a parametric, well-formed function has its opened body in [`nesty`](AdjointNesty.v#L25).
 
 ### AdjointWf.v
 
-- Corollary `adjoint_wf_duals`: `adjoint_nesty_duals` without the class premise.
+- Corollary [`adjoint_wf_duals`](AdjointWf.v#L22): [`adjoint_nesty_duals`](AdjointTop.v#L1736) without the class premise.
 
-### AdjointModeProof.v: `adjoint_mode_correct` from the simplified corollary
+### AdjointModeProof.v: [`adjoint_mode_correct`](AdjointMode.v#L43) from the simplified corollary
 
-- Section hypothesis `adjoint_simplified`: the simplified adjoint function computes the gradient (the conclusion of `adjoint_nesty_duals`, without the class premise, on `exec_dfunction reals (simplify ...)`).
-- `adjoint_mode_correct_from`: the statement of `adjoint_mode_correct` from it, with `eval_smooth_reals` and `out_dim_value`.
+- Section hypothesis `adjoint_simplified`: the simplified adjoint function computes the gradient (the conclusion of [`adjoint_nesty_duals`](AdjointTop.v#L1736), without the class premise, on `exec_dfunction reals (simplify ...)`).
+- [`adjoint_mode_correct_from`](AdjointModeProof.v#L74): the statement of [`adjoint_mode_correct`](AdjointMode.v#L43) from it, with [`eval_smooth_reals`](AdjointModeProof.v#L31) and [`out_dim_value`](AdjointModeProof.v#L45).
 
 ### ModesAgree.v: the two modes agree (corollary)
 
 - `tangent_code f`, `adjoint_code cv f`: the simplified programs elpiDiff generates.
-- `linear_small_zero`: a linear map that is o(h) near a point is zero. `filterdiff_locally_unique`: two Fréchet derivatives of a function at a point agree (Coquelicot has no such lemma).
-- Corollary `adjoint_tangent_agree`: from `tangent_mode_correct` and `adjoint_mode_correct`, the tangent program on (x, dx) gives w, the adjoint program on (x, xb, yb) gives g, and `dotl (reals_of_val w) yb = dotl (seed (decls f) x dx) g`.
+- [`linear_small_zero`](ModesAgree.v#L28): a linear map that is o(h) near a point is zero. [`filterdiff_locally_unique`](ModesAgree.v#L73): two Fréchet derivatives of a function at a point agree (Coquelicot has no such lemma).
+- Corollary [`adjoint_tangent_agree`](ModesAgree.v#L105): from [`tangent_mode_correct`](TangentMode.v#L179) and [`adjoint_mode_correct`](AdjointMode.v#L43), the tangent program on (x, dx) gives w, the adjoint program on (x, xb, yb) gives g, and `dotl (reals_of_val w) yb = dotl (seed (decls f) x dx) g`.
 
 ### Dot.v
 
-- `dotl`: the dot product of two lists of reals (`dotl_nil_l`, `dotl_cons`); the single definition used by AdjointCorrect (formerly `dotr`) and AdjointSpec. Notation `⟨ u , v ⟩`.
+- [`dotl`](Dot.v#L11): the dot product of two lists of reals ([`dotl_nil_l`](Dot.v#L14), [`dotl_cons`](Dot.v#L17)); the single definition used by AdjointCorrect (formerly `dotr`) and AdjointSpec. Notation `⟨ u , v ⟩`.
 
 ### Main.v: the final theorems in short form
 
 - `accepted f x`: parametric, well-formed, arguments fitting, defined at `x`. `value f x`: the value of `f` at `x`. `derivative f x df`: `df` is the Fréchet derivative of `f` at `x`. `D f x df dx`: `df` applied to the seeded `dx`, as a list.
 - `run_tangent f x dx`, `run_adjoint cv f x xb yb`, `run_adjoint_value f x xb yb`: run the simplified generated programs over the reals and read back (value, tangent), the gradient, the value.
-- Theorems `derivative_exists`, `tangent_correct`, `adjoint_correct`, `adjoint_value_correct`, Corollary `modes_agree`, proved from the detailed theorems and `filterdiff_locally_unique`.
+- Theorems [`derivative_exists`](Main.v#L83), [`tangent_correct`](Main.v#L93), [`adjoint_correct`](Main.v#L110), [`adjoint_value_correct`](Main.v#L127), Corollary [`modes_agree`](Main.v#L140), proved from the detailed theorems and [`filterdiff_locally_unique`](ModesAgree.v#L73).

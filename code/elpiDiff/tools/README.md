@@ -28,6 +28,7 @@ directory (`..`), and `[rocq dir]` to `../rocq`.
   source, its A-normal form and its annotated form.
 - `torocq.elpi` prints the primal functions of a case as Rocq terms (the PHOAS
   syntax of `code/elpiDiff/rocq/Syntax.v`).
+- `mdlinks.py [code dir]` links every Rocq name in `README.md` and `rocq/{README,DEFINITIONS,TUTORIAL}.md` to its definition (`File.v#Lline`, clickable on GitHub); run it again after editing the `.v` files to refresh the line numbers.
 - `rocqtest.py [rocq dir] [stage..]` compares the passes written in Rocq with
   the Elpi ones on every case: the diagnostics, the derivative programs in L2
   (`pr_dfunction` against `dump`), the complete C++ headers, and the Gallina files (`gallina` mode).

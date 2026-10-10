@@ -28,11 +28,11 @@ change is checked in two ways:
 | File | Role |
 |---|---|
 | `syntax.elpi` | L0, the source language: a Wengert list with binders (λ-tree syntax). `arg`, `let`, `map` and `fold` bind Elpi variables; no variable is named by a string. Also roles (`independent`, `dependent`, `inout`, `passive`). |
-| `anf.elpi` | L1, A-normal form, a language of its own (`atom`, `value I`, `anf I`), and the translation from L0. Every intermediate value is named by a `let`; that operations apply to atoms is a matter of typing. The index `I` is what binders are annotated with: `bare` for L1, `ann` for L1ᵃ. Also partial-derivative expressions over atoms and atom sets. |
+| `anf.elpi` | L1, A-normal form, a language of its own ([`atom`](rocq/Anf.v#L17), `value I`, `anf I`), and the translation from L0. Every intermediate value is named by a `let`; that operations apply to atoms is a matter of typing. The index `I` is what binders are annotated with: [`bare`](rocq/Anf.v#L68) for L1, [`ann`](rocq/Anf.v#L70) for L1ᵃ. Also partial-derivative expressions over atoms and atom sets. |
 | `operations.elpi` | The elementary operations: their types, C++ spelling and partial derivatives. The only calculus the tool knows. |
 | `well-formed.elpi` | Typing and the supported language, on L1, as a judgment returning `ok` or `error Reason`. |
-| `activity.elpi` | Forward activity analysis: `varied`, a value depends on an independent argument. |
-| `tbr.elpi` | Backward analysis and to-be-recorded: `useful` values, values the reverse sweep reads, when a fold must record its state. |
+| `activity.elpi` | Forward activity analysis: [`varied`](rocq/Activity.v#L16), a value depends on an independent argument. |
+| `tbr.elpi` | Backward analysis and to-be-recorded: [`useful`](rocq/AdjointCorrect.v#L376) values, values the reverse sweep reads, when a fold must record its state. |
 | `annotate.elpi` | L1 to L1ᵃ: runs the analyses once and records them on every let (varied, active, computed) and fold (state varied, state recorded, records). |
 | `derivative.elpi` | L2, the derivative IR: an imperative program over variables bound by Elpi binders, with no C++ names or types. Also how the transformations open the binders of the object language. |
 | `tangent.elpi` | Forward mode: the linearization, from L1ᵃ into L2. |
@@ -48,15 +48,15 @@ change is checked in two ways:
 | `eval.elpi` | The evaluator of L0, polymorphic in the domain of numbers. |
 | `eval-anf.elpi` | The evaluator of L1 and of L1ᵃ, polymorphic in the annotations. |
 | `exec.elpi` | The evaluator of L2: executes the derivative programs (tangent, adjoint) with a store indexed by their variables. |
-| `evaluate.elpi` | Running the functions of a case with the evaluators (`run`, `tangent`, `signatures`, `l1-run`, `passes`, `l2-run`, `l2-signature`, `l2-same`); not loaded by `adjudge.elpi`. |
-| `adjudge.elpi` | The driver: accumulates everything, `main`, `gallina` and `terms`. |
+| `evaluate.elpi` | Running the functions of a case with the evaluators ([`run`](rocq/TangentCorrect.v#L53), `tangent`, `signatures`, `l1-run`, `passes`, `l2-run`, `l2-signature`, `l2-same`); not loaded by `adjudge.elpi`. |
+| `adjudge.elpi` | The driver: accumulates everything, [`main`](rocq/Adjudge.v#L44), `gallina` and `terms`. |
 
 ## In Rocq
 
 `rocq/` holds the whole tool in Rocq, mimicking the Elpi code: the same
 languages with the same constructors (binders in PHOAS), the same evaluators
 over the reals of Rocq instead of floats, and every pass, one function per Elpi
-predicate, from `normalize` down to the C++ text, chained by `main` as in
+predicate, from [`normalize`](rocq/Normalize.v#L87) down to the C++ text, chained by [`main`](rocq/Adjudge.v#L44) as in
 `adjudge.elpi`. The passes compute: `Compute (main ModeAdjoint "f.elpi" [f])`
 gives the header Elpi writes.
 
@@ -68,23 +68,23 @@ and the Gallina files are identical, 193 comparisons.
 Both modes are proved correct, with no `Admitted`; the proofs rest only on
 the axioms of the reals of the standard library. For a parametric,
 well-formed function f defined at the arguments x:
-- `tangent_mode_correct` ([`rocq/TangentMode.v`](rocq/TangentMode.v)): f is differentiable at x,
+- [`tangent_mode_correct`](rocq/TangentMode.v#L179) ([`rocq/TangentMode.v`](rocq/TangentMode.v)): f is differentiable at x,
   with derivative df, and the simplified tangent program, run over the
   reals on x and a tangent dx, gives the value of f and df applied to dx;
-- `adjoint_mode_correct` ([`rocq/AdjointMode.v`](rocq/AdjointMode.v)): the simplified adjoint
+- [`adjoint_mode_correct`](rocq/AdjointMode.v#L43) ([`rocq/AdjointMode.v`](rocq/AdjointMode.v)): the simplified adjoint
   program, run on x and a seed yb, gives a gradient g with
   ⟨df dx, yb⟩ = ⟨dx, g⟩ for every dx (and, in adjoint-value, the value of
   f);
-- `adjoint_tangent_agree` ([`rocq/ModesAgree.v`](rocq/ModesAgree.v)), their corollary: the two
+- [`adjoint_tangent_agree`](rocq/ModesAgree.v#L105) ([`rocq/ModesAgree.v`](rocq/ModesAgree.v)), their corollary: the two
   generated programs are adjoint to each other, ⟨w, yb⟩ = ⟨dx, g⟩, where w
   is the output of the tangent program on (x, dx) and g the gradient the
   adjoint program gives for yb.
 
 The same results in short form, in [`rocq/Main.v`](rocq/Main.v), with
 `⟨u, v⟩` the dot product:
-`adjoint_correct`: for an accepted f with derivative df at x, the adjoint
+[`adjoint_correct`](rocq/Main.v#L110): for an accepted f with derivative df at x, the adjoint
 program run on a seed yb gives a gradient g with
-⟨D f x df dx, yb⟩ = ⟨seed dx, g⟩ for every dx; `tangent_correct`: the tangent
+⟨D f x df dx, yb⟩ = ⟨seed dx, g⟩ for every dx; [`tangent_correct`](rocq/Main.v#L93): the tangent
 program run on dx gives the value of f and D f x df dx.
 
 [`rocq/README.md`](rocq/README.md) lists the theorems and gives the correspondence, file by
@@ -116,26 +116,26 @@ func lower dfunction -> cfunction.                         % lower.elpi
 func function-string cfunction -> string.                  % cxx.elpi
 ```
 
-The `bool` of `annotate` and `adjoint` says whether the adjoint also computes
+The `bool` of [`annotate`](rocq/Annotate.v#L134) and [`adjoint`](rocq/Adjoint.v#L315) says whether the adjoint also computes
 the value of the function (mode `adjoint-value`).
 
 | Language | File | Its types | A variable is |
 |---|---|---|---|
-| L0, the source | `syntax.elpi` | `function`, `definition`, `result`, `term` | an Elpi variable of type `term` |
-| L1, A-normal form | `anf.elpi` | `afunction bare`, `adefinition bare`, `aresult`, `anf bare`, `value bare`, `atom` | an Elpi variable of type `atom` |
-| L1ᵃ, annotated | `anf.elpi` | the same, indexed by `ann` instead of `bare` | an Elpi variable of type `atom` |
-| L2 and L2′, the derivative IR | `derivative.elpi` | `dfunction`, `scoped`, `dbody`, `dparam`, `dpass`, `dreturn`, `dstmt`, `dsort`, `dexpr`, `dvar` | an Elpi variable of type `dvar` |
-| L3, the target | `target.elpi` | `cfunction`, `stmt`, `expr` | a `string`, its C++ name |
+| L0, the source | `syntax.elpi` | [`function`](rocq/Syntax.v#L95), [`definition`](rocq/Syntax.v#L88), [`result`](rocq/Syntax.v#L78), [`term`](rocq/Syntax.v#L34) | an Elpi variable of type [`term`](rocq/Syntax.v#L34) |
+| L1, A-normal form | `anf.elpi` | `afunction bare`, `adefinition bare`, [`aresult`](rocq/Anf.v#L38), `anf bare`, `value bare`, [`atom`](rocq/Anf.v#L17) | an Elpi variable of type [`atom`](rocq/Anf.v#L17) |
+| L1ᵃ, annotated | `anf.elpi` | the same, indexed by [`ann`](rocq/Anf.v#L70) instead of [`bare`](rocq/Anf.v#L68) | an Elpi variable of type [`atom`](rocq/Anf.v#L17) |
+| L2 and L2′, the derivative IR | `derivative.elpi` | [`dfunction`](rocq/Derivative.v#L108), [`scoped`](rocq/Derivative.v#L81), [`dbody`](rocq/Derivative.v#L76), [`dparam`](rocq/Derivative.v#L69), [`dpass`](rocq/Derivative.v#L62), [`dreturn`](rocq/Derivative.v#L72), [`dstmt`](rocq/Derivative.v#L42), [`dsort`](rocq/Derivative.v#L36), [`dexpr`](rocq/Derivative.v#L27), [`dvar`](rocq/Derivative.v#L17) | an Elpi variable of type [`dvar`](rocq/Derivative.v#L17) |
+| L3, the target | `target.elpi` | [`cfunction`](rocq/Target.v#L32), [`stmt`](rocq/Target.v#L15), [`expr`](rocq/Target.v#L8) | a `string`, its C++ name |
 
-Some types are shared by several languages: `ty` (`real`, `integer`,
-`boolean`, `array N`), `role` (`independent`, `dependent`, `inout`,
-`passive`), the operators `unary` and `binary` (`operations.elpi`), and `decl`,
+Some types are shared by several languages: [`ty`](rocq/Syntax.v#L61) (`real`, `integer`,
+`boolean`, `array N`), [`role`](rocq/Syntax.v#L69) (`independent`, `dependent`, `inout`,
+`passive`), the operators [`unary`](rocq/Syntax.v#L20) and [`binary`](rocq/Syntax.v#L25) (`operations.elpi`), and [`decl`](rocq/Syntax.v#L101),
 an argument as plain data.
 
-### L0: `function`, `term`
+### L0: [`function`](rocq/Syntax.v#L95), [`term`](rocq/Syntax.v#L34)
 
-The input, written by the user. A `term` nests expressions freely; `let`,
-`map` and `fold` bind Elpi variables of type `term` (λ-tree syntax):
+The input, written by the user. A [`term`](rocq/Syntax.v#L34) nests expressions freely; `let`,
+`map` and `fold` bind Elpi variables of type [`term`](rocq/Syntax.v#L34) (λ-tree syntax):
 
 ```elpi
 type function string -> definition -> function.
@@ -151,11 +151,11 @@ type map  term -> term -> (term -> term) -> term.
 type fold term -> term -> term -> (term -> term -> term) -> term.
 ```
 
-### L1: `afunction bare`, `anf bare`, `value bare`, `atom`
+### L1: `afunction bare`, `anf bare`, `value bare`, [`atom`](rocq/Anf.v#L17)
 
 A-normal form: the constructors mirror those of L0, prefixed with `a-`, but
-the types separate what L0 mixes. A binder binds an `atom`, an operation takes
-`atom`s, a `let` binds a `value` in a body `anf`:
+the types separate what L0 mixes. A binder binds an [`atom`](rocq/Anf.v#L17), an operation takes
+[`atom`](rocq/Anf.v#L17)s, a `let` binds a `value` in a body `anf`:
 
 ```elpi
 type a-num string -> atom.          type a-nat int -> atom.
@@ -172,13 +172,13 @@ type a-ret atom -> anf I.
 So `a-op2 mul (a-op1 sin x) y`, an operation applied to an operation, is
 ill-typed: that operands are atoms is not a property to check, it is a
 consequence of the types. The partial derivatives of the operations are
-expressions over atoms, of their own type `pexpr` (`p-atom`, `p-num`, `p-op1`,
+expressions over atoms, of their own type [`pexpr`](rocq/Anf.v#L49) (`p-atom`, `p-num`, `p-op1`,
 `p-op2`).
 
 ### L1ᵃ: `afunction ann`
 
-The same constructors, with the index `I` instantiated to `ann` instead of
-`bare`: the slot `I` of every `a-let` and `a-fold` holds the results of the
+The same constructors, with the index `I` instantiated to [`ann`](rocq/Anf.v#L70) instead of
+[`bare`](rocq/Anf.v#L68): the slot `I` of every `a-let` and `a-fold` holds the results of the
 analyses,
 
 ```elpi
@@ -187,14 +187,14 @@ type let-ann  bool -> bool -> bool -> ann.         % varied, active, computed
 type fold-ann bool -> bool -> bool -> ann.         % state varied, state recorded, records
 ```
 
-`tangent` and `adjoint` take `afunction ann`: the typechecker refuses to
+`tangent` and [`adjoint`](rocq/Adjoint.v#L315) take `afunction ann`: the typechecker refuses to
 differentiate a term that has not been annotated.
 
-### L2 and L2′: `dfunction`
+### L2 and L2′: [`dfunction`](rocq/Derivative.v#L108)
 
 The derivative program, imperative but still without names: its variables are
-Elpi variables of type `dvar`, all bound at the head of the function by
-`scoped`, in the order of their creation, since an adjoint is used far from its
+Elpi variables of type [`dvar`](rocq/Derivative.v#L17), all bound at the head of the function by
+[`scoped`](rocq/Derivative.v#L81), in the order of their creation, since an adjoint is used far from its
 value. A tangent, an adjoint or a tape is derived from its variable:
 
 ```elpi
@@ -210,10 +210,10 @@ Statements (`d-define`, `d-assign`, `d-increment`, `d-branch`, `d-for`,
 `d-for-back`, `d-push`, `d-pop`, `d-return`) and expressions (`d-var`,
 `d-real`, `d-int`, `d-at`, `d-op1`, `d-op2`) carry no C++: a type is
 `d-constant ty` or `d-mutable`, an argument is passed `by-value`, `by-ref`,
-`by-cref` or `by-ref-unused`. L2′ is not a new type: `simplify` maps
-`dfunction` to `dfunction`.
+`by-cref` or `by-ref-unused`. L2′ is not a new type: [`simplify`](rocq/Simplify.v#L292) maps
+[`dfunction`](rocq/Derivative.v#L108) to [`dfunction`](rocq/Derivative.v#L108).
 
-### L3: `cfunction`
+### L3: [`cfunction`](rocq/Target.v#L32)
 
 C++ statements, first order, every name a string, every type spelled:
 
@@ -223,13 +223,13 @@ type declare string -> string -> expr -> stmt.      % type name = init;
 type id string -> expr.  type lit string -> expr.  type call string -> list expr -> expr.
 ```
 
-`lower` is the pass where the Elpi variables of type `dvar` become strings
+[`lower`](rocq/Lower.v#L90) is the pass where the Elpi variables of type [`dvar`](rocq/Derivative.v#L17) become strings
 (`t3`, `t3_bar`, `t1_tape`) and the sorts become C++ types (`const T`,
 `std::vector<T>`); `cxx.elpi` only prints.
 
 ## Usage
 
-A case is a file that accumulates `adjudge` and declares its `primal`
+A case is a file that accumulates `adjudge` and declares its [`primal`](rocq/TangentCorrect.v#L102)
 functions. For instance, `void rescale(T& x, T w) { x = w * x * x; }`:
 
 ```elpi
@@ -246,7 +246,7 @@ elpi -I . <case>/primal.elpi -exec main -- <case> tangent|adjoint|adjoint-value 
 
 writes `<case>/tangent.hpp`, `<case>/adjoint.hpp` or `<case>/adjoint-value.hpp`,
 one header for all the well-formed functions, and `<case>/diagnostics.txt` for
-the refused ones. There are two reverse modes: `adjoint` computes the
+the refused ones. There are two reverse modes: [`adjoint`](rocq/Adjoint.v#L315) computes the
 derivative only (`f_adjoint`), with the smallest forward sweep; `adjoint-value`
 computes the value of the function as well (`f_adjoint_value`): it returns the
 returned value, and writes the dependent argument.
@@ -347,7 +347,7 @@ real of an argument that is not passive; a passive real has a zero tangent.
 
 **The derivative programs, executed.** `exec.elpi` is the evaluator of L2.
 L2 is imperative, so it threads a store: a list of pairs of a variable and its
-value, where a variable is a `dvar`, an Elpi variable bound by the function,
+value, where a variable is a [`dvar`](rocq/Derivative.v#L17), an Elpi variable bound by the function,
 or one derived from it (`bar-of v`, `tape-of v`); the store needs no names. Its
 values and its operations are those of the evaluator of L0, in the same domains
 of numbers; a tape is a list of reals. One evaluator runs every program the tool
@@ -374,19 +374,19 @@ of L0, so each pass is checked by evaluating its input and its output:
 
 | Pass | From → to | Evaluators | Check |
 |---|---|---|---|
-| `normalize` | L0 → L1 | `eval.elpi`, `eval-anf.elpi` | the same floats, bit for bit (`passes`) |
-| `annotate` | L1 → L1ᵃ | `eval-anf.elpi` on both | the same floats, bit for bit (`passes`) |
+| [`normalize`](rocq/Normalize.v#L87) | L0 → L1 | `eval.elpi`, `eval-anf.elpi` | the same floats, bit for bit (`passes`) |
+| [`annotate`](rocq/Annotate.v#L134) | L1 → L1ᵃ | `eval-anf.elpi` on both | the same floats, bit for bit (`passes`) |
 | `tangent` | L1ᵃ → L2 | L0 over dual numbers, `exec.elpi` | the value and the tangent of the source |
-| `adjoint` | L1ᵃ → L2 | L0 over dual numbers, `exec.elpi` | the dot-product test ⟨ȳ, J ẋ⟩ = ⟨x̄, ẋ⟩ |
-| `simplify` | L2 → L2′ | `exec.elpi` on both | the same floats, bit for bit (`l2-same`) |
-| `lower`, `cxx` | L2′ → C++ | L0 and dual numbers, compiled C++ | the primal and the tangent of the source |
+| [`adjoint`](rocq/Adjoint.v#L315) | L1ᵃ → L2 | L0 over dual numbers, `exec.elpi` | the dot-product test ⟨ȳ, J ẋ⟩ = ⟨x̄, ẋ⟩ |
+| [`simplify`](rocq/Simplify.v#L292) | L2 → L2′ | `exec.elpi` on both | the same floats, bit for bit (`l2-same`) |
+| [`lower`](rocq/Lower.v#L90), `cxx` | L2′ → C++ | L0 and dual numbers, compiled C++ | the primal and the tangent of the source |
 
 L1 and L1ᵃ share one evaluator, polymorphic in the index of L1, since the
-annotations do not change what a program computes. `simplify` is exact on
+annotations do not change what a program computes. [`simplify`](rocq/Simplify.v#L292) is exact on
 finite numbers (it rewrites `x * 0` to `0`). On the reference cases, at random
-points: `normalize` and `annotate` 140 points, the derivative programs and
-`simplify` 740 checks, the compiled C++ 420 checks, all passing. The last line compiles the
-generated C++; L3, the C++ statements, has no evaluator of its own: `lower`
+points: [`normalize`](rocq/Normalize.v#L87) and [`annotate`](rocq/Annotate.v#L134) 140 points, the derivative programs and
+[`simplify`](rocq/Simplify.v#L292) 740 checks, the compiled C++ 420 checks, all passing. The last line compiles the
+generated C++; L3, the C++ statements, has no evaluator of its own: [`lower`](rocq/Lower.v#L90)
 only names the variables and spells the types.
 
 This checks the generated code against a semantics of the source. On the
@@ -470,7 +470,7 @@ xsin_adjoint(x: real, x_bar: ref real, result_bar: real):
     x_bar += cos(x) * t1_bar
 ```
 
-**`target`: the C++ of both modes.**
+**[`target`](rocq/Simplify.v#L98): the C++ of both modes.**
 
 ```cpp
 template <typename T>
@@ -642,7 +642,7 @@ f_adjoint(x1: real, x2: real, x1_bar: ref real, x2_bar: ref real, result_bar: re
     x2_bar += x1 * t1_bar
 ```
 
-**`target adjoint`: L3, printed as C++.** `lower` chooses the names and the
+**`target adjoint`: L3, printed as C++.** [`lower`](rocq/Lower.v#L90) chooses the names and the
 types, `cxx` prints.
 
 ```cpp
@@ -1161,34 +1161,34 @@ shape of every pass's output.
 
 | Language | Content | Invariant | Produced by |
 |---|---|---|---|
-| L0 Source | `term`, nested expressions | — | `primal` |
-| L1 ANF | own types `atom`, `value`, `anf` | operands are atoms, by typing | `anf` |
-| L1ᵃ Annotated ANF | L1 indexed by `ann`: each `let` and `fold` carries the analyses | analyses done once, as data | `annotate` |
-| L2 Derivative IR | imperative `prog` with binders (`zero`, `accum`, `push`, `pop`, `for-down`, …) | differentiated, no names, no C++ | `tangent` / `adjoint` |
+| L0 Source | [`term`](rocq/Syntax.v#L34), nested expressions | — | [`primal`](rocq/TangentCorrect.v#L102) |
+| L1 ANF | own types [`atom`](rocq/Anf.v#L17), `value`, `anf` | operands are atoms, by typing | `anf` |
+| L1ᵃ Annotated ANF | L1 indexed by [`ann`](rocq/Anf.v#L70): each `let` and `fold` carries the analyses | analyses done once, as data | [`annotate`](rocq/Annotate.v#L134) |
+| L2 Derivative IR | imperative `prog` with binders ([`zero`](rocq/TangentCorrect.v#L121), `accum`, `push`, `pop`, `for-down`, …) | differentiated, no names, no C++ | `tangent` / [`adjoint`](rocq/Adjoint.v#L315) |
 | L2′ Optimized | same `prog` | — | simplifications |
-| L3 Target | `stmt`, names as strings | names and C++ types fixed | `lower` |
+| L3 Target | [`stmt`](rocq/Target.v#L15), names as strings | names and C++ types fixed | [`lower`](rocq/Lower.v#L90) |
 | C++ text | | | `cxx` |
 
 Steps, in this order, each checked against the reference cases:
 
-1. **Done.** L2 and `lower`: differentiation produces the derivative IR, with
-   no C++ names or types; `lower` names the variables and spells the types. The
+1. **Done.** L2 and [`lower`](rocq/Lower.v#L90): differentiation produces the derivative IR, with
+   no C++ names or types; [`lower`](rocq/Lower.v#L90) names the variables and spells the types. The
    generated C++ is unchanged modulo the names of the generated locals (here it
    is even unchanged byte for byte).
 2. **Done.** L1, typed ANF: the analyses and the transformations work on L1
-   only; a partial derivative is an expression over atoms (`pexpr`). The
+   only; a partial derivative is an expression over atoms ([`pexpr`](rocq/Anf.v#L49)). The
    generated C++ is unchanged byte for byte.
-3. **Done.** L1ᵃ: `annotate` records the analyses on the term; `tangent` and
-   `adjoint` read the annotations and call no analysis, so the adjoint is the
+3. **Done.** L1ᵃ: [`annotate`](rocq/Annotate.v#L134) records the analyses on the term; `tangent` and
+   [`adjoint`](rocq/Adjoint.v#L315) read the annotations and call no analysis, so the adjoint is the
    plain transposition. The generated C++ is unchanged byte for byte.
 4. **Done.** L2′, simplifications: the partial derivative of `pow 0` is 0 (it
-   was `0 * pow(x, -1)`, NaN at 0), and `simplify` cleans up what the naive
+   was `0 * pow(x, -1)`, NaN at 0), and [`simplify`](rocq/Simplify.v#L292) cleans up what the naive
    differentiation rules produce together. The C++ changes: the adjoints of the
    reference cases shrink from 640 to 489 lines, the tangents are unchanged;
    checked by the derivative tests (tangent and adjoint against dual numbers,
    adjoint against finite differences, dot-product test).
 
 In L2, every variable of a generated function is bound at its head, in the
-order of creation (`scoped`, composed with `sbind`): the adjoint of a value is
+order of creation ([`scoped`](rocq/Derivative.v#L81), composed with [`sbind`](rocq/Transform.v#L46)): the adjoint of a value is
 computed far from the value, in the reverse sweep, so a variable cannot be bound
 where it is first used.
