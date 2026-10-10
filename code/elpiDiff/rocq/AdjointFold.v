@@ -1350,7 +1350,7 @@ have Hdown : exec_down R (run body) (out_dvar nat i) (h - 1) (count l h) s2 = So
     by move: Hex; rewrite -/N E0.
   have -> : (h - 1 = l + Z.of_nat N - 1)%Z by rewrite /N count_nat in Hn0 |- *; lia.
   exact: Hex.
-case: Pf => [K [Tk [F [_ [Nn [Sh Pr]]]]]].
+case: Pf => [K [Tk [F [Tpf [Nn [Sh Pr]]]]]].
 have Eo : oset O n (tangent (pd q)) = O by apply: oset_same.
 rewrite Hst0' Eo in Sh Pr.
 exists sf; split.
@@ -1363,8 +1363,11 @@ split.
   exact: Hn_dead Hnl El.
 do 4!(split=> //).
 (* in a loop body, the state before the fold is back in the storage *)
-move=> Hnl _ o; rewrite Hown => -[<-]; rewrite /fold_back Hflv => El.
-by rewrite Nn El Hst0'.
+move=> Hnl _ o; rewrite Hown => -[<-]; rewrite /fold_back Hlo Hhi Hflv => El.
+exists tr; split; first exact: Htr.
+split; first by rewrite Nn El Hst0'.
+move=> l0 E; rewrite (Tpf El) /=.
+by move: (Htape0 El); rewrite E => -[/app_inv_head ->].
 Qed.
 
 End Fold.

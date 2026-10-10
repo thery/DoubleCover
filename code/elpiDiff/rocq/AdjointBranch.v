@@ -351,7 +351,7 @@ Lemma owner_ite (cP : atom pv) (tP eP : anf pv bare) : act_owner (AIte cP tP eP)
 Proof. by []. Qed.
 
 Lemma inplace_ite (cv : bool) (cP : atom pv) (tP eP : anf pv bare) : inplace_only cv (AIte cP tP eP).
-Proof. by move=> L k wP pp tail eA eW te _ _ _ _ []. Qed.
+Proof. by move=> L k wP pp tail eA eW te _ _ _ _ _ []. Qed.
 
 
 (* Loops. *)
@@ -3100,7 +3100,7 @@ Qed.
 
 Lemma inplace_map (loP hiP : atom pv) (bP : pv -> anf pv bare) : inplace_only cv (AMap loP hiP bP).
 Proof.
-move=> L k wP pp tail eA eW te HA HW HL Htc Hst Hl Hargs Hwr o Ho Hoin.
+move=> L k wP pp tail eA eW te HA HW HL _ Htc Hst Hl Hargs Hwr o Ho Hoin.
 case: eW HW Htc => // loW hiW bW HW Htc.
 have [Epp [Etl [Elo [h [Ehi [_ [_ Hy]]]]]]] :=
   map_typing _ _ _ _ _ _ _ _ Htc; subst pp tail.
@@ -3146,7 +3146,7 @@ Qed.
 Lemma inplace_fold a (loP hiP initP : atom pv) (bP : pv -> pv -> anf pv bare) :
   (forall p, initP = AVar p -> ~ is_array (vty (pw p))) -> inplace_only cv (AFold a loP hiP initP bP).
 Proof.
-move=> Hna L k wP pp tail eA eW te _ _ _ _ Hst; exfalso; apply: Hst.
+move=> Hna L k wP pp tail eA eW te _ _ _ _ _ Hst; exfalso; apply: Hst.
 move: Hna; case: (initP) => [q | ? | ?] //= Hna.
 case Eq: (vty (pw q)) => [| | | nq] //.
 have Har : is_array (vty (pw q)) by rewrite Eq.
