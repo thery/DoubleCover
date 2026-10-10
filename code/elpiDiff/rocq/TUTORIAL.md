@@ -190,8 +190,8 @@ version, `tangent_mode_correct_with dd r0`, gives the same conclusion on
 `tangent_inputs_with dd r0 (decls f) x dx`, for any initial values there:
 the generated code never reads them.
 
-`adjoint_mode_correct` (AdjointMode.v) is only **stated**. It is the one
-`Admitted` of the development:
+`adjoint_mode_correct` (AdjointMode.v) is the other end theorem. Its
+statement:
 
 ```
 Theorem adjoint_mode_correct (cv : bool) (f : function) (x : list (val R)) :
@@ -207,8 +207,6 @@ Theorem adjoint_mode_correct (cv : bool) (f : function) (x : list (val R)) :
         (cv = true -> writes_inout (decls f) = false -> value_given (decls f) out = Some v) /\
         forall dx, length dx = in_dim x ->
           dotl (list_of_vec _ (df (vec_of_list _ (seed (decls f) x dx)))) yb = dotl (seed (decls f) x dx) g.
-Proof.
-Admitted.
 ```
 
 The last line is the dot-product test, the defining property of an adjoint:
@@ -226,16 +224,17 @@ The adjoint proof is built in milestones (README.md has the table):
   `adjoint_foldy_duals` are its instances). It relates the adjoint code
   *before* `simplify` to the dual-number evaluation of the source.
   AdjointExamples.v checks that its class premise holds on real programs.
-- **M6 is nearly done.** `simplify_correct_tapes` (SimplifyCorrect.v)
-  proves that `simplify` is correct on code with tapes, under a scoping
-  discipline called `good`. `agood_fwd` and `agood_adj` (AdjointGoodFwd.v,
+- **M6 is done.** `simplify_correct_tapes` (SimplifyCorrect.v) proves
+  that `simplify` is correct on code with tapes, under a scoping discipline
+  called `good`. `agood_fwd` and `agood_adj` (AdjointGoodFwd.v,
   AdjointGoodRev.v) prove that the code `adj` generates follows it, for
-  every body. The top level, for the whole adjoint function, remains.
-- **M7 is in progress.** `adjoint_mode_correct_from` (AdjointModeProof.v)
-  derives the final statement from one hypothesis, the simplified
-  corollary; it remains to discharge it with M6 and the proof that every
+  every body, and `adjoint_nesty_simplified` (AdjointGoodTop.v) gives the
+  simplified adjoint function.
+- **M7 is done.** `well_formed_nesty` (AdjointClassify.v) shows that every
   well-formed program falls into the class of bodies the proofs handle
-  (section 5.6).
+  (section 5.6), and `adjoint_mode_correct` (AdjointMode.v) is proved
+  through `adjoint_mode_correct_from` (AdjointModeProof.v). The development
+  has no `Admitted`.
 
 ### What you have to trust
 
@@ -1143,11 +1142,15 @@ The proofs:
   corollaries.
 - `AdjointGood.v`, `AdjointGoodFwd.v`, `AdjointGoodRev.v`: the scoping
   discipline of the adjoint code, and its proof for every body (M6).
-- `AdjointMode.v`: the statement of `adjoint_mode_correct` (`Admitted`).
+- `AdjointClassify.v`, `AdjointWf.v`: every well-formed program is in the
+  class (M7).
+- `AdjointGoodTop.v`: the whole adjoint function is well scoped, and its
+  simplified run (M6).
 - `AdjointExamples.v`: real programs proved to be in the class of the
   top-level corollary (the theorem is not vacuous).
 - `AdjointModeProof.v`: `adjoint_mode_correct` from the simplified
-  corollary (M7, in progress).
+  corollary.
+- `AdjointMode.v`: the theorem `adjoint_mode_correct`, read last.
 
 ### Exploring interactively
 

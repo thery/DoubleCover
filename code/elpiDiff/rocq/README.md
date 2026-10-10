@@ -14,9 +14,9 @@ make            # Rocq 9.1; the development is the logical directory ElpiDiff
 
 ## Theorems
 
-The adjoint modes are stated (`adjoint_mode_correct`, `AdjointMode.v`), not
-yet proved: it is the one `Admitted`. The proof is in progress
-(`AdjointCorrect.v`, below). `Print Assumptions tangent_mode_correct` lists only the axioms
+Both modes are proved: `tangent_mode_correct` (`TangentMode.v`) and
+`adjoint_mode_correct` (`AdjointMode.v`); the development has no `Admitted`.
+`Print Assumptions` of either lists only the axioms
 of the reals of the standard library (`sig_forall_dec`, `sig_not_dec`,
 `functional_extensionality_dep`, `classic`), which Coquelicot uses as well.
 
@@ -32,7 +32,7 @@ of the reals of the standard library (`sig_forall_dec`, `sig_not_dec`,
 | `tangent_simulates_duals_with` | `TangentTop.v` | theorem 1 for a function: the tangent function, run over the reals on the primal arguments, the seeded tangents and any initial values in its output-only tangent parameters (`tangent_inputs_with`), gives the value and the tangent of the dual evaluation of the normal form of f; `tangent_simulates_duals` is its instance with zeros there |
 | `tangent_mode_correct` | `TangentMode.v` | the tangent mode is correct: where a parametric, well-formed f is defined at x, it is differentiable at x with a linear derivative df, and `simplify (tangent (annotate false (normalize f)))`, run over the reals on `tangent_inputs (decls f) x dx`, gives the value of f and df applied to the seed of dx (dx on the independent and inout reals, 0 elsewhere); `tangent_mode_correct_with` is the same for any initial values of the output-only tangent parameters (`result_dot`, the tangent of a written dependent argument), which are not read |
 
-### The adjoint proof, in progress
+### The adjoint proof
 
 The adjoint program is related to the dual evaluation of the source in an
 arbitrary direction dx (the `pv` instance of the tangent proof). The reverse
@@ -53,8 +53,8 @@ the tangent of the body times the seed.
 | M3, maps | done: `afwd_map`, `arev_map` (`AdjointBranch.v`): the reverse loop replays the body at each index and transposes it from the adjoint of the element, the written array, dependent, having a zero tangent; `adjoint_branchy_duals` now covers maps at the end of the function; no `Admitted` |
 | M4, scalar folds and tapes | done: `afwd_fold`, `arev_fold` (`AdjointBranch.v`): the forward sweep pushes the state on a tape before each step when the reverse loop reads it (`fold_tape`); the reverse loop pops it, replays the body and transposes it with the state as an extra owner, and the initial value receives the adjoint of the first state; `adjoint_branchy_duals` now covers scalar folds at the top level; no `Admitted` |
 | M5, in-place array folds | done: `afwd_fold_nbody`, `arev_fold_nbody` (`AdjointNBody.v`, with the pieces of `AdjointFold.v`): the forward sweep pushes on the tape of the array the element each step overwrites, when the reverse loop reads it; the reverse loop pops it back before replaying the step; `adjoint_foldy_duals` (`AdjointTop.v`) covers them at the top level, `foldy` being a subclass of `nesty`. Nests of any depth (`AdjointNBody.v`): an in-place fold whose steps end with a set, with an in-place fold of their state whose steps are again such bodies, or with the state itself (`nbody`); a state whose step ends with a fold or gives it back is never read by the reverse sweep (`nbody_state_dead`, `nbody_ret_dead`), and each step's reverse sweep restores the state and pops what its inner fold pushed (`tail_back`, `arev_fold_nbody`); `adjoint_nesty_duals` covers them; no `Admitted`, only the axioms of the reals |
-| M6, `simplify` with tapes, the scoping of the adjoint code | in progress: `simplify_correct_tapes` (`SimplifyCorrect.v`) done, simplify is correct on programs with tapes (a push or a pop now writes its tape, in `simplify.elpi` as well); the scoping discipline of the adjoint code (`AdjointGood.v`: scope indexed by what the code reads, tapes declared before push and pop, bars declared before increment) done for every body and value, no body class: `agood_fwd` (`AdjointGoodFwd.v`, `prim` and `fwd_value`) and `agood_adj` (`AdjointGoodRev.v`, `adj`, `rev_value` and the replayed loops); to do: the top level (the opened adjoint function is `good`, so its simplified run is the same) |
-| M7, adjoint-value at the top, `adjoint_mode_correct` | in progress: `adjoint_mode_correct_from` (`AdjointModeProof.v`) proves the statement of `adjoint_mode_correct` from one section hypothesis, the simplified adjoint corollary without class premise (differentiability by `duals_derive`, the gradient as the transpose of df through the pairing identity in every direction); the classification is done: every well-formed program is in `nesty` (`well_formed_nesty`, `AdjointClassify.v`; a let of `nesty` binds a variable of the type of its value, `ptype`), so `adjoint_wf_duals` (`AdjointWf.v`) is `adjoint_nesty_duals` without the class premise; to do: discharge the hypothesis with M6 (simplify through the scoping discipline). `AdjointExamples.v` checks the class on the accepted reference cases, a fold whose initial value is computed by a let included |
+| M6, `simplify` with tapes, the scoping of the adjoint code | done: `simplify_correct_tapes` (`SimplifyCorrect.v`), simplify is correct on programs with tapes (a push or a pop writes its tape, in `simplify.elpi` as well); the scoping discipline of the adjoint code (`AdjointGood.v`: scope indexed by what the code reads, tapes declared before push and pop, bars declared before increment), for every body and value with no body class: `agood_fwd` (`AdjointGoodFwd.v`) and `agood_adj` (`AdjointGoodRev.v`); at the top, `adjoint_good` and `adjoint_nesty_simplified` (`AdjointGoodTop.v`): the simplified adjoint function computes the gradient |
+| M7, adjoint-value at the top, `adjoint_mode_correct` | done: every well-formed program is in the class `nesty` (`well_formed_nesty`, `AdjointClassify.v`, by parametricity from the typechecked instance; `nesty` quantifies its lets only over binders of their type), so `adjoint_wf_duals` (`AdjointWf.v`) has no class premise; `adjoint_mode_correct_from` (`AdjointModeProof.v`) derives the final statement (differentiability by `duals_derive`, the gradient as the transpose of df through the pairing identity in every direction), and `adjoint_mode_correct` (`AdjointMode.v`) is proved from it, `adjoint_nesty_simplified` and `well_formed_nesty`. `AdjointExamples.v` checks the class premise on 21 programs the tool accepts |
 
 Proved in `AdjointCorrect.v`: the operations are linear in the tangents with
 the spelled partial derivatives as coefficients; the forward sweep of each
@@ -120,7 +120,7 @@ the Boolean arguments that carry an adjoint are excluded by well-formedness.
 | `AdjointClassify.v` | — | the classification: `well_formed_nesty`, every well-formed function has its opened body in `nesty`, through a second pv instance opened at fresh binders (`fpv`) and related to the target by `hinv` |
 | `AdjointGood.v`, `AdjointGoodFwd.v`, `AdjointGoodRev.v` | — | the scoping discipline of the adjoint code and its proof for every body: `agood_fwd`, `agood_adj` |
 | `AdjointWf.v` | — | `adjoint_wf_duals`: the adjoint simulation for every parametric, well-formed function |
-| `AdjointMode.v` | — | `adjoint_mode_correct`, stated (`Admitted`): where f is defined, for every tangent dx, <df (seed dx), yb> = <seed dx, g>, and adjoint-value gives the value back unless f writes an inout argument |
+| `AdjointMode.v` | — | theorem `adjoint_mode_correct`: where f is defined, for every tangent dx, <df (seed dx), yb> = <seed dx, g>, and adjoint-value gives the value of f back (unless f writes an inout argument) |
 | `AdjointExamples.v` | — | non-vacuity: the accepted reference cases proved to be in the class of `adjoint_nesty_duals` |
 | `AdjointModeProof.v` | — | `adjoint_mode_correct_from`: `adjoint_mode_correct` from the simplified adjoint corollary |
 

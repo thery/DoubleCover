@@ -23,6 +23,8 @@ From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Norm
   Annotate Adjoint Simplify Correctness Smooth.
 From ElpiDiff Require TangentTop.
 From ElpiDiff Require Import Euclidean DualsDerive AdjointSpec.
+From ElpiDiff Require AdjointClassify AdjointGoodTop AdjointModeProof.
+From Corelib Require Import ssreflect.
 
 Import ListNotations.
 Open Scope list_scope.
@@ -52,4 +54,11 @@ Theorem adjoint_mode_correct (cv : bool) (f : function) (x : list (val R)) :
         forall dx, length dx = in_dim x ->
           dotl (list_of_vec _ (df (vec_of_list _ (seed (decls f) x dx)))) yb = dotl (seed (decls f) x dx) g.
 Proof.
-Admitted.
+move=> Hpar Hwf Hfit Hdef.
+apply: (AdjointModeProof.adjoint_mode_correct_from _ cv f x Hpar Hwf Hfit
+  Hdef).
+move=> cv' f' x' xb yb dx v Hp Hw Hf Hxb Hyb Hdx Hev.
+apply: (AdjointGoodTop.adjoint_nesty_simplified cv' f' x' xb yb dx v) => //.
+move=> L res bP Ho.
+exact: (AdjointClassify.well_formed_nesty f' x' dx L res bP Hp Hw Hf Ho).
+Qed.

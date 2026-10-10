@@ -16,13 +16,16 @@ From Coquelicot Require Import Coquelicot.
 From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec
   Normalize WellFormed Annotate Adjoint Simplify Correctness Smooth.
 From ElpiDiff Require TangentCorrect TangentTop.
-From ElpiDiff Require Import Euclidean DualsDerive AdjointSpec TangentMode
-  AdjointMode.
+From ElpiDiff Require Import Euclidean DualsDerive AdjointSpec TangentMode.
 From Corelib Require Import ssreflect ssrbool ssrfun.
 Set Bullet Behavior "None".
 
 Import ListNotations.
 Open Scope list_scope.
+
+Notation fits := TangentTop.fits.
+Notation decls := TangentTop.decls.
+Notation seed := TangentTop.seed.
 
 (* Where smooth_reals computes, the reals compute the same. *)
 Lemma eval_smooth_reals (f : function) (x : list (val R)) v :

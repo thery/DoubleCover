@@ -48,6 +48,7 @@ AdjointGoodFwd.v
 AdjointGoodRev.v
 AdjointTop.v
 AdjointWf.v
-AdjointMode.v
+AdjointGoodTop.v
 AdjointExamples.v
 AdjointModeProof.v
+AdjointMode.v

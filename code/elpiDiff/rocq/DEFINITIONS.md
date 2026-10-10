@@ -1066,7 +1066,7 @@ In section `NBody` (variable `cv`):
 - `ty_size t`: 1 for a real, the extent of an array, 0 otherwise.
 - Theorem `adjoint_simulates_duals`: the adjoint function, opened at the numbers `simplify` uses and run on the primal arguments, their adjoints and the seed, computes the gradient, the transpose of the tangent of the dual evaluation applied to the seed.
 
-### AdjointMode.v: `adjoint_mode_correct` (stated, `Admitted`)
+### AdjointMode.v: `adjoint_mode_correct`
 
 Notations re-export `fits`, `decls`, `seed`. For a parametric, well-formed `f`
 defined at `x`, with value `v` and derivative `df`:

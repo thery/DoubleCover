@@ -218,6 +218,7 @@ Definition agood_body (bP : anf pv bare) : Prop :=
   vo_scope m vo sc wr ->
   good_k sc wr c' fw (fun sc1 wr1 =>
     fwd_post F c c' sc sc1 /\
+    (m = Forward -> forall t, vo = Some (AReturns t) -> In ResultVar sc1) /\
     forall sc2 wr2, rscope F c c' sc1 wr1 sc2 wr2 ->
       bars_ok L (useful cv m k bA) wP pp wr2 ->
       tape_rev wP pp (records_in cv k bA) wr2 ->

@@ -250,7 +250,9 @@ have Hrv : forall sc1 wr1 sc2 wr2,
     rewrite Nat.eqb_refl.
 have Hq0 : forall sc1 wr1,
     (forall x, In x sc1 -> In x sc \/ x = ResultVar) ->
+    (m = Forward -> forall t, vo = Some (AReturns t) -> In ResultVar sc1) ->
     fwd_post (fun _ => False) c c sc sc1 /\
+    (m = Forward -> forall t, vo = Some (AReturns t) -> In ResultVar sc1) /\
     (forall sc2 wr2, rscope (fun _ => False) c c sc1 wr1 sc2 wr2 ->
       bars_ok L (useful cv m k (ARet (amap pa aP))) wP pp wr2 ->
       tape_rev wP pp false wr2 -> expr_ok sc2 se ->
@@ -259,20 +261,25 @@ have Hq0 : forall sc1 wr1,
         | Real => match bar (amap pt aP) with
                   | Some bx => [DIncrement bx se] | None => [] end
         | _ => [] end (fun=> (fun=> True))).
-  by move=> sc1 wr1 H; split; [exact: Hpost | exact: Hrv].
+  move=> sc1 wr1 H HR.
+  by split; [exact: Hpost | split; [exact: HR | exact: Hrv]].
 (* the forward sweep: the value given back, at the top of adjoint-value *)
-have Hr0 : good sc wr rest.
+have Hr0 : (m = Forward -> forall t, vo = Some (AReturns t) ->
+              In ResultVar sc) -> good sc wr rest.
+  move=> HR.
   apply: Hrest; [exact: incl_refl | exact: incl_refl | exact: Hb | exact: Hw |].
-  by apply: Hq0 => y Hy; left.
-case Em: (sweep_eqb m Forward) => //=.
+  by apply: Hq0 => // y Hy; left.
+case Em: (sweep_eqb m Forward) => /=; last first.
+  by apply: Hr0 => Hm; rewrite Hm in Em.
 have Hmf : m = Forward by case: (m) Em.
-case: vo Hvo Hcv Hx => [[t | y] |] Hvo Hcv Hx //=.
+destruct vo as [[t | y] |]; rewrite /=; last by apply: Hr0.
   have [Hnr _] := Hvo Hmf.
   apply: GoodConstant => //; [exact: Hx | exact: Hnr t erefl |].
   apply: Hrest; [by move=> z Hz; right | exact: incl_refl | | |].
   - by constructor=> //; split.
   - by move=> z Hz; right; apply: Hw.
-  by apply: Hq0 => z [<- | Hz]; [right | left].
+  apply: Hq0 => [z [<- | Hz] | _ t' _]; [right | left | left] => //.
+have {}Hr0 : good sc wr rest by apply: Hr0.
 case: (tof y) => //; case: (role_of W y) => [[] |] //=.
 have [_ Hwy] := Hvo Hmf.
 by apply: GoodAssign => //; [exact: Hwy y erefl | exact: Hx].
@@ -379,13 +386,16 @@ Qed.
 (* The value given back at the top of adjoint-value. *)
 Lemma good_value_output sc wr vo (x : atom (tvar W)) rest :
   vo_scope Forward vo sc wr -> expr_ok sc (spell x) ->
-  good sc wr rest -> good (ResultVar :: sc) wr rest ->
+  ((forall t, vo = Some (AReturns t) -> False) -> good sc wr rest) ->
+  good (ResultVar :: sc) wr rest ->
   good sc wr (value_output W vo x ++ rest).
 Proof.
-move=> Hvo Hx Hr Hr'; case: vo Hvo => [[t | y] |] Hvo //=.
-  by apply: GoodConstant => //; case: (Hvo erefl) => /(_ t erefl).
-case: (tof y) => //; case: (role_of W y) => [[] |] //=.
-by apply: GoodAssign => //; case: (Hvo erefl) => _ /(_ y erefl).
+move=> Hvo Hx Hr Hr'; case: vo Hvo Hr => [[t | y] |] Hvo Hr /=.
+- by apply: GoodConstant => //; case: (Hvo erefl) => /(_ t erefl).
+- have {}Hr : good sc wr rest by apply: Hr.
+  case: (tof y) => //; case: (role_of W y) => [[] |] //=.
+  by apply: GoodAssign => //; case: (Hvo erefl) => _ /(_ y erefl).
+by apply: Hr.
 Qed.
 
 Lemma agood_body_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
@@ -475,6 +485,8 @@ have [Fb HFb] : exists Fb : nat -> Prop, storage wP tail eP = None ->
     vo_scope m vo sc wr ->
     good_k sc wr c1 fb (fun sc1 wr1 =>
       fwd_post Fb c0 c1 sc sc1 /\
+      (m = Forward -> forall t, vo = Some (AReturns t) ->
+         In ResultVar sc1) /\
       forall sc2 wr2, rscope Fb c0 c1 sc1 wr1 sc2 wr2 ->
         bars_ok (xf :: L) (useful cv m (S k) (cA (pa xf))) wP pp wr2 ->
         tape_rev wP pp (records_in cv (S k) (cA (pa xf))) wr2 ->
@@ -697,7 +709,11 @@ case Es: (storage wP tail eP) Hn Hst Hjs => [m0 |] Hn Hst Hjs.
     exact: (proj2 IH0).
   have Hql : forall sc1 wr1, incl sc_e sc1 -> incl wr_e wr1 ->
       (forall y, In y sc1 -> In y sc_e \/ y = ResultVar) ->
+      (m = Forward -> forall t, vo = Some (AReturns t) ->
+         In ResultVar sc1) ->
       fwd_post Flet c c3 sc sc1 /\
+      (m = Forward -> forall t, vo = Some (AReturns t) ->
+         In ResultVar sc1) /\
       (forall sc2 wr2, rscope Flet c c3 sc1 wr1 sc2 wr2 ->
         bars_ok L (useful cv m k (ALet aA eA cA)) wP pp wr2 ->
         tape_rev wP pp (records_in cv k (ALet aA eA cA)) wr2 ->
@@ -705,12 +721,13 @@ case Es: (storage wP tail eP) Hn Hst Hjs => [m0 |] Hn Hst Hjs.
         good_k sc2 wr2 c3
           ((if ac then bar_declaration W (Array z) n else []) ++ [] ++ re)
           (fun _ _ => True)).
-    move=> sc1 wr1 J1 J2 Hy; split.
+    move=> sc1 wr1 J1 J2 Hy HR; split.
       move=> y /Hy [/Q2 [Hy' | [-> | ->]] | ->].
       - by left.
       - by left; apply: Hws.
       - by right; right; right; exists j; rewrite Ej.
       by right; right; left.
+    split; first exact: HR.
     move=> sc2 wr2 [I3 [I4 [Hw2 [Hb2 Hnr]]]] Hbol Htr _.
     have Hbd : (if ac then bar_declaration W (Array z) n else []) = [].
       by case: (ac).
@@ -723,7 +740,8 @@ case Es: (storage wP tail eP) Hn Hst Hjs => [m0 |] Hn Hst Hjs.
   case Em: (sweep_eqb m Forward) => /=; last first.
     apply: Hrs0; [exact: incl_refl | exact: incl_refl | exact: Hb_e3 |
                   exact: Hw_e |].
-    by apply: Hql => // y Hy; left.
+    apply: Hql => //; first by move=> y Hy; left.
+    by move=> Hm; rewrite Hm in Em.
   have Hmf' : m = Forward by case: (m) Em.
   apply: good_value_output.
   - move=> _; have [V1 V2] := Hvo Hmf'; split.
@@ -732,14 +750,19 @@ case Es: (storage wP tail eP) Hn Hst Hjs => [m0 |] Hn Hst Hjs.
       by rewrite Ej in E.
     by move=> y Hy; apply/I2/V2.
   - by rewrite /=; apply/I1/Hws.
-  - apply: Hrs0; [exact: incl_refl | exact: incl_refl | exact: Hb_e3 |
+  - move=> Hnr.
+    apply: Hrs0; [exact: incl_refl | exact: incl_refl | exact: Hb_e3 |
                   exact: Hw_e |].
-    by apply: Hql => // y Hy; left.
+    apply: Hql => //; first by move=> y Hy; left.
+    by move=> _ t Evo; case: (Hnr t Evo).
   apply: Hrs0; [by move=> y H; right | exact: incl_refl | | |].
   - by constructor=> //; split.
   - by move=> y H; right; apply: Hw_e.
-  apply: Hql => //; first by move=> y H; right.
-  by move=> y [<- | H]; [right | left].
+  apply: Hql.
+  - by move=> y H; right.
+  - exact: incl_refl.
+  - by move=> y [<- | H]; [right | left].
+  by move=> _ t _; left.
 (* a fresh variable: the forward sweep of the value, then of the rest *)
 case: Hn => En [Ec0 Erec]; subst j c0 rec.
 have Hna : ~ is_array te.
@@ -787,7 +810,7 @@ have Hvo_e : vo_scope m vo sc_e wr_e.
   by move=> y Hy; apply/I2/V2.
 have HF := HFb Es sc_e wr_e Hfs Htp_e Hvo_e.
 apply: (good_k_weaken _ _ _ _ _ _ _ HF); first lia.
-move=> sc1 wr1 J1 J2 Hb1 Hw1 [Hpost Hrev]; split.
+move=> sc1 wr1 J1 J2 Hb1 Hw1 [Hpost [HRV Hrev]]; split.
   move=> x /Hpost [/Q2 [H | [Ex | Ex]] | [[j0 [Hj [HF0 [Hd Hbv]]]] | Ho]].
   - by left.
   - right; left; exists c; rewrite Ex En.
@@ -801,6 +824,7 @@ move=> sc1 wr1 J1 J2 Hb1 Hw1 [Hpost Hrev]; split.
     right; left; exists c; rewrite Ex Ej0.
     by split; [lia | split; [split=> //; left | ]].
   by right; right; right; exists j0; split=> //; lia.
+split; first exact: HRV.
 move=> sc2 wr2 [R1 [R2 [R3 [R4 R5]]]] Hbol Htr Hse.
 have HnF : forall j0, Flet j0 -> (j0 < c1)%nat.
   by move=> j0 [_ [-> | [H _]]]; lia.
@@ -945,7 +969,7 @@ have Hsc : fscope L c wP pp (tbr cv Replay k bA) sc wr.
   exact: (proj1 (proj2 Hbo o Ho)).
 have Hvo : vo_scope Replay vo sc wr by [].
 apply: (good_k_app _ _ c' c' _ _ _ _ (HF sc wr Hsc Htp Hvo)).
-move=> sc1 wr1 I1 I2 Hb1 Hw1 [Hpost Hrev].
+move=> sc1 wr1 I1 I2 Hb1 Hw1 [Hpost [_ Hrev]].
 have Hbv : forall x, In x sc1 -> In x sc \/ is_barv x = false.
   move=> x /Hpost [H | [[j0 [_ [_ [_ H]]]] | [-> | [j0 [_ ->]]]]];
     by [left | right].
