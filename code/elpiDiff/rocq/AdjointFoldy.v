@@ -283,6 +283,41 @@ with foldy_value (top : bool) (e : value pv bare) : Prop :=
          (forall x y, abody (b x y)))
   end.
 
+(* The classes of bodies are included in one another: straight, branchy,
+   foldy. *)
+Lemma straight_branchy (b : anf pv bare) : straight b -> branchy true b.
+Proof.
+elim: b => [a e b' IH | x] //= [He Hb].
+split; last by move=> x; apply/IH/Hb.
+by case: e He.
+Qed.
+
+Lemma branchy_foldy_mut :
+  (forall b : anf pv bare, forall top, branchy top b -> foldy top b) /\
+  (forall e : value pv bare, forall top,
+     branchy_value top e -> foldy_value top e).
+Proof.
+apply: (anf_value_ind pv bare
+  (fun b => forall top, branchy top b -> foldy top b)
+  (fun e => forall top, branchy_value top e -> foldy_value top e)).
+- move=> a e IHe b IHb top [He Hb].
+  by split; [exact: (IHe top He) | move=> x; exact: (IHb x top (Hb x))].
+- by [].
+- by [].
+- by [].
+- by [].
+- by [].
+- move=> c t IHt e IHe top [Ht He].
+  by split; [exact: (IHt false Ht) | exact: (IHe false He)].
+- move=> lo hi b IHb top [Et Hb].
+  by split=> // x; exact: (IHb x false (Hb x)).
+move=> a lo hi init b IHb top [Et [Hna Hb]].
+by split=> //; left; split=> // x y; exact: (IHb x y false (Hb x y)).
+Qed.
+
+Lemma branchy_foldy top (b : anf pv bare) : branchy top b -> foldy top b.
+Proof. exact: (proj1 branchy_foldy_mut). Qed.
+
 Theorem asim_foldy :
   (forall b : anf pv bare, forall top, foldy top b ->
      asim_body cv b /\ act_body b /\ (top = false -> psim_body cv b)) /\

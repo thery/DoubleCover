@@ -831,7 +831,7 @@ master body, and each comes with a theorem "every body of the class has an
 `asim_body`":
 - `straight` (AdjointCorrect.v, theorem `asim_straight`): lets of
   operations, reads `a[i]` and in-place sets;
-- `branchy top` (AdjointBranch.v, `asim_branchy`): adds branches, maps and
+- `branchy top` (AdjointBranch.v): adds branches, maps and
   scalar folds. The flag `top` says whether we are at the top of the
   function, since maps and folds are only allowed there;
 - `foldy top` (AdjointFoldy.v, `asim_foldy`): adds folds that update an array
@@ -866,10 +866,13 @@ state" argument for nests. A class lets each milestone be closed and checked
 before the next one starts. The price is M7: one must show that every
 well-formed program belongs to the last class.
 
-The top-level corollaries (`adjoint_straight_duals`, ...,
-`adjoint_nesty_duals`, AdjointTop.v) all go through
-`adjoint_simulates_duals`, which needs only the `asim_body` of the opened
-body. That is why each class ends in an `asim_*` theorem.
+The classes are nested: `straight_branchy`, `branchy_foldy` (AdjointFoldy.v)
+and `foldy_nesty` (AdjointTop.v) show that each class is included in the
+next. So only the largest class needs its own theorem: `adjoint_nesty_duals`
+(AdjointTop.v) goes through `adjoint_simulates_duals`, which needs only the
+`asim_body` of the opened body, given by `asim_nesty`. The corollaries for
+the smaller classes (`adjoint_straight_duals`, `adjoint_branchy_duals`,
+`adjoint_foldy_duals`) follow from it by these inclusions.
 
 ### 5.7 The pieces of a value: `asim_fwd`, `asim_rev`, `psim_body`
 
@@ -883,8 +886,8 @@ AdjointCorrect.v):
 
 Inside loops and branches, the forward code is `prim`, which computes every
 let without recording anything. `psim_body` (AdjointBranch.v) is its
-simulation. You will see these names in the conclusions of `asim_branchy`
-and `asim_foldy`.
+simulation. You will see these names in the conclusions of `asim_foldy`
+and `asim_nesty`.
 
 ---
 
@@ -1119,7 +1122,7 @@ The proofs:
   results.
 - `AdjointCorrect.v`: pairing, contexts, `asim_body`, `asim_let`,
   operations, `asim_straight`.
-- `AdjointBranch.v`: branches, maps, scalar folds, `asim_branchy`.
+- `AdjointBranch.v`: branches, maps, scalar folds, the class `branchy`.
 - `AdjointFold.v`, `AdjointFoldy.v`: in-place folds, `asim_foldy`.
 - `AdjointNestSide.v`, `AdjointNestFwd.v`, `AdjointNest.v`,
   `AdjointNestRev.v`, `AdjointNestLoop.v`, `AdjointNesty.v`: nests of in-place

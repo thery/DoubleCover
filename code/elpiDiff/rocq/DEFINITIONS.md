@@ -995,7 +995,7 @@ they are now. See Key concepts for pairing, owners, contexts, frames,
   - `abody b`: the body of an in-place loop: operations and reads, then a set that is the tail;
   - `branchy top b` / `branchy_value top e`: the shape the file's theorem covers. Sets, maps and folds appear only at the top (`top = true`). Branches, maps and folds contain none of them. A fold is scalar;
   - Ltacs `fwd_intro`, `rev_intro`.
-- Theorem `asim_branchy`: for `branchy` bodies and values, `asim_body`, `act_body`, `psim_body` (inside), `asim_fwd`, `asim_rev`, `inplace_only`, `act_value`, `act_owner` hold, and inside a branch a value is not stored in place.
+- The simulation of `branchy` bodies follows from that of the larger classes: `straight_branchy`, `branchy_foldy` (`AdjointFoldy.v`) and `foldy_nesty` (`AdjointTop.v`) include each class in the next, and `adjoint_straight_duals`, `adjoint_branchy_duals`, `adjoint_foldy_duals` are corollaries of `adjoint_nesty_duals`.
 
 ### AdjointFold.v: folds updating an array in place (milestone M5)
 

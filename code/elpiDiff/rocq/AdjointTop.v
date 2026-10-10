@@ -1718,71 +1718,33 @@ rewrite (K3 erefl (stored y) Hvt_y Hnb) (K2 (stored y) Hvt_y Hnb).
 by rewrite (V1 erefl (stored y) Hvt_y).
 Qed.
 
-(* Milestone M1: the adjoint function of a straight-line function (lets of
-   operations, reads and updates of arrays) computes the gradient. *)
-Corollary adjoint_straight_duals (cv : bool) (f : function) (x : list (val R)) (xb yb dx : list R)
-  (v : val (dual R)) :
-  parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->
-  length xb = in_dim x -> length yb = length (reals_of_val (primal v)) -> length dx = in_dim x ->
-  (forall L res bP, open_P (afdef (normalize f) pv) 0 (seed_args (decls f) x dx) [] = Some (L, res, bP) -> straight bP) ->
-  aeval_function (duals reals) (normalize f) (seed_args (decls f) x dx) = Some v ->
-  exists r ps ss k out g,
-    open_pairs (dfbody (Adjoint.adjoint cv (annotate cv (normalize f))) W) 0 = (DBody r ps ss, k) /\
-    exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map (out_dstmt nat) ss))) 0
-      (adjoint_inputs (decls f) x xb yb) = Some out /\
-    adjoint_output (decls f) x xb out = Some g /\ length g = in_dim x /\
-    dotl (reals_of_val (TangentCorrect.tangent v)) yb = dotl (seed (decls f) x dx) g /\
-    (cv = true -> writes_inout (decls f) = false -> value_given (decls f) out = Some (TangentCorrect.primal v)).
+(* The class of nesty bodies includes the foldy ones. *)
+Lemma foldy_nesty_mut :
+  (forall b : anf pv bare, forall top, foldy top b -> nesty top b) /\
+  (forall e : value pv bare, forall top,
+     foldy_value top e -> nesty_value top e).
 Proof.
-move=> Hp Hw Hf Hxb Hyb Hdx Hs Hev.
-apply: adjoint_simulates_duals => // L res bP Ho.
-exact: asim_straight (Hs L res bP Ho).
+apply: (anf_value_ind pv bare
+  (fun b => forall top, foldy top b -> nesty top b)
+  (fun e => forall top, foldy_value top e -> nesty_value top e)).
+- move=> a e IHe b IHb top [He Hb].
+  by split; [exact: (IHe top He) | move=> x; exact: (IHb x top (Hb x))].
+- by [].
+- by [].
+- by [].
+- by [].
+- by [].
+- move=> c t IHt e IHe top [Ht He].
+  by split; [exact: (IHt false Ht) | exact: (IHe false He)].
+- move=> lo hi b IHb top [Et Hb].
+  by split=> // x; exact: (IHb x false (Hb x)).
+move=> a lo hi init b IHb top [Et [[Hna Hb] | Hab]]; split=> //.
+  by left; split=> // x y; exact: (IHb x y false (Hb x y)).
+by right; left.
 Qed.
 
-(* Milestones M2, M3 and M4: the same with branches, maps and scalar folds
-   (an assignment is in no branch; a map writes the result at the end of the
-   function; a scalar fold records its state on a tape when its reverse loop
-   reads it). *)
-Corollary adjoint_branchy_duals (cv : bool) (f : function) (x : list (val R)) (xb yb dx : list R)
-  (v : val (dual R)) :
-  parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->
-  length xb = in_dim x -> length yb = length (reals_of_val (primal v)) -> length dx = in_dim x ->
-  (forall L res bP, open_P (afdef (normalize f) pv) 0 (seed_args (decls f) x dx) [] = Some (L, res, bP) -> branchy true bP) ->
-  aeval_function (duals reals) (normalize f) (seed_args (decls f) x dx) = Some v ->
-  exists r ps ss k out g,
-    open_pairs (dfbody (Adjoint.adjoint cv (annotate cv (normalize f))) W) 0 = (DBody r ps ss, k) /\
-    exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map (out_dstmt nat) ss))) 0
-      (adjoint_inputs (decls f) x xb yb) = Some out /\
-    adjoint_output (decls f) x xb out = Some g /\ length g = in_dim x /\
-    dotl (reals_of_val (TangentCorrect.tangent v)) yb = dotl (seed (decls f) x dx) g /\
-    (cv = true -> writes_inout (decls f) = false -> value_given (decls f) out = Some (TangentCorrect.primal v)).
-Proof.
-move=> Hp Hw Hf Hxb Hyb Hdx Hs Hev.
-apply: adjoint_simulates_duals => // L res bP Ho.
-exact: (proj1 (proj1 (asim_branchy _) bP true (Hs L res bP Ho))).
-Qed.
-
-(* Milestone M5: the same with, at the top, folds updating the written array
-   in place, their bodies binding scalars and ending with a set of the state
-   (abody). *)
-Corollary adjoint_foldy_duals (cv : bool) (f : function) (x : list (val R)) (xb yb dx : list R)
-  (v : val (dual R)) :
-  parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->
-  length xb = in_dim x -> length yb = length (reals_of_val (primal v)) -> length dx = in_dim x ->
-  (forall L res bP, open_P (afdef (normalize f) pv) 0 (seed_args (decls f) x dx) [] = Some (L, res, bP) -> foldy true bP) ->
-  aeval_function (duals reals) (normalize f) (seed_args (decls f) x dx) = Some v ->
-  exists r ps ss k out g,
-    open_pairs (dfbody (Adjoint.adjoint cv (annotate cv (normalize f))) W) 0 = (DBody r ps ss, k) /\
-    exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map (out_dstmt nat) ss))) 0
-      (adjoint_inputs (decls f) x xb yb) = Some out /\
-    adjoint_output (decls f) x xb out = Some g /\ length g = in_dim x /\
-    dotl (reals_of_val (TangentCorrect.tangent v)) yb = dotl (seed (decls f) x dx) g /\
-    (cv = true -> writes_inout (decls f) = false -> value_given (decls f) out = Some (TangentCorrect.primal v)).
-Proof.
-move=> Hp Hw Hf Hxb Hyb Hdx Hs Hev.
-apply: adjoint_simulates_duals => // L res bP Ho.
-exact: (proj1 (proj1 (asim_foldy _) bP true (Hs L res bP Ho))).
-Qed.
+Lemma foldy_nesty top (b : anf pv bare) : foldy top b -> nesty top b.
+Proof. exact: (proj1 foldy_nesty_mut). Qed.
 
 (* Milestone M5b: the same with, at the top, also nests of in-place folds:
    an in-place fold whose body ends with an inner in-place fold on its
@@ -1805,3 +1767,70 @@ move=> Hp Hw Hf Hxb Hyb Hdx Hs Hev.
 apply: adjoint_simulates_duals => // L res bP Ho.
 exact: (proj1 (proj1 (asim_nesty _) bP true (Hs L res bP Ho))).
 Qed.
+
+(* Milestone M1: the adjoint function of a straight-line function (lets of
+   operations, reads and updates of arrays) computes the gradient. *)
+Corollary adjoint_straight_duals (cv : bool) (f : function) (x : list (val R)) (xb yb dx : list R)
+  (v : val (dual R)) :
+  parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->
+  length xb = in_dim x -> length yb = length (reals_of_val (primal v)) -> length dx = in_dim x ->
+  (forall L res bP, open_P (afdef (normalize f) pv) 0 (seed_args (decls f) x dx) [] = Some (L, res, bP) -> straight bP) ->
+  aeval_function (duals reals) (normalize f) (seed_args (decls f) x dx) = Some v ->
+  exists r ps ss k out g,
+    open_pairs (dfbody (Adjoint.adjoint cv (annotate cv (normalize f))) W) 0 = (DBody r ps ss, k) /\
+    exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map (out_dstmt nat) ss))) 0
+      (adjoint_inputs (decls f) x xb yb) = Some out /\
+    adjoint_output (decls f) x xb out = Some g /\ length g = in_dim x /\
+    dotl (reals_of_val (TangentCorrect.tangent v)) yb = dotl (seed (decls f) x dx) g /\
+    (cv = true -> writes_inout (decls f) = false -> value_given (decls f) out = Some (TangentCorrect.primal v)).
+Proof.
+move=> Hp Hw Hf Hxb Hyb Hdx Hs.
+apply: adjoint_nesty_duals => // L res bP Ho.
+exact/foldy_nesty/branchy_foldy/straight_branchy/(Hs L res bP Ho).
+Qed.
+
+(* Milestones M2, M3 and M4: the same with branches, maps and scalar folds
+   (an assignment is in no branch; a map writes the result at the end of the
+   function; a scalar fold records its state on a tape when its reverse loop
+   reads it). *)
+Corollary adjoint_branchy_duals (cv : bool) (f : function) (x : list (val R)) (xb yb dx : list R)
+  (v : val (dual R)) :
+  parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->
+  length xb = in_dim x -> length yb = length (reals_of_val (primal v)) -> length dx = in_dim x ->
+  (forall L res bP, open_P (afdef (normalize f) pv) 0 (seed_args (decls f) x dx) [] = Some (L, res, bP) -> branchy true bP) ->
+  aeval_function (duals reals) (normalize f) (seed_args (decls f) x dx) = Some v ->
+  exists r ps ss k out g,
+    open_pairs (dfbody (Adjoint.adjoint cv (annotate cv (normalize f))) W) 0 = (DBody r ps ss, k) /\
+    exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map (out_dstmt nat) ss))) 0
+      (adjoint_inputs (decls f) x xb yb) = Some out /\
+    adjoint_output (decls f) x xb out = Some g /\ length g = in_dim x /\
+    dotl (reals_of_val (TangentCorrect.tangent v)) yb = dotl (seed (decls f) x dx) g /\
+    (cv = true -> writes_inout (decls f) = false -> value_given (decls f) out = Some (TangentCorrect.primal v)).
+Proof.
+move=> Hp Hw Hf Hxb Hyb Hdx Hs.
+apply: adjoint_nesty_duals => // L res bP Ho.
+exact/foldy_nesty/branchy_foldy/(Hs L res bP Ho).
+Qed.
+
+(* Milestone M5: the same with, at the top, folds updating the written array
+   in place, their bodies binding scalars and ending with a set of the state
+   (abody). *)
+Corollary adjoint_foldy_duals (cv : bool) (f : function) (x : list (val R)) (xb yb dx : list R)
+  (v : val (dual R)) :
+  parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->
+  length xb = in_dim x -> length yb = length (reals_of_val (primal v)) -> length dx = in_dim x ->
+  (forall L res bP, open_P (afdef (normalize f) pv) 0 (seed_args (decls f) x dx) [] = Some (L, res, bP) -> foldy true bP) ->
+  aeval_function (duals reals) (normalize f) (seed_args (decls f) x dx) = Some v ->
+  exists r ps ss k out g,
+    open_pairs (dfbody (Adjoint.adjoint cv (annotate cv (normalize f))) W) 0 = (DBody r ps ss, k) /\
+    exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map (out_dstmt nat) ss))) 0
+      (adjoint_inputs (decls f) x xb yb) = Some out /\
+    adjoint_output (decls f) x xb out = Some g /\ length g = in_dim x /\
+    dotl (reals_of_val (TangentCorrect.tangent v)) yb = dotl (seed (decls f) x dx) g /\
+    (cv = true -> writes_inout (decls f) = false -> value_given (decls f) out = Some (TangentCorrect.primal v)).
+Proof.
+move=> Hp Hw Hf Hxb Hyb Hdx Hs.
+apply: adjoint_nesty_duals => // L res bP Ho.
+exact/foldy_nesty/(Hs L res bP Ho).
+Qed.
+
