@@ -132,11 +132,13 @@ mentions-expr V (d-at A I) :- !, std.exists! [A, I] (mentions-expr V).
 mentions-expr V (d-op1 _ A) :- !, mentions-expr V A.
 mentions-expr V (d-op2 _ A B) :- std.exists! [A, B] (mentions-expr V).
 
-% writes V S: the statement S, or a block nested in it, assigns or accumulates into V.
+% writes V S: the statement S, or a block nested in it, assigns or accumulates into V,
+% or pushes onto or pops from V.
 func writes dvar, dstmt.
 writes V (d-assign A _) :- target V A, !.
 writes V (d-increment A _) :- target V A, !.
-writes V (d-pop _ A) :- target V A, !.
+writes V (d-push T _) :- T = V, !.
+writes V (d-pop T A) :- (T = V ; target V A), !.
 writes V (d-branch _ T E) :- (std.exists! T (writes V) ; std.exists! E (writes V)), !.
 writes V (d-for _ _ _ B) :- std.exists! B (writes V), !.
 writes V (d-for-back _ _ _ B) :- std.exists! B (writes V).
