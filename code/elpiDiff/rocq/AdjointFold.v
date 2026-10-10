@@ -1246,7 +1246,7 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
   have Htt1 : forall ix0 sx0 n0, PArray ix sx = PArray ix0 sx0 ->
       Some n = Some n0 -> tail_tape cv (S (S k)) (sx :: ix :: L) (bP ix sx) s1 n0.
     by move=> ix0 sx0 n0 _ _; exact: tail_tape_abody.
-  have [s3 [R3 [_ [_ [T3 [RF3 [Sh3 Pr3]]]]]]] :=
+  have [s3 [R3 [_ [_ [T3 [RF3 [Sh3 [Pr3 _]]]]]]]] :=
     Hrv s1 O' (agree_prim_refl _ _ _) Hr1 Hseed Htp1 Htt1.
   have Hs3v : forall v, ~ is_bar v -> store_get s3 (keyv v) = store_get s1 (keyv v).
     exact: (run_bars _ _ _ Hbars R3).

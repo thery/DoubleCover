@@ -1498,7 +1498,7 @@ have Gen : forall (bP : anf pv bare) bA bW bT bD cb fb rb cb',
   have Htp1 : tapes_ok L s1.
     move=> p Hp Hrp; have [lt Hlt] := Htp p Hp Hrp.
     exact: (proj1 T1 _ _ Hlt).
-  have [s3 [R3 [_ [_ [T3 [F3 [S3 P3]]]]]]] :=
+  have [s3 [R3 [_ [_ [T3 [F3 [S3 [P3 _]]]]]]]] :=
     Hrev s1 O (agree_prim_refl _ _ _) Hr1 Hseed Htp1
       (no_tail_tape_branch _ _ _ _ _).
   exists s3; split; first by rewrite run_app R1.
@@ -1549,7 +1549,8 @@ case: b Hev Hsc Hcd => Hev Hsc Hcd.
   exists s3; split; first by rewrite (run_branch _ _ _ _ _ true Hsc) R3.
   split; first exact: K3.
   split; first exact: Kn3.
-  by split; first by move=> _ /(_ erefl).
+  split; first by move=> _ /(_ erefl).
+  by have [T3 [F3 [S3 P3]]] := Hs3; do 4!(split=> //).
 have Hl : forall p, live_anf k eW p ->
     live_value k (AIte (amap pw cP) tW eW) p.
   by move=> p; rewrite /live_anf /live_value /= => ->; rewrite ?orb_true_r.
@@ -1566,7 +1567,8 @@ have [s3 [R3 [K3 [Kn3 Hs3]]]] := Gen eP eA eW eT eD c1 fe re c2 IHe H10 H7 H4
 exists s3; split; first by rewrite (run_branch _ _ _ _ _ false Hsc) R3.
 split; first exact: K3.
 split; first exact: Kn3.
-by split; first by move=> _ /(_ erefl).
+split; first by move=> _ /(_ erefl).
+by have [T3 [F3 [S3 P3]]] := Hs3; do 4!(split=> //).
 Qed.
 
 
@@ -2021,7 +2023,7 @@ have Hloop : exists sf,
     have Htp1 : tapes_ok (ix :: L) s1.
       move=> p [<- | Hp] Hrc //; have [lt Hlt] := Htp p Hp Hrc.
       exact: (proj1 Ts1 _ _ Hlt).
-    have [s3 [R3 [_ [_ [T3 [F3 [S3 P3]]]]]]] :=
+    have [s3 [R3 [_ [_ [T3 [F3 [S3 [P3 _]]]]]]]] :=
       Hrev s1 O' (agree_prim_refl _ _ _) Hr1 Hseed Htp1
         (no_tail_tape_scalar _ _ _ _ _).
     exists s3; split; first by rewrite /body /= run_app R1.
@@ -2095,6 +2097,7 @@ split.
     subst m; rewrite B.
     by have := r_shape _ _ _ _ _ _ _ Hr t n Hi; rewrite Eyb.
   exact: (Sh t m (proj2 (odel_in O n t m) (conj Hi Hne))).
+split; last by move=> *; rewrite /fold_back.
 rewrite (pairing_odel O n _ sf Hnd HoO) (pairing_oset O s2 _ n _ Hok Hnd HoO).
 rewrite (pairing_odel O n _ s2 Hnd HoO) -/O' Pf B Eyb.
 by rewrite !(inner_tangent_zero (VArray lo) _ Hzl) /=; ring.
@@ -2849,7 +2852,7 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
     have [l1 Hl1] := proj1 (tkeep_trans _ _ _ _ _ T0 Tsp) _ _ Hlt.
     have [l2 Hl2] := proj1 T1 _ _ Hl1.
     exact: (proj1 Tmid _ _ Hl2).
-  have [s3 [R3 [_ [_ [T3 [F3 [S3 P3]]]]]]] :=
+  have [s3 [R3 [_ [_ [T3 [F3 [S3 [P3 _]]]]]]]] :=
     Hrev smid O' Hag Hr1 Hseed Htp1 (no_tail_tape_scalar _ _ _ _ _).
   exists s3; split.
     by rewrite /body run_app Rp run_app R1 Rm R3.
@@ -2956,6 +2959,7 @@ case Ebar: (bar (amap pt initP)) => [bi |]; last first.
   split; first exact: Tk.
   split; first exact: F.
   split; first exact: Sh.
+  split; last by move=> _ Hs'; case: Hs'.
   by rewrite Hpi; rewrite /= Hz0 in Pp; lra.
 (* the initial value has an adjoint: it receives the adjoint of the first
    state *)
@@ -3005,6 +3009,7 @@ split.
     (VReal (bq + b)) (rctx_owners_ok _ _ _ _ _ _ _ Hr) Sh HqO) Hi.
   move=> t' Hi'; rewrite (r_value _ _ _ _ _ _ _ Hr q t' Hq Hvf Hi').
   by rewrite Epq.
+split; last by move=> _ Hs'; case: Hs'.
 rewrite /s3 (pairing_set_in O sf _ (stored q) _
   (rctx_owners_ok _ _ _ _ _ _ _ Hr) (r_nodup _ _ _ _ _ _ _ Hr) HqO).
 by rewrite Ebq Hpi Epq /=; rewrite /= in Pp; lra.
@@ -3205,6 +3210,7 @@ apply: (anf_value_ind pv bare
     apply: asim_rev_bars; first exact: arev_op1.
       by apply: straight_rev_bars.
     by apply: straight_no_top.
+    by [].
   split; first by apply: inplace_straight.
   by split; [exact: act_op1 | split; [exact: owner_op1 |]].
 - move=> f x y top _; split; first exact: afwd_op2.
@@ -3212,6 +3218,7 @@ apply: (anf_value_ind pv bare
     apply: asim_rev_bars; first exact: arev_op2.
       by apply: straight_rev_bars.
     by apply: straight_no_top.
+    by [].
   split; first by apply: inplace_straight.
   by split; [exact: act_op2 | split; [exact: owner_op2 |]].
 - move=> x i top _; split; first exact: afwd_get.
@@ -3219,6 +3226,7 @@ apply: (anf_value_ind pv bare
     apply: asim_rev_bars; first exact: arev_get.
       by apply: straight_rev_bars.
     by apply: straight_no_top.
+    by [].
   split; first by apply: inplace_straight.
   by split; [exact: act_get | split; [exact: owner_get |]].
 - move=> x i y top /= Et; subst top; split; first exact: afwd_set.
@@ -3226,6 +3234,7 @@ apply: (anf_value_ind pv bare
     apply: asim_rev_bars; first exact: arev_set.
       by apply: straight_rev_bars.
     by apply: straight_no_top.
+    by [].
   split; first by apply: inplace_straight.
   by split; [exact: act_set | split; [exact: owner_set |]].
 - move=> c t IHt e IHe top [Ht He].

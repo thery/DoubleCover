@@ -957,6 +957,75 @@ Definition fold_grow (k : nat) (eA : value avar bare)
   | _, _ => True
   end.
 
+(* The reverse sweep of an in-place fold inside a loop body, when its
+   innermost fold is live: it leaves in its storage the state before the
+   fold, the value of the owner o. *)
+Definition fold_back (k : nat) (eA : value avar bare) (s : store R)
+  (n : dvar W) (o : pv) : Prop :=
+  match eA with
+  | AFold _ _ _ initA bA =>
+      fold_live cv k initA bA = true -> store_get s (keyv n) = Some (primal (pd o))
+  | _ => True
+  end.
+
+(* Whether a body ends with `let x = fold in ret x`, a varied fold whose
+   innermost fold is live. *)
+Fixpoint tail_fold_back (k : nat) (b : anf avar bare) : bool :=
+  match b with
+  | ALet _ e b' =>
+      match e, b' (let_binder k e) with
+      | AFold _ _ _ initA bA, ARet (AVar y) =>
+          (aid y =? k)%nat && varied_value k e && fold_live cv k initA bA
+      | _, _ => tail_fold_back (S k) (b' (let_binder k e))
+      end
+  | ARet _ => false
+  end.
+
+(* The reverse sweep of a body computing an array in place inside a loop,
+   when it ends with such a fold: it leaves the owner as it was before the
+   body. *)
+Definition tail_back (k : nat) (bA : anf avar bare) (wP : option (atom pv))
+  (pp : pplace) (ty : ty) (s : store R) : Prop :=
+  ~ not_in_loop pp -> is_array ty -> tail_fold_back k bA = true ->
+  forall o, owner wP pp = Some o ->
+  store_get s (keyv (stored o)) = Some (primal (pd o)).
+
+Lemma tail_fold_back_ret k a eA cA :
+  cA (let_binder k eA) = ARet (AVar (let_binder k eA)) ->
+  tail_fold_back k (ALet a eA cA) = true ->
+  varied_value k eA = true /\
+  match eA with
+  | AFold _ _ _ initA bA => fold_live cv k initA bA = true
+  | _ => False
+  end.
+Proof.
+move=> E; rewrite /= E.
+case: eA E => //= ? ? ? initA bA E.
+by rewrite E Nat.eqb_refl /= => /andb_true_iff.
+Qed.
+
+Lemma tail_fold_back_let k a eA cA :
+  tail_fold_back k (ALet a eA cA) = true ->
+  tail_fold_back (S k) (cA (let_binder k eA)) = true \/
+  exists y, cA (let_binder k eA) = ARet (AVar y) /\ aid y = k.
+Proof.
+rewrite /=.
+case: eA => [? ? | ? ? ? | ? ? | ? ? ? | ? ? ? | ? ? ? | ? ? ? ? ?] /=;
+  try by move=> H; left.
+case E: (cA _) => [? ? ? | [y | |]] /=; try by move=> H; left.
+move=> /andb_true_iff [/andb_true_iff [/Nat.eqb_eq Ey _] _].
+by right; exists y.
+Qed.
+
+Lemma fold_back_live k eA s n o :
+  fold_back k eA s n o ->
+  match eA with
+  | AFold _ _ _ initA bA => fold_live cv k initA bA = true
+  | _ => False
+  end ->
+  store_get s (keyv n) = Some (primal (pd o)).
+Proof. by case: eA => //= ? ? ? ? ? H /H. Qed.
+
 (* A continuation that returns its argument: the let it continues is the
    tail of the body. *)
 Definition ptail (cP : pv -> anf pv bare) : Prop := forall x, cP x = ARet (AVar x).
@@ -1000,7 +1069,8 @@ Definition asim_body (bP : anf pv bare) : Prop :=
         same_ex pp wP s s3 /\ tkeep c (inplace wP pp) s2 s3 /\
         rev_frame c (inplace wP pp) O s2 s3 /\
         (forall t n, In (t, n) O -> shaped t (barv s3 n)) /\
-        pairing O s3 = result_pairing O ty (inplace wP pp) v se s2.
+        pairing O s3 = result_pairing O ty (inplace wP pp) v se s2 /\
+        tail_back k bA wP pp ty s3.
 
 Lemma rctx_owners_ok L c wP pp O use s : rctx L c wP pp O use s -> owners_ok O.
 Proof. by move=> Hr t n /(r_below _ _ _ _ _ _ _ Hr) [j [-> _]]. Qed.
@@ -1156,6 +1226,7 @@ have [s1 [Hrun1 [Hfr1 [Hvr1 [Htk Hsx]]]]] :=
   ret_forward L k c s wP pp m aP ty v vo Hc H Htc Hty Hev Hvo.
 exists s1; do 4!(split=> //).
 move=> s2 O Hag Hr Hseed _ _.
+have Htb : forall a0 s3, tail_back k (ARet a0) wP pp ty s3 by move=> a0 s3 _ _.
 apply: (keep_add2 _ L k c c wP pp _ ty vo _ s s1 s2 _ Hs (le_n c) Hag Hsx).
   case: (tof (amap pt aP)); try by constructor.
   case Eb: (@bar W (amap pt aP)) => [bx |]; last by constructor.
@@ -1165,7 +1236,7 @@ destruct aP as [p | str | z]; rewrite /= in Htc Hev *; last 2 first.
 - have [x [Hx Ev]] := aeval_literal _ _ Hev; subst v; case: Htc => Ety.
   subst ty; exists s2; split=> //; split=> //.
   split; first exact: (r_shape _ _ _ _ _ _ _ Hr).
-  by rewrite /result_pairing /=; ring.
+  by split; [rewrite /result_pairing /=; ring | exact: Htb].
 - by case: Htc Hty => <-.
 case: Hev => Ev; subst v.
 have Hp : In p L by apply: H.
@@ -1183,6 +1254,7 @@ destruct (vty (pw p)) eqn:Ety; try by case: Hty.
   destruct (avaried (pa p)) eqn:Ev; last first.
     exists s2; split=> //; split=> //.
     split; first exact: (r_shape _ _ _ _ _ _ _ Hr).
+    split; last exact: Htb.
     by have /= Hz0 := Hz erefl; rewrite /result_pairing Hz0; ring.
   have Hin := r_useful _ _ _ _ _ _ _ Hr p Hp Hu Ev; rewrite Ed /= in Hin.
   have /= Hsh := r_shape _ _ _ _ _ _ _ Hr _ _ Hin.
@@ -1199,11 +1271,13 @@ destruct (vty (pw p)) eqn:Ety; try by case: Hty.
     apply: (shaped_set O s2 (VReal (dsnd d))) => //.
       exact: (r_shape _ _ _ _ _ _ _ Hr).
     by move=> t' Ht'; rewrite (r_value _ _ _ _ _ _ _ Hr p t' Hp Hu Ht') Ed.
+  split; last exact: Htb.
   rewrite (pairing_set_in O s2 (VReal (dsnd d)) (stored p)) //.
     exact: (r_nodup _ _ _ _ _ _ _ Hr).
   by rewrite /result_pairing /seed_value Hsg Eb /=; ring.
 exists s2; split=> //; split=> //.
 split; first exact: (r_shape _ _ _ _ _ _ _ Hr).
+split; last exact: Htb.
 case Eo: (owner wP pp) => [o |];
   last by case: (s_ty _ _ _ _ _ _ _ Hs I Eo).
 have Hpo : pn p = pn o.
@@ -1404,7 +1478,9 @@ Definition asim_rev (eP : value pv bare) : Prop :=
       tkeep c (Some n) s2 s3 /\
       rev_frame_x c (inplace wP pp) n (oput O n (tangent ve)) s2 s3 /\
       (forall t m, In (t, m) O -> shaped t (barv s3 m)) /\
-      pairing O s3 = pairing (oput O n (tangent ve)) s2.
+      pairing O s3 = pairing (oput O n (tangent ve)) s2 /\
+      (~ not_in_loop pp -> storage wP tail eP <> None ->
+       forall o, owner wP pp = Some o -> fold_back k eA s3 n o).
 
 (* A value updated in place outside the body of an in-place loop (a map)
    writes an argument that is not inout, and does not read it. *)
@@ -2917,6 +2993,9 @@ case Es: (storage wP tail eP) Hn => [m0 |] Hn.
       by have := proj1 (proj2 (Hio Hl)) Hav0; rewrite -/vr Hvr.
     split; first exact: tkeep_refl.
     split=> //; split; first exact: (r_shape _ _ _ _ _ _ _ Hr).
+    split; last first.
+      move=> _ _ /(tail_fold_back_ret _ _ _ _ EA) [Hv _].
+      by move: Hv; rewrite -/vr Hvr.
     rewrite -(IHo L k c wP pp _ (Array z) tail eA eW eD ve o HeA HeW HeD Hs
       Hlv_e Es Ho Hve Hvr (r_args _ _ _ _ _ _ _ Hr) (r_written _ _ _ _ _ _ _ Hr)
       _ Hte Htail_ty).
@@ -3003,7 +3082,7 @@ case Es: (storage wP tail eP) Hn => [m0 |] Hn.
       by rewrite (Hvi erefl Ecv o Ho) in Hav0.
     rewrite (proj1 Hag _ Hbo erefl I) (Es1 erefl).
     exact: (a_owner _ _ _ _ _ _ _ _ _ Hc o Ho (or_introl Hl)).
-  have [s3 [R3 [K3 [Kn3 [Kv3 [T3 [F3 [S3 P3]]]]]]]] :=
+  have [s3 [R3 [K3 [Kn3 [Kv3 [T3 [F3 [S3 [P3 B3]]]]]]]]] :=
     Hrv s2 O Hrd Hr2 Hns Htp Hft Hinit.
   have Hoin' : In (stored o) (map snd O).
     by apply/(in_map_iff _ _ _); eexists; split; last exact: Hown.
@@ -3029,7 +3108,10 @@ case Es: (storage wP tail eP) Hn => [m0 |] Hn.
     apply: (rev_frame_x_mono c c2 _ (stored o) _ _ _ _ F3 Hc12).
       by move=> m0 Hm; left; rewrite oset_snd in Hm.
     by right.
-  by split.
+  split=> //; split=> //.
+  move=> Hnl _ /(tail_fold_back_ret _ _ _ _ EA) [_ Hf] o0 Ho0.
+  rewrite Ho in Ho0; case: Ho0 => <-.
+  exact: (fold_back_live _ _ _ _ _ (B3 Hnl Hsn o Ho) Hf).
 case: Hn => En [Ec0 Erec]; subst n c0 rec.
 have [Hht [Hz Hra]] := IHa L k wP pp tail eA eW eD te ve HeA HeW HeD HL Hte Hve.
 have Hnotin : forall p, In p L -> stored p <> DBound (c, c).
@@ -3238,6 +3320,26 @@ have Hr' : forall O' sa, (O' = O /\ ac = false /\ sa = s2) \/
   - move=> p ny r [<- | Hp] Hv //.
     exact: (r_args _ _ _ _ _ _ _ Hr p ny r Hp Hv).
   exact: (r_written _ _ _ _ _ _ _ Hr).
+(* the value is not the array the body returns *)
+have Hnret : forall y, cA (let_binder k eA) = ARet (AVar y) -> aid y = k ->
+    is_array ty -> False.
+  move=> y Ey Eky Harr.
+  have HA1 : anf_eq ((x, let_binder k eA) :: gA L) (cP x)
+      (cA (let_binder k eA)) by exact: HcA.
+  rewrite Ey in HA1.
+  case EcP: (cP x) HA1 => [? ? ? | [p' | |]] //= HA1.
+  case: HA1 => [[Ex _] | /in_gA [Hp' Epa]]; last first.
+    by move: (Haid p' Hp'); rewrite -Epa Eky; lia.
+  subst p'.
+  have HW1 : anf_eq ((x, pw x) :: gW L) (cP x) (cW (pw x)) by exact: HcW.
+  rewrite EcP in HW1.
+  case EcW: (cW (pw x)) HW1 => [? ? ? | [w | |]] //= HW1.
+  move: EcW; case: HW1 => [[<-] | /in_gW [HxL' _]] EcW; last exact: HxL HxL'.
+  rewrite /= in EcW; rewrite EcW /= in Htc; case: Htc => Ety.
+  have Harr' : is_array te by rewrite Ety.
+  have [_ [o' [_ Es']]] := inplace_value_s _ _ _ _ _ _ _ _ _ _ _ Hs HeW Hte
+    Htail_ty (or_intror Harr').
+  by rewrite Es in Es'.
 case Eac: (ac) Hre => Hre; last first.
   (* x is not active *)
   case: Hre => Ere Ec3; subst re c3.
@@ -3248,7 +3350,7 @@ case Eac: (ac) Hre => Hre; last first.
     by split=> //; exact: (below_mono c (S c) y0 H1 (Nat.le_succ_diag_r c)).
   have Htp2 : tapes_ok (x :: L) s2.
     by move=> p [<- | Hp] Hrp //; exact: (Htp p Hp Hrp).
-  have [sb [Rrb [Krb [Ksx [Trb [Frb [Srb Prb]]]]]]] :=
+  have [sb [Rrb [Krb [Ksx [Trb [Frb [Srb [Prb Bb]]]]]]]] :=
     Hrev s2 O (agree_prim_mono _ _ _ _ _ Hag Hc13)
       (Hr' O s2 (or_introl (conj erefl (conj Eac erefl)))) Hseed' Htp2 Htt2'.
   exists sb; split; first by rewrite /= app_nil_r.
@@ -3265,6 +3367,10 @@ case Eac: (ac) Hre => Hre; last first.
   split=> //.
   apply: (rev_frame_mono c (S c) _ _ _ _ _ Frb (Nat.le_succ_diag_r c)).
   by move=> m0 Hm; left.
+  split=> //; split=> //.
+  move=> Hnl Harr /tail_fold_back_let [Ht | [y [Ey Eky]]].
+    exact: Bb Hnl Harr Ht.
+  by case: (Hnret y Ey Eky Harr).
 (* x is active: its adjoint is declared, then transposed *)
 have Hcond : varied_value k eA && atom_member (AVar (let_binder k eA))
     (fst (needs cv m (S k) (cA (let_binder k eA)))) = true.
@@ -3305,7 +3411,7 @@ have Htt2a : forall ix sx n0, pp = PArray ix sx -> inplace wP pp = Some n0 ->
   apply: (tail_tape_same _ _ _ s2 _ _ _ _ (Htt2' _ _ _ E1 E2)).
     by rewrite /s2a store_get_set_other //; exact: keyv_bar_other.
   by rewrite /s2a store_get_set_other //; exact: keyv_bar_other.
-have [sb [Rrb [Krb [Ksx [Trb [Frb [Srb Prb]]]]]]] :=
+have [sb [Rrb [Krb [Ksx [Trb [Frb [Srb [Prb Bb]]]]]]]] :=
   Hrev s2a _ Hag2 Hr2 Hseed2 Htp2 Htt2a.
 have Hj2 : exists j, DBound (c, c) = DBound (j, j) /\ (j < c2)%nat.
   by exists c; split=> //; lia.
@@ -3397,7 +3503,7 @@ have Hin0 : not_in_loop pp -> storage wP tail eP <> None ->
     records cv k eA = false ->
     store_get sb (keyv (DBound (c, c))) = Some (primal (pd o0)).
   by move=> _ Hs0; case: (Hs0 Es).
-have [s3 [R3 [K3 [Kn3 [_ [T3 [F3 [S3 P3]]]]]]]] :=
+have [s3 [R3 [K3 [Kn3 [_ [T3 [F3 [S3 [P3 _]]]]]]]]] :=
   Hrv sb O Hrd Hr3 Hns Htpb Hft Hin0.
 exists s3; split; first by rewrite run_app Hd run_app Rrb.
 split.
@@ -3436,10 +3542,18 @@ split.
   rewrite (oput_notin O _ _ Hn_notin) in F3.
   have Hnb : ~ below c (DBound (c, c)) by rewrite /=; lia.
   exact: (rev_frame_x_mono c c2 _ _ _ _ _ _ F3 Hcc2 HO'b (or_introl Hnb)).
-split=> //.
-rewrite P3 (oput_notin O _ _ Hn_notin) Prb.
-exact: (result_pairing_fresh O ty _ v se s2 (DBound (c, c)) _ Hok erefl
-  Hn_notin Hsel).
+split=> //; split.
+  rewrite P3 (oput_notin O _ _ Hn_notin) Prb.
+  exact: (result_pairing_fresh O ty _ v se s2 (DBound (c, c)) _ Hok erefl
+    Hn_notin Hsel).
+move=> Hnl Harr /tail_fold_back_let [Ht | [y [Ey Eky]]]; last first.
+  by case: (Hnret y Ey Eky Harr).
+move=> o Ho.
+have He : inplace wP pp = Some (stored o) by rewrite /inplace Ho.
+have [Hb0 [Hc0 Hp0]] := ex_below _ _ _ _ _ _ _ _ Hs He.
+have Hne : stored o <> DBound (c, c) by move=> E; rewrite E /= in Hb0; lia.
+rewrite (K3 _ (below_mono c c2 _ Hb0 Hcc2) Hc0 Hp0 Hne).
+exact: Bb Hnl Harr Ht o Ho.
 Qed.
 
 (* ---------------------------------------------------------------------------
@@ -3481,10 +3595,15 @@ Lemma asim_rev_bars (eP : value pv bare) :
   (forall L k wP pp tail eW te, value_eq (gW L) eP eW ->
      typecheck_value (option_map (amap pw) wP) (wplace pp) tail k eW = (te, Ok) ->
      storage wP tail eP <> None -> not_in_loop pp -> False) ->
+  (forall a lo hi init b, eP <> AFold a lo hi init b) ->
   asim_rev eP.
 Proof.
-move=> H0 Hb Hnt L k c wP pp tail eA eW eT eD te n ve ty vo HA HW HT HD Hs
+move=> H0 Hb Hnt Hnf L k c wP pp tail eA eW eT eD te n ve ty vo HA HW HT HD Hs
   Hbar Htc Htail Hn Hst Hve Hvr.
+have Hfb : forall s3 o, fold_back k eA s3 n o.
+  move=> s3 o; move: HA Hnf; rewrite /fold_back.
+  case E: eA => // [? ? ? ? ?].
+  by case EP: eP => //= [? ? ? ? ?] _ Hnf; case: (Hnf _ _ _ _ _ erefl).
 have {}H0 := H0 L k c wP pp tail eA eW eT eD te n ve ty vo HA HW HT HD Hs
   Hbar Htc Htail Hn Hst Hve Hvr.
 have {}Hb := Hb L eT (annotate_value_t cv k eA) (option_map (amap pt) wP)
@@ -3507,7 +3626,8 @@ split.
 split.
   by move=> Hl Hsn o _ _; case: (Hnt L k wP pp tail eW te HW Htc Hsn Hl).
 split; first exact: (tkeep_bars _ _ _ _ _ Hb R3).
-by split; first exact: (rev_frame_x_of _ _ _ _ _ _ F3).
+split; first exact: (rev_frame_x_of _ _ _ _ _ _ F3).
+by split=> //; split=> // _ _ o _; exact: Hfb.
 Qed.
 
 (* A straight value is updated in place only in the body of an in-place loop. *)
@@ -3550,21 +3670,25 @@ apply: (anf_value_ind pv bare (fun b => straight b -> asim_body b)
   apply: asim_rev_bars; first exact: arev_op1.
     exact: (straight_rev_bars _ Hs).
   exact: (straight_no_top _ Hs).
+  by [].
 - move=> f x y Hs; split; first exact: afwd_op2.
   split; last by split; [apply: act_op2 | apply: owner_op2].
   apply: asim_rev_bars; first exact: arev_op2.
     exact: (straight_rev_bars _ Hs).
   exact: (straight_no_top _ Hs).
+  by [].
 - move=> x i Hs; split; first exact: afwd_get.
   split; last by split; [apply: act_get | apply: owner_get].
   apply: asim_rev_bars; first exact: arev_get.
     exact: (straight_rev_bars _ Hs).
   exact: (straight_no_top _ Hs).
+  by [].
 - move=> x i y Hs; split; first exact: afwd_set.
   split; last by split; [apply: act_set | apply: owner_set].
   apply: asim_rev_bars; first exact: arev_set.
     exact: (straight_rev_bars _ Hs).
   exact: (straight_no_top _ Hs).
+  by [].
 - by move=> c t _ e _ [].
 - by move=> lo hi b _ [].
 by move=> a lo hi init b _ [].

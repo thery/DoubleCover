@@ -1254,7 +1254,7 @@ have [[EW [Hnw HtcB]] | [w [nm [role [EW [Hg [Hwr [H1w [Hraw [HtcB
   have Htp : tapes_ok L s1.
     move=> p Hp Hrp; have [? [? [? [? [? Ep]]]]] := Hparg p Hp.
     by subst p; discriminate.
-  have [s3 [R3 [K3 [X3 [T3 [F3 [S3 P3]]]]]]] :=
+  have [s3 [R3 [K3 [X3 [T3 [F3 [S3 [P3 _]]]]]]]] :=
     Hrev s1 O Hag Hr Hseed Htp (no_tail_tape_top _ _ _ _ _ _).
   destruct v as [d | | | |]; try (simpl in Hhty; contradiction).
   have P3' : pairing O s3 = (init_sum (rev L) s0 + dsnd d * hd 0%R yb)%R.
@@ -1652,7 +1652,7 @@ have Hr : rctx L n (Some (AVar y)) PTop OW (useful cvw Forward n bA) s2.
 have Htp : tapes_ok L s2.
   move=> p Hp Hrp; have [? [? [? [? [? Ep]]]]] := Hparg p Hp.
   by subst p; discriminate.
-have [s3 [R3 [K3 [X3 [T3 [F3 [S3 P3]]]]]]] :=
+have [s3 [R3 [K3 [X3 [T3 [F3 [S3 [P3 _]]]]]]]] :=
   Hrev s2 OW Hag Hr Hseed Htp (no_tail_tape_top _ _ _ _ _ _).
 rewrite -/ex Hres in P3.
 (* the end of the function *)
