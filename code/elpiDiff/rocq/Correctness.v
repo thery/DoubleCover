@@ -284,3 +284,23 @@ Theorem annotate_correct :
   forall (N : Type) (D : domain N) (cv : bool) (a : afunction bare) (args : list (val N)),
     aeval_function D (annotate cv a) args = aeval_function D a args.
 Proof. by move=> N D cv a args; apply: rebuild_definition_eval. Qed.
+
+(* ---------------------------------------------------------------------------
+   Lists: reading and replacing an element commute with a map. *)
+
+Lemma nth_z_map {A B : Type} (f : A -> B) k l :
+  nth_z k (map f l) = option_map f (nth_z k l).
+Proof. by rewrite /nth_z; case: (k <? 0)%Z => //; apply: nth_error_map. Qed.
+
+Lemma replace_nth_map {A B : Type} (f : A -> B) n x l :
+  replace_nth n (f x) (map f l) = option_map (map f) (replace_nth n x l).
+Proof.
+elim: n l => [| n IH] [| y l] //=.
+by rewrite IH; case: (replace_nth n x l).
+Qed.
+
+Lemma replace_nth_z_map {A B : Type} (f : A -> B) k x l :
+  replace_nth_z k (f x) (map f l) = option_map (map f) (replace_nth_z k x l).
+Proof.
+by rewrite /replace_nth_z; case: (k <? 0)%Z => //; apply: replace_nth_map.
+Qed.

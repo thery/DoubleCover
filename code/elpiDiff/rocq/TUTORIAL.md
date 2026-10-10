@@ -184,6 +184,12 @@ derivative `df` (Coquelicot's `filterdiff`), and for any tangent direction
 `dx` the generated and simplified tangent function, run over the reals,
 returns `v` and `df` applied to the seed of `dx`.
 
+`tangent_inputs` passes 0 in the tangent parameters that are outputs only
+(`result_dot`, the tangent of a written dependent argument). The general
+version, `tangent_mode_correct_with dd r0`, gives the same conclusion on
+`tangent_inputs_with dd r0 (decls f) x dx`, for any initial values there:
+the generated code never reads them.
+
 `adjoint_mode_correct` (AdjointMode.v) is only **stated**. It is the one
 `Admitted` of the development:
 
@@ -491,12 +497,13 @@ architecture.
 2. `duals_derive` (DualsDerive.v): where `f` is `defined`, it is
    differentiable, and evaluating it over dual numbers computes the
    derivative applied to `dx`.
-3. `tangent_simulates_duals` (TangentTop.v): the *unsimplified* tangent
-   function, run over the reals, gives the primal value and the tangent of
-   the dual evaluation of `normalize f`. It also says that this code is
-   `good` (well scoped) and uses no tape.
-4. `simplify_correct` (SimplifyCorrect.v): `simplify` preserves the result
-   of `good` code.
+3. `tangent_simulates_duals_with` (TangentTop.v): the *unsimplified*
+   tangent function, run over the reals, gives the primal value and the
+   tangent of the dual evaluation of `normalize f`, whatever the initial
+   values of its output-only tangent parameters. It also says that this code
+   is `good` (well scoped).
+4. `simplify_correct_tapes` (SimplifyCorrect.v): `simplify` preserves the
+   result of `good` code.
 
 Notice the idea: the derivative is never mentioned in the simulation. The
 generated code is compared to the **dual-number evaluation** of the source,
@@ -580,8 +587,8 @@ discipline is the inductive `good sc wr ss` of Scoping.v (`sc` = in scope,
     In t wr -> expr_ok sc e -> good sc wr r -> good sc wr (DPush t e :: r)
 ```
 
-`scoping` (TangentGood.v) proves that tangent code is `good` and has no tape
-operation. `simplify_correct_tapes` (SimplifyCorrect.v) then proves that
+`scoping` (TangentGood.v) proves that tangent code is `good`.
+`simplify_correct_tapes` (SimplifyCorrect.v) then proves that
 `simplify` preserves the execution of `good` code, tapes included:
 
 ```

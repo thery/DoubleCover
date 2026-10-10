@@ -16,7 +16,7 @@
 From Stdlib Require Import String ZArith List Bool Reals Lia Lra.
 From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Operations
   Normalize WellFormed Atoms Activity Tbr Annotate Transform Adjoint Scoping
-  AnfEquiv Correctness TangentCorrect.
+  AnfEquiv Correctness TangentCorrect TangentGood.
 From Corelib Require Import ssreflect ssrbool ssrfun.
 Set Bullet Behavior "None".
 
@@ -2650,24 +2650,6 @@ split=> // /orb_false_iff [Hva Hvv].
 have /= Hza := atom_zero k aP _ Ha1 Hva Ha.
 have /= Hzv := atom_zero k vP _ Hv1 Hvv Hv.
 exact: (replace_nth_z_Forall _ _ _ _ _ Hzv Hza Er).
-Qed.
-
-Lemma sctx_weaken L k c c' wP pp (live live' : pv -> Prop) ty :
-  sctx L k c wP pp live ty -> (forall p, live' p -> live p) -> (c <= c')%nat -> sctx L k c' wP pp live' ty.
-Proof.
-move=> Hc Hl Hcc; constructor.
-- exact: (s_static _ _ _ _ _ _ _ Hc).
-- exact: (s_unique _ _ _ _ _ _ _ Hc).
-- by move=> p Hp; have := s_num _ _ _ _ _ _ _ Hc p Hp; lia.
-- exact: (s_written _ _ _ _ _ _ _ Hc).
-- exact: (s_place _ _ _ _ _ _ _ Hc).
-- move=> o p Ho Hp E.
-  case: (s_owner _ _ _ _ _ _ _ Hc o p Ho Hp E) => [H | H]; first by left.
-  by right=> /Hl.
-- by move=> p o Hp /Hl; apply: (s_arrays _ _ _ _ _ _ _ Hc p o Hp).
-- exact: (s_ty _ _ _ _ _ _ _ Hc).
-move=> y H1 H2 H3; have [A B] := s_top _ _ _ _ _ _ _ Hc y H1 H2 H3.
-by split=> // /Hl.
 Qed.
 
 Lemma actx_weaken L k c c' s wP pp (live live' tb tb' : pv -> Prop) ty :

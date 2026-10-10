@@ -11,7 +11,7 @@
    The proof composes theorem 3 (duals_derive: the dual numbers compute the
    derivative), normalize_correct (Correctness.v), theorem 1
    (tangent_simulates_duals: the tangent program computes the dual numbers),
-   and theorem 2 (simplify_correct: simplify preserves the execution). *)
+   and theorem 2 (simplify_correct_tapes: simplify preserves the execution). *)
 
 From Stdlib Require Import String ZArith List Bool Reals Lia.
 From Coquelicot Require Import Coquelicot.
@@ -125,10 +125,51 @@ Proof. by case: vd => [[a b] | | | l | l] //=; apply: map_ext => -[a b]. Qed.
    differentiable at x as a function of the reals of its arguments (value_of,
    from R^n to R^m), with a linear derivative df; and for every tangent dx of
    the reals of x, the simplified tangent program, run over the reals on the
-   inputs laid out from x and dx (tangent_inputs), succeeds and gives the
-   value of f at x and, as the reals of its tangent output, df applied to the
-   seed of dx (dx on the reals of the independent and inout arguments, 0 on
-   the others). *)
+   inputs laid out from x and dx, with any initial values in its output-only
+   tangent parameters (tangent_inputs_with: dd v for a written dependent
+   argument of primal v, fitting its declaration, r0 for the tangent of a
+   returned real; they are not read), succeeds and gives the value of f at x
+   and, as the reals of its tangent output, df applied to the seed of dx (dx
+   on the reals of the independent and inout arguments, 0 on the others). *)
+Theorem tangent_mode_correct_with (dd : val R -> val R) (r0 : val R)
+  (f : function) (x : list (val R)) :
+  parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->
+  defined f x ->
+  (forall i d w, nth_error (decls f) i = Some d -> nth_error x i = Some w ->
+     TangentTop.dot_out d = true -> fits d (dd w)) ->
+  exists v df,
+    eval_function smooth_reals f x = Some v /\
+    filterdiff (value_of f x) (locally (point_of x)) df /\
+    forall dx, length dx = in_dim x ->
+      exists out w,
+        exec_dfunction reals
+          (simplify (tangent (annotate false (normalize f))))
+          (TangentTop.tangent_inputs_with dd r0 (decls f) x dx) = Some out /\
+        tangent_output (decls f) out = Some (v, w) /\
+        reals_of_val w =
+          list_of_vec _ (df (vec_of_list _ (seed (decls f) x dx))).
+Proof.
+move=> Hpar Hwf Hfit Hdef Hdd.
+have [v [df [Hs [Hd Hdual]]]] := duals_derive f x Hpar Hdef.
+exists v, df; split; first exact: Hs.
+split; first exact: Hd.
+move=> dx Hl.
+have Hl' : length (seed (decls f) x dx) = in_dim x.
+  by apply: seed_length => //; lia.
+have [vd [Hev [Hp Ht]]] := Hdual _ Hl'.
+move/(normalize_correct _ _ _ _ _ Hpar): Hev => Hev.
+have Hle : (in_dim x <= length dx)%nat by lia.
+rewrite -(seed_args_dual _ _ _ Hfit Hle) in Hev.
+have [r [ps [ss [k [out [Ho [Hc [Hg [Hex Hout]]]]]]]]] :=
+  TangentTop.tangent_simulates_duals_with dd r0 f x dx vd Hpar Hwf Hfit Hdd Hev.
+exists out, (TangentCorrect.tangent vd); split.
+  exact: (simplify_correct_tapes _ _ r ps ss k out Ho Hc Hg Hex).
+split; first by rewrite Hout primal_primal_val Hp.
+by rewrite tangent_reals_tangent Ht.
+Qed.
+
+(* The same, with zeros in the output-only tangent parameters
+   (tangent_inputs). *)
 Theorem tangent_mode_correct (f : function) (x : list (val R)) :
   parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x -> defined f x ->
   exists v df,
@@ -142,20 +183,9 @@ Theorem tangent_mode_correct (f : function) (x : list (val R)) :
         reals_of_val w = list_of_vec _ (df (vec_of_list _ (seed (decls f) x dx))).
 Proof.
 move=> Hpar Hwf Hfit Hdef.
-have [v [df [Hs [Hd Hdual]]]] := duals_derive f x Hpar Hdef.
+have [v [df [Hs [Hd Hc]]]] := tangent_mode_correct_with TangentTop.zero_dot
+  (VReal 0%R) f x Hpar Hwf Hfit Hdef (TangentTop.zero_dot_fits _ _ Hfit).
 exists v, df; split; first exact: Hs.
 split; first exact: Hd.
-move=> dx Hl.
-have Hl' : length (seed (decls f) x dx) = in_dim x.
-  by apply: seed_length => //; lia.
-have [vd [Hev [Hp Ht]]] := Hdual _ Hl'.
-move/(normalize_correct _ _ _ _ _ Hpar): Hev => Hev.
-have Hle : (in_dim x <= length dx)%nat by lia.
-rewrite -(seed_args_dual _ _ _ Hfit Hle) in Hev.
-have [r [ps [ss [k [out [Ho [Hc [Hg [Hnt [Hex Hout]]]]]]]]]] :=
-  TangentTop.tangent_simulates_duals f x dx vd Hpar Hwf Hfit Hev.
-exists out, (TangentCorrect.tangent vd); split.
-  exact: (simplify_correct _ _ r ps ss k out Ho Hc Hg Hnt Hex).
-split; first by rewrite Hout primal_primal_val Hp.
-by rewrite tangent_reals_tangent Ht.
+by move=> dx Hl; rewrite TangentTop.tangent_inputs_zero; exact: Hc.
 Qed.

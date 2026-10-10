@@ -25,23 +25,6 @@ Lemma no_tail_tape_top cv k L b bA bD s (B : dvar W -> Prop) :
   tail_tape cv k L b bA bD s n0.
 Proof. by []. Qed.
 
-(* The analyses open the arguments as open_P does, in either mode. *)
-Lemma annotate_open_cv cv (dP : adefinition pv bare) : forall L k xs L' res bP dA,
-  adefinition_eq (gA L) dP dA -> open_P dP k xs L = Some (L', res, bP) ->
-  exists bA, anf_eq (gA L') bP bA /\
-             annotate_definition_t cv k dA = annotate_body_t cv Forward (k + length xs) bA.
-Proof.
-elim: dP => [n t r f IH | rP bP0] L k xs L' res bP dA HA Ho.
-  case: dA HA => [n' t' r' fA |] //= [En [Et [Er HA]]]; subst n' t' r'.
-  case: xs Ho => [| x xs] //= Ho.
-  have [bA [H1 H2]] := IH (arg_pv n t r k x) (arg_pv n t r k x :: L) (S k) xs L'
-    res bP (fA (AV k (varied_role r))) (HA _ _) Ho.
-  by exists bA; split=> //=; rewrite H2; congr annotate_body_t; lia.
-case: dA HA => [| rA bA] //= HA.
-case: xs Ho => [| ? ?] //= [EL Er Eb]; subst L' res bP.
-by exists bA; split; [exact: (proj2 HA) | rewrite /= Nat.add_0_r].
-Qed.
-
 (* ---------------------------------------------------------------------------
    Stores with distinct keys. *)
 
@@ -1030,63 +1013,15 @@ change (open_pairs
           (map arg_entry []) (adjoint_body W cv)) 0).
 rewrite Hopen /adjoint_body Htr.
 (* the arguments *)
-have Hargs' : forall p, In p L -> exists i nm t r x0,
-    p = arg_pv nm t r i x0 /\ nth_error xs i = Some x0 /\
-    nth_error (decls f) i = Some (Decl nm t r) /\ (i < n)%nat.
-  move=> p /(in_rev L) /(In_nth_error _ _) [i Hi].
-  have [nm [t [r [x0 [Ep Hx0]]]]] := Hargs i p Hi; subst p.
-  exists i, nm, t, r, x0; split=> //; split=> //; split.
-    by rewrite Hds nth_error_map Hi.
-  by apply/(nth_error_Some xs); rewrite Hx0.
-have HnL : NoDup (map pn (rev L)).
-  apply/NoDup_nth_error => i j Hi E.
-  rewrite length_map in Hi.
-  case Ep: (nth_error (rev L) i) => [p |]; last by move/nth_error_None: Ep; lia.
-  rewrite !nth_error_map Ep /= in E.
-  case Eq: (nth_error (rev L) j) E => [q |] // [E].
-  have [? [? [? [? [Epa _]]]]] := Hargs i p Ep.
-  have [? [? [? [? [Eqa _]]]]] := Hargs j q Eq.
-  by subst p q; rewrite /= in E; lia.
-have Hstat : Forall (static_ok n) L.
-  apply/Forall_forall => p Hp.
-  have [i [nm [t [r [x0 [Ep [Hx0 [Hd Hi]]]]]]]] := Hargs' p Hp; subst p.
-  have [v0 [tg [_ [Hxs [Hf0 Hz0]]]]] :=
-    seed_args_nth (decls f) x dx i nm t r Hfit Hd.
-  rewrite -/xs Hx0 in Hxs; case: Hxs => Ex0; subst x0.
-  repeat split; simpl; auto; try discriminate.
-  - move=> Hv; apply: (non_real_varied_none (decls f) nm t r Hnrv _ Hv).
-    exact: nth_error_In Hd.
-  exact: fits_type nm t r v0 tg Hf0.
-have Huniq : ids_unique L.
-  move=> p q Hp Hq E.
-  have [i [nm [t [r [x0 [Ep [Hx [Hd _]]]]]]]] := Hargs' p Hp.
-  have [i' [nm' [t' [r' [x0' [Eq [Hx' [Hd' _]]]]]]]] := Hargs' q Hq.
-  subst p q; rewrite /= in E; subst i'.
-  rewrite Hx in Hx'; case: Hx' => Ex; subst x0'.
-  by rewrite Hd in Hd'; case: Hd' => <- <- <-.
-have Hnum : forall p, In p L -> (pn p < n)%nat.
-  move=> p Hp; have [i [? [? [? [? [-> [_ [_ Hi]]]]]]]] := Hargs' p Hp.
-  exact: Hi.
-have Hxs : xs = map pd (rev L).
-  apply: nth_error_ext => i.
-  case Ep: (nth_error (rev L) i) => [p |].
-    have [nm [t [r [x0 [Epa Hx0]]]]] := Hargs i p Ep.
-    by rewrite Hx0 nth_error_map Ep Epa.
-  rewrite nth_error_map Ep; apply/nth_error_None; move/nth_error_None: Ep.
-  by rewrite length_rev; lia.
+have [Hargs' [HnL [Hstat [Huniq [Hnum [Hpn_inj Hxs]]]]]] :=
+  open_args_facts _ _ _ _ n Hfit Hnrv Hds Hlen erefl Hargs.
+rewrite -/xs in Hargs' Hxs.
 have HAL : Forall (fun p => tstored (pt p) = stored p /\ varg (pw p) <> None)
     (rev L).
   apply/Forall_forall => p Hp; rewrite in_rev_iff in Hp.
   by have [? [? [? [? [? [-> _]]]]]] := Hargs' p Hp; split.
 have HAL' : Forall (fun p => varg (pw p) <> None) (rev L).
   by apply: Forall_impl HAL => p [_ H].
-have Hpn_inj : forall p q, In p L -> In q L -> pn p = pn q -> p = q.
-  move=> p q Hp Hq E.
-  have [i [? [? [? [? [Ep [Hx [Hd _]]]]]]]] := Hargs' p Hp.
-  have [i' [? [? [? [? [Eq [Hx' [Hd' _]]]]]]]] := Hargs' q Hq.
-  subst p q; rewrite /= in E; subst i'.
-  rewrite Hx in Hx'; case: Hx' => Ex; subst.
-  by rewrite Hd in Hd'; case: Hd' => <- <- <-.
 have Hnd : NoDup (rev L) by apply: (NoDup_map_inv pn).
 have Hdn : map dname (rev L) = decls f by rewrite Hds.
 have Hpd : map pd (rev L) = seed_args (decls f) x dx by rewrite -Hxs.

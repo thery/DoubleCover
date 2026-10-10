@@ -25,12 +25,12 @@ of the reals of the standard library (`sig_forall_dec`, `sig_not_dec`,
 | `normalize_correct` | `Correctness.v` | where the source computes a value, in any domain, its A-normal form computes the same (for a parametric source) |
 | `annotate_correct` | `Correctness.v` | the annotated function computes what the function computes |
 | `normalize_parametric` | `AnfEquiv.v` | the normal form of a parametric source is parametric: its instances are related |
-| `simplify_correct_tapes` | `SimplifyCorrect.v` | simplify preserves the execution over the reals of a program that follows the scoping discipline `good`, tapes included (`simplify_correct`, used by the tangent mode, is its tape-free instance) |
+| `simplify_correct_tapes` | `SimplifyCorrect.v` | simplify preserves the execution over the reals of a program that follows the scoping discipline `good`, tapes included |
 | `duals_derive` | `DualsDerive.v` | where f is `defined`, it is Fréchet-differentiable as a function of the reals of its arguments (Coquelicot's `filterdiff` on `Rn`), and the dual numbers compute its derivative |
 | `simulation` | `TangentLoops.v` | the statements tangent generates for a body compute, over the reals, the value and the tangent of its dual evaluation; the activity analysis is sound |
-| `scoping` | `TangentGood.v` | those statements follow the discipline `good` and use no tape |
-| `tangent_simulates_duals` | `TangentTop.v` | theorem 1 for a function: the tangent function, run over the reals on the primal arguments and the seeded tangents, gives the value and the tangent of the dual evaluation of the normal form of f |
-| `tangent_mode_correct` | `TangentMode.v` | the tangent mode is correct: where a parametric, well-formed f is defined at x, it is differentiable at x with a linear derivative df, and `simplify (tangent (annotate false (normalize f)))`, run over the reals on `tangent_inputs (decls f) x dx`, gives the value of f and df applied to the seed of dx (dx on the independent and inout reals, 0 elsewhere) |
+| `scoping` | `TangentGood.v` | those statements follow the discipline `good` |
+| `tangent_simulates_duals_with` | `TangentTop.v` | theorem 1 for a function: the tangent function, run over the reals on the primal arguments, the seeded tangents and any initial values in its output-only tangent parameters (`tangent_inputs_with`), gives the value and the tangent of the dual evaluation of the normal form of f; `tangent_simulates_duals` is its instance with zeros there |
+| `tangent_mode_correct` | `TangentMode.v` | the tangent mode is correct: where a parametric, well-formed f is defined at x, it is differentiable at x with a linear derivative df, and `simplify (tangent (annotate false (normalize f)))`, run over the reals on `tangent_inputs (decls f) x dx`, gives the value of f and df applied to the seed of dx (dx on the independent and inout reals, 0 elsewhere); `tangent_mode_correct_with` is the same for any initial values of the output-only tangent parameters (`result_dot`, the tangent of a written dependent argument), which are not read |
 
 ### The adjoint proof, in progress
 
@@ -105,7 +105,7 @@ the Boolean arguments that carry an adjoint are excluded by well-formedness.
 | `Gallina.v` | `gallina.elpi` | `gallina_file`: the derivative programs after simplification as Gallina, for CertiRocq (assignments threaded as lets, loops `for_up`/`for_down`, reals primitive floats) |
 | `Adjudge.v` | the driver of `adjudge.elpi` | `mode`, `check`, `differentiate`, `transform`, `main`: the header and the diagnostics of a case |
 | `Scoping.v` | — | `open_pairs`, the opening of a generated function with the numbers simplify and the evaluator use; `good`, the scoping discipline of L2 |
-| `SimplifyCorrect.v` | — | theorem 2: `simplify_correct` |
+| `SimplifyCorrect.v` | — | theorem 2: `simplify_correct_tapes` |
 | `Correctness.v` | — | `parametric` (PHOAS relations of L0); `normalize_correct`, `annotate_correct` |
 | `AnfEquiv.v` | — | `anf_eq`, the relation of two instances of L1; `normalize_parametric` |
 | `Euclidean.v` | — | `Rn`, R^n as a normed module of Coquelicot; vectors and lists |
@@ -113,8 +113,8 @@ the Boolean arguments that carry an adjoint are excluded by well-formedness.
 | `TangentCorrect.v` | — | theorem 1, the simulation: `pv`, the record of the four instances; the invariants (`static_ok`, `store_ok`, `ctx_ok`); the cases of returns, lets, operations, branches |
 | `TangentLoops.v` | — | the loops of the simulation (map, scalar fold, in-place fold); `simulation` |
 | `TangentGood.v` | — | the scoping discipline of the tangent code: `scoping` |
-| `TangentTop.v` | — | the layout of the tangent function (`seed`, `tangent_inputs`, `tangent_output`); `tangent_simulates_duals` |
-| `TangentMode.v` | — | `tangent_mode_correct` |
+| `TangentTop.v` | — | the layout of the tangent function (`seed`, `tangent_inputs`, `tangent_inputs_with`, `tangent_output`); `tangent_simulates_duals_with`, `tangent_simulates_duals` |
+| `TangentMode.v` | — | `tangent_mode_correct_with`, `tangent_mode_correct` |
 | `AdjointSpec.v` | — | the layout of the adjoint function: `adjoint_inputs` (primal arguments, initial adjoints xb or the seed yb, the seed of a returned value), `adjoint_output` (the gradient: final minus initial adjoints), `value_given` |
 | `AdjointMode.v` | — | `adjoint_mode_correct`, stated (`Admitted`): where f is defined, for every tangent dx, <df (seed dx), yb> = <seed dx, g>, and adjoint-value gives the value back unless f writes an inout argument |
 

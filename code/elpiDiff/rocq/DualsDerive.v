@@ -277,21 +277,6 @@ Lemma graph_cons {A B : Type} (g : A -> B) G x :
   graph g G -> graph g ((x, val_map g x) :: G).
 Proof. by move=> HG x1 x2 [[-> <-] | H] //; exact: HG. Qed.
 
-Lemma nth_z_map {A B : Type} (g : A -> B) k l :
-  nth_z k (map g l) = option_map g (nth_z k l).
-Proof.
-rewrite /nth_z; case: (k <? 0)%Z => //.
-by elim: (Z.to_nat k) l => [| n IH] [| a l] //=.
-Qed.
-
-Lemma replace_nth_z_map {A B : Type} (g : A -> B) k x l :
-  replace_nth_z k (g x) (map g l) = option_map (map g) (replace_nth_z k x l).
-Proof.
-rewrite /replace_nth_z; case: (k <? 0)%Z => //.
-elim: (Z.to_nat k) l => [| n IH] [| a l] //=.
-by rewrite IH; case: (replace_nth n x l).
-Qed.
-
 Lemma nth_z_in {A : Type} k (l : list A) x : nth_z k l = Some x -> In x l.
 Proof. by rewrite /nth_z; case: (k <? 0)%Z => //; apply: nth_error_In. Qed.
 
@@ -323,14 +308,6 @@ Proof. by case: v => //= l1 [<-]; exists l1. Qed.
 Lemma int_op2_map {A B : Type} (g : A -> B) f x y :
   val_map g (int_op2 f x y) = int_op2 f x y.
 Proof. by case: f. Qed.
-
-(* Unfolds the evaluation of the source, hypothesis by hypothesis. *)
-Ltac inv_some :=
-  repeat match goal with
-  | H : Some _ = Some _ |- _ => injection H as H; subst
-  | H : None = Some _ |- _ => discriminate H
-  | H : match ?e with _ => _ end = Some _ |- _ => destruct e eqn:?
-  end.
 
 Section Forward.
 Variables (N1 N2 : Type) (D1 : domain N1) (D2 : domain N2) (g : N1 -> N2).

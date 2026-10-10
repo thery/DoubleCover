@@ -48,8 +48,6 @@ Definition scope_ok (L : list pv) (c : nat) (wP : option (atom pv)) (pp : pplace
   (forall p, In p L -> live p -> In (stored p) sc /\ (tdot (pt p) = true -> In (DotOf (stored p)) sc)) /\
   (forall o, owner wP pp = Some o -> In (stored o) wr /\ In (DotOf (stored o)) wr).
 
-Definition notape (ss : list (dstmt W)) : Prop := existsb has_tape_op ss = false.
-
 Definition good_body (bP : anf pv bare) : Prop :=
   forall L k c wP pp m bA bW bT ty sc wr,
   anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gT L) bP bT ->
@@ -57,7 +55,8 @@ Definition good_body (bP : anf pv bare) : Prop :=
   typecheck (option_map (amap pw) wP) (wplace pp) k bW = (ty, Ok) ->
   let '((ss, (ve, de)), c') :=
     open_pairs (tan W (option_map (amap pt) wP) (rebuild _ bT (annotate_body_t false m k bA))) c in
-  (c <= c')%nat /\ notape ss /\ good_k sc wr c' ss (fun sc' _ => expr_ok sc' ve /\ expr_ok sc' de).
+  (c <= c')%nat /\
+  good_k sc wr c' ss (fun sc' _ => expr_ok sc' ve /\ expr_ok sc' de).
 
 Definition good_value (eP : value pv bare) : Prop :=
   forall L k c wP pp tail eA eW eT te n ty sc wr,
@@ -74,7 +73,7 @@ Definition good_value (eP : value pv bare) : Prop :=
   let '(se, c') :=
     open_pairs (tan_value W (option_map (amap pt) wP)
                   (rebuild_value _ eT (annotate_value_t false k eA)) te vr n) c in
-  (c <= c')%nat /\ notape se /\
+  (c <= c')%nat /\
   good_k sc wr c' se (fun sc' _ => In n sc' /\ (vr = true -> In (DotOf n) sc')).
 
 (* A body that returns an atom: no statement. *)
@@ -85,7 +84,6 @@ destruct bA as [| aA], bW as [| aW], bT as [| aT]; rewrite /= in HA HW HT;
   try contradiction.
 case/atom_graph: HT => -> HT; case/atom_graph: HW => EW HW; subst aW.
 rewrite /=; split; first lia.
-split; first by [].
 apply: good_k_nil => //.
 destruct aP as [p | |] => //=.
 have Hl : live_anf k (ARet (amap pw (AVar p))) p.
@@ -238,7 +236,7 @@ have Hlv : forall p, aP = AVar p ->
   by move=> p E; split; [auto | subst; rewrite /live_value /= Nat.eqb_refl].
 have [A1 A2] := operand_scope _ _ _ _ _ _ _ _ aP Hs Hr Hlv.
 case: Hst => N1 N2.
-case: (varied (amap pa aP)) => /=; (split; [lia | split; [by [] |]]).
+case: (varied (amap pa aP)) => /=; (split; [lia |]).
   apply: good_constants => //.
   - by apply/expr_ok_allv; apply: allv_op1.
   - apply/expr_ok_allv.
@@ -269,7 +267,7 @@ have [B1 B2] := operand_scope _ _ _ _ _ _ _ _ bP Hs Hr Hlv'.
 case: Hst => N1 N2.
 case: (if comparison g then false
        else varied (amap pa aP) || varied (amap pa bP))
-  => /=; (split; [lia | split; [by [] |]]).
+  => /=; (split; [lia |]).
   apply: good_constants => //.
   - by apply/expr_ok_allv; apply: allv_op2.
   - apply/expr_ok_allv.
@@ -299,7 +297,7 @@ case: Hst => N1 N2.
 rewrite (tvaried_amap k aP).
   move=> p E; apply: (static_in _ _ _ (s_static _ _ _ _ _ _ _ Hs)).
   by case: (Hlv p E).
-case: (varied (amap pa aP)) => /=; (split; [lia | split; [by [] |]]).
+case: (varied (amap pa aP)) => /=; (split; [lia |]).
   apply: good_constants => //.
   - by apply/expr_ok_allv; apply: allv_at.
   - by apply/expr_ok_allv; apply: allv_at.
@@ -333,7 +331,7 @@ have [I1 I2] :=
 have [V1 V2] :=
   operand_scope _ _ _ _ _ _ _ _ vP Hs Hr (fun p E => Hlv p (or_intror E)).
 case: (varied (amap pa (AVar sx)) || varied (amap pa vP)) => /=;
-  (split; [lia | split; [by [] |]]); move=> rest Hrest /=.
+  (split; [lia |]); move=> rest Hrest /=.
   apply: GoodAssign; [split; [exact: W1 | apply/expr_ok_allv; exact: I1] |
                       apply/expr_ok_allv; exact: V1 |].
   apply: GoodAssign; [split; [exact: W2 | apply/expr_ok_allv; exact: I1] |
@@ -492,7 +490,7 @@ have IH0 := IHe L k c0 wP pp tail eA eW eT te n ty sc wr HeA HeW HeT
              Hlive_e Hc0)
           Hte Htail_ty (ex_intro _ j (conj Ej Hj0)) Hst.
 cbv zeta in IH0; rewrite -/vr -/vt Hse in IH0.
-case: IH0 => Hc01 [Hnt1 Hgk1].
+case: IH0 => Hc01 Hgk1.
 (* the variable of the let *)
 set x := PV (let_binder k eA) (VInfo k te None) (open_let te n vr rec)
            (default_dual te) j.
@@ -515,7 +513,6 @@ case Es: (storage wP tail eP) Hn Hst Hjs => [m0 |] Hn Hst Hjs.
     by case/in_gT: I => I _.
   rewrite /= in ET; rewrite ET /=.
   split; first lia.
-  split; first by rewrite app_nil_r.
   rewrite app_nil_r => rest' Hrest.
   apply: Hgk1 => sc1 wr1 I1 I2 Hb1 Hw1 [Q1 Q2]; apply: Hrest; auto.
   by split=> //=; case: (vr) Q2 => //= Q2; apply: Q2.
@@ -587,15 +584,14 @@ have Hsc0 : scope_ok (x :: L) c1 wP pp (live_anf (S k) cW')
 have IH0 := IHb (x :: L) (S k) c1 wP pp m (cA (pa x)) cW' (cT (pt x)) ty _ _
               (HcA x _) (HcW x _) (HcT x _) Hs' Hsc0 Hty Htc.
 rewrite /x in IH0; cbn [pt pa] in IH0; rewrite -/rest Hsb in IH0.
-case: IH0 => Hc12 [Hnt2 _].
+case: IH0 => Hc12 _.
 split; first lia.
-split; first by rewrite /notape existsb_app Hnt1.
 apply: (good_k_app sc wr c1 c2 se sb _ _ Hgk1) => sc1 wr1 I1 I2 Hb1 Hw1 [Q1 Q2].
 have IH1 := IHb (x :: L) (S k) c1 wP pp m (cA (pa x)) cW' (cT (pt x)) ty sc1 wr1
               (HcA x _) (HcW x _) (HcT x _) Hs'
               (Hsc' sc1 wr1 I1 I2 Hb1 Hw1 Q1 Q2) Hty Htc.
 rewrite /x in IH1; cbn [pt pa] in IH1; rewrite -/rest Hsb in IH1.
-exact: (proj2 (proj2 IH1)).
+exact: (proj2 IH1).
 Qed.
 
 (* ---------------------------------------------------------------------------
@@ -693,7 +689,7 @@ have Hbr : forall bP bA bW bT (cb cb' : nat) sb vb db,
     open_pairs (tan W (option_map (amap pt) wP)
                   (rebuild (tvar W) bT (annotate_body_t false Replay k bA))) cb
       = ((sb, (vb, db)), cb') ->
-    (cb <= cb')%nat /\ notape sb /\
+    (cb <= cb')%nat /\
     good sc2 wr2 (sb ++ (if vr then [DAssign (DVar n) vb;
                                      DAssign (DVar (DotOf n)) db]
                          else [DAssign (DVar n) vb]))%list.
@@ -710,9 +706,8 @@ have Hbr : forall bP bA bW bT (cb cb' : nat) sb vb db,
     by split; [apply: Hsc2 | move=> Hd; apply: Hsc2; apply: R2].
   have := IH L k cb wP PBranch Replay bA bW bT Real sc2 wr2 HA HW HT Hs' Hsc'
             I Htb.
-  rewrite Hob => -[Hc' [Hnt Hg]].
+  rewrite Hob => -[Hc' Hg].
   split; first exact: Hc'.
-  split; first exact: Hnt.
   apply: Hg => sc' wr' I1 I2 _ _ [Q1 Q2].
   apply: good_assign_end;
     [apply: I2; exact: (proj1 Hn2) | | exact: Q1 | exact: Q2].
@@ -723,14 +718,11 @@ have Hlt : forall p, live_anf k tW p ->
 have Hle : forall p, live_anf k eW p ->
     live_value k (AIte (amap pw cP) tW eW) p.
   by rewrite /live_anf /live_value => p H' /=; rewrite H' !orb_true_r.
-have [Hc1 [Hnt1 Hg1]] :=
+have [Hc1 Hg1] :=
   Hbr tP tA tW tT c c1 st vt dt HAt HWt HTt IHt (le_n c) Hlt HtW Hot.
-have [Hc2 [Hnt2 Hg2]] :=
+have [Hc2 Hg2] :=
   Hbr eP eA eW eT c1 c2 se' ve' de' HAe HWe HTe IHe Hc1 Hle HeW Hoe.
 split; first lia.
-split.
-  rewrite /notape in Hnt1 Hnt2 *.
-  by case: (vr) => /=; rewrite ?existsb_app ?Hnt1 ?Hnt2.
 move=> rest Hrest; destruct vr eqn:Hvr; rewrite /=.
   apply: GoodRealVar; [exact: N1 | by [] |].
   apply: GoodRealVar; [by case | by [] |].
@@ -842,11 +834,8 @@ have := IHb ix (ix :: L) (S k) (S c) (Some (AVar o)) PScalar Replay
           (bA (fresh k)) (bW (VInfo k Integer None))
           (bT (open_index (DBound (c, c)))) Real (DBound (c, c) :: sc) wr
           (HbA ix _) (HbW ix _) (HbT ix _) Hs' Hsc' I HtB.
-rewrite Hob => -[Hc2 [Hnt Hg]].
+rewrite Hob => -[Hc2 Hg].
 split; first lia.
-split.
-  rewrite /notape /tan_map in Hnt *.
-  by case: (vr) => /=; rewrite existsb_app Hnt.
 have Hni : ~ In (DBound (c, c)) sc.
   move=> I; move/Forall_forall: Hb => /(_ _ I) [Hbl _].
   by rewrite /= in Hbl; lia.
@@ -989,7 +978,7 @@ move: Htc; case Er: (ty_eqb (of_atom (amap pw initP)) Real) => Htc.
             (bW (VInfo k Integer None) (VInfo (S k) Real None))
             (bT (pt ix) (pt sx)) Real (DBound (c, c) :: sc2) wr2
             (HbA ix _ sx _) (HbW ix _ sx _) (HbT ix _ sx _) Hs' Hsc' I HtB.
-  rewrite Hob => -[Hc2 [Hnt Hg]].
+  rewrite Hob => -[Hc2 Hg].
   have Hn2 : In n wr2 /\ (In (DotOf n) wr2 \/ svr = false).
     by rewrite /wr2; case: (svr) => /=; auto.
   have Hbody : good (DBound (c, c) :: sc2) wr2
@@ -1011,9 +1000,6 @@ move: Htc; case Er: (ty_eqb (of_atom (amap pw initP)) Real) => Htc.
   have HH1 : expr_ok sc2 (spell (amap pt hiP)).
     by apply: (expr_ok_incl sc) Hsc2 _; apply/expr_ok_allv.
   split; first lia.
-  split.
-    rewrite /notape /tan_fold in Hnt *.
-    by case: (svr) => /=; rewrite existsb_app Hnt.
   move=> rest Hrest; rewrite /tan_fold; destruct svr eqn:Hsvr; rewrite /=.
     apply: GoodMutable; [by apply/expr_ok_allv | exact: N1 | by [] |].
     apply: GoodMutable; [| by case | by [] |].
@@ -1160,9 +1146,8 @@ have := IHb ix sx (sx :: ix :: L) (S (S k)) (S c) wP (PArray ix sx) Replay
           (bW (VInfo k Integer None) (VInfo (S k) (Array z) None))
           (bT (pt ix) (pt sx)) (Array z) (DBound (c, c) :: sc) wr
           (HbA ix _ sx _) (HbW ix _ sx _) (HbT ix _ sx _) Hs' Hsc' I HtB.
-rewrite Hob => -[Hc2 [Hnt Hg]].
+rewrite Hob => -[Hc2 Hg].
 split; first lia.
-split; first by rewrite /notape /= in Hnt *; rewrite Hnt.
 move=> rest Hrest /=.
 apply: GoodFor; [exact: Hni | by [] | by apply/expr_ok_allv |
                  by apply/expr_ok_allv | |].

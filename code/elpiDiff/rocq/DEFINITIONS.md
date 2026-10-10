@@ -771,17 +771,16 @@ the tuple of the variables they assign. Reals are primitive floats.
 - `transform m a := simplify (differentiate m (annotate (mode_value m) a))`.
 - `main m source fs`: the header of the well-formed functions, if any, and the diagnostics `"name: message"` of the refused ones.
 
-### SimplifyCorrect.v: theorem 2, `simplify_correct`
+### SimplifyCorrect.v: theorem 2, `simplify_correct_tapes`
 
 The proof shows that `simplify` preserves the execution over the reals of a
-program that follows `good` and uses no tape. It is a simulation between
+program that follows `good`, tapes included. It is a simulation between
 stores that agree on the variables in scope.
 
 - Local notations: `W`, `out`, `oute`, `outs` (the `out_*` maps at `nat`), `store`.
 - `ex ss s`: executes a `W` block over the reals, after `out_dstmt`.
 - Ltac `inv_eval`: unfolds an evaluation hypothesis, match by match.
 - `gd sc wr ss`: `good` without the `DPush`/`DPop` rules (the tangent programs).
-- `has_tape_op s`: `s` pushes or pops, itself or in a nested block.
 - `after_scope sc ss`, `after_wr wr ss`: the scope and the writable set after a block. `defs ss`, `wdefs ss`: the variables it defines, and those it defines writable.
 - `agree sc s s'`: the two stores agree on the variables of `sc` and on `Returned`. This is not the `agree` of TangentCorrect.v.
 - `sim sc ss1 ss2`: from stores agreeing on `sc`, every run of `ss1` is matched by a run of `ss2` ending in agreeing stores.
@@ -790,7 +789,7 @@ stores that agree on the variables in scope.
 - `agree_ex v sc s s'`: agreement on `sc` except `v`.
 - Section `Replace`: assumes `consistent v` and `real_lit l = Some x`, with local notations `re`/`rs` for replacing `v` by the literal `l`.
 - `params ps`: the variables of the parameters.
-- Theorems: `simplify_correct_fuel`, and `simplify_correct` (refinement: same final parameters and returned value).
+- Theorems: `simplify_correct_fuel`, and `simplify_correct_tapes` (refinement: same final parameters and returned value).
 
 ### Correctness.v: `normalize_correct`, `annotate_correct`
 
@@ -909,8 +908,7 @@ scalar fold and the in-place fold, and then `simulation`:
 
 - `good_k sc wr c' ss Q`: `ss` followed by any block that is `good` in every larger scope opened before `c'` where `Q` holds, is `good` from `(sc, wr)`.
 - `scope_ok L c wP pp live sc wr`: `sc` holds consistent variables opened before `c`, including the storage (and dot) of every live variable. The owner's storage and dot are writable.
-- `notape ss`: no statement pushes or pops.
-- `good_body bP`, `good_value eP`: the analogues of `sim_body`/`sim_value` without store. The generated code uses no tape and keeps the discipline (`good_k`), its result expressions being in scope.
+- `good_body bP`, `good_value eP`: the analogues of `sim_body`/`sim_value` without store. The generated code keeps the discipline (`good_k`), its result expressions being in scope.
 - `allv P e`: `P` holds of every variable of `e`.
 - Ltac `gvalue_intro`: the introduction pattern of `good_value`.
 - `default_dual t`: a value of type `t` with zero tangents.
@@ -927,19 +925,28 @@ scalar fold and the in-place fold, and then `simulation`:
 - `seed ds x dx`: the tangents, `dx` on the reals of independent and inout arguments and 0 elsewhere.
 - `pair_with l t`, `val_dual v t`, `seed_args ds x dx`: the arguments as dual numbers with the seeded tangents.
 - `tangent_inputs ds x dx`: the arguments of the tangent function: the primal values, then the tangent of each argument with a dot, then 0 for the tangent of a returned real.
+- `dot_out d`: the tangent parameter of the argument is an output only (a written dependent argument).
+- `tangent_inputs_with dd r0 ds x dx`: as `tangent_inputs`, with any initial values in the output-only tangent parameters: `dd v` for a written dependent argument of primal `v`, `r0` for the tangent of a returned real. `zero_dot v`: the zero tangent of `v`; `tangent_inputs_zero`: `tangent_inputs` is the instance `tangent_inputs_with zero_dot (VReal 0)`.
+- `open_args_facts`: the facts on the arguments `open_P` opens (positions, distinct numbers, `static_ok`), shared with `adjoint_simulates_duals`.
+- `tangent_simulates_duals_with`: theorem 1 for any initial values in the output-only tangent parameters (fitting their declaration); `tangent_simulates_duals`, its instance with zeros.
 - `index_of_written ds i`: the position of the written argument.
 - `tangent_output ds out`: the value and tangent the tangent function gives: the returned value and the last parameter, or the written argument and its tangent parameter.
-- `prim_entries AL`, `dot_in p`, `dot_entries AL`: the initial store of the tangent function.
+- `prim_entries AL`, `dot_val dd p`, `dot_in dd p`, `dot_entries dd AL`: the initial store of the tangent function.
 
 ### TangentMode.v: `tangent_mode_correct`
 
 Notations re-export `fits`, `decls`, `seed`, `tangent_inputs`,
 `tangent_output` from TangentTop.v. The theorem combines `duals_derive`,
-`normalize_correct`, `tangent_simulates_duals` and `simplify_correct`. For a
+`normalize_correct`, `tangent_simulates_duals_with` and `simplify_correct_tapes`. For a
 parametric, well-formed `f` defined at `x`:
 - `f` has a value `v` and a derivative `df`;
 - the simplified tangent program on `tangent_inputs (decls f) x dx` returns
   `v` and a tangent `w` whose reals are `df (seed … dx)`.
+
+`tangent_mode_correct_with dd r0` is the same on `tangent_inputs_with dd r0
+(decls f) x dx`, for any initial values of the output-only tangent parameters
+(`dd v` fitting the declaration of a written dependent argument of primal
+`v`); `tangent_mode_correct` is its instance with zeros.
 
 ### AdjointSpec.v: the layout of the adjoint function
 

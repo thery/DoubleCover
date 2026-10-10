@@ -342,15 +342,6 @@ Inductive gd : list (dvar W) -> list (dvar W) -> list (dstmt W) -> Prop :=
 | GdReturn sc wr e r :
     expr_ok sc e -> gd sc wr r -> gd sc wr (DReturn e :: r).
 
-(* A statement pushes or pops a tape, itself or in a block it contains. *)
-Fixpoint has_tape_op (s : dstmt W) : bool :=
-  match s with
-  | DPush _ _ | DPop _ _ => true
-  | DBranch _ t e => existsb has_tape_op t || existsb has_tape_op e
-  | DFor _ _ _ b | DForBack _ _ _ b => existsb has_tape_op b
-  | _ => false
-  end.
-
 (* A good block follows gd. *)
 Lemma good_gd sc wr ss : good sc wr ss -> gd sc wr ss.
 Proof. by elim=> *; econstructor. Qed.
@@ -2089,17 +2080,4 @@ apply: (exec_done_sim r ps ss) H => s0 s1 E.
 have [_ Hs] := proj1 (simplify_correct_fuel (fuel nat ss)) _ _ _
   (good_gd _ _ _ Hg) (incl_refl _) Hc.
 exact: (Hs _ _ _ (agree_refl _ _) E).
-Qed.
-
-(* The same, for a program that pushes and pops no tape (the tangent
-   programs). *)
-Theorem simplify_correct (g : dfunction) (args : list (val R)) r ps ss k res :
-  open_pairs (dfbody g W) 0 = (DBody r ps ss, k) ->
-  Forall consistent (params ps) ->
-  good (params ps) (params ps) ss ->
-  existsb has_tape_op ss = false ->
-  exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map outs ss))) 0 args = Some res ->
-  exec_dfunction reals (simplify g) args = Some res.
-Proof.
-by move=> Hopen Hc Hg _; exact: simplify_correct_tapes Hopen Hc Hg.
 Qed.
