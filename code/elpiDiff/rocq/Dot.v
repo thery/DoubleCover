@@ -16,3 +16,6 @@ Proof. by []. Qed.
 
 Lemma dotl_cons a l b m : dotl (a :: l) (b :: m) = a * b + dotl l m.
 Proof. by []. Qed.
+
+(* ⟨ u , v ⟩: the dot product of u and v. *)
+Notation "⟨ u , v ⟩" := (dotl u v) (at level 0, format "⟨ u ,  v ⟩").

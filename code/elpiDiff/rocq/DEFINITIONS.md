@@ -1116,4 +1116,10 @@ defined at `x`, with value `v` and derivative `df`:
 
 ### Dot.v
 
-- `dotl`: the dot product of two lists of reals (`dotl_nil_l`, `dotl_cons`); the single definition used by AdjointCorrect (formerly `dotr`) and AdjointSpec.
+- `dotl`: the dot product of two lists of reals (`dotl_nil_l`, `dotl_cons`); the single definition used by AdjointCorrect (formerly `dotr`) and AdjointSpec. Notation `⟨ u , v ⟩`.
+
+### Main.v: the final theorems in short form
+
+- `accepted f x`: parametric, well-formed, arguments fitting, defined at `x`. `value f x`: the value of `f` at `x`. `derivative f x df`: `df` is the Fréchet derivative of `f` at `x`. `D f x df dx`: `df` applied to the seeded `dx`, as a list.
+- `run_tangent f x dx`, `run_adjoint cv f x xb yb`, `run_adjoint_value f x xb yb`: run the simplified generated programs over the reals and read back (value, tangent), the gradient, the value.
+- Theorems `derivative_exists`, `tangent_correct`, `adjoint_correct`, `adjoint_value_correct`, Corollary `modes_agree`, proved from the detailed theorems and `filterdiff_locally_unique`.

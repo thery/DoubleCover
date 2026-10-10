@@ -80,6 +80,13 @@ well-formed function f defined at the arguments x:
   is the output of the tangent program on (x, dx) and g the gradient the
   adjoint program gives for yb.
 
+The same results in short form, in [`rocq/Main.v`](rocq/Main.v), with
+`⟨u, v⟩` the dot product:
+`adjoint_correct`: for an accepted f with derivative df at x, the adjoint
+program run on a seed yb gives a gradient g with
+⟨D f x df dx, yb⟩ = ⟨seed dx, g⟩ for every dx; `tangent_correct`: the tangent
+program run on dx gives the value of f and D f x df dx.
+
 [`rocq/README.md`](rocq/README.md) lists the theorems and gives the correspondence, file by
 file, and how each construction of Elpi is rendered in Rocq;
 [`rocq/TUTORIAL.md`](rocq/TUTORIAL.md) explains how to read the proofs.

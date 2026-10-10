@@ -54,3 +54,4 @@ AdjointExamples.v
 AdjointModeProof.v
 AdjointMode.v
 ModesAgree.v
+Main.v

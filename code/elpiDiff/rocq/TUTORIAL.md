@@ -151,75 +151,70 @@ f_adjoint(x: real, y: real, x_bar: ref real, y_bar: ref real, result_bar: real):
 
 Section 5 shows an example with a loop and a tape.
 
-### The two end theorems
+### The end theorems
 
-The goal is two theorems, one per mode. Here they are, copied from the
-files.
+The results are stated twice: once in short form (Main.v), which is what
+to read first, and once in detailed form (TangentMode.v, AdjointMode.v), from
+which the short form is proved.
 
-`tangent_mode_correct` (TangentMode.v) is proved:
+The short form names the pieces. `accepted f x` packs the four
+hypotheses: `f` is parametric (a genuine PHOAS term, section 2), the tool
+accepts it (`well_formed (normalize f) = Ok`), the arguments `x` fit the
+declarations, and `f` is defined at `x` in the sense of Abadi and Plotkin
+(its evaluation never compares two equal reals, Smooth.v). `derivative f x
+df` says that `df` is the Fréchet derivative of `f` at `x` (Coquelicot's
+`filterdiff`), and `D f x df dx` is `df` applied to the tangent `dx`, masked
+by `seed` (the arguments that carry no derivative on entry). `run_tangent`
+and `run_adjoint` run the generated, simplified programs over the reals and
+read their results back. `⟨u, v⟩` is the dot product of two lists of reals
+(Dot.v). The theorems (Main.v):
 
 ```
-Theorem tangent_mode_correct (f : function) (x : list (val R)) :
-  parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x -> defined f x ->
-  exists v df,
-    eval_function smooth_reals f x = Some v /\
-    filterdiff (value_of f x) (locally (point_of x)) df /\
+Theorem derivative_exists f x : accepted f x -> exists df, derivative f x df.
+
+Theorem tangent_correct f x df v :
+  accepted f x -> derivative f x df -> value f x = Some v ->
+  forall dx, length dx = in_dim x ->
+    run_tangent f x dx = Some (v, D f x df dx).
+
+Theorem adjoint_correct cv f x df :
+  accepted f x -> derivative f x df ->
+  forall xb yb, length xb = in_dim x -> length yb = out_dim f x ->
+  exists g, run_adjoint cv f x xb yb = Some g /\ length g = in_dim x /\
     forall dx, length dx = in_dim x ->
-      exists out w,
-        exec_dfunction reals (simplify (tangent (annotate false (normalize f))))
-          (tangent_inputs (decls f) x dx) = Some out /\
-        tangent_output (decls f) out = Some (v, w) /\
-        reals_of_val w = list_of_vec _ (df (vec_of_list _ (seed (decls f) x dx))).
+      ⟨D f x df dx, yb⟩ = ⟨seed (decls f) x dx, g⟩.
+
+Theorem adjoint_value_correct f x xb yb :
+  accepted f x -> length xb = in_dim x -> length yb = out_dim f x ->
+  writes_inout (decls f) = false ->
+  run_adjoint_value f x xb yb = value f x.
+
+Corollary modes_agree cv f x dx xb yb :
+  accepted f x -> length dx = in_dim x ->
+  length xb = in_dim x -> length yb = out_dim f x ->
+  exists v w g, run_tangent f x dx = Some (v, w) /\
+    run_adjoint cv f x xb yb = Some g /\
+    ⟨w, yb⟩ = ⟨seed (decls f) x dx, g⟩.
 ```
 
-In words: take a source function `f` and arguments `x`, and assume:
-- `parametric f`: the source is a genuine PHOAS term (section 2);
-- `well_formed (normalize f) = Ok`: the tool accepts `f`;
-- `Forall2 fits (decls f) x`: the arguments fit the declared types;
-- `defined f x`: the evaluation is defined at `x` in the sense of Abadi and
-  Plotkin, that is, it never compares two equal reals (Smooth.v).
+In words: the tangent program computes the value of `f` and its
+derivative applied to `dx`; the adjoint program computes a gradient `g`
+that passes the dot-product test, ⟨D dx, yb⟩ = ⟨dx, g⟩ for every direction
+`dx`, the defining property of the transpose of the derivative; the
+adjoint-value program also gives back the value of `f`, unless `f` writes
+an inout argument; and the two programs are adjoint to each other. A
+derivative is unique (`filterdiff_locally_unique`, ModesAgree.v), so the
+theorems may speak of any derivative `df`.
 
-Then `f` evaluates to some `v`, it is differentiable at `x` with a
-derivative `df` (Coquelicot's `filterdiff`), and for any tangent direction
-`dx` the generated and simplified tangent function, run over the reals,
-returns `v` and `df` applied to the seed of `dx`.
-
-`tangent_inputs` passes 0 in the tangent parameters that are outputs only
-(`result_dot`, the tangent of a written dependent argument). The general
-version, `tangent_mode_correct_with dd r0`, gives the same conclusion on
-`tangent_inputs_with dd r0 (decls f) x dx`, for any initial values there:
-the generated code never reads them.
-
-`adjoint_mode_correct` (AdjointMode.v) is the other end theorem. Its
-statement:
-
-```
-Theorem adjoint_mode_correct (cv : bool) (f : function) (x : list (val R)) :
-  parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x -> defined f x ->
-  exists v df,
-    eval_function smooth_reals f x = Some v /\
-    filterdiff (value_of f x) (locally (point_of x)) df /\
-    forall xb yb, length xb = in_dim x -> length yb = out_dim f x ->
-      exists out g,
-        exec_dfunction reals (simplify (adjoint cv (annotate cv (normalize f))))
-          (adjoint_inputs (decls f) x xb yb) = Some out /\
-        adjoint_output (decls f) x xb out = Some g /\ length g = in_dim x /\
-        (cv = true -> writes_inout (decls f) = false -> value_given (decls f) out = Some v) /\
-        forall dx, length dx = in_dim x ->
-          dotl (list_of_vec _ (df (vec_of_list _ (seed (decls f) x dx)))) yb = dotl (seed (decls f) x dx) g.
-```
-
-The last line is the dot-product test, the defining property of an adjoint:
-for every direction `dx`, ⟨df · dx, yb⟩ = ⟨dx, g⟩, where `g` is the gradient
-the adjoint function returns for the output weights `yb`. The flag `cv`
-selects the mode *adjoint-value*, which also gives back the value of `f`.
-
-The two modes are tied together by a corollary, `adjoint_tangent_agree`
-(ModesAgree.v), which states the expected relation directly on the two
-generated programs, with no derivative in sight: run the tangent program on
-`(x, dx)`, giving the output tangent `w`, and the adjoint program on
-`(x, xb, yb)`, giving the gradient `g`; then ⟨w, yb⟩ = ⟨seed dx, g⟩. It
-follows from the two end theorems and the uniqueness of the derivative.
+The detailed forms spell the same out on the encoding: `tangent_mode_correct`
+(TangentMode.v) and `adjoint_mode_correct` (AdjointMode.v) state the runs
+with `exec_dfunction`, `tangent_inputs`, `adjoint_inputs`, `tangent_output`
+and `adjoint_output`, and `adjoint_tangent_agree` (ModesAgree.v) is the
+corollary relating them. `tangent_inputs` passes 0 in the tangent
+parameters that are outputs only (`result_dot`, the tangent of a written
+dependent argument); the general version, `tangent_mode_correct_with dd r0`,
+gives the same conclusion for any initial values there: the generated code
+never reads them.
 
 ### Where the proof stands
 
@@ -1160,6 +1155,7 @@ The proofs:
 - `AdjointMode.v`: the theorem `adjoint_mode_correct`, read last.
 - `ModesAgree.v`: the corollary `adjoint_tangent_agree`, the two modes
   agree.
+- `Main.v`: the short statements of the final theorems; read it first.
 
 ### Exploring interactively
 

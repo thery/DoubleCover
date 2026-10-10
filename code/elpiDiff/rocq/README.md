@@ -33,6 +33,7 @@ of the reals of the standard library (`sig_forall_dec`, `sig_not_dec`,
 | `tangent_mode_correct` | `TangentMode.v` | the tangent mode is correct: where a parametric, well-formed f is defined at x, it is differentiable at x with a linear derivative df, and `simplify (tangent (annotate false (normalize f)))`, run over the reals on `tangent_inputs (decls f) x dx`, gives the value of f and df applied to the seed of dx (dx on the independent and inout reals, 0 elsewhere); `tangent_mode_correct_with` is the same for any initial values of the output-only tangent parameters (`result_dot`, the tangent of a written dependent argument), which are not read |
 | `adjoint_mode_correct` | `AdjointMode.v` | the adjoint modes are correct: where a parametric, well-formed f is defined at x, it is differentiable at x with a linear derivative df, and the simplified adjoint program, run over the reals on `adjoint_inputs (decls f) x xb yb`, gives a gradient g with <df (seed dx), yb> = <seed dx, g> for every dx (and, in adjoint-value, the value of f) |
 | `adjoint_tangent_agree` | `ModesAgree.v` | corollary of the two: the two generated programs are adjoint to each other. The tangent program on (x, dx) gives a tangent output w, the adjoint program on (x, xb, yb) a gradient g, and <w, yb> = <seed dx, g> |
+| `tangent_correct`, `adjoint_correct`, `adjoint_value_correct`, `modes_agree` | `Main.v` | the same results in short form, on named pieces: `accepted f x`, `derivative f x df`, `D f x df dx`, `run_tangent`, `run_adjoint`, and the dot product `⟨u, v⟩`; e.g. `adjoint_correct`: the adjoint program gives a gradient g with ⟨D f x df dx, yb⟩ = ⟨seed dx, g⟩ for every dx |
 
 ### The adjoint proof
 
@@ -125,6 +126,7 @@ the Boolean arguments that carry an adjoint are excluded by well-formedness.
 | `AdjointWf.v` | — | `adjoint_wf_duals`: the adjoint simulation for every parametric, well-formed function |
 | `AdjointMode.v` | — | theorem `adjoint_mode_correct`: where f is defined, for every tangent dx, <df (seed dx), yb> = <seed dx, g>, and adjoint-value gives the value of f back (unless f writes an inout argument) |
 | `ModesAgree.v` | — | `tangent_code`, `adjoint_code`; `filterdiff_locally_unique` (a Fréchet derivative is unique); corollary `adjoint_tangent_agree` |
+| `Main.v` | — | the final theorems in short form: `derivative_exists`, `tangent_correct`, `adjoint_correct`, `adjoint_value_correct`, `modes_agree` |
 | `AdjointExamples.v` | — | non-vacuity: the accepted reference cases proved to be in the class of `adjoint_nesty_duals` |
 | `AdjointModeProof.v` | — | `adjoint_mode_correct_from`: `adjoint_mode_correct` from the simplified adjoint corollary |
 

@@ -115,7 +115,7 @@ Corollary adjoint_tangent_agree (cv : bool) (f : function)
     exec_dfunction reals (adjoint_code cv f)
       (adjoint_inputs (decls f) x xb yb) = Some aout /\
     adjoint_output (decls f) x xb aout = Some g /\
-    dotl (reals_of_val w) yb = dotl (seed (decls f) x dx) g.
+    ⟨reals_of_val w, yb⟩ = ⟨seed (decls f) x dx, g⟩.
 Proof.
 move=> Hpar Hwf Hfit Hdef dx xb yb Hdx Hxb Hyb.
 have [v [df [_ [Hd Htan]]]] := tangent_mode_correct f x Hpar Hwf Hfit Hdef.

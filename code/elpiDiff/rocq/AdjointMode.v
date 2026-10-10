@@ -54,8 +54,8 @@ Theorem adjoint_mode_correct (cv : bool) (f : function) (x : list (val R)) :
         (cv = true -> writes_inout (decls f) = false ->
            value_given (decls f) out = Some v) /\
         forall dx, length dx = in_dim x ->
-          dotl (list_of_vec _ (df (vec_of_list _ (seed (decls f) x dx)))) yb =
-            dotl (seed (decls f) x dx) g.
+          ⟨list_of_vec _ (df (vec_of_list _ (seed (decls f) x dx))), yb⟩ =
+            ⟨seed (decls f) x dx, g⟩.
 Proof.
 move=> Hpar Hwf Hfit Hdef.
 apply: (AdjointModeProof.adjoint_mode_correct_from _ cv f x Hpar Hwf Hfit
