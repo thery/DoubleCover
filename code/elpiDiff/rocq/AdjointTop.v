@@ -18,6 +18,11 @@ Set Bullet Behavior "None".
 Import ListNotations.
 Open Scope list_scope.
 
+(* At the top, the body is no loop body: there is no tail tape to give. *)
+Lemma no_tail_tape_top cv k L b s (B : dvar W -> Prop) :
+  forall ix sx n0, PTop = PArray ix sx -> B n0 -> tail_tape cv k L b s n0.
+Proof. by []. Qed.
+
 (* The analyses open the arguments as open_P does, in either mode. *)
 Lemma annotate_open_cv cv (dP : adefinition pv bare) : forall L k xs L' res bP dA,
   adefinition_eq (gA L) dP dA -> open_P dP k xs L = Some (L', res, bP) ->
@@ -1249,7 +1254,8 @@ have [[EW [Hnw HtcB]] | [w [nm [role [EW [Hg [Hwr [H1w [Hraw [HtcB
   have Htp : tapes_ok L s1.
     move=> p Hp Hrp; have [? [? [? [? [? Ep]]]]] := Hparg p Hp.
     by subst p; discriminate.
-  have [s3 [R3 [K3 [X3 [T3 [F3 [S3 P3]]]]]]] := Hrev s1 O Hag Hr Hseed Htp.
+  have [s3 [R3 [K3 [X3 [T3 [F3 [S3 P3]]]]]]] :=
+    Hrev s1 O Hag Hr Hseed Htp (no_tail_tape_top _ _ _ _ _ _).
   destruct v as [d | | | |]; try (simpl in Hhty; contradiction).
   have P3' : pairing O s3 = (init_sum (rev L) s0 + dsnd d * hd 0%R yb)%R.
     rewrite P3 /result_pairing /seed_value; simpl inplace.
@@ -1646,7 +1652,8 @@ have Hr : rctx L n (Some (AVar y)) PTop OW (useful cvw Forward n bA) s2.
 have Htp : tapes_ok L s2.
   move=> p Hp Hrp; have [? [? [? [? [? Ep]]]]] := Hparg p Hp.
   by subst p; discriminate.
-have [s3 [R3 [K3 [X3 [T3 [F3 [S3 P3]]]]]]] := Hrev s2 OW Hag Hr Hseed Htp.
+have [s3 [R3 [K3 [X3 [T3 [F3 [S3 P3]]]]]]] :=
+  Hrev s2 OW Hag Hr Hseed Htp (no_tail_tape_top _ _ _ _ _ _).
 rewrite -/ex Hres in P3.
 (* the end of the function *)
 set ss := fw ++ pro ++ rv.

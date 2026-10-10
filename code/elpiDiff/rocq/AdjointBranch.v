@@ -47,6 +47,17 @@ Proof. exact: atom_member_union. Qed.
 Lemma same_fresh j i : j <> i -> same_term (AVar (fresh j)) (AVar (AV i false)) = false.
 Proof. by move=> H; apply/Nat.eqb_neq. Qed.
 
+(* Outside the body of an in-place loop, there is no tail tape to give. *)
+Lemma no_tail_tape_branch cv k L b s :
+  forall ix sx n0, PBranch = PArray ix sx -> None = Some n0 ->
+  tail_tape cv k L b s n0.
+Proof. by []. Qed.
+
+Lemma no_tail_tape_scalar cv k L b s :
+  forall ix sx n0, PScalar = PArray ix sx -> None = Some n0 ->
+  tail_tape cv k L b s n0.
+Proof. by []. Qed.
+
 Definition dummy_tvar : tvar W := TVar ResultVar Real None false false false false None.
 
 (* A variable opened by both analyses at k. *)
@@ -853,7 +864,7 @@ have Hr1 : false = true \/ (m = Forward /\ records cv k eA = true /\
 have IH := IHf L k (S c) s wP pp tail eA eW eT eD te (DBound (c, c)) ve ty m
   false HeA HeW HeT HeD Hc1 Hte Htail_ty Hj1 Hst1 Hr1 Hve.
 cbv zeta in IH; rewrite -/vt Hfe in IH.
-case: IH => _ [se1 [R1 [F1 [T1 S1]]]].
+case: IH => _ [se1 [R1 [F1 [T1 [S1 _]]]]].
 (* the rest of the body, with x in scope *)
 have Hlive_c : forall p, In p L -> live_anf (S k) (cW (VInfo k te None)) p ->
     live_anf k (ALet aW eW cW) p.
@@ -906,7 +917,7 @@ have Hc' : actx (x :: L) (S k) c1 se1 wP pp
   constructor.
   - exact: (sctx_weaken _ _ _ _ _ _ _ _ _ Hs' (fun p H => H) Hc01).
   - by move=> p [<- | Hp] //; exact: (a_bar _ _ _ _ _ _ _ _ _ Hc p Hp).
-  - move=> p [<- | Hp] Hl; first exact: (proj1 S1).
+  - move=> p [<- | Hp] Hl; first exact: S1.
     rewrite Hold //; apply: (a_store _ _ _ _ _ _ _ _ _ Hc p Hp).
     exact: Hlive_c.
   - move=> p [<- | Hp] Hr //.
@@ -1488,7 +1499,8 @@ have Gen : forall (bP : anf pv bare) bA bW bT bD cb fb rb cb',
     move=> p Hp Hrp; have [lt Hlt] := Htp p Hp Hrp.
     exact: (proj1 T1 _ _ Hlt).
   have [s3 [R3 [_ [_ [T3 [F3 [S3 P3]]]]]]] :=
-    Hrev s1 O (agree_prim_refl _ _ _) Hr1 Hseed Htp1.
+    Hrev s1 O (agree_prim_refl _ _ _) Hr1 Hseed Htp1
+      (no_tail_tape_branch _ _ _ _ _).
   exists s3; split; first by rewrite run_app R1.
   have Hprim : forall v, below c v -> consistent v -> is_primal v ->
       store_get s3 (keyv v) = store_get s2 (keyv v).
@@ -2010,7 +2022,8 @@ have Hloop : exists sf,
       move=> p [<- | Hp] Hrc //; have [lt Hlt] := Htp p Hp Hrc.
       exact: (proj1 Ts1 _ _ Hlt).
     have [s3 [R3 [_ [_ [T3 [F3 [S3 P3]]]]]]] :=
-      Hrev s1 O' (agree_prim_refl _ _ _) Hr1 Hseed Htp1.
+      Hrev s1 O' (agree_prim_refl _ _ _) Hr1 Hseed Htp1
+        (no_tail_tape_scalar _ _ _ _ _).
     exists s3; split; first by rewrite /body /= run_app R1.
     have Hp3 : forall v, below c v -> consistent v -> ~ is_tape v ->
         (forall m, v = BarOf m -> ~ In m (map snd O')) ->
@@ -2395,6 +2408,7 @@ exists sf; split; first by rewrite Hex.
 split; first exact: Fs.
 split; first exact: Ts.
 split; first exact: Ns.
+split; last by move=> _ Hnl; case: Hnl.
 case=> Hm _; rewrite /fold_tape Hlo Hhi Hin => tr' Htr'.
 rewrite Htr in Htr'; case: Htr' => <-.
 split; first by move=> _ Hlv; apply: Tps; rewrite /live Hm Hlv.
@@ -2485,7 +2499,7 @@ have Hsto : storage wP tail (AFold a loP hiP initP bP) = None.
   have Har : is_array (vty (pw q)) by rewrite Eq.
   by case: (Hna q erefl Har).
 rewrite Hsto in Hst; have [Hn_notin Hsh] := Hns Hsto.
-have {}Hft := Hft erefl.
+have {}Hft := Hft (or_introl erefl).
 rewrite /= in Hev.
 case Hlo: (aeval_atom (duals reals) (amap pd loP)) Hev
   => [[| l | | |] |] // Hev.
@@ -2835,7 +2849,8 @@ have Hstep' : forall jn s, (jn < N)%nat -> P (S jn) s ->
     have [l1 Hl1] := proj1 (tkeep_trans _ _ _ _ _ T0 Tsp) _ _ Hlt.
     have [l2 Hl2] := proj1 T1 _ _ Hl1.
     exact: (proj1 Tmid _ _ Hl2).
-  have [s3 [R3 [_ [_ [T3 [F3 [S3 P3]]]]]]] := Hrev smid O' Hag Hr1 Hseed Htp1.
+  have [s3 [R3 [_ [_ [T3 [F3 [S3 P3]]]]]]] :=
+    Hrev smid O' Hag Hr1 Hseed Htp1 (no_tail_tape_scalar _ _ _ _ _).
   exists s3; split.
     by rewrite /body run_app Rp run_app R1 Rm R3.
   have Hbc : forall v, below c v -> below (S (S c)) v.

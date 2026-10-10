@@ -738,18 +738,107 @@ Fixpoint set_index (b : anf (val (dual R)) bare) : option Z :=
   | ARet _ => None
   end.
 
-(* The elements the steps of an in-place fold overwrite, from the states
-   before each step. *)
+(* The elements one step of an in-place fold pushes on the tape of its
+   storage, from the state st before the step: the element its final set
+   overwrites, or, when the step ends with an inner in-place fold (whose
+   state starts from st), the elements the steps of that fold push. *)
+Fixpoint body_pushes (b : anf (val (dual R)) bare) (st : val (dual R))
+  {struct b} : list R :=
+  match b with
+  | ALet _ e b' =>
+      match aeval_value (duals reals) e with
+      | Some v =>
+          match e, b' v with
+          | ASet _ i _, ARet _ =>
+              match aeval_atom (duals reals) i, st with
+              | Some (VInt zi), VArray l =>
+                  [match nth_z zi (map dfst l) with Some x => x | None => 0 end]
+              | _, _ => []
+              end
+          | AFold _ lo hi _ bi, ARet _ =>
+              match aeval_atom (duals reals) lo, aeval_atom (duals reals) hi with
+              | Some (VInt l), Some (VInt h) =>
+                  match fold_trace (fun x y => aeval (duals reals) (bi x y))
+                          l (count l h) st with
+                  | Some tr =>
+                      (fix go (z : Z) (tr : list (val (dual R))) : list R :=
+                         match tr with
+                         | [] => []
+                         | s :: tr' =>
+                             (body_pushes (bi (VInt z) s) s ++ go (z + 1)%Z tr')%list
+                         end) l tr
+                  | None => []
+                  end
+              | _, _ => []
+              end
+          | _, _ => body_pushes (b' v) st
+          end
+      | None => []
+      end
+  | ARet _ => []
+  end.
+
+(* The elements the steps of an in-place fold push, from the states before
+   each step. *)
 Fixpoint fold_pushes (b : val (dual R) -> val (dual R) -> anf (val (dual R)) bare) (z : Z)
   (tr : list (val (dual R))) : list R :=
   match tr with
   | [] => []
-  | st :: tr' =>
-      (match set_index (b (VInt z) st), st with
-       | Some zi, VArray l => [match nth_z zi (map dfst l) with Some x => x | None => 0 end]
-       | _, _ => []
-       end ++ fold_pushes b (z + 1) tr')%list
+  | st :: tr' => (body_pushes (b (VInt z) st) st ++ fold_pushes b (z + 1) tr')%list
   end.
+
+(* Whether the innermost in-place fold of a nest records its states: a step
+   that ends with an inner in-place fold does not read its own state, the
+   steps of the innermost fold (the one whose step ends with a set) push the
+   elements they overwrite when its state is live. *)
+Fixpoint tail_fold_live (cv : bool) (k : nat) (b : anf avar bare) {struct b} :
+  option bool :=
+  match b with
+  | ALet _ e b' =>
+      match e, b' (let_binder k e) with
+      | AFold _ _ _ init bi, ARet _ =>
+          let '(i, s) := fold_binders k init bi in
+          match tail_fold_live cv (S (S k)) (bi i s) with
+          | Some l => Some l
+          | None => Some (state_live cv k init bi)
+          end
+      | _, _ => tail_fold_live cv (S k) (b' (let_binder k e))
+      end
+  | ARet _ => None
+  end.
+
+Definition fold_live (cv : bool) (k : nat) (init : atom avar)
+  (b : avar -> avar -> anf avar bare) : bool :=
+  let '(i, s) := fold_binders k init b in
+  match tail_fold_live cv (S (S k)) (b i s) with
+  | Some l => l
+  | None => state_live cv k init b
+  end.
+
+Lemma tail_fold_live_records cv :
+  forall b k l, tail_fold_live cv k b = Some l -> records_in cv k b = false ->
+  l = false.
+Proof.
+fix IH 1 => -[a e b' | x] k l //=.
+case: e => [f0 a0 | f0 a0 b0 | a0 i0 | a0 i0 v0 | c0 t0 e0 | lo0 hi0 bm
+           | fa lo hi init bi];
+  try by move=> Ht /orb_false_iff [_ Hr]; exact: IH _ _ _ Ht Hr.
+case Eb: (b' (let_binder k (AFold fa lo hi init bi))) => [aa ee bb | r].
+  by rewrite -Eb => Ht /orb_false_iff [_ Hr]; exact: IH _ _ _ Ht Hr.
+move=> Ht /orb_false_iff [Hr _]; move: Hr => /= /orb_false_iff [Hs Hri].
+case El: (tail_fold_live cv (S (S k)) _) Ht => [l' |] [<-].
+  exact: IH _ _ _ El Hri.
+exact: Hs.
+Qed.
+
+(* A fold whose forward sweep records nothing has no live innermost fold. *)
+Lemma fold_live_records cv k fa lo hi init b :
+  records cv k (AFold fa lo hi init b) = false -> fold_live cv k init b = false.
+Proof.
+move=> /= /orb_false_iff [Hs Hri]; rewrite /fold_live /=.
+case El: (tail_fold_live cv (S (S k)) _) => [l' |] //.
+exact: tail_fold_live_records El Hri.
+Qed.
 
 Section Sim.
 Variable cv : bool.                               (* computes-value: mode adjoint-value *)
@@ -824,6 +913,67 @@ rewrite (proj1 Hag (stored o) (below_mono c c' _ Hb Hcc) Hc Hp).
 exact: Hsx Hl o Ho Hav.
 Qed.
 
+(* The tape of a fold whose state is recorded. For a scalar fold: the states
+   before each step, the last first. For an in-place fold: the elements the
+   steps overwrite, the last first, the storage holding the final array. *)
+Definition fold_tape (k : nat) (eA : value avar bare) (eW : value vinfo bare) (eD : value (val (dual R)) bare)
+  (s : store R) (n : dvar W) : Prop :=
+  match eA, eW, eD with
+  | AFold fa loA hiA initA bA, AFold _ _ _ initW _, AFold _ lo hi init b =>
+      match aeval_atom (duals reals) lo, aeval_atom (duals reals) hi, aeval_atom (duals reals) init with
+      | Some (VInt l), Some (VInt h), Some s0 =>
+          forall tr, fold_trace (fun v w => aeval (duals reals) (b v w)) l (count l h) s0 = Some tr ->
+            (ty_eqb (of_atom initW) Real = true -> state_live cv k initA bA = true ->
+               store_get s (keyv (TapeOf n)) = Some (VTape (rev (map real_of tr)))) /\
+            (is_array (of_atom initW) ->
+               (fold_live cv k initA bA = true ->
+                  (exists rest, store_get s (keyv (TapeOf n)) = Some (VTape (rev (fold_pushes b l tr) ++ rest))) /\
+                  forall ve, eval_fold (fun v w => aeval (duals reals) (b v w)) l (count l h) s0 = Some ve ->
+                    store_get s (keyv n) = Some (primal ve)))
+      | _, _, _ => True
+      end
+  | _, _, _ => True
+  end.
+
+(* The forward sweep of an in-place fold inside a loop body, when its
+   innermost fold is live: the elements its steps overwrite are pushed on the
+   tape of its storage, from s to s'. *)
+Definition fold_grow (k : nat) (eA : value avar bare)
+  (eD : value (val (dual R)) bare) (s s' : store R) (n : dvar W) : Prop :=
+  match eA, eD with
+  | AFold _ _ _ initA bA, AFold _ lo hi init b =>
+      match aeval_atom (duals reals) lo, aeval_atom (duals reals) hi,
+        aeval_atom (duals reals) init with
+      | Some (VInt l), Some (VInt h), Some s0 =>
+          forall tr,
+          fold_trace (fun v w => aeval (duals reals) (b v w)) l (count l h) s0
+            = Some tr ->
+          fold_live cv k initA bA = true ->
+          forall l0, store_get s (keyv (TapeOf n)) = Some (VTape l0) ->
+          store_get s' (keyv (TapeOf n)) =
+            Some (VTape (rev (fold_pushes b l tr) ++ l0))
+      | _, _, _ => True
+      end
+  | _, _ => True
+  end.
+
+(* A continuation that returns its argument: the let it continues is the
+   tail of the body. *)
+Definition ptail (cP : pv -> anf pv bare) : Prop := forall x, cP x = ARet (AVar x).
+
+(* tail-tape K L B S N: when the tail of the body B is a fold, its tape in S
+   (storage N) is the one of fold-tape. A body inside an in-place loop gets it
+   from the enclosing loop: it is the inner in-place fold its step ends
+   with. *)
+Fixpoint tail_tape (k : nat) (L : list pv) (b : anf pv bare) (s : store R) (n : dvar W) : Prop :=
+  match b with
+  | ALet _ eP cP =>
+      (ptail cP -> forall eA eW eD, value_eq (gA L) eP eA -> value_eq (gW L) eP eW ->
+         value_eq (gD L) eP eD -> fold_tape k eA eW eD s n) /\
+      (forall x, tail_tape (S k) (x :: L) (cP x) s n)
+  | ARet _ => True
+  end.
+
 Definition asim_body (bP : anf pv bare) : Prop :=
   forall L k c s wP pp m bA bW bT bD ty v se vo,
   anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gT L) bP bT -> anf_eq (gD L) bP bD ->
@@ -845,6 +995,7 @@ Definition asim_body (bP : anf pv bare) : Prop :=
     (m = Forward -> vo_result vo v s1) /\
     forall s2 O, agree_prim c' (inplace wP pp) s1 s2 -> rctx L c wP pp O (useful cv m k bA) s2 ->
       seed_ok c ty se s2 -> tapes_ok L s2 ->
+      (forall ix sx n0, pp = PArray ix sx -> inplace wP pp = Some n0 -> tail_tape k L bP s2 n0) ->
       exists s3, run rv s2 = Some s3 /\ (m = Forward -> vo_kept vo s2 s3) /\
         same_ex pp wP s s3 /\ tkeep c (inplace wP pp) s2 s3 /\
         rev_frame c (inplace wP pp) O s2 s3 /\
@@ -1004,7 +1155,7 @@ split=> //; split=> //.
 have [s1 [Hrun1 [Hfr1 [Hvr1 [Htk Hsx]]]]] :=
   ret_forward L k c s wP pp m aP ty v vo Hc H Htc Hty Hev Hvo.
 exists s1; do 4!(split=> //).
-move=> s2 O Hag Hr Hseed _.
+move=> s2 O Hag Hr Hseed _ _.
 apply: (keep_add2 _ L k c c wP pp _ ty vo _ s s1 s2 _ Hs (le_n c) Hag Hsx).
   case: (tof (amap pt aP)); try by constructor.
   case Eb: (@bar W (amap pt aP)) => [bx |]; last by constructor.
@@ -1079,32 +1230,22 @@ Definition vatoms (k : nat) (e : value avar bare) (p : pv) : Prop :=
 
 (* The forward sweep of a value, computed into the variable n (recorded when
    rec): the value is stored in n. *)
-(* The tape of a fold whose state is recorded. For a scalar fold: the states
-   before each step, the last first. For an in-place fold: the elements the
-   steps overwrite, the last first, the storage holding the final array. *)
-Definition fold_tape (k : nat) (eA : value avar bare) (eW : value vinfo bare) (eD : value (val (dual R)) bare)
-  (s : store R) (n : dvar W) : Prop :=
-  match eA, eW, eD with
-  | AFold fa loA hiA initA bA, AFold _ _ _ initW _, AFold _ lo hi init b =>
-      match aeval_atom (duals reals) lo, aeval_atom (duals reals) hi, aeval_atom (duals reals) init with
-      | Some (VInt l), Some (VInt h), Some s0 =>
-          forall tr, fold_trace (fun v w => aeval (duals reals) (b v w)) l (count l h) s0 = Some tr ->
-            (ty_eqb (of_atom initW) Real = true -> state_live cv k initA bA = true ->
-               store_get s (keyv (TapeOf n)) = Some (VTape (rev (map real_of tr)))) /\
-            (is_array (of_atom initW) ->
-               (state_live cv k initA bA = true ->
-                  store_get s (keyv (TapeOf n)) = Some (VTape (rev (fold_pushes b l tr))) /\
-                  forall ve, eval_fold (fun v w => aeval (duals reals) (b v w)) l (count l h) s0 = Some ve ->
-                    store_get s (keyv n) = Some (primal ve)))
-      | _, _, _ => True
-      end
-  | _, _, _ => True
-  end.
 
 Lemma fold_tape_same k eA eW eD s s' n :
   store_get s' (keyv (TapeOf n)) = store_get s (keyv (TapeOf n)) -> store_get s' (keyv n) = store_get s (keyv n) ->
   fold_tape k eA eW eD s n -> fold_tape k eA eW eD s' n.
 Proof. by move=> E E' H; rewrite /fold_tape in H *; rewrite E E'. Qed.
+
+(* The tail tape only reads the tape of the storage and the storage. *)
+Lemma tail_tape_same k L b s s' n :
+  store_get s' (keyv (TapeOf n)) = store_get s (keyv (TapeOf n)) ->
+  store_get s' (keyv n) = store_get s (keyv n) ->
+  tail_tape k L b s n -> tail_tape k L b s' n.
+Proof.
+move=> Et En; elim: b k L => [a e c IH | x] k L //= [Htl Hnext].
+split=> [Hpt eA eW eD HA HW HD | y]; last exact: IH.
+exact: (fold_tape_same _ _ _ _ s _ _ Et En (Htl Hpt eA eW eD HA HW HD)).
+Qed.
 
 (* A fold that is not updated in place carries a real: its tape is the one of
    a scalar fold. *)
@@ -1129,16 +1270,43 @@ case: (aeval_atom _ _) => // ? H tr Htr.
 by split; [exact: (proj1 (H tr Htr)) | move=> Ha; case: (Hna Ha)].
 Qed.
 
+(* Inside the body of an in-place loop, a value not stored in place is no
+   fold: a scalar recurrence is not typed there. *)
+Lemma fold_tape_in_loop L k wP tail ix sx (eP : value pv bare) eA eW eD te s n :
+  value_eq (gW L) eP eW -> storage wP tail eP = None ->
+  typecheck_value (option_map (amap pw) wP) (wplace (PArray ix sx)) tail k eW = (te, Ok) ->
+  fold_tape k eA eW eD s n.
+Proof.
+move=> HW Hst Htc.
+case: eA => // fa loA hiA initA bA.
+case: eW HW Htc => // fw loW hiW initW bW HW Htc.
+case: eD => // ? ? ? ? ?.
+case: eP HW Hst => // fp loP hiP initP bP /= [_ [_ [Hi _]]] Hst.
+move/atom_graph: Hi => [Ei _]; subst initW.
+have Hnr : ty_eqb (of_atom (amap pw initP)) Real = false.
+  case Er: (ty_eqb _ Real) => //; move: Htc => /=; rewrite Er.
+  by case: (_ && _).
+have Hna : ~ is_array (of_atom (amap pw initP)).
+  move: Hst {Htc Hnr}; case: initP => [i0 | ? | ?] /= Hst; try by move=> [].
+  by case: (vty (pw i0)) Hst => //= *; case.
+case: (aeval_atom _ _) => [[| ? | | |] |] //.
+case: (aeval_atom _ _) => [[| ? | | |] |] //.
+case: (aeval_atom _ _) => // ? tr _.
+by split; [rewrite Hnr | move=> Ha; case: (Hna Ha)].
+Qed.
+
 (* A fold whose forward sweep records nothing has no tape to give. *)
 Lemma fold_tape_records k eA eW eD s n : records cv k eA = false -> fold_tape k eA eW eD s n.
 Proof.
 case: eA => // fa loA hiA initA bA.
-case: eW => // ? ? ? ? ?; case: eD => // ? ? ? ? ?.
-rewrite /fold_tape /state_live /= => /orb_false_iff [Hr _].
+case: eW => // ? ? ? ? ?; case: eD => // ? ? ? ? ? Hrec.
+have Hlive := fold_live_records cv k fa loA hiA initA bA Hrec.
+move: Hrec; rewrite /fold_tape /state_live /= => /orb_false_iff [Hr _].
 case: (aeval_atom _ _) => [[| ? | | |] |] //.
 case: (aeval_atom _ _) => [[| ? | | |] |] //.
 case: (aeval_atom _ _) => // ? tr _.
-by split=> _; rewrite /state_live /fold_binders /= => E; congruence.
+split=> _; last by rewrite Hlive.
+by rewrite /state_live /fold_binders /= => E; congruence.
 Qed.
 
 
@@ -1160,7 +1328,10 @@ Definition asim_fwd (eP : value pv bare) : Prop :=
     open_pairs (fwd_value W (option_map (amap pt) wP) m (rebuild_value _ eT (annotate_value_t cv k eA)) te n rec) c in
   (c <= c')%nat /\
   exists s1, run se s = Some s1 /\ fwd_frame c (Some n) None s s1 /\ tkeep c (Some n) s s1 /\
-             store_get s1 (keyv n) = Some (primal ve) /\ (m = Forward /\ not_in_loop pp -> fold_tape k eA eW eD s1 n).
+             store_get s1 (keyv n) = Some (primal ve) /\ (m = Forward /\ not_in_loop pp -> fold_tape k eA eW eD s1 n) /\
+             (m = Forward -> ~ not_in_loop pp -> storage wP tail eP <> None ->
+              (forall o, owner wP pp = Some o -> tid (pt o) = None) ->
+              fold_grow k eA eD s s1 n).
 
 (* The reverse sweep of an active value computed into n: run from a store
    holding the values it reads, it moves the adjoint of n to the operands, in
@@ -1221,7 +1392,7 @@ Definition asim_rev (eP : value pv bare) : Prop :=
        store_get s2 (keyv (stored p)) = Some (primal (pd p))) ->
     rctx L c wP pp O (vflows k eA) s2 ->
     (storage wP tail eP = None -> ~ In n (map snd O) /\ shaped (tangent ve) (barv s2 n)) ->
-    tapes_ok L s2 -> (pp = PTop -> fold_tape k eA eW eD s2 n) ->
+    tapes_ok L s2 -> (pp = PTop \/ (exists ix sx, pp = PArray ix sx) -> fold_tape k eA eW eD s2 n) ->
     (not_in_loop pp -> storage wP tail eP <> None -> forall o, owner wP pp = Some o -> avaried (pa o) = true ->
        records cv k eA = false -> store_get s2 (keyv n) = Some (primal (pd o))) ->
     exists s3, run re s2 = Some s3 /\
@@ -2693,7 +2864,7 @@ case Es: (storage wP tail eP) Hn => [m0 |] Hn.
     have IH := IHf L k c s wP pp tail eA eW eT eD (Array z) (stored o) ve
       (Array z) m rec HeA HeW HeT HeD Hc1 Hte Htail_ty Hj Hst0 Hrec' Hve.
     cbv zeta in IH; rewrite -/vt Hfe in IH.
-    have [_ [se1 [R1 [F1 [T1 [S1 Ft1]]]]]] := IH.
+    have [_ [se1 [R1 [F1 [T1 [S1 [Ft1 _]]]]]]] := IH.
     by exists se1; split=> //; split=> //; split=> //; split=> //; split.
   have [se1 [R1 [F1 [T1 [S1 [Ft1 Es1]]]]]] := Hfw.
   split; first by lia.
@@ -2719,7 +2890,7 @@ case Es: (storage wP tail eP) Hn => [m0 |] Hn.
     rewrite /role_of /stored_of /= Hso in Hvt0.
     case: (targ (pt o)) Hvt0 => [[? []] |] //=.
     by case: (tty (pt o)) => [| | | ?] // [<-]; exact: S1 Ecp.
-  move=> s2 O Hag Hr Hseed Htp.
+  move=> s2 O Hag Hr Hseed Htp Htt2.
   have Hbd : (if ac then bar_declaration W (Array z) (stored o) else []) = [].
     by case: (ac).
   rewrite Hbd !app_nil_l.
@@ -2801,8 +2972,13 @@ case Es: (storage wP tail eP) Hn => [m0 |] Hn.
     by move=> E; rewrite Es in E.
   have Hbo : below c3 (stored o).
     by case: Hj => [j0 [E Hj0]]; rewrite E /=; lia.
-  have Hft : pp = PTop -> fold_tape k eA eW eD s2 (stored o).
-    move=> Hpt; have Hmf : m = Forward.
+  have Hft : pp = PTop \/ (exists ix sx, pp = PArray ix sx) ->
+      fold_tape k eA eW eD s2 (stored o).
+    case=> [Hpt | [ix [sx Epp]]]; last first.
+      have Hk p : In p L -> (vid (pw p) < k)%nat by case/Htt.
+      have Hpt := is_tail_shape L k cP cW HcW Hk Ht.
+      exact: (proj1 (Htt2 ix sx (stored o) Epp Hex) Hpt eA eW eD HeA HeW HeD).
+    have Hmf : m = Forward.
       by destruct m => //; case: (Hrpl erefl Hpt).
     case Ecp: (cp) Ft1 => Ft1.
       apply: (fold_tape_same _ _ _ _ se1).
@@ -2891,8 +3067,8 @@ have Hfw : exists se1, run fe s = Some se1 /\
   have IH := IHf L k c1 s wP pp tail eA eW eT eD te (DBound (c, c)) ve ty m
     false HeA HeW HeT HeD Hc1 Hte Htail_ty Hj1 Hst1 Hr1 Hve.
   cbv zeta in IH; rewrite -/vt Hfe in IH.
-  have [_ [se1 [R1 [F1 [T1 S1]]]]] := IH.
-  by exists se1.
+  have [_ [se1 [R1 [F1 [T1 [S1 [Ft1 _]]]]]]] := IH.
+  by exists se1; do 3!split=> //; move=> _; split.
 have [se1 [R1 [F1 [T1 S1]]]] := Hfw.
 (* the rest of the body, with x in scope *)
 have Hlive_c : forall p, In p L -> live_anf (S k) (cW (VInfo k te None)) p ->
@@ -2996,7 +3172,10 @@ split.
     (Nat.le_trans _ _ _ (Nat.le_succ_diag_r c) Hc01))).
   exact: (tkeep_mono _ _ _ _ _ Tb (Nat.le_succ_diag_r c)).
 split=> //.
-move=> s2 O Hag Hr Hseed Htp.
+move=> s2 O Hag Hr Hseed Htp Htt2.
+have Htt2' : forall ix sx n0, pp = PArray ix sx -> inplace wP pp = Some n0 ->
+    tail_tape (S k) (x :: L) (cP x) s2 n0.
+  by move=> ix sx n0 E1 E2; exact: (proj2 (Htt2 ix sx n0 E1 E2) x).
 have Hok := rctx_owners_ok _ _ _ _ _ _ _ Hr.
 have Hn_notin : ~ In (DBound (c, c)) (map snd O).
   move/(in_map_iff _ _ _) => [[t0 m0] [/= E Hin]]; subst m0.
@@ -3071,7 +3250,7 @@ case Eac: (ac) Hre => Hre; last first.
     by move=> p [<- | Hp] Hrp //; exact: (Htp p Hp Hrp).
   have [sb [Rrb [Krb [Ksx [Trb [Frb [Srb Prb]]]]]]] :=
     Hrev s2 O (agree_prim_mono _ _ _ _ _ Hag Hc13)
-      (Hr' O s2 (or_introl (conj erefl (conj Eac erefl)))) Hseed' Htp2.
+      (Hr' O s2 (or_introl (conj erefl (conj Eac erefl)))) Hseed' Htp2 Htt2'.
   exists sb; split; first by rewrite /= app_nil_r.
   split=> //.
   split.
@@ -3118,8 +3297,16 @@ have Htp2 : tapes_ok (x :: L) s2a.
   move=> q [Eq | Hq] Hrq; first by rewrite -Eq in Hrq.
   have [lt Hlt] := Htp q Hq Hrq; exists lt.
   by rewrite /s2a store_get_set_other.
+have Htt2a : forall ix sx n0, pp = PArray ix sx -> inplace wP pp = Some n0 ->
+    tail_tape (S k) (x :: L) (cP x) s2a n0.
+  move=> ix sx n0 E1 E2.
+  have Hn0 : ~ is_bar n0.
+    by move: E2; rewrite /inplace; case: (owner wP pp) => // o [<-].
+  apply: (tail_tape_same _ _ _ s2 _ _ _ _ (Htt2' _ _ _ E1 E2)).
+    by rewrite /s2a store_get_set_other //; exact: keyv_bar_other.
+  by rewrite /s2a store_get_set_other //; exact: keyv_bar_other.
 have [sb [Rrb [Krb [Ksx [Trb [Frb [Srb Prb]]]]]]] :=
-  Hrev s2a _ Hag2 Hr2 Hseed2 Htp2.
+  Hrev s2a _ Hag2 Hr2 Hseed2 Htp2 Htt2a.
 have Hj2 : exists j, DBound (c, c) = DBound (j, j) /\ (j < c2)%nat.
   by exists c; split=> //; lia.
 have Hst2 : match storage wP tail eP return Prop with
@@ -3179,8 +3366,13 @@ have Hr3 : rctx L c2 wP pp O (vflows k eA) sb.
 have Htpb : tapes_ok L sb.
   move=> p Hp Hrp; have [lt Hlt] := Htp2 p (or_intror Hp) Hrp.
   exact: (proj1 Trb _ _ Hlt).
-have Hft : pp = PTop -> fold_tape k eA eW eD sb (DBound (c, c)).
-  move=> Hpt; destruct m; last by case: (Hrpl erefl Hpt).
+have Hft : pp = PTop \/ (exists ix sx, pp = PArray ix sx) ->
+    fold_tape k eA eW eD sb (DBound (c, c)).
+  case=> [Hpt | [ix [sx Epp]]]; last first.
+    apply: (fold_tape_in_loop L k wP tail ix sx eP eA eW eD Real sb _ HeW
+      Es).
+    by rewrite -Epp.
+  destruct m; last by case: (Hrpl erefl Hpt).
   case Erc: (records cv k eA);
     last exact: (fold_tape_records k eA eW eD sb _ Erc).
   have Ecp : cp = true by rewrite /cp /= Erc orb_true_r.
