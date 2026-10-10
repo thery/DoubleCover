@@ -1107,3 +1107,13 @@ defined at `x`, with value `v` and derivative `df`:
 
 - Section hypothesis `adjoint_simplified`: the simplified adjoint function computes the gradient (the conclusion of `adjoint_nesty_duals`, without the class premise, on `exec_dfunction reals (simplify ...)`).
 - `adjoint_mode_correct_from`: the statement of `adjoint_mode_correct` from it, with `eval_smooth_reals` and `out_dim_value`.
+
+### ModesAgree.v: the two modes agree (corollary)
+
+- `tangent_code f`, `adjoint_code cv f`: the simplified programs elpiDiff generates.
+- `linear_small_zero`: a linear map that is o(h) near a point is zero. `filterdiff_locally_unique`: two Fréchet derivatives of a function at a point agree (Coquelicot has no such lemma).
+- Corollary `adjoint_tangent_agree`: from `tangent_mode_correct` and `adjoint_mode_correct`, the tangent program on (x, dx) gives w, the adjoint program on (x, xb, yb) gives g, and `dotl (reals_of_val w) yb = dotl (seed (decls f) x dx) g`.
+
+### Dot.v
+
+- `dotl`: the dot product of two lists of reals (`dotl_nil_l`, `dotl_cons`); the single definition used by AdjointCorrect (formerly `dotr`) and AdjointSpec.

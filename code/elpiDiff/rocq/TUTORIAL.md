@@ -214,6 +214,13 @@ for every direction `dx`, ⟨df · dx, yb⟩ = ⟨dx, g⟩, where `g` is the gra
 the adjoint function returns for the output weights `yb`. The flag `cv`
 selects the mode *adjoint-value*, which also gives back the value of `f`.
 
+The two modes are tied together by a corollary, `adjoint_tangent_agree`
+(ModesAgree.v), which states the expected relation directly on the two
+generated programs, with no derivative in sight: run the tangent program on
+`(x, dx)`, giving the output tangent `w`, and the adjoint program on
+`(x, xb, yb)`, giving the gradient `g`; then ⟨w, yb⟩ = ⟨seed dx, g⟩. It
+follows from the two end theorems and the uniqueness of the derivative.
+
 ### Where the proof stands
 
 The adjoint proof is built in milestones (README.md has the table):
@@ -1151,6 +1158,8 @@ The proofs:
 - `AdjointModeProof.v`: `adjoint_mode_correct` from the simplified
   corollary.
 - `AdjointMode.v`: the theorem `adjoint_mode_correct`, read last.
+- `ModesAgree.v`: the corollary `adjoint_tangent_agree`, the two modes
+  agree.
 
 ### Exploring interactively
 

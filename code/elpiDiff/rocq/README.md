@@ -31,6 +31,8 @@ of the reals of the standard library (`sig_forall_dec`, `sig_not_dec`,
 | `scoping` | `TangentGood.v` | those statements follow the discipline `good` |
 | `tangent_simulates_duals_with` | `TangentTop.v` | theorem 1 for a function: the tangent function, run over the reals on the primal arguments, the seeded tangents and any initial values in its output-only tangent parameters (`tangent_inputs_with`), gives the value and the tangent of the dual evaluation of the normal form of f; `tangent_simulates_duals` is its instance with zeros there |
 | `tangent_mode_correct` | `TangentMode.v` | the tangent mode is correct: where a parametric, well-formed f is defined at x, it is differentiable at x with a linear derivative df, and `simplify (tangent (annotate false (normalize f)))`, run over the reals on `tangent_inputs (decls f) x dx`, gives the value of f and df applied to the seed of dx (dx on the independent and inout reals, 0 elsewhere); `tangent_mode_correct_with` is the same for any initial values of the output-only tangent parameters (`result_dot`, the tangent of a written dependent argument), which are not read |
+| `adjoint_mode_correct` | `AdjointMode.v` | the adjoint modes are correct: where a parametric, well-formed f is defined at x, it is differentiable at x with a linear derivative df, and the simplified adjoint program, run over the reals on `adjoint_inputs (decls f) x xb yb`, gives a gradient g with <df (seed dx), yb> = <seed dx, g> for every dx (and, in adjoint-value, the value of f) |
+| `adjoint_tangent_agree` | `ModesAgree.v` | corollary of the two: the two generated programs are adjoint to each other. The tangent program on (x, dx) gives a tangent output w, the adjoint program on (x, xb, yb) a gradient g, and <w, yb> = <seed dx, g> |
 
 ### The adjoint proof
 
@@ -79,6 +81,7 @@ the Boolean arguments that carry an adjoint are excluded by well-formedness.
 
 | Rocq | Elpi | Contents |
 |---|---|---|
+| `Dot.v` | — | `dotl`, the dot product of two lists of reals, shared by the adjoint statements and proofs |
 | `Syntax.v` | `syntax.elpi` (and the operators of `operations.elpi`) | L0: `unary`, `binary`, `term`, `ty`, `role`, `result`, `definition`, `function`, `decl`; `written_role`, `varied_role` |
 | `Anf.v` | the types of `anf.elpi` | L1 and L1ᵃ: `atom`, `value`, `anf`, `aresult`, `adefinition`, `afunction`, `pexpr`; the annotations `bare` and `ann` |
 | `Derivative.v` | the types of `derivative.elpi` | L2: `dvar`, `dexpr`, `dsort`, `dstmt`, `dpass`, `dparam`, `dreturn`, `dbody`, `scoped`, `dfunction` |
@@ -121,6 +124,7 @@ the Boolean arguments that carry an adjoint are excluded by well-formedness.
 | `AdjointGood.v`, `AdjointGoodFwd.v`, `AdjointGoodRev.v` | — | the scoping discipline of the adjoint code and its proof for every body: `agood_fwd`, `agood_adj` |
 | `AdjointWf.v` | — | `adjoint_wf_duals`: the adjoint simulation for every parametric, well-formed function |
 | `AdjointMode.v` | — | theorem `adjoint_mode_correct`: where f is defined, for every tangent dx, <df (seed dx), yb> = <seed dx, g>, and adjoint-value gives the value of f back (unless f writes an inout argument) |
+| `ModesAgree.v` | — | `tangent_code`, `adjoint_code`; `filterdiff_locally_unique` (a Fréchet derivative is unique); corollary `adjoint_tangent_agree` |
 | `AdjointExamples.v` | — | non-vacuity: the accepted reference cases proved to be in the class of `adjoint_nesty_duals` |
 | `AdjointModeProof.v` | — | `adjoint_mode_correct_from`: `adjoint_mode_correct` from the simplified adjoint corollary |
 
