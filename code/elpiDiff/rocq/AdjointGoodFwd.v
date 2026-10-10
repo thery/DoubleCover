@@ -80,7 +80,8 @@ avalue_intro.
 rewrite /= in Hst *; case: Hst => N1 _.
 split=> //; apply: good_value_const => //; try by case: Hsc => ? [].
 rewrite /=; apply: (atom_scope _ _ _ _ _ _ _ _ _ _ Hs Hsc) => p E.
-by subst aP; split; [auto | rewrite /live_value /= Nat.eqb_refl].
+  by subst aP; split; [auto | rewrite /live_value /= Nat.eqb_refl].
+by split; rewrite andb_false_r.
 Qed.
 
 Lemma agood_op2 f (aP bP : atom pv) : agood_value cv (AOp2 f aP bP).
@@ -90,6 +91,7 @@ rewrite /= in Hst *; case: Hst => N1 _.
 split=> //; apply: good_value_const => //; try by case: Hsc => ? [].
 rewrite /=; split; apply: (atom_scope _ _ _ _ _ _ _ _ _ _ Hs Hsc) => p E;
   subst; split; auto; rewrite /live_value /= Nat.eqb_refl ?orb_true_r //.
+by split; rewrite andb_false_r.
 Qed.
 
 Lemma agood_get (aP iP : atom pv) : agood_value cv (AGet aP iP).
@@ -99,6 +101,7 @@ rewrite /= in Hst *; case: Hst => N1 _.
 split=> //; apply: good_value_const => //; try by case: Hsc => ? [].
 rewrite /=; split; apply: (atom_scope _ _ _ _ _ _ _ _ _ _ Hs Hsc) => p E;
   subst; split; auto; rewrite /live_value /= Nat.eqb_refl ?orb_true_r //.
+by split; rewrite andb_false_r.
 Qed.
 
 Lemma agood_set (aP iP vP : atom pv) : agood_value cv (ASet aP iP vP).
@@ -579,7 +582,8 @@ apply: GoodBranch; [exact: Hc | exact: Hg1 | exact: Hg2 |].
 apply: Hrest; [by move=> y Hy; right | by move=> y Hy; right |
                apply: Hb2; lia | exact: Hwr2 |].
 split; first by left.
-by split=> // x [<- | Hx]; auto.
+split; first by move=> x [<- | Hx]; auto.
+by split; rewrite andb_false_r.
 Qed.
 
 Lemma agood_map (loP hiP : atom pv) (bP : pv -> anf pv bare) :
@@ -685,7 +689,7 @@ apply: GoodFor; [exact: Hni | by [] | exact I | exact I | |].
 apply: Hrest; [exact: incl_refl | exact: incl_refl | exact: Hb2 | exact: Hw |].
 split; first by apply: Hw.
 split; first by move=> x Hx; left.
-by rewrite andb_false_r.
+by split; rewrite andb_false_r.
 Qed.
 
 (* The written argument is the storage of the in-place fold at the top: its
@@ -854,16 +858,18 @@ move: Htc; case Er: (ty_eqb (of_atom (amap pw initP)) Real) => Htc.
     apply: Hrest; [exact: Hsc2 | by move=> y Hy /=; auto | apply: Hb2; lia |
                    exact: Hwr2 |].
     split; first by right; left.
-    split; last exact: HQ.
-    by move=> x [<- | [<- | Hx]]; auto.
+    split; first by move=> x [<- | [<- | Hx]]; auto.
+    split; first exact: HQ.
+    by move=> _ _; split; [right; left | left].
   apply: GoodMutable; [exact: I1 | exact: N1 | by [] |].
   apply: GoodFor;
     [exact: Hin2 | by [] | exact: HL1 | exact: HH1 | exact: Hbody |].
   apply: Hrest; [exact: Hsc2 | by move=> y Hy /=; auto | apply: Hb2; lia |
                  exact: Hwr2 |].
   split; first by left.
-  split; last exact: HQ.
-  by move=> x [<- | Hx]; auto.
+  split; first by move=> x [<- | Hx]; auto.
+  split; first exact: HQ.
+  by move=> /= Hsl; move: Hlive; rewrite /live Hsl.
 (* an array updated in place *)
 case Eat: (of_atom (amap pw initP)) Htc => [| | | z] Htc //.
 destruct initP as [o | | ]; rewrite /= in Eat Htc; try discriminate.
@@ -1073,6 +1079,7 @@ have Hfor : good sc1 wr1
   split; first by apply/Hsc1/Hw.
   split.
     by rewrite /sc1; case: (dcl) => x; [case=> [<- | Hx] | move=> Hx]; auto.
+  split; last by rewrite /= Eat.
   move=> Hmr Hl _.
   by rewrite /wr1 (Hdcl Hl Hmr); left.
 case Ed: dcl Hfor; rewrite /sc1 /wr1 Ed //= => Hfor.

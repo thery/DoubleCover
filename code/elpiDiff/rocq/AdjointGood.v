@@ -112,6 +112,13 @@ Definition vo_scope (m : sweep) (vo : option (aresult (tvar W)))
   (forall t, vo = Some (AReturns t) -> ~ In ResultVar sc) /\
   (forall y, vo = Some (AWrites y) -> In (stored_of W y) wr).
 
+(* The state of a fold is recorded (its reverse loop pops it). *)
+Definition fold_slive (k : nat) (e : value avar bare) : bool :=
+  match e with
+  | AFold _ _ _ init b => state_live cv k init b
+  | _ => false
+  end.
+
 (* prim: the forward sweep of the body of a branch, a map or a fold, that
    computes every let; the value of its tail atom is in scope after it. *)
 Definition agood_prim (bP : anf pv bare) : Prop :=
@@ -155,7 +162,9 @@ Definition agood_value (eP : value pv bare) : Prop :=
     In n sc' /\
     (forall x, In x sc' -> In x sc \/ x = n \/ x = TapeOf n) /\
     (sweep_eqb m Forward && records cv k eA = true -> not_in_loop pp ->
-     storage wP tail eP <> None -> In (TapeOf n) wr')).
+     storage wP tail eP <> None -> In (TapeOf n) wr') /\
+    (sweep_eqb m Forward && fold_slive k eA = true ->
+     storage wP tail eP = None -> In n wr' /\ In (TapeOf n) wr')).
 
 (* ---------------------------------------------------------------------------
    The reverse sweep. *)
@@ -192,19 +201,21 @@ Definition tape_rev (wP : option (atom pv)) (pp : pplace) (rr : bool)
    keeps it from any extension of that scope where the adjoints and the
    tapes it accumulates into are declared and the seed is in scope. *)
 Definition agood_body (bP : anf pv bare) : Prop :=
-  forall L k c wP pp m vo bA bW bT ty sc wr (se : dexpr W),
+  forall L k c wP pp m vo bA bW bT ty (se : dexpr W),
   anf_eq (gA L) bP bA -> anf_eq (gW L) bP bW -> anf_eq (gT L) bP bT ->
   sctx L k c wP pp (live_anf k bW) ty -> real_or_array ty ->
-  fscope L c wP pp (tbr cv m k bA) sc wr ->
-  tape_fwd wP pp m (records_in cv k bA) sc wr ->
-  vo_scope m vo sc wr ->
+  (forall p, In p L -> tbar (pt p) = avaried (pa p)) ->
+  (m = Forward -> vo <> None -> cv = true) ->
   typecheck (option_map (amap pw) wP) (wplace pp) k bW = (ty, Ok) ->
   (m = Forward -> pp = PTop) -> (m = Replay -> pp <> PTop) ->
   let '((fw, rv), c') :=
     open_pairs (adj W (option_map (amap pt) wP) vo m
                   (rebuild _ bT (annotate_body_t cv m k bA)) se) c in
   (c <= c')%nat /\
-  exists F : nat -> Prop,
+  exists F : nat -> Prop, forall sc wr,
+  fscope L c wP pp (tbr cv m k bA) sc wr ->
+  tape_fwd wP pp m (records_in cv k bA) sc wr ->
+  vo_scope m vo sc wr ->
   good_k sc wr c' fw (fun sc1 wr1 =>
     fwd_post F c c' sc sc1 /\
     forall sc2 wr2, rscope F c c' sc1 wr1 sc2 wr2 ->
@@ -221,6 +232,7 @@ Definition agood_rev (eP : value pv bare) : Prop :=
   forall L k c wP pp vo tail eA eW eT te n ty sc wr,
   value_eq (gA L) eP eA -> value_eq (gW L) eP eW -> value_eq (gT L) eP eT ->
   sctx L k c wP pp (live_value k eW) ty ->
+  (forall p, In p L -> tbar (pt p) = avaried (pa p)) ->
   Forall (fun x => below c x /\ consistent x) sc -> incl wr sc ->
   (forall p, In p L -> vreads cv k eA p -> In (stored p) sc) ->
   bars_ok L (vflows cv k eA) wP pp wr ->
@@ -233,8 +245,9 @@ Definition agood_rev (eP : value pv bare) : Prop :=
   | None => True
   end ->
   In (BarOf n) wr ->
-  (records cv k eA = true -> In n wr /\ In (TapeOf n) wr) ->
-  tape_rev wP pp (records cv k eA) wr ->
+  (records cv k eA = true -> storage wP tail eP <> None ->
+   In (TapeOf n) wr) ->
+  (fold_slive k eA = true -> In n wr /\ In (TapeOf n) wr) ->
   let '(re, c') :=
     open_pairs (rev_value W (option_map (amap pt) wP) vo
                   (rebuild_value _ eT (annotate_value_t cv k eA)) te n) c in
