@@ -68,21 +68,21 @@ and the Gallina files are identical, 193 comparisons.
 Both modes are proved correct, with no `Admitted`; the proofs rest only on
 the axioms of the reals of the standard library. For a parametric,
 well-formed function f defined at the arguments x:
-- `tangent_mode_correct` (`rocq/TangentMode.v`): f is differentiable at x,
+- `tangent_mode_correct` ([`rocq/TangentMode.v`](rocq/TangentMode.v)): f is differentiable at x,
   with derivative df, and the simplified tangent program, run over the
   reals on x and a tangent dx, gives the value of f and df applied to dx;
-- `adjoint_mode_correct` (`rocq/AdjointMode.v`): the simplified adjoint
+- `adjoint_mode_correct` ([`rocq/AdjointMode.v`](rocq/AdjointMode.v)): the simplified adjoint
   program, run on x and a seed yb, gives a gradient g with
-  <df dx, yb> = <dx, g> for every dx (and, in adjoint-value, the value of
+  ⟨df dx, yb⟩ = ⟨dx, g⟩ for every dx (and, in adjoint-value, the value of
   f);
-- `adjoint_tangent_agree` (`rocq/ModesAgree.v`), their corollary: the two
-  generated programs are adjoint to each other, <w, yb> = <dx, g>, where w
+- `adjoint_tangent_agree` ([`rocq/ModesAgree.v`](rocq/ModesAgree.v)), their corollary: the two
+  generated programs are adjoint to each other, ⟨w, yb⟩ = ⟨dx, g⟩, where w
   is the output of the tangent program on (x, dx) and g the gradient the
   adjoint program gives for yb.
 
-`rocq/README.md` lists the theorems and gives the correspondence, file by
+[`rocq/README.md`](rocq/README.md) lists the theorems and gives the correspondence, file by
 file, and how each construction of Elpi is rendered in Rocq;
-`rocq/TUTORIAL.md` explains how to read the proofs.
+[`rocq/TUTORIAL.md`](rocq/TUTORIAL.md) explains how to read the proofs.
 
 ## The languages and their Elpi types
 
