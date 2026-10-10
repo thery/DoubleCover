@@ -1,6 +1,7 @@
-(* AdjointFoldy.v — the in-place folds of AdjointFold.v wired into the
-   adjoint simulation of a body: their activity, their owner, the in-place
-   discipline, and the bodies with branches and in-place folds (foldy).
+(* AdjointFoldy.v — the activity, the owner and the in-place discipline of a
+   fold updating an array in place, for any class of steps, and the bodies
+   with branches and in-place folds whose steps end with a set (foldy), a
+   subclass of nesty (AdjointNesty.v).
 
    The proofs of this file use the ssreflect tactic language. *)
 
@@ -238,29 +239,6 @@ rewrite (live_cont2 L k bP bW ix sx (pw ix) (pw sx) _ HbW HL erefl erefl
 by move=> H; have := H (or_introl Ht).
 Qed.
 
-(* The instances for in-place bodies (abody). *)
-Lemma act_fold_inplace a (loP hiP initP : atom pv)
-  (bP : pv -> pv -> anf pv bare) :
-  (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
-  (forall x y, abody (bP x y)) -> act_value (AFold a loP hiP initP bP).
-Proof.
-by move=> Hq Hab; apply: act_fold_gen Hq _ => x y; apply/abody_act.
-Qed.
-
-Lemma owner_fold_inplace a (loP hiP initP : atom pv)
-  (bP : pv -> pv -> anf pv bare) :
-  (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
-  (forall x y, abody (bP x y)) -> act_owner (AFold a loP hiP initP bP).
-Proof.
-by move=> Hq Hab; apply: owner_fold_gen Hq _ => x y; apply/abody_act.
-Qed.
-
-Lemma inplace_fold_inplace a (loP hiP initP : atom pv)
-  (bP : pv -> pv -> anf pv bare) :
-  (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
-  (forall x y, abody (bP x y)) -> inplace_only cv (AFold a loP hiP initP bP).
-Proof. by move=> Hq _; exact: inplace_fold_gen. Qed.
-
 (* Bodies of straight lets, branches, maps, scalar folds and in-place
    folds: as branchy, with also, at the top, a fold updating its array in
    place with an in-place body (abody). *)
@@ -317,97 +295,5 @@ Qed.
 
 Lemma branchy_foldy top (b : anf pv bare) : branchy top b -> foldy top b.
 Proof. exact: (proj1 branchy_foldy_mut). Qed.
-
-Theorem asim_foldy :
-  (forall b : anf pv bare, forall top, foldy top b ->
-     asim_body cv b /\ act_body b /\ (top = false -> psim_body cv b)) /\
-  (forall e : value pv bare, forall top, foldy_value top e ->
-     asim_fwd cv e /\ asim_rev cv e /\ inplace_only cv e /\ act_value e /\
-     act_owner e /\ (top = false -> forall wP tail, storage wP tail e = None)).
-Proof.
-apply: (anf_value_ind pv bare
-  (fun b => forall top, foldy top b ->
-     asim_body cv b /\ act_body b /\ (top = false -> psim_body cv b))
-  (fun e => forall top, foldy_value top e ->
-     asim_fwd cv e /\ asim_rev cv e /\ inplace_only cv e /\ act_value e /\
-     act_owner e /\ (top = false -> forall wP tail, storage wP tail e = None))).
-- move=> a e IHe b IHb top [He Hb].
-  have [Hf [Hr [Hi [Ha [Ho Hst]]]]] := IHe top He.
-  split.
-    by apply: asim_let; auto => x; exact: (proj1 (IHb x top (Hb x))).
-  split.
-    by apply: act_let; auto => x; exact: (proj1 (proj2 (IHb x top (Hb x)))).
-  move=> Et; apply: psim_let; [exact: Hf | exact: Ha | exact: (Hst Et) | |].
-    by move=> a0 i0 y0 E; subst e; rewrite /= in He; congruence.
-  by move=> x; exact: (proj2 (proj2 (IHb x top (Hb x))) Et).
-- move=> x top _; split; first exact: asim_ret.
-  by split; [exact: act_ret | move=> _; exact: psim_ret].
-- move=> f x top _; split; first exact: afwd_op1.
-  split.
-    apply: asim_rev_bars; first exact: arev_op1.
-      by apply: straight_rev_bars.
-    by apply: straight_no_top.
-    by [].
-  split; first by apply: inplace_straight.
-  by split; [exact: act_op1 | split; [exact: owner_op1 |]].
-- move=> f x y top _; split; first exact: afwd_op2.
-  split.
-    apply: asim_rev_bars; first exact: arev_op2.
-      by apply: straight_rev_bars.
-    by apply: straight_no_top.
-    by [].
-  split; first by apply: inplace_straight.
-  by split; [exact: act_op2 | split; [exact: owner_op2 |]].
-- move=> x i top _; split; first exact: afwd_get.
-  split.
-    apply: asim_rev_bars; first exact: arev_get.
-      by apply: straight_rev_bars.
-    by apply: straight_no_top.
-    by [].
-  split; first by apply: inplace_straight.
-  by split; [exact: act_get | split; [exact: owner_get |]].
-- move=> x i y top /= Et; subst top; split; first exact: afwd_set.
-  split.
-    apply: asim_rev_bars; first exact: arev_set.
-      by apply: straight_rev_bars.
-    by apply: straight_no_top.
-    by [].
-  split; first by apply: inplace_straight.
-  by split; [exact: act_set | split; [exact: owner_set |]].
-- move=> c t IHt e IHe top [Ht He].
-  have [At [Ct Pt]] := IHt false Ht; have [Ae [Ce Pe]] := IHe false He.
-  split; first by apply: afwd_ite; auto.
-  split; first by apply: arev_ite; auto.
-  split; first exact: inplace_ite.
-  by split; [apply: act_ite; auto | split; [exact: owner_ite |]].
-- move=> lo hi b IHb top [Et Hb]; subst top.
-  have Hpb : forall x, psim_body cv (b x).
-    by move=> x; exact: (proj2 (proj2 (IHb x false (Hb x))) erefl).
-  split; first exact: afwd_map.
-  split; first by apply: arev_map => x; exact: (proj1 (IHb x false (Hb x))).
-  split; first exact: inplace_map.
-  have Ham : act_value (AMap lo hi b).
-    by apply: act_map => x; exact: (proj1 (proj2 (IHb x false (Hb x)))).
-  by split=> //; split=> //; apply: owner_map.
-move=> a lo hi init b IHb top [Et [[Hna Hb] | [Hq Hab]]]; subst top.
-(* a scalar fold *)
-  have Hpb : forall x y, psim_body cv (b x y).
-    by move=> x y; exact: (proj2 (proj2 (IHb x y false (Hb x y))) erefl).
-  have Hacb : forall x y, act_body (b x y).
-    by move=> x y; exact: (proj1 (proj2 (IHb x y false (Hb x y)))).
-  have Hsb : forall x y, asim_body cv (b x y).
-    by move=> x y; exact: (proj1 (IHb x y false (Hb x y))).
-  split; first exact: afwd_fold.
-  split; first exact: arev_fold.
-  split; first exact: inplace_fold.
-  split; first exact: act_fold.
-  by split; [exact: owner_fold |].
-(* a fold updating its array in place *)
-split; first exact: afwd_fold_inplace.
-split; first exact: arev_fold_inplace.
-split; first exact: inplace_fold_inplace.
-split; first exact: act_fold_inplace.
-by split; [exact: owner_fold_inplace |].
-Qed.
 
 End Foldy.

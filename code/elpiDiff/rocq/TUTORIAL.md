@@ -841,9 +841,10 @@ master body, and each comes with a theorem "every body of the class has an
 - `branchy top` (AdjointBranch.v): adds branches, maps and
   scalar folds. The flag `top` says whether we are at the top of the
   function, since maps and folds are only allowed there;
-- `foldy top` (AdjointFoldy.v, `asim_foldy`): adds folds that update an array
-  in place, whose step is an `abody`, that is, ops and reads ending with a
-  set (AdjointBranch.v);
+- `foldy top` (AdjointFoldy.v): adds folds that update an array in place,
+  whose step is an `abody`, that is, ops and reads ending with a set
+  (AdjointBranch.v). It is now a subclass of `nesty` (`foldy_nesty`), which
+  carries its theorem;
 - `nesty top` (AdjointNesty.v, `asim_nesty`): adds nests of any depth, an
   in-place fold whose step is an `nbody`, that is, ops and reads ending with
   a set, with an inner in-place fold on its state whose steps are again
@@ -894,7 +895,7 @@ AdjointCorrect.v):
 
 Inside loops and branches, the forward code is `prim`, which computes every
 let without recording anything. `psim_body` (AdjointBranch.v) is its
-simulation. You will see these names in the conclusions of `asim_foldy`
+simulation. You will see these names in the conclusions of `asim_branchy`
 and `asim_nesty`.
 
 ---
@@ -1131,7 +1132,7 @@ The proofs:
 - `AdjointCorrect.v`: pairing, contexts, `asim_body`, `asim_let`,
   operations, `asim_straight`.
 - `AdjointBranch.v`: branches, maps, scalar folds, the class `branchy`.
-- `AdjointFold.v`, `AdjointFoldy.v`: in-place folds, `asim_foldy`.
+- `AdjointFold.v`, `AdjointFoldy.v`: the pieces of in-place folds, `foldy`.
 - `AdjointNBody.v`, `AdjointNesty.v`: nests of in-place folds of any depth
   (milestone M5b), ending in `asim_nesty`.
 - `AdjointTop.v`: the top level, `adjoint_simulates_duals` and the four

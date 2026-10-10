@@ -1220,12 +1220,6 @@ Fixpoint abody (b : anf pv bare) : Prop :=
   | ARet _ => False
   end.
 
-Lemma abody_ibody st b : abody b -> ibody st b.
-Proof.
-elim: b => [a e b' IH | x] //=.
-by case: e => // *; auto.
-Qed.
-
 Lemma abody_straight b : abody b -> straight b.
 Proof.
 elim: b => [a e b' IH | x] //=.
@@ -1234,30 +1228,6 @@ case: e => // [? ? | ? ? ? | ? ? | ? ? ?] Hb; split=> // x.
 - exact/IH/Hb.
 - exact/IH/Hb.
 by rewrite (Hb x).
-Qed.
-
-Lemma abody_psim b : abody b -> psim_body b.
-Proof.
-elim: b => [a e b' IH | x] //=.
-case: e => // [? ? | ? ? ? | ? ? | ? ? ?] Hb.
-- apply: psim_let; [exact: afwd_op1 | exact: act_op1 | by [] | by [] |].
-  by move=> x; apply/IH/Hb.
-- apply: psim_let; [exact: afwd_op2 | exact: act_op2 | by [] | by [] |].
-  by move=> x; apply/IH/Hb.
-- apply: psim_let; [exact: afwd_get | exact: act_get | by [] | by [] |].
-  by move=> x; apply/IH/Hb.
-exact: psim_set_let.
-Qed.
-
-Lemma abody_act b : abody b -> act_body b.
-Proof.
-elim: b => [a e b' IH | x] //=.
-case: e => // [? ? | ? ? ? | ? ? | ? ? ?] Hb.
-- by apply: act_let; [exact: act_op1 | move=> x; apply/IH/Hb].
-- by apply: act_let; [exact: act_op2 | move=> x; apply/IH/Hb].
-- by apply: act_let; [exact: act_get | move=> x; apply/IH/Hb].
-apply: act_let; first exact: act_set.
-by move=> x; rewrite (Hb x); exact: act_ret.
 Qed.
 
 (* Its evaluation ends with the set: it has a set index. *)

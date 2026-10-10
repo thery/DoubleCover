@@ -1010,13 +1010,14 @@ they are now. See Key concepts for pairing, owners, contexts, frames,
 
 ### AdjointFold.v: folds updating an array in place (milestone M5)
 
-This file is being edited. It has no definitions, only lemmas in ssreflect
-style, in section `Fold` (variable `cv`):
-- on `abody` bodies: `records_in_abody`, `tail_index_abody`, `adj_replay_abody`, `adj_rev_bars_abody`, `abody_eval_array`;
+It has no definitions, only lemmas in ssreflect style, in section `Fold`
+(variable `cv`):
+- on `abody` bodies: `tail_index_abody`, `adj_replay_abody`, `adj_rev_bars_abody`, `abody_eval_array`;
 - on owners: `oset_oset`, `oset_in`, `oset_other`, `oset_mem`;
 - `fold_pushes_snoc`, `run_pop_at`;
-- `afwd_fold_inplace` (`asim_fwd` for an in-place fold);
-- `arev_fold_inplace` (`asim_rev` for an in-place fold), which currently ends with `Admitted`.
+- `afwd_fold_body` (`asim_fwd` for an in-place fold, for any class of steps).
+The two sweeps of an in-place fold are `afwd_fold_nbody` and `arev_fold_nbody`
+(AdjointNBody.v).
 
 ### AdjointNBody.v: in-place loops of any depth (milestone M5b)
 
