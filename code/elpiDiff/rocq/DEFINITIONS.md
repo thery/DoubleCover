@@ -1073,3 +1073,23 @@ defined at `x`, with value `v` and derivative `df`:
   produces a gradient `g`;
 - for every `dx`, `<df (seed dx), yb> = <seed dx, g>` (`dotl`);
 - in adjoint-value without an inout argument, `value_given` is `v`.
+
+### AdjointGood.v, AdjointGoodFwd.v, AdjointGoodRev.v: the scoping of the adjoint code (milestone M6)
+
+- `fscope L c wP pp rd sc wr`: the scope `sc` (and its writable part `wr`) holds the storage of every variable the code reads (`rd`), and the owner is writable.
+- `tape_fwd`, `tape_rev`: the tape of the owner is declared before its pushes and pops (at the top by the in-place fold itself, in a loop body by the enclosing loop).
+- `bars_ok`: the adjoint (bar) of every useful variable, and of the owner, is declared before it is incremented.
+- `fold_slive k e`: the `state_live` of a fold value, false otherwise.
+- `agood_prim`, `agood_value`: the forward code (`prim`, `fwd_value`) follows `good` from such a scope. `agood_body`, `agood_rev`: so does the code of `adj` and `rev_value`, its reverse part from any extension of the scope the forward part leaves (`rscope`), with no variable the reverse defines clashing with the forward ones (the numbers `F` of the forward part).
+- Theorems `agood_fwd` (AdjointGoodFwd.v) and `agood_adj` (AdjointGoodRev.v): for every body and value, by induction, with no body class.
+
+### AdjointExamples.v: the class premise is not vacuous
+
+- `nesty_args f`: the class premise of `adjoint_nesty_duals` for `f`, for every `x`, `dx`.
+- For nine programs (straight line, branch, map, scalar fold, in-place loop, nests of depth 2 and 3, steps returning their state), `<name>_wf` (well-formed, by `vm_compute`) and `<name>_nesty`.
+- `computed_init_not_nesty`: a gap being fixed, a fold whose initial value is computed by a let.
+
+### AdjointModeProof.v: `adjoint_mode_correct` from the simplified corollary
+
+- Section hypothesis `adjoint_simplified`: the simplified adjoint function computes the gradient (the conclusion of `adjoint_nesty_duals`, without the class premise, on `exec_dfunction reals (simplify ...)`).
+- `adjoint_mode_correct_from`: the statement of `adjoint_mode_correct` from it, with `eval_smooth_reals` and `out_dim_value`.

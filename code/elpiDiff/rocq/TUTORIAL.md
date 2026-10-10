@@ -220,18 +220,22 @@ selects the mode *adjoint-value*, which also gives back the value of `f`.
 
 The adjoint proof is built in milestones (README.md has the table):
 - **M1 to M5 are done.** They cover straight-line code, branches, maps,
-  scalar folds, folds that update an array in place, and nests of two such
-  folds. The results are the top-level corollaries `adjoint_straight_duals`,
-  `adjoint_branchy_duals`, `adjoint_foldy_duals` and `adjoint_nesty_duals`
-  (AdjointTop.v). They relate the adjoint code *before* `simplify` to the
-  dual-number evaluation of the source.
-- **M6 is partial.** `simplify_correct_tapes` (SimplifyCorrect.v) proves
-  that `simplify` is correct on code with tapes, under a scoping discipline
-  called `good`. The proof that the adjoint code is `good` remains to be
-  done.
-- **M7 is open.** It will assemble everything into `adjoint_mode_correct`.
-  It also needs every well-formed program to fall into one of the classes of
-  bodies the proofs handle (section 5.6).
+  scalar folds, and folds that update an array in place, nested to any
+  depth. The result is the top-level corollary `adjoint_nesty_duals`
+  (AdjointTop.v; `adjoint_straight_duals`, `adjoint_branchy_duals` and
+  `adjoint_foldy_duals` are its instances). It relates the adjoint code
+  *before* `simplify` to the dual-number evaluation of the source.
+  AdjointExamples.v checks that its class premise holds on real programs.
+- **M6 is nearly done.** `simplify_correct_tapes` (SimplifyCorrect.v)
+  proves that `simplify` is correct on code with tapes, under a scoping
+  discipline called `good`. `agood_fwd` and `agood_adj` (AdjointGoodFwd.v,
+  AdjointGoodRev.v) prove that the code `adj` generates follows it, for
+  every body. The top level, for the whole adjoint function, remains.
+- **M7 is in progress.** `adjoint_mode_correct_from` (AdjointModeProof.v)
+  derives the final statement from one hypothesis, the simplified
+  corollary; it remains to discharge it with M6 and the proof that every
+  well-formed program falls into the class of bodies the proofs handle
+  (section 5.6).
 
 ### What you have to trust
 
@@ -1137,7 +1141,13 @@ The proofs:
   (milestone M5b), ending in `asim_nesty`.
 - `AdjointTop.v`: the top level, `adjoint_simulates_duals` and the four
   corollaries.
+- `AdjointGood.v`, `AdjointGoodFwd.v`, `AdjointGoodRev.v`: the scoping
+  discipline of the adjoint code, and its proof for every body (M6).
 - `AdjointMode.v`: the statement of `adjoint_mode_correct` (`Admitted`).
+- `AdjointExamples.v`: real programs proved to be in the class of the
+  top-level corollary (the theorem is not vacuous).
+- `AdjointModeProof.v`: `adjoint_mode_correct` from the simplified
+  corollary (M7, in progress).
 
 ### Exploring interactively
 
