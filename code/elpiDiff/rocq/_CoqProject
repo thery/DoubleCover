@@ -42,10 +42,12 @@ AdjointFold.v
 AdjointFoldy.v
 AdjointNBody.v
 AdjointNesty.v
+AdjointClassify.v
 AdjointGood.v
 AdjointGoodFwd.v
 AdjointGoodRev.v
 AdjointTop.v
+AdjointWf.v
 AdjointMode.v
 AdjointExamples.v
 AdjointModeProof.v

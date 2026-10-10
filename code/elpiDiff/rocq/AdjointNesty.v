@@ -18,10 +18,14 @@ Section Nesty.
 Variable cv : bool.
 
 (* As foldy, with also, at the top, a fold updating its array in place
-   whose steps are the bodies of in-place loops of any depth (nbody). *)
+   whose steps are the bodies of in-place loops of any depth (nbody). A let
+   binds a variable of the type of its value (ptype): whether a fold carries
+   a real or updates an array in place is read from the type of its init. *)
 Fixpoint nesty (top : bool) (b : anf pv bare) : Prop :=
   match b with
-  | ALet _ e b' => nesty_value top e /\ forall x, nesty top (b' x)
+  | ALet _ e b' =>
+      nesty_value top e /\
+      forall x, Some (vty (pw x)) = ptype e -> nesty top (b' x)
   | ARet _ => True
   end
 with nesty_value (top : bool) (e : value pv bare) : Prop :=
@@ -54,12 +58,15 @@ apply: (anf_value_ind pv bare
 - move=> a e IHe b IHb top [He Hb].
   have [Hf [Hr [Hi [Ha [Ho Hst]]]]] := IHe top He.
   split.
-    by apply: asim_let; auto => x; exact: (proj1 (IHb x top (Hb x))).
+    apply: asim_let_typed; auto => x Hx.
+    exact: (proj1 (IHb x top (Hb x Hx))).
   split.
-    by apply: act_let; auto => x; exact: (proj1 (proj2 (IHb x top (Hb x)))).
-  move=> Et; apply: psim_let; [exact: Hf | exact: Ha | exact: (Hst Et) | |].
+    apply: act_let_typed; auto => x Hx.
+    exact: (proj1 (proj2 (IHb x top (Hb x Hx)))).
+  move=> Et; apply: psim_let_typed;
+    [exact: Hf | exact: Ha | exact: (Hst Et) | |].
     by move=> a0 i0 y0 E; subst e; rewrite /= in He; congruence.
-  by move=> x; exact: (proj2 (proj2 (IHb x top (Hb x))) Et).
+  by move=> x Hx; exact: (proj2 (proj2 (IHb x top (Hb x Hx))) Et).
 - move=> x top _; split; first exact: asim_ret.
   by split; [exact: act_ret | move=> _; exact: psim_ret].
 - move=> f x top _; split; first exact: afwd_op1.

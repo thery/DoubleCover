@@ -217,8 +217,12 @@ subst ty; split; first exact: atom_type k aP v H1 Hev.
 by move=> Hv; exact: atom_zero k aP v H1 Hv Hev.
 Qed.
 
-Lemma act_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
-  act_value eP -> (forall x, act_body (cP x)) -> act_body (ALet a eP cP).
+(* The let, its continuation active for the variables of the type of the
+   value only. *)
+Lemma act_let_typed a (eP : value pv bare) (cP : pv -> anf pv bare) :
+  act_value eP ->
+  (forall x, Some (vty (pw x)) = ptype eP -> act_body (cP x)) ->
+  act_body (ALet a eP cP).
 Proof.
 move=> IHa IHb L k wP pp [aA eA cA | ?] [aW eW cW | ?] [aD eD cD | ?] //= ty v.
 move=> [HeA HcA] [HeW HcW] [HeD HcD] HL Htc Hev.
@@ -234,9 +238,15 @@ have Hxs : static_ok (S k) x.
 have HL' : Forall (static_ok (S k)) (x :: L).
   apply: Forall_cons Hxs _; apply: Forall_impl HL => p Hp.
   by apply: static_mono Hp _; lia.
-exact: IHb x (x :: L) (S k) wP pp (cA (pa x)) (cW (pw x)) (cD (pd x)) ty v
+have Hxt : Some (vty (pw x)) = ptype eP.
+  by rewrite (ptype_ok _ _ _ _ _ _ _ _ HeW Hte).
+exact: IHb x Hxt (x :: L) (S k) wP pp (cA (pa x)) (cW (pw x)) (cD (pd x)) ty v
   (HcA x (pa x)) (HcW x (pw x)) (HcD x (pd x)) HL' Htc Hev.
 Qed.
+
+Lemma act_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
+  act_value eP -> (forall x, act_body (cP x)) -> act_body (ALet a eP cP).
+Proof. by move=> Ha Hb; apply: act_let_typed => // x _. Qed.
 
 Lemma act_ite (cP : atom pv) (tP eP : anf pv bare) :
   act_body tP -> act_body eP -> act_value (AIte cP tP eP).
@@ -835,9 +845,13 @@ apply: (a_store _ _ _ _ _ _ _ _ _ Hc p (H p erefl)).
 by rewrite /live_anf /= Nat.eqb_refl.
 Qed.
 
-Lemma psim_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
-  asim_fwd cv eP -> act_value eP -> (forall wP tail, storage wP tail eP = None) ->
-  (forall a0 i0 y0, eP <> ASet a0 i0 y0) -> (forall x, psim_body (cP x)) ->
+(* The let, its continuation simulated for the variables of the type of the
+   value only. *)
+Lemma psim_let_typed a (eP : value pv bare) (cP : pv -> anf pv bare) :
+  asim_fwd cv eP -> act_value eP ->
+  (forall wP tail, storage wP tail eP = None) ->
+  (forall a0 i0 y0, eP <> ASet a0 i0 y0) ->
+  (forall x, Some (vty (pw x)) = ptype eP -> psim_body (cP x)) ->
   psim_body (ALet a eP cP).
 Proof.
 move=> IHf IHa Hsn Hns IHb L k c s wP pp m m'.
@@ -977,7 +991,9 @@ have Htp1 : forall o, owner wP pp = Some o ->
   move=> o Ho /andP [Hm Ht].
   have [lt Hlt] := Htp0 o Ho (introT andP (conj Hm (tail_live_let _ _ _ _ Ht))).
   exact: (proj1 T1 _ _ Hlt).
-have IH := IHb x (x :: L) (S k) c1 se1 wP pp m m' (cA (pa x)) (cW (pw x))
+have Hxt : Some (vty (pw x)) = ptype eP.
+  by rewrite (ptype_ok _ _ _ _ _ _ _ _ HeW Hte).
+have IH := IHb x Hxt (x :: L) (S k) c1 se1 wP pp m m' (cA (pa x)) (cW (pw x))
   (cT (pt x)) (cD (pd x)) ty v (HcA x _) (HcW x _) (HcT x _) (HcD x _)
   Hc' Htc Hev Htp1.
 rewrite /x in IH; cbn [pt pa pd pw] in IH; rewrite -/rest Hob in IH.
@@ -1027,6 +1043,13 @@ have Hno := s_num _ _ _ _ _ _ _ Hs o HoL.
 apply: (proj2 T1); [by rewrite /stored /=; lia | by [] |].
 by move=> E; have := Hnotin o HoL; congruence.
 Qed.
+
+Lemma psim_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
+  asim_fwd cv eP -> act_value eP -> (forall wP tail, storage wP tail eP = None) ->
+  (forall a0 i0 y0, eP <> ASet a0 i0 y0) -> (forall x, psim_body (cP x)) ->
+  psim_body (ALet a eP cP).
+Proof. by move=> *; apply: psim_let_typed => // x _. Qed.
+
 
 (* The set that ends the body of an in-place loop: it updates the state in
    place, pushing the element it overwrites when the state is recorded. *)

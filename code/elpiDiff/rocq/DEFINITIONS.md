@@ -992,6 +992,7 @@ they are now. See Key concepts for pairing, owners, contexts, frames,
   - Section `NeedsLet`: `Let x := let_binder k eA`, with local tactics `needs_let_tac`, `split_reads`, `below_tac` for the lemmas on `needs` at a let;
   - Ltacs `none_case`, `fwd_intro`, `rev_intro`, `act_intro`, `fresh_case'`: proof automation.
 - `dvar_eq_dec_c` is a lemma: decidable equality of `dvar W`.
+- `ptype eP`: the type of a value read through the types of its atoms (`WellFormed.type_of` on the `pv` instance); `ptype_ok`: a well-typed value has it. `asim_let_typed` (and `act_let_typed`, `psim_let_typed` in AdjointBranch.v): the let, its continuation simulated only for the binders of that type; `asim_let`, `act_let`, `psim_let` are their instances. The class `nesty` (AdjointNesty.v) quantifies its lets over those binders only: a fold on a computed init is then scalar.
 
 ### AdjointBranch.v: branches, maps and scalar folds (milestone M2)
 
@@ -1087,7 +1088,20 @@ defined at `x`, with value `v` and derivative `df`:
 
 - `nesty_args f`: the class premise of `adjoint_nesty_duals` for `f`, for every `x`, `dx`.
 - For nine programs (straight line, branch, map, scalar fold, in-place loop, nests of depth 2 and 3, steps returning their state), `<name>_wf` (well-formed, by `vm_compute`) and `<name>_nesty`.
-- `computed_init_not_nesty`: a gap being fixed, a fold whose initial value is computed by a let.
+- `computed_init_nesty`: a fold whose initial value is computed by a let (the let binds a real, the type of its value).
+
+### AdjointClassify.v: every well-formed function is in `nesty`
+
+- `fpv k t`: a binder opened at identity `k`, of type `t`, not varied.
+- `hinv H L`, `htyped H`: `H` relates each variable of `L` to one variable of the target instance, of the same type.
+- `tc_op1` … `tc_fold`, `tc_nontail`: what `typecheck` says of each value.
+- `hret`: the arrays a step may not return (not read by the step, or arguments other than the written one).
+- `nbody_wf`, `nesty_false_wf`, `nesty_top_wf`: from `typecheck` on the `vinfo` instance, through a `pv` instance opened at fresh binders, the class of the target instance.
+- Theorem `well_formed_nesty`: a parametric, well-formed function has its opened body in `nesty`.
+
+### AdjointWf.v
+
+- Corollary `adjoint_wf_duals`: `adjoint_nesty_duals` without the class premise.
 
 ### AdjointModeProof.v: `adjoint_mode_correct` from the simplified corollary
 

@@ -1663,7 +1663,7 @@ apply: (anf_value_ind pv bare
   (fun b => forall top, foldy top b -> nesty top b)
   (fun e => forall top, foldy_value top e -> nesty_value top e)).
 - move=> a e IHe b IHb top [He Hb].
-  by split; [exact: (IHe top He) | move=> x; exact: (IHb x top (Hb x))].
+  by split; [exact: (IHe top He) | move=> x _; exact: (IHb x top (Hb x))].
 - by [].
 - by [].
 - by [].

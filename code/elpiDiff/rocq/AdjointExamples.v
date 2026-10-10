@@ -196,9 +196,9 @@ case: xs => [| x1 [| x2 [| ? ?]]] //= [_ _ <-] /=.
 by nesty_auto.
 Qed.
 
-(* A finding: a scalar fold whose init is computed by a let is well formed,
-   but not nesty. The class quantifies over every value of the let's binder,
-   an array among them, for which the fold is neither scalar nor in place.
+(* A scalar fold whose init is computed by a let: the let binds a real
+   (nesty quantifies over the binders of the type of the value only), so the
+   fold is scalar.
    T g(T c) { T s = c * c; for (i < 3) s = s * c; return s; } *)
 Definition computed_init_fn : function := Function_ "computed_init" (fun V =>
   Arg "c" Real Independent (fun x1 => Body (Returns Real)
@@ -208,17 +208,13 @@ Definition computed_init_fn : function := Function_ "computed_init" (fun V =>
 Lemma computed_init_wf : well_formed (normalize computed_init_fn) = Ok.
 Proof. by vm_compute. Qed.
 
-Lemma computed_init_not_nesty : ~ nesty_args computed_init_fn.
+Lemma computed_init_nesty : nesty_args computed_init_fn.
 Proof.
-move=> H.
-have := H [VReal 1%R] [1%R] _ _ _ erefl.
-rewrite /= => -[_ /(_ (PV (AV 5 false) (VInfo 5 (Array 1) None) dummy_tvar
-  (VInt 0) 5))] [[_ [[Hna _] | [_ Hb]]] _].
-  by apply: (Hna _ erefl).
-have := Hb (PV (AV 6 false) (VInfo 6 Integer None) dummy_tvar (VInt 0) 6)
-  (PV (AV 7 false) (VInfo 7 Real None) dummy_tvar (VInt 0) 7)
-  (PV (AV 8 false) (VInfo 8 Real None) dummy_tvar (VInt 0) 8).
-by move=> /(f_equal pn).
+move=> x dx L res bP; move: (seed_args _ x dx) => xs.
+case: xs => [| x1 [| ? ?]] //= [_ _ <-] /=.
+split=> // y Hy; split; last by [].
+split=> //; left; split; last by nesty_auto.
+by move=> p [<-]; move: Hy => /= -[->].
 Qed.
 
 (* All the functions of the reference cases (~/claudeExp/elpi/cases) that the

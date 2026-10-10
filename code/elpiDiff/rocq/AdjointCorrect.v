@@ -2905,8 +2905,74 @@ case: o => [w |]; last by right.
 by case: (dvar_eq_dec_c w v) => [-> | H]; [left | right=> - [E]].
 Qed.
 
-Lemma asim_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
-  asim_fwd eP -> asim_rev eP -> inplace_only eP -> act_value eP -> act_owner eP -> (forall x, asim_body (cP x)) ->
+(* The type of a value, read through the typing information of its atoms: the
+   type well-formedness gives the variable it binds (WellFormed.type_of). *)
+Definition ptype (eP : value pv bare) : option ty :=
+  match eP with
+  | AOp1 f a =>
+      match operation1 f with
+      | Some (ta, t, _) =>
+          if ty_eqb (of_atom (amap pw a)) ta then Some t else None
+      | None => None
+      end
+  | AOp2 f a b =>
+      match operation2_typed f (of_atom (amap pw a)) (of_atom (amap pw b)) with
+      | Some (t, _) => Some t
+      | None => None
+      end
+  | AGet _ _ => Some Real
+  | ASet a _ _ => Some (of_atom (amap pw a))
+  | AIte _ _ _ => Some Real
+  | AMap (ANat l) (ANat h) _ => Some (Array (h - l))
+  | AMap _ _ _ => None
+  | AFold _ _ _ init _ => Some (of_atom (amap pw init))
+  end.
+
+(* A well-typed value has the type ptype gives. *)
+Lemma ptype_ok L wW pW tail k (eP : value pv bare) eW te :
+  value_eq (gW L) eP eW -> typecheck_value wW pW tail k eW = (te, Ok) ->
+  ptype eP = Some te.
+Proof.
+case: eP eW => [f a | f a b | a i | a i v | c t e | lo hi b | an lo hi i b]
+  [fW aW | fW aW bW | aW iW | aW iW vW | cW tW eW | loW hiW bW
+  | anW loW hiW iW bW] //=.
+- move=> [<- /atom_graph [-> _]].
+  case: (operation1 f) => [[[ta t0] ?] |] //.
+  by case: (ty_eqb _ _) => // -[->].
+- move=> [<- [/atom_graph [-> _] /atom_graph [-> _]]].
+  case: (operation2 f) => [? |] //.
+  by case: (operation2_typed _ _ _) => [[t0 ?] |] // -[->].
+- by move=> _; case: (_ && _) => -[<-].
+- move=> [/atom_graph [-> _] _].
+  case: pW => [| | | idx st] //=; case: (of_atom (amap pw a)) => // n.
+  by case: (_ && _) => // -[<-].
+- by move=> _; case: pW => //; case: (ty_eqb _ _) => //;
+    case: (typecheck _ _ _ tW) => t1 d1; case: (typecheck _ _ _ eW) => t2 d2;
+    case: (is_ok d1); case: (is_ok d2); case: (_ && _) => // -[<-].
+- move=> [/atom_graph [-> _] [/atom_graph [-> _] _]].
+  case: pW => //; case: tail => //; case: lo => // l; case: hi => // h E.
+  have /= <- := f_equal fst E.
+  by repeat match goal with
+    |- context [match ?x with _ => _ end] => destruct x end.
+move=> [_ [_ [/atom_graph [-> _] _]]] /=.
+case: (_ && _); last by case.
+case Er: (ty_eqb _ Real).
+  move/ty_eqb_true: Er => ->.
+  by repeat match goal with
+    |- context [match ?x with _ => _ end] => destruct x end;
+    case=> <-.
+case: (of_atom (amap pw i)) => [| | | n]; [by case | by case | by case |].
+by repeat match goal with
+  |- context [match ?x with _ => _ end] => destruct x end;
+  case=> <-.
+Qed.
+
+(* The let, its continuation simulated for the variables of the type of the
+   value only. *)
+Lemma asim_let_typed a (eP : value pv bare) (cP : pv -> anf pv bare) :
+  asim_fwd eP -> asim_rev eP -> inplace_only eP -> act_value eP ->
+  act_owner eP ->
+  (forall x, Some (vty (pw x)) = ptype eP -> asim_body (cP x)) ->
   asim_body (ALet a eP cP).
 Proof.
 move=> IHf IHr IHi IHa IHo IHb L k c s wP pp m bA bW bT bD ty v se vo
@@ -3344,7 +3410,9 @@ have Hvb' : m = Forward -> forall t, vo_target vo = Some t ->
     below (S c) t /\ consistent t /\ is_primal t.
   move=> Hm t0 Ht0; have [H1 H2] := Hvb Hm t0 Ht0.
   by split=> //; exact: (below_mono c (S c) t0 H1 (Nat.le_succ_diag_r c)).
-have IH := IHb x (x :: L) (S k) (S c) se1 wP pp m (cA (pa x)) (cW (pw x))
+have Hxt : Some (vty (pw x)) = ptype eP.
+  by rewrite (ptype_ok _ _ _ _ _ _ _ _ HeW Hte).
+have IH := IHb x Hxt (x :: L) (S k) (S c) se1 wP pp m (cA (pa x)) (cW (pw x))
   (cT (pt x)) (cD (pd x)) ty v se vo (HcA x _) (HcW x _) (HcT x _) (HcD x _)
   Hc' Hty Htc Hev Hvo Hvt' Hvb' Hrpl Hvi.
 rewrite /x in IH; cbn [pt pa pd pw] in IH; rewrite -/rest Hb in IH.
@@ -3688,6 +3756,12 @@ have [r' Er'] := cont_ret_DA L x cP cA cD (HcA x _) (HcD x _)
   (ex_intro _ r Er).
 by move: Ets; rewrite /x /= in Er'; rewrite Er'.
 Qed.
+
+Lemma asim_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
+  asim_fwd eP -> asim_rev eP -> inplace_only eP -> act_value eP -> act_owner eP -> (forall x, asim_body (cP x)) ->
+  asim_body (ALet a eP cP).
+Proof. by move=> *; apply: asim_let_typed => // x _. Qed.
+
 
 (* ---------------------------------------------------------------------------
    Straight-line bodies: the lets bind operations, reads and updates of
