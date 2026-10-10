@@ -9,9 +9,9 @@
    the same variables, or removes a definition no later statement reads; this
    holds on the programs whose variables follow the discipline `good` of
    Scoping.v (a variable read is in scope, a variable assigned is writable, a
-   variable defined is new), and that use no tape: a push or a pop on a
-   variable that simplify turns into a constant would escape the discipline
-   (`writes` does not see them). The tangent programs use no tape.
+   variable defined is new); a tape is a writable variable, which a push or a
+   pop writes (`writes` sees them), so simplify never turns it into a
+   constant.
 
    The theorem is a refinement: when the program computes, its simplification
    computes the same parameters and the same returned value. The proof is a
@@ -308,8 +308,8 @@ by rewrite (IHa _ Ea) (IHb _ Eb).
 Qed.
 
 (* ---------------------------------------------------------------------------
-   The discipline of the variables, without tapes. `gd` is `good` (Scoping.v)
-   for a block that pushes and pops nothing: the tangent programs. *)
+   The discipline of the variables. `gd` is `good` (Scoping.v), with which
+   the proofs below were first written. *)
 
 Inductive gd : list (dvar W) -> list (dvar W) -> list (dstmt W) -> Prop :=
 | GdNil sc wr : gd sc wr []
@@ -335,6 +335,10 @@ Inductive gd : list (dvar W) -> list (dvar W) -> list (dstmt W) -> Prop :=
 | GdForBack sc wr i lo hi b r :
     ~ In i sc -> consistent i -> expr_ok sc lo -> expr_ok sc hi ->
     gd (i :: sc) wr b -> gd sc wr r -> gd sc wr (DForBack i lo hi b :: r)
+| GdPush sc wr t e r :
+    In t wr -> expr_ok sc e -> gd sc wr r -> gd sc wr (DPush t e :: r)
+| GdPop sc wr t l r :
+    In t wr -> lhs_ok sc wr l -> gd sc wr r -> gd sc wr (DPop t l :: r)
 | GdReturn sc wr e r :
     expr_ok sc e -> gd sc wr r -> gd sc wr (DReturn e :: r).
 
@@ -347,12 +351,9 @@ Fixpoint has_tape_op (s : dstmt W) : bool :=
   | _ => false
   end.
 
-(* A good block without tape operations follows gd. *)
-Lemma good_gd sc wr ss : good sc wr ss -> existsb has_tape_op ss = false -> gd sc wr ss.
-Proof.
-elim=> /= *; repeat match goal with H : _ || _ = false |- _ =>
-  case/orb_false_iff: H => ? ? end; try discriminate; econstructor; intuition.
-Qed.
+(* A good block follows gd. *)
+Lemma good_gd sc wr ss : good sc wr ss -> gd sc wr ss.
+Proof. by elim=> *; econstructor. Qed.
 
 (* The variables a block defines, and those it defines writable, in order. *)
 Fixpoint after_scope (sc : list (dvar W)) (ss : list (dstmt W)) : list (dvar W) :=
@@ -604,6 +605,48 @@ Lemma exec_return s e :
   match xeval reals s (oute e) with Some w => Some (store_set s Returned w) | None => None end.
 Proof. by []. Qed.
 
+Lemma exec_push s t e :
+  exec reals (outs (DPush t e)) s =
+  match xeval reals s (oute e), store_get s (KVar (out t)) with
+  | Some (VReal x), Some (VTape l) =>
+      Some (store_set s (KVar (out t)) (VTape (x :: l)))
+  | _, _ => None
+  end.
+Proof. by []. Qed.
+
+Lemma exec_pop s t l :
+  exec reals (outs (DPop t l)) s =
+  match store_get s (KVar (out t)) with
+  | Some (VTape (x :: xs)) =>
+      assign reals (store_set s (KVar (out t)) (VTape xs)) (oute l) (VReal x)
+  | _ => None
+  end.
+Proof. by []. Qed.
+
+(* A push or a pop in scope, from agreeing stores, leaves agreeing
+   stores. *)
+Lemma push_agree sc wr t e s s' u :
+  incl wr sc -> In t wr -> expr_ok sc e -> agree sc s s' ->
+  exec reals (outs (DPush t e)) s = Some u ->
+  exists u', exec reals (outs (DPush t e)) s' = Some u' /\ agree sc u u'.
+Proof.
+move=> Hi Ht He Hag; rewrite !exec_push -(xeval_agree _ _ _ _ He Hag).
+rewrite -(proj1 Hag t (Hi _ Ht)).
+case: (xeval reals s (oute e)) => [[x | | | |] |] //.
+case: (store_get s (KVar (out t))) => [[| | | | l] |] // [<-].
+by eexists; split; [reflexivity | exact: agree_set].
+Qed.
+
+Lemma pop_agree sc wr t l s s' u :
+  incl wr sc -> In t wr -> lhs_ok sc wr l -> agree sc s s' ->
+  exec reals (outs (DPop t l)) s = Some u ->
+  exists u', exec reals (outs (DPop t l)) s' = Some u' /\ agree sc u u'.
+Proof.
+move=> Hi Ht Hl Hag; rewrite !exec_pop -(proj1 Hag t (Hi _ Ht)).
+case: (store_get s (KVar (out t))) => [[| | | | [| x xs]] |] // E.
+exact: (assign_agree _ _ _ _ _ _ _ Hi Hl (agree_set _ _ _ _ _ Hag) E).
+Qed.
+
 (* ---------------------------------------------------------------------------
    Loops: a relation between two stores, kept by the body when the index is
    set to the same value on both sides, is kept by the loop. *)
@@ -655,6 +698,7 @@ elim=> {sc wr ss} [sc wr | sc wr ty v e r He Hv Hcv Hr IH
        | sc wr l e r Hl He Hr IH | sc wr c t e r Hc Ht IHt He IHe Hr IH
        | sc wr i lo hi b r Hi Hci Hlo Hhi Hb IHb Hr IH
        | sc wr i lo hi b r Hi Hci Hlo Hhi Hb IHb Hr IH
+       | sc wr tp e r Htp He Hr IH | sc wr tp l r Htp Hl Hr IH
        | sc wr e r He Hr IH] Hwr s s' t0 Hag Hex;
   rewrite ?ex_cons in Hex *; rewrite [after_scope _ _]/=.
 - by case: Hex => <-; exists s'.
@@ -719,6 +763,12 @@ elim=> {sc wr ss} [sc wr | sc wr ty v e r He Hv Hcv Hr IH
       (fun y Hy => after_scope_incl _ _ _ (in_cons _ _ _ Hy)) Hv').
   have [s1' [-> Hag1]] := exec_down_sim (agree sc) (agree (i :: sc)) (ex b)
     (ex b) (out i) (agree_index sc i) Hbody _ _ _ _ _ Hag E.
+  exact: IH Hwr _ _ _ Hag1 Hex.
+- case E: (exec reals (outs (DPush tp e)) s) Hex => [s1 |] // Hex.
+  have [s1' [-> Hag1]] := push_agree _ _ _ _ _ _ _ Hwr Htp He Hag E.
+  exact: IH Hwr _ _ _ Hag1 Hex.
+- case E: (exec reals (outs (DPop tp l)) s) Hex => [s1 |] // Hex.
+  have [s1' [-> Hag1]] := pop_agree _ _ _ _ _ _ _ Hwr Htp Hl Hag E.
   exact: IH Hwr _ _ _ Hag1 Hex.
 rewrite !exec_return in Hex *; rewrite -(xeval_agree _ _ _ _ He Hag).
 case: (xeval reals s (oute e)) Hex => // w Hex.
@@ -787,6 +837,7 @@ Lemma gd_mono sc1 wr1 ss :
   gd sc1 wr1 ss -> forall sc2 wr2, incl sc1 sc2 -> incl sc2 sc1 -> incl wr1 wr2 -> gd sc2 wr2 ss.
 Proof.
 induction 1; move=> sc2 wr2 H12 H21 Hw; econstructor;
+  try (by apply: Hw);
   try (eapply expr_ok_incl; eassumption);
   try (eapply lhs_ok_incl; eassumption);
   try (move=> Hin; apply H21 in Hin; contradiction);
@@ -837,6 +888,7 @@ elim=> {sc1 wr1 ss} [sc wr | sc wr ty x e r He Hx Hcx Hr IH
        | sc wr l e r Hl He Hr IH | sc wr c t e r Hc Ht IHt He IHe Hr IH
        | sc wr i lo hi b r Hi Hci Hlo Hhi Hb IHb Hr IH
        | sc wr i lo hi b r Hi Hci Hlo Hhi Hb IHb Hr IH
+       | sc wr tp e r Htp He Hr IH | sc wr tp l r Htp Hl Hr IH
        | sc wr e r He Hr IH] /= Hm sc2 wr2 Hs Hw Hsub.
 - exact: GdNil.
 - move: Hm => /orb_false_iff [/orb_false_iff [_ He'] Hr'].
@@ -883,6 +935,16 @@ elim=> {sc1 wr1 ss} [sc wr | sc wr ty x e r He Hx Hcx Hr IH
   - exact: expr_ok_remove Hhi Hhi' Hs.
   - exact: IHb Hb' _ _ (Hext _ _ _ Hs) Hw (incl_both _ _ _ Hsub).
   exact: IH.
+- move: Hm => /orb_false_iff
+    [/orb_false_iff [/dvar_eq_false_neq Ht' He'] Hr'].
+  apply: GdPush; last exact: IH.
+    exact: Hw _ Ht' Htp.
+  exact: expr_ok_remove He He' Hs.
+- move: Hm => /orb_false_iff
+    [/orb_false_iff [/dvar_eq_false_neq Ht' Hl'] Hr'].
+  apply: GdPop; last exact: IH.
+    exact: Hw _ Ht' Htp.
+  exact: lhs_ok_remove Hl Hl' Hs Hw.
 move: Hm => /orb_false_iff [He' Hr'].
 apply: GdReturn; last exact: IH.
 exact: expr_ok_remove He He' Hs.
@@ -912,6 +974,7 @@ elim=> {sc wr1 ss} [sc wr | sc wr ty x e r He Hx Hcx Hr IH
        | sc wr l e r Hl He Hr IH | sc wr c t e r Hc Ht IHt He IHe Hr IH
        | sc wr i lo hi b r Hi Hci Hlo Hhi Hb IHb Hr IH
        | sc wr i lo hi b r Hi Hci Hlo Hhi Hb IHb Hr IH
+       | sc wr tp e r Htp He Hr IH | sc wr tp l r Htp Hl Hr IH
        | sc wr e r He Hr IH] /= Hm wr2 Hw.
 - exact: GdNil.
 - by apply: GdConstant => //; exact: IH.
@@ -928,6 +991,10 @@ elim=> {sc wr1 ss} [sc wr | sc wr ty x e r He Hx Hcx Hr IH
   by apply: GdFor => //; [exact: IHb | exact: IH].
 - move: Hm => /orb_false_iff [Hb' Hm].
   by apply: GdForBack => //; [exact: IHb | exact: IH].
+- move: Hm => /orb_false_iff [/dvar_eq_false_neq Ht' Hm].
+  by apply: GdPush => //; [exact: Hw | exact: IH].
+- move: Hm => /orb_false_iff [/orb_false_iff [/dvar_eq_false_neq Ht' Hl'] Hm].
+  apply: GdPop; [exact: Hw | exact: lhs_ok_drop_wr Hl Hl' Hw | exact: IH].
 by apply: GdReturn => //; exact: IH.
 Qed.
 
@@ -987,6 +1054,7 @@ elim=> {sc wr ss} [sc wr | sc wr ty x e r He Hx Hcx Hr IH
        | sc wr l e r Hl He Hr IH | sc wr c t e r Hc Ht IHt He IHe Hr IH
        | sc wr i lo hi b r Hi Hci Hlo Hhi Hb IHb Hr IH
        | sc wr i lo hi b r Hi Hci Hlo Hhi Hb IHb Hr IH
+       | sc wr tp e r Htp He Hr IH | sc wr tp l r Htp Hl Hr IH
        | sc wr e r He Hr IH] Hwr Hcs Hv /= Hm s t0;
   rewrite ?ex_cons.
 - by move=> [<-].
@@ -1066,6 +1134,31 @@ elim=> {sc wr ss} [sc wr | sc wr ty x e r He Hx Hcx Hr IH
     move=> u u' Hu Hb'; rewrite /P -Hu.
     exact: IHb (incl_tl _ Hwr) (Forall_cons _ Hci Hcs) Hv Hbm _ _ Hb'.
   exact: (exec_down_inv P (ex b) (out i) Hset Hbody _ _ _ _ erefl E).
+(* a push writes its tape, other than v *)
+- move: Hm => /orb_false_iff [/orb_false_iff [Htv _] Hm].
+  have Hct : consistent tp by move/Forall_forall: Hcs; apply; exact: Hwr.
+  have Htk : KVar (out tp) <> KVar (out v).
+    by apply: key_neq => //; exact: dvar_eq_false_neq.
+  rewrite exec_push.
+  case: (xeval reals s (oute e)) => [[x | | | |] |] //.
+  case: (store_get s (KVar (out tp))) => [[| | | | l] |] // Hex.
+  by rewrite (IH Hwr Hcs Hv Hm _ _ Hex) get_set_other.
+(* a pop writes its tape and its location, both other than v *)
+- move: Hm => /orb_false_iff [/orb_false_iff [Htv Hlv] Hm].
+  have Hct : consistent tp by move/Forall_forall: Hcs; apply; exact: Hwr.
+  have Htk : KVar (out tp) <> KVar (out v).
+    by apply: key_neq => //; exact: dvar_eq_false_neq.
+  rewrite exec_pop.
+  case: (store_get s (KVar (out tp))) => [[| | | | [| x xs]] |] //.
+  case E: (assign reals _ (oute l) (VReal x)) => [s1 |] // Hex.
+  rewrite (IH Hwr Hcs Hv Hm _ _ Hex).
+  have [y [w' [Hy ->]]] := assign_set _ _ _ _ E.
+  have [z [Hz [Hy' Hzv]]] := lhs_var_out _ _ _ Hl.
+  rewrite Hy in Hy'; case: Hy' => Ezy; subst y.
+  rewrite get_set_other ?get_set_other //.
+  apply: key_neq => //.
+    by move/Forall_forall: Hcs; apply; exact: Hwr.
+  exact: dvar_eq_false_neq (Hzv _ Hlv).
 move: Hm => /orb_false_iff [_ Hm].
 rewrite exec_return; case: (xeval reals s (oute e)) => // w Hex.
 by rewrite (IH Hwr Hcs Hv Hm _ _ Hex) get_set_other.
@@ -1137,6 +1230,7 @@ elim=> {sc wr ss} [sc wr | sc wr ty v e r He Hv Hcv Hr IH
        | sc wr l e r Hl He Hr IH | sc wr c t e r Hc Ht IHt He IHe Hr IH
        | sc wr i lo hi b r Hi Hci Hlo Hhi Hb IHb Hr IH
        | sc wr i lo hi b r Hi Hci Hlo Hhi Hb IHb Hr IH
+       | sc wr tp e r Htp He Hr IH | sc wr tp l r Htp Hl Hr IH
        | sc wr e r He Hr IH] Hwr Hcs; cbn [map].
 - by split=> [| s s' t Hag [<-]]; [exact: GdNil | exists s'].
 - have [Hg' Hs'] := IH (incl_tl _ Hwr) (Forall_cons _ Hcv Hcs).
@@ -1229,6 +1323,24 @@ elim=> {sc wr ss} [sc wr | sc wr ty v e r He Hv Hcv Hr IH
   move=> u u' v Hu Hv; have [v' [Hv' Ha']] := Hsb _ _ _ Hu Hv.
   exists v'; split=> //.
   exact: (agree_incl _ _ _ _ (incl_tl _ (incl_refl _)) Ha').
+- have [Hg' Hs'] := IH Hwr Hcs.
+  split; first by apply: GdPush => //; exact: expr_ok_simplify.
+  apply: (sim_cons _ sc) Hs'; first exact: incl_refl.
+  move=> s s' t0 Hag; cbn [simplify_stmt] => H.
+  have H' : exec reals (outs (DPush tp (simplify_expr nat e))) s = Some t0.
+    move: H; rewrite !exec_push.
+    case E: (xeval reals s (oute e)) => [w |] //.
+    by rewrite (xeval_simplify _ _ _ E).
+  exact: push_agree Hwr Htp (expr_ok_simplify _ _ He) Hag H'.
+- have [Hg' Hs'] := IH Hwr Hcs.
+  split; first by apply: GdPop => //; exact: lhs_ok_simplify.
+  apply: (sim_cons _ sc) Hs'; first exact: incl_refl.
+  move=> s s' t0 Hag; cbn [simplify_stmt] => H.
+  have H' : exec reals (outs (DPop tp (simplify_expr nat l))) s = Some t0.
+    move: H; rewrite !exec_pop.
+    case: (store_get s (KVar (out tp))) => [[| | | | [| x xs]] |] //.
+    exact: assign_simplify Hl.
+  exact: pop_agree Hwr Htp (lhs_ok_simplify _ _ _ Hl) Hag H'.
 have [Hg' Hs'] := IH Hwr Hcs.
 split; first by apply: GdReturn => //; exact: expr_ok_simplify.
 apply: (sim_cons _ sc) Hs'; first exact: incl_refl.
@@ -1257,7 +1369,7 @@ Lemma sim_zero_increment sc wr l r r' :
   sim sc (DIncrement l (DReal "0") :: r) r'.
 Proof.
 move=> Hg Hr s s' t Hag.
-inversion Hg as [| | | | | | ? ? ? ? ? Hl | | | |]; subst.
+inversion Hg as [| | | | | | ? ? ? ? ? Hl | | | | | |]; subst.
 rewrite ex_cons exec_increment; cbn [out_dexpr].
 rewrite (xeval_real s "0" 0 lit_0).
 case El: (xeval reals s (oute l)) => [[a | | | |] |] //.
@@ -1341,9 +1453,9 @@ Lemma fuse_fused sc wr v before x e after so :
          (before ++ DDefine so v e :: after).
 Proof.
 move=> Hg Hwr Hcs Hb Hx He Hso.
-inversion Hg as [| | ? ? ? ? ? He0 Hv Hcv Hrest | | | | | | | |]; subst.
+inversion Hg as [| | ? ? ? ? ? He0 Hv Hcv Hrest | | | | | | | | | |]; subst.
 have [Hbefore Hi] := gd_app_inv _ _ _ _ Hrest.
-inversion Hi as [| | | | | | ? ? ? ? ? Hlx Hee Hafter | | | |]; subst.
+inversion Hi as [| | | | | | ? ? ? ? ? Hlx Hee Hafter | | | | | |]; subst.
 set SB := after_scope sc before; set WB := after_wr wr before.
 have Hcs' : Forall consistent (v :: sc) by constructor.
 have Hc_after : Forall consistent (after_scope (v :: sc) before).
@@ -1510,6 +1622,7 @@ elim=> {sc0 wr0 ss0} [sc wr | sc wr ty y e r He Hy Hcy Hr IH
        | sc wr lh e r Hl He Hr IH | sc wr c t e r Hc Ht IHt He IHe Hr IH
        | sc wr i lo hi b r Hi Hci Hlo Hhi Hb IHb Hr IH
        | sc wr i lo hi b r Hi Hci Hlo Hhi Hb IHb Hr IH
+       | sc wr tp e r Htp He Hr IH | sc wr tp lh r Htp Hl Hr IH
        | sc wr e r He Hr IH] Hcs Hvs Hv Hwr sc2 Hs Hb21; cbn [map].
 - exact: GdNil.
 - apply: GdConstant => //; first exact: expr_ok_replace He Hs.
@@ -1557,6 +1670,9 @@ elim=> {sc0 wr0 ss0} [sc wr | sc wr ty y e r He Hy Hcy Hr IH
       by constructor.
     by right.
   exact: IH.
+- apply: GdPush; [exact: Htp | exact: expr_ok_replace He Hs | exact: IH].
+- apply: GdPop; [exact: Htp | exact: lhs_ok_replace Hl Hwr Hcs Hv Hs
+                | exact: IH].
 apply: GdReturn; last exact: IH.
 exact: expr_ok_replace He Hs.
 Qed.
@@ -1611,6 +1727,7 @@ elim=> {sc0 wr0 ss0} [sc wr | sc wr ty y e r He Hy Hcy Hr IH
        | sc wr lh e r Hl He Hr IH | sc wr c t e r Hc Ht IHt He IHe Hr IH
        | sc wr i lo hi b r Hi Hci Hlo Hhi Hb IHb Hr IH
        | sc wr i lo hi b r Hi Hci Hlo Hhi Hb IHb Hr IH
+       | sc wr tp e r Htp He Hr IH | sc wr tp lh r Htp Hl Hr IH
        | sc wr e r He Hr IH] Hwr Hcs Hvs Hv s s' t0 Hag Hx H;
   cbn [map after_scope]; rewrite ?ex_cons in H *; cbn [replace_stmt].
 - by case: H => <-; exists s'.
@@ -1707,6 +1824,26 @@ elim=> {sc0 wr0 ss0} [sc wr | sc wr ty y e r He Hy Hcy Hr IH
   have [s1' [-> [Hag1 Hx1]]] := exec_down_sim Rin Rb (ex b) (ex (map rs b))
     (out i) Hset Hbody _ _ _ _ _ (conj Hag Hx) E.
   exact: (IH Hwr Hcs Hvs Hv _ _ _ Hag1 Hx1 H).
+- rewrite !exec_push in H *; rewrite -(xeval_replace _ _ _ _ He Hcs Hag Hx).
+  have Htv : tp <> v by move=> E; subst tp; case: (Hv Htp).
+  have Hct : consistent tp by move/Forall_forall: Hcs; apply; exact: Hwr.
+  rewrite -(proj1 Hag tp (Hwr _ Htp) Htv).
+  case: (xeval reals s (oute e)) H => [[y | | | |] |] //.
+  case: (store_get s (KVar (out tp))) => [[| | | | l0] |] // H.
+  apply: (IH Hwr Hcs Hvs Hv _ _ _ (agree_ex_set _ _ _ _ _ _ Hag) _ H).
+  by rewrite get_set_other //; apply: key_neq.
+- rewrite !exec_pop in H *.
+  have Htv : tp <> v by move=> E; subst tp; case: (Hv Htp).
+  have Hct : consistent tp by move/Forall_forall: Hcs; apply; exact: Hwr.
+  rewrite -(proj1 Hag tp (Hwr _ Htp) Htv).
+  case: (store_get s (KVar (out tp))) H => [[| | | | [| y ys]] |] //.
+  case E: (assign reals _ (oute lh) (VReal y)) => [s1 |] // H.
+  have Hx' : store_get (store_set s (KVar (out tp)) (VTape ys)) (KVar (out v))
+      = Some (VReal x).
+    by rewrite get_set_other //; apply: key_neq.
+  have [s1' [-> [Hag1 Hx1]]] := assign_replace _ _ _ _ _ _ _ Hl Hwr Hcs Hv
+    (agree_ex_set _ _ _ _ _ _ Hag) Hx' E.
+  exact: (IH Hwr Hcs Hvs Hv _ _ _ Hag1 Hx1 H).
 rewrite !exec_return in H *; rewrite -(xeval_replace _ _ _ _ He Hcs Hag Hx).
 case: (xeval reals s (oute e)) H => [w |] // H.
 apply: (IH Hwr Hcs Hvs Hv _ _ _ (agree_ex_set _ _ _ _ _ _ Hag) _ H).
@@ -1730,7 +1867,7 @@ Lemma fuse_literal sc wr t v l r :
   sim sc (DDefine (DConstant t) v (DReal l) :: r) (map (replace_stmt nat v (DReal l)) r).
 Proof.
 move=> Hg Hwr Hcs.
-inversion Hg as [| ? ? ? ? ? ? He Hv Hcv Hr | | | | | | | | |]; subst.
+inversion Hg as [| ? ? ? ? ? ? He Hv Hcv Hr | | | | | | | | | | |]; subst.
 have Hvw : ~ In v wr by move/Hwr.
 split.
   apply: (gd_replace v l Hcv (v :: sc) wr r Hr (Forall_cons _ Hcv Hcs)
@@ -1787,7 +1924,7 @@ Proof.
 move=> HC Hg Hwr Hcs r'; rewrite /r'.
 case Em: (existsb (mentions nat v) r) => /=.
   exact: (fuse_keep _ _ _ _ _ HC Hg Hwr Hcs).
-inversion Hg as [| | ? ? ? ? ? He Hv Hcv Hr | | | | | | | |]; subst.
+inversion Hg as [| | ? ? ? ? ? He Hv Hcv Hr | | | | | | | | | |]; subst.
 have Hr' : gd sc wr r.
   apply: (gd_remove _ _ _ v Hr Em).
   - by move=> y Hy [Eyv | Hin] //; case: Hy.
@@ -1808,7 +1945,7 @@ Proof.
 move=> HC Hg Hwr Hcs r' res; rewrite /res /r'.
 case Em: (existsb (mentions nat v) (fuse nat n r)).
   exact: (fuse_keep _ _ _ _ _ HC Hg Hwr Hcs).
-inversion Hg as [| ? ? ? ? ? ? He Hv Hcv Hr | | | | | | | | |]; subst.
+inversion Hg as [| ? ? ? ? ? ? He Hv Hcv Hr | | | | | | | | | | |]; subst.
 have [Hg' Hs'] := HC _ _ _ Hr (incl_tl _ Hwr) (Forall_cons _ Hcv Hcs).
 have Hg'' : gd sc wr (fuse nat n r).
   apply: (gd_remove _ _ _ v Hg' Em).
@@ -1856,7 +1993,7 @@ case: st Hg => [[t |] v e | v | v | l e | l e | c t e | i lo hi b | i lo hi b
 (* an accumulation *)
 case E0: (is_lit nat "0" e); last exact: (fuse_keep _ _ _ _ _ HC Hg Hwr Hcs).
 move/is_lit_eq: E0 => E0; subst e.
-inversion Hg as [| | | | | | ? ? ? ? ? Hl He Hr | | | |]; subst.
+inversion Hg as [| | | | | | ? ? ? ? ? Hl He Hr | | | | | |]; subst.
 have [Hg' Hs'] := HC _ _ _ Hr Hwr Hcs.
 by split=> //; exact: (sim_zero_increment _ _ _ _ _ Hg Hs').
 Qed.
@@ -1926,12 +2063,36 @@ Qed.
 (* The correctness of simplify: it preserves what a function
    computes over the reals. Let the body of g, opened with the pairs (k, k),
    be ps (the parameters) and ss (the statements); when ss follows the
-   discipline of the variables (`good`, the parameters in scope and writable)
-   and pushes and pops no tape, and the body run on args gives res, the
-   simplified function run on args gives res: the same final parameters and
-   the same returned value. Each rewrite of simplify is a real identity, a
-   reordering of statements on different variables, or the removal of a
-   definition that is no longer read (the simulation above). *)
+   discipline of the variables (`good`, the parameters in scope and writable),
+   and the body run on args gives res, the simplified function run on args
+   gives res: the same final parameters and the same returned value. Each
+   rewrite of simplify is a real identity, a reordering of statements on
+   different variables, or the removal of a definition that is no longer read
+   (the simulation above); the tapes are writable variables, pushed and
+   popped as any other. *)
+Theorem simplify_correct_tapes (g : dfunction) (args : list (val R))
+  r ps ss k res :
+  open_pairs (dfbody g W) 0 = (DBody r ps ss, k) ->
+  Forall consistent (params ps) ->
+  good (params ps) (params ps) ss ->
+  exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map outs ss)))
+    0 args = Some res ->
+  exec_dfunction reals (simplify g) args = Some res.
+Proof.
+move=> Hopen Hc Hg H.
+rewrite /exec_dfunction /simplify; cbn [dfbody].
+rewrite exec_simplify_scoped.
+change (open_pairs (dfbody g (nat * nat)) 0)
+  with (open_pairs (dfbody g W) 0).
+rewrite Hopen; cbn [fst].
+apply: (exec_done_sim r ps ss) H => s0 s1 E.
+have [_ Hs] := proj1 (simplify_correct_fuel (fuel nat ss)) _ _ _
+  (good_gd _ _ _ Hg) (incl_refl _) Hc.
+exact: (Hs _ _ _ (agree_refl _ _) E).
+Qed.
+
+(* The same, for a program that pushes and pops no tape (the tangent
+   programs). *)
 Theorem simplify_correct (g : dfunction) (args : list (val R)) r ps ss k res :
   open_pairs (dfbody g W) 0 = (DBody r ps ss, k) ->
   Forall consistent (params ps) ->
@@ -1940,14 +2101,5 @@ Theorem simplify_correct (g : dfunction) (args : list (val R)) r ps ss k res :
   exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map outs ss))) 0 args = Some res ->
   exec_dfunction reals (simplify g) args = Some res.
 Proof.
-move=> Hopen Hc Hg Ht H.
-rewrite /exec_dfunction /simplify; cbn [dfbody].
-rewrite exec_simplify_scoped.
-change (open_pairs (dfbody g (nat * nat)) 0)
-  with (open_pairs (dfbody g W) 0).
-rewrite Hopen; cbn [fst].
-apply: (exec_done_sim r ps ss) H => s0 s1 E.
-have [_ Hs] := proj1 (simplify_correct_fuel (fuel nat ss)) _ _ _
-  (good_gd _ _ _ Hg Ht) (incl_refl _) Hc.
-exact: (Hs _ _ _ (agree_refl _ _) E).
+by move=> Hopen Hc Hg _; exact: simplify_correct_tapes Hopen Hc Hg.
 Qed.

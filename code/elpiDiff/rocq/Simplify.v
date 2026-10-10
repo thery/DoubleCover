@@ -87,7 +87,8 @@ Fixpoint mentions (v : dvar W) (s : dstmt W) : bool :=
   | DReturn e => mentions_expr v e
   end.
 
-(* writes V S: the statement S, or a block nested in it, assigns or accumulates into V. *)
+(* writes V S: the statement S, or a block nested in it, assigns or
+   accumulates into V, or pushes or pops the tape V. *)
 Fixpoint target (v : dvar W) (e : dexpr W) : bool :=
   match e with
   | DVar x => dvar_eq x v
@@ -99,7 +100,8 @@ Fixpoint writes (v : dvar W) (s : dstmt W) : bool :=
   match s with
   | DAssign a _ => target v a
   | DIncrement a _ => target v a
-  | DPop _ a => target v a
+  | DPush t _ => dvar_eq t v
+  | DPop t a => dvar_eq t v || target v a
   | DBranch _ t e => existsb (writes v) t || existsb (writes v) e
   | DFor _ _ _ b => existsb (writes v) b
   | DForBack _ _ _ b => existsb (writes v) b
