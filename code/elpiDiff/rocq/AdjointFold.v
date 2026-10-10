@@ -103,6 +103,17 @@ case: e Hab => [? ? | ? ? ? | ? ? | ? ? ? | ? ? ? | ? ? ? | ? ? ? ? ?] //= Hab;
 by rewrite Hab.
 Qed.
 
+(* A live fold has a live state or a live innermost fold. *)
+Lemma fold_live_split k init (b : avar -> avar -> anf avar bare) :
+  fold_live cv k init b = true ->
+  state_live cv k init b
+  || tail_live cv (S (S k)) (b (AV k false) (AV (S k) (fold_varied k init b)))
+  = true.
+Proof.
+rewrite /fold_live /tail_live /fold_binders.
+by case: (tail_fold_live _ _ _) => [l -> | ->] //; rewrite orb_true_r.
+Qed.
+
 (* Taking one more element of a list. *)
 Lemma firstn_S_nth {A} (d : A) (l : list A) m : (m < length l)%nat ->
   firstn (S m) l = firstn m l ++ [nth m l d].
@@ -505,11 +516,13 @@ Qed.
 (* The forward sweep of a fold updating an array in place: each step runs the
    body, whose set overwrites one element of the array, pushed on the tape
    first when the state is recorded. *)
-Lemma afwd_fold_inplace a (loP hiP initP : atom pv) (bP : pv -> pv -> anf pv bare) :
+Lemma afwd_fold_body a (loP hiP initP : atom pv)
+  (bP : pv -> pv -> anf pv bare) :
   (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
-  (forall x y, abody (bP x y)) -> asim_fwd cv (AFold a loP hiP initP bP).
+  (forall x y, psim_body cv (bP x y)) -> (forall x y, act_body (bP x y)) ->
+  (forall x y, ibody (bP x y)) -> asim_fwd cv (AFold a loP hiP initP bP).
 Proof.
-move=> [q [-> Hqa]] Hab L k c s wP pp tail eA eW eT eD te n ve ty m rec HA HW HT HD Hc Htc Htail [j [Ej Hj]] Hst Hrec Hev.
+move=> [q [-> Hqa]] Hpsb Hactb Hibb L k c s wP pp tail eA eW eT eD te n ve ty m rec HA HW HT HD Hc Htc Htail [j [Ej Hj]] Hst Hrec Hev.
 have HA0 := HA; have HW0 := HW; have HD0 := HD.
 destruct eA; try contradiction; destruct eW; try contradiction; destruct eT; try contradiction; destruct eD; try contradiction.
 rewrite /= in HA HW HT HD.
@@ -580,8 +593,14 @@ set vr := fold_varied k (AVar (pa q)) bA in Hob *.
 set live := state_live cv k (AVar (pa q)) bA in Hob *.
 set rs := sweep_eqb m Forward && live || rec in Hob *.
 set recs := records cv k (AFold ann (amap pa loP) (amap pa hiP) (AVar (pa q)) bA) in Hrec *.
-have Hrl : live = true -> recs = true.
-  by rewrite /recs /live /state_live /= /fold_binders /= => ->.
+set tl := tail_live cv (S (S k)) (bA (AV k false) (AV (S k) vr)).
+have Hrl : live || tl = true -> recs = true.
+  move=> /orP [Hl | Ht]; rewrite /recs /=.
+    by move: Hl; rewrite /live /state_live /fold_binders => ->.
+  apply/orP; right; apply/negPn/negP => /negbTE Hri.
+  move: Ht; rewrite /tl /tail_live.
+  case Et: (tail_fold_live _ _ _) => [lt |] // Elt.
+  by have := tail_fold_live_records cv _ _ _ Et Hri; rewrite Elt.
 (* at the top, the fold declares the tape of the written argument *)
 have Hisw : not_in_loop pp -> is_written (option_map (amap pt) wP) (AVar (pt q)) = true.
 { move=> Hnl; have Htid := a_tid _ _ _ _ _ _ _ _ _ Hc q Hown Hnl.
@@ -593,13 +612,13 @@ set dcl := sweep_eqb m Forward && is_written (option_map (amap pt) wP) (AVar (pt
 set s0 := if dcl then store_set s (keyv (TapeOf n)) (VTape []) else s.
 have Hrun0 : run (if dcl then [DTape (TapeOf n)] else []) s = Some s0 by rewrite /s0; case: ifP.
 (* the tape the steps push on: a fresh one at the top *)
-have [t0 [Ht0 Ht0e]] : exists t0, (sweep_eqb m Forward && rs = true -> store_get s0 (keyv (TapeOf n)) = Some (VTape t0)) /\
-                                  (m = Forward -> not_in_loop pp -> live = true -> t0 = []).
+have [t0 Ht0] : exists t0, sweep_eqb m Forward && (rs || tl) = true ->
+    store_get s0 (keyv (TapeOf n)) = Some (VTape t0).
 { rewrite /s0; case Edcl: dcl.
-    by exists []; split=> [_ | _ _ _] //; exact: store_get_set_same.
-  have Hnot : m = Forward -> not_in_loop pp -> live = true -> False.
+    by exists [] => _; exact: store_get_set_same.
+  have Hnot : m = Forward -> not_in_loop pp -> live || tl = true -> False.
     by move=> Hm Hnl Hlv; move: Edcl; rewrite /dcl Hm (Hisw Hnl) (Hrl Hlv).
-  case Ers: (sweep_eqb m Forward && rs); last by exists [].
+  case Ers: (sweep_eqb m Forward && (rs || tl)); last by exists [].
   have [l0 Hl0] : exists l0, store_get s (keyv (TapeOf n)) = Some (VTape l0).
   { apply: Hrec; case Erc: rec; [by left | right].
     move: Ers; rewrite /rs Erc orb_false_r => Ers.
@@ -607,7 +626,7 @@ have [t0 [Ht0 Ht0e]] : exists t0, (sweep_eqb m Forward && rs = true -> store_get
     split=> //; split; first exact: Hrl.
     split; first by rewrite /= Eqz.
     by move=> Hnl; apply: (Hnot erefl Hnl). }
-  by exists l0; split=> // Hm Hnl Hlv; case: (Hnot Hm Hnl Hlv). }
+  by exists l0. }
 have Hvat : forall aP, In aP [loP; hiP; AVar q] -> forall p, aP = AVar p ->
               vatoms k (AFold ann (amap pa loP) (amap pa hiP) (AVar (pa q)) bA) p.
 { move=> aP HaP p E; rewrite /vatoms; cbn [atoms_of_value]; rewrite atom_member_union.
@@ -639,18 +658,22 @@ have Fs0 : fwd_frame c (Some n) None s s0.
   apply: store_get_set_other => K.
   have Ev : v = TapeOf n by apply: keyv_inj => //.
   by subst v; apply: Ht. }
-have Hrs0 : rs = true -> exists tl, store_get s0 (keyv (TapeOf n)) = Some (VTape tl).
-{ move=> Ers; case Efr: (sweep_eqb m Forward && rs); first by exists t0; exact: Ht0.
+have Hrs0 : rs = true ->
+    exists tp, store_get s0 (keyv (TapeOf n)) = Some (VTape tp).
+{ move=> Ers; case Efr: (sweep_eqb m Forward && (rs || tl)).
+    by exists t0; exact: Ht0.
   have Erc : rec = true.
-    by move: Efr; rewrite Ers andb_true_r => Efr; move: Ers; rewrite /rs Efr.
-  have [tl Htl] := Hrec (or_introl Erc).
-  rewrite /s0; case: ifP => _; [exists []; exact: store_get_set_same | by exists tl]. }
+    move: Efr Ers; rewrite /rs; case: (sweep_eqb m Forward) => /= Efr Ers //.
+    by move: Efr; rewrite Ers /=.
+  have [tp Htp] := Hrec (or_introl Erc).
+  rewrite /s0; case: ifP => _; [exists []; exact: store_get_set_same | by exists tp]. }
 (* each step keeps the invariant; the loop runs the steps *)
 set Inv := fun (zz : Z) (s' : store R) (st : val (dual R)) (tr : list (val (dual R))) =>
   fwd_frame c (Some n) None s s' /\ tkeep c (Some n) s s' /\ store_get s' (keyv n) = Some (primal st) /\
   has_type (Array z) st /\
-  (sweep_eqb m Forward && rs = true -> store_get s' (keyv (TapeOf n)) = Some (VTape (rev (fold_pushes bD l tr) ++ t0))) /\
-  (rs = true -> exists tl, store_get s' (keyv (TapeOf n)) = Some (VTape tl)) /\
+  (sweep_eqb m Forward && (rs || tl) = true ->
+     store_get s' (keyv (TapeOf n)) = Some (VTape (rev (fold_pushes bD l tr) ++ t0))) /\
+  (rs = true -> exists tp, store_get s' (keyv (TapeOf n)) = Some (VTape tp)) /\
   zz = (l + Z.of_nat (length tr))%Z.
 have Hstep : forall zz s' st tr st', Inv zz s' st tr -> aeval (duals reals) (bD (VInt zz) st) = Some st' ->
                exists s'', run sb (store_set s' (KVar (out_dvar nat (DBound (c, c)))) (VInt zz)) = Some s'' /\
@@ -727,21 +750,24 @@ have Hstep : forall zz s' st tr st', Inv zz s' st tr -> aeval (duals reals) (bD 
   (* the step runs the body *)
   have HtB' : typecheck (option_map (amap pw) wP) (wplace (PArray ix sx)) (S (S k)) (bW (pw ix) (pw sx)) = (Array z, Ok)
     by exact: HtB.
-  have Hps := abody_psim cv _ (Hab ix sx) (sx :: ix :: L) (S (S k)) (S c) s'' wP (PArray ix sx) m Replay
+  have Htp'' : forall o, owner wP (PArray ix sx) = Some o ->
+      sweep_eqb m Forward && tail_live cv (S (S k)) (bA (pa ix) (pa sx)) = true ->
+      exists tp, store_get s'' (keyv (TapeOf (stored o))) = Some (VTape tp).
+    move=> o [<-] /andP [Hm Htl].
+    have Efr : sweep_eqb m Forward && (rs || tl) = true.
+      by rewrite Hm; apply/orP; right.
+    by rewrite T''; eexists; exact: (Tp Efr).
+  have Hps := Hpsb ix sx (sx :: ix :: L) (S (S k)) (S c) s'' wP (PArray ix sx) m Replay
                 (bA (pa ix) (pa sx)) (bW (pw ix) (pw sx)) (bT (pt ix) (pt sx)) (bD (pd ix) (pd sx)) (Array z) st'
-                (HbA ix _ sx _) (HbW ix _ sx _) (HbT ix _ sx _) (HbD ix _ sx _) Hctx HtB' Hbd.
+                (HbA ix _ sx _) (HbW ix _ sx _) (HbT ix _ sx _) (HbD ix _ sx _) Hctx HtB' Hbd Htp''.
   move: Hps.
   lazymatch goal with |- context [@open_pairs ?A ?t (S c)] =>
     have E : @open_pairs A t (S c) = ((sb, vb), c2) by exact: Hob end.
   rewrite E => -[_ [s3 [R3 [F3 [T3 [_ Ho3]]]]]].
-  have [Ns3 Tp3] := Ho3 sx erefl (abody_ibody _ (Hab ix sx)).
-  have Hsi : set_index (bD (pd ix) (pd sx)) <> None.
-    by apply: (abody_set_index (sx :: ix :: L) _ _ st' (Hab ix sx) (HbD ix _ sx _) Hbd).
-  have [Hht' _] := abody_act _ (Hab ix sx) (sx :: ix :: L) (S (S k)) wP (PArray ix sx)
+  have [Ns3 Tp3] := Ho3 sx erefl (Hibb ix sx).
+  have [Hht' _] := Hactb ix sx (sx :: ix :: L) (S (S k)) wP (PArray ix sx)
                      (bA (pa ix) (pa sx)) (bW (pw ix) (pw sx)) (bD (pd ix) (pd sx)) (Array z) st'
                      (HbA ix _ sx _) (HbW ix _ sx _) (HbD ix _ sx _) HL' HtB' Hbd.
-  have Htape : forall r zi st0 tl, exists tl', tape_step r zi st0 (Some (VTape tl)) = Some (VTape tl').
-    by move=> r zi st0 tl; rewrite /tape_step; case: r; case: zi => [zi|]; case: st0 => *; eexists.
   exists s3; split; first exact: R3.
   split.
   { move=> v Hb Hcv Htv Hex Hvo.
@@ -756,14 +782,11 @@ have Hstep : forall zz s' st tr st', Inv zz s' st tr -> aeval (duals reals) (bD 
   (* the tape gets the element the set overwrites *)
   split.
   { move=> Efr.
-    have Ec : sweep_eqb m Forward &&
-        (rs || tail_live cv (S (S k)) (bA (pa ix) (pa sx))) = true.
-      by move: Efr => /andb_true_iff [-> ->].
-    rewrite (Tp3 Ec _ (etrans T'' (Tp Efr))) fold_pushes_snoc -Ez.
+    rewrite (Tp3 Efr _ (etrans T'' (Tp Efr))) fold_pushes_snoc -Ez.
     by rewrite rev_app_distr -app_assoc. }
   split.
-  { move=> Ers; have [tl Htl] := Tr Ers.
-    exact: (proj1 T3 _ _ (etrans T'' Htl)). }
+  { move=> Ers; have [tp Htp] := Tr Ers.
+    exact: (proj1 T3 _ _ (etrans T'' Htp)). }
   by rewrite length_app /= Ez; lia. }
 have Hinit : Inv l s0 (pd q) [].
 { split; first exact: Fs0. split; first exact: Ts0. split; first exact: Hs0n.
@@ -788,27 +811,32 @@ have Hh0 : xev s0 (spell (amap pt hiP)) = Some (VInt h) by apply: Hb0 => //=; au
 exists sf; split; first by rewrite run_app Hrun0 (run_for _ _ _ _ _ _ l h Hl0 Hh0) Hex.
 split; first exact: Fs. split; first exact: Ts. split; first exact: Ns.
 (* at the top, the tape holds the overwritten elements, last first *)
-have Hfl : fold_live cv k (AVar (pa q)) bA = live.
-  exact: (fold_live_abody L k bP _ bA Hab HbA).
+have Hfl : fold_live cv k (AVar (pa q)) bA = true -> live || tl = true.
+  exact: fold_live_split.
 split.
   case=> Hm Hnl; rewrite /fold_tape Hlo Hhi.
   change (aeval_atom (duals reals) (amap pd (AVar q))) with (Some (pd q)).
   move=> tr'; rewrite Htr => -[<-].
   split; first by rewrite /= Eqz.
-  move=> _; rewrite Hfl => Hlv; split.
-    have Efr : sweep_eqb m Forward && rs = true by rewrite /rs Hm Hlv.
+  move=> _ /Hfl Hlv; split.
+    have Efr : sweep_eqb m Forward && (rs || tl) = true.
+      by move: Hlv; rewrite /rs Hm /= => /orP [-> | ->]; rewrite ?orb_true_r.
     by exists t0; rewrite (Tps Efr).
   by move=> ve'; rewrite Hev => -[<-].
 (* inside a loop, the steps push on the tape of the enclosing loop *)
 move=> Hm Hnl _ Htid; rewrite /fold_grow Hlo Hhi.
 change (aeval_atom (duals reals) (amap pd (AVar q))) with (Some (pd q)).
-move=> tr'; rewrite Htr => -[<-]; rewrite Hfl => Hlv l1 Hl1.
+move=> tr'; rewrite Htr => -[<-] Hlv l1 Hl1.
 have Hiw : is_written (option_map (amap pt) wP) (AVar (pt q)) = false.
   have Et := Htid q Hown; rewrite /is_written.
   by case: (option_map (amap pt) wP) => [[y | |] |] //=; rewrite Et.
 have Hs0 : s0 = s.
   by rewrite /s0 /dcl Hiw andb_false_r.
-have Efr : sweep_eqb m Forward && rs = true by rewrite /rs Hm /= Hlv.
+have Efr : sweep_eqb m Forward && (rs || tl) = true.
+  move: Hlv => /orP [/Hfl /orP [Hl | Ht] | Hr]; rewrite /rs Hm /=.
+  - by rewrite Hl.
+  - by rewrite Ht orb_true_r.
+  by rewrite Hr !orb_true_r.
 have Et0 : t0 = l1 by move: (Ht0 Efr); rewrite Hs0 Hl1 => -[].
 by rewrite (Tps Efr) Et0.
 Qed.
@@ -817,6 +845,18 @@ Qed.
    steps; each pops the element its set overwrote back into the array (the
    state before the step), replays the scalar lets of the body and transposes
    it, the adjoint of the array staying in place. *)
+
+Lemma afwd_fold_inplace a (loP hiP initP : atom pv)
+  (bP : pv -> pv -> anf pv bare) :
+  (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
+  (forall x y, abody (bP x y)) -> asim_fwd cv (AFold a loP hiP initP bP).
+Proof.
+move=> Hq Hab; apply: afwd_fold_body => // x y.
+- exact: abody_psim.
+- exact: abody_act.
+exact: abody_ibody.
+Qed.
+
 Lemma arev_fold_inplace a (loP hiP initP : atom pv) (bP : pv -> pv -> anf pv bare) :
   (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
   (forall x y, abody (bP x y)) -> asim_rev cv (AFold a loP hiP initP bP).

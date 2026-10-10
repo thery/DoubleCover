@@ -763,6 +763,20 @@ Fixpoint ibody (b : anf pv bare) : Prop :=
 Definition tail_live (k : nat) (b : anf avar bare) : bool :=
   match tail_fold_live cv k b with Some l => l | None => false end.
 
+Lemma tail_live_let k a eA cA :
+  tail_live (S k) (cA (let_binder k eA)) = true ->
+  tail_live k (ALet a eA cA) = true.
+Proof.
+rewrite /tail_live /=.
+by case: eA => // ? ? ? ? ?; case: (cA _).
+Qed.
+
+Lemma owner_branch_none wP o : owner wP PBranch = Some o -> False.
+Proof. by []. Qed.
+
+Lemma owner_scalar_none wP o : owner wP PScalar = Some o -> False.
+Proof. by []. Qed.
+
 (* The forward sweep of a branch body: prim computes every let, then the
    value of the body, from the variables that occur in it. In the body of an
    in-place loop, the storage of the state gets the value of the body, and its
@@ -774,6 +788,8 @@ Definition psim_body (bP : anf pv bare) : Prop :=
   actx L k c s wP pp (live_anf k bW) (live_anf k bW) ty ->
   typecheck (option_map (amap pw) wP) (wplace pp) k bW = (ty, Ok) ->
   aeval (duals reals) bD = Some v ->
+  (forall o, owner wP pp = Some o -> sweep_eqb m Forward && tail_live k bA = true ->
+     exists l, store_get s (keyv (TapeOf (stored o))) = Some (VTape l)) ->
   let '((sb, x), c') :=
     open_pairs (prim W (option_map (amap pt) wP) m (rebuild _ bT (annotate_body_t cv m' k bA))) c in
   (c <= c')%nat /\
@@ -799,7 +815,7 @@ Proof.
 move=> L k c s wP pp m m'
   [? ? ? | aA] [? ? ? | aW] [? ? ? | aT] [? ? ? | aD] //=.
 move=> ty v /atom_graph [_ H] /atom_graph [-> _] /atom_graph [-> _].
-move=> /atom_graph [-> _] Hc Htc Hev.
+move=> /atom_graph [-> _] Hc Htc Hev _.
 split=> //; exists s; split=> //.
 split; first by [].
 split; first exact: tkeep_refl.
@@ -819,7 +835,7 @@ Lemma psim_let a (eP : value pv bare) (cP : pv -> anf pv bare) :
 Proof.
 move=> IHf IHa Hsn Hns IHb L k c s wP pp m m'.
 move=> [aA eA cA | ?] [aW eW cW | ?] [aT eT cT | ?] [aD eD cD | ?] ty v;
-  move=> HA HW HT HD Hc Htc Hev; rewrite /= in HA HW HT HD; try by [].
+  move=> HA HW HT HD Hc Htc Hev Htp0; rewrite /= in HA HW HT HD; try by [].
 case: HA HW HT HD => [HeA HcA] [HeW HcW] [HeT HcT] [HeD HcD].
 rewrite /= in Htc Hev.
 case Hte: (typecheck_value (option_map (amap pw) wP) (wplace pp)
@@ -948,9 +964,15 @@ have Hc' : actx (x :: L) (S k) c1 se1 wP pp
     rewrite Hold //; apply: (a_owner _ _ _ _ _ _ _ _ _ Hc o Ho).
     by case: Hor => [Hl | Ht]; [left | right; exact: Hlive_c].
   exact: (a_tid _ _ _ _ _ _ _ _ _ Hc).
+have Htp1 : forall o, owner wP pp = Some o ->
+    sweep_eqb m Forward && tail_live (S k) (cA (pa x)) = true ->
+    exists l, store_get se1 (keyv (TapeOf (stored o))) = Some (VTape l).
+  move=> o Ho /andP [Hm Ht].
+  have [lt Hlt] := Htp0 o Ho (introT andP (conj Hm (tail_live_let _ _ _ _ Ht))).
+  exact: (proj1 T1 _ _ Hlt).
 have IH := IHb x (x :: L) (S k) c1 se1 wP pp m m' (cA (pa x)) (cW (pw x))
   (cT (pt x)) (cD (pd x)) ty v (HcA x _) (HcW x _) (HcT x _) (HcD x _)
-  Hc' Htc Hev.
+  Hc' Htc Hev Htp1.
 rewrite /x in IH; cbn [pt pa pd pw] in IH; rewrite -/rest Hob in IH.
 case: IH => Hc12 [s1 [Rb [Fb [Tb Vb]]]].
 have Hcc1 : (c <= c1)%nat by lia.
@@ -1004,7 +1026,7 @@ Lemma psim_set_let a (aP iP vP : atom pv) (cP : pv -> anf pv bare) : psim_body (
 Proof.
 move=> L k c s wP pp m m'.
 move=> [aA eA cA | ?] [aW eW cW | ?] [aT eT cT | ?] [aD eD cD | ?] ty v;
-  move=> HA HW HT HD Hc Htc Hev; rewrite /= in HA HW HT HD; try by [].
+  move=> HA HW HT HD Hc Htc Hev _; rewrite /= in HA HW HT HD; try by [].
 case: HA HW HT HD => [HeA HcA] [HeW HcW] [HeT HcT] [HeD HcD].
 case: eA HeA => // a1 i1 y1 HeA; rewrite /= in HeA.
 case: HeA => /atom_graph [Ea1 HaL]
@@ -1340,7 +1362,8 @@ have Hbody : exists (sb : list (dstmt W)) (vb : dexpr W) (s1 : store R)
       move=> p Hp Hl'; rewrite /vatoms /= !atom_member_union.
       by rewrite (live_atoms L k tP tA tW p H9 H6 HL Hp Hl') orb_true_r.
     have := IHt L k c s0 wP PBranch m Replay tA tW tT tD Real ve H9 H6 H3 H0
-      (Hctx tW Hl Ha c (le_n c)) HtW Hev.
+      (Hctx tW Hl Ha c (le_n c)) HtW Hev
+      (fun o Ho _ => False_ind _ (owner_branch_none _ _ Ho)).
     rewrite Hot => -[_ [s1 [Hrun [Hfr [Htk [Hv _]]]]]].
     by case: Htk => Hk1 Hk2; exists st, vt, s1, ve; repeat split; auto.
   have Hl : forall p, live_anf k eW p ->
@@ -1351,7 +1374,8 @@ have Hbody : exists (sb : list (dstmt W)) (vb : dexpr W) (s1 : store R)
     move=> p Hp Hl'; rewrite /vatoms /= !atom_member_union.
     by rewrite (live_atoms L k eP eA eW p H10 H7 HL Hp Hl') !orb_true_r.
   have := IHe L k c1 s0 wP PBranch m Replay eA eW eT eD Real ve H10 H7 H4 H1
-    (Hctx eW Hl Ha c1 M1) HeW Hev.
+    (Hctx eW Hl Ha c1 M1) HeW Hev
+    (fun o Ho _ => False_ind _ (owner_branch_none _ _ Ho)).
   rewrite Hoe => -[_ [s1 [Hrun [Hfr [Htk [Hv _]]]]]].
   case: (tkeep_mono _ _ _ _ _ Htk M1) => Hk1 Hk2.
   exists se', ve', s1, ve; repeat split; auto.
@@ -1760,7 +1784,8 @@ have Hloop : exists sf,
     have := IHb ix (ix :: L) (S k) (S c) s'' (Some (AVar o)) PScalar m Replay
       (bA (fresh k)) (bW (VInfo k Integer None))
       (bT (open_index (DBound (c, c)))) (bD (VInt z)) Real (VReal d)
-      (H10 ix _) (H7 ix _) (H4 ix _) (H1 ix _) Hctx HtB Hbd.
+      (H10 ix _) (H7 ix _) (H4 ix _) (H1 ix _) Hctx HtB Hbd
+      (fun o Ho _ => False_ind _ (owner_scalar_none _ _ Ho)).
     rewrite Hob => -[_ [s3 [R3 [F3 [T3 [X3 _]]]]]].
     have Hbn : below (S c) n by rewrite /n /=; lia.
     have Hcn : consistent n by [].
@@ -2393,7 +2418,8 @@ have Hstep : forall z s' st tr st', Inv z s' st tr ->
   have := IHb ix sx (sx :: ix :: L) (S (S k)) (S c) sp wP PScalar m Replay
     (bA (pa ix) (pa sx)) (bW (pw ix) (pw sx)) (bT (pt ix) (pt sx))
     (bD (pd ix) (pd sx)) Real st' (HbA ix _ sx _) (HbW ix _ sx _)
-    (HbT ix _ sx _) (HbD ix _ sx _) Hctx HtB Hbd.
+    (HbT ix _ sx _) (HbD ix _ sx _) Hctx HtB Hbd
+    (fun o Ho _ => False_ind _ (owner_scalar_none _ _ Ho)).
   rewrite Hob => -[_ [s3 [R3 [F3 [T3 [X3 _]]]]]].
   have [Hht' Hz'] := IHa ix sx (sx :: ix :: L) (S (S k)) wP PScalar
     (bA (pa ix) (pa sx)) (bW (pw ix) (pw sx)) (bD (pd ix) (pd sx)) Real st'
