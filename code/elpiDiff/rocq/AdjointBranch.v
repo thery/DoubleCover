@@ -744,18 +744,20 @@ apply: (replace_nth_other _ _ _ _ _ H).
 move: Ez Ez' => /Z.ltb_ge Ez /Z.ltb_ge Ez' E; apply: Hne; congr Some; lia.
 Qed.
 
-(* The bodies of in-place loops: operations and reads, then a set of the
-   state or an in-place fold, that ends it. *)
-Fixpoint ibody (b : anf pv bare) : Prop :=
+(* The bodies of in-place loops on the state st: operations and reads, then
+   a set of the state or an in-place fold, that ends it, or the state itself,
+   unchanged. *)
+Fixpoint ibody (st : pv) (b : anf pv bare) : Prop :=
   match b with
   | ALet _ e b' =>
       match e with
-      | AOp1 _ _ | AOp2 _ _ _ | AGet _ _ => forall x, ibody (b' x)
+      | AOp1 _ _ | AOp2 _ _ _ | AGet _ _ => forall x, ibody st (b' x)
       | ASet _ _ _ => forall x, b' x = ARet (AVar x)
       | AFold _ _ _ (AVar s) _ =>
-          is_array (vty (pw s)) /\ forall x, b' x = ARet (AVar x)
+          s = st /\ forall x, b' x = ARet (AVar x)
       | _ => False
       end
+  | ARet (AVar y) => y = st
   | ARet _ => False
   end.
 
@@ -795,7 +797,7 @@ Definition psim_body (bP : anf pv bare) : Prop :=
   (c <= c')%nat /\
   exists s1, run sb s = Some s1 /\ fwd_frame c (inplace wP pp) None s s1 /\ tkeep c (inplace wP pp) s s1 /\
     xev s1 x = Some (primal v) /\
-    (forall o, owner wP pp = Some o -> ibody bP ->
+    (forall o, owner wP pp = Some o -> ibody o bP ->
        store_get s1 (keyv (stored o)) = Some (primal v) /\
        (sweep_eqb m Forward && (trecorded (pt o) || tail_live k bA) = true ->
         tid (pt o) = None ->
@@ -821,7 +823,11 @@ split=> //; exists s; split=> //.
 split; first by [].
 split; first exact: tkeep_refl.
 split; last first.
-  by move=> o _ [].
+  move=> o _ Hib.
+  case Ea: aP H Hev Hib => [y | ? | ?] // H Hev Eyo; subst y.
+  case: Hev => <-; split; last by move=> _ _ l0 ->.
+  apply: (a_store _ _ _ _ _ _ _ _ _ Hc o (H o erefl)).
+  by rewrite Ea /live_anf /= Nat.eqb_refl.
 have Hs := a_sctx _ _ _ _ _ _ _ _ _ Hc.
 apply: (aspell_ok k s aP) Hev => p Ep; subst aP.
 split; first exact: (static_in _ _ _ (s_static _ _ _ _ _ _ _ Hs) (H p erefl)).
@@ -993,7 +999,7 @@ split.
 case: Vb => Vx Vt; split; first exact: Vx.
 move=> o Ho Hib.
 have HoL := owner_in_s _ _ _ _ _ _ _ _ Hs Ho.
-have [Hibc [Ebp Etl]] : ibody (cP x) /\
+have [Hibc [Ebp Etl]] : ibody o (cP x) /\
     body_pushes (ALet aD eD cD) (pd o) = body_pushes (cD ve) (pd o) /\
     tail_live k (ALet aA eA cA) = tail_live (S k) (cA (let_binder k eA)).
   move: Hib HeA HeD Hve Hns Hsn; case Ee: eP =>
@@ -1010,8 +1016,9 @@ have [Hibc [Ebp Etl]] : ibody (cP x) /\
     case Ea: eA HeA => // [? ?] _; case Ed: eD HeD Hve => // [? ?] _ Ev.
     by move: Ev; rewrite /= => ->.
   - by case: (Hns _ _ _ erefl).
-  case Ei: i0 Hib Hsn => [q | ? | ?] // [Hqa _] Hsn.
-  by move: (Hsn wP tail); rewrite /=; case: (vty (pw q)) Hqa.
+  case Ei: i0 Hib Hsn => [q | ? | ?] // [Eq _] Hsn; subst q.
+  have Hqa := owner_array _ _ _ _ _ _ _ _ Hs Ho.
+  by move: (Hsn wP tail); rewrite /=; case: (vty (pw o)) Hqa.
 have [Vt1 Vt2] := Vt o Ho Hibc.
 split; first exact: Vt1.
 move=> Hcnd Htid l0 E0; rewrite Ebp; apply: Vt2 => //; first by rewrite -Etl.
@@ -1213,7 +1220,7 @@ Fixpoint abody (b : anf pv bare) : Prop :=
   | ARet _ => False
   end.
 
-Lemma abody_ibody b : abody b -> ibody b.
+Lemma abody_ibody st b : abody b -> ibody st b.
 Proof.
 elim: b => [a e b' IH | x] //=.
 by case: e => // *; auto.

@@ -28,8 +28,7 @@ From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec
   Operations Normalize WellFormed Atoms Activity Tbr Annotate Transform
   Adjoint Simplify Scoping AnfEquiv Correctness TangentCorrect TangentLoops
   TangentGood AdjointCorrect AdjointBranch AdjointFold AdjointFoldy
-  AdjointNestSide AdjointNestFwd AdjointNest AdjointNestRev AdjointNestLoop
-  AdjointNesty.
+  AdjointNBody AdjointNesty.
 From Corelib Require Import ssreflect ssrbool ssrfun.
 Set Bullet Behavior "None".
 

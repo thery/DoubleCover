@@ -837,9 +837,10 @@ master body, and each comes with a theorem "every body of the class has an
 - `foldy top` (AdjointFoldy.v, `asim_foldy`): adds folds that update an array
   in place, whose step is an `abody`, that is, ops and reads ending with a
   set (AdjointBranch.v);
-- `nesty top` (AdjointNesty.v, `asim_nesty`): adds nests, an in-place fold
-  whose step is an `fbody`, that is, ops and reads ending with an inner
-  in-place fold on its state (AdjointFold.v).
+- `nesty top` (AdjointNesty.v, `asim_nesty`): adds nests of any depth, an
+  in-place fold whose step is an `nbody`, that is, ops and reads ending with
+  a set, with an inner in-place fold on its state whose steps are again
+  nbodies, or with the state itself (AdjointNBody.v).
 
 Here is `branchy`, to see the pattern:
 
@@ -1026,7 +1027,7 @@ Qed.
 `case E: (e) H => [a | b] H.` performs a case analysis on the expression
 `e`, keeps the equation `E : e = ...`, and reverts `H` first, so that `e` is
 also replaced in `H`. It is how the scripts walk through a type-checker or an
-evaluator. For example, in AdjointNestSide.v:
+evaluator. For example, in AdjointNBody.v:
 
 ```
 case Ete: (typecheck_value _ _ _ _ _) Htc => [te []] //= Htc.
@@ -1124,9 +1125,8 @@ The proofs:
   operations, `asim_straight`.
 - `AdjointBranch.v`: branches, maps, scalar folds, the class `branchy`.
 - `AdjointFold.v`, `AdjointFoldy.v`: in-place folds, `asim_foldy`.
-- `AdjointNestSide.v`, `AdjointNestFwd.v`, `AdjointNest.v`,
-  `AdjointNestRev.v`, `AdjointNestLoop.v`, `AdjointNesty.v`: nests of in-place
-  folds (milestone M5b), ending in `asim_nesty`.
+- `AdjointNBody.v`, `AdjointNesty.v`: nests of in-place folds of any depth
+  (milestone M5b), ending in `asim_nesty`.
 - `AdjointTop.v`: the top level, `adjoint_simulates_duals` and the four
   corollaries.
 - `AdjointMode.v`: the statement of `adjoint_mode_correct` (`Admitted`).

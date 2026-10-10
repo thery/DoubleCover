@@ -7,8 +7,7 @@ From Stdlib Require Import String ZArith List Bool Reals Lia Lra.
 From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Operations
   Normalize WellFormed Atoms Activity Tbr Annotate Transform Adjoint Simplify Scoping
   AnfEquiv Correctness TangentCorrect TangentLoops TangentGood AdjointCorrect AdjointBranch
-  AdjointFold AdjointFoldy AdjointNestSide AdjointNestFwd AdjointNest
-  AdjointNestRev AdjointNestLoop.
+  AdjointFold AdjointFoldy AdjointNBody.
 From Corelib Require Import ssreflect ssrbool ssrfun.
 Set Bullet Behavior "None".
 
@@ -19,7 +18,7 @@ Section Nesty.
 Variable cv : bool.
 
 (* As foldy, with also, at the top, a fold updating its array in place
-   whose body ends with an inner in-place fold on its state (fbody). *)
+   whose steps are the bodies of in-place loops of any depth (nbody). *)
 Fixpoint nesty (top : bool) (b : anf pv bare) : Prop :=
   match b with
   | ALet _ e b' => nesty_value top e /\ forall x, nesty top (b' x)
@@ -36,9 +35,7 @@ with nesty_value (top : bool) (e : value pv bare) : Prop :=
       ((forall p, init = AVar p -> ~ is_array (vty (pw p))) /\
          (forall x y, nesty false (b x y)) \/
        (exists q, init = AVar q /\ is_array (vty (pw q))) /\
-         (forall x y, abody (b x y)) \/
-       (exists q, init = AVar q /\ is_array (vty (pw q))) /\
-         (forall x y, fbody (b x y)))
+         (forall x y, nbody y (b x y)))
   end.
 
 Theorem asim_nesty :
@@ -112,8 +109,7 @@ apply: (anf_value_ind pv bare
   have Ham : act_value (AMap lo hi b).
     by apply: act_map => x; exact: (proj1 (proj2 (IHb x false (Hb x)))).
   by split=> //; split=> //; apply: owner_map.
-move=> a lo hi init b IHb top [Et [[Hna Hb] | [[Hq Hab] | [Hq Hfb]]]];
-  subst top.
+move=> a lo hi init b IHb top [Et [[Hna Hb] | [Hq Hnb]]]; subst top.
 (* a scalar fold *)
   have Hpb : forall x y, psim_body cv (b x y).
     by move=> x y; exact: (proj2 (proj2 (IHb x y false (Hb x y))) erefl).
@@ -126,18 +122,16 @@ move=> a lo hi init b IHb top [Et [[Hna Hb] | [[Hq Hab] | [Hq Hfb]]]];
   split; first exact: inplace_fold.
   split; first exact: act_fold.
   by split; [exact: owner_fold |].
-(* a fold updating its array in place *)
-  split; first exact: afwd_fold_inplace.
-  split; first exact: arev_fold_inplace.
-  split; first exact: inplace_fold_inplace.
-  split; first exact: act_fold_inplace.
-  by split; [exact: owner_fold_inplace |].
-(* a nest of in-place folds *)
-split; first exact: afwd_fold_nest.
-split; first exact: arev_fold_nest.
-split; first exact: inplace_fold_nest.
-split; first exact: act_fold_nest.
-by split; [exact: owner_fold_nest |].
+(* a fold updating its array in place, possibly nested *)
+have Hact : forall x y, act_body (b x y).
+  by move=> x y; exact: nbody_act (Hnb x y).
+have Hsb : forall x y, asim_body cv (b x y).
+  by move=> x y; exact: nbody_asim (Hnb x y).
+split; first exact: afwd_fold_nbody.
+split; first exact: arev_fold_nbody.
+split; first exact: inplace_fold_gen.
+split; first exact: act_fold_gen.
+by split; [exact: owner_fold_gen |].
 Qed.
 
 End Nesty.

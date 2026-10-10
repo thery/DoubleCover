@@ -360,9 +360,12 @@ times its adjoint in the store.
   It is `True` for any other value.
 - `ptail cP`: the continuation returns its own variable, so the let it
   continues is the tail of the body.
-- `tail_tape k L b s n`: for every let of `b` that is the tail, `fold_tape`
-  holds of its value. Inside an in-place loop, this is how the body receives
-  the tape of the inner fold its step ends with.
+- `tail_tape k L b bA bD s n`: for every let of `b` that is the tail,
+  `fold_tape` holds of its value, with the activity instance `bA` and the
+  dual instance `bD` of `b` fixed: a let is followed only on the value it
+  computes (`aeval_value` of its dual instance) and on its activity binder
+  (`let_binder`). Inside an in-place loop, this is how the body receives the
+  tape of the inner fold its step ends with.
 - `tapes_ok L s`: every recorded variable in scope has a tape in `s`.
 
 ### Reading a statement: an example
@@ -992,6 +995,7 @@ they are now. See Key concepts for pairing, owners, contexts, frames,
   - `tape_step r zi st t`: when `r`, the tape `t` with the element of `st` at index `zi` pushed;
   - `same_except zi l0 l1`: two arrays of the same length that differ at most at index `zi`;
   - `psim_body bP`: see Key concepts;
+  - `ibody st b`: the body of an in-place loop on the state `st`: operations and reads, then a set or an in-place fold on `st` that is the tail, or `st` itself;
   - `abody b`: the body of an in-place loop: operations and reads, then a set that is the tail;
   - `branchy top b` / `branchy_value top e`: the shape the file's theorem covers. Sets, maps and folds appear only at the top (`top = true`). Branches, maps and folds contain none of them. A fold is scalar;
   - Ltacs `fwd_intro`, `rev_intro`.
@@ -1006,6 +1010,34 @@ style, in section `Fold` (variable `cv`):
 - `fold_pushes_snoc`, `run_pop_at`;
 - `afwd_fold_inplace` (`asim_fwd` for an in-place fold);
 - `arev_fold_inplace` (`asim_rev` for an in-place fold), which currently ends with `Admitted`.
+
+### AdjointNBody.v: in-place loops of any depth (milestone M5b)
+
+In section `NBody` (variable `cv`):
+- `nbody s b`: the body of an in-place loop on the state `s`: operations and
+  reads, then a set that is the tail, or an in-place fold on `s` that is the
+  tail and whose steps are again `nbody` on their own state, or `s` itself.
+  `nbody_ind` is its induction principle, through the inner folds.
+- `aset_tail k bA`: the analysed body ends with a set. With
+  `tail_fold_live` (it ends with a fold), it tells the three kinds of steps
+  apart: `nbody_abody`, `nbody_ret_needs`.
+- The state of a loop whose step ends with a fold, or gives the state back,
+  is not read by the reverse loop (`nbody_needs`, `nbody_state_dead`,
+  `nbody_ret_dead`), so a recorded state means a step ending with a set
+  (`nbody_live_set`).
+- `nbody_records`, `records_fold_nbody`: a loop records iff it is live
+  (`fold_live`); `nbody_tail_state`, `tail_state_nbody`: a step ending with
+  an inner fold has that liveness as its `tail_fold_state`.
+- The pieces of the simulation of a step: `nbody_ibody`, `nbody_act`,
+  `nbody_psim` (with `psim_fold_nbody`), `adj_replay_nbody`,
+  `adj_rev_bars_nbody`, `tail_tape_nbody`.
+- `afwd_fold_nbody`, `arev_fold_nbody`: the two sweeps of an in-place fold
+  whose steps are nbodies. The reverse loop pops the element a step ending
+  with a set overwrote when the state is recorded, gets the state back from
+  the inner fold of a step ending with one (`tail_back`), and leaves it
+  otherwise.
+- `nbody_asim`: the adjoint simulation of an nbody, by induction on the
+  depth.
 
 ### AdjointTop.v: the adjoint simulation for a function
 

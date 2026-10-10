@@ -11,7 +11,7 @@ From Stdlib Require Import String ZArith List Bool Reals Lia Lra.
 From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Operations
   Normalize WellFormed Atoms Activity Tbr Annotate Transform Adjoint Simplify Scoping
   AnfEquiv Correctness TangentCorrect TangentTop AdjointCorrect AdjointBranch AdjointSpec DualsDerive
-  AdjointFold AdjointFoldy AdjointNestFwd AdjointNesty.
+  AdjointFold AdjointFoldy AdjointNBody AdjointNesty.
 
 From Corelib Require Import ssreflect ssrbool ssrfun.
 Set Bullet Behavior "None".
@@ -1740,15 +1740,16 @@ apply: (anf_value_ind pv bare
   by split=> // x; exact: (IHb x false (Hb x)).
 move=> a lo hi init b IHb top [Et [[Hna Hb] | Hab]]; split=> //.
   by left; split=> // x y; exact: (IHb x y false (Hb x y)).
-by right; left.
+case: Hab => Hq Hab; right; split=> // x y.
+exact: abody_nbody.
 Qed.
 
 Lemma foldy_nesty top (b : anf pv bare) : foldy top b -> nesty top b.
 Proof. exact: (proj1 foldy_nesty_mut). Qed.
 
-(* Milestone M5b: the same with, at the top, also nests of in-place folds:
-   an in-place fold whose body ends with an inner in-place fold on its
-   state (fbody). *)
+(* Milestone M5b: the same with, at the top, also nests of in-place folds
+   of any depth: an in-place fold whose steps are nbodies, ending with a set,
+   with an inner in-place fold on the state, or with the state itself. *)
 Corollary adjoint_nesty_duals (cv : bool) (f : function) (x : list (val R)) (xb yb dx : list R)
   (v : val (dual R)) :
   parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->

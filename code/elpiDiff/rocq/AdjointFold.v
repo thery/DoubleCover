@@ -523,7 +523,7 @@ Lemma afwd_fold_body a (loP hiP initP : atom pv)
   (bP : pv -> pv -> anf pv bare) :
   (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
   (forall x y, psim_body cv (bP x y)) -> (forall x y, act_body (bP x y)) ->
-  (forall x y, ibody (bP x y)) -> asim_fwd cv (AFold a loP hiP initP bP).
+  (forall x y, ibody y (bP x y)) -> asim_fwd cv (AFold a loP hiP initP bP).
 Proof.
 move=> [q [-> Hqa]] Hpsb Hactb Hibb L k c s wP pp tail eA eW eT eD te n ve ty m rec HA HW HT HD Hc Htc Htail [j [Ej Hj]] Hst Hrec Hev.
 have HA0 := HA; have HW0 := HW; have HD0 := HD.
@@ -1418,24 +1418,3 @@ Qed.
 
 End Fold.
 
-(* The bodies of the outer loop of a nest: operations and reads, then an
-   in-place fold, on the state of the loop, whose body ends with a set. *)
-Fixpoint fbody (b : anf pv bare) : Prop :=
-  match b with
-  | ALet _ e b' =>
-      match e with
-      | AOp1 _ _ | AOp2 _ _ _ | AGet _ _ => forall x, fbody (b' x)
-      | AFold _ _ _ (AVar s) bi =>
-          is_array (vty (pw s)) /\ (forall x y, abody (bi x y)) /\
-          forall x, b' x = ARet (AVar x)
-      | _ => False
-      end
-  | ARet _ => False
-  end.
-
-Lemma fbody_ibody b : fbody b -> ibody b.
-Proof.
-elim: b => [a e b' IH | x] //=.
-case: e => //; try by move=> *; auto.
-by move=> ? ? ? [s | ? | ?] ? //= [Hs [_ Hb]].
-Qed.
