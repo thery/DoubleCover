@@ -62,11 +62,27 @@ gives the header Elpi writes.
 
 The Rocq passes are checked against the Elpi ones on all the reference cases
 (`rocqtest.py`, with the cases): the diagnostics, the derivative programs in L2
-for the three modes before and after simplification, and the complete C++
-headers are identical, 141 comparisons. There are no theorems yet: the
-definitions are meant to state, then prove, that the passes are correct, with
-the evaluators as their semantics. `rocq/README.md` gives the correspondence,
-file by file, and how each construction of Elpi is rendered in Rocq.
+for the three modes before and after simplification, the complete C++ headers
+and the Gallina files are identical, 193 comparisons.
+
+Both modes are proved correct, with no `Admitted`; the proofs rest only on
+the axioms of the reals of the standard library. For a parametric,
+well-formed function f defined at the arguments x:
+- `tangent_mode_correct` (`rocq/TangentMode.v`): f is differentiable at x,
+  with derivative df, and the simplified tangent program, run over the
+  reals on x and a tangent dx, gives the value of f and df applied to dx;
+- `adjoint_mode_correct` (`rocq/AdjointMode.v`): the simplified adjoint
+  program, run on x and a seed yb, gives a gradient g with
+  <df dx, yb> = <dx, g> for every dx (and, in adjoint-value, the value of
+  f);
+- `adjoint_tangent_agree` (`rocq/ModesAgree.v`), their corollary: the two
+  generated programs are adjoint to each other, <w, yb> = <dx, g>, where w
+  is the output of the tangent program on (x, dx) and g the gradient the
+  adjoint program gives for yb.
+
+`rocq/README.md` lists the theorems and gives the correspondence, file by
+file, and how each construction of Elpi is rendered in Rocq;
+`rocq/TUTORIAL.md` explains how to read the proofs.
 
 ## The languages and their Elpi types
 
