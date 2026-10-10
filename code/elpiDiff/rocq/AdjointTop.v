@@ -11,7 +11,7 @@ From Stdlib Require Import String ZArith List Bool Reals Lia Lra.
 From ElpiDiff Require Import Syntax Anf Derivative Domain Eval EvalAnf Exec Operations
   Normalize WellFormed Atoms Activity Tbr Annotate Transform Adjoint Simplify Scoping
   AnfEquiv Correctness TangentCorrect TangentTop AdjointCorrect AdjointBranch AdjointSpec DualsDerive
-  AdjointFoldy.
+  AdjointFold AdjointFoldy AdjointNestFwd AdjointNesty.
 
 From Corelib Require Import ssreflect ssrbool ssrfun.
 Set Bullet Behavior "None".
@@ -1781,4 +1781,30 @@ Proof.
 move=> Hp Hw Hf Hxb Hyb Hdx Hs Hev.
 apply: adjoint_simulates_duals => // L res bP Ho.
 exact: (proj1 (proj1 (asim_foldy _) bP true (Hs L res bP Ho))).
+Qed.
+
+(* Milestone M5b: the same with, at the top, also nests of in-place folds:
+   an in-place fold whose body ends with an inner in-place fold on its
+   state (fbody), given the reverse sweep of such a nest. *)
+Corollary adjoint_nesty_duals (cv : bool) (f : function) (x : list (val R)) (xb yb dx : list R)
+  (v : val (dual R)) :
+  (forall cv' a loP hiP initP (bP : pv -> pv -> anf pv bare),
+     (exists q, initP = AVar q /\ is_array (vty (pw q))) ->
+     (forall x y, fbody (bP x y)) ->
+     asim_rev cv' (AFold a loP hiP initP bP)) ->
+  parametric f -> well_formed (normalize f) = Ok -> Forall2 fits (decls f) x ->
+  length xb = in_dim x -> length yb = length (reals_of_val (primal v)) -> length dx = in_dim x ->
+  (forall L res bP, open_P (afdef (normalize f) pv) 0 (seed_args (decls f) x dx) [] = Some (L, res, bP) -> nesty true bP) ->
+  aeval_function (duals reals) (normalize f) (seed_args (decls f) x dx) = Some v ->
+  exists r ps ss k out g,
+    open_pairs (dfbody (Adjoint.adjoint cv (annotate cv (normalize f))) W) 0 = (DBody r ps ss, k) /\
+    exec_scoped reals (Done (DBody r (map (out_dparam nat) ps) (map (out_dstmt nat) ss))) 0
+      (adjoint_inputs (decls f) x xb yb) = Some out /\
+    adjoint_output (decls f) x xb out = Some g /\ length g = in_dim x /\
+    dotl (reals_of_val (TangentCorrect.tangent v)) yb = dotl (seed (decls f) x dx) g /\
+    (cv = true -> writes_inout (decls f) = false -> value_given (decls f) out = Some (TangentCorrect.primal v)).
+Proof.
+move=> Harev Hp Hw Hf Hxb Hyb Hdx Hs Hev.
+apply: adjoint_simulates_duals => // L res bP Ho.
+exact: (proj1 (proj1 (asim_nesty _ (Harev _)) bP true (Hs L res bP Ho))).
 Qed.
