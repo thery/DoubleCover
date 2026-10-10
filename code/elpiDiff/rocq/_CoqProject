@@ -46,5 +46,7 @@ AdjointNest.v
 AdjointNestRev.v
 AdjointNestLoop.v
 AdjointNesty.v
+AdjointGood.v
+AdjointGoodFwd.v
 AdjointTop.v
 AdjointMode.v
