@@ -225,6 +225,21 @@ argument), and `e x i` is the i-th standard basis vector: the i-th
 component of the gradient is the sum over the outputs j of `yb_j` times the
 partial derivative of output j with respect to input i.
 
+With the Jacobian matrix [`J`](MainMx.v#L24) (MainMx.v, on mathcomp matrices), the same
+reads as the textbook formula g = Jᵀ yb, for one input `i`:
+
+```
+Theorem adjoint_jacobian cv f x df xb yb (i : 'I_(in_dim x)) :
+  accepted f x -> derivative f x df -> diff_wrt f x i ->
+  length xb = in_dim x -> length yb = out_dim f x ->
+  exists g, run_adjoint cv f x xb yb = Some g /\
+    List.nth i g 0%R =
+      \sum_(j < out_dim f x) List.nth j yb 0%R * J f x df j i.
+```
+
+It needs `R` to be a mathcomp ring (RMat.v), which costs one more axiom,
+`constructive_indefinite_description`; the theorems above do not use it.
+
 The detailed forms spell the same out on the encoding: [`tangent_mode_correct`](TangentMode.v#L179)
 (TangentMode.v) and [`adjoint_mode_correct`](AdjointMode.v#L43) (AdjointMode.v) state the runs
 with [`exec_dfunction`](Exec.v#L194), `tangent_inputs`, [`adjoint_inputs`](AdjointSpec.v#L50), `tangent_output`
@@ -1175,6 +1190,8 @@ The proofs:
 - `ModesAgree.v`: the corollary [`adjoint_tangent_agree`](ModesAgree.v#L105), the two modes
   agree.
 - `Main.v`: the short statements of the final theorems; read it first.
+- `RMat.v`, `MainMx.v`: the Jacobian and g = Jᵀ yb on mathcomp matrices
+  (one more axiom).
 
 ### Exploring interactively
 

@@ -1125,3 +1125,10 @@ defined at `x`, with value `v` and derivative `df`:
 - Theorems [`derivative_exists`](Main.v#L83), [`tangent_correct`](Main.v#L93), [`adjoint_correct`](Main.v#L110), [`adjoint_value_correct`](Main.v#L127), Corollary [`modes_agree`](Main.v#L140), proved from the detailed theorems and [`filterdiff_locally_unique`](ModesAgree.v#L73).
 - `basis n i`: the i-th vector e_i of the standard basis of R^n. `e x i := basis (in_dim x) i`. [`wrt_mask`](Main.v#L187), `diff_wrt f x i`: the i-th real of the arguments belongs to an independent or inout argument (f is differentiated with respect to it). [`seed_unit_wrt`](Main.v#L243): seed keeps e_i on such a position.
 - Corollary [`adjoint_componentwise`](Main.v#L282): for every such i, the i-th component of the gradient is ⟨D f x df (e x i), yb⟩.
+
+### RMat.v, MainMx.v: the matrix layer (mathcomp)
+
+- RMat.v: Stdlib `R` as a mathcomp `comRingType`: equality decided by `Req_EM_T`, choice built from `constructive_indefinite_description` and `excluded_middle_informative` (`ClassicalEpsilon`), zmodule `Rplus`/`Ropp`/`R0`, ring `Rmult`/`R1`. This axiom is used by these two files only.
+- `J f x df : 'M[R]_(out_dim f x, in_dim x)`: the Jacobian, entry (j, i) the partial derivative of output j with respect to input i, the j-th component of `D f x df (e x i)`.
+- Theorem [`adjoint_jacobian`](MainMx.v#L45): for an input i that f is differentiated with respect to (`diff_wrt f x i`), `nth i g 0 = \sum_(j < out_dim f x) nth j yb 0 * J f x df j i`: g = Jᵀ yb, component by component.
+

@@ -55,3 +55,5 @@ AdjointModeProof.v
 AdjointMode.v
 ModesAgree.v
 Main.v
+RMat.v
+MainMx.v

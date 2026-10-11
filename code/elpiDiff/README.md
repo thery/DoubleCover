@@ -88,7 +88,10 @@ program run on a seed yb gives a gradient g with
 program run on dx gives the value of f and D f x df dx;
 [`adjoint_componentwise`](rocq/Main.v#L282): component by component, the i-th component of g is
 ⟨D f x df (e x i), yb⟩ for every input i f is differentiated with respect
-to.
+to. With the Jacobian matrix J,
+[`rocq/MainMx.v`](rocq/MainMx.v) states it as gᵢ = Σⱼ ybⱼ Jⱼᵢ, that is
+g = Jᵀ yb (on mathcomp matrices; this layer adds the axiom
+`constructive_indefinite_description`).
 
 [`rocq/README.md`](rocq/README.md) lists the theorems and gives the correspondence, file by
 file, and how each construction of Elpi is rendered in Rocq;

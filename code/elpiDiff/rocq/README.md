@@ -35,6 +35,7 @@ of the reals of the standard library (`sig_forall_dec`, `sig_not_dec`,
 | [`adjoint_tangent_agree`](ModesAgree.v#L105) | `ModesAgree.v` | corollary of the two: the two generated programs are adjoint to each other. The tangent program on (x, dx) gives a tangent output w, the adjoint program on (x, xb, yb) a gradient g, and <w, yb> = <seed dx, g> |
 | [`tangent_correct`](Main.v#L93), [`adjoint_correct`](Main.v#L110), [`adjoint_value_correct`](Main.v#L127), [`modes_agree`](Main.v#L140) | `Main.v` | the same results in short form, on named pieces: `accepted f x`, `derivative f x df`, `D f x df dx`, [`run_tangent`](Main.v#L48), [`run_adjoint`](Main.v#L62), and the dot product `⟨u, v⟩`; e.g. [`adjoint_correct`](Main.v#L110): the adjoint program gives a gradient g with ⟨D f x df dx, yb⟩ = ⟨seed dx, g⟩ for every dx |
 | [`adjoint_componentwise`](Main.v#L282) | `Main.v` | the gradient component by component: for every input real i that f is differentiated with respect to (`diff_wrt f x i`), the i-th component of g is ⟨D f x df (e x i), yb⟩, with `e x i` the i-th standard basis vector; equivalent to the dot-product form by [`dotl_ext`](Dot.v#L34) (`Dot.v`) |
+| [`adjoint_jacobian`](MainMx.v#L45) | `MainMx.v` | the same with the Jacobian matrix J (mathcomp): for an input i f is differentiated with respect to, the i-th component of the gradient is the sum over j of yb_j times J j i, i.e. g = Jᵀ yb. This matrix layer uses one more axiom, `constructive_indefinite_description` (R as a mathcomp ring, `RMat.v`); the other theorems do not |
 
 ### The adjoint proof
 
@@ -128,6 +129,8 @@ the Boolean arguments that carry an adjoint are excluded by well-formedness.
 | `AdjointMode.v` | — | theorem [`adjoint_mode_correct`](AdjointMode.v#L43): where f is defined, for every tangent dx, <df (seed dx), yb> = <seed dx, g>, and adjoint-value gives the value of f back (unless f writes an inout argument) |
 | `ModesAgree.v` | — | `tangent_code`, [`adjoint_code`](ModesAgree.v#L95); [`filterdiff_locally_unique`](ModesAgree.v#L73) (a Fréchet derivative is unique); corollary [`adjoint_tangent_agree`](ModesAgree.v#L105) |
 | `Main.v` | — | the final theorems in short form: [`derivative_exists`](Main.v#L83), [`tangent_correct`](Main.v#L93), [`adjoint_correct`](Main.v#L110), [`adjoint_value_correct`](Main.v#L127), [`modes_agree`](Main.v#L140) |
+| `RMat.v` | — | Stdlib `R` as a mathcomp `comRingType` (Hierarchy-Builder), with the axiom `constructive_indefinite_description` for the choice structure; used by `MainMx.v` only |
+| `MainMx.v` | — | the Jacobian `J f x df` and [`adjoint_jacobian`](MainMx.v#L45) (g = Jᵀ yb) |
 | `AdjointExamples.v` | — | non-vacuity: the accepted reference cases proved to be in the class of [`adjoint_nesty_duals`](AdjointTop.v#L1736) |
 | `AdjointModeProof.v` | — | [`adjoint_mode_correct_from`](AdjointModeProof.v#L74): [`adjoint_mode_correct`](AdjointMode.v#L43) from the simplified adjoint corollary |
 
