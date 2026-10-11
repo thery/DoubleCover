@@ -150,3 +150,148 @@ have [tout [v [w [aout [g [Ht [Hto [Ha [Hao Hdot]]]]]]]]] :=
 exists v, (reals_of_val w), g; split; first by rewrite /run_tangent Ht Hto.
 by split; first by rewrite /run_adjoint Ha.
 Qed.
+
+(* ---------------------------------------------------------------------------
+   The gradient, component by component. *)
+
+(* basis n i: the i-th vector e_i of the standard basis of R^n, 1 at
+   position i and 0 elsewhere. *)
+Fixpoint basis (n i : nat) : list R :=
+  match n, i with
+  | O, _ => []
+  | S n', O => 1%R :: repeat 0%R n'
+  | S n', S i' => 0%R :: basis n' i'
+  end.
+
+Lemma basis_length n i : length (basis n i) = n.
+Proof.
+elim: n i => [| n IH] [| i] //=; first by rewrite repeat_length.
+by rewrite IH.
+Qed.
+
+(* <e_i, g> is the i-th component of g. *)
+Lemma dotl_unit n i (g : list R) : length g = n -> (i < n)%nat ->
+  ⟨basis n i, g⟩ = nth i g 0%R.
+Proof.
+elim: g n i => [| b g IH] [| n] [| i] //= [Hl] Hi; try lia.
+- by rewrite dotl_cons dotl_zeros_l; ring.
+- by rewrite dotl_cons IH //; [ring | lia].
+Qed.
+
+(* e x i: the i-th basis vector of the space of the reals of the arguments
+   x. *)
+Definition e (x : list (val R)) (i : nat) : list R := basis (in_dim x) i.
+
+(* The positions differentiated with respect to: for each argument, one
+   flag per real, true when the argument is independent or inout. *)
+Fixpoint wrt_mask (ds : list decl) (x : list (val R)) : list bool :=
+  match ds, x with
+  | Decl _ _ r :: ds', v :: x' =>
+      repeat (varied_role r) (length (reals_of_val v)) ++ wrt_mask ds' x'
+  | _, _ => []
+  end.
+
+(* diff_wrt f x i: the i-th real of the arguments x is one f is
+   differentiated with respect to (it belongs to an independent or inout
+   argument). *)
+Definition diff_wrt (f : function) (x : list (val R)) (i : nat) : Prop :=
+  nth i (wrt_mask (decls f) x) false = true.
+
+Lemma wrt_mask_length ds x : length ds = length x ->
+  length (wrt_mask ds x) = length (reals_of_args x).
+Proof.
+elim: ds x => [| [n t r] ds IH] [| v x] //= [Hl].
+by rewrite length_app repeat_length IH // /reals_of_args /= length_app.
+Qed.
+
+Lemma split_at (l1 l2 : list R) m : length l1 = m ->
+  firstn m (l1 ++ l2) = l1 /\ skipn m (l1 ++ l2) = l2.
+Proof.
+move=> <-; split.
+- by rewrite firstn_app Nat.sub_diag firstn_O app_nil_r firstn_all.
+- by rewrite skipn_app Nat.sub_diag skipn_O skipn_all.
+Qed.
+
+Lemma basis_lt m k i : (i < m)%nat ->
+  basis (m + k) i = basis m i ++ repeat 0%R k.
+Proof.
+elim: m i => [| m IH] [| i] Hi //=; try lia.
+- by rewrite repeat_app.
+- by rewrite IH //; lia.
+Qed.
+
+Lemma basis_ge m k i : (m <= i)%nat ->
+  basis (m + k) i = repeat 0%R m ++ basis k (i - m).
+Proof.
+elim: m i => [| m IH] [| i] Hi //=; try lia.
+by rewrite IH //; lia.
+Qed.
+
+Lemma seed_zeros ds (x : list (val R)) : length ds = length x ->
+  TangentTop.seed ds x (repeat 0%R (length (reals_of_args x))) =
+  repeat 0%R (length (reals_of_args x)).
+Proof.
+elim: ds x => [| [n t r] ds IH] [| v x] //= [Hl].
+rewrite /reals_of_args /= length_app -/(reals_of_args x) repeat_app.
+have [Hf Hs] := split_at (repeat 0%R (length (reals_of_val v)))
+  (repeat 0%R (length (reals_of_args x))) _ (repeat_length _ _).
+rewrite nreals_length Hf Hs IH //.
+by case: (varied_role r).
+Qed.
+
+(* On a position differentiated with respect to, seed keeps e_i. *)
+Lemma seed_unit_wrt ds (x : list (val R)) i :
+  length ds = length x -> nth i (wrt_mask ds x) false = true ->
+  TangentTop.seed ds x (basis (length (reals_of_args x)) i) =
+  basis (length (reals_of_args x)) i.
+Proof.
+elim: ds x i => [| [n t r] ds IH] [| v x] i //=.
+move=> [Hl]; rewrite /reals_of_args /= length_app -/(reals_of_args x).
+set m := length (reals_of_val v); set k := length (reals_of_args x).
+rewrite nreals_length -/m.
+case: (Nat.lt_ge_cases i m) => Hi.
+- move=> Hn.
+  have Hr : varied_role r = true.
+    by move: Hn; rewrite app_nth1 ?repeat_length // nth_repeat_lt.
+  rewrite basis_lt //.
+  have [Hf Hs] := split_at (basis m i) (repeat 0%R k) m (basis_length m i).
+  by rewrite Hr Hf Hs seed_zeros.
+- move=> Hn.
+  have Hn' : nth (i - m) (wrt_mask ds x) false = true.
+    by move: Hn; rewrite app_nth2 ?repeat_length.
+  rewrite basis_ge //.
+  have [Hf Hs] := split_at (repeat 0%R m) (basis k (i - m)) m
+    (repeat_length _ _).
+  rewrite Hf Hs IH //.
+  by case: (varied_role r).
+Qed.
+
+Lemma diff_wrt_lt f x i : length (decls f) = length x -> diff_wrt f x i ->
+  (i < in_dim x)%nat.
+Proof.
+move=> Hl Hw; rewrite /in_dim -(wrt_mask_length _ _ Hl).
+case: (Nat.lt_ge_cases i (length (wrt_mask (decls f) x))) => // Hge.
+by move: Hw; rewrite /diff_wrt nth_overflow.
+Qed.
+
+(* The adjoint program computes the transpose of the derivative applied to
+   the seed yb, component by component: for every input real i that f is
+   differentiated with respect to, the i-th component of the gradient g is
+   <D f x df (e x i), yb>, the sum over the outputs j of yb_j times the partial
+   derivative of the j-th output with respect to the i-th input. *)
+Corollary adjoint_componentwise cv f x df :
+  accepted f x -> derivative f x df ->
+  forall xb yb, length xb = in_dim x -> length yb = out_dim f x ->
+  exists g, run_adjoint cv f x xb yb = Some g /\ length g = in_dim x /\
+    forall i, diff_wrt f x i ->
+      nth i g 0%R = ⟨D f x df (e x i), yb⟩.
+Proof.
+move=> Hacc Hdf xb yb Hxb Hyb.
+have [g [Hr [Hlg Hdot]]] := adjoint_correct cv f x df Hacc Hdf xb yb Hxb Hyb.
+exists g; split=> //; split=> // i Hw.
+have Hds : length (decls f) = length x.
+  by case: Hacc => [_ [_ [Hf _]]]; exact: Forall2_length Hf.
+have Hi := diff_wrt_lt f x i Hds Hw.
+rewrite /e (Hdot _ (basis_length _ _)) /in_dim seed_unit_wrt //.
+by rewrite dotl_unit.
+Qed.

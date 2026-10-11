@@ -206,6 +206,25 @@ an inout argument; and the two programs are adjoint to each other. A
 derivative is unique ([`filterdiff_locally_unique`](ModesAgree.v#L73), ModesAgree.v), so the
 theorems may speak of any derivative `df`.
 
+The dot-product test is the same as equality component by component
+([`dotl_ext`](Dot.v#L34), Dot.v: two vectors with the same dot product against every
+vector are equal). Main.v also states it that way, without `seed`:
+
+```
+Corollary adjoint_componentwise cv f x df :
+  accepted f x -> derivative f x df ->
+  forall xb yb, length xb = in_dim x -> length yb = out_dim f x ->
+  exists g, run_adjoint cv f x xb yb = Some g /\ length g = in_dim x /\
+    forall i, diff_wrt f x i ->
+      nth i g 0%R = ⟨D f x df (e x i), yb⟩.
+```
+
+`diff_wrt f x i` says that the i-th real of the arguments is one `f` is
+differentiated with respect to (it belongs to an independent or inout
+argument), and `e x i` is the i-th standard basis vector: the i-th
+component of the gradient is the sum over the outputs j of `yb_j` times the
+partial derivative of output j with respect to input i.
+
 The detailed forms spell the same out on the encoding: [`tangent_mode_correct`](TangentMode.v#L179)
 (TangentMode.v) and [`adjoint_mode_correct`](AdjointMode.v#L43) (AdjointMode.v) state the runs
 with [`exec_dfunction`](Exec.v#L194), `tangent_inputs`, [`adjoint_inputs`](AdjointSpec.v#L50), `tangent_output`
@@ -1038,7 +1057,7 @@ Qed.
 ### Named case analysis: `case E: (...)`
 
 `case E: (e) H => [a | b] H.` performs a case analysis on the expression
-`e`, keeps the equation `E : e = ...`, and reverts `H` first, so that `e` is
+[`e`](Main.v#L183), keeps the equation `E : e = ...`, and reverts `H` first, so that [`e`](Main.v#L183) is
 also replaced in `H`. It is how the scripts walk through a type-checker or an
 evaluator. For example, in AdjointNBody.v:
 

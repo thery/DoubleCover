@@ -85,7 +85,10 @@ The same results in short form, in [`rocq/Main.v`](rocq/Main.v), with
 [`adjoint_correct`](rocq/Main.v#L110): for an accepted f with derivative df at x, the adjoint
 program run on a seed yb gives a gradient g with
 ⟨D f x df dx, yb⟩ = ⟨seed dx, g⟩ for every dx; [`tangent_correct`](rocq/Main.v#L93): the tangent
-program run on dx gives the value of f and D f x df dx.
+program run on dx gives the value of f and D f x df dx;
+[`adjoint_componentwise`](rocq/Main.v#L282): component by component, the i-th component of g is
+⟨D f x df (e x i), yb⟩ for every input i f is differentiated with respect
+to.
 
 [`rocq/README.md`](rocq/README.md) lists the theorems and gives the correspondence, file by
 file, and how each construction of Elpi is rendered in Rocq;
