@@ -18,7 +18,7 @@ all: htr3 $(PROOFS)
 
 # The search with its driver, by gcc.
 htr3: htr3.c main.c
-	gcc -O2 -Wall htr3.c main.c -lm -o $@
+	gcc -O3 -march=native -Wall htr3.c main.c -lm -o $@
 
 # The Clight program VST reasons on (generated).
 htr3_clight.v: htr3.c

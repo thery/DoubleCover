@@ -8,33 +8,52 @@ Require Import HtrVst.Spec_add.
 
 Definition Gprog : funspecs := [add_spec].
 
-(** One step of the loop: the new word plus the new carry times 2^64 is
-    the old word plus the word added plus the old carry. *)
-Lemma carry_step x y c : word x -> word y -> 0 <= c <= 1 ->
-  let t := Int64.add (Int64.repr y) (Int64.repr c) in
-  let d := Int64.add (Int64.repr x) t in
-  Int64.unsigned d +
+(** One [ADD_LIMB]: the sum modulo 2^64 plus its carry times 2^64 is the
+    sum. *)
+Lemma add_ltu a b : word a -> word b ->
+  Int64.unsigned (Int64.add (Int64.repr a) (Int64.repr b)) +
     2 ^ wbits *
-      (if orb (Int64.ltu t (Int64.repr c)) (Int64.ltu d t) then 1 else 0) =
-  x + y + c.
+      Z.b2z (Int64.ltu (Int64.add (Int64.repr a) (Int64.repr b))
+               (Int64.repr b)) =
+  a + b.
 Proof.
-  intros Hx Hy Hc t d; unfold word, wbits in *.
-  unfold d, t, Int64.add, Int64.ltu.
+  intros Ha Hb; unfold word, wbits in *.
+  unfold Int64.add, Int64.ltu.
   rewrite !Int64.unsigned_repr_eq.
   change Int64.modulus with (2 ^ 64) in *.
-  rewrite (Z.mod_small x), (Z.mod_small c), (Z.mod_small y) by lia.
-  destruct (Z.eq_dec (y + c) (2 ^ 64)) as [E|E].
-  - rewrite E, Z_mod_same_full, Z.add_0_r, !(Z.mod_small x) by lia.
-    destruct (zlt 0 c); try lia; simpl; lia.
-  - rewrite (Z.mod_small (y + c)) by lia.
-    destruct (zlt (y + c) c); try lia; simpl.
-    change (Z.pow_pos 2 64) with (2 ^ 64).
-    destruct (zlt (x + (y + c)) (2 ^ 64)).
-    + rewrite !(Z.mod_small (x + (y + c))) by lia.
-      destruct (zlt (x + (y + c)) (y + c)); simpl; lia.
-    + rewrite <- (Z.mod_unique_pos (x + (y + c)) (2 ^ 64) 1
-        (x + (y + c) - 2 ^ 64)) by lia.
-      destruct (zlt (x + (y + c) - 2 ^ 64) (y + c)); simpl; lia.
+  rewrite (Z.mod_small a), (Z.mod_small b) by lia.
+  destruct (zlt (a + b) (2 ^ 64)).
+  - rewrite (Z.mod_small (a + b)) by lia.
+    destruct (zlt (a + b) b); simpl; lia.
+  - rewrite <- (Z.mod_unique_pos (a + b) (2 ^ 64) 1 (a + b - 2 ^ 64))
+      by lia.
+    destruct (zlt (a + b - 2 ^ 64) b); simpl; lia.
+Qed.
+
+(** One step of the loop, the two [ADD_LIMB]: the old word plus the old
+    carry, then plus the word added.  The new word plus the sum of the two
+    carries times 2^64 is the old word plus the word added plus the old
+    carry, and the sum of the two carries is a carry again. *)
+Lemma limb_step x y c : word x -> word y -> 0 <= c <= 1 ->
+  let a1 := Int64.add (Int64.repr x) (Int64.repr c) in
+  let a2 := Int64.add a1 (Int64.repr y) in
+  let cd := Z.b2z (Int64.ltu a1 (Int64.repr c)) +
+            Z.b2z (Int64.ltu a2 (Int64.repr y)) in
+  Int64.unsigned a2 + 2 ^ wbits * cd = x + y + c /\ 0 <= cd <= 1.
+Proof.
+  intros Hx Hy Hc a1 a2 cd.
+  assert (Wc : word c) by (unfold word, wbits; lia).
+  pose proof (add_ltu x c Hx Wc) as H1; fold a1 in H1.
+  assert (W1 : word (Int64.unsigned a1))
+    by (unfold word, wbits; pose proof (Int64.unsigned_range a1); auto).
+  pose proof (add_ltu (Int64.unsigned a1) y W1 Hy) as H2.
+  rewrite Int64.repr_unsigned in H2; fold a2 in H2.
+  pose proof (Int64.unsigned_range a2) as R2.
+  change Int64.modulus with (2 ^ 64) in R2.
+  unfold word, wbits in *.
+  unfold cd.
+  destruct (Int64.ltu a1 (Int64.repr c)), (Int64.ltu a2 (Int64.repr y));
+    simpl in *; lia.
 Qed.
 
 Lemma body_add : semax_body Vprog Gprog f_add add_spec.
@@ -73,52 +92,36 @@ Proof.
     assert (Wy : word y) by (apply Forall_Znth; auto; lia).
     forward.
     { entailer!; rewrite Znth_vwords by lia; exact I. }
-    rewrite Znth_vwords, Ey by lia.
-    forward.
-    set (t := Int64.add (Int64.repr y) (Int64.repr c)).
-    forward.
-    { entailer!; rewrite Znth_vwords by lia; exact I. }
     rewrite Znth_vwords, Ex by lia.
     forward.
-    set (d := Int64.add (Int64.repr x) t).
-    rewrite upd_vwords by lia.
-    set (xs1 := upd_Znth (ia + i) xs' (Int64.unsigned d)).
-    assert (Hd : Znth (ia + i) xs1 = Int64.unsigned d)
-      by (unfold xs1; rewrite upd_Znth_same; lia).
-    assert (Hl1 : Zlength xs1 = Zlength xs)
-      by (unfold xs1; rewrite upd_Znth_Zlength; lia).
-    forward_if (temp _t'1 (Vint (if orb (Int64.ltu t (Int64.repr c))
-                                        (Int64.ltu d t)
-                                 then Int.one else Int.zero))).
-    + forward.
-      entailer!.
-      match goal with E : Int64.ltu t _ = true |- _ => rewrite E end.
-      reflexivity.
-    + forward.
-      { entailer!; rewrite Znth_vwords by lia; exact I. }
-      rewrite Znth_vwords, Hd, Int64.repr_unsigned by lia.
-      forward.
-      entailer!.
-      match goal with E : Int64.ltu t _ = false |- _ => rewrite E end.
-      simpl; unfold bool2val, Int64.cmpu.
-      destruct (Int64.ltu d t); reflexivity.
-    + forward.
-      pose proof (carry_step x y c Wx Wy Hc) as Hs; cbv zeta in Hs.
-      fold t d in Hs.
-      set (b := orb (Int64.ltu t (Int64.repr c)) (Int64.ltu d t)) in *.
-      Exists xs1 (if b then 1 else 0).
-      entailer!.
-      repeat split.
-      * destruct b; lia.
-      * destruct b; lia.
-      * apply Forall_word_upd; auto.
-      * intros q Hq.
-        unfold xs1; rewrite upd_Znth_diff' by lia.
-        apply Hout; lia.
-      * pose proof (valZ_step 1 xs xs' ia ib i c (if b then 1 else 0)
-          (Int64.unsigned d)) as Hst.
-        unfold xs1; unfold wbits in *; lia.
-      * destruct b; reflexivity.
+    { entailer!; rewrite Znth_vwords by lia; exact I. }
+    rewrite Znth_vwords, Ey by lia.
+    forward. forward. forward. forward. forward. forward.
+    pose proof (limb_step x y c Wx Wy Hc) as [Hs Hcd]; cbv zeta in Hs, Hcd.
+    set (a1 := Int64.add (Int64.repr x) (Int64.repr c)) in *.
+    set (a2 := Int64.add a1 (Int64.repr y)) in *.
+    change (Int64.cmpu Clt) with Int64.ltu.
+    set (c1 := Z.b2z (Int64.ltu a1 (Int64.repr c))) in *.
+    set (d := Z.b2z (Int64.ltu a2 (Int64.repr y))) in *.
+    assert (Hc1 : 0 <= c1 <= 1)
+      by (unfold c1; destruct (Int64.ltu a1 (Int64.repr c)); simpl; lia).
+    assert (Hd : 0 <= d <= 1)
+      by (unfold d; destruct (Int64.ltu a2 (Int64.repr y)); simpl; lia).
+    rewrite !Int.signed_repr by rep_lia.
+    rewrite add64_repr, upd_vwords by lia.
+    set (xs1 := upd_Znth (ia + i) xs' (Int64.unsigned a2)).
+    Exists xs1 (c1 + d).
+    entailer!.
+    repeat split.
+    all: try lia.
+    * unfold xs1; rewrite upd_Znth_Zlength; lia.
+    * apply Forall_word_upd; auto.
+    * intros q Hq.
+      unfold xs1; rewrite upd_Znth_diff' by lia.
+      apply Hout; lia.
+    * pose proof (valZ_step 1 xs xs' ia ib i c (c1 + d) (Int64.unsigned a2))
+        as Hst.
+      unfold xs1; unfold wbits in *; lia.
   - Intros xs' c.
     Exists xs'; entailer!.
     apply (valZ_mod _ _ (- c)); auto.

@@ -9,7 +9,7 @@ Require Import HtrVst.Verif_sub HtrVst.Spec_add HtrVst.Verif_difftab.
 Require Import HtrVst.Verif_tstep HtrVst.Spec_search.
 
 Definition Gprog : funspecs :=
-  [sub_spec; add_spec; difftab_spec; tstep_spec; search_spec].
+  [sub_spec; add_spec; difftab_spec; tstep_l_spec; tstep_spec; search_spec].
 
 (** ** The coefficients *)
 
