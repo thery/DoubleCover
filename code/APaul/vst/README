@@ -2,8 +2,13 @@ The search of htr.c for one line, in C, verified with VST (DeepSpec)
 ===================================================================
 
 htr3.c        the search part of code/APaul/capla/htr3/run/htr.c, on a flat
-              array of k*l words: add and sub (htr.c's own statements, at two
-              offsets), difftab, tstep, search (returns the candidates j)
+              array of k*l words: add (htr.c's ADD 1, with ADD_LIMB) and sub
+              (htr.c's own statements, at two offsets), difftab, tstep_l (one
+              step of the table), tstep (a switch on l that calls tstep_l
+              with l written as a constant for l <= 10, as htr_patch.c of
+              exp-full-proof, so that gcc -O3 unrolls add and chains the
+              carries with adc; the loop with l otherwise), search (returns
+              the candidates j)
 main.c        unverified driver: reads a table file in htr.c's format (each
               line x0 N k l B..., 1 <= k <= 13, 1 <= l <= 8) and prints the
               candidates x0 + j u.  Usage: htr3 FILE ERR (e.g. 0x600000)
@@ -16,7 +21,7 @@ Spec_add.v    add_spec;  Spec_search.v  search_spec, with window, table,
               cand, cands (as code/APaul/rocq/HtrDefs.v)
 Verif_add.v, Verif_sub.v, Verif_difftab.v, Verif_tstep.v, Verif_search.v
               body_<f> : semax_body Vprog Gprog f_<f> <f>_spec
-Verif_htr3.v  htr3_funcs_correct: semax_func over the five functions, so no
+Verif_htr3.v  htr3_funcs_correct: semax_func over the six functions, so no
               proof rests on an unproved callee spec
 link/         links to code/APaul/rocq (APaulRocq) and code/exptablekl
               (ExpTableKL), built here (`make ports`)
@@ -26,6 +31,12 @@ VstTable.v    vst_search_line, vst_search_table: from line_ok (or
               check_raw) and the postcondition of search_spec, every hard
               j < n is among the first count entries of out, when
               count <= cap
+
+Speed (in0 of exp-full-proof, each line cut to N/300000 inputs, one thread,
+Intel Core Ultra 7 165U, gcc 15.3 -O3 -march=native): 7.5 s, against 22 s
+for the previous htr3.c (htr.c's ADD 0, l not constant); same candidates as
+htr.c.  The switch of tstep is on an int s, as VST has no rule for a switch
+on a 64-bit value, and each case ends with break, as VST requires.
 
 search_spec: on an array holding B_0 .. B_(k-1) (l words each), search
 returns the number of candidates j < n (cands of the table of differences

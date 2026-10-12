@@ -1,6 +1,6 @@
-(** * The 22 functions of htr_filter.c together
+(** * The 23 functions of htr_filter.c together
 
-    As [Verif_htr3.v] for htr3.c: [semax_func] over the five functions of
+    As [Verif_htr3.v] for htr3.c: [semax_func] over the six functions of
     htr3.c, the 16 functions of exp100.c (without its wrappers on doubles,
     exp_encl and maybe_hard, that search_filter does not call) and
     search_filter, every call being read through the statements of the
@@ -52,7 +52,8 @@ Module X := E.exp100_clight.
 Theorem htr_filter_funcs_correct :
   semax_func Vprog Gprog (Genv.globalenv prog)
     [(_sub, Internal f_sub); (_add, Internal f_add);
-     (_difftab, Internal f_difftab); (_tstep, Internal f_tstep);
+     (_difftab, Internal f_difftab); (_tstep_l, Internal f_tstep_l);
+     (_tstep, Internal f_tstep);
      (_search, Internal f_search);
      (_num_zero, Internal f_num_zero); (_num_copy, Internal f_num_copy);
      (_num_add, Internal f_num_add); (_num_sub, Internal f_num_sub);
@@ -75,6 +76,8 @@ Proof.
     HtrVst.Verif_add.body_add cspecs_sub_htr_exp.
   cons_body H.f_difftab f_difftab HtrVst.Verif_difftab.difftab_spec
     HtrVst.Verif_difftab.body_difftab cspecs_sub_htr_exp.
+  cons_body H.f_tstep_l f_tstep_l HtrVst.Verif_tstep.tstep_l_spec
+    HtrVst.Verif_tstep.body_tstep_l cspecs_sub_htr_exp.
   cons_body H.f_tstep f_tstep HtrVst.Verif_tstep.tstep_spec
     HtrVst.Verif_tstep.body_tstep cspecs_sub_htr_exp.
   cons_body H.f_search f_search HtrVst.Spec_search.search_spec
