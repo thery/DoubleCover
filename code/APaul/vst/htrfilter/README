@@ -8,11 +8,11 @@ htr_filter.c   includes ../htr3.c (htr.c's search of one line, without GMP)
                maybe_hard_bits.  Tested equal to htr.c -DUSE_FILTER.
 
 FCommon.v          Vprog, the composites of exp100
-Spec_filter.v      search_filter_spec and Gprog (htr3's 6 statements,
+Spec_filter.v      search_filter_spec and Gprog (htr3's 7 statements,
                    exp100's 16, search_filter)
 Verif_filter.v     body_search_filter
-Verif_htrfilter.v  htr_filter_funcs_correct: semax_func over the 23
-                   functions, the 22 earlier body proofs reused
+Verif_htrfilter.v  htr_filter_funcs_correct: semax_func over the 24
+                   functions, the 23 earlier body proofs reused
 Bits.v             the bits of x0 + j u; hard_43_42 (within 2^-43 v implies
                    within 2^-42 v, same v)
 FilterTable.v      vst_search_filter_table: for every line of a table that

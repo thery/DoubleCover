@@ -46,30 +46,77 @@ static void difftab(uint64_t *B, uint64_t k, uint64_t l) {
       sub(B, j * l, (j - 1) * l, l);
 }
 
-// One step of the table: for t = 0 .. k-2, B_t += B_(t+1).
-static void tstep_l(uint64_t *B, uint64_t k, uint64_t l) {
+// One step of the table with add: for t = 0 .. k-2, B_t += B_(t+1).  For
+// l > 10, where tstep_load does not apply.
+static void tstep_add(uint64_t *B, uint64_t k, uint64_t l) {
   for (uint64_t t = 0; t + 1 < k; t++)
     add(B, t * l, (t + 1) * l, l);
 }
 
-// The same, with l written as a constant in each case (htr_patch.c's step),
-// so that the compiler unrolls add and chains the carries; other values of
-// l take the loop above.  The switch is on an int (VST has no rule for a
-// switch on a 64-bit value): s is l when l <= 10, else 0, which is no case.
+// One step of the table: for t = 0 .. k-2, B_t += B_(t+1), the old B_(t+1)
+// each time, each word read once (as htr_load.c of exp-full-proof): a holds
+// the old B_t, b the old B_(t+1), loaded once; B_t = a + b is stored, and b
+// becomes a.  l <= 10 (the size of a and b).  The pragmas ask gcc to unroll
+// the loops when k and l are constants: without them it stops at the larger
+// pairs and the step is slower (clightgen ignores them).
+static void tstep_load(uint64_t *B, uint64_t k, uint64_t l) {
+  uint64_t a[10], b[10];
+#pragma GCC unroll 16
+  for (uint64_t i = 0; i < l; i++)
+    a[i] = B[i];
+#pragma GCC unroll 16
+  for (uint64_t t = 0; t + 1 < k; t++) {
+#pragma GCC unroll 16
+    for (uint64_t i = 0; i < l; i++)
+      b[i] = B[(t + 1) * l + i];
+    unsigned char cy = 0;
+#pragma GCC unroll 16
+    for (uint64_t i = 0; i < l; i++)
+      cy = _addcarry_u64(cy, a[i], b[i], (unsigned long long *) &B[t * l + i]);
+#pragma GCC unroll 16
+    for (uint64_t i = 0; i < l; i++)
+      a[i] = b[i];
+  }
+}
+
+// The step with k and l written as constants for the pairs (k, l) of the
+// table files, with l alone for other l <= 10, so that gcc unrolls
+// tstep_load and keeps a and b in registers.  The switches are on ints (VST
+// has no rule for a switch on a 64-bit value): kl is 16 k + l when k <= 13
+// and l <= 10, else 0, which is no case; s is l when l <= 10, else 0.
 static void tstep(uint64_t *B, uint64_t k, uint64_t l) {
-  int s = l <= 10 ? (int) l : 0;
-  switch (s) {
-  case 1: tstep_l(B, k, 1); break;
-  case 2: tstep_l(B, k, 2); break;
-  case 3: tstep_l(B, k, 3); break;
-  case 4: tstep_l(B, k, 4); break;
-  case 5: tstep_l(B, k, 5); break;
-  case 6: tstep_l(B, k, 6); break;
-  case 7: tstep_l(B, k, 7); break;
-  case 8: tstep_l(B, k, 8); break;
-  case 9: tstep_l(B, k, 9); break;
-  case 10: tstep_l(B, k, 10); break;
-  default: tstep_l(B, k, l); break;
+  int kl = k <= 13 && l <= 10 ? (int) (16 * k + l) : 0;
+  switch (kl) {
+  case 34: tstep_load(B, 2, 2); break;
+  case 50: tstep_load(B, 3, 2); break;
+  case 67: tstep_load(B, 4, 3); break;
+  case 84: tstep_load(B, 5, 4); break;
+  case 100: tstep_load(B, 6, 4); break;
+  case 117: tstep_load(B, 7, 5); break;
+  case 133: tstep_load(B, 8, 5); break;
+  case 150: tstep_load(B, 9, 6); break;
+  case 167: tstep_load(B, 10, 7); break;
+  case 183: tstep_load(B, 11, 7); break;
+  case 200: tstep_load(B, 12, 8); break;
+  case 216: tstep_load(B, 13, 8); break;
+  default:
+    {
+      int s = l <= 10 ? (int) l : 0;
+      switch (s) {
+      case 1: tstep_load(B, k, 1); break;
+      case 2: tstep_load(B, k, 2); break;
+      case 3: tstep_load(B, k, 3); break;
+      case 4: tstep_load(B, k, 4); break;
+      case 5: tstep_load(B, k, 5); break;
+      case 6: tstep_load(B, k, 6); break;
+      case 7: tstep_load(B, k, 7); break;
+      case 8: tstep_load(B, k, 8); break;
+      case 9: tstep_load(B, k, 9); break;
+      case 10: tstep_load(B, k, 10); break;
+      default: tstep_add(B, k, l); break;
+      }
+    }
+    break;
   }
 }
 

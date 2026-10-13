@@ -6,10 +6,11 @@
 Require Import VST.floyd.proofauto.
 Require Import HtrVst.Words HtrVst.Fdiff HtrVst.htr3_clight HtrVst.Common.
 Require Import HtrVst.Verif_sub HtrVst.Spec_add HtrVst.Verif_difftab.
-Require Import HtrVst.Verif_tstep HtrVst.Spec_search.
+Require Import HtrVst.Verif_tstep HtrVst.Verif_tstep_load HtrVst.Spec_search.
 
 Definition Gprog : funspecs :=
-  [sub_spec; add_spec; difftab_spec; tstep_l_spec; tstep_spec; search_spec].
+  [sub_spec; add_spec; difftab_spec; tstep_add_spec; tstep_load_spec;
+   tstep_spec; search_spec].
 
 (** ** The coefficients *)
 

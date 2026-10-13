@@ -5,12 +5,14 @@ htr3.c        the search part of code/APaul/capla/htr3/run/htr.c, on a flat
               array of k*l words: add (htr.c's ADD 2, with gcc's intrinsic
               _addcarry_u64, i.e. adc; clightgen sees a prototype instead of
               <immintrin.h>) and sub (htr.c's own statements, at two
-              offsets), difftab, tstep_l (one
-              step of the table), tstep (a switch on l that calls tstep_l
-              with l written as a constant for l <= 10, as htr_patch.c of
-              exp-full-proof, so that gcc -O3 unrolls add and chains the
-              carries with adc; the loop with l otherwise), search (returns
-              the candidates j)
+              offsets), difftab, tstep_load (one step of the table, each
+              word read once, as htr_load.c of exp-full-proof: a holds the
+              old B_t, b the old B_(t+1), loaded once, B_t = a + b with
+              _addcarry_u64, then b becomes a; l <= 10), tstep_add (the step
+              with add, for l > 10), tstep (calls tstep_load with k and l
+              written as constants for the 12 pairs (k, l) of the table
+              files, with l alone for other l <= 10, so that gcc -O3 unrolls
+              it; tstep_add otherwise), search (returns the candidates j)
 main.c        unverified driver: reads a table file in htr.c's format (each
               line x0 N k l B..., 1 <= k <= 13, 1 <= l <= 8) and prints the
               candidates x0 + j u.  Usage: htr3 FILE ERR (e.g. 0x600000)
@@ -23,9 +25,10 @@ Spec_add.v    add_spec, and addcarry_spec: the statement of _addcarry_u64
               (writes a + b + c mod 2^64, returns the carry), assumed;
               Spec_search.v  search_spec, with window, table,
               cand, cands (as code/APaul/rocq/HtrDefs.v)
-Verif_add.v, Verif_sub.v, Verif_difftab.v, Verif_tstep.v, Verif_search.v
+Verif_add.v, Verif_sub.v, Verif_difftab.v, Verif_tstep.v (tstep_add),
+Verif_tstep_load.v (tstep_load, tstep), Verif_search.v
               body_<f> : semax_body Vprog Gprog f_<f> <f>_spec
-Verif_htr3.v  htr3_funcs_correct: semax_func over the six functions; the
+Verif_htr3.v  htr3_funcs_correct: semax_func over the seven functions; the
               only callee spec not proved is addcarry_spec, which is in the
               context of the statement (Gassumed = addcarry_spec :: Gprog)
 link/         links to code/APaul/rocq (APaulRocq) and code/exptablekl
@@ -39,12 +42,15 @@ VstTable.v    vst_search_line, vst_search_table: from line_ok (or
 
 Speed (one thread, Intel Core Ultra 7 165U, gcc 15.3 -O3 -march=native;
 same candidates as htr.c): in0 of exp-full-proof (k = 11, l = 7), each line
-cut to N/300000 inputs, 10.8 s against 22.7 s for htr.c's ADD 0 with l not
-constant; a table file with k = 12, l = 8 (the most frequent pair), cut to
-N/33733, 19.3 s against 44.2 s.  With ADD 1 instead of ADD 2 it is 7.3 s on
-in0 but 37.6 s with l = 8, and on an AMD EPYC 9754 (gcc 14) ADD 2 is the
-faster on both.  The switch of tstep is on an int s, as VST has no rule for a
-switch on a 64-bit value, and each case ends with break, as VST requires.
+cut to N/300000 inputs, 6.9 s; in800 (k = 13, l = 8), cut to N/30000, 9.6 s;
+a table file with k = 12, l = 8 (the most frequent pair), cut to N/33733,
+14.3 s.  The previous htr3.c (add with l constant, no tstep_load): 10.6,
+13.1 and 17.9 s; htr_load.c: 6.6, 9.2 and 12.7 s; the first htr3.c (htr.c's
+add, nothing constant): 22.7 s on in0 and 44.2 s with k = 12, l = 8.  The
+pragmas GCC unroll in tstep_load are needed: without them gcc stops unrolling
+at the larger pairs and l = 8 is slower than before.  The switches of tstep
+are on ints (kl = 16 k + l, s = l), as VST has no rule for a switch on a
+64-bit value, and each case ends with break, as VST requires.
 
 search_spec: on an array holding B_0 .. B_(k-1) (l words each), search
 returns the number of candidates j < n (cands of the table of differences

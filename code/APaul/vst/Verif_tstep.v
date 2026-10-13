@@ -3,7 +3,9 @@
     The function [tstep] of [htr3.c]: the array holds [k] coefficients of
     [l] words each, and [tstep] replaces coefficient [t] by coefficient [t]
     plus coefficient [t+1] modulo [baseZ l], for [t = 0 .. k-2], the last
-    one unchanged.  It calls [add], used through its statement. *)
+    one unchanged.  This file: the statements, the invariant of the step
+    and [tstep_add], the loop that calls [add], used through its statement.
+    [tstep_load] and [tstep] are in Verif_tstep_load.v. *)
 
 Require Import VST.floyd.proofauto.
 Require Import HtrVst.Words HtrVst.htr3_clight HtrVst.Common.
@@ -25,10 +27,11 @@ Definition coefZ (xs : list Z) (l i : Z) : Z :=
 Definition coefsZ (xs : list Z) (l k : Z) : list Z :=
   map (coefZ xs l) (upto (Z.to_nat k)).
 
-(** [tstep_l], the loop, and [tstep], the switch on [l] that calls it with
-    [l] written as a constant: the same statement. *)
-Definition tstep_l_spec : ident * funspec :=
- DECLARE _tstep_l
+(** [tstep_add], the loop with [add] (for l > 10), and [tstep], the step
+    that dispatches to [tstep_load] (Verif_tstep_load.v) or [tstep_add]:
+    the same statement. *)
+Definition tstep_add_spec : ident * funspec :=
+ DECLARE _tstep_add
  WITH sh : share, p : val, xs : list Z, k : Z, l : Z
  PRE [ tptr tulong, tulong, tulong ]
    PROP (writable_share sh; Forall word xs;
@@ -61,7 +64,7 @@ Definition tstep_spec : ident * funspec :=
    RETURN ()
    SEP (data_at sh (tarray tulong (Zlength xs)) (vwords xs') p).
 
-Definition Gprog : funspecs := [add_spec; tstep_l_spec; tstep_spec].
+Definition Gprog : funspecs := [add_spec; tstep_add_spec].
 
 (** ** tstepZ, element by element *)
 
@@ -192,7 +195,7 @@ Proof.
     apply Hdone; lia.
 Qed.
 
-Lemma body_tstep_l : semax_body Vprog Gprog f_tstep_l tstep_l_spec.
+Lemma body_tstep_add : semax_body Vprog Gprog f_tstep_add tstep_add_spec.
 Proof.
   start_function.
   assert_PROP (Zlength xs <= Int64.max_unsigned).
@@ -262,56 +265,4 @@ Proof.
     + intros q Hq; apply Hout; nia.
 Qed.
 
-Print Assumptions body_tstep_l.
-
-(** [tstep]: [s] is [l] when [l <= 10], else 0; each case calls [tstep_l]
-    with its constant, which is [l], and the default calls it with [l]. *)
-Lemma body_tstep : semax_body Vprog Gprog f_tstep tstep_spec.
-Proof.
-  start_function.
-  assert_PROP (Zlength xs <= Int64.max_unsigned).
-  { entailer!.
-    match goal with H : field_compatible _ _ _ |- _ =>
-      destruct H as (Hp & _ & Hsz & _) end.
-    destruct p; try contradiction.
-    simpl in Hsz; rewrite Z.max_r in Hsz by lia.
-    pose proof (Ptrofs.unsigned_range i).
-    change Ptrofs.modulus with Int64.modulus in Hsz.
-    unfold Int64.max_unsigned; lia. }
-  assert (Hl : l <= Int64.max_unsigned) by nia.
-  forward_if (temp _t'1 (Vint (Int.repr (if Z.leb l 10 then l else 0)))).
-  - forward.
-    entailer!.
-    match goal with H : context [Int64.unsigned (Int64.repr 10)] |- _ =>
-      rewrite !Int64.unsigned_repr in H by rep_lia end.
-    destruct (Z.leb_spec l 10); [reflexivity | lia].
-  - forward.
-    entailer!.
-    match goal with H : context [Int64.unsigned (Int64.repr 10)] |- _ =>
-      rewrite !Int64.unsigned_repr in H by rep_lia end.
-    destruct (Z.leb_spec l 10); [lia | reflexivity].
-  - forward.
-    assert (Hsv : 0 <= (if l <=? 10 then l else 0) <= 10)
-      by (destruct (Z.leb_spec l 10); lia).
-    remember (if l <=? 10 then l else 0) as sv eqn:Esv.
-    eapply (semax_switch_PQR sv); [reflexivity | entailer! | entailer! |].
-    rewrite Int.unsigned_repr by rep_lia.
-    assert (sv = 0 \/ sv = 1 \/ sv = 2 \/ sv = 3 \/ sv = 4 \/ sv = 5 \/
-            sv = 6 \/ sv = 7 \/ sv = 8 \/ sv = 9 \/ sv = 10) as Hcase by lia.
-    destruct Hcase as [E|[E|[E|[E|[E|[E|[E|[E|[E|[E|E]]]]]]]]]]; rewrite E;
-      (* the statements of the case taken, the postcondition unchanged *)
-      match goal with |- semax _ _ ?S _ =>
-        let S' := eval simpl in S in change S with S' end.
-    (* sv = 0: the default case, with l itself *)
-    1: { forward_call (sh, p, xs, k, l).
-         Intros xs'.
-         forward.
-         Exists xs'; entailer!. }
-    (* sv = n, 1 <= n <= 10: then l = n, the constant of the call *)
-    all: assert (l = sv) as El by (destruct (Z.leb_spec l 10); lia);
-      rewrite E in El; clear E Esv Hsv.
-    all: forward_call (sh, p, xs, k, l); [subst l; entailer! |].
-    all: Intros xs'; forward; Exists xs'; entailer!.
-Qed.
-
-Print Assumptions body_tstep.
+Print Assumptions body_tstep_add.

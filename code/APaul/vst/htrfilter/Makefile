@@ -15,7 +15,7 @@ COQFLAGS := -Q htr3-vo HtrVst -Q . HF -Q ../link/apaul APaulRocq \
 PROOFS := htr_filter_clight.vo FCommon.vo Spec_filter.vo Verif_filter.vo \
           Verif_htrfilter.vo Bits.vo FilterTable.vo
 
-HTR3 := Words htr3_clight Common Spec_add Verif_sub Verif_add Verif_tstep \
+HTR3 := Words htr3_clight Common Spec_add Verif_sub Verif_add Verif_tstep Verif_tstep_load \
         Fdiff Verif_difftab Spec_search Verif_search Verif_htr3 TableCands \
         VstTable
 
