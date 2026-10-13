@@ -95,6 +95,7 @@ static void tstep(uint64_t *B, uint64_t k, uint64_t l) {
   case 117: tstep_load(B, 7, 5); break;
   case 133: tstep_load(B, 8, 5); break;
   case 150: tstep_load(B, 9, 6); break;
+  case 166: tstep_load(B, 10, 6); break;
   case 167: tstep_load(B, 10, 7); break;
   case 183: tstep_load(B, 11, 7); break;
   case 200: tstep_load(B, 12, 8); break;

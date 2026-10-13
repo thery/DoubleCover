@@ -10,8 +10,10 @@ htr3.c        the search part of code/APaul/capla/htr3/run/htr.c, on a flat
               old B_t, b the old B_(t+1), loaded once, B_t = a + b with
               _addcarry_u64, then b becomes a; l <= 10), tstep_add (the step
               with add, for l > 10), tstep (calls tstep_load with k and l
-              written as constants for the 12 pairs (k, l) of the table
-              files, with l alone for other l <= 10, so that gcc -O3 unrolls
+              written as constants for the 13 pairs (k, l) of the table
+              files, old (2026-10-02) and new (2026-10-07, which use
+              (2,2) .. (9,6), (10,6), (11,7)), with l alone for other
+              l <= 10, so that gcc -O3 unrolls
               it; tstep_add otherwise), search (returns the candidates j)
 main.c        unverified driver: reads a table file in htr.c's format (each
               line x0 N k l B..., 1 <= k <= 13, 1 <= l <= 8) and prints the
