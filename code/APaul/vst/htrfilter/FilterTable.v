@@ -6,11 +6,13 @@
     the line ([k] coefficients of [l] words holding [B], the window
     [err = ERR], [j = 0 .. n-1]) and with [xb0] the bits of the double
     [x0] of the line and [neg] its sign, returns every hard-to-round input
-    of the line ([hard] of the table, m = 43) among the first [kept]
-    entries of [out], when the candidates of [search] fit in [out].
+    of the line ([hard] of the table, m = 43) among the first [r] entries
+    of [out], [r] the value returned, when [r] is not [UINT64_MAX]
+    ([search_filter] returns [UINT64_MAX] exactly when the candidates of
+    [search] do not fit in [out]; the caller checks it).
 
     As in ../VstTable.v, the statements read off the postcondition of
-    [search_filter_spec]: what it says of [out] and of the returned [kept]
+    [search_filter_spec]: what it says of [out] and of the returned [r]
     is taken as hypothesis.  It holds of every call of [search_filter]
     proved through [search_filter_spec] ([body_search_filter],
     [htr_filter_funcs_correct], which assumes the statement of gcc's
@@ -109,20 +111,30 @@ Theorem vst_search_filter_line S0 ex n k l B :
   xreal xb0 = (IZR S0 * bp (uexp ex))%R ->
   (neg = 0 <-> 0 < S0) ->
   (* the postcondition of search_filter_spec, called with the k, l and n
-     of the line and err = ERR: kept is what search_filter returns, out'
-     is out after the call *)
+     of the line and err = ERR: r is what search_filter returns, out' is
+     out after the call *)
+  forall r : Z,
+  let cs := cands l ERR (coefs xs l (Z.of_nat k)) (Z.to_nat n) in
   let kept := Zlength (kept_list l ERR xs (Z.of_nat k) n cap neg xb0) in
-  sublist 0 kept os' =
-    vwords (map Z.of_nat (kept_list l ERR xs (Z.of_nat k) n cap neg xb0)) ->
-  (* the candidates of search fit in out *)
-  Zlength (cands l ERR (coefs xs l (Z.of_nat k)) (Z.to_nat n)) <= cap ->
-  (* every hard input j < n is among the first kept entries of out' *)
+  r = (if Zlength cs <=? cap then kept else Int64.max_unsigned) ->
+  (Zlength cs <= cap ->
+   sublist 0 kept os' =
+     vwords (map Z.of_nat (kept_list l ERR xs (Z.of_nat k) n cap neg xb0))) ->
+  (* the caller checks that r is not UINT64_MAX (no overflow) *)
+  r <> Int64.max_unsigned ->
+  (* every hard input j < n is among the first r entries of out' *)
   forall j, 0 <= j < n ->
   hard (IZR (S0 + j) * bp (uexp ex))%R ->
-  In (Vlong (Int64.repr j)) (sublist 0 kept os').
+  In (Vlong (Int64.repr j)) (sublist 0 r os').
 Proof.
-  intros hok xs cap xb0 neg os' hB He Hxb Hx Hneg kept hout hcap j hj hhard.
-  rewrite hout.
+  intros hok xs cap xb0 neg os' hB He Hxb Hx Hneg r cs kept hr hout hmax
+    j hj hhard.
+  (* r is not UINT64_MAX: the candidates of search fit in out *)
+  assert (hcap : Zlength cs <= cap).
+  { destruct (Z.leb_spec (Zlength cs) cap) as [Hle|Hgt];
+      [exact Hle|contradiction]. }
+  rewrite (proj2 (Z.leb_le _ _) hcap) in hr.
+  rewrite hr, (hout hcap).
   (* j is a candidate of search *)
   assert (Hc : In (Z.to_nat j) (cands l ERR (coefs xs l (Z.of_nat k))
                                   (Z.to_nat n))).
@@ -143,7 +155,7 @@ Proof.
   assert (Hin : In (Z.to_nat j) (kept_list l ERR xs (Z.of_nat k) n cap neg xb0)).
   { unfold kept_list; apply filter_In; split; [|exact Hk].
     rewrite firstn_all2; [exact Hc|].
-    rewrite Zlength_correct in hcap; lia. }
+    unfold cs in hcap; rewrite Zlength_correct in hcap; lia. }
   unfold vwords; rewrite !in_map_iff.
   exists (Int64.repr j); split; [reflexivity|].
   apply in_map_iff; exists j; split; [reflexivity|].
@@ -164,16 +176,20 @@ Theorem vst_search_filter_table ls :
   xreal xb0 = (IZR S0 * bp (uexp ex))%R ->
   (neg = 0 <-> 0 < S0) ->
   (* the postcondition of search_filter_spec, called with the k, l and n
-     of the line and err = ERR *)
+     of the line and err = ERR: r is what search_filter returns *)
+  forall r : Z,
+  let cs := cands l ERR (coefs xs l (Z.of_nat k)) (Z.to_nat n) in
   let kept := Zlength (kept_list l ERR xs (Z.of_nat k) n cap neg xb0) in
-  sublist 0 kept os' =
-    vwords (map Z.of_nat (kept_list l ERR xs (Z.of_nat k) n cap neg xb0)) ->
-  (* the candidates of search fit in out *)
-  Zlength (cands l ERR (coefs xs l (Z.of_nat k)) (Z.to_nat n)) <= cap ->
-  (* every hard input j < n is among the first kept entries of out' *)
+  r = (if Zlength cs <=? cap then kept else Int64.max_unsigned) ->
+  (Zlength cs <= cap ->
+   sublist 0 kept os' =
+     vwords (map Z.of_nat (kept_list l ERR xs (Z.of_nat k) n cap neg xb0))) ->
+  (* the caller checks that r is not UINT64_MAX (no overflow) *)
+  r <> Int64.max_unsigned ->
+  (* every hard input j < n is among the first r entries of out' *)
   forall j, 0 <= j < n ->
   hard (IZR (S0 + j) * bp (uexp ex))%R ->
-  In (Vlong (Int64.repr j)) (sublist 0 kept os').
+  In (Vlong (Int64.repr j)) (sublist 0 r os').
 Proof.
   intros hall s hs.
   destruct (ExpProof.check_rawP ls hall s hs)

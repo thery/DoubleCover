@@ -155,6 +155,22 @@ Proof.
   { unfold cs; rewrite Zlength_correct.
     pose proof (HtrVst.Verif_search.cands_length l err (coefs xs l k)
                   (Z.to_nat n)); lia. }
+  (* overflow: the candidates of search do not fit in out *)
+  forward_if (PROP (Zlength cs <= cap)
+    LOCAL (temp _count (Vlong (Int64.repr (Zlength cs)));
+           gvars gv; temp _B p; temp _out q; temp _cap (Vlong (Int64.repr cap));
+           temp _xb0 (Vlong (Int64.repr xb0)); temp _neg (Vint (Int.repr neg)))
+    SEP (data_at sh (tarray tulong (Zlength xs)) (vwords xs1) p;
+         data_at sho (tarray tulong cap) os1 q; consts gv)).
+  { forward.
+    Exists xs1 os1.
+    entailer!.
+    rewrite (proj2 (Z.leb_gt _ _) H14).
+    assert (Hm : Int64.repr (-1) = Int64.repr Int64.max_unsigned).
+    { apply Int64.eqm_samerepr. exists (-1). reflexivity. }
+    rewrite Hm. reflexivity. }
+  { forward. entailer!. }
+  Intros. rename H14 into Hfit.
   forward.
   (* c = min(count, cap) *)
   forward_if (PROP ()
@@ -164,7 +180,8 @@ Proof.
            temp _xb0 (Vlong (Int64.repr xb0)); temp _neg (Vint (Int.repr neg)))
     SEP (data_at sh (tarray tulong (Zlength xs)) (vwords xs1) p;
          data_at sho (tarray tulong cap) os1 q; consts gv)).
-  - forward. entailer!. rewrite Z.min_r by lia. reflexivity.
+  - (* cannot happen: count <= cap *)
+    forward. entailer!.
   - forward. entailer!. rewrite Z.min_l by lia. reflexivity.
   - set (cs1 := firstn (Z.to_nat cap) cs) in *.
     assert (Hc1 : Zlength cs1 = Z.min (Zlength cs) cap)
@@ -279,7 +296,8 @@ Proof.
       Exists xs1
         (vwords (map Z.of_nat fl) ++ sublist (Zlength fl) (Zlength os) os1).
       entailer!.
-      apply sublist_prefix_nat.
+      split; [intros _; apply sublist_prefix_nat|].
+      rewrite (proj2 (Z.leb_le _ _) Hfit). reflexivity.
 Qed.
 
 Print Assumptions body_search_filter.

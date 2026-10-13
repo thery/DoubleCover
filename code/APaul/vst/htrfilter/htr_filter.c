@@ -6,7 +6,10 @@
 // bits of x0 + j u are xb0 + j (x0 > 0) or xb0 - j (x0 < 0).  search writes
 // the first cap candidates j in out; search_filter keeps, in order and at
 // the start of out, those for which maybe_hard_bits answers 1 (maybe hard),
-// and returns their number.
+// and returns their number.  When the candidates of search do not fit in out
+// (cap < count), it returns UINT64_MAX (out is then not meaningful); the
+// number kept is at most cap, so it is never UINT64_MAX when
+// cap < UINT64_MAX.
 
 #include "../htr3.c"
 #include "../../exp100/exp100.c"
@@ -15,6 +18,7 @@ uint64_t search_filter(uint64_t *B, uint64_t m, uint64_t k, uint64_t l,
                        uint64_t n, uint64_t err, uint64_t *out, uint64_t cap,
                        uint64_t xb0, int neg) {
   uint64_t count = search(B, m, k, l, n, err, out, cap);
+  if (cap < count) return UINT64_MAX;   // overflow: candidates beyond cap
   uint64_t c = count;
   if (cap < c) c = cap;                 // the candidates written in out
   uint64_t kept = 0;

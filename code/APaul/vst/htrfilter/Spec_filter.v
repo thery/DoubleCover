@@ -5,7 +5,10 @@
     [out], and keeps (compacted at the start of [out], in order) those for
     which [maybe_hard_bits] of the bits [xb0 + j] ([neg = 0]) or
     [xb0 - j] ([neg <> 0]), taken mod [2^64], answers [1].  It returns the
-    number kept.  [maybe_hard_bits] is used through its statement of
+    number kept when the candidates of [search] fit in [out] ([count <=
+    cap]), and [UINT64_MAX] otherwise (overflow; [out] then says nothing).
+    As [cap < UINT64_MAX], the number kept ([<= cap]) is never
+    [UINT64_MAX].  [maybe_hard_bits] is used through its statement of
     [E.Spec] (the model [maybe_hard_Z] of exp100). *)
 
 Require Import VST.floyd.proofauto.
@@ -40,6 +43,12 @@ Definition kept_list (l err : Z) (xs : list Z) (k n cap neg xb0 : Z)
 
 (** ** The statement *)
 
+(** With [cs] the candidates of [search] ([cands]): when [Zlength cs <=
+    cap], [search_filter] returns the number of those kept and writes them,
+    in order, at the start of [out]; otherwise it returns [UINT64_MAX]
+    ([Int64.max_unsigned]).  In both cases [B] holds words and [out] keeps
+    its length [cap]. *)
+
 Definition search_filter_spec : ident * funspec :=
  DECLARE _search_filter
  WITH gv : globals, sh : share, p : val, xs : list Z, k : Z, l : Z, n : Z,
@@ -51,7 +60,7 @@ Definition search_filter_spec : ident * funspec :=
          1 <= k; 1 <= l; k * l <= Zlength xs;
          0 <= n <= Int64.max_unsigned;
          0 <= err; 2 * err <= Int64.max_unsigned;
-         0 <= cap <= Int64.max_unsigned; Zlength os = cap;
+         0 <= cap < Int64.max_unsigned; Zlength os = cap;
          0 <= xb0 <= Int64.max_unsigned;
          Int.min_signed <= neg <= Int.max_signed)
    PARAMS (p; Vlong (Int64.repr (Zlength xs)); Vlong (Int64.repr k);
@@ -65,10 +74,13 @@ Definition search_filter_spec : ident * funspec :=
  POST [ tulong ]
    EX xs' : list Z, EX os' : list val,
    PROP (Zlength xs' = Zlength xs; Forall word xs'; Zlength os' = cap;
+         Zlength (cands l err (coefs xs l k) (Z.to_nat n)) <= cap ->
          sublist 0 (Zlength (kept_list l err xs k n cap neg xb0)) os' =
          vwords (map Z.of_nat (kept_list l err xs k n cap neg xb0)))
    RETURN (Vlong (Int64.repr
-            (Zlength (kept_list l err xs k n cap neg xb0))))
+            (if Zlength (cands l err (coefs xs l k) (Z.to_nat n)) <=? cap
+             then Zlength (kept_list l err xs k n cap neg xb0)
+             else Int64.max_unsigned)))
    SEP (data_at sh (tarray tulong (Zlength xs)) (vwords xs') p;
         data_at sho (tarray tulong cap) os' q;
         consts gv).
