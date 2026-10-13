@@ -1,6 +1,6 @@
-(** * The 23 functions of htr_filter.c together
+(** * The 24 functions of htr_filter.c together
 
-    As [Verif_htr3.v] for htr3.c: [semax_func] over the six functions of
+    As [Verif_htr3.v] for htr3.c: [semax_func] over the seven functions of
     htr3.c, the 16 functions of exp100.c (without its wrappers on doubles,
     exp_encl and maybe_hard, that search_filter does not call) and
     search_filter, every call being read through the statements of the
@@ -20,7 +20,7 @@ Require Import VST.floyd.proofauto.
 Require Import HF.htr_filter_clight HF.FCommon HF.Spec_filter HF.Verif_filter.
 Require HtrVst.htr3_clight HtrVst.Common.
 Require HtrVst.Verif_sub HtrVst.Spec_add HtrVst.Verif_add.
-Require HtrVst.Verif_difftab HtrVst.Verif_tstep.
+Require HtrVst.Verif_difftab HtrVst.Verif_tstep HtrVst.Verif_tstep_load.
 Require HtrVst.Spec_search HtrVst.Verif_search.
 Require E.exp100_clight E.Common E.Spec.
 Require E.Verif_simple E.Verif_bits E.Verif_mulshr E.Verif_reduce.
@@ -58,8 +58,8 @@ Definition Gassumed : funspecs := HtrVst.Spec_add.addcarry_spec :: Gprog.
 Theorem htr_filter_funcs_correct :
   semax_func Vprog Gassumed (Genv.globalenv prog)
     [(_sub, Internal f_sub); (_add, Internal f_add);
-     (_difftab, Internal f_difftab); (_tstep_l, Internal f_tstep_l);
-     (_tstep, Internal f_tstep);
+     (_difftab, Internal f_difftab); (_tstep_add, Internal f_tstep_add);
+     (_tstep_load, Internal f_tstep_load); (_tstep, Internal f_tstep);
      (_search, Internal f_search);
      (_num_zero, Internal f_num_zero); (_num_copy, Internal f_num_copy);
      (_num_add, Internal f_num_add); (_num_sub, Internal f_num_sub);
@@ -82,10 +82,12 @@ Proof.
     HtrVst.Verif_add.body_add cspecs_sub_htr_exp.
   cons_body H.f_difftab f_difftab HtrVst.Verif_difftab.difftab_spec
     HtrVst.Verif_difftab.body_difftab cspecs_sub_htr_exp.
-  cons_body H.f_tstep_l f_tstep_l HtrVst.Verif_tstep.tstep_l_spec
-    HtrVst.Verif_tstep.body_tstep_l cspecs_sub_htr_exp.
+  cons_body H.f_tstep_add f_tstep_add HtrVst.Verif_tstep.tstep_add_spec
+    HtrVst.Verif_tstep.body_tstep_add cspecs_sub_htr_exp.
+  cons_body H.f_tstep_load f_tstep_load HtrVst.Verif_tstep_load.tstep_load_spec
+    HtrVst.Verif_tstep_load.body_tstep_load cspecs_sub_htr_exp.
   cons_body H.f_tstep f_tstep HtrVst.Verif_tstep.tstep_spec
-    HtrVst.Verif_tstep.body_tstep cspecs_sub_htr_exp.
+    HtrVst.Verif_tstep_load.body_tstep cspecs_sub_htr_exp.
   cons_body H.f_search f_search HtrVst.Spec_search.search_spec
     HtrVst.Verif_search.body_search cspecs_sub_htr_exp.
   cons_body X.f_num_zero f_num_zero E.Spec.num_zero_spec

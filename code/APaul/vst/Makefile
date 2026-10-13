@@ -8,7 +8,7 @@ COQFLAGS := -Q . HtrVst -Q link/apaul APaulRocq -Q link/exptablekl ExpTableKL
 CLIGHTGEN := clightgen
 
 PROOFS := Words.vo htr3_clight.vo Common.vo Spec_add.vo Verif_sub.vo \
-          Verif_add.vo Verif_tstep.vo Fdiff.vo Verif_difftab.vo \
+          Verif_add.vo Verif_tstep.vo Verif_tstep_load.vo Fdiff.vo Verif_difftab.vo \
           Spec_search.vo Verif_search.vo Verif_htr3.vo TableCands.vo \
           VstTable.vo
 
@@ -38,6 +38,7 @@ Verif_add.vo: Spec_add.vo
 Fdiff.vo: Words.vo
 Verif_difftab.vo: Fdiff.vo Verif_sub.vo
 Verif_tstep.vo: Spec_add.vo
+Verif_tstep_load.vo: Verif_tstep.vo Spec_add.vo
 Spec_search.vo: Fdiff.vo Verif_tstep.vo
 Verif_search.vo: Spec_search.vo Verif_difftab.vo Verif_sub.vo
 Verif_htr3.vo: Verif_search.vo Verif_add.vo

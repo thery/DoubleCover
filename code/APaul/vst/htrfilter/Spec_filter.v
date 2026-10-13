@@ -73,7 +73,7 @@ Definition search_filter_spec : ident * funspec :=
         data_at sho (tarray tulong cap) os' q;
         consts gv).
 
-(** The statements of the 23 functions: the six of htr3.c, the 16 of
+(** The statements of the 24 functions: the seven of htr3.c, the 16 of
     exp100.c (Spec.v), and search_filter. *)
 Definition Gprog : funspecs :=
   HtrVst.Verif_search.Gprog ++ E.Spec.Gprog ++ [search_filter_spec].
