@@ -13,7 +13,8 @@
     [search_filter_spec]: what it says of [out] and of the returned [kept]
     is taken as hypothesis.  It holds of every call of [search_filter]
     proved through [search_filter_spec] ([body_search_filter],
-    [htr_filter_funcs_correct]).
+    [htr_filter_funcs_correct], which assumes the statement of gcc's
+    intrinsic [_addcarry_u64], HtrVst.Spec_add.addcarry_spec).
 
     The two filters meet as follows: [search] keeps [j] when the table of
     differences says that [x0 + j u] may be hard (TableCands.cands_line,
