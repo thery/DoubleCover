@@ -10,19 +10,22 @@
 
 #include <stdint.h>
 
-// B_ia += B_ib mod 2^(64 l): htr.c's add (ADD 1, with ADD_LIMB), on one
-// array at two offsets.  The two words are read first, so that gcc need
-// not read B[ib + i] again after writing B[ia + i].
-#define ADD_LIMB(u,v,c) ((u) += (v), (c) = (u) < (v))
+// B_ia += B_ib mod 2^(64 l): htr.c's add (ADD 2, with _addcarry_u64), on
+// one array at two offsets.  gcc compiles _addcarry_u64 to adc; clightgen
+// (CompCert, which defines __COMPCERT__) cannot read <immintrin.h> and sees
+// a prototype instead: for VST, _addcarry_u64 is an external function whose
+// specification (Spec_add.v, addcarry_spec) is assumed.
+#ifdef __COMPCERT__
+unsigned char _addcarry_u64(unsigned char c, unsigned long long a,
+                            unsigned long long b, unsigned long long *out);
+#else
+#include <immintrin.h>
+#endif
 static void add(uint64_t *B, uint64_t ia, uint64_t ib, uint64_t l) {
-  uint64_t cy = 0, c, d;
-  for (uint64_t i = 0; i < l; i++) {
-    uint64_t a = B[ia + i], b = B[ib + i];
-    ADD_LIMB(a, cy, c);
-    ADD_LIMB(a, b, d);
-    B[ia + i] = a;
-    cy = c + d;
-  }
+  unsigned char cy = 0;
+  for (uint64_t i = 0; i < l; i++)
+    cy = _addcarry_u64(cy, B[ia + i], B[ib + i],
+                       (unsigned long long *) &B[ia + i]);
 }
 
 // B_ia -= B_ib mod 2^(64 l): htr.c's sub, on one array at two offsets.

@@ -4,7 +4,9 @@
     htr3.c, the 16 functions of exp100.c (without its wrappers on doubles,
     exp_encl and maybe_hard, that search_filter does not call) and
     search_filter, every call being read through the statements of the
-    same list [Gprog].  No statement is assumed without its body.
+    same list [Gprog], and the statement of [_addcarry_u64] (the intrinsic
+    of gcc that add calls, HtrVst.Spec_add.addcarry_spec), the only one
+    assumed without a body: [Gassumed].
 
     The bodies of htr3.c and exp100.c are those proved in ../ and
     ../exp100, reused: clightgen names identifiers by string, so the
@@ -49,8 +51,12 @@ Ltac cons_body fold fnew spec L CSUB :=
 Module H := HtrVst.htr3_clight.
 Module X := E.exp100_clight.
 
+(** The statements the calls may use: those of [Gprog], and the statement
+    of [_addcarry_u64], assumed. *)
+Definition Gassumed : funspecs := HtrVst.Spec_add.addcarry_spec :: Gprog.
+
 Theorem htr_filter_funcs_correct :
-  semax_func Vprog Gprog (Genv.globalenv prog)
+  semax_func Vprog Gassumed (Genv.globalenv prog)
     [(_sub, Internal f_sub); (_add, Internal f_add);
      (_difftab, Internal f_difftab); (_tstep_l, Internal f_tstep_l);
      (_tstep, Internal f_tstep);
@@ -68,7 +74,7 @@ Theorem htr_filter_funcs_correct :
      (_maybe_hard_bits, Internal f_maybe_hard_bits);
      (_search_filter, Internal f_search_filter)] Gprog.
 Proof.
-  unfold Gprog, HtrVst.Verif_search.Gprog, E.Spec.Gprog; simpl app.
+  unfold Gassumed, Gprog, HtrVst.Verif_search.Gprog, E.Spec.Gprog; simpl app.
   prove_semax_prog_setup_globalenv.
   cons_body H.f_sub f_sub HtrVst.Verif_sub.sub_spec
     HtrVst.Verif_sub.body_sub cspecs_sub_htr_exp.
