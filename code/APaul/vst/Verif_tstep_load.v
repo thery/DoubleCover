@@ -411,7 +411,8 @@ Print Assumptions body_tstep_load.
 (** ** tstep: [kl] is [16 k + l] when [k <= 13] and [l <= 10], else 0; the
     cases are the pairs of the table files, each calls [tstep_load] with its
     [k] and [l]; the default switches on [s], [l] when [l <= 10], else 0:
-    [tstep_load] with its [l], or [tstep_add]. *)
+    [tstep_load] with its [l], or [tstep_add].  The pairs are those of the
+    table files, old and new: 13 in all. *)
 
 Definition klkey (k l : Z) : Z :=
   if andb (k <=? 13) (l <=? 10) then 16 * k + l else 0.
@@ -483,6 +484,7 @@ Proof.
       destruct (zeq 117 (klkey k l)) as [E|?]; [kl_case sh p xs k l 7 5 |].
       destruct (zeq 133 (klkey k l)) as [E|?]; [kl_case sh p xs k l 8 5 |].
       destruct (zeq 150 (klkey k l)) as [E|?]; [kl_case sh p xs k l 9 6 |].
+      destruct (zeq 166 (klkey k l)) as [E|?]; [kl_case sh p xs k l 10 6 |].
       destruct (zeq 167 (klkey k l)) as [E|?]; [kl_case sh p xs k l 10 7 |].
       destruct (zeq 183 (klkey k l)) as [E|?]; [kl_case sh p xs k l 11 7 |].
       destruct (zeq 200 (klkey k l)) as [E|?]; [kl_case sh p xs k l 12 8 |].
