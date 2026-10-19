@@ -1,0 +1,12 @@
+% cxx-ast.elpi — clang's AST of a C++ function as an Elpi term, as
+% tools/clang2elpi.py prints it from `clang++ -Xclang -ast-dump=json`: a node
+% is its kind (ForStmt, BinaryOperator, …), its attributes (name, opcode,
+% type, id of a declaration, ref: the id a DeclRefExpr refers to, text: a
+% literal as written) and its children. cxxfront.elpi translates it to L0.
+
+kind cxx-ast type.
+type n string -> list cxx-attr -> list cxx-ast -> cxx-ast.   % kind, attributes, children
+kind cxx-attr type.
+type a string -> string -> cxx-attr.
+
+pred cxx-function o:cxx-ast.

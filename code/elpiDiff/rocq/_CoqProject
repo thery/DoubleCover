@@ -19,6 +19,7 @@ Annotate.v
 Transform.v
 Tangent.v
 Dump.v
+ToElpi.v
 Adjoint.v
 Simplify.v
 Scoping.v

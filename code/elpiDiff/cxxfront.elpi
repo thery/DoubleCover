@@ -1,0 +1,404 @@
+% cxxfront.elpi — the C++ front end: from clang's AST of a C++ function to L0,
+% printed as a `primal` fact, the source of the tool (syntax.elpi).
+%
+% clang parses the C++; tools/clang2elpi.py prints its AST, untouched, as
+% `cxx-function` facts of the type cxx-ast below. Everything the C++ means is
+% decided here:
+%   - a variable is a clang declaration (its id), so C++ scopes and shadowing
+%     are clang's; each assignment makes a new version of it, a new binder;
+%   - `if` is an `ite` that gives the new version of the one variable it
+%     assigns (or, when both branches return, the value of the function);
+%   - `for (i = lo; i < hi; ++i)` is a `map` when it writes y[i] of an array y
+%     it never reads, and a `fold` over the one variable it assigns otherwise;
+%   - the roles: T is independent, double is a passive real, an integer or a
+%     bool is passive, and a T& or std::array<T, N>& is dependent when the
+%     function never reads it, inout otherwise.
+% What L0 cannot express (goto, a branch or a loop assigning several
+% variables, a call statement, …) is refused with a reason.
+%
+%   python3 tools/clang2elpi.py f.hpp > ast.elpi
+%   elpi -I <elpiDiff> -I <dir of ast.elpi> <elpiDiff>/cxxfront.elpi -exec cxx-to-l0 -- f.hpp > primal.elpi
+
+accumulate "cxx-ast".
+accumulate ast.                          % the cxx-function facts, by tools/clang2elpi.py
+
+% cxx-to-l0 [File]: prints the L0 of every function of the AST.
+func cxx-to-l0 list string.
+cxx-to-l0 [File] :- !,
+  S is "% " ^ File ^ " in L0, from clang's AST (cxxfront.elpi)\naccumulate adjudge.\n",
+  print S,
+  std.findall (cxx-function _) Fs,
+  std.forall Fs (f\ sigma F T\ f = cxx-function F, cxx.function F T, print T).
+cxx-to-l0 _ :- std.fatal-error "usage: elpi … cxxfront.elpi -exec cxx-to-l0 -- <file>".
+
+namespace cxx {
+
+% ---------------------------------------------------------------------------
+% The AST.
+
+func attr list cxx-attr, string -> string.
+attr [a K V | _] K V :- !.
+attr [_ | As] K V :- !, attr As K V.
+attr [] _ "".
+
+func kids-of cxx-ast -> list cxx-ast.
+kids-of (n "CompoundStmt" _ Ks) Ks :- !.
+kids-of S [S].
+
+% strip E E1: E without its implicit casts and parentheses.
+func strip cxx-ast -> cxx-ast.
+strip (n K _ [E]) E1 :- std.mem! ["ImplicitCastExpr", "ParenExpr"] K, !, strip E E1.
+strip E E.
+
+% The declaration a variable reference is to: its id and its name.
+func ref-of cxx-ast -> string, string.
+ref-of E Id N :- strip E (n "DeclRefExpr" As _), !, attr As "ref" Id, attr As "refname" N.
+
+func undup list string -> list string.
+undup [] [] :- !.
+undup [X | Xs] Ys :- std.mem! Xs X, !, undup Xs Ys.
+undup [X | Xs] [X | Ys] :- undup Xs Ys.
+
+func fail-with string, string.
+fail-with Fn M :- S is Fn ^ ": " ^ M, std.fatal-error S.
+
+% assigned S Ids: the variables S assigns (=, op=, ++, --), a[i] = … assigning a.
+func assigned cxx-ast -> list string.
+assigned (n K As [L | Rs]) Ids :-
+  (K = "BinaryOperator", attr As "opcode" "=" ; K = "CompoundAssignOperator"), !,
+  target L T, std.map Rs assigned Is, std.flatten [T | Is] Ids.
+assigned (n "UnaryOperator" As [L]) T :- attr As "opcode" O, std.mem! ["++", "--"] O, !, target L T.
+assigned (n _ _ Ks) Ids :- std.map Ks assigned Is, std.flatten Is Ids.
+
+func target cxx-ast -> list string.
+target L [Id] :- ref-of L Id _, !.
+target L [Id] :- strip L (n "ArraySubscriptExpr" _ [B, _]), ref-of B Id _, !.
+target _ [].
+
+% reads Id S: S reads the variable Id (a plain `x = …` or `x[i] = …` does not read x).
+pred reads i:string, i:cxx-ast.
+reads Id (n "BinaryOperator" As [L, R]) :- attr As "opcode" "=", !, (reads-target Id L ; reads Id R).
+reads Id E :- ref-of E Id _, !.
+reads Id (n _ _ Ks) :- std.exists Ks (reads Id).
+
+% The target of `… = e` reads only its index, when it is a[i].
+pred reads-target i:string, i:cxx-ast.
+reads-target Id L :- strip L (n "ArraySubscriptExpr" _ [_, I]), reads Id I.
+
+% ---------------------------------------------------------------------------
+% Environments: the current version of each variable, as the text of an L0
+% term ("" before it is set), and the number of binders made for each C++
+% name, which numbers the next one (x, x_1, x_2, …).
+
+kind env type.
+type env string -> string -> list (pair string string) -> list (pair string int) -> env.
+% env Fn Indent Versions Counts
+
+func lookup env, string, string -> string.
+lookup (env Fn _ Vs _) Id N T :-
+  if (std.lookup! Vs Id T0) true (T0 = ""),
+  if (T0 = "") (M is N ^ " is read before it is set", fail-with Fn M) (T = T0).
+
+func bind env, string, string -> env.
+bind (env Fn I Vs Cs) Id T (env Fn I [pr Id T | Vs] Cs).
+
+func defined env, string.
+defined (env _ _ Vs _) Id :- std.lookup! Vs Id _.
+
+func indent env -> env.
+indent (env Fn I Vs Cs) (env Fn I1 Vs Cs) :- I1 is I ^ "  ".
+
+func fn-of env -> string.
+fn-of (env Fn _ _ _) Fn.
+
+func nl env -> string.
+nl (env _ I _ _) S :- S is "\n" ^ I.
+
+% fresh N E X E1: a new binder X for the C++ name N.
+func fresh string, env -> string, env.
+fresh N (env Fn I Vs Cs) X (env Fn I Vs [pr N K1 | Cs]) :-
+  if (std.lookup! Cs N K) true (K = 0), K1 is K + 1,
+  safe N N1, if (K = 0) (X = N1) (X is N1 ^ "_" ^ int_to_string K).
+
+% safe N X: a name Elpi reads as a bound variable, not a constant of L0 nor
+% a unification variable.
+func safe string -> string.
+safe N X :- not (rex.match "^[a-z]" N), !, X is "v_" ^ N.
+safe N X :- std.mem! ["a", "n", "arg", "array", "body", "boolean", "add", "sub", "mul", "divide",
+  "lt", "le", "gt", "ge", "neg", "sin", "cos", "exp", "log", "sqrt", "pow", "dependent",
+  "fold", "function", "get", "independent", "inout", "integer", "is", "ite", "let",
+  "map", "mod", "nat", "num", "op1", "op2", "passive", "pi", "primal", "real", "returns",
+  "set", "sigma", "div", "writes", "unknown1", "unknown2", "std"] N, !, X is N ^ "_".
+safe N N.
+
+% paren T P: T as an argument.
+func paren string -> string.
+paren T P :- rex.match ".* " T, not (rex.match "^\"[^\"]*\"$" T), !, P is "(" ^ T ^ ")".
+paren T T.
+
+% let-in E X Rest T: let X = E in Rest, or E when Rest is X.
+func let-in env, string, string, string -> string.
+let-in _ E X X E :- !.
+let-in Env E X Rest T :- T is "let " ^ {paren E} ^ " " ^ X ^ "\\" ^ {nl Env} ^ Rest.
+
+% ---------------------------------------------------------------------------
+% Functions.
+
+func function cxx-ast -> string.
+function (n "FunctionTemplateDecl" _ Ks) S :- !,
+  std.filter Ks (k\ sigma As Ks1\ k = n "FunctionDecl" As Ks1) [F | _], function F S.
+function (n "FunctionDecl" As Ks) S :-
+  attr As "name" Fn, attr As "type" Ty,
+  std.filter Ks (k\ sigma As1 Ks1\ k = n "ParmVarDecl" As1 Ks1) Ps,
+  std.filter Ks (k\ sigma As1 Ks1\ k = n "CompoundStmt" As1 Ks1) [Body | _],
+  rex.replace " (.*" "" Ty RetTy,
+  supported Fn Body,
+  params Fn Ps Body (env Fn "  " [] []) RetTy Text,
+  S is "primal (function \"" ^ Fn ^ "\" (" ^ Text ^ ")).\n".
+
+% params Fn Ps Body Env RetTy T: the arguments, then the body.
+func params string, list cxx-ast, cxx-ast, env, string -> string.
+params Fn [n _ As _ | Ps] Body Env RetTy T :- !,
+  attr As "name" N, attr As "id" Id, attr As "type" Ty,
+  param-type Fn Ty L0Ty Ref,
+  role Ty Ref L0Ty Id Body Role,
+  fresh N Env X Env1, bind Env1 Id X Env2,
+  params Fn Ps Body Env2 RetTy Rest,
+  T is "arg \"" ^ N ^ "\" " ^ L0Ty ^ " " ^ Role ^ " " ^ X ^ "\\ " ^ Rest.
+params Fn [] Body Env "void" T :- !,
+  assigned Body Ids, std.filter Ids (defined Env) Ws0, undup Ws0 Ws,
+  if (Ws = [W]) true (fail-with Fn "a void function must write exactly one argument passed by reference"),
+  std.lookup! {env-versions Env} W X,
+  stmts {kids-of Body} Env (final W X) B,
+  T is "body (writes " ^ X ^ ")" ^ {nl Env} ^ "(" ^ B ^ ")".
+params Fn [] Body Env RetTy T :-
+  if (real-type RetTy) true (M is "the result must be a real (T), not " ^ RetTy, fail-with Fn M),
+  stmts {kids-of Body} Env (no-return Fn) B,
+  T is "body (returns real)" ^ {nl Env} ^ "(" ^ B ^ ")".
+
+func env-versions env -> list (pair string string).
+env-versions (env _ _ Vs _) Vs.
+
+func final string, string, env -> string.
+final Id N Env T :- lookup Env Id N T.
+
+func no-return string, env -> string.
+no-return Fn _ _ :- fail-with Fn "the function ends without a return".
+
+func real-type string.
+real-type "T" :- !.
+real-type "const T" :- !.
+
+% supported Fn S: every statement of S is one the translation knows.
+func supported string, cxx-ast.
+supported Fn (n K _ Ks) :- std.mem! ["CompoundStmt", "IfStmt", "ForStmt"] K, !,
+  std.forall Ks (k\ if (statement k) (supported Fn k) true).
+supported _ (n K _ _) :- not (statement-kind K), !.          % an expression: x = e, x += e
+supported _ (n K _ _) :- std.mem! ["DeclStmt", "NullStmt", "ReturnStmt"] K, !.
+supported Fn (n K _ Ks) :- call-statement K, !,
+  if (Ks = [F | _], callee F N) true (N = "?"),
+  M is "unsupported statement: a call to " ^ N ^ " (L0 has no calls with side effects)", fail-with Fn M.
+supported Fn (n K _ _) :- M is "unsupported statement " ^ K, fail-with Fn M.
+
+% The children of an if or a for that are statements, not expressions.
+pred statement i:cxx-ast.
+statement (n K _ _) :- statement-kind K.
+
+pred statement-kind i:string.
+statement-kind K :- std.mem! ["CompoundStmt", "IfStmt", "ForStmt", "DeclStmt", "NullStmt",
+  "ReturnStmt", "GotoStmt", "LabelStmt", "WhileStmt", "DoStmt", "BreakStmt", "ContinueStmt",
+  "SwitchStmt", "CallExpr"] K.
+
+pred call-statement i:string.
+call-statement "CallExpr".
+
+% param-type Fn Ty L0Ty Ref: the type in L0 of a parameter of C++ type Ty;
+% Ref: it is a non-const reference.
+func param-type string, string -> string, bool.
+param-type Fn Ty L0Ty Ref :-
+  if (rex.match "^const " Ty) (Const = tt) (Const = ff),
+  rex.replace "^const " "" Ty Ty1, rex.replace " *&$" "" Ty1 Ty2,
+  if (rex.match ".*&$" Ty, Const = ff) (Ref = tt) (Ref = ff),
+  base-type Fn Ty2 L0Ty.
+
+func base-type string, string -> string.
+base-type _ "T" "real" :- !.
+base-type _ "double" "real" :- !.
+base-type _ "bool" "boolean" :- !.
+base-type _ Ty "integer" :- std.mem! ["int", "long", "unsigned", "std::size_t", "size_t"] Ty, !.
+base-type _ Ty S :- rex.match "^std::array<T, [0-9]+>$" Ty, !,
+  rex.replace "^std::array<T, \\([0-9]+\\)>$" "\\1" Ty K, S is "(array " ^ K ^ ")".
+base-type Fn Ty _ :- M is "unsupported parameter type " ^ Ty, fail-with Fn M.
+
+% role Ty Ref L0Ty Id Body R: the role of the parameter Id, of C++ type Ty.
+func role string, bool, string, string, cxx-ast -> string.
+role _ tt _ Id Body R :- std.mem! {assigned Body} Id, !,
+  if (reads Id Body) (R = "inout") (R = "dependent").
+role _ _ "integer" _ _ "passive" :- !.
+role _ _ "boolean" _ _ "passive" :- !.
+role Ty _ "real" _ _ "passive" :- rex.match ".*double" Ty, !.
+role _ _ _ _ _ "independent".
+
+% ---------------------------------------------------------------------------
+% Statements, in continuation-passing style: K gives the rest of the
+% function from the environment after the statements.
+
+func stmts list cxx-ast, env, (func env -> string) -> string.
+stmts [] Env K T :- !, K Env T.
+stmts [S | Ss] Env K T :- stmt S Ss Env K T.
+
+% stmt S Ss Env K T: S followed by Ss.
+func stmt cxx-ast, list cxx-ast, env, (func env -> string) -> string.
+stmt (n "DeclStmt" _ Ds) Ss Env K T :- !, std.append Ds Ss Ss1, stmts Ss1 Env K T.
+stmt (n "UsingDecl" _ _) Ss Env K T :- !, stmts Ss Env K T.
+stmt (n "NullStmt" _ _) Ss Env K T :- !, stmts Ss Env K T.
+stmt (n "CompoundStmt" _ Ks) Ss Env K T :- !, std.append Ks Ss Ss1, stmts Ss1 Env K T.
+stmt (n "VarDecl" As []) Ss Env K T :- !,                % T q; : set later
+  attr As "id" Id, bind Env Id "" Env1, stmts Ss Env1 K T.
+stmt (n "VarDecl" As [E]) Ss Env K T :- !,
+  attr As "id" Id, attr As "name" N, expr Env E V, version Env Id N V Ss K T.
+stmt (n "ReturnStmt" _ [E]) _ Env _ T :- !, expr Env E T.
+stmt (n "BinaryOperator" As [L, R]) Ss Env K T :- attr As "opcode" "=", !, assign Env L R Ss K T.
+stmt (n "CompoundAssignOperator" As [L, R]) Ss Env K T :- !,
+  attr As "opcode" O, rex.replace "=$" "" O Op,
+  assign Env L (n "BinaryOperator" [a "opcode" Op] [L, R]) Ss K T.
+stmt (n "IfStmt" As Ks) Ss Env K T :- !, if-stmt Env As Ks Ss K T.
+stmt (n "ForStmt" _ Ks) Ss Env K T :- !, for-stmt Env Ks Ss K T.
+stmt (n Kind _ _) _ (env Fn _ _ _) _ _ :- M is "unsupported statement " ^ Kind, fail-with Fn M.
+
+% version Env Id N V Ss K T: the variable Id (C++ name N) is now V.
+func version env, string, string, string, list cxx-ast, (func env -> string) -> string.
+version Env Id N V Ss K T :-
+  fresh N Env X Env1, bind Env1 Id X Env2, stmts Ss Env2 K Rest, let-in Env V X Rest T.
+
+% x = e, and a[i] = e: the next version of a is `set a i e`.
+func assign env, cxx-ast, cxx-ast, list cxx-ast, (func env -> string) -> string.
+assign Env L R Ss K T :- ref-of L Id N, !, expr Env R V, version Env Id N V Ss K T.
+assign Env L R Ss K T :- strip L (n "ArraySubscriptExpr" _ [B, I]), ref-of B Id N, !,
+  lookup Env Id N A, expr Env I VI, expr Env R VR,
+  V is "set " ^ A ^ " " ^ {paren VI} ^ " " ^ {paren VR}, version Env Id N V Ss K T.
+assign (env Fn _ _ _) _ _ _ _ _ :- fail-with Fn "unsupported assignment".
+
+% The variables a statement assigns that exist before it, in order, once.
+func carried env, list cxx-ast -> list (pair string string).
+carried Env Ss Cs :-
+  std.map Ss assigned Is, std.flatten Is Ids0, undup Ids0 Ids,
+  std.filter Ids (defined Env) Ids1,
+  std.map Ids1 (id\ c\ sigma N\ name-of Ss id N, c = pr id N) Cs.
+
+func name-of list cxx-ast, string -> string.
+name-of Ss Id N :- std.exists Ss (s\ named Id s N), !.
+name-of _ Id Id.
+
+pred named i:string, i:cxx-ast, o:string.
+named Id E N :- ref-of E Id N, !.
+named Id (n _ _ Ks) N :- std.exists Ks (k\ named Id k N).
+
+% returns-at-end Ss: Ss ends with a return on every path.
+pred returns-at-end i:list cxx-ast.
+returns-at-end Ss :- std.last Ss S, ends S.
+pred ends i:cxx-ast.
+ends (n "ReturnStmt" _ _).
+ends (n "CompoundStmt" _ Ks) :- returns-at-end Ks.
+ends (n "IfStmt" As [_, Th, El]) :- attr As "hasElse" "true", ends Th, ends El.
+
+func if-stmt env, list cxx-attr, list cxx-ast, list cxx-ast, (func env -> string) -> string.
+if-stmt Env As [C, Th | El] _ _ T :- attr As "hasElse" "true", El = [E], ends Th, ends E, !,
+  expr Env C VC, indent Env Env1,
+  stmts {kids-of Th} Env1 (no-return-in-branch) VT, stmts {kids-of E} Env1 (no-return-in-branch) VE,
+  T is "ite " ^ {paren VC} ^ {nl Env1} ^ "(" ^ VT ^ ")" ^ {nl Env1} ^ "(" ^ VE ^ ")".
+if-stmt Env _ [C, Th | El] Ss K T :- fn-of Env Fn,
+  std.append [Th] El Bs, carried Env Bs Cs,
+  if (Cs = [pr Id N]) true
+     (if (Cs = []) (fail-with Fn "a branch that assigns no variable declared before it")
+                   (fail-with Fn "a branch that assigns several variables declared before it (L0 has no tuples)")),
+  expr Env C VC, indent Env Env1,
+  stmts {kids-of Th} Env1 (final Id N) VT,
+  if (El = [E]) (stmts {kids-of E} Env1 (final Id N) VE) (lookup Env Id N VE),
+  V is "ite " ^ {paren VC} ^ {nl Env1} ^ "(" ^ VT ^ ")" ^ {nl Env1} ^ "(" ^ VE ^ ")",
+  version Env Id N V Ss K T.
+
+func no-return-in-branch env -> string.
+no-return-in-branch (env Fn _ _ _) _ :- fail-with Fn "a branch that does not return".
+
+% for (i = lo; i < hi; ++i) B
+func for-stmt env, list cxx-ast, list cxx-ast, (func env -> string) -> string.
+for-stmt Env [Init, Cond, Inc, Body] Ss K T :-
+  Init = n "DeclStmt" _ [n "VarDecl" IAs [Lo]],
+  attr IAs "id" I, attr IAs "name" IN,
+  strip Cond (n "BinaryOperator" CAs [CI, Hi]), attr CAs "opcode" "<", ref-of CI I _,
+  strip Inc (n "UnaryOperator" UAs [UI]), attr UAs "opcode" "++", ref-of UI I _, !, fn-of Env Fn,
+  expr Env Lo VLo, expr Env Hi VHi,
+  kids-of Body Bs, carried Env Bs Cs,
+  if (Cs = [pr Y YN]) true
+     (if (Cs = []) (fail-with Fn "a loop that assigns no variable declared before it")
+                   (fail-with Fn "a loop that assigns several variables declared before it (L0 has no tuples)")),
+  indent Env Env1, fresh IN Env1 X Env2, bind Env2 I X Env3,
+  if (map-body I Y Bs Pre Last)
+     (stmts Pre Env3 (map-value Last) VB,
+      V is "map " ^ {paren VLo} ^ " " ^ {paren VHi} ^ " " ^ X ^ "\\" ^ {nl Env3} ^ VB)
+     (lookup Env Y YN Init0, fresh YN Env3 S Env4, bind Env4 Y S Env5,
+      stmts Bs Env5 (final Y YN) VB,
+      V is "fold " ^ {paren VLo} ^ " " ^ {paren VHi} ^ " " ^ {paren Init0} ^ " " ^ X ^ "\\ " ^ S ^ "\\" ^ {nl Env5} ^ VB),
+  version Env Y YN V Ss K T.
+for-stmt (env Fn _ _ _) _ _ _ _ :- fail-with Fn "a loop other than for (i = lo; i < hi; ++i)".
+
+% map-body I Y Bs Pre E: the loop body Bs is Pre then y[i] = E, and never
+% reads y: an element-wise loop.
+pred map-body i:string, i:string, i:list cxx-ast, o:list cxx-ast, o:cxx-ast.
+map-body I Y Bs Pre E :-
+  std.rev Bs [n "BinaryOperator" As [L, E] | RPre], std.rev RPre Pre, attr As "opcode" "=",
+  strip L (n "ArraySubscriptExpr" _ [B, Ix]), ref-of B Y _, ref-of Ix I _,
+  not (std.exists Bs (reads Y)), !.
+
+func map-value cxx-ast, env -> string.
+map-value E Env T :- expr Env E T.
+
+% ---------------------------------------------------------------------------
+% Expressions.
+
+func expr env, cxx-ast -> string.
+expr Env (n K _ [E]) T :- std.mem! ["ImplicitCastExpr", "ParenExpr"] K, !, expr Env E T.
+expr Env E T :- ref-of E Id N, !, lookup Env Id N T.
+expr _ (n "IntegerLiteral" As _) T :- !, attr As "text" L, T is "nat " ^ L.
+expr _ (n "FloatingLiteral" As _) T :- !, attr As "text" L, T is "num \"" ^ L ^ "\"".
+expr Env (n K _ [E]) T :- std.mem! ["CXXUnresolvedConstructExpr", "CXXFunctionalCastExpr"] K, !,
+  if (literal E L) (T is "num \"" ^ L ^ "\"") (expr Env E T).
+expr Env (n "UnaryOperator" As [E]) T :- attr As "opcode" "-", !,
+  if (strip E (n "IntegerLiteral" IAs _)) (attr IAs "text" L, T is "nat (-" ^ L ^ ")")
+     (expr Env E V, T is "op1 neg " ^ {paren V}).
+expr Env (n "UnaryOperator" As [E]) T :- attr As "opcode" "+", !, expr Env E T.
+expr Env (n "BinaryOperator" As [L, R]) T :- attr As "opcode" O, binary O B, !,
+  expr Env L VL, expr Env R VR, T is "op2 " ^ B ^ " " ^ {paren VL} ^ " " ^ {paren VR}.
+expr Env (n "ConditionalOperator" _ [C, A, B]) T :- !,
+  expr Env C VC, expr Env A VA, expr Env B VB, T is "ite " ^ {paren VC} ^ " " ^ {paren VA} ^ " " ^ {paren VB}.
+expr Env (n "ArraySubscriptExpr" _ [A, I]) T :- !,
+  expr Env A VA, expr Env I VI, T is "get " ^ {paren VA} ^ " " ^ {paren VI}.
+expr Env (n "CallExpr" _ [F | Args]) T :- !, call Env {callee F} Args T.
+expr (env Fn _ _ _) (n Kind As _) _ :-
+  attr As "opcode" O, M is "unsupported expression " ^ Kind ^ " " ^ O, fail-with Fn M.
+
+func binary string -> string.
+binary "+" "add" :- !.  binary "-" "sub" :- !.  binary "*" "mul" :- !.  binary "/" "divide" :- !.
+binary "<" "lt" :- !.   binary "<=" "le" :- !.  binary ">" "gt" :- !.   binary ">=" "ge".
+
+% literal E L: E is a literal or arithmetic on literals, spelled L: T(13.0 / 12.0).
+pred literal i:cxx-ast, o:string.
+literal E L :- strip E (n K As _), std.mem! ["IntegerLiteral", "FloatingLiteral"] K, !, attr As "text" L.
+literal E L :- strip E (n "UnaryOperator" As [A]), attr As "opcode" "-", !, literal A LA, L is "-" ^ LA.
+literal E L :- strip E (n "BinaryOperator" As [A, B]), attr As "opcode" O, std.mem! ["+", "-", "*", "/"] O, !,
+  literal A LA, literal B LB, L is LA ^ " " ^ O ^ " " ^ LB.
+
+func callee cxx-ast -> string.
+callee F N :- strip F (n _ As _), attr As "name" N0, not (N0 = ""), !, rex.replace "^std::" "" N0 N.
+callee F N :- ref-of F _ N0, rex.replace "^std::" "" N0 N.
+
+func call env, string, list cxx-ast -> string.
+call Env F [X] T :- std.mem! ["sin", "cos", "exp", "log", "sqrt"] F, !,
+  expr Env X V, T is "op1 " ^ F ^ " " ^ {paren V}.
+call Env "pow" [X, K] T :- strip K (n "IntegerLiteral" As _), !,
+  attr As "text" L, expr Env X V, T is "op1 (pow " ^ L ^ ") " ^ {paren V}.
+call Env F [X] T :- !, expr Env X V, T is "op1 (unknown1 \"" ^ F ^ "\") " ^ {paren V}.
+call (env Fn _ _ _) F _ _ :- M is "unsupported call to " ^ F, fail-with Fn M.
+
+}

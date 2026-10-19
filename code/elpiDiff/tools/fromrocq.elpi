@@ -1,0 +1,41 @@
+% fromrocq.elpi — the C++ of derivative programs computed by Rocq: Rocq runs
+% the passes up to L2′, the simplified programs (the ones its theorems are
+% about), and prints them as Elpi terms (rocq/ToElpi.v); this tool checks that
+% each is the program Elpi computes itself, up to the names of the binders,
+% then lowers them and prints them as C++ (lower.elpi, cxx.elpi). Used
+% through a file accumulating it, the case and the programs from Rocq, as
+% `rocq-l2 Mode D` facts:
+%   accumulate fromrocq.  accumulate primal.  accumulate l2.
+%   elpi -I <elpiDiff> -I <tools> -I <case> that-file.elpi -exec from-rocq -- <case> <mode> <output directory>
+
+accumulate adjudge.
+
+shorten adjudge.{ check, mode, mode-value, annotate, differentiate, simplify, lower, header-string, write-file }.
+
+pred rocq-l2 o:string, o:dfunction.      % a mode, a simplified program from Rocq
+
+% from-rocq [Dir, Mode, Out]: writes Out/<Mode>.hpp from the programs Rocq
+% computed in Mode, as `elpi … -exec main` does from those of Elpi.
+func from-rocq list string.
+from-rocq [Dir, Mode, Out] :- !,
+  if (mode Mode) true
+     (M is "unknown mode `" ^ Mode ^ "`: expected tangent, adjoint or adjoint-value", std.fatal-error M),
+  std.findall (rocq-l2 Mode _) Rs,
+  std.map Rs (r\ d\ r = rocq-l2 _ d) Ds,
+  std.findall (primal _) Ps,
+  std.map Ps (p\ f\ p = primal f) Fs,
+  std.map-filter Fs (f\ d\ sigma A V A1 D0\ check f (pr (some A) ok), mode-value Mode V,
+                           annotate V A A1, differentiate Mode A1 D0, simplify D0 d) Es,
+  if (std.length Ds {std.length Es}) true
+     (std.fatal-error "Rocq and Elpi do not give the same number of programs"),
+  std.forall2 Ds Es same,
+  std.map Ds lower Cs,
+  File is Mode ^ ".hpp", Source is Dir ^ "/primal.elpi",
+  header-string Source Cs Text, write-file Out File Text.
+from-rocq _ :- std.fatal-error "usage: elpi … -exec from-rocq -- <case> tangent|adjoint|adjoint-value <output directory>".
+
+% same D E: D, from Rocq, is E, from Elpi; the equality of two closed
+% λ-terms is up to the names of their binders.
+func same dfunction, dfunction.
+same (dfunction N B) (dfunction N B) :- !, M is N ^ ": the L2′ from Rocq is the L2′ of Elpi", print M.
+same (dfunction N _) _ :- M is N ^ ": the L2′ from Rocq differs from the L2′ of Elpi", std.fatal-error M.

@@ -42,3 +42,12 @@ directory (`..`), and `[rocq dir]` to `../rocq`.
   simplified tangent and adjoint programs over the reals on symbolic arguments,
   adjoints, seed and tangent, and proves with `ring` the dot-product identity
   <tangent, yb> = <seed dx, g> on the layout of `rocq/AdjointSpec.v`.
+- `clang2elpi.py FILE.hpp` prints the C++ functions of FILE, as parsed by
+  clang (`-ast-dump=json`), as Elpi facts `cxx-function N` (`cxx-ast.elpi`),
+  for the C++ front end `cxxfront.elpi`, which translates them to L0.
+- `fronttest.sh [code dir]` runs the C++ front end on the `primal.hpp` of
+  every case and checks that the headers generated from its L0 are those
+  generated from the hand-written `primal.elpi`.
+- `fromrocq.elpi` reads the simplified derivative programs (L2′) computed by
+  Rocq and printed as Elpi terms (`rocq/ToElpi.v`), checks that each is the
+  one Elpi computes, and prints them as C++; see `examples/xsin`.
