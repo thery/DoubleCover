@@ -21,7 +21,7 @@ out/tangent.jl, out/adjoint.jl
 
 ## Running it
 
-In a browser, without installing anything: <https://thery.github.io/DoubleCover/>
+In a browser, without installing anything: <https://thery.github.io/DoubleCover/elpiDiff/>
 ([../../demo](../../demo/README.md)). From the command line:
 
 ```sh
