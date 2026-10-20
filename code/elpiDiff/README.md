@@ -45,6 +45,7 @@ change is checked in two ways:
 | `julia.elpi` | Another output, from L2′, independent of `lower.elpi` and `cxx.elpi`: the derivative programs as Julia (`to-julia` mode). Reals passed by reference are returned, arrays are updated in place, indices are shifted by one. See [examples/julia](examples/julia/README.md). |
 | `cxx-ast.elpi`, `cxxfront.elpi` | The C++ front end: clang's AST (printed by `tools/clang2elpi.py`) translated to L0. See [examples/xsin](examples/xsin/README.md). |
 | `jl-ast.elpi`, `jlfront.elpi` | The Julia front end, independent of the C++ one: Julia's AST (printed by `tools/julia2elpi.jl`) translated to L0. See [examples/julia](examples/julia/README.md). |
+| `demo/` | The Julia wrapper in the browser: tree-sitter-julia and Elpi compiled to wasm, no server. Online at <https://thery.github.io/DoubleCover/> (the `gh-pages` branch, built by `demo/build.sh`). See [demo/README.md](demo/README.md). |
 | `show.elpi` | Printing a generated function as an Elpi term. |
 | `dump.elpi` | Readable printers for L1, L1ᵃ and L2, to debug the passes (`dump` mode). |
 | `numbers.elpi` | Domains of numbers for the evaluators: the record of the operations on the reals of a domain; floats, and dual numbers over any domain. |

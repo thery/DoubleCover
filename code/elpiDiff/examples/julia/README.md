@@ -21,6 +21,9 @@ out/tangent.jl, out/adjoint.jl
 
 ## Running it
 
+In a browser, without installing anything: <https://thery.github.io/DoubleCover/>
+([../../demo](../../demo/README.md)). From the command line:
+
 ```sh
 ./run.sh               # functions.jl, then the numeric test
 ./run.sh my.jl         # any file: prints out/primal.elpi, out/tangent.jl, out/adjoint.jl
