@@ -22,9 +22,9 @@
 % cannot express is refused with a reason.
 %
 %   julia tools/julia2elpi.jl f.jl > dir/ast.elpi
-%   elpi -I <elpiDiff> -I dir <elpiDiff>/jlfront.elpi -exec jl-to-l0 -- f.jl > primal.elpi
+%   elpi -I <elpiDiff>/elpi -I dir <elpiDiff>/elpi/front/jlfront.elpi -exec jl-to-l0 -- f.jl > primal.elpi
 
-accumulate "jl-ast".
+accumulate "front/jl-ast".
 accumulate ast.                          % the jl-function facts, by tools/julia2elpi.jl
 
 % jl-to-l0 [File]: prints the L0 of every function of the AST.

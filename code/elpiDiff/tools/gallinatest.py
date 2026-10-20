@@ -67,8 +67,8 @@ for c in sorted(os.listdir(CASES)):
     for mode in MODES:
         d = os.path.join(tmp, c, mode)
         os.makedirs(d)
-        g = run(["elpi", "-I", CODE, os.path.join(case, "primal.elpi"), "-exec", "gallina", "--", case, mode, d])
-        h = run(["elpi", "-I", CODE, os.path.join(case, "primal.elpi"), "-exec", "main", "--", case, mode, d])
+        g = run(["elpi", "-I", os.path.join(CODE, "elpi"), os.path.join(case, "primal.elpi"), "-exec", "gallina", "--", case, mode, d])
+        h = run(["elpi", "-I", os.path.join(CODE, "elpi"), os.path.join(case, "primal.elpi"), "-exec", "main", "--", case, mode, d])
         module = mode.replace("-", "_")
         vfile, hfile = os.path.join(d, module + ".v"), os.path.join(d, mode + ".hpp")
         if not os.path.exists(vfile) or not os.path.exists(hfile):

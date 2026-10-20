@@ -17,9 +17,9 @@
 % variables, a call statement, …) is refused with a reason.
 %
 %   python3 tools/clang2elpi.py f.hpp > ast.elpi
-%   elpi -I <elpiDiff> -I <dir of ast.elpi> <elpiDiff>/cxxfront.elpi -exec cxx-to-l0 -- f.hpp > primal.elpi
+%   elpi -I <elpiDiff>/elpi -I <dir of ast.elpi> <elpiDiff>/elpi/front/cxxfront.elpi -exec cxx-to-l0 -- f.hpp > primal.elpi
 
-accumulate "cxx-ast".
+accumulate "front/cxx-ast".
 accumulate ast.                          % the cxx-function facts, by tools/clang2elpi.py
 
 % cxx-to-l0 [File]: prints the L0 of every function of the AST.

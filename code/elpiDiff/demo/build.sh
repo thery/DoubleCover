@@ -29,10 +29,12 @@ cp "$WS/_build/default/driver/elpijs.bc.wasm.js" elpi/
 cp -r "$WS/_build/default/driver/elpijs.bc.wasm.assets" elpi/
 chmod -R u+w elpi/elpijs.bc.wasm.js elpi/elpijs.bc.wasm.assets
 
-# 3. elpiDiff: jlfront.elpi, adjudge.elpi and what they accumulate
-SRC="jl-ast jlfront adjudge syntax anf operations well-formed activity tbr annotate derivative
-     tangent adjoint simplify target lower cxx gallina julia show dump"
-for f in $SRC; do cp "$ELPIDIFF/$f.elpi" elpi/; done
+# 3. elpiDiff: front/jlfront.elpi, adjudge.elpi and what they accumulate
+# (paths relative to elpiDiff's elpi/, kept in the site: accumulate uses them)
+SRC="front/jl-ast front/jlfront adjudge lang/syntax lang/anf lang/operations lang/well-formed
+     analysis/activity analysis/tbr analysis/annotate modes/derivative modes/tangent modes/adjoint
+     modes/simplify back/target back/lower back/cxx back/gallina back/julia back/show back/dump"
+for f in $SRC; do mkdir -p "elpi/$(dirname $f)"; cp "$ELPIDIFF/elpi/$f.elpi" "elpi/$f.elpi"; done
 cp elpi-src/*.elpi elpi/
 OWN="demo ast jsdrive"
 { printf '['; sep=''; for f in $OWN $SRC; do printf '%s"%s.elpi"' "$sep" "$f"; sep=', '; done; printf ']\n'; } > elpi/files.json

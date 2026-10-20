@@ -15,7 +15,7 @@ for c in cases/*/; do
   c=${c%/}; [ -f $c/primal.hpp ] || continue
   mkdir -p $OUT/$c/front $OUT/$c/hand
   python3 -I $TOOLS/clang2elpi.py $c/primal.hpp > $OUT/$c/front/ast.elpi
-  if ! elpi -I $CODE -I $OUT/$c/front $CODE/cxxfront.elpi -exec cxx-to-l0 -- $c/primal.hpp \
+  if ! elpi -I $CODE/elpi -I $OUT/$c/front $CODE/elpi/front/cxxfront.elpi -exec cxx-to-l0 -- $c/primal.hpp \
        > $OUT/$c/front/out.log 2>&1 || ! grep -q '^Success' $OUT/$c/front/out.log; then
     echo "REFUSED $c: $(grep -A1 "Fatal error" $OUT/$c/front/out.log | tail -1)"; bad=$((bad+1)); continue
   fi
@@ -23,8 +23,8 @@ for c in cases/*/; do
   if [ ! -f $c/primal.elpi ]; then
     echo "NO TERM $c (translated, but no hand-written primal.elpi to compare with)"; continue; fi
   for m in tangent adjoint; do
-    elpi -I $CODE $OUT/$c/front/primal.elpi -exec main -- $c $m $OUT/$c/front > /dev/null 2>&1
-    elpi -I $CODE $c/primal.elpi -exec main -- $c $m $OUT/$c/hand > /dev/null 2>&1
+    elpi -I $CODE/elpi $OUT/$c/front/primal.elpi -exec main -- $c $m $OUT/$c/front > /dev/null 2>&1
+    elpi -I $CODE/elpi $c/primal.elpi -exec main -- $c $m $OUT/$c/hand > /dev/null 2>&1
     if [ ! -f $OUT/$c/hand/$m.hpp ]; then continue; fi
     if [ -f $OUT/$c/front/$m.hpp ] && diff -q <(python3 $TOOLS/canon.py $OUT/$c/hand/$m.hpp) \
          <(python3 $TOOLS/canon.py $OUT/$c/front/$m.hpp) > /dev/null; then ok=$((ok+1))

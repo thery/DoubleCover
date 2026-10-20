@@ -6,7 +6,7 @@
 % through a file accumulating it, the case and the programs from Rocq, as
 % `rocq-l2 Mode D` facts:
 %   accumulate fromrocq.  accumulate primal.  accumulate l2.
-%   elpi -I <elpiDiff> -I <tools> -I <case> that-file.elpi -exec from-rocq -- <case> <mode> <output directory>
+%   elpi -I <elpiDiff>/elpi -I <tools> -I <case> that-file.elpi -exec from-rocq -- <case> <mode> <output directory>
 
 accumulate adjudge.
 

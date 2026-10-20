@@ -15,19 +15,19 @@ mkdir -p out/elpi out/rocq
 
 # Front end: the C++ to L0.
 python3 -I $CODE/tools/clang2elpi.py xsin.hpp > out/ast.elpi
-elpi -I $CODE -I out $CODE/cxxfront.elpi -exec cxx-to-l0 -- examples/xsin/xsin.hpp 2>/dev/null \
+elpi -I $CODE/elpi -I out $CODE/elpi/front/cxxfront.elpi -exec cxx-to-l0 -- examples/xsin/xsin.hpp 2>/dev/null \
   | sed -n '/^% .* in L0/,/^Success/p' | grep -v '^Success' > out/primal.elpi
 cat out/primal.elpi
 
 # Xsin.v starts from this L0.
 printf 'accumulate torocq.\naccumulate primal.\n' > out/l0-to-rocq.elpi
-elpi -I $CODE -I $CODE/tools -I out out/l0-to-rocq.elpi -exec to-rocq 2>/dev/null | grep '^Definition' > out/xsin_fn.v
+elpi -I $CODE/elpi -I $CODE/tools -I out out/l0-to-rocq.elpi -exec to-rocq 2>/dev/null | grep '^Definition' > out/xsin_fn.v
 tr -s ' \n' ' ' < Xsin.v | grep -qF "$(tr -s ' \n' ' ' < out/xsin_fn.v | sed 's/ $//')" \
   && echo "Xsin.v: its L0 is the one from the C++"
 
 # Elpi path.
 for m in tangent adjoint; do
-  elpi -I $CODE out/primal.elpi -exec main -- examples/xsin $m out/elpi >/dev/null 2>&1
+  elpi -I $CODE/elpi out/primal.elpi -exec main -- examples/xsin $m out/elpi >/dev/null 2>&1
 done
 
 # Rocq path: Xsin.v prints the two programs as Elpi terms, tangent first.
@@ -38,7 +38,7 @@ sed -n 's/^ *= "\(dfunction .*\)"$/\1/p' out/rocq/Xsin.out | sed 's/""/"/g' > ou
 } > out/rocq/l2.elpi
 printf 'accumulate fromrocq.\naccumulate primal.\naccumulate l2.\n' > out/rocq/run.elpi
 for m in tangent adjoint; do
-  elpi -I $CODE -I $CODE/tools -I out -I out/rocq out/rocq/run.elpi \
+  elpi -I $CODE/elpi -I $CODE/tools -I out -I out/rocq out/rocq/run.elpi \
     -exec from-rocq -- examples/xsin $m out/rocq 2>&1 | grep "L2′"
 done
 

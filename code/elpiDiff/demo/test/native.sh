@@ -9,11 +9,11 @@ JULIA=${JULIA:-$HOME/.juliaup/bin/julia}
 SRC=$1; OUT=$2
 mkdir -p "$OUT"; rm -f "$OUT"/*
 $JULIA --startup-file=no $ELPIDIFF/tools/julia2elpi.jl "$SRC" > "$OUT/ast.elpi"
-if ! elpi -I $ELPIDIFF -I "$OUT" $ELPIDIFF/jlfront.elpi -exec jl-to-l0 -- examples/julia/$(basename "$SRC") > "$OUT/front.log" 2>&1; then
+if ! elpi -I $ELPIDIFF/elpi -I "$OUT" $ELPIDIFF/elpi/front/jlfront.elpi -exec jl-to-l0 -- examples/julia/$(basename "$SRC") > "$OUT/front.log" 2>&1; then
   sed -n '/Fatal error:/,$p' "$OUT/front.log" | sed '1s/Fatal error: *//' | tr '\n' ' ' | sed 's/ *$//; s/^ *//' > "$OUT/refused.txt"
   exit 0
 fi
 sed -n '/^% .* in L0/,/^Success/p' "$OUT/front.log" | grep -v '^Success' > "$OUT/primal.elpi"
 for m in tangent adjoint; do
-  elpi -I $ELPIDIFF "$OUT/primal.elpi" -exec to-julia -- examples/julia $m "$OUT" > "$OUT/$m.log" 2>&1
+  elpi -I $ELPIDIFF/elpi "$OUT/primal.elpi" -exec to-julia -- examples/julia $m "$OUT" > "$OUT/$m.log" 2>&1
 done

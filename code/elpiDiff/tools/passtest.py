@@ -14,11 +14,11 @@ POINTS = 10
 
 tmp = tempfile.mkdtemp()
 runner = os.path.join(tmp, "run.elpi")
-open(runner, "w").write("accumulate evaluate.\naccumulate primal.\n")
+open(runner, "w").write("accumulate \"eval/evaluate\".\naccumulate primal.\n")
 
 
 def elpi(case, *args):
-    out = subprocess.run([ELPI, "-I", CODE, "-I", case, runner, "-exec", *args],
+    out = subprocess.run([ELPI, "-I", os.path.join(CODE, "elpi"), "-I", case, runner, "-exec", *args],
                          capture_output=True, text=True, stdin=subprocess.DEVNULL)
     return [l for l in (out.stdout + out.stderr).splitlines()
             if l and not re.match(r"(Success:|Constraints:|State:|Time:|.*time:)", l)]

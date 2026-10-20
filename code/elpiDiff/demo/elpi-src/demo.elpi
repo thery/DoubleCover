@@ -3,5 +3,5 @@
 % browser driver (jsdrive.elpi accumulates adjudge.elpi). The jl-function
 % facts of the editor, and then the L0 that jlfront prints, are added to it
 % for each click, as new compilation units.
-accumulate jlfront.
+accumulate "front/jlfront".
 accumulate jsdrive.

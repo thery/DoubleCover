@@ -2,7 +2,7 @@
 % PHOAS syntax of code/elpiDiff/rocq/Syntax.v, to compare the Rocq passes with
 % the Elpi ones. Used through a file accumulating it and the case:
 %   accumulate torocq.  accumulate primal.
-%   elpi -I <elpiDiff> -I <tools> -I <case> that-file.elpi -exec to-rocq
+%   elpi -I <elpiDiff>/elpi -I <tools> -I <case> that-file.elpi -exec to-rocq
 
 accumulate adjudge.
 

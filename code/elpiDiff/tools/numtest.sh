@@ -13,7 +13,7 @@ for c in cases/*/; do
   c=${c%/}; [ -f $c/test.cpp ] || continue
   mkdir -p $OUT/$c; cp $c/test.cpp $c/primal.hpp $OUT/$c/
   for m in tangent adjoint; do
-    elpi -I $CODE $c/primal.elpi -exec main -- $c $m $OUT/$c > $OUT/$c/$m.log 2>&1
+    elpi -I $CODE/elpi $c/primal.elpi -exec main -- $c $m $OUT/$c > $OUT/$c/$m.log 2>&1
     if ! grep -q '^Success' $OUT/$c/$m.log || grep -q 'Warning' $OUT/$c/$m.log; then echo "GEN FAIL $c $m"; bad=$((bad+1)); fi
   done
   if ! g++ -std=c++20 -Wall -Wextra -Werror -O1 -I $HERE/shim -I $OUT/$c $OUT/$c/test.cpp -o $OUT/$c/test 2> $OUT/$c/cc.log; then

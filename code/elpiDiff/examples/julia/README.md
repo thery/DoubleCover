@@ -84,7 +84,7 @@ end
 
 ## What the front end accepts
 
-[`jlfront.elpi`](../../jlfront.elpi) decides everything the Julia code means:
+[`jlfront.elpi`](../../elpi/front/jlfront.elpi) decides everything the Julia code means:
 
 - **Functions:** `function f(…) … end` and `f(…) = …`.
 - **Locals:** every assignment makes a new version (`x = …`, `x += …`,

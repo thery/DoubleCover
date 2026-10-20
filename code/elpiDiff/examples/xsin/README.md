@@ -73,11 +73,11 @@ read back by Elpi (`l2.elpi`).
 
 ## The C++ front end
 
-[`cxxfront.elpi`](../../cxxfront.elpi) works on any file, not only xsin:
+[`cxxfront.elpi`](../../elpi/front/cxxfront.elpi) works on any file, not only xsin:
 
 ```sh
 python3 tools/clang2elpi.py f.hpp > dir/ast.elpi
-elpi -I . -I dir cxxfront.elpi -exec cxx-to-l0 -- f.hpp
+elpi -I elpi -I dir elpi/front/cxxfront.elpi -exec cxx-to-l0 -- f.hpp
 ```
 
 It accepts the following C++:

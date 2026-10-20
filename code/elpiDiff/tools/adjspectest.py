@@ -44,7 +44,7 @@ Ltac go := intros; cbv -[Rplus Rmult Rminus Ropp Rdiv Rinv sin cos exp ln sqrt p
 
 
 def elpi(case, *args, extra=()):
-    out = subprocess.run(["elpi", "-I", CODE, "-I", TOOLS, "-I", case, *extra, "-exec", *args],
+    out = subprocess.run(["elpi", "-I", os.path.join(CODE, "elpi"), "-I", TOOLS, "-I", case, *extra, "-exec", *args],
                          capture_output=True, text=True, stdin=subprocess.DEVNULL)
     return [l for l in (out.stdout + out.stderr).splitlines()
             if l and not re.match(r"(Success:|Constraints:|State:|Time:|.*time:)", l)]

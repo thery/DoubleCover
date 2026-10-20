@@ -25,35 +25,83 @@ change is checked in two ways:
 
 ## The pipeline, file by file
 
+The Elpi sources are in [`elpi/`](elpi), one directory per stage of the
+compiler; [`elpi/adjudge.elpi`](elpi/adjudge.elpi), the driver, accumulates
+them (`accumulate "lang/syntax".`), so the tool is run with `-I elpi`.
+
+```
+elpi/
+  adjudge.elpi   the driver: main, gallina, to-julia, terms, dump
+  front/         C++ and Julia front ends, to L0
+  lang/          L0 (syntax, operations), L1 (anf), well-formedness
+  analysis/      activity, to-be-recorded, annotation (L1 to L1ᵃ)
+  modes/         L2 (derivative), tangent, adjoint, simplify (L2′)
+  back/          L3 (target, lower), C++, Gallina, Julia, show, dump
+  eval/          evaluators of L0, L1, L2 and their numbers
+rocq/  tools/  examples/  demo/  paper/
+```
+
+### `elpi/front/`: Front ends: from a source language to L0
+
 | File | Role |
 |---|---|
-| `syntax.elpi` | L0, the source language: a Wengert list with binders (λ-tree syntax). `arg`, `let`, `map` and `fold` bind Elpi variables; no variable is named by a string. Also roles (`independent`, `dependent`, `inout`, `passive`). |
-| `anf.elpi` | L1, A-normal form, a language of its own ([`atom`](rocq/Anf.v#L17), `value I`, `anf I`), and the translation from L0. Every intermediate value is named by a `let`; that operations apply to atoms is a matter of typing. The index `I` is what binders are annotated with: [`bare`](rocq/Anf.v#L68) for L1, [`ann`](rocq/Anf.v#L70) for L1ᵃ. Also partial-derivative expressions over atoms and atom sets. |
-| `operations.elpi` | The elementary operations: their types, C++ spelling and partial derivatives. The only calculus the tool knows. |
-| `well-formed.elpi` | Typing and the supported language, on L1, as a judgment returning `ok` or `error Reason`. |
-| `activity.elpi` | Forward activity analysis: [`varied`](rocq/Activity.v#L16), a value depends on an independent argument. |
-| `tbr.elpi` | Backward analysis and to-be-recorded: [`useful`](rocq/AdjointCorrect.v#L376) values, values the reverse sweep reads, when a fold must record its state. |
-| `annotate.elpi` | L1 to L1ᵃ: runs the analyses once and records them on every let (varied, active, computed) and fold (state varied, state recorded, records). |
-| `derivative.elpi` | L2, the derivative IR: an imperative program over variables bound by Elpi binders, with no C++ names or types. Also how the transformations open the binders of the object language. |
-| `tangent.elpi` | Forward mode: the linearization, from L1ᵃ into L2. |
-| `adjoint.elpi` | Reverse mode: the transposition, with forward sweep, tapes and replay, from L1ᵃ into L2; what to compute, transpose and record is read from the annotations. |
-| `simplify.elpi` | L2 to L2 (L2′): algebra on literals, accumulations that start at zero fused into definitions, literal constants propagated, dead constants removed. |
-| `target.elpi` | L3, the target language: C++ statements, names as strings. |
-| `lower.elpi` | L2 to L3: the only pass that names variables and chooses C++ types. |
-| `cxx.elpi` | Printing the target language as C++. |
-| `gallina.elpi` | Another output, from L2′: the derivative programs as Gallina, the language of Rocq, for CertiRocq to compile to C (`gallina` mode). The assignments are threaded as lets, branches and loops return the variables they assign; reals are primitive floats. |
-| `julia.elpi` | Another output, from L2′, independent of `lower.elpi` and `cxx.elpi`: the derivative programs as Julia (`to-julia` mode). Reals passed by reference are returned, arrays are updated in place, indices are shifted by one. See [examples/julia](examples/julia/README.md). |
-| `cxx-ast.elpi`, `cxxfront.elpi` | The C++ front end: clang's AST (printed by `tools/clang2elpi.py`) translated to L0. See [examples/xsin](examples/xsin/README.md). |
-| `jl-ast.elpi`, `jlfront.elpi` | The Julia front end, independent of the C++ one: Julia's AST (printed by `tools/julia2elpi.jl`) translated to L0. See [examples/julia](examples/julia/README.md). |
+| [`cxx-ast.elpi`](elpi/front/cxx-ast.elpi), [`cxxfront.elpi`](elpi/front/cxxfront.elpi) | The C++ front end: clang's AST (printed by `tools/clang2elpi.py`) translated to L0. See [examples/xsin](examples/xsin/README.md). |
+| [`jl-ast.elpi`](elpi/front/jl-ast.elpi), [`jlfront.elpi`](elpi/front/jlfront.elpi) | The Julia front end, independent of the C++ one: Julia's AST (printed by `tools/julia2elpi.jl`) translated to L0. See [examples/julia](examples/julia/README.md). |
+
+### `elpi/lang/`: The languages L0 and L1, and the operations
+
+| File | Role |
+|---|---|
+| [`syntax.elpi`](elpi/lang/syntax.elpi) | L0, the source language: a Wengert list with binders (λ-tree syntax). `arg`, `let`, `map` and `fold` bind Elpi variables; no variable is named by a string. Also roles (`independent`, `dependent`, `inout`, `passive`). |
+| [`operations.elpi`](elpi/lang/operations.elpi) | The elementary operations: their types, C++ spelling and partial derivatives. The only calculus the tool knows. |
+| [`anf.elpi`](elpi/lang/anf.elpi) | L1, A-normal form, a language of its own ([`atom`](rocq/Anf.v#L17), `value I`, `anf I`), and the translation from L0. Every intermediate value is named by a `let`; that operations apply to atoms is a matter of typing. The index `I` is what binders are annotated with: [`bare`](rocq/Anf.v#L68) for L1, [`ann`](rocq/Anf.v#L70) for L1ᵃ. Also partial-derivative expressions over atoms and atom sets. |
+| [`well-formed.elpi`](elpi/lang/well-formed.elpi) | Typing and the supported language, on L1, as a judgment returning `ok` or `error Reason`. |
+
+### `elpi/analysis/`: The analyses, from L1 to L1ᵃ
+
+| File | Role |
+|---|---|
+| [`activity.elpi`](elpi/analysis/activity.elpi) | Forward activity analysis: [`varied`](rocq/Activity.v#L16), a value depends on an independent argument. |
+| [`tbr.elpi`](elpi/analysis/tbr.elpi) | Backward analysis and to-be-recorded: [`useful`](rocq/AdjointCorrect.v#L376) values, values the reverse sweep reads, when a fold must record its state. |
+| [`annotate.elpi`](elpi/analysis/annotate.elpi) | L1 to L1ᵃ: runs the analyses once and records them on every let (varied, active, computed) and fold (state varied, state recorded, records). |
+
+### `elpi/modes/`: The two modes, into L2, and the simplification to L2′
+
+| File | Role |
+|---|---|
+| [`derivative.elpi`](elpi/modes/derivative.elpi) | L2, the derivative IR: an imperative program over variables bound by Elpi binders, with no C++ names or types. Also how the transformations open the binders of the object language. |
+| [`tangent.elpi`](elpi/modes/tangent.elpi) | Forward mode: the linearization, from L1ᵃ into L2. |
+| [`adjoint.elpi`](elpi/modes/adjoint.elpi) | Reverse mode: the transposition, with forward sweep, tapes and replay, from L1ᵃ into L2; what to compute, transpose and record is read from the annotations. |
+| [`simplify.elpi`](elpi/modes/simplify.elpi) | L2 to L2 (L2′): algebra on literals, accumulations that start at zero fused into definitions, literal constants propagated, dead constants removed. |
+
+### `elpi/back/`: Back ends: from L2′ to C++, Gallina, Julia, and printers
+
+| File | Role |
+|---|---|
+| [`target.elpi`](elpi/back/target.elpi) | L3, the target language: C++ statements, names as strings. |
+| [`lower.elpi`](elpi/back/lower.elpi) | L2 to L3: the only pass that names variables and chooses C++ types. |
+| [`cxx.elpi`](elpi/back/cxx.elpi) | Printing the target language as C++. |
+| [`gallina.elpi`](elpi/back/gallina.elpi) | Another output, from L2′: the derivative programs as Gallina, the language of Rocq, for CertiRocq to compile to C (`gallina` mode). The assignments are threaded as lets, branches and loops return the variables they assign; reals are primitive floats. |
+| [`julia.elpi`](elpi/back/julia.elpi) | Another output, from L2′, independent of `lower.elpi` and `cxx.elpi`: the derivative programs as Julia (`to-julia` mode). Reals passed by reference are returned, arrays are updated in place, indices are shifted by one. See [examples/julia](examples/julia/README.md). |
+| [`show.elpi`](elpi/back/show.elpi) | Printing a generated function as an Elpi term. |
+| [`dump.elpi`](elpi/back/dump.elpi) | Readable printers for L1, L1ᵃ and L2, to debug the passes (`dump` mode). |
+
+### `elpi/eval/`: The evaluators (not loaded by the tool)
+
+| File | Role |
+|---|---|
+| [`numbers.elpi`](elpi/eval/numbers.elpi) | Domains of numbers for the evaluators: the record of the operations on the reals of a domain; floats, and dual numbers over any domain. |
+| [`eval.elpi`](elpi/eval/eval.elpi) | The evaluator of L0, polymorphic in the domain of numbers. |
+| [`eval-anf.elpi`](elpi/eval/eval-anf.elpi) | The evaluator of L1 and of L1ᵃ, polymorphic in the annotations. |
+| [`exec.elpi`](elpi/eval/exec.elpi) | The evaluator of L2: executes the derivative programs (tangent, adjoint) with a store indexed by their variables. |
+| [`evaluate.elpi`](elpi/eval/evaluate.elpi) | Running the functions of a case with the evaluators ([`run`](rocq/TangentCorrect.v#L53), `tangent`, `signatures`, `l1-run`, `passes`, `l2-run`, `l2-signature`, `l2-same`); not loaded by `adjudge.elpi`. |
+
+### The driver and the rest
+
+| File | Role |
+|---|---|
+| [`adjudge.elpi`](elpi/adjudge.elpi) | The driver: accumulates everything, [`main`](rocq/Adjudge.v#L44), `gallina`, `to-julia` and `terms`. |
 | `demo/` | The Julia wrapper in the browser: tree-sitter-julia and Elpi compiled to wasm, no server. Online at <https://thery.github.io/DoubleCover/elpiDiff/> (folder `elpiDiff/` of the `gh-pages` branch, built by `demo/build.sh`). See [demo/README.md](demo/README.md). |
-| `show.elpi` | Printing a generated function as an Elpi term. |
-| `dump.elpi` | Readable printers for L1, L1ᵃ and L2, to debug the passes (`dump` mode). |
-| `numbers.elpi` | Domains of numbers for the evaluators: the record of the operations on the reals of a domain; floats, and dual numbers over any domain. |
-| `eval.elpi` | The evaluator of L0, polymorphic in the domain of numbers. |
-| `eval-anf.elpi` | The evaluator of L1 and of L1ᵃ, polymorphic in the annotations. |
-| `exec.elpi` | The evaluator of L2: executes the derivative programs (tangent, adjoint) with a store indexed by their variables. |
-| `evaluate.elpi` | Running the functions of a case with the evaluators ([`run`](rocq/TangentCorrect.v#L53), `tangent`, `signatures`, `l1-run`, `passes`, `l2-run`, `l2-signature`, `l2-same`); not loaded by `adjudge.elpi`. |
-| `adjudge.elpi` | The driver: accumulates everything, [`main`](rocq/Adjudge.v#L44), `gallina`, `to-julia` and `terms`. |
 
 ## In Rocq
 
@@ -251,7 +299,7 @@ primal (function "rescale" (arg "x" real inout x\ arg "w" real independent w\
 From this directory:
 
 ```
-elpi -I . <case>/primal.elpi -exec main -- <case> tangent|adjoint|adjoint-value [<output directory>]
+elpi -I elpi <case>/primal.elpi -exec main -- <case> tangent|adjoint|adjoint-value [<output directory>]
 ```
 
 writes `<case>/tangent.hpp`, `<case>/adjoint.hpp` or `<case>/adjoint-value.hpp`,
@@ -262,7 +310,7 @@ computes the value of the function as well (`f_adjoint_value`): it returns the
 returned value, and writes the dependent argument.
 
 ```
-elpi -I . <case>/primal.elpi -exec gallina -- <case> tangent|adjoint|adjoint-value [<output directory>]
+elpi -I elpi <case>/primal.elpi -exec gallina -- <case> tangent|adjoint|adjoint-value [<output directory>]
 ```
 
 writes the same derivatives as Gallina instead of C++, `<case>/tangent.v`,
@@ -293,14 +341,14 @@ Definition square_scaled_tangent (x : list float) (y : list float) (x_dot : list
 ```
 
 ```
-elpi -I . <case>/primal.elpi -exec terms -- tangent|adjoint|adjoint-value
+elpi -I elpi <case>/primal.elpi -exec terms -- tangent|adjoint|adjoint-value
 ```
 
 prints the generated programs as Elpi terms (L3) instead.
 
 ```
-elpi -I . <case>/primal.elpi -exec dump -- anf|annotated
-elpi -I . <case>/primal.elpi -exec dump -- annotated|derivative|simplified|target tangent|adjoint|adjoint-value
+elpi -I elpi <case>/primal.elpi -exec dump -- anf|annotated
+elpi -I elpi <case>/primal.elpi -exec dump -- annotated|derivative|simplified|target tangent|adjoint|adjoint-value
 ```
 
 prints each function of the case at one stage of the pipeline, in a readable
@@ -338,16 +386,16 @@ The evaluator uses float functions that Elpi 3.7.1 lacks (`exp`, `pow`,
 is evaluated through a file that accumulates `evaluate` and the case,
 
 ```
-accumulate evaluate.
+accumulate "eval/evaluate".
 accumulate primal.
 ```
 
 ```
-elpi -I . -I <case> <that file> -exec run -- f 2.0 3.0         % 6.90929742683
-elpi -I . -I <case> <that file> -exec tangent -- f 2.0 3.0 / 1.0 0.0
+elpi -I elpi -I <case> <that file> -exec run -- f 2.0 3.0         % 6.90929742683
+elpi -I elpi -I <case> <that file> -exec tangent -- f 2.0 3.0 / 1.0 0.0
                                                                % 6.90929742683   the value
                                                                % 2.58385316345   ∂f/∂x1 = x2 + cos x1
-elpi -I . -I <case> <that file> -exec signatures               % f x1:real:independent x2:real:independent -> returns real
+elpi -I elpi -I <case> <that file> -exec signatures               % f x1:real:independent x2:real:independent -> returns real
 ```
 
 An argument is a real literal, an integer, or, for an array of N reals, N real

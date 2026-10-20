@@ -22,7 +22,7 @@ const body = t => t.split('\n').slice(1).join('\n');   // the facts, without the
 function front(facts, name) {               // native jlfront.elpi: the L0, or its refusal
   const d = fs.mkdtempSync(path.join(tmp, 'c'));
   fs.writeFileSync(path.join(d, 'ast.elpi'), facts);
-  const r = spawnSync('elpi', ['-I', CODE, '-I', d, path.join(CODE, 'jlfront.elpi'), '-exec', 'jl-to-l0', '--', name], { encoding: 'utf8' });
+  const r = spawnSync('elpi', ['-I', path.join(CODE, 'elpi'), '-I', d, path.join(CODE, 'elpi', 'front', 'jlfront.elpi'), '-exec', 'jl-to-l0', '--', name], { encoding: 'utf8' });
   if (r.status === 0) return 'L0 ' + r.stdout.replace(/\nSuccess:[\s\S]*$/, '').trim();
   const m = /Fatal error:\s*([\s\S]*)/.exec(r.stdout + r.stderr);
   return 'REFUSED ' + (m ? m[1].trim().replace(/\s+/g, ' ') : (r.stdout + r.stderr).trim().split('\n').slice(-2).join(' '));

@@ -50,7 +50,7 @@ open(runner, "w").write("accumulate torocq.\naccumulate primal.\n")
 
 
 def elpi(case, *args, extra=()):
-    out = subprocess.run(["elpi", "-I", CODE, "-I", TOOLS, "-I", case, *extra, "-exec", *args],
+    out = subprocess.run(["elpi", "-I", os.path.join(CODE, "elpi"), "-I", TOOLS, "-I", case, *extra, "-exec", *args],
                          capture_output=True, text=True, stdin=subprocess.DEVNULL)
     return [l for l in (out.stdout + out.stderr).splitlines()
             if l and not re.match(r"(Success:|Constraints:|State:|Time:|.*time:)", l)]
@@ -120,7 +120,7 @@ for c in sorted(os.listdir(CASES)):
             if not wf:
                 continue
             out_dir = os.path.join(tmp, c + "-" + st); os.makedirs(out_dir, exist_ok=True)
-            subprocess.run(["elpi", "-I", CODE, os.path.join(CASES, c, "primal.elpi"), "-exec", "gallina", "--",
+            subprocess.run(["elpi", "-I", os.path.join(CODE, "elpi"), os.path.join(CASES, c, "primal.elpi"), "-exec", "gallina", "--",
                             f"cases/{c}", GALLINA[st][0], out_dir], capture_output=True, text=True,
                            stdin=subprocess.DEVNULL, cwd=os.path.dirname(CASES))
             want = open(os.path.join(out_dir, GALLINA[st][0].replace("-", "_") + ".v")).read()
@@ -136,7 +136,7 @@ for c in sorted(os.listdir(CASES)):
             if not wf:
                 continue
             out_dir = os.path.join(tmp, c + "-" + st); os.makedirs(out_dir, exist_ok=True)
-            subprocess.run(["elpi", "-I", CODE, os.path.join(CASES, c, "primal.elpi"), "-exec", "main", "--",
+            subprocess.run(["elpi", "-I", os.path.join(CODE, "elpi"), os.path.join(CASES, c, "primal.elpi"), "-exec", "main", "--",
                             f"cases/{c}", CXX[st][0], out_dir], capture_output=True, text=True,
                            stdin=subprocess.DEVNULL, cwd=os.path.dirname(CASES))
             want = open(os.path.join(out_dir, CXX[st][0] + ".hpp")).read()

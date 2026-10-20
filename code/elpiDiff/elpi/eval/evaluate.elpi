@@ -4,17 +4,17 @@
 % newer than its release 3.7.1 (exp, pow, string_to_real), and the tool itself
 % must keep working without them. A case is evaluated through a file that
 % accumulates this one and the case:
-%   accumulate evaluate.  accumulate primal.
+%   accumulate "eval/evaluate".  accumulate primal.
 % then
-%   elpi -I <elpiDiff> -I <case> that-file.elpi -exec run -- <function> <argument>..
+%   elpi -I <elpiDiff>/elpi -I <case> that-file.elpi -exec run -- <function> <argument>..
 % An argument is a real literal (0.7), an integer (3), or, for an array of N
 % reals, N real literals in a row.
 
 accumulate adjudge.
-accumulate numbers.
-accumulate eval.
-accumulate eval-anf.
-accumulate exec.
+accumulate "eval/numbers".
+accumulate "eval/eval".
+accumulate "eval/eval-anf".
+accumulate "eval/exec".
 
 shorten adjudge.{ floats, duals, eval-function, read-arguments, val-string, signature-string, ty-string,
                   split-at, definition-decls, seed, dual-strings,
@@ -30,7 +30,7 @@ run [Name | Args] :- !,
      (floats Dom, read-arguments D Args Vs, eval-function Dom (function Name D) Vs V,
       val-string V S, print S)
      (M is "no function `" ^ Name ^ "` in the case", std.fatal-error M).
-run _ :- std.fatal-error "usage: elpi -I <elpiDiff> -I <case> <file accumulating evaluate and the case> -exec run -- <function> <argument>..".
+run _ :- std.fatal-error "usage: elpi -I <elpiDiff>/elpi -I <case> <file accumulating evaluate and the case> -exec run -- <function> <argument>..".
 
 % tangent [Name | Args ++ ["/" | Dots]]: prints the value of the function Name
 % on Args, then its tangent along Dots, computed by the same evaluator in the
