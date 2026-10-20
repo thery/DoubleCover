@@ -3,7 +3,7 @@
 The references, with links ([references.bib](references.bib) for BibTeX). The
 PDFs are not in the repository: the two POPL papers are on arXiv under the
 arXiv license, which lets arXiv, not us, distribute them; the third is an
-Elsevier article. `paper/*.pdf` is ignored by git, so a local copy can sit
+Elsevier article, whose technical report is on HAL. `paper/*.pdf` is ignored by git, so a local copy can sit
 here (for the arXiv ones: `curl -o <name>.pdf https://arxiv.org/pdf/<id>`).
 
 - **Abadi and Plotkin, *A Simple Differentiable Programming Language*.**
@@ -31,7 +31,10 @@ here (for the arXiv ones: `curl -o <name>.pdf https://arxiv.org/pdf/<id>`).
 - **Hascoët, Naumann and Pascual, *"To be recorded" analysis in
   reverse-mode automatic differentiation*.** Future Generation Computer
   Systems 21(8) (2005), 1401–1417.
-  [doi:10.1016/j.future.2004.11.009](https://doi.org/10.1016/j.future.2004.11.009)
-  (no free PDF found). The to-be-recorded analysis (TBR) of Tapenade: which
+  [doi:10.1016/j.future.2004.11.009](https://doi.org/10.1016/j.future.2004.11.009).
+  Free PDF of the earlier technical report: L. Hascoët, U. Naumann and V.
+  Pascual, *TBR Analysis in Reverse-Mode Automatic Differentiation*, INRIA
+  research report RR-4856 (2003), on HAL:
+  [inria-00071727](https://inria.hal.science/inria-00071727v1). The to-be-recorded analysis (TBR) of Tapenade: which
   values the reverse sweep reads and must therefore be recorded; elpiDiff's
   `tbr.elpi` and its annotations (`computed`, `recorded`) follow it.

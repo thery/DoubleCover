@@ -239,6 +239,8 @@ Also in [../paper/](../paper/README.md), with a BibTeX file.
 - Laurent Hascoët, Uwe Naumann and Valérie Pascual. *"To be recorded"
   analysis in reverse-mode automatic differentiation*. Future Generation
   Computer Systems 21(8) (2005), 1401–1417.
-  [doi:10.1016/j.future.2004.11.009](https://doi.org/10.1016/j.future.2004.11.009).
+  [doi:10.1016/j.future.2004.11.009](https://doi.org/10.1016/j.future.2004.11.009);
+  free technical report INRIA RR-4856 (2003) on HAL,
+  [inria-00071727](https://inria.hal.science/inria-00071727v1).
   The to-be-recorded analysis of Tapenade, which `tbr.elpi` follows: which
   values the reverse sweep reads and must therefore be recorded.
