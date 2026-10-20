@@ -3,24 +3,24 @@
 % A case is a file that accumulates this one and declares its `primal` functions:
 %   elpi -I <elpiDiff> cases/01-expression/primal.elpi -exec main -- cases/01-expression adjoint
 
-accumulate syntax.
-accumulate anf.
-accumulate operations.
-accumulate "well-formed".
-accumulate activity.
-accumulate tbr.
-accumulate annotate.
-accumulate derivative.
-accumulate tangent.
-accumulate adjoint.
-accumulate simplify.
-accumulate target.
-accumulate lower.
-accumulate cxx.
-accumulate gallina.
-accumulate julia.
-accumulate show.
-accumulate dump.
+accumulate "lang/syntax".
+accumulate "lang/anf".
+accumulate "lang/operations".
+accumulate "lang/well-formed".
+accumulate "analysis/activity".
+accumulate "analysis/tbr".
+accumulate "analysis/annotate".
+accumulate "modes/derivative".
+accumulate "modes/tangent".
+accumulate "modes/adjoint".
+accumulate "modes/simplify".
+accumulate "back/target".
+accumulate "back/lower".
+accumulate "back/cxx".
+accumulate "back/gallina".
+accumulate "back/julia".
+accumulate "back/show".
+accumulate "back/dump".
 
 pred primal o:function.
 
