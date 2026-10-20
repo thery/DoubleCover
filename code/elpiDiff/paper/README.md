@@ -9,7 +9,8 @@ here (for the arXiv ones: `curl -o <name>.pdf https://arxiv.org/pdf/<id>`).
 - **Abadi and Plotkin, *A Simple Differentiable Programming Language*.**
   Proc. ACM Program. Lang. 4, POPL (2020), 38:1–38:28.
   [doi:10.1145/3371106](https://doi.org/10.1145/3371106),
-  free PDF on [arXiv:1911.04523](https://arxiv.org/abs/1911.04523).
+  [PDF](https://arxiv.org/pdf/1911.04523) (free, on
+  [arXiv:1911.04523](https://arxiv.org/abs/1911.04523)).
   Its partial semantics, where a comparison of two equal reals is undefined,
   is the one of the Rocq proofs: `smooth_reals` and `defined` in
   [../rocq/Smooth.v](../rocq/Smooth.v), the hypothesis "f is defined at x" of
@@ -19,7 +20,8 @@ here (for the arXiv ones: `curl -o <name>.pdf https://arxiv.org/pdf/<id>`).
   Once: Tangents Transpose to Gradients*.** Proc. ACM Program. Lang. 7, POPL
   (2023), 1246–1274.
   [doi:10.1145/3571236](https://doi.org/10.1145/3571236),
-  free PDF on [arXiv:2204.10923](https://arxiv.org/abs/2204.10923).
+  [PDF](https://arxiv.org/pdf/2204.10923) (free, on
+  [arXiv:2204.10923](https://arxiv.org/abs/2204.10923)).
   Reverse mode as forward mode, then partial evaluation with respect to the
   primal input (what remains is linear in the tangents), then transposition of
   that linear program: the compiler view of the adjoint, a possible structure
@@ -35,6 +37,7 @@ here (for the arXiv ones: `curl -o <name>.pdf https://arxiv.org/pdf/<id>`).
   Free PDF of the earlier technical report: L. Hascoët, U. Naumann and V.
   Pascual, *TBR Analysis in Reverse-Mode Automatic Differentiation*, INRIA
   research report RR-4856 (2003), on HAL:
-  [inria-00071727](https://inria.hal.science/inria-00071727v1). The to-be-recorded analysis (TBR) of Tapenade: which
+  [inria-00071727](https://inria.hal.science/inria-00071727v1),
+  [PDF](https://inria.hal.science/inria-00071727v1/document). The to-be-recorded analysis (TBR) of Tapenade: which
   values the reverse sweep reads and must therefore be recorded; elpiDiff's
   `tbr.elpi` and its annotations (`computed`, `recorded`) follow it.
