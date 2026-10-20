@@ -1,6 +1,7 @@
-// examples.js: the examples menu (a small program, the functions of elpiDiff's
+// examples.js: the examples menu (xsin, the default, a small program, the functions of elpiDiff's
 // examples/julia/functions.jl, and one program the front end refuses).
 export const EXAMPLES = [
+  { name: 'xsin', code: `xsin(x) = x * sin(x)\n` },
   { name: 'a program', code:
 `# A small Julia program: every function is differentiated,
 # the rest (using, comments, top-level code) is ignored.
@@ -24,7 +25,6 @@ end
 
 println(xsin(0.5), " ", sumsq(SVector(1.0, 2.0, 3.0, 4.0)))
 ` },
-  { name: 'xsin', code: `xsin(x) = x * sin(x)\n` },
   { name: 'quad', code: `quad(x) = x * x + x\n` },
   { name: 'f (Wikipedia)', code:
 `# The example of the Wikipedia article on automatic differentiation.
