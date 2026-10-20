@@ -1202,3 +1202,34 @@ In L2, every variable of a generated function is bound at its head, in the
 order of creation ([`scoped`](rocq/Derivative.v#L81), composed with [`sbind`](rocq/Transform.v#L46)): the adjoint of a value is
 computed far from the value, in the reverse sweep, so a variable cannot be bound
 where it is first used.
+
+## References
+
+Also in [paper/](paper/README.md), with a BibTeX file.
+
+- Martín Abadi and Gordon D. Plotkin. *A Simple Differentiable Programming
+  Language*. Proc. ACM Program. Lang. 4, POPL (2020), 38:1–38:28.
+  [doi:10.1145/3371106](https://doi.org/10.1145/3371106),
+  [arXiv:1911.04523](https://arxiv.org/abs/1911.04523).
+  Its partial semantics, where a comparison of two equal reals is undefined,
+  is the one of the Rocq proofs: `smooth_reals` and `defined` in
+  [rocq/Smooth.v](rocq/Smooth.v), the hypothesis that `f` is defined at `x` of
+  the main theorems.
+- Alexey Radul, Adam Paszke, Roy Frostig, Matthew J. Johnson and Dougal
+  Maclaurin. *You Only Linearize Once: Tangents Transpose to Gradients*. Proc.
+  ACM Program. Lang. 7, POPL (2023), 1246–1274.
+  [doi:10.1145/3571236](https://doi.org/10.1145/3571236),
+  [arXiv:2204.10923](https://arxiv.org/abs/2204.10923).
+  Reverse mode as forward mode, then partial evaluation with respect to the
+  primal input (the residual program is linear in the tangents), then
+  transposition of that linear program: the compiler view of the adjoint, a
+  possible structure for the adjoint pass and its proof (tangent correct,
+  partial evaluation preserves the semantics, the to-be-recorded analysis
+  keeps the coefficients the reverse sweep reads, transposition is adjoint for
+  every linear program).
+- Laurent Hascoët, Uwe Naumann and Valérie Pascual. *"To be recorded"
+  analysis in reverse-mode automatic differentiation*. Future Generation
+  Computer Systems 21(8) (2005), 1401–1417.
+  [doi:10.1016/j.future.2004.11.009](https://doi.org/10.1016/j.future.2004.11.009).
+  The to-be-recorded analysis of Tapenade, which `tbr.elpi` follows: which
+  values the reverse sweep reads and must therefore be recorded.
