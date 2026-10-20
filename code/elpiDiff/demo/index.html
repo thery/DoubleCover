@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>elpiDiff in the browser</title>
-<meta name="description" content="Write a small Julia function and get its tangent and adjoint derivative code, produced by elpiDiff running in your browser (Elpi compiled to WebAssembly).">
+<meta name="description" content="Write a Julia program and get the Julia program of its derivatives, in tangent and adjoint mode, produced by elpiDiff running in your browser (Elpi compiled to WebAssembly).">
 <style>
 :root {
   --bg: #fbfaf7; --panel: #ffffff; --ink: #1d1d1b; --muted: #5f5d57; --line: #dedbd2;
@@ -87,8 +87,9 @@ footer code { white-space: nowrap; }
 <main>
   <header>
     <h1>elpiDiff in the browser</h1>
-    <p class="lede">Write a small Julia function and get the Julia code of its derivative, in tangent
-      (forward) and adjoint (reverse) mode. The work is done by
+    <p class="lede">Write a Julia program and get the Julia program of its derivatives, in tangent
+      (forward) and adjoint (reverse) mode: every function of the program is differentiated, the rest
+      (<code>using</code>, comments, top-level code) is ignored. The work is done by
       <a href="https://github.com/thery/DoubleCover/tree/main/code/elpiDiff">elpiDiff</a>, an automatic
       differentiation tool written in <a href="https://github.com/LPCIC/elpi">Elpi</a>, here running inside
       your browser: Elpi is compiled to WebAssembly and the Julia code is parsed by tree-sitter. Nothing is
@@ -115,7 +116,7 @@ footer code { white-space: nowrap; }
 
   <div class="grid">
     <section class="card" aria-labelledby="in-title">
-      <h2 id="in-title">Julia function</h2>
+      <h2 id="in-title">Julia program</h2>
       <div class="controls">
         <label>Example <select id="example"></select></label>
         <label><input type="checkbox" id="m-tangent" checked> tangent</label>
@@ -152,7 +153,8 @@ footer code { white-space: nowrap; }
   <footer>
     <p><b>What the front end accepts</b> (anything else is refused, with the reason):</p>
     <ul>
-      <li><code>function f(…) … end</code> and <code>f(…) = …</code>; assignments <code>x = …</code>,
+      <li>a program: any number of functions <code>function f(…) … end</code> and <code>f(…) = …</code>
+        (other top-level statements are ignored); assignments <code>x = …</code>,
         <code>x += …</code>, <code>a[i] = …</code>;</li>
       <li><code>if</code>/<code>elseif</code>/<code>else</code> that sets one variable, or ends the function
         with a value on both branches; <code>c ? a : b</code>;</li>
