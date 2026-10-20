@@ -1,6 +1,29 @@
-// examples.js: the examples menu (from elpiDiff's examples/julia/functions.jl,
-// and one program the front end refuses).
+// examples.js: the examples menu (a small program, the functions of elpiDiff's
+// examples/julia/functions.jl, and one program the front end refuses).
 export const EXAMPLES = [
+  { name: 'a program', code:
+`# A small Julia program: every function is differentiated,
+# the rest (using, comments, top-level code) is ignored.
+using StaticArrays
+
+xsin(x) = x * sin(x)
+
+function damped(x, nu)
+    k = nu * nu
+    s = k + 1
+    return x * x / s
+end
+
+function sumsq(x::SVector{4})
+    acc = 0.0
+    for i in 1:4
+        acc += x[i] * x[i]
+    end
+    return acc
+end
+
+println(xsin(0.5), " ", sumsq(SVector(1.0, 2.0, 3.0, 4.0)))
+` },
   { name: 'xsin', code: `xsin(x) = x * sin(x)\n` },
   { name: 'quad', code: `quad(x) = x * x + x\n` },
   { name: 'f (Wikipedia)', code:
