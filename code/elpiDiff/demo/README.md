@@ -14,6 +14,18 @@ jl-function facts ──► jlfront.elpi (jl-to-l0) ──► L0 ──► adjud
 tangent / adjoint Julia code; jlfront's refusals and the tool's diagnostics, as messages
 ```
 
+## Choosing the arguments to differentiate
+
+300 ms after each edit, the page lists the arguments of every function under
+the program, with a checkbox: checked (differentiated) by default for a real
+or an array, greyed with the reason for an `Int`, a `Bool`, an array the
+function writes, or an unsupported type. On Differentiate, each unchecked box
+adds the fact `jl-passive "F" "X"` to the AST facts, as
+`examples/julia/run.sh --passive F:X` does (see
+[../examples/julia](../examples/julia/README.md#choosing-the-arguments-to-differentiate)).
+When the code changes, the list is rebuilt and keeps the choice of every
+argument whose function and name did not change; a new name starts checked.
+
 ## Files
 
 Sources (written for the demo):
@@ -21,9 +33,9 @@ Sources (written for the demo):
 | file | role |
 |---|---|
 | `index.html` | the page (layout, light and dark styles, header with the conventions) |
-| `app.js` | UI: loading, examples menu, Differentiate, panels |
+| `app.js` | UI: loading, examples menu, the arguments to differentiate, Differentiate, panels |
 | `jlparse.js` | tree-sitter CST → the Elpi terms of `tools/julia2elpi.jl` (`j`, `jsym`, `jint`, `jfloat`, `jbool`, `jother`) |
-| `pipeline.js` | facts → L0 → tangent/adjoint, on the Elpi JS API (shared by the page and the node tests) |
+| `pipeline.js` | facts → L0 → tangent/adjoint, on the Elpi JS API (shared by the page and the node tests); the arguments of each function (`argumentsOf`) and the `jl-passive` facts of a choice |
 | `examples.js` | the examples menu (from `examples/julia/functions.jl`, plus a refused `while`) |
 | `elpi/demo.elpi` | the program compiled at load: `accumulate jlfront. accumulate jsdrive.` |
 | `elpi/ast.elpi` | empty: jlfront accumulates it; the facts are added per click as a new unit |
@@ -94,14 +106,14 @@ about 1 MB.
 ```sh
 node test/equiv.mjs        # walker facts vs tools/julia2elpi.jl, and the L0 of native jlfront from both
 node test/floatrepr.mjs    # Julia's repr of Float64/Float32 literals vs Julia, 4010 random values
-node test/pipeline.cjs     # the page's pipeline under node (wasm) vs the native pipeline (test/native.sh)
-node test/cdp.js           # the page in headless Chrome: load time, examples through the UI, phone width, dark mode
+node test/pipeline.cjs     # the page's pipeline under node (wasm) vs the native pipeline (test/native.sh), also with passive arguments
+node test/cdp.js           # the page in headless Chrome: load time, examples through the UI, unchecked arguments, phone width, dark mode
 ```
 
 They need `julia` (`JULIA=`, default `~/.juliaup/bin/julia`), a native `elpi`
 3.7.3 on `PATH`, `google-chrome` and `python3` (cdp.js), and `ELPIDIFF` (default: the
-parent directory, `code/elpiDiff`). `test/native.sh FILE OUT` is
-`examples/julia/run.sh` writing into `OUT`. (Node prints a
+parent directory, `code/elpiDiff`). `test/native.sh FILE OUT [PASSIVE]` is
+`examples/julia/run.sh [--passive PASSIVE]` writing into `OUT`. (Node prints a
 MODULE_TYPELESS_PACKAGE_JSON warning for the ES modules;
 `--disable-warning=MODULE_TYPELESS_PACKAGE_JSON` hides it.)
 
@@ -109,7 +121,11 @@ Results (2026-10-20): `equiv.mjs`: all 20 files (functions.jl and 19 cases in
 `test/cases`, 9 of them refused and 1 syntax error) give identical facts and the
 same L0 or the same refusal; `pipeline.mjs` and `cdp.js`: tangent and adjoint
 byte-identical to the native pipeline after the first line (which names the
-source), including all of `functions.jl` against `examples/julia/out/`.
+source), including all of `functions.jl` against `examples/julia/out/`, and with
+passive arguments: `pipeline.cjs` on 4 choices over `functions.jl` (2
+differentiated, 2 refused with the same reason), `cdp.js` through the checkboxes
+(`f` with `x2` unchecked, `advect!` with `c` unchecked, the list kept across
+edits, `Int`/`Bool`/written arrays greyed, phone width in light and dark).
 
 ## What the walker does not reproduce exactly
 

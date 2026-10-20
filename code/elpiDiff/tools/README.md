@@ -54,6 +54,9 @@ directory (`..`), and `[rocq dir]` to `../rocq`.
 - `julia2elpi.jl FILE.jl` prints the functions of FILE, as parsed by Julia
   (`Meta.parseall`), as Elpi facts `jl-function E` (`jl-ast.elpi`), for the
   Julia front end `jlfront.elpi`, which translates them to L0.
-- `juliatest.jl SOURCE.jl DIR` runs the Julia derivatives generated in DIR
+- `juliatest.jl SOURCE.jl DIR [PASSIVE]` runs the Julia derivatives generated in DIR
   (`to-julia` mode) from the functions of `examples/julia/functions.jl`:
   tangent against central finite differences, adjoint by the dot-product test.
+  PASSIVE is the choice of `run.sh --passive` (`f:x2,advect!:c`): only the
+  other arguments vary, and the signatures must have no `_dot`/`_bar` for
+  the passive ones.

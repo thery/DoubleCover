@@ -27,6 +27,8 @@ In a browser, without installing anything: <https://thery.github.io/DoubleCover/
 ```sh
 ./run.sh               # functions.jl, then the numeric test
 ./run.sh my.jl         # any file: prints out/primal.elpi, out/tangent.jl, out/adjoint.jl
+./run.sh --passive f:x2,advect!:c   # x2 of f and c of advect! are not differentiated
+OUT=/tmp/o ./run.sh …  # writes into /tmp/o instead of out/
 ```
 
 It needs `julia` with the StaticArrays package (`JULIA=…` to choose the
@@ -39,8 +41,36 @@ runs the generated code at random points:
 - the adjoint passes the dot-product test against the tangent,
   ⟨dy, ȳ⟩ = ⟨dx, gradient⟩.
 
-The result is 780 checks with 0 failures. Breaking one derivative by hand
-makes the test fail on that function.
+The result is 818 checks with 0 failures (780 numeric, 38 on the signatures).
+Breaking one derivative by hand makes the test fail on that function. With
+`--passive`, the test varies only the differentiated arguments, and checks
+that the passive ones get no `_dot` and no `_bar`: for example
+`OUT=/tmp/o ./run.sh --passive f:x2,transcend:y,advect!:c,damped:nu` also
+gives 818 checks with 0 failures.
+
+## Choosing the arguments to differentiate
+
+By default every real and every array argument the function reads is
+differentiated. `--passive F:X` makes the argument `X` of `F` passive: a
+parameter, not differentiated. `F` is the name in the source, its trailing `!`
+optional. It adds the fact `jl-passive "F" "X"` (declared in
+[`jl-ast.elpi`](../../elpi/front/jl-ast.elpi)) to the AST, and
+[`jlfront.elpi`](../../elpi/front/jlfront.elpi) gives `X` the role `passive`
+in L0. With `f:x2`:
+
+```julia
+function f_tangent(x1, x2, x1_dot)            # no x2_dot
+function f_adjoint(x1, x2, x1_bar, result_bar)  # no x2_bar
+```
+
+The front end refuses, with a reason:
+- an `Int` or a `Bool` argument: it is passive already;
+- an `MVector` the function writes: its derivative is the output, and a
+  passive argument is never written;
+- a function or an argument that the program does not have.
+
+Making every argument passive gives zero derivatives. The output side is not
+a choice: a function has one result.
 
 ## The generated code
 
@@ -107,8 +137,9 @@ end
   - an `MVector{N}` the function writes is dependent when it is never read,
     inout otherwise.
 
-  A function that returns `nothing` writes its one `MVector`. Unlike C++,
-  there is no way yet to declare a passive real.
+  A function that returns `nothing` writes its one `MVector`. A real or an
+  array that the function reads can be made passive with `--passive`
+  (above).
 - **Integer literals:** `2 * x` reads `2` as a real. A literal is an integer
   only as an index, as a loop bound, or with an integer.
 

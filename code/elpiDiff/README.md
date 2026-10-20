@@ -46,7 +46,7 @@ rocq/  tools/  examples/  demo/  paper/
 | File | Role |
 |---|---|
 | [`cxx-ast.elpi`](elpi/front/cxx-ast.elpi), [`cxxfront.elpi`](elpi/front/cxxfront.elpi) | The C++ front end: clang's AST (printed by `tools/clang2elpi.py`) translated to L0. See [examples/xsin](examples/xsin/README.md). |
-| [`jl-ast.elpi`](elpi/front/jl-ast.elpi), [`jlfront.elpi`](elpi/front/jlfront.elpi) | The Julia front end, independent of the C++ one: Julia's AST (printed by `tools/julia2elpi.jl`) translated to L0. See [examples/julia](examples/julia/README.md). |
+| [`jl-ast.elpi`](elpi/front/jl-ast.elpi), [`jlfront.elpi`](elpi/front/jlfront.elpi) | The Julia front end, independent of the C++ one: Julia's AST (printed by `tools/julia2elpi.jl`) translated to L0. Optional `jl-passive Fn Arg` facts choose which real or array arguments are not differentiated. See [examples/julia](examples/julia/README.md). |
 
 ### `elpi/lang/`: The languages L0 and L1, and the operations
 

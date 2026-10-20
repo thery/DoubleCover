@@ -1,7 +1,7 @@
 // app.js: the page. Loads tree-sitter-julia and Elpi (wasm), compiles the
 // Elpi sources of elpiDiff once, then runs pipeline.js on each click.
 import { Parser, Language } from './vendor/web-tree-sitter.js';
-import { loadElpi, run } from './pipeline.js';
+import { loadElpi, run, argumentsOf } from './pipeline.js';
 import { EXAMPLES } from './examples.js';
 
 const $ = id => document.getElementById(id);
@@ -39,10 +39,58 @@ const state = {};
 const ready = (async () => {
   const [parser, elpi] = await Promise.all([startParser(), startElpi()]);
   Object.assign(state, { parser, ...elpi });
+  buildArgs();
   state.loadMs = performance.now() - t0;
   $('go').disabled = false;
   status(`Ready (loaded in ${sec(state.loadMs)}). Ctrl+Enter differentiates.`);
 })().catch(e => { status('Loading failed: ' + e.message); throw e; });
+
+// The arguments of each function, with a checkbox: checked = differentiated.
+// choices remembers the boxes by function and argument name, so that an edit
+// keeps the choice of the arguments whose names did not change.
+const choices = new Map();
+const key = (f, x) => f + '\u0000' + x;
+
+function buildArgs() {
+  if (!state.parser) return;
+  const fns = argumentsOf(state.parser, $('src').value);
+  if (fns === null) return;                        // does not parse: keep the last list
+  const box = $('args-list');
+  box.replaceChildren();
+  show('args', fns.length > 0);
+  for (const { fn, args } of fns) {
+    const row = document.createElement('div');
+    row.className = 'fn-args';
+    const name = document.createElement('code');
+    name.textContent = fn;
+    row.append(name);
+    if (args.length === 0) row.append(Object.assign(document.createElement('span'), { className: 'why', textContent: 'no arguments' }));
+    for (const a of args) {
+      const l = document.createElement('label');
+      const c = document.createElement('input');
+      c.type = 'checkbox';
+      c.dataset.fn = fn; c.dataset.arg = a.name;
+      if (a.choosable) {
+        c.checked = choices.has(key(fn, a.name)) ? choices.get(key(fn, a.name)) : true;
+        c.addEventListener('change', () => choices.set(key(fn, a.name), c.checked));
+      } else {
+        c.checked = false; c.disabled = true; l.classList.add('off'); l.title = a.reason;
+      }
+      const n = document.createElement('code'); n.textContent = a.name;
+      l.append(c, n);
+      if (!a.choosable) l.append(Object.assign(document.createElement('span'), { className: 'why', textContent: a.reason }));
+      row.append(l);
+    }
+    box.append(row);
+  }
+}
+
+// the arguments made passive: the unchecked boxes that can be checked
+const passiveChoice = () => [...document.querySelectorAll('#args-list input:not(:disabled)')]
+  .filter(c => !c.checked).map(c => [c.dataset.fn, c.dataset.arg]);
+
+let editTimer = null;
+$('src').addEventListener('input', () => { clearTimeout(editTimer); editTimer = setTimeout(buildArgs, 300); });
 
 function show(id, on) { $(id).classList.toggle('hidden', !on); }
 
@@ -66,7 +114,8 @@ function differentiate() {
   if (modes.length === 0) { message('note', 'Choose tangent, adjoint or both.', []); return null; }
   const t = performance.now();
   let r;
-  try { r = run(state.E, state.base, state.parser, $('src').value, modes); }
+  clearTimeout(editTimer); buildArgs();
+  try { r = run(state.E, state.base, state.parser, $('src').value, modes, 'editor', passiveChoice()); }
   catch (e) { message('bad', 'Internal error', [String(e.message || e)]); status('Failed.'); return null; }
   const ms = performance.now() - t;
   if (r.facts) { $('facts').textContent = r.facts; show('facts-box', true); }
@@ -99,6 +148,7 @@ function go() {
 $('go').addEventListener('click', go);
 $('example').addEventListener('change', () => {
   $('src').value = EXAMPLES[Number($('example').value)].code;
+  buildArgs();
   if (!$('go').disabled) go();
 });
 $('src').addEventListener('keydown', e => {
@@ -112,5 +162,5 @@ for (const b of document.querySelectorAll('[data-copy]'))
   });
 
 // for the headless test (test/cdp.js)
-window.demo = { ready, state, differentiate };
+window.demo = { ready, state, differentiate, buildArgs, passiveChoice };
 ready.then(() => go());

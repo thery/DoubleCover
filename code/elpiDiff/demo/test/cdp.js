@@ -1,7 +1,8 @@
 // cdp.js: the page in headless Chrome (DevTools protocol), against the native pipeline.
 // Serves demo/ with python3 -m http.server, loads the page, measures the load,
 // runs examples through the UI (menu + Differentiate) in both modes and one
-// refused program, compares the generated code with native.sh (julia2elpi.jl +
+// refused program, unchecks argument boxes (passive arguments) and checks the
+// list after edits, compares the generated code with native.sh (julia2elpi.jl +
 // native elpi; byte-identical after the first line), pastes functions.jl and
 // compares with examples/julia/out, and checks phone width and dark mode
 // (screenshots in $SHOTS, default the system temp dir).
@@ -56,10 +57,10 @@ const { EXAMPLES } = { EXAMPLES: null };
       adjoint: document.getElementById('out-adjoint').classList.contains('hidden') ? null : document.getElementById('code-adjoint').textContent,
       messages: document.getElementById('messages').innerText, timing: document.getElementById('timing').textContent })`);
   }
-  function native(name, code) {
-    const src = path.join(tmp, name.replace(/[^A-Za-z0-9_.]/g, '_') + '.jl'), out = src + '.out';
+  function native(name, code, passive = '') {
+    const src = path.join(tmp, name.replace(/[^A-Za-z0-9_.]/g, '_') + '.jl'), out = src + (passive ? '.passive' : '') + '.out';
     fs.writeFileSync(src, code);
-    spawnSync('sh', [path.join(__dirname, 'native.sh'), src, out], { stdio: 'inherit' });
+    spawnSync('sh', [path.join(__dirname, 'native.sh'), src, out, passive], { stdio: 'inherit' });
     return out;
   }
   for (const want of ['xsin', 'branch', 'advect!', 'halve']) {
@@ -94,6 +95,59 @@ const { EXAMPLES } = { EXAMPLES: null };
     console.log(`${same ? 'ok  ' : 'FAIL'} functions.jl pasted, ${m}: ${same ? 'identical to' : 'differs from'} examples/julia/out/${m}.jl (${all.status})`);
   }
   console.log('  ' + all.timing);
+  // 3b. passive arguments through the checkboxes
+  const argList = () => evalJS(`[...document.querySelectorAll('#args-list input')].map(c =>
+    c.dataset.fn + ':' + c.dataset.arg + (c.disabled ? '(off: ' + c.closest('label').title + ')' : c.checked ? '+' : '-')).join(' ')`);
+  const typeIn = async code => {          // an edit as the user makes it: input events, then the 300 ms debounce
+    await evalJS(`(() => { const t = document.getElementById('src'); t.value = ${JSON.stringify(code)}; t.dispatchEvent(new Event('input')); })()`);
+    await sleep(500);
+  };
+  const untick = (f, x) => evalJS(`document.querySelector('#args-list input[data-fn="${f}"][data-arg="${x}"]').click()`);
+  const fcode = codes[names.findIndex(n => n.startsWith('f '))];
+  await typeIn(fcode);
+  const l1 = await argList();
+  await untick('f', 'x2');
+  const pf = await click(fcode);
+  const nf = native('f_passive', fcode, 'f:x2');
+  let okf = l1 === 'f:x1+ f:x2+';
+  for (const m of ['tangent', 'adjoint']) okf = okf && pf[m] !== null && tail(fs.readFileSync(path.join(nf, m + '.jl'), 'utf8')) === tail(pf[m]);
+  okf = okf && !/x2_dot|x2_bar/.test(pf.tangent + pf.adjoint);
+  if (!okf) bad++;
+  console.log(`${okf ? 'ok  ' : 'FAIL'} f with x2 unchecked: list "${l1}", tangent and adjoint ${okf ? 'identical to native with jl-passive "f" "x2", no x2_dot/x2_bar' : 'DIFFERENT'}`);
+  // an edit keeps the choice of the names that stay, a new name starts checked
+  await typeIn('# comment\n' + fcode);
+  const l2 = await argList();
+  await typeIn(fcode.replace(/x1/g, 'z'));
+  const l3 = await argList();
+  const okk = l2 === 'f:x1+ f:x2-' && l3 === 'f:z+ f:x2-';
+  if (!okk) bad++;
+  console.log(`${okk ? 'ok  ' : 'FAIL'} the list after edits: "${l2}", then x1 renamed z: "${l3}"`);
+  // Int, Bool and written arrays are greyed; advect! with c passive
+  await typeIn('g(a, p::Int, b::Bool) = b ? a * a : a\n' + codes[names.findIndex(n => n.startsWith('advect!'))]);
+  const l4 = await argList();
+  await untick('advect!', 'c');
+  const acode = await evalJS(`document.getElementById('src').value`);
+  const pa = await click(acode);
+  const na = native('advect_passive', acode, 'advect!:c');
+  let oka = /g:p\(off: Int[^)]*\) g:b\(off: Bool[^)]*\)/.test(l4) && /advect!:u\(off: written/.test(l4) && /advect!:c\+/.test(l4);
+  for (const m of ['tangent', 'adjoint']) oka = oka && pa[m] !== null && tail(fs.readFileSync(path.join(na, m + '.jl'), 'utf8')) === tail(pa[m]);
+  if (!oka) bad++;
+  console.log(`${oka ? 'ok  ' : 'FAIL'} greyed: "${l4}"; advect! with c unchecked ${oka ? 'identical to native' : 'DIFFERENT'}`);
+  await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 800, deviceScaleFactor: 2, mobile: true });
+  for (const scheme of ['light', 'dark']) {
+    await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: scheme }] });
+    const w = await evalJS('({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth })');
+    const box = await evalJS(`(() => { const r = document.getElementById('args').getBoundingClientRect(); return { y: r.top + scrollY, h: r.height }; })()`);
+    const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true,
+      clip: { x: 0, y: Math.max(0, box.y - 380), width: 375, height: box.h + 400, scale: 1 } });
+    fs.writeFileSync(path.join(SHOTS, `phone-args-${scheme}.png`), Buffer.from(shot.result.data, 'base64'));
+    const ok = w.sw <= w.cw;
+    if (!ok) bad++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} the argument list at phone width, ${scheme}: page width ${w.sw} (viewport ${w.cw})`);
+  }
+  await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+
   // 4. a syntax error, unchecked modes
   const se = await click('f(x) = x + )');
   console.log(`${/does not parse/.test(se.messages) ? 'ok  ' : 'FAIL'} syntax error: "${se.messages.replace(/\n/g, ' / ')}"`);
