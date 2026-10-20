@@ -18,6 +18,7 @@ accumulate target.
 accumulate lower.
 accumulate cxx.
 accumulate gallina.
+accumulate julia.
 accumulate show.
 accumulate dump.
 
@@ -61,6 +62,25 @@ gallina [Dir, Mode, Out] :- !,
   if (Cs = []) true
      (rex.replace "-" "_" Mode Module, File is Module ^ ".v", Source is Dir ^ "/primal.elpi", gallina-file Source Cs Text, write-file Out File Text).
 gallina _ :- std.fatal-error "usage: elpi -I <elpiDiff> <case>/primal.elpi -exec gallina -- <case> tangent|adjoint|adjoint-value [<output directory>]".
+
+% to-julia [Dir, Mode]: writes Dir/<mode>.jl, the derivatives of the
+% well-formed functions as Julia (julia.elpi), instead of C++.
+% to-julia [Dir, Mode, Out] writes into Out instead.
+func to-julia list string.
+to-julia [Dir, Mode] :- !, to-julia [Dir, Mode, Dir].
+to-julia [Dir, Mode, Out] :- !,
+  if (mode Mode) true
+     (M is "unknown mode `" ^ Mode ^ "`: expected tangent, adjoint or adjoint-value", std.fatal-error M),
+  std.findall (primal _) Ps,
+  std.map Ps (p\ f\ p = primal f) Fs,
+  std.map Fs check Rs,
+  std.map Rs (r\ d\ sigma A\ r = pr A d) Ds,
+  report Out Fs Ds,
+  std.map-filter Rs (r\ c\ sigma F V A D\ r = pr (some F) ok, mode-value Mode V, annotate V F A,
+                                         differentiate Mode A D, simplify D c) Cs,
+  if (Cs = []) true
+     (File is Mode ^ ".jl", Source is Dir ^ "/primal.elpi", julia.file-string Source Cs Text, write-file Out File Text).
+to-julia _ :- std.fatal-error "usage: elpi -I <elpiDiff> <case>/primal.elpi -exec to-julia -- <case> tangent|adjoint|adjoint-value [<output directory>]".
 
 % terms [Mode]: prints the tangent or adjoint program of each well-formed function
 % of the case as an Elpi term, before it is printed as C++.

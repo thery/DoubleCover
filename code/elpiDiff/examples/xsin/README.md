@@ -105,7 +105,7 @@ has no tuples).
 `primal.hpp` of every reference case. It compares the headers generated from
 clang's L0 with those from the hand-written terms:
 
-- 18 headers are the same.
+- 20 headers are the same.
 - `04-activity` differs by design: its C++ declares `T nu`, the hand-written
   term makes `nu` passive.
 - `11-weno5` (`std::swap`) and `12-goto` (`goto`) are refused.

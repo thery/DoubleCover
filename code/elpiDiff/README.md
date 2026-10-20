@@ -42,6 +42,9 @@ change is checked in two ways:
 | `lower.elpi` | L2 to L3: the only pass that names variables and chooses C++ types. |
 | `cxx.elpi` | Printing the target language as C++. |
 | `gallina.elpi` | Another output, from L2′: the derivative programs as Gallina, the language of Rocq, for CertiRocq to compile to C (`gallina` mode). The assignments are threaded as lets, branches and loops return the variables they assign; reals are primitive floats. |
+| `julia.elpi` | Another output, from L2′, independent of `lower.elpi` and `cxx.elpi`: the derivative programs as Julia (`to-julia` mode). Reals passed by reference are returned, arrays are updated in place, indices are shifted by one. See [examples/julia](examples/julia/README.md). |
+| `cxx-ast.elpi`, `cxxfront.elpi` | The C++ front end: clang's AST (printed by `tools/clang2elpi.py`) translated to L0. See [examples/xsin](examples/xsin/README.md). |
+| `jl-ast.elpi`, `jlfront.elpi` | The Julia front end, independent of the C++ one: Julia's AST (printed by `tools/julia2elpi.jl`) translated to L0. See [examples/julia](examples/julia/README.md). |
 | `show.elpi` | Printing a generated function as an Elpi term. |
 | `dump.elpi` | Readable printers for L1, L1ᵃ and L2, to debug the passes (`dump` mode). |
 | `numbers.elpi` | Domains of numbers for the evaluators: the record of the operations on the reals of a domain; floats, and dual numbers over any domain. |
@@ -49,7 +52,7 @@ change is checked in two ways:
 | `eval-anf.elpi` | The evaluator of L1 and of L1ᵃ, polymorphic in the annotations. |
 | `exec.elpi` | The evaluator of L2: executes the derivative programs (tangent, adjoint) with a store indexed by their variables. |
 | `evaluate.elpi` | Running the functions of a case with the evaluators ([`run`](rocq/TangentCorrect.v#L53), `tangent`, `signatures`, `l1-run`, `passes`, `l2-run`, `l2-signature`, `l2-same`); not loaded by `adjudge.elpi`. |
-| `adjudge.elpi` | The driver: accumulates everything, [`main`](rocq/Adjudge.v#L44), `gallina` and `terms`. |
+| `adjudge.elpi` | The driver: accumulates everything, [`main`](rocq/Adjudge.v#L44), `gallina`, `to-julia` and `terms`. |
 
 ## In Rocq
 
