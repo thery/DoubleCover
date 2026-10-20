@@ -1,0 +1,472 @@
+% jlfront.elpi — the Julia front end: from Julia's AST of a function to L0,
+% printed as a `primal` fact, the source of the tool (syntax.elpi).
+%
+% Julia parses the code; tools/julia2elpi.jl prints its AST, untouched, as
+% `jl-function` facts (jl-ast.elpi). Everything the code means is decided here:
+%   - a variable is a name; each assignment makes a new version of it, a new
+%     binder (x, x_1, x_2, …);
+%   - `if` is an `ite` that gives the new version of the one variable it
+%     assigns, or, when it ends the function with a value on both branches,
+%     the value of the function; `c ? a : b` is an `ite`;
+%   - `for i in lo:hi` is a `map` when it writes y[i] of an array y it never
+%     reads, and a `fold` over the one variable it assigns otherwise;
+%   - Julia counts from 1 and L0 from 0: the loop runs over lo-1 ≤ i' < hi
+%     and Julia's i is i' + 1, so that x[i] is x[i'];
+%   - the roles, from the type annotations: a real (no annotation, Real,
+%     Float64, Number) is independent; Int and Bool are passive; an
+%     SVector{N} is an independent array; an MVector{N} the function writes
+%     is dependent when it never reads it, inout otherwise;
+%   - an integer literal is a real, except as an index, a loop bound, or with
+%     an integer.
+% A function that returns nothing writes its one MVector argument. What L0
+% cannot express is refused with a reason.
+%
+%   julia tools/julia2elpi.jl f.jl > dir/ast.elpi
+%   elpi -I <elpiDiff> -I dir <elpiDiff>/jlfront.elpi -exec jl-to-l0 -- f.jl > primal.elpi
+
+accumulate "jl-ast".
+accumulate ast.                          % the jl-function facts, by tools/julia2elpi.jl
+
+% jl-to-l0 [File]: prints the L0 of every function of the AST.
+func jl-to-l0 list string.
+jl-to-l0 [File] :- !,
+  S is "% " ^ File ^ " in L0, from Julia's AST (jlfront.elpi)\naccumulate adjudge.\n",
+  print S,
+  std.findall (jl-function _) Fs,
+  std.forall Fs (f\ sigma F T\ f = jl-function F, jl.function F T, print T).
+jl-to-l0 _ :- std.fatal-error "usage: elpi … jlfront.elpi -exec jl-to-l0 -- <file>".
+
+namespace jl {
+
+% ---------------------------------------------------------------------------
+% Values: the text of an L0 term and its type (real, integer, boolean,
+% array, or lit: an integer literal, whose type the context decides).
+
+kind val type.
+type v string -> string -> val.
+
+% Environments: the function name (for messages), the indentation, the
+% current value of each variable, and the number of binders made for each
+% name, which numbers the next one.
+kind env type.
+type env string -> string -> list (pair string val) -> list (pair string int) -> env.
+
+func fn-of env -> string.
+fn-of (env Fn _ _ _) Fn.
+
+func fail-with env, string.
+fail-with Env M :- S is {fn-of Env} ^ ": " ^ M, std.fatal-error S.
+
+func lookup env, string -> val.
+lookup (env _ _ Vs _) N V :- std.lookup! Vs N V0, !, V = V0.
+lookup Env N _ :- M is N ^ " is read before it is set", fail-with Env M.
+
+func defined env, string.
+defined (env _ _ Vs _) N :- std.lookup! Vs N _.
+
+func bind env, string, val -> env.
+bind (env Fn I Vs Cs) N V (env Fn I [pr N V | Vs] Cs).
+
+func indent env -> env.
+indent (env Fn I Vs Cs) (env Fn I1 Vs Cs) :- I1 is I ^ "  ".
+
+func nl env -> string.
+nl (env _ I _ _) S :- S is "\n" ^ I.
+
+% fresh N E X E1: a new binder X for the Julia name N.
+func fresh string, env -> string, env.
+fresh N (env Fn I Vs Cs) X (env Fn I Vs [pr N K1 | Cs]) :-
+  if (std.lookup! Cs N K) true (K = 0), K1 is K + 1,
+  safe N N1, if (K = 0) (X = N1) (X is N1 ^ "_" ^ int_to_string K).
+
+% safe N X: a name Elpi reads as a bound variable, not as a constant of L0
+% nor as a unification variable.
+func safe string -> string.
+safe N X :- not (rex.match "[a-z][A-Za-z0-9_]*$" N), !,
+  rex.replace "[^A-Za-z0-9_]" "_" N N1, X is "v_" ^ N1.
+safe N X :- std.mem! ["arg", "array", "body", "boolean", "add", "sub", "mul", "divide",
+  "lt", "le", "gt", "ge", "neg", "sin", "cos", "exp", "log", "sqrt", "pow", "dependent",
+  "fold", "function", "get", "independent", "inout", "integer", "is", "ite", "let",
+  "map", "mod", "nat", "num", "op1", "op2", "passive", "pi", "primal", "real", "returns",
+  "set", "sigma", "div", "writes", "unknown1", "unknown2", "std", "j", "jsym", "jint",
+  "jfloat", "jbool", "v", "env"] N, !, X is N ^ "_".
+safe N N.
+
+func undup list string -> list string.
+undup [] [] :- !.
+undup [X | Xs] Ys :- std.mem! Xs X, !, undup Xs Ys.
+undup [X | Xs] [X | Ys] :- undup Xs Ys.
+
+% paren T P: T as an argument.
+func paren string -> string.
+paren T P :- rex.match ".* " T, not (rex.match "\"[^\"]*\"$" T), !, P is "(" ^ T ^ ")".
+paren T T.
+
+% let-in Env E X Rest T: let X = E in Rest, or E when Rest is X.
+func let-in env, string, string, string -> string.
+let-in _ E X X E :- !.
+let-in Env E X Rest T :- T is "let " ^ {paren E} ^ " " ^ X ^ "\\" ^ {nl Env} ^ Rest.
+
+% ---------------------------------------------------------------------------
+% The AST.
+
+% The statements of a block.
+func stmts-of jl-ast -> list jl-ast.
+stmts-of (j "block" Ss) Ss :- !.
+stmts-of S [S].
+
+% assigned S Ns: the variables S assigns, a[i] = … assigning a.
+func assigned jl-ast -> list string.
+assigned (j Op [L, R]) Ns :- std.mem! ["=", "+=", "-=", "*=", "/="] Op, !,
+  target L T, assigned R Ns0, std.append T Ns0 Ns.
+assigned (j "for" [_, B]) Ns :- !, assigned B Ns.
+assigned (j _ As) Ns :- !, std.map As assigned Nss, std.flatten Nss Ns.
+assigned _ [].
+
+func target jl-ast -> list string.
+target (jsym N) [N] :- !.
+target (j "ref" [jsym N, _]) [N] :- !.
+target _ [].
+
+% reads N S: S reads the variable N (`x = …` and `x[i] = …` do not read x).
+pred reads i:string, i:jl-ast.
+reads N (j "=" [L, R]) :- !, (reads-target N L ; reads N R).
+reads N (j "for" [j "=" [_, R], B]) :- !, (reads N R ; reads N B).
+reads N (jsym N) :- !.
+reads N (j _ As) :- std.exists As (reads N).
+
+pred reads-target i:string, i:jl-ast.
+reads-target N (j "ref" [_, I]) :- reads N I.
+
+% ---------------------------------------------------------------------------
+% Functions.
+
+func function jl-ast -> string.
+function (j "function" [Sig, Body]) S :- !, function-of Sig Body S.
+function (j "=" [Sig, Body]) S :- function-of Sig Body S.
+
+func function-of jl-ast, jl-ast -> string.
+function-of (j "where" [Sig | _]) Body S :- !, function-of Sig Body S.
+function-of (j "call" [jsym Name | Ps]) Body S :- !,
+  rex.replace "!$" "" Name Fn,
+  Env = env Fn "  " [] [],
+  supported Env Body,
+  params Env Ps Body Text,
+  S is "primal (function \"" ^ Fn ^ "\" (" ^ Text ^ ")).\n".
+function-of _ _ _ :- std.fatal-error "unsupported function definition".
+
+% params Env Ps Body T: the arguments, then the body.
+func params env, list jl-ast, jl-ast -> string.
+params Env [P | Ps] Body T :- !,
+  param Env P Body N Ty Role,
+  fresh N Env X Env1, bind Env1 N (v X Ty) Env2,
+  params Env2 Ps Body Rest,
+  L0Ty = {l0-type Ty},
+  T is "arg \"" ^ N ^ "\" " ^ L0Ty ^ " " ^ Role ^ " " ^ X ^ "\\ " ^ Rest.
+params Env [] Body T :- ends-with-value {stmts-of Body}, !,
+  stmts {stmts-of Body} Env (no-value) (v B Ty),
+  if (Ty = "real" ; Ty = "lit") true (fail-with Env "the result must be a real"),
+  T is "body (returns real)" ^ {nl Env} ^ "(" ^ {as-real B Ty} ^ ")".
+params Env [] Body T :-
+  assigned Body Ns0, std.filter Ns0 (defined Env) Ws0, undup Ws0 Ws,
+  if (Ws = [W]) true (fail-with Env "a function that returns nothing must write exactly one MVector argument"),
+  lookup Env W (v X _),
+  stmts {stmts-of Body} Env (final W) (v B _),
+  T is "body (writes " ^ X ^ ")" ^ {nl Env} ^ "(" ^ B ^ ")".
+
+% The type of a value in L0 syntax ("array 4" is kept with its extent).
+func l0-type string -> string.
+l0-type T S :- rex.match "array .*" T, !, S is "(" ^ T ^ ")".
+l0-type T T.
+
+% param Env P Body N Ty Role: the name, the type and the role of a parameter.
+func param env, jl-ast, jl-ast -> string, string, string.
+param _ (jsym N) _ N "real" "independent" :- !.
+param Env (j "::" [jsym N, T]) Body N Ty Role :- !, param-type Env N T Body Ty Role.
+param Env _ _ _ _ _ :- fail-with Env "unsupported parameter (keyword or default arguments)".
+
+func param-type env, string, jl-ast, jl-ast -> string, string.
+param-type _ _ (jsym T) _ "real" "independent" :-
+  std.mem! ["Real", "Float64", "Float32", "Number", "AbstractFloat"] T, !.
+param-type _ _ (jsym T) _ "integer" "passive" :-
+  std.mem! ["Int", "Int64", "Int32", "Integer"] T, !.
+param-type _ _ (jsym "Bool") _ "boolean" "passive" :- !.
+param-type Env N (j "curly" [jsym A, jint K | _]) Body Ty Role :-
+  std.mem! ["SVector", "MVector", "SizedVector"] A, !,
+  Ty is "array " ^ K,
+  if (std.mem! {assigned Body} N)
+     (if (A = "SVector") (M is N ^ ": an SVector cannot be written; use an MVector", fail-with Env M) true,
+      if (reads N Body) (Role = "inout") (Role = "dependent"))
+     (Role = "independent").
+param-type Env N _ _ _ _ :- M is "unsupported type for the parameter " ^ N, fail-with Env M.
+
+func no-value env -> val.
+no-value Env _ :- fail-with Env "the function ends without a value".
+
+func final string, env -> val.
+final N Env V :- lookup Env N V.
+
+% ends-with-value Ss: the block Ss gives a value: it ends with return e, an
+% expression, or an if-else whose branches both give a value.
+pred ends-with-value i:list jl-ast.
+ends-with-value Ss :- std.last Ss S, gives-value S.
+
+pred gives-value i:jl-ast.
+gives-value (j "return" [jsym "nothing"]) :- !, fail.
+gives-value (j "return" [_]) :- !.
+gives-value (j "if" [_, T, E]) :- !, ends-with-value {stmts-of T}, ends-with-value {stmts-of E}.
+gives-value (j "elseif" [_, T, E]) :- !, ends-with-value {stmts-of T}, ends-with-value {stmts-of E}.
+gives-value (j "block" Ss) :- !, ends-with-value Ss.
+gives-value (jsym "nothing") :- !, fail.
+gives-value (j H _) :- std.mem! ["=", "+=", "-=", "*=", "/=", "for", "if", "while", "return", "local"] H, !, fail.
+gives-value _.
+
+% supported Env S: every statement of S is one the translation knows.
+func supported env, jl-ast.
+supported Env (j "block" Ss) :- !, std.forall Ss (supported Env).
+supported Env (j "if" [_ | Bs]) :- !, std.forall Bs (supported Env).
+supported Env (j "elseif" [_ | Bs]) :- !, std.forall Bs (supported Env).
+supported Env (j "for" [_, B]) :- !, supported Env B.
+supported Env (j H _) :- std.mem! ["while", "break", "continue", "try", "macrocall", "global",
+  "const", "let", "do", "function", "->", "tuple"] H, !,
+  M is "unsupported construct " ^ H, fail-with Env M.
+supported _ _.
+
+% ---------------------------------------------------------------------------
+% Statements, in continuation-passing style: K gives the rest of the
+% function from the environment after the statements.
+
+func stmts list jl-ast, env, (func env -> val) -> val.
+stmts [] Env K V :- !, K Env V.
+stmts [S] Env _ V :- gives-value S, !, value Env S V.
+stmts [S | Ss] Env K V :- stmt S Ss Env K V.
+
+% value Env S V: the value of the last statement of a block.
+func value env, jl-ast -> val.
+value Env (j "return" [E]) V :- !, expr Env E V.
+value Env (j "block" Ss) V :- !, stmts Ss Env no-value V.
+value Env (j H [C, T, E]) (v S Ty) :- (H = "if" ; H = "elseif"), !,
+  cond Env C VC, indent Env Env1,
+  stmts {stmts-of T} Env1 no-value VT, stmts {stmts-of E} Env1 no-value VE,
+  unify-types Env VT VE TT TE Ty,
+  S is "ite " ^ {paren VC} ^ {nl Env1} ^ "(" ^ TT ^ ")" ^ {nl Env1} ^ "(" ^ TE ^ ")".
+value Env E V :- expr Env E V.
+
+func stmt jl-ast, list jl-ast, env, (func env -> val) -> val.
+stmt (j "block" Ks) Ss Env K V :- !, std.append Ks Ss Ss1, stmts Ss1 Env K V.
+stmt (jsym "nothing") Ss Env K V :- !, stmts Ss Env K V.
+stmt (j "return" [jsym "nothing"]) _ Env K V :- !, K Env V.
+stmt (j "return" []) _ Env K V :- !, K Env V.
+stmt (j "local" [S]) Ss Env K V :- !, stmt S Ss Env K V.
+stmt (j "=" [L, R]) Ss Env K V :- !, assign Env L R Ss K V.
+stmt (j Op [L, R]) Ss Env K V :- std.mem! ["+=", "-=", "*=", "/="] Op, !,
+  rex.replace "=$" "" Op B, assign Env L (j "call" [jsym B, L, R]) Ss K V.
+stmt (j H [C, T | El]) Ss Env K V :- (H = "if" ; H = "elseif"), !, if-stmt Env C T El Ss K V.
+stmt (j "for" [R, B]) Ss Env K V :- !, for-stmt Env R B Ss K V.
+stmt _ _ Env _ _ :- fail-with Env "an expression whose value is not used, or an unsupported statement".
+
+% version Env N V Ss K R: the variable N is now V.
+func version env, string, val, list jl-ast, (func env -> val) -> val.
+version Env N (v T Ty) Ss K (v R RTy) :-
+  bound-type Ty Ty1, as-type T Ty Ty1 T1,
+  fresh N Env X Env1, bind Env1 N (v X Ty1) Env2, stmts Ss Env2 K (v Rest RTy),
+  let-in Env T1 X Rest R.
+
+% An integer literal stored in a variable is a real.
+func bound-type string -> string.
+bound-type "lit" "real" :- !.
+bound-type T T.
+
+% x = e, and a[i] = e: the next version of a is `set a i e`.
+func assign env, jl-ast, jl-ast, list jl-ast, (func env -> val) -> val.
+assign Env (jsym N) R Ss K V :- !, expr Env R VR, version Env N VR Ss K V.
+assign Env (j "ref" [jsym N, I]) R Ss K V :- !,
+  lookup Env N (v A Ty), index Env I VI, expr Env R (v E ETy),
+  if (ETy = "real" ; ETy = "lit") true (M is "an element of " ^ N ^ " must be a real", fail-with Env M),
+  S is "set " ^ A ^ " " ^ {paren VI} ^ " " ^ {paren {as-real E ETy}},
+  version Env N (v S Ty) Ss K V.
+assign Env _ _ _ _ _ :- fail-with Env "unsupported assignment".
+
+% The variables a statement assigns that exist before it, in order, once;
+% for an if-else, also those both branches assign.
+func carried env, list jl-ast -> list string.
+carried Env Ss Ns :-
+  std.map Ss assigned Nss, std.flatten Nss Ns0, undup Ns0 Ns1,
+  std.filter Ns1 (defined Env) Ns.
+
+func if-stmt env, jl-ast, jl-ast, list jl-ast, list jl-ast, (func env -> val) -> val.
+if-stmt Env C T El Ss K V :-
+  carried Env [T | El] Cs0,
+  if (El = [E]) (both-assign T E Cs0 Cs) (Cs = Cs0),
+  if (Cs = [N]) true
+     (if (Cs = []) (fail-with Env "a branch that assigns no variable used after it")
+                   (fail-with Env "a branch that assigns several variables (L0 has no tuples)")),
+  cond Env C VC, indent Env Env1,
+  stmts {stmts-of T} Env1 (final N) VT,
+  if (El = [E]) (else-branch Env1 E N VE) (lookup Env N VE),
+  unify-types Env VT VE TT TE Ty,
+  S is "ite " ^ {paren VC} ^ {nl Env1} ^ "(" ^ TT ^ ")" ^ {nl Env1} ^ "(" ^ TE ^ ")",
+  version Env N (v S Ty) Ss K V.
+
+% A variable assigned on both branches and not before is carried too.
+func both-assign jl-ast, jl-ast, list string -> list string.
+both-assign _ _ Cs Cs :- not (Cs = []), !.
+both-assign T E [] Cs :-
+  assigned T A, assigned E B, std.filter A (x\ std.mem! B x) Cs0, undup Cs0 Cs.
+
+func else-branch env, jl-ast, string -> val.
+else-branch Env (j "elseif" [j "block" [C], T | El]) N V :- !,
+  stmt (j "if" [C, T | El]) [] Env (final N) V.
+else-branch Env (j "elseif" [C, T | El]) N V :- !,
+  stmt (j "if" [C, T | El]) [] Env (final N) V.
+else-branch Env E N V :- stmts {stmts-of E} Env (final N) V.
+
+% The two branches of an ite have the same type: a literal becomes a real.
+func unify-types env, val, val -> string, string, string.
+unify-types _ (v A T) (v B T) A B T :- not (T = "lit"), !.
+unify-types _ (v A TA) (v B TB) A1 B1 "real" :-
+  (TA = "lit" ; TA = "real"), (TB = "lit" ; TB = "real"), !,
+  as-real A TA A1, as-real B TB B1.
+unify-types _ (v A "lit") (v B "integer") A B "integer" :- !.
+unify-types _ (v A "integer") (v B "lit") A B "integer" :- !.
+unify-types Env _ _ _ _ _ :- fail-with Env "the two branches have different types".
+
+func cond env, jl-ast -> string.
+cond Env (j "block" [C]) S :- !, cond Env C S.
+cond Env C S :- expr Env C (v S Ty),
+  if (Ty = "boolean") true (fail-with Env "a condition must be a comparison or a Bool").
+
+% for i in lo:hi B
+func for-stmt env, jl-ast, jl-ast, list jl-ast, (func env -> val) -> val.
+for-stmt Env (j "=" [jsym I, j "call" [jsym ":", Lo, Hi]]) B Ss K V :- !,
+  index Env Lo VLo, expr Env Hi (v VHi HTy),
+  if (HTy = "integer" ; HTy = "lit") true (fail-with Env "a loop bound must be an integer"),
+  Bs = {stmts-of B}, carried Env Bs Cs,
+  if (Cs = [Y]) true
+     (if (Cs = []) (fail-with Env "a loop that assigns no variable defined before it")
+                   (fail-with Env "a loop that assigns several variables defined before it (L0 has no tuples)")),
+  lookup Env Y (v YT YTy),
+  indent Env Env1, fresh I Env1 X Env2,
+  IV is "op2 add " ^ X ^ " (nat 1)", bind Env2 I (v IV "integer") Env3,
+  if (map-body I Y Bs Pre Last)
+     (stmts Pre Env3 (map-value Last) (v VB BTy),
+      S is "map " ^ {paren VLo} ^ " " ^ {paren VHi} ^ " " ^ X ^ "\\" ^ {nl Env3} ^ {as-real VB BTy})
+     (fresh Y Env3 St Env4, bind Env4 Y (v St YTy) Env5,
+      stmts Bs Env5 (final Y) (v VB _),
+      S is "fold " ^ {paren VLo} ^ " " ^ {paren VHi} ^ " " ^ {paren YT} ^ " " ^ X ^ "\\ " ^ St ^ "\\" ^ {nl Env5} ^ VB),
+  version Env Y (v S YTy) Ss K V.
+for-stmt Env _ _ _ _ _ :- fail-with Env "a loop other than for i in lo:hi".
+
+% map-body I Y Bs Pre E: the loop body Bs is Pre then y[i] = E, and never
+% reads y: an element-wise loop.
+pred map-body i:string, i:string, i:list jl-ast, o:list jl-ast, o:jl-ast.
+map-body I Y Bs Pre E :-
+  std.rev Bs [j "=" [j "ref" [jsym Y, jsym I], E] | RPre], std.rev RPre Pre,
+  not (std.exists Bs (reads Y)), !.
+
+func map-value jl-ast, env -> val.
+map-value E Env V :- expr Env E V.
+
+% ---------------------------------------------------------------------------
+% Expressions.
+
+% as-real T Ty T1: T as a real: an integer literal nat K becomes num "K".
+func as-real string, string -> string.
+as-real T "lit" R :- rex.match "nat [0-9]+$" T, !, rex.replace "^nat \\([0-9]+\\)$" "num \"\\1\"" T R.
+as-real T "lit" R :- rex.match "nat (-[0-9]+)$" T, !, rex.replace "^nat (\\(-[0-9]+\\))$" "num \"\\1\"" T R.
+as-real T _ T.
+
+func as-type string, string, string -> string.
+as-type T "lit" "real" R :- !, as-real T "lit" R.
+as-type T _ _ T.
+
+% index Env E I: the L0 index of the Julia index E (counted from 1).
+func index env, jl-ast -> string.
+index Env E I :- expr Env E (v T Ty),
+  if (Ty = "integer" ; Ty = "lit") true (fail-with Env "an index must be an integer"),
+  zero-based T I.
+
+func zero-based string -> string.
+zero-based T I :- rex.match "op2 add [A-Za-z0-9_]+ (nat 1)$" T, !,
+  rex.replace "^op2 add \\([A-Za-z0-9_]+\\) (nat 1)$" "\\1" T I.
+zero-based T I :- rex.match "nat [0-9]+$" T, !,
+  rex.replace "^nat " "" T K, I is "nat " ^ int_to_string (string_to_int K - 1).
+zero-based T I :- I is "op2 sub " ^ {paren T} ^ " (nat 1)".
+
+func expr env, jl-ast -> val.
+expr Env (jsym N) V :- !, lookup Env N V.
+expr _ (jint L) (v T "lit") :- !, if (rex.match "-" L) (T is "nat (" ^ L ^ ")") (T is "nat " ^ L).
+expr _ (jfloat L) (v T "real") :- !, T is "num \"" ^ L ^ "\"".
+expr Env (j "block" [E]) V :- !, expr Env E V.
+expr Env (j "if" [C, A, B]) (v S Ty) :- !,
+  cond Env C VC, expr Env A VA, expr Env B VB, unify-types Env VA VB TA TB Ty,
+  S is "ite " ^ {paren VC} ^ " " ^ {paren TA} ^ " " ^ {paren TB}.
+expr Env (j "ref" [A, I]) (v S "real") :- !,
+  expr Env A (v VA Ty), if (rex.match "array" Ty) true (fail-with Env "indexing a value that is not an array"),
+  index Env I VI, S is "get " ^ {paren VA} ^ " " ^ {paren VI}.
+expr Env (j "call" [jsym F | Args]) V :- !, call Env F Args V.
+expr Env (j "comparison" _) _ :- !, fail-with Env "chained comparisons are not supported".
+expr Env (j H _) _ :- !, M is "unsupported expression " ^ H, fail-with Env M.
+expr Env _ _ :- fail-with Env "unsupported literal".
+
+func call env, string, list jl-ast -> val.
+call Env "-" [A] (v S Ty) :- !, expr Env A (v T Ty0), neg Env T Ty0 S Ty.
+call Env "+" [A] V :- !, expr Env A V.
+call Env F [A, B, C | Rest] V :- std.mem! ["+", "*"] F, !,
+  call Env F [j "call" [jsym F, A, B], C | Rest] V.
+call Env "^" [A, K] (v S "real") :- !,
+  expr Env A (v TA TyA),
+  if (K = jint L) true (fail-with Env "x^k needs an integer literal k"),
+  as-real TA TyA TA1,
+  if (rex.match "-" L) (P is "(pow (" ^ L ^ "))") (P is "(pow " ^ L ^ ")"),
+  S is "op1 " ^ P ^ " " ^ {paren TA1}.
+call Env F [A, B] V :- binary F Op Kind, !,
+  expr Env A VA, expr Env B VB, op2 Env Op Kind VA VB V.
+call Env F [A] (v S "real") :- std.mem! ["sin", "cos", "exp", "log", "sqrt"] F, !,
+  expr Env A (v T Ty), as-real T Ty T1,
+  if (Ty = "real" ; Ty = "lit") true (fail-with Env "the argument of a function must be a real"),
+  S is "op1 " ^ F ^ " " ^ {paren T1}.
+call Env "float" [A] V :- !, expr Env A (v T Ty),
+  if (Ty = "lit" ; Ty = "real") true (fail-with Env "float(i) of an integer variable: L0 has no conversion from integers to reals"),
+  as-real T Ty T1, V = v T1 "real".
+call Env F [A] (v S "real") :- !,
+  expr Env A (v T Ty), as-real T Ty T1, S is "op1 (unknown1 \"" ^ F ^ "\") " ^ {paren T1}.
+call Env F _ _ :- M is "unsupported call to " ^ F, fail-with Env M.
+
+func neg env, string, string -> string, string.
+neg _ T "lit" S "lit" :- rex.match "nat [0-9]+$" T, !, rex.replace "^nat " "nat (-" T S0, S is S0 ^ ")".
+neg _ T "real" S "real" :- !, S is "op1 neg " ^ {paren T}.
+neg _ T "integer" S "integer" :- !, S is "op2 sub (nat 0) " ^ {paren T}.
+neg _ T "lit" S "integer" :- !, S is "op2 sub (nat 0) " ^ {paren T}.
+neg Env _ _ _ _ :- fail-with Env "unsupported negation".
+
+% binary F Op Kind: arithmetic (arith), division (real only), comparison.
+func binary string -> string, string.
+binary "+" "add" "arith" :- !.  binary "-" "sub" "arith" :- !.
+binary "*" "mul" "arith" :- !.  binary "/" "divide" "real" :- !.
+binary "<" "lt" "cmp" :- !.     binary "<=" "le" "cmp" :- !.
+binary ">" "gt" "cmp" :- !.     binary ">=" "ge" "cmp".
+
+% op2 Env Op Kind A B V: the operands get a common type; a literal follows
+% the other operand.
+func op2 env, string, string, val, val -> val.
+op2 _ "sub" "arith" (v A "integer") (v "nat 1" "lit") (v X "integer") :-   % Julia's i - 1: i' (i = i' + 1)
+  rex.match "op2 add [A-Za-z0-9_]+ (nat 1)$" A, !,
+  rex.replace "^op2 add \\([A-Za-z0-9_]+\\) (nat 1)$" "\\1" A X.
+op2 Env Op Kind (v A TA) (v B TB) (v S Ty) :-
+  common Env Kind TA TB T,
+  as-type A TA T A1, as-type B TB T B1,
+  if (Kind = "cmp") (Ty = "boolean") (Ty = T),
+  S is "op2 " ^ Op ^ " " ^ {paren A1} ^ " " ^ {paren B1}.
+
+func common env, string, string, string -> string.
+common Env "real" TA TB "real" :- !,
+  if ((TA = "real" ; TA = "lit"), (TB = "real" ; TB = "lit")) true
+     (fail-with Env "/ needs reals (use float(i) for an integer)").
+common _ _ "lit" "lit" "integer" :- !.
+common _ _ "lit" T T :- !.
+common _ _ T "lit" T :- !.
+common _ _ T T T :- (T = "real" ; T = "integer"), !.
+common Env _ TA TB _ :- M is "an operation mixes a " ^ TA ^ " and a " ^ TB, fail-with Env M.
+
+}

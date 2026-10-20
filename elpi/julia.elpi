@@ -1,0 +1,182 @@
+% julia.elpi — printing the derivative programs after simplification (L2′)
+% as Julia, independently of the C++ back end (lower.elpi, cxx.elpi).
+%
+% Julia passes reals by value, so a real that the C++ passes by reference is
+% returned: the function returns, as a tuple, the returned value, if any,
+% then the final value of each real passed by reference, in the order of the
+% signature. Such a real is also an argument when the program reads it
+% before writing it (an adjoint it accumulates into, an inout value), and is
+% only returned otherwise (a tangent or a value it writes). An array passed
+% by reference is updated in place (pass a Vector or an MVector); an array
+% passed by value is copied first. Julia counts from 1: a[i] is a[i + 1],
+% and the loops keep the indices of L2. A tape is a Vector, with push! and
+% pop!.
+
+namespace julia {
+
+shorten adjudge.{ operation1, operation2, extra-arguments }.
+
+func dname dvar -> string.                     % the name of a bound variable, set when its binder is opened
+
+func var-name dvar -> string.
+var-name (dot-of V) S :- !, var-name V N, S is N ^ "_dot".
+var-name (bar-of V) S :- !, var-name V N, S is N ^ "_bar".
+var-name (tape-of V) S :- !, var-name V N, S is N ^ "_tape".
+var-name result-var "result" :- !.
+var-name V S :- dname V S.
+
+% ---------------------------------------------------------------------------
+% Expressions: at top level, and as an operand (parenthesized when needed).
+
+func literal string -> string.
+literal S L :- rex.match "-?[0-9]+$" S, !, L is S ^ ".0".
+literal S S.
+
+func expr-strings dexpr -> string, string.
+expr-strings (d-var V) N N :- !, var-name V N.
+expr-strings (d-real S) L P :- !, literal S L,
+  if (rex.match ".*[ -]" L) (P is "(" ^ L ^ ")") (P = L).
+expr-strings (d-int K) S P :- !, S is int_to_string K, if (K < 0) (P is "(" ^ S ^ ")") (P = S).
+expr-strings (d-at A I) S S :- !, operand A SA, index-string I SI, S is SA ^ "[" ^ SI ^ "]".
+expr-strings (d-op1 F A) S P :- operation1 F _ _ "neg", !, operand A SA, S is "-" ^ SA, P is "(" ^ S ^ ")".
+expr-strings (d-op1 F A) S P :- operation1 F _ _ "pow", !,
+  operand A SA, extra-arguments F [K], S is SA ^ "^" ^ {paren-neg K}, P is "(" ^ S ^ ")".
+expr-strings (d-op1 F A) S S :- !, operation1 F _ _ N, top A SA, S is N ^ "(" ^ SA ^ ")".
+expr-strings (d-op2 F A B) S P :- operation2 F _ _ _ O, operand A SA, operand B SB,
+  S is SA ^ " " ^ O ^ " " ^ SB, P is "(" ^ S ^ ")".
+
+func paren-neg string -> string.
+paren-neg K S :- rex.match "-" K, !, S is "(" ^ K ^ ")".
+paren-neg K K.
+
+func top dexpr -> string.
+top E S :- expr-strings E S _.
+
+func operand dexpr -> string.
+operand E P :- expr-strings E _ P.
+
+% index-string I S: the Julia index of the L2 index I.
+func index-string dexpr -> string.
+index-string (d-int K) S :- !, S is int_to_string (K + 1).
+index-string I S :- top I SI, S is SI ^ " + 1".
+
+% upper-string Hi S: the last index of the range lo <= i < hi.
+func upper-string dexpr -> string.
+upper-string (d-int K) S :- !, S is int_to_string (K - 1).
+upper-string Hi S :- operand Hi SH, S is SH ^ " - 1".
+
+% ---------------------------------------------------------------------------
+% Statements.
+
+func stmt-lines string, dstmt -> list string.
+stmt-lines In (d-define _ V E) [L] :- !, L is In ^ {var-name V} ^ " = " ^ {top E}.
+stmt-lines In (d-real-var V) [L] :- !, L is In ^ "local " ^ {var-name V}.
+stmt-lines In (d-tape V) [L] :- !, L is In ^ {var-name V} ^ " = []".
+stmt-lines In (d-assign A B) [L] :- !, L is In ^ {top A} ^ " = " ^ {top B}.
+stmt-lines In (d-increment A B) [L] :- !, L is In ^ {top A} ^ " += " ^ {top B}.
+stmt-lines In (d-push T E) [L] :- !, L is In ^ "push!(" ^ {var-name T} ^ ", " ^ {top E} ^ ")".
+stmt-lines In (d-pop T E) [L] :- !, L is In ^ {top E} ^ " = pop!(" ^ {var-name T} ^ ")".
+stmt-lines In (d-return E) [L] :- !, L is In ^ "return " ^ {top E}.           % replaced by ret-lines at top level
+stmt-lines In (d-branch C T E) Ls :- !,
+  In2 is In ^ "    ", block-lines In2 T LT, block-lines In2 E LE,
+  L1 is In ^ "if " ^ {top C}, L2 is In ^ "else", L3 is In ^ "end",
+  if (E = []) (std.flatten [[L1], LT, [L3]] Ls) (std.flatten [[L1], LT, [L2], LE, [L3]] Ls).
+stmt-lines In (d-for I Lo Hi B) Ls :- !,
+  In2 is In ^ "    ", block-lines In2 B LB,
+  L1 is In ^ "for " ^ {var-name I} ^ " in " ^ {operand Lo} ^ ":" ^ {upper-string Hi},
+  L2 is In ^ "end", std.flatten [[L1], LB, [L2]] Ls.
+stmt-lines In (d-for-back I Lo Hi B) Ls :-
+  In2 is In ^ "    ", block-lines In2 B LB,
+  L1 is In ^ "for " ^ {var-name I} ^ " in " ^ {upper-string Hi} ^ ":-1:" ^ {operand Lo},
+  L2 is In ^ "end", std.flatten [[L1], LB, [L2]] Ls.
+
+func block-lines string, list dstmt -> list string.
+block-lines In Ss Lines :- std.map Ss (stmt-lines In) Ls, std.flatten Ls Lines.
+
+% ---------------------------------------------------------------------------
+% Signature and results.
+
+% mentions V S: the statement or expression S mentions the variable V.
+pred mentions-stmt i:dvar, i:dstmt.
+mentions-stmt V (d-define _ W E) :- (V = W ; mentions V E), !.
+mentions-stmt V (d-real-var W) :- V = W, !.
+mentions-stmt V (d-assign A B) :- (mentions V A ; mentions V B), !.
+mentions-stmt V (d-increment A B) :- (mentions V A ; mentions V B), !.
+mentions-stmt V (d-branch C T E) :- (mentions V C ; std.exists T (mentions-stmt V) ; std.exists E (mentions-stmt V)), !.
+mentions-stmt V (d-for _ Lo Hi B) :- (mentions V Lo ; mentions V Hi ; std.exists B (mentions-stmt V)), !.
+mentions-stmt V (d-for-back _ Lo Hi B) :- (mentions V Lo ; mentions V Hi ; std.exists B (mentions-stmt V)), !.
+mentions-stmt V (d-push _ E) :- mentions V E, !.
+mentions-stmt V (d-pop _ E) :- mentions V E, !.
+mentions-stmt V (d-return E) :- mentions V E.
+
+pred mentions i:dvar, i:dexpr.
+mentions V (d-var V) :- !.
+mentions V (d-at A I) :- (mentions V A ; mentions V I), !.
+mentions V (d-op1 _ A) :- mentions V A, !.
+mentions V (d-op2 _ A B) :- (mentions V A ; mentions V B).
+
+% written-first V Ss: the first statement of Ss that mentions V is V := e,
+% with e not reading V: V is an output only.
+pred written-first i:dvar, i:list dstmt.
+written-first V Ss :- std.exists Ss (s\ mentions-stmt V s), !,
+  first-mention V Ss S, S = d-assign (d-var V) E, not (mentions V E).
+
+pred first-mention i:dvar, i:list dstmt, o:dstmt.
+first-mention V [S | _] S :- mentions-stmt V S, !.
+first-mention V [_ | Ss] S :- first-mention V Ss S.
+
+% param P Ss Arg Out Pro: the Julia argument of P ("" for none), its
+% returned name ("" for none), and a prologue line ("" for none).
+func param dparam, list dstmt -> string, string, string.
+param (dparam by-ref-unused _ _) _ "_" "" "" :- !.
+param (dparam by-value (array _) V) _ N "" Pro :- !, var-name V N, Pro is N ^ " = collect(" ^ N ^ ")".
+param (dparam by-ref (array _) V) _ N "" "" :- !, var-name V N.
+param (dparam by-ref _ V) Ss A N "" :- !, var-name V N, if (written-first V Ss) (A = "") (A = N).
+param (dparam _ _ V) _ N "" "" :- var-name V N.
+
+func nonempty list string -> list string.
+nonempty L R :- std.filter L (s\ not (s = "")) R.
+
+% The returned value of the function, from its value R (if any) and the
+% names of its outputs.
+func result-string list string -> string.
+result-string [] "nothing" :- !.
+result-string [X] X :- !.
+result-string Xs S :- std.string.concat ", " Xs S.
+
+% body-lines Outs Ss Ls: the body, a top-level return returning the outputs too.
+func body-lines list string, list dstmt -> list string.
+body-lines Outs Ss Ls :-
+  std.map Ss (s\ l\ if (s = d-return E) (l = [{ret Outs [{top E}]}]) (stmt-lines "    " s l)) Lss,
+  std.flatten Lss Ls0,
+  if (std.exists Ss (s\ sigma E\ s = d-return E)) (Ls = Ls0)
+     (std.append Ls0 [{ret Outs []}] Ls).
+
+func ret list string, list string -> string.
+ret Outs Vals L :- std.append Vals Outs Xs, L is "    return " ^ {result-string Xs}.
+
+func scoped-string string, scoped dbody -> string.
+scoped-string Name (named N F) S :- !, pi v\ dname v N =!=> scoped-string Name (F v) S.
+scoped-string Name (fresh P F) S :- !, new_int K, N is P ^ int_to_string K,
+  pi v\ dname v N =!=> scoped-string Name (F v) S.
+scoped-string Name (done (dbody _ Ps Ss)) S :-
+  std.map Ps (p\ a\ sigma O R\ param p Ss a O R) Args0,
+  std.map Ps (p\ o\ sigma A R\ param p Ss A o R) Outs0,
+  std.map Ps (p\ r\ sigma A O\ param p Ss A O r) Pros0,
+  nonempty Args0 Args, nonempty Outs0 Outs, nonempty Pros0 Pros,
+  std.map Pros (p\ l\ l is "    " ^ p) ProLines,
+  body-lines Outs Ss Body,
+  std.append ProLines Body Lines,
+  std.string.concat "\n" Lines SB,
+  S is "function " ^ Name ^ "(" ^ {std.string.concat ", " Args} ^ ")\n" ^ SB ^ "\nend\n".
+
+func function-string dfunction -> string.
+function-string (dfunction Name S) T :- scoped-string Name S T.
+
+% file-string Source Fs S: the Julia file of the generated functions.
+func file-string string, list dfunction -> string.
+file-string Source Fs S :-
+  std.map Fs function-string SFs, std.string.concat "\n" SFs SF,
+  S is "# Generated by adjudge from " ^ Source ^ ". Do not edit.\n\n" ^ SF.
+
+}

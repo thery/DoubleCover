@@ -1,0 +1,15 @@
+% jl-ast.elpi — Julia's AST of a function as an Elpi term, as
+% tools/julia2elpi.jl prints it from Meta.parseall: an expression is its head
+% (call, =, if, for, block, ref, ::, curly, …) and its arguments; a leaf is a
+% symbol or a literal, spelled as Julia prints it. jlfront.elpi translates it
+% to L0.
+
+kind jl-ast type.
+type j      string -> list jl-ast -> jl-ast.     % Expr(head, args...)
+type jsym   string -> jl-ast.                    % a symbol
+type jint   string -> jl-ast.                    % an integer literal
+type jfloat string -> jl-ast.                    % a floating-point literal
+type jbool  string -> jl-ast.                    % true, false
+type jother string -> jl-ast.                    % any other literal (refused)
+
+pred jl-function o:jl-ast.

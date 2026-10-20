@@ -1,0 +1,27 @@
+% jsdrive.elpi — browser driver: to-julia without files.
+% js-to-julia [Dir, Mode] does what adjudge's to-julia does, but writes the
+% Julia text on std_out instead of Dir/<mode>.jl, and the diagnostics of the
+% refused functions on std_err, as Julia comments (`# refused: f: reason`).
+
+accumulate adjudge.
+
+func js-to-julia list string.
+js-to-julia [Dir, Mode] :- !,
+  if (adjudge.mode Mode) true
+     (M is "unknown mode `" ^ Mode ^ "`: expected tangent, adjoint or adjoint-value", std.fatal-error M),
+  std.findall (primal _) Ps,
+  std.map Ps (p\ f\ p = primal f) Fs,
+  std.map Fs adjudge.check Rs,
+  std.map Rs (r\ d\ sigma A\ r = pr A d) Ds,
+  js-report Fs Ds,
+  std.map-filter Rs (r\ c\ sigma F V A D\ r = pr (some F) ok, adjudge.mode-value Mode V, adjudge.annotate V F A,
+                                         adjudge.differentiate Mode A D, adjudge.simplify D c) Cs,
+  if (Cs = []) true
+     (Source is Dir ^ "/primal.elpi", julia.file-string Source Cs Text, output std_out Text, flush std_out).
+js-to-julia _ :- std.fatal-error "usage: js-to-julia [Dir, tangent|adjoint|adjoint-value]".
+
+func js-report list function, list diagnostic.
+js-report Fs Ds :-
+  std.map2 Fs Ds (f\ d\ l\ sigma N M\ f = function N _, if (d = error M) (l is "# refused: " ^ N ^ ": " ^ M) (l = "")) Ls0,
+  std.filter Ls0 (l\ not (l = "")) Ls,
+  if (Ls = []) true (std.string.concat "\n" Ls Text, Text1 is Text ^ "\n", output std_err Text1, flush std_err).
