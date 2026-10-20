@@ -16,13 +16,17 @@
 %     Float64, Number) is independent; Int and Bool are passive; an
 %     SVector{N} is an independent array; an MVector{N} the function writes
 %     is dependent when it never reads it, inout otherwise;
+%   - a `jl-passive Fn Arg` fact (jl-ast.elpi) makes the argument Arg of Fn
+%     passive instead: only a real or an array the function does not write
+%     can be (an Int or a Bool is passive already, and a passive argument is
+%     never written); naming an unknown function or argument is refused too;
 %   - an integer literal is a real, except as an index, a loop bound, or with
 %     an integer.
 % A function that returns nothing writes its one MVector argument. What L0
 % cannot express is refused with a reason.
 %
 %   julia tools/julia2elpi.jl f.jl > dir/ast.elpi
-%   elpi -I <elpiDiff> -I dir <elpiDiff>/jlfront.elpi -exec jl-to-l0 -- f.jl > primal.elpi
+%   elpi -I <elpiDiff>/elpi -I dir <elpiDiff>/elpi/front/jlfront.elpi -exec jl-to-l0 -- f.jl > primal.elpi
 
 accumulate "front/jl-ast".
 accumulate ast.                          % the jl-function facts, by tools/julia2elpi.jl
@@ -33,6 +37,9 @@ jl-to-l0 [File] :- !,
   S is "% " ^ File ^ " in L0, from Julia's AST (jlfront.elpi)\naccumulate adjudge.\n",
   print S,
   std.findall (jl-function _) Fs,
+  std.map Fs (f\ n\ sigma F\ f = jl-function F, jl.name-of F n) Ns,
+  std.findall (jl-passive _ _) Ps,
+  std.forall Ps (jl.known-function Ns),
   std.forall Fs (f\ sigma F T\ f = jl-function F, jl.function F T, print T).
 jl-to-l0 _ :- std.fatal-error "usage: elpi … jlfront.elpi -exec jl-to-l0 -- <file>".
 
@@ -151,14 +158,61 @@ function-of (j "call" [jsym Name | Ps]) Body S :- !,
   rex.replace "!$" "" Name Fn,
   Env = env Fn "  " [] [],
   supported Env Body,
+  std.findall (chosen-passive Fn _) Cs,
+  std.forall Cs (known-argument Env Ps),
   params Env Ps Body Text,
   S is "primal (function \"" ^ Fn ^ "\" (" ^ Text ^ ")).\n".
 function-of _ _ _ :- std.fatal-error "unsupported function definition".
 
+% name-of F N: the name of the function F, without its trailing !.
+func name-of jl-ast -> string.
+name-of (j "function" [Sig, _]) N :- !, sig-name Sig N.
+name-of (j "=" [Sig, _]) N :- !, sig-name Sig N.
+name-of _ "".
+
+func sig-name jl-ast -> string.
+sig-name (j "where" [Sig | _]) N :- !, sig-name Sig N.
+sig-name (j "call" [jsym Name | _]) N :- !, rex.replace "!$" "" Name N.
+sig-name _ "".
+
+% chosen-passive Fn N: a jl-passive fact names the argument N of Fn.
+pred chosen-passive i:string, o:string.
+chosen-passive Fn N :- jl-passive F N, rex.replace "!$" "" F Fn.
+
+func known-function list string, prop.
+known-function Ns (jl-passive F N) :- rex.replace "!$" "" F Fn,
+  if (std.mem! Ns Fn) true
+     (M is F ^ ": jl-passive " ^ N ^ ": the program has no function " ^ F, std.fatal-error M).
+
+func known-argument env, list jl-ast, prop.
+known-argument Env Ps (chosen-passive _ N) :-
+  if (std.exists! Ps (p\ param-name p N)) true
+     (M is "jl-passive: the function has no argument " ^ N, fail-with Env M).
+
+pred param-name i:jl-ast, o:string.
+param-name (jsym N) N.
+param-name (j "::" [jsym N, _]) N.
+
+% choose Env N Ty R R1: the role R1 of the argument N, of type Ty and role
+% R from its type, after the jl-passive facts.
+func choose env, string, string, string -> string.
+choose Env N Ty R R1 :- chosen-passive {fn-of Env} N, !, passive-role Env N Ty R R1.
+choose _ _ _ R R.
+
+func passive-role env, string, string, string -> string.
+passive-role _ _ _ "independent" "passive" :- !.
+passive-role Env N Ty "passive" _ :- !,
+  if (Ty = "integer") (T = "an Int") (T = "a Bool"),
+  M is "jl-passive: " ^ N ^ " is " ^ T ^ ", passive already: only a real or an array argument can be made passive",
+  fail-with Env M.
+passive-role Env N _ _ _ :-
+  M is "jl-passive: " ^ N ^ " is the array the function writes: it cannot be passive (a passive argument is never written)",
+  fail-with Env M.
+
 % params Env Ps Body T: the arguments, then the body.
 func params env, list jl-ast, jl-ast -> string.
 params Env [P | Ps] Body T :- !,
-  param Env P Body N Ty Role,
+  param Env P Body N Ty Role0, choose Env N Ty Role0 Role,
   fresh N Env X Env1, bind Env1 N (v X Ty) Env2,
   params Env2 Ps Body Rest,
   L0Ty = {l0-type Ty},

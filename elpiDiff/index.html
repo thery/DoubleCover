@@ -76,6 +76,13 @@ pre {
 .msg { padding: 8px 10px; border-radius: 6px; margin: 0 0 8px; }
 .msg.bad { background: var(--bad-bg); color: var(--bad); border: 1px solid var(--bad); }
 .msg.note { border: 1px solid var(--line); color: var(--muted); }
+.args { margin-top: 10px; }
+.args h3 { font-size: 0.95rem; margin: 0 0 4px; }
+.fn-args { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; padding: 4px 0; border-top: 1px solid var(--line); }
+.fn-args > code { font-weight: 600; min-width: 6ch; }
+.fn-args label { gap: 4px; }
+.fn-args label.off { color: var(--muted); }
+.why { color: var(--muted); font-size: 0.8rem; }
 .hidden { display: none; }
 footer { color: var(--muted); font-size: 0.85rem; margin-top: 24px; border-top: 1px solid var(--line); padding-top: 12px; }
 footer ul { margin: 4px 0; padding-left: 20px; }
@@ -107,6 +114,9 @@ footer code { white-space: nowrap; }
             result, if any, then each real output in the order of the arguments.</li>
           <li><b>Arrays:</b> an array output is updated in place (pass a <code>Vector</code> or an
             <code>MVector</code>); an array passed by value is copied first.</li>
+          <li><b>Which arguments:</b> under the program, each function lists its arguments; uncheck one to make
+            it passive (a parameter, not differentiated: no <code>x_dot</code>, no <code>x_bar</code>). An
+            <code>Int</code>, a <code>Bool</code> or an array the function writes cannot be chosen.</li>
           <li><b>Indices:</b> the loops count from 0, as in the tool's intermediate language, and
             <code>a[i]</code> is printed <code>a[i + 1]</code>.</li>
         </ul>
@@ -124,6 +134,10 @@ footer code { white-space: nowrap; }
         <button id="go" disabled>Differentiate</button>
       </div>
       <textarea id="src" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Julia source"></textarea>
+      <div id="args" class="args hidden">
+        <h3>Differentiate with respect to</h3>
+        <div id="args-list"></div>
+      </div>
       <p id="status" class="status busy" role="status">Loading Elpi (WebAssembly)…</p>
     </section>
 
@@ -164,7 +178,7 @@ footer code { white-space: nowrap; }
         <code>sin cos exp log sqrt</code>;</li>
       <li>arguments: reals (no annotation, <code>Real</code>, <code>Float64</code>), <code>Int</code> and
         <code>Bool</code> (not differentiated), <code>SVector{N}</code> (input array), <code>MVector{N}</code>
-        (array the function writes).</li>
+        (array the function writes); a real or an input array can be unchecked under the program to keep it passive.</li>
     </ul>
     <p>Not accepted, for example: <code>while</code>, tuples, a loop or branch that sets several variables,
       chained comparisons, <code>&amp;&amp;</code>, keyword arguments.</p>

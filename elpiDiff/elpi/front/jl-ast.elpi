@@ -13,3 +13,9 @@ type jbool  string -> jl-ast.                    % true, false
 type jother string -> jl-ast.                    % any other literal (refused)
 
 pred jl-function o:jl-ast.
+
+% jl-passive Fn Arg: the argument Arg of the function Fn (its name in the
+% source; a trailing ! may be left out) is passive: it is not differentiated,
+% whatever its type. Optional; jlfront.elpi refuses one that names no real or
+% array argument read by the function (see there).
+pred jl-passive o:string, o:string.
