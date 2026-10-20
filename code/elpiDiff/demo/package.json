@@ -1,0 +1,9 @@
+{
+  "name": "elpidiff-julia-demo",
+  "private": true,
+  "description": "build/test dependencies of the elpiDiff Julia demo (vendored into vendor/)",
+  "devDependencies": {
+    "web-tree-sitter": "0.26.13",
+    "tree-sitter-julia": "0.23.1"
+  }
+}

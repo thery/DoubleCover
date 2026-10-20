@@ -1,0 +1,2 @@
+% ast.elpi: empty at load; the jl-function facts of the editor are added to
+% the compiled program for each click (jlparse.js prints them).

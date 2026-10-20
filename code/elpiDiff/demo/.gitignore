@@ -1,0 +1,6 @@
+node_modules/
+vendor/
+elpi/
+ws/_build/
+ws/elpi-3.7.3/
+test/elpijs.bc.wasm.assets

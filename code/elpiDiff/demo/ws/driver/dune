@@ -1,0 +1,6 @@
+(executable
+ (name elpijs)
+ (modes js wasm)
+ (libraries elpi js_of_ocaml)
+ (preprocess (pps js_of_ocaml-ppx))
+ (js_of_ocaml (link_flags (:standard --source-map))))
