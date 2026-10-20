@@ -13,7 +13,7 @@ here (for the arXiv ones: `curl -o <name>.pdf https://arxiv.org/pdf/<id>`).
   [arXiv:1911.04523](https://arxiv.org/abs/1911.04523)).
   Its partial semantics, where a comparison of two equal reals is undefined,
   is the one of the Rocq proofs: `smooth_reals` and `defined` in
-  [../rocq/Smooth.v](../rocq/Smooth.v), the hypothesis "f is defined at x" of
+  [../rocq/eval/Smooth.v](../rocq/eval/Smooth.v), the hypothesis "f is defined at x" of
   the main theorems.
 
 - **Radul, Paszke, Frostig, Johnson and Maclaurin, *You Only Linearize

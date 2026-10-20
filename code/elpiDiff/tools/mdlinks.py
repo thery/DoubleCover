@@ -3,7 +3,8 @@
 
 mdlinks.py [code dir]: in README.md and rocq/{README,DEFINITIONS,TUTORIAL}.md,
 every inline `name` that is defined (Lemma, Theorem, Definition, ...) in
-exactly one rocq/*.v file becomes [`name`](path/File.v#Lline), a link GitHub
+exactly one .v file of rocq/ (any subdirectory) becomes
+[`name`](path/dir/File.v#Lline), a link GitHub
 opens at the definition. Fenced code blocks and existing links are left
 alone. Run it again after editing the .v files: it refreshes the line
 numbers of the links it made.
@@ -20,9 +21,10 @@ KW = (r"Lemma|Theorem|Corollary|Definition|Fixpoint|Inductive|Record|Fact|"
 DEF = re.compile(r"^\s*(?:Local\s+|Program\s+)?(?:" + KW + r")\s+([A-Za-z_][\w']*)")
 
 defs = {}
-for f in sorted(os.listdir(ROCQ)):
-    if not f.endswith(".v") or f.startswith("rocq_mcp_cache"):
-        continue
+files = sorted(os.path.relpath(os.path.join(d, f), ROCQ)
+               for d, _, fs in os.walk(ROCQ) for f in fs
+               if f.endswith(".v") and not f.startswith("rocq_mcp_cache"))
+for f in files:
     for n, line in enumerate(open(os.path.join(ROCQ, f), encoding="utf-8"), 1):
         m = DEF.match(line)
         if m:

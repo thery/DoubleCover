@@ -12,6 +12,15 @@ well-formed) are reported and skipped.
 """
 import os, re, subprocess, sys, tempfile
 
+def rocq_flags(rocq_dir):
+    """The -R flags of rocq_dir/_CoqProject: one per directory, onto ElpiDiff."""
+    flags = []
+    for l in open(os.path.join(rocq_dir, "_CoqProject")):
+        w = l.split()
+        if len(w) == 3 and w[0] == "-R":
+            flags += ["-R", os.path.join(rocq_dir, w[1]), w[2]]
+    return flags
+
 ROCQ = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "rocq")
 CODE = os.path.dirname(ROCQ)
 TOOLS = os.path.dirname(os.path.abspath(__file__))
@@ -83,12 +92,12 @@ for c in sorted(os.listdir(CASES)):
                 f"{lst('b', n)} {lst('y', m)} {lst('d', n)}.\nProof. destruct cv; go. Qed.\n")
         v = os.path.join(tmp, "Check.v")
         open(v, "w").write(HEADER + d + f"\nGoal well_formed (normalize {name}_fn) = Ok.\nProof. vm_compute; reflexivity. Qed.\n")
-        if subprocess.run(["rocq", "compile", "-R", ROCQ, "ElpiDiff", v], capture_output=True).returncode != 0:
+        if subprocess.run(["rocq", "compile", *rocq_flags(ROCQ), v], capture_output=True).returncode != 0:
             refused += 1
             print(f"{c} {name}: refused (not well-formed)")
             continue
         open(v, "w").write(src)
-        out = subprocess.run(["rocq", "compile", "-R", ROCQ, "ElpiDiff", v], capture_output=True, text=True)
+        out = subprocess.run(["rocq", "compile", *rocq_flags(ROCQ), v], capture_output=True, text=True)
         total += 1
         if out.returncode == 0:
             print(f"{c} {name}: ok")

@@ -11,6 +11,20 @@ the Rocq development defines).
 """
 import os, re, subprocess, sys, tempfile
 
+def has_vo(name):
+    """name.vo exists in one of the directories of the Rocq development."""
+    return any(os.path.exists(os.path.join(f, name + ".vo")) for f in rocq_flags(ROCQ)[1::3])
+
+
+def rocq_flags(rocq_dir):
+    """The -R flags of rocq_dir/_CoqProject: one per directory, onto ElpiDiff."""
+    flags = []
+    for l in open(os.path.join(rocq_dir, "_CoqProject")):
+        w = l.split()
+        if len(w) == 3 and w[0] == "-R":
+            flags += ["-R", os.path.join(rocq_dir, w[1]), w[2]]
+    return flags
+
 ROCQ = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "rocq")
 CODE = os.path.dirname(ROCQ)
 TOOLS = os.path.dirname(os.path.abspath(__file__))
@@ -32,17 +46,17 @@ CXX = {
     "cxx-adjoint-value": ("adjoint-value", "simplify (adjoint true (annotate true (normalize {f})))"),
 }
 MODULES = "Syntax Anf Normalize WellFormed Annotate Derivative Tangent Dump"
-avail = [s for s in STAGES if (("adjoint" not in s or os.path.exists(os.path.join(ROCQ, "Adjoint.vo")))
-                              and ("simplified" not in s or os.path.exists(os.path.join(ROCQ, "Simplify.vo"))))]
-if os.path.exists(os.path.join(ROCQ, "Cxx.vo")): avail += list(CXX)
+avail = [s for s in STAGES if (("adjoint" not in s or has_vo("Adjoint"))
+                              and ("simplified" not in s or has_vo("Simplify")))]
+if has_vo("Cxx"): avail += list(CXX)
 # the Gallina output (gallina.elpi, Gallina.v): stage -> mode, as for the C++
 GALLINA = {"gallina-" + m: (m, e) for m, e in [(CXX[k][0], CXX[k][1]) for k in CXX]}
-if os.path.exists(os.path.join(ROCQ, "Gallina.vo")): avail += list(GALLINA)
+if has_vo("Gallina"): avail += list(GALLINA)
 stages = sys.argv[2:] or avail
-if os.path.exists(os.path.join(ROCQ, "Adjoint.vo")): MODULES += " Adjoint"
-if os.path.exists(os.path.join(ROCQ, "Simplify.vo")): MODULES += " Simplify"
-if os.path.exists(os.path.join(ROCQ, "Cxx.vo")): MODULES += " Lower Cxx"
-if os.path.exists(os.path.join(ROCQ, "Gallina.vo")): MODULES += " Gallina"
+if has_vo("Adjoint"): MODULES += " Adjoint"
+if has_vo("Simplify"): MODULES += " Simplify"
+if has_vo("Cxx"): MODULES += " Lower Cxx"
+if has_vo("Gallina"): MODULES += " Gallina"
 
 tmp = tempfile.mkdtemp()
 runner = os.path.join(tmp, "run.elpi")
@@ -104,7 +118,7 @@ for c in sorted(os.listdir(CASES)):
             src.append(f"Compute pr_dfunction ({STAGES[st][1].format(f=n + '_fn')}).")
     vfile = os.path.join(tmp, "T" + re.sub(r"\W", "_", c) + ".v")
     open(vfile, "w").write("\n".join(src) + "\n")
-    out = subprocess.run(["rocq", "compile", "-R", ROCQ, "ElpiDiff", vfile], capture_output=True, text=True)
+    out = subprocess.run(["rocq", "compile", *rocq_flags(ROCQ), vfile], capture_output=True, text=True)
     if out.returncode:
         print(f"{c}: Rocq error\n{out.stderr[:1500]}"); bad += 1; continue
     results = re.split(r"\n\s*= ", "\n" + out.stdout)[1:]

@@ -26,7 +26,7 @@ paths that must give the same C++:
 ```
 
 The cut between Rocq and Elpi is L2′, the simplified derivative programs:
-that is what the theorems of [Main.v](../../rocq/Main.v) are about. Lowering
+that is what the theorems of [Main.v](../../rocq/top/Main.v) are about. Lowering
 and printing to C++ are not proved, so they are left to Elpi.
 
 ## Running it

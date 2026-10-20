@@ -31,7 +31,7 @@ for m in tangent adjoint; do
 done
 
 # Rocq path: Xsin.v prints the two programs as Elpi terms, tangent first.
-rocq compile -R $CODE/rocq ElpiDiff Xsin.v > out/rocq/Xsin.out
+rocq compile $(sed -n "s|^-R \([^ ]*\) ElpiDiff|-R $CODE/rocq/\1 ElpiDiff|p" $CODE/rocq/_CoqProject) Xsin.v > out/rocq/Xsin.out
 sed -n 's/^ *= "\(dfunction .*\)"$/\1/p' out/rocq/Xsin.out | sed 's/""/"/g' > out/rocq/terms
 { echo '% the L2′ programs computed by Rocq (Xsin.v)'
   sed -n '1s/.*/rocq-l2 "tangent" (&)./p; 2s/.*/rocq-l2 "adjoint" (&)./p' out/rocq/terms
