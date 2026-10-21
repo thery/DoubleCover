@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>elpiDiff in the browser</title>
-<meta name="description" content="Write a Julia program and get the Julia program of its derivatives, in tangent and adjoint mode, produced by elpiDiff running in your browser (Elpi compiled to WebAssembly).">
+<meta name="description" content="Write a Julia program and get the Julia program of its derivatives, in tangent and adjoint-value mode, produced by elpiDiff running in your browser (Elpi compiled to WebAssembly).">
 <style>
 :root {
   --bg: #fbfaf7; --panel: #ffffff; --ink: #1d1d1b; --muted: #5f5d57; --line: #dedbd2;
@@ -107,9 +107,11 @@ footer code { white-space: nowrap; }
         <ul>
           <li><b>Tangent</b> <code>f_tangent(x, x_dot)</code>: the arguments, then a tangent for each argument
             that carries one. It returns the value of <code>f</code> and the tangent of the result.</li>
-          <li><b>Adjoint</b> <code>f_adjoint(x, x_bar, result_bar)</code>: the arguments, the adjoints to
-            accumulate into, and the seed <code>result_bar</code>. Start every <code>x_bar</code> at 0: it returns
-            <code>x_bar + result_bar * f′(x)</code>.</li>
+          <li><b>Adjoint-value</b> <code>f_adjoint_value(x, x_bar, result_bar)</code>: the arguments, the adjoints
+            to accumulate into, and the seed <code>result_bar</code>. It runs <code>f</code> forward (its value),
+            recording on a tape only what the reverse sweep needs (to-be-recorded analysis), then the reverse sweep.
+            Start every <code>x_bar</code> at 0: it returns the value of <code>f</code> and
+            <code>x_bar + result_bar * f′(x)</code> (an array <code>x_bar</code> is updated in place).</li>
           <li><b>Returned values:</b> Julia passes reals by value, so a real output is returned: a tuple of the
             result, if any, then each real output in the order of the arguments.</li>
           <li><b>Arrays:</b> an array output is updated in place (pass a <code>Vector</code> or an
@@ -130,7 +132,7 @@ footer code { white-space: nowrap; }
       <div class="controls">
         <label>Example <select id="example"></select></label>
         <label><input type="checkbox" id="m-tangent" checked> tangent</label>
-        <label><input type="checkbox" id="m-adjoint" checked> adjoint</label>
+        <label><input type="checkbox" id="m-adjoint-value" checked> adjoint-value</label>
         <button id="go" disabled>Differentiate</button>
       </div>
       <textarea id="src" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Julia source"></textarea>
@@ -148,9 +150,9 @@ footer code { white-space: nowrap; }
         <div class="out-head"><h2>Tangent</h2><button class="small" data-copy="code-tangent">Copy</button></div>
         <pre><code id="code-tangent"></code></pre>
       </div>
-      <div id="out-adjoint" class="hidden">
-        <div class="out-head"><h2>Adjoint</h2><button class="small" data-copy="code-adjoint">Copy</button></div>
-        <pre><code id="code-adjoint"></code></pre>
+      <div id="out-adjoint-value" class="hidden">
+        <div class="out-head"><h2>Adjoint-value</h2><button class="small" data-copy="code-adjoint-value">Copy</button></div>
+        <pre><code id="code-adjoint-value"></code></pre>
       </div>
       <details id="l0-box" class="hidden">
         <summary>L0, the program elpiDiff differentiates</summary>

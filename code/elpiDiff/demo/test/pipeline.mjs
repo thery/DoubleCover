@@ -45,7 +45,7 @@ for (const c of cases) {
   if (spec) c.name += ` (passive ${spec})`;
   const out = src + (spec ? '.' + spec.replace(/[^A-Za-z0-9_]/g, '_') : '') + '.out';
   spawnSync('sh', [path.join(here, 'native.sh'), src, out, spec], { stdio: 'inherit' });
-  const r = run(E, base.id, parser, c.code, ['tangent', 'adjoint'], 'editor', c.passive || []);
+  const r = run(E, base.id, parser, c.code, ['tangent', 'adjoint-value'], 'editor', c.passive || []);
   const times = Object.entries(r.ms).map(([k, v]) => `${k} ${v.toFixed(0)}`).join(', ');
   if (fs.existsSync(path.join(out, 'refused.txt'))) {
     const want = fs.readFileSync(path.join(out, 'refused.txt'), 'utf8').trim();
@@ -55,7 +55,7 @@ for (const c of cases) {
     continue;
   }
   const same = [];
-  for (const m of ['tangent', 'adjoint']) {
+  for (const m of ['tangent', 'adjoint-value']) {
     const want = fs.readFileSync(path.join(out, m + '.jl'), 'utf8');
     const got = r.modes[m] ? r.modes[m].code : '';
     if (tail(want) === tail(got)) same.push(m); else { bad++; fs.writeFileSync(path.join(out, m + '.wasm.jl'), got); console.log(`FAIL ${c.name} ${m}: diff ${out}/${m}.jl ${out}/${m}.wasm.jl`); }
@@ -66,8 +66,8 @@ for (const c of cases) {
   console.log(`${same.length === 2 && l0same ? 'ok  ' : 'FAIL'} ${c.name}: L0 ${l0same ? 'identical' : 'DIFFERENT'}, identical: ${same.join(' ') || 'none'} (${times} ms)`);
 }
 // the committed outputs of run.sh, for functions.jl
-const r = run(E, base.id, parser, fs.readFileSync(path.join(CODE, 'examples/julia/functions.jl'), 'utf8'), ['tangent', 'adjoint']);
-for (const m of ['tangent', 'adjoint']) {
+const r = run(E, base.id, parser, fs.readFileSync(path.join(CODE, 'examples/julia/functions.jl'), 'utf8'), ['tangent', 'adjoint-value']);
+for (const m of ['tangent', 'adjoint-value']) {
   const ok = tail(fs.readFileSync(path.join(CODE, 'examples/julia/out', m + '.jl'), 'utf8')) === tail(r.modes[m].code);
   if (!ok) bad++;
   console.log(`${ok ? 'ok  ' : 'FAIL'} functions.jl ${m}: ${ok ? 'identical to' : 'differs from'} examples/julia/out/${m}.jl`);

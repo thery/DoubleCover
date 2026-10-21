@@ -54,7 +54,7 @@ const { EXAMPLES } = { EXAMPLES: null };
     await until("/^(Done|Failed)/.test(document.getElementById('status').textContent)");
     return evalJS(`({ status: document.getElementById('status').textContent,
       tangent: document.getElementById('out-tangent').classList.contains('hidden') ? null : document.getElementById('code-tangent').textContent,
-      adjoint: document.getElementById('out-adjoint').classList.contains('hidden') ? null : document.getElementById('code-adjoint').textContent,
+      'adjoint-value': document.getElementById('out-adjoint-value').classList.contains('hidden') ? null : document.getElementById('code-adjoint-value').textContent,
       messages: document.getElementById('messages').innerText, timing: document.getElementById('timing').textContent })`);
   }
   function native(name, code, passive = '') {
@@ -79,7 +79,7 @@ const { EXAMPLES } = { EXAMPLES: null };
       continue;
     }
     const res = [];
-    for (const m of ['tangent', 'adjoint']) {
+    for (const m of ['tangent', 'adjoint-value']) {
       const ref = fs.readFileSync(path.join(out, m + '.jl'), 'utf8');
       const same = r[m] !== null && tail(ref) === tail(r[m]);
       if (!same) { bad++; fs.writeFileSync(path.join(out, m + '.page.jl'), r[m] || ''); }
@@ -89,7 +89,7 @@ const { EXAMPLES } = { EXAMPLES: null };
   }
   // 3. the whole of functions.jl, pasted
   const all = await click(fs.readFileSync(path.join(CODE, 'examples/julia/functions.jl'), 'utf8'));
-  for (const m of ['tangent', 'adjoint']) {
+  for (const m of ['tangent', 'adjoint-value']) {
     const same = all[m] !== null && tail(fs.readFileSync(path.join(CODE, 'examples/julia/out', m + '.jl'), 'utf8')) === tail(all[m]);
     if (!same) bad++;
     console.log(`${same ? 'ok  ' : 'FAIL'} functions.jl pasted, ${m}: ${same ? 'identical to' : 'differs from'} examples/julia/out/${m}.jl (${all.status})`);
@@ -110,7 +110,7 @@ const { EXAMPLES } = { EXAMPLES: null };
   const pf = await click(fcode);
   const nf = native('f_passive', fcode, 'f:x2');
   let okf = l1 === 'f:x1+ f:x2+';
-  for (const m of ['tangent', 'adjoint']) okf = okf && pf[m] !== null && tail(fs.readFileSync(path.join(nf, m + '.jl'), 'utf8')) === tail(pf[m]);
+  for (const m of ['tangent', 'adjoint-value']) okf = okf && pf[m] !== null && tail(fs.readFileSync(path.join(nf, m + '.jl'), 'utf8')) === tail(pf[m]);
   okf = okf && !/x2_dot|x2_bar/.test(pf.tangent + pf.adjoint);
   if (!okf) bad++;
   console.log(`${okf ? 'ok  ' : 'FAIL'} f with x2 unchecked: list "${l1}", tangent and adjoint ${okf ? 'identical to native with jl-passive "f" "x2", no x2_dot/x2_bar' : 'DIFFERENT'}`);
@@ -130,7 +130,7 @@ const { EXAMPLES } = { EXAMPLES: null };
   const pa = await click(acode);
   const na = native('advect_passive', acode, 'advect!:c');
   let oka = /g:p\(off: Int[^)]*\) g:b\(off: Bool[^)]*\)/.test(l4) && /advect!:u\(off: written/.test(l4) && /advect!:c\+/.test(l4);
-  for (const m of ['tangent', 'adjoint']) oka = oka && pa[m] !== null && tail(fs.readFileSync(path.join(na, m + '.jl'), 'utf8')) === tail(pa[m]);
+  for (const m of ['tangent', 'adjoint-value']) oka = oka && pa[m] !== null && tail(fs.readFileSync(path.join(na, m + '.jl'), 'utf8')) === tail(pa[m]);
   if (!oka) bad++;
   console.log(`${oka ? 'ok  ' : 'FAIL'} greyed: "${l4}"; advect! with c unchecked ${oka ? 'identical to native' : 'DIFFERENT'}`);
   await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 800, deviceScaleFactor: 2, mobile: true });

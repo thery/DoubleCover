@@ -1,7 +1,7 @@
 # elpiDiff in the browser (Julia demo)
 
 A static web page: write a small Julia function and get the Julia code of its
-derivative in tangent and/or adjoint mode, produced by elpiDiff running in the
+derivative in tangent and/or adjoint-value mode (the adjoint that also returns the value: a forward sweep recording on a tape only what the reverse sweep needs, then the reverse sweep), produced by elpiDiff running in the
 browser. There is no server and no numerical evaluation.
 
 ```

@@ -18,6 +18,6 @@ if ! elpi -I $ELPIDIFF/elpi -I "$OUT" $ELPIDIFF/elpi/front/jlfront.elpi -exec jl
   exit 0
 fi
 sed -n '/^% .* in L0/,/^Success/p' "$OUT/front.log" | grep -v '^Success' > "$OUT/primal.elpi"
-for m in tangent adjoint; do
+for m in tangent adjoint-value; do
   elpi -I $ELPIDIFF/elpi "$OUT/primal.elpi" -exec to-julia -- examples/julia $m "$OUT" > "$OUT/$m.log" 2>&1
 done
