@@ -1,9 +1,0 @@
-htr3-vo/
-htr_filter_clight.v
-*.vo
-*.vok
-*.vos
-*.glob
-.*.aux
-.lia.cache
-.nia.cache
