@@ -332,3 +332,65 @@ pas ce que l'analyse *to-be-recorded* demande (la *tape*), sans points de
 reprise. Dans le schéma ci-dessus, seule la phase 2 correspond à ce que
 l'adjoint produit aujourd'hui ; la phase 1, et le découpage de la boucle en
 deux boucles imbriquées (segments × $`k`$ pas), seraient nouveaux.
+
+## 3. Rendre L0 interprocédural
+
+### Ce que L0 sait faire aujourd'hui
+
+Aujourd'hui, L0 décrit **une seule fonction** : des arguments, chacun avec
+un rôle, puis un corps fait de `let`, `ite`, `map`, `fold`, `get`/`set` et
+d'opérations élémentaires. Les seuls appels sont des appels à ces opérations
+(`sin`, `exp`, `*`, …), dont on connaît les dérivées partielles. Les
+interfaces C++ et Julia traduisent tout autre appel d'une fonction d'un réel
+en `unknown1 "g"`, qu'on ne sait pas dériver. Avec plusieurs fonctions
+Julia, chacune est dérivée séparément : elles ne s'appellent jamais.
+
+### Ce qui manque
+
+1. **Le langage.** Un programme devient une liste de fonctions, avec une
+   construction `call g args`. Comme `g` peut écrire dans ses arguments
+   (rôles `dependent` et `inout`), un appel, dans le style fonctionnel de
+   L0, doit rendre la valeur **et** les nouvelles versions des tableaux
+   écrits, comme `set` le fait déjà pour un tableau.
+2. **Les vérifications.**
+   - Les arguments d'un appel doivent correspondre à la signature de `g`.
+   - Le graphe des appels ne doit pas boucler (pas de récursion, au moins
+     au début).
+   - Un même tableau ne doit pas être passé deux fois à des arguments que
+     `g` écrit (pas d'alias).
+3. **Les évaluateurs et la passe ANF** : un cas pour l'appel.
+4. **Les analyses deviennent interprocédurales.**
+   - L'analyse d'activité et l'analyse *to-be-recorded* ont besoin d'un
+     résumé de `g` : quelles sorties dépendent de quelles entrées, ce que
+     son adjoint lit, ce qu'il écrase.
+   - Les rôles des arguments de `g` dépendent de l'endroit de l'appel : une
+     même fonction `g` peut demander plusieurs versions dérivées, une par
+     choix des arguments actifs.
+5. **Comment dériver un appel.** Deux stratégies :
+   - **Déplier `g` avant de dériver** (*inlining*). Tout le reste ne change
+     pas, et la preuve demande seulement que le dépliage garde le sens du
+     programme. Le prix : la taille du code, et pas de dérivée séparée de
+     `g`. C'est la première étape naturelle.
+   - **Une dérivée par fonction.**
+     - Le tangent est simple : `call g` devient `call g_tangent` (la valeur
+       et la tangente).
+     - L'adjoint est plus difficile. Soit l'adjoint de `g` recalcule son
+       propre balayage avant à partir des entrées sauvées : ce sont les
+       points de reprise de la section 2, à la frontière de l'appel. Soit
+       on coupe `g` en deux, `g_fwd`, qui stocke sa *tape*, et `g_rev`, qui
+       l'utilise : le « mode séparé » (*split mode*).
+6. **Les générateurs de code** : C++ et Julia écrivent plusieurs fonctions
+   et les appels entre elles.
+7. **Rocq.** La sémantique des appels, puis un cas « appel » dans les
+   preuves : le théorème déjà prouvé pour `g` sert d'hypothèse à chaque
+   appel (c'est la règle de dérivation des fonctions composées), par
+   récurrence sur le graphe des appels.
+
+### Dans quel ordre
+
+1. Le langage, les vérifications et les évaluateurs.
+2. Le dépliage : tout marche, sans rien changer à la dérivation.
+3. Le tangent par fonction.
+4. L'adjoint par fonction : d'abord en recalculant, ensuite en mode séparé.
+
+Rocq suit à chaque étape.
