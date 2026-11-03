@@ -222,3 +222,113 @@ passer par la dérivée : ses hypothèses ne demandent pas `derivative`.
 | Le mode tangent | $`f_{\mathit{fwd}}(x, \mathit{sx}) = J_f(x)\,\mathit{sx}`$ | `tangent_correct` |
 | Le mode adjoint | $`\mathit{sx}_j = \langle \frac{df}{dx_j}(x), \mathit{sy} \rangle`$ | `adjoint_componentwise`, `adjoint_jacobian` |
 | Le lien | $`\langle f_{\mathit{fwd}}(x, d), \mathit{sy} \rangle = \langle d, f_{\mathit{adj}}(x, \mathit{sy}) \rangle`$ | `adjoint_correct`, `modes_agree` |
+
+## 2. Un programme typique : un maillage qui évolue dans le temps
+
+### Le programme
+
+Un programme typique part d'un maillage dont les points évoluent dans le
+temps. Il fait $`N`$ itérations en temps ; chaque itération met à jour tous
+les éléments du maillage. À la fin, il calcule une seule valeur, par exemple
+une énergie.
+
+Avec les notations de la section 1 :
+
+- l'**état** est le maillage, $`u \in \mathbb{R}^p`$ (les positions des
+  points, éventuellement leurs vitesses) ;
+- la **boucle en temps** calcule $`u_0 \to u_1 \to \dots \to u_N`$, avec
+  $`u_{k+1} = \Phi(u_k)`$ : un pas de temps $`\Phi`$ met à jour tout le
+  maillage ;
+- le **résultat** est un seul nombre, l'énergie $`E = J(u_N)`$.
+
+C'est donc une fonction $`f : \mathbb{R}^m \to \mathbb{R}`$, avec
+$`x = u_0`$ (ou les paramètres de la simulation) et une seule sortie,
+$`n = 1`$. Ce qu'on veut est le gradient $`\nabla E`$ : à quel point
+l'énergie est sensible à chaque entrée.
+
+### Pourquoi le mode adjoint
+
+- En mode **tangent**, une exécution donne une seule dérivée
+  $`\frac{dE}{dx_j}`$ : il faut $`m`$ exécutions, chacune coûtant une
+  simulation entière.
+- En mode **adjoint**, une seule exécution avec la graine
+  $`\mathit{sy} = 1`$ donne tout le gradient $`\nabla E`$ : la jacobienne
+  n'a qu'une ligne, et « une exécution donne une ligne » (section 1).
+
+Le prix de l'adjoint est la mémoire. Le balayage arrière va du pas $`N`$ au
+pas $`0`$ et a besoin des états $`u_k`$ dans l'ordre inverse. Il faut donc
+les stocker pendant le balayage avant (la *tape*), jusqu'à $`N \times p`$
+réels, ou bien les recalculer.
+
+Dans elpiDiff, cette boucle en temps est un `fold` dont l'état est le
+maillage, un tableau modifié en place : c'est le cas prouvé dans les étapes
+« fold en place » de la preuve (M5, M5b).
+
+### La trajectoire comme points de reprise
+
+Souvent, le code garde déjà une version discrète de l'évolution, la
+**trajectoire** : il sauve l'état tous les $`k`$ pas,
+$`u_0, u_k, u_{2k}, \dots`$ Ces états sauvés sont exactement ce qu'il faut
+pour des **points de reprise** (*checkpointing*) dans l'adjoint.
+
+L'adjoint remonte le temps segment par segment, du dernier au premier. Pour
+chaque segment $`[jk, (j+1)k]`$ :
+
+1. il repart de l'état sauvé $`u_{jk}`$ et recalcule en avant les $`k`$ pas
+   du segment, en gardant leurs états ;
+2. il fait le balayage arrière sur ces $`k`$ pas.
+
+Le schéma du code, avec $`N = S \cdot k`$. `step` est un pas de temps
+$`u \mapsto \Phi(u)`$, `step_adj(u, ub)` son adjoint en $`u`$, et
+`energy_adj(u, eb)` l'adjoint de l'énergie :
+
+```text
+// le programme : N pas, la trajectoire sauvée tous les k pas
+function simulate(u0):
+    u = u0
+    for s in 0 .. S-1:
+        traj[s] = u                    // point de reprise : l'état au pas s*k
+        for i in 0 .. k-1:
+            u = step(u)
+    return energy(u), traj
+
+// l'adjoint avec points de reprise : le gradient de l'énergie par rapport à u0
+function simulate_adj(u0):
+    E, traj = simulate(u0)             // balayage avant, ne garde que traj
+    ub = energy_adj(u_N, 1)            // graine sy = 1 sur l'énergie
+                                       // (u_N : l'état final, gardé par simulate)
+    for s in S-1 down to 0:            // les segments, le dernier d'abord
+        // 1. recalculer le segment depuis son point de reprise, en gardant chaque état
+        u = traj[s]
+        for i in 0 .. k-1:
+            local[i] = u
+            u = step(u)
+        // 2. balayage arrière sur le segment, avec les états de local
+        for i in k-1 down to 0:
+            ub = step_adj(local[i], ub)
+    return E, ub                       // ub = ∇E(u0)
+```
+
+**Ce que ça coûte.**
+
+- **Mémoire** : `traj` ($`S`$ états) plus `local` ($`k`$ états), au lieu de
+  $`N`$ états. Avec $`k \approx \sqrt{N}`$, environ $`2\sqrt{N}`$ états au
+  lieu de $`N`$.
+- **Temps** : les pas sont exécutés deux fois (dans `simulate`, puis au
+  recalcul de chaque segment), plus un balayage adjoint : environ une
+  simulation de plus.
+- Si le programme garde déjà sa trajectoire pour ses propres besoins, les
+  points de reprise sont gratuits.
+- Si les pas dépendent de paramètres $`\theta`$, `step_adj` accumule aussi
+  leur adjoint, $`\bar\theta \mathrel{+}= \dots`$, à chaque pas.
+- Si $`k`$ ne divise pas $`N`$, le dernier segment est plus court ; le code
+  ne change pas.
+
+L'algorithme *revolve* de Griewank est la version optimale de cette idée,
+avec des points de reprise placés récursivement.
+
+**Où en est elpiDiff.** Aujourd'hui, l'adjoint d'elpiDiff stocke à chaque
+pas ce que l'analyse *to-be-recorded* demande (la *tape*), sans points de
+reprise. Dans le schéma ci-dessus, seule la phase 2 correspond à ce que
+l'adjoint produit aujourd'hui ; la phase 1, et le découpage de la boucle en
+deux boucles imbriquées (segments × $`k`$ pas), seraient nouveaux.
