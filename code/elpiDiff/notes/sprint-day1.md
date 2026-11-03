@@ -128,28 +128,99 @@ $f_{\mathit{adj}}(x, \mathit{sy})$ est $\langle f_{\mathit{fwd}}(x, e_j), \mathi
 Avec les deux graines sur des vecteurs de base :
 $\bigl(f_{\mathit{adj}}(x, e_i)\bigr)_j = \bigl(f_{\mathit{fwd}}(x, e_j)\bigr)_i$.
 
-### Ce qui est prouvé en Rocq
+### Ce qui est prouvé en Rocq, et le lien avec ce qui précède
 
-Les énoncés courts sont dans `top/Main.v` (et `top/MainMx.v` pour la forme
-matricielle). Il n'y a pas d'`Admitted`. Les énoncés de `Main.v` utilisent
-seulement les axiomes standard des réels de Rocq ; la forme matricielle
-(`MainMx.v`) en ajoute un, `constructive_indefinite_description`, pour voir
-les réels comme un anneau de MathComp.
+Les énoncés sont dans `rocq/top/Main.v` (et `rocq/top/MainMx.v` pour la
+forme avec la jacobienne). Voici comment chaque objet mathématique des
+sections précédentes apparaît en Rocq.
 
-- **`tangent_correct`** : le programme tangent calcule la valeur et la
-  dérivée dans la direction donnée,
+**$f$ est un programme.** En Rocq, `f` n'est pas une fonction de
+$\mathbb{R}^m$ dans $\mathbb{R}^n$ : c'est un programme du langage d'entrée
+d'elpiDiff, et ses arguments `x` sont une liste de valeurs (des réels, des
+tableaux de réels). On retrouve la fonction mathématique en mettant bout à
+bout tous les réels des arguments :
 
-      run_tangent f x dx = Some (f(x), D f x df dx)
+- $m$ est `in_dim x`, le nombre de réels des arguments, et le point
+  $x \in \mathbb{R}^m$ est `point_of x` ;
+- $n$ est `out_dim f x`, le nombre de réels du résultat ;
+- la fonction $f : \mathbb{R}^m \to \mathbb{R}^n$ est `value_of f x` : on
+  remplace les réels des arguments par ceux d'un vecteur de
+  $\mathbb{R}^m$, on exécute le programme, on lit les réels du résultat.
+  `value f x` est la valeur $f(x)$.
 
-- **`adjoint_correct`** : le programme adjoint calcule l'adjoint de la
-  dérivée, c'est l'égalité du lien ci-dessus,
+**Les « bonnes conditions ».** Elles ne sont pas supposées : elles sont
+déduites de `accepted f x`, qui dit que elpiDiff accepte le programme (il
+est bien formé), que les arguments ont la forme déclarée, et que le
+programme est défini autour de $x$ (il n'utilise que des opérations
+dérivables, là où elles le sont). Le théorème `derivative_exists` montre
+qu'un programme accepté a une dérivée en $x$.
 
-      ⟨D f x df dx, yb⟩ = ⟨seed dx, g⟩      pour tout dx
+**La dérivée.** `derivative f x df` dit que `df` est la dérivée de $f$ en
+$x$ : l'application linéaire de $\mathbb{R}^m$ dans $\mathbb{R}^n$ qui envoie
+une direction $\mathit{sx}$ sur $J_f(x)\,\mathit{sx} =
+\sum_j \mathit{sx}_j \, \frac{df}{dx_j}(x)$. Avec un vecteur de base,
+`D f x df (e x j)` est la colonne $\frac{df}{dx_j}(x)$.
 
-  où `g` est le résultat de `run_adjoint` et `yb` la graine $\mathit{sy}$.
-- **`adjoint_jacobian`** (`MainMx.v`) : la même chose composante par
-  composante, $g_j = \sum_i yb_i \, J_{ij}$.
-- **`modes_agree`** : les deux programmes vérifient l'égalité du lien,
-  `⟨w, yb⟩ = ⟨seed dx, g⟩`, avec `w` le résultat de `run_tangent` et `g`
-  celui de `run_adjoint`. Ses hypothèses ne parlent pas de dérivée : les
-  deux modes sont d'accord même là où $f$ n'est pas dérivable.
+**Une différence : les entrées dérivées.** Les arguments d'un programme ont
+un rôle. On ne dérive que par rapport aux arguments indépendants (et aux
+arguments `inout`) ; les autres (passifs ou dépendants) sont des constantes.
+`seed dx` remplace par 0 les composantes de la direction `dx` qui tombent
+sur ces arguments. Partout où on avait $\mathit{sx}$ (ou $d$), Rocq a donc
+`seed dx`, et `D f x df dx` est $J_f(x)$ appliquée à `seed dx`.
+
+**Le mode tangent : `tangent_correct`.** `run_tangent f x dx` exécute le
+programme tangent produit par elpiDiff. Le théorème dit
+
+    run_tangent f x dx = Some (f(x), D f x df dx)
+
+c'est-à-dire $f_{\mathit{fwd}}(x, \mathit{sx}) = \mathit{sy}$ avec
+$\mathit{sy} = J_f(x)\,\mathit{sx}$, exactement la section « Le mode
+tangent ». Le programme rend aussi la valeur $f(x)$.
+
+**Le mode adjoint : `adjoint_correct`.** `run_adjoint cv f x xb yb` exécute
+le programme adjoint ; `yb` est la graine $\mathit{sy}$ et le résultat `g`
+est $\mathit{sx} = f_{\mathit{adj}}(x, \mathit{sy})$. Le théorème dit, pour
+toute direction `dx`,
+
+    ⟨D f x df dx, yb⟩ = ⟨seed dx, g⟩
+
+c'est exactement l'égalité de la section « Le lien entre les deux modes »,
+$\langle f_{\mathit{fwd}}(x, d), \mathit{sy} \rangle =
+\langle d, f_{\mathit{adj}}(x, \mathit{sy}) \rangle$, avec $d$ = `seed dx`.
+Deux paramètres en plus :
+
+- `xb` : le programme adjoint ajoute ses résultats à des valeurs de départ
+  `xb` ; `g` est ce qui a été ajouté, donc le théorème vaut quel que soit
+  `xb` ;
+- `cv` : choisit entre le mode adjoint seul et le mode qui rend aussi la
+  valeur (*adjoint-value*) ; le théorème vaut pour les deux.
+  `adjoint_value_correct` dit que la valeur rendue est bien $f(x)$ (sauf
+  si le programme écrit dans un argument `inout`).
+
+**Composante par composante : `adjoint_componentwise` et
+`adjoint_jacobian`.** Pour toute entrée $j$ par rapport à laquelle on
+dérive,
+
+    nth j g = ⟨D f x df (e x j), yb⟩
+
+c'est $\mathit{sx}_j = \left\langle \frac{df}{dx_j}(x), \mathit{sy}
+\right\rangle$ de la section « Le mode adjoint ». `adjoint_jacobian`
+(`MainMx.v`) écrit la même chose avec la jacobienne,
+$g_j = \sum_i yb_i \, J_{ij}$, c'est-à-dire $\mathit{sx} = J_f(x)^T \mathit{sy}$.
+
+**Les deux programmes entre eux : `modes_agree`.** Avec `w` le résultat de
+`run_tangent f x dx` et `g` celui de `run_adjoint f x xb yb`,
+
+    ⟨w, yb⟩ = ⟨seed dx, g⟩
+
+C'est l'égalité du lien écrite directement entre les deux programmes, sans
+passer par la dérivée : ses hypothèses ne demandent pas `derivative`.
+
+| section | objet mathématique | en Rocq |
+|---|---|---|
+| Le cadre | $x \in \mathbb{R}^m$, $f(x) \in \mathbb{R}^n$ | `point_of x`, `in_dim x`, `out_dim f x`, `value f x` |
+| Le cadre | les bonnes conditions | `accepted f x` (puis `derivative_exists`) |
+| Le cadre | $\frac{df}{dx_j}(x)$, $J_f(x)$ | `D f x df (e x j)`, `J f x df` |
+| Le mode tangent | $f_{\mathit{fwd}}(x, \mathit{sx}) = J_f(x)\,\mathit{sx}$ | `tangent_correct` |
+| Le mode adjoint | $\mathit{sx}_j = \langle \frac{df}{dx_j}(x), \mathit{sy} \rangle$ | `adjoint_componentwise`, `adjoint_jacobian` |
+| Le lien | $\langle f_{\mathit{fwd}}(x, d), \mathit{sy} \rangle = \langle d, f_{\mathit{adj}}(x, \mathit{sy}) \rangle$ | `adjoint_correct`, `modes_agree` |
