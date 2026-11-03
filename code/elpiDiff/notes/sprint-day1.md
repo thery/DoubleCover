@@ -14,25 +14,25 @@ bonnes conditions (dérivabilité, ...) : $m$ entrées, $n$ sorties.
 
 - $f(x)$ est l'évaluation de $f$ au point $x \in \mathbb{R}^m$ ; c'est un
   vecteur de $\mathbb{R}^n$.
-- $\dfrac{\partial f}{\partial x_j}(x)$ est la dérivée de $f$ par rapport à
+- $\dfrac{df}{dx_j}(x)$ est la dérivée de $f$ par rapport à
   la $j$-ième coordonnée, évaluée en $x$ ; c'est aussi un vecteur de
   $\mathbb{R}^n$ : comment **toutes les sorties** bougent quand on fait
   bouger **la seule entrée** $j$.
 - On écrit $f = (f_1, \dots, f_n)$ : chaque $f_i : \mathbb{R}^m \to \mathbb{R}$
   est une des sorties de $f$. Son gradient est le vecteur de $\mathbb{R}^m$
-  $$\nabla f_i(x) = \left(\frac{\partial f_i}{\partial x_1}(x), \dots,
-  \frac{\partial f_i}{\partial x_m}(x)\right) :$$
+  $$\nabla f_i(x) = \left(\frac{df_i}{dx_1}(x), \dots,
+  \frac{df_i}{dx_m}(x)\right) :$$
   comment **la seule sortie** $i$ bouge quand on fait bouger **chacune des
   entrées**.
 
 Ces deux objets se lisent dans la jacobienne $J_f(x)$, la matrice
-$n \times m$ de coefficients $J_{ij} = \dfrac{\partial f_i}{\partial x_j}(x)$ :
+$n \times m$ de coefficients $J_{ij} = \dfrac{df_i}{dx_j}(x)$ :
 
-- la **colonne** $j$ ($n$ coefficients) est $\dfrac{\partial f}{\partial x_j}(x)$ ;
+- la **colonne** $j$ ($n$ coefficients) est $\dfrac{df}{dx_j}(x)$ ;
 - la **ligne** $i$ ($m$ coefficients) est $\nabla f_i(x)$.
 
 Le même coefficient se lit donc de deux façons :
-$\bigl(\nabla f_i(x)\bigr)_j = \left(\dfrac{\partial f}{\partial x_j}(x)\right)_i = J_{ij}$.
+$\bigl(\nabla f_i(x)\bigr)_j = \left(\dfrac{df}{dx_j}(x)\right)_i = J_{ij}$.
 
 ### Le mode tangent
 
@@ -48,14 +48,14 @@ $$f_{\mathit{fwd}}(x, \mathit{sx}) = \mathit{sy}$$
 $\mathit{sy}$ est la dérivée de $f$ en $x$ appliquée à $\mathit{sx}$, c'est-à-dire
 $\mathit{sy} = J_f(x)\, \mathit{sx}$. C'est une combinaison des **colonnes** :
 
-$$\mathit{sy} = \sum_{j=1}^{m} \mathit{sx}_j \, \frac{\partial f}{\partial x_j}(x)$$
+$$\mathit{sy} = \sum_{j=1}^{m} \mathit{sx}_j \, \frac{df}{dx_j}(x)$$
 
 et, composante par composante,
 
 $$\mathit{sy}_i = \langle \nabla f_i(x), \mathit{sx} \rangle .$$
 
 Avec $\mathit{sx} = e_j$ (le $j$-ième vecteur de base), on obtient
-$\mathit{sy} = \dfrac{\partial f}{\partial x_j}(x)$ : **une exécution donne une
+$\mathit{sy} = \dfrac{df}{dx_j}(x)$ : **une exécution donne une
 colonne**. Il faut donc $m$ exécutions pour avoir toute la jacobienne.
 
 ### Le mode adjoint
@@ -75,7 +75,7 @@ $$\mathit{sx} = \sum_{i=1}^{n} \mathit{sy}_i \, \nabla f_i(x)$$
 
 et, composante par composante,
 
-$$\mathit{sx}_j = \left\langle \frac{\partial f}{\partial x_j}(x), \mathit{sy} \right\rangle .$$
+$$\mathit{sx}_j = \left\langle \frac{df}{dx_j}(x), \mathit{sy} \right\rangle .$$
 
 Avec $\mathit{sy} = e_i$, on obtient $\mathit{sx} = \nabla f_i(x)$, le gradient de la
 $i$-ième sortie : **une exécution donne une ligne**. Pour une fonction à une
@@ -86,8 +86,8 @@ donne tout le gradient.
 
 | mode | combinaison de | composante par composante | une exécution avec un vecteur de base donne |
 |---|---|---|---|
-| tangent | colonnes : $\mathit{sy} = \sum_j \mathit{sx}_j \, \frac{\partial f}{\partial x_j}(x)$ | $\mathit{sy}_i = \langle \nabla f_i(x), \mathit{sx} \rangle$ | une colonne $\frac{\partial f}{\partial x_j}(x)$ |
-| adjoint | lignes : $\mathit{sx} = \sum_i \mathit{sy}_i \, \nabla f_i(x)$ | $\mathit{sx}_j = \langle \frac{\partial f}{\partial x_j}(x), \mathit{sy} \rangle$ | une ligne $\nabla f_i(x)$ |
+| tangent | colonnes : $\mathit{sy} = \sum_j \mathit{sx}_j \, \frac{df}{dx_j}(x)$ | $\mathit{sy}_i = \langle \nabla f_i(x), \mathit{sx} \rangle$ | une colonne $\frac{df}{dx_j}(x)$ |
+| adjoint | lignes : $\mathit{sx} = \sum_i \mathit{sy}_i \, \nabla f_i(x)$ | $\mathit{sx}_j = \langle \frac{df}{dx_j}(x), \mathit{sy} \rangle$ | une ligne $\nabla f_i(x)$ |
 
 ### Le lien entre les deux modes, sans la jacobienne
 
