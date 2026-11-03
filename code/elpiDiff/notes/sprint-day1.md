@@ -9,28 +9,28 @@ qu'ils doivent calculer. Cette section explique ce qu'ils calculent.
 
 ### Le cadre
 
-On prend une fonction $`f : \mathbb{R}^m \to \mathbb{R}^n`$, avec toutes les
-bonnes conditions (dérivabilité, ...) : $`m`$ entrées, $`n`$ sorties.
+On prend une fonction $`f : \mathbb{R}^n \to \mathbb{R}^m`$, avec toutes les
+bonnes conditions (dérivabilité, ...) : $`n`$ entrées, $`m`$ sorties.
 
-- $`f(x)`$ est l'évaluation de $`f`$ au point $`x \in \mathbb{R}^m`$ ; c'est un
-  vecteur de $`\mathbb{R}^n`$.
+- $`f(x)`$ est l'évaluation de $`f`$ au point $`x \in \mathbb{R}^n`$ ; c'est un
+  vecteur de $`\mathbb{R}^m`$.
 - $`\dfrac{df}{dx_j}(x)`$ est la dérivée de $`f`$ par rapport à
   la $`j`$-ième coordonnée, évaluée en $`x`$ ; c'est aussi un vecteur de
-  $`\mathbb{R}^n`$ : comment **toutes les sorties** bougent quand on fait
+  $`\mathbb{R}^m`$ : comment **toutes les sorties** bougent quand on fait
   bouger **la seule entrée** $`j`$.
-- On écrit $`f = (f_1, \dots, f_n)`$ : chaque $`f_i : \mathbb{R}^m \to \mathbb{R}`$
-  est une des sorties de $`f`$. Son gradient est le vecteur de $`\mathbb{R}^m`$
+- On écrit $`f = (f_1, \dots, f_m)`$ : chaque $`f_i : \mathbb{R}^n \to \mathbb{R}`$
+  est une des sorties de $`f`$. Son gradient est le vecteur de $`\mathbb{R}^n`$
 
-$$\nabla f_i(x) = \left(\frac{df_i}{dx_1}(x), \dots, \frac{df_i}{dx_m}(x)\right) :$$
+$$\nabla f_i(x) = \left(\frac{df_i}{dx_1}(x), \dots, \frac{df_i}{dx_n}(x)\right) :$$
 
   comment **la seule sortie** $`i`$ bouge quand on fait bouger **chacune des
   entrées**.
 
 Ces deux objets se lisent dans la jacobienne $`J_f(x)`$, la matrice
-$`n \times m`$ de coefficients $`J_{ij} = \dfrac{df_i}{dx_j}(x)`$ :
+$`m \times n`$ de coefficients $`J_{ij} = \dfrac{df_i}{dx_j}(x)`$ :
 
-- la **colonne** $`j`$ ($`n`$ coefficients) est $`\dfrac{df}{dx_j}(x)`$ ;
-- la **ligne** $`i`$ ($`m`$ coefficients) est $`\nabla f_i(x)`$.
+- la **colonne** $`j`$ ($`m`$ coefficients) est $`\dfrac{df}{dx_j}(x)`$ ;
+- la **ligne** $`i`$ ($`n`$ coefficients) est $`\nabla f_i(x)`$.
 
 Le même coefficient se lit donc de deux façons :
 $`\bigl(\nabla f_i(x)\bigr)_j = \left(\dfrac{df}{dx_j}(x)\right)_i = J_{ij}`$.
@@ -41,15 +41,15 @@ Le mode tangent, tel qu'il est décrit en Elpi, construit une fonction
 
 $$f_{\mathit{fwd}}(x, \mathit{sx}) = \mathit{sy}$$
 
-- $`x \in \mathbb{R}^m`$ : le point où l'on dérive ;
-- $`\mathit{sx} \in \mathbb{R}^m`$ : la graine (*seed*), une direction dans l'espace
+- $`x \in \mathbb{R}^n`$ : le point où l'on dérive ;
+- $`\mathit{sx} \in \mathbb{R}^n`$ : la graine (*seed*), une direction dans l'espace
   des entrées ;
-- $`\mathit{sy} \in \mathbb{R}^n`$ : le résultat, dans l'espace des sorties.
+- $`\mathit{sy} \in \mathbb{R}^m`$ : le résultat, dans l'espace des sorties.
 
 $`\mathit{sy}`$ est la dérivée de $`f`$ en $`x`$ appliquée à $`\mathit{sx}`$, c'est-à-dire
 $`\mathit{sy} = J_f(x)\, \mathit{sx}`$. C'est une combinaison des **colonnes** :
 
-$$\mathit{sy} = \sum_{j=1}^{m} \mathit{sx}_j \, \frac{df}{dx_j}(x)$$
+$$\mathit{sy} = \sum_{j=1}^{n} \mathit{sx}_j \, \frac{df}{dx_j}(x)$$
 
 et, composante par composante,
 
@@ -57,7 +57,7 @@ $$\mathit{sy}_i = \langle \nabla f_i(x), \mathit{sx} \rangle .$$
 
 Avec $`\mathit{sx} = e_j`$ (le $`j`$-ième vecteur de base), on obtient
 $`\mathit{sy} = \dfrac{df}{dx_j}(x)`$ : **une exécution donne une
-colonne**. Il faut donc $`m`$ exécutions pour avoir toute la jacobienne.
+colonne**. Il faut donc $`n`$ exécutions pour avoir toute la jacobienne.
 
 ### Le mode adjoint
 
@@ -65,14 +65,14 @@ Le mode adjoint construit une fonction
 
 $$f_{\mathit{adj}}(x, \mathit{sy}) = \mathit{sx}$$
 
-- $`x \in \mathbb{R}^m`$ : le point où l'on dérive ;
-- $`\mathit{sy} \in \mathbb{R}^n`$ : la graine, maintenant du côté des **sorties** ;
-- $`\mathit{sx} \in \mathbb{R}^m`$ : le résultat, dans l'espace des **entrées**.
+- $`x \in \mathbb{R}^n`$ : le point où l'on dérive ;
+- $`\mathit{sy} \in \mathbb{R}^m`$ : la graine, maintenant du côté des **sorties** ;
+- $`\mathit{sx} \in \mathbb{R}^n`$ : le résultat, dans l'espace des **entrées**.
 
 $`\mathit{sx}`$ est la transposée de la dérivée appliquée à $`\mathit{sy}`$, c'est-à-dire
 $`\mathit{sx} = J_f(x)^{T} \mathit{sy}`$. C'est une combinaison des **lignes** :
 
-$$\mathit{sx} = \sum_{i=1}^{n} \mathit{sy}_i \, \nabla f_i(x)$$
+$$\mathit{sx} = \sum_{i=1}^{m} \mathit{sy}_i \, \nabla f_i(x)$$
 
 et, composante par composante,
 
@@ -80,7 +80,7 @@ $$\mathit{sx}_j = \left\langle \frac{df}{dx_j}(x), \mathit{sy} \right\rangle .$$
 
 Avec $`\mathit{sy} = e_i`$, on obtient $`\mathit{sx} = \nabla f_i(x)`$, le gradient de la
 $`i`$-ième sortie : **une exécution donne une ligne**. Pour une fonction à une
-seule sortie ($`n = 1`$, le cas d'une fonction de coût), une seule exécution
+seule sortie ($`m = 1`$, le cas d'une fonction de coût), une seule exécution
 donne tout le gradient.
 
 ### Les deux modes côte à côte
@@ -93,12 +93,12 @@ donne tout le gradient.
 ### Le lien entre les deux modes, sans la jacobienne
 
 On peut relier les deux modes sans parler de la jacobienne. Pour toute
-direction $`d \in \mathbb{R}^m`$ :
+direction $`d \in \mathbb{R}^n`$ :
 
 $$\langle f_{\mathit{fwd}}(x, d), \mathit{sy} \rangle = \langle d, f_{\mathit{adj}}(x, \mathit{sy}) \rangle .$$
 
-Le produit scalaire de gauche est dans $`\mathbb{R}^n`$, celui de droite dans
-$`\mathbb{R}^m`$. C'est le sens du mot « adjoint » : $`f_{\mathit{adj}}(x, \cdot)`$
+Le produit scalaire de gauche est dans $`\mathbb{R}^m`$, celui de droite dans
+$`\mathbb{R}^n`$. C'est le sens du mot « adjoint » : $`f_{\mathit{adj}}(x, \cdot)`$
 est l'application adjointe (la transposée) de l'application linéaire
 $`f_{\mathit{fwd}}(x, \cdot)`$.
 
@@ -136,17 +136,17 @@ forme avec la jacobienne). Voici comment chaque objet mathématique des
 sections précédentes apparaît en Rocq.
 
 **$`f`$ est un programme.** En Rocq, `f` n'est pas une fonction de
-$`\mathbb{R}^m`$ dans $`\mathbb{R}^n`$ : c'est un programme du langage d'entrée
+$`\mathbb{R}^n`$ dans $`\mathbb{R}^m`$ : c'est un programme du langage d'entrée
 d'elpiDiff, et ses arguments `x` sont une liste de valeurs (des réels, des
 tableaux de réels). On retrouve la fonction mathématique en mettant bout à
 bout tous les réels des arguments :
 
-- $`m`$ est `in_dim x`, le nombre de réels des arguments, et le point
-  $`x \in \mathbb{R}^m`$ est `point_of x` ;
-- $`n`$ est `out_dim f x`, le nombre de réels du résultat ;
-- la fonction $`f : \mathbb{R}^m \to \mathbb{R}^n`$ est `value_of f x` : on
+- $`n`$ est `in_dim x`, le nombre de réels des arguments, et le point
+  $`x \in \mathbb{R}^n`$ est `point_of x` ;
+- $`m`$ est `out_dim f x`, le nombre de réels du résultat ;
+- la fonction $`f : \mathbb{R}^n \to \mathbb{R}^m`$ est `value_of f x` : on
   remplace les réels des arguments par ceux d'un vecteur de
-  $`\mathbb{R}^m`$, on exécute le programme, on lit les réels du résultat.
+  $`\mathbb{R}^n`$, on exécute le programme, on lit les réels du résultat.
   `value f x` est la valeur $`f(x)`$.
 
 **Les « bonnes conditions ».** Elles ne sont pas supposées : elles sont
@@ -157,7 +157,7 @@ dérivables, là où elles le sont). Le théorème `derivative_exists` montre
 qu'un programme accepté a une dérivée en $`x`$.
 
 **La dérivée.** `derivative f x df` dit que `df` est la dérivée de $`f`$ en
-$`x`$ : l'application linéaire de $`\mathbb{R}^m`$ dans $`\mathbb{R}^n`$ qui envoie
+$`x`$ : l'application linéaire de $`\mathbb{R}^n`$ dans $`\mathbb{R}^m`$ qui envoie
 une direction $`\mathit{sx}`$ sur $`J_f(x)\,\mathit{sx} = \sum_j \mathit{sx}_j \, \frac{df}{dx_j}(x)`$. Avec un vecteur de base,
 `D f x df (e x j)` est la colonne $`\frac{df}{dx_j}(x)`$.
 
@@ -216,7 +216,7 @@ passer par la dérivée : ses hypothèses ne demandent pas `derivative`.
 
 | section | objet mathématique | en Rocq |
 |---|---|---|
-| Le cadre | $`x \in \mathbb{R}^m`$, $`f(x) \in \mathbb{R}^n`$ | `point_of x`, `in_dim x`, `out_dim f x`, `value f x` |
+| Le cadre | $`x \in \mathbb{R}^n`$, $`f(x) \in \mathbb{R}^m`$ | `point_of x`, `in_dim x`, `out_dim f x`, `value f x` |
 | Le cadre | les bonnes conditions | `accepted f x` (puis `derivative_exists`) |
 | Le cadre | $`\frac{df}{dx_j}(x)`$, $`J_f(x)`$ | `D f x df (e x j)`, `J f x df` |
 | Le mode tangent | $`f_{\mathit{fwd}}(x, \mathit{sx}) = J_f(x)\,\mathit{sx}`$ | `tangent_correct` |
@@ -237,26 +237,26 @@ Avec les notations de la section 1 :
 - l'**état** est le maillage, $`u \in \mathbb{R}^p`$ (les positions des
   points, éventuellement leurs vitesses) ;
 - la **boucle en temps** calcule $`u_0 \to u_1 \to \dots \to u_N`$, avec
-  $`u_{k+1} = \Phi(u_k)`$ : un pas de temps $`\Phi`$ met à jour tout le
+  $`u_{t+1} = \Phi(u_t)`$ : un pas de temps $`\Phi`$ met à jour tout le
   maillage ;
 - le **résultat** est un seul nombre, l'énergie $`E = J(u_N)`$.
 
-C'est donc une fonction $`f : \mathbb{R}^m \to \mathbb{R}`$, avec
+C'est donc une fonction $`f : \mathbb{R}^n \to \mathbb{R}`$, avec
 $`x = u_0`$ (ou les paramètres de la simulation) et une seule sortie,
-$`n = 1`$. Ce qu'on veut est le gradient $`\nabla E`$ : à quel point
+$`m = 1`$. Ce qu'on veut est le gradient $`\nabla E`$ : à quel point
 l'énergie est sensible à chaque entrée.
 
 ### Pourquoi le mode adjoint
 
 - En mode **tangent**, une exécution donne une seule dérivée
-  $`\frac{dE}{dx_j}`$ : il faut $`m`$ exécutions, chacune coûtant une
+  $`\frac{dE}{dx_j}`$ : il faut $`n`$ exécutions, chacune coûtant une
   simulation entière.
 - En mode **adjoint**, une seule exécution avec la graine
   $`\mathit{sy} = 1`$ donne tout le gradient $`\nabla E`$ : la jacobienne
   n'a qu'une ligne, et « une exécution donne une ligne » (section 1).
 
 Le prix de l'adjoint est la mémoire. Le balayage arrière va du pas $`N`$ au
-pas $`0`$ et a besoin des états $`u_k`$ dans l'ordre inverse. Il faut donc
+pas $`0`$ et a besoin des états $`u_t`$ dans l'ordre inverse. Il faut donc
 les stocker pendant le balayage avant (la *tape*), jusqu'à $`N \times p`$
 réels, ou bien les recalculer.
 
@@ -272,9 +272,9 @@ $`u_0, u_k, u_{2k}, \dots`$ Ces états sauvés sont exactement ce qu'il faut
 pour des **points de reprise** (*checkpointing*) dans l'adjoint.
 
 L'adjoint remonte le temps segment par segment, du dernier au premier. Pour
-chaque segment $`[jk, (j+1)k]`$ :
+chaque segment $`[sk, (s+1)k]`$ :
 
-1. il repart de l'état sauvé $`u_{jk}`$ et recalcule en avant les $`k`$ pas
+1. il repart de l'état sauvé $`u_{sk}`$ et recalcule en avant les $`k`$ pas
    du segment, en gardant leurs états ;
 2. il fait le balayage arrière sur ces $`k`$ pas.
 
