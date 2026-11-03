@@ -48,9 +48,11 @@ $$f_{\mathit{fwd}}(x, s_x) = s_y$$
 $s_y$ est la dérivée de $f$ en $x$ appliquée à $s_x$, c'est-à-dire
 $s_y = J_f(x)\, s_x$. C'est une combinaison des **colonnes** :
 
-$$s_y = \sum_{j=1}^{m} s_{x,j} \, \frac{\partial f}{\partial x_j}(x),
-\qquad\text{et, composante par composante,}\qquad
-s_{y,i} = \langle \nabla f_i(x), s_x \rangle .$$
+$$s_y = \sum_{j=1}^{m} s_{x,j} \, \frac{\partial f}{\partial x_j}(x)$$
+
+et, composante par composante,
+
+$$s_{y,i} = \langle \nabla f_i(x), s_x \rangle .$$
 
 Avec $s_x = e_j$ (le $j$-ième vecteur de base), on obtient
 $s_y = \dfrac{\partial f}{\partial x_j}(x)$ : **une exécution donne une
@@ -69,9 +71,11 @@ $$f_{\mathit{adj}}(x, s_y) = s_x$$
 $s_x$ est la transposée de la dérivée appliquée à $s_y$, c'est-à-dire
 $s_x = J_f(x)^{T} s_y$. C'est une combinaison des **lignes** :
 
-$$s_x = \sum_{i=1}^{n} s_{y,i} \, \nabla f_i(x),
-\qquad\text{et, composante par composante,}\qquad
-s_{x,j} = \left\langle \frac{\partial f}{\partial x_j}(x), s_y \right\rangle .$$
+$$s_x = \sum_{i=1}^{n} s_{y,i} \, \nabla f_i(x)$$
+
+et, composante par composante,
+
+$$s_{x,j} = \left\langle \frac{\partial f}{\partial x_j}(x), s_y \right\rangle .$$
 
 Avec $s_y = e_i$, on obtient $s_x = \nabla f_i(x)$, le gradient de la
 $i$-ième sortie : **une exécution donne une ligne**. Pour une fonction à une
